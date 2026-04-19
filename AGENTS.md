@@ -24,7 +24,7 @@
 
 ## Workflow & Verification
 
-- Use `dev_install.sh` for the default Go-first setup. Use `dev_install_python.sh` only when you need Python or package tooling.
+- Use `dev_install.sh` for the default local setup, including the repo Python environment and first-party dev plugins.
 - Neither install script should rewrite lockfiles. Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
 - Use `docs/guides/dev-scripts.md` when you need the exact command map for generation, cleanup, or the source-checkout dev loop.
 - Use `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for browser verification workflows when relevant.

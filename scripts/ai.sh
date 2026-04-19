@@ -147,16 +147,28 @@ export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
 export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
 setta_path_flags_apply_env
 
-NEEDS_DEV_INSTALL=0
+missing_dev_requirements=""
+append_missing_requirement() {
+  local requirement="$1"
+  if [[ -n "${missing_dev_requirements}" ]]; then
+    missing_dev_requirements="${missing_dev_requirements}, ${requirement}"
+  else
+    missing_dev_requirements="${requirement}"
+  fi
+}
+
 if [ ! -d "${ROOT_DIR}/frontend/node_modules" ]; then
-  NEEDS_DEV_INSTALL=1
+  append_missing_requirement "frontend/node_modules"
+fi
+if [ ! -x "${ROOT_DIR}/.venv/bin/python" ]; then
+  append_missing_requirement ".venv/bin/python"
 fi
 if ! "${ROOT_DIR}/scripts/go.sh" version >/dev/null 2>&1; then
-  NEEDS_DEV_INSTALL=1
+  append_missing_requirement "Go toolchain"
 fi
-if [ "${NEEDS_DEV_INSTALL}" -eq 1 ]; then
-  echo "Missing default dev dependencies; running ./dev_install.sh" >&2
-  (cd "${ROOT_DIR}" && ./dev_install.sh)
+if [[ -n "${missing_dev_requirements}" ]]; then
+  echo "Missing dev dependencies (${missing_dev_requirements}). Run ./dev_install.sh first." >&2
+  exit 1
 fi
 
 if [ "${RUN_MODE}" = "startr" ]; then

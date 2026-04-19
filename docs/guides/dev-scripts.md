@@ -87,15 +87,13 @@ Use these first for day-to-day work.
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop default local setup (Go toolchain readiness + frozen frontend deps + frozen sidecars).
-- `./dev_install_python.sh`
-  - Opt-in setup for Python tooling with a frozen `uv` sync, then runs the default local dev install.
+  - One-stop default local setup (frozen Python env with the `defaults`, `source`, and `dev` extras; Go toolchain readiness; frozen frontend deps; frozen sidecars).
 - `./update_dependencies.sh`
   - Explicit dependency refresh path for Python and pnpm lockfiles.
   - Runs `uv lock --upgrade` with the repo release-age policy, strips the transient `uv` cutoff metadata from `uv.lock`, syncs the Python env, refreshes both pnpm lockfiles, verifies their npm publish dates against the repo minimum age, then installs from them.
 - `./init_env.sh`
   - Checks that `uv.lock` is current, then syncs the Python environment without rewriting the lockfile.
-  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync --frozen` with explicit `source` and `dev` extras for repo workflows.
+  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync --frozen` with explicit `defaults`, `source`, and `dev` extras for repo workflows.
   - When `supply_chain_policy.env` is present, also verifies the locked Python artifacts are at least the configured age.
 - `./audit_supply_chain.sh`
   - Runs `pip-audit`, `govulncheck`, Python/Go/pnpm release-age checks, and `pnpm audit` for both `frontend/` and the sidecar package.
@@ -116,6 +114,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Automatically finds the next free backend/frontend ports if the preferred ports are already in use.
   - Modes: `start`, `startr`, `reset`.
   - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
+  - Requires `./dev_install.sh` first and fails fast instead of auto-installing missing deps.
   - Supports runtime identity flags: `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`, `--runtime-root`.
 - `./scripts/reset-setta-state.sh`
   - Resolves the active Setta state root and deletes it.
@@ -146,6 +145,7 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/ai.sh`
   - Dev runs with browser MCP helpers (see `docs/guides/browser-mcp-quickstart.md`).
   - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
+  - Requires `./dev_install.sh` first and fails fast instead of auto-installing missing deps.
   - On exit it stops browser MCP helpers automatically and kills the owned dev process.
   - If you start browser MCP separately, use `./scripts/stop-browser-mcp.sh --devtools` for cleanup.
 - `./scripts/start-browser-mcp.sh`, `./scripts/stop-browser-mcp.sh`, `./scripts/chrome-devtools-mcp.sh`
