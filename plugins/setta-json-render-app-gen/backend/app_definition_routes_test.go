@@ -455,13 +455,9 @@ func newAppDefinitionRouteTestHandler(
 		Info:       httpapi.NewConfigInfoService(config.Config{Server: config.Server{Mode: mode}}, ""),
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			var service appdefinition.Runtime
-			if projectRuntime != nil {
-				service = appDefinitionServiceForTest(projectRuntime)
-			}
-			if err := RegisterAppDefinitionRoutes(r, httpapi.AppDefinitionRouteDependencies{
-				ModePolicy: modes.NewPolicy(mode),
-				Service:    service,
+			if err := RegisterAppDefinitionRoutes(r, AppDefinitionRouteDependencies{
+				ModePolicy:   modes.NewPolicy(mode),
+				ProjectState: projectRuntime,
 			}); err != nil {
 				t.Fatalf("register app definition routes: %v", err)
 			}
@@ -550,7 +546,10 @@ func buildAppDefinitionRouteRegistrationsForTest(
 			{
 				Family: "app definition",
 				Register: func(router chi.Router) error {
-					return RegisterAppDefinitionRoutes(router, deps.AppDefinition)
+					return RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
+						ModePolicy:   deps.Project.ModePolicy,
+						ProjectState: deps.Project.ProjectState,
+					})
 				},
 			},
 		},

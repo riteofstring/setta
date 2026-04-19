@@ -4,28 +4,17 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"setta/internal/deployments"
+	"setta/internal/appsubsystem"
 	"setta/internal/httpapi"
 	"setta/internal/plugins"
 )
 
-type AppSubsystemCapabilityProvider interface {
-	AppSubsystemCapabilities() plugins.PluginAppSubsystemCapabilities
-}
-
-type FrontendRouteRegistrationOptions struct {
-	Capabilities              AppSubsystemCapabilityProvider
-	API                       httpapi.FrontendAPIRouteDependencies
-	AppDeploymentIDEPublisher deployments.AppPublishService
-	AppDeployment             httpapi.DeploymentRouteDependencies
-}
-
 func BuildFrontendAPIRouteRegistrations(
-	options FrontendRouteRegistrationOptions,
+	options appsubsystem.FrontendRouteRegistrationOptions,
 ) httpapi.FrontendAPIRouteRegistrations {
 	return httpapi.FrontendAPIRouteRegistrations{
 		Project: wrapFrontendRouteContributions(
-			buildProjectFrontendRouteContributions(options.API),
+			buildProjectFrontendRouteContributions(options),
 			options.Capabilities,
 			appSubsystemProjectRoutesAvailable,
 		),
@@ -38,31 +27,34 @@ func BuildFrontendAPIRouteRegistrations(
 }
 
 func buildProjectFrontendRouteContributions(
-	deps httpapi.FrontendAPIRouteDependencies,
+	options appsubsystem.FrontendRouteRegistrationOptions,
 ) []httpapi.FrontendAPIRouteContribution {
 	return []httpapi.FrontendAPIRouteContribution{
 		{
 			Family: "app definition",
 			Register: func(router chi.Router) error {
-				return RegisterAppDefinitionRoutes(router, deps.AppDefinition)
+				return RegisterAppDefinitionRoutes(router, AppDefinitionRouteDependencies{
+					ModePolicy:   options.ModePolicy,
+					ProjectState: options.ProjectState,
+				})
 			},
 		},
 		{
 			Family: "app generation skill",
 			Register: func(router chi.Router) error {
-				return httpapi.RegisterAppGenSkillRoutes(router, deps.AppGenSkill)
+				return httpapi.RegisterAppGenSkillRoutes(router, options.AppGenSkill)
 			},
 		},
 	}
 }
 
 func buildDeploymentFrontendRouteContributions(
-	options FrontendRouteRegistrationOptions,
+	options appsubsystem.FrontendRouteRegistrationOptions,
 ) []httpapi.FrontendAPIRouteContribution {
 	appDeploymentIDE := AppDeploymentIDERouteDependencies{
-		ModePolicy:   options.API.ShareDeploymentIDE.ModePolicy,
-		ProjectState: options.API.ShareDeploymentIDE.ProjectState,
-		Catalog:      options.API.ShareDeploymentIDE.Catalog,
+		ModePolicy:   options.ShareDeploymentIDE.ModePolicy,
+		ProjectState: options.ShareDeploymentIDE.ProjectState,
+		Catalog:      options.ShareDeploymentIDE.Catalog,
 		AppPublisher: options.AppDeploymentIDEPublisher,
 	}
 	return []httpapi.FrontendAPIRouteContribution{
@@ -83,7 +75,7 @@ func buildDeploymentFrontendRouteContributions(
 
 func wrapFrontendRouteContributions(
 	contributions []httpapi.FrontendAPIRouteContribution,
-	provider AppSubsystemCapabilityProvider,
+	provider appsubsystem.CapabilityProvider,
 	available func(plugins.PluginAppSubsystemCapabilities) bool,
 ) []httpapi.FrontendAPIRouteContribution {
 	if len(contributions) == 0 {
@@ -108,7 +100,7 @@ func wrapFrontendRouteContributions(
 }
 
 func appSubsystemAvailabilityMiddleware(
-	provider AppSubsystemCapabilityProvider,
+	provider appsubsystem.CapabilityProvider,
 	available func(plugins.PluginAppSubsystemCapabilities) bool,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

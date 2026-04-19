@@ -42,7 +42,6 @@ type FrontendAPIRouteDependencies struct {
 	ProjectShell         ProjectShellRouteDependencies
 	Git                  GitRouteDependencies
 	Project              ProjectRouteDependencies
-	AppDefinition        AppDefinitionRouteDependencies
 	AI                   AIRouteDependencies
 	AgentProfile         AgentProfileRouteDependencies
 	PromptTemplate       PromptTemplateRouteDependencies

@@ -19,6 +19,7 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/appgenskills"
+	"setta/internal/appsubsystem"
 	"setta/internal/artifacts"
 	"setta/internal/artifactwatch"
 	"setta/internal/auth"
@@ -1964,11 +1965,6 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		apiDeps.Project.AcceptRenameRefactor = deps.renameRefactors.AcceptRenameRefactor
 		apiDeps.Project.DeclineRenameRefactor = deps.renameRefactors.DeclineRenameRefactor
 	}
-	appDefinitionService := appsubsystemplugin.NewAppDefinitionService(deps.projectRuntime)
-	apiDeps.AppDefinition = httpapi.AppDefinitionRouteDependencies{
-		ModePolicy: deps.modePolicy,
-		Service:    appDefinitionService,
-	}
 	apiDeps.AI = httpapi.AIRouteDependencies{
 		ModePolicy:            deps.modePolicy,
 		Deployment:            deps.deploymentRuntime,
@@ -2060,20 +2056,32 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		WebsocketHub:  deps.websocketHub,
 		PluginRuntime: deps.pluginRouteService,
 	}
+	appSubsystemRouteRegistrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
+		appsubsystem.FrontendRouteRegistrationOptions{
+			Capabilities: deps.appSubsystemCapabilities,
+			ProjectState: deps.projectRuntime,
+			ModePolicy:   deps.modePolicy,
+			AppGenSkill:  apiDeps.AppGenSkill,
+			ShareDeploymentIDE: httpapi.ShareDeploymentIDERouteDependencies{
+				ModePolicy:     deps.modePolicy,
+				ProjectState:   deps.projectRuntime,
+				Catalog:        deps.deploymentCatalog,
+				SharePublisher: deps.sharePublisher,
+			},
+			AppDeploymentIDEPublisher: deps.appPublisher,
+			AppDeployment: httpapi.DeploymentRouteDependencies{
+				ModePolicy: deps.modePolicy,
+				Deployment: deps.deploymentRuntime,
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
 	return httpapi.RegisterFrontendAPIRoutes(
 		r,
 		apiDeps,
-		appsubsystemplugin.BuildFrontendAPIRouteRegistrations(
-			appsubsystemplugin.FrontendRouteRegistrationOptions{
-				Capabilities:              deps.appSubsystemCapabilities,
-				API:                       apiDeps,
-				AppDeploymentIDEPublisher: deps.appPublisher,
-				AppDeployment: httpapi.DeploymentRouteDependencies{
-					ModePolicy: deps.modePolicy,
-					Deployment: deps.deploymentRuntime,
-				},
-			},
-		),
+		appSubsystemRouteRegistrations,
 	)
 }
 
@@ -2451,6 +2459,7 @@ func initializeAppDeploymentPublishers(
 	cfg config.Config,
 	modePolicy modes.Policy,
 	projectRuntime *projectstate.Runtime,
+	appSubsystemCapabilities *appSubsystemCapabilityState,
 	services *appPlatformServices,
 ) error {
 	if !modePolicy.IsIDE() {
@@ -2474,11 +2483,15 @@ func initializeAppDeploymentPublishers(
 	if err != nil {
 		return err
 	}
-	services.appPublisher, err = appsubsystemplugin.NewAppPublishService(deployments.AppPublisherOptions{
+	capabilities := plugins.PluginAppSubsystemCapabilities{}
+	if appSubsystemCapabilities != nil {
+		capabilities = appSubsystemCapabilities.AppSubsystemCapabilities()
+	}
+	services.appPublisher, err = appsubsystem.NewAppPublishService(capabilities, deployments.AppPublisherOptions{
 		Catalog:        services.deploymentCatalog,
 		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-	}, appsubsystemplugin.NewAppDefinitionService(projectRuntime))
+	}, projectRuntime)
 	return err
 }
 
@@ -2602,7 +2615,13 @@ func initializeAppPlatformServices(
 		pluginRouteService:       projectServices.pluginRouteService,
 		appSubsystemCapabilities: appSubsystemCapabilities,
 	}
-	if err := initializeAppDeploymentPublishers(cfg, modePolicy, projectServices.projectRuntime, &services); err != nil {
+	if err := initializeAppDeploymentPublishers(
+		cfg,
+		modePolicy,
+		projectServices.projectRuntime,
+		appSubsystemCapabilities,
+		&services,
+	); err != nil {
 		return appPlatformServices{}, err
 	}
 	configureAppPluginRuntime(cfg, logger, modePolicy, projectServices, &services)
