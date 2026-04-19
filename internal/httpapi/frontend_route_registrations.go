@@ -28,7 +28,7 @@ type FrontendAPIRouteDependencies struct {
 	Settings             SettingsRouteDependencies
 	Plugin               *PluginRouteDependencies
 	Listener             ListenerRouteDependencies
-	DeploymentIDE        DeploymentIDERouteDependencies
+	ShareDeploymentIDE   ShareDeploymentIDERouteDependencies
 	ShareDeployment      DeploymentRouteDependencies
 	AppDeployment        DeploymentRouteDependencies
 	LauncherHome         LauncherHomeRouteDependencies
@@ -151,7 +151,7 @@ func registerFrontendDeploymentRoutes(
 	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment", RegisterShareDeploymentRoutes(router, deps.ShareDeployment)); err != nil {
 		return err
 	}
-	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment ide", RegisterShareDeploymentIDERoutes(router, deps.DeploymentIDE)); err != nil {
+	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment ide", RegisterShareDeploymentIDERoutes(router, deps.ShareDeploymentIDE)); err != nil {
 		return err
 	}
 	if err := registerFrontendRouteContributions(router, contributions); err != nil {
