@@ -16,6 +16,8 @@ type FrontendAPIRouteRegistrations struct {
 	Deployment []FrontendAPIRouteContribution
 }
 
+type FrontendAPIRouteRegistrationBuilder func(FrontendAPIRouteDependencies) FrontendAPIRouteRegistrations
+
 type FrontendRootRouteDependencies struct {
 	AttachmentRoot *AttachmentRootRouteDependencies
 }
@@ -72,41 +74,6 @@ func RegisterFrontendRootRoutes(router chi.Router, deps FrontendRootRouteDepende
 		"attachment root",
 		RegisterAttachmentRootRoutes(router, *deps.AttachmentRoot),
 	)
-}
-
-func BuildAppSubsystemFrontendAPIRouteRegistrations(
-	deps FrontendAPIRouteDependencies,
-) FrontendAPIRouteRegistrations {
-	return FrontendAPIRouteRegistrations{
-		Project: []FrontendAPIRouteContribution{
-			{
-				Family: "app definition",
-				Register: func(router chi.Router) error {
-					return RegisterAppDefinitionRoutes(router, deps.AppDefinition)
-				},
-			},
-			{
-				Family: "app generation skill",
-				Register: func(router chi.Router) error {
-					return RegisterAppGenSkillRoutes(router, deps.AppGenSkill)
-				},
-			},
-		},
-		Deployment: []FrontendAPIRouteContribution{
-			{
-				Family: "app deployment",
-				Register: func(router chi.Router) error {
-					return RegisterDeploymentRoutes(router, deps.AppDeployment)
-				},
-			},
-			{
-				Family: "app deployment ide",
-				Register: func(router chi.Router) error {
-					return RegisterAppDeploymentIDERoutes(router, deps.DeploymentIDE)
-				},
-			},
-		},
-	}
 }
 
 func RegisterFrontendAPIRoutes(
@@ -181,7 +148,7 @@ func registerFrontendDeploymentRoutes(
 	deps FrontendAPIRouteDependencies,
 	contributions []FrontendAPIRouteContribution,
 ) error {
-	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment", RegisterDeploymentRoutes(router, deps.ShareDeployment)); err != nil {
+	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment", RegisterShareDeploymentRoutes(router, deps.ShareDeployment)); err != nil {
 		return err
 	}
 	if err := registerFrontendHTTPOpenAPIRouteFamily("share deployment ide", RegisterShareDeploymentIDERoutes(router, deps.DeploymentIDE)); err != nil {

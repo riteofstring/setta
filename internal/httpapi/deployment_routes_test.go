@@ -32,7 +32,7 @@ func TestRegisterDeploymentRoutesCreatesShareSession(t *testing.T) {
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -101,7 +101,7 @@ func TestRegisterDeploymentRoutesReusesExistingShareSessionFromHeader(t *testing
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -149,7 +149,7 @@ func TestRegisterDeploymentRoutesReplacesUnknownShareSessionID(t *testing.T) {
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: modes.NewPolicy(config.ModeShare),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterShareDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeShare),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -197,7 +197,7 @@ func TestRegisterDeploymentRoutesCreatesAppSessionResponse(t *testing.T) {
 		Info:       stubInfoService{mode: "app", info: RuntimeInfo{Mode: "app"}},
 		ModePolicy: modes.NewPolicy(config.ModeApp),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			if err := RegisterAppDeploymentRoutes(r, DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeApp),
 				Deployment: deploymentRuntime,
 			}); err != nil {
@@ -760,10 +760,20 @@ func newDeploymentRouteTestHandler(t *testing.T, mode config.Mode, deploymentRun
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentRoutes(r, DeploymentRouteDependencies{
+			deps := DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(mode),
 				Deployment: deploymentRuntime,
-			}); err != nil {
+			}
+			var err error
+			switch mode {
+			case config.ModeShare:
+				err = RegisterShareDeploymentRoutes(r, deps)
+			case config.ModeApp:
+				err = RegisterAppDeploymentRoutes(r, deps)
+			default:
+				err = RegisterDeploymentRoutes(r, deps)
+			}
+			if err != nil {
 				t.Fatalf("register deployment routes: %v", err)
 			}
 		},
