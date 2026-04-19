@@ -13,15 +13,15 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
 )
 
 var (
-	ErrUnknownSession                      = errors.New("deployment session was not found")
-	ErrSessionConflict                     = errors.New("deployment session already exists")
-	ErrSessionGeneratorInvalid             = errors.New("deployment session id generator returned a blank value")
-	ErrRuntimeRequired                     = errors.New("deployment runtime is required")
-	ErrAppDeploymentRuntimeContentRequired = errors.New("app deployment runtime content service is required")
+	ErrUnknownSession          = errors.New("deployment session was not found")
+	ErrSessionConflict         = errors.New("deployment session already exists")
+	ErrSessionGeneratorInvalid = errors.New("deployment session id generator returned a blank value")
+	ErrRuntimeRequired         = errors.New("deployment runtime is required")
 )
 
 const DefaultSessionTTL = 30 * time.Minute
@@ -45,13 +45,12 @@ type RuntimeOptions struct {
 }
 
 type Runtime struct {
-	paths      projectstate.DeploymentPathPolicy
-	manifest   Manifest
-	policy     Policy
-	base       *projectstate.Runtime
-	overlays   *projectstate.SessionOverlayRegistry
-	listener   *deploymentListenerRuntime
-	appContent AppDeploymentRuntimeContent
+	paths    projectstate.DeploymentPathPolicy
+	manifest Manifest
+	policy   Policy
+	base     *projectstate.Runtime
+	overlays *projectstate.SessionOverlayRegistry
+	listener *deploymentListenerRuntime
 
 	idGenerator func() string
 	now         func() time.Time
@@ -240,13 +239,6 @@ func (r *Runtime) Base() *projectstate.Runtime {
 		return nil
 	}
 	return r.base
-}
-
-func (r *Runtime) SetAppDeploymentRuntimeContent(content AppDeploymentRuntimeContent) {
-	if r == nil {
-		return
-	}
-	r.appContent = content
 }
 
 func (r *Runtime) Session(sessionID string) (Session, bool) {
@@ -524,10 +516,7 @@ func (r *Runtime) LoadAppSpec(appDefinition *projectstate.AppDefinition) (any, e
 	if appSpecPath == "" {
 		return nil, nil
 	}
-	if r.appContent == nil {
-		return nil, ErrAppDeploymentRuntimeContentRequired
-	}
-	return r.appContent.LoadPublishedAppSpec(r.paths.DeploymentRoot, appDefinition)
+	return appspec.Read(r.paths.DeploymentRoot, appSpecPath)
 }
 
 func (r *Runtime) SessionRunCount(sessionID string) (int, error) {

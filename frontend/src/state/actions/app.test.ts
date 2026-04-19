@@ -1,7 +1,7 @@
 import type { GetAppDeploymentCurrentSessionResponses } from "openapi/http";
-import { useAppConfigs } from "plugins/appSubsystemProjectState";
 import {
   useAllProjectMetadata,
+  useAppConfigs,
   useAppDefinition,
   useServerMode,
   useShareSession,

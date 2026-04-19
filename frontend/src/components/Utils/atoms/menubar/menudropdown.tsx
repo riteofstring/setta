@@ -11,15 +11,18 @@ export function MenuDropdown({
   tabIndex,
   children,
   triggerOnKeyDown,
+  triggerAsChild = false,
+  triggerWrapperProps,
 }) {
   return (
     <Menubar.Menu>
       <Menubar.Trigger
+        asChild={triggerAsChild}
         className={triggerClassName}
         tabIndex={tabIndex}
         onKeyDown={triggerOnKeyDown}
       >
-        {trigger}
+        {triggerAsChild ? <div {...triggerWrapperProps}>{trigger}</div> : trigger}
       </Menubar.Trigger>
       <Menubar.Portal>
         <Menubar.Content
