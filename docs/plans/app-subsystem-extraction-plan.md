@@ -35,7 +35,8 @@ the host/plugin registries still need to be built before code can move cleanly.
 ## Goals
 
 - Make the app subsystem optional without breaking the rest of Setta.
-- Preserve current behavior when the subsystem is enabled.
+- Preserve current product behavior when the subsystem is enabled, without
+  preserving obsolete internal seams just for compatibility.
 - Remove hard dependencies on app-specific contracts from core host code.
 - Keep Go as the source of truth for subsystem-owned contracts and validation.
 - Make the extracted subsystem packageable later as an optional first-party
@@ -47,7 +48,8 @@ the host/plugin registries still need to be built before code can move cleanly.
 - Supporting multiple renderer implementations during the extraction.
 - Replacing the current AppSpec catalog with a new generic UI IR.
 - Reworking the general plugin system as part of the first extraction step.
-- Breaking existing app deployments or silently dropping persisted app data.
+- Preserving legacy storage shapes, import paths, command stubs, or generated
+  names solely for backward compatibility.
 
 ## Concrete Decisions
 
@@ -85,49 +87,53 @@ The implementation may distinguish between:
 But the host-facing default should still be "app capabilities unavailable" with
 feature-specific error messages where needed.
 
-### 3) Ownership of persisted app data
+### 3) No backward-compatibility requirement
 
-- During the first pass, core keeps the legacy persisted shape for compatibility:
-  - `project.json` may still contain `appDefinition`
-  - app specs may still live under `app_specs/`
-- Core may carry this data as opaque JSON for snapshot/storage compatibility.
-- Only `setta-json-render-app-gen` may parse, validate, mutate, publish, or
-  interpret that app data.
-- Core should not contain business logic that understands AppSpec/AppDefinition
-  semantics after extraction.
+- There are no external users depending on the current app-specific storage
+  shape, import paths, command stubs, generated names, or route surfaces.
+- Do not add compatibility shims, legacy read/write paths, migrations,
+  dual-format support, reserved command stubs, import-path bridges, or
+  generated-name aliases just to preserve the pre-extraction shape.
+- If compatibility-only logic is introduced temporarily during extraction, it
+  becomes cleanup debt to remove before the plan is done.
+- Prefer the simplest final ownership model over preserving current internal
+  seams.
 
-This resolves the boundary as:
+### 4) Ownership of persisted app data
 
-- storage compatibility remains in core
-- meaning and behavior move to the plugin
+- App-specific persisted data should end in the simplest clean ownership model,
+  even if that changes the current on-disk layout.
+- `setta-json-render-app-gen` owns the meaning, validation, mutation,
+  publishing, and runtime interpretation of app data.
+- Core should not carry app-specific storage fields, typed payloads, or helper
+  logic solely to preserve backward compatibility.
+- If changing or deleting the current `project.json.appDefinition` or
+  `app_specs/` layout makes the ownership boundary cleaner, do that directly.
+  Do not add migration support unless a current in-repo workflow cannot be
+  updated in the same change.
 
-### 4) Generated contracts
+### 5) Generated contracts
 
-- For the first pass, app-specific generated OpenAPI/TypeScript/shared-value
-  outputs may remain in the repo-wide generated artifacts to avoid generator
-  churn.
-- Only plugin code may import or rely on those app-specific generated surfaces.
+- App-specific generated OpenAPI/TypeScript/shared-value outputs should move to
+  the cleanest ownership boundary practical during extraction.
+- Only plugin code may import or rely on app-specific generated surfaces.
 - Core host code must stop importing app-specific generated types.
-- No new app-only generated surfaces should be added to generic host-owned code
-  after Phase 1.
+- Do not keep or add compatibility aliases, package-path remaps, or shared-name
+  preservation layers solely to avoid churn.
 
-After the plugin works end to end, a follow-up can move app-specific generation
-to plugin-local outputs if the current shared generation becomes a maintenance
-problem.
+### 6) CLI, route, and startup behavior when unavailable
 
-### 5) CLI, route, and startup behavior when unavailable
-
-- `setta app` remains a reserved host command for compatibility.
-- If `setta-json-render-app-gen` is unavailable, `setta app ...` should fail
-  immediately with a specific non-zero error such as:
-  - `App mode requires the first-party plugin "setta-json-render-app-gen" to be enabled.`
+- App entrypoints should be exposed through the cleanest ownership model, not
+  through reserved host stubs kept only for compatibility.
+- If `setta-json-render-app-gen` is unavailable, app routes and app entrypoints
+  may simply be absent, or they may fail loudly through the feature-owned path.
 - App HTTP routes should simply be absent when the plugin is unavailable.
   Requests to `/app/...` should therefore return `404`.
-- Attempts to load existing app deployments without the plugin should fail
+- Attempts to load app deployments without the plugin should fail
   loudly at startup or command entry, not degrade into share mode or partial
   behavior.
 
-### 6) Frontend loading model
+### 7) Frontend loading model
 
 - The host frontend shell must not statically import app plugin UI.
 - The backend capability manifest will advertise whether
@@ -141,17 +147,14 @@ problem.
 - When the capability is absent, the host never loads the app plugin frontend
   chunk.
 
-### 7) Historical chat compatibility
+### 8) Historical chat and stale data
 
-- Historical chat data containing app-generation provenance must be preserved as
-  stored metadata even when `setta-json-render-app-gen` is unavailable.
-- When hydrating such history without the plugin:
-  - the thread still loads
-  - app-specific controls/previews do not appear
-  - the UI may show an explicit unsupported-feature notice
-- Editing or replaying old app-generation turns without the plugin should be
-  blocked with a clear message rather than silently converting them to plain
-  chat.
+- There is no requirement to preserve historical app-generation provenance,
+  stale app-specific persisted payloads, or older internal-only chat metadata.
+- Prefer deleting compatibility branches and updating current in-repo fixtures
+  over keeping hydration/replay logic for legacy app-generation turns.
+- Failing loudly on obsolete app-specific data is preferable to adding hidden
+  fallback behavior.
 
 ## Current Coupling Inventory
 
@@ -385,8 +388,8 @@ Tasks:
   bootstrapping into the feature package.
 - Move app-definition validation/write/stream helpers behind a subsystem-owned
   service interface.
-- Keep the current on-disk layout initially unless storage migration is required
-  to complete the extraction.
+- Remove host-owned app storage helpers and typed payload handling instead of
+  preserving them as compatibility seams.
 
 Recommended first-pass backend shape:
 
@@ -413,10 +416,10 @@ Tasks:
   subsystem.
 - Move app-generation slash command definitions behind frontend command
   registries.
-- Gate chat hydration and replay logic so missing subsystem support does not
-  crash when historical messages contain app-generation provenance.
-- Keep existing app-generation mode generated types where they are for the first
-  pass, but restrict all imports of those surfaces to plugin-owned code.
+- Remove or simplify chat hydration and replay logic that exists only for
+  historical app-generation compatibility.
+- Move or rename existing app-generation generated surfaces directly instead of
+  preserving shared imports just to avoid churn.
 
 Important rule:
 
@@ -469,50 +472,66 @@ Tasks:
 - Move app session bootstrap routes and app deployment state routes under the
   feature-owned registration path.
 - Remove unconditional core assumptions that app deployments exist.
-- Decide how the CLI exposes feature-owned commands:
-  - direct feature command registration, or
-  - reserved core compatibility stubs that delegate to plugin capabilities
-
-Decision for first pass:
-
-- Keep `setta app` as a reserved host command that checks for
-  `setta-json-render-app-gen` and fails immediately with a specific error when
-  the plugin is unavailable.
+- Expose app CLI/runtime entrypoints through the cleanest ownership model.
+- Remove reserved host command stubs kept only for backward compatibility.
 
 Exit criteria:
 
 - Core deployment/runtime code can run without app deployment support.
 - App deployment behavior is restored by enabling the app subsystem.
 
-### Phase 6: Clean up persistence and generated contracts
+### Phase 6: Remove compatibility shims and legacy support
+
+Deliverable: compatibility-only layers added during extraction are removed.
+
+Tasks:
+
+- Remove host-side re-export shims and bridge files that only preserve old
+  import paths or frontend module layout.
+- Remove compatibility-only OpenAPI/shared-generation aliases and host-side
+  export anchors that only keep old names reachable.
+- Remove compatibility-only command stubs, fallback branches, and dual-path
+  logic that no longer serve the final architecture.
+- Re-audit the repo for compatibility-driven glue added during earlier phases
+  and delete it before moving on.
+
+Exit criteria:
+
+- Host and plugin code use direct ownership paths rather than shimmed
+  re-exports wherever the direct path is practical.
+- No compatibility-only bridge remains without a current architectural reason
+  documented near the code.
+
+### Phase 7: Clean up persistence and generated contracts
 
 Deliverable: the subsystem boundary is explicit in storage and generated
 surfaces.
 
 Tasks:
 
-- Decide whether to keep the legacy `appDefinition` + `app_specs/` persistence
-  shape for compatibility or migrate to a feature-extension storage model.
-- If migration is required, add explicit legacy read support and a controlled
-  write path.
-- Keep app-specific generated types in the shared generated bundle for the first
-  pass, but prevent host-owned code from importing them.
+- Move persisted app data to the simplest plugin-owned shape practical during
+  extraction.
+- Remove host-owned legacy `appDefinition` + `app_specs/` handling if it only
+  exists for backward compatibility.
+- Keep app-specific generated types out of host-owned code and move or rename
+  them directly instead of adding compatibility aliases.
 - Move `AppSpecPatchPolicyConfig` and similar app-only shared exports under the
   subsystem if practical.
 
 Recommended approach:
 
-- Keep persistence compatibility first.
-- Defer persistence-shape migration until after the subsystem boundary is
-  working and tests are green.
+- Prefer deletion, direct moves, and callsite updates over migrations,
+  dual-read/write support, or compatibility shims.
 
 Exit criteria:
 
 - There is a documented ownership model for app-specific persisted state and
   generated surfaces.
 - Core shared generation no longer grows new app-only contracts by accident.
+- Host-owned code no longer carries app-only storage contracts or generated
+  compatibility glue.
 
-### Phase 7: Package the subsystem
+### Phase 8: Package the subsystem
 
 Deliverable: the first-party plugin `plugins/setta-json-render-app-gen/` can
 be shipped optionally and remains non-default.
@@ -525,7 +544,7 @@ Tasks:
   - backend registrars
   - frontend bundle/assets
   - generated contract surfaces
-  - version compatibility metadata
+  - feature metadata needed for plugin discovery/loading
 - Add startup wiring that loads `setta-json-render-app-gen` when enabled and
   reports disabled capabilities when absent.
 - Add developer install/build flows for enabled vs disabled distributions.
@@ -538,49 +557,39 @@ Exit criteria:
 
 ## Persistence Strategy
 
-The biggest architectural question is how hard to separate storage during the
-first pass.
+The biggest architectural question is how aggressively to simplify storage while
+the subsystem boundary moves.
 
-### Recommended first pass
+### Recommended approach
 
-- Keep the current persisted AppSpec/AppDefinition data model readable and
-  writable.
-- Let core carry legacy app data only as opaque compatibility payload.
-- Move ownership of the meaning of that model into
-  `setta-json-render-app-gen`, but do not force an on-disk migration
-  immediately.
+- Prefer the simplest final plugin-owned storage shape now rather than carrying
+  legacy payloads forward.
+- Update in-repo callsites, fixtures, and tests in the same change instead of
+  adding migration or legacy-read support.
+- If a temporary opaque payload seam is useful during refactoring, treat it as
+  transitional cleanup debt rather than a preserved contract.
 
-This keeps the extraction focused on ownership and registration rather than data
-migration risk.
+## Simplicity Rules
 
-### Optional second pass
+The subsystem extraction should preserve the intended current app feature
+behavior when the plugin is enabled, but it does not need to preserve obsolete
+internal contracts.
 
-If a stronger separation is needed later:
+Do not add or keep these solely for backward compatibility:
 
-- add a generic feature-extension section to project state
-- migrate `appDefinition` into an app feature-owned extension payload
-- move `app_specs/` into a feature-owned storage namespace
-
-This should be a separate migration project, not bundled into the first cut
-unless extraction is otherwise impossible.
-
-## Compatibility Rules
-
-The subsystem extraction must preserve these behaviors when enabled:
-
-- existing app-definition files continue to load
-- existing app deployments continue to serve
-- existing app-generation slash commands keep working
-- existing MCP tool names and HTTP route names remain valid
-- streamed preview patch semantics remain unchanged
+- legacy persisted app payload shapes
+- shared generated aliases or package-path remaps
+- host-side re-export shims for moved plugin code
+- reserved host command stubs
+- historical app-generation hydration/replay fallbacks
 
 When disabled:
 
-- old app data may remain on disk, but host code should not crash on load
-- historical chats containing app-generation provenance must hydrate safely
-- `setta app` must fail immediately with a specific plugin-required error
-- app deployment startup should fail loudly and specifically, not silently
-  downgrade to some other mode
+- app routes, tools, commands, and UI should disappear cleanly
+- app startup should fail loudly and specifically if an unavailable entrypoint
+  is reached
+- stale app-specific data may be ignored, rejected, or deleted if that keeps
+  the ownership boundary simpler
 
 ## Testing Plan
 
@@ -624,8 +633,9 @@ When disabled:
 5. Move frontend App Config/Preview/App mode behind the plugin frontend entry.
 6. Move app deployment type handling behind deployment registries and plugin
    ownership.
-7. Clean up generated and persistence ownership.
-8. Finish plugin packaging and disabled-state behavior.
+7. Remove compatibility shims and legacy-only glue.
+8. Clean up generated and persistence ownership.
+9. Finish plugin packaging and disabled-state behavior.
 
 ## Risks And Mitigations
 
@@ -644,12 +654,12 @@ Mitigation:
 - inventory generated surfaces explicitly in Phase 0
 - add disabled-state tests for hydration and startup
 
-### Risk: persistence migration expands the project too much
+### Risk: compatibility cleanup creates noisy callsite churn
 
 Mitigation:
 
-- keep storage compatibility in the first pass
-- make storage migration a separate follow-up unless it blocks the extraction
+- prefer direct callsite updates over maintaining two paths
+- keep cleanup slices narrow and fully verified
 
 ### Risk: chat and deployment code continue to assume app support exists
 
@@ -658,12 +668,12 @@ Mitigation:
 - add capability gating and registries before moving code
 - make subsystem-disabled boot paths part of CI coverage
 
-### Risk: historical app-generation data becomes unreadable
+### Risk: stale app-specific data and tests become invalid during cleanup
 
 Mitigation:
 
-- keep mode names and tool names stable during the first pass
-- ensure hydration paths degrade gracefully when feature support is absent
+- update fixtures/tests in the same change that removes the old path
+- fail loudly rather than adding fallback behavior
 
 ## Definition Of Done
 
@@ -676,5 +686,8 @@ This project is done when all of the following are true:
 - generic chat, deployment, and shell code no longer hard-code app concepts
 - current app behavior is preserved when the subsystem is enabled
 - disabled-state behavior is tested and documented
+- compatibility-only shims, migrations, and legacy support layers have been
+  removed unless they are still required by the final architecture and
+  explicitly justified
 - the subsystem can be enabled through the plugin system rather than being
   compiled in as a mandatory default feature
