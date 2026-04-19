@@ -116,7 +116,7 @@ export function createAllConfigs(
 
 export type AllProjectMetadata = gt.AllProjectMetadata;
 
-export type AppDefinition = gt.AppDefinition;
+type AppDefinition = gt.AppDefinition;
 
 export function createAppDefinition(
   options: Partial<AppDefinition> = {},
