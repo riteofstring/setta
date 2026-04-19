@@ -1782,7 +1782,37 @@ That leaves one primary architectural move:
     - `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures that trio so the existing retained scene paints their resting values/underlines with no new renderer branch
     - focused verification passed via `frontend/tests/e2e/settings/settings-all-settings-untouched-resting-text-trio.spec.ts` and confirmed `7` lightweight resting-text roots, `7` underline roots, and `0` live editors at rest on each section while preserving first-focus inline editing on the state-machine-start `Label` row
     - the dense rerun on the same noisy runtime moved to `documentNodeCount 7093`, `inputCount 4`, `buttonCount 53`, `raf.meanMs 94.97`, `raf.p95Ms 183.3`, and `longTasks.totalMs 15184`; treat this as another section-scoped ownership proof plus smoke-level dense checkpoint rather than a new clean interactive-core benchmark
-19. Keep actual param-label text on the untouched trio DOM-visible unless a future visual defect or stronger whole-scene ranking justifies widening label-text ownership there; the next default pass should rerank the remaining non-lightweight value surface instead of reopening label work on those sections.
+19. Keep actual param-label text on the untouched trio DOM-visible unless a future visual defect or stronger whole-scene ranking justifies widening label-text ownership there; that reranking is now recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-remaining-value-surface-ranking.md`, so do not reopen label work on those sections by inertia.
+20. A fresh whole-scene ranking of the remaining non-lightweight value surface is now landed and recorded in `perf/reports/frontend/2026-04-19_settings-all-settings-remaining-value-surface-ranking.md`:
+    - new focused probe: `frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+    - focused inventory totals on the current runtime:
+      - `mountedSectionCount: 46`
+      - `totalRowCount: 759`
+      - `totalRemainingValueRowCount: 273`
+      - `totalRemainingValueElementCount: 570`
+    - fresh dense rerun on the same runtime recorded:
+      - `documentNodeCount: 7088`
+      - `inputCount: 4`
+      - `buttonCount: 52`
+      - `raf.meanMs: 94.69`
+      - `raf.p95Ms: 166.7`
+      - `longTasks.totalMs: 15112`
+    - the new ranking closes the stale “just keep harvesting untouched text sections” assumption:
+      - `settings-section__languageServer` is the only clear section-specific outlier (`remainingValueElementCount 48` across `7` rows)
+      - the rest of the top remaining surface is now a broader repeated shared family spread across sections such as `stateMachineEndSectionDefault`, `listRootSectionDefault`, `chartSectionDefault`, `groupSectionDefault`, `terminalSectionDefault`, `imageSectionDefault`, `socialSectionDefault`, `metaControlSectionDefault`, and `iFrameSectionDefault`
+      - those sections all expose the same dominant remaining row kinds: `Size`, `Height`, `Width`, `Style Color`, `Tag Color`, and in some sections `Default Child Section Type`
+    - next default pass:
+      - prefer one shared resting-body/value primitive or ownership seam that can move that repeated row family across multiple sections at once
+      - only choose the `languageServer` outlier as the next product slice if that broader shared primitive is not viable on the current ownership boundary
+    - focused verification passed:
+      - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+      - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-006/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+        - result: `2 passed (1.0m)` on the live worktree runtime
+    - CDP visual check is done:
+      - `/settings` loaded cleanly with `All Settings` active
+      - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+      - no crash/error overlay was visible
+      - `settings-section__languageServer` and `settings-section__stateMachineEndSectionDefault` were present on the live surface/DOM
 
 ## First product frontier
 

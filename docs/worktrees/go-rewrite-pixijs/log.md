@@ -155,6 +155,67 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-19 065
+
+- Item: Refresh the whole-scene ranking of the remaining dense non-lightweight value surface before choosing another product lane.
+- Status: `done`
+- Details:
+  - Re-checked the recent iteration pattern before coding: the latest landed passes were still section-local resting-text/value moves, so this iteration deliberately stopped that pattern and took the handoff-mandated whole-scene rerank instead of another untouched-section hop.
+  - Added focused probe `frontend/tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`.
+  - The new probe normalizes `/settings` -> `All Settings`, clicks the real React Flow `fit view` control, and ranks remaining section-scoped value DOM by:
+    - mounted row count
+    - rows that still carry non-lightweight value DOM at rest
+    - visible remaining value-subtree element count
+    - top surviving rows per section
+  - Recorded the fresh inventory and same-runtime dense context at `perf/reports/frontend/2026-04-19_settings-all-settings-remaining-value-surface-ranking.md`.
+  - Fresh whole-scene inventory on the current runtime recorded:
+    - `mountedSectionCount: 46`
+    - `totalRowCount: 759`
+    - `totalRemainingValueRowCount: 273`
+    - `totalRemainingValueElementCount: 570`
+  - The ranking now gives a defensible next frontier instead of another tidy local guess:
+    - isolated section-specific outlier:
+      - `settings-section__languageServer`: `remainingValueElementCount 48`, `remainingValueRowCount 7`
+    - broader repeated shared survivor family:
+      - `settings-section__stateMachineEndSectionDefault`: `34`
+      - `settings-section__listRootSectionDefault`: `30`
+      - `settings-section__chartSectionDefault`: `30`
+      - `settings-section__groupSectionDefault`: `29`
+      - `settings-section__terminalSectionDefault`: `28`
+      - followed by `imageSectionDefault`, `socialSectionDefault`, `metaControlSectionDefault`, `iFrameSectionDefault`, `rotaryParamCodeObjDefault`, and `sliderParamCodeObjDefault`
+    - dominant surviving row kinds across that broader family:
+      - `Size`
+      - `Height`
+      - `Width`
+      - `Style Color`
+      - `Tag Color`
+      - in some sections, `Default Child Section Type`
+  - Fresh dense rerun on the same runtime recorded:
+    - `documentNodeCount: 7088`
+    - `inputCount: 4`
+    - `textareaCount: 1`
+    - `buttonCount: 52`
+    - `raf.meanMs: 94.69`
+    - `raf.p95Ms: 166.7`
+    - `longTasks.totalMs: 15112`
+  - Interpretation:
+    - this pass intentionally landed evidence, not another product slice
+    - the new ranking closes the stale assumption that the next best move is automatically another untouched text section
+    - the next product slice should prefer one shared resting-body/value primitive that can move the repeated `Size` / `Style Color` / `Tag Color` family across multiple sections at once
+    - only fall back to the `languageServer` outlier if that broader shared primitive is not viable at the current ownership boundary
+- Focused verification passed:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.6AqE8d/loop-001/run-006/worktree-ai.log -- tests/e2e/settings/settings-all-settings-remaining-value-surface-ranking.spec.ts tests/e2e/settings/settings-all-settings-baseline.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.0m)` on the live worktree runtime with `documentNodeCount: 7088`, `inputCount: 4`, and `buttonCount: 52`
+- CDP visual check is done:
+  - `/settings` loaded cleanly with `All Settings` active after `fit view`
+  - exactly one `.react-flow__section-shell-backdrop canvas` was mounted
+  - no crash/error overlay was visible
+  - `settings-section__languageServer` and `settings-section__stateMachineEndSectionDefault` were present on the live surface/DOM
+- Next action:
+  - start the next iteration from `perf/reports/frontend/2026-04-19_settings-all-settings-remaining-value-surface-ranking.md` and land one shared resting-body/value primitive for the repeated `Size` / `Style Color` / `Tag Color` family; only choose `settings-section__languageServer` if the broader shared primitive is not viable
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-19 062
 
 - Item: Move the date/time settings pair onto the canvas-owned resting-text lane.
