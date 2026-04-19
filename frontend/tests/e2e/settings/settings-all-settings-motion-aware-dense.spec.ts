@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
+import {
+  clearProjectChatWindows,
+  disableProjectChatAutoCreate,
+  ensureAppReady,
+} from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -46,6 +50,7 @@ type MotionAwareDenseMetrics = {
   viewModeName: string;
   flowNodeCount: number;
   visibleFlowNodeCount: number;
+  projectChatChromeCount: number;
   documentNodeCount: number;
   inputCount: number;
   textareaCount: number;
@@ -63,9 +68,11 @@ type MotionAwareDenseMetrics = {
 test("settings All Settings motion-aware dense probe reports real viewport-motion metrics", async ({
   page,
 }, testInfo) => {
+  await disableProjectChatAutoCreate(page);
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await clearProjectChatWindows(page);
 
   const allSettingsTab = page.getByRole("button", {
     name: "All Settings",
@@ -116,6 +123,7 @@ test("settings All Settings motion-aware dense probe reports real viewport-motio
 
   expect(metrics.flowNodeCount).toBeGreaterThan(13);
   expect(metrics.visibleFlowNodeCount).toBeGreaterThan(20);
+  expect(metrics.projectChatChromeCount).toBe(0);
   expect(metrics.raf.frameCount).toBeGreaterThan(80);
   expect(metrics.motionHiddenBodies.totalMotionBodyRootCount).toBeGreaterThan(0);
   expect(metrics.motionHiddenBodies.peakHiddenBodyCount).toBeGreaterThan(0);
@@ -192,6 +200,16 @@ async function measureAllSettingsMotionAwareDense(
 
     const flowNodes = Array.from(
       document.querySelectorAll<HTMLElement>(".react-flow__node"),
+    );
+    const projectChatChromeCount = [
+      '[data-testid="project-chat-floating-window"]',
+      '[data-testid="project-chat-bottom-dock-window-panel"]',
+      '[data-testid="project-chat-bottom-dock-pill"]',
+      '[data-testid="project-chat-maximized-window"]',
+      '[data-testid="project-chat-window-title"]',
+    ].reduce(
+      (count, selector) => count + document.querySelectorAll(selector).length,
+      0,
     );
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
@@ -321,6 +339,7 @@ async function measureAllSettingsMotionAwareDense(
       viewModeName: "All Settings",
       flowNodeCount: flowNodes.length,
       visibleFlowNodeCount,
+      projectChatChromeCount,
       documentNodeCount: document.getElementsByTagName("*").length,
       inputCount: document.querySelectorAll("input").length,
       textareaCount: document.querySelectorAll("textarea").length,

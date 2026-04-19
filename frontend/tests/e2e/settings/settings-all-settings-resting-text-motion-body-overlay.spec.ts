@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
+import {
+  clearProjectChatWindows,
+  disableProjectChatAutoCreate,
+  ensureAppReady,
+} from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -44,9 +48,11 @@ type BlankPanePoint = {
 test("shared resting-text section bodies hide during viewport zoom and restore afterward", async ({
   page,
 }, testInfo) => {
+  await disableProjectChatAutoCreate(page);
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await clearProjectChatWindows(page);
 
   const allSettingsTab = page.getByRole("button", {
     name: "All Settings",

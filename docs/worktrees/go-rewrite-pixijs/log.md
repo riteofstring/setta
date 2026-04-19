@@ -155,6 +155,62 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 084
+
+- Item: Normalize the canonical `All Settings` motion probes so project chat windows do not contaminate the dense renderer lane.
+- Status: `done`
+- Details:
+  - Chose one bounded probe-normalization pass after the latest hotspot work showed the performance lane still carried non-target workspace chrome noise.
+  - Added the durable report at:
+    - `perf/reports/frontend/2026-04-20_settings-all-settings-chat-window-normalized-motion-probes-rerun.md`
+  - Updated `frontend/tests/e2e/helpers.ts`:
+    - `clearProjectChatWindows(...)` now waits on actual floating/docked/maximized/pill chat-window chrome instead of an unrelated in-pane title
+    - new `disableProjectChatAutoCreate(...)` helper now suppresses `autoCreateInitialChat` and clears authoritative `projectChatWindowing` on `/settings` before bootstrap
+  - Updated the canonical settings probes:
+    - `frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - both now disable project chat auto-create before bootstrap and clear project chat windows before measuring the live surface
+    - the dense probe now records `projectChatChromeCount` and asserts that it is `0`
+  - Fresh dense rerun on the live worktree runtime recorded:
+    - `projectChatChromeCount: 0`
+    - `documentNodeCount: 5494`
+    - `inputCount: 3`
+    - `textareaCount: 1`
+    - `buttonCount: 47`
+    - `raf.meanMs: 126.46`
+    - `raf.p50Ms: 83.3`
+    - `raf.p95Ms: 116.7`
+    - `raf.maxMs: 4649.9`
+    - `longTasks.count: 81`
+    - `longTasks.totalMs: 17245`
+    - `longTasks.maxMs: 3587`
+    - `motionHiddenBodies.totalMotionBodyRootCount: 45`
+    - `motionHiddenBodies.framesWithHiddenBodies: 118 / 120`
+    - `motionHiddenBodies.peakHiddenBodyCount: 45`
+    - `motionHiddenBodies.settledHiddenBodyCount: 0`
+  - Focused motion-hidden-body proof stayed intact on the same chat-normalized runtime:
+    - before motion, `browserSectionDefault`, `promptSectionDefault`, and `languageServer` each reported `display: block`, `childElementCount: 2`, with global `hiddenBodyCount: 0` and `hiddenHeaderControlsCount: 0`
+    - during one checked zoom interaction they flipped to `display: none`, `childElementCount: 0`, with global `hiddenBodyCount: 45` and `hiddenHeaderControlsCount: 45`
+    - after settle they restored to `display: block`, `childElementCount: 2`, and both hidden counters returned to `0`
+  - Interpretation:
+    - this is a support-lane closure, not a product perf win: the dense probe now proves the checked run started with zero project-chat window chrome
+    - the lower whole-page counts confirm the previous dense lane was carrying chat-window contamination
+    - even after removing that chrome, the dense canary is still clearly above budget, so the real blocker remains product work on viewport-interaction JS/GC or the broader graph-surface step
+    - do not spend the next default pass on more chat-window normalization; return to product code on the now-trusted dense lane
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-against-runtime.sh --workspace /home/ubuntu/dev/setta.go-rewrite-pixijs/. --runtime-log /tmp/codex-supervisor.GbVpg5/loop-001/run-009/worktree-ai.log -- frontend/tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts frontend/tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts --reporter=line --workers=1`
+    - result: `2 passed (1.1m)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-motion-aware-dense.spec.ts tests/e2e/settings/settings-all-settings-resting-text-motion-body-overlay.spec.ts`
+    - result: blocked by pre-existing unused-symbol errors elsewhere in `frontend/tests/e2e/helpers.ts` (`BOOTSTRAP_TOKEN`, `setSectionEdgeOutputsFromFrontend`, `refreshProjectStateFromBackend`, `waitForProjectUrl`)
+- CDP visual check is done:
+  - verified in a fresh headless DevTools sub-agent
+  - `/settings` loaded with `All Settings` active
+  - `fit view` kept `browserSectionDefault`, `promptSectionDefault`, and `languageServer` visually intact with no obvious blank or detached shell artifact
+  - no obvious floating, maximized, or docked chat-window chrome was visible on the settings surface
+- Next action:
+  - keep the probe-normalization lane closed and spend the next bounded pass on product code for viewport-interaction JS/GC reduction on the canvas-shell path, or escalate to the broader graph-surface step if no such bounded reducer is viable
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 083
 
 - Item: Flatten the remaining backend switch value-shell wrapper on the retained canvas switch lane.
