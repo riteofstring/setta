@@ -3759,6 +3759,28 @@ export type PatchPolicy = {
 };
 
 /**
+ * PluginAppSubsystemCapabilities
+ */
+type PluginAppSubsystemCapabilities = {
+  appAuthoringUi: boolean;
+  appDeploymentRuntime: boolean;
+  appGenerationChatModes: boolean;
+  appPreviewUi: boolean;
+  pluginEnabled: boolean;
+  pluginId: string;
+};
+
+/**
+ * PluginAppSubsystemFeatureManifest
+ */
+type PluginAppSubsystemFeatureManifest = {
+  appAuthoringUi: boolean;
+  appDeploymentRuntime: boolean;
+  appGenerationChatModes: boolean;
+  appPreviewUi: boolean;
+};
+
+/**
  * PluginBackendManifest
  */
 type PluginBackendManifest = {
@@ -3856,6 +3878,20 @@ type PluginEnablementSource =
 type PluginErrorInfo = {
   code: string;
   message: string;
+};
+
+/**
+ * PluginFeatureCapabilities
+ */
+type PluginFeatureCapabilities = {
+  appSubsystem: PluginAppSubsystemCapabilities;
+};
+
+/**
+ * PluginFeatureCapabilitiesManifest
+ */
+type PluginFeatureCapabilitiesManifest = {
+  appSubsystem?: PluginAppSubsystemFeatureManifest | null;
 };
 
 /**
@@ -4002,6 +4038,7 @@ type PluginManifest = {
   configSchemaPath?: string;
   content?: PluginContentManifest | null;
   enabledByDefault: boolean;
+  featureCapabilities?: PluginFeatureCapabilitiesManifest | null;
   frontend?: PluginFrontendManifest | null;
   id: string;
   name: string;
@@ -4118,6 +4155,7 @@ type PluginRollbackResponse = {
  * PluginRuntimeResponse
  */
 export type PluginRuntimeResponse = {
+  featureCapabilities?: PluginFeatureCapabilities | null;
   list: PluginListResponse;
   schemaVersion: number;
   status: PluginStatusResponse;
