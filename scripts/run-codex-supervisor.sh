@@ -148,6 +148,52 @@ resolve_ralph_runtime_state_dir() {
   printf '%s\n' "${ROOT_DIR}/.ralph-runtime"
 }
 
+should_auto_detach_supervisor() {
+  if [[ "${RALPH_SUPERVISOR_DETACHED:-0}" == "1" ]]; then
+    return 1
+  fi
+  if [[ "${RALPH_SUPERVISOR_FOREGROUND:-0}" == "1" ]]; then
+    return 1
+  fi
+  if [[ "${RALPH_FORCE_SUPERVISOR_DETACH:-0}" == "1" ]]; then
+    return 0
+  fi
+
+  [[ -t 0 || -t 1 || -t 2 ]]
+}
+
+launch_detached_supervisor() {
+  local launch_log="$1"
+  shift
+  local child_pid=""
+
+  mkdir -p "$(dirname "${launch_log}")"
+  : > "${launch_log}"
+
+  if command -v setsid >/dev/null 2>&1; then
+    setsid env RALPH_SUPERVISOR_DETACHED=1 "$0" "$@" </dev/null >> "${launch_log}" 2>&1 &
+  else
+    nohup env RALPH_SUPERVISOR_DETACHED=1 "$0" "$@" </dev/null >> "${launch_log}" 2>&1 &
+  fi
+  child_pid="$!"
+
+  printf '%s\n' "Detached Ralph supervisor pid ${child_pid}"
+  printf '%s\n' "Launch log: ${launch_log}"
+
+  if [[ "${RALPH_SUPERVISOR_NO_TAIL:-0}" != "1" ]] && [[ -t 1 ]]; then
+    printf '%s\n' "Streaming detached supervisor log. Ctrl-C only detaches this viewer; use ./ralph-stop.sh to stop Ralph."
+    set +e
+    tail -n +1 -F --pid "${child_pid}" "${launch_log}"
+    local tail_exit="$?"
+    set -e
+    if [[ "${tail_exit}" -ne 0 ]] && [[ "${tail_exit}" -ne 130 ]] && [[ "${tail_exit}" -ne 143 ]]; then
+      return "${tail_exit}"
+    fi
+  fi
+
+  return 0
+}
+
 file_mtime_seconds() {
   local file_path="$1"
 
@@ -713,6 +759,13 @@ max_codex_repair_attempts="1"
 loop_args=()
 parse_loop_args="0"
 
+if should_auto_detach_supervisor "$@"; then
+  runtime_state_dir_for_detach="$(resolve_ralph_runtime_state_dir)"
+  launch_log="$(mktemp "${runtime_state_dir_for_detach}/supervisor-launch.XXXXXX.log")"
+  launch_detached_supervisor "${launch_log}" "$@"
+  exit 0
+fi
+
 while [[ $# -gt 0 ]]; do
   if [[ "${parse_loop_args}" == "1" ]]; then
     loop_args+=("$1")
@@ -996,6 +1049,7 @@ repair_summary=""
 repair_verify=""
 
 trap cleanup EXIT INT TERM
+trap '' HUP
 
 printf '%s\n' "Output directory: ${output_dir}" | tee -a "${supervisor_log_file}"
 printf '%s\n' "Workdir: ${workdir}" | tee -a "${supervisor_log_file}"
