@@ -22,6 +22,10 @@ import {
   paintSectionShellBackdrop,
 } from "./sectionShellBackdrop";
 import {
+  clearCanvasOwnedTextActivators,
+  replaceCanvasOwnedTextActivators,
+} from "./canvasOwnedTextActivatorRegistry";
+import {
   measureSectionRelativeGraphSpaceRect,
   normalizeViewportScale,
   toGraphSpaceLength,
@@ -84,6 +88,8 @@ const CANVAS_OWNED_RESTING_DROPDOWN_BOX_ATTRIBUTE =
   "data-canvas-owned-resting-dropdown-box";
 const CANVAS_OWNED_UNDERLINE_ATTRIBUTE = "data-canvas-owned-underline";
 const CANVAS_OWNED_RESTING_TEXT_ATTRIBUTE = "data-canvas-owned-resting-text";
+const CANVAS_OWNED_RESTING_TEXT_LIGHTWEIGHT_ATTRIBUTE =
+  "data-canvas-owned-resting-text-lightweight";
 const CANVAS_OWNED_FILTER_ICON_ATTRIBUTE = "data-canvas-owned-filter-icon";
 const FILTER_ICON_BASE_BAR_WIDTH_PX = 8;
 const FILTER_ICON_BAR_HEIGHT_PX = 2;
@@ -156,6 +162,14 @@ type CanvasOwnedRestingTextLine = {
   text: string;
 };
 
+type CanvasOwnedTextActivatorBox = {
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  targetId: string;
+  width: number;
+};
+
 type CanvasOwnedSectionBackdropMeasurements = {
   filterIconBoxes: Array<CanvasOwnedFilterIconBox>;
   headerHeight: number;
@@ -168,6 +182,7 @@ type CanvasOwnedSectionBackdropMeasurements = {
   styleColor: string | null;
   switchTrackBoxes: Array<CanvasOwnedSwitchTrackBox>;
   switchThumbBoxes: Array<CanvasOwnedSwitchThumbBox>;
+  textActivatorBoxes: Array<CanvasOwnedTextActivatorBox>;
   underlineBoxes: Array<CanvasOwnedUnderlineBox>;
 };
 
@@ -185,6 +200,16 @@ function normalizeStoredHeight(value: unknown) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(value, 0)
     : 0;
+}
+
+function resolveCanvasOwnedBackdropNodeZIndex(node: FlowNode) {
+  if (typeof node.tempZIndex === "number" && Number.isFinite(node.tempZIndex)) {
+    return node.tempZIndex;
+  }
+  if (typeof node.zIndex === "number" && Number.isFinite(node.zIndex)) {
+    return node.zIndex;
+  }
+  return 0;
 }
 
 function getBackdropNodeFill(node: FlowNode) {
@@ -380,6 +405,26 @@ function areCanvasOwnedRestingTextLinesEqual(
       leftLine.offsetX === rightLine.offsetX &&
       leftLine.offsetY === rightLine.offsetY &&
       leftLine.text === rightLine.text
+    );
+  });
+}
+
+function areCanvasOwnedTextActivatorBoxesEqual(
+  left: Array<CanvasOwnedTextActivatorBox>,
+  right: Array<CanvasOwnedTextActivatorBox>,
+) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((leftBox, index) => {
+    const rightBox = right[index];
+    return (
+      leftBox.height === rightBox.height &&
+      leftBox.offsetX === rightBox.offsetX &&
+      leftBox.offsetY === rightBox.offsetY &&
+      leftBox.targetId === rightBox.targetId &&
+      leftBox.width === rightBox.width
     );
   });
 }
@@ -982,6 +1027,60 @@ function measureCanvasOwnedRestingTextLines(
   );
 }
 
+function measureCanvasOwnedTextActivatorBoxes(
+  sectionId: string,
+  viewportScale: number,
+): Array<CanvasOwnedTextActivatorBox> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return [];
+  }
+
+  const section = document.querySelector<HTMLElement>(
+    `section[data-section-id="${sectionId}"]`,
+  );
+  if (!(section instanceof HTMLElement)) {
+    return [];
+  }
+
+  const sectionRect = section.getBoundingClientRect();
+  if (sectionRect.width <= 0 || sectionRect.height <= 0) {
+    return [];
+  }
+
+  return Array.from(
+    section.querySelectorAll<HTMLElement>(
+      `[${CANVAS_OWNED_RESTING_TEXT_LIGHTWEIGHT_ATTRIBUTE}="true"]`,
+    ),
+  )
+    .map((textRoot) => {
+      const targetId = textRoot.id.trim();
+      if (targetId.length === 0) {
+        return null;
+      }
+
+      const graphSpaceRect = measureSectionRelativeGraphSpaceRect({
+        rect: textRoot.getBoundingClientRect(),
+        sectionRect,
+        viewportScale,
+      });
+      if (!graphSpaceRect) {
+        return null;
+      }
+
+      return {
+        height: graphSpaceRect.height,
+        offsetX: graphSpaceRect.offsetX,
+        offsetY: graphSpaceRect.offsetY,
+        targetId,
+        width: graphSpaceRect.width,
+      };
+    })
+    .filter(
+      (box): box is CanvasOwnedTextActivatorBox =>
+        box !== null && box.width > 0 && box.height > 0,
+    );
+}
+
 type CanvasOwnedMeasuredArrayHookOptions<T extends Array<unknown>> = {
   areEqual: (left: T, right: T) => boolean;
   createEmptyValue: () => T;
@@ -1373,6 +1472,34 @@ function useCanvasOwnedRestingTextLines(
   });
 }
 
+function useCanvasOwnedTextActivatorBoxes(
+  sectionId: string,
+  layoutRefreshKey: string,
+  viewportScale: number,
+  measurementsEnabled: boolean,
+  suspendMeasurements: boolean,
+) {
+  return useCanvasOwnedMeasuredArray({
+    areEqual: areCanvasOwnedTextActivatorBoxesEqual,
+    createEmptyValue: () => [],
+    getObservedElements: (section) =>
+      section.querySelectorAll<HTMLElement>(
+        `[${CANVAS_OWNED_RESTING_TEXT_LIGHTWEIGHT_ATTRIBUTE}="true"]`,
+      ),
+    layoutRefreshKey,
+    measure: () => measureCanvasOwnedTextActivatorBoxes(sectionId, viewportScale),
+    measurementsEnabled,
+    mutationObserverInit: {
+      attributeFilter: ["class", "style"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    },
+    sectionId,
+    suspendMeasurements,
+  });
+}
+
 export function useBackdropMeasurementViewportScale(
   viewportInteractionActive: boolean,
 ) {
@@ -1518,6 +1645,13 @@ function useCanvasOwnedSectionBackdropMeasurements({
     measurementPlan.measuresRestingTextLines,
     viewportInteractionActive,
   );
+  const textActivatorBoxes = useCanvasOwnedTextActivatorBoxes(
+    sectionId,
+    layoutRefreshKey,
+    stableViewportScale,
+    measurementPlan.measuresRestingTextLines,
+    viewportInteractionActive,
+  );
 
   return useMemo(
     () => ({
@@ -1532,6 +1666,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
       styleColor,
       switchTrackBoxes,
       switchThumbBoxes,
+      textActivatorBoxes,
       underlineBoxes,
     }),
     [
@@ -1546,6 +1681,7 @@ function useCanvasOwnedSectionBackdropMeasurements({
       styleColor,
       switchTrackBoxes,
       switchThumbBoxes,
+      textActivatorBoxes,
       underlineBoxes,
     ],
   );
@@ -1964,6 +2100,40 @@ export default function SectionShellBackdropCanvas() {
       stateMachineGateMeasurements,
     ],
   );
+  const publishedTextActivators = useMemo(
+    () =>
+      Array.from(nodes.values()).flatMap((node) => {
+        if (!isCanvasOwnedSectionRestingTextSection(node.id)) {
+          return [];
+        }
+
+        const measurements =
+          backdropMeasurementsBySectionId[
+            node.id as keyof typeof backdropMeasurementsBySectionId
+          ];
+        if (!measurements || measurements.textActivatorBoxes.length === 0) {
+          return [];
+        }
+
+        const nodeX = node.position.x;
+        const nodeY = node.position.y;
+        if (!Number.isFinite(nodeX) || !Number.isFinite(nodeY)) {
+          return [];
+        }
+
+        const zIndex = resolveCanvasOwnedBackdropNodeZIndex(node);
+        return measurements.textActivatorBoxes.map((box) => ({
+          height: box.height,
+          sectionId: node.id,
+          targetId: box.targetId,
+          width: box.width,
+          x: nodeX + box.offsetX,
+          y: nodeY + box.offsetY,
+          zIndex,
+        }));
+      }),
+    [backdropMeasurementsBySectionId, nodes],
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scene = useMemo(
     () =>
@@ -2125,6 +2295,16 @@ export default function SectionShellBackdropCanvas() {
         )
       : null;
   }, [scene.bounds]);
+
+  useLayoutEffect(() => {
+    replaceCanvasOwnedTextActivators(publishedTextActivators);
+  }, [publishedTextActivators]);
+
+  useLayoutEffect(() => {
+    return () => {
+      clearCanvasOwnedTextActivators();
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;

@@ -11,6 +11,11 @@ import SectionShellBackdropCanvas, {
   useBackdropMeasurementViewportScale,
 } from "./SectionShellBackdropCanvas";
 import {
+  clearCanvasOwnedTextActivators,
+  getCanvasOwnedTextActivatorSnapshot,
+  resolveCanvasOwnedTextActivatorAtGraphPoint,
+} from "./canvasOwnedTextActivatorRegistry";
+import {
   buildSectionShellBackdropScene,
   expandSectionShellBackdropBounds,
 } from "./sectionShellBackdrop";
@@ -97,6 +102,7 @@ afterEach(() => {
   getContextSpy.mockRestore();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
+  clearCanvasOwnedTextActivators();
   resetProjectStores();
 });
 
@@ -437,6 +443,81 @@ describe("SectionShellBackdropCanvas", () => {
     });
 
     expect(requestAnimationFrameSpy).toHaveBeenCalledTimes(baselineFrameCount);
+  });
+
+  it("publishes graph-space text activators for lightweight resting-text roots", async () => {
+    const section = document.createElement("section");
+    section.dataset.sectionId = BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID;
+    const textRoot = document.createElement("div");
+    textRoot.id = "browser-column-width-input";
+    textRoot.dataset.canvasOwnedRestingText = "true";
+    textRoot.dataset.canvasOwnedRestingTextLightweight = "true";
+    textRoot.textContent = "Column Width";
+    section.appendChild(textRoot);
+    document.body.appendChild(section);
+
+    Object.defineProperty(section, "getBoundingClientRect", {
+      configurable: true,
+      value: () =>
+        DOMRect.fromRect({ x: 100, y: 200, width: 200, height: 80 }),
+    });
+    Object.defineProperty(textRoot, "getBoundingClientRect", {
+      configurable: true,
+      value: () =>
+        DOMRect.fromRect({ x: 130, y: 226, width: 96, height: 18 }),
+    });
+
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+          createNode({
+            id: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+            position: { x: 10, y: 20 },
+            tempZIndex: 15,
+            width: 200,
+          }),
+        ],
+      ]),
+    });
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      viewportInteractionActive: false,
+    });
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(createElement(SectionShellBackdropCanvas));
+    });
+
+    expect(
+      getCanvasOwnedTextActivatorSnapshot({
+        sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      }),
+    ).toEqual([
+      {
+        height: 18,
+        sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+        targetId: "browser-column-width-input",
+        width: 96,
+        x: 40,
+        y: 46,
+        zIndex: 15,
+      },
+    ]);
+    expect(
+      resolveCanvasOwnedTextActivatorAtGraphPoint({
+        sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+        x: 50,
+        y: 50,
+      }),
+    ).toMatchObject({
+      sectionId: BROWSER_CANVAS_OWNED_RESTING_TEXT_SECTION_ID,
+      targetId: "browser-column-width-input",
+    });
   });
 
   it("defers backdrop observer refresh caused by subtree mutations until interaction settles", async () => {

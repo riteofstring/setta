@@ -89,6 +89,19 @@ test("canvas shell path owns the browser section shell frame and resting text", 
       if (!canvasContext) {
         throw new Error("Missing retained shell canvas context");
       }
+      const textActivators = (
+        window as Window & {
+          __SETTA_CANVAS_OWNED_TEXT_ACTIVATORS__?: Array<{
+            height: number;
+            sectionId: string;
+            targetId: string;
+            width: number;
+            x: number;
+            y: number;
+            zIndex: number;
+          }>;
+        }
+      ).__SETTA_CANVAS_OWNED_TEXT_ACTIVATORS__ ?? [];
 
       const sectionStyle = window.getComputedStyle(section);
       const shellStyle = window.getComputedStyle(shell);
@@ -199,6 +212,13 @@ test("canvas shell path owns the browser section shell frame and resting text", 
       const inputOffsetY = (inputRect.top - nodeRect.top) / viewportScale;
       const inputWidth = inputRect.width / viewportScale;
       const inputHeight = inputRect.height / viewportScale;
+      const inputCenterX = nodeX + inputOffsetX + inputWidth * 0.5;
+      const inputCenterY = nodeY + inputOffsetY + inputHeight * 0.5;
+      const textActivator =
+        textActivators.find(
+          (candidate) =>
+            candidate.sectionId === sectionId && candidate.targetId === inputId,
+        ) ?? null;
       const headerSampleX =
         (nodeX - canvasLeft + Math.max(24 / viewportScale, inputOffsetX * 0.5)) *
         canvasScaleX;
@@ -226,6 +246,14 @@ test("canvas shell path owns the browser section shell frame and resting text", 
         inputOpacity: inputStyle.opacity,
         lightweightOwnershipFlag:
           input.dataset.canvasOwnedRestingTextLightweight ?? null,
+        textActivator,
+        textActivatorContainsInputCenter: Boolean(
+          textActivator &&
+            inputCenterX >= textActivator.x &&
+            inputCenterX <= textActivator.x + textActivator.width &&
+            inputCenterY >= textActivator.y &&
+            inputCenterY <= textActivator.y + textActivator.height,
+        ),
       };
     },
     {
@@ -243,6 +271,11 @@ test("canvas shell path owns the browser section shell frame and resting text", 
   expect(restingTextState.sectionBackgroundColor).toBe("rgba(0, 0, 0, 0)");
   expect(restingTextState.shellBackgroundColor).toBe("rgba(0, 0, 0, 0)");
   expect(restingTextState.headerPixel).not.toBe("0,0,0,0");
+  expect(restingTextState.textActivator).toMatchObject({
+    sectionId: TARGET_SECTION_ID,
+    targetId: TARGET_INPUT_ID,
+  });
+  expect(restingTextState.textActivatorContainsInputCenter).toBe(true);
 
   await page.evaluate(({ targetInputId }) => {
     const targetInput = document.getElementById(targetInputId);

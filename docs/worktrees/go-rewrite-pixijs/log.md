@@ -155,6 +155,31 @@ Record:
   - fix the `ProjectChatBottomDock` runtime error so the `settings` baseline probe can finish and produce the first durable Phase 1 report
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-20 run 058
+
+- Landed the missing lightweight retained-text activator publication path instead of reopening another pane-level retry.
+- `frontend/src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts` now stores graph-space activators, resolves point hits, and mirrors the current snapshot onto `globalThis.__SETTA_CANVAS_OWNED_TEXT_ACTIVATORS__` for live probes.
+- `frontend/src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx` now measures `data-canvas-owned-resting-text-lightweight="true"` roots, publishes absolute graph-space hit boxes keyed by the real dummy-root ids, and clears the registry on unmount.
+- Tightened the browser canary so `frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts` now asserts the live `browser.columnWidth` lane exposes a matching registry entry whose hit box contains the real input center before the existing hidden-input activation proof runs.
+- Interpretation:
+  - the publication half of the scene-level activator lane is now real product code, not a speculative local probe
+  - `settings-section__browserSectionDefault` / `browser.columnWidth` is now the trustworthy on-screen control lane for the next visible-click consumer pass
+  - the next frontier is to consume the published registry from the pane / scene click path so `browser.columnWidth` becomes a real visible-click activation proof before retrying the canonical `settings-section__chatSectionDefault` blocker
+- Verification:
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec eslint src/forks/xyflow/core/container/SectionShellBackdropCanvas.tsx src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.ts src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts`
+    - result: passed
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/canvasOwnedTextActivatorRegistry.test.ts`
+    - result: `1 passed (2 tests)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3068 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8068 SETTA_BOOTSTRAP_TOKEN=<fresh-token> setta_run_pnpm "$PWD" -C frontend exec playwright test frontend/tests/e2e/settings/settings-all-settings-browser-resting-text.spec.ts --reporter=line --workers=1`
+    - result: `1 passed (24.3s)`
+  - `source activate.sh && . scripts/lib/node_tooling.sh && setta_run_pnpm "$PWD" -C frontend exec vitest run src/forks/xyflow/core/container/SectionShellBackdropCanvas.test.tsx`
+    - result: blocked by the pre-existing repo jsdom / `html-encoding-sniffer` ESM failure before collection
+- CDP visual check:
+  - done in a fresh DevTools sub-agent on the current `3068/8068` runtime with a fresh bootstrap URL
+  - `/settings` loaded with `All Settings` active, `settings-section__browserSectionDefault` was present and visible, and the graph surface was mounted and nonblank with no obvious detached shell/body regression
+- Next frontier: keep `settings-section__chatSectionDefault` as the blocker reproduction target, use the newly published `browser.columnWidth` registry entry as the control lane, and wire one real pane / scene click consumer to the registry instead of spending another pass on publication-only proof.
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-20 run 055
 
 - Landed the first real pane-level lightweight-text activator primitive in source instead of another DOM-row proxy:
