@@ -27,6 +27,9 @@ python_min="1"
 frontend_min="1"
 go_min="1"
 
+# shellcheck source=scripts/lib/quality_paths.sh
+. "${repo_root}/scripts/lib/quality_paths.sh"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --top)
@@ -84,39 +87,6 @@ validate_positive_integer() {
     echo "${label} must be a positive integer: ${value}" >&2
     exit 1
   fi
-}
-
-collect_python_files() {
-  rg --files . \
-    -g '*.py' \
-    -g '!tests/**' \
-    -g '!**/tests/**' \
-    -g '!backend/setta/types/generated/**' \
-    -g '!backend/setta/sdk_contracts/generated.py' \
-    -g '!backend/setta/api/listener_endpoint_client.py'
-}
-
-collect_frontend_files() {
-  rg --files frontend/src \
-    -g '*.js' \
-    -g '*.jsx' \
-    -g '*.ts' \
-    -g '*.tsx' \
-    -g '!**/*.test.*' \
-    -g '!**/*.spec.*' \
-    -g '!**/*.stories.*' \
-    -g '!**/*.d.ts' \
-    -g '!frontend/src/openapi/*/generated/**' \
-    -g '!frontend/src/utils/generatedEndpoints.ts' \
-    -g '!frontend/src/utils/generatedRoutes.ts' \
-    -g '!frontend/src/utils/generatedTypes.ts'
-}
-
-collect_go_files() {
-  rg --files cmd internal \
-    -g '*.go' \
-    -g '!**/*_test.go' \
-    -g '!**/*_gen.go'
 }
 
 run_ruff_complexity_report() {
@@ -185,15 +155,15 @@ declare -a go_files=()
 
 while IFS= read -r path; do
   [[ -n "${path}" ]] && python_files+=("${path}")
-done < <(collect_python_files)
+done < <(quality_collect_python_files)
 
 while IFS= read -r path; do
-  [[ -n "${path}" ]] && frontend_relative_files+=("${path#frontend/}")
-done < <(collect_frontend_files)
+  [[ -n "${path}" ]] && frontend_relative_files+=("$(quality_frontend_cli_path "${path}")")
+done < <(quality_collect_frontend_files)
 
 while IFS= read -r path; do
   [[ -n "${path}" ]] && go_files+=("${path}")
-done < <(collect_go_files)
+done < <(quality_collect_go_files)
 
 echo "Quality hotspots (top ${top_n} per language)"
 echo "Scores are language-specific and should not be compared across sections."

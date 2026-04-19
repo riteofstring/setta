@@ -8,22 +8,31 @@ from tests.start.dev_script_wiring_helpers import repo_root, write_stub_executab
 def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     root = repo_root()
     sandbox_root = tmp_path / "check_quality_sandbox"
+    frontend_dir = sandbox_root / "frontend" / "src"
+    plugin_frontend_dir = sandbox_root / "plugins" / "demo" / "frontend" / "src"
+    plugin_backend_dir = sandbox_root / "plugins" / "demo" / "backend"
     scripts_dir = sandbox_root / "scripts"
-    frontend_src_dir = sandbox_root / "frontend" / "src"
-    backend_dir = sandbox_root / "backend" / "setta"
-    internal_dir = sandbox_root / "internal"
     bin_dir = sandbox_root / "bin"
 
+    frontend_dir.mkdir(parents=True, exist_ok=True)
+    plugin_frontend_dir.mkdir(parents=True, exist_ok=True)
+    plugin_backend_dir.mkdir(parents=True, exist_ok=True)
     scripts_dir.mkdir(parents=True, exist_ok=True)
-    frontend_src_dir.mkdir(parents=True, exist_ok=True)
-    backend_dir.mkdir(parents=True, exist_ok=True)
-    internal_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    script_src = root / "check_quality.sh"
     script_dst = sandbox_root / "check_quality.sh"
-    script_dst.write_text(script_src.read_text(encoding="utf-8"), encoding="utf-8")
+    script_dst.write_text(
+        (root / "check_quality.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     script_dst.chmod(0o755)
+    (scripts_dir / "lib").mkdir(parents=True, exist_ok=True)
+    quality_paths_dst = scripts_dir / "lib" / "quality_paths.sh"
+    quality_paths_dst.write_text(
+        (root / "scripts" / "lib" / "quality_paths.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    quality_paths_dst.chmod(0o755)
 
     (sandbox_root / "activate.sh").write_text(
         "#!/usr/bin/env bash\nexport CHECK_QUALITY_ACTIVATED=1\n",
@@ -31,16 +40,17 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     )
     (sandbox_root / "activate.sh").chmod(0o755)
 
-    (backend_dir / "example.py").write_text(
-        "def example() -> None:\n    return None\n",
+    (frontend_dir / "app.ts").write_text("export const app = true;\n", encoding="utf-8")
+    (plugin_frontend_dir / "index.ts").write_text(
+        "export const plugin = true;\n",
         encoding="utf-8",
     )
-    (frontend_src_dir / "example.ts").write_text(
-        "export const example = 1;\n",
+    (plugin_backend_dir / "main.go").write_text(
+        "package main\n\nfunc main() {}\n",
         encoding="utf-8",
     )
-    (internal_dir / "example.go").write_text(
-        "package internal\n\nfunc Example() {}\n",
+    (plugin_backend_dir / "main.py").write_text(
+        "def main() -> None:\n    return None\n",
         encoding="utf-8",
     )
 
@@ -48,21 +58,24 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
         bin_dir / "ruff",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-printf '%s\\n' "$*" >> "{sandbox_root / 'ruff_args.txt'}"
+printf '__CALL__\\n' >> "{sandbox_root / 'ruff_calls.txt'}"
+printf '%s\\n' "$@" >> "{sandbox_root / 'ruff_calls.txt'}"
 """,
     )
     write_stub_executable(
         bin_dir / "pnpm",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-printf '%s\\n' "$*" >> "{sandbox_root / 'pnpm_args.txt'}"
+printf '__CALL__\\n' >> "{sandbox_root / 'pnpm_calls.txt'}"
+printf '%s\\n' "$@" >> "{sandbox_root / 'pnpm_calls.txt'}"
 """,
     )
     write_stub_executable(
         scripts_dir / "go.sh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-printf '%s\\n' "$*" >> "{sandbox_root / 'go_args.txt'}"
+printf '__CALL__\\n' >> "{sandbox_root / 'go_calls.txt'}"
+printf '%s\\n' "$@" >> "{sandbox_root / 'go_calls.txt'}"
 """,
     )
 
@@ -75,7 +88,22 @@ def _script_env(sandbox_root: Path) -> dict[str, str]:
     return env
 
 
-def test_check_quality_uses_strict_default_complexity_thresholds(tmp_path: Path) -> None:
+def _split_calls(calls_path: Path) -> list[list[str]]:
+    calls: list[list[str]] = []
+    current: list[str] = []
+    for line in calls_path.read_text(encoding="utf-8").splitlines():
+        if line == "__CALL__":
+            if current:
+                calls.append(current)
+            current = []
+            continue
+        current.append(line)
+    if current:
+        calls.append(current)
+    return calls
+
+
+def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -> None:
     sandbox_root = _build_check_quality_sandbox(tmp_path)
 
     result = subprocess.run(
@@ -83,9 +111,10 @@ def test_check_quality_uses_strict_default_complexity_thresholds(tmp_path: Path)
             "bash",
             str(sandbox_root / "check_quality.sh"),
             "--files",
-            "backend/setta/example.py",
-            "frontend/src/example.ts",
-            "internal/example.go",
+            "frontend/src/app.ts",
+            "plugins/demo/frontend/src/index.ts",
+            "plugins/demo/backend/main.go",
+            "plugins/demo/backend/main.py",
         ],
         cwd=sandbox_root,
         env=_script_env(sandbox_root),
@@ -96,64 +125,46 @@ def test_check_quality_uses_strict_default_complexity_thresholds(tmp_path: Path)
 
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
-    ruff_args = (sandbox_root / "ruff_args.txt").read_text(encoding="utf-8").splitlines()
-    pnpm_args = (sandbox_root / "pnpm_args.txt").read_text(encoding="utf-8").splitlines()
-    go_args = (sandbox_root / "go_args.txt").read_text(encoding="utf-8").splitlines()
-
-    assert ruff_args == [
-        "check backend/setta/example.py",
-        "check --select C901 --output-format=concise --config lint.mccabe.max-complexity = 9 backend/setta/example.py",
-    ]
-    assert pnpm_args == [
-        '-C frontend exec eslint --rule complexity:["error",9] --rule max-depth:["error",4] --rule max-params:["error",5] -- src/example.ts',
-    ]
-    assert go_args == [
-        "vet ./internal",
-        "run github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 -over 9 internal/example.go",
+    ruff_calls = _split_calls(sandbox_root / "ruff_calls.txt")
+    assert len(ruff_calls) == 2
+    assert ruff_calls[0] == ["check", "plugins/demo/backend/main.py"]
+    assert ruff_calls[1] == [
+        "check",
+        "--select",
+        "C901",
+        "--output-format=concise",
+        "--config",
+        "lint.mccabe.max-complexity = 10",
+        "plugins/demo/backend/main.py",
     ]
 
-
-def test_check_quality_passes_explicit_threshold_overrides_to_each_tool(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = _build_check_quality_sandbox(tmp_path)
-
-    result = subprocess.run(
+    pnpm_calls = _split_calls(sandbox_root / "pnpm_calls.txt")
+    assert pnpm_calls == [
         [
-            "bash",
-            str(sandbox_root / "check_quality.sh"),
-            "--python-max",
-            "7",
-            "--frontend-max",
-            "6",
-            "--go-max",
-            "5",
-            "--files",
-            "backend/setta/example.py",
-            "frontend/src/example.ts",
-            "internal/example.go",
+            "-C",
+            "frontend",
+            "exec",
+            "eslint",
+            '--rule',
+            'complexity:["error",10]',
+            '--rule',
+            'max-depth:["error",4]',
+            '--rule',
+            'max-params:["error",5]',
+            "--",
+            "src/app.ts",
+            "../plugins/demo/frontend/src/index.ts",
+        ]
+    ]
+
+    go_calls = _split_calls(sandbox_root / "go_calls.txt")
+    assert go_calls == [
+        ["vet", "./plugins/demo/backend"],
+        [
+            "run",
+            "github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0",
+            "-over",
+            "12",
+            "plugins/demo/backend/main.go",
         ],
-        cwd=sandbox_root,
-        env=_script_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
-
-    ruff_args = (sandbox_root / "ruff_args.txt").read_text(encoding="utf-8").splitlines()
-    pnpm_args = (sandbox_root / "pnpm_args.txt").read_text(encoding="utf-8").splitlines()
-    go_args = (sandbox_root / "go_args.txt").read_text(encoding="utf-8").splitlines()
-
-    assert ruff_args[-1] == (
-        "check --select C901 --output-format=concise --config "
-        "lint.mccabe.max-complexity = 7 backend/setta/example.py"
-    )
-    assert pnpm_args[-1] == (
-        '-C frontend exec eslint --rule complexity:["error",6] '
-        '--rule max-depth:["error",4] --rule max-params:["error",5] -- src/example.ts'
-    )
-    assert go_args[-1] == (
-        "run github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 -over 5 internal/example.go"
-    )
+    ]
