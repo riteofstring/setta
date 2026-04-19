@@ -19,33 +19,50 @@ func buildOpenAPIDocumentAppSubsystemRegistrations(
 	deps httpapi.FrontendAPIRouteDependencies,
 	providers []appsubsystemproviders.DiscoveredProvider,
 ) (httpapi.FrontendAPIRouteRegistrations, error) {
-	registrations := httpapi.FrontendAPIRouteRegistrations{}
-	for _, provider := range providers {
-		providerRegistrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
-			appsubsystem.FrontendRouteRegistrationOptions{
-				Capabilities:       provider,
-				ModePolicy:         deps.Project.ModePolicy,
-				ProjectState:       deps.Project.ProjectState,
-				AppGenSkill:        deps.AppGenSkill,
-				ShareDeploymentIDE: deps.ShareDeploymentIDE,
-				AppDeployment: httpapi.DeploymentRouteDependencies{
-					ModePolicy: modes.NewPolicy(config.ModeApp),
-				},
-			},
-		)
-		if err != nil {
-			return httpapi.FrontendAPIRouteRegistrations{}, err
-		}
-		registrations.Project = append(
-			registrations.Project,
-			providerRegistrations.Project...,
-		)
-		registrations.Deployment = append(
-			registrations.Deployment,
-			providerRegistrations.Deployment...,
-		)
+	mergedProvider, ok := mergedOpenAPIProvider(providers)
+	if !ok {
+		return httpapi.FrontendAPIRouteRegistrations{}, nil
 	}
-	return registrations, nil
+	return appsubsystem.BuildFrontendAPIRouteRegistrations(
+		appsubsystem.FrontendRouteRegistrationOptions{
+			Capabilities:       mergedProvider,
+			ModePolicy:         deps.Project.ModePolicy,
+			ProjectState:       deps.Project.ProjectState,
+			AppGenSkill:        deps.AppGenSkill,
+			ShareDeploymentIDE: deps.ShareDeploymentIDE,
+			AppDeployment: httpapi.DeploymentRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeApp),
+			},
+		},
+	)
+}
+
+func mergedOpenAPIProvider(
+	providers []appsubsystemproviders.DiscoveredProvider,
+) (appsubsystemproviders.DiscoveredProvider, bool) {
+	merged := appsubsystemproviders.DiscoveredProvider{}
+	for _, provider := range providers {
+		if merged.PluginID == "" {
+			merged.PluginID = strings.TrimSpace(provider.PluginID)
+		}
+		merged.Capabilities.AppAuthoringUI =
+			merged.Capabilities.AppAuthoringUI || provider.Capabilities.AppAuthoringUI
+		merged.Capabilities.AppPreviewUI =
+			merged.Capabilities.AppPreviewUI || provider.Capabilities.AppPreviewUI
+		merged.Capabilities.AppGenerationChatModes =
+			merged.Capabilities.AppGenerationChatModes || provider.Capabilities.AppGenerationChatModes
+		merged.Capabilities.AppDeploymentRuntime =
+			merged.Capabilities.AppDeploymentRuntime || provider.Capabilities.AppDeploymentRuntime
+	}
+	if merged.PluginID == "" {
+		return appsubsystemproviders.DiscoveredProvider{}, false
+	}
+	if !merged.Capabilities.AppAuthoringUI &&
+		!merged.Capabilities.AppGenerationChatModes &&
+		!merged.Capabilities.AppDeploymentRuntime {
+		return appsubsystemproviders.DiscoveredProvider{}, false
+	}
+	return merged, true
 }
 
 func main() {
