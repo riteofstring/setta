@@ -81,4 +81,36 @@ describe("import boundary guardrails", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain("repo-private host paths");
   });
+
+  it("rejects SDK source imports of host source aliases", () => {
+    const violations = findImportBoundaryViolations([
+      {
+        filePath: "frontend/plugin-sdk/app-subsystem/src/sdkBoundaryFixture.ts",
+        source: `
+          import { endpoint } from "openapi/http";
+
+          export const value = endpoint;
+        `,
+      },
+    ]);
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("package-owned code");
+  });
+
+  it("rejects SDK source relative imports that escape the SDK package root", () => {
+    const violations = findImportBoundaryViolations([
+      {
+        filePath: "frontend/plugin-sdk/app-subsystem/src/sdkBoundaryFixture.ts",
+        source: `
+          import sidecar from "../../../../generation/non_http_shared/sidecar.json";
+
+          export const value = sidecar;
+        `,
+      },
+    ]);
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("repo-private host paths");
+  });
 });

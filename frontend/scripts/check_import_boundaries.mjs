@@ -5,6 +5,8 @@ import ts from "typescript";
 
 const SUPPORTED_SOURCE_FILE = /\.[jt]sx?$/;
 const HOST_RUNTIME_FILE = /^frontend\/src\/.+\.[jt]sx?$/;
+const APP_SUBSYSTEM_SDK_FILE =
+  /^frontend\/plugin-sdk\/app-subsystem\/src\/.+\.[jt]sx?$/;
 const PLUGIN_FRONTEND_FILE =
   /^plugins\/[^/]+\/frontend\/(?:src|tests)\/.+\.[jt]sx?$/;
 const HOST_PLUGIN_FRONTEND_IMPORT =
@@ -110,6 +112,35 @@ export const findImportBoundaryViolations = (entries) => {
     }
 
     if (!PLUGIN_FRONTEND_FILE.test(normalizedFilePath)) {
+      if (!APP_SUBSYSTEM_SDK_FILE.test(normalizedFilePath)) {
+        continue;
+      }
+
+      for (const imported of specifiers) {
+        if (PLUGIN_FRONTEND_HOST_ALIAS_IMPORT.test(imported.specifier)) {
+          violations.push({
+            ...imported,
+            filePath: normalizedFilePath,
+            message:
+              "App-subsystem frontend SDK source must use package-owned code and local generated inputs instead of importing host source aliases.",
+          });
+          continue;
+        }
+        if (
+          imported.specifier.startsWith(".") &&
+          !resolveRelativeModulePath(
+            normalizedFilePath,
+            imported.specifier,
+          ).startsWith("frontend/plugin-sdk/app-subsystem/")
+        ) {
+          violations.push({
+            ...imported,
+            filePath: normalizedFilePath,
+            message:
+              "App-subsystem frontend SDK source must not import repo-private host paths through relative specifiers.",
+          });
+        }
+      }
       continue;
     }
     const pluginRootMatch = normalizedFilePath.match(/^(plugins\/[^/]+)\//);

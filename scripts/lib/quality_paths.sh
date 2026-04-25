@@ -47,7 +47,7 @@ quality_is_python_candidate() {
 quality_is_frontend_candidate() {
   local path="${1#./}"
   case "${path}" in
-    frontend/src/*|plugins/*/frontend/src/*)
+    frontend/src/*|frontend/plugin-sdk/app-subsystem/src/*|plugins/*/frontend/src/*)
       ;;
     *)
       return 1
@@ -55,7 +55,7 @@ quality_is_frontend_candidate() {
   esac
 
   case "${path}" in
-    *.test.*|*.spec.*|*.stories.*|*.d.ts|frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts|frontend/src/openapi/*/generated/*)
+    *.test.*|*.spec.*|*.stories.*|*.d.ts|frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts|frontend/src/openapi/*/generated/*|frontend/plugin-sdk/app-subsystem/src/generatedTypes.ts|frontend/plugin-sdk/app-subsystem/src/generated/*|frontend/plugin-sdk/app-subsystem/src/openapi/*/generated/*)
       return 1
       ;;
     *.js|*.jsx|*.ts|*.tsx)
@@ -129,6 +129,7 @@ quality_collect_frontend_source_dir_args() {
   local repo_root="${1:-.}"
 
   printf '%s\n' "src"
+  printf '%s\n' "plugin-sdk/app-subsystem/src"
   while IFS= read -r path; do
     [[ -n "${path}" ]] || continue
     printf '../%s\n' "${path}"
