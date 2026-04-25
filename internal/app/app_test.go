@@ -8836,6 +8836,74 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 	}
 }
 
+func TestAppSetWatchCodeEnabledRouteRejectsWithoutProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if app.watchCode != nil {
+		t.Fatal("did not expect watch code service without provider")
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetWatchCodeEnabled,
+		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
+	)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(newAppTestAuthCookie(t, app))
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set watch code enabled: %v", err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.StatusCode, string(body))
+	}
+	if !strings.Contains(string(body), `"code":"feature_unavailable"`) {
+		t.Fatalf("expected feature_unavailable response, got %q", string(body))
+	}
+
+	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	if project.WatchCodeEnabled || len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
+		t.Fatalf("expected watch code state to remain unchanged, got %#v", project)
+	}
+}
+
 func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
