@@ -30,10 +30,15 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('aria-label="Lock section"');
     expect(markup).toContain('aria-label="Minimize section"');
     expect(markup).toContain('aria-label="Close section"');
+    expect(markup).toContain('data-flat-control-toggle="true"');
+    expect(markup).toContain('aria-expanded="false"');
     expect(markup).not.toContain("rounded");
     expect(markup).not.toContain("shadow");
     expect(markup).not.toContain("opacity");
     expect(markup).not.toContain("dark:");
+    expect(markup).not.toContain('data-flat-control="column-resize"');
+    expect(markup).not.toContain("filter args");
+    expect(markup).not.toContain("filter keys");
     expect(markup).toContain('data-flat-row-group="pinned"');
     expect(markup).toContain('data-flat-row-group="body"');
   });
@@ -55,19 +60,33 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-row-emphasis="optional"');
     expect(markup).toContain("hover:bg-[color:var(--flat-hover)]");
     expect(markup).toContain("focus:border-[color:var(--flat-focus)]");
-    expect(markup).toContain(
-      "group-hover:border-[color:var(--flat-border-strong)]",
-    );
     expect(markup).toContain("border-solid");
     expect(markup).toContain("[border-width:0_0_1px_0]");
-    expect(markup).toContain('data-flat-control="column-resize"');
-    expect(markup).toContain("flex-1");
     expect(markup).toContain("leading-7");
     expect(markup).toContain("var(--flat-key-width)");
     expect(markup).toContain("grid-cols-[1.125rem_minmax(0,1fr)_auto]");
+    expect(markup).not.toContain('data-flat-control="column-resize"');
+    expect(markup).not.toContain("filter args");
     expect(markup).not.toContain("border-neutral-200");
     expect(markup).not.toContain("bg-blue-50/80");
     expect(markup).not.toContain("transition-colors");
+  });
+
+  it("mounts the args controls only when explicitly revealed", () => {
+    const markup = renderToStaticMarkup(
+      <FlatCallableSectionPrototype controlsInitiallyOpen />,
+    );
+
+    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).toContain('data-flat-control="column-resize"');
+    expect(markup).toContain("filter args");
+    expect(markup).toContain("gg-search");
+    expect(markup).toContain("text-left");
+    expect(markup).toContain(
+      "grid-cols-[auto_repeat(5,1.375rem)_auto_minmax(0,1fr)]",
+    );
+    expect(markup).toContain("justify-self-center");
+    expect(markup).not.toContain("group-hover");
   });
 
   it("marks dict grouping and nested row hierarchy without helper rail elements", () => {

@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useId, useState, type CSSProperties, type ReactNode } from "react";
 
 type FlatSectionKind = "callable" | "dict";
 
@@ -29,7 +29,11 @@ type FlatPrototypeRowProps = FlatPrototypeRow & {
 type FlatSectionShellProps = {
   kind: FlatSectionKind;
   title: string;
+  controlLabel: string;
+  controlPlaceholder: string;
+  controlsInitiallyOpen?: boolean;
   theme?: FlatPrototypeTheme;
+  lead?: ReactNode;
   children: ReactNode;
 };
 
@@ -52,7 +56,8 @@ type FlatPrototypeThemeStyleVar =
 type FlatPrototypeThemeStyle = CSSProperties &
   Record<FlatPrototypeThemeStyleVar, string>;
 
-type FlatPrototypeThemeProps = {
+type FlatPrototypeSectionProps = {
+  controlsInitiallyOpen?: boolean;
   theme?: FlatPrototypeTheme;
 };
 
@@ -217,6 +222,9 @@ const FLAT_PROTOTYPE_ACTIONS = [
   },
 ];
 
+const ACTION_ICON_BUTTON_CLASS_NAME =
+  "relative justify-self-center text-[color:var(--flat-muted)] [--ggs:0.42] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
+
 const FLAT_PROTOTYPE_SECTION_CONTROLS = [
   {
     label: "Lock section",
@@ -243,9 +251,18 @@ const SECTION_KIND_ICON_CLASS_NAMES: Record<FlatSectionKind, string> = {
 function FlatSectionShell({
   kind,
   title,
+  controlLabel,
+  controlPlaceholder,
+  controlsInitiallyOpen = false,
   theme = "dark",
+  lead,
   children,
 }: FlatSectionShellProps) {
+  const controlBarId = useId();
+  const [isControlBarOpen, setIsControlBarOpen] = useState(
+    controlsInitiallyOpen,
+  );
+
   return (
     <section
       className={SHELL_CLASS_NAME}
@@ -268,6 +285,17 @@ function FlatSectionShell({
           className="flex items-center gap-1"
           aria-label={`${kind} section controls`}
         >
+          <button
+            type="button"
+            className={`${ICON_BUTTON_CLASS_NAME} gg-options`}
+            aria-controls={controlBarId}
+            aria-expanded={isControlBarOpen}
+            aria-label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}
+            data-flat-control-toggle="true"
+            onClick={() => {
+              setIsControlBarOpen((wasOpen) => !wasOpen);
+            }}
+          />
           {FLAT_PROTOTYPE_SECTION_CONTROLS.map((control) => (
             <button
               key={control.label}
@@ -278,6 +306,14 @@ function FlatSectionShell({
           ))}
         </nav>
       </header>
+      {lead}
+      {isControlBarOpen ? (
+        <FlatPrototypeActionBar
+          id={controlBarId}
+          label={controlLabel}
+          placeholder={controlPlaceholder}
+        />
+      ) : null}
       {children}
     </section>
   );
@@ -297,27 +333,36 @@ function FlatCallableTarget({ value }: { value: string }) {
 }
 
 function FlatPrototypeActionBar({
+  id,
   label,
   placeholder,
 }: {
+  id: string;
   label: string;
   placeholder: string;
 }) {
   return (
-    <nav className="group flex min-h-9 items-center gap-1 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5">
+    <nav
+      id={id}
+      className="grid min-h-9 grid-cols-[auto_repeat(5,1.375rem)_auto_minmax(0,1fr)] items-center gap-x-1 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5"
+    >
       <p className={`mr-1 shrink-0 ${HEADER_LABEL_CLASS_NAME}`}>{label}</p>
       {FLAT_PROTOTYPE_ACTIONS.map((action) => (
         <button
           key={action.label}
           type="button"
-          className={`shrink-0 text-[color:var(--flat-muted)] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)] ${action.iconClassName} ${action.extraClassName ?? ""}`}
+          className={`${ACTION_ICON_BUTTON_CLASS_NAME} ${action.iconClassName} ${action.extraClassName ?? ""}`}
           aria-label={`${action.label} placeholder action`}
           data-flat-control={action.dataAttr}
         />
       ))}
+      <b
+        aria-hidden="true"
+        className="gg-search !ml-2 !mt-0 justify-self-center text-[color:var(--flat-dim)] [--ggs:0.42]"
+      />
       <input
         aria-label={`${label} filter`}
-        className="ml-2 min-w-0 flex-1 border-solid border-transparent bg-transparent pb-0.5 text-right text-[10px] uppercase tracking-[0.18em] text-[color:var(--flat-dim)] outline-none [border-width:0_0_1px_0] hover:border-[color:var(--flat-border-strong)] focus:border-[color:var(--flat-focus)] group-hover:border-[color:var(--flat-border-strong)]"
+        className="min-w-0 flex-1 border-solid border-transparent bg-transparent pb-0.5 text-left text-[10px] uppercase tracking-[0.18em] text-[color:var(--flat-dim)] outline-none [border-width:0_0_1px_0] hover:border-[color:var(--flat-border-strong)] focus:border-[color:var(--flat-focus)]"
         name={`${label.toLowerCase()}-filter`}
         readOnly
         value={placeholder}
@@ -456,12 +501,19 @@ function FlatPrototypeRowItem({
 }
 
 export function FlatCallableSectionPrototype({
+  controlsInitiallyOpen,
   theme = "dark",
-}: FlatPrototypeThemeProps = {}) {
+}: FlatPrototypeSectionProps = {}) {
   return (
-    <FlatSectionShell kind="callable" title="rank_items" theme={theme}>
-      <FlatCallableTarget value="builtins.sorted" />
-      <FlatPrototypeActionBar label="Args" placeholder="filter args" />
+    <FlatSectionShell
+      kind="callable"
+      title="rank_items"
+      controlLabel="Args"
+      controlPlaceholder="filter args"
+      controlsInitiallyOpen={controlsInitiallyOpen}
+      theme={theme}
+      lead={<FlatCallableTarget value="builtins.sorted" />}
+    >
       <FlatPrototypeStrip
         inputPorts={["items", "limit"]}
         outputPorts={["result"]}
@@ -477,11 +529,18 @@ export function FlatCallableSectionPrototype({
 }
 
 export function FlatDictSectionPrototype({
+  controlsInitiallyOpen,
   theme = "dark",
-}: FlatPrototypeThemeProps = {}) {
+}: FlatPrototypeSectionProps = {}) {
   return (
-    <FlatSectionShell kind="dict" title="workspace_profile" theme={theme}>
-      <FlatPrototypeActionBar label="Entries" placeholder="filter keys" />
+    <FlatSectionShell
+      kind="dict"
+      title="workspace_profile"
+      controlLabel="Entries"
+      controlPlaceholder="filter keys"
+      controlsInitiallyOpen={controlsInitiallyOpen}
+      theme={theme}
+    >
       <FlatPrototypeRows
         label="Pinned Params"
         rows={DICT_PINNED_ROWS}
