@@ -175,6 +175,13 @@ def test_run_local_core_command_dispatches_through_packaged_boundary(
     assert isinstance(payload["callId"], str) and payload["callId"]
 
 
+def test_local_core_client_keeps_source_only_typed_helpers_out_of_packaged_boundary() -> None:
+    assert not hasattr(
+        shared_local_core.LocalCoreClient,
+        "render_realtime_dependency_values",
+    )
+
+
 def test_run_local_core_command_surfaces_structured_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

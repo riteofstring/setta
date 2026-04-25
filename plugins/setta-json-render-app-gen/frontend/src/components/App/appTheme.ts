@@ -22,7 +22,7 @@ type AppThemeFonts = {
   mono?: string;
 };
 
-type AppThemeHeadingSizes = {
+export type AppThemeHeadingSizes = {
   h1?: number | string;
   h2?: number | string;
   h3?: number | string;
@@ -359,8 +359,6 @@ const TEXT_SCALE_KEYS = [
   "4xl",
 ] as const satisfies ReadonlyArray<keyof AppThemeTextScale>;
 
-type ThemeScalarRecord = Record<string, number | string | undefined>;
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -434,7 +432,7 @@ function resolveThemeFonts(raw: AppThemeConfig["fonts"]): AppThemeFonts {
   return extractStringMap<AppThemeFonts>(raw);
 }
 
-function resolveThemeScalarValues<T extends ThemeScalarRecord>(
+function resolveThemeScalarValues<T extends Record<string, unknown>>(
   raw: unknown,
   keys: ReadonlyArray<keyof T>,
 ): Partial<T> {

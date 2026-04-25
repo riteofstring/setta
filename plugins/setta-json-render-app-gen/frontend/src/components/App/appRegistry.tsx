@@ -1,4 +1,5 @@
-import type { Action } from "@json-render/core";
+import type { Action, UIElement } from "@json-render/core";
+import type { ComponentRegistry } from "@json-render/react";
 import {
   buildTextBlockTypographyScale,
   CODEMIRROR_TOOLTIP_PARENT_ID,
@@ -66,6 +67,7 @@ import {
   resolveParamBinding,
   resolveTextOutputBinding,
 } from "./appBindings";
+import type { AppThemeHeadingSizes } from "./appTheme";
 import {
   AppConfigScopeContext,
   useAppActionState,
@@ -85,20 +87,15 @@ import {
   TextParamDateTimeInput,
 } from "../ui/AppRuntimeControls";
 import { SwitchInput } from "../ui/SwitchInput";
-type RawElementProps = {
-  key?: unknown;
-  type?: unknown;
-  props?: Record<string, unknown>;
-  children?: unknown;
-};
 type AppComponentProps = {
-  element: RawElementProps & {
-    props?: Record<string, unknown>;
-  };
+  element: UIElement<string, Record<string, unknown>>;
   children?: React.ReactNode;
   onAction?: (action: Action) => void;
+  loading?: boolean;
 };
+type RawElementProps = AppComponentProps["element"];
 type TabChildElement = React.ReactElement<AppComponentProps>;
+type HeadingLevel = 1 | 2 | 3 | 4;
 type NumberishStyleKey =
   | "padding"
   | "borderRadius"
@@ -140,7 +137,7 @@ function resolveConfigId(
 function resolveElementProps(
   element: AppComponentProps["element"],
 ): Record<string, unknown> {
-  return element.props ?? {};
+  return element.props;
 }
 function resolveStringProp(raw: unknown, fallback = ""): string {
   return typeof raw === "string" ? raw : fallback;
@@ -291,7 +288,12 @@ function CardHeader(props: {
     </header>
   );
 }
-const HEADING_KEY_BY_LEVEL = { 1: "h1", 2: "h2", 3: "h3", 4: "h4" } as const;
+const HEADING_KEY_BY_LEVEL: Record<HeadingLevel, keyof AppThemeHeadingSizes> = {
+  1: "h1",
+  2: "h2",
+  3: "h3",
+  4: "h4",
+};
 const HEADING_SIZE_CLASS_BY_LEVEL: Record<number, string> = {
   1: "[font-size:var(--app-text-2xl)]",
   2: "[font-size:var(--app-text-xl)]",
@@ -299,7 +301,7 @@ const HEADING_SIZE_CLASS_BY_LEVEL: Record<number, string> = {
   4: "[font-size:var(--app-text-base)]",
 };
 function resolveHeadingPresentation(level: number) {
-  const clampedLevel = Math.min(Math.max(level, 1), 4);
+  const clampedLevel = Math.min(Math.max(level, 1), 4) as HeadingLevel;
   return {
     clampedLevel,
     headingSizeKey: HEADING_KEY_BY_LEVEL[clampedLevel],
@@ -476,7 +478,7 @@ function resolveParamBindingState(args: {
   const { configState, paramId, sectionId } = args;
   const variantId =
     configState.previewSectionVariantMap[sectionId] ??
-    configState.projectConfig.sectionVariantMap[sectionId];
+    configState.projectConfig.sectionVariantMap?.[sectionId];
   if (variantId === undefined) {
     return getParamBindingFailureState();
   }
@@ -968,24 +970,7 @@ function ConfigScope({ element, children }: AppComponentProps) {
   );
 }
 function hasNonEmptyChildrenMetadata(element: RawElementProps | null): boolean {
-  if (!element) {
-    return false;
-  }
-  const childKeys = element.children;
-  if (Array.isArray(childKeys)) {
-    return childKeys.length > 0;
-  }
-  if (
-    childKeys === null ||
-    childKeys === undefined ||
-    typeof childKeys === "boolean"
-  ) {
-    return false;
-  }
-  if (typeof childKeys === "string") {
-    return childKeys.trim().length > 0;
-  }
-  return true;
+  return Boolean(element?.children && element.children.length > 0);
 }
 function Tabs({ element, children }: AppComponentProps) {
   const props = resolveElementProps(element);
@@ -1257,7 +1242,7 @@ function AppParamInput({
   );
   const [isRevealing, setIsRevealing] = React.useState(false);
   function onChange(
-    nextValue,
+    nextValue: boolean | number | string | null,
     options?: {
       skipBackendUpdate?: boolean;
     },
@@ -1713,9 +1698,13 @@ function renderSwitchParam(context: AppParamRenderContext) {
     typeof context.defaultVal === "string"
       ? context.defaultVal
       : undefined;
+  const resolvedValue =
+    typeof context.value === "boolean" || typeof context.value === "string"
+      ? context.value
+      : Boolean(context.value);
   return (
     <SwitchInput
-      value={context.value ?? false}
+      value={resolvedValue}
       defaultVal={defaultVal}
       onChange={(next) => context.onChange(next)}
       onEscape={context.onEscape}
@@ -1880,7 +1869,7 @@ function notifyParamUpdateError(
 ): void {
   let throttledNotify = throttledParamUpdateErrorByNotify.get(notify);
   if (!throttledNotify) {
-    throttledNotify = _.throttle(
+    const nextThrottledNotify = _.throttle(
       (nextMessage: string) => {
         notify({
           message: nextMessage,
@@ -1890,7 +1879,8 @@ function notifyParamUpdateError(
       2500,
       { trailing: false },
     );
-    throttledParamUpdateErrorByNotify.set(notify, throttledNotify);
+    throttledParamUpdateErrorByNotify.set(notify, nextThrottledNotify);
+    throttledNotify = nextThrottledNotify;
   }
   throttledNotify(message);
 }
@@ -2045,7 +2035,7 @@ function resolveTextOutputData(
   }
   const variantId =
     configState.previewSectionVariantMap[sectionId] ??
-    configState.projectConfig.sectionVariantMap[sectionId];
+    configState.projectConfig.sectionVariantMap?.[sectionId];
   if (!variantId) {
     return null;
   }
@@ -2273,10 +2263,7 @@ function Stagger({ element, children }: AppComponentProps) {
     </div>
   );
 }
-export const appRegistry: Record<
-  string,
-  React.ComponentType<AppComponentProps>
-> = {
+export const appRegistry: ComponentRegistry = {
   Stack,
   Box,
   Grid,

@@ -275,6 +275,12 @@ def _stage_app_subsystem_frontend_sdk_source(tmp_path: Path) -> Path:
     return package_root
 
 
+def _assert_matching_file_content(left: Path, right: Path) -> None:
+    assert left.read_bytes() == right.read_bytes(), (
+        f"expected matching file content for {left} and {right}"
+    )
+
+
 def _build_first_party_app_subsystem_wheel(
     tmp_path: Path, *, remove_dist: bool = True
 ) -> Path:
@@ -511,6 +517,28 @@ def test_app_subsystem_frontend_sdk_source_package_builds_from_its_own_root(
     assert (package_root / "dist" / "index.js").is_file()
 
 
+def test_vendored_app_subsystem_frontend_sdk_matches_source_package_build(
+    tmp_path: Path,
+) -> None:
+    package_root = _stage_app_subsystem_frontend_sdk_source(tmp_path)
+    plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
+    vendored_sdk_root = (
+        plugin_root / "frontend" / "vendor" / "app-subsystem-frontend-sdk"
+    )
+
+    _assert_pnpm_command_succeeds(package_root, "install", "--lockfile=false")
+    _assert_pnpm_command_succeeds(package_root, "run", "build")
+
+    _assert_matching_file_content(
+        package_root / "dist" / "index.js",
+        vendored_sdk_root / "dist" / "index.js",
+    )
+    _assert_matching_file_content(
+        package_root / "types" / "index.d.ts",
+        vendored_sdk_root / "types" / "index.d.ts",
+    )
+
+
 def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
     tmp_path: Path,
 ) -> None:
@@ -729,6 +757,52 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     assert "setta-json-render-app-gen/runtime_backend/main.py" in record_text
     assert "setta-json-render-app-gen/frontend/dist/index.js" in record_text
     assert "setta-json-render-app-gen/frontend/dist/index.css" in record_text
+
+
+def test_plugin_runtime_test_setta_wheel_keeps_local_core_boundary_packaged_only(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_plugin_runtime_test_setta_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--target",
+            str(site_packages),
+            str(wheel_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "\n".join(
+                [
+                    "import sys",
+                    f"sys.path.insert(0, {str(site_packages)!r})",
+                    "from setta.local_core_client import LocalCoreClient",
+                    "from setta.plugin_runtime import run_local_core_command",
+                    "assert callable(run_local_core_command)",
+                    "assert not hasattr(LocalCoreClient, 'render_realtime_dependency_values')",
+                ]
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert probe.returncode == 0, f"{probe.stdout}\n{probe.stderr}".strip()
 
 
 def test_first_party_app_subsystem_plugin_installed_frontend_bundle_imports_without_repo_path_assumptions(

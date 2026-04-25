@@ -13,7 +13,7 @@ type ReactAppSubsystemRendererOptions = {
   browserRouter?: boolean;
 };
 
-function renderComponent<Props>(
+function renderComponent<Props extends object>(
   target: HTMLElement,
   Component: ComponentType<Props>,
   props: Props,
@@ -35,11 +35,11 @@ function renderComponent<Props>(
     activateAppSubsystemFrontendHostRuntime(host);
     hosts.set(target, host);
   }
-  const component = createElement(Component, props);
-  const wrappedComponent = createElement(
-    AppSubsystemFrontendHostProvider,
-    { host },
-    component,
+  const component = <Component {...props} />;
+  const wrappedComponent = (
+    <AppSubsystemFrontendHostProvider host={host}>
+      {component}
+    </AppSubsystemFrontendHostProvider>
   );
   const element: ReactElement = options.browserRouter
     ? createElement(BrowserRouter, null, wrappedComponent)
@@ -47,7 +47,7 @@ function renderComponent<Props>(
   root.render(element);
 }
 
-export function createReactAppSubsystemRenderer<Props>(
+export function createReactAppSubsystemRenderer<Props extends object>(
   Component: ComponentType<Props>,
   options: ReactAppSubsystemRendererOptions = {},
 ) {

@@ -1,4 +1,4 @@
-import type { Spec } from "@json-render/core";
+import type { Spec, VisibilityCondition } from "@json-render/core";
 
 type RawUIElement = {
   key: string;
@@ -99,12 +99,16 @@ function buildNormalizedElement(
   childKeys: string[],
 ): Spec["elements"][string] {
   const props = isRecord(element.props) ? element.props : {};
+  const visible =
+    element.visible === null || element.visible === undefined
+      ? undefined
+      : (element.visible as VisibilityCondition);
   return {
     key: element.key,
     type: element.type,
     props,
     parentKey,
-    ...(element.visible !== undefined ? { visible: element.visible } : {}),
+    ...(visible !== undefined ? { visible } : {}),
     children: childKeys.length > 0 ? childKeys : undefined,
   };
 }
