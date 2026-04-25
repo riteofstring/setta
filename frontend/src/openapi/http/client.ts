@@ -19,7 +19,22 @@ async function fetchOpenAPIRequest(
   const resolvedURL = buildBackendURL(
     `${requestURL.pathname}${requestURL.search}`,
   );
-  const nextRequest = new Request(resolvedURL, request);
+  const body =
+    request.body === null ? undefined : await request.clone().arrayBuffer();
+  const nextRequest = new Request(resolvedURL, {
+    method: request.method,
+    headers: request.headers,
+    body,
+    credentials: request.credentials,
+    cache: request.cache,
+    mode: request.mode,
+    redirect: request.redirect,
+    referrer: request.referrer,
+    referrerPolicy: request.referrerPolicy,
+    integrity: request.integrity,
+    keepalive: request.keepalive,
+    signal: request.signal,
+  });
   const shareHeaders = buildShareSessionHeaders();
   for (const [key, value] of Object.entries(shareHeaders)) {
     nextRequest.headers.set(key, value);

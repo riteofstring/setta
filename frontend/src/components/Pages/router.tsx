@@ -18,6 +18,7 @@ import {
   useSettings,
 } from "state/definitions";
 import {
+  FLAT_SECTION_PROTOTYPE_ROUTER_PATH,
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
   PROJECT_CHAT_STANDALONE_ROUTER_PATH,
@@ -40,6 +41,7 @@ import {
   type ModeRouteElements,
 } from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
+import { FlatSectionPrototypePage } from "./Project/FlatSectionPrototypePage";
 import { ShareStandaloneProjectSurfacePage } from "./Project/ShareStandaloneProjectSurfacePage";
 import { StandaloneProjectSurfacePage } from "./Project/StandaloneProjectSurfacePage";
 import { APP_ROUTE_IDS } from "./routeConfig";
@@ -334,6 +336,16 @@ const homeRoute = {
   ),
 };
 
+const flatSectionPrototypeRoute = {
+  id: APP_ROUTE_IDS.flatSectionPrototype,
+  path: FLAT_SECTION_PROTOTYPE_ROUTER_PATH,
+  element: (
+    <AppShell isLoading={false} loadingContent={null}>
+      <FlatSectionPrototypePage />
+    </AppShell>
+  ),
+};
+
 const projectRoute = {
   id: APP_ROUTE_IDS.project,
   path: PROJECT_CONFIG_ROUTER_PATH,
@@ -460,6 +472,7 @@ const workspaceLaunchRoute = {
 const appRoutes = [
   indexRoute,
   homeRoute,
+  flatSectionPrototypeRoute,
   workspaceLaunchRoute,
   projectChatThreadStandaloneRoute,
   projectChatStandaloneRoute,
