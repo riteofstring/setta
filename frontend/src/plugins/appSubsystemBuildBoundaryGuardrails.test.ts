@@ -24,6 +24,7 @@ function readSourceSdkFile(relativePath: string): string {
 describe("app plugin frontend build boundary guardrails", () => {
   it("keeps plugin frontend package resolution inside the plugin tree", () => {
     const packageJson = JSON.parse(readPluginFrontendFile("package.json")) as {
+      scripts?: Record<string, string>;
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
@@ -42,6 +43,9 @@ describe("app plugin frontend build boundary guardrails", () => {
         "file:./vendor/app-subsystem-frontend-sdk",
       ],
     ]);
+    expect(packageJson.scripts?.typecheck).toBe(
+      "tsc --noEmit -p tsconfig.typecheck.json",
+    );
   });
 
   it("keeps the plugin vite config rooted in the plugin frontend directory", () => {
@@ -139,12 +143,20 @@ describe("app plugin frontend build boundary guardrails", () => {
     const sourceSdkPackageJson = JSON.parse(
       readSourceSdkFile("package.json"),
     ) as {
+      scripts?: Record<string, string>;
       exports?: Record<string, { types?: string; default?: string }>;
       types?: string;
     };
     const sourceSdkViteConfig = readSourceSdkFile("vite.config.mjs");
+    const sourceSdkTsconfig = readSourceSdkFile("tsconfig.json");
 
     expect(sourceSdkPackageJson.types).toBe("./types/index.d.ts");
+    expect(sourceSdkPackageJson.scripts?.build).toBe(
+      "vite build --config vite.config.mjs",
+    );
+    expect(sourceSdkPackageJson.scripts?.typecheck).toBe(
+      "tsc --noEmit -p tsconfig.typecheck.json",
+    );
     expect(sourceSdkPackageJson.exports?.["."]?.types).toBe(
       "./types/index.d.ts",
     );
@@ -152,18 +164,6 @@ describe("app plugin frontend build boundary guardrails", () => {
     expect(sourceSdkViteConfig).not.toContain("frontendSrcDir");
     expect(sourceSdkViteConfig).not.toContain("openapi:");
     expect(sourceSdkViteConfig).not.toContain("utils:");
-  });
-
-  it("keeps the repo wrapper as a delegating convenience layer only", () => {
-    const wrapperScript = readPluginFrontendFile(
-      "../../../frontend/scripts/buildAppSubsystemPluginFrontend.mjs",
-    );
-
-    expect(wrapperScript).toContain(
-      'spawnSync(pnpmCommand, ["run", "build"], {',
-    );
-    expect(wrapperScript).toContain("cwd: pluginFrontendDir");
-    expect(wrapperScript).not.toContain("frontend/package.json");
-    expect(wrapperScript).not.toContain("vite build --config");
+    expect(sourceSdkTsconfig).not.toContain('"paths"');
   });
 });

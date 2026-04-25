@@ -225,6 +225,17 @@ def _pnpm_command() -> str:
     return "pnpm.cmd" if os.name == "nt" else "pnpm"
 
 
+def _assert_pnpm_command_succeeds(package_root: Path, *args: str) -> None:
+    result = subprocess.run(
+        [_pnpm_command(), "--dir", str(package_root), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = f"{result.stdout}\n{result.stderr}".strip()
+    assert result.returncode == 0, output
+
+
 def _build_first_party_basedpyright_wheel(tmp_path: Path) -> Path:
     source_root = _repo_root() / "plugins" / "setta-basedpyright"
     plugin_root = tmp_path / "setta-basedpyright"
@@ -253,6 +264,15 @@ def _stage_first_party_app_subsystem_plugin_source(
         shutil.rmtree(frontend_root / "dist", ignore_errors=True)
     shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
     return plugin_root
+
+
+def _stage_app_subsystem_frontend_sdk_source(tmp_path: Path) -> Path:
+    source_root = _repo_root() / "frontend" / "plugin-sdk" / "app-subsystem"
+    package_root = tmp_path / "app-subsystem-frontend-sdk"
+    shutil.copytree(source_root, package_root)
+    shutil.rmtree(package_root / "dist", ignore_errors=True)
+    shutil.rmtree(package_root / "node_modules", ignore_errors=True)
+    return package_root
 
 
 def _build_first_party_app_subsystem_wheel(
@@ -463,23 +483,10 @@ def test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tre
     plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
     frontend_root = plugin_root / "frontend"
 
-    install_result = subprocess.run(
-        [_pnpm_command(), "--dir", str(frontend_root), "install", "--lockfile=false"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    install_output = f"{install_result.stdout}\n{install_result.stderr}".strip()
-    assert install_result.returncode == 0, install_output
-
-    build_result = subprocess.run(
-        [_pnpm_command(), "--dir", str(frontend_root), "run", "build"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    build_output = f"{build_result.stdout}\n{build_result.stderr}".strip()
-    assert build_result.returncode == 0, build_output
+    _assert_pnpm_command_succeeds(frontend_root, "install", "--lockfile=false")
+    _assert_pnpm_command_succeeds(frontend_root, "run", "typecheck")
+    _assert_pnpm_command_succeeds(frontend_root, "run", "test")
+    _assert_pnpm_command_succeeds(frontend_root, "run", "build")
 
     built_js = frontend_root / "dist" / "index.js"
     built_css = frontend_root / "dist" / "index.css"
@@ -490,6 +497,18 @@ def test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tre
     assert "frontend/node_modules" not in bundle_text
     assert "plugin-sdk/app-subsystem/src" not in bundle_text
     assert str(_repo_root()) not in bundle_text
+
+
+def test_app_subsystem_frontend_sdk_source_package_builds_from_its_own_root(
+    tmp_path: Path,
+) -> None:
+    package_root = _stage_app_subsystem_frontend_sdk_source(tmp_path)
+
+    _assert_pnpm_command_succeeds(package_root, "install", "--lockfile=false")
+    _assert_pnpm_command_succeeds(package_root, "run", "typecheck")
+    _assert_pnpm_command_succeeds(package_root, "run", "build")
+
+    assert (package_root / "dist" / "index.js").is_file()
 
 
 def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(

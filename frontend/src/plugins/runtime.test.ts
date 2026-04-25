@@ -4,6 +4,8 @@ import * as openAPI from "openapi/http";
 import {
   applyAppDefinitionStructuredContentToStore,
   appSubsystemModeRequiresImageAttachment,
+  createAppSubsystemFrontendHost,
+  initializeAppSessionFromCurrentDeployment,
   processAppProjectStateUpdateFromBackend,
   resetAppSubsystemFrontendRuntimeState,
   useAppSubsystemAppDeploymentModal,
@@ -288,6 +290,12 @@ function buildAppSubsystemRegistrationDelta(
   pluginId: string,
   applyStructuredContent: (structured: Record<string, unknown>) => boolean,
   processProjectStateUpdate?: (payload: unknown) => void,
+  initializeAppSession?: (
+    host: unknown,
+    options?: {
+      forceNewSession?: boolean;
+    },
+  ) => Promise<boolean>,
 ) {
   return {
     appSubsystemRegistrationsByPluginId: {
@@ -301,6 +309,7 @@ function buildAppSubsystemRegistrationDelta(
         },
         controller: {
           applyAppDefinitionStructuredContentToStore: applyStructuredContent,
+          initializeAppSessionFromCurrentDeployment: initializeAppSession,
           processAppProjectStateUpdateFromBackend: processProjectStateUpdate,
         },
       },
@@ -1617,7 +1626,7 @@ describe("plugin runtime helpers", () => {
     });
   });
 
-  it("buffers app-subsystem updates during same-provider frontend reloads keyed by refresh signature", async () => {
+  it("buffers app-subsystem updates during same-provider frontend reloads", async () => {
     const providerPluginId = "acme.reloadable-app-provider";
     const firstApplyStructuredContent = vi.fn(() => true);
     const firstProcessProjectStateUpdate = vi.fn();
@@ -1745,6 +1754,276 @@ describe("plugin runtime helpers", () => {
       registration: {
         pluginId: providerPluginId,
       },
+    });
+  });
+
+  it("preserves buffered app-subsystem updates queued before a same-provider reload starts", async () => {
+    const providerPluginId = "acme.reloadable-buffered-provider";
+    const firstApplyStructuredContent = vi.fn(() => true);
+    const firstProcessProjectStateUpdate = vi.fn();
+    const secondApplyStructuredContent = vi.fn(() => true);
+    const secondProcessProjectStateUpdate = vi.fn();
+    const firstLoadStarted = deferred();
+    const releaseFirstLoad = deferred();
+    const secondLoadStarted = deferred();
+    const releaseSecondLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId !== providerPluginId) {
+          return {
+            error: null,
+            registryDelta: {
+              appSubsystemRegistrationsByPluginId: {},
+              sectionKinds: {},
+              panes: {},
+              commands: {},
+              topNavBarItems: {},
+            },
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-a") {
+          firstLoadStarted.resolve();
+          await releaseFirstLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              firstApplyStructuredContent,
+              firstProcessProjectStateUpdate,
+            ),
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-b") {
+          secondLoadStarted.resolve();
+          await releaseSecondLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              secondApplyStructuredContent,
+              secondProcessProjectStateUpdate,
+            ),
+          };
+        }
+        throw new Error(`Unexpected digest ${plugin.sourceDigestSha256}`);
+      },
+    );
+
+    const firstUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Buffered Provider",
+            sourceDigestSha256: "digest-a",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Buffered Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+          },
+        },
+      ),
+    );
+
+    await firstLoadStarted.promise;
+    const payload = {} as Parameters<
+      typeof processAppProjectStateUpdateFromBackend
+    >[0];
+
+    expect(
+      applyAppDefinitionStructuredContentToStore({
+        appSpec: { title: "Buffered before reload" },
+      }),
+    ).toBe(true);
+    processAppProjectStateUpdateFromBackend(payload);
+
+    const secondUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Buffered Provider",
+            sourceDigestSha256: "digest-b",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Buffered Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+          },
+        },
+      ),
+    );
+
+    releaseFirstLoad.resolve();
+    await secondLoadStarted.promise;
+    releaseSecondLoad.resolve();
+    await firstUpdatePromise;
+    await secondUpdatePromise;
+
+    expect(firstApplyStructuredContent).not.toHaveBeenCalled();
+    expect(firstProcessProjectStateUpdate).not.toHaveBeenCalled();
+    expect(secondApplyStructuredContent).toHaveBeenCalledWith({
+      appSpec: { title: "Buffered before reload" },
+    });
+    expect(secondProcessProjectStateUpdate).toHaveBeenCalledWith(payload);
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loaded",
+      registration: {
+        pluginId: providerPluginId,
+      },
+    });
+  });
+
+  it("keeps app-session initialization waiting across same-provider reloads", async () => {
+    const providerPluginId = "acme.reloadable-session-provider";
+    const firstInitializeAppSession = vi.fn(async () => true);
+    const secondInitializeAppSession = vi.fn(async () => true);
+    const firstLoadStarted = deferred();
+    const releaseFirstLoad = deferred();
+    const secondLoadStarted = deferred();
+    const releaseSecondLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId !== providerPluginId) {
+          return {
+            error: null,
+            registryDelta: {
+              appSubsystemRegistrationsByPluginId: {},
+              sectionKinds: {},
+              panes: {},
+              commands: {},
+              topNavBarItems: {},
+            },
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-a") {
+          firstLoadStarted.resolve();
+          await releaseFirstLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              () => true,
+              undefined,
+              firstInitializeAppSession,
+            ),
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-b") {
+          secondLoadStarted.resolve();
+          await releaseSecondLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              () => true,
+              undefined,
+              secondInitializeAppSession,
+            ),
+          };
+        }
+        throw new Error(`Unexpected digest ${plugin.sourceDigestSha256}`);
+      },
+    );
+
+    const firstUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Session Provider",
+            sourceDigestSha256: "digest-a",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Session Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+          },
+        },
+      ),
+    );
+
+    await firstLoadStarted.promise;
+    const frontendHost = createAppSubsystemFrontendHost();
+    const initializeSessionPromise = initializeAppSessionFromCurrentDeployment(
+      frontendHost,
+      {
+        forceNewSession: true,
+      },
+    );
+
+    const secondUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Session Provider",
+            sourceDigestSha256: "digest-b",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Session Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+          },
+        },
+      ),
+    );
+
+    releaseFirstLoad.resolve();
+    await secondLoadStarted.promise;
+    releaseSecondLoad.resolve();
+
+    await expect(initializeSessionPromise).resolves.toBe(true);
+    await firstUpdatePromise;
+    await secondUpdatePromise;
+
+    expect(firstInitializeAppSession).not.toHaveBeenCalled();
+    expect(secondInitializeAppSession).toHaveBeenCalledTimes(1);
+    expect(secondInitializeAppSession).toHaveBeenCalledWith(frontendHost, {
+      forceNewSession: true,
     });
   });
   it("removes plugin styles when refresh enters error state", async () => {
