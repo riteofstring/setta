@@ -1,0 +1,229 @@
+import _ from "lodash";
+
+import {
+  isBaseParamCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
+  type BaseCodeObjImplUnion,
+  type BaseSectionImplUnion,
+  type Core,
+  type Variant,
+} from "utils/generatedTypes";
+
+type ProjectStateSelectorSnapshot = {
+  projectConfig: {
+    sectionVariantMap: Record<string, string | undefined>;
+    showParamDisplayNames?: boolean;
+  };
+  previewSectionVariantMap: Record<string, string | undefined>;
+  sections: Record<string, Core | undefined>;
+  sectionVariants: Record<string, Variant | undefined>;
+  sectionImpls: Record<string, BaseSectionImplUnion | undefined>;
+  codeObjs: Record<string, Core | undefined>;
+  codeObjVariants: Record<string, Variant | undefined>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion | undefined>;
+};
+
+const effectiveImplCacheByImpl = new WeakMap<
+  object,
+  WeakMap<object, WeakMap<object, unknown>>
+>();
+
+export function clearEffectiveImplCache(impl: object): void {
+  effectiveImplCacheByImpl.delete(impl);
+}
+
+export function getEffectiveImpl<T extends object>(
+  impl: T,
+  core: Core,
+  variant: Variant,
+): T {
+  const sharedModifier = core.sharedModifier;
+  const variantModifier = variant.modifier;
+  let cacheBySharedModifier = effectiveImplCacheByImpl.get(impl);
+  if (!cacheBySharedModifier) {
+    cacheBySharedModifier = new WeakMap<object, WeakMap<object, unknown>>();
+    effectiveImplCacheByImpl.set(impl, cacheBySharedModifier);
+  }
+  let cacheByVariantModifier = cacheBySharedModifier.get(sharedModifier);
+  if (!cacheByVariantModifier) {
+    cacheByVariantModifier = new WeakMap<object, unknown>();
+    cacheBySharedModifier.set(sharedModifier, cacheByVariantModifier);
+  }
+  const cached = cacheByVariantModifier.get(variantModifier);
+  if (cached) {
+    return cached as T;
+  }
+  const effective = _.cloneDeep(impl);
+  Object.assign(effective, { ...sharedModifier, ...variantModifier });
+  cacheByVariantModifier.set(variantModifier, effective);
+  return effective;
+}
+
+export function getCurrentSectionVariantIdIfPresent(
+  projectState: ProjectStateSelectorSnapshot,
+  sectionId: string,
+  preview = false,
+): string | null {
+  const variantId = preview
+    ? projectState.previewSectionVariantMap[sectionId] ??
+      projectState.projectConfig.sectionVariantMap[sectionId]
+    : projectState.projectConfig.sectionVariantMap[sectionId];
+  return variantId ?? null;
+}
+
+export function getCurrentSectionVariantId(
+  projectState: ProjectStateSelectorSnapshot,
+  sectionId: string,
+  preview = false,
+): string {
+  const variantId = getCurrentSectionVariantIdIfPresent(
+    projectState,
+    sectionId,
+    preview,
+  );
+  if (!variantId) {
+    throw new Error(`Missing section variant for section ${sectionId}.`);
+  }
+  return variantId;
+}
+
+export function getCurrentEffectiveSectionImplIfPresent(
+  projectState: ProjectStateSelectorSnapshot,
+  sectionId: string,
+  preview = false,
+): BaseSectionImplUnion | null {
+  const variantId = getCurrentSectionVariantIdIfPresent(
+    projectState,
+    sectionId,
+    preview,
+  );
+  if (!variantId) {
+    return null;
+  }
+  const variant = projectState.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const baseImpl = projectState.sectionImpls[variant.impl];
+  if (!baseImpl) {
+    return null;
+  }
+  const core = projectState.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+  return getEffectiveImpl(baseImpl, core, variant);
+}
+
+export function getCurrentEffectiveSectionImpl(
+  projectState: ProjectStateSelectorSnapshot,
+  sectionId: string,
+  preview = false,
+): BaseSectionImplUnion {
+  const impl = getCurrentEffectiveSectionImplIfPresent(
+    projectState,
+    sectionId,
+    preview,
+  );
+  if (!impl) {
+    throw new Error(`Missing section implementation for section ${sectionId}.`);
+  }
+  return impl;
+}
+
+export function getSectionCodeObjVariantId(
+  sectionImpl: BaseSectionImplUnion,
+  codeObjId: string,
+): string | null {
+  if (isBaseSectionWithParamsImpl(sectionImpl)) {
+    return sectionImpl.codeObjVariantMap[codeObjId] ?? null;
+  }
+  if (
+    sectionImpl.type !== SectionTypeEnum.MetaControl ||
+    !sectionImpl.metaControlParamId ||
+    sectionImpl.metaControlParamId !== codeObjId
+  ) {
+    return null;
+  }
+  return sectionImpl.codeObjVariantMap[codeObjId] ?? null;
+}
+
+export function getCurrentEffectiveCodeObjImplIfPresent(
+  projectState: ProjectStateSelectorSnapshot,
+  sectionId: string,
+  codeObjId: string,
+  preview = false,
+): BaseCodeObjImplUnion | null {
+  const sectionImpl = getCurrentEffectiveSectionImplIfPresent(
+    projectState,
+    sectionId,
+    preview,
+  );
+  if (!sectionImpl) {
+    return null;
+  }
+  const variantId = getSectionCodeObjVariantId(sectionImpl, codeObjId);
+  if (!variantId) {
+    return null;
+  }
+  const variant = projectState.codeObjVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const baseImpl = projectState.codeObjImpls[variant.impl];
+  if (!baseImpl) {
+    return null;
+  }
+  const core = projectState.codeObjs[codeObjId];
+  if (!core) {
+    return null;
+  }
+  return getEffectiveImpl(baseImpl, core, variant);
+}
+
+export function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T>(
+  projectState: ProjectStateSelectorSnapshot,
+  sectionId: string,
+  codeObjId: string,
+  typeGuard: (impl: BaseCodeObjImplUnion) => impl is T,
+  preview = false,
+): T | null {
+  const impl = getCurrentEffectiveCodeObjImplIfPresent(
+    projectState,
+    sectionId,
+    codeObjId,
+    preview,
+  );
+  if (!impl || !typeGuard(impl)) {
+    return null;
+  }
+  return impl;
+}
+
+export function getParamDisplayNameIfPresent(
+  projectState: ProjectStateSelectorSnapshot,
+  sectionId: string,
+  codeObjId: string,
+): string | null {
+  const codeObj = projectState.codeObjs[codeObjId];
+  if (!codeObj) {
+    return null;
+  }
+  if (!projectState.projectConfig.showParamDisplayNames) {
+    return codeObj.name;
+  }
+  const impl = getCurrentEffectiveCodeObjImplIfPresent(
+    projectState,
+    sectionId,
+    codeObjId,
+  );
+  if (impl && isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
+    return codeObj.name;
+  }
+  const trimmedDisplayName = codeObj.displayName.trim();
+  if (trimmedDisplayName.length > 0) {
+    return codeObj.displayName;
+  }
+  return codeObj.name;
+}

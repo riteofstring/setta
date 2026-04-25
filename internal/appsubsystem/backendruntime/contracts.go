@@ -3,6 +3,7 @@ package backendruntime
 import "setta/internal/projectstate"
 
 const (
+	AppSubsystemBackendContractVersion        = 1
 	ListenerEndpointGetAppDefinition          = "appsubsystem_get_app_definition"
 	ListenerEndpointGetEffectiveAppDefinition = "appsubsystem_get_effective_app_definition"
 	ListenerEndpointGetEffectiveAppSpecPath   = "appsubsystem_get_effective_app_spec_path"

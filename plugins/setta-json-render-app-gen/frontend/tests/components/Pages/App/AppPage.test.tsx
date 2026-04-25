@@ -7,10 +7,10 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resetProjectStores } from "state/utils";
-import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { AppSubsystemFrontendHostProvider } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
+import { useAppDefinition } from "../../../../src/appSubsystemDefinitionState";
+import { AppSubsystemFrontendHostProvider } from "../../../../src/appSubsystemFrontendHostContext";
 
-import { AppPage } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Pages/App/AppPage";
+import { AppPage } from "../../../../src/components/Pages/App/AppPage";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;

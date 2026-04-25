@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import {
   buildBinaryDownloadUrl,
   buildTextBlockTypographyScale,
@@ -17,6 +19,11 @@ import {
   shouldShowPasswordReveal,
   type DropzoneStatelessAttachment,
 } from "@setta/app-subsystem-frontend-sdk";
+import {
+  getCurrentEffectiveSectionImpl as getHostCurrentEffectiveSectionImpl,
+  getCurrentSectionVariantId as getHostCurrentSectionVariantId,
+  getParamDisplayNameIfPresent as getHostParamDisplayNameIfPresent,
+} from "utils/projectStateSelectors";
 import { describe, expect, it, vi } from "vitest";
 
 describe("appSubsystemFrontendSdk", () => {
@@ -282,6 +289,9 @@ describe("appSubsystemFrontendSdk", () => {
     expect(getCurrentSectionVariantId(projectState, "section-1")).toBe(
       "section-variant",
     );
+    expect(getCurrentSectionVariantId(projectState, "section-1")).toBe(
+      getHostCurrentSectionVariantId(projectState, "section-1"),
+    );
     expect(getCurrentSectionVariantId(projectState, "section-1", true)).toBe(
       "section-preview-variant",
     );
@@ -290,6 +300,11 @@ describe("appSubsystemFrontendSdk", () => {
     ).toMatchObject({
       name: "Preview Section",
     });
+    expect(
+      getCurrentEffectiveSectionImpl(projectState, "section-1", true),
+    ).toEqual(
+      getHostCurrentEffectiveSectionImpl(projectState, "section-1", true),
+    );
     expect(
       getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent(
         projectState,
@@ -309,6 +324,26 @@ describe("appSubsystemFrontendSdk", () => {
     expect(
       getParamDisplayNameIfPresent(projectState, "section-1", "param-1"),
     ).toBe("Fallback Param Name");
+    expect(
+      getParamDisplayNameIfPresent(projectState, "section-1", "param-1"),
+    ).toBe(
+      getHostParamDisplayNameIfPresent(projectState, "section-1", "param-1"),
+    );
+  });
+
+  it("keeps SDK project-state helpers delegated to the host owner", () => {
+    const sdkSource = readFileSync(
+      new URL(
+        "../../plugin-sdk/app-subsystem/src/projectState.ts",
+        import.meta.url,
+      ),
+      "utf-8",
+    );
+
+    expect(sdkSource).toContain("utils/projectStateSelectors");
+    expect(sdkSource).not.toContain("cloneDeep");
+    expect(sdkSource).not.toContain("WeakMap");
+    expect(sdkSource).not.toContain("codeObjVariantMap");
   });
 
   it("re-exports narrow helper surfaces needed by plugin frontends", () => {

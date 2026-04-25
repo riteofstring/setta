@@ -1487,6 +1487,22 @@ export type ColorPickerParamCodeObjImpl = {
 };
 
 /**
+ * CompareAndSetMutationResult
+ */
+type CompareAndSetMutationResult = {
+  appDefinition?: AppDefinition | null;
+  compareResult: CompareAndSetStringResult;
+};
+
+/**
+ * CompareAndSetStringResult
+ */
+type CompareAndSetStringResult = {
+  newValue: string;
+  oldValue: string;
+};
+
+/**
  * ConfigLanguage
  */
 type ConfigLanguage = "python" | "json";

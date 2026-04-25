@@ -14,7 +14,7 @@ import {
   createImageArtifact,
   createPolicy,
 } from "utils/generatedTypes";
-import { resetAppSubsystemImageArtifactsState } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemImageArtifacts";
+import { resetAppSubsystemImageArtifactsState } from "../../../src/appSubsystemImageArtifacts";
 
 const openAPIMocks = vi.hoisted(() => ({
   loadCachedImageArtifacts: vi.fn(),
@@ -35,8 +35,8 @@ vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
   };
 });
 
-import { AppRuntimeContext } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext";
-import { appRegistry } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appRegistry";
+import { AppRuntimeContext } from "../../../src/components/App/appContext";
+import { appRegistry } from "../../../src/components/App/appRegistry";
 
 type RenderedRegistryNode = {
   host: HTMLDivElement;

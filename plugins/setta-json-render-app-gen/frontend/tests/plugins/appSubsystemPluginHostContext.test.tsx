@@ -15,7 +15,7 @@ import {
   useAppSubsystemProjectStateSnapshot,
   useAppSubsystemRuntimeContext,
   useAppSubsystemServerModeState,
-} from "../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
+} from "../../src/appSubsystemFrontendHostContext";
 
 const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }

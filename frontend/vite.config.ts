@@ -54,14 +54,6 @@ export default defineConfig({
         __dirname,
         "node_modules/@radix-ui/react-switch",
       ),
-      "@json-render/core": path.resolve(
-        __dirname,
-        "node_modules/@json-render/core/dist/index.mjs",
-      ),
-      "@json-render/react": path.resolve(
-        __dirname,
-        "node_modules/@json-render/react/dist/index.mjs",
-      ),
       components: path.resolve(srcRoot, "components"),
       forks: path.resolve(srcRoot, "forks"),
       "katex/dist/katex.min.css": path.resolve(

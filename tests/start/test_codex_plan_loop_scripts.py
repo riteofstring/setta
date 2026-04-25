@@ -115,6 +115,13 @@ printf '%s\\n' "$@" > "{sandbox_root / 'runner_args.txt'}"
     )
     wrapper_cases = [
         (
+            "scripts/run-codex-app-plugin-boundary-closure-loop.sh",
+            "app-plugin-boundary-closure",
+            "docs/plans/app-plugin-boundary-closure-plan.md",
+            "CODEX_LOOP_STOP: APP_PLUGIN_BOUNDARY_CLOSURE_COMPLETE",
+            "codex-apppluginboundary:",
+        ),
+        (
             "scripts/run-codex-app-subsystem-backend-externalization-loop.sh",
             "app-subsystem-backend-externalization",
             "docs/plans/app-subsystem-backend-externalization-plan.md",
@@ -136,6 +143,13 @@ printf '%s\\n' "$@" > "{sandbox_root / 'runner_args.txt'}"
             "codex-pluginstandalone:",
         ),
         (
+            "scripts/run-codex-first-party-plugin-finalization-loop.sh",
+            "first-party-plugin-finalization",
+            "docs/plans/first-party-plugin-finalization-plan.md",
+            "CODEX_LOOP_STOP: FIRST_PARTY_PLUGIN_FINALIZATION_COMPLETE",
+            "codex-pluginfinal:",
+        ),
+        (
             "scripts/run-codex-third-party-plugin-generalization-loop.sh",
             "third-party-plugin-generalization",
             "docs/plans/third-party-plugin-generalization-plan.md",
@@ -146,6 +160,11 @@ printf '%s\\n' "$@" > "{sandbox_root / 'runner_args.txt'}"
 
     for wrapper_path, name, plan, sentinel, commit_prefix in wrapper_cases:
         wrapper = _copy_script(sandbox_root, wrapper_path)
+        wrapper_source = wrapper.read_text(encoding="utf-8")
+        assert "run-codex-plan-loop.sh" in wrapper_source
+        assert "prepare_managed_worktree_from_dirty_repo" not in wrapper_source
+        assert "while [[ $# -gt 0 ]]" not in wrapper_source
+        assert "repo_is_clean" not in wrapper_source
         result = subprocess.run(
             ["bash", str(wrapper), "--iterations", "3"],
             cwd=sandbox_root,

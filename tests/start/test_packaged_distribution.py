@@ -234,30 +234,6 @@ def _build_first_party_app_subsystem_wheel(tmp_path: Path) -> Path:
     return wheel_paths[0]
 
 
-def _write_minimal_host_sdk_for_plugin_runtime(site_packages: Path) -> None:
-    setta_root = site_packages / "setta"
-
-    for relative_path in (
-        Path("__init__.py"),
-        Path("entrypoint.py"),
-        Path("local_core_client.py"),
-        Path("sdk_contract_version.py"),
-        Path("runtime_compat.py"),
-        Path("plugin_runtime") / "__init__.py",
-        Path("plugin_runtime") / "app_subsystem.py",
-        Path("plugin_runtime") / "local_core.py",
-        Path("types") / "generated" / "go_shared_constants.py",
-    ):
-        source_path = _repo_root() / "backend" / "setta" / relative_path
-        if source_path.exists():
-            content = source_path.read_text(encoding="utf-8")
-        else:
-            content = ""
-        target_path = setta_root / relative_path
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(content, encoding="utf-8")
-
-
 def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) -> None:
     project_root = _write_minimal_distribution_project(
         tmp_path,
@@ -570,6 +546,20 @@ def test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_tool
     tmp_path: Path,
 ) -> None:
     wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
+    setta_project_root = _write_minimal_distribution_project(
+        tmp_path,
+        include_go_binaries=True,
+        use_repo_packaged_entrypoint_modules=True,
+    )
+    setta_outdir = tmp_path / "setta-dist"
+    setta_build_result = _build_wheel(setta_project_root, setta_outdir)
+    combined_setta_build_output = (
+        f"{setta_build_result.stdout}\n{setta_build_result.stderr}"
+    )
+    assert setta_build_result.returncode == 0, combined_setta_build_output
+    setta_wheel_paths = list(setta_outdir.glob("setta-*.whl"))
+    assert len(setta_wheel_paths) == 1
+
     site_packages = tmp_path / "site-packages"
     install_result = subprocess.run(
         [
@@ -580,6 +570,7 @@ def test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_tool
             "--no-deps",
             "--target",
             str(site_packages),
+            str(setta_wheel_paths[0]),
             str(wheel_path),
         ],
         capture_output=True,
@@ -589,8 +580,6 @@ def test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_tool
     assert install_result.returncode == 0, (
         f"{install_result.stdout}\n{install_result.stderr}"
     ).strip()
-
-    _write_minimal_host_sdk_for_plugin_runtime(site_packages)
 
     go_stub = tmp_path / "setta-go-stub.py"
     go_stub.write_text(
@@ -762,6 +751,9 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/__init__.py",
         "setta/__main__.py",
         "setta/entrypoint.py",
+        "setta/local_core_client.py",
+        "setta/runtime_compat.py",
+        "setta/sdk_contract_version.py",
         "setta/plugin_runtime/__init__.py",
         "setta/plugin_runtime/app_subsystem.py",
         "setta/plugin_runtime/local_core.py",
