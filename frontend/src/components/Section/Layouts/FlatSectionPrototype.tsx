@@ -8,6 +8,8 @@ type FlatPrototypeTheme = "dark" | "light";
 
 type FlatPrototypePortSide = "in" | "out";
 
+type FlatPrototypeRowZone = "pinned" | "body";
+
 type FlatPrototypeRowEmphasis =
   | "required"
   | "optional"
@@ -31,10 +33,11 @@ type FlatPrototypePort = {
   side: FlatPrototypePortSide;
 };
 
-type FlatPrototypePositionedRow = Required<Pick<FlatPrototypeRow, "height">> &
+type FlatPrototypeRenderedRow = Required<Pick<FlatPrototypeRow, "height">> &
   FlatPrototypeRow & {
     hasDivider: boolean;
-    top: number;
+    isZoneEnd: boolean;
+    zone: FlatPrototypeRowZone;
   };
 
 type FlatPrototypeSectionProps = {
@@ -48,7 +51,6 @@ type FlatPrototypeCardProps = FlatPrototypeSectionProps & {
   kind: FlatSectionKind;
   pinnedRows: FlatPrototypeRow[];
   ports?: FlatPrototypePort[];
-  rowStart: number;
   rows: FlatPrototypeRow[];
   title: string;
 };
@@ -56,13 +58,7 @@ type FlatPrototypeCardProps = FlatPrototypeSectionProps & {
 type FlatPrototypeStyle = CSSProperties &
   Partial<
     Record<
-      | "--flat-action-h"
-      | "--flat-control-right"
-      | "--flat-port-top"
-      | "--flat-rail-left"
-      | "--flat-row-height"
-      | "--flat-row-indent"
-      | "--flat-row-top",
+      "--flat-rail-left" | "--flat-row-height" | "--flat-row-indent",
       string
     >
   >;
@@ -175,17 +171,15 @@ const FLAT_PROTOTYPE_SECTION_CONTROLS = [
   {
     label: "Lock section",
     iconClassName: "gg-lock",
-    right: 48,
+    modifierClassName: "flat-section-card__control--lock",
   },
   {
     label: "Minimize section",
     iconClassName: "gg-math-minus",
-    right: 27,
   },
   {
     label: "Close section",
     iconClassName: "gg-close",
-    right: 8,
   },
 ];
 
@@ -194,37 +188,54 @@ const SECTION_KIND_ICON_CLASS_NAMES: Record<FlatSectionKind, string> = {
   dict: "gg-list",
 };
 
-const CONTROL_TOGGLE_RIGHT = 70;
 const DEFAULT_ROW_HEIGHT = 29;
 const ROW_INDENT_REM = 0.875;
 const RAIL_BASE_REM = 1.1875;
-const ACTION_BAR_HEIGHT = "36px";
 
-function layoutRows({
+function renderRows({
   pinnedRows,
-  rowStart,
   rows,
 }: {
   pinnedRows: FlatPrototypeRow[];
-  rowStart: number;
   rows: FlatPrototypeRow[];
 }) {
-  const allRows = [...pinnedRows, ...rows];
-  let cursor = rowStart;
-  return allRows.map((row, index): FlatPrototypePositionedRow => {
-    const height = row.height ?? DEFAULT_ROW_HEIGHT;
-    const isPinned = index < pinnedRows.length;
-    const isLastPinned = isPinned && index === pinnedRows.length - 1;
-    const isLastBody = !isPinned && index === allRows.length - 1;
-    const positionedRow = {
-      ...row,
-      height,
-      hasDivider: !(isLastPinned || isLastBody),
-      top: cursor,
-    };
-    cursor += height;
-    return positionedRow;
-  });
+  const renderedPinnedRows = pinnedRows.map((row, index) =>
+    renderRow({
+      row,
+      hasDivider: index < pinnedRows.length - 1,
+      isZoneEnd: index === pinnedRows.length - 1,
+      zone: "pinned",
+    }),
+  );
+  const renderedRows = rows.map((row, index) =>
+    renderRow({
+      row,
+      hasDivider: index < rows.length - 1,
+      isZoneEnd: false,
+      zone: "body",
+    }),
+  );
+  return [...renderedPinnedRows, ...renderedRows];
+}
+
+function renderRow({
+  row,
+  hasDivider,
+  isZoneEnd,
+  zone,
+}: {
+  row: FlatPrototypeRow;
+  hasDivider: boolean;
+  isZoneEnd: boolean;
+  zone: FlatPrototypeRowZone;
+}): FlatPrototypeRenderedRow {
+  return {
+    ...row,
+    hasDivider,
+    height: row.height ?? DEFAULT_ROW_HEIGHT,
+    isZoneEnd,
+    zone,
+  };
 }
 
 function FlatPrototypeCard({
@@ -234,7 +245,6 @@ function FlatPrototypeCard({
   kind,
   pinnedRows,
   ports = [],
-  rowStart,
   rows,
   theme = "dark",
   title,
@@ -243,11 +253,7 @@ function FlatPrototypeCard({
   const [isControlBarOpen, setIsControlBarOpen] = useState(
     controlsInitiallyOpen,
   );
-  const actionHeight = isControlBarOpen ? ACTION_BAR_HEIGHT : "0px";
-  const positionedRows = layoutRows({ pinnedRows, rowStart, rows });
-  const rootStyle = {
-    "--flat-action-h": actionHeight,
-  } satisfies FlatPrototypeStyle;
+  const renderedRows = renderRows({ pinnedRows, rows });
 
   return (
     <section
@@ -257,44 +263,40 @@ function FlatPrototypeCard({
       data-flat-preview-theme={theme}
       data-flat-section-kind={kind}
       data-flat-section-shell="true"
-      style={rootStyle}
     >
-      <button
-        type="button"
-        className={`flat-section-card__type ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
-        aria-label={`Open ${kind} section menu`}
-        data-flat-section-type-menu="true"
-      />
-      <h2 className="flat-section-card__title">{title}</h2>
-      <button
-        type="button"
-        className="flat-section-card__control gg-options"
-        aria-controls={controlBarId}
-        aria-expanded={isControlBarOpen}
-        aria-label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}
-        data-flat-control-toggle="true"
-        style={
-          {
-            "--flat-control-right": `${CONTROL_TOGGLE_RIGHT}px`,
-          } satisfies FlatPrototypeStyle
-        }
-        onClick={() => {
-          setIsControlBarOpen((wasOpen) => !wasOpen);
-        }}
-      />
-      {FLAT_PROTOTYPE_SECTION_CONTROLS.map((control) => (
+      <header className="flat-section-card__header">
         <button
-          key={control.label}
           type="button"
-          className={`flat-section-card__control ${control.iconClassName}`}
-          aria-label={control.label}
-          style={
-            {
-              "--flat-control-right": `${control.right}px`,
-            } satisfies FlatPrototypeStyle
-          }
+          className={`flat-section-card__type ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
+          aria-label={`Open ${kind} section menu`}
+          data-flat-section-type-menu="true"
         />
-      ))}
+        <h2 className="flat-section-card__title">{title}</h2>
+        <nav
+          className="flat-section-card__controls"
+          aria-label={`${kind} section controls`}
+        >
+          <button
+            type="button"
+            className="flat-section-card__control flat-section-card__control--toggle gg-options"
+            aria-controls={controlBarId}
+            aria-expanded={isControlBarOpen}
+            aria-label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}
+            data-flat-control-toggle="true"
+            onClick={() => {
+              setIsControlBarOpen((wasOpen) => !wasOpen);
+            }}
+          />
+          {FLAT_PROTOTYPE_SECTION_CONTROLS.map((control) => (
+            <button
+              key={control.label}
+              type="button"
+              className={`flat-section-card__control ${control.modifierClassName ?? ""} ${control.iconClassName}`}
+              aria-label={control.label}
+            />
+          ))}
+        </nav>
+      </header>
       {callableName ? (
         <input
           aria-label="Callable function name"
@@ -309,14 +311,20 @@ function FlatPrototypeCard({
         <FlatPrototypeActionBar id={controlBarId} label={controlLabel} />
       ) : null}
       {ports.length > 0 ? (
-        <>
+        <section
+          className="flat-section-card__ports-area"
+          data-flat-shell-strip="ports"
+        >
           <FlatPrototypePortList ports={ports} side="in" />
           <FlatPrototypePortList ports={ports} side="out" />
-        </>
+        </section>
       ) : null}
       <ol className="flat-section-card__rows">
-        {positionedRows.map((row, index) => (
-          <FlatPrototypeRowItem key={`${row.keyLabel}-${index}`} row={row} />
+        {renderedRows.map((row, index) => (
+          <FlatPrototypeRowItem
+            key={`${row.zone}-${row.keyLabel}-${index}`}
+            row={row}
+          />
         ))}
       </ol>
     </section>
@@ -365,16 +373,11 @@ function FlatPrototypePortList({
       className={`flat-section-card__ports flat-section-card__ports--${side}`}
       data-flat-port-label={side === "in" ? "IN" : "OUT"}
     >
-      {sidePorts.map((port, index) => (
+      {sidePorts.map((port) => (
         <li
           key={port.id}
           className="flat-section-card__port"
           data-flat-port-id={port.id}
-          style={
-            {
-              "--flat-port-top": `${25 + index * 29}px`,
-            } satisfies FlatPrototypeStyle
-          }
         >
           {port.label}
         </li>
@@ -383,7 +386,7 @@ function FlatPrototypePortList({
   );
 }
 
-function FlatPrototypeRowItem({ row }: { row: FlatPrototypePositionedRow }) {
+function FlatPrototypeRowItem({ row }: { row: FlatPrototypeRenderedRow }) {
   const depth = row.depth ?? 0;
   const emphasis = row.emphasis ?? "required";
   const valueWithTrailing =
@@ -394,16 +397,17 @@ function FlatPrototypeRowItem({ row }: { row: FlatPrototypePositionedRow }) {
     "--flat-rail-left": `${(Math.max(depth - 1, 0) * ROW_INDENT_REM + RAIL_BASE_REM).toFixed(4)}rem`,
     "--flat-row-height": `${row.height}px`,
     "--flat-row-indent": `${depth * ROW_INDENT_REM}rem`,
-    "--flat-row-top": `${row.top}px`,
   } satisfies FlatPrototypeStyle;
 
   return (
     <li
       className="flat-section-card__row"
       data-flat-row-divider={row.hasDivider}
+      data-flat-row-depth={depth}
       data-flat-row-emphasis={emphasis}
       data-flat-row-key={row.keyLabel}
-      data-flat-row-depth={depth}
+      data-flat-row-zone={row.zone}
+      data-flat-row-zone-end={row.isZoneEnd}
       style={rowStyle}
     >
       <b>{row.keyLabel}</b>
@@ -424,7 +428,6 @@ export function FlatCallableSectionPrototype({
       kind="callable"
       pinnedRows={CALLABLE_PINNED_ROWS}
       ports={CALLABLE_PORTS}
-      rowStart={168}
       rows={CALLABLE_ROWS}
       theme={theme}
       title="rank_items"
@@ -442,7 +445,6 @@ export function FlatDictSectionPrototype({
       controlsInitiallyOpen={controlsInitiallyOpen}
       kind="dict"
       pinnedRows={DICT_PINNED_ROWS}
-      rowStart={33}
       rows={DICT_ROWS}
       theme={theme}
       title="workspace_profile"

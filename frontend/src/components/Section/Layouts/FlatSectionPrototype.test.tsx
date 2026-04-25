@@ -30,7 +30,6 @@ describe("FlatSectionPrototype", () => {
       (markup.match(/data-flat-preview-theme="light"/g) ?? []).length,
     ).toBe(2);
     expect(markup).toContain('data-flat-section-type-menu="true"');
-    expect(markup).toContain("--flat-action-h:0px");
     expect(markup).toContain("rank_items");
     expect(markup).toContain("builtins.sorted");
     expect(markup).toContain("workspace_profile");
@@ -42,8 +41,9 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('aria-label="Close section"');
     expect(markup).toContain('data-flat-control-toggle="true"');
     expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toContain("flat-section-card__control gg-lock");
-    expect(markup).not.toContain("<header");
+    expect(markup).toContain("flat-section-card__control--lock gg-lock");
+    expect(markup).toContain("flat-section-card__controls");
+    expect(markup).toContain("<header");
     expect(markup).not.toContain("grid");
     expect(markup).not.toContain("rounded");
     expect(markup).not.toContain("shadow");
@@ -70,22 +70,24 @@ describe("FlatSectionPrototype", () => {
     expect(divCount).toBe(0);
     expect(spanCount).toBe(0);
     expect(iconElementCount).toBe(0);
-    expect(navCount).toBe(0);
-    expect(sectionCount).toBe(1);
+    expect(navCount).toBe(1);
+    expect(sectionCount).toBe(2);
     expect(olCount).toBe(3);
     expect(liCount).toBe(7);
     expect(rowCount).toBe(4);
-    expect(markup).not.toContain('data-flat-shell-strip="ports"');
+    expect(markup).toContain('data-flat-shell-strip="ports"');
     expect(markup).toContain('data-flat-row-emphasis="edge"');
     expect(markup).toContain('data-flat-row-emphasis="required"');
     expect(markup).toContain('data-flat-row-emphasis="optional"');
     expect(markup).toContain('data-flat-row-divider="true"');
+    expect(markup).toContain('data-flat-row-zone="pinned"');
+    expect(markup).toContain('data-flat-row-zone="body"');
+    expect(markup).toContain('data-flat-row-zone-end="true"');
     expect(markup).toContain('data-flat-port-id="items"');
     expect(markup).toContain('data-flat-port-id="result"');
     expect(markup).toContain("flat-section-card__callable");
     expect(markup).toContain("flat-section-card__rows");
     expect(markup).toContain("flat-section-card__row");
-    expect(markup).toContain("--flat-row-top:168px");
     expect(markup).toContain("--flat-row-height:45px");
     expect(markup).toContain("--flat-row-indent:0rem");
     expect(markup).toContain('data-flat-port-label="IN"');
@@ -107,7 +109,6 @@ describe("FlatSectionPrototype", () => {
 
     expect(markup).toContain('aria-expanded="true"');
     expect(markup).toContain('data-flat-controls-open="true"');
-    expect(markup).toContain("--flat-action-h:36px");
     expect(markup).toContain("flat-section-card__actions");
     expect(markup).toContain('data-flat-control="column-resize"');
     expect(markup).toContain('value="filter"');
@@ -128,7 +129,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-row-depth="1"');
     expect(markup).toContain("--flat-rail-left:1.1875rem");
     expect(markup).toContain("--flat-row-indent:0.875rem");
-    expect(markup).toContain("--flat-row-top:107px");
+    expect(markup).toContain('data-flat-row-zone="body"');
     expect(sectionCount).toBe(1);
     expect(markup).not.toContain("--flat-rail-width");
     expect(markup).not.toContain("<span");
@@ -136,13 +137,13 @@ describe("FlatSectionPrototype", () => {
 
   it("moves passive dividers and containment into shared CSS", () => {
     expect(css).toContain("contain: layout style");
-    expect(css).toContain(".flat-section-card--callable");
-    expect(css).toContain("linear-gradient(var(--flat-border-strong)");
+    expect(css).toContain("flat-section-card__controls");
+    expect(css).toContain("background-image: linear-gradient");
     expect(css).toContain("content: attr(data-flat-port-label)");
-    expect(css).toContain(
-      "top: calc(var(--flat-row-top) + var(--flat-action-h))",
-    );
+    expect(css).toContain("display: flex");
+    expect(css).toContain("position: relative");
     expect(css).not.toContain("display: grid");
     expect(css).not.toContain("grid-template");
+    expect(css).not.toContain("--flat-row-top");
   });
 });
