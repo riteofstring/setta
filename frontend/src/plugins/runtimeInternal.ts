@@ -13,6 +13,7 @@ import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   PluginListEntry,
+  PluginRuntimeResponse,
   PluginRuntimeStateEnum,
   PluginStatusEntry,
   SectionDependencyKey,
@@ -224,6 +225,10 @@ type LoadPluginFrontendResult = {
   registryDelta: PluginRegistryAccumulator | null;
 };
 
+type WatchCodeCapabilities = NonNullable<
+  PluginRuntimeResponse["featureCapabilities"]
+>["watchCode"];
+
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
@@ -285,6 +290,49 @@ export function shouldLoadPluginFrontend(
     statusEntry.state === PluginRuntimeStateEnum.active ||
     statusEntry.state === PluginRuntimeStateEnum.pending_restart
   );
+}
+
+export function shouldLoadPluginFrontendForFeatureSelection({
+  pluginId,
+  statusEntry,
+  watchCodeCapabilities,
+}: {
+  pluginId: string;
+  statusEntry: PluginStatusEntry | undefined;
+  watchCodeCapabilities?: WatchCodeCapabilities | null;
+}): boolean {
+  if (!shouldLoadPluginFrontend(statusEntry)) {
+    return false;
+  }
+  return !isUnavailableWatchCodeProviderFrontendCandidate(
+    pluginId,
+    watchCodeCapabilities,
+  );
+}
+
+function isUnavailableWatchCodeProviderFrontendCandidate(
+  pluginId: string,
+  watchCodeCapabilities?: WatchCodeCapabilities | null,
+): boolean {
+  const providerSelection = watchCodeCapabilities?.providerSelection;
+  if (!providerSelection) {
+    return false;
+  }
+  const selectedPluginId = providerSelection.selectedPluginId?.trim() ?? "";
+  if (
+    providerSelection.status === "active" &&
+    selectedPluginId !== "" &&
+    selectedPluginId === pluginId
+  ) {
+    return false;
+  }
+  return [
+    providerSelection.activePluginIds,
+    providerSelection.conflictingPluginIds,
+    providerSelection.disabledPluginIds,
+    providerSelection.invalidPluginIds,
+    providerSelection.pendingRestartPluginIds,
+  ].some((candidates) => candidates?.includes(pluginId));
 }
 
 export async function runWithConcurrencyLimit<T>(

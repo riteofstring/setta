@@ -141,26 +141,6 @@ func Build() (GeneratedConstants, error) {
 			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
 		},
 		{
-			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA",
-			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeGetProjectData),
-		},
-		{
-			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_SET_ENABLED",
-			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetEnabled),
-		},
-		{
-			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS",
-			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetInputs),
-		},
-		{
-			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_READ_SETTING",
-			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeReadSetting),
-		},
-		{
-			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_WRITE_SETTING",
-			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeWriteSetting),
-		},
-		{
 			Name:       "DEPLOYMENT_LISTENER_READY_SENTINEL",
 			PythonExpr: pythonStringLiteral(deployments.DeploymentListenerReadySentinel),
 		},

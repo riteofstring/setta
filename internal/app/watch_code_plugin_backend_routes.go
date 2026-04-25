@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -29,6 +30,19 @@ type watchCodeBackendRouteHost struct {
 	watchCodeCapabilities *watchCodeCapabilityState
 	websocketHub          *realtime.WebsocketHub
 	workspaceRoot         string
+}
+
+type watchCodeBackendSetEnabledPayload struct {
+	ProjectConfigID string  `json:"projectConfigId"`
+	Enabled         *bool   `json:"enabled"`
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+}
+
+type watchCodeBackendSetInputsPayload struct {
+	ProjectConfigID  string                          `json:"projectConfigId"`
+	WatchCodeFolders *[]projectstate.WatchCodeFolder `json:"watchCodeFolders"`
+	WatchCodeFiles   *[]string                       `json:"watchCodeFiles"`
+	FrontendOpID     *string                         `json:"frontendOpId,omitempty"`
 }
 
 func newWatchCodeBackendRouteHost(
@@ -64,15 +78,11 @@ func (h watchCodeBackendRouteHost) intercept(
 		return watchCodeBackendErrorResponse(http.StatusInternalServerError, watchCodeBackendErrorInternal, "workspace root is required", nil), true, nil
 	}
 
-	payload, response, ok := decodeWatchCodeBackendPayload(request.Body)
-	if !ok {
-		return response, true, nil
-	}
 	switch route {
 	case "enabled":
-		return h.handleSetEnabled(ctx, request.Context.ShareSessionID, providerPluginID, payload)
+		return h.handleSetEnabled(ctx, request.Context.ShareSessionID, providerPluginID, request.Body)
 	case "inputs":
-		return h.handleSetInputs(ctx, request.Context.ShareSessionID, providerPluginID, payload)
+		return h.handleSetInputs(ctx, request.Context.ShareSessionID, providerPluginID, request.Body)
 	default:
 		return plugins.BackendHTTPResponse{}, false, nil
 	}
@@ -171,30 +181,30 @@ func (h watchCodeBackendRouteHost) handleSetEnabled(
 	ctx context.Context,
 	shareSessionID string,
 	providerPluginID string,
-	payload map[string]json.RawMessage,
+	body []byte,
 ) (plugins.BackendHTTPResponse, bool, error) {
-	projectID, response, ok := requiredWatchCodeBackendString(payload, "projectConfigId", watchCodeBackendErrorProjectConfigIDRequired, "Project config id is required.")
+	payload, response, ok := decodeWatchCodeBackendRequest[watchCodeBackendSetEnabledPayload](
+		body,
+		watchCodeBackendErrorInvalidRequest,
+		"Invalid Watch Code enabled request.",
+	)
 	if !ok {
 		return response, true, nil
 	}
-	enabledRaw, ok := payload["enabled"]
-	if !ok {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "enabled must be a boolean.", nil), true, nil
-	}
-	var enabled bool
-	if err := json.Unmarshal(enabledRaw, &enabled); err != nil {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "enabled must be a boolean.", nil), true, nil
-	}
-	frontendOpID, response, ok := optionalWatchCodeBackendString(payload, "frontendOpId")
+	projectID, response, ok := requiredWatchCodeBackendPayloadString(payload.ProjectConfigID, watchCodeBackendErrorProjectConfigIDRequired, "Project config id is required.")
 	if !ok {
 		return response, true, nil
 	}
+	if payload.Enabled == nil {
+		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "enabled must be a boolean.", nil), true, nil
+	}
+	frontendOpID := optionalWatchCodeBackendPayloadString(payload.FrontendOpID)
 
 	snapshot, err := h.projectState.SetWatchCodeEnabled(
 		watchCodeBackendMutationContext(ctx, frontendOpID),
 		providerPluginID,
 		projectID,
-		enabled,
+		*payload.Enabled,
 		h.workspaceRoot,
 	)
 	if err != nil {
@@ -210,39 +220,34 @@ func (h watchCodeBackendRouteHost) handleSetInputs(
 	ctx context.Context,
 	shareSessionID string,
 	providerPluginID string,
-	payload map[string]json.RawMessage,
+	body []byte,
 ) (plugins.BackendHTTPResponse, bool, error) {
-	projectID, response, ok := requiredWatchCodeBackendString(payload, "projectConfigId", watchCodeBackendErrorProjectConfigIDRequired, "Project config id is required.")
+	payload, response, ok := decodeWatchCodeBackendRequest[watchCodeBackendSetInputsPayload](
+		body,
+		watchCodeBackendErrorInvalidWatchCodeInput,
+		"Invalid Watch Code input.",
+	)
 	if !ok {
 		return response, true, nil
 	}
-	foldersRaw, ok := payload["watchCodeFolders"]
-	if !ok || !jsonRawStartsWith(foldersRaw, '[') {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "watchCodeFolders must be an array of objects.", nil), true, nil
-	}
-	var folders []projectstate.WatchCodeFolder
-	if err := json.Unmarshal(foldersRaw, &folders); err != nil {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "watchCodeFolders must be an array of objects.", nil), true, nil
-	}
-	filesRaw, ok := payload["watchCodeFiles"]
-	if !ok || !jsonRawStartsWith(filesRaw, '[') {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "watchCodeFiles must be an array of strings.", nil), true, nil
-	}
-	var files []string
-	if err := json.Unmarshal(filesRaw, &files); err != nil {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "watchCodeFiles must be an array of strings.", nil), true, nil
-	}
-	frontendOpID, response, ok := optionalWatchCodeBackendString(payload, "frontendOpId")
+	projectID, response, ok := requiredWatchCodeBackendPayloadString(payload.ProjectConfigID, watchCodeBackendErrorProjectConfigIDRequired, "Project config id is required.")
 	if !ok {
 		return response, true, nil
 	}
+	if payload.WatchCodeFolders == nil {
+		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "watchCodeFolders must be an array of objects.", nil), true, nil
+	}
+	if payload.WatchCodeFiles == nil {
+		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "watchCodeFiles must be an array of strings.", nil), true, nil
+	}
+	frontendOpID := optionalWatchCodeBackendPayloadString(payload.FrontendOpID)
 
 	snapshot, err := h.projectState.SetWatchCodeInputs(
 		watchCodeBackendMutationContext(ctx, frontendOpID),
 		providerPluginID,
 		projectID,
-		folders,
-		files,
+		*payload.WatchCodeFolders,
+		*payload.WatchCodeFiles,
 		h.workspaceRoot,
 	)
 	if err != nil {
@@ -298,50 +303,65 @@ func parseWatchCodeBackendRoutePath(path string) (string, string, bool) {
 	return pluginID, suffix, true
 }
 
-func decodeWatchCodeBackendPayload(body []byte) (map[string]json.RawMessage, plugins.BackendHTTPResponse, bool) {
+func decodeWatchCodeBackendRequest[T any](
+	body []byte,
+	decodeErrorCode string,
+	decodeErrorMessage string,
+) (T, plugins.BackendHTTPResponse, bool) {
+	var payload T
 	trimmed := bytes.TrimSpace(body)
 	if len(trimmed) == 0 {
-		return map[string]json.RawMessage{}, plugins.BackendHTTPResponse{}, true
+		trimmed = []byte("{}")
 	}
-	var payload map[string]json.RawMessage
-	if err := json.Unmarshal(trimmed, &payload); err != nil {
-		return nil, watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidJSON, "Invalid JSON payload.", nil), false
+	if !bytes.HasPrefix(trimmed, []byte("{")) {
+		return payload, watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "JSON payload must be an object.", nil), false
 	}
-	if payload == nil {
-		return nil, watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "JSON payload must be an object.", nil), false
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		code := decodeErrorCode
+		message := decodeErrorMessage
+		if isWatchCodeBackendJSONSyntaxError(err) {
+			code = watchCodeBackendErrorInvalidJSON
+			message = "Invalid JSON payload."
+		} else if message == "" {
+			message = err.Error()
+		} else {
+			message = message + " " + err.Error()
+		}
+		return payload, watchCodeBackendErrorResponse(http.StatusBadRequest, code, message, nil), false
+	}
+	var trailing struct{}
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return payload, watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidJSON, "Invalid JSON payload.", nil), false
 	}
 	return payload, plugins.BackendHTTPResponse{}, true
 }
 
-func requiredWatchCodeBackendString(
-	payload map[string]json.RawMessage,
-	key string,
+func isWatchCodeBackendJSONSyntaxError(err error) bool {
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &syntaxErr) {
+		return true
+	}
+	return errors.Is(err, io.ErrUnexpectedEOF)
+}
+
+func requiredWatchCodeBackendPayloadString(
+	value string,
 	code string,
 	message string,
 ) (string, plugins.BackendHTTPResponse, bool) {
-	value, response, ok := optionalWatchCodeBackendString(payload, key)
-	if !ok {
-		return "", response, false
-	}
 	if strings.TrimSpace(value) == "" {
 		return "", watchCodeBackendErrorResponse(http.StatusBadRequest, code, message, nil), false
 	}
 	return strings.TrimSpace(value), plugins.BackendHTTPResponse{}, true
 }
 
-func optionalWatchCodeBackendString(
-	payload map[string]json.RawMessage,
-	key string,
-) (string, plugins.BackendHTTPResponse, bool) {
-	raw, ok := payload[key]
-	if !ok || string(bytes.TrimSpace(raw)) == "null" {
-		return "", plugins.BackendHTTPResponse{}, true
+func optionalWatchCodeBackendPayloadString(value *string) string {
+	if value == nil {
+		return ""
 	}
-	var value string
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return "", watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, key+" must be a string when provided.", nil), false
-	}
-	return value, plugins.BackendHTTPResponse{}, true
+	return *value
 }
 
 func watchCodeBackendMutationContext(ctx context.Context, frontendOpID string) context.Context {
@@ -351,19 +371,20 @@ func watchCodeBackendMutationContext(ctx context.Context, frontendOpID string) c
 	return projectstate.ContextWithFrontendOpID(ctx, frontendOpID)
 }
 
-func jsonRawStartsWith(raw json.RawMessage, char byte) bool {
-	trimmed := bytes.TrimSpace(raw)
-	return len(trimmed) > 0 && trimmed[0] == char
-}
-
 func decodeWatchCodeUISettingValue[T any](value any) (T, error) {
 	var result T
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return result, err
 	}
-	if err := json.Unmarshal(raw, &result); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&result); err != nil {
 		return result, err
+	}
+	var trailing struct{}
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return result, errors.New("watch code setting value must contain a single JSON value")
 	}
 	return result, nil
 }

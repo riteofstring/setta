@@ -39,7 +39,7 @@ import {
   runPluginCleanup,
   runWithConcurrencyLimit,
   setPluginFrontendSignature,
-  shouldLoadPluginFrontend,
+  shouldLoadPluginFrontendForFeatureSelection,
 } from "./runtimeInternal";
 import {
   comparePluginCanvasControls,
@@ -337,7 +337,11 @@ async function applyPluginRuntimeResponse(
     previousState.sectionKindsByKey,
   );
   const frontendLoadCandidates = listData.plugins.filter((plugin) =>
-    shouldLoadPluginFrontend(pluginStatusById[plugin.pluginId]),
+    shouldLoadPluginFrontendForFeatureSelection({
+      pluginId: plugin.pluginId,
+      statusEntry: pluginStatusById[plugin.pluginId],
+      watchCodeCapabilities,
+    }),
   );
   const frontendLoadCandidateIds = new Set(
     frontendLoadCandidates.map((plugin) => plugin.pluginId),

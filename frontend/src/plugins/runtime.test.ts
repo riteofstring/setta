@@ -35,6 +35,7 @@ import {
   loadPluginFrontendModule,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,
+  shouldLoadPluginFrontendForFeatureSelection,
 } from "plugins/runtimeInternal";
 import {
   computePluginSectionFallbackReason,
@@ -251,6 +252,25 @@ function buildRuntimeEndpointResponse(
     response: new Response(null, { status: 200 }),
   };
 }
+function buildRuntimeEndpointResponseWithWatchCode(
+  list: PluginListResponse,
+  status: PluginStatusResponse,
+  watchCode: NonNullable<
+    PluginRuntimeResponse["featureCapabilities"]
+  >["watchCode"],
+): Awaited<ReturnType<typeof openAPI.getPluginsRuntime>> {
+  const response = buildRuntimeEndpointResponse(list, status);
+  const data = response.data as PluginRuntimeResponse;
+  return {
+    ...response,
+    data: {
+      ...data,
+      featureCapabilities: {
+        watchCode,
+      },
+    },
+  };
+}
 function buildRuntimeRequestFailure(
   status: number,
 ): Awaited<ReturnType<typeof openAPI.getPluginsRuntime>> {
@@ -306,6 +326,17 @@ function buildUnavailableWatchCodeCapabilities(): NonNullable<
     python: false,
     requiresLanguageServer: false,
     canvasControlsUi: false,
+  };
+}
+
+function buildWatchCodeCapabilities(
+  overrides: Partial<
+    NonNullable<PluginRuntimeResponse["featureCapabilities"]>["watchCode"]
+  >,
+): NonNullable<PluginRuntimeResponse["featureCapabilities"]>["watchCode"] {
+  return {
+    ...buildUnavailableWatchCodeCapabilities(),
+    ...overrides,
   };
 }
 
@@ -717,10 +748,12 @@ describe("plugin runtime helpers", () => {
         callCount: number;
       };
       __settaRevealHandlerSpy?: (...args: unknown[]) => unknown;
+      __settaWatchCodeRegisterCalls?: number;
     };
     delete globalScope.__settaCapturedPluginHost;
     delete globalScope.__settaCleanupProbe;
     delete globalScope.__settaRevealHandlerSpy;
+    delete globalScope.__settaWatchCodeRegisterCalls;
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-after-each";
       state.projectConfig.activeIds = [];
@@ -1169,6 +1202,177 @@ describe("plugin runtime helpers", () => {
     expect(control?.label).toBe("Project First");
     expect(control?.placement).toBe("project");
     expect(control?.order).toBe(10);
+  });
+  it("suppresses pending-restart Watch Code provider frontend side effects", async () => {
+    const pluginId = "setta-watch-code";
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaWatchCodeRegisterCalls = (globalThis.__settaWatchCodeRegisterCalls ?? 0) + 1;\n" +
+          "  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', placement: 'project', renderer: { mount() {} } });\n" +
+          "  host.registerSettingRevealHandler('watch-code-settings', () => true);\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      pluginId,
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: [
+        "registerCanvasControl",
+        "registerSettingRevealHandler",
+      ],
+    });
+    const status = buildPluginStatusEntry({
+      pluginId,
+      state: PluginRuntimeStateEnum.pending_restart,
+      effectiveCapabilities: plugin.effectiveCapabilities,
+    });
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponseWithWatchCode(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([status]),
+        buildWatchCodeCapabilities({
+          providerSelection: {
+            status: "pending_restart",
+            selectedPluginId: null,
+            activePluginIds: [],
+            pendingRestartPluginIds: [pluginId],
+            disabledPluginIds: [],
+            invalidPluginIds: [],
+            conflictingPluginIds: [],
+          },
+          pluginId: "",
+          pluginEnabled: false,
+        }),
+      ),
+    );
+
+    await refreshPluginRuntime();
+
+    const state = usePluginRuntimeStore.getState();
+    expect(state.canvasControlsByPluginId[pluginId]).toBeUndefined();
+    expect(state.sortedCanvasControls).toHaveLength(0);
+    expect(
+      (globalThis as { __settaWatchCodeRegisterCalls?: number })
+        .__settaWatchCodeRegisterCalls,
+    ).toBeUndefined();
+    await expect(
+      invokePluginSettingRevealHandler({
+        pluginId,
+        revealKey: "watch-code-settings",
+        settingId: `plugin::${pluginId}::enabled`,
+        paneId: null,
+        durationMs: 1000,
+        abortSignal: new AbortController().signal,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      message: `Plugin ${pluginId} has no setting reveal handlers.`,
+    });
+  });
+  it("suppresses conflicting Watch Code provider frontend controls and keeps the selected provider active", async () => {
+    const registerModuleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', placement: 'project', renderer: { mount() {} } });\n" +
+          "  host.registerSettingRevealHandler('watch-code-settings', () => true);\n" +
+          "}\n",
+      );
+    const capabilities = [
+      "registerCanvasControl",
+      "registerSettingRevealHandler",
+    ];
+    const firstPlugin = buildPluginListEntry({
+      pluginId: "setta-watch-code-a",
+      frontend: {
+        entrypointUrl: registerModuleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: capabilities,
+    });
+    const secondPlugin = buildPluginListEntry({
+      pluginId: "setta-watch-code-b",
+      frontend: {
+        entrypointUrl: registerModuleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: capabilities,
+    });
+    const firstStatus = buildPluginStatusEntry({
+      pluginId: firstPlugin.pluginId,
+      effectiveCapabilities: capabilities,
+    });
+    const secondStatus = buildPluginStatusEntry({
+      pluginId: secondPlugin.pluginId,
+      effectiveCapabilities: capabilities,
+    });
+    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
+      buildRuntimeEndpointResponseWithWatchCode(
+        buildPluginListResponse([firstPlugin, secondPlugin]),
+        buildPluginStatusResponse([firstStatus, secondStatus]),
+        buildWatchCodeCapabilities({
+          providerSelection: {
+            status: "provider_conflict",
+            selectedPluginId: null,
+            activePluginIds: [firstPlugin.pluginId, secondPlugin.pluginId],
+            pendingRestartPluginIds: [],
+            disabledPluginIds: [],
+            invalidPluginIds: [],
+            conflictingPluginIds: [firstPlugin.pluginId, secondPlugin.pluginId],
+          },
+          pluginId: "",
+          pluginEnabled: false,
+        }),
+      ),
+    );
+
+    await refreshPluginRuntime();
+
+    expect(usePluginRuntimeStore.getState().sortedCanvasControls).toHaveLength(
+      0,
+    );
+
+    vi.mocked(openAPI.getPluginsRuntime).mockImplementation(async () =>
+      buildRuntimeEndpointResponseWithWatchCode(
+        buildPluginListResponse([firstPlugin, secondPlugin]),
+        buildPluginStatusResponse([
+          firstStatus,
+          buildPluginStatusEntry({
+            pluginId: secondPlugin.pluginId,
+            state: PluginRuntimeStateEnum.disabled,
+            effectiveCapabilities: [],
+          }),
+        ]),
+        buildWatchCodeCapabilities({
+          providerSelection: {
+            status: "active",
+            selectedPluginId: firstPlugin.pluginId,
+            activePluginIds: [firstPlugin.pluginId],
+            pendingRestartPluginIds: [],
+            disabledPluginIds: [secondPlugin.pluginId],
+            invalidPluginIds: [],
+            conflictingPluginIds: [],
+          },
+          pluginId: firstPlugin.pluginId,
+          pluginEnabled: true,
+          python: true,
+          canvasControlsUi: true,
+        }),
+      ),
+    );
+
+    await refreshPluginRuntime();
+
+    const controls = usePluginRuntimeStore.getState().sortedCanvasControls;
+    expect(controls).toHaveLength(1);
+    expect(controls[0]?.pluginId).toBe(firstPlugin.pluginId);
+    expect(controls[0]?.id).toBe("watch-code");
   });
   it("rejects section-kind registration when capability is not effective", async () => {
     const moduleUrl =
@@ -4553,6 +4757,48 @@ describe("plugin runtime helpers", () => {
         buildPluginStatusEntry({ state: PluginRuntimeStateEnum.invalid }),
       ),
     ).toBe(false);
+  });
+  it("does not load unavailable Watch Code provider frontends", () => {
+    expect(
+      shouldLoadPluginFrontendForFeatureSelection({
+        pluginId: "setta-watch-code",
+        statusEntry: buildPluginStatusEntry({
+          pluginId: "setta-watch-code",
+          state: PluginRuntimeStateEnum.pending_restart,
+        }),
+        watchCodeCapabilities: buildWatchCodeCapabilities({
+          providerSelection: {
+            status: "pending_restart",
+            selectedPluginId: null,
+            activePluginIds: [],
+            pendingRestartPluginIds: ["setta-watch-code"],
+            disabledPluginIds: [],
+            invalidPluginIds: [],
+            conflictingPluginIds: [],
+          },
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldLoadPluginFrontendForFeatureSelection({
+        pluginId: "setta-watch-code",
+        statusEntry: buildPluginStatusEntry({
+          pluginId: "setta-watch-code",
+          state: PluginRuntimeStateEnum.active,
+        }),
+        watchCodeCapabilities: buildWatchCodeCapabilities({
+          providerSelection: {
+            status: "active",
+            selectedPluginId: "setta-watch-code",
+            activePluginIds: ["setta-watch-code"],
+            pendingRestartPluginIds: [],
+            disabledPluginIds: [],
+            invalidPluginIds: [],
+            conflictingPluginIds: [],
+          },
+        }),
+      }),
+    ).toBe(true);
   });
   it("returns section_kind_missing fallback when plugin is active but kind is not registered", () => {
     usePluginRuntimeStore.setState({

@@ -149,26 +149,6 @@ func TestBuildIncludesGoOwnedAppSubsystemBackendContract(t *testing.T) {
 			"LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE = %s",
 			pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
 		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeGetProjectData),
-		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_SET_ENABLED = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetEnabled),
-		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetInputs),
-		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_READ_SETTING = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeReadSetting),
-		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_WRITE_SETTING = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeWriteSetting),
-		),
 	}
 	for _, snippet := range expectedSnippets {
 		if !strings.Contains(generated.PythonModule, snippet) {

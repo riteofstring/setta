@@ -3,10 +3,10 @@
 ## Recurring Subsystem Invariant Matrix
 
 ### Watch Code Plugin Mutations
-- Invariant: Watch Code plugin routes and backend UI settings may keep plugin-owned public surfaces, but provider-owned Watch Code settings must fail closed unless exactly one probed provider is active, and accepted live mutations must write through the app-owned Go runtime so persisted state, live snapshots, websocket updates, frontend op status, Watch Code service config, and ignored-root policy share one canonical writer.
-- Last finding commit: 83049c7b9c80a423262e5085d0e9c3f72ef0ff56
-- Proof tests: `TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForPendingRestartProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsDuringProviderConflict`; `TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime`; `TestBuildPluginBackendRuntimeEntryReturnsBackendNormalizedValue`
-- Still unverified: Browser/CDP flow not run; no visual UI behavior changed.
+- Invariant: Watch Code plugin routes and backend UI settings may keep plugin-owned public surfaces, but provider-owned Watch Code settings must fail closed unless exactly one probed provider is active; accepted live mutations must pass strict owner decoding and write through the app-owned Go runtime so persisted state, live snapshots, websocket updates, frontend op status, Watch Code service config, and ignored-root policy share one canonical writer.
+- Last finding commit: a1f566beb5a4e34b2675bdbbe4f8a2a9132914d6
+- Proof tests: `TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave`; `TestAppWatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation`; `TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime`; `TestAppIDEMCPToolCallRouteRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForPendingRestartProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsDuringProviderConflict`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`
+- Still unverified: Browser/CDP flow not run; no rendered UI behavior changed.
 
 ### Watch Code Provider Registry
 - Invariant: When an active Watch Code provider exists, project mutations that can change callable membership must update the provider's pluginData registry in the same document revision; providerless project paths must not recreate core Watch Code fields.
@@ -21,16 +21,16 @@
 - Still unverified: No new dedicated shutdown-count test was added in this iteration.
 
 ### Generic Plugin Canvas Controls
-- Invariant: Canvas-control ordering has one shared comparator for placement, order, label, plugin ID, and control ID so registration-time and runtime-store sorting cannot drift.
-- Last finding commit: 0317ff3f3ff9a601f43097511f5a85e0b32337c0
+- Invariant: Canvas-control ordering has one shared comparator for placement, order, label, plugin ID, and control ID so registration-time and runtime-store sorting cannot drift; feature-provider frontends that are pending restart, conflicting, disabled, invalid, or non-selected must not run registration side effects for controls or setting reveal handlers.
+- Last finding commit: a1f566beb5a4e34b2675bdbbe4f8a2a9132914d6
 - Proof tests: `frontend/src/plugins/runtime.test.ts`
-- Still unverified: Browser/CDP visual check not run; comparator behavior is non-visual and covered by unit tests.
+- Still unverified: Browser/CDP visual check not run; registration gating is covered by runtime unit tests.
 
 ### Extracted Watch Code Surface Contracts
-- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, and `plugin::<provider>::*` settings; stale core route names, core selectors, compatibility aliases, and superseded CAS-shaped Watch Code mutation shims stay deleted.
-- Last finding commit: 83049c7b9c80a423262e5085d0e9c3f72ef0ff56
-- Proof tests: `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; Go build coverage after deleting `CompareAndSetWatchCode*` and `Project.SetWatchCode*`
-- Still unverified: Updated Playwright spec was not rerun in this iteration because no visual UI behavior changed.
+- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, and `plugin::<provider>::*` settings; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, and generated local-core command constants stay deleted.
+- Last finding commit: a1f566beb5a4e34b2675bdbbe4f8a2a9132914d6
+- Proof tests: `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; `tests/start/test_packaged_distribution.py`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, and Watch Code local-core commands.
+- Still unverified: Updated Playwright spec was not rerun in this iteration because no rendered UI behavior changed.
 
 ### UI Settings Core Registry API
 - Invariant: Core UI-setting registry construction should expose only behavior it actually supports; empty option structs and `WithOptions` constructors must not be retained as speculative future plumbing.
@@ -104,3 +104,33 @@ Residual risks / verification gaps:
 - Browser/CDP visual verification was not run; no visual UI behavior changed.
 - `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.
 - Full `./scripts/go.sh test ./internal/httpapi` failed in unrelated deployment-overlay project-route tests and terminal-route timeout tests; focused HTTP UI-setting tests passed.
+
+## 2026-04-25 22:47:35 PDT
+
+Fixes applied:
+- Made app-owned Watch Code plugin routes and backend UI-setting writes reject unsupported folder fields before mutating live or persisted provider plugin data.
+- Suppressed Watch Code provider frontend registration side effects unless provider selection reports that plugin as the active selected provider.
+- Removed the duplicate Python/local-core Watch Code mutation backend, generated local-core Watch Code command constants, packaged runtime module entry, and stale extracted helper clones.
+- Left the plugin-owned Watch Code route/UI-setting declarations in place; the generic Python backend runtime now fails closed with a Go-host-required error.
+
+Tests added or upgraded:
+- Added app route and MCP UI-setting regression tests proving strict folder decoding rejects unsupported properties without mutation.
+- Added frontend runtime tests for pending-restart provider suppression, provider-conflict suppression, and active selected-provider registration.
+- Updated Python plugin-runtime and packaged-distribution tests to assert fail-closed Watch Code runtime behavior and absence of the deleted local-core helper module.
+- Removed local-core Watch Code command tests for the deleted command surface.
+
+Verification run:
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `git diff --check`
+- `./scripts/go.sh test ./internal/app -run 'TestApp(WatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave|WatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation|IDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime|IDEMCPToolCallRouteRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation|IDEMCPToolCallRouteHidesWatchCodeUISettingsForUnavailableProvider)'`
+- `./scripts/go.sh test ./internal/pythonsdklocalcore ./internal/pythonsharedconstants ./internal/projectstate ./internal/mcpx -run 'TestRun|TestGenerate|TestScopedRegistryDoesNotExposeCoreWatchCodeSettings|TestServerSetUISettingValueRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation'`
+- `source activate.sh && pytest tests/plugin_runtime/test_local_core.py tests/plugin_runtime/test_watch_code_plugin_backend.py -q`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -k 'minimal_distribution_project_uses_packaged_runtime_modules or first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain' -q`
+- `pnpm -C frontend exec vitest run src/plugins/runtime.test.ts`
+
+Residual risks / verification gaps:
+- Browser/CDP visual verification was not run; no rendered layout or style flow changed, and affected provider-registration behavior is covered by runtime tests.
+- Playwright was not run in this iteration.
+- Full repo test suites beyond `./check_quality.sh` and the focused regression suite above were not run.
+- `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.

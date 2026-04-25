@@ -9296,6 +9296,81 @@ func TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave(t *
 	}
 }
 
+func TestAppWatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	const providerPluginID = "setta-watch-code"
+	installAppRepoPlugin(t, cfg, providerPluginID)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	initialRevision := app.ProjectStates().Main().Snapshot().Revision
+	response := postAppWatchCodePluginRoute(
+		t,
+		server.URL,
+		newAppTestAuthCookie(t, app),
+		providerPluginID,
+		"inputs",
+		`{"projectConfigId":"project-alpha","watchCodeFolders":[{"path":"pkg","recursive":true,"extra":"rejected"}],"watchCodeFiles":[]}`,
+	)
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read invalid inputs response: %v", err)
+	}
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected inputs route 400, got %d with body %q", response.StatusCode, string(body))
+	}
+	var payload struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode invalid inputs response: %v", err)
+	}
+	if payload.Error.Code != "invalid_watch_code_input" {
+		t.Fatalf("expected invalid_watch_code_input, got %q with body %q", payload.Error.Code, string(body))
+	}
+
+	liveSnapshot := app.ProjectStates().Main().Snapshot()
+	if liveSnapshot.Revision != initialRevision {
+		t.Fatalf("expected rejected Watch Code route not to mutate revision %d, got %d", initialRevision, liveSnapshot.Revision)
+	}
+	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, liveSnapshot.Document, providerPluginID, "project-alpha")
+	if !liveProjectData.IsEmpty() {
+		t.Fatalf("expected live watch-code plugin data to remain empty, got %#v", liveProjectData)
+	}
+	persistedProjectData := readPersistedAppWatchCodePluginProjectDataForProvider(t, cfg, providerPluginID, "project-alpha")
+	if !persistedProjectData.IsEmpty() {
+		t.Fatalf("expected persisted watch-code plugin data to remain empty, got %#v", persistedProjectData)
+	}
+}
+
 func TestAppSetCallableRouteSyncsActiveWatchCodeProviderRegistry(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

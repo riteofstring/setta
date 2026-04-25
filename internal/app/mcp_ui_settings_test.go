@@ -332,6 +332,54 @@ func TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime(
 	}
 }
 
+func TestAppIDEMCPToolCallRouteRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	initialRevision := app.ProjectStates().Main().Snapshot().Revision
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	structuredContent, isError := postAppMCPToolCallRoute(t, client, server.URL, `{
+			"tool":"set_ui_setting_value",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"settingId":"plugin::setta-watch-code::folders",
+				"value":[{"path":"pkg","recursive":true,"extra":"rejected"}]
+			},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`)
+	if isError {
+		t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
+	}
+	setResult := mustStructuredMapValue(t, structuredContent)
+	if setResult["changed"] != false {
+		t.Fatalf("expected changed=false, got %#v", setResult["changed"])
+	}
+	errorResult := mustStructuredMapValue(t, setResult["error"])
+	if errorResult["code"] != "invalid_value_type" {
+		t.Fatalf("expected invalid_value_type, got %#v", errorResult)
+	}
+	if !strings.Contains(errorResult["message"].(string), "unsupported properties") {
+		t.Fatalf("expected unsupported properties message, got %#v", errorResult["message"])
+	}
+	assertAppWatchCodePluginDataUnchanged(t, cfg, app, firstPartyWatchCodePluginID, initialRevision)
+}
+
 func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppProviderEnabled(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

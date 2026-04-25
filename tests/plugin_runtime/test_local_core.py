@@ -4,9 +4,7 @@ from pathlib import Path
 import pytest
 from setta import __version__
 from setta import local_core_client as shared_local_core
-from setta import plugin_runtime
 from setta.plugin_runtime import app_subsystem
-from setta.plugin_runtime import watch_code
 from setta.runtime_compat import RuntimeCompatibilityError
 from setta.sdk_contracts.generated import SETTA_SDK_CONTRACT_VERSION
 from setta.types.generated.go_shared_constants import (
@@ -22,11 +20,6 @@ from setta.types.generated.go_shared_constants import (
     LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION,
     LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION,
     LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION,
-    LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA,
-    LOCAL_CORE_COMMAND_WATCH_CODE_READ_SETTING,
-    LOCAL_CORE_COMMAND_WATCH_CODE_SET_ENABLED,
-    LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS,
-    LOCAL_CORE_COMMAND_WATCH_CODE_WRITE_SETTING,
 )
 
 
@@ -304,82 +297,3 @@ def test_app_subsystem_endpoint_mapping_uses_go_owned_constants() -> None:
         )
     with pytest.raises(KeyError):
         app_subsystem.local_core_command_for_listener_endpoint("missing_endpoint")
-
-
-def test_watch_code_runtime_helper_uses_go_owned_local_core_commands(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: list[tuple[str, dict[str, object]]] = []
-
-    def _fake_run(command_name: str, payload: dict[str, object]) -> object:
-        captured.append((command_name, payload))
-        return {"command": command_name, "payload": payload}
-
-    monkeypatch.setattr(watch_code, "run_local_core_command_once", _fake_run)
-
-    assert watch_code.setting_id_for_read_handler(" read_enabled ") == "enabled"
-    assert watch_code.setting_id_for_write_handler("write_files") == "files"
-    with pytest.raises(KeyError):
-        watch_code.setting_id_for_read_handler("missing")
-
-    assert watch_code.get_project_data(
-        setta_files_root="/tmp/setta_files",
-        plugin_id="setta-fixture-watch-code",
-        project_config_id="project-alpha",
-    ) == {
-        "command": LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA,
-        "payload": {
-            "settaFilesRoot": "/tmp/setta_files",
-            "pluginId": "setta-fixture-watch-code",
-            "projectConfigId": "project-alpha",
-        },
-    }
-    assert watch_code.set_enabled(
-        setta_files_root="/tmp/setta_files",
-        workspace_root="/tmp/workspace",
-        plugin_id="setta-fixture-watch-code",
-        project_config_id="project-alpha",
-        enabled=True,
-        frontend_op_id="op-1",
-    )["command"] == LOCAL_CORE_COMMAND_WATCH_CODE_SET_ENABLED
-    assert watch_code.set_inputs(
-        setta_files_root="/tmp/setta_files",
-        workspace_root="/tmp/workspace",
-        plugin_id="setta-fixture-watch-code",
-        project_config_id="project-alpha",
-        watch_code_folders=[{"path": "pkg", "recursive": True}],
-        watch_code_files=["pkg/file.py"],
-    )["command"] == LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS
-    assert watch_code.read_setting(
-        setta_files_root="/tmp/setta_files",
-        plugin_id="setta-fixture-watch-code",
-        project_config_id="project-alpha",
-        setting_id="files",
-    )["command"] == LOCAL_CORE_COMMAND_WATCH_CODE_READ_SETTING
-    assert watch_code.write_setting(
-        setta_files_root="/tmp/setta_files",
-        workspace_root="/tmp/workspace",
-        plugin_id="setta-fixture-watch-code",
-        project_config_id="project-alpha",
-        setting_id="files",
-        value=["pkg/file.py"],
-    )["command"] == LOCAL_CORE_COMMAND_WATCH_CODE_WRITE_SETTING
-
-    set_inputs_payload = captured[2][1]
-    assert set_inputs_payload == {
-        "settaFilesRoot": "/tmp/setta_files",
-        "workspaceRoot": "/tmp/workspace",
-        "pluginId": "setta-fixture-watch-code",
-        "projectConfigId": "project-alpha",
-        "watchCodeFolders": [{"path": "pkg", "recursive": True}],
-        "watchCodeFiles": ["pkg/file.py"],
-    }
-
-
-def test_watch_code_runtime_helper_exports_from_package_root() -> None:
-    assert plugin_runtime.WATCH_CODE_SETTING_ENABLED == "enabled"
-    assert plugin_runtime.watch_code_set_enabled is watch_code.set_enabled
-    assert (
-        plugin_runtime.watch_code_setting_id_for_write_handler("write_folders")
-        == "folders"
-    )

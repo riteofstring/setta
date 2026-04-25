@@ -263,13 +263,6 @@ func optionalStringSliceAny(value []string) any {
 	return canonicalStringSlice(value)
 }
 
-func optionalWatchCodeFoldersAny(value []WatchCodeFolder) any {
-	if value == nil {
-		return nil
-	}
-	return canonicalWatchCodeFolders(value)
-}
-
 func projectCodegenTargetsWithPythonEnabled(targets []ProjectCodegenTarget, enabled bool) []ProjectCodegenTarget {
 	next := make([]ProjectCodegenTarget, 0, len(targets)+1)
 	hasPython := false
@@ -296,11 +289,4 @@ func canonicalStringSlice(value []string) []string {
 		return []string{}
 	}
 	return append([]string(nil), value...)
-}
-
-func canonicalWatchCodeFolders(value []WatchCodeFolder) []WatchCodeFolder {
-	if len(value) == 0 {
-		return []WatchCodeFolder{}
-	}
-	return cloneWatchCodeFolders(value)
 }
