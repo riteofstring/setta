@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 )
 
 func TestNormalizeBackendProbeResponseRejectsInvalidRoutePaths(t *testing.T) {
@@ -226,14 +228,14 @@ func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersio
 		"setta-fixture-backend",
 		backendProbeResponse{
 			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
-				ContractVersion: appSubsystemBackendContractVersion,
+				ContractVersion: backendruntime.AppSubsystemBackendContractVersion,
 			},
 		},
 	)
 	if err != nil {
 		t.Fatalf("normalize app subsystem backend registration: %v", err)
 	}
-	if normalized.AppSubsystemBackend == nil || normalized.AppSubsystemBackend.ContractVersion != appSubsystemBackendContractVersion {
+	if normalized.AppSubsystemBackend == nil || normalized.AppSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		t.Fatalf("expected normalized app subsystem backend registration, got %#v", normalized.AppSubsystemBackend)
 	}
 
@@ -242,7 +244,7 @@ func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersio
 		"setta-fixture-backend",
 		backendProbeResponse{
 			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
-				ContractVersion: appSubsystemBackendContractVersion + 1,
+				ContractVersion: backendruntime.AppSubsystemBackendContractVersion + 1,
 			},
 		},
 	)

@@ -1,5 +1,5 @@
+import { AppSubsystemChatUIConfig } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it, vi } from "vitest";
-import { buildAppGenerationSlashCommandDefinitions } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemChatUi";
 import {
   buildChatSlashCommands,
   buildCustomPromptSlashCommandDefinitions,
@@ -14,8 +14,22 @@ import {
   type ManagedChatExecutionSettings,
 } from "./chatComposerControls";
 
+const APP_SUBSYSTEM_IMAGE_REQUIRED_MODES = new Set(
+  AppSubsystemChatUIConfig.customSlashCommandModeOptions
+    .filter((option) => option.requiresImageAttachment)
+    .map((option) => option.value),
+);
 const APP_GENERATION_SLASH_COMMANDS =
-  buildAppGenerationSlashCommandDefinitions();
+  AppSubsystemChatUIConfig.slashCommands.map((entry) => ({
+    command: entry.command,
+    action: entry.action,
+    summary: entry.summary,
+    promptTemplate: entry.promptTemplate,
+    appGenerationMode: entry.appGenerationMode,
+    requiresImageAttachment: APP_SUBSYSTEM_IMAGE_REQUIRED_MODES.has(
+      entry.appGenerationMode,
+    ),
+  }));
 
 describe("chatComposerControls", () => {
   it("parses slash commands with args", () => {

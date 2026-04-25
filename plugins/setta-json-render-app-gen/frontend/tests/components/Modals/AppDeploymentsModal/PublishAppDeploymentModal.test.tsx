@@ -11,9 +11,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import "testUtils/reactRefreshPreamble";
-import { createAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
-import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { AppSubsystemFrontendHostProvider } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
+import { createAppDefinition } from "../../../../src/appSubsystemContracts";
+import { useAppDefinition } from "../../../../src/appSubsystemDefinitionState";
+import { AppSubsystemFrontendHostProvider } from "../../../../src/appSubsystemFrontendHostContext";
 
 const openAPI = vi.hoisted(() => ({
   checkIfFileExists: vi.fn(),
@@ -36,7 +36,7 @@ vi.mock("@setta/app-subsystem-frontend-sdk", async () => {
   };
 });
 
-import { PublishAppDeploymentModal } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal";
+import { PublishAppDeploymentModal } from "../../../../src/components/Modals/AppDeploymentsModal/PublishAppDeploymentModal";
 
 type RenderedModal = {
   host: HTMLDivElement;

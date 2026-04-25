@@ -3585,6 +3585,42 @@
         "title": "ColorPickerParamCodeObjImpl",
         "type": "object"
       },
+      "CompareAndSetMutationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appSpec": true,
+          "compareResult": {
+            "$ref": "#/components/schemas/CompareAndSetStringResult"
+          }
+        },
+        "required": ["compareResult"],
+        "title": "CompareAndSetMutationResult",
+        "type": "object"
+      },
+      "CompareAndSetStringResult": {
+        "additionalProperties": false,
+        "properties": {
+          "newValue": {
+            "type": "string"
+          },
+          "oldValue": {
+            "type": "string"
+          }
+        },
+        "required": ["oldValue", "newValue"],
+        "title": "CompareAndSetStringResult",
+        "type": "object"
+      },
       "ConfigLanguage": {
         "enum": ["python", "json"],
         "title": "ConfigLanguage",

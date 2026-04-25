@@ -1,12 +1,10 @@
 {
   "$schema": "./node_modules/knip/schema.json",
   "entry": [
-    "src/index.tsx",
-    "../plugins/*/frontend/src/index.ts"
+    "src/index.tsx"
   ],
   "project": [
-    "src/**/*.{js,jsx,ts,tsx}",
-    "../plugins/*/frontend/src/**/*.{js,jsx,ts,tsx}"
+    "src/**/*.{js,jsx,ts,tsx}"
   ],
   "tags": [
     "-lintignore"

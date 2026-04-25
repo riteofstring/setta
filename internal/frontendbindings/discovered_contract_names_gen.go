@@ -154,6 +154,8 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.FrontendCodeSectionImpl{}):                              "CodeSectionImpl",
 	reflect.TypeOf(settingsstate.FrontendColorPickerChoice{}):                           "ColorPickerChoice",
 	reflect.TypeOf(projectstate.FrontendColorPickerParamCodeObjImpl{}):                  "ColorPickerParamCodeObjImpl",
+	reflect.TypeOf(appdefinition.CompareAndSetMutationResult{}):                         "CompareAndSetMutationResult",
+	reflect.TypeOf(appdefinition.CompareAndSetStringResult{}):                           "CompareAndSetStringResult",
 	reflect.TypeOf(projectstate.FrontendConfigLanguage("")):                             "ConfigLanguage",
 	reflect.TypeOf(realtime.Connection{}):                                               "Connection",
 	reflect.TypeOf(realtime.ConnectionType("")):                                         "ConnectionType",

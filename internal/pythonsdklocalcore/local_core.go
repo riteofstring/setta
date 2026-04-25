@@ -33,6 +33,28 @@ const CommandCompareAndSetAppDefinitionSpecVersion = "compare_and_set_app_defini
 const CommandCompareAndSetAppDefinitionSpecPath = "compare_and_set_app_definition_spec_path"
 const CommandCompareAndSetAppDefinitionThemeMode = "compare_and_set_app_definition_theme_mode"
 
+type AppSubsystemBackendListenerEndpointCommand struct {
+	ListenerEndpointName string
+	LocalCoreCommandName string
+}
+
+func AppSubsystemBackendListenerEndpointCommands() []AppSubsystemBackendListenerEndpointCommand {
+	return []AppSubsystemBackendListenerEndpointCommand{
+		{ListenerEndpointName: backendruntime.ListenerEndpointGetAppDefinition, LocalCoreCommandName: CommandGetAppDefinition},
+		{ListenerEndpointName: backendruntime.ListenerEndpointGetEffectiveAppDefinition, LocalCoreCommandName: CommandGetEffectiveAppDefinition},
+		{ListenerEndpointName: backendruntime.ListenerEndpointGetEffectiveAppSpecPath, LocalCoreCommandName: CommandGetEffectiveAppSpecPath},
+		{ListenerEndpointName: backendruntime.ListenerEndpointGetEffectiveAppThemeMode, LocalCoreCommandName: CommandGetEffectiveAppThemeMode},
+		{ListenerEndpointName: backendruntime.ListenerEndpointValidateAppDefinition, LocalCoreCommandName: CommandValidateAppDefinition},
+		{ListenerEndpointName: backendruntime.ListenerEndpointSetAppDefinition, LocalCoreCommandName: CommandSetAppDefinition},
+		{ListenerEndpointName: backendruntime.ListenerEndpointStreamAppDefinition, LocalCoreCommandName: CommandStreamAppDefinition},
+		{ListenerEndpointName: backendruntime.ListenerEndpointUpdateAppDefinition, LocalCoreCommandName: CommandUpdateAppDefinition},
+		{ListenerEndpointName: backendruntime.ListenerEndpointCompareAndSetCatalogID, LocalCoreCommandName: CommandCompareAndSetAppDefinitionCatalogID},
+		{ListenerEndpointName: backendruntime.ListenerEndpointCompareAndSetSpecVersion, LocalCoreCommandName: CommandCompareAndSetAppDefinitionSpecVersion},
+		{ListenerEndpointName: backendruntime.ListenerEndpointCompareAndSetSpecPath, LocalCoreCommandName: CommandCompareAndSetAppDefinitionSpecPath},
+		{ListenerEndpointName: backendruntime.ListenerEndpointCompareAndSetThemeMode, LocalCoreCommandName: CommandCompareAndSetAppDefinitionThemeMode},
+	}
+}
+
 type renderRealtimeDependencyValuesRequest struct {
 	DependencyCatalog       realtime.ListenerDependencyCatalog        `json:"dependencyCatalog"`
 	CurrentDependencyValues realtime.ListenerRenderedDependencyValues `json:"currentDependencyValues"`
@@ -96,46 +118,39 @@ var appDefinitionCommandHandlers = map[string]appDefinitionCommandHandler{
 			return runtime.ValidateAppDefinition(ctx, input)
 		},
 	),
-	CommandSetAppDefinition: buildAppDefinitionPayloadCommand(
-		func(ctx context.Context, runtime appdefinition.Runtime, input appdefinition.SetInput) (any, error) {
-			_, mutationResult, err := runtime.SetAppDefinition(ctx, input)
-			return mutationResult, err
+	CommandSetAppDefinition: buildAppDefinitionMutationPlanCommand(
+		func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, input appdefinition.SetInput) (any, error) {
+			return planner.PlanSetAppDefinition(document, projectRoot, input)
 		},
 	),
-	CommandStreamAppDefinition: buildAppDefinitionPayloadCommand(
-		func(ctx context.Context, runtime appdefinition.Runtime, input appdefinition.StreamInput) (any, error) {
-			_, mutationResult, err := runtime.StreamAppDefinition(ctx, input)
-			return mutationResult, err
+	CommandStreamAppDefinition: buildAppDefinitionMutationPlanCommand(
+		func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, input appdefinition.StreamInput) (any, error) {
+			return planner.PlanStreamAppDefinition(document, projectRoot, input)
 		},
 	),
-	CommandUpdateAppDefinition: buildAppDefinitionPayloadCommand(
-		func(ctx context.Context, runtime appdefinition.Runtime, request updateAppDefinitionRequest) (any, error) {
-			_, mutationResult, err := runtime.UpdateAppDefinition(ctx, request.Patch)
-			return mutationResult, err
+	CommandUpdateAppDefinition: buildAppDefinitionMutationPlanCommand(
+		func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, request updateAppDefinitionRequest) (any, error) {
+			return planner.PlanUpdateAppDefinition(document, projectRoot, request.Patch)
 		},
 	),
-	CommandCompareAndSetAppDefinitionCatalogID: buildCompareAndSetStringCommand(
-		func(ctx context.Context, runtime appdefinition.Runtime, value string, expectedOldValue *string) (any, error) {
-			_, compareResult, err := runtime.CompareAndSetAppDefinitionCatalogID(ctx, value, expectedOldValue)
-			return compareResult, err
+	CommandCompareAndSetAppDefinitionCatalogID: buildCompareAndSetStringPlanCommand(
+		func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, value string, expectedOldValue *string) (any, error) {
+			return planner.PlanCompareAndSetCatalogID(document, projectRoot, value, expectedOldValue)
 		},
 	),
-	CommandCompareAndSetAppDefinitionSpecVersion: buildCompareAndSetStringCommand(
-		func(ctx context.Context, runtime appdefinition.Runtime, value string, expectedOldValue *string) (any, error) {
-			_, compareResult, err := runtime.CompareAndSetAppDefinitionSpecVersion(ctx, value, expectedOldValue)
-			return compareResult, err
+	CommandCompareAndSetAppDefinitionSpecVersion: buildCompareAndSetStringPlanCommand(
+		func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, value string, expectedOldValue *string) (any, error) {
+			return planner.PlanCompareAndSetSpecVersion(document, projectRoot, value, expectedOldValue)
 		},
 	),
-	CommandCompareAndSetAppDefinitionSpecPath: buildCompareAndSetStringCommand(
-		func(ctx context.Context, runtime appdefinition.Runtime, value string, expectedOldValue *string) (any, error) {
-			_, compareResult, err := runtime.CompareAndSetAppDefinitionSpecPath(ctx, value, expectedOldValue)
-			return compareResult, err
+	CommandCompareAndSetAppDefinitionSpecPath: buildCompareAndSetStringPlanCommand(
+		func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, value string, expectedOldValue *string) (any, error) {
+			return planner.PlanCompareAndSetSpecPath(document, projectRoot, value, expectedOldValue)
 		},
 	),
-	CommandCompareAndSetAppDefinitionThemeMode: buildCompareAndSetStringCommand(
-		func(ctx context.Context, runtime appdefinition.Runtime, value string, expectedOldValue *string) (any, error) {
-			_, compareResult, err := runtime.CompareAndSetAppDefinitionThemeMode(ctx, value, expectedOldValue)
-			return compareResult, err
+	CommandCompareAndSetAppDefinitionThemeMode: buildCompareAndSetStringPlanCommand(
+		func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, value string, expectedOldValue *string) (any, error) {
+			return planner.PlanCompareAndSetThemeMode(document, projectRoot, value, expectedOldValue)
 		},
 	),
 }
@@ -269,12 +284,33 @@ func buildAppDefinitionPayloadCommand[T any](
 	}
 }
 
-func buildCompareAndSetStringCommand(
-	run func(context.Context, appdefinition.Runtime, string, *string) (any, error),
+func buildAppDefinitionMutationPlanCommand[T any](
+	run func(appdefinition.MutationPlanner, projectstate.Document, string, T) (any, error),
 ) appDefinitionCommandHandler {
-	return buildAppDefinitionPayloadCommand(
-		func(ctx context.Context, runtime appdefinition.Runtime, request compareAndSetStringRequest) (any, error) {
-			return run(ctx, runtime, request.Value, request.ExpectedOldValue)
+	return func(
+		result pythonsdkcontracts.LocalCoreResultEnvelope,
+		payload map[string]any,
+	) pythonsdkcontracts.LocalCoreResultEnvelope {
+		return executeAppDefinitionPlanningCommand(
+			result,
+			payload,
+			func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, rawPayload map[string]any) (any, error) {
+				request, err := decodeAppDefinitionPayload[T](rawPayload)
+				if err != nil {
+					return nil, err
+				}
+				return run(planner, document, projectRoot, request)
+			},
+		)
+	}
+}
+
+func buildCompareAndSetStringPlanCommand(
+	run func(appdefinition.MutationPlanner, projectstate.Document, string, string, *string) (any, error),
+) appDefinitionCommandHandler {
+	return buildAppDefinitionMutationPlanCommand(
+		func(planner appdefinition.MutationPlanner, document projectstate.Document, projectRoot string, request compareAndSetStringRequest) (any, error) {
+			return run(planner, document, projectRoot, request.Value, request.ExpectedOldValue)
 		},
 	)
 }
@@ -386,6 +422,33 @@ func executeAppDefinitionInputCommand(
 	return result
 }
 
+func executeAppDefinitionPlanningCommand(
+	result pythonsdkcontracts.LocalCoreResultEnvelope,
+	payload map[string]any,
+	run func(appdefinition.MutationPlanner, projectstate.Document, string, map[string]any) (any, error),
+) pythonsdkcontracts.LocalCoreResultEnvelope {
+	request, err := decodeAppDefinitionPayload[appDefinitionRequestBase](payload)
+	if err != nil {
+		failLocalCoreResult(&result, backendruntime.ErrorCodeInvalidRequest, err.Error(), nil)
+		return result
+	}
+	planner, document, projectRoot, err := loadAppDefinitionPlanningContext(request)
+	if err != nil {
+		code, message, details := localCoreErrorInfo(err)
+		failLocalCoreResult(&result, code, message, details)
+		return result
+	}
+	response, err := run(planner, document, projectRoot, payload)
+	if err != nil {
+		code, message, details := localCoreErrorInfo(err)
+		failLocalCoreResult(&result, code, message, details)
+		return result
+	}
+	result.OK = true
+	result.Result = response
+	return result
+}
+
 func decodeAppDefinitionPayload[T any](payload map[string]any) (T, error) {
 	var request T
 	encoded, err := json.Marshal(payload)
@@ -396,6 +459,35 @@ func decodeAppDefinitionPayload[T any](payload map[string]any) (T, error) {
 		return request, fmt.Errorf("decode local core payload: %w", err)
 	}
 	return request, nil
+}
+
+func loadAppDefinitionPlanningContext(
+	request appDefinitionRequestBase,
+) (appdefinition.MutationPlanner, projectstate.Document, string, error) {
+	settaFilesRoot := strings.TrimSpace(request.SettaFilesRoot)
+	if settaFilesRoot == "" {
+		return appdefinition.MutationPlanner{}, projectstate.Document{}, "", fmt.Errorf("settaFilesRoot is required")
+	}
+	pluginID := strings.TrimSpace(request.PluginID)
+	if pluginID == "" {
+		return appdefinition.MutationPlanner{}, projectstate.Document{}, "", appdefinition.ErrPluginIDRequired
+	}
+	planner, err := appdefinition.NewMutationPlanner(pluginID)
+	if err != nil {
+		return appdefinition.MutationPlanner{}, projectstate.Document{}, "", err
+	}
+	store, err := projectstate.NewStore(
+		filepath.Join(settaFilesRoot, projectstate.MainFileName),
+		projectstate.StoreOptions{},
+	)
+	if err != nil {
+		return appdefinition.MutationPlanner{}, projectstate.Document{}, "", err
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		return appdefinition.MutationPlanner{}, projectstate.Document{}, "", err
+	}
+	return planner, document, settaFilesRoot, nil
 }
 
 func openAppDefinitionRuntime(

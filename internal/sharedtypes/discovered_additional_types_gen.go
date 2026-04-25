@@ -475,6 +475,8 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(appdefinition.Capabilities{}),
 		reflect.TypeOf(appdefinition.ValidationResult{}),
 		reflect.TypeOf(appdefinition.MutationResult{}),
+		reflect.TypeOf(appdefinition.CompareAndSetStringResult{}),
+		reflect.TypeOf(appdefinition.CompareAndSetMutationResult{}),
 		reflect.TypeOf(artifacts.BaseArtifactUnion{}),
 		reflect.TypeOf(realtime.BaseDependencyKeyUnion{}),
 		reflect.TypeOf(realtime.BaseDependencyValueUnion{}),

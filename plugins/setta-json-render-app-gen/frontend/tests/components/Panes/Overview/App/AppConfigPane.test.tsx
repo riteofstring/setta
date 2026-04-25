@@ -6,10 +6,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import "testUtils/reactRefreshPreamble";
-import { useAppDefinition } from "../../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { AppSubsystemFrontendHostProvider } from "../../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
-import { useAppPreview } from "../../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
-import { AppConfigPane } from "../../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Panes/Overview/App/AppConfigPane";
+import { useAppDefinition } from "../../../../../src/appSubsystemDefinitionState";
+import { AppSubsystemFrontendHostProvider } from "../../../../../src/appSubsystemFrontendHostContext";
+import { useAppPreview } from "../../../../../src/appSubsystemProjectState";
+import { AppConfigPane } from "../../../../../src/components/Panes/Overview/App/AppConfigPane";
 
 const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }

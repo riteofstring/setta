@@ -573,5 +573,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(appdefinition.Capabilities{}),
 		reflect.TypeOf(appdefinition.ValidationResult{}),
 		reflect.TypeOf(appdefinition.MutationResult{}),
+		reflect.TypeOf(appdefinition.CompareAndSetStringResult{}),
+		reflect.TypeOf(appdefinition.CompareAndSetMutationResult{}),
 	}
 }

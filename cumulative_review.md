@@ -8,28 +8,34 @@
 - Still unverified: Full `internal/app` suite not rerun in this pass; no browser verification needed for this backend-only change.
 
 ### App Definition Provider-State Synchronization
-- Invariant: App-definition persistence stays provider-namespaced under `Document.PluginData[pluginID]`; provider writes may update that owned slice and app-spec file state, but must not replace newer live document fields, let stale deferred persists clobber newer in-memory state, or let compare-and-set no-ops bypass the projectstate queue/frontend-op completion path.
-- Last finding commit: 51c7821255e8a3eb742d8ea149f636132a63c271
-- Proof tests: `TestBackendRuntimeSetAppDefinitionSyncsPersistedState`, `TestBackendRuntimeSetAppDefinitionPreservesNewerLiveProjectState`, `TestBackendRuntimeSetAppDefinitionRebasesBlockedDeferredPersist`, `TestCompareAndSetAppDefinitionNoopWaitsBehindQueuedMutation`, `TestCompareAndSetAppDefinitionNoopCompletesFrontendOpID`, `TestBackendRuntimeCompareAndSetNoopCompletesFrontendOpID`
-- Still unverified: No broader projectstate mutation matrix beyond the focused app-definition tests.
+- Invariant: App-definition persistence stays provider-namespaced under `Document.PluginData[pluginID]`; provider writes may update that owned slice and app-spec file state, but must not replace newer live document fields, let stale deferred persists clobber newer in-memory state, split host projectstate and app-spec file commits, or let compare-and-set no-ops bypass the projectstate queue/frontend-op completion path.
+- Last finding commit: 5f2c74196ecb4feb9b41ac44fc352a03aeb7ed7b
+- Proof tests: `TestBackendRuntimeSetAppDefinitionSyncsPersistedState`, `TestBackendRuntimeSetAppDefinitionPreservesNewerLiveProjectState`, `TestBackendRuntimeSetAppDefinitionRebasesBlockedDeferredPersist`, `TestBackendRuntimeSetAppDefinitionRollsBackAppSpecWhenHostPersistFails`, `TestBackendRuntimeCompareAndSetChangedRebasesBlockedDeferredPersist`, `TestBackendRuntimeCompareAndSetChangedRollsBackAppSpecWhenHostPersistFails`, `TestCompareAndSetAppDefinitionNoopWaitsBehindQueuedMutation`, `TestCompareAndSetAppDefinitionNoopCompletesFrontendOpID`, `TestBackendRuntimeCompareAndSetNoopCompletesFrontendOpID`, `TestRunAppDefinitionCompareAndSetReturnsPlannedDefinitionWithoutPersisting`
+- Still unverified: No broader projectstate mutation matrix beyond the focused app-definition and local-core planning tests.
 
 ### App Subsystem Provider Backend Contract
-- Invariant: A selected app-subsystem provider must expose the complete required backend listener endpoint contract, and app-subsystem backend calls must dispatch only to the selected provider's registered contract endpoints; provider surfaces fail closed until that is true.
-- Last finding commit: 51c7821255e8a3eb742d8ea149f636132a63c271
-- Proof tests: `TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithoutRequiredBackendEndpointsAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithPartialBackendEndpointSetAsInvalid`, `TestFindRegisteredListenerEndpointMatchScopesToRequestedPlugin`, `TestFindRegisteredListenerEndpointMatchUsesAppSubsystemPrivateEndpointsForPluginScopedRequest`, `TestBackendRuntimeScopesInvocationsToProviderPluginID`
-- Still unverified: No separate HTTP/MCP provider-unavailable integration run; verification focused on runtime/provider selection and app-definition dispatch owners.
+- Invariant: A selected app-subsystem provider must expose the complete Go-owned backend listener endpoint contract and matching contract version; generated Python runtime constants and local-core command maps must derive from that owner, and app-subsystem backend calls must dispatch only to the selected provider's registered contract endpoints.
+- Last finding commit: 5f2c74196ecb4feb9b41ac44fc352a03aeb7ed7b
+- Proof tests: `TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithoutRequiredBackendEndpointsAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithPartialBackendEndpointSetAsInvalid`, `TestFindRegisteredListenerEndpointMatchScopesToRequestedPlugin`, `TestFindRegisteredListenerEndpointMatchUsesAppSubsystemPrivateEndpointsForPluginScopedRequest`, `TestBackendRuntimeScopesInvocationsToProviderPluginID`, `TestBuildIncludesGoOwnedAppSubsystemBackendContract`, `TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersion`, `test_plugin_backend_guardrails.py`
+- Still unverified: No separate HTTP/MCP provider-unavailable integration run; verification focused on generated contracts, runtime/provider selection, packaged backend probes, and app-definition dispatch owners.
 
 ### Frontend App Subsystem Host/SDK Boundary
-- Invariant: SDK contract/barrel imports must be side-effect-free for the shared OpenAPI singleton, plugin OpenAPI configuration must be explicit, shared request rebuild logic must have one owner, and required runtime host lifecycle hooks must be implemented by the runtime host rather than per-call overrides or silent no-ops.
-- Last finding commit: 51c7821255e8a3eb742d8ea149f636132a63c271
-- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/openapi/http/client.test.ts`, `src/plugins/appSubsystemFrontendHost.test.ts`, `src/plugins/appSubsystemSdk.test.ts`; plugin SDK and plugin frontend production builds completed.
+- Invariant: SDK contract/barrel imports must be side-effect-free for the shared OpenAPI singleton, plugin OpenAPI configuration must be explicit, shared request/selector helpers must have one owner, host code/tests must not import plugin frontend source directly, and plugin-owned frontend tests/dependencies must run from the plugin package.
+- Last finding commit: 5f2c74196ecb4feb9b41ac44fc352a03aeb7ed7b
+- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/openapi/http/client.test.ts`, `src/plugins/appSubsystemFrontendHost.test.ts`, `src/plugins/appSubsystemSdk.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, plugin-owned Vitest suite under `plugins/setta-json-render-app-gen/frontend/tests`; plugin SDK and plugin frontend production builds completed.
 - Still unverified: Browser/CDP and Playwright were not run because no visual rendering flow changed.
 
 ### Local Core Packaged Runtime Boundary
-- Invariant: The published plugin-runtime local-core helper must share one transport and handshake-validation path without importing API-only package surfaces or Pydantic-heavy modules into packaged plugin backends.
-- Last finding commit: 17e82652b585f3d8b80779a7d24428f3319632f5
-- Proof tests: `test_run_local_core_command_dispatches_through_packaged_boundary`, `test_run_local_core_command_surfaces_structured_errors`, `test_run_local_core_command_rejects_sdk_version_mismatch`, `test_run_local_core_command_rejects_sdk_contract_mismatch`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
+- Invariant: The published plugin-runtime local-core helper must share one transport and handshake-validation path, include all lightweight runtime modules in the Setta wheel, expose generated app-subsystem backend contract constants, and avoid API-only package surfaces or Pydantic-heavy modules in packaged plugin backends.
+- Last finding commit: 5f2c74196ecb4feb9b41ac44fc352a03aeb7ed7b
+- Proof tests: `test_run_local_core_command_dispatches_through_packaged_boundary`, `test_run_local_core_command_surfaces_structured_errors`, `test_run_local_core_command_rejects_sdk_version_mismatch`, `test_run_local_core_command_rejects_sdk_contract_mismatch`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`, packaged wheel content assertions in `test_packaged_distribution.py`
 - Still unverified: No broader packaged-plugin runtime matrix beyond the focused local-core and packaged-distribution tests.
+
+### App Generation Metadata Ownership
+- Invariant: App-generation modes, slash commands, image requirements, prompts, and frontend app-chat UI metadata must come from one Go-owned registry; downstream frontend values derive from that registry rather than restating command/mode inventories.
+- Last finding commit: 5f2c74196ecb4feb9b41ac44fc352a03aeb7ed7b
+- Proof tests: `TestFrontendValueAppSubsystemChatUIConfigUsesAuthoritativeAppGenerationMetadata`, `TestBuildChatModeContributionsExposeReferenceImageMode`, `TestBuildChatModeContributionsRequireCurrentOrRetainedImageForImageMode`
+- Still unverified: No browser/chat E2E run for slash-command UI; verification focused on Go owner metadata and generated frontend value invariants.
 
 ### Package-Manager Plugin Manifest Discovery
 - Invariant: Package-manager plugin discovery must use authoritative distribution metadata only; manifest-bearing distributions are discovered from `dist.files` and `.dist-info/RECORD`, including first-party wheel data-file installs, with no package-name or `top_level.txt` root guessing. When such plugins are packaged for deployment, the Python backend dependency payload must be copied with the provider plugin snapshot.
@@ -45,7 +51,7 @@
 
 ### Codex Plan Loop Automation
 - Invariant: Plan-loop automation keeps option parsing, managed-worktree handling, retry behavior, prompt rendering, and authority checks in one runner, with plan path, sentinel, name, and commit prefix treated as wrapper data.
-- Last finding commit: 51c7821255e8a3eb742d8ea149f636132a63c271
+- Last finding commit: 5f2c74196ecb4feb9b41ac44fc352a03aeb7ed7b
 - Proof tests: `test_plan_loop_runner_renders_plan_sentinel_and_name`, `test_plan_loop_wrappers_delegate_to_shared_runner`; `bash -n` passed for the shared runner and all wrappers.
 - Still unverified: No live Codex loop execution was run.
 
@@ -134,3 +140,39 @@ Verification run:
 Residual risks / verification gaps:
 - Browser/CDP and Playwright verification not run; no visual UI rendering changed and no `./aireset.sh` session was active.
 - Full repo test suite and separate HTTP/MCP provider-unavailable integration were not run; verification focused on touched subsystem owners and build/quality gates.
+
+## 2026-04-23 05:19:17 PDT
+Fixes applied:
+- Made plugin app-definition backend mutations return planned app-definition/app-spec results through local core, then persisted projectstate and app-spec file changes through the host owner with rollback and deferred-persist rebase protection.
+- Moved the app-subsystem backend contract version, listener endpoint list, and listener-to-local-core command map into Go-owned generated Python constants, and kept the published plugin runtime wrapper thin.
+- Consolidated app-generation mode, slash-command, image requirement, prompt, and frontend chat UI metadata into one Go registry.
+- Moved plugin-owned frontend tests and package dependencies under the first-party plugin frontend package, removed host `@json-render` dependencies/aliases, and shared project-state selector helpers between host and SDK.
+- Replaced the remaining duplicated Codex plan-loop scripts with data-only wrappers around the shared runner.
+
+Tests added or upgraded:
+- Added app-definition host persist rollback, changed-CAS rebase, and local-core planning coverage.
+- Added generated backend-contract constant/map coverage and backend probe contract-version coverage.
+- Added app-generation metadata/frontend-value invariant coverage.
+- Added host import-boundary coverage for test files plus plugin-owned frontend Vitest coverage.
+- Added Codex plan-loop wrapper delegation/source-shape coverage.
+
+Verification run:
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `./scripts/go.sh test ./internal/appsubsystem/appdefinition -run 'TestBackendRuntime|TestCompareAndSet' -v`
+- `./scripts/go.sh test ./internal/pythonsdklocalcore -v`
+- `./scripts/go.sh test ./internal/pythonsharedconstants ./internal/plugins ./internal/appsubsystem/frontendvalues ./internal/appsubsystem/chatmodes -v`
+- `pnpm -C frontend exec vitest run src/plugins/appSubsystemSdk.test.ts src/plugins/importBoundaryGuardrails.test.ts src/components/Chat/chatComposerControls.test.ts src/components/Chat/ChatInput.submit.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils.test.ts src/state/actions/aiAppSpecApply.test.ts src/state/actions/aiAppSpecPatchPreview.test.ts`
+- `pnpm --dir plugins/setta-json-render-app-gen/frontend test`
+- `pnpm -C frontend exec vite build --config plugin-sdk/app-subsystem/vite.config.mjs`
+- `pnpm --dir plugins/setta-json-render-app-gen/frontend build`
+- `source activate.sh && pytest tests/plugin_runtime/test_local_core.py tests/plugin_runtime/test_plugin_backend_guardrails.py tests/start/test_packaged_distribution.py tests/start/test_codex_plan_loop_scripts.py -q`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py::test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root -q`
+- `source activate.sh && pytest tests/plugin_runtime/test_plugin_backend_guardrails.py tests/start/test_packaged_distribution.py::test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain -q`
+- `bash -n scripts/run-codex-plan-loop.sh scripts/run-codex-app-plugin-boundary-closure-loop.sh scripts/run-codex-first-party-plugin-finalization-loop.sh scripts/run-codex-app-subsystem-backend-externalization-loop.sh scripts/run-codex-app-subsystem-real-plugin-loop.sh scripts/run-codex-first-party-plugin-standalone-loop.sh scripts/run-codex-third-party-plugin-generalization-loop.sh`
+- `git diff --check`
+
+Residual risks / verification gaps:
+- Browser/CDP and Playwright verification were not run because no visible UI behavior changed; the finalization step stopped the lingering DevTools Chrome session with `./scripts/stop-browser-mcp.sh --devtools`.
+- Full repo test suite was not run; verification focused on touched subsystem owners, generated artifacts, packaging paths, and plugin frontend/package boundaries.
+- One packaged-distribution test initially failed on a PyPI `setuptools==80.9.0` read timeout and passed on rerun; external package-index availability remains an infrastructure risk.

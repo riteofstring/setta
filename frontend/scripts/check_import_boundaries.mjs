@@ -4,7 +4,6 @@ import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
 const SUPPORTED_SOURCE_FILE = /\.[jt]sx?$/;
-const TEST_FILE = /\.(?:test|spec)\.[jt]sx?$/;
 const HOST_RUNTIME_FILE = /^frontend\/src\/.+\.[jt]sx?$/;
 const PLUGIN_FRONTEND_FILE = /^plugins\/[^/]+\/frontend\/src\/.+\.[jt]sx?$/;
 const HOST_PLUGIN_FRONTEND_IMPORT =
@@ -95,10 +94,7 @@ export const findImportBoundaryViolations = (entries) => {
     const normalizedFilePath = normalizePath(entry.filePath);
     const specifiers = collectModuleSpecifiers(entry.source, normalizedFilePath);
 
-    if (
-      HOST_RUNTIME_FILE.test(normalizedFilePath) &&
-      !TEST_FILE.test(normalizedFilePath)
-    ) {
+    if (HOST_RUNTIME_FILE.test(normalizedFilePath)) {
       for (const imported of specifiers) {
         if (!HOST_PLUGIN_FRONTEND_IMPORT.test(imported.specifier)) {
           continue;

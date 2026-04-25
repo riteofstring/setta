@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   type AppSubsystemFrontendRegistrationsByPluginId,
@@ -12,11 +12,6 @@ import {
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
-import {
-  applyAppSpecPatchPreviewDeltaToStore as applyAppSpecPatchPreviewDeltaToProviderStore,
-  clearAllAppSpecPatchPreviewStreams,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
-import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
@@ -28,6 +23,8 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   appDeploymentRuntime: true,
 } as const;
 const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
+const applyAppSpecPatchPreviewDeltaToStoreMock = vi.fn();
+const clearAllAppSpecPatchPreviewStreamsMock = vi.fn();
 const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
   {
     [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
@@ -65,8 +62,9 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByP
       },
       controller: {
         applyAppSpecPatchPreviewDeltaToStore:
-          applyAppSpecPatchPreviewDeltaToProviderStore,
-        clearAllAppSpecPatchPreviewStreams,
+          applyAppSpecPatchPreviewDeltaToStoreMock,
+        clearAllAppSpecPatchPreviewStreams:
+          clearAllAppSpecPatchPreviewStreamsMock,
       },
     },
   };
@@ -74,25 +72,23 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByP
 describe("ai app spec patch preview streaming", () => {
   beforeEach(async () => {
     resetProjectStores();
+    applyAppSpecPatchPreviewDeltaToStoreMock.mockClear();
+    clearAllAppSpecPatchPreviewStreamsMock.mockClear();
     await syncAppSubsystemFrontendRegistration(
       ENABLED_APP_SUBSYSTEM_CAPABILITIES,
       APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
     );
-    clearAllAppSpecPatchPreviewStreams();
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
   });
 
   afterEach(() => {
-    clearAllAppSpecPatchPreviewStreams();
     resetAppSubsystemFrontendRuntimeState();
     resetProjectStores();
   });
 
-  it("applies streamed patch lines to the AI preview override", () => {
-    expect(useAppPreview.getState().aiPreviewSpecOverride).toBeUndefined();
-
+  it("routes streamed patch lines through the app-subsystem controller", () => {
     const delta1 =
       '{"op":"set","path":"/root","value":"app-root"}\n' +
       '{"op":"set","path":"/elements/app-root","value":{"key":"app-root","type":"Card","props":{"title":"Hello"},"children":[]}}\n';
@@ -112,14 +108,9 @@ describe("ai app spec patch preview streaming", () => {
       },
     });
 
-    expect(useAppPreview.getState().aiPreviewSpecOverride).toMatchObject({
-      root: "app-root",
-      elements: {
-        "app-root": {
-          type: "Card",
-          props: { title: "Hello" },
-        },
-      },
+    expect(applyAppSpecPatchPreviewDeltaToStoreMock).toHaveBeenCalledWith({
+      toolCallId: "tool-call-1",
+      previewValueDelta: delta1,
     });
 
     const delta2 =
@@ -140,12 +131,9 @@ describe("ai app spec patch preview streaming", () => {
       },
     });
 
-    expect(useAppPreview.getState().aiPreviewSpecOverride).toMatchObject({
-      elements: {
-        "app-root": {
-          props: { title: "Hello 2" },
-        },
-      },
+    expect(applyAppSpecPatchPreviewDeltaToStoreMock).toHaveBeenLastCalledWith({
+      toolCallId: "tool-call-1",
+      previewValueDelta: delta2,
     });
   });
 

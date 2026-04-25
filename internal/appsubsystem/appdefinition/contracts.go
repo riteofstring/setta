@@ -76,6 +76,31 @@ type MutationResult struct {
 	AppDefinition *AppDefinition `json:"appDefinition,omitempty"`
 }
 
+type CompareAndSetStringResult struct {
+	OldValue string `json:"oldValue"`
+	NewValue string `json:"newValue"`
+}
+
+func compareAndSetStringResultFromProjectState(result projectstate.CompareAndSetResult[string]) CompareAndSetStringResult {
+	return CompareAndSetStringResult{
+		OldValue: result.OldValue,
+		NewValue: result.NewValue,
+	}
+}
+
+func (r CompareAndSetStringResult) projectStateResult() projectstate.CompareAndSetResult[string] {
+	return projectstate.CompareAndSetResult[string]{
+		OldValue: r.OldValue,
+		NewValue: r.NewValue,
+	}
+}
+
+type CompareAndSetMutationResult struct {
+	CompareResult CompareAndSetStringResult `json:"compareResult"`
+	AppSpec       any                       `json:"appSpec,omitempty"`
+	AppDefinition *AppDefinition            `json:"appDefinition,omitempty"`
+}
+
 type StreamInput struct {
 	Patches     string
 	AppSpecPath *string

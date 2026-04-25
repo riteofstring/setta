@@ -13,14 +13,14 @@ import {
   createTextBlockSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
+import { useAppConfigs } from "../../../src/appSubsystemProjectState";
 
 import {
   AppActionContext,
   AppConfigScopeContext,
   AppRuntimeContext,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext";
-import { appRegistry } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appRegistry";
+} from "../../../src/components/App/appContext";
+import { appRegistry } from "../../../src/components/App/appRegistry";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;

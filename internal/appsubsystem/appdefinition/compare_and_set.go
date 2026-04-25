@@ -240,7 +240,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 
 	var result projectstate.CompareAndSetResult[string]
 	snapshot, err := s.runtime.MutatePersistedWithContext(ctx, func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
-		return buildCompareAndSetAppDefinitionPlan(
+		plan, _, err := buildCompareAndSetAppDefinitionPlan(
 			document,
 			projectRoot,
 			settingID,
@@ -251,6 +251,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 			&result,
 			s.appSpecStore,
 		)
+		return plan, err
 	})
 	return snapshot, result, err
 }
@@ -281,10 +282,10 @@ func buildCompareAndSetAppDefinitionPlan(
 	mutate func(projectstate.Document, string) (projectstate.Document, any, string, error),
 	result *projectstate.CompareAndSetResult[string],
 	appSpecStore appspec.Store,
-) (projectstate.PersistedMutationPlan, error) {
+) (projectstate.PersistedMutationPlan, any, error) {
 	oldValue, err := readValidatedAppDefinitionSetting(document, readValue, settingID, expectedOldValue)
 	if err != nil {
-		return projectstate.PersistedMutationPlan{}, err
+		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	if oldValue == requestedNewValue {
 		if result != nil {
@@ -295,19 +296,19 @@ func buildCompareAndSetAppDefinitionPlan(
 		}
 		return projectstate.PersistedMutationPlan{
 			NextDocument: document,
-		}, nil
+		}, nil, nil
 	}
 	nextDocument, nextAppSpec, appSpecPath, err := mutate(document.Clone(), projectRoot)
 	if err != nil {
-		return projectstate.PersistedMutationPlan{}, err
+		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	previousAppSpec, err := appSpecStore.Read(projectRoot, appSpecPath)
 	if err != nil {
-		return projectstate.PersistedMutationPlan{}, err
+		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	newValue, err := readValue(nextDocument)
 	if err != nil {
-		return projectstate.PersistedMutationPlan{}, err
+		return projectstate.PersistedMutationPlan{}, nil, err
 	}
 	if result != nil {
 		*result = projectstate.CompareAndSetResult[string]{
@@ -323,7 +324,7 @@ func buildCompareAndSetAppDefinitionPlan(
 		RollbackExternalChanges: func() error {
 			return rollbackAppSpecWrite(projectRoot, appSpecPath, previousAppSpec, appSpecStore)
 		},
-	}, nil
+	}, nextAppSpec, nil
 }
 
 func assertAppDefinitionExpectedOldValueMatches(settingID string, expectedOldValue any, observedOldValue any) error {
