@@ -45,14 +45,14 @@ function createRevealTarget(
   overrides: Partial<UISettingRevealTarget>,
 ): UISettingRevealTarget {
   return {
-    settingId: "core.watch_code.enabled",
+    settingId: "plugin::setta-watch-code::enabled",
     side: "left",
     overviewTabKey: "Overview",
     uiEditorTabName: null,
     pluginId: null,
     paneId: null,
     strategy: "dom_anchor",
-    anchorId: "core.watch_code.enabled",
+    anchorId: "plugin::setta-watch-code::enabled",
     pluginRevealKey: null,
     revealActivationSteps: [],
     ...overrides,
@@ -108,7 +108,7 @@ function createFakeAnchor(anchorId: string): HTMLElement {
 }
 function createFakePaneRoot(
   anchor: HTMLElement,
-  anchorId = "core.watch_code.enabled",
+  anchorId = "plugin::setta-watch-code::enabled",
 ): HTMLElement {
   return {
     querySelector: vi.fn((selector: string) => {
@@ -263,7 +263,7 @@ describe("receiveUISettingReveal", () => {
         chatId: null,
         reveals: [
           {
-            settingId: "core.watch_code.enabled",
+            settingId: "plugin::setta-watch-code::enabled",
             side: "left",
             overviewTabKey: "WatchCode",
             strategy: "dom_anchor",
@@ -277,7 +277,7 @@ describe("receiveUISettingReveal", () => {
       activeSectionId: null,
       reveals: [
         {
-          settingId: "core.watch_code.enabled",
+          settingId: "plugin::setta-watch-code::enabled",
           side: "left",
           overviewTabKey: "WatchCode",
           uiEditorTabName: null,
@@ -300,7 +300,7 @@ describe("receiveUISettingReveal", () => {
         chatId: null,
         reveals: [
           {
-            settingId: "core.watch_code.enabled",
+            settingId: "plugin::setta-watch-code::enabled",
             side: "left",
             overviewTabKey: "WatchCode",
             strategy: "dom_anchor",
@@ -313,7 +313,7 @@ describe("receiveUISettingReveal", () => {
     ).toBeNull();
   });
   it("opens overview tab and highlights anchor", async () => {
-    const anchor = createFakeAnchor("core.watch_code.enabled");
+    const anchor = createFakeAnchor("plugin::setta-watch-code::enabled");
     const paneRoot = createFakePaneRoot(anchor);
     const docRef = globalThis as unknown as {
       document: {
@@ -334,7 +334,7 @@ describe("receiveUISettingReveal", () => {
     expect(localState.overviewTab).toBe("Overview");
     expect(statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "revealed",
         errorCode: null,
         errorMessage: null,
@@ -363,7 +363,7 @@ describe("receiveUISettingReveal", () => {
     );
     expect(useLocalStorage.getState().uiEditorVis).toBe(false);
     expect(statuses[0]).toEqual({
-      settingId: "core.watch_code.enabled",
+      settingId: "plugin::setta-watch-code::enabled",
       status: "failed",
       errorCode: "mutation_failed",
       errorMessage:
@@ -745,7 +745,7 @@ describe("receiveUISettingReveal", () => {
     );
     expect(statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage:
@@ -777,20 +777,20 @@ describe("receiveUISettingReveal", () => {
     await vi.runAllTimersAsync();
     const statuses = await statusesPromise;
     expect(statuses[0]).toEqual({
-      settingId: "core.watch_code.enabled",
+      settingId: "plugin::setta-watch-code::enabled",
       status: "failed",
       errorCode: "mutation_failed",
       errorMessage:
-        "Could not find anchor core.watch_code.enabled for core.watch_code.enabled.",
+        "Could not find anchor plugin::setta-watch-code::enabled for plugin::setta-watch-code::enabled.",
     });
     expect(paneRoot.querySelector).toHaveBeenCalled();
   });
   it("waits up to durationMs for a delayed anchor before failing", async () => {
-    const anchor = createFakeAnchor("core.watch_code.enabled");
+    const anchor = createFakeAnchor("plugin::setta-watch-code::enabled");
     const paneRoot = {
       querySelector: vi.fn((selector: string) => {
         if (
-          selector === '[data-setting-anchor="core.watch_code.enabled"]' &&
+          selector === '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
           Date.now() >= 2500
         ) {
           return anchor;
@@ -819,7 +819,7 @@ describe("receiveUISettingReveal", () => {
     await vi.runAllTimersAsync();
     const statuses = await statusesPromise;
     expect(statuses[0]).toEqual({
-      settingId: "core.watch_code.enabled",
+      settingId: "plugin::setta-watch-code::enabled",
       status: "revealed",
       errorCode: null,
       errorMessage: null,
@@ -978,7 +978,7 @@ describe("receiveUISettingReveal", () => {
     });
     expect(statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage:
@@ -1002,7 +1002,7 @@ describe("receiveUISettingReveal", () => {
     });
     expect(statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage:
@@ -1068,7 +1068,7 @@ describe("receiveUISettingReveal", () => {
     const requestAStatuses = await requestAPromise;
     expect(requestAStatuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage:
@@ -1084,7 +1084,7 @@ describe("receiveUISettingReveal", () => {
     );
   });
   it("keeps overlapping pane keys owned by a newer reveal when an older reveal rolls back", async () => {
-    const leftWatchCodeAnchorId = "core.watch_code.enabled";
+    const leftWatchCodeAnchorId = "plugin::setta-watch-code::enabled";
     const leftRunInstructionsAnchorId =
       "core.run_instructions.python_codegen_enabled";
     const leftRunInstructionsAnchor = createFakeAnchor(
@@ -1142,7 +1142,7 @@ describe("receiveUISettingReveal", () => {
     const requestAStatuses = await requestAPromise;
     expect(requestAStatuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage:
@@ -1154,12 +1154,12 @@ describe("receiveUISettingReveal", () => {
     expect(state.overviewTab).toBe("RunInstructions");
   });
   it("preserves manual pane changes during project-switch rollback", async () => {
-    const anchor = createFakeAnchor("core.watch_code.enabled");
+    const anchor = createFakeAnchor("plugin::setta-watch-code::enabled");
     const startMs = Date.now();
     const paneRoot = {
       querySelector: vi.fn((selector: string) => {
         if (
-          selector === '[data-setting-anchor="core.watch_code.enabled"]' &&
+          selector === '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
           Date.now() - startMs >= 300
         ) {
           return anchor;
@@ -1199,7 +1199,7 @@ describe("receiveUISettingReveal", () => {
     const statuses = await statusesPromise;
     expect(statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage:
@@ -1336,12 +1336,12 @@ describe("receiveUISettingReveal", () => {
     ).toEqual(["manual-run-instructions-open-item"]);
   });
   it("fails when project switches during async anchor lookup", async () => {
-    const anchor = createFakeAnchor("core.watch_code.enabled");
+    const anchor = createFakeAnchor("plugin::setta-watch-code::enabled");
     const startMs = Date.now();
     const paneRoot = {
       querySelector: vi.fn((selector: string) => {
         if (
-          selector === '[data-setting-anchor="core.watch_code.enabled"]' &&
+          selector === '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
           Date.now() - startMs >= 300
         ) {
           return anchor;
@@ -1377,7 +1377,7 @@ describe("receiveUISettingReveal", () => {
     const statuses = await statusesPromise;
     expect(statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage:
@@ -1649,7 +1649,7 @@ describe("receiveUISettingReveal", () => {
       createRevealContent({
         reveals: [
           createRevealTarget({
-            settingId: "core.watch_code.enabled",
+            settingId: "plugin::setta-watch-code::enabled",
             side: "left",
             overviewTabKey: null,
             strategy: "plugin_handler",
@@ -1663,7 +1663,7 @@ describe("receiveUISettingReveal", () => {
     );
     expect(statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "revealed",
         errorCode: null,
         errorMessage: null,
@@ -1672,7 +1672,7 @@ describe("receiveUISettingReveal", () => {
     expect(invokePluginSettingRevealHandler).toHaveBeenCalledWith({
       pluginId: "setta-watch-code",
       revealKey: "watch-code-settings",
-      settingId: "core.watch_code.enabled",
+      settingId: "plugin::setta-watch-code::enabled",
       paneId: null,
       durationMs: expect.any(Number),
       abortSignal: expect.any(AbortSignal),
@@ -1741,7 +1741,7 @@ describe("receiveUISettingReveal", () => {
         durationMs: 100,
         reveals: [
           createRevealTarget({
-            settingId: "core.watch_code.enabled",
+            settingId: "plugin::setta-watch-code::enabled",
           }),
           createRevealTarget({
             settingId: "core.project.name",

@@ -124,7 +124,7 @@ describe("setta-watch-code frontend registration", () => {
 
     portal
       ?.querySelector<HTMLButtonElement>(
-        '[data-setting-anchor="core.watch_code.enabled"] button',
+        '[data-setting-anchor="plugin::setta-watch-code::enabled"] button',
       )
       ?.click();
     await Promise.resolve();
@@ -140,7 +140,7 @@ describe("setta-watch-code frontend registration", () => {
       watchCodeFiles: ["pkg/mod.py"],
     });
     const fileInput = document.querySelector<HTMLInputElement>(
-      '[data-setting-anchor="core.watch_code.files"] input',
+      '[data-setting-anchor="plugin::setta-watch-code::files"] input',
     );
     expect(fileInput?.value).toBe("pkg/mod.py");
     if (fileInput) {
@@ -176,7 +176,7 @@ describe("setta-watch-code frontend registration", () => {
     });
 
     const handled = await revealHandlers.get("watch-code-settings")?.({
-      settingId: "core.watch_code.files",
+      settingId: "plugin::setta-watch-code::files",
       paneId: null,
       durationMs: 100,
       abortSignal: new AbortController().signal,
@@ -185,7 +185,7 @@ describe("setta-watch-code frontend registration", () => {
     expect(handled).toBe(true);
     expect(
       document
-        .querySelector('[data-setting-anchor="core.watch_code.files"]')
+        .querySelector('[data-setting-anchor="plugin::setta-watch-code::files"]')
         ?.classList.contains("setta-watch-code-reveal-highlight"),
     ).toBe(true);
   });
