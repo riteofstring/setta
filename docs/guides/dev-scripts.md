@@ -164,6 +164,9 @@ These are used by the top-level wrappers or for advanced workflows.
   - Generic plan-driven Codex loop for executing a repository plan document until a caller-provided completion sentinel appears.
   - Use this for focused long-running feature work that used to require a custom loop script.
   - Requires `--plan`, `--sentinel`, and `--name`.
+- `./scripts/run-codex-watch-code-plugin-extraction-loop.sh`
+  - Plan-loop wrapper for executing `docs/plans/watch-code-plugin-extraction-plan.md`.
+  - Stops when Codex emits `CODEX_LOOP_STOP: WATCH_CODE_PLUGIN_EXTRACTION_COMPLETE`.
 - `./scripts/run-codex-test-fix-loop.sh`
   - Codex loop for working through Go, Python, Vitest, and Playwright test failures in small chunks.
   - Stops only after external full-suite verification passes.
