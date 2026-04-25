@@ -12,7 +12,7 @@ sidecar architecture.
 Defaults:
 - Maximum iterations: 1000
 - New Codex session every iteration
-- Model: `gpt-5.4`
+- Model: `gpt-5.5`
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Stop when Codex explicitly reports the shared type schema migration is complete
@@ -25,7 +25,7 @@ Options:
   --state-dir PATH       Directory for checklist and loop state.
                          Default: <output-dir>/state
   --model NAME           Model override passed to codex exec.
-                         Default: gpt-5.4
+                         Default: gpt-5.5
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 EOF
@@ -37,7 +37,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 iterations="1000"
 output_dir=""
 state_dir=""
-model="gpt-5.4"
+model="gpt-5.5"
 yolo_mode="1"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: SHARED_TYPE_SCHEMA_MIGRATION_COMPLETE"

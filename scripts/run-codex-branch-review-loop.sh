@@ -20,7 +20,7 @@ Run Codex in a branch-review loop with this flow:
 
 Defaults:
 - Maximum iterations: 1000
-- Model: `gpt-5.4`
+- Model: `gpt-5.5`
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
@@ -39,7 +39,7 @@ Options:
   --state-dir PATH       Directory for prompt files and loop state.
                          Default: <output-dir>/state
   --model NAME           Model override passed to codex exec.
-                         Default: gpt-5.4
+                         Default: gpt-5.5
   --inactivity-timeout-seconds N
                          Abort a Codex command if it produces no transcript
                          output for N seconds. Default: 1800
@@ -56,7 +56,7 @@ Options:
 
 Examples:
   ./scripts/run-codex-branch-review-loop.sh
-  ./scripts/run-codex-branch-review-loop.sh --model gpt-5.4
+  ./scripts/run-codex-branch-review-loop.sh --model gpt-5.5
   ./scripts/run-codex-branch-review-loop.sh -- --config reasoning_effort=\"xhigh\"
 EOF
 }
@@ -68,7 +68,7 @@ iterations="1000"
 root_dir="${DEFAULT_ROOT_DIR}"
 output_dir=""
 state_dir=""
-model="gpt-5.4"
+model="gpt-5.5"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
