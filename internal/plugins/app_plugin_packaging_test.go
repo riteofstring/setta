@@ -128,7 +128,7 @@ func TestEnsureRuntimeManagedPluginFrontendAssetsBuildsGenericSourcePlugin(
 		return nil
 	})
 
-	if err := ensureRuntimeManagedPluginFrontendAssets(sourceRoot, manifest); err != nil {
+	if err := ensureRuntimeManagedPluginFrontendAssets(sourceRoot, manifest, runtimeManagedFrontendSourceBuild); err != nil {
 		t.Fatalf("build runtime-managed frontend assets for generic source plugin: %v", err)
 	}
 
@@ -145,8 +145,40 @@ func TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON(
 	}
 	removeRuntimeManagedFrontendPackageJSON(t, sourceRoot)
 
-	err = ensureRuntimeManagedPluginFrontendAssets(sourceRoot, manifest)
+	err = ensureRuntimeManagedPluginFrontendAssets(sourceRoot, manifest, runtimeManagedFrontendSourceBuild)
 	assertMissingRuntimeManagedFrontendPackageJSONError(t, err)
+}
+
+func TestEnsureRuntimeManagedPluginFrontendAssetsInstallsDependenciesWhenNodeModulesExists(
+	t *testing.T,
+) {
+	sourceRoot := stageFirstPartyAppSubsystemPluginSource(t)
+	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load staged plugin manifest: %v", err)
+	}
+	nodeModulesRoot := filepath.Join(sourceRoot, "frontend", "node_modules")
+	if err := os.MkdirAll(nodeModulesRoot, 0o755); err != nil {
+		t.Fatalf("mkdir staged node_modules: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(nodeModulesRoot, "marker.txt"), []byte("stale\n"), 0o644); err != nil {
+		t.Fatalf("write staged node_modules marker: %v", err)
+	}
+	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, packageManager string, args []string) error {
+		if packageManager != pluginFrontendBuildPackageManagerPNPM {
+			t.Fatalf("expected pnpm package manager, got %q", packageManager)
+		}
+		if reflect.DeepEqual(args, []string{"run", "build"}) {
+			writeRuntimeManagedFrontendBuildOutputs(t, frontendRoot)
+		}
+		return nil
+	})
+
+	if err := ensureRuntimeManagedPluginFrontendAssets(sourceRoot, manifest, runtimeManagedFrontendSourceBuild); err != nil {
+		t.Fatalf("build runtime-managed frontend assets with preexisting node_modules: %v", err)
+	}
+
+	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
 }
 
 func TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets(

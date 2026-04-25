@@ -3,10 +3,12 @@ import {
   type AppSubsystemFrontendRegistrationsByPluginId,
   appSubsystemModeRequiresImageAttachment,
   applyAppDefinitionStructuredContentToStore,
+  beginAppSubsystemFrontendRegistrationLoad,
   buildDefaultAppSpecPath,
   getAppSubsystemDeploymentRuntimeUnavailableMessage,
   getAppSubsystemFrontendRuntimeState,
   isAppSubsystemFrontendRegistration,
+  processAppProjectStateUpdateFromBackend,
   resetAppSubsystemFrontendRuntimeState,
   runAppSubsystemProjectResetHooks,
   syncAppSubsystemFrontendRegistration,
@@ -218,6 +220,45 @@ describe("appSubsystem", () => {
       status: "unavailable",
       registration: null,
     });
+  });
+
+  it("queues project-state updates until app-subsystem registration finishes loading", async () => {
+    const processAppProjectStateUpdateFromBackendMock = vi.fn();
+    beginAppSubsystemFrontendRegistrationLoad(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    );
+
+    const payload = {
+      projectState: {
+        projectConfig: {
+          id: "project-1",
+        },
+      },
+    } as Parameters<typeof processAppProjectStateUpdateFromBackend>[0];
+
+    processAppProjectStateUpdateFromBackend(payload);
+
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+      {
+        [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+          ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+          pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+          controller: {
+            ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION.controller,
+            processAppProjectStateUpdateFromBackend:
+              processAppProjectStateUpdateFromBackendMock,
+          },
+        },
+      },
+    );
+
+    expect(processAppProjectStateUpdateFromBackendMock).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(processAppProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
+      payload,
+    );
   });
 
   it("treats invalid-provider capabilities as unavailable instead of erroring", async () => {

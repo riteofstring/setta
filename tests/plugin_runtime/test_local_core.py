@@ -5,8 +5,8 @@ import pytest
 
 from setta import __version__
 from setta import local_core_client as shared_local_core
-from setta.api.runtime_compat import RuntimeCompatibilityError
 from setta.plugin_runtime import app_subsystem, local_core
+from setta.runtime_compat import RuntimeCompatibilityError
 from setta.sdk_contracts.generated import SETTA_SDK_CONTRACT_VERSION
 from setta.types.generated.go_shared_constants import (
     LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID,
