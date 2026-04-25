@@ -4180,6 +4180,47 @@
       ],
       "additionalProperties": false
     },
+    "CompareAndSetMutationResult": {
+      "type": "object",
+      "properties": {
+        "compareResult": {
+          "$ref": "#/$defs/CompareAndSetStringResult"
+        },
+        "appSpec": true,
+        "appDefinition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "CompareAndSetMutationResult",
+      "required": [
+        "compareResult"
+      ],
+      "additionalProperties": false
+    },
+    "CompareAndSetStringResult": {
+      "type": "object",
+      "properties": {
+        "oldValue": {
+          "type": "string"
+        },
+        "newValue": {
+          "type": "string"
+        }
+      },
+      "title": "CompareAndSetStringResult",
+      "required": [
+        "oldValue",
+        "newValue"
+      ],
+      "additionalProperties": false
+    },
     "ConfigLanguage": {
       "type": "string",
       "title": "ConfigLanguage",

@@ -990,6 +990,16 @@
       "schemaRef": "#/$defs/ColorPickerParamCodeObjImpl"
     },
     {
+      "name": "CompareAndSetMutationResult",
+      "kind": "model",
+      "schemaRef": "#/$defs/CompareAndSetMutationResult"
+    },
+    {
+      "name": "CompareAndSetStringResult",
+      "kind": "model",
+      "schemaRef": "#/$defs/CompareAndSetStringResult"
+    },
+    {
       "name": "ConfigLanguage",
       "kind": "enum",
       "schemaRef": "#/$defs/ConfigLanguage",

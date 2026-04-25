@@ -21,20 +21,23 @@ import {
   it,
   vi,
 } from "vitest";
-import { createAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
-import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
+import { createAppDefinition } from "../../../src/appSubsystemContracts";
+import { useAppDefinition } from "../../../src/appSubsystemDefinitionState";
+import { useAppConfigs } from "../../../src/appSubsystemProjectState";
 
-const routeCreateAppSessionCurrentMock = vi.fn();
-const routeGetAppDeploymentStateMock = vi.fn();
-const routeLoadAppProjectConfigMock = vi.fn();
-const callOpenAPIMock = vi.fn((promise: Promise<unknown>) => promise);
+const routeCreateAppSessionCurrentMock = vi.hoisted(() => vi.fn());
+const routeGetAppDeploymentStateMock = vi.hoisted(() => vi.fn());
+const routeLoadAppProjectConfigMock = vi.hoisted(() => vi.fn());
+const callOpenAPIMock = vi.hoisted(() =>
+  vi.fn((promise: Promise<unknown>) => promise),
+);
 
-vi.mock("openapi/http", async () => {
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
   const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
   return {
     ...actual,
+    callOpenAPI: callOpenAPIMock,
     getAppDeploymentCurrentSession: (options?: unknown) =>
       options === undefined
         ? routeCreateAppSessionCurrentMock()
@@ -50,16 +53,12 @@ vi.mock("openapi/http", async () => {
   };
 });
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-}));
-
 import {
   ensureAppProjectConfigLoaded,
   ensureAppSessionFromCurrentDeployment,
   loadAppDeploymentState,
   resetAppSessionState,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/state/actions/app";
+} from "../../../src/state/actions/app";
 
 type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
 const frontendHost = createRuntimeAppSubsystemFrontendHost();

@@ -4,7 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { AppAssets } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Pages/App/AppAssets";
+import { AppAssets } from "../../../../src/components/Pages/App/AppAssets";
 
 type RenderedAssets = {
   host: HTMLDivElement;

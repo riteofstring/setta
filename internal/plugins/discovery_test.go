@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/testutil/firstpartyplugin"
 )
@@ -297,7 +298,7 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 			{Name: "route_backend_fixture_ping"},
 		},
 		AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
-			ContractVersion: appSubsystemBackendContractVersion,
+			ContractVersion: backendruntime.AppSubsystemBackendContractVersion,
 		},
 	}
 
@@ -322,7 +323,7 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	if len(entry.RegisteredUISettings) != 1 || entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
 		t.Fatalf("expected ui settings to be copied from the probe, got %#v", entry.RegisteredUISettings)
 	}
-	if entry.appSubsystemBackend == nil || entry.appSubsystemBackend.ContractVersion != appSubsystemBackendContractVersion {
+	if entry.appSubsystemBackend == nil || entry.appSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		t.Fatalf("expected app subsystem backend registration to be copied, got %#v", entry.appSubsystemBackend)
 	}
 
@@ -331,7 +332,7 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 		t.Fatalf("expected registered ui settings to be cloned, got %#v", entry.RegisteredUISettings)
 	}
 	probe.AppSubsystemBackend.ContractVersion = 999
-	if entry.appSubsystemBackend.ContractVersion != appSubsystemBackendContractVersion {
+	if entry.appSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		t.Fatalf("expected app subsystem backend registration to be cloned, got %#v", entry.appSubsystemBackend)
 	}
 }

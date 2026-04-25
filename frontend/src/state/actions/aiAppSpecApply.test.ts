@@ -14,9 +14,6 @@ import {
   StreamingEventTypeEnum,
   createProjectConfig,
 } from "utils/generatedTypes";
-import { useAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { applyAppDefinitionStructuredContentToStore as applyAppDefinitionStructuredContentToProviderStore } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
-import { useAppPreview } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
 
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   pluginId: "setta-json-render-app-gen",
@@ -27,6 +24,7 @@ const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   appDeploymentRuntime: true,
 } as const;
 const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
+const applyAppDefinitionStructuredContentToStoreMock = vi.fn(() => true);
 const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
   {
     [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
@@ -64,7 +62,7 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByP
       },
       controller: {
         applyAppDefinitionStructuredContentToStore:
-          applyAppDefinitionStructuredContentToProviderStore,
+          applyAppDefinitionStructuredContentToStoreMock,
       },
     },
   };
@@ -72,6 +70,7 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByP
 describe("ai app spec tool results", () => {
   beforeEach(async () => {
     vi.useFakeTimers();
+    applyAppDefinitionStructuredContentToStoreMock.mockClear();
     resetProjectStores();
     await syncAppSubsystemFrontendRegistration(
       ENABLED_APP_SUBSYSTEM_CAPABILITIES,
@@ -89,15 +88,7 @@ describe("ai app spec tool results", () => {
     resetProjectStores();
   });
 
-  it("applies set_app_definition tool results to the app preview stores", () => {
-    useAppDefinition.setState({ appSpec: null, appDefinition: null });
-    useAppPreview.setState({
-      previewSpecOverride: { stale: true },
-      aiPreviewSpecOverride: { stale: "ai" },
-      previewThemeOverride: { mode: "dark" },
-      previewAssetsOverride: [],
-    });
-
+  it("applies set_app_definition tool results through the app-subsystem controller", () => {
     const nextSpec = {
       root: { key: "root", type: "Stack" },
       elements: {},
@@ -141,21 +132,15 @@ describe("ai app spec tool results", () => {
       },
     });
 
-    expect(useAppDefinition.getState().appSpec).toEqual(nextSpec);
-    expect(useAppDefinition.getState().appDefinition).toEqual(nextDefinition);
-    expect(useAppPreview.getState().previewSpecOverride).toBeUndefined();
-    expect(useAppPreview.getState().aiPreviewSpecOverride).toBeUndefined();
-    expect(useAppPreview.getState().previewThemeOverride).toBeUndefined();
-    expect(useAppPreview.getState().previewAssetsOverride).toBeUndefined();
+    expect(applyAppDefinitionStructuredContentToStoreMock).toHaveBeenCalledWith(
+      {
+        appSpec: nextSpec,
+        appDefinition: nextDefinition,
+      },
+    );
   });
 
-  it("applies stream_app_definition tool results to the app preview stores", () => {
-    useAppDefinition.setState({ appSpec: null, appDefinition: null });
-    useAppPreview.setState({
-      previewSpecOverride: { stale: true },
-      aiPreviewSpecOverride: { stale: "ai" },
-    });
-
+  it("applies stream_app_definition tool results through the app-subsystem controller", () => {
     const nextSpec = {
       root: "root",
       elements: {
@@ -201,20 +186,14 @@ describe("ai app spec tool results", () => {
       },
     });
 
-    expect(useAppDefinition.getState().appSpec).toEqual(nextSpec);
-    expect(useAppPreview.getState().previewSpecOverride).toBeUndefined();
-    expect(useAppPreview.getState().aiPreviewSpecOverride).toBeUndefined();
+    expect(applyAppDefinitionStructuredContentToStoreMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appSpec: nextSpec,
+      }),
+    );
   });
 
   it("ignores tool results from other tools", () => {
-    useAppDefinition.setState({ appSpec: null, appDefinition: null });
-    useAppPreview.setState({
-      previewSpecOverride: { stale: true },
-      aiPreviewSpecOverride: { stale: "ai" },
-      previewThemeOverride: { mode: "dark" },
-      previewAssetsOverride: [],
-    });
-
     receiveLLMResponseChunk({
       chatId: "chat-ai-apply-2",
       sectionId: null,
@@ -240,24 +219,12 @@ describe("ai app spec tool results", () => {
       },
     });
 
-    expect(useAppDefinition.getState().appSpec).toBeNull();
-    expect(useAppPreview.getState().previewSpecOverride).toEqual({
-      stale: true,
-    });
-    expect(useAppPreview.getState().aiPreviewSpecOverride).toEqual({
-      stale: "ai",
-    });
+    expect(
+      applyAppDefinitionStructuredContentToStoreMock,
+    ).not.toHaveBeenCalled();
   });
 
   it("ignores errored tool results", () => {
-    useAppDefinition.setState({ appSpec: null, appDefinition: null });
-    useAppPreview.setState({
-      previewSpecOverride: { stale: true },
-      aiPreviewSpecOverride: { stale: "ai" },
-      previewThemeOverride: { mode: "dark" },
-      previewAssetsOverride: [],
-    });
-
     receiveLLMResponseChunk({
       chatId: "chat-ai-apply-3",
       sectionId: null,
@@ -288,24 +255,12 @@ describe("ai app spec tool results", () => {
       },
     });
 
-    expect(useAppDefinition.getState().appSpec).toBeNull();
-    expect(useAppPreview.getState().previewSpecOverride).toEqual({
-      stale: true,
-    });
-    expect(useAppPreview.getState().aiPreviewSpecOverride).toEqual({
-      stale: "ai",
-    });
+    expect(
+      applyAppDefinitionStructuredContentToStoreMock,
+    ).not.toHaveBeenCalled();
   });
 
   it("keeps the streamed app preview on stream_app_definition tool errors", () => {
-    useAppDefinition.setState({ appSpec: null, appDefinition: null });
-    useAppPreview.setState({
-      aiPreviewSpecOverride: {
-        root: "root",
-        elements: { root: { key: "root", type: "Stack" } },
-      },
-    });
-
     receiveLLMResponseChunk({
       chatId: "chat-ai-apply-stream-err-1",
       sectionId: null,
@@ -331,10 +286,8 @@ describe("ai app spec tool results", () => {
       },
     });
 
-    expect(useAppDefinition.getState().appSpec).toBeNull();
-    expect(useAppPreview.getState().aiPreviewSpecOverride).toMatchObject({
-      root: "root",
-      elements: { root: { key: "root", type: "Stack" } },
-    });
+    expect(
+      applyAppDefinitionStructuredContentToStoreMock,
+    ).not.toHaveBeenCalled();
   });
 });

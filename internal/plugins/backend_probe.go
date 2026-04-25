@@ -15,14 +15,14 @@ import (
 	"time"
 	"unicode"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/statefs"
 )
 
 const (
-	backendProbeArg                    = "--setta-plugin-backend-probe"
-	backendProbeSchemaVersion          = 1
-	backendProbeBuildRootName          = "plugin_backend_probe_builds"
-	appSubsystemBackendContractVersion = 1
+	backendProbeArg           = "--setta-plugin-backend-probe"
+	backendProbeSchemaVersion = 1
+	backendProbeBuildRootName = "plugin_backend_probe_builds"
 )
 
 var backendProbeTimeout = 5 * time.Second
@@ -238,7 +238,7 @@ func normalizeBackendAppSubsystemBackendRegistration(
 	if registration == nil {
 		return nil, nil
 	}
-	if registration.ContractVersion != appSubsystemBackendContractVersion {
+	if registration.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		return nil, fmt.Errorf(
 			"appSubsystemBackend: unsupported contract version %d",
 			registration.ContractVersion,
