@@ -56,6 +56,31 @@ func TestBuildDeduplicatesCustomImportsAndExportsGeneratedModels(t *testing.T) {
 	}
 }
 
+func TestBuildEmitsLightweightConstantsModule(t *testing.T) {
+	generated, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	output := generated.PythonConstantsModule
+	for _, snippet := range []string{
+		"SETTA_SDK_CONTRACT_VERSION = 2",
+		`"SETTA_SDK_CONTRACT_VERSION",`,
+	} {
+		if !strings.Contains(output, snippet) {
+			t.Fatalf("generated constants output missing snippet %q", snippet)
+		}
+	}
+	for _, forbidden := range []string{
+		"from pydantic import BaseModel",
+		"class SettaSDKContractBaseModel",
+	} {
+		if strings.Contains(output, forbidden) {
+			t.Fatalf("generated constants output unexpectedly contains %q", forbidden)
+		}
+	}
+}
+
 func TestPythonTypeExpr(t *testing.T) {
 	t.Helper()
 

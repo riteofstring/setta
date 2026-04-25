@@ -182,8 +182,7 @@ func languageServerSettingsWithRuntimePaths(
 ) map[string]any {
 	settings := languageServerSettingsRoot(entries, entry, pluginsState)
 	if normalizedSettaFilesRoot := strings.TrimSpace(settaFilesRoot); normalizedSettaFilesRoot != "" {
-		settings = mergeRequiredPythonLanguageServerRuntimePath(
-			entry,
+		settings = mergeRequiredLanguageServerRuntimeSearchPath(
 			registration,
 			settings,
 			normalizedSettaFilesRoot,
@@ -192,13 +191,12 @@ func languageServerSettingsWithRuntimePaths(
 	return scopeLanguageServerSettings(settings, registration.SettingsKey)
 }
 
-func mergeRequiredPythonLanguageServerRuntimePath(
-	entry DiscoveredPlugin,
+func mergeRequiredLanguageServerRuntimeSearchPath(
 	registration PluginRegisteredLanguageServer,
 	settings map[string]any,
 	requiredPath string,
 ) map[string]any {
-	segments := requiredPythonLanguageServerSearchPathSegments(entry, registration)
+	segments := requiredLanguageServerRuntimeSearchPathSegments(registration)
 	if len(segments) == 0 {
 		return settings
 	}
@@ -220,19 +218,11 @@ func mergeRequiredPythonLanguageServerRuntimePath(
 	return settings
 }
 
-func requiredPythonLanguageServerSearchPathSegments(entry DiscoveredPlugin, registration PluginRegisteredLanguageServer) []string {
-	if !strings.EqualFold(strings.TrimSpace(registration.Language), "python") {
+func requiredLanguageServerRuntimeSearchPathSegments(registration PluginRegisteredLanguageServer) []string {
+	if registration.RuntimeSearchPathsKey == nil {
 		return nil
 	}
-
-	switch strings.TrimSpace(entry.PluginID) {
-	case "setta-basedpyright":
-		return []string{"basedpyright", "analysis", "extraPaths"}
-	case "setta-ty":
-		return []string{"ty", "configuration", "environment", "extra-paths"}
-	default:
-		return nil
-	}
+	return parseLanguageServerSettingsKey(*registration.RuntimeSearchPathsKey)
 }
 
 func ensureSettingsMap(parent map[string]any, key string) map[string]any {

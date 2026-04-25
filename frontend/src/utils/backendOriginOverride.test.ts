@@ -10,6 +10,7 @@ import {
 } from "vitest";
 import {
   applyBackendOriginOverrideFromUrl,
+  BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
   BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
 } from "./backendOriginOverride";
 
@@ -64,6 +65,7 @@ describe("applyBackendOriginOverrideFromUrl", () => {
   });
 
   beforeEach(() => {
+    memoryStorage.clear();
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
@@ -78,7 +80,8 @@ describe("applyBackendOriginOverrideFromUrl", () => {
 
   it("cleans the URL without clobbering history state", () => {
     const initialState = { from: "test" };
-    window.history.state = initialState;
+    const historyStub = window.history as unknown as { state: unknown };
+    historyStub.state = initialState;
     window.location.href =
       "http://localhost/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8000#hash";
     memoryStorage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
@@ -90,6 +93,11 @@ describe("applyBackendOriginOverrideFromUrl", () => {
     expect(memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY)).toBe(
       "http://127.0.0.1:8000",
     );
+    expect(
+      memoryStorage.getItem(
+        BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+      ),
+    ).toBeNull();
   });
 
   it("falls back to clearing history state when replaceState fails", () => {
@@ -97,13 +105,14 @@ describe("applyBackendOriginOverrideFromUrl", () => {
       "http://localhost/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8000#hash";
     memoryStorage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
 
-    window.history.state = { from: "fallback-test" };
-    const startingHistoryState = window.history.state;
     const originalReplaceState = window.history.replaceState;
     const seenStates: unknown[] = [];
     const historyStub = window.history as unknown as {
+      state: unknown;
       replaceState: typeof window.history.replaceState;
     };
+    historyStub.state = { from: "fallback-test" };
+    const startingHistoryState = historyStub.state;
     historyStub.replaceState = function (
       state: unknown,
       _title: string,
@@ -128,6 +137,11 @@ describe("applyBackendOriginOverrideFromUrl", () => {
     expect(memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY)).toBe(
       "http://127.0.0.1:8000",
     );
+    expect(
+      memoryStorage.getItem(
+        BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+      ),
+    ).toBeNull();
   });
 
   it("rejects non-local hostname overrides by default", () => {
@@ -140,6 +154,11 @@ describe("applyBackendOriginOverrideFromUrl", () => {
     expect(window.location.href).not.toContain("__setta_backend_origin");
     expect(
       memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY),
+    ).toBeNull();
+    expect(
+      memoryStorage.getItem(
+        BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+      ),
     ).toBeNull();
     expect(warnSpy).toHaveBeenCalled();
   });
@@ -160,6 +179,11 @@ describe("applyBackendOriginOverrideFromUrl", () => {
       expect(memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY)).toBe(
         "https://evil.example",
       );
+      expect(
+        memoryStorage.getItem(
+          BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+        ),
+      ).toBe("https://evil.example");
     } finally {
       (import.meta.env as unknown as Record<string, unknown>)[
         "VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE"

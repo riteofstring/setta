@@ -2279,6 +2279,7 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -2408,6 +2409,7 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -3087,6 +3089,7 @@ func TestAppSetCodeRouteBroadcastsProjectStateUpdateForWatchCodeBoundSection(t *
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
