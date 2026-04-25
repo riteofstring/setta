@@ -18,8 +18,8 @@ and a Python package surface for CLI dispatch, source SDKs, and packaging.
     in the wheel
   - packaged assets, sidecars, and bundled binaries still ship from here
 - `plugins/` contains first-party Setta plugin packages, including
-  package-managed language-server plugins, the JSON Render app-subsystem
-  provider, and their manifests/config schemas.
+  package-managed language-server plugins, the Watch Code provider, the JSON
+  Render app-subsystem provider, and their manifests/config schemas.
 - `frontend/` contains the Vite/React UI and generated TS bindings.
 - `tests/` contains Python/package pytest coverage; Go tests are
   co-located under `cmd/*` and `internal/*`.
@@ -49,8 +49,8 @@ Common commands:
 - `./verify_install.sh`
 
 `./dev_install.sh` also creates the repo Python environment used for package
-tooling, tests, and the first-party basedpyright plugin. Activate it when you
-need direct Python/package commands:
+tooling, tests, and the first-party defaults plugins. Activate it when you need
+direct Python/package commands:
 
 ```sh
 source activate.sh
@@ -60,7 +60,8 @@ source activate.sh
 
 On a fresh workspace, the repo-local defaults install profile bootstraps
 `setta-basedpyright` as the selected Python language server when that
-first-party plugin is available. See
+first-party plugin is available. Watch Code is provided by the enabled-by-default
+`setta-watch-code` plugin. See
 [`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md).
 
 ## Packaging boundary

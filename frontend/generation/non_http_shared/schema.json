@@ -12977,50 +12977,6 @@
           },
           "default": []
         },
-        "watchCodeEnabled": {
-          "type": "boolean",
-          "default": false
-        },
-        "watchCodeFolders": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/WatchCodeFolder"
-          },
-          "default": []
-        },
-        "watchCodeFiles": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          },
-          "default": []
-        },
-        "watchCodeRegistry": {
-          "type": "object",
-          "default": {},
-          "additionalProperties": {
-            "$ref": "#/$defs/WatchCodeRegistryEntry"
-          }
-        },
-        "watchCodeBaselineByPath": {
-          "type": "object",
-          "default": {},
-          "additionalProperties": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          }
-        },
         "entryCodeBlockId": {
           "type": [
             "null",
@@ -13143,11 +13099,6 @@
         "hasPythonCodegenTarget",
         "runCapabilities",
         "codegenTargets",
-        "watchCodeEnabled",
-        "watchCodeFolders",
-        "watchCodeFiles",
-        "watchCodeRegistry",
-        "watchCodeBaselineByPath",
         "entryCodeBlockId",
         "sectionPathSlugsById",
         "sectionIdsByPathSlug",
@@ -13203,6 +13154,13 @@
         "id"
       ],
       "additionalProperties": false
+    },
+    "ProjectPluginData": {
+      "type": "object",
+      "title": "ProjectPluginData",
+      "additionalProperties": {
+        "$ref": "#/$defs/WatchCodePluginProjectData"
+      }
     },
     "ProjectRunCapabilities": {
       "type": "object",
@@ -17623,6 +17581,18 @@
         "projectConfig": {
           "$ref": "#/$defs/ProjectConfig"
         },
+        "pluginData": {
+          "$ref": "#/$defs/ProjectPluginData",
+          "default": {
+            "setta-watch-code": {
+              "enabled": false,
+              "folders": [],
+              "files": [],
+              "registry": {},
+              "baselineByPath": {}
+            }
+          }
+        },
         "singletonSections": {
           "$ref": "#/$defs/SingletonSections"
         },
@@ -17678,6 +17648,7 @@
         "codeObjImpls",
         "codeObjVariants",
         "projectConfig",
+        "pluginData",
         "singletonSections",
         "parentSectionMap",
         "shownParamIds",
@@ -21416,6 +21387,79 @@
       "required": [
         "path",
         "recursive"
+      ],
+      "additionalProperties": false
+    },
+    "WatchCodePluginData": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "integer"
+        },
+        "projects": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/WatchCodePluginProjectData"
+          }
+        }
+      },
+      "title": "WatchCodePluginData",
+      "required": [
+        "schemaVersion",
+        "projects"
+      ],
+      "additionalProperties": false
+    },
+    "WatchCodePluginProjectData": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "folders": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/WatchCodeFolder"
+          }
+        },
+        "files": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "registry": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/WatchCodeRegistryEntry"
+          }
+        },
+        "baselineByPath": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "title": "WatchCodePluginProjectData",
+      "required": [
+        "enabled",
+        "folders",
+        "files",
+        "registry",
+        "baselineByPath"
       ],
       "additionalProperties": false
     },

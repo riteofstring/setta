@@ -14,6 +14,26 @@ type RootResponse = {
   rootPath?: string;
 };
 
+type WatchCodePluginProjectData = {
+  enabled?: boolean;
+  files?: string[];
+};
+
+function getWatchCodePluginData(
+  projectState: unknown,
+): WatchCodePluginProjectData {
+  if (!projectState || typeof projectState !== "object") {
+    return {};
+  }
+  const pluginData = (projectState as { pluginData?: Record<string, unknown> })
+    .pluginData;
+  const watchCodeData = pluginData?.["setta-watch-code"];
+  if (!watchCodeData || typeof watchCodeData !== "object") {
+    return {};
+  }
+  return watchCodeData as WatchCodePluginProjectData;
+}
+
 test("watch code settings open from controls portal with all options", async ({
   page,
 }) => {
@@ -182,10 +202,8 @@ test("watch code file updates appear live and reload without crashing", async ({
     ]);
     await expect
       .poll(async () => {
-        const projectState = (await loadProjectConfig(page)) as {
-          projectConfig?: { watchCodeFiles?: string[] };
-        };
-        return projectState.projectConfig?.watchCodeFiles ?? [];
+        const projectState = await loadProjectConfig(page);
+        return getWatchCodePluginData(projectState).files ?? [];
       })
       .toContain(relativeFilePath);
 
@@ -204,10 +222,8 @@ test("watch code file updates appear live and reload without crashing", async ({
     await expect(toggleButton).toHaveAttribute("aria-pressed", "true");
     await expect
       .poll(async () => {
-        const projectState = (await loadProjectConfig(page)) as {
-          projectConfig?: { watchCodeEnabled?: boolean };
-        };
-        return projectState.projectConfig?.watchCodeEnabled ?? false;
+        const projectState = await loadProjectConfig(page);
+        return getWatchCodePluginData(projectState).enabled ?? false;
       })
       .toBe(true);
 

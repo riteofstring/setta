@@ -48,19 +48,49 @@ const routeSetWindowSpaceSortOrderMock = vi.fn();
 const routeSetProjectChatWindowingStateMock = vi.fn();
 const routeSetProjectChatWindowChatIdMock = vi.fn();
 const addTemporaryNotificationMock = vi.fn();
+async function callRouteMock(mock: ReturnType<typeof vi.fn>, args: unknown[]) {
+  let payloadArgs = args;
+  if (args.length === 1) {
+    const first = args[0];
+    const body =
+      first && typeof first === "object"
+        ? (first as { body?: unknown }).body
+        : undefined;
+    if (body && typeof body === "object" && !Array.isArray(body)) {
+      payloadArgs = [body];
+    }
+  }
+  const result = await mock(...payloadArgs);
+  if (
+    result &&
+    typeof result === "object" &&
+    "status" in result &&
+    !("response" in result)
+  ) {
+    const legacy = result as {
+      data?: unknown;
+      status?: number;
+    };
+    const status = legacy.status ?? 0;
+    return status >= 200 && status < 300
+      ? { data: legacy.data, response: { status } }
+      : { error: legacy.data, response: { status } };
+  }
+  return result;
+}
 vi.mock("openapi/http", () => ({
   createWindowSpace: (...args: unknown[]) =>
-    routeCreateWindowSpaceMock(...args),
+    callRouteMock(routeCreateWindowSpaceMock, args),
   deleteWindowSpace: (...args: unknown[]) =>
-    routeDeleteWindowSpaceMock(...args),
+    callRouteMock(routeDeleteWindowSpaceMock, args),
   setWindowSpaceSortOrder: (...args: unknown[]) =>
-    routeSetWindowSpaceSortOrderMock(...args),
+    callRouteMock(routeSetWindowSpaceSortOrderMock, args),
   setWindowSpaceName: (...args: unknown[]) =>
-    routeSetWindowSpaceNameMock(...args),
+    callRouteMock(routeSetWindowSpaceNameMock, args),
   setProjectChatWindowingState: (...args: unknown[]) =>
-    routeSetProjectChatWindowingStateMock(...args),
+    callRouteMock(routeSetProjectChatWindowingStateMock, args),
   setProjectChatWindowChatId: (...args: unknown[]) =>
-    routeSetProjectChatWindowChatIdMock(...args),
+    callRouteMock(routeSetProjectChatWindowChatIdMock, args),
   setSectionName: vi.fn(),
 }));
 vi.mock("state/actions/notifications", () => ({
@@ -1160,16 +1190,26 @@ describe("window-space optimistic rollback", () => {
     expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
     processProjectStateUpdateFromBackend({
       projectState: createSingleConfig({
+        pluginData: {
+          ...useProjectState.getState().pluginData,
+          "setta-watch-code": {
+            baselineByPath: {},
+            enabled: true,
+            files: [],
+            folders: [],
+            registry: {},
+          },
+        },
         projectConfig: createProjectConfig({
           ...useProjectState.getState().projectConfig,
-          watchCodeEnabled: true,
         }),
       }),
       completedOpIds: [],
       pendingOpIds: [],
     });
-    const projectConfig = useProjectState.getState().projectConfig;
-    expect(projectConfig.watchCodeEnabled).toBe(true);
+    const state = useProjectState.getState();
+    const projectConfig = state.projectConfig;
+    expect(state.pluginData["setta-watch-code"]?.enabled).toBe(true);
     expect(projectConfig.windowSpaces["beta-id"]?.sortIndex).toBe(0);
     expect(projectConfig.windowSpaces["alpha-id"]?.sortIndex).toBe(1);
   });
