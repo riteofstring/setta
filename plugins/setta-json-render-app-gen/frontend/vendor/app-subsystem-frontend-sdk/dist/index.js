@@ -655,6 +655,7 @@ function getOrInitLauncherOrigin(fallbackOrigin) {
 }
 const __vite_import_meta_env__ = {};
 const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY = "setta.backendOriginOverride";
+const BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY = "setta.backendOriginOverrideAllowNonLocal";
 function readBackendOriginSessionOverride(backendOriginOverrideStorageKey) {
   const storage = safeSessionStorage();
   if (!storage) {
@@ -677,6 +678,30 @@ function readBackendOriginSessionOverride(backendOriginOverrideStorageKey) {
     return void 0;
   }
 }
+function readBackendOriginOverrideAllowNonLocal(backendOriginOverrideAllowNonLocalStorageKey) {
+  const storage = safeSessionStorage();
+  if (!storage) {
+    return void 0;
+  }
+  try {
+    const rawOverride = storage.getItem(
+      backendOriginOverrideAllowNonLocalStorageKey
+    );
+    if (!rawOverride) {
+      return void 0;
+    }
+    return normalizeOrigin(
+      rawOverride,
+      "backend origin override allow marker (sessionStorage)"
+    );
+  } catch (error) {
+    console.warn(
+      "Failed to read backend origin override allow marker from sessionStorage",
+      error
+    );
+    return void 0;
+  }
+}
 function resolveBackendOriginSessionOverride(config) {
   const override = readBackendOriginSessionOverride(
     config.backendOriginOverrideStorageKey
@@ -684,10 +709,13 @@ function resolveBackendOriginSessionOverride(config) {
   if (!override) {
     return void 0;
   }
-  if (!isSameHostOrLocalPeerOriginAllowed(override, config.locationOrigin)) {
-    return void 0;
+  if (isSameHostOrLocalPeerOriginAllowed(override, config.locationOrigin)) {
+    return override;
   }
-  return override;
+  const allowedNonLocalOverride = readBackendOriginOverrideAllowNonLocal(
+    config.backendOriginOverrideAllowNonLocalStorageKey
+  );
+  return allowedNonLocalOverride === override ? override : void 0;
 }
 function resolveDevBackendOriginOverride(devBackendOriginOverride) {
   if (!devBackendOriginOverride) {
@@ -714,6 +742,7 @@ function resolveLauncherOrigin(config) {
 function defaultAddressResolverConfig() {
   return {
     apiPrefix: TransportRouteConstants.apiPrefix,
+    backendOriginOverrideAllowNonLocalStorageKey: BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
     backendOriginOverrideStorageKey: BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
     defaultHost: C.DEFAULT_HOST,
     defaultPort: C.DEFAULT_PORT,
@@ -2733,6 +2762,7 @@ export {
   AppSpecPatchPolicyConfig,
   AppSubsystemChatUIConfig,
   ArtifactTypeEnum,
+  BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
   BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
   CODEMIRROR_TOOLTIP_PARENT_ID,
   C_ADDRESSES,

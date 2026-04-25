@@ -273,6 +273,7 @@ export declare function formatBytes(value: number): string;
 export declare function getAttachmentPolicy(scope: AttachmentPolicyScope): AttachmentPolicy;
 export declare function isAttachmentMimeAllowed(mimeType: string, policy: AttachmentPolicy): boolean;
 export declare const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY: "setta.backendOriginOverride";
+export declare const BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY: "setta.backendOriginOverrideAllowNonLocal";
 export declare class C_ADDRESSES {
   static get DEV_MODE(): boolean | undefined;
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE(): string | undefined;

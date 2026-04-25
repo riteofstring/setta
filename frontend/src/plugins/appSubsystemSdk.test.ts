@@ -565,7 +565,7 @@ describe("appSubsystemFrontendSdk", () => {
   it("builds binary download urls from explicit server-mode input", () => {
     const url = new URL(buildBinaryDownloadUrl("artifact-1", "share-1", null));
 
-    expect(url.pathname).toBe("/binary/artifact-1");
+    expect(url.pathname).toBe("/api/binary/artifact-1");
     expect(url.searchParams.get("shareSessionId")).toBe("share-1");
   });
 });

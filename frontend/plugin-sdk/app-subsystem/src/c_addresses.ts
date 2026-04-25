@@ -7,9 +7,12 @@ import { safeSessionStorage } from "./storage";
 
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
   "setta.backendOriginOverride";
+export const BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY =
+  "setta.backendOriginOverrideAllowNonLocal";
 
 type AddressResolverConfig = {
   apiPrefix: string;
+  backendOriginOverrideAllowNonLocalStorageKey: string;
   backendOriginOverrideStorageKey: string;
   defaultHost: string;
   defaultPort: number;
@@ -44,6 +47,33 @@ function readBackendOriginSessionOverride(
   }
 }
 
+function readBackendOriginOverrideAllowNonLocal(
+  backendOriginOverrideAllowNonLocalStorageKey: string,
+): string | undefined {
+  const storage = safeSessionStorage();
+  if (!storage) {
+    return undefined;
+  }
+  try {
+    const rawOverride = storage.getItem(
+      backendOriginOverrideAllowNonLocalStorageKey,
+    );
+    if (!rawOverride) {
+      return undefined;
+    }
+    return normalizeOrigin(
+      rawOverride,
+      "backend origin override allow marker (sessionStorage)",
+    );
+  } catch (error) {
+    console.warn(
+      "Failed to read backend origin override allow marker from sessionStorage",
+      error,
+    );
+    return undefined;
+  }
+}
+
 function resolveBackendOriginSessionOverride(
   config: AddressResolverConfig,
 ): string | undefined {
@@ -53,10 +83,13 @@ function resolveBackendOriginSessionOverride(
   if (!override) {
     return undefined;
   }
-  if (!isSameHostOrLocalPeerOriginAllowed(override, config.locationOrigin)) {
-    return undefined;
+  if (isSameHostOrLocalPeerOriginAllowed(override, config.locationOrigin)) {
+    return override;
   }
-  return override;
+  const allowedNonLocalOverride = readBackendOriginOverrideAllowNonLocal(
+    config.backendOriginOverrideAllowNonLocalStorageKey,
+  );
+  return allowedNonLocalOverride === override ? override : undefined;
 }
 
 function resolveDevBackendOriginOverride(
@@ -125,6 +158,8 @@ function resolveLauncherOrigin(config: AddressResolverConfig): string {
 function defaultAddressResolverConfig(): AddressResolverConfig {
   return {
     apiPrefix: TransportRouteConstants.apiPrefix,
+    backendOriginOverrideAllowNonLocalStorageKey:
+      BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
     backendOriginOverrideStorageKey: BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
     defaultHost: C.DEFAULT_HOST,
     defaultPort: C.DEFAULT_PORT,

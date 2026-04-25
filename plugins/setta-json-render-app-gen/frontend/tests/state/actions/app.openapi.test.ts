@@ -1,4 +1,5 @@
 import {
+  BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
   BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
   configureAppSubsystemOpenAPI,
   createPolicy,
@@ -225,6 +226,38 @@ describe("app deployment OpenAPI initialization", () => {
       requests.every(
         (request) =>
           new URL(request.url).origin === "http://127.0.0.1:8019" &&
+          new URL(request.url).pathname.startsWith("/api/"),
+      ),
+    ).toBe(true);
+  });
+
+  it("routes built plugin OpenAPI requests through an explicitly allowed cross-host backend origin override", async () => {
+    (globalThis as { location: { origin: string } }).location.origin =
+      "http://frontend.example:3019";
+    sessionStorageStub.setItem(
+      BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+      "https://backend.example:8019",
+    );
+    sessionStorageStub.setItem(
+      BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+      "https://backend.example:8019",
+    );
+    configureAppSubsystemOpenAPI();
+    const frontendHost = createStatefulAppSubsystemFrontendHost();
+    const initialize =
+      appSubsystemFrontendRegistration.controller
+        ?.initializeAppSessionFromCurrentDeployment;
+    if (!initialize) {
+      throw new Error("app deployment initializer is not registered");
+    }
+
+    await expect(initialize(frontendHost)).resolves.toBe(true);
+
+    expect(requests.length).toBeGreaterThan(0);
+    expect(
+      requests.every(
+        (request) =>
+          new URL(request.url).origin === "https://backend.example:8019" &&
           new URL(request.url).pathname.startsWith("/api/"),
       ),
     ).toBe(true);
