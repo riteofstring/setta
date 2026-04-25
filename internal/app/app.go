@@ -409,8 +409,9 @@ func initializeDeploymentProjectServices(cfg config.Config) (projectServices, er
 	}
 	services.pluginDiscovery, err = plugins.NewDiscoveryService(
 		plugins.DiscoveryServiceOptions{
-			Store:      pluginStore,
-			ServerMode: cfg.Server.Mode,
+			Store:            pluginStore,
+			ServerMode:       cfg.Server.Mode,
+			DeploymentScoped: true,
 		},
 	)
 	if err != nil {

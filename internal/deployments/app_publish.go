@@ -21,13 +21,21 @@ var (
 )
 
 type AppPublisherOptions struct {
-	Catalog          *Catalog
-	SettaFilesRoot   string
-	WorkspaceRoot    string
-	PluginSourcePath string
+	Catalog               *Catalog
+	SettaFilesRoot        string
+	WorkspaceRoot         string
+	PluginSourcePath      string
+	EnabledPluginIDs      []string
+	PluginConfigByID      map[string]any
+	PackageProviderPlugin AppProviderPackageFunc
+	Now                   func() time.Time
+}
+
+type AppProviderPackageFunc func(targetRoot string) (AppProviderPackageState, error)
+
+type AppProviderPackageState struct {
 	EnabledPluginIDs []string
 	PluginConfigByID map[string]any
-	Now              func() time.Time
 }
 
 type AppPolicyOverrides = SharePolicyOverrides

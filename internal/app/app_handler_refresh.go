@@ -54,29 +54,39 @@ func currentAppPublishService(handlerDeps appHandlerDeps) (deployments.AppPublis
 	if handlerDeps.appSubsystemCapabilities != nil {
 		capabilities = handlerDeps.appSubsystemCapabilities.AppSubsystemCapabilities()
 	}
-	providerSnapshot, err := currentAppPublishProviderSnapshot(handlerDeps, capabilities.PluginID)
+	packageProvider, err := currentAppPublishProviderPackager(handlerDeps, capabilities.PluginID)
 	if err != nil {
 		return nil, err
 	}
 	return appsubsystem.NewAppPublishService(capabilities, deployments.AppPublisherOptions{
-		Catalog:          handlerDeps.deploymentCatalog,
-		SettaFilesRoot:   handlerDeps.cfg.Paths.SettaFilesRoot,
-		WorkspaceRoot:    handlerDeps.cfg.Paths.WorkspaceRoot,
-		PluginSourcePath: providerSnapshot.SourcePath,
-		EnabledPluginIDs: providerSnapshot.State.EnabledPluginIDs,
-		PluginConfigByID: providerSnapshot.State.PluginConfigByID,
+		Catalog:               handlerDeps.deploymentCatalog,
+		SettaFilesRoot:        handlerDeps.cfg.Paths.SettaFilesRoot,
+		WorkspaceRoot:         handlerDeps.cfg.Paths.WorkspaceRoot,
+		PackageProviderPlugin: packageProvider,
 	}, handlerDeps.projectRuntime, handlerDeps.pluginRouteService)
 }
 
-func currentAppPublishProviderSnapshot(
+func currentAppPublishProviderPackager(
 	handlerDeps appHandlerDeps,
 	pluginID string,
-) (plugins.ActivePluginDeploymentSnapshot, error) {
+) (deployments.AppProviderPackageFunc, error) {
 	trimmedPluginID := strings.TrimSpace(pluginID)
 	if trimmedPluginID == "" || handlerDeps.pluginRuntime == nil || handlerDeps.pluginRuntime.service == nil {
-		return plugins.ActivePluginDeploymentSnapshot{}, nil
+		return nil, nil
 	}
-	return handlerDeps.pluginRuntime.service.DeploymentSnapshotForActivePlugin(trimmedPluginID)
+	if _, err := handlerDeps.pluginRuntime.service.DeploymentSnapshotForActivePlugin(trimmedPluginID); err != nil {
+		return nil, err
+	}
+	return func(targetRoot string) (deployments.AppProviderPackageState, error) {
+		state, err := handlerDeps.pluginRuntime.service.PackageActivePluginForDeployment(trimmedPluginID, targetRoot)
+		if err != nil {
+			return deployments.AppProviderPackageState{}, err
+		}
+		return deployments.AppProviderPackageState{
+			EnabledPluginIDs: state.EnabledPluginIDs,
+			PluginConfigByID: state.PluginConfigByID,
+		}, nil
+	}, nil
 }
 
 type swappableHandler struct {

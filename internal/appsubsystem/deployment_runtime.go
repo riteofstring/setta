@@ -77,8 +77,9 @@ func LoadAppSubsystemCapabilities(
 		return plugins.PluginAppSubsystemCapabilities{}, err
 	}
 	discovery, err := plugins.NewDiscoveryService(plugins.DiscoveryServiceOptions{
-		Store:      store,
-		ServerMode: options.Mode,
+		Store:            store,
+		ServerMode:       options.Mode,
+		DeploymentScoped: true,
 	})
 	if err != nil {
 		return plugins.PluginAppSubsystemCapabilities{}, err

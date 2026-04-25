@@ -181,31 +181,36 @@ func TestAppShareModePluginRuntimeIgnoresHostGlobalPluginHome(t *testing.T) {
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 
-	request, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
-	if err != nil {
-		t.Fatalf("new plugin runtime request: %v", err)
-	}
-
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatalf("get plugin runtime: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
-	}
-
-	var payload plugins.PluginRuntimeResponse
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode plugin runtime payload: %v", err)
-	}
+	payload := getDeploymentPluginRuntimeResponse(t, server.URL)
 	if payload.List.ServerMode != config.ModeShare || payload.Status.ServerMode != config.ModeShare {
 		t.Fatalf("expected share-mode plugin runtime payload, got list=%q status=%q", payload.List.ServerMode, payload.Status.ServerMode)
 	}
 	if len(payload.List.Plugins) != 0 || len(payload.Status.Plugins) != 0 {
 		t.Fatalf("expected share-mode plugin runtime to ignore host global plugins, got list=%#v status=%#v", payload.List.Plugins, payload.Status.Plugins)
 	}
+}
+
+func TestAppModePluginRuntimeIgnoresHostGlobalAppSubsystemProviders(t *testing.T) {
+	cfg := testDeploymentConfigWithType(t, config.ModeApp, deployments.TypeApp)
+	packagedPluginID := "acme.packaged"
+	enableMinimalAppDeploymentRuntimePlugin(t, cfg.Paths.DeploymentRoot, packagedPluginID)
+	writeHostGlobalAppSubsystemProvider(t, cfg.Paths.RuntimeRoot, "acme.host")
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	payload := getDeploymentPluginRuntimeResponse(t, server.URL)
+	assertAppModeRuntimeOnlyIncludesPackagedProvider(t, payload, packagedPluginID)
 }
 
 func TestAppShareSessionStoreSupportsHTTPMiddleware(t *testing.T) {
@@ -713,6 +718,144 @@ func enableAppDeploymentRuntimePluginWithID(
 	writeAppJSON(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
 		"enabledPluginIds": []string{targetPluginID},
 	})
+}
+
+func getDeploymentPluginRuntimeResponse(
+	t *testing.T,
+	serverURL string,
+) plugins.PluginRuntimeResponse {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodGet, serverURL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("get plugin runtime: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload plugins.PluginRuntimeResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	return payload
+}
+
+func enableMinimalAppDeploymentRuntimePlugin(
+	t *testing.T,
+	deploymentRoot string,
+	pluginID string,
+) {
+	t.Helper()
+
+	pluginRoot := filepath.Join(deploymentRoot, ".setta_plugins", pluginID)
+	writeMinimalAppSubsystemProviderPlugin(t, pluginRoot, pluginID, true)
+	writeAppJSON(t, filepath.Join(deploymentRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds": []string{pluginID},
+	})
+}
+
+func writeHostGlobalAppSubsystemProvider(t *testing.T, runtimeRoot string, pluginID string) {
+	t.Helper()
+
+	writeMinimalAppSubsystemProviderPlugin(
+		t,
+		filepath.Join(runtimeRoot, "plugins", pluginID),
+		pluginID,
+		false,
+	)
+}
+
+func writeMinimalAppSubsystemProviderPlugin(
+	t *testing.T,
+	pluginRoot string,
+	pluginID string,
+	withBackend bool,
+) {
+	t.Helper()
+
+	manifest := map[string]any{
+		"schemaVersion":     1,
+		"id":                pluginID,
+		"name":              pluginID,
+		"version":           "0.1.0",
+		"settaVersionRange": ">=0.0.0",
+		"enabledByDefault":  true,
+		"capabilities":      []string{},
+		"featureCapabilities": map[string]any{
+			"appSubsystem": map[string]any{
+				"appDeploymentRuntime": true,
+			},
+		},
+	}
+	if withBackend {
+		manifest["backend"] = map[string]any{
+			"entrypoint": "runtime_backend/main.py",
+		}
+		manifest["capabilities"] = []string{"registerAppSubsystemBackend"}
+		writeMinimalAppSubsystemBackendProbe(t, filepath.Join(pluginRoot, "runtime_backend", "main.py"))
+	}
+	writeAppJSON(t, filepath.Join(pluginRoot, "setta.plugin.json"), manifest)
+}
+
+func writeMinimalAppSubsystemBackendProbe(t *testing.T, path string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir backend probe parent: %v", err)
+	}
+	content := strings.Join([]string{
+		"import json",
+		"import sys",
+		`if len(sys.argv) == 2 and sys.argv[1] == "--setta-plugin-backend-probe":`,
+		`    print(json.dumps({"schemaVersion": 1, "appSubsystemBackend": {"contractVersion": 1}}))`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write backend probe: %v", err)
+	}
+}
+
+func assertAppModeRuntimeOnlyIncludesPackagedProvider(
+	t *testing.T,
+	payload plugins.PluginRuntimeResponse,
+	pluginID string,
+) {
+	t.Helper()
+
+	if len(payload.List.Plugins) != 1 || payload.List.Plugins[0].PluginID != pluginID {
+		t.Fatalf("expected one packaged plugin in list, got %#v", payload.List.Plugins)
+	}
+	if len(payload.Status.Plugins) != 1 || payload.Status.Plugins[0].PluginID != pluginID {
+		t.Fatalf("expected one packaged plugin in status, got %#v", payload.Status.Plugins)
+	}
+	if payload.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := payload.FeatureCapabilities.AppSubsystem
+	if appSubsystem.ProviderSelection == nil {
+		t.Fatalf("expected provider selection, got %#v", appSubsystem)
+	}
+	if appSubsystem.ProviderSelection.Status != plugins.PluginAppSubsystemProviderSelectionStatusActive {
+		t.Fatalf("expected active provider selection, got %#v", appSubsystem.ProviderSelection)
+	}
+	if appSubsystem.ProviderSelection.SelectedPluginID == nil ||
+		*appSubsystem.ProviderSelection.SelectedPluginID != pluginID {
+		t.Fatalf("expected selected provider %q, got %#v", pluginID, appSubsystem.ProviderSelection)
+	}
+	if appSubsystem.PluginID != pluginID || !appSubsystem.PluginEnabled || !appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected packaged app deployment provider capabilities, got %#v", appSubsystem)
+	}
+	if len(appSubsystem.ProviderSelection.ConflictingPluginIDs) != 0 ||
+		len(appSubsystem.ProviderSelection.InvalidPluginIDs) != 0 {
+		t.Fatalf("expected no host-global provider fallout, got %#v", appSubsystem.ProviderSelection)
+	}
 }
 
 func enableInvalidAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string, pluginID string) {
