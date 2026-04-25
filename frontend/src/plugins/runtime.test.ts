@@ -2,9 +2,22 @@ import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import * as generatedEndpoints from "openapi/http";
 import * as openAPI from "openapi/http";
 import {
+  applyAppDefinitionStructuredContentToStore,
+  appSubsystemModeRequiresImageAttachment,
+  createAppSubsystemFrontendHost,
+  initializeAppSessionFromCurrentDeployment,
+  processAppProjectStateUpdateFromBackend,
+  resetAppSubsystemFrontendRuntimeState,
+  useAppSubsystemAppDeploymentModal,
+  useAppSubsystemFrontendStore,
+  useAppSubsystemOverviewTab,
+  useAppSubsystemSlashCommands,
+} from "plugins/appSubsystem";
+import {
   invokePluginSettingRevealHandler,
   receivePluginRuntimeUpdate,
   refreshPluginRuntime,
+  usePluginCanvasControls,
   usePluginCommands,
   usePluginListEntries,
   usePluginPaneTabs,
@@ -15,6 +28,7 @@ import {
   usePluginTopNavBarItems,
   type RegisteredPluginSectionKind,
 } from "plugins/runtime";
+import * as runtimeInternal from "plugins/runtimeInternal";
 import {
   clearPluginRuntimeSideEffects,
   indexSectionKindKeysByPluginId,
@@ -64,11 +78,14 @@ import { type StateCreator, type StoreApi } from "zustand/vanilla";
 
 function resetPluginRuntimeStateForTests(): void {
   clearPluginRuntimeSideEffects();
+  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState({
     status: "idle",
     statusMessage: null,
     schemaVersion: null,
     serverMode: null,
+    appSubsystemCapabilities: null,
+    watchCodeCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
@@ -76,6 +93,7 @@ function resetPluginRuntimeStateForTests(): void {
     statusEntries: [],
     languageServerSelectionsByLanguage: {},
     languageServerSelections: [],
+    appSubsystemRegistrationsByPluginId: {},
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -84,6 +102,8 @@ function resetPluginRuntimeStateForTests(): void {
     sortedCommands: [],
     topNavBarItemsByPluginId: {},
     sortedTopNavBarItems: [],
+    canvasControlsByPluginId: {},
+    sortedCanvasControls: [],
     frontendErrorsByPluginId: {},
   });
 }
@@ -238,10 +258,97 @@ function buildRuntimeRequestFailure(
     response: new Response(null, { status }),
   } as Awaited<ReturnType<typeof openAPI.getPluginsRuntime>>;
 }
+
+function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
+function buildActiveAppSubsystemCapabilities(
+  pluginId: string,
+): NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"] {
+  return {
+    providerSelection: {
+      status: "active",
+      selectedPluginId: pluginId,
+      activePluginIds: [pluginId],
+      disabledPluginIds: [],
+      invalidPluginIds: [],
+      conflictingPluginIds: [],
+    },
+    pluginId,
+    pluginEnabled: true,
+    appAuthoringUi: true,
+    appPreviewUi: false,
+    appGenerationChatModes: false,
+    appDeploymentRuntime: false,
+  };
+}
+
+function buildUnavailableWatchCodeCapabilities(): NonNullable<
+  PluginRuntimeResponse["featureCapabilities"]
+>["watchCode"] {
+  return {
+    providerSelection: {
+      status: "no_provider",
+      activePluginIds: [],
+      disabledPluginIds: [],
+      invalidPluginIds: [],
+      conflictingPluginIds: [],
+    },
+    pluginId: "",
+    pluginEnabled: false,
+    python: false,
+    requiresLanguageServer: false,
+    canvasControlsUi: false,
+  };
+}
+
+function buildAppSubsystemRegistrationDelta(
+  pluginId: string,
+  applyStructuredContent: (structured: Record<string, unknown>) => boolean,
+  processProjectStateUpdate?: (payload: unknown) => void,
+  initializeAppSession?: (
+    host: unknown,
+    options?: {
+      forceNewSession?: boolean;
+    },
+  ) => Promise<boolean>,
+) {
+  return {
+    appSubsystemRegistrationsByPluginId: {
+      [pluginId]: {
+        pluginId,
+        overviewTab: {
+          renderer: { mount: () => undefined },
+          titleQuickInfo: `${pluginId} overview`,
+          moreMenuQuickInfo: `${pluginId} quick info`,
+          moreMenuLabel: pluginId,
+        },
+        controller: {
+          applyAppDefinitionStructuredContentToStore: applyStructuredContent,
+          initializeAppSessionFromCurrentDeployment: initializeAppSession,
+          processAppProjectStateUpdateFromBackend: processProjectStateUpdate,
+        },
+      },
+    },
+    sectionKinds: {},
+    panes: {},
+    commands: {},
+    topNavBarItems: {},
+    canvasControls: {},
+  };
+}
 type CapturedPluginHost = {
   createStore: <TState extends object>(
     initializer: StateCreator<TState, [], []>,
   ) => StoreApi<TState>;
+  registerCanvasControl: (definition: Record<string, unknown>) => void;
   registerContextMenu: (definition: Record<string, unknown>) => void;
   getProjectContext: () => {
     projectConfigId: string;
@@ -299,6 +406,23 @@ function readPluginRuntimeHookValue<T>(read: () => T): T {
   }
   return captured as T;
 }
+
+function readAppSubsystemHookValue<T>(read: () => T): T {
+  syncStoreInitialState(useAppSubsystemFrontendStore);
+  let captured: T | undefined;
+  let hasCaptured = false;
+  function Capture(): null {
+    captured = read();
+    hasCaptured = true;
+    return null;
+  }
+  renderToString(React.createElement(Capture));
+  if (!hasCaptured) {
+    throw new Error("Expected app subsystem hook to produce a value.");
+  }
+  return captured as T;
+}
+
 function getCapturedPluginHost(): CapturedPluginHost {
   const globalScope = globalThis as {
     __settaCapturedPluginHost?: CapturedPluginHost;
@@ -1014,11 +1138,60 @@ describe("plugin runtime helpers", () => {
       "quick-action",
     );
   });
+  it("registers canvas controls when capability is effective", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  host.registerCanvasControl({ id: 'utility', label: 'Utility', placement: 'utility', order: 1, renderer: { mount() {} } });\n" +
+          "  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', placement: 'project', order: 20, renderer: { mount(el, props) { el.dataset.controlId = props.controlId; } } });\n" +
+          "  host.registerCanvasControl({ id: 'project-first', label: 'Project First', placement: 'project', order: 10, renderer: { mount() {} } });\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerCanvasControl"],
+    });
+    const result = await loadPluginFrontendModule(plugin, "ide");
+    expect(result?.error).toBeNull();
+    const control = result?.registryDelta?.canvasControls["acme.plugin"]?.[0];
+    expect(
+      result?.registryDelta?.canvasControls["acme.plugin"]?.map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["project-first", "watch-code", "utility"]);
+    expect(control?.id).toBe("project-first");
+    expect(control?.label).toBe("Project First");
+    expect(control?.placement).toBe("project");
+    expect(control?.order).toBe(10);
+  });
   it("rejects section-kind registration when capability is not effective", async () => {
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
         "export const apiVersion = 1;\nexport function register(host) {\n  host.registerSectionKind({ kind: 'widget', title: 'Widget', renderer: { mount() {} } });\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: [],
+    });
+    const result = await loadPluginFrontendModule(plugin, "ide");
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+  });
+  it("rejects canvas control registration when capability is not effective", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', renderer: { mount() {} } });\n}\n",
       );
     const plugin = buildPluginListEntry({
       frontend: {
@@ -1068,6 +1241,24 @@ describe("plugin runtime helpers", () => {
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
   });
+  it("rejects invalid canvas control registrations", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerCanvasControl({ id: 'bad-placement', label: 'Bad', placement: 'header', renderer: { mount() {} } });\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerCanvasControl"],
+    });
+    const result = await loadPluginFrontendModule(plugin, "ide");
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
   it("reports runtime error and clears stale runtime-derived plugin state", async () => {
     usePluginRuntimeStore.setState({
       pluginListById: {
@@ -1102,6 +1293,30 @@ describe("plugin runtime helpers", () => {
           },
         ],
       },
+      canvasControlsByPluginId: {
+        "stale.plugin": [
+          {
+            pluginId: "stale.plugin",
+            id: "stale-control",
+            label: "Stale Control",
+            placement: "project",
+            renderer: {
+              mount: () => undefined,
+            },
+          },
+        ],
+      },
+      sortedCanvasControls: [
+        {
+          pluginId: "stale.plugin",
+          id: "stale-control",
+          label: "Stale Control",
+          placement: "project",
+          renderer: {
+            mount: () => undefined,
+          },
+        },
+      ],
     });
     vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeRequestFailure(500),
@@ -1116,6 +1331,8 @@ describe("plugin runtime helpers", () => {
     expect(Object.keys(state.pluginStatusById)).toHaveLength(0);
     expect(Object.keys(state.sectionKindsByKey)).toHaveLength(0);
     expect(Object.keys(state.panesByPluginId)).toHaveLength(0);
+    expect(Object.keys(state.canvasControlsByPluginId)).toHaveLength(0);
+    expect(state.sortedCanvasControls).toHaveLength(0);
   });
   it("reports runtime error when plugins runtime request fails without response", async () => {
     vi.spyOn(openAPI, "getPluginsRuntime").mockRejectedValue(
@@ -1164,6 +1381,27 @@ describe("plugin runtime helpers", () => {
             },
           ],
         }),
+        {
+          featureCapabilities: {
+            appSubsystem: {
+              providerSelection: {
+                status: "active",
+                selectedPluginId: "setta-json-render-app-gen",
+                activePluginIds: ["setta-json-render-app-gen"],
+                disabledPluginIds: [],
+                invalidPluginIds: [],
+                conflictingPluginIds: [],
+              },
+              pluginId: "setta-json-render-app-gen",
+              pluginEnabled: true,
+              appAuthoringUi: true,
+              appPreviewUi: true,
+              appGenerationChatModes: false,
+              appDeploymentRuntime: false,
+            },
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
       ),
     );
 
@@ -1178,6 +1416,763 @@ describe("plugin runtime helpers", () => {
     expect(
       state.languageServerSelectionsByLanguage.python?.appliedPluginId,
     ).toBe("setta-basedpyright");
+    expect(state.appSubsystemCapabilities).toMatchObject({
+      pluginId: "setta-json-render-app-gen",
+      pluginEnabled: true,
+      appAuthoringUi: true,
+      appPreviewUi: true,
+      appGenerationChatModes: false,
+      appDeploymentRuntime: false,
+      providerSelection: {
+        status: "active",
+        selectedPluginId: "setta-json-render-app-gen",
+        activePluginIds: ["setta-json-render-app-gen"],
+        disabledPluginIds: [],
+        invalidPluginIds: [],
+        conflictingPluginIds: [],
+      },
+    });
+    expect(state.watchCodeCapabilities).toMatchObject({
+      pluginId: "",
+      pluginEnabled: false,
+      python: false,
+      providerSelection: {
+        status: "no_provider",
+        activePluginIds: [],
+        disabledPluginIds: [],
+        invalidPluginIds: [],
+        conflictingPluginIds: [],
+      },
+    });
+  });
+  it("loads app-subsystem frontend surfaces from runtime metadata for unknown provider ids", async () => {
+    const providerPluginId = "acme.third-party-app-provider";
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  host.registerAppSubsystem({\n" +
+          "    overviewTab: {\n" +
+          "      renderer: { mount() {} },\n" +
+          "      titleQuickInfo: 'Acme provider quick info',\n" +
+          "      moreMenuQuickInfo: 'Open Acme app configuration.',\n" +
+          "      moreMenuLabel: 'Acme App'\n" +
+          "    },\n" +
+          "    previewSurface: { renderer: { mount() {} } },\n" +
+          "    appModeRoute: { renderer: { mount() {} } },\n" +
+          "    appDeploymentModal: { renderer: { mount() {} } },\n" +
+          "    chat: {\n" +
+          "      slashCommands: [{\n" +
+          "        command: '/app-json',\n" +
+          "        action: 'app_json_render',\n" +
+          "        summary: 'Generate a standalone app spec through JSON render.',\n" +
+          "        promptTemplate: 'Generate a polished standalone JSON-render app spec. Use a strong hero section, clear content grouping, and consistent spacing/typography by default. Include one obvious primary action path and production-ready baseline structure.',\n" +
+          "        appGenerationMode: 'json_render'\n" +
+          "      }],\n" +
+          "      imageRequiredModes: [],\n" +
+          "      customSlashCommandModes: {\n" +
+          "        options: [\n" +
+          "          { id: 'plain_chat', name: 'Plain chat' },\n" +
+          "          { id: 'json_render', name: 'JSON Render' }\n" +
+          "        ],\n" +
+          "        defaultMode: 'plain_chat'\n" +
+          "      }\n" +
+          "    },\n" +
+          "    controller: {\n" +
+          "      getPreviewEnabled: function() { return true; },\n" +
+          "      initializeAppSessionFromCurrentDeployment: async function() { return true; }\n" +
+          "    }\n" +
+          "  });\n" +
+          "}\n",
+      );
+
+    await receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Acme App Provider",
+            frontend: {
+              entrypointUrl: moduleUrl,
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Acme App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: {
+              providerSelection: {
+                status: "active",
+                selectedPluginId: providerPluginId,
+                activePluginIds: [providerPluginId],
+                disabledPluginIds: [],
+                invalidPluginIds: [],
+                conflictingPluginIds: [],
+              },
+              pluginId: providerPluginId,
+              pluginEnabled: true,
+              appAuthoringUi: true,
+              appPreviewUi: true,
+              appGenerationChatModes: true,
+              appDeploymentRuntime: true,
+            },
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    expect(
+      readAppSubsystemHookValue(() => useAppSubsystemOverviewTab()),
+    ).toMatchObject({
+      moreMenuLabel: "Acme App",
+    });
+    expect(
+      readAppSubsystemHookValue(() => useAppSubsystemSlashCommands()).map(
+        (entry) => entry.command,
+      ),
+    ).toEqual(["/app-json"]);
+    expect(
+      readAppSubsystemHookValue(() => useAppSubsystemAppDeploymentModal()),
+    ).not.toBeNull();
+    expect(appSubsystemModeRequiresImageAttachment("json_render")).toBe(false);
+  });
+  it("buffers app-subsystem updates while the selected provider frontend is still importing", async () => {
+    const providerPluginId = "acme.loading-app-provider";
+    const applyStructuredContent = vi.fn(() => true);
+    const loadStarted = deferred();
+    const releaseLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId !== providerPluginId) {
+          return {
+            error: null,
+            registryDelta: {
+              appSubsystemRegistrationsByPluginId: {},
+              sectionKinds: {},
+              panes: {},
+              commands: {},
+              topNavBarItems: {},
+              canvasControls: {},
+            },
+          };
+        }
+        loadStarted.resolve();
+        await releaseLoad.promise;
+        return {
+          error: null,
+          registryDelta: buildAppSubsystemRegistrationDelta(
+            providerPluginId,
+            applyStructuredContent,
+          ),
+        };
+      },
+    );
+
+    const updatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Loading App Provider",
+            frontend: {
+              entrypointUrl: "/plugins/acme.loading/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Loading App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    await loadStarted.promise;
+    expect(useAppSubsystemFrontendStore.getState().status).toBe("loading");
+
+    expect(
+      applyAppDefinitionStructuredContentToStore({
+        appSpec: { title: "Buffered update" },
+      }),
+    ).toBe(true);
+    expect(applyStructuredContent).not.toHaveBeenCalled();
+
+    releaseLoad.resolve();
+    await updatePromise;
+
+    expect(applyStructuredContent).toHaveBeenCalledWith({
+      appSpec: { title: "Buffered update" },
+    });
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loaded",
+      registration: {
+        pluginId: providerPluginId,
+      },
+    });
+  });
+  it("drops queued app-subsystem updates when the provider changes before the first frontend load finishes", async () => {
+    const firstProviderPluginId = "acme.loading-app-provider-a";
+    const secondProviderPluginId = "acme.loading-app-provider-b";
+    const applyStructuredContentA = vi.fn(() => true);
+    const applyStructuredContentB = vi.fn(() => true);
+    const firstLoadStarted = deferred();
+    const releaseFirstLoad = deferred();
+    const secondLoadStarted = deferred();
+    const releaseSecondLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId === firstProviderPluginId) {
+          firstLoadStarted.resolve();
+          await releaseFirstLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              firstProviderPluginId,
+              applyStructuredContentA,
+            ),
+          };
+        }
+        if (plugin.pluginId === secondProviderPluginId) {
+          secondLoadStarted.resolve();
+          await releaseSecondLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              secondProviderPluginId,
+              applyStructuredContentB,
+            ),
+          };
+        }
+        return {
+          error: null,
+          registryDelta: {
+            appSubsystemRegistrationsByPluginId: {},
+            sectionKinds: {},
+            panes: {},
+            commands: {},
+            topNavBarItems: {},
+            canvasControls: {},
+          },
+        };
+      },
+    );
+
+    const firstUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: firstProviderPluginId,
+            name: "First Loading App Provider",
+            frontend: {
+              entrypointUrl: "/plugins/acme.loading-a/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: firstProviderPluginId,
+            name: "First Loading App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(
+              firstProviderPluginId,
+            ),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    await firstLoadStarted.promise;
+    expect(
+      applyAppDefinitionStructuredContentToStore({
+        appSpec: { title: "Stale update" },
+      }),
+    ).toBe(true);
+
+    const secondUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: secondProviderPluginId,
+            name: "Second Loading App Provider",
+            frontend: {
+              entrypointUrl: "/plugins/acme.loading-b/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: secondProviderPluginId,
+            name: "Second Loading App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(
+              secondProviderPluginId,
+            ),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    releaseFirstLoad.resolve();
+    await secondLoadStarted.promise;
+
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loading",
+      registration: null,
+      capabilities: {
+        pluginId: secondProviderPluginId,
+      },
+    });
+
+    releaseSecondLoad.resolve();
+    await firstUpdatePromise;
+    await secondUpdatePromise;
+
+    expect(applyStructuredContentA).not.toHaveBeenCalled();
+    expect(applyStructuredContentB).not.toHaveBeenCalled();
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loaded",
+      registration: {
+        pluginId: secondProviderPluginId,
+      },
+    });
+  });
+
+  it("buffers app-subsystem updates during same-provider frontend reloads", async () => {
+    const providerPluginId = "acme.reloadable-app-provider";
+    const firstApplyStructuredContent = vi.fn(() => true);
+    const firstProcessProjectStateUpdate = vi.fn();
+    const secondApplyStructuredContent = vi.fn(() => true);
+    const secondProcessProjectStateUpdate = vi.fn();
+    const secondLoadStarted = deferred();
+    const releaseSecondLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId !== providerPluginId) {
+          return {
+            error: null,
+            registryDelta: {
+              appSubsystemRegistrationsByPluginId: {},
+              sectionKinds: {},
+              panes: {},
+              commands: {},
+              topNavBarItems: {},
+              canvasControls: {},
+            },
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-b") {
+          secondLoadStarted.resolve();
+          await releaseSecondLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              secondApplyStructuredContent,
+              secondProcessProjectStateUpdate,
+            ),
+          };
+        }
+        return {
+          error: null,
+          registryDelta: buildAppSubsystemRegistrationDelta(
+            providerPluginId,
+            firstApplyStructuredContent,
+            firstProcessProjectStateUpdate,
+          ),
+        };
+      },
+    );
+
+    await receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable App Provider",
+            sourceDigestSha256: "digest-a",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    expect(useAppSubsystemFrontendStore.getState().status).toBe("loaded");
+
+    const secondUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable App Provider",
+            sourceDigestSha256: "digest-b",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable App Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    await secondLoadStarted.promise;
+    expect(useAppSubsystemFrontendStore.getState().status).toBe("loading");
+
+    expect(
+      applyAppDefinitionStructuredContentToStore({
+        appSpec: { title: "Buffered during reload" },
+      }),
+    ).toBe(true);
+    processAppProjectStateUpdateFromBackend(
+      {} as Parameters<typeof processAppProjectStateUpdateFromBackend>[0],
+    );
+    expect(firstApplyStructuredContent).not.toHaveBeenCalled();
+    expect(firstProcessProjectStateUpdate).not.toHaveBeenCalled();
+
+    releaseSecondLoad.resolve();
+    await secondUpdatePromise;
+
+    expect(secondApplyStructuredContent).toHaveBeenCalledWith({
+      appSpec: { title: "Buffered during reload" },
+    });
+    expect(secondProcessProjectStateUpdate).toHaveBeenCalledTimes(1);
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loaded",
+      registration: {
+        pluginId: providerPluginId,
+      },
+    });
+  });
+
+  it("preserves buffered app-subsystem updates queued before a same-provider reload starts", async () => {
+    const providerPluginId = "acme.reloadable-buffered-provider";
+    const firstApplyStructuredContent = vi.fn(() => true);
+    const firstProcessProjectStateUpdate = vi.fn();
+    const secondApplyStructuredContent = vi.fn(() => true);
+    const secondProcessProjectStateUpdate = vi.fn();
+    const firstLoadStarted = deferred();
+    const releaseFirstLoad = deferred();
+    const secondLoadStarted = deferred();
+    const releaseSecondLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId !== providerPluginId) {
+          return {
+            error: null,
+            registryDelta: {
+              appSubsystemRegistrationsByPluginId: {},
+              sectionKinds: {},
+              panes: {},
+              commands: {},
+              topNavBarItems: {},
+              canvasControls: {},
+            },
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-a") {
+          firstLoadStarted.resolve();
+          await releaseFirstLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              firstApplyStructuredContent,
+              firstProcessProjectStateUpdate,
+            ),
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-b") {
+          secondLoadStarted.resolve();
+          await releaseSecondLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              secondApplyStructuredContent,
+              secondProcessProjectStateUpdate,
+            ),
+          };
+        }
+        throw new Error(`Unexpected digest ${plugin.sourceDigestSha256}`);
+      },
+    );
+
+    const firstUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Buffered Provider",
+            sourceDigestSha256: "digest-a",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Buffered Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    await firstLoadStarted.promise;
+    const payload = {} as Parameters<
+      typeof processAppProjectStateUpdateFromBackend
+    >[0];
+
+    expect(
+      applyAppDefinitionStructuredContentToStore({
+        appSpec: { title: "Buffered before reload" },
+      }),
+    ).toBe(true);
+    processAppProjectStateUpdateFromBackend(payload);
+
+    const secondUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Buffered Provider",
+            sourceDigestSha256: "digest-b",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Buffered Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    releaseFirstLoad.resolve();
+    await secondLoadStarted.promise;
+    releaseSecondLoad.resolve();
+    await firstUpdatePromise;
+    await secondUpdatePromise;
+
+    expect(firstApplyStructuredContent).not.toHaveBeenCalled();
+    expect(firstProcessProjectStateUpdate).not.toHaveBeenCalled();
+    expect(secondApplyStructuredContent).toHaveBeenCalledWith({
+      appSpec: { title: "Buffered before reload" },
+    });
+    expect(secondProcessProjectStateUpdate).toHaveBeenCalledWith(payload);
+    expect(useAppSubsystemFrontendStore.getState()).toMatchObject({
+      status: "loaded",
+      registration: {
+        pluginId: providerPluginId,
+      },
+    });
+  });
+
+  it("keeps app-session initialization waiting across same-provider reloads", async () => {
+    const providerPluginId = "acme.reloadable-session-provider";
+    const firstInitializeAppSession = vi.fn(async () => true);
+    const secondInitializeAppSession = vi.fn(async () => true);
+    const firstLoadStarted = deferred();
+    const releaseFirstLoad = deferred();
+    const secondLoadStarted = deferred();
+    const releaseSecondLoad = deferred();
+
+    vi.spyOn(runtimeInternal, "loadPluginFrontendModule").mockImplementation(
+      async (plugin) => {
+        if (plugin.pluginId !== providerPluginId) {
+          return {
+            error: null,
+            registryDelta: {
+              appSubsystemRegistrationsByPluginId: {},
+              sectionKinds: {},
+              panes: {},
+              commands: {},
+              topNavBarItems: {},
+              canvasControls: {},
+            },
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-a") {
+          firstLoadStarted.resolve();
+          await releaseFirstLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              () => true,
+              undefined,
+              firstInitializeAppSession,
+            ),
+          };
+        }
+        if (plugin.sourceDigestSha256 === "digest-b") {
+          secondLoadStarted.resolve();
+          await releaseSecondLoad.promise;
+          return {
+            error: null,
+            registryDelta: buildAppSubsystemRegistrationDelta(
+              providerPluginId,
+              () => true,
+              undefined,
+              secondInitializeAppSession,
+            ),
+          };
+        }
+        throw new Error(`Unexpected digest ${plugin.sourceDigestSha256}`);
+      },
+    );
+
+    const firstUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Session Provider",
+            sourceDigestSha256: "digest-a",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Session Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    await firstLoadStarted.promise;
+    const frontendHost = createAppSubsystemFrontendHost();
+    const initializeSessionPromise = initializeAppSessionFromCurrentDeployment(
+      frontendHost,
+      {
+        forceNewSession: true,
+      },
+    );
+
+    const secondUpdatePromise = receivePluginRuntimeUpdate(
+      buildPluginRuntimeResponse(
+        buildPluginListResponse([
+          buildPluginListEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Session Provider",
+            sourceDigestSha256: "digest-b",
+            frontend: {
+              entrypointUrl: "/plugins/acme.reloadable/index.js",
+              styleUrl: null,
+            },
+          }),
+        ]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: providerPluginId,
+            name: "Reloadable Session Provider",
+          }),
+        ]),
+        {
+          featureCapabilities: {
+            appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
+          },
+        },
+      ),
+    );
+
+    releaseFirstLoad.resolve();
+    await secondLoadStarted.promise;
+    releaseSecondLoad.resolve();
+
+    await expect(initializeSessionPromise).resolves.toBe(true);
+    await firstUpdatePromise;
+    await secondUpdatePromise;
+
+    expect(firstInitializeAppSession).not.toHaveBeenCalled();
+    expect(secondInitializeAppSession).toHaveBeenCalledTimes(1);
+    expect(secondInitializeAppSession).toHaveBeenCalledWith(frontendHost, {
+      forceNewSession: true,
+    });
   });
   it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {
@@ -1447,6 +2442,7 @@ describe("plugin runtime helpers", () => {
           "  host.registerPane({ id: 'fixture-pane', title: 'Fixture Pane', renderer: { mount() {} } });\n" +
           "  host.registerCommand({ id: 'fixture-command', title: 'Fixture Command', run() {} });\n" +
           "  host.registerTopNavBarItem({ id: 'fixture-nav', label: 'Fixture Nav', onClick() {} });\n" +
+          "  host.registerCanvasControl({ id: 'fixture-control', label: 'Fixture Control', renderer: { mount() {} } });\n" +
           "}\n",
       );
     const runtimeCapabilities = [
@@ -1454,6 +2450,7 @@ describe("plugin runtime helpers", () => {
       "registerPane",
       "registerCommand",
       "registerTopNavBarItem",
+      "registerCanvasControl",
     ];
     const plugin = buildPluginListEntry({
       pluginId: "acme.runtime-perf",
@@ -1482,6 +2479,7 @@ describe("plugin runtime helpers", () => {
     const firstSortedPaneTabs = firstState.sortedPaneTabs;
     const firstSortedCommands = firstState.sortedCommands;
     const firstSortedTopNavBarItems = firstState.sortedTopNavBarItems;
+    const firstSortedCanvasControls = firstState.sortedCanvasControls;
     await refreshPluginRuntime();
     const secondState = usePluginRuntimeStore.getState();
     expect(secondState.sortedPluginListEntries).toBe(
@@ -1491,6 +2489,7 @@ describe("plugin runtime helpers", () => {
     expect(secondState.sortedPaneTabs).toBe(firstSortedPaneTabs);
     expect(secondState.sortedCommands).toBe(firstSortedCommands);
     expect(secondState.sortedTopNavBarItems).toBe(firstSortedTopNavBarItems);
+    expect(secondState.sortedCanvasControls).toBe(firstSortedCanvasControls);
   });
   it("reuses plugin status entry references across no-op runtime refreshes", async () => {
     const plugin = buildPluginListEntry({
@@ -3230,6 +4229,54 @@ describe("plugin runtime helpers", () => {
       "1:Deploy:acme.plugin:item-a",
       "1:Deploy:beta.plugin:item-z",
       "2:Build:acme.plugin:item-build",
+    ]);
+  });
+  it("returns sorted canvas controls by placement then order, label, plugin id, and id", () => {
+    const sortedCanvasControls = [
+      {
+        pluginId: "acme.plugin",
+        id: "control-a",
+        label: "Watch Code",
+        placement: "project" as const,
+        order: 1,
+        renderer: { mount: () => undefined },
+      },
+      {
+        pluginId: "beta.plugin",
+        id: "control-z",
+        label: "Watch Code",
+        placement: "project" as const,
+        order: 1,
+        renderer: { mount: () => undefined },
+      },
+      {
+        pluginId: "acme.plugin",
+        id: "control-utility",
+        label: "Utility",
+        placement: "utility" as const,
+        order: 0,
+        renderer: { mount: () => undefined },
+      },
+    ];
+    usePluginRuntimeStore.setState({
+      canvasControlsByPluginId: {
+        "beta.plugin": [sortedCanvasControls[1]],
+        "acme.plugin": [sortedCanvasControls[0], sortedCanvasControls[2]],
+      },
+      sortedCanvasControls,
+    });
+    const controls = readPluginRuntimeHookValue(() =>
+      usePluginCanvasControls(),
+    );
+    expect(
+      controls.map(
+        (control) =>
+          `${control.placement}:${control.order}:${control.label}:${control.pluginId}:${control.id}`,
+      ),
+    ).toEqual([
+      "project:1:Watch Code:acme.plugin:control-a",
+      "project:1:Watch Code:beta.plugin:control-z",
+      "utility:0:Utility:acme.plugin:control-utility",
     ]);
   });
   it("returns plugin list entries sorted by plugin id", () => {

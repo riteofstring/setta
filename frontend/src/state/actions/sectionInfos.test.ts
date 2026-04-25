@@ -104,7 +104,10 @@ describe("updateAllProjectMetadata", () => {
       projectMetadata: null,
     });
 
-    expect(useAllProjectMetadata.getState()).toEqual({
+    const { defaultProjectConfigId, projectMetadata } =
+      useAllProjectMetadata.getState();
+
+    expect({ defaultProjectConfigId, projectMetadata }).toEqual({
       defaultProjectConfigId: null,
       projectMetadata: [],
     });

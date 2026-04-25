@@ -1,6 +1,12 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+const generatedRoot = process.argv[2] ?? "src/openapi/http/generated";
+
+function generatedPath(relativePath) {
+  return `${generatedRoot}/${relativePath}`;
+}
+
 function updateFile(filePath, replacements) {
   const absPath = resolve(filePath);
   if (!existsSync(absPath)) {
@@ -45,7 +51,7 @@ function removeIfPresent(filePath, snippets) {
   }
 }
 
-updateFile("src/openapi/http/generated/client/client.gen.ts", [
+updateFile(generatedPath("client/client.gen.ts"), [
   ["    const opts = {\n", "    const opts: ResolvedRequestOptions = {\n"],
   [
     "        body: opts.body as BodyInit | null | undefined,\n",
@@ -54,18 +60,18 @@ updateFile("src/openapi/http/generated/client/client.gen.ts", [
       "          : { body: opts.body as BodyInit | null }),\n",
   ],
 ]);
-removeIfPresent("src/openapi/http/generated/client/client.gen.ts", [
+removeIfPresent(generatedPath("client/client.gen.ts"), [
   "      serializedBody: undefined,\n",
 ]);
 
-updateFile("src/openapi/http/generated/client/types.gen.ts", [
+updateFile(generatedPath("client/types.gen.ts"), [
   [
     "  serializedBody?: string;",
     "  serializedBody?: RequestInit['body'] | undefined;",
   ],
 ]);
 
-updateFile("src/openapi/http/generated/core/pathSerializer.gen.ts", [
+updateFile(generatedPath("core/pathSerializer.gen.ts"), [
   [
     "  allowReserved?: boolean;",
     "  allowReserved?: boolean | undefined;",
@@ -76,7 +82,7 @@ updateFile("src/openapi/http/generated/core/pathSerializer.gen.ts", [
   ],
 ]);
 
-updateFile("src/openapi/http/generated/core/params.gen.ts", [
+updateFile(generatedPath("core/params.gen.ts"), [
   ["      map?: string;", "      map?: string | undefined;"],
   ["      key?: string;", "      key?: string | undefined;"],
   ["    map?: string;", "    map?: string | undefined;"],
@@ -91,8 +97,8 @@ updateFile("src/openapi/http/generated/core/params.gen.ts", [
   ["      in?: never;", "      in?: never | undefined;"],
 ]);
 
-if (existsSync(resolve("src/openapi/http/generated/core/utils.gen.ts"))) {
-  updateFile("src/openapi/http/generated/core/utils.gen.ts", [
+if (existsSync(resolve(generatedPath("core/utils.gen.ts")))) {
+  updateFile(generatedPath("core/utils.gen.ts"), [
     ["  baseUrl?: string;", "  baseUrl?: string | undefined;"],
     [
       "  path?: Record<string, unknown>;",
@@ -113,7 +119,7 @@ if (existsSync(resolve("src/openapi/http/generated/core/utils.gen.ts"))) {
     ],
   ]);
 } else {
-  updateFile("src/openapi/http/generated/client/utils.gen.ts", [
+  updateFile(generatedPath("client/utils.gen.ts"), [
     ["  baseUrl?: string;", "  baseUrl?: string | undefined;"],
     [
       "  path?: Record<string, unknown>;",
@@ -126,8 +132,8 @@ if (existsSync(resolve("src/openapi/http/generated/core/utils.gen.ts"))) {
   ]);
 }
 
-if (existsSync(resolve("src/openapi/http/generated/core/serverSentEvents.gen.ts"))) {
-  updateFile("src/openapi/http/generated/core/serverSentEvents.gen.ts", [
+if (existsSync(resolve(generatedPath("core/serverSentEvents.gen.ts")))) {
+  updateFile(generatedPath("core/serverSentEvents.gen.ts"), [
     [
       "    fetch?: typeof fetch;",
       "    fetch?: typeof fetch | undefined;",

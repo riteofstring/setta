@@ -16,6 +16,22 @@ const (
 	runtimeHistoryModeReplaceCurrent
 )
 
+func cloneRuntimeState(state runtimeState) runtimeState {
+	cloned := runtimeState{
+		current:      state.current.Clone(),
+		revision:     state.revision,
+		historyIndex: state.historyIndex,
+	}
+	if len(state.history) == 0 {
+		return cloned
+	}
+	cloned.history = make([]Document, len(state.history))
+	for index, document := range state.history {
+		cloned.history[index] = document.Clone()
+	}
+	return cloned
+}
+
 func applyRuntimeMutationState(state *runtimeState, normalized Document, historyMode runtimeHistoryMode) bool {
 	if state == nil {
 		return false

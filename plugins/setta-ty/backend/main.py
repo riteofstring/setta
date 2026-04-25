@@ -140,6 +140,7 @@ def main() -> None:
                     "command": command,
                     "args": args,
                     "settingsKey": "ty",
+                    "runtimeSearchPathsKey": "ty.configuration.environment.extra-paths",
                 }
             ],
         },

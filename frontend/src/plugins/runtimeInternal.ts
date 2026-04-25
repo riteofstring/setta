@@ -1,3 +1,8 @@
+import {
+  isAppSubsystemFrontendRegistration,
+  type AppSubsystemFrontendRegistration,
+  type RegisteredAppSubsystemFrontendRegistration,
+} from "@setta/app-subsystem-frontend-sdk";
 import throttle from "lodash/throttle";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
@@ -20,11 +25,15 @@ import {
   type PluginPaneIconName,
 } from "./paneIcons";
 import {
+  isPluginCanvasControlPlacement,
+  PluginCanvasControlPlacementEnum,
   PluginFrontendErrorCodeEnum,
   toPluginSectionKindKey,
+  type PluginCanvasControlDefinition,
   type PluginFrontendErrorCode,
   type PluginPaneDefinition,
   type PluginServerMode,
+  type RegisteredPluginCanvasControl,
   type RegisteredPluginPane,
 } from "./runtimeShared";
 import { buildPluginAssetUrl } from "./transport";
@@ -35,6 +44,7 @@ const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
 const commandCapability = "registerCommand";
 const topNavBarCapability = "registerTopNavBarItem";
+const canvasControlCapability = "registerCanvasControl";
 const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
@@ -143,6 +153,7 @@ type SettaPluginHost = {
   createStore: <TState extends object>(
     initializer: StateCreator<TState, [], []>,
   ) => StoreApi<TState>;
+  registerAppSubsystem: (definition: AppSubsystemFrontendRegistration) => void;
   registerSectionKind: (definition: PluginSectionKindDefinition) => void;
   registerPane: (definition: PluginPaneDefinition) => void;
   registerSettingRevealHandler: (
@@ -151,6 +162,7 @@ type SettaPluginHost = {
   ) => void;
   registerCommand: (definition: PluginCommandDefinition) => void;
   registerTopNavBarItem: (definition: PluginTopNavBarItemDefinition) => void;
+  registerCanvasControl: (definition: PluginCanvasControlDefinition) => void;
   registerContextMenu: (_definition: Record<string, unknown>) => void;
   getProjectContext: () => PluginProjectContext;
   subscribeProjectContext: (
@@ -189,10 +201,15 @@ type PluginFrontendModule = {
 };
 
 export type PluginRegistryAccumulator = {
+  appSubsystemRegistrationsByPluginId: Record<
+    string,
+    RegisteredAppSubsystemFrontendRegistration
+  >;
   sectionKinds: Record<string, RegisteredPluginSectionKind>;
   panes: Record<string, RegisteredPluginPane[]>;
   commands: Record<string, RegisteredPluginCommand[]>;
   topNavBarItems: Record<string, RegisteredPluginTopNavBarItem[]>;
+  canvasControls: Record<string, RegisteredPluginCanvasControl[]>;
 };
 
 type LoadPluginFrontendResult = {
@@ -299,10 +316,12 @@ export async function loadPluginFrontendModule(
     return {
       error: null,
       registryDelta: {
+        appSubsystemRegistrationsByPluginId: {},
         sectionKinds: {},
         panes: {},
         commands: {},
         topNavBarItems: {},
+        canvasControls: {},
       },
     };
   }
@@ -814,10 +833,12 @@ function registerPluginModule({
   }
 
   const registryDelta: PluginRegistryAccumulator = {
+    appSubsystemRegistrationsByPluginId: {},
     sectionKinds: {},
     panes: {},
     commands: {},
     topNavBarItems: {},
+    canvasControls: {},
   };
 
   const effectiveCapabilitySet = new Set(plugin.effectiveCapabilities);
@@ -828,6 +849,20 @@ function registerPluginModule({
     serverMode,
     effectiveCapabilities: plugin.effectiveCapabilities,
     createStore: (initializer) => createStore(initializer),
+    registerAppSubsystem: (definition) => {
+      const validated = validateAppSubsystemRegistration(
+        plugin.pluginId,
+        definition,
+      );
+      if (registryDelta.appSubsystemRegistrationsByPluginId[plugin.pluginId]) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} registered duplicate app subsystem frontend registration.`,
+        );
+      }
+      registryDelta.appSubsystemRegistrationsByPluginId[plugin.pluginId] =
+        validated;
+    },
     registerSectionKind: (definition) => {
       ensureCapability(
         plugin.pluginId,
@@ -941,6 +976,31 @@ function registerPluginModule({
       }
       pluginTopNavBarItems.push(validated);
       registryDelta.topNavBarItems[plugin.pluginId] = pluginTopNavBarItems;
+    },
+    registerCanvasControl: (definition) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        canvasControlCapability,
+        "registerCanvasControl",
+      );
+      const validated = validateCanvasControlDefinition(
+        plugin.pluginId,
+        definition,
+      );
+      const pluginCanvasControls =
+        registryDelta.canvasControls[plugin.pluginId] ?? [];
+      for (const existingControl of pluginCanvasControls) {
+        if (existingControl.id === validated.id) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            `Plugin ${plugin.pluginId} registered duplicate canvas control ` +
+              `${validated.id}.`,
+          );
+        }
+      }
+      pluginCanvasControls.push(validated);
+      registryDelta.canvasControls[plugin.pluginId] = pluginCanvasControls;
     },
     registerContextMenu: () => {
       ensureCapability(
@@ -1281,6 +1341,9 @@ function registerPluginModule({
       return a.id.localeCompare(b.id);
     });
   }
+  for (const canvasControls of Object.values(registryDelta.canvasControls)) {
+    canvasControls.sort(compareCanvasControlDefinitions);
+  }
 
   return registryDelta;
 }
@@ -1339,6 +1402,22 @@ function validatePluginRenderer<
     );
   }
   return renderer;
+}
+
+function validateAppSubsystemRegistration(
+  pluginId: string,
+  definition: AppSubsystemFrontendRegistration,
+): RegisteredAppSubsystemFrontendRegistration {
+  if (!isAppSubsystemFrontendRegistration(definition)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} registered an invalid app subsystem frontend registration.`,
+    );
+  }
+  return {
+    ...definition,
+    pluginId,
+  };
 }
 
 function validateSectionKindDefinition(
@@ -1505,6 +1584,97 @@ function validateTopNavBarItemDefinition(
     topNavBarItem.order = definition.order;
   }
   return topNavBarItem;
+}
+
+const canvasControlPlacementRank: Record<string, number> = {
+  [PluginCanvasControlPlacementEnum.Project]: 0,
+  [PluginCanvasControlPlacementEnum.Viewport]: 1,
+  [PluginCanvasControlPlacementEnum.Utility]: 2,
+};
+
+function compareCanvasControlDefinitions(
+  left: RegisteredPluginCanvasControl,
+  right: RegisteredPluginCanvasControl,
+): number {
+  const placementDelta =
+    canvasControlPlacementRank[left.placement] -
+    canvasControlPlacementRank[right.placement];
+  if (placementDelta !== 0) {
+    return placementDelta;
+  }
+  const orderDelta = (left.order ?? 0) - (right.order ?? 0);
+  if (orderDelta !== 0) {
+    return orderDelta;
+  }
+  const byLabel = left.label.localeCompare(right.label);
+  if (byLabel !== 0) {
+    return byLabel;
+  }
+  const byPlugin = left.pluginId.localeCompare(right.pluginId);
+  if (byPlugin !== 0) {
+    return byPlugin;
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function validateCanvasControlDefinition(
+  pluginId: string,
+  definition: PluginCanvasControlDefinition,
+): RegisteredPluginCanvasControl {
+  const id = requireNonEmptyString(
+    definition.id,
+    `Plugin ${pluginId} canvas control definition missing id.`,
+  );
+  const label = requireNonEmptyString(
+    definition.label,
+    `Plugin ${pluginId} canvas control ${id} missing label.`,
+  );
+  let placement = PluginCanvasControlPlacementEnum.Project;
+  if (definition.placement !== undefined) {
+    const placementValue = requireNonEmptyString(
+      definition.placement,
+      `Plugin ${pluginId} canvas control ${id} placement must be supported.`,
+    );
+    if (!isPluginCanvasControlPlacement(placementValue)) {
+      const supportedPlacements = Object.values(
+        PluginCanvasControlPlacementEnum,
+      ).join(", ");
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.RegistrationInvalid,
+        `Plugin ${pluginId} canvas control ${id} placement ${placementValue} is invalid. ` +
+          `Supported placements: ${supportedPlacements}.`,
+      );
+    }
+    placement = placementValue;
+  }
+  if (
+    definition.order !== undefined &&
+    (!Number.isFinite(definition.order) || Number.isNaN(definition.order))
+  ) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} canvas control ${id} order must be a finite number.`,
+    );
+  }
+  const renderer = validatePluginRenderer(
+    pluginId,
+    `canvas control ${id}`,
+    definition.renderer,
+  );
+  const canvasControl: RegisteredPluginCanvasControl = {
+    pluginId,
+    id,
+    label,
+    placement,
+    renderer,
+  };
+  if (definition.description !== undefined) {
+    canvasControl.description = definition.description;
+  }
+  if (definition.order !== undefined) {
+    canvasControl.order = definition.order;
+  }
+  return canvasControl;
 }
 
 function requireNonEmptyString(value: unknown, errorMessage: string): string {

@@ -105,7 +105,24 @@ export type AppgenskillsUpsertCustomSkillResponse = {
   skillId: string;
 };
 
-export type AppspecAppCapabilities = {
+export type AppsubsystemAppdefinitionAppDefinition = {
+  actions?: unknown;
+  appSpecPath?: string;
+  appSpecVersion?: string;
+  assets?: unknown;
+  catalogId?: string;
+  dataBindings?: unknown;
+  routes?: Array<AppsubsystemAppdefinitionAppRoute> | null;
+  theme?: unknown;
+};
+
+export type AppsubsystemAppdefinitionAppRoute = {
+  name?: string;
+  path: string;
+  rootKey?: string;
+};
+
+export type AppsubsystemAppdefinitionCapabilities = {
   appSpecVersion: string;
   catalogId: string;
   catalogVersion: string;
@@ -115,10 +132,122 @@ export type AppspecAppCapabilities = {
   themeSchemaVersion: string;
 };
 
-export type AppspecAppValidationIssue = {
+export type AppsubsystemAppdefinitionMutationResult = {
+  appDefinition?: AppsubsystemAppdefinitionAppDefinition;
+  appSpec: unknown;
+};
+
+export type AppsubsystemAppdefinitionReadResult = {
+  appDefinition?: AppsubsystemAppdefinitionAppDefinition;
+  appSpec: unknown;
+};
+
+export type AppsubsystemAppdefinitionValidationIssue = {
   elementKey?: string;
   elementType?: string;
   message: string;
+};
+
+export type AppsubsystemAppdefinitionValidationResult = {
+  capabilities: AppsubsystemAppdefinitionCapabilities;
+  errors: Array<AppsubsystemAppdefinitionValidationIssue> | null;
+  warnings: Array<AppsubsystemAppdefinitionValidationIssue> | null;
+};
+
+export type AppsubsystemAppdefinitionhttpAppCatalogActionResponse = {
+  name: string;
+};
+
+export type AppsubsystemAppdefinitionhttpAppCatalogComponentResponse = {
+  children: boolean;
+  props?: {
+    [key: string]: AppsubsystemAppdefinitionhttpAppCatalogPropResponse;
+  };
+  type: string;
+};
+
+export type AppsubsystemAppdefinitionhttpAppCatalogPropResponse = {
+  default?: unknown;
+  enum?: Array<unknown> | null;
+  max?: number;
+  min?: number;
+  required?: boolean;
+  responsive?: boolean;
+  type: string;
+};
+
+export type AppsubsystemAppdefinitionhttpAppCatalogResponse = {
+  actions: Array<AppsubsystemAppdefinitionhttpAppCatalogActionResponse> | null;
+  components: Array<AppsubsystemAppdefinitionhttpAppCatalogComponentResponse> | null;
+  id: string;
+  version: string;
+};
+
+export type AppsubsystemAppdefinitionhttpGetAppDefinitionRequest = {
+  frontendOpId?: string;
+};
+
+export type AppsubsystemAppdefinitionhttpSetAppDefinitionRequest = {
+  actions?: {
+    [key: string]: unknown;
+  };
+  appSpec: unknown;
+  appSpecPath?: string;
+  appSpecVersion?: string;
+  assets?: Array<unknown>;
+  catalogId?: string;
+  dataBindings?: {
+    [key: string]: unknown;
+  };
+  frontendOpId?: string;
+  routes?: Array<AppsubsystemAppdefinitionAppRoute>;
+  theme?: {
+    [key: string]: unknown;
+  };
+};
+
+export type AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest = {
+  actions?: {
+    [key: string]: unknown;
+  };
+  appSpec: unknown;
+  appSpecVersion?: string;
+  assets?: Array<unknown>;
+  catalogId?: string;
+  dataBindings?: {
+    [key: string]: unknown;
+  };
+  frontendOpId?: string;
+  routes?: Array<AppsubsystemAppdefinitionAppRoute>;
+  theme?: {
+    [key: string]: unknown;
+  };
+};
+
+export type AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse = {
+  appPolicy: DeploymentsPolicy;
+  defaultProjectConfigId: string;
+  deploymentName: string;
+  deploymentVersion: string;
+  manifest?: DeploymentsManifest;
+  projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
+  sessionRunCount: number;
+  shareSessionId: string;
+};
+
+export type AppsubsystemAppdeploymenthttpAppDeploymentStateResponse = {
+  appDefinition: AppsubsystemAppdefinitionAppDefinition;
+  appPolicy: DeploymentsPolicy;
+  appSpec: unknown;
+  projectState: ProjectviewSingleConfig;
+};
+
+export type AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest = {
+  appPolicyOverrides: DeploymentsSharePolicyOverrides;
+  deploymentName: string;
+  listenerEnabled: boolean | null;
+  listenerEntrypoint: string;
+  projectConfigId: string;
 };
 
 export type ArtifactsArtifactSaveResult = {
@@ -486,53 +615,6 @@ export type HttpapiAgentProfilePayload = {
   name: string | null;
   systemPrompt: string | null;
   toolAllowlist: Array<string> | null;
-};
-
-export type HttpapiAppCatalogActionResponse = {
-  name: string;
-};
-
-export type HttpapiAppCatalogComponentResponse = {
-  children: boolean;
-  props?: {
-    [key: string]: HttpapiAppCatalogPropResponse;
-  };
-  type: string;
-};
-
-export type HttpapiAppCatalogPropResponse = {
-  default?: unknown;
-  enum?: Array<unknown> | null;
-  max?: number;
-  min?: number;
-  required?: boolean;
-  responsive?: boolean;
-  type: string;
-};
-
-export type HttpapiAppCatalogResponse = {
-  actions: Array<HttpapiAppCatalogActionResponse> | null;
-  components: Array<HttpapiAppCatalogComponentResponse> | null;
-  id: string;
-  version: string;
-};
-
-export type HttpapiAppDeploymentSessionResponse = {
-  appPolicy: DeploymentsPolicy;
-  defaultProjectConfigId: string;
-  deploymentName: string;
-  deploymentVersion: string;
-  manifest?: DeploymentsManifest;
-  projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
-  sessionRunCount: number;
-  shareSessionId: string;
-};
-
-export type HttpapiAppDeploymentStateResponse = {
-  appDefinition: ProjectstateAppDefinition;
-  appPolicy: DeploymentsPolicy;
-  appSpec: unknown;
-  projectState: ProjectviewSingleConfig;
 };
 
 export type HttpapiAppendDrawAreaLayerItemRequest = {
@@ -1011,10 +1093,6 @@ export type HttpapiGetAgentRunRequest = {
 export type HttpapiGetAgenticSummaryCacheStatusRequest = {
   chatSectionId: string;
   projectConfigId: string;
-};
-
-export type HttpapiGetAppDefinitionRequest = {
-  frontendOpId?: string;
 };
 
 export type HttpapiGetAppGenSkillContentRequest = {
@@ -1550,14 +1628,6 @@ export type HttpapiPromptTemplatePayload = {
   template: string | null;
 };
 
-export type HttpapiPublishAppDeploymentRequest = {
-  appPolicyOverrides: DeploymentsSharePolicyOverrides;
-  deploymentName: string;
-  listenerEnabled: boolean | null;
-  listenerEntrypoint: string;
-  projectConfigId: string;
-};
-
 export type HttpapiPublishShareDeploymentRequest = {
   deploymentName: string;
   listenerEnabled: boolean | null;
@@ -1704,25 +1774,6 @@ export type HttpapiSetAgenticEdgesRequest = {
   edges: Array<ProjectstateAgenticEdge> | null;
   frontendOpId?: string;
   projectConfigId: string;
-};
-
-export type HttpapiSetAppDefinitionRequest = {
-  actions?: {
-    [key: string]: unknown;
-  };
-  appSpec: unknown;
-  appSpecPath?: string;
-  appSpecVersion?: string;
-  assets?: Array<unknown>;
-  catalogId?: string;
-  dataBindings?: {
-    [key: string]: unknown;
-  };
-  frontendOpId?: string;
-  routes?: Array<ProjectstateAppRoute>;
-  theme?: {
-    [key: string]: unknown;
-  };
 };
 
 export type HttpapiSetBrowserAreaViewModeRequest = {
@@ -2237,19 +2288,6 @@ export type HttpapiSetViewportRequest = {
   viewport: ProjectstateViewport;
 };
 
-export type HttpapiSetWatchCodeEnabledRequest = {
-  enabled: boolean;
-  frontendOpId?: string;
-  projectConfigId: string;
-};
-
-export type HttpapiSetWatchCodeInputsRequest = {
-  frontendOpId?: string;
-  projectConfigId: string;
-  watchCodeFiles: Array<string> | null;
-  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
-};
-
 export type HttpapiSetWindowSpaceNameRequest = {
   frontendOpId?: string;
   name: string;
@@ -2547,24 +2585,6 @@ export type HttpapiUpsertAppGenCustomSkillRequest = {
   skillId: string | null;
 };
 
-export type HttpapiValidateAppDefinitionRequest = {
-  actions?: {
-    [key: string]: unknown;
-  };
-  appSpec: unknown;
-  appSpecVersion?: string;
-  assets?: Array<unknown>;
-  catalogId?: string;
-  dataBindings?: {
-    [key: string]: unknown;
-  };
-  frontendOpId?: string;
-  routes?: Array<ProjectstateAppRoute>;
-  theme?: {
-    [key: string]: unknown;
-  };
-};
-
 export type HttpapiWindowSpaceMutationResponse = {
   projectConfig: ProjectviewProjectConfig;
   windowSpaceId?: string;
@@ -2692,6 +2712,25 @@ export type PluginsLanguageServerSelectionStatus = {
   status: string;
 };
 
+export type PluginsPluginAppSubsystemCapabilities = {
+  appAuthoringUi: boolean;
+  appDeploymentRuntime: boolean;
+  appGenerationChatModes: boolean;
+  appPreviewUi: boolean;
+  pluginEnabled: boolean;
+  pluginId: string;
+  providerSelection?: PluginsPluginAppSubsystemProviderSelection;
+};
+
+export type PluginsPluginAppSubsystemProviderSelection = {
+  activePluginIds: Array<string> | null;
+  conflictingPluginIds: Array<string> | null;
+  disabledPluginIds: Array<string> | null;
+  invalidPluginIds: Array<string> | null;
+  selectedPluginId?: string;
+  status: string;
+};
+
 export type PluginsPluginBlockedCapability = {
   capability: string;
   reason: string;
@@ -2736,6 +2775,11 @@ export type PluginsPluginEnableDisableResponse = {
 export type PluginsPluginErrorInfo = {
   code: string;
   message: string;
+};
+
+export type PluginsPluginFeatureCapabilities = {
+  appSubsystem: PluginsPluginAppSubsystemCapabilities;
+  watchCode: PluginsPluginWatchCodeCapabilities;
 };
 
 export type PluginsPluginFrontendDescriptor = {
@@ -2815,6 +2859,7 @@ export type PluginsPluginRegisteredLanguageServer = {
   language: string;
   name: string;
   pluginId: string;
+  runtimeSearchPathsKey?: string;
   settingsKey?: string;
 };
 
@@ -2848,6 +2893,7 @@ export type PluginsPluginRollbackResponse = {
 };
 
 export type PluginsPluginRuntimeResponse = {
+  featureCapabilities?: PluginsPluginFeatureCapabilities;
   list: PluginsPluginListResponse;
   schemaVersion: number;
   status: PluginsPluginStatusResponse;
@@ -2883,11 +2929,13 @@ export type PluginsPluginStatusEntry = {
 };
 
 export type PluginsPluginStatusResponse = {
+  appSubsystemSelection?: PluginsPluginAppSubsystemProviderSelection;
   languageServerSelections: Array<PluginsLanguageServerSelectionStatus> | null;
   plugins: Array<PluginsPluginStatusEntry> | null;
   restartCapability: PluginsPluginRestartCapability;
   schemaVersion: number;
   serverMode: string;
+  watchCodeSelection?: PluginsPluginWatchCodeProviderSelection;
 };
 
 export type PluginsPluginUninstallResponse = {
@@ -2902,6 +2950,35 @@ export type PluginsPluginUpdateResponse = {
   restartRequired: boolean;
   sourceDigestSha256: string | null;
   toVersion: string;
+};
+
+export type PluginsPluginWatchCodeCapabilities = {
+  canvasControlsUi: boolean;
+  languageServerDependency?: PluginsPluginWatchCodeLanguageServerDependencyStatus;
+  pluginEnabled: boolean;
+  pluginId: string;
+  providerSelection?: PluginsPluginWatchCodeProviderSelection;
+  python: boolean;
+  requiresLanguageServer: boolean;
+};
+
+export type PluginsPluginWatchCodeLanguageServerDependencyStatus = {
+  appliedPluginId?: string;
+  language: string;
+  message: string;
+  required: boolean;
+  restartRequired: boolean;
+  selectedPluginId?: string;
+  status: string;
+};
+
+export type PluginsPluginWatchCodeProviderSelection = {
+  activePluginIds: Array<string> | null;
+  conflictingPluginIds: Array<string> | null;
+  disabledPluginIds: Array<string> | null;
+  invalidPluginIds: Array<string> | null;
+  selectedPluginId?: string;
+  status: string;
 };
 
 export type ProjectshellAllProjectMetadata = {
@@ -2919,39 +2996,6 @@ export type ProjectstateAgenticEdge = {
   style?: unknown;
   targetSectionId: string;
   zIndex?: number;
-};
-
-export type ProjectstateAppDefinition = {
-  actions?: unknown;
-  appSpecPath?: string;
-  appSpecVersion?: string;
-  assets?: unknown;
-  catalogId?: string;
-  dataBindings?: unknown;
-  routes?: Array<ProjectstateAppRoute> | null;
-  theme?: unknown;
-};
-
-export type ProjectstateAppDefinitionMutationResult = {
-  appDefinition?: ProjectstateAppDefinition;
-  appSpec: unknown;
-};
-
-export type ProjectstateAppDefinitionReadResult = {
-  appDefinition?: ProjectstateAppDefinition;
-  appSpec: unknown;
-};
-
-export type ProjectstateAppDefinitionValidationResult = {
-  capabilities: AppspecAppCapabilities;
-  errors: Array<AppspecAppValidationIssue> | null;
-  warnings: Array<AppspecAppValidationIssue> | null;
-};
-
-export type ProjectstateAppRoute = {
-  name?: string;
-  path: string;
-  rootKey?: string;
 };
 
 export type ProjectstateBrowserSavedSearch = {
@@ -3898,6 +3942,19 @@ export type TranscriptionsessionsDelta = {
   isFinal: boolean;
 };
 
+export type WatchcodehttpSetWatchCodeEnabledRequest = {
+  enabled: boolean;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type WatchcodehttpSetWatchCodeInputsRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  watchCodeFiles: Array<string> | null;
+  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
+};
+
 export type AcceptRenameRefactorData = {
   body: HttpapiAcceptRenameRefactorRequest;
   path?: never;
@@ -4005,7 +4062,7 @@ export type ListAppDeploymentsResponse =
   ListAppDeploymentsResponses[keyof ListAppDeploymentsResponses];
 
 export type PublishAppDeploymentData = {
-  body: HttpapiPublishAppDeploymentRequest;
+  body: AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest;
   path?: never;
   query?: never;
   url: "/app/deployments";
@@ -4052,7 +4109,7 @@ export type GetAppDeploymentCurrentSessionResponses = {
   /**
    * OK
    */
-  200: HttpapiAppDeploymentSessionResponse;
+  200: AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse;
 };
 
 export type GetAppDeploymentCurrentSessionResponse =
@@ -4140,7 +4197,7 @@ export type GetAppDeploymentProjectConfigResponses = {
   /**
    * OK
    */
-  200: HttpapiAppDeploymentStateResponse;
+  200: AppsubsystemAppdeploymenthttpAppDeploymentStateResponse;
 };
 
 export type GetAppDeploymentProjectConfigResponse =
@@ -4170,7 +4227,7 @@ export type GetAppDeploymentStateResponses = {
   /**
    * OK
    */
-  200: HttpapiAppDeploymentStateResponse;
+  200: AppsubsystemAppdeploymenthttpAppDeploymentStateResponse;
 };
 
 export type GetAppDeploymentStateResponse =
@@ -5944,14 +6001,14 @@ export type GetAppCatalogResponses = {
   /**
    * OK
    */
-  200: HttpapiAppCatalogResponse;
+  200: AppsubsystemAppdefinitionhttpAppCatalogResponse;
 };
 
 export type GetAppCatalogResponse =
   GetAppCatalogResponses[keyof GetAppCatalogResponses];
 
 export type GetAppDefinitionData = {
-  body: HttpapiGetAppDefinitionRequest;
+  body: AppsubsystemAppdefinitionhttpGetAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/getAppDefinition";
@@ -5971,7 +6028,7 @@ export type GetAppDefinitionResponses = {
   /**
    * OK
    */
-  200: ProjectstateAppDefinitionReadResult;
+  200: AppsubsystemAppdefinitionReadResult;
 };
 
 export type GetAppDefinitionResponse =
@@ -8592,7 +8649,7 @@ export type SetAgenticEdgesResponse =
   SetAgenticEdgesResponses[keyof SetAgenticEdgesResponses];
 
 export type SetAppDefinitionData = {
-  body: HttpapiSetAppDefinitionRequest;
+  body: AppsubsystemAppdefinitionhttpSetAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/setAppDefinition";
@@ -8612,7 +8669,7 @@ export type SetAppDefinitionResponses = {
   /**
    * OK
    */
-  200: ProjectstateAppDefinitionMutationResult;
+  200: AppsubsystemAppdefinitionMutationResult;
 };
 
 export type SetAppDefinitionResponse =
@@ -10528,7 +10585,7 @@ export type SetViewportResponse =
   SetViewportResponses[keyof SetViewportResponses];
 
 export type SetWatchCodeEnabledData = {
-  body: HttpapiSetWatchCodeEnabledRequest;
+  body: WatchcodehttpSetWatchCodeEnabledRequest;
   path?: never;
   query?: never;
   url: "/setWatchCodeEnabled";
@@ -10555,7 +10612,7 @@ export type SetWatchCodeEnabledResponse =
   SetWatchCodeEnabledResponses[keyof SetWatchCodeEnabledResponses];
 
 export type SetWatchCodeInputsData = {
-  body: HttpapiSetWatchCodeInputsRequest;
+  body: WatchcodehttpSetWatchCodeInputsRequest;
   path?: never;
   query?: never;
   url: "/setWatchCodeInputs";
@@ -11929,7 +11986,7 @@ export type UpsertAppGenCustomSkillResponse =
   UpsertAppGenCustomSkillResponses[keyof UpsertAppGenCustomSkillResponses];
 
 export type ValidateAppDefinitionData = {
-  body: HttpapiValidateAppDefinitionRequest;
+  body: AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest;
   path?: never;
   query?: never;
   url: "/validateAppDefinition";
@@ -11949,7 +12006,7 @@ export type ValidateAppDefinitionResponses = {
   /**
    * OK
    */
-  200: ProjectstateAppDefinitionValidationResult;
+  200: AppsubsystemAppdefinitionValidationResult;
 };
 
 export type ValidateAppDefinitionResponse =

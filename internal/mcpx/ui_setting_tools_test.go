@@ -12,7 +12,6 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
-	"setta/internal/appspec"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/plugins"
@@ -1312,7 +1311,7 @@ func TestServerRevealUISettingShareScopeIgnoresMalformedMetaFrontendAffinityWhen
 	}
 }
 
-func TestServerSearchUISettingsReturnsRankedCoreResults(t *testing.T) {
+func TestServerSearchUISettingsReturnsRankedWatchCodePluginResults(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
@@ -1327,7 +1326,7 @@ func TestServerSearchUISettingsReturnsRankedCoreResults(t *testing.T) {
 			"projectConfigId": "project-alpha",
 			"query":           "watch toggle",
 			"limit":           3,
-			"sourceFilter":    "core",
+			"sourceFilter":    "plugin",
 		},
 	})
 	if err != nil {
@@ -1346,24 +1345,30 @@ func TestServerSearchUISettingsReturnsRankedCoreResults(t *testing.T) {
 	if first["settingId"] != "core.watch_code.enabled" {
 		t.Fatalf("expected top result core.watch_code.enabled, got %#v", first)
 	}
+	if first["source"] != "plugin" {
+		t.Fatalf("expected plugin-sourced watch-code setting, got %#v", first)
+	}
 
-	pluginOnly, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+	coreOnly, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "search_ui_settings",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
 			"query":           "watch toggle",
-			"sourceFilter":    "plugin",
+			"sourceFilter":    "core",
 		},
 	})
 	if err != nil {
-		t.Fatalf("call plugin-only search_ui_settings: %v", err)
+		t.Fatalf("call core-only search_ui_settings: %v", err)
 	}
-	if pluginOnly.IsError {
-		t.Fatalf("expected plugin-only search_ui_settings success, got %#v", pluginOnly.StructuredContent)
+	if coreOnly.IsError {
+		t.Fatalf("expected core-only search_ui_settings success, got %#v", coreOnly.StructuredContent)
 	}
-	pluginPayload := mustStructuredMap(t, pluginOnly.StructuredContent)
-	if got := len(mustStructuredList(t, pluginPayload["results"])); got != 0 {
-		t.Fatalf("expected no plugin UI setting results, got %#v", pluginPayload["results"])
+	corePayload := mustStructuredMap(t, coreOnly.StructuredContent)
+	for _, rawResult := range mustStructuredList(t, corePayload["results"]) {
+		resultMap := mustStructuredMap(t, rawResult)
+		if resultMap["settingId"] == "core.watch_code.enabled" {
+			t.Fatalf("expected no core watch-code UI setting results, got %#v", corePayload["results"])
+		}
 	}
 }
 
@@ -1498,7 +1503,7 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
-			"settingId": "core.app.spec_path",
+			"settingId": "core.project.name",
 		},
 	})
 	if err != nil {
@@ -1508,8 +1513,8 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 		t.Fatalf("expected get_ui_setting_value without projectConfigId success, got %#v", getResult.StructuredContent)
 	}
 	getPayload := mustStructuredMap(t, getResult.StructuredContent)
-	if getPayload["value"] != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), getPayload["value"])
+	if getPayload["value"] != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", getPayload["value"])
 	}
 
 	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1852,7 +1857,7 @@ func TestServerUISettingToolsRejectMissingScopedProjectContextWhenProjectIDOmitt
 	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
-			"settingId": "core.app.spec_path",
+			"settingId": "core.project.name",
 		},
 	})
 	if err != nil {
@@ -1883,7 +1888,7 @@ func TestServerGetUISettingValueReturnsStructuredPayload(t *testing.T) {
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"settingId":       "core.app.spec_path",
+			"settingId":       "core.project.name",
 		},
 	})
 	if err != nil {
@@ -1895,11 +1900,11 @@ func TestServerGetUISettingValueReturnsStructuredPayload(t *testing.T) {
 
 	payload := mustStructuredMap(t, result.StructuredContent)
 	setting := mustStructuredMap(t, payload["setting"])
-	if setting["settingId"] != "core.app.spec_path" {
-		t.Fatalf("expected core.app.spec_path summary, got %#v", setting)
+	if setting["settingId"] != "core.project.name" {
+		t.Fatalf("expected core.project.name summary, got %#v", setting)
 	}
-	if payload["value"] != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), payload["value"])
+	if payload["value"] != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", payload["value"])
 	}
 	if _, ok := payload["error"]; ok {
 		t.Fatalf("did not expect structured error, got %#v", payload["error"])
@@ -4028,8 +4033,11 @@ func TestServerUISettingToolsDisabledPluginRejectsReadWriteRevealAndHidesSearchR
 	}
 	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
 	searchResults := mustStructuredList(t, searchPayload["results"])
-	if len(searchResults) != 0 {
-		t.Fatalf("expected disabled plugin setting to disappear from plugin search results, got %#v", searchResults)
+	for _, rawResult := range searchResults {
+		resultMap := mustStructuredMap(t, rawResult)
+		if resultMap["settingId"] == "plugin::setta-fixture-full::enabled" {
+			t.Fatalf("expected disabled plugin setting to disappear from plugin search results, got %#v", searchResults)
+		}
 	}
 
 	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -4539,7 +4547,7 @@ func TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKe
 		Name: "search_ui_settings",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"query":           "watch code enabled",
+			"query":           "project name",
 			"sourceFilter":    "core",
 		},
 	})
@@ -4551,16 +4559,16 @@ func TestServerUISettingToolsReturnPluginUnavailableForSchemaInvalidSettingAndKe
 	}
 	coreSearchPayload := mustStructuredMap(t, coreSearchResult.StructuredContent)
 	coreSearchResults := mustStructuredList(t, coreSearchPayload["results"])
-	foundCoreWatchCode := false
+	foundCoreProjectName := false
 	for _, rawResult := range coreSearchResults {
 		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "core.watch_code.enabled" {
-			foundCoreWatchCode = true
+		if resultMap["settingId"] == "core.project.name" {
+			foundCoreProjectName = true
 			break
 		}
 	}
-	if !foundCoreWatchCode {
-		t.Fatalf("expected core.watch_code.enabled to remain searchable, got %#v", coreSearchResults)
+	if !foundCoreProjectName {
+		t.Fatalf("expected core.project.name to remain searchable, got %#v", coreSearchResults)
 	}
 
 	pluginSearchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -4832,7 +4840,7 @@ func TestServerUISettingToolsIsolateCrossSourceDuplicatePluginSettingIDs(t *test
 		Name: "search_ui_settings",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"query":           "watch code enabled",
+			"query":           "project name",
 			"sourceFilter":    "core",
 		},
 	})
@@ -4844,16 +4852,16 @@ func TestServerUISettingToolsIsolateCrossSourceDuplicatePluginSettingIDs(t *test
 	}
 	coreSearchPayload := mustStructuredMap(t, coreSearchResult.StructuredContent)
 	coreSearchResults := mustStructuredList(t, coreSearchPayload["results"])
-	foundCoreWatchCode := false
+	foundCoreProjectName := false
 	for _, rawResult := range coreSearchResults {
 		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "core.watch_code.enabled" {
-			foundCoreWatchCode = true
+		if resultMap["settingId"] == "core.project.name" {
+			foundCoreProjectName = true
 			break
 		}
 	}
-	if !foundCoreWatchCode {
-		t.Fatalf("expected core.watch_code.enabled to remain searchable, got %#v", coreSearchResults)
+	if !foundCoreProjectName {
+		t.Fatalf("expected core.project.name to remain searchable, got %#v", coreSearchResults)
 	}
 
 	healthyGetResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{

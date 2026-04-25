@@ -53,11 +53,16 @@ type pluginUISettingRequiredFields struct {
 	RevealKey      string
 }
 
+type RuntimeEntryBuilder func(plugins.PluginRuntimeResponse) ([]RuntimeEntry, error)
+type UnavailableSettingProvider func() map[string]SettingError
+
 type ScopedRegistryOptions struct {
-	Runtime           CoreProjectState
-	WorkspaceRoot     string
-	PluginService     PluginRuntimeService
-	ProjectAISettings ProjectAISettingProviders
+	Runtime                  CoreProjectState
+	WorkspaceRoot            string
+	PluginService            PluginRuntimeService
+	UnavailableSettings      []UnavailableSettingProvider
+	ProjectAISettings        ProjectAISettingProviders
+	ContributedEntryBuilders []RuntimeEntryBuilder
 }
 
 type pluginBackendInvalidValueError struct {
@@ -87,8 +92,12 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
+	baseMetadata := buildScopedRegistryBaseMetadata(options)
 	if options.PluginService == nil {
-		return New(entries)
+		if err := appendContributedRuntimeEntries(&entries, plugins.PluginRuntimeResponse{}, options.ContributedEntryBuilders); err != nil {
+			return nil, err
+		}
+		return newRegistry(entries, baseMetadata)
 	}
 
 	pluginRuntime, err := options.PluginService.Runtime(plugins.RuntimeOptions{})
@@ -97,6 +106,10 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	}
 
 	metadata := buildPluginRegistryMetadata(pluginRuntime)
+	metadata.unavailableSettings = cloneSettingErrorMap(baseMetadata.unavailableSettings)
+	if err := appendContributedRuntimeEntries(&entries, pluginRuntime, options.ContributedEntryBuilders); err != nil {
+		return nil, err
+	}
 	if err := appendPluginRuntimeEntries(&entries, &metadata, options.PluginService, pluginRuntime.List.Plugins); err != nil {
 		return nil, err
 	}
@@ -104,8 +117,28 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	return newRegistry(entries, metadata)
 }
 
+func buildScopedRegistryBaseMetadata(options ScopedRegistryOptions) registryPluginMetadata {
+	metadata := registryPluginMetadata{}
+	for _, provider := range options.UnavailableSettings {
+		if provider == nil {
+			continue
+		}
+		for settingID, settingErr := range provider() {
+			if metadata.unavailableSettings == nil {
+				metadata.unavailableSettings = map[string]SettingError{}
+			}
+			metadata.unavailableSettings[settingID] = settingErr
+		}
+	}
+	return metadata
+}
+
 func buildScopedRegistryBaseEntries(options ScopedRegistryOptions) ([]RuntimeEntry, error) {
-	coreRegistry, err := NewCoreRegistry(options.Runtime, options.WorkspaceRoot)
+	coreRegistry, err := NewCoreRegistryWithOptions(
+		options.Runtime,
+		options.WorkspaceRoot,
+		CoreRegistryOptions{},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +147,24 @@ func buildScopedRegistryBaseEntries(options ScopedRegistryOptions) ([]RuntimeEnt
 		entries = append(entries, entry)
 	}
 	return append(entries, buildProjectAISettingEntries(options.ProjectAISettings)...), nil
+}
+
+func appendContributedRuntimeEntries(
+	entries *[]RuntimeEntry,
+	runtime plugins.PluginRuntimeResponse,
+	builders []RuntimeEntryBuilder,
+) error {
+	for _, builder := range builders {
+		if builder == nil {
+			continue
+		}
+		contributedEntries, err := builder(runtime)
+		if err != nil {
+			return err
+		}
+		*entries = append(*entries, contributedEntries...)
+	}
+	return nil
 }
 
 func appendPluginRuntimeEntries(
