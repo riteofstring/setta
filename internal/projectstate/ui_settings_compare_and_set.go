@@ -121,7 +121,8 @@ func (d *Document) CompareAndSetWatchCodeEnabled(
 	workspaceRoot string,
 	expectedOldValue *bool,
 ) (CompareAndSetResult[bool], error) {
-	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+	data, _, err := d.decodeWatchCodePluginData(providerPluginID)
+	if err != nil {
 		return CompareAndSetResult[bool]{}, err
 	}
 	project, err := d.ProjectByID(projectID)
@@ -129,7 +130,8 @@ func (d *Document) CompareAndSetWatchCodeEnabled(
 		return CompareAndSetResult[bool]{}, err
 	}
 
-	oldValue := project.WatchCodeEnabled
+	projectData, _ := data.projectData(project.ID)
+	oldValue := projectData.Enabled
 	if noop, err := isUISettingCompareAndSetNoop(
 		mustWatchCodePluginSettingID(providerPluginID, "enabled"),
 		optionalBoolAny(expectedOldValue),
@@ -230,7 +232,8 @@ func (d *Document) CompareAndSetWatchCodeFolders(
 	workspaceRoot string,
 	expectedOldValue []WatchCodeFolder,
 ) (CompareAndSetResult[[]WatchCodeFolder], error) {
-	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+	data, _, err := d.decodeWatchCodePluginData(providerPluginID)
+	if err != nil {
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
 	}
 	project, err := d.ProjectByID(projectID)
@@ -238,7 +241,8 @@ func (d *Document) CompareAndSetWatchCodeFolders(
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
 	}
 
-	oldFolders := canonicalWatchCodeFolders(project.WatchCodeFolders)
+	projectData, _ := data.projectData(project.ID)
+	oldFolders := canonicalWatchCodeFolders(projectData.Folders)
 	nextFolders, err := normalizeWatchCodeFolders(workspaceRoot, folders)
 	if err != nil {
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
@@ -257,7 +261,7 @@ func (d *Document) CompareAndSetWatchCodeFolders(
 		}, nil
 	}
 
-	if err := d.SetWatchCodeInputs(providerPluginID, projectID, nextFolders, project.WatchCodeFiles, workspaceRoot); err != nil {
+	if err := d.SetWatchCodeInputs(providerPluginID, projectID, nextFolders, projectData.Files, workspaceRoot); err != nil {
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
 	}
 	return CompareAndSetResult[[]WatchCodeFolder]{
@@ -287,7 +291,8 @@ func (d *Document) CompareAndSetWatchCodeFiles(
 	workspaceRoot string,
 	expectedOldValue []string,
 ) (CompareAndSetResult[[]string], error) {
-	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+	data, _, err := d.decodeWatchCodePluginData(providerPluginID)
+	if err != nil {
 		return CompareAndSetResult[[]string]{}, err
 	}
 	project, err := d.ProjectByID(projectID)
@@ -295,7 +300,8 @@ func (d *Document) CompareAndSetWatchCodeFiles(
 		return CompareAndSetResult[[]string]{}, err
 	}
 
-	oldFiles := canonicalStringSlice(project.WatchCodeFiles)
+	projectData, _ := data.projectData(project.ID)
+	oldFiles := canonicalStringSlice(projectData.Files)
 	nextFiles, err := normalizeWatchCodeFiles(workspaceRoot, files)
 	if err != nil {
 		return CompareAndSetResult[[]string]{}, err
@@ -314,7 +320,7 @@ func (d *Document) CompareAndSetWatchCodeFiles(
 		}, nil
 	}
 
-	if err := d.SetWatchCodeInputs(providerPluginID, projectID, project.WatchCodeFolders, nextFiles, workspaceRoot); err != nil {
+	if err := d.SetWatchCodeInputs(providerPluginID, projectID, projectData.Folders, nextFiles, workspaceRoot); err != nil {
 		return CompareAndSetResult[[]string]{}, err
 	}
 	return CompareAndSetResult[[]string]{

@@ -3381,10 +3381,8 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/alpha.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []projectstate.ProjectCodegenTarget{
 					{
 						Language: string(projectstate.CodeLanguagePython),
@@ -3393,12 +3391,8 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 				},
 			},
 			"project-beta": {
-				ID:               "project-beta",
-				Name:             "Beta",
-				WatchCodeEnabled: true,
-				WatchCodeFolders: []projectstate.WatchCodeFolder{
-					{Path: "pkg/beta", Recursive: true},
-				},
+				ID:   "project-beta",
+				Name: "Beta",
 				CodegenTargets: []projectstate.ProjectCodegenTarget{
 					{
 						Language: string(projectstate.CodeLanguagePython),
@@ -3408,7 +3402,16 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 			},
 		},
 	}
-	storeAppWatchCodePluginData(t, &document)
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/alpha.py"},
+	})
+	setAppWatchCodePluginProjectData(t, &document, "project-beta", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Folders: []projectstate.WatchCodeFolder{
+			{Path: "pkg/beta", Recursive: true},
+		},
+	})
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}

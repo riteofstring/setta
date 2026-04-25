@@ -4127,17 +4127,20 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs(t *test
 		t.Fatalf("write watch file: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:             "project-alpha",
-				Name:           "Alpha",
-				WatchCodeFiles: []string{"pkg/watch_me.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
+	}
+	setHTTPWatchCodeProjectData(t, &document, "setta-watch-code", "project-alpha", projectstate.WatchCodePluginProjectData{
+		Files: []string{"pkg/watch_me.py"},
 	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -4199,17 +4202,20 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBroadcastsProjectStateUpdate(t 
 		t.Fatalf("write watch file: %v", err)
 	}
 
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:             "project-alpha",
-				Name:           "Alpha",
-				WatchCodeFiles: []string{"pkg/watch_me.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
+	}
+	setHTTPWatchCodeProjectData(t, &document, "setta-watch-code", "project-alpha", projectstate.WatchCodePluginProjectData{
+		Files: []string{"pkg/watch_me.py"},
 	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -4299,9 +4305,9 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledRejectsUnavailableProvider(t *t
 		t.Fatalf("expected feature_unavailable error, got %q", response.Body.String())
 	}
 
-	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	if project.WatchCodeEnabled || len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code state to remain unchanged, got %#v", project)
+	projectData := readHTTPWatchCodeProjectData(t, projectRuntime.Snapshot().Document, "setta-watch-code", "project-alpha")
+	if !projectData.IsEmpty() {
+		t.Fatalf("expected watch code state to remain unchanged, got %#v", projectData)
 	}
 }
 
@@ -4322,21 +4328,24 @@ func TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs(t *testin
 	}
 
 	existingBaselineKey := filepath.Clean(existingFile)
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/existing.py"},
-				WatchCodeBaselineByPath: map[string][]string{
-					existingBaselineKey: []string{"pkg.existing.existing:function"},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
+	}
+	setHTTPWatchCodeProjectData(t, &document, "setta-watch-code", "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/existing.py"},
+		BaselineByPath: map[string][]string{
+			existingBaselineKey: []string{"pkg.existing.existing:function"},
+		},
 	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -4359,33 +4368,36 @@ func TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs(t *testin
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
-		t.Fatalf("expected normalized watch files, got %#v", project.WatchCodeFiles)
+	projectData := readHTTPWatchCodeProjectData(t, projectRuntime.Snapshot().Document, "setta-watch-code", "project-alpha")
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
+		t.Fatalf("expected normalized watch files, got %#v", projectData.Files)
 	}
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline to stay unchanged, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline to stay unchanged, got %#v", projectData.BaselineByPath)
 	}
 	newBaselineKey := filepath.Clean(newFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
-		t.Fatalf("expected new baseline, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
+		t.Fatalf("expected new baseline, got %#v", projectData.BaselineByPath)
 	}
 }
 
 func TestRegisterProjectRoutesSetWatchCodeInputsRejectsUnavailableProvider(t *testing.T) {
 	t.Parallel()
 
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:             "project-alpha",
-				Name:           "Alpha",
-				WatchCodeFiles: []string{"pkg/existing.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
+	}
+	setHTTPWatchCodeProjectData(t, &document, "setta-watch-code", "project-alpha", projectstate.WatchCodePluginProjectData{
+		Files: []string{"pkg/existing.py"},
 	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -4411,12 +4423,12 @@ func TestRegisterProjectRoutesSetWatchCodeInputsRejectsUnavailableProvider(t *te
 		t.Fatalf("expected feature_unavailable error, got %q", response.Body.String())
 	}
 
-	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) ||
-		len(project.WatchCodeFolders) != 0 ||
-		len(project.WatchCodeRegistry) != 0 ||
-		len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code inputs to remain unchanged, got %#v", project)
+	projectData := readHTTPWatchCodeProjectData(t, projectRuntime.Snapshot().Document, "setta-watch-code", "project-alpha")
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/existing.py"}) ||
+		len(projectData.Folders) != 0 ||
+		len(projectData.Registry) != 0 ||
+		len(projectData.BaselineByPath) != 0 {
+		t.Fatalf("expected watch code inputs to remain unchanged, got %#v", projectData)
 	}
 }
 
@@ -4437,21 +4449,24 @@ func TestRegisterProjectRoutesSetWatchCodeInputsBroadcastsProjectStateUpdate(t *
 	}
 
 	existingBaselineKey := filepath.Clean(existingFile)
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/existing.py"},
-				WatchCodeBaselineByPath: map[string][]string{
-					existingBaselineKey: []string{"pkg.existing.existing:function"},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
+	}
+	setHTTPWatchCodeProjectData(t, &document, "setta-watch-code", "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/existing.py"},
+		BaselineByPath: map[string][]string{
+			existingBaselineKey: []string{"pkg.existing.existing:function"},
+		},
 	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}

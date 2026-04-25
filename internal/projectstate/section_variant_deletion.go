@@ -117,7 +117,7 @@ func (p *Project) DeleteSectionVariant(sectionID string, variantID string) error
 	if err := p.pruneUnusedCodeObjects(); err != nil {
 		return err
 	}
-	return p.syncWatchCodeRegistrySectionMembership(section.ID)
+	return p.syncWatchCodeRegistrySectionMembership(nil, section.ID)
 }
 
 func (p *Project) deletedSectionVariantCodeObjectVariants(sectionID string, variantID string) (map[string]string, error) {

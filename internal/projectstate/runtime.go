@@ -41,6 +41,7 @@ type RuntimeOptions struct {
 	PersistedTransform             PersistedDocumentTransform
 	PasswordSecrets                PasswordSecretStore
 	PythonCodegenSectionReconciler PythonCodegenSectionReconciler
+	WatchCodeProviderPluginID      func() (string, bool)
 	WatchCodeIgnoredRoots          []string
 }
 
@@ -70,6 +71,7 @@ type Runtime struct {
 	completedFrontendOps []string
 
 	pythonCodegenSectionReconciler PythonCodegenSectionReconciler
+	watchCodeProviderPluginID      func() (string, bool)
 
 	submitMu sync.Mutex
 	closed   bool
@@ -149,6 +151,7 @@ func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOp
 		return nil, err
 	}
 	runtime.pythonCodegenSectionReconciler = options.PythonCodegenSectionReconciler
+	runtime.watchCodeProviderPluginID = options.WatchCodeProviderPluginID
 	return runtime, nil
 }
 
@@ -173,6 +176,7 @@ func OpenOverlayRuntimeWithOptions(document Document, options RuntimeOptions) (*
 		return nil, err
 	}
 	runtime.pythonCodegenSectionReconciler = options.PythonCodegenSectionReconciler
+	runtime.watchCodeProviderPluginID = options.WatchCodeProviderPluginID
 	return runtime, nil
 }
 

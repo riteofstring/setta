@@ -13,7 +13,8 @@ func TestProjectApplyWatchCodeBoundSectionUpdateCreatesCallableWithoutWatchInput
 
 	workspaceRoot := t.TempDir()
 	project := codeUpdateTestProject(t, CodeFileAccessModeReadWrite)
-	project.WatchCodeEnabled = true
+	projectData := EmptyWatchCodePluginProjectData()
+	projectData.Enabled = true
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
@@ -30,6 +31,7 @@ func TestProjectApplyWatchCodeBoundSectionUpdateCreatesCallableWithoutWatchInput
 
 	didUpdate, err := project.ApplyWatchCodeBoundSectionUpdate(
 		context.Background(),
+		&projectData,
 		"section-main",
 		workspaceRoot,
 		nil,
@@ -41,9 +43,9 @@ func TestProjectApplyWatchCodeBoundSectionUpdateCreatesCallableWithoutWatchInput
 		t.Fatal("expected bound section update to change project state")
 	}
 
-	entry, ok := project.WatchCodeRegistry["pkg.bound.added:function"]
+	entry, ok := projectData.Registry["pkg.bound.added:function"]
 	if !ok {
-		t.Fatalf("expected added callable in watch code registry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected added callable in watch code registry, got %#v", projectData.Registry)
 	}
 	if entry.SourcePath == "" {
 		t.Fatalf("expected registry entry source path, got %#v", entry)
@@ -70,7 +72,8 @@ func TestProjectResolveWatchCodeBoundSectionLoadsBoundFileAndIgnoreState(t *test
 
 	workspaceRoot := t.TempDir()
 	project := codeUpdateTestProject(t, CodeFileAccessModeReadWrite)
-	project.WatchCodeEnabled = true
+	projectData := EmptyWatchCodePluginProjectData()
+	projectData.Enabled = true
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
@@ -92,7 +95,7 @@ func TestProjectResolveWatchCodeBoundSectionLoadsBoundFileAndIgnoreState(t *test
 		t.Fatalf("write bound file: %v", err)
 	}
 
-	resolved, ok, err := project.ResolveWatchCodeBoundSection("section-main", workspaceRoot)
+	resolved, ok, err := project.ResolveWatchCodeBoundSection(projectData, "section-main", workspaceRoot)
 	if err != nil {
 		t.Fatalf("resolve watch code bound section: %v", err)
 	}

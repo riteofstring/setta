@@ -36,16 +36,6 @@ func EmptyWatchCodePluginProjectData() WatchCodePluginProjectData {
 	return data.Normalized()
 }
 
-func WatchCodePluginProjectDataFromProject(project Project) WatchCodePluginProjectData {
-	return WatchCodePluginProjectData{
-		Enabled:        project.WatchCodeEnabled,
-		Folders:        cloneWatchCodeFolders(project.WatchCodeFolders),
-		Files:          append([]string(nil), project.WatchCodeFiles...),
-		Registry:       cloneWatchCodeRegistry(project.WatchCodeRegistry),
-		BaselineByPath: cloneStringSliceMap(project.WatchCodeBaselineByPath),
-	}.Normalized()
-}
-
 func (data WatchCodePluginProjectData) Normalized() WatchCodePluginProjectData {
 	normalized := data
 	normalized.Folders = cloneWatchCodeFolders(normalized.Folders)
@@ -103,114 +93,6 @@ func WatchCodePluginSettingID(providerPluginID string, localID string) (string, 
 	return "plugin::" + pluginID + "::" + trimmedLocalID, nil
 }
 
-func (d *Document) LoadWatchCodePluginDataIntoProjects(providerPluginID string) error {
-	if d == nil {
-		return nil
-	}
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return err
-	}
-	previousPluginID := d.watchCodeProviderPluginID
-	wasHydrated := d.watchCodePluginDataHydrated
-	d.watchCodeProviderPluginID = pluginID
-	if len(d.Projects) == 0 {
-		d.watchCodePluginDataHydrated = true
-		return nil
-	}
-	data, ok, err := d.decodeWatchCodePluginData(pluginID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		if !wasHydrated || previousPluginID == "" || previousPluginID == pluginID {
-			d.watchCodePluginDataHydrated = true
-			return nil
-		}
-		data = WatchCodePluginData{
-			SchemaVersion: WatchCodePluginDataSchemaVersion,
-			Projects:      map[string]WatchCodePluginProjectData{},
-		}
-	}
-	for projectID, project := range d.Projects {
-		projectData, exists := data.Projects[projectID]
-		if !exists {
-			projectData = EmptyWatchCodePluginProjectData()
-		}
-		project.applyWatchCodePluginProjectData(projectData)
-		d.Projects[projectID] = project
-	}
-	d.watchCodePluginDataHydrated = true
-	return nil
-}
-
-func (d *Document) StoreWatchCodePluginDataFromProjects(providerPluginID string) error {
-	if d == nil {
-		return nil
-	}
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return err
-	}
-	d.watchCodeProviderPluginID = pluginID
-	d.watchCodePluginDataHydrated = true
-
-	data, existed, err := d.decodeWatchCodePluginData(pluginID)
-	if err != nil {
-		return err
-	}
-	data = watchCodePluginDataFromProjects(data, existed, d.Projects)
-	if len(data.Projects) == 0 {
-		d.deleteWatchCodePluginData(pluginID, existed)
-		return nil
-	}
-
-	payload, err := marshalWatchCodePluginData(pluginID, data)
-	if err != nil {
-		return err
-	}
-	if d.PluginData == nil {
-		d.PluginData = map[string]RawJSON{}
-	}
-	d.PluginData[pluginID] = payload
-	return nil
-}
-
-func watchCodePluginDataFromProjects(
-	data WatchCodePluginData,
-	existed bool,
-	projects map[string]Project,
-) WatchCodePluginData {
-	if !existed {
-		data = WatchCodePluginData{
-			SchemaVersion: WatchCodePluginDataSchemaVersion,
-			Projects:      map[string]WatchCodePluginProjectData{},
-		}
-	}
-	for projectID, project := range projects {
-		projectData := WatchCodePluginProjectDataFromProject(project)
-		if !existed && projectData.IsEmpty() {
-			continue
-		}
-		data.Projects[projectID] = projectData
-	}
-	return data.Normalized()
-}
-
-func (d *Document) deleteWatchCodePluginData(providerPluginID string, existed bool) {
-	if !existed || d.PluginData == nil {
-		return
-	}
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return
-	}
-	delete(d.PluginData, pluginID)
-	if len(d.PluginData) == 0 {
-		d.PluginData = nil
-	}
-}
-
 func (d Document) WatchCodePluginProjectData(providerPluginID string, projectID string) (WatchCodePluginProjectData, bool, error) {
 	data, ok, err := d.decodeWatchCodePluginData(providerPluginID)
 	if err != nil || !ok {
@@ -257,6 +139,78 @@ func (d Document) decodeWatchCodePluginData(providerPluginID string) (WatchCodeP
 	return data.Normalized(), true, nil
 }
 
+func (data WatchCodePluginData) projectData(projectID string) (WatchCodePluginProjectData, bool) {
+	normalizedProjectID := strings.TrimSpace(projectID)
+	if normalizedProjectID == "" {
+		return EmptyWatchCodePluginProjectData(), false
+	}
+	projectData, ok := data.Normalized().Projects[normalizedProjectID]
+	if !ok {
+		return EmptyWatchCodePluginProjectData(), false
+	}
+	return projectData.Normalized(), true
+}
+
+func (data WatchCodePluginData) withProjectData(
+	projectID string,
+	projectData WatchCodePluginProjectData,
+	keepEmpty bool,
+) WatchCodePluginData {
+	normalized := data.Normalized()
+	trimmedProjectID := strings.TrimSpace(projectID)
+	if trimmedProjectID == "" {
+		return normalized
+	}
+	normalizedProjectData := projectData.Normalized()
+	if !keepEmpty && normalizedProjectData.IsEmpty() {
+		delete(normalized.Projects, trimmedProjectID)
+		return normalized
+	}
+	normalized.Projects[trimmedProjectID] = normalizedProjectData
+	return normalized
+}
+
+func (d *Document) setWatchCodePluginData(
+	providerPluginID string,
+	data WatchCodePluginData,
+	existed bool,
+) error {
+	if d == nil {
+		return nil
+	}
+	if len(data.Normalized().Projects) == 0 {
+		d.deleteWatchCodePluginData(providerPluginID, existed)
+		return nil
+	}
+	payload, err := marshalWatchCodePluginData(providerPluginID, data)
+	if err != nil {
+		return err
+	}
+	if d.PluginData == nil {
+		d.PluginData = map[string]RawJSON{}
+	}
+	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
+	if err != nil {
+		return err
+	}
+	d.PluginData[pluginID] = payload
+	return nil
+}
+
+func (d *Document) deleteWatchCodePluginData(providerPluginID string, existed bool) {
+	if !existed || d.PluginData == nil {
+		return
+	}
+	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
+	if err != nil {
+		return
+	}
+	delete(d.PluginData, pluginID)
+	if len(d.PluginData) == 0 {
+		d.PluginData = nil
+	}
+}
+
 func marshalWatchCodePluginData(providerPluginID string, data WatchCodePluginData) (RawJSON, error) {
 	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
 	if err != nil {
@@ -267,18 +221,6 @@ func marshalWatchCodePluginData(providerPluginID string, data WatchCodePluginDat
 		return nil, fmt.Errorf("encode watch code plugin data: %w", err)
 	}
 	return normalizeRawJSON(encoded, "pluginData."+pluginID)
-}
-
-func (p *Project) applyWatchCodePluginProjectData(data WatchCodePluginProjectData) {
-	if p == nil {
-		return
-	}
-	normalized := data.Normalized()
-	p.WatchCodeEnabled = normalized.Enabled
-	p.WatchCodeFolders = normalized.Folders
-	p.WatchCodeFiles = normalized.Files
-	p.WatchCodeRegistry = normalized.Registry
-	p.WatchCodeBaselineByPath = normalized.BaselineByPath
 }
 
 func normalizeWatchCodeProviderPluginID(providerPluginID string) (string, error) {

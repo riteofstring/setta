@@ -69,8 +69,8 @@ func BuildScopedUISettingEntries(
 				"Enable or disable watch code mode for the project.",
 				boolSchema,
 			),
-			readProjectValue(runtime, pluginID, func(project *projectstate.Project) any {
-				return project.WatchCodeEnabled
+			readProjectValue(runtime, pluginID, func(projectData projectstate.WatchCodePluginProjectData) any {
+				return projectData.Enabled
 			}),
 			normalizeBoolWrite(boolSchema),
 			func(ctx context.Context, projectID string, enabled bool, expected *bool) (projectstate.CompareAndSetResult[bool], error) {
@@ -88,8 +88,8 @@ func BuildScopedUISettingEntries(
 				"List of folders watched by watch code mode.",
 				watchCodeFoldersSchema,
 			),
-			readProjectValue(runtime, pluginID, func(project *projectstate.Project) any {
-				return watchCodeFoldersToJSON(project.WatchCodeFolders)
+			readProjectValue(runtime, pluginID, func(projectData projectstate.WatchCodePluginProjectData) any {
+				return watchCodeFoldersToJSON(projectData.Folders)
 			}),
 			normalizeWatchCodeFoldersWrite,
 			func(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, expected []projectstate.WatchCodeFolder) (projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error) {
@@ -107,8 +107,8 @@ func BuildScopedUISettingEntries(
 				"List of explicit files watched by watch code mode.",
 				watchCodeFilesSchema,
 			),
-			readProjectValue(runtime, pluginID, func(project *projectstate.Project) any {
-				return cloneStringSlice(project.WatchCodeFiles)
+			readProjectValue(runtime, pluginID, func(projectData projectstate.WatchCodePluginProjectData) any {
+				return cloneStringSlice(projectData.Files)
 			}),
 			normalizeStringSliceWrite(watchCodeFilesSchema),
 			func(ctx context.Context, projectID string, files []string, expected []string) (projectstate.CompareAndSetResult[[]string], error) {
@@ -183,18 +183,19 @@ func entryMetadata(
 func readProjectValue(
 	runtime uisettings.CoreProjectState,
 	providerPluginID string,
-	selectValue func(*projectstate.Project) any,
+	selectValue func(projectstate.WatchCodePluginProjectData) any,
 ) uisettings.ReadFunc {
 	return func(_ context.Context, projectID string) (any, error) {
 		document := runtime.Snapshot().Document
-		if err := document.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
-			return nil, err
-		}
 		project, err := document.ProjectByID(projectID)
 		if err != nil {
 			return nil, err
 		}
-		return selectValue(&project), nil
+		projectData, _, err := document.WatchCodePluginProjectData(providerPluginID, project.ID)
+		if err != nil {
+			return nil, err
+		}
+		return selectValue(projectData), nil
 	}
 }
 

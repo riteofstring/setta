@@ -214,15 +214,17 @@ func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testin
 	}
 	setResult := mustStructuredMapValue(t, setPayload.StructuredContent)
 	errorResult := mustStructuredMapValue(t, setResult["error"])
-	if errorResult["code"] != "plugin_unavailable" {
-		t.Fatalf("expected plugin_unavailable, got %#v", errorResult)
+	if errorResult["code"] != "setting_not_found" {
+		t.Fatalf("expected setting_not_found, got %#v", errorResult)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after unavailable watch-code setting write: %v", err)
 	}
-	if project.WatchCodeEnabled {
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if projectData.Enabled {
 		t.Fatal("expected unavailable watch-code setting write not to mutate project state")
 	}
 }

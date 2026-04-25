@@ -3296,17 +3296,19 @@ func TestAppIDEMCPServerSupportsSetWatchCodeEnabledOverAuthenticatedSSE(t *testi
 		t.Fatalf("expected set_watch_code_enabled success, got %#v", result.StructuredContent)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after app set_watch_code_enabled: %v", err)
 	}
-	if !project.WatchCodeEnabled {
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !projectData.Enabled {
 		t.Fatal("expected watch code enabled after app mutation")
 	}
 	expectedBaselineKey := filepath.Clean(watchFile)
 	expectedIdentity := "pkg.watch_me.existing:function"
-	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
-		t.Fatalf("expected watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	if ids := projectData.BaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, projectData.BaselineByPath)
 	}
 }
 
@@ -3370,17 +3372,19 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetWatchCodeEnabledOverAuthentica
 		t.Fatalf("expected temp-id set_watch_code_enabled success, got %#v", result.StructuredContent)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after temp-id app set_watch_code_enabled: %v", err)
 	}
-	if !project.WatchCodeEnabled {
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !projectData.Enabled {
 		t.Fatal("expected watch code enabled after temp-id app mutation")
 	}
 	expectedBaselineKey := filepath.Clean(watchFile)
 	expectedIdentity := "pkg.watch_me.existing:function"
-	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
-		t.Fatalf("expected temp-id watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	if ids := projectData.BaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected temp-id watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, projectData.BaselineByPath)
 	}
 }
 
@@ -3450,26 +3454,28 @@ func TestAppIDEMCPServerSupportsSetWatchCodeInputsOverAuthenticatedSSE(t *testin
 		t.Fatalf("expected set_watch_code_inputs success, got %#v", result.StructuredContent)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after app set_watch_code_inputs: %v", err)
 	}
-	if !project.WatchCodeEnabled {
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !projectData.Enabled {
 		t.Fatal("expected watch code to stay enabled after app mutation")
 	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
-		t.Fatalf("expected normalized watch code folders, got %#v", project.WatchCodeFolders)
+	if !reflect.DeepEqual(projectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders, got %#v", projectData.Folders)
 	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
-		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files, got %#v", projectData.Files)
 	}
 	existingBaselineKey := filepath.Clean(existingFile)
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline unchanged, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged, got %#v", projectData.BaselineByPath)
 	}
 	newBaselineKey := filepath.Clean(newFolderFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
-		t.Fatalf("expected new folder baseline, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline, got %#v", projectData.BaselineByPath)
 	}
 }
 
@@ -3542,26 +3548,28 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetWatchCodeInputsOverAuthenticat
 		t.Fatalf("expected temp-id set_watch_code_inputs success, got %#v", result.StructuredContent)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after temp-id app set_watch_code_inputs: %v", err)
 	}
-	if !project.WatchCodeEnabled {
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !projectData.Enabled {
 		t.Fatal("expected watch code to stay enabled after temp-id app mutation")
 	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
-		t.Fatalf("expected normalized watch code folders after temp-id app mutation, got %#v", project.WatchCodeFolders)
+	if !reflect.DeepEqual(projectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders after temp-id app mutation, got %#v", projectData.Folders)
 	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
-		t.Fatalf("expected normalized watch code files after temp-id app mutation, got %#v", project.WatchCodeFiles)
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files after temp-id app mutation, got %#v", projectData.Files)
 	}
 	existingBaselineKey := filepath.Clean(existingFile)
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline unchanged after temp-id app mutation, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged after temp-id app mutation, got %#v", projectData.BaselineByPath)
 	}
 	newBaselineKey := filepath.Clean(newFolderFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
-		t.Fatalf("expected new folder baseline after temp-id app mutation, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline after temp-id app mutation, got %#v", projectData.BaselineByPath)
 	}
 }
 
@@ -4212,6 +4220,7 @@ func TestAppIDEMCPServerSupportsCompareAndSetWatchCodeEnabledMutationFailedOverA
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -4327,16 +4336,18 @@ func TestAppIDEMCPServerSupportsCompareAndSetWatchCodeFoldersOverAuthenticatedSS
 		t.Fatalf("expected compare_and_set_watch_code_folders success, got %#v", result.StructuredContent)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after app compare_and_set_watch_code_folders: %v", err)
 	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
-		t.Fatalf("expected normalized watch code folders, got %#v", project.WatchCodeFolders)
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !reflect.DeepEqual(projectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders, got %#v", projectData.Folders)
 	}
 	newBaselineKey := filepath.Clean(newFolderFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
-		t.Fatalf("expected new folder baseline, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline, got %#v", projectData.BaselineByPath)
 	}
 }
 
@@ -4404,16 +4415,18 @@ func TestAppIDEMCPServerSupportsCompareAndSetWatchCodeFilesOverAuthenticatedSSE(
 		t.Fatalf("expected compare_and_set_watch_code_files success, got %#v", result.StructuredContent)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after app compare_and_set_watch_code_files: %v", err)
 	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
-		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
+		t.Fatalf("expected normalized watch code files, got %#v", projectData.Files)
 	}
 	newBaselineKey := filepath.Clean(newFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
-		t.Fatalf("expected new watch-file baseline, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
+		t.Fatalf("expected new watch-file baseline, got %#v", projectData.BaselineByPath)
 	}
 }
 
@@ -9588,17 +9601,19 @@ func TestAppIDEMCPToolCallRouteSupportsSetWatchCodeEnabled(t *testing.T) {
 		t.Fatalf("expected set_watch_code_enabled success, got %#v", payload.StructuredContent)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after route set_watch_code_enabled: %v", err)
 	}
-	if !project.WatchCodeEnabled {
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !projectData.Enabled {
 		t.Fatal("expected watch code enabled after route mutation")
 	}
 	expectedBaselineKey := filepath.Clean(watchFile)
 	expectedIdentity := "pkg.watch_me.existing:function"
-	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
-		t.Fatalf("expected route watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	if ids := projectData.BaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected route watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, projectData.BaselineByPath)
 	}
 }
 
@@ -9675,26 +9690,28 @@ func TestAppIDEMCPToolCallRouteSupportsSetWatchCodeInputs(t *testing.T) {
 		t.Fatalf("expected set_watch_code_inputs success, got %#v", payload.StructuredContent)
 	}
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after route set_watch_code_inputs: %v", err)
 	}
-	if !project.WatchCodeEnabled {
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !projectData.Enabled {
 		t.Fatal("expected watch code to stay enabled after route mutation")
 	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
-		t.Fatalf("expected normalized watch code folders after route mutation, got %#v", project.WatchCodeFolders)
+	if !reflect.DeepEqual(projectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders after route mutation, got %#v", projectData.Folders)
 	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
-		t.Fatalf("expected normalized watch code files after route mutation, got %#v", project.WatchCodeFiles)
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files after route mutation, got %#v", projectData.Files)
 	}
 	existingBaselineKey := filepath.Clean(existingFile)
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline unchanged after route mutation, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged after route mutation, got %#v", projectData.BaselineByPath)
 	}
 	newBaselineKey := filepath.Clean(newFolderFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
-		t.Fatalf("expected new folder baseline after route mutation, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline after route mutation, got %#v", projectData.BaselineByPath)
 	}
 }
 
@@ -11445,6 +11462,7 @@ func mustSetAppScopedMCPProjectWatchCodeState(
 ) {
 	t.Helper()
 
+	installAppWatchCodeProviderFixture(t, cfg)
 	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		t.Fatalf("resolve project paths: %v", err)
@@ -11457,13 +11475,13 @@ func mustSetAppScopedMCPProjectWatchCodeState(
 	if err != nil {
 		t.Fatalf("load scoped MCP project: %v", err)
 	}
-	project := document.Projects["project-alpha"]
-	project.WatchCodeEnabled = enabled
-	project.WatchCodeFolders = append([]projectstate.WatchCodeFolder(nil), folders...)
-	project.WatchCodeFiles = append([]string(nil), files...)
-	project.WatchCodeBaselineByPath = cloneAppStringSliceMap(baseline)
-	project.WatchCodeRegistry = map[string]projectstate.WatchCodeRegistryEntry{}
-	document.Projects["project-alpha"] = project
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled:        enabled,
+		Folders:        append([]projectstate.WatchCodeFolder(nil), folders...),
+		Files:          append([]string(nil), files...),
+		BaselineByPath: cloneAppStringSliceMap(baseline),
+		Registry:       map[string]projectstate.WatchCodeRegistryEntry{},
+	})
 	if err := store.Save(context.Background(), document); err != nil {
 		t.Fatalf("save scoped MCP watch code project: %v", err)
 	}
@@ -11634,7 +11652,8 @@ func mustSetAppCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, 
 func assertAppBoundSetCodeState(t *testing.T, app *App, expectedCode string) {
 	t.Helper()
 
-	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after bound set_code: %v", err)
 	}
@@ -11643,9 +11662,10 @@ func assertAppBoundSetCodeState(t *testing.T, app *App, expectedCode string) {
 		t.Fatalf("expected bound code payload %q, got %#v", expectedCode, got)
 	}
 
-	entry, ok := project.WatchCodeRegistry["pkg.bound.sorted:function"]
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	entry, ok := projectData.Registry["pkg.bound.sorted:function"]
 	if !ok {
-		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected watch code registry entry, got %#v", projectData.Registry)
 	}
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected one callable section binding, got %#v", entry)

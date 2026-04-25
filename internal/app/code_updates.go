@@ -290,26 +290,43 @@ func (s *codeUpdateService) reloadBoundCodeBinding(
 	}
 
 	providerPluginID, hasWatchCodeProvider := s.activeWatchCodeProviderPluginID()
-	if hasWatchCodeProvider {
-		if err := document.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
-			return document, err
-		}
-		project = document.Projects[binding.ProjectID]
-	}
-	updatedProject, needsTypeCheck, err := s.reloadBoundCodeProject(
-		ctx,
+	updatedProject, err := s.reloadBoundCodeProject(
 		project,
 		binding,
 		raw,
-		signatureObserver,
 	)
 	if err != nil {
 		return document, err
 	}
 	document.Projects[updatedProject.ID] = updatedProject
-	if needsTypeCheck && hasWatchCodeProvider {
-		if err := document.StoreWatchCodePluginDataFromProjects(providerPluginID); err != nil {
+
+	needsTypeCheck := false
+	if hasWatchCodeProvider {
+		boundSection, ok, err := document.ResolveWatchCodeBoundSection(
+			providerPluginID,
+			binding.ProjectID,
+			binding.SectionID,
+			s.workspaceRoot,
+		)
+		if err != nil {
 			return document, err
+		}
+		if ok {
+			if err := s.syncBoundCodeSection(ctx, boundSection); err != nil {
+				return document, err
+			}
+			updated, err := document.ApplyWatchCodeBoundSectionUpdate(
+				ctx,
+				providerPluginID,
+				binding.ProjectID,
+				binding.SectionID,
+				s.workspaceRoot,
+				signatureObserver,
+			)
+			if err != nil {
+				return document, err
+			}
+			needsTypeCheck = updated
 		}
 	}
 	if needsTypeCheck {
@@ -319,43 +336,14 @@ func (s *codeUpdateService) reloadBoundCodeBinding(
 }
 
 func (s *codeUpdateService) reloadBoundCodeProject(
-	ctx context.Context,
 	project projectstate.Project,
 	binding boundcode.Binding,
 	raw string,
-	signatureObserver *watchCodeSignatureObserver,
-) (projectstate.Project, bool, error) {
+) (projectstate.Project, error) {
 	if _, err := project.SetBoundCodeSectionContent(binding.SectionID, raw); err != nil {
-		return project, false, err
+		return project, err
 	}
-	if !s.watchCodeProviderActive() {
-		return project, false, nil
-	}
-
-	boundSection, ok, err := project.ResolveWatchCodeBoundSection(binding.SectionID, s.workspaceRoot)
-	if err != nil {
-		return project, false, err
-	}
-	if !ok {
-		return project, false, nil
-	}
-	if err := s.syncBoundCodeSection(ctx, boundSection); err != nil {
-		return project, false, err
-	}
-	if _, err := project.ApplyWatchCodeBoundSectionUpdate(
-		ctx,
-		binding.SectionID,
-		s.workspaceRoot,
-		signatureObserver,
-	); err != nil {
-		return project, false, err
-	}
-	return project, true, nil
-}
-
-func (s *codeUpdateService) watchCodeProviderActive() bool {
-	_, ok := s.activeWatchCodeProviderPluginID()
-	return ok
+	return project, nil
 }
 
 func (s *codeUpdateService) activeWatchCodeProviderPluginID() (string, bool) {

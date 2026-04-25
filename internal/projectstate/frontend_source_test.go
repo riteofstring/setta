@@ -29,23 +29,24 @@ func TestDocumentNormalizedSupportsFrontendSourceFields(t *testing.T) {
 	}
 
 	project := normalized.Projects["project-alpha"]
+	watchCodeData := mustReadTestWatchCodePluginProjectData(t, normalized, "project-alpha")
 	if project.ActiveViewModeID != "focus" {
 		t.Fatalf("expected active view mode focus, got %q", project.ActiveViewModeID)
 	}
-	if !project.WatchCodeEnabled {
+	if !watchCodeData.Enabled {
 		t.Fatal("expected watch code enabled to be preserved")
 	}
-	if len(project.WatchCodeFolders) != 1 || project.WatchCodeFolders[0].Path != "src" || !project.WatchCodeFolders[0].Recursive {
-		t.Fatalf("expected watch code folders to be preserved, got %#v", project.WatchCodeFolders)
+	if len(watchCodeData.Folders) != 1 || watchCodeData.Folders[0].Path != "src" || !watchCodeData.Folders[0].Recursive {
+		t.Fatalf("expected watch code folders to be preserved, got %#v", watchCodeData.Folders)
 	}
-	if len(project.WatchCodeFiles) != 1 || project.WatchCodeFiles[0] != "scripts/watch.py" {
-		t.Fatalf("expected watch code files to be preserved, got %#v", project.WatchCodeFiles)
+	if len(watchCodeData.Files) != 1 || watchCodeData.Files[0] != "scripts/watch.py" {
+		t.Fatalf("expected watch code files to be preserved, got %#v", watchCodeData.Files)
 	}
-	if entry, ok := project.WatchCodeRegistry["src.module.existing:function"]; !ok || entry.SourcePath != "/tmp/workspace/src/module.py" {
-		t.Fatalf("expected watch code registry entry to be preserved, got %#v", project.WatchCodeRegistry)
+	if entry, ok := watchCodeData.Registry["src.module.existing:function"]; !ok || entry.SourcePath != "/tmp/workspace/src/module.py" {
+		t.Fatalf("expected watch code registry entry to be preserved, got %#v", watchCodeData.Registry)
 	}
-	if baseline := project.WatchCodeBaselineByPath["/tmp/workspace/src/module.py"]; !reflect.DeepEqual(baseline, []string{"src.module.existing:function"}) {
-		t.Fatalf("expected watch code baseline to be preserved, got %#v", project.WatchCodeBaselineByPath)
+	if baseline := watchCodeData.BaselineByPath["/tmp/workspace/src/module.py"]; !reflect.DeepEqual(baseline, []string{"src.module.existing:function"}) {
+		t.Fatalf("expected watch code baseline to be preserved, got %#v", watchCodeData.BaselineByPath)
 	}
 	if project.CodeObjImpls["param-impl"].Type != "TextParam" {
 		t.Fatalf("expected code object impl type TextParam, got %q", project.CodeObjImpls["param-impl"].Type)
@@ -63,12 +64,14 @@ func TestDocumentCloneDeepCopiesFrontendSourceFields(t *testing.T) {
 
 	clonedProject := cloned.Projects["project-alpha"]
 	clonedProject.ActiveIDs[0] = "changed-active"
-	clonedProject.WatchCodeFolders[0].Path = "changed-folder"
-	clonedProject.WatchCodeFiles[0] = "changed.py"
-	clonedRegistryEntry := clonedProject.WatchCodeRegistry["src.module.existing:function"]
+	clonedWatchCodeData := mustReadTestWatchCodePluginProjectData(t, cloned, "project-alpha")
+	clonedWatchCodeData.Folders[0].Path = "changed-folder"
+	clonedWatchCodeData.Files[0] = "changed.py"
+	clonedRegistryEntry := clonedWatchCodeData.Registry["src.module.existing:function"]
 	clonedRegistryEntry.SectionIDs[0] = "changed-section"
-	clonedProject.WatchCodeRegistry["src.module.existing:function"] = clonedRegistryEntry
-	clonedProject.WatchCodeBaselineByPath["/tmp/workspace/src/module.py"][0] = "changed:identity"
+	clonedWatchCodeData.Registry["src.module.existing:function"] = clonedRegistryEntry
+	clonedWatchCodeData.BaselineByPath["/tmp/workspace/src/module.py"][0] = "changed:identity"
+	mustSetTestWatchCodePluginProjectData(t, &cloned, "project-alpha", clonedWatchCodeData)
 	layout := clonedProject.TopLevelSections["section-main"]
 	layout.X = 999
 	clonedProject.TopLevelSections["section-main"] = layout
@@ -91,17 +94,18 @@ func TestDocumentCloneDeepCopiesFrontendSourceFields(t *testing.T) {
 	if originalProject.ActiveIDs[0] != "section-main" {
 		t.Fatalf("expected original active id section-main, got %q", originalProject.ActiveIDs[0])
 	}
-	if originalProject.WatchCodeFolders[0].Path != "src" {
-		t.Fatalf("expected original watch code folder path src, got %q", originalProject.WatchCodeFolders[0].Path)
+	originalWatchCodeData := mustReadTestWatchCodePluginProjectData(t, original, "project-alpha")
+	if originalWatchCodeData.Folders[0].Path != "src" {
+		t.Fatalf("expected original watch code folder path src, got %q", originalWatchCodeData.Folders[0].Path)
 	}
-	if originalProject.WatchCodeFiles[0] != "scripts/watch.py" {
-		t.Fatalf("expected original watch code file scripts/watch.py, got %q", originalProject.WatchCodeFiles[0])
+	if originalWatchCodeData.Files[0] != "scripts/watch.py" {
+		t.Fatalf("expected original watch code file scripts/watch.py, got %q", originalWatchCodeData.Files[0])
 	}
-	if originalProject.WatchCodeRegistry["src.module.existing:function"].SectionIDs[0] != "section-main" {
-		t.Fatalf("expected original watch code registry section id section-main, got %#v", originalProject.WatchCodeRegistry["src.module.existing:function"].SectionIDs)
+	if originalWatchCodeData.Registry["src.module.existing:function"].SectionIDs[0] != "section-main" {
+		t.Fatalf("expected original watch code registry section id section-main, got %#v", originalWatchCodeData.Registry["src.module.existing:function"].SectionIDs)
 	}
-	if originalProject.WatchCodeBaselineByPath["/tmp/workspace/src/module.py"][0] != "src.module.existing:function" {
-		t.Fatalf("expected original watch code baseline to stay unchanged, got %#v", originalProject.WatchCodeBaselineByPath["/tmp/workspace/src/module.py"])
+	if originalWatchCodeData.BaselineByPath["/tmp/workspace/src/module.py"][0] != "src.module.existing:function" {
+		t.Fatalf("expected original watch code baseline to stay unchanged, got %#v", originalWatchCodeData.BaselineByPath["/tmp/workspace/src/module.py"])
 	}
 	if originalProject.TopLevelSections["section-main"].X != 10 {
 		t.Fatalf("expected original top-level section x=10, got %v", originalProject.TopLevelSections["section-main"].X)
@@ -132,7 +136,6 @@ func TestStoreSaveRoundTripsRichFrontendSourceDocument(t *testing.T) {
 
 	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
 	document := newFrontendSourceTestDocument(t)
-	mustStoreTestWatchCodePluginData(t, &document)
 	expected, err := document.Normalized()
 	if err != nil {
 		t.Fatalf("normalize rich project document: %v", err)
@@ -146,7 +149,6 @@ func TestStoreSaveRoundTripsRichFrontendSourceDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load rich project document: %v", err)
 	}
-	mustLoadTestWatchCodePluginData(t, &loaded)
 	if loaded.DefaultProjectID != expected.DefaultProjectID {
 		t.Fatalf("expected default project id %q, got %q", expected.DefaultProjectID, loaded.DefaultProjectID)
 	}
@@ -159,20 +161,22 @@ func TestStoreSaveRoundTripsRichFrontendSourceDocument(t *testing.T) {
 
 	loadedProject := loaded.Projects["project-alpha"]
 	expectedProject := expected.Projects["project-alpha"]
+	loadedWatchCodeData := mustReadTestWatchCodePluginProjectData(t, loaded, "project-alpha")
+	expectedWatchCodeData := mustReadTestWatchCodePluginProjectData(t, expected, "project-alpha")
 	if loadedProject.ActiveViewModeID != expectedProject.ActiveViewModeID {
 		t.Fatalf("expected active view mode %q, got %q", expectedProject.ActiveViewModeID, loadedProject.ActiveViewModeID)
 	}
-	if !reflect.DeepEqual(loadedProject.WatchCodeFolders, expectedProject.WatchCodeFolders) {
-		t.Fatalf("expected watch code folders %#v, got %#v", expectedProject.WatchCodeFolders, loadedProject.WatchCodeFolders)
+	if !reflect.DeepEqual(loadedWatchCodeData.Folders, expectedWatchCodeData.Folders) {
+		t.Fatalf("expected watch code folders %#v, got %#v", expectedWatchCodeData.Folders, loadedWatchCodeData.Folders)
 	}
-	if !reflect.DeepEqual(loadedProject.WatchCodeFiles, expectedProject.WatchCodeFiles) {
-		t.Fatalf("expected watch code files %#v, got %#v", expectedProject.WatchCodeFiles, loadedProject.WatchCodeFiles)
+	if !reflect.DeepEqual(loadedWatchCodeData.Files, expectedWatchCodeData.Files) {
+		t.Fatalf("expected watch code files %#v, got %#v", expectedWatchCodeData.Files, loadedWatchCodeData.Files)
 	}
-	if !reflect.DeepEqual(loadedProject.WatchCodeRegistry, expectedProject.WatchCodeRegistry) {
-		t.Fatalf("expected watch code registry %#v, got %#v", expectedProject.WatchCodeRegistry, loadedProject.WatchCodeRegistry)
+	if !reflect.DeepEqual(loadedWatchCodeData.Registry, expectedWatchCodeData.Registry) {
+		t.Fatalf("expected watch code registry %#v, got %#v", expectedWatchCodeData.Registry, loadedWatchCodeData.Registry)
 	}
-	if !reflect.DeepEqual(loadedProject.WatchCodeBaselineByPath, expectedProject.WatchCodeBaselineByPath) {
-		t.Fatalf("expected watch code baseline %#v, got %#v", expectedProject.WatchCodeBaselineByPath, loadedProject.WatchCodeBaselineByPath)
+	if !reflect.DeepEqual(loadedWatchCodeData.BaselineByPath, expectedWatchCodeData.BaselineByPath) {
+		t.Fatalf("expected watch code baseline %#v, got %#v", expectedWatchCodeData.BaselineByPath, loadedWatchCodeData.BaselineByPath)
 	}
 	if loadedProject.ViewModes["focus"].TopLevelSections["section-main"].X != expectedProject.ViewModes["focus"].TopLevelSections["section-main"].X {
 		t.Fatalf("expected view-mode layout x=%v, got %v", expectedProject.ViewModes["focus"].TopLevelSections["section-main"].X, loadedProject.ViewModes["focus"].TopLevelSections["section-main"].X)
@@ -334,6 +338,32 @@ func newFrontendSourceTestDocument(t *testing.T) Document {
 				Theme:        mustRawJSON(t, `{"colors":{"bg":"white"}}`),
 				Assets:       mustRawJSON(t, `[{"type":"image","path":"hero.png"}]`),
 			}),
+			testWatchCodeProviderPluginID: mustMarshalWatchCodePluginData(t, WatchCodePluginData{
+				SchemaVersion: WatchCodePluginDataSchemaVersion,
+				Projects: map[string]WatchCodePluginProjectData{
+					"project-alpha": {
+						Enabled: true,
+						Folders: []WatchCodeFolder{
+							{Path: "src", Recursive: true},
+						},
+						Files: []string{"scripts/watch.py"},
+						Registry: map[string]WatchCodeRegistryEntry{
+							"src.module.existing:function": {
+								CallableName:  "src.module.existing",
+								Kind:          WatchCodeCallableKindFunction,
+								SignatureHash: "sig-1",
+								BodyHash:      "body-1",
+								SourcePath:    "/tmp/workspace/src/module.py",
+								SectionIDs:    []string{"section-main"},
+								SectionsCount: 1,
+							},
+						},
+						BaselineByPath: map[string][]string{
+							"/tmp/workspace/src/module.py": {"src.module.existing:function"},
+						},
+					},
+				},
+			}),
 		},
 		Projects: map[string]Project{
 			"project-alpha": {
@@ -357,25 +387,6 @@ func newFrontendSourceTestDocument(t *testing.T) Document {
 					},
 				},
 				ActiveViewModeID: "focus",
-				WatchCodeEnabled: true,
-				WatchCodeFolders: []WatchCodeFolder{
-					{Path: "src", Recursive: true},
-				},
-				WatchCodeFiles: []string{"scripts/watch.py"},
-				WatchCodeRegistry: map[string]WatchCodeRegistryEntry{
-					"src.module.existing:function": {
-						CallableName:  "src.module.existing",
-						Kind:          WatchCodeCallableKindFunction,
-						SignatureHash: "sig-1",
-						BodyHash:      "body-1",
-						SourcePath:    "/tmp/workspace/src/module.py",
-						SectionIDs:    []string{"section-main"},
-						SectionsCount: 1,
-					},
-				},
-				WatchCodeBaselineByPath: map[string][]string{
-					"/tmp/workspace/src/module.py": []string{"src.module.existing:function"},
-				},
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: "python",
@@ -485,6 +496,16 @@ func mustRawJSON(t *testing.T, raw string) RawJSON {
 		t.Fatalf("invalid raw JSON test fixture: %s", raw)
 	}
 	return RawJSON(raw)
+}
+
+func mustMarshalWatchCodePluginData(t *testing.T, data WatchCodePluginData) RawJSON {
+	t.Helper()
+
+	raw, err := marshalWatchCodePluginData(testWatchCodeProviderPluginID, data)
+	if err != nil {
+		t.Fatalf("marshal watch code plugin data: %v", err)
+	}
+	return raw
 }
 
 func assertJSONEqual(t *testing.T, expected RawJSON, actual RawJSON, label string) {

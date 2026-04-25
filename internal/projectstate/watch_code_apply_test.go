@@ -26,15 +26,16 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamesMovedRegistryIdentityWithinConfig
 	)
 
 	project := callableTestProject(t)
-	project.WatchCodeEnabled = true
-	project.WatchCodeFolders = []WatchCodeFolder{{Path: "pkg", Recursive: false}}
+	projectData := EmptyWatchCodePluginProjectData()
+	projectData.Enabled = true
+	projectData.Folders = []WatchCodeFolder{{Path: "pkg", Recursive: false}}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
 			Payload:  json.RawMessage(`{"language":"python","genCodePrefix":"from pkg.source import watched\n"}`),
 		},
 	}
-	project.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{
+	projectData.Registry = map[string]WatchCodeRegistryEntry{
 		sourceIdentity: {
 			CallableName:  "watched",
 			Kind:          WatchCodeCallableKindFunction,
@@ -45,18 +46,24 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamesMovedRegistryIdentityWithinConfig
 			SectionsCount: 1,
 		},
 	}
-	project.WatchCodeBaselineByPath = map[string][]string{
+	projectData.BaselineByPath = map[string][]string{
 		sourcePath: {sourceIdentity},
 	}
 	callableCodeObj := project.CodeObjs["callable-1"]
 	callableCodeObj.Name = "watched"
 	project.CodeObjs["callable-1"] = callableCodeObj
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": project,
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
+	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
+		WatchCodeProviderPluginID: func() (string, bool) {
+			return testWatchCodeProviderPluginID, true
 		},
 	})
 	if err != nil {
@@ -86,19 +93,19 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamesMovedRegistryIdentityWithinConfig
 		t.Fatal("expected move update to change project state")
 	}
 
-	project = snapshot.Document.Projects["project-alpha"]
-	if _, ok := project.WatchCodeBaselineByPath[sourcePath]; ok {
-		t.Fatalf("did not expect source baseline to remain after move, got %#v", project.WatchCodeBaselineByPath)
+	projectData = mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if _, ok := projectData.BaselineByPath[sourcePath]; ok {
+		t.Fatalf("did not expect source baseline to remain after move, got %#v", projectData.BaselineByPath)
 	}
-	if got := project.WatchCodeBaselineByPath[destPath]; !reflect.DeepEqual(got, []string{destIdentity}) {
+	if got := projectData.BaselineByPath[destPath]; !reflect.DeepEqual(got, []string{destIdentity}) {
 		t.Fatalf("expected destination baseline %#v, got %#v", []string{destIdentity}, got)
 	}
-	if _, ok := project.WatchCodeRegistry[sourceIdentity]; ok {
-		t.Fatalf("did not expect source identity to remain in registry %#v", project.WatchCodeRegistry)
+	if _, ok := projectData.Registry[sourceIdentity]; ok {
+		t.Fatalf("did not expect source identity to remain in registry %#v", projectData.Registry)
 	}
-	entry, ok := project.WatchCodeRegistry[destIdentity]
+	entry, ok := projectData.Registry[destIdentity]
 	if !ok {
-		t.Fatalf("expected moved identity in registry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected moved identity in registry, got %#v", projectData.Registry)
 	}
 	if entry.SourcePath != destPath {
 		t.Fatalf("expected moved entry source path %q, got %q", destPath, entry.SourcePath)
@@ -117,29 +124,13 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 	sourceIdentity := "source.moved.moved:function"
 	destIdentity := "dest.moved.moved:function"
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFolders: []WatchCodeFolder{{Path: "source", Recursive: false}},
-				WatchCodeRegistry: map[string]WatchCodeRegistryEntry{
-					sourceIdentity: {
-						CallableName:  "source.moved.moved",
-						Kind:          WatchCodeCallableKindFunction,
-						SignatureHash: "source-signature",
-						BodyHash:      "source-body",
-						SourcePath:    sourcePath,
-						SectionIDs:    []string{"section-a"},
-						SectionsCount: 1,
-					},
-				},
-				WatchCodeBaselineByPath: map[string][]string{
-					sourcePath: {sourceIdentity},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: string(CodeLanguagePython),
@@ -148,10 +139,8 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 				},
 			},
 			"project-beta": {
-				ID:               "project-beta",
-				Name:             "Beta",
-				WatchCodeEnabled: true,
-				WatchCodeFolders: []WatchCodeFolder{{Path: "dest", Recursive: false}},
+				ID:   "project-beta",
+				Name: "Beta",
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: string(CodeLanguagePython),
@@ -159,6 +148,33 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 					},
 				},
 			},
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Folders: []WatchCodeFolder{{Path: "source", Recursive: false}},
+		Registry: map[string]WatchCodeRegistryEntry{
+			sourceIdentity: {
+				CallableName:  "source.moved.moved",
+				Kind:          WatchCodeCallableKindFunction,
+				SignatureHash: "source-signature",
+				BodyHash:      "source-body",
+				SourcePath:    sourcePath,
+				SectionIDs:    []string{"section-a"},
+				SectionsCount: 1,
+			},
+		},
+		BaselineByPath: map[string][]string{
+			sourcePath: {sourceIdentity},
+		},
+	})
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-beta", WatchCodePluginProjectData{
+		Enabled: true,
+		Folders: []WatchCodeFolder{{Path: "dest", Recursive: false}},
+	})
+	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
+		WatchCodeProviderPluginID: func() (string, bool) {
+			return testWatchCodeProviderPluginID, true
 		},
 	})
 	if err != nil {
@@ -200,18 +216,19 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 		t.Fatal("expected destination update to backfill a callable section")
 	}
 
-	sourceProject := snapshot.Document.Projects["project-alpha"]
-	if len(sourceProject.WatchCodeRegistry) != 0 {
-		t.Fatalf("expected source registry to be cleared, got %#v", sourceProject.WatchCodeRegistry)
+	sourceProjectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if len(sourceProjectData.Registry) != 0 {
+		t.Fatalf("expected source registry to be cleared, got %#v", sourceProjectData.Registry)
 	}
-	if len(sourceProject.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected source baseline to be cleared, got %#v", sourceProject.WatchCodeBaselineByPath)
+	if len(sourceProjectData.BaselineByPath) != 0 {
+		t.Fatalf("expected source baseline to be cleared, got %#v", sourceProjectData.BaselineByPath)
 	}
 
 	destProject := snapshot.Document.Projects["project-beta"]
-	entry, ok := destProject.WatchCodeRegistry[destIdentity]
+	destProjectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-beta")
+	entry, ok := destProjectData.Registry[destIdentity]
 	if !ok {
-		t.Fatalf("expected destination registry entry %#v, got %#v", destIdentity, destProject.WatchCodeRegistry)
+		t.Fatalf("expected destination registry entry %#v, got %#v", destIdentity, destProjectData.Registry)
 	}
 	if entry.SourcePath != destPath {
 		t.Fatalf("expected destination source path %q, got %q", destPath, entry.SourcePath)
@@ -259,10 +276,8 @@ func TestRuntimeApplyWatchCodeFileUpdateReconcilesGeneratedPythonSectionsWhenCon
 	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
 	defaultWindowing := DefaultProjectChatWindowingState()
 	project := Project{
-		ID:               "project-alpha",
-		Name:             "Alpha",
-		WatchCodeEnabled: true,
-		WatchCodeFiles:   []string{"pkg/watched.py"},
+		ID:   "project-alpha",
+		Name: "Alpha",
 		CodegenTargets: []ProjectCodegenTarget{
 			{
 				Language: string(CodeLanguagePython),
@@ -271,15 +286,21 @@ func TestRuntimeApplyWatchCodeFileUpdateReconcilesGeneratedPythonSectionsWhenCon
 		},
 		ProjectChatWindowing: &defaultWindowing,
 	}
+	projectData := WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watched.py"},
+	}
 
 	structuralReconciler := testRuntimeStructuralMutationPythonGeneratedSectionReconciler()
-	runtime, err := OpenOverlayRuntimeWithOptions(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": project,
 		},
-	}, RuntimeOptions{
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
+	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
 		PythonCodegenSectionReconciler: PythonCodegenSectionReconcilerFunc(func(ctx context.Context, project *Project) error {
 			if err := structuralReconciler.ReconcileProjectPythonGeneratedSections(ctx, project); err != nil {
 				return err
@@ -353,12 +374,9 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 	sourcePath := filepath.Join(workspaceRoot, sourceRelativePath)
 
 	project := Project{
-		ID:                "project-alpha",
-		Name:              "Alpha",
-		WatchCodeEnabled:  true,
-		WatchCodeFiles:    []string{sourceRelativePath},
-		WatchCodeRegistry: map[string]WatchCodeRegistryEntry{},
-		ActiveViewModeID:  "focus",
+		ID:               "project-alpha",
+		Name:             "Alpha",
+		ActiveViewModeID: "focus",
 		CodegenTargets: []ProjectCodegenTarget{
 			{
 				Language: string(CodeLanguagePython),
@@ -416,9 +434,15 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 			},
 		},
 	}
+	projectData := WatchCodePluginProjectData{
+		Enabled:  true,
+		Files:    []string{sourceRelativePath},
+		Registry: map[string]WatchCodeRegistryEntry{},
+	}
 
 	didUpdate, err := project.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		&projectData,
 		sourcePath,
 		"def watched(value):\n    return value\n",
 		false,
@@ -433,9 +457,9 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 		t.Fatal("expected watch code update to create a callable section")
 	}
 
-	entry, ok := project.WatchCodeRegistry["watch_code_test.watched:function"]
+	entry, ok := projectData.Registry["watch_code_test.watched:function"]
 	if !ok {
-		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected watch code registry entry, got %#v", projectData.Registry)
 	}
 	if len(entry.SectionIDs) != 1 {
 		t.Fatalf("expected one created callable section, got %#v", entry)
@@ -532,27 +556,13 @@ func TestRuntimeApplyWatchCodeFileDeleteClearsRegistryAndBaseline(t *testing.T) 
 	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
 	identity := "pkg.watched.added:function"
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/watched.py"},
-				WatchCodeRegistry: map[string]WatchCodeRegistryEntry{
-					identity: {
-						CallableName:  "pkg.watched.added",
-						Kind:          WatchCodeCallableKindFunction,
-						SignatureHash: "signature",
-						BodyHash:      "body",
-						SourcePath:    sourcePath,
-					},
-				},
-				WatchCodeBaselineByPath: map[string][]string{
-					sourcePath: {identity},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: string(CodeLanguagePython),
@@ -561,7 +571,24 @@ func TestRuntimeApplyWatchCodeFileDeleteClearsRegistryAndBaseline(t *testing.T) 
 				},
 			},
 		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watched.py"},
+		Registry: map[string]WatchCodeRegistryEntry{
+			identity: {
+				CallableName:  "pkg.watched.added",
+				Kind:          WatchCodeCallableKindFunction,
+				SignatureHash: "signature",
+				BodyHash:      "body",
+				SourcePath:    sourcePath,
+			},
+		},
+		BaselineByPath: map[string][]string{
+			sourcePath: {identity},
+		},
 	})
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -585,12 +612,12 @@ func TestRuntimeApplyWatchCodeFileDeleteClearsRegistryAndBaseline(t *testing.T) 
 		t.Fatal("expected delete to change project state")
 	}
 
-	project := snapshot.Document.Projects["project-alpha"]
-	if len(project.WatchCodeRegistry) != 0 {
-		t.Fatalf("expected registry to be empty after delete, got %#v", project.WatchCodeRegistry)
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if len(projectData.Registry) != 0 {
+		t.Fatalf("expected registry to be empty after delete, got %#v", projectData.Registry)
 	}
-	if len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected baseline to be empty after delete, got %#v", project.WatchCodeBaselineByPath)
+	if len(projectData.BaselineByPath) != 0 {
+		t.Fatalf("expected baseline to be empty after delete, got %#v", projectData.BaselineByPath)
 	}
 }
 
@@ -605,24 +632,8 @@ func TestRuntimeApplyWatchCodeFileUpdateSyntaxErrorPreservesProjectState(t *test
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/watched.py"},
-				WatchCodeRegistry: map[string]WatchCodeRegistryEntry{
-					identity: {
-						CallableName:  "pkg.watched.watched",
-						Kind:          WatchCodeCallableKindFunction,
-						SignatureHash: "signature",
-						BodyHash:      "body",
-						SourcePath:    sourcePath,
-						SectionIDs:    []string{"section-a"},
-						SectionsCount: 1,
-					},
-				},
-				WatchCodeBaselineByPath: map[string][]string{
-					sourcePath: {identity},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: string(CodeLanguagePython),
@@ -632,6 +643,24 @@ func TestRuntimeApplyWatchCodeFileUpdateSyntaxErrorPreservesProjectState(t *test
 			},
 		},
 	}
+	mustSetTestWatchCodePluginProjectData(t, &initialDocument, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watched.py"},
+		Registry: map[string]WatchCodeRegistryEntry{
+			identity: {
+				CallableName:  "pkg.watched.watched",
+				Kind:          WatchCodeCallableKindFunction,
+				SignatureHash: "signature",
+				BodyHash:      "body",
+				SourcePath:    sourcePath,
+				SectionIDs:    []string{"section-a"},
+				SectionsCount: 1,
+			},
+		},
+		BaselineByPath: map[string][]string{
+			sourcePath: {identity},
+		},
+	})
 	runtime, err := OpenOverlayRuntime(initialDocument)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
@@ -680,15 +709,16 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesCallableParams(t
 	)
 
 	project := callableTestProject(t)
-	project.WatchCodeEnabled = true
-	project.WatchCodeFiles = []string{"pkg/watched.py"}
+	projectData := EmptyWatchCodePluginProjectData()
+	projectData.Enabled = true
+	projectData.Files = []string{"pkg/watched.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
 			Payload:  json.RawMessage(`{"language":"python"}`),
 		},
 	}
-	project.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{
+	projectData.Registry = map[string]WatchCodeRegistryEntry{
 		"pkg.watched.sorted:function": {
 			CallableName:  "sorted",
 			Kind:          WatchCodeCallableKindFunction,
@@ -699,20 +729,22 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesCallableParams(t
 			SectionsCount: 1,
 		},
 	}
-	project.WatchCodeBaselineByPath = map[string][]string{
+	projectData.BaselineByPath = map[string][]string{
 		sourcePath: {"pkg.watched.sorted:function"},
 	}
 	if err := project.setCurrentSectionField("callable-section", "callable", "callable-2"); err != nil {
 		t.Fatalf("seed current callable: %v", err)
 	}
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": project,
 		},
-	})
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -766,7 +798,8 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesCallableParams(t
 	}
 
 	project = snapshot.Document.Projects["project-alpha"]
-	entry := project.WatchCodeRegistry["pkg.watched.sorted:function"]
+	projectData = mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry := projectData.Registry["pkg.watched.sorted:function"]
 	if entry.SignatureHash == initialCallable.SignatureHash {
 		t.Fatalf("expected signature hash to change, got %#v", entry)
 	}
@@ -811,15 +844,13 @@ func TestRuntimeApplyWatchCodeFileUpdateInitialAdditionRefetchesCallableParams(t
 	workspaceRoot := t.TempDir()
 	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/watched.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: string(CodeLanguagePython),
@@ -827,6 +858,15 @@ func TestRuntimeApplyWatchCodeFileUpdateInitialAdditionRefetchesCallableParams(t
 					},
 				},
 			},
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watched.py"},
+	})
+	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
+		WatchCodeProviderPluginID: func() (string, bool) {
+			return testWatchCodeProviderPluginID, true
 		},
 	})
 	if err != nil {
@@ -881,15 +921,16 @@ func TestRuntimeApplyWatchCodeFileUpdateInitialAdditionRefetchesCallableParams(t
 		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
 	}
 
-	project := snapshot.Document.Projects["project-alpha"]
-	entry, ok := project.WatchCodeRegistry["pkg.watched.sorted:function"]
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry, ok := projectData.Registry["pkg.watched.sorted:function"]
 	if !ok {
-		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected watch code registry entry, got %#v", projectData.Registry)
 	}
 	if len(entry.SectionIDs) != 1 {
 		t.Fatalf("expected one created callable section, got %#v", entry)
 	}
 
+	project := snapshot.Document.Projects["project-alpha"]
 	sectionID := entry.SectionIDs[0]
 	payload, err := currentCallablePayloadForWatchCodeTest(project, sectionID)
 	if err != nil {
@@ -944,15 +985,16 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKe
 	)
 
 	project := callableTestProject(t)
-	project.WatchCodeEnabled = true
-	project.WatchCodeFiles = []string{"pkg/watched.py"}
+	projectData := EmptyWatchCodePluginProjectData()
+	projectData.Enabled = true
+	projectData.Files = []string{"pkg/watched.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
 			Payload:  json.RawMessage(`{"language":"python"}`),
 		},
 	}
-	project.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{
+	projectData.Registry = map[string]WatchCodeRegistryEntry{
 		"pkg.watched.sorted:function": {
 			CallableName:  "sorted",
 			Kind:          WatchCodeCallableKindFunction,
@@ -963,20 +1005,22 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKe
 			SectionsCount: 1,
 		},
 	}
-	project.WatchCodeBaselineByPath = map[string][]string{
+	projectData.BaselineByPath = map[string][]string{
 		sourcePath: {"pkg.watched.sorted:function"},
 	}
 	if err := project.setCurrentSectionField("callable-section", "callable", "callable-2"); err != nil {
 		t.Fatalf("seed current callable: %v", err)
 	}
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": project,
 		},
-	})
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -1009,7 +1053,8 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKe
 	}
 
 	project = snapshot.Document.Projects["project-alpha"]
-	entry := project.WatchCodeRegistry["pkg.watched.sorted:function"]
+	projectData = mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry := projectData.Registry["pkg.watched.sorted:function"]
 	if entry.SignatureHash == initialCallable.SignatureHash {
 		t.Fatalf("expected signature hash to change, got %#v", entry)
 	}
@@ -1043,15 +1088,16 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamePreservesSectionIDsAndParams(t *te
 	)
 
 	project := callableTestProject(t)
-	project.WatchCodeEnabled = true
-	project.WatchCodeFiles = []string{"pkg/watched.py"}
+	projectData := EmptyWatchCodePluginProjectData()
+	projectData.Enabled = true
+	projectData.Files = []string{"pkg/watched.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
 			Payload:  json.RawMessage(`{"language":"python","genCodePrefix":"from pkg.watched import original\n"}`),
 		},
 	}
-	project.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{
+	projectData.Registry = map[string]WatchCodeRegistryEntry{
 		"pkg.watched.original:function": {
 			CallableName:  "original",
 			Kind:          WatchCodeCallableKindFunction,
@@ -1062,7 +1108,7 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamePreservesSectionIDsAndParams(t *te
 			SectionsCount: 1,
 		},
 	}
-	project.WatchCodeBaselineByPath = map[string][]string{
+	projectData.BaselineByPath = map[string][]string{
 		sourcePath: {"pkg.watched.original:function"},
 	}
 	if err := project.setCurrentSectionField("callable-section", "callable", "callable-2"); err != nil {
@@ -1072,13 +1118,15 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamePreservesSectionIDsAndParams(t *te
 	callable.Name = "original"
 	project.CodeObjs["callable-2"] = callable
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": project,
 		},
-	})
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -1107,12 +1155,13 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamePreservesSectionIDsAndParams(t *te
 	}
 
 	project = snapshot.Document.Projects["project-alpha"]
-	if _, ok := project.WatchCodeRegistry["pkg.watched.original:function"]; ok {
-		t.Fatalf("did not expect original identity to remain: %#v", project.WatchCodeRegistry)
+	projectData = mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if _, ok := projectData.Registry["pkg.watched.original:function"]; ok {
+		t.Fatalf("did not expect original identity to remain: %#v", projectData.Registry)
 	}
-	entry, ok := project.WatchCodeRegistry["pkg.watched.renamed:function"]
+	entry, ok := projectData.Registry["pkg.watched.renamed:function"]
 	if !ok {
-		t.Fatalf("expected renamed identity in registry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected renamed identity in registry, got %#v", projectData.Registry)
 	}
 	if !reflect.DeepEqual(entry.SectionIDs, []string{"callable-section"}) {
 		t.Fatalf("expected renamed section ids to stay unchanged, got %#v", entry.SectionIDs)
@@ -1150,15 +1199,16 @@ func TestRuntimeApplyWatchCodeFileDeleteRemovesCallableSectionAndCodeObjects(t *
 	workspaceRoot := t.TempDir()
 	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
 	project := callableTestProject(t)
-	project.WatchCodeEnabled = true
-	project.WatchCodeFiles = []string{"pkg/watched.py"}
+	projectData := EmptyWatchCodePluginProjectData()
+	projectData.Enabled = true
+	projectData.Files = []string{"pkg/watched.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
 			Payload:  json.RawMessage(`{"language":"python","genCodePrefix":"from pkg.watched import existing_callable\n"}`),
 		},
 	}
-	project.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{
+	projectData.Registry = map[string]WatchCodeRegistryEntry{
 		"pkg.watched.existing_callable:function": {
 			CallableName:  "existing_callable",
 			Kind:          WatchCodeCallableKindFunction,
@@ -1169,17 +1219,19 @@ func TestRuntimeApplyWatchCodeFileDeleteRemovesCallableSectionAndCodeObjects(t *
 			SectionsCount: 1,
 		},
 	}
-	project.WatchCodeBaselineByPath = map[string][]string{
+	projectData.BaselineByPath = map[string][]string{
 		sourcePath: {"pkg.watched.existing_callable:function"},
 	}
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": project,
 		},
-	})
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -1204,11 +1256,12 @@ func TestRuntimeApplyWatchCodeFileDeleteRemovesCallableSectionAndCodeObjects(t *
 	}
 
 	project = snapshot.Document.Projects["project-alpha"]
-	if len(project.WatchCodeRegistry) != 0 {
-		t.Fatalf("expected empty watch code registry, got %#v", project.WatchCodeRegistry)
+	projectData = mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if len(projectData.Registry) != 0 {
+		t.Fatalf("expected empty watch code registry, got %#v", projectData.Registry)
 	}
-	if len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected empty baseline, got %#v", project.WatchCodeBaselineByPath)
+	if len(projectData.BaselineByPath) != 0 {
+		t.Fatalf("expected empty baseline, got %#v", projectData.BaselineByPath)
 	}
 	if _, ok := project.Sections["callable-section"]; ok {
 		t.Fatalf("did not expect callable section to remain, got %#v", project.Sections)
@@ -1236,7 +1289,8 @@ func TestRuntimeApplyWatchCodeFileDeleteKeepsSectionWithOtherVariants(t *testing
 
 	fixture := seedMixedWatchCodeVariantFixture(t)
 	project := fixture.Runtime.Snapshot().Document.Projects["project-alpha"]
-	betaEntry := project.WatchCodeRegistry["pkg.watched.beta:function"]
+	projectData := mustReadTestWatchCodePluginProjectData(t, fixture.Runtime.Snapshot().Document, "project-alpha")
+	betaEntry := projectData.Registry["pkg.watched.beta:function"]
 	if len(betaEntry.SectionIDs) != 2 ||
 		!containsString(betaEntry.SectionIDs, fixture.AlphaSectionID) ||
 		!containsString(betaEntry.SectionIDs, fixture.BetaSectionID) {
@@ -1262,8 +1316,9 @@ func TestRuntimeApplyWatchCodeFileDeleteKeepsSectionWithOtherVariants(t *testing
 	}
 
 	project = snapshot.Document.Projects["project-alpha"]
-	if _, ok := project.WatchCodeRegistry["pkg.watched.alpha:function"]; ok {
-		t.Fatalf("did not expect alpha registry entry to remain, got %#v", project.WatchCodeRegistry)
+	projectData = mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if _, ok := projectData.Registry["pkg.watched.alpha:function"]; ok {
+		t.Fatalf("did not expect alpha registry entry to remain, got %#v", projectData.Registry)
 	}
 	if _, ok := project.Sections[fixture.AlphaSectionID]; !ok {
 		t.Fatalf("expected alpha section to remain because another variant still targets beta, got %#v", project.Sections)
@@ -1399,15 +1454,16 @@ func TestRuntimeApplyWatchCodeFileUpdateRenameUpdatesInactiveMatchingVariant(t *
 	}
 
 	project := snapshot.Document.Projects["project-alpha"]
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
 	if got := project.SectionVariantMap[fixture.AlphaSectionID]; got != fixture.OriginalVariantID {
 		t.Fatalf("expected active alpha variant to remain %q, got %q", fixture.OriginalVariantID, got)
 	}
-	if _, ok := project.WatchCodeRegistry["pkg.watched.beta:function"]; ok {
-		t.Fatalf("did not expect beta identity to remain after rename, got %#v", project.WatchCodeRegistry)
+	if _, ok := projectData.Registry["pkg.watched.beta:function"]; ok {
+		t.Fatalf("did not expect beta identity to remain after rename, got %#v", projectData.Registry)
 	}
-	renamedEntry, ok := project.WatchCodeRegistry["pkg.watched.renamed:function"]
+	renamedEntry, ok := projectData.Registry["pkg.watched.renamed:function"]
 	if !ok {
-		t.Fatalf("expected renamed registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected renamed registry entry, got %#v", projectData.Registry)
 	}
 	if len(renamedEntry.SectionIDs) != 2 ||
 		!containsString(renamedEntry.SectionIDs, fixture.AlphaSectionID) ||
@@ -1435,15 +1491,13 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveIntoTrackedDestinationFromUntrackedC
 	sourcePath := filepath.Join(workspaceRoot, "untracked", "incoming.py")
 	destinationPath := filepath.Join(workspaceRoot, "pkg", "incoming.py")
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFolders: []WatchCodeFolder{{Path: "pkg", Recursive: false}},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: string(CodeLanguagePython),
@@ -1452,7 +1506,12 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveIntoTrackedDestinationFromUntrackedC
 				},
 			},
 		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Folders: []WatchCodeFolder{{Path: "pkg", Recursive: false}},
 	})
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -1480,13 +1539,13 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveIntoTrackedDestinationFromUntrackedC
 		t.Fatal("expected move-in update to create tracked destination state")
 	}
 
-	project := snapshot.Document.Projects["project-alpha"]
-	if _, ok := project.WatchCodeBaselineByPath[sourcePath]; ok {
-		t.Fatalf("did not expect untracked source baseline entry, got %#v", project.WatchCodeBaselineByPath)
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if _, ok := projectData.BaselineByPath[sourcePath]; ok {
+		t.Fatalf("did not expect untracked source baseline entry, got %#v", projectData.BaselineByPath)
 	}
-	entry, ok := project.WatchCodeRegistry["pkg.incoming.incoming:function"]
+	entry, ok := projectData.Registry["pkg.incoming.incoming:function"]
 	if !ok {
-		t.Fatalf("expected destination registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected destination registry entry, got %#v", projectData.Registry)
 	}
 	if entry.SourcePath != destinationPath {
 		t.Fatalf("expected destination source path %q, got %q", destinationPath, entry.SourcePath)
@@ -1494,8 +1553,8 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveIntoTrackedDestinationFromUntrackedC
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected one callable section for moved-in destination, got %#v", entry)
 	}
-	if _, ok := project.WatchCodeBaselineByPath[destinationPath]; ok {
-		t.Fatalf("did not expect move-in creation to seed destination baseline, got %#v", project.WatchCodeBaselineByPath)
+	if _, ok := projectData.BaselineByPath[destinationPath]; ok {
+		t.Fatalf("did not expect move-in creation to seed destination baseline, got %#v", projectData.BaselineByPath)
 	}
 }
 
@@ -1506,15 +1565,13 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 	sourcePath := filepath.Join(workspaceRoot, "pkg", "source.py")
 	destinationPath := filepath.Join(workspaceRoot, "pkg", "dest.py")
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/source.py", "pkg/dest.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: string(CodeLanguagePython),
@@ -1523,7 +1580,12 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 				},
 			},
 		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/source.py", "pkg/dest.py"},
 	})
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -1570,8 +1632,9 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 	}
 
 	project := snapshot.Document.Projects["project-alpha"]
-	sourceEntry := project.WatchCodeRegistry["pkg.source.moved:function"]
-	destinationEntry := project.WatchCodeRegistry["pkg.dest.stale:function"]
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	sourceEntry := projectData.Registry["pkg.source.moved:function"]
+	destinationEntry := projectData.Registry["pkg.dest.stale:function"]
 	sourceSectionID := sourceEntry.SectionIDs[0]
 	destinationSectionID := destinationEntry.SectionIDs[0]
 
@@ -1606,15 +1669,16 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 	}
 
 	project = snapshot.Document.Projects["project-alpha"]
-	if _, ok := project.WatchCodeRegistry["pkg.source.moved:function"]; ok {
-		t.Fatalf("did not expect source identity to remain after overwrite move, got %#v", project.WatchCodeRegistry)
+	projectData = mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if _, ok := projectData.Registry["pkg.source.moved:function"]; ok {
+		t.Fatalf("did not expect source identity to remain after overwrite move, got %#v", projectData.Registry)
 	}
-	if _, ok := project.WatchCodeRegistry["pkg.dest.stale:function"]; ok {
-		t.Fatalf("did not expect stale destination identity to remain after overwrite move, got %#v", project.WatchCodeRegistry)
+	if _, ok := projectData.Registry["pkg.dest.stale:function"]; ok {
+		t.Fatalf("did not expect stale destination identity to remain after overwrite move, got %#v", projectData.Registry)
 	}
-	entry, ok := project.WatchCodeRegistry["pkg.dest.moved:function"]
+	entry, ok := projectData.Registry["pkg.dest.moved:function"]
 	if !ok {
-		t.Fatalf("expected moved destination identity, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected moved destination identity, got %#v", projectData.Registry)
 	}
 	if entry.SourcePath != destinationPath {
 		t.Fatalf("expected moved destination source path %q, got %q", destinationPath, entry.SourcePath)
@@ -1625,11 +1689,11 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 	if _, ok := project.Sections[destinationSectionID]; ok {
 		t.Fatalf("did not expect overwritten destination section %q to remain, got %#v", destinationSectionID, project.Sections)
 	}
-	if got := project.WatchCodeBaselineByPath[destinationPath]; !reflect.DeepEqual(got, []string{"pkg.dest.moved:function"}) {
+	if got := projectData.BaselineByPath[destinationPath]; !reflect.DeepEqual(got, []string{"pkg.dest.moved:function"}) {
 		t.Fatalf("expected moved destination baseline %#v, got %#v", []string{"pkg.dest.moved:function"}, got)
 	}
-	if _, ok := project.WatchCodeBaselineByPath[sourcePath]; ok {
-		t.Fatalf("did not expect source baseline after overwrite move, got %#v", project.WatchCodeBaselineByPath)
+	if _, ok := projectData.BaselineByPath[sourcePath]; ok {
+		t.Fatalf("did not expect source baseline after overwrite move, got %#v", projectData.BaselineByPath)
 	}
 	target, ok, err := project.PythonCodegenTarget()
 	if err != nil {
@@ -1659,15 +1723,13 @@ func seedMixedWatchCodeVariantFixture(t *testing.T) mixedWatchCodeVariantFixture
 	workspaceRoot := t.TempDir()
 	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/watched.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []ProjectCodegenTarget{
 					{
 						Language: string(CodeLanguagePython),
@@ -1675,6 +1737,15 @@ func seedMixedWatchCodeVariantFixture(t *testing.T) mixedWatchCodeVariantFixture
 					},
 				},
 			},
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watched.py"},
+	})
+	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
+		WatchCodeProviderPluginID: func() (string, bool) {
+			return testWatchCodeProviderPluginID, true
 		},
 	})
 	if err != nil {
@@ -1705,13 +1776,14 @@ func seedMixedWatchCodeVariantFixture(t *testing.T) mixedWatchCodeVariantFixture
 	}
 
 	project := snapshot.Document.Projects["project-alpha"]
-	alphaEntry, ok := project.WatchCodeRegistry["pkg.watched.alpha:function"]
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	alphaEntry, ok := projectData.Registry["pkg.watched.alpha:function"]
 	if !ok {
-		t.Fatalf("expected alpha registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected alpha registry entry, got %#v", projectData.Registry)
 	}
-	betaEntry, ok := project.WatchCodeRegistry["pkg.watched.beta:function"]
+	betaEntry, ok := projectData.Registry["pkg.watched.beta:function"]
 	if !ok {
-		t.Fatalf("expected beta registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected beta registry entry, got %#v", projectData.Registry)
 	}
 	alphaSectionID := alphaEntry.SectionIDs[0]
 	betaSectionID := betaEntry.SectionIDs[0]

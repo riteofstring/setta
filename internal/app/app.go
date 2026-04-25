@@ -553,7 +553,13 @@ func initializeWorkspaceLSPServices(
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
 			Service:        services.lspRouter,
 			Diagnostics:    services.lspDiagnostics,
-			Logger:         logger,
+			WatchCodeProviderPluginID: func() (string, bool) {
+				if services.watchCodeCapabilities == nil {
+					return "", false
+				}
+				return services.watchCodeCapabilities.ActiveProviderPluginID()
+			},
+			Logger: logger,
 		},
 	)
 	if err != nil {
@@ -596,6 +602,7 @@ func openWorkspaceProjectServices(
 			MainRuntime: projectstate.RuntimeOptions{
 				PasswordSecrets:                passwordSecrets,
 				PythonCodegenSectionReconciler: services.pythonMaterializer,
+				WatchCodeProviderPluginID:      services.watchCodeCapabilities.ActiveProviderPluginID,
 				WatchCodeIgnoredRoots: []string{
 					cfg.Paths.SettaFilesRoot,
 					cfg.Paths.RuntimeRoot,
@@ -893,7 +900,7 @@ func initializeIDEWatchCodeService(
 	websocketHub *realtime.WebsocketHub,
 	services *projectServices,
 ) error {
-	services.watchCodeWarnings = newWatchCodeWarningTracker()
+	services.watchCodeWarnings = newWatchCodeWarningTracker(services.watchCodeCapabilities.ActiveProviderPluginID)
 	watchCodeService, err := watchcode.NewService(watchcode.ServiceOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 		OnFileUpdate: func(ctx context.Context, update watchcode.FileUpdate) error {

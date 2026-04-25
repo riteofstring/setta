@@ -21,36 +21,35 @@ func TestDocumentStoresWatchCodeStateInProviderPluginData(t *testing.T) {
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFolders: []WatchCodeFolder{{Path: "pkg", Recursive: true}},
-				WatchCodeFiles:   []string{"pkg/watch_me.py"},
-				WatchCodeRegistry: map[string]WatchCodeRegistryEntry{
-					"pkg.watch_me.existing:function": {
-						CallableName:  "existing",
-						Kind:          WatchCodeCallableKindFunction,
-						SignatureHash: "sig",
-						BodyHash:      "body",
-						SourcePath:    "/workspace/pkg/watch_me.py",
-						SectionIDs:    []string{"section-existing"},
-						SectionsCount: 1,
-					},
-				},
-				WatchCodeBaselineByPath: map[string][]string{
-					"/workspace/pkg/watch_me.py": {"pkg.watch_me.existing:function"},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
 	}
+	expected := WatchCodePluginProjectData{
+		Enabled: true,
+		Folders: []WatchCodeFolder{{Path: "pkg", Recursive: true}},
+		Files:   []string{"pkg/watch_me.py"},
+		Registry: map[string]WatchCodeRegistryEntry{
+			"pkg.watch_me.existing:function": {
+				CallableName:  "existing",
+				Kind:          WatchCodeCallableKindFunction,
+				SignatureHash: "sig",
+				BodyHash:      "body",
+				SourcePath:    "/workspace/pkg/watch_me.py",
+				SectionIDs:    []string{"section-existing"},
+				SectionsCount: 1,
+			},
+		},
+		BaselineByPath: map[string][]string{
+			"/workspace/pkg/watch_me.py": {"pkg.watch_me.existing:function"},
+		},
+	}.Normalized()
 
 	normalized := document
-	mustStoreTestWatchCodePluginData(t, &normalized)
+	mustSetTestWatchCodePluginProjectData(t, &normalized, "project-alpha", expected)
 
 	project := normalized.Projects["project-alpha"]
-	if !project.WatchCodeEnabled {
-		t.Fatal("expected internal watch code state to remain enabled")
-	}
 	payload := normalized.PluginData[testWatchCodeProviderPluginID]
 	if len(payload) == 0 {
 		t.Fatalf("expected watch code plugin data, got %#v", normalized.PluginData)
@@ -59,7 +58,6 @@ func TestDocumentStoresWatchCodeStateInProviderPluginData(t *testing.T) {
 	if err := json.Unmarshal(payload, &stored); err != nil {
 		t.Fatalf("decode watch code plugin data: %v", err)
 	}
-	expected := WatchCodePluginProjectDataFromProject(project)
 	if !reflect.DeepEqual(stored.Projects["project-alpha"], expected) {
 		t.Fatalf("expected stored watch code project data %#v, got %#v", expected, stored.Projects["project-alpha"])
 	}
@@ -122,26 +120,25 @@ func TestDocumentLoadsWatchCodeStateFromProviderPluginData(t *testing.T) {
 	}
 
 	normalized := document
-	mustLoadTestWatchCodePluginData(t, &normalized)
-	project := normalized.Projects["project-alpha"]
-	if !project.WatchCodeEnabled {
+	projectData := mustReadTestWatchCodePluginProjectData(t, normalized, "project-alpha")
+	if !projectData.Enabled {
 		t.Fatal("expected watch code enabled from plugin data")
 	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
-		t.Fatalf("expected watch code folders from plugin data, got %#v", project.WatchCodeFolders)
+	if !reflect.DeepEqual(projectData.Folders, []WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
+		t.Fatalf("expected watch code folders from plugin data, got %#v", projectData.Folders)
 	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/watch_me.py"}) {
-		t.Fatalf("expected watch code files from plugin data, got %#v", project.WatchCodeFiles)
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch_me.py"}) {
+		t.Fatalf("expected watch code files from plugin data, got %#v", projectData.Files)
 	}
-	if got := project.WatchCodeBaselineByPath["/workspace/pkg/watch_me.py"]; !reflect.DeepEqual(got, []string{"pkg.watch_me.existing:function"}) {
-		t.Fatalf("expected watch code baseline from plugin data, got %#v", project.WatchCodeBaselineByPath)
+	if got := projectData.BaselineByPath["/workspace/pkg/watch_me.py"]; !reflect.DeepEqual(got, []string{"pkg.watch_me.existing:function"}) {
+		t.Fatalf("expected watch code baseline from plugin data, got %#v", projectData.BaselineByPath)
 	}
-	if entry := project.WatchCodeRegistry["pkg.watch_me.existing:function"]; entry.CallableName != "existing" {
-		t.Fatalf("expected watch code registry from plugin data, got %#v", project.WatchCodeRegistry)
+	if entry := projectData.Registry["pkg.watch_me.existing:function"]; entry.CallableName != "existing" {
+		t.Fatalf("expected watch code registry from plugin data, got %#v", projectData.Registry)
 	}
 }
 
-func TestDocumentLoadsWatchCodeStateClearsStaleProviderProjectFields(t *testing.T) {
+func TestDocumentWatchCodeProjectDataIsProviderKeyed(t *testing.T) {
 	t.Parallel()
 
 	document := Document{
@@ -179,21 +176,17 @@ func TestDocumentLoadsWatchCodeStateClearsStaleProviderProjectFields(t *testing.
 		},
 	}
 
-	mustLoadTestWatchCodePluginData(t, &document)
-	if !document.Projects["project-alpha"].WatchCodeEnabled {
-		t.Fatal("expected first provider to hydrate watch code state")
-	}
-	if err := document.LoadWatchCodePluginDataIntoProjects("setta-other-watch-code-provider"); err != nil {
-		t.Fatalf("load other provider watch code plugin data: %v", err)
+	projectData := mustReadTestWatchCodePluginProjectData(t, document, "project-alpha")
+	if !projectData.Enabled {
+		t.Fatal("expected first provider to expose watch code state")
 	}
 
-	project := document.Projects["project-alpha"]
-	if project.WatchCodeEnabled ||
-		len(project.WatchCodeFolders) != 0 ||
-		len(project.WatchCodeFiles) != 0 ||
-		len(project.WatchCodeRegistry) != 0 ||
-		len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected missing provider payload to clear watch code scratch state, got %#v", project)
+	otherProviderData, exists, err := document.WatchCodePluginProjectData("setta-other-watch-code-provider", "project-alpha")
+	if err != nil {
+		t.Fatalf("read other provider watch code plugin data: %v", err)
+	}
+	if exists || !otherProviderData.IsEmpty() {
+		t.Fatalf("expected missing provider payload to return empty state, got exists=%v data=%#v", exists, otherProviderData)
 	}
 }
 
@@ -222,10 +215,8 @@ func TestDocumentNormalizedIgnoresLegacyTopLevelWatchCodeFields(t *testing.T) {
 		t.Fatalf("normalize document: %v", err)
 	}
 	project := normalized.Projects["project-alpha"]
-	if project.WatchCodeEnabled ||
-		len(project.WatchCodeFolders) != 0 ||
-		len(project.WatchCodeFiles) != 0 {
-		t.Fatalf("did not expect legacy top-level watch code fields to load, got %#v", project)
+	if project.ID != "project-alpha" {
+		t.Fatalf("expected project to load without legacy watch code fields, got %#v", project)
 	}
 	if _, ok := normalized.PluginData[testWatchCodeProviderPluginID]; ok {
 		t.Fatalf("did not expect legacy top-level fields to create plugin data, got %#v", normalized.PluginData)
@@ -244,17 +235,20 @@ func TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs(t *testing.T) {
 		t.Fatalf("write watch file: %v", err)
 	}
 
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:             "project-alpha",
-				Name:           "Alpha",
-				WatchCodeFiles: []string{"pkg/watch_me.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Files: []string{"pkg/watch_me.py"},
 	})
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -270,20 +264,20 @@ func TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs(t *testing.T) {
 		t.Fatalf("enable watch code: %v", err)
 	}
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	if !project.WatchCodeEnabled {
+	projectData := mustReadTestWatchCodePluginProjectData(t, runtime.Snapshot().Document, "project-alpha")
+	if !projectData.Enabled {
 		t.Fatal("expected watch code enabled")
 	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/watch_me.py"}) {
-		t.Fatalf("expected normalized watch file path, got %#v", project.WatchCodeFiles)
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch_me.py"}) {
+		t.Fatalf("expected normalized watch file path, got %#v", projectData.Files)
 	}
 	expectedBaselineKey := filepath.Clean(watchFile)
 	expectedIdentity := "pkg.watch_me.existing:function"
-	if !reflect.DeepEqual(project.WatchCodeBaselineByPath[expectedBaselineKey], []string{expectedIdentity}) {
-		t.Fatalf("expected baseline for %q, got %#v", expectedBaselineKey, project.WatchCodeBaselineByPath)
+	if !reflect.DeepEqual(projectData.BaselineByPath[expectedBaselineKey], []string{expectedIdentity}) {
+		t.Fatalf("expected baseline for %q, got %#v", expectedBaselineKey, projectData.BaselineByPath)
 	}
-	if len(project.WatchCodeRegistry) != 0 {
-		t.Fatalf("expected empty watch code registry, got %#v", project.WatchCodeRegistry)
+	if len(projectData.Registry) != 0 {
+		t.Fatalf("expected empty watch code registry, got %#v", projectData.Registry)
 	}
 }
 
@@ -352,17 +346,19 @@ func TestRuntimeSetWatchCodeEnabledBaselinesBoundPythonCodeSections(t *testing.T
 		t.Fatalf("enable watch code: %v", err)
 	}
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	if !project.WatchCodeEnabled {
+	snapshot := runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if !projectData.Enabled {
 		t.Fatal("expected watch code enabled")
 	}
 	expectedBaselineKey := filepath.Clean(boundFile)
 	expectedIdentity := "sections.main.existing:function"
-	if !reflect.DeepEqual(project.WatchCodeBaselineByPath[expectedBaselineKey], []string{expectedIdentity}) {
-		t.Fatalf("expected bound-code baseline for %q, got %#v", expectedBaselineKey, project.WatchCodeBaselineByPath)
+	if !reflect.DeepEqual(projectData.BaselineByPath[expectedBaselineKey], []string{expectedIdentity}) {
+		t.Fatalf("expected bound-code baseline for %q, got %#v", expectedBaselineKey, projectData.BaselineByPath)
 	}
-	if len(project.WatchCodeRegistry) != 0 {
-		t.Fatalf("expected no retro-created watch code registry entries, got %#v", project.WatchCodeRegistry)
+	if len(projectData.Registry) != 0 {
+		t.Fatalf("expected no retro-created watch code registry entries, got %#v", projectData.Registry)
 	}
 	if len(project.Sections) != 1 {
 		t.Fatalf("expected no new callable sections from baseline, got %#v", project.Sections)
@@ -387,21 +383,24 @@ func TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled(t *testing.T
 
 	existingBaselineKey := filepath.Clean(existingFile)
 	existingIdentity := "pkg.existing.existing:function"
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/existing.py"},
-				WatchCodeBaselineByPath: map[string][]string{
-					existingBaselineKey: []string{existingIdentity},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/existing.py"},
+		BaselineByPath: map[string][]string{
+			existingBaselineKey: {existingIdentity},
+		},
 	})
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -422,17 +421,17 @@ func TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled(t *testing.T
 		t.Fatalf("set watch code inputs: %v", err)
 	}
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
-		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
+	projectData := mustReadTestWatchCodePluginProjectData(t, runtime.Snapshot().Document, "project-alpha")
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
+		t.Fatalf("expected normalized watch code files, got %#v", projectData.Files)
 	}
-	if !reflect.DeepEqual(project.WatchCodeBaselineByPath[existingBaselineKey], []string{existingIdentity}) {
-		t.Fatalf("expected existing baseline to stay unchanged, got %#v", project.WatchCodeBaselineByPath)
+	if !reflect.DeepEqual(projectData.BaselineByPath[existingBaselineKey], []string{existingIdentity}) {
+		t.Fatalf("expected existing baseline to stay unchanged, got %#v", projectData.BaselineByPath)
 	}
 	newBaselineKey := filepath.Clean(newFile)
 	expectedNewIdentity := "pkg.new_watch.Added:class_init"
-	if !reflect.DeepEqual(project.WatchCodeBaselineByPath[newBaselineKey], []string{expectedNewIdentity}) {
-		t.Fatalf("expected new baseline for %q, got %#v", newBaselineKey, project.WatchCodeBaselineByPath)
+	if !reflect.DeepEqual(projectData.BaselineByPath[newBaselineKey], []string{expectedNewIdentity}) {
+		t.Fatalf("expected new baseline for %q, got %#v", newBaselineKey, projectData.BaselineByPath)
 	}
 }
 
@@ -475,26 +474,29 @@ func TestRuntimeSetWatchCodeEnabledBaselineScansIgnoreConfiguredRootsAndExplicit
 		}
 	}
 
-	runtime, err := OpenOverlayRuntimeWithOptions(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
 				ID:   "project-alpha",
 				Name: "Alpha",
-				WatchCodeFiles: []string{
-					"project/tracked.py",
-					"project/custom_state/ignored.py",
-					"project/scratch_runtime/ignored.py",
-					"project/node_modules/ignored.py",
-					"project/runtime/keep.py",
-				},
-				WatchCodeFolders: []WatchCodeFolder{
-					{Path: "project", Recursive: true},
-				},
 			},
 		},
-	}, RuntimeOptions{
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Files: []string{
+			"project/tracked.py",
+			"project/custom_state/ignored.py",
+			"project/scratch_runtime/ignored.py",
+			"project/node_modules/ignored.py",
+			"project/runtime/keep.py",
+		},
+		Folders: []WatchCodeFolder{
+			{Path: "project", Recursive: true},
+		},
+	})
+	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
 		WatchCodeIgnoredRoots: []string{stateRoot, configuredRuntimeRoot},
 	})
 	if err != nil {
@@ -512,17 +514,17 @@ func TestRuntimeSetWatchCodeEnabledBaselineScansIgnoreConfiguredRootsAndExplicit
 		t.Fatalf("enable watch code: %v", err)
 	}
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	projectData := mustReadTestWatchCodePluginProjectData(t, runtime.Snapshot().Document, "project-alpha")
 	expected := map[string][]string{
 		filepath.Clean(trackedFile):     []string{"project.tracked.tracked:function"},
 		filepath.Clean(userRuntimeFile): []string{"project.runtime.keep.keep:function"},
 	}
-	if !reflect.DeepEqual(project.WatchCodeBaselineByPath, expected) {
-		t.Fatalf("expected only tracked and user runtime baselines %#v, got %#v", expected, project.WatchCodeBaselineByPath)
+	if !reflect.DeepEqual(projectData.BaselineByPath, expected) {
+		t.Fatalf("expected only tracked and user runtime baselines %#v, got %#v", expected, projectData.BaselineByPath)
 	}
 	for _, ignoredPath := range []string{stateRootFile, configuredRuntimeFile, nodeModulesFile} {
-		if _, ok := project.WatchCodeBaselineByPath[filepath.Clean(ignoredPath)]; ok {
-			t.Fatalf("expected ignored path %q to stay out of baseline %#v", ignoredPath, project.WatchCodeBaselineByPath)
+		if _, ok := projectData.BaselineByPath[filepath.Clean(ignoredPath)]; ok {
+			t.Fatalf("expected ignored path %q to stay out of baseline %#v", ignoredPath, projectData.BaselineByPath)
 		}
 	}
 }
@@ -645,16 +647,18 @@ func TestWatchCodeConfigInputsClonesProjectWatchState(t *testing.T) {
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/watch.py"},
-				WatchCodeFolders: []WatchCodeFolder{
-					{Path: "pkg", Recursive: true},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 			},
 		},
 	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watch.py"},
+		Folders: []WatchCodeFolder{
+			{Path: "pkg", Recursive: true},
+		},
+	})
 
 	configs, err := WatchCodeConfigInputs(document, testWatchCodeProviderPluginID)
 	if err != nil {
@@ -678,14 +682,14 @@ func TestWatchCodeConfigInputsClonesProjectWatchState(t *testing.T) {
 		Files:   []string{"other.py"},
 		Folders: []watchcode.FolderInput{{Path: "other", Recursive: false}},
 	}
-	project := document.Projects["project-alpha"]
-	if !project.WatchCodeEnabled {
+	projectData := mustReadTestWatchCodePluginProjectData(t, document, "project-alpha")
+	if !projectData.Enabled {
 		t.Fatal("expected original project watch code flag to stay enabled")
 	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/watch.py"}) {
-		t.Fatalf("expected original watch files to stay unchanged, got %#v", project.WatchCodeFiles)
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
+		t.Fatalf("expected original watch files to stay unchanged, got %#v", projectData.Files)
 	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
-		t.Fatalf("expected original watch folders to stay unchanged, got %#v", project.WatchCodeFolders)
+	if !reflect.DeepEqual(projectData.Folders, []WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
+		t.Fatalf("expected original watch folders to stay unchanged, got %#v", projectData.Folders)
 	}
 }

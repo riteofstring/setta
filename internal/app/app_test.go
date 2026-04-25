@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -8745,13 +8746,8 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/watch.py"},
-				WatchCodeFolders: []projectstate.WatchCodeFolder{
-					{Path: "pkg", Recursive: true},
-				},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []projectstate.ProjectCodegenTarget{
 					{
 						Language: string(projectstate.CodeLanguagePython),
@@ -8761,7 +8757,13 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 			},
 		},
 	}
-	storeAppWatchCodePluginData(t, &document)
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watch.py"},
+		Folders: []projectstate.WatchCodeFolder{
+			{Path: "pkg", Recursive: true},
+		},
+	})
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
@@ -8798,15 +8800,13 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
 
-	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/watch.py"},
+				ID:   "project-alpha",
+				Name: "Alpha",
 				CodegenTargets: []projectstate.ProjectCodegenTarget{
 					{
 						Language: string(projectstate.CodeLanguagePython),
@@ -8815,7 +8815,12 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 				},
 			},
 		},
-	}); err != nil {
+	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watch.py"},
+	})
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
 
@@ -8832,9 +8837,10 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 	if app.watchCode != nil {
 		t.Fatal("did not expect IDE app without watch code provider to start watch code service")
 	}
-	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
-	if !project.WatchCodeEnabled || !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/watch.py"}) {
-		t.Fatalf("expected existing watch code project data to remain readable, got %#v", project)
+	snapshot := app.ProjectStates().Main().Snapshot()
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if !projectData.Enabled || !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
+		t.Fatalf("expected existing watch code project data to remain readable, got %#v", projectData)
 	}
 }
 
@@ -8900,9 +8906,10 @@ func TestAppSetWatchCodeEnabledRouteRejectsWithoutProvider(t *testing.T) {
 		t.Fatalf("expected feature_unavailable response, got %q", string(body))
 	}
 
-	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
-	if project.WatchCodeEnabled || len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code state to remain unchanged, got %#v", project)
+	snapshot := app.ProjectStates().Main().Snapshot()
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if !projectData.IsEmpty() {
+		t.Fatalf("expected watch code state to remain unchanged, got %#v", projectData)
 	}
 }
 
@@ -8934,13 +8941,8 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
 		document.Projects["project-alpha"] = projectstate.Project{
-			ID:               "project-alpha",
-			Name:             "Alpha",
-			WatchCodeEnabled: true,
-			WatchCodeFiles:   []string{"pkg/watch.py"},
-			WatchCodeFolders: []projectstate.WatchCodeFolder{
-				{Path: "pkg/nested", Recursive: false},
-			},
+			ID:   "project-alpha",
+			Name: "Alpha",
 			CodegenTargets: []projectstate.ProjectCodegenTarget{
 				{
 					Language: string(projectstate.CodeLanguagePython),
@@ -8948,7 +8950,13 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 				},
 			},
 		}
-		storeAppWatchCodePluginData(t, &document)
+		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+			Enabled: true,
+			Files:   []string{"pkg/watch.py"},
+			Folders: []projectstate.WatchCodeFolder{
+				{Path: "pkg/nested", Recursive: false},
+			},
+		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate main runtime: %v", err)
@@ -8995,12 +9003,8 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
 		document.Projects["project-alpha"] = projectstate.Project{
-			ID:               "project-alpha",
-			Name:             "Alpha",
-			WatchCodeEnabled: true,
-			WatchCodeFolders: []projectstate.WatchCodeFolder{
-				{Path: "pkg", Recursive: false},
-			},
+			ID:   "project-alpha",
+			Name: "Alpha",
 			CodegenTargets: []projectstate.ProjectCodegenTarget{
 				{
 					Language: string(projectstate.CodeLanguagePython),
@@ -9008,7 +9012,12 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 				},
 			},
 		}
-		storeAppWatchCodePluginData(t, &document)
+		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+			Enabled: true,
+			Folders: []projectstate.WatchCodeFolder{
+				{Path: "pkg", Recursive: false},
+			},
+		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed watch code project: %v", err)
@@ -9023,8 +9032,8 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 		t.Fatalf("write watched file: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
-		entry, ok := project.WatchCodeRegistry["pkg.created.created:function"]
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
+		entry, ok := projectData.Registry["pkg.created.created:function"]
 		if !ok || entry.SourcePath != watchFile || len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 			return false
 		}
@@ -9036,8 +9045,8 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 		t.Fatalf("remove watched file: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
-		return len(project.WatchCodeRegistry) == 0 && len(project.WatchCodeBaselineByPath) == 0
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
+		return len(projectData.Registry) == 0 && len(projectData.BaselineByPath) == 0
 	})
 }
 
@@ -9097,9 +9106,10 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 
 	snapshot := app.ProjectStates().Main().Snapshot()
 	project := snapshot.Document.Projects["project-alpha"]
-	entry, ok := project.WatchCodeRegistry["pkg.bound.sorted:function"]
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry, ok := projectData.Registry["pkg.bound.sorted:function"]
 	if !ok {
-		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected watch code registry entry, got %#v", projectData.Registry)
 	}
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected one callable section binding, got %#v", entry)
@@ -9170,9 +9180,9 @@ func TestAppSetCodeRouteSkipsWatchCodeBoundSectionUpdateWithoutProvider(t *testi
 	if target.Code != "def sorted(iterable):\n    return iterable\n" {
 		t.Fatalf("expected setCode to update code without provider, got %q", target.Code)
 	}
-	project := snapshot.Document.Projects["project-alpha"]
-	if len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", project.WatchCodeRegistry, project.WatchCodeBaselineByPath)
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	if len(projectData.Registry) != 0 || len(projectData.BaselineByPath) != 0 {
+		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", projectData.Registry, projectData.BaselineByPath)
 	}
 }
 
@@ -9248,10 +9258,12 @@ func TestAppSetCodeRoutePublishesMissingArgDiagnosticsForRootWatchCodeBoundSecti
 		return generatedDiagnosticsContain(payload, "watch_code_test")
 	})
 
-	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
-	entry, ok := project.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry, ok := projectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry, got %#v", projectData.Registry)
 	}
 
 	payload := fetchAppLatestLSPDiagnostics(t, server.URL, cookie, "project-alpha")
@@ -9284,13 +9296,18 @@ func TestAppSavePublishesMissingArgDiagnosticsForExistingRootWatchCodeCallable(t
 	if err := project.SetCode("section-main", "def cool_fn(a,b,c):\n    print(\"dog\")\n"); err != nil {
 		t.Fatalf("set root watch code source: %v", err)
 	}
-	if _, err := project.ApplyWatchCodeBoundSectionUpdate(context.Background(), "section-main", cfg.Paths.WorkspaceRoot, nil); err != nil {
+	projectData := projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"watch_code_test.py"},
+	}.Normalized()
+	if _, err := project.ApplyWatchCodeBoundSectionUpdate(context.Background(), &projectData, "section-main", cfg.Paths.WorkspaceRoot, nil); err != nil {
 		t.Fatalf("apply root watch code bound update: %v", err)
 	}
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
 		document.Projects["project-alpha"] = project
+		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed existing root watch code callable project: %v", err)
@@ -9311,10 +9328,12 @@ func TestAppSavePublishesMissingArgDiagnosticsForExistingRootWatchCodeCallable(t
 		return generatedDiagnosticsContain(payload, "watch_code_test")
 	})
 
-	project = app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
-	entry, ok := project.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project = snapshot.Document.Projects["project-alpha"]
+	projectData = readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry, ok := projectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry after save, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry after save, got %#v", projectData.Registry)
 	}
 	payload := fetchAppLatestLSPDiagnostics(t, server.URL, cookie, "project-alpha")
 	paramMessages := watchCodeEntryParamMessagesByName(t, project, entry, payload)
@@ -9392,9 +9411,11 @@ func TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("project by id after formatCode route: %v", err)
 	}
-	entry, ok := project.WatchCodeRegistry["pkg.bound.sorted:function"]
+	snapshot := app.ProjectStates().Main().Snapshot()
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry, ok := projectData.Registry["pkg.bound.sorted:function"]
 	if !ok {
-		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+		t.Fatalf("expected watch code registry entry, got %#v", projectData.Registry)
 	}
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected one callable section binding, got %#v", entry)
@@ -9438,12 +9459,12 @@ func TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads(t *testing.T) {
 		t.Fatalf("write bound file: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
-		entry, ok := project.WatchCodeRegistry["pkg.bound.external_added:function"]
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
+		entry, ok := projectData.Registry["pkg.bound.external_added:function"]
 		if !ok || len(entry.SectionIDs) != 1 {
 			return false
 		}
-		boundSection, ok, err := project.ResolveWatchCodeBoundSection("section-main", cfg.Paths.WorkspaceRoot)
+		boundSection, ok, err := project.ResolveWatchCodeBoundSection(projectData, "section-main", cfg.Paths.WorkspaceRoot)
 		if err != nil || !ok {
 			return false
 		}
@@ -12853,7 +12874,12 @@ func seedAppEmptyProject(t *testing.T, app *App) {
 	}
 }
 
-func waitForAppWatchCodeProject(t *testing.T, app *App, projectID string, predicate func(projectstate.Project) bool) {
+func waitForAppWatchCodeProject(
+	t *testing.T,
+	app *App,
+	projectID string,
+	predicate func(projectstate.Project, projectstate.WatchCodePluginProjectData) bool,
+) {
 	t.Helper()
 
 	timeout := time.After(15 * time.Second)
@@ -12863,7 +12889,8 @@ func waitForAppWatchCodeProject(t *testing.T, app *App, projectID string, predic
 	for {
 		snapshot := app.ProjectStates().Main().Snapshot()
 		project, ok := snapshot.Document.Projects[projectID]
-		if ok && predicate(project) {
+		projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, projectID)
+		if ok && predicate(project, projectData) {
 			return
 		}
 
@@ -12878,8 +12905,8 @@ func waitForAppWatchCodeProject(t *testing.T, app *App, projectID string, predic
 func waitForAppWatchCodeCallable(t *testing.T, app *App, projectID string, entryKey string, sourcePath string) {
 	t.Helper()
 
-	waitForAppWatchCodeProject(t, app, projectID, func(project projectstate.Project) bool {
-		entry, ok := project.WatchCodeRegistry[entryKey]
+	waitForAppWatchCodeProject(t, app, projectID, func(project projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
+		entry, ok := projectData.Registry[entryKey]
 		if !ok || entry.SourcePath != sourcePath || len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 			return false
 		}
@@ -13021,7 +13048,6 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 			},
 		}
 		document.DefaultProjectID = "project-alpha"
-		storeAppWatchCodePluginData(t, &document)
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate project runtime: %v", err)
@@ -13085,7 +13111,6 @@ func seedAppLSPCodeSectionProjectWithLanguage(t *testing.T, app *App, language p
 			},
 		}
 		document.DefaultProjectID = "project-alpha"
-		storeAppWatchCodePluginData(t, &document)
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate lsp code section project: %v", err)
@@ -13154,9 +13179,8 @@ func seedAppWatchCodeBoundSectionProject(t *testing.T, app *App) {
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.Projects["project-alpha"] = projectstate.Project{
-			ID:               "project-alpha",
-			Name:             "Alpha",
-			WatchCodeEnabled: true,
+			ID:   "project-alpha",
+			Name: "Alpha",
 			CodegenTargets: []projectstate.ProjectCodegenTarget{
 				{
 					Language: string(projectstate.CodeLanguagePython),
@@ -13208,6 +13232,9 @@ func seedAppWatchCodeBoundSectionProject(t *testing.T, app *App) {
 			},
 		}
 		document.DefaultProjectID = "project-alpha"
+		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+			Enabled: true,
+		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate watch code bound section project: %v", err)
@@ -13219,10 +13246,8 @@ func seedAppRootWatchCodeBoundSectionProject(t *testing.T, app *App) {
 
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.Projects["project-alpha"] = projectstate.Project{
-			ID:               "project-alpha",
-			Name:             "Alpha",
-			WatchCodeEnabled: true,
-			WatchCodeFiles:   []string{"watch_code_test.py"},
+			ID:   "project-alpha",
+			Name: "Alpha",
 			CodegenTargets: []projectstate.ProjectCodegenTarget{
 				{
 					Language: string(projectstate.CodeLanguagePython),
@@ -13274,6 +13299,10 @@ func seedAppRootWatchCodeBoundSectionProject(t *testing.T, app *App) {
 			},
 		}
 		document.DefaultProjectID = "project-alpha"
+		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+			Enabled: true,
+			Files:   []string{"watch_code_test.py"},
+		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate root watch code bound section project: %v", err)
@@ -13340,6 +13369,7 @@ func installAppWatchCodeProviderFixture(t *testing.T, cfg config.Config) {
 }
 
 func enableAppPluginManifestWatchCodeProvider(payload map[string]any) {
+	ensureAppPluginManifestCapability(payload, "registerWatchCodeBackend")
 	featureCapabilities, ok := payload["featureCapabilities"].(map[string]any)
 	if !ok {
 		featureCapabilities = map[string]any{}
@@ -13349,6 +13379,32 @@ func enableAppPluginManifestWatchCodeProvider(payload map[string]any) {
 		"python":                 true,
 		"requiresLanguageServer": true,
 	}
+}
+
+func ensureAppPluginManifestCapability(payload map[string]any, capability string) {
+	capabilities := map[string]struct{}{}
+	switch values := payload["capabilities"].(type) {
+	case []any:
+		for _, value := range values {
+			capability, ok := value.(string)
+			if !ok {
+				continue
+			}
+			capabilities[capability] = struct{}{}
+		}
+	case []string:
+		for _, capability := range values {
+			capabilities[capability] = struct{}{}
+		}
+	}
+	capabilities[capability] = struct{}{}
+
+	next := make([]string, 0, len(capabilities))
+	for capability := range capabilities {
+		next = append(next, capability)
+	}
+	slices.Sort(next)
+	payload["capabilities"] = next
 }
 
 func prepareAppCurrentSession(t *testing.T, cfg config.Config) {

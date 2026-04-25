@@ -52,7 +52,7 @@ type syncOnlyBoundSectionSynchronizer struct {
 func activeWatchCodeCapabilityStateForTest() *watchCodeCapabilityState {
 	state := newWatchCodeCapabilityState()
 	state.Set(plugins.PluginWatchCodeCapabilities{
-		PluginID:      "setta-watch-code-test-provider",
+		PluginID:      testAppWatchCodeProviderPluginID,
 		PluginEnabled: true,
 		Python:        true,
 	})
@@ -62,10 +62,9 @@ func activeWatchCodeCapabilityStateForTest() *watchCodeCapabilityState {
 func newCurrentProcessLSPSession(t *testing.T, workspaceRoot string) *lsp.Session {
 	t.Helper()
 
-	pythonBinary := firstpartyplugin.BasedpyrightLangserverCommand(t)
 	session, err := lsp.NewSession(lsp.SessionOptions{
 		WorkspaceRoot: workspaceRoot,
-		Command:       pythonBinary,
+		Command:       appTestPythonLanguageServerSpec(t).Command,
 		Args:          []string{"--stdio"},
 		Environment:   os.Environ(),
 	})
@@ -73,6 +72,17 @@ func newCurrentProcessLSPSession(t *testing.T, workspaceRoot string) *lsp.Sessio
 		t.Fatalf("new current-process lsp session: %v", err)
 	}
 	return session
+}
+
+func appTestPythonLanguageServerSpec(t *testing.T) lsp.LanguageServerSpec {
+	t.Helper()
+
+	return lsp.LanguageServerSpec{
+		Name:       "basedpyright",
+		LanguageID: "python",
+		Command:    firstpartyplugin.BasedpyrightLangserverCommand(t),
+		Args:       []string{"--stdio"},
+	}
 }
 
 func (s *orderingCallableSignatureResolver) ResolveCallableSignature(
@@ -114,7 +124,11 @@ func (s *typeCheckingBoundSectionSynchronizer) TypeCheckProject(
 	if !ok {
 		return nil
 	}
-	entry, ok := project.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	projectData, _, err := document.WatchCodePluginProjectData(testAppWatchCodeProviderPluginID, projectID)
+	if err != nil {
+		return err
+	}
+	entry, ok := projectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok || len(entry.SectionIDs) != 1 {
 		s.diagnostics.UpdateGeneratedDocument(
 			projectID,
@@ -177,24 +191,28 @@ func TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply(t *tes
 
 	workspaceRoot := t.TempDir()
 	project := watchCodeBoundReloadProject(t)
+	projectData := projectstate.WatchCodePluginProjectData{Enabled: true}.Normalized()
 
 	if _, err := project.ApplyWatchCodeBoundSectionUpdate(
 		context.Background(),
+		&projectData,
 		"section-main",
 		workspaceRoot,
 		nil,
 	); err != nil {
 		t.Fatalf("seed watch code bound section update: %v", err)
 	}
-	initialSignatureHash := project.WatchCodeRegistry["pkg.bound.watched:function"].SignatureHash
+	initialSignatureHash := projectData.Registry["pkg.bound.watched:function"].SignatureHash
 
-	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			project.ID: project,
 		},
-	})
+	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
+	runtime, err := projectstate.OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -236,12 +254,13 @@ func TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply(t *tes
 
 	snapshot := runtime.Snapshot()
 	updatedProject := snapshot.Document.Projects["project-alpha"]
-	entry := updatedProject.WatchCodeRegistry["pkg.bound.watched:function"]
+	updatedProjectData := readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry := updatedProjectData.Registry["pkg.bound.watched:function"]
 	if entry.SignatureHash == initialSignatureHash {
 		t.Fatalf("expected updated watch code signature hash, got %#v", entry)
 	}
 
-	boundSection, ok, err := updatedProject.ResolveWatchCodeBoundSection("section-main", workspaceRoot)
+	boundSection, ok, err := updatedProject.ResolveWatchCodeBoundSection(updatedProjectData, "section-main", workspaceRoot)
 	if err != nil {
 		t.Fatalf("resolve updated bound section: %v", err)
 	}
@@ -300,8 +319,9 @@ func TestCodeUpdateServiceReloadBoundCodeFileSkipsWatchCodeApplyWithoutProvider(
 		t.Fatalf("expected bound section code to update without provider, got %q", target.Code)
 	}
 	project = runtime.Snapshot().Document.Projects["project-alpha"]
-	if len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", project.WatchCodeRegistry, project.WatchCodeBaselineByPath)
+	projectData := readAppWatchCodePluginProjectData(t, runtime.Snapshot().Document, "project-alpha")
+	if len(projectData.Registry) != 0 || len(projectData.BaselineByPath) != 0 {
+		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", projectData.Registry, projectData.BaselineByPath)
 	}
 	if len(syncer.calls) != 0 {
 		t.Fatalf("did not expect LSP sync without provider, got %#v", syncer.calls)
@@ -341,13 +361,7 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 	}
 
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			project.ID: project,
-		},
-	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeEnabledProjectData()))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -375,10 +389,12 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 	if err := service.SetCode(ctx, "project-alpha", "section-main", firstSource); err != nil {
 		t.Fatalf("set first watch-code source: %v", err)
 	}
-	firstProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	firstCoolEntry, ok := firstProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	firstSnapshot := projectRuntime.Snapshot()
+	firstProject := firstSnapshot.Document.Projects["project-alpha"]
+	firstProjectData := readAppWatchCodePluginProjectData(t, firstSnapshot.Document, "project-alpha")
+	firstCoolEntry, ok := firstProjectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry after first update, got %#v", firstProject.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry after first update, got %#v", firstProjectData.Registry)
 	}
 	firstTarget, ok, err := firstProject.PythonCodegenTarget()
 	if err != nil {
@@ -427,19 +443,21 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 		t.Fatalf("set second watch-code source: %v", err)
 	}
 
-	updatedProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	updatedSnapshot := projectRuntime.Snapshot()
+	updatedProject := updatedSnapshot.Document.Projects["project-alpha"]
+	updatedProjectData := readAppWatchCodePluginProjectData(t, updatedSnapshot.Document, "project-alpha")
 
-	coolEntry, ok := updatedProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	coolEntry, ok := updatedProjectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry, got %#v", updatedProject.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry, got %#v", updatedProjectData.Registry)
 	}
 	if got := watchCodeEntryParamNames(t, updatedProject, coolEntry); !equalStrings(got, []string{"a", "b", "c", "d"}) {
 		t.Fatalf("expected cool_fn params [a b c d], got %#v", got)
 	}
 
-	anotherEntry, ok := updatedProject.WatchCodeRegistry["watch_code_test.another_fn:function"]
+	anotherEntry, ok := updatedProjectData.Registry["watch_code_test.another_fn:function"]
 	if !ok {
-		t.Fatalf("expected another_fn watch code entry, got %#v", updatedProject.WatchCodeRegistry)
+		t.Fatalf("expected another_fn watch code entry, got %#v", updatedProjectData.Registry)
 	}
 	if got := watchCodeEntryParamNames(t, updatedProject, anotherEntry); !equalStrings(got, []string{"e", "f", "g"}) {
 		t.Fatalf("expected another_fn params [e f g], got %#v", got)
@@ -490,9 +508,9 @@ func TestCodeUpdateServiceSetCodeSkipsWatchCodeApplyWithoutProvider(t *testing.T
 	if target.Code != updatedSource {
 		t.Fatalf("expected section code to update without provider, got %q", target.Code)
 	}
-	updatedProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	if len(updatedProject.WatchCodeRegistry) != 0 || len(updatedProject.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", updatedProject.WatchCodeRegistry, updatedProject.WatchCodeBaselineByPath)
+	updatedProjectData := readAppWatchCodePluginProjectData(t, projectRuntime.Snapshot().Document, "project-alpha")
+	if len(updatedProjectData.Registry) != 0 || len(updatedProjectData.BaselineByPath) != 0 {
+		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", updatedProjectData.Registry, updatedProjectData.BaselineByPath)
 	}
 	if len(syncer.calls) != 0 {
 		t.Fatalf("did not expect LSP sync without provider, got %#v", syncer.calls)
@@ -504,13 +522,7 @@ func TestCodeUpdateServiceSetCodePopulatesBoundWatchCodeParamsWithoutSignatureRe
 
 	workspaceRoot := t.TempDir()
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			project.ID: project,
-		},
-	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeEnabledProjectData()))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -546,18 +558,20 @@ func TestCodeUpdateServiceSetCodePopulatesBoundWatchCodeParamsWithoutSignatureRe
 		}
 	}
 
-	updatedProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	coolEntry, ok := updatedProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	updatedSnapshot := projectRuntime.Snapshot()
+	updatedProject := updatedSnapshot.Document.Projects["project-alpha"]
+	updatedProjectData := readAppWatchCodePluginProjectData(t, updatedSnapshot.Document, "project-alpha")
+	coolEntry, ok := updatedProjectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry, got %#v", updatedProject.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry, got %#v", updatedProjectData.Registry)
 	}
 	if got := watchCodeEntryParamNames(t, updatedProject, coolEntry); !equalStrings(got, []string{"a", "b", "c"}) {
 		t.Fatalf("expected cool_fn params [a b c], got %#v", got)
 	}
 
-	anotherEntry, ok := updatedProject.WatchCodeRegistry["watch_code_test.another_cool_fn:function"]
+	anotherEntry, ok := updatedProjectData.Registry["watch_code_test.another_cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected another_cool_fn watch code entry, got %#v", updatedProject.WatchCodeRegistry)
+		t.Fatalf("expected another_cool_fn watch code entry, got %#v", updatedProjectData.Registry)
 	}
 	if got := watchCodeEntryParamNames(t, updatedProject, anotherEntry); !equalStrings(got, []string{"e", "f", "g"}) {
 		t.Fatalf("expected another_cool_fn params [e f g], got %#v", got)
@@ -570,13 +584,7 @@ func TestCodeUpdateServiceSetCodeReconcilesGeneratedPythonSectionForBoundWatchCo
 	workspaceRoot := t.TempDir()
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
 	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(
-		projectstate.Document{
-			SchemaVersion:    projectstate.CurrentSchemaVersion,
-			DefaultProjectID: "project-alpha",
-			Projects: map[string]projectstate.Project{
-				project.ID: project,
-			},
-		},
+		watchCodeTestDocument(t, project, watchCodeEnabledProjectData()),
 		projectstate.RuntimeOptions{
 			PythonCodegenSectionReconciler: testCodeUpdateGeneratedPythonSectionReconciler(),
 		},
@@ -639,9 +647,10 @@ func TestCodeUpdateServiceSetCodePublishesMissingArgDiagnosticsForBoundWatchCode
 
 	finalSnapshot := harness.applyRecordedStates(t, ctx, recordedStates)
 	finalProject := finalSnapshot.Document.Projects["project-alpha"]
-	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	finalProjectData := readAppWatchCodePluginProjectData(t, finalSnapshot.Document, "project-alpha")
+	entry, ok := finalProjectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry after recorded typing, got %#v", finalProject.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry after recorded typing, got %#v", finalProjectData.Registry)
 	}
 	sectionID := entry.SectionIDs[0]
 
@@ -691,9 +700,10 @@ func TestCodeUpdateServiceSetCodePublishesMissingArgDiagnosticsForBoundWatchCode
 
 	finalSnapshot := harness.projectRuntime.Snapshot()
 	finalProject := finalSnapshot.Document.Projects["project-alpha"]
-	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	finalProjectData := readAppWatchCodePluginProjectData(t, finalSnapshot.Document, "project-alpha")
+	entry, ok := finalProjectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry after recorded typing, got %#v", finalProject.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry after recorded typing, got %#v", finalProjectData.Registry)
 	}
 	sectionID := entry.SectionIDs[0]
 
@@ -752,13 +762,7 @@ func TestCodeUpdateServiceSetCodeRefreshesProjectDiagnosticsAfterBoundWatchCodeS
 	t.Parallel()
 
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			project.ID: project,
-		},
-	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeEnabledProjectData()))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -787,10 +791,12 @@ func TestCodeUpdateServiceSetCodeRefreshesProjectDiagnosticsAfterBoundWatchCodeS
 		t.Fatalf("set updated bound watch-code source: %v", err)
 	}
 
-	finalProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	finalSnapshot := projectRuntime.Snapshot()
+	finalProject := finalSnapshot.Document.Projects["project-alpha"]
+	finalProjectData := readAppWatchCodePluginProjectData(t, finalSnapshot.Document, "project-alpha")
+	entry, ok := finalProjectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry after signature change, got %#v", finalProject.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry after signature change, got %#v", finalProjectData.Registry)
 	}
 
 	payload := diagnostics.Snapshot("project-alpha")
@@ -807,13 +813,7 @@ func TestCodeUpdateServiceReloadBoundCodeFileRefreshesProjectDiagnosticsAfterBou
 
 	workspaceRoot := t.TempDir()
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			project.ID: project,
-		},
-	})
+	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeEnabledProjectData()))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -846,10 +846,12 @@ func TestCodeUpdateServiceReloadBoundCodeFileRefreshesProjectDiagnosticsAfterBou
 		t.Fatalf("reload updated bound watch-code source: %v", err)
 	}
 
-	finalProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	finalSnapshot := projectRuntime.Snapshot()
+	finalProject := finalSnapshot.Document.Projects["project-alpha"]
+	finalProjectData := readAppWatchCodePluginProjectData(t, finalSnapshot.Document, "project-alpha")
+	entry, ok := finalProjectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry after reload signature change, got %#v", finalProject.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry after reload signature change, got %#v", finalProjectData.Registry)
 	}
 
 	payload := diagnostics.Snapshot("project-alpha")
@@ -898,9 +900,10 @@ func TestCodeUpdateServiceSetCodePublishesMissingArgDiagnosticsWhenWatchCodeSign
 		t.Fatalf("expected generated python to stay text-identical across signature-only update:\nold:\n%s\nnew:\n%s", string(initialGeneratedCode), string(finalGeneratedCode))
 	}
 
-	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	finalProjectData := readAppWatchCodePluginProjectData(t, finalSnapshot.Document, "project-alpha")
+	entry, ok := finalProjectData.Registry["watch_code_test.cool_fn:function"]
 	if !ok {
-		t.Fatalf("expected cool_fn watch code entry after signature-only update, got %#v", finalProject.WatchCodeRegistry)
+		t.Fatalf("expected cool_fn watch code entry after signature-only update, got %#v", finalProjectData.Registry)
 	}
 	sectionID := entry.SectionIDs[0]
 
@@ -1053,21 +1056,17 @@ func TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry(t *testing.T) {
 		t.Fatalf("seed unformatted bound code content: %v", err)
 	}
 
+	projectData := watchCodeEnabledProjectData()
 	if _, err := project.ApplyWatchCodeBoundSectionUpdate(
 		context.Background(),
+		&projectData,
 		"section-main",
 		workspaceRoot,
 		nil,
 	); err != nil {
 		t.Fatalf("seed watch code bound section update: %v", err)
 	}
-	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			project.ID: project,
-		},
-	})
+	runtime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, projectData))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -1091,9 +1090,10 @@ func TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry(t *testing.T) {
 	}
 
 	snapshot := runtime.Snapshot()
-	entry, ok := snapshot.Document.Projects["project-alpha"].WatchCodeRegistry["pkg.bound.watched:function"]
+	projectData = readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry, ok := projectData.Registry["pkg.bound.watched:function"]
 	if !ok {
-		t.Fatalf("expected watch code registry entry after formatting, got %#v", snapshot.Document.Projects["project-alpha"].WatchCodeRegistry)
+		t.Fatalf("expected watch code registry entry after formatting, got %#v", projectData.Registry)
 	}
 	if entry.CallableName != "watched" {
 		t.Fatalf("expected watch code callable name watched, got %#v", entry)
@@ -1347,13 +1347,36 @@ func watchCodeRootBoundProject(t *testing.T, bindingPath string) projectstate.Pr
 	return watchCodeBoundProject(t, bindingPath, "")
 }
 
+func watchCodeEnabledProjectData() projectstate.WatchCodePluginProjectData {
+	return projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+	}.Normalized()
+}
+
+func watchCodeTestDocument(
+	t *testing.T,
+	project projectstate.Project,
+	projectData projectstate.WatchCodePluginProjectData,
+) projectstate.Document {
+	t.Helper()
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	}
+	setAppWatchCodePluginProjectData(t, &document, project.ID, projectData)
+	return document
+}
+
 func watchCodeBoundProject(t *testing.T, bindingPath string, initialCode string) projectstate.Project {
 	t.Helper()
 
 	project, err := projectstate.Project{
-		ID:               "project-alpha",
-		Name:             "Alpha",
-		WatchCodeEnabled: true,
+		ID:   "project-alpha",
+		Name: "Alpha",
 		CodegenTargets: []projectstate.ProjectCodegenTarget{
 			{
 				Language: string(projectstate.CodeLanguagePython),
@@ -1433,8 +1456,9 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Environ:       os.Environ,
+		WorkspaceRoot:   workspaceRoot,
+		Environ:         os.Environ,
+		AdditionalSpecs: []lsp.LanguageServerSpec{appTestPythonLanguageServerSpec(t)},
 	})
 	if err != nil {
 		t.Fatalf("new lsp router: %v", err)
@@ -1444,6 +1468,9 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 		RuntimeRoot:    workspaceRoot,
 		Service:        lspRouter,
 		Diagnostics:    diagnostics,
+		WatchCodeProviderPluginID: func() (string, bool) {
+			return testAppWatchCodeProviderPluginID, true
+		},
 	})
 	if err != nil {
 		t.Fatalf("new project synchronizer: %v", err)
@@ -1460,15 +1487,12 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
 	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(
-		projectstate.Document{
-			SchemaVersion:    projectstate.CurrentSchemaVersion,
-			DefaultProjectID: "project-alpha",
-			Projects: map[string]projectstate.Project{
-				project.ID: project,
-			},
-		},
+		watchCodeTestDocument(t, project, watchCodeEnabledProjectData()),
 		projectstate.RuntimeOptions{
 			PythonCodegenSectionReconciler: materializer,
+			WatchCodeProviderPluginID: func() (string, bool) {
+				return testAppWatchCodeProviderPluginID, true
+			},
 		},
 	)
 	if err != nil {
@@ -1532,8 +1556,9 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
-		WorkspaceRoot: workspaceRoot,
-		Environ:       os.Environ,
+		WorkspaceRoot:   workspaceRoot,
+		Environ:         os.Environ,
+		AdditionalSpecs: []lsp.LanguageServerSpec{appTestPythonLanguageServerSpec(t)},
 	})
 	if err != nil {
 		t.Fatalf("new lsp router: %v", err)
@@ -1543,6 +1568,9 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 		RuntimeRoot:    workspaceRoot,
 		Service:        lspRouter,
 		Diagnostics:    diagnostics,
+		WatchCodeProviderPluginID: func() (string, bool) {
+			return testAppWatchCodeProviderPluginID, true
+		},
 	})
 	if err != nil {
 		t.Fatalf("new project synchronizer: %v", err)
@@ -1562,13 +1590,7 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 	if err != nil {
 		t.Fatalf("new project store: %v", err)
 	}
-	if err := store.Save(context.Background(), projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			project.ID: project,
-		},
-	}); err != nil {
+	if err := store.Save(context.Background(), watchCodeTestDocument(t, project, watchCodeEnabledProjectData())); err != nil {
 		t.Fatalf("seed project store: %v", err)
 	}
 
@@ -1586,6 +1608,9 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 			return diagnostics.PruneDocument(snapshot.Document)
 		},
 		PythonCodegenSectionReconciler: materializer,
+		WatchCodeProviderPluginID: func() (string, bool) {
+			return testAppWatchCodeProviderPluginID, true
+		},
 	})
 	if err != nil {
 		t.Fatalf("open runtime: %v", err)
