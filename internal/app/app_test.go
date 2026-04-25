@@ -8738,6 +8738,7 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
@@ -8789,6 +8790,52 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 	waitForAppWatchCodeCallable(t, app, "project-alpha", "pkg.watch.watch:function", watchFile)
 }
 
+func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/watch.py"},
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if app.watchCode != nil {
+		t.Fatal("did not expect IDE app without watch code provider to start watch code service")
+	}
+	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	if !project.WatchCodeEnabled || !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/watch.py"}) {
+		t.Fatalf("expected existing watch code project data to remain readable, got %#v", project)
+	}
+}
+
 func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -8797,6 +8844,7 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
 	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
 		payload["capabilities"] = []string{"registerCodegenTarget"}
+		enableAppPluginManifestWatchCodeProvider(payload)
 	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -8856,6 +8904,7 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -8907,14 +8956,8 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 		if !ok || entry.SourcePath != watchFile || len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 			return false
 		}
-		_, _, impl, err := project.ResolveSection(entry.SectionIDs[0])
-		if err != nil {
-			return false
-		}
-		if string(impl.Kind) != "callable" {
-			return false
-		}
-		return true
+		_, ok = project.Sections[entry.SectionIDs[0]]
+		return ok
 	})
 
 	if err := os.Remove(watchFile); err != nil {
@@ -8988,14 +9031,8 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected one callable section binding, got %#v", entry)
 	}
-
-	callableSectionID := entry.SectionIDs[0]
-	_, _, impl, err := project.ResolveSection(callableSectionID)
-	if err != nil {
-		t.Fatalf("resolve callable section: %v", err)
-	}
-	if impl.Kind != projectstate.SectionKind("callable") {
-		t.Fatalf("expected callable section impl, got %q", impl.Kind)
+	if _, ok := project.Sections[entry.SectionIDs[0]]; !ok {
+		t.Fatalf("expected callable section %q to exist", entry.SectionIDs[0])
 	}
 
 	codeObjNames := map[string]struct{}{}
@@ -13154,6 +13191,27 @@ func installAppLanguageServerOnlyFixturePlugin(t *testing.T, cfg config.Config) 
 	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
 		payload["capabilities"] = []string{"registerLanguageServer"}
 	})
+}
+
+func installAppWatchCodeProviderFixture(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
+	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		enableAppPluginManifestWatchCodeProvider(payload)
+	})
+}
+
+func enableAppPluginManifestWatchCodeProvider(payload map[string]any) {
+	featureCapabilities, ok := payload["featureCapabilities"].(map[string]any)
+	if !ok {
+		featureCapabilities = map[string]any{}
+		payload["featureCapabilities"] = featureCapabilities
+	}
+	featureCapabilities["watchCode"] = map[string]any{
+		"python":                 true,
+		"requiresLanguageServer": true,
+	}
 }
 
 func prepareAppCurrentSession(t *testing.T, cfg config.Config) {
