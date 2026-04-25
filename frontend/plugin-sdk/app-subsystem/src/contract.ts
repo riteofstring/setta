@@ -295,9 +295,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function isFunction(
-  value: unknown,
-): value is (...args: unknown[]) => unknown {
+function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
   return typeof value === "function";
 }
 

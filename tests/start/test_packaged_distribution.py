@@ -13,6 +13,17 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _read_setta_package_version() -> str:
+    init_content = (_repo_root() / "backend" / "setta" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+    for line in init_content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('__version__ = "') and stripped.endswith('"'):
+            return stripped.removeprefix('__version__ = "').removesuffix('"')
+    raise AssertionError("setta package version not found")
+
+
 def _write_minimal_distribution_project(
     tmp_path: Path,
     *,
@@ -23,6 +34,7 @@ def _write_minimal_distribution_project(
     package_root = project_root / "backend" / "setta"
     package_root.mkdir(parents=True, exist_ok=True)
     (package_root / "plugin_runtime").mkdir(parents=True, exist_ok=True)
+    (package_root / "sdk_contracts").mkdir(parents=True, exist_ok=True)
     (package_root / "types" / "generated").mkdir(parents=True, exist_ok=True)
 
     (project_root / "pyproject.toml").write_text(
@@ -41,7 +53,7 @@ def _write_minimal_distribution_project(
             "__main__.py",
             "entrypoint.py",
             "local_core_client.py",
-            "sdk_contract_version.py",
+            "sdk_contracts/constants.py",
             "runtime_compat.py",
             "plugin_runtime/__init__.py",
             "plugin_runtime/app_subsystem.py",
@@ -78,7 +90,7 @@ def _write_minimal_distribution_project(
             "    pass\n",
             encoding="utf-8",
         )
-        (package_root / "sdk_contract_version.py").write_text(
+        (package_root / "sdk_contracts" / "constants.py").write_text(
             "SETTA_SDK_CONTRACT_VERSION = 2\n",
             encoding="utf-8",
         )
@@ -259,6 +271,89 @@ def _build_first_party_app_subsystem_wheel(
     return wheel_paths[0]
 
 
+def _build_plugin_runtime_test_setta_wheel(tmp_path: Path) -> Path:
+    project_root = tmp_path / "setta-runtime-wheel"
+    package_root = project_root / "setta"
+    package_root.mkdir(parents=True, exist_ok=True)
+    for relative_path in (
+        "__init__.py",
+        "entrypoint.py",
+        "local_core_client.py",
+        "runtime_compat.py",
+        "plugin_runtime/__init__.py",
+        "plugin_runtime/app_subsystem.py",
+        "plugin_runtime/local_core.py",
+        "sdk_contracts/constants.py",
+        "types/generated/go_shared_constants.py",
+    ):
+        source_path = _repo_root() / "backend" / "setta" / relative_path
+        target_path = package_root / relative_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
+    for relative_path in (
+        "sdk_contracts/__init__.py",
+        "types/__init__.py",
+        "types/generated/__init__.py",
+    ):
+        target_path = package_root / relative_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text("", encoding="utf-8")
+
+    (project_root / "pyproject.toml").write_text(
+        "\n".join(
+            [
+                "[build-system]",
+                'requires = ["setuptools==80.9.0", "wheel==0.45.1"]',
+                'build-backend = "setuptools.build_meta"',
+                "",
+                "[project]",
+                'name = "setta"',
+                f'version = "{_read_setta_package_version()}"',
+                'requires-python = ">=3.12"',
+                "dependencies = []",
+                "",
+                "[tool.setuptools]",
+                'packages = ["setta", "setta.plugin_runtime", "setta.sdk_contracts", "setta.types", "setta.types.generated"]',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    outdir = tmp_path / "setta-dist"
+    result = _build_wheel(project_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta-*.whl"))
+    assert len(wheel_paths) == 1
+    return wheel_paths[0]
+
+
+def _install_plugin_wheel_with_packaged_setta_runtime(
+    site_packages: Path,
+    plugin_wheel_path: Path,
+    setta_wheel_path: Path,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-index",
+            "--find-links",
+            str(setta_wheel_path.parent),
+            "--target",
+            str(site_packages),
+            str(plugin_wheel_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
 def _build_first_party_app_subsystem_sdist(tmp_path: Path) -> Path:
     plugin_root = _stage_first_party_app_subsystem_plugin_source(
         tmp_path, remove_dist=True
@@ -331,7 +426,7 @@ def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() 
     assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
 
 
-def test_first_party_app_subsystem_plugin_package_has_no_python_runtime_dependency() -> None:
+def test_first_party_app_subsystem_plugin_package_declares_setta_runtime_dependency() -> None:
     plugin_pyproject = tomllib.loads(
         (
             _repo_root()
@@ -341,7 +436,25 @@ def test_first_party_app_subsystem_plugin_package_has_no_python_runtime_dependen
         ).read_text(encoding="utf-8")
     )
 
-    assert plugin_pyproject["project"]["dependencies"] == []
+    expected_version = _read_setta_package_version()
+    assert plugin_pyproject["project"]["dependencies"] == [
+        f"setta=={expected_version}"
+    ]
+
+
+def test_first_party_app_subsystem_plugin_wheel_declares_setta_runtime_dependency(
+    tmp_path: Path,
+) -> None:
+    expected_version = _read_setta_package_version()
+    wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
+
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        metadata_name = next(
+            name for name in wheel_archive.namelist() if name.endswith(".dist-info/METADATA")
+        )
+        metadata = wheel_archive.read(metadata_name).decode("utf-8")
+
+    assert f"Requires-Dist: setta=={expected_version}" in metadata
 
 
 def test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree(
@@ -550,21 +663,12 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     tmp_path: Path,
 ) -> None:
     wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
+    setta_wheel_path = _build_plugin_runtime_test_setta_wheel(tmp_path)
     site_packages = tmp_path / "site-packages"
-    install_result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--no-deps",
-            "--target",
-            str(site_packages),
-            str(wheel_path),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
+    install_result = _install_plugin_wheel_with_packaged_setta_runtime(
+        site_packages,
+        wheel_path,
+        setta_wheel_path,
     )
     assert install_result.returncode == 0, (
         f"{install_result.stdout}\n{install_result.stderr}"
@@ -592,21 +696,12 @@ def test_first_party_app_subsystem_plugin_installed_frontend_bundle_imports_with
     tmp_path: Path,
 ) -> None:
     wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
+    setta_wheel_path = _build_plugin_runtime_test_setta_wheel(tmp_path)
     site_packages = tmp_path / "site-packages"
-    install_result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--no-deps",
-            "--target",
-            str(site_packages),
-            str(wheel_path),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
+    install_result = _install_plugin_wheel_with_packaged_setta_runtime(
+        site_packages,
+        wheel_path,
+        setta_wheel_path,
     )
     assert install_result.returncode == 0, (
         f"{install_result.stdout}\n{install_result.stderr}"
@@ -679,36 +774,12 @@ def test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_tool
     tmp_path: Path,
 ) -> None:
     wheel_path = _build_first_party_app_subsystem_wheel(tmp_path)
-    setta_project_root = _write_minimal_distribution_project(
-        tmp_path,
-        include_go_binaries=True,
-        use_repo_packaged_entrypoint_modules=True,
-    )
-    setta_outdir = tmp_path / "setta-dist"
-    setta_build_result = _build_wheel(setta_project_root, setta_outdir)
-    combined_setta_build_output = (
-        f"{setta_build_result.stdout}\n{setta_build_result.stderr}"
-    )
-    assert setta_build_result.returncode == 0, combined_setta_build_output
-    setta_wheel_paths = list(setta_outdir.glob("setta-*.whl"))
-    assert len(setta_wheel_paths) == 1
-
+    setta_wheel_path = _build_plugin_runtime_test_setta_wheel(tmp_path)
     site_packages = tmp_path / "site-packages"
-    install_result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--no-deps",
-            "--target",
-            str(site_packages),
-            str(setta_wheel_paths[0]),
-            str(wheel_path),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
+    install_result = _install_plugin_wheel_with_packaged_setta_runtime(
+        site_packages,
+        wheel_path,
+        setta_wheel_path,
     )
     assert install_result.returncode == 0, (
         f"{install_result.stdout}\n{install_result.stderr}"
@@ -721,7 +792,7 @@ import json
 import sys
 
 from setta import __version__
-from setta.sdk_contract_version import SETTA_SDK_CONTRACT_VERSION
+from setta.sdk_contracts.constants import SETTA_SDK_CONTRACT_VERSION
 
 if len(sys.argv) != 2 or sys.argv[1] != "sdk-local-core":
     raise SystemExit(1)
@@ -886,7 +957,7 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/entrypoint.py",
         "setta/local_core_client.py",
         "setta/runtime_compat.py",
-        "setta/sdk_contract_version.py",
+        "setta/sdk_contracts/constants.py",
         "setta/plugin_runtime/__init__.py",
         "setta/plugin_runtime/app_subsystem.py",
         "setta/plugin_runtime/local_core.py",

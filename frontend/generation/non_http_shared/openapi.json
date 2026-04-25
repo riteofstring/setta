@@ -9239,6 +9239,17 @@
         "title": "PluginFeatureCapabilitiesManifest",
         "type": "object"
       },
+      "PluginFrontendBuildManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "packageManager": {
+            "type": "string"
+          }
+        },
+        "required": ["packageManager"],
+        "title": "PluginFrontendBuildManifest",
+        "type": "object"
+      },
       "PluginFrontendDescriptor": {
         "additionalProperties": false,
         "properties": {
@@ -9256,6 +9267,16 @@
       "PluginFrontendManifest": {
         "additionalProperties": false,
         "properties": {
+          "build": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginFrontendBuildManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "entrypoint": {
             "type": "string"
           },

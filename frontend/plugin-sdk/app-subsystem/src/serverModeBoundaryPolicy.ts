@@ -1,4 +1,3 @@
-import type { HttpapiServerModeResponse } from "./openapi/http/generated/types.gen";
 import {
   resolveGeneratedEndpointOriginForMode,
   resolveGeneratedServerModeCapabilities,
@@ -14,6 +13,7 @@ import {
   type ServerModeCapabilities as GeneratedServerModeCapabilities,
   type WorkspaceLaunchRouteKind as GeneratedWorkspaceLaunchRouteKind,
 } from "./generatedTypes";
+import type { HttpapiServerModeResponse } from "./openapi/http/generated/types.gen";
 import { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
 
 export type ServerMode = HttpapiServerModeResponse["mode"] | null;

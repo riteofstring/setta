@@ -83,6 +83,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(plugins.PluginRegisteredListenerEndpoint{}),
 		reflect.TypeOf(plugins.PluginBackendManifest{}),
 		reflect.TypeOf(plugins.PluginFrontendManifest{}),
+		reflect.TypeOf(plugins.PluginFrontendBuildManifest{}),
 		reflect.TypeOf(plugins.PluginContentManifest{}),
 		reflect.TypeOf(plugins.PluginAppSubsystemFeatureManifest{}),
 		reflect.TypeOf(plugins.PluginFeatureCapabilitiesManifest{}),

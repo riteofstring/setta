@@ -7,6 +7,9 @@ from setta.api.runtime_compat import (
     RuntimeCompatibilityError,
     verify_running_backend_compatibility,
 )
+from setta.sdk_contracts.constants import (
+    SETTA_SDK_CONTRACT_VERSION as LIGHTWEIGHT_SETTA_SDK_CONTRACT_VERSION,
+)
 from setta.sdk_contracts.generated import SETTA_SDK_CONTRACT_VERSION
 
 
@@ -95,3 +98,7 @@ def test_verify_running_backend_compatibility_rejects_contract_mismatch(
             session,
             base_url="http://127.0.0.1:8000",
         )
+
+
+def test_lightweight_sdk_contract_version_matches_generated_owner() -> None:
+    assert LIGHTWEIGHT_SETTA_SDK_CONTRACT_VERSION == SETTA_SDK_CONTRACT_VERSION

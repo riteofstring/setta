@@ -3941,6 +3941,13 @@ type PluginFeatureCapabilitiesManifest = {
 };
 
 /**
+ * PluginFrontendBuildManifest
+ */
+type PluginFrontendBuildManifest = {
+  packageManager: string;
+};
+
+/**
  * PluginFrontendDescriptor
  */
 type PluginFrontendDescriptor = {
@@ -3952,6 +3959,7 @@ type PluginFrontendDescriptor = {
  * PluginFrontendManifest
  */
 type PluginFrontendManifest = {
+  build?: PluginFrontendBuildManifest | null;
   entrypoint: string;
   style?: string;
 };

@@ -385,6 +385,7 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(plugins.PluginErrorInfo{}):                                           "PluginErrorInfo",
 	reflect.TypeOf(plugins.PluginFeatureCapabilities{}):                                 "PluginFeatureCapabilities",
 	reflect.TypeOf(plugins.PluginFeatureCapabilitiesManifest{}):                         "PluginFeatureCapabilitiesManifest",
+	reflect.TypeOf(plugins.PluginFrontendBuildManifest{}):                               "PluginFrontendBuildManifest",
 	reflect.TypeOf(plugins.PluginFrontendDescriptor{}):                                  "PluginFrontendDescriptor",
 	reflect.TypeOf(plugins.PluginFrontendManifest{}):                                    "PluginFrontendManifest",
 	reflect.TypeOf(plugins.PluginInstallHistoryEntry{}):                                 "PluginInstallHistoryEntry",

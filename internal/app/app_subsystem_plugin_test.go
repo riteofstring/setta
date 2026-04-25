@@ -20,6 +20,7 @@ import (
 	"setta/internal/projectstate"
 	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/testutil/firstpartyplugin"
+	"setta/internal/testutil/packagedsetta"
 )
 
 const unknownAppSubsystemPluginID = appsubsystemprovider.PluginID
@@ -560,6 +561,8 @@ func installAppPackageManagerPluginAsID(
 ) {
 	t.Helper()
 
+	packagedsetta.InstallRuntimeSitePackages(t, appTestRepoRoot(t), sitePackages)
+
 	repoRoot := appTestRepoRoot(t)
 	pluginRoot := filepath.Join(sitePackages, targetPluginID)
 	copyAppTestDir(t, filepath.Join(repoRoot, "plugins", sourcePluginID), pluginRoot)
@@ -606,6 +609,8 @@ func installAppPackageManagerPluginAsID(
 
 func installAppPackageManagerFixturePlugin(t *testing.T, sitePackages string, fixtureName string) {
 	t.Helper()
+
+	packagedsetta.InstallRuntimeSitePackages(t, appTestRepoRoot(t), sitePackages)
 
 	repoRoot := appTestRepoRoot(t)
 	pluginRoot := filepath.Join(sitePackages, unknownAppSubsystemPluginID)

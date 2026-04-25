@@ -2796,6 +2796,11 @@
       "schemaRef": "#/$defs/PluginFeatureCapabilitiesManifest"
     },
     {
+      "name": "PluginFrontendBuildManifest",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginFrontendBuildManifest"
+    },
+    {
       "name": "PluginFrontendDescriptor",
       "kind": "model",
       "schemaRef": "#/$defs/PluginFrontendDescriptor"

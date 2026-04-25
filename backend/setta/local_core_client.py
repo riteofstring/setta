@@ -9,7 +9,7 @@ from uuid import uuid4
 from setta import __version__
 from setta.entrypoint import resolve_go_cli_command, resolve_go_cli_env
 from setta.runtime_compat import RuntimeCompatibilityError
-from setta.sdk_contract_version import SETTA_SDK_CONTRACT_VERSION
+from setta.sdk_contracts.constants import SETTA_SDK_CONTRACT_VERSION
 from setta.types.generated.go_shared_constants import (
     LOCAL_CORE_PROTOCOL_VERSION,
 )
