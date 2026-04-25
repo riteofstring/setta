@@ -73,13 +73,17 @@
   padding: 0.25rem 0.5rem;
 }
 
-.flat-section-prototype__kind-button,
-.flat-section-prototype__top-button,
-.flat-section-prototype__action-button {
+.flat-section-prototype__icon-button {
+  --flat-icon-button-size: 1rem;
+
   box-sizing: border-box;
   position: relative;
-  display: block !important;
-  flex-shrink: 0;
+  display: inline-flex !important;
+  width: var(--flat-icon-button-size);
+  height: var(--flat-icon-button-size);
+  flex: 0 0 var(--flat-icon-button-size);
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: transparent;
   padding: 0;
@@ -87,32 +91,46 @@
   line-height: 1;
 }
 
-.flat-section-prototype__kind-button {
-  --ggs: 0.52;
+.flat-section-prototype__icon-glyph {
+  display: block !important;
+  pointer-events: none;
+}
 
+.flat-section-prototype__kind-button {
   color: var(--flat-muted);
+}
+
+.flat-section-prototype__kind-button .flat-section-prototype__icon-glyph {
+  --ggs: 0.52;
 }
 
 .flat-section-prototype__top-button {
   color: var(--flat-dim);
 }
 
-.flat-section-prototype__top-button--standard {
+.flat-section-prototype__top-button--standard
+  .flat-section-prototype__icon-glyph {
   --ggs: 0.42;
 }
 
-.flat-section-prototype__top-button--lock {
+.flat-section-prototype__top-button--lock .flat-section-prototype__icon-glyph {
   --ggs: 0.36;
+
+  margin-top: 0;
 }
 
-.flat-section-prototype__control-toggle {
+.flat-section-prototype__control-toggle .flat-section-prototype__icon-glyph {
   --ggs: 0.4;
 }
 
 .flat-section-prototype__action-button {
-  --ggs: 0.42;
+  --flat-icon-button-size: 0.875rem;
 
   color: var(--flat-muted);
+}
+
+.flat-section-prototype__action-button .flat-section-prototype__icon-glyph {
+  --ggs: 0.42;
 }
 
 .flat-section-prototype__action-button--resize {

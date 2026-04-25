@@ -39,6 +39,27 @@ type FlatSectionShellProps = {
   children: ReactNode;
 };
 
+type FlatPrototypeIconButtonProps = {
+  label: string;
+  buttonClassName?: string;
+  iconClassName: string;
+  controlsId?: string;
+  dataAttr?: string;
+  dataControlToggle?: boolean;
+  dataSectionTypeMenu?: boolean;
+  expanded?: boolean;
+  onClick?: () => void;
+};
+
+type FlatPrototypeHeaderProps = {
+  kind: FlatSectionKind;
+  title: string;
+  controlLabel: string;
+  controlBarId: string;
+  isControlBarOpen: boolean;
+  onToggleControlBar: () => void;
+};
+
 type FlatPrototypeSectionProps = {
   controlsInitiallyOpen?: boolean;
   theme?: FlatPrototypeTheme;
@@ -152,16 +173,18 @@ const FLAT_PROTOTYPE_ACTIONS = [
 const FLAT_PROTOTYPE_SECTION_CONTROLS = [
   {
     label: "Lock section",
-    iconClassName: "gg-lock flat-section-prototype__top-button--lock",
+    buttonClassName: "flat-section-prototype__top-button--lock",
+    iconClassName: "gg-lock",
   },
   {
     label: "Minimize section",
-    iconClassName:
-      "gg-math-minus flat-section-prototype__icon-minus flat-section-prototype__top-button--standard",
+    buttonClassName: "flat-section-prototype__top-button--standard",
+    iconClassName: "gg-math-minus flat-section-prototype__icon-minus",
   },
   {
     label: "Close section",
-    iconClassName: "gg-close flat-section-prototype__top-button--standard",
+    buttonClassName: "flat-section-prototype__top-button--standard",
+    iconClassName: "gg-close",
   },
 ];
 
@@ -183,6 +206,9 @@ function FlatSectionShell({
   const [isControlBarOpen, setIsControlBarOpen] = useState(
     controlsInitiallyOpen,
   );
+  const toggleControlBar = () => {
+    setIsControlBarOpen((wasOpen) => !wasOpen);
+  };
 
   return (
     <section
@@ -191,45 +217,94 @@ function FlatSectionShell({
       data-flat-section-shell="true"
       data-flat-preview-theme={theme}
     >
-      <header className="flat-section-prototype__header">
-        <button
-          type="button"
-          className={`flat-section-prototype__kind-button ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
-          aria-label={`Open ${kind} section menu`}
-          data-flat-section-type-menu="true"
-        />
-        <h2 className="flat-section-prototype__title">{title}</h2>
-        <nav
-          className="flat-section-prototype__top-controls"
-          aria-label={`${kind} section controls`}
-        >
-          <button
-            type="button"
-            className="flat-section-prototype__top-button flat-section-prototype__control-toggle gg-options"
-            aria-controls={controlBarId}
-            aria-expanded={isControlBarOpen}
-            aria-label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}
-            data-flat-control-toggle="true"
-            onClick={() => {
-              setIsControlBarOpen((wasOpen) => !wasOpen);
-            }}
-          />
-          {FLAT_PROTOTYPE_SECTION_CONTROLS.map((control) => (
-            <button
-              key={control.label}
-              type="button"
-              className={`flat-section-prototype__top-button ${control.iconClassName}`}
-              aria-label={control.label}
-            />
-          ))}
-        </nav>
-      </header>
+      <FlatPrototypeHeader
+        kind={kind}
+        title={title}
+        controlLabel={controlLabel}
+        controlBarId={controlBarId}
+        isControlBarOpen={isControlBarOpen}
+        onToggleControlBar={toggleControlBar}
+      />
       {lead}
       {isControlBarOpen ? (
         <FlatPrototypeActionBar id={controlBarId} label={controlLabel} />
       ) : null}
       {children}
     </section>
+  );
+}
+
+function FlatPrototypeHeader({
+  kind,
+  title,
+  controlLabel,
+  controlBarId,
+  isControlBarOpen,
+  onToggleControlBar,
+}: FlatPrototypeHeaderProps) {
+  return (
+    <header className="flat-section-prototype__header">
+      <FlatPrototypeIconButton
+        label={`Open ${kind} section menu`}
+        buttonClassName="flat-section-prototype__kind-button"
+        iconClassName={SECTION_KIND_ICON_CLASS_NAMES[kind]}
+        dataSectionTypeMenu
+      />
+      <h2 className="flat-section-prototype__title">{title}</h2>
+      <nav
+        className="flat-section-prototype__top-controls"
+        aria-label={`${kind} section controls`}
+      >
+        <FlatPrototypeIconButton
+          label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}
+          buttonClassName="flat-section-prototype__top-button flat-section-prototype__control-toggle"
+          iconClassName="gg-options"
+          controlsId={controlBarId}
+          expanded={isControlBarOpen}
+          dataControlToggle
+          onClick={onToggleControlBar}
+        />
+        {FLAT_PROTOTYPE_SECTION_CONTROLS.map((control) => (
+          <FlatPrototypeIconButton
+            key={control.label}
+            label={control.label}
+            buttonClassName={`flat-section-prototype__top-button ${control.buttonClassName}`}
+            iconClassName={control.iconClassName}
+          />
+        ))}
+      </nav>
+    </header>
+  );
+}
+
+function FlatPrototypeIconButton({
+  label,
+  buttonClassName,
+  iconClassName,
+  controlsId,
+  dataAttr,
+  dataControlToggle = false,
+  dataSectionTypeMenu = false,
+  expanded,
+  onClick,
+}: FlatPrototypeIconButtonProps) {
+  return (
+    <button
+      type="button"
+      className={`flat-section-prototype__icon-button ${buttonClassName ?? ""}`}
+      aria-controls={controlsId}
+      aria-expanded={expanded}
+      aria-label={label}
+      data-flat-control={dataAttr}
+      data-flat-control-toggle={dataControlToggle || undefined}
+      data-flat-section-type-menu={dataSectionTypeMenu || undefined}
+      onClick={onClick}
+    >
+      <span
+        aria-hidden="true"
+        className={`flat-section-prototype__icon-glyph ${iconClassName}`}
+      />
+    </button>
   );
 }
 
@@ -257,10 +332,15 @@ function FlatPrototypeActionBar({ id, label }: { id: string; label: string }) {
         <button
           key={action.label}
           type="button"
-          className={`flat-section-prototype__action-button ${action.iconClassName} ${action.extraClassName ?? ""}`}
+          className={`flat-section-prototype__icon-button flat-section-prototype__action-button ${action.extraClassName ?? ""}`}
           aria-label={`${action.label} placeholder action`}
           data-flat-control={action.dataAttr}
-        />
+        >
+          <span
+            aria-hidden="true"
+            className={`flat-section-prototype__icon-glyph ${action.iconClassName}`}
+          />
+        </button>
       ))}
       <b
         aria-hidden="true"

@@ -29,6 +29,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("workspace_profile");
     expect(markup).toContain("gg-code-slash");
     expect(markup).toContain("gg-list");
+    expect(markup).toContain("flat-section-prototype__icon-button");
+    expect(markup).toContain("flat-section-prototype__icon-glyph");
     expect(markup).toContain("flat-section-prototype__header");
     expect(markup).toContain("flat-section-prototype__top-controls");
     expect(markup).not.toContain("px-2.5");
@@ -44,7 +46,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).not.toContain("grid-cols");
     expect(markup).not.toContain("justify-self");
     expect(markup).toContain(
-      "gg-lock flat-section-prototype__top-button--lock",
+      "flat-section-prototype__top-button flat-section-prototype__top-button--lock",
     );
     expect(markup).not.toContain("rounded");
     expect(markup).not.toContain("shadow");
@@ -62,6 +64,9 @@ describe("FlatSectionPrototype", () => {
     const markup = renderToStaticMarkup(<FlatCallableSectionPrototype />);
     const divCount = (markup.match(/<div\b/g) ?? []).length;
     const spanCount = (markup.match(/<span\b/g) ?? []).length;
+    const iconGlyphCount = (
+      markup.match(/flat-section-prototype__icon-glyph/g) ?? []
+    ).length;
     const iconElementCount = (markup.match(/<i\b/g) ?? []).length;
     const rowCount = (markup.match(/data-flat-row-key=/g) ?? []).length;
     const rowGroupListCount = (
@@ -72,7 +77,8 @@ describe("FlatSectionPrototype", () => {
     ).length;
 
     expect(divCount).toBe(0);
-    expect(spanCount).toBe(0);
+    expect(spanCount).toBe(iconGlyphCount);
+    expect(iconGlyphCount).toBe(5);
     expect(iconElementCount).toBe(0);
     expect(rowCount).toBeGreaterThanOrEqual(4);
     expect(rowGroupListCount).toBe(2);
@@ -120,6 +126,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("gg-search");
     expect(markup).toContain("flat-section-prototype__filter-input");
     expect(markup).toContain("flat-section-prototype__action-bar");
+    expect(markup).toContain("flat-section-prototype__icon-glyph");
     expect(markup).toContain("flat-section-prototype__action-button--resize");
     expect(markup).not.toContain("flex min-h-9 items-center gap-0.5");
     expect(markup).not.toContain("grid-cols");
@@ -141,6 +148,10 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("--flat-rail-left:1.1875rem");
     expect(markup).not.toContain("--flat-rail-width");
     expect(markup).not.toContain("after:w-[var(--flat-rail-width)]");
-    expect(markup).not.toContain("<span");
+    const spanCount = (markup.match(/<span\b/g) ?? []).length;
+    const iconGlyphCount = (
+      markup.match(/flat-section-prototype__icon-glyph/g) ?? []
+    ).length;
+    expect(spanCount).toBe(iconGlyphCount);
   });
 });
