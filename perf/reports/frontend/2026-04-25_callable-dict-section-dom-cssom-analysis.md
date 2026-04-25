@@ -200,3 +200,18 @@ That keeps the future migration practical while addressing the actual pan/zoom r
   - `frontend/src/components/Section/Layouts/DictArea.test.tsx`
   - `frontend/src/components/Params/GroupContainer.test.tsx`
 - No new automated perf budget was added in this analysis pass.
+
+## Update: CodeMirror Mounting Clarification
+
+Date: 2026-04-25
+
+The row-shape and pan/zoom notes above should be read with this important production detail: `TextInputCodeMirror` renders `DummyCodeMirror` by default, and the real `@uiw/react-codemirror` editor mounts only after the field is activated. That materially reduces the steady-state pan/zoom risk versus having live CodeMirror instances mounted for every key/value/callable field.
+
+This changes the weighting, not the direction:
+
+- Steady-state visible rows pay for dummy highlighted DOM, not full editor DOM.
+- The expensive CodeMirror editor path is localized to the active field or fields.
+- Multi-line inputs are still compatible with a flatter/flex row model, but rows need `min-height` plus natural height growth rather than a fixed prototype row height.
+- The optimization target should be keeping the dummy display path cheap and avoiding continuous row measurement; not removing CodeMirror from editing.
+
+The report's recommendation to treat real CodeMirror as an edit-mode mount still stands and matches the current implementation.
