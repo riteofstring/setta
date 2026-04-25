@@ -2,6 +2,8 @@
 
 import {
   createAppSubsystemFrontendHost,
+  createProjectConfig,
+  createSingleConfig,
   type AppSubsystemProjectStateSnapshot,
 } from "@setta/app-subsystem-frontend-sdk";
 import { act } from "react";
@@ -9,9 +11,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
-import { createProjectConfig, createSingleConfig } from "utils/generatedTypes";
+import "../../../testUtils/reactRefreshPreamble";
 import { createAppDefinition } from "../../../../src/appSubsystemContracts";
 import { useAppDefinition } from "../../../../src/appSubsystemDefinitionState";
 import { AppSubsystemFrontendHostProvider } from "../../../../src/appSubsystemFrontendHostContext";
@@ -19,6 +19,10 @@ import {
   useAppConfigs,
   useAppPreview,
 } from "../../../../src/appSubsystemProjectState";
+import {
+  resetAppSubsystemPluginStores,
+  syncStoreInitialState,
+} from "../../../testUtils/appSubsystemTestState";
 
 import { AppPreview } from "../../../../src/components/Pages/Project/AppPreview";
 
@@ -45,19 +49,6 @@ function setReactActEnvironment(value: boolean | undefined) {
 
 function resetAppPreviewState() {
   useAppPreview.getState().reset?.();
-}
-
-function syncStoreInitialState(store: {
-  getState: () => Record<string, unknown>;
-  getInitialState?: () => Record<string, unknown>;
-}) {
-  // `renderToStaticMarkup` uses Zustand's getInitialState() snapshot rather than getState().
-  // Keep the server snapshot aligned with our test's updated state.
-  if (!store.getInitialState) {
-    return;
-  }
-  const initial = store.getInitialState();
-  Object.assign(initial, store.getState());
 }
 
 async function mockAppRendererModule() {
@@ -165,13 +156,13 @@ async function flushEffects(): Promise<void> {
 
 describe("AppPreview", () => {
   beforeEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
     resetAppPreviewState();
     routeLoadProjectConfigMock.mockReset();
   });
 
   afterEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
     resetAppPreviewState();
     latestProps = null;
     document.body.innerHTML = "";

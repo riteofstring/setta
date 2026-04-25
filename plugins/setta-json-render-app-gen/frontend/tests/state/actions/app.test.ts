@@ -1,16 +1,10 @@
-import type { GetAppDeploymentCurrentSessionResponses } from "openapi/http";
-import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
-import {
-  useAllProjectMetadata,
-  useServerMode,
-  useShareSession,
-} from "state/definitions";
 import {
   createPolicy,
   createProjectConfig,
   createSingleConfig,
+  type GetAppDeploymentCurrentSessionResponses,
   type SingleConfig,
-} from "utils/generatedTypes";
+} from "@setta/app-subsystem-frontend-sdk";
 import {
   afterAll,
   afterEach,
@@ -24,6 +18,7 @@ import {
 import { createAppDefinition } from "../../../src/appSubsystemContracts";
 import { useAppDefinition } from "../../../src/appSubsystemDefinitionState";
 import { useAppConfigs } from "../../../src/appSubsystemProjectState";
+import { createStatefulAppSubsystemFrontendHost } from "../../testUtils/appSubsystemTestState";
 
 const routeCreateAppSessionCurrentMock = vi.hoisted(() => vi.fn());
 const routeGetAppDeploymentStateMock = vi.hoisted(() => vi.fn());
@@ -61,7 +56,7 @@ import {
 } from "../../../src/state/actions/app";
 
 type AppDeploymentSession = GetAppDeploymentCurrentSessionResponses[200];
-const frontendHost = createRuntimeAppSubsystemFrontendHost();
+let frontendHost = createStatefulAppSubsystemFrontendHost();
 
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();
@@ -123,23 +118,11 @@ function setDeploymentAppState(
   session: Partial<AppDeploymentSession> = {},
 ): void {
   const resolved = buildAppSessionResponse(session);
-  useShareSession.setState({
-    isDeploymentMode: true,
-    shareSessionId: resolved.shareSessionId,
-    sessionRunCount: resolved.sessionRunCount,
-    sharePolicy: resolved.appPolicy,
-    shareDeploymentName: resolved.deploymentName,
-    shareDeploymentVersion: resolved.deploymentVersion,
-    deploymentMode: "app",
-  });
-  useServerMode.setState({
+  frontendHost.setAppDeploymentSession(resolved);
+  frontendHost.setServerModeState({
     mode: "app",
     modeResolved: true,
     modeError: null,
-  });
-  useAllProjectMetadata.setState({
-    defaultProjectConfigId: resolved.defaultProjectConfigId,
-    projectMetadata: resolved.projectMetadata,
   });
 }
 
@@ -162,8 +145,9 @@ describe("app deployment actions", () => {
   });
 
   beforeEach(() => {
+    frontendHost = createStatefulAppSubsystemFrontendHost();
     resetAppSessionState(frontendHost);
-    useServerMode.setState({
+    frontendHost.setServerModeState({
       mode: null,
       modeResolved: false,
       modeError: null,
@@ -178,7 +162,7 @@ describe("app deployment actions", () => {
 
   afterEach(() => {
     resetAppSessionState(frontendHost);
-    useServerMode.setState({
+    frontendHost.setServerModeState({
       mode: null,
       modeResolved: false,
       modeError: null,
@@ -220,18 +204,12 @@ describe("app deployment actions", () => {
     expect(second).toEqual(session);
     expect(routeCreateAppSessionCurrentMock).toHaveBeenCalledTimes(1);
     expect(routeCreateAppSessionCurrentMock).toHaveBeenCalledWith();
-    expect(useShareSession.getState()).toMatchObject({
-      isDeploymentMode: true,
+    expect(frontendHost.getAppDeploymentSession()).toMatchObject({
+      deploymentName: session.deploymentName,
+      deploymentVersion: session.deploymentVersion,
       shareSessionId: session.shareSessionId,
-      shareDeploymentName: session.deploymentName,
-      shareDeploymentVersion: session.deploymentVersion,
-      deploymentMode: "app",
     });
-    expect(useAllProjectMetadata.getState()).toMatchObject({
-      defaultProjectConfigId: session.defaultProjectConfigId,
-      projectMetadata: session.projectMetadata,
-    });
-    expect(useServerMode.getState()).toEqual({
+    expect(frontendHost.getServerModeState()).toEqual({
       mode: "app",
       modeResolved: true,
       modeError: null,
@@ -329,7 +307,7 @@ describe("app deployment actions", () => {
       },
     });
     expect(routeCreateAppSessionCurrentMock).toHaveBeenCalledTimes(1);
-    expect(useShareSession.getState().shareSessionId).toBe(
+    expect(frontendHost.getAppDeploymentSession()?.shareSessionId).toBe(
       refreshedSession.shareSessionId,
     );
     expect(useAppConfigs.getState().configs["project-beta"]).toEqual({
