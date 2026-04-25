@@ -37,6 +37,13 @@ executable. Keep that entrypoint probe-only: it should validate/emit language
 server registrations, while Setta still owns selection, restart, status, and
 transport behavior in Go.
 
+App-subsystem backend providers that use a package-managed Python entrypoint
+should keep that entrypoint as a thin dispatcher through
+`setta.plugin_runtime.run_app_subsystem_backend(__file__)`. Do not copy
+listener endpoint inventories or local-core dispatch logic into the plugin;
+those contracts are published by the Setta package and generated from Go-owned
+metadata.
+
 ### Manifest contract notes
 
 - `capabilities` must use the runtime manifest vocabulary. In addition to the
@@ -50,6 +57,10 @@ transport behavior in Go.
 - App-subsystem providers should declare both the required backend/runtime
   capabilities and `featureCapabilities.appSubsystem` so Setta can expose the
   correct surface area.
+- `registerAppSubsystemBackend` requires a backend probe that returns the
+  app-subsystem backend contract version and listener endpoints. The
+  `setta.plugin_runtime.run_app_subsystem_backend` helper emits that probe for
+  Python shim entrypoints.
 - Some accepted capabilities may still be blocked by host or mode policy. Use
   `setta plugins validate` and `setta plugins list --json` to confirm effective
   versus blocked capabilities for your target mode.
@@ -139,9 +150,12 @@ Validation checks:
 
 - manifest schema and capability vocabulary, including `frontend.build` and
   `featureCapabilities` when present
+- app-subsystem backend probe shape when `registerAppSubsystemBackend` is
+  declared
 - file path safety and existence
-- Go backend entrypoint shape for backend plugins (`package main`, `func main()`)
-- successful `go build` of the backend entrypoint directory for backend plugins
+- Go backend entrypoint shape and successful `go build` for Go backend plugins
+  (`package main`, `func main()`)
+- package-managed Python backend probe execution for Python shim entrypoints
 - manifest/package metadata identity consistency when package metadata exists
 
 ## 5. Build distribution artifacts

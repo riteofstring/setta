@@ -212,7 +212,8 @@ These are the underlying tasks used by the wrappers above.
 - `pnpm -C frontend typecheck`
   - Runs the frontend TypeScript compiler in no-emit mode.
 - `pnpm generate`
-  - Regenerates templates/types from `frontend/generation/`.
+  - Regenerates templates/types from `frontend/generation/`, then syncs the
+    app-subsystem frontend SDK generated inputs from the host-owned artifacts.
 - `pnpm -C frontend generate-go-frontend-bindings`
   - Regenerates the Go-owned frontend contract surface, including shared schema/OpenAPI artifacts, generated OpenAPI TypeScript outputs, and `src/utils/generatedTypes.ts`.
 - `pnpm -C frontend generate-http-openapi-bindings`
@@ -237,7 +238,8 @@ Useful when you need to debug a specific subsystem.
 - `frontend/backendStart.sh`
   - Starts the backend process for source/dev runs (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
 - `frontend/generation/generate.sh`
-  - Template/type generation (used by `pnpm generate`).
+  - Template/type generation (used by `pnpm generate`), including the
+    app-subsystem frontend SDK generated-input sync.
 - `frontend/generation/generate_go_frontend_bindings.sh`
   - Runs the full Go-owned frontend generation pipeline: type/route registries, non-HTTP schema/OpenAPI artifacts, generated non-HTTP TS types, `src/utils/generatedTypes.ts`, and the HTTP OpenAPI client/types.
 - `frontend/generation/generate_go_shared_schema.sh`
@@ -246,6 +248,10 @@ Useful when you need to debug a specific subsystem.
   - Regenerates the TypeScript output under `frontend/src/openapi/non_http/generated` from the checked-in non-HTTP OpenAPI projection.
 - `frontend/generation/generate_http_openapi_bindings.sh`
   - Regenerates `frontend/generation/http_openapi/openapi.json` plus the generated frontend HTTP client/types under `frontend/src/openapi/http/generated`.
+- `frontend/generation/sync_app_subsystem_sdk_generated_inputs.sh`
+  - Prunes the host-owned shared sidecar and HTTP OpenAPI artifact for the
+    app-subsystem frontend SDK, then refreshes the SDK generated HTTP client
+    under `frontend/plugin-sdk/app-subsystem/`.
 - `frontend/generation/generate_go_python_types.sh`
   - Direct Go-to-Python generation helper (SDK contracts + shared types + generated-type pruning).
 - `frontend/scripts/gcf.sh`
