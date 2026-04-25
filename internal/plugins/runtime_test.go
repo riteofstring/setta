@@ -530,6 +530,91 @@ func TestServiceRuntimeAppSubsystemCapabilitiesIgnorePendingRestartProviders(
 	}
 }
 
+func TestServiceRuntimeAppSubsystemCapabilitiesIgnoreShadowedInvalidProviders(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	const pluginID = "acme-shadowed-app-provider"
+
+	workspaceRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "frontend")
+	renamedWorkspaceRoot := filepath.Join(
+		pluginScopeRoot(roots, filesystemPluginScopeWorkspace),
+		pluginID,
+	)
+	if err := os.Rename(workspaceRoot, renamedWorkspaceRoot); err != nil {
+		t.Fatalf("rename workspace plugin root: %v", err)
+	}
+	workspaceRoot = renamedWorkspaceRoot
+	rewritePluginManifest(t, workspaceRoot, func(payload map[string]any) {
+		payload["id"] = pluginID
+		payload["name"] = "Workspace Shadow Primary"
+		payload["enabledByDefault"] = true
+		delete(payload, "featureCapabilities")
+	})
+
+	settaFilesRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeSettaFiles, "frontend")
+	renamedSettaFilesRoot := filepath.Join(
+		pluginScopeRoot(roots, filesystemPluginScopeSettaFiles),
+		pluginID,
+	)
+	if err := os.Rename(settaFilesRoot, renamedSettaFilesRoot); err != nil {
+		t.Fatalf("rename setta_files plugin root: %v", err)
+	}
+	settaFilesRoot = renamedSettaFilesRoot
+	rewritePluginManifest(t, settaFilesRoot, func(payload map[string]any) {
+		payload["id"] = pluginID
+		payload["name"] = "Shadowed Invalid App Provider"
+		payload["enabledByDefault"] = true
+		payload["featureCapabilities"] = map[string]any{
+			"appSubsystem": map[string]any{
+				"appAuthoringUi":         true,
+				"appPreviewUi":           true,
+				"appGenerationChatModes": true,
+				"appDeploymentRuntime":   true,
+			},
+		}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected runtime feature capabilities")
+	}
+
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.FeatureCapabilities.AppSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusNoProvider,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.Status.AppSubsystemSelection,
+		PluginAppSubsystemProviderSelectionStatusNoProvider,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	listEntry := mustFindRuntimeListEntry(t, runtimeResponse.List.Plugins, pluginID)
+	if listEntry.SourceScope != PluginScopeWorkspace {
+		t.Fatalf("expected workspace entry to remain the active list entry, got %#v", listEntry.SourceScope)
+	}
+	shadowedEntry := mustFindStatusEntry(t, runtimeResponse.Status.Plugins, pluginID, PluginRuntimeStateShadowed)
+	if shadowedEntry.SourceScope != PluginScopeSettaFiles {
+		t.Fatalf("expected setta_files entry to stay shadowed, got %#v", shadowedEntry.SourceScope)
+	}
+}
+
 func TestServiceRuntimeAppSubsystemCapabilitiesTreatInvalidProviderAsUnavailable(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-invalid-app-provider"
@@ -834,6 +919,61 @@ func TestServicePackageActivePluginForDeploymentVendorsPackageManagerPythonPaylo
 	)
 	if strings.TrimSpace(output) != "vendored dependency" {
 		t.Fatalf("expected packaged dependency import to succeed, got %q", output)
+	}
+}
+
+func TestServicePackageActivePluginForDeploymentPackagesInstalledFirstPartyAppSubsystemPlugin(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installedPluginRoot := installBuiltFirstPartyPackageManagerPluginInSearchPath(
+		t,
+		sitePackages,
+		firstpartyplugin.AppSubsystemPluginID,
+	)
+
+	service := mustNewPluginMutationServiceWithPackageManager(
+		t,
+		roots,
+		nil,
+		config.ModeIDE,
+		[]string{sitePackages},
+	)
+	if err := service.store.SavePluginsState(PluginsStateFile{
+		EnabledPluginIDs: []string{firstpartyplugin.AppSubsystemPluginID},
+	}); err != nil {
+		t.Fatalf("save app subsystem plugin state: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(installedPluginRoot, "frontend", "package.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected installed app subsystem wheel root to omit frontend/package.json, got %v", err)
+	}
+
+	targetRoot := filepath.Join(t.TempDir(), "packaged-provider")
+	state, err := service.PackageActivePluginForDeployment(
+		firstpartyplugin.AppSubsystemPluginID,
+		targetRoot,
+	)
+	if err != nil {
+		t.Fatalf("package installed app subsystem plugin for deployment: %v", err)
+	}
+
+	if !slices.Equal(state.EnabledPluginIDs, []string{firstpartyplugin.AppSubsystemPluginID}) {
+		t.Fatalf("expected packaged provider to enable the app subsystem plugin, got %#v", state.EnabledPluginIDs)
+	}
+	for _, relativePath := range []string{
+		filepath.Join("frontend", "dist", "index.js"),
+		filepath.Join("frontend", "dist", "index.css"),
+		filepath.Join("setta.plugin.json"),
+		filepath.Join("runtime_backend", "main.py"),
+	} {
+		if _, err := os.Stat(filepath.Join(targetRoot, relativePath)); err != nil {
+			t.Fatalf("expected packaged installed plugin asset %s: %v", relativePath, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(targetRoot, "frontend", "package.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected packaged installed plugin root to preserve wheel layout without package.json, got %v", err)
 	}
 }
 

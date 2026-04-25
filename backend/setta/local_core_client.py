@@ -3,7 +3,7 @@ import json
 import os
 import subprocess
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from setta import __version__
@@ -11,8 +11,15 @@ from setta.entrypoint import resolve_go_cli_command, resolve_go_cli_env
 from setta.runtime_compat import RuntimeCompatibilityError
 from setta.sdk_contracts.constants import SETTA_SDK_CONTRACT_VERSION
 from setta.types.generated.go_shared_constants import (
+    LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
     LOCAL_CORE_PROTOCOL_VERSION,
 )
+
+if TYPE_CHECKING:
+    from setta.sdk_contracts.generated import (
+        LocalCoreRenderRealtimeDependencyValuesRequest,
+        LocalCoreRenderRealtimeDependencyValuesResult,
+    )
 
 
 @dataclass(slots=True)
@@ -56,6 +63,20 @@ class LocalCoreClient:
                 },
             )
         return raw_result
+
+    async def render_realtime_dependency_values(
+        self,
+        request: "LocalCoreRenderRealtimeDependencyValuesRequest",
+    ) -> "LocalCoreRenderRealtimeDependencyValuesResult":
+        from setta.sdk_contracts.generated import (
+            LocalCoreRenderRealtimeDependencyValuesResult,
+        )
+
+        raw_result = await self.run_command(
+            LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
+            request.model_dump(mode="json"),
+        )
+        return LocalCoreRenderRealtimeDependencyValuesResult.model_validate(raw_result)
 
     def close(self) -> None:
         state = self._state

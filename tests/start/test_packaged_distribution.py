@@ -659,6 +659,26 @@ def test_first_party_app_subsystem_plugin_wheel_rebuilds_stale_frontend_bundle(
     assert "STALE_CSS" not in style_text
 
 
+def test_first_party_app_subsystem_plugin_wheel_build_installs_dependencies_when_node_modules_exists(
+    tmp_path: Path,
+) -> None:
+    plugin_root = _stage_first_party_app_subsystem_plugin_source(
+        tmp_path, remove_dist=True
+    )
+    node_modules_root = plugin_root / "frontend" / "node_modules"
+    node_modules_root.mkdir(parents=True, exist_ok=True)
+    (node_modules_root / "marker.txt").write_text("stale\n", encoding="utf-8")
+
+    outdir = tmp_path / "dist"
+    result = _build_wheel(plugin_root, outdir)
+
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_json_render_app_gen-*.whl"))
+    assert len(wheel_paths) == 1
+
+
 def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root(
     tmp_path: Path,
 ) -> None:

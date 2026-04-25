@@ -206,6 +206,9 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 	activeProviders := make([]runtimeAppSubsystemProviderCandidate, 0)
 	hasInvalidActiveProvider := false
 	for _, entry := range entries {
+		if entry.State == PluginRuntimeStateShadowed || entry.ShadowedBySourcePath != "" {
+			continue
+		}
 		feature := runtimeAppSubsystemFeatureManifest(entry)
 		if feature == nil {
 			continue

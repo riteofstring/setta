@@ -171,7 +171,7 @@ func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(pluginRoo
 	if err != nil {
 		return PluginManifest{}, wrapManifestValidationError(err)
 	}
-	if err := ensureRuntimeManagedPluginFrontendAssets(pluginRoot, manifest); err != nil {
+	if err := ensureRuntimeManagedPluginFrontendAssets(pluginRoot, manifest, runtimeManagedFrontendSourceBuild); err != nil {
 		return PluginManifest{}, err
 	}
 	if err := ValidatePluginManifestPaths(pluginRoot, manifest); err != nil {

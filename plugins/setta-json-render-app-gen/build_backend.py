@@ -36,20 +36,12 @@ def _run_pnpm(args: list[str]) -> None:
     )
 
 
-def _frontend_dependencies_present() -> bool:
-    node_modules_root = _FRONTEND_ROOT / "node_modules"
-    if not node_modules_root.is_dir():
-        return False
-    return any(node_modules_root.iterdir())
-
-
 def _ensure_frontend_bundle() -> None:
     if not (_FRONTEND_ROOT / "package.json").is_file():
         raise RuntimeError(
             f"plugin frontend package metadata is missing: {_FRONTEND_ROOT / 'package.json'}"
         )
-    if not _frontend_dependencies_present():
-        _run_pnpm(["install", "--lockfile=false"])
+    _run_pnpm(["install", "--lockfile=false"])
     _run_pnpm(["run", "build"])
     missing_files = [str(path) for path in _DIST_FILES if not path.is_file()]
     if missing_files:

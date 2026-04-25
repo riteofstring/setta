@@ -119,7 +119,11 @@ func packagePluginSourceForDeployment(entry DiscoveredPlugin, targetRoot string)
 	if err := CopyDirectoryTree(entry.SourcePath, targetRoot); err != nil {
 		return err
 	}
-	if err := EnsureRuntimeManagedPluginFrontendAssetsForRoot(targetRoot); err != nil {
+	mode := runtimeManagedFrontendSourceBuild
+	if entry.SourceManager == PluginSourceManagerPackageManager {
+		mode = runtimeManagedFrontendPackagedDeployment
+	}
+	if err := ensureRuntimeManagedPluginFrontendAssetsForRootWithMode(targetRoot, mode); err != nil {
 		return err
 	}
 	if !packageManagerPythonBackendInstallPayloadRequired(entry, targetRoot) {

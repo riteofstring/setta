@@ -21,27 +21,33 @@
 
 ### Frontend App Subsystem Host/SDK Boundary
 - Invariant: SDK contract/barrel imports must keep shared OpenAPI setup explicit and side-effect-free; plugin source, plugin tests, plugin build config, vendored SDK metadata, and packaged SDK type declarations must enforce the standalone plugin boundary without repo-local host aliases or host test utilities, and the vendored `types/index.d.ts` surface must stay aligned with the source SDK owner.
-- Last finding commit: 548b8e0ca324faa3110b853c57742bc5bbafc8ec
-- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/plugins/appSubsystemSdk.test.ts`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, `tests/start/test_check_quality_script.py`, plugin-owned Vitest suite under `plugins/setta-json-render-app-gen/frontend/tests`
-- Still unverified: CDP verification of the affected `/app` invalid-provider flow was attempted via `./aireset.sh` but blocked by a repo-level Vite dev-runtime failure (`/node_modules/.vite/deps/zustand.js?...` missing browser-visible `create` export before the app mounted).
+- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
+- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/openapi/http/client.test.ts`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, `tests/start/test_check_quality_script.py`
+- Still unverified: Plugin-owned frontend Vitest/build and packaged SDK declaration-boundary checks were not rerun in this pass; no browser verification was needed for the host-side owner re-export changes.
+
+### App Deployment Frontend Project-State Queueing
+- Invariant: App-deployment websocket project-state updates must route by deployment context through the app-subsystem queue before server-mode resolution and remain queued until the selected app-subsystem frontend registration finishes loading.
+- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
+- Proof tests: `src/state/actions/websocketReceive.test.ts` ("routes app deployment project-state updates through the app-subsystem queue before server mode resolves"), `src/plugins/appSubsystem.test.tsx` ("queues project-state updates until app-subsystem registration finishes loading")
+- Still unverified: No Playwright or CDP app-deployment flow was run in this pass; verification stayed at unit/integration level because no visual UI surface changed.
 
 ### Standalone Plugin Packaging Pipeline
 - Invariant: The first-party app-subsystem plugin and package-manager installs must build, typecheck, validate manifest assets, package wheels, and probe Python backends from plugin-owned source plus declared Setta runtime/SDK dependencies; runtime-managed frontend builds must require tracked plugin-owned build inputs such as `frontend/package.json` instead of accepting prebuilt `dist` output, and no source, test, build-config, or packaged-path validation may depend on tracked `frontend/dist/*`, repo checkout `backend/setta`, or repo-local host frontend aliases.
-- Last finding commit: 548b8e0ca324faa3110b853c57742bc5bbafc8ec
-- Proof tests: `TestServiceValidateFolderRejectsRuntimeManagedFrontendBuildWithoutPackageJSON`, `TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON`, `TestPackagePluginSourceForDeploymentRejectsMissingPackageJSON`, `TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets`, `TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets`, `TestResolvePluginBackendLaunchIncludesPluginRootOnPythonPath`, `TestResolvePluginBackendLaunchForInstalledPythonPluginUsesOnlyPackageOwnedRoots`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_package_declares_setta_runtime_dependency`, `test_first_party_app_subsystem_plugin_wheel_declares_setta_runtime_dependency`, `test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
-- Still unverified: No full clean-checkout wheel or packaged-deployment smoke was rerun in this pass; verification covered focused packaging owners, plugin-owned frontend build/test, and the default quality gate.
+- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
+- Proof tests: `TestServiceValidateFolderRejectsRuntimeManagedFrontendBuildWithoutPackageJSON`, `TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON`, `TestEnsureRuntimeManagedPluginFrontendAssetsInstallsDependenciesWhenNodeModulesExists`, `TestPackagePluginSourceForDeploymentRejectsMissingPackageJSON`, `TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets`, `TestServicePackageActivePluginForDeploymentPackagesInstalledFirstPartyAppSubsystemPlugin`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_wheel_build_installs_dependencies_when_node_modules_exists`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
+- Still unverified: No full clean-checkout packaged-deployment smoke or third-party standalone-plugin matrix was rerun in this pass; verification covered focused owner tests for installed-package deployment packaging and plugin-owned frontend dependency refresh.
 
 ### App Subsystem Capability-To-Surface Gating
 - Invariant: App-subsystem frontend, deployment-runtime, MCP-tool, and scoped UI-setting surfaces may be published only when a single selected provider both registers the backend contract and declares the corresponding feature bits; frontend-facing feature bits additionally require a loadable frontend entrypoint, and host-contributed catalog/app-definition surfaces must not leak behind `PluginEnabled` alone.
-- Last finding commit: 548b8e0ca324faa3110b853c57742bc5bbafc8ec
-- Proof tests: `TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithoutFrontendEntrypointAsInvalid`, `TestBuildScopedUISettingEntriesUsesBackendRuntime`, `TestBuildScopedUISettingEntriesRequiresAppAuthoringUI`, `TestBuildMCPToolRegistrationsFollowAppSubsystemFeatureBits`, `src/plugins/appSubsystem.test.tsx`
-- Still unverified: CDP verification of the `/app` invalid-provider unavailable route was attempted via `./aireset.sh` but blocked by the repo-level Vite `zustand` export failure before React mounted; no Playwright flow was added in this pass.
+- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
+- Proof tests: `TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithoutFrontendEntrypointAsInvalid`, `TestServiceRuntimeAppSubsystemCapabilitiesIgnoreShadowedInvalidProviders`, `TestBuildScopedUISettingEntriesUsesBackendRuntime`, `TestBuildScopedUISettingEntriesRequiresAppAuthoringUI`, `TestBuildMCPToolRegistrationsFollowAppSubsystemFeatureBits`, `src/plugins/appSubsystem.test.tsx`
+- Still unverified: No HTTP/MCP provider-unavailable integration or browser `/app` flow was rerun in this pass; verification focused on runtime capability selection and frontend gating/unit coverage.
 
 ### Local Core Packaged Runtime Boundary
-- Invariant: The published plugin-runtime local-core helper and lightweight runtime clients must share one packaged boundary, include all lightweight runtime modules in the Setta wheel/test fixture, derive SDK contract constants from the generated owner, expose generated app-subsystem backend contract constants, and avoid API-only package surfaces or Pydantic-heavy modules in packaged plugin backends.
-- Last finding commit: e0095d6d2c8eb661a3f401fa3f7cc2e405cabbab
-- Proof tests: `TestBuildIncludesGoOwnedAppSubsystemBackendContract`, `TestBuildEmitsLightweightConstantsModule`, `test_lightweight_sdk_contract_version_matches_generated_owner`, `test_app_subsystem_endpoint_mapping_uses_go_owned_constants`, `test_run_local_core_command_dispatches_through_packaged_boundary`, `test_run_local_core_command_surfaces_structured_errors`, `test_run_local_core_command_rejects_sdk_version_mismatch`, `test_run_local_core_command_rejects_sdk_contract_mismatch`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
-- Still unverified: No broader packaged-plugin runtime matrix beyond the focused local-core and packaged-distribution owners; no separate deployment-mode local-core smoke was run.
+- Invariant: The published plugin-runtime local-core helper and lightweight runtime clients must share one packaged boundary, include all lightweight runtime modules in the Setta wheel/test fixture, derive SDK contract constants from the authoritative owner, expose generated app-subsystem backend contract constants, and avoid repo-owned `setta.api.*` shim boundaries or heavyweight generated SDK imports in packaged plugin backends.
+- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
+- Proof tests: `test_lightweight_sdk_contract_version_matches_generated_owner`, `test_run_local_core_command_dispatches_through_packaged_boundary`, `test_run_local_core_command_surfaces_structured_errors`, `test_run_local_core_command_rejects_sdk_version_mismatch`, `test_run_local_core_command_rejects_sdk_contract_mismatch`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
+- Still unverified: No broader packaged-plugin runtime matrix beyond the focused runtime-compat, local-core, and packaged-distribution owners; no separate deployment-mode local-core smoke was run.
 
 ### App Generation Metadata Ownership
 - Invariant: App-generation modes, slash commands, image requirements, prompts, and frontend app-chat UI metadata must come from one Go-owned registry; downstream frontend values derive from that registry rather than restating command/mode inventories.
@@ -57,9 +63,9 @@
 
 ### App Deployment Provider Runtime Isolation
 - Invariant: Published app deployments must package the active provider plugin and provider state, and deployment-mode app/plugin discovery must resolve only deployment-scoped packaged providers instead of host-global or package-manager plugin state.
-- Last finding commit: a74b7eb1ec00a0062feb2a6c627b460302426c29
-- Proof tests: `TestNewAppPublishServiceUsesBackendValidationRuntime`, `TestDiscoveryServiceDeploymentScopedIgnoresHostGlobalAndPackageManagerPlugins`, `TestLoadAppSubsystemCapabilitiesIgnoresGlobalScopeInDeploymentMode`, `TestAppModePluginRuntimeIgnoresHostGlobalAppSubsystemProviders`
-- Still unverified: Browser/CDP and Playwright not run because no UI behavior changed; full repo test suite not run.
+- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
+- Proof tests: `TestServicePackageActivePluginForDeploymentPackagesInstalledFirstPartyAppSubsystemPlugin`, `TestNewAppPublishServiceUsesBackendValidationRuntime`, `TestDiscoveryServiceDeploymentScopedIgnoresHostGlobalAndPackageManagerPlugins`, `TestLoadAppSubsystemCapabilitiesIgnoresGlobalScopeInDeploymentMode`, `TestAppModePluginRuntimeIgnoresHostGlobalAppSubsystemProviders`
+- Still unverified: No end-to-end publish-and-launch smoke for an installed package-manager provider; browser/CDP and Playwright were not run because no visible UI surface changed in this pass.
 
 ### Codex Plan Loop Automation
 - Invariant: Plan-loop automation keeps option parsing, managed-worktree handling, retry behavior, prompt rendering, and authority checks in one runner, with plan path, sentinel, name, and commit prefix treated as wrapper data.
@@ -268,3 +274,27 @@ Verification run:
 Residual risks / verification gaps:
 - CDP verification was attempted via `./aireset.sh` for the `/app` invalid-provider flow and the backend selection state was confirmed, but the live dev frontend could not mount because Vite served `/node_modules/.vite/deps/zustand.js?...` without a browser-visible `create` export; the temporary session was stopped with `./kill.sh`.
 - No Playwright flow was added in this pass, and the full repo test suite / full `internal/app` package suite were not rerun; verification stayed focused on touched owners, boundary guards, and packaging paths.
+
+## 2026-04-23 14:26:55 PDT
+Fixes applied:
+- Ignored shadowed duplicate providers during app-subsystem selection so shadowed invalid entries no longer poison capability/status resolution.
+- Split runtime-managed frontend handling into source-build vs installed-package deployment paths, always refreshed plugin-owned dependencies before source builds, and allowed installed package-manager providers to package prebuilt frontend assets for deployment without requiring checkout-only build inputs.
+- Routed app-deployment websocket project-state updates through the app-subsystem queue before server mode resolves, and removed the remaining host-side duplicate transport/OpenAPI helper implementations in favor of the SDK owner.
+- Deleted the repo-owned `setta.api.local_core` / `setta.api.runtime_compat` shims and kept the lightweight packaged runtime boundary import-safe for installed plugin backends.
+
+Tests added or upgraded:
+- Added shadowed-provider selection and installed-package deployment packaging regressions in `internal/plugins/runtime_test.go`.
+- Added runtime-managed frontend dependency-refresh coverage in `internal/plugins/app_plugin_packaging_test.go` and packaged-distribution wheel-build coverage for preexisting `node_modules`.
+- Added frontend queueing regressions in `frontend/src/state/actions/websocketReceive.test.ts` and `frontend/src/plugins/appSubsystem.test.tsx`.
+- Moved local-core/runtime-compat coverage to the surviving owner paths and removed the shim-only `tests/api/test_local_core.py`.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -count=1`
+- `source activate.sh && pytest tests/api/test_runtime_compat.py tests/plugin_runtime/test_local_core.py tests/start/test_packaged_distribution.py -q`
+- `pnpm -C frontend exec vitest run src/state/actions/websocketReceive.test.ts src/plugins/appSubsystem.test.tsx src/plugins/appSubsystemSdkOpenAPI.test.ts src/openapi/http/client.test.ts`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+
+Residual risks / verification gaps:
+- Browser/CDP and Playwright were not run in this pass; the changed frontend behavior was covered by unit/integration tests only, and metadata finalization stopped the lingering DevTools MCP session so no `./aireset.sh`-started session remained active afterward.
+- No end-to-end installed-provider publish-and-launch smoke or full repo test suite was rerun; verification stayed focused on touched plugin-runtime, packaged-runtime, and frontend queueing owners.

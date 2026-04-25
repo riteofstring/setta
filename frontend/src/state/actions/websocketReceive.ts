@@ -572,10 +572,7 @@ async function handleShareSessionRecovery() {
   if (shareSessionRecoveryInFlight) {
     return;
   }
-  const shareSession = useShareSession.getState();
-  const serverMode = useServerMode.getState();
-  const isAppMode =
-    shareSession.deploymentMode === "app" || serverMode.mode === "app";
+  const isAppMode = isAppDeploymentWebsocketContext();
   const expiredMessage = isAppMode
     ? "App session expired. Refresh to continue."
     : "Share session expired. Refresh to continue.";
@@ -612,6 +609,15 @@ async function handleShareSessionRecovery() {
   }
   shareSessionRecoveryAttempts = 0;
 }
+
+function isAppDeploymentWebsocketContext(): boolean {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isDeploymentMode && shareSession.deploymentMode === "app") {
+    return true;
+  }
+  return useServerMode.getState().mode === "app";
+}
+
 function createWebsocketMessageHandler<T>(
   handler: (content: T, socketGeneration: number) => void,
 ): WebsocketMessageHandler {
@@ -620,7 +626,7 @@ function createWebsocketMessageHandler<T>(
   };
 }
 function receiveFrontendProjectState(content: unknown): void {
-  if (useServerMode.getState().mode === "app") {
+  if (isAppDeploymentWebsocketContext()) {
     processAppProjectStateUpdateFromBackend(
       content as Parameters<typeof processAppProjectStateUpdateFromBackend>[0],
     );
