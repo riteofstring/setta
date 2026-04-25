@@ -57,8 +57,8 @@ type FlatPrototypeThemeProps = {
 };
 
 type FlatPrototypeRowStyle = CSSProperties &
-  Record<"--flat-depth", number> &
-  Record<"--flat-rail-left" | "--flat-rail-width", string>;
+  Partial<Record<"--flat-depth", number>> &
+  Partial<Record<"--flat-rail-left", string>>;
 
 const FLAT_PROTOTYPE_THEME_STYLES = {
   dark: {
@@ -110,11 +110,10 @@ const ROW_VALUE_CLASS_NAME =
 const ROW_CELL_DIVIDER_CLASS_NAME =
   "border-b border-[color:var(--flat-border-soft)]";
 
-const ROW_HOVER_CLASS_NAME =
-  "transition-colors hover:bg-[color:var(--flat-hover)]";
+const ROW_HOVER_CLASS_NAME = "hover:bg-[color:var(--flat-hover)]";
 
 const NESTED_ROW_RAIL_CLASS_NAME =
-  "before:absolute before:bottom-0 before:left-[var(--flat-rail-left)] before:top-0 before:w-px before:bg-[color:var(--flat-border-soft)] before:content-[''] after:absolute after:left-[var(--flat-rail-left)] after:top-1/2 after:h-px after:w-[var(--flat-rail-width)] after:bg-[color:var(--flat-border-soft)] after:content-['']";
+  "before:absolute before:bottom-0 before:left-[var(--flat-rail-left)] before:top-0 before:w-px before:bg-[color:var(--flat-border-soft)] before:content-['']";
 
 const ROW_EMPHASIS_CLASS_NAMES: Record<FlatPrototypeRowEmphasis, string> = {
   required: "text-[color:var(--flat-text)]",
@@ -255,10 +254,10 @@ function FlatSectionShell({
       data-flat-preview-theme={theme}
       style={FLAT_PROTOTYPE_THEME_STYLES[theme]}
     >
-      <header className="grid min-h-8 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--flat-border-strong)] px-3 py-1">
+      <header className="grid min-h-8 grid-cols-[1.125rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--flat-border-strong)] px-3 py-1">
         <button
           type="button"
-          className={`relative text-[color:var(--flat-muted)] [--ggs:0.52] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)] ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
+          className={`relative justify-self-center text-[color:var(--flat-muted)] [--ggs:0.52] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)] ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
           aria-label={`Open ${kind} section menu`}
           data-flat-section-type-menu="true"
         />
@@ -288,7 +287,7 @@ function FlatCallableTarget({ value }: { value: string }) {
   return (
     <input
       aria-label="Callable function name"
-      className="min-h-8 border-solid border-[color:var(--flat-border-strong)] bg-transparent px-3 py-1.5 text-[12px] font-semibold text-[color:var(--flat-title)] outline-none transition-colors [border-width:0_0_1px_0] placeholder:text-[color:var(--flat-dim)] focus:border-[color:var(--flat-focus)]"
+      className="min-h-8 border-solid border-[color:var(--flat-border-strong)] bg-transparent px-3 py-1.5 text-[12px] font-semibold text-[color:var(--flat-title)] outline-none [border-width:0_0_1px_0] placeholder:text-[color:var(--flat-dim)] focus:border-[color:var(--flat-focus)]"
       name="callable-function"
       placeholder="please enter function name"
       readOnly
@@ -305,7 +304,7 @@ function FlatPrototypeActionBar({
   placeholder: string;
 }) {
   return (
-    <nav className="flex min-h-9 items-center gap-1 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5">
+    <nav className="group flex min-h-9 items-center gap-1 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5">
       <p className={`mr-1 shrink-0 ${HEADER_LABEL_CLASS_NAME}`}>{label}</p>
       {FLAT_PROTOTYPE_ACTIONS.map((action) => (
         <button
@@ -318,7 +317,7 @@ function FlatPrototypeActionBar({
       ))}
       <input
         aria-label={`${label} filter`}
-        className="ml-2 min-w-0 flex-1 border-solid border-[color:var(--flat-border-strong)] bg-transparent pb-0.5 text-right text-[10px] uppercase tracking-[0.18em] text-[color:var(--flat-dim)] outline-none transition-colors [border-width:0_0_1px_0] focus:border-[color:var(--flat-focus)]"
+        className="ml-2 min-w-0 flex-1 border-solid border-transparent bg-transparent pb-0.5 text-right text-[10px] uppercase tracking-[0.18em] text-[color:var(--flat-dim)] outline-none [border-width:0_0_1px_0] hover:border-[color:var(--flat-border-strong)] focus:border-[color:var(--flat-focus)] group-hover:border-[color:var(--flat-border-strong)]"
         name={`${label.toLowerCase()}-filter`}
         readOnly
         value={placeholder}
@@ -425,14 +424,16 @@ function FlatPrototypeRowItem({
   isLast,
 }: FlatPrototypeRowProps) {
   const railDepth = Math.max(depth - 1, 0);
-  const rowStyle = {
-    "--flat-depth": depth,
-    "--flat-rail-left": `${railDepth * 0.875 + 0.625}rem`,
-    "--flat-rail-width": depth > 0 ? "0.875rem" : "0rem",
-  } satisfies FlatPrototypeRowStyle;
+  const rowStyle =
+    depth > 0
+      ? ({
+          "--flat-depth": depth,
+          "--flat-rail-left": `${railDepth * 0.875 + 1.0625}rem`,
+        } satisfies FlatPrototypeRowStyle)
+      : undefined;
   const nestedClassName = depth > 0 ? NESTED_ROW_RAIL_CLASS_NAME : "";
   const cellDividerClassName = isLast ? "" : ROW_CELL_DIVIDER_CLASS_NAME;
-  const rowClassName = `relative grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-2 pl-[calc(var(--flat-depth)*0.875rem+0.625rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
+  const rowClassName = `relative grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-2 pl-[calc(var(--flat-depth,0)*0.875rem+0.625rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
   const valueWithTrailing = trailing ? `${valueLabel}${trailing}` : valueLabel;
 
   return (

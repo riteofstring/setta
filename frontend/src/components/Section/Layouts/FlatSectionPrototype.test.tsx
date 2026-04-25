@@ -55,14 +55,19 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-row-emphasis="optional"');
     expect(markup).toContain("hover:bg-[color:var(--flat-hover)]");
     expect(markup).toContain("focus:border-[color:var(--flat-focus)]");
+    expect(markup).toContain(
+      "group-hover:border-[color:var(--flat-border-strong)]",
+    );
     expect(markup).toContain("border-solid");
     expect(markup).toContain("[border-width:0_0_1px_0]");
     expect(markup).toContain('data-flat-control="column-resize"');
     expect(markup).toContain("flex-1");
     expect(markup).toContain("leading-7");
     expect(markup).toContain("var(--flat-key-width)");
+    expect(markup).toContain("grid-cols-[1.125rem_minmax(0,1fr)_auto]");
     expect(markup).not.toContain("border-neutral-200");
     expect(markup).not.toContain("bg-blue-50/80");
+    expect(markup).not.toContain("transition-colors");
   });
 
   it("marks dict grouping and nested row hierarchy without helper rail elements", () => {
@@ -71,8 +76,9 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-row-emphasis="group"');
     expect(markup).toContain('data-flat-row-emphasis="nested"');
     expect(markup).toContain("before:left-[var(--flat-rail-left)]");
-    expect(markup).toContain("--flat-rail-left:0.625rem");
-    expect(markup).toContain("--flat-rail-width:0.875rem");
+    expect(markup).toContain("--flat-rail-left:1.0625rem");
+    expect(markup).not.toContain("--flat-rail-width");
+    expect(markup).not.toContain("after:w-[var(--flat-rail-width)]");
     expect(markup).not.toContain("<span");
   });
 });
