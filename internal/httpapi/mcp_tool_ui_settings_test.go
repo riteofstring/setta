@@ -14,9 +14,11 @@ import (
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/uisettings"
+	"setta/internal/watchcodeuisettings"
 )
 
 type routeRevealService struct {
@@ -33,11 +35,46 @@ func (s *routeRevealService) Reveal(_ context.Context, input uisettings.RevealIn
 func newUISettingsRouteTestServer(t *testing.T, projectRuntime *projectstate.Runtime, options mcpx.ServerOptions) *mcpx.Server {
 	t.Helper()
 
+	if projectRuntime != nil {
+		if options.WatchCodeCapabilities == nil {
+			options.WatchCodeCapabilities = activeUISettingsRouteWatchCodeCapabilities
+		}
+		watchCodeCapabilities := options.WatchCodeCapabilities
+		options.ContributedUISettingBuilders = append(
+			[]uisettings.RuntimeEntryBuilder{
+				func(plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
+					return watchcodeuisettings.BuildScopedUISettingEntries(
+						watchCodeCapabilities(),
+						projectRuntime,
+						options.WorkspaceRoot,
+					)
+				},
+			},
+			options.ContributedUISettingBuilders...,
+		)
+		options.UnavailableUISettings = append(
+			[]uisettings.UnavailableSettingProvider{
+				func() map[string]uisettings.SettingError {
+					return watchcodeuisettings.UnavailableSettingErrors(watchCodeCapabilities())
+				},
+			},
+			options.UnavailableUISettings...,
+		)
+	}
 	server, err := mcpx.NewServer(options)
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
 	}
 	return server
+}
+
+func activeUISettingsRouteWatchCodeCapabilities() plugins.PluginWatchCodeCapabilities {
+	return plugins.PluginWatchCodeCapabilities{
+		PluginID:               "setta-fixture-watch-code-provider",
+		PluginEnabled:          true,
+		Python:                 true,
+		RequiresLanguageServer: true,
+	}
 }
 
 func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
@@ -72,7 +109,7 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 
 	searchResponse := postMCPToolRoute(t, handler, `{
 		"tool":"search_ui_settings",
-		"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":3,"sourceFilter":"core"},
+		"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":3,"sourceFilter":"plugin"},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if searchResponse.Code != http.StatusOK {
@@ -85,7 +122,10 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	searchResult := mustStructuredMapForRoute(t, searchPayload.StructuredContent)
 	searchResults := mustStructuredListForRoute(t, searchResult["results"])
 	if len(searchResults) == 0 || mustStructuredMapForRoute(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
-		t.Fatalf("expected ranked core watch-code result, got %#v", searchResults)
+		t.Fatalf("expected ranked plugin watch-code result, got %#v", searchResults)
+	}
+	if mustStructuredMapForRoute(t, searchResults[0])["source"] != "plugin" {
+		t.Fatalf("expected plugin-sourced watch-code result, got %#v", searchResults[0])
 	}
 
 	getResponse := postMCPToolRoute(t, handler, `{

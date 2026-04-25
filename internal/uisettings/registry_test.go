@@ -5,7 +5,6 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	appdefinition "setta/internal/appsubsystem/appdefinition"
@@ -30,9 +29,6 @@ func TestNewCoreRegistryListsBoundedCoreEntries(t *testing.T) {
 		"core.project.name",
 		"core.project.show_param_display_names",
 		"core.run_instructions.python_codegen_enabled",
-		"core.watch_code.enabled",
-		"core.watch_code.files",
-		"core.watch_code.folders",
 	}
 	if !reflect.DeepEqual(ids, expected) {
 		t.Fatalf("expected core entry ids %#v, got %#v", expected, ids)
@@ -45,57 +41,51 @@ func TestRegistrySearchRanksCoreSettingBySynonym(t *testing.T) {
 	runtime := openCoreRegistryRuntime(t)
 	registry := mustNewCoreRegistry(t, runtime, t.TempDir())
 
-	results, err := registry.Search("watch toggle", 3, SourceFilterCore)
+	results, err := registry.Search("display names", 3, SourceFilterCore)
 	if err != nil {
 		t.Fatalf("search registry: %v", err)
 	}
 	if len(results) == 0 {
 		t.Fatal("expected search results")
 	}
-	if results[0].SettingID != "core.watch_code.enabled" {
-		t.Fatalf("expected top result core.watch_code.enabled, got %#v", results[0])
+	if results[0].SettingID != "core.project.show_param_display_names" {
+		t.Fatalf("expected top result core.project.show_param_display_names, got %#v", results[0])
 	}
 }
 
-func TestCoreRegistryHidesWatchCodeSettingsWithoutProvider(t *testing.T) {
+func TestScopedRegistryReportsUnavailableContributedSettings(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	unavailableCapabilities := plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
-	registry, err := NewCoreRegistryWithOptions(runtime, root, CoreRegistryOptions{
-		WatchCodeCapabilities: &unavailableCapabilities,
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+		Runtime:       runtime,
+		WorkspaceRoot: root,
+		UnavailableSettings: []UnavailableSettingProvider{
+			func() map[string]SettingError {
+				return map[string]SettingError{
+					"plugin.example.unavailable": {
+						Code:    ErrorCodePluginUnavailable,
+						Message: "Example plugin setting is unavailable.",
+					},
+				}
+			},
+		},
 	})
 	if err != nil {
-		t.Fatalf("new core registry: %v", err)
+		t.Fatalf("new scoped registry: %v", err)
 	}
 
-	results, err := registry.Search("watch toggle", 3, SourceFilterCore)
-	if err != nil {
-		t.Fatalf("search registry: %v", err)
+	_, err = registry.ReadValue(context.Background(), "project-alpha", "plugin.example.unavailable")
+	var settingErr *SettingError
+	if !errors.As(err, &settingErr) {
+		t.Fatalf("expected setting error, got %v", err)
 	}
-	for _, result := range results {
-		if isWatchCodeSettingID(result.SettingID) {
-			t.Fatalf("expected unavailable watch code settings to be hidden from search, got %#v", results)
-		}
+	if settingErr.Code != ErrorCodePluginUnavailable {
+		t.Fatalf("expected code %q, got %q", ErrorCodePluginUnavailable, settingErr.Code)
 	}
-	if _, ok, err := registry.Get("core.watch_code.enabled"); err != nil {
-		t.Fatalf("get core.watch_code.enabled: %v", err)
-	} else if ok {
-		t.Fatal("expected unavailable watch code setting to be absent from registry entries")
-	}
-
-	_, err = registry.ReadValue(context.Background(), "project-alpha", "core.watch_code.enabled")
-	assertWatchCodeSettingUnavailable(t, err)
-	_, err = registry.WriteValue(context.Background(), "project-alpha", "core.watch_code.enabled", true, nil)
-	assertWatchCodeSettingUnavailable(t, err)
-
-	project, err := runtime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after unavailable writes: %v", err)
-	}
-	if project.WatchCodeEnabled {
-		t.Fatal("expected unavailable watch code setting write not to mutate project state")
+	if settingErr.Message != "Example plugin setting is unavailable." {
+		t.Fatalf("expected contributed unavailable message, got %q", settingErr.Message)
 	}
 }
 
@@ -391,66 +381,6 @@ func TestRegistryWriteValueNormalizesSpecPathThroughProjectStateOwner(t *testing
 	}
 	if result.NormalizedValue != expectedPath {
 		t.Fatalf("expected normalized value %q, got %#v", expectedPath, result.NormalizedValue)
-	}
-}
-
-func TestRegistryWriteValueRejectsInvalidWatchCodeFolderShape(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
-
-	_, err := registry.WriteValue(
-		context.Background(),
-		"project-alpha",
-		"core.watch_code.folders",
-		[]any{
-			map[string]any{
-				"path":      "./backend",
-				"recursive": "not-a-boolean",
-			},
-		},
-		nil,
-	)
-	settingErr, ok := err.(*SettingError)
-	if !ok {
-		t.Fatalf("expected SettingError, got %T (%v)", err, err)
-	}
-	if settingErr.Code != ErrorCodeInvalidValueType {
-		t.Fatalf("expected invalid_value_type, got %q", settingErr.Code)
-	}
-}
-
-func TestRegistryWriteValueRejectsUnsupportedWatchCodeFolderProperties(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
-
-	_, err := registry.WriteValue(
-		context.Background(),
-		"project-alpha",
-		"core.watch_code.folders",
-		[]any{
-			map[string]any{
-				"path":      "./backend",
-				"recursive": true,
-				"extra":     "not-allowed",
-			},
-		},
-		nil,
-	)
-	settingErr, ok := err.(*SettingError)
-	if !ok {
-		t.Fatalf("expected SettingError, got %T (%v)", err, err)
-	}
-	if settingErr.Code != ErrorCodeInvalidValueType {
-		t.Fatalf("expected invalid_value_type, got %q", settingErr.Code)
-	}
-	if !strings.Contains(settingErr.Message, "unsupported properties") {
-		t.Fatalf("expected unsupported properties message, got %q", settingErr.Message)
 	}
 }
 
@@ -770,44 +700,6 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 	}
 }
 
-func TestRegistryWriteValueWatchCodeFilesRoundTrips(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
-
-	nextFiles := []string{"backend/setta/api/listener.py", "frontend/src/components/App/appTheme.ts"}
-	expectedFiles := []any{nextFiles[0], nextFiles[1]}
-	result, err := registry.WriteValue(
-		context.Background(),
-		"project-alpha",
-		"core.watch_code.files",
-		[]any{nextFiles[0], nextFiles[1]},
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("write watch code files: %v", err)
-	}
-	if result.Changed != true {
-		t.Fatalf("expected watch code files write to change state, got %#v", result)
-	}
-	if !reflect.DeepEqual(result.NewValue, expectedFiles) {
-		t.Fatalf("expected new watch code files %#v, got %#v", expectedFiles, result.NewValue)
-	}
-	if !reflect.DeepEqual(result.NormalizedValue, expectedFiles) {
-		t.Fatalf("expected normalized watch code files %#v, got %#v", expectedFiles, result.NormalizedValue)
-	}
-
-	value, err := registry.ReadValue(context.Background(), "project-alpha", "core.watch_code.files")
-	if err != nil {
-		t.Fatalf("read watch code files after write: %v", err)
-	}
-	if !reflect.DeepEqual(value, expectedFiles) {
-		t.Fatalf("expected watch code files %#v after write, got %#v", expectedFiles, value)
-	}
-}
-
 func TestRegistryWriteValueAppThemeModeRoundTripsOnFreshProject(t *testing.T) {
 	t.Parallel()
 
@@ -855,29 +747,6 @@ func mustNewCoreRegistry(t *testing.T, runtime *projectstate.Runtime, workspaceR
 		t.Fatalf("new core registry: %v", err)
 	}
 	return registry
-}
-
-func assertWatchCodeSettingUnavailable(t *testing.T, err error) {
-	t.Helper()
-	var settingErr *SettingError
-	if !errors.As(err, &settingErr) {
-		t.Fatalf("expected setting error, got %v", err)
-	}
-	if settingErr.Code != ErrorCodePluginUnavailable {
-		t.Fatalf("expected code %q, got %q", ErrorCodePluginUnavailable, settingErr.Code)
-	}
-	if !strings.Contains(settingErr.Message, "Watch Code settings are unavailable") {
-		t.Fatalf("expected Watch Code unavailable message, got %q", settingErr.Message)
-	}
-}
-
-func isWatchCodeSettingID(settingID string) bool {
-	switch settingID {
-	case watchCodeEnabledSettingID, watchCodeFoldersSettingID, watchCodeFilesSettingID:
-		return true
-	default:
-		return false
-	}
 }
 
 func mustNewScopedRegistry(t *testing.T, options ScopedRegistryOptions) *Registry {
