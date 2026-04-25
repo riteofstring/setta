@@ -1,8 +1,3 @@
-import {
-  isAppSubsystemFrontendRegistration,
-  type AppSubsystemFrontendRegistration,
-  type RegisteredAppSubsystemFrontendRegistration,
-} from "@setta/app-subsystem-frontend-sdk";
 import throttle from "lodash/throttle";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
@@ -148,7 +143,6 @@ type SettaPluginHost = {
   createStore: <TState extends object>(
     initializer: StateCreator<TState, [], []>,
   ) => StoreApi<TState>;
-  registerAppSubsystem: (definition: AppSubsystemFrontendRegistration) => void;
   registerSectionKind: (definition: PluginSectionKindDefinition) => void;
   registerPane: (definition: PluginPaneDefinition) => void;
   registerSettingRevealHandler: (
@@ -195,10 +189,6 @@ type PluginFrontendModule = {
 };
 
 export type PluginRegistryAccumulator = {
-  appSubsystemRegistrationsByPluginId: Record<
-    string,
-    RegisteredAppSubsystemFrontendRegistration
-  >;
   sectionKinds: Record<string, RegisteredPluginSectionKind>;
   panes: Record<string, RegisteredPluginPane[]>;
   commands: Record<string, RegisteredPluginCommand[]>;
@@ -309,7 +299,6 @@ export async function loadPluginFrontendModule(
     return {
       error: null,
       registryDelta: {
-        appSubsystemRegistrationsByPluginId: {},
         sectionKinds: {},
         panes: {},
         commands: {},
@@ -825,7 +814,6 @@ function registerPluginModule({
   }
 
   const registryDelta: PluginRegistryAccumulator = {
-    appSubsystemRegistrationsByPluginId: {},
     sectionKinds: {},
     panes: {},
     commands: {},
@@ -840,20 +828,6 @@ function registerPluginModule({
     serverMode,
     effectiveCapabilities: plugin.effectiveCapabilities,
     createStore: (initializer) => createStore(initializer),
-    registerAppSubsystem: (definition) => {
-      const validated = validateAppSubsystemRegistration(
-        plugin.pluginId,
-        definition,
-      );
-      if (registryDelta.appSubsystemRegistrationsByPluginId[plugin.pluginId]) {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} registered duplicate app subsystem frontend registration.`,
-        );
-      }
-      registryDelta.appSubsystemRegistrationsByPluginId[plugin.pluginId] =
-        validated;
-    },
     registerSectionKind: (definition) => {
       ensureCapability(
         plugin.pluginId,
@@ -1365,22 +1339,6 @@ function validatePluginRenderer<
     );
   }
   return renderer;
-}
-
-function validateAppSubsystemRegistration(
-  pluginId: string,
-  definition: AppSubsystemFrontendRegistration,
-): RegisteredAppSubsystemFrontendRegistration {
-  if (!isAppSubsystemFrontendRegistration(definition)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} registered an invalid app subsystem frontend registration.`,
-    );
-  }
-  return {
-    ...definition,
-    pluginId,
-  };
 }
 
 function validateSectionKindDefinition(

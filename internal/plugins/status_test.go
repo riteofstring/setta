@@ -131,38 +131,6 @@ func TestServiceStatusIncludesRegisteredLanguageServers(t *testing.T) {
 	}
 }
 
-func TestServiceStatusIncludesAppSubsystemProviderSelection(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	pluginID := "acme-status-app-provider"
-	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
-		PluginID:                    pluginID,
-		FixtureName:                 "frontend",
-		EnabledByDefault:            true,
-		RegisterAppSubsystemBackend: true,
-		AppSubsystem: map[string]any{
-			"appAuthoringUi": true,
-			"appPreviewUi":   true,
-		},
-	})
-
-	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
-	status, err := service.Status()
-	if err != nil {
-		t.Fatalf("load status: %v", err)
-	}
-
-	assertRuntimeAppSubsystemSelection(
-		t,
-		status.AppSubsystemSelection,
-		PluginAppSubsystemProviderSelectionStatusActive,
-		stringPointer(pluginID),
-		[]string{pluginID},
-		nil,
-		nil,
-		nil,
-	)
-}
-
 func TestServiceStatusWaitsForServiceLock(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)

@@ -1,2 +1,0 @@
-class RuntimeCompatibilityError(RuntimeError):
-    pass

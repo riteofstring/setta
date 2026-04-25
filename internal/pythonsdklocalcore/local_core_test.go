@@ -2,14 +2,9 @@ package pythonsdklocalcore
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"path/filepath"
 	"testing"
 
-	"setta/internal/appsubsystem/appdefinition"
-	"setta/internal/appsubsystem/appspec"
-	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
 )
 
@@ -130,115 +125,5 @@ func TestRunWritesHandshakeAndHandlesRealtimeRenderCommand(t *testing.T) {
 			"expected second dependency key section-config.param-count, got %s",
 			typedResult.DependencyValues.Entries[1].DependencyKey,
 		)
-	}
-}
-
-func TestRunAppDefinitionCompareAndSetReturnsPlannedDefinitionWithoutPersisting(t *testing.T) {
-	t.Helper()
-
-	settaFilesRoot := t.TempDir()
-	pluginID := "setta-json-render-app-gen"
-	store, err := projectstate.NewStore(
-		filepath.Join(settaFilesRoot, projectstate.MainFileName),
-		projectstate.StoreOptions{},
-	)
-	if err != nil {
-		t.Fatalf("new project store: %v", err)
-	}
-	if err := store.Save(context.Background(), projectstate.NewDocument()); err != nil {
-		t.Fatalf("save initial document: %v", err)
-	}
-	runtime, err := projectstate.OpenRuntimeWithOptions(
-		context.Background(),
-		store,
-		projectstate.RuntimeOptions{},
-	)
-	if err != nil {
-		t.Fatalf("open runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close runtime: %v", err)
-		}
-	})
-	appSpecStore := appspec.MustForPlugin(pluginID)
-	appSpecPath := appSpecStore.DefaultPath()
-	initialVersion := "v1"
-	catalogID := appspec.DefaultCatalogID
-	service := appdefinition.NewAppDefinitionService(runtime, pluginID)
-	if _, _, err := service.SetAppDefinition(context.Background(), appdefinition.SetInput{
-		AppSpec: map[string]any{
-			"root": map[string]any{"key": "root", "type": "Stack"},
-		},
-		AppSpecPath:    &appSpecPath,
-		AppSpecVersion: &initialVersion,
-		CatalogID:      &catalogID,
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
-
-	var input bytes.Buffer
-	encoder := json.NewEncoder(&input)
-	if err := encoder.Encode(pythonsdkcontracts.LocalCoreCommandEnvelope{
-		CallID:      "call-cas",
-		CommandName: CommandCompareAndSetAppDefinitionSpecVersion,
-		Payload: map[string]any{
-			"settaFilesRoot":   settaFilesRoot,
-			"pluginId":         pluginID,
-			"value":            "v2",
-			"expectedOldValue": "v1",
-		},
-	}); err != nil {
-		t.Fatalf("encode local core command: %v", err)
-	}
-
-	var output bytes.Buffer
-	if err := Run(RunOptions{
-		Stdin:  &input,
-		Stdout: &output,
-	}); err != nil {
-		t.Fatalf("Run() error = %v", err)
-	}
-
-	decoder := json.NewDecoder(&output)
-	var handshake pythonsdkcontracts.LocalCoreVersionHandshake
-	if err := decoder.Decode(&handshake); err != nil {
-		t.Fatalf("decode handshake: %v", err)
-	}
-	var result pythonsdkcontracts.LocalCoreResultEnvelope
-	if err := decoder.Decode(&result); err != nil {
-		t.Fatalf("decode command result: %v", err)
-	}
-	if !result.OK {
-		t.Fatalf("expected ok result, got error %v", result.Error)
-	}
-	encodedResult, err := json.Marshal(result.Result)
-	if err != nil {
-		t.Fatalf("marshal local core result: %v", err)
-	}
-	var typedResult appdefinition.CompareAndSetMutationResult
-	if err := json.Unmarshal(encodedResult, &typedResult); err != nil {
-		t.Fatalf("decode typed local core result: %v", err)
-	}
-	if typedResult.CompareResult.OldValue != "v1" || typedResult.CompareResult.NewValue != "v2" {
-		t.Fatalf("unexpected compare result %#v", typedResult.CompareResult)
-	}
-	if typedResult.AppDefinition == nil || typedResult.AppDefinition.AppSpecVersion != "v2" {
-		t.Fatalf("expected planned updated app definition, got %#v", typedResult.AppDefinition)
-	}
-
-	persisted, err := store.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load persisted document: %v", err)
-	}
-	storage := appdefinition.MustStorageForPlugin(pluginID)
-	persistedDefinition, err := appdefinition.DecodeStoredAppDefinition(
-		storage.StoredDocumentAppDefinitionRaw(persisted),
-	)
-	if err != nil {
-		t.Fatalf("decode persisted app definition: %v", err)
-	}
-	if persistedDefinition == nil || persistedDefinition.AppSpecVersion != "v1" {
-		t.Fatalf("local core command should not persist planned mutation, got %#v", persistedDefinition)
 	}
 }

@@ -1,12 +1,15 @@
 import requests
 
 from setta import __version__
-from setta.runtime_compat import RuntimeCompatibilityError
-from setta.sdk_contract_version import SETTA_SDK_CONTRACT_VERSION
 from setta.sdk_contracts.generated import (
+    SETTA_SDK_CONTRACT_VERSION,
     RunningBackendVersionHandshake,
 )
 from setta.types.generated.go_shared_types import Route
+
+
+class RuntimeCompatibilityError(RuntimeError):
+    pass
 
 
 def verify_running_backend_compatibility(

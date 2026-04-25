@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/testutil/firstpartyplugin"
 )
@@ -66,40 +65,6 @@ func TestDiscoveryServiceRescanHonorsScopePrecedence(t *testing.T) {
 	}
 	if shadowedGlobal.ShadowedBySourcePath != workspaceRoot {
 		t.Fatalf("expected global shadow path %q, got %q", workspaceRoot, shadowedGlobal.ShadowedBySourcePath)
-	}
-}
-
-func TestDiscoveryServiceDeploymentScopedIgnoresHostGlobalAndPackageManagerPlugins(
-	t *testing.T,
-) {
-	roots := newFilesystemResolverTestRoots(t)
-	copyPluginFixtureToScope(t, roots, filesystemPluginScopeGlobal, "backend")
-	sitePackages, _ := installPackageManagerFixture(
-		t,
-		"frontend",
-		"setta-fixture-frontend",
-		"0.1.0",
-		nil,
-	)
-
-	service, err := NewDiscoveryService(DiscoveryServiceOptions{
-		WorkspaceRoot:             roots.workspaceRoot,
-		SettaFilesRoot:            roots.settaFilesRoot,
-		SettaHome:                 roots.settaHome,
-		ServerMode:                config.ModeApp,
-		DeploymentScoped:          true,
-		PackageManagerRuntime:     mustNewPythonRuntime(t),
-		PackageManagerSearchPaths: []string{sitePackages},
-	})
-	if err != nil {
-		t.Fatalf("new deployment-scoped discovery service: %v", err)
-	}
-	snapshot, err := service.Rescan()
-	if err != nil {
-		t.Fatalf("rescan deployment-scoped plugins: %v", err)
-	}
-	if len(snapshot.Plugins) != 0 || snapshot.InstalledPlugins != 0 || snapshot.ActivePlugins != 0 {
-		t.Fatalf("expected deployment-scoped discovery to ignore host plugins, got %#v", snapshot)
 	}
 }
 
@@ -272,11 +237,7 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	t.Parallel()
 
 	entry := &DiscoveredPlugin{
-		EffectiveCapabilities: []string{
-			"registerRouter",
-			"registerStaticDir",
-			"registerAppSubsystemBackend",
-		},
+		EffectiveCapabilities: []string{"registerRouter", "registerStaticDir"},
 	}
 	probe := backendProbeResponse{
 		CodegenTargets: []PluginRegisteredCodegenTarget{
@@ -296,9 +257,6 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 		},
 		ListenerEndpoints: []PluginRegisteredListenerEndpoint{
 			{Name: "route_backend_fixture_ping"},
-		},
-		AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
-			ContractVersion: backendruntime.AppSubsystemBackendContractVersion,
 		},
 	}
 
@@ -323,17 +281,10 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	if len(entry.RegisteredUISettings) != 1 || entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
 		t.Fatalf("expected ui settings to be copied from the probe, got %#v", entry.RegisteredUISettings)
 	}
-	if entry.appSubsystemBackend == nil || entry.appSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
-		t.Fatalf("expected app subsystem backend registration to be copied, got %#v", entry.appSubsystemBackend)
-	}
 
 	probe.UISettings[0].LocalSettingID = "mutated"
 	if entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
 		t.Fatalf("expected registered ui settings to be cloned, got %#v", entry.RegisteredUISettings)
-	}
-	probe.AppSubsystemBackend.ContractVersion = 999
-	if entry.appSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
-		t.Fatalf("expected app subsystem backend registration to be cloned, got %#v", entry.appSubsystemBackend)
 	}
 }
 
