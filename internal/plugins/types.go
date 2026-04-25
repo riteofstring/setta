@@ -201,31 +201,32 @@ type PluginInstallMetadataFile struct {
 }
 
 type DiscoveredPlugin struct {
-	PluginID                    string
-	Name                        string
-	Version                     string
-	Scope                       PluginScope
-	SourcePath                  string
-	Manifest                    *PluginManifest
-	CanonicalSourceKey          string
-	SourceDigestSHA256          *string
-	SourceManager               PluginSourceManager
-	SourceManagerHint           string
-	Errors                      []PluginErrorInfo
-	State                       PluginRuntimeState
-	ShadowedBySourcePath        string
-	RequestedCapabilities       []string
-	EffectiveCapabilities       []string
-	BlockedCapabilities         []PluginBlockedCapability
-	EnablementSource            *PluginEnablementSource
-	RestartRequired             bool
-	RegisteredCodegenTargets    []PluginRegisteredCodegenTarget
-	RegisteredLanguageServers   []PluginRegisteredLanguageServer
-	RegisteredUISettings        []PluginRegisteredUISetting
-	RegisteredBackendRoutes     []PluginRegisteredBackendRoute
-	RegisteredStaticDirs        []PluginRegisteredStaticDir
-	RegisteredListenerEndpoints []PluginRegisteredListenerEndpoint
-	appSubsystemBackend         *backendProbeAppSubsystemBackendRegistration
+	PluginID                      string
+	Name                          string
+	Version                       string
+	Scope                         PluginScope
+	SourcePath                    string
+	Manifest                      *PluginManifest
+	CanonicalSourceKey            string
+	SourceDigestSHA256            *string
+	SourceManager                 PluginSourceManager
+	SourceManagerHint             string
+	Errors                        []PluginErrorInfo
+	State                         PluginRuntimeState
+	ShadowedBySourcePath          string
+	RequestedCapabilities         []string
+	EffectiveCapabilities         []string
+	BlockedCapabilities           []PluginBlockedCapability
+	EnablementSource              *PluginEnablementSource
+	RestartRequired               bool
+	RegisteredCodegenTargets      []PluginRegisteredCodegenTarget
+	RegisteredLanguageServers     []PluginRegisteredLanguageServer
+	RegisteredUISettings          []PluginRegisteredUISetting
+	RegisteredBackendRoutes       []PluginRegisteredBackendRoute
+	RegisteredStaticDirs          []PluginRegisteredStaticDir
+	RegisteredListenerEndpoints   []PluginRegisteredListenerEndpoint
+	appSubsystemBackend           *backendProbeAppSubsystemBackendRegistration
+	appSubsystemListenerEndpoints []PluginRegisteredListenerEndpoint
 }
 
 func (p DiscoveredPlugin) HasBackend() bool {

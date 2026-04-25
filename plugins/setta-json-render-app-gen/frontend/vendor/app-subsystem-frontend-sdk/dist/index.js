@@ -2143,6 +2143,25 @@ function resolveEndpointOriginForMode(address, serverMode) {
     backendValue: EndpointOriginEnum.backend
   });
 }
+async function rebuildBackendRequest(request, resolvedURL) {
+  const rebuiltInit = {
+    method: request.method,
+    headers: new Headers(request.headers),
+    mode: request.mode,
+    credentials: request.credentials,
+    cache: request.cache,
+    redirect: request.redirect,
+    referrer: request.referrer,
+    referrerPolicy: request.referrerPolicy,
+    integrity: request.integrity,
+    keepalive: request.keepalive,
+    signal: request.signal
+  };
+  if (request.body !== null && request.method !== "GET" && request.method !== "HEAD") {
+    rebuiltInit.body = await request.clone().arrayBuffer();
+  }
+  return new Request(resolvedURL, rebuiltInit);
+}
 const serializeFormDataPair = (data, key, value) => {
   if (typeof value === "string" || value instanceof Blob) {
     data.append(key, value);
@@ -3348,25 +3367,6 @@ function resolveOpenAPIBaseURL() {
   }
   return C_ADDRESSES.BACKEND_ORIGIN;
 }
-async function rebuildBackendRequest(request, resolvedURL) {
-  const rebuiltInit = {
-    method: request.method,
-    headers: new Headers(request.headers),
-    mode: request.mode,
-    credentials: request.credentials,
-    cache: request.cache,
-    redirect: request.redirect,
-    referrer: request.referrer,
-    referrerPolicy: request.referrerPolicy,
-    integrity: request.integrity,
-    keepalive: request.keepalive,
-    signal: request.signal
-  };
-  if (request.body !== null && request.method !== "GET" && request.method !== "HEAD") {
-    rebuiltInit.body = await request.clone().arrayBuffer();
-  }
-  return new Request(resolvedURL, rebuiltInit);
-}
 function buildShareSessionHeaders() {
   const frontendHost = getActiveAppSubsystemFrontendHostRuntime();
   const runtimeShareSessionId = frontendHost?.getRuntimeContext().shareSessionId ?? null;
@@ -3395,12 +3395,14 @@ async function fetchOpenAPIRequest(input, init) {
   }
   return await fetch(nextRequest);
 }
-client.setConfig({
-  baseUrl: resolveOpenAPIBaseURL(),
-  credentials: "include",
-  responseStyle: "fields",
-  fetch: fetchOpenAPIRequest
-});
+function configureAppSubsystemOpenAPI() {
+  client.setConfig({
+    baseUrl: resolveOpenAPIBaseURL(),
+    credentials: "include",
+    responseStyle: "fields",
+    fetch: fetchOpenAPIRequest
+  });
+}
 function buildBinaryDownloadUrl(contentId, shareSessionId, serverMode) {
   const address = buildBinaryDownloadRoute(contentId);
   const url = new URL(address, resolveTransportBaseUrl(serverMode, address));
@@ -9566,6 +9568,7 @@ export {
   buildTextBlockTypographyScale,
   callOpenAPI,
   checkIfFileExists,
+  configureAppSubsystemOpenAPI,
   createAppSubsystemFrontendHost,
   createDefaultAppPolicy,
   createDropzoneFileArtifactId,

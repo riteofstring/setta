@@ -522,6 +522,7 @@ func resetBackendRegistrations(entry *DiscoveredPlugin) {
 	entry.RegisteredStaticDirs = []PluginRegisteredStaticDir{}
 	entry.RegisteredListenerEndpoints = []PluginRegisteredListenerEndpoint{}
 	entry.appSubsystemBackend = nil
+	entry.appSubsystemListenerEndpoints = []PluginRegisteredListenerEndpoint{}
 }
 
 func shouldPopulateBackendRegistrations(entry *DiscoveredPlugin) bool {
@@ -562,6 +563,9 @@ func applyBackendProbeRegistrations(entry *DiscoveredPlugin, probe backendProbeR
 	if containsString(entry.EffectiveCapabilities, "registerAppSubsystemBackend") {
 		entry.appSubsystemBackend = cloneBackendProbeAppSubsystemBackendRegistration(
 			probe.AppSubsystemBackend,
+		)
+		entry.appSubsystemListenerEndpoints = cloneRegisteredListenerEndpointsOrEmpty(
+			probe.ListenerEndpoints,
 		)
 	}
 }

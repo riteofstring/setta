@@ -58,8 +58,11 @@ func (r *Runtime) applyPersistedMutationPlan(
 	}
 
 	previousState := cloneRuntimeState(*state)
-	applyRuntimeMutationState(state, normalized, runtimeHistoryModeAppend)
+	changed := applyRuntimeMutationState(state, normalized, runtimeHistoryModeAppend)
 	nextSnapshot := snapshotFromState(*state)
+	if !changed && plan.ApplyExternalChanges == nil && plan.RollbackExternalChanges == nil {
+		return nextSnapshot, nil
+	}
 
 	if err := applyPersistedExternalChanges(plan); err != nil {
 		return rollbackPersistedMutationState(state, previousState, plan, err)

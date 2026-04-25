@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/statefs"
 )
@@ -209,7 +210,7 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 		if feature == nil {
 			continue
 		}
-		if !appSubsystemBackendRegistered(entry) {
+		if !appSubsystemBackendContractRegistered(entry) {
 			resolution.selection.InvalidPluginIDs = append(
 				resolution.selection.InvalidPluginIDs,
 				entry.PluginID,
@@ -263,8 +264,25 @@ func runtimeAppSubsystemFeatureManifest(
 	return entry.Manifest.FeatureCapabilities.AppSubsystem
 }
 
-func appSubsystemBackendRegistered(entry DiscoveredPlugin) bool {
-	return entry.appSubsystemBackend != nil
+func appSubsystemBackendContractRegistered(entry DiscoveredPlugin) bool {
+	if entry.appSubsystemBackend == nil {
+		return false
+	}
+
+	registeredEndpoints := make(map[string]struct{}, len(entry.appSubsystemListenerEndpoints))
+	for _, endpoint := range entry.appSubsystemListenerEndpoints {
+		normalizedName := strings.TrimSpace(endpoint.Name)
+		if normalizedName == "" {
+			continue
+		}
+		registeredEndpoints[normalizedName] = struct{}{}
+	}
+	for _, requiredEndpoint := range backendruntime.RequiredListenerEndpointNames() {
+		if _, ok := registeredEndpoints[requiredEndpoint]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func mergeRuntimeAppSubsystemCapabilities(
