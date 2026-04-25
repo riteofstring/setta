@@ -1,5 +1,5 @@
+import { normalizeOrigin } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it, vi } from "vitest";
-import { normalizeOrigin } from "./origin";
 
 describe("normalizeOrigin", () => {
   it("rejects schemeless host:port values", () => {

@@ -22,9 +22,14 @@ vi.mock("openapi/http", () => ({
   setActiveViewMode: (...args: unknown[]) => setActiveViewModeMock(...args),
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+  };
+});
 
 function buildProjectConfig(activeViewModeId = "alpha-id") {
   return createProjectConfig({

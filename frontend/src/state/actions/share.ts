@@ -1,9 +1,14 @@
 import {
+  callOpenAPI,
+  getErrorCode,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   getShareDeploymentCurrentSession,
   getShareDeploymentProjectConfig,
   type GetShareDeploymentCurrentSessionResponses,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
 import { loadProjectState } from "state/actions/project/loadProject";
 import {
@@ -12,11 +17,6 @@ import {
   useServerMode,
   useShareSession,
 } from "state/definitions";
-import {
-  getErrorCode,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
 import type { SingleConfig } from "utils/generatedTypes";
 
 type ShareDeploymentSession = GetShareDeploymentCurrentSessionResponses[200];

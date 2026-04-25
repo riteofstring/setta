@@ -1,5 +1,5 @@
+import { normalizeGeneratedOrigin } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it } from "vitest";
-import { normalizeGeneratedOrigin } from "./bindingRuntime";
 
 describe("normalizeGeneratedOrigin", () => {
   it("normalizes supported http origins", () => {

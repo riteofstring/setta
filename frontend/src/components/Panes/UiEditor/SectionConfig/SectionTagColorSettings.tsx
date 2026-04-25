@@ -1,3 +1,4 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import {
   AvailableColors,
   ColorPickerInput,
@@ -5,7 +6,6 @@ import {
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import { saveSettings, setSectionTagColor } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

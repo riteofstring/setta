@@ -1,8 +1,11 @@
+import {
+  callOpenAPI,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
 import { getPluginsRuntime } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect } from "react";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   LanguageServerSelectionStatus,
   PluginListEntry,

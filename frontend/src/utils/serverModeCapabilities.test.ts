@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveServerModeCapabilities } from "./serverModeCapabilities";
+import { resolveServerModeCapabilities } from "@setta/app-subsystem-frontend-sdk";
 
 describe("resolveServerModeCapabilities", () => {
   it("enables desktop-launcher management only in ide mode", () => {

@@ -1,4 +1,9 @@
 import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   useViewModeSortableItem,
   ViewModeSortableProvider,
 } from "components/Pages/Project/ViewModeDnd";
@@ -11,7 +16,6 @@ import {
   toggleViewModeTab,
   toggleViewModeUserFacing,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { Resizable } from "re-resizable";
 import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -35,7 +39,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { ViewMode } from "utils/generatedTypes";
 import { validateViewModeNameInput } from "utils/nameValidation";
 import { sortViewModes } from "utils/viewModeOrdering";

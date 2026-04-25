@@ -6,7 +6,7 @@ import {
   createJsonArtifactId,
   createPngArtifactId,
   createRandomName,
-} from "./idNameCreation";
+} from "@setta/app-subsystem-frontend-sdk";
 
 export type ObjectValues<T> = T[keyof T];
 type CreateOptions<T> = T extends object ? Partial<T> : T;
