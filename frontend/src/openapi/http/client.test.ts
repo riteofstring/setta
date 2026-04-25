@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rebuildBackendRequest } from "./client";
+import { rebuildBackendRequest } from "./requestRebuild";
 
 describe("rebuildBackendRequest", () => {
   it("preserves POST metadata and body while rewriting the URL", async () => {

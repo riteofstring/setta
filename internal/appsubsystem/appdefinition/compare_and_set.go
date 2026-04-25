@@ -238,23 +238,6 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, projectstate.ErrMutationMissing
 	}
 
-	currentSnapshot := s.runtime.Snapshot()
-	currentOldValue, err := readValidatedAppDefinitionSetting(
-		currentSnapshot.Document,
-		readValue,
-		settingID,
-		expectedOldValue,
-	)
-	if err != nil {
-		return currentSnapshot, projectstate.CompareAndSetResult[string]{}, err
-	}
-	if currentOldValue == requestedNewValue {
-		return currentSnapshot, projectstate.CompareAndSetResult[string]{
-			OldValue: currentOldValue,
-			NewValue: currentOldValue,
-		}, nil
-	}
-
 	var result projectstate.CompareAndSetResult[string]
 	snapshot, err := s.runtime.MutatePersistedWithContext(ctx, func(document projectstate.Document) (projectstate.PersistedMutationPlan, error) {
 		return buildCompareAndSetAppDefinitionPlan(
@@ -262,6 +245,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 			projectRoot,
 			settingID,
 			expectedOldValue,
+			requestedNewValue,
 			readValue,
 			mutate,
 			&result,
@@ -292,6 +276,7 @@ func buildCompareAndSetAppDefinitionPlan(
 	projectRoot string,
 	settingID string,
 	expectedOldValue *string,
+	requestedNewValue string,
 	readValue func(projectstate.Document) (string, error),
 	mutate func(projectstate.Document, string) (projectstate.Document, any, string, error),
 	result *projectstate.CompareAndSetResult[string],
@@ -300,6 +285,17 @@ func buildCompareAndSetAppDefinitionPlan(
 	oldValue, err := readValidatedAppDefinitionSetting(document, readValue, settingID, expectedOldValue)
 	if err != nil {
 		return projectstate.PersistedMutationPlan{}, err
+	}
+	if oldValue == requestedNewValue {
+		if result != nil {
+			*result = projectstate.CompareAndSetResult[string]{
+				OldValue: oldValue,
+				NewValue: oldValue,
+			}
+		}
+		return projectstate.PersistedMutationPlan{
+			NextDocument: document,
+		}, nil
 	}
 	nextDocument, nextAppSpec, appSpecPath, err := mutate(document.Clone(), projectRoot)
 	if err != nil {

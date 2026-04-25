@@ -1,4 +1,7 @@
-import type { AppSubsystemFrontendRegistration } from "@setta/app-subsystem-frontend-sdk";
+import {
+  configureAppSubsystemOpenAPI,
+  type AppSubsystemFrontendRegistration,
+} from "@setta/app-subsystem-frontend-sdk";
 import { AppPreview } from "./components/Pages/Project/AppPreview";
 import { AppPage } from "./components/Pages/App/AppPage";
 import { PublishAppDeploymentModal } from "./components/Modals/AppDeploymentsModal/PublishAppDeploymentModal";
@@ -27,6 +30,7 @@ import { registerAppSubsystemFrontend } from "./appSubsystemPluginHost";
 export const apiVersion = 1;
 
 export function register(host: unknown): void {
+  configureAppSubsystemOpenAPI();
   registerAppSubsystemFrontend(host, appSubsystemFrontendRegistration);
 }
 

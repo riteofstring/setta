@@ -52,6 +52,7 @@ type BackendHTTPResponse struct {
 
 type BackendListenerEndpointRequest struct {
 	Context      BackendRequestContext `json:"context"`
+	PluginID     string                `json:"-"`
 	EndpointName string                `json:"endpointName"`
 	Payload      map[string]any        `json:"payload"`
 }
@@ -262,7 +263,7 @@ func (s *Service) InvokeRegisteredListenerEndpoint(
 		return nil, false, err
 	}
 
-	match, ok, err := findRegisteredListenerEndpointMatch(snapshot.Plugins, request.EndpointName)
+	match, ok, err := findRegisteredListenerEndpointMatch(snapshot.Plugins, request)
 	if err != nil {
 		return nil, true, err
 	}
@@ -489,47 +490,100 @@ func firstRegisteredBackendRouteMethod(route PluginRegisteredBackendRoute, metho
 	return "", false
 }
 
-func findRegisteredListenerEndpointMatch(entries []DiscoveredPlugin, endpointName string) (backendListenerEndpointMatch, bool, error) {
-	normalizedName := strings.TrimSpace(endpointName)
+func findRegisteredListenerEndpointMatch(
+	entries []DiscoveredPlugin,
+	request BackendListenerEndpointRequest,
+) (backendListenerEndpointMatch, bool, error) {
+	normalizedName := strings.TrimSpace(request.EndpointName)
 	if normalizedName == "" {
 		return backendListenerEndpointMatch{}, false, fmt.Errorf("listener endpoint name is required")
 	}
+	normalizedPluginID := strings.TrimSpace(request.PluginID)
 
 	var match backendListenerEndpointMatch
 	found := false
 	for _, entry := range entries {
-		if entry.Manifest == nil {
+		endpoint, ok := findListenerEndpointInEntry(
+			entry,
+			normalizedPluginID,
+			normalizedName,
+		)
+		if !ok {
 			continue
 		}
-		if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
-			continue
-		}
-		if !containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
-			continue
-		}
-
-		for _, endpoint := range entry.RegisteredListenerEndpoints {
-			if endpoint.Name != normalizedName {
-				continue
+		if !found {
+			match = backendListenerEndpointMatch{
+				Entry:    entry,
+				Endpoint: endpoint,
 			}
-			if !found {
-				match = backendListenerEndpointMatch{
-					Entry:    entry,
-					Endpoint: endpoint,
-				}
-				found = true
-				break
-			}
-			return backendListenerEndpointMatch{}, false, newServiceError(
-				ServiceErrorCodeBackendRuntimeInvalid,
-				"Conflicting plugin listener endpoint registration for %s: %s and %s",
-				normalizedName,
-				match.Entry.PluginID,
-				entry.PluginID,
-			)
+			found = true
+			continue
 		}
+		return backendListenerEndpointMatch{}, false, newServiceError(
+			ServiceErrorCodeBackendRuntimeInvalid,
+			"Conflicting plugin listener endpoint registration for %s: %s and %s",
+			normalizedName,
+			match.Entry.PluginID,
+			entry.PluginID,
+		)
 	}
 	return match, found, nil
+}
+
+func findListenerEndpointInEntry(
+	entry DiscoveredPlugin,
+	normalizedPluginID string,
+	normalizedName string,
+) (PluginRegisteredListenerEndpoint, bool) {
+	if !listenerEndpointEntryEligible(entry, normalizedPluginID) {
+		return PluginRegisteredListenerEndpoint{}, false
+	}
+	endpoints := listenerEndpointsForRequest(entry, normalizedPluginID != "")
+	for _, endpoint := range endpoints {
+		if endpoint.Name == normalizedName {
+			return endpoint, true
+		}
+	}
+	return PluginRegisteredListenerEndpoint{}, false
+}
+
+func listenerEndpointEntryEligible(entry DiscoveredPlugin, normalizedPluginID string) bool {
+	if entry.Manifest == nil {
+		return false
+	}
+	if normalizedPluginID != "" && entry.PluginID != normalizedPluginID {
+		return false
+	}
+	switch entry.State {
+	case PluginRuntimeStateActive, PluginRuntimeStatePendingRestart:
+		return true
+	default:
+		return false
+	}
+}
+
+func listenerEndpointsForRequest(
+	entry DiscoveredPlugin,
+	pluginScoped bool,
+) []PluginRegisteredListenerEndpoint {
+	if !pluginScoped {
+		if !containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
+			return nil
+		}
+		return entry.RegisteredListenerEndpoints
+	}
+	endpoints := make(
+		[]PluginRegisteredListenerEndpoint,
+		0,
+		len(entry.RegisteredListenerEndpoints)+len(entry.appSubsystemListenerEndpoints),
+	)
+	if containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
+		endpoints = append(endpoints, entry.RegisteredListenerEndpoints...)
+	}
+	if containsString(entry.EffectiveCapabilities, "registerAppSubsystemBackend") {
+		endpoints = append(endpoints, entry.appSubsystemListenerEndpoints...)
+	}
+	return endpoints
 }
 
 func invokeGoBackendHTTP(

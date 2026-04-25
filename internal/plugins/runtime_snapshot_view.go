@@ -172,7 +172,7 @@ func (s *Service) InvokeRegisteredListenerEndpointFromSnapshot(
 		return nil, false, ErrWorkspaceRootRequired
 	}
 
-	match, ok, err := findRegisteredListenerEndpointMatch(snapshot.Plugins, request.EndpointName)
+	match, ok, err := findRegisteredListenerEndpointMatch(snapshot.Plugins, request)
 	if err != nil {
 		return nil, true, err
 	}
