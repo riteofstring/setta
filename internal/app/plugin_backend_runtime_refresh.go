@@ -34,6 +34,7 @@ type pluginBackendRuntimeRefresher struct {
 	appSubsystemCapabilities                *appSubsystemCapabilityState
 	watchCodeCapabilities                   *watchCodeCapabilityState
 	refreshAppHandler                       func() error
+	reconcileWatchCodeService               func(context.Context) error
 
 	mu sync.Mutex
 }
@@ -182,6 +183,16 @@ func (r *pluginBackendRuntimeRefresher) refreshAppHandlerLocked() error {
 		return nil
 	}
 	return r.refreshAppHandler()
+}
+
+func (r *pluginBackendRuntimeRefresher) reconcileWatchCodeServiceLocked(ctx context.Context) error {
+	if r == nil || r.reconcileWatchCodeService == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return r.reconcileWatchCodeService(ctx)
 }
 
 func (s *pluginMutationRuntimeService) rescanRuntimeToolsWithoutRestart(
@@ -669,6 +680,9 @@ func (r *pluginBackendRuntimeRefresher) commitInitializedRuntimeLocked(
 	r.lspSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
 	r.appliedLSPSpecs = cloneLanguageServerSpecs(nextLSPSpecs)
 	r.pendingLanguageServerSelectionPluginIDs = nil
+	if err := r.reconcileWatchCodeServiceLocked(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -728,6 +742,15 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 		rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime)
 		closePluginBackendRuntime(nextRuntime)
 		return errors.Join(err, rollbackErr)
+	}
+	if err := r.reconcileWatchCodeServiceLocked(ctx); err != nil {
+		capabilities.rollback()
+		r.runtime = previousRuntime
+		rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime)
+		restoreHandlerErr := r.refreshAppHandlerLocked()
+		restoreWatchErr := r.reconcileWatchCodeServiceLocked(ctx)
+		closePluginBackendRuntime(nextRuntime)
+		return errors.Join(err, rollbackErr, restoreHandlerErr, restoreWatchErr)
 	}
 	closePluginBackendRuntime(previousRuntime)
 	return nil
@@ -939,6 +962,21 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 			previousRefreshState,
 		)
 		return committedSnapshot, errors.Join(err, rollbackErr, restoreErr)
+	}
+	if err := r.reconcileWatchCodeServiceLocked(context.Background()); err != nil {
+		if r.appSubsystemCapabilities != nil {
+			r.appSubsystemCapabilities.Set(previousCapabilities)
+		}
+		if r.watchCodeCapabilities != nil {
+			r.watchCodeCapabilities.Set(previousWatchCodeCapabilities)
+		}
+		restoreHandlerErr := r.refreshAppHandlerLocked()
+		restoreWatchErr := r.reconcileWatchCodeServiceLocked(context.Background())
+		rollbackErr := r.rollbackRefreshTransitionLocked(transition)
+		restoreErr := r.service.RestoreBackendRuntimeRefreshState(
+			previousRefreshState,
+		)
+		return committedSnapshot, errors.Join(err, restoreHandlerErr, restoreWatchErr, rollbackErr, restoreErr)
 	}
 
 	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)

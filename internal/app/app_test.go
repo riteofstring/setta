@@ -8844,6 +8844,133 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 	}
 }
 
+func TestAppPluginEnableStartsWatchCodeService(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
+	writeDisabledAppPluginState(t, cfg, testAppWatchCodeProviderPluginID)
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watch.py"},
+	})
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if app.watchCodeRef.Current() != nil {
+		t.Fatal("did not expect disabled watch code provider to start the service")
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	postAppPluginLifecycle(t, app, server.URL, httpapi.RoutePluginsEnable, `{"pluginId":"`+testAppWatchCodeProviderPluginID+`"}`)
+
+	if app.watchCodeRef.Current() == nil {
+		t.Fatal("expected enabling the provider to start the watch code service")
+	}
+
+	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
+	}
+	watchFile := filepath.Join(watchDir, "watch.py")
+	if err := os.WriteFile(watchFile, []byte("def watch(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watched file: %v", err)
+	}
+
+	waitForAppWatchCodeCallable(t, app, "project-alpha", "pkg.watch.watch:function", watchFile)
+}
+
+func TestAppPluginDisableStopsWatchCodeServiceAndPreservesData(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watch.py"},
+		Folders: []projectstate.WatchCodeFolder{
+			{Path: "pkg", Recursive: true},
+		},
+	})
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if app.watchCodeRef.Current() == nil {
+		t.Fatal("expected active watch code provider to start the service")
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	postAppPluginLifecycle(t, app, server.URL, httpapi.RoutePluginsDisable, `{"pluginId":"`+testAppWatchCodeProviderPluginID+`"}`)
+
+	if app.watchCodeRef.Current() != nil {
+		t.Fatal("expected disabling the provider to stop the watch code service")
+	}
+	projectData := readAppWatchCodePluginProjectData(t, app.ProjectStates().Main().Snapshot().Document, "project-alpha")
+	if !projectData.Enabled ||
+		!reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) ||
+		!reflect.DeepEqual(projectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
+		t.Fatalf("expected disabling provider to preserve plugin data, got %#v", projectData)
+	}
+}
+
 func TestAppSetWatchCodeEnabledCoreRouteIsAbsent(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -12687,6 +12814,27 @@ func rescanAppPlugins(t *testing.T, serverURL string, cookie *http.Cookie) *http
 	return response
 }
 
+func postAppPluginLifecycle(t *testing.T, app *App, serverURL string, route string, body string) {
+	t.Helper()
+
+	request, err := http.NewRequest(http.MethodPost, serverURL+"/api"+route, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("new plugin lifecycle request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(newAppTestAuthCookie(t, app))
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post plugin lifecycle request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected plugin lifecycle 200, got %d with body %q", response.StatusCode, string(payload))
+	}
+}
+
 func postAppPluginConfig(t *testing.T, serverURL string, cookie *http.Cookie, pluginID string, config any) *http.Response {
 	t.Helper()
 
@@ -12732,6 +12880,20 @@ func writeAppPendingRestartPluginState(t *testing.T, cfg config.Config, pluginID
 	t.Helper()
 
 	writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(t, cfg, pluginIDs, pluginIDs)
+}
+
+func writeDisabledAppPluginState(t *testing.T, cfg config.Config, pluginIDs ...string) {
+	t.Helper()
+
+	pluginsStatePayload, err := json.Marshal(map[string]any{
+		"disabledPluginIds": pluginIDs,
+	})
+	if err != nil {
+		t.Fatalf("marshal disabled plugin state: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.Paths.SettaFilesRoot, "plugins_state.json"), pluginsStatePayload, 0o644); err != nil {
+		t.Fatalf("write disabled plugin state: %v", err)
+	}
 }
 
 func writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(

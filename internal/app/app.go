@@ -98,6 +98,7 @@ type App struct {
 	listeners       *realtime.ListenerBroadcaster
 	lspSync         *lsp.ProjectSynchronizer
 	watchCode       *watchcode.Service
+	watchCodeRef    *watchCodeServiceRef
 	jsonSourceWatch *jsonsourcewatch.Service
 	artifactWatch   *artifactwatch.Service
 	boundCode       *boundcode.Service
@@ -301,6 +302,7 @@ type projectServices struct {
 	pythonMaterializer       *codegen.PythonMaterializer
 	pluginMaterializer       *codegen.PluginMaterializer
 	watchCodeService         *watchcode.Service
+	watchCodeServiceRef      *watchCodeServiceRef
 	boundCodeService         *boundcode.Service
 	watchCodeWarnings        *watchCodeWarningTracker
 	codeUpdates              *codeUpdateService
@@ -326,6 +328,7 @@ func closeInitializedProjectServices(services projectServices) error {
 		services.projectStates,
 		services.deploymentRuntime,
 		services.projectLSPSyncer,
+		services.watchCodeServiceRef,
 		services.watchCodeService,
 		services.boundCodeService,
 		context.Background(),
@@ -344,6 +347,7 @@ func initializeProjectServices(
 	}
 
 	services := projectServices{}
+	services.watchCodeServiceRef = newWatchCodeServiceRef()
 	if err := initializeWorkspacePluginServices(cfg, logger, &services); err != nil {
 		return projectServices{}, err
 	}
@@ -731,7 +735,7 @@ func syncProjectAfterSaveInputs(
 	services *projectServices,
 	snapshot projectstate.Snapshot,
 ) error {
-	if services.watchCodeService != nil {
+	if services.watchCodeService != nil || services.watchCodeServiceRef != nil {
 		if err := syncWatchCodeServiceConfigs(services, snapshot.Document); err != nil {
 			return err
 		}
@@ -881,10 +885,11 @@ func initializeIDEProjectEditingServices(
 	websocketHub *realtime.WebsocketHub,
 	services *projectServices,
 ) error {
-	if services.watchCodeCapabilities != nil && services.watchCodeCapabilities.ProviderActive() {
-		if err := initializeIDEWatchCodeService(cfg, logger, websocketHub, services); err != nil {
-			return err
-		}
+	if services.watchCodeWarnings == nil {
+		services.watchCodeWarnings = newWatchCodeWarningTracker(services.watchCodeCapabilities.ActiveProviderPluginID)
+	}
+	if err := reconcileIDEWatchCodeService(context.Background(), cfg, logger, websocketHub, services); err != nil {
+		return err
 	}
 	if err := initializeIDECodeMutationServices(cfg, logger, websocketHub, services); err != nil {
 		_ = closeInitializedProjectServices(*services)
@@ -893,13 +898,49 @@ func initializeIDEProjectEditingServices(
 	return nil
 }
 
-func initializeIDEWatchCodeService(
+func reconcileIDEWatchCodeService(
+	ctx context.Context,
 	cfg config.Config,
 	logger *slog.Logger,
 	websocketHub *realtime.WebsocketHub,
 	services *projectServices,
 ) error {
-	services.watchCodeWarnings = newWatchCodeWarningTracker(services.watchCodeCapabilities.ActiveProviderPluginID)
+	if services == nil || services.watchCodeCapabilities == nil {
+		return nil
+	}
+	if services.watchCodeServiceRef == nil {
+		services.watchCodeServiceRef = newWatchCodeServiceRef()
+	}
+	if !services.watchCodeCapabilities.ProviderActive() {
+		services.watchCodeService = nil
+		return services.watchCodeServiceRef.Close()
+	}
+	currentService := services.watchCodeServiceRef.Current()
+	if currentService == nil {
+		watchCodeService, err := newIDEWatchCodeService(cfg, logger, websocketHub, services)
+		if err != nil {
+			return err
+		}
+		if err := services.watchCodeServiceRef.Replace(watchCodeService); err != nil {
+			_ = watchCodeService.Close()
+			return err
+		}
+		services.watchCodeService = watchCodeService
+	} else {
+		services.watchCodeService = currentService
+	}
+	if services.projectStates == nil {
+		return nil
+	}
+	return syncWatchCodeServiceConfigs(services, services.projectStates.Main().Snapshot().Document)
+}
+
+func newIDEWatchCodeService(
+	cfg config.Config,
+	logger *slog.Logger,
+	websocketHub *realtime.WebsocketHub,
+	services *projectServices,
+) (*watchcode.Service, error) {
 	watchCodeService, err := watchcode.NewService(watchcode.ServiceOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 		OnFileUpdate: func(ctx context.Context, update watchcode.FileUpdate) error {
@@ -970,19 +1011,13 @@ func initializeIDEWatchCodeService(
 		},
 	})
 	if err != nil {
-		_ = closeInitializedProjectServices(*services)
-		return err
+		return nil, err
 	}
-	services.watchCodeService = watchCodeService
-	if err := syncWatchCodeServiceConfigs(services, services.projectStates.Main().Snapshot().Document); err != nil {
-		_ = closeInitializedProjectServices(*services)
-		return err
-	}
-	return nil
+	return watchCodeService, nil
 }
 
 func syncWatchCodeServiceConfigs(services *projectServices, document projectstate.Document) error {
-	if services == nil || services.watchCodeService == nil {
+	if services == nil || (services.watchCodeService == nil && services.watchCodeServiceRef == nil) {
 		return nil
 	}
 	configs := map[string]watchcode.ConfigInputs{}
@@ -994,6 +1029,9 @@ func syncWatchCodeServiceConfigs(services *projectServices, document projectstat
 				return err
 			}
 		}
+	}
+	if services.watchCodeServiceRef != nil {
+		return services.watchCodeServiceRef.SyncConfigs(configs)
 	}
 	return services.watchCodeService.SyncConfigs(configs)
 }
@@ -2546,6 +2584,7 @@ func configureAppPluginRuntime(
 	logger *slog.Logger,
 	modePolicy modes.Policy,
 	projectServices projectServices,
+	websocketHub *realtime.WebsocketHub,
 	services *appPlatformServices,
 ) {
 	if !modePolicy.IsIDE() || projectServices.pluginDiscovery == nil {
@@ -2561,6 +2600,9 @@ func configureAppPluginRuntime(
 		projectSync:              projectServices.projectLSPSyncer,
 		appSubsystemCapabilities: services.appSubsystemCapabilities,
 		watchCodeCapabilities:    services.watchCodeCapabilities,
+		reconcileWatchCodeService: func(ctx context.Context) error {
+			return reconcileIDEWatchCodeService(ctx, cfg, logger, websocketHub, &projectServices)
+		},
 	}
 	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 		if services.pluginRuntime == nil {
@@ -2683,7 +2725,14 @@ func initializeAppPlatformServices(
 	); err != nil {
 		return appPlatformServices{}, err
 	}
-	configureAppPluginRuntime(cfg, logger, modePolicy, projectServices, &services)
+	configureAppPluginRuntime(
+		cfg,
+		logger,
+		modePolicy,
+		projectServices,
+		base.websocketHub,
+		&services,
+	)
 	if err := initializeAppMCPServer(
 		cfg,
 		logger,
@@ -3010,6 +3059,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		listeners:       runtimeServices.listenerBroadcaster,
 		lspSync:         projectServices.projectLSPSyncer,
 		watchCode:       projectServices.watchCodeService,
+		watchCodeRef:    projectServices.watchCodeServiceRef,
 		jsonSourceWatch: handlerServices.jsonSourceWatchService,
 		artifactWatch:   handlerServices.artifactWatchService,
 		boundCode:       projectServices.boundCodeService,
@@ -3063,7 +3113,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 		closeArtifactWatchService(a.artifactWatch),
 		closeJSONSourceWatchService(a.jsonSourceWatch),
 		closeManagedAgentRuntime(a.agentRuntime, ctx),
-		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
+		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCodeRef, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
 		closeSettingsState(a.settingsState),
 		a.pluginRuntime.Close(ctx),
@@ -3080,13 +3130,14 @@ func closeProjectStateServices(
 	projectStates *projectstate.Registry,
 	deploymentRuntime *deployments.Runtime,
 	syncer *lsp.ProjectSynchronizer,
+	watchServiceRef *watchCodeServiceRef,
 	watchService *watchcode.Service,
 	boundCodeService *boundcode.Service,
 	ctx context.Context,
 ) error {
 	return errors.Join(
 		closeBoundCodeService(boundCodeService),
-		closeWatchCodeService(watchService),
+		closeWatchCodeServiceResource(watchServiceRef, watchService),
 		closeLSPProjectSynchronizer(syncer, ctx),
 		closeProjectResources(projectStates, deploymentRuntime),
 	)
