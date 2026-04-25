@@ -56,6 +56,7 @@ def _write_minimal_distribution_project(
         "runtime_compat.py",
         "plugin_runtime/__init__.py",
         "plugin_runtime/app_subsystem.py",
+        "plugin_runtime/watch_code.py",
         "types/generated/go_shared_constants.py",
     ):
         shutil.copy2(source_package_root / relative_path, package_root / relative_path)
@@ -347,6 +348,7 @@ def _build_plugin_runtime_test_setta_wheel(tmp_path: Path) -> Path:
         "runtime_compat.py",
         "plugin_runtime/__init__.py",
         "plugin_runtime/app_subsystem.py",
+        "plugin_runtime/watch_code.py",
         "sdk_contracts/constants.py",
         "types/generated/go_shared_constants.py",
     ):
@@ -489,6 +491,9 @@ def test_minimal_distribution_project_uses_packaged_runtime_modules(
     app_subsystem_runtime = (
         project_root / "backend" / "setta" / "plugin_runtime" / "app_subsystem.py"
     )
+    watch_code_runtime = (
+        project_root / "backend" / "setta" / "plugin_runtime" / "watch_code.py"
+    )
 
     runtime_text = app_subsystem_runtime.read_text(encoding="utf-8")
     assert "local_core_command_for_listener_endpoint" in runtime_text
@@ -496,6 +501,9 @@ def test_minimal_distribution_project_uses_packaged_runtime_modules(
     assert runtime_text == (
         _repo_root() / "backend" / "setta" / "plugin_runtime" / "app_subsystem.py"
     ).read_text(encoding="utf-8")
+    assert "LOCAL_CORE_COMMAND_WATCH_CODE_SET_ENABLED" in watch_code_runtime.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_pyproject_defaults_extra_installs_first_party_plugins() -> None:
@@ -1300,6 +1308,7 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/sdk_contracts/constants.py",
         "setta/plugin_runtime/__init__.py",
         "setta/plugin_runtime/app_subsystem.py",
+        "setta/plugin_runtime/watch_code.py",
         "setta/types/generated/go_shared_constants.py",
         "setta/agentic/external_adapters/sidecars/claude_sdk_runner.py",
         "setta/agentic/external_adapters/sidecars/package.json",

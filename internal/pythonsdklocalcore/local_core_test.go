@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -277,6 +278,259 @@ func TestRunAppDefinitionPlanningUsesPayloadDocumentInsteadOfPersistedDisk(t *te
 	}
 }
 
+func TestRunWatchCodeGetProjectDataIgnoresOldTopLevelFields(t *testing.T) {
+	t.Helper()
+
+	_, settaFilesRoot := seedWatchCodeLocalCoreProjectStore(t)
+	storePath := filepath.Join(settaFilesRoot, projectstate.MainFileName)
+	payload := map[string]any{}
+	if err := json.Unmarshal(mustReadFile(t, storePath), &payload); err != nil {
+		t.Fatalf("decode seeded project store: %v", err)
+	}
+	payload["watchCodeEnabled"] = true
+	payload["watchCodeFiles"] = []string{"old.py"}
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("encode legacy-shaped project store: %v", err)
+	}
+	if err := os.WriteFile(storePath, append(encoded, '\n'), 0o644); err != nil {
+		t.Fatalf("write legacy-shaped project store: %v", err)
+	}
+
+	result := runLocalCoreCommand(t, "call-watch-data", CommandWatchCodeGetProjectData, map[string]any{
+		"settaFilesRoot":   settaFilesRoot,
+		"pluginId":         watchCodeLocalCoreProviderID,
+		"projectConfigId":  "project-alpha",
+		"watchCodeEnabled": true,
+	})
+	if result.OK {
+		t.Fatal("expected unknown local-core payload field to fail loudly")
+	}
+	if got := localCoreErrorCode(result); got != "invalid_request" {
+		t.Fatalf("expected invalid_request for unknown payload field, got %q", got)
+	}
+
+	result = runLocalCoreCommand(t, "call-watch-data", CommandWatchCodeGetProjectData, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"pluginId":        watchCodeLocalCoreProviderID,
+		"projectConfigId": "project-alpha",
+	})
+	if !result.OK {
+		t.Fatalf("expected ok result, got error %v details %#v", result.Error, result.Details)
+	}
+	projectData := decodeLocalCoreCommandResult[projectstate.WatchCodePluginProjectData](t, result)
+	if projectData.Enabled || len(projectData.Files) != 0 || len(projectData.Folders) != 0 {
+		t.Fatalf("expected old top-level watch code fields to be ignored, got %#v", projectData)
+	}
+}
+
+func TestRunWatchCodeSetEnabledPersistsProviderPluginData(t *testing.T) {
+	t.Helper()
+
+	workspaceRoot, settaFilesRoot := seedWatchCodeLocalCoreProjectStore(t)
+
+	result := runLocalCoreCommand(t, "call-watch-enabled", CommandWatchCodeSetEnabled, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"workspaceRoot":   workspaceRoot,
+		"pluginId":        watchCodeLocalCoreProviderID,
+		"projectConfigId": "project-alpha",
+		"enabled":         true,
+	})
+	if !result.OK {
+		t.Fatalf("expected ok result, got error %v details %#v", result.Error, result.Details)
+	}
+	projectData := decodeLocalCoreCommandResult[projectstate.WatchCodePluginProjectData](t, result)
+	if !projectData.Enabled {
+		t.Fatalf("expected result to enable watch code, got %#v", projectData)
+	}
+
+	document := loadWatchCodeLocalCoreDocument(t, settaFilesRoot)
+	persisted, existed, err := document.WatchCodePluginProjectData(watchCodeLocalCoreProviderID, "project-alpha")
+	if err != nil {
+		t.Fatalf("read persisted watch code project data: %v", err)
+	}
+	if !existed || !persisted.Enabled {
+		t.Fatalf("expected provider-keyed persisted plugin data, existed=%v data=%#v", existed, persisted)
+	}
+	if _, exists := document.PluginData["setta-watch-code"]; exists {
+		t.Fatal("local-core command wrote first-party watch code plugin id instead of the caller provider id")
+	}
+}
+
+func TestRunWatchCodeSetInputsNormalizesAndRejectsWorkspaceEscapes(t *testing.T) {
+	t.Helper()
+
+	workspaceRoot, settaFilesRoot := seedWatchCodeLocalCoreProjectStore(t)
+
+	result := runLocalCoreCommand(t, "call-watch-inputs", CommandWatchCodeSetInputs, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"workspaceRoot":   workspaceRoot,
+		"pluginId":        watchCodeLocalCoreProviderID,
+		"projectConfigId": "project-alpha",
+		"watchCodeFolders": []map[string]any{
+			{"path": " pkg/../pkg ", "recursive": true},
+			{"path": "pkg", "recursive": true},
+		},
+		"watchCodeFiles": []string{"pkg/file.py", "pkg/./file.py"},
+	})
+	if !result.OK {
+		t.Fatalf("expected ok result, got error %v details %#v", result.Error, result.Details)
+	}
+	projectData := decodeLocalCoreCommandResult[projectstate.WatchCodePluginProjectData](t, result)
+	if len(projectData.Folders) != 1 ||
+		projectData.Folders[0] != (projectstate.WatchCodeFolder{Path: "pkg", Recursive: true}) {
+		t.Fatalf("expected normalized unique folder input, got %#v", projectData.Folders)
+	}
+	if len(projectData.Files) != 1 || projectData.Files[0] != "pkg/file.py" {
+		t.Fatalf("expected normalized unique file input, got %#v", projectData.Files)
+	}
+
+	result = runLocalCoreCommand(t, "call-watch-inputs-invalid", CommandWatchCodeSetInputs, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"workspaceRoot":   workspaceRoot,
+		"pluginId":        watchCodeLocalCoreProviderID,
+		"projectConfigId": "project-alpha",
+		"watchCodeFolders": []map[string]any{
+			{"path": "../outside", "recursive": false},
+		},
+		"watchCodeFiles": []string{},
+	})
+	if result.OK {
+		t.Fatal("expected workspace escape to fail")
+	}
+	if got := localCoreErrorCode(result); got != "invalid_watch_code_input" {
+		t.Fatalf("expected invalid_watch_code_input, got %q", got)
+	}
+}
+
+func TestRunWatchCodeReadAndWriteSettingCommands(t *testing.T) {
+	t.Helper()
+
+	workspaceRoot, settaFilesRoot := seedWatchCodeLocalCoreProjectStore(t)
+
+	writeResult := runLocalCoreCommand(t, "call-watch-write-enabled", CommandWatchCodeWriteSetting, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"workspaceRoot":   workspaceRoot,
+		"pluginId":        watchCodeLocalCoreProviderID,
+		"projectConfigId": "project-alpha",
+		"settingId":       "enabled",
+		"value":           true,
+	})
+	if !writeResult.OK {
+		t.Fatalf("expected enabled write ok, got error %v details %#v", writeResult.Error, writeResult.Details)
+	}
+	if got := decodeLocalCoreCommandResult[bool](t, writeResult); !got {
+		t.Fatalf("expected enabled write result true, got %v", got)
+	}
+
+	writeResult = runLocalCoreCommand(t, "call-watch-write-files", CommandWatchCodeWriteSetting, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"workspaceRoot":   workspaceRoot,
+		"pluginId":        watchCodeLocalCoreProviderID,
+		"projectConfigId": "project-alpha",
+		"settingId":       "files",
+		"value":           []string{"pkg/file.py"},
+	})
+	if !writeResult.OK {
+		t.Fatalf("expected files write ok, got error %v details %#v", writeResult.Error, writeResult.Details)
+	}
+
+	readResult := runLocalCoreCommand(t, "call-watch-read-files", CommandWatchCodeReadSetting, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"pluginId":        watchCodeLocalCoreProviderID,
+		"projectConfigId": "project-alpha",
+		"settingId":       "files",
+	})
+	if !readResult.OK {
+		t.Fatalf("expected files read ok, got error %v details %#v", readResult.Error, readResult.Details)
+	}
+	files := decodeLocalCoreCommandResult[[]string](t, readResult)
+	if len(files) != 1 || files[0] != "pkg/file.py" {
+		t.Fatalf("expected files setting to round trip, got %#v", files)
+	}
+
+	writeResult = runLocalCoreCommand(t, "call-watch-write-folder-extra", CommandWatchCodeWriteSetting, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"workspaceRoot":   workspaceRoot,
+		"pluginId":        watchCodeLocalCoreProviderID,
+		"projectConfigId": "project-alpha",
+		"settingId":       "folders",
+		"value": []map[string]any{
+			{"path": "pkg", "recursive": true, "extra": "rejected"},
+		},
+	})
+	if writeResult.OK {
+		t.Fatal("expected unsupported folder property to fail")
+	}
+	if got := localCoreErrorCode(writeResult); got != "invalid_watch_code_input" {
+		t.Fatalf("expected invalid_watch_code_input, got %q", got)
+	}
+}
+
+func TestRunWatchCodeCommandsRejectRequiredFields(t *testing.T) {
+	t.Helper()
+
+	workspaceRoot, settaFilesRoot := seedWatchCodeLocalCoreProjectStore(t)
+	testCases := []struct {
+		name    string
+		payload map[string]any
+		code    string
+	}{
+		{
+			name: "missing plugin id",
+			payload: map[string]any{
+				"settaFilesRoot":  settaFilesRoot,
+				"workspaceRoot":   workspaceRoot,
+				"projectConfigId": "project-alpha",
+				"enabled":         true,
+			},
+			code: "watch_code_provider_required",
+		},
+		{
+			name: "missing project config id",
+			payload: map[string]any{
+				"settaFilesRoot": settaFilesRoot,
+				"workspaceRoot":  workspaceRoot,
+				"pluginId":       watchCodeLocalCoreProviderID,
+				"enabled":        true,
+			},
+			code: "project_config_id_required",
+		},
+		{
+			name: "missing workspace root for mutation",
+			payload: map[string]any{
+				"settaFilesRoot":  settaFilesRoot,
+				"pluginId":        watchCodeLocalCoreProviderID,
+				"projectConfigId": "project-alpha",
+				"enabled":         true,
+			},
+			code: "invalid_watch_code_input",
+		},
+		{
+			name: "unknown project config id",
+			payload: map[string]any{
+				"settaFilesRoot":  settaFilesRoot,
+				"workspaceRoot":   workspaceRoot,
+				"pluginId":        watchCodeLocalCoreProviderID,
+				"projectConfigId": "missing-project",
+				"enabled":         true,
+			},
+			code: "project_config_not_found",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			result := runLocalCoreCommand(t, "call-watch-required", CommandWatchCodeSetEnabled, testCase.payload)
+			if result.OK {
+				t.Fatal("expected command to fail")
+			}
+			if got := localCoreErrorCode(result); got != testCase.code {
+				t.Fatalf("expected error code %q, got %q (error %v)", testCase.code, got, result.Error)
+			}
+		})
+	}
+}
+
 func runLocalCoreCommand(
 	t *testing.T,
 	callID string,
@@ -329,4 +583,77 @@ func decodeLocalCoreCommandResult[T any](
 		t.Fatalf("decode typed local core result: %v", err)
 	}
 	return typedResult
+}
+
+const watchCodeLocalCoreProviderID = "setta-fixture-watch-code-provider"
+
+func seedWatchCodeLocalCoreProjectStore(t *testing.T) (string, string) {
+	t.Helper()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	if err := os.MkdirAll(settaFilesRoot, 0o755); err != nil {
+		t.Fatalf("create setta files root: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "pkg"), 0o755); err != nil {
+		t.Fatalf("create package dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "pkg", "file.py"), []byte("def watched():\n    return 1\n"), 0o644); err != nil {
+		t.Fatalf("write watched file: %v", err)
+	}
+
+	store, err := projectstate.NewStore(
+		filepath.Join(settaFilesRoot, projectstate.MainFileName),
+		projectstate.StoreOptions{},
+	)
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	document := projectstate.NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects = map[string]projectstate.Project{
+		"project-alpha": {
+			ID:   "project-alpha",
+			Name: "Alpha",
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save project store: %v", err)
+	}
+	return workspaceRoot, settaFilesRoot
+}
+
+func loadWatchCodeLocalCoreDocument(t *testing.T, settaFilesRoot string) projectstate.Document {
+	t.Helper()
+
+	store, err := projectstate.NewStore(
+		filepath.Join(settaFilesRoot, projectstate.MainFileName),
+		projectstate.StoreOptions{},
+	)
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load project store: %v", err)
+	}
+	return document
+}
+
+func mustReadFile(t *testing.T, path string) []byte {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return content
+}
+
+func localCoreErrorCode(result pythonsdkcontracts.LocalCoreResultEnvelope) string {
+	if result.Details == nil {
+		return ""
+	}
+	code, _ := result.Details["code"].(string)
+	return code
 }
