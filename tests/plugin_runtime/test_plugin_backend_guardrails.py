@@ -98,10 +98,30 @@ def test_app_subsystem_backend_entrypoints_advertise_real_probe_contract() -> No
         payload = json.loads(result.stdout)
 
         assert {
-            item["name"]
-            for item in payload["appSubsystemBackend"]["listenerEndpoints"]
+            item["name"] for item in payload["appSubsystemBackend"]["listenerEndpoints"]
         } == expected_listener_endpoints
         assert payload["appSubsystemBackend"]["contractVersion"] == (
             APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION
         )
         assert payload["listenerEndpoints"] == []
+
+
+def test_app_subsystem_backend_entrypoints_delegate_to_packaged_runtime_dispatcher() -> (
+    None
+):
+    forbidden_snippets = (
+        "run_local_core_command",
+        "local_core_command_for_listener_endpoint",
+        "listener_endpoint_names",
+        "APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION",
+    )
+
+    for entrypoint in APP_SUBSYSTEM_BACKEND_ENTRYPOINTS:
+        source = entrypoint.read_text(encoding="utf-8")
+
+        assert "run_app_subsystem_backend" in source
+        for snippet in forbidden_snippets:
+            assert snippet not in source, (
+                f"{entrypoint.relative_to(REPO_ROOT)} must delegate app-subsystem "
+                f"backend dispatch instead of copying {snippet}"
+            )

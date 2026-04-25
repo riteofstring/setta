@@ -546,6 +546,7 @@ func installAppFixturePlugin(t *testing.T, cfg config.Config, fixtureName string
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
 	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", unknownAppSubsystemPluginID)
 	copyAppTestDir(t, sourceRoot, targetRoot)
+	materializeAppRuntimeManagedPluginFrontendAssets(t, targetRoot)
 }
 
 func installAppPackageManagerPlugin(t *testing.T, sitePackages string, pluginID string) {
@@ -620,6 +621,7 @@ func installAppPackageManagerFixturePlugin(t *testing.T, sitePackages string, fi
 	repoRoot := appTestRepoRoot(t)
 	pluginRoot := filepath.Join(sitePackages, unknownAppSubsystemPluginID)
 	copyAppTestDir(t, filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName), pluginRoot)
+	materializeAppPackageManagerFixtureFrontendAssets(t, pluginRoot)
 
 	distInfoName := strings.ReplaceAll(unknownAppSubsystemPluginID, "-", "_") + "-0.1.0.dist-info"
 	distInfoRoot := filepath.Join(sitePackages, distInfoName)
@@ -653,6 +655,25 @@ func installAppPackageManagerFixturePlugin(t *testing.T, sitePackages string, fi
 	}
 	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
 	writeAppPackageManagerFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
+}
+
+func materializeAppPackageManagerFixtureFrontendAssets(t *testing.T, pluginRoot string) {
+	t.Helper()
+
+	materializeAppRuntimeManagedPluginFrontendAssets(t, pluginRoot)
+	for _, relativePath := range []string{
+		"build_backend.py",
+		filepath.Join("frontend", "node_modules"),
+		filepath.Join("frontend", "package.json"),
+		filepath.Join("frontend", "scripts"),
+		filepath.Join("frontend", "src"),
+		filepath.Join("frontend", "pnpm-lock.yaml"),
+		"pyproject.toml",
+	} {
+		if err := os.RemoveAll(filepath.Join(pluginRoot, relativePath)); err != nil {
+			t.Fatalf("remove package-manager app fixture build input %s: %v", relativePath, err)
+		}
+	}
 }
 
 func appendAppPythonPath(path string) string {

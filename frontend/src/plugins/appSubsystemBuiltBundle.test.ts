@@ -200,7 +200,7 @@ describe("app subsystem built plugin bundle", () => {
     const pluginId = "acme-app-subsystem-fixture";
     const modulePath = resolve(
       process.cwd(),
-      "../tests/fixtures/plugins/app-subsystem-unknown-id/frontend/dist/index.js",
+      "../tests/fixtures/plugins/app-subsystem-unknown-id/frontend/src/index.js",
     );
     const moduleUrl =
       "data:text/javascript," +

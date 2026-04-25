@@ -86,8 +86,7 @@ def _write_minimal_distribution_project(
             encoding="utf-8",
         )
         (package_root / "runtime_compat.py").write_text(
-            "class RuntimeCompatibilityError(RuntimeError):\n"
-            "    pass\n",
+            "class RuntimeCompatibilityError(RuntimeError):\n    pass\n",
             encoding="utf-8",
         )
         (package_root / "sdk_contracts" / "constants.py").write_text(
@@ -99,6 +98,7 @@ def _write_minimal_distribution_project(
             "    APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION,\n"
             "    listener_endpoint_names,\n"
             "    local_core_command_for_listener_endpoint,\n"
+            "    run_app_subsystem_backend,\n"
             ")\n"
             "from setta.plugin_runtime.local_core import (\n"
             "    LocalCoreCommandError,\n"
@@ -112,6 +112,9 @@ def _write_minimal_distribution_project(
             "    return ()\n\n"
             "def local_core_command_for_listener_endpoint(endpoint_name: str) -> str:\n"
             "    raise KeyError(endpoint_name)\n",
+            "\n"
+            "def run_app_subsystem_backend(entrypoint_file: str) -> None:\n"
+            "    return None\n",
             encoding="utf-8",
         )
         (package_root / "plugin_runtime" / "local_core.py").write_text(
@@ -130,7 +133,9 @@ def _write_minimal_distribution_project(
         encoding="utf-8",
     )
     (package_root / "server.py").write_text("app = object()\n", encoding="utf-8")
-    (package_root / "start.py").write_text("def cli() -> None:\n    return None\n", encoding="utf-8")
+    (package_root / "start.py").write_text(
+        "def cli() -> None:\n    return None\n", encoding="utf-8"
+    )
     (package_root / "launcher_setup.py").write_text(
         "def setup() -> None:\n    return None\n",
         encoding="utf-8",
@@ -211,9 +216,19 @@ def _build_sdist(project_root: Path, outdir: Path) -> subprocess.CompletedProces
     )
 
 
-def _install_editable(project_root: Path, venv_python: Path) -> subprocess.CompletedProcess[str]:
+def _install_editable(
+    project_root: Path, venv_python: Path
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [str(venv_python), "-m", "pip", "install", "--no-deps", "-e", str(project_root)],
+        [
+            str(venv_python),
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "-e",
+            str(project_root),
+        ],
         cwd=project_root,
         capture_output=True,
         text=True,
@@ -262,6 +277,18 @@ def _stage_first_party_app_subsystem_plugin_source(
     shutil.rmtree(plugin_root / "build", ignore_errors=True)
     if remove_dist:
         shutil.rmtree(frontend_root / "dist", ignore_errors=True)
+    shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
+    return plugin_root
+
+
+def _stage_unknown_id_app_subsystem_plugin_source(tmp_path: Path) -> Path:
+    source_root = (
+        _repo_root() / "tests" / "fixtures" / "plugins" / "app-subsystem-unknown-id"
+    )
+    plugin_root = tmp_path / "app-subsystem-unknown-id"
+    frontend_root = plugin_root / "frontend"
+    shutil.copytree(source_root, plugin_root)
+    shutil.rmtree(frontend_root / "dist", ignore_errors=True)
     shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
     return plugin_root
 
@@ -315,7 +342,9 @@ def _build_plugin_runtime_test_setta_wheel(tmp_path: Path) -> Path:
         source_path = _repo_root() / "backend" / "setta" / relative_path
         target_path = package_root / relative_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
+        target_path.write_text(
+            source_path.read_text(encoding="utf-8"), encoding="utf-8"
+        )
     for relative_path in (
         "sdk_contracts/__init__.py",
         "types/__init__.py",
@@ -436,7 +465,9 @@ def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) 
 
 
 def test_pyproject_defaults_extra_installs_basedpyright_plugin() -> None:
-    pyproject = tomllib.loads((_repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads(
+        (_repo_root() / "pyproject.toml").read_text(encoding="utf-8")
+    )
 
     optional_dependencies = pyproject["project"]["optional-dependencies"]
     assert optional_dependencies["defaults"] == ["setta-basedpyright==0.1.0"]
@@ -452,20 +483,17 @@ def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() 
     assert plugin_pyproject["project"]["dependencies"] == ["basedpyright==1.25.0"]
 
 
-def test_first_party_app_subsystem_plugin_package_declares_setta_runtime_dependency() -> None:
+def test_first_party_app_subsystem_plugin_package_declares_setta_runtime_dependency() -> (
+    None
+):
     plugin_pyproject = tomllib.loads(
         (
-            _repo_root()
-            / "plugins"
-            / "setta-json-render-app-gen"
-            / "pyproject.toml"
+            _repo_root() / "plugins" / "setta-json-render-app-gen" / "pyproject.toml"
         ).read_text(encoding="utf-8")
     )
 
     expected_version = _read_setta_package_version()
-    assert plugin_pyproject["project"]["dependencies"] == [
-        f"setta=={expected_version}"
-    ]
+    assert plugin_pyproject["project"]["dependencies"] == [f"setta=={expected_version}"]
 
 
 def test_first_party_app_subsystem_plugin_wheel_declares_setta_runtime_dependency(
@@ -476,7 +504,9 @@ def test_first_party_app_subsystem_plugin_wheel_declares_setta_runtime_dependenc
 
     with zipfile.ZipFile(wheel_path) as wheel_archive:
         metadata_name = next(
-            name for name in wheel_archive.namelist() if name.endswith(".dist-info/METADATA")
+            name
+            for name in wheel_archive.namelist()
+            if name.endswith(".dist-info/METADATA")
         )
         metadata = wheel_archive.read(metadata_name).decode("utf-8")
 
@@ -549,7 +579,9 @@ def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
 
     assert any(name.endswith("setta-basedpyright/backend/main.py") for name in names)
     assert not any(name.endswith("backend/main.go") for name in names)
-    assert any(name.endswith("setta-basedpyright/content/config/schema.json") for name in names)
+    assert any(
+        name.endswith("setta-basedpyright/content/config/schema.json") for name in names
+    )
     assert any(name.endswith("setta-basedpyright/setta.plugin.json") for name in names)
 
 
@@ -597,8 +629,7 @@ def test_first_party_app_subsystem_plugin_wheel_packages_runtime_managed_assets(
         names = set(wheel_archive.namelist())
 
     assert any(
-        name.endswith("setta-json-render-app-gen/setta.plugin.json")
-        for name in names
+        name.endswith("setta-json-render-app-gen/setta.plugin.json") for name in names
     )
     assert any(name.endswith("setta-json-render-app-gen/README.md") for name in names)
     assert any(
@@ -726,6 +757,40 @@ def test_first_party_app_subsystem_plugin_wheel_build_installs_dependencies_when
     assert len(wheel_paths) == 1
 
 
+def test_unknown_id_app_subsystem_plugin_frontend_builds_from_staged_source_tree(
+    tmp_path: Path,
+) -> None:
+    plugin_root = _stage_unknown_id_app_subsystem_plugin_source(tmp_path)
+    assert not (plugin_root / "frontend" / "dist" / "index.js").exists()
+
+    outdir = tmp_path / "dist"
+    result = _build_wheel(plugin_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("acme_app_subsystem_fixture-*.whl"))
+    assert len(wheel_paths) == 1
+    with zipfile.ZipFile(wheel_paths[0]) as wheel_archive:
+        names = set(wheel_archive.namelist())
+
+    assert any(
+        name.endswith("acme-app-subsystem-fixture/frontend/dist/index.js")
+        for name in names
+    )
+    assert any(
+        name.endswith("acme-app-subsystem-fixture/frontend/dist/index.css")
+        for name in names
+    )
+    assert not any(
+        name.endswith("acme-app-subsystem-fixture/frontend/package.json")
+        for name in names
+    )
+    assert not any(
+        name.endswith("acme-app-subsystem-fixture/frontend/src/index.js")
+        for name in names
+    )
+
+
 def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root(
     tmp_path: Path,
 ) -> None:
@@ -749,9 +814,7 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     assert (installed_plugin_root / "frontend" / "dist" / "index.css").is_file()
     assert not (installed_plugin_root / "frontend" / "package.json").exists()
 
-    record_path = (
-        site_packages / "setta_json_render_app_gen-0.1.0.dist-info" / "RECORD"
-    )
+    record_path = site_packages / "setta_json_render_app_gen-0.1.0.dist-info" / "RECORD"
     record_text = record_path.read_text(encoding="utf-8")
     assert "setta-json-render-app-gen/setta.plugin.json" in record_text
     assert "setta-json-render-app-gen/README.md" in record_text
@@ -822,11 +885,7 @@ def test_first_party_app_subsystem_plugin_installed_frontend_bundle_imports_with
     ).strip()
 
     installed_bundle = (
-        site_packages
-        / "setta-json-render-app-gen"
-        / "frontend"
-        / "dist"
-        / "index.js"
+        site_packages / "setta-json-render-app-gen" / "frontend" / "dist" / "index.js"
     )
     bundle_text = installed_bundle.read_text(encoding="utf-8")
     assert "frontend/node_modules" not in bundle_text
@@ -1127,18 +1186,12 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     requires_lines = {
         line for line in metadata.splitlines() if line.startswith("Requires-Dist:")
     }
-    default_requires = {
-        line for line in requires_lines if "extra ==" not in line
-    }
+    default_requires = {line for line in requires_lines if "extra ==" not in line}
     defaults_requires = {
         line for line in requires_lines if "extra == 'defaults'" in line
     }
-    source_requires = {
-        line for line in requires_lines if "extra == 'source'" in line
-    }
-    dev_requires = {
-        line for line in requires_lines if "extra == 'dev'" in line
-    }
+    source_requires = {line for line in requires_lines if "extra == 'source'" in line}
+    dev_requires = {line for line in requires_lines if "extra == 'dev'" in line}
 
     assert default_requires == {
         "Requires-Dist: claude-agent-sdk==0.1.52",

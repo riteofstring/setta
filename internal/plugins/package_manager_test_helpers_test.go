@@ -39,6 +39,7 @@ func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string,
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
 	pluginRoot := filepath.Join(sitePackages, packageManagerFixturePluginRootName(t, sourceRoot))
 	copyBackendCodegenFixtureDir(t, sourceRoot, pluginRoot)
+	materializePackageManagerFixtureFrontendAssets(t, pluginRoot)
 	if mutate != nil {
 		mutate(pluginRoot)
 	}
@@ -79,6 +80,34 @@ func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string,
 	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
 	return pluginRoot
+}
+
+func materializePackageManagerFixtureFrontendAssets(t *testing.T, pluginRoot string) {
+	t.Helper()
+
+	manifest, err := loadPluginManifestFile(filepath.Join(pluginRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load package-manager fixture manifest: %v", err)
+	}
+	if manifest.Frontend == nil || manifest.Frontend.Build == nil {
+		return
+	}
+	if err := EnsureRuntimeManagedPluginFrontendAssetsForRoot(pluginRoot); err != nil {
+		t.Fatalf("materialize package-manager fixture frontend assets: %v", err)
+	}
+	for _, relativePath := range []string{
+		"build_backend.py",
+		filepath.Join("frontend", "node_modules"),
+		filepath.Join("frontend", "package.json"),
+		filepath.Join("frontend", "scripts"),
+		filepath.Join("frontend", "src"),
+		filepath.Join("frontend", "pnpm-lock.yaml"),
+		"pyproject.toml",
+	} {
+		if err := os.RemoveAll(filepath.Join(pluginRoot, relativePath)); err != nil {
+			t.Fatalf("remove package-manager fixture build input %s: %v", relativePath, err)
+		}
+	}
 }
 
 func installFirstPartyBasedpyrightPackageManagerPluginInSearchPath(t *testing.T, sitePackages string) string {

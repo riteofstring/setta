@@ -120,6 +120,18 @@ describe("app plugin frontend build boundary guardrails", () => {
     }
   });
 
+  it("rejects host binary-download transport shims", () => {
+    expect(
+      existsSync(resolve(repoRoot, "frontend/src/utils/backendTransport.ts")),
+    ).toBe(false);
+    expect(
+      readHostFrontendFile("src/utils/transportRouteConstants.ts"),
+    ).not.toContain("buildBinaryDownloadRoute");
+    expect(readSourceSdkFile("src/transportRouteConstants.ts")).toContain(
+      "buildBinaryDownloadRoute",
+    );
+  });
+
   it("publishes standalone SDK types instead of source-file types", () => {
     const sdkPackageJson = JSON.parse(
       readPluginFrontendFile("vendor/app-subsystem-frontend-sdk/package.json"),

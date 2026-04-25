@@ -164,6 +164,31 @@ func TestEnsureRuntimeManagedPluginFrontendAssetsBuildsGenericSourcePlugin(
 	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
 }
 
+func TestEnsureRuntimeManagedPluginFrontendAssetsBuildsUnknownIDFixtureFromSource(
+	t *testing.T,
+) {
+	sourceRoot := stageUnknownIDAppSubsystemPluginSource(t)
+	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load unknown-id plugin manifest: %v", err)
+	}
+	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, packageManager string, args []string) error {
+		if packageManager != pluginFrontendBuildPackageManagerPNPM {
+			t.Fatalf("expected pnpm package manager, got %q", packageManager)
+		}
+		if reflect.DeepEqual(args, []string{"run", "build"}) {
+			writeRuntimeManagedFrontendBuildOutputs(t, frontendRoot)
+		}
+		return nil
+	})
+
+	if err := ensureRuntimeManagedPluginFrontendAssets(sourceRoot, manifest, runtimeManagedFrontendSourceBuild); err != nil {
+		t.Fatalf("build runtime-managed frontend assets for unknown-id source plugin: %v", err)
+	}
+
+	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
+}
+
 func TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON(
 	t *testing.T,
 ) {
@@ -355,6 +380,22 @@ func stageFirstPartyAppSubsystemPluginSource(t *testing.T) string {
 	)
 	if err := os.RemoveAll(filepath.Join(stagingRoot, "frontend", "dist")); err != nil {
 		t.Fatalf("remove staged frontend dist: %v", err)
+	}
+	return stagingRoot
+}
+
+func stageUnknownIDAppSubsystemPluginSource(t *testing.T) string {
+	t.Helper()
+
+	repoRoot := workerRPCTestRepoRoot(t)
+	stagingRoot := filepath.Join(t.TempDir(), "app-subsystem-unknown-id")
+	copyBackendCodegenFixtureDir(
+		t,
+		filepath.Join(repoRoot, "tests", "fixtures", "plugins", "app-subsystem-unknown-id"),
+		stagingRoot,
+	)
+	if err := os.RemoveAll(filepath.Join(stagingRoot, "frontend", "dist")); err != nil {
+		t.Fatalf("remove staged unknown-id frontend dist: %v", err)
 	}
 	return stagingRoot
 }
