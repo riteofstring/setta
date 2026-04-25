@@ -8971,6 +8971,114 @@ func TestAppPluginDisableStopsWatchCodeServiceAndPreservesData(t *testing.T) {
 	}
 }
 
+func TestAppPluginUninstallStopsWatchCodeServiceAndPreservesData(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watch.py"},
+		Folders: []projectstate.WatchCodeFolder{
+			{Path: "pkg", Recursive: true},
+		},
+	})
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if app.watchCodeRef.Current() == nil {
+		t.Fatal("expected active watch code provider to start the service")
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	authCookie := newAppTestAuthCookie(t, app)
+	postAppPluginLifecycle(t, app, server.URL, httpapi.RoutePluginsUninstall, `{"pluginId":"`+testAppWatchCodeProviderPluginID+`","scope":"workspace"}`)
+
+	if app.watchCodeRef.Current() != nil {
+		t.Fatal("expected uninstalling the provider to stop the watch code service")
+	}
+	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request after watch code provider uninstall: %v", err)
+	}
+	runtimeRequest.AddCookie(authCookie)
+	runtimeHTTPResponse, err := http.DefaultClient.Do(runtimeRequest)
+	if err != nil {
+		t.Fatalf("get plugin runtime after watch code provider uninstall: %v", err)
+	}
+	defer runtimeHTTPResponse.Body.Close()
+	if runtimeHTTPResponse.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(runtimeHTTPResponse.Body)
+		t.Fatalf("expected plugin runtime 200 after watch code provider uninstall, got %d with body %q", runtimeHTTPResponse.StatusCode, string(payload))
+	}
+	var runtimeResponse plugins.PluginRuntimeResponse
+	if err := json.NewDecoder(runtimeHTTPResponse.Body).Decode(&runtimeResponse); err != nil {
+		t.Fatalf("decode plugin runtime after watch code provider uninstall: %v", err)
+	}
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected uninstalled watch code provider to be unavailable, got %#v", watchCode)
+	}
+	if watchCode.ProviderSelection == nil ||
+		watchCode.ProviderSelection.Status != plugins.PluginWatchCodeProviderSelectionStatusNoProvider {
+		t.Fatalf("expected no watch code provider selection after uninstall, got %#v", watchCode.ProviderSelection)
+	}
+	backendRouteRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api/plugins/"+testAppWatchCodeProviderPluginID+"/watch-code/enabled",
+		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":false}`),
+	)
+	if err != nil {
+		t.Fatalf("new watch code backend route request after uninstall: %v", err)
+	}
+	backendRouteRequest.Header.Set("Content-Type", "application/json")
+	backendRouteRequest.AddCookie(authCookie)
+	backendRouteResponse, err := http.DefaultClient.Do(backendRouteRequest)
+	if err != nil {
+		t.Fatalf("post watch code backend route after uninstall: %v", err)
+	}
+	defer backendRouteResponse.Body.Close()
+	if backendRouteResponse.StatusCode != http.StatusNotFound {
+		payload, _ := io.ReadAll(backendRouteResponse.Body)
+		t.Fatalf("expected watch code backend route to disappear after uninstall, got %d with body %q", backendRouteResponse.StatusCode, string(payload))
+	}
+	projectData := readAppWatchCodePluginProjectData(t, app.ProjectStates().Main().Snapshot().Document, "project-alpha")
+	if !projectData.Enabled ||
+		!reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) ||
+		!reflect.DeepEqual(projectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
+		t.Fatalf("expected uninstalling provider to preserve plugin data, got %#v", projectData)
+	}
+}
+
 func TestAppSetWatchCodeEnabledCoreRouteIsAbsent(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
