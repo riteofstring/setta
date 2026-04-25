@@ -2792,6 +2792,7 @@ export type PluginsPluginErrorInfo = {
 
 export type PluginsPluginFeatureCapabilities = {
   appSubsystem: PluginsPluginAppSubsystemCapabilities;
+  watchCode: PluginsPluginWatchCodeCapabilities;
 };
 
 export type PluginsPluginFrontendDescriptor = {
@@ -2947,6 +2948,7 @@ export type PluginsPluginStatusResponse = {
   restartCapability: PluginsPluginRestartCapability;
   schemaVersion: number;
   serverMode: string;
+  watchCodeSelection?: PluginsPluginWatchCodeProviderSelection;
 };
 
 export type PluginsPluginUninstallResponse = {
@@ -2961,6 +2963,24 @@ export type PluginsPluginUpdateResponse = {
   restartRequired: boolean;
   sourceDigestSha256: string | null;
   toVersion: string;
+};
+
+export type PluginsPluginWatchCodeCapabilities = {
+  canvasControlsUi: boolean;
+  pluginEnabled: boolean;
+  pluginId: string;
+  providerSelection?: PluginsPluginWatchCodeProviderSelection;
+  python: boolean;
+  requiresLanguageServer: boolean;
+};
+
+export type PluginsPluginWatchCodeProviderSelection = {
+  activePluginIds: Array<string> | null;
+  conflictingPluginIds: Array<string> | null;
+  disabledPluginIds: Array<string> | null;
+  invalidPluginIds: Array<string> | null;
+  selectedPluginId?: string;
+  status: string;
 };
 
 export type ProjectshellAllProjectMetadata = {

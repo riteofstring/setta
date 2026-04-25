@@ -32,6 +32,7 @@ type pluginBackendRuntimeRefresher struct {
 	projectState                            *projectstate.Runtime
 	projectSync                             *lsp.ProjectSynchronizer
 	appSubsystemCapabilities                *appSubsystemCapabilityState
+	watchCodeCapabilities                   *watchCodeCapabilityState
 	refreshAppHandler                       func() error
 
 	mu sync.Mutex
@@ -44,10 +45,20 @@ type pluginBackendRefreshTransition struct {
 	previousLSPSpecs []lsp.LanguageServerSpec
 }
 
+type pluginFeatureCapabilityRefreshState struct {
+	appSubsystem         *appSubsystemCapabilityState
+	previousAppSubsystem plugins.PluginAppSubsystemCapabilities
+	nextAppSubsystem     plugins.PluginAppSubsystemCapabilities
+	watchCode            *watchCodeCapabilityState
+	previousWatchCode    plugins.PluginWatchCodeCapabilities
+	nextWatchCode        plugins.PluginWatchCodeCapabilities
+}
+
 type pluginMutationRuntimeService struct {
 	base                     *plugins.Service
 	refresher                *pluginBackendRuntimeRefresher
 	appSubsystemCapabilities *appSubsystemCapabilityState
+	watchCodeCapabilities    *watchCodeCapabilityState
 
 	opMu                 sync.Mutex
 	mu                   sync.RWMutex
@@ -59,11 +70,13 @@ func newPluginMutationRuntimeService(
 	base *plugins.Service,
 	refresher *pluginBackendRuntimeRefresher,
 	appSubsystemCapabilities *appSubsystemCapabilityState,
+	watchCodeCapabilities *watchCodeCapabilityState,
 ) *pluginMutationRuntimeService {
 	service := &pluginMutationRuntimeService{
 		base:                     base,
 		refresher:                refresher,
 		appSubsystemCapabilities: appSubsystemCapabilities,
+		watchCodeCapabilities:    watchCodeCapabilities,
 	}
 	if base != nil {
 		if snapshot, err := base.Rescan(); err == nil {
@@ -79,19 +92,29 @@ func newPluginMutationRuntimeService(
 func (s *pluginMutationRuntimeService) syncCapabilitiesFromRuntimeResponse(
 	response plugins.PluginRuntimeResponse,
 ) {
-	if s == nil || s.appSubsystemCapabilities == nil || response.FeatureCapabilities == nil {
+	if s == nil || response.FeatureCapabilities == nil {
 		return
 	}
-	s.appSubsystemCapabilities.Set(response.FeatureCapabilities.AppSubsystem)
+	if s.appSubsystemCapabilities != nil {
+		s.appSubsystemCapabilities.Set(response.FeatureCapabilities.AppSubsystem)
+	}
+	if s.watchCodeCapabilities != nil {
+		s.watchCodeCapabilities.Set(response.FeatureCapabilities.WatchCode)
+	}
 }
 
 func (s *pluginMutationRuntimeService) syncCapabilitiesFromSnapshot(
 	snapshot plugins.DiscoverySnapshot,
 ) {
-	if s == nil || s.appSubsystemCapabilities == nil {
+	if s == nil {
 		return
 	}
-	s.appSubsystemCapabilities.SetFromSnapshot(snapshot)
+	if s.appSubsystemCapabilities != nil {
+		s.appSubsystemCapabilities.SetFromSnapshot(snapshot)
+	}
+	if s.watchCodeCapabilities != nil {
+		s.watchCodeCapabilities.SetFromSnapshot(snapshot)
+	}
 }
 
 func (s *pluginMutationRuntimeService) commitSnapshot(
@@ -612,6 +635,9 @@ func (r *pluginBackendRuntimeRefresher) prepareInitializeRuntimeLocked(
 	if r.appSubsystemCapabilities != nil {
 		r.appSubsystemCapabilities.SetFromSnapshot(snapshot)
 	}
+	if r.watchCodeCapabilities != nil {
+		r.watchCodeCapabilities.SetFromSnapshot(snapshot)
+	}
 	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot, false)
 	if err != nil {
 		return nil, nil, err
@@ -684,12 +710,7 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	previousCapabilities := plugins.PluginAppSubsystemCapabilities{}
-	nextCapabilities := plugins.PluginAppSubsystemCapabilities{}
-	if r.appSubsystemCapabilities != nil {
-		previousCapabilities = r.appSubsystemCapabilities.AppSubsystemCapabilities()
-		nextCapabilities = plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot)
-	}
+	capabilities := r.captureFeatureCapabilityRefreshState(snapshot)
 	nextRuntime, err := r.buildRuntimeLocked(ctx, snapshot)
 	if err != nil {
 		return err
@@ -700,13 +721,9 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 		return err
 	}
 	r.runtime = nextRuntime
-	if r.appSubsystemCapabilities != nil {
-		r.appSubsystemCapabilities.Set(nextCapabilities)
-	}
+	capabilities.applyNext()
 	if err := r.refreshAppHandlerLocked(); err != nil {
-		if r.appSubsystemCapabilities != nil {
-			r.appSubsystemCapabilities.Set(previousCapabilities)
-		}
+		capabilities.rollback()
 		r.runtime = previousRuntime
 		rollbackErr := r.replaceRuntimeToolsLocked(nextRuntime, previousRuntime)
 		closePluginBackendRuntime(nextRuntime)
@@ -714,6 +731,42 @@ func (r *pluginBackendRuntimeRefresher) RescanRuntimeTools(ctx context.Context, 
 	}
 	closePluginBackendRuntime(previousRuntime)
 	return nil
+}
+
+func (r *pluginBackendRuntimeRefresher) captureFeatureCapabilityRefreshState(
+	snapshot plugins.DiscoverySnapshot,
+) pluginFeatureCapabilityRefreshState {
+	state := pluginFeatureCapabilityRefreshState{
+		appSubsystem: r.appSubsystemCapabilities,
+		watchCode:    r.watchCodeCapabilities,
+	}
+	if state.appSubsystem != nil {
+		state.previousAppSubsystem = state.appSubsystem.AppSubsystemCapabilities()
+		state.nextAppSubsystem = plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot)
+	}
+	if state.watchCode != nil {
+		state.previousWatchCode = state.watchCode.WatchCodeCapabilities()
+		state.nextWatchCode = plugins.WatchCodeCapabilitiesFromSnapshot(snapshot)
+	}
+	return state
+}
+
+func (s pluginFeatureCapabilityRefreshState) applyNext() {
+	if s.appSubsystem != nil {
+		s.appSubsystem.Set(s.nextAppSubsystem)
+	}
+	if s.watchCode != nil {
+		s.watchCode.Set(s.nextWatchCode)
+	}
+}
+
+func (s pluginFeatureCapabilityRefreshState) rollback() {
+	if s.appSubsystem != nil {
+		s.appSubsystem.Set(s.previousAppSubsystem)
+	}
+	if s.watchCode != nil {
+		s.watchCode.Set(s.previousWatchCode)
+	}
 }
 
 func (r *pluginBackendRuntimeRefresher) RefreshLanguageServers(ctx context.Context) error {
@@ -869,9 +922,17 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 		previousCapabilities = r.appSubsystemCapabilities.AppSubsystemCapabilities()
 		r.appSubsystemCapabilities.SetFromSnapshot(committedSnapshot)
 	}
+	previousWatchCodeCapabilities := plugins.PluginWatchCodeCapabilities{}
+	if r.watchCodeCapabilities != nil {
+		previousWatchCodeCapabilities = r.watchCodeCapabilities.WatchCodeCapabilities()
+		r.watchCodeCapabilities.SetFromSnapshot(committedSnapshot)
+	}
 	if err := r.refreshAppHandlerLocked(); err != nil {
 		if r.appSubsystemCapabilities != nil {
 			r.appSubsystemCapabilities.Set(previousCapabilities)
+		}
+		if r.watchCodeCapabilities != nil {
+			r.watchCodeCapabilities.Set(previousWatchCodeCapabilities)
 		}
 		rollbackErr := r.rollbackRefreshTransitionLocked(transition)
 		restoreErr := r.service.RestoreBackendRuntimeRefreshState(

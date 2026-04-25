@@ -152,8 +152,15 @@ type PluginAppSubsystemFeatureManifest struct {
 	AppDeploymentRuntime   bool `json:"appDeploymentRuntime"`
 }
 
+type PluginWatchCodeFeatureManifest struct {
+	Python                 bool `json:"python"`
+	RequiresLanguageServer bool `json:"requiresLanguageServer"`
+	CanvasControlsUI       bool `json:"canvasControlsUi"`
+}
+
 type PluginFeatureCapabilitiesManifest struct {
 	AppSubsystem *PluginAppSubsystemFeatureManifest `json:"appSubsystem,omitempty"`
+	WatchCode    *PluginWatchCodeFeatureManifest    `json:"watchCode,omitempty"`
 }
 
 type PluginManifest struct {

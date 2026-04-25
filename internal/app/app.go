@@ -2154,6 +2154,7 @@ type appPlatformServices struct {
 	pluginRuntime            *pluginBackendRuntimeRefresher
 	pluginRouteService       httpapi.PluginRouteService
 	appSubsystemCapabilities *appSubsystemCapabilityState
+	watchCodeCapabilities    *watchCodeCapabilityState
 	mcpServer                *mcpx.Server
 }
 
@@ -2503,6 +2504,7 @@ func configureAppPluginRuntime(
 		projectState:             projectServices.projectRuntime,
 		projectSync:              projectServices.projectLSPSyncer,
 		appSubsystemCapabilities: services.appSubsystemCapabilities,
+		watchCodeCapabilities:    services.watchCodeCapabilities,
 	}
 	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 		if services.pluginRuntime == nil {
@@ -2517,6 +2519,7 @@ func configureAppPluginRuntime(
 		projectServices.pluginMutationService,
 		services.pluginRuntime,
 		services.appSubsystemCapabilities,
+		services.watchCodeCapabilities,
 	)
 }
 
@@ -2610,10 +2613,12 @@ func initializeAppPlatformServices(
 	workspaceServices appWorkspaceServices,
 	runtimeServices appRuntimeServices,
 	appSubsystemCapabilities *appSubsystemCapabilityState,
+	watchCodeCapabilities *watchCodeCapabilityState,
 ) (appPlatformServices, error) {
 	services := appPlatformServices{
 		pluginRouteService:       projectServices.pluginRouteService,
 		appSubsystemCapabilities: appSubsystemCapabilities,
+		watchCodeCapabilities:    watchCodeCapabilities,
 	}
 	if err := initializeAppDeploymentPublishers(
 		cfg,
@@ -2869,7 +2874,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	appSubsystemCapabilities, err := initializeAppSubsystemCapabilities(projectServices)
+	appSubsystemCapabilities, watchCodeCapabilities, err := initializePluginFeatureCapabilities(projectServices)
 	if err != nil {
 		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
 		return nil, err
@@ -2896,6 +2901,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		workspaceServices,
 		runtimeServices,
 		appSubsystemCapabilities,
+		watchCodeCapabilities,
 	)
 	if err != nil {
 		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)

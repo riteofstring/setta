@@ -793,6 +793,232 @@ func TestServiceRuntimeAppSubsystemCapabilitiesFailClosedOnProviderConflict(t *t
 	)
 }
 
+func TestServiceRuntimeWatchCodeCapabilitiesDefaultToUnavailableWithoutPlugin(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusNoProvider,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected watch code unavailable without provider, got %#v", watchCode)
+	}
+	if watchCode.Python || watchCode.RequiresLanguageServer || watchCode.CanvasControlsUI {
+		t.Fatalf("expected watch code surfaces unavailable without provider, got %#v", watchCode)
+	}
+	assertRuntimeWatchCodeSelection(
+		t,
+		runtimeResponse.Status.WatchCodeSelection,
+		PluginWatchCodeProviderSelectionStatusNoProvider,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+}
+
+func TestServiceRuntimeWatchCodeCapabilitiesFollowActivePluginManifest(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-watch-code-provider"
+	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+		PluginID:         pluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		WatchCode: map[string]any{
+			"python":                 true,
+			"requiresLanguageServer": true,
+			"canvasControlsUi":       true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusActive,
+		stringPointer(pluginID),
+		[]string{pluginID},
+		nil,
+		nil,
+		nil,
+	)
+	if watchCode.PluginID != pluginID || !watchCode.PluginEnabled {
+		t.Fatalf("expected selected watch code provider %q, got %#v", pluginID, watchCode)
+	}
+	if !watchCode.Python || !watchCode.RequiresLanguageServer || !watchCode.CanvasControlsUI {
+		t.Fatalf("expected full watch code capability surface, got %#v", watchCode)
+	}
+	assertRuntimeWatchCodeSelection(
+		t,
+		runtimeResponse.Status.WatchCodeSelection,
+		PluginWatchCodeProviderSelectionStatusActive,
+		stringPointer(pluginID),
+		[]string{pluginID},
+		nil,
+		nil,
+		nil,
+	)
+}
+
+func TestServiceRuntimeWatchCodeCapabilitiesTreatDisabledPluginAsUnavailable(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-disabled-watch-code-provider"
+	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+		PluginID:         pluginID,
+		FixtureName:      "backend",
+		EnabledByDefault: false,
+		WatchCode: map[string]any{
+			"python":                 true,
+			"requiresLanguageServer": true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusDisabledProvider,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+		nil,
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected disabled watch code provider unavailable, got %#v", watchCode)
+	}
+	if watchCode.Python || watchCode.RequiresLanguageServer || watchCode.CanvasControlsUI {
+		t.Fatalf("expected disabled watch code provider to expose no surfaces, got %#v", watchCode)
+	}
+}
+
+func TestServiceRuntimeWatchCodeCapabilitiesTreatProviderWithoutPythonAsInvalid(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-invalid-watch-code-provider"
+	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+		PluginID:         pluginID,
+		FixtureName:      "frontend",
+		EnabledByDefault: true,
+		WatchCode: map[string]any{
+			"requiresLanguageServer": true,
+			"canvasControlsUi":       true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected invalid watch code provider unavailable, got %#v", watchCode)
+	}
+}
+
+func TestServiceRuntimeWatchCodeCapabilitiesFailClosedOnProviderConflict(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	firstPluginID := "acme-primary-watch-code-provider"
+	secondPluginID := "contoso-secondary-watch-code-provider"
+	for _, pluginID := range []string{firstPluginID, secondPluginID} {
+		installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+			PluginID:         pluginID,
+			FixtureName:      "backend",
+			EnabledByDefault: true,
+			WatchCode: map[string]any{
+				"python":                 true,
+				"requiresLanguageServer": true,
+			},
+		})
+	}
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusConflict,
+		nil,
+		[]string{firstPluginID, secondPluginID},
+		nil,
+		nil,
+		[]string{firstPluginID, secondPluginID},
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected conflicting watch code providers unavailable, got %#v", watchCode)
+	}
+	if watchCode.Python || watchCode.RequiresLanguageServer || watchCode.CanvasControlsUI {
+		t.Fatalf("expected conflicting watch code providers to expose no surfaces, got %#v", watchCode)
+	}
+	assertRuntimeWatchCodeSelection(
+		t,
+		runtimeResponse.Status.WatchCodeSelection,
+		PluginWatchCodeProviderSelectionStatusConflict,
+		nil,
+		[]string{firstPluginID, secondPluginID},
+		nil,
+		nil,
+		[]string{firstPluginID, secondPluginID},
+	)
+}
+
 func TestServiceDeploymentSnapshotForActivePluginNormalizesConfigToWorkspaceScope(
 	t *testing.T,
 ) {
@@ -1045,6 +1271,36 @@ func installRuntimeAppSubsystemFixture(
 	return targetRoot
 }
 
+type runtimeWatchCodeFixtureOptions struct {
+	PluginID         string
+	FixtureName      string
+	EnabledByDefault bool
+	WatchCode        map[string]any
+}
+
+func installRuntimeWatchCodeFixture(
+	t *testing.T,
+	roots filesystemResolverTestRoots,
+	options runtimeWatchCodeFixtureOptions,
+) string {
+	t.Helper()
+
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, options.FixtureName)
+	targetRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), options.PluginID)
+	if err := os.Rename(pluginRoot, targetRoot); err != nil {
+		t.Fatalf("rename plugin root %s -> %s: %v", pluginRoot, targetRoot, err)
+	}
+	rewritePluginManifest(t, targetRoot, func(payload map[string]any) {
+		payload["id"] = options.PluginID
+		payload["name"] = "Runtime Watch Code Fixture"
+		payload["enabledByDefault"] = options.EnabledByDefault
+		payload["featureCapabilities"] = map[string]any{
+			"watchCode": options.WatchCode,
+		}
+	})
+	return targetRoot
+}
+
 func writeRuntimeAppSubsystemBackendProbe(
 	t *testing.T,
 	pluginRoot string,
@@ -1169,6 +1425,47 @@ func assertRuntimeAppSubsystemSelection(
 	}
 	if !slices.Equal(selection.ConflictingPluginIDs, emptyStrings(expectedConflicting)) {
 		t.Fatalf("expected conflicting provider ids %#v, got %#v", expectedConflicting, selection.ConflictingPluginIDs)
+	}
+}
+
+func assertRuntimeWatchCodeSelection(
+	t *testing.T,
+	selection *PluginWatchCodeProviderSelection,
+	expectedStatus PluginWatchCodeProviderSelectionStatusKind,
+	expectedSelectedPluginID *string,
+	expectedActive []string,
+	expectedDisabled []string,
+	expectedInvalid []string,
+	expectedConflicting []string,
+) {
+	t.Helper()
+
+	if selection == nil {
+		t.Fatal("expected watch code provider selection")
+	}
+	if selection.Status != expectedStatus {
+		t.Fatalf("expected watch code selection status %q, got %#v", expectedStatus, selection)
+	}
+	if expectedSelectedPluginID == nil {
+		if selection.SelectedPluginID != nil {
+			t.Fatalf("expected no selected watch code provider, got %#v", selection.SelectedPluginID)
+		}
+	} else {
+		if selection.SelectedPluginID == nil || *selection.SelectedPluginID != *expectedSelectedPluginID {
+			t.Fatalf("expected selected watch code provider %q, got %#v", *expectedSelectedPluginID, selection.SelectedPluginID)
+		}
+	}
+	if !slices.Equal(selection.ActivePluginIDs, emptyStrings(expectedActive)) {
+		t.Fatalf("expected active watch code provider ids %#v, got %#v", expectedActive, selection.ActivePluginIDs)
+	}
+	if !slices.Equal(selection.DisabledPluginIDs, emptyStrings(expectedDisabled)) {
+		t.Fatalf("expected disabled watch code provider ids %#v, got %#v", expectedDisabled, selection.DisabledPluginIDs)
+	}
+	if !slices.Equal(selection.InvalidPluginIDs, emptyStrings(expectedInvalid)) {
+		t.Fatalf("expected invalid watch code provider ids %#v, got %#v", expectedInvalid, selection.InvalidPluginIDs)
+	}
+	if !slices.Equal(selection.ConflictingPluginIDs, emptyStrings(expectedConflicting)) {
+		t.Fatalf("expected conflicting watch code provider ids %#v, got %#v", expectedConflicting, selection.ConflictingPluginIDs)
 	}
 }
 

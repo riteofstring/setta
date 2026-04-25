@@ -8342,9 +8342,12 @@
         "properties": {
           "appSubsystem": {
             "$ref": "#/components/schemas/PluginsPluginAppSubsystemCapabilities"
+          },
+          "watchCode": {
+            "$ref": "#/components/schemas/PluginsPluginWatchCodeCapabilities"
           }
         },
-        "required": ["appSubsystem"],
+        "required": ["appSubsystem", "watchCode"],
         "type": "object"
       },
       "PluginsPluginFrontendDescriptor": {
@@ -8913,6 +8916,9 @@
           },
           "serverMode": {
             "type": "string"
+          },
+          "watchCodeSelection": {
+            "$ref": "#/components/schemas/PluginsPluginWatchCodeProviderSelection"
           }
         },
         "required": [
@@ -8965,6 +8971,80 @@
           "toVersion",
           "sourceDigestSha256",
           "restartRequired"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginWatchCodeCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasControlsUi": {
+            "type": "boolean"
+          },
+          "pluginEnabled": {
+            "type": "boolean"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "providerSelection": {
+            "$ref": "#/components/schemas/PluginsPluginWatchCodeProviderSelection"
+          },
+          "python": {
+            "type": "boolean"
+          },
+          "requiresLanguageServer": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pluginId",
+          "pluginEnabled",
+          "python",
+          "requiresLanguageServer",
+          "canvasControlsUi"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginWatchCodeProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "activePluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "conflictingPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "disabledPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "invalidPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "selectedPluginId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "activePluginIds",
+          "disabledPluginIds",
+          "invalidPluginIds",
+          "conflictingPluginIds"
         ],
         "type": "object"
       },

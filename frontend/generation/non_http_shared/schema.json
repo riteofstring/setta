@@ -10953,11 +10953,15 @@
       "properties": {
         "appSubsystem": {
           "$ref": "#/$defs/PluginAppSubsystemCapabilities"
+        },
+        "watchCode": {
+          "$ref": "#/$defs/PluginWatchCodeCapabilities"
         }
       },
       "title": "PluginFeatureCapabilities",
       "required": [
-        "appSubsystem"
+        "appSubsystem",
+        "watchCode"
       ],
       "additionalProperties": false
     },
@@ -10968,6 +10972,16 @@
           "anyOf": [
             {
               "$ref": "#/$defs/PluginAppSubsystemFeatureManifest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "watchCode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PluginWatchCodeFeatureManifest"
             },
             {
               "type": "null"
@@ -12134,6 +12148,16 @@
             }
           ]
         },
+        "watchCodeSelection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PluginWatchCodeProviderSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "plugins": {
           "type": [
             "null",
@@ -12215,6 +12239,136 @@
         "restartRequired"
       ],
       "additionalProperties": false
+    },
+    "PluginWatchCodeCapabilities": {
+      "type": "object",
+      "properties": {
+        "providerSelection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PluginWatchCodeProviderSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pluginId": {
+          "type": "string"
+        },
+        "pluginEnabled": {
+          "type": "boolean"
+        },
+        "python": {
+          "type": "boolean"
+        },
+        "requiresLanguageServer": {
+          "type": "boolean"
+        },
+        "canvasControlsUi": {
+          "type": "boolean"
+        }
+      },
+      "title": "PluginWatchCodeCapabilities",
+      "required": [
+        "pluginId",
+        "pluginEnabled",
+        "python",
+        "requiresLanguageServer",
+        "canvasControlsUi"
+      ],
+      "additionalProperties": false
+    },
+    "PluginWatchCodeFeatureManifest": {
+      "type": "object",
+      "properties": {
+        "python": {
+          "type": "boolean"
+        },
+        "requiresLanguageServer": {
+          "type": "boolean"
+        },
+        "canvasControlsUi": {
+          "type": "boolean"
+        }
+      },
+      "title": "PluginWatchCodeFeatureManifest",
+      "required": [
+        "python",
+        "requiresLanguageServer",
+        "canvasControlsUi"
+      ],
+      "additionalProperties": false
+    },
+    "PluginWatchCodeProviderSelection": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/PluginWatchCodeProviderSelectionStatusKind"
+        },
+        "selectedPluginId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "activePluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "disabledPluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "invalidPluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "conflictingPluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "title": "PluginWatchCodeProviderSelection",
+      "required": [
+        "status",
+        "activePluginIds",
+        "disabledPluginIds",
+        "invalidPluginIds",
+        "conflictingPluginIds"
+      ],
+      "additionalProperties": false
+    },
+    "PluginWatchCodeProviderSelectionStatusKind": {
+      "type": "string",
+      "title": "PluginWatchCodeProviderSelectionStatusKind",
+      "enum": [
+        "no_provider",
+        "disabled_provider",
+        "invalid_provider",
+        "active",
+        "provider_conflict"
+      ]
     },
     "PluginsGlobalStateFile": {
       "type": "object",

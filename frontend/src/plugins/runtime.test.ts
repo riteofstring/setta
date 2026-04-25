@@ -286,6 +286,25 @@ function buildActiveAppSubsystemCapabilities(
   };
 }
 
+function buildUnavailableWatchCodeCapabilities(): NonNullable<
+  PluginRuntimeResponse["featureCapabilities"]
+>["watchCode"] {
+  return {
+    providerSelection: {
+      status: "no_provider",
+      activePluginIds: [],
+      disabledPluginIds: [],
+      invalidPluginIds: [],
+      conflictingPluginIds: [],
+    },
+    pluginId: "",
+    pluginEnabled: false,
+    python: false,
+    requiresLanguageServer: false,
+    canvasControlsUi: false,
+  };
+}
+
 function buildAppSubsystemRegistrationDelta(
   pluginId: string,
   applyStructuredContent: (structured: Record<string, unknown>) => boolean,
@@ -1281,6 +1300,7 @@ describe("plugin runtime helpers", () => {
               appGenerationChatModes: false,
               appDeploymentRuntime: false,
             },
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1333,16 +1353,17 @@ describe("plugin runtime helpers", () => {
           "    appDeploymentModal: { renderer: { mount() {} } },\n" +
           "    chat: {\n" +
           "      slashCommands: [{\n" +
-          "        command: '/acme-app',\n" +
-          "        action: 'acme_app',\n" +
-          "        summary: 'Generate an Acme app.',\n" +
-          "        promptTemplate: 'Generate an Acme app.'\n" +
+          "        command: '/app-json',\n" +
+          "        action: 'app_json_render',\n" +
+          "        summary: 'Generate a standalone app spec through JSON render.',\n" +
+          "        promptTemplate: 'Generate a polished standalone JSON-render app spec. Use a strong hero section, clear content grouping, and consistent spacing/typography by default. Include one obvious primary action path and production-ready baseline structure.',\n" +
+          "        appGenerationMode: 'json_render'\n" +
           "      }],\n" +
-          "      imageRequiredModes: ['image_mode'],\n" +
+          "      imageRequiredModes: [],\n" +
           "      customSlashCommandModes: {\n" +
           "        options: [\n" +
           "          { id: 'plain_chat', name: 'Plain chat' },\n" +
-          "          { id: 'image_mode', name: 'Image mode' }\n" +
+          "          { id: 'json_render', name: 'JSON Render' }\n" +
           "        ],\n" +
           "        defaultMode: 'plain_chat'\n" +
           "      }\n" +
@@ -1391,6 +1412,7 @@ describe("plugin runtime helpers", () => {
               appGenerationChatModes: true,
               appDeploymentRuntime: true,
             },
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1405,11 +1427,11 @@ describe("plugin runtime helpers", () => {
       readAppSubsystemHookValue(() => useAppSubsystemSlashCommands()).map(
         (entry) => entry.command,
       ),
-    ).toEqual(["/acme-app"]);
+    ).toEqual(["/app-json"]);
     expect(
       readAppSubsystemHookValue(() => useAppSubsystemAppDeploymentModal()),
     ).not.toBeNull();
-    expect(appSubsystemModeRequiresImageAttachment("image_mode")).toBe(true);
+    expect(appSubsystemModeRequiresImageAttachment("json_render")).toBe(false);
   });
   it("buffers app-subsystem updates while the selected provider frontend is still importing", async () => {
     const providerPluginId = "acme.loading-app-provider";
@@ -1464,6 +1486,7 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1562,6 +1585,7 @@ describe("plugin runtime helpers", () => {
             appSubsystem: buildActiveAppSubsystemCapabilities(
               firstProviderPluginId,
             ),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1597,6 +1621,7 @@ describe("plugin runtime helpers", () => {
             appSubsystem: buildActiveAppSubsystemCapabilities(
               secondProviderPluginId,
             ),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1695,6 +1720,7 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1724,6 +1750,7 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1833,6 +1860,7 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1872,6 +1900,7 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1972,6 +2001,7 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -2008,6 +2038,7 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
+            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),

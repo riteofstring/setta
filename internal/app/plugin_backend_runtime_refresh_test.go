@@ -129,16 +129,28 @@ func TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError(t *tes
 		PluginEnabled: true,
 		AppPreviewUI:  true,
 	})
+	watchCodeCapabilities := newWatchCodeCapabilityState()
+	watchCodeCapabilities.Set(plugins.PluginWatchCodeCapabilities{
+		PluginID:      "setta-fixture-watch-code-provider",
+		PluginEnabled: true,
+		Python:        true,
+	})
 	refresher := &pluginBackendRuntimeRefresher{
 		service:                  service,
 		runtime:                  previousRuntime,
 		appSubsystemCapabilities: capabilities,
+		watchCodeCapabilities:    watchCodeCapabilities,
 		refreshAppHandler: func() error {
 			return context.Canceled
 		},
 	}
 
-	_, err := newPluginMutationRuntimeService(service, refresher, capabilities).Rescan()
+	_, err := newPluginMutationRuntimeService(
+		service,
+		refresher,
+		capabilities,
+		watchCodeCapabilities,
+	).Rescan()
 	if err == nil {
 		t.Fatal("expected handler refresh failure")
 	}
@@ -148,6 +160,10 @@ func TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError(t *tes
 	currentCapabilities := capabilities.AppSubsystemCapabilities()
 	if !currentCapabilities.PluginEnabled || currentCapabilities.PluginID != "setta-fixture-app-provider" || !currentCapabilities.AppPreviewUI {
 		t.Fatalf("expected app subsystem capabilities to roll back, got %#v", currentCapabilities)
+	}
+	currentWatchCodeCapabilities := watchCodeCapabilities.WatchCodeCapabilities()
+	if !currentWatchCodeCapabilities.PluginEnabled || currentWatchCodeCapabilities.PluginID != "setta-fixture-watch-code-provider" || !currentWatchCodeCapabilities.Python {
+		t.Fatalf("expected watch code capabilities to roll back, got %#v", currentWatchCodeCapabilities)
 	}
 }
 
@@ -161,7 +177,12 @@ func TestPluginMutationRuntimeServiceRescanKeepsCommittedSnapshotOnHandlerRefres
 			return context.Canceled
 		},
 	}
-	runtimeService := newPluginMutationRuntimeService(service, refresher, newAppSubsystemCapabilityState())
+	runtimeService := newPluginMutationRuntimeService(
+		service,
+		refresher,
+		newAppSubsystemCapabilityState(),
+		newWatchCodeCapabilityState(),
+	)
 
 	initial, err := runtimeService.Runtime(plugins.RuntimeOptions{})
 	if err != nil {
@@ -298,6 +319,7 @@ func TestPluginMutationRuntimeServiceApplyLockfileRestoresOnHandlerRefreshError(
 				return context.Canceled
 			},
 		},
+		nil,
 		nil,
 	)
 
