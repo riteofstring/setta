@@ -94,6 +94,18 @@ describe("app plugin frontend build boundary guardrails", () => {
         "file:./vendor/app-subsystem-frontend-sdk",
       ],
     ]);
+    expect(packageJson.scripts?.["prepare-sdk"]).toBe(
+      "node ./scripts/materialize-vendored-app-subsystem-sdk.mjs",
+    );
+    expect(packageJson.scripts?.["prepare-build-deps"]).toBe(
+      "pnpm run prepare-sdk && pnpm install --lockfile=false",
+    );
+    expect(packageJson.scripts?.build).toBe(
+      "pnpm run prepare-build-deps && vite build",
+    );
+    expect(packageJson.scripts?.test).toBe(
+      "pnpm run prepare-build-deps && vitest run --config vitest.config.mjs",
+    );
     expect(packageJson.scripts?.typecheck).toBe(
       "tsc --noEmit -p tsconfig.typecheck.json",
     );

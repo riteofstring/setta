@@ -3,8 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "test": "vitest run --config vitest.config.mjs",
+    "prepare-sdk": "node ./scripts/materialize-vendored-app-subsystem-sdk.mjs",
+    "prepare-build-deps": "pnpm run prepare-sdk && pnpm install --lockfile=false",
+    "build": "pnpm run prepare-build-deps && vite build",
+    "test": "pnpm run prepare-build-deps && vitest run --config vitest.config.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
