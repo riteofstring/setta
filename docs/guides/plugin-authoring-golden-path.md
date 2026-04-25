@@ -21,13 +21,10 @@ backend authoring should target Go rather than Python.
 
 ## 2. Implement plugin logic
 
-- Frontend: simple scaffolds can edit `frontend/dist/index.js` directly and export:
+- Frontend: edit `frontend/dist/index.js` and export:
   - `apiVersion`
   - `register(host)`
   - optional CSS: `frontend/dist/index.css` and set `frontend.style` in manifest
-- Frontend: source-built plugins may instead keep source/build inputs under
-  `frontend/`, emit `frontend/dist/*`, and declare `frontend.build` in the
-  manifest so Setta knows the bundle is plugin-owned.
 - Backend: edit `backend/main.go` and `backend/go.mod`.
 - Content: add templates/assets under `content/`.
 
@@ -36,23 +33,6 @@ probe entrypoint when the package runtime already owns the actual server
 executable. Keep that entrypoint probe-only: it should validate/emit language
 server registrations, while Setta still owns selection, restart, status, and
 transport behavior in Go.
-
-### Manifest contract notes
-
-- `capabilities` must use the runtime manifest vocabulary. In addition to the
-  older frontend-facing entries, that includes
-  `registerMcpTools`, `registerLanguageServer`,
-  `registerExternalAgentAdapter`, `registerCodegenTarget`,
-  `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`, and
-  `registerAppSubsystemBackend`.
-- `frontend.build.packageManager` currently accepts `pnpm` and is the opt-in
-  contract for plugin-owned frontend builds from `frontend/package.json`.
-- App-subsystem providers should declare both the required backend/runtime
-  capabilities and `featureCapabilities.appSubsystem` so Setta can expose the
-  correct surface area.
-- Some accepted capabilities may still be blocked by host or mode policy. Use
-  `setta plugins validate` and `setta plugins list --json` to confirm effective
-  versus blocked capabilities for your target mode.
 
 ### Optional: define plugin UI settings from config schema
 
@@ -137,8 +117,7 @@ setta plugins validate ./setta-my-plugin
 
 Validation checks:
 
-- manifest schema and capability vocabulary, including `frontend.build` and
-  `featureCapabilities` when present
+- manifest schema and capability vocabulary
 - file path safety and existence
 - Go backend entrypoint shape for backend plugins (`package main`, `func main()`)
 - successful `go build` of the backend entrypoint directory for backend plugins

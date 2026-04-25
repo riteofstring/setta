@@ -6,28 +6,12 @@ import (
 	"testing"
 
 	"setta/internal/agentruns"
-	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
-	"setta/internal/chatmodes"
 )
-
-func testExternalAppGenerationModes(t *testing.T) chatmodes.AppGenerationModeResolver {
-	t.Helper()
-
-	resolver, err := chatmodes.NewAppGenerationModeRegistry(chatmodes.AppGenerationModeRegistryOptions{
-		Available:     func() bool { return true },
-		Contributions: appsubsystemchatmodes.BuildChatModeContributions(),
-	})
-	if err != nil {
-		t.Fatalf("new app generation mode resolver: %v", err)
-	}
-	return resolver
-}
 
 func TestBuildAppGenerationModePromptIncludesStreamingAndReferenceImageContext(t *testing.T) {
 	t.Parallel()
 
-	prompt := buildAppGenerationModePromptWithResolver(
-		testExternalAppGenerationModes(t),
+	prompt := buildAppGenerationModePrompt(
 		stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage)),
 		true,
 		stringPtr("https://example.com/reference.png"),
@@ -53,13 +37,7 @@ func TestBuildAppGenerationModePromptIncludesStreamingAndReferenceImageContext(t
 func TestBuildAppGenerationModePromptReturnsEmptyWithoutMode(t *testing.T) {
 	t.Parallel()
 
-	if prompt := buildAppGenerationModePromptWithResolver(
-		testExternalAppGenerationModes(t),
-		nil,
-		true,
-		nil,
-		nil,
-	); prompt != "" {
+	if prompt := buildAppGenerationModePrompt(nil, true, nil, nil); prompt != "" {
 		t.Fatalf("expected empty prompt, got %q", prompt)
 	}
 }
@@ -67,8 +45,7 @@ func TestBuildAppGenerationModePromptReturnsEmptyWithoutMode(t *testing.T) {
 func TestBuildAppGenerationModePromptIgnoresReferenceImageForNonImageModes(t *testing.T) {
 	t.Parallel()
 
-	prompt := buildAppGenerationModePromptWithResolver(
-		testExternalAppGenerationModes(t),
+	prompt := buildAppGenerationModePrompt(
 		stringPtr(string(agentruns.AppGenerationModePromptBuilder)),
 		true,
 		stringPtr("https://example.com/reference.png"),
@@ -88,13 +65,7 @@ func TestBuildAppGenerationModePromptIgnoresReferenceImageForNonImageModes(t *te
 func TestBuildAppGenerationModePromptMCPModeSwitchesPersistenceInstruction(t *testing.T) {
 	t.Parallel()
 
-	streamingPrompt := buildAppGenerationModePromptWithResolver(
-		testExternalAppGenerationModes(t),
-		stringPtr(string(agentruns.AppGenerationModeMCPServer)),
-		true,
-		nil,
-		nil,
-	)
+	streamingPrompt := buildAppGenerationModePrompt(stringPtr(string(agentruns.AppGenerationModeMCPServer)), true, nil, nil)
 	if !strings.Contains(streamingPrompt, "setta__stream_app_definition") {
 		t.Fatalf("expected MCP streaming prompt to use stream tool, got %q", streamingPrompt)
 	}
@@ -102,13 +73,7 @@ func TestBuildAppGenerationModePromptMCPModeSwitchesPersistenceInstruction(t *te
 		t.Fatalf("expected MCP streaming prompt to omit full-spec tool, got %q", streamingPrompt)
 	}
 
-	fullSpecPrompt := buildAppGenerationModePromptWithResolver(
-		testExternalAppGenerationModes(t),
-		stringPtr(string(agentruns.AppGenerationModeMCPServer)),
-		false,
-		nil,
-		nil,
-	)
+	fullSpecPrompt := buildAppGenerationModePrompt(stringPtr(string(agentruns.AppGenerationModeMCPServer)), false, nil, nil)
 	if !strings.Contains(fullSpecPrompt, "setta__set_app_definition") {
 		t.Fatalf("expected MCP full-spec prompt to use set_app_definition, got %q", fullSpecPrompt)
 	}
@@ -160,7 +125,7 @@ func TestNormalizeReferenceImageInputsRejectsOversizedValues(t *testing.T) {
 func TestNormalizeAppGenerationModeRejectsUnknownValue(t *testing.T) {
 	t.Parallel()
 
-	_, err := normalizeAppGenerationModeWithResolver(testExternalAppGenerationModes(t), stringPtr("unknown_mode"))
+	_, err := normalizeAppGenerationMode(stringPtr("unknown_mode"))
 	if !errors.Is(err, ErrAppGenerationModeInvalid) {
 		t.Fatalf("expected invalid mode error, got %v", err)
 	}

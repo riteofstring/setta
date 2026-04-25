@@ -32,17 +32,16 @@ from setta.api.listener_endpoint_client import (
     ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE,
     RouterEndpointAPI,
 )
-from setta.auth.cookies import auth_cookie_name
-from setta.auth.manager import AUTH_COOKIE_MANAGER
-from setta.auth.session import load_current_session_secret
-from setta.local_core_client import LocalCoreClient
-from setta.logging.config import configure_listener_logging
-from setta.logging.context import logging_context
-from setta.logging.tasks import spawn_background_task
-from setta.runtime_compat import (
+from setta.api.runtime_compat import (
     RuntimeCompatibilityError,
     verify_running_backend_compatibility,
 )
+from setta.auth.cookies import auth_cookie_name
+from setta.auth.manager import AUTH_COOKIE_MANAGER
+from setta.auth.session import load_current_session_secret
+from setta.logging.config import configure_listener_logging
+from setta.logging.context import logging_context
+from setta.logging.tasks import spawn_background_task
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerForceRefreshEvent,
@@ -54,7 +53,6 @@ from setta.sdk_contracts.generated import (
     ListenerSnapshot,
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
-    LocalCoreRenderRealtimeDependencyValuesResult,
 )
 from setta.sdk_contracts.generated import (
     ListenerDependencyEvent as SDKListenerDependencyEvent,
@@ -76,10 +74,7 @@ from setta.types.artifact import (
     BaseArtifactTypeAdapter,
     BaseArtifactUnion,
 )
-from setta.types.generated.go_shared_constants import (
-    LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
-    LOOPBACK_HOSTS,
-)
+from setta.types.generated.go_shared_constants import LOOPBACK_HOSTS
 from setta.types.generated.go_shared_types import (
     CodeObjType,
     CodeObjValueRepresentationMode,
@@ -107,6 +102,7 @@ from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
 from setta.websockets.binary_frames import decode_binary_frame
 
+from .local_core import LocalCoreClient
 from .scheduling import ListenerCallbackScheduler
 
 if TYPE_CHECKING:
@@ -2146,13 +2142,8 @@ class SettaListener:
     ) -> ListenerRenderedDependencyValues | None:
         try:
             local_core_result = (
-                LocalCoreRenderRealtimeDependencyValuesResult.model_validate(
-                    await self._get_local_core_client().run_command(
-                        LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
-                        self._build_local_core_realtime_request(
-                            runtime_state, deltas
-                        ).model_dump(mode="json"),
-                    )
+                await self._get_local_core_client().render_realtime_dependency_values(
+                    self._build_local_core_realtime_request(runtime_state, deltas)
                 )
             )
             return local_core_result.dependencyValues

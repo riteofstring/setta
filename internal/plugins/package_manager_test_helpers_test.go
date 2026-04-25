@@ -9,7 +9,6 @@ import (
 	"setta/internal/config"
 	"setta/internal/pythonenv"
 	"setta/internal/testutil/firstpartyplugin"
-	"setta/internal/testutil/packagedsetta"
 )
 
 func mustNewPythonRuntime(t *testing.T) *pythonenv.Runtime {
@@ -32,8 +31,6 @@ func installPackageManagerFixture(t *testing.T, fixtureName string, packageName 
 
 func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string, fixtureName string, packageName string, version string, mutate func(string)) string {
 	t.Helper()
-
-	packagedsetta.InstallRuntimeSitePackages(t, workerRPCTestRepoRoot(t), sitePackages)
 
 	repoRoot := workerRPCTestRepoRoot(t)
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
@@ -103,73 +100,21 @@ func installFirstPartyTyPackageManagerPluginInSearchPath(t *testing.T, sitePacka
 	)
 }
 
-func installBuiltFirstPartyPackageManagerPluginInSearchPath(
-	t *testing.T,
-	sitePackages string,
-	pluginID string,
-) string {
+func installFirstPartyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string, pluginID string, summary string) string {
 	t.Helper()
 
 	repoRoot := workerRPCTestRepoRoot(t)
-	stagingRoot := filepath.Join(t.TempDir(), pluginID)
-	if pluginID == firstpartyplugin.AppSubsystemPluginID {
-		stagingRoot = stageFirstPartyAppSubsystemPluginSource(t)
-	} else {
-		copyBackendCodegenFixtureDir(
-			t,
-			filepath.Join(repoRoot, "plugins", pluginID),
-			stagingRoot,
-		)
-	}
-	findLinksRoot := filepath.Join(t.TempDir(), "find-links")
-	settaWheelDir := filepath.Join(findLinksRoot, "setta")
-	settaProjectRoot := filepath.Join(t.TempDir(), "setta")
-	packagedsetta.BuildRuntimeProject(t, repoRoot, settaProjectRoot)
-	buildLocalBuiltPyPIWheelFromRoot(t, settaWheelDir, settaProjectRoot)
-	wheelPath := buildLocalBuiltPyPIWheelFromRoot(t, filepath.Join(findLinksRoot, "plugin"), stagingRoot)
-	runTestCommand(
-		t,
-		repoRoot,
-		mustNewPythonRuntime(t).InterpreterPath(),
-		"-m",
-		"pip",
-		"install",
-		"--no-index",
-		"--find-links",
-		settaWheelDir,
-		"--target",
-		sitePackages,
-		wheelPath,
-	)
-	return filepath.Join(sitePackages, pluginID)
-}
-
-func installFirstPartyPackageManagerPluginAsIDInSearchPath(
-	t *testing.T,
-	sitePackages string,
-	sourcePluginID string,
-	targetPluginID string,
-	summary string,
-) string {
-	t.Helper()
-
-	packagedsetta.InstallRuntimeSitePackages(t, workerRPCTestRepoRoot(t), sitePackages)
-
-	repoRoot := workerRPCTestRepoRoot(t)
-	pluginRoot := filepath.Join(sitePackages, targetPluginID)
-	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", sourcePluginID), pluginRoot)
+	pluginRoot := filepath.Join(sitePackages, pluginID)
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", pluginID), pluginRoot)
 	if err := os.RemoveAll(filepath.Join(pluginRoot, "build")); err != nil {
 		t.Fatalf("remove copied plugin build dir: %v", err)
 	}
-	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
-		payload["id"] = targetPluginID
-	})
 
-	distInfoName := strings.ReplaceAll(targetPluginID, "-", "_") + "-0.1.0.dist-info"
+	distInfoName := strings.ReplaceAll(pluginID, "-", "_") + "-0.1.0.dist-info"
 	distInfoRoot := filepath.Join(sitePackages, distInfoName)
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
 		"Metadata-Version: 2.1",
-		"Name: " + targetPluginID,
+		"Name: " + pluginID,
 		"Version: 0.1.0",
 		"Summary: " + summary,
 		"",
@@ -198,18 +143,6 @@ func installFirstPartyPackageManagerPluginAsIDInSearchPath(
 	recordLines = append(recordLines, filepath.ToSlash(filepath.Join(distInfoName, "RECORD"))+",,")
 	writePackageManagerTestFile(t, filepath.Join(distInfoRoot, "RECORD"), strings.Join(append(recordLines, ""), "\n"))
 	return pluginRoot
-}
-
-func installFirstPartyPackageManagerPluginInSearchPath(t *testing.T, sitePackages string, pluginID string, summary string) string {
-	t.Helper()
-
-	return installFirstPartyPackageManagerPluginAsIDInSearchPath(
-		t,
-		sitePackages,
-		pluginID,
-		pluginID,
-		summary,
-	)
 }
 
 func firstPartyBasedpyrightSitePackages(t *testing.T) string {

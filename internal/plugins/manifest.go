@@ -56,10 +56,6 @@ func loadPluginManifestFile(manifestPath string) (PluginManifest, error) {
 		}
 		return PluginManifest{}, fmt.Errorf("%w: decode %s: %v", ErrPluginManifestInvalid, manifestPath, err)
 	}
-	return normalizeLoadedPluginManifest(manifest)
-}
-
-func normalizeLoadedPluginManifest(manifest PluginManifest) (PluginManifest, error) {
 	if manifest.SchemaVersion != 1 {
 		return PluginManifest{}, fmt.Errorf("%w: %d", ErrPluginManifestUnsupported, manifest.SchemaVersion)
 	}
@@ -80,14 +76,8 @@ func normalizeLoadedPluginManifest(manifest PluginManifest) (PluginManifest, err
 	if manifest.SettaVersionRange == "" {
 		manifest.SettaVersionRange = ">=0.0.0"
 	}
-	if manifest.Frontend != nil && manifest.Frontend.Build != nil {
-		manifest.Frontend.Build.PackageManager = strings.TrimSpace(manifest.Frontend.Build.PackageManager)
-	}
 	if manifest.Capabilities == nil {
 		manifest.Capabilities = []string{}
-	}
-	if err := validatePluginFrontendBuildManifest(manifest); err != nil {
-		return PluginManifest{}, err
 	}
 	return manifest, nil
 }
@@ -128,29 +118,10 @@ func validatePluginFrontendPaths(pluginRoot string, manifest PluginManifest) err
 	if manifest.Frontend == nil {
 		return nil
 	}
-	if err := validatePluginFrontendBuildManifest(manifest); err != nil {
-		return err
-	}
 	if err := validateRequiredManifestRegularFile(pluginRoot, manifest.Frontend.Entrypoint, "plugin frontend entrypoint", manifest.ID); err != nil {
 		return err
 	}
 	return validateOptionalManifestRegularFile(pluginRoot, manifest.Frontend.Style, "plugin frontend style")
-}
-
-func validatePluginFrontendBuildManifest(manifest PluginManifest) error {
-	if manifest.Frontend == nil || manifest.Frontend.Build == nil {
-		return nil
-	}
-	packageManager := strings.TrimSpace(manifest.Frontend.Build.PackageManager)
-	if packageManager == "" {
-		return fmt.Errorf("%w: plugin frontend build packageManager is required for %s", ErrPluginManifestInvalid, manifest.ID)
-	}
-	switch packageManager {
-	case pluginFrontendBuildPackageManagerPNPM:
-		return nil
-	default:
-		return fmt.Errorf("%w: unsupported plugin frontend build packageManager %q for %s", ErrPluginManifestInvalid, packageManager, manifest.ID)
-	}
 }
 
 func validatePluginContentPaths(pluginRoot string, manifest PluginManifest) error {
