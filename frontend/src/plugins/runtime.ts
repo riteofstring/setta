@@ -12,6 +12,11 @@ import {
   PluginStatusEntry,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
+import {
+  beginAppSubsystemFrontendRegistrationLoad,
+  resetAppSubsystemFrontendRuntimeState,
+  syncAppSubsystemFrontendRegistration,
+} from "./appSubsystem";
 import { type PluginPaneIconName } from "./paneIcons";
 import type {
   PluginFrontendError,
@@ -73,6 +78,9 @@ type PluginRuntimeStore = {
   statusMessage: string | null;
   schemaVersion: number | null;
   serverMode: PluginServerMode | null;
+  appSubsystemCapabilities:
+    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
+    | null;
   restartCapability: PluginRestartCapability | null;
   pluginListById: Record<string, PluginListEntry>;
   sortedPluginListEntries: PluginListEntry[];
@@ -83,6 +91,7 @@ type PluginRuntimeStore = {
     LanguageServerSelectionStatus
   >;
   languageServerSelections: LanguageServerSelectionStatus[];
+  appSubsystemRegistrationsByPluginId: PluginRegistryAccumulator["appSubsystemRegistrationsByPluginId"];
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>;
   sortedSectionKinds: RegisteredPluginSectionKind[];
   panesByPluginId: Record<string, RegisteredPluginPane[]>;
@@ -99,6 +108,7 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   statusMessage: null,
   schemaVersion: null,
   serverMode: null,
+  appSubsystemCapabilities: null,
   restartCapability: null,
   pluginListById: {},
   sortedPluginListEntries: [],
@@ -106,6 +116,7 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   statusEntries: [],
   languageServerSelectionsByLanguage: {},
   languageServerSelections: [],
+  appSubsystemRegistrationsByPluginId: {},
   sectionKindsByKey: {},
   sortedSectionKinds: [],
   panesByPluginId: {},
@@ -213,6 +224,14 @@ export async function refreshPluginRuntime(): Promise<void> {
 export async function receivePluginRuntimeUpdate(
   runtimeResponse: PluginRuntimeResponse,
 ): Promise<void> {
+  beginAppSubsystemFrontendRegistrationLoad(
+    runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+    buildSelectedAppSubsystemFrontendRefreshSignature(
+      runtimeResponse.featureCapabilities?.appSubsystem ?? null,
+      runtimeResponse.list.plugins,
+      runtimeResponse.status.plugins,
+    ),
+  );
   queuedPluginRuntimeResponse = runtimeResponse;
   if (pluginRuntimeLoadPromise) {
     return pluginRuntimeLoadPromise;
@@ -260,6 +279,8 @@ async function applyPluginRuntimeResponse(
   runtimeResponse: PluginRuntimeResponse,
 ): Promise<void> {
   const previousState = usePluginRuntimeStore.getState();
+  const appSubsystemCapabilities =
+    runtimeResponse.featureCapabilities?.appSubsystem ?? null;
   const listData = runtimeResponse.list;
   const statusData = runtimeResponse.status;
   const pluginListById = mapPluginListById(
@@ -284,6 +305,7 @@ async function applyPluginRuntimeResponse(
       previousState.languageServerSelectionsByLanguage,
     );
   const registryAccumulator: PluginRegistryAccumulator = {
+    appSubsystemRegistrationsByPluginId: {},
     sectionKinds: {},
     panes: {},
     commands: {},
@@ -306,6 +328,17 @@ async function applyPluginRuntimeResponse(
     }
     runPluginCleanup(pluginId);
   }
+
+  const selectedAppSubsystemFrontendRefreshSignature =
+    buildSelectedAppSubsystemFrontendRefreshSignature(
+      appSubsystemCapabilities,
+      listData.plugins,
+      statusData.plugins,
+    );
+  beginAppSubsystemFrontendRegistrationLoad(
+    appSubsystemCapabilities,
+    selectedAppSubsystemFrontendRefreshSignature,
+  );
 
   await runWithConcurrencyLimit(
     frontendLoadCandidates,
@@ -358,6 +391,12 @@ async function applyPluginRuntimeResponse(
     pluginListById,
     registryAccumulator,
   });
+  const appSubsystemRegistrationsByPluginId = hasSameRecordValueReferences(
+    registryAccumulator.appSubsystemRegistrationsByPluginId,
+    previousState.appSubsystemRegistrationsByPluginId,
+  )
+    ? previousState.appSubsystemRegistrationsByPluginId
+    : registryAccumulator.appSubsystemRegistrationsByPluginId;
 
   usePluginRuntimeStore.setState((state) => ({
     ...state,
@@ -365,6 +404,7 @@ async function applyPluginRuntimeResponse(
     statusMessage: null,
     schemaVersion: listData.schemaVersion,
     serverMode: listData.serverMode,
+    appSubsystemCapabilities,
     restartCapability: listData.restartCapability,
     pluginListById,
     sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
@@ -372,6 +412,7 @@ async function applyPluginRuntimeResponse(
     statusEntries,
     languageServerSelectionsByLanguage,
     languageServerSelections,
+    appSubsystemRegistrationsByPluginId,
     sectionKindsByKey: registryAccumulator.sectionKinds,
     sortedSectionKinds: sortedRuntimeViews.sortedSectionKinds,
     panesByPluginId: registryAccumulator.panes,
@@ -382,10 +423,17 @@ async function applyPluginRuntimeResponse(
     sortedTopNavBarItems: sortedRuntimeViews.sortedTopNavBarItems,
     frontendErrorsByPluginId,
   }));
+
+  await syncAppSubsystemFrontendRegistration(
+    appSubsystemCapabilities,
+    appSubsystemRegistrationsByPluginId,
+    selectedAppSubsystemFrontendRefreshSignature,
+  );
 }
 
 function setPluginRuntimeLoadError(message: string): void {
   clearPluginRuntimeSideEffects();
+  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState((state) =>
     buildClearedRuntimeState(state, {
       status: "error",
@@ -407,6 +455,7 @@ function buildClearedRuntimeState(
     statusMessage: options.statusMessage,
     schemaVersion: null,
     serverMode: null,
+    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
@@ -414,6 +463,7 @@ function buildClearedRuntimeState(
     statusEntries: [],
     languageServerSelectionsByLanguage: {},
     languageServerSelections: [],
+    appSubsystemRegistrationsByPluginId: {},
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -438,6 +488,28 @@ function buildPluginFrontendRefreshSignature(
     statusEntry,
   );
   return `${plugin.pluginId}\u0000${sourceDigest}\u0000${entrypointUrl}\u0000${styleUrl}\u0000${effectiveCapabilityDigest}`;
+}
+
+function buildSelectedAppSubsystemFrontendRefreshSignature(
+  appSubsystemCapabilities:
+    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
+    | null,
+  plugins: PluginListEntry[],
+  statuses: PluginStatusEntry[],
+): string | null {
+  if (!appSubsystemCapabilities?.pluginEnabled) {
+    return null;
+  }
+  const pluginId = appSubsystemCapabilities.pluginId?.trim() ?? "";
+  if (!pluginId) {
+    return null;
+  }
+  const plugin = plugins.find((entry) => entry.pluginId === pluginId);
+  if (!plugin) {
+    return null;
+  }
+  const statusEntry = statuses.find((entry) => entry.pluginId === pluginId);
+  return buildPluginFrontendRefreshSignature(plugin, statusEntry);
 }
 
 function getFrontendEffectiveCapabilityDigest(
@@ -479,6 +551,11 @@ function mergeRegistryDelta(
   target: PluginRegistryAccumulator,
   delta: PluginRegistryAccumulator,
 ): void {
+  for (const [pluginId, registration] of Object.entries(
+    delta.appSubsystemRegistrationsByPluginId,
+  )) {
+    target.appSubsystemRegistrationsByPluginId[pluginId] = registration;
+  }
   for (const [key, value] of Object.entries(delta.sectionKinds)) {
     target.sectionKinds[key] = value;
   }
@@ -507,6 +584,12 @@ function mergePluginRegistryFromState(
   sectionKindKeysByPluginId: Record<string, string[]>,
   target: PluginRegistryAccumulator,
 ): void {
+  const appSubsystemRegistration =
+    state.appSubsystemRegistrationsByPluginId[pluginId];
+  if (appSubsystemRegistration) {
+    target.appSubsystemRegistrationsByPluginId[pluginId] =
+      appSubsystemRegistration;
+  }
   const sectionKindKeys = sectionKindKeysByPluginId[pluginId] ?? [];
   for (const sectionKindKey of sectionKindKeys) {
     const sectionKind = state.sectionKindsByKey[sectionKindKey];

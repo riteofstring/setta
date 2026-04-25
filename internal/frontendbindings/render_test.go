@@ -25,6 +25,24 @@ func TestBuildRetainsDiscoveredValueTypeDeclarations(t *testing.T) {
 	}
 }
 
+func TestBuildCastsTypeGuardDiscriminatorsToGeneratedEnumSets(t *testing.T) {
+	t.Parallel()
+
+	bindings, err := Build()
+	if err != nil {
+		t.Fatalf("Build(): %v", err)
+	}
+
+	for _, snippet := range []string{
+		"return BaseChildlessCodeObjImplTypeSet.has(x.type as CodeObjType);",
+		"return BaseParentSectionImplTypeSet.has(x.type as SectionType);",
+	} {
+		if !strings.Contains(bindings.TypesTS, snippet) {
+			t.Fatalf("generated bindings missing %q", snippet)
+		}
+	}
+}
+
 func TestValidateTypeDeclarationShapeAcceptsEachSupportedKind(t *testing.T) {
 	t.Parallel()
 

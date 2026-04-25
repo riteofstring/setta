@@ -2,6 +2,7 @@ import {
   useAIStore,
   useListenerCoverage,
   useProjectState,
+  useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { C } from "utils/c";
@@ -24,20 +25,26 @@ import {
 } from "utils/transportRouteConstants";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
+  initializeAppSessionFromCurrentDeploymentMock,
   routeGetAuthRefreshStatusMock,
   getAgentRunsMock,
   getListenerCoverageMock,
   getLatestProjectStateMock,
   getLatestLspDiagnosticsMock,
+  processAppProjectStateUpdateFromBackendMock,
   receivePluginRuntimeUpdateMock,
+  resetAppSessionStateMock,
   uploadBinaryMock,
 } = vi.hoisted(() => ({
+  initializeAppSessionFromCurrentDeploymentMock: vi.fn(),
   routeGetAuthRefreshStatusMock: vi.fn(),
   getAgentRunsMock: vi.fn(),
   getListenerCoverageMock: vi.fn(),
   getLatestProjectStateMock: vi.fn(),
   getLatestLspDiagnosticsMock: vi.fn(),
+  processAppProjectStateUpdateFromBackendMock: vi.fn(),
   receivePluginRuntimeUpdateMock: vi.fn(),
+  resetAppSessionStateMock: vi.fn(),
   uploadBinaryMock: vi.fn(),
 }));
 vi.mock("openapi/http", () => ({
@@ -56,6 +63,20 @@ vi.mock("openapi/http/result", () => ({
 vi.mock("plugins/runtime", () => ({
   receivePluginRuntimeUpdate: receivePluginRuntimeUpdateMock,
 }));
+vi.mock("plugins/appSubsystem", async () => {
+  const actual = await vi.importActual<typeof import("plugins/appSubsystem")>(
+    "plugins/appSubsystem",
+  );
+  return {
+    ...actual,
+    initializeAppSessionFromCurrentDeployment:
+      initializeAppSessionFromCurrentDeploymentMock,
+    processAppProjectStateUpdateFromBackend: (...args: unknown[]) =>
+      processAppProjectStateUpdateFromBackendMock(...args),
+    resetAppSessionState: (...args: unknown[]) =>
+      resetAppSessionStateMock(...args),
+  };
+});
 vi.mock("state/actions/lspDiagnostics", () => ({
   processLspDiagnostics: vi.fn(),
 }));
@@ -213,6 +234,10 @@ describe("openWebSocket", () => {
     resetProjectStores();
     MockWebSocket.instances = [];
     vi.useFakeTimers();
+    initializeAppSessionFromCurrentDeploymentMock.mockReset();
+    initializeAppSessionFromCurrentDeploymentMock.mockResolvedValue(false);
+    processAppProjectStateUpdateFromBackendMock.mockReset();
+    resetAppSessionStateMock.mockReset();
     (
       globalThis as unknown as {
         window?: typeof globalThis;
@@ -238,6 +263,8 @@ describe("openWebSocket", () => {
     });
   });
   afterEach(async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    openWebSocket.cancel();
     for (const socket of MockWebSocket.instances) {
       await socket.emit("close", { code: 1000 });
     }
@@ -308,6 +335,52 @@ describe("openWebSocket", () => {
       },
     });
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
+  });
+
+  it("routes app deployment project-state updates through the app-subsystem queue before server mode resolves", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { processProjectStateUpdateFromBackend } = await import(
+      "state/actions/sectionInfos"
+    );
+
+    useShareSession.setState({
+      isDeploymentMode: true,
+      deploymentMode: "app",
+      shareSessionId: "share-session-app",
+      shareDeploymentName: "demo-app",
+      shareDeploymentVersion: "v1",
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    const payload = {
+      projectState: {
+        projectConfig: createProjectConfig({
+          id: "project-1",
+          sectionVariantMap: {},
+          topLevelSections: {},
+          activeIds: [],
+        }),
+      },
+    };
+    await socket.emit("message", {
+      data: JSON.stringify({
+        messageType: WebsocketMessageTypeEnum.UpdateFrontendProjectState,
+        content: payload,
+      }),
+    });
+
+    expect(processAppProjectStateUpdateFromBackendMock).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(processAppProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
+      payload,
+    );
+    expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();
   });
   it("connects IDE mode through the Go frontend websocket route", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");

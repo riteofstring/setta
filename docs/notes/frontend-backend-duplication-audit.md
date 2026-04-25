@@ -88,7 +88,8 @@ None found in the audited areas after the fixes above.
 
 ## Reviewed but judged justified
 
-- `frontend/src/utils/appSpecPatchStream.ts` vs `internal/appspec/patch_stream.go`
+- `plugins/setta-json-render-app-gen/frontend/src/appSpecPatchStream.ts` vs
+  `internal/appsubsystem/appspec/patch_stream.go`
   - Justified. The frontend needs local patch parsing/application for streaming preview, while the backend remains authoritative for persisted app-spec state.
 - `frontend/src/state/actions/stateMachineDraftValidation.ts` vs `internal/statemachineruns/runtime.go`
   - Justified. The frontend is warning early about obvious draft issues; the backend still owns execution-time validation and runtime behavior.

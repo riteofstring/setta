@@ -2,21 +2,25 @@ package agentruns
 
 import "testing"
 
-func TestNormalizeAppGenerationByMessageIDKeepsPlainChatAndDropsInvalidEntries(t *testing.T) {
+func TestNormalizeAppGenerationByMessageIDPreservesAnyNonEmptyMode(t *testing.T) {
 	t.Parallel()
 
 	normalized := NormalizeAppGenerationByMessageID(map[string]any{
-		"msg-plain": ChatAppGenerationMessageModePlainChat,
-		"msg-app":   ChatAppGenerationMessageModeMCPServer,
-		"msg-bad":   "invalid_mode",
-		"":          ChatAppGenerationMessageModeJSONRender,
+		"msg-plain":  ChatAppGenerationMessageModePlainChat,
+		"msg-vendor": " vendor_mode ",
+		"msg-app":    ChatAppGenerationMessageModeMCPServer,
+		"msg-empty":  "   ",
+		"":           "vendor_mode",
 	})
 
-	if len(normalized) != 2 {
-		t.Fatalf("expected two normalized entries, got %#v", normalized)
+	if len(normalized) != 3 {
+		t.Fatalf("expected three normalized entries, got %#v", normalized)
 	}
 	if normalized["msg-plain"] != string(ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected plain-chat entry to survive normalization, got %#v", normalized)
+	}
+	if normalized["msg-vendor"] != "vendor_mode" {
+		t.Fatalf("expected provider-defined mode to survive normalization, got %#v", normalized)
 	}
 	if normalized["msg-app"] != string(ChatAppGenerationMessageModeMCPServer) {
 		t.Fatalf("expected app-generation entry to survive normalization, got %#v", normalized)
@@ -41,73 +45,16 @@ func TestExtractAppGenerationByMessageIDIgnoresLegacyModeWithoutAuthoritativeMap
 	}
 }
 
-func TestMessageHasImageAttachmentRequiresImageMimeType(t *testing.T) {
-	t.Parallel()
-
-	if !MessageHasImageAttachment(map[string]any{
-		"attachments": []any{
-			map[string]any{"id": "image-1", "mimeType": "image/png"},
-			map[string]any{"id": "notes-1", "mimeType": "text/plain"},
-		},
-	}) {
-		t.Fatal("expected image attachment to be detected")
-	}
-
-	if MessageHasImageAttachment(map[string]any{
-		"attachments": []any{
-			map[string]any{"id": "notes-1", "mimeType": "text/plain"},
-			map[string]any{"id": "missing-mime"},
-		},
-	}) {
-		t.Fatal("expected non-image attachments to be ignored")
-	}
-}
-
-func TestHasRetainedImageAttachmentFromImageModeThreadRequiresUserTurnImageModeAndImageAttachment(t *testing.T) {
-	t.Parallel()
-
-	messages := []map[string]any{
-		{
-			"id":          "msg-plain-image",
-			"role":        "user",
-			"attachments": []any{map[string]any{"id": "image-1", "mimeType": "image/png"}},
-		},
-		{
-			"id":          "msg-image-mode",
-			"role":        "user",
-			"attachments": []any{map[string]any{"id": "image-2", "mimeType": "image/png"}},
-		},
-		{
-			"id":          "msg-assistant",
-			"role":        "assistant",
-			"attachments": []any{map[string]any{"id": "image-3", "mimeType": "image/png"}},
-		},
-	}
-
-	if !HasRetainedImageAttachmentFromImageModeThread(messages, map[string]string{
-		"msg-image-mode": string(ChatAppGenerationMessageModeJSONRenderWithImage),
-	}) {
-		t.Fatal("expected retained image-mode user attachment to be reusable")
-	}
-
-	if HasRetainedImageAttachmentFromImageModeThread(messages, map[string]string{
-		"msg-plain-image": string(ChatAppGenerationMessageModePlainChat),
-		"msg-assistant":   string(ChatAppGenerationMessageModeJSONRenderWithImage),
-	}) {
-		t.Fatal("expected plain-chat or assistant attachments not to count as retained image provenance")
-	}
-}
-
 func TestNormalizeSubmittedTurnAppGenerationByMessageIDRecordsPlainChatWhenModeUnset(t *testing.T) {
 	t.Parallel()
 
 	normalized := NormalizeSubmittedTurnAppGenerationByMessageID(
-		map[string]any{"msg-old": ChatAppGenerationMessageModeMCPServer},
+		map[string]any{"msg-old": "vendor_mode"},
 		"msg-new",
 		nil,
 	)
 
-	if normalized["msg-old"] != string(ChatAppGenerationMessageModeMCPServer) {
+	if normalized["msg-old"] != "vendor_mode" {
 		t.Fatalf("expected prior normalized entries to survive, got %#v", normalized)
 	}
 	if normalized["msg-new"] != string(ChatAppGenerationMessageModePlainChat) {
@@ -115,17 +62,20 @@ func TestNormalizeSubmittedTurnAppGenerationByMessageIDRecordsPlainChatWhenModeU
 	}
 }
 
-func TestNormalizeSubmittedTurnAppGenerationByMessageIDOverridesSubmittedMode(t *testing.T) {
+func TestNormalizeSubmittedTurnAppGenerationByMessageIDOverridesSubmittedModeAndPreservesProviderModes(t *testing.T) {
 	t.Parallel()
 
-	requestedMode := string(ChatAppGenerationMessageModeJSONRender)
+	requestedMode := "vendor_mode"
 	normalized := NormalizeSubmittedTurnAppGenerationByMessageID(
-		map[string]any{"msg-new": ChatAppGenerationMessageModePlainChat},
+		map[string]any{"msg-old": "vendor_mode_old", "msg-new": ChatAppGenerationMessageModePlainChat},
 		"msg-new",
 		&requestedMode,
 	)
 
-	if normalized["msg-new"] != string(ChatAppGenerationMessageModeJSONRender) {
+	if normalized["msg-old"] != "vendor_mode_old" {
+		t.Fatalf("expected existing provider-defined mode to survive, got %#v", normalized)
+	}
+	if normalized["msg-new"] != "vendor_mode" {
 		t.Fatalf("expected submitted turn to use requested mode, got %#v", normalized)
 	}
 }
