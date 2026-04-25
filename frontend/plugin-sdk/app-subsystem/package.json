@@ -23,5 +23,11 @@
       "types": "./types/index.d.ts",
       "default": "./src/index.ts"
     }
+  },
+  "pnpm": {
+    "overrides": {
+      "esbuild": "0.25.12",
+      "rollup": "4.59.1"
+    }
   }
 }

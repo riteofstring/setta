@@ -18,6 +18,16 @@ mkdir -p plugin-sdk/app-subsystem/src/openapi/non_http/generated
 cp -R src/openapi/non_http/generated/. \
   plugin-sdk/app-subsystem/src/openapi/non_http/generated/
 
+rm -rf plugin-sdk/app-subsystem/src/openapi/http/generated
+mkdir -p plugin-sdk/app-subsystem/src/openapi/http/generated
+cp -R src/openapi/http/generated/. \
+  plugin-sdk/app-subsystem/src/openapi/http/generated/
+# The upstream @hey-api client implementation is not type-clean under the
+# standalone SDK package's strict typecheck. Keep the exception scoped to the
+# generated implementation file; generated public types remain checked.
+perl -0pi -e 's#\A// This file is auto-generated#// \@ts-nocheck\n// This file is auto-generated#' \
+  plugin-sdk/app-subsystem/src/openapi/http/generated/client/client.gen.ts
+
 cp src/utils/generatedTypes.ts plugin-sdk/app-subsystem/src/generatedTypes.ts
 perl -0pi -e 's#\Q../openapi/non_http/generated/types.gen\E#./openapi/non_http/generated/types.gen#g' \
   plugin-sdk/app-subsystem/src/generatedTypes.ts

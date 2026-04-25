@@ -8536,7 +8536,14 @@
       "type": "DrawAreaLayerItemTransform",
       "value": {
         "eraserStrokes": [],
-        "transform": [1, 0, 0, 1, 0, 0]
+        "transform": [
+          1,
+          0,
+          0,
+          1,
+          0,
+          0
+        ]
       }
     },
     {
@@ -8547,7 +8554,14 @@
         "type": "DrawAreaLayerItemTransform",
         "value": {
           "eraserStrokes": [],
-          "transform": [1, 0, 0, 1, 0, 0]
+          "transform": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
         }
       }
     },
@@ -10008,7 +10022,10 @@
         ],
         "selectionMode": "partial",
         "showGridLines": true,
-        "snapGrid": [15, 15],
+        "snapGrid": [
+          15,
+          15
+        ],
         "transitionDuration": 50,
         "wireColor": "#41506c",
         "wireColorDarkMode": "#bac2d3",
@@ -10174,7 +10191,10 @@
           ],
           "selectionMode": "partial",
           "showGridLines": true,
-          "snapGrid": [15, 15],
+          "snapGrid": [
+            15,
+            15
+          ],
           "transitionDuration": 50,
           "wireColor": "#41506c",
           "wireColorDarkMode": "#bac2d3",
@@ -10848,12 +10868,19 @@
       "name": "AppSpecPatchPolicyConfig",
       "type": "PatchPolicy",
       "value": {
-        "allowedOps": ["set", "add", "replace", "remove"],
+        "allowedOps": [
+          "set",
+          "add",
+          "replace",
+          "remove"
+        ],
         "commentPrefix": "//",
         "elementsPathPrefix": "/elements/",
         "rootPath": "/root",
         "rootResetValue": "",
-        "valueOptionalOps": ["remove"]
+        "valueOptionalOps": [
+          "remove"
+        ]
       }
     },
     {
@@ -11170,26 +11197,39 @@
           "Bash(shutdown:*)",
           "Bash(reboot:*)"
         ],
-        "defaultClaudeSettingsSources": ["project", "local"]
+        "defaultClaudeSettingsSources": [
+          "project",
+          "local"
+        ]
       }
     },
     {
       "name": "LocalHostnamePolicyConfig",
       "type": "LocalHostnamePolicy",
       "value": {
-        "loopbackHosts": ["127.0.0.1", "localhost", "::1"]
+        "loopbackHosts": [
+          "127.0.0.1",
+          "localhost",
+          "::1"
+        ]
       }
     },
     {
       "name": "ModeScopedLauncherRoutesList",
       "type": "ModeScopedLauncherRoutes",
-      "value": ["/launch", "/createWorkspaceLaunchIntent"]
+      "value": [
+        "/launch",
+        "/createWorkspaceLaunchIntent"
+      ]
     },
     {
       "name": "NameValidationRules",
       "type": "NameValidationContract",
       "value": {
-        "projectReservedNames": ["home", "settings"],
+        "projectReservedNames": [
+          "home",
+          "settings"
+        ],
         "pythonIdentifierContinueChars": [
           "0",
           "1",
@@ -11417,7 +11457,13 @@
           "y",
           "z"
         ],
-        "slugReplacementChars": ["[", "]", "\"", "'", " "]
+        "slugReplacementChars": [
+          "[",
+          "]",
+          "\"",
+          "'",
+          " "
+        ]
       }
     },
     {
@@ -11528,21 +11574,58 @@
       "type": "PythonCodegenPolicyUIConfigValue",
       "value": {
         "codeObjRepresentationOptionsByType": {
-          "ButtonParam": ["expression"],
-          "CodeCallable": ["expression"],
-          "CodeParam": ["expression", "string"],
-          "ColorPickerParam": ["string"],
-          "DateParam": ["string"],
-          "DropdownParam": ["expression", "string"],
-          "DropzoneParam": ["file_path", "file_read"],
-          "NestedParam": ["expression"],
-          "PasswordParam": ["string"],
-          "RotaryParam": ["expression", "string"],
-          "SliderParam": ["expression", "json_parsed", "string"],
-          "SwitchParam": ["expression", "string"],
-          "TextAreaParam": ["string"],
-          "TextParam": ["string"],
-          "TimeParam": ["string"]
+          "ButtonParam": [
+            "expression"
+          ],
+          "CodeCallable": [
+            "expression"
+          ],
+          "CodeParam": [
+            "expression",
+            "string"
+          ],
+          "ColorPickerParam": [
+            "string"
+          ],
+          "DateParam": [
+            "string"
+          ],
+          "DropdownParam": [
+            "expression",
+            "string"
+          ],
+          "DropzoneParam": [
+            "file_path",
+            "file_read"
+          ],
+          "NestedParam": [
+            "expression"
+          ],
+          "PasswordParam": [
+            "string"
+          ],
+          "RotaryParam": [
+            "expression",
+            "string"
+          ],
+          "SliderParam": [
+            "expression",
+            "json_parsed",
+            "string"
+          ],
+          "SwitchParam": [
+            "expression",
+            "string"
+          ],
+          "TextAreaParam": [
+            "string"
+          ],
+          "TextParam": [
+            "string"
+          ],
+          "TimeParam": [
+            "string"
+          ]
         },
         "codeObjTypes": [
           "CodeParam",
@@ -11560,8 +11643,12 @@
           "DropzoneParam",
           "NestedParam"
         ],
-        "defaultCodeObjRepresentationOptions": ["expression"],
-        "defaultSectionRepresentationOptions": ["expression"],
+        "defaultCodeObjRepresentationOptions": [
+          "expression"
+        ],
+        "defaultSectionRepresentationOptions": [
+          "expression"
+        ],
         "metaControlCodeObjTypes": [
           {
             "label": "Dropdown",
@@ -11616,33 +11703,92 @@
             "type": "DropzoneParam"
           }
         ],
-        "sectionModeOptions": ["inherit", "include", "exclude"],
+        "sectionModeOptions": [
+          "inherit",
+          "include",
+          "exclude"
+        ],
         "sectionRepresentationOptionsByType": {
-          "Browser": ["expression"],
-          "Callable": ["expression"],
-          "Chart": ["expression", "file_path"],
-          "Chat": ["expression", "file_path", "file_read"],
-          "Code": ["expression"],
-          "Dict": ["expression"],
-          "Draw": ["file_path", "file_read"],
-          "GenPythonCode": ["expression"],
-          "GenPythonMetadata": ["expression"],
-          "GlobalVariables": ["expression"],
-          "Group": ["expression"],
-          "IFrame": ["expression"],
-          "Image": ["file_path", "file_read"],
-          "ListRoot": ["expression"],
-          "MetaControl": ["expression"],
-          "Plugin": ["expression"],
-          "Prompt": ["expression"],
-          "Social": ["expression"],
-          "Spreadsheet": ["expression"],
-          "StateMachineEnd": ["expression"],
-          "StateMachineGate": ["expression"],
-          "StateMachineStart": ["expression"],
-          "TaskBoard": ["expression"],
-          "Terminal": ["expression"],
-          "TextBlock": ["expression"]
+          "Browser": [
+            "expression"
+          ],
+          "Callable": [
+            "expression"
+          ],
+          "Chart": [
+            "expression",
+            "file_path"
+          ],
+          "Chat": [
+            "expression",
+            "file_path",
+            "file_read"
+          ],
+          "Code": [
+            "expression"
+          ],
+          "Dict": [
+            "expression"
+          ],
+          "Draw": [
+            "file_path",
+            "file_read"
+          ],
+          "GenPythonCode": [
+            "expression"
+          ],
+          "GenPythonMetadata": [
+            "expression"
+          ],
+          "GlobalVariables": [
+            "expression"
+          ],
+          "Group": [
+            "expression"
+          ],
+          "IFrame": [
+            "expression"
+          ],
+          "Image": [
+            "file_path",
+            "file_read"
+          ],
+          "ListRoot": [
+            "expression"
+          ],
+          "MetaControl": [
+            "expression"
+          ],
+          "Plugin": [
+            "expression"
+          ],
+          "Prompt": [
+            "expression"
+          ],
+          "Social": [
+            "expression"
+          ],
+          "Spreadsheet": [
+            "expression"
+          ],
+          "StateMachineEnd": [
+            "expression"
+          ],
+          "StateMachineGate": [
+            "expression"
+          ],
+          "StateMachineStart": [
+            "expression"
+          ],
+          "TaskBoard": [
+            "expression"
+          ],
+          "Terminal": [
+            "expression"
+          ],
+          "TextBlock": [
+            "expression"
+          ]
         },
         "sectionTypes": [
           "Callable",
@@ -11662,46 +11808,92 @@
       "name": "RequiredUIEditorTabs",
       "type": "RequiredUIEditorTabMap",
       "value": {
-        "Browser": ["SectionConfig"],
+        "Browser": [
+          "SectionConfig"
+        ],
         "Callable": [
           "SectionConfig",
           "UIConfig",
           "QuickInfoConfig",
           "SectionVariantsConfig"
         ],
-        "Chart": ["SectionConfig"],
-        "Chat": ["SectionConfig"],
-        "Code": ["SectionConfig", "SectionVariantsConfig"],
+        "Chart": [
+          "SectionConfig"
+        ],
+        "Chat": [
+          "SectionConfig"
+        ],
+        "Code": [
+          "SectionConfig",
+          "SectionVariantsConfig"
+        ],
         "Dict": [
           "SectionConfig",
           "UIConfig",
           "QuickInfoConfig",
           "SectionVariantsConfig"
         ],
-        "Draw": ["SectionConfig"],
-        "GenPythonCode": ["SectionConfig"],
-        "GenPythonMetadata": ["SectionConfig"],
+        "Draw": [
+          "SectionConfig"
+        ],
+        "GenPythonCode": [
+          "SectionConfig"
+        ],
+        "GenPythonMetadata": [
+          "SectionConfig"
+        ],
         "GlobalVariables": [
           "SectionConfig",
           "UIConfig",
           "QuickInfoConfig",
           "SectionVariantsConfig"
         ],
-        "Group": ["SectionConfig"],
+        "Group": [
+          "SectionConfig"
+        ],
         "IFrame": [],
-        "Image": ["SectionConfig"],
-        "ListRoot": ["SectionConfig", "SectionVariantsConfig"],
-        "MetaControl": ["SectionConfig"],
-        "Plugin": ["SectionConfig"],
-        "Prompt": ["SectionConfig"],
-        "Social": ["SectionConfig"],
-        "Spreadsheet": ["SectionConfig"],
-        "StateMachineEnd": ["SectionConfig"],
-        "StateMachineGate": ["SectionConfig"],
-        "StateMachineStart": ["SectionConfig"],
-        "TaskBoard": ["SectionConfig"],
-        "Terminal": ["SectionConfig"],
-        "TextBlock": ["SectionConfig", "InfoConfig", "SectionVariantsConfig"]
+        "Image": [
+          "SectionConfig"
+        ],
+        "ListRoot": [
+          "SectionConfig",
+          "SectionVariantsConfig"
+        ],
+        "MetaControl": [
+          "SectionConfig"
+        ],
+        "Plugin": [
+          "SectionConfig"
+        ],
+        "Prompt": [
+          "SectionConfig"
+        ],
+        "Social": [
+          "SectionConfig"
+        ],
+        "Spreadsheet": [
+          "SectionConfig"
+        ],
+        "StateMachineEnd": [
+          "SectionConfig"
+        ],
+        "StateMachineGate": [
+          "SectionConfig"
+        ],
+        "StateMachineStart": [
+          "SectionConfig"
+        ],
+        "TaskBoard": [
+          "SectionConfig"
+        ],
+        "Terminal": [
+          "SectionConfig"
+        ],
+        "TextBlock": [
+          "SectionConfig",
+          "InfoConfig",
+          "SectionVariantsConfig"
+        ]
       }
     },
     {
@@ -11813,8 +12005,15 @@
       "name": "SettaFilesLocationPolicyConfig",
       "type": "SettaFilesLocationPolicy",
       "value": {
-        "requested": ["auto", "local", "global"],
-        "resolved": ["local", "global"]
+        "requested": [
+          "auto",
+          "local",
+          "global"
+        ],
+        "resolved": [
+          "local",
+          "global"
+        ]
       }
     },
     {
@@ -11884,7 +12083,9 @@
           "promptSection": "prompt_section",
           "promptTemplate": "prompt_template"
         },
-        "selfLoopSectionTypes": ["Chat"],
+        "selfLoopSectionTypes": [
+          "Chat"
+        ],
         "sourceActivationCountOperatorOptions": [
           {
             "label": "\u003c",
@@ -12070,8 +12271,24 @@
       "type": "TextParamUIConfigValue",
       "value": {
         "calendarWeekdayLabelsByWeekStart": {
-          "monday": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-          "sunday": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+          "monday": [
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat",
+            "Sun"
+          ],
+          "sunday": [
+            "Sun",
+            "Mon",
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat"
+          ]
         },
         "dateCalendarWeekStartOptions": [
           {
@@ -12506,7 +12723,10 @@
           "unionName": "BaseParentCodeObjImplUnion",
           "localUnion": true,
           "includeBase": false,
-          "memberTypes": ["CodeCallableCodeObjImpl", "NestedParamCodeObjImpl"]
+          "memberTypes": [
+            "CodeCallableCodeObjImpl",
+            "NestedParamCodeObjImpl"
+          ]
         }
       ],
       "defaultValuesByDiscriminator": {
