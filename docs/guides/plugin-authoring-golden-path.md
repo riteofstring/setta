@@ -51,7 +51,8 @@ metadata.
   `registerMcpTools`, `registerLanguageServer`,
   `registerExternalAgentAdapter`, `registerCodegenTarget`,
   `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`, and
-  `registerAppSubsystemBackend`.
+  `registerAppSubsystemBackend`. Project-canvas controls must request
+  `registerCanvasControl`.
 - `frontend.build.packageManager` currently accepts `pnpm` and is the opt-in
   contract for plugin-owned frontend builds from `frontend/package.json`.
 - App-subsystem providers should declare both the required backend/runtime
@@ -130,6 +131,40 @@ export function register(host) {
 Notes:
 - `revealKey` in schema/backend registration must match `registerSettingRevealHandler(revealKey, ...)`.
 - Reveal handlers must return `true`/`false` (or `Promise<boolean>`).
+
+### Optional: add a project canvas control
+
+Frontend plugins that need a button in the React Flow project controls rail can
+request `registerCanvasControl` and register an imperative renderer:
+
+```js
+export function register(host) {
+  host.registerCanvasControl({
+    id: "my-control",
+    label: "My Control",
+    description: "Open my project tool",
+    placement: "project",
+    order: 100,
+    renderer: {
+      mount(el, props) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.ariaLabel = props.label;
+        button.textContent = "M";
+        el.append(button);
+      },
+      unmount(el) {
+        el.textContent = "";
+      },
+    },
+  });
+}
+```
+
+Supported placements are `project`, `viewport`, and `utility`; controls sort by
+placement, `order`, label, plugin ID, and control ID. Use
+`readProjectState`/`subscribeProjectState` when the control reflects project
+state.
 
 ## 3. Link locally during development
 
