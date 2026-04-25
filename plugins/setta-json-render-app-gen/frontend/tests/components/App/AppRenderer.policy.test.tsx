@@ -1,8 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useProjectState } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import {
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
@@ -12,8 +10,12 @@ import {
   createSingletonSections,
   createTextBlockSectionImpl,
   createVariant,
-} from "utils/generatedTypes";
+} from "@setta/app-subsystem-frontend-sdk";
 import { useAppConfigs } from "../../../src/appSubsystemProjectState";
+import {
+  resetAppSubsystemPluginStores,
+  syncStoreInitialState,
+} from "../../testUtils/appSubsystemTestState";
 
 import {
   AppActionContext,
@@ -22,24 +24,13 @@ import {
 } from "../../../src/components/App/appContext";
 import { appRegistry } from "../../../src/components/App/appRegistry";
 
-function syncStoreInitialState(store: {
-  getState: () => Record<string, unknown>;
-  getInitialState?: () => Record<string, unknown>;
-}) {
-  if (!store.getInitialState) {
-    return;
-  }
-  const initial = store.getInitialState();
-  Object.assign(initial, store.getState());
-}
-
 describe("AppRenderer policy enforcement", () => {
   beforeEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
   });
 
   afterEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
   });
 
   it("disables param edits and downloads when policy forbids", () => {
@@ -109,25 +100,7 @@ describe("AppRenderer policy enforcement", () => {
         },
       },
     });
-    useProjectState.setState({
-      projectConfig,
-      sections: { [sectionId]: sectionCore },
-      sectionVariants: { [sectionVariantId]: sectionVariant },
-      sectionImpls: { [sectionImplId]: sectionImpl },
-      sectionCapabilities: {},
-      codeObjs: { [paramId]: paramCore },
-      codeObjVariants: { [paramVariantId]: paramVariant },
-      codeObjImpls: { [paramImplId]: paramImpl },
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: { [sectionId]: null },
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-    });
     syncStoreInitialState(useAppConfigs);
-    syncStoreInitialState(useProjectState);
 
     const runtimeValue = {
       dataBindings: {},

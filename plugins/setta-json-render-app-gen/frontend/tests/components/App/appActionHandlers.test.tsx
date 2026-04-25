@@ -1,17 +1,20 @@
-import { createAppSubsystemFrontendHost } from "@setta/app-subsystem-frontend-sdk";
+import {
+  createAppSubsystemFrontendHost,
+  createProjectConfig,
+  createSectionCapabilities,
+  createSettingsState,
+  createSingleConfig,
+} from "@setta/app-subsystem-frontend-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useProjectState, type ZustandProjectState } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import {
-  createProjectConfig,
-  createSectionCapabilities,
-  createSettingsState,
-} from "utils/generatedTypes";
 import { AppSubsystemFrontendHostProvider } from "../../../src/appSubsystemFrontendHostContext";
-import { useAppConfigs } from "../../../src/appSubsystemProjectState";
+import {
+  type AppConfigState,
+  useAppConfigs,
+} from "../../../src/appSubsystemProjectState";
+import { resetAppSubsystemPluginStores } from "../../testUtils/appSubsystemTestState";
 
 import {
   useAppActionHandlers,
@@ -41,8 +44,8 @@ let latestHandlers: Record<string, AppActionHandler> = {};
 function buildAppConfigState(
   configId: string,
   sectionId: string,
-): ZustandProjectState {
-  const baseState = useProjectState.getState();
+): AppConfigState {
+  const baseState = createSingleConfig();
   return {
     ...baseState,
     projectConfig: createProjectConfig({ id: configId }),
@@ -115,14 +118,14 @@ function renderActionHandlers(args: {
 
 describe("useAppActionHandlers", () => {
   beforeEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
     latestHandlers = {};
     callOpenAPIMock.mockClear();
     runCodeMock.mockReset();
   });
 
   afterEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
     vi.restoreAllMocks();
   });
 

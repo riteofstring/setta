@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import "testUtils/reactRefreshPreamble";
+import "../../../../testUtils/reactRefreshPreamble";
 import { useAppDefinition } from "../../../../../src/appSubsystemDefinitionState";
 import { AppSubsystemFrontendHostProvider } from "../../../../../src/appSubsystemFrontendHostContext";
 import { useAppPreview } from "../../../../../src/appSubsystemProjectState";

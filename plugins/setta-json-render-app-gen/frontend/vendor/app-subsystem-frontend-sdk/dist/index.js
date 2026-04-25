@@ -79,6 +79,15 @@ const ARTIFACTS_ROOT = "artifacts";
 function createNewId() {
   return v4();
 }
+function createArtifactId(extension = ".json") {
+  return `${ARTIFACTS_ROOT}/${createNewId()}${extension}`;
+}
+function createPngArtifactId() {
+  return createFileArtifactId(".png");
+}
+function createFileArtifactId(extension = ".bin") {
+  return createArtifactId(extension);
+}
 function createRandomName() {
   const customConfig = {
     dictionaries: [l, t],
@@ -108,8 +117,103 @@ function mergeGeneratedOptions(defaults, options = {}) {
     ...cloneGeneratedValue(options)
   };
 }
+function createCallableSectionImpl(options = {}) {
+  const defaults = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    callable: null,
+    codeObjVariantMap: {},
+    columnWidth: null,
+    configLanguage: "python",
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+    hideParams: false,
+    hideUnpinnedParams: false,
+    id: "",
+    ignoreTypeErrors: {
+      callable: false,
+      params: {}
+    },
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    name: "",
+    paramFilter: "",
+    pinnedParams: [],
+    positionAndSizeLocked: false,
+    selectedParams: [],
+    size: {
+      height: 150,
+      width: 250
+    },
+    styleColor: null,
+    tagColor: null,
+    type: "Callable"
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options),
+    size: createSectionSize(options["size"] ?? defaults["size"]),
+    ignoreTypeErrors: createTypeErrorIgnoreState(
+      options["ignoreTypeErrors"] ?? defaults["ignoreTypeErrors"]
+    )
+  };
+}
 function createCodeFileBinding(options = {}) {
   return options;
+}
+function createCodeParamCodeObjImpl(options = {}) {
+  const defaults = {
+    coreNameEditable: false,
+    coreNameType: "TEXT",
+    defaultVal: "",
+    description: "",
+    id: "",
+    isPreset: false,
+    name: "",
+    passingStyle: "DEFAULT",
+    type: "CodeParam",
+    typeAnnotation: "",
+    value: ""
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options)
+  };
+}
+function createContentRef(options = {}) {
+  return options;
+}
+function createCore(options = {}) {
+  const defaults = {
+    defaultVariant: null,
+    displayName: "",
+    id: "",
+    name: "",
+    sharedModifier: {},
+    unsharedKeys: [],
+    variants: []
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options)
+  };
+}
+function createImageArtifact(options = {}) {
+  const defaults = {
+    id: "",
+    type: "Image",
+    value: {
+      byteLength: 0,
+      contentId: "",
+      mimeType: "",
+      sha256: ""
+    }
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options),
+    id: options["id"] ?? createPngArtifactId(),
+    value: options["value"] ?? createContentRef()
+  };
 }
 function createMetaControlSizingPolicyByType(options = {}) {
   const defaults = {
@@ -324,6 +428,29 @@ function createProjectRunCapabilities(options = {}) {
   };
   return {
     ...mergeGeneratedOptions(defaults, options)
+  };
+}
+function createSectionCapabilities(options = {}) {
+  const defaults = {
+    canRun: false,
+    canSelectAsEntryCodeBlock: false,
+    entryCodeBlockValue: null,
+    runDisabledReason: null,
+    runRequestSectionId: null
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options)
+  };
+}
+function createSectionSize(options = {}) {
+  const defaults = {
+    height: "auto",
+    width: "auto"
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options),
+    width: options["width"] ?? SectionSizeModeEnum.auto,
+    height: options["height"] ?? SectionSizeModeEnum.auto
   };
 }
 function createSectionSizingPolicy(options = {}) {
@@ -1562,6 +1689,59 @@ function createSingletonSections(options = {}) {
     ...mergeGeneratedOptions(defaults, options)
   };
 }
+function createTextBlockSectionImpl(options = {}) {
+  const defaults = {
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    format: "Plaintext",
+    headingAsSectionName: false,
+    id: "",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    isMinimized: false,
+    isPreset: false,
+    masterFontSizePx: 14,
+    metaControlStyle: false,
+    name: "",
+    positionAndSizeLocked: false,
+    size: {
+      height: 150,
+      width: 500
+    },
+    styleColor: null,
+    tagColor: null,
+    text: "",
+    textDisplayMode: "Render",
+    type: "TextBlock"
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options),
+    size: createSectionSize(options["size"] ?? defaults["size"])
+  };
+}
+function createTypeErrorIgnoreState(options = {}) {
+  const defaults = {
+    callable: false,
+    params: {}
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options)
+  };
+}
+function createVariant(options = {}) {
+  const defaults = {
+    id: "",
+    impl: "",
+    isFrozen: false,
+    modifier: {},
+    name: "",
+    nonPresetImpls: []
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options)
+  };
+}
 function createViewport(options = {}) {
   const defaults = {
     x: 0,
@@ -1635,6 +1815,9 @@ const EndpointOriginEnum = {
   backend: "backend",
   launcher: "launcher",
   BackendOrigin: "backend-origin"
+};
+const SectionSizeModeEnum = {
+  auto: "auto"
 };
 const SectionTypeEnum = {
   Callable: "Callable",
@@ -9585,13 +9768,23 @@ export {
   checkIfFileExists,
   configureAppSubsystemOpenAPI,
   createAppSubsystemFrontendHost,
+  createCallableSectionImpl,
+  createCodeParamCodeObjImpl,
+  createContentRef,
+  createCore,
   createDefaultAppPolicy,
   createDropzoneFileArtifactId,
   createDropzoneTextAttachmentId,
+  createImageArtifact,
   createPolicy,
+  createProjectConfig,
   createRandomName,
+  createSectionCapabilities,
   createSettingsState,
   createSingleConfig,
+  createSingletonSections,
+  createTextBlockSectionImpl,
+  createVariant,
   deactivateAppSubsystemFrontendHostRuntime,
   deleteArtifacts,
   downloadBinary,

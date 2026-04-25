@@ -50,6 +50,22 @@ describe("import boundary guardrails", () => {
     expect(violations[0]?.message).toContain("published SDK");
   });
 
+  it("rejects plugin frontend test imports of host source aliases", () => {
+    const violations = findImportBoundaryViolations([
+      {
+        filePath: "plugins/demo/frontend/tests/pluginBoundaryFixture.test.ts",
+        source: `
+          import { resetProjectStores } from "state/utils";
+
+          export const value = resetProjectStores;
+        `,
+      },
+    ]);
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("published SDK");
+  });
+
   it("rejects plugin frontend relative imports that escape the plugin root", () => {
     const violations = findImportBoundaryViolations([
       {
