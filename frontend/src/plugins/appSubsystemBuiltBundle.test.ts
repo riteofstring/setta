@@ -196,56 +196,6 @@ describe("app subsystem built plugin bundle", () => {
     resetPluginRuntimeStateForTests();
   });
 
-  it("loads the built plugin bundle through runtime metadata", async () => {
-    const modulePath = resolve(
-      process.cwd(),
-      "../plugins/setta-json-render-app-gen/frontend/dist/index.js",
-    );
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(readFileSync(modulePath, "utf8"));
-
-    await receivePluginRuntimeUpdate(
-      buildPluginRuntimeResponse(
-        buildPluginListResponse([
-          buildPluginListEntryWithDefaults({
-            pluginId: "setta-json-render-app-gen",
-            name: "Setta JSON Render App Generation",
-            frontend: {
-              entrypointUrl: moduleUrl,
-              styleUrl: null,
-            },
-          }),
-        ]),
-        buildPluginStatusResponse([
-          buildPluginStatusEntryWithDefaults({
-            pluginId: "setta-json-render-app-gen",
-            name: "Setta JSON Render App Generation",
-          }),
-        ]),
-        "setta-json-render-app-gen",
-      ),
-    );
-
-    expect(
-      usePluginRuntimeStore.getState().frontendErrorsByPluginId[
-        "setta-json-render-app-gen"
-      ],
-    ).toBeUndefined();
-    expect(
-      getAppSubsystemFrontendRuntimeState().registration?.overviewTab,
-    ).toMatchObject({
-      moreMenuLabel: "JSON Render",
-    });
-    expect(
-      getAppSubsystemFrontendRuntimeState().registration?.chat?.slashCommands
-        .length,
-    ).toBeGreaterThan(0);
-    expect(
-      getAppSubsystemFrontendRuntimeState().registration?.appDeploymentModal,
-    ).not.toBeNull();
-  });
-
   it("loads an unknown-id app-subsystem fixture through the same runtime metadata contract", async () => {
     const pluginId = "acme-app-subsystem-fixture";
     const modulePath = resolve(

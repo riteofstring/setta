@@ -119,6 +119,9 @@ func packagePluginSourceForDeployment(entry DiscoveredPlugin, targetRoot string)
 	if err := CopyDirectoryTree(entry.SourcePath, targetRoot); err != nil {
 		return err
 	}
+	if err := EnsureRuntimeManagedPluginFrontendAssetsForRoot(targetRoot); err != nil {
+		return err
+	}
 	if !packageManagerPythonBackendInstallPayloadRequired(entry, targetRoot) {
 		return nil
 	}

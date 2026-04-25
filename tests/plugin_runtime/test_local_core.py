@@ -9,6 +9,17 @@ from setta.api.runtime_compat import RuntimeCompatibilityError
 from setta.plugin_runtime import app_subsystem, local_core
 from setta.sdk_contracts.generated import SETTA_SDK_CONTRACT_VERSION
 from setta.types.generated.go_shared_constants import (
+    LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID,
+    LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH,
+    LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION,
+    LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE,
+    LOCAL_CORE_COMMAND_GET_APP_DEFINITION,
+    LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION,
+    LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH,
+    LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_THEME_MODE,
+    LOCAL_CORE_COMMAND_SET_APP_DEFINITION,
+    LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION,
+    LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION,
     LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION,
 )
 
@@ -235,12 +246,26 @@ def test_run_local_core_command_rejects_sdk_contract_mismatch(
 
 
 def test_app_subsystem_endpoint_mapping_uses_go_owned_constants() -> None:
-    assert "appsubsystem_validate_app_definition" in app_subsystem.listener_endpoint_names()
-    assert (
-        app_subsystem.local_core_command_for_listener_endpoint(
-            "appsubsystem_validate_app_definition"
+    expected_commands = {
+        "appsubsystem_get_app_definition": LOCAL_CORE_COMMAND_GET_APP_DEFINITION,
+        "appsubsystem_get_effective_app_definition": LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION,
+        "appsubsystem_get_effective_app_spec_path": LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH,
+        "appsubsystem_get_effective_app_theme_mode": LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_THEME_MODE,
+        "appsubsystem_validate_app_definition": LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION,
+        "appsubsystem_set_app_definition": LOCAL_CORE_COMMAND_SET_APP_DEFINITION,
+        "appsubsystem_stream_app_definition": LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION,
+        "appsubsystem_update_app_definition": LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION,
+        "appsubsystem_compare_and_set_catalog_id": LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID,
+        "appsubsystem_compare_and_set_spec_version": LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION,
+        "appsubsystem_compare_and_set_spec_path": LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH,
+        "appsubsystem_compare_and_set_theme_mode": LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE,
+    }
+
+    assert tuple(expected_commands) == app_subsystem.listener_endpoint_names()
+    for endpoint_name, command_name in expected_commands.items():
+        assert (
+            app_subsystem.local_core_command_for_listener_endpoint(endpoint_name)
+            == command_name
         )
-        == LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION
-    )
     with pytest.raises(KeyError):
         app_subsystem.local_core_command_for_listener_endpoint("missing_endpoint")

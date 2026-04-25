@@ -218,12 +218,19 @@ def _build_first_party_basedpyright_wheel(tmp_path: Path) -> Path:
     return wheel_paths[0]
 
 
-def _build_first_party_app_subsystem_wheel(tmp_path: Path) -> Path:
+def _stage_first_party_app_subsystem_plugin_source(tmp_path: Path) -> Path:
     source_root = _repo_root() / "plugins" / "setta-json-render-app-gen"
     plugin_root = tmp_path / "setta-json-render-app-gen"
+    frontend_root = plugin_root / "frontend"
     shutil.copytree(source_root, plugin_root)
     shutil.rmtree(plugin_root / "build", ignore_errors=True)
+    shutil.rmtree(frontend_root / "dist", ignore_errors=True)
+    shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
+    return plugin_root
 
+
+def _build_first_party_app_subsystem_wheel(tmp_path: Path) -> Path:
+    plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
     outdir = tmp_path / "dist"
     result = _build_wheel(plugin_root, outdir)
     combined_output = f"{result.stdout}\n{result.stderr}"
@@ -300,13 +307,8 @@ def test_first_party_app_subsystem_plugin_package_has_no_python_runtime_dependen
 def test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree(
     tmp_path: Path,
 ) -> None:
-    source_root = _repo_root() / "plugins" / "setta-json-render-app-gen"
-    plugin_root = tmp_path / "setta-json-render-app-gen"
+    plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
     frontend_root = plugin_root / "frontend"
-    shutil.copytree(source_root, plugin_root)
-    shutil.rmtree(plugin_root / "build", ignore_errors=True)
-    shutil.rmtree(frontend_root / "dist", ignore_errors=True)
-    shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
 
     install_result = subprocess.run(
         [_pnpm_command(), "--dir", str(frontend_root), "install", "--lockfile=false"],
