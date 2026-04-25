@@ -1741,6 +1741,7 @@ type appHandlerDeps struct {
 	attachmentService        *chatattachments.Service
 	pluginRouteService       httpapi.PluginRouteService
 	appSubsystemCapabilities *appSubsystemCapabilityState
+	watchCodeCapabilities    *watchCodeCapabilityState
 	websocketHub             *realtime.WebsocketHub
 	uiSettingRevealResults   *realtime.UISettingRevealResultHub
 	listenerBroadcaster      *realtime.ListenerBroadcaster
@@ -1984,6 +1985,12 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		CodegenTargetValidator:         deps.codegenValidator,
 		PythonCodegenSectionReconciler: deps.pythonMaterializer,
 		CallableSignatures:             deps.lspSignature,
+		WatchCodeCapabilities: func() plugins.PluginWatchCodeCapabilities {
+			if deps.watchCodeCapabilities == nil {
+				return plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
+			}
+			return deps.watchCodeCapabilities.WatchCodeCapabilities()
+		},
 	}
 	if deps.chatSectionChatIDs != nil {
 		apiDeps.Project.ChatSectionChatID = deps.chatSectionChatIDs.GetChatID
@@ -2715,6 +2722,7 @@ func initializeAppHandlerAndWatchServices(
 		attachmentService:        workspaceServices.attachmentService,
 		pluginRouteService:       platformServices.pluginRouteService,
 		appSubsystemCapabilities: platformServices.appSubsystemCapabilities,
+		watchCodeCapabilities:    platformServices.watchCodeCapabilities,
 		websocketHub:             base.websocketHub,
 		uiSettingRevealResults:   runtimeServices.uiSettingRevealResults,
 		listenerBroadcaster:      runtimeServices.listenerBroadcaster,

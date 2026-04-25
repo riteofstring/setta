@@ -183,6 +183,7 @@ type ProjectRouteDependencies struct {
 	SetSectionName                 func(ctx context.Context, projectID string, sectionID string, name string) error
 	AcceptRenameRefactor           func(ctx context.Context, projectID string, frontendOpID string) error
 	DeclineRenameRefactor          func(ctx context.Context, projectID string, frontendOpID string) error
+	WatchCodeCapabilities          func() plugins.PluginWatchCodeCapabilities
 }
 
 // setta-go-type-discovery: skip
@@ -7385,6 +7386,10 @@ func setWatchCodeEnabledHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if !watchCodeProviderActive(deps) {
+			writeWatchCodeFeatureUnavailable(w, r)
+			return
+		}
 		runtime, err := projectRuntimeForRequest(deps, r)
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -7426,6 +7431,10 @@ func setWatchCodeInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		if !watchCodeProviderActive(deps) {
+			writeWatchCodeFeatureUnavailable(w, r)
+			return
+		}
 		runtime, err := projectRuntimeForRequest(deps, r)
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
@@ -7449,6 +7458,24 @@ func setWatchCodeInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, nil)
 	}
+}
+
+func watchCodeProviderActive(deps ProjectRouteDependencies) bool {
+	if deps.WatchCodeCapabilities == nil {
+		return false
+	}
+	capabilities := deps.WatchCodeCapabilities()
+	return capabilities.PluginEnabled && capabilities.Python
+}
+
+func writeWatchCodeFeatureUnavailable(w http.ResponseWriter, r *http.Request) {
+	writeError(
+		w,
+		r,
+		http.StatusConflict,
+		"feature_unavailable",
+		"Watch Code is unavailable because no active Watch Code provider is selected.",
+	)
 }
 
 func decodeProjectCodegenTargets(payloads []json.RawMessage) ([]projectstate.ProjectCodegenTarget, error) {
