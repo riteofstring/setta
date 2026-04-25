@@ -982,13 +982,14 @@ func initializeIDECodeMutationServices(
 	services *projectServices,
 ) error {
 	codeUpdates, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:       services.projectRuntime,
-		LSPSync:            services.projectLSPSyncer,
-		CallableSignatures: services.lspSignature,
-		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
-		WatchCodeWarnings:  services.watchCodeWarnings,
-		WebsocketHub:       websocketHub,
-		Logger:             logger,
+		ProjectState:          services.projectRuntime,
+		LSPSync:               services.projectLSPSyncer,
+		CallableSignatures:    services.lspSignature,
+		WorkspaceRoot:         cfg.Paths.WorkspaceRoot,
+		WatchCodeCapabilities: services.watchCodeCapabilities,
+		WatchCodeWarnings:     services.watchCodeWarnings,
+		WebsocketHub:          websocketHub,
+		Logger:                logger,
 	})
 	if err != nil {
 		_ = closeInitializedProjectServices(*services)
