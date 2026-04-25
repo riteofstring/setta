@@ -21,6 +21,7 @@ export default {
       entry: resolve(pluginFrontendDir, "src/index.ts"),
       formats: ["es"],
       fileName: () => "index.js",
+      cssFileName: "setta-watch-code-frontend",
     },
   },
 };

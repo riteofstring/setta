@@ -220,6 +220,20 @@ def _stage_first_party_app_subsystem_plugin_source(
     return plugin_root
 
 
+def _stage_first_party_watch_code_plugin_source(
+    tmp_path: Path, *, remove_dist: bool = True
+) -> Path:
+    source_root = _repo_root() / "plugins" / "setta-watch-code"
+    plugin_root = tmp_path / "setta-watch-code"
+    frontend_root = plugin_root / "frontend"
+    shutil.copytree(source_root, plugin_root)
+    shutil.rmtree(plugin_root / "build", ignore_errors=True)
+    if remove_dist:
+        shutil.rmtree(frontend_root / "dist", ignore_errors=True)
+    shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
+    return plugin_root
+
+
 def _stage_unknown_id_app_subsystem_plugin_source(tmp_path: Path) -> Path:
     source_root = (
         _repo_root() / "tests" / "fixtures" / "plugins" / "app-subsystem-unknown-id"
@@ -259,6 +273,22 @@ def _build_first_party_app_subsystem_wheel(
     assert result.returncode == 0, combined_output
 
     wheel_paths = list(outdir.glob("setta_json_render_app_gen-*.whl"))
+    assert len(wheel_paths) == 1
+    return wheel_paths[0]
+
+
+def _build_first_party_watch_code_wheel(
+    tmp_path: Path, *, remove_dist: bool = True
+) -> Path:
+    plugin_root = _stage_first_party_watch_code_plugin_source(
+        tmp_path, remove_dist=remove_dist
+    )
+    outdir = tmp_path / "dist"
+    result = _build_wheel(plugin_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_watch_code-*.whl"))
     assert len(wheel_paths) == 1
     return wheel_paths[0]
 
@@ -411,11 +441,7 @@ def test_minimal_distribution_project_uses_packaged_runtime_modules(
         include_go_binaries=False,
     )
     app_subsystem_runtime = (
-        project_root
-        / "backend"
-        / "setta"
-        / "plugin_runtime"
-        / "app_subsystem.py"
+        project_root / "backend" / "setta" / "plugin_runtime" / "app_subsystem.py"
     )
 
     runtime_text = app_subsystem_runtime.read_text(encoding="utf-8")
@@ -426,13 +452,16 @@ def test_minimal_distribution_project_uses_packaged_runtime_modules(
     ).read_text(encoding="utf-8")
 
 
-def test_pyproject_defaults_extra_installs_basedpyright_plugin() -> None:
+def test_pyproject_defaults_extra_installs_first_party_plugins() -> None:
     pyproject = tomllib.loads(
         (_repo_root() / "pyproject.toml").read_text(encoding="utf-8")
     )
 
     optional_dependencies = pyproject["project"]["optional-dependencies"]
-    assert optional_dependencies["defaults"] == ["setta-basedpyright==0.1.0"]
+    assert optional_dependencies["defaults"] == [
+        "setta-basedpyright==0.1.0",
+        "setta-watch-code==0.1.0",
+    ]
 
 
 def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() -> None:
@@ -452,6 +481,19 @@ def test_first_party_app_subsystem_plugin_package_declares_setta_runtime_depende
         (
             _repo_root() / "plugins" / "setta-json-render-app-gen" / "pyproject.toml"
         ).read_text(encoding="utf-8")
+    )
+
+    expected_version = _read_setta_package_version()
+    assert plugin_pyproject["project"]["dependencies"] == [f"setta=={expected_version}"]
+
+
+def test_first_party_watch_code_plugin_package_declares_setta_runtime_dependency() -> (
+    None
+):
+    plugin_pyproject = tomllib.loads(
+        (_repo_root() / "plugins" / "setta-watch-code" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
     )
 
     expected_version = _read_setta_package_version()
@@ -604,6 +646,25 @@ def test_first_party_app_subsystem_plugin_wheel_packages_runtime_managed_assets(
     )
     assert any(
         name.endswith("setta-json-render-app-gen/frontend/dist/index.css")
+        for name in names
+    )
+
+
+def test_first_party_watch_code_plugin_wheel_packages_runtime_managed_assets(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_watch_code_wheel(tmp_path)
+
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        names = set(wheel_archive.namelist())
+
+    assert any(name.endswith("setta-watch-code/setta.plugin.json") for name in names)
+    assert any(name.endswith("setta-watch-code/README.md") for name in names)
+    assert any(
+        name.endswith("setta-watch-code/frontend/dist/index.js") for name in names
+    )
+    assert any(
+        name.endswith("setta-watch-code/frontend/dist/setta-watch-code-frontend.css")
         for name in names
     )
 
@@ -811,6 +872,38 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     assert "setta-json-render-app-gen/runtime_backend/main.py" in record_text
     assert "setta-json-render-app-gen/frontend/dist/index.js" in record_text
     assert "setta-json-render-app-gen/frontend/dist/index.css" in record_text
+
+
+def test_first_party_watch_code_plugin_wheel_installs_under_plugin_specific_root(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_watch_code_wheel(tmp_path)
+    setta_wheel_path = _build_plugin_runtime_test_setta_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = _install_plugin_wheel_with_packaged_setta_runtime(
+        site_packages,
+        wheel_path,
+        setta_wheel_path,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    installed_plugin_root = site_packages / "setta-watch-code"
+    assert (installed_plugin_root / "setta.plugin.json").is_file()
+    assert (installed_plugin_root / "README.md").is_file()
+    assert (installed_plugin_root / "frontend" / "dist" / "index.js").is_file()
+    assert (
+        installed_plugin_root / "frontend" / "dist" / "setta-watch-code-frontend.css"
+    ).is_file()
+    assert not (installed_plugin_root / "frontend" / "package.json").exists()
+
+    record_path = site_packages / "setta_watch_code-0.1.0.dist-info" / "RECORD"
+    record_text = record_path.read_text(encoding="utf-8")
+    assert "setta-watch-code/setta.plugin.json" in record_text
+    assert "setta-watch-code/README.md" in record_text
+    assert "setta-watch-code/frontend/dist/index.js" in record_text
+    assert "setta-watch-code/frontend/dist/setta-watch-code-frontend.css" in record_text
 
 
 def test_plugin_runtime_test_setta_wheel_keeps_local_core_boundary_packaged_only(
@@ -1187,6 +1280,7 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     assert "Provides-Extra: defaults" in metadata
     assert defaults_requires == {
         "Requires-Dist: setta-basedpyright==0.1.0; extra == 'defaults'",
+        "Requires-Dist: setta-watch-code==0.1.0; extra == 'defaults'",
     }
 
     assert "Requires-Dist: click==8.2.1" not in default_requires

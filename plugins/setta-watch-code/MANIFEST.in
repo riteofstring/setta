@@ -1,0 +1,16 @@
+include build_backend.py
+include pyproject.toml
+include README.md
+include setta.plugin.json
+include frontend/.npmrc
+include frontend/package.json
+include frontend/tsconfig.json
+include frontend/tsconfig.typecheck.json
+include frontend/vite.config.mjs
+include frontend/vitest.config.mjs
+graft frontend/src
+graft frontend/tests
+prune frontend/dist
+prune frontend/node_modules
+global-exclude __pycache__
+global-exclude *.py[cod]

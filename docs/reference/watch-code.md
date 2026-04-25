@@ -13,13 +13,34 @@ match what's on disk.
 - **Sync sources:** File watcher events, inline code edits, and bound code file reloads.
 
 ## Configuration & Inputs
-Watch Code lives on `ProjectConfig`:
-- `watchCodeEnabled`: master toggle.
-- `watchCodeFolders`: list of `{ path, recursive }` folder inputs.
-- `watchCodeFiles`: list of file paths.
-- `watchCodeRegistry`: identity -> metadata (callable name, hashes, source path,
+Watch Code state is stored under document plugin data:
+
+```json
+{
+  "pluginData": {
+    "setta-watch-code": {
+      "schemaVersion": 1,
+      "projects": {
+        "<projectId>": {
+          "enabled": false,
+          "folders": [],
+          "files": [],
+          "registry": {},
+          "baselineByPath": {}
+        }
+      }
+    }
+  }
+}
+```
+
+The per-project fields are:
+- `enabled`: master toggle.
+- `folders`: list of `{ path, recursive }` folder inputs.
+- `files`: list of file paths.
+- `registry`: identity -> metadata (callable name, hashes, source path,
   sections).
-- `watchCodeBaselineByPath`: file -> list of identities recorded at baseline.
+- `baselineByPath`: file -> list of identities recorded at baseline.
 
 Input rules:
 - Paths must be **repo-relative**. Absolute or outside-the-repo paths raise.
@@ -45,7 +66,7 @@ new additions (so existing callables don't auto-create sections).
 ## Baselines: avoiding retroactive section creation
 When Watch Code is enabled, the backend records a **baseline**:
 1. It scans the configured watch inputs and stores every discovered identity in
-   `watchCodeBaselineByPath`.
+   plugin-owned `baselineByPath`.
 2. It also scans existing code sections bound to files, so current callables are
    considered "already known."
 

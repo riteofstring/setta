@@ -3,11 +3,16 @@ export type WatchCodeFolder = {
   recursive: boolean;
 };
 
-type WatchCodeProjectConfig = {
-  id: string;
-  watchCodeEnabled: boolean;
-  watchCodeFolders: WatchCodeFolder[];
-  watchCodeFiles: string[];
+type WatchCodeProjectData = {
+  projectConfigId: string;
+  enabled: boolean;
+  folders: WatchCodeFolder[];
+  files: string[];
+};
+
+type ProjectContext = {
+  projectConfigId: string;
+  serverMode: string;
 };
 
 type CanvasControlProps = {
@@ -41,7 +46,9 @@ type RevealHandlerContext = {
   abortSignal: AbortSignal;
 };
 
-type ProjectStateSelector = { kind: "projectConfig" };
+type ProjectStateSelector =
+  | { kind: "projectConfig" }
+  | { kind: "pluginData"; pluginId: string };
 
 export type WatchCodePluginHost = {
   apiVersion: number;
@@ -53,6 +60,10 @@ export type WatchCodePluginHost = {
     revealKey: string,
     handler: (context: RevealHandlerContext) => boolean | Promise<boolean>,
   ) => void;
+  getProjectContext: () => ProjectContext;
+  subscribeProjectContext: (
+    listener: (context: ProjectContext) => void,
+  ) => () => void;
   readProjectState: (selector: ProjectStateSelector) => unknown;
   subscribeProjectState: (
     selector: ProjectStateSelector,
@@ -76,11 +87,12 @@ const PORTAL_MAX_WIDTH_PX = 352;
 const PORTAL_MARGIN_PX = 12;
 const PORTAL_BUTTON_GAP_PX = 12;
 const PORTAL_ESTIMATED_HEIGHT_PX = 360;
-const EMPTY_PROJECT_CONFIG: WatchCodeProjectConfig = {
-  id: NULL_PROJECT_CONFIG_ID,
-  watchCodeEnabled: false,
-  watchCodeFolders: [],
-  watchCodeFiles: [],
+const WATCH_CODE_PLUGIN_ID = "setta-watch-code";
+const EMPTY_WATCH_CODE_PROJECT_DATA: WatchCodeProjectData = {
+  projectConfigId: NULL_PROJECT_CONFIG_ID,
+  enabled: false,
+  folders: [],
+  files: [],
 };
 
 export function createWatchCodeControl(host: WatchCodePluginHost): {
@@ -101,10 +113,11 @@ export function createWatchCodeControl(host: WatchCodePluginHost): {
 class WatchCodeControlController {
   private readonly host: WatchCodePluginHost;
   private readonly mounts = new Map<HTMLElement, HTMLButtonElement>();
-  private projectConfig: WatchCodeProjectConfig = EMPTY_PROJECT_CONFIG;
+  private watchCodeData: WatchCodeProjectData = EMPTY_WATCH_CODE_PROJECT_DATA;
   private localFolders: WatchCodeFolder[] = [];
   private localFiles: string[] = [];
-  private unsubscribeProjectState: (() => void) | null = null;
+  private unsubscribeProjectContext: (() => void) | null = null;
+  private unsubscribeWatchCodeData: (() => void) | null = null;
   private portalElement: HTMLElement | null = null;
   private portalAnchor: HTMLButtonElement | null = null;
   private pendingMutation = false;
@@ -153,8 +166,10 @@ class WatchCodeControlController {
     this.mounts.delete(el);
     el.textContent = "";
     if (this.mounts.size === 0) {
-      this.unsubscribeProjectState?.();
-      this.unsubscribeProjectState = null;
+      this.unsubscribeProjectContext?.();
+      this.unsubscribeProjectContext = null;
+      this.unsubscribeWatchCodeData?.();
+      this.unsubscribeWatchCodeData = null;
       this.closePortal();
     }
   }
@@ -200,27 +215,51 @@ class WatchCodeControlController {
   }
 
   private ensureProjectSubscription(): void {
-    if (this.unsubscribeProjectState) {
+    if (this.unsubscribeProjectContext || this.unsubscribeWatchCodeData) {
       return;
     }
-    this.applyProjectConfig(
-      normalizeProjectConfig(
-        this.host.readProjectState({ kind: "projectConfig" }),
+    this.applyProjectConfigId(this.host.getProjectContext().projectConfigId);
+    this.applyWatchCodeProjectData(
+      normalizeWatchCodeProjectData(
+        this.host.readProjectState({
+          kind: "pluginData",
+          pluginId: WATCH_CODE_PLUGIN_ID,
+        }),
       ),
     );
-    this.unsubscribeProjectState = this.host.subscribeProjectState(
-      { kind: "projectConfig" },
+    this.unsubscribeProjectContext = this.host.subscribeProjectContext(
+      (context) => {
+        this.applyProjectConfigId(context.projectConfigId);
+      },
+    );
+    this.unsubscribeWatchCodeData = this.host.subscribeProjectState(
+      { kind: "pluginData", pluginId: WATCH_CODE_PLUGIN_ID },
       (nextValue) => {
-        this.applyProjectConfig(normalizeProjectConfig(nextValue));
+        this.applyWatchCodeProjectData(
+          normalizeWatchCodeProjectData(nextValue),
+        );
       },
       { fireImmediately: true },
     );
   }
 
-  private applyProjectConfig(projectConfig: WatchCodeProjectConfig): void {
-    this.projectConfig = projectConfig;
-    this.localFolders = cloneFolders(projectConfig.watchCodeFolders);
-    this.localFiles = projectConfig.watchCodeFiles.slice();
+  private applyProjectConfigId(projectConfigId: string): void {
+    this.watchCodeData = {
+      ...this.watchCodeData,
+      projectConfigId,
+    };
+    this.render();
+  }
+
+  private applyWatchCodeProjectData(
+    projectData: Omit<WatchCodeProjectData, "projectConfigId">,
+  ): void {
+    this.watchCodeData = {
+      ...this.watchCodeData,
+      ...projectData,
+    };
+    this.localFolders = cloneFolders(projectData.folders);
+    this.localFiles = projectData.files.slice();
     this.render();
   }
 
@@ -235,7 +274,7 @@ class WatchCodeControlController {
   }
 
   private renderControlButton(button: HTMLButtonElement): void {
-    const enabled = this.projectConfig.watchCodeEnabled;
+    const enabled = this.watchCodeData.enabled;
     button.classList.toggle("is-active", enabled);
     button.setAttribute("aria-pressed", enabled ? "true" : "false");
   }
@@ -368,23 +407,18 @@ class WatchCodeControlController {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "setta-watch-code-toggle";
-    button.classList.toggle("is-active", this.projectConfig.watchCodeEnabled);
+    button.classList.toggle("is-active", this.watchCodeData.enabled);
     button.disabled = this.inputsDisabled();
-    button.setAttribute(
-      "aria-pressed",
-      String(this.projectConfig.watchCodeEnabled),
-    );
+    button.setAttribute("aria-pressed", String(this.watchCodeData.enabled));
     button.setAttribute(
       "aria-label",
-      this.projectConfig.watchCodeEnabled
-        ? "Disable Watch Code"
-        : "Enable Watch Code",
+      this.watchCodeData.enabled ? "Disable Watch Code" : "Enable Watch Code",
     );
     button.innerHTML = `${radarIconMarkup()}<span>${
-      this.projectConfig.watchCodeEnabled ? "Enabled" : "Disabled"
+      this.watchCodeData.enabled ? "Enabled" : "Disabled"
     }</span>`;
     button.addEventListener("click", () => {
-      void this.setEnabled(!this.projectConfig.watchCodeEnabled);
+      void this.setEnabled(!this.watchCodeData.enabled);
     });
     row.append(button);
     return row;
@@ -588,8 +622,8 @@ class WatchCodeControlController {
     return (
       this.pendingMutation ||
       this.host.serverMode !== "ide" ||
-      this.projectConfig.id === "" ||
-      this.projectConfig.id === NULL_PROJECT_CONFIG_ID
+      this.watchCodeData.projectConfigId === "" ||
+      this.watchCodeData.projectConfigId === NULL_PROJECT_CONFIG_ID
     );
   }
 
@@ -602,7 +636,7 @@ class WatchCodeControlController {
     this.render();
     try {
       const ok = await this.host.setWatchCodeEnabled({
-        projectConfigId: this.projectConfig.id,
+        projectConfigId: this.watchCodeData.projectConfigId,
         enabled,
       });
       if (!ok) {
@@ -625,7 +659,7 @@ class WatchCodeControlController {
     this.renderControlButtonsOnly();
     try {
       const ok = await this.host.setWatchCodeInputs({
-        projectConfigId: this.projectConfig.id,
+        projectConfigId: this.watchCodeData.projectConfigId,
         watchCodeFolders: cloneFolders(this.localFolders),
         watchCodeFiles: this.localFiles.slice(),
       });
@@ -662,16 +696,21 @@ class WatchCodeControlController {
   }
 }
 
-function normalizeProjectConfig(value: unknown): WatchCodeProjectConfig {
+function normalizeWatchCodeProjectData(
+  value: unknown,
+): Omit<WatchCodeProjectData, "projectConfigId"> {
   if (!value || typeof value !== "object") {
-    return EMPTY_PROJECT_CONFIG;
+    return {
+      enabled: false,
+      folders: [],
+      files: [],
+    };
   }
   const record = value as Record<string, unknown>;
   return {
-    id: typeof record.id === "string" ? record.id : NULL_PROJECT_CONFIG_ID,
-    watchCodeEnabled: record.watchCodeEnabled === true,
-    watchCodeFolders: normalizeFolders(record.watchCodeFolders),
-    watchCodeFiles: normalizeStringArray(record.watchCodeFiles),
+    enabled: record.enabled === true,
+    folders: normalizeFolders(record.folders),
+    files: normalizeStringArray(record.files),
   };
 }
 

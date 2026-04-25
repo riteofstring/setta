@@ -23,12 +23,17 @@ const effectiveCapabilities = [
 function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
   let projectConfig = {
     id: "project-alpha",
-    watchCodeEnabled: false,
-    watchCodeFolders: [] as WatchCodeFolder[],
-    watchCodeFiles: [] as string[],
   };
-  let projectListener:
+  let watchCodeData = {
+    enabled: false,
+    folders: [] as WatchCodeFolder[],
+    files: [] as string[],
+  };
+  let projectStateListener:
     | ((nextValue: unknown, prevValue: unknown | null) => void)
+    | null = null;
+  let projectContextListener:
+    | ((context: { projectConfigId: string; serverMode: string }) => void)
     | null = null;
   const registeredControls: RegisteredCanvasControl[] = [];
   const revealHandlers = new Map<string, RevealHandler>();
@@ -45,12 +50,26 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
     registerSettingRevealHandler: (revealKey, handler) => {
       revealHandlers.set(revealKey, handler);
     },
-    readProjectState: () => projectConfig,
-    subscribeProjectState: (_selector, listener) => {
-      projectListener = listener;
-      listener(projectConfig, null);
+    getProjectContext: () => ({
+      projectConfigId: projectConfig.id,
+      serverMode: "ide",
+    }),
+    subscribeProjectContext: (listener) => {
+      projectContextListener = listener;
       return () => {
-        projectListener = null;
+        projectContextListener = null;
+      };
+    },
+    readProjectState: (selector) =>
+      selector.kind === "projectConfig" ? projectConfig : watchCodeData,
+    subscribeProjectState: (selector, listener) => {
+      projectStateListener = listener;
+      listener(
+        selector.kind === "projectConfig" ? projectConfig : watchCodeData,
+        null,
+      );
+      return () => {
+        projectStateListener = null;
       };
     },
     setWatchCodeEnabled,
@@ -66,7 +85,16 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
     updateProjectConfig(nextConfig: typeof projectConfig) {
       const previous = projectConfig;
       projectConfig = nextConfig;
-      projectListener?.(projectConfig, previous);
+      projectContextListener?.({
+        projectConfigId: projectConfig.id,
+        serverMode: "ide",
+      });
+      projectStateListener?.(projectConfig, previous);
+    },
+    updateWatchCodeData(nextData: typeof watchCodeData) {
+      const previous = watchCodeData;
+      watchCodeData = nextData;
+      projectStateListener?.(watchCodeData, previous);
     },
   };
 }
@@ -98,7 +126,7 @@ describe("setta-watch-code frontend registration", () => {
       registeredControls,
       setWatchCodeEnabled,
       setWatchCodeInputs,
-      updateProjectConfig,
+      updateWatchCodeData,
     } = buildHost();
     register(host);
     const mount = document.createElement("div");
@@ -133,11 +161,10 @@ describe("setta-watch-code frontend registration", () => {
       enabled: true,
     });
 
-    updateProjectConfig({
-      id: "project-alpha",
-      watchCodeEnabled: true,
-      watchCodeFolders: [{ path: "pkg", recursive: true }],
-      watchCodeFiles: ["pkg/mod.py"],
+    updateWatchCodeData({
+      enabled: true,
+      folders: [{ path: "pkg", recursive: true }],
+      files: ["pkg/mod.py"],
     });
     const fileInput = document.querySelector<HTMLInputElement>(
       '[data-setting-anchor="plugin::setta-watch-code::files"] input',
@@ -185,7 +212,9 @@ describe("setta-watch-code frontend registration", () => {
     expect(handled).toBe(true);
     expect(
       document
-        .querySelector('[data-setting-anchor="plugin::setta-watch-code::files"]')
+        .querySelector(
+          '[data-setting-anchor="plugin::setta-watch-code::files"]',
+        )
         ?.classList.contains("setta-watch-code-reveal-highlight"),
     ).toBe(true);
   });

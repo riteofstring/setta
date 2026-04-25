@@ -3306,6 +3306,11 @@
       "schemaRef": "#/$defs/ProjectConfigMetadata"
     },
     {
+      "name": "ProjectPluginData",
+      "kind": "alias",
+      "schemaRef": "#/$defs/ProjectPluginData"
+    },
+    {
       "name": "ProjectRunCapabilities",
       "kind": "model",
       "schemaRef": "#/$defs/ProjectRunCapabilities"
@@ -6661,6 +6666,16 @@
       "schemaRef": "#/$defs/WatchCodeFolder"
     },
     {
+      "name": "WatchCodePluginData",
+      "kind": "model",
+      "schemaRef": "#/$defs/WatchCodePluginData"
+    },
+    {
+      "name": "WatchCodePluginProjectData",
+      "kind": "model",
+      "schemaRef": "#/$defs/WatchCodePluginProjectData"
+    },
+    {
       "name": "WatchCodeRegistryEntry",
       "kind": "model",
       "schemaRef": "#/$defs/WatchCodeRegistryEntry"
@@ -9161,11 +9176,6 @@
         "viewModes": {},
         "viewport": null,
         "viewportInitialized": false,
-        "watchCodeBaselineByPath": {},
-        "watchCodeEnabled": false,
-        "watchCodeFiles": [],
-        "watchCodeFolders": [],
-        "watchCodeRegistry": {},
         "windowSpaceIdsBySlug": {},
         "windowSpaceSlugsById": {},
         "windowSpaces": {}
@@ -9395,14 +9405,22 @@
           "zoom": 1
         },
         "viewportInitialized": false,
-        "watchCodeBaselineByPath": {},
-        "watchCodeEnabled": false,
-        "watchCodeFiles": [],
-        "watchCodeFolders": [],
-        "watchCodeRegistry": {},
         "windowSpaceIdsBySlug": {},
         "windowSpaceSlugsById": {},
         "windowSpaces": {}
+      }
+    },
+    {
+      "profile": "frontend",
+      "type": "ProjectPluginData",
+      "value": {
+        "setta-watch-code": {
+          "baselineByPath": {},
+          "enabled": false,
+          "files": [],
+          "folders": [],
+          "registry": {}
+        }
       }
     },
     {
@@ -10694,6 +10712,15 @@
         "codeObjs": {},
         "genCodeBinding": null,
         "parentSectionMap": {},
+        "pluginData": {
+          "setta-watch-code": {
+            "baselineByPath": {},
+            "enabled": false,
+            "files": [],
+            "folders": [],
+            "registry": {}
+          }
+        },
         "projectChatWindowing": {
           "instancesById": {},
           "nextInstanceNumber": 1,
@@ -10726,11 +10753,6 @@
           "viewModes": {},
           "viewport": null,
           "viewportInitialized": false,
-          "watchCodeBaselineByPath": {},
-          "watchCodeEnabled": false,
-          "watchCodeFiles": [],
-          "watchCodeFolders": [],
-          "watchCodeRegistry": {},
           "windowSpaceIdsBySlug": {},
           "windowSpaceSlugsById": {},
           "windowSpaces": {}
@@ -10957,6 +10979,17 @@
         "x": 0,
         "y": 0,
         "zoom": 1
+      }
+    },
+    {
+      "profile": "frontend",
+      "type": "WatchCodePluginProjectData",
+      "value": {
+        "baselineByPath": {},
+        "enabled": false,
+        "files": [],
+        "folders": [],
+        "registry": {}
       }
     },
     {

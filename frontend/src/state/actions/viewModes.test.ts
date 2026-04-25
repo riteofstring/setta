@@ -225,16 +225,26 @@ describe("view mode canonical mutations", () => {
     expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
     processProjectStateUpdateFromBackend({
       projectState: createSingleConfig({
+        pluginData: {
+          ...useProjectState.getState().pluginData,
+          "setta-watch-code": {
+            baselineByPath: {},
+            enabled: true,
+            files: [],
+            folders: [],
+            registry: {},
+          },
+        },
         projectConfig: createProjectConfig({
           ...useProjectState.getState().projectConfig,
-          watchCodeEnabled: true,
         }),
       }),
       completedOpIds: [],
       pendingOpIds: [],
     });
-    const projectConfig = useProjectState.getState().projectConfig;
-    expect(projectConfig.watchCodeEnabled).toBe(true);
+    const state = useProjectState.getState();
+    const projectConfig = state.projectConfig;
+    expect(state.pluginData["setta-watch-code"]?.enabled).toBe(true);
     expect(projectConfig.viewModes["gamma-id"]?.sortIndex).toBe(0);
     expect(projectConfig.viewModes["alpha-id"]?.sortIndex).toBe(1);
     expect(projectConfig.viewModes["beta-id"]?.sortIndex).toBe(2);

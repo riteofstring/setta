@@ -2437,6 +2437,17 @@ class ViewMode(BaseModel):
     topLevelSections: dict[str, TopLevelSectionLayout]
 
 
+class WatchCodePluginProjectData(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: bool
+    folders: list[WatchCodeFolder] | None = None
+    files: list[str] | None = None
+    registry: dict[str, WatchCodeRegistryEntry]
+    baselineByPath: dict[str, list[str] | None]
+
+
 class WindowSpaceConfig(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -2648,6 +2659,8 @@ type ProjectCodegenTarget = Annotated[
     Field(..., title="ProjectCodegenTarget"),
 ]
 
+type ProjectPluginData = dict[str, WatchCodePluginProjectData]
+
 
 class StateMachineEdge(BaseModel):
     model_config = ConfigDict(
@@ -2715,11 +2728,6 @@ class ProjectConfig(BaseModel):
             )
         )
     )
-    watchCodeEnabled: bool = False
-    watchCodeFolders: list[WatchCodeFolder] = Field(default_factory=list)
-    watchCodeFiles: list[str] = Field(default_factory=list)
-    watchCodeRegistry: dict[str, WatchCodeRegistryEntry] = Field(default_factory=dict)
-    watchCodeBaselineByPath: dict[str, list[str] | None] = Field(default_factory=dict)
     entryCodeBlockId: ID | None = None
     sectionPathSlugsById: dict[ID, str] = Field(default_factory=dict)
     sectionIdsByPathSlug: dict[str, list[ID]] = Field(default_factory=dict)

@@ -1123,6 +1123,7 @@ function getComparableProjectState(
     codeObjImpls: state.codeObjImpls,
     codeObjVariants: state.codeObjVariants,
     artifactGroups: state.artifactGroups,
+    pluginData: state.pluginData,
     projectConfig: state.projectConfig,
     singletonSections: state.singletonSections,
     parentSectionMap: state.parentSectionMap,
