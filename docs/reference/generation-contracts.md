@@ -43,6 +43,22 @@ re-created as handwritten mirrors.
   `internal/pythonsharedconstants/generator.go`. Those are still authoritative
   because the inventory lives in Go rather than being restated in Python.
 
+## Source Control For Generated Artifacts
+
+- Do not check first-party `dist/` or `build/` output into git when it is
+  reproducible from tracked source and build inputs. Those artifacts may still
+  be materialized during local builds, package builds, source distributions, or
+  wheel/install flows.
+- Treat `.d.ts` files by ownership rather than extension. Track declaration
+  files when they are handwritten source declarations or intentional public
+  SDK/package contracts. Do not track declaration files that are ordinary
+  reproducible compiler output unless the repo explicitly treats that generated
+  declaration surface as a checked-in contract.
+- For the app-subsystem frontend SDK, `types/index.d.ts` is the tracked package
+  type contract, including the vendored plugin copy guarded by tests. The
+  matching `dist/index.js` output is generated from the SDK source and should
+  remain untracked.
+
 ## Preferred Direction
 
 - Prefer generators driven by authoritative Go-side structure such as
