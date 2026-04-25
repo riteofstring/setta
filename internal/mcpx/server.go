@@ -157,14 +157,14 @@ type projectStateProvider interface {
 	SetSectionVariant(ctx context.Context, projectID string, sectionID string, variantID string) (projectstate.Snapshot, error)
 	SetSectionVariantSortOrder(ctx context.Context, projectID string, sectionID string, orderedVariantIDs []string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
-	SetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string) (projectstate.Snapshot, error)
-	SetWatchCodeInputs(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, files []string, workspaceRoot string) (projectstate.Snapshot, error)
+	SetWatchCodeEnabled(ctx context.Context, providerPluginID string, projectID string, enabled bool, workspaceRoot string) (projectstate.Snapshot, error)
+	SetWatchCodeInputs(ctx context.Context, providerPluginID string, projectID string, folders []projectstate.WatchCodeFolder, files []string, workspaceRoot string) (projectstate.Snapshot, error)
 	CompareAndSetProjectName(ctx context.Context, projectID string, name string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
 	CompareAndSetShowParamDisplayNames(ctx context.Context, projectID string, show bool, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
 	CompareAndSetPythonCodegenEnabled(ctx context.Context, projectID string, enabled bool, expectedOldValue *bool, validator projectstate.CodegenTargetValidator, pythonReconciler projectstate.PythonCodegenSectionReconciler) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
-	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
-	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
-	CompareAndSetWatchCodeFiles(ctx context.Context, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
+	CompareAndSetWatchCodeEnabled(ctx context.Context, providerPluginID string, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeFolders(ctx context.Context, providerPluginID string, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
+	CompareAndSetWatchCodeFiles(ctx context.Context, providerPluginID string, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
 	ToggleGroupOrientation(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
@@ -1588,7 +1588,11 @@ func newSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools
 	}
 }
 
-func newSetWatchCodeEnabledHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+func newSetWatchCodeEnabledHandler(
+	projectState projectStateProvider,
+	workspaceRoot string,
+	watchCodeCapabilities func() plugins.PluginWatchCodeCapabilities,
+) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 		if err != nil {
@@ -1598,31 +1602,26 @@ func newSetWatchCodeEnabledHandler(projectState projectStateProvider, workspaceR
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		providerPluginID, err := requireWatchCodeMutationProvider(projectState, watchCodeCapabilities)
+		if err != nil {
+			return nil, err
+		}
+		if err := requireStructuralWatchCodeInvocationProjectID(ctx, projectConfigID, "watch-code"); err != nil {
+			return nil, err
 		}
 
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural watch-code invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, err := projectState.SetWatchCodeEnabled(ctx, projectConfigID, enabled, workspaceRoot); err != nil {
+		if _, err := projectState.SetWatchCodeEnabled(ctx, providerPluginID, projectConfigID, enabled, workspaceRoot); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
 	}
 }
 
-func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+func newSetWatchCodeInputsHandler(
+	projectState projectStateProvider,
+	workspaceRoot string,
+	watchCodeCapabilities func() plugins.PluginWatchCodeCapabilities,
+) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 		if err != nil {
@@ -1636,24 +1635,15 @@ func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRo
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		providerPluginID, err := requireWatchCodeMutationProvider(projectState, watchCodeCapabilities)
+		if err != nil {
+			return nil, err
+		}
+		if err := requireStructuralWatchCodeInvocationProjectID(ctx, projectConfigID, "watch-code inputs"); err != nil {
+			return nil, err
 		}
 
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural watch-code inputs invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, err := projectState.SetWatchCodeInputs(ctx, projectConfigID, watchCodeFolders, watchCodeFiles, workspaceRoot); err != nil {
+		if _, err := projectState.SetWatchCodeInputs(ctx, providerPluginID, projectConfigID, watchCodeFolders, watchCodeFiles, workspaceRoot); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -1698,7 +1688,11 @@ func newCompareAndSetShowParamDisplayNamesHandler(projectState projectStateProvi
 	}
 }
 
-func newCompareAndSetWatchCodeEnabledHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+func newCompareAndSetWatchCodeEnabledHandler(
+	projectState projectStateProvider,
+	workspaceRoot string,
+	watchCodeCapabilities func() plugins.PluginWatchCodeCapabilities,
+) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 		if err != nil {
@@ -1712,31 +1706,26 @@ func newCompareAndSetWatchCodeEnabledHandler(projectState projectStateProvider, 
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		providerPluginID, err := requireWatchCodeMutationProvider(projectState, watchCodeCapabilities)
+		if err != nil {
+			return nil, err
+		}
+		if err := requireStructuralWatchCodeInvocationProjectID(ctx, projectConfigID, "compare-and-set watch-code"); err != nil {
+			return nil, err
 		}
 
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural compare-and-set watch-code invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, _, err := projectState.CompareAndSetWatchCodeEnabled(ctx, projectConfigID, enabled, workspaceRoot, expectedOldValue); err != nil {
+		if _, _, err := projectState.CompareAndSetWatchCodeEnabled(ctx, providerPluginID, projectConfigID, enabled, workspaceRoot, expectedOldValue); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
 	}
 }
 
-func newCompareAndSetWatchCodeFoldersHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+func newCompareAndSetWatchCodeFoldersHandler(
+	projectState projectStateProvider,
+	workspaceRoot string,
+	watchCodeCapabilities func() plugins.PluginWatchCodeCapabilities,
+) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 		if err != nil {
@@ -1750,31 +1739,26 @@ func newCompareAndSetWatchCodeFoldersHandler(projectState projectStateProvider, 
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		providerPluginID, err := requireWatchCodeMutationProvider(projectState, watchCodeCapabilities)
+		if err != nil {
+			return nil, err
+		}
+		if err := requireStructuralWatchCodeInvocationProjectID(ctx, projectConfigID, "compare-and-set watch-code folders"); err != nil {
+			return nil, err
 		}
 
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural compare-and-set watch-code folders invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, _, err := projectState.CompareAndSetWatchCodeFolders(ctx, projectConfigID, watchCodeFolders, workspaceRoot, expectedOldValue); err != nil {
+		if _, _, err := projectState.CompareAndSetWatchCodeFolders(ctx, providerPluginID, projectConfigID, watchCodeFolders, workspaceRoot, expectedOldValue); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
 	}
 }
 
-func newCompareAndSetWatchCodeFilesHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+func newCompareAndSetWatchCodeFilesHandler(
+	projectState projectStateProvider,
+	workspaceRoot string,
+	watchCodeCapabilities func() plugins.PluginWatchCodeCapabilities,
+) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
 		if err != nil {
@@ -1788,28 +1772,64 @@ func newCompareAndSetWatchCodeFilesHandler(projectState projectStateProvider, wo
 		if err != nil {
 			return nil, err
 		}
-		if projectState == nil {
-			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		providerPluginID, err := requireWatchCodeMutationProvider(projectState, watchCodeCapabilities)
+		if err != nil {
+			return nil, err
+		}
+		if err := requireStructuralWatchCodeInvocationProjectID(ctx, projectConfigID, "compare-and-set watch-code files"); err != nil {
+			return nil, err
 		}
 
-		invocation, ok := ToolInvocationFromContext(ctx)
-		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
-			return nil, newToolError("internal_error", "Structural compare-and-set watch-code files invocation context is unavailable.")
-		}
-		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
-			return nil, newToolError(
-				"invalid_arguments",
-				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
-				projectConfigID,
-				invocation.AgenticContext.ProjectConfigID,
-			)
-		}
-
-		if _, _, err := projectState.CompareAndSetWatchCodeFiles(ctx, projectConfigID, watchCodeFiles, workspaceRoot, expectedOldValue); err != nil {
+		if _, _, err := projectState.CompareAndSetWatchCodeFiles(ctx, providerPluginID, projectConfigID, watchCodeFiles, workspaceRoot, expectedOldValue); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
 	}
+}
+
+func requireWatchCodeMutationProvider(
+	projectState projectStateProvider,
+	watchCodeCapabilities func() plugins.PluginWatchCodeCapabilities,
+) (string, error) {
+	if projectState == nil {
+		return "", newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+	}
+	providerPluginID, ok := activeWatchCodeProviderPluginID(watchCodeCapabilities)
+	if !ok {
+		return "", newToolError("plugin_unavailable", "Watch Code is unavailable because no active Watch Code provider is selected.")
+	}
+	return providerPluginID, nil
+}
+
+func requireStructuralWatchCodeInvocationProjectID(
+	ctx context.Context,
+	projectConfigID string,
+	label string,
+) error {
+	invocation, ok := ToolInvocationFromContext(ctx)
+	if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+		return newToolError("internal_error", "Structural %s invocation context is unavailable.", label)
+	}
+	if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+		return newToolError(
+			"invalid_arguments",
+			"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+			projectConfigID,
+			invocation.AgenticContext.ProjectConfigID,
+		)
+	}
+	return nil
+}
+
+func activeWatchCodeProviderPluginID(
+	watchCodeCapabilities func() plugins.PluginWatchCodeCapabilities,
+) (string, bool) {
+	if watchCodeCapabilities == nil {
+		return "", false
+	}
+	capabilities := watchCodeCapabilities()
+	pluginID := strings.TrimSpace(capabilities.PluginID)
+	return pluginID, capabilities.PluginEnabled && capabilities.Python && pluginID != ""
 }
 
 func newSetProjectConfigCodegenTargetsHandler(
@@ -4256,7 +4276,7 @@ func defaultToolDefinitions(
 					SearchCategory: "project",
 					SearchTags:     []string{"watch", "code", "project", "structural"},
 				},
-				Handler: newSetWatchCodeEnabledHandler(projectState, workspaceRoot),
+				Handler: newSetWatchCodeEnabledHandler(projectState, workspaceRoot, server.watchCodeCapabilities),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -4293,7 +4313,7 @@ func defaultToolDefinitions(
 					SearchCategory: "project",
 					SearchTags:     []string{"watch", "code", "inputs", "files", "folders", "project", "structural"},
 				},
-				Handler: newSetWatchCodeInputsHandler(projectState, workspaceRoot),
+				Handler: newSetWatchCodeInputsHandler(projectState, workspaceRoot, server.watchCodeCapabilities),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -4392,7 +4412,7 @@ func defaultToolDefinitions(
 					SearchCategory: "project",
 					SearchTags:     []string{"watch", "code", "project", "structural", "compare-and-set"},
 				},
-				Handler: newCompareAndSetWatchCodeEnabledHandler(projectState, workspaceRoot),
+				Handler: newCompareAndSetWatchCodeEnabledHandler(projectState, workspaceRoot, server.watchCodeCapabilities),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -4433,7 +4453,7 @@ func defaultToolDefinitions(
 					SearchCategory: "project",
 					SearchTags:     []string{"watch", "code", "folders", "project", "structural", "compare-and-set"},
 				},
-				Handler: newCompareAndSetWatchCodeFoldersHandler(projectState, workspaceRoot),
+				Handler: newCompareAndSetWatchCodeFoldersHandler(projectState, workspaceRoot, server.watchCodeCapabilities),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -4500,7 +4520,7 @@ func defaultToolDefinitions(
 					SearchCategory: "project",
 					SearchTags:     []string{"watch", "code", "files", "project", "structural", "compare-and-set"},
 				},
-				Handler: newCompareAndSetWatchCodeFilesHandler(projectState, workspaceRoot),
+				Handler: newCompareAndSetWatchCodeFilesHandler(projectState, workspaceRoot, server.watchCodeCapabilities),
 			},
 			InputSchema: map[string]any{
 				"type": "object",

@@ -70,6 +70,7 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamesMovedRegistryIdentityWithinConfig
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		destPath,
 		"def watched(value):\n    return value\n",
@@ -171,6 +172,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 
 	if _, didUpdate, err := runtime.ApplyWatchCodeFileDelete(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		workspaceRoot,
@@ -182,6 +184,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-beta",
 		destPath,
 		"def moved(value):\n    return value\n",
@@ -316,6 +319,7 @@ func TestRuntimeApplyWatchCodeFileUpdateReconcilesGeneratedPythonSectionsWhenCon
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		"def watched(value):\n    return value\n",
@@ -569,6 +573,7 @@ func TestRuntimeApplyWatchCodeFileDeleteClearsRegistryAndBaseline(t *testing.T) 
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileDelete(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		workspaceRoot,
@@ -640,6 +645,7 @@ func TestRuntimeApplyWatchCodeFileUpdateSyntaxErrorPreservesProjectState(t *test
 	initialSnapshot := runtime.Snapshot()
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		"def watched(",
@@ -740,6 +746,7 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesCallableParams(t
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		"def sorted(iterable, reverse=False):\n    return iterable\n",
@@ -855,6 +862,7 @@ func TestRuntimeApplyWatchCodeFileUpdateInitialAdditionRefetchesCallableParams(t
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		"def sorted(iterable, reverse=False):\n    return iterable\n",
@@ -981,6 +989,7 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKe
 	resolver := &stubCallableSignatureResolver{ok: false}
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		"def sorted(iterable, reverse=False):\n    return iterable\n",
@@ -1081,6 +1090,7 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamePreservesSectionIDsAndParams(t *te
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		"def renamed(value):\n    return value + 1\n",
@@ -1181,6 +1191,7 @@ func TestRuntimeApplyWatchCodeFileDeleteRemovesCallableSectionAndCodeObjects(t *
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileDelete(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		workspaceRoot,
@@ -1234,6 +1245,7 @@ func TestRuntimeApplyWatchCodeFileDeleteKeepsSectionWithOtherVariants(t *testing
 
 	snapshot, didUpdate, err := fixture.Runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		fixture.SourcePath,
 		"def beta(value):\n    return value + 1\n",
@@ -1306,6 +1318,7 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesInactiveMatching
 
 	snapshot, didUpdate, err := fixture.Runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		fixture.SourcePath,
 		"def alpha(value):\n    return value\n\n\ndef beta(value, reverse=False):\n    return value + 1\n",
@@ -1369,6 +1382,7 @@ func TestRuntimeApplyWatchCodeFileUpdateRenameUpdatesInactiveMatchingVariant(t *
 
 	snapshot, didUpdate, err := fixture.Runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		fixture.SourcePath,
 		"def alpha(value):\n    return value\n\n\ndef renamed(value):\n    return value + 1\n",
@@ -1450,6 +1464,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveIntoTrackedDestinationFromUntrackedC
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		destinationPath,
 		"def incoming(value):\n    return value\n",
@@ -1520,6 +1535,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		"def moved(value):\n    return value\n",
@@ -1537,6 +1553,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 
 	snapshot, didUpdate, err = runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		destinationPath,
 		"def stale(value):\n    return value + 1\n",
@@ -1560,6 +1577,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 
 	if _, didUpdate, err := runtime.ApplyWatchCodeFileDelete(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		destinationPath,
 		workspaceRoot,
@@ -1571,6 +1589,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 
 	snapshot, didUpdate, err = runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		destinationPath,
 		"def moved(value):\n    return value\n",
@@ -1669,6 +1688,7 @@ func seedMixedWatchCodeVariantFixture(t *testing.T) mixedWatchCodeVariantFixture
 
 	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		sourcePath,
 		"def alpha(value):\n    return value\n\n\ndef beta(value):\n    return value + 1\n",

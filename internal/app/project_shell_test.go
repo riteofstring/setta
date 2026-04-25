@@ -3376,7 +3376,7 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 	prepareAppLSPFixture(t)
 	installAppWatchCodeProviderFixture(t, cfg)
 
-	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
@@ -3407,7 +3407,9 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 				},
 			},
 		},
-	}); err != nil {
+	}
+	storeAppWatchCodePluginData(t, &document)
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
 

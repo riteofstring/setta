@@ -276,7 +276,7 @@ func TestRuntimeCompareAndSetWatchCodeNoopsAreSideEffectFree(t *testing.T) {
 	}
 
 	existingBaselineKey := filepath.Clean(existingFile)
-	runtime, err := OpenOverlayRuntime(Document{
+	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]Project{
@@ -293,7 +293,9 @@ func TestRuntimeCompareAndSetWatchCodeNoopsAreSideEffectFree(t *testing.T) {
 				},
 			},
 		},
-	})
+	}
+	mustStoreTestWatchCodePluginData(t, &document)
+	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -307,6 +309,7 @@ func TestRuntimeCompareAndSetWatchCodeNoopsAreSideEffectFree(t *testing.T) {
 	expectedEnabled := true
 	enabledSnapshot, enabledResult, err := runtime.CompareAndSetWatchCodeEnabled(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		true,
 		workspaceRoot,
@@ -324,6 +327,7 @@ func TestRuntimeCompareAndSetWatchCodeNoopsAreSideEffectFree(t *testing.T) {
 
 	foldersSnapshot, foldersResult, err := runtime.CompareAndSetWatchCodeFolders(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		[]WatchCodeFolder{
 			{Path: "pkg", Recursive: true},
@@ -347,6 +351,7 @@ func TestRuntimeCompareAndSetWatchCodeNoopsAreSideEffectFree(t *testing.T) {
 
 	filesSnapshot, filesResult, err := runtime.CompareAndSetWatchCodeFiles(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		[]string{"pkg/existing.py", " pkg/existing.py ", ""},
 		workspaceRoot,
@@ -427,6 +432,7 @@ func TestRuntimeCompareAndSetWatchCodeFilesWritesAndBaselinesNewInputs(t *testin
 	initialSnapshot := runtime.Snapshot()
 	snapshot, result, err := runtime.CompareAndSetWatchCodeFiles(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		[]string{"pkg/existing.py", "pkg/new_watch.py"},
 		workspaceRoot,

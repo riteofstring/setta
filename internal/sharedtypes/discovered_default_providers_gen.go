@@ -254,9 +254,6 @@ func discoveredSharedDefaultValueProvidersByProfile() map[string]map[reflect.Typ
 			reflect.TypeOf(projectstate.Viewport{}): func() any {
 				return projectstate.FrontendDefaultViewport()
 			},
-			reflect.TypeOf(projectstate.WatchCodePluginProjectData{}): func() any {
-				return projectstate.FrontendDefaultWatchCodePluginProjectData()
-			},
 			reflect.TypeOf(projectstate.WindowSpaceConfig{}): func() any {
 				return projectstate.FrontendDefaultWindowSpaceConfig()
 			},

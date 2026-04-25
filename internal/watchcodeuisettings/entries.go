@@ -10,12 +10,7 @@ import (
 	"setta/internal/uisettings"
 )
 
-const (
-	EnabledSettingID = "plugin::setta-watch-code::enabled"
-	FoldersSettingID = "plugin::setta-watch-code::folders"
-	FilesSettingID   = "plugin::setta-watch-code::files"
-	revealKey        = "watch-code-settings"
-)
+const revealKey = "watch-code-settings"
 
 var (
 	watchCodeFolderItemAdditionalProperties = false
@@ -50,62 +45,74 @@ func BuildScopedUISettingEntries(
 	if pluginID == "" {
 		return nil, fmt.Errorf("watch code UI settings require a provider plugin id")
 	}
+	enabledSettingID, err := projectstate.WatchCodePluginSettingID(pluginID, "enabled")
+	if err != nil {
+		return nil, err
+	}
+	foldersSettingID, err := projectstate.WatchCodePluginSettingID(pluginID, "folders")
+	if err != nil {
+		return nil, err
+	}
+	filesSettingID, err := projectstate.WatchCodePluginSettingID(pluginID, "files")
+	if err != nil {
+		return nil, err
+	}
 
 	boolSchema := uisettings.ValueSchema{Type: uisettings.ValueTypeBoolean}
 	return []uisettings.RuntimeEntry{
 		uisettings.NewCompareAndSetEntry(
 			entryMetadata(
-				EnabledSettingID,
+				enabledSettingID,
 				pluginID,
 				"Watch Code Enabled",
 				[]string{"watch code", "watch mode", "watch toggle"},
 				"Enable or disable watch code mode for the project.",
 				boolSchema,
 			),
-			readProjectValue(runtime, func(project *projectstate.Project) any {
+			readProjectValue(runtime, pluginID, func(project *projectstate.Project) any {
 				return project.WatchCodeEnabled
 			}),
 			normalizeBoolWrite(boolSchema),
 			func(ctx context.Context, projectID string, enabled bool, expected *bool) (projectstate.CompareAndSetResult[bool], error) {
-				_, result, err := runtime.CompareAndSetWatchCodeEnabled(ctx, projectID, enabled, workspaceRoot, expected)
+				_, result, err := runtime.CompareAndSetWatchCodeEnabled(ctx, pluginID, projectID, enabled, workspaceRoot, expected)
 				return result, err
 			},
 			uisettings.ComparableMutationResult[bool],
 		),
 		uisettings.NewCompareAndSetEntry(
 			entryMetadata(
-				FoldersSettingID,
+				foldersSettingID,
 				pluginID,
 				"Watch Code Folders",
 				[]string{"watch folders", "watch code folders"},
 				"List of folders watched by watch code mode.",
 				watchCodeFoldersSchema,
 			),
-			readProjectValue(runtime, func(project *projectstate.Project) any {
+			readProjectValue(runtime, pluginID, func(project *projectstate.Project) any {
 				return watchCodeFoldersToJSON(project.WatchCodeFolders)
 			}),
 			normalizeWatchCodeFoldersWrite,
 			func(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, expected []projectstate.WatchCodeFolder) (projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error) {
-				_, result, err := runtime.CompareAndSetWatchCodeFolders(ctx, projectID, folders, workspaceRoot, expected)
+				_, result, err := runtime.CompareAndSetWatchCodeFolders(ctx, pluginID, projectID, folders, workspaceRoot, expected)
 				return result, err
 			},
 			watchCodeFoldersMutationResult,
 		),
 		uisettings.NewCompareAndSetEntry(
 			entryMetadata(
-				FilesSettingID,
+				filesSettingID,
 				pluginID,
 				"Watch Code Files",
 				[]string{"watch files", "watch code files"},
 				"List of explicit files watched by watch code mode.",
 				watchCodeFilesSchema,
 			),
-			readProjectValue(runtime, func(project *projectstate.Project) any {
+			readProjectValue(runtime, pluginID, func(project *projectstate.Project) any {
 				return cloneStringSlice(project.WatchCodeFiles)
 			}),
 			normalizeStringSliceWrite(watchCodeFilesSchema),
 			func(ctx context.Context, projectID string, files []string, expected []string) (projectstate.CompareAndSetResult[[]string], error) {
-				_, result, err := runtime.CompareAndSetWatchCodeFiles(ctx, projectID, files, workspaceRoot, expected)
+				_, result, err := runtime.CompareAndSetWatchCodeFiles(ctx, pluginID, projectID, files, workspaceRoot, expected)
 				return result, err
 			},
 			stringSliceMutationResult,
@@ -117,11 +124,27 @@ func UnavailableSettingErrors(capabilities plugins.PluginWatchCodeCapabilities) 
 	if providerActive(capabilities) {
 		return nil
 	}
+	pluginID := strings.TrimSpace(capabilities.PluginID)
+	if pluginID == "" {
+		return nil
+	}
+	enabledSettingID, err := projectstate.WatchCodePluginSettingID(pluginID, "enabled")
+	if err != nil {
+		return nil
+	}
+	foldersSettingID, err := projectstate.WatchCodePluginSettingID(pluginID, "folders")
+	if err != nil {
+		return nil
+	}
+	filesSettingID, err := projectstate.WatchCodePluginSettingID(pluginID, "files")
+	if err != nil {
+		return nil
+	}
 	message := "Watch Code settings are unavailable because no active Watch Code provider is selected."
 	return map[string]uisettings.SettingError{
-		EnabledSettingID: {Code: uisettings.ErrorCodePluginUnavailable, Message: message},
-		FoldersSettingID: {Code: uisettings.ErrorCodePluginUnavailable, Message: message},
-		FilesSettingID:   {Code: uisettings.ErrorCodePluginUnavailable, Message: message},
+		enabledSettingID: {Code: uisettings.ErrorCodePluginUnavailable, Message: message},
+		foldersSettingID: {Code: uisettings.ErrorCodePluginUnavailable, Message: message},
+		filesSettingID:   {Code: uisettings.ErrorCodePluginUnavailable, Message: message},
 	}
 }
 
@@ -157,9 +180,17 @@ func entryMetadata(
 	}
 }
 
-func readProjectValue(runtime uisettings.CoreProjectState, selectValue func(*projectstate.Project) any) uisettings.ReadFunc {
+func readProjectValue(
+	runtime uisettings.CoreProjectState,
+	providerPluginID string,
+	selectValue func(*projectstate.Project) any,
+) uisettings.ReadFunc {
 	return func(_ context.Context, projectID string) (any, error) {
-		project, err := runtime.Snapshot().Document.ProjectByID(projectID)
+		document := runtime.Snapshot().Document
+		if err := document.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+			return nil, err
+		}
+		project, err := document.ProjectByID(projectID)
 		if err != nil {
 			return nil, err
 		}

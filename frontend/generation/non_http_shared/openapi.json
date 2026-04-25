@@ -18158,67 +18158,6 @@
         "title": "WatchCodeFolder",
         "type": "object"
       },
-      "WatchCodePluginData": {
-        "additionalProperties": false,
-        "properties": {
-          "projects": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/WatchCodePluginProjectData"
-            },
-            "type": "object"
-          },
-          "schemaVersion": {
-            "type": "integer"
-          }
-        },
-        "required": ["schemaVersion", "projects"],
-        "title": "WatchCodePluginData",
-        "type": "object"
-      },
-      "WatchCodePluginProjectData": {
-        "additionalProperties": false,
-        "properties": {
-          "baselineByPath": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": ["null", "array"]
-            },
-            "type": "object"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "files": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["null", "array"]
-          },
-          "folders": {
-            "items": {
-              "$ref": "#/components/schemas/WatchCodeFolder"
-            },
-            "type": ["null", "array"]
-          },
-          "registry": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/WatchCodeRegistryEntry"
-            },
-            "type": "object"
-          }
-        },
-        "required": [
-          "enabled",
-          "folders",
-          "files",
-          "registry",
-          "baselineByPath"
-        ],
-        "title": "WatchCodePluginProjectData",
-        "type": "object"
-      },
       "WatchCodeRegistryEntry": {
         "additionalProperties": false,
         "properties": {

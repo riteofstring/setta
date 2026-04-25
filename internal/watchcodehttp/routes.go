@@ -84,7 +84,8 @@ func SetWatchCodeEnabledHandler(deps RouteDependencies) http.HandlerFunc {
 			writeError(deps, w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		if !ProviderActive(deps) {
+		providerPluginID, ok := ProviderPluginID(deps)
+		if !ok {
 			writeFeatureUnavailable(deps, w, r)
 			return
 		}
@@ -96,6 +97,7 @@ func SetWatchCodeEnabledHandler(deps RouteDependencies) http.HandlerFunc {
 
 		snapshot, err := runtime.SetWatchCodeEnabled(
 			mutationContext(r.Context(), payload.FrontendOpID),
+			providerPluginID,
 			projectID,
 			payload.Enabled,
 			deps.WorkspaceRoot,
@@ -129,7 +131,8 @@ func SetWatchCodeInputsHandler(deps RouteDependencies) http.HandlerFunc {
 			writeError(deps, w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		if !ProviderActive(deps) {
+		providerPluginID, ok := ProviderPluginID(deps)
+		if !ok {
 			writeFeatureUnavailable(deps, w, r)
 			return
 		}
@@ -141,6 +144,7 @@ func SetWatchCodeInputsHandler(deps RouteDependencies) http.HandlerFunc {
 
 		snapshot, err := runtime.SetWatchCodeInputs(
 			mutationContext(r.Context(), payload.FrontendOpID),
+			providerPluginID,
 			projectID,
 			payload.WatchCodeFolders,
 			payload.WatchCodeFiles,
@@ -159,11 +163,17 @@ func SetWatchCodeInputsHandler(deps RouteDependencies) http.HandlerFunc {
 }
 
 func ProviderActive(deps RouteDependencies) bool {
+	_, ok := ProviderPluginID(deps)
+	return ok
+}
+
+func ProviderPluginID(deps RouteDependencies) (string, bool) {
 	if deps.WatchCodeCapabilities == nil {
-		return false
+		return "", false
 	}
 	capabilities := deps.WatchCodeCapabilities()
-	return capabilities.PluginEnabled && capabilities.Python
+	pluginID := strings.TrimSpace(capabilities.PluginID)
+	return pluginID, capabilities.PluginEnabled && capabilities.Python && pluginID != ""
 }
 
 func decodeJSONBody[T any](r *http.Request) (T, error) {

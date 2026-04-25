@@ -131,6 +131,7 @@ func TestWatchCodeSignatureObserverRecordsFinalBoundWatchCodeStatus(t *testing.T
 	observer := newWatchCodeSignatureObserver(noMatchCallableSignatureResolver{})
 	if _, err := document.ApplyWatchCodeBoundSectionUpdate(
 		context.Background(),
+		"setta-watch-code-test-provider",
 		"project-alpha",
 		"section-main",
 		workspaceRoot,

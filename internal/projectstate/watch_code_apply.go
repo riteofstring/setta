@@ -12,6 +12,7 @@ import (
 
 func (d *Document) ApplyWatchCodeFileUpdate(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	sourcePath string,
 	raw string,
@@ -22,6 +23,9 @@ func (d *Document) ApplyWatchCodeFileUpdate(
 ) (bool, error) {
 	if d == nil {
 		return false, ErrProjectNotFound
+	}
+	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return false, err
 	}
 
 	trimmedProjectID := strings.TrimSpace(projectID)
@@ -39,17 +43,24 @@ func (d *Document) ApplyWatchCodeFileUpdate(
 	}
 	if didUpdate {
 		d.Projects[trimmedProjectID] = project
+		if err := d.StoreWatchCodePluginDataFromProjects(providerPluginID); err != nil {
+			return false, err
+		}
 	}
 	return didUpdate, nil
 }
 
 func (d *Document) ApplyWatchCodeFileDelete(
+	providerPluginID string,
 	projectID string,
 	sourcePath string,
 	workspaceRoot string,
 ) (bool, error) {
 	if d == nil {
 		return false, ErrProjectNotFound
+	}
+	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return false, err
 	}
 
 	trimmedProjectID := strings.TrimSpace(projectID)
@@ -67,12 +78,16 @@ func (d *Document) ApplyWatchCodeFileDelete(
 	}
 	if didUpdate {
 		d.Projects[trimmedProjectID] = project
+		if err := d.StoreWatchCodePluginDataFromProjects(providerPluginID); err != nil {
+			return false, err
+		}
 	}
 	return didUpdate, nil
 }
 
 func (r *Runtime) ApplyWatchCodeFileUpdate(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	sourcePath string,
 	raw string,
@@ -86,7 +101,7 @@ func (r *Runtime) ApplyWatchCodeFileUpdate(
 	}
 
 	return r.mutateAndSaveIfUpdated(ctx, func(document Document) (Document, bool, error) {
-		didUpdate, err := document.ApplyWatchCodeFileUpdate(ctx, projectID, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
+		didUpdate, err := document.ApplyWatchCodeFileUpdate(ctx, providerPluginID, projectID, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
 		if err != nil || !didUpdate || baselineOnly {
 			return document, didUpdate, err
 		}
@@ -99,6 +114,7 @@ func (r *Runtime) ApplyWatchCodeFileUpdate(
 
 func (r *Runtime) ApplyWatchCodeFileDelete(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	sourcePath string,
 	workspaceRoot string,
@@ -108,7 +124,7 @@ func (r *Runtime) ApplyWatchCodeFileDelete(
 	}
 
 	return r.mutateAndSaveIfUpdated(ctx, func(document Document) (Document, bool, error) {
-		didUpdate, err := document.ApplyWatchCodeFileDelete(projectID, sourcePath, workspaceRoot)
+		didUpdate, err := document.ApplyWatchCodeFileDelete(providerPluginID, projectID, sourcePath, workspaceRoot)
 		if err != nil || !didUpdate {
 			return document, didUpdate, err
 		}

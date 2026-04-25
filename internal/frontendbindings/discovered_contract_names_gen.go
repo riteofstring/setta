@@ -669,8 +669,6 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(projectstate.ViewportBounds{}):                                       "ViewportBounds",
 	reflect.TypeOf(projectstate.WatchCodeCallableKind("")):                              "WatchCodeCallableKind",
 	reflect.TypeOf(projectstate.WatchCodeFolder{}):                                      "WatchCodeFolder",
-	reflect.TypeOf(projectstate.WatchCodePluginData{}):                                  "WatchCodePluginData",
-	reflect.TypeOf(projectstate.WatchCodePluginProjectData{}):                           "WatchCodePluginProjectData",
 	reflect.TypeOf(projectstate.WatchCodeRegistryEntry{}):                               "WatchCodeRegistryEntry",
 	reflect.TypeOf(backendlogs.WebsocketMessage{}):                                      "WebsocketMessage",
 	reflect.TypeOf(realtime.WebsocketMessageType("")):                                   "WebsocketMessageType",

@@ -132,6 +132,7 @@ func TestStoreSaveRoundTripsRichFrontendSourceDocument(t *testing.T) {
 
 	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
 	document := newFrontendSourceTestDocument(t)
+	mustStoreTestWatchCodePluginData(t, &document)
 	expected, err := document.Normalized()
 	if err != nil {
 		t.Fatalf("normalize rich project document: %v", err)
@@ -145,6 +146,7 @@ func TestStoreSaveRoundTripsRichFrontendSourceDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load rich project document: %v", err)
 	}
+	mustLoadTestWatchCodePluginData(t, &loaded)
 	if loaded.DefaultProjectID != expected.DefaultProjectID {
 		t.Fatalf("expected default project id %q, got %q", expected.DefaultProjectID, loaded.DefaultProjectID)
 	}

@@ -115,11 +115,15 @@ func (r *Runtime) CompareAndSetProjectName(
 }
 
 func (d *Document) CompareAndSetWatchCodeEnabled(
+	providerPluginID string,
 	projectID string,
 	enabled bool,
 	workspaceRoot string,
 	expectedOldValue *bool,
 ) (CompareAndSetResult[bool], error) {
+	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return CompareAndSetResult[bool]{}, err
+	}
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return CompareAndSetResult[bool]{}, err
@@ -127,7 +131,7 @@ func (d *Document) CompareAndSetWatchCodeEnabled(
 
 	oldValue := project.WatchCodeEnabled
 	if noop, err := isUISettingCompareAndSetNoop(
-		"plugin::setta-watch-code::enabled",
+		mustWatchCodePluginSettingID(providerPluginID, "enabled"),
 		optionalBoolAny(expectedOldValue),
 		oldValue,
 		enabled,
@@ -137,7 +141,7 @@ func (d *Document) CompareAndSetWatchCodeEnabled(
 		return CompareAndSetResult[bool]{OldValue: oldValue, NewValue: oldValue}, nil
 	}
 
-	if err := d.SetWatchCodeEnabled(projectID, enabled, workspaceRoot); err != nil {
+	if err := d.SetWatchCodeEnabled(providerPluginID, projectID, enabled, workspaceRoot); err != nil {
 		return CompareAndSetResult[bool]{}, err
 	}
 	return CompareAndSetResult[bool]{OldValue: oldValue, NewValue: enabled}, nil
@@ -145,13 +149,14 @@ func (d *Document) CompareAndSetWatchCodeEnabled(
 
 func (r *Runtime) CompareAndSetWatchCodeEnabled(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	enabled bool,
 	workspaceRoot string,
 	expectedOldValue *bool,
 ) (Snapshot, CompareAndSetResult[bool], error) {
 	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[bool], error) {
-		result, err := document.CompareAndSetWatchCodeEnabled(projectID, enabled, workspaceRoot, expectedOldValue)
+		result, err := document.CompareAndSetWatchCodeEnabled(providerPluginID, projectID, enabled, workspaceRoot, expectedOldValue)
 		return document, result, err
 	})
 }
@@ -219,11 +224,15 @@ func (r *Runtime) CompareAndSetPythonCodegenEnabled(
 }
 
 func (d *Document) CompareAndSetWatchCodeFolders(
+	providerPluginID string,
 	projectID string,
 	folders []WatchCodeFolder,
 	workspaceRoot string,
 	expectedOldValue []WatchCodeFolder,
 ) (CompareAndSetResult[[]WatchCodeFolder], error) {
+	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return CompareAndSetResult[[]WatchCodeFolder]{}, err
+	}
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
@@ -235,7 +244,7 @@ func (d *Document) CompareAndSetWatchCodeFolders(
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
 	}
 	if noop, err := isUISettingCompareAndSetNoop(
-		"plugin::setta-watch-code::folders",
+		mustWatchCodePluginSettingID(providerPluginID, "folders"),
 		optionalWatchCodeFoldersAny(expectedOldValue),
 		oldFolders,
 		nextFolders,
@@ -248,7 +257,7 @@ func (d *Document) CompareAndSetWatchCodeFolders(
 		}, nil
 	}
 
-	if err := d.SetWatchCodeInputs(projectID, nextFolders, project.WatchCodeFiles, workspaceRoot); err != nil {
+	if err := d.SetWatchCodeInputs(providerPluginID, projectID, nextFolders, project.WatchCodeFiles, workspaceRoot); err != nil {
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
 	}
 	return CompareAndSetResult[[]WatchCodeFolder]{
@@ -259,23 +268,28 @@ func (d *Document) CompareAndSetWatchCodeFolders(
 
 func (r *Runtime) CompareAndSetWatchCodeFolders(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	folders []WatchCodeFolder,
 	workspaceRoot string,
 	expectedOldValue []WatchCodeFolder,
 ) (Snapshot, CompareAndSetResult[[]WatchCodeFolder], error) {
 	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[[]WatchCodeFolder], error) {
-		result, err := document.CompareAndSetWatchCodeFolders(projectID, folders, workspaceRoot, expectedOldValue)
+		result, err := document.CompareAndSetWatchCodeFolders(providerPluginID, projectID, folders, workspaceRoot, expectedOldValue)
 		return document, result, err
 	})
 }
 
 func (d *Document) CompareAndSetWatchCodeFiles(
+	providerPluginID string,
 	projectID string,
 	files []string,
 	workspaceRoot string,
 	expectedOldValue []string,
 ) (CompareAndSetResult[[]string], error) {
+	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return CompareAndSetResult[[]string]{}, err
+	}
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return CompareAndSetResult[[]string]{}, err
@@ -287,7 +301,7 @@ func (d *Document) CompareAndSetWatchCodeFiles(
 		return CompareAndSetResult[[]string]{}, err
 	}
 	if noop, err := isUISettingCompareAndSetNoop(
-		"plugin::setta-watch-code::files",
+		mustWatchCodePluginSettingID(providerPluginID, "files"),
 		optionalStringSliceAny(expectedOldValue),
 		oldFiles,
 		nextFiles,
@@ -300,7 +314,7 @@ func (d *Document) CompareAndSetWatchCodeFiles(
 		}, nil
 	}
 
-	if err := d.SetWatchCodeInputs(projectID, project.WatchCodeFolders, nextFiles, workspaceRoot); err != nil {
+	if err := d.SetWatchCodeInputs(providerPluginID, projectID, project.WatchCodeFolders, nextFiles, workspaceRoot); err != nil {
 		return CompareAndSetResult[[]string]{}, err
 	}
 	return CompareAndSetResult[[]string]{
@@ -311,13 +325,14 @@ func (d *Document) CompareAndSetWatchCodeFiles(
 
 func (r *Runtime) CompareAndSetWatchCodeFiles(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	files []string,
 	workspaceRoot string,
 	expectedOldValue []string,
 ) (Snapshot, CompareAndSetResult[[]string], error) {
 	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[[]string], error) {
-		result, err := document.CompareAndSetWatchCodeFiles(projectID, files, workspaceRoot, expectedOldValue)
+		result, err := document.CompareAndSetWatchCodeFiles(providerPluginID, projectID, files, workspaceRoot, expectedOldValue)
 		return document, result, err
 	})
 }

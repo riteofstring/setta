@@ -17,7 +17,15 @@ type WatchCodeBoundSection struct {
 	IgnoreState  CodeSectionDiagnosticsIgnoreState
 }
 
-func (d Document) ResolveWatchCodeBoundSection(projectID string, sectionID string, workspaceRoot string) (WatchCodeBoundSection, bool, error) {
+func (d Document) ResolveWatchCodeBoundSection(
+	providerPluginID string,
+	projectID string,
+	sectionID string,
+	workspaceRoot string,
+) (WatchCodeBoundSection, bool, error) {
+	if err := (&d).LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return WatchCodeBoundSection{}, false, err
+	}
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return WatchCodeBoundSection{}, false, err
@@ -32,6 +40,7 @@ func (d Document) ResolveWatchCodeBoundSection(projectID string, sectionID strin
 
 func (d *Document) ApplyWatchCodeBoundSectionUpdate(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	sectionID string,
 	workspaceRoot string,
@@ -39,6 +48,9 @@ func (d *Document) ApplyWatchCodeBoundSectionUpdate(
 ) (bool, error) {
 	if d == nil {
 		return false, ErrProjectNotFound
+	}
+	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return false, err
 	}
 
 	project, err := d.ProjectByID(projectID)
@@ -50,6 +62,11 @@ func (d *Document) ApplyWatchCodeBoundSectionUpdate(
 		return false, err
 	}
 	d.Projects[project.ID] = project
+	if didUpdate {
+		if err := d.StoreWatchCodePluginDataFromProjects(providerPluginID); err != nil {
+			return false, err
+		}
+	}
 	return didUpdate, nil
 }
 

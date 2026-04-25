@@ -214,8 +214,6 @@ func discoveredAdditionalTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.WatchCodeCallableKind("")),
 		reflect.TypeOf(projectstate.WatchCodeFolder{}),
 		reflect.TypeOf(projectstate.WatchCodeRegistryEntry{}),
-		reflect.TypeOf(projectstate.WatchCodePluginData{}),
-		reflect.TypeOf(projectstate.WatchCodePluginProjectData{}),
 		reflect.TypeOf(realtime.DependencyKeyType("")),
 		reflect.TypeOf(realtime.SectionDependencyKey{}),
 		reflect.TypeOf(realtime.SectionParamDependencyKey{}),

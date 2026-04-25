@@ -7478,31 +7478,6 @@ type WatchCodeFolder = {
 };
 
 /**
- * WatchCodePluginData
- */
-type WatchCodePluginData = {
-  projects: {
-    [key: string]: WatchCodePluginProjectData;
-  };
-  schemaVersion: number;
-};
-
-/**
- * WatchCodePluginProjectData
- */
-type WatchCodePluginProjectData = {
-  baselineByPath: {
-    [key: string]: null | Array<string>;
-  };
-  enabled: boolean;
-  files: null | Array<string>;
-  folders: null | Array<WatchCodeFolder>;
-  registry: {
-    [key: string]: WatchCodeRegistryEntry;
-  };
-};
-
-/**
  * WatchCodeRegistryEntry
  */
 type WatchCodeRegistryEntry = {

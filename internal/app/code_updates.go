@@ -129,12 +129,13 @@ func (s *codeUpdateService) applySetCodeUpdate(
 	if err := document.SetCode(projectID, sectionID, code); err != nil {
 		return document, false, err
 	}
-	if !s.watchCodeProviderActive() {
+	providerPluginID, ok := s.activeWatchCodeProviderPluginID()
+	if !ok {
 		return document, false, nil
 	}
 
-	boundSection, ok, err := document.ResolveWatchCodeBoundSection(projectID, sectionID, s.workspaceRoot)
-	if err != nil || !ok {
+	boundSection, found, err := document.ResolveWatchCodeBoundSection(providerPluginID, projectID, sectionID, s.workspaceRoot)
+	if err != nil || !found {
 		return document, false, err
 	}
 	if err := s.syncBoundCodeSection(ctx, boundSection); err != nil {
@@ -142,6 +143,7 @@ func (s *codeUpdateService) applySetCodeUpdate(
 	}
 	if _, err := document.ApplyWatchCodeBoundSectionUpdate(
 		ctx,
+		providerPluginID,
 		projectID,
 		sectionID,
 		s.workspaceRoot,
@@ -287,6 +289,13 @@ func (s *codeUpdateService) reloadBoundCodeBinding(
 		return document, nil
 	}
 
+	providerPluginID, hasWatchCodeProvider := s.activeWatchCodeProviderPluginID()
+	if hasWatchCodeProvider {
+		if err := document.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+			return document, err
+		}
+		project = document.Projects[binding.ProjectID]
+	}
 	updatedProject, needsTypeCheck, err := s.reloadBoundCodeProject(
 		ctx,
 		project,
@@ -298,6 +307,11 @@ func (s *codeUpdateService) reloadBoundCodeBinding(
 		return document, err
 	}
 	document.Projects[updatedProject.ID] = updatedProject
+	if needsTypeCheck && hasWatchCodeProvider {
+		if err := document.StoreWatchCodePluginDataFromProjects(providerPluginID); err != nil {
+			return document, err
+		}
+	}
 	if needsTypeCheck {
 		typeCheckProjectIDs[updatedProject.ID] = struct{}{}
 	}
@@ -340,10 +354,15 @@ func (s *codeUpdateService) reloadBoundCodeProject(
 }
 
 func (s *codeUpdateService) watchCodeProviderActive() bool {
+	_, ok := s.activeWatchCodeProviderPluginID()
+	return ok
+}
+
+func (s *codeUpdateService) activeWatchCodeProviderPluginID() (string, bool) {
 	if s == nil || s.watchCodeCapabilities == nil {
-		return false
+		return "", false
 	}
-	return s.watchCodeCapabilities.ProviderActive()
+	return s.watchCodeCapabilities.ActiveProviderPluginID()
 }
 
 func (s *codeUpdateService) syncBoundCodeSection(ctx context.Context, boundSection projectstate.WatchCodeBoundSection) error {

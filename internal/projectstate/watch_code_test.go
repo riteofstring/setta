@@ -13,7 +13,7 @@ import (
 	"setta/internal/watchcode"
 )
 
-func TestDocumentNormalizedStoresWatchCodeStateInPluginData(t *testing.T) {
+func TestDocumentStoresWatchCodeStateInProviderPluginData(t *testing.T) {
 	t.Parallel()
 
 	document := Document{
@@ -44,16 +44,14 @@ func TestDocumentNormalizedStoresWatchCodeStateInPluginData(t *testing.T) {
 		},
 	}
 
-	normalized, err := document.Normalized()
-	if err != nil {
-		t.Fatalf("normalize document: %v", err)
-	}
+	normalized := document
+	mustStoreTestWatchCodePluginData(t, &normalized)
 
 	project := normalized.Projects["project-alpha"]
 	if !project.WatchCodeEnabled {
 		t.Fatal("expected internal watch code state to remain enabled")
 	}
-	payload := normalized.PluginData[WatchCodePluginDataKey]
+	payload := normalized.PluginData[testWatchCodeProviderPluginID]
 	if len(payload) == 0 {
 		t.Fatalf("expected watch code plugin data, got %#v", normalized.PluginData)
 	}
@@ -83,14 +81,14 @@ func TestDocumentNormalizedStoresWatchCodeStateInPluginData(t *testing.T) {
 	}
 }
 
-func TestDocumentNormalizedLoadsWatchCodeStateFromPluginData(t *testing.T) {
+func TestDocumentLoadsWatchCodeStateFromProviderPluginData(t *testing.T) {
 	t.Parallel()
 
 	document := Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		PluginData: map[string]RawJSON{
-			WatchCodePluginDataKey: mustRawJSON(t, `{
+			testWatchCodeProviderPluginID: mustRawJSON(t, `{
 				"schemaVersion": 1,
 				"projects": {
 					"project-alpha": {
@@ -123,10 +121,8 @@ func TestDocumentNormalizedLoadsWatchCodeStateFromPluginData(t *testing.T) {
 		},
 	}
 
-	normalized, err := document.Normalized()
-	if err != nil {
-		t.Fatalf("normalize document: %v", err)
-	}
+	normalized := document
+	mustLoadTestWatchCodePluginData(t, &normalized)
 	project := normalized.Projects["project-alpha"]
 	if !project.WatchCodeEnabled {
 		t.Fatal("expected watch code enabled from plugin data")
@@ -142,6 +138,62 @@ func TestDocumentNormalizedLoadsWatchCodeStateFromPluginData(t *testing.T) {
 	}
 	if entry := project.WatchCodeRegistry["pkg.watch_me.existing:function"]; entry.CallableName != "existing" {
 		t.Fatalf("expected watch code registry from plugin data, got %#v", project.WatchCodeRegistry)
+	}
+}
+
+func TestDocumentLoadsWatchCodeStateClearsStaleProviderProjectFields(t *testing.T) {
+	t.Parallel()
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		PluginData: map[string]RawJSON{
+			testWatchCodeProviderPluginID: mustRawJSON(t, `{
+				"schemaVersion": 1,
+				"projects": {
+					"project-alpha": {
+						"enabled": true,
+						"folders": [{"path": "pkg", "recursive": true}],
+						"files": ["pkg/watch_me.py"],
+						"registry": {
+							"pkg.watch_me.existing:function": {
+								"callableName": "existing",
+								"kind": "function",
+								"signatureHash": "sig",
+								"bodyHash": "body",
+								"sourcePath": "/workspace/pkg/watch_me.py"
+							}
+						},
+						"baselineByPath": {
+							"/workspace/pkg/watch_me.py": ["pkg.watch_me.existing:function"]
+						}
+					}
+				}
+			}`),
+		},
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}
+
+	mustLoadTestWatchCodePluginData(t, &document)
+	if !document.Projects["project-alpha"].WatchCodeEnabled {
+		t.Fatal("expected first provider to hydrate watch code state")
+	}
+	if err := document.LoadWatchCodePluginDataIntoProjects("setta-other-watch-code-provider"); err != nil {
+		t.Fatalf("load other provider watch code plugin data: %v", err)
+	}
+
+	project := document.Projects["project-alpha"]
+	if project.WatchCodeEnabled ||
+		len(project.WatchCodeFolders) != 0 ||
+		len(project.WatchCodeFiles) != 0 ||
+		len(project.WatchCodeRegistry) != 0 ||
+		len(project.WatchCodeBaselineByPath) != 0 {
+		t.Fatalf("expected missing provider payload to clear watch code scratch state, got %#v", project)
 	}
 }
 
@@ -175,7 +227,7 @@ func TestDocumentNormalizedIgnoresLegacyTopLevelWatchCodeFields(t *testing.T) {
 		len(project.WatchCodeFiles) != 0 {
 		t.Fatalf("did not expect legacy top-level watch code fields to load, got %#v", project)
 	}
-	if _, ok := normalized.PluginData[WatchCodePluginDataKey]; ok {
+	if _, ok := normalized.PluginData[testWatchCodeProviderPluginID]; ok {
 		t.Fatalf("did not expect legacy top-level fields to create plugin data, got %#v", normalized.PluginData)
 	}
 }
@@ -212,7 +264,9 @@ func TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs(t *testing.T) {
 		}
 	})
 
-	if _, err := runtime.SetWatchCodeEnabled(context.Background(), "project-alpha", true, workspaceRoot); err != nil {
+	if _, err := runtime.SetWatchCodeEnabled(
+		context.Background(),
+		testWatchCodeProviderPluginID, "project-alpha", true, workspaceRoot); err != nil {
 		t.Fatalf("enable watch code: %v", err)
 	}
 
@@ -292,7 +346,9 @@ func TestRuntimeSetWatchCodeEnabledBaselinesBoundPythonCodeSections(t *testing.T
 		}
 	})
 
-	if _, err := runtime.SetWatchCodeEnabled(context.Background(), "project-alpha", true, workspaceRoot); err != nil {
+	if _, err := runtime.SetWatchCodeEnabled(
+		context.Background(),
+		testWatchCodeProviderPluginID, "project-alpha", true, workspaceRoot); err != nil {
 		t.Fatalf("enable watch code: %v", err)
 	}
 
@@ -357,6 +413,7 @@ func TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled(t *testing.T
 
 	if _, err := runtime.SetWatchCodeInputs(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		nil,
 		[]string{"pkg/existing.py", "pkg/new_watch.py"},
@@ -449,7 +506,9 @@ func TestRuntimeSetWatchCodeEnabledBaselineScansIgnoreConfiguredRootsAndExplicit
 		}
 	})
 
-	if _, err := runtime.SetWatchCodeEnabled(context.Background(), "project-alpha", true, workspaceRoot); err != nil {
+	if _, err := runtime.SetWatchCodeEnabled(
+		context.Background(),
+		testWatchCodeProviderPluginID, "project-alpha", true, workspaceRoot); err != nil {
 		t.Fatalf("enable watch code: %v", err)
 	}
 
@@ -540,6 +599,7 @@ func TestRuntimeSetWatchCodeInputsRejectsOutsideWorkspace(t *testing.T) {
 
 	if _, err := runtime.SetWatchCodeInputs(
 		context.Background(),
+		testWatchCodeProviderPluginID,
 		"project-alpha",
 		nil,
 		[]string{outsideFile},
@@ -596,7 +656,10 @@ func TestWatchCodeConfigInputsClonesProjectWatchState(t *testing.T) {
 		},
 	}
 
-	configs := WatchCodeConfigInputs(document)
+	configs, err := WatchCodeConfigInputs(document, testWatchCodeProviderPluginID)
+	if err != nil {
+		t.Fatalf("watch code config inputs: %v", err)
+	}
 	expected := map[string]watchcode.ConfigInputs{
 		"project-alpha": {
 			Enabled: true,

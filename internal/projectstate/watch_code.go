@@ -61,9 +61,17 @@ var defaultWatchCodeIgnoreDirNames = map[string]struct{}{
 	"setta_files_dev": {},
 }
 
-func (d *Document) SetWatchCodeEnabled(projectID string, enabled bool, workspaceRoot string) error {
+func (d *Document) SetWatchCodeEnabled(
+	providerPluginID string,
+	projectID string,
+	enabled bool,
+	workspaceRoot string,
+) error {
 	if d == nil {
 		return ErrProjectNotFound
+	}
+	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return err
 	}
 
 	project, err := d.ProjectByID(projectID)
@@ -74,11 +82,12 @@ func (d *Document) SetWatchCodeEnabled(projectID string, enabled bool, workspace
 		return err
 	}
 	d.Projects[project.ID] = project
-	return nil
+	return d.StoreWatchCodePluginDataFromProjects(providerPluginID)
 }
 
 func (r *Runtime) SetWatchCodeEnabled(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	enabled bool,
 	workspaceRoot string,
@@ -88,7 +97,7 @@ func (r *Runtime) SetWatchCodeEnabled(
 	}
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetWatchCodeEnabled(projectID, enabled, workspaceRoot); err != nil {
+		if err := document.SetWatchCodeEnabled(providerPluginID, projectID, enabled, workspaceRoot); err != nil {
 			return document, err
 		}
 		return document, nil
@@ -116,6 +125,7 @@ func (p *Project) setWatchCodeEnabledWithIgnoredRoots(enabled bool, workspaceRoo
 }
 
 func (d *Document) SetWatchCodeInputs(
+	providerPluginID string,
 	projectID string,
 	folders []WatchCodeFolder,
 	files []string,
@@ -123,6 +133,9 @@ func (d *Document) SetWatchCodeInputs(
 ) error {
 	if d == nil {
 		return ErrProjectNotFound
+	}
+	if err := d.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return err
 	}
 
 	project, err := d.ProjectByID(projectID)
@@ -133,11 +146,12 @@ func (d *Document) SetWatchCodeInputs(
 		return err
 	}
 	d.Projects[project.ID] = project
-	return nil
+	return d.StoreWatchCodePluginDataFromProjects(providerPluginID)
 }
 
 func (r *Runtime) SetWatchCodeInputs(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	folders []WatchCodeFolder,
 	files []string,
@@ -148,7 +162,7 @@ func (r *Runtime) SetWatchCodeInputs(
 	}
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetWatchCodeInputs(projectID, folders, files, workspaceRoot); err != nil {
+		if err := document.SetWatchCodeInputs(providerPluginID, projectID, folders, files, workspaceRoot); err != nil {
 			return document, err
 		}
 		return document, nil
@@ -282,9 +296,14 @@ func buildWatchCodeConfigSnapshot(project Project) watchCodeConfigSnapshot {
 	}
 }
 
-func WatchCodeConfigInputs(document Document) map[string]watchcode.ConfigInputs {
-	configs := make(map[string]watchcode.ConfigInputs, len(document.Projects))
-	for projectID, project := range document.Projects {
+func WatchCodeConfigInputs(document Document, providerPluginID string) (map[string]watchcode.ConfigInputs, error) {
+	hydrated := document.Clone()
+	if err := hydrated.LoadWatchCodePluginDataIntoProjects(providerPluginID); err != nil {
+		return nil, err
+	}
+
+	configs := make(map[string]watchcode.ConfigInputs, len(hydrated.Projects))
+	for projectID, project := range hydrated.Projects {
 		folders := make([]watchcode.FolderInput, 0, len(project.WatchCodeFolders))
 		for _, folder := range project.WatchCodeFolders {
 			folders = append(folders, watchcode.FolderInput{
@@ -296,10 +315,10 @@ func WatchCodeConfigInputs(document Document) map[string]watchcode.ConfigInputs 
 			Enabled:      project.WatchCodeEnabled,
 			Files:        append([]string(nil), project.WatchCodeFiles...),
 			Folders:      folders,
-			IgnoredRoots: append([]string(nil), document.watchCodeIgnoredRoots...),
+			IgnoredRoots: append([]string(nil), hydrated.watchCodeIgnoredRoots...),
 		}
 	}
-	return configs
+	return configs, nil
 }
 
 func (p *Project) baselineWatchCodeOnEnable(workspaceRoot string, ignoredRoots []string) error {

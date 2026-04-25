@@ -6670,16 +6670,6 @@
       "schemaRef": "#/$defs/WatchCodeFolder"
     },
     {
-      "name": "WatchCodePluginData",
-      "kind": "model",
-      "schemaRef": "#/$defs/WatchCodePluginData"
-    },
-    {
-      "name": "WatchCodePluginProjectData",
-      "kind": "model",
-      "schemaRef": "#/$defs/WatchCodePluginProjectData"
-    },
-    {
       "name": "WatchCodeRegistryEntry",
       "kind": "model",
       "schemaRef": "#/$defs/WatchCodeRegistryEntry"
@@ -10967,17 +10957,6 @@
         "x": 0,
         "y": 0,
         "zoom": 1
-      }
-    },
-    {
-      "profile": "frontend",
-      "type": "WatchCodePluginProjectData",
-      "value": {
-        "baselineByPath": {},
-        "enabled": false,
-        "files": [],
-        "folders": [],
-        "registry": {}
       }
     },
     {

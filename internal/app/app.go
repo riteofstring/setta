@@ -897,9 +897,14 @@ func initializeIDEWatchCodeService(
 	watchCodeService, err := watchcode.NewService(watchcode.ServiceOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 		OnFileUpdate: func(ctx context.Context, update watchcode.FileUpdate) error {
+			providerPluginID, ok := services.watchCodeCapabilities.ActiveProviderPluginID()
+			if !ok {
+				return nil
+			}
 			signatureObserver := newWatchCodeSignatureObserver(services.lspSignature)
 			snapshot, didUpdate, err := services.projectStates.Main().ApplyWatchCodeFileUpdate(
 				ctx,
+				providerPluginID,
 				update.ConfigID,
 				update.Path,
 				update.Raw,
@@ -928,8 +933,13 @@ func initializeIDEWatchCodeService(
 			return nil
 		},
 		OnFileDelete: func(ctx context.Context, request watchcode.DeleteRequest) error {
+			providerPluginID, ok := services.watchCodeCapabilities.ActiveProviderPluginID()
+			if !ok {
+				return nil
+			}
 			snapshot, didUpdate, err := services.projectStates.Main().ApplyWatchCodeFileDelete(
 				ctx,
+				providerPluginID,
 				request.ConfigID,
 				request.Path,
 				cfg.Paths.WorkspaceRoot,
@@ -970,8 +980,14 @@ func syncWatchCodeServiceConfigs(services *projectServices, document projectstat
 		return nil
 	}
 	configs := map[string]watchcode.ConfigInputs{}
-	if services.watchCodeCapabilities != nil && services.watchCodeCapabilities.ProviderActive() {
-		configs = projectstate.WatchCodeConfigInputs(document)
+	if services.watchCodeCapabilities != nil {
+		if providerPluginID, ok := services.watchCodeCapabilities.ActiveProviderPluginID(); ok {
+			var err error
+			configs, err = projectstate.WatchCodeConfigInputs(document, providerPluginID)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return services.watchCodeService.SyncConfigs(configs)
 }

@@ -237,10 +237,7 @@ func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T)
 	if update.ProjectState.ProjectConfig.ID != "project-alpha" {
 		t.Fatalf("expected project-alpha project update, got %q", update.ProjectState.ProjectConfig.ID)
 	}
-	watchCodeData, ok := update.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
-	if !ok {
-		t.Fatalf("expected broadcast project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
-	}
+	watchCodeData := mustHTTPWatchCodeProjectData(t, update.ProjectState.PluginData, "setta-fixture-watch-code-provider", "project-alpha")
 	if !watchCodeData.Enabled {
 		t.Fatal("expected broadcast project state to include watch code plugin enabled=true")
 	}

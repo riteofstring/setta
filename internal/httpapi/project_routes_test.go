@@ -4176,10 +4176,7 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs(t *test
 	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode latest project state payload: %v", err)
 	}
-	watchCodeData, ok := payload.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
-	if !ok {
-		t.Fatalf("expected latest project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
-	}
+	watchCodeData := mustHTTPWatchCodeProjectData(t, payload.ProjectState.PluginData, "setta-watch-code", "project-alpha")
 	if !watchCodeData.Enabled {
 		t.Fatal("expected watch code to be enabled in latest project state")
 	}
@@ -4253,10 +4250,7 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBroadcastsProjectStateUpdate(t 
 	}
 
 	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
-	watchCodeData, ok := update.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
-	if !ok {
-		t.Fatalf("expected websocket project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
-	}
+	watchCodeData := mustHTTPWatchCodeProjectData(t, update.ProjectState.PluginData, "setta-watch-code", "project-alpha")
 	if !watchCodeData.Enabled {
 		t.Fatal("expected websocket project state to enable watch code")
 	}
@@ -4498,10 +4492,7 @@ func TestRegisterProjectRoutesSetWatchCodeInputsBroadcastsProjectStateUpdate(t *
 	}
 
 	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
-	watchCodeData, ok := update.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
-	if !ok {
-		t.Fatalf("expected websocket project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
-	}
+	watchCodeData := mustHTTPWatchCodeProjectData(t, update.ProjectState.PluginData, "setta-watch-code", "project-alpha")
 	if !reflect.DeepEqual(watchCodeData.Files, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
 		t.Fatalf("expected websocket watch files, got %#v", watchCodeData.Files)
 	}

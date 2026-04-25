@@ -8740,7 +8740,7 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 	prepareAppLSPFixture(t)
 	installAppWatchCodeProviderFixture(t, cfg)
 
-	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
@@ -8760,7 +8760,9 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 				},
 			},
 		},
-	}); err != nil {
+	}
+	storeAppWatchCodePluginData(t, &document)
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
 
@@ -8946,6 +8948,7 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 				},
 			},
 		}
+		storeAppWatchCodePluginData(t, &document)
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate main runtime: %v", err)
@@ -9005,6 +9008,7 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 				},
 			},
 		}
+		storeAppWatchCodePluginData(t, &document)
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed watch code project: %v", err)
@@ -13017,6 +13021,7 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 			},
 		}
 		document.DefaultProjectID = "project-alpha"
+		storeAppWatchCodePluginData(t, &document)
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate project runtime: %v", err)
@@ -13080,6 +13085,7 @@ func seedAppLSPCodeSectionProjectWithLanguage(t *testing.T, app *App, language p
 			},
 		}
 		document.DefaultProjectID = "project-alpha"
+		storeAppWatchCodePluginData(t, &document)
 		return document, nil
 	}); err != nil {
 		t.Fatalf("mutate lsp code section project: %v", err)

@@ -21,7 +21,8 @@ func TestBuildScopedUISettingEntriesExposePluginMetadataAndSearch(t *testing.T) 
 	runtime := openTestRuntime(t, root)
 	registry := mustNewWatchCodeRegistry(t, runtime, root)
 
-	entry, ok, err := registry.Get(EnabledSettingID)
+	enabledSettingID := watchCodeSettingID(t, "enabled")
+	entry, ok, err := registry.Get(enabledSettingID)
 	if err != nil {
 		t.Fatalf("get watch code enabled: %v", err)
 	}
@@ -48,7 +49,7 @@ func TestBuildScopedUISettingEntriesExposePluginMetadataAndSearch(t *testing.T) 
 	if err != nil {
 		t.Fatalf("search plugin watch settings: %v", err)
 	}
-	if len(pluginResults) == 0 || pluginResults[0].SettingID != EnabledSettingID {
+	if len(pluginResults) == 0 || pluginResults[0].SettingID != enabledSettingID {
 		t.Fatalf("expected top plugin watch-code result, got %#v", pluginResults)
 	}
 
@@ -70,10 +71,11 @@ func TestBuildScopedUISettingEntriesFilesRoundTrip(t *testing.T) {
 
 	nextFiles := []string{"backend/setta/api/listener.py", "frontend/src/components/App/appTheme.ts"}
 	expectedFiles := []any{nextFiles[0], nextFiles[1]}
+	filesSettingID := watchCodeSettingID(t, "files")
 	result, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
-		FilesSettingID,
+		filesSettingID,
 		[]any{nextFiles[0], nextFiles[1]},
 		nil,
 	)
@@ -90,7 +92,7 @@ func TestBuildScopedUISettingEntriesFilesRoundTrip(t *testing.T) {
 		t.Fatalf("expected normalized watch code files %#v, got %#v", expectedFiles, result.NormalizedValue)
 	}
 
-	value, err := registry.ReadValue(context.Background(), "project-alpha", FilesSettingID)
+	value, err := registry.ReadValue(context.Background(), "project-alpha", filesSettingID)
 	if err != nil {
 		t.Fatalf("read watch code files after write: %v", err)
 	}
@@ -105,11 +107,12 @@ func TestBuildScopedUISettingEntriesRejectsInvalidFolderShape(t *testing.T) {
 	root := t.TempDir()
 	runtime := openTestRuntime(t, root)
 	registry := mustNewWatchCodeRegistry(t, runtime, root)
+	foldersSettingID := watchCodeSettingID(t, "folders")
 
 	_, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
-		FoldersSettingID,
+		foldersSettingID,
 		[]any{
 			map[string]any{
 				"path":      "./backend",
@@ -133,11 +136,12 @@ func TestBuildScopedUISettingEntriesRejectsUnsupportedFolderProperties(t *testin
 	root := t.TempDir()
 	runtime := openTestRuntime(t, root)
 	registry := mustNewWatchCodeRegistry(t, runtime, root)
+	foldersSettingID := watchCodeSettingID(t, "folders")
 
 	_, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
-		FoldersSettingID,
+		foldersSettingID,
 		[]any{
 			map[string]any{
 				"path":      "./backend",
@@ -177,10 +181,22 @@ func TestBuildScopedUISettingEntriesFollowProviderAvailability(t *testing.T) {
 		t.Fatalf("expected no entries without active provider, got %#v", entries)
 	}
 
-	unavailable := UnavailableSettingErrors(plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{}))
-	if unavailable[EnabledSettingID].Code != uisettings.ErrorCodePluginUnavailable {
-		t.Fatalf("expected unavailable setting error for %s, got %#v", EnabledSettingID, unavailable[EnabledSettingID])
+	disabledCapabilities := activeCapabilities()
+	disabledCapabilities.PluginEnabled = false
+	unavailable := UnavailableSettingErrors(disabledCapabilities)
+	enabledSettingID := watchCodeSettingID(t, "enabled")
+	if unavailable[enabledSettingID].Code != uisettings.ErrorCodePluginUnavailable {
+		t.Fatalf("expected unavailable setting error for %s, got %#v", enabledSettingID, unavailable[enabledSettingID])
 	}
+}
+
+func watchCodeSettingID(t *testing.T, localID string) string {
+	t.Helper()
+	settingID, err := projectstate.WatchCodePluginSettingID(testProviderPluginID, localID)
+	if err != nil {
+		t.Fatalf("watch code setting id: %v", err)
+	}
+	return settingID
 }
 
 func mustNewWatchCodeRegistry(t *testing.T, runtime *projectstate.Runtime, workspaceRoot string) *uisettings.Registry {

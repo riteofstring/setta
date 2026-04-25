@@ -28,8 +28,10 @@ type Document struct {
 	PluginData       map[string]RawJSON `json:"pluginData,omitempty"`
 	Projects         map[string]Project `json:"projects,omitempty"`
 
-	passwordSecrets             PasswordSecretStore
-	watchCodeIgnoredRoots       []string
+	passwordSecrets       PasswordSecretStore
+	watchCodeIgnoredRoots []string
+
+	watchCodeProviderPluginID   string
 	watchCodePluginDataHydrated bool
 }
 
@@ -84,6 +86,8 @@ func (d Document) Clone() Document {
 	cloned := d
 	cloned.passwordSecrets = d.passwordSecrets
 	cloned.watchCodeIgnoredRoots = append([]string(nil), d.watchCodeIgnoredRoots...)
+	cloned.watchCodeProviderPluginID = d.watchCodeProviderPluginID
+	cloned.watchCodePluginDataHydrated = d.watchCodePluginDataHydrated
 	if d.PluginData != nil {
 		cloned.PluginData = make(map[string]RawJSON, len(d.PluginData))
 		for pluginID, payload := range d.PluginData {
@@ -132,17 +136,18 @@ func (d Document) Normalized() (Document, error) {
 		return Document{}, err
 	}
 	normalized.PluginData = pluginData
-	if !normalized.watchCodePluginDataHydrated {
-		if err := normalized.loadWatchCodePluginDataIntoProjects(); err != nil {
+	if normalized.watchCodeProviderPluginID != "" && !normalized.watchCodePluginDataHydrated {
+		if err := normalized.LoadWatchCodePluginDataIntoProjects(normalized.watchCodeProviderPluginID); err != nil {
 			return Document{}, err
 		}
-		normalized.watchCodePluginDataHydrated = true
 	}
 	if err := normalizeDocumentProjects(normalized.Projects); err != nil {
 		return Document{}, err
 	}
-	if err := normalized.storeWatchCodePluginDataFromProjects(); err != nil {
-		return Document{}, err
+	if normalized.watchCodeProviderPluginID != "" {
+		if err := normalized.StoreWatchCodePluginDataFromProjects(normalized.watchCodeProviderPluginID); err != nil {
+			return Document{}, err
+		}
 	}
 	if err := validateDocumentDefaultProjectID(normalized.DefaultProjectID, normalized.Projects); err != nil {
 		return Document{}, err
