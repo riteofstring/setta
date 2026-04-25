@@ -87,6 +87,15 @@
             "appGenerationChatModes": { "type": "boolean" },
             "appDeploymentRuntime": { "type": "boolean" }
           }
+        },
+        "watchCode": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "python": { "type": "boolean" },
+            "requiresLanguageServer": { "type": "boolean" },
+            "canvasControlsUi": { "type": "boolean" }
+          }
         }
       }
     },

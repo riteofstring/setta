@@ -3931,6 +3931,7 @@ type PluginErrorInfo = {
  */
 type PluginFeatureCapabilities = {
   appSubsystem: PluginAppSubsystemCapabilities;
+  watchCode: PluginWatchCodeCapabilities;
 };
 
 /**
@@ -3938,6 +3939,7 @@ type PluginFeatureCapabilities = {
  */
 type PluginFeatureCapabilitiesManifest = {
   appSubsystem?: PluginAppSubsystemFeatureManifest | null;
+  watchCode?: PluginWatchCodeFeatureManifest | null;
 };
 
 /**
@@ -4296,6 +4298,7 @@ export type PluginStatusResponse = {
   restartCapability: PluginRestartCapability;
   schemaVersion: number;
   serverMode: Mode;
+  watchCodeSelection?: PluginWatchCodeProviderSelection | null;
 };
 
 /**
@@ -4317,6 +4320,49 @@ type PluginUpdateResponse = {
   sourceDigestSha256: null | string;
   toVersion: string;
 };
+
+/**
+ * PluginWatchCodeCapabilities
+ */
+type PluginWatchCodeCapabilities = {
+  canvasControlsUi: boolean;
+  pluginEnabled: boolean;
+  pluginId: string;
+  providerSelection?: PluginWatchCodeProviderSelection | null;
+  python: boolean;
+  requiresLanguageServer: boolean;
+};
+
+/**
+ * PluginWatchCodeFeatureManifest
+ */
+type PluginWatchCodeFeatureManifest = {
+  canvasControlsUi: boolean;
+  python: boolean;
+  requiresLanguageServer: boolean;
+};
+
+/**
+ * PluginWatchCodeProviderSelection
+ */
+type PluginWatchCodeProviderSelection = {
+  activePluginIds: null | Array<string>;
+  conflictingPluginIds: null | Array<string>;
+  disabledPluginIds: null | Array<string>;
+  invalidPluginIds: null | Array<string>;
+  selectedPluginId?: null | string;
+  status: PluginWatchCodeProviderSelectionStatusKind;
+};
+
+/**
+ * PluginWatchCodeProviderSelectionStatusKind
+ */
+type PluginWatchCodeProviderSelectionStatusKind =
+  | "no_provider"
+  | "disabled_provider"
+  | "invalid_provider"
+  | "active"
+  | "provider_conflict";
 
 /**
  * PluginsGlobalStateFile

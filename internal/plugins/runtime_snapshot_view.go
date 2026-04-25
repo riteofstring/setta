@@ -35,6 +35,7 @@ func (s *Service) RuntimeFromSnapshot(
 		SchemaVersion: pluginRuntimeSchemaVersion,
 		FeatureCapabilities: &PluginFeatureCapabilities{
 			AppSubsystem: buildRuntimeAppSubsystemCapabilities(snapshot.Plugins),
+			WatchCode:    buildRuntimeWatchCodeCapabilities(snapshot.Plugins),
 		},
 		List: PluginListResponse{
 			SchemaVersion:     pluginListSchemaVersion,

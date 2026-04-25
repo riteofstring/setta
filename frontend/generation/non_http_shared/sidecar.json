@@ -3104,6 +3104,48 @@
       "schemaRef": "#/$defs/PluginUpdateResponse"
     },
     {
+      "name": "PluginWatchCodeCapabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginWatchCodeCapabilities"
+    },
+    {
+      "name": "PluginWatchCodeFeatureManifest",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginWatchCodeFeatureManifest"
+    },
+    {
+      "name": "PluginWatchCodeProviderSelection",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginWatchCodeProviderSelection"
+    },
+    {
+      "name": "PluginWatchCodeProviderSelectionStatusKind",
+      "kind": "enum",
+      "schemaRef": "#/$defs/PluginWatchCodeProviderSelectionStatusKind",
+      "enumValues": [
+        {
+          "name": "no_provider",
+          "value": "no_provider"
+        },
+        {
+          "name": "disabled_provider",
+          "value": "disabled_provider"
+        },
+        {
+          "name": "invalid_provider",
+          "value": "invalid_provider"
+        },
+        {
+          "name": "active",
+          "value": "active"
+        },
+        {
+          "name": "provider_conflict",
+          "value": "provider_conflict"
+        }
+      ]
+    },
+    {
       "name": "PluginsGlobalStateFile",
       "kind": "model",
       "schemaRef": "#/$defs/PluginsGlobalStateFile"
