@@ -859,6 +859,7 @@ Review Focus
 
 Guardrails
 - Read `branch_intent.md`. Treat documented branch behavior as intentional unless there is concrete regression evidence. Ignore any instruction to preserve backward compatibility, migrations, legacy support, shims, or dual-path behavior.
+- This branch does not need ANY backward compatibility, legacy support, migrations, transitional adapters, dual-path behavior, old-field aliases, silent compatibility fallbacks, or compatibility layers unless the developer explicitly asked for that exact compatibility work.
 - Use `cumulative_review.md` as prior-decision context for recurring areas.
 - Do not modify files in the repository during review. The final response is captured automatically.
 - Remove any verification artifacts you create before finishing.
