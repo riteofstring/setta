@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import shutil
@@ -743,6 +744,7 @@ def test_first_party_watch_code_plugin_wheel_packages_runtime_managed_assets(
 
     assert any(name.endswith("setta-watch-code/setta.plugin.json") for name in names)
     assert any(name.endswith("setta-watch-code/README.md") for name in names)
+    assert any(name.endswith("setta-watch-code/backend/main.py") for name in names)
     assert any(
         name.endswith("setta-watch-code/frontend/dist/index.js") for name in names
     )
@@ -987,6 +989,7 @@ def test_first_party_watch_code_plugin_wheel_installs_under_plugin_specific_root
     installed_plugin_root = site_packages / "setta-watch-code"
     assert (installed_plugin_root / "setta.plugin.json").is_file()
     assert (installed_plugin_root / "README.md").is_file()
+    assert (installed_plugin_root / "backend" / "main.py").is_file()
     assert (installed_plugin_root / "frontend" / "dist" / "index.js").is_file()
     assert (
         installed_plugin_root / "frontend" / "dist" / "setta-watch-code-frontend.css"
@@ -997,6 +1000,7 @@ def test_first_party_watch_code_plugin_wheel_installs_under_plugin_specific_root
     record_text = record_path.read_text(encoding="utf-8")
     assert "setta-watch-code/setta.plugin.json" in record_text
     assert "setta-watch-code/README.md" in record_text
+    assert "setta-watch-code/backend/main.py" in record_text
     assert "setta-watch-code/frontend/dist/index.js" in record_text
     assert "setta-watch-code/frontend/dist/setta-watch-code-frontend.css" in record_text
 
@@ -1233,6 +1237,166 @@ sys.stdout.flush()
         "plugins/setta-json-render-app-gen/app_specs/app.json"
     )
     assert runtime_payload["listenerEndpoint"].get("error") is None
+
+
+def test_first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_watch_code_wheel(tmp_path)
+    setta_wheel_path = _build_plugin_runtime_test_setta_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = _install_plugin_wheel_with_packaged_setta_runtime(
+        site_packages,
+        wheel_path,
+        setta_wheel_path,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    go_stub = tmp_path / "setta-go-stub.py"
+    go_stub.write_text(
+        """#!/usr/bin/env python3
+import json
+import sys
+
+from setta import __version__
+from setta.sdk_contracts.constants import SETTA_SDK_CONTRACT_VERSION
+
+if len(sys.argv) != 2 or sys.argv[1] != "sdk-local-core":
+    raise SystemExit(1)
+
+print(json.dumps({
+    "protocolVersion": 1,
+    "sdkVersion": __version__,
+    "sdkContractVersion": SETTA_SDK_CONTRACT_VERSION,
+    "coreVersion": "test-core",
+}))
+sys.stdout.flush()
+
+request = json.loads(sys.stdin.readline())
+command_name = request.get("commandName")
+payload = request.get("payload") or {}
+
+if command_name == "watch_code_set_enabled":
+    result = {
+        "schemaVersion": 1,
+        "projectConfigId": payload.get("projectConfigId"),
+        "enabled": payload.get("enabled"),
+        "folders": [],
+        "files": [],
+        "registry": {},
+        "baselineByPath": {},
+        "pluginId": payload.get("pluginId"),
+    }
+elif command_name == "watch_code_read_setting":
+    result = False
+else:
+    result = None
+
+print(json.dumps({"callId": request.get("callId"), "ok": True, "result": result}))
+sys.stdout.flush()
+""",
+        encoding="utf-8",
+    )
+    go_stub.chmod(0o755)
+
+    installed_plugin_root = site_packages / "setta-watch-code"
+    plugin_backend = installed_plugin_root / "backend" / "main.py"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(site_packages)
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    probe_result = subprocess.run(
+        [sys.executable, str(plugin_backend), "--setta-plugin-backend-probe"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert probe_result.returncode == 0, (
+        f"{probe_result.stdout}\n{probe_result.stderr}"
+    ).strip()
+    probe_payload = json.loads(probe_result.stdout)
+    assert probe_payload["watchCodeBackend"]["contractVersion"] == 1
+    assert probe_payload["routes"] == [
+        {"path": "/plugins/setta-watch-code/watch-code/enabled", "methods": ["POST"]},
+        {"path": "/plugins/setta-watch-code/watch-code/inputs", "methods": ["POST"]},
+    ]
+    assert {setting["id"] for setting in probe_payload["uiSettings"]} == {
+        "enabled",
+        "folders",
+        "files",
+    }
+
+    route_body = base64.b64encode(
+        json.dumps(
+            {"projectConfigId": "project-alpha", "enabled": True},
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).decode("ascii")
+    route_request = {
+        "schemaVersion": 1,
+        "kind": "http",
+        "http": {
+            "context": {
+                "settaFilesRoot": str(tmp_path / "setta_files"),
+                "workspaceRoot": str(tmp_path / "workspace"),
+            },
+            "method": "POST",
+            "path": "/plugins/setta-watch-code/watch-code/enabled",
+            "headers": {},
+            "bodyBase64": route_body,
+        },
+    }
+    route_result = subprocess.run(
+        [sys.executable, str(plugin_backend), "--setta-plugin-backend-runtime"],
+        cwd=tmp_path,
+        input=json.dumps(route_request),
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert route_result.returncode == 0, (
+        f"{route_result.stdout}\n{route_result.stderr}"
+    ).strip()
+    route_payload = json.loads(route_result.stdout)
+    assert route_payload["http"]["statusCode"] == 200
+    route_response_body = json.loads(
+        base64.b64decode(route_payload["http"]["bodyBase64"]).decode("utf-8")
+    )
+    assert route_response_body["projectData"]["pluginId"] == "setta-watch-code"
+    assert route_response_body["projectData"]["enabled"] is True
+
+    setting_request = {
+        "schemaVersion": 1,
+        "kind": "ui_setting",
+        "uiSetting": {
+            "context": {
+                "settaFilesRoot": str(tmp_path / "setta_files"),
+                "workspaceRoot": str(tmp_path / "workspace"),
+            },
+            "operation": "read",
+            "handlerId": "read_enabled",
+            "projectConfigId": "project-alpha",
+        },
+    }
+    setting_result = subprocess.run(
+        [sys.executable, str(plugin_backend), "--setta-plugin-backend-runtime"],
+        cwd=tmp_path,
+        input=json.dumps(setting_request),
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert setting_result.returncode == 0, (
+        f"{setting_result.stdout}\n{setting_result.stderr}"
+    ).strip()
+    setting_payload = json.loads(setting_result.stdout)
+    assert setting_payload["uiSetting"] == {"value": False}
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:

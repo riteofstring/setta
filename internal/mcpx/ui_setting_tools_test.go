@@ -5253,6 +5253,18 @@ func writeScopedPluginBackendUISettingFixtureMainGoForLocalSettingWithBehavior(
 ) {
 	t.Helper()
 
+	if err := rewritePluginManifest(pluginRoot, func(payload map[string]any) {
+		rawCapabilities, _ := payload["capabilities"].([]any)
+		for _, rawCapability := range rawCapabilities {
+			if rawCapability == "registerUISettings" {
+				return
+			}
+		}
+		payload["capabilities"] = append(rawCapabilities, "registerUISettings")
+	}); err != nil {
+		t.Fatalf("enable backend ui setting fixture capability: %v", err)
+	}
+
 	assignment := "state.Enabled = value"
 	switch behavior {
 	case backendUISettingFixtureBehaviorNormal:
@@ -5285,11 +5297,23 @@ type runtimeRequest struct {
 	UISetting     *uiSettingRequest `+"`json:\"uiSetting,omitempty\"`"+`
 }
 
+type backendRequestContext struct {
+	ServerMode      string `+"`json:\"serverMode\"`"+`
+	HasAuth         bool   `+"`json:\"hasAuth\"`"+`
+	SessionID       string `+"`json:\"sessionId,omitempty\"`"+`
+	ShareSessionID  string `+"`json:\"shareSessionId,omitempty\"`"+`
+	ProjectConfigID string `+"`json:\"projectConfigId,omitempty\"`"+`
+	WorkspaceRoot   string `+"`json:\"workspaceRoot,omitempty\"`"+`
+	SettaFilesRoot  string `+"`json:\"settaFilesRoot,omitempty\"`"+`
+	RuntimeRoot     string `+"`json:\"runtimeRoot,omitempty\"`"+`
+}
+
 type uiSettingRequest struct {
-	HandlerID       string `+"`json:\"handlerId\"`"+`
-	Operation       string `+"`json:\"operation\"`"+`
-	ProjectConfigID string `+"`json:\"projectConfigId\"`"+`
-	Value           any    `+"`json:\"value,omitempty\"`"+`
+	Context         backendRequestContext `+"`json:\"context\"`"+`
+	HandlerID       string                `+"`json:\"handlerId\"`"+`
+	Operation       string                `+"`json:\"operation\"`"+`
+	ProjectConfigID string                `+"`json:\"projectConfigId\"`"+`
+	Value           any                   `+"`json:\"value,omitempty\"`"+`
 }
 
 type runtimeResponse struct {
@@ -5449,6 +5473,18 @@ func writeScopedPluginBackendUISettingFixtureState(t *testing.T, pluginRoot stri
 func writeScopedPluginBackendUISettingInvalidSchemaFixtureMainGo(t *testing.T, pluginRoot string) {
 	t.Helper()
 
+	if err := rewritePluginManifest(pluginRoot, func(payload map[string]any) {
+		rawCapabilities, _ := payload["capabilities"].([]any)
+		for _, rawCapability := range rawCapabilities {
+			if rawCapability == "registerUISettings" {
+				return
+			}
+		}
+		payload["capabilities"] = append(rawCapabilities, "registerUISettings")
+	}); err != nil {
+		t.Fatalf("enable backend ui setting invalid-schema fixture capability: %v", err)
+	}
+
 	source := `package main
 
 import (
@@ -5470,11 +5506,23 @@ type runtimeRequest struct {
 	UISetting     *uiSettingRequest ` + "`json:\"uiSetting,omitempty\"`" + `
 }
 
+type backendRequestContext struct {
+	ServerMode      string ` + "`json:\"serverMode\"`" + `
+	HasAuth         bool   ` + "`json:\"hasAuth\"`" + `
+	SessionID       string ` + "`json:\"sessionId,omitempty\"`" + `
+	ShareSessionID  string ` + "`json:\"shareSessionId,omitempty\"`" + `
+	ProjectConfigID string ` + "`json:\"projectConfigId,omitempty\"`" + `
+	WorkspaceRoot   string ` + "`json:\"workspaceRoot,omitempty\"`" + `
+	SettaFilesRoot  string ` + "`json:\"settaFilesRoot,omitempty\"`" + `
+	RuntimeRoot     string ` + "`json:\"runtimeRoot,omitempty\"`" + `
+}
+
 type uiSettingRequest struct {
-	HandlerID       string ` + "`json:\"handlerId\"`" + `
-	Operation       string ` + "`json:\"operation\"`" + `
-	ProjectConfigID string ` + "`json:\"projectConfigId\"`" + `
-	Value           any    ` + "`json:\"value,omitempty\"`" + `
+	Context         backendRequestContext ` + "`json:\"context\"`" + `
+	HandlerID       string                ` + "`json:\"handlerId\"`" + `
+	Operation       string                ` + "`json:\"operation\"`" + `
+	ProjectConfigID string                ` + "`json:\"projectConfigId\"`" + `
+	Value           any                   ` + "`json:\"value,omitempty\"`" + `
 }
 
 type runtimeResponse struct {

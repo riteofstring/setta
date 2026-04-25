@@ -24,6 +24,8 @@
   },
   "capabilities": [
     "registerWatchCodeBackend",
+    "registerRouter",
+    "registerUISettings",
     "registerCanvasControl",
     "registerSettingRevealHandler",
     "readProjectState",

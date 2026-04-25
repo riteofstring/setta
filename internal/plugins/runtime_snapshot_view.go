@@ -238,6 +238,7 @@ func (s *Service) ReadBackendUISettingValueFromSnapshot(
 		*entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
 		backendRuntimeUISettingRequest{
+			Context:         s.backendUISettingRequestContext(options.ProjectConfigID),
 			HandlerID:       strings.TrimSpace(options.HandlerID),
 			Operation:       "read",
 			ProjectConfigID: strings.TrimSpace(options.ProjectConfigID),
@@ -265,6 +266,7 @@ func (s *Service) WriteBackendUISettingValueFromSnapshot(
 		*entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
 		backendRuntimeUISettingRequest{
+			Context:         s.backendUISettingRequestContext(options.ProjectConfigID),
 			HandlerID:       strings.TrimSpace(options.HandlerID),
 			Operation:       "write",
 			ProjectConfigID: strings.TrimSpace(options.ProjectConfigID),
