@@ -4,4 +4,6 @@ A Setta plugin may depend on published Setta runtime and SDK packages, but plugi
 
 Reviewers must check production source, tests, package manifests, Vite/Vitest aliases, vendored SDK package metadata, and packaged SDK type declarations. If a plugin package cannot plausibly build, typecheck, and test from its own package plus declared dependencies and the Setta runtime/SDK contract, report a blocker finding.
 
+Do not fix clean-checkout plugin packaging by unignoring or committing generated frontend bundles such as `frontend/dist/*`. The plugin wheel/package path must produce those artifacts from tracked plugin-owned source and declared dependencies, or tests must run that plugin-owned build before validating manifest assets.
+
 The first-party app subsystem provider is not hostless: it may require Setta at runtime through `setta.plugin_runtime`, local-core, app-subsystem frontend host APIs, and the published app-subsystem frontend SDK. The prohibited dependency is a repo-local host implementation path or alias rather than an explicit Setta runtime/SDK package surface.
