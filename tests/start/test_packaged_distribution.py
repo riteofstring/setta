@@ -747,6 +747,7 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     assert (installed_plugin_root / "runtime_backend" / "main.py").is_file()
     assert (installed_plugin_root / "frontend" / "dist" / "index.js").is_file()
     assert (installed_plugin_root / "frontend" / "dist" / "index.css").is_file()
+    assert not (installed_plugin_root / "frontend" / "package.json").exists()
 
     record_path = (
         site_packages / "setta_json_render_app_gen-0.1.0.dist-info" / "RECORD"

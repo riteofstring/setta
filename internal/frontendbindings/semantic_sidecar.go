@@ -150,8 +150,8 @@ func semanticCreateFunctionDeclaration(
 		"  return options as "+typeName+";",
 		TypeProperty{
 			Name:         "options",
-			TypeExpr:     "Partial<" + typeName + ">",
-			DefaultValue: "{}",
+			TypeExpr:     "CreateOptions<" + typeName + ">",
+			DefaultValue: "{} as CreateOptions<" + typeName + ">",
 		},
 	), nil
 }
@@ -413,7 +413,13 @@ func semanticTraitDeclarations(
 	declarations = append(
 		declarations,
 		setDeclaration(traitSetName, info.enumType, memberValues...),
-		typeGuardDeclaration("is"+traitTypeName, info.baseType+"Union", returnType, traitSetName),
+		typeGuardDeclaration(
+			"is"+traitTypeName,
+			info.baseType+"Union",
+			returnType,
+			traitSetName,
+			info.enumType,
+		),
 	)
 	return declarations, nil
 }

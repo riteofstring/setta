@@ -3,12 +3,12 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
-const SUPPORTED_SOURCE_FILE = /\.[jt]sx?$/;
+const SUPPORTED_SOURCE_FILE = /\.(?:d\.)?[jt]sx?$/;
 const HOST_RUNTIME_FILE = /^frontend\/src\/.+\.[jt]sx?$/;
 const APP_SUBSYSTEM_SDK_FILE =
-  /^frontend\/plugin-sdk\/app-subsystem\/src\/.+\.[jt]sx?$/;
+  /^frontend\/plugin-sdk\/app-subsystem\/(?:src\/.+\.[jt]sx?|types\/.+\.d\.ts)$/;
 const PLUGIN_FRONTEND_FILE =
-  /^plugins\/[^/]+\/frontend\/(?:src|tests)\/.+\.[jt]sx?$/;
+  /^plugins\/[^/]+\/frontend\/(?:(?:src|tests)\/.+\.[jt]sx?|vendor\/[^/]+\/types\/.+\.d\.ts)$/;
 const HOST_PLUGIN_FRONTEND_IMPORT =
   /^(?:\.\.\/)+plugins\/[^/]+\/frontend\/src(?:\/.*)?$/;
 const PLUGIN_FRONTEND_HOST_ALIAS_IMPORT =

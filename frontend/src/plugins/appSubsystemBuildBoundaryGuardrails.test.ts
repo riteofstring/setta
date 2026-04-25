@@ -21,6 +21,10 @@ function readSourceSdkFile(relativePath: string): string {
   );
 }
 
+function readHostFrontendFile(relativePath: string): string {
+  return readFileSync(resolve(repoRoot, "frontend", relativePath), "utf8");
+}
+
 describe("app plugin frontend build boundary guardrails", () => {
   it("keeps plugin frontend package resolution inside the plugin tree", () => {
     const packageJson = JSON.parse(readPluginFrontendFile("package.json")) as {
@@ -165,5 +169,31 @@ describe("app plugin frontend build boundary guardrails", () => {
     expect(sourceSdkViteConfig).not.toContain("openapi:");
     expect(sourceSdkViteConfig).not.toContain("utils:");
     expect(sourceSdkTsconfig).not.toContain('"paths"');
+  });
+
+  it("keeps source SDK generated non-HTTP surfaces aligned with the host owner", () => {
+    const hostNonHTTPTypes = readHostFrontendFile(
+      "src/openapi/non_http/generated/types.gen.ts",
+    );
+    const sourceSdkNonHTTPTypes = readSourceSdkFile(
+      "src/openapi/non_http/generated/types.gen.ts",
+    );
+    const hostSidecar = readHostFrontendFile(
+      "generation/non_http_shared/sidecar.json",
+    );
+    const sourceSdkSidecar = readSourceSdkFile("src/generated/sidecar.json");
+
+    expect(hostNonHTTPTypes).toContain("PluginFrontendBuildManifest = {");
+    expect(hostNonHTTPTypes).toContain(
+      "build?: PluginFrontendBuildManifest | null;",
+    );
+    expect(hostSidecar).toContain('"name": "PluginFrontendBuildManifest"');
+    expect(sourceSdkNonHTTPTypes).toContain(
+      "PluginFrontendBuildManifest = {",
+    );
+    expect(sourceSdkNonHTTPTypes).toContain(
+      "build?: PluginFrontendBuildManifest | null;",
+    );
+    expect(sourceSdkSidecar).toContain('"name": "PluginFrontendBuildManifest"');
   });
 });
