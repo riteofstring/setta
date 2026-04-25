@@ -1,5 +1,6 @@
 import {
   configureAppSubsystemOpenAPI,
+  runWithAppSubsystemFrontendHostRuntime,
   type AppSubsystemFrontendRegistration,
 } from "@setta/app-subsystem-frontend-sdk";
 import { AppPreview } from "./components/Pages/Project/AppPreview";
@@ -83,7 +84,9 @@ export const appSubsystemFrontendRegistration: AppSubsystemFrontendRegistration 
       clearAppSpecPatchPreviewStream,
       clearAllAppSpecPatchPreviewStreams,
       initializeAppSessionFromCurrentDeployment: (host, options) =>
-        initializeAppSessionFromCurrentDeployment(host, options),
+        runWithAppSubsystemFrontendHostRuntime(host, () =>
+          initializeAppSessionFromCurrentDeployment(host, options),
+        ),
       resetAppSessionState: (host) => {
         resetAppSessionState(host);
       },

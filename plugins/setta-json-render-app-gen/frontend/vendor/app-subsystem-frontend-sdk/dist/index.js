@@ -1571,6 +1571,14 @@ function getActiveAppSubsystemFrontendHostRuntime() {
   }
   return null;
 }
+async function runWithAppSubsystemFrontendHostRuntime(host, run) {
+  activateAppSubsystemFrontendHostRuntime(host);
+  try {
+    return await run();
+  } finally {
+    deactivateAppSubsystemFrontendHostRuntime(host);
+  }
+}
 const ROOT_TRANSPORT_ROUTES = Object.freeze(
   TransportRouteConstants.root
 );
@@ -2762,6 +2770,7 @@ export {
   resolveMainRunRequest,
   resolveRunRequest,
   runCode,
+  runWithAppSubsystemFrontendHostRuntime,
   serializeDropzoneValue,
   setAppDefinition,
   setParamEnteredValue,

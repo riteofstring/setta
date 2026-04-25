@@ -547,6 +547,7 @@ export declare function buildDefaultAppSpecPath(pluginId: string | null | undefi
 export declare function activateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
 export declare function deactivateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
 export declare function getActiveAppSubsystemFrontendHostRuntime(): AppSubsystemFrontendHost | null;
+export declare function runWithAppSubsystemFrontendHostRuntime<T>(host: AppSubsystemFrontendHost, run: () => T | Promise<T>): Promise<T>;
 export declare function clearEffectiveImplCache(impl: object): void;
 export declare function getEffectiveImpl<T extends JsonRecord>(impl: T, core: Core, variant: Variant): T;
 export declare function getCurrentEffectiveCodeObjImplIfPresent(projectState: SingleConfig, sectionId: string, codeObjId: string, includePreview?: boolean): JsonRecord | null;

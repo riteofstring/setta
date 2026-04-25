@@ -28,7 +28,6 @@ def _write_minimal_distribution_project(
     tmp_path: Path,
     *,
     include_go_binaries: bool,
-    use_repo_packaged_entrypoint_modules: bool = False,
 ) -> Path:
     project_root = tmp_path / "packaged-project"
     package_root = project_root / "backend" / "setta"
@@ -47,87 +46,20 @@ def _write_minimal_distribution_project(
     )
     (project_root / "README.md").write_text("# temp package\n", encoding="utf-8")
     (project_root / "LICENSE").write_text("Apache-2.0\n", encoding="utf-8")
-    if use_repo_packaged_entrypoint_modules:
-        for relative_path in (
-            "__init__.py",
-            "__main__.py",
-            "entrypoint.py",
-            "local_core_client.py",
-            "sdk_contracts/constants.py",
-            "runtime_compat.py",
-            "plugin_runtime/__init__.py",
-            "plugin_runtime/app_subsystem.py",
-            "plugin_runtime/local_core.py",
-            "types/generated/go_shared_constants.py",
-        ):
-            (package_root / relative_path).write_text(
-                (_repo_root() / "backend" / "setta" / relative_path).read_text(
-                    encoding="utf-8"
-                ),
-                encoding="utf-8",
-            )
-    else:
-        (package_root / "__init__.py").write_text(
-            '__version__ = "0.0.0"\n', encoding="utf-8"
-        )
-        (package_root / "__main__.py").write_text(
-            "from setta.entrypoint import main\n",
-            encoding="utf-8",
-        )
-        (package_root / "entrypoint.py").write_text(
-            "def main() -> None:\n    return None\n",
-            encoding="utf-8",
-        )
-        (package_root / "local_core_client.py").write_text(
-            "class LocalCoreCommandError(RuntimeError):\n"
-            "    pass\n\n"
-            "def run_local_core_command_once(command_name: str, payload: dict[str, object] | None = None) -> object:\n"
-            "    return None\n",
-            encoding="utf-8",
-        )
-        (package_root / "runtime_compat.py").write_text(
-            "class RuntimeCompatibilityError(RuntimeError):\n    pass\n",
-            encoding="utf-8",
-        )
-        (package_root / "sdk_contracts" / "constants.py").write_text(
-            "SETTA_SDK_CONTRACT_VERSION = 2\n",
-            encoding="utf-8",
-        )
-        (package_root / "plugin_runtime" / "__init__.py").write_text(
-            "from setta.plugin_runtime.app_subsystem import (\n"
-            "    APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION,\n"
-            "    listener_endpoint_names,\n"
-            "    local_core_command_for_listener_endpoint,\n"
-            "    run_app_subsystem_backend,\n"
-            ")\n"
-            "from setta.plugin_runtime.local_core import (\n"
-            "    LocalCoreCommandError,\n"
-            "    run_local_core_command,\n"
-            ")\n",
-            encoding="utf-8",
-        )
-        (package_root / "plugin_runtime" / "app_subsystem.py").write_text(
-            "APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION = 1\n\n"
-            "def listener_endpoint_names() -> tuple[str, ...]:\n"
-            "    return ()\n\n"
-            "def local_core_command_for_listener_endpoint(endpoint_name: str) -> str:\n"
-            "    raise KeyError(endpoint_name)\n",
-            "\n"
-            "def run_app_subsystem_backend(entrypoint_file: str) -> None:\n"
-            "    return None\n",
-            encoding="utf-8",
-        )
-        (package_root / "plugin_runtime" / "local_core.py").write_text(
-            "class LocalCoreCommandError(RuntimeError):\n"
-            "    pass\n\n"
-            "def run_local_core_command(command_name: str, payload: dict[str, object] | None = None) -> object:\n"
-            "    return None\n",
-            encoding="utf-8",
-        )
-        (package_root / "types" / "generated" / "go_shared_constants.py").write_text(
-            "LOCAL_CORE_PROTOCOL_VERSION = 1\n",
-            encoding="utf-8",
-        )
+    source_package_root = _repo_root() / "backend" / "setta"
+    for relative_path in (
+        "__init__.py",
+        "__main__.py",
+        "entrypoint.py",
+        "local_core_client.py",
+        "sdk_contracts/constants.py",
+        "runtime_compat.py",
+        "plugin_runtime/__init__.py",
+        "plugin_runtime/app_subsystem.py",
+        "plugin_runtime/local_core.py",
+        "types/generated/go_shared_constants.py",
+    ):
+        shutil.copy2(source_package_root / relative_path, package_root / relative_path)
     (package_root / "dev_start.py").write_text(
         "def main() -> int:\n    return 0\n",
         encoding="utf-8",
@@ -214,6 +146,13 @@ def _build_sdist(project_root: Path, outdir: Path) -> subprocess.CompletedProces
         text=True,
         check=False,
     )
+
+
+def _read_single_wheel_member(wheel_path: Path, suffix: str) -> str:
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        matches = [name for name in wheel_archive.namelist() if name.endswith(suffix)]
+        assert len(matches) == 1
+        return wheel_archive.read(matches[0]).decode("utf-8")
 
 
 def _install_editable(
@@ -462,6 +401,29 @@ def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) 
 
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
+
+
+def test_minimal_distribution_project_uses_packaged_runtime_modules(
+    tmp_path: Path,
+) -> None:
+    project_root = _write_minimal_distribution_project(
+        tmp_path,
+        include_go_binaries=False,
+    )
+    app_subsystem_runtime = (
+        project_root
+        / "backend"
+        / "setta"
+        / "plugin_runtime"
+        / "app_subsystem.py"
+    )
+
+    runtime_text = app_subsystem_runtime.read_text(encoding="utf-8")
+    assert "local_core_command_for_listener_endpoint" in runtime_text
+    assert "run_app_subsystem_backend" in runtime_text
+    assert runtime_text == (
+        _repo_root() / "backend" / "setta" / "plugin_runtime" / "app_subsystem.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_pyproject_defaults_extra_installs_basedpyright_plugin() -> None:
@@ -1095,10 +1057,7 @@ def test_wheel_build_with_packaged_go_binaries_uses_platform_tags(
     wheel_path = wheel_paths[0]
     assert not wheel_path.name.endswith("-any.whl")
 
-    with zipfile.ZipFile(wheel_path) as wheel_archive:
-        wheel_metadata = wheel_archive.read("setta-0.0.0.dist-info/WHEEL").decode(
-            "utf-8"
-        )
+    wheel_metadata = _read_single_wheel_member(wheel_path, ".dist-info/WHEEL")
 
     assert "Root-Is-Purelib: false" in wheel_metadata
     assert "Tag: py3-none-any" not in wheel_metadata
@@ -1177,11 +1136,10 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
-    wheel_paths = list(outdir.glob("setta-0.0.0-*.whl"))
+    wheel_paths = list(outdir.glob("setta-*.whl"))
     assert len(wheel_paths) == 1
 
-    with zipfile.ZipFile(wheel_paths[0]) as wheel_archive:
-        metadata = wheel_archive.read("setta-0.0.0.dist-info/METADATA").decode("utf-8")
+    metadata = _read_single_wheel_member(wheel_paths[0], ".dist-info/METADATA")
 
     requires_lines = {
         line for line in metadata.splitlines() if line.startswith("Requires-Dist:")
@@ -1244,7 +1202,6 @@ def test_wheel_installs_and_runs_real_packaged_entrypoint_modules(
     project_root = _write_minimal_distribution_project(
         tmp_path,
         include_go_binaries=True,
-        use_repo_packaged_entrypoint_modules=True,
     )
     outdir = tmp_path / "dist"
 

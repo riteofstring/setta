@@ -43,3 +43,15 @@ export function getActiveAppSubsystemFrontendHostRuntime(): AppSubsystemFrontend
   }
   return null;
 }
+
+export async function runWithAppSubsystemFrontendHostRuntime<T>(
+  host: AppSubsystemFrontendHost,
+  run: () => T | Promise<T>,
+): Promise<T> {
+  activateAppSubsystemFrontendHostRuntime(host);
+  try {
+    return await run();
+  } finally {
+    deactivateAppSubsystemFrontendHostRuntime(host);
+  }
+}

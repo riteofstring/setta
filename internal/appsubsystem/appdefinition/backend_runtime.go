@@ -70,50 +70,69 @@ func (r *BackendRuntime) SetAppDefinition(
 	ctx context.Context,
 	input SetInput,
 ) (projectstate.Snapshot, MutationResult, error) {
-	result, err := invokeBackendResult[MutationResult](r, ctx, backendruntime.ListenerEndpointSetAppDefinition, input)
-	if err != nil {
-		return projectstate.Snapshot{}, MutationResult{}, err
-	}
-	snapshot, err := r.persistBackendMutationResult(ctx, result)
-	if err != nil {
-		return projectstate.Snapshot{}, MutationResult{}, err
-	}
-	return snapshot, result, nil
+	return invokeProviderMutationAndReplan(
+		r,
+		ctx,
+		backendruntime.ListenerEndpointSetAppDefinition,
+		input,
+		input,
+		(*AppDefinitionService).SetAppDefinition,
+	)
 }
 
 func (r *BackendRuntime) StreamAppDefinition(
 	ctx context.Context,
 	input StreamInput,
 ) (projectstate.Snapshot, MutationResult, error) {
-	result, err := invokeBackendResult[MutationResult](r, ctx, backendruntime.ListenerEndpointStreamAppDefinition, input)
-	if err != nil {
-		return projectstate.Snapshot{}, MutationResult{}, err
-	}
-	snapshot, err := r.persistBackendMutationResult(ctx, result)
-	if err != nil {
-		return projectstate.Snapshot{}, MutationResult{}, err
-	}
-	return snapshot, result, nil
+	return invokeProviderMutationAndReplan(
+		r,
+		ctx,
+		backendruntime.ListenerEndpointStreamAppDefinition,
+		input,
+		input,
+		(*AppDefinitionService).StreamAppDefinition,
+	)
 }
 
 func (r *BackendRuntime) UpdateAppDefinition(
 	ctx context.Context,
 	patch any,
 ) (projectstate.Snapshot, MutationResult, error) {
-	result, err := invokeBackendResult[MutationResult](
+	return invokeProviderMutationAndReplan(
 		r,
 		ctx,
 		backendruntime.ListenerEndpointUpdateAppDefinition,
 		backendruntime.UpdateAppDefinitionRequest{Patch: patch},
+		patch,
+		(*AppDefinitionService).UpdateAppDefinition,
+	)
+}
+
+func invokeProviderMutationAndReplan[T any](
+	r *BackendRuntime,
+	ctx context.Context,
+	endpointName string,
+	payload any,
+	input T,
+	commit func(*AppDefinitionService, context.Context, T) (projectstate.Snapshot, MutationResult, error),
+) (projectstate.Snapshot, MutationResult, error) {
+	result, err := invokeBackendResult[MutationResult](
+		r,
+		ctx,
+		endpointName,
+		payload,
 	)
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
-	snapshot, err := r.persistBackendMutationResult(ctx, result)
+	if err := r.validateProviderMutationResult(result); err != nil {
+		return projectstate.Snapshot{}, MutationResult{}, err
+	}
+	owner, err := r.ownerAppDefinitionService()
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
-	return snapshot, result, nil
+	return commit(owner, ctx, input)
 }
 
 func (r *BackendRuntime) CompareAndSetAppDefinitionCatalogID(
@@ -127,6 +146,7 @@ func (r *BackendRuntime) CompareAndSetAppDefinitionCatalogID(
 		backendruntime.ListenerEndpointCompareAndSetCatalogID,
 		catalogID,
 		expectedOldValue,
+		(*AppDefinitionService).CompareAndSetAppDefinitionCatalogID,
 	)
 }
 
@@ -141,6 +161,7 @@ func (r *BackendRuntime) CompareAndSetAppDefinitionSpecVersion(
 		backendruntime.ListenerEndpointCompareAndSetSpecVersion,
 		appSpecVersion,
 		expectedOldValue,
+		(*AppDefinitionService).CompareAndSetAppDefinitionSpecVersion,
 	)
 }
 
@@ -155,6 +176,7 @@ func (r *BackendRuntime) CompareAndSetAppDefinitionSpecPath(
 		backendruntime.ListenerEndpointCompareAndSetSpecPath,
 		appSpecPath,
 		expectedOldValue,
+		(*AppDefinitionService).CompareAndSetAppDefinitionSpecPath,
 	)
 }
 
@@ -169,6 +191,7 @@ func (r *BackendRuntime) CompareAndSetAppDefinitionThemeMode(
 		backendruntime.ListenerEndpointCompareAndSetThemeMode,
 		themeMode,
 		expectedOldValue,
+		(*AppDefinitionService).CompareAndSetAppDefinitionThemeMode,
 	)
 }
 
@@ -178,6 +201,7 @@ func invokeCompareAndSetString(
 	endpointName string,
 	value string,
 	expectedOldValue *string,
+	commit func(*AppDefinitionService, context.Context, string, *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error),
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	mutationResult, err := invokeBackendResult[CompareAndSetMutationResult](
 		r,
@@ -191,27 +215,14 @@ func invokeCompareAndSetString(
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
 	}
-	result := mutationResult.CompareResult.projectStateResult()
-	if result.OldValue == result.NewValue {
-		snapshot, err := r.projectRuntime.MutateWithContext(
-			ctx,
-			func(document projectstate.Document) (projectstate.Document, error) {
-				return document, nil
-			},
-		)
-		if err != nil {
-			return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
-		}
-		return snapshot, result, nil
+	if err := r.validateProviderCompareAndSetMutationResult(mutationResult); err != nil {
+		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
 	}
-	snapshot, err := r.persistBackendMutationResult(ctx, MutationResult{
-		AppSpec:       mutationResult.AppSpec,
-		AppDefinition: mutationResult.AppDefinition,
-	})
+	owner, err := r.ownerAppDefinitionService()
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
 	}
-	return snapshot, result, nil
+	return commit(owner, ctx, value, expectedOldValue)
 }
 
 func invokeBackendResult[T any](
@@ -321,55 +332,55 @@ func mapBackendRuntimeError(err error) error {
 	}
 }
 
-func (r *BackendRuntime) persistBackendMutationResult(
-	ctx context.Context,
-	result MutationResult,
-) (projectstate.Snapshot, error) {
+func (r *BackendRuntime) ownerAppDefinitionService() (*AppDefinitionService, error) {
 	if r == nil || r.projectRuntime == nil {
-		return projectstate.Snapshot{}, projectstate.ErrRuntimeClosed
+		return nil, projectstate.ErrRuntimeClosed
+	}
+	storage, err := StorageForPlugin(r.pluginID)
+	if err != nil {
+		return nil, err
+	}
+	return &AppDefinitionService{
+		runtime:      r.projectRuntime,
+		storage:      storage,
+		appSpecStore: appspec.MustForPlugin(r.pluginID),
+	}, nil
+}
+
+func (r *BackendRuntime) validateProviderCompareAndSetMutationResult(
+	result CompareAndSetMutationResult,
+) error {
+	compareResult := result.CompareResult.projectStateResult()
+	if compareResult.OldValue == compareResult.NewValue {
+		return nil
+	}
+	return r.validateProviderMutationResult(MutationResult{
+		AppSpec:       result.AppSpec,
+		AppDefinition: result.AppDefinition,
+	})
+}
+
+func (r *BackendRuntime) validateProviderMutationResult(result MutationResult) error {
+	if r == nil || r.projectRuntime == nil {
+		return projectstate.ErrRuntimeClosed
 	}
 	if result.AppDefinition == nil {
-		return projectstate.Snapshot{}, fmt.Errorf("app subsystem backend mutation result is missing appDefinition")
+		return fmt.Errorf("app subsystem backend mutation result is missing appDefinition")
 	}
 	if result.AppSpec == nil {
-		return projectstate.Snapshot{}, fmt.Errorf("app subsystem backend mutation result is missing appSpec")
+		return fmt.Errorf("app subsystem backend mutation result is missing appSpec")
 	}
 
 	projectRoot, err := r.projectRuntime.ProjectRoot()
 	if err != nil {
-		return projectstate.Snapshot{}, err
+		return err
 	}
-	storage := MustStorageForPlugin(r.pluginID)
 	appSpecStore := appspec.MustForPlugin(r.pluginID)
 	definition := result.AppDefinition.Clone()
 	normalizedPath, err := appSpecStore.NormalizePath(projectRoot, definition.AppSpecPath)
 	if err != nil {
-		return projectstate.Snapshot{}, err
+		return err
 	}
 	definition.AppSpecPath = normalizedPath
-	encodedDefinition, err := EncodeStoredAppDefinition(&definition)
-	if err != nil {
-		return projectstate.Snapshot{}, err
-	}
-	nextAppSpec := cloneJSONValue(result.AppSpec)
-	if err := ValidatePersistedAppDefinitionWrite(definition, nextAppSpec); err != nil {
-		return projectstate.Snapshot{}, err
-	}
-	return r.projectRuntime.MutatePersistedWithContext(ctx, func(
-		document projectstate.Document,
-	) (projectstate.PersistedMutationPlan, error) {
-		previousAppSpec, err := appSpecStore.Read(projectRoot, normalizedPath)
-		if err != nil {
-			return projectstate.PersistedMutationPlan{}, err
-		}
-		return projectstate.PersistedMutationPlan{
-			NextDocument: storage.WithStoredDocumentAppDefinition(document, encodedDefinition),
-			ApplyExternalChanges: func() error {
-				return appSpecStore.Write(projectRoot, normalizedPath, nextAppSpec)
-			},
-			RollbackExternalChanges: func() error {
-				return rollbackAppSpecWrite(projectRoot, normalizedPath, previousAppSpec, appSpecStore)
-			},
-		}, nil
-	})
+	return ValidatePersistedAppDefinitionWrite(definition, cloneJSONValue(result.AppSpec))
 }

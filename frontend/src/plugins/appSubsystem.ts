@@ -8,8 +8,7 @@ import {
   type AppSubsystemPatchPreviewDelta,
   type AppSubsystemPreviewSurfaceRegistration,
   type RegisteredAppSubsystemFrontendRegistration,
-  activateAppSubsystemFrontendHostRuntime,
-  deactivateAppSubsystemFrontendHostRuntime,
+  runWithAppSubsystemFrontendHostRuntime,
 } from "@setta/app-subsystem-frontend-sdk";
 import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
 import type { GetLatestProjectStateResponse } from "openapi/http";
@@ -1060,15 +1059,12 @@ export async function initializeAppSessionFromCurrentDeployment(
   if (!registration?.controller?.initializeAppSessionFromCurrentDeployment) {
     return false;
   }
-  activateAppSubsystemFrontendHostRuntime(frontendHost);
-  try {
-    return await registration.controller.initializeAppSessionFromCurrentDeployment(
+  return await runWithAppSubsystemFrontendHostRuntime(frontendHost, () =>
+    registration.controller.initializeAppSessionFromCurrentDeployment(
       frontendHost,
       options,
-    );
-  } finally {
-    deactivateAppSubsystemFrontendHostRuntime(frontendHost);
-  }
+    ),
+  );
 }
 
 export function resetAppSessionState(
