@@ -51,9 +51,9 @@ metadata.
   `registerMcpTools`, `registerLanguageServer`,
   `registerExternalAgentAdapter`, `registerCodegenTarget`,
   `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`,
-  `registerAppSubsystemBackend`, `registerSettingRevealHandler`, and
-  `mutateWatchCodeSettings`. Project-canvas controls must request
-  `registerCanvasControl`.
+  `registerAppSubsystemBackend`, `registerWatchCodeBackend`,
+  `registerUISettings`, and `registerSettingRevealHandler`.
+  Project-canvas controls must request `registerCanvasControl`.
 - `frontend.build.packageManager` currently accepts `pnpm` and is the opt-in
   contract for plugin-owned frontend builds from `frontend/package.json`.
 - App-subsystem providers should declare both the required backend/runtime

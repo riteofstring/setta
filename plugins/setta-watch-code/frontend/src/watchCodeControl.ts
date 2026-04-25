@@ -70,15 +70,7 @@ export type WatchCodePluginHost = {
     listener: (nextValue: unknown, prevValue: unknown | null) => void,
     options?: { fireImmediately?: boolean; throttleMs?: number },
   ) => () => void;
-  setWatchCodeEnabled: (payload: {
-    projectConfigId: string;
-    enabled: boolean;
-  }) => Promise<boolean>;
-  setWatchCodeInputs: (payload: {
-    projectConfigId: string;
-    watchCodeFolders: WatchCodeFolder[];
-    watchCodeFiles: string[];
-  }) => Promise<boolean>;
+  fetchBackendRoute: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
 const NULL_PROJECT_CONFIG_ID = "null";
@@ -87,7 +79,6 @@ const PORTAL_MAX_WIDTH_PX = 352;
 const PORTAL_MARGIN_PX = 12;
 const PORTAL_BUTTON_GAP_PX = 12;
 const PORTAL_ESTIMATED_HEIGHT_PX = 360;
-const WATCH_CODE_PLUGIN_ID = "setta-watch-code";
 const EMPTY_WATCH_CODE_PROJECT_DATA: WatchCodeProjectData = {
   projectConfigId: NULL_PROJECT_CONFIG_ID,
   enabled: false,
@@ -223,7 +214,7 @@ class WatchCodeControlController {
       normalizeWatchCodeProjectData(
         this.host.readProjectState({
           kind: "pluginData",
-          pluginId: WATCH_CODE_PLUGIN_ID,
+          pluginId: this.host.pluginId,
         }),
       ),
     );
@@ -233,7 +224,7 @@ class WatchCodeControlController {
       },
     );
     this.unsubscribeWatchCodeData = this.host.subscribeProjectState(
-      { kind: "pluginData", pluginId: WATCH_CODE_PLUGIN_ID },
+      { kind: "pluginData", pluginId: this.host.pluginId },
       (nextValue) => {
         this.applyWatchCodeProjectData(
           normalizeWatchCodeProjectData(nextValue),
@@ -354,7 +345,7 @@ class WatchCodeControlController {
       this.renderEnabledControl(),
       this.renderError(),
       this.renderInputGroup({
-        settingId: "plugin::setta-watch-code::folders",
+        settingId: this.pluginSettingId("folders"),
         title: "Watch Folders",
         emptyLabel: "No folders yet.",
         addLabel: "Add Folder",
@@ -370,7 +361,7 @@ class WatchCodeControlController {
         ),
       }),
       this.renderInputGroup({
-        settingId: "plugin::setta-watch-code::files",
+        settingId: this.pluginSettingId("files"),
         title: "Watch Files",
         emptyLabel: "No files yet.",
         addLabel: "Add File",
@@ -403,7 +394,7 @@ class WatchCodeControlController {
   private renderEnabledControl(): HTMLElement {
     const row = document.createElement("div");
     row.className = "setta-watch-code-enabled-row";
-    row.dataset.settingAnchor = "plugin::setta-watch-code::enabled";
+    row.dataset.settingAnchor = this.pluginSettingId("enabled");
     const button = document.createElement("button");
     button.type = "button";
     button.className = "setta-watch-code-toggle";
@@ -635,7 +626,7 @@ class WatchCodeControlController {
     this.errorMessage = null;
     this.render();
     try {
-      const ok = await this.host.setWatchCodeEnabled({
+      const ok = await this.postBackendRoute("/watch-code/enabled", {
         projectConfigId: this.watchCodeData.projectConfigId,
         enabled,
       });
@@ -658,7 +649,7 @@ class WatchCodeControlController {
     this.errorMessage = null;
     this.renderControlButtonsOnly();
     try {
-      const ok = await this.host.setWatchCodeInputs({
+      const ok = await this.postBackendRoute("/watch-code/inputs", {
         projectConfigId: this.watchCodeData.projectConfigId,
         watchCodeFolders: cloneFolders(this.localFolders),
         watchCodeFiles: this.localFiles.slice(),
@@ -678,6 +669,24 @@ class WatchCodeControlController {
     for (const button of this.mounts.values()) {
       this.renderControlButton(button);
     }
+  }
+
+  private pluginSettingId(localId: "enabled" | "folders" | "files"): string {
+    return `plugin::${this.host.pluginId}::${localId}`;
+  }
+
+  private async postBackendRoute(
+    path: string,
+    payload: Record<string, unknown>,
+  ): Promise<boolean> {
+    const response = await this.host.fetchBackendRoute(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    return response.status === 200;
   }
 
   private findSettingAnchor(settingId: string): HTMLElement | null {

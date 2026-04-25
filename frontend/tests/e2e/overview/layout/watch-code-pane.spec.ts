@@ -93,7 +93,7 @@ test("watch code portal stays clamped after content grows post-open", async ({
   page,
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
-  await page.route("**/api/setWatchCodeInputs", async (route) => {
+  await page.route("**/api/plugins/*/watch-code/inputs", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -194,7 +194,9 @@ test("watch code file updates appear live and reload without crashing", async ({
     await Promise.all([
       page.waitForResponse(
         (response) =>
-          response.url().includes("/api/setWatchCodeInputs") &&
+          response
+            .url()
+            .includes("/api/plugins/setta-watch-code/watch-code/inputs") &&
           response.request().method() === "POST" &&
           response.ok(),
       ),
@@ -213,7 +215,9 @@ test("watch code file updates appear live and reload without crashing", async ({
     await Promise.all([
       page.waitForResponse(
         (response) =>
-          response.url().includes("/api/setWatchCodeEnabled") &&
+          response
+            .url()
+            .includes("/api/plugins/setta-watch-code/watch-code/enabled") &&
           response.request().method() === "POST" &&
           response.ok(),
       ),

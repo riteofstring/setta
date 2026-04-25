@@ -35,7 +35,6 @@ var (
 		"registerAppSubsystemBackend":  {},
 		"registerWatchCodeBackend":     {},
 		"registerUISettings":           {},
-		"mutateWatchCodeSettings":      {},
 		"writeWorkspacePlugins":        {},
 	}
 	resolverHostBlockedCapabilities = map[string]struct{}{

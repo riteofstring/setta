@@ -119,7 +119,6 @@
           "registerAppSubsystemBackend",
           "registerWatchCodeBackend",
           "registerUISettings",
-          "mutateWatchCodeSettings",
           "writeWorkspacePlugins"
         ]
       },

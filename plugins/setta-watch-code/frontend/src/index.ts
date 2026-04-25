@@ -9,9 +9,9 @@ export const apiVersion = 1;
 const requiredCapabilities = [
   "registerCanvasControl",
   "registerSettingRevealHandler",
+  "registerRouter",
   "readProjectState",
   "subscribeProjectState",
-  "mutateWatchCodeSettings",
 ];
 
 export function register(host: unknown): void {
@@ -61,8 +61,7 @@ function normalizeWatchCodePluginHost(
     typeof candidate.subscribeProjectContext !== "function" ||
     typeof candidate.readProjectState !== "function" ||
     typeof candidate.subscribeProjectState !== "function" ||
-    typeof candidate.setWatchCodeEnabled !== "function" ||
-    typeof candidate.setWatchCodeInputs !== "function"
+    typeof candidate.fetchBackendRoute !== "function"
   ) {
     return null;
   }

@@ -15,9 +15,9 @@ type RevealHandler = Parameters<
 const effectiveCapabilities = [
   "registerCanvasControl",
   "registerSettingRevealHandler",
+  "registerRouter",
   "readProjectState",
   "subscribeProjectState",
-  "mutateWatchCodeSettings",
 ];
 
 function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
@@ -37,8 +37,11 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
     | null = null;
   const registeredControls: RegisteredCanvasControl[] = [];
   const revealHandlers = new Map<string, RevealHandler>();
-  const setWatchCodeEnabled = vi.fn(async () => true);
-  const setWatchCodeInputs = vi.fn(async () => true);
+  const pluginDataSelectorIds: string[] = [];
+  const fetchBackendRoute = vi.fn(
+    async (_path: string, _init?: RequestInit) =>
+      new Response(null, { status: 200 }),
+  );
   const host: WatchCodePluginHost = {
     apiVersion,
     pluginId: "setta-watch-code",
@@ -60,9 +63,17 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
         projectContextListener = null;
       };
     },
-    readProjectState: (selector) =>
-      selector.kind === "projectConfig" ? projectConfig : watchCodeData,
+    readProjectState: (selector) => {
+      if (selector.kind === "pluginData") {
+        pluginDataSelectorIds.push(selector.pluginId);
+        return watchCodeData;
+      }
+      return projectConfig;
+    },
     subscribeProjectState: (selector, listener) => {
+      if (selector.kind === "pluginData") {
+        pluginDataSelectorIds.push(selector.pluginId);
+      }
       projectStateListener = listener;
       listener(
         selector.kind === "projectConfig" ? projectConfig : watchCodeData,
@@ -72,16 +83,15 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
         projectStateListener = null;
       };
     },
-    setWatchCodeEnabled,
-    setWatchCodeInputs,
+    fetchBackendRoute,
     ...overrides,
   };
   return {
     host,
     registeredControls,
     revealHandlers,
-    setWatchCodeEnabled,
-    setWatchCodeInputs,
+    pluginDataSelectorIds,
+    fetchBackendRoute,
     updateProjectConfig(nextConfig: typeof projectConfig) {
       const previous = projectConfig;
       projectConfig = nextConfig;
@@ -120,12 +130,12 @@ describe("setta-watch-code frontend registration", () => {
     expect(revealHandlers.has("watch-code-settings")).toBe(true);
   });
 
-  it("renders the control, opens settings, and delegates mutations to the host", async () => {
+  it("renders the control, opens settings, and saves through plugin backend routes", async () => {
     const {
       host,
       registeredControls,
-      setWatchCodeEnabled,
-      setWatchCodeInputs,
+      fetchBackendRoute,
+      pluginDataSelectorIds,
       updateWatchCodeData,
     } = buildHost();
     register(host);
@@ -156,10 +166,21 @@ describe("setta-watch-code frontend registration", () => {
       )
       ?.click();
     await Promise.resolve();
-    expect(setWatchCodeEnabled).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      enabled: true,
-    });
+    await Promise.resolve();
+    expect(pluginDataSelectorIds).toContain("setta-watch-code");
+    expect(fetchBackendRoute).toHaveBeenCalledWith(
+      "/watch-code/enabled",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectConfigId: "project-alpha",
+          enabled: true,
+        }),
+      }),
+    );
 
     updateWatchCodeData({
       enabled: true,
@@ -176,11 +197,20 @@ describe("setta-watch-code frontend registration", () => {
       fileInput.dispatchEvent(new Event("blur", { bubbles: true }));
     }
     await Promise.resolve();
-    expect(setWatchCodeInputs).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      watchCodeFolders: [{ path: "pkg", recursive: true }],
-      watchCodeFiles: ["pkg/updated.py"],
-    });
+    expect(fetchBackendRoute).toHaveBeenLastCalledWith(
+      "/watch-code/inputs",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectConfigId: "project-alpha",
+          watchCodeFolders: [{ path: "pkg", recursive: true }],
+          watchCodeFiles: ["pkg/updated.py"],
+        }),
+      }),
+    );
   });
 
   it("opens and highlights the plugin setting from the reveal handler", async () => {
@@ -189,12 +219,14 @@ describe("setta-watch-code frontend registration", () => {
       return 1;
     });
     HTMLElement.prototype.scrollIntoView = vi.fn();
-    const { host, registeredControls, revealHandlers } = buildHost();
+    const { host, registeredControls, revealHandlers } = buildHost({
+      pluginId: "alternate-watch-provider",
+    });
     register(host);
     const mount = document.createElement("div");
     document.body.append(mount);
     registeredControls[0]?.renderer.mount(mount, {
-      pluginId: "setta-watch-code",
+      pluginId: "alternate-watch-provider",
       controlId: "watch-code",
       label: "Watch Code",
       placement: "project",
@@ -203,7 +235,7 @@ describe("setta-watch-code frontend registration", () => {
     });
 
     const handled = await revealHandlers.get("watch-code-settings")?.({
-      settingId: "plugin::setta-watch-code::files",
+      settingId: "plugin::alternate-watch-provider::files",
       paneId: null,
       durationMs: 100,
       abortSignal: new AbortController().signal,
@@ -213,7 +245,7 @@ describe("setta-watch-code frontend registration", () => {
     expect(
       document
         .querySelector(
-          '[data-setting-anchor="plugin::setta-watch-code::files"]',
+          '[data-setting-anchor="plugin::alternate-watch-provider::files"]',
         )
         ?.classList.contains("setta-watch-code-reveal-highlight"),
     ).toBe(true);

@@ -52,7 +52,7 @@ const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
-const watchCodeSettingsMutationCapability = "mutateWatchCodeSettings";
+const backendRouteCapability = "registerRouter";
 
 type PluginSectionProps = {
   sectionId: string;
@@ -150,22 +150,6 @@ type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
-type PluginWatchCodeFolderInput = {
-  path: string;
-  recursive: boolean;
-};
-
-type PluginSetWatchCodeEnabledPayload = {
-  projectConfigId: string;
-  enabled: boolean;
-};
-
-type PluginSetWatchCodeInputsPayload = {
-  projectConfigId: string;
-  watchCodeFolders: PluginWatchCodeFolderInput[];
-  watchCodeFiles: string[];
-};
-
 type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
@@ -195,12 +179,7 @@ type SettaPluginHost = {
     listener: (nextValue: unknown, prevValue: unknown | null) => void,
     options?: PluginProjectStateSubscriptionOptions,
   ) => () => void;
-  setWatchCodeEnabled: (
-    payload: PluginSetWatchCodeEnabledPayload,
-  ) => Promise<boolean>;
-  setWatchCodeInputs: (
-    payload: PluginSetWatchCodeInputsPayload,
-  ) => Promise<boolean>;
+  fetchBackendRoute: (path: string, init?: RequestInit) => Promise<Response>;
   emitRealtimeDependencyEvent: (event: PluginRealtimeDependencyEvent) => void;
   emitSectionRealtimeValue: (
     sectionId: string,
@@ -853,136 +832,58 @@ function normalizePluginRealtimeTimestamp(
   return timestampMs as number | undefined;
 }
 
-function requirePluginPayloadRecord(
+function normalizePluginBackendRoutePath(
   pluginId: string,
-  payload: unknown,
-  hostMethodName: string,
-): Record<string, unknown> {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} ${hostMethodName} requires an object payload.`,
-    );
-  }
-  return payload as Record<string, unknown>;
-}
-
-function normalizeSetWatchCodeEnabledPayload(
-  pluginId: string,
-  payload: PluginSetWatchCodeEnabledPayload,
-): PluginSetWatchCodeEnabledPayload {
-  const record = requirePluginPayloadRecord(
-    pluginId,
-    payload,
-    "setWatchCodeEnabled",
-  );
-  const projectConfigId = requireNonEmptyString(
-    record.projectConfigId,
-    `Plugin ${pluginId} setWatchCodeEnabled requires projectConfigId.`,
-  );
-  if (typeof record.enabled !== "boolean") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeEnabled requires boolean enabled.`,
-    );
-  }
-  return {
-    projectConfigId,
-    enabled: record.enabled,
-  };
-}
-
-function normalizeSetWatchCodeInputsPayload(
-  pluginId: string,
-  payload: PluginSetWatchCodeInputsPayload,
-): PluginSetWatchCodeInputsPayload {
-  const record = requirePluginPayloadRecord(
-    pluginId,
-    payload,
-    "setWatchCodeInputs",
-  );
-  const projectConfigId = requireNonEmptyString(
-    record.projectConfigId,
-    `Plugin ${pluginId} setWatchCodeInputs requires projectConfigId.`,
-  );
-  const rawFolders = record.watchCodeFolders;
-  const rawFiles = record.watchCodeFiles;
-  if (!Array.isArray(rawFolders)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeInputs requires watchCodeFolders array.`,
-    );
-  }
-  if (!Array.isArray(rawFiles)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeInputs requires watchCodeFiles array.`,
-    );
-  }
-  return {
-    projectConfigId,
-    watchCodeFolders: rawFolders.map((rawFolder, index) =>
-      normalizeWatchCodeFolderInput(pluginId, rawFolder, index),
-    ),
-    watchCodeFiles: rawFiles.map((rawFile, index) =>
-      requireNonEmptyString(
-        rawFile,
-        `Plugin ${pluginId} setWatchCodeInputs watchCodeFiles[${index}] must be a non-empty string.`,
-      ),
-    ),
-  };
-}
-
-function normalizeWatchCodeFolderInput(
-  pluginId: string,
-  rawFolder: unknown,
-  index: number,
-): PluginWatchCodeFolderInput {
-  if (!rawFolder || typeof rawFolder !== "object" || Array.isArray(rawFolder)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}] must be an object.`,
-    );
-  }
-  const folder = rawFolder as Record<string, unknown>;
-  const path = requireNonEmptyString(
-    folder.path,
-    `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}].path must be a non-empty string.`,
-  );
-  if (typeof folder.recursive !== "boolean") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}].recursive must be a boolean.`,
-    );
-  }
-  return {
+  path: string,
+): string {
+  const routePath = requireNonEmptyString(
     path,
-    recursive: folder.recursive,
-  };
+    `Plugin ${pluginId} fetchBackendRoute requires a route path.`,
+  );
+  if (!routePath.startsWith("/") || routePath.startsWith("//")) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} fetchBackendRoute route path must start with a single slash.`,
+    );
+  }
+  const pathOnly = routePath.split(/[?#]/, 1)[0] ?? "";
+  for (const segment of pathOnly.split("/")) {
+    let decodedSegment = segment;
+    try {
+      decodedSegment = decodeURIComponent(segment);
+    } catch {
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.RegistrationInvalid,
+        `Plugin ${pluginId} fetchBackendRoute route path must contain valid percent-encoding.`,
+      );
+    }
+    if (decodedSegment === "." || decodedSegment === "..") {
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.RegistrationInvalid,
+        `Plugin ${pluginId} fetchBackendRoute route path must not contain dot segments.`,
+      );
+    }
+  }
+  return `/plugins/${encodeURIComponent(pluginId)}${routePath}`;
 }
 
-function watchCodePluginRoute(pluginId: string, suffix: string): string {
-  return `/plugins/${encodeURIComponent(pluginId)}/watch-code/${suffix}`;
-}
-
-async function postWatchCodePluginRoute(
+async function fetchPluginBackendRoute(
   pluginId: string,
-  suffix: string,
-  payload: PluginSetWatchCodeEnabledPayload | PluginSetWatchCodeInputsPayload,
-): Promise<boolean> {
-  const response = await fetch(
-    buildBackendOriginURL(watchCodePluginRoute(pluginId, suffix)),
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  for (const [key, value] of Object.entries(buildShareSessionHeaders())) {
+    headers.set(key, value);
+  }
+  return await fetch(
+    buildBackendOriginURL(normalizePluginBackendRoutePath(pluginId, path)),
     {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...buildShareSessionHeaders(),
-      },
-      body: JSON.stringify(payload),
+      ...(init ?? {}),
+      credentials: init?.credentials ?? "include",
+      headers,
     },
   );
-  return response.status === 200;
 }
 
 function registerPluginModule({
@@ -1334,31 +1235,14 @@ function registerPluginModule({
         cleanup();
       };
     },
-    setWatchCodeEnabled: async (payload) => {
+    fetchBackendRoute: async (path, init) => {
       ensureCapability(
         plugin.pluginId,
         effectiveCapabilitySet,
-        watchCodeSettingsMutationCapability,
-        "setWatchCodeEnabled",
+        backendRouteCapability,
+        "fetchBackendRoute",
       );
-      return await postWatchCodePluginRoute(
-        plugin.pluginId,
-        "enabled",
-        normalizeSetWatchCodeEnabledPayload(plugin.pluginId, payload),
-      );
-    },
-    setWatchCodeInputs: async (payload) => {
-      ensureCapability(
-        plugin.pluginId,
-        effectiveCapabilitySet,
-        watchCodeSettingsMutationCapability,
-        "setWatchCodeInputs",
-      );
-      return await postWatchCodePluginRoute(
-        plugin.pluginId,
-        "inputs",
-        normalizeSetWatchCodeInputsPayload(plugin.pluginId, payload),
-      );
+      return await fetchPluginBackendRoute(plugin.pluginId, path, init);
     },
     emitRealtimeDependencyEvent: (event) => {
       ensureCapability(

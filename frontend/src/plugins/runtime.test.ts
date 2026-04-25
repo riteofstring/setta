@@ -369,15 +369,7 @@ type CapturedPluginHost = {
       throttleMs?: number;
     },
   ) => () => void;
-  setWatchCodeEnabled: (payload: {
-    projectConfigId: string;
-    enabled: boolean;
-  }) => Promise<boolean>;
-  setWatchCodeInputs: (payload: {
-    projectConfigId: string;
-    watchCodeFolders: Array<{ path: string; recursive: boolean }>;
-    watchCodeFiles: string[];
-  }) => Promise<boolean>;
+  fetchBackendRoute: (path: string, init?: RequestInit) => Promise<Response>;
   emitRealtimeDependencyEvent: (event: Record<string, unknown>) => void;
   emitSectionRealtimeValue: (
     sectionId: string,
@@ -2796,21 +2788,7 @@ describe("plugin runtime helpers", () => {
       () => host.openArtifact("artifact-1"),
       PluginFrontendErrorCodeEnum.CapabilityDenied,
     );
-    await expect(
-      host.setWatchCodeEnabled({
-        projectConfigId: "project-alpha",
-        enabled: true,
-      }),
-    ).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.CapabilityDenied,
-    });
-    await expect(
-      host.setWatchCodeInputs({
-        projectConfigId: "project-alpha",
-        watchCodeFolders: [],
-        watchCodeFiles: [],
-      }),
-    ).rejects.toMatchObject({
+    await expect(host.fetchBackendRoute("/fixture")).rejects.toMatchObject({
       code: PluginFrontendErrorCodeEnum.CapabilityDenied,
     });
     await expect(
@@ -2819,7 +2797,7 @@ describe("plugin runtime helpers", () => {
       code: PluginFrontendErrorCodeEnum.CapabilityDenied,
     });
   });
-  it("delegates Watch Code setting mutations through plugin-owned backend routes", async () => {
+  it("fetches plugin-owned backend routes through the generic host route helper", async () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
         new Response(null, { status: 200 }),
@@ -2838,25 +2816,37 @@ describe("plugin runtime helpers", () => {
         entrypointUrl: moduleUrl,
         styleUrl: null,
       },
-      effectiveCapabilities: ["mutateWatchCodeSettings"],
+      effectiveCapabilities: ["registerRouter"],
     });
     const result = await loadPluginFrontendModule(plugin, "ide");
     expect(result?.error).toBeNull();
     const host = getCapturedPluginHost();
 
     await expect(
-      host.setWatchCodeEnabled({
-        projectConfigId: "project-alpha",
-        enabled: true,
+      host.fetchBackendRoute("/watch-code/enabled", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectConfigId: "project-alpha",
+          enabled: true,
+        }),
       }),
-    ).resolves.toBe(true);
+    ).resolves.toMatchObject({ status: 200 });
     await expect(
-      host.setWatchCodeInputs({
-        projectConfigId: "project-alpha",
-        watchCodeFolders: [{ path: "pkg", recursive: true }],
-        watchCodeFiles: ["pkg/mod.py"],
+      host.fetchBackendRoute("/watch-code/inputs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectConfigId: "project-alpha",
+          watchCodeFolders: [{ path: "pkg", recursive: true }],
+          watchCodeFiles: ["pkg/mod.py"],
+        }),
       }),
-    ).resolves.toBe(true);
+    ).resolves.toMatchObject({ status: 200 });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
@@ -2865,29 +2855,44 @@ describe("plugin runtime helpers", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       credentials: "include",
-      headers: expect.objectContaining({
-        "Content-Type": "application/json",
-      }),
       body: JSON.stringify({
         projectConfigId: "project-alpha",
         enabled: true,
       }),
     });
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toBeInstanceOf(Headers);
+    expect(
+      (fetchMock.mock.calls[0]?.[1]?.headers as Headers).get("Content-Type"),
+    ).toBe("application/json");
     expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
       "/plugins/acme.plugin/watch-code/inputs",
     );
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       method: "POST",
       credentials: "include",
-      headers: expect.objectContaining({
-        "Content-Type": "application/json",
-      }),
       body: JSON.stringify({
         projectConfigId: "project-alpha",
         watchCodeFolders: [{ path: "pkg", recursive: true }],
         watchCodeFiles: ["pkg/mod.py"],
       }),
     });
+    expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeInstanceOf(Headers);
+    expect(
+      (fetchMock.mock.calls[1]?.[1]?.headers as Headers).get("Content-Type"),
+    ).toBe("application/json");
+    await expect(
+      host.fetchBackendRoute("watch-code/enabled"),
+    ).rejects.toMatchObject({
+      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    });
+    await expect(host.fetchBackendRoute("/../admin")).rejects.toMatchObject({
+      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    });
+    await expect(host.fetchBackendRoute("/%2e%2e/admin")).rejects.toMatchObject(
+      {
+        code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      },
+    );
   });
   it("exposes createStore on the plugin host", async () => {
     const moduleUrl =
