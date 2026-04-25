@@ -34,7 +34,7 @@ func (s *DiscoveryService) discoverPackageManagerPlugins() ([]DiscoveredPlugin, 
 }
 
 func (s *DiscoveryService) packageManagerDiscoveryEnabled() bool {
-	return s != nil && s.packageManagerRuntime != nil
+	return s != nil && !s.deploymentScoped && s.packageManagerRuntime != nil
 }
 
 func buildPackageManagerDiscoveredPlugins(distributions []pythonenv.PluginDistribution) ([]DiscoveredPlugin, error) {

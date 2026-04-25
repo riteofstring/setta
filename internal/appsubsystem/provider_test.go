@@ -45,6 +45,14 @@ func TestBuildScopedUISettingEntriesUsesBackendRuntime(t *testing.T) {
 						AppSpecVersion: "v1",
 						AppSpecPath:    "frontend/app.json",
 					}, true, nil
+				case "appsubsystem_get_app_definition":
+					return appdefinition.ReadResult{
+						AppDefinition: &appdefinition.AppDefinition{
+							CatalogID:      "catalog-b",
+							AppSpecVersion: "v1",
+							AppSpecPath:    "frontend/app.json",
+						},
+					}, true, nil
 				case "appsubsystem_get_effective_app_spec_path":
 					return "frontend/app.json", true, nil
 				case "appsubsystem_get_effective_app_theme_mode":
@@ -164,19 +172,8 @@ func TestNewAppPublishServiceUsesBackendValidationRuntime(t *testing.T) {
 		t.Fatalf("new deployment catalog: %v", err)
 	}
 
-	providerSourcePath := filepath.Join(t.TempDir(), "provider-plugin")
-	if err := os.MkdirAll(providerSourcePath, 0o755); err != nil {
-		t.Fatalf("mkdir provider source path: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(providerSourcePath, "setta.plugin.json"),
-		[]byte("{\"id\":\"setta-json-render-app-gen\"}\n"),
-		0o644,
-	); err != nil {
-		t.Fatalf("write provider manifest: %v", err)
-	}
-
 	requestedEndpoints := []string{}
+	packagedTargets := []string{}
 	publisher, err := NewAppPublishService(
 		plugins.PluginAppSubsystemCapabilities{
 			PluginID:             providerTestPluginID,
@@ -184,10 +181,22 @@ func TestNewAppPublishServiceUsesBackendValidationRuntime(t *testing.T) {
 			AppDeploymentRuntime: true,
 		},
 		deployments.AppPublisherOptions{
-			Catalog:          catalog,
-			SettaFilesRoot:   settaFilesRoot,
-			WorkspaceRoot:    workspaceRoot,
-			PluginSourcePath: providerSourcePath,
+			Catalog:        catalog,
+			SettaFilesRoot: settaFilesRoot,
+			WorkspaceRoot:  workspaceRoot,
+			PackageProviderPlugin: func(targetRoot string) (deployments.AppProviderPackageState, error) {
+				packagedTargets = append(packagedTargets, targetRoot)
+				if err := os.MkdirAll(targetRoot, 0o755); err != nil {
+					return deployments.AppProviderPackageState{}, err
+				}
+				if err := os.WriteFile(filepath.Join(targetRoot, "packaged.txt"), []byte("packaged\n"), 0o644); err != nil {
+					return deployments.AppProviderPackageState{}, err
+				}
+				return deployments.AppProviderPackageState{
+					EnabledPluginIDs: []string{providerTestPluginID},
+					PluginConfigByID: map[string]any{},
+				}, nil
+			},
 			Now: func() time.Time {
 				return time.Date(2026, time.April, 22, 12, 0, 0, 0, time.UTC)
 			},
@@ -223,6 +232,12 @@ func TestNewAppPublishServiceUsesBackendValidationRuntime(t *testing.T) {
 	}
 	if !slices.Equal(requestedEndpoints, []string{"appsubsystem_validate_app_definition"}) {
 		t.Fatalf("expected validate endpoint only, got %#v", requestedEndpoints)
+	}
+	if len(packagedTargets) != 1 {
+		t.Fatalf("expected provider packager to run once, got %#v", packagedTargets)
+	}
+	if _, err := os.Stat(filepath.Join(packagedTargets[0], "packaged.txt")); err != nil {
+		t.Fatalf("expected provider packager output: %v", err)
 	}
 }
 
