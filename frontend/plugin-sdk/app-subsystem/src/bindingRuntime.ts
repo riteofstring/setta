@@ -174,6 +174,7 @@ export function isGeneratedPythonIdentifier(
   value: string,
   startChars: ReadonlySet<string>,
   continueChars: ReadonlySet<string>,
+  pythonKeywords?: ReadonlySet<string>,
 ): boolean {
   let index = 0;
   for (const char of value) {
@@ -186,18 +187,20 @@ export function isGeneratedPythonIdentifier(
     }
     index += 1;
   }
-  return index > 0;
+  return index > 0 && !(pythonKeywords?.has(value) ?? false);
 }
 
 export function validateGeneratedParamNameInput(
   name: string,
   options: {
     allowEmpty: boolean;
+    label: string;
     requirePythonIdentifier: boolean;
+    pythonIdentifierStartChars: ReadonlySet<string>;
+    pythonIdentifierContinueChars: ReadonlySet<string>;
+    pythonKeywords: ReadonlySet<string>;
     skipPathChecks?: boolean;
   },
-  pythonKeywords: ReadonlySet<string>,
-  isPythonIdentifier: (value: string) => boolean,
 ): string | null {
   const commonOptions: {
     allowEmpty: boolean;
@@ -205,7 +208,7 @@ export function validateGeneratedParamNameInput(
     skipPathChecks?: boolean;
   } = {
     allowEmpty: options.allowEmpty,
-    label: "Param name",
+    label: options.label,
   };
   if (options.skipPathChecks !== undefined) {
     commonOptions.skipPathChecks = options.skipPathChecks;
@@ -219,11 +222,17 @@ export function validateGeneratedParamNameInput(
     return null;
   }
   if (options.requirePythonIdentifier) {
-    if (!isPythonIdentifier(normalized)) {
-      return "Param name must be a valid Python identifier.";
+    if (
+      !isGeneratedPythonIdentifier(
+        normalized,
+        options.pythonIdentifierStartChars,
+        options.pythonIdentifierContinueChars,
+      )
+    ) {
+      return options.label + " must be a valid Python identifier.";
     }
-    if (pythonKeywords.has(normalized)) {
-      return "Param name cannot be a Python keyword.";
+    if (options.pythonKeywords.has(normalized)) {
+      return options.label + " cannot be a Python keyword.";
     }
   }
   return null;
