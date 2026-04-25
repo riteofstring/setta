@@ -9216,9 +9216,12 @@
         "properties": {
           "appSubsystem": {
             "$ref": "#/components/schemas/PluginAppSubsystemCapabilities"
+          },
+          "watchCode": {
+            "$ref": "#/components/schemas/PluginWatchCodeCapabilities"
           }
         },
-        "required": ["appSubsystem"],
+        "required": ["appSubsystem", "watchCode"],
         "title": "PluginFeatureCapabilities",
         "type": "object"
       },
@@ -9229,6 +9232,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/PluginAppSubsystemFeatureManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watchCode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginWatchCodeFeatureManifest"
               },
               {
                 "type": "null"
@@ -10213,6 +10226,16 @@
           },
           "serverMode": {
             "$ref": "#/components/schemas/Mode"
+          },
+          "watchCodeSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginWatchCodeProviderSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -10270,6 +10293,117 @@
         ],
         "title": "PluginUpdateResponse",
         "type": "object"
+      },
+      "PluginWatchCodeCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasControlsUi": {
+            "type": "boolean"
+          },
+          "pluginEnabled": {
+            "type": "boolean"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "providerSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginWatchCodeProviderSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "python": {
+            "type": "boolean"
+          },
+          "requiresLanguageServer": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pluginId",
+          "pluginEnabled",
+          "python",
+          "requiresLanguageServer",
+          "canvasControlsUi"
+        ],
+        "title": "PluginWatchCodeCapabilities",
+        "type": "object"
+      },
+      "PluginWatchCodeFeatureManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasControlsUi": {
+            "type": "boolean"
+          },
+          "python": {
+            "type": "boolean"
+          },
+          "requiresLanguageServer": {
+            "type": "boolean"
+          }
+        },
+        "required": ["python", "requiresLanguageServer", "canvasControlsUi"],
+        "title": "PluginWatchCodeFeatureManifest",
+        "type": "object"
+      },
+      "PluginWatchCodeProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "activePluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "conflictingPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "disabledPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "invalidPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "selectedPluginId": {
+            "type": ["null", "string"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PluginWatchCodeProviderSelectionStatusKind"
+          }
+        },
+        "required": [
+          "status",
+          "activePluginIds",
+          "disabledPluginIds",
+          "invalidPluginIds",
+          "conflictingPluginIds"
+        ],
+        "title": "PluginWatchCodeProviderSelection",
+        "type": "object"
+      },
+      "PluginWatchCodeProviderSelectionStatusKind": {
+        "enum": [
+          "no_provider",
+          "disabled_provider",
+          "invalid_provider",
+          "active",
+          "provider_conflict"
+        ],
+        "title": "PluginWatchCodeProviderSelectionStatusKind",
+        "type": "string"
       },
       "PluginsGlobalStateFile": {
         "additionalProperties": false,

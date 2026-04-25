@@ -183,6 +183,20 @@ function buildPluginRuntimeResponse(
         appGenerationChatModes: true,
         appDeploymentRuntime: true,
       },
+      watchCode: {
+        providerSelection: {
+          status: "no_provider",
+          activePluginIds: [],
+          disabledPluginIds: [],
+          invalidPluginIds: [],
+          conflictingPluginIds: [],
+        },
+        pluginId: "",
+        pluginEnabled: false,
+        python: false,
+        requiresLanguageServer: false,
+        canvasControlsUi: false,
+      },
     },
   };
 }
@@ -239,8 +253,8 @@ describe("app subsystem built plugin bundle", () => {
     });
     expect(registration?.chat?.slashCommands).toEqual([
       expect.objectContaining({
-        command: "/acme-app",
-        appGenerationMode: "acme_app",
+        command: "/app-json",
+        appGenerationMode: "json_render",
       }),
     ]);
     expect(registration?.controller?.getPreviewEnabled?.()).toBe(true);
