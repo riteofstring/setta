@@ -21,6 +21,7 @@ describe("FlatSectionPrototype", () => {
       (markup.match(/data-flat-preview-theme="light"/g) ?? []).length,
     ).toBe(2);
     expect(markup).toContain('data-flat-section-type-menu="true"');
+    expect(markup).toContain("--flat-input-dot:rgb(100 116 139)");
     expect(markup).toContain("rank_items");
     expect(markup).toContain("builtins.sorted");
     expect(markup).toContain("workspace_profile");
@@ -70,8 +71,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("leading-7");
     expect(markup).toContain("text-left font-mono");
     expect(markup).toContain("whitespace-nowrap py-1");
-    expect(markup).toContain("before:left-[-1rem]");
-    expect(markup).toContain("after:right-[-1rem]");
+    expect(markup).toContain("before:left-[-0.9375rem]");
+    expect(markup).toContain("after:right-[-0.9375rem]");
     expect(markup).toContain("var(--flat-key-width)");
     expect(markup).toContain("grid-cols-[1.125rem_minmax(0,1fr)_auto]");
     expect(markup).toContain("-mx-3");
@@ -111,6 +112,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-row-emphasis="group"');
     expect(markup).toContain('data-flat-row-emphasis="nested"');
     expect(markup).toContain("before:left-[var(--flat-rail-left)]");
+    expect(markup).toContain("before:top-4");
+    expect(markup).toContain("before:bottom-4");
     expect(markup).toContain("--flat-rail-left:1.1875rem");
     expect(markup).not.toContain("--flat-rail-width");
     expect(markup).not.toContain("after:w-[var(--flat-rail-width)]");

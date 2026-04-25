@@ -24,7 +24,10 @@ type FlatPrototypeRow = {
 
 type FlatPrototypeRowProps = FlatPrototypeRow & {
   isLast: boolean;
+  nestedRailRole?: FlatPrototypeNestedRailRole;
 };
+
+type FlatPrototypeNestedRailRole = "single" | "start" | "middle" | "end";
 
 type FlatSectionShellProps = {
   kind: FlatSectionKind;
@@ -88,7 +91,7 @@ const FLAT_PROTOTYPE_THEME_STYLES = {
     "--flat-dim": "rgb(163 163 163)",
     "--flat-focus": "rgb(37 99 235)",
     "--flat-hover": "rgb(245 245 245 / 0.8)",
-    "--flat-input-dot": "rgb(59 130 246)",
+    "--flat-input-dot": "rgb(100 116 139)",
     "--flat-muted": "rgb(115 115 115)",
     "--flat-pinned-bg": "rgb(250 250 250)",
     "--flat-port-dot": "rgb(163 163 163)",
@@ -116,8 +119,23 @@ const ROW_CELL_DIVIDER_CLASS_NAME =
 
 const ROW_HOVER_CLASS_NAME = "hover:bg-[color:var(--flat-hover)]";
 
-const NESTED_ROW_RAIL_CLASS_NAME =
-  "before:absolute before:bottom-0 before:left-[var(--flat-rail-left)] before:top-0 before:w-px before:bg-[color:var(--flat-border-soft)] before:content-['']";
+const NESTED_ROW_RAIL_BASE_CLASS_NAME =
+  "before:absolute before:left-[var(--flat-rail-left)] before:w-px before:bg-[color:var(--flat-border-soft)] before:content-['']";
+
+const NESTED_ROW_RAIL_CLASS_NAMES: Record<FlatPrototypeNestedRailRole, string> =
+  {
+    single: "before:bottom-4 before:top-4",
+    start: "before:bottom-0 before:top-4",
+    middle: "before:bottom-0 before:top-0",
+    end: "before:bottom-4 before:top-0",
+  };
+
+const NESTED_ROW_RAIL_ROLE_BY_CONTINUITY = {
+  "0:0": "single",
+  "0:1": "start",
+  "1:0": "end",
+  "1:1": "middle",
+} satisfies Record<string, FlatPrototypeNestedRailRole>;
 
 const ROW_EMPHASIS_CLASS_NAMES: Record<FlatPrototypeRowEmphasis, string> = {
   required: "text-[color:var(--flat-text)]",
@@ -373,8 +391,8 @@ function FlatPrototypePortList({
     isRightAligned ? "col-start-3 items-stretch" : "col-start-1"
   }`;
   const rowClassName = isRightAligned
-    ? "relative whitespace-nowrap py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:right-[-1rem] after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
-    : "relative whitespace-nowrap py-1 text-[color:var(--flat-soft-text)] before:absolute before:left-[-1rem] before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
+    ? "relative whitespace-nowrap py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:right-[-0.9375rem] after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
+    : "relative whitespace-nowrap py-1 text-[color:var(--flat-soft-text)] before:absolute before:left-[-0.9375rem] before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
 
   return (
     <>
@@ -433,11 +451,28 @@ function FlatPrototypeRows({
             key={`${variant}-${row.keyLabel}-${index}`}
             {...row}
             isLast={index === rows.length - 1}
+            nestedRailRole={getNestedRailRole(rows, index)}
           />
         ))}
       </ol>
     </section>
   );
+}
+
+function getNestedRailRole(
+  rows: FlatPrototypeRow[],
+  index: number,
+): FlatPrototypeNestedRailRole | undefined {
+  const depth = rows[index]?.depth ?? 0;
+  if (depth <= 0) {
+    return undefined;
+  }
+
+  const previousContinuity = Number((rows[index - 1]?.depth ?? 0) >= depth);
+  const nextContinuity = Number((rows[index + 1]?.depth ?? 0) >= depth);
+  return NESTED_ROW_RAIL_ROLE_BY_CONTINUITY[
+    `${previousContinuity}:${nextContinuity}`
+  ];
 }
 
 function FlatPrototypeRowItem({
@@ -447,6 +482,7 @@ function FlatPrototypeRowItem({
   emphasis = "required",
   trailing = ":",
   isLast,
+  nestedRailRole,
 }: FlatPrototypeRowProps) {
   const railDepth = Math.max(depth - 1, 0);
   const rowStyle =
@@ -456,7 +492,9 @@ function FlatPrototypeRowItem({
           "--flat-rail-left": `${railDepth * 0.875 + 1.1875}rem`,
         } satisfies FlatPrototypeRowStyle)
       : undefined;
-  const nestedClassName = depth > 0 ? NESTED_ROW_RAIL_CLASS_NAME : "";
+  const nestedClassName = nestedRailRole
+    ? `${NESTED_ROW_RAIL_BASE_CLASS_NAME} ${NESTED_ROW_RAIL_CLASS_NAMES[nestedRailRole]}`
+    : "";
   const cellDividerClassName = isLast ? "" : ROW_CELL_DIVIDER_CLASS_NAME;
   const rowClassName = `relative -mx-3 grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-3 pl-[calc(0.75rem+var(--flat-depth,0)*0.875rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
   const valueWithTrailing = trailing ? `${valueLabel}${trailing}` : valueLabel;
