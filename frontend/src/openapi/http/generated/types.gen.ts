@@ -3517,28 +3517,6 @@ export type ProjectstateWatchCodeFolder = {
   recursive: boolean;
 };
 
-export type ProjectstateWatchCodePluginProjectData = {
-  baselineByPath: {
-    [key: string]: Array<string> | null;
-  };
-  enabled: boolean;
-  files: Array<string> | null;
-  folders: Array<ProjectstateWatchCodeFolder> | null;
-  registry: {
-    [key: string]: ProjectstateWatchCodeRegistryEntry;
-  };
-};
-
-export type ProjectstateWatchCodeRegistryEntry = {
-  bodyHash: string;
-  callableName: string;
-  kind: string;
-  sectionIds?: Array<string> | null;
-  sectionsCount?: number;
-  signatureHash: string;
-  sourcePath: string;
-};
-
 export type ProjectstateWindowSpaceConfig = {
   id?: string;
   name?: string;
@@ -3665,7 +3643,7 @@ export type ProjectviewSingleConfig = {
     [key: string]: string | null;
   };
   pluginData: {
-    [key: string]: ProjectstateWatchCodePluginProjectData;
+    [key: string]: unknown;
   };
   projectChatWindowing: ProjectstateProjectChatWindowingState;
   projectConfig: ProjectviewProjectConfig;

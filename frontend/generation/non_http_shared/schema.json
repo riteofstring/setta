@@ -13170,7 +13170,14 @@
       "type": "object",
       "title": "ProjectPluginData",
       "additionalProperties": {
-        "$ref": "#/$defs/WatchCodePluginProjectData"
+        "anyOf": [
+          {
+            "$ref": "#/$defs/RawMessage"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     },
     "ProjectRunCapabilities": {
@@ -17594,15 +17601,7 @@
         },
         "pluginData": {
           "$ref": "#/$defs/ProjectPluginData",
-          "default": {
-            "setta-watch-code": {
-              "enabled": false,
-              "folders": [],
-              "files": [],
-              "registry": {},
-              "baselineByPath": {}
-            }
-          }
+          "default": {}
         },
         "singletonSections": {
           "$ref": "#/$defs/SingletonSections"

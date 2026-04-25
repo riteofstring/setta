@@ -1811,33 +1811,6 @@ class Viewport(BaseModel):
     zoom: float = 1.0
 
 
-class WatchCodeCallableKind(StrEnum):
-    function = "function"
-    async_function = "async_function"
-    class_init = "class_init"
-
-
-class WatchCodeFolder(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    path: str
-    recursive: bool
-
-
-class WatchCodeRegistryEntry(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    callableName: str
-    kind: WatchCodeCallableKind
-    signatureHash: str
-    bodyHash: str
-    sourcePath: str
-    sectionIds: list[str] | None = None
-    sectionsCount: int
-
-
 class WindowSpaceSurfaceKind(StrEnum):
     project_chat = "project_chat"
     section = "section"
@@ -2260,6 +2233,9 @@ class MessageStopEvent(BaseModel):
     message_id: str
 
 
+type ProjectPluginData = dict[str, RawMessage | None]
+
+
 class RawArtifact(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -2435,17 +2411,6 @@ class ViewMode(BaseModel):
     viewport: Viewport | None = None
     viewportInitialized: bool
     topLevelSections: dict[str, TopLevelSectionLayout]
-
-
-class WatchCodePluginProjectData(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid",
-    )
-    enabled: bool
-    folders: list[WatchCodeFolder] | None = None
-    files: list[str] | None = None
-    registry: dict[str, WatchCodeRegistryEntry]
-    baselineByPath: dict[str, list[str] | None]
 
 
 class WindowSpaceConfig(BaseModel):
@@ -2658,8 +2623,6 @@ type ProjectCodegenTarget = Annotated[
     ProjectCodegenPythonTarget | ProjectCodegenPluginTarget,
     Field(..., title="ProjectCodegenTarget"),
 ]
-
-type ProjectPluginData = dict[str, WatchCodePluginProjectData]
 
 
 class StateMachineEdge(BaseModel):

@@ -9417,15 +9417,7 @@
     {
       "profile": "frontend",
       "type": "ProjectPluginData",
-      "value": {
-        "setta-watch-code": {
-          "baselineByPath": {},
-          "enabled": false,
-          "files": [],
-          "folders": [],
-          "registry": {}
-        }
-      }
+      "value": {}
     },
     {
       "profile": "frontend",
@@ -10716,15 +10708,7 @@
         "codeObjs": {},
         "genCodeBinding": null,
         "parentSectionMap": {},
-        "pluginData": {
-          "setta-watch-code": {
-            "baselineByPath": {},
-            "enabled": false,
-            "files": [],
-            "folders": [],
-            "registry": {}
-          }
-        },
+        "pluginData": {},
         "projectChatWindowing": {
           "instancesById": {},
           "nextInstanceNumber": 1,

@@ -11079,7 +11079,14 @@
       },
       "ProjectPluginData": {
         "additionalProperties": {
-          "$ref": "#/components/schemas/WatchCodePluginProjectData"
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "title": "ProjectPluginData",
         "type": "object"
@@ -14905,15 +14912,7 @@
           },
           "pluginData": {
             "$ref": "#/components/schemas/ProjectPluginData",
-            "default": {
-              "setta-watch-code": {
-                "baselineByPath": {},
-                "enabled": false,
-                "files": [],
-                "folders": [],
-                "registry": {}
-              }
-            }
+            "default": {}
           },
           "projectChatWindowing": {
             "$ref": "#/components/schemas/ProjectChatWindowingState"

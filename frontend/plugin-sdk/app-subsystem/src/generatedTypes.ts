@@ -5,13 +5,15 @@ export type JsonRecord = Record<string, any>;
 export type ObjectValues<T> = T[keyof T];
 type CreateOptions<T> = T extends object ? Partial<T> : T;
 
-type GeneratedMutableValue =
+export type JsonValue =
   | null
   | boolean
   | number
   | string
-  | Array<GeneratedMutableValue>
-  | { [key: string]: GeneratedMutableValue | undefined };
+  | Array<JsonValue>
+  | { [key: string]: JsonValue | undefined };
+
+type GeneratedMutableValue = JsonValue;
 
 type SidecarExportedValueEntry = {
   name: string;
@@ -119,18 +121,7 @@ export type ProjectConfig = JsonRecord & {
   sectionVariantMap: Record<string, string>;
   showParamDisplayNames: boolean;
 };
-export type WatchCodeFolder = JsonRecord & {
-  path: string;
-  recursive: boolean;
-};
-export type WatchCodePluginProjectData = JsonRecord & {
-  baselineByPath: Record<string, string[]>;
-  enabled: boolean;
-  files: string[];
-  folders: WatchCodeFolder[];
-  registry: Record<string, JsonRecord>;
-};
-export type ProjectPluginData = Record<string, WatchCodePluginProjectData>;
+export type ProjectPluginData = Record<string, JsonValue | undefined>;
 export type SingletonSections = JsonRecord & {
   GenPythonCode: string | null;
   GenPythonMetadata: string | null;
@@ -433,15 +424,7 @@ export function createSingleConfig(
     codeObjs: {},
     genCodeBinding: null,
     parentSectionMap: {},
-    pluginData: {
-      "setta-watch-code": {
-        baselineByPath: {},
-        enabled: false,
-        files: [],
-        folders: [],
-        registry: {},
-      },
-    },
+    pluginData: {},
     projectChatWindowing: {
       instancesById: {},
       nextInstanceNumber: 1,

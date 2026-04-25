@@ -1,4 +1,11 @@
 export type JsonRecord = Record<string, any>;
+export type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue | undefined };
 
 export type RunSnapshotMode = "ephemeral" | "always" | "never";
 export type Policy = JsonRecord;
@@ -33,18 +40,7 @@ export type ProjectConfig = JsonRecord & {
   entryCodeBlockId?: string | null;
   sectionVariantMap?: Record<string, string>;
 };
-export type WatchCodeFolder = JsonRecord & {
-  path: string;
-  recursive: boolean;
-};
-export type WatchCodePluginProjectData = JsonRecord & {
-  baselineByPath: Record<string, string[]>;
-  enabled: boolean;
-  files: string[];
-  folders: WatchCodeFolder[];
-  registry: Record<string, JsonRecord>;
-};
-export type ProjectPluginData = Record<string, WatchCodePluginProjectData>;
+export type ProjectPluginData = Record<string, JsonValue | undefined>;
 export type SingleConfig = JsonRecord & {
   projectConfig: ProjectConfig;
   pluginData: ProjectPluginData;

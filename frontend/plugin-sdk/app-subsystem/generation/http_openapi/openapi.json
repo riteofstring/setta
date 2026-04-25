@@ -1322,100 +1322,6 @@
         "required": ["x", "y", "zoom"],
         "type": "object"
       },
-      "ProjectstateWatchCodeFolder": {
-        "additionalProperties": false,
-        "properties": {
-          "path": {
-            "type": "string"
-          },
-          "recursive": {
-            "type": "boolean"
-          }
-        },
-        "required": ["path", "recursive"],
-        "type": "object"
-      },
-      "ProjectstateWatchCodePluginProjectData": {
-        "additionalProperties": false,
-        "properties": {
-          "baselineByPath": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": ["array", "null"]
-            },
-            "type": "object"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "files": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "folders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          },
-          "registry": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeRegistryEntry"
-            },
-            "type": "object"
-          }
-        },
-        "required": [
-          "enabled",
-          "folders",
-          "files",
-          "registry",
-          "baselineByPath"
-        ],
-        "type": "object"
-      },
-      "ProjectstateWatchCodeRegistryEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "bodyHash": {
-            "type": "string"
-          },
-          "callableName": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "sectionIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "sectionsCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "signatureHash": {
-            "type": "string"
-          },
-          "sourcePath": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "callableName",
-          "kind",
-          "signatureHash",
-          "bodyHash",
-          "sourcePath"
-        ],
-        "type": "object"
-      },
       "ProjectstateWindowSpaceConfig": {
         "additionalProperties": false,
         "properties": {
@@ -1785,9 +1691,7 @@
             "type": "object"
           },
           "pluginData": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodePluginProjectData"
-            },
+            "additionalProperties": {},
             "type": "object"
           },
           "projectChatWindowing": {

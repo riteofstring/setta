@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/projectstate"
@@ -288,6 +289,9 @@ func TestFrontendDefaultSingleConfigUsesCanonicalFactoryDefaults(t *testing.T) {
 	if !reflect.DeepEqual(defaults.PluginData, FrontendDefaultProjectPluginData()) {
 		t.Fatalf("expected canonical plugin data defaults, got %#v", defaults.PluginData)
 	}
+	if len(defaults.PluginData) != 0 {
+		t.Fatalf("expected generic plugin data defaults to be empty, got %#v", defaults.PluginData)
+	}
 	if defaults.Sections == nil || len(defaults.Sections) != 0 {
 		t.Fatalf("expected empty sections map, got %#v", defaults.Sections)
 	}
@@ -296,6 +300,66 @@ func TestFrontendDefaultSingleConfigUsesCanonicalFactoryDefaults(t *testing.T) {
 	}
 	if !reflect.DeepEqual(defaults.ProjectChatWindowing, projectstate.DefaultProjectChatWindowingState()) {
 		t.Fatalf("expected canonical project chat windowing defaults, got %#v", defaults.ProjectChatWindowing)
+	}
+}
+
+func TestSingleConfigByProjectIDIncludesGenericProjectPluginData(t *testing.T) {
+	document := testProjectViewDocument(t)
+	document.PluginData = map[string]projectstate.RawJSON{
+		"plugin.example": mustRawJSON(t, map[string]any{
+			"schemaVersion": 1,
+			"projects": map[string]any{
+				"project-alpha": map[string]any{
+					"enabled": true,
+					"nested":  map[string]any{"value": "alpha"},
+				},
+				"project-beta": map[string]any{
+					"enabled": false,
+					"nested":  map[string]any{"value": "beta"},
+				},
+			},
+		}),
+		"plugin.global": mustRawJSON(t, map[string]any{
+			"routes": []any{"/not-project-scoped"},
+		}),
+	}
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	rawProjectData, ok := view.PluginData["plugin.example"]
+	if !ok {
+		t.Fatalf("expected generic project plugin data for plugin.example, got %#v", view.PluginData)
+	}
+	var projectData map[string]any
+	if err := json.Unmarshal(rawProjectData, &projectData); err != nil {
+		t.Fatalf("decode project plugin data: %v", err)
+	}
+	if projectData["enabled"] != true {
+		t.Fatalf("expected project-alpha plugin data, got %#v", projectData)
+	}
+	nested, ok := projectData["nested"].(map[string]any)
+	if !ok || nested["value"] != "alpha" {
+		t.Fatalf("expected nested alpha plugin data, got %#v", projectData["nested"])
+	}
+	if _, ok := view.PluginData["plugin.global"]; ok {
+		t.Fatalf("did not expect non-project-scoped plugin data in project view, got %#v", view.PluginData)
+	}
+}
+
+func TestSingleConfigByProjectIDRejectsMalformedProjectPluginData(t *testing.T) {
+	document := testProjectViewDocument(t)
+	document.PluginData = map[string]projectstate.RawJSON{
+		"plugin.bad": mustRawJSON(t, map[string]any{
+			"projects": []any{"project-alpha"},
+		}),
+	}
+
+	_, err := SingleConfigByProjectID(document, "project-alpha")
+	if err == nil || !strings.Contains(err.Error(), "pluginData.plugin.bad.projects must be a JSON object") {
+		t.Fatalf("expected malformed project plugin data error, got %v", err)
 	}
 }
 
@@ -497,8 +561,8 @@ func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *tes
 	if view.ProjectConfig.WindowSpaces == nil {
 		t.Fatal("expected window spaces map to be non-nil")
 	}
-	if view.PluginData[projectstate.WatchCodePluginDataKey].Files == nil {
-		t.Fatal("expected watch code files slice to be non-nil")
+	if view.PluginData == nil {
+		t.Fatal("expected plugin data map to be non-nil")
 	}
 	if view.Sections["global-section"].UnsharedKeys == nil {
 		t.Fatal("expected section unshared keys slice to be non-nil")
@@ -558,12 +622,8 @@ func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *tes
 	if !ok {
 		t.Fatalf("expected pluginData object, got %#v", decoded["pluginData"])
 	}
-	watchCodeData, ok := pluginData["setta-watch-code"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected setta-watch-code plugin data object, got %#v", pluginData["setta-watch-code"])
-	}
-	if watchCodeFiles, ok := watchCodeData["files"].([]any); !ok || watchCodeFiles == nil {
-		t.Fatalf("expected watch code plugin files json array, got %#v", watchCodeData["files"])
+	if len(pluginData) != 0 {
+		t.Fatalf("expected no default plugin data entries, got %#v", pluginData)
 	}
 	projectChatWindowing, ok := decoded["projectChatWindowing"].(map[string]any)
 	if !ok {

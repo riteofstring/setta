@@ -3265,15 +3265,7 @@ export function createSingleConfig(
     codeObjs: {},
     genCodeBinding: null,
     parentSectionMap: {},
-    pluginData: {
-      "setta-watch-code": {
-        baselineByPath: {},
-        enabled: false,
-        files: [],
-        folders: [],
-        registry: {},
-      },
-    },
+    pluginData: {},
     projectChatWindowing: {
       instancesById: {},
       nextInstanceNumber: 1,

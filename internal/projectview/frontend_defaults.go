@@ -122,9 +122,7 @@ func FrontendDefaultSingleConfig() SingleConfig {
 }
 
 func FrontendDefaultProjectPluginData() ProjectPluginData {
-	defaults := ProjectPluginData{
-		projectstate.WatchCodePluginDataKey: projectstate.EmptyWatchCodePluginProjectData(),
-	}
+	defaults := ProjectPluginData{}
 	initializeNilCollections(&defaults)
 	return defaults
 }

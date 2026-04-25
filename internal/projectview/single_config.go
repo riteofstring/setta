@@ -43,7 +43,7 @@ type SingleConfig struct {
 	CodeObjImpls          map[string]json.RawMessage             `json:"codeObjImpls" ts_type:"Record<string, BaseCodeObjImplUnion>" shared_schema_map_value_ref:"BaseCodeObjImpl"`
 	CodeObjVariants       map[string]Variant                     `json:"codeObjVariants"`
 	ProjectConfig         ProjectConfig                          `json:"projectConfig"`
-	PluginData            ProjectPluginData                      `json:"pluginData" py_type:"dict[str, WatchCodePluginProjectData]" py_default:"go_value"`
+	PluginData            ProjectPluginData                      `json:"pluginData" py_default:"go_value"`
 	SingletonSections     SingletonSections                      `json:"singletonSections"`
 	ParentSectionMap      map[string]*string                     `json:"parentSectionMap"`
 	ShownParamIDs         map[string]ShownParamIDs               `json:"shownParamIds"`
@@ -81,7 +81,7 @@ type ProjectConfig struct {
 	StateMachineEdges       []projectstate.StateMachineEdge               `json:"stateMachineEdges" py_default:"go_value"`
 }
 
-type ProjectPluginData map[string]projectstate.WatchCodePluginProjectData
+type ProjectPluginData map[string]projectstate.RawJSON
 
 type ProjectRunCapabilities struct {
 	CanRunFromMain          bool    `json:"canRunFromMain"`
@@ -153,22 +153,25 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		return SingleConfig{}, err
 	}
 
-	return buildSingleConfig(project)
+	pluginData, err := projectPluginDataForProject(document.PluginData, trimmedProjectID)
+	if err != nil {
+		return SingleConfig{}, err
+	}
+
+	return buildSingleConfig(project, pluginData)
 }
 
-func buildSingleConfig(project projectstate.Project) (SingleConfig, error) {
+func buildSingleConfig(project projectstate.Project, pluginData ProjectPluginData) (SingleConfig, error) {
 	view := SingleConfig{
-		Sections:            make(map[string]Core, len(project.Sections)),
-		SectionImpls:        make(map[string]json.RawMessage, len(project.SectionImpls)),
-		SectionCapabilities: make(map[string]SectionCapabilities, len(project.Sections)),
-		SectionVariants:     make(map[string]Variant, len(project.SectionVariants)),
-		CodeObjs:            make(map[string]Core, len(project.CodeObjs)),
-		CodeObjImpls:        make(map[string]json.RawMessage, len(project.CodeObjImpls)),
-		CodeObjVariants:     make(map[string]Variant, len(project.CodeObjVariants)),
-		ProjectConfig:       ProjectConfig{},
-		PluginData: ProjectPluginData{
-			projectstate.WatchCodePluginDataKey: projectstate.EmptyWatchCodePluginProjectData(),
-		},
+		Sections:              make(map[string]Core, len(project.Sections)),
+		SectionImpls:          make(map[string]json.RawMessage, len(project.SectionImpls)),
+		SectionCapabilities:   make(map[string]SectionCapabilities, len(project.Sections)),
+		SectionVariants:       make(map[string]Variant, len(project.SectionVariants)),
+		CodeObjs:              make(map[string]Core, len(project.CodeObjs)),
+		CodeObjImpls:          make(map[string]json.RawMessage, len(project.CodeObjImpls)),
+		CodeObjVariants:       make(map[string]Variant, len(project.CodeObjVariants)),
+		ProjectConfig:         ProjectConfig{},
+		PluginData:            cloneProjectPluginData(pluginData),
 		SingletonSections:     deriveSingletonSections(project),
 		ParentSectionMap:      deriveParentSectionMap(project),
 		ShownParamIDs:         make(map[string]ShownParamIDs),
@@ -183,7 +186,6 @@ func buildSingleConfig(project projectstate.Project) (SingleConfig, error) {
 		return SingleConfig{}, err
 	}
 	view.ProjectConfig = projectConfig
-	view.PluginData[projectstate.WatchCodePluginDataKey] = projectstate.WatchCodePluginProjectDataFromProject(project)
 	view.SectionCapabilities = deriveSectionCapabilities(project)
 	view.ProjectConfig.RunCapabilities = deriveProjectRunCapabilities(
 		project,
@@ -252,6 +254,94 @@ func projectConfigFromProject(project projectstate.Project) (ProjectConfig, erro
 		AgenticEdges:            agenticEdges,
 		StateMachineEdges:       stateMachineEdges,
 	}, nil
+}
+
+func projectPluginDataForProject(
+	pluginData map[string]projectstate.RawJSON,
+	projectID string,
+) (ProjectPluginData, error) {
+	result := ProjectPluginData{}
+	for pluginID, payload := range pluginData {
+		fields, ok, err := decodeOptionalRawJSONObjectFields(
+			payload,
+			fmt.Sprintf("pluginData.%s", pluginID),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+
+		projectsPayload, hasProjects := fields["projects"]
+		if !hasProjects {
+			continue
+		}
+		projects, err := decodeRequiredRawJSONObjectFields(
+			projectsPayload,
+			fmt.Sprintf("pluginData.%s.projects", pluginID),
+		)
+		if err != nil {
+			return nil, err
+		}
+		projectPayload, ok := projects[projectID]
+		if !ok {
+			continue
+		}
+		result[pluginID] = cloneRawJSON(projectPayload)
+	}
+	return result, nil
+}
+
+func cloneProjectPluginData(source ProjectPluginData) ProjectPluginData {
+	cloned := ProjectPluginData{}
+	for pluginID, payload := range source {
+		cloned[pluginID] = cloneRawJSON(payload)
+	}
+	return cloned
+}
+
+func decodeOptionalRawJSONObjectFields(
+	raw json.RawMessage,
+	field string,
+) (map[string]json.RawMessage, bool, error) {
+	if len(strings.TrimSpace(string(raw))) == 0 {
+		return nil, false, nil
+	}
+
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, false, fmt.Errorf("decode %s: %w", field, err)
+	}
+	if value == nil {
+		return nil, false, nil
+	}
+	if _, ok := value.(map[string]any); !ok {
+		return nil, false, nil
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, false, fmt.Errorf("decode %s: %w", field, err)
+	}
+	if fields == nil {
+		return nil, false, nil
+	}
+	return fields, true, nil
+}
+
+func decodeRequiredRawJSONObjectFields(
+	raw json.RawMessage,
+	field string,
+) (map[string]json.RawMessage, error) {
+	fields, ok, err := decodeOptionalRawJSONObjectFields(raw, field)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("%s must be a JSON object", field)
+	}
+	return fields, nil
 }
 
 func populateSectionViewData(view *SingleConfig, project projectstate.Project) error {

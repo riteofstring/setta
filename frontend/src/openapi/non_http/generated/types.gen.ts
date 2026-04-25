@@ -4625,7 +4625,7 @@ export type ProjectConfigMetadata = {
  * ProjectPluginData
  */
 type ProjectPluginData = {
-  [key: string]: WatchCodePluginProjectData;
+  [key: string]: RawMessage | null;
 };
 
 /**
