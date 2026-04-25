@@ -13703,9 +13703,17 @@ func newProjectRouteTestHandlerWithRouteOptionsAndWatchCodeCapabilities(
 				SetSectionName:                 renameRefactors.SetSectionName,
 				AcceptRenameRefactor:           renameRefactors.AcceptRenameRefactor,
 				DeclineRenameRefactor:          renameRefactors.DeclineRenameRefactor,
-				WatchCodeCapabilities:          watchCodeCapabilities,
 			}); err != nil {
 				t.Fatalf("register project routes: %v", err)
+			}
+			if err := RegisterWatchCodeRoutes(r, WatchCodeRouteDependencies{
+				ModePolicy:            modes.NewPolicy(mode),
+				WorkspaceRoot:         workspaceRoot,
+				ProjectState:          projectRuntime,
+				WebsocketHub:          websocketHub,
+				WatchCodeCapabilities: watchCodeCapabilities,
+			}); err != nil {
+				t.Fatalf("register watch code routes: %v", err)
 			}
 		},
 	})

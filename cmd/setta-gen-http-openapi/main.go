@@ -24,15 +24,15 @@ func (p openAPICapabilityProvider) AppSubsystemCapabilities() plugins.PluginAppS
 	return p.capabilities
 }
 
-func buildOpenAPIDocumentAppSubsystemRegistrations(
+func buildOpenAPIDocumentRouteRegistrations(
 	deps httpapi.FrontendAPIRouteDependencies,
 	providers []plugins.PluginAppSubsystemFeatureManifest,
 ) (httpapi.FrontendAPIRouteRegistrations, error) {
 	mergedCapabilities, ok := appsubsystemproviders.MergeOpenAPICapabilities(providers)
 	if !ok {
-		return httpapi.FrontendAPIRouteRegistrations{}, nil
+		return buildOpenAPIDocumentWatchCodeRegistrations(deps), nil
 	}
-	return appsubsystem.BuildFrontendAPIRouteRegistrations(
+	registrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
 		appsubsystem.FrontendRouteRegistrationOptions{
 			Capabilities:       openAPICapabilityProvider{capabilities: mergedCapabilities},
 			ModePolicy:         deps.Project.ModePolicy,
@@ -42,6 +42,22 @@ func buildOpenAPIDocumentAppSubsystemRegistrations(
 			AppDeployment: httpapi.DeploymentRouteDependencies{
 				ModePolicy: modes.NewPolicy(config.ModeApp),
 			},
+		},
+	)
+	if err != nil {
+		return httpapi.FrontendAPIRouteRegistrations{}, err
+	}
+	watchCodeRegistrations := buildOpenAPIDocumentWatchCodeRegistrations(deps)
+	registrations.Project = append(registrations.Project, watchCodeRegistrations.Project...)
+	return registrations, nil
+}
+
+func buildOpenAPIDocumentWatchCodeRegistrations(
+	deps httpapi.FrontendAPIRouteDependencies,
+) httpapi.FrontendAPIRouteRegistrations {
+	return httpapi.BuildWatchCodeFrontendAPIRouteRegistrations(
+		httpapi.WatchCodeRouteDependencies{
+			ModePolicy: deps.Project.ModePolicy,
 		},
 	)
 }
@@ -59,7 +75,7 @@ func main() {
 	var registrationErr error
 	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
 		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
-			registrations, err := buildOpenAPIDocumentAppSubsystemRegistrations(
+			registrations, err := buildOpenAPIDocumentRouteRegistrations(
 				deps,
 				appsubsystemproviders.DiscoveredProviderCapabilities(),
 			)
