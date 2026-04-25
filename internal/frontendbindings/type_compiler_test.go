@@ -70,7 +70,7 @@ func TestGoBackedCreateFunctionUsesNestedCreateHelpersForChatWindowing(t *testin
 	t.Parallel()
 
 	declaration := goBackedCreateDeclarationForTest(t, reflect.TypeOf(settingsstate.FrontendSettingsChatWindowing{}))
-	if !strings.Contains(declaration.FunctionBody, "const defaults = {") {
+	if !strings.Contains(declaration.FunctionBody, "const defaults: SettingsChatWindowing = {") {
 		t.Fatalf("%s should stage Go-owned defaults:\n%s", declaration.Name, declaration.FunctionBody)
 	}
 	if !strings.Contains(declaration.FunctionBody, "createSettingsChatWindowingShortcuts(") {
@@ -82,7 +82,7 @@ func TestGoBackedCreateFunctionUsesLanguageServerDefaults(t *testing.T) {
 	t.Parallel()
 
 	declaration := goBackedCreateDeclarationForTest(t, reflect.TypeOf(settingsstate.FrontendSettingsLanguageServer{}))
-	if !strings.Contains(declaration.FunctionBody, "const defaults = {") {
+	if !strings.Contains(declaration.FunctionBody, "const defaults: SettingsLanguageServer = {") {
 		t.Fatalf("%s should stage Go-owned defaults:\n%s", declaration.Name, declaration.FunctionBody)
 	}
 	if !strings.Contains(declaration.FunctionBody, `"selectedByLanguage": {}`) {
@@ -186,13 +186,10 @@ func TestDiscriminatedObjectFamilyCreateFunctionsReuseGoBackedCreateBody(t *test
 	if declaration.Kind != "function" {
 		t.Fatalf("createChatSectionImpl kind = %q, want %q", declaration.Kind, "function")
 	}
-	if !strings.Contains(declaration.FunctionBody, "const defaults = {") {
+	if !strings.Contains(declaration.FunctionBody, "const defaults: ChatSectionImpl = {") {
 		t.Fatalf("createChatSectionImpl should use shared defaults staging:\n%s", declaration.FunctionBody)
 	}
-	if !strings.Contains(
-		declaration.FunctionBody,
-		`createSectionSize((options["size"] ?? defaults["size"]) as Partial<SectionSize>) as unknown as NonNullable<typeof options["size"]>`,
-	) {
+	if !strings.Contains(declaration.FunctionBody, "createSectionSize(") {
 		t.Fatalf("createChatSectionImpl should reuse nested create helpers:\n%s", declaration.FunctionBody)
 	}
 }

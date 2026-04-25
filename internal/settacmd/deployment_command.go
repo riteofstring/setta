@@ -35,7 +35,6 @@ type deploymentCommandSpec struct {
 	reloadError         string
 	missingManifestText string
 	wrongTypeText       string
-	preflight           func(string, globalFlags, func(string) (string, bool), string) error
 }
 
 type deploymentSelection struct {
@@ -70,11 +69,6 @@ func runDeploymentCommandWithDeps(args []string, global globalFlags, stdin io.Re
 	resolvedDeploymentRoot, err := resolveDeploymentCommandRoot(parsed, global, envLookup, cwd, spec)
 	if err != nil {
 		return &ExitError{Code: 2, Err: err}
-	}
-	if spec.preflight != nil {
-		if err := spec.preflight(resolvedDeploymentRoot, global, envLookup, cwd); err != nil {
-			return &ExitError{Code: 1, Err: err}
-		}
 	}
 
 	currentExecutable, err := deps.resolveCurrentExecutable()

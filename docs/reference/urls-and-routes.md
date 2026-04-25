@@ -196,19 +196,7 @@ but a small set is intentionally routed through the launcher origin
 
 ## App-Generation Extension Endpoints
 
-The app-generation/skills viewer flow adds these backend routes when the active
-app-subsystem provider contributes the corresponding feature capability:
-
-- `/api/getAppCatalog`
-  - Returns the provider-backed app component/action catalog for App Config.
-- `/api/getAppDefinition`
-  - Loads the current provider-scoped app-definition metadata and resolved
-    app-spec JSON.
-- `/api/validateAppDefinition`
-  - Validates a proposed app definition/app spec against the current catalog
-    without persisting it.
-- `/api/setAppDefinition`
-  - Persists a standalone app definition and app-spec JSON.
+The app-generation/skills viewer flow adds these backend routes:
 
 - `/api/getAppGenSkills`
   - Lists skills discovered from workspace/user/env skill roots.
@@ -238,8 +226,8 @@ app-subsystem provider contributes the corresponding feature capability:
   - This older standalone streaming helper is not part of the current
     caller-backed flow on this branch.
   - The current app-config pane generation path uses `/api/getLLMResponse` plus
-    `/ws/frontend` tool-preview updates and Go-owned app-subsystem
-    `stream_app_definition` persistence.
+    `/ws/frontend` tool-preview updates and Go-owned `stream_app_definition`
+    persistence.
 - `/api/getLLMResponse` (extended payload)
   - Accepts `appGenerationMode` and `appGenerationByMessageId` for Project Chat
     app-generation turns.

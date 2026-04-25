@@ -118,15 +118,6 @@ vi.mock("components/Utils/Combobox/IdNameCombobox", () => ({
   },
 }));
 
-vi.mock("plugins/appSubsystem", () => ({
-  useAppSubsystemSlashCommands: () => [],
-  useAppSubsystemCustomSlashCommandModeOptions: () => [
-    { id: "plain_chat", name: "Plain chat" },
-    { id: "json_render", name: "JSON Render" },
-  ],
-  useAppSubsystemDefaultCustomSlashCommandMode: () => "plain_chat",
-}));
-
 vi.mock("state/actions/ai", async () => {
   const actual =
     await vi.importActual<typeof import("state/actions/ai")>(

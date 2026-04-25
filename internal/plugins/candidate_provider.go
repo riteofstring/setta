@@ -118,15 +118,7 @@ func (p *ProductionCandidateProvider) resolveGitHubCandidate(ctx context.Context
 		return CandidatePlugin{}, err
 	}
 
-	candidate, err := p.finalizeCandidateFromManifestPath(
-		tempRoot,
-		cloneRoot,
-		cloneRoot,
-		manifestPath,
-		spec.CanonicalSourceKey,
-		runtimeManagedFrontendSourceBuild,
-		cleanup,
-	)
+	candidate, err := p.finalizeCandidateFromManifestPath(tempRoot, cloneRoot, cloneRoot, manifestPath, spec.CanonicalSourceKey, cleanup)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
@@ -166,15 +158,7 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 		return CandidatePlugin{}, err
 	}
 	pluginRoot := filepath.Dir(manifestPath)
-	candidate, err := p.finalizeCandidateFromManifestPath(
-		tempRoot,
-		installRoot,
-		pluginRoot,
-		manifestPath,
-		spec.CanonicalSourceKey,
-		runtimeManagedFrontendPackagedDeployment,
-		cleanup,
-	)
+	candidate, err := p.finalizeCandidateFromManifestPath(tempRoot, installRoot, pluginRoot, manifestPath, spec.CanonicalSourceKey, cleanup)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
@@ -182,17 +166,10 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 	return candidate, nil
 }
 
-func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(
-	pluginRoot string,
-	manifestPath string,
-	frontendAssetMode runtimeManagedFrontendAssetMode,
-) (PluginManifest, error) {
+func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(pluginRoot string, manifestPath string) (PluginManifest, error) {
 	manifest, err := loadPluginManifestFile(manifestPath)
 	if err != nil {
 		return PluginManifest{}, wrapManifestValidationError(err)
-	}
-	if err := ensureRuntimeManagedPluginFrontendAssets(pluginRoot, manifest, frontendAssetMode); err != nil {
-		return PluginManifest{}, err
 	}
 	if err := ValidatePluginManifestPaths(pluginRoot, manifest); err != nil {
 		return PluginManifest{}, wrapManifestValidationError(err)
@@ -203,20 +180,8 @@ func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(
 	return manifest, nil
 }
 
-func (p *ProductionCandidateProvider) finalizeCandidateFromManifestPath(
-	tempRoot string,
-	packageMetadataRoot string,
-	pluginRoot string,
-	manifestPath string,
-	canonicalSourceKey string,
-	frontendAssetMode runtimeManagedFrontendAssetMode,
-	cleanup func() error,
-) (CandidatePlugin, error) {
-	manifest, err := p.loadAndValidateCandidateManifest(
-		pluginRoot,
-		manifestPath,
-		frontendAssetMode,
-	)
+func (p *ProductionCandidateProvider) finalizeCandidateFromManifestPath(tempRoot string, packageMetadataRoot string, pluginRoot string, manifestPath string, canonicalSourceKey string, cleanup func() error) (CandidatePlugin, error) {
+	manifest, err := p.loadAndValidateCandidateManifest(pluginRoot, manifestPath)
 	if err != nil {
 		return CandidatePlugin{}, err
 	}
@@ -519,36 +484,6 @@ func preservePythonBackendInstallPayload(packageMetadataRoot string, pluginRoot 
 	if !manifestUsesPythonBackend(manifest) {
 		return nil
 	}
-	return transferPythonBackendInstallPayload(
-		packageMetadataRoot,
-		pluginRoot,
-		pluginRoot,
-		"move",
-		os.Rename,
-	)
-}
-
-func copyPythonBackendInstallPayload(
-	packageMetadataRoot string,
-	pluginRoot string,
-	targetPluginRoot string,
-) error {
-	return transferPythonBackendInstallPayload(
-		packageMetadataRoot,
-		pluginRoot,
-		targetPluginRoot,
-		"copy",
-		copyFilesystemPath,
-	)
-}
-
-func transferPythonBackendInstallPayload(
-	packageMetadataRoot string,
-	pluginRoot string,
-	targetPluginRoot string,
-	action string,
-	transfer func(string, string) error,
-) error {
 	if sameDirectoryPath(packageMetadataRoot, pluginRoot) {
 		return nil
 	}
@@ -558,8 +493,8 @@ func transferPythonBackendInstallPayload(
 		return fmt.Errorf("read python backend install root %s: %w", packageMetadataRoot, err)
 	}
 
-	vendorRoot := filepath.Join(targetPluginRoot, pythonBackendSitePackagesDirName)
-	transferredAny := false
+	vendorRoot := filepath.Join(pluginRoot, pythonBackendSitePackagesDirName)
+	movedAny := false
 	for _, entry := range entries {
 		if entry.Name() == filepath.Base(pluginRoot) {
 			continue
@@ -569,12 +504,12 @@ func transferPythonBackendInstallPayload(
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			return fmt.Errorf("create python backend vendor root %s: %w", filepath.Dir(targetPath), err)
 		}
-		if err := transfer(sourcePath, targetPath); err != nil {
-			return fmt.Errorf("%s python backend dependency payload %s to %s: %w", action, sourcePath, targetPath, err)
+		if err := os.Rename(sourcePath, targetPath); err != nil {
+			return fmt.Errorf("move python backend dependency payload %s to %s: %w", sourcePath, targetPath, err)
 		}
-		transferredAny = true
+		movedAny = true
 	}
-	if !transferredAny {
+	if !movedAny {
 		_ = os.Remove(vendorRoot)
 	}
 	return nil

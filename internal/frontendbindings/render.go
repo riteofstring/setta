@@ -66,7 +66,6 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 	seenNames := make(map[string]string, len(declarations))
 	typeSymbols := map[string]string{
 		"ObjectValues":          "shared helper type alias",
-		"CreateOptions":         "shared helper type alias",
 		"GeneratedMutableValue": "shared helper type alias",
 	}
 	valueSymbols := map[string]string{
