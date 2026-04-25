@@ -210,13 +210,13 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 		if feature == nil {
 			continue
 		}
-		if !appSubsystemBackendContractRegistered(entry) {
-			resolution.selection.InvalidPluginIDs = append(
-				resolution.selection.InvalidPluginIDs,
-				entry.PluginID,
+		if !appSubsystemBackendContractRegistered(entry) ||
+			!appSubsystemFrontendEntrypointAvailable(entry, feature) {
+			markRuntimeAppSubsystemProviderInvalid(
+				&resolution,
+				entry,
+				&hasInvalidActiveProvider,
 			)
-			hasInvalidActiveProvider =
-				hasInvalidActiveProvider || entry.State == PluginRuntimeStateActive
 			continue
 		}
 		switch entry.State {
@@ -255,6 +255,19 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 	return resolution
 }
 
+func markRuntimeAppSubsystemProviderInvalid(
+	resolution *runtimeAppSubsystemProviderResolution,
+	entry DiscoveredPlugin,
+	hasInvalidActiveProvider *bool,
+) {
+	resolution.selection.InvalidPluginIDs = append(
+		resolution.selection.InvalidPluginIDs,
+		entry.PluginID,
+	)
+	*hasInvalidActiveProvider =
+		*hasInvalidActiveProvider || entry.State == PluginRuntimeStateActive
+}
+
 func runtimeAppSubsystemFeatureManifest(
 	entry DiscoveredPlugin,
 ) *PluginAppSubsystemFeatureManifest {
@@ -262,6 +275,36 @@ func runtimeAppSubsystemFeatureManifest(
 		return nil
 	}
 	return entry.Manifest.FeatureCapabilities.AppSubsystem
+}
+
+func appSubsystemFeatureRequiresFrontend(
+	feature *PluginAppSubsystemFeatureManifest,
+) bool {
+	if feature == nil {
+		return false
+	}
+	return feature.AppAuthoringUI ||
+		feature.AppPreviewUI ||
+		feature.AppGenerationChatModes ||
+		feature.AppDeploymentRuntime
+}
+
+func appSubsystemFrontendEntrypointAvailable(
+	entry DiscoveredPlugin,
+	feature *PluginAppSubsystemFeatureManifest,
+) bool {
+	if !appSubsystemFeatureRequiresFrontend(feature) {
+		return true
+	}
+	if entry.Manifest == nil || entry.Manifest.Frontend == nil {
+		return false
+	}
+	_, err := resolveManifestRegularFile(
+		entry.SourcePath,
+		entry.Manifest.Frontend.Entrypoint,
+		"plugin frontend entrypoint",
+	)
+	return err == nil
 }
 
 func appSubsystemBackendContractRegistered(entry DiscoveredPlugin) bool {

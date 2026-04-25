@@ -36,15 +36,15 @@ func BuildMCPToolRegistrations(
 	service appdefinition.Runtime,
 	defaultAppSpecPath string,
 ) []mcpx.ToolRegistration {
-	registrations := buildAppCatalogToolRegistrations()
+	registrations := BuildAppCatalogToolRegistrations()
 	registrations = append(
 		registrations,
-		buildAppDefinitionToolRegistrations(service, defaultAppSpecPath)...,
+		BuildAppDefinitionToolRegistrations(service, defaultAppSpecPath)...,
 	)
 	return registrations
 }
 
-func buildAppCatalogToolRegistrations() []mcpx.ToolRegistration {
+func BuildAppCatalogToolRegistrations() []mcpx.ToolRegistration {
 	return []mcpx.ToolRegistration{
 		{
 			Spec: tools.Spec{
@@ -104,7 +104,7 @@ func buildAppCatalogToolRegistrations() []mcpx.ToolRegistration {
 	}
 }
 
-func buildAppDefinitionToolRegistrations(
+func BuildAppDefinitionToolRegistrations(
 	service appdefinition.Runtime,
 	defaultAppSpecPath string,
 ) []mcpx.ToolRegistration {

@@ -68,12 +68,9 @@ export type GetAppDeploymentStateResponses = {
 };
 
 export type ResponseDataAndStatus<T = unknown> = {
-  data: T;
-  error?: unknown;
-  hasResponse?: boolean;
-  request?: Request;
-  response?: Response;
-  status: number;
+  data: T | undefined;
+  status: number | undefined;
+  hasResponse: boolean;
 };
 
 export declare const CodeObjTypeEnum: Readonly<Record<string, string>>;
@@ -180,7 +177,7 @@ export declare function validateAppDefinition(options?: unknown): Promise<Respon
 export declare function callOpenAPI<T>(promise: Promise<T> | T): Promise<T>;
 export declare function getErrorDetail(value: unknown): string | null;
 export declare function getErrorCode(value: unknown): string | null;
-export declare function res200<T>(response: ResponseDataAndStatus<T>): response is ResponseDataAndStatus<T> & { status: 200 };
+export declare function res200<T>(response: ResponseDataAndStatus<T>): response is ResponseDataAndStatus<T> & { data: T; status: number };
 export declare function configureAppSubsystemOpenAPI(): void;
 export declare function buildBinaryDownloadUrl(contentId: string, shareSessionId: string | null, serverMode: string | null): string;
 
@@ -355,7 +352,7 @@ export declare function activateAppSubsystemFrontendHostRuntime(host: AppSubsyst
 export declare function deactivateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
 export declare function getActiveAppSubsystemFrontendHostRuntime(): AppSubsystemFrontendHost | null;
 export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T>(projectState: SingleConfig, sectionId: string, codeObjId: string, guard: (value: JsonRecord) => value is T): T | null;
-export declare function getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;
+export declare function getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;
 export declare function getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;
 export declare function getCurrentSectionVariantId(projectState: SingleConfig, sectionId: string, includePreview?: boolean): string;
 export declare function getCurrentSectionVariantIdIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): string | null;

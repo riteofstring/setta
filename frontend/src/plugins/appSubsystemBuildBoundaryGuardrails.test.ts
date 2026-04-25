@@ -111,6 +111,30 @@ describe("app plugin frontend build boundary guardrails", () => {
     }
   });
 
+  it("keeps vendored SDK declarations aligned with the source SDK contract", () => {
+    const sourceSdkTypes = readSourceSdkFile("types/index.d.ts");
+    const vendoredSdkTypes = readPluginFrontendFile(
+      "vendor/app-subsystem-frontend-sdk/types/index.d.ts",
+    );
+
+    expect(vendoredSdkTypes).toBe(sourceSdkTypes);
+    expect(sourceSdkTypes).toContain("data: T | undefined;");
+    expect(sourceSdkTypes).toContain("status: number | undefined;");
+    expect(sourceSdkTypes).toContain("hasResponse: boolean;");
+    expect(sourceSdkTypes).toContain(
+      "response is ResponseDataAndStatus<T> & { data: T; status: number }",
+    );
+    expect(sourceSdkTypes).toContain(
+      "getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;",
+    );
+    expect(sourceSdkTypes).toContain(
+      "getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;",
+    );
+    expect(sourceSdkTypes).not.toContain("error?: unknown;");
+    expect(sourceSdkTypes).not.toContain("request?: Request;");
+    expect(sourceSdkTypes).not.toContain("response?: Response;");
+  });
+
   it("keeps the source SDK package source-first and package-owned", () => {
     const sourceSdkPackageJson = JSON.parse(
       readSourceSdkFile("package.json"),

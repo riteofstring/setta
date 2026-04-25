@@ -34,20 +34,8 @@ func ensureRuntimeManagedPluginFrontendAssets(
 	}
 
 	frontendRoot := filepath.Join(pluginRoot, "frontend")
-	packageJSONPath := filepath.Join(frontendRoot, "package.json")
-	if _, err := os.Stat(packageJSONPath); err != nil {
-		if os.IsNotExist(err) {
-			if err := validatePluginFrontendPaths(pluginRoot, manifest); err == nil {
-				return nil
-			}
-			return newServiceError(
-				ServiceErrorCodeSourceInvalid,
-				"Plugin %s declares a plugin-owned frontend build but %s is missing",
-				manifest.ID,
-				packageJSONPath,
-			)
-		}
-		return fmt.Errorf("stat plugin frontend package metadata %s: %w", packageJSONPath, err)
+	if err := requireRuntimeManagedPluginFrontendBuildInputs(frontendRoot, manifest); err != nil {
+		return err
 	}
 
 	if !directoryContainsFiles(filepath.Join(frontendRoot, "node_modules")) {
@@ -80,6 +68,25 @@ func ensureRuntimeManagedPluginFrontendAssets(
 		return err
 	}
 	return nil
+}
+
+func requireRuntimeManagedPluginFrontendBuildInputs(
+	frontendRoot string,
+	manifest PluginManifest,
+) error {
+	packageJSONPath := filepath.Join(frontendRoot, "package.json")
+	if _, err := os.Stat(packageJSONPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat plugin frontend package metadata %s: %w", packageJSONPath, err)
+	}
+
+	return newServiceError(
+		ServiceErrorCodeSourceInvalid,
+		"Plugin %s declares a plugin-owned frontend build but %s is missing",
+		manifest.ID,
+		packageJSONPath,
+	)
 }
 
 func runPluginFrontendCommand(frontendRoot string, packageManager string, args []string) error {
