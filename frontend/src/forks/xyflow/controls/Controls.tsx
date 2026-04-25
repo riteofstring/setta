@@ -7,8 +7,13 @@ import {
   zoomOut,
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { usePluginRuntimeStore } from "plugins/runtime";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import {
+  PluginCanvasControlPlacementEnum,
+  usePluginCanvasControls,
+  usePluginRuntimeStore,
+  type RegisteredPluginCanvasControl,
+} from "plugins/runtime";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaMinus, FaPlus } from "react-icons/fa6";
 import { IoMapOutline } from "react-icons/io5";
@@ -65,6 +70,8 @@ type SetWatchCodePortalOpen = (
   nextOpen: boolean | ((current: boolean) => boolean),
 ) => void;
 
+const EMPTY_PLUGIN_CAPABILITIES: readonly string[] = [];
+
 function getToggleControlClassName(
   active: boolean,
   activeClassName: string = ACTIVE_CONTROL_CLASS_NAME,
@@ -74,6 +81,110 @@ function getToggleControlClassName(
 
 function ControlsDivider() {
   return <div className={CONTROLS_DIVIDER_CLASS_NAME} />;
+}
+
+function PluginCanvasControlRendererHost(props: {
+  control: RegisteredPluginCanvasControl;
+}) {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(false);
+  const previousControlPropsRef = useRef<object | null>(null);
+  const serverMode = usePluginRuntimeStore(
+    (state) => state.serverMode ?? "ide",
+  );
+  const effectiveCapabilities = usePluginRuntimeStore(
+    (state) =>
+      state.pluginListById[props.control.pluginId]?.effectiveCapabilities ??
+      EMPTY_PLUGIN_CAPABILITIES,
+  );
+  const controlProps = useMemo(
+    () => ({
+      pluginId: props.control.pluginId,
+      controlId: props.control.id,
+      label: props.control.label,
+      placement: props.control.placement,
+      serverMode,
+      effectiveCapabilities,
+    }),
+    [
+      effectiveCapabilities,
+      props.control.id,
+      props.control.label,
+      props.control.placement,
+      props.control.pluginId,
+      serverMode,
+    ],
+  );
+
+  useEffect(() => {
+    const mountElement = mountRef.current;
+    if (!mountElement) {
+      return;
+    }
+    props.control.renderer.mount(mountElement, controlProps);
+    mountedRef.current = true;
+    previousControlPropsRef.current = null;
+    return () => {
+      mountedRef.current = false;
+      previousControlPropsRef.current = null;
+      props.control.renderer.unmount?.(mountElement);
+    };
+  }, [props.control]);
+
+  useEffect(() => {
+    const mountElement = mountRef.current;
+    if (!mountElement || !mountedRef.current) {
+      return;
+    }
+    const previousProps = previousControlPropsRef.current;
+    previousControlPropsRef.current = controlProps;
+    if (previousProps === null) {
+      return;
+    }
+    if (props.control.renderer.update) {
+      props.control.renderer.update(mountElement, controlProps);
+      return;
+    }
+    props.control.renderer.unmount?.(mountElement);
+    props.control.renderer.mount(mountElement, controlProps);
+  }, [controlProps, props.control]);
+
+  return (
+    <div
+      ref={mountRef}
+      className="nodrag nopan nowheel flex h-6 w-6 items-center justify-center overflow-visible"
+      data-setta-plugin-root={props.control.pluginId}
+      data-setta-plugin-canvas-control={props.control.id}
+      data-testid={`rf__plugin-canvas-control-${props.control.pluginId}-${props.control.id}`}
+      {...getFloatingBoxHandlers({
+        content: props.control.description ?? props.control.label,
+      })}
+    />
+  );
+}
+
+function PluginCanvasControls(props: {
+  controls: RegisteredPluginCanvasControl[];
+  placement: RegisteredPluginCanvasControl["placement"];
+}) {
+  const controlsForPlacement = props.controls.filter(
+    (control) => control.placement === props.placement,
+  );
+  if (controlsForPlacement.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      {controlsForPlacement.map((control) => (
+        <PluginCanvasControlRendererHost
+          key={`${control.pluginId}:${control.id}`}
+          control={control}
+        />
+      ))}
+      <ControlsDivider />
+    </>
+  );
 }
 
 function EdgeControls(props: {
@@ -363,6 +474,7 @@ const Controls = () => {
   const chatSharedEdgeMode = useLocalStorage((x) => x.chatSharedEdgeMode);
   const showMinimap = useLocalStorage((x) => x.showMinimap);
   const minimapSide = useLocalStorage((x) => x.minimapSide);
+  const pluginCanvasControls = usePluginCanvasControls();
   const watchCodeEnabled = useProjectState(
     (state) => state.projectConfig.watchCodeEnabled,
   );
@@ -581,11 +693,23 @@ const Controls = () => {
         watchCodeEnabled={watchCodeEnabled}
         setWatchCodePortalOpen={setWatchCodePortalOpen}
       />
+      <PluginCanvasControls
+        controls={pluginCanvasControls}
+        placement={PluginCanvasControlPlacementEnum.Project}
+      />
       <ViewportControls
         fitViewOnInit={fitViewOnInit}
         maxZoomReached={maxZoomReached}
         minZoomReached={minZoomReached}
         snapToGrid={snapToGrid}
+      />
+      <PluginCanvasControls
+        controls={pluginCanvasControls}
+        placement={PluginCanvasControlPlacementEnum.Viewport}
+      />
+      <PluginCanvasControls
+        controls={pluginCanvasControls}
+        placement={PluginCanvasControlPlacementEnum.Utility}
       />
       <MiniMapControls minimapSide={minimapSide} showMinimap={showMinimap} />
       <WatchCodePortal

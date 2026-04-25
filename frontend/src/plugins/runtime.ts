@@ -40,9 +40,12 @@ import {
 } from "./runtimeInternal";
 import {
   computePluginSectionFallbackReason,
+  PluginCanvasControlPlacementEnum,
   toPluginSectionKindKey,
+  type PluginCanvasControlPlacement,
   type PluginSectionFallbackReason,
   type PluginServerMode,
+  type RegisteredPluginCanvasControl,
   type RegisteredPluginPane,
 } from "./runtimeShared";
 
@@ -52,7 +55,11 @@ export type {
   RegisteredPluginCommand,
   RegisteredPluginSectionKind,
 } from "./runtimeInternal";
-export type { PluginServerMode } from "./runtimeShared";
+export { PluginCanvasControlPlacementEnum } from "./runtimeShared";
+export type {
+  PluginServerMode,
+  RegisteredPluginCanvasControl,
+} from "./runtimeShared";
 
 export type PluginPaneTabEntry = {
   tabKey: string;
@@ -69,6 +76,7 @@ type SortedRuntimeViews = {
   sortedPaneTabs: PluginPaneTabEntry[];
   sortedCommands: RegisteredPluginCommand[];
   sortedTopNavBarItems: RegisteredPluginTopNavBarItem[];
+  sortedCanvasControls: RegisteredPluginCanvasControl[];
 };
 
 type PluginRuntimeStatus = "idle" | "loading" | "loaded" | "error";
@@ -103,6 +111,8 @@ type PluginRuntimeStore = {
   sortedCommands: RegisteredPluginCommand[];
   topNavBarItemsByPluginId: Record<string, RegisteredPluginTopNavBarItem[]>;
   sortedTopNavBarItems: RegisteredPluginTopNavBarItem[];
+  canvasControlsByPluginId: Record<string, RegisteredPluginCanvasControl[]>;
+  sortedCanvasControls: RegisteredPluginCanvasControl[];
   frontendErrorsByPluginId: Record<string, PluginFrontendError>;
 };
 
@@ -129,6 +139,8 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   sortedCommands: [],
   topNavBarItemsByPluginId: {},
   sortedTopNavBarItems: [],
+  canvasControlsByPluginId: {},
+  sortedCanvasControls: [],
   frontendErrorsByPluginId: {},
 };
 
@@ -316,6 +328,7 @@ async function applyPluginRuntimeResponse(
     panes: {},
     commands: {},
     topNavBarItems: {},
+    canvasControls: {},
   };
   const frontendErrorsByPluginId: Record<string, PluginFrontendError> = {};
   const sectionKindKeysByPluginId = indexSectionKindKeysByPluginId(
@@ -428,6 +441,8 @@ async function applyPluginRuntimeResponse(
     sortedCommands: sortedRuntimeViews.sortedCommands,
     topNavBarItemsByPluginId: registryAccumulator.topNavBarItems,
     sortedTopNavBarItems: sortedRuntimeViews.sortedTopNavBarItems,
+    canvasControlsByPluginId: registryAccumulator.canvasControls,
+    sortedCanvasControls: sortedRuntimeViews.sortedCanvasControls,
     frontendErrorsByPluginId,
   }));
 
@@ -480,6 +495,8 @@ function buildClearedRuntimeState(
     sortedCommands: [],
     topNavBarItemsByPluginId: {},
     sortedTopNavBarItems: [],
+    canvasControlsByPluginId: {},
+    sortedCanvasControls: [],
     frontendErrorsByPluginId: {},
   };
 }
@@ -567,22 +584,20 @@ function mergeRegistryDelta(
   for (const [key, value] of Object.entries(delta.sectionKinds)) {
     target.sectionKinds[key] = value;
   }
-  for (const [pluginId, panes] of Object.entries(delta.panes)) {
-    const existingPanes = target.panes[pluginId] ?? [];
-    existingPanes.push(...panes);
-    target.panes[pluginId] = existingPanes;
-  }
-  for (const [pluginId, commands] of Object.entries(delta.commands)) {
-    const existingCommands = target.commands[pluginId] ?? [];
-    existingCommands.push(...commands);
-    target.commands[pluginId] = existingCommands;
-  }
-  for (const [pluginId, topNavBarItems] of Object.entries(
-    delta.topNavBarItems,
-  )) {
-    const existingTopNavBarItems = target.topNavBarItems[pluginId] ?? [];
-    existingTopNavBarItems.push(...topNavBarItems);
-    target.topNavBarItems[pluginId] = existingTopNavBarItems;
+  appendRegistryEntriesByPluginId(target.panes, delta.panes);
+  appendRegistryEntriesByPluginId(target.commands, delta.commands);
+  appendRegistryEntriesByPluginId(target.topNavBarItems, delta.topNavBarItems);
+  appendRegistryEntriesByPluginId(target.canvasControls, delta.canvasControls);
+}
+
+function appendRegistryEntriesByPluginId<TEntry>(
+  target: Record<string, TEntry[]>,
+  delta: Record<string, TEntry[]>,
+): void {
+  for (const [pluginId, entries] of Object.entries(delta)) {
+    const existingEntries = target[pluginId] ?? [];
+    existingEntries.push(...entries);
+    target[pluginId] = existingEntries;
   }
 }
 
@@ -617,6 +632,10 @@ function mergePluginRegistryFromState(
   const topNavBarItems = state.topNavBarItemsByPluginId[pluginId];
   if (topNavBarItems) {
     target.topNavBarItems[pluginId] = topNavBarItems;
+  }
+  const canvasControls = state.canvasControlsByPluginId[pluginId];
+  if (canvasControls) {
+    target.canvasControls[pluginId] = canvasControls;
   }
 }
 
@@ -1050,6 +1069,10 @@ function deriveSortedRuntimeViews({
     registryAccumulator.topNavBarItems,
     previousState.topNavBarItemsByPluginId,
   );
+  const canvasControlsUnchanged = hasSameRecordValueReferences(
+    registryAccumulator.canvasControls,
+    previousState.canvasControlsByPluginId,
+  );
   return {
     sortedPluginListEntries,
     sortedSectionKinds: sectionKindsUnchanged
@@ -1064,6 +1087,9 @@ function deriveSortedRuntimeViews({
     sortedTopNavBarItems: topNavBarItemsUnchanged
       ? previousState.sortedTopNavBarItems
       : toSortedPluginTopNavBarItems(registryAccumulator.topNavBarItems),
+    sortedCanvasControls: canvasControlsUnchanged
+      ? previousState.sortedCanvasControls
+      : toSortedPluginCanvasControls(registryAccumulator.canvasControls),
   };
 }
 
@@ -1205,6 +1231,46 @@ function toSortedPluginTopNavBarItems(
   return values;
 }
 
+const pluginCanvasControlPlacementRank: Record<
+  PluginCanvasControlPlacement,
+  number
+> = {
+  [PluginCanvasControlPlacementEnum.Project]: 0,
+  [PluginCanvasControlPlacementEnum.Viewport]: 1,
+  [PluginCanvasControlPlacementEnum.Utility]: 2,
+};
+
+function toSortedPluginCanvasControls(
+  canvasControlsByPluginId: Record<string, RegisteredPluginCanvasControl[]>,
+): RegisteredPluginCanvasControl[] {
+  const values: RegisteredPluginCanvasControl[] = [];
+  for (const canvasControlEntries of Object.values(canvasControlsByPluginId)) {
+    values.push(...canvasControlEntries);
+  }
+  values.sort((a, b) => {
+    const placementDelta =
+      pluginCanvasControlPlacementRank[a.placement] -
+      pluginCanvasControlPlacementRank[b.placement];
+    if (placementDelta !== 0) {
+      return placementDelta;
+    }
+    const orderDelta = (a.order ?? 0) - (b.order ?? 0);
+    if (orderDelta !== 0) {
+      return orderDelta;
+    }
+    const byLabel = a.label.localeCompare(b.label);
+    if (byLabel !== 0) {
+      return byLabel;
+    }
+    const byPlugin = a.pluginId.localeCompare(b.pluginId);
+    if (byPlugin !== 0) {
+      return byPlugin;
+    }
+    return a.id.localeCompare(b.id);
+  });
+  return values;
+}
+
 function buildPluginRequestErrorMessage(
   label: string,
   response: { status: number | undefined; hasResponse: boolean },
@@ -1239,6 +1305,10 @@ export function usePluginCommands(): RegisteredPluginCommand[] {
 
 export function usePluginTopNavBarItems(): RegisteredPluginTopNavBarItem[] {
   return usePluginRuntimeStore((state) => state.sortedTopNavBarItems);
+}
+
+export function usePluginCanvasControls(): RegisteredPluginCanvasControl[] {
+  return usePluginRuntimeStore((state) => state.sortedCanvasControls);
 }
 
 export function usePluginListEntries(): PluginListEntry[] {
