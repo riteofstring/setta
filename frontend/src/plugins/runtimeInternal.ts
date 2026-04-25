@@ -27,6 +27,7 @@ import {
   type PluginPaneIconName,
 } from "./paneIcons";
 import {
+  comparePluginCanvasControls,
   isPluginCanvasControlPlacement,
   PluginCanvasControlPlacementEnum,
   PluginFrontendErrorCodeEnum,
@@ -1433,7 +1434,7 @@ function registerPluginModule({
     });
   }
   for (const canvasControls of Object.values(registryDelta.canvasControls)) {
-    canvasControls.sort(compareCanvasControlDefinitions);
+    canvasControls.sort(comparePluginCanvasControls);
   }
 
   return registryDelta;
@@ -1675,37 +1676,6 @@ function validateTopNavBarItemDefinition(
     topNavBarItem.order = definition.order;
   }
   return topNavBarItem;
-}
-
-const canvasControlPlacementRank: Record<string, number> = {
-  [PluginCanvasControlPlacementEnum.Project]: 0,
-  [PluginCanvasControlPlacementEnum.Viewport]: 1,
-  [PluginCanvasControlPlacementEnum.Utility]: 2,
-};
-
-function compareCanvasControlDefinitions(
-  left: RegisteredPluginCanvasControl,
-  right: RegisteredPluginCanvasControl,
-): number {
-  const placementDelta =
-    canvasControlPlacementRank[left.placement] -
-    canvasControlPlacementRank[right.placement];
-  if (placementDelta !== 0) {
-    return placementDelta;
-  }
-  const orderDelta = (left.order ?? 0) - (right.order ?? 0);
-  if (orderDelta !== 0) {
-    return orderDelta;
-  }
-  const byLabel = left.label.localeCompare(right.label);
-  if (byLabel !== 0) {
-    return byLabel;
-  }
-  const byPlugin = left.pluginId.localeCompare(right.pluginId);
-  if (byPlugin !== 0) {
-    return byPlugin;
-  }
-  return left.id.localeCompare(right.id);
 }
 
 function validateCanvasControlDefinition(

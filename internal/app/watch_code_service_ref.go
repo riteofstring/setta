@@ -60,10 +60,3 @@ func (r *watchCodeServiceRef) SyncConfigs(configs map[string]watchcode.ConfigInp
 	}
 	return r.service.SyncConfigs(configs)
 }
-
-func closeWatchCodeServiceResource(ref *watchCodeServiceRef, fallback *watchcode.Service) error {
-	if ref != nil {
-		return ref.Close()
-	}
-	return closeWatchCodeService(fallback)
-}

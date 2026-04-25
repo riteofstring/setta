@@ -42,10 +42,9 @@ import {
   shouldLoadPluginFrontend,
 } from "./runtimeInternal";
 import {
+  comparePluginCanvasControls,
   computePluginSectionFallbackReason,
-  PluginCanvasControlPlacementEnum,
   toPluginSectionKindKey,
-  type PluginCanvasControlPlacement,
   type PluginSectionFallbackReason,
   type PluginServerMode,
   type RegisteredPluginCanvasControl,
@@ -1234,15 +1233,6 @@ function toSortedPluginTopNavBarItems(
   return values;
 }
 
-const pluginCanvasControlPlacementRank: Record<
-  PluginCanvasControlPlacement,
-  number
-> = {
-  [PluginCanvasControlPlacementEnum.Project]: 0,
-  [PluginCanvasControlPlacementEnum.Viewport]: 1,
-  [PluginCanvasControlPlacementEnum.Utility]: 2,
-};
-
 function toSortedPluginCanvasControls(
   canvasControlsByPluginId: Record<string, RegisteredPluginCanvasControl[]>,
 ): RegisteredPluginCanvasControl[] {
@@ -1250,27 +1240,7 @@ function toSortedPluginCanvasControls(
   for (const canvasControlEntries of Object.values(canvasControlsByPluginId)) {
     values.push(...canvasControlEntries);
   }
-  values.sort((a, b) => {
-    const placementDelta =
-      pluginCanvasControlPlacementRank[a.placement] -
-      pluginCanvasControlPlacementRank[b.placement];
-    if (placementDelta !== 0) {
-      return placementDelta;
-    }
-    const orderDelta = (a.order ?? 0) - (b.order ?? 0);
-    if (orderDelta !== 0) {
-      return orderDelta;
-    }
-    const byLabel = a.label.localeCompare(b.label);
-    if (byLabel !== 0) {
-      return byLabel;
-    }
-    const byPlugin = a.pluginId.localeCompare(b.pluginId);
-    if (byPlugin !== 0) {
-      return byPlugin;
-    }
-    return a.id.localeCompare(b.id);
-  });
+  values.sort(comparePluginCanvasControls);
   return values;
 }
 

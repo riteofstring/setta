@@ -3,6 +3,7 @@ package uisettings
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,6 +15,7 @@ type testPluginRuntimeService struct {
 	writeConfigCalls  int
 	backendUISettings []plugins.PluginRegisteredUISetting
 	backendReadValue  any
+	backendWriteValue func(any) any
 	backendWriteCalls int
 }
 
@@ -45,7 +47,11 @@ func (s *testPluginRuntimeService) ReadBackendUISettingValue(_ context.Context, 
 
 func (s *testPluginRuntimeService) WriteBackendUISettingValue(_ context.Context, options plugins.BackendUISettingWriteOptions) error {
 	s.backendWriteCalls++
-	s.backendReadValue = cloneJSONValue(options.Value)
+	if s.backendWriteValue != nil {
+		s.backendReadValue = cloneJSONValue(s.backendWriteValue(options.Value))
+	} else {
+		s.backendReadValue = cloneJSONValue(options.Value)
+	}
 	return nil
 }
 
@@ -407,5 +413,57 @@ func TestBuildPluginBackendRuntimeEntryStalePreconditionUsesCanonicalSettingID(t
 	}
 	if service.backendWriteCalls != 0 {
 		t.Fatalf("expected no backend writes, got %d", service.backendWriteCalls)
+	}
+}
+
+func TestBuildPluginBackendRuntimeEntryReturnsBackendNormalizedValue(t *testing.T) {
+	t.Parallel()
+
+	writeHandlerID := "write-files"
+	service := &testPluginRuntimeService{
+		runtimeResponse:  newActivePluginRuntimeResponse(map[string]any{}),
+		backendReadValue: []any{},
+		backendWriteValue: func(value any) any {
+			if reflect.DeepEqual(value, []any{"pkg/./file.py"}) {
+				return []any{"pkg/file.py"}
+			}
+			return value
+		},
+	}
+	entry := buildPluginBackendRuntimeEntry(service, plugins.PluginRegisteredUISetting{
+		LocalSettingID: "files",
+		PluginID:       "plugin-a",
+		Title:          "Files",
+		Description:    "Test files setting",
+		PaneID:         "plugin-pane",
+		RevealKey:      "files",
+		Mutability:     string(MutabilityWritable),
+		ValueSchema: map[string]any{
+			"type": "array",
+			"items": map[string]any{
+				"type": "string",
+			},
+		},
+		ReadHandlerID:  "read-files",
+		WriteHandlerID: &writeHandlerID,
+	})
+
+	result, err := entry.WriteValue(context.Background(), "project-1", []any{"pkg/./file.py"}, nil)
+	if err != nil {
+		t.Fatalf("write backend value: %v", err)
+	}
+
+	expected := []any{"pkg/file.py"}
+	if !reflect.DeepEqual(result.NewValue, expected) {
+		t.Fatalf("expected normalized new value %#v, got %#v", expected, result.NewValue)
+	}
+	if !reflect.DeepEqual(result.NormalizedValue, expected) {
+		t.Fatalf("expected normalized value %#v, got %#v", expected, result.NormalizedValue)
+	}
+	if reflect.DeepEqual(result.NormalizedValue, []any{"pkg/./file.py"}) {
+		t.Fatalf("normalized value should not echo raw request: %#v", result.NormalizedValue)
+	}
+	if !result.Changed {
+		t.Fatal("expected backend write to report changed")
 	}
 }

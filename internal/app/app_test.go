@@ -8778,7 +8778,7 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 		}
 	})
 
-	if app.watchCode == nil {
+	if app.watchCodeRef.Current() == nil {
 		t.Fatal("expected IDE app to start watch code service")
 	}
 
@@ -8834,7 +8834,7 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 		}
 	})
 
-	if app.watchCode != nil {
+	if app.watchCodeRef.Current() != nil {
 		t.Fatal("did not expect IDE app without watch code provider to start watch code service")
 	}
 	snapshot := app.ProjectStates().Main().Snapshot()
@@ -9107,7 +9107,7 @@ func TestAppSetWatchCodeEnabledCoreRouteIsAbsent(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	if app.watchCode != nil {
+	if app.watchCodeRef.Current() != nil {
 		t.Fatal("did not expect watch code service without provider")
 	}
 
@@ -9148,6 +9148,222 @@ func TestAppSetWatchCodeEnabledCoreRouteIsAbsent(t *testing.T) {
 	}
 }
 
+func TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+	const providerPluginID = "setta-watch-code"
+	installAppRepoPlugin(t, cfg, providerPluginID)
+
+	trackedDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
+	settaFilesDir := filepath.Join(cfg.Paths.SettaFilesRoot, "ignored")
+	runtimeDir := filepath.Join(cfg.Paths.RuntimeRoot, "ignored")
+	for path, content := range map[string]string{
+		filepath.Join(trackedDir, "tracked.py"):    "def tracked(value):\n    return value\n",
+		filepath.Join(settaFilesDir, "ignored.py"): "def setta_ignored(value):\n    return value\n",
+		filepath.Join(runtimeDir, "ignored.py"):    "def runtime_ignored(value):\n    return value\n",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir %q: %v", filepath.Dir(path), err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+	settaFilesRel, err := filepath.Rel(cfg.Paths.WorkspaceRoot, settaFilesDir)
+	if err != nil {
+		t.Fatalf("rel setta files dir: %v", err)
+	}
+	runtimeRel, err := filepath.Rel(cfg.Paths.WorkspaceRoot, runtimeDir)
+	if err != nil {
+		t.Fatalf("rel runtime dir: %v", err)
+	}
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	cookie := newAppTestAuthCookie(t, app)
+
+	inputsPayload := fmt.Sprintf(
+		`{"projectConfigId":"project-alpha","watchCodeFolders":[{"path":"pkg","recursive":true},{"path":%q,"recursive":true},{"path":%q,"recursive":true}],"watchCodeFiles":[],"frontendOpId":"watch-inputs-op"}`,
+		filepath.ToSlash(settaFilesRel),
+		filepath.ToSlash(runtimeRel),
+	)
+	inputsResponse := postAppWatchCodePluginRoute(t, server.URL, cookie, providerPluginID, "inputs", inputsPayload)
+	if inputsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(inputsResponse.Body)
+		inputsResponse.Body.Close()
+		t.Fatalf("expected inputs route 200, got %d with body %q", inputsResponse.StatusCode, string(body))
+	}
+	inputsResponse.Body.Close()
+
+	enabledResponse := postAppWatchCodePluginRoute(t, server.URL, cookie, providerPluginID, "enabled", `{"projectConfigId":"project-alpha","enabled":true,"frontendOpId":"watch-enable-op"}`)
+	defer enabledResponse.Body.Close()
+	if enabledResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(enabledResponse.Body)
+		t.Fatalf("expected enabled route 200, got %d with body %q", enabledResponse.StatusCode, string(body))
+	}
+	var routeBody struct {
+		ProjectData projectstate.WatchCodePluginProjectData `json:"projectData"`
+	}
+	if err := json.NewDecoder(enabledResponse.Body).Decode(&routeBody); err != nil {
+		t.Fatalf("decode enabled route response: %v", err)
+	}
+	if !routeBody.ProjectData.Enabled {
+		t.Fatalf("expected enabled project data in response, got %#v", routeBody.ProjectData)
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	projectData, _, err := snapshot.Document.WatchCodePluginProjectData(providerPluginID, "project-alpha")
+	if err != nil {
+		t.Fatalf("read live watch code plugin data: %v", err)
+	}
+	if !projectData.Enabled {
+		t.Fatalf("expected live runtime plugin data enabled, got %#v", projectData)
+	}
+	if _, ok := projectData.BaselineByPath[filepath.Join(trackedDir, "tracked.py")]; !ok {
+		t.Fatalf("expected tracked file baseline, got %#v", projectData.BaselineByPath)
+	}
+	for _, ignored := range []string{
+		filepath.Join(settaFilesDir, "ignored.py"),
+		filepath.Join(runtimeDir, "ignored.py"),
+	} {
+		if _, ok := projectData.BaselineByPath[ignored]; ok {
+			t.Fatalf("expected ignored root path %q to stay out of baseline %#v", ignored, projectData.BaselineByPath)
+		}
+	}
+	status := app.ProjectStates().Main().FrontendOpStatus()
+	if !slices.Contains(status.Completed, "watch-enable-op") {
+		t.Fatalf("expected completed frontend op in live runtime status, got %#v", status)
+	}
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.Name = "Alpha Renamed"
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("perform unrelated app runtime save: %v", err)
+	}
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project state paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	persisted, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted project state: %v", err)
+	}
+	persistedProjectData, _, err := persisted.WatchCodePluginProjectData(providerPluginID, "project-alpha")
+	if err != nil {
+		t.Fatalf("read persisted watch code plugin data: %v", err)
+	}
+	if !persistedProjectData.Enabled ||
+		!reflect.DeepEqual(persistedProjectData.Files, projectData.Files) ||
+		!reflect.DeepEqual(persistedProjectData.Folders, projectData.Folders) {
+		t.Fatalf("expected plugin data to survive app save, got %#v", persistedProjectData)
+	}
+}
+
+func TestAppSetCallableRouteSyncsActiveWatchCodeProviderRegistry(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": appWatchCodeCallableRegistryProject(t),
+		},
+	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Registry: map[string]projectstate.WatchCodeRegistryEntry{
+			"pkg.target.target_callable:function": {
+				CallableName:  "target_callable",
+				Kind:          projectstate.WatchCodeCallableKindFunction,
+				SignatureHash: "sig",
+				BodyHash:      "body",
+				SourcePath:    "pkg/target.py",
+			},
+		},
+	})
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetCallable,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"callable-section","callableName":"target_callable","refetchParams":false}`),
+	)
+	if err != nil {
+		t.Fatalf("new setCallable request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(newAppTestAuthCookie(t, app))
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post setCallable: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected setCallable 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	projectData := readAppWatchCodePluginProjectData(t, app.ProjectStates().Main().Snapshot().Document, "project-alpha")
+	entry := projectData.Registry["pkg.target.target_callable:function"]
+	if !reflect.DeepEqual(entry.SectionIDs, []string{"callable-section"}) || entry.SectionsCount != 1 {
+		t.Fatalf("expected active provider registry membership, got %#v", entry)
+	}
+}
+
 func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -9169,7 +9385,7 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 		}
 	})
 
-	if app.watchCode == nil {
+	if app.watchCodeRef.Current() == nil {
 		t.Fatal("expected IDE app to start watch code service")
 	}
 
@@ -9377,7 +9593,7 @@ func TestAppSetCodeRouteSkipsWatchCodeBoundSectionUpdateWithoutProvider(t *testi
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	if app.watchCode != nil {
+	if app.watchCodeRef.Current() != nil {
 		t.Fatal("did not expect watch code service without provider")
 	}
 
@@ -9720,7 +9936,7 @@ func TestAppLauncherDoesNotStartWatchCodeService(t *testing.T) {
 		}
 	})
 
-	if app.watchCode != nil {
+	if app.watchCodeRef.Current() != nil {
 		t.Fatal("did not expect launcher mode to start watch code service")
 	}
 }
@@ -12943,6 +13159,34 @@ func postAppPluginLifecycle(t *testing.T, app *App, serverURL string, route stri
 	}
 }
 
+func postAppWatchCodePluginRoute(
+	t *testing.T,
+	serverURL string,
+	cookie *http.Cookie,
+	pluginID string,
+	route string,
+	body string,
+) *http.Response {
+	t.Helper()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		serverURL+"/plugins/"+pluginID+"/watch-code/"+route,
+		strings.NewReader(body),
+	)
+	if err != nil {
+		t.Fatalf("new watch code plugin route request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(cookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post watch code plugin route: %v", err)
+	}
+	return response
+}
+
 func postAppPluginConfig(t *testing.T, serverURL string, cookie *http.Cookie, pluginID string, config any) *http.Response {
 	t.Helper()
 
@@ -13509,6 +13753,88 @@ func seedAppWatchCodeBoundSectionProject(t *testing.T, app *App) {
 	}); err != nil {
 		t.Fatalf("mutate watch code bound section project: %v", err)
 	}
+}
+
+func appWatchCodeCallableRegistryProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"callable-section": "callable-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"callable-section": {
+				ID:               "callable-section",
+				Name:             "Callable",
+				VariantIDs:       []string{"callable-variant"},
+				DefaultVariantID: "callable-variant",
+				UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"callable-variant": {
+				ID:     "callable-variant",
+				ImplID: "callable-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"callable-impl": {
+				ID:   "callable-impl",
+				Kind: projectstate.SectionKind("callable"),
+				Payload: mustAppJSON(t, map[string]any{
+					"id":       "callable-impl",
+					"type":     "Callable",
+					"callable": "seed-callable",
+					"codeObjVariantMap": map[string]string{
+						"seed-callable":   "seed-callable-variant",
+						"target-callable": "target-callable-variant",
+					},
+				}),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"seed-callable": {
+				ID:               "seed-callable",
+				Name:             "seed_callable",
+				VariantIDs:       []string{"seed-callable-variant"},
+				DefaultVariantID: "seed-callable-variant",
+			},
+			"target-callable": {
+				ID:               "target-callable",
+				Name:             "target_callable",
+				VariantIDs:       []string{"target-callable-variant"},
+				DefaultVariantID: "target-callable-variant",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"seed-callable-variant": {
+				ID:     "seed-callable-variant",
+				ImplID: "seed-callable-impl",
+			},
+			"target-callable-variant": {
+				ID:     "target-callable-variant",
+				ImplID: "target-callable-impl",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"seed-callable-impl": {
+				ID:      "seed-callable-impl",
+				Type:    "CodeCallable",
+				Payload: mustAppJSON(t, map[string]any{"id": "seed-callable-impl", "type": "CodeCallable", "children": []string{}}),
+			},
+			"target-callable-impl": {
+				ID:      "target-callable-impl",
+				Type:    "CodeCallable",
+				Payload: mustAppJSON(t, map[string]any{"id": "target-callable-impl", "type": "CodeCallable", "children": []string{}}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize callable registry project: %v", err)
+	}
+	return project
 }
 
 func seedAppRootWatchCodeBoundSectionProject(t *testing.T, app *App) {

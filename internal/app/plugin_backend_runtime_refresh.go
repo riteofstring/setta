@@ -60,6 +60,7 @@ type pluginMutationRuntimeService struct {
 	refresher                *pluginBackendRuntimeRefresher
 	appSubsystemCapabilities *appSubsystemCapabilityState
 	watchCodeCapabilities    *watchCodeCapabilityState
+	watchCodeBackendHost     *watchCodeBackendRouteHost
 
 	opMu                 sync.Mutex
 	mu                   sync.RWMutex
@@ -264,6 +265,12 @@ func (s *pluginMutationRuntimeService) DispatchRegisteredBackendRoute(
 	ctx context.Context,
 	request plugins.BackendHTTPRequest,
 ) (plugins.BackendHTTPResponse, bool, error) {
+	if s.watchCodeBackendHost != nil {
+		response, handled, err := s.watchCodeBackendHost.intercept(ctx, request)
+		if handled || err != nil {
+			return response, handled, err
+		}
+	}
 	snapshot, err := s.currentSnapshot()
 	if err != nil {
 		return plugins.BackendHTTPResponse{}, false, err
@@ -566,6 +573,12 @@ func (s *pluginMutationRuntimeService) GetBackendUISettings(pluginID string) ([]
 }
 
 func (s *pluginMutationRuntimeService) ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
+	if s.watchCodeBackendHost != nil {
+		value, handled, err := s.watchCodeBackendHost.readUISettingValue(options)
+		if handled || err != nil {
+			return value, err
+		}
+	}
 	snapshot, err := s.currentSnapshot()
 	if err != nil {
 		return nil, err
@@ -574,6 +587,12 @@ func (s *pluginMutationRuntimeService) ReadBackendUISettingValue(ctx context.Con
 }
 
 func (s *pluginMutationRuntimeService) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
+	if s.watchCodeBackendHost != nil {
+		handled, err := s.watchCodeBackendHost.writeUISettingValue(ctx, options)
+		if handled || err != nil {
+			return err
+		}
+	}
 	snapshot, err := s.currentSnapshot()
 	if err != nil {
 		return err

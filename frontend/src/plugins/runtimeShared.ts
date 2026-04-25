@@ -55,7 +55,7 @@ export const PluginCanvasControlPlacementEnum = {
   Utility: "utility",
 } as const;
 
-export type PluginCanvasControlPlacement =
+type PluginCanvasControlPlacement =
   (typeof PluginCanvasControlPlacementEnum)[keyof typeof PluginCanvasControlPlacementEnum];
 
 export function isPluginCanvasControlPlacement(
@@ -96,6 +96,40 @@ export type RegisteredPluginCanvasControl = PluginCanvasControlDefinition & {
   pluginId: string;
   placement: PluginCanvasControlPlacement;
 };
+
+const pluginCanvasControlPlacementRank: Record<
+  PluginCanvasControlPlacement,
+  number
+> = {
+  [PluginCanvasControlPlacementEnum.Project]: 0,
+  [PluginCanvasControlPlacementEnum.Viewport]: 1,
+  [PluginCanvasControlPlacementEnum.Utility]: 2,
+};
+
+export function comparePluginCanvasControls(
+  left: RegisteredPluginCanvasControl,
+  right: RegisteredPluginCanvasControl,
+): number {
+  const placementDelta =
+    pluginCanvasControlPlacementRank[left.placement] -
+    pluginCanvasControlPlacementRank[right.placement];
+  if (placementDelta !== 0) {
+    return placementDelta;
+  }
+  const orderDelta = (left.order ?? 0) - (right.order ?? 0);
+  if (orderDelta !== 0) {
+    return orderDelta;
+  }
+  const byLabel = left.label.localeCompare(right.label);
+  if (byLabel !== 0) {
+    return byLabel;
+  }
+  const byPlugin = left.pluginId.localeCompare(right.pluginId);
+  if (byPlugin !== 0) {
+    return byPlugin;
+  }
+  return left.id.localeCompare(right.id);
+}
 
 type PluginSectionFallbackState = {
   pluginStatusById: Record<

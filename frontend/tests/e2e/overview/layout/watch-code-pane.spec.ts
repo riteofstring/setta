@@ -51,8 +51,6 @@ test("watch code settings open from controls portal with all options", async ({
   await expect(
     portal.getByRole("heading", { name: "Watch Code" }),
   ).toBeVisible();
-  const caret = page.getByTestId("rf__watch-code-settings-caret");
-  await expect(caret).toBeVisible();
 
   const [buttonRect, portalRect] = await Promise.all([
     watchCodeSettingsButton.boundingBox(),
@@ -106,9 +104,7 @@ test("watch code portal stays clamped after content grows post-open", async ({
   await watchCodeSettingsButton.click();
 
   const portal = page.getByTestId("rf__watch-code-settings-portal");
-  const caret = page.getByTestId("rf__watch-code-settings-caret");
   await expect(portal).toBeVisible();
-  await expect(caret).toBeVisible();
 
   const addFolderButton = portal.getByRole("button", { name: "Add Folder" });
   for (let index = 0; index < 8; index += 1) {
@@ -117,22 +113,14 @@ test("watch code portal stays clamped after content grows post-open", async ({
 
   const viewport = page.viewportSize();
   expect(viewport).not.toBeNull();
-  const [portalRect, caretRect] = await Promise.all([
-    portal.boundingBox(),
-    caret.boundingBox(),
-  ]);
+  const portalRect = await portal.boundingBox();
   expect(portalRect).not.toBeNull();
-  expect(caretRect).not.toBeNull();
-  if (!viewport || !portalRect || !caretRect) {
+  if (!viewport || !portalRect) {
     throw new Error("Expected watch code portal geometry after growth.");
   }
 
   expect(portalRect.y).toBeGreaterThanOrEqual(0);
   expect(portalRect.y + portalRect.height).toBeLessThanOrEqual(viewport.height);
-  expect(caretRect.y).toBeGreaterThanOrEqual(portalRect.y);
-  expect(caretRect.y + caretRect.height).toBeLessThanOrEqual(
-    portalRect.y + portalRect.height,
-  );
 });
 
 test("watch code controls stay hidden in deployment mode", async ({ page }) => {

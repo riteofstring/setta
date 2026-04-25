@@ -675,7 +675,7 @@ func writePluginBackendRuntimeValue(
 		return MutationResult{}, err
 	}
 	if valuesEqualJSON(oldValue, value) {
-		return buildMutationResult(oldValue, oldValue, value), nil
+		return buildMutationResult(oldValue, oldValue, oldValue), nil
 	}
 
 	if err := pluginService.WriteBackendUISettingValue(ctx, plugins.BackendUISettingWriteOptions{
@@ -703,7 +703,7 @@ func writePluginBackendRuntimeValue(
 			err,
 		)
 	}
-	return buildMutationResult(oldValue, newValue, value), nil
+	return buildMutationResult(oldValue, newValue, newValue), nil
 }
 
 func readValidatedPluginBackendUISettingValue(

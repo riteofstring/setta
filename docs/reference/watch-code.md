@@ -48,9 +48,11 @@ Input rules:
 - Only `.py` files are considered.
 - Default ignore dirs: `node_modules`, `.venv`, `setta_files`, `__pycache__`.
 
-The UI writes inputs via `route_set_watch_code_enabled` and
-`route_set_watch_code_inputs`. When inputs change, the backend baselines only the
-new additions (so existing callables don't auto-create sections).
+The plugin UI writes inputs through its backend routes with
+`fetchBackendRoute("/watch-code/enabled")` and
+`fetchBackendRoute("/watch-code/inputs")`. When inputs change, the backend
+baselines only the new additions (so existing callables don't auto-create
+sections).
 
 ## UI surface
 - Watch Code no longer has its own Overview tab.
