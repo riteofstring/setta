@@ -45,6 +45,7 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
 import { loadProjectState } from "state/actions/project/loadProject";
+import * as watchCodeActions from "state/actions/project/watchCode";
 import * as realtimeDependencySend from "state/actions/realtimeDependencySend";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import { useActiveSectionUI } from "state/activeSectionUI";
@@ -369,6 +370,15 @@ type CapturedPluginHost = {
       throttleMs?: number;
     },
   ) => () => void;
+  setWatchCodeEnabled: (payload: {
+    projectConfigId: string;
+    enabled: boolean;
+  }) => Promise<boolean>;
+  setWatchCodeInputs: (payload: {
+    projectConfigId: string;
+    watchCodeFolders: Array<{ path: string; recursive: boolean }>;
+    watchCodeFiles: string[];
+  }) => Promise<boolean>;
   emitRealtimeDependencyEvent: (event: Record<string, unknown>) => void;
   emitSectionRealtimeValue: (
     sectionId: string,
@@ -450,7 +460,7 @@ async function loadPluginRevealHandlerFixture(
         entrypointUrl: moduleUrl,
         styleUrl: null,
       },
-      effectiveCapabilities: ["registerPane"],
+      effectiveCapabilities: ["registerSettingRevealHandler"],
     }),
     "ide",
   );
@@ -2788,9 +2798,76 @@ describe("plugin runtime helpers", () => {
       PluginFrontendErrorCodeEnum.CapabilityDenied,
     );
     await expect(
+      host.setWatchCodeEnabled({
+        projectConfigId: "project-alpha",
+        enabled: true,
+      }),
+    ).rejects.toMatchObject({
+      code: PluginFrontendErrorCodeEnum.CapabilityDenied,
+    });
+    await expect(
+      host.setWatchCodeInputs({
+        projectConfigId: "project-alpha",
+        watchCodeFolders: [],
+        watchCodeFiles: [],
+      }),
+    ).rejects.toMatchObject({
+      code: PluginFrontendErrorCodeEnum.CapabilityDenied,
+    });
+    await expect(
       host.createArtifact({ kind: "artifact" }),
     ).rejects.toMatchObject({
       code: PluginFrontendErrorCodeEnum.CapabilityDenied,
+    });
+  });
+  it("delegates Watch Code setting mutations through the generated host actions", async () => {
+    const setEnabled = vi
+      .spyOn(watchCodeActions, "setWatchCodeEnabled")
+      .mockResolvedValue(true);
+    const setInputs = vi
+      .spyOn(watchCodeActions, "setWatchCodeInputs")
+      .mockResolvedValue(true);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["mutateWatchCodeSettings"],
+    });
+    const result = await loadPluginFrontendModule(plugin, "ide");
+    expect(result?.error).toBeNull();
+    const host = getCapturedPluginHost();
+
+    await expect(
+      host.setWatchCodeEnabled({
+        projectConfigId: "project-alpha",
+        enabled: true,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      host.setWatchCodeInputs({
+        projectConfigId: "project-alpha",
+        watchCodeFolders: [{ path: "pkg", recursive: true }],
+        watchCodeFiles: ["pkg/mod.py"],
+      }),
+    ).resolves.toBe(true);
+
+    expect(setEnabled).toHaveBeenCalledWith({
+      projectConfigId: "project-alpha",
+      enabled: true,
+    });
+    expect(setInputs).toHaveBeenCalledWith({
+      projectConfigId: "project-alpha",
+      watchCodeFolders: [{ path: "pkg", recursive: true }],
+      watchCodeFiles: ["pkg/mod.py"],
     });
   });
   it("exposes createStore on the plugin host", async () => {
