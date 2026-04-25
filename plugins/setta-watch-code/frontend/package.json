@@ -1,0 +1,21 @@
+{
+  "name": "setta-watch-code-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run --config vitest.config.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
+  },
+  "devDependencies": {
+    "@types/node": "25.0.2",
+    "typescript": "5.8.3",
+    "vite": "6.4.2",
+    "vitest": "2.1.9"
+  },
+  "pnpm": {
+    "overrides": {
+      "rollup": "4.59.1"
+    }
+  }
+}

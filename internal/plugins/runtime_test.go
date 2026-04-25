@@ -886,6 +886,59 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowActivePluginManifest(t *testin
 	)
 }
 
+func TestServiceRuntimeWatchCodeCapabilitiesFollowFirstPartyPluginManifest(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	pluginID := "setta-watch-code"
+	pluginRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), pluginID)
+	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", pluginID), pluginRoot)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{
+		AssetURLBuilder: testRuntimeAssetURLBuilder,
+	})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusActive,
+		stringPointer(pluginID),
+		[]string{pluginID},
+		nil,
+		nil,
+		nil,
+	)
+	if watchCode.PluginID != pluginID || !watchCode.PluginEnabled {
+		t.Fatalf("expected selected first-party watch code provider %q, got %#v", pluginID, watchCode)
+	}
+	if !watchCode.Python || !watchCode.RequiresLanguageServer || !watchCode.CanvasControlsUI {
+		t.Fatalf("expected first-party watch code capability surface, got %#v", watchCode)
+	}
+
+	if len(runtimeResponse.List.Plugins) != 1 {
+		t.Fatalf("expected one runtime plugin, got %#v", runtimeResponse.List.Plugins)
+	}
+	listEntry := runtimeResponse.List.Plugins[0]
+	if listEntry.PluginID != pluginID {
+		t.Fatalf("expected first-party watch code plugin list entry, got %#v", listEntry.PluginID)
+	}
+	if listEntry.Frontend.EntrypointURL == nil || !strings.Contains(*listEntry.Frontend.EntrypointURL, "/plugins/setta-watch-code/frontend/dist/index.js?v=") {
+		t.Fatalf("expected watch code frontend entrypoint URL, got %#v", listEntry.Frontend.EntrypointURL)
+	}
+	if !containsString(listEntry.EffectiveCapabilities, "registerCanvasControl") ||
+		!containsString(listEntry.EffectiveCapabilities, "readProjectState") ||
+		!containsString(listEntry.EffectiveCapabilities, "subscribeProjectState") {
+		t.Fatalf("expected watch code frontend capabilities, got %#v", listEntry.EffectiveCapabilities)
+	}
+}
+
 func TestServiceRuntimeWatchCodeCapabilitiesTreatDisabledPluginAsUnavailable(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-disabled-watch-code-provider"
