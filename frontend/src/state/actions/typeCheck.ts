@@ -1,5 +1,5 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { typeCheck as typeCheckRequest } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useProjectState,
   useShareSession,

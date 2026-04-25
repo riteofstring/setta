@@ -1,11 +1,14 @@
 import {
+  callOpenAPI,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   setWatchCodeEnabled as setWatchCodeEnabledRequest,
   setWatchCodeInputs as setWatchCodeInputsRequest,
   type SetWatchCodeEnabledData,
   type SetWatchCodeInputsData,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 
 type SetWatchCodeEnabledRequest = SetWatchCodeEnabledData["body"];
 type SetWatchCodeInputsRequest = SetWatchCodeInputsData["body"];

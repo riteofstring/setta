@@ -1,7 +1,7 @@
 import * as Slider from "@radix-ui/react-slider";
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { updateParamImplConfig } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

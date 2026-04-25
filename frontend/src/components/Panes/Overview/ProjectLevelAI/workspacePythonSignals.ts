@@ -1,7 +1,6 @@
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { getWorkspacePythonSignal } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
-import { res200 } from "utils/endpointUtils";
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
   cachedAtMs: number;

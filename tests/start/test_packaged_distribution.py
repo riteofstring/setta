@@ -56,7 +56,6 @@ def _write_minimal_distribution_project(
         "runtime_compat.py",
         "plugin_runtime/__init__.py",
         "plugin_runtime/app_subsystem.py",
-        "plugin_runtime/local_core.py",
         "types/generated/go_shared_constants.py",
     ):
         shutil.copy2(source_package_root / relative_path, package_root / relative_path)
@@ -296,9 +295,9 @@ def _stage_app_subsystem_frontend_sdk_source(tmp_path: Path) -> Path:
 
 
 def _assert_matching_file_content(left: Path, right: Path) -> None:
-    assert (
-        left.read_bytes() == right.read_bytes()
-    ), f"expected matching file content for {left} and {right}"
+    assert left.read_bytes() == right.read_bytes(), (
+        f"expected matching file content for {left} and {right}"
+    )
 
 
 def _build_first_party_app_subsystem_wheel(
@@ -348,7 +347,6 @@ def _build_plugin_runtime_test_setta_wheel(tmp_path: Path) -> Path:
         "runtime_compat.py",
         "plugin_runtime/__init__.py",
         "plugin_runtime/app_subsystem.py",
-        "plugin_runtime/local_core.py",
         "sdk_contracts/constants.py",
         "types/generated/go_shared_constants.py",
     ):
@@ -1028,8 +1026,6 @@ def test_plugin_runtime_test_setta_wheel_keeps_local_core_boundary_packaged_only
                     "import sys",
                     f"sys.path.insert(0, {str(site_packages)!r})",
                     "from setta.local_core_client import LocalCoreClient",
-                    "from setta.plugin_runtime import run_local_core_command",
-                    "assert callable(run_local_core_command)",
                     "assert not hasattr(LocalCoreClient, 'render_realtime_dependency_values')",
                 ]
             ),
@@ -1304,7 +1300,6 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/sdk_contracts/constants.py",
         "setta/plugin_runtime/__init__.py",
         "setta/plugin_runtime/app_subsystem.py",
-        "setta/plugin_runtime/local_core.py",
         "setta/types/generated/go_shared_constants.py",
         "setta/agentic/external_adapters/sidecars/claude_sdk_runner.py",
         "setta/agentic/external_adapters/sidecars/package.json",

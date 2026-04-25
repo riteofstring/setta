@@ -1,7 +1,7 @@
+import { safeSessionStorage } from "@setta/app-subsystem-frontend-sdk";
 import type { HttpapiLaunchRequest as LaunchRequest } from "openapi/http";
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { BootstrapProtocol } from "utils/generatedTypes";
-import { safeSessionStorage } from "utils/storage";
 
 export type PendingWorkspaceLaunch = {
   request: LaunchRequest;

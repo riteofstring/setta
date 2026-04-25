@@ -1,5 +1,5 @@
+import { rebuildBackendRequest } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it } from "vitest";
-import { rebuildBackendRequest } from "./requestRebuild";
 
 describe("rebuildBackendRequest", () => {
   it("preserves POST metadata and body while rewriting the URL", async () => {

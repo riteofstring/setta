@@ -1,10 +1,10 @@
-import { NameValidationRules } from "utils/generatedTypes";
 import {
   isGeneratedPythonIdentifier,
   sanitizeGeneratedSimpleNameSlug,
   validateGeneratedParamNameInput,
   validateGeneratedSimpleNameInput,
-} from "./bindingRuntime";
+} from "@setta/app-subsystem-frontend-sdk";
+import { NameValidationRules } from "utils/generatedTypes";
 
 type ProjectNameValidationOptions = {
   allowReserved?: boolean;

@@ -1,4 +1,4 @@
-import { getErrorDetail } from "utils/endpointUtils";
+import { getErrorDetail } from "@setta/app-subsystem-frontend-sdk";
 import {
   type PluginBlockedCapability,
   type PluginInstallResponse,

@@ -16,9 +16,14 @@ vi.mock("openapi/http", () => ({
   setViewModeSortOrder: (...args: unknown[]) =>
     routeSetViewModeSortOrderMock(...args),
 }));
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+  };
+});
 function createStateWithViewModes() {
   const alphaId = "alpha-id";
   const betaId = "beta-id";

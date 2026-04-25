@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { setMetaControlShowSectionTitle } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { BiCheck, BiHide, BiShow } from "react-icons/bi";
 import {

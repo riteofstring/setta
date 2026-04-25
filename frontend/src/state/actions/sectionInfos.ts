@@ -1,3 +1,17 @@
+import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
+import {
+  callOpenAPI,
+  clearEffectiveImplCache,
+  createNewId,
+  getCurrentEffectiveCodeObjImplIfPresent,
+  getCurrentEffectiveSectionImpl,
+  getCurrentEffectiveSectionImplIfPresent,
+  getCurrentSectionVariantId,
+  getEffectiveImpl,
+  getSectionCodeObjVariantId,
+  getParamDisplayNameIfPresent as getSharedParamDisplayNameIfPresent,
+  res200,
+} from "@setta/app-subsystem-frontend-sdk";
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
@@ -13,7 +27,6 @@ import {
   unselectAllParams as unselectAllParamsRequest,
   type GetLatestProjectStateResponse,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { unstable_batchedUpdates } from "react-dom";
 import {
   markRenameBroadcastsReady,
@@ -42,8 +55,6 @@ import {
   ZustandProjectState,
   type ToolArgumentPreviewProjectState,
 } from "state/definitions";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
-import { res200 } from "utils/endpointUtils";
 import {
   AllProjectMetadata,
   BaseCodeObjImplUnion,
@@ -61,17 +72,6 @@ import {
   Variant,
   Viewport,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
-import {
-  clearEffectiveImplCache,
-  getCurrentEffectiveCodeObjImplIfPresent,
-  getCurrentEffectiveSectionImpl,
-  getCurrentEffectiveSectionImplIfPresent,
-  getCurrentSectionVariantId,
-  getEffectiveImpl,
-  getSectionCodeObjVariantId,
-  getParamDisplayNameIfPresent as getSharedParamDisplayNameIfPresent,
-} from "utils/projectStateSelectors";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
 import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";

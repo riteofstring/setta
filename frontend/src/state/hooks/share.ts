@@ -1,5 +1,5 @@
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { getShareDeploymentProjectConfig } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { requestAIFollowSnapshot } from "state/actions/aiFollow";
@@ -8,7 +8,6 @@ import { loadProjectState } from "state/actions/project/loadProject";
 import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { res200 } from "utils/endpointUtils";
 import type {
   Policy,
   ProjectConfigMetadata,
