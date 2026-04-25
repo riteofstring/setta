@@ -177,49 +177,16 @@ func TestRunAppDefinitionCompareAndSetReturnsPlannedDefinitionWithoutPersisting(
 		t.Fatalf("seed app definition: %v", err)
 	}
 
-	var input bytes.Buffer
-	encoder := json.NewEncoder(&input)
-	if err := encoder.Encode(pythonsdkcontracts.LocalCoreCommandEnvelope{
-		CallID:      "call-cas",
-		CommandName: CommandCompareAndSetAppDefinitionSpecVersion,
-		Payload: map[string]any{
-			"settaFilesRoot":   settaFilesRoot,
-			"pluginId":         pluginID,
-			"value":            "v2",
-			"expectedOldValue": "v1",
-		},
-	}); err != nil {
-		t.Fatalf("encode local core command: %v", err)
-	}
-
-	var output bytes.Buffer
-	if err := Run(RunOptions{
-		Stdin:  &input,
-		Stdout: &output,
-	}); err != nil {
-		t.Fatalf("Run() error = %v", err)
-	}
-
-	decoder := json.NewDecoder(&output)
-	var handshake pythonsdkcontracts.LocalCoreVersionHandshake
-	if err := decoder.Decode(&handshake); err != nil {
-		t.Fatalf("decode handshake: %v", err)
-	}
-	var result pythonsdkcontracts.LocalCoreResultEnvelope
-	if err := decoder.Decode(&result); err != nil {
-		t.Fatalf("decode command result: %v", err)
-	}
+	result := runLocalCoreCommand(t, "call-cas", CommandCompareAndSetAppDefinitionSpecVersion, map[string]any{
+		"settaFilesRoot":   settaFilesRoot,
+		"pluginId":         pluginID,
+		"value":            "v2",
+		"expectedOldValue": "v1",
+	})
 	if !result.OK {
 		t.Fatalf("expected ok result, got error %v", result.Error)
 	}
-	encodedResult, err := json.Marshal(result.Result)
-	if err != nil {
-		t.Fatalf("marshal local core result: %v", err)
-	}
-	var typedResult appdefinition.CompareAndSetMutationResult
-	if err := json.Unmarshal(encodedResult, &typedResult); err != nil {
-		t.Fatalf("decode typed local core result: %v", err)
-	}
+	typedResult := decodeLocalCoreCommandResult[appdefinition.CompareAndSetMutationResult](t, result)
 	if typedResult.CompareResult.OldValue != "v1" || typedResult.CompareResult.NewValue != "v2" {
 		t.Fatalf("unexpected compare result %#v", typedResult.CompareResult)
 	}
@@ -241,4 +208,125 @@ func TestRunAppDefinitionCompareAndSetReturnsPlannedDefinitionWithoutPersisting(
 	if persistedDefinition == nil || persistedDefinition.AppSpecVersion != "v1" {
 		t.Fatalf("local core command should not persist planned mutation, got %#v", persistedDefinition)
 	}
+}
+
+func TestRunAppDefinitionPlanningUsesPayloadDocumentInsteadOfPersistedDisk(t *testing.T) {
+	t.Helper()
+
+	settaFilesRoot := t.TempDir()
+	pluginID := "setta-json-render-app-gen"
+	store, err := projectstate.NewStore(
+		filepath.Join(settaFilesRoot, projectstate.MainFileName),
+		projectstate.StoreOptions{},
+	)
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(context.Background(), projectstate.NewDocument()); err != nil {
+		t.Fatalf("save stale persisted document: %v", err)
+	}
+
+	appSpecStore := appspec.MustForPlugin(pluginID)
+	appSpecPath := appSpecStore.DefaultPath()
+	appSpec := map[string]any{
+		"root": "root",
+		"elements": map[string]any{
+			"root": map[string]any{"key": "root", "type": "Stack"},
+		},
+	}
+	if err := appSpecStore.Write(settaFilesRoot, appSpecPath, appSpec); err != nil {
+		t.Fatalf("write app spec: %v", err)
+	}
+
+	storage := appdefinition.MustStorageForPlugin(pluginID)
+	queuedDefinition := appdefinition.AppDefinition{
+		AppSpecVersion: "v3",
+		CatalogID:      appspec.DefaultCatalogID,
+		AppSpecPath:    appSpecPath,
+	}
+	encodedDefinition, err := appdefinition.EncodeStoredAppDefinition(&queuedDefinition)
+	if err != nil {
+		t.Fatalf("encode queued app definition: %v", err)
+	}
+	queuedDocument := storage.WithStoredDocumentAppDefinition(
+		projectstate.NewDocument(),
+		encodedDefinition,
+	)
+
+	result := runLocalCoreCommand(t, "call-cas", CommandCompareAndSetAppDefinitionSpecVersion, map[string]any{
+		"settaFilesRoot":       settaFilesRoot,
+		"pluginId":             pluginID,
+		"projectStateDocument": queuedDocument,
+		"value":                "v4",
+		"expectedOldValue":     "v3",
+	})
+	if !result.OK {
+		t.Fatalf("expected queued document to satisfy compare-and-set, got error %v details %#v", result.Error, result.Details)
+	}
+	typedResult := decodeLocalCoreCommandResult[appdefinition.CompareAndSetMutationResult](t, result)
+	if typedResult.CompareResult.OldValue != "v3" || typedResult.CompareResult.NewValue != "v4" {
+		t.Fatalf("unexpected compare result %#v", typedResult.CompareResult)
+	}
+
+	persisted, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document: %v", err)
+	}
+	if raw := storage.StoredDocumentAppDefinitionRaw(persisted); len(raw) != 0 {
+		t.Fatalf("local core command should not write queued document to disk, got %s", string(raw))
+	}
+}
+
+func runLocalCoreCommand(
+	t *testing.T,
+	callID string,
+	commandName string,
+	payload map[string]any,
+) pythonsdkcontracts.LocalCoreResultEnvelope {
+	t.Helper()
+
+	var input bytes.Buffer
+	if err := json.NewEncoder(&input).Encode(pythonsdkcontracts.LocalCoreCommandEnvelope{
+		CallID:      callID,
+		CommandName: commandName,
+		Payload:     payload,
+	}); err != nil {
+		t.Fatalf("encode local core command: %v", err)
+	}
+
+	var output bytes.Buffer
+	if err := Run(RunOptions{
+		Stdin:  &input,
+		Stdout: &output,
+	}); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	decoder := json.NewDecoder(&output)
+	var handshake pythonsdkcontracts.LocalCoreVersionHandshake
+	if err := decoder.Decode(&handshake); err != nil {
+		t.Fatalf("decode handshake: %v", err)
+	}
+	var result pythonsdkcontracts.LocalCoreResultEnvelope
+	if err := decoder.Decode(&result); err != nil {
+		t.Fatalf("decode command result: %v", err)
+	}
+	return result
+}
+
+func decodeLocalCoreCommandResult[T any](
+	t *testing.T,
+	result pythonsdkcontracts.LocalCoreResultEnvelope,
+) T {
+	t.Helper()
+
+	var typedResult T
+	encodedResult, err := json.Marshal(result.Result)
+	if err != nil {
+		t.Fatalf("marshal local core result: %v", err)
+	}
+	if err := json.Unmarshal(encodedResult, &typedResult); err != nil {
+		t.Fatalf("decode typed local core result: %v", err)
+	}
+	return typedResult
 }

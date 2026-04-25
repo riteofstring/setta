@@ -21,6 +21,19 @@ type AppDefinitionService struct {
 	appSpecStore appspec.Store
 }
 
+type queuedDocumentValidator func(context.Context, projectstate.Document) error
+
+func validateQueuedDocument(
+	ctx context.Context,
+	validate queuedDocumentValidator,
+	document projectstate.Document,
+) error {
+	if validate == nil {
+		return nil
+	}
+	return validate(ctx, document)
+}
+
 var _ Runtime = (*AppDefinitionService)(nil)
 
 func NewAppDefinitionService(runtime *projectstate.Runtime, pluginID string) Runtime {
@@ -141,6 +154,14 @@ func (s *AppDefinitionService) SetAppDefinition(
 	ctx context.Context,
 	input SetInput,
 ) (projectstate.Snapshot, MutationResult, error) {
+	return s.setAppDefinition(ctx, input, nil)
+}
+
+func (s *AppDefinitionService) setAppDefinition(
+	ctx context.Context,
+	input SetInput,
+	validate queuedDocumentValidator,
+) (projectstate.Snapshot, MutationResult, error) {
 	if s == nil || s.runtime == nil {
 		return projectstate.Snapshot{}, MutationResult{}, projectstate.ErrRuntimeClosed
 	}
@@ -159,8 +180,14 @@ func (s *AppDefinitionService) SetAppDefinition(
 			s.storage,
 			s.appSpecStore,
 		)
+		if err != nil {
+			return projectstate.PersistedMutationPlan{}, err
+		}
+		if err := validateQueuedDocument(ctx, validate, document); err != nil {
+			return projectstate.PersistedMutationPlan{}, err
+		}
 		nextAppSpec = appSpec
-		return plan, err
+		return plan, nil
 	})
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
@@ -182,6 +209,14 @@ func (s *AppDefinitionService) SetAppDefinition(
 func (s *AppDefinitionService) StreamAppDefinition(
 	ctx context.Context,
 	input StreamInput,
+) (projectstate.Snapshot, MutationResult, error) {
+	return s.streamAppDefinition(ctx, input, nil)
+}
+
+func (s *AppDefinitionService) streamAppDefinition(
+	ctx context.Context,
+	input StreamInput,
+	validate queuedDocumentValidator,
 ) (projectstate.Snapshot, MutationResult, error) {
 	if s == nil || s.runtime == nil {
 		return projectstate.Snapshot{}, MutationResult{}, projectstate.ErrRuntimeClosed
@@ -206,8 +241,14 @@ func (s *AppDefinitionService) StreamAppDefinition(
 			s.storage,
 			s.appSpecStore,
 		)
+		if err != nil {
+			return projectstate.PersistedMutationPlan{}, err
+		}
+		if err := validateQueuedDocument(ctx, validate, document); err != nil {
+			return projectstate.PersistedMutationPlan{}, err
+		}
 		nextAppSpec = appSpec
-		return plan, err
+		return plan, nil
 	})
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
@@ -342,6 +383,14 @@ func (s *AppDefinitionService) UpdateAppDefinition(
 	ctx context.Context,
 	patch any,
 ) (projectstate.Snapshot, MutationResult, error) {
+	return s.updateAppDefinition(ctx, patch, nil)
+}
+
+func (s *AppDefinitionService) updateAppDefinition(
+	ctx context.Context,
+	patch any,
+	validate queuedDocumentValidator,
+) (projectstate.Snapshot, MutationResult, error) {
 	if s == nil || s.runtime == nil {
 		return projectstate.Snapshot{}, MutationResult{}, projectstate.ErrRuntimeClosed
 	}
@@ -360,8 +409,14 @@ func (s *AppDefinitionService) UpdateAppDefinition(
 			s.storage,
 			s.appSpecStore,
 		)
+		if err != nil {
+			return projectstate.PersistedMutationPlan{}, err
+		}
+		if err := validateQueuedDocument(ctx, validate, document); err != nil {
+			return projectstate.PersistedMutationPlan{}, err
+		}
 		nextAppSpec = appSpec
-		return plan, err
+		return plan, nil
 	})
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err

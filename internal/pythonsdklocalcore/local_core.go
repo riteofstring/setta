@@ -72,8 +72,9 @@ type renderRealtimeDependencyValuesResultWire struct {
 }
 
 type appDefinitionRequestBase struct {
-	SettaFilesRoot string `json:"settaFilesRoot"`
-	PluginID       string `json:"pluginId"`
+	SettaFilesRoot       string                 `json:"settaFilesRoot"`
+	PluginID             string                 `json:"pluginId"`
+	ProjectStateDocument *projectstate.Document `json:"projectStateDocument,omitempty"`
 }
 
 type updateAppDefinitionRequest struct {
@@ -475,6 +476,9 @@ func loadAppDefinitionPlanningContext(
 	planner, err := appdefinition.NewMutationPlanner(pluginID)
 	if err != nil {
 		return appdefinition.MutationPlanner{}, projectstate.Document{}, "", err
+	}
+	if request.ProjectStateDocument != nil {
+		return planner, request.ProjectStateDocument.Clone(), settaFilesRoot, nil
 	}
 	store, err := projectstate.NewStore(
 		filepath.Join(settaFilesRoot, projectstate.MainFileName),

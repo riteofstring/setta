@@ -21,6 +21,15 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionCatalogID(
 	catalogID string,
 	expectedOldValue *string,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return s.compareAndSetAppDefinitionCatalogID(ctx, catalogID, expectedOldValue, nil)
+}
+
+func (s *AppDefinitionService) compareAndSetAppDefinitionCatalogID(
+	ctx context.Context,
+	catalogID string,
+	expectedOldValue *string,
+	validate queuedDocumentValidator,
+) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	projectRoot, err := s.projectRoot()
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
@@ -62,6 +71,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionCatalogID(
 			}, normalizedPath, s.storage)
 			return nextDocument, nextAppSpec, normalizedPath, err
 		},
+		validate,
 	)
 }
 
@@ -69,6 +79,15 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecVersion(
 	ctx context.Context,
 	appSpecVersion string,
 	expectedOldValue *string,
+) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return s.compareAndSetAppDefinitionSpecVersion(ctx, appSpecVersion, expectedOldValue, nil)
+}
+
+func (s *AppDefinitionService) compareAndSetAppDefinitionSpecVersion(
+	ctx context.Context,
+	appSpecVersion string,
+	expectedOldValue *string,
+	validate queuedDocumentValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	projectRoot, err := s.projectRoot()
 	if err != nil {
@@ -111,6 +130,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecVersion(
 			}, normalizedPath, s.storage)
 			return nextDocument, nextAppSpec, normalizedPath, err
 		},
+		validate,
 	)
 }
 
@@ -118,6 +138,15 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecPath(
 	ctx context.Context,
 	appSpecPath string,
 	expectedOldValue *string,
+) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return s.compareAndSetAppDefinitionSpecPath(ctx, appSpecPath, expectedOldValue, nil)
+}
+
+func (s *AppDefinitionService) compareAndSetAppDefinitionSpecPath(
+	ctx context.Context,
+	appSpecPath string,
+	expectedOldValue *string,
+	validate queuedDocumentValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	projectRoot, err := s.projectRoot()
 	if err != nil {
@@ -163,6 +192,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionSpecPath(
 			}, normalizedPath, s.storage)
 			return nextDocument, nextAppSpec, normalizedPath, err
 		},
+		validate,
 	)
 }
 
@@ -170,6 +200,15 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionThemeMode(
 	ctx context.Context,
 	themeMode string,
 	expectedOldValue *string,
+) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
+	return s.compareAndSetAppDefinitionThemeMode(ctx, themeMode, expectedOldValue, nil)
+}
+
+func (s *AppDefinitionService) compareAndSetAppDefinitionThemeMode(
+	ctx context.Context,
+	themeMode string,
+	expectedOldValue *string,
+	validate queuedDocumentValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	projectRoot, err := s.projectRoot()
 	if err != nil {
@@ -219,6 +258,7 @@ func (s *AppDefinitionService) CompareAndSetAppDefinitionThemeMode(
 			}, normalizedPath, s.storage)
 			return nextDocument, nextAppSpec, normalizedPath, err
 		},
+		validate,
 	)
 }
 
@@ -230,6 +270,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 	requestedNewValue string,
 	readValue func(projectstate.Document) (string, error),
 	mutate func(projectstate.Document, string) (projectstate.Document, any, string, error),
+	validate queuedDocumentValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	if s == nil || s.runtime == nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, projectstate.ErrRuntimeClosed
@@ -251,7 +292,13 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 			&result,
 			s.appSpecStore,
 		)
-		return plan, err
+		if err != nil {
+			return projectstate.PersistedMutationPlan{}, err
+		}
+		if err := validateQueuedDocument(ctx, validate, document); err != nil {
+			return projectstate.PersistedMutationPlan{}, err
+		}
+		return plan, nil
 	})
 	return snapshot, result, err
 }

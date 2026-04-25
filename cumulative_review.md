@@ -8,9 +8,9 @@
 - Still unverified: Full `internal/app` suite not rerun in this pass; no browser verification needed for this backend-only change.
 
 ### App Definition Provider-State Synchronization
-- Invariant: App-definition persistence stays provider-namespaced under `Document.PluginData[pluginID]`; provider writes and app-publish serialization must validate app-definition/app-spec pairs through the Go-owned persisted-write validator, run through the projectstate queue, snapshot definition/spec coherently, and must not replace newer live document fields, let stale deferred persists clobber newer in-memory state, split host projectstate and app-spec file commits, or let compare-and-set no-ops bypass frontend-op completion.
-- Last finding commit: ee182e5c27de73bcc8e114879b0a0a15992dafc3
-- Proof tests: `TestBackendRuntimeRejectsInvalidProviderMutationResults`, `TestBackendRuntimeSetAppDefinitionSyncsPersistedState`, `TestBackendRuntimeSetAppDefinitionPreservesNewerLiveProjectState`, `TestBackendRuntimeSetAppDefinitionRebasesBlockedDeferredPersist`, `TestBackendRuntimeSetAppDefinitionRollsBackAppSpecWhenHostPersistFails`, `TestBackendRuntimeCompareAndSetChangedRebasesBlockedDeferredPersist`, `TestBackendRuntimeCompareAndSetChangedRollsBackAppSpecWhenHostPersistFails`, `TestBackendRuntimeCompareAndSetRejectsStaleProviderPlan`, `TestBackendRuntimeReplansProviderMutationAgainstQueuedDocument`, `TestCompareAndSetAppDefinitionNoopWaitsBehindQueuedMutation`, `TestCompareAndSetAppDefinitionNoopCompletesFrontendOpID`, `TestBackendRuntimeCompareAndSetNoopCompletesFrontendOpID`, `TestRunAppDefinitionCompareAndSetReturnsPlannedDefinitionWithoutPersisting`, `TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision`
+- Invariant: App-definition persistence stays provider-namespaced under `Document.PluginData[pluginID]`; provider writes and app-publish serialization must validate app-definition/app-spec pairs through the Go-owned persisted-write validator, run through the projectstate queue, snapshot definition/spec coherently, and provider-backed mutation planning/validation must use the owner-supplied queued projectstate document rather than stale disk `main.json`; the flow must not replace newer live document fields, let stale deferred persists clobber newer in-memory state, split host projectstate and app-spec file commits, or let compare-and-set no-ops bypass frontend-op completion.
+- Last finding commit: 5ff15b3778b12461e54d3f9aa3f84cf6e1f6e198
+- Proof tests: `TestBackendRuntimeRejectsInvalidProviderMutationResults`, `TestBackendRuntimeSetAppDefinitionSyncsPersistedState`, `TestBackendRuntimeSetAppDefinitionPreservesNewerLiveProjectState`, `TestBackendRuntimeSetAppDefinitionRebasesBlockedDeferredPersist`, `TestBackendRuntimeSetAppDefinitionRollsBackAppSpecWhenHostPersistFails`, `TestBackendRuntimeCompareAndSetChangedRebasesBlockedDeferredPersist`, `TestBackendRuntimeCompareAndSetChangedRollsBackAppSpecWhenHostPersistFails`, `TestBackendRuntimeCompareAndSetRejectsStaleProviderPlan`, `TestBackendRuntimeReplansProviderMutationAgainstQueuedDocument`, `TestBackendRuntimeProviderCompareAndSetPlansAgainstQueuedLocalCoreDocument`, `TestCompareAndSetAppDefinitionNoopWaitsBehindQueuedMutation`, `TestCompareAndSetAppDefinitionNoopCompletesFrontendOpID`, `TestBackendRuntimeCompareAndSetNoopCompletesFrontendOpID`, `TestRunAppDefinitionCompareAndSetReturnsPlannedDefinitionWithoutPersisting`, `TestRunAppDefinitionPlanningUsesPayloadDocumentInsteadOfPersistedDisk`, `TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision`
 - Still unverified: No broader projectstate mutation matrix beyond the focused app-definition, app-publish, and local-core planning tests; full repo and full `internal/app` suites were not rerun in the final implementation pass.
 
 ### App Subsystem Provider Backend Contract
@@ -26,9 +26,9 @@
 - Still unverified: No separate third-party standalone-plugin matrix or CDP visual verification was run in this pass; verification stayed at boundary/package-root checks, source-SDK and vendored-SDK alignment, package-root typecheck, and focused frontend tests.
 
 ### Frontend SDK Helper Ownership
-- Invariant: Package-safe frontend helpers shared by the host and the app-subsystem SDK must have one SDK owner; host entrypoints may re-export that owner or add host-only wrappers for host-generated data, but must not carry parallel copies of attachment policy, dropzone, id/name creation, text-block typography, server-mode capability, run-capability, deployment-policy, project-state selector, or binary-download transport logic.
-- Last finding commit: 25fbc93295022f6031948ba104c5367d07099bed
-- Proof tests: `src/plugins/appSubsystemSdk.test.ts` ("exposes plugin-safe project-state helpers through the SDK", "keeps host helper entrypoints wired to SDK-owned implementations", "keeps the source SDK package detached from host-private imports", "builds binary download urls from explicit server-mode input"), `src/plugins/appSubsystem.test.tsx`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts` ("rejects host binary-download transport shims"), `plugins/setta-json-render-app-gen/frontend/tests/state/actions/app.openapi.test.ts`, `src/utils/attachments.test.ts`, `src/utils/textBlockTypography.test.ts`, `src/utils/serverModeBoundaryPolicy.test.ts`, `src/utils/serverModeCapabilities.test.ts`, `src/utils/bindingRuntime.test.ts`, `src/utils/runCapabilities.test.ts`, `src/utils/deploymentPolicies.test.ts`, package-root `tsc --noEmit` for `frontend/plugin-sdk/app-subsystem` and `plugins/setta-json-render-app-gen/frontend`
+- Invariant: Package-safe frontend helpers shared by the host and the app-subsystem SDK must have one SDK owner; host entrypoints may re-export that owner or add host-only wrappers for host-generated data, but must not carry parallel copies of attachment policy, dropzone, id/name creation, text-block typography, binding runtime helpers, password reveal policy, server-mode capability, run-capability, deployment-policy, project-state selector, or binary-download transport logic.
+- Last finding commit: 5ff15b3778b12461e54d3f9aa3f84cf6e1f6e198
+- Proof tests: `src/plugins/appSubsystemSdk.test.ts` ("exposes plugin-safe project-state helpers through the SDK", "keeps host helper entrypoints wired to SDK-owned implementations", binding-runtime and password-reveal identity, "keeps the source SDK package detached from host-private imports", "builds binary download urls from explicit server-mode input"), `src/plugins/appSubsystem.test.tsx`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts` ("rejects host binary-download transport shims"), `plugins/setta-json-render-app-gen/frontend/tests/state/actions/app.openapi.test.ts`, `src/utils/attachments.test.ts`, `src/utils/textBlockTypography.test.ts`, `src/utils/serverModeBoundaryPolicy.test.ts`, `src/utils/serverModeCapabilities.test.ts`, `src/utils/bindingRuntime.test.ts`, `src/utils/paramValue.test.ts`, `src/utils/runCapabilities.test.ts`, `src/utils/deploymentPolicies.test.ts`, package-root `tsc --noEmit` for `frontend/plugin-sdk/app-subsystem` and `plugins/setta-json-render-app-gen/frontend`
 - Still unverified: CDP visual verification and the full frontend suite were not run; helper coverage stayed focused on SDK/host wiring, source/vendored package boundaries, package-root typecheck, and affected utility tests.
 
 ### App Deployment Frontend Project-State Queueing
@@ -559,4 +559,32 @@ Verification run:
 Residual risks / verification gaps:
 - Browser/CDP and Playwright verification were not run because no rendered UI flow changed; this metadata stage stopped the managed DevTools Chrome session with `./scripts/stop-browser-mcp.sh --devtools`.
 - Full repo test suite, full clean-checkout packaged-deployment smoke, and a separate third-party standalone-plugin matrix were not run.
+- `pnpm -C frontend gcf` completed successfully while still printing the existing generated-Python TC002/TC003 advisory diagnostics.
+
+## 2026-04-24 04:37:55 PDT
+Fixes applied:
+- Moved provider-backed app-definition planning and validation into the Go-owned queued mutation path, passing the queued projectstate document through local core so stale disk state cannot reject or shape provider mutations.
+- Kept the Go owner responsible for persisted projectstate/app-spec commits while provider results are validated against the same queued snapshot.
+- Collapsed host `bindingRuntime` and `shouldShowPasswordReveal` duplicates into SDK-owned re-exports while leaving host-only realtime emission behavior host-owned.
+
+Tests added or upgraded:
+- Added `TestBackendRuntimeProviderCompareAndSetPlansAgainstQueuedLocalCoreDocument`.
+- Added `TestRunAppDefinitionPlanningUsesPayloadDocumentInsteadOfPersistedDisk`.
+- Updated provider mutation validation tests for queued provider planning order.
+- Extended `src/plugins/appSubsystemSdk.test.ts` to assert host binding-runtime and password-reveal entrypoints are SDK-owned.
+
+Verification run:
+- `./scripts/go.sh test ./internal/appsubsystem/appdefinition -count=1`
+- `./scripts/go.sh test ./internal/pythonsdklocalcore -count=1`
+- `pnpm -C frontend exec vitest run src/plugins/appSubsystemSdk.test.ts src/utils/bindingRuntime.test.ts src/utils/paramValue.test.ts`
+- `pnpm --dir frontend/plugin-sdk/app-subsystem exec tsc --noEmit -p tsconfig.typecheck.json --pretty false`
+- `pnpm --dir plugins/setta-json-render-app-gen/frontend exec tsc --noEmit -p tsconfig.typecheck.json --pretty false`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -q -k 'app_subsystem_frontend_sdk_source_package_builds_from_its_own_root or vendored_app_subsystem_frontend_sdk_matches_source_package_build'`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `git diff --check`
+
+Residual risks / verification gaps:
+- Browser/CDP and Playwright verification were not run because no rendered UI flow changed; this metadata stage stopped any managed DevTools Chrome session with `./scripts/stop-browser-mcp.sh --devtools`.
+- Full repo test suite, full frontend suite, full app-mode Playwright matrix, full clean-checkout packaged-deployment smoke, and a separate third-party standalone-plugin matrix were not run.
 - `pnpm -C frontend gcf` completed successfully while still printing the existing generated-Python TC002/TC003 advisory diagnostics.

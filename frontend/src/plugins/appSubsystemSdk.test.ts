@@ -31,6 +31,14 @@ import {
   isAttachmentMimeAllowed as isHostAttachmentMimeAllowed,
 } from "utils/attachmentPolicy";
 import {
+  isGeneratedPythonIdentifier as isHostGeneratedPythonIdentifier,
+  normalizeGeneratedOrigin as normalizeHostGeneratedOrigin,
+  normalizeGeneratedToolName as normalizeHostGeneratedToolName,
+  sanitizeGeneratedSimpleNameSlug as sanitizeHostGeneratedSimpleNameSlug,
+  validateGeneratedParamNameInput as validateHostGeneratedParamNameInput,
+  validateGeneratedSimpleNameInput as validateHostGeneratedSimpleNameInput,
+} from "utils/bindingRuntime";
+import {
   createDefaultAppPolicy as createHostDefaultAppPolicy,
   resolveAppPolicy as resolveHostAppPolicy,
 } from "utils/deploymentPolicies";
@@ -44,6 +52,7 @@ import {
   createNewId as createHostNewId,
   createRandomName as createHostRandomName,
 } from "utils/idNameCreation";
+import { shouldShowPasswordReveal as shouldShowHostPasswordReveal } from "utils/paramValue";
 import {
   getCurrentEffectiveCodeObjImplIfPresent as getHostCurrentEffectiveCodeObjImplIfPresent,
   getCurrentEffectiveSectionImpl as getHostCurrentEffectiveSectionImpl,
@@ -70,6 +79,14 @@ import {
   getAttachmentPolicy as getSdkSourceAttachmentPolicy,
   isAttachmentMimeAllowed as isSdkSourceAttachmentMimeAllowed,
 } from "../../plugin-sdk/app-subsystem/src/attachmentPolicy";
+import {
+  isGeneratedPythonIdentifier as isSdkSourceGeneratedPythonIdentifier,
+  normalizeGeneratedOrigin as normalizeSdkSourceGeneratedOrigin,
+  normalizeGeneratedToolName as normalizeSdkSourceGeneratedToolName,
+  sanitizeGeneratedSimpleNameSlug as sanitizeSdkSourceGeneratedSimpleNameSlug,
+  validateGeneratedParamNameInput as validateSdkSourceGeneratedParamNameInput,
+  validateGeneratedSimpleNameInput as validateSdkSourceGeneratedSimpleNameInput,
+} from "../../plugin-sdk/app-subsystem/src/bindingRuntime";
 import {
   createDropzoneFileArtifactId as createSdkSourceDropzoneFileArtifactId,
   createDropzoneTextAttachmentId as createSdkSourceDropzoneTextAttachmentId,
@@ -398,6 +415,25 @@ describe("appSubsystemFrontendSdk", () => {
     );
     expect(createHostNewId).toBe(createSdkSourceNewId);
     expect(createHostRandomName).toBe(createSdkSourceRandomName);
+    expect(normalizeHostGeneratedOrigin).toBe(
+      normalizeSdkSourceGeneratedOrigin,
+    );
+    expect(normalizeHostGeneratedToolName).toBe(
+      normalizeSdkSourceGeneratedToolName,
+    );
+    expect(validateHostGeneratedSimpleNameInput).toBe(
+      validateSdkSourceGeneratedSimpleNameInput,
+    );
+    expect(sanitizeHostGeneratedSimpleNameSlug).toBe(
+      sanitizeSdkSourceGeneratedSimpleNameSlug,
+    );
+    expect(isHostGeneratedPythonIdentifier).toBe(
+      isSdkSourceGeneratedPythonIdentifier,
+    );
+    expect(validateHostGeneratedParamNameInput).toBe(
+      validateSdkSourceGeneratedParamNameInput,
+    );
+    expect(shouldShowHostPasswordReveal).toBe(shouldShowPasswordReveal);
     expect(buildHostTextBlockTypographyScale).toBe(
       buildSdkSourceTextBlockTypographyScale,
     );

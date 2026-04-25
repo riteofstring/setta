@@ -70,13 +70,14 @@ func (r *BackendRuntime) SetAppDefinition(
 	ctx context.Context,
 	input SetInput,
 ) (projectstate.Snapshot, MutationResult, error) {
-	return invokeProviderMutationAndReplan(
-		r,
+	owner, err := r.ownerAppDefinitionService()
+	if err != nil {
+		return projectstate.Snapshot{}, MutationResult{}, err
+	}
+	return owner.setAppDefinition(
 		ctx,
-		backendruntime.ListenerEndpointSetAppDefinition,
 		input,
-		input,
-		(*AppDefinitionService).SetAppDefinition,
+		r.validateProviderMutationWithDocument(backendruntime.ListenerEndpointSetAppDefinition, input),
 	)
 }
 
@@ -84,13 +85,14 @@ func (r *BackendRuntime) StreamAppDefinition(
 	ctx context.Context,
 	input StreamInput,
 ) (projectstate.Snapshot, MutationResult, error) {
-	return invokeProviderMutationAndReplan(
-		r,
+	owner, err := r.ownerAppDefinitionService()
+	if err != nil {
+		return projectstate.Snapshot{}, MutationResult{}, err
+	}
+	return owner.streamAppDefinition(
 		ctx,
-		backendruntime.ListenerEndpointStreamAppDefinition,
 		input,
-		input,
-		(*AppDefinitionService).StreamAppDefinition,
+		r.validateProviderMutationWithDocument(backendruntime.ListenerEndpointStreamAppDefinition, input),
 	)
 }
 
@@ -98,41 +100,16 @@ func (r *BackendRuntime) UpdateAppDefinition(
 	ctx context.Context,
 	patch any,
 ) (projectstate.Snapshot, MutationResult, error) {
-	return invokeProviderMutationAndReplan(
-		r,
-		ctx,
-		backendruntime.ListenerEndpointUpdateAppDefinition,
-		backendruntime.UpdateAppDefinitionRequest{Patch: patch},
-		patch,
-		(*AppDefinitionService).UpdateAppDefinition,
-	)
-}
-
-func invokeProviderMutationAndReplan[T any](
-	r *BackendRuntime,
-	ctx context.Context,
-	endpointName string,
-	payload any,
-	input T,
-	commit func(*AppDefinitionService, context.Context, T) (projectstate.Snapshot, MutationResult, error),
-) (projectstate.Snapshot, MutationResult, error) {
-	result, err := invokeBackendResult[MutationResult](
-		r,
-		ctx,
-		endpointName,
-		payload,
-	)
-	if err != nil {
-		return projectstate.Snapshot{}, MutationResult{}, err
-	}
-	if err := r.validateProviderMutationResult(result); err != nil {
-		return projectstate.Snapshot{}, MutationResult{}, err
-	}
 	owner, err := r.ownerAppDefinitionService()
 	if err != nil {
 		return projectstate.Snapshot{}, MutationResult{}, err
 	}
-	return commit(owner, ctx, input)
+	payload := backendruntime.UpdateAppDefinitionRequest{Patch: patch}
+	return owner.updateAppDefinition(
+		ctx,
+		patch,
+		r.validateProviderMutationWithDocument(backendruntime.ListenerEndpointUpdateAppDefinition, payload),
+	)
 }
 
 func (r *BackendRuntime) CompareAndSetAppDefinitionCatalogID(
@@ -146,7 +123,7 @@ func (r *BackendRuntime) CompareAndSetAppDefinitionCatalogID(
 		backendruntime.ListenerEndpointCompareAndSetCatalogID,
 		catalogID,
 		expectedOldValue,
-		(*AppDefinitionService).CompareAndSetAppDefinitionCatalogID,
+		(*AppDefinitionService).compareAndSetAppDefinitionCatalogID,
 	)
 }
 
@@ -161,7 +138,7 @@ func (r *BackendRuntime) CompareAndSetAppDefinitionSpecVersion(
 		backendruntime.ListenerEndpointCompareAndSetSpecVersion,
 		appSpecVersion,
 		expectedOldValue,
-		(*AppDefinitionService).CompareAndSetAppDefinitionSpecVersion,
+		(*AppDefinitionService).compareAndSetAppDefinitionSpecVersion,
 	)
 }
 
@@ -176,7 +153,7 @@ func (r *BackendRuntime) CompareAndSetAppDefinitionSpecPath(
 		backendruntime.ListenerEndpointCompareAndSetSpecPath,
 		appSpecPath,
 		expectedOldValue,
-		(*AppDefinitionService).CompareAndSetAppDefinitionSpecPath,
+		(*AppDefinitionService).compareAndSetAppDefinitionSpecPath,
 	)
 }
 
@@ -191,7 +168,7 @@ func (r *BackendRuntime) CompareAndSetAppDefinitionThemeMode(
 		backendruntime.ListenerEndpointCompareAndSetThemeMode,
 		themeMode,
 		expectedOldValue,
-		(*AppDefinitionService).CompareAndSetAppDefinitionThemeMode,
+		(*AppDefinitionService).compareAndSetAppDefinitionThemeMode,
 	)
 }
 
@@ -201,28 +178,23 @@ func invokeCompareAndSetString(
 	endpointName string,
 	value string,
 	expectedOldValue *string,
-	commit func(*AppDefinitionService, context.Context, string, *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error),
+	commit func(*AppDefinitionService, context.Context, string, *string, queuedDocumentValidator) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error),
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
-	mutationResult, err := invokeBackendResult[CompareAndSetMutationResult](
-		r,
-		ctx,
-		endpointName,
-		backendruntime.CompareAndSetStringRequest{
-			Value:            value,
-			ExpectedOldValue: expectedOldValue,
-		},
-	)
-	if err != nil {
-		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
-	}
-	if err := r.validateProviderCompareAndSetMutationResult(mutationResult); err != nil {
-		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
-	}
 	owner, err := r.ownerAppDefinitionService()
 	if err != nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
 	}
-	return commit(owner, ctx, value, expectedOldValue)
+	payload := backendruntime.CompareAndSetStringRequest{
+		Value:            value,
+		ExpectedOldValue: expectedOldValue,
+	}
+	return commit(
+		owner,
+		ctx,
+		value,
+		expectedOldValue,
+		r.validateProviderCompareAndSetWithDocument(endpointName, payload),
+	)
 }
 
 func invokeBackendResult[T any](
@@ -230,6 +202,16 @@ func invokeBackendResult[T any](
 	ctx context.Context,
 	endpointName string,
 	payload any,
+) (T, error) {
+	return invokeBackendResultWithDocument[T](r, ctx, endpointName, payload, nil)
+}
+
+func invokeBackendResultWithDocument[T any](
+	r *BackendRuntime,
+	ctx context.Context,
+	endpointName string,
+	payload any,
+	document *projectstate.Document,
 ) (T, error) {
 	var zero T
 	if r == nil || r.projectRuntime == nil {
@@ -242,6 +224,9 @@ func invokeBackendResult[T any](
 	encodedPayload, err := encodeBackendPayload(payload)
 	if err != nil {
 		return zero, err
+	}
+	if document != nil {
+		encodedPayload["projectStateDocument"] = document.Clone()
 	}
 	result, handled, err := r.backend.InvokeRegisteredListenerEndpoint(
 		ctx,
@@ -263,6 +248,44 @@ func invokeBackendResult[T any](
 		)
 	}
 	return decodeBackendResult[T](result)
+}
+
+func (r *BackendRuntime) validateProviderMutationWithDocument(
+	endpointName string,
+	payload any,
+) queuedDocumentValidator {
+	return func(ctx context.Context, document projectstate.Document) error {
+		result, err := invokeBackendResultWithDocument[MutationResult](
+			r,
+			ctx,
+			endpointName,
+			payload,
+			&document,
+		)
+		if err != nil {
+			return err
+		}
+		return r.validateProviderMutationResult(result)
+	}
+}
+
+func (r *BackendRuntime) validateProviderCompareAndSetWithDocument(
+	endpointName string,
+	payload any,
+) queuedDocumentValidator {
+	return func(ctx context.Context, document projectstate.Document) error {
+		result, err := invokeBackendResultWithDocument[CompareAndSetMutationResult](
+			r,
+			ctx,
+			endpointName,
+			payload,
+			&document,
+		)
+		if err != nil {
+			return err
+		}
+		return r.validateProviderCompareAndSetMutationResult(result)
+	}
 }
 
 func encodeBackendPayload(value any) (map[string]any, error) {

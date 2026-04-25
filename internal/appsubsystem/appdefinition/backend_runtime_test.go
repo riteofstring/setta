@@ -401,30 +401,15 @@ func TestBackendRuntimeCompareAndSetRejectsStaleProviderPlan(t *testing.T) {
 	v2 := "v2"
 	v3 := "v3"
 
-	seedBackendRuntimeTestAppDefinition(t, owner, catalogID, appSpecPath, v1)
+	seedBackendRuntimeTestAppDefinition(t, owner, catalogID, appSpecPath, v3)
 
-	providerDefinition := AppDefinition{
-		AppSpecVersion: v2,
-		CatalogID:      catalogID,
-		AppSpecPath:    appSpecPath,
-	}
 	service := NewBackendRuntime(runtime, pluginID, backendRuntimeInvokerStub{
 		invoke: func(
 			ctx context.Context,
 			request plugins.BackendListenerEndpointRequest,
 		) (any, bool, error) {
-			if request.EndpointName != backendruntime.ListenerEndpointCompareAndSetSpecVersion {
-				t.Fatalf("unexpected endpoint %q", request.EndpointName)
-			}
-			seedBackendRuntimeTestAppDefinition(t, owner, catalogID, appSpecPath, v3)
-			return CompareAndSetMutationResult{
-				CompareResult: CompareAndSetStringResult{
-					OldValue: v1,
-					NewValue: v2,
-				},
-				AppSpec:       backendRuntimeTestAppSpec("v2"),
-				AppDefinition: &providerDefinition,
-			}, true, nil
+			t.Fatalf("provider should not be invoked after owner rejects stale expected value for %q", request.EndpointName)
+			return nil, false, nil
 		},
 	})
 
@@ -519,6 +504,7 @@ func TestBackendRuntimeReplansProviderMutationAgainstQueuedDocument(t *testing.T
 			v3 := "v3"
 
 			seedBackendRuntimeTestAppDefinition(t, owner, catalogID, appSpecPath, v1)
+			seedBackendRuntimeTestAppDefinition(t, owner, catalogID, appSpecPath, v3)
 
 			providerDefinition := AppDefinition{
 				AppSpecVersion: v1,
@@ -533,7 +519,6 @@ func TestBackendRuntimeReplansProviderMutationAgainstQueuedDocument(t *testing.T
 					if request.EndpointName != tc.endpoint {
 						t.Fatalf("unexpected endpoint %q", request.EndpointName)
 					}
-					seedBackendRuntimeTestAppDefinition(t, owner, catalogID, appSpecPath, v3)
 					return MutationResult{
 						AppSpec:       backendRuntimeTestAppSpec("provider-stale"),
 						AppDefinition: &providerDefinition,
@@ -651,7 +636,13 @@ func TestBackendRuntimeRejectsInvalidProviderMutationResults(t *testing.T) {
 			name:     "set app definition",
 			endpoint: backendruntime.ListenerEndpointSetAppDefinition,
 			run: func(service Runtime, ctx context.Context) error {
-				_, _, err := service.SetAppDefinition(ctx, SetInput{})
+				version := "v2"
+				catalogID := appspec.DefaultCatalogID
+				_, _, err := service.SetAppDefinition(ctx, SetInput{
+					AppSpec:        backendRuntimeTestAppSpec("v2"),
+					AppSpecVersion: &version,
+					CatalogID:      &catalogID,
+				})
 				return err
 			},
 		},
@@ -659,7 +650,9 @@ func TestBackendRuntimeRejectsInvalidProviderMutationResults(t *testing.T) {
 			name:     "stream app definition",
 			endpoint: backendruntime.ListenerEndpointStreamAppDefinition,
 			run: func(service Runtime, ctx context.Context) error {
-				_, _, err := service.StreamAppDefinition(ctx, StreamInput{Patches: "replace /root {}"})
+				_, _, err := service.StreamAppDefinition(ctx, StreamInput{
+					Patches: `{"op":"set","path":"/elements/heading/props/text","value":"v2"}`,
+				})
 				return err
 			},
 		},
@@ -667,7 +660,15 @@ func TestBackendRuntimeRejectsInvalidProviderMutationResults(t *testing.T) {
 			name:     "update app definition",
 			endpoint: backendruntime.ListenerEndpointUpdateAppDefinition,
 			run: func(service Runtime, ctx context.Context) error {
-				_, _, err := service.UpdateAppDefinition(ctx, map[string]any{})
+				_, _, err := service.UpdateAppDefinition(ctx, map[string]any{
+					"elements": map[string]any{
+						"heading": map[string]any{
+							"props": map[string]any{
+								"text": "v2",
+							},
+						},
+					},
+				})
 				return err
 			},
 		},
@@ -697,6 +698,13 @@ func TestBackendRuntimeRejectsInvalidProviderMutationResults(t *testing.T) {
 				AppSpecPath:    appSpecStore.DefaultPath(),
 			}
 			invalidAppSpec := backendRuntimeInvalidMultiRunAppSpec()
+			seedBackendRuntimeTestAppDefinition(
+				t,
+				NewAppDefinitionService(runtime, pluginID),
+				appspec.DefaultCatalogID,
+				appSpecStore.DefaultPath(),
+				"v1",
+			)
 
 			service := NewBackendRuntime(runtime, pluginID, backendRuntimeInvokerStub{
 				invoke: func(
@@ -735,18 +743,18 @@ func TestBackendRuntimeRejectsInvalidProviderMutationResults(t *testing.T) {
 			if err != nil {
 				t.Fatalf("load persisted document after invalid mutation: %v", err)
 			}
-			if raw := storage.StoredDocumentAppDefinitionRaw(persisted); len(raw) != 0 {
-				t.Fatalf("expected persisted app definition to remain empty, got %s", string(raw))
+			if got := mustDecodeBackendRuntimeTestDefinition(t, storage.StoredDocumentAppDefinitionRaw(persisted)); got.AppSpecVersion != "v1" {
+				t.Fatalf("expected persisted app definition to remain at v1, got %#v", got)
 			}
-			if raw := storage.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); len(raw) != 0 {
-				t.Fatalf("expected live app definition to remain empty, got %s", string(raw))
+			if got := mustDecodeBackendRuntimeTestDefinition(t, storage.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document)); got.AppSpecVersion != "v1" {
+				t.Fatalf("expected live app definition to remain at v1, got %#v", got)
 			}
 			appSpec, err := appSpecStore.Read(filepath.Dir(store.Path()), definition.AppSpecPath)
 			if err != nil {
 				t.Fatalf("read app spec after invalid mutation: %v", err)
 			}
-			if appSpec != nil {
-				t.Fatalf("expected invalid app spec write to be skipped, got %#v", appSpec)
+			if label := backendRuntimeTestAppSpecLabel(t, appSpec); label != "v1" {
+				t.Fatalf("expected invalid app spec write to be skipped, got %q", label)
 			}
 			_, ops, err := runtime.SnapshotAndConsumeFrontendOps()
 			if err != nil {
@@ -763,6 +771,18 @@ func TestBackendRuntimeMapsExpectedOldValueMismatch(t *testing.T) {
 	t.Helper()
 
 	_, runtime := openPersistedBackendRuntimeTestProject(t)
+	pluginID := "setta-json-render-app-gen"
+	appSpecPath := appspec.MustForPlugin(pluginID).DefaultPath()
+	catalogOld := appspec.DefaultCatalogID
+	version := "v1"
+	if _, _, err := NewAppDefinitionService(runtime, pluginID).SetAppDefinition(context.Background(), SetInput{
+		AppSpec:        backendRuntimeTestAppSpec("v1"),
+		AppSpecPath:    &appSpecPath,
+		AppSpecVersion: &version,
+		CatalogID:      &catalogOld,
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 	service := NewBackendRuntime(runtime, "setta-json-render-app-gen", backendRuntimeInvokerStub{
 		invoke: func(
 			ctx context.Context,
@@ -782,8 +802,8 @@ func TestBackendRuntimeMapsExpectedOldValueMismatch(t *testing.T) {
 
 	_, _, err := service.CompareAndSetAppDefinitionCatalogID(
 		context.Background(),
-		"catalog-next",
-		backendRuntimeTestStringPointer("catalog-old"),
+		catalogOld,
+		backendRuntimeTestStringPointer(catalogOld),
 	)
 	if err == nil {
 		t.Fatal("expected compare-and-set mismatch error")
