@@ -73,7 +73,8 @@ Options:
   --output-dir PATH          Directory for run logs and responses. Default: mktemp dir
   --workdir PATH             Working directory passed to `codex exec --cd`.
                              Default: repo root
-  --model NAME               Optional model override passed to `codex exec --model`
+  --model NAME               Model passed to `codex exec --model`.
+                             Default: gpt-5.5
   --yolo                     Run with `--dangerously-bypass-approvals-and-sandbox`
   --stop-on-error            Exit immediately after a failed iteration
   --help                     Show this help text
@@ -109,7 +110,7 @@ iterations="100"
 new_session_every="1"
 output_dir=""
 workdir="${ROOT_DIR}"
-model=""
+model="gpt-5.5"
 yolo_mode="0"
 stop_on_error="0"
 stop_on_pre_session_exit_code=""

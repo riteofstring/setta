@@ -4,6 +4,7 @@ package sharedvalueexports
 
 import (
 	"reflect"
+	frontendvalues "setta/internal/appsubsystem/frontendvalues"
 	deployments "setta/internal/deployments"
 	externalagentconfigs "setta/internal/externalagentconfigs"
 	httpapi "setta/internal/httpapi"
@@ -16,9 +17,16 @@ func DiscoveredValueExports() []ValueExport {
 	return []ValueExport{
 		{
 			Name: "AppSpecPatchPolicyConfig",
-			Type: reflect.TypeOf(httpapi.FrontendValueAppSpecPatchPolicyConfig()),
+			Type: reflect.TypeOf(frontendvalues.FrontendValueAppSpecPatchPolicyConfig()),
 			Value: func() any {
-				return httpapi.FrontendValueAppSpecPatchPolicyConfig()
+				return frontendvalues.FrontendValueAppSpecPatchPolicyConfig()
+			},
+		},
+		{
+			Name: "AppSubsystemChatUIConfig",
+			Type: reflect.TypeOf(frontendvalues.FrontendValueAppSubsystemChatUIConfig()),
+			Value: func() any {
+				return frontendvalues.FrontendValueAppSubsystemChatUIConfig()
 			},
 		},
 		{
