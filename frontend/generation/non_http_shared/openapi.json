@@ -10300,6 +10300,16 @@
           "canvasControlsUi": {
             "type": "boolean"
           },
+          "languageServerDependency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginWatchCodeLanguageServerDependencyStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pluginEnabled": {
             "type": "boolean"
           },
@@ -10349,6 +10359,53 @@
         "required": ["python", "requiresLanguageServer", "canvasControlsUi"],
         "title": "PluginWatchCodeFeatureManifest",
         "type": "object"
+      },
+      "PluginWatchCodeLanguageServerDependencyStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "appliedPluginId": {
+            "type": ["null", "string"]
+          },
+          "language": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "selectedPluginId": {
+            "type": ["null", "string"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PluginWatchCodeLanguageServerDependencyStatusKind"
+          }
+        },
+        "required": [
+          "language",
+          "required",
+          "status",
+          "message",
+          "restartRequired"
+        ],
+        "title": "PluginWatchCodeLanguageServerDependencyStatus",
+        "type": "object"
+      },
+      "PluginWatchCodeLanguageServerDependencyStatusKind": {
+        "enum": [
+          "unavailable",
+          "not_required",
+          "active",
+          "missing",
+          "disabled",
+          "pending_restart"
+        ],
+        "title": "PluginWatchCodeLanguageServerDependencyStatusKind",
+        "type": "string"
       },
       "PluginWatchCodeProviderSelection": {
         "additionalProperties": false,

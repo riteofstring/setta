@@ -12253,6 +12253,16 @@
             }
           ]
         },
+        "languageServerDependency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PluginWatchCodeLanguageServerDependencyStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "pluginId": {
           "type": "string"
         },
@@ -12299,6 +12309,59 @@
         "canvasControlsUi"
       ],
       "additionalProperties": false
+    },
+    "PluginWatchCodeLanguageServerDependencyStatus": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/PluginWatchCodeLanguageServerDependencyStatusKind"
+        },
+        "message": {
+          "type": "string"
+        },
+        "selectedPluginId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "appliedPluginId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "restartRequired": {
+          "type": "boolean"
+        }
+      },
+      "title": "PluginWatchCodeLanguageServerDependencyStatus",
+      "required": [
+        "language",
+        "required",
+        "status",
+        "message",
+        "restartRequired"
+      ],
+      "additionalProperties": false
+    },
+    "PluginWatchCodeLanguageServerDependencyStatusKind": {
+      "type": "string",
+      "title": "PluginWatchCodeLanguageServerDependencyStatusKind",
+      "enum": [
+        "unavailable",
+        "not_required",
+        "active",
+        "missing",
+        "disabled",
+        "pending_restart"
+      ]
     },
     "PluginWatchCodeProviderSelection": {
       "type": "object",
