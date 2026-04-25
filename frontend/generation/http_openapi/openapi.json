@@ -6879,47 +6879,6 @@
         "required": ["projectConfigId", "viewport"],
         "type": "object"
       },
-      "HttpapiSetWatchCodeEnabledRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          }
-        },
-        "required": ["projectConfigId", "enabled"],
-        "type": "object"
-      },
-      "HttpapiSetWatchCodeInputsRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          },
-          "watchCodeFiles": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeFolders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          }
-        },
-        "required": ["projectConfigId", "watchCodeFolders", "watchCodeFiles"],
-        "type": "object"
-      },
       "HttpapiSetWindowSpaceNameRequest": {
         "additionalProperties": false,
         "properties": {
@@ -12094,6 +12053,47 @@
           }
         },
         "required": ["appendText", "fullText", "isFinal"],
+        "type": "object"
+      },
+      "WatchcodehttpSetWatchCodeEnabledRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "enabled"],
+        "type": "object"
+      },
+      "WatchcodehttpSetWatchCodeInputsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "frontendOpId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "watchCodeFiles": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "watchCodeFolders": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["projectConfigId", "watchCodeFolders", "watchCodeFiles"],
         "type": "object"
       }
     }
@@ -21847,7 +21847,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HttpapiSetWatchCodeEnabledRequest"
+                "$ref": "#/components/schemas/WatchcodehttpSetWatchCodeEnabledRequest"
               }
             }
           },
@@ -21886,7 +21886,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HttpapiSetWatchCodeInputsRequest"
+                "$ref": "#/components/schemas/WatchcodehttpSetWatchCodeInputsRequest"
               }
             }
           },

@@ -2288,19 +2288,6 @@ export type HttpapiSetViewportRequest = {
   viewport: ProjectstateViewport;
 };
 
-export type HttpapiSetWatchCodeEnabledRequest = {
-  enabled: boolean;
-  frontendOpId?: string;
-  projectConfigId: string;
-};
-
-export type HttpapiSetWatchCodeInputsRequest = {
-  frontendOpId?: string;
-  projectConfigId: string;
-  watchCodeFiles: Array<string> | null;
-  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
-};
-
 export type HttpapiSetWindowSpaceNameRequest = {
   frontendOpId?: string;
   name: string;
@@ -3942,6 +3929,19 @@ export type TranscriptionsessionsDelta = {
   appendText: string;
   fullText: string;
   isFinal: boolean;
+};
+
+export type WatchcodehttpSetWatchCodeEnabledRequest = {
+  enabled: boolean;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type WatchcodehttpSetWatchCodeInputsRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  watchCodeFiles: Array<string> | null;
+  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
 };
 
 export type AcceptRenameRefactorData = {
@@ -10574,7 +10574,7 @@ export type SetViewportResponse =
   SetViewportResponses[keyof SetViewportResponses];
 
 export type SetWatchCodeEnabledData = {
-  body: HttpapiSetWatchCodeEnabledRequest;
+  body: WatchcodehttpSetWatchCodeEnabledRequest;
   path?: never;
   query?: never;
   url: "/setWatchCodeEnabled";
@@ -10601,7 +10601,7 @@ export type SetWatchCodeEnabledResponse =
   SetWatchCodeEnabledResponses[keyof SetWatchCodeEnabledResponses];
 
 export type SetWatchCodeInputsData = {
-  body: HttpapiSetWatchCodeInputsRequest;
+  body: WatchcodehttpSetWatchCodeInputsRequest;
   path?: never;
   query?: never;
   url: "/setWatchCodeInputs";
