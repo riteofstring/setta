@@ -413,10 +413,10 @@ function isChatRegistration(
   );
 }
 
-function hasOptionalRegistration<T>(
+function hasOptionalRegistration(
   value: Record<string, unknown>,
   key: string,
-  validator: (entry: unknown) => entry is T,
+  validator: (entry: unknown) => boolean,
 ): boolean {
   const entry = value[key];
   if (entry === undefined) {

@@ -427,9 +427,11 @@ export function DropdownInput({
 }
 
 type ColorPickerInputTheme = {
+  inputBorderClassName?: string;
   menuContentClassName?: string;
   menuItemClassName?: string;
   menuItemTextClassName?: string;
+  triggerBorderClassName?: string;
 };
 
 type ColorPickerInputProps = {
@@ -483,7 +485,10 @@ export function ColorPickerInput({
           type="color"
           value={resolvedValue}
           disabled={isDisabled}
-          className="h-full min-h-8 w-10 cursor-pointer rounded border bg-transparent p-0"
+          className={joinClassNames([
+            "h-full min-h-8 w-10 cursor-pointer rounded border bg-transparent p-0",
+            theme?.triggerBorderClassName,
+          ])}
           onChange={(event) => onChange(event.target.value)}
           onBlur={(event) => onCommit?.(event.target.value)}
           onKeyDown={(event) => {
@@ -496,6 +501,7 @@ export function ColorPickerInput({
           <select
             className={joinClassNames([
               "min-w-0 flex-1 rounded border bg-[color:var(--app-dropdown-bg)] px-2 py-1 [font-size:var(--app-text-xs)] text-[color:var(--app-dropdown-text)]",
+              theme?.inputBorderClassName,
               theme?.menuContentClassName,
               theme?.menuItemClassName,
               theme?.menuItemTextClassName,

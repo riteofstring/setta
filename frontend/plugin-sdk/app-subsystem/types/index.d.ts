@@ -12,7 +12,7 @@ export type ImageArtifact = JsonRecord & {
   id: string;
   value: ContentRef;
 };
-export type ObjectValues = Record<string, unknown>;
+export type ObjectValues<T> = T[keyof T];
 export type BaseDependencyKeyUnion = unknown;
 export type BaseDependencyValueUnion = unknown;
 export type BaseChildlessCodeObjImplUnion = JsonRecord;
@@ -46,10 +46,57 @@ export type SingleConfig = JsonRecord & {
 };
 
 export type AppsubsystemAppdefinitionAppDefinition = JsonRecord;
-export type HttpapiDeploymentMetadataResponse = JsonRecord;
-export type HttpapiPublishAppDeploymentRequest = JsonRecord;
+export type HttpapiDeploymentMetadataResponse = JsonRecord & {
+  deploymentName: string;
+  deploymentVersion: string;
+};
+export type HttpapiPublishAppDeploymentRequest = JsonRecord & {
+  deploymentName: string;
+  projectConfigId: string;
+};
 export type HttpapiServerModeResponse = JsonRecord & {
   mode: string | null;
+};
+export type AppDefinitionValidationIssue = {
+  message: string;
+  elementKey?: string | null;
+  elementType?: string | null;
+};
+export type AppDefinitionValidationResult = {
+  capabilities: {
+    catalogId: string;
+    catalogVersion: string;
+    appSpecVersion: string;
+    themeSchemaVersion: string;
+    features: Record<string, boolean>;
+  };
+  errors: AppDefinitionValidationIssue[] | null;
+  warnings: AppDefinitionValidationIssue[] | null;
+};
+export type AttachmentDownloadURLResponse = {
+  url?: string | null;
+};
+export type PasswordParamValueResponse = {
+  value: string;
+};
+export type ArtifactSaveResult = JsonRecord & {
+  backupPath?: string;
+  id: string;
+  message?: string;
+  status: string;
+  type: string;
+};
+export type DeleteArtifactRequestItem = {
+  id: string;
+  type: string;
+};
+export type AppDefinitionReadResult = {
+  appDefinition?: AppsubsystemAppdefinitionAppDefinition;
+  appSpec: unknown;
+};
+export type AppDefinitionMutationResult = {
+  appDefinition?: AppsubsystemAppdefinitionAppDefinition;
+  appSpec: unknown;
 };
 
 export type GetLatestProjectStateResponse = {
@@ -67,11 +114,25 @@ export type GetAppDeploymentStateResponses = {
   };
 };
 
-export type ResponseDataAndStatus<T = unknown> = {
+export type ResponseDataAndStatus<T = JsonRecord> = {
   data: T | undefined;
   status: number | undefined;
   hasResponse: boolean;
 };
+
+export type ResolvedRunRequest =
+  | {
+      canRun: true;
+      disabledReason: null;
+      executionSectionId: string;
+      effectiveSectionId: string;
+    }
+  | {
+      canRun: false;
+      disabledReason: string;
+      executionSectionId: null;
+      effectiveSectionId: string | null;
+    };
 
 export declare const CodeObjTypeEnum: Readonly<Record<string, string>>;
 export declare const ConfigLanguageEnum: Readonly<Record<string, string>>;
@@ -134,8 +195,11 @@ export declare function isBaseChildlessCodeObjImpl(value: unknown): value is Jso
 export declare function isBaseSectionWithParamsImpl(value: unknown): value is JsonRecord;
 export declare function createDefaultAppPolicy(): Policy;
 export declare function resolveAppPolicy(policy?: Policy | null): Policy;
-export declare function resolveMainRunRequest(args: JsonRecord): JsonRecord;
-export declare function resolveRunRequest(args: JsonRecord): JsonRecord;
+export declare function resolveMainRunRequest(state: SingleConfig): ResolvedRunRequest;
+export declare function resolveRunRequest(
+  state: SingleConfig,
+  requestedSectionId: string | null,
+): ResolvedRunRequest;
 
 export declare const CODEMIRROR_TOOLTIP_PARENT_ID: string;
 export declare const NO_PAN_CLASS_NAME: string;
@@ -144,36 +208,162 @@ export declare const SETTA_PREVENT_SECTION_ACTIVE_CSS: string;
 export declare function shouldShowPasswordReveal(args: JsonRecord): boolean;
 export declare function buildTextBlockTypographyScale(masterFontSizePx: number): JsonRecord;
 export declare function createRandomName(): string;
-export type DropzoneStoredAttachment = JsonRecord;
-export type DropzoneStatelessAttachment = JsonRecord;
-export declare function createDropzoneFileArtifactId(id: string): string;
-export declare function createDropzoneTextAttachmentId(id: string): string;
-export declare function parseDropzoneValue(value: unknown): unknown;
-export declare function serializeDropzoneValue(value: unknown): unknown;
+export type DropzoneStoredFileAttachment = {
+  kind: "file";
+  id: string;
+  name: string;
+  mimeType?: string;
+  size?: number;
+};
+export type DropzoneStoredTextAttachment = {
+  kind: "text";
+  id: string;
+  name: string;
+  text: string;
+};
+export type DropzoneStoredAttachment =
+  | DropzoneStoredFileAttachment
+  | DropzoneStoredTextAttachment;
+export type DropzoneStoredValue = {
+  attachments: DropzoneStoredAttachment[];
+};
+export type DropzoneStatelessFileAttachment = {
+  kind: "file";
+  name: string;
+  mimeType: string;
+  size: number;
+  contentId: string;
+  byteLength: number;
+  binaryPayload: ArrayBuffer;
+};
+export type DropzoneStatelessTextAttachment = {
+  kind: "text";
+  name: string;
+  text: string;
+};
+export type DropzoneStatelessAttachment =
+  | DropzoneStatelessFileAttachment
+  | DropzoneStatelessTextAttachment;
+export type AttachmentPolicyScope =
+  | "chat"
+  | "dropzone_stateful"
+  | "dropzone_stateless";
+export type AttachmentPolicy = {
+  scope: AttachmentPolicyScope;
+  maxFiles: number | null;
+  maxFilesDisabled: boolean;
+  maxFileBytes: number;
+  maxFileLabel: string;
+  maxTotalBytes: number | null;
+  maxTotalLabel: string | null;
+  allowedMimePrefixes: string[];
+  allowedMimeLabel: string;
+};
+export declare function createDropzoneFileArtifactId(fileName: string, baseFolder?: string): string;
+export declare function createDropzoneTextAttachmentId(): string;
+export declare function parseDropzoneValue(value: string): DropzoneStoredValue | null;
+export declare function serializeDropzoneValue(attachments: DropzoneStoredAttachment[]): string;
 export declare function formatBytes(value: number): string;
-export declare function getAttachmentPolicy(args?: JsonRecord): JsonRecord;
-export declare function isAttachmentMimeAllowed(args: JsonRecord): boolean;
+export declare function getAttachmentPolicy(scope: AttachmentPolicyScope): AttachmentPolicy;
+export declare function isAttachmentMimeAllowed(mimeType: string, policy: AttachmentPolicy): boolean;
 
-export declare function checkIfFileExists(options?: unknown): Promise<ResponseDataAndStatus>;
-export declare function deleteArtifacts(options?: unknown): Promise<ResponseDataAndStatus>;
+export declare function checkIfFileExists(options?: {
+  body?: {
+    filepath: string;
+  };
+}): Promise<ResponseDataAndStatus<boolean>>;
+export declare function deleteArtifacts(options: {
+  body: {
+    artifacts: DeleteArtifactRequestItem[] | null;
+  };
+}): Promise<ResponseDataAndStatus<string[] | null>>;
 export declare function downloadBinary(options?: unknown): Promise<ResponseDataAndStatus<Blob>>;
-export declare function getAppDefinition(options?: unknown): Promise<ResponseDataAndStatus>;
+export declare function getAppDefinition(options?: {
+  body?: {
+    frontendOpId?: string;
+  };
+}): Promise<ResponseDataAndStatus<AppDefinitionReadResult>>;
 export declare function getAppDeploymentCurrentSession(options?: unknown): Promise<ResponseDataAndStatus<GetAppDeploymentCurrentSessionResponses[200]>>;
 export declare function getAppDeploymentProjectConfig(options?: unknown): Promise<ResponseDataAndStatus<GetAppDeploymentStateResponses[200]>>;
 export declare function getAppDeploymentState(options?: unknown): Promise<ResponseDataAndStatus<GetAppDeploymentStateResponses[200]>>;
-export declare function getAttachmentDownloadUrl(options?: unknown): Promise<ResponseDataAndStatus>;
+export declare function getAttachmentDownloadUrl(options?: {
+  body?: {
+    artifactId: string;
+    projectConfigId: string;
+  };
+}): Promise<ResponseDataAndStatus<AttachmentDownloadURLResponse>>;
 export declare function getLatestProjectState(options?: unknown): Promise<ResponseDataAndStatus<GetLatestProjectStateResponse>>;
-export declare function getPasswordParamValue(options?: unknown): Promise<ResponseDataAndStatus>;
-export declare function listAppDeployments(options?: unknown): Promise<ResponseDataAndStatus>;
+export declare function getPasswordParamValue(options: {
+  body: {
+    paramInfoId: string;
+    projectConfigId: string;
+    sectionId: string;
+  };
+}): Promise<ResponseDataAndStatus<PasswordParamValueResponse>>;
+export declare function listAppDeployments(
+  options?: unknown,
+): Promise<ResponseDataAndStatus<HttpapiDeploymentMetadataResponse[]>>;
 export declare function loadCachedImageArtifacts(options?: unknown): Promise<ResponseDataAndStatus<ImageArtifact[]>>;
 export declare function loadProjectConfig(options?: unknown): Promise<ResponseDataAndStatus<SingleConfig>>;
-export declare function publishAppDeployment(options?: unknown): Promise<ResponseDataAndStatus>;
-export declare function runCode(options?: unknown): Promise<ResponseDataAndStatus>;
-export declare function setAppDefinition(options?: unknown): Promise<ResponseDataAndStatus>;
-export declare function setParamEnteredValue(options?: unknown): Promise<ResponseDataAndStatus>;
-export declare function updateArtifacts(options?: unknown): Promise<ResponseDataAndStatus>;
-export declare function uploadBinary(options?: unknown): Promise<ResponseDataAndStatus>;
-export declare function validateAppDefinition(options?: unknown): Promise<ResponseDataAndStatus>;
+export declare function publishAppDeployment(options?: {
+  body: HttpapiPublishAppDeploymentRequest;
+}): Promise<ResponseDataAndStatus<HttpapiDeploymentMetadataResponse>>;
+export declare function runCode(options: {
+  body: {
+    cliId: string;
+    drawSnapshotsBySectionId: Record<string, BinaryContentRef>;
+    paramOverrides: Record<string, string>;
+    projectConfigId: string;
+    runSnapshotMode: string;
+    sectionId: string;
+    sectionVariantOverrides: Record<string, string>;
+    terminalSectionId: string;
+  };
+}): Promise<ResponseDataAndStatus<null>>;
+export declare function setAppDefinition(options: {
+  body: {
+    actions?: Record<string, unknown>;
+    appSpec: unknown;
+    appSpecPath?: string;
+    appSpecVersion?: string;
+    assets?: unknown[];
+    catalogId?: string;
+    dataBindings?: Record<string, unknown>;
+    frontendOpId?: string;
+    routes?: unknown[];
+    theme?: Record<string, unknown>;
+  };
+}): Promise<ResponseDataAndStatus<AppDefinitionMutationResult>>;
+export declare function setParamEnteredValue(options: {
+  body: {
+    frontendOpId?: string;
+    paramInfoId: string;
+    projectConfigId: string;
+    sectionId: string;
+    sectionVariantId: string;
+    value: string;
+  };
+}): Promise<ResponseDataAndStatus<null>>;
+export declare function updateArtifacts(options: {
+  body: {
+    artifacts: Array<{
+      id: string;
+      type: string;
+      value: unknown;
+    }> | null;
+    conflictStrategy?: string;
+    uploadScope: string;
+  };
+}): Promise<ResponseDataAndStatus<ArtifactSaveResult[] | null>>;
+export declare function uploadBinary(options: {
+  body: {
+    durable?: boolean;
+    file: File;
+  };
+}): Promise<ResponseDataAndStatus<BinaryContentRef>>;
+export declare function validateAppDefinition(options?: {
+  body?: JsonRecord;
+}): Promise<ResponseDataAndStatus<AppDefinitionValidationResult>>;
 export declare function callOpenAPI<T>(promise: Promise<T> | T): Promise<T>;
 export declare function getErrorDetail(value: unknown): string | null;
 export declare function getErrorCode(value: unknown): string | null;
@@ -351,7 +541,7 @@ export declare function buildDefaultAppSpecPath(pluginId: string | null | undefi
 export declare function activateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
 export declare function deactivateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
 export declare function getActiveAppSubsystemFrontendHostRuntime(): AppSubsystemFrontendHost | null;
-export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T>(projectState: SingleConfig, sectionId: string, codeObjId: string, guard: (value: JsonRecord) => value is T): T | null;
+export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T>(projectState: SingleConfig, sectionId: string, codeObjId: string, guard: (value: JsonRecord) => value is T, includePreview?: boolean): T | null;
 export declare function getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;
 export declare function getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;
 export declare function getCurrentSectionVariantId(projectState: SingleConfig, sectionId: string, includePreview?: boolean): string;

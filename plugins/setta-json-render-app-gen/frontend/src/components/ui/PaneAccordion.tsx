@@ -58,6 +58,9 @@ type PaneAccordionUncontrolledProps = PaneAccordionBaseProps & {
 type PaneAccordionProps =
   | PaneAccordionControlledProps
   | PaneAccordionUncontrolledProps;
+type PaneAccordionOpenStateProps =
+  | Pick<PaneAccordionControlledProps, "onOpenValuesChange" | "openValues">
+  | Pick<PaneAccordionUncontrolledProps, "defaultOpenValues">;
 
 type ResolvedPaneAccordionClassNames = {
   root: string;
@@ -118,7 +121,7 @@ function resolvePaneAccordionClassNames({
 }
 
 function resolvePaneAccordionOpenState(
-  openStateProps: PaneAccordionControlledProps | PaneAccordionUncontrolledProps,
+  openStateProps: PaneAccordionOpenStateProps,
   disabledItemValues: Set<string>,
 ): ResolvedPaneAccordionOpenState {
   if ("openValues" in openStateProps) {
@@ -232,6 +235,10 @@ export function PaneAccordion({
   descriptionClassName,
   ...openStateProps
 }: PaneAccordionProps) {
+  const resolvedOpenState = resolvePaneAccordionOpenState(
+    openStateProps,
+    new Set(items.filter((item) => item.disabled).map((item) => item.value)),
+  );
   const classNames = resolvePaneAccordionClassNames({
     rootClassName,
     itemClassName,
@@ -240,13 +247,6 @@ export function PaneAccordion({
     titleClassName,
     descriptionClassName,
   });
-  const disabledItemValues = new Set(
-    items.filter((item) => item.disabled).map((item) => item.value),
-  );
-  const resolvedOpenState = resolvePaneAccordionOpenState(
-    openStateProps,
-    disabledItemValues,
-  );
 
   return (
     <Accordion.Root

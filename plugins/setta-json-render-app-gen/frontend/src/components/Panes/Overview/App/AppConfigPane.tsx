@@ -1,4 +1,5 @@
 import {
+  type AppDefinitionValidationResult,
   buildDefaultAppSpecPath,
   callOpenAPI,
   getErrorDetail,
@@ -31,21 +32,9 @@ type ProjectMetadataOption = {
   id: string;
   name: string;
 };
-type AppDefinitionValidationResult = {
-  errors: Array<{
-    message: string;
-  }>;
-  warnings: Array<{
-    message: string;
-    elementKey?: string | null;
-  }>;
-  capabilities: {
-    catalogId: string;
-    catalogVersion: string;
-    appSpecVersion: string;
-    themeSchemaVersion: string;
-    features: Record<string, boolean>;
-  };
+type NormalizedAppDefinitionValidationResult = AppDefinitionValidationResult & {
+  errors: NonNullable<AppDefinitionValidationResult["errors"]>;
+  warnings: NonNullable<AppDefinitionValidationResult["warnings"]>;
 };
 type HydratedAppDefinition = {
   savedSpec: unknown;
@@ -371,6 +360,17 @@ function buildValidationSuccessMessage(warningCount: number): string {
   }
   return `Validation passed with ${warningCount} warning(s).`;
 }
+
+function normalizeValidationResult(
+  result: AppDefinitionValidationResult,
+): NormalizedAppDefinitionValidationResult {
+  return {
+    ...result,
+    errors: result.errors ?? [],
+    warnings: result.warnings ?? [],
+  };
+}
+
 function ErrorMessageBanner({ message }: { message: string | null }) {
   if (!message) {
     return null;
@@ -384,7 +384,7 @@ function ErrorMessageBanner({ message }: { message: string | null }) {
 function ValidationResultPanel({
   result,
 }: {
-  result: AppDefinitionValidationResult | null;
+  result: NormalizedAppDefinitionValidationResult | null;
 }) {
   if (!result) {
     return null;
@@ -731,7 +731,7 @@ export function AppConfigPane() {
   const [validating, setValidating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [validationResult, setValidationResult] =
-    useState<AppDefinitionValidationResult | null>(null);
+    useState<NormalizedAppDefinitionValidationResult | null>(null);
   const defaultAppSpecPath = buildDefaultAppSpecPath(appSubsystemPluginID);
   const appSpecPathPlaceholder =
     defaultAppSpecPath || "plugins/<app-provider>/app_specs/app.json";
@@ -1002,10 +1002,13 @@ export function AppConfigPane() {
       setErrorMessage(detail ?? "Failed to validate app spec.");
       return;
     }
-    setValidationResult(response.data);
-    if (response.data.errors.length === 0) {
+    const normalizedResult = normalizeValidationResult(response.data);
+    setValidationResult(normalizedResult);
+    if (normalizedResult.errors.length === 0) {
       frontendHost.notify({
-        message: buildValidationSuccessMessage(response.data.warnings.length),
+        message: buildValidationSuccessMessage(
+          normalizedResult.warnings.length,
+        ),
       });
     }
   }

@@ -54,6 +54,7 @@ from setta.sdk_contracts.generated import (
     ListenerSnapshot,
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
+    LocalCoreRenderRealtimeDependencyValuesResult,
 )
 from setta.sdk_contracts.generated import (
     ListenerDependencyEvent as SDKListenerDependencyEvent,
@@ -75,7 +76,10 @@ from setta.types.artifact import (
     BaseArtifactTypeAdapter,
     BaseArtifactUnion,
 )
-from setta.types.generated.go_shared_constants import LOOPBACK_HOSTS
+from setta.types.generated.go_shared_constants import (
+    LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
+    LOOPBACK_HOSTS,
+)
 from setta.types.generated.go_shared_types import (
     CodeObjType,
     CodeObjValueRepresentationMode,
@@ -2142,8 +2146,13 @@ class SettaListener:
     ) -> ListenerRenderedDependencyValues | None:
         try:
             local_core_result = (
-                await self._get_local_core_client().render_realtime_dependency_values(
-                    self._build_local_core_realtime_request(runtime_state, deltas)
+                LocalCoreRenderRealtimeDependencyValuesResult.model_validate(
+                    await self._get_local_core_client().run_command(
+                        LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
+                        self._build_local_core_realtime_request(
+                            runtime_state, deltas
+                        ).model_dump(mode="json"),
+                    )
                 )
             )
             return local_core_result.dependencyValues

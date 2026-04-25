@@ -20,10 +20,10 @@
 - Still unverified: No separate HTTP/MCP provider-unavailable integration run; verification focused on generated contracts, runtime/provider selection, packaged backend probes, and app-definition dispatch owners.
 
 ### Frontend App Subsystem Host/SDK Boundary
-- Invariant: SDK contract/barrel imports must keep shared OpenAPI setup explicit and side-effect-free; plugin source, plugin tests, plugin build config, vendored SDK metadata, packaged SDK type declarations, and the source SDK package root must enforce the standalone plugin boundary without repo-local host aliases or host test utilities, and the vendored `types/index.d.ts` surface must stay aligned with the source SDK owner.
-- Last finding commit: 28726165e366281e841fc9c42432111ab296e95b
-- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, `test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree`, `test_app_subsystem_frontend_sdk_source_package_builds_from_its_own_root`
-- Still unverified: No separate third-party standalone-plugin matrix or browser verification was run in this pass; verification stayed at boundary/package-root checks plus focused SDK/unit coverage.
+- Invariant: SDK contract/barrel imports must keep shared OpenAPI setup explicit and side-effect-free; plugin source, plugin tests, plugin build config, vendored SDK metadata, vendored `dist/index.js`, packaged SDK type declarations, and the source SDK package root must enforce the standalone plugin boundary without repo-local host aliases or host test utilities, and the vendored runtime/types artifacts must stay byte-for-byte aligned with the source SDK owner build.
+- Last finding commit: affcd72dfff3860918cf15827a020f2c82cbe259
+- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, `test_app_subsystem_frontend_sdk_source_package_builds_from_its_own_root`, `test_vendored_app_subsystem_frontend_sdk_matches_source_package_build`
+- Still unverified: No separate third-party standalone-plugin matrix or browser verification was run in this pass; verification stayed at boundary/package-root checks, vendored-source equality checks, and focused SDK/unit coverage.
 
 ### Frontend SDK Helper Ownership
 - Invariant: Package-safe frontend helpers shared by the host and the app-subsystem SDK must have one SDK owner; host entrypoints may re-export that owner or add host-only wrappers, but must not carry parallel copies of the same run-capability or deployment-policy logic.
@@ -38,10 +38,10 @@
 - Still unverified: No Playwright or CDP app-deployment flow was run in this pass; verification stayed at unit/integration level because no visual UI surface changed.
 
 ### Standalone Plugin Packaging Pipeline
-- Invariant: The first-party app-subsystem plugin frontend and the source app-subsystem SDK package must install, typecheck, test, and build from their own package roots using package-owned source, configs, and declared Setta runtime/SDK dependencies; runtime-managed frontend builds and packaged deployment/wheel paths must not depend on tracked `frontend/dist/*`, repo checkout `backend/setta`, repo-local host frontend aliases, or a host-side first-party wrapper script or hardcoded plugin path.
-- Last finding commit: 28726165e366281e841fc9c42432111ab296e95b
-- Proof tests: `TestServiceValidateFolderRejectsRuntimeManagedFrontendBuildWithoutPackageJSON`, `TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON`, `TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree`, `test_app_subsystem_frontend_sdk_source_package_builds_from_its_own_root`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
-- Still unverified: No full clean-checkout packaged-deployment smoke or third-party standalone-plugin matrix was rerun in this pass; verification covered package-root install/typecheck/test/build and focused owner packaging tests.
+- Invariant: The first-party app-subsystem plugin frontend and the source app-subsystem SDK package must install, typecheck, test, and build from their own package roots using real shipped source trees, package-owned configs, and declared Setta runtime/SDK dependencies; runtime-managed frontend builds and packaged deployment/wheel paths must not depend on tracked `frontend/dist/*`, repo checkout `backend/setta`, repo-local host frontend aliases, or a host-side first-party wrapper script or hardcoded plugin path, and vendored SDK artifacts used by the plugin package must match the source SDK owner build.
+- Last finding commit: affcd72dfff3860918cf15827a020f2c82cbe259
+- Proof tests: `TestServiceValidateFolderRejectsRuntimeManagedFrontendBuildWithoutPackageJSON`, `TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON`, `TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree`, `test_app_subsystem_frontend_sdk_source_package_builds_from_its_own_root`, `test_vendored_app_subsystem_frontend_sdk_matches_source_package_build`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
+- Still unverified: No full clean-checkout packaged-deployment smoke or third-party standalone-plugin matrix was rerun in this pass; verification covered package-root install/typecheck/test/build, vendored-source SDK alignment, and focused owner packaging tests.
 
 ### App Subsystem Capability-To-Surface Gating
 - Invariant: App-subsystem frontend, deployment-runtime, MCP-tool, and scoped UI-setting surfaces may be published only when a single selected provider both registers the backend contract and declares the corresponding feature bits; frontend-facing feature bits additionally require a loadable frontend entrypoint, and host-contributed catalog/app-definition surfaces must not leak behind `PluginEnabled` alone.
@@ -50,10 +50,10 @@
 - Still unverified: No HTTP/MCP provider-unavailable integration or browser `/app` flow was rerun in this pass; verification focused on runtime capability selection and frontend gating/unit coverage.
 
 ### Local Core Packaged Runtime Boundary
-- Invariant: The published plugin-runtime local-core helper and lightweight runtime clients must share one packaged boundary, include all lightweight runtime modules in the Setta wheel/test fixture, derive SDK contract constants from the authoritative owner, expose generated app-subsystem backend contract constants, and avoid repo-owned `setta.api.*` shim boundaries or heavyweight generated SDK imports in packaged plugin backends.
-- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
-- Proof tests: `test_lightweight_sdk_contract_version_matches_generated_owner`, `test_run_local_core_command_dispatches_through_packaged_boundary`, `test_run_local_core_command_surfaces_structured_errors`, `test_run_local_core_command_rejects_sdk_version_mismatch`, `test_run_local_core_command_rejects_sdk_contract_mismatch`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
-- Still unverified: No broader packaged-plugin runtime matrix beyond the focused runtime-compat, local-core, and packaged-distribution owners; no separate deployment-mode local-core smoke was run.
+- Invariant: The published plugin-runtime local-core helper and lightweight runtime clients must share one packaged boundary, include all lightweight runtime modules in the Setta wheel/test fixture, derive SDK contract constants from the authoritative owner, expose generated app-subsystem backend contract constants, keep typed app-subsystem helper logic out of the lightweight `LocalCoreClient`, and avoid repo-owned `setta.api.*` shim boundaries or heavyweight generated SDK imports in packaged plugin backends.
+- Last finding commit: affcd72dfff3860918cf15827a020f2c82cbe259
+- Proof tests: `test_lightweight_sdk_contract_version_matches_generated_owner`, `test_run_local_core_command_dispatches_through_packaged_boundary`, `test_run_local_core_command_surfaces_structured_errors`, `test_run_local_core_command_rejects_sdk_version_mismatch`, `test_run_local_core_command_rejects_sdk_contract_mismatch`, `test_local_core_client_keeps_source_only_typed_helpers_out_of_packaged_boundary`, `test_plugin_runtime_test_setta_wheel_keeps_local_core_boundary_packaged_only`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
+- Still unverified: The top-level packaged `setta` wheel with real `backend/setta/go_bin` payload was not built in this pass; verification used the lightweight packaged-runtime fixture plus focused runtime-compat, local-core, and packaged-distribution owners. No separate deployment-mode local-core smoke was run.
 
 ### App Generation Metadata Ownership
 - Invariant: App-generation modes, slash commands, image requirements, prompts, and frontend app-chat UI metadata must come from one Go-owned registry; downstream frontend values derive from that registry rather than restating command/mode inventories.
@@ -326,3 +326,26 @@ Verification run:
 Residual risks / verification gaps:
 - Browser/CDP and Playwright were not run because this iteration changed runtime/package-boundary behavior rather than a visual UI flow; no active `./aireset.sh` session was present at metadata finalization.
 - Full repo test suites and a separate third-party standalone-plugin matrix were not rerun; verification stayed focused on the touched frontend runtime and standalone package roots.
+
+## 2026-04-23 16:31:47 PDT
+Fixes applied:
+- Removed the source-only typed realtime dependency helper from `setta.local_core_client` and moved that typed command path into the app-subsystem listener owner so the lightweight packaged runtime boundary no longer imports omitted generated SDK/types modules.
+- Switched the source app-subsystem SDK and first-party plugin frontend package `typecheck` scripts to real shipped source trees, added the missing package-owned `@types/uuid` / `@types/lodash` declarations, and fixed the remaining package-root TypeScript errors in the SDK and plugin frontend.
+- Synced the vendored app-subsystem frontend SDK declarations and runtime bundle to the source SDK owner build and kept the standalone plugin boundary rooted in package-owned artifacts rather than repo-local host aliases.
+
+Tests added or upgraded:
+- Added `test_local_core_client_keeps_source_only_typed_helpers_out_of_packaged_boundary` in `tests/plugin_runtime/test_local_core.py`.
+- Upgraded `tests/start/test_packaged_distribution.py` to cover `test_plugin_runtime_test_setta_wheel_keeps_local_core_boundary_packaged_only`, real staged package-root typecheck/build for the SDK and plugin frontend, and `test_vendored_app_subsystem_frontend_sdk_matches_source_package_build`.
+
+Verification run:
+- `pnpm --dir frontend/plugin-sdk/app-subsystem exec tsc --noEmit -p tsconfig.typecheck.json --pretty false`
+- `pnpm --dir plugins/setta-json-render-app-gen/frontend exec tsc --noEmit -p tsconfig.typecheck.json --pretty false`
+- `source activate.sh && pytest tests/plugin_runtime/test_local_core.py -q -k 'keeps_source_only_typed_helpers_out_of_packaged_boundary'`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -q -k 'first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree or app_subsystem_frontend_sdk_source_package_builds_from_its_own_root or vendored_app_subsystem_frontend_sdk_matches_source_package_build or plugin_runtime_test_setta_wheel_keeps_local_core_boundary_packaged_only'`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+
+Residual risks / verification gaps:
+- Browser/CDP and Playwright were not run because no user-facing UI behavior changed in this iteration, and no active `./aireset.sh` session was present at metadata finalization.
+- The top-level packaged `setta` wheel with real `backend/setta/go_bin` payload was not built in this iteration; lightweight packaged-runtime verification used the focused test fixture instead.
+- No third-party standalone-plugin matrix or full repo suite was rerun; verification stayed focused on the local-core boundary, standalone package roots, vendored SDK alignment, and required quality gates.

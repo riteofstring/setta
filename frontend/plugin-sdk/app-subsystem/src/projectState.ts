@@ -30,6 +30,27 @@ type ProjectStateMutableValue =
   | Array<ProjectStateMutableValue>
   | { [key: string]: ProjectStateMutableValue | undefined };
 
+type MetaControlSectionLike = BaseSectionImplUnion & {
+  codeObjVariantMap?: Record<string, string>;
+  metaControlParamId: string | null;
+};
+
+type EditableBaseParamCodeObjLike = BaseCodeObjImplUnion & {
+  coreNameEditable: boolean;
+};
+
+function isMetaControlSectionLike(
+  value: BaseSectionImplUnion,
+): value is MetaControlSectionLike {
+  return value.type === SectionTypeEnum.MetaControl;
+}
+
+function hasEditableCoreName(
+  value: BaseCodeObjImplUnion,
+): value is EditableBaseParamCodeObjLike {
+  return isBaseParamCodeObjImpl(value) && "coreNameEditable" in value;
+}
+
 function cloneProjectStateValue<T>(value: T): T {
   if (value === null || value === undefined || typeof value !== "object") {
     return value;
@@ -139,14 +160,13 @@ function getSectionCodeObjVariantId(
   if (isBaseSectionWithParamsImpl(sectionImpl)) {
     return sectionImpl.codeObjVariantMap[codeObjId] ?? null;
   }
-  if (
-    sectionImpl.type !== SectionTypeEnum.MetaControl ||
-    !sectionImpl.metaControlParamId ||
-    sectionImpl.metaControlParamId !== codeObjId
-  ) {
+  if (!isMetaControlSectionLike(sectionImpl)) {
     return null;
   }
-  return sectionImpl.codeObjVariantMap[codeObjId] ?? null;
+  if (sectionImpl.metaControlParamId !== codeObjId) {
+    return null;
+  }
+  return sectionImpl.codeObjVariantMap?.[codeObjId] ?? null;
 }
 
 function getCurrentEffectiveCodeObjImplIfPresent(
@@ -182,7 +202,9 @@ function getCurrentEffectiveCodeObjImplIfPresent(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
-export function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T>(
+export function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<
+  T extends BaseCodeObjImplUnion,
+>(
   projectState: ProjectStateSelectorSnapshot,
   sectionId: string,
   codeObjId: string,
@@ -218,7 +240,7 @@ export function getParamDisplayNameIfPresent(
     sectionId,
     codeObjId,
   );
-  if (impl && isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
+  if (impl && hasEditableCoreName(impl) && impl.coreNameEditable) {
     return codeObj.name;
   }
   const trimmedDisplayName = codeObj.displayName.trim();

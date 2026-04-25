@@ -92,7 +92,7 @@ export type {
   GetAppDeploymentStateResponses,
   GetLatestProjectStateResponse,
   HttpapiDeploymentMetadataResponse,
-  HttpapiPublishAppDeploymentRequest,
+  AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest as HttpapiPublishAppDeploymentRequest,
   HttpapiServerModeResponse,
 } from "./openapi/http/generated/types.gen";
 export { callOpenAPI } from "./openapi/http/result";
