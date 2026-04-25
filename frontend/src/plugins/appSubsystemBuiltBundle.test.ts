@@ -52,6 +52,8 @@ function resetPluginRuntimeStateForTests(): void {
     sortedCommands: [],
     topNavBarItemsByPluginId: {},
     sortedTopNavBarItems: [],
+    canvasControlsByPluginId: {},
+    sortedCanvasControls: [],
     frontendErrorsByPluginId: {},
   });
 }

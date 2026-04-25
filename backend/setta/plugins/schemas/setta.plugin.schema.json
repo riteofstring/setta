@@ -108,6 +108,7 @@
           "registerPane",
           "registerCommand",
           "registerTopNavBarItem",
+          "registerCanvasControl",
           "registerContextMenu",
           "readProjectState",
           "subscribeProjectState",
