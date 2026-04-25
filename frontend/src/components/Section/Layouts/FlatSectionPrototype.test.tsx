@@ -12,6 +12,14 @@ describe("FlatSectionPrototype", () => {
 
     expect(markup).toContain('data-flat-section-kind="callable"');
     expect(markup).toContain('data-flat-section-kind="dict"');
+    expect(markup).toContain('data-flat-theme-preview="dark"');
+    expect(markup).toContain('data-flat-theme-preview="light"');
+    expect((markup.match(/data-flat-preview-theme="dark"/g) ?? []).length).toBe(
+      2,
+    );
+    expect(
+      (markup.match(/data-flat-preview-theme="light"/g) ?? []).length,
+    ).toBe(2);
     expect(markup).toContain('data-flat-section-type-menu="true"');
     expect(markup).toContain("rank_items");
     expect(markup).toContain("builtins.sorted");
@@ -25,6 +33,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).not.toContain("rounded");
     expect(markup).not.toContain("shadow");
     expect(markup).not.toContain("opacity");
+    expect(markup).not.toContain("dark:");
     expect(markup).toContain('data-flat-row-group="pinned"');
     expect(markup).toContain('data-flat-row-group="body"');
   });
@@ -44,11 +53,15 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-row-emphasis="edge"');
     expect(markup).toContain('data-flat-row-emphasis="required"');
     expect(markup).toContain('data-flat-row-emphasis="optional"');
-    expect(markup).toContain("hover:bg-neutral-100/80");
+    expect(markup).toContain("hover:bg-[color:var(--flat-hover)]");
+    expect(markup).toContain("focus:border-[color:var(--flat-focus)]");
+    expect(markup).toContain("border-solid");
+    expect(markup).toContain("[border-width:0_0_1px_0]");
     expect(markup).toContain('data-flat-control="column-resize"');
     expect(markup).toContain("flex-1");
     expect(markup).toContain("leading-7");
     expect(markup).toContain("var(--flat-key-width)");
+    expect(markup).not.toContain("border-neutral-200");
     expect(markup).not.toContain("bg-blue-50/80");
   });
 
@@ -57,7 +70,9 @@ describe("FlatSectionPrototype", () => {
 
     expect(markup).toContain('data-flat-row-emphasis="group"');
     expect(markup).toContain('data-flat-row-emphasis="nested"');
-    expect(markup).toContain("before:left-[calc(var(--flat-depth)*0.875rem)]");
+    expect(markup).toContain("before:left-[var(--flat-rail-left)]");
+    expect(markup).toContain("--flat-rail-left:0.625rem");
+    expect(markup).toContain("--flat-rail-width:0.875rem");
     expect(markup).not.toContain("<span");
   });
 });
