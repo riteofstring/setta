@@ -2033,7 +2033,7 @@ type EmitStreamDeltaRequest = {
 /**
  * EndpointOrigin
  */
-export type EndpointOrigin = "backend" | "launcher" | "backend-origin";
+type EndpointOrigin = "backend" | "launcher" | "backend-origin";
 
 /**
  * EndpointOriginPolicy
@@ -5679,7 +5679,7 @@ type ServerModeBoundary = {
 /**
  * ServerModeBoundaryPolicy
  */
-export type ServerModeBoundaryPolicy = {
+type ServerModeBoundaryPolicy = {
   [key: string]: ServerModeBoundary;
 };
 
@@ -5702,7 +5702,7 @@ type ServerModeBoundaryRoutes = {
 /**
  * ServerModeCapabilities
  */
-export type ServerModeCapabilities = {
+type ServerModeCapabilities = {
   canManageDesktopLauncher: boolean;
 };
 
@@ -7516,4 +7516,4 @@ type WorkingDirStrategy = "project_root" | "temp_dir" | "custom";
 /**
  * WorkspaceLaunchRouteKind
  */
-export type WorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";
+type WorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";

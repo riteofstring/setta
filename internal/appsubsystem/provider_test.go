@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/agentruns"
 	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/deployments"
@@ -185,6 +186,35 @@ func TestBuildMCPToolRegistrationsFollowAppSubsystemFeatureBits(t *testing.T) {
 	}
 	if len(noTools) != 0 {
 		t.Fatalf("expected no app subsystem tools without feature bits, got %#v", noTools)
+	}
+}
+
+func TestAppGenerationModeContributionsUseGoOwnedExecutableModes(t *testing.T) {
+	contributions, err := AppGenerationModeContributions(
+		plugins.PluginAppSubsystemCapabilities{
+			PluginID:               "acme-app-subsystem-fixture",
+			PluginEnabled:          true,
+			AppGenerationChatModes: true,
+			AppAuthoringUI:         true,
+			AppDeploymentRuntime:   true,
+			AppPreviewUI:           true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("build app generation mode contributions: %v", err)
+	}
+	got := make([]string, 0, len(contributions))
+	for _, contribution := range contributions {
+		got = append(got, contribution.Mode)
+	}
+	want := []string{
+		string(agentruns.AppGenerationModeJSONRender),
+		string(agentruns.AppGenerationModeJSONRenderWithImage),
+		string(agentruns.AppGenerationModePromptBuilder),
+		string(agentruns.AppGenerationModeMCPServer),
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("expected Go-owned app generation modes %v, got %v", want, got)
 	}
 }
 

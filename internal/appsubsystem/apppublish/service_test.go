@@ -3,6 +3,7 @@ package apppublish
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,6 +14,28 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
 )
+
+func TestNewServiceRequiresProviderPackager(t *testing.T) {
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	catalogRoot, err := deployments.DefaultCatalogRoot(settaFilesRoot)
+	if err != nil {
+		t.Fatalf("default catalog root: %v", err)
+	}
+	catalog, err := deployments.NewCatalog(deployments.CatalogOptions{Root: catalogRoot})
+	if err != nil {
+		t.Fatalf("new deployment catalog: %v", err)
+	}
+
+	_, err = NewService(deployments.AppPublisherOptions{
+		Catalog:        catalog,
+		SettaFilesRoot: settaFilesRoot,
+		WorkspaceRoot:  workspaceRoot,
+	}, "setta-json-render-app-gen")
+	if !errors.Is(err, deployments.ErrAppPublishProviderPackageRequired) {
+		t.Fatalf("expected provider package requirement, got %v", err)
+	}
+}
 
 func TestPublishSerializesAppDefinitionAndAppSpecWithProjectStateRevision(t *testing.T) {
 	const pluginID = "setta-json-render-app-gen"

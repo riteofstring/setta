@@ -2585,8 +2585,6 @@ function createSectionTypeCodegenPolicy(
 
 export type SectionsClipboardData = gt.SectionsClipboardData;
 
-export type ServerModeCapabilities = gt.ServerModeCapabilities;
-
 type SettingsBackend = gt.SettingsBackend;
 
 function createSettingsBackend(
@@ -4077,7 +4075,6 @@ export const EndpointOriginEnum = {
   launcher: "launcher",
   BackendOrigin: "backend-origin",
 } as const;
-export type EndpointOrigin = gt.EndpointOrigin;
 
 export const EngineTypeEnum = {
   setta_llm: "setta_llm",
@@ -4389,13 +4386,6 @@ export const WorkingDirStrategyEnum = {
   temp_dir: "temp_dir",
   custom: "custom",
 } as const;
-
-export const WorkspaceLaunchRouteKindEnum = {
-  ide: "ide",
-  launcher: "launcher",
-  blocked: "blocked",
-} as const;
-export type WorkspaceLaunchRouteKind = gt.WorkspaceLaunchRouteKind;
 
 export type BaseCodeObjImplUnion = gt.BaseCodeObjImplUnion;
 
@@ -5144,25 +5134,6 @@ export const RunSnapshotModeUIConfig = {
     },
   ],
 } satisfies gt.RunSnapshotModeUIConfigValue;
-
-export const ServerModeBoundaryPolicyByMode = {
-  app: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "blocked",
-  },
-  ide: {
-    capabilities: { canManageDesktopLauncher: true },
-    workspaceLaunchRouteKind: "ide",
-  },
-  launcher: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "launcher",
-  },
-  share: {
-    capabilities: { canManageDesktopLauncher: false },
-    workspaceLaunchRouteKind: "blocked",
-  },
-} satisfies gt.ServerModeBoundaryPolicy;
 
 export const SettaAPIPresetConfig = {
   presets: [

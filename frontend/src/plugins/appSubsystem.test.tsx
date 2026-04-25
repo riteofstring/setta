@@ -1,4 +1,7 @@
-import { getActiveAppSubsystemFrontendHostRuntime } from "@setta/app-subsystem-frontend-sdk";
+import {
+  AppSubsystemChatUIConfig,
+  getActiveAppSubsystemFrontendHostRuntime,
+} from "@setta/app-subsystem-frontend-sdk";
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
   type AppSubsystemFrontendRegistrationsByPluginId,
@@ -33,6 +36,29 @@ let mockPreviewEnabled = false;
 let previewEnabledListener: ((previewEnabled: boolean) => void) | null = null;
 const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
 
+function testSlashCommandForMode(appGenerationMode: string) {
+  const command = AppSubsystemChatUIConfig.slashCommands.find(
+    (entry) => entry.appGenerationMode === appGenerationMode,
+  );
+  if (!command) {
+    throw new Error(`Missing test slash command for ${appGenerationMode}.`);
+  }
+  return { ...command };
+}
+
+function testCustomSlashCommandModeOption(mode: string) {
+  const option = AppSubsystemChatUIConfig.customSlashCommandModeOptions.find(
+    (entry) => entry.value === mode,
+  );
+  if (!option) {
+    throw new Error(`Missing test custom slash-command mode for ${mode}.`);
+  }
+  return {
+    id: option.value,
+    name: option.label,
+  };
+}
+
 const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   overviewTab: {
     renderer: NOOP_APP_SUBSYSTEM_RENDERER,
@@ -50,21 +76,19 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
     renderer: NOOP_APP_SUBSYSTEM_RENDERER,
   },
   chat: {
-    slashCommands: [
-      {
-        command: "/app-json",
-        action: "app_json_render",
-        summary: "Generate an app spec.",
-        promptTemplate: "Generate an app spec.",
-        appGenerationMode: "json_render",
-      },
-    ],
-    imageRequiredModes: ["json_render_with_image"],
+    slashCommands: AppSubsystemChatUIConfig.slashCommands.map((entry) => ({
+      ...entry,
+    })),
+    imageRequiredModes: AppSubsystemChatUIConfig.customSlashCommandModeOptions
+      .filter((entry) => entry.requiresImageAttachment)
+      .map((entry) => entry.value),
     customSlashCommandModes: {
-      options: [
-        { id: "plain_chat", name: "Plain chat" },
-        { id: "json_render", name: "JSON Render" },
-      ],
+      options: AppSubsystemChatUIConfig.customSlashCommandModeOptions.map(
+        (entry) => ({
+          id: entry.value,
+          name: entry.label,
+        }),
+      ),
       defaultMode: "plain_chat",
     },
   },
@@ -98,22 +122,14 @@ const OTHER_APP_SUBSYSTEM_CAPABILITIES = {
 const OTHER_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
   ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
   chat: {
-    slashCommands: [
-      {
-        command: "/acme-app",
-        action: "acme_app_render",
-        summary: "Generate the alternate provider app spec.",
-        promptTemplate: "Generate an alternate provider app spec.",
-        appGenerationMode: "acme_render",
-      },
-    ],
-    imageRequiredModes: ["acme_render"],
+    slashCommands: [testSlashCommandForMode("json_render_with_image")],
+    imageRequiredModes: ["json_render_with_image"],
     customSlashCommandModes: {
       options: [
-        { id: "plain_chat", name: "Plain chat" },
-        { id: "acme_render", name: "Acme Render" },
+        testCustomSlashCommandModeOption("plain_chat"),
+        testCustomSlashCommandModeOption("json_render_with_image"),
       ],
-      defaultMode: "acme_render",
+      defaultMode: "json_render_with_image",
     },
   },
 };
@@ -149,6 +165,32 @@ async function syncOtherAppSubsystem(): Promise<void> {
   await syncAppSubsystemFrontendRegistration(
     OTHER_APP_SUBSYSTEM_CAPABILITIES,
     MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
+  );
+}
+
+async function expectAppGenerationChatRegistrationRejected(
+  chat: typeof MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION.chat,
+  statusMessage: string,
+): Promise<void> {
+  await syncAppSubsystemFrontendRegistration(
+    ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+    {
+      [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+        ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+        pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+        chat,
+      },
+    },
+  );
+
+  expect(getAppSubsystemFrontendRuntimeState()).toMatchObject({
+    status: "error",
+    statusMessage,
+    registration: null,
+  });
+  syncStoreInitialState(useAppSubsystemFrontendStore);
+  expect(renderToStaticMarkup(<AppSubsystemSlashCommandProbe />)).toBe(
+    "<span></span>",
   );
 }
 
@@ -331,6 +373,46 @@ describe("appSubsystem", () => {
     });
   });
 
+  it("rejects app-generation chat registrations with missing prompt templates", async () => {
+    await expectAppGenerationChatRegistrationRejected(
+      {
+        ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION.chat,
+        slashCommands: [
+          {
+            ...testSlashCommandForMode("json_render"),
+            promptTemplate: "",
+          },
+        ],
+      },
+      "App subsystem frontend adapter slash command /app-json is missing promptTemplate.",
+    );
+  });
+
+  it("rejects app-generation chat registrations with unsupported modes", async () => {
+    await expectAppGenerationChatRegistrationRejected(
+      {
+        ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION.chat,
+        slashCommands: [
+          {
+            ...testSlashCommandForMode("json_render"),
+            appGenerationMode: "acme_app",
+          },
+        ],
+      },
+      'App subsystem frontend adapter slash command /app-json declares unsupported appGenerationMode "acme_app".',
+    );
+  });
+
+  it("rejects app-generation image-required modes outside the Go-owned registry", async () => {
+    await expectAppGenerationChatRegistrationRejected(
+      {
+        ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION.chat,
+        imageRequiredModes: ["acme_app"],
+      },
+      'App subsystem frontend adapter registered unsupported image-required appGenerationMode "acme_app".',
+    );
+  });
+
   it("activates the host runtime while initializing app deployments", async () => {
     const frontendHost = createAppSubsystemFrontendHost();
     const activeHostMatches: boolean[] = [];
@@ -395,7 +477,7 @@ describe("appSubsystem", () => {
     );
   });
 
-  it("switches slash commands and default mode with the selected provider", async () => {
+  it("keeps app-generation chat registrations on Go-owned executable modes", async () => {
     await syncEnabledAppSubsystem();
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
@@ -410,12 +492,16 @@ describe("appSubsystem", () => {
     syncStoreInitialState(useAppSubsystemFrontendStore);
 
     expect(renderToStaticMarkup(<AppSubsystemSlashCommandProbe />)).toContain(
-      "/acme-app",
+      "/app-image",
     );
     expect(
       renderToStaticMarkup(<AppSubsystemCustomSlashModeProbe />),
-    ).toContain("acme_render:plain_chat=Plain chat,acme_render=Acme Render");
-    expect(appSubsystemModeRequiresImageAttachment("acme_render")).toBe(true);
+    ).toContain(
+      "json_render_with_image:plain_chat=Plain chat,json_render_with_image=Image to JSON Render",
+    );
+    expect(
+      appSubsystemModeRequiresImageAttachment("json_render_with_image"),
+    ).toBe(true);
   });
 
   it("exposes the app deployment modal through capability-gated hooks", async () => {

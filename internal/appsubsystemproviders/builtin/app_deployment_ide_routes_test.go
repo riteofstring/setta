@@ -821,15 +821,24 @@ func newAppDeploymentIDERouteFixture(
 		t.Fatalf("new share publisher: %v", err)
 	}
 	appPublisher, err := NewAppPublishService(deployments.AppPublisherOptions{
-		Catalog:          catalog,
-		SettaFilesRoot:   settaFilesRoot,
-		WorkspaceRoot:    workspaceRoot,
-		PluginSourcePath: appDeploymentIDEProviderSourcePath(t),
-		EnabledPluginIDs: []string{ProviderPluginID},
-		PluginConfigByID: map[string]any{
-			"workspace:" + ProviderPluginID: map[string]any{
-				"theme": "ocean",
-			},
+		Catalog:        catalog,
+		SettaFilesRoot: settaFilesRoot,
+		WorkspaceRoot:  workspaceRoot,
+		PackageProviderPlugin: func(targetRoot string) (deployments.AppProviderPackageState, error) {
+			if err := plugins.CopyDirectoryTree(appDeploymentIDEProviderSourcePath(t), targetRoot); err != nil {
+				return deployments.AppProviderPackageState{}, err
+			}
+			if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(targetRoot); err != nil {
+				return deployments.AppProviderPackageState{}, err
+			}
+			return deployments.AppProviderPackageState{
+				EnabledPluginIDs: []string{ProviderPluginID},
+				PluginConfigByID: map[string]any{
+					"workspace:" + ProviderPluginID: map[string]any{
+						"theme": "ocean",
+					},
+				},
+			}, nil
 		},
 		Now: func() time.Time {
 			return publishedAt

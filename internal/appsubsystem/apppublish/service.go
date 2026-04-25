@@ -11,7 +11,6 @@ import (
 	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/deployments"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 )
 
@@ -52,13 +51,16 @@ func NewService(
 	if err != nil {
 		return nil, err
 	}
+	if options.PackageProviderPlugin == nil {
+		return nil, deployments.ErrAppPublishProviderPackageRequired
+	}
 	return &service{
 		share: sharePublisher,
 		contentService: deploymentContentService{
 			appSpecStore: appSpecStore,
 		},
 		pluginID:        trimmedPluginID,
-		packageProvider: appProviderPackageFunc(options),
+		packageProvider: options.PackageProviderPlugin,
 		storage:         storage,
 	}, nil
 }
@@ -213,7 +215,7 @@ func (p *service) writeOutput(
 
 func (p *service) packageProviderPlugin(deploymentRoot string) error {
 	if p == nil || strings.TrimSpace(p.pluginID) == "" || p.packageProvider == nil {
-		return deployments.ErrAppPublishProviderSourceRequired
+		return deployments.ErrAppPublishProviderPackageRequired
 	}
 	targetRoot := filepath.Join(deploymentRoot, ".setta_plugins", p.pluginID)
 	pluginState, err := p.packageProvider(targetRoot)
@@ -239,31 +241,6 @@ func (p *service) packageProviderPlugin(deploymentRoot string) error {
 		return fmt.Errorf("write packaged plugin state: %w", err)
 	}
 	return nil
-}
-
-func appProviderPackageFunc(options deployments.AppPublisherOptions) deployments.AppProviderPackageFunc {
-	if options.PackageProviderPlugin != nil {
-		return options.PackageProviderPlugin
-	}
-
-	sourcePath := strings.TrimSpace(options.PluginSourcePath)
-	enabledPluginIDs := append([]string(nil), options.EnabledPluginIDs...)
-	pluginConfigByID := options.PluginConfigByID
-	return func(targetRoot string) (deployments.AppProviderPackageState, error) {
-		if sourcePath == "" {
-			return deployments.AppProviderPackageState{}, deployments.ErrAppPublishProviderSourceRequired
-		}
-		if err := plugins.CopyDirectoryTree(sourcePath, targetRoot); err != nil {
-			return deployments.AppProviderPackageState{}, err
-		}
-		if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(targetRoot); err != nil {
-			return deployments.AppProviderPackageState{}, err
-		}
-		return deployments.AppProviderPackageState{
-			EnabledPluginIDs: append([]string(nil), enabledPluginIDs...),
-			PluginConfigByID: pluginConfigByID,
-		}, nil
-	}
 }
 
 func applyAppPolicyOverrides(

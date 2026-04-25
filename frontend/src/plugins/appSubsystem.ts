@@ -1,6 +1,9 @@
 import {
+  AppSubsystemChatUIConfig,
+  runWithAppSubsystemFrontendHostRuntime,
   type AppSubsystemAppDeploymentModalRegistration,
   type AppSubsystemAppModeRouteRegistration,
+  type AppSubsystemChatRegistration,
   type AppSubsystemCustomSlashCommandModeOption,
   type AppSubsystemFrontendHost,
   type AppSubsystemFrontendRegistration,
@@ -8,7 +11,6 @@ import {
   type AppSubsystemPatchPreviewDelta,
   type AppSubsystemPreviewSurfaceRegistration,
   type RegisteredAppSubsystemFrontendRegistration,
-  runWithAppSubsystemFrontendHostRuntime,
 } from "@setta/app-subsystem-frontend-sdk";
 import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
 import type { GetLatestProjectStateResponse } from "openapi/http";
@@ -62,6 +64,23 @@ const EMPTY_APP_SUBSYSTEM_SUPPORTED_APP_GENERATION_MODES: string[] = [];
 const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE = "plain_chat";
 const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS: AppSubsystemCustomSlashCommandModeOption[] =
   [{ id: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE, name: "Plain chat" }];
+const APP_SUBSYSTEM_CHAT_COMMAND_BY_ACTION = new Map(
+  AppSubsystemChatUIConfig.slashCommands.map((command) => [
+    command.action,
+    command,
+  ]),
+);
+const APP_SUBSYSTEM_CUSTOM_SLASH_MODE_BY_ID = new Map(
+  AppSubsystemChatUIConfig.customSlashCommandModeOptions.map((option) => [
+    option.value,
+    option,
+  ]),
+);
+const APP_SUBSYSTEM_IMAGE_REQUIRED_MODE_IDS = new Set(
+  AppSubsystemChatUIConfig.customSlashCommandModeOptions
+    .filter((option) => option.requiresImageAttachment)
+    .map((option) => option.value),
+);
 
 let appSubsystemPreviewEnabledUnsubscribe: (() => void) | null = null;
 
@@ -547,6 +566,134 @@ function hasAppSubsystemCustomSlashCommandModes(
   return Boolean(chat?.customSlashCommandModes);
 }
 
+function requireNonEmptyAppGenerationString(
+  value: string | null | undefined,
+  message: string,
+): string {
+  const normalized = value?.trim() ?? "";
+  if (!normalized) {
+    throw new Error(message);
+  }
+  return normalized;
+}
+
+function validateAppGenerationSlashCommandRegistration(
+  command: AppSubsystemChatRegistration["slashCommands"][number],
+): void {
+  const action = requireNonEmptyAppGenerationString(
+    command.action,
+    "App subsystem frontend adapter registered an app-generation slash command without an action.",
+  );
+  const expected = APP_SUBSYSTEM_CHAT_COMMAND_BY_ACTION.get(action);
+  if (!expected) {
+    throw new Error(
+      `App subsystem frontend adapter registered unsupported app-generation slash command action ${JSON.stringify(action)}.`,
+    );
+  }
+
+  const commandName = requireNonEmptyAppGenerationString(
+    command.command,
+    `App subsystem frontend adapter slash command action ${JSON.stringify(action)} is missing a command.`,
+  );
+  if (commandName !== expected.command) {
+    throw new Error(
+      `App subsystem frontend adapter slash command action ${JSON.stringify(action)} must use command ${JSON.stringify(expected.command)}.`,
+    );
+  }
+
+  const mode = requireNonEmptyAppGenerationString(
+    command.appGenerationMode,
+    `App subsystem frontend adapter slash command ${commandName} is missing appGenerationMode.`,
+  );
+  if (mode !== expected.appGenerationMode) {
+    throw new Error(
+      `App subsystem frontend adapter slash command ${commandName} declares unsupported appGenerationMode ${JSON.stringify(mode)}.`,
+    );
+  }
+
+  const promptTemplate = requireNonEmptyAppGenerationString(
+    command.promptTemplate,
+    `App subsystem frontend adapter slash command ${commandName} is missing promptTemplate.`,
+  );
+  if (promptTemplate !== expected.promptTemplate) {
+    throw new Error(
+      `App subsystem frontend adapter slash command ${commandName} must use the Go-owned promptTemplate for ${JSON.stringify(mode)}.`,
+    );
+  }
+
+  const summary = requireNonEmptyAppGenerationString(
+    command.summary,
+    `App subsystem frontend adapter slash command ${commandName} is missing summary.`,
+  );
+  if (summary !== expected.summary) {
+    throw new Error(
+      `App subsystem frontend adapter slash command ${commandName} must use the Go-owned summary for ${JSON.stringify(mode)}.`,
+    );
+  }
+
+  const expectedRequiresImage = APP_SUBSYSTEM_IMAGE_REQUIRED_MODE_IDS.has(
+    expected.appGenerationMode,
+  );
+  if (
+    command.requiresImageAttachment !== undefined &&
+    command.requiresImageAttachment !== expectedRequiresImage
+  ) {
+    throw new Error(
+      `App subsystem frontend adapter slash command ${commandName} declares image requirements that do not match ${JSON.stringify(mode)}.`,
+    );
+  }
+}
+
+function validateAppGenerationCustomModeOption(
+  option: AppSubsystemCustomSlashCommandModeOption,
+): void {
+  const mode = requireNonEmptyAppGenerationString(
+    option.id,
+    "App subsystem frontend adapter registered a custom slash-command mode without an id.",
+  );
+  const expected = APP_SUBSYSTEM_CUSTOM_SLASH_MODE_BY_ID.get(mode);
+  if (!expected) {
+    throw new Error(
+      `App subsystem frontend adapter registered unsupported custom slash-command mode ${JSON.stringify(mode)}.`,
+    );
+  }
+  if (option.name !== expected.label) {
+    throw new Error(
+      `App subsystem frontend adapter custom slash-command mode ${JSON.stringify(mode)} must use label ${JSON.stringify(expected.label)}.`,
+    );
+  }
+}
+
+function validateAppGenerationChatRegistration(
+  chat: AppSubsystemChatRegistration | undefined,
+): void {
+  if (!chat) {
+    return;
+  }
+  for (const command of chat.slashCommands) {
+    validateAppGenerationSlashCommandRegistration(command);
+  }
+  for (const option of chat.customSlashCommandModes.options) {
+    validateAppGenerationCustomModeOption(option);
+  }
+  const defaultMode = requireNonEmptyAppGenerationString(
+    chat.customSlashCommandModes.defaultMode,
+    "App subsystem frontend adapter custom slash-command modes are missing a defaultMode.",
+  );
+  if (!APP_SUBSYSTEM_CUSTOM_SLASH_MODE_BY_ID.has(defaultMode)) {
+    throw new Error(
+      `App subsystem frontend adapter custom slash-command defaultMode ${JSON.stringify(defaultMode)} is unsupported.`,
+    );
+  }
+  for (const mode of chat.imageRequiredModes) {
+    if (!APP_SUBSYSTEM_IMAGE_REQUIRED_MODE_IDS.has(mode)) {
+      throw new Error(
+        `App subsystem frontend adapter registered unsupported image-required appGenerationMode ${JSON.stringify(mode)}.`,
+      );
+    }
+  }
+}
+
 function validateFrontendRegistrationCapabilities(
   registration: AppSubsystemFrontendRegistration,
   capabilities: AppSubsystemCapabilities | null,
@@ -618,6 +765,9 @@ function validateFrontendRegistrationCapabilities(
       requirement.present,
       requirement.message,
     );
+  }
+  if (getAppSubsystemCapabilityFlag(capabilities, "appGenerationChatModes")) {
+    validateAppGenerationChatRegistration(registration.chat);
   }
 }
 

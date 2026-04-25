@@ -10,22 +10,19 @@ import (
 )
 
 var (
-	ErrAppPublisherRequired             = errors.New("app deployment publisher is required")
-	ErrAppPublishProjectStateRequired   = errors.New("app deployment publish project runtime is required")
-	ErrAppPublishProviderSourceRequired = errors.New("active app deployment provider source path is required")
-	ErrAppPublishAppDefinitionMissing   = errors.New("app definition is required to publish an app deployment")
-	ErrAppPublishAppSpecPathRequired    = errors.New("app spec path is required to publish an app deployment")
-	ErrAppPublishAppSpecNotFound        = errors.New("app spec was not found for app deployment publish")
-	ErrAppPublishAppSpecInvalid         = errors.New("app spec is invalid for app deployment publish")
+	ErrAppPublisherRequired              = errors.New("app deployment publisher is required")
+	ErrAppPublishProjectStateRequired    = errors.New("app deployment publish project runtime is required")
+	ErrAppPublishProviderPackageRequired = errors.New("active app deployment provider package function is required")
+	ErrAppPublishAppDefinitionMissing    = errors.New("app definition is required to publish an app deployment")
+	ErrAppPublishAppSpecPathRequired     = errors.New("app spec path is required to publish an app deployment")
+	ErrAppPublishAppSpecNotFound         = errors.New("app spec was not found for app deployment publish")
+	ErrAppPublishAppSpecInvalid          = errors.New("app spec is invalid for app deployment publish")
 )
 
 type AppPublisherOptions struct {
 	Catalog               *Catalog
 	SettaFilesRoot        string
 	WorkspaceRoot         string
-	PluginSourcePath      string
-	EnabledPluginIDs      []string
-	PluginConfigByID      map[string]any
 	PackageProviderPlugin AppProviderPackageFunc
 	Now                   func() time.Time
 }

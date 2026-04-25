@@ -57,16 +57,21 @@ export const appSubsystemFrontendRegistration = {
   chat: {
     slashCommands: [
       {
-        command: "/acme-app",
-        action: "create_acme_app",
-        summary: "Create an app through the unknown-id fixture provider.",
-        appGenerationMode: "acme_app",
+        command: "/app-json",
+        action: "app_json_render",
+        summary: "Generate a standalone app spec through JSON render.",
+        promptTemplate:
+          "Generate a polished standalone JSON-render app spec. Use a strong hero section, clear content grouping, and consistent spacing/typography by default. Include one obvious primary action path and production-ready baseline structure.",
+        appGenerationMode: "json_render",
       },
     ],
-    imageRequiredModes: ["acme_app"],
+    imageRequiredModes: [],
     customSlashCommandModes: {
-      options: [{ id: "acme_app", name: "Acme app" }],
-      defaultMode: "acme_app",
+      options: [
+        { id: "plain_chat", name: "Plain chat" },
+        { id: "json_render", name: "JSON Render" },
+      ],
+      defaultMode: "plain_chat",
     },
   },
   controller: {

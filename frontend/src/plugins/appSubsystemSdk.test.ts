@@ -27,9 +27,23 @@ import {
   type DropzoneStatelessAttachment,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
+  getAttachmentPolicy as getHostAttachmentPolicy,
+  isAttachmentMimeAllowed as isHostAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
+import {
   createDefaultAppPolicy as createHostDefaultAppPolicy,
   resolveAppPolicy as resolveHostAppPolicy,
 } from "utils/deploymentPolicies";
+import {
+  createDropzoneFileArtifactId as createHostDropzoneFileArtifactId,
+  createDropzoneTextAttachmentId as createHostDropzoneTextAttachmentId,
+  parseDropzoneValue as parseHostDropzoneValue,
+  serializeDropzoneValue as serializeHostDropzoneValue,
+} from "utils/dropzone";
+import {
+  createNewId as createHostNewId,
+  createRandomName as createHostRandomName,
+} from "utils/idNameCreation";
 import {
   getCurrentEffectiveCodeObjImplIfPresent as getHostCurrentEffectiveCodeObjImplIfPresent,
   getCurrentEffectiveSectionImpl as getHostCurrentEffectiveSectionImpl,
@@ -42,7 +56,38 @@ import {
   resolveMainRunRequest as resolveHostMainRunRequest,
   resolveRunRequest as resolveHostRunRequest,
 } from "utils/runCapabilities";
+import {
+  resolveEndpointOriginForMode as resolveHostEndpointOriginForMode,
+  resolveServerModeCapabilities as resolveHostServerModeCapabilities,
+  resolveWorkspaceLaunchRouteKind as resolveHostWorkspaceLaunchRouteKind,
+} from "utils/serverModeBoundaryPolicy";
+import {
+  buildTextBlockTypographyScale as buildHostTextBlockTypographyScale,
+  clampTextBlockMasterFontSize as clampHostTextBlockMasterFontSize,
+} from "utils/textBlockTypography";
 import { describe, expect, it, vi } from "vitest";
+import {
+  getAttachmentPolicy as getSdkSourceAttachmentPolicy,
+  isAttachmentMimeAllowed as isSdkSourceAttachmentMimeAllowed,
+} from "../../plugin-sdk/app-subsystem/src/attachmentPolicy";
+import {
+  createDropzoneFileArtifactId as createSdkSourceDropzoneFileArtifactId,
+  createDropzoneTextAttachmentId as createSdkSourceDropzoneTextAttachmentId,
+  parseDropzoneValue as parseSdkSourceDropzoneValue,
+  serializeDropzoneValue as serializeSdkSourceDropzoneValue,
+} from "../../plugin-sdk/app-subsystem/src/dropzone";
+import {
+  createNewId as createSdkSourceNewId,
+  createRandomName as createSdkSourceRandomName,
+} from "../../plugin-sdk/app-subsystem/src/idNameCreation";
+import {
+  resolveServerModeCapabilities as resolveSdkSourceServerModeCapabilities,
+  resolveWorkspaceLaunchRouteKind as resolveSdkSourceWorkspaceLaunchRouteKind,
+} from "../../plugin-sdk/app-subsystem/src/serverModeBoundaryPolicy";
+import {
+  buildTextBlockTypographyScale as buildSdkSourceTextBlockTypographyScale,
+  clampTextBlockMasterFontSize as clampSdkSourceTextBlockMasterFontSize,
+} from "../../plugin-sdk/app-subsystem/src/textBlockTypography";
 
 describe("appSubsystemFrontendSdk", () => {
   it("registers app subsystem providers through the typed SDK host", () => {
@@ -341,6 +386,31 @@ describe("appSubsystemFrontendSdk", () => {
     expect(resolveHostRunRequest).toBe(resolveSdkRunRequest);
     expect(createHostDefaultAppPolicy).toBe(createSdkDefaultAppPolicy);
     expect(resolveHostAppPolicy).toBe(resolveSdkAppPolicy);
+    expect(getHostAttachmentPolicy).toBe(getSdkSourceAttachmentPolicy);
+    expect(isHostAttachmentMimeAllowed).toBe(isSdkSourceAttachmentMimeAllowed);
+    expect(parseHostDropzoneValue).toBe(parseSdkSourceDropzoneValue);
+    expect(serializeHostDropzoneValue).toBe(serializeSdkSourceDropzoneValue);
+    expect(createHostDropzoneFileArtifactId).toBe(
+      createSdkSourceDropzoneFileArtifactId,
+    );
+    expect(createHostDropzoneTextAttachmentId).toBe(
+      createSdkSourceDropzoneTextAttachmentId,
+    );
+    expect(createHostNewId).toBe(createSdkSourceNewId);
+    expect(createHostRandomName).toBe(createSdkSourceRandomName);
+    expect(buildHostTextBlockTypographyScale).toBe(
+      buildSdkSourceTextBlockTypographyScale,
+    );
+    expect(clampHostTextBlockMasterFontSize).toBe(
+      clampSdkSourceTextBlockMasterFontSize,
+    );
+    expect(resolveHostServerModeCapabilities).toBe(
+      resolveSdkSourceServerModeCapabilities,
+    );
+    expect(resolveHostWorkspaceLaunchRouteKind).toBe(
+      resolveSdkSourceWorkspaceLaunchRouteKind,
+    );
+    expect(resolveHostEndpointOriginForMode("/", "launcher")).toBe("backend");
     expect(getHostCurrentEffectiveCodeObjImplIfPresent).toBe(
       getSdkCurrentEffectiveCodeObjImplIfPresent,
     );
