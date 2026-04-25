@@ -18,7 +18,7 @@ describe("import boundary guardrails", () => {
     expect(violations[0]?.message).toContain("runtime metadata");
   });
 
-  it("allows host tests to import plugin frontend source", () => {
+  it("rejects host tests importing plugin frontend source", () => {
     const violations = findImportBoundaryViolations([
       {
         filePath: "frontend/src/plugins/runtimeBoundaryFixture.test.ts",
@@ -30,7 +30,8 @@ describe("import boundary guardrails", () => {
       },
     ]);
 
-    expect(violations).toHaveLength(0);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("runtime metadata");
   });
 
   it("rejects plugin frontend imports of host source aliases", () => {

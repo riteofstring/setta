@@ -8,54 +8,101 @@ import (
 	"setta/internal/chatmodes"
 )
 
+type AppGenerationModeMetadata struct {
+	Mode                 string
+	SlashCommand         string
+	SlashAction          string
+	Summary              string
+	PromptTemplate       string
+	Label                string
+	AllowsReferenceImage bool
+	ValidateCurrentTurn  func(chatmodes.AppGenerationTurnValidationOptions) error
+	promptLines          func(chatmodes.AppGenerationPromptOptions) []string
+}
+
+var appGenerationModeMetadata = []AppGenerationModeMetadata{
+	{
+		Mode:           string(agentruns.AppGenerationModeJSONRender),
+		SlashCommand:   "/app-json",
+		SlashAction:    "app_json_render",
+		Summary:        "Generate a standalone app spec through JSON render.",
+		PromptTemplate: "Generate a polished standalone JSON-render app spec. Use a strong hero section, clear content grouping, and consistent spacing/typography by default. Include one obvious primary action path and production-ready baseline structure.",
+		Label:          "JSON Render",
+		promptLines: func(options chatmodes.AppGenerationPromptOptions) []string {
+			return buildJSONRenderPromptLines(options.AppSpecStreamingEnabled)
+		},
+	},
+	{
+		Mode:                 string(agentruns.AppGenerationModeJSONRenderWithImage),
+		SlashCommand:         "/app-image",
+		SlashAction:          "app_json_render_with_image",
+		Summary:              "Generate an app spec using attached image guidance.",
+		PromptTemplate:       "Generate a JSON-render app spec that matches the attached reference image as closely as possible. Prioritize layout composition first, then spacing, typography scale, and color intent. Stay within catalog constraints and preserve the closest visual approximation when exact parity is impossible.",
+		Label:                "Image to JSON Render",
+		AllowsReferenceImage: true,
+		ValidateCurrentTurn:  validateJSONRenderWithImageTurn,
+		promptLines: func(options chatmodes.AppGenerationPromptOptions) []string {
+			return append(
+				buildJSONRenderPromptLines(options.AppSpecStreamingEnabled),
+				buildReferenceImagePromptLines(
+					options.ReferenceImageURL,
+					options.ReferenceImageNotes,
+				)...,
+			)
+		},
+	},
+	{
+		Mode:           string(agentruns.AppGenerationModePromptBuilder),
+		SlashCommand:   "/app-prompt",
+		SlashAction:    "app_prompt_builder",
+		Summary:        "Generate an app-definition plan for chat-driven iteration.",
+		PromptTemplate: "Generate a practical, polished JSON-render app spec for this project. Use strong information hierarchy, clear spacing rhythm, and one primary action path. Persist the result into the project via Setta app-definition tools.",
+		Label:          "Prompt Builder",
+		promptLines: func(options chatmodes.AppGenerationPromptOptions) []string {
+			return append(
+				buildJSONRenderPromptLines(options.AppSpecStreamingEnabled),
+				"- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
+			)
+		},
+	},
+	{
+		Mode:           string(agentruns.AppGenerationModeMCPServer),
+		SlashCommand:   "/app-mcp",
+		SlashAction:    "app_mcp_server",
+		Summary:        "Route app generation through MCP-capable tools.",
+		PromptTemplate: "Use MCP tools to produce a high-fidelity UI implementation for this project. If design-import tools are available, import an existing design or generate one before mapping it back into Setta's app definition. Preserve clear hierarchy, responsive layout behavior, and practical defaults.",
+		Label:          "MCP Server",
+		promptLines: func(options chatmodes.AppGenerationPromptOptions) []string {
+			return buildMCPServerPromptLines(options.AppSpecStreamingEnabled)
+		},
+	},
+}
+
+func AppGenerationModeMetadataEntries() []AppGenerationModeMetadata {
+	return append([]AppGenerationModeMetadata(nil), appGenerationModeMetadata...)
+}
+
 func BuildChatModeContributions() []chatmodes.AppGenerationModeContribution {
-	return []chatmodes.AppGenerationModeContribution{
-		{
-			Mode: string(agentruns.AppGenerationModeJSONRender),
+	metadataEntries := AppGenerationModeMetadataEntries()
+	contributions := make([]chatmodes.AppGenerationModeContribution, 0, len(metadataEntries))
+	for _, metadata := range metadataEntries {
+		contributions = append(contributions, chatmodes.AppGenerationModeContribution{
+			Mode:                 metadata.Mode,
+			AllowsReferenceImage: metadata.AllowsReferenceImage,
 			PromptBuilder: func(options chatmodes.AppGenerationPromptOptions) string {
-				return buildAppGenerationModePrompt(
-					string(agentruns.AppGenerationModeJSONRender),
-					options,
-				)
+				return buildAppGenerationModePrompt(metadata, options)
 			},
-		},
-		{
-			Mode:                 string(agentruns.AppGenerationModeJSONRenderWithImage),
-			AllowsReferenceImage: true,
-			PromptBuilder: func(options chatmodes.AppGenerationPromptOptions) string {
-				return buildAppGenerationModePrompt(
-					string(agentruns.AppGenerationModeJSONRenderWithImage),
-					options,
-				)
-			},
-			ValidateCurrentTurn: validateJSONRenderWithImageTurn,
-		},
-		{
-			Mode: string(agentruns.AppGenerationModePromptBuilder),
-			PromptBuilder: func(options chatmodes.AppGenerationPromptOptions) string {
-				return buildAppGenerationModePrompt(
-					string(agentruns.AppGenerationModePromptBuilder),
-					options,
-				)
-			},
-		},
-		{
-			Mode: string(agentruns.AppGenerationModeMCPServer),
-			PromptBuilder: func(options chatmodes.AppGenerationPromptOptions) string {
-				return buildAppGenerationModePrompt(
-					string(agentruns.AppGenerationModeMCPServer),
-					options,
-				)
-			},
-		},
+			ValidateCurrentTurn: metadata.ValidateCurrentTurn,
+		})
 	}
+	return contributions
 }
 
 func buildAppGenerationModePrompt(
-	mode string,
+	metadata AppGenerationModeMetadata,
 	options chatmodes.AppGenerationPromptOptions,
 ) string {
-	trimmedMode := strings.TrimSpace(mode)
+	trimmedMode := strings.TrimSpace(metadata.Mode)
 	if trimmedMode == "" {
 		return ""
 	}
@@ -65,35 +112,10 @@ func buildAppGenerationModePrompt(
 		fmt.Sprintf("- mode: %s", trimmedMode),
 		fmt.Sprintf("- streamingPreview: %s", enabledDisabledLabel(options.AppSpecStreamingEnabled)),
 	}
-	lines = append(lines, appGenerationModePromptLines(trimmedMode, options)...)
-	return strings.Join(lines, "\n")
-}
-
-func appGenerationModePromptLines(
-	mode string,
-	options chatmodes.AppGenerationPromptOptions,
-) []string {
-	switch mode {
-	case string(agentruns.AppGenerationModeJSONRender):
-		return buildJSONRenderPromptLines(options.AppSpecStreamingEnabled)
-	case string(agentruns.AppGenerationModeJSONRenderWithImage):
-		return append(
-			buildJSONRenderPromptLines(options.AppSpecStreamingEnabled),
-			buildReferenceImagePromptLines(
-				options.ReferenceImageURL,
-				options.ReferenceImageNotes,
-			)...,
-		)
-	case string(agentruns.AppGenerationModePromptBuilder):
-		return append(
-			buildJSONRenderPromptLines(options.AppSpecStreamingEnabled),
-			"- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
-		)
-	case string(agentruns.AppGenerationModeMCPServer):
-		return buildMCPServerPromptLines(options.AppSpecStreamingEnabled)
-	default:
-		return nil
+	if metadata.promptLines != nil {
+		lines = append(lines, metadata.promptLines(options)...)
 	}
+	return strings.Join(lines, "\n")
 }
 
 func buildJSONRenderPromptLines(appSpecStreamingEnabled bool) []string {

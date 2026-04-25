@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import * as endpoints from "openapi/http";
+import { createAppSubsystemFrontendHost } from "@setta/app-subsystem-frontend-sdk";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import type { Policy } from "utils/generatedTypes";
@@ -14,25 +14,36 @@ import {
   createSectionCapabilities,
   createSingletonSections,
 } from "utils/generatedTypes";
-import { createAppDefinition } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
-import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
+import { createAppDefinition } from "../../../src/appSubsystemContracts";
+import { AppSubsystemFrontendHostProvider } from "../../../src/appSubsystemFrontendHostContext";
+import { useAppConfigs } from "../../../src/appSubsystemProjectState";
 
-import { AppRenderer } from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer";
+import { AppRenderer } from "../../../src/components/App/AppRenderer";
 
-const addTemporaryNotificationMock = vi.hoisted(() => vi.fn());
+const notifyMock = vi.hoisted(() => vi.fn());
+const runCodeMock = vi.hoisted(() => vi.fn());
+const callOpenAPIMock = vi.hoisted(() =>
+  vi.fn((promise: Promise<unknown>) => promise),
+);
 let latestHandlers: Record<
   string,
   (params?: Record<string, unknown>) => void | Promise<void>
 > = {};
 
-vi.mock("state/actions/notifications", () => ({
-  addTemporaryNotification: addTemporaryNotificationMock,
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: callOpenAPIMock,
+    runCode: runCodeMock,
+  };
+});
 
 vi.mock("@json-render/react", async () => {
   const React = await import("react");
   const { useAppActionState } = await import(
-    "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appContext"
+    "../../../src/components/App/appContext"
   );
 
   const Passthrough = ({ children }: { children: React.ReactNode }) =>
@@ -91,20 +102,33 @@ function renderApp(
     deploymentMode: null,
   });
 
+  const baseFrontendHost = createAppSubsystemFrontendHost();
+  const frontendHost = createAppSubsystemFrontendHost({
+    getRuntimeContext: () => ({
+      ...baseFrontendHost.getRuntimeContext(),
+      isAppDeploymentMode: Boolean(shareSessionId),
+      shareSessionId,
+    }),
+    notify: notifyMock,
+  });
   return renderToStaticMarkup(
-    <AppRenderer
-      appSpec={appSpec}
-      appDefinition={appDefinition}
-      appPolicy={appPolicy}
-      defaultConfigId={defaultConfigId}
-    />,
+    <AppSubsystemFrontendHostProvider host={frontendHost}>
+      <AppRenderer
+        appSpec={appSpec}
+        appDefinition={appDefinition}
+        appPolicy={appPolicy}
+        defaultConfigId={defaultConfigId}
+      />
+    </AppSubsystemFrontendHostProvider>,
   );
 }
 
 describe("AppRenderer", () => {
   beforeEach(() => {
     resetProjectStores();
-    addTemporaryNotificationMock.mockReset();
+    notifyMock.mockReset();
+    callOpenAPIMock.mockClear();
+    runCodeMock.mockReset();
     latestHandlers = {};
   });
 
@@ -202,7 +226,7 @@ describe("AppRenderer", () => {
       },
     });
 
-    const runSpy = vi.spyOn(endpoints, "runCode").mockResolvedValue({
+    runCodeMock.mockResolvedValue({
       data: null,
       error: undefined,
       response: new Response(null, { status: 200 }),
@@ -218,7 +242,7 @@ describe("AppRenderer", () => {
     expect(handler).toBeDefined();
     await handler?.();
 
-    expect(runSpy).toHaveBeenCalledWith({
+    expect(runCodeMock).toHaveBeenCalledWith({
       body: {
         cliId: "",
         drawSnapshotsBySectionId: {},
@@ -285,8 +309,6 @@ describe("AppRenderer", () => {
       },
     });
 
-    const runSpy = vi.spyOn(endpoints, "runCode");
-
     renderApp(appSpec, {
       appDefinition,
       appPolicy: policy,
@@ -301,10 +323,10 @@ describe("AppRenderer", () => {
       paramOverrides: [],
     });
 
-    expect(runSpy).not.toHaveBeenCalled();
-    expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
-      "Invalid paramOverrides (expected object of string -> string).",
-    );
+    expect(runCodeMock).not.toHaveBeenCalled();
+    expect(notifyMock).toHaveBeenCalledWith({
+      message: "Invalid paramOverrides (expected object of string -> string).",
+    });
   });
 
   it("uses the generated binary download helper for app actions", async () => {
@@ -373,14 +395,25 @@ describe("AppRenderer", () => {
       });
       const host = document.createElement("div");
       root = createRoot(host);
+      const baseFrontendHost = createAppSubsystemFrontendHost();
+      const frontendHost = createAppSubsystemFrontendHost({
+        getRuntimeContext: () => ({
+          ...baseFrontendHost.getRuntimeContext(),
+          isAppDeploymentMode: true,
+          shareSessionId,
+        }),
+        notify: notifyMock,
+      });
 
       await act(async () => {
         root?.render(
-          <AppRenderer
-            appSpec={appSpec}
-            appDefinition={appDefinition}
-            appPolicy={policy}
-          />,
+          <AppSubsystemFrontendHostProvider host={frontendHost}>
+            <AppRenderer
+              appSpec={appSpec}
+              appDefinition={appDefinition}
+              appPolicy={policy}
+            />
+          </AppSubsystemFrontendHostProvider>,
         );
       });
 
@@ -404,7 +437,7 @@ describe("AppRenderer", () => {
 
       // Anchor-triggered downloads have to carry shareSessionId on the URL.
       const downloadURL = new URL(downloadElement.href);
-      expect(downloadURL.pathname).toBe(`/api/binary/${contentId}`);
+      expect(downloadURL.pathname).toBe(`/binary/${contentId}`);
       expect(downloadURL.searchParams.get("shareSessionId")).toBe(
         shareSessionId,
       );

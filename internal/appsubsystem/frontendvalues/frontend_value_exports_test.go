@@ -6,6 +6,8 @@ import (
 
 	"setta/internal/agentruns"
 	"setta/internal/appsubsystem/appspec"
+	appsubsystemchatmodes "setta/internal/appsubsystem/chatmodes"
+	"setta/internal/chatmodes"
 )
 
 func TestFrontendValueAppSpecPatchPolicyConfigUsesAuthoritativeAppSpecPatchPolicy(t *testing.T) {
@@ -38,47 +40,47 @@ func TestFrontendValueAppSubsystemChatUIConfigUsesAuthoritativeAppGenerationMeta
 	t.Parallel()
 
 	got := FrontendValueAppSubsystemChatUIConfig()
+	registry, err := chatmodes.NewAppGenerationModeRegistry(chatmodes.AppGenerationModeRegistryOptions{
+		Contributions: appsubsystemchatmodes.BuildChatModeContributions(),
+	})
+	if err != nil {
+		t.Fatalf("build app generation mode registry: %v", err)
+	}
 
 	if got.DefaultCustomSlashCommandMode != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("unexpected default custom slash command mode: %q", got.DefaultCustomSlashCommandMode)
 	}
-
-	wantCommands := []struct {
-		command string
-		action  string
-		mode    string
-	}{
-		{command: "/app-json", action: "app_json_render", mode: string(agentruns.AppGenerationModeJSONRender)},
-		{command: "/app-image", action: "app_json_render_with_image", mode: string(agentruns.AppGenerationModeJSONRenderWithImage)},
-		{command: "/app-prompt", action: "app_prompt_builder", mode: string(agentruns.AppGenerationModePromptBuilder)},
-		{command: "/app-mcp", action: "app_mcp_server", mode: string(agentruns.AppGenerationModeMCPServer)},
+	if len(got.CustomSlashCommandModeOptions) == 0 ||
+		got.CustomSlashCommandModeOptions[0].Value != string(agentruns.ChatAppGenerationMessageModePlainChat) {
+		t.Fatalf("expected plain chat to be first custom slash command mode option, got %#v", got.CustomSlashCommandModeOptions)
 	}
 
-	if len(got.SlashCommands) != len(wantCommands) {
-		t.Fatalf("unexpected slash command count: got %d want %d", len(got.SlashCommands), len(wantCommands))
+	metadataEntries := appsubsystemchatmodes.AppGenerationModeMetadataEntries()
+	if len(got.SlashCommands) != len(metadataEntries) {
+		t.Fatalf("unexpected slash command count: got %d want %d", len(got.SlashCommands), len(metadataEntries))
 	}
-	for index, want := range wantCommands {
-		entry := got.SlashCommands[index]
-		if entry.Command != want.command || entry.Action != want.action || entry.AppGenerationMode != want.mode {
-			t.Fatalf("unexpected slash command at %d: %#v", index, entry)
+	for _, entry := range got.SlashCommands {
+		if entry.Command == "" || entry.Action == "" || entry.Summary == "" || entry.PromptTemplate == "" {
+			t.Fatalf("expected populated slash command fields: %#v", entry)
 		}
-		if entry.Summary == "" || entry.PromptTemplate == "" {
-			t.Fatalf("expected populated summary and prompt template at %d: %#v", index, entry)
+		mode := entry.AppGenerationMode
+		normalized, ok := registry.NormalizeOptionalMode(&mode)
+		if !ok || normalized == nil || *normalized != mode {
+			t.Fatalf("slash command mode is not registered by backend registry: %#v", entry)
 		}
 	}
 
-	wantModes := []AppSubsystemCustomSlashCommandModeOptionValue{
-		{Value: string(agentruns.ChatAppGenerationMessageModePlainChat), Label: "Plain chat"},
-		{Value: string(agentruns.AppGenerationModeJSONRender), Label: "JSON Render"},
-		{
-			Value:                   string(agentruns.AppGenerationModeJSONRenderWithImage),
-			Label:                   "Image to JSON Render",
-			RequiresImageAttachment: true,
-		},
-		{Value: string(agentruns.AppGenerationModePromptBuilder), Label: "Prompt Builder"},
-		{Value: string(agentruns.AppGenerationModeMCPServer), Label: "MCP Server"},
-	}
-	if !slices.Equal(got.CustomSlashCommandModeOptions, wantModes) {
-		t.Fatalf("unexpected custom slash command mode options: got %#v want %#v", got.CustomSlashCommandModeOptions, wantModes)
+	for _, option := range got.CustomSlashCommandModeOptions[1:] {
+		if option.Value == "" || option.Label == "" {
+			t.Fatalf("expected populated custom slash command mode option: %#v", option)
+		}
+		mode := option.Value
+		normalized, ok := registry.NormalizeOptionalMode(&mode)
+		if !ok || normalized == nil || *normalized != mode {
+			t.Fatalf("custom slash command mode is not registered by backend registry: %#v", option)
+		}
+		if option.RequiresImageAttachment != registry.AllowsReferenceImage(&mode) {
+			t.Fatalf("image requirement mismatch for mode %q: %#v", mode, option)
+		}
 	}
 }

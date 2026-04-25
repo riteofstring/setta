@@ -3,7 +3,6 @@ import type { Dispatch, SetStateAction } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import * as endpoints from "openapi/http";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -11,13 +10,28 @@ import {
   createSectionCapabilities,
   createSettingsState,
 } from "utils/generatedTypes";
-import { AppSubsystemFrontendHostProvider } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
-import { useAppConfigs } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
+import { AppSubsystemFrontendHostProvider } from "../../../src/appSubsystemFrontendHostContext";
+import { useAppConfigs } from "../../../src/appSubsystemProjectState";
 
 import {
   useAppActionHandlers,
   type AppActionHandler,
-} from "../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/appActionHandlers";
+} from "../../../src/components/App/appActionHandlers";
+
+const runCodeMock = vi.hoisted(() => vi.fn());
+const callOpenAPIMock = vi.hoisted(() =>
+  vi.fn((promise: Promise<unknown>) => promise),
+);
+
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: callOpenAPIMock,
+    runCode: runCodeMock,
+  };
+});
 
 const setIsRunning: Dispatch<SetStateAction<boolean>> = () => {};
 const setLocalRunCount: Dispatch<SetStateAction<number>> = () => {};
@@ -103,6 +117,8 @@ describe("useAppActionHandlers", () => {
   beforeEach(() => {
     resetProjectStores();
     latestHandlers = {};
+    callOpenAPIMock.mockClear();
+    runCodeMock.mockReset();
   });
 
   afterEach(() => {
@@ -119,7 +135,7 @@ describe("useAppActionHandlers", () => {
       },
     });
 
-    const runSpy = vi.spyOn(endpoints, "runCode").mockResolvedValue({
+    runCodeMock.mockResolvedValue({
       data: null,
       request: new Request("http://localhost/runCode"),
       response: new Response(null, { status: 200 }),
@@ -148,7 +164,7 @@ describe("useAppActionHandlers", () => {
 
     await latestHandlers.runCustom?.();
 
-    expect(runSpy).toHaveBeenCalledWith({
+    expect(runCodeMock).toHaveBeenCalledWith({
       body: {
         cliId: "",
         drawSnapshotsBySectionId: {},
@@ -171,7 +187,7 @@ describe("useAppActionHandlers", () => {
       },
     });
 
-    const runSpy = vi.spyOn(endpoints, "runCode").mockResolvedValue({
+    runCodeMock.mockResolvedValue({
       data: null,
       request: new Request("http://localhost/runCode"),
       response: new Response(null, { status: 200 }),
@@ -191,7 +207,7 @@ describe("useAppActionHandlers", () => {
 
     await latestHandlers.runCustom?.();
 
-    expect(runSpy).toHaveBeenCalledWith({
+    expect(runCodeMock).toHaveBeenCalledWith({
       body: {
         cliId: "",
         drawSnapshotsBySectionId: {},

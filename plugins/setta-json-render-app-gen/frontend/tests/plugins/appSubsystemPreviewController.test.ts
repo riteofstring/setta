@@ -8,9 +8,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   applyAppSpecPatchPreviewDelta,
   clearAllAppSpecPatchStreams,
-} from "../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemPreviewController";
-import { useAppPreview } from "../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
-import { appSubsystemFrontendRegistration } from "../../../plugins/setta-json-render-app-gen/frontend/src/index";
+} from "../../src/appSubsystemPreviewController";
+import { useAppPreview } from "../../src/appSubsystemProjectState";
+import { appSubsystemFrontendRegistration } from "../../src/index";
 
 const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
   pluginId: "setta-json-render-app-gen",

@@ -7,7 +7,7 @@ import {
   doesAppSubsystemModeRequireImageAttachment,
   getAppGenerationSlashCommandByAction,
   resolveAppGenerationModeForSlashAction,
-} from "../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemChatUi";
+} from "../../src/appSubsystemChatUi";
 
 describe("appSubsystemChatUi", () => {
   it("defines fixed built-in app generation slash commands with unique tokens", () => {

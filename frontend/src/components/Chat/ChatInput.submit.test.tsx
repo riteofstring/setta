@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildAppGenerationSlashCommandDefinitions } from "../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemChatUi";
+import { AppSubsystemChatUIConfig } from "@setta/app-subsystem-frontend-sdk";
 import {
   buildChatSlashCommands,
   executeManagedChatSlashCommand,
@@ -13,8 +13,24 @@ import {
 } from "./chatComposerControls";
 import { ChatInput } from "./ChatInput";
 
+const APP_SUBSYSTEM_IMAGE_REQUIRED_MODES = new Set(
+  AppSubsystemChatUIConfig.customSlashCommandModeOptions
+    .filter((option) => option.requiresImageAttachment)
+    .map((option) => option.value),
+);
 const APP_GENERATION_COMMANDS = buildChatSlashCommands({
-  appGenerationCommands: buildAppGenerationSlashCommandDefinitions(),
+  appGenerationCommands: AppSubsystemChatUIConfig.slashCommands.map(
+    (entry) => ({
+      command: entry.command,
+      action: entry.action,
+      summary: entry.summary,
+      promptTemplate: entry.promptTemplate,
+      appGenerationMode: entry.appGenerationMode,
+      requiresImageAttachment: APP_SUBSYSTEM_IMAGE_REQUIRED_MODES.has(
+        entry.appGenerationMode,
+      ),
+    }),
+  ),
 });
 
 function getAppGenerationPrompt(command: string): string {

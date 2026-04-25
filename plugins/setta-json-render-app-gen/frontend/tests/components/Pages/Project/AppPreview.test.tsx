@@ -12,18 +12,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { createProjectConfig, createSingleConfig } from "utils/generatedTypes";
-import { createAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemContracts";
-import { useAppDefinition } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemDefinitionState";
-import { AppSubsystemFrontendHostProvider } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemFrontendHostContext";
+import { createAppDefinition } from "../../../../src/appSubsystemContracts";
+import { useAppDefinition } from "../../../../src/appSubsystemDefinitionState";
+import { AppSubsystemFrontendHostProvider } from "../../../../src/appSubsystemFrontendHostContext";
 import {
   useAppConfigs,
   useAppPreview,
-} from "../../../../../plugins/setta-json-render-app-gen/frontend/src/appSubsystemProjectState";
+} from "../../../../src/appSubsystemProjectState";
 
-import { AppPreview } from "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/Pages/Project/AppPreview";
+import { AppPreview } from "../../../../src/components/Pages/Project/AppPreview";
 
 let latestProps: Record<string, unknown> | null = null;
-const routeLoadProjectConfigMock = vi.fn();
+const routeLoadProjectConfigMock = vi.hoisted(() => vi.fn());
+const callOpenAPIMock = vi.hoisted(() =>
+  vi.fn((promise: Promise<unknown>) => promise),
+);
 
 const originalReactActEnvironment = (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -67,26 +70,18 @@ async function mockAppRendererModule() {
   };
 }
 
-vi.mock(
-  "../../../../../plugins/setta-json-render-app-gen/frontend/src/components/App/AppRenderer",
-  mockAppRendererModule,
-);
+vi.mock("../../../../src/components/App/AppRenderer", mockAppRendererModule);
 
-vi.mock("openapi/http", async () => {
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
   const actual =
-    await vi.importActual<typeof import("openapi/http")>("openapi/http");
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
   return {
     ...actual,
+    callOpenAPI: callOpenAPIMock,
     loadProjectConfig: (options?: unknown) =>
       routeLoadProjectConfigMock(options),
   };
 });
-
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
 
 function createPreviewHost(
   args: {
