@@ -143,8 +143,8 @@ func translateToolErrorToTemporary(err error, store *TemporaryIDStore) error {
 	if err == nil || store == nil {
 		return err
 	}
-	var typed *toolError
-	if ok := asToolError(err, &typed); !ok || len(typed.data) == 0 {
+	typed, ok := err.(*toolError)
+	if !ok || len(typed.data) == 0 {
 		return err
 	}
 

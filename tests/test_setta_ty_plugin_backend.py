@@ -77,7 +77,6 @@ def test_ty_plugin_backend_probe_honors_explicit_command_override(tmp_path: Path
             "command": str(explicit_command.resolve()),
             "args": ["--log-level", "debug", "--stdio"],
             "settingsKey": "ty",
-            "runtimeSearchPathsKey": "ty.configuration.environment.extra-paths",
         }
     ]
 
@@ -101,7 +100,6 @@ def test_ty_plugin_backend_probe_defaults_to_running_interpreter(tmp_path: Path)
     assert server["command"] == sys.executable
     assert server["args"] == ["-m", "ty", "server"]
     assert server["settingsKey"] == "ty"
-    assert server["runtimeSearchPathsKey"] == "ty.configuration.environment.extra-paths"
 
 
 def test_ty_plugin_backend_probe_rejects_default_interpreter_without_ty(
@@ -162,6 +160,5 @@ def test_ty_plugin_backend_probe_preserves_relative_command_escape_for_go_valida
             "command": "../outside/ty-language-server",
             "args": [],
             "settingsKey": "ty",
-            "runtimeSearchPathsKey": "ty.configuration.environment.extra-paths",
         }
     ]

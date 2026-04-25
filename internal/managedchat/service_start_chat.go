@@ -5,7 +5,6 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
-	"setta/internal/chatmodes"
 )
 
 type normalizedStartChatRequest struct {
@@ -49,7 +48,7 @@ func (s *Service) startChat(request StartChatRequest) (StartChatResult, error) {
 	if err := s.validateStartChatPreconditions(); err != nil {
 		return StartChatResult{}, err
 	}
-	normalized, err := normalizeStartChatRequest(request, s.appGenerationModes)
+	normalized, err := normalizeStartChatRequest(request)
 	if err != nil {
 		return StartChatResult{}, err
 	}
@@ -72,7 +71,6 @@ func (s *Service) startChat(request StartChatRequest) (StartChatResult, error) {
 		return StartChatResult{}, err
 	}
 	if err := validateStartChatImageRequirements(
-		s.appGenerationModes,
 		normalized,
 		conversation.PriorMessages,
 		appGenerationByMessageID,
@@ -101,10 +99,7 @@ func (s *Service) validateStartChatPreconditions() error {
 	return nil
 }
 
-func normalizeStartChatRequest(
-	request StartChatRequest,
-	appGenerationModes chatmodes.AppGenerationModeResolver,
-) (normalizedStartChatRequest, error) {
+func normalizeStartChatRequest(request StartChatRequest) (normalizedStartChatRequest, error) {
 	normalizedMessage, projectConfigID, sectionID, permissionMode, err := normalizeStartChatCoreRequest(request)
 	if err != nil {
 		return normalizedStartChatRequest{}, err
@@ -117,10 +112,7 @@ func normalizeStartChatRequest(
 	if err != nil {
 		return normalizedStartChatRequest{}, err
 	}
-	appGenerationMode, referenceImageURL, referenceImageNotes, appGenerationModePrompt, err := normalizeStartChatGenerationOptions(
-		request,
-		appGenerationModes,
-	)
+	appGenerationMode, referenceImageURL, referenceImageNotes, appGenerationModePrompt, err := normalizeStartChatGenerationOptions(request)
 	if err != nil {
 		return normalizedStartChatRequest{}, err
 	}
@@ -196,21 +188,28 @@ func normalizeStartChatConversationIDs(
 
 func normalizeStartChatGenerationOptions(
 	request StartChatRequest,
-	appGenerationModes chatmodes.AppGenerationModeResolver,
 ) (*string, *string, *string, string, error) {
-	normalized, err := chatmodes.NormalizeAppGenerationRequest(
-		appGenerationModes,
-		chatmodes.AppGenerationRequestOptions{
-			Mode:                    request.AppGenerationMode,
-			AppSpecStreamingEnabled: request.AppSpecStreamingEnabled,
-			ReferenceImageURL:       request.AppGenerationReferenceImageURL,
-			ReferenceImageNotes:     request.AppGenerationReferenceImageNotes,
-		},
+	appGenerationMode, err := normalizeAppGenerationMode(request.AppGenerationMode)
+	if err != nil {
+		return nil, nil, nil, "", err
+	}
+	referenceImageURL, referenceImageNotes, err := normalizeReferenceImageInputs(
+		request.AppGenerationReferenceImageURL,
+		request.AppGenerationReferenceImageNotes,
 	)
 	if err != nil {
 		return nil, nil, nil, "", err
 	}
-	return normalized.Mode, normalized.ReferenceImageURL, normalized.ReferenceImageNotes, normalized.Prompt, nil
+	if appGenerationMode == nil || *appGenerationMode != string(agentruns.AppGenerationModeJSONRenderWithImage) {
+		referenceImageURL = nil
+		referenceImageNotes = nil
+	}
+	return appGenerationMode, referenceImageURL, referenceImageNotes, buildAppGenerationModePrompt(
+		appGenerationMode,
+		request.AppSpecStreamingEnabled,
+		referenceImageURL,
+		referenceImageNotes,
+	), nil
 }
 
 func (s *Service) validateStartChatProjectTarget(request normalizedStartChatRequest) error {
@@ -362,22 +361,20 @@ func resolveSubmittedTurnAppGenerationByMessageID(
 }
 
 func validateStartChatImageRequirements(
-	appGenerationModes chatmodes.AppGenerationModeResolver,
 	request normalizedStartChatRequest,
 	priorMessages []map[string]any,
 	appGenerationByMessageID map[string]string,
 ) error {
-	if appGenerationModes == nil {
+	if request.AppGenerationMode == nil || *request.AppGenerationMode != string(agentruns.AppGenerationModeJSONRenderWithImage) {
 		return nil
 	}
-	return appGenerationModes.ValidateCurrentTurn(
-		request.AppGenerationMode,
-		chatmodes.AppGenerationTurnValidationOptions{
-			Message:                  request.Message,
-			PriorMessages:            priorMessages,
-			AppGenerationByMessageID: appGenerationByMessageID,
-		},
-	)
+	if agentruns.MessageHasImageAttachment(request.Message) {
+		return nil
+	}
+	if agentruns.HasRetainedImageAttachmentFromImageModeThread(priorMessages, appGenerationByMessageID) {
+		return nil
+	}
+	return ErrAppGenerationImageAttachmentRequired
 }
 
 func (s *Service) prepareStartChatRun(

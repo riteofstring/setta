@@ -122,6 +122,8 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
 
 export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
+export const FLAT_SECTION_PROTOTYPE_ROUTER_PATH =
+  "/internal/flat-section-prototype";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 const PROJECT_CHAT_STANDALONE_ROUTE_SEGMENT = "chat";
 const PROJECT_SECTION_STANDALONE_ROUTE_SEGMENT = "section";

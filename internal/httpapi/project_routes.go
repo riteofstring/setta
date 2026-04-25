@@ -146,6 +146,8 @@ const (
 	RouteSetProjectConfigCodegenTargets    = "/setProjectConfigCodegenTargets"
 	RouteSetGenCodePrefix                  = "/setGenCodePrefix"
 	RouteSetGenCodeSuffix                  = "/setGenCodeSuffix"
+	RouteSetWatchCodeEnabled               = "/setWatchCodeEnabled"
+	RouteSetWatchCodeInputs                = "/setWatchCodeInputs"
 	RouteChangeParamImpl                   = "/changeParamImpl"
 	RouteSetParamEnteredValue              = "/setParamEnteredValue"
 	RouteUpdateParamImplConfig             = "/updateParamImplConfig"
@@ -1332,6 +1334,22 @@ type SetProjectChatWindowChatIDRequest struct {
 	ChatID       *string `json:"chatId"`
 }
 
+// setta-go-type-discovery: skip
+type (
+	SetWatchCodeEnabledRequest struct {
+		FrontendOpID *string `json:"frontendOpId,omitempty"`
+		ProjectID    string  `json:"projectConfigId"`
+		Enabled      bool    `json:"enabled"`
+	}
+
+	SetWatchCodeInputsRequest struct {
+		FrontendOpID     *string                        `json:"frontendOpId,omitempty"`
+		ProjectID        string                         `json:"projectConfigId"`
+		WatchCodeFolders []projectstate.WatchCodeFolder `json:"watchCodeFolders"`
+		WatchCodeFiles   []string                       `json:"watchCodeFiles"`
+	}
+)
+
 type ChangeParamImplRequest struct {
 	FrontendOpID *string `json:"frontendOpId,omitempty"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -1382,31 +1400,18 @@ func projectRouteOperationID(routePath string) string {
 	return strings.TrimPrefix(strings.TrimSpace(routePath), "/")
 }
 
-func registerProjectPost[Req, Resp any](
-	router chi.Router,
-	routePath string,
-	handler http.HandlerFunc,
-	options ...openAPIOperationOption,
-) {
-	operationOptions := make([]openAPIOperationOption, 0, len(options)+1)
-	operationOptions = append(operationOptions, withOpenAPITags("Project"))
-	operationOptions = append(operationOptions, options...)
+func registerProjectPost[Req, Resp any](router chi.Router, routePath string, handler http.HandlerFunc) {
 	registerOpenAPIPost[Req, Resp](
 		router,
 		projectRouteOperationID(routePath),
 		routePath,
 		handler,
-		operationOptions...,
+		withOpenAPITags("Project"),
 	)
 }
 
-func registerProjectNullPost[Req any](
-	router chi.Router,
-	routePath string,
-	handler http.HandlerFunc,
-	options ...openAPIOperationOption,
-) {
-	registerProjectPost[Req, openAPIJSONNull](router, routePath, handler, options...)
+func registerProjectNullPost[Req any](router chi.Router, routePath string, handler http.HandlerFunc) {
+	registerProjectPost[Req, openAPIJSONNull](router, routePath, handler)
 }
 
 type projectRouteDependencyCheck struct {
@@ -1507,10 +1512,6 @@ func projectMutationContext(ctx context.Context, frontendOpID *string) context.C
 		return ctx
 	}
 	return projectstate.ContextWithFrontendOpID(ctx, *frontendOpID)
-}
-
-func ProjectMutationContext(ctx context.Context, frontendOpID *string) context.Context {
-	return projectMutationContext(ctx, frontendOpID)
 }
 
 func projectRuntimeForRequest(
@@ -1765,20 +1766,10 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	if deps.ModePolicy.IsDeployment() {
 		ideRouter = routerWithoutOpenAPI(ideRouter)
 	}
-	registerProjectPost[GetLatestProjectStateRequest, ProjectStateSingleConfigWithCompletedOpIDs](
-		ideRouter,
-		RouteGetLatestProjectState,
-		getLatestProjectStateHandler(deps),
-		withOpenAPIAppSubsystemFrontendSDK(),
-	)
+	registerProjectPost[GetLatestProjectStateRequest, ProjectStateSingleConfigWithCompletedOpIDs](ideRouter, RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
 	registerProjectPost[UndoRequest, ProjectStateSingleConfigWithCompletedOpIDs](ideRouter, RouteUndo, undoHandler(deps))
 	registerProjectPost[RedoRequest, ProjectStateSingleConfigWithCompletedOpIDs](ideRouter, RouteRedo, redoHandler(deps))
-	registerProjectPost[GetPasswordParamValueRequest, GetPasswordParamValueResponse](
-		ideRouter,
-		RouteGetPasswordParamValue,
-		getPasswordParamValueHandler(deps),
-		withOpenAPIAppSubsystemFrontendSDK(),
-	)
+	registerProjectPost[GetPasswordParamValueRequest, GetPasswordParamValueResponse](ideRouter, RouteGetPasswordParamValue, getPasswordParamValueHandler(deps))
 	registerProjectPost[CreateNewSectionVariantRequest, CreateNewSectionVariantResponse](ideRouter, RouteCreateNewSectionVariant, createNewSectionVariantHandler(deps))
 	registerProjectNullPost[SetSectionVariantRequest](ideRouter, RouteSetSectionVariant, setSectionVariantHandler(deps))
 	registerProjectNullPost[SetDefaultSectionVariantRequest](ideRouter, RouteSetDefaultSectionVariant, setDefaultSectionVariantHandler(deps))
@@ -1887,14 +1878,11 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	registerProjectPost[SetProjectConfigCodegenTargetsRequest, projectview.SingleConfig](ideRouter, RouteSetProjectConfigCodegenTargets, setProjectConfigCodegenTargetsHandler(deps))
 	registerProjectNullPost[SetGenCodePrefixRequest](ideRouter, RouteSetGenCodePrefix, setGenCodePrefixHandler(deps))
 	registerProjectNullPost[SetGenCodeSuffixRequest](ideRouter, RouteSetGenCodeSuffix, setGenCodeSuffixHandler(deps))
+	registerProjectNullPost[SetWatchCodeEnabledRequest](ideRouter, RouteSetWatchCodeEnabled, setWatchCodeEnabledHandler(deps))
+	registerProjectNullPost[SetWatchCodeInputsRequest](ideRouter, RouteSetWatchCodeInputs, setWatchCodeInputsHandler(deps))
 	registerProjectNullPost[SetTypeErrorIgnoreRequest](ideRouter, RouteSetTypeErrorIgnore, setTypeErrorIgnoreHandler(deps))
 	registerProjectNullPost[ChangeParamImplRequest](ideRouter, RouteChangeParamImpl, changeParamImplHandler(deps))
-	registerProjectNullPost[SetParamEnteredValueRequest](
-		ideRouter,
-		RouteSetParamEnteredValue,
-		setParamEnteredValueHandler(deps),
-		withOpenAPIAppSubsystemFrontendSDK(),
-	)
+	registerProjectNullPost[SetParamEnteredValueRequest](ideRouter, RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 	registerProjectNullPost[UpdateParamImplConfigRequest](ideRouter, RouteUpdateParamImplConfig, updateParamImplConfigHandler(deps))
 	registerProjectNullPost[SetCodeObjNameRequest](ideRouter, RouteSetCodeObjName, setCodeObjNameHandler(deps))
 	registerProjectNullPost[SetCodeObjDisplayNameRequest](ideRouter, RouteSetCodeObjDisplayName, setCodeObjDisplayNameHandler(deps))
@@ -1933,12 +1921,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		registerProjectNullPost[SetChatSectionSettingsRequest](shareRouter, RouteSetChatSectionSettings, setChatSectionSettingsHandler(deps))
 		registerProjectNullPost[SetChatSectionStateRequest](shareRouter, RouteSetChatSectionState, setChatSectionStateHandler(deps))
 		registerProjectNullPost[SetChatSectionChatIDRequest](shareRouter, RouteSetChatSectionChatID, setChatSectionChatIDHandler(deps))
-		registerProjectNullPost[SetParamEnteredValueRequest](
-			shareRouter,
-			RouteSetParamEnteredValue,
-			setParamEnteredValueHandler(deps),
-			withOpenAPIAppSubsystemFrontendSDK(),
-		)
+		registerProjectNullPost[SetParamEnteredValueRequest](shareRouter, RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 		registerProjectNullPost[SetTypeErrorIgnoreRequest](shareRouter, RouteSetTypeErrorIgnore, setTypeErrorIgnoreHandler(deps))
 		registerProjectNullPost[SetShowParamDisplayNamesRequest](shareRouter, RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 		registerProjectNullPost[SetSectionTagColorRequest](shareRouter, RouteSetSectionTagColor, setSectionTagColorHandler(deps))
@@ -7348,6 +7331,89 @@ func setGenCodeSuffixHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func setWatchCodeEnabledHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetWatchCodeEnabledRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := runtime.SetWatchCodeEnabled(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.Enabled,
+			deps.WorkspaceRoot,
+		)
+		if err != nil {
+			writeSetWatchCodeError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setWatchCodeInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetWatchCodeInputsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := runtime.SetWatchCodeInputs(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.WatchCodeFolders,
+			payload.WatchCodeFiles,
+			deps.WorkspaceRoot,
+		)
+		if err != nil {
+			writeSetWatchCodeError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func decodeProjectCodegenTargets(payloads []json.RawMessage) ([]projectstate.ProjectCodegenTarget, error) {
 	targets := make([]projectstate.ProjectCodegenTarget, 0, len(payloads))
 	for _, payload := range payloads {
@@ -8532,6 +8598,21 @@ func writeFormatCodeError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusForbidden, "code_section_read_only", "Code section is read-only.")
 	case projectstate.IsFormatCodeError(err):
 		writeError(w, r, http.StatusUnprocessableEntity, "invalid_format_code", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSetWatchCodeError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, projectview.ErrProjectConfigIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired),
+		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid):
+		writeError(w, r, http.StatusBadRequest, "invalid_watch_code_input", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
