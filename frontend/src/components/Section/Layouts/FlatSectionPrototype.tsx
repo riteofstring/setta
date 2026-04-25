@@ -435,21 +435,16 @@ function FlatPrototypeRows({
   variant?: "pinned" | "body";
 }) {
   return (
-    <section
-      className={getRowGroupClassName(variant)}
-      data-flat-row-group={variant}
-    >
-      <ol>
-        {rows.map((row, index) => (
-          <FlatPrototypeRowItem
-            key={`${variant}-${row.keyLabel}-${index}`}
-            {...row}
-            isLast={index === rows.length - 1}
-            nestedRailRole={getNestedRailRole(rows, index)}
-          />
-        ))}
-      </ol>
-    </section>
+    <ol className={getRowGroupClassName(variant)} data-flat-row-group={variant}>
+      {rows.map((row, index) => (
+        <FlatPrototypeRowItem
+          key={`${variant}-${row.keyLabel}-${index}`}
+          {...row}
+          isLast={index === rows.length - 1}
+          nestedRailRole={getNestedRailRole(rows, index)}
+        />
+      ))}
+    </ol>
   );
 }
 

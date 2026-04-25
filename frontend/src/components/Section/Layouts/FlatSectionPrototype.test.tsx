@@ -60,11 +60,19 @@ describe("FlatSectionPrototype", () => {
     const spanCount = (markup.match(/<span\b/g) ?? []).length;
     const iconElementCount = (markup.match(/<i\b/g) ?? []).length;
     const rowCount = (markup.match(/data-flat-row-key=/g) ?? []).length;
+    const rowGroupListCount = (
+      markup.match(/<ol[^>]*data-flat-row-group=/g) ?? []
+    ).length;
+    const rowGroupSectionCount = (
+      markup.match(/<section[^>]*data-flat-row-group=/g) ?? []
+    ).length;
 
     expect(divCount).toBe(0);
     expect(spanCount).toBe(0);
     expect(iconElementCount).toBe(0);
     expect(rowCount).toBeGreaterThanOrEqual(4);
+    expect(rowGroupListCount).toBe(2);
+    expect(rowGroupSectionCount).toBe(0);
     expect(markup).toContain('data-flat-shell-strip="ports"');
     expect(markup).toContain('data-flat-row-emphasis="edge"');
     expect(markup).toContain('data-flat-row-emphasis="required"');
