@@ -75,6 +75,7 @@ import (
 	"setta/internal/transcriptionsessions"
 	"setta/internal/uisettings"
 	"setta/internal/watchcode"
+	"setta/internal/watchcodeuisettings"
 	"setta/internal/workspacelaunch"
 	"setta/internal/wsapi"
 )
@@ -2600,10 +2601,32 @@ func initializeAppMCPServer(
 				if runtime.FeatureCapabilities == nil {
 					return nil, nil
 				}
+				return watchcodeuisettings.BuildScopedUISettingEntries(
+					runtime.FeatureCapabilities.WatchCode,
+					projectServices.projectRuntime,
+					cfg.Paths.WorkspaceRoot,
+				)
+			},
+			func(runtime plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
+				if runtime.FeatureCapabilities == nil {
+					return nil, nil
+				}
 				return appsubsystem.BuildScopedUISettingEntries(
 					runtime.FeatureCapabilities.AppSubsystem,
 					projectServices.projectRuntime,
 					services.pluginRouteService,
+				)
+			},
+		},
+		UnavailableUISettings: []uisettings.UnavailableSettingProvider{
+			func() map[string]uisettings.SettingError {
+				if services.watchCodeCapabilities == nil {
+					return watchcodeuisettings.UnavailableSettingErrors(
+						plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{}),
+					)
+				}
+				return watchcodeuisettings.UnavailableSettingErrors(
+					services.watchCodeCapabilities.WatchCodeCapabilities(),
 				)
 			},
 		},
