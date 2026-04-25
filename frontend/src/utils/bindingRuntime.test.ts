@@ -1,4 +1,7 @@
-import { normalizeGeneratedOrigin } from "@setta/app-subsystem-frontend-sdk";
+import {
+  normalizeGeneratedOrigin,
+  validateGeneratedParamNameInput,
+} from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it } from "vitest";
 
 describe("normalizeGeneratedOrigin", () => {
@@ -28,5 +31,30 @@ describe("normalizeGeneratedOrigin", () => {
     expect(normalizeGeneratedOrigin("")).toBeNull();
     expect(normalizeGeneratedOrigin("   ")).toBeNull();
     expect(normalizeGeneratedOrigin("localhost:8000")).toBeNull();
+  });
+});
+
+describe("validateGeneratedParamNameInput", () => {
+  const pythonIdentifierStartChars = new Set(["a", "c", "_"]);
+  const pythonIdentifierContinueChars = new Set(["a", "c", "l", "s", "1", "_"]);
+  const pythonKeywords = new Set(["class"]);
+
+  it("validates Python identifiers through the published SDK signature", () => {
+    const options = {
+      allowEmpty: false,
+      label: "Param name",
+      requirePythonIdentifier: true,
+      pythonIdentifierStartChars,
+      pythonIdentifierContinueChars,
+      pythonKeywords,
+    };
+
+    expect(validateGeneratedParamNameInput("a_1", options)).toBeNull();
+    expect(validateGeneratedParamNameInput("1a", options)).toBe(
+      "Param name must be a valid Python identifier.",
+    );
+    expect(validateGeneratedParamNameInput("class", options)).toBe(
+      "Param name cannot be a Python keyword.",
+    );
   });
 });
