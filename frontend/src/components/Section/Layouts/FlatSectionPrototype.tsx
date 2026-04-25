@@ -100,7 +100,7 @@ const FLAT_PROTOTYPE_THEME_STYLES = {
 } satisfies Record<FlatPrototypeTheme, FlatPrototypeThemeStyle>;
 
 const SHELL_CLASS_NAME =
-  "relative flex min-h-[320px] w-full min-w-[280px] flex-col overflow-hidden border border-[color:var(--flat-border-strong)] bg-[color:var(--flat-shell-bg)] font-mono text-[11px] text-[color:var(--flat-text)] [--flat-key-width:8.75rem]";
+  "relative flex min-h-[320px] w-full min-w-[280px] flex-col border border-[color:var(--flat-border-strong)] bg-[color:var(--flat-shell-bg)] font-mono text-[11px] text-[color:var(--flat-text)] [--flat-key-width:8.75rem]";
 
 const HEADER_LABEL_CLASS_NAME =
   "text-[10px] uppercase tracking-[0.18em] text-[color:var(--flat-muted)]";
@@ -373,8 +373,8 @@ function FlatPrototypePortList({
     isRightAligned ? "col-start-3 items-stretch" : "col-start-1"
   }`;
   const rowClassName = isRightAligned
-    ? "relative whitespace-nowrap py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:-right-3 after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
-    : "relative whitespace-nowrap py-1 text-[color:var(--flat-soft-text)] before:absolute before:-left-3 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
+    ? "relative whitespace-nowrap py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:right-[-0.875rem] after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
+    : "relative whitespace-nowrap py-1 text-[color:var(--flat-soft-text)] before:absolute before:left-[-0.875rem] before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
 
   return (
     <>
@@ -453,12 +453,12 @@ function FlatPrototypeRowItem({
     depth > 0
       ? ({
           "--flat-depth": depth,
-          "--flat-rail-left": `${railDepth * 0.875 + 0.4375}rem`,
+          "--flat-rail-left": `${railDepth * 0.875 + 1.1875}rem`,
         } satisfies FlatPrototypeRowStyle)
       : undefined;
   const nestedClassName = depth > 0 ? NESTED_ROW_RAIL_CLASS_NAME : "";
   const cellDividerClassName = isLast ? "" : ROW_CELL_DIVIDER_CLASS_NAME;
-  const rowClassName = `relative grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-0 pl-[calc(var(--flat-depth,0)*0.875rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
+  const rowClassName = `relative -mx-3 grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-3 pl-[calc(0.75rem+var(--flat-depth,0)*0.875rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
   const valueWithTrailing = trailing ? `${valueLabel}${trailing}` : valueLabel;
 
   return (

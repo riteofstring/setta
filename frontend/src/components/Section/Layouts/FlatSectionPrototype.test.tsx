@@ -70,12 +70,13 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("leading-7");
     expect(markup).toContain("text-left font-mono");
     expect(markup).toContain("whitespace-nowrap py-1");
-    expect(markup).toContain("before:-left-3");
-    expect(markup).toContain("after:-right-3");
+    expect(markup).toContain("before:left-[-0.875rem]");
+    expect(markup).toContain("after:right-[-0.875rem]");
     expect(markup).toContain("var(--flat-key-width)");
     expect(markup).toContain("grid-cols-[1.125rem_minmax(0,1fr)_auto]");
-    expect(markup).toContain("pl-[calc(var(--flat-depth,0)*0.875rem)]");
-    expect(markup).toContain("pr-0");
+    expect(markup).toContain("-mx-3");
+    expect(markup).toContain("pl-[calc(0.75rem+var(--flat-depth,0)*0.875rem)]");
+    expect(markup).toContain("pr-3");
     expect(markup).not.toContain('data-flat-pinned-marker="true"');
     expect(markup).not.toContain("gg-pin-alt");
     expect(markup).not.toContain(">Pinned Params<");
@@ -110,7 +111,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-row-emphasis="group"');
     expect(markup).toContain('data-flat-row-emphasis="nested"');
     expect(markup).toContain("before:left-[var(--flat-rail-left)]");
-    expect(markup).toContain("--flat-rail-left:0.4375rem");
+    expect(markup).toContain("--flat-rail-left:1.1875rem");
     expect(markup).not.toContain("--flat-rail-width");
     expect(markup).not.toContain("after:w-[var(--flat-rail-width)]");
     expect(markup).not.toContain("<span");
