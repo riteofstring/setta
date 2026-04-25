@@ -135,11 +135,7 @@ func buildScopedRegistryBaseMetadata(options ScopedRegistryOptions) registryPlug
 }
 
 func buildScopedRegistryBaseEntries(options ScopedRegistryOptions) ([]RuntimeEntry, error) {
-	coreRegistry, err := NewCoreRegistryWithOptions(
-		options.Runtime,
-		options.WorkspaceRoot,
-		CoreRegistryOptions{},
-	)
+	coreRegistry, err := NewCoreRegistry(options.Runtime, options.WorkspaceRoot)
 	if err != nil {
 		return nil, err
 	}

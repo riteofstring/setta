@@ -17,11 +17,14 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/wsapi"
 )
+
+const firstPartyWatchCodePluginID = "setta-watch-code"
 
 func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
@@ -29,7 +32,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	installAppWatchCodeProviderFixture(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -226,6 +229,106 @@ func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testin
 	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
 	if projectData.Enabled {
 		t.Fatal("expected unavailable watch-code setting write not to mutate project state")
+	}
+}
+
+func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForUnavailableProvider(t *testing.T) {
+	cases := []struct {
+		name      string
+		configure func(*testing.T, config.Config)
+	}{
+		{
+			name: "pending_restart",
+			configure: func(t *testing.T, cfg config.Config) {
+				writeAppPendingRestartPluginState(t, cfg, firstPartyWatchCodePluginID)
+			},
+		},
+		{
+			name: "provider_conflict",
+			configure: func(t *testing.T, cfg config.Config) {
+				installAppWatchCodeProviderFixture(t, cfg)
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testConfig(t)
+			cfg.Server.Mode = config.ModeIDE
+			prepareAppCurrentSession(t, cfg)
+			saveAppScopedMCPProject(t, cfg)
+			installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
+			tc.configure(t, cfg)
+
+			app, err := New(cfg, observability.NewLogger(0, io.Discard))
+			if err != nil {
+				t.Fatalf("new app: %v", err)
+			}
+			t.Cleanup(func() {
+				if err := app.Shutdown(context.Background()); err != nil {
+					t.Fatalf("shutdown app: %v", err)
+				}
+			})
+			if app.watchCodeRef.Current() != nil {
+				t.Fatal("did not expect unavailable watch code provider to start the service")
+			}
+
+			server := httptest.NewServer(app.Handler())
+			defer server.Close()
+
+			initialRevision := app.ProjectStates().Main().Snapshot().Revision
+			client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+			assertAppWatchCodeUISettingSearchHidden(t, client, server.URL, firstPartyWatchCodePluginID)
+			assertAppWatchCodeUISettingWriteRejected(t, client, server.URL, firstPartyWatchCodePluginID, "setting_not_found")
+			assertAppWatchCodePluginDataUnchanged(t, cfg, app, firstPartyWatchCodePluginID, initialRevision)
+		})
+	}
+}
+
+func TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	structuredContent, isError := postAppMCPToolCallRoute(t, client, server.URL, `{
+			"tool":"set_ui_setting_value",
+			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::enabled","value":true},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`)
+	if isError {
+		t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
+	}
+	setResult := mustStructuredMapValue(t, structuredContent)
+	if _, ok := setResult["error"]; ok {
+		t.Fatalf("did not expect active watch-code setting write error, got %#v", setResult)
+	}
+	if setResult["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", setResult["changed"])
+	}
+
+	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, firstPartyWatchCodePluginID, "project-alpha")
+	if !liveProjectData.Enabled {
+		t.Fatalf("expected active watch-code UI setting write to update live runtime, got %#v", liveProjectData)
+	}
+	persistedProjectData := readPersistedAppWatchCodePluginProjectDataForProvider(t, cfg, firstPartyWatchCodePluginID, "project-alpha")
+	if !persistedProjectData.Enabled {
+		t.Fatalf("expected active watch-code UI setting write to persist, got %#v", persistedProjectData)
 	}
 }
 
@@ -767,8 +870,8 @@ func TestAppIDEMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+		responseBody, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(responseBody))
 	}
 	if err := <-ackErrCh; err != nil {
 		t.Fatalf("ack reveal websocket round-trip: %v", err)
@@ -783,6 +886,133 @@ func TestAppIDEMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 	if len(statuses) != 1 || mustStructuredMapValue(t, statuses[0])["status"] != "revealed" {
 		t.Fatalf("expected single revealed status, got %#v", statuses)
 	}
+}
+
+func postAppMCPToolCallRoute(
+	t *testing.T,
+	client *http.Client,
+	serverURL string,
+	body string,
+) (any, bool) {
+	t.Helper()
+
+	response, err := client.Post(
+		serverURL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(body),
+	)
+	if err != nil {
+		t.Fatalf("post MCP tool call route: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+	payload := decodeAppToolCallRoutePayload(t, response.Body)
+	return payload.StructuredContent, payload.IsError
+}
+
+func assertAppWatchCodeUISettingSearchHidden(t *testing.T, client *http.Client, serverURL string, pluginID string) {
+	t.Helper()
+
+	structuredContent, isError := postAppMCPToolCallRoute(t, client, serverURL, `{
+			"tool":"search_ui_settings",
+			"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":5},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`)
+	if isError {
+		t.Fatalf("expected search_ui_settings success, got %#v", structuredContent)
+	}
+	searchResult := mustStructuredMapValue(t, structuredContent)
+	searchResults := mustStructuredListValue(t, searchResult["results"])
+	settingPrefix := "plugin::" + pluginID + "::"
+	for _, rawResult := range searchResults {
+		result := mustStructuredMapValue(t, rawResult)
+		settingID, _ := result["settingId"].(string)
+		if strings.HasPrefix(settingID, settingPrefix) {
+			t.Fatalf("expected no watch-code UI setting search results for %s, got %#v", pluginID, searchResults)
+		}
+	}
+}
+
+func assertAppWatchCodeUISettingWriteRejected(t *testing.T, client *http.Client, serverURL string, pluginID string, expectedCode string) {
+	t.Helper()
+
+	structuredContent, isError := postAppMCPToolCallRoute(t, client, serverURL, `{
+			"tool":"set_ui_setting_value",
+			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::`+pluginID+`::enabled","value":true},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`)
+	if isError {
+		t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
+	}
+	setResult := mustStructuredMapValue(t, structuredContent)
+	errorResult := mustStructuredMapValue(t, setResult["error"])
+	if errorResult["code"] != expectedCode {
+		t.Fatalf("expected %s, got %#v", expectedCode, errorResult)
+	}
+}
+
+func assertAppWatchCodePluginDataUnchanged(
+	t *testing.T,
+	cfg config.Config,
+	app *App,
+	pluginID string,
+	expectedRevision uint64,
+) {
+	t.Helper()
+
+	liveSnapshot := app.ProjectStates().Main().Snapshot()
+	if liveSnapshot.Revision != expectedRevision {
+		t.Fatalf("expected live runtime revision %d, got %d", expectedRevision, liveSnapshot.Revision)
+	}
+	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, liveSnapshot.Document, pluginID, "project-alpha")
+	if liveProjectData.Enabled {
+		t.Fatalf("expected live watch-code plugin data to remain disabled, got %#v", liveProjectData)
+	}
+	persistedProjectData := readPersistedAppWatchCodePluginProjectDataForProvider(t, cfg, pluginID, "project-alpha")
+	if persistedProjectData.Enabled {
+		t.Fatalf("expected persisted watch-code plugin data to remain disabled, got %#v", persistedProjectData)
+	}
+}
+
+func readPersistedAppWatchCodePluginProjectDataForProvider(
+	t *testing.T,
+	cfg config.Config,
+	pluginID string,
+	projectID string,
+) projectstate.WatchCodePluginProjectData {
+	t.Helper()
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project state paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted project state: %v", err)
+	}
+	return readAppWatchCodePluginProjectDataForProvider(t, document, pluginID, projectID)
+}
+
+func readAppWatchCodePluginProjectDataForProvider(
+	t *testing.T,
+	document projectstate.Document,
+	pluginID string,
+	projectID string,
+) projectstate.WatchCodePluginProjectData {
+	t.Helper()
+
+	projectData, _, err := document.WatchCodePluginProjectData(pluginID, projectID)
+	if err != nil {
+		t.Fatalf("read %s watch-code plugin data: %v", pluginID, err)
+	}
+	return projectData
 }
 
 func dialAppRevealFrontend(t *testing.T, app *App, serverURL string) (*websocket.Conn, string) {

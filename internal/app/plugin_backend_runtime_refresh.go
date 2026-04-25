@@ -569,33 +569,48 @@ func (s *pluginMutationRuntimeService) GetBackendUISettings(pluginID string) ([]
 	if err != nil {
 		return nil, err
 	}
-	return s.base.GetBackendUISettingsFromSnapshot(snapshot, pluginID)
+	registrations, err := s.base.GetBackendUISettingsFromSnapshot(snapshot, pluginID)
+	if err != nil {
+		return nil, err
+	}
+	if !watchCodeProviderCandidateSelected(snapshot, pluginID) {
+		return filterUnavailableWatchCodeBackendUISettings(snapshot, pluginID, registrations), nil
+	}
+	return registrations, nil
 }
 
 func (s *pluginMutationRuntimeService) ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
-	if s.watchCodeBackendHost != nil {
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	if watchCodeBackendUISettingCandidate(snapshot, options.PluginID, options.HandlerID) {
+		if err := watchCodeBackendUISettingAccessError(snapshot, options.PluginID, s.watchCodeBackendHost); err != nil {
+			return nil, err
+		}
 		value, handled, err := s.watchCodeBackendHost.readUISettingValue(options)
 		if handled || err != nil {
 			return value, err
 		}
-	}
-	snapshot, err := s.currentSnapshot()
-	if err != nil {
-		return nil, err
+		return nil, watchCodeProviderUISettingUnavailableError(options.PluginID)
 	}
 	return s.base.ReadBackendUISettingValueFromSnapshot(ctx, snapshot, options)
 }
 
 func (s *pluginMutationRuntimeService) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
-	if s.watchCodeBackendHost != nil {
+	snapshot, err := s.currentSnapshot()
+	if err != nil {
+		return err
+	}
+	if watchCodeBackendUISettingCandidate(snapshot, options.PluginID, options.HandlerID) {
+		if err := watchCodeBackendUISettingAccessError(snapshot, options.PluginID, s.watchCodeBackendHost); err != nil {
+			return err
+		}
 		handled, err := s.watchCodeBackendHost.writeUISettingValue(ctx, options)
 		if handled || err != nil {
 			return err
 		}
-	}
-	snapshot, err := s.currentSnapshot()
-	if err != nil {
-		return err
+		return watchCodeProviderUISettingUnavailableError(options.PluginID)
 	}
 	return s.base.WriteBackendUISettingValueFromSnapshot(ctx, snapshot, options)
 }

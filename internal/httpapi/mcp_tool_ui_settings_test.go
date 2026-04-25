@@ -162,13 +162,12 @@ func (p *routeWatchCodeBackendUISettingPluginMutationProvider) WriteBackendUISet
 	if !ok {
 		return fmt.Errorf("watch code enabled value must be boolean")
 	}
-	_, _, err := p.runtime.CompareAndSetWatchCodeEnabled(
+	_, err := p.runtime.SetWatchCodeEnabled(
 		ctx,
 		p.pluginID,
 		options.ProjectConfigID,
 		enabled,
 		p.workspaceRoot,
-		nil,
 	)
 	return err
 }

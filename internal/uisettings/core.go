@@ -7,13 +7,7 @@ import (
 	"setta/internal/projectstate"
 )
 
-type CoreRegistryOptions struct{}
-
 func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry, error) {
-	return NewCoreRegistryWithOptions(runtime, workspaceRoot, CoreRegistryOptions{})
-}
-
-func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, options CoreRegistryOptions) (*Registry, error) {
 	if runtime == nil {
 		return nil, projectstate.ErrRuntimeClosed
 	}

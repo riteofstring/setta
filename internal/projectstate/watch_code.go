@@ -111,14 +111,6 @@ func (r *Runtime) SetWatchCodeEnabled(
 	})
 }
 
-func (p *Project) SetWatchCodeEnabled(
-	projectData *WatchCodePluginProjectData,
-	enabled bool,
-	workspaceRoot string,
-) error {
-	return p.setWatchCodeEnabledWithIgnoredRoots(projectData, enabled, workspaceRoot, nil)
-}
-
 func (p *Project) setWatchCodeEnabledWithIgnoredRoots(
 	projectData *WatchCodePluginProjectData,
 	enabled bool,
@@ -193,15 +185,6 @@ func (r *Runtime) SetWatchCodeInputs(
 		}
 		return document, nil
 	})
-}
-
-func (p *Project) SetWatchCodeInputs(
-	projectData *WatchCodePluginProjectData,
-	folders []WatchCodeFolder,
-	files []string,
-	workspaceRoot string,
-) error {
-	return p.setWatchCodeInputsWithIgnoredRoots(projectData, folders, files, workspaceRoot, nil)
 }
 
 func (p *Project) setWatchCodeInputsWithIgnoredRoots(

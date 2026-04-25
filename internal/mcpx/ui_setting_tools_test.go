@@ -189,13 +189,12 @@ func (p *watchCodeBackendUISettingPluginMutationProvider) WriteBackendUISettingV
 		if !ok {
 			return fmt.Errorf("watch code enabled value must be boolean")
 		}
-		_, _, err := p.runtime.CompareAndSetWatchCodeEnabled(
+		_, err := p.runtime.SetWatchCodeEnabled(
 			ctx,
 			p.pluginID,
 			options.ProjectConfigID,
 			enabled,
 			p.workspaceRoot,
-			nil,
 		)
 		return err
 	case "write_folders":
@@ -203,13 +202,17 @@ func (p *watchCodeBackendUISettingPluginMutationProvider) WriteBackendUISettingV
 		if err != nil {
 			return err
 		}
-		_, _, err = p.runtime.CompareAndSetWatchCodeFolders(
+		projectData, err := p.watchCodeProjectData(options.PluginID, options.ProjectConfigID)
+		if err != nil {
+			return err
+		}
+		_, err = p.runtime.SetWatchCodeInputs(
 			ctx,
 			p.pluginID,
 			options.ProjectConfigID,
 			folders,
+			projectData.Files,
 			p.workspaceRoot,
-			nil,
 		)
 		return err
 	case "write_files":
@@ -217,13 +220,17 @@ func (p *watchCodeBackendUISettingPluginMutationProvider) WriteBackendUISettingV
 		if err != nil {
 			return err
 		}
-		_, _, err = p.runtime.CompareAndSetWatchCodeFiles(
+		projectData, err := p.watchCodeProjectData(options.PluginID, options.ProjectConfigID)
+		if err != nil {
+			return err
+		}
+		_, err = p.runtime.SetWatchCodeInputs(
 			ctx,
 			p.pluginID,
 			options.ProjectConfigID,
+			projectData.Folders,
 			files,
 			p.workspaceRoot,
-			nil,
 		)
 		return err
 	default:
