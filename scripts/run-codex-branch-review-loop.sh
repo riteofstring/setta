@@ -132,6 +132,7 @@ shell_join() {
 
 resolve_path_without_creating() {
   local candidate="$1"
+  local existing_path=""
   local suffix=""
 
   if [[ "${candidate}" != /* ]]; then
@@ -143,8 +144,12 @@ resolve_path_without_creating() {
     candidate="$(dirname "${candidate}")"
   done
 
-  candidate="$(cd "${candidate}" && pwd)"
-  printf '%s%s\n' "${candidate}" "${suffix}"
+  if [[ -d "${candidate}" ]]; then
+    existing_path="$(cd "${candidate}" && pwd)"
+  else
+    existing_path="$(cd "$(dirname "${candidate}")" && pwd)/$(basename "${candidate}")"
+  fi
+  printf '%s%s\n' "${existing_path}" "${suffix}"
 }
 
 timestamp_now() {

@@ -341,6 +341,96 @@ def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -
     assert "--root-dir PATH" in result.stdout
 
 
+def test_branch_review_loop_appends_extra_prompt_file(
+    tmp_path: Path,
+) -> None:
+    repo_dir = _create_git_repo(tmp_path)
+    output_dir = tmp_path / "output"
+    bin_dir = tmp_path / "bin"
+    calls_file = tmp_path / "calls.txt"
+    extra_prompt_file = tmp_path / "extra-prompt.md"
+    output_dir.mkdir()
+    bin_dir.mkdir()
+    extra_prompt_file.write_text("Extra branch invariant.\n", encoding="utf-8")
+
+    _write_executable(
+        bin_dir / "codex",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+
+response_file=""
+json_mode="0"
+prompt="$(cat)"
+
+printf 'prompt:%s\\n===\\n' "${{prompt}}" >> "{calls_file}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output-last-message)
+      response_file="$2"
+      shift 2
+      ;;
+    --json)
+      json_mode="1"
+      shift
+      ;;
+    --color|--cd|--model|--config)
+      shift 2
+      ;;
+    --dangerously-bypass-approvals-and-sandbox|--ephemeral|never|-)
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [[ "${{json_mode}}" == "0" ]]; then
+  printf 'No actionable findings.\\n' > "${{response_file}}"
+  exit 0
+fi
+
+printf '{{"type":"thread.started","thread_id":"thread-extra"}}\\n'
+cat > "${{response_file}}" <<'EOR'
+CONSOLIDATED_STATUS: NO_FINDINGS
+
+The reviews found no actionable findings.
+EOR
+""",
+    )
+
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+    result = _run(
+        [
+            "bash",
+            str(_runner_script()),
+            "--root-dir",
+            str(repo_dir),
+            "--iterations",
+            "1",
+            "--output-dir",
+            str(output_dir),
+            "--post-commit-settle-seconds",
+            "0",
+            "--extra-prompt-file",
+            str(extra_prompt_file),
+        ],
+        cwd=tmp_path,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    calls = calls_file.read_text(encoding="utf-8")
+    assert calls.count("Additional Instructions") == 4
+    assert calls.count("Extra branch invariant.") == 4
+    assert (
+        output_dir / "state" / "review-correctness-prompt.md"
+    ).read_text(encoding="utf-8").endswith("Extra branch invariant.\n\n")
+
+
 def test_branch_review_loop_stops_after_clean_consolidation(
     tmp_path: Path,
 ) -> None:
