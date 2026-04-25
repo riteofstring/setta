@@ -14,7 +14,6 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
-	"setta/internal/chatmodes"
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
@@ -25,7 +24,9 @@ const (
 	runTypeExternalChat = "external_agent"
 	runTypeScriptable   = "scriptable_chat"
 
-	stopChatWaitTimeout = 2 * time.Second
+	maxReferenceImageURLChars   = 4096
+	maxReferenceImageNotesChars = 100000
+	stopChatWaitTimeout         = 2 * time.Second
 
 	requiredErrorCheckPrompt = "## Required completion gate for create/scaffold work\n" +
 		"- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n" +
@@ -34,31 +35,37 @@ const (
 )
 
 var (
-	ErrRunStoreRequired                         = errors.New("managed chat run store is required")
-	ErrEngineStoreRequired                      = errors.New("managed chat engine store is required")
-	ErrLLMRuntimeRequired                       = errors.New("managed chat llm runtime is required")
-	ErrProjectStateRequired                     = errors.New("managed chat project state is required")
-	ErrProfileStoreRequired                     = errors.New("managed chat profile store is required")
-	ErrStarterRequired                          = errors.New("managed chat runtime is required")
-	ErrStopperRequired                          = errors.New("managed chat stop runtime is required")
-	ErrChatNotFound                             = errors.New("managed chat not found")
-	ErrProjectConfigIDRequired                  = errors.New("projectConfigId is required")
-	ErrMessageRequired                          = errors.New("message is required")
-	ErrPermissionModeRequired                   = errors.New("permissionMode is required")
-	ErrPermissionModeInvalid                    = errors.New("permissionMode is invalid")
-	ErrSectionIDRequired                        = errors.New("sectionId is required unless allowUnscoped is true.")
-	ErrAllowUnscopedRequiresSectionOmitted      = errors.New("allowUnscoped requires sectionId to be omitted.")
-	ErrBranchFieldsRequired                     = errors.New("Branch edits require branchParentChatId and branchFromMessageId.")
-	ErrContinueFromChatWithBranchEdits          = errors.New("continueFromChatId cannot be used with branch edits.")
-	ErrContinueFromChatRequiresChatIDOmitted    = errors.New("continueFromChatId requires chatId to be omitted.")
-	ErrFrontendAffinityTokenInvalid             = errors.New("frontendAffinityToken must not be blank")
-	ErrAppGenerationModeInvalid                 = chatmodes.ErrAppGenerationModeInvalid
-	ErrAppGenerationReferenceImageURLTooLarge   = chatmodes.ErrAppGenerationReferenceImageURLTooLarge
-	ErrAppGenerationReferenceImageNotesTooLarge = chatmodes.ErrAppGenerationReferenceImageNotesTooLarge
-	ErrAppGenerationImageAttachmentRequired     = chatmodes.ErrAppGenerationImageAttachmentRequired
-	ErrChatEngineMismatch                       = errors.New("Chat engine mismatch; start a new chat.")
-	ErrChatProjectConfigMismatch                = errors.New("Chat project config mismatch; start a new chat.")
-	ErrContinueFromChatSourceNotFound           = errors.New("continuation source chat not found")
+	ErrRunStoreRequired                       = errors.New("managed chat run store is required")
+	ErrEngineStoreRequired                    = errors.New("managed chat engine store is required")
+	ErrLLMRuntimeRequired                     = errors.New("managed chat llm runtime is required")
+	ErrProjectStateRequired                   = errors.New("managed chat project state is required")
+	ErrProfileStoreRequired                   = errors.New("managed chat profile store is required")
+	ErrStarterRequired                        = errors.New("managed chat runtime is required")
+	ErrStopperRequired                        = errors.New("managed chat stop runtime is required")
+	ErrChatNotFound                           = errors.New("managed chat not found")
+	ErrProjectConfigIDRequired                = errors.New("projectConfigId is required")
+	ErrMessageRequired                        = errors.New("message is required")
+	ErrPermissionModeRequired                 = errors.New("permissionMode is required")
+	ErrPermissionModeInvalid                  = errors.New("permissionMode is invalid")
+	ErrSectionIDRequired                      = errors.New("sectionId is required unless allowUnscoped is true.")
+	ErrAllowUnscopedRequiresSectionOmitted    = errors.New("allowUnscoped requires sectionId to be omitted.")
+	ErrBranchFieldsRequired                   = errors.New("Branch edits require branchParentChatId and branchFromMessageId.")
+	ErrContinueFromChatWithBranchEdits        = errors.New("continueFromChatId cannot be used with branch edits.")
+	ErrContinueFromChatRequiresChatIDOmitted  = errors.New("continueFromChatId requires chatId to be omitted.")
+	ErrFrontendAffinityTokenInvalid           = errors.New("frontendAffinityToken must not be blank")
+	ErrAppGenerationModeInvalid               = errors.New("appGenerationMode is invalid")
+	ErrAppGenerationReferenceImageURLTooLarge = errors.New(
+		"appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
+	)
+	ErrAppGenerationReferenceImageNotesTooLarge = errors.New(
+		"appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
+	)
+	ErrAppGenerationImageAttachmentRequired = errors.New(
+		"json_render_with_image requires a current attached image or retained image provenance from a prior image-mode turn.",
+	)
+	ErrChatEngineMismatch             = errors.New("Chat engine mismatch; start a new chat.")
+	ErrChatProjectConfigMismatch      = errors.New("Chat project config mismatch; start a new chat.")
+	ErrContinueFromChatSourceNotFound = errors.New("continuation source chat not found")
 )
 
 type ChatPermissionMode = projectstate.ChatPermissionMode
@@ -85,29 +92,27 @@ type runWaiter interface {
 }
 
 type ServiceOptions struct {
-	ProjectState       *projectstate.Runtime
-	Runs               *agentruns.RunStore
-	Engines            *agentruns.EngineStore
-	LLM                *llmconfig.Runtime
-	Profiles           *agentprofiles.Store
-	Starter            ChatStarter
-	Live               LiveChatStateProvider
-	Stopper            RunStopper
-	AppGenerationModes chatmodes.AppGenerationModeResolver
-	TimeNow            func() time.Time
+	ProjectState *projectstate.Runtime
+	Runs         *agentruns.RunStore
+	Engines      *agentruns.EngineStore
+	LLM          *llmconfig.Runtime
+	Profiles     *agentprofiles.Store
+	Starter      ChatStarter
+	Live         LiveChatStateProvider
+	Stopper      RunStopper
+	TimeNow      func() time.Time
 }
 
 type Service struct {
-	projectState       *projectstate.Runtime
-	runs               *agentruns.RunStore
-	engines            *agentruns.EngineStore
-	llm                *llmconfig.Runtime
-	profiles           *agentprofiles.Store
-	starter            ChatStarter
-	live               LiveChatStateProvider
-	stopper            RunStopper
-	appGenerationModes chatmodes.AppGenerationModeResolver
-	timeNow            func() time.Time
+	projectState *projectstate.Runtime
+	runs         *agentruns.RunStore
+	engines      *agentruns.EngineStore
+	llm          *llmconfig.Runtime
+	profiles     *agentprofiles.Store
+	starter      ChatStarter
+	live         LiveChatStateProvider
+	stopper      RunStopper
+	timeNow      func() time.Time
 }
 
 type ChatState struct {
@@ -207,16 +212,15 @@ func NewService(options ServiceOptions) (*Service, error) {
 		}
 	}
 	return &Service{
-		projectState:       options.ProjectState,
-		runs:               options.Runs,
-		engines:            options.Engines,
-		llm:                options.LLM,
-		profiles:           options.Profiles,
-		starter:            options.Starter,
-		live:               options.Live,
-		stopper:            options.Stopper,
-		appGenerationModes: options.AppGenerationModes,
-		timeNow:            timeNow,
+		projectState: options.ProjectState,
+		runs:         options.Runs,
+		engines:      options.Engines,
+		llm:          options.LLM,
+		profiles:     options.Profiles,
+		starter:      options.Starter,
+		live:         options.Live,
+		stopper:      options.Stopper,
+		timeNow:      timeNow,
 	}, nil
 }
 
@@ -1074,6 +1078,143 @@ func normalizeOptionalString(value *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func normalizeAppGenerationMode(value *string) (*string, error) {
+	normalized, ok := agentruns.NormalizeOptionalAppGenerationMode(value)
+	if !ok {
+		return nil, ErrAppGenerationModeInvalid
+	}
+	return normalized, nil
+}
+
+func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNotes *string) (*string, *string, error) {
+	normalizedURL := strings.TrimSpace(derefOptionalString(referenceImageURL))
+	normalizedNotes := strings.TrimSpace(derefOptionalString(referenceImageNotes))
+	if len(normalizedURL) > maxReferenceImageURLChars {
+		return nil, nil, ErrAppGenerationReferenceImageURLTooLarge
+	}
+	if len(normalizedNotes) > maxReferenceImageNotesChars {
+		return nil, nil, ErrAppGenerationReferenceImageNotesTooLarge
+	}
+	var resolvedURL *string
+	var resolvedNotes *string
+	if normalizedURL != "" {
+		resolvedURL = stringPtr(normalizedURL)
+	}
+	if normalizedNotes != "" {
+		resolvedNotes = stringPtr(normalizedNotes)
+	}
+	return resolvedURL, resolvedNotes, nil
+}
+
+func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, referenceImageURL *string, referenceImageNotes *string) string {
+	resolvedMode := derefOptionalString(mode)
+	if resolvedMode == "" {
+		return ""
+	}
+	lines := []string{
+		"## App spec generation mode",
+		fmt.Sprintf("- mode: %s", resolvedMode),
+		resolveStreamingPreviewPromptLine(appSpecStreamingEnabled),
+	}
+	lines = append(
+		lines,
+		resolveAppGenerationModePromptLines(
+			resolvedMode,
+			appSpecStreamingEnabled,
+			referenceImageURL,
+			referenceImageNotes,
+		)...,
+	)
+	return strings.Join(lines, "\n")
+}
+
+func resolveStreamingPreviewPromptLine(appSpecStreamingEnabled bool) string {
+	if appSpecStreamingEnabled {
+		return "- streamingPreview: enabled"
+	}
+	return "- streamingPreview: disabled"
+}
+
+func resolveAppGenerationModePromptLines(
+	resolvedMode string,
+	appSpecStreamingEnabled bool,
+	referenceImageURL *string,
+	referenceImageNotes *string,
+) []string {
+	switch resolvedMode {
+	case string(agentruns.AppGenerationModeJSONRender):
+		return buildJSONRenderPromptLines(appSpecStreamingEnabled)
+	case string(agentruns.AppGenerationModeJSONRenderWithImage):
+		return append(
+			buildJSONRenderPromptLines(appSpecStreamingEnabled),
+			buildReferenceImagePromptLines(referenceImageURL, referenceImageNotes)...,
+		)
+	case string(agentruns.AppGenerationModePromptBuilder):
+		return append(
+			buildJSONRenderPromptLines(appSpecStreamingEnabled),
+			"- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
+		)
+	case string(agentruns.AppGenerationModeMCPServer):
+		return buildMCPServerPromptLines(appSpecStreamingEnabled)
+	default:
+		return nil
+	}
+}
+
+func buildJSONRenderPromptLines(appSpecStreamingEnabled bool) []string {
+	lines := []string{
+		"- If you are generating/updating the App spec (json-render):",
+		"  - Use catalog-compatible components only.",
+		"  - Persist via Setta app tools.",
+	}
+	return append(lines, buildAppDefinitionPersistencePromptLines(appSpecStreamingEnabled)...)
+}
+
+func buildAppDefinitionPersistencePromptLines(appSpecStreamingEnabled bool) []string {
+	if appSpecStreamingEnabled {
+		return []string{
+			"  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
+			"  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
+		}
+	}
+	return []string{
+		"  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
+		"  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
+	}
+}
+
+func buildReferenceImagePromptLines(referenceImageURL *string, referenceImageNotes *string) []string {
+	lines := []string{
+		"- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
+		"- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
+	}
+	normalizedURL := derefOptionalString(referenceImageURL)
+	if normalizedURL == "" {
+		return lines
+	}
+	lines = append(lines,
+		fmt.Sprintf("- Reference image URL: %s", normalizedURL),
+		"- Use this image as layout/style guidance when composing the app spec.",
+	)
+	if normalizedNotes := derefOptionalString(referenceImageNotes); normalizedNotes != "" {
+		lines = append(lines, fmt.Sprintf("- Reference image notes: %s", normalizedNotes))
+	}
+	return lines
+}
+
+func buildMCPServerPromptLines(appSpecStreamingEnabled bool) []string {
+	lines := []string{
+		"- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
+		"- For Figma-oriented requests, support both paths:",
+		"  - Pull an existing Figma design into a JSON-render appSpec.",
+		"  - Generate/update in Figma first, then pull the resulting design back into Setta.",
+	}
+	if appSpecStreamingEnabled {
+		return append(lines, "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`.")
+	}
+	return append(lines, "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`.")
 }
 
 func buildExecutionPolicyPrompt(permissionMode ChatPermissionMode, searchEnabled bool) string {

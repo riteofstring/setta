@@ -49,54 +49,6 @@ export type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
-export const PluginCanvasControlPlacementEnum = {
-  Project: "project",
-  Viewport: "viewport",
-  Utility: "utility",
-} as const;
-
-export type PluginCanvasControlPlacement =
-  (typeof PluginCanvasControlPlacementEnum)[keyof typeof PluginCanvasControlPlacementEnum];
-
-export function isPluginCanvasControlPlacement(
-  value: string,
-): value is PluginCanvasControlPlacement {
-  return (
-    value === PluginCanvasControlPlacementEnum.Project ||
-    value === PluginCanvasControlPlacementEnum.Viewport ||
-    value === PluginCanvasControlPlacementEnum.Utility
-  );
-}
-
-type PluginCanvasControlProps = {
-  pluginId: string;
-  controlId: string;
-  label: string;
-  placement: PluginCanvasControlPlacement;
-  serverMode: PluginServerMode;
-  effectiveCapabilities: string[];
-};
-
-type PluginCanvasControlRenderer = {
-  mount: (el: HTMLElement, props: PluginCanvasControlProps) => void;
-  update?: (el: HTMLElement, props: PluginCanvasControlProps) => void;
-  unmount?: (el: HTMLElement) => void;
-};
-
-export type PluginCanvasControlDefinition = {
-  id: string;
-  label: string;
-  description?: string;
-  placement?: PluginCanvasControlPlacement;
-  order?: number;
-  renderer: PluginCanvasControlRenderer;
-};
-
-export type RegisteredPluginCanvasControl = PluginCanvasControlDefinition & {
-  pluginId: string;
-  placement: PluginCanvasControlPlacement;
-};
-
 type PluginSectionFallbackState = {
   pluginStatusById: Record<
     string,

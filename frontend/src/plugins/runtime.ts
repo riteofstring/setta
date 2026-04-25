@@ -12,11 +12,6 @@ import {
   PluginStatusEntry,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
-import {
-  beginAppSubsystemFrontendRegistrationLoad,
-  resetAppSubsystemFrontendRuntimeState,
-  syncAppSubsystemFrontendRegistration,
-} from "./appSubsystem";
 import { type PluginPaneIconName } from "./paneIcons";
 import type {
   PluginFrontendError,
@@ -40,12 +35,9 @@ import {
 } from "./runtimeInternal";
 import {
   computePluginSectionFallbackReason,
-  PluginCanvasControlPlacementEnum,
   toPluginSectionKindKey,
-  type PluginCanvasControlPlacement,
   type PluginSectionFallbackReason,
   type PluginServerMode,
-  type RegisteredPluginCanvasControl,
   type RegisteredPluginPane,
 } from "./runtimeShared";
 
@@ -55,11 +47,7 @@ export type {
   RegisteredPluginCommand,
   RegisteredPluginSectionKind,
 } from "./runtimeInternal";
-export { PluginCanvasControlPlacementEnum } from "./runtimeShared";
-export type {
-  PluginServerMode,
-  RegisteredPluginCanvasControl,
-} from "./runtimeShared";
+export type { PluginServerMode } from "./runtimeShared";
 
 export type PluginPaneTabEntry = {
   tabKey: string;
@@ -76,7 +64,6 @@ type SortedRuntimeViews = {
   sortedPaneTabs: PluginPaneTabEntry[];
   sortedCommands: RegisteredPluginCommand[];
   sortedTopNavBarItems: RegisteredPluginTopNavBarItem[];
-  sortedCanvasControls: RegisteredPluginCanvasControl[];
 };
 
 type PluginRuntimeStatus = "idle" | "loading" | "loaded" | "error";
@@ -86,12 +73,6 @@ type PluginRuntimeStore = {
   statusMessage: string | null;
   schemaVersion: number | null;
   serverMode: PluginServerMode | null;
-  appSubsystemCapabilities:
-    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
-    | null;
-  watchCodeCapabilities:
-    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["watchCode"]
-    | null;
   restartCapability: PluginRestartCapability | null;
   pluginListById: Record<string, PluginListEntry>;
   sortedPluginListEntries: PluginListEntry[];
@@ -102,7 +83,6 @@ type PluginRuntimeStore = {
     LanguageServerSelectionStatus
   >;
   languageServerSelections: LanguageServerSelectionStatus[];
-  appSubsystemRegistrationsByPluginId: PluginRegistryAccumulator["appSubsystemRegistrationsByPluginId"];
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>;
   sortedSectionKinds: RegisteredPluginSectionKind[];
   panesByPluginId: Record<string, RegisteredPluginPane[]>;
@@ -111,8 +91,6 @@ type PluginRuntimeStore = {
   sortedCommands: RegisteredPluginCommand[];
   topNavBarItemsByPluginId: Record<string, RegisteredPluginTopNavBarItem[]>;
   sortedTopNavBarItems: RegisteredPluginTopNavBarItem[];
-  canvasControlsByPluginId: Record<string, RegisteredPluginCanvasControl[]>;
-  sortedCanvasControls: RegisteredPluginCanvasControl[];
   frontendErrorsByPluginId: Record<string, PluginFrontendError>;
 };
 
@@ -121,8 +99,6 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   statusMessage: null,
   schemaVersion: null,
   serverMode: null,
-  appSubsystemCapabilities: null,
-  watchCodeCapabilities: null,
   restartCapability: null,
   pluginListById: {},
   sortedPluginListEntries: [],
@@ -130,7 +106,6 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   statusEntries: [],
   languageServerSelectionsByLanguage: {},
   languageServerSelections: [],
-  appSubsystemRegistrationsByPluginId: {},
   sectionKindsByKey: {},
   sortedSectionKinds: [],
   panesByPluginId: {},
@@ -139,8 +114,6 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   sortedCommands: [],
   topNavBarItemsByPluginId: {},
   sortedTopNavBarItems: [],
-  canvasControlsByPluginId: {},
-  sortedCanvasControls: [],
   frontendErrorsByPluginId: {},
 };
 
@@ -240,14 +213,6 @@ export async function refreshPluginRuntime(): Promise<void> {
 export async function receivePluginRuntimeUpdate(
   runtimeResponse: PluginRuntimeResponse,
 ): Promise<void> {
-  beginAppSubsystemFrontendRegistrationLoad(
-    runtimeResponse.featureCapabilities?.appSubsystem ?? null,
-    buildSelectedAppSubsystemFrontendRefreshSignature(
-      runtimeResponse.featureCapabilities?.appSubsystem ?? null,
-      runtimeResponse.list.plugins,
-      runtimeResponse.status.plugins,
-    ),
-  );
   queuedPluginRuntimeResponse = runtimeResponse;
   if (pluginRuntimeLoadPromise) {
     return pluginRuntimeLoadPromise;
@@ -295,10 +260,6 @@ async function applyPluginRuntimeResponse(
   runtimeResponse: PluginRuntimeResponse,
 ): Promise<void> {
   const previousState = usePluginRuntimeStore.getState();
-  const appSubsystemCapabilities =
-    runtimeResponse.featureCapabilities?.appSubsystem ?? null;
-  const watchCodeCapabilities =
-    runtimeResponse.featureCapabilities?.watchCode ?? null;
   const listData = runtimeResponse.list;
   const statusData = runtimeResponse.status;
   const pluginListById = mapPluginListById(
@@ -323,12 +284,10 @@ async function applyPluginRuntimeResponse(
       previousState.languageServerSelectionsByLanguage,
     );
   const registryAccumulator: PluginRegistryAccumulator = {
-    appSubsystemRegistrationsByPluginId: {},
     sectionKinds: {},
     panes: {},
     commands: {},
     topNavBarItems: {},
-    canvasControls: {},
   };
   const frontendErrorsByPluginId: Record<string, PluginFrontendError> = {};
   const sectionKindKeysByPluginId = indexSectionKindKeysByPluginId(
@@ -347,17 +306,6 @@ async function applyPluginRuntimeResponse(
     }
     runPluginCleanup(pluginId);
   }
-
-  const selectedAppSubsystemFrontendRefreshSignature =
-    buildSelectedAppSubsystemFrontendRefreshSignature(
-      appSubsystemCapabilities,
-      listData.plugins,
-      statusData.plugins,
-    );
-  beginAppSubsystemFrontendRegistrationLoad(
-    appSubsystemCapabilities,
-    selectedAppSubsystemFrontendRefreshSignature,
-  );
 
   await runWithConcurrencyLimit(
     frontendLoadCandidates,
@@ -410,12 +358,6 @@ async function applyPluginRuntimeResponse(
     pluginListById,
     registryAccumulator,
   });
-  const appSubsystemRegistrationsByPluginId = hasSameRecordValueReferences(
-    registryAccumulator.appSubsystemRegistrationsByPluginId,
-    previousState.appSubsystemRegistrationsByPluginId,
-  )
-    ? previousState.appSubsystemRegistrationsByPluginId
-    : registryAccumulator.appSubsystemRegistrationsByPluginId;
 
   usePluginRuntimeStore.setState((state) => ({
     ...state,
@@ -423,8 +365,6 @@ async function applyPluginRuntimeResponse(
     statusMessage: null,
     schemaVersion: listData.schemaVersion,
     serverMode: listData.serverMode,
-    appSubsystemCapabilities,
-    watchCodeCapabilities,
     restartCapability: listData.restartCapability,
     pluginListById,
     sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
@@ -432,7 +372,6 @@ async function applyPluginRuntimeResponse(
     statusEntries,
     languageServerSelectionsByLanguage,
     languageServerSelections,
-    appSubsystemRegistrationsByPluginId,
     sectionKindsByKey: registryAccumulator.sectionKinds,
     sortedSectionKinds: sortedRuntimeViews.sortedSectionKinds,
     panesByPluginId: registryAccumulator.panes,
@@ -441,21 +380,12 @@ async function applyPluginRuntimeResponse(
     sortedCommands: sortedRuntimeViews.sortedCommands,
     topNavBarItemsByPluginId: registryAccumulator.topNavBarItems,
     sortedTopNavBarItems: sortedRuntimeViews.sortedTopNavBarItems,
-    canvasControlsByPluginId: registryAccumulator.canvasControls,
-    sortedCanvasControls: sortedRuntimeViews.sortedCanvasControls,
     frontendErrorsByPluginId,
   }));
-
-  await syncAppSubsystemFrontendRegistration(
-    appSubsystemCapabilities,
-    appSubsystemRegistrationsByPluginId,
-    selectedAppSubsystemFrontendRefreshSignature,
-  );
 }
 
 function setPluginRuntimeLoadError(message: string): void {
   clearPluginRuntimeSideEffects();
-  resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState((state) =>
     buildClearedRuntimeState(state, {
       status: "error",
@@ -477,8 +407,6 @@ function buildClearedRuntimeState(
     statusMessage: options.statusMessage,
     schemaVersion: null,
     serverMode: null,
-    appSubsystemCapabilities: null,
-    watchCodeCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
@@ -486,7 +414,6 @@ function buildClearedRuntimeState(
     statusEntries: [],
     languageServerSelectionsByLanguage: {},
     languageServerSelections: [],
-    appSubsystemRegistrationsByPluginId: {},
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -495,8 +422,6 @@ function buildClearedRuntimeState(
     sortedCommands: [],
     topNavBarItemsByPluginId: {},
     sortedTopNavBarItems: [],
-    canvasControlsByPluginId: {},
-    sortedCanvasControls: [],
     frontendErrorsByPluginId: {},
   };
 }
@@ -513,28 +438,6 @@ function buildPluginFrontendRefreshSignature(
     statusEntry,
   );
   return `${plugin.pluginId}\u0000${sourceDigest}\u0000${entrypointUrl}\u0000${styleUrl}\u0000${effectiveCapabilityDigest}`;
-}
-
-function buildSelectedAppSubsystemFrontendRefreshSignature(
-  appSubsystemCapabilities:
-    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
-    | null,
-  plugins: PluginListEntry[],
-  statuses: PluginStatusEntry[],
-): string | null {
-  if (!appSubsystemCapabilities?.pluginEnabled) {
-    return null;
-  }
-  const pluginId = appSubsystemCapabilities.pluginId?.trim() ?? "";
-  if (!pluginId) {
-    return null;
-  }
-  const plugin = plugins.find((entry) => entry.pluginId === pluginId);
-  if (!plugin) {
-    return null;
-  }
-  const statusEntry = statuses.find((entry) => entry.pluginId === pluginId);
-  return buildPluginFrontendRefreshSignature(plugin, statusEntry);
 }
 
 function getFrontendEffectiveCapabilityDigest(
@@ -576,28 +479,25 @@ function mergeRegistryDelta(
   target: PluginRegistryAccumulator,
   delta: PluginRegistryAccumulator,
 ): void {
-  for (const [pluginId, registration] of Object.entries(
-    delta.appSubsystemRegistrationsByPluginId,
-  )) {
-    target.appSubsystemRegistrationsByPluginId[pluginId] = registration;
-  }
   for (const [key, value] of Object.entries(delta.sectionKinds)) {
     target.sectionKinds[key] = value;
   }
-  appendRegistryEntriesByPluginId(target.panes, delta.panes);
-  appendRegistryEntriesByPluginId(target.commands, delta.commands);
-  appendRegistryEntriesByPluginId(target.topNavBarItems, delta.topNavBarItems);
-  appendRegistryEntriesByPluginId(target.canvasControls, delta.canvasControls);
-}
-
-function appendRegistryEntriesByPluginId<TEntry>(
-  target: Record<string, TEntry[]>,
-  delta: Record<string, TEntry[]>,
-): void {
-  for (const [pluginId, entries] of Object.entries(delta)) {
-    const existingEntries = target[pluginId] ?? [];
-    existingEntries.push(...entries);
-    target[pluginId] = existingEntries;
+  for (const [pluginId, panes] of Object.entries(delta.panes)) {
+    const existingPanes = target.panes[pluginId] ?? [];
+    existingPanes.push(...panes);
+    target.panes[pluginId] = existingPanes;
+  }
+  for (const [pluginId, commands] of Object.entries(delta.commands)) {
+    const existingCommands = target.commands[pluginId] ?? [];
+    existingCommands.push(...commands);
+    target.commands[pluginId] = existingCommands;
+  }
+  for (const [pluginId, topNavBarItems] of Object.entries(
+    delta.topNavBarItems,
+  )) {
+    const existingTopNavBarItems = target.topNavBarItems[pluginId] ?? [];
+    existingTopNavBarItems.push(...topNavBarItems);
+    target.topNavBarItems[pluginId] = existingTopNavBarItems;
   }
 }
 
@@ -607,12 +507,6 @@ function mergePluginRegistryFromState(
   sectionKindKeysByPluginId: Record<string, string[]>,
   target: PluginRegistryAccumulator,
 ): void {
-  const appSubsystemRegistration =
-    state.appSubsystemRegistrationsByPluginId[pluginId];
-  if (appSubsystemRegistration) {
-    target.appSubsystemRegistrationsByPluginId[pluginId] =
-      appSubsystemRegistration;
-  }
   const sectionKindKeys = sectionKindKeysByPluginId[pluginId] ?? [];
   for (const sectionKindKey of sectionKindKeys) {
     const sectionKind = state.sectionKindsByKey[sectionKindKey];
@@ -632,10 +526,6 @@ function mergePluginRegistryFromState(
   const topNavBarItems = state.topNavBarItemsByPluginId[pluginId];
   if (topNavBarItems) {
     target.topNavBarItems[pluginId] = topNavBarItems;
-  }
-  const canvasControls = state.canvasControlsByPluginId[pluginId];
-  if (canvasControls) {
-    target.canvasControls[pluginId] = canvasControls;
   }
 }
 
@@ -1069,10 +959,6 @@ function deriveSortedRuntimeViews({
     registryAccumulator.topNavBarItems,
     previousState.topNavBarItemsByPluginId,
   );
-  const canvasControlsUnchanged = hasSameRecordValueReferences(
-    registryAccumulator.canvasControls,
-    previousState.canvasControlsByPluginId,
-  );
   return {
     sortedPluginListEntries,
     sortedSectionKinds: sectionKindsUnchanged
@@ -1087,9 +973,6 @@ function deriveSortedRuntimeViews({
     sortedTopNavBarItems: topNavBarItemsUnchanged
       ? previousState.sortedTopNavBarItems
       : toSortedPluginTopNavBarItems(registryAccumulator.topNavBarItems),
-    sortedCanvasControls: canvasControlsUnchanged
-      ? previousState.sortedCanvasControls
-      : toSortedPluginCanvasControls(registryAccumulator.canvasControls),
   };
 }
 
@@ -1231,46 +1114,6 @@ function toSortedPluginTopNavBarItems(
   return values;
 }
 
-const pluginCanvasControlPlacementRank: Record<
-  PluginCanvasControlPlacement,
-  number
-> = {
-  [PluginCanvasControlPlacementEnum.Project]: 0,
-  [PluginCanvasControlPlacementEnum.Viewport]: 1,
-  [PluginCanvasControlPlacementEnum.Utility]: 2,
-};
-
-function toSortedPluginCanvasControls(
-  canvasControlsByPluginId: Record<string, RegisteredPluginCanvasControl[]>,
-): RegisteredPluginCanvasControl[] {
-  const values: RegisteredPluginCanvasControl[] = [];
-  for (const canvasControlEntries of Object.values(canvasControlsByPluginId)) {
-    values.push(...canvasControlEntries);
-  }
-  values.sort((a, b) => {
-    const placementDelta =
-      pluginCanvasControlPlacementRank[a.placement] -
-      pluginCanvasControlPlacementRank[b.placement];
-    if (placementDelta !== 0) {
-      return placementDelta;
-    }
-    const orderDelta = (a.order ?? 0) - (b.order ?? 0);
-    if (orderDelta !== 0) {
-      return orderDelta;
-    }
-    const byLabel = a.label.localeCompare(b.label);
-    if (byLabel !== 0) {
-      return byLabel;
-    }
-    const byPlugin = a.pluginId.localeCompare(b.pluginId);
-    if (byPlugin !== 0) {
-      return byPlugin;
-    }
-    return a.id.localeCompare(b.id);
-  });
-  return values;
-}
-
 function buildPluginRequestErrorMessage(
   label: string,
   response: { status: number | undefined; hasResponse: boolean },
@@ -1305,10 +1148,6 @@ export function usePluginCommands(): RegisteredPluginCommand[] {
 
 export function usePluginTopNavBarItems(): RegisteredPluginTopNavBarItem[] {
   return usePluginRuntimeStore((state) => state.sortedTopNavBarItems);
-}
-
-export function usePluginCanvasControls(): RegisteredPluginCanvasControl[] {
-  return usePluginRuntimeStore((state) => state.sortedCanvasControls);
 }
 
 export function usePluginListEntries(): PluginListEntry[] {

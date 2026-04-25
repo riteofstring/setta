@@ -1,12 +1,7 @@
 /* @vitest-environment jsdom */
 
-import {
-  type AppSubsystemFrontendRegistrationsByPluginId,
-  resetAppSubsystemFrontendRuntimeState,
-  syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystem";
 import "testUtils/reactRefreshPreamble";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   buildProjectChatHydrationCacheKey,
@@ -33,73 +28,6 @@ function createEntry(
     timerId: null,
   };
 }
-
-const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
-
-const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
-  pluginId: "setta-json-render-app-gen",
-  pluginEnabled: true,
-  appAuthoringUi: true,
-  appPreviewUi: true,
-  appGenerationChatModes: true,
-  appDeploymentRuntime: true,
-} as const;
-const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByPluginId =
-  {
-    [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
-      pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
-      overviewTab: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-        titleQuickInfo: "Authoring quick info",
-        moreMenuQuickInfo: "More menu quick info",
-        moreMenuLabel: "JSON Render",
-      },
-      previewSurface: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      appModeRoute: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      appDeploymentModal: {
-        renderer: NOOP_APP_SUBSYSTEM_RENDERER,
-      },
-      chat: {
-        slashCommands: [
-          {
-            command: "/app-image",
-            action: "app_json_render_with_image",
-            summary: "Generate an app spec using attached image guidance.",
-            promptTemplate: "Generate an app spec using an image.",
-            appGenerationMode: "json_render_with_image",
-            requiresImageAttachment: true,
-          },
-        ],
-        imageRequiredModes: ["json_render_with_image"],
-        customSlashCommandModes: {
-          options: [
-            { id: "plain_chat", name: "Plain chat" },
-            { id: "json_render_with_image", name: "Image to JSON Render" },
-          ],
-          defaultMode: "plain_chat",
-        },
-      },
-      controller: {
-        initializeAppSessionFromCurrentDeployment: async () => true,
-      },
-    },
-  };
-
-beforeEach(async () => {
-  resetAppSubsystemFrontendRuntimeState();
-  await syncAppSubsystemFrontendRegistration(
-    ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-    APP_SUBSYSTEM_FRONTEND_REGISTRATIONS,
-  );
-});
-
-afterEach(() => {
-  resetAppSubsystemFrontendRuntimeState();
-});
 
 describe("ProjectChatCore hydration cache identity", () => {
   it("changes the hydration cache key when only the project config changes", () => {
