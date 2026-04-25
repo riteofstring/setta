@@ -1,6 +1,7 @@
 [build-system]
 requires = ["setuptools==80.9.0", "wheel==0.45.1"]
-build-backend = "setuptools.build_meta"
+build-backend = "build_backend"
+backend-path = ["."]
 
 [project]
 name = "setta-json-render-app-gen"

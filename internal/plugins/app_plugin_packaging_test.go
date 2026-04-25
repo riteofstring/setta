@@ -2,7 +2,9 @@ package plugins
 
 import (
 	"archive/zip"
+	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -13,16 +15,19 @@ import (
 func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeManagedComponents(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	sourceRoot := stageFirstPartyAppSubsystemPluginSource(t)
+	buildCalls := stubPluginFrontendBuildRunner(t, func(root string, args []string) error {
+		if reflect.DeepEqual(args, []string{"run", "build"}) {
+			writeRuntimeManagedFrontendBuildOutputs(t, root)
+		}
+		return nil
+	})
 
 	scope := PluginScopeWorkspace
 	linkResult, err := service.Link(LinkOptions{
-		LocalPluginRoot: filepath.Join(
-			workerRPCTestRepoRoot(t),
-			"plugins",
-			firstpartyplugin.AppSubsystemPluginID,
-		),
-		Scope:  &scope,
-		Enable: true,
+		LocalPluginRoot: sourceRoot,
+		Scope:           &scope,
+		Enable:          true,
 	})
 	if err != nil {
 		t.Fatalf("link first-party app subsystem plugin: %v", err)
@@ -33,6 +38,7 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 	if len(linkResult.Components) != 2 || linkResult.Components[0] != "backend" || linkResult.Components[1] != "frontend" {
 		t.Fatalf("expected backend/frontend link result components, got %#v", linkResult.Components)
 	}
+	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
 
 	if _, err := service.CommitBackendRuntimeRefresh(); err != nil {
 		t.Fatalf("commit backend runtime refresh after link: %v", err)
@@ -75,14 +81,7 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 }
 
 func TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets(t *testing.T) {
-	repoRoot := workerRPCTestRepoRoot(t)
-	stagingRoot := filepath.Join(t.TempDir(), firstpartyplugin.AppSubsystemPluginID)
-	copyBackendCodegenFixtureDir(
-		t,
-		filepath.Join(repoRoot, "plugins", firstpartyplugin.AppSubsystemPluginID),
-		stagingRoot,
-	)
-
+	stagingRoot := stageFirstPartyAppSubsystemPluginSource(t)
 	wheelPath := buildLocalBuiltPyPIWheelFromRoot(t, t.TempDir(), stagingRoot)
 	archive, err := zip.OpenReader(wheelPath)
 	if err != nil {
@@ -103,6 +102,45 @@ func TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets(t *testing
 	}
 }
 
+func TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets(
+	t *testing.T,
+) {
+	sourceRoot := stageFirstPartyAppSubsystemPluginSource(t)
+	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load staged plugin manifest: %v", err)
+	}
+	targetRoot := filepath.Join(t.TempDir(), "packaged-provider")
+	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, args []string) error {
+		if reflect.DeepEqual(args, []string{"run", "build"}) {
+			writeRuntimeManagedFrontendBuildOutputs(t, frontendRoot)
+		}
+		return nil
+	})
+
+	if err := packagePluginSourceForDeployment(
+		DiscoveredPlugin{
+			PluginID:   manifest.ID,
+			SourcePath: sourceRoot,
+			Scope:      PluginScopeWorkspace,
+			Manifest:   &manifest,
+		},
+		targetRoot,
+	); err != nil {
+		t.Fatalf("package plugin source for deployment: %v", err)
+	}
+
+	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
+	for _, relativePath := range []string{
+		filepath.Join("frontend", "dist", "index.js"),
+		filepath.Join("frontend", "dist", "index.css"),
+	} {
+		if _, err := os.Stat(filepath.Join(targetRoot, relativePath)); err != nil {
+			t.Fatalf("expected packaged runtime-managed asset %s: %v", relativePath, err)
+		}
+	}
+}
+
 func wheelArchiveContainsPathSuffix(files []*zip.File, suffix string) bool {
 	for _, file := range files {
 		if strings.HasSuffix(file.Name, suffix) {
@@ -110,4 +148,67 @@ func wheelArchiveContainsPathSuffix(files []*zip.File, suffix string) bool {
 		}
 	}
 	return false
+}
+
+func stageFirstPartyAppSubsystemPluginSource(t *testing.T) string {
+	t.Helper()
+
+	repoRoot := workerRPCTestRepoRoot(t)
+	stagingRoot := filepath.Join(t.TempDir(), firstpartyplugin.AppSubsystemPluginID)
+	copyBackendCodegenFixtureDir(
+		t,
+		filepath.Join(repoRoot, "plugins", firstpartyplugin.AppSubsystemPluginID),
+		stagingRoot,
+	)
+	if err := os.RemoveAll(filepath.Join(stagingRoot, "frontend", "dist")); err != nil {
+		t.Fatalf("remove staged frontend dist: %v", err)
+	}
+	return stagingRoot
+}
+
+func stubPluginFrontendBuildRunner(
+	t *testing.T,
+	runner func(frontendRoot string, args []string) error,
+) *[][]string {
+	t.Helper()
+
+	calls := [][]string{}
+	previous := pluginFrontendBuildRunner
+	pluginFrontendBuildRunner = func(frontendRoot string, args []string) error {
+		calls = append(calls, append([]string(nil), args...))
+		if runner == nil {
+			return nil
+		}
+		return runner(frontendRoot, args)
+	}
+	t.Cleanup(func() {
+		pluginFrontendBuildRunner = previous
+	})
+	return &calls
+}
+
+func assertRuntimeManagedFrontendBuildCalls(t *testing.T, calls *[][]string) {
+	t.Helper()
+
+	if !reflect.DeepEqual(*calls, [][]string{
+		{"install", "--lockfile=false"},
+		{"run", "build"},
+	}) {
+		t.Fatalf("expected plugin-owned frontend build calls, got %#v", *calls)
+	}
+}
+
+func writeRuntimeManagedFrontendBuildOutputs(t *testing.T, frontendRoot string) {
+	t.Helper()
+
+	distRoot := filepath.Join(frontendRoot, "dist")
+	if err := os.MkdirAll(distRoot, 0o755); err != nil {
+		t.Fatalf("mkdir built frontend dist: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(distRoot, "index.js"), []byte("export default {};\n"), 0o644); err != nil {
+		t.Fatalf("write built frontend entrypoint: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(distRoot, "index.css"), []byte("body {}\n"), 0o644); err != nil {
+		t.Fatalf("write built frontend style: %v", err)
+	}
 }

@@ -109,11 +109,15 @@ func installBuiltFirstPartyPackageManagerPluginInSearchPath(
 
 	repoRoot := workerRPCTestRepoRoot(t)
 	stagingRoot := filepath.Join(t.TempDir(), pluginID)
-	copyBackendCodegenFixtureDir(
-		t,
-		filepath.Join(repoRoot, "plugins", pluginID),
-		stagingRoot,
-	)
+	if pluginID == firstpartyplugin.AppSubsystemPluginID {
+		stagingRoot = stageFirstPartyAppSubsystemPluginSource(t)
+	} else {
+		copyBackendCodegenFixtureDir(
+			t,
+			filepath.Join(repoRoot, "plugins", pluginID),
+			stagingRoot,
+		)
+	}
 	wheelPath := buildLocalBuiltPyPIWheelFromRoot(t, t.TempDir(), stagingRoot)
 	runTestCommand(
 		t,

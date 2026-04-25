@@ -244,6 +244,9 @@ func appProviderPackageFunc(options deployments.AppPublisherOptions) deployments
 		if err := plugins.CopyDirectoryTree(sourcePath, targetRoot); err != nil {
 			return deployments.AppProviderPackageState{}, err
 		}
+		if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(targetRoot); err != nil {
+			return deployments.AppProviderPackageState{}, err
+		}
 		return deployments.AppProviderPackageState{
 			EnabledPluginIDs: append([]string(nil), enabledPluginIDs...),
 			PluginConfigByID: pluginConfigByID,
