@@ -84,7 +84,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	}
 	searchPayload := mustStructuredMapValue(t, searchResult.StructuredContent)
 	searchResults := mustStructuredListValue(t, searchPayload["results"])
-	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
+	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::enabled" {
 		t.Fatalf("expected watch-code UI setting search result, got %#v", searchResults)
 	}
 	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {
@@ -186,7 +186,7 @@ func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testin
 	for _, rawResult := range searchResults {
 		result := mustStructuredMapValue(t, rawResult)
 		settingID, _ := result["settingId"].(string)
-		if strings.HasPrefix(settingID, "core.watch_code.") {
+		if strings.HasPrefix(settingID, "plugin::setta-watch-code::") {
 			t.Fatalf("expected no watch-code UI setting search results without provider, got %#v", searchResults)
 		}
 	}
@@ -196,7 +196,7 @@ func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testin
 		"application/json",
 		strings.NewReader(`{
 			"tool":"set_ui_setting_value",
-			"arguments":{"projectConfigId":"project-alpha","settingId":"core.watch_code.enabled","value":true},
+			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::enabled","value":true},
 			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 		}`),
 	)
@@ -503,7 +503,7 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	}
 	searchResult := mustStructuredMapValue(t, searchPayload.StructuredContent)
 	searchResults := mustStructuredListValue(t, searchResult["results"])
-	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
+	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::enabled" {
 		t.Fatalf("expected watch-code UI setting search result, got %#v", searchResults)
 	}
 	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {

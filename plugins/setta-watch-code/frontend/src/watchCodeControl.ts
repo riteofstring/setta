@@ -315,7 +315,7 @@ class WatchCodeControlController {
       this.renderEnabledControl(),
       this.renderError(),
       this.renderInputGroup({
-        settingId: "core.watch_code.folders",
+        settingId: "plugin::setta-watch-code::folders",
         title: "Watch Folders",
         emptyLabel: "No folders yet.",
         addLabel: "Add Folder",
@@ -331,7 +331,7 @@ class WatchCodeControlController {
         ),
       }),
       this.renderInputGroup({
-        settingId: "core.watch_code.files",
+        settingId: "plugin::setta-watch-code::files",
         title: "Watch Files",
         emptyLabel: "No files yet.",
         addLabel: "Add File",
@@ -364,7 +364,7 @@ class WatchCodeControlController {
   private renderEnabledControl(): HTMLElement {
     const row = document.createElement("div");
     row.className = "setta-watch-code-enabled-row";
-    row.dataset.settingAnchor = "core.watch_code.enabled";
+    row.dataset.settingAnchor = "plugin::setta-watch-code::enabled";
     const button = document.createElement("button");
     button.type = "button";
     button.className = "setta-watch-code-toggle";

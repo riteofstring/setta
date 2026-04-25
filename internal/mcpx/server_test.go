@@ -4543,7 +4543,7 @@ func TestServerCompareAndSetWatchCodeEnabledReturnsMutationFailedForStaleExpecte
 	if payload["code"] != "mutation_failed" {
 		t.Fatalf("expected mutation_failed code, got %#v", payload["code"])
 	}
-	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "core.watch_code.enabled changed since pre-write validation") {
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "plugin::setta-watch-code::enabled changed since pre-write validation") {
 		t.Fatalf("expected stale watch-code message, got %#v", payload["message"])
 	}
 
