@@ -46,6 +46,11 @@ Options:
   --post-commit-settle-seconds N
                          Wait N seconds after each successful commit iteration
                          and verify the repo is still clean. Default: 20
+  --extra-prompt TEXT    Additional instructions appended to every generated
+                         Codex prompt.
+  --extra-prompt-file PATH
+                         File containing additional instructions appended to
+                         every generated Codex prompt.
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 
@@ -67,6 +72,8 @@ model="gpt-5.4"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
+extra_prompt=""
+extra_prompt_file=""
 codex_extra_args=()
 default_codex_extra_args=(
   --config
@@ -341,6 +348,29 @@ path_list_contains() {
   local paths_file="$2"
 
   grep -Fxq -- "${path}" "${paths_file}"
+}
+
+append_extra_prompt_section() {
+  local prompt_path="$1"
+
+  if [[ -z "${extra_prompt}" && -z "${extra_prompt_file}" ]]; then
+    return
+  fi
+
+  {
+    printf '\nAdditional Instructions\n'
+    printf 'These instructions are user-supplied extensions for this loop run. Apply them together with the prompt above; if they conflict with the base prompt, prefer the stricter instruction.\n\n'
+    if [[ -n "${extra_prompt}" ]]; then
+      printf '%s\n' "${extra_prompt}"
+    fi
+    if [[ -n "${extra_prompt_file}" ]]; then
+      if [[ -n "${extra_prompt}" ]]; then
+        printf '\n'
+      fi
+      cat "${extra_prompt_file}"
+      printf '\n'
+    fi
+  } >> "${prompt_path}"
 }
 
 snapshot_paths_state() {
@@ -806,6 +836,7 @@ Output
   - `Regression tests: <unit/integration/e2e coverage with exact assertions>`
 - Separate clusters with a blank line.
 EOF
+  append_extra_prompt_section "${correctness_review_prompt_file}"
 
   cat > "${cleanup_review_prompt_file}" <<'EOF'
 Review this branch for merge into `go-rewrite`.
@@ -858,6 +889,7 @@ Output
   - `Regression tests: <tests to keep or add so the simplification stays safe>`
 - Separate clusters with a blank line.
 EOF
+  append_extra_prompt_section "${cleanup_review_prompt_file}"
 
   cat > "${consolidate_prompt_file}" <<'EOF'
 Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person.
@@ -881,6 +913,7 @@ After the sentinel line:
 - For each finding cluster, include classification (`new issue | regression after prior fix | adjacent fallout`), concrete evidence, principled fix, and exact regression tests.
 - End with any blocked verification or residual risk that prevents confident merge.
 EOF
+  append_extra_prompt_section "${consolidate_prompt_file}"
 
   cat > "${fix_prompt_file}" <<'EOF'
 Implement the consolidated fixes.
@@ -902,6 +935,7 @@ Verification
 
 Do not update `cumulative_review.md`, remove the top-level `review*.md` files, or commit. Do not run `pnpm start` or `pnpm reset`.
 EOF
+  append_extra_prompt_section "${fix_prompt_file}"
 
   cat > "${simplify_prompt_file}" <<'EOF'
 Simplify the current iteration's uncommitted fixes before commit.
@@ -931,6 +965,7 @@ Verification:
 Output:
 - Briefly summarize what you simplified, which targeted tests you ran, and any hotspot you intentionally left as-is because further simplification would be risky.
 EOF
+  append_extra_prompt_section "${simplify_prompt_file}"
 
   cat > "${finalize_prompt_file}" <<'EOF'
 The current simplified worktree is authoritative. Do not change code, tests, generated files, or rerun `pnpm -C frontend gcf` / `./check_quality.sh` in this stage.
@@ -962,6 +997,7 @@ Only finish iteration metadata:
 
 Keep it factual and concise. No boilerplate. Be explicit about blocked verification and browser-verification status.
 EOF
+  append_extra_prompt_section "${finalize_prompt_file}"
 
 }
 
@@ -1072,6 +1108,13 @@ print_configuration() {
   log_info "Loop output directory: ${output_dir}"
   log_info "Top-level loop log: ${loop_log_file}"
   log_info "Top-level status files: ${current_status_file} and ${current_run_file}"
+  if [[ -n "${extra_prompt}" || -n "${extra_prompt_file}" ]]; then
+    if [[ -n "${extra_prompt_file}" ]]; then
+      log_info "Extra prompt file: ${extra_prompt_file}"
+    else
+      log_info "Extra prompt: inline"
+    fi
+  fi
   if [[ "${yolo_mode}" == "1" ]]; then
     log_info "Settings: iterations=${iterations}, model=${model}, reasoning=xhigh, inactivity_timeout=${inactivity_timeout_seconds}s, post_commit_settle=${post_commit_settle_seconds}s, yolo=enabled"
   else
@@ -1116,6 +1159,16 @@ while [[ $# -gt 0 ]]; do
       post_commit_settle_seconds="$2"
       shift 2
       ;;
+    --extra-prompt)
+      require_value "$1" "${2:-}"
+      extra_prompt="$2"
+      shift 2
+      ;;
+    --extra-prompt-file)
+      require_value "$1" "${2:-}"
+      extra_prompt_file="$2"
+      shift 2
+      ;;
     --no-yolo)
       yolo_mode="0"
       shift
@@ -1150,6 +1203,14 @@ fi
 if [[ ! "${post_commit_settle_seconds}" =~ ^[0-9]+$ ]] || [[ "${post_commit_settle_seconds}" -lt 0 ]]; then
   echo "--post-commit-settle-seconds must be a non-negative integer" >&2
   exit 1
+fi
+
+if [[ -n "${extra_prompt_file}" ]]; then
+  extra_prompt_file="$(resolve_path_without_creating "${extra_prompt_file}")"
+  if [[ ! -f "${extra_prompt_file}" ]]; then
+    echo "--extra-prompt-file must point to a readable file: ${extra_prompt_file}" >&2
+    exit 1
+  fi
 fi
 
 root_dir="$(resolve_path_without_creating "${root_dir}")"
