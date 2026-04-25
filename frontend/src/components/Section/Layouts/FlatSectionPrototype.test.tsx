@@ -70,8 +70,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("leading-7");
     expect(markup).toContain("text-left font-mono");
     expect(markup).toContain("whitespace-nowrap py-1");
-    expect(markup).toContain("before:left-[-0.875rem]");
-    expect(markup).toContain("after:right-[-0.875rem]");
+    expect(markup).toContain("before:left-[-1rem]");
+    expect(markup).toContain("after:right-[-1rem]");
     expect(markup).toContain("var(--flat-key-width)");
     expect(markup).toContain("grid-cols-[1.125rem_minmax(0,1fr)_auto]");
     expect(markup).toContain("-mx-3");
