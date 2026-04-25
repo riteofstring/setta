@@ -6,22 +6,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resetProjectStores } from "state/utils";
 import { useAppDefinition } from "../../../../src/appSubsystemDefinitionState";
 import { AppSubsystemFrontendHostProvider } from "../../../../src/appSubsystemFrontendHostContext";
+import {
+  resetAppSubsystemPluginStores,
+  syncStoreInitialState,
+} from "../../../testUtils/appSubsystemTestState";
 
 import { AppPage } from "../../../../src/components/Pages/App/AppPage";
-
-function syncStoreInitialState(store: {
-  getState: () => Record<string, unknown>;
-  getInitialState?: () => Record<string, unknown>;
-}) {
-  if (!store.getInitialState) {
-    return;
-  }
-  const initial = store.getInitialState();
-  Object.assign(initial, store.getState());
-}
 
 function renderPage(
   pathname: string,
@@ -67,11 +59,11 @@ function renderPage(
 
 describe("AppPage", () => {
   beforeEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
   });
 
   afterEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
   });
 
   it("shows route not found when path is missing", () => {

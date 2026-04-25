@@ -1,8 +1,3 @@
-import {
-  resetAppSubsystemFrontendRuntimeState,
-  syncAppSubsystemFrontendRegistration,
-} from "plugins/appSubsystem";
-import { resetProjectStores } from "state/utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -10,34 +5,15 @@ import {
   clearAllAppSpecPatchStreams,
 } from "../../src/appSubsystemPreviewController";
 import { useAppPreview } from "../../src/appSubsystemProjectState";
-import { appSubsystemFrontendRegistration } from "../../src/index";
-
-const ENABLED_APP_SUBSYSTEM_CAPABILITIES = {
-  pluginId: "setta-json-render-app-gen",
-  pluginEnabled: true,
-  appAuthoringUi: true,
-  appPreviewUi: true,
-  appGenerationChatModes: true,
-  appDeploymentRuntime: true,
-} as const;
+import { resetAppSubsystemPluginStores } from "../testUtils/appSubsystemTestState";
 
 describe("appSubsystemPreviewController", () => {
-  beforeEach(async () => {
-    resetAppSubsystemFrontendRuntimeState();
-    await syncAppSubsystemFrontendRegistration(
-      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
-      {
-        [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
-          ...appSubsystemFrontendRegistration,
-          pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
-        },
-      },
-    );
+  beforeEach(() => {
+    resetAppSubsystemPluginStores();
   });
 
   afterEach(() => {
-    resetAppSubsystemFrontendRuntimeState();
-    clearAllAppSpecPatchStreams();
+    resetAppSubsystemPluginStores();
   });
 
   it("accumulates streamed patch lines per tool call", () => {
@@ -96,7 +72,8 @@ describe("appSubsystemPreviewController", () => {
       },
     });
 
-    resetProjectStores();
+    useAppPreview.getState().reset?.();
+    clearAllAppSpecPatchStreams();
 
     const continuedChunk = applyAppSpecPatchPreviewDelta({
       toolCallId: "tool-1",

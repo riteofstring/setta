@@ -1,6 +1,9 @@
 /* @vitest-environment jsdom */
 
 import {
+  createContentRef,
+  createImageArtifact,
+  createPolicy,
   downloadBinary,
   loadCachedImageArtifacts,
 } from "@setta/app-subsystem-frontend-sdk";
@@ -8,12 +11,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import "testUtils/reactRefreshPreamble";
-import {
-  createContentRef,
-  createImageArtifact,
-  createPolicy,
-} from "utils/generatedTypes";
+import "../../testUtils/reactRefreshPreamble";
 import { resetAppSubsystemImageArtifactsState } from "../../../src/appSubsystemImageArtifacts";
 
 const openAPIMocks = vi.hoisted(() => ({

@@ -4,19 +4,18 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createAppSubsystemFrontendHost } from "@setta/app-subsystem-frontend-sdk";
-import { useShareSession } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import type { Policy } from "utils/generatedTypes";
 import {
+  createAppSubsystemFrontendHost,
   createPolicy,
   createProjectConfig,
   createSectionCapabilities,
   createSingletonSections,
-} from "utils/generatedTypes";
+  type Policy,
+} from "@setta/app-subsystem-frontend-sdk";
 import { createAppDefinition } from "../../../src/appSubsystemContracts";
 import { AppSubsystemFrontendHostProvider } from "../../../src/appSubsystemFrontendHostContext";
 import { useAppConfigs } from "../../../src/appSubsystemProjectState";
+import { resetAppSubsystemPluginStores } from "../../testUtils/appSubsystemTestState";
 
 import { AppRenderer } from "../../../src/components/App/AppRenderer";
 
@@ -92,15 +91,6 @@ function renderApp(
     defaultConfigId = null,
     shareSessionId = null,
   } = options;
-  useShareSession.setState({
-    isDeploymentMode: Boolean(shareSessionId),
-    sharePolicy: null,
-    shareSessionId,
-    sessionRunCount: 0,
-    shareDeploymentName: null,
-    shareDeploymentVersion: null,
-    deploymentMode: null,
-  });
 
   const baseFrontendHost = createAppSubsystemFrontendHost();
   const frontendHost = createAppSubsystemFrontendHost({
@@ -125,7 +115,7 @@ function renderApp(
 
 describe("AppRenderer", () => {
   beforeEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
     notifyMock.mockReset();
     callOpenAPIMock.mockClear();
     runCodeMock.mockReset();
@@ -133,7 +123,7 @@ describe("AppRenderer", () => {
   });
 
   afterEach(() => {
-    resetProjectStores();
+    resetAppSubsystemPluginStores();
     vi.restoreAllMocks();
   });
 
@@ -357,6 +347,7 @@ describe("AppRenderer", () => {
     });
     const previousWindow = globalThis.window;
     const previousDocument = globalThis.document;
+    const previousLocation = globalThis.location;
     const previousHTMLElement = globalThis.HTMLElement;
     const previousHTMLAnchorElement = globalThis.HTMLAnchorElement;
     const previousRequestAnimationFrame = globalThis.requestAnimationFrame;
@@ -368,6 +359,7 @@ describe("AppRenderer", () => {
 
     Reflect.set(globalThis, "window", dom.window);
     Reflect.set(globalThis, "document", dom.window.document);
+    Reflect.set(globalThis, "location", dom.window.location);
     Reflect.set(globalThis, "HTMLElement", dom.window.HTMLElement);
     Reflect.set(globalThis, "HTMLAnchorElement", dom.window.HTMLAnchorElement);
     Reflect.set(
@@ -384,15 +376,6 @@ describe("AppRenderer", () => {
 
     let root: ReturnType<typeof createRoot> | null = null;
     try {
-      useShareSession.setState({
-        isDeploymentMode: true,
-        sharePolicy: null,
-        shareSessionId,
-        sessionRunCount: 0,
-        shareDeploymentName: null,
-        shareDeploymentVersion: null,
-        deploymentMode: null,
-      });
       const host = document.createElement("div");
       root = createRoot(host);
       const baseFrontendHost = createAppSubsystemFrontendHost();
@@ -459,6 +442,11 @@ describe("AppRenderer", () => {
         Reflect.deleteProperty(globalThis, "document");
       } else {
         Reflect.set(globalThis, "document", previousDocument);
+      }
+      if (previousLocation === undefined) {
+        Reflect.deleteProperty(globalThis, "location");
+      } else {
+        Reflect.set(globalThis, "location", previousLocation);
       }
       if (previousHTMLElement === undefined) {
         Reflect.deleteProperty(globalThis, "HTMLElement");

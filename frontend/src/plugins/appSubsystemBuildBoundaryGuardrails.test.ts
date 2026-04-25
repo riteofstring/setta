@@ -60,6 +60,50 @@ describe("app plugin frontend build boundary guardrails", () => {
     }
   });
 
+  it("keeps plugin tests from resolving host frontend aliases", () => {
+    const vitestConfig = readPluginFrontendFile("vitest.config.mjs");
+
+    for (const forbiddenSnippet of [
+      "hostFrontendDir",
+      "hostFrontendSrcDir",
+      "plugin-sdk/app-subsystem/src",
+      "components:",
+      "forks:",
+      "openapi:",
+      "plugins: resolve",
+      "state:",
+      "testUtils:",
+      "utils:",
+    ]) {
+      expect(vitestConfig).not.toContain(forbiddenSnippet);
+    }
+  });
+
+  it("publishes standalone SDK types instead of source-file types", () => {
+    const sdkPackageJson = JSON.parse(
+      readPluginFrontendFile("vendor/app-subsystem-frontend-sdk/package.json"),
+    ) as {
+      exports?: Record<string, { types?: string; default?: string }>;
+      types?: string;
+    };
+    const sdkTypes = readPluginFrontendFile(
+      "vendor/app-subsystem-frontend-sdk/types/index.d.ts",
+    );
+
+    expect(sdkPackageJson.types).toBe("./types/index.d.ts");
+    expect(sdkPackageJson.exports?.["."]?.types).toBe("./types/index.d.ts");
+    expect(sdkPackageJson.exports?.["."]?.default).toBe("./dist/index.js");
+    for (const forbiddenSnippet of [
+      "frontend/src",
+      "utils/",
+      "state/",
+      "openapi/",
+      "plugins/",
+    ]) {
+      expect(sdkTypes).not.toContain(forbiddenSnippet);
+    }
+  });
+
   it("keeps the repo wrapper as a delegating convenience layer only", () => {
     const wrapperScript = readPluginFrontendFile(
       "../../../frontend/scripts/buildAppSubsystemPluginFrontend.mjs",
