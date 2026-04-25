@@ -20,22 +20,28 @@
 - Still unverified: No separate HTTP/MCP provider-unavailable integration run; verification focused on generated contracts, runtime/provider selection, packaged backend probes, and app-definition dispatch owners.
 
 ### Frontend App Subsystem Host/SDK Boundary
-- Invariant: SDK contract/barrel imports must keep shared OpenAPI setup explicit and side-effect-free; plugin source, plugin tests, plugin build config, vendored SDK metadata, and packaged SDK type declarations must enforce the standalone plugin boundary without repo-local host aliases or host test utilities, and the vendored `types/index.d.ts` surface must stay aligned with the source SDK owner.
-- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
-- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/openapi/http/client.test.ts`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, `tests/start/test_check_quality_script.py`
-- Still unverified: Plugin-owned frontend Vitest/build and packaged SDK declaration-boundary checks were not rerun in this pass; no browser verification was needed for the host-side owner re-export changes.
+- Invariant: SDK contract/barrel imports must keep shared OpenAPI setup explicit and side-effect-free; plugin source, plugin tests, plugin build config, vendored SDK metadata, packaged SDK type declarations, and the source SDK package root must enforce the standalone plugin boundary without repo-local host aliases or host test utilities, and the vendored `types/index.d.ts` surface must stay aligned with the source SDK owner.
+- Last finding commit: 28726165e366281e841fc9c42432111ab296e95b
+- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, `test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree`, `test_app_subsystem_frontend_sdk_source_package_builds_from_its_own_root`
+- Still unverified: No separate third-party standalone-plugin matrix or browser verification was run in this pass; verification stayed at boundary/package-root checks plus focused SDK/unit coverage.
+
+### Frontend SDK Helper Ownership
+- Invariant: Package-safe frontend helpers shared by the host and the app-subsystem SDK must have one SDK owner; host entrypoints may re-export that owner or add host-only wrappers, but must not carry parallel copies of the same run-capability or deployment-policy logic.
+- Last finding commit: 28726165e366281e841fc9c42432111ab296e95b
+- Proof tests: `src/plugins/appSubsystemSdk.test.ts` ("keeps host helper entrypoints wired to SDK-owned implementations"), `src/utils/runCapabilities.test.ts`, `src/utils/deploymentPolicies.test.ts`
+- Still unverified: Host-only cached project-state selector behavior remains separate and was not consolidated into the SDK owner in this pass; no browser verification was needed for these non-visual helper changes.
 
 ### App Deployment Frontend Project-State Queueing
-- Invariant: App-deployment websocket project-state updates must route by deployment context through the app-subsystem queue before server-mode resolution and remain queued until the selected app-subsystem frontend registration finishes loading.
-- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
-- Proof tests: `src/state/actions/websocketReceive.test.ts` ("routes app deployment project-state updates through the app-subsystem queue before server mode resolves"), `src/plugins/appSubsystem.test.tsx` ("queues project-state updates until app-subsystem registration finishes loading")
+- Invariant: App-deployment websocket project-state updates, buffered app-definition/app-spec mutations, and app-session initialization waiters must route through the app-subsystem queue keyed by stable provider/capability identity, remain queued across same-provider frontend refresh-signature churn, and never let a stale load completion overwrite a newer selected-provider load.
+- Last finding commit: 28726165e366281e841fc9c42432111ab296e95b
+- Proof tests: `src/state/actions/websocketReceive.test.ts` ("routes app deployment project-state updates through the app-subsystem queue before server mode resolves"), `src/plugins/appSubsystem.test.tsx` ("queues project-state updates until app-subsystem registration finishes loading"), `src/plugins/runtime.test.ts` ("buffers app-subsystem updates during same-provider frontend reloads", "preserves buffered app-subsystem updates queued before a same-provider reload starts", "keeps app-session initialization waiting across same-provider reloads")
 - Still unverified: No Playwright or CDP app-deployment flow was run in this pass; verification stayed at unit/integration level because no visual UI surface changed.
 
 ### Standalone Plugin Packaging Pipeline
-- Invariant: The first-party app-subsystem plugin and package-manager installs must build, typecheck, validate manifest assets, package wheels, and probe Python backends from plugin-owned source plus declared Setta runtime/SDK dependencies; runtime-managed frontend builds must require tracked plugin-owned build inputs such as `frontend/package.json` instead of accepting prebuilt `dist` output, and no source, test, build-config, or packaged-path validation may depend on tracked `frontend/dist/*`, repo checkout `backend/setta`, or repo-local host frontend aliases.
-- Last finding commit: 54fb75e9e35f63a70c06701ca3e54788f887c0ac
-- Proof tests: `TestServiceValidateFolderRejectsRuntimeManagedFrontendBuildWithoutPackageJSON`, `TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON`, `TestEnsureRuntimeManagedPluginFrontendAssetsInstallsDependenciesWhenNodeModulesExists`, `TestPackagePluginSourceForDeploymentRejectsMissingPackageJSON`, `TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets`, `TestServicePackageActivePluginForDeploymentPackagesInstalledFirstPartyAppSubsystemPlugin`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_wheel_build_installs_dependencies_when_node_modules_exists`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
-- Still unverified: No full clean-checkout packaged-deployment smoke or third-party standalone-plugin matrix was rerun in this pass; verification covered focused owner tests for installed-package deployment packaging and plugin-owned frontend dependency refresh.
+- Invariant: The first-party app-subsystem plugin frontend and the source app-subsystem SDK package must install, typecheck, test, and build from their own package roots using package-owned source, configs, and declared Setta runtime/SDK dependencies; runtime-managed frontend builds and packaged deployment/wheel paths must not depend on tracked `frontend/dist/*`, repo checkout `backend/setta`, repo-local host frontend aliases, or a host-side first-party wrapper script or hardcoded plugin path.
+- Last finding commit: 28726165e366281e841fc9c42432111ab296e95b
+- Proof tests: `TestServiceValidateFolderRejectsRuntimeManagedFrontendBuildWithoutPackageJSON`, `TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON`, `TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree`, `test_app_subsystem_frontend_sdk_source_package_builds_from_its_own_root`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
+- Still unverified: No full clean-checkout packaged-deployment smoke or third-party standalone-plugin matrix was rerun in this pass; verification covered package-root install/typecheck/test/build and focused owner packaging tests.
 
 ### App Subsystem Capability-To-Surface Gating
 - Invariant: App-subsystem frontend, deployment-runtime, MCP-tool, and scoped UI-setting surfaces may be published only when a single selected provider both registers the backend contract and declares the corresponding feature bits; frontend-facing feature bits additionally require a loadable frontend entrypoint, and host-contributed catalog/app-definition surfaces must not leak behind `PluginEnabled` alone.
@@ -298,3 +304,25 @@ Verification run:
 Residual risks / verification gaps:
 - Browser/CDP and Playwright were not run in this pass; the changed frontend behavior was covered by unit/integration tests only, and metadata finalization stopped the lingering DevTools MCP session so no `./aireset.sh`-started session remained active afterward.
 - No end-to-end installed-provider publish-and-launch smoke or full repo test suite was rerun; verification stayed focused on touched plugin-runtime, packaged-runtime, and frontend queueing owners.
+
+## 2026-04-23 15:21:47 PDT
+Fixes applied:
+- Kept app-subsystem pending work and session initialization tied to stable provider/capability queue keys so same-provider frontend refreshes do not drop buffered work or let stale loads win.
+- Made the source app-subsystem SDK and first-party plugin frontend package roots self-hosting with package-local build/typecheck entrypoints, and removed the remaining host-side first-party frontend build wrapper.
+- Re-exported package-safe run-capability and deployment-policy helpers from the SDK owner instead of maintaining parallel host copies.
+
+Tests added or upgraded:
+- Added same-provider reload regressions in `frontend/src/plugins/runtime.test.ts` for buffered app-state handoff and session initialization continuity.
+- Added package-root guardrails in `frontend/src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts` and SDK-owner wiring coverage in `frontend/src/plugins/appSubsystemSdk.test.ts`.
+- Upgraded `tests/start/test_packaged_distribution.py` to prove the staged first-party plugin frontend installs, typechecks, tests, and builds from its own root, and added a source-SDK package-root build/typecheck smoke.
+
+Verification run:
+- `pnpm -C frontend exec vitest run src/plugins/runtime.test.ts src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts src/plugins/appSubsystemSdk.test.ts src/utils/runCapabilities.test.ts src/utils/deploymentPolicies.test.ts`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -q -k 'first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tree or app_subsystem_frontend_sdk_source_package_builds_from_its_own_root'`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `git diff --check`
+
+Residual risks / verification gaps:
+- Browser/CDP and Playwright were not run because this iteration changed runtime/package-boundary behavior rather than a visual UI flow; no active `./aireset.sh` session was present at metadata finalization.
+- Full repo test suites and a separate third-party standalone-plugin matrix were not rerun; verification stayed focused on the touched frontend runtime and standalone package roots.

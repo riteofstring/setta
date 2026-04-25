@@ -26,14 +26,9 @@ Build the frontend bundle through the plugin-owned frontend package metadata:
 
 ```bash
 pnpm --dir plugins/setta-json-render-app-gen/frontend install --lockfile=false
+pnpm --dir plugins/setta-json-render-app-gen/frontend typecheck
+pnpm --dir plugins/setta-json-render-app-gen/frontend test
 pnpm --dir plugins/setta-json-render-app-gen/frontend build
-```
-
-The repo wrapper remains optional and now just delegates to the plugin-owned
-build:
-
-```bash
-pnpm -C frontend exec node ./scripts/buildAppSubsystemPluginFrontend.mjs
 ```
 
 ## Build Wheel

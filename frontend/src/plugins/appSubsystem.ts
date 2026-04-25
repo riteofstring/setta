@@ -42,6 +42,7 @@ type AppSubsystemFrontendStore = {
   status: AppSubsystemFrontendStatus;
   statusMessage: string | null;
   capabilitySignature: string | null;
+  pendingOperationQueueKey: string | null;
   previewEnabled: boolean;
   registration: RegisteredAppSubsystemFrontendRegistration | null;
 };
@@ -51,6 +52,7 @@ const INITIAL_APP_SUBSYSTEM_FRONTEND_STORE: AppSubsystemFrontendStore = {
   status: "idle",
   statusMessage: null,
   capabilitySignature: null,
+  pendingOperationQueueKey: null,
   previewEnabled: false,
   registration: null,
 };
@@ -79,7 +81,7 @@ type AppSubsystemPendingOperation =
     }
   | { kind: "resetAppSessionState"; host: AppSubsystemFrontendHost };
 
-const pendingAppSubsystemOperationsByCapabilitySignature = new Map<
+const pendingAppSubsystemOperationsByQueueKey = new Map<
   string,
   AppSubsystemPendingOperation[]
 >();
@@ -89,9 +91,8 @@ export const useAppSubsystemFrontendStore =
     ...INITIAL_APP_SUBSYSTEM_FRONTEND_STORE,
   }));
 
-function buildAppSubsystemCapabilitySignature(
+function buildAppSubsystemCapabilityBaseKey(
   capabilities: AppSubsystemCapabilities | null,
-  selectedProviderFrontendRefreshSignature?: string | null,
 ): string {
   if (capabilities === null) {
     return "";
@@ -103,6 +104,19 @@ function buildAppSubsystemCapabilitySignature(
     capabilities.appPreviewUi ? "1" : "0",
     capabilities.appGenerationChatModes ? "1" : "0",
     capabilities.appDeploymentRuntime ? "1" : "0",
+  ].join(":");
+}
+
+function buildAppSubsystemCapabilitySignature(
+  capabilities: AppSubsystemCapabilities | null,
+  selectedProviderFrontendRefreshSignature?: string | null,
+): string {
+  const capabilityBaseKey = buildAppSubsystemCapabilityBaseKey(capabilities);
+  if (capabilityBaseKey.length === 0) {
+    return "";
+  }
+  return [
+    capabilityBaseKey,
     selectedProviderFrontendRefreshSignature?.trim() ?? "",
   ].join(":");
 }
@@ -232,34 +246,28 @@ export function getAppSubsystemDeploymentRuntimeUnavailableMessage(
   }
 }
 
-function clearPendingAppSubsystemOperations(
-  capabilitySignature?: string | null,
-): void {
-  if (!capabilitySignature) {
-    pendingAppSubsystemOperationsByCapabilitySignature.clear();
+function clearPendingAppSubsystemOperations(queueKey?: string | null): void {
+  if (!queueKey) {
+    pendingAppSubsystemOperationsByQueueKey.clear();
     return;
   }
-  pendingAppSubsystemOperationsByCapabilitySignature.delete(
-    capabilitySignature,
-  );
+  pendingAppSubsystemOperationsByQueueKey.delete(queueKey);
 }
 
 function enqueuePendingAppSubsystemOperation(
-  capabilitySignature: string,
+  queueKey: string,
   operation: AppSubsystemPendingOperation,
 ): void {
-  if (capabilitySignature.trim().length === 0) {
+  if (queueKey.trim().length === 0) {
     return;
   }
   const queuedOperations =
-    pendingAppSubsystemOperationsByCapabilitySignature.get(capabilitySignature);
+    pendingAppSubsystemOperationsByQueueKey.get(queueKey);
   if (queuedOperations) {
     queuedOperations.push(operation);
     return;
   }
-  pendingAppSubsystemOperationsByCapabilitySignature.set(capabilitySignature, [
-    operation,
-  ]);
+  pendingAppSubsystemOperationsByQueueKey.set(queueKey, [operation]);
 }
 
 function clearPreviewEnabledSubscription(): void {
@@ -381,20 +389,19 @@ function applyPendingAppSubsystemOperation(
 
 function flushPendingAppSubsystemOperations(
   registration: AppSubsystemFrontendRegistration,
-  capabilitySignature: string,
+  queueKey: string,
 ): void {
   if (
-    pendingAppSubsystemOperationsByCapabilitySignature.size === 0 ||
-    capabilitySignature.trim().length === 0
+    pendingAppSubsystemOperationsByQueueKey.size === 0 ||
+    queueKey.trim().length === 0
   ) {
     return;
   }
-  const operations =
-    pendingAppSubsystemOperationsByCapabilitySignature.get(capabilitySignature);
+  const operations = pendingAppSubsystemOperationsByQueueKey.get(queueKey);
   if (!operations || operations.length === 0) {
     return;
   }
-  clearPendingAppSubsystemOperations(capabilitySignature);
+  clearPendingAppSubsystemOperations(queueKey);
   for (const operation of operations) {
     applyPendingAppSubsystemOperation(registration, operation);
   }
@@ -414,6 +421,7 @@ function setUnavailableAppSubsystemFrontendState(
     status: "unavailable",
     statusMessage: null,
     capabilitySignature,
+    pendingOperationQueueKey: null,
     previewEnabled: false,
     registration: null,
   });
@@ -436,6 +444,7 @@ function setLoadingAppSubsystemFrontendState(
   capabilitySignature: string,
   options: {
     clearPendingOperations: boolean;
+    pendingOperationQueueKey: string;
   },
 ): void {
   const currentState = useAppSubsystemFrontendStore.getState();
@@ -446,11 +455,15 @@ function setLoadingAppSubsystemFrontendState(
     useAppSubsystemFrontendStore.setState((state) => ({
       ...state,
       capabilities,
+      pendingOperationQueueKey: options.pendingOperationQueueKey,
     }));
     return;
   }
   clearPreviewEnabledSubscription();
-  if (options.clearPendingOperations) {
+  if (
+    options.clearPendingOperations &&
+    currentState.pendingOperationQueueKey !== options.pendingOperationQueueKey
+  ) {
     clearPendingAppSubsystemOperations();
   }
   if (
@@ -463,6 +476,7 @@ function setLoadingAppSubsystemFrontendState(
     status: "loading",
     statusMessage: null,
     capabilitySignature,
+    pendingOperationQueueKey: options.pendingOperationQueueKey,
     previewEnabled: false,
     registration: null,
   });
@@ -624,17 +638,89 @@ function requireAppSubsystemFrontendRegistration(
   throw new Error(buildMissingFrontendRegistrationMessage(capabilities));
 }
 
+function finalizeAppSubsystemFrontendRegistrationLoad(
+  capabilities: AppSubsystemCapabilities | null,
+  registration: RegisteredAppSubsystemFrontendRegistration | null,
+  capabilitySignature: string,
+  pendingOperationQueueKey: string,
+): void {
+  try {
+    const resolvedRegistration = requireAppSubsystemFrontendRegistration(
+      capabilities,
+      registration,
+    );
+    validateFrontendRegistrationCapabilities(
+      resolvedRegistration,
+      capabilities,
+    );
+    if (
+      useAppSubsystemFrontendStore.getState().capabilitySignature !==
+      capabilitySignature
+    ) {
+      return;
+    }
+    resolvedRegistration.controller?.initializeProjectState?.();
+    const previewEnabled = bindPreviewEnabledRegistration(resolvedRegistration);
+    flushPendingAppSubsystemOperations(
+      resolvedRegistration,
+      pendingOperationQueueKey,
+    );
+    if (
+      useAppSubsystemFrontendStore.getState().capabilitySignature !==
+      capabilitySignature
+    ) {
+      return;
+    }
+    useAppSubsystemFrontendStore.setState({
+      capabilities,
+      status: "loaded",
+      statusMessage: null,
+      capabilitySignature,
+      pendingOperationQueueKey,
+      previewEnabled,
+      registration: resolvedRegistration,
+    });
+  } catch (error) {
+    if (
+      useAppSubsystemFrontendStore.getState().capabilitySignature !==
+      capabilitySignature
+    ) {
+      return;
+    }
+    clearPreviewEnabledSubscription();
+    clearPendingAppSubsystemOperations(pendingOperationQueueKey);
+    useAppSubsystemFrontendStore.setState({
+      capabilities,
+      status: "error",
+      statusMessage: formatAppSubsystemFrontendLoadError(error),
+      capabilitySignature,
+      pendingOperationQueueKey: null,
+      previewEnabled: false,
+      registration: null,
+    });
+  }
+}
+
 export async function syncAppSubsystemFrontendRegistration(
   capabilities: AppSubsystemCapabilities | null,
   registrationsByPluginId: AppSubsystemFrontendRegistrationsByPluginId,
   selectedProviderFrontendRefreshSignature?: string | null,
 ): Promise<void> {
+  const currentState = useAppSubsystemFrontendStore.getState();
   const capabilitySignature = buildAppSubsystemCapabilitySignature(
     capabilities,
     selectedProviderFrontendRefreshSignature,
   );
+  const pendingOperationQueueKey =
+    buildAppSubsystemCapabilityBaseKey(capabilities);
   if (!hasFrontendSurfaceAvailability(capabilities)) {
     setUnavailableAppSubsystemFrontendState(capabilities, capabilitySignature);
+    return;
+  }
+  if (
+    currentState.status === "loading" &&
+    currentState.capabilitySignature !== capabilitySignature
+  ) {
     return;
   }
 
@@ -655,61 +741,14 @@ export async function syncAppSubsystemFrontendRegistration(
 
   setLoadingAppSubsystemFrontendState(capabilities, capabilitySignature, {
     clearPendingOperations: false,
+    pendingOperationQueueKey,
   });
-
-  try {
-    const resolvedRegistration = requireAppSubsystemFrontendRegistration(
-      capabilities,
-      registration,
-    );
-    validateFrontendRegistrationCapabilities(
-      resolvedRegistration,
-      capabilities,
-    );
-    if (
-      useAppSubsystemFrontendStore.getState().capabilitySignature !==
-      capabilitySignature
-    ) {
-      return;
-    }
-    resolvedRegistration.controller?.initializeProjectState?.();
-    const previewEnabled = bindPreviewEnabledRegistration(resolvedRegistration);
-    flushPendingAppSubsystemOperations(
-      resolvedRegistration,
-      capabilitySignature,
-    );
-    if (
-      useAppSubsystemFrontendStore.getState().capabilitySignature !==
-      capabilitySignature
-    ) {
-      return;
-    }
-    useAppSubsystemFrontendStore.setState({
-      capabilities,
-      status: "loaded",
-      statusMessage: null,
-      capabilitySignature,
-      previewEnabled,
-      registration: resolvedRegistration,
-    });
-  } catch (error) {
-    if (
-      useAppSubsystemFrontendStore.getState().capabilitySignature !==
-      capabilitySignature
-    ) {
-      return;
-    }
-    clearPreviewEnabledSubscription();
-    clearPendingAppSubsystemOperations(capabilitySignature);
-    useAppSubsystemFrontendStore.setState({
-      capabilities,
-      status: "error",
-      statusMessage: formatAppSubsystemFrontendLoadError(error),
-      capabilitySignature,
-      previewEnabled: false,
-      registration: null,
-    });
-  }
+  finalizeAppSubsystemFrontendRegistrationLoad(
+    capabilities,
+    registration,
+    capabilitySignature,
+    pendingOperationQueueKey,
+  );
 }
 
 export function resetAppSubsystemFrontendRuntimeState(): void {
@@ -880,15 +919,15 @@ function getAppSubsystemLoadedRegistration(): RegisteredAppSubsystemFrontendRegi
   return state.registration;
 }
 
-function queuedAppSubsystemOperationCapabilitySignature(): string | null {
+function queuedAppSubsystemOperationQueueKey(): string | null {
   const state = useAppSubsystemFrontendStore.getState();
   if (
     state.status === "loading" &&
     hasFrontendSurfaceAvailability(state.capabilities) &&
-    typeof state.capabilitySignature === "string" &&
-    state.capabilitySignature.trim().length > 0
+    typeof state.pendingOperationQueueKey === "string" &&
+    state.pendingOperationQueueKey.trim().length > 0
   ) {
-    return state.capabilitySignature;
+    return state.pendingOperationQueueKey;
   }
   return null;
 }
@@ -898,14 +937,13 @@ async function waitForLoadedAppSubsystemRegistration(): Promise<RegisteredAppSub
   if (loadedRegistration) {
     return loadedRegistration;
   }
-  const expectedCapabilitySignature =
-    queuedAppSubsystemOperationCapabilitySignature();
-  if (!expectedCapabilitySignature) {
+  const expectedQueueKey = queuedAppSubsystemOperationQueueKey();
+  if (!expectedQueueKey) {
     return null;
   }
   return new Promise((resolve) => {
     const unsubscribe = useAppSubsystemFrontendStore.subscribe((state) => {
-      if (state.capabilitySignature !== expectedCapabilitySignature) {
+      if (state.pendingOperationQueueKey !== expectedQueueKey) {
         unsubscribe();
         resolve(null);
         return;
@@ -936,11 +974,11 @@ export function applyAppDefinitionStructuredContentToStore(
       structured,
     );
   }
-  const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
-  if (!capabilitySignature) {
+  const queueKey = queuedAppSubsystemOperationQueueKey();
+  if (!queueKey) {
     return false;
   }
-  enqueuePendingAppSubsystemOperation(capabilitySignature, {
+  enqueuePendingAppSubsystemOperation(queueKey, {
     kind: "applyAppDefinitionStructuredContent",
     structured,
   });
@@ -956,11 +994,11 @@ export function applyAppSpecPatchPreviewDeltaToStore(args: {
     registration.controller.applyAppSpecPatchPreviewDeltaToStore(args);
     return;
   }
-  const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
-  if (!capabilitySignature) {
+  const queueKey = queuedAppSubsystemOperationQueueKey();
+  if (!queueKey) {
     return;
   }
-  enqueuePendingAppSubsystemOperation(capabilitySignature, {
+  enqueuePendingAppSubsystemOperation(queueKey, {
     kind: "applyAppSpecPatchPreviewDelta",
     args,
   });
@@ -972,11 +1010,11 @@ export function clearAppSpecPatchPreviewStream(toolCallId: string): void {
     registration.controller.clearAppSpecPatchPreviewStream(toolCallId);
     return;
   }
-  const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
-  if (!capabilitySignature) {
+  const queueKey = queuedAppSubsystemOperationQueueKey();
+  if (!queueKey) {
     return;
   }
-  enqueuePendingAppSubsystemOperation(capabilitySignature, {
+  enqueuePendingAppSubsystemOperation(queueKey, {
     kind: "clearAppSpecPatchPreviewStream",
     toolCallId,
   });
@@ -988,11 +1026,11 @@ export function clearAllAppSpecPatchPreviewStreams(): void {
     registration.controller.clearAllAppSpecPatchPreviewStreams();
     return;
   }
-  const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
-  if (!capabilitySignature) {
+  const queueKey = queuedAppSubsystemOperationQueueKey();
+  if (!queueKey) {
     return;
   }
-  enqueuePendingAppSubsystemOperation(capabilitySignature, {
+  enqueuePendingAppSubsystemOperation(queueKey, {
     kind: "clearAllAppSpecPatchPreviewStreams",
   });
 }
@@ -1023,11 +1061,11 @@ export function resetAppSessionState(
     registration.controller.resetAppSessionState(frontendHost);
     return;
   }
-  const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
-  if (!capabilitySignature) {
+  const queueKey = queuedAppSubsystemOperationQueueKey();
+  if (!queueKey) {
     return;
   }
-  enqueuePendingAppSubsystemOperation(capabilitySignature, {
+  enqueuePendingAppSubsystemOperation(queueKey, {
     kind: "resetAppSessionState",
     host: frontendHost,
   });
@@ -1041,11 +1079,11 @@ export function processAppProjectStateUpdateFromBackend(
     registration.controller.processAppProjectStateUpdateFromBackend(payload);
     return;
   }
-  const capabilitySignature = queuedAppSubsystemOperationCapabilitySignature();
-  if (!capabilitySignature) {
+  const queueKey = queuedAppSubsystemOperationQueueKey();
+  if (!queueKey) {
     return;
   }
-  enqueuePendingAppSubsystemOperation(capabilitySignature, {
+  enqueuePendingAppSubsystemOperation(queueKey, {
     kind: "processAppProjectStateUpdate",
     payload,
   });
@@ -1059,6 +1097,8 @@ export function beginAppSubsystemFrontendRegistrationLoad(
     capabilities,
     selectedProviderFrontendRefreshSignature,
   );
+  const pendingOperationQueueKey =
+    buildAppSubsystemCapabilityBaseKey(capabilities);
   if (!hasFrontendSurfaceAvailability(capabilities)) {
     setUnavailableAppSubsystemFrontendState(capabilities, capabilitySignature);
     return;
@@ -1074,5 +1114,6 @@ export function beginAppSubsystemFrontendRegistrationLoad(
   }
   setLoadingAppSubsystemFrontendState(capabilities, capabilitySignature, {
     clearPendingOperations: true,
+    pendingOperationQueueKey,
   });
 }

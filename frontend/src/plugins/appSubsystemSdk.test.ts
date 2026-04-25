@@ -6,6 +6,7 @@ import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   createAppSubsystemFrontendHost,
   createRandomName,
+  createDefaultAppPolicy as createSdkDefaultAppPolicy,
   createSingleConfig,
   getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrentEffectiveSectionImpl,
@@ -14,16 +15,22 @@ import {
   isAppSubsystemFrontendRegistration,
   NO_PAN_CLASS_NAME,
   registerAppSubsystemPlugin,
+  resolveAppPolicy as resolveSdkAppPolicy,
+  resolveMainRunRequest as resolveSdkMainRunRequest,
+  resolveRunRequest as resolveSdkRunRequest,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   shouldShowPasswordReveal,
   type DropzoneStatelessAttachment,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
-  getCurrentEffectiveSectionImpl as getHostCurrentEffectiveSectionImpl,
-  getCurrentSectionVariantId as getHostCurrentSectionVariantId,
-  getParamDisplayNameIfPresent as getHostParamDisplayNameIfPresent,
-} from "utils/projectStateSelectors";
+  createDefaultAppPolicy as createHostDefaultAppPolicy,
+  resolveAppPolicy as resolveHostAppPolicy,
+} from "utils/deploymentPolicies";
+import {
+  resolveMainRunRequest as resolveHostMainRunRequest,
+  resolveRunRequest as resolveHostRunRequest,
+} from "utils/runCapabilities";
 import { describe, expect, it, vi } from "vitest";
 
 describe("appSubsystemFrontendSdk", () => {
@@ -289,9 +296,6 @@ describe("appSubsystemFrontendSdk", () => {
     expect(getCurrentSectionVariantId(projectState, "section-1")).toBe(
       "section-variant",
     );
-    expect(getCurrentSectionVariantId(projectState, "section-1")).toBe(
-      getHostCurrentSectionVariantId(projectState, "section-1"),
-    );
     expect(getCurrentSectionVariantId(projectState, "section-1", true)).toBe(
       "section-preview-variant",
     );
@@ -300,11 +304,6 @@ describe("appSubsystemFrontendSdk", () => {
     ).toMatchObject({
       name: "Preview Section",
     });
-    expect(
-      getCurrentEffectiveSectionImpl(projectState, "section-1", true),
-    ).toEqual(
-      getHostCurrentEffectiveSectionImpl(projectState, "section-1", true),
-    );
     expect(
       getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent(
         projectState,
@@ -324,11 +323,13 @@ describe("appSubsystemFrontendSdk", () => {
     expect(
       getParamDisplayNameIfPresent(projectState, "section-1", "param-1"),
     ).toBe("Fallback Param Name");
-    expect(
-      getParamDisplayNameIfPresent(projectState, "section-1", "param-1"),
-    ).toBe(
-      getHostParamDisplayNameIfPresent(projectState, "section-1", "param-1"),
-    );
+  });
+
+  it("keeps host helper entrypoints wired to SDK-owned implementations", () => {
+    expect(resolveHostMainRunRequest).toBe(resolveSdkMainRunRequest);
+    expect(resolveHostRunRequest).toBe(resolveSdkRunRequest);
+    expect(createHostDefaultAppPolicy).toBe(createSdkDefaultAppPolicy);
+    expect(resolveHostAppPolicy).toBe(resolveSdkAppPolicy);
   });
 
   it("keeps the source SDK package detached from host-private imports", () => {
