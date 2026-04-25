@@ -16,7 +16,10 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 	roots := newFilesystemResolverTestRoots(t)
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 	sourceRoot := stageFirstPartyAppSubsystemPluginSource(t)
-	buildCalls := stubPluginFrontendBuildRunner(t, func(root string, args []string) error {
+	buildCalls := stubPluginFrontendBuildRunner(t, func(root string, packageManager string, args []string) error {
+		if packageManager != pluginFrontendBuildPackageManagerPNPM {
+			t.Fatalf("expected pnpm package manager, got %q", packageManager)
+		}
 		if reflect.DeepEqual(args, []string{"run", "build"}) {
 			writeRuntimeManagedFrontendBuildOutputs(t, root)
 		}
@@ -102,6 +105,36 @@ func TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets(t *testing
 	}
 }
 
+func TestEnsureRuntimeManagedPluginFrontendAssetsBuildsGenericSourcePlugin(
+	t *testing.T,
+) {
+	sourceRoot := stageFirstPartyAppSubsystemPluginSource(t)
+	rewritePluginManifest(t, sourceRoot, func(payload map[string]any) {
+		payload["id"] = "acme-generic-runtime-managed-fixture"
+		payload["name"] = "Acme Generic Runtime Managed Fixture"
+	})
+
+	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load genericized plugin manifest: %v", err)
+	}
+	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, packageManager string, args []string) error {
+		if packageManager != pluginFrontendBuildPackageManagerPNPM {
+			t.Fatalf("expected pnpm package manager, got %q", packageManager)
+		}
+		if reflect.DeepEqual(args, []string{"run", "build"}) {
+			writeRuntimeManagedFrontendBuildOutputs(t, frontendRoot)
+		}
+		return nil
+	})
+
+	if err := ensureRuntimeManagedPluginFrontendAssets(sourceRoot, manifest); err != nil {
+		t.Fatalf("build runtime-managed frontend assets for generic source plugin: %v", err)
+	}
+
+	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
+}
+
 func TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets(
 	t *testing.T,
 ) {
@@ -111,7 +144,10 @@ func TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets(
 		t.Fatalf("load staged plugin manifest: %v", err)
 	}
 	targetRoot := filepath.Join(t.TempDir(), "packaged-provider")
-	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, args []string) error {
+	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, packageManager string, args []string) error {
+		if packageManager != pluginFrontendBuildPackageManagerPNPM {
+			t.Fatalf("expected pnpm package manager, got %q", packageManager)
+		}
 		if reflect.DeepEqual(args, []string{"run", "build"}) {
 			writeRuntimeManagedFrontendBuildOutputs(t, frontendRoot)
 		}
@@ -161,7 +197,10 @@ func TestPackagePluginSourceForDeploymentRebuildsRuntimeManagedFrontendAssetsWhe
 		t.Fatalf("load staged plugin manifest: %v", err)
 	}
 	targetRoot := filepath.Join(t.TempDir(), "packaged-provider")
-	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, args []string) error {
+	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, packageManager string, args []string) error {
+		if packageManager != pluginFrontendBuildPackageManagerPNPM {
+			t.Fatalf("expected pnpm package manager, got %q", packageManager)
+		}
 		if reflect.DeepEqual(args, []string{"run", "build"}) {
 			writeRuntimeManagedFrontendBuildOutputs(t, frontendRoot)
 		}
@@ -226,18 +265,18 @@ func stageFirstPartyAppSubsystemPluginSource(t *testing.T) string {
 
 func stubPluginFrontendBuildRunner(
 	t *testing.T,
-	runner func(frontendRoot string, args []string) error,
+	runner func(frontendRoot string, packageManager string, args []string) error,
 ) *[][]string {
 	t.Helper()
 
 	calls := [][]string{}
 	previous := pluginFrontendBuildRunner
-	pluginFrontendBuildRunner = func(frontendRoot string, args []string) error {
+	pluginFrontendBuildRunner = func(frontendRoot string, packageManager string, args []string) error {
 		calls = append(calls, append([]string(nil), args...))
 		if runner == nil {
 			return nil
 		}
-		return runner(frontendRoot, args)
+		return runner(frontendRoot, packageManager, args)
 	}
 	t.Cleanup(func() {
 		pluginFrontendBuildRunner = previous

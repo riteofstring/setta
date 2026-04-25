@@ -11,9 +11,11 @@ This first-party plugin gates the extracted app subsystem.
 - The plugin frontend now owns its build metadata under `frontend/` with
   explicit third-party dependencies and a vendored packaged copy of
   `@setta/app-subsystem-frontend-sdk` for staged-source builds.
-- The host still owns the current app-subsystem integration paths until the
-  remaining generalization phases land, but the plugin package itself now
-  exposes real runtime entrypoints instead of metadata only.
+- The plugin now declares its plugin-owned frontend build contract in
+  `setta.plugin.json`, so source/deployment packaging no longer depends on a
+  host-side plugin-id special case.
+- The plugin still depends on Setta runtime contracts for app-subsystem
+  integration, which is intentional.
 
 Installing this package makes the app subsystem available to the plugin system,
 but the feature still stays off until the plugin is enabled.
