@@ -536,6 +536,7 @@ func installAppRepoPluginAsID(
 	rewriteAppPluginManifest(t, targetRoot, func(payload map[string]any) {
 		payload["id"] = targetPluginID
 	})
+	materializeAppRuntimeManagedPluginFrontendAssets(t, targetRoot)
 }
 
 func installAppFixturePlugin(t *testing.T, cfg config.Config, fixtureName string) {
@@ -572,6 +573,10 @@ func installAppPackageManagerPluginAsID(
 	rewriteAppPluginManifest(t, pluginRoot, func(payload map[string]any) {
 		payload["id"] = targetPluginID
 	})
+	materializeAppRuntimeManagedPluginFrontendAssets(t, pluginRoot)
+	if err := os.RemoveAll(filepath.Join(pluginRoot, "frontend", "node_modules")); err != nil {
+		t.Fatalf("remove built plugin frontend node_modules: %v", err)
+	}
 
 	distInfoName := strings.ReplaceAll(targetPluginID, "-", "_") + "-0.1.0.dist-info"
 	distInfoRoot := filepath.Join(sitePackages, distInfoName)

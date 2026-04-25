@@ -33,10 +33,9 @@ func BuildMCPToolRegistrations(
 
 func NewAppPublishService(
 	options deployments.AppPublisherOptions,
-	service appdefinitionpkg.Runtime,
 	pluginID string,
 ) (deployments.AppPublishService, error) {
-	return apppublish.NewService(options, service, pluginID)
+	return apppublish.NewService(options, pluginID)
 }
 
 type AppDeploymentIDERouteDependencies = neutralappdeploymenthttp.IDERouteDependencies

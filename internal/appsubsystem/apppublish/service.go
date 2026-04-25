@@ -12,6 +12,7 @@ import (
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/deployments"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 )
 
 type service struct {
@@ -31,7 +32,6 @@ type preparedPublish struct {
 
 func NewService(
 	options deployments.AppPublisherOptions,
-	appDefinitionService appdefinition.Runtime,
 	pluginID string,
 ) (deployments.AppPublishService, error) {
 	sharePublisher, err := deployments.NewSharePublisher(deployments.SharePublisherOptions{
@@ -55,8 +55,7 @@ func NewService(
 	return &service{
 		share: sharePublisher,
 		contentService: deploymentContentService{
-			appDefinitionService: appDefinitionService,
-			appSpecStore:         appSpecStore,
+			appSpecStore: appSpecStore,
 		},
 		pluginID:        trimmedPluginID,
 		packageProvider: appProviderPackageFunc(options),
@@ -117,31 +116,44 @@ func (p *service) prepare(
 	request deployments.AppPublishRequest,
 	deploymentRoot string,
 ) (preparedPublish, error) {
-	preparedProject, err := p.share.PrepareProjectPublish(
-		deployments.ProjectPublishPreparationOptions{
-			ProjectState:       request.ProjectState,
-			ProjectID:          request.ProjectID,
-			ListenerEntrypoint: request.ListenerEntrypoint,
-			ListenerEnabled:    request.ListenerEnabled,
-		},
-		deploymentRoot,
-	)
-	if err != nil {
-		return preparedPublish{}, err
-	}
+	var preparedProject deployments.PreparedProjectPublish
+	var appSpec any
+	var targetAppSpecPath string
+	_, err := request.ProjectState.MutateWithContext(ctx, func(
+		document projectstate.Document,
+	) (projectstate.Document, error) {
+		nextPreparedProject, err := p.share.PrepareProjectPublishDocument(
+			deployments.ProjectPublishDocumentPreparationOptions{
+				Document:           document,
+				ProjectID:          request.ProjectID,
+				ListenerEntrypoint: request.ListenerEntrypoint,
+				ListenerEnabled:    request.ListenerEnabled,
+			},
+			deploymentRoot,
+		)
+		if err != nil {
+			return document, err
+		}
 
-	appDefinition, appSpec, targetAppSpecPath, err := p.contentService.preparePublishedAppDefinition(
-		ctx,
-		p.share.SettaFilesRoot(),
-		p.storage.StoredDocumentAppDefinitionRaw(preparedProject.PublishedDocument),
-	)
+		appDefinition, nextAppSpec, nextTargetAppSpecPath, err := p.contentService.preparePublishedAppDefinition(
+			p.share.SettaFilesRoot(),
+			p.storage.StoredDocumentAppDefinitionRaw(nextPreparedProject.PublishedDocument),
+		)
+		if err != nil {
+			return document, err
+		}
+		nextPreparedProject.PublishedDocument = p.storage.WithStoredDocumentAppDefinition(
+			nextPreparedProject.PublishedDocument,
+			appDefinition,
+		)
+		preparedProject = nextPreparedProject
+		appSpec = nextAppSpec
+		targetAppSpecPath = nextTargetAppSpecPath
+		return document, nil
+	})
 	if err != nil {
 		return preparedPublish{}, err
 	}
-	preparedProject.PublishedDocument = p.storage.WithStoredDocumentAppDefinition(
-		preparedProject.PublishedDocument,
-		appDefinition,
-	)
 
 	policy, err := applyAppPolicyOverrides(request.PolicyOverrides)
 	if err != nil {

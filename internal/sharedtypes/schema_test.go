@@ -9,6 +9,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 
 	appdefinition "setta/internal/appsubsystem/appdefinition"
+	"setta/internal/frontendbindingmeta"
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -309,6 +310,59 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	}
 	if !foundPythonSharedProjectConfigDefault {
 		t.Fatalf("expected shared sidecar to include python_shared ProjectConfig default entry")
+	}
+}
+
+func TestBuildSemanticSidecarIncludesAppSubsystemSDKScopeMetadata(t *testing.T) {
+	t.Parallel()
+
+	sidecar, err := BuildSemanticSidecar()
+	if err != nil {
+		t.Fatalf("BuildSemanticSidecar() error = %v", err)
+	}
+
+	contractsByName := make(map[string]ContractEntry, len(sidecar.Contracts))
+	for _, entry := range sidecar.Contracts {
+		contractsByName[entry.Name] = entry
+	}
+	if !stringSliceContains(
+		contractsByName["SectionType"].FrontendSDKScopes,
+		frontendbindingmeta.FrontendSDKScopeAppSubsystem,
+	) {
+		t.Fatalf("expected SectionType to be scoped to the app-subsystem SDK, got %#v", contractsByName["SectionType"])
+	}
+	if scopes := contractsByName["AddKwargResult"].FrontendSDKScopes; len(scopes) != 0 {
+		t.Fatalf("expected host-only AddKwargResult to have no SDK scopes, got %#v", scopes)
+	}
+
+	exportsByName := make(map[string]ExportedValueEntry, len(sidecar.ExportedValues))
+	for _, entry := range sidecar.ExportedValues {
+		exportsByName[entry.Name] = entry
+	}
+	appSpecPatchScope := onlyAppSubsystemSDKScope(t, exportsByName["AppSpecPatchPolicyConfig"])
+	if !appSpecPatchScope.IncludeFullValue {
+		t.Fatalf("expected AppSpecPatchPolicyConfig to include its full value, got %#v", appSpecPatchScope)
+	}
+	transportScope := onlyAppSubsystemSDKScope(t, exportsByName["TransportRouteConstants"])
+	expectedTransportPaths := [][]string{
+		{"apiPrefix"},
+		{"binary", "download"},
+		{"binary", "upload"},
+		{"root", "bootstrapPage"},
+		{"root", "toolsCall"},
+		{"websocket", "frontend"},
+		{"websocket", "listenerById"},
+		{"websocket", "terminalBySection"},
+	}
+	if !reflect.DeepEqual(transportScope.ValuePaths, expectedTransportPaths) {
+		t.Fatalf("unexpected TransportRouteConstants SDK value paths %#v", transportScope.ValuePaths)
+	}
+	modeScopedRoutesScope := onlyAppSubsystemSDKScope(t, exportsByName["ModeScopedLauncherRoutesList"])
+	if modeScopedRoutesScope.IncludeFullValue || len(modeScopedRoutesScope.ValuePaths) != 0 {
+		t.Fatalf("expected ModeScopedLauncherRoutesList to be intentionally empty for SDK, got %#v", modeScopedRoutesScope)
+	}
+	if scopes := exportsByName["PluginFrontendBuildManifest"].FrontendSDKScopes; len(scopes) != 0 {
+		t.Fatalf("expected host-only PluginFrontendBuildManifest to have no SDK scopes, got %#v", scopes)
 	}
 }
 
@@ -1042,4 +1096,28 @@ func decodeSchemaDefaultBool(t *testing.T, schema *jsonschema.Schema) bool {
 		t.Fatalf("decode schema default bool: %v", err)
 	}
 	return value
+}
+
+func stringSliceContains(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func onlyAppSubsystemSDKScope(
+	t *testing.T,
+	entry ExportedValueEntry,
+) frontendbindingmeta.FrontendSDKExportedValueScope {
+	t.Helper()
+	if len(entry.FrontendSDKScopes) != 1 {
+		t.Fatalf("expected one app-subsystem SDK scope for %s, got %#v", entry.Name, entry.FrontendSDKScopes)
+	}
+	scope := entry.FrontendSDKScopes[0]
+	if scope.Scope != frontendbindingmeta.FrontendSDKScopeAppSubsystem {
+		t.Fatalf("expected app-subsystem SDK scope for %s, got %#v", entry.Name, scope)
+	}
+	return scope
 }

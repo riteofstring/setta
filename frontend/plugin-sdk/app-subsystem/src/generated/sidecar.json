@@ -5,6 +5,7 @@
       "name": "AppGenerationMode",
       "kind": "enum",
       "schemaRef": "#/$defs/AppGenerationMode",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "json_render",
@@ -28,6 +29,7 @@
       "name": "ArtifactType",
       "kind": "enum",
       "schemaRef": "#/$defs/ArtifactType",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "Image",
@@ -55,6 +57,7 @@
       "name": "CodeObjType",
       "kind": "enum",
       "schemaRef": "#/$defs/CodeObjType",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "CodeCallable",
@@ -122,6 +125,7 @@
       "name": "ConfigLanguage",
       "kind": "enum",
       "schemaRef": "#/$defs/ConfigLanguage",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "python",
@@ -137,6 +141,7 @@
       "name": "DateCalendarWeekStart",
       "kind": "enum",
       "schemaRef": "#/$defs/DateCalendarWeekStart",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "sunday",
@@ -152,6 +157,7 @@
       "name": "DateControlMode",
       "kind": "enum",
       "schemaRef": "#/$defs/DateControlMode",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "input",
@@ -167,6 +173,7 @@
       "name": "DateDisplayFormat",
       "kind": "enum",
       "schemaRef": "#/$defs/DateDisplayFormat",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "iso",
@@ -190,6 +197,7 @@
       "name": "DateSelectionMode",
       "kind": "enum",
       "schemaRef": "#/$defs/DateSelectionMode",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "single",
@@ -205,6 +213,7 @@
       "name": "DependencyKeyType",
       "kind": "enum",
       "schemaRef": "#/$defs/DependencyKeyType",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "Section",
@@ -220,6 +229,7 @@
       "name": "DependencyValueType",
       "kind": "enum",
       "schemaRef": "#/$defs/DependencyValueType",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "Literal",
@@ -239,6 +249,7 @@
       "name": "DropzoneMode",
       "kind": "enum",
       "schemaRef": "#/$defs/DropzoneMode",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "STATEFUL",
@@ -254,6 +265,7 @@
       "name": "EndpointOrigin",
       "kind": "enum",
       "schemaRef": "#/$defs/EndpointOrigin",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "backend",
@@ -273,6 +285,7 @@
       "name": "SectionType",
       "kind": "enum",
       "schemaRef": "#/$defs/SectionType",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "Callable",
@@ -380,6 +393,7 @@
       "name": "TextBlockFormat",
       "kind": "enum",
       "schemaRef": "#/$defs/TextBlockFormat",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "Plaintext",
@@ -395,6 +409,7 @@
       "name": "TextParamInputUIType",
       "kind": "enum",
       "schemaRef": "#/$defs/TextParamInputUIType",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "plain",
@@ -414,6 +429,7 @@
       "name": "TimeControlMode",
       "kind": "enum",
       "schemaRef": "#/$defs/TimeControlMode",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "input",
@@ -429,6 +445,7 @@
       "name": "TimeDisplayFont",
       "kind": "enum",
       "schemaRef": "#/$defs/TimeDisplayFont",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "clock",
@@ -448,6 +465,7 @@
       "name": "TimeDisplayFormat",
       "kind": "enum",
       "schemaRef": "#/$defs/TimeDisplayFormat",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "twenty_four_hour",
@@ -463,6 +481,7 @@
       "name": "WorkspaceLaunchRouteKind",
       "kind": "enum",
       "schemaRef": "#/$defs/WorkspaceLaunchRouteKind",
+      "frontendSDKScopes": ["app-subsystem"],
       "enumValues": [
         {
           "name": "ide",
@@ -483,6 +502,12 @@
     {
       "name": "AppSpecPatchPolicyConfig",
       "type": "PatchPolicy",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "includeFullValue": true
+        }
+      ],
       "value": {
         "allowedOps": ["set", "add", "replace", "remove"],
         "commentPrefix": "//",
@@ -495,6 +520,12 @@
     {
       "name": "AppSubsystemChatUIConfig",
       "type": "AppSubsystemChatUIConfigValue",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "includeFullValue": true
+        }
+      ],
       "value": {
         "customSlashCommandModeOptions": [
           {
@@ -559,6 +590,12 @@
     {
       "name": "BootstrapProtocol",
       "type": "BootstrapHandoffProtocol",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "valuePaths": [["launcherOriginStorageKey"]]
+        }
+      ],
       "value": {
         "launcherOriginStorageKey": "setta.launcherOrigin"
       }
@@ -566,6 +603,12 @@
     {
       "name": "C",
       "type": "Constants",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "includeFullValue": true
+        }
+      ],
       "value": {
         "AUTH_COOKIE_REFRESH_WINDOW_SECONDS": 3600,
         "CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES": [],
@@ -595,6 +638,12 @@
     {
       "name": "DefaultAppPolicy",
       "type": "Policy",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "includeFullValue": true
+        }
+      ],
       "value": {
         "allowExternalLinks": false,
         "allowFileDownloads": false,
@@ -610,6 +659,12 @@
     {
       "name": "EndpointOriginPolicyByRoute",
       "type": "EndpointOriginPolicy",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "valuePaths": [["/__setta__/tools/call"]]
+        }
+      ],
       "value": {
         "/__setta__/tools/call": "backend-origin"
       }
@@ -617,6 +672,12 @@
     {
       "name": "LocalHostnamePolicyConfig",
       "type": "LocalHostnamePolicy",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "includeFullValue": true
+        }
+      ],
       "value": {
         "loopbackHosts": ["127.0.0.1", "localhost", "::1"]
       }
@@ -624,11 +685,22 @@
     {
       "name": "ModeScopedLauncherRoutesList",
       "type": "ModeScopedLauncherRoutes",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem"
+        }
+      ],
       "value": []
     },
     {
       "name": "RunSnapshotModeUIConfig",
       "type": "RunSnapshotModeUIConfigValue",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "includeFullValue": true
+        }
+      ],
       "value": {
         "deploymentOptions": [
           {
@@ -664,6 +736,12 @@
     {
       "name": "ServerModeBoundaryPolicyByMode",
       "type": "ServerModeBoundaryPolicy",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "includeFullValue": true
+        }
+      ],
       "value": {
         "app": {
           "capabilities": {
@@ -694,6 +772,21 @@
     {
       "name": "TransportRouteConstants",
       "type": "TransportRoutes",
+      "frontendSDKScopes": [
+        {
+          "scope": "app-subsystem",
+          "valuePaths": [
+            ["apiPrefix"],
+            ["binary", "download"],
+            ["binary", "upload"],
+            ["root", "bootstrapPage"],
+            ["root", "toolsCall"],
+            ["websocket", "frontend"],
+            ["websocket", "listenerById"],
+            ["websocket", "terminalBySection"]
+          ]
+        }
+      ],
       "value": {
         "apiPrefix": "/api",
         "binary": {

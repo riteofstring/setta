@@ -465,12 +465,8 @@ func setAppDefinitionDocument(
 		return projectstate.Document{}, nil, err
 	}
 
-	validationDefinition, err := appspecDefinition(updated)
-	if err != nil {
-		return projectstate.Document{}, nil, err
-	}
 	appSpec := cloneJSONValue(input.AppSpec)
-	if err := appspec.ValidatePersistedWrite(appSpec, validationDefinition); err != nil {
+	if err := ValidatePersistedAppDefinitionWrite(updated, appSpec); err != nil {
 		return projectstate.Document{}, nil, err
 	}
 
@@ -492,13 +488,8 @@ func updateAppDefinitionDocument(
 	if err != nil {
 		return projectstate.Document{}, nil, err
 	}
-	validationDefinition, err := appspecDefinition(current)
-	if err != nil {
-		return projectstate.Document{}, nil, err
-	}
-
 	merged := applyJSONMergePatch(existing, patch)
-	if err := appspec.ValidatePersistedWrite(merged, validationDefinition); err != nil {
+	if err := ValidatePersistedAppDefinitionWrite(current, merged); err != nil {
 		return projectstate.Document{}, nil, err
 	}
 
@@ -663,6 +654,14 @@ func appspecDefinition(definition AppDefinition) (appspec.Definition, error) {
 		Theme:          theme,
 		Assets:         assets,
 	}, nil
+}
+
+func ValidatePersistedAppDefinitionWrite(definition AppDefinition, appSpec any) error {
+	validationDefinition, err := appspecDefinition(definition)
+	if err != nil {
+		return err
+	}
+	return appspec.ValidatePersistedWrite(appSpec, validationDefinition)
 }
 
 func validationIssues(

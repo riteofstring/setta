@@ -63,7 +63,7 @@ func currentAppPublishService(handlerDeps appHandlerDeps) (deployments.AppPublis
 		SettaFilesRoot:        handlerDeps.cfg.Paths.SettaFilesRoot,
 		WorkspaceRoot:         handlerDeps.cfg.Paths.WorkspaceRoot,
 		PackageProviderPlugin: packageProvider,
-	}, handlerDeps.projectRuntime, handlerDeps.pluginRouteService)
+	})
 }
 
 func currentAppPublishProviderPackager(

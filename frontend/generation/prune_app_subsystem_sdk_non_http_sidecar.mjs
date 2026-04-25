@@ -4,193 +4,139 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = resolve(scriptDir, "..");
+const targetScope = "app-subsystem";
 
-const [sourceSidecarPathArg, outputSidecarPathArg, ...sdkReaderPathArgs] =
-  process.argv.slice(2);
+const args = process.argv.slice(2);
+const [sourceSidecarPathArg, outputSidecarPathArg] = args;
 
-if (
-  !sourceSidecarPathArg ||
-  !outputSidecarPathArg ||
-  sdkReaderPathArgs.length === 0
-) {
+if (args.length !== 2 || !sourceSidecarPathArg || !outputSidecarPathArg) {
   console.error(
-    "Usage: node prune_app_subsystem_sdk_non_http_sidecar.mjs <source-sidecar> <output-sidecar> <sdk-reader-source>...",
+    "Usage: node prune_app_subsystem_sdk_non_http_sidecar.mjs <source-sidecar> <output-sidecar>",
   );
   process.exit(1);
 }
 
 const sourceSidecarPath = resolve(frontendRoot, sourceSidecarPathArg);
 const outputSidecarPath = resolve(frontendRoot, outputSidecarPathArg);
-const sdkReaderPaths = sdkReaderPathArgs.map((pathArg) =>
-  resolve(frontendRoot, pathArg),
-);
 
-function skipWhitespace(source, index) {
-  let nextIndex = index;
-  while (nextIndex < source.length && /\s/.test(source[nextIndex] ?? "")) {
-    nextIndex += 1;
-  }
-  return nextIndex;
-}
-
-function skipTypeArguments(source, index) {
-  let nextIndex = skipWhitespace(source, index);
-  if (source[nextIndex] !== "<") {
-    return nextIndex;
-  }
-
-  let depth = 0;
-  while (nextIndex < source.length) {
-    const char = source[nextIndex];
-    if (char === "<") {
-      depth += 1;
-    } else if (char === ">") {
-      depth -= 1;
-      if (depth === 0) {
-        return skipWhitespace(source, nextIndex + 1);
-      }
-    }
-    nextIndex += 1;
-  }
-  throw new Error("Unterminated generated sidecar reader type arguments.");
-}
-
-function collectReadNames(source, readerName) {
-  const names = new Set();
-  let searchIndex = 0;
-  while (searchIndex < source.length) {
-    const callIndex = source.indexOf(readerName, searchIndex);
-    if (callIndex === -1) {
-      break;
-    }
-    const openParenIndex = skipTypeArguments(
-      source,
-      callIndex + readerName.length,
-    );
-    if (source[openParenIndex] !== "(") {
-      searchIndex = callIndex + readerName.length;
-      continue;
-    }
-    const firstArgIndex = skipWhitespace(source, openParenIndex + 1);
-    const quote = source[firstArgIndex];
-    if (quote !== '"' && quote !== "'") {
-      searchIndex = callIndex + readerName.length;
-      continue;
-    }
-    const closeQuoteIndex = source.indexOf(quote, firstArgIndex + 1);
-    if (closeQuoteIndex === -1) {
-      throw new Error(
-        `${readerName} string literal is unterminated near offset ${callIndex}.`,
-      );
-    }
-    names.add(source.slice(firstArgIndex + 1, closeQuoteIndex));
-    searchIndex = closeQuoteIndex + 1;
-  }
-  return names;
-}
-
-function collectSDKSidecarReads() {
-  const enumNames = new Set();
-  const exportedValueNames = new Set();
-
-  for (const filePath of sdkReaderPaths) {
-    const source = readFileSync(filePath, "utf8");
-    for (const name of collectReadNames(source, "readGeneratedStringEnum")) {
-      enumNames.add(name);
-    }
-    for (const name of collectReadNames(source, "readGeneratedExportedValue")) {
-      exportedValueNames.add(name);
-    }
-  }
-
-  return { enumNames, exportedValueNames };
-}
-
-function assertAllFound(kind, expectedNames, foundNames) {
-  const missing = [...expectedNames].filter((name) => !foundNames.has(name));
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing ${kind} in ${relative(process.cwd(), sourceSidecarPath)}: ${missing.join(", ")}`,
-    );
-  }
-}
-
-function pickValueKeys(value, keys) {
-  return Object.fromEntries(
-    keys
-      .filter((key) => Object.hasOwn(value, key))
-      .map((key) => [key, value[key]]),
+function contractHasTargetScope(entry) {
+  return (
+    entry?.kind === "enum" &&
+    Array.isArray(entry.frontendSDKScopes) &&
+    entry.frontendSDKScopes.includes(targetScope)
   );
 }
 
-function narrowExportedValue(entry) {
-  if (!entry || typeof entry !== "object") {
-    return entry;
+function exportedValueTargetScope(entry) {
+  if (!entry || !Array.isArray(entry.frontendSDKScopes)) {
+    return null;
   }
-  if (entry.name === "BootstrapProtocol") {
+  return (
+    entry.frontendSDKScopes.find((scope) => scope?.scope === targetScope) ??
+    null
+  );
+}
+
+function emptyValueLike(value) {
+  if (Array.isArray(value)) {
+    return [];
+  }
+  if (value !== null && typeof value === "object") {
+    return {};
+  }
+  return null;
+}
+
+function cloneJSONValue(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+
+function valueAtPath(value, path) {
+  let current = value;
+  for (const segment of path) {
+    if (
+      current === null ||
+      typeof current !== "object" ||
+      !Object.hasOwn(current, segment)
+    ) {
+      return { found: false, value: undefined };
+    }
+    current = current[segment];
+  }
+  return { found: true, value: cloneJSONValue(current) };
+}
+
+function assignPath(target, path, value) {
+  let current = target;
+  for (let index = 0; index < path.length; index += 1) {
+    const segment = path[index];
+    if (index === path.length - 1) {
+      current[segment] = value;
+      return;
+    }
+    const nextSegment = path[index + 1];
+    if (!Object.hasOwn(current, segment)) {
+      current[segment] = /^\d+$/.test(nextSegment) ? [] : {};
+    }
+    current = current[segment];
+  }
+}
+
+function pruneValuePaths(value, valuePaths) {
+  const pruned = emptyValueLike(value);
+  if (!Array.isArray(valuePaths) || valuePaths.length === 0) {
+    return pruned;
+  }
+  if (pruned === null || typeof pruned !== "object") {
+    throw new Error("Cannot prune value paths from a non-object exported value.");
+  }
+
+  for (const rawPath of valuePaths) {
+    if (!Array.isArray(rawPath) || rawPath.length === 0) {
+      throw new Error("SDK exported value path must be a non-empty array.");
+    }
+    const path = rawPath.map((segment) => String(segment));
+    const resolved = valueAtPath(value, path);
+    if (!resolved.found) {
+      throw new Error(
+        `Missing SDK exported value path ${path.join(".")} in ${relative(process.cwd(), sourceSidecarPath)}.`,
+      );
+    }
+    assignPath(pruned, path, resolved.value);
+  }
+
+  return pruned;
+}
+
+function pruneExportedValue(entry, scope) {
+  if (scope.includeFullValue) {
     return {
       ...entry,
-      value: pickValueKeys(entry.value ?? {}, ["launcherOriginStorageKey"]),
+      frontendSDKScopes: [scope],
     };
   }
-  if (entry.name === "EndpointOriginPolicyByRoute") {
-    return {
-      ...entry,
-      value: pickValueKeys(entry.value ?? {}, ["/__setta__/tools/call"]),
-    };
-  }
-  if (entry.name === "ModeScopedLauncherRoutesList") {
-    return {
-      ...entry,
-      value: [],
-    };
-  }
-  if (entry.name === "TransportRouteConstants") {
-    return {
-      ...entry,
-      value: {
-        apiPrefix: entry.value?.apiPrefix,
-        binary: pickValueKeys(entry.value?.binary ?? {}, [
-          "download",
-          "upload",
-        ]),
-        root: pickValueKeys(entry.value?.root ?? {}, [
-          "bootstrapPage",
-          "toolsCall",
-        ]),
-        websocket: pickValueKeys(entry.value?.websocket ?? {}, [
-          "frontend",
-          "listenerById",
-          "terminalBySection",
-        ]),
-      },
-    };
-  }
-  return entry;
+  return {
+    ...entry,
+    frontendSDKScopes: [scope],
+    value: pruneValuePaths(entry.value, scope.valuePaths ?? []),
+  };
 }
 
 const sidecar = JSON.parse(readFileSync(sourceSidecarPath, "utf8"));
-const { enumNames, exportedValueNames } = collectSDKSidecarReads();
 
-const contracts = (sidecar.contracts ?? []).filter((entry) => {
-  return entry?.kind === "enum" && enumNames.has(entry.name);
-});
+const contracts = (sidecar.contracts ?? []).filter(contractHasTargetScope);
 const exportedValues = (sidecar.exportedValues ?? [])
-  .filter((entry) => {
-    return exportedValueNames.has(entry?.name);
+  .map((entry) => {
+    const scope = exportedValueTargetScope(entry);
+    if (!scope) {
+      return null;
+    }
+    return pruneExportedValue(entry, scope);
   })
-  .map(narrowExportedValue);
-
-assertAllFound(
-  "enum contracts",
-  enumNames,
-  new Set(contracts.map((entry) => entry.name)),
-);
-assertAllFound(
-  "exported values",
-  exportedValueNames,
-  new Set(exportedValues.map((entry) => entry.name)),
-);
+  .filter(Boolean);
 
 writeFileSync(
   outputSidecarPath,

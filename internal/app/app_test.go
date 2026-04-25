@@ -13368,6 +13368,15 @@ func installAppRepoPlugin(t *testing.T, cfg config.Config, pluginID string) {
 	sourceRoot := filepath.Join(repoRoot, "plugins", pluginID)
 	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", pluginID)
 	copyAppTestDir(t, sourceRoot, targetRoot)
+	materializeAppRuntimeManagedPluginFrontendAssets(t, targetRoot)
+}
+
+func materializeAppRuntimeManagedPluginFrontendAssets(t *testing.T, pluginRoot string) {
+	t.Helper()
+
+	if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(pluginRoot); err != nil {
+		t.Fatalf("materialize runtime-managed plugin frontend assets for %s: %v", pluginRoot, err)
+	}
 }
 
 func selectAppLanguageServer(t *testing.T, app *App, language string, pluginID string) {

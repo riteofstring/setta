@@ -564,9 +564,11 @@ func applyBackendProbeRegistrations(entry *DiscoveredPlugin, probe backendProbeR
 		entry.appSubsystemBackend = cloneBackendProbeAppSubsystemBackendRegistration(
 			probe.AppSubsystemBackend,
 		)
-		entry.appSubsystemListenerEndpoints = cloneRegisteredListenerEndpointsOrEmpty(
-			probe.ListenerEndpoints,
-		)
+		if probe.AppSubsystemBackend != nil {
+			entry.appSubsystemListenerEndpoints = cloneRegisteredListenerEndpointsOrEmpty(
+				probe.AppSubsystemBackend.ListenerEndpoints,
+			)
+		}
 	}
 }
 
@@ -577,7 +579,8 @@ func cloneBackendProbeAppSubsystemBackendRegistration(
 		return nil
 	}
 	return &backendProbeAppSubsystemBackendRegistration{
-		ContractVersion: registration.ContractVersion,
+		ContractVersion:   registration.ContractVersion,
+		ListenerEndpoints: cloneRegisteredListenerEndpointsOrEmpty(registration.ListenerEndpoints),
 	}
 }
 

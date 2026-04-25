@@ -834,7 +834,7 @@ func newAppDeploymentIDERouteFixture(
 		Now: func() time.Time {
 			return publishedAt
 		},
-	}, NewAppDefinitionService(projectRuntime, ProviderPluginID), ProviderPluginID)
+	}, ProviderPluginID)
 	if err != nil {
 		t.Fatalf("new app publisher: %v", err)
 	}

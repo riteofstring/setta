@@ -1058,11 +1058,11 @@ func writeRuntimeAppSubsystemBackendProbe(
 		t.Fatalf("mkdir runtime backend root: %v", err)
 	}
 
-	probePayload := `"appSubsystemBackend": {"contractVersion": 1},`
+	listenerEndpointJSON := runtimeAppSubsystemListenerEndpointJSON(t, endpointNames)
+	probePayload := `"appSubsystemBackend": {"contractVersion": 1, "listenerEndpoints": ` + listenerEndpointJSON + `},`
 	if !register {
 		probePayload = ""
 	}
-	listenerEndpointJSON := runtimeAppSubsystemListenerEndpointJSON(t, endpointNames)
 	content := "#!/usr/bin/env python3\n\n" +
 		"import json\n" +
 		"import sys\n\n" +
@@ -1088,7 +1088,7 @@ func writeRuntimeAppSubsystemBackendProbe(
 		"            \"uiSettings\": [],\n" +
 		"            \"routes\": [],\n" +
 		"            \"staticDirs\": [],\n" +
-		"            \"listenerEndpoints\": " + listenerEndpointJSON + ",\n" +
+		"            \"listenerEndpoints\": [],\n" +
 		"        })\n" +
 		"        return\n\n" +
 		"    if command != BACKEND_RUNTIME_ARG:\n" +

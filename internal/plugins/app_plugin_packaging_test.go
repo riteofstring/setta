@@ -83,6 +83,35 @@ func TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeMan
 	}
 }
 
+func TestAppSubsystemOnlyProviderManifestsDoNotRequestGenericListenerEndpoint(
+	t *testing.T,
+) {
+	roots := map[string]string{
+		"first-party": stageFirstPartyAppSubsystemPluginSource(t),
+		"unknown-id": filepath.Join(
+			workerRPCTestRepoRoot(t),
+			"tests",
+			"fixtures",
+			"plugins",
+			"app-subsystem-unknown-id",
+		),
+	}
+	for name, root := range roots {
+		t.Run(name, func(t *testing.T) {
+			manifest, err := loadPluginManifestFile(filepath.Join(root, pluginManifestFileName))
+			if err != nil {
+				t.Fatalf("load plugin manifest: %v", err)
+			}
+			if !containsString(manifest.Capabilities, "registerAppSubsystemBackend") {
+				t.Fatalf("expected app-subsystem backend capability, got %#v", manifest.Capabilities)
+			}
+			if containsString(manifest.Capabilities, "registerListenerEndpoint") {
+				t.Fatalf("app-subsystem-only provider must not request generic listener endpoints: %#v", manifest.Capabilities)
+			}
+		})
+	}
+}
+
 func TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets(t *testing.T) {
 	stagingRoot := stageFirstPartyAppSubsystemPluginSource(t)
 	wheelPath := buildLocalBuiltPyPIWheelFromRoot(t, t.TempDir(), stagingRoot)

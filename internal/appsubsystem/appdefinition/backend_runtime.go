@@ -352,6 +352,9 @@ func (r *BackendRuntime) persistBackendMutationResult(
 		return projectstate.Snapshot{}, err
 	}
 	nextAppSpec := cloneJSONValue(result.AppSpec)
+	if err := ValidatePersistedAppDefinitionWrite(definition, nextAppSpec); err != nil {
+		return projectstate.Snapshot{}, err
+	}
 	return r.projectRuntime.MutatePersistedWithContext(ctx, func(
 		document projectstate.Document,
 	) (projectstate.PersistedMutationPlan, error) {

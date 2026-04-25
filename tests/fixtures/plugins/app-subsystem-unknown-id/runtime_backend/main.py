@@ -129,14 +129,15 @@ def main() -> None:
             {
                 "schemaVersion": 1,
                 "appSubsystemBackend": {
-                    "contractVersion": APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION
+                    "contractVersion": APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION,
+                    "listenerEndpoints": _listener_endpoints(),
                 },
                 "codegenTargets": [],
                 "languageServers": [],
                 "uiSettings": [],
                 "routes": [],
                 "staticDirs": [],
-                "listenerEndpoints": _listener_endpoints(),
+                "listenerEndpoints": [],
             }
         )
         return

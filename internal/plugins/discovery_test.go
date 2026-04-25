@@ -294,11 +294,11 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 		StaticDirs: []PluginRegisteredStaticDir{
 			{RoutePrefix: "/static", Dir: "backend/static"},
 		},
-		ListenerEndpoints: []PluginRegisteredListenerEndpoint{
-			{Name: "route_backend_fixture_ping"},
-		},
 		AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
 			ContractVersion: backendruntime.AppSubsystemBackendContractVersion,
+			ListenerEndpoints: []PluginRegisteredListenerEndpoint{
+				{Name: "appsubsystem_get_app_definition"},
+			},
 		},
 	}
 
@@ -326,6 +326,9 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	if entry.appSubsystemBackend == nil || entry.appSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		t.Fatalf("expected app subsystem backend registration to be copied, got %#v", entry.appSubsystemBackend)
 	}
+	if len(entry.appSubsystemListenerEndpoints) != 1 || entry.appSubsystemListenerEndpoints[0].Name != "appsubsystem_get_app_definition" {
+		t.Fatalf("expected app subsystem listener endpoint to be copied privately, got %#v", entry.appSubsystemListenerEndpoints)
+	}
 
 	probe.UISettings[0].LocalSettingID = "mutated"
 	if entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
@@ -334,6 +337,10 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	probe.AppSubsystemBackend.ContractVersion = 999
 	if entry.appSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		t.Fatalf("expected app subsystem backend registration to be cloned, got %#v", entry.appSubsystemBackend)
+	}
+	probe.AppSubsystemBackend.ListenerEndpoints[0].Name = "mutated"
+	if entry.appSubsystemListenerEndpoints[0].Name != "appsubsystem_get_app_definition" {
+		t.Fatalf("expected app subsystem listener endpoints to be cloned, got %#v", entry.appSubsystemListenerEndpoints)
 	}
 }
 

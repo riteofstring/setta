@@ -212,8 +212,6 @@ func AppGenerationModeContributions(
 func NewAppPublishService(
 	capabilities plugins.PluginAppSubsystemCapabilities,
 	options deployments.AppPublisherOptions,
-	projectRuntime *projectstate.Runtime,
-	backendListenerInvoker appdefinition.BackendListenerInvoker,
 ) (deployments.AppPublishService, error) {
 	if !capabilities.PluginEnabled || !capabilities.AppDeploymentRuntime {
 		return nil, nil
@@ -222,15 +220,7 @@ func NewAppPublishService(
 	if pluginID == "" {
 		return nil, appdefinition.ErrPluginIDRequired
 	}
-	service, err := appDefinitionRuntimeForCapabilities(
-		capabilities,
-		projectRuntime,
-		backendListenerInvoker,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return apppublish.NewService(options, service, pluginID)
+	return apppublish.NewService(options, pluginID)
 }
 
 func DeploymentTypeRegistration(

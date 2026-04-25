@@ -27,10 +27,11 @@ type SemanticSidecar struct {
 }
 
 type ContractEntry struct {
-	Name       string           `json:"name"`
-	Kind       string           `json:"kind"`
-	SchemaRef  string           `json:"schemaRef,omitempty"`
-	EnumValues []EnumValueEntry `json:"enumValues,omitempty"`
+	Name              string           `json:"name"`
+	Kind              string           `json:"kind"`
+	SchemaRef         string           `json:"schemaRef,omitempty"`
+	FrontendSDKScopes []string         `json:"frontendSDKScopes,omitempty"`
+	EnumValues        []EnumValueEntry `json:"enumValues,omitempty"`
 }
 
 type EnumValueEntry struct {
@@ -51,10 +52,11 @@ type DefaultEntry struct {
 }
 
 type ExportedValueEntry struct {
-	Name            string `json:"name"`
-	DeclarationName string `json:"declarationName,omitempty"`
-	Type            string `json:"type"`
-	Value           any    `json:"value"`
+	Name              string                                              `json:"name"`
+	DeclarationName   string                                              `json:"declarationName,omitempty"`
+	Type              string                                              `json:"type"`
+	FrontendSDKScopes []frontendbindingmeta.FrontendSDKExportedValueScope `json:"frontendSDKScopes,omitempty"`
+	Value             any                                                 `json:"value"`
 }
 
 type DiscriminatedUnionEntry struct {
@@ -218,9 +220,10 @@ func buildContractEntries(routes []RouteInventoryEntry) ([]ContractEntry, error)
 		}
 		kind := contractKindForType(t)
 		entry := ContractEntry{
-			Name:      name,
-			Kind:      kind,
-			SchemaRef: "#/$defs/" + name,
+			Name:              name,
+			Kind:              kind,
+			SchemaRef:         "#/$defs/" + name,
+			FrontendSDKScopes: frontendSDKScopesForContract(name),
 		}
 		if kind == "enum" {
 			enumValues, ok, err := discoveredEnumValues(t)
@@ -317,9 +320,10 @@ func buildExportedValueEntries() ([]ExportedValueEntry, error) {
 		seenDeclarationNames[declarationName] = export.Name
 
 		entry := ExportedValueEntry{
-			Name:  export.Name,
-			Type:  typeName,
-			Value: export.Value(),
+			Name:              export.Name,
+			Type:              typeName,
+			FrontendSDKScopes: frontendSDKScopesForExportedValue(export.Name),
+			Value:             export.Value(),
 		}
 		if declarationName != export.Name {
 			entry.DeclarationName = declarationName

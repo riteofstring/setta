@@ -835,7 +835,7 @@ func writeMinimalAppSubsystemBackendProbe(t *testing.T, path string) {
 		"import json",
 		"import sys",
 		`if len(sys.argv) == 2 and sys.argv[1] == "--setta-plugin-backend-probe":`,
-		`    print(json.dumps({"schemaVersion": 1, "appSubsystemBackend": {"contractVersion": 1}, "listenerEndpoints": ` + minimalAppSubsystemBackendListenerEndpointsJSON(t) + `}))`,
+		`    print(json.dumps({"schemaVersion": 1, "appSubsystemBackend": {"contractVersion": 1, "listenerEndpoints": ` + minimalAppSubsystemBackendListenerEndpointsJSON(t) + `}, "listenerEndpoints": []}))`,
 		"",
 	}, "\n")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {

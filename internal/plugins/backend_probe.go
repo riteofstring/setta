@@ -63,7 +63,8 @@ type backendProbeResponse struct {
 }
 
 type backendProbeAppSubsystemBackendRegistration struct {
-	ContractVersion int `json:"contractVersion"`
+	ContractVersion   int                                `json:"contractVersion"`
+	ListenerEndpoints []PluginRegisteredListenerEndpoint `json:"listenerEndpoints,omitempty"`
 }
 
 type normalizedBackendUISetting struct {
@@ -228,6 +229,9 @@ func normalizeBackendProbeResponse(pluginRoot string, pluginID string, probe bac
 	if err != nil {
 		return backendProbeResponse{}, err
 	}
+	if err := rejectDuplicateGenericAndAppSubsystemListenerEndpoints(probe); err != nil {
+		return backendProbeResponse{}, err
+	}
 
 	return probe, nil
 }
@@ -244,9 +248,36 @@ func normalizeBackendAppSubsystemBackendRegistration(
 			registration.ContractVersion,
 		)
 	}
+	listenerEndpoints, err := normalizeBackendListenerEndpoints(registration.ListenerEndpoints)
+	if err != nil {
+		return nil, fmt.Errorf("appSubsystemBackend: %w", err)
+	}
 	return &backendProbeAppSubsystemBackendRegistration{
-		ContractVersion: registration.ContractVersion,
+		ContractVersion:   registration.ContractVersion,
+		ListenerEndpoints: listenerEndpoints,
 	}, nil
+}
+
+func rejectDuplicateGenericAndAppSubsystemListenerEndpoints(
+	probe backendProbeResponse,
+) error {
+	if probe.AppSubsystemBackend == nil || len(probe.ListenerEndpoints) == 0 {
+		return nil
+	}
+	genericNames := make(map[string]struct{}, len(probe.ListenerEndpoints))
+	for _, endpoint := range probe.ListenerEndpoints {
+		genericNames[strings.TrimSpace(endpoint.Name)] = struct{}{}
+	}
+	for _, endpoint := range probe.AppSubsystemBackend.ListenerEndpoints {
+		name := strings.TrimSpace(endpoint.Name)
+		if _, ok := genericNames[name]; ok {
+			return fmt.Errorf(
+				"listener endpoint %q is published through both generic listenerEndpoints and appSubsystemBackend.listenerEndpoints",
+				name,
+			)
+		}
+	}
+	return nil
 }
 
 func normalizeBackendCodegenTargets(pluginID string, targets []PluginRegisteredCodegenTarget) ([]PluginRegisteredCodegenTarget, error) {

@@ -1,7 +1,6 @@
 package apppublish
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -12,8 +11,7 @@ import (
 )
 
 type deploymentContentService struct {
-	appDefinitionService appdefinition.Runtime
-	appSpecStore         appspec.Store
+	appSpecStore appspec.Store
 }
 
 func LoadPublishedAppSpecFromRuntime(
@@ -53,7 +51,6 @@ func (s deploymentContentService) loadPublishedAppSpec(
 }
 
 func (s deploymentContentService) preparePublishedAppDefinition(
-	ctx context.Context,
 	projectRoot string,
 	appDefinition projectstate.RawJSON,
 ) (projectstate.RawJSON, any, string, error) {
@@ -64,10 +61,6 @@ func (s deploymentContentService) preparePublishedAppDefinition(
 	if storedDefinition == nil {
 		return nil, nil, "", deployments.ErrAppPublishAppDefinitionMissing
 	}
-	if s.appDefinitionService == nil {
-		return nil, nil, "", deployments.ErrAppPublishContentServiceRequired
-	}
-
 	current := storedDefinition.Clone()
 	if strings.TrimSpace(current.AppSpecPath) == "" {
 		return nil, nil, "", deployments.ErrAppPublishAppSpecPathRequired
@@ -85,13 +78,10 @@ func (s deploymentContentService) preparePublishedAppDefinition(
 		return nil, nil, "", deployments.ErrAppPublishAppSpecNotFound
 	}
 
-	validationResult, err := s.appDefinitionService.ValidateAppDefinition(ctx, appdefinition.ValidateInput{
-		AppSpec: appSpec,
-	})
-	if err != nil {
-		return nil, nil, "", err
-	}
-	if validationErr := appPublishValidationError(validationResult.Errors); validationErr != nil {
+	if err := appdefinition.ValidatePersistedAppDefinitionWrite(current, appSpec); err != nil {
+		validationErr := appPublishValidationError([]appdefinition.ValidationIssue{{
+			Message: err.Error(),
+		}})
 		return nil, nil, "", validationErr
 	}
 

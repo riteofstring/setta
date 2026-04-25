@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -224,7 +225,7 @@ func TestBackendRuntimeSetAppDefinitionRollsBackAppSpecWhenHostPersistFails(t *t
 	appSpecStore := appspec.MustForPlugin(pluginID)
 	expectedDefinition := AppDefinition{
 		AppSpecVersion: "v2",
-		CatalogID:      "catalog-next",
+		CatalogID:      appspec.DefaultCatalogID,
 		AppSpecPath:    appSpecStore.DefaultPath(),
 	}
 
@@ -387,7 +388,7 @@ func TestBackendRuntimeCompareAndSetChangedRollsBackAppSpecWhenHostPersistFails(
 	appSpecStore := appspec.MustForPlugin(pluginID)
 	expectedDefinition := AppDefinition{
 		AppSpecVersion: "v2",
-		CatalogID:      "catalog-next",
+		CatalogID:      appspec.DefaultCatalogID,
 		AppSpecPath:    appSpecStore.DefaultPath(),
 	}
 
@@ -444,6 +445,127 @@ func TestBackendRuntimeCompareAndSetChangedRollsBackAppSpecWhenHostPersistFails(
 	}
 	if len(ops.Pending) != 0 || len(ops.Completed) != 0 {
 		t.Fatalf("expected failed frontend op to remain incomplete, got %#v", ops)
+	}
+}
+
+func TestBackendRuntimeRejectsInvalidProviderMutationResults(t *testing.T) {
+	t.Helper()
+
+	type mutationCase struct {
+		name     string
+		endpoint string
+		run      func(Runtime, context.Context) error
+	}
+	cases := []mutationCase{
+		{
+			name:     "set app definition",
+			endpoint: backendruntime.ListenerEndpointSetAppDefinition,
+			run: func(service Runtime, ctx context.Context) error {
+				_, _, err := service.SetAppDefinition(ctx, SetInput{})
+				return err
+			},
+		},
+		{
+			name:     "stream app definition",
+			endpoint: backendruntime.ListenerEndpointStreamAppDefinition,
+			run: func(service Runtime, ctx context.Context) error {
+				_, _, err := service.StreamAppDefinition(ctx, StreamInput{Patches: "replace /root {}"})
+				return err
+			},
+		},
+		{
+			name:     "update app definition",
+			endpoint: backendruntime.ListenerEndpointUpdateAppDefinition,
+			run: func(service Runtime, ctx context.Context) error {
+				_, _, err := service.UpdateAppDefinition(ctx, map[string]any{})
+				return err
+			},
+		},
+		{
+			name:     "changed compare-and-set",
+			endpoint: backendruntime.ListenerEndpointCompareAndSetSpecVersion,
+			run: func(service Runtime, ctx context.Context) error {
+				_, _, err := service.CompareAndSetAppDefinitionSpecVersion(
+					ctx,
+					"v2",
+					backendRuntimeTestStringPointer("v1"),
+				)
+				return err
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			store, runtime := openPersistedBackendRuntimeTestProject(t)
+			pluginID := "setta-json-render-app-gen"
+			storage := MustStorageForPlugin(pluginID)
+			appSpecStore := appspec.MustForPlugin(pluginID)
+			definition := AppDefinition{
+				AppSpecVersion: "v2",
+				CatalogID:      appspec.DefaultCatalogID,
+				AppSpecPath:    appSpecStore.DefaultPath(),
+			}
+			invalidAppSpec := backendRuntimeInvalidMultiRunAppSpec()
+
+			service := NewBackendRuntime(runtime, pluginID, backendRuntimeInvokerStub{
+				invoke: func(
+					ctx context.Context,
+					request plugins.BackendListenerEndpointRequest,
+				) (any, bool, error) {
+					if request.EndpointName != tc.endpoint {
+						t.Fatalf("unexpected endpoint %q", request.EndpointName)
+					}
+					if tc.endpoint == backendruntime.ListenerEndpointCompareAndSetSpecVersion {
+						return CompareAndSetMutationResult{
+							CompareResult: CompareAndSetStringResult{
+								OldValue: "v1",
+								NewValue: "v2",
+							},
+							AppSpec:       invalidAppSpec,
+							AppDefinition: &definition,
+						}, true, nil
+					}
+					return MutationResult{
+						AppSpec:       invalidAppSpec,
+						AppDefinition: &definition,
+					}, true, nil
+				},
+			})
+
+			err := tc.run(
+				service,
+				projectstate.ContextWithFrontendOpID(context.Background(), "invalid-provider-op"),
+			)
+			if err == nil || !strings.Contains(err.Error(), "can only include one run action") {
+				t.Fatalf("expected invalid provider app spec error, got %v", err)
+			}
+
+			persisted, err := store.Load(context.Background())
+			if err != nil {
+				t.Fatalf("load persisted document after invalid mutation: %v", err)
+			}
+			if raw := storage.StoredDocumentAppDefinitionRaw(persisted); len(raw) != 0 {
+				t.Fatalf("expected persisted app definition to remain empty, got %s", string(raw))
+			}
+			if raw := storage.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document); len(raw) != 0 {
+				t.Fatalf("expected live app definition to remain empty, got %s", string(raw))
+			}
+			appSpec, err := appSpecStore.Read(filepath.Dir(store.Path()), definition.AppSpecPath)
+			if err != nil {
+				t.Fatalf("read app spec after invalid mutation: %v", err)
+			}
+			if appSpec != nil {
+				t.Fatalf("expected invalid app spec write to be skipped, got %#v", appSpec)
+			}
+			_, ops, err := runtime.SnapshotAndConsumeFrontendOps()
+			if err != nil {
+				t.Fatalf("consume frontend ops: %v", err)
+			}
+			if len(ops.Pending) != 0 || len(ops.Completed) != 0 {
+				t.Fatalf("expected failed frontend op to remain incomplete, got %#v", ops)
+			}
+		})
 	}
 }
 
@@ -636,4 +758,32 @@ func mustDecodeBackendRuntimeTestDefinition(t *testing.T, raw projectstate.RawJS
 
 func backendRuntimeTestStringPointer(value string) *string {
 	return &value
+}
+
+func backendRuntimeInvalidMultiRunAppSpec() map[string]any {
+	return map[string]any{
+		"root": map[string]any{
+			"key":  "root",
+			"type": "Stack",
+			"children": []any{
+				map[string]any{
+					"key":  "run-1",
+					"type": "ActionButton",
+					"props": map[string]any{
+						"label":  "Run",
+						"action": "run",
+					},
+				},
+				map[string]any{
+					"key":  "run-2",
+					"type": "ActionButton",
+					"props": map[string]any{
+						"label":  "Run again",
+						"action": "run",
+					},
+				},
+			},
+		},
+		"elements": map[string]any{},
+	}
 }

@@ -13,9 +13,7 @@ mkdir -p plugin-sdk/app-subsystem/src/generated
 progress_run "Pruning app-subsystem SDK non-HTTP sidecar" node \
   ./generation/prune_app_subsystem_sdk_non_http_sidecar.mjs \
   generation/non_http_shared/sidecar.json \
-  plugin-sdk/app-subsystem/src/generated/sidecar.json \
-  plugin-sdk/app-subsystem/src/generatedTypes.ts \
-  plugin-sdk/app-subsystem/src/generatedValues.ts
+  plugin-sdk/app-subsystem/src/generated/sidecar.json
 
 rm -rf plugin-sdk/app-subsystem/src/openapi/non_http/generated
 

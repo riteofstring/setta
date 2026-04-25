@@ -1,4 +1,13 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -195,14 +204,30 @@ describe("app plugin frontend build boundary guardrails", () => {
     const hostSidecar = JSON.parse(
       readHostFrontendFile("generation/non_http_shared/sidecar.json"),
     ) as {
-      contracts?: Array<{ kind?: string; name?: string }>;
-      exportedValues?: Array<{ name?: string; value?: unknown }>;
+      contracts?: Array<{
+        frontendSDKScopes?: string[];
+        kind?: string;
+        name?: string;
+      }>;
+      exportedValues?: Array<{
+        frontendSDKScopes?: unknown;
+        name?: string;
+        value?: unknown;
+      }>;
     };
     const sourceSdkSidecar = JSON.parse(
       readSourceSdkFile("src/generated/sidecar.json"),
     ) as {
-      contracts?: Array<{ kind?: string; name?: string }>;
-      exportedValues?: Array<{ name?: string; value?: unknown }>;
+      contracts?: Array<{
+        frontendSDKScopes?: string[];
+        kind?: string;
+        name?: string;
+      }>;
+      exportedValues?: Array<{
+        frontendSDKScopes?: unknown;
+        name?: string;
+        value?: unknown;
+      }>;
     };
     const sourceSdkGeneratedTypes = readSourceSdkFile("src/generatedTypes.ts");
     const sourceNonHTTPGeneratedRoot = resolve(
@@ -233,6 +258,12 @@ describe("app plugin frontend build boundary guardrails", () => {
     expect(sourceSdkGeneratedTypes).toContain(
       'readGeneratedExportedValue<TransportRoutes>("TransportRouteConstants")',
     );
+    expect(hostContractsByName.get("SectionType")?.frontendSDKScopes).toContain(
+      "app-subsystem",
+    );
+    expect(
+      hostContractsByName.get("AddKwargResult")?.frontendSDKScopes ?? [],
+    ).not.toContain("app-subsystem");
 
     for (const contract of sourceSdkSidecar.contracts ?? []) {
       expect(contract).toEqual(hostContractsByName.get(contract.name));
@@ -250,7 +281,6 @@ describe("app plugin frontend build boundary guardrails", () => {
       }
       expect(exportedValue).toEqual(hostValuesByName.get(exportedValue.name));
     }
-
     expect(sourceValuesByName.get("BootstrapProtocol")?.value).toEqual({
       launcherOriginStorageKey: (
         hostValuesByName.get("BootstrapProtocol")?.value as {
@@ -317,6 +347,83 @@ describe("app plugin frontend build boundary guardrails", () => {
     expect(JSON.stringify(sourceSdkSidecar)).not.toContain(
       "addLauncherRecentWorkspace",
     );
+  });
+
+  it("prunes source SDK sidecar from owner metadata instead of SDK source reads", () => {
+    const tempRoot = mkdtempSync(resolve(tmpdir(), "setta-sdk-sidecar-"));
+    try {
+      const sourceSidecarPath = resolve(tempRoot, "source-sidecar.json");
+      const outputSidecarPath = resolve(tempRoot, "output-sidecar.json");
+      writeFileSync(
+        sourceSidecarPath,
+        `${JSON.stringify({
+          schemaVersion: 1,
+          contracts: [
+            {
+              name: "SDKEnum",
+              kind: "enum",
+              frontendSDKScopes: ["app-subsystem"],
+              enumValues: [{ name: "Value", value: "value" }],
+            },
+            {
+              name: "HostOnlyEnum",
+              kind: "enum",
+              enumValues: [{ name: "Host", value: "host" }],
+            },
+          ],
+          exportedValues: [
+            {
+              name: "SDKValue",
+              frontendSDKScopes: [
+                {
+                  scope: "app-subsystem",
+                  valuePaths: [["nested", "keep"]],
+                },
+              ],
+              value: {
+                nested: { keep: "yes", drop: "no" },
+                drop: true,
+              },
+            },
+            {
+              name: "HostOnlyValue",
+              value: { keep: false },
+            },
+          ],
+        })}\n`,
+      );
+
+      execFileSync(process.execPath, [
+        resolve(
+          repoRoot,
+          "frontend",
+          "generation",
+          "prune_app_subsystem_sdk_non_http_sidecar.mjs",
+        ),
+        sourceSidecarPath,
+        outputSidecarPath,
+      ]);
+
+      const output = JSON.parse(readFileSync(outputSidecarPath, "utf8")) as {
+        contracts: Array<{ name: string }>;
+        exportedValues: Array<{ name: string; value: unknown }>;
+      };
+      expect(output.contracts.map((entry) => entry.name)).toEqual(["SDKEnum"]);
+      expect(output.exportedValues).toEqual([
+        {
+          name: "SDKValue",
+          frontendSDKScopes: [
+            {
+              scope: "app-subsystem",
+              valuePaths: [["nested", "keep"]],
+            },
+          ],
+          value: { nested: { keep: "yes" } },
+        },
+      ]);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it("keeps source SDK generated HTTP surfaces pruned to the app-subsystem SDK contract", () => {

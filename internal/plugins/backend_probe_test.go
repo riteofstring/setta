@@ -229,6 +229,10 @@ func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersio
 		backendProbeResponse{
 			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
 				ContractVersion: backendruntime.AppSubsystemBackendContractVersion,
+				ListenerEndpoints: []PluginRegisteredListenerEndpoint{
+					{Name: "z-endpoint"},
+					{Name: "a-endpoint"},
+				},
 			},
 		},
 	)
@@ -237,6 +241,12 @@ func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersio
 	}
 	if normalized.AppSubsystemBackend == nil || normalized.AppSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		t.Fatalf("expected normalized app subsystem backend registration, got %#v", normalized.AppSubsystemBackend)
+	}
+	if got := []string{
+		normalized.AppSubsystemBackend.ListenerEndpoints[0].Name,
+		normalized.AppSubsystemBackend.ListenerEndpoints[1].Name,
+	}; !slices.Equal(got, []string{"a-endpoint", "z-endpoint"}) {
+		t.Fatalf("expected app subsystem listener endpoints sorted by name, got %#v", got)
 	}
 
 	_, err = normalizeBackendProbeResponse(
@@ -253,6 +263,34 @@ func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersio
 	}
 	if !strings.Contains(err.Error(), "appSubsystemBackend: unsupported contract version") {
 		t.Fatalf("expected app subsystem backend version error, got %v", err)
+	}
+}
+
+func TestNormalizeBackendProbeResponseRejectsDuplicateGenericAndAppSubsystemListenerEndpoint(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	_, err := normalizeBackendProbeResponse(
+		t.TempDir(),
+		"setta-fixture-backend",
+		backendProbeResponse{
+			ListenerEndpoints: []PluginRegisteredListenerEndpoint{
+				{Name: "appsubsystem_get_app_definition"},
+			},
+			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
+				ContractVersion: backendruntime.AppSubsystemBackendContractVersion,
+				ListenerEndpoints: []PluginRegisteredListenerEndpoint{
+					{Name: "appsubsystem_get_app_definition"},
+				},
+			},
+		},
+	)
+	if err == nil {
+		t.Fatal("expected duplicate generic/app-subsystem listener endpoint to fail")
+	}
+	if !strings.Contains(err.Error(), "published through both generic listenerEndpoints and appSubsystemBackend.listenerEndpoints") {
+		t.Fatalf("expected duplicate listener endpoint error, got %v", err)
 	}
 }
 

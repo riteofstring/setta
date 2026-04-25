@@ -60,11 +60,11 @@ func TestBuildScopedUISettingEntriesUsesBackendRuntime(t *testing.T) {
 					return defaultAppSpecPath, true, nil
 				case "appsubsystem_get_effective_app_theme_mode":
 					return "light", true, nil
-				case "appsubsystem_compare_and_set_catalog_id":
+				case "appsubsystem_compare_and_set_spec_version":
 					return appdefinition.CompareAndSetMutationResult{
 						CompareResult: appdefinition.CompareAndSetStringResult{
-							OldValue: "catalog-a",
-							NewValue: "catalog-b",
+							OldValue: "v1",
+							NewValue: "v2",
 						},
 						AppSpec: map[string]any{
 							"root": map[string]any{
@@ -74,8 +74,8 @@ func TestBuildScopedUISettingEntriesUsesBackendRuntime(t *testing.T) {
 							"elements": map[string]any{},
 						},
 						AppDefinition: &appdefinition.AppDefinition{
-							CatalogID:      "catalog-b",
-							AppSpecVersion: "v1",
+							CatalogID:      appspec.DefaultCatalogID,
+							AppSpecVersion: "v2",
 							AppSpecPath:    defaultAppSpecPath,
 						},
 					}, true, nil
@@ -90,25 +90,25 @@ func TestBuildScopedUISettingEntriesUsesBackendRuntime(t *testing.T) {
 		t.Fatalf("build scoped UI setting entries: %v", err)
 	}
 
-	catalogEntry := providerTestRuntimeEntryByID(t, entries, "core.app.catalog_id")
-	value, err := catalogEntry.ReadValue(context.Background(), "project-alpha")
+	specVersionEntry := providerTestRuntimeEntryByID(t, entries, "core.app.spec_version")
+	value, err := specVersionEntry.ReadValue(context.Background(), "project-alpha")
 	if err != nil {
-		t.Fatalf("read catalog ui setting: %v", err)
+		t.Fatalf("read spec version ui setting: %v", err)
 	}
-	if value != "catalog-a" {
-		t.Fatalf("expected catalog-a, got %#v", value)
+	if value != "v1" {
+		t.Fatalf("expected v1, got %#v", value)
 	}
 
-	result, err := catalogEntry.WriteValue(
+	result, err := specVersionEntry.WriteValue(
 		context.Background(),
 		"project-alpha",
-		"catalog-b",
-		"catalog-a",
+		"v2",
+		"v1",
 	)
 	if err != nil {
-		t.Fatalf("write catalog ui setting: %v", err)
+		t.Fatalf("write spec version ui setting: %v", err)
 	}
-	if !result.Changed || result.NewValue != "catalog-b" {
+	if !result.Changed || result.NewValue != "v2" {
 		t.Fatalf("unexpected mutation result %#v", result)
 	}
 
@@ -116,11 +116,11 @@ func TestBuildScopedUISettingEntriesUsesBackendRuntime(t *testing.T) {
 		t,
 		storage.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document),
 	)
-	if live.CatalogID != "catalog-b" {
-		t.Fatalf("expected runtime catalog sync, got %#v", live)
+	if live.AppSpecVersion != "v2" {
+		t.Fatalf("expected runtime spec version sync, got %#v", live)
 	}
 	if !slices.Contains(requestedEndpoints, "appsubsystem_get_effective_app_definition") ||
-		!slices.Contains(requestedEndpoints, "appsubsystem_compare_and_set_catalog_id") {
+		!slices.Contains(requestedEndpoints, "appsubsystem_compare_and_set_spec_version") {
 		t.Fatalf("expected backend adapter endpoints, got %#v", requestedEndpoints)
 	}
 	if _, err := os.Stat(filepath.Join(settaFilesRoot, projectstate.MainFileName)); err != nil {
@@ -188,7 +188,7 @@ func TestBuildMCPToolRegistrationsFollowAppSubsystemFeatureBits(t *testing.T) {
 	}
 }
 
-func TestNewAppPublishServiceUsesBackendValidationRuntime(t *testing.T) {
+func TestNewAppPublishServicePublishesWithGoOwnedValidation(t *testing.T) {
 	t.Helper()
 
 	settaFilesRoot := t.TempDir()
@@ -234,7 +234,6 @@ func TestNewAppPublishServiceUsesBackendValidationRuntime(t *testing.T) {
 		t.Fatalf("new deployment catalog: %v", err)
 	}
 
-	requestedEndpoints := []string{}
 	packagedTargets := []string{}
 	publisher, err := NewAppPublishService(
 		plugins.PluginAppSubsystemCapabilities{
@@ -263,19 +262,6 @@ func TestNewAppPublishServiceUsesBackendValidationRuntime(t *testing.T) {
 				return time.Date(2026, time.April, 22, 12, 0, 0, 0, time.UTC)
 			},
 		},
-		runtime,
-		providerTestBackendInvoker{
-			invoke: func(
-				ctx context.Context,
-				request plugins.BackendListenerEndpointRequest,
-			) (any, bool, error) {
-				requestedEndpoints = append(requestedEndpoints, request.EndpointName)
-				if request.EndpointName != "appsubsystem_validate_app_definition" {
-					t.Fatalf("unexpected publish endpoint %q", request.EndpointName)
-				}
-				return appdefinition.ValidationResult{}, true, nil
-			},
-		},
 	)
 	if err != nil {
 		t.Fatalf("new app publish service: %v", err)
@@ -291,9 +277,6 @@ func TestNewAppPublishServiceUsesBackendValidationRuntime(t *testing.T) {
 	}
 	if result.Manifest.DeploymentType != deployments.TypeApp {
 		t.Fatalf("expected app deployment type, got %#v", result.Manifest)
-	}
-	if !slices.Equal(requestedEndpoints, []string{"appsubsystem_validate_app_definition"}) {
-		t.Fatalf("expected validate endpoint only, got %#v", requestedEndpoints)
 	}
 	if len(packagedTargets) != 1 {
 		t.Fatalf("expected provider packager to run once, got %#v", packagedTargets)

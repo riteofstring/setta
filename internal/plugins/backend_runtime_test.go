@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 )
 
@@ -392,6 +393,42 @@ func TestFindRegisteredListenerEndpointMatchUsesAppSubsystemPrivateEndpointsForP
 	}
 	if ok {
 		t.Fatal("expected app-subsystem private endpoint to be unavailable globally")
+	}
+}
+
+func TestServiceAppSubsystemPrivateListenerEndpointsArePluginScoped(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-app-provider"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:                    pluginID,
+		FixtureName:                 "frontend",
+		EnabledByDefault:            true,
+		RegisterAppSubsystemBackend: true,
+		AppSubsystem: map[string]any{
+			"appDeploymentRuntime": true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	_, handled, err := service.InvokeRegisteredListenerEndpoint(context.Background(), BackendListenerEndpointRequest{
+		EndpointName: backendruntime.ListenerEndpointGetAppDefinition,
+	})
+	if err != nil {
+		t.Fatalf("invoke unscoped app-subsystem listener endpoint: %v", err)
+	}
+	if handled {
+		t.Fatal("expected app-subsystem listener endpoint to miss when unscoped")
+	}
+
+	_, handled, err = service.InvokeRegisteredListenerEndpoint(context.Background(), BackendListenerEndpointRequest{
+		PluginID:     pluginID,
+		EndpointName: backendruntime.ListenerEndpointGetAppDefinition,
+	})
+	if err != nil {
+		t.Fatalf("invoke plugin-scoped app-subsystem listener endpoint: %v", err)
+	}
+	if !handled {
+		t.Fatal("expected app-subsystem listener endpoint to be handled when plugin scoped")
 	}
 }
 

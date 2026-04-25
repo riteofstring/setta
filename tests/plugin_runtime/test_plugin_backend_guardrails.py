@@ -97,9 +97,11 @@ def test_app_subsystem_backend_entrypoints_advertise_real_probe_contract() -> No
         )
         payload = json.loads(result.stdout)
 
-        assert payload["appSubsystemBackend"] == {
-            "contractVersion": APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION
-        }
         assert {
-            item["name"] for item in payload["listenerEndpoints"]
+            item["name"]
+            for item in payload["appSubsystemBackend"]["listenerEndpoints"]
         } == expected_listener_endpoints
+        assert payload["appSubsystemBackend"]["contractVersion"] == (
+            APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION
+        )
+        assert payload["listenerEndpoints"] == []

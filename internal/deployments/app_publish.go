@@ -11,7 +11,6 @@ import (
 
 var (
 	ErrAppPublisherRequired             = errors.New("app deployment publisher is required")
-	ErrAppPublishContentServiceRequired = errors.New("app deployment publish content service is required")
 	ErrAppPublishProjectStateRequired   = errors.New("app deployment publish project runtime is required")
 	ErrAppPublishProviderSourceRequired = errors.New("active app deployment provider source path is required")
 	ErrAppPublishAppDefinitionMissing   = errors.New("app definition is required to publish an app deployment")

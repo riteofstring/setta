@@ -964,11 +964,13 @@ sys.stdout.flush()
     probe_payload = json.loads(probe_result.stdout)
     assert probe_payload["appSubsystemBackend"]["contractVersion"] == 1
     assert {
-        endpoint["name"] for endpoint in probe_payload["listenerEndpoints"]
+        endpoint["name"]
+        for endpoint in probe_payload["appSubsystemBackend"]["listenerEndpoints"]
     } >= {
         "appsubsystem_get_effective_app_spec_path",
         "appsubsystem_validate_app_definition",
     }
+    assert probe_payload["listenerEndpoints"] == []
 
     runtime_request = {
         "schemaVersion": 1,

@@ -68,6 +68,13 @@ type ProjectPublishPreparationOptions struct {
 	ListenerEnabled    bool
 }
 
+type ProjectPublishDocumentPreparationOptions struct {
+	Document           projectstate.Document
+	ProjectID          string
+	ListenerEntrypoint string
+	ListenerEnabled    bool
+}
+
 type PreparedProjectPublish struct {
 	Project                projectstate.Project
 	ListenerConfig         *ListenerConfig
@@ -243,7 +250,23 @@ func (p *SharePublisher) PrepareProjectPublish(
 	}
 
 	snapshot := options.ProjectState.Snapshot()
-	document := snapshot.Document.Clone()
+	return p.PrepareProjectPublishDocument(ProjectPublishDocumentPreparationOptions{
+		Document:           snapshot.Document,
+		ProjectID:          options.ProjectID,
+		ListenerEntrypoint: options.ListenerEntrypoint,
+		ListenerEnabled:    options.ListenerEnabled,
+	}, deploymentRoot)
+}
+
+func (p *SharePublisher) PrepareProjectPublishDocument(
+	options ProjectPublishDocumentPreparationOptions,
+	deploymentRoot string,
+) (PreparedProjectPublish, error) {
+	if p == nil {
+		return PreparedProjectPublish{}, ErrSharePublisherCatalogRequired
+	}
+
+	document := options.Document.Clone()
 	project, err := document.ProjectByID(options.ProjectID)
 	if err != nil {
 		return PreparedProjectPublish{}, err

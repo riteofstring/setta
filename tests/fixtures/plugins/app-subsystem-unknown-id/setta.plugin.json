@@ -21,7 +21,6 @@
     }
   },
   "capabilities": [
-    "registerAppSubsystemBackend",
-    "registerListenerEndpoint"
+    "registerAppSubsystemBackend"
   ]
 }
