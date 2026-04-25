@@ -2,6 +2,7 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
+import { useAppSubsystemAppDeploymentModal } from "plugins/appSubsystem";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   openFileMenuLoadProjectConfigModal,
@@ -17,6 +18,7 @@ import { useSettings } from "state/definitions";
 import { shortcutPrettified } from "utils/utils";
 
 export function FileMenu() {
+  const appDeploymentModal = useAppSubsystemAppDeploymentModal();
   const shortcuts = useSettings((x) => {
     return {
       newProjectConfigShortcut: shortcutPrettified(
@@ -77,12 +79,14 @@ export function FileMenu() {
       >
         Publish Share Deployment
       </MenuItem>
-      <MenuItem
-        onClick={openPublishAppDeploymentModal}
-        paddingClassName="px-1.5"
-      >
-        Publish App Deployment
-      </MenuItem>
+      {appDeploymentModal ? (
+        <MenuItem
+          onClick={openPublishAppDeploymentModal}
+          paddingClassName="px-1.5"
+        >
+          Publish App Deployment
+        </MenuItem>
+      ) : null}
       <MenuItem onClick={openWorkspaceSwitcherModal} paddingClassName="px-1.5">
         Switch Workspace
       </MenuItem>

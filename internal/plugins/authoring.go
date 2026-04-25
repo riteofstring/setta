@@ -416,6 +416,9 @@ func (s *Service) validateLocalPluginSource(rawRoot string) (string, PluginManif
 	if err != nil {
 		return "", PluginManifest{}, err
 	}
+	if err := ensureRuntimeManagedPluginFrontendAssets(root, manifest, runtimeManagedFrontendSourceBuild); err != nil {
+		return "", PluginManifest{}, err
+	}
 	if err := validateManifestPathsForAuthoring(root, manifest); err != nil {
 		return "", PluginManifest{}, err
 	}

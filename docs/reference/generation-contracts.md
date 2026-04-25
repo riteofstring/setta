@@ -27,6 +27,12 @@ re-created as handwritten mirrors.
 - Frontend non-HTTP bindings in `internal/frontendbindings` are largely driven
   by the shared schema and semantic sidecar, plus a small fixed set of extra
   declarations such as `JSONValue`.
+- The app-subsystem frontend SDK under `frontend/plugin-sdk/app-subsystem/`
+  is generated from the host-owned frontend artifacts by
+  `frontend/generation/sync_app_subsystem_sdk_generated_inputs.sh`. That sync
+  prunes shared sidecar entries and HTTP OpenAPI operations by Go-owned
+  frontend-SDK scope metadata instead of maintaining a separate TypeScript
+  inventory.
 - Python shared types in `internal/pythonsharedtypes` are derived from the
   shared semantic sidecar and Go-owned default metadata.
 - The listener endpoint Python client in `internal/listenerendpoints` is
@@ -49,6 +55,10 @@ re-created as handwritten mirrors.
 - When a surface cannot be discovered generically, prefer an explicit
   Go-authored contract or metadata definition over restating that shape in
   Python or TypeScript.
+- When a plugin-facing frontend SDK needs a subset of host contracts, mark the
+  Go-owned type/value/route with frontend-SDK scope metadata and let the SDK
+  sync/prune step derive the package inputs. Do not hand-copy OpenAPI
+  operations, sidecar entries, or generated TypeScript declarations into the SDK.
 
 ## What Does Not Count As Real Generation
 
