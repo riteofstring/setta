@@ -491,6 +491,7 @@ func resolveScopedUISettingRegistry(
 		Runtime:                  projectState,
 		WorkspaceRoot:            workspaceRoot,
 		PluginService:            server.pluginMutations,
+		WatchCodeCapabilities:    server.watchCodeCapabilities,
 		ProjectAISettings:        buildProjectAISettingProviders(server),
 		ContributedEntryBuilders: buildScopedUISettingEntryBuilders(server),
 	})

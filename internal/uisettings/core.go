@@ -4,7 +4,14 @@ import (
 	"context"
 	"strings"
 
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
+)
+
+const (
+	watchCodeEnabledSettingID = "core.watch_code.enabled"
+	watchCodeFoldersSettingID = "core.watch_code.folders"
+	watchCodeFilesSettingID   = "core.watch_code.files"
 )
 
 var (
@@ -28,22 +35,30 @@ var (
 	}
 )
 
+type CoreRegistryOptions struct {
+	WatchCodeCapabilities *plugins.PluginWatchCodeCapabilities
+}
+
 func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry, error) {
+	return NewCoreRegistryWithOptions(runtime, workspaceRoot, CoreRegistryOptions{})
+}
+
+func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, options CoreRegistryOptions) (*Registry, error) {
 	if runtime == nil {
 		return nil, projectstate.ErrRuntimeClosed
 	}
 	boolSchema := ValueSchema{Type: ValueTypeBoolean}
 	nonEmptyStringSchema := ValueSchema{Type: ValueTypeString, MinLength: intPointer(1)}
 
-	return New([]RuntimeEntry{
+	entries := []RuntimeEntry{
 		NewCompareAndSetEntry(
 			Entry{
-				SettingID:   "core.watch_code.enabled",
+				SettingID:   watchCodeEnabledSettingID,
 				Title:       "Watch Code Enabled",
 				Synonyms:    []string{"watch code", "watch mode", "watch toggle"},
 				Description: "Enable or disable watch code mode for the project.",
 				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameOverview)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.watch_code.enabled"},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: watchCodeEnabledSettingID},
 				Source:      SourceCore,
 				Mutability:  MutabilityWritable,
 				ValueSchema: boolSchema,
@@ -60,12 +75,12 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 		),
 		NewCompareAndSetEntry(
 			Entry{
-				SettingID:   "core.watch_code.folders",
+				SettingID:   watchCodeFoldersSettingID,
 				Title:       "Watch Code Folders",
 				Synonyms:    []string{"watch folders", "watch code folders"},
 				Description: "List of folders watched by watch code mode.",
 				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameOverview)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.watch_code.folders"},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: watchCodeFoldersSettingID},
 				Source:      SourceCore,
 				Mutability:  MutabilityWritable,
 				ValueSchema: watchCodeFoldersSchema,
@@ -82,12 +97,12 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 		),
 		NewCompareAndSetEntry(
 			Entry{
-				SettingID:   "core.watch_code.files",
+				SettingID:   watchCodeFilesSettingID,
 				Title:       "Watch Code Files",
 				Synonyms:    []string{"watch files", "watch code files"},
 				Description: "List of explicit files watched by watch code mode.",
 				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameOverview)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.watch_code.files"},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: watchCodeFilesSettingID},
 				Source:      SourceCore,
 				Mutability:  MutabilityWritable,
 				ValueSchema: watchCodeFilesSchema,
@@ -185,7 +200,42 @@ func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry,
 			},
 			ComparableMutationResult[bool],
 		),
-	})
+	}
+	metadata := registryPluginMetadata{}
+	if !coreRegistryWatchCodeProviderActive(options) {
+		entries = filterWatchCodeSettingEntries(entries)
+		metadata.unavailableSettings = unavailableWatchCodeSettingErrors()
+	}
+	return newRegistry(entries, metadata)
+}
+
+func coreRegistryWatchCodeProviderActive(options CoreRegistryOptions) bool {
+	if options.WatchCodeCapabilities == nil {
+		return true
+	}
+	return options.WatchCodeCapabilities.PluginEnabled && options.WatchCodeCapabilities.Python
+}
+
+func filterWatchCodeSettingEntries(entries []RuntimeEntry) []RuntimeEntry {
+	filtered := make([]RuntimeEntry, 0, len(entries))
+	for _, entry := range entries {
+		switch entry.Metadata.SettingID {
+		case watchCodeEnabledSettingID, watchCodeFoldersSettingID, watchCodeFilesSettingID:
+			continue
+		default:
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
+func unavailableWatchCodeSettingErrors() map[string]SettingError {
+	message := "Watch Code settings are unavailable because no active Watch Code provider is selected."
+	return map[string]SettingError{
+		watchCodeEnabledSettingID: {Code: ErrorCodePluginUnavailable, Message: message},
+		watchCodeFoldersSettingID: {Code: ErrorCodePluginUnavailable, Message: message},
+		watchCodeFilesSettingID:   {Code: ErrorCodePluginUnavailable, Message: message},
+	}
 }
 
 type CompareAndSetEntryNormalizer[Value any, Expected any] func(value any, expectedOldValue any) (Value, Expected, error)

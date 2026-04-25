@@ -81,6 +81,9 @@ type PluginRuntimeStore = {
   appSubsystemCapabilities:
     | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
     | null;
+  watchCodeCapabilities:
+    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["watchCode"]
+    | null;
   restartCapability: PluginRestartCapability | null;
   pluginListById: Record<string, PluginListEntry>;
   sortedPluginListEntries: PluginListEntry[];
@@ -109,6 +112,7 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   schemaVersion: null,
   serverMode: null,
   appSubsystemCapabilities: null,
+  watchCodeCapabilities: null,
   restartCapability: null,
   pluginListById: {},
   sortedPluginListEntries: [],
@@ -281,6 +285,8 @@ async function applyPluginRuntimeResponse(
   const previousState = usePluginRuntimeStore.getState();
   const appSubsystemCapabilities =
     runtimeResponse.featureCapabilities?.appSubsystem ?? null;
+  const watchCodeCapabilities =
+    runtimeResponse.featureCapabilities?.watchCode ?? null;
   const listData = runtimeResponse.list;
   const statusData = runtimeResponse.status;
   const pluginListById = mapPluginListById(
@@ -405,6 +411,7 @@ async function applyPluginRuntimeResponse(
     schemaVersion: listData.schemaVersion,
     serverMode: listData.serverMode,
     appSubsystemCapabilities,
+    watchCodeCapabilities,
     restartCapability: listData.restartCapability,
     pluginListById,
     sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
@@ -456,6 +463,7 @@ function buildClearedRuntimeState(
     schemaVersion: null,
     serverMode: null,
     appSubsystemCapabilities: null,
+    watchCodeCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],

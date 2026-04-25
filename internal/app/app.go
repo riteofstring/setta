@@ -2621,8 +2621,14 @@ func initializeAppMCPServer(
 		LLMAPIKeys:                     runtimeServices.ideAgents.llmService,
 		AgentRuns:                      runtimeServices.ideAgents.agentRunService,
 		UISettingReveals:               runtimeServices.uiSettingRevealService,
-		StateMachineRuns:               runtimeServices.ideAgents.stateMachineRuntime,
-		ToolInvocations:                runtimeServices.ideAgents.externalAgentRuntime,
+		WatchCodeCapabilities: func() plugins.PluginWatchCodeCapabilities {
+			if services.watchCodeCapabilities == nil {
+				return plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
+			}
+			return services.watchCodeCapabilities.WatchCodeCapabilities()
+		},
+		StateMachineRuns: runtimeServices.ideAgents.stateMachineRuntime,
+		ToolInvocations:  runtimeServices.ideAgents.externalAgentRuntime,
 	})
 	if err != nil {
 		return err
