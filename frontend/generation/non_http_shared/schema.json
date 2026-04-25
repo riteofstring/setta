@@ -12402,6 +12402,15 @@
             "type": "string"
           }
         },
+        "pendingRestartPluginIds": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
         "conflictingPluginIds": {
           "type": [
             "null",
@@ -12418,6 +12427,7 @@
         "activePluginIds",
         "disabledPluginIds",
         "invalidPluginIds",
+        "pendingRestartPluginIds",
         "conflictingPluginIds"
       ],
       "additionalProperties": false
@@ -12429,6 +12439,7 @@
         "no_provider",
         "disabled_provider",
         "invalid_provider",
+        "pending_restart",
         "active",
         "provider_conflict"
       ]

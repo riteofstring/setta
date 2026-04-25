@@ -2977,6 +2977,7 @@ export type PluginsPluginWatchCodeProviderSelection = {
   conflictingPluginIds: Array<string> | null;
   disabledPluginIds: Array<string> | null;
   invalidPluginIds: Array<string> | null;
+  pendingRestartPluginIds: Array<string> | null;
   selectedPluginId?: string;
   status: string;
 };

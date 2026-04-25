@@ -1074,6 +1074,127 @@ func TestServiceRuntimeWatchCodeCapabilitiesTreatDisabledPluginAsUnavailable(t *
 	}
 }
 
+func TestServiceRuntimeWatchCodeCapabilitiesFailClosedOnPendingRestartProvider(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-pending-restart-watch-code-provider"
+	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+		PluginID:                 pluginID,
+		FixtureName:              "backend",
+		EnabledByDefault:         true,
+		RegisterWatchCodeBackend: true,
+		WatchCode: map[string]any{
+			"python":                 true,
+			"requiresLanguageServer": true,
+		},
+	})
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds":               []string{pluginID},
+		"pendingRestartBackendPluginIds": []string{pluginID},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusPendingRestart,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected pending restart watch code provider to stay unavailable, got %#v", watchCode)
+	}
+	if watchCode.Python || watchCode.RequiresLanguageServer || watchCode.CanvasControlsUI {
+		t.Fatalf("expected pending restart watch code provider to expose no surfaces, got %#v", watchCode)
+	}
+	assertRuntimeWatchCodeSelection(
+		t,
+		runtimeResponse.Status.WatchCodeSelection,
+		PluginWatchCodeProviderSelectionStatusPendingRestart,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+	)
+}
+
+func TestServiceRuntimeWatchCodeCapabilitiesFailClosedWhenProviderPendingRestartBesideActive(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	activePluginID := "acme-active-watch-code-provider"
+	pendingRestartPluginID := "acme-pending-restart-watch-code-provider"
+	for _, pluginID := range []string{activePluginID, pendingRestartPluginID} {
+		installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+			PluginID:                 pluginID,
+			FixtureName:              "backend",
+			EnabledByDefault:         true,
+			RegisterWatchCodeBackend: true,
+			WatchCode: map[string]any{
+				"python":                 true,
+				"requiresLanguageServer": true,
+			},
+		})
+	}
+	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
+		"enabledPluginIds":               []string{activePluginID, pendingRestartPluginID},
+		"pendingRestartBackendPluginIds": []string{pendingRestartPluginID},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusPendingRestart,
+		nil,
+		[]string{activePluginID},
+		nil,
+		nil,
+		nil,
+		[]string{pendingRestartPluginID},
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected pending restart provider to fail closed beside active provider, got %#v", watchCode)
+	}
+	if watchCode.Python || watchCode.RequiresLanguageServer || watchCode.CanvasControlsUI {
+		t.Fatalf("expected pending restart provider to keep surfaces unavailable, got %#v", watchCode)
+	}
+	assertRuntimeWatchCodeSelection(
+		t,
+		runtimeResponse.Status.WatchCodeSelection,
+		PluginWatchCodeProviderSelectionStatusPendingRestart,
+		nil,
+		[]string{activePluginID},
+		nil,
+		nil,
+		nil,
+		[]string{pendingRestartPluginID},
+	)
+}
+
 func TestServiceRuntimeWatchCodeCapabilitiesTreatProviderWithoutPythonAsInvalid(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-invalid-watch-code-provider"
@@ -1673,6 +1794,7 @@ func assertRuntimeWatchCodeSelection(
 	expectedDisabled []string,
 	expectedInvalid []string,
 	expectedConflicting []string,
+	expectedPendingRestart ...[]string,
 ) {
 	t.Helper()
 
@@ -1699,6 +1821,13 @@ func assertRuntimeWatchCodeSelection(
 	}
 	if !slices.Equal(selection.InvalidPluginIDs, emptyStrings(expectedInvalid)) {
 		t.Fatalf("expected invalid watch code provider ids %#v, got %#v", expectedInvalid, selection.InvalidPluginIDs)
+	}
+	expectedPending := []string(nil)
+	if len(expectedPendingRestart) != 0 {
+		expectedPending = expectedPendingRestart[0]
+	}
+	if !slices.Equal(selection.PendingRestartPluginIDs, emptyStrings(expectedPending)) {
+		t.Fatalf("expected pending restart watch code provider ids %#v, got %#v", expectedPending, selection.PendingRestartPluginIDs)
 	}
 	if !slices.Equal(selection.ConflictingPluginIDs, emptyStrings(expectedConflicting)) {
 		t.Fatalf("expected conflicting watch code provider ids %#v, got %#v", expectedConflicting, selection.ConflictingPluginIDs)

@@ -4375,6 +4375,7 @@ type PluginWatchCodeProviderSelection = {
   conflictingPluginIds: null | Array<string>;
   disabledPluginIds: null | Array<string>;
   invalidPluginIds: null | Array<string>;
+  pendingRestartPluginIds: null | Array<string>;
   selectedPluginId?: null | string;
   status: PluginWatchCodeProviderSelectionStatusKind;
 };
@@ -4386,6 +4387,7 @@ type PluginWatchCodeProviderSelectionStatusKind =
   | "no_provider"
   | "disabled_provider"
   | "invalid_provider"
+  | "pending_restart"
   | "active"
   | "provider_conflict";
 

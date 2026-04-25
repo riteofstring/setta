@@ -9028,6 +9028,12 @@
             },
             "type": ["array", "null"]
           },
+          "pendingRestartPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
           "selectedPluginId": {
             "type": "string"
           },
@@ -9040,6 +9046,7 @@
           "activePluginIds",
           "disabledPluginIds",
           "invalidPluginIds",
+          "pendingRestartPluginIds",
           "conflictingPluginIds"
         ],
         "type": "object"

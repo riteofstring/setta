@@ -3172,6 +3172,10 @@
           "value": "invalid_provider"
         },
         {
+          "name": "pending_restart",
+          "value": "pending_restart"
+        },
+        {
           "name": "active",
           "value": "active"
         },

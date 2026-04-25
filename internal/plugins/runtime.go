@@ -63,17 +63,19 @@ const (
 	PluginWatchCodeProviderSelectionStatusNoProvider       PluginWatchCodeProviderSelectionStatusKind = "no_provider"
 	PluginWatchCodeProviderSelectionStatusDisabledProvider PluginWatchCodeProviderSelectionStatusKind = "disabled_provider"
 	PluginWatchCodeProviderSelectionStatusInvalidProvider  PluginWatchCodeProviderSelectionStatusKind = "invalid_provider"
+	PluginWatchCodeProviderSelectionStatusPendingRestart   PluginWatchCodeProviderSelectionStatusKind = "pending_restart"
 	PluginWatchCodeProviderSelectionStatusActive           PluginWatchCodeProviderSelectionStatusKind = "active"
 	PluginWatchCodeProviderSelectionStatusConflict         PluginWatchCodeProviderSelectionStatusKind = "provider_conflict"
 )
 
 type PluginWatchCodeProviderSelection struct {
-	Status               PluginWatchCodeProviderSelectionStatusKind `json:"status"`
-	SelectedPluginID     *string                                    `json:"selectedPluginId,omitempty"`
-	ActivePluginIDs      []string                                   `json:"activePluginIds"`
-	DisabledPluginIDs    []string                                   `json:"disabledPluginIds"`
-	InvalidPluginIDs     []string                                   `json:"invalidPluginIds"`
-	ConflictingPluginIDs []string                                   `json:"conflictingPluginIds"`
+	Status                  PluginWatchCodeProviderSelectionStatusKind `json:"status"`
+	SelectedPluginID        *string                                    `json:"selectedPluginId,omitempty"`
+	ActivePluginIDs         []string                                   `json:"activePluginIds"`
+	DisabledPluginIDs       []string                                   `json:"disabledPluginIds"`
+	InvalidPluginIDs        []string                                   `json:"invalidPluginIds"`
+	PendingRestartPluginIDs []string                                   `json:"pendingRestartPluginIds"`
+	ConflictingPluginIDs    []string                                   `json:"conflictingPluginIds"`
 }
 
 type PluginWatchCodeLanguageServerDependencyStatusKind string
@@ -354,6 +356,8 @@ func setRuntimeWatchCodeProviderResolutionStatus(
 	switch {
 	case hasInvalidActiveProvider:
 		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusInvalidProvider
+	case len(resolution.selection.PendingRestartPluginIDs) != 0:
+		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusPendingRestart
 	case len(activeProviders) == 0:
 		switch {
 		case len(resolution.selection.InvalidPluginIDs) != 0:
@@ -380,11 +384,12 @@ func setRuntimeWatchCodeProviderResolutionStatus(
 func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProviderResolution {
 	resolution := runtimeWatchCodeProviderResolution{
 		selection: PluginWatchCodeProviderSelection{
-			Status:               PluginWatchCodeProviderSelectionStatusNoProvider,
-			ActivePluginIDs:      []string{},
-			DisabledPluginIDs:    []string{},
-			InvalidPluginIDs:     []string{},
-			ConflictingPluginIDs: []string{},
+			Status:                  PluginWatchCodeProviderSelectionStatusNoProvider,
+			ActivePluginIDs:         []string{},
+			DisabledPluginIDs:       []string{},
+			InvalidPluginIDs:        []string{},
+			PendingRestartPluginIDs: []string{},
+			ConflictingPluginIDs:    []string{},
 		},
 	}
 	activeProviders := make([]runtimeWatchCodeProviderCandidate, 0)
@@ -426,6 +431,11 @@ func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProvid
 				resolution.selection.InvalidPluginIDs,
 				entry.PluginID,
 			)
+		case PluginRuntimeStatePendingRestart:
+			resolution.selection.PendingRestartPluginIDs = append(
+				resolution.selection.PendingRestartPluginIDs,
+				entry.PluginID,
+			)
 		}
 	}
 
@@ -438,6 +448,7 @@ func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProvid
 	resolution.selection.ActivePluginIDs = cloneStringSliceOrEmpty(resolution.selection.ActivePluginIDs)
 	resolution.selection.DisabledPluginIDs = cloneStringSliceOrEmpty(resolution.selection.DisabledPluginIDs)
 	resolution.selection.InvalidPluginIDs = cloneStringSliceOrEmpty(resolution.selection.InvalidPluginIDs)
+	resolution.selection.PendingRestartPluginIDs = cloneStringSliceOrEmpty(resolution.selection.PendingRestartPluginIDs)
 	resolution.selection.ConflictingPluginIDs = cloneStringSliceOrEmpty(resolution.selection.ConflictingPluginIDs)
 	return resolution
 }

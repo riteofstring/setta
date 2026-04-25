@@ -10434,6 +10434,12 @@
             },
             "type": ["null", "array"]
           },
+          "pendingRestartPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
           "selectedPluginId": {
             "type": ["null", "string"]
           },
@@ -10446,6 +10452,7 @@
           "activePluginIds",
           "disabledPluginIds",
           "invalidPluginIds",
+          "pendingRestartPluginIds",
           "conflictingPluginIds"
         ],
         "title": "PluginWatchCodeProviderSelection",
@@ -10456,6 +10463,7 @@
           "no_provider",
           "disabled_provider",
           "invalid_provider",
+          "pending_restart",
           "active",
           "provider_conflict"
         ],
