@@ -15,3 +15,5 @@ The app plugin's plugin-owned frontend build is now a generic manifest-declared 
 The checked-in public manifest schema and golden-path authoring guide are now expected to match the runtime manifest contract on this branch. Do not repeat the earlier schema/docs-lag finding unless you can identify a concrete current mismatch among `backend/setta/plugins/schemas/setta.plugin.schema.json`, `docs/guides/plugin-authoring-golden-path.md`, and the runtime manifest/capability handling.
 
 Still valid findings include blocked-but-advertised capability surfaces, remaining repo-local host alias imports, repo-private generation-path dependencies, broken package/build/test flows, stale or non-authoritative plugin packaging, or any concrete current contract mismatch.
+
+When a loop iteration adds or relies on a standalone plugin packaging invariant, run the focused proof command for that invariant before finishing the iteration. In particular, do not leave `test_vendored_app_subsystem_frontend_sdk_matches_source_package_build` or other staged package-root build/typecheck tests failing while claiming the standalone boundary is hardened.

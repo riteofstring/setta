@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -23,6 +23,23 @@ function readSourceSdkFile(relativePath: string): string {
 
 function readHostFrontendFile(relativePath: string): string {
   return readFileSync(resolve(repoRoot, "frontend", relativePath), "utf8");
+}
+
+function listRelativeFiles(root: string, relativeRoot = ""): string[] {
+  return readdirSync(resolve(root, relativeRoot), { withFileTypes: true })
+    .flatMap((entry) => {
+      const relativePath = relativeRoot
+        ? `${relativeRoot}/${entry.name}`
+        : entry.name;
+      if (entry.isDirectory()) {
+        return listRelativeFiles(root, relativePath);
+      }
+      if (entry.isFile()) {
+        return [relativePath];
+      }
+      return [];
+    })
+    .sort();
 }
 
 describe("app plugin frontend build boundary guardrails", () => {
@@ -149,6 +166,7 @@ describe("app plugin frontend build boundary guardrails", () => {
     ) as {
       scripts?: Record<string, string>;
       exports?: Record<string, { types?: string; default?: string }>;
+      pnpm?: { overrides?: Record<string, string> };
       types?: string;
     };
     const sourceSdkViteConfig = readSourceSdkFile("vite.config.mjs");
@@ -165,6 +183,8 @@ describe("app plugin frontend build boundary guardrails", () => {
       "./types/index.d.ts",
     );
     expect(sourceSdkPackageJson.exports?.["."]?.default).toBe("./src/index.ts");
+    expect(sourceSdkPackageJson.pnpm?.overrides?.esbuild).toBe("0.25.12");
+    expect(sourceSdkPackageJson.pnpm?.overrides?.rollup).toBe("4.59.1");
     expect(sourceSdkViteConfig).not.toContain("frontendSrcDir");
     expect(sourceSdkViteConfig).not.toContain("openapi:");
     expect(sourceSdkViteConfig).not.toContain("utils:");
@@ -195,5 +215,33 @@ describe("app plugin frontend build boundary guardrails", () => {
       "build?: PluginFrontendBuildManifest | null;",
     );
     expect(sourceSdkSidecar).toContain('"name": "PluginFrontendBuildManifest"');
+  });
+
+  it("keeps source SDK generated HTTP surfaces aligned with the host owner", () => {
+    const generatedHTTPRoot = "src/openapi/http/generated";
+    const sourceFiles = listRelativeFiles(
+      resolve(
+        repoRoot,
+        "frontend",
+        "plugin-sdk",
+        "app-subsystem",
+        generatedHTTPRoot,
+      ),
+    );
+    const hostFiles = listRelativeFiles(
+      resolve(repoRoot, "frontend", generatedHTTPRoot),
+    );
+
+    expect(sourceFiles).toEqual(hostFiles);
+    for (const relativePath of sourceFiles) {
+      const generatedPath = `src/openapi/http/generated/${relativePath}`;
+      const sourceText = readSourceSdkFile(generatedPath);
+      const hostText = readHostFrontendFile(generatedPath);
+      if (relativePath === "client/client.gen.ts") {
+        expect(sourceText).toBe(`// @ts-nocheck\n${hostText}`);
+      } else {
+        expect(sourceText).toBe(hostText);
+      }
+    }
   });
 });
