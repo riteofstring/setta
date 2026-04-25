@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	pluginSettingPrefix          = "plugin::"
-	pluginUISettingsSchemaKey    = "x-setta-ui-settings"
-	pluginRegisterPaneCapability = "registerPane"
+	pluginSettingPrefix                = "plugin::"
+	pluginUISettingsSchemaKey          = "x-setta-ui-settings"
+	pluginRegisterPaneCapability       = "registerPane"
+	pluginRegisterUISettingsCapability = "registerUISettings"
 )
 
 type PluginRuntimeService interface {
@@ -192,24 +193,37 @@ func appendPluginRuntimeEntriesForPlugin(
 		return nil
 	}
 	markPluginRuntimeEntryAvailable(metadata, pluginID, pluginEntry.EffectiveCapabilities)
-	if !pluginHasRegisterPaneCapability(pluginEntry.EffectiveCapabilities) {
+	hasRegisterPane := pluginHasRegisterPaneCapability(pluginEntry.EffectiveCapabilities)
+	hasRegisterUISettings := pluginHasRegisterUISettingsCapability(pluginEntry.EffectiveCapabilities)
+	if !hasRegisterPane && !hasRegisterUISettings {
 		return nil
 	}
 
-	sources, ok, err := loadPluginContributionSources(pluginService, pluginID, pluginEntry.Config.SchemaJSON, metadata)
+	sources, ok, err := loadPluginContributionSources(
+		pluginService,
+		pluginID,
+		pluginEntry.Config.SchemaJSON,
+		metadata,
+		hasRegisterPane,
+		hasRegisterUISettings,
+	)
 	if err != nil || !ok {
 		return err
 	}
 	recordInvalidPluginSettingErrors(metadata, pluginID, sources.parseResult.InvalidSettingErrors)
-	appendSchemaDefinedPluginEntries(entries, metadata, pluginService, pluginID, sources)
-	appendBackendRegisteredPluginEntries(entries, metadata, pluginService, pluginID, sources)
+	if hasRegisterPane {
+		appendSchemaDefinedPluginEntries(entries, metadata, pluginService, pluginID, sources)
+	}
+	if hasRegisterUISettings {
+		appendBackendRegisteredPluginEntries(entries, metadata, pluginService, pluginID, sources)
+	}
 	return nil
 }
 
 func markPluginRuntimeEntryAvailable(metadata *registryPluginMetadata, pluginID string, capabilities []string) {
 	status := metadata.pluginStatusByPluginID[pluginID]
 	status.RuntimeEntryAvailable = true
-	if pluginHasRegisterPaneCapability(capabilities) {
+	if pluginHasAnyUISettingsCapability(capabilities) {
 		status.SupportsUISettings = true
 	}
 	metadata.pluginStatusByPluginID[pluginID] = status
@@ -220,14 +234,26 @@ func loadPluginContributionSources(
 	pluginID string,
 	schemaJSON map[string]any,
 	metadata *registryPluginMetadata,
+	includeSchemaSettings bool,
+	includeBackendSettings bool,
 ) (pluginContributionSources, bool, error) {
-	parseResult, err := parsePluginUISettingDefinitions(pluginID, schemaJSON)
-	if err != nil {
-		return pluginContributionSources{}, false, nil
+	parseResult := pluginUISettingParseResult{
+		InvalidSettingErrors: map[string]SettingError{},
 	}
-	backendRegistrations, err := pluginService.GetBackendUISettings(pluginID)
-	if err != nil {
-		return pluginContributionSources{}, false, err
+	if includeSchemaSettings {
+		parsed, err := parsePluginUISettingDefinitions(pluginID, schemaJSON)
+		if err != nil {
+			return pluginContributionSources{}, false, nil
+		}
+		parseResult = parsed
+	}
+	var backendRegistrations []plugins.PluginRegisteredUISetting
+	if includeBackendSettings {
+		var err error
+		backendRegistrations, err = pluginService.GetBackendUISettings(pluginID)
+		if err != nil {
+			return pluginContributionSources{}, false, err
+		}
 	}
 	validBackendRegistrations := collectValidBackendRegistrations(pluginID, backendRegistrations, metadata)
 	return pluginContributionSources{
@@ -361,7 +387,7 @@ func buildPluginRegistryMetadata(runtime plugins.PluginRuntimeResponse) registry
 		metadata.knownPluginIDs[pluginID] = struct{}{}
 		status := metadata.pluginStatusByPluginID[pluginID]
 		status.ObservedStates = append(status.ObservedStates, string(statusEntry.State))
-		if pluginHasRegisterPaneCapability(statusEntry.EffectiveCapabilities) {
+		if pluginHasAnyUISettingsCapability(statusEntry.EffectiveCapabilities) {
 			status.SupportsUISettings = true
 		}
 		metadata.pluginStatusByPluginID[pluginID] = status
@@ -830,7 +856,7 @@ func (s pluginRuntimeSnapshot) requireRuntimeEntry() error {
 }
 
 func (s pluginRuntimeSnapshot) requireUISettingsCapability() error {
-	if pluginHasRegisterPaneCapability(s.pluginEntry.EffectiveCapabilities) {
+	if pluginHasAnyUISettingsCapability(s.pluginEntry.EffectiveCapabilities) {
 		return nil
 	}
 	return newPluginUISettingsCapabilityError(s.trimmedPluginID)
@@ -1566,6 +1592,19 @@ func pluginHasRegisterPaneCapability(capabilities []string) bool {
 		}
 	}
 	return false
+}
+
+func pluginHasRegisterUISettingsCapability(capabilities []string) bool {
+	for _, capability := range capabilities {
+		if strings.TrimSpace(capability) == pluginRegisterUISettingsCapability {
+			return true
+		}
+	}
+	return false
+}
+
+func pluginHasAnyUISettingsCapability(capabilities []string) bool {
+	return pluginHasRegisterPaneCapability(capabilities) || pluginHasRegisterUISettingsCapability(capabilities)
 }
 
 // Keep this key builder aligned with the frontend's buildPluginPaneOverviewTabName:

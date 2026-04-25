@@ -27,8 +27,6 @@ import (
 	"setta/internal/terminals"
 	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/tools"
-	"setta/internal/uisettings"
-	"setta/internal/watchcodeuisettings"
 )
 
 func TestReadFileRangeHandlerMirrorsPythonBehavior(t *testing.T) {
@@ -9367,27 +9365,6 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 		if options.WatchCodeCapabilities == nil {
 			options.WatchCodeCapabilities = activeScopedTestWatchCodeCapabilities
 		}
-		watchCodeCapabilities := options.WatchCodeCapabilities
-		options.ContributedUISettingBuilders = append(
-			[]uisettings.RuntimeEntryBuilder{
-				func(plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
-					return watchcodeuisettings.BuildScopedUISettingEntries(
-						watchCodeCapabilities(),
-						projectRuntime,
-						options.WorkspaceRoot,
-					)
-				},
-			},
-			options.ContributedUISettingBuilders...,
-		)
-		options.UnavailableUISettings = append(
-			[]uisettings.UnavailableSettingProvider{
-				func() map[string]uisettings.SettingError {
-					return watchcodeuisettings.UnavailableSettingErrors(watchCodeCapabilities())
-				},
-			},
-			options.UnavailableUISettings...,
-		)
 	}
 	if !options.SkipDefaultAppSubsystemTools &&
 		projectRuntime != nil &&

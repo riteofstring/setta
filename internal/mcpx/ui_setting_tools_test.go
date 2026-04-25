@@ -69,6 +69,273 @@ func (s *runtimeOverridePluginMutationService) Runtime(options plugins.RuntimeOp
 	return response, nil
 }
 
+type watchCodeBackendUISettingPluginMutationProvider struct {
+	runtime       *projectstate.Runtime
+	workspaceRoot string
+	pluginID      string
+}
+
+func newScopedTestServerSessionWithBackendWatchCodeSettings(
+	t *testing.T,
+	workspaceRoot string,
+	projectRuntime *projectstate.Runtime,
+) (*Server, *sdkmcp.ClientSession) {
+	t.Helper()
+	return newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(
+		t,
+		workspaceRoot,
+		projectRuntime,
+		ServerOptions{},
+	)
+}
+
+func newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(
+	t *testing.T,
+	workspaceRoot string,
+	projectRuntime *projectstate.Runtime,
+	options ServerOptions,
+) (*Server, *sdkmcp.ClientSession) {
+	t.Helper()
+	if strings.TrimSpace(workspaceRoot) == "" {
+		workspaceRoot = t.TempDir()
+	}
+	options.PluginMutations = &watchCodeBackendUISettingPluginMutationProvider{
+		runtime:       projectRuntime,
+		workspaceRoot: workspaceRoot,
+		pluginID:      activeScopedTestWatchCodeProviderID,
+	}
+	return newScopedTestServerSessionWithOptions(t, workspaceRoot, projectRuntime, options)
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) Runtime(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
+	capabilities := []string{"registerUISettings"}
+	return plugins.PluginRuntimeResponse{
+		List: plugins.PluginListResponse{
+			Plugins: []plugins.PluginListEntry{
+				{
+					PluginID:              p.pluginID,
+					Name:                  "Watch Code Backend UI Settings",
+					EffectiveCapabilities: capabilities,
+				},
+			},
+		},
+		Status: plugins.PluginStatusResponse{
+			Plugins: []plugins.PluginStatusEntry{
+				{
+					PluginID:              p.pluginID,
+					State:                 plugins.PluginRuntimeStateActive,
+					EffectiveCapabilities: capabilities,
+				},
+			},
+		},
+	}, nil
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) Rescan() (plugins.DiscoverySnapshot, error) {
+	return plugins.DiscoverySnapshot{}, nil
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) Install(context.Context, plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
+	return plugins.PluginInstallResponse{}, fmt.Errorf("plugin install is unavailable in this test provider")
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) Uninstall(context.Context, plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
+	return plugins.PluginUninstallResponse{}, fmt.Errorf("plugin uninstall is unavailable in this test provider")
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) Update(context.Context, plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
+	return plugins.PluginUpdateResponse{}, fmt.Errorf("plugin update is unavailable in this test provider")
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) Rollback(context.Context, plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
+	return plugins.PluginRollbackResponse{}, fmt.Errorf("plugin rollback is unavailable in this test provider")
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) WriteConfig(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
+	return plugins.PluginConfigWriteResponse{}, fmt.Errorf("plugin config writes are unavailable in this test provider")
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
+	if strings.TrimSpace(pluginID) != p.pluginID {
+		return nil, fmt.Errorf("plugin %q is not active", pluginID)
+	}
+	return watchCodeBackendUISettingRegistrations(p.pluginID), nil
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) ReadBackendUISettingValue(_ context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
+	projectData, err := p.watchCodeProjectData(options.PluginID, options.ProjectConfigID)
+	if err != nil {
+		return nil, err
+	}
+	switch strings.TrimSpace(options.HandlerID) {
+	case "read_enabled":
+		return projectData.Enabled, nil
+	case "read_folders":
+		return watchCodeFoldersToPluginSettingValue(projectData.Folders), nil
+	case "read_files":
+		return append([]string(nil), projectData.Files...), nil
+	default:
+		return nil, fmt.Errorf("unsupported watch code read handler %q", options.HandlerID)
+	}
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
+	if strings.TrimSpace(options.PluginID) != p.pluginID {
+		return fmt.Errorf("plugin %q is not active", options.PluginID)
+	}
+	switch strings.TrimSpace(options.HandlerID) {
+	case "write_enabled":
+		enabled, ok := options.Value.(bool)
+		if !ok {
+			return fmt.Errorf("watch code enabled value must be boolean")
+		}
+		_, _, err := p.runtime.CompareAndSetWatchCodeEnabled(
+			ctx,
+			p.pluginID,
+			options.ProjectConfigID,
+			enabled,
+			p.workspaceRoot,
+			nil,
+		)
+		return err
+	case "write_folders":
+		folders, err := decodeWatchCodeBackendUISettingValue[[]projectstate.WatchCodeFolder](options.Value)
+		if err != nil {
+			return err
+		}
+		_, _, err = p.runtime.CompareAndSetWatchCodeFolders(
+			ctx,
+			p.pluginID,
+			options.ProjectConfigID,
+			folders,
+			p.workspaceRoot,
+			nil,
+		)
+		return err
+	case "write_files":
+		files, err := decodeWatchCodeBackendUISettingValue[[]string](options.Value)
+		if err != nil {
+			return err
+		}
+		_, _, err = p.runtime.CompareAndSetWatchCodeFiles(
+			ctx,
+			p.pluginID,
+			options.ProjectConfigID,
+			files,
+			p.workspaceRoot,
+			nil,
+		)
+		return err
+	default:
+		return fmt.Errorf("unsupported watch code write handler %q", options.HandlerID)
+	}
+}
+
+func (p *watchCodeBackendUISettingPluginMutationProvider) watchCodeProjectData(
+	pluginID string,
+	projectConfigID string,
+) (projectstate.WatchCodePluginProjectData, error) {
+	if strings.TrimSpace(pluginID) != p.pluginID {
+		return projectstate.WatchCodePluginProjectData{}, fmt.Errorf("plugin %q is not active", pluginID)
+	}
+	document := p.runtime.Snapshot().Document
+	project, err := document.ProjectByID(projectConfigID)
+	if err != nil {
+		return projectstate.WatchCodePluginProjectData{}, err
+	}
+	projectData, _, err := document.WatchCodePluginProjectData(p.pluginID, project.ID)
+	return projectData, err
+}
+
+func watchCodeBackendUISettingRegistrations(pluginID string) []plugins.PluginRegisteredUISetting {
+	enabledWriteHandlerID := "write_enabled"
+	foldersWriteHandlerID := "write_folders"
+	filesWriteHandlerID := "write_files"
+	return []plugins.PluginRegisteredUISetting{
+		{
+			PluginID:       pluginID,
+			LocalSettingID: "enabled",
+			Title:          "Watch Code Enabled",
+			Description:    "Enable or disable Watch Code for the project.",
+			Synonyms:       []string{"watch code", "watch mode", "watch toggle"},
+			PaneID:         "left",
+			RevealKey:      "watch-code-settings",
+			Mutability:     string(uisettings.MutabilityWritable),
+			ValueSchema: map[string]any{
+				"type": "boolean",
+			},
+			ReadHandlerID:  "read_enabled",
+			WriteHandlerID: &enabledWriteHandlerID,
+		},
+		{
+			PluginID:       pluginID,
+			LocalSettingID: "folders",
+			Title:          "Watch Code Folders",
+			Description:    "List of folders watched by Watch Code.",
+			Synonyms:       []string{"watch folders", "watch code folders"},
+			PaneID:         "left",
+			RevealKey:      "watch-code-settings",
+			Mutability:     string(uisettings.MutabilityWritable),
+			ValueSchema: map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"path":      map[string]any{"type": "string"},
+						"recursive": map[string]any{"type": "boolean"},
+					},
+					"required":             []any{"path"},
+					"additionalProperties": false,
+				},
+			},
+			ReadHandlerID:  "read_folders",
+			WriteHandlerID: &foldersWriteHandlerID,
+		},
+		{
+			PluginID:       pluginID,
+			LocalSettingID: "files",
+			Title:          "Watch Code Files",
+			Description:    "List of explicit files watched by Watch Code.",
+			Synonyms:       []string{"watch files", "watch code files"},
+			PaneID:         "left",
+			RevealKey:      "watch-code-settings",
+			Mutability:     string(uisettings.MutabilityWritable),
+			ValueSchema: map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+			},
+			ReadHandlerID:  "read_files",
+			WriteHandlerID: &filesWriteHandlerID,
+		},
+	}
+}
+
+func watchCodeFoldersToPluginSettingValue(folders []projectstate.WatchCodeFolder) []map[string]any {
+	if len(folders) == 0 {
+		return []map[string]any{}
+	}
+	values := make([]map[string]any, len(folders))
+	for index, folder := range folders {
+		values[index] = map[string]any{
+			"path":      folder.Path,
+			"recursive": folder.Recursive,
+		}
+	}
+	return values
+}
+
+func decodeWatchCodeBackendUISettingValue[T any](value any) (T, error) {
+	var decoded T
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return decoded, err
+	}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		return decoded, err
+	}
+	return decoded, nil
+}
+
 type recordingRevealService struct {
 	input  uisettings.RevealInput
 	result uisettings.RevealResult
@@ -658,7 +925,7 @@ func TestServerRevealUISettingReturnsStructuredPayload(t *testing.T) {
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -739,7 +1006,7 @@ func TestServerRevealUISettingFailsClosedWhenRevealRuntimeUnavailable(t *testing
 		Name: "reveal_ui_setting",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-watch-code-provider::enabled",
+			"settingId":       "core.project.show_param_display_names",
 		},
 	})
 	if err != nil {
@@ -779,7 +1046,7 @@ func TestServerRevealUISettingUsesRequestMetaProjectAndSectionWhenSessionMissing
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -837,7 +1104,7 @@ func TestServerRevealUISettingDefaultsProjectAndSectionFromAgenticContext(t *tes
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -892,7 +1159,7 @@ func TestServerRevealUISettingForwardsShareSessionID(t *testing.T) {
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -944,7 +1211,7 @@ func TestServerRevealUISettingPrefersSessionShareSessionIDOverRequestMeta(t *tes
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -999,7 +1266,7 @@ func TestServerRevealUISettingIgnoresRequestMetaShareSessionIDWithoutSessionShar
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -1050,7 +1317,7 @@ func TestServerRevealUISettingShareScopeKeepsRequestMetaFrontendAffinityWhenSess
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -1315,7 +1582,7 @@ func TestServerSearchUISettingsReturnsRankedWatchCodePluginResults(t *testing.T)
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettings(t, t.TempDir(), projectRuntime)
 	defer clientSession.Close()
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", false)
@@ -1476,7 +1743,7 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettings(t, t.TempDir(), projectRuntime)
 	defer clientSession.Close()
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
@@ -1540,7 +1807,7 @@ func TestServerUISettingToolsPreferSessionProjectConfigIDOverRequestMeta(t *test
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettings(t, t.TempDir(), projectRuntime)
 	defer clientSession.Close()
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
@@ -1917,7 +2184,7 @@ func TestServerSetUISettingValueWritesAndValidates(t *testing.T) {
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettings(t, t.TempDir(), projectRuntime)
 	defer clientSession.Close()
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
@@ -1990,7 +2257,7 @@ func TestServerSetUISettingValueRejectsUnsupportedWatchCodeFolderPropertiesWitho
 	t.Parallel()
 
 	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettings(t, t.TempDir(), projectRuntime)
 	defer clientSession.Close()
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
@@ -2080,7 +2347,7 @@ func TestServerSetUISettingValueDefaultsProjectConfigIDFromShareScope(t *testing
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -2425,7 +2692,7 @@ func TestServerSetUISettingValueRevealAfterSetShareScopePrefersAgenticFrontendAf
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,
@@ -2742,7 +3009,7 @@ func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
 		},
 	}
 
-	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+	_, clientSession := newScopedTestServerSessionWithBackendWatchCodeSettingsAndOptions(t, t.TempDir(), projectRuntime, ServerOptions{
 		WorkspaceRoot:    t.TempDir(),
 		ProjectState:     projectRuntime,
 		UISettingReveals: revealService,

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,7 +19,6 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/uisettings"
-	"setta/internal/watchcodeuisettings"
 )
 
 type routeRevealService struct {
@@ -35,31 +35,17 @@ func (s *routeRevealService) Reveal(_ context.Context, input uisettings.RevealIn
 func newUISettingsRouteTestServer(t *testing.T, projectRuntime *projectstate.Runtime, options mcpx.ServerOptions) *mcpx.Server {
 	t.Helper()
 
-	if projectRuntime != nil {
-		if options.WatchCodeCapabilities == nil {
-			options.WatchCodeCapabilities = activeUISettingsRouteWatchCodeCapabilities
+	if projectRuntime != nil && options.PluginMutations == nil {
+		workspaceRoot := strings.TrimSpace(options.WorkspaceRoot)
+		if workspaceRoot == "" {
+			workspaceRoot = t.TempDir()
+			options.WorkspaceRoot = workspaceRoot
 		}
-		watchCodeCapabilities := options.WatchCodeCapabilities
-		options.ContributedUISettingBuilders = append(
-			[]uisettings.RuntimeEntryBuilder{
-				func(plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
-					return watchcodeuisettings.BuildScopedUISettingEntries(
-						watchCodeCapabilities(),
-						projectRuntime,
-						options.WorkspaceRoot,
-					)
-				},
-			},
-			options.ContributedUISettingBuilders...,
-		)
-		options.UnavailableUISettings = append(
-			[]uisettings.UnavailableSettingProvider{
-				func() map[string]uisettings.SettingError {
-					return watchcodeuisettings.UnavailableSettingErrors(watchCodeCapabilities())
-				},
-			},
-			options.UnavailableUISettings...,
-		)
+		options.PluginMutations = &routeWatchCodeBackendUISettingPluginMutationProvider{
+			runtime:       projectRuntime,
+			workspaceRoot: workspaceRoot,
+			pluginID:      "setta-fixture-watch-code-provider",
+		}
 	}
 	server, err := mcpx.NewServer(options)
 	if err != nil {
@@ -68,13 +54,123 @@ func newUISettingsRouteTestServer(t *testing.T, projectRuntime *projectstate.Run
 	return server
 }
 
-func activeUISettingsRouteWatchCodeCapabilities() plugins.PluginWatchCodeCapabilities {
-	return plugins.PluginWatchCodeCapabilities{
-		PluginID:               "setta-fixture-watch-code-provider",
-		PluginEnabled:          true,
-		Python:                 true,
-		RequiresLanguageServer: true,
+type routeWatchCodeBackendUISettingPluginMutationProvider struct {
+	runtime       *projectstate.Runtime
+	workspaceRoot string
+	pluginID      string
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Runtime(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
+	capabilities := []string{"registerUISettings"}
+	return plugins.PluginRuntimeResponse{
+		List: plugins.PluginListResponse{
+			Plugins: []plugins.PluginListEntry{
+				{
+					PluginID:              p.pluginID,
+					Name:                  "Watch Code Backend UI Settings",
+					EffectiveCapabilities: capabilities,
+				},
+			},
+		},
+		Status: plugins.PluginStatusResponse{
+			Plugins: []plugins.PluginStatusEntry{
+				{
+					PluginID:              p.pluginID,
+					State:                 plugins.PluginRuntimeStateActive,
+					EffectiveCapabilities: capabilities,
+				},
+			},
+		},
+	}, nil
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Rescan() (plugins.DiscoverySnapshot, error) {
+	return plugins.DiscoverySnapshot{}, nil
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Install(context.Context, plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
+	return plugins.PluginInstallResponse{}, fmt.Errorf("plugin install is unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Uninstall(context.Context, plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
+	return plugins.PluginUninstallResponse{}, fmt.Errorf("plugin uninstall is unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Update(context.Context, plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
+	return plugins.PluginUpdateResponse{}, fmt.Errorf("plugin update is unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Rollback(context.Context, plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
+	return plugins.PluginRollbackResponse{}, fmt.Errorf("plugin rollback is unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) WriteConfig(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
+	return plugins.PluginConfigWriteResponse{}, fmt.Errorf("plugin config writes are unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
+	if strings.TrimSpace(pluginID) != p.pluginID {
+		return nil, fmt.Errorf("plugin %q is not active", pluginID)
 	}
+	writeHandlerID := "write_enabled"
+	return []plugins.PluginRegisteredUISetting{
+		{
+			PluginID:       p.pluginID,
+			LocalSettingID: "enabled",
+			Title:          "Watch Code Enabled",
+			Description:    "Enable or disable Watch Code for the project.",
+			Synonyms:       []string{"watch code", "watch mode", "watch toggle"},
+			PaneID:         "left",
+			RevealKey:      "watch-code-settings",
+			Mutability:     string(uisettings.MutabilityWritable),
+			ValueSchema: map[string]any{
+				"type": "boolean",
+			},
+			ReadHandlerID:  "read_enabled",
+			WriteHandlerID: &writeHandlerID,
+		},
+	}, nil
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) ReadBackendUISettingValue(_ context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
+	if strings.TrimSpace(options.PluginID) != p.pluginID {
+		return nil, fmt.Errorf("plugin %q is not active", options.PluginID)
+	}
+	if strings.TrimSpace(options.HandlerID) != "read_enabled" {
+		return nil, fmt.Errorf("unsupported watch code read handler %q", options.HandlerID)
+	}
+	document := p.runtime.Snapshot().Document
+	project, err := document.ProjectByID(options.ProjectConfigID)
+	if err != nil {
+		return nil, err
+	}
+	projectData, _, err := document.WatchCodePluginProjectData(p.pluginID, project.ID)
+	if err != nil {
+		return nil, err
+	}
+	return projectData.Enabled, nil
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
+	if strings.TrimSpace(options.PluginID) != p.pluginID {
+		return fmt.Errorf("plugin %q is not active", options.PluginID)
+	}
+	if strings.TrimSpace(options.HandlerID) != "write_enabled" {
+		return fmt.Errorf("unsupported watch code write handler %q", options.HandlerID)
+	}
+	enabled, ok := options.Value.(bool)
+	if !ok {
+		return fmt.Errorf("watch code enabled value must be boolean")
+	}
+	_, _, err := p.runtime.CompareAndSetWatchCodeEnabled(
+		ctx,
+		p.pluginID,
+		options.ProjectConfigID,
+		enabled,
+		p.workspaceRoot,
+		nil,
+	)
+	return err
 }
 
 func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {

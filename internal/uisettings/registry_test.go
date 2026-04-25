@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	appdefinition "setta/internal/appsubsystem/appdefinition"
@@ -125,6 +126,35 @@ func TestScopedRegistryWithoutPluginServiceBuildsCoreOnlyRegistryAndEmptyPluginM
 		t.Fatalf("get core.app.spec_path: %v", err)
 	} else if ok {
 		t.Fatal("expected app UI settings to be absent without the app plugin")
+	}
+}
+
+func TestScopedRegistryDoesNotExposeCoreWatchCodeSettings(t *testing.T) {
+	t.Parallel()
+
+	runtime := openCoreRegistryRuntime(t)
+	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
+		Runtime:       runtime,
+		WorkspaceRoot: t.TempDir(),
+	})
+
+	for _, settingID := range []string{
+		"core.watch_code.enabled",
+		"core.watch_code.folders",
+		"core.watch_code.files",
+	} {
+		if _, ok, err := registry.Get(settingID); err != nil || ok {
+			t.Fatalf("expected %s to be absent, ok=%v err=%v", settingID, ok, err)
+		}
+	}
+	results, err := registry.Search("watch toggle", 5, SourceFilterCore)
+	if err != nil {
+		t.Fatalf("search core watch settings: %v", err)
+	}
+	for _, result := range results {
+		if strings.HasPrefix(result.SettingID, "core.watch_code.") {
+			t.Fatalf("expected no core Watch Code settings in search, got %#v", results)
+		}
 	}
 }
 
@@ -258,7 +288,7 @@ func TestRegistryMissingSettingErrorReportsPluginAvailabilityFailures(t *testing
 				},
 			},
 			wantCode: ErrorCodePluginUnavailable,
-			wantMsg:  "Plugin plugin.alpha is unavailable for UI setting access (registerPane capability not effective).",
+			wantMsg:  "Plugin plugin.alpha is unavailable for UI setting access (registerPane or registerUISettings capability not effective).",
 		},
 		{
 			name: "invalid plugin setting",

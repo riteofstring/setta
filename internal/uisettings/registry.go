@@ -449,7 +449,7 @@ func newPluginRuntimeEntryMissingError(pluginID string, observedState string) er
 func newPluginUISettingsCapabilityError(pluginID string) error {
 	return newSettingError(
 		ErrorCodePluginUnavailable,
-		"Plugin %s is unavailable for UI setting access (registerPane capability not effective).",
+		"Plugin %s is unavailable for UI setting access (registerPane or registerUISettings capability not effective).",
 		pluginID,
 	)
 }

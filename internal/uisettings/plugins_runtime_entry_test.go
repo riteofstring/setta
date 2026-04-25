@@ -12,6 +12,7 @@ import (
 type testPluginRuntimeService struct {
 	runtimeResponse   plugins.PluginRuntimeResponse
 	writeConfigCalls  int
+	backendUISettings []plugins.PluginRegisteredUISetting
 	backendReadValue  any
 	backendWriteCalls int
 }
@@ -35,7 +36,7 @@ func (s *testPluginRuntimeService) WriteConfig(_ context.Context, options plugin
 }
 
 func (s *testPluginRuntimeService) GetBackendUISettings(string) ([]plugins.PluginRegisteredUISetting, error) {
-	return nil, nil
+	return append([]plugins.PluginRegisteredUISetting(nil), s.backendUISettings...), nil
 }
 
 func (s *testPluginRuntimeService) ReadBackendUISettingValue(_ context.Context, _ plugins.BackendUISettingReadOptions) (any, error) {
@@ -107,6 +108,28 @@ func newBackendRegisteredRuntimeEntry(service PluginRuntimeService) RuntimeEntry
 	})
 }
 
+func newBackendUISettingsOnlyRuntimeResponse() plugins.PluginRuntimeResponse {
+	return plugins.PluginRuntimeResponse{
+		List: plugins.PluginListResponse{
+			Plugins: []plugins.PluginListEntry{
+				{
+					PluginID:              "plugin-a",
+					EffectiveCapabilities: []string{pluginRegisterUISettingsCapability},
+				},
+			},
+		},
+		Status: plugins.PluginStatusResponse{
+			Plugins: []plugins.PluginStatusEntry{
+				{
+					PluginID:              "plugin-a",
+					State:                 plugins.PluginRuntimeStateActive,
+					EffectiveCapabilities: []string{pluginRegisterUISettingsCapability},
+				},
+			},
+		},
+	}
+}
+
 func requireSettingError(t *testing.T, err error) *SettingError {
 	t.Helper()
 	var settingErr *SettingError
@@ -152,6 +175,102 @@ func TestReadPluginConfigPathValueRejectsNonObjectIntermediateNode(t *testing.T)
 	}
 	if !strings.Contains(settingErr.Message, "non-object node at settings") {
 		t.Fatalf("expected non-object intermediate message, got %q", settingErr.Message)
+	}
+}
+
+func TestNewScopedRegistryIncludesBackendRegisteredSettingWithRegisterUISettingsOnly(t *testing.T) {
+	t.Parallel()
+
+	writeHandlerID := "write-enabled"
+	service := &testPluginRuntimeService{
+		runtimeResponse:  newBackendUISettingsOnlyRuntimeResponse(),
+		backendReadValue: false,
+		backendUISettings: []plugins.PluginRegisteredUISetting{
+			{
+				PluginID:       "plugin-a",
+				LocalSettingID: "enabled",
+				Title:          "Backend Enabled",
+				Description:    "Backend-provided setting.",
+				PaneID:         "settings",
+				RevealKey:      "enabled",
+				Mutability:     string(MutabilityWritable),
+				ValueSchema: map[string]any{
+					"type": "boolean",
+				},
+				ReadHandlerID:  "read-enabled",
+				WriteHandlerID: &writeHandlerID,
+			},
+		},
+	}
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+		Runtime:       openCoreRegistryRuntime(t),
+		WorkspaceRoot: t.TempDir(),
+		PluginService: service,
+	})
+	if err != nil {
+		t.Fatalf("new scoped registry: %v", err)
+	}
+
+	settingID := "plugin::plugin-a::enabled"
+	if !registry.HasKnownPluginSetting("plugin-a", "enabled") {
+		t.Fatalf("expected backend-registered setting %s to be known", settingID)
+	}
+	entry, ok, err := registry.Get(settingID)
+	if err != nil {
+		t.Fatalf("get backend-registered setting: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected backend-registered setting %s", settingID)
+	}
+	if entry.Metadata.Title != "Backend Enabled" {
+		t.Fatalf("expected backend title, got %#v", entry.Metadata.Title)
+	}
+	value, err := registry.ReadValue(context.Background(), "project-alpha", settingID)
+	if err != nil {
+		t.Fatalf("read backend-registered setting: %v", err)
+	}
+	if value != false {
+		t.Fatalf("expected backend value false, got %#v", value)
+	}
+}
+
+func TestNewScopedRegistryOmitsSchemaDefinedSettingWithoutRegisterPane(t *testing.T) {
+	t.Parallel()
+
+	service := &testPluginRuntimeService{
+		runtimeResponse: newBackendUISettingsOnlyRuntimeResponse(),
+	}
+	service.runtimeResponse.List.Plugins[0].Config = plugins.PluginConfigDescriptor{
+		SchemaJSON: map[string]any{
+			pluginUISettingsSchemaKey: []any{
+				map[string]any{
+					"settingId":    "theme_mode",
+					"title":        "Theme mode",
+					"description":  "Controls the plugin theme.",
+					"paneId":       "appearance",
+					"revealKey":    "theme-mode",
+					"configPath":   []any{"appearance", "themeMode"},
+					"valueSchema":  map[string]any{"type": string(ValueTypeString)},
+					"defaultValue": "auto",
+				},
+			},
+		},
+	}
+
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+		Runtime:       openCoreRegistryRuntime(t),
+		WorkspaceRoot: t.TempDir(),
+		PluginService: service,
+	})
+	if err != nil {
+		t.Fatalf("new scoped registry: %v", err)
+	}
+	if registry.HasKnownPluginSetting("plugin-a", "theme_mode") {
+		t.Fatal("expected schema-defined setting to require registerPane")
+	}
+	_, ok, err := registry.Get("plugin::plugin-a::theme_mode")
+	if err != nil || ok {
+		t.Fatalf("expected schema-defined setting to be absent without registerPane, ok=%v err=%v", ok, err)
 	}
 }
 
