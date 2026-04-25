@@ -11,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/appsubsystem"
+	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/tools"
 )
 
@@ -37,9 +40,11 @@ func clonePluginBackendLaunchEnv(values map[string]string) map[string]string {
 }
 
 type pluginBackendMCPRuntimeOptions struct {
-	Logger      *slog.Logger
-	RuntimeRoot string
-	Snapshot    plugins.DiscoverySnapshot
+	Logger                 *slog.Logger
+	RuntimeRoot            string
+	Snapshot               plugins.DiscoverySnapshot
+	ProjectRuntime         *projectstate.Runtime
+	BackendListenerInvoker appdefinition.BackendListenerInvoker
 }
 
 func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRuntimeOptions) (*pluginBackendMCPRuntime, error) {
@@ -55,23 +60,84 @@ func newPluginBackendMCPRuntime(ctx context.Context, options pluginBackendMCPRun
 	if err != nil {
 		return nil, err
 	}
-	if len(serverConfigs) == 0 {
-		return runtime, nil
+	if len(serverConfigs) != 0 {
+		client, registrations, toolNames, err := startPluginBackendMCPClient(
+			pluginBackendMCPContext(ctx),
+			options.Logger,
+			serverConfigs,
+			runtime.serverIDs,
+		)
+		if err != nil {
+			return nil, err
+		}
+		runtime.client = client
+		runtime.registrations = registrations
+		runtime.toolNames = toolNames
 	}
-
-	client, registrations, toolNames, err := startPluginBackendMCPClient(
-		pluginBackendMCPContext(ctx),
-		options.Logger,
-		serverConfigs,
-		runtime.serverIDs,
-	)
-	if err != nil {
+	if err := runtime.appendAppSubsystemTools(
+		options.Snapshot,
+		options.ProjectRuntime,
+		options.BackendListenerInvoker,
+	); err != nil {
 		return nil, err
 	}
-	runtime.client = client
-	runtime.registrations = registrations
-	runtime.toolNames = toolNames
 	return runtime, nil
+}
+
+func (r *pluginBackendMCPRuntime) appendAppSubsystemTools(
+	snapshot plugins.DiscoverySnapshot,
+	projectRuntime *projectstate.Runtime,
+	backendListenerInvoker appdefinition.BackendListenerInvoker,
+) error {
+	if r == nil || projectRuntime == nil {
+		return nil
+	}
+	capabilities := plugins.AppSubsystemCapabilitiesFromSnapshot(snapshot)
+	if !appSubsystemMCPToolsEnabled(capabilities) {
+		return nil
+	}
+	registrations, err := appsubsystem.BuildMCPToolRegistrations(
+		capabilities,
+		projectRuntime,
+		backendListenerInvoker,
+	)
+	if err != nil {
+		return err
+	}
+	if len(registrations) == 0 {
+		return nil
+	}
+	r.registrations = append(r.registrations, registrations...)
+	r.toolNames = append(r.toolNames, toolNamesForRegistrations(registrations)...)
+	return nil
+}
+
+func appSubsystemMCPToolsEnabled(
+	capabilities plugins.PluginAppSubsystemCapabilities,
+) bool {
+	return capabilities.PluginEnabled && capabilities.AppGenerationChatModes
+}
+
+func toolNamesForRegistrations(
+	registrations []mcpx.ToolRegistration,
+) []string {
+	if len(registrations) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(registrations))
+	seen := map[string]struct{}{}
+	for _, registration := range registrations {
+		name := strings.TrimSpace(registration.Spec.Name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	return names
 }
 
 func (r *pluginBackendMCPRuntime) buildServerConfigs(

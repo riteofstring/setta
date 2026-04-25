@@ -231,6 +231,7 @@ func RegisterFileBrowserRoutes(router chi.Router, deps FileBrowserRouteDependenc
 		withOpenAPITags("File Browser"),
 		withOpenAPISummary("Check whether a file exists and is accessible from the current runtime."),
 		withOpenAPIModeRequirement("not-launcher"),
+		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	registerOpenAPIPost[CheckWorkspaceInitializedRequest, bool](
 		sharedRouter,

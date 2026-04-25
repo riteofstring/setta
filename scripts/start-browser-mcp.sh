@@ -93,21 +93,11 @@ BOOTSTRAP_WAIT_SECONDS="${BOOTSTRAP_WAIT_SECONDS:-120}"
 DEVTOOLS_CLOSE_BLANK_TABS="${DEVTOOLS_CLOSE_BLANK_TABS:-1}"
 DEVTOOLS_OPEN_WITH_CHROME="${DEVTOOLS_OPEN_WITH_CHROME:-1}"
 BOOTSTRAP_VERBOSE="${BOOTSTRAP_VERBOSE:-1}"
-DEVTOOLS_HEADLESS="${DEVTOOLS_HEADLESS:-0}"
 
 CHROME_ARGS=()
 if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
   # shellcheck disable=SC2206
   CHROME_ARGS=(${CHROME_EXTRA_ARGS})
-fi
-if [[ "$DEVTOOLS_HEADLESS" == "1" ]]; then
-  CHROME_ARGS+=(
-    --headless
-    --noerrdialogs
-    --ozone-platform=headless
-    --ozone-override-screen-size=800,600
-    --use-angle=swiftshader-webgl
-  )
 fi
 
 resolve_python_bin() {
@@ -242,33 +232,6 @@ if os.environ.get("DEVTOOLS_CLOSE_BLANK_TABS") == "1" and target_id:
 PY
 }
 
-devtools_endpoint_ready() {
-  local python_bin=""
-  python_bin="$(resolve_python_bin || true)"
-  if [[ -z "$python_bin" ]]; then
-    return 1
-  fi
-
-  DEBUG_PORT="$DEBUG_PORT" "$python_bin" - <<'PY'
-import os
-import sys
-import urllib.request
-
-port = os.environ.get("DEBUG_PORT", "")
-if not port:
-    sys.exit(1)
-
-try:
-    with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=2) as response:
-        status = getattr(response, "status", 200)
-        if 200 <= status < 400:
-            sys.exit(0)
-except Exception:
-    pass
-sys.exit(1)
-PY
-}
-
 bootstrap_url_ready() {
   local target_url="$1"
   if [[ -z "$target_url" ]]; then
@@ -354,14 +317,6 @@ open_bootstrap_in_devtools() {
     local url_candidate=""
     if url_candidate="$(get_bootstrap_url)"; then
       if [[ -n "$url_candidate" ]]; then
-        if ! devtools_endpoint_ready; then
-          if [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
-            echo "Devtools Chrome not ready yet."
-          fi
-          sleep 1
-          elapsed=$((elapsed + 1))
-          continue
-        fi
         if bootstrap_url_ready "$url_candidate"; then
           if [[ "$BOOTSTRAP_VERBOSE" == "1" ]]; then
             echo "Opening Setta bootstrap URL in devtools Chrome."
@@ -406,7 +361,6 @@ Environment variables:
   BOOTSTRAP_WAIT_SECONDS  Seconds to wait for a bootstrap URL before giving up (default: 120)
   DEVTOOLS_CLOSE_BLANK_TABS  Close about:blank tabs after opening Setta (default: 1)
   DEVTOOLS_OPEN_WITH_CHROME  Also ask Chrome to open the URL in the devtools profile (default: 1)
-  DEVTOOLS_HEADLESS  Start Chrome in headless mode (default: 0)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
   CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
 

@@ -587,11 +587,7 @@ function HomeWorkspaceLayout({
   );
   async function handleCreateConfig() {
     setIsCreatingConfig(true);
-    try {
-      await createAndGoToProjectConfig();
-    } finally {
-      setIsCreatingConfig(false);
-    }
+    await createAndGoToProjectConfig();
   }
   function onSelectProject(projectConfigId: string) {
     setActiveProjectId(projectConfigId);
