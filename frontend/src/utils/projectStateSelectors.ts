@@ -60,7 +60,7 @@ export function getEffectiveImpl<T extends object>(
   return effective;
 }
 
-export function getCurrentSectionVariantIdIfPresent(
+function getCurrentSectionVariantIdIfPresent(
   projectState: ProjectStateSelectorSnapshot,
   sectionId: string,
   preview = false,
@@ -180,25 +180,6 @@ export function getCurrentEffectiveCodeObjImplIfPresent(
     return null;
   }
   return getEffectiveImpl(baseImpl, core, variant);
-}
-
-export function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T>(
-  projectState: ProjectStateSelectorSnapshot,
-  sectionId: string,
-  codeObjId: string,
-  typeGuard: (impl: BaseCodeObjImplUnion) => impl is T,
-  preview = false,
-): T | null {
-  const impl = getCurrentEffectiveCodeObjImplIfPresent(
-    projectState,
-    sectionId,
-    codeObjId,
-    preview,
-  );
-  if (!impl || !typeGuard(impl)) {
-    return null;
-  }
-  return impl;
 }
 
 export function getParamDisplayNameIfPresent(

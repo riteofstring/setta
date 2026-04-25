@@ -2,7 +2,7 @@ import requests
 
 from setta import __version__
 from setta.runtime_compat import RuntimeCompatibilityError
-from setta.sdk_contract_version import SETTA_SDK_CONTRACT_VERSION
+from setta.sdk_contracts.constants import SETTA_SDK_CONTRACT_VERSION
 from setta.sdk_contracts.generated import (
     RunningBackendVersionHandshake,
 )

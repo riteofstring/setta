@@ -20,22 +20,22 @@
 - Still unverified: No separate HTTP/MCP provider-unavailable integration run; verification focused on generated contracts, runtime/provider selection, packaged backend probes, and app-definition dispatch owners.
 
 ### Frontend App Subsystem Host/SDK Boundary
-- Invariant: SDK contract/barrel imports must be side-effect-free for the shared OpenAPI singleton, plugin OpenAPI configuration must be explicit, shared request/selector helpers must have one owner, host code/tests must not import plugin frontend source directly, and plugin-owned frontend tests/dependencies must run from the plugin package.
-- Last finding commit: 5f2c74196ecb4feb9b41ac44fc352a03aeb7ed7b
-- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/openapi/http/client.test.ts`, `src/plugins/appSubsystemFrontendHost.test.ts`, `src/plugins/appSubsystemSdk.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, plugin-owned Vitest suite under `plugins/setta-json-render-app-gen/frontend/tests`; plugin SDK and plugin frontend production builds completed.
-- Still unverified: Browser/CDP and Playwright were not run because no visual rendering flow changed.
+- Invariant: SDK contract/barrel imports must keep shared OpenAPI setup explicit and side-effect-free; plugin source, plugin tests, plugin build config, vendored SDK metadata, packaged SDK type declarations, and the default quality gate must enforce the standalone plugin boundary without repo-local host aliases or host test utilities.
+- Last finding commit: e0095d6d2c8eb661a3f401fa3f7cc2e405cabbab
+- Proof tests: `src/plugins/appSubsystemSdkOpenAPI.test.ts`, `src/plugins/appSubsystemSdk.test.ts`, `src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`, `src/plugins/importBoundaryGuardrails.test.ts`, `tests/start/test_check_quality_script.py`, plugin-owned Vitest suite under `plugins/setta-json-render-app-gen/frontend/tests`
+- Still unverified: Browser/CDP and Playwright were not run because no visible UI flow changed.
 
 ### Standalone Plugin Packaging Pipeline
-- Invariant: The first-party app-subsystem plugin must build, typecheck, validate manifest assets, package wheels, and stage deployment snapshots from plugin-owned source plus declared dependencies/runtime-SDK contracts; no source, test, build-config, or packaged-path validation may depend on tracked `frontend/dist/*`, repo-root host bundle reads, or repo-local host frontend aliases.
-- Last finding commit: cd8e625c588964fb0e67a43fcb878e11d9fceb90
-- Proof tests: `TestServiceRuntimeActivatesLinkedFirstPartyAppSubsystemPluginWithRuntimeManagedComponents`, `TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets`, `TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_wheel_packages_runtime_managed_assets`, `test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root`
+- Invariant: The first-party app-subsystem plugin and package-manager installs must build, typecheck, validate manifest assets, package wheels, and probe Python backends from plugin-owned source plus declared Setta runtime/SDK dependencies; Python launch roots must stay package-owned, and no source, test, build-config, or packaged-path validation may depend on tracked `frontend/dist/*`, repo checkout `backend/setta`, or repo-local host frontend aliases.
+- Last finding commit: e0095d6d2c8eb661a3f401fa3f7cc2e405cabbab
+- Proof tests: `TestBuildFirstPartyAppSubsystemWheelIncludesRuntimeManagedAssets`, `TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets`, `TestResolvePluginBackendLaunchIncludesPluginRootOnPythonPath`, `TestResolvePluginBackendLaunchForInstalledPythonPluginUsesOnlyPackageOwnedRoots`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_package_declares_setta_runtime_dependency`, `test_first_party_app_subsystem_plugin_wheel_declares_setta_runtime_dependency`, `test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
 - Still unverified: No full packaged deployment smoke test or third-party standalone-plugin matrix was run in this pass; browser/CDP and Playwright were not run because no visible UI flow changed.
 
 ### Local Core Packaged Runtime Boundary
-- Invariant: The published plugin-runtime local-core helper must share one transport and handshake-validation path, include all lightweight runtime modules in the Setta wheel, expose generated app-subsystem backend contract constants, and avoid API-only package surfaces or Pydantic-heavy modules in packaged plugin backends.
-- Last finding commit: cd8e625c588964fb0e67a43fcb878e11d9fceb90
-- Proof tests: `TestBuildIncludesGoOwnedAppSubsystemBackendContract`, `test_app_subsystem_endpoint_mapping_uses_go_owned_constants`, `test_run_local_core_command_dispatches_through_packaged_boundary`, `test_run_local_core_command_surfaces_structured_errors`, `test_run_local_core_command_rejects_sdk_version_mismatch`, `test_run_local_core_command_rejects_sdk_contract_mismatch`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`, packaged wheel content assertions in `test_packaged_distribution.py`
-- Still unverified: No broader packaged-plugin runtime matrix beyond the focused local-core and packaged-distribution owners; the upgraded Python packaged-distribution suite was not rerun in this pass.
+- Invariant: The published plugin-runtime local-core helper and lightweight runtime clients must share one packaged boundary, include all lightweight runtime modules in the Setta wheel/test fixture, derive SDK contract constants from the generated owner, expose generated app-subsystem backend contract constants, and avoid API-only package surfaces or Pydantic-heavy modules in packaged plugin backends.
+- Last finding commit: e0095d6d2c8eb661a3f401fa3f7cc2e405cabbab
+- Proof tests: `TestBuildIncludesGoOwnedAppSubsystemBackendContract`, `TestBuildEmitsLightweightConstantsModule`, `test_lightweight_sdk_contract_version_matches_generated_owner`, `test_app_subsystem_endpoint_mapping_uses_go_owned_constants`, `test_run_local_core_command_dispatches_through_packaged_boundary`, `test_run_local_core_command_surfaces_structured_errors`, `test_run_local_core_command_rejects_sdk_version_mismatch`, `test_run_local_core_command_rejects_sdk_contract_mismatch`, `test_first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain`
+- Still unverified: No broader packaged-plugin runtime matrix beyond the focused local-core and packaged-distribution owners; no separate deployment-mode local-core smoke was run.
 
 ### App Generation Metadata Ownership
 - Invariant: App-generation modes, slash commands, image requirements, prompts, and frontend app-chat UI metadata must come from one Go-owned registry; downstream frontend values derive from that registry rather than restating command/mode inventories.
@@ -208,3 +208,30 @@ Residual risks / verification gaps:
 - Browser/CDP and Playwright verification were not run because no visible UI behavior changed; metadata finalization only ensured any lingering devtools session for this repo was stopped.
 - `tests/start/test_packaged_distribution.py` was upgraded for the clean-checkout packaging path but was not rerun in this pass.
 - Full repo test suite was not run; verification stayed focused on the standalone-plugin packaging owner, generated local-core contract constants, and the affected host boundary test.
+
+## 2026-04-23 12:21:36 PDT
+Fixes applied:
+- Removed repo-checkout `backend/setta` injection from Python plugin backend launch roots so package-manager plugins resolve only plugin-owned and installed-package roots.
+- Declared exact `setta` runtime dependencies for first-party app-subsystem plugin wheels, introduced a shared packaged-Setta test fixture under `internal/testutil/packagedsetta`, and rewired package-manager / packaged-distribution tests to install against packaged runtime inputs instead of repo-local imports.
+- Generated `backend/setta/sdk_contracts/constants.py`, deleted the handwritten `backend/setta/sdk_contract_version.py`, and switched lightweight runtime callers to the generated SDK contract constant owner.
+- Expanded the default quality gate to cover plugin manifests, Vite/Vitest configs, vendored SDK metadata, packaged SDK `types/*.d.ts`, and plugin frontend boundary tests; the simplified worktree also deleted one dead host-only selector helper surfaced by that pass.
+
+Tests added or upgraded:
+- Added Python backend launch-root coverage in `internal/plugins/backend_build_test.go`.
+- Added packaged-runtime fixture coverage in `internal/plugins/package_manager_test_helpers_test.go`, `internal/app/app_subsystem_plugin_test.go`, and `tests/start/test_packaged_distribution.py` for declared runtime dependencies, package-owned installs, and packaged backend startup.
+- Added lightweight SDK-constant owner coverage in `internal/pythonsdkcontracts/generator_test.go` and `tests/api/test_runtime_compat.py`.
+- Added quality-path and frontend boundary-guard coverage in `tests/start/test_check_quality_script.py` and `frontend/src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`.
+
+Verification run:
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `./scripts/go.sh test ./internal/pythonsdkcontracts -v`
+- `./scripts/go.sh test ./internal/plugins -run 'TestResolvePluginBackendLaunch|TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin|TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin' -v`
+- `./scripts/go.sh test ./internal/app -run 'TestAppSubsystemPackageManagerPluginDisabledHidesBackendRoutesAndTools|TestAppSubsystemPackageManagerPluginEnabledRestoresBackendRoutesAndTools|TestAppSubsystemUnknownIDPackageManagerPluginEnabledRestoresBackendRoutesAndTools' -v`
+- `source activate.sh && pytest tests/api/test_runtime_compat.py tests/plugin_runtime/test_local_core.py tests/plugin_runtime/test_plugin_backend_guardrails.py tests/start/test_check_quality_script.py -q`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -q -k 'first_party_app_subsystem_plugin_package_declares_setta_runtime_dependency or first_party_app_subsystem_plugin_wheel_declares_setta_runtime_dependency or first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root or first_party_app_subsystem_plugin_installed_frontend_bundle_imports_without_repo_path_assumptions or first_party_app_subsystem_plugin_backend_runs_without_developer_go_toolchain or wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary'`
+- `pnpm -C frontend exec vitest run src/plugins/appSubsystemSdk.test.ts src/plugins/appSubsystemSdkOpenAPI.test.ts src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`
+
+Residual risks / verification gaps:
+- Browser/CDP and Playwright verification were not run because no visible UI behavior changed; metadata finalization stopped the lingering DevTools MCP session with `./scripts/stop-browser-mcp.sh --devtools`, and no `./aireset.sh` session remained active afterward.
+- Full repo test suite and a separate third-party standalone-plugin matrix were not run; verification stayed focused on packaging, generated-constant ownership, package-manager activation, and boundary guardrails.

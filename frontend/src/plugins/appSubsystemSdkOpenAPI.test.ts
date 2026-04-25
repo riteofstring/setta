@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 describe("appSubsystemFrontendSdk OpenAPI configuration", () => {
   it("does not configure the shared generated client from the SDK root import", async () => {
     vi.resetModules();
-    const { client: hostClient } = await import("openapi/http/generated/client.gen");
+    const { client: hostClient } = await import(
+      "openapi/http/generated/client.gen"
+    );
     const { client: sdkClient } = await import(
       "../../plugin-sdk/app-subsystem/src/openapi/http/generated/client.gen"
     );
@@ -26,7 +28,9 @@ describe("appSubsystemFrontendSdk OpenAPI configuration", () => {
 
   it("configures plugin OpenAPI only through the explicit initializer", async () => {
     vi.resetModules();
-    const { client: hostClient } = await import("openapi/http/generated/client.gen");
+    const { client: hostClient } = await import(
+      "openapi/http/generated/client.gen"
+    );
     const { client: sdkClient } = await import(
       "../../plugin-sdk/app-subsystem/src/openapi/http/generated/client.gen"
     );

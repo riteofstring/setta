@@ -65,6 +65,37 @@ quality_is_frontend_candidate() {
   return 1
 }
 
+quality_is_frontend_boundary_candidate() {
+  local path="${1#./}"
+  case "${path}" in
+    frontend/src/*|frontend/plugin-sdk/app-subsystem/src/*|frontend/plugin-sdk/app-subsystem/types/*.d.ts|plugins/*/frontend/src/*|plugins/*/frontend/tests/*|plugins/*/frontend/vendor/*/types/*.d.ts)
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  case "${path}" in
+    frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts|frontend/src/openapi/*/generated/*|frontend/plugin-sdk/app-subsystem/src/generatedTypes.ts|frontend/plugin-sdk/app-subsystem/src/generated/*|frontend/plugin-sdk/app-subsystem/src/openapi/*/generated/*)
+      return 1
+      ;;
+    *.js|*.jsx|*.ts|*.tsx|*.d.ts)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+quality_is_frontend_guardrail_candidate() {
+  local path="${1#./}"
+  case "${path}" in
+    frontend/plugin-sdk/app-subsystem/package.json|frontend/plugin-sdk/app-subsystem/vite.config.mjs|frontend/plugin-sdk/app-subsystem/types/*.d.ts|plugins/*/frontend/package.json|plugins/*/frontend/vite.config.mjs|plugins/*/frontend/vitest.config.mjs|plugins/*/frontend/vendor/*/package.json|plugins/*/frontend/vendor/*/types/*.d.ts)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 quality_is_go_candidate() {
   local path="${1#./}"
   case "${path}" in

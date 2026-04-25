@@ -9,6 +9,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/pythonenv"
 	"setta/internal/testutil/firstpartyplugin"
+	"setta/internal/testutil/packagedsetta"
 )
 
 func mustNewPythonRuntime(t *testing.T) *pythonenv.Runtime {
@@ -31,6 +32,8 @@ func installPackageManagerFixture(t *testing.T, fixtureName string, packageName 
 
 func installPackageManagerFixtureInSearchPath(t *testing.T, sitePackages string, fixtureName string, packageName string, version string, mutate func(string)) string {
 	t.Helper()
+
+	packagedsetta.InstallRuntimeSitePackages(t, workerRPCTestRepoRoot(t), sitePackages)
 
 	repoRoot := workerRPCTestRepoRoot(t)
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
@@ -118,7 +121,12 @@ func installBuiltFirstPartyPackageManagerPluginInSearchPath(
 			stagingRoot,
 		)
 	}
-	wheelPath := buildLocalBuiltPyPIWheelFromRoot(t, t.TempDir(), stagingRoot)
+	findLinksRoot := filepath.Join(t.TempDir(), "find-links")
+	settaWheelDir := filepath.Join(findLinksRoot, "setta")
+	settaProjectRoot := filepath.Join(t.TempDir(), "setta")
+	packagedsetta.BuildRuntimeProject(t, repoRoot, settaProjectRoot)
+	buildLocalBuiltPyPIWheelFromRoot(t, settaWheelDir, settaProjectRoot)
+	wheelPath := buildLocalBuiltPyPIWheelFromRoot(t, filepath.Join(findLinksRoot, "plugin"), stagingRoot)
 	runTestCommand(
 		t,
 		repoRoot,
@@ -126,7 +134,9 @@ func installBuiltFirstPartyPackageManagerPluginInSearchPath(
 		"-m",
 		"pip",
 		"install",
-		"--no-deps",
+		"--no-index",
+		"--find-links",
+		settaWheelDir,
 		"--target",
 		sitePackages,
 		wheelPath,
@@ -142,6 +152,8 @@ func installFirstPartyPackageManagerPluginAsIDInSearchPath(
 	summary string,
 ) string {
 	t.Helper()
+
+	packagedsetta.InstallRuntimeSitePackages(t, workerRPCTestRepoRoot(t), sitePackages)
 
 	repoRoot := workerRPCTestRepoRoot(t)
 	pluginRoot := filepath.Join(sitePackages, targetPluginID)
