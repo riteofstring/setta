@@ -2954,11 +2954,22 @@ export type PluginsPluginUpdateResponse = {
 
 export type PluginsPluginWatchCodeCapabilities = {
   canvasControlsUi: boolean;
+  languageServerDependency?: PluginsPluginWatchCodeLanguageServerDependencyStatus;
   pluginEnabled: boolean;
   pluginId: string;
   providerSelection?: PluginsPluginWatchCodeProviderSelection;
   python: boolean;
   requiresLanguageServer: boolean;
+};
+
+export type PluginsPluginWatchCodeLanguageServerDependencyStatus = {
+  appliedPluginId?: string;
+  language: string;
+  message: string;
+  required: boolean;
+  restartRequired: boolean;
+  selectedPluginId?: string;
+  status: string;
 };
 
 export type PluginsPluginWatchCodeProviderSelection = {

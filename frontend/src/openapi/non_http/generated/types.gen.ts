@@ -4326,6 +4326,7 @@ type PluginUpdateResponse = {
  */
 type PluginWatchCodeCapabilities = {
   canvasControlsUi: boolean;
+  languageServerDependency?: PluginWatchCodeLanguageServerDependencyStatus | null;
   pluginEnabled: boolean;
   pluginId: string;
   providerSelection?: PluginWatchCodeProviderSelection | null;
@@ -4341,6 +4342,30 @@ type PluginWatchCodeFeatureManifest = {
   python: boolean;
   requiresLanguageServer: boolean;
 };
+
+/**
+ * PluginWatchCodeLanguageServerDependencyStatus
+ */
+type PluginWatchCodeLanguageServerDependencyStatus = {
+  appliedPluginId?: null | string;
+  language: string;
+  message: string;
+  required: boolean;
+  restartRequired: boolean;
+  selectedPluginId?: null | string;
+  status: PluginWatchCodeLanguageServerDependencyStatusKind;
+};
+
+/**
+ * PluginWatchCodeLanguageServerDependencyStatusKind
+ */
+type PluginWatchCodeLanguageServerDependencyStatusKind =
+  | "unavailable"
+  | "not_required"
+  | "active"
+  | "missing"
+  | "disabled"
+  | "pending_restart";
 
 /**
  * PluginWatchCodeProviderSelection

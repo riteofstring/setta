@@ -214,14 +214,14 @@ func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (
 	if err != nil {
 		return response, err
 	}
+	if s.refresher != nil {
+		s.refresher.applyAppliedLanguageServerStatus(&response.Status)
+		if err := s.refresher.applyLanguageServerSelectionStatuses(&response.Status); err != nil {
+			return plugins.PluginRuntimeResponse{}, err
+		}
+	}
+	applyWatchCodeLanguageServerDependencyStatus(&response)
 	s.syncCapabilitiesFromRuntimeResponse(response)
-	if s.refresher == nil {
-		return response, nil
-	}
-	s.refresher.applyAppliedLanguageServerStatus(&response.Status)
-	if err := s.refresher.applyLanguageServerSelectionStatuses(&response.Status); err != nil {
-		return plugins.PluginRuntimeResponse{}, err
-	}
 	return response, nil
 }
 

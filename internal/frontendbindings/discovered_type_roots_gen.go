@@ -49,6 +49,8 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(plugins.PluginAppSubsystemCapabilities{}),
 		reflect.TypeOf(plugins.PluginWatchCodeProviderSelectionStatusKind("")),
 		reflect.TypeOf(plugins.PluginWatchCodeProviderSelection{}),
+		reflect.TypeOf(plugins.PluginWatchCodeLanguageServerDependencyStatusKind("")),
+		reflect.TypeOf(plugins.PluginWatchCodeLanguageServerDependencyStatus{}),
 		reflect.TypeOf(plugins.PluginWatchCodeCapabilities{}),
 		reflect.TypeOf(plugins.PluginFeatureCapabilities{}),
 		reflect.TypeOf(plugins.PluginFrontendDescriptor{}),

@@ -76,13 +76,35 @@ type PluginWatchCodeProviderSelection struct {
 	ConflictingPluginIDs []string                                   `json:"conflictingPluginIds"`
 }
 
+type PluginWatchCodeLanguageServerDependencyStatusKind string
+
+const (
+	PluginWatchCodeLanguageServerDependencyStatusUnavailable    PluginWatchCodeLanguageServerDependencyStatusKind = "unavailable"
+	PluginWatchCodeLanguageServerDependencyStatusNotRequired    PluginWatchCodeLanguageServerDependencyStatusKind = "not_required"
+	PluginWatchCodeLanguageServerDependencyStatusActive         PluginWatchCodeLanguageServerDependencyStatusKind = "active"
+	PluginWatchCodeLanguageServerDependencyStatusMissing        PluginWatchCodeLanguageServerDependencyStatusKind = "missing"
+	PluginWatchCodeLanguageServerDependencyStatusDisabled       PluginWatchCodeLanguageServerDependencyStatusKind = "disabled"
+	PluginWatchCodeLanguageServerDependencyStatusPendingRestart PluginWatchCodeLanguageServerDependencyStatusKind = "pending_restart"
+)
+
+type PluginWatchCodeLanguageServerDependencyStatus struct {
+	Language         string                                            `json:"language"`
+	Required         bool                                              `json:"required"`
+	Status           PluginWatchCodeLanguageServerDependencyStatusKind `json:"status"`
+	Message          string                                            `json:"message"`
+	SelectedPluginID *string                                           `json:"selectedPluginId,omitempty"`
+	AppliedPluginID  *string                                           `json:"appliedPluginId,omitempty"`
+	RestartRequired  bool                                              `json:"restartRequired"`
+}
+
 type PluginWatchCodeCapabilities struct {
-	ProviderSelection      *PluginWatchCodeProviderSelection `json:"providerSelection,omitempty"`
-	PluginID               string                            `json:"pluginId"`
-	PluginEnabled          bool                              `json:"pluginEnabled"`
-	Python                 bool                              `json:"python"`
-	RequiresLanguageServer bool                              `json:"requiresLanguageServer"`
-	CanvasControlsUI       bool                              `json:"canvasControlsUi"`
+	ProviderSelection        *PluginWatchCodeProviderSelection              `json:"providerSelection,omitempty"`
+	LanguageServerDependency *PluginWatchCodeLanguageServerDependencyStatus `json:"languageServerDependency,omitempty"`
+	PluginID                 string                                         `json:"pluginId"`
+	PluginEnabled            bool                                           `json:"pluginEnabled"`
+	Python                   bool                                           `json:"python"`
+	RequiresLanguageServer   bool                                           `json:"requiresLanguageServer"`
+	CanvasControlsUI         bool                                           `json:"canvasControlsUi"`
 }
 
 type PluginFeatureCapabilities struct {
