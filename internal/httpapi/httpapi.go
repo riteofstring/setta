@@ -102,6 +102,7 @@ func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 		},
 		withOpenAPITags("Runtime"),
 		withOpenAPISummary("Get the current backend server mode."),
+		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	registerOpenAPIGet[RuntimeInfo](
 		router,

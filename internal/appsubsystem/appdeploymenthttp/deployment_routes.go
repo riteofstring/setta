@@ -46,6 +46,7 @@ func RegisterDeploymentRoutes(
 		httpapi.WithOpenAPITags("App Deployments"),
 		httpapi.WithOpenAPISummary("Get or create the current app deployment session."),
 		httpapi.WithOpenAPIModeRequirement("app"),
+		httpapi.WithOpenAPIAppSubsystemFrontendSDK(),
 	)
 	appSessionRouter := router.With(httpapi.RequireShareSession(modes.Resolver{
 		Policy: deps.ModePolicy,
@@ -60,6 +61,7 @@ func RegisterDeploymentRoutes(
 		httpapi.WithOpenAPISummary("Load the default project state and app definition for an app deployment session."),
 		httpapi.WithOpenAPIPathParams[deploymentVersionRouteParams](),
 		httpapi.WithOpenAPIModeRequirement("app"),
+		httpapi.WithOpenAPIAppSubsystemFrontendSDK(),
 	)
 	httpapi.RegisterOpenAPIPost[httpapi.LoadDeploymentProjectConfigRequest, AppDeploymentStateResponse](
 		appSessionRouter,
@@ -70,6 +72,7 @@ func RegisterDeploymentRoutes(
 		httpapi.WithOpenAPISummary("Load a specific project config and app definition from an app deployment session."),
 		httpapi.WithOpenAPIPathParams[deploymentVersionRouteParams](),
 		httpapi.WithOpenAPIModeRequirement("app"),
+		httpapi.WithOpenAPIAppSubsystemFrontendSDK(),
 	)
 	return nil
 }

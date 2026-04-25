@@ -22,6 +22,11 @@ type ProjectStateSelectorSnapshot = {
   codeObjImpls: Record<string, BaseCodeObjImplUnion | undefined>;
 };
 
+const effectiveImplCacheByImpl = new WeakMap<
+  object,
+  WeakMap<object, WeakMap<object, unknown>>
+>();
+
 type ProjectStateMutableValue =
   | null
   | boolean
@@ -67,17 +72,38 @@ function cloneProjectStateValue<T>(value: T): T {
   return cloned as T;
 }
 
-function getEffectiveImpl<T extends object>(
+export function clearEffectiveImplCache(impl: object): void {
+  effectiveImplCacheByImpl.delete(impl);
+}
+
+export function getEffectiveImpl<T extends object>(
   impl: T,
   core: Core,
   variant: Variant,
 ): T {
+  const sharedModifier = core.sharedModifier;
+  const variantModifier = variant.modifier;
+  let cacheBySharedModifier = effectiveImplCacheByImpl.get(impl);
+  if (!cacheBySharedModifier) {
+    cacheBySharedModifier = new WeakMap<object, WeakMap<object, unknown>>();
+    effectiveImplCacheByImpl.set(impl, cacheBySharedModifier);
+  }
+  let cacheByVariantModifier = cacheBySharedModifier.get(sharedModifier);
+  if (!cacheByVariantModifier) {
+    cacheByVariantModifier = new WeakMap<object, unknown>();
+    cacheBySharedModifier.set(sharedModifier, cacheByVariantModifier);
+  }
+  const cached = cacheByVariantModifier.get(variantModifier);
+  if (cached) {
+    return cached as T;
+  }
   const effective = cloneProjectStateValue(impl);
   Object.assign(
     effective as Record<string, unknown>,
     cloneProjectStateValue(core.sharedModifier),
     cloneProjectStateValue(variant.modifier),
   );
+  cacheByVariantModifier.set(variantModifier, effective);
   return effective;
 }
 
@@ -153,7 +179,7 @@ export function getCurrentEffectiveSectionImpl(
   return impl;
 }
 
-function getSectionCodeObjVariantId(
+export function getSectionCodeObjVariantId(
   sectionImpl: BaseSectionImplUnion,
   codeObjId: string,
 ): string | null {
@@ -169,7 +195,7 @@ function getSectionCodeObjVariantId(
   return sectionImpl.codeObjVariantMap?.[codeObjId] ?? null;
 }
 
-function getCurrentEffectiveCodeObjImplIfPresent(
+export function getCurrentEffectiveCodeObjImplIfPresent(
   projectState: ProjectStateSelectorSnapshot,
   sectionId: string,
   codeObjId: string,

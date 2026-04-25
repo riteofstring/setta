@@ -12,6 +12,9 @@ import {
   getCurrentEffectiveSectionImpl,
   getCurrentSectionVariantId,
   getParamDisplayNameIfPresent,
+  getCurrentEffectiveCodeObjImplIfPresent as getSdkCurrentEffectiveCodeObjImplIfPresent,
+  getCurrentEffectiveSectionImplIfPresent as getSdkCurrentEffectiveSectionImplIfPresent,
+  getCurrentSectionVariantIdIfPresent as getSdkCurrentSectionVariantIdIfPresent,
   isAppSubsystemFrontendRegistration,
   NO_PAN_CLASS_NAME,
   registerAppSubsystemPlugin,
@@ -27,6 +30,14 @@ import {
   createDefaultAppPolicy as createHostDefaultAppPolicy,
   resolveAppPolicy as resolveHostAppPolicy,
 } from "utils/deploymentPolicies";
+import {
+  getCurrentEffectiveCodeObjImplIfPresent as getHostCurrentEffectiveCodeObjImplIfPresent,
+  getCurrentEffectiveSectionImpl as getHostCurrentEffectiveSectionImpl,
+  getCurrentEffectiveSectionImplIfPresent as getHostCurrentEffectiveSectionImplIfPresent,
+  getCurrentSectionVariantId as getHostCurrentSectionVariantId,
+  getCurrentSectionVariantIdIfPresent as getHostCurrentSectionVariantIdIfPresent,
+  getParamDisplayNameIfPresent as getHostParamDisplayNameIfPresent,
+} from "utils/projectStateSelectors";
 import {
   resolveMainRunRequest as resolveHostMainRunRequest,
   resolveRunRequest as resolveHostRunRequest,
@@ -330,6 +341,20 @@ describe("appSubsystemFrontendSdk", () => {
     expect(resolveHostRunRequest).toBe(resolveSdkRunRequest);
     expect(createHostDefaultAppPolicy).toBe(createSdkDefaultAppPolicy);
     expect(resolveHostAppPolicy).toBe(resolveSdkAppPolicy);
+    expect(getHostCurrentEffectiveCodeObjImplIfPresent).toBe(
+      getSdkCurrentEffectiveCodeObjImplIfPresent,
+    );
+    expect(getHostCurrentEffectiveSectionImpl).toBe(
+      getCurrentEffectiveSectionImpl,
+    );
+    expect(getHostCurrentEffectiveSectionImplIfPresent).toBe(
+      getSdkCurrentEffectiveSectionImplIfPresent,
+    );
+    expect(getHostCurrentSectionVariantId).toBe(getCurrentSectionVariantId);
+    expect(getHostCurrentSectionVariantIdIfPresent).toBe(
+      getSdkCurrentSectionVariantIdIfPresent,
+    );
+    expect(getHostParamDisplayNameIfPresent).toBe(getParamDisplayNameIfPresent);
   });
 
   it("keeps the source SDK package detached from host-private imports", () => {
@@ -355,10 +380,17 @@ describe("appSubsystemFrontendSdk", () => {
       ),
       "utf-8",
     );
+    const hostProjectStateSelectorSource = readFileSync(
+      new URL("../utils/projectStateSelectors.ts", import.meta.url),
+      "utf-8",
+    );
 
     expect(projectStateSource).not.toContain('from "utils/');
     expect(projectStateSource).not.toContain("cloneDeep");
-    expect(projectStateSource).not.toContain("WeakMap");
+    expect(hostProjectStateSelectorSource).toContain(
+      'from "@setta/app-subsystem-frontend-sdk"',
+    );
+    expect(hostProjectStateSelectorSource).not.toContain("WeakMap");
     expect(helpersSource).not.toContain('from "utils/');
     expect(openapiSource).not.toContain('from "utils/');
     expect(openapiSource).not.toContain('from "openapi/');

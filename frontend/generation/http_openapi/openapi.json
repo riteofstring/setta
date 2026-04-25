@@ -12175,6 +12175,7 @@
         "summary": "List published app deployments.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "ide"
       },
       "post": {
@@ -12214,6 +12215,7 @@
         "summary": "Publish the current project config as an app deployment.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "ide"
       }
     },
@@ -12245,6 +12247,7 @@
         "summary": "Get or create the current app deployment session.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "app"
       }
     },
@@ -12389,6 +12392,7 @@
         "summary": "Load a specific project config and app definition from an app deployment session.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "app"
       }
     },
@@ -12438,6 +12442,7 @@
         "summary": "Load the default project state and app definition for an app deployment session.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "app"
       }
     },
@@ -12701,6 +12706,7 @@
         "summary": "Upload a binary payload to the runtime content store.",
         "tags": ["Binary"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "full-ide"
       }
     },
@@ -12744,6 +12750,7 @@
         "summary": "Download a binary payload from the runtime content store.",
         "tags": ["Binary"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -12906,6 +12913,7 @@
         "summary": "Check whether a file exists and is accessible from the current runtime.",
         "tags": ["File Browser"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -13874,6 +13882,7 @@
         "summary": "Delete artifact payloads.",
         "tags": ["Artifacts"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -15109,6 +15118,7 @@
         "summary": "Load the current app definition and resolved app spec.",
         "tags": ["App Definition"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-deployment"
       }
     },
@@ -15222,6 +15232,7 @@
         "summary": "Build a signed download URL for a single chat attachment.",
         "tags": ["Attachment"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -15890,7 +15901,8 @@
           }
         },
         "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"]
       }
     },
     "/getListenerCoverage": {
@@ -16014,7 +16026,8 @@
           }
         },
         "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"]
       }
     },
     "/getPromptTemplate": {
@@ -17140,6 +17153,7 @@
         "summary": "Load cached image artifacts by path.",
         "tags": ["Artifacts"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -17225,6 +17239,7 @@
         "summary": "Load a single project config by name.",
         "tags": ["Projects"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "ide"
       }
     },
@@ -18547,6 +18562,7 @@
         "summary": "Run code for the requested section or generated entrypoint.",
         "tags": ["Terminal"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -18801,7 +18817,8 @@
         },
         "summary": "Get the current backend server mode.",
         "tags": ["Runtime"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"]
       }
     },
     "/setActiveIds": {
@@ -18959,6 +18976,7 @@
         "summary": "Persist a standalone app definition.",
         "tags": ["App Definition"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-deployment"
       }
     },
@@ -20137,7 +20155,8 @@
           }
         },
         "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled"
+        "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"]
       }
     },
     "/setParentDefaultChildSectionType": {
@@ -23469,6 +23488,7 @@
         "summary": "Create or update artifact payloads.",
         "tags": ["Artifacts"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -23873,6 +23893,7 @@
         "summary": "Validate an app definition payload against the current catalog.",
         "tags": ["App Definition"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
+        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-deployment"
       }
     },

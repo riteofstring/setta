@@ -64,6 +64,44 @@ func TestBuildOpenAPIDocumentAppSubsystemRegistrationsMergesSharedRoutesAcrossPr
 	}
 }
 
+func TestBuildFrontendHTTPOpenAPIDocumentMarksAppSubsystemSDKSurface(t *testing.T) {
+	document := buildOpenAPIDocumentForCapabilities(
+		t,
+		appsubsystemproviders.DiscoveredProviderCapabilities(),
+	)
+
+	for _, routePath := range []string{
+		httpapi.RouteGetServerMode,
+		httpapi.RouteGetAppDefinition,
+		httpapi.RouteSetAppDefinition,
+		httpapi.RouteValidateAppDefinition,
+		httpapi.RouteAppDeployments,
+		httpapi.RouteAppDeploymentCurrentSession,
+		httpapi.RouteLoadProjectConfig,
+		httpapi.RouteGetLatestProjectState,
+		httpapi.RouteGetPasswordParamValue,
+		httpapi.RouteSetParamEnteredValue,
+		httpapi.RouteRunCode,
+		httpapi.RouteCheckIfFileExists,
+		httpapi.RouteLoadCachedImageArtifacts,
+		httpapi.RouteUpdateArtifacts,
+		httpapi.RouteDeleteArtifacts,
+		httpapi.RouteBinaryUpload,
+		httpapi.RouteBinaryDownload,
+		httpapi.RouteGetAttachmentDownloadURL,
+	} {
+		assertOperationHasAppSubsystemSDKScope(t, document, routePath)
+	}
+
+	for _, routePath := range []string{
+		httpapi.RouteAddKwarg,
+		httpapi.RouteAcceptRenameRefactor,
+		httpapi.RouteAddLauncherRecentWorkspace,
+	} {
+		assertOperationDoesNotHaveAppSubsystemSDKScope(t, document, routePath)
+	}
+}
+
 func buildOpenAPIDocumentForCapabilities(
 	t *testing.T,
 	providers []plugins.PluginAppSubsystemFeatureManifest,
@@ -86,4 +124,59 @@ func buildOpenAPIDocumentForCapabilities(
 		t.Fatalf("build frontend openapi document: %v", err)
 	}
 	return document
+}
+
+func assertOperationHasAppSubsystemSDKScope(
+	t *testing.T,
+	document *huma.OpenAPI,
+	routePath string,
+) {
+	t.Helper()
+
+	if !operationHasAppSubsystemSDKScope(document, routePath) {
+		t.Fatalf("expected %s to be marked for app-subsystem SDK generation", routePath)
+	}
+}
+
+func assertOperationDoesNotHaveAppSubsystemSDKScope(
+	t *testing.T,
+	document *huma.OpenAPI,
+	routePath string,
+) {
+	t.Helper()
+
+	if operationHasAppSubsystemSDKScope(document, routePath) {
+		t.Fatalf("expected %s not to be marked for app-subsystem SDK generation", routePath)
+	}
+}
+
+func operationHasAppSubsystemSDKScope(
+	document *huma.OpenAPI,
+	routePath string,
+) bool {
+	pathItem := document.Paths[routePath]
+	if pathItem == nil {
+		return false
+	}
+	for _, operation := range []*huma.Operation{
+		pathItem.Get,
+		pathItem.Post,
+		pathItem.Put,
+		pathItem.Patch,
+		pathItem.Delete,
+	} {
+		if operation == nil {
+			continue
+		}
+		scopes, ok := operation.Extensions["x-setta-frontend-sdk-scopes"].([]string)
+		if !ok {
+			continue
+		}
+		for _, scope := range scopes {
+			if scope == httpapi.OpenAPIFrontendSDKScopeAppSubsystem {
+				return true
+			}
+		}
+	}
+	return false
 }

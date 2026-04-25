@@ -41,6 +41,7 @@ func RegisterIDERoutes(router chi.Router, deps IDERouteDependencies) error {
 		httpapi.WithOpenAPITags("App Deployments"),
 		httpapi.WithOpenAPISummary("List published app deployments."),
 		httpapi.WithOpenAPIModeRequirement("ide"),
+		httpapi.WithOpenAPIAppSubsystemFrontendSDK(),
 	)
 	httpapi.RegisterOpenAPIGet[[]httpapi.DeploymentMetadataResponse](
 		ideRouter,
@@ -70,6 +71,7 @@ func RegisterIDERoutes(router chi.Router, deps IDERouteDependencies) error {
 		httpapi.WithOpenAPITags("App Deployments"),
 		httpapi.WithOpenAPISummary("Publish the current project config as an app deployment."),
 		httpapi.WithOpenAPIModeRequirement("ide"),
+		httpapi.WithOpenAPIAppSubsystemFrontendSDK(),
 	)
 	return nil
 }

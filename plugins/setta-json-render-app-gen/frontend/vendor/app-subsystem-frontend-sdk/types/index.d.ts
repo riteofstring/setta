@@ -541,9 +541,13 @@ export declare function buildDefaultAppSpecPath(pluginId: string | null | undefi
 export declare function activateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
 export declare function deactivateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
 export declare function getActiveAppSubsystemFrontendHostRuntime(): AppSubsystemFrontendHost | null;
+export declare function clearEffectiveImplCache(impl: object): void;
+export declare function getEffectiveImpl<T extends JsonRecord>(impl: T, core: Core, variant: Variant): T;
+export declare function getCurrentEffectiveCodeObjImplIfPresent(projectState: SingleConfig, sectionId: string, codeObjId: string, includePreview?: boolean): JsonRecord | null;
 export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T>(projectState: SingleConfig, sectionId: string, codeObjId: string, guard: (value: JsonRecord) => value is T, includePreview?: boolean): T | null;
 export declare function getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;
 export declare function getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;
 export declare function getCurrentSectionVariantId(projectState: SingleConfig, sectionId: string, includePreview?: boolean): string;
 export declare function getCurrentSectionVariantIdIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): string | null;
 export declare function getParamDisplayNameIfPresent(projectState: SingleConfig, sectionId: string, codeObjId: string): string | null;
+export declare function getSectionCodeObjVariantId(sectionImpl: BaseSectionImplUnion, codeObjId: string): string | null;

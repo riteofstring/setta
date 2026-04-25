@@ -39,6 +39,7 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Load the current app definition and resolved app spec."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
+		httpapi.WithOpenAPIAppSubsystemFrontendSDK(),
 	)
 	httpapi.RegisterOpenAPIPost[ValidateAppDefinitionRequest, appdefinition.ValidationResult](
 		router,
@@ -48,6 +49,7 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Validate an app definition payload against the current catalog."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
+		httpapi.WithOpenAPIAppSubsystemFrontendSDK(),
 	)
 	httpapi.RegisterOpenAPIPost[SetAppDefinitionRequest, appdefinition.MutationResult](
 		router,
@@ -57,6 +59,7 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 		httpapi.WithOpenAPITags("App Definition"),
 		httpapi.WithOpenAPISummary("Persist a standalone app definition."),
 		httpapi.WithOpenAPIModeRequirement("not-deployment"),
+		httpapi.WithOpenAPIAppSubsystemFrontendSDK(),
 	)
 	return nil
 }

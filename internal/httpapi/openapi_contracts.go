@@ -35,6 +35,7 @@ type openAPIOperation struct {
 	ResponseType        reflect.Type
 	RequestContentType  string
 	ResponseContentType string
+	AppSubsystemSDK     bool
 }
 
 type openAPIOperationOption func(*openAPIOperation)
@@ -173,6 +174,14 @@ func withOpenAPIResponseContentType(contentType string) openAPIOperationOption {
 	}
 }
 
+const OpenAPIFrontendSDKScopeAppSubsystem = "app-subsystem"
+
+func withOpenAPIAppSubsystemFrontendSDK() openAPIOperationOption {
+	return func(operation *openAPIOperation) {
+		operation.AppSubsystemSDK = true
+	}
+}
+
 type OpenAPIOperationOption = openAPIOperationOption
 
 func WithOpenAPITags(tags ...string) OpenAPIOperationOption {
@@ -193,6 +202,10 @@ func WithOpenAPIRequestContentType(contentType string) OpenAPIOperationOption {
 
 func WithOpenAPIResponseContentType(contentType string) OpenAPIOperationOption {
 	return withOpenAPIResponseContentType(contentType)
+}
+
+func WithOpenAPIAppSubsystemFrontendSDK() OpenAPIOperationOption {
+	return withOpenAPIAppSubsystemFrontendSDK()
 }
 
 func withOpenAPIPathParams[T any]() openAPIOperationOption {
@@ -434,6 +447,11 @@ func (c *openAPICollector) operationExtensions(operation openAPIOperation) map[s
 	}
 	if operation.ModeRequirement != "" {
 		extensions["x-setta-mode-requirement"] = operation.ModeRequirement
+	}
+	if operation.AppSubsystemSDK {
+		extensions["x-setta-frontend-sdk-scopes"] = []string{
+			OpenAPIFrontendSDKScopeAppSubsystem,
+		}
 	}
 	return extensions
 }

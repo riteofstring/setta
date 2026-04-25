@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -192,32 +192,134 @@ describe("app plugin frontend build boundary guardrails", () => {
   });
 
   it("keeps source SDK generated non-HTTP surfaces aligned with the host owner", () => {
-    const hostNonHTTPTypes = readHostFrontendFile(
-      "src/openapi/non_http/generated/types.gen.ts",
+    const hostSidecar = JSON.parse(
+      readHostFrontendFile("generation/non_http_shared/sidecar.json"),
+    ) as {
+      contracts?: Array<{ kind?: string; name?: string }>;
+      exportedValues?: Array<{ name?: string; value?: unknown }>;
+    };
+    const sourceSdkSidecar = JSON.parse(
+      readSourceSdkFile("src/generated/sidecar.json"),
+    ) as {
+      contracts?: Array<{ kind?: string; name?: string }>;
+      exportedValues?: Array<{ name?: string; value?: unknown }>;
+    };
+    const sourceSdkGeneratedTypes = readSourceSdkFile("src/generatedTypes.ts");
+    const sourceNonHTTPGeneratedRoot = resolve(
+      repoRoot,
+      "frontend",
+      "plugin-sdk",
+      "app-subsystem",
+      "src/openapi/non_http/generated",
     );
-    const sourceSdkNonHTTPTypes = readSourceSdkFile(
-      "src/openapi/non_http/generated/types.gen.ts",
+    const hostContractsByName = new Map(
+      (hostSidecar.contracts ?? []).map((entry) => [entry.name, entry]),
     );
-    const hostSidecar = readHostFrontendFile(
-      "generation/non_http_shared/sidecar.json",
+    const hostValuesByName = new Map(
+      (hostSidecar.exportedValues ?? []).map((entry) => [entry.name, entry]),
     );
-    const sourceSdkSidecar = readSourceSdkFile("src/generated/sidecar.json");
+    const sourceValuesByName = new Map(
+      (sourceSdkSidecar.exportedValues ?? []).map((entry) => [
+        entry.name,
+        entry,
+      ]),
+    );
 
-    expect(hostNonHTTPTypes).toContain("PluginFrontendBuildManifest = {");
-    expect(hostNonHTTPTypes).toContain(
-      "build?: PluginFrontendBuildManifest | null;",
+    expect(existsSync(sourceNonHTTPGeneratedRoot)).toBe(false);
+    expect(sourceSdkGeneratedTypes).not.toContain("openapi/non_http/generated");
+    expect(sourceSdkGeneratedTypes).toContain(
+      'readGeneratedStringEnum("SectionType")',
     );
-    expect(hostSidecar).toContain('"name": "PluginFrontendBuildManifest"');
-    expect(sourceSdkNonHTTPTypes).toContain(
-      "PluginFrontendBuildManifest = {",
+    expect(sourceSdkGeneratedTypes).toContain(
+      'readGeneratedExportedValue<TransportRoutes>("TransportRouteConstants")',
     );
-    expect(sourceSdkNonHTTPTypes).toContain(
-      "build?: PluginFrontendBuildManifest | null;",
+
+    for (const contract of sourceSdkSidecar.contracts ?? []) {
+      expect(contract).toEqual(hostContractsByName.get(contract.name));
+    }
+    for (const exportedValue of sourceSdkSidecar.exportedValues ?? []) {
+      if (
+        [
+          "BootstrapProtocol",
+          "EndpointOriginPolicyByRoute",
+          "ModeScopedLauncherRoutesList",
+          "TransportRouteConstants",
+        ].includes(exportedValue.name ?? "")
+      ) {
+        continue;
+      }
+      expect(exportedValue).toEqual(hostValuesByName.get(exportedValue.name));
+    }
+
+    expect(sourceValuesByName.get("BootstrapProtocol")?.value).toEqual({
+      launcherOriginStorageKey: (
+        hostValuesByName.get("BootstrapProtocol")?.value as {
+          launcherOriginStorageKey?: unknown;
+        }
+      ).launcherOriginStorageKey,
+    });
+    expect(
+      sourceValuesByName.get("EndpointOriginPolicyByRoute")?.value,
+    ).toEqual({
+      "/__setta__/tools/call": (
+        hostValuesByName.get("EndpointOriginPolicyByRoute")?.value as Record<
+          string,
+          unknown
+        >
+      )["/__setta__/tools/call"],
+    });
+    expect(
+      sourceValuesByName.get("ModeScopedLauncherRoutesList")?.value,
+    ).toEqual([]);
+    const hostTransportRoutes = hostValuesByName.get("TransportRouteConstants")
+      ?.value as {
+      apiPrefix?: unknown;
+      binary?: Record<string, unknown>;
+      root?: Record<string, unknown>;
+      websocket?: Record<string, unknown>;
+    };
+    expect(sourceValuesByName.get("TransportRouteConstants")?.value).toEqual({
+      apiPrefix: hostTransportRoutes.apiPrefix,
+      binary: {
+        download: hostTransportRoutes.binary?.download,
+        upload: hostTransportRoutes.binary?.upload,
+      },
+      root: {
+        bootstrapPage: hostTransportRoutes.root?.bootstrapPage,
+        toolsCall: hostTransportRoutes.root?.toolsCall,
+      },
+      websocket: {
+        frontend: hostTransportRoutes.websocket?.frontend,
+        listenerById: hostTransportRoutes.websocket?.listenerById,
+        terminalBySection: hostTransportRoutes.websocket?.terminalBySection,
+      },
+    });
+
+    expect(sourceSdkSidecar.contracts?.map((entry) => entry.name)).toEqual(
+      expect.arrayContaining([
+        "EndpointOrigin",
+        "SectionType",
+        "WorkspaceLaunchRouteKind",
+      ]),
     );
-    expect(sourceSdkSidecar).toContain('"name": "PluginFrontendBuildManifest"');
+    expect(sourceSdkSidecar.exportedValues?.map((entry) => entry.name)).toEqual(
+      expect.arrayContaining([
+        "ServerModeBoundaryPolicyByMode",
+        "TransportRouteConstants",
+      ]),
+    );
+    expect(
+      sourceSdkSidecar.contracts?.map((entry) => entry.name),
+    ).not.toContain("AddKwargResult");
+    expect(
+      sourceSdkSidecar.exportedValues?.map((entry) => entry.name),
+    ).not.toContain("PluginFrontendBuildManifest");
+    expect(JSON.stringify(sourceSdkSidecar)).not.toContain(
+      "addLauncherRecentWorkspace",
+    );
   });
 
-  it("keeps source SDK generated HTTP surfaces aligned with the host owner", () => {
+  it("keeps source SDK generated HTTP surfaces pruned to the app-subsystem SDK contract", () => {
     const generatedHTTPRoot = "src/openapi/http/generated";
     const sourceFiles = listRelativeFiles(
       resolve(
@@ -228,20 +330,54 @@ describe("app plugin frontend build boundary guardrails", () => {
         generatedHTTPRoot,
       ),
     );
-    const hostFiles = listRelativeFiles(
-      resolve(repoRoot, "frontend", generatedHTTPRoot),
+    const sdkOpenAPI = JSON.parse(
+      readSourceSdkFile("generation/http_openapi/openapi.json"),
+    ) as {
+      paths?: Record<
+        string,
+        Record<string, { operationId?: string; [key: string]: unknown }>
+      >;
+    };
+    const sourceSDK = readSourceSdkFile(
+      "src/openapi/http/generated/sdk.gen.ts",
     );
+    const sourceTypes = readSourceSdkFile(
+      "src/openapi/http/generated/types.gen.ts",
+    );
+    const combinedGeneratedSurface = `${sourceSDK}\n${sourceTypes}`;
 
-    expect(sourceFiles).toEqual(hostFiles);
-    for (const relativePath of sourceFiles) {
-      const generatedPath = `src/openapi/http/generated/${relativePath}`;
-      const sourceText = readSourceSdkFile(generatedPath);
-      const hostText = readHostFrontendFile(generatedPath);
-      if (relativePath === "client/client.gen.ts") {
-        expect(sourceText).toBe(`// @ts-nocheck\n${hostText}`);
-      } else {
-        expect(sourceText).toBe(hostText);
+    expect(sourceFiles).toContain("sdk.gen.ts");
+    expect(sourceFiles).toContain("types.gen.ts");
+    expect(sourceSDK).toContain("export const getAppDefinition =");
+    expect(sourceSDK).toContain("export const publishAppDeployment =");
+    expect(sourceSDK).toContain("export const getServerMode =");
+    expect(sourceTypes).toContain('url: "/getAppDefinition";');
+    expect(sourceTypes).toContain('url: "/app/deployments";');
+
+    for (const forbiddenSnippet of [
+      "acceptRenameRefactor",
+      "addKwarg",
+      "addLauncherRecentWorkspace",
+      'url: "/acceptRenameRefactor";',
+      'url: "/addKwarg";',
+      'url: "/addLauncherRecentWorkspace";',
+    ]) {
+      expect(combinedGeneratedSurface).not.toContain(forbiddenSnippet);
+    }
+
+    const operationIds = new Set<string>();
+    for (const pathItem of Object.values(sdkOpenAPI.paths ?? {})) {
+      for (const operation of Object.values(pathItem)) {
+        if (operation && typeof operation.operationId === "string") {
+          operationIds.add(operation.operationId);
+        }
       }
     }
+    expect(operationIds).toContain("getAppDefinition");
+    expect(operationIds).toContain("publishAppDeployment");
+    expect(operationIds).toContain("getServerMode");
+    expect(operationIds).not.toContain("acceptRenameRefactor");
+    expect(operationIds).not.toContain("addKwarg");
+    expect(operationIds).not.toContain("addLauncherRecentWorkspace");
   });
 });
