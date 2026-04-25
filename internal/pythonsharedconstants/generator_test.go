@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/localsessions"
 	"setta/internal/projectstate"
+	"setta/internal/pythonsdklocalcore"
 	"setta/internal/workspacelaunch"
 )
 
@@ -77,6 +79,81 @@ func TestBuildIncludesGoOwnedLaunchIntentTTL(t *testing.T) {
 	)
 	if !strings.Contains(generated.PythonModule, expected) {
 		t.Fatalf("generated constants missing %q", expected)
+	}
+}
+
+func TestBuildIncludesGoOwnedAppSubsystemBackendContract(t *testing.T) {
+	generated, err := Build()
+	if err != nil {
+		t.Fatalf("build generated constants: %v", err)
+	}
+
+	expectedSnippets := []string{
+		fmt.Sprintf(
+			"APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION = %d",
+			backendruntime.AppSubsystemBackendContractVersion,
+		),
+		fmt.Sprintf(
+			"APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_NAMES = %s",
+			pythonStringTupleExpr(backendruntime.RequiredListenerEndpointNames()),
+		),
+		fmt.Sprintf(
+			"APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_TO_LOCAL_CORE_COMMAND = MappingProxyType(%s)",
+			pythonStringDictExpr(appSubsystemBackendListenerEndpointCommandMap()),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_GET_APP_DEFINITION = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandGetAppDefinition),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppDefinition),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppSpecPath),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_THEME_MODE = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppThemeMode),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandValidateAppDefinition),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_SET_APP_DEFINITION = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandSetAppDefinition),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandStreamAppDefinition),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandUpdateAppDefinition),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionCatalogID),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionSpecVersion),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionSpecPath),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
+		),
+	}
+	for _, snippet := range expectedSnippets {
+		if !strings.Contains(generated.PythonModule, snippet) {
+			t.Fatalf("generated constants missing %q", snippet)
+		}
 	}
 }
 

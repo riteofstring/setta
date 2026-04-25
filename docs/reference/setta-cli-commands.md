@@ -144,7 +144,11 @@ setta share --deployment-root /opt/setta/deployments/demo-share/v5 --host 0.0.0.
 
 Starts the backend server in app deployment mode. App mode serves an app
 deployment snapshot (AppSpec + theme + assets) using the same session + policy
-model as share mode.
+model as share mode. The deployment root must include exactly one active
+app-subsystem provider with app deployment runtime support; published app
+deployments package that provider into the deployment root. `setta app` exits
+before server startup if the provider is missing, disabled, invalid,
+conflicting, or lacks `appDeploymentRuntime`.
 
 Options:
 - `--deployment-root PATH` uses an explicit app deployment root.

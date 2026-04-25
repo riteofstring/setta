@@ -4,19 +4,51 @@ Setta currently has two low-level patch/update paths for app definitions, plus a
 Project Chat app-generation mode contract that decides how chat turns should
 persist app-definition work back into Setta.
 
+The app-definition runtime is contributed by the active app-subsystem provider.
+For the first-party JSON Render provider (`setta-json-render-app-gen`), Setta
+stores document-level app-definition metadata in `project.json` at
+`pluginData["setta-json-render-app-gen"]`, and stores app-spec JSON files under
+`plugins/setta-json-render-app-gen/app_specs/`. The default app-spec path is
+`plugins/setta-json-render-app-gen/app_specs/app.json`.
+
 Project Chat is the primary prompt surface for app generation. Built-in slash
 commands `/app-json`, `/app-image`, `/app-prompt`, and `/app-mcp` carry fixed
 baseline prompts, optionally append user suffix text, and submit chat requests
-with an explicit `appGenerationMode`. App Config remains the advanced workbench
-for previewing, validating, saving, and manually editing the resulting app
-definition.
+with an explicit `appGenerationMode` when the active app-subsystem provider
+contributes app-generation chat modes. App Config remains the advanced
+workbench for previewing, validating, saving, and manually editing the
+resulting app definition.
+
+Manual App Config edits use the persisted Setta app-spec shape. A minimal root
+element includes `key` and `type`, child elements are stored in top-level
+`children`, and props must match the catalog component names and fields:
+
+```json
+{
+  "key": "app-root",
+  "type": "Card",
+  "props": {
+    "title": "Plugin render smoke test",
+    "description": "If you can see this card, JSON Render is working."
+  },
+  "children": [
+    {
+      "key": "smoke-text",
+      "type": "Text",
+      "props": {
+        "text": "This is a simple app-subsystem render check."
+      }
+    }
+  ]
+}
+```
 
 ## 1) Persistent Updates: JSON Merge Patch
 
 Used by:
 
-- Go-owned app-definition writes in `internal/projectstate/app_definition_writes.go`
-- HTTP reads/writes in `internal/httpapi/app_definition_routes.go`
+- Go-owned app-definition writes in `internal/appsubsystem/appdefinition/service.go`
+- HTTP reads/writes registered by `internal/appsubsystem/appdefinitionhttp/routes.go`
 
 This applies a **JSON Merge Patch** to the stored app definition/spec. Use this
 for non-streaming, persisted edits (for example: "set this one field" or "apply
@@ -26,7 +58,10 @@ this config change").
 
 Used by:
 
-- `setta__stream_app_definition` (`internal/mcpx/server.go` and `internal/projectstate/app_definition_stream.go`)
+- `setta__stream_app_definition`, registered by
+  `internal/appsubsystem/mcptools/registrations.go` and persisted through
+  `internal/appsubsystem/appdefinition/service.go`
+- Patch parsing/application in `internal/appsubsystem/appspec/patch_stream.go`
 
 This consumes **newline-delimited JSON (JSONL)** where each line is an operation
 using JSON Pointer paths (for example: `{"op":"set","path":"/elements/foo", ...}`).
@@ -38,7 +73,8 @@ spec, and matches streaming UI contracts (for example `@json-render/react`'s
 The older standalone `/api/streamAppSpec` HTTP helper is now a legacy/dormant
 surface. The current app-config and Project Chat flow uses
 `/api/getLLMResponse` plus `/ws/frontend` tool-preview updates and the Go-owned
-`stream_app_definition` MCP tool instead of a dedicated streaming HTTP route.
+app-subsystem `stream_app_definition` MCP tool instead of a dedicated streaming
+HTTP route.
 
 ### Current app-generation mode inputs
 
