@@ -135,6 +135,20 @@ func TestEnsureRuntimeManagedPluginFrontendAssetsBuildsGenericSourcePlugin(
 	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
 }
 
+func TestEnsureRuntimeManagedPluginFrontendAssetsRejectsMissingPackageJSON(
+	t *testing.T,
+) {
+	sourceRoot := stageFirstPartyAppSubsystemPluginSource(t)
+	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load staged plugin manifest: %v", err)
+	}
+	removeRuntimeManagedFrontendPackageJSON(t, sourceRoot)
+
+	err = ensureRuntimeManagedPluginFrontendAssets(sourceRoot, manifest)
+	assertMissingRuntimeManagedFrontendPackageJSONError(t, err)
+}
+
 func TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets(
 	t *testing.T,
 ) {
@@ -175,6 +189,27 @@ func TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets(
 			t.Fatalf("expected packaged runtime-managed asset %s: %v", relativePath, err)
 		}
 	}
+}
+
+func TestPackagePluginSourceForDeploymentRejectsMissingPackageJSON(t *testing.T) {
+	sourceRoot := stageFirstPartyAppSubsystemPluginSource(t)
+	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load staged plugin manifest: %v", err)
+	}
+	removeRuntimeManagedFrontendPackageJSON(t, sourceRoot)
+
+	targetRoot := filepath.Join(t.TempDir(), "packaged-provider")
+	err = packagePluginSourceForDeployment(
+		DiscoveredPlugin{
+			PluginID:   manifest.ID,
+			SourcePath: sourceRoot,
+			Scope:      PluginScopeWorkspace,
+			Manifest:   &manifest,
+		},
+		targetRoot,
+	)
+	assertMissingRuntimeManagedFrontendPackageJSONError(t, err)
 }
 
 func TestPackagePluginSourceForDeploymentRebuildsRuntimeManagedFrontendAssetsWhenDistExists(
@@ -307,5 +342,24 @@ func writeRuntimeManagedFrontendBuildOutputs(t *testing.T, frontendRoot string) 
 	}
 	if err := os.WriteFile(filepath.Join(distRoot, "index.css"), []byte("body {}\n"), 0o644); err != nil {
 		t.Fatalf("write built frontend style: %v", err)
+	}
+}
+
+func removeRuntimeManagedFrontendPackageJSON(t *testing.T, pluginRoot string) {
+	t.Helper()
+
+	frontendRoot := filepath.Join(pluginRoot, "frontend")
+	writeRuntimeManagedFrontendBuildOutputs(t, frontendRoot)
+	if err := os.Remove(filepath.Join(frontendRoot, "package.json")); err != nil {
+		t.Fatalf("remove plugin frontend package.json: %v", err)
+	}
+}
+
+func assertMissingRuntimeManagedFrontendPackageJSONError(t *testing.T, err error) {
+	t.Helper()
+
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceInvalid)
+	if !strings.Contains(err.Error(), filepath.Join("frontend", "package.json")) {
+		t.Fatalf("expected missing frontend/package.json error, got %v", err)
 	}
 }

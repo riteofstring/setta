@@ -220,6 +220,33 @@ describe("appSubsystem", () => {
     });
   });
 
+  it("treats invalid-provider capabilities as unavailable instead of erroring", async () => {
+    await syncAppSubsystemFrontendRegistration(
+      {
+        pluginId: "",
+        pluginEnabled: false,
+        appAuthoringUi: false,
+        appPreviewUi: false,
+        appGenerationChatModes: false,
+        appDeploymentRuntime: false,
+        providerSelection: {
+          status: "invalid_provider",
+          activePluginIds: [],
+          disabledPluginIds: [],
+          invalidPluginIds: ["acme.invalid-provider"],
+          conflictingPluginIds: [],
+        },
+      },
+      {},
+    );
+
+    expect(getAppSubsystemFrontendRuntimeState()).toMatchObject({
+      status: "unavailable",
+      statusMessage: null,
+      registration: null,
+    });
+  });
+
   it("loads the lazy app subsystem frontend registration when frontend surfaces are enabled", async () => {
     await syncEnabledAppSubsystem();
     syncStoreInitialState(useAppSubsystemFrontendStore);

@@ -788,13 +788,18 @@ func writeMinimalAppSubsystemProviderPlugin(
 		"version":           "0.1.0",
 		"settaVersionRange": ">=0.0.0",
 		"enabledByDefault":  true,
-		"capabilities":      []string{},
+		"frontend": map[string]any{
+			"entrypoint": "frontend/dist/index.js",
+			"style":      "frontend/dist/index.css",
+		},
+		"capabilities": []string{},
 		"featureCapabilities": map[string]any{
 			"appSubsystem": map[string]any{
 				"appDeploymentRuntime": true,
 			},
 		},
 	}
+	writeMinimalAppSubsystemFrontendAssets(t, pluginRoot)
 	if withBackend {
 		manifest["backend"] = map[string]any{
 			"entrypoint": "runtime_backend/main.py",
@@ -803,6 +808,21 @@ func writeMinimalAppSubsystemProviderPlugin(
 		writeMinimalAppSubsystemBackendProbe(t, filepath.Join(pluginRoot, "runtime_backend", "main.py"))
 	}
 	writeAppJSON(t, filepath.Join(pluginRoot, "setta.plugin.json"), manifest)
+}
+
+func writeMinimalAppSubsystemFrontendAssets(t *testing.T, pluginRoot string) {
+	t.Helper()
+
+	frontendDistRoot := filepath.Join(pluginRoot, "frontend", "dist")
+	if err := os.MkdirAll(frontendDistRoot, 0o755); err != nil {
+		t.Fatalf("mkdir frontend dist root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(frontendDistRoot, "index.js"), []byte("export default {};\n"), 0o644); err != nil {
+		t.Fatalf("write frontend entrypoint: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(frontendDistRoot, "index.css"), []byte("body {}\n"), 0o644); err != nil {
+		t.Fatalf("write frontend style: %v", err)
+	}
 }
 
 func writeMinimalAppSubsystemBackendProbe(t *testing.T, path string) {

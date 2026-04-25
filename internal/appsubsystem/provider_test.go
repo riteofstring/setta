@@ -12,6 +12,7 @@ import (
 	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/deployments"
+	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/uisettings"
@@ -22,14 +23,16 @@ const providerTestPluginID = "setta-json-render-app-gen"
 func TestBuildScopedUISettingEntriesUsesBackendRuntime(t *testing.T) {
 	t.Helper()
 
-	store, runtime, settaFilesRoot := openProviderTestRuntime(t, projectstate.NewDocument())
+	_, runtime, settaFilesRoot := openProviderTestRuntime(t, projectstate.NewDocument())
 	storage := appdefinition.MustStorageForPlugin(providerTestPluginID)
+	defaultAppSpecPath := appspec.MustForPlugin(providerTestPluginID).DefaultPath()
 	requestedEndpoints := []string{}
 
 	entries, err := BuildScopedUISettingEntries(
 		plugins.PluginAppSubsystemCapabilities{
-			PluginID:      providerTestPluginID,
-			PluginEnabled: true,
+			PluginID:       providerTestPluginID,
+			PluginEnabled:  true,
+			AppAuthoringUI: true,
 		},
 		runtime,
 		providerTestBackendInvoker{
@@ -43,39 +46,38 @@ func TestBuildScopedUISettingEntriesUsesBackendRuntime(t *testing.T) {
 					return appdefinition.AppDefinition{
 						CatalogID:      "catalog-a",
 						AppSpecVersion: "v1",
-						AppSpecPath:    "frontend/app.json",
+						AppSpecPath:    defaultAppSpecPath,
 					}, true, nil
 				case "appsubsystem_get_app_definition":
 					return appdefinition.ReadResult{
 						AppDefinition: &appdefinition.AppDefinition{
 							CatalogID:      "catalog-b",
 							AppSpecVersion: "v1",
-							AppSpecPath:    "frontend/app.json",
+							AppSpecPath:    defaultAppSpecPath,
 						},
 					}, true, nil
 				case "appsubsystem_get_effective_app_spec_path":
-					return "frontend/app.json", true, nil
+					return defaultAppSpecPath, true, nil
 				case "appsubsystem_get_effective_app_theme_mode":
 					return "light", true, nil
 				case "appsubsystem_compare_and_set_catalog_id":
-					document, err := store.Load(context.Background())
-					if err != nil {
-						t.Fatalf("load persisted document: %v", err)
-					}
-					document = storage.WithStoredDocumentAppDefinition(
-						document,
-						mustMarshalProviderTestDefinition(t, appdefinition.AppDefinition{
+					return appdefinition.CompareAndSetMutationResult{
+						CompareResult: appdefinition.CompareAndSetStringResult{
+							OldValue: "catalog-a",
+							NewValue: "catalog-b",
+						},
+						AppSpec: map[string]any{
+							"root": map[string]any{
+								"key":  "root",
+								"type": "Stack",
+							},
+							"elements": map[string]any{},
+						},
+						AppDefinition: &appdefinition.AppDefinition{
 							CatalogID:      "catalog-b",
 							AppSpecVersion: "v1",
-							AppSpecPath:    "frontend/app.json",
-						}),
-					)
-					if err := store.Save(context.Background(), document); err != nil {
-						t.Fatalf("save persisted document: %v", err)
-					}
-					return projectstate.CompareAndSetResult[string]{
-						OldValue: "catalog-a",
-						NewValue: "catalog-b",
+							AppSpecPath:    defaultAppSpecPath,
+						},
 					}, true, nil
 				default:
 					t.Fatalf("unexpected UI settings endpoint %q", request.EndpointName)
@@ -123,6 +125,66 @@ func TestBuildScopedUISettingEntriesUsesBackendRuntime(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(settaFilesRoot, projectstate.MainFileName)); err != nil {
 		t.Fatalf("expected persisted project state at %s: %v", settaFilesRoot, err)
+	}
+}
+
+func TestBuildScopedUISettingEntriesRequiresAppAuthoringUI(t *testing.T) {
+	_, runtime, _ := openProviderTestRuntime(t, projectstate.NewDocument())
+
+	entries, err := BuildScopedUISettingEntries(
+		plugins.PluginAppSubsystemCapabilities{
+			PluginID:      providerTestPluginID,
+			PluginEnabled: true,
+		},
+		runtime,
+		providerTestBackendInvoker{},
+	)
+	if err != nil {
+		t.Fatalf("build scoped ui setting entries without app authoring ui: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected no app ui settings without app authoring ui capability, got %#v", entries)
+	}
+}
+
+func TestBuildMCPToolRegistrationsFollowAppSubsystemFeatureBits(t *testing.T) {
+	_, runtime, _ := openProviderTestRuntime(t, projectstate.NewDocument())
+
+	catalogOnly, err := BuildMCPToolRegistrations(
+		plugins.PluginAppSubsystemCapabilities{
+			PluginID:               providerTestPluginID,
+			PluginEnabled:          true,
+			AppGenerationChatModes: true,
+			AppAuthoringUI:         false,
+			AppDeploymentRuntime:   false,
+			AppPreviewUI:           false,
+		},
+		runtime,
+		providerTestBackendInvoker{},
+	)
+	if err != nil {
+		t.Fatalf("build catalog-only mcp tool registrations: %v", err)
+	}
+	if !slices.Equal(providerTestToolNames(catalogOnly), []string{
+		"get_app_catalog",
+		"list_app_components",
+	}) {
+		t.Fatalf("expected only app generation catalog tools, got %#v", providerTestToolNames(catalogOnly))
+	}
+
+	noTools, err := BuildMCPToolRegistrations(
+		plugins.PluginAppSubsystemCapabilities{
+			PluginID:      providerTestPluginID,
+			PluginEnabled: true,
+		},
+		runtime,
+		providerTestBackendInvoker{},
+	)
+	if err != nil {
+		t.Fatalf("build empty mcp tool registrations: %v", err)
+	}
+	if len(noTools) != 0 {
+		t.Fatalf("expected no app subsystem tools without feature bits, got %#v", noTools)
 	}
 }
 
@@ -310,6 +372,14 @@ func providerTestRuntimeEntryByID(
 	}
 	t.Fatalf("missing runtime entry %q", settingID)
 	return uisettings.RuntimeEntry{}
+}
+
+func providerTestToolNames(registrations []mcpx.ToolRegistration) []string {
+	names := make([]string, 0, len(registrations))
+	for _, registration := range registrations {
+		names = append(names, registration.Spec.Name)
+	}
+	return names
 }
 
 func mustMarshalProviderTestDefinition(

@@ -565,6 +565,19 @@ func TestServiceValidateFolderRejectsManifestSchemaPathsAndVersions(t *testing.T
 	})
 }
 
+func TestServiceValidateFolderRejectsRuntimeManagedFrontendBuildWithoutPackageJSON(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	pluginRoot := stageFirstPartyAppSubsystemPluginSource(t)
+
+	removeRuntimeManagedFrontendPackageJSON(t, pluginRoot)
+
+	_, err := service.ValidateFolder(ValidateFolderOptions{PluginRoot: pluginRoot})
+	assertMissingRuntimeManagedFrontendPackageJSONError(t, err)
+}
+
 // Validate should accept backend capability names that the Go plugin runtime supports today.
 func TestServiceValidateFolderAcceptsKnownBackendCapabilities(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

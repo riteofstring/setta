@@ -146,18 +146,36 @@ func BuildMCPToolRegistrations(
 	projectRuntime *projectstate.Runtime,
 	backendListenerInvoker appdefinition.BackendListenerInvoker,
 ) ([]mcpx.ToolRegistration, error) {
-	if projectRuntime == nil {
+	if projectRuntime == nil || !capabilities.PluginEnabled {
 		return nil, nil
 	}
-	service, defaultAppSpecPath, ok := appDefinitionToolRuntime(
-		capabilities,
-		projectRuntime,
-		backendListenerInvoker,
-	)
-	if !ok {
+	registrations := []mcpx.ToolRegistration{}
+	if capabilities.AppGenerationChatModes {
+		registrations = append(
+			registrations,
+			neutralmcptools.BuildAppCatalogToolRegistrations()...,
+		)
+	}
+	if capabilities.AppAuthoringUI {
+		service, defaultAppSpecPath, ok := appDefinitionToolRuntime(
+			capabilities,
+			projectRuntime,
+			backendListenerInvoker,
+		)
+		if ok {
+			registrations = append(
+				registrations,
+				neutralmcptools.BuildAppDefinitionToolRegistrations(
+					service,
+					defaultAppSpecPath,
+				)...,
+			)
+		}
+	}
+	if len(registrations) == 0 {
 		return nil, nil
 	}
-	return neutralmcptools.BuildMCPToolRegistrations(service, defaultAppSpecPath), nil
+	return registrations, nil
 }
 
 func BuildScopedUISettingEntries(
@@ -165,7 +183,7 @@ func BuildScopedUISettingEntries(
 	projectRuntime *projectstate.Runtime,
 	backendListenerInvoker appdefinition.BackendListenerInvoker,
 ) ([]uisettings.RuntimeEntry, error) {
-	if projectRuntime == nil {
+	if projectRuntime == nil || !capabilities.PluginEnabled || !capabilities.AppAuthoringUI {
 		return nil, nil
 	}
 	service, err := appDefinitionRuntimeForCapabilities(

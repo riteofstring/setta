@@ -589,6 +589,62 @@ func TestServiceRuntimeAppSubsystemCapabilitiesTreatInvalidProviderAsUnavailable
 	)
 }
 
+func TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithoutFrontendEntrypointAsInvalid(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-missing-app-frontend-provider"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:                    pluginID,
+		FixtureName:                 "backend",
+		EnabledByDefault:            true,
+		RegisterAppSubsystemBackend: true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+	if appSubsystem.PluginEnabled || appSubsystem.PluginID != "" {
+		t.Fatalf("expected provider without frontend entrypoint to stay unavailable, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected provider without frontend entrypoint to expose no app subsystem surfaces, got %#v", appSubsystem)
+	}
+	assertRuntimeAppSubsystemSelection(
+		t,
+		runtimeResponse.Status.AppSubsystemSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+}
+
 func TestServiceRuntimeAppSubsystemCapabilitiesFailClosedOnProviderConflict(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	firstPluginID := "acme-primary-app-provider"
