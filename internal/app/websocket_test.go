@@ -3089,6 +3089,7 @@ func TestAppSetCodeRouteBroadcastsProjectStateUpdateForWatchCodeBoundSection(t *
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {

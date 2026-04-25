@@ -8974,6 +8974,7 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9044,11 +9045,71 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	}
 }
 
+func TestAppSetCodeRouteSkipsWatchCodeBoundSectionUpdateWithoutProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if app.watchCode != nil {
+		t.Fatal("did not expect watch code service without provider")
+	}
+
+	seedAppWatchCodeBoundSectionProject(t, app)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-main","code":"def sorted(iterable):\n    return iterable\n"}`),
+	)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(newAppTestAuthCookie(t, app))
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	target, err := snapshot.Document.ResolveFormatCodeTarget("project-alpha", "section-main")
+	if err != nil {
+		t.Fatalf("resolve updated code target: %v", err)
+	}
+	if target.Code != "def sorted(iterable):\n    return iterable\n" {
+		t.Fatalf("expected setCode to update code without provider, got %q", target.Code)
+	}
+	project := snapshot.Document.Projects["project-alpha"]
+	if len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
+		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", project.WatchCodeRegistry, project.WatchCodeBaselineByPath)
+	}
+}
+
 func TestAppSetCodeRoutePublishesMissingArgDiagnosticsForRootWatchCodeBoundSection(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9198,6 +9259,7 @@ func TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	addRepoVenvRuffToPath(t)
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9277,6 +9339,7 @@ func TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
