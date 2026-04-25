@@ -1,28 +1,7 @@
 import { BootstrapProtocol } from "./generatedTypes";
-import { isLocalHostname } from "./hostnames";
 import { normalizeOrigin } from "./origin";
+import { isSameHostOrLocalPeerOriginAllowed } from "./originPolicy";
 import { safeSessionStorage } from "./storage";
-
-function isLauncherOriginAllowed(
-  launcherOrigin: string,
-  currentOrigin: string,
-): boolean {
-  let launcherUrl: URL;
-  let currentUrl: URL;
-  try {
-    launcherUrl = new URL(launcherOrigin);
-    currentUrl = new URL(currentOrigin);
-  } catch {
-    return false;
-  }
-  if (launcherUrl.hostname === currentUrl.hostname) {
-    return true;
-  }
-  return (
-    isLocalHostname(launcherUrl.hostname) &&
-    isLocalHostname(currentUrl.hostname)
-  );
-}
 
 function currentWindowOrigin(): string | undefined {
   if (typeof window === "undefined") {
@@ -46,7 +25,10 @@ function readLauncherOrigin(storageKey: string): string | undefined {
       return undefined;
     }
     const currentOrigin = currentWindowOrigin();
-    if (currentOrigin && !isLauncherOriginAllowed(normalized, currentOrigin)) {
+    if (
+      currentOrigin &&
+      !isSameHostOrLocalPeerOriginAllowed(normalized, currentOrigin)
+    ) {
       try {
         storage.removeItem(storageKey);
       } catch {
@@ -70,7 +52,10 @@ function writeLauncherOrigin(origin: string, storageKey: string): void {
     return;
   }
   const currentOrigin = currentWindowOrigin();
-  if (currentOrigin && !isLauncherOriginAllowed(normalized, currentOrigin)) {
+  if (
+    currentOrigin &&
+    !isSameHostOrLocalPeerOriginAllowed(normalized, currentOrigin)
+  ) {
     return;
   }
   try {

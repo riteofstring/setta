@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseDraftAppAssets,
   parseDraftAppSpec,
+  parseDraftAppSpecPayload,
   parseDraftAppTheme,
 } from "../../../../../src/components/Panes/Overview/App/appDraftPreview";
 
@@ -21,6 +22,99 @@ describe("appDraftPreview", () => {
       expect(res.ok).toBe(false);
       if (!res.ok) {
         expect(res.error).toBe("Invalid JSON in app spec.");
+      }
+    });
+
+    it("parses a valid keyed app spec without rewriting it", () => {
+      const res = parseDraftAppSpecPayload(`{
+        "key": "app-root",
+        "type": "Card",
+        "props": {
+          "title": "Plugin render smoke test",
+          "description": "If you can see this card, JSON Render is working."
+        },
+        "children": [
+          {
+            "key": "smoke-text",
+            "type": "Text",
+            "props": {
+              "text": "This is a simple app-subsystem render check."
+            }
+          }
+        ]
+      }`);
+
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.value).toEqual({
+          key: "app-root",
+          type: "Card",
+          props: {
+            title: "Plugin render smoke test",
+            description: "If you can see this card, JSON Render is working.",
+          },
+          children: [
+            {
+              key: "smoke-text",
+              type: "Text",
+              props: {
+                text: "This is a simple app-subsystem render check.",
+              },
+            },
+          ],
+        });
+      }
+    });
+
+    it("does not compatibility-normalize unkeyed JSON render element trees", () => {
+      const res = parseDraftAppSpecPayload(`{
+        "type": "Card",
+        "props": {
+          "subtitle": "This is intentionally left for backend validation.",
+          "children": [
+            {
+              "type": "Text",
+              "props": {
+                "children": "Unsupported Setta app-spec shape."
+              }
+            }
+          ]
+        }
+      }`);
+
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.value).toEqual({
+          type: "Card",
+          props: {
+            subtitle: "This is intentionally left for backend validation.",
+            children: [
+              {
+                type: "Text",
+                props: {
+                  children: "Unsupported Setta app-spec shape.",
+                },
+              },
+            ],
+          },
+        });
+      }
+    });
+
+    it("preserves an already keyed app spec", () => {
+      const res = parseDraftAppSpecPayload(`{
+        "key": "root",
+        "type": "Card",
+        "props": { "title": "Existing" }
+      }`);
+
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.value).toEqual({
+          key: "root",
+          type: "Card",
+          props: { title: "Existing" },
+        });
       }
     });
   });

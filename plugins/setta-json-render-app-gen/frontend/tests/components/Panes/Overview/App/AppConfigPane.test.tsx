@@ -60,6 +60,20 @@ async function renderPane(): Promise<RenderedPane> {
   return { host, root };
 }
 
+function setTextAreaValue(textarea: HTMLTextAreaElement, value: string) {
+  const valueSetter = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype,
+    "value",
+  )?.set;
+  valueSetter?.call(textarea, value);
+  textarea.dispatchEvent(
+    new InputEvent("input", {
+      bubbles: true,
+      inputType: "insertFromPaste",
+    }),
+  );
+}
+
 describe("AppConfigPane", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -96,6 +110,75 @@ describe("AppConfigPane", () => {
     });
 
     expect(getTrigger()?.getAttribute("aria-expanded")).toBe("false");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("shows the manual app spec shape contract near the editor", async () => {
+    const { host, root } = await renderPane();
+
+    expect(host.textContent).toContain("Root elements must include");
+    expect(host.textContent).toContain("ActionButton");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("does not publish draft preview overrides while preview is hidden", async () => {
+    const { host, root } = await renderPane();
+    const textarea = host.querySelector(
+      'textarea[aria-label="App Spec JSON"]',
+    ) as HTMLTextAreaElement | null;
+    expect(textarea).toBeTruthy();
+
+    await act(async () => {
+      setTextAreaValue(
+        textarea as HTMLTextAreaElement,
+        '{"key":"app-root","type":"Card"}',
+      );
+    });
+
+    expect(useAppPreview.getState().previewSpecOverride).toBeUndefined();
+    const saveButton = Array.from(host.querySelectorAll("button")).find(
+      (button) => button.textContent === "Save",
+    );
+    expect(saveButton?.disabled).toBe(false);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("syncs the current draft when preview is shown", async () => {
+    const { host, root } = await renderPane();
+    const textarea = host.querySelector(
+      'textarea[aria-label="App Spec JSON"]',
+    ) as HTMLTextAreaElement | null;
+    const showPreviewButton = Array.from(host.querySelectorAll("button")).find(
+      (button) => button.textContent === "Show Preview",
+    );
+    expect(textarea).toBeTruthy();
+    expect(showPreviewButton).toBeTruthy();
+
+    await act(async () => {
+      setTextAreaValue(
+        textarea as HTMLTextAreaElement,
+        '{"key":"app-root","type":"Card"}',
+      );
+    });
+    await act(async () => {
+      showPreviewButton?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+
+    expect(useAppPreview.getState().previewSpecOverride).toEqual({
+      key: "app-root",
+      type: "Card",
+    });
 
     await act(async () => {
       root.unmount();

@@ -456,14 +456,6 @@ const BaseSectionWithParamsImplTypeSet = /* @__PURE__ */ new Set([
 function isBaseSectionWithParamsImpl(value) {
   return BaseSectionWithParamsImplTypeSet.has(value.type);
 }
-const LOCAL_HOSTNAME_SET = new Set(
-  LocalHostnamePolicyConfig.loopbackHosts.map(
-    (hostname) => hostname.toLowerCase()
-  )
-);
-function isLocalHostname(hostname) {
-  return LOCAL_HOSTNAME_SET.has(hostname.trim().toLowerCase());
-}
 function formatGeneratedOriginHost(hostname) {
   if (hostname.includes(":") && !hostname.startsWith("[")) {
     return "[" + hostname + "]";
@@ -552,6 +544,28 @@ function normalizeOrigin(origin, label = "backend origin") {
   console.error(`Invalid ${label} "${origin}".`);
   return void 0;
 }
+const LOCAL_HOSTNAME_SET = new Set(
+  LocalHostnamePolicyConfig.loopbackHosts.map(
+    (hostname) => hostname.toLowerCase()
+  )
+);
+function isLocalHostname(hostname) {
+  return LOCAL_HOSTNAME_SET.has(hostname.trim().toLowerCase());
+}
+function isSameHostOrLocalPeerOriginAllowed(peerOrigin, currentOrigin) {
+  let peerUrl;
+  let currentUrl;
+  try {
+    peerUrl = new URL(peerOrigin);
+    currentUrl = new URL(currentOrigin);
+  } catch {
+    return false;
+  }
+  if (peerUrl.hostname === currentUrl.hostname) {
+    return true;
+  }
+  return isLocalHostname(peerUrl.hostname) && isLocalHostname(currentUrl.hostname);
+}
 function safeSessionStorage() {
   if (typeof window === "undefined") {
     return void 0;
@@ -571,20 +585,6 @@ function safeLocalStorage() {
   } catch {
     return void 0;
   }
-}
-function isLauncherOriginAllowed(launcherOrigin, currentOrigin) {
-  let launcherUrl;
-  let currentUrl;
-  try {
-    launcherUrl = new URL(launcherOrigin);
-    currentUrl = new URL(currentOrigin);
-  } catch {
-    return false;
-  }
-  if (launcherUrl.hostname === currentUrl.hostname) {
-    return true;
-  }
-  return isLocalHostname(launcherUrl.hostname) && isLocalHostname(currentUrl.hostname);
 }
 function currentWindowOrigin() {
   if (typeof window === "undefined") {
@@ -607,7 +607,7 @@ function readLauncherOrigin(storageKey) {
       return void 0;
     }
     const currentOrigin = currentWindowOrigin();
-    if (currentOrigin && !isLauncherOriginAllowed(normalized, currentOrigin)) {
+    if (currentOrigin && !isSameHostOrLocalPeerOriginAllowed(normalized, currentOrigin)) {
       try {
         storage.removeItem(storageKey);
       } catch {
@@ -629,7 +629,7 @@ function writeLauncherOrigin(origin, storageKey) {
     return;
   }
   const currentOrigin = currentWindowOrigin();
-  if (currentOrigin && !isLauncherOriginAllowed(normalized, currentOrigin)) {
+  if (currentOrigin && !isSameHostOrLocalPeerOriginAllowed(normalized, currentOrigin)) {
     return;
   }
   try {
@@ -655,7 +655,7 @@ function getOrInitLauncherOrigin(fallbackOrigin) {
 }
 const __vite_import_meta_env__ = {};
 const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY = "setta.backendOriginOverride";
-function resolveDevBackendOriginSessionOverride(backendOriginOverrideStorageKey) {
+function readBackendOriginSessionOverride(backendOriginOverrideStorageKey) {
   const storage = safeSessionStorage();
   if (!storage) {
     return void 0;
@@ -677,6 +677,18 @@ function resolveDevBackendOriginSessionOverride(backendOriginOverrideStorageKey)
     return void 0;
   }
 }
+function resolveBackendOriginSessionOverride(config) {
+  const override = readBackendOriginSessionOverride(
+    config.backendOriginOverrideStorageKey
+  );
+  if (!override) {
+    return void 0;
+  }
+  if (!isSameHostOrLocalPeerOriginAllowed(override, config.locationOrigin)) {
+    return void 0;
+  }
+  return override;
+}
 function resolveDevBackendOriginOverride(devBackendOriginOverride) {
   if (!devBackendOriginOverride) {
     return void 0;
@@ -684,12 +696,17 @@ function resolveDevBackendOriginOverride(devBackendOriginOverride) {
   return normalizeOrigin(devBackendOriginOverride, "VITE_BACKEND_ORIGIN");
 }
 function resolveBackendOrigin(config) {
+  const sessionOverride = resolveBackendOriginSessionOverride(config);
+  if (sessionOverride) {
+    return sessionOverride;
+  }
   return config.locationOrigin;
 }
 function resolveLauncherOrigin(config) {
+  const sessionOverride = resolveBackendOriginSessionOverride(config);
   {
     return getOrInitLauncherOriginWithStorageKey(
-      config.locationOrigin,
+      sessionOverride ?? config.locationOrigin,
       config.launcherOriginStorageKey
     );
   }
@@ -711,9 +728,7 @@ class C_ADDRESSES {
     return defaultAddressResolverConfig().devMode;
   }
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
-    return resolveDevBackendOriginSessionOverride(
-      defaultAddressResolverConfig().backendOriginOverrideStorageKey
-    );
+    return resolveBackendOriginSessionOverride(defaultAddressResolverConfig());
   }
   static get DEV_BACKEND_ORIGIN_OVERRIDE() {
     return resolveDevBackendOriginOverride(
@@ -2000,6 +2015,11 @@ function resolveOpenAPIBaseURL() {
   }
   return C_ADDRESSES.BACKEND_ORIGIN;
 }
+function buildURLFromTransportBase(baseUrl, address) {
+  const baseWithTrailingSlash = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const relativeAddress = address.replace(/^\/+/, "");
+  return new URL(relativeAddress, baseWithTrailingSlash).toString();
+}
 function buildShareSessionHeaders() {
   const frontendHost = getActiveAppSubsystemFrontendHostRuntime();
   const runtimeShareSessionId = frontendHost?.getRuntimeContext().shareSessionId ?? null;
@@ -2013,10 +2033,10 @@ function buildShareSessionHeaders() {
 function buildBackendURL(address) {
   const frontendHost = getActiveAppSubsystemFrontendHostRuntime();
   const serverMode = frontendHost?.getServerModeState().mode ?? null;
-  return new URL(
-    address,
-    resolveTransportBaseUrl(serverMode, address)
-  ).toString();
+  return buildURLFromTransportBase(
+    resolveTransportBaseUrl(serverMode, address),
+    address
+  );
 }
 async function fetchOpenAPIRequest(input, init) {
   const request = input instanceof Request ? input : new Request(input, init);
@@ -2041,7 +2061,12 @@ function configureAppSubsystemOpenAPI() {
 }
 function buildBinaryDownloadUrl(contentId, shareSessionId, serverMode) {
   const address = buildBinaryDownloadRoute(contentId);
-  const url = new URL(address, resolveTransportBaseUrl(serverMode, address));
+  const url = new URL(
+    buildURLFromTransportBase(
+      resolveTransportBaseUrl(serverMode, address),
+      address
+    )
+  );
   if (shareSessionId) {
     url.searchParams.set("shareSessionId", shareSessionId);
   }

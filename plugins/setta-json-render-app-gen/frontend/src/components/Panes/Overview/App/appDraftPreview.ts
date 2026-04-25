@@ -1,4 +1,5 @@
 export type AppThemeMode = "auto" | "light" | "dark";
+export type AppSpecDraftPayload = Record<string, unknown>;
 
 type DraftParseResult<T> =
   | { ok: true; value: T }
@@ -8,17 +9,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+export function parseDraftAppSpecPayload(
+  draftSpec: string,
+): DraftParseResult<AppSpecDraftPayload> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(draftSpec) as unknown;
+  } catch {
+    return { ok: false, error: "Invalid JSON in app spec." };
+  }
+  if (!isRecord(parsed)) {
+    return { ok: false, error: "App spec JSON must be an object." };
+  }
+  return { ok: true, value: parsed };
+}
+
 export function parseDraftAppSpec(
   draftSpec: string,
 ): DraftParseResult<unknown | null> {
   if (draftSpec.trim().length === 0) {
     return { ok: true, value: null };
   }
-  try {
-    return { ok: true, value: JSON.parse(draftSpec) as unknown };
-  } catch {
-    return { ok: false, error: "Invalid JSON in app spec." };
-  }
+  return parseDraftAppSpecPayload(draftSpec);
 }
 
 export function parseDraftAppTheme(

@@ -119,6 +119,12 @@ function resolveOpenAPIBaseURL(): string {
   return C_ADDRESSES.BACKEND_ORIGIN;
 }
 
+function buildURLFromTransportBase(baseUrl: string, address: string): string {
+  const baseWithTrailingSlash = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const relativeAddress = address.replace(/^\/+/, "");
+  return new URL(relativeAddress, baseWithTrailingSlash).toString();
+}
+
 function buildShareSessionHeaders(): Record<string, string> {
   const frontendHost = getActiveAppSubsystemFrontendHostRuntime();
   const runtimeShareSessionId =
@@ -135,10 +141,10 @@ function buildShareSessionHeaders(): Record<string, string> {
 function buildBackendURL(address: string): string {
   const frontendHost = getActiveAppSubsystemFrontendHostRuntime();
   const serverMode = frontendHost?.getServerModeState().mode ?? null;
-  return new URL(
-    address,
+  return buildURLFromTransportBase(
     resolveTransportBaseUrl(serverMode, address),
-  ).toString();
+    address,
+  );
 }
 
 async function fetchOpenAPIRequest(
@@ -173,7 +179,12 @@ export function buildBinaryDownloadUrl(
   serverMode: ServerMode,
 ): string {
   const address = buildBinaryDownloadRoute(contentId);
-  const url = new URL(address, resolveTransportBaseUrl(serverMode, address));
+  const url = new URL(
+    buildURLFromTransportBase(
+      resolveTransportBaseUrl(serverMode, address),
+      address,
+    ),
+  );
   if (shareSessionId) {
     url.searchParams.set("shareSessionId", shareSessionId);
   }

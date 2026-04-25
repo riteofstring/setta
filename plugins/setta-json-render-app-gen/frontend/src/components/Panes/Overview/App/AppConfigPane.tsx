@@ -18,16 +18,24 @@ import {
   useAppSubsystemFrontendHost,
   useAppSubsystemProjectContext,
 } from "../../../../appSubsystemFrontendHostContext";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { type AppDefinition } from "../../../../appSubsystemContracts";
 import { getRegisteredAppSubsystemPluginId } from "../../../../appSubsystemPluginHost";
 import {
   parseDraftAppAssets,
   parseDraftAppSpec,
+  parseDraftAppSpecPayload,
   parseDraftAppTheme,
   type AppThemeMode,
+  type AppSpecDraftPayload,
 } from "./appDraftPreview";
-type AppSpecPayload = Record<string, unknown>;
 type ProjectMetadataOption = {
   id: string;
   name: string;
@@ -81,8 +89,8 @@ function resolveThemeMode(theme: unknown): AppThemeMode {
   return DEFAULT_THEME_MODE;
 }
 
-function buildDefaultSpec(): AppSpecPayload {
-  const root: AppSpecPayload = {
+function buildDefaultSpec(): AppSpecDraftPayload {
+  const root: AppSpecDraftPayload = {
     key: "app-root",
     type: "Stack",
     props: {
@@ -149,14 +157,14 @@ function buildDefaultSpec(): AppSpecPayload {
   };
   return {
     root,
-    elements: buildElementIndex(root as AppSpecPayload),
+    elements: buildElementIndex(root as AppSpecDraftPayload),
   };
 }
 function buildElementIndex(
-  root: AppSpecPayload,
-): Record<string, AppSpecPayload> {
-  const elements: Record<string, AppSpecPayload> = {};
-  const stack: AppSpecPayload[] = [root];
+  root: AppSpecDraftPayload,
+): Record<string, AppSpecDraftPayload> {
+  const elements: Record<string, AppSpecDraftPayload> = {};
+  const stack: AppSpecDraftPayload[] = [root];
   while (stack.length > 0) {
     const current = stack.pop();
     if (!current) {
@@ -171,7 +179,7 @@ function buildElementIndex(
     if (Array.isArray(children)) {
       for (const child of children) {
         if (child && typeof child === "object") {
-          stack.push(child as AppSpecPayload);
+          stack.push(child as AppSpecDraftPayload);
         }
       }
     }
@@ -235,26 +243,6 @@ function parseAssetsPayloadForRequest(draftAssets: string):
     return { ok: false, error: "Assets JSON must be a list." };
   }
   return { ok: true, value: rawAssets };
-}
-function parseSpecPayloadForRequest(draftSpec: string):
-  | {
-      ok: true;
-      value: AppSpecPayload;
-    }
-  | {
-      ok: false;
-      error: string;
-    } {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(draftSpec) as unknown;
-  } catch {
-    return { ok: false, error: "Invalid JSON in app spec." };
-  }
-  if (!isRecord(parsed)) {
-    return { ok: false, error: "App spec JSON must be an object." };
-  }
-  return { ok: true, value: parsed };
 }
 function formatOptionalJson(value: unknown): string {
   return value == null ? "" : JSON.stringify(value, null, 2);
@@ -500,23 +488,31 @@ function DraftSpecEditor({
   appSpec,
   draftSpec,
   draftSpecError,
+  draftSpecRef,
   onDraftSpecChange,
 }: {
   appSpec: unknown;
   draftSpec: string;
   draftSpecError: string | null;
+  draftSpecRef: RefObject<HTMLTextAreaElement | null>;
   onDraftSpecChange: (value: string) => void;
 }) {
   const placeholder = appSpec
     ? "Edit the app spec JSON."
-    : "No app spec yet. Create or generate one.";
+    : "Paste a Setta app spec JSON object, or use Create Default.";
   return (
     <>
+      <p className="text-[11px] text-setta-500 dark:text-setta-400">
+        Root elements must include <code>key</code> and <code>type</code>. Put
+        child elements in top-level <code>children</code>; text uses{" "}
+        <code>props.text</code>, and actions use <code>ActionButton</code>.
+      </p>
       <textarea
         aria-label="App Spec JSON"
         className="min-h-[280px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+        defaultValue={draftSpec}
         placeholder={placeholder}
-        value={draftSpec}
+        ref={draftSpecRef}
         onChange={(event) => onDraftSpecChange(event.target.value)}
       />
       {draftSpecError ? (
@@ -716,7 +712,10 @@ export function AppConfigPane() {
   const appSpec = useAppDefinition((state) => state.appSpec);
   const isPreviewEnabled = useAppPreview((state) => state.isPreviewEnabled);
   const previewConfigId = useAppPreview((state) => state.previewConfigId);
+  const draftSpecRef = useRef<HTMLTextAreaElement | null>(null);
   const [draftSpec, setDraftSpec] = useState("");
+  const [draftSpecPreviewText, setDraftSpecPreviewText] = useState("");
+  const [hasDraft, setHasDraft] = useState(false);
   const [draftTheme, setDraftTheme] = useState("");
   const [draftAssets, setDraftAssets] = useState("");
   const [draftSpecError, setDraftSpecError] = useState<string | null>(null);
@@ -732,10 +731,23 @@ export function AppConfigPane() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [validationResult, setValidationResult] =
     useState<NormalizedAppDefinitionValidationResult | null>(null);
+  const deferredDraftSpec = useDeferredValue(draftSpecPreviewText);
+  const deferredDraftTheme = useDeferredValue(draftTheme);
+  const deferredDraftAssets = useDeferredValue(draftAssets);
   const defaultAppSpecPath = buildDefaultAppSpecPath(appSubsystemPluginID);
   const appSpecPathPlaceholder =
     defaultAppSpecPath || "plugins/<app-provider>/app_specs/app.json";
-  const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
+  const readDraftSpec = useCallback(() => {
+    return draftSpecRef.current?.value ?? draftSpec;
+  }, [draftSpec]);
+  const writeDraftSpec = useCallback((nextDraftSpec: string) => {
+    if (draftSpecRef.current && draftSpecRef.current.value !== nextDraftSpec) {
+      draftSpecRef.current.value = nextDraftSpec;
+    }
+    setDraftSpec(nextDraftSpec);
+    setDraftSpecPreviewText(nextDraftSpec);
+    setHasDraft(nextDraftSpec.trim().length > 0);
+  }, []);
   const clearDraftErrors = useCallback(() => {
     setDraftSpecError(null);
     setDraftThemeError(null);
@@ -751,7 +763,7 @@ export function AppConfigPane() {
   }, []);
   const applyHydratedAppDraftState = useCallback(
     (hydratedState: HydratedAppDraftState) => {
-      setDraftSpec(hydratedState.draftSpec);
+      writeDraftSpec(hydratedState.draftSpec);
       setCatalogId(hydratedState.catalogId);
       setSpecVersion(hydratedState.specVersion);
       setAppSpecPath(hydratedState.appSpecPath);
@@ -759,7 +771,7 @@ export function AppConfigPane() {
       setDraftAssets(hydratedState.draftAssets);
       setThemeMode(hydratedState.themeMode);
     },
-    [],
+    [writeDraftSpec],
   );
   const loadSavedAppDefinition = useCallback(
     (savedAppDefinition: HydratedAppDefinition) => {
@@ -830,28 +842,23 @@ export function AppConfigPane() {
     loadSavedAppDefinition,
     projectConfigId,
   ]);
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (draftSpec.trim().length === 0) {
-        setDraftSpecError(null);
-        useAppPreview.setState({ previewSpecOverride: undefined });
-        return;
-      }
-      const parsed = parseDraftAppSpec(draftSpec);
-      if (parsed.ok) {
-        setDraftSpecError(null);
-        useAppPreview.setState({ previewSpecOverride: parsed.value });
-        return;
-      }
-      setDraftSpecError(parsed.error);
-    }, 300);
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [draftSpec]);
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const parsed = parseDraftAppTheme(draftTheme, themeMode);
+  const applyDraftSpecPreview = useCallback((nextDraftSpec: string) => {
+    if (nextDraftSpec.trim().length === 0) {
+      setDraftSpecError(null);
+      useAppPreview.setState({ previewSpecOverride: undefined });
+      return;
+    }
+    const parsed = parseDraftAppSpec(nextDraftSpec);
+    if (parsed.ok) {
+      setDraftSpecError(null);
+      useAppPreview.setState({ previewSpecOverride: parsed.value });
+      return;
+    }
+    setDraftSpecError(parsed.error);
+  }, []);
+  const applyDraftThemePreview = useCallback(
+    (nextDraftTheme: string, nextThemeMode: AppThemeMode) => {
+      const parsed = parseDraftAppTheme(nextDraftTheme, nextThemeMode);
       if (parsed.ok) {
         setDraftThemeError(null);
         useAppPreview.setState({ previewThemeOverride: parsed.value });
@@ -861,35 +868,61 @@ export function AppConfigPane() {
       const previousTheme = useAppPreview.getState().previewThemeOverride;
       useAppPreview.setState({
         previewThemeOverride: isRecord(previousTheme)
-          ? { ...previousTheme, mode: themeMode }
-          : { mode: themeMode },
+          ? { ...previousTheme, mode: nextThemeMode }
+          : { mode: nextThemeMode },
       });
-    }, 300);
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [draftTheme, themeMode]);
+    },
+    [],
+  );
+  const applyDraftAssetsPreview = useCallback((nextDraftAssets: string) => {
+    const parsed = parseDraftAppAssets(nextDraftAssets);
+    if (parsed.ok) {
+      setDraftAssetsError(null);
+      useAppPreview.setState({ previewAssetsOverride: parsed.value });
+      return;
+    }
+    setDraftAssetsError(parsed.error);
+  }, []);
   useEffect(() => {
+    if (!isPreviewEnabled) {
+      return;
+    }
     const timeoutId = setTimeout(() => {
-      const parsed = parseDraftAppAssets(draftAssets);
-      if (parsed.ok) {
-        setDraftAssetsError(null);
-        useAppPreview.setState({ previewAssetsOverride: parsed.value });
-        return;
-      }
-      setDraftAssetsError(parsed.error);
+      applyDraftSpecPreview(deferredDraftSpec);
     }, 300);
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [draftAssets]);
+  }, [applyDraftSpecPreview, deferredDraftSpec, isPreviewEnabled]);
+  useEffect(() => {
+    if (!isPreviewEnabled) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      applyDraftThemePreview(deferredDraftTheme, themeMode);
+    }, 300);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [applyDraftThemePreview, deferredDraftTheme, isPreviewEnabled, themeMode]);
+  useEffect(() => {
+    if (!isPreviewEnabled) {
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      applyDraftAssetsPreview(deferredDraftAssets);
+    }, 300);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [applyDraftAssetsPreview, deferredDraftAssets, isPreviewEnabled]);
   const saveAndHydrateAppDefinition = useCallback(
     async ({
       appSpec: nextSpec,
       failureMessage,
       withLoading,
     }: {
-      appSpec: AppSpecPayload;
+      appSpec: AppSpecDraftPayload;
       failureMessage: string;
       withLoading: boolean;
     }): Promise<boolean> => {
@@ -942,14 +975,14 @@ export function AppConfigPane() {
   );
   function handleCreateDefault() {
     const spec = buildDefaultSpec();
-    setDraftSpec(JSON.stringify(spec, null, 2));
+    writeDraftSpec(JSON.stringify(spec, null, 2));
     if (!appSpecPath && defaultAppSpecPath) {
       setAppSpecPath(defaultAppSpecPath);
     }
   }
   async function handleSave() {
     setErrorMessage(null);
-    const specPayload = parseSpecPayloadForRequest(draftSpec);
+    const specPayload = parseDraftAppSpecPayload(readDraftSpec());
     if (!specPayload.ok) {
       setErrorMessage(specPayload.error);
       return;
@@ -967,7 +1000,7 @@ export function AppConfigPane() {
   async function handleValidate() {
     setErrorMessage(null);
     setValidationResult(null);
-    const specPayload = parseSpecPayloadForRequest(draftSpec);
+    const specPayload = parseDraftAppSpecPayload(readDraftSpec());
     if (!specPayload.ok) {
       setErrorMessage(specPayload.error);
       return;
@@ -1013,20 +1046,40 @@ export function AppConfigPane() {
     }
   }
   const handleTogglePreview = useCallback(() => {
-    useAppPreview.setState((state) => ({
-      isPreviewEnabled: !state.isPreviewEnabled,
-    }));
-  }, []);
+    const nextPreviewEnabled = !useAppPreview.getState().isPreviewEnabled;
+    const nextDraftSpec = readDraftSpec();
+    if (nextPreviewEnabled) {
+      setDraftSpecPreviewText(nextDraftSpec);
+      applyDraftSpecPreview(nextDraftSpec);
+      applyDraftThemePreview(draftTheme, themeMode);
+      applyDraftAssetsPreview(draftAssets);
+    }
+    useAppPreview.setState({ isPreviewEnabled: nextPreviewEnabled });
+  }, [
+    applyDraftAssetsPreview,
+    applyDraftSpecPreview,
+    applyDraftThemePreview,
+    draftAssets,
+    draftTheme,
+    readDraftSpec,
+    themeMode,
+  ]);
   const handleDraftSpecChange = useCallback((value: string) => {
-    setDraftSpec(value);
-    setValidationResult(null);
+    setHasDraft(value.trim().length > 0);
+    setDraftSpecError((current) => (current === null ? current : null));
+    setValidationResult((current) => (current === null ? current : null));
+    if (useAppPreview.getState().isPreviewEnabled) {
+      setDraftSpecPreviewText(value);
+    }
   }, []);
   const handleDraftThemeChange = useCallback((value: string) => {
     setDraftTheme(value);
+    setDraftThemeError(null);
     setValidationResult(null);
   }, []);
   const handleDraftAssetsChange = useCallback((value: string) => {
     setDraftAssets(value);
+    setDraftAssetsError(null);
     setValidationResult(null);
   }, []);
   const handlePreviewConfigIdChange = useCallback((value: string | null) => {
@@ -1059,6 +1112,7 @@ export function AppConfigPane() {
         appSpec={appSpec}
         draftSpec={draftSpec}
         draftSpecError={draftSpecError}
+        draftSpecRef={draftSpecRef}
         onDraftSpecChange={handleDraftSpecChange}
       />
 

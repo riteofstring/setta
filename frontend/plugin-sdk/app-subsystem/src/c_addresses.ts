@@ -2,6 +2,7 @@ import { C } from "./c";
 import { BootstrapProtocol, TransportRouteConstants } from "./generatedTypes";
 import { getOrInitLauncherOriginWithStorageKey } from "./launcherOrigin";
 import { normalizeOrigin } from "./origin";
+import { isSameHostOrLocalPeerOriginAllowed } from "./originPolicy";
 import { safeSessionStorage } from "./storage";
 
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
@@ -18,7 +19,7 @@ type AddressResolverConfig = {
   locationOrigin: string;
 };
 
-function resolveDevBackendOriginSessionOverride(
+function readBackendOriginSessionOverride(
   backendOriginOverrideStorageKey: string,
 ): string | undefined {
   const storage = safeSessionStorage();
@@ -43,6 +44,21 @@ function resolveDevBackendOriginSessionOverride(
   }
 }
 
+function resolveBackendOriginSessionOverride(
+  config: AddressResolverConfig,
+): string | undefined {
+  const override = readBackendOriginSessionOverride(
+    config.backendOriginOverrideStorageKey,
+  );
+  if (!override) {
+    return undefined;
+  }
+  if (!isSameHostOrLocalPeerOriginAllowed(override, config.locationOrigin)) {
+    return undefined;
+  }
+  return override;
+}
+
 function resolveDevBackendOriginOverride(
   devBackendOriginOverride: string | undefined,
 ): string | undefined {
@@ -53,13 +69,11 @@ function resolveDevBackendOriginOverride(
 }
 
 function resolveBackendOrigin(config: AddressResolverConfig): string {
+  const sessionOverride = resolveBackendOriginSessionOverride(config);
+  if (sessionOverride) {
+    return sessionOverride;
+  }
   if (config.devMode) {
-    const sessionOverride = resolveDevBackendOriginSessionOverride(
-      config.backendOriginOverrideStorageKey,
-    );
-    if (sessionOverride) {
-      return sessionOverride;
-    }
     const override = resolveDevBackendOriginOverride(
       config.devBackendOriginOverride,
     );
@@ -72,9 +86,10 @@ function resolveBackendOrigin(config: AddressResolverConfig): string {
 }
 
 function resolveLauncherOrigin(config: AddressResolverConfig): string {
+  const sessionOverride = resolveBackendOriginSessionOverride(config);
   if (!config.devMode) {
     return getOrInitLauncherOriginWithStorageKey(
-      config.locationOrigin,
+      sessionOverride ?? config.locationOrigin,
       config.launcherOriginStorageKey,
     );
   }
@@ -129,9 +144,7 @@ export class C_ADDRESSES {
   }
 
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
-    return resolveDevBackendOriginSessionOverride(
-      defaultAddressResolverConfig().backendOriginOverrideStorageKey,
-    );
+    return resolveBackendOriginSessionOverride(defaultAddressResolverConfig());
   }
 
   static get DEV_BACKEND_ORIGIN_OVERRIDE() {

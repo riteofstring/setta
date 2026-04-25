@@ -59,6 +59,8 @@ describe("C_ADDRESSES", () => {
   beforeEach(() => {
     sessionStorageStub.clear();
     localStorageStub.clear();
+    windowStub.location.href = "http://localhost/";
+    windowStub.location.origin = "http://localhost";
     env["DEV"] = previousDev;
     env["VITE_BACKEND_ORIGIN"] = previousBackendOrigin;
   });
@@ -118,6 +120,35 @@ describe("C_ADDRESSES", () => {
     expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://remote.example:9999");
     expect(C_ADDRESSES.LAUNCHER).toBe(
       `http://remote.example:9999${TransportRouteConstants.apiPrefix}`,
+    );
+  });
+
+  it("uses a same-host backend origin session override in built mode", () => {
+    env["DEV"] = false;
+    windowStub.location.origin = "http://127.0.0.1:3019";
+    sessionStorageStub.setItem(
+      BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+      "http://127.0.0.1:8019",
+    );
+
+    expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://127.0.0.1:8019");
+    expect(C_ADDRESSES.BACKEND).toBe(
+      `http://127.0.0.1:8019${TransportRouteConstants.apiPrefix}`,
+    );
+    expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://127.0.0.1:8019");
+  });
+
+  it("ignores a cross-host backend origin session override in built mode", () => {
+    env["DEV"] = false;
+    windowStub.location.origin = "http://frontend.example:3019";
+    sessionStorageStub.setItem(
+      BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+      "http://backend.example:8019",
+    );
+
+    expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://frontend.example:3019");
+    expect(C_ADDRESSES.BACKEND).toBe(
+      `http://frontend.example:3019${TransportRouteConstants.apiPrefix}`,
     );
   });
 

@@ -11,6 +11,30 @@ with an explicit `appGenerationMode`. App Config remains the advanced workbench
 for previewing, validating, saving, and manually editing the resulting app
 definition.
 
+Manual App Config edits use the persisted Setta app-spec shape. A minimal root
+element includes `key` and `type`, child elements are stored in top-level
+`children`, and props must match the catalog component names and fields:
+
+```json
+{
+  "key": "app-root",
+  "type": "Card",
+  "props": {
+    "title": "Plugin render smoke test",
+    "description": "If you can see this card, JSON Render is working."
+  },
+  "children": [
+    {
+      "key": "smoke-text",
+      "type": "Text",
+      "props": {
+        "text": "This is a simple app-subsystem render check."
+      }
+    }
+  ]
+}
+```
+
 ## 1) Persistent Updates: JSON Merge Patch
 
 Used by:

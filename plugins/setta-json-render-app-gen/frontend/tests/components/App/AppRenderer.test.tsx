@@ -420,7 +420,7 @@ describe("AppRenderer", () => {
 
       // Anchor-triggered downloads have to carry shareSessionId on the URL.
       const downloadURL = new URL(downloadElement.href);
-      expect(downloadURL.pathname).toBe(`/binary/${contentId}`);
+      expect(downloadURL.pathname).toBe(`/api/binary/${contentId}`);
       expect(downloadURL.searchParams.get("shareSessionId")).toBe(
         shareSessionId,
       );

@@ -1,8 +1,11 @@
 import {
+  BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
   configureAppSubsystemOpenAPI,
   createPolicy,
   createProjectConfig,
   createSingleConfig,
+  getAppDefinition,
+  setAppDefinition,
   type GetAppDeploymentCurrentSessionResponses,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
@@ -89,6 +92,8 @@ describe("app deployment OpenAPI initialization", () => {
     requests = [];
     sessionStorageStub.clear();
     documentStub.cookie = "";
+    (globalThis as { location: { origin: string } }).location.origin =
+      "http://localhost";
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const request = input instanceof Request ? input : new Request(input);
       requests.push(request);
@@ -111,6 +116,30 @@ describe("app deployment OpenAPI initialization", () => {
             appDefinition: null,
             appSpec: null,
             appPolicy: createPolicy({ allowRun: true }),
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (path.endsWith("/getAppDefinition")) {
+        return new Response(
+          JSON.stringify({
+            appDefinition: null,
+            appSpec: {},
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      if (path.endsWith("/setAppDefinition")) {
+        return new Response(
+          JSON.stringify({
+            appDefinition: null,
+            appSpec: {},
           }),
           {
             status: 200,
@@ -171,5 +200,61 @@ describe("app deployment OpenAPI initialization", () => {
     expect(stateRequest?.headers.get("X-Share-Session-Id")).toBe(
       "app-session-a",
     );
+  });
+
+  it("routes built plugin OpenAPI requests through the backend origin override", async () => {
+    (globalThis as { location: { origin: string } }).location.origin =
+      "http://127.0.0.1:3019";
+    sessionStorageStub.setItem(
+      BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+      "http://127.0.0.1:8019",
+    );
+    configureAppSubsystemOpenAPI();
+    const frontendHost = createStatefulAppSubsystemFrontendHost();
+    const initialize =
+      appSubsystemFrontendRegistration.controller
+        ?.initializeAppSessionFromCurrentDeployment;
+    if (!initialize) {
+      throw new Error("app deployment initializer is not registered");
+    }
+
+    await expect(initialize(frontendHost)).resolves.toBe(true);
+
+    expect(requests.length).toBeGreaterThan(0);
+    expect(
+      requests.every(
+        (request) =>
+          new URL(request.url).origin === "http://127.0.0.1:8019" &&
+          new URL(request.url).pathname.startsWith("/api/"),
+      ),
+    ).toBe(true);
+  });
+
+  it("prefixes built plugin app definition OpenAPI routes with the backend API root", async () => {
+    (globalThis as { location: { origin: string } }).location.origin =
+      "http://127.0.0.1:3019";
+    sessionStorageStub.setItem(
+      BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+      "http://127.0.0.1:8019",
+    );
+    configureAppSubsystemOpenAPI();
+
+    await expect(getAppDefinition({ body: {} })).resolves.toMatchObject({
+      data: {
+        appSpec: {},
+      },
+    });
+    await expect(
+      setAppDefinition({ body: { appSpec: {} } }),
+    ).resolves.toMatchObject({
+      data: {
+        appSpec: {},
+      },
+    });
+
+    expect(requests.map((request) => new URL(request.url).toString())).toEqual([
+      "http://127.0.0.1:8019/api/getAppDefinition",
+      "http://127.0.0.1:8019/api/setAppDefinition",
+    ]);
   });
 });
