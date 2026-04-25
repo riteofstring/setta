@@ -6,4 +6,6 @@ Reviewers must check production source, tests, package manifests, Vite/Vitest al
 
 Do not fix clean-checkout plugin packaging by unignoring or committing generated frontend bundles such as `frontend/dist/*`. The plugin wheel/package path must produce those artifacts from tracked plugin-owned source and declared dependencies, or tests must run that plugin-owned build before validating manifest assets.
 
+Do not make `frontend/plugin-sdk/app-subsystem` "standalone" by checking in SDK build artifacts or a large generated declaration fanout. The source SDK package should stay source-first and package-owned: package-local source plus any package-local generated inputs it truly owns. It must not import repo-local host aliases or repo-private generation paths, and it should not require a checked-in `dist/` or a broad checked-in `types/**` tree to count as standalone.
+
 The first-party app subsystem provider is not hostless: it may require Setta at runtime through `setta.plugin_runtime`, local-core, app-subsystem frontend host APIs, and the published app-subsystem frontend SDK. The prohibited dependency is a repo-local host implementation path or alias rather than an explicit Setta runtime/SDK package surface.

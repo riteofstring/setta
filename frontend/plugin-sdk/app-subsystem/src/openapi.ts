@@ -1,11 +1,11 @@
-import { C_ADDRESSES } from "utils/c_addresses";
+import { C_ADDRESSES } from "./c_addresses";
 import {
   resolveEndpointOriginForMode,
   type ServerMode,
-} from "utils/serverModeBoundaryPolicy";
-import { buildBinaryDownloadRoute } from "utils/transportRouteConstants";
-import { rebuildBackendRequest } from "openapi/http/requestRebuild";
-import { client } from "openapi/http/generated/client.gen";
+} from "./serverModeBoundaryPolicy";
+import { buildBinaryDownloadRoute } from "./transportRouteConstants";
+import { rebuildBackendRequest } from "./openapi/http/requestRebuild";
+import { client } from "./openapi/http/generated/client.gen";
 import { getActiveAppSubsystemFrontendHostRuntime } from "./runtimeHost";
 export {
   checkIfFileExists,
@@ -28,7 +28,7 @@ export {
   updateArtifacts,
   uploadBinary,
   validateAppDefinition,
-} from "openapi/http/generated/sdk.gen";
+} from "./openapi/http/generated/sdk.gen";
 export type {
   AppsubsystemAppdefinitionAppDefinition,
   GetAppDeploymentCurrentSessionResponses,
@@ -37,14 +37,14 @@ export type {
   HttpapiDeploymentMetadataResponse,
   HttpapiServerModeResponse,
   HttpapiPublishAppDeploymentRequest,
-} from "openapi/http/generated/types.gen";
-export { callOpenAPI } from "openapi/http/result";
+} from "./openapi/http/generated/types.gen";
+export { callOpenAPI } from "./openapi/http/result";
 export {
   getErrorDetail,
   getErrorCode,
   res200,
   type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+} from "./endpointUtils";
 export {
   type BaseChildlessCodeObjImplUnion,
   type BaseSectionImplUnion,
@@ -94,15 +94,15 @@ export {
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
   type TimeParamCodeObjImpl,
-} from "utils/generatedTypes";
+} from "./generatedTypes";
 export {
   createDefaultAppPolicy,
   resolveAppPolicy,
-} from "utils/deploymentPolicies";
+} from "./deploymentPolicies";
 export {
   resolveMainRunRequest,
   resolveRunRequest,
-} from "utils/runCapabilities";
+} from "./runCapabilities";
 
 function resolveTransportBaseUrl(serverMode: ServerMode, address: string): string {
   const endpointOrigin = resolveEndpointOriginForMode(address, serverMode);

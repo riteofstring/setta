@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tomllib
 import zipfile
 from pathlib import Path
@@ -188,6 +189,16 @@ def _build_wheel(project_root: Path, outdir: Path) -> subprocess.CompletedProces
     )
 
 
+def _build_sdist(project_root: Path, outdir: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "build", "--sdist", "--outdir", str(outdir)],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
 def _install_editable(project_root: Path, venv_python: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(venv_python), "-m", "pip", "install", "--no-deps", "-e", str(project_root)],
@@ -218,19 +229,26 @@ def _build_first_party_basedpyright_wheel(tmp_path: Path) -> Path:
     return wheel_paths[0]
 
 
-def _stage_first_party_app_subsystem_plugin_source(tmp_path: Path) -> Path:
+def _stage_first_party_app_subsystem_plugin_source(
+    tmp_path: Path, *, remove_dist: bool = True
+) -> Path:
     source_root = _repo_root() / "plugins" / "setta-json-render-app-gen"
     plugin_root = tmp_path / "setta-json-render-app-gen"
     frontend_root = plugin_root / "frontend"
     shutil.copytree(source_root, plugin_root)
     shutil.rmtree(plugin_root / "build", ignore_errors=True)
-    shutil.rmtree(frontend_root / "dist", ignore_errors=True)
+    if remove_dist:
+        shutil.rmtree(frontend_root / "dist", ignore_errors=True)
     shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
     return plugin_root
 
 
-def _build_first_party_app_subsystem_wheel(tmp_path: Path) -> Path:
-    plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
+def _build_first_party_app_subsystem_wheel(
+    tmp_path: Path, *, remove_dist: bool = True
+) -> Path:
+    plugin_root = _stage_first_party_app_subsystem_plugin_source(
+        tmp_path, remove_dist=remove_dist
+    )
     outdir = tmp_path / "dist"
     result = _build_wheel(plugin_root, outdir)
     combined_output = f"{result.stdout}\n{result.stderr}"
@@ -239,6 +257,28 @@ def _build_first_party_app_subsystem_wheel(tmp_path: Path) -> Path:
     wheel_paths = list(outdir.glob("setta_json_render_app_gen-*.whl"))
     assert len(wheel_paths) == 1
     return wheel_paths[0]
+
+
+def _build_first_party_app_subsystem_sdist(tmp_path: Path) -> Path:
+    plugin_root = _stage_first_party_app_subsystem_plugin_source(
+        tmp_path, remove_dist=True
+    )
+    outdir = tmp_path / "dist"
+    result = _build_sdist(plugin_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    sdist_paths = list(outdir.glob("setta_json_render_app_gen-*.tar.gz"))
+    assert len(sdist_paths) == 1
+    return sdist_paths[0]
+
+
+def _extract_sdist(sdist_path: Path, extract_root: Path) -> Path:
+    with tarfile.open(sdist_path, "r:gz") as archive:
+        archive.extractall(extract_root, filter="data")
+    extracted_roots = [path for path in extract_root.iterdir() if path.is_dir()]
+    assert len(extracted_roots) == 1
+    return extracted_roots[0]
 
 
 def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) -> None:
@@ -413,6 +453,97 @@ def test_first_party_app_subsystem_plugin_wheel_packages_runtime_managed_assets(
         name.endswith("setta-json-render-app-gen/frontend/dist/index.css")
         for name in names
     )
+
+
+def test_first_party_app_subsystem_plugin_sdist_includes_frontend_build_inputs(
+    tmp_path: Path,
+) -> None:
+    sdist_path = _build_first_party_app_subsystem_sdist(tmp_path)
+
+    with tarfile.open(sdist_path, "r:gz") as sdist_archive:
+        names = set(sdist_archive.getnames())
+
+    assert any(name.endswith("build_backend.py") for name in names)
+    assert any(name.endswith("frontend/.npmrc") for name in names)
+    assert any(name.endswith("frontend/package.json") for name in names)
+    assert any(name.endswith("frontend/src/index.ts") for name in names)
+    assert any(
+        name.endswith("frontend/vendor/app-subsystem-frontend-sdk/package.json")
+        for name in names
+    )
+    assert any(
+        name.endswith("frontend/vendor/app-subsystem-frontend-sdk/dist/index.js")
+        for name in names
+    )
+    assert any(
+        name.endswith("frontend/vendor/app-subsystem-frontend-sdk/types/index.d.ts")
+        for name in names
+    )
+    assert not any(name.endswith("frontend/dist/index.js") for name in names)
+    assert not any("/node_modules/" in name for name in names)
+
+
+def test_first_party_app_subsystem_plugin_wheel_builds_from_sdist(
+    tmp_path: Path,
+) -> None:
+    sdist_path = _build_first_party_app_subsystem_sdist(tmp_path)
+    extracted_root = _extract_sdist(sdist_path, tmp_path / "sdist-extracted")
+    outdir = tmp_path / "wheel-from-sdist"
+
+    result = _build_wheel(extracted_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_json_render_app_gen-*.whl"))
+    assert len(wheel_paths) == 1
+    with zipfile.ZipFile(wheel_paths[0]) as wheel_archive:
+        names = set(wheel_archive.namelist())
+
+    assert any(
+        name.endswith("setta-json-render-app-gen/frontend/dist/index.js")
+        for name in names
+    )
+    assert any(
+        name.endswith("setta-json-render-app-gen/frontend/dist/index.css")
+        for name in names
+    )
+
+
+def test_first_party_app_subsystem_plugin_wheel_rebuilds_stale_frontend_bundle(
+    tmp_path: Path,
+) -> None:
+    plugin_root = _stage_first_party_app_subsystem_plugin_source(
+        tmp_path, remove_dist=False
+    )
+    stale_dist_root = plugin_root / "frontend" / "dist"
+    stale_dist_root.mkdir(parents=True, exist_ok=True)
+    (stale_dist_root / "index.js").write_text("STALE_JS\n", encoding="utf-8")
+    (stale_dist_root / "index.css").write_text("STALE_CSS\n", encoding="utf-8")
+
+    outdir = tmp_path / "dist"
+    result = _build_wheel(plugin_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_json_render_app_gen-*.whl"))
+    assert len(wheel_paths) == 1
+    wheel_path = wheel_paths[0]
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        bundle_name = next(
+            name
+            for name in wheel_archive.namelist()
+            if name.endswith("setta-json-render-app-gen/frontend/dist/index.js")
+        )
+        style_name = next(
+            name
+            for name in wheel_archive.namelist()
+            if name.endswith("setta-json-render-app-gen/frontend/dist/index.css")
+        )
+        bundle_text = wheel_archive.read(bundle_name).decode("utf-8")
+        style_text = wheel_archive.read(style_name).decode("utf-8")
+
+    assert "STALE_JS" not in bundle_text
+    assert "STALE_CSS" not in style_text
 
 
 def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root(

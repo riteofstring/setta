@@ -141,6 +141,64 @@ func TestPackagePluginSourceForDeploymentBuildsRuntimeManagedFrontendAssets(
 	}
 }
 
+func TestPackagePluginSourceForDeploymentRebuildsRuntimeManagedFrontendAssetsWhenDistExists(
+	t *testing.T,
+) {
+	sourceRoot := stageFirstPartyAppSubsystemPluginSource(t)
+	distRoot := filepath.Join(sourceRoot, "frontend", "dist")
+	if err := os.MkdirAll(distRoot, 0o755); err != nil {
+		t.Fatalf("mkdir staged frontend dist: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(distRoot, "index.js"), []byte("STALE_JS\n"), 0o644); err != nil {
+		t.Fatalf("write staged stale frontend entrypoint: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(distRoot, "index.css"), []byte("STALE_CSS\n"), 0o644); err != nil {
+		t.Fatalf("write staged stale frontend style: %v", err)
+	}
+
+	manifest, err := loadPluginManifestFile(filepath.Join(sourceRoot, pluginManifestFileName))
+	if err != nil {
+		t.Fatalf("load staged plugin manifest: %v", err)
+	}
+	targetRoot := filepath.Join(t.TempDir(), "packaged-provider")
+	buildCalls := stubPluginFrontendBuildRunner(t, func(frontendRoot string, args []string) error {
+		if reflect.DeepEqual(args, []string{"run", "build"}) {
+			writeRuntimeManagedFrontendBuildOutputs(t, frontendRoot)
+		}
+		return nil
+	})
+
+	if err := packagePluginSourceForDeployment(
+		DiscoveredPlugin{
+			PluginID:   manifest.ID,
+			SourcePath: sourceRoot,
+			Scope:      PluginScopeWorkspace,
+			Manifest:   &manifest,
+		},
+		targetRoot,
+	); err != nil {
+		t.Fatalf("package plugin source for deployment: %v", err)
+	}
+
+	assertRuntimeManagedFrontendBuildCalls(t, buildCalls)
+
+	entrypointBytes, err := os.ReadFile(filepath.Join(targetRoot, "frontend", "dist", "index.js"))
+	if err != nil {
+		t.Fatalf("read rebuilt frontend entrypoint: %v", err)
+	}
+	if strings.Contains(string(entrypointBytes), "STALE_JS") {
+		t.Fatalf("expected rebuilt frontend entrypoint, got stale content %q", string(entrypointBytes))
+	}
+
+	styleBytes, err := os.ReadFile(filepath.Join(targetRoot, "frontend", "dist", "index.css"))
+	if err != nil {
+		t.Fatalf("read rebuilt frontend style: %v", err)
+	}
+	if strings.Contains(string(styleBytes), "STALE_CSS") {
+		t.Fatalf("expected rebuilt frontend style, got stale content %q", string(styleBytes))
+	}
+}
+
 func wheelArchiveContainsPathSuffix(files []*zip.File, suffix string) bool {
 	for _, file := range files {
 		if strings.HasSuffix(file.Name, suffix) {

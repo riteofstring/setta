@@ -1,4 +1,4 @@
-import sidecar from "../../../generation/non_http_shared/sidecar.json";
+import sidecar from "./generated/sidecar.json";
 
 type SidecarExportedValueEntry = {
   name: string;

@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "unique-names-generator": "4.7.1",
+    "uuid": "9.0.0"
+  },
   "types": "./types/index.d.ts",
   "exports": {
     ".": {
       "types": "./types/index.d.ts",
-      "default": "./dist/index.js"
+      "default": "./src/index.ts"
     }
   }
 }

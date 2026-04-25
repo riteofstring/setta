@@ -331,19 +331,37 @@ describe("appSubsystemFrontendSdk", () => {
     );
   });
 
-  it("keeps SDK project-state helpers delegated to the host owner", () => {
-    const sdkSource = readFileSync(
+  it("keeps the source SDK package detached from host-private imports", () => {
+    const projectStateSource = readFileSync(
       new URL(
         "../../plugin-sdk/app-subsystem/src/projectState.ts",
         import.meta.url,
       ),
       "utf-8",
     );
+    const helpersSource = readFileSync(
+      new URL("../../plugin-sdk/app-subsystem/src/helpers.ts", import.meta.url),
+      "utf-8",
+    );
+    const openapiSource = readFileSync(
+      new URL("../../plugin-sdk/app-subsystem/src/openapi.ts", import.meta.url),
+      "utf-8",
+    );
+    const generatedValuesSource = readFileSync(
+      new URL(
+        "../../plugin-sdk/app-subsystem/src/generatedValues.ts",
+        import.meta.url,
+      ),
+      "utf-8",
+    );
 
-    expect(sdkSource).toContain("utils/projectStateSelectors");
-    expect(sdkSource).not.toContain("cloneDeep");
-    expect(sdkSource).not.toContain("WeakMap");
-    expect(sdkSource).not.toContain("codeObjVariantMap");
+    expect(projectStateSource).not.toContain('from "utils/');
+    expect(projectStateSource).not.toContain("cloneDeep");
+    expect(projectStateSource).not.toContain("WeakMap");
+    expect(helpersSource).not.toContain('from "utils/');
+    expect(openapiSource).not.toContain('from "utils/');
+    expect(openapiSource).not.toContain('from "openapi/');
+    expect(generatedValuesSource).not.toContain("../../../generation/");
   });
 
   it("re-exports narrow helper surfaces needed by plugin frontends", () => {

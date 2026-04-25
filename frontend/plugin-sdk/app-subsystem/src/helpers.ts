@@ -3,10 +3,10 @@ export {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "utils/constants";
-export { shouldShowPasswordReveal } from "utils/paramValue";
-export { buildTextBlockTypographyScale } from "utils/textBlockTypography";
-export { createRandomName } from "utils/idNameCreation";
+} from "./constants";
+export { shouldShowPasswordReveal } from "./paramValue";
+export { buildTextBlockTypographyScale } from "./textBlockTypography";
+export { createRandomName } from "./idNameCreation";
 export {
   createDropzoneFileArtifactId,
   createDropzoneTextAttachmentId,
@@ -14,9 +14,9 @@ export {
   serializeDropzoneValue,
   type DropzoneStoredAttachment,
   type DropzoneStatelessAttachment,
-} from "utils/dropzone";
-export { formatBytes } from "utils/attachments";
+} from "./dropzone";
+export { formatBytes } from "./attachments";
 export {
   getAttachmentPolicy,
   isAttachmentMimeAllowed,
-} from "utils/attachmentPolicy";
+} from "./attachmentPolicy";

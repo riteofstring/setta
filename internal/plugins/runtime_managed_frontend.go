@@ -29,7 +29,7 @@ func ensureRuntimeManagedPluginFrontendAssets(
 	pluginRoot string,
 	manifest PluginManifest,
 ) error {
-	if !runtimeManagedFrontendBuildRequired(pluginRoot, manifest) {
+	if manifest.ID != runtimeManagedAppSubsystemPluginID || manifest.Frontend == nil {
 		return nil
 	}
 
@@ -72,16 +72,6 @@ func ensureRuntimeManagedPluginFrontendAssets(
 		return err
 	}
 	return nil
-}
-
-func runtimeManagedFrontendBuildRequired(
-	pluginRoot string,
-	manifest PluginManifest,
-) bool {
-	if manifest.ID != runtimeManagedAppSubsystemPluginID || manifest.Frontend == nil {
-		return false
-	}
-	return validatePluginFrontendPaths(pluginRoot, manifest) != nil
 }
 
 func runPluginFrontendCommand(frontendRoot string, args []string) error {

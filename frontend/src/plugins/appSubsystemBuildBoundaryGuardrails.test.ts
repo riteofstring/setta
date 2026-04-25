@@ -14,6 +14,13 @@ function readPluginFrontendFile(relativePath: string): string {
   return readFileSync(resolve(pluginFrontendRoot, relativePath), "utf8");
 }
 
+function readSourceSdkFile(relativePath: string): string {
+  return readFileSync(
+    resolve(repoRoot, "frontend", "plugin-sdk", "app-subsystem", relativePath),
+    "utf8",
+  );
+}
+
 describe("app plugin frontend build boundary guardrails", () => {
   it("keeps plugin frontend package resolution inside the plugin tree", () => {
     const packageJson = JSON.parse(readPluginFrontendFile("package.json")) as {
@@ -102,6 +109,25 @@ describe("app plugin frontend build boundary guardrails", () => {
     ]) {
       expect(sdkTypes).not.toContain(forbiddenSnippet);
     }
+  });
+
+  it("keeps the source SDK package source-first and package-owned", () => {
+    const sourceSdkPackageJson = JSON.parse(
+      readSourceSdkFile("package.json"),
+    ) as {
+      exports?: Record<string, { types?: string; default?: string }>;
+      types?: string;
+    };
+    const sourceSdkViteConfig = readSourceSdkFile("vite.config.mjs");
+
+    expect(sourceSdkPackageJson.types).toBe("./types/index.d.ts");
+    expect(sourceSdkPackageJson.exports?.["."]?.types).toBe(
+      "./types/index.d.ts",
+    );
+    expect(sourceSdkPackageJson.exports?.["."]?.default).toBe("./src/index.ts");
+    expect(sourceSdkViteConfig).not.toContain("frontendSrcDir");
+    expect(sourceSdkViteConfig).not.toContain("openapi:");
+    expect(sourceSdkViteConfig).not.toContain("utils:");
   });
 
   it("keeps the repo wrapper as a delegating convenience layer only", () => {

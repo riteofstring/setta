@@ -9,12 +9,16 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     root = repo_root()
     sandbox_root = tmp_path / "check_quality_sandbox"
     frontend_dir = sandbox_root / "frontend" / "src"
+    sdk_frontend_dir = (
+        sandbox_root / "frontend" / "plugin-sdk" / "app-subsystem" / "src"
+    )
     plugin_frontend_dir = sandbox_root / "plugins" / "demo" / "frontend" / "src"
     plugin_backend_dir = sandbox_root / "plugins" / "demo" / "backend"
     scripts_dir = sandbox_root / "scripts"
     bin_dir = sandbox_root / "bin"
 
     frontend_dir.mkdir(parents=True, exist_ok=True)
+    sdk_frontend_dir.mkdir(parents=True, exist_ok=True)
     plugin_frontend_dir.mkdir(parents=True, exist_ok=True)
     plugin_backend_dir.mkdir(parents=True, exist_ok=True)
     scripts_dir.mkdir(parents=True, exist_ok=True)
@@ -41,6 +45,9 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     (sandbox_root / "activate.sh").chmod(0o755)
 
     (frontend_dir / "app.ts").write_text("export const app = true;\n", encoding="utf-8")
+    (sdk_frontend_dir / "index.ts").write_text(
+        "export const sdk = true;\n", encoding="utf-8"
+    )
     (plugin_frontend_dir / "index.ts").write_text(
         "export const plugin = true;\n",
         encoding="utf-8",
@@ -119,6 +126,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             "bash",
             str(sandbox_root / "check_quality.sh"),
             "--files",
+            "frontend/plugin-sdk/app-subsystem/src/index.ts",
             "frontend/src/app.ts",
             "plugins/demo/frontend/src/index.ts",
             "plugins/demo/backend/main.go",
@@ -161,6 +169,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             '--rule',
             'max-params:["error",5]',
             "--",
+            "plugin-sdk/app-subsystem/src/index.ts",
             "src/app.ts",
             "../plugins/demo/frontend/src/index.ts",
         ]
@@ -171,6 +180,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
         [
             "./frontend/scripts/check_import_boundaries.mjs",
             "--",
+            "frontend/plugin-sdk/app-subsystem/src/index.ts",
             "frontend/src/app.ts",
             "plugins/demo/frontend/src/index.ts",
         ]

@@ -42,8 +42,10 @@ Build the plugin wheel from this folder:
 python -m build
 ```
 
-The wheel build now materializes `frontend/dist/*` from the plugin-owned
-frontend package when those bundle files are missing from the source tree.
+The wheel and editable build paths now rebuild `frontend/dist/*` from the
+plugin-owned frontend package before packaging, and the source distribution
+includes the frontend source/build inputs needed to do the same when building a
+wheel from `sdist`.
 
 ## Install
 
