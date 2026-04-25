@@ -26,6 +26,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("workspace_profile");
     expect(markup).toContain("gg-code-slash");
     expect(markup).toContain("gg-list");
+    expect(markup).toContain("px-2 py-1");
+    expect(markup).not.toContain("px-2.5");
     expect(markup).toContain('placeholder="please enter function name"');
     expect(markup).toContain('aria-label="Lock section"');
     expect(markup).toContain('aria-label="Minimize section"');
