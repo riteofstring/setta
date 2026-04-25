@@ -161,9 +161,6 @@ func discoveredSharedDefaultValueProvidersByProfile() map[string]map[reflect.Typ
 			reflect.TypeOf(projectview.ProjectConfig{}): func() any {
 				return projectview.FrontendDefaultProjectConfig()
 			},
-			reflect.TypeOf(projectview.ProjectPluginData(nil)): func() any {
-				return projectview.FrontendDefaultProjectPluginData()
-			},
 			reflect.TypeOf(projectview.ProjectRunCapabilities{}): func() any {
 				return projectview.FrontendDefaultProjectRunCapabilities()
 			},
@@ -253,9 +250,6 @@ func discoveredSharedDefaultValueProvidersByProfile() map[string]map[reflect.Typ
 			},
 			reflect.TypeOf(projectstate.Viewport{}): func() any {
 				return projectstate.FrontendDefaultViewport()
-			},
-			reflect.TypeOf(projectstate.WatchCodePluginProjectData{}): func() any {
-				return projectstate.FrontendDefaultWatchCodePluginProjectData()
 			},
 			reflect.TypeOf(projectstate.WindowSpaceConfig{}): func() any {
 				return projectstate.FrontendDefaultWindowSpaceConfig()

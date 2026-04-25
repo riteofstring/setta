@@ -138,11 +138,7 @@ func TestRuntimeSetProjectCodegenTargetsPropagatesValidatorFailure(t *testing.T)
 	if loadErr != nil {
 		t.Fatalf("load persisted document: %v", loadErr)
 	}
-	expected, err := initial.Normalized()
-	if err != nil {
-		t.Fatalf("normalize initial document: %v", err)
-	}
-	if !documentsEqualForRuntimeState(expected, loaded) {
+	if !reflect.DeepEqual(initial, loaded) {
 		t.Fatalf("expected persisted document to stay unchanged, got %#v", loaded)
 	}
 }

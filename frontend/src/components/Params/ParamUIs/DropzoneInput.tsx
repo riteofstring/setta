@@ -1,20 +1,4 @@
 import {
-  callOpenAPI,
-  createDropzoneFileArtifactId,
-  createDropzoneTextAttachmentId,
-  createNewId,
-  formatBytes,
-  getAttachmentPolicy,
-  getErrorDetail,
-  isAttachmentMimeAllowed,
-  parseDropzoneValue,
-  res200,
-  serializeDropzoneValue,
-  type DropzoneStatelessAttachment,
-  type DropzoneStoredAttachment,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   deleteArtifacts,
   importFilesToArtifacts,
   setParamEnteredValue,
@@ -22,6 +6,7 @@ import {
   updateParamImplConfig,
   uploadBinary,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useRef,
   useState,
@@ -46,7 +31,25 @@ import {
   DropzoneConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
+import {
+  getAttachmentPolicy,
+  isAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
+import { formatBytes } from "utils/attachments";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import {
+  createDropzoneFileArtifactId,
+  createDropzoneTextAttachmentId,
+  parseDropzoneValue,
+  serializeDropzoneValue,
+  type DropzoneStatelessAttachment,
+  type DropzoneStoredAttachment,
+} from "utils/dropzone";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   ArtifactTypeEnum,
   CodeObjTypeEnum,
@@ -56,6 +59,7 @@ import {
   NotificationTypeEnum,
   type ContentRef,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
 type DropzoneInputTheme = {
   wrapperBaseClassName?: string;

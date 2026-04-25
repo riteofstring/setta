@@ -63,15 +63,14 @@ vi.mock("state/hooks/share", () => ({
   useShareCapabilities: () => ({ canEditParams: mocks.state.canEditParams }),
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    shouldShowPasswordReveal: ({ hasSecret }: { hasSecret: boolean }) =>
-      hasSecret,
-  };
-});
+vi.mock("utils/paramValue", () => ({
+  shouldShowPasswordReveal: ({
+    hasSecret,
+  }: {
+    value: string;
+    hasSecret: boolean;
+  }) => hasSecret,
+}));
 
 vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
   TextInputCodeMirror: (props: {

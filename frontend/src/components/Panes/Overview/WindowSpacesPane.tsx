@@ -1,4 +1,3 @@
-import { getErrorDetail, res200 } from "@setta/app-subsystem-frontend-sdk";
 import {
   useViewModeSortableItem,
   ViewModeSortableProvider,
@@ -20,6 +19,7 @@ import {
 } from "state/actions/windowSpaces";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   ChatWindowPlacementEnum,
   type WindowSpaceConfig,

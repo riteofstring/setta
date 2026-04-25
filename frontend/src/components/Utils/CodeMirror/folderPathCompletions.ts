@@ -1,18 +1,15 @@
 import type { Completion, CompletionSource } from "@codemirror/autocomplete";
 import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   getFolderContents,
   type FilebrowserFolderContentItem as FolderContentItem,
   type FilebrowserListFolderResponse as ListFolderResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   isAbsoluteBrowserPath,
   normalizeBrowserPath,
 } from "utils/browserPaths";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 
 type FolderPathCompletionOptions = {
   rootPath: string | null;

@@ -3374,7 +3374,6 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
 	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,

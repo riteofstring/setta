@@ -28,7 +28,6 @@ setta = "setta.entrypoint:main"
 [project.optional-dependencies]
 defaults = [
     "setta-basedpyright==0.1.0",
-    "setta-watch-code==0.1.0",
 ]
 source = [
     # Python SDK/source-only modules that still have live callers.
@@ -104,4 +103,3 @@ artifacts = [
 
 [tool.uv.sources]
 setta-basedpyright = { path = "plugins/setta-basedpyright" }
-setta-watch-code = { path = "plugins/setta-watch-code" }

@@ -1,10 +1,3 @@
-import {
-  callOpenAPI,
-  createNewId,
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import _ from "lodash";
@@ -14,6 +7,7 @@ import {
   setSectionEdgeOutputs,
   setVariantJsonSourceKeys,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useEffect,
   useMemo,
@@ -42,10 +36,16 @@ import {
 import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
 import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
+import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
   type DictSectionImpl,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
 type EdgePortsSettingsProps = {
   sectionId: string;

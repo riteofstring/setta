@@ -94,18 +94,6 @@ describe("app plugin frontend build boundary guardrails", () => {
         "file:./vendor/app-subsystem-frontend-sdk",
       ],
     ]);
-    expect(packageJson.scripts?.["prepare-sdk"]).toBe(
-      "node ./scripts/materialize-vendored-app-subsystem-sdk.mjs",
-    );
-    expect(packageJson.scripts?.["prepare-build-deps"]).toBe(
-      "pnpm run prepare-sdk && pnpm install --lockfile=false",
-    );
-    expect(packageJson.scripts?.build).toBe(
-      "pnpm run prepare-build-deps && vite build",
-    );
-    expect(packageJson.scripts?.test).toBe(
-      "pnpm run prepare-build-deps && vitest run --config vitest.config.mjs",
-    );
     expect(packageJson.scripts?.typecheck).toBe(
       "tsc --noEmit -p tsconfig.typecheck.json",
     );
@@ -165,32 +153,22 @@ describe("app plugin frontend build boundary guardrails", () => {
     );
   });
 
-  it("rejects host app-subsystem compatibility re-export shims", () => {
-    for (const relativePath of [
-      "src/openapi/http/requestRebuild.ts",
-      "src/openapi/http/result.ts",
-      "src/utils/attachmentPolicy.ts",
-      "src/utils/attachments.ts",
-      "src/utils/bindingRuntime.ts",
-      "src/utils/c_addresses.ts",
-      "src/utils/deploymentPolicies.ts",
-      "src/utils/dropzone.ts",
-      "src/utils/endpointUtils.ts",
-      "src/utils/hostnames.ts",
-      "src/utils/idNameCreation.ts",
-      "src/utils/launcherOrigin.ts",
-      "src/utils/origin.ts",
-      "src/utils/projectStateSelectors.ts",
-      "src/utils/runCapabilities.ts",
-      "src/utils/serverModeBoundaryPolicy.ts",
-      "src/utils/serverModeCapabilities.ts",
-      "src/utils/storage.ts",
-      "src/utils/textBlockTypography.ts",
-    ]) {
-      expect(existsSync(resolve(repoRoot, "frontend", relativePath))).toBe(
-        false,
-      );
-    }
+  it("keeps host transport helpers as SDK-owned re-exports", () => {
+    expect(readHostFrontendFile("src/utils/c_addresses.ts").trim()).toBe(
+      'export { C_ADDRESSES } from "@setta/app-subsystem-frontend-sdk";',
+    );
+    expect(readHostFrontendFile("src/utils/hostnames.ts").trim()).toBe(
+      'export { isLocalHostname } from "@setta/app-subsystem-frontend-sdk";',
+    );
+    expect(readHostFrontendFile("src/utils/launcherOrigin.ts").trim()).toBe(
+      'export { getOrInitLauncherOrigin } from "@setta/app-subsystem-frontend-sdk";',
+    );
+    expect(readHostFrontendFile("src/utils/origin.ts").trim()).toBe(
+      'export { normalizeOrigin } from "@setta/app-subsystem-frontend-sdk";',
+    );
+    expect(readHostFrontendFile("src/utils/storage.ts")).toContain(
+      'from "@setta/app-subsystem-frontend-sdk";',
+    );
 
     const sdkAddresses = readSourceSdkFile("src/c_addresses.ts");
     expect(sdkAddresses).toContain("type AddressResolverConfig");
@@ -237,10 +215,10 @@ describe("app plugin frontend build boundary guardrails", () => {
       "response is ResponseDataAndStatus<T> & { data: T; status: number }",
     );
     expect(sourceSdkTypes).toContain(
-      "export declare function getCurrentEffectiveSectionImpl(",
+      "getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;",
     );
     expect(sourceSdkTypes).toContain(
-      "export declare function getCurrentEffectiveSectionImplIfPresent(",
+      "getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;",
     );
     expect(sourceSdkTypes).not.toContain("error?: unknown;");
     expect(sourceSdkTypes).not.toContain("request?: Request;");

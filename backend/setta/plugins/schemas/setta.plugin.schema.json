@@ -4,7 +4,12 @@
   "title": "Setta Plugin Manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "id", "name", "version"],
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "version"
+  ],
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -82,15 +87,6 @@
             "appGenerationChatModes": { "type": "boolean" },
             "appDeploymentRuntime": { "type": "boolean" }
           }
-        },
-        "watchCode": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "python": { "type": "boolean" },
-            "requiresLanguageServer": { "type": "boolean" },
-            "canvasControlsUi": { "type": "boolean" }
-          }
         }
       }
     },
@@ -101,10 +97,8 @@
         "enum": [
           "registerSectionKinds",
           "registerPane",
-          "registerSettingRevealHandler",
           "registerCommand",
           "registerTopNavBarItem",
-          "registerCanvasControl",
           "registerContextMenu",
           "readProjectState",
           "subscribeProjectState",
@@ -117,7 +111,6 @@
           "registerListenerEndpoint",
           "registerStaticDir",
           "registerAppSubsystemBackend",
-          "mutateWatchCodeSettings",
           "writeWorkspacePlugins"
         ]
       },

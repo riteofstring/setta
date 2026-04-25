@@ -1,10 +1,10 @@
+import { restartPlugins } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
-  callOpenAPI,
   getErrorDetail,
   res200,
   type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import { restartPlugins } from "openapi/http";
+} from "utils/endpointUtils";
 import type {
   PluginListEntry,
   PluginRestartCapability,

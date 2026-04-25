@@ -1,11 +1,4 @@
 import {
-  callOpenAPI,
-  createNewId,
-  getErrorCode,
-  getErrorDetail,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   appendTranscriptionAudio as apiAppendTranscriptionAudio,
   cancelTranscriptionSession as apiCancelTranscriptionSession,
   createAgentProfile as apiCreateAgentProfile,
@@ -56,6 +49,7 @@ import {
   type TranscriptionprofilesProfile,
   type TranscriptionsessionsDelta,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   applyAppDefinitionStructuredContentToStore,
   applyAppSpecPatchPreviewDeltaToStore,
@@ -106,6 +100,7 @@ import {
   type ChatAppGenerationDetails,
 } from "state/utils/chatAppGeneration";
 import { C } from "utils/c";
+import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   AgentProfile,
   AgentRun,
@@ -134,6 +129,7 @@ import {
   TranscriptionProfile,
   UpdateEngineConfigRequest,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";

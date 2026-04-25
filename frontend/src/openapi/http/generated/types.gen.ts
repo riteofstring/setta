@@ -2288,6 +2288,19 @@ export type HttpapiSetViewportRequest = {
   viewport: ProjectstateViewport;
 };
 
+export type HttpapiSetWatchCodeEnabledRequest = {
+  enabled: boolean;
+  frontendOpId?: string;
+  projectConfigId: string;
+};
+
+export type HttpapiSetWatchCodeInputsRequest = {
+  frontendOpId?: string;
+  projectConfigId: string;
+  watchCodeFiles: Array<string> | null;
+  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
+};
+
 export type HttpapiSetWindowSpaceNameRequest = {
   frontendOpId?: string;
   name: string;
@@ -2779,7 +2792,6 @@ export type PluginsPluginErrorInfo = {
 
 export type PluginsPluginFeatureCapabilities = {
   appSubsystem: PluginsPluginAppSubsystemCapabilities;
-  watchCode: PluginsPluginWatchCodeCapabilities;
 };
 
 export type PluginsPluginFrontendDescriptor = {
@@ -2935,7 +2947,6 @@ export type PluginsPluginStatusResponse = {
   restartCapability: PluginsPluginRestartCapability;
   schemaVersion: number;
   serverMode: string;
-  watchCodeSelection?: PluginsPluginWatchCodeProviderSelection;
 };
 
 export type PluginsPluginUninstallResponse = {
@@ -2950,35 +2961,6 @@ export type PluginsPluginUpdateResponse = {
   restartRequired: boolean;
   sourceDigestSha256: string | null;
   toVersion: string;
-};
-
-export type PluginsPluginWatchCodeCapabilities = {
-  canvasControlsUi: boolean;
-  languageServerDependency?: PluginsPluginWatchCodeLanguageServerDependencyStatus;
-  pluginEnabled: boolean;
-  pluginId: string;
-  providerSelection?: PluginsPluginWatchCodeProviderSelection;
-  python: boolean;
-  requiresLanguageServer: boolean;
-};
-
-export type PluginsPluginWatchCodeLanguageServerDependencyStatus = {
-  appliedPluginId?: string;
-  language: string;
-  message: string;
-  required: boolean;
-  restartRequired: boolean;
-  selectedPluginId?: string;
-  status: string;
-};
-
-export type PluginsPluginWatchCodeProviderSelection = {
-  activePluginIds: Array<string> | null;
-  conflictingPluginIds: Array<string> | null;
-  disabledPluginIds: Array<string> | null;
-  invalidPluginIds: Array<string> | null;
-  selectedPluginId?: string;
-  status: string;
 };
 
 export type ProjectshellAllProjectMetadata = {
@@ -3516,18 +3498,6 @@ export type ProjectstateWatchCodeFolder = {
   recursive: boolean;
 };
 
-export type ProjectstateWatchCodePluginProjectData = {
-  baselineByPath: {
-    [key: string]: Array<string> | null;
-  };
-  enabled: boolean;
-  files: Array<string> | null;
-  folders: Array<ProjectstateWatchCodeFolder> | null;
-  registry: {
-    [key: string]: ProjectstateWatchCodeRegistryEntry;
-  };
-};
-
 export type ProjectstateWatchCodeRegistryEntry = {
   bodyHash: string;
   callableName: string;
@@ -3609,6 +3579,15 @@ export type ProjectviewProjectConfig = {
   };
   viewport: ProjectstateViewport;
   viewportInitialized: boolean;
+  watchCodeBaselineByPath: {
+    [key: string]: Array<string> | null;
+  };
+  watchCodeEnabled: boolean;
+  watchCodeFiles: Array<string> | null;
+  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
+  watchCodeRegistry: {
+    [key: string]: ProjectstateWatchCodeRegistryEntry;
+  };
   windowSpaceIdsBySlug: {
     [key: string]: Array<string> | null;
   };
@@ -3662,9 +3641,6 @@ export type ProjectviewSingleConfig = {
   genCodeBinding: ProjectstateFrontendCodeFileBinding;
   parentSectionMap: {
     [key: string]: string | null;
-  };
-  pluginData: {
-    [key: string]: ProjectstateWatchCodePluginProjectData;
   };
   projectChatWindowing: ProjectstateProjectChatWindowingState;
   projectConfig: ProjectviewProjectConfig;
@@ -3946,19 +3922,6 @@ export type TranscriptionsessionsDelta = {
   appendText: string;
   fullText: string;
   isFinal: boolean;
-};
-
-export type WatchcodehttpSetWatchCodeEnabledRequest = {
-  enabled: boolean;
-  frontendOpId?: string;
-  projectConfigId: string;
-};
-
-export type WatchcodehttpSetWatchCodeInputsRequest = {
-  frontendOpId?: string;
-  projectConfigId: string;
-  watchCodeFiles: Array<string> | null;
-  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
 };
 
 export type AcceptRenameRefactorData = {
@@ -10591,7 +10554,7 @@ export type SetViewportResponse =
   SetViewportResponses[keyof SetViewportResponses];
 
 export type SetWatchCodeEnabledData = {
-  body: WatchcodehttpSetWatchCodeEnabledRequest;
+  body: HttpapiSetWatchCodeEnabledRequest;
   path?: never;
   query?: never;
   url: "/setWatchCodeEnabled";
@@ -10618,7 +10581,7 @@ export type SetWatchCodeEnabledResponse =
   SetWatchCodeEnabledResponses[keyof SetWatchCodeEnabledResponses];
 
 export type SetWatchCodeInputsData = {
-  body: WatchcodehttpSetWatchCodeInputsRequest;
+  body: HttpapiSetWatchCodeInputsRequest;
   path?: never;
   query?: never;
   url: "/setWatchCodeInputs";

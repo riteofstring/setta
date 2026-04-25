@@ -1,11 +1,9 @@
-import react from "@vitejs/plugin-react";
 import path from "node:path";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
-import { defineConfig } from "vitest/config";
-
-const DEFAULT_DEV_FRONTEND_PORT = 3000;
-const DEFAULT_DEV_FRONTEND_HOST = "127.0.0.1";
+import { C } from "./src/utils/c.js";
 
 const resolvePort = (value: string | undefined, fallback: number): number => {
   if (!value) {
@@ -27,11 +25,11 @@ const resolveHost = (value: string | undefined, fallback: string): string => {
 
 const devFrontendPort = resolvePort(
   process.env.SETTA_DEV_FRONTEND_PORT,
-  DEFAULT_DEV_FRONTEND_PORT,
+  C.DEV_MODE_FRONTEND_PORT
 );
 const devFrontendHost = resolveHost(
   process.env.SETTA_DEV_FRONTEND_HOST ?? process.env.SETTA_HOST,
-  DEFAULT_DEV_FRONTEND_HOST,
+  C.DEFAULT_HOST
 );
 const srcRoot = path.resolve(__dirname, "src");
 
@@ -81,7 +79,10 @@ export default defineConfig({
         __dirname,
         "node_modules/rehype-katex/index.js",
       ),
-      "remark-gfm": path.resolve(__dirname, "node_modules/remark-gfm/index.js"),
+      "remark-gfm": path.resolve(
+        __dirname,
+        "node_modules/remark-gfm/index.js",
+      ),
       "remark-math": path.resolve(
         __dirname,
         "node_modules/remark-math/index.js",

@@ -119,18 +119,6 @@ export type ProjectConfig = JsonRecord & {
   sectionVariantMap: Record<string, string>;
   showParamDisplayNames: boolean;
 };
-export type WatchCodeFolder = JsonRecord & {
-  path: string;
-  recursive: boolean;
-};
-export type WatchCodePluginProjectData = JsonRecord & {
-  baselineByPath: Record<string, string[]>;
-  enabled: boolean;
-  files: string[];
-  folders: WatchCodeFolder[];
-  registry: Record<string, JsonRecord>;
-};
-export type ProjectPluginData = Record<string, WatchCodePluginProjectData>;
 export type SingletonSections = JsonRecord & {
   GenPythonCode: string | null;
   GenPythonMetadata: string | null;
@@ -150,7 +138,6 @@ export type SingleConfig = JsonRecord & {
   codeObjs: Record<string, Core>;
   genCodeBinding: unknown | null;
   parentSectionMap: Record<string, string | null>;
-  pluginData: ProjectPluginData;
   projectConfig: ProjectConfig;
   requiredDecodedImages: unknown[];
   sectionCapabilities: Record<string, SectionCapabilities>;
@@ -392,6 +379,11 @@ export function createProjectConfig(
     viewModes: {},
     viewport: null,
     viewportInitialized: false,
+    watchCodeBaselineByPath: {},
+    watchCodeEnabled: false,
+    watchCodeFiles: [],
+    watchCodeFolders: [],
+    watchCodeRegistry: {},
     windowSpaceIdsBySlug: {},
     windowSpaceSlugsById: {},
     windowSpaces: {},
@@ -433,15 +425,6 @@ export function createSingleConfig(
     codeObjs: {},
     genCodeBinding: null,
     parentSectionMap: {},
-    pluginData: {
-      "setta-watch-code": {
-        baselineByPath: {},
-        enabled: false,
-        files: [],
-        folders: [],
-        registry: {},
-      },
-    },
     projectChatWindowing: {
       instancesById: {},
       nextInstanceNumber: 1,

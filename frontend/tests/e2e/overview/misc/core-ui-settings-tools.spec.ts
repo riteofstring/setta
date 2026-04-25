@@ -7,7 +7,7 @@ import {
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const WATCH_CODE_ENABLED_SETTING_ID = "plugin::setta-watch-code::enabled";
+const WATCH_CODE_ENABLED_SETTING_ID = "core.watch_code.enabled";
 const PROJECT_AI_LLM_API_KEYS_SETTING_ID =
   "core.project_ai_settings.llm_api_keys";
 const PROJECT_AI_AGENT_PROFILES_SETTING_ID =
@@ -247,7 +247,7 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       "search_ui_settings",
       {
         query: "watch code enabled",
-        sourceFilter: "plugin",
+        sourceFilter: "core",
         limit: 5,
       },
     );
@@ -315,7 +315,7 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
     await expect(watchCodeHeading).toBeVisible();
 
     const toggleButton = page.locator(
-      '[data-setting-anchor="plugin::setta-watch-code::enabled"]',
+      '[data-setting-anchor="core.watch_code.enabled"]',
     );
     await expect(toggleButton).toBeVisible();
     await expect(toggleButton).toHaveAttribute(
@@ -646,7 +646,7 @@ test("core UI-setting tools normalize whitespace-padded setting ids", async ({
     expectNoToolError(revealResult.statuses[0]?.error);
 
     const settingAnchor = page.locator(
-      '[data-setting-anchor="plugin::setta-watch-code::enabled"]',
+      '[data-setting-anchor="core.watch_code.enabled"]',
     );
     await expect(settingAnchor).toBeVisible();
     await expect(settingAnchor).toHaveClass(

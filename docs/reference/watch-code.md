@@ -13,34 +13,13 @@ match what's on disk.
 - **Sync sources:** File watcher events, inline code edits, and bound code file reloads.
 
 ## Configuration & Inputs
-Watch Code state is stored under document plugin data:
-
-```json
-{
-  "pluginData": {
-    "setta-watch-code": {
-      "schemaVersion": 1,
-      "projects": {
-        "<projectId>": {
-          "enabled": false,
-          "folders": [],
-          "files": [],
-          "registry": {},
-          "baselineByPath": {}
-        }
-      }
-    }
-  }
-}
-```
-
-The per-project fields are:
-- `enabled`: master toggle.
-- `folders`: list of `{ path, recursive }` folder inputs.
-- `files`: list of file paths.
-- `registry`: identity -> metadata (callable name, hashes, source path,
+Watch Code lives on `ProjectConfig`:
+- `watchCodeEnabled`: master toggle.
+- `watchCodeFolders`: list of `{ path, recursive }` folder inputs.
+- `watchCodeFiles`: list of file paths.
+- `watchCodeRegistry`: identity -> metadata (callable name, hashes, source path,
   sections).
-- `baselineByPath`: file -> list of identities recorded at baseline.
+- `watchCodeBaselineByPath`: file -> list of identities recorded at baseline.
 
 Input rules:
 - Paths must be **repo-relative**. Absolute or outside-the-repo paths raise.
@@ -54,19 +33,20 @@ new additions (so existing callables don't auto-create sections).
 
 ## UI surface
 - Watch Code no longer has its own Overview tab.
-- The first-party `setta-watch-code` plugin contributes the radar button to the
-  canvas controls rail. It opens a floating Watch Code popover from
-  `plugins/setta-watch-code/frontend/src/watchCodeControl.ts`.
-- The plugin uses canonical UI-setting ids under
-  `plugin::setta-watch-code::*`; the old `core.watch_code.*` ids are not
-  registered as aliases.
-- UI-setting reveal flows call the plugin reveal handler, which opens the
-  popover and highlights the matching plugin-owned anchor.
+- The primary UI entry point is the radar button in the canvas controls rail
+  (`frontend/src/forks/xyflow/controls/Controls.tsx`), which opens a floating
+  `WatchCodePane` popover.
+- The popover-open flag is session-local (`watchCodePortalOpen`) and is
+  intentionally reset on reload even though the underlying watch settings still
+  persist on `ProjectConfig`.
+- UI-setting reveal flows now keep the Overview pane targeted while opening the
+  Watch Code popover so `core.watch_code.*` anchors still resolve after the tab
+  removal.
 
 ## Baselines: avoiding retroactive section creation
 When Watch Code is enabled, the backend records a **baseline**:
 1. It scans the configured watch inputs and stores every discovered identity in
-   plugin-owned `baselineByPath`.
+   `watchCodeBaselineByPath`.
 2. It also scans existing code sections bound to files, so current callables are
    considered "already known."
 
@@ -167,4 +147,4 @@ This keeps Watch Code aligned whether edits happen in the UI or in the editor.
 - `internal/projectstate/watch_code_bound_sections.go`
 - `internal/app/code_updates.go`
 - `backend/setta/types/project_config.py`
-- `plugins/setta-watch-code/frontend/src/watchCodeControl.ts`
+- `frontend/src/components/Panes/Overview/WatchCode/WatchCodePane.tsx`

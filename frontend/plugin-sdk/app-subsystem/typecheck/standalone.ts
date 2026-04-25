@@ -4,12 +4,7 @@ import type {
   BinaryContentRef,
   DropzoneStatelessAttachment,
 } from "../types/index";
-import {
-  isGeneratedPythonIdentifier,
-  runCode,
-  uploadBinary,
-  validateGeneratedParamNameInput,
-} from "../types/index";
+import { runCode, uploadBinary } from "../types/index";
 
 const slashCommands: AppSubsystemChatSlashCommandDefinition[] = [
   {
@@ -40,28 +35,9 @@ const binary: BinaryContentRef = {
   byteLength: 12,
   contentId: "content-1",
 };
-const pythonIdentifierStartChars = new Set(["a", "_"]);
-const pythonIdentifierContinueChars = new Set(["a", "1", "_"]);
-const pythonKeywords = new Set(["class"]);
-const validIdentifier = isGeneratedPythonIdentifier(
-  "a_1",
-  pythonIdentifierStartChars,
-  pythonIdentifierContinueChars,
-  pythonKeywords,
-);
-const validationError = validateGeneratedParamNameInput("a_1", {
-  allowEmpty: false,
-  label: "Param name",
-  requirePythonIdentifier: true,
-  pythonIdentifierStartChars,
-  pythonIdentifierContinueChars,
-  pythonKeywords,
-});
 
 void registration;
 void attachment;
 void binary;
-void validIdentifier;
-void validationError;
 void runCode;
 void uploadBinary;

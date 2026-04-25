@@ -43,7 +43,6 @@ type SingleConfig struct {
 	CodeObjImpls          map[string]json.RawMessage             `json:"codeObjImpls" ts_type:"Record<string, BaseCodeObjImplUnion>" shared_schema_map_value_ref:"BaseCodeObjImpl"`
 	CodeObjVariants       map[string]Variant                     `json:"codeObjVariants"`
 	ProjectConfig         ProjectConfig                          `json:"projectConfig"`
-	PluginData            ProjectPluginData                      `json:"pluginData" py_type:"dict[str, WatchCodePluginProjectData]" py_default:"go_value"`
 	SingletonSections     SingletonSections                      `json:"singletonSections"`
 	ParentSectionMap      map[string]*string                     `json:"parentSectionMap"`
 	ShownParamIDs         map[string]ShownParamIDs               `json:"shownParamIds"`
@@ -54,34 +53,37 @@ type SingleConfig struct {
 }
 
 type ProjectConfig struct {
-	ID                      string                                        `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
-	Name                    string                                        `json:"name" py_import:"from setta.utils.generate_memorable_string import generate_memorable_string" py_default:"Field(default_factory=generate_memorable_string)"`
-	ShowParamDisplayNames   bool                                          `json:"showParamDisplayNames" py_default:"go_value"`
-	AllowJSONSourceKeyEdits bool                                          `json:"allowJsonSourceKeyEdits" py_default:"go_value"`
-	PreviewImgColor         string                                        `json:"previewImgColor,omitempty" py_default:"go_value"`
-	Viewport                *projectstate.Viewport                        `json:"viewport" py_default:"go_value"`
-	ViewportInitialized     bool                                          `json:"viewportInitialized" py_default:"go_value"`
-	ViewModes               map[string]projectstate.ViewMode              `json:"viewModes" py_type:"dict[ID, ViewMode]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	ActiveViewModeID        *string                                       `json:"activeViewModeId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
-	IsEditingViewMode       bool                                          `json:"isEditingViewMode" py_default:"go_value"`
-	HasPythonCodegenTarget  bool                                          `json:"hasPythonCodegenTarget" py_default:"go_value"`
-	RunCapabilities         ProjectRunCapabilities                        `json:"runCapabilities" py_default:"go_value"`
-	CodegenTargets          []ProjectCodegenTarget                        `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" py_default:"go_value"`
-	EntryCodeBlockID        *string                                       `json:"entryCodeBlockId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
-	SectionPathSlugsByID    map[string]string                             `json:"sectionPathSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	SectionIDsByPathSlug    map[string][]string                           `json:"sectionIdsByPathSlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	TopLevelSections        map[string]projectstate.TopLevelSectionLayout `json:"topLevelSections" py_type:"dict[ID, TopLevelSectionLayout]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	WindowSpaceSlugsByID    map[string]string                             `json:"windowSpaceSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	WindowSpaceIDsBySlug    map[string][]string                           `json:"windowSpaceIdsBySlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	WindowSpaces            map[string]projectstate.WindowSpaceConfig     `json:"windowSpaces" py_type:"dict[ID, WindowSpaceConfig]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	SectionVariantMap       map[string]string                             `json:"sectionVariantMap" py_type:"dict[ID, ID]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	ActiveIDs               []string                                      `json:"activeIds" py_type:"list[ID]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
-	Edges                   []projectstate.Edge                           `json:"edges" py_default:"go_value"`
-	AgenticEdges            []projectstate.AgenticEdge                    `json:"agenticEdges" py_default:"go_value"`
-	StateMachineEdges       []projectstate.StateMachineEdge               `json:"stateMachineEdges" py_default:"go_value"`
+	ID                      string                                         `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
+	Name                    string                                         `json:"name" py_import:"from setta.utils.generate_memorable_string import generate_memorable_string" py_default:"Field(default_factory=generate_memorable_string)"`
+	ShowParamDisplayNames   bool                                           `json:"showParamDisplayNames" py_default:"go_value"`
+	AllowJSONSourceKeyEdits bool                                           `json:"allowJsonSourceKeyEdits" py_default:"go_value"`
+	PreviewImgColor         string                                         `json:"previewImgColor,omitempty" py_default:"go_value"`
+	Viewport                *projectstate.Viewport                         `json:"viewport" py_default:"go_value"`
+	ViewportInitialized     bool                                           `json:"viewportInitialized" py_default:"go_value"`
+	ViewModes               map[string]projectstate.ViewMode               `json:"viewModes" py_type:"dict[ID, ViewMode]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	ActiveViewModeID        *string                                        `json:"activeViewModeId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
+	IsEditingViewMode       bool                                           `json:"isEditingViewMode" py_default:"go_value"`
+	HasPythonCodegenTarget  bool                                           `json:"hasPythonCodegenTarget" py_default:"go_value"`
+	RunCapabilities         ProjectRunCapabilities                         `json:"runCapabilities" py_default:"go_value"`
+	CodegenTargets          []ProjectCodegenTarget                         `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" py_default:"go_value"`
+	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled" py_default:"go_value"`
+	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders" py_default:"go_value"`
+	WatchCodeFiles          []string                                       `json:"watchCodeFiles" py_default:"go_value"`
+	WatchCodeRegistry       map[string]projectstate.WatchCodeRegistryEntry `json:"watchCodeRegistry" py_default:"go_value"`
+	WatchCodeBaselineByPath map[string][]string                            `json:"watchCodeBaselineByPath" py_default:"go_value"`
+	EntryCodeBlockID        *string                                        `json:"entryCodeBlockId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
+	SectionPathSlugsByID    map[string]string                              `json:"sectionPathSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	SectionIDsByPathSlug    map[string][]string                            `json:"sectionIdsByPathSlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections" py_type:"dict[ID, TopLevelSectionLayout]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	WindowSpaceSlugsByID    map[string]string                              `json:"windowSpaceSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	WindowSpaceIDsBySlug    map[string][]string                            `json:"windowSpaceIdsBySlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	WindowSpaces            map[string]projectstate.WindowSpaceConfig      `json:"windowSpaces" py_type:"dict[ID, WindowSpaceConfig]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	SectionVariantMap       map[string]string                              `json:"sectionVariantMap" py_type:"dict[ID, ID]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	ActiveIDs               []string                                       `json:"activeIds" py_type:"list[ID]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	Edges                   []projectstate.Edge                            `json:"edges" py_default:"go_value"`
+	AgenticEdges            []projectstate.AgenticEdge                     `json:"agenticEdges" py_default:"go_value"`
+	StateMachineEdges       []projectstate.StateMachineEdge                `json:"stateMachineEdges" py_default:"go_value"`
 }
-
-type ProjectPluginData map[string]projectstate.WatchCodePluginProjectData
 
 type ProjectRunCapabilities struct {
 	CanRunFromMain          bool    `json:"canRunFromMain"`
@@ -158,17 +160,14 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 
 func buildSingleConfig(project projectstate.Project) (SingleConfig, error) {
 	view := SingleConfig{
-		Sections:            make(map[string]Core, len(project.Sections)),
-		SectionImpls:        make(map[string]json.RawMessage, len(project.SectionImpls)),
-		SectionCapabilities: make(map[string]SectionCapabilities, len(project.Sections)),
-		SectionVariants:     make(map[string]Variant, len(project.SectionVariants)),
-		CodeObjs:            make(map[string]Core, len(project.CodeObjs)),
-		CodeObjImpls:        make(map[string]json.RawMessage, len(project.CodeObjImpls)),
-		CodeObjVariants:     make(map[string]Variant, len(project.CodeObjVariants)),
-		ProjectConfig:       ProjectConfig{},
-		PluginData: ProjectPluginData{
-			projectstate.WatchCodePluginDataKey: projectstate.EmptyWatchCodePluginProjectData(),
-		},
+		Sections:              make(map[string]Core, len(project.Sections)),
+		SectionImpls:          make(map[string]json.RawMessage, len(project.SectionImpls)),
+		SectionCapabilities:   make(map[string]SectionCapabilities, len(project.Sections)),
+		SectionVariants:       make(map[string]Variant, len(project.SectionVariants)),
+		CodeObjs:              make(map[string]Core, len(project.CodeObjs)),
+		CodeObjImpls:          make(map[string]json.RawMessage, len(project.CodeObjImpls)),
+		CodeObjVariants:       make(map[string]Variant, len(project.CodeObjVariants)),
+		ProjectConfig:         ProjectConfig{},
 		SingletonSections:     deriveSingletonSections(project),
 		ParentSectionMap:      deriveParentSectionMap(project),
 		ShownParamIDs:         make(map[string]ShownParamIDs),
@@ -183,7 +182,6 @@ func buildSingleConfig(project projectstate.Project) (SingleConfig, error) {
 		return SingleConfig{}, err
 	}
 	view.ProjectConfig = projectConfig
-	view.PluginData[projectstate.WatchCodePluginDataKey] = projectstate.WatchCodePluginProjectDataFromProject(project)
 	view.SectionCapabilities = deriveSectionCapabilities(project)
 	view.ProjectConfig.RunCapabilities = deriveProjectRunCapabilities(
 		project,
@@ -239,6 +237,11 @@ func projectConfigFromProject(project projectstate.Project) (ProjectConfig, erro
 		HasPythonCodegenTarget:  project.HasPythonCodegenTarget(),
 		RunCapabilities:         ProjectRunCapabilities{},
 		CodegenTargets:          codegenTargets,
+		WatchCodeEnabled:        project.WatchCodeEnabled,
+		WatchCodeFolders:        cloneWatchCodeFolders(project.WatchCodeFolders),
+		WatchCodeFiles:          cloneStringSlice(project.WatchCodeFiles),
+		WatchCodeRegistry:       cloneWatchCodeRegistry(project.WatchCodeRegistry),
+		WatchCodeBaselineByPath: cloneStringSlicesMap(project.WatchCodeBaselineByPath),
 		EntryCodeBlockID:        entryCodeBlockID,
 		SectionPathSlugsByID:    cloneStringMap(sectionPathSlugsByID),
 		SectionIDsByPathSlug:    cloneStringSlicesMap(sectionIDsByPathSlug),
@@ -1592,6 +1595,34 @@ func cloneStringSlice(source []string) []string {
 		return []string{}
 	}
 	return append([]string(nil), source...)
+}
+
+func cloneWatchCodeFolders(source []projectstate.WatchCodeFolder) []projectstate.WatchCodeFolder {
+	if source == nil {
+		return []projectstate.WatchCodeFolder{}
+	}
+	cloned := make([]projectstate.WatchCodeFolder, len(source))
+	copy(cloned, source)
+	return cloned
+}
+
+func cloneWatchCodeRegistry(source map[string]projectstate.WatchCodeRegistryEntry) map[string]projectstate.WatchCodeRegistryEntry {
+	if source == nil {
+		return map[string]projectstate.WatchCodeRegistryEntry{}
+	}
+	cloned := make(map[string]projectstate.WatchCodeRegistryEntry, len(source))
+	for identity, entry := range source {
+		cloned[identity] = projectstate.WatchCodeRegistryEntry{
+			CallableName:  entry.CallableName,
+			Kind:          entry.Kind,
+			SignatureHash: entry.SignatureHash,
+			BodyHash:      entry.BodyHash,
+			SourcePath:    entry.SourcePath,
+			SectionIDs:    cloneStringSlice(entry.SectionIDs),
+			SectionsCount: entry.SectionsCount,
+		}
+	}
+	return cloned
 }
 
 func cloneStringSlicesMap(source map[string][]string) map[string][]string {

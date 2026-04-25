@@ -127,7 +127,7 @@ func (d *Document) CompareAndSetWatchCodeEnabled(
 
 	oldValue := project.WatchCodeEnabled
 	if noop, err := isUISettingCompareAndSetNoop(
-		"plugin::setta-watch-code::enabled",
+		"core.watch_code.enabled",
 		optionalBoolAny(expectedOldValue),
 		oldValue,
 		enabled,
@@ -235,7 +235,7 @@ func (d *Document) CompareAndSetWatchCodeFolders(
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
 	}
 	if noop, err := isUISettingCompareAndSetNoop(
-		"plugin::setta-watch-code::folders",
+		"core.watch_code.folders",
 		optionalWatchCodeFoldersAny(expectedOldValue),
 		oldFolders,
 		nextFolders,
@@ -287,7 +287,7 @@ func (d *Document) CompareAndSetWatchCodeFiles(
 		return CompareAndSetResult[[]string]{}, err
 	}
 	if noop, err := isUISettingCompareAndSetNoop(
-		"plugin::setta-watch-code::files",
+		"core.watch_code.files",
 		optionalStringSliceAny(expectedOldValue),
 		oldFiles,
 		nextFiles,

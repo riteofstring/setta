@@ -285,9 +285,6 @@ func TestFrontendDefaultSingleConfigUsesCanonicalFactoryDefaults(t *testing.T) {
 	if !reflect.DeepEqual(defaults.ProjectConfig, FrontendDefaultProjectConfig()) {
 		t.Fatalf("expected canonical project config defaults, got %#v", defaults.ProjectConfig)
 	}
-	if !reflect.DeepEqual(defaults.PluginData, FrontendDefaultProjectPluginData()) {
-		t.Fatalf("expected canonical plugin data defaults, got %#v", defaults.PluginData)
-	}
 	if defaults.Sections == nil || len(defaults.Sections) != 0 {
 		t.Fatalf("expected empty sections map, got %#v", defaults.Sections)
 	}
@@ -497,7 +494,7 @@ func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *tes
 	if view.ProjectConfig.WindowSpaces == nil {
 		t.Fatal("expected window spaces map to be non-nil")
 	}
-	if view.PluginData[projectstate.WatchCodePluginDataKey].Files == nil {
+	if view.ProjectConfig.WatchCodeFiles == nil {
 		t.Fatal("expected watch code files slice to be non-nil")
 	}
 	if view.Sections["global-section"].UnsharedKeys == nil {
@@ -551,19 +548,8 @@ func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *tes
 	if activeIDs, ok := projectConfig["activeIds"].([]any); !ok || activeIDs == nil {
 		t.Fatalf("expected activeIds json array, got %#v", projectConfig["activeIds"])
 	}
-	if _, ok := projectConfig["watchCodeFiles"]; ok {
-		t.Fatalf("did not expect legacy watchCodeFiles on projectConfig, got %#v", projectConfig["watchCodeFiles"])
-	}
-	pluginData, ok := decoded["pluginData"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected pluginData object, got %#v", decoded["pluginData"])
-	}
-	watchCodeData, ok := pluginData["setta-watch-code"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected setta-watch-code plugin data object, got %#v", pluginData["setta-watch-code"])
-	}
-	if watchCodeFiles, ok := watchCodeData["files"].([]any); !ok || watchCodeFiles == nil {
-		t.Fatalf("expected watch code plugin files json array, got %#v", watchCodeData["files"])
+	if watchCodeFiles, ok := projectConfig["watchCodeFiles"].([]any); !ok || watchCodeFiles == nil {
+		t.Fatalf("expected watchCodeFiles json array, got %#v", projectConfig["watchCodeFiles"])
 	}
 	projectChatWindowing, ok := decoded["projectChatWindowing"].(map[string]any)
 	if !ok {

@@ -8,10 +8,7 @@ import {
   createSingletonSections,
 } from "utils/generatedTypes";
 
-import {
-  resolveMainRunRequest,
-  resolveRunRequest,
-} from "@setta/app-subsystem-frontend-sdk";
+import { resolveMainRunRequest, resolveRunRequest } from "./runCapabilities";
 
 describe("resolveMainRunRequest", () => {
   it("prefers the local entry code block over stale backend run capabilities", () => {

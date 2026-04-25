@@ -491,7 +491,6 @@ func resolveScopedUISettingRegistry(
 		Runtime:                  projectState,
 		WorkspaceRoot:            workspaceRoot,
 		PluginService:            server.pluginMutations,
-		UnavailableSettings:      buildUnavailableUISettingProviders(server),
 		ProjectAISettings:        buildProjectAISettingProviders(server),
 		ContributedEntryBuilders: buildScopedUISettingEntryBuilders(server),
 	})
@@ -506,13 +505,6 @@ func buildScopedUISettingEntryBuilders(server *Server) []uisettings.RuntimeEntry
 		return nil
 	}
 	return append([]uisettings.RuntimeEntryBuilder(nil), server.contributedUISettingBuilders...)
-}
-
-func buildUnavailableUISettingProviders(server *Server) []uisettings.UnavailableSettingProvider {
-	if server == nil || len(server.unavailableUISettings) == 0 {
-		return nil
-	}
-	return append([]uisettings.UnavailableSettingProvider(nil), server.unavailableUISettings...)
 }
 
 func buildProjectAISettingProviders(server *Server) uisettings.ProjectAISettingProviders {

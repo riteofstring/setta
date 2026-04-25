@@ -1,13 +1,10 @@
 import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   getAiFollowSnapshot,
   type RealtimeAiFollowToolArgumentsUpdateContent,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   AIFollowToolArgumentsUpdateContent,
   AIFollowToolResultUpdateContent,

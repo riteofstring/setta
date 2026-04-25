@@ -1,11 +1,7 @@
-import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { setSectionName } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import {
@@ -17,6 +13,7 @@ import {
 import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 import { validateSectionNameInput } from "utils/nameValidation";
 type SectionTitleClassNames = {

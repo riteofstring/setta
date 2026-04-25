@@ -1,8 +1,8 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import type { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,

@@ -1,10 +1,7 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { getServerMode, type HttpapiServerModeResponse } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useServerMode } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import type { ServerModeValue } from "utils/serverModeTypes";
 type ServerModeRouteResponse = ResponseDataAndStatus<HttpapiServerModeResponse>;
 export async function initializeServerMode(): Promise<ServerModeValue> {

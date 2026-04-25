@@ -1,6 +1,6 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { updateArtifacts as updateArtifactsApi } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   RevisionedArtifacts,
@@ -14,6 +14,7 @@ import {
   bumpRemoteRevisions,
   removeRevisionEntries,
 } from "state/utils/revisions";
+import { res200 } from "utils/endpointUtils";
 import {
   ArtifactTypeEnum,
   BrushStrokeArtifact,

@@ -4176,16 +4176,12 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs(t *test
 	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode latest project state payload: %v", err)
 	}
-	watchCodeData, ok := payload.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
-	if !ok {
-		t.Fatalf("expected latest project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
-	}
-	if !watchCodeData.Enabled {
+	if !payload.ProjectState.ProjectConfig.WatchCodeEnabled {
 		t.Fatal("expected watch code to be enabled in latest project state")
 	}
 	expectedBaselineKey := filepath.Clean(watchFile)
 	expectedIdentity := "pkg.watch_me.existing:function"
-	if got := watchCodeData.BaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
+	if got := payload.ProjectState.ProjectConfig.WatchCodeBaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
 		t.Fatalf("expected watch code baseline %#v, got %#v", []string{expectedIdentity}, got)
 	}
 }
@@ -4253,61 +4249,13 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBroadcastsProjectStateUpdate(t 
 	}
 
 	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
-	watchCodeData, ok := update.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
-	if !ok {
-		t.Fatalf("expected websocket project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
-	}
-	if !watchCodeData.Enabled {
+	if !update.ProjectState.ProjectConfig.WatchCodeEnabled {
 		t.Fatal("expected websocket project state to enable watch code")
 	}
 	expectedBaselineKey := filepath.Clean(watchFile)
 	expectedIdentity := "pkg.watch_me.existing:function"
-	if got := watchCodeData.BaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
+	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
 		t.Fatalf("expected websocket watch code baseline %#v, got %#v", []string{expectedIdentity}, got)
-	}
-}
-
-func TestRegisterProjectRoutesSetWatchCodeEnabledRejectsUnavailableProvider(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	handler := newProjectRouteTestHandlerWithoutWatchCodeProvider(t, config.ModeIDE, projectRuntime, t.TempDir())
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetWatchCodeEnabled,
-		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusConflict {
-		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `"code":"feature_unavailable"`) {
-		t.Fatalf("expected feature_unavailable error, got %q", response.Body.String())
-	}
-
-	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	if project.WatchCodeEnabled || len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code state to remain unchanged, got %#v", project)
 	}
 }
 
@@ -4375,54 +4323,6 @@ func TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs(t *testin
 	newBaselineKey := filepath.Clean(newFile)
 	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
 		t.Fatalf("expected new baseline, got %#v", project.WatchCodeBaselineByPath)
-	}
-}
-
-func TestRegisterProjectRoutesSetWatchCodeInputsRejectsUnavailableProvider(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:             "project-alpha",
-				Name:           "Alpha",
-				WatchCodeFiles: []string{"pkg/existing.py"},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	handler := newProjectRouteTestHandlerWithoutWatchCodeProvider(t, config.ModeIDE, projectRuntime, t.TempDir())
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetWatchCodeInputs,
-		strings.NewReader(`{"projectConfigId":"project-alpha","watchCodeFolders":[{"path":"pkg","recursive":true}],"watchCodeFiles":["pkg/new.py"]}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusConflict {
-		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `"code":"feature_unavailable"`) {
-		t.Fatalf("expected feature_unavailable error, got %q", response.Body.String())
-	}
-
-	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) ||
-		len(project.WatchCodeFolders) != 0 ||
-		len(project.WatchCodeRegistry) != 0 ||
-		len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code inputs to remain unchanged, got %#v", project)
 	}
 }
 
@@ -4498,19 +4398,15 @@ func TestRegisterProjectRoutesSetWatchCodeInputsBroadcastsProjectStateUpdate(t *
 	}
 
 	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
-	watchCodeData, ok := update.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
-	if !ok {
-		t.Fatalf("expected websocket project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
+	if !reflect.DeepEqual(update.ProjectState.ProjectConfig.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
+		t.Fatalf("expected websocket watch files, got %#v", update.ProjectState.ProjectConfig.WatchCodeFiles)
 	}
-	if !reflect.DeepEqual(watchCodeData.Files, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
-		t.Fatalf("expected websocket watch files, got %#v", watchCodeData.Files)
-	}
-	if got := watchCodeData.BaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected websocket existing baseline to stay unchanged, got %#v", watchCodeData.BaselineByPath)
+	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected websocket existing baseline to stay unchanged, got %#v", update.ProjectState.ProjectConfig.WatchCodeBaselineByPath)
 	}
 	newBaselineKey := filepath.Clean(newFile)
-	if got := watchCodeData.BaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
-		t.Fatalf("expected websocket new baseline, got %#v", watchCodeData.BaselineByPath)
+	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
+		t.Fatalf("expected websocket new baseline, got %#v", update.ProjectState.ProjectConfig.WatchCodeBaselineByPath)
 	}
 }
 
@@ -13576,59 +13472,6 @@ func newProjectRouteTestHandlerWithRouteOptions(
 	websocketHub *realtime.WebsocketHub,
 	codeUpdates ...projectRouteCodeUpdateService,
 ) http.Handler {
-	return newProjectRouteTestHandlerWithRouteOptionsAndWatchCodeCapabilities(
-		t,
-		mode,
-		projectRuntime,
-		workspaceRoot,
-		validator,
-		pythonReconciler,
-		callableResolver,
-		chatSectionChatID,
-		renameRefactors,
-		websocketHub,
-		activeProjectRouteWatchCodeCapabilities,
-		codeUpdates...,
-	)
-}
-
-func newProjectRouteTestHandlerWithoutWatchCodeProvider(
-	t *testing.T,
-	mode config.Mode,
-	projectRuntime *projectstate.Runtime,
-	workspaceRoot string,
-	codeUpdates ...projectRouteCodeUpdateService,
-) http.Handler {
-	return newProjectRouteTestHandlerWithRouteOptionsAndWatchCodeCapabilities(
-		t,
-		mode,
-		projectRuntime,
-		workspaceRoot,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		unavailableProjectRouteWatchCodeCapabilities,
-		codeUpdates...,
-	)
-}
-
-func newProjectRouteTestHandlerWithRouteOptionsAndWatchCodeCapabilities(
-	t *testing.T,
-	mode config.Mode,
-	projectRuntime *projectstate.Runtime,
-	workspaceRoot string,
-	validator projectstate.CodegenTargetValidator,
-	pythonReconciler projectstate.PythonCodegenSectionReconciler,
-	callableResolver projectstate.CallableSignatureResolver,
-	chatSectionChatID func(ctx context.Context, projectID string, sectionID string) (*string, error),
-	renameRefactors *stubProjectRouteRenameRefactorService,
-	websocketHub *realtime.WebsocketHub,
-	watchCodeCapabilities func() plugins.PluginWatchCodeCapabilities,
-	codeUpdates ...projectRouteCodeUpdateService,
-) http.Handler {
 	t.Helper()
 	if validator == nil {
 		validator = projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
@@ -13718,33 +13561,12 @@ func newProjectRouteTestHandlerWithRouteOptionsAndWatchCodeCapabilities(
 			}); err != nil {
 				t.Fatalf("register project routes: %v", err)
 			}
-			if err := RegisterWatchCodeRoutes(r, WatchCodeRouteDependencies{
-				ModePolicy:            modes.NewPolicy(mode),
-				WorkspaceRoot:         workspaceRoot,
-				ProjectState:          projectRuntime,
-				WebsocketHub:          websocketHub,
-				WatchCodeCapabilities: watchCodeCapabilities,
-			}); err != nil {
-				t.Fatalf("register watch code routes: %v", err)
-			}
 		},
 	})
 	if err != nil {
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
-}
-
-func activeProjectRouteWatchCodeCapabilities() plugins.PluginWatchCodeCapabilities {
-	return plugins.PluginWatchCodeCapabilities{
-		PluginID:      "setta-watch-code",
-		PluginEnabled: true,
-		Python:        true,
-	}
-}
-
-func unavailableProjectRouteWatchCodeCapabilities() plugins.PluginWatchCodeCapabilities {
-	return plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
 }
 
 func readProjectRouteTestProjectStateUpdate(t *testing.T, conn *websocket.Conn) realtime.ProjectStateUpdateContent {

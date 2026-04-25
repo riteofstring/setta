@@ -1,8 +1,3 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getPaneRect } from "forks/xyflow/core/utils/graph";
@@ -10,6 +5,7 @@ import {
   createTopLevelSection as createTopLevelSectionRequest,
   setSectionName,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useLocalStorage,
   useNodeInternals,
@@ -17,6 +13,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { CodeLanguage, resolveCodeLanguageFromPath } from "utils/codeLanguage";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { resolveFileDropSectionKind } from "utils/fileDropSectionKind";
 import {
   CodeFileAccessModeEnum,

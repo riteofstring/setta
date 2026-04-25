@@ -50,11 +50,9 @@ func TestRegisterFrontendAPIRoutesLeavesAppSubsystemRoutesOutWithoutContribution
 		RouteAppDeploymentCurrentSession,
 		RouteAppDeploymentProjectConfig,
 		RouteAppDeploymentState,
-		RouteSetWatchCodeEnabled,
-		RouteSetWatchCodeInputs,
 	} {
 		if document.Paths[routePath] != nil {
-			t.Fatalf("expected %s to stay absent without frontend route contributions", routePath)
+			t.Fatalf("expected %s to stay absent without app subsystem contributions", routePath)
 		}
 	}
 }
@@ -143,44 +141,6 @@ func TestFrontendRouteRegistrationsRestoreContributedRoutes(t *testing.T) {
 		if document.Paths[routePath] == nil {
 			t.Fatalf("expected %s to be restored through contributed route registrations", routePath)
 		}
-	}
-}
-
-func TestWatchCodeRouteContributionRestoresRoutes(t *testing.T) {
-	deps, err := newOpenAPIDocumentRouteDependencies[FrontendAPIRouteDependencies](frontendOpenAPIDocumentModeOverrides)
-	if err != nil {
-		t.Fatalf("build openapi deps: %v", err)
-	}
-	deps.Plugin = nil
-
-	document := newOpenAPIDocument()
-	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
-	registrations := BuildWatchCodeFrontendAPIRouteRegistrations(WatchCodeRouteDependencies{
-		ModePolicy: deps.Project.ModePolicy,
-	})
-	if len(registrations.Project) != 1 {
-		t.Fatalf("expected one watch code project contribution, got %#v", registrations.Project)
-	}
-	if registrations.Project[0].Family != "watch code" {
-		t.Fatalf("unexpected watch code contribution family %#v", registrations.Project)
-	}
-	if err := RegisterFrontendAPIRoutes(router, deps, registrations); err != nil {
-		t.Fatalf("register frontend api routes with watch code contribution: %v", err)
-	}
-
-	for _, routePath := range []string{
-		RouteSetWatchCodeEnabled,
-		RouteSetWatchCodeInputs,
-	} {
-		if document.Paths[routePath] == nil {
-			t.Fatalf("expected %s to be restored through watch code route contribution", routePath)
-		}
-	}
-	if document.Paths[RouteSetWatchCodeEnabled].Post.OperationID != "setWatchCodeEnabled" {
-		t.Fatalf("watch code enabled operation id = %q", document.Paths[RouteSetWatchCodeEnabled].Post.OperationID)
-	}
-	if document.Paths[RouteSetWatchCodeInputs].Post.OperationID != "setWatchCodeInputs" {
-		t.Fatalf("watch code inputs operation id = %q", document.Paths[RouteSetWatchCodeInputs].Post.OperationID)
 	}
 }
 

@@ -1,8 +1,3 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   createProjectConfig as createProjectConfigRequest,
@@ -10,6 +5,7 @@ import {
   loadAllProjectMetadata as loadAllProjectMetadataRequest,
   loadProjectConfig as loadProjectConfigRequest,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { unstable_batchedUpdates } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections";
@@ -32,6 +28,7 @@ import {
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   type AllProjectMetadata,
   type LSPDiagnosticsPayload,

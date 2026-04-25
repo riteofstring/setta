@@ -2,14 +2,14 @@ import type { ServerModeValue } from "utils/serverModeTypes";
 import { describe, expect, it } from "vitest";
 
 import {
-  resolveEndpointOriginForMode,
-  resolveServerModeCapabilities,
-  resolveWorkspaceLaunchRouteKind,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   EndpointOriginPolicyByRoute,
   TransportRouteConstants,
 } from "./generatedTypes";
+import {
+  resolveEndpointOriginForMode,
+  resolveServerModeCapabilities,
+  resolveWorkspaceLaunchRouteKind,
+} from "./serverModeBoundaryPolicy";
 import { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
 
 function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {

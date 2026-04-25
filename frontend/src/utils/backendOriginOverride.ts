@@ -1,11 +1,11 @@
 import {
   BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
   BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
-  isLocalHostname,
-  normalizeOrigin,
-  safeSessionStorage,
 } from "@setta/app-subsystem-frontend-sdk";
 import { BootstrapProtocol } from "utils/generatedTypes";
+import { isLocalHostname } from "utils/hostnames";
+import { normalizeOrigin } from "utils/origin";
+import { safeSessionStorage } from "utils/storage";
 
 export {
   BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,

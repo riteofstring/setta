@@ -7,7 +7,7 @@ import {
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const WATCH_CODE_ENABLED_SETTING_ID = "plugin::setta-watch-code::enabled";
+const WATCH_CODE_ENABLED_SETTING_ID = "core.watch_code.enabled";
 const FRONTEND_IDENTITY_MESSAGE_TYPE = "FrontendIdentity";
 const FRONTEND_IDENTITY_GLOBAL_KEY = "__settaFrontendIdentity";
 const FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY = "__settaFrontendIdentityHistory";

@@ -129,28 +129,16 @@ func TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError(t *tes
 		PluginEnabled: true,
 		AppPreviewUI:  true,
 	})
-	watchCodeCapabilities := newWatchCodeCapabilityState()
-	watchCodeCapabilities.Set(plugins.PluginWatchCodeCapabilities{
-		PluginID:      "setta-fixture-watch-code-provider",
-		PluginEnabled: true,
-		Python:        true,
-	})
 	refresher := &pluginBackendRuntimeRefresher{
 		service:                  service,
 		runtime:                  previousRuntime,
 		appSubsystemCapabilities: capabilities,
-		watchCodeCapabilities:    watchCodeCapabilities,
 		refreshAppHandler: func() error {
 			return context.Canceled
 		},
 	}
 
-	_, err := newPluginMutationRuntimeService(
-		service,
-		refresher,
-		capabilities,
-		watchCodeCapabilities,
-	).Rescan()
+	_, err := newPluginMutationRuntimeService(service, refresher, capabilities).Rescan()
 	if err == nil {
 		t.Fatal("expected handler refresh failure")
 	}
@@ -160,10 +148,6 @@ func TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError(t *tes
 	currentCapabilities := capabilities.AppSubsystemCapabilities()
 	if !currentCapabilities.PluginEnabled || currentCapabilities.PluginID != "setta-fixture-app-provider" || !currentCapabilities.AppPreviewUI {
 		t.Fatalf("expected app subsystem capabilities to roll back, got %#v", currentCapabilities)
-	}
-	currentWatchCodeCapabilities := watchCodeCapabilities.WatchCodeCapabilities()
-	if !currentWatchCodeCapabilities.PluginEnabled || currentWatchCodeCapabilities.PluginID != "setta-fixture-watch-code-provider" || !currentWatchCodeCapabilities.Python {
-		t.Fatalf("expected watch code capabilities to roll back, got %#v", currentWatchCodeCapabilities)
 	}
 }
 
@@ -177,12 +161,7 @@ func TestPluginMutationRuntimeServiceRescanKeepsCommittedSnapshotOnHandlerRefres
 			return context.Canceled
 		},
 	}
-	runtimeService := newPluginMutationRuntimeService(
-		service,
-		refresher,
-		newAppSubsystemCapabilityState(),
-		newWatchCodeCapabilityState(),
-	)
+	runtimeService := newPluginMutationRuntimeService(service, refresher, newAppSubsystemCapabilityState())
 
 	initial, err := runtimeService.Runtime(plugins.RuntimeOptions{})
 	if err != nil {
@@ -319,7 +298,6 @@ func TestPluginMutationRuntimeServiceApplyLockfileRestoresOnHandlerRefreshError(
 				return context.Canceled
 			},
 		},
-		nil,
 		nil,
 	)
 
@@ -621,107 +599,6 @@ func TestBuildLanguageServerSelectionStatusesReportsSelectedUnavailableAndInclud
 	}
 	if status.AvailableProviders[1].PluginID != "setta-basedpyright" || status.AvailableProviders[1].Available {
 		t.Fatalf("expected unavailable selected provider to remain in options, got %#v", status.AvailableProviders)
-	}
-}
-
-func TestApplyWatchCodeLanguageServerDependencyStatusDerivesPythonLSPState(t *testing.T) {
-	activePluginID := "setta-basedpyright"
-	pendingPluginID := "setta-ty"
-
-	tests := []struct {
-		name                string
-		selections          []plugins.LanguageServerSelectionStatus
-		expectedStatus      plugins.PluginWatchCodeLanguageServerDependencyStatusKind
-		expectedSelectedID  *string
-		expectedAppliedID   *string
-		expectedRestartFlag bool
-	}{
-		{
-			name: "active provider agnostic python lsp",
-			selections: []plugins.LanguageServerSelectionStatus{
-				{
-					Language:         "python",
-					Status:           plugins.LanguageServerSelectionStatusActive,
-					SelectedPluginID: &activePluginID,
-					AppliedPluginID:  &activePluginID,
-				},
-			},
-			expectedStatus:     plugins.PluginWatchCodeLanguageServerDependencyStatusActive,
-			expectedSelectedID: &activePluginID,
-			expectedAppliedID:  &activePluginID,
-		},
-		{
-			name:           "unavailable python lsp",
-			selections:     nil,
-			expectedStatus: plugins.PluginWatchCodeLanguageServerDependencyStatusMissing,
-		},
-		{
-			name: "explicitly disabled python lsp",
-			selections: []plugins.LanguageServerSelectionStatus{
-				{
-					Language: "python",
-					Status:   plugins.LanguageServerSelectionStatusDisabled,
-				},
-			},
-			expectedStatus: plugins.PluginWatchCodeLanguageServerDependencyStatusDisabled,
-		},
-		{
-			name: "pending restart python lsp",
-			selections: []plugins.LanguageServerSelectionStatus{
-				{
-					Language:         "python",
-					Status:           plugins.LanguageServerSelectionStatusPendingRestart,
-					SelectedPluginID: &pendingPluginID,
-					RestartRequired:  true,
-				},
-			},
-			expectedStatus:      plugins.PluginWatchCodeLanguageServerDependencyStatusPendingRestart,
-			expectedSelectedID:  &pendingPluginID,
-			expectedRestartFlag: true,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			response := plugins.PluginRuntimeResponse{
-				FeatureCapabilities: &plugins.PluginFeatureCapabilities{
-					WatchCode: plugins.PluginWatchCodeCapabilities{
-						PluginID:               "setta-watch-code",
-						PluginEnabled:          true,
-						Python:                 true,
-						RequiresLanguageServer: true,
-					},
-				},
-				Status: plugins.PluginStatusResponse{
-					LanguageServerSelections: test.selections,
-				},
-			}
-
-			applyWatchCodeLanguageServerDependencyStatus(&response)
-
-			dependency := response.FeatureCapabilities.WatchCode.LanguageServerDependency
-			if dependency == nil {
-				t.Fatal("expected watch code language-server dependency status")
-			}
-			if dependency.Language != "python" || !dependency.Required {
-				t.Fatalf("expected required Python dependency, got %#v", dependency)
-			}
-			if dependency.Status != test.expectedStatus {
-				t.Fatalf("expected dependency status %q, got %#v", test.expectedStatus, dependency)
-			}
-			if !optionalStringPointersEqual(dependency.SelectedPluginID, test.expectedSelectedID) {
-				t.Fatalf("expected selected plugin id %#v, got %#v", test.expectedSelectedID, dependency.SelectedPluginID)
-			}
-			if !optionalStringPointersEqual(dependency.AppliedPluginID, test.expectedAppliedID) {
-				t.Fatalf("expected applied plugin id %#v, got %#v", test.expectedAppliedID, dependency.AppliedPluginID)
-			}
-			if dependency.RestartRequired != test.expectedRestartFlag {
-				t.Fatalf("expected restartRequired=%v, got %#v", test.expectedRestartFlag, dependency)
-			}
-			if dependency.Message == "" {
-				t.Fatalf("expected dependency message, got %#v", dependency)
-			}
-		})
 	}
 }
 

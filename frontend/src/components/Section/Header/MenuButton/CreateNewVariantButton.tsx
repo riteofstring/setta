@@ -1,6 +1,6 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { createNewSectionVariant } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 export function CreateNewVariantButton({ sectionId }) {
   async function onClick() {

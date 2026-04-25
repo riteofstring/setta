@@ -9216,12 +9216,9 @@
         "properties": {
           "appSubsystem": {
             "$ref": "#/components/schemas/PluginAppSubsystemCapabilities"
-          },
-          "watchCode": {
-            "$ref": "#/components/schemas/PluginWatchCodeCapabilities"
           }
         },
-        "required": ["appSubsystem", "watchCode"],
+        "required": ["appSubsystem"],
         "title": "PluginFeatureCapabilities",
         "type": "object"
       },
@@ -9232,16 +9229,6 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/PluginAppSubsystemFeatureManifest"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "watchCode": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PluginWatchCodeFeatureManifest"
               },
               {
                 "type": "null"
@@ -10226,16 +10213,6 @@
           },
           "serverMode": {
             "$ref": "#/components/schemas/Mode"
-          },
-          "watchCodeSelection": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PluginWatchCodeProviderSelection"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "required": [
@@ -10293,174 +10270,6 @@
         ],
         "title": "PluginUpdateResponse",
         "type": "object"
-      },
-      "PluginWatchCodeCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "canvasControlsUi": {
-            "type": "boolean"
-          },
-          "languageServerDependency": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PluginWatchCodeLanguageServerDependencyStatus"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "pluginEnabled": {
-            "type": "boolean"
-          },
-          "pluginId": {
-            "type": "string"
-          },
-          "providerSelection": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PluginWatchCodeProviderSelection"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "python": {
-            "type": "boolean"
-          },
-          "requiresLanguageServer": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "pluginId",
-          "pluginEnabled",
-          "python",
-          "requiresLanguageServer",
-          "canvasControlsUi"
-        ],
-        "title": "PluginWatchCodeCapabilities",
-        "type": "object"
-      },
-      "PluginWatchCodeFeatureManifest": {
-        "additionalProperties": false,
-        "properties": {
-          "canvasControlsUi": {
-            "type": "boolean"
-          },
-          "python": {
-            "type": "boolean"
-          },
-          "requiresLanguageServer": {
-            "type": "boolean"
-          }
-        },
-        "required": ["python", "requiresLanguageServer", "canvasControlsUi"],
-        "title": "PluginWatchCodeFeatureManifest",
-        "type": "object"
-      },
-      "PluginWatchCodeLanguageServerDependencyStatus": {
-        "additionalProperties": false,
-        "properties": {
-          "appliedPluginId": {
-            "type": ["null", "string"]
-          },
-          "language": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "restartRequired": {
-            "type": "boolean"
-          },
-          "selectedPluginId": {
-            "type": ["null", "string"]
-          },
-          "status": {
-            "$ref": "#/components/schemas/PluginWatchCodeLanguageServerDependencyStatusKind"
-          }
-        },
-        "required": [
-          "language",
-          "required",
-          "status",
-          "message",
-          "restartRequired"
-        ],
-        "title": "PluginWatchCodeLanguageServerDependencyStatus",
-        "type": "object"
-      },
-      "PluginWatchCodeLanguageServerDependencyStatusKind": {
-        "enum": [
-          "unavailable",
-          "not_required",
-          "active",
-          "missing",
-          "disabled",
-          "pending_restart"
-        ],
-        "title": "PluginWatchCodeLanguageServerDependencyStatusKind",
-        "type": "string"
-      },
-      "PluginWatchCodeProviderSelection": {
-        "additionalProperties": false,
-        "properties": {
-          "activePluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["null", "array"]
-          },
-          "conflictingPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["null", "array"]
-          },
-          "disabledPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["null", "array"]
-          },
-          "invalidPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["null", "array"]
-          },
-          "selectedPluginId": {
-            "type": ["null", "string"]
-          },
-          "status": {
-            "$ref": "#/components/schemas/PluginWatchCodeProviderSelectionStatusKind"
-          }
-        },
-        "required": [
-          "status",
-          "activePluginIds",
-          "disabledPluginIds",
-          "invalidPluginIds",
-          "conflictingPluginIds"
-        ],
-        "title": "PluginWatchCodeProviderSelection",
-        "type": "object"
-      },
-      "PluginWatchCodeProviderSelectionStatusKind": {
-        "enum": [
-          "no_provider",
-          "disabled_provider",
-          "invalid_provider",
-          "active",
-          "provider_conflict"
-        ],
-        "title": "PluginWatchCodeProviderSelectionStatusKind",
-        "type": "string"
       },
       "PluginsGlobalStateFile": {
         "additionalProperties": false,
@@ -10981,6 +10790,41 @@
             "default": false,
             "type": "boolean"
           },
+          "watchCodeBaselineByPath": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": ["null", "array"]
+            },
+            "default": {},
+            "type": "object"
+          },
+          "watchCodeEnabled": {
+            "default": false,
+            "type": "boolean"
+          },
+          "watchCodeFiles": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "watchCodeFolders": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/WatchCodeFolder"
+            },
+            "type": ["null", "array"]
+          },
+          "watchCodeRegistry": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WatchCodeRegistryEntry"
+            },
+            "default": {},
+            "type": "object"
+          },
           "windowSpaceIdsBySlug": {
             "additionalProperties": {
               "items": {
@@ -11019,6 +10863,11 @@
           "hasPythonCodegenTarget",
           "runCapabilities",
           "codegenTargets",
+          "watchCodeEnabled",
+          "watchCodeFolders",
+          "watchCodeFiles",
+          "watchCodeRegistry",
+          "watchCodeBaselineByPath",
           "entryCodeBlockId",
           "sectionPathSlugsById",
           "sectionIdsByPathSlug",
@@ -11067,13 +10916,6 @@
         },
         "required": ["name", "id"],
         "title": "ProjectConfigMetadata",
-        "type": "object"
-      },
-      "ProjectPluginData": {
-        "additionalProperties": {
-          "$ref": "#/components/schemas/WatchCodePluginProjectData"
-        },
-        "title": "ProjectPluginData",
         "type": "object"
       },
       "ProjectRunCapabilities": {
@@ -14895,18 +14737,6 @@
             },
             "type": "object"
           },
-          "pluginData": {
-            "$ref": "#/components/schemas/ProjectPluginData",
-            "default": {
-              "setta-watch-code": {
-                "baselineByPath": {},
-                "enabled": false,
-                "files": [],
-                "folders": [],
-                "registry": {}
-              }
-            }
-          },
           "projectChatWindowing": {
             "$ref": "#/components/schemas/ProjectChatWindowingState"
           },
@@ -15029,7 +14859,6 @@
           "codeObjImpls",
           "codeObjVariants",
           "projectConfig",
-          "pluginData",
           "singletonSections",
           "parentSectionMap",
           "shownParamIds",
@@ -18149,67 +17978,6 @@
         },
         "required": ["path", "recursive"],
         "title": "WatchCodeFolder",
-        "type": "object"
-      },
-      "WatchCodePluginData": {
-        "additionalProperties": false,
-        "properties": {
-          "projects": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/WatchCodePluginProjectData"
-            },
-            "type": "object"
-          },
-          "schemaVersion": {
-            "type": "integer"
-          }
-        },
-        "required": ["schemaVersion", "projects"],
-        "title": "WatchCodePluginData",
-        "type": "object"
-      },
-      "WatchCodePluginProjectData": {
-        "additionalProperties": false,
-        "properties": {
-          "baselineByPath": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": ["null", "array"]
-            },
-            "type": "object"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "files": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["null", "array"]
-          },
-          "folders": {
-            "items": {
-              "$ref": "#/components/schemas/WatchCodeFolder"
-            },
-            "type": ["null", "array"]
-          },
-          "registry": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/WatchCodeRegistryEntry"
-            },
-            "type": "object"
-          }
-        },
-        "required": [
-          "enabled",
-          "folders",
-          "files",
-          "registry",
-          "baselineByPath"
-        ],
-        "title": "WatchCodePluginProjectData",
         "type": "object"
       },
       "WatchCodeRegistryEntry": {

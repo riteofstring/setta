@@ -1,6 +1,6 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { setBrowserSavedSearches } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback } from "react";
 import { FiFileText, FiMusic, FiTrash2, FiVideo } from "react-icons/fi";
 import { IoImageOutline } from "react-icons/io5";

@@ -171,15 +171,6 @@ export const useProjectState = withProjectState(
           codeObjImpls: {},
           codeObjVariants: {},
           artifactGroups: {},
-          pluginData: {
-            "setta-watch-code": {
-              enabled: false,
-              folders: [],
-              files: [],
-              registry: {},
-              baselineByPath: {},
-            },
-          },
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},
@@ -776,6 +767,9 @@ function normalizePersistedLocalStorageState(
       merged.overviewNotificationsPaneTab,
       defaults.overviewNotificationsPaneTab,
     );
+  // Keep transient visibility session-local even though the store itself is
+  // persisted for durable preferences.
+  merged.watchCodePortalOpen = false;
   merged.customProjectChatSlashCommandsByProjectConfigId =
     normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       merged.customProjectChatSlashCommandsByProjectConfigId,
@@ -1294,6 +1288,7 @@ type ZustandLocalStorage = {
   overviewTrueWidth: number;
   overviewTab: OverviewTabKey;
   overviewNotificationsPaneTab: OverviewNotificationsPaneTab;
+  watchCodePortalOpen: boolean;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -1367,6 +1362,7 @@ export const useLocalStorage = createWithEqualityFn(
       overviewTab: OverviewTabNameEnum.Overview,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.Notifications,
+      watchCodePortalOpen: false,
       gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
       gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
       gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,

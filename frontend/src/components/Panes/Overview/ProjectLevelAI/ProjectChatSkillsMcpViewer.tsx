@@ -1,9 +1,4 @@
 import * as Accordion from "@radix-ui/react-accordion";
-import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import {
   buildChatSlashCommands,
@@ -20,6 +15,7 @@ import {
   revealPathInOsFileExplorer,
   upsertAppGenCustomSkill,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useAppSubsystemCustomSlashCommandModeOptions,
   useAppSubsystemDefaultCustomSlashCommandMode,
@@ -50,6 +46,7 @@ import {
   type AppGenerationMode,
   parseAppGenerationMode,
 } from "state/types/appGenerationMode";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   type BaseChatMessageUnion,
   type EngineConfig,

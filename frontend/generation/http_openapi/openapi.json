@@ -6879,6 +6879,47 @@
         "required": ["projectConfigId", "viewport"],
         "type": "object"
       },
+      "HttpapiSetWatchCodeEnabledRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "enabled"],
+        "type": "object"
+      },
+      "HttpapiSetWatchCodeInputsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "frontendOpId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "watchCodeFiles": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "watchCodeFolders": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["projectConfigId", "watchCodeFolders", "watchCodeFiles"],
+        "type": "object"
+      },
       "HttpapiSetWindowSpaceNameRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8301,12 +8342,9 @@
         "properties": {
           "appSubsystem": {
             "$ref": "#/components/schemas/PluginsPluginAppSubsystemCapabilities"
-          },
-          "watchCode": {
-            "$ref": "#/components/schemas/PluginsPluginWatchCodeCapabilities"
           }
         },
-        "required": ["appSubsystem", "watchCode"],
+        "required": ["appSubsystem"],
         "type": "object"
       },
       "PluginsPluginFrontendDescriptor": {
@@ -8875,9 +8913,6 @@
           },
           "serverMode": {
             "type": "string"
-          },
-          "watchCodeSelection": {
-            "$ref": "#/components/schemas/PluginsPluginWatchCodeProviderSelection"
           }
         },
         "required": [
@@ -8930,117 +8965,6 @@
           "toVersion",
           "sourceDigestSha256",
           "restartRequired"
-        ],
-        "type": "object"
-      },
-      "PluginsPluginWatchCodeCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "canvasControlsUi": {
-            "type": "boolean"
-          },
-          "languageServerDependency": {
-            "$ref": "#/components/schemas/PluginsPluginWatchCodeLanguageServerDependencyStatus"
-          },
-          "pluginEnabled": {
-            "type": "boolean"
-          },
-          "pluginId": {
-            "type": "string"
-          },
-          "providerSelection": {
-            "$ref": "#/components/schemas/PluginsPluginWatchCodeProviderSelection"
-          },
-          "python": {
-            "type": "boolean"
-          },
-          "requiresLanguageServer": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "pluginId",
-          "pluginEnabled",
-          "python",
-          "requiresLanguageServer",
-          "canvasControlsUi"
-        ],
-        "type": "object"
-      },
-      "PluginsPluginWatchCodeLanguageServerDependencyStatus": {
-        "additionalProperties": false,
-        "properties": {
-          "appliedPluginId": {
-            "type": "string"
-          },
-          "language": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "restartRequired": {
-            "type": "boolean"
-          },
-          "selectedPluginId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "language",
-          "required",
-          "status",
-          "message",
-          "restartRequired"
-        ],
-        "type": "object"
-      },
-      "PluginsPluginWatchCodeProviderSelection": {
-        "additionalProperties": false,
-        "properties": {
-          "activePluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "conflictingPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "disabledPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "invalidPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "selectedPluginId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "activePluginIds",
-          "disabledPluginIds",
-          "invalidPluginIds",
-          "conflictingPluginIds"
         ],
         "type": "object"
       },
@@ -10677,49 +10601,6 @@
         "required": ["path", "recursive"],
         "type": "object"
       },
-      "ProjectstateWatchCodePluginProjectData": {
-        "additionalProperties": false,
-        "properties": {
-          "baselineByPath": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": ["array", "null"]
-            },
-            "type": "object"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "files": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "folders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          },
-          "registry": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeRegistryEntry"
-            },
-            "type": "object"
-          }
-        },
-        "required": [
-          "enabled",
-          "folders",
-          "files",
-          "registry",
-          "baselineByPath"
-        ],
-        "type": "object"
-      },
       "ProjectstateWatchCodeRegistryEntry": {
         "additionalProperties": false,
         "properties": {
@@ -10980,6 +10861,36 @@
           "viewportInitialized": {
             "type": "boolean"
           },
+          "watchCodeBaselineByPath": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": ["array", "null"]
+            },
+            "type": "object"
+          },
+          "watchCodeEnabled": {
+            "type": "boolean"
+          },
+          "watchCodeFiles": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "watchCodeFolders": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
+            },
+            "type": ["array", "null"]
+          },
+          "watchCodeRegistry": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProjectstateWatchCodeRegistryEntry"
+            },
+            "type": "object"
+          },
           "windowSpaceIdsBySlug": {
             "additionalProperties": {
               "items": {
@@ -11015,6 +10926,11 @@
           "hasPythonCodegenTarget",
           "runCapabilities",
           "codegenTargets",
+          "watchCodeEnabled",
+          "watchCodeFolders",
+          "watchCodeFiles",
+          "watchCodeRegistry",
+          "watchCodeBaselineByPath",
           "entryCodeBlockId",
           "sectionPathSlugsById",
           "sectionIdsByPathSlug",
@@ -11145,12 +11061,6 @@
             },
             "type": "object"
           },
-          "pluginData": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodePluginProjectData"
-            },
-            "type": "object"
-          },
           "projectChatWindowing": {
             "$ref": "#/components/schemas/ProjectstateProjectChatWindowingState"
           },
@@ -11204,7 +11114,6 @@
           "codeObjImpls",
           "codeObjVariants",
           "projectConfig",
-          "pluginData",
           "singletonSections",
           "parentSectionMap",
           "shownParamIds",
@@ -12105,47 +12014,6 @@
           }
         },
         "required": ["appendText", "fullText", "isFinal"],
-        "type": "object"
-      },
-      "WatchcodehttpSetWatchCodeEnabledRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          }
-        },
-        "required": ["projectConfigId", "enabled"],
-        "type": "object"
-      },
-      "WatchcodehttpSetWatchCodeInputsRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          },
-          "watchCodeFiles": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeFolders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          }
-        },
-        "required": ["projectConfigId", "watchCodeFolders", "watchCodeFiles"],
         "type": "object"
       }
     }
@@ -21899,7 +21767,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WatchcodehttpSetWatchCodeEnabledRequest"
+                "$ref": "#/components/schemas/HttpapiSetWatchCodeEnabledRequest"
               }
             }
           },
@@ -21938,7 +21806,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WatchcodehttpSetWatchCodeInputsRequest"
+                "$ref": "#/components/schemas/HttpapiSetWatchCodeInputsRequest"
               }
             }
           },

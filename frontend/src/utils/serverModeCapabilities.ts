@@ -1,0 +1,1 @@
+export { resolveServerModeCapabilities } from "./serverModeBoundaryPolicy";

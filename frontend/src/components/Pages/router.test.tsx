@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveWorkspaceLaunchRouteKind } from "@setta/app-subsystem-frontend-sdk";
 import { matchRoutes } from "react-router-dom";
 import {
   HOME_ROUTER_PATH,
@@ -13,6 +12,7 @@ import {
   WINDOW_SPACE_STANDALONE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
+import { resolveWorkspaceLaunchRouteKind } from "utils/serverModeBoundaryPolicy";
 import type { ServerModeValue } from "utils/serverModeTypes";
 import { resolveModeElementForServerMode } from "./modeRouteResolver";
 import { APP_ROUTE_IDS } from "./routeConfig";

@@ -1,11 +1,10 @@
-import {
-  formatBytes,
-  getAttachmentPolicy,
-  isAttachmentMimeAllowed,
-  resolveAttachmentLimit,
-} from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it } from "vitest";
 import { C } from "../../plugin-sdk/app-subsystem/src/c";
+import {
+  getAttachmentPolicy,
+  isAttachmentMimeAllowed,
+} from "./attachmentPolicy";
+import { formatBytes, resolveAttachmentLimit } from "./attachments";
 
 describe("formatBytes", () => {
   it("returns 0 B for non-positive values", () => {

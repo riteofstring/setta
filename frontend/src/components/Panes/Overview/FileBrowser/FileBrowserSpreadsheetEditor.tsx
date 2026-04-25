@@ -9,12 +9,6 @@ import {
 } from "@glideapps/glide-data-grid";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   downloadBinary,
   getFileBrowserFileContent,
   getFileBrowserFileStat,
@@ -23,6 +17,7 @@ import {
   type FilebrowserFileStatResponse,
   type FilebrowserWriteFileContentResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type {
   Dispatch,
   MutableRefObject,
@@ -42,6 +37,11 @@ import { List, useListRef } from "react-window";
 import { useLocalStorage } from "state/definitions";
 import { uploadBinaryPayload } from "utils/binaryUpload";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import type { SpreadsheetGridDensity } from "utils/generatedTypes";
 import {
   getSpreadsheetColumnLabel,
