@@ -1,10 +1,10 @@
-import { normalizeGeneratedToolName } from "@setta/app-subsystem-frontend-sdk";
 import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   ToolCall,
   ToolNameNormalizationConfig,
 } from "utils/generatedTypes";
+import { normalizeGeneratedToolName } from "./bindingRuntime";
 
 type AskUserQuestionOption = {
   label: string;

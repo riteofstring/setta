@@ -33,19 +33,6 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes(
 	}
 }
 
-func TestBuildFrontendHTTPOpenAPIDocumentIncludesWatchCodeRoutes(t *testing.T) {
-	document := buildOpenAPIDocumentForCapabilities(t, nil)
-
-	for _, routePath := range []string{
-		httpapi.RouteSetWatchCodeEnabled,
-		httpapi.RouteSetWatchCodeInputs,
-	} {
-		if document.Paths[routePath] == nil {
-			t.Fatalf("expected watch code route contribution to include %s", routePath)
-		}
-	}
-}
-
 func TestBuildOpenAPIDocumentAppSubsystemRegistrationsMergesSharedRoutesAcrossProviders(t *testing.T) {
 	t.Parallel()
 
@@ -123,7 +110,7 @@ func buildOpenAPIDocumentForCapabilities(
 
 	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
 		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
-			registrations, buildErr := buildOpenAPIDocumentRouteRegistrations(
+			registrations, buildErr := buildOpenAPIDocumentAppSubsystemRegistrations(
 				deps,
 				providers,
 			)

@@ -1,4 +1,4 @@
-import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
+import type { ResponseDataAndStatus } from "../../plugin-sdk/app-subsystem/src/requestTransport";
 import { buildShareSessionHeaders } from "./shareSessionHeaders";
 import { buildBackendURL } from "./transportUrlCore";
 

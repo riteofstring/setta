@@ -3104,84 +3104,6 @@
       "schemaRef": "#/$defs/PluginUpdateResponse"
     },
     {
-      "name": "PluginWatchCodeCapabilities",
-      "kind": "model",
-      "schemaRef": "#/$defs/PluginWatchCodeCapabilities"
-    },
-    {
-      "name": "PluginWatchCodeFeatureManifest",
-      "kind": "model",
-      "schemaRef": "#/$defs/PluginWatchCodeFeatureManifest"
-    },
-    {
-      "name": "PluginWatchCodeLanguageServerDependencyStatus",
-      "kind": "model",
-      "schemaRef": "#/$defs/PluginWatchCodeLanguageServerDependencyStatus"
-    },
-    {
-      "name": "PluginWatchCodeLanguageServerDependencyStatusKind",
-      "kind": "enum",
-      "schemaRef": "#/$defs/PluginWatchCodeLanguageServerDependencyStatusKind",
-      "enumValues": [
-        {
-          "name": "unavailable",
-          "value": "unavailable"
-        },
-        {
-          "name": "not_required",
-          "value": "not_required"
-        },
-        {
-          "name": "active",
-          "value": "active"
-        },
-        {
-          "name": "missing",
-          "value": "missing"
-        },
-        {
-          "name": "disabled",
-          "value": "disabled"
-        },
-        {
-          "name": "pending_restart",
-          "value": "pending_restart"
-        }
-      ]
-    },
-    {
-      "name": "PluginWatchCodeProviderSelection",
-      "kind": "model",
-      "schemaRef": "#/$defs/PluginWatchCodeProviderSelection"
-    },
-    {
-      "name": "PluginWatchCodeProviderSelectionStatusKind",
-      "kind": "enum",
-      "schemaRef": "#/$defs/PluginWatchCodeProviderSelectionStatusKind",
-      "enumValues": [
-        {
-          "name": "no_provider",
-          "value": "no_provider"
-        },
-        {
-          "name": "disabled_provider",
-          "value": "disabled_provider"
-        },
-        {
-          "name": "invalid_provider",
-          "value": "invalid_provider"
-        },
-        {
-          "name": "active",
-          "value": "active"
-        },
-        {
-          "name": "provider_conflict",
-          "value": "provider_conflict"
-        }
-      ]
-    },
-    {
       "name": "PluginsGlobalStateFile",
       "kind": "model",
       "schemaRef": "#/$defs/PluginsGlobalStateFile"
@@ -3304,11 +3226,6 @@
       "name": "ProjectConfigMetadata",
       "kind": "model",
       "schemaRef": "#/$defs/ProjectConfigMetadata"
-    },
-    {
-      "name": "ProjectPluginData",
-      "kind": "alias",
-      "schemaRef": "#/$defs/ProjectPluginData"
     },
     {
       "name": "ProjectRunCapabilities",
@@ -6666,16 +6583,6 @@
       "schemaRef": "#/$defs/WatchCodeFolder"
     },
     {
-      "name": "WatchCodePluginData",
-      "kind": "model",
-      "schemaRef": "#/$defs/WatchCodePluginData"
-    },
-    {
-      "name": "WatchCodePluginProjectData",
-      "kind": "model",
-      "schemaRef": "#/$defs/WatchCodePluginProjectData"
-    },
-    {
       "name": "WatchCodeRegistryEntry",
       "kind": "model",
       "schemaRef": "#/$defs/WatchCodeRegistryEntry"
@@ -9176,6 +9083,11 @@
         "viewModes": {},
         "viewport": null,
         "viewportInitialized": false,
+        "watchCodeBaselineByPath": {},
+        "watchCodeEnabled": false,
+        "watchCodeFiles": [],
+        "watchCodeFolders": [],
+        "watchCodeRegistry": {},
         "windowSpaceIdsBySlug": {},
         "windowSpaceSlugsById": {},
         "windowSpaces": {}
@@ -9405,22 +9317,14 @@
           "zoom": 1
         },
         "viewportInitialized": false,
+        "watchCodeBaselineByPath": {},
+        "watchCodeEnabled": false,
+        "watchCodeFiles": [],
+        "watchCodeFolders": [],
+        "watchCodeRegistry": {},
         "windowSpaceIdsBySlug": {},
         "windowSpaceSlugsById": {},
         "windowSpaces": {}
-      }
-    },
-    {
-      "profile": "frontend",
-      "type": "ProjectPluginData",
-      "value": {
-        "setta-watch-code": {
-          "baselineByPath": {},
-          "enabled": false,
-          "files": [],
-          "folders": [],
-          "registry": {}
-        }
       }
     },
     {
@@ -10712,15 +10616,6 @@
         "codeObjs": {},
         "genCodeBinding": null,
         "parentSectionMap": {},
-        "pluginData": {
-          "setta-watch-code": {
-            "baselineByPath": {},
-            "enabled": false,
-            "files": [],
-            "folders": [],
-            "registry": {}
-          }
-        },
         "projectChatWindowing": {
           "instancesById": {},
           "nextInstanceNumber": 1,
@@ -10753,6 +10648,11 @@
           "viewModes": {},
           "viewport": null,
           "viewportInitialized": false,
+          "watchCodeBaselineByPath": {},
+          "watchCodeEnabled": false,
+          "watchCodeFiles": [],
+          "watchCodeFolders": [],
+          "watchCodeRegistry": {},
           "windowSpaceIdsBySlug": {},
           "windowSpaceSlugsById": {},
           "windowSpaces": {}
@@ -10979,17 +10879,6 @@
         "x": 0,
         "y": 0,
         "zoom": 1
-      }
-    },
-    {
-      "profile": "frontend",
-      "type": "WatchCodePluginProjectData",
-      "value": {
-        "baselineByPath": {},
-        "enabled": false,
-        "files": [],
-        "folders": [],
-        "registry": {}
       }
     },
     {

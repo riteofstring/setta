@@ -1,12 +1,13 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { textFieldCompletion } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";

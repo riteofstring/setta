@@ -1,8 +1,3 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import {
   disablePlugin,
@@ -16,6 +11,7 @@ import {
   updatePlugin,
   writePluginConfig,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
@@ -33,6 +29,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C } from "utils/c";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import type {
   LanguageServerSelectionStatus,
   PluginBlockedCapability,

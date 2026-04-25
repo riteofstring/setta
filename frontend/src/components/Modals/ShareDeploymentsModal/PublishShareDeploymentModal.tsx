@@ -1,11 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  callOpenAPI,
-  createDefaultSharePolicy,
-  createRandomName,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import {
   checkIfFileExists,
@@ -14,17 +7,21 @@ import {
   type HttpapiDeploymentMetadataResponse,
   type HttpapiPublishShareDeploymentRequest,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { buildSharePath } from "utils/constants";
+import { createDefaultSharePolicy } from "utils/deploymentPolicies";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   RunSnapshotModeUIConfig,
   type Policy,
   type RunSnapshotMode,
 } from "utils/generatedTypes";
+import { createRandomName } from "utils/idNameCreation";
 
 type DeploymentMetadata = HttpapiDeploymentMetadataResponse;
 type SharePolicyOverridesInput = Policy;

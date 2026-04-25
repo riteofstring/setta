@@ -1,14 +1,15 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import {
   setCodeSectionDiagnosticCodeSuppression as setCodeSectionDiagnosticCodeSuppressionRequest,
   setCodeSectionDiagnosticsMute as setCodeSectionDiagnosticsMuteRequest,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
   useTypeErrors,
 } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
 import {
   LSPDiagnosticsPayload,
   SectionTypeEnum,

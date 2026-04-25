@@ -1,4 +1,3 @@
-import { callOpenAPI, createNewId } from "@setta/app-subsystem-frontend-sdk";
 import type { Connection } from "forks/xyflow/core/types";
 import {
   createAgenticEdge,
@@ -6,12 +5,14 @@ import {
   setAgenticEdges,
   updateAgenticEdge,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useProjectState, useShareSession } from "state/definitions";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
 import {
   dispatchOptimisticProjectStateUpdate,

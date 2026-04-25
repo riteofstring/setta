@@ -1,17 +1,10 @@
 import {
-  callOpenAPI,
-  createDropzoneFileArtifactId,
-  getAttachmentPolicy,
-  getErrorDetail,
-  isAttachmentMimeAllowed,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   deleteArtifacts,
   importFilesToArtifacts,
   updateArtifacts,
   uploadBinary,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -29,10 +22,16 @@ import {
 import { useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
+  getAttachmentPolicy,
+  isAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
+import {
   CHAT_SUPPORTED_IMAGE_LABEL,
   isChatImageAttachmentSupported,
   isChatImageFileSupported,
 } from "utils/chatAttachmentSupport";
+import { createDropzoneFileArtifactId } from "utils/dropzone";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   ArtifactTypeEnum,
   ChatFileAttachment,

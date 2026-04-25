@@ -44,14 +44,9 @@ vi.mock("openapi/http", () => ({
   setParamEnteredValue: clearValueMocks.setParamEnteredValueMock,
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: <T,>(value: T) => value,
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: <T,>(value: T) => value,
+}));
 
 type SeededSectionState = {
   passwordParamId: string;

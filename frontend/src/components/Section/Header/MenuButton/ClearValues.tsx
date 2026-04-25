@@ -1,6 +1,6 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { setParamEnteredValue } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImpl,

@@ -34,7 +34,6 @@ func TestPluginManifestSchemaTracksRuntimeContract(t *testing.T) {
 	buildProperties := schemaPropertyMap(t, schemaObject(t, frontendProperties, "build"), "properties")
 	featureProperties := schemaPropertyMap(t, schemaObject(t, properties, "featureCapabilities"), "properties")
 	appSubsystemProperties := schemaPropertyMap(t, schemaObject(t, featureProperties, "appSubsystem"), "properties")
-	watchCodeProperties := schemaPropertyMap(t, schemaObject(t, featureProperties, "watchCode"), "properties")
 	capabilities := schemaStringArray(
 		t,
 		schemaObject(t, schemaObject(t, properties, "capabilities"), "items"),
@@ -70,21 +69,6 @@ func TestPluginManifestSchemaTracksRuntimeContract(t *testing.T) {
 	slices.Sort(gotAppSubsystemFields)
 	if !reflect.DeepEqual(gotAppSubsystemFields, wantAppSubsystemFields) {
 		t.Fatalf("expected schema featureCapabilities.appSubsystem fields %v, got %v", wantAppSubsystemFields, gotAppSubsystemFields)
-	}
-
-	wantWatchCodeFields := []string{
-		"python",
-		"requiresLanguageServer",
-		"canvasControlsUi",
-	}
-	gotWatchCodeFields := make([]string, 0, len(watchCodeProperties))
-	for field := range watchCodeProperties {
-		gotWatchCodeFields = append(gotWatchCodeFields, field)
-	}
-	slices.Sort(wantWatchCodeFields)
-	slices.Sort(gotWatchCodeFields)
-	if !reflect.DeepEqual(gotWatchCodeFields, wantWatchCodeFields) {
-		t.Fatalf("expected schema featureCapabilities.watchCode fields %v, got %v", wantWatchCodeFields, gotWatchCodeFields)
 	}
 }
 

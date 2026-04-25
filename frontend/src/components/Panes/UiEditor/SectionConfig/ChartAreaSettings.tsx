@@ -1,4 +1,3 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
@@ -7,6 +6,7 @@ import {
   setChartSettings,
   setChartType,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,

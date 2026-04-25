@@ -1,8 +1,5 @@
-import {
-  safeLocalStorage,
-  safeSessionStorage,
-} from "@setta/app-subsystem-frontend-sdk";
 import { afterEach, describe, expect, it } from "vitest";
+import { safeLocalStorage, safeSessionStorage } from "./storage";
 
 function buildMemoryStorage(): Storage {
   const storage = new Map<string, string>();

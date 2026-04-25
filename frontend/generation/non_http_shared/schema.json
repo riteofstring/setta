@@ -10953,15 +10953,11 @@
       "properties": {
         "appSubsystem": {
           "$ref": "#/$defs/PluginAppSubsystemCapabilities"
-        },
-        "watchCode": {
-          "$ref": "#/$defs/PluginWatchCodeCapabilities"
         }
       },
       "title": "PluginFeatureCapabilities",
       "required": [
-        "appSubsystem",
-        "watchCode"
+        "appSubsystem"
       ],
       "additionalProperties": false
     },
@@ -10972,16 +10968,6 @@
           "anyOf": [
             {
               "$ref": "#/$defs/PluginAppSubsystemFeatureManifest"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "watchCode": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PluginWatchCodeFeatureManifest"
             },
             {
               "type": "null"
@@ -12148,16 +12134,6 @@
             }
           ]
         },
-        "watchCodeSelection": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PluginWatchCodeProviderSelection"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "plugins": {
           "type": [
             "null",
@@ -12239,199 +12215,6 @@
         "restartRequired"
       ],
       "additionalProperties": false
-    },
-    "PluginWatchCodeCapabilities": {
-      "type": "object",
-      "properties": {
-        "providerSelection": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PluginWatchCodeProviderSelection"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "languageServerDependency": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PluginWatchCodeLanguageServerDependencyStatus"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "pluginId": {
-          "type": "string"
-        },
-        "pluginEnabled": {
-          "type": "boolean"
-        },
-        "python": {
-          "type": "boolean"
-        },
-        "requiresLanguageServer": {
-          "type": "boolean"
-        },
-        "canvasControlsUi": {
-          "type": "boolean"
-        }
-      },
-      "title": "PluginWatchCodeCapabilities",
-      "required": [
-        "pluginId",
-        "pluginEnabled",
-        "python",
-        "requiresLanguageServer",
-        "canvasControlsUi"
-      ],
-      "additionalProperties": false
-    },
-    "PluginWatchCodeFeatureManifest": {
-      "type": "object",
-      "properties": {
-        "python": {
-          "type": "boolean"
-        },
-        "requiresLanguageServer": {
-          "type": "boolean"
-        },
-        "canvasControlsUi": {
-          "type": "boolean"
-        }
-      },
-      "title": "PluginWatchCodeFeatureManifest",
-      "required": [
-        "python",
-        "requiresLanguageServer",
-        "canvasControlsUi"
-      ],
-      "additionalProperties": false
-    },
-    "PluginWatchCodeLanguageServerDependencyStatus": {
-      "type": "object",
-      "properties": {
-        "language": {
-          "type": "string"
-        },
-        "required": {
-          "type": "boolean"
-        },
-        "status": {
-          "$ref": "#/$defs/PluginWatchCodeLanguageServerDependencyStatusKind"
-        },
-        "message": {
-          "type": "string"
-        },
-        "selectedPluginId": {
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "appliedPluginId": {
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "restartRequired": {
-          "type": "boolean"
-        }
-      },
-      "title": "PluginWatchCodeLanguageServerDependencyStatus",
-      "required": [
-        "language",
-        "required",
-        "status",
-        "message",
-        "restartRequired"
-      ],
-      "additionalProperties": false
-    },
-    "PluginWatchCodeLanguageServerDependencyStatusKind": {
-      "type": "string",
-      "title": "PluginWatchCodeLanguageServerDependencyStatusKind",
-      "enum": [
-        "unavailable",
-        "not_required",
-        "active",
-        "missing",
-        "disabled",
-        "pending_restart"
-      ]
-    },
-    "PluginWatchCodeProviderSelection": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "$ref": "#/$defs/PluginWatchCodeProviderSelectionStatusKind"
-        },
-        "selectedPluginId": {
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "activePluginIds": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "disabledPluginIds": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "invalidPluginIds": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "conflictingPluginIds": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "title": "PluginWatchCodeProviderSelection",
-      "required": [
-        "status",
-        "activePluginIds",
-        "disabledPluginIds",
-        "invalidPluginIds",
-        "conflictingPluginIds"
-      ],
-      "additionalProperties": false
-    },
-    "PluginWatchCodeProviderSelectionStatusKind": {
-      "type": "string",
-      "title": "PluginWatchCodeProviderSelectionStatusKind",
-      "enum": [
-        "no_provider",
-        "disabled_provider",
-        "invalid_provider",
-        "active",
-        "provider_conflict"
-      ]
     },
     "PluginsGlobalStateFile": {
       "type": "object",
@@ -12977,6 +12760,50 @@
           },
           "default": []
         },
+        "watchCodeEnabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "watchCodeFolders": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "$ref": "#/$defs/WatchCodeFolder"
+          },
+          "default": []
+        },
+        "watchCodeFiles": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "watchCodeRegistry": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "$ref": "#/$defs/WatchCodeRegistryEntry"
+          }
+        },
+        "watchCodeBaselineByPath": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
         "entryCodeBlockId": {
           "type": [
             "null",
@@ -13099,6 +12926,11 @@
         "hasPythonCodegenTarget",
         "runCapabilities",
         "codegenTargets",
+        "watchCodeEnabled",
+        "watchCodeFolders",
+        "watchCodeFiles",
+        "watchCodeRegistry",
+        "watchCodeBaselineByPath",
         "entryCodeBlockId",
         "sectionPathSlugsById",
         "sectionIdsByPathSlug",
@@ -13154,13 +12986,6 @@
         "id"
       ],
       "additionalProperties": false
-    },
-    "ProjectPluginData": {
-      "type": "object",
-      "title": "ProjectPluginData",
-      "additionalProperties": {
-        "$ref": "#/$defs/WatchCodePluginProjectData"
-      }
     },
     "ProjectRunCapabilities": {
       "type": "object",
@@ -17581,18 +17406,6 @@
         "projectConfig": {
           "$ref": "#/$defs/ProjectConfig"
         },
-        "pluginData": {
-          "$ref": "#/$defs/ProjectPluginData",
-          "default": {
-            "setta-watch-code": {
-              "enabled": false,
-              "folders": [],
-              "files": [],
-              "registry": {},
-              "baselineByPath": {}
-            }
-          }
-        },
         "singletonSections": {
           "$ref": "#/$defs/SingletonSections"
         },
@@ -17648,7 +17461,6 @@
         "codeObjImpls",
         "codeObjVariants",
         "projectConfig",
-        "pluginData",
         "singletonSections",
         "parentSectionMap",
         "shownParamIds",
@@ -21387,79 +21199,6 @@
       "required": [
         "path",
         "recursive"
-      ],
-      "additionalProperties": false
-    },
-    "WatchCodePluginData": {
-      "type": "object",
-      "properties": {
-        "schemaVersion": {
-          "type": "integer"
-        },
-        "projects": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/WatchCodePluginProjectData"
-          }
-        }
-      },
-      "title": "WatchCodePluginData",
-      "required": [
-        "schemaVersion",
-        "projects"
-      ],
-      "additionalProperties": false
-    },
-    "WatchCodePluginProjectData": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
-        },
-        "folders": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "$ref": "#/$defs/WatchCodeFolder"
-          }
-        },
-        "files": {
-          "type": [
-            "null",
-            "array"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "registry": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/WatchCodeRegistryEntry"
-          }
-        },
-        "baselineByPath": {
-          "type": "object",
-          "additionalProperties": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "title": "WatchCodePluginProjectData",
-      "required": [
-        "enabled",
-        "folders",
-        "files",
-        "registry",
-        "baselineByPath"
       ],
       "additionalProperties": false
     },

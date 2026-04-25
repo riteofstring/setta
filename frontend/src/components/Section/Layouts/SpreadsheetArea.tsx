@@ -1,7 +1,7 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { setSpreadsheetFilePath } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { DragEvent } from "react";
 import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";

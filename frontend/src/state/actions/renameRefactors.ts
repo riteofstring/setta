@@ -1,9 +1,9 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { ModalTypeEnum } from "components/Modals/types";
 import {
   acceptRenameRefactor as acceptRenameRefactorRequest,
   declineRenameRefactor as declineRenameRefactorRequest,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { openRenameReferencesModal } from "state/actions/modal";
 import {
   NULL_PROJECT_CONFIG_ID,

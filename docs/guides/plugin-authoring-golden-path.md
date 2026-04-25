@@ -50,10 +50,8 @@ metadata.
   older frontend-facing entries, that includes
   `registerMcpTools`, `registerLanguageServer`,
   `registerExternalAgentAdapter`, `registerCodegenTarget`,
-  `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`,
-  `registerAppSubsystemBackend`, `registerSettingRevealHandler`, and
-  `mutateWatchCodeSettings`. Project-canvas controls must request
-  `registerCanvasControl`.
+  `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`, and
+  `registerAppSubsystemBackend`.
 - `frontend.build.packageManager` currently accepts `pnpm` and is the opt-in
   contract for plugin-owned frontend builds from `frontend/package.json`.
 - App-subsystem providers should declare both the required backend/runtime
@@ -93,17 +91,13 @@ Add `x-setta-ui-settings` entries to your plugin config schema (`content/config/
 ```
 
 Notes:
-
 - `settingId` is plugin-local; MCP callers will see `plugin::<pluginId>::<settingId>`.
 - `configPath` must be a non-empty string array.
 - `defaultValue` is required and must validate against `valueSchema` (or inferred schema at `configPath`).
 
 ### Optional: implement frontend reveal handlers for plugin settings
 
-Plugin settings use `strategy="plugin_handler"` for reveal/highlight. Request
-`registerSettingRevealHandler`, then register a reveal handler in frontend
-`register(host)`. Pane-backed settings usually register a pane too, while
-canvas-control settings can reveal through the handler alone.
+Plugin settings use `strategy="plugin_handler"` for reveal/highlight. Register a pane and reveal handler in frontend `register(host)`:
 
 ```js
 export function register(host) {
@@ -134,43 +128,8 @@ export function register(host) {
 ```
 
 Notes:
-
 - `revealKey` in schema/backend registration must match `registerSettingRevealHandler(revealKey, ...)`.
 - Reveal handlers must return `true`/`false` (or `Promise<boolean>`).
-
-### Optional: add a project canvas control
-
-Frontend plugins that need a button in the React Flow project controls rail can
-request `registerCanvasControl` and register an imperative renderer:
-
-```js
-export function register(host) {
-  host.registerCanvasControl({
-    id: "my-control",
-    label: "My Control",
-    description: "Open my project tool",
-    placement: "project",
-    order: 100,
-    renderer: {
-      mount(el, props) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.ariaLabel = props.label;
-        button.textContent = "M";
-        el.append(button);
-      },
-      unmount(el) {
-        el.textContent = "";
-      },
-    },
-  });
-}
-```
-
-Supported placements are `project`, `viewport`, and `utility`; controls sort by
-placement, `order`, label, plugin ID, and control ID. Use
-`readProjectState`/`subscribeProjectState` when the control reflects project
-state.
 
 ## 3. Link locally during development
 

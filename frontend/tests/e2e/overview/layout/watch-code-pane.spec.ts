@@ -14,26 +14,6 @@ type RootResponse = {
   rootPath?: string;
 };
 
-type WatchCodePluginProjectData = {
-  enabled?: boolean;
-  files?: string[];
-};
-
-function getWatchCodePluginData(
-  projectState: unknown,
-): WatchCodePluginProjectData {
-  if (!projectState || typeof projectState !== "object") {
-    return {};
-  }
-  const pluginData = (projectState as { pluginData?: Record<string, unknown> })
-    .pluginData;
-  const watchCodeData = pluginData?.["setta-watch-code"];
-  if (!watchCodeData || typeof watchCodeData !== "object") {
-    return {};
-  }
-  return watchCodeData as WatchCodePluginProjectData;
-}
-
 test("watch code settings open from controls portal with all options", async ({
   page,
 }) => {
@@ -79,14 +59,30 @@ test("watch code settings open from controls portal with all options", async ({
     );
   }
   await expect(
-    portal.locator('[data-setting-anchor="plugin::setta-watch-code::enabled"]'),
+    portal.locator('[data-setting-anchor="core.watch_code.enabled"]'),
   ).toBeVisible();
   await expect(
-    portal.locator('[data-setting-anchor="plugin::setta-watch-code::folders"]'),
+    portal.locator('[data-setting-anchor="core.watch_code.folders"]'),
   ).toBeVisible();
   await expect(
-    portal.locator('[data-setting-anchor="plugin::setta-watch-code::files"]'),
+    portal.locator('[data-setting-anchor="core.watch_code.files"]'),
   ).toBeVisible();
+});
+
+test("watch code portal does not reopen from persisted visibility state", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "Overview",
+    overviewVis: true,
+    watchCodePortalOpen: true,
+  });
+  await ensureAppReady(page);
+
+  await expect(page.getByTestId("rf__watch-code-settings-portal")).toHaveCount(
+    0,
+  );
+  await expect(page.getByTestId("rf__watch-code-settings")).toBeVisible();
 });
 
 test("watch code portal stays clamped after content grows post-open", async ({
@@ -202,8 +198,10 @@ test("watch code file updates appear live and reload without crashing", async ({
     ]);
     await expect
       .poll(async () => {
-        const projectState = await loadProjectConfig(page);
-        return getWatchCodePluginData(projectState).files ?? [];
+        const projectState = (await loadProjectConfig(page)) as {
+          projectConfig?: { watchCodeFiles?: string[] };
+        };
+        return projectState.projectConfig?.watchCodeFiles ?? [];
       })
       .toContain(relativeFilePath);
 
@@ -222,8 +220,10 @@ test("watch code file updates appear live and reload without crashing", async ({
     await expect(toggleButton).toHaveAttribute("aria-pressed", "true");
     await expect
       .poll(async () => {
-        const projectState = await loadProjectConfig(page);
-        return getWatchCodePluginData(projectState).enabled ?? false;
+        const projectState = (await loadProjectConfig(page)) as {
+          projectConfig?: { watchCodeEnabled?: boolean };
+        };
+        return projectState.projectConfig?.watchCodeEnabled ?? false;
       })
       .toBe(true);
 

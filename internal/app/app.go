@@ -75,7 +75,6 @@ import (
 	"setta/internal/transcriptionsessions"
 	"setta/internal/uisettings"
 	"setta/internal/watchcode"
-	"setta/internal/watchcodeuisettings"
 	"setta/internal/workspacelaunch"
 	"setta/internal/wsapi"
 )
@@ -289,32 +288,30 @@ func initializeLaunchServices(
 }
 
 type projectServices struct {
-	projectStates            *projectstate.Registry
-	deploymentRuntime        *deployments.Runtime
-	projectRuntime           *projectstate.Runtime
-	settingsStateRuntime     *settingsstate.Runtime
-	codegenValidator         projectstate.CodegenTargetValidator
-	lspDiagnostics           *projectstate.LSPDiagnosticsRegistry
-	lspRouter                *lsp.Router
-	projectLSPSyncer         *lsp.ProjectSynchronizer
-	lspCompletion            *lspcompletion.Service
-	lspSignature             *lspsignature.Service
-	pythonMaterializer       *codegen.PythonMaterializer
-	pluginMaterializer       *codegen.PluginMaterializer
-	watchCodeService         *watchcode.Service
-	boundCodeService         *boundcode.Service
-	watchCodeWarnings        *watchCodeWarningTracker
-	codeUpdates              *codeUpdateService
-	renameRefactors          *renameRefactorService
-	plannerFilesRoot         string
-	artifactsRoot            string
-	shareSessions            modes.ShareSessionStore
-	pluginDiscovery          *plugins.DiscoveryService
-	pluginMutationService    *plugins.Service
-	pluginRouteService       httpapi.PluginRouteService
-	pythonPackages           *pythonenv.Runtime
-	appSubsystemCapabilities *appSubsystemCapabilityState
-	watchCodeCapabilities    *watchCodeCapabilityState
+	projectStates         *projectstate.Registry
+	deploymentRuntime     *deployments.Runtime
+	projectRuntime        *projectstate.Runtime
+	settingsStateRuntime  *settingsstate.Runtime
+	codegenValidator      projectstate.CodegenTargetValidator
+	lspDiagnostics        *projectstate.LSPDiagnosticsRegistry
+	lspRouter             *lsp.Router
+	projectLSPSyncer      *lsp.ProjectSynchronizer
+	lspCompletion         *lspcompletion.Service
+	lspSignature          *lspsignature.Service
+	pythonMaterializer    *codegen.PythonMaterializer
+	pluginMaterializer    *codegen.PluginMaterializer
+	watchCodeService      *watchcode.Service
+	boundCodeService      *boundcode.Service
+	watchCodeWarnings     *watchCodeWarningTracker
+	codeUpdates           *codeUpdateService
+	renameRefactors       *renameRefactorService
+	plannerFilesRoot      string
+	artifactsRoot         string
+	shareSessions         modes.ShareSessionStore
+	pluginDiscovery       *plugins.DiscoveryService
+	pluginMutationService *plugins.Service
+	pluginRouteService    httpapi.PluginRouteService
+	pythonPackages        *pythonenv.Runtime
 }
 
 type projectWatchRefs struct {
@@ -352,10 +349,6 @@ func initializeProjectServices(
 		return projectServices{}, err
 	}
 	if err := openWorkspaceProjectServices(cfg, logger, websocketHub, watchRefs, &services); err != nil {
-		return projectServices{}, err
-	}
-	if _, _, err := ensureProjectPluginFeatureCapabilities(&services); err != nil {
-		_ = closeInitializedProjectServices(services)
 		return projectServices{}, err
 	}
 	if modePolicy.IsIDE() {
@@ -726,7 +719,7 @@ func syncProjectAfterSaveInputs(
 	snapshot projectstate.Snapshot,
 ) error {
 	if services.watchCodeService != nil {
-		if err := syncWatchCodeServiceConfigs(services, snapshot.Document); err != nil {
+		if err := services.watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {
 			return err
 		}
 	}
@@ -875,24 +868,6 @@ func initializeIDEProjectEditingServices(
 	websocketHub *realtime.WebsocketHub,
 	services *projectServices,
 ) error {
-	if services.watchCodeCapabilities != nil && services.watchCodeCapabilities.ProviderActive() {
-		if err := initializeIDEWatchCodeService(cfg, logger, websocketHub, services); err != nil {
-			return err
-		}
-	}
-	if err := initializeIDECodeMutationServices(cfg, logger, websocketHub, services); err != nil {
-		_ = closeInitializedProjectServices(*services)
-		return err
-	}
-	return nil
-}
-
-func initializeIDEWatchCodeService(
-	cfg config.Config,
-	logger *slog.Logger,
-	websocketHub *realtime.WebsocketHub,
-	services *projectServices,
-) error {
 	services.watchCodeWarnings = newWatchCodeWarningTracker()
 	watchCodeService, err := watchcode.NewService(watchcode.ServiceOptions{
 		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
@@ -958,22 +933,15 @@ func initializeIDEWatchCodeService(
 		return err
 	}
 	services.watchCodeService = watchCodeService
-	if err := syncWatchCodeServiceConfigs(services, services.projectStates.Main().Snapshot().Document); err != nil {
+	if err := services.watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(services.projectStates.Main().Snapshot().Document)); err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	if err := initializeIDECodeMutationServices(cfg, logger, websocketHub, services); err != nil {
 		_ = closeInitializedProjectServices(*services)
 		return err
 	}
 	return nil
-}
-
-func syncWatchCodeServiceConfigs(services *projectServices, document projectstate.Document) error {
-	if services == nil || services.watchCodeService == nil {
-		return nil
-	}
-	configs := map[string]watchcode.ConfigInputs{}
-	if services.watchCodeCapabilities != nil && services.watchCodeCapabilities.ProviderActive() {
-		configs = projectstate.WatchCodeConfigInputs(document)
-	}
-	return services.watchCodeService.SyncConfigs(configs)
 }
 
 func initializeIDECodeMutationServices(
@@ -983,14 +951,13 @@ func initializeIDECodeMutationServices(
 	services *projectServices,
 ) error {
 	codeUpdates, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          services.projectRuntime,
-		LSPSync:               services.projectLSPSyncer,
-		CallableSignatures:    services.lspSignature,
-		WorkspaceRoot:         cfg.Paths.WorkspaceRoot,
-		WatchCodeCapabilities: services.watchCodeCapabilities,
-		WatchCodeWarnings:     services.watchCodeWarnings,
-		WebsocketHub:          websocketHub,
-		Logger:                logger,
+		ProjectState:       services.projectRuntime,
+		LSPSync:            services.projectLSPSyncer,
+		CallableSignatures: services.lspSignature,
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		WatchCodeWarnings:  services.watchCodeWarnings,
+		WebsocketHub:       websocketHub,
+		Logger:             logger,
 	})
 	if err != nil {
 		_ = closeInitializedProjectServices(*services)
@@ -1742,7 +1709,6 @@ type appHandlerDeps struct {
 	attachmentService        *chatattachments.Service
 	pluginRouteService       httpapi.PluginRouteService
 	appSubsystemCapabilities *appSubsystemCapabilityState
-	watchCodeCapabilities    *watchCodeCapabilityState
 	websocketHub             *realtime.WebsocketHub
 	uiSettingRevealResults   *realtime.UISettingRevealResultHub
 	listenerBroadcaster      *realtime.ListenerBroadcaster
@@ -1972,12 +1938,6 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		ModePolicy: deps.modePolicy,
 		Git:        deps.gitReadService,
 	}
-	watchCodeCapabilities := func() plugins.PluginWatchCodeCapabilities {
-		if deps.watchCodeCapabilities == nil {
-			return plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
-		}
-		return deps.watchCodeCapabilities.WatchCodeCapabilities()
-	}
 	apiDeps.Project = httpapi.ProjectRouteDependencies{
 		ModePolicy:                     deps.modePolicy,
 		WorkspaceRoot:                  deps.cfg.Paths.WorkspaceRoot,
@@ -2119,20 +2079,6 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 	if err != nil {
 		return err
 	}
-	watchCodeRouteRegistrations := httpapi.BuildWatchCodeFrontendAPIRouteRegistrations(
-		httpapi.WatchCodeRouteDependencies{
-			ModePolicy:            deps.modePolicy,
-			WorkspaceRoot:         deps.cfg.Paths.WorkspaceRoot,
-			ProjectState:          deps.projectRuntime,
-			SettingsProjectState:  deps.projectStates.Settings(),
-			WebsocketHub:          deps.websocketHub,
-			WatchCodeCapabilities: watchCodeCapabilities,
-		},
-	)
-	appSubsystemRouteRegistrations.Project = append(
-		appSubsystemRouteRegistrations.Project,
-		watchCodeRouteRegistrations.Project...,
-	)
 	return httpapi.RegisterFrontendAPIRoutes(
 		r,
 		apiDeps,
@@ -2208,7 +2154,6 @@ type appPlatformServices struct {
 	pluginRuntime            *pluginBackendRuntimeRefresher
 	pluginRouteService       httpapi.PluginRouteService
 	appSubsystemCapabilities *appSubsystemCapabilityState
-	watchCodeCapabilities    *watchCodeCapabilityState
 	mcpServer                *mcpx.Server
 }
 
@@ -2558,7 +2503,6 @@ func configureAppPluginRuntime(
 		projectState:             projectServices.projectRuntime,
 		projectSync:              projectServices.projectLSPSyncer,
 		appSubsystemCapabilities: services.appSubsystemCapabilities,
-		watchCodeCapabilities:    services.watchCodeCapabilities,
 	}
 	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
 		if services.pluginRuntime == nil {
@@ -2573,7 +2517,6 @@ func configureAppPluginRuntime(
 		projectServices.pluginMutationService,
 		services.pluginRuntime,
 		services.appSubsystemCapabilities,
-		services.watchCodeCapabilities,
 	)
 }
 
@@ -2601,32 +2544,10 @@ func initializeAppMCPServer(
 				if runtime.FeatureCapabilities == nil {
 					return nil, nil
 				}
-				return watchcodeuisettings.BuildScopedUISettingEntries(
-					runtime.FeatureCapabilities.WatchCode,
-					projectServices.projectRuntime,
-					cfg.Paths.WorkspaceRoot,
-				)
-			},
-			func(runtime plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
-				if runtime.FeatureCapabilities == nil {
-					return nil, nil
-				}
 				return appsubsystem.BuildScopedUISettingEntries(
 					runtime.FeatureCapabilities.AppSubsystem,
 					projectServices.projectRuntime,
 					services.pluginRouteService,
-				)
-			},
-		},
-		UnavailableUISettings: []uisettings.UnavailableSettingProvider{
-			func() map[string]uisettings.SettingError {
-				if services.watchCodeCapabilities == nil {
-					return watchcodeuisettings.UnavailableSettingErrors(
-						plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{}),
-					)
-				}
-				return watchcodeuisettings.UnavailableSettingErrors(
-					services.watchCodeCapabilities.WatchCodeCapabilities(),
 				)
 			},
 		},
@@ -2658,14 +2579,8 @@ func initializeAppMCPServer(
 		LLMAPIKeys:                     runtimeServices.ideAgents.llmService,
 		AgentRuns:                      runtimeServices.ideAgents.agentRunService,
 		UISettingReveals:               runtimeServices.uiSettingRevealService,
-		WatchCodeCapabilities: func() plugins.PluginWatchCodeCapabilities {
-			if services.watchCodeCapabilities == nil {
-				return plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
-			}
-			return services.watchCodeCapabilities.WatchCodeCapabilities()
-		},
-		StateMachineRuns: runtimeServices.ideAgents.stateMachineRuntime,
-		ToolInvocations:  runtimeServices.ideAgents.externalAgentRuntime,
+		StateMachineRuns:               runtimeServices.ideAgents.stateMachineRuntime,
+		ToolInvocations:                runtimeServices.ideAgents.externalAgentRuntime,
 	})
 	if err != nil {
 		return err
@@ -2695,12 +2610,10 @@ func initializeAppPlatformServices(
 	workspaceServices appWorkspaceServices,
 	runtimeServices appRuntimeServices,
 	appSubsystemCapabilities *appSubsystemCapabilityState,
-	watchCodeCapabilities *watchCodeCapabilityState,
 ) (appPlatformServices, error) {
 	services := appPlatformServices{
 		pluginRouteService:       projectServices.pluginRouteService,
 		appSubsystemCapabilities: appSubsystemCapabilities,
-		watchCodeCapabilities:    watchCodeCapabilities,
 	}
 	if err := initializeAppDeploymentPublishers(
 		cfg,
@@ -2765,7 +2678,6 @@ func initializeAppHandlerAndWatchServices(
 		attachmentService:        workspaceServices.attachmentService,
 		pluginRouteService:       platformServices.pluginRouteService,
 		appSubsystemCapabilities: platformServices.appSubsystemCapabilities,
-		watchCodeCapabilities:    platformServices.watchCodeCapabilities,
 		websocketHub:             base.websocketHub,
 		uiSettingRevealResults:   runtimeServices.uiSettingRevealResults,
 		listenerBroadcaster:      runtimeServices.listenerBroadcaster,
@@ -2957,7 +2869,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	appSubsystemCapabilities, watchCodeCapabilities, err := ensureProjectPluginFeatureCapabilities(&projectServices)
+	appSubsystemCapabilities, err := initializeAppSubsystemCapabilities(projectServices)
 	if err != nil {
 		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
 		return nil, err
@@ -2984,7 +2896,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		workspaceServices,
 		runtimeServices,
 		appSubsystemCapabilities,
-		watchCodeCapabilities,
 	)
 	if err != nil {
 		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)

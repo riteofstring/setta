@@ -1,8 +1,8 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import {
   setListRootViewMode,
   setParentDefaultChildSectionType,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,

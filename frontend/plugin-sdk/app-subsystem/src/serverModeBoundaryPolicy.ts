@@ -26,33 +26,6 @@ const NULL_SERVER_MODE_CAPABILITIES: ServerModeCapabilities = {
   canManageDesktopLauncher: false,
 };
 
-function requireGeneratedStringValue(
-  value: string | undefined,
-  name: string,
-): string {
-  if (value === undefined) {
-    throw new Error(`Missing generated app-subsystem SDK value ${name}.`);
-  }
-  return value;
-}
-
-const BLOCKED_WORKSPACE_LAUNCH_ROUTE_KIND = requireGeneratedStringValue(
-  WorkspaceLaunchRouteKindEnum.blocked,
-  "WorkspaceLaunchRouteKind.blocked",
-) as WorkspaceLaunchRouteKind;
-const BACKEND_ORIGIN_ENDPOINT = requireGeneratedStringValue(
-  EndpointOriginEnum.BackendOrigin,
-  "EndpointOrigin.BackendOrigin",
-) as EndpointOrigin;
-const LAUNCHER_ENDPOINT = requireGeneratedStringValue(
-  EndpointOriginEnum.launcher,
-  "EndpointOrigin.launcher",
-) as EndpointOrigin;
-const BACKEND_ENDPOINT = requireGeneratedStringValue(
-  EndpointOriginEnum.backend,
-  "EndpointOrigin.backend",
-) as EndpointOrigin;
-
 export function resolveServerModeCapabilities(
   mode: ServerMode,
 ): ServerModeCapabilities {
@@ -69,7 +42,7 @@ export function resolveWorkspaceLaunchRouteKind(
   return resolveGeneratedWorkspaceLaunchRouteKind(
     ServerModeBoundaryPolicyByMode,
     mode,
-    BLOCKED_WORKSPACE_LAUNCH_ROUTE_KIND,
+    WorkspaceLaunchRouteKindEnum.blocked,
   );
 }
 
@@ -82,8 +55,8 @@ export function resolveEndpointOriginForMode(
     launcherMode: "launcher",
     endpointOriginPolicy: EndpointOriginPolicyByRoute,
     modeScopedLauncherRoutes: new Set<string>(ModeScopedLauncherRoutesList),
-    backendOriginValue: BACKEND_ORIGIN_ENDPOINT,
-    launcherOriginValue: LAUNCHER_ENDPOINT,
-    backendValue: BACKEND_ENDPOINT,
+    backendOriginValue: EndpointOriginEnum.BackendOrigin,
+    launcherOriginValue: EndpointOriginEnum.launcher,
+    backendValue: EndpointOriginEnum.backend,
   });
 }

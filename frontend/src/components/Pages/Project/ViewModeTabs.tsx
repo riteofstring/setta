@@ -1,6 +1,6 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { setActiveViewMode } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";

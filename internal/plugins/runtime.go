@@ -57,59 +57,8 @@ type PluginAppSubsystemCapabilities struct {
 	AppDeploymentRuntime   bool                                 `json:"appDeploymentRuntime"`
 }
 
-type PluginWatchCodeProviderSelectionStatusKind string
-
-const (
-	PluginWatchCodeProviderSelectionStatusNoProvider       PluginWatchCodeProviderSelectionStatusKind = "no_provider"
-	PluginWatchCodeProviderSelectionStatusDisabledProvider PluginWatchCodeProviderSelectionStatusKind = "disabled_provider"
-	PluginWatchCodeProviderSelectionStatusInvalidProvider  PluginWatchCodeProviderSelectionStatusKind = "invalid_provider"
-	PluginWatchCodeProviderSelectionStatusActive           PluginWatchCodeProviderSelectionStatusKind = "active"
-	PluginWatchCodeProviderSelectionStatusConflict         PluginWatchCodeProviderSelectionStatusKind = "provider_conflict"
-)
-
-type PluginWatchCodeProviderSelection struct {
-	Status               PluginWatchCodeProviderSelectionStatusKind `json:"status"`
-	SelectedPluginID     *string                                    `json:"selectedPluginId,omitempty"`
-	ActivePluginIDs      []string                                   `json:"activePluginIds"`
-	DisabledPluginIDs    []string                                   `json:"disabledPluginIds"`
-	InvalidPluginIDs     []string                                   `json:"invalidPluginIds"`
-	ConflictingPluginIDs []string                                   `json:"conflictingPluginIds"`
-}
-
-type PluginWatchCodeLanguageServerDependencyStatusKind string
-
-const (
-	PluginWatchCodeLanguageServerDependencyStatusUnavailable    PluginWatchCodeLanguageServerDependencyStatusKind = "unavailable"
-	PluginWatchCodeLanguageServerDependencyStatusNotRequired    PluginWatchCodeLanguageServerDependencyStatusKind = "not_required"
-	PluginWatchCodeLanguageServerDependencyStatusActive         PluginWatchCodeLanguageServerDependencyStatusKind = "active"
-	PluginWatchCodeLanguageServerDependencyStatusMissing        PluginWatchCodeLanguageServerDependencyStatusKind = "missing"
-	PluginWatchCodeLanguageServerDependencyStatusDisabled       PluginWatchCodeLanguageServerDependencyStatusKind = "disabled"
-	PluginWatchCodeLanguageServerDependencyStatusPendingRestart PluginWatchCodeLanguageServerDependencyStatusKind = "pending_restart"
-)
-
-type PluginWatchCodeLanguageServerDependencyStatus struct {
-	Language         string                                            `json:"language"`
-	Required         bool                                              `json:"required"`
-	Status           PluginWatchCodeLanguageServerDependencyStatusKind `json:"status"`
-	Message          string                                            `json:"message"`
-	SelectedPluginID *string                                           `json:"selectedPluginId,omitempty"`
-	AppliedPluginID  *string                                           `json:"appliedPluginId,omitempty"`
-	RestartRequired  bool                                              `json:"restartRequired"`
-}
-
-type PluginWatchCodeCapabilities struct {
-	ProviderSelection        *PluginWatchCodeProviderSelection              `json:"providerSelection,omitempty"`
-	LanguageServerDependency *PluginWatchCodeLanguageServerDependencyStatus `json:"languageServerDependency,omitempty"`
-	PluginID                 string                                         `json:"pluginId"`
-	PluginEnabled            bool                                           `json:"pluginEnabled"`
-	Python                   bool                                           `json:"python"`
-	RequiresLanguageServer   bool                                           `json:"requiresLanguageServer"`
-	CanvasControlsUI         bool                                           `json:"canvasControlsUi"`
-}
-
 type PluginFeatureCapabilities struct {
 	AppSubsystem PluginAppSubsystemCapabilities `json:"appSubsystem"`
-	WatchCode    PluginWatchCodeCapabilities    `json:"watchCode"`
 }
 
 type PluginFrontendDescriptor struct {
@@ -198,35 +147,10 @@ func AppSubsystemCapabilitiesFromSnapshot(
 	return buildRuntimeAppSubsystemCapabilities(snapshot.Plugins)
 }
 
-func buildRuntimeWatchCodeCapabilities(entries []DiscoveredPlugin) PluginWatchCodeCapabilities {
-	resolution := resolveWatchCodeProvider(entries)
-	capabilities := PluginWatchCodeCapabilities{
-		ProviderSelection: &resolution.selection,
-	}
-	if resolution.selection.SelectedPluginID != nil {
-		capabilities.PluginID = *resolution.selection.SelectedPluginID
-		capabilities.PluginEnabled = true
-		mergeRuntimeWatchCodeCapabilities(&capabilities, resolution.feature)
-	}
-	return capabilities
-}
-
-func WatchCodeCapabilitiesFromSnapshot(
-	snapshot DiscoverySnapshot,
-) PluginWatchCodeCapabilities {
-	return buildRuntimeWatchCodeCapabilities(snapshot.Plugins)
-}
-
 func AppSubsystemProviderSelectionFromSnapshot(
 	snapshot DiscoverySnapshot,
 ) PluginAppSubsystemProviderSelection {
 	return resolveAppSubsystemProvider(snapshot.Plugins).selection
-}
-
-func WatchCodeProviderSelectionFromSnapshot(
-	snapshot DiscoverySnapshot,
-) PluginWatchCodeProviderSelection {
-	return resolveWatchCodeProvider(snapshot.Plugins).selection
 }
 
 type runtimeAppSubsystemProviderResolution struct {
@@ -237,16 +161,6 @@ type runtimeAppSubsystemProviderResolution struct {
 type runtimeAppSubsystemProviderCandidate struct {
 	pluginID string
 	feature  *PluginAppSubsystemFeatureManifest
-}
-
-type runtimeWatchCodeProviderResolution struct {
-	selection PluginWatchCodeProviderSelection
-	feature   *PluginWatchCodeFeatureManifest
-}
-
-type runtimeWatchCodeProviderCandidate struct {
-	pluginID string
-	feature  *PluginWatchCodeFeatureManifest
 }
 
 func setRuntimeAppSubsystemProviderResolutionStatus(
@@ -344,116 +258,8 @@ func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystem
 	return resolution
 }
 
-func setRuntimeWatchCodeProviderResolutionStatus(
-	resolution *runtimeWatchCodeProviderResolution,
-	activeProviders []runtimeWatchCodeProviderCandidate,
-	hasInvalidActiveProvider bool,
-) {
-	switch {
-	case hasInvalidActiveProvider:
-		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusInvalidProvider
-	case len(activeProviders) == 0:
-		switch {
-		case len(resolution.selection.InvalidPluginIDs) != 0:
-			resolution.selection.Status = PluginWatchCodeProviderSelectionStatusInvalidProvider
-		case len(resolution.selection.DisabledPluginIDs) != 0:
-			resolution.selection.Status = PluginWatchCodeProviderSelectionStatusDisabledProvider
-		default:
-			resolution.selection.Status = PluginWatchCodeProviderSelectionStatusNoProvider
-		}
-	case len(activeProviders) == 1:
-		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusActive
-		resolution.selection.SelectedPluginID = stringPointer(activeProviders[0].pluginID)
-		resolution.feature = activeProviders[0].feature
-	default:
-		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusConflict
-		resolution.selection.ConflictingPluginIDs = append(
-			resolution.selection.ConflictingPluginIDs,
-			resolution.selection.ActivePluginIDs...,
-		)
-	}
-}
-
-func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProviderResolution {
-	resolution := runtimeWatchCodeProviderResolution{
-		selection: PluginWatchCodeProviderSelection{
-			Status:               PluginWatchCodeProviderSelectionStatusNoProvider,
-			ActivePluginIDs:      []string{},
-			DisabledPluginIDs:    []string{},
-			InvalidPluginIDs:     []string{},
-			ConflictingPluginIDs: []string{},
-		},
-	}
-	activeProviders := make([]runtimeWatchCodeProviderCandidate, 0)
-	hasInvalidActiveProvider := false
-	for _, entry := range entries {
-		if entry.State == PluginRuntimeStateShadowed || entry.ShadowedBySourcePath != "" {
-			continue
-		}
-		feature := runtimeWatchCodeFeatureManifest(entry)
-		if feature == nil {
-			continue
-		}
-		if !watchCodeFeatureSupportsRequiredLanguage(feature) ||
-			!watchCodeFrontendEntrypointAvailable(entry, feature) {
-			markRuntimeWatchCodeProviderInvalid(
-				&resolution,
-				entry,
-				&hasInvalidActiveProvider,
-			)
-			continue
-		}
-		switch entry.State {
-		case PluginRuntimeStateActive:
-			resolution.selection.ActivePluginIDs = append(
-				resolution.selection.ActivePluginIDs,
-				entry.PluginID,
-			)
-			activeProviders = append(activeProviders, runtimeWatchCodeProviderCandidate{
-				pluginID: entry.PluginID,
-				feature:  feature,
-			})
-		case PluginRuntimeStateDisabled:
-			resolution.selection.DisabledPluginIDs = append(
-				resolution.selection.DisabledPluginIDs,
-				entry.PluginID,
-			)
-		case PluginRuntimeStateInvalid:
-			resolution.selection.InvalidPluginIDs = append(
-				resolution.selection.InvalidPluginIDs,
-				entry.PluginID,
-			)
-		}
-	}
-
-	setRuntimeWatchCodeProviderResolutionStatus(
-		&resolution,
-		activeProviders,
-		hasInvalidActiveProvider,
-	)
-
-	resolution.selection.ActivePluginIDs = cloneStringSliceOrEmpty(resolution.selection.ActivePluginIDs)
-	resolution.selection.DisabledPluginIDs = cloneStringSliceOrEmpty(resolution.selection.DisabledPluginIDs)
-	resolution.selection.InvalidPluginIDs = cloneStringSliceOrEmpty(resolution.selection.InvalidPluginIDs)
-	resolution.selection.ConflictingPluginIDs = cloneStringSliceOrEmpty(resolution.selection.ConflictingPluginIDs)
-	return resolution
-}
-
 func markRuntimeAppSubsystemProviderInvalid(
 	resolution *runtimeAppSubsystemProviderResolution,
-	entry DiscoveredPlugin,
-	hasInvalidActiveProvider *bool,
-) {
-	resolution.selection.InvalidPluginIDs = append(
-		resolution.selection.InvalidPluginIDs,
-		entry.PluginID,
-	)
-	*hasInvalidActiveProvider =
-		*hasInvalidActiveProvider || entry.State == PluginRuntimeStateActive
-}
-
-func markRuntimeWatchCodeProviderInvalid(
-	resolution *runtimeWatchCodeProviderResolution,
 	entry DiscoveredPlugin,
 	hasInvalidActiveProvider *bool,
 ) {
@@ -474,15 +280,6 @@ func runtimeAppSubsystemFeatureManifest(
 	return entry.Manifest.FeatureCapabilities.AppSubsystem
 }
 
-func runtimeWatchCodeFeatureManifest(
-	entry DiscoveredPlugin,
-) *PluginWatchCodeFeatureManifest {
-	if entry.Manifest == nil || entry.Manifest.FeatureCapabilities == nil {
-		return nil
-	}
-	return entry.Manifest.FeatureCapabilities.WatchCode
-}
-
 func appSubsystemFeatureRequiresFrontend(
 	feature *PluginAppSubsystemFeatureManifest,
 ) bool {
@@ -500,30 +297,6 @@ func appSubsystemFrontendEntrypointAvailable(
 	feature *PluginAppSubsystemFeatureManifest,
 ) bool {
 	if !appSubsystemFeatureRequiresFrontend(feature) {
-		return true
-	}
-	if entry.Manifest == nil || entry.Manifest.Frontend == nil {
-		return false
-	}
-	_, err := resolveManifestRegularFile(
-		entry.SourcePath,
-		entry.Manifest.Frontend.Entrypoint,
-		"plugin frontend entrypoint",
-	)
-	return err == nil
-}
-
-func watchCodeFeatureSupportsRequiredLanguage(
-	feature *PluginWatchCodeFeatureManifest,
-) bool {
-	return feature != nil && feature.Python
-}
-
-func watchCodeFrontendEntrypointAvailable(
-	entry DiscoveredPlugin,
-	feature *PluginWatchCodeFeatureManifest,
-) bool {
-	if feature == nil || !feature.CanvasControlsUI {
 		return true
 	}
 	if entry.Manifest == nil || entry.Manifest.Frontend == nil {
@@ -569,18 +342,6 @@ func mergeRuntimeAppSubsystemCapabilities(
 	capabilities.AppPreviewUI = capabilities.AppPreviewUI || feature.AppPreviewUI
 	capabilities.AppGenerationChatModes = capabilities.AppGenerationChatModes || feature.AppGenerationChatModes
 	capabilities.AppDeploymentRuntime = capabilities.AppDeploymentRuntime || feature.AppDeploymentRuntime
-}
-
-func mergeRuntimeWatchCodeCapabilities(
-	capabilities *PluginWatchCodeCapabilities,
-	feature *PluginWatchCodeFeatureManifest,
-) {
-	if capabilities == nil || feature == nil {
-		return
-	}
-	capabilities.Python = capabilities.Python || feature.Python
-	capabilities.RequiresLanguageServer = capabilities.RequiresLanguageServer || feature.RequiresLanguageServer
-	capabilities.CanvasControlsUI = capabilities.CanvasControlsUI || feature.CanvasControlsUI
 }
 
 func (s *Service) ResolveAssetPath(pluginID string, assetPath string) (string, error) {
@@ -857,22 +618,15 @@ func buildRuntimeStatusResponse(
 		SchemaVersion:            pluginStatusSchemaVersion,
 		ServerMode:               snapshot.ServerMode,
 		RestartCapability:        capability,
-		AppSubsystemSelection:    appSubsystemProviderSelectionPointer(resolveAppSubsystemProvider(snapshot.Plugins).selection),
-		WatchCodeSelection:       watchCodeProviderSelectionPointer(resolveWatchCodeProvider(snapshot.Plugins).selection),
+		AppSubsystemSelection:    stringPointerSelection(resolveAppSubsystemProvider(snapshot.Plugins).selection),
 		Plugins:                  entries,
 		LanguageServerSelections: []LanguageServerSelectionStatus{},
 	}
 }
 
-func appSubsystemProviderSelectionPointer(
+func stringPointerSelection(
 	selection PluginAppSubsystemProviderSelection,
 ) *PluginAppSubsystemProviderSelection {
-	return &selection
-}
-
-func watchCodeProviderSelectionPointer(
-	selection PluginWatchCodeProviderSelection,
-) *PluginWatchCodeProviderSelection {
 	return &selection
 }
 

@@ -2279,7 +2279,6 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -2409,7 +2408,6 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -2492,13 +2490,9 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 	if createContent.ProjectState.ProjectConfig.ID != "project-alpha" {
 		t.Fatalf("expected project-alpha create state update, got %q", createContent.ProjectState.ProjectConfig.ID)
 	}
-	createWatchCodeData, ok := createContent.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
+	createEntry, ok := createContent.ProjectState.ProjectConfig.WatchCodeRegistry["pkg.created.created:function"]
 	if !ok {
-		t.Fatalf("expected websocket update to include %q plugin data, got %#v", projectstate.WatchCodePluginDataKey, createContent.ProjectState.PluginData)
-	}
-	createEntry, ok := createWatchCodeData.Registry["pkg.created.created:function"]
-	if !ok {
-		t.Fatalf("expected watch code registry entry in websocket update, got %#v", createWatchCodeData.Registry)
+		t.Fatalf("expected watch code registry entry in websocket update, got %#v", createContent.ProjectState.ProjectConfig.WatchCodeRegistry)
 	}
 	if len(createEntry.SectionIDs) != 1 {
 		t.Fatalf("expected one created section id in websocket update, got %#v", createEntry)
@@ -2524,12 +2518,8 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 	if deleteContent.ProjectState.ProjectConfig.ID != "project-alpha" {
 		t.Fatalf("expected project-alpha delete state update, got %q", deleteContent.ProjectState.ProjectConfig.ID)
 	}
-	deleteWatchCodeData, ok := deleteContent.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
-	if !ok {
-		t.Fatalf("expected websocket delete update to include %q plugin data, got %#v", projectstate.WatchCodePluginDataKey, deleteContent.ProjectState.PluginData)
-	}
-	if len(deleteWatchCodeData.Registry) != 0 {
-		t.Fatalf("expected empty watch code registry after delete, got %#v", deleteWatchCodeData.Registry)
+	if len(deleteContent.ProjectState.ProjectConfig.WatchCodeRegistry) != 0 {
+		t.Fatalf("expected empty watch code registry after delete, got %#v", deleteContent.ProjectState.ProjectConfig.WatchCodeRegistry)
 	}
 	if _, ok := deleteContent.ProjectState.Sections[createdSectionID]; ok {
 		t.Fatalf("expected deleted watch code section %q to be absent, got %#v", createdSectionID, deleteContent.ProjectState.Sections[createdSectionID])
@@ -3097,7 +3087,6 @@ func TestAppSetCodeRouteBroadcastsProjectStateUpdateForWatchCodeBoundSection(t *
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3161,13 +3150,9 @@ func TestAppSetCodeRouteBroadcastsProjectStateUpdateForWatchCodeBoundSection(t *
 	if len(content.PendingOpIDs) != 0 {
 		t.Fatalf("expected no pending op ids after set code, got %#v", content.PendingOpIDs)
 	}
-	watchCodeData, ok := content.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
+	entry, ok := content.ProjectState.ProjectConfig.WatchCodeRegistry["pkg.bound.sorted:function"]
 	if !ok {
-		t.Fatalf("expected websocket update to include %q plugin data, got %#v", projectstate.WatchCodePluginDataKey, content.ProjectState.PluginData)
-	}
-	entry, ok := watchCodeData.Registry["pkg.bound.sorted:function"]
-	if !ok {
-		t.Fatalf("expected websocket update to include derived watch code entry, got %#v", watchCodeData.Registry)
+		t.Fatalf("expected websocket update to include derived watch code entry, got %#v", content.ProjectState.ProjectConfig.WatchCodeRegistry)
 	}
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected websocket update to include one callable section binding, got %#v", entry)

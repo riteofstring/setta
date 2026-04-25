@@ -19,14 +19,9 @@ vi.mock("openapi/http", () => ({
   restartLanguageServer: restartLanguageServerRouteMock,
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: callOpenAPIMock,
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: callOpenAPIMock,
+}));
 
 vi.mock("state/definitions", () => ({
   useShareSession: {

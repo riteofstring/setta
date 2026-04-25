@@ -22,13 +22,10 @@ import (
 	"setta/internal/agentprofiles"
 	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
 	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/tools"
-	"setta/internal/uisettings"
-	"setta/internal/watchcodeuisettings"
 )
 
 func TestReadFileRangeHandlerMirrorsPythonBehavior(t *testing.T) {
@@ -4543,7 +4540,7 @@ func TestServerCompareAndSetWatchCodeEnabledReturnsMutationFailedForStaleExpecte
 	if payload["code"] != "mutation_failed" {
 		t.Fatalf("expected mutation_failed code, got %#v", payload["code"])
 	}
-	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "plugin::setta-watch-code::enabled changed since pre-write validation") {
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "core.watch_code.enabled changed since pre-write validation") {
 		t.Fatalf("expected stale watch-code message, got %#v", payload["message"])
 	}
 
@@ -9309,32 +9306,6 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	if options.ProjectState == nil {
 		options.ProjectState = projectRuntime
 	}
-	if projectRuntime != nil {
-		if options.WatchCodeCapabilities == nil {
-			options.WatchCodeCapabilities = activeScopedTestWatchCodeCapabilities
-		}
-		watchCodeCapabilities := options.WatchCodeCapabilities
-		options.ContributedUISettingBuilders = append(
-			[]uisettings.RuntimeEntryBuilder{
-				func(plugins.PluginRuntimeResponse) ([]uisettings.RuntimeEntry, error) {
-					return watchcodeuisettings.BuildScopedUISettingEntries(
-						watchCodeCapabilities(),
-						projectRuntime,
-						options.WorkspaceRoot,
-					)
-				},
-			},
-			options.ContributedUISettingBuilders...,
-		)
-		options.UnavailableUISettings = append(
-			[]uisettings.UnavailableSettingProvider{
-				func() map[string]uisettings.SettingError {
-					return watchcodeuisettings.UnavailableSettingErrors(watchCodeCapabilities())
-				},
-			},
-			options.UnavailableUISettings...,
-		)
-	}
 	if !options.SkipDefaultAppSubsystemTools &&
 		projectRuntime != nil &&
 		len(options.ContributedToolRegistrations) == 0 {
@@ -9388,15 +9359,6 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 		t.Fatalf("connect client session: %v", err)
 	}
 	return server, clientSession
-}
-
-func activeScopedTestWatchCodeCapabilities() plugins.PluginWatchCodeCapabilities {
-	return plugins.PluginWatchCodeCapabilities{
-		PluginID:               "setta-fixture-watch-code-provider",
-		PluginEnabled:          true,
-		Python:                 true,
-		RequiresLanguageServer: true,
-	}
 }
 
 type stubPythonPackageProvider struct {

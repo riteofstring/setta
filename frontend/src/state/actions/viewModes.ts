@@ -1,15 +1,12 @@
 import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   deleteViewMode as deleteViewModeRequest,
   setViewModeSortOrder,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { createProjectConfig } from "utils/generatedTypes";
 type ProjectConfigMutationPayload = {
   projectConfig: ZustandProjectState["projectConfig"];

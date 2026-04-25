@@ -61,8 +61,6 @@ type Server struct {
 	agentRuns                    agentRunProvider
 	uiSettingReveals             uisettings.RevealService
 	contributedUISettingBuilders []uisettings.RuntimeEntryBuilder
-	unavailableUISettings        []uisettings.UnavailableSettingProvider
-	watchCodeCapabilities        func() plugins.PluginWatchCodeCapabilities
 	stateMachineRuns             stateMachineRunProvider
 	toolInvocations              toolInvocationRecorder
 	server                       *sdkmcp.Server
@@ -79,7 +77,6 @@ type ServerOptions struct {
 	SkipDefaultAppSubsystemTools   bool
 	ContributedToolRegistrations   []ToolRegistration
 	ContributedUISettingBuilders   []uisettings.RuntimeEntryBuilder
-	UnavailableUISettings          []uisettings.UnavailableSettingProvider
 	AfterProjectStateMutation      func(context.Context, string) error
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
@@ -100,7 +97,6 @@ type ServerOptions struct {
 	LLMAPIKeys                     llmAPIKeyProvider
 	AgentRuns                      agentRunProvider
 	UISettingReveals               uisettings.RevealService
-	WatchCodeCapabilities          func() plugins.PluginWatchCodeCapabilities
 	StateMachineRuns               stateMachineRunProvider
 	ToolInvocations                toolInvocationRecorder
 }
@@ -341,8 +337,6 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		agentRuns:                    opts.AgentRuns,
 		uiSettingReveals:             opts.UISettingReveals,
 		contributedUISettingBuilders: append([]uisettings.RuntimeEntryBuilder(nil), opts.ContributedUISettingBuilders...),
-		unavailableUISettings:        append([]uisettings.UnavailableSettingProvider(nil), opts.UnavailableUISettings...),
-		watchCodeCapabilities:        opts.WatchCodeCapabilities,
 		stateMachineRuns:             opts.StateMachineRuns,
 		toolInvocations:              opts.ToolInvocations,
 		server:                       server,

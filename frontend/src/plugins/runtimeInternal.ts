@@ -4,10 +4,6 @@ import {
   type RegisteredAppSubsystemFrontendRegistration,
 } from "@setta/app-subsystem-frontend-sdk";
 import throttle from "lodash/throttle";
-import {
-  setWatchCodeEnabled as setWatchCodeEnabledAction,
-  setWatchCodeInputs as setWatchCodeInputsAction,
-} from "state/actions/project/watchCode";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useActiveSectionUI, useProjectState } from "state/definitions";
@@ -29,15 +25,11 @@ import {
   type PluginPaneIconName,
 } from "./paneIcons";
 import {
-  isPluginCanvasControlPlacement,
-  PluginCanvasControlPlacementEnum,
   PluginFrontendErrorCodeEnum,
   toPluginSectionKindKey,
-  type PluginCanvasControlDefinition,
   type PluginFrontendErrorCode,
   type PluginPaneDefinition,
   type PluginServerMode,
-  type RegisteredPluginCanvasControl,
   type RegisteredPluginPane,
 } from "./runtimeShared";
 import { buildPluginAssetUrl } from "./transport";
@@ -46,15 +38,12 @@ const PLUGIN_FRONTEND_API_VERSION = 1;
 
 const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
-const settingRevealHandlerCapability = "registerSettingRevealHandler";
 const commandCapability = "registerCommand";
 const topNavBarCapability = "registerTopNavBarItem";
-const canvasControlCapability = "registerCanvasControl";
 const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
-const watchCodeSettingsMutationCapability = "mutateWatchCodeSettings";
 
 type PluginSectionProps = {
   sectionId: string;
@@ -130,7 +119,6 @@ type PluginProjectContext = {
 
 type PluginProjectStateSelector =
   | { kind: "projectConfig" }
-  | { kind: "pluginData"; pluginId: string }
   | { kind: "activeSectionIds" }
   | { kind: "section"; sectionId: string }
   | { kind: "sections"; sectionIds: string[] }
@@ -152,22 +140,6 @@ type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
-type PluginWatchCodeFolderInput = {
-  path: string;
-  recursive: boolean;
-};
-
-type PluginSetWatchCodeEnabledPayload = {
-  projectConfigId: string;
-  enabled: boolean;
-};
-
-type PluginSetWatchCodeInputsPayload = {
-  projectConfigId: string;
-  watchCodeFolders: PluginWatchCodeFolderInput[];
-  watchCodeFiles: string[];
-};
-
 type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
@@ -185,7 +157,6 @@ type SettaPluginHost = {
   ) => void;
   registerCommand: (definition: PluginCommandDefinition) => void;
   registerTopNavBarItem: (definition: PluginTopNavBarItemDefinition) => void;
-  registerCanvasControl: (definition: PluginCanvasControlDefinition) => void;
   registerContextMenu: (_definition: Record<string, unknown>) => void;
   getProjectContext: () => PluginProjectContext;
   subscribeProjectContext: (
@@ -197,12 +168,6 @@ type SettaPluginHost = {
     listener: (nextValue: unknown, prevValue: unknown | null) => void,
     options?: PluginProjectStateSubscriptionOptions,
   ) => () => void;
-  setWatchCodeEnabled: (
-    payload: PluginSetWatchCodeEnabledPayload,
-  ) => Promise<boolean>;
-  setWatchCodeInputs: (
-    payload: PluginSetWatchCodeInputsPayload,
-  ) => Promise<boolean>;
   emitRealtimeDependencyEvent: (event: PluginRealtimeDependencyEvent) => void;
   emitSectionRealtimeValue: (
     sectionId: string,
@@ -238,7 +203,6 @@ export type PluginRegistryAccumulator = {
   panes: Record<string, RegisteredPluginPane[]>;
   commands: Record<string, RegisteredPluginCommand[]>;
   topNavBarItems: Record<string, RegisteredPluginTopNavBarItem[]>;
-  canvasControls: Record<string, RegisteredPluginCanvasControl[]>;
 };
 
 type LoadPluginFrontendResult = {
@@ -350,7 +314,6 @@ export async function loadPluginFrontendModule(
         panes: {},
         commands: {},
         topNavBarItems: {},
-        canvasControls: {},
       },
     };
   }
@@ -506,23 +469,10 @@ function normalizeSectionsProjectStateSelector(
   };
 }
 
-function normalizePluginDataProjectStateSelector(
+function normalizeProjectStateSelector(
   pluginId: string,
   selector: PluginProjectStateSelector,
-): Extract<PluginProjectStateSelector, { kind: "pluginData" }> {
-  return {
-    kind: "pluginData",
-    pluginId: requireNonEmptyString(
-      (selector as { pluginId?: unknown }).pluginId,
-      `Plugin ${pluginId} pluginData selector missing pluginId.`,
-    ),
-  };
-}
-
-function requireProjectStateSelectorKind(
-  pluginId: string,
-  selector: PluginProjectStateSelector,
-): string {
+): PluginProjectStateSelector {
   if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
     throw new PluginRuntimeError(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
@@ -536,14 +486,7 @@ function requireProjectStateSelectorKind(
       `Plugin ${pluginId} project state selector is missing kind.`,
     );
   }
-  return rawKind.trim();
-}
-
-function normalizeProjectStateSelector(
-  pluginId: string,
-  selector: PluginProjectStateSelector,
-): PluginProjectStateSelector {
-  const kind = requireProjectStateSelectorKind(pluginId, selector);
+  const kind = rawKind.trim();
   if (isSimpleProjectStateSelectorKind(kind)) {
     return { kind };
   }
@@ -553,58 +496,56 @@ function normalizeProjectStateSelector(
   if (kind === "sections") {
     return normalizeSectionsProjectStateSelector(pluginId, selector);
   }
-  if (kind === "pluginData") {
-    return normalizePluginDataProjectStateSelector(pluginId, selector);
-  }
   throw new PluginRuntimeError(
     PluginFrontendErrorCodeEnum.RegistrationInvalid,
     `Plugin ${pluginId} project state selector kind ${kind} is unsupported.`,
   );
 }
 
-function getSectionImplForProjectState(
-  state: ReturnType<typeof useProjectState.getState>,
-  sectionId: string,
-): unknown {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return null;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return null;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return null;
-  }
-  return impl;
-}
-
 function getRawSelectedProjectState(
   state: ReturnType<typeof useProjectState.getState>,
   selector: PluginProjectStateSelector,
 ): unknown {
-  switch (selector.kind) {
-    case "projectConfig":
-      return state.projectConfig;
-    case "pluginData":
-      return (
-        (state as { pluginData?: Record<string, unknown> }).pluginData?.[
-          selector.pluginId
-        ] ?? null
-      );
-    case "activeSectionIds":
-      return useActiveSectionUI.getState().activeIds;
-    case "singletonSections":
-      return state.singletonSections;
-    case "section":
-      return getSectionImplForProjectState(state, selector.sectionId);
-    case "sections":
-      return selector.sectionIds.map((sectionId) =>
-        getSectionImplForProjectState(state, sectionId),
-      );
+  if (selector.kind === "projectConfig") {
+    return state.projectConfig;
   }
+  if (selector.kind === "activeSectionIds") {
+    return useActiveSectionUI.getState().activeIds;
+  }
+  if (selector.kind === "singletonSections") {
+    return state.singletonSections;
+  }
+  if (selector.kind === "section") {
+    const sectionId = selector.sectionId;
+    const variantId = state.projectConfig.sectionVariantMap[sectionId];
+    if (!variantId) {
+      return null;
+    }
+    const variant = state.sectionVariants[variantId];
+    if (!variant) {
+      return null;
+    }
+    const impl = state.sectionImpls[variant.impl];
+    if (!impl) {
+      return null;
+    }
+    return impl;
+  }
+  return selector.sectionIds.map((sectionId) => {
+    const variantId = state.projectConfig.sectionVariantMap[sectionId];
+    if (!variantId) {
+      return null;
+    }
+    const variant = state.sectionVariants[variantId];
+    if (!variant) {
+      return null;
+    }
+    const impl = state.sectionImpls[variant.impl];
+    if (!impl) {
+      return null;
+    }
+    return impl;
+  });
 }
 
 function projectStateSubscriptionEquality(
@@ -855,114 +796,6 @@ function normalizePluginRealtimeTimestamp(
   return timestampMs as number | undefined;
 }
 
-function requirePluginPayloadRecord(
-  pluginId: string,
-  payload: unknown,
-  hostMethodName: string,
-): Record<string, unknown> {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} ${hostMethodName} requires an object payload.`,
-    );
-  }
-  return payload as Record<string, unknown>;
-}
-
-function normalizeSetWatchCodeEnabledPayload(
-  pluginId: string,
-  payload: PluginSetWatchCodeEnabledPayload,
-): PluginSetWatchCodeEnabledPayload {
-  const record = requirePluginPayloadRecord(
-    pluginId,
-    payload,
-    "setWatchCodeEnabled",
-  );
-  const projectConfigId = requireNonEmptyString(
-    record.projectConfigId,
-    `Plugin ${pluginId} setWatchCodeEnabled requires projectConfigId.`,
-  );
-  if (typeof record.enabled !== "boolean") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeEnabled requires boolean enabled.`,
-    );
-  }
-  return {
-    projectConfigId,
-    enabled: record.enabled,
-  };
-}
-
-function normalizeSetWatchCodeInputsPayload(
-  pluginId: string,
-  payload: PluginSetWatchCodeInputsPayload,
-): PluginSetWatchCodeInputsPayload {
-  const record = requirePluginPayloadRecord(
-    pluginId,
-    payload,
-    "setWatchCodeInputs",
-  );
-  const projectConfigId = requireNonEmptyString(
-    record.projectConfigId,
-    `Plugin ${pluginId} setWatchCodeInputs requires projectConfigId.`,
-  );
-  const rawFolders = record.watchCodeFolders;
-  const rawFiles = record.watchCodeFiles;
-  if (!Array.isArray(rawFolders)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeInputs requires watchCodeFolders array.`,
-    );
-  }
-  if (!Array.isArray(rawFiles)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeInputs requires watchCodeFiles array.`,
-    );
-  }
-  return {
-    projectConfigId,
-    watchCodeFolders: rawFolders.map((rawFolder, index) =>
-      normalizeWatchCodeFolderInput(pluginId, rawFolder, index),
-    ),
-    watchCodeFiles: rawFiles.map((rawFile, index) =>
-      requireNonEmptyString(
-        rawFile,
-        `Plugin ${pluginId} setWatchCodeInputs watchCodeFiles[${index}] must be a non-empty string.`,
-      ),
-    ),
-  };
-}
-
-function normalizeWatchCodeFolderInput(
-  pluginId: string,
-  rawFolder: unknown,
-  index: number,
-): PluginWatchCodeFolderInput {
-  if (!rawFolder || typeof rawFolder !== "object" || Array.isArray(rawFolder)) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}] must be an object.`,
-    );
-  }
-  const folder = rawFolder as Record<string, unknown>;
-  const path = requireNonEmptyString(
-    folder.path,
-    `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}].path must be a non-empty string.`,
-  );
-  if (typeof folder.recursive !== "boolean") {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}].recursive must be a boolean.`,
-    );
-  }
-  return {
-    path,
-    recursive: folder.recursive,
-  };
-}
-
 function registerPluginModule({
   plugin,
   importedModule,
@@ -997,7 +830,6 @@ function registerPluginModule({
     panes: {},
     commands: {},
     topNavBarItems: {},
-    canvasControls: {},
   };
 
   const effectiveCapabilitySet = new Set(plugin.effectiveCapabilities);
@@ -1071,7 +903,7 @@ function registerPluginModule({
       ensureCapability(
         plugin.pluginId,
         effectiveCapabilitySet,
-        settingRevealHandlerCapability,
+        paneCapability,
         "registerSettingRevealHandler",
       );
       const normalizedRevealKey = requireNonEmptyString(
@@ -1135,31 +967,6 @@ function registerPluginModule({
       }
       pluginTopNavBarItems.push(validated);
       registryDelta.topNavBarItems[plugin.pluginId] = pluginTopNavBarItems;
-    },
-    registerCanvasControl: (definition) => {
-      ensureCapability(
-        plugin.pluginId,
-        effectiveCapabilitySet,
-        canvasControlCapability,
-        "registerCanvasControl",
-      );
-      const validated = validateCanvasControlDefinition(
-        plugin.pluginId,
-        definition,
-      );
-      const pluginCanvasControls =
-        registryDelta.canvasControls[plugin.pluginId] ?? [];
-      for (const existingControl of pluginCanvasControls) {
-        if (existingControl.id === validated.id) {
-          throw new PluginRuntimeError(
-            PluginFrontendErrorCodeEnum.RegistrationInvalid,
-            `Plugin ${plugin.pluginId} registered duplicate canvas control ` +
-              `${validated.id}.`,
-          );
-        }
-      }
-      pluginCanvasControls.push(validated);
-      registryDelta.canvasControls[plugin.pluginId] = pluginCanvasControls;
     },
     registerContextMenu: () => {
       ensureCapability(
@@ -1311,28 +1118,6 @@ function registerPluginModule({
         unregisterCleanup();
         cleanup();
       };
-    },
-    setWatchCodeEnabled: async (payload) => {
-      ensureCapability(
-        plugin.pluginId,
-        effectiveCapabilitySet,
-        watchCodeSettingsMutationCapability,
-        "setWatchCodeEnabled",
-      );
-      return await setWatchCodeEnabledAction(
-        normalizeSetWatchCodeEnabledPayload(plugin.pluginId, payload),
-      );
-    },
-    setWatchCodeInputs: async (payload) => {
-      ensureCapability(
-        plugin.pluginId,
-        effectiveCapabilitySet,
-        watchCodeSettingsMutationCapability,
-        "setWatchCodeInputs",
-      );
-      return await setWatchCodeInputsAction(
-        normalizeSetWatchCodeInputsPayload(plugin.pluginId, payload),
-      );
     },
     emitRealtimeDependencyEvent: (event) => {
       ensureCapability(
@@ -1521,9 +1306,6 @@ function registerPluginModule({
       }
       return a.id.localeCompare(b.id);
     });
-  }
-  for (const canvasControls of Object.values(registryDelta.canvasControls)) {
-    canvasControls.sort(compareCanvasControlDefinitions);
   }
 
   return registryDelta;
@@ -1765,97 +1547,6 @@ function validateTopNavBarItemDefinition(
     topNavBarItem.order = definition.order;
   }
   return topNavBarItem;
-}
-
-const canvasControlPlacementRank: Record<string, number> = {
-  [PluginCanvasControlPlacementEnum.Project]: 0,
-  [PluginCanvasControlPlacementEnum.Viewport]: 1,
-  [PluginCanvasControlPlacementEnum.Utility]: 2,
-};
-
-function compareCanvasControlDefinitions(
-  left: RegisteredPluginCanvasControl,
-  right: RegisteredPluginCanvasControl,
-): number {
-  const placementDelta =
-    canvasControlPlacementRank[left.placement] -
-    canvasControlPlacementRank[right.placement];
-  if (placementDelta !== 0) {
-    return placementDelta;
-  }
-  const orderDelta = (left.order ?? 0) - (right.order ?? 0);
-  if (orderDelta !== 0) {
-    return orderDelta;
-  }
-  const byLabel = left.label.localeCompare(right.label);
-  if (byLabel !== 0) {
-    return byLabel;
-  }
-  const byPlugin = left.pluginId.localeCompare(right.pluginId);
-  if (byPlugin !== 0) {
-    return byPlugin;
-  }
-  return left.id.localeCompare(right.id);
-}
-
-function validateCanvasControlDefinition(
-  pluginId: string,
-  definition: PluginCanvasControlDefinition,
-): RegisteredPluginCanvasControl {
-  const id = requireNonEmptyString(
-    definition.id,
-    `Plugin ${pluginId} canvas control definition missing id.`,
-  );
-  const label = requireNonEmptyString(
-    definition.label,
-    `Plugin ${pluginId} canvas control ${id} missing label.`,
-  );
-  let placement = PluginCanvasControlPlacementEnum.Project;
-  if (definition.placement !== undefined) {
-    const placementValue = requireNonEmptyString(
-      definition.placement,
-      `Plugin ${pluginId} canvas control ${id} placement must be supported.`,
-    );
-    if (!isPluginCanvasControlPlacement(placementValue)) {
-      const supportedPlacements = Object.values(
-        PluginCanvasControlPlacementEnum,
-      ).join(", ");
-      throw new PluginRuntimeError(
-        PluginFrontendErrorCodeEnum.RegistrationInvalid,
-        `Plugin ${pluginId} canvas control ${id} placement ${placementValue} is invalid. ` +
-          `Supported placements: ${supportedPlacements}.`,
-      );
-    }
-    placement = placementValue;
-  }
-  if (
-    definition.order !== undefined &&
-    (!Number.isFinite(definition.order) || Number.isNaN(definition.order))
-  ) {
-    throw new PluginRuntimeError(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      `Plugin ${pluginId} canvas control ${id} order must be a finite number.`,
-    );
-  }
-  const renderer = validatePluginRenderer(
-    pluginId,
-    `canvas control ${id}`,
-    definition.renderer,
-  );
-  const canvasControl: RegisteredPluginCanvasControl = {
-    pluginId,
-    id,
-    label,
-    placement,
-    renderer,
-  };
-  if (definition.description !== undefined) {
-    canvasControl.description = definition.description;
-  }
-  if (definition.order !== undefined) {
-    canvasControl.order = definition.order;
-  }
-  return canvasControl;
 }
 
 function requireNonEmptyString(value: unknown, errorMessage: string): string {

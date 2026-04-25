@@ -1,5 +1,4 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { formatBytes } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   type CSSProperties,
@@ -29,6 +28,7 @@ import {
   IoStop,
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { formatBytes } from "utils/attachments";
 import {
   type ChatDictationMode,
   ChatFileAttachment,
