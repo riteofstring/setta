@@ -69,6 +69,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("[border-width:0_0_1px_0]");
     expect(markup).toContain("leading-7");
     expect(markup).toContain("text-left font-mono");
+    expect(markup).toContain("whitespace-nowrap py-1");
     expect(markup).toContain("before:-left-3");
     expect(markup).toContain("after:-right-3");
     expect(markup).toContain("var(--flat-key-width)");

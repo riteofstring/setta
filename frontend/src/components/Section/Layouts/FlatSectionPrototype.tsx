@@ -373,8 +373,8 @@ function FlatPrototypePortList({
     isRightAligned ? "col-start-3 items-stretch" : "col-start-1"
   }`;
   const rowClassName = isRightAligned
-    ? "relative truncate py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:-right-3 after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
-    : "relative truncate py-1 text-[color:var(--flat-soft-text)] before:absolute before:-left-3 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
+    ? "relative whitespace-nowrap py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:-right-3 after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
+    : "relative whitespace-nowrap py-1 text-[color:var(--flat-soft-text)] before:absolute before:-left-3 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
 
   return (
     <>
