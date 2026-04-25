@@ -69,9 +69,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("grid-cols-[1.125rem_minmax(0,1fr)_auto]");
     expect(markup).toContain("pl-[calc(var(--flat-depth,0)*0.875rem)]");
     expect(markup).toContain("pr-0");
-    expect(markup).toContain('data-flat-pinned-marker="true"');
-    expect(markup).toContain("!absolute left-1 top-1.5");
-    expect(markup).toContain("gg-pin-alt");
+    expect(markup).not.toContain('data-flat-pinned-marker="true"');
+    expect(markup).not.toContain("gg-pin-alt");
     expect(markup).not.toContain(">Pinned Params<");
     expect(markup).not.toContain('data-flat-control="column-resize"');
     expect(markup).not.toContain("filter args");

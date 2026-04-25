@@ -431,11 +431,9 @@ function getRowGroupClassName(variant: "pinned" | "body") {
 }
 
 function FlatPrototypeRows({
-  label,
   rows,
   variant = "body",
 }: {
-  label?: string;
   rows: FlatPrototypeRow[];
   variant?: "pinned" | "body";
 }) {
@@ -444,17 +442,10 @@ function FlatPrototypeRows({
       className={getRowGroupClassName(variant)}
       data-flat-row-group={variant}
     >
-      {label ? (
-        <p
-          aria-hidden="true"
-          className="gg-pin-alt pointer-events-none !absolute left-1 top-1.5 text-[color:var(--flat-muted)] [--ggs:0.38]"
-          data-flat-pinned-marker="true"
-        />
-      ) : null}
       <ol>
         {rows.map((row, index) => (
           <FlatPrototypeRowItem
-            key={`${label ?? "body"}-${row.keyLabel}-${index}`}
+            key={`${variant}-${row.keyLabel}-${index}`}
             {...row}
             isLast={index === rows.length - 1}
           />
@@ -522,11 +513,7 @@ export function FlatCallableSectionPrototype({
         inputPorts={["items", "limit"]}
         outputPorts={["result"]}
       />
-      <FlatPrototypeRows
-        label="Pinned Params"
-        rows={CALLABLE_PINNED_ROWS}
-        variant="pinned"
-      />
+      <FlatPrototypeRows rows={CALLABLE_PINNED_ROWS} variant="pinned" />
       <FlatPrototypeRows rows={CALLABLE_ROWS} />
     </FlatSectionShell>
   );
@@ -545,11 +532,7 @@ export function FlatDictSectionPrototype({
       controlsInitiallyOpen={controlsInitiallyOpen}
       theme={theme}
     >
-      <FlatPrototypeRows
-        label="Pinned Params"
-        rows={DICT_PINNED_ROWS}
-        variant="pinned"
-      />
+      <FlatPrototypeRows rows={DICT_PINNED_ROWS} variant="pinned" />
       <FlatPrototypeRows rows={DICT_ROWS} />
     </FlatSectionShell>
   );
