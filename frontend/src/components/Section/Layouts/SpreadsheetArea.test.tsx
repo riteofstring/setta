@@ -41,9 +41,14 @@ vi.mock("openapi/http", () => ({
   setSpreadsheetFilePath: mocks.setSpreadsheetFilePath,
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: mocks.callOpenAPI,
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: mocks.callOpenAPI,
+  };
+});
 
 vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: mocks.addTemporaryNotification,

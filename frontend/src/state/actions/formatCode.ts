@@ -1,16 +1,16 @@
+import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
 import { formatCode } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
 import {
   CodeFileAccessModeEnum,
   CodeLanguageEnum,

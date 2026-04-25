@@ -1,3 +1,4 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import {
   codeAreaTabOnEnterKeyHandlers,
@@ -7,7 +8,6 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import { setTextBlockText } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import React, { useCallback, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

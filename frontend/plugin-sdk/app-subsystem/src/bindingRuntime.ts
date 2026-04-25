@@ -199,11 +199,18 @@ export function validateGeneratedParamNameInput(
   pythonKeywords: ReadonlySet<string>,
   isPythonIdentifier: (value: string) => boolean,
 ): string | null {
-  const baseError = validateGeneratedCommonNameInput(name, {
+  const commonOptions: {
+    allowEmpty: boolean;
+    label: string;
+    skipPathChecks?: boolean;
+  } = {
     allowEmpty: options.allowEmpty,
     label: "Param name",
-    skipPathChecks: options.skipPathChecks,
-  });
+  };
+  if (options.skipPathChecks !== undefined) {
+    commonOptions.skipPathChecks = options.skipPathChecks;
+  }
+  const baseError = validateGeneratedCommonNameInput(name, commonOptions);
   if (baseError) {
     return baseError;
   }

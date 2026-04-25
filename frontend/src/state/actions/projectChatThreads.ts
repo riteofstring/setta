@@ -1,5 +1,5 @@
+import { createNewId } from "@setta/app-subsystem-frontend-sdk";
 import { useLocalStorage } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
 
 type StoredThreadGroup = {
   id: string;

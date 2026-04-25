@@ -1,6 +1,6 @@
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { onOverviewTabClick } from "components/Panes/paneFns";
 import { deleteSections, getLatestProjectState } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   usePluginRuntimeStore,
   usePluginSectionFallbackReason,
@@ -22,7 +22,6 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
 import { SectionTypeEnum } from "utils/generatedTypes";
 type PluginAreaProps = {
   sectionId: string;

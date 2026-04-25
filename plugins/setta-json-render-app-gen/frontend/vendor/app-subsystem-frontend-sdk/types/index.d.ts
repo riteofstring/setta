@@ -138,6 +138,12 @@ export type ResponseDataAndStatus<T = JsonRecord> = {
   status: number | undefined;
   hasResponse: boolean;
 };
+export type EndpointOrigin = string;
+export type ServerMode = string | null;
+export type ServerModeCapabilities = {
+  canManageDesktopLauncher: boolean;
+};
+export type WorkspaceLaunchRouteKind = string;
 
 export type ResolvedRunRequest =
   | {
@@ -239,7 +245,20 @@ export declare function isBaseSectionWithParamsImpl(
   value: unknown,
 ): value is JsonRecord;
 export declare function createDefaultAppPolicy(): Policy;
+export declare function createDefaultSharePolicy(): Policy;
 export declare function resolveAppPolicy(policy?: Policy | null): Policy;
+export declare function canSectionRun(
+  state: SingleConfig,
+  sectionId: string,
+): boolean;
+export declare function canSelectSectionAsEntryCodeBlock(
+  state: SingleConfig,
+  sectionId: string,
+): boolean;
+export declare function getSectionEntryCodeBlockValue(
+  state: SingleConfig,
+  sectionId: string,
+): string | null;
 export declare function resolveMainRunRequest(
   state: SingleConfig,
 ): ResolvedRunRequest;
@@ -253,10 +272,55 @@ export declare const NO_PAN_CLASS_NAME: string;
 export declare const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION: string;
 export declare const SETTA_PREVENT_SECTION_ACTIVE_CSS: string;
 export declare function shouldShowPasswordReveal(args: JsonRecord): boolean;
+export declare function clampTextBlockMasterFontSize(value: number): number;
 export declare function buildTextBlockTypographyScale(
   masterFontSizePx: number,
 ): JsonRecord;
+export declare const ARTIFACTS_ROOT: "artifacts";
+export declare function createNewId(): string;
+export declare function createJsonArtifactId(): string;
+export declare function createCsvArtifactId(): string;
+export declare function createPngArtifactId(): string;
+export declare function createFileArtifactId(extension?: string): string;
 export declare function createRandomName(): string;
+export declare function normalizeGeneratedOrigin(
+  rawOrigin: string | null | undefined,
+): string | null;
+export declare function normalizeGeneratedToolName(
+  rawToolName: string | null | undefined,
+  singlePrefix: string,
+  doublePrefix: string,
+  askUserQuestionToolName: string,
+): string | null;
+export declare function validateGeneratedSimpleNameInput(
+  name: string,
+  label: string,
+  reservedNames: ReadonlySet<string>,
+  allowedChars: ReadonlySet<string>,
+  allowReserved?: boolean,
+): string | null;
+export declare function sanitizeGeneratedSimpleNameSlug(
+  name: string,
+  replacementChars: ReadonlySet<string>,
+): string;
+export declare function isGeneratedPythonIdentifier(
+  name: string,
+  pythonIdentifierStartChars: ReadonlySet<string>,
+  pythonIdentifierContinueChars: ReadonlySet<string>,
+  pythonKeywords: ReadonlySet<string>,
+): boolean;
+export declare function validateGeneratedParamNameInput(
+  name: string,
+  options: {
+    allowEmpty: boolean;
+    label: string;
+    requirePythonIdentifier: boolean;
+    pythonIdentifierStartChars: ReadonlySet<string>;
+    pythonIdentifierContinueChars: ReadonlySet<string>;
+    pythonKeywords: ReadonlySet<string>;
+    skipPathChecks?: boolean;
+  },
+): string | null;
 export type DropzoneStoredFileAttachment = {
   kind: "file";
   id: string;
@@ -319,6 +383,10 @@ export declare function parseDropzoneValue(
 export declare function serializeDropzoneValue(
   attachments: DropzoneStoredAttachment[],
 ): string;
+export declare function resolveAttachmentLimit(value: number): {
+  maxFiles: number | null;
+  disabled: boolean;
+};
 export declare function formatBytes(value: number): string;
 export declare function getAttachmentPolicy(
   scope: AttachmentPolicyScope,
@@ -460,6 +528,10 @@ export declare function validateAppDefinition(options?: {
   body?: JsonRecord;
 }): Promise<ResponseDataAndStatus<AppDefinitionValidationResult>>;
 export declare function callOpenAPI<T>(promise: Promise<T> | T): Promise<T>;
+export declare function rebuildBackendRequest(
+  original: Request,
+  nextURL: string,
+): Promise<Request>;
 export declare function getErrorDetail(value: unknown): string | null;
 export declare function getErrorCode(value: unknown): string | null;
 export declare function res200<T>(
@@ -471,6 +543,16 @@ export declare function buildBinaryDownloadUrl(
   shareSessionId: string | null,
   serverMode: string | null,
 ): string;
+export declare function resolveEndpointOriginForMode(
+  address: string,
+  serverMode: ServerMode,
+): EndpointOrigin;
+export declare function resolveServerModeCapabilities(
+  mode: ServerMode,
+): ServerModeCapabilities;
+export declare function resolveWorkspaceLaunchRouteKind(
+  mode: ServerMode,
+): WorkspaceLaunchRouteKind;
 
 export declare const APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION: 1;
 export type AppSubsystemNotificationType =
@@ -724,8 +806,16 @@ export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<
   guard: (value: JsonRecord) => value is T,
   includePreview?: boolean,
 ): T | null;
-export declare function getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;
-export declare function getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;
+export declare function getCurrentEffectiveSectionImpl(
+  projectState: SingleConfig,
+  sectionId: string,
+  includePreview?: boolean,
+): JsonRecord;
+export declare function getCurrentEffectiveSectionImplIfPresent(
+  projectState: SingleConfig,
+  sectionId: string,
+  includePreview?: boolean,
+): JsonRecord | null;
 export declare function getCurrentSectionVariantId(
   projectState: SingleConfig,
   sectionId: string,

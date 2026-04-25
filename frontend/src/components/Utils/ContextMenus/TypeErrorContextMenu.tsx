@@ -1,7 +1,7 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { setTypeErrorIgnore } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useContextMenus } from "state/definitions";

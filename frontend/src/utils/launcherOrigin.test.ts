@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { getOrInitLauncherOrigin } from "./launcherOrigin";
+import { getOrInitLauncherOrigin } from "@setta/app-subsystem-frontend-sdk";
 
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();

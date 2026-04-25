@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
 import {
   createDefaultAppPolicy,
   createDefaultSharePolicy,
   resolveAppPolicy,
-} from "./deploymentPolicies";
+} from "@setta/app-subsystem-frontend-sdk";
+import { describe, expect, it } from "vitest";
 import { DefaultAppPolicy, createPolicy } from "./generatedTypes";
 
 describe("deploymentPolicies", () => {

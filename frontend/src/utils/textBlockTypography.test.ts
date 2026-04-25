@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
 import {
   buildTextBlockTypographyScale,
   clampTextBlockMasterFontSize,
-} from "./textBlockTypography";
+} from "@setta/app-subsystem-frontend-sdk";
+import { describe, expect, it } from "vitest";
 
 describe("textBlockTypography", () => {
   it("clamps master font size into supported range", () => {

@@ -1,4 +1,4 @@
-import { C_ADDRESSES } from "utils/c_addresses";
+import { C_ADDRESSES } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it } from "vitest";
 import { buildPluginAssetUrl } from "./transport";
 

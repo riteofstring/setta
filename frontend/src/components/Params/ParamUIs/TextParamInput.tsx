@@ -1,5 +1,5 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { updateParamImplConfig } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

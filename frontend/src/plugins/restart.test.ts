@@ -1,9 +1,9 @@
+import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
 import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
   requestPluginRestart,
 } from "plugins/restart";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   createPluginListEntry,
   createPluginStatusEntry,

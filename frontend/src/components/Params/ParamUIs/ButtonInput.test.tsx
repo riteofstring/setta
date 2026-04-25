@@ -18,9 +18,14 @@ vi.mock("openapi/http", () => ({
   updateParamImplConfig: vi.fn(),
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: vi.fn(),
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: vi.fn(),
+  };
+});
 
 vi.mock("state/actions/sectionInfos", () => ({
   dispatchOptimisticProjectStateUpdate: vi.fn(),
