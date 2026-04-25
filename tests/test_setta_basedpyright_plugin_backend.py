@@ -92,7 +92,6 @@ def test_basedpyright_plugin_backend_probe_honors_explicit_command_override(
             "command": str(explicit_command.resolve()),
             "args": ["--stdio", "--log-level", "debug"],
             "settingsKey": "basedpyright",
-            "runtimeSearchPathsKey": "basedpyright.analysis.extraPaths",
         }
     ]
 
@@ -126,7 +125,6 @@ def test_basedpyright_plugin_backend_probe_defaults_to_running_interpreter(
         "--stdio",
     ]
     assert server["settingsKey"] == "basedpyright"
-    assert server["runtimeSearchPathsKey"] == "basedpyright.analysis.extraPaths"
 
 
 def test_basedpyright_plugin_backend_probe_rejects_default_interpreter_without_basedpyright(
@@ -192,6 +190,5 @@ def test_basedpyright_plugin_backend_probe_preserves_relative_command_escape_for
             "command": "../outside/basedpyright-langserver",
             "args": [],
             "settingsKey": "basedpyright",
-            "runtimeSearchPathsKey": "basedpyright.analysis.extraPaths",
         }
     ]

@@ -2,7 +2,6 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { buildShareSessionHeaders } from "utils/shareSessionHeaders";
 import { buildBackendURL } from "utils/transportUrlCore";
 import { client } from "./generated/client.gen";
-import { rebuildBackendRequest } from "./requestRebuild";
 
 function resolveOpenAPIBaseURL(): string {
   if (typeof location === "undefined") {
@@ -20,7 +19,7 @@ async function fetchOpenAPIRequest(
   const resolvedURL = buildBackendURL(
     `${requestURL.pathname}${requestURL.search}`,
   );
-  const nextRequest = await rebuildBackendRequest(request, resolvedURL);
+  const nextRequest = new Request(resolvedURL, request);
   const shareHeaders = buildShareSessionHeaders();
   for (const [key, value] of Object.entries(shareHeaders)) {
     nextRequest.headers.set(key, value);

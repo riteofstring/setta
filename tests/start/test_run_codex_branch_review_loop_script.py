@@ -250,10 +250,7 @@ FINALIZE_PROMPT = (
     "- Update `cumulative_review.md`.\n"
     "- Remove the top-level `review*.md` files.\n"
     "- Make sure any earlier `./aireset.sh` session is stopped.\n"
-    "- Commit all remaining changes except `review*.md`.\n"
-    "- Use a commit message that describes the actual changes being committed in "
-    "this iteration. Do not use a workflow-only message about "
-    "review/finalization/metadata.\n\n"
+    "- Commit all remaining changes except `review*.md`.\n\n"
     "`cumulative_review.md` format:\n"
     "- If the file is empty, start with:\n"
     "  - `# Cumulative Review`\n"
@@ -330,10 +327,6 @@ def _runner_script() -> Path:
     return repo_root() / "scripts" / "run-codex-branch-review-loop.sh"
 
 
-def _standalone_wrapper_script() -> Path:
-    return repo_root() / "scripts" / "run-codex-app-subsystem-standalone-branch-review-loop.sh"
-
-
 def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -> None:
     result = subprocess.run(
         ["bash", str(_runner_script()), "--help"],
@@ -346,107 +339,6 @@ def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -
     assert "start three separate Codex review sessions in parallel" in result.stdout
     assert "A clean stop may leave only top-level `review1.md`, `review2.md`, and" in result.stdout
     assert "--root-dir PATH" in result.stdout
-    assert "--extra-prompt TEXT" in result.stdout
-    assert "--extra-prompt-file PATH" in result.stdout
-
-
-def test_app_subsystem_standalone_branch_review_wrapper_passes_custom_prompt_file() -> None:
-    wrapper = _standalone_wrapper_script().read_text(encoding="utf-8")
-
-    assert 'PROMPT_FILE="${SCRIPT_DIR}/prompts/app-subsystem-standalone-plugin-review.md"' in wrapper
-    assert 'exec "${SCRIPT_DIR}/run-codex-branch-review-loop.sh" \\' in wrapper
-    assert '--extra-prompt-file "${PROMPT_FILE}"' in wrapper
-    assert '"$@"' in wrapper
-
-
-def test_branch_review_loop_appends_extra_prompt_file(
-    tmp_path: Path,
-) -> None:
-    repo_dir = _create_git_repo(tmp_path)
-    output_dir = tmp_path / "output"
-    bin_dir = tmp_path / "bin"
-    calls_file = tmp_path / "calls.txt"
-    extra_prompt_file = tmp_path / "extra-prompt.md"
-    output_dir.mkdir()
-    bin_dir.mkdir()
-    extra_prompt_file.write_text("Extra branch invariant.\n", encoding="utf-8")
-
-    _write_executable(
-        bin_dir / "codex",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-
-response_file=""
-json_mode="0"
-prompt="$(cat)"
-
-printf 'prompt:%s\\n===\\n' "${{prompt}}" >> "{calls_file}"
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --output-last-message)
-      response_file="$2"
-      shift 2
-      ;;
-    --json)
-      json_mode="1"
-      shift
-      ;;
-    --color|--cd|--model|--config)
-      shift 2
-      ;;
-    --dangerously-bypass-approvals-and-sandbox|--ephemeral|never|-)
-      shift
-      ;;
-    *)
-      shift
-      ;;
-  esac
-done
-
-if [[ "${{json_mode}}" == "0" ]]; then
-  printf 'No actionable findings.\\n' > "${{response_file}}"
-  exit 0
-fi
-
-printf '{{"type":"thread.started","thread_id":"thread-extra"}}\\n'
-cat > "${{response_file}}" <<'EOR'
-CONSOLIDATED_STATUS: NO_FINDINGS
-
-The reviews found no actionable findings.
-EOR
-""",
-    )
-
-    env = os.environ.copy()
-    env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
-
-    result = _run(
-        [
-            "bash",
-            str(_runner_script()),
-            "--root-dir",
-            str(repo_dir),
-            "--iterations",
-            "1",
-            "--output-dir",
-            str(output_dir),
-            "--post-commit-settle-seconds",
-            "0",
-            "--extra-prompt-file",
-            str(extra_prompt_file),
-        ],
-        cwd=tmp_path,
-        env=env,
-    )
-
-    assert result.returncode == 0, result.stderr
-    calls = calls_file.read_text(encoding="utf-8")
-    assert calls.count("Additional Instructions") == 4
-    assert calls.count("Extra branch invariant.") == 4
-    assert (
-        output_dir / "state" / "review-correctness-prompt.md"
-    ).read_text(encoding="utf-8").endswith("Extra branch invariant.\n\n")
 
 
 def test_branch_review_loop_stops_after_clean_consolidation(
