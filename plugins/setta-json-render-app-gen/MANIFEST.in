@@ -9,6 +9,7 @@ include frontend/tsconfig.typecheck.json
 include frontend/vite.config.mjs
 include frontend/vitest.config.mjs
 graft runtime_backend
+graft frontend/scripts
 graft frontend/src
 graft frontend/tests
 graft frontend/typecheck

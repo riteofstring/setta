@@ -128,23 +128,41 @@ def _write_minimal_distribution_project(
     return project_root
 
 
-def _build_wheel(project_root: Path, outdir: Path) -> subprocess.CompletedProcess[str]:
+def _build_wheel(
+    project_root: Path,
+    outdir: Path,
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
     return subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
         cwd=project_root,
         capture_output=True,
         text=True,
         check=False,
+        env=process_env,
     )
 
 
-def _build_sdist(project_root: Path, outdir: Path) -> subprocess.CompletedProcess[str]:
+def _build_sdist(
+    project_root: Path,
+    outdir: Path,
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
     return subprocess.run(
         [sys.executable, "-m", "build", "--sdist", "--outdir", str(outdir)],
         cwd=project_root,
         capture_output=True,
         text=True,
         check=False,
+        env=process_env,
     )
 
 
@@ -179,12 +197,20 @@ def _pnpm_command() -> str:
     return "pnpm.cmd" if os.name == "nt" else "pnpm"
 
 
-def _assert_pnpm_command_succeeds(package_root: Path, *args: str) -> None:
+def _assert_pnpm_command_succeeds(
+    package_root: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> None:
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
     result = subprocess.run(
         [_pnpm_command(), "--dir", str(package_root), *args],
         capture_output=True,
         text=True,
         check=False,
+        env=process_env,
     )
     output = f"{result.stdout}\n{result.stderr}".strip()
     assert result.returncode == 0, output
@@ -206,8 +232,17 @@ def _build_first_party_basedpyright_wheel(tmp_path: Path) -> Path:
     return wheel_paths[0]
 
 
+def _app_subsystem_frontend_sdk_env(source_root: Path | None = None) -> dict[str, str]:
+    if source_root is None:
+        source_root = _repo_root() / "frontend" / "plugin-sdk" / "app-subsystem"
+    return {"SETTA_APP_SUBSYSTEM_FRONTEND_SDK_SOURCE_ROOT": str(source_root)}
+
+
 def _stage_first_party_app_subsystem_plugin_source(
-    tmp_path: Path, *, remove_dist: bool = True
+    tmp_path: Path,
+    *,
+    remove_dist: bool = True,
+    remove_vendored_sdk_dist: bool = True,
 ) -> Path:
     source_root = _repo_root() / "plugins" / "setta-json-render-app-gen"
     plugin_root = tmp_path / "setta-json-render-app-gen"
@@ -216,6 +251,11 @@ def _stage_first_party_app_subsystem_plugin_source(
     shutil.rmtree(plugin_root / "build", ignore_errors=True)
     if remove_dist:
         shutil.rmtree(frontend_root / "dist", ignore_errors=True)
+    if remove_vendored_sdk_dist:
+        shutil.rmtree(
+            frontend_root / "vendor" / "app-subsystem-frontend-sdk" / "dist",
+            ignore_errors=True,
+        )
     shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
     return plugin_root
 
@@ -256,9 +296,9 @@ def _stage_app_subsystem_frontend_sdk_source(tmp_path: Path) -> Path:
 
 
 def _assert_matching_file_content(left: Path, right: Path) -> None:
-    assert left.read_bytes() == right.read_bytes(), (
-        f"expected matching file content for {left} and {right}"
-    )
+    assert (
+        left.read_bytes() == right.read_bytes()
+    ), f"expected matching file content for {left} and {right}"
 
 
 def _build_first_party_app_subsystem_wheel(
@@ -268,7 +308,11 @@ def _build_first_party_app_subsystem_wheel(
         tmp_path, remove_dist=remove_dist
     )
     outdir = tmp_path / "dist"
-    result = _build_wheel(plugin_root, outdir)
+    result = _build_wheel(
+        plugin_root,
+        outdir,
+        env=_app_subsystem_frontend_sdk_env(),
+    )
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
@@ -383,7 +427,11 @@ def _build_first_party_app_subsystem_sdist(tmp_path: Path) -> Path:
         tmp_path, remove_dist=True
     )
     outdir = tmp_path / "dist"
-    result = _build_sdist(plugin_root, outdir)
+    result = _build_sdist(
+        plugin_root,
+        outdir,
+        env=_app_subsystem_frontend_sdk_env(),
+    )
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
@@ -522,14 +570,21 @@ def test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tre
 ) -> None:
     plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
     frontend_root = plugin_root / "frontend"
+    vendored_sdk_dist = (
+        frontend_root / "vendor" / "app-subsystem-frontend-sdk" / "dist" / "index.js"
+    )
+    sdk_env = _app_subsystem_frontend_sdk_env()
+
+    assert not vendored_sdk_dist.exists()
 
     _assert_pnpm_command_succeeds(frontend_root, "install", "--lockfile=false")
     _assert_pnpm_command_succeeds(frontend_root, "run", "typecheck")
-    _assert_pnpm_command_succeeds(frontend_root, "run", "test")
-    _assert_pnpm_command_succeeds(frontend_root, "run", "build")
+    _assert_pnpm_command_succeeds(frontend_root, "run", "test", env=sdk_env)
+    _assert_pnpm_command_succeeds(frontend_root, "run", "build", env=sdk_env)
 
     built_js = frontend_root / "dist" / "index.js"
     built_css = frontend_root / "dist" / "index.css"
+    assert vendored_sdk_dist.is_file()
     assert built_js.is_file()
     assert built_css.is_file()
 
@@ -556,12 +611,17 @@ def test_vendored_app_subsystem_frontend_sdk_matches_source_package_build(
 ) -> None:
     package_root = _stage_app_subsystem_frontend_sdk_source(tmp_path)
     plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
-    vendored_sdk_root = (
-        plugin_root / "frontend" / "vendor" / "app-subsystem-frontend-sdk"
-    )
+    frontend_root = plugin_root / "frontend"
+    vendored_sdk_root = frontend_root / "vendor" / "app-subsystem-frontend-sdk"
 
     _assert_pnpm_command_succeeds(package_root, "install", "--lockfile=false")
     _assert_pnpm_command_succeeds(package_root, "run", "build")
+    _assert_pnpm_command_succeeds(
+        frontend_root,
+        "run",
+        "prepare-sdk",
+        env=_app_subsystem_frontend_sdk_env(package_root),
+    )
 
     _assert_matching_file_content(
         package_root / "dist" / "index.js",
@@ -571,6 +631,23 @@ def test_vendored_app_subsystem_frontend_sdk_matches_source_package_build(
         package_root / "types" / "index.d.ts",
         vendored_sdk_root / "types" / "index.d.ts",
     )
+
+
+def test_vendored_app_subsystem_frontend_sdk_dist_is_not_tracked() -> None:
+    result = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "plugins/setta-json-render-app-gen/frontend/vendor/app-subsystem-frontend-sdk/dist/**",
+        ],
+        cwd=_repo_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == ""
 
 
 def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
@@ -682,6 +759,10 @@ def test_first_party_app_subsystem_plugin_sdist_includes_frontend_build_inputs(
     assert any(name.endswith("frontend/package.json") for name in names)
     assert any(name.endswith("frontend/tsconfig.json") for name in names)
     assert any(name.endswith("frontend/tsconfig.typecheck.json") for name in names)
+    assert any(
+        name.endswith("frontend/scripts/materialize-vendored-app-subsystem-sdk.mjs")
+        for name in names
+    )
     assert any(name.endswith("frontend/src/index.ts") for name in names)
     assert any(name.endswith("frontend/typecheck/standalone.ts") for name in names)
     assert any(
@@ -763,7 +844,11 @@ def test_first_party_app_subsystem_plugin_wheel_rebuilds_stale_frontend_bundle(
     (stale_dist_root / "index.css").write_text("STALE_CSS\n", encoding="utf-8")
 
     outdir = tmp_path / "dist"
-    result = _build_wheel(plugin_root, outdir)
+    result = _build_wheel(
+        plugin_root,
+        outdir,
+        env=_app_subsystem_frontend_sdk_env(),
+    )
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
@@ -799,7 +884,11 @@ def test_first_party_app_subsystem_plugin_wheel_build_installs_dependencies_when
     (node_modules_root / "marker.txt").write_text("stale\n", encoding="utf-8")
 
     outdir = tmp_path / "dist"
-    result = _build_wheel(plugin_root, outdir)
+    result = _build_wheel(
+        plugin_root,
+        outdir,
+        env=_app_subsystem_frontend_sdk_env(),
+    )
 
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
