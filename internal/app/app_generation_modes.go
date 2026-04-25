@@ -31,6 +31,26 @@ func initializePluginFeatureCapabilities(
 	return appSubsystemCapabilities, watchCodeCapabilities, nil
 }
 
+func ensureProjectPluginFeatureCapabilities(
+	projectServices *projectServices,
+) (*appSubsystemCapabilityState, *watchCodeCapabilityState, error) {
+	if projectServices == nil {
+		appSubsystemCapabilities := newAppSubsystemCapabilityState()
+		watchCodeCapabilities := newWatchCodeCapabilityState()
+		return appSubsystemCapabilities, watchCodeCapabilities, nil
+	}
+	if projectServices.appSubsystemCapabilities != nil && projectServices.watchCodeCapabilities != nil {
+		return projectServices.appSubsystemCapabilities, projectServices.watchCodeCapabilities, nil
+	}
+	appSubsystemCapabilities, watchCodeCapabilities, err := initializePluginFeatureCapabilities(*projectServices)
+	if err != nil {
+		return nil, nil, err
+	}
+	projectServices.appSubsystemCapabilities = appSubsystemCapabilities
+	projectServices.watchCodeCapabilities = watchCodeCapabilities
+	return appSubsystemCapabilities, watchCodeCapabilities, nil
+}
+
 func newAppGenerationModeResolver(
 	capabilities *appSubsystemCapabilityState,
 ) (chatmodes.AppGenerationModeResolver, error) {

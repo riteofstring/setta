@@ -45,3 +45,8 @@ func (s *watchCodeCapabilityState) WatchCodeCapabilities() plugins.PluginWatchCo
 	defer s.mu.RUnlock()
 	return s.capabilities
 }
+
+func (s *watchCodeCapabilityState) ProviderActive() bool {
+	capabilities := s.WatchCodeCapabilities()
+	return capabilities.PluginEnabled && capabilities.Python
+}
