@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"setta/internal/appsubsystem"
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -422,6 +423,49 @@ func TestEmitAppStartupOutputRequiresAppSubsystemProvider(t *testing.T) {
 	}
 }
 
+func TestEmitAppStartupOutputRejectsManifestOnlyAppSubsystemProvider(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer listener.Close()
+
+	deploymentRoot := writeDeploymentManifest(t, filepath.Join(t.TempDir(), "deployments", "demo-app", "v7"), "demo-app", "v7", deployments.TypeApp)
+	enableManifestOnlyAppDeploymentRuntimePlugin(
+		t,
+		deploymentRoot,
+		firstpartyplugin.AppSubsystemPluginID,
+		"Setta JSON Render App Generation",
+	)
+
+	err = emitAppStartupOutput(
+		config.Config{
+			Server: config.Server{
+				Host: "127.0.0.1",
+				Mode: config.ModeApp,
+			},
+			Paths: config.Paths{
+				DeploymentRoot: deploymentRoot,
+				RuntimeRoot:    filepath.Join(deploymentRoot, "runtime"),
+			},
+		},
+		listener,
+		true,
+		&bytes.Buffer{},
+		&bytes.Buffer{},
+		appStartupDependencies{},
+	)
+	if !errors.Is(err, appsubsystem.ErrAppModeProviderRequired) {
+		t.Fatalf("expected ErrAppModeProviderRequired, got %v", err)
+	}
+	expectedErr := `app mode requires a single active app subsystem provider with app deployment runtime support: installed app subsystem providers are invalid ("setta-json-render-app-gen")`
+	if err == nil || err.Error() != expectedErr {
+		t.Fatalf("expected exact invalid-provider error %q, got %v", expectedErr, err)
+	}
+}
+
 func TestEmitAppStartupOutputSupportsUnknownIDAppSubsystemProvider(t *testing.T) {
 	t.Parallel()
 
@@ -505,28 +549,59 @@ func writeDeploymentManifest(t *testing.T, deploymentRoot string, deploymentName
 func enableAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string, pluginID string, pluginName string) {
 	t.Helper()
 
-	payload, err := json.MarshalIndent(map[string]any{
+	writeAppDeploymentRuntimePlugin(t, deploymentRoot, pluginID, pluginName, true)
+}
+
+func enableManifestOnlyAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string, pluginID string, pluginName string) {
+	t.Helper()
+
+	writeAppDeploymentRuntimePlugin(t, deploymentRoot, pluginID, pluginName, false)
+}
+
+func writeAppDeploymentRuntimePlugin(
+	t *testing.T,
+	deploymentRoot string,
+	pluginID string,
+	pluginName string,
+	withBackend bool,
+) {
+	t.Helper()
+
+	manifest := map[string]any{
 		"schemaVersion":     1,
 		"id":                pluginID,
 		"name":              pluginName,
 		"version":           "0.1.0",
 		"settaVersionRange": ">=0.0.0",
-		"enabledByDefault":  false,
+		"enabledByDefault":  true,
+		"frontend": map[string]any{
+			"entrypoint": "frontend/dist/index.js",
+			"style":      "frontend/dist/index.css",
+		},
 		"featureCapabilities": map[string]any{
 			"appSubsystem": map[string]any{
 				"appDeploymentRuntime": true,
 			},
 		},
 		"capabilities": []string{},
-	}, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal app plugin manifest: %v", err)
 	}
-	payload = append(payload, '\n')
 	pluginRoot := filepath.Join(deploymentRoot, ".setta_plugins", pluginID)
 	if err := os.MkdirAll(pluginRoot, 0o755); err != nil {
 		t.Fatalf("mkdir plugin root: %v", err)
 	}
+	writeAppDeploymentRuntimeFrontendAssets(t, pluginRoot)
+	if withBackend {
+		manifest["backend"] = map[string]any{
+			"entrypoint": "runtime_backend/main.py",
+		}
+		manifest["capabilities"] = []string{"registerAppSubsystemBackend"}
+		writeAppDeploymentRuntimeBackendProbe(t, filepath.Join(pluginRoot, "runtime_backend", "main.py"))
+	}
+	payload, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal app plugin manifest: %v", err)
+	}
+	payload = append(payload, '\n')
 	if err := os.WriteFile(filepath.Join(pluginRoot, "setta.plugin.json"), payload, 0o644); err != nil {
 		t.Fatalf("write plugin manifest: %v", err)
 	}
@@ -540,6 +615,53 @@ func enableAppDeploymentRuntimePlugin(t *testing.T, deploymentRoot string, plugi
 	if err := os.WriteFile(filepath.Join(deploymentRoot, "plugins_state.json"), statePayload, 0o644); err != nil {
 		t.Fatalf("write plugins state: %v", err)
 	}
+}
+
+func writeAppDeploymentRuntimeFrontendAssets(t *testing.T, pluginRoot string) {
+	t.Helper()
+
+	frontendDistRoot := filepath.Join(pluginRoot, "frontend", "dist")
+	if err := os.MkdirAll(frontendDistRoot, 0o755); err != nil {
+		t.Fatalf("mkdir frontend dist root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(frontendDistRoot, "index.js"), []byte("export default {};\n"), 0o644); err != nil {
+		t.Fatalf("write frontend entrypoint: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(frontendDistRoot, "index.css"), []byte("body {}\n"), 0o644); err != nil {
+		t.Fatalf("write frontend style: %v", err)
+	}
+}
+
+func writeAppDeploymentRuntimeBackendProbe(t *testing.T, path string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir backend probe parent: %v", err)
+	}
+	content := strings.Join([]string{
+		"import json",
+		"import sys",
+		`if len(sys.argv) == 2 and sys.argv[1] == "--setta-plugin-backend-probe":`,
+		`    print(json.dumps({"schemaVersion": 1, "appSubsystemBackend": {"contractVersion": 1}, "listenerEndpoints": ` + appDeploymentRuntimeListenerEndpointsJSON(t) + `}))`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write backend probe: %v", err)
+	}
+}
+
+func appDeploymentRuntimeListenerEndpointsJSON(t *testing.T) string {
+	t.Helper()
+
+	endpoints := make([]map[string]string, 0, len(backendruntime.RequiredListenerEndpointNames()))
+	for _, endpointName := range backendruntime.RequiredListenerEndpointNames() {
+		endpoints = append(endpoints, map[string]string{"name": endpointName})
+	}
+	encoded, err := json.Marshal(endpoints)
+	if err != nil {
+		t.Fatalf("encode app subsystem backend listener endpoints: %v", err)
+	}
+	return string(encoded)
 }
 
 type startupAssertiveError string

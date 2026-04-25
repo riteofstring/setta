@@ -8,6 +8,7 @@ import {
 } from "./idNameCreation";
 
 export type ObjectValues<T> = T[keyof T];
+type CreateOptions<T> = T extends object ? Partial<T> : T;
 
 type GeneratedMutableValue =
   | null
@@ -34,7 +35,7 @@ function cloneGeneratedValue<T>(value: T): T {
 }
 
 function mergeGeneratedOptions<T extends object>(
-  defaults: T,
+  defaults: Record<string, GeneratedMutableValue | undefined>,
   options: Partial<T> = {},
 ): T {
   return {
@@ -47,7 +48,7 @@ export type AIFollowToolArgumentsUpdateContent =
   gt.AIFollowToolArgumentsUpdateContent;
 
 export function createAIFollowToolArgumentsUpdateContent(
-  options: Partial<AIFollowToolArgumentsUpdateContent> = {},
+  options: CreateOptions<AIFollowToolArgumentsUpdateContent> = {} as CreateOptions<AIFollowToolArgumentsUpdateContent>,
 ): AIFollowToolArgumentsUpdateContent {
   return options as AIFollowToolArgumentsUpdateContent;
 }
@@ -60,7 +61,7 @@ export type AgentProfile = gt.AgentProfile;
 export type AgentRun = gt.AgentRun;
 
 export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
-  const defaults: AgentRun = {
+  const defaults = {
     cost: null,
     events: [],
     finishedAt: null,
@@ -82,7 +83,7 @@ export type AgenticEdge = gt.AgenticEdge;
 export function createAgenticEdge(
   options: Partial<AgenticEdge> = {},
 ): AgenticEdge {
-  const defaults: AgenticEdge = {
+  const defaults = {
     contextMode: "reference_only",
     hidden: false,
     id: "",
@@ -101,7 +102,7 @@ export function createAgenticEdge(
 type AgenticSummaryCacheStatus = gt.AgenticSummaryCacheStatus;
 
 export function createAgenticSummaryCacheStatus(
-  options: Partial<AgenticSummaryCacheStatus> = {},
+  options: CreateOptions<AgenticSummaryCacheStatus> = {} as CreateOptions<AgenticSummaryCacheStatus>,
 ): AgenticSummaryCacheStatus {
   return options as AgenticSummaryCacheStatus;
 }
@@ -109,7 +110,7 @@ export function createAgenticSummaryCacheStatus(
 export type AllConfigs = gt.AllConfigs;
 
 export function createAllConfigs(
-  options: Partial<AllConfigs> = {},
+  options: CreateOptions<AllConfigs> = {} as CreateOptions<AllConfigs>,
 ): AllConfigs {
   return options as AllConfigs;
 }
@@ -121,7 +122,7 @@ export type AssistantChatMessage = gt.AssistantChatMessage;
 export function createAssistantChatMessage(
   options: Partial<AssistantChatMessage> = {},
 ): AssistantChatMessage {
-  const defaults: AssistantChatMessage = {
+  const defaults = {
     attachments: [],
     content: [],
     createdAt: 0,
@@ -149,7 +150,7 @@ export type BaseDependencyValueUnion = gt.BaseDependencyValueUnion;
 type BaseSectionImpl = gt.BaseSectionImpl;
 
 export function createBaseSectionImpl(
-  options: Partial<BaseSectionImpl> = {},
+  options: CreateOptions<BaseSectionImpl> = {} as CreateOptions<BaseSectionImpl>,
 ): BaseSectionImpl {
   return options as BaseSectionImpl;
 }
@@ -165,7 +166,7 @@ export type BrushStroke = gt.BrushStroke;
 export function createBrushStroke(
   options: Partial<BrushStroke> = {},
 ): BrushStroke {
-  const defaults: BrushStroke = {
+  const defaults = {
     globalCompositeOperation: "source-over",
     lineCap: "round",
     lineWidth: 1,
@@ -182,7 +183,7 @@ export type BrushStrokeArtifact = gt.BrushStrokeArtifact;
 export function createBrushStrokeArtifact(
   options: Partial<BrushStrokeArtifact> = {},
 ): BrushStrokeArtifact {
-  const defaults: BrushStrokeArtifact = {
+  const defaults = {
     id: "",
     type: "BrushStroke",
     value: {
@@ -209,7 +210,7 @@ type CallableSectionImpl = gt.CallableSectionImpl;
 export function createCallableSectionImpl(
   options: Partial<CallableSectionImpl> = {},
 ): CallableSectionImpl {
-  const defaults: CallableSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -245,10 +246,13 @@ export function createCallableSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<CallableSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
     ignoreTypeErrors: createTypeErrorIgnoreState(
-      options["ignoreTypeErrors"] ?? defaults["ignoreTypeErrors"],
-    ),
+      (options["ignoreTypeErrors"] ??
+        defaults["ignoreTypeErrors"]) as Partial<TypeErrorIgnoreState>,
+    ) as unknown as NonNullable<(typeof options)["ignoreTypeErrors"]>,
   };
 }
 
@@ -259,7 +263,7 @@ export type ChartDataArtifact = gt.ChartDataArtifact;
 export function createChartDataArtifact(
   options: Partial<ChartDataArtifact> = {},
 ): ChartDataArtifact {
-  const defaults: ChartDataArtifact = {
+  const defaults = {
     id: "",
     type: "ChartData",
     value: {},
@@ -275,7 +279,7 @@ type ChartSectionImpl = gt.ChartSectionImpl;
 export function createChartSectionImpl(
   options: Partial<ChartSectionImpl> = {},
 ): ChartSectionImpl {
-  const defaults: ChartSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -304,7 +308,9 @@ export function createChartSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<ChartSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -317,7 +323,7 @@ export type ChatSectionImpl = gt.ChatSectionImpl;
 export function createChatSectionImpl(
   options: Partial<ChatSectionImpl> = {},
 ): ChatSectionImpl {
-  const defaults: ChatSectionImpl = {
+  const defaults = {
     activeBranchId: null,
     agentProfileId: null,
     aspectRatio: false,
@@ -353,7 +359,9 @@ export function createChatSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<ChatSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -368,7 +376,7 @@ export type ChatWindowBounds = gt.ChatWindowBounds;
 function createChatWindowBounds(
   options: Partial<ChatWindowBounds> = {},
 ): ChatWindowBounds {
-  const defaults: ChatWindowBounds = {
+  const defaults = {
     height: 520,
     width: 820,
     x: 120,
@@ -384,7 +392,7 @@ type ChatWindowDockMetrics = gt.ChatWindowDockMetrics;
 function createChatWindowDockMetrics(
   options: Partial<ChatWindowDockMetrics> = {},
 ): ChatWindowDockMetrics {
-  const defaults: ChatWindowDockMetrics = {
+  const defaults = {
     preferredWidthPx: null,
     widthFraction: null,
   };
@@ -398,7 +406,7 @@ type CodeCallableCodeObjImpl = gt.CodeCallableCodeObjImpl;
 export type CodeFileBinding = gt.CodeFileBinding;
 
 function createCodeFileBinding(
-  options: Partial<CodeFileBinding> = {},
+  options: CreateOptions<CodeFileBinding> = {} as CreateOptions<CodeFileBinding>,
 ): CodeFileBinding {
   return options as CodeFileBinding;
 }
@@ -408,7 +416,7 @@ type CodeObjTypeValuePolicy = gt.CodeObjTypeValuePolicy;
 function createCodeObjTypeValuePolicy(
   options: Partial<CodeObjTypeValuePolicy> = {},
 ): CodeObjTypeValuePolicy {
-  const defaults: CodeObjTypeValuePolicy = {
+  const defaults = {
     representation: "expression",
   };
   return {
@@ -421,7 +429,7 @@ type CodeObjValueOverride = gt.CodeObjValueOverride;
 function createCodeObjValueOverride(
   options: Partial<CodeObjValueOverride> = {},
 ): CodeObjValueOverride {
-  const defaults: CodeObjValueOverride = {
+  const defaults = {
     representation: "expression",
   };
   return {
@@ -434,7 +442,7 @@ type CodeObjValuePolicy = gt.CodeObjValuePolicy;
 export function createCodeObjValuePolicy(
   options: Partial<CodeObjValuePolicy> = {},
 ): CodeObjValuePolicy {
-  const defaults: CodeObjValuePolicy = {
+  const defaults = {
     codeObjOverrides: {},
     typePolicies: {
       ButtonParam: {
@@ -512,7 +520,7 @@ type CodeParamCodeObjImpl = gt.CodeParamCodeObjImpl;
 export function createCodeParamCodeObjImpl(
   options: Partial<CodeParamCodeObjImpl> = {},
 ): CodeParamCodeObjImpl {
-  const defaults: CodeParamCodeObjImpl = {
+  const defaults = {
     coreNameEditable: false,
     coreNameType: "TEXT",
     defaultVal: "",
@@ -533,7 +541,7 @@ export function createCodeParamCodeObjImpl(
 type CodeSectionDiagnosticsIgnoreState = gt.CodeSectionDiagnosticsIgnoreState;
 
 function createCodeSectionDiagnosticsIgnoreState(
-  options: Partial<CodeSectionDiagnosticsIgnoreState> = {},
+  options: CreateOptions<CodeSectionDiagnosticsIgnoreState> = {} as CreateOptions<CodeSectionDiagnosticsIgnoreState>,
 ): CodeSectionDiagnosticsIgnoreState {
   return options as CodeSectionDiagnosticsIgnoreState;
 }
@@ -543,7 +551,7 @@ type CodeSectionImpl = gt.CodeSectionImpl;
 export function createCodeSectionImpl(
   options: Partial<CodeSectionImpl> = {},
 ): CodeSectionImpl {
-  const defaults: CodeSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -573,21 +581,26 @@ export function createCodeSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<CodeSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
     codeFileBinding:
       options["codeFileBinding"] === null
         ? null
         : (options["codeFileBinding"] ?? defaults["codeFileBinding"]) === null
           ? null
-          : createCodeFileBinding(
-              options["codeFileBinding"] === null
+          : (createCodeFileBinding(
+              (options["codeFileBinding"] === null
                 ? null
-                : ((options["codeFileBinding"] ??
-                    defaults["codeFileBinding"]) as Partial<CodeFileBinding>),
-            ),
+                : options["codeFileBinding"] ??
+                  defaults["codeFileBinding"]) as Partial<CodeFileBinding>,
+            ) as unknown as NonNullable<(typeof options)["codeFileBinding"]>),
     diagnosticsIgnoreState: createCodeSectionDiagnosticsIgnoreState(
-      options["diagnosticsIgnoreState"] ?? defaults["diagnosticsIgnoreState"],
-    ),
+      (options["diagnosticsIgnoreState"] ??
+        defaults[
+          "diagnosticsIgnoreState"
+        ]) as Partial<CodeSectionDiagnosticsIgnoreState>,
+    ) as unknown as NonNullable<(typeof options)["diagnosticsIgnoreState"]>,
   };
 }
 
@@ -600,7 +613,7 @@ export type Connection = gt.Connection;
 export function createConnection(
   options: Partial<Connection> = {},
 ): Connection {
-  const defaults: Connection = {
+  const defaults = {
     connectionType: "SERVER",
     currentAddress: "",
     id: "",
@@ -614,7 +627,7 @@ export function createConnection(
 export type ContentRef = gt.ContentRef;
 
 export function createContentRef(
-  options: Partial<ContentRef> = {},
+  options: CreateOptions<ContentRef> = {} as CreateOptions<ContentRef>,
 ): ContentRef {
   return options as ContentRef;
 }
@@ -622,7 +635,7 @@ export function createContentRef(
 export type Core = gt.Core;
 
 export function createCore(options: Partial<Core> = {}): Core {
-  const defaults: Core = {
+  const defaults = {
     defaultVariant: null,
     displayName: "",
     id: "",
@@ -645,7 +658,7 @@ export type CurrentAddressUpdateMessage = gt.CurrentAddressUpdateMessage;
 export function createCurrentAddressUpdateMessage(
   options: Partial<CurrentAddressUpdateMessage> = {},
 ): CurrentAddressUpdateMessage {
-  const defaults: CurrentAddressUpdateMessage = {
+  const defaults = {
     content: "",
     id: null,
     messageType: "CurrentAddressUpdate",
@@ -664,7 +677,7 @@ export type DictSectionImpl = gt.DictSectionImpl;
 export function createDictSectionImpl(
   options: Partial<DictSectionImpl> = {},
 ): DictSectionImpl {
-  const defaults: DictSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -702,10 +715,13 @@ export function createDictSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<DictSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
     ignoreTypeErrors: createTypeErrorIgnoreState(
-      options["ignoreTypeErrors"] ?? defaults["ignoreTypeErrors"],
-    ),
+      (options["ignoreTypeErrors"] ??
+        defaults["ignoreTypeErrors"]) as Partial<TypeErrorIgnoreState>,
+    ) as unknown as NonNullable<(typeof options)["ignoreTypeErrors"]>,
   };
 }
 
@@ -714,7 +730,7 @@ export type DrawAreaLayer = gt.DrawAreaLayer;
 export function createDrawAreaLayer(
   options: Partial<DrawAreaLayer> = {},
 ): DrawAreaLayer {
-  const defaults: DrawAreaLayer = {
+  const defaults = {
     elements: [],
     layerOpacity: 1,
     name: "",
@@ -731,7 +747,7 @@ export type DrawAreaLayerItem = gt.DrawAreaLayerItem;
 export function createDrawAreaLayerItem(
   options: Partial<DrawAreaLayerItem> = {},
 ): DrawAreaLayerItem {
-  const defaults: DrawAreaLayerItem = {
+  const defaults = {
     dataPath: "",
     transformId: "",
     type: "BrushStroke",
@@ -746,7 +762,7 @@ type DrawAreaLayerItemTransform = gt.DrawAreaLayerItemTransform;
 export function createDrawAreaLayerItemTransform(
   options: Partial<DrawAreaLayerItemTransform> = {},
 ): DrawAreaLayerItemTransform {
-  const defaults: DrawAreaLayerItemTransform = {
+  const defaults = {
     eraserStrokes: [],
     transform: [1, 0, 0, 1, 0, 0],
   };
@@ -761,7 +777,7 @@ export type DrawAreaLayerItemTransformArtifact =
 export function createDrawAreaLayerItemTransformArtifact(
   options: Partial<DrawAreaLayerItemTransformArtifact> = {},
 ): DrawAreaLayerItemTransformArtifact {
-  const defaults: DrawAreaLayerItemTransformArtifact = {
+  const defaults = {
     id: "",
     type: "DrawAreaLayerItemTransform",
     value: {
@@ -792,7 +808,7 @@ export type EngineConfig = gt.EngineConfig;
 export function createEngineConfig(
   options: Partial<EngineConfig> = {},
 ): EngineConfig {
-  const defaults: EngineConfig = {
+  const defaults = {
     defaults: {
       thinking: null,
     },
@@ -806,21 +822,20 @@ export function createEngineConfig(
   return {
     ...mergeGeneratedOptions<EngineConfig>(defaults, options),
     defaults: createEngineConfigDefaults(
-      options["defaults"] ?? defaults["defaults"],
-    ),
+      (options["defaults"] ??
+        defaults["defaults"]) as Partial<EngineConfigDefaults>,
+    ) as unknown as NonNullable<(typeof options)["defaults"]>,
     runtimeSupport:
       options["runtimeSupport"] === null
         ? null
         : (options["runtimeSupport"] ?? defaults["runtimeSupport"]) === null
           ? null
-          : createEngineRuntimeSupport(
-              options["runtimeSupport"] === null
+          : (createEngineRuntimeSupport(
+              (options["runtimeSupport"] === null
                 ? null
-                : ((options["runtimeSupport"] ??
-                    defaults[
-                      "runtimeSupport"
-                    ]) as Partial<EngineRuntimeSupport>),
-            ),
+                : options["runtimeSupport"] ??
+                  defaults["runtimeSupport"]) as Partial<EngineRuntimeSupport>,
+            ) as unknown as NonNullable<(typeof options)["runtimeSupport"]>),
   };
 }
 
@@ -829,7 +844,7 @@ type EngineConfigDefaults = gt.EngineConfigDefaults;
 function createEngineConfigDefaults(
   options: Partial<EngineConfigDefaults> = {},
 ): EngineConfigDefaults {
-  const defaults: EngineConfigDefaults = {
+  const defaults = {
     thinking: null,
   };
   return {
@@ -842,7 +857,7 @@ type EngineRuntimeSupport = gt.EngineRuntimeSupport;
 function createEngineRuntimeSupport(
   options: Partial<EngineRuntimeSupport> = {},
 ): EngineRuntimeSupport {
-  const defaults: EngineRuntimeSupport = {
+  const defaults = {
     thinking: false,
   };
   return {
@@ -865,7 +880,7 @@ type GroupSectionImpl = gt.GroupSectionImpl;
 export function createGroupSectionImpl(
   options: Partial<GroupSectionImpl> = {},
 ): GroupSectionImpl {
-  const defaults: GroupSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -890,7 +905,9 @@ export function createGroupSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<GroupSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -899,7 +916,7 @@ export type IFrameSectionImpl = gt.IFrameSectionImpl;
 export function createIFrameSectionImpl(
   options: Partial<IFrameSectionImpl> = {},
 ): IFrameSectionImpl {
-  const defaults: IFrameSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -921,7 +938,9 @@ export function createIFrameSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<IFrameSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -930,7 +949,7 @@ export type ImageArtifact = gt.ImageArtifact;
 export function createImageArtifact(
   options: Partial<ImageArtifact> = {},
 ): ImageArtifact {
-  const defaults: ImageArtifact = {
+  const defaults = {
     id: "",
     type: "Image",
     value: {
@@ -951,7 +970,9 @@ export type JSONArtifact = gt.JSONArtifact;
 
 export type LLMConfig = gt.LLMConfig;
 
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+export function createLLMConfig(
+  options: CreateOptions<LLMConfig> = {} as CreateOptions<LLMConfig>,
+): LLMConfig {
   return options as LLMConfig;
 }
 
@@ -962,7 +983,7 @@ export type LSPDiagnostic = gt.LSPDiagnostic;
 export type LSPDiagnosticsPayload = gt.LSPDiagnosticsPayload;
 
 export function createLSPDiagnosticsPayload(
-  options: Partial<LSPDiagnosticsPayload> = {},
+  options: CreateOptions<LSPDiagnosticsPayload> = {} as CreateOptions<LSPDiagnosticsPayload>,
 ): LSPDiagnosticsPayload {
   return options as LSPDiagnosticsPayload;
 }
@@ -970,7 +991,7 @@ export function createLSPDiagnosticsPayload(
 export type LanguageServerSelectionStatus = gt.LanguageServerSelectionStatus;
 
 export function createLanguageServerSelectionStatus(
-  options: Partial<LanguageServerSelectionStatus> = {},
+  options: CreateOptions<LanguageServerSelectionStatus> = {} as CreateOptions<LanguageServerSelectionStatus>,
 ): LanguageServerSelectionStatus {
   return options as LanguageServerSelectionStatus;
 }
@@ -980,7 +1001,7 @@ export type LineChartSettings = gt.LineChartSettings;
 export function createLineChartSettings(
   options: Partial<LineChartSettings> = {},
 ): LineChartSettings {
-  const defaults: LineChartSettings = {
+  const defaults = {
     secondYAxisColumns: [],
     type: "line",
     xAxisColumn: null,
@@ -998,7 +1019,7 @@ type ListRootSectionImpl = gt.ListRootSectionImpl;
 export function createListRootSectionImpl(
   options: Partial<ListRootSectionImpl> = {},
 ): ListRootSectionImpl {
-  const defaults: ListRootSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -1022,14 +1043,16 @@ export function createListRootSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<ListRootSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
 export type ListenerCoverageSnapshot = gt.ListenerCoverageSnapshot;
 
 export function createListenerCoverageSnapshot(
-  options: Partial<ListenerCoverageSnapshot> = {},
+  options: CreateOptions<ListenerCoverageSnapshot> = {} as CreateOptions<ListenerCoverageSnapshot>,
 ): ListenerCoverageSnapshot {
   return options as ListenerCoverageSnapshot;
 }
@@ -1049,7 +1072,7 @@ export type MessageTextContent = gt.MessageTextContent;
 export function createMessageTextContent(
   options: Partial<MessageTextContent> = {},
 ): MessageTextContent {
-  const defaults: MessageTextContent = {
+  const defaults = {
     text: "",
     type: "text",
   };
@@ -1063,7 +1086,7 @@ export type MessageThinkingContent = gt.MessageThinkingContent;
 export function createMessageThinkingContent(
   options: Partial<MessageThinkingContent> = {},
 ): MessageThinkingContent {
-  const defaults: MessageThinkingContent = {
+  const defaults = {
     signature: "",
     summary: "",
     thinking: "",
@@ -1081,7 +1104,7 @@ type MetaControlSizingPolicyByType = gt.MetaControlSizingPolicyByType;
 function createMetaControlSizingPolicyByType(
   options: Partial<MetaControlSizingPolicyByType> = {},
 ): MetaControlSizingPolicyByType {
-  const defaults: MetaControlSizingPolicyByType = {
+  const defaults = {
     ButtonParam: {
       minHeight: 32,
       minWidth: 200,
@@ -1176,50 +1199,67 @@ function createMetaControlSizingPolicyByType(
   return {
     ...mergeGeneratedOptions<MetaControlSizingPolicyByType>(defaults, options),
     CodeCallable: createMetaControlSizingPolicyTypeEntry(
-      options["CodeCallable"] ?? defaults["CodeCallable"],
-    ),
+      (options["CodeCallable"] ??
+        defaults["CodeCallable"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["CodeCallable"]>,
     CodeParam: createMetaControlSizingPolicyTypeEntry(
-      options["CodeParam"] ?? defaults["CodeParam"],
-    ),
+      (options["CodeParam"] ??
+        defaults["CodeParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["CodeParam"]>,
     TextParam: createMetaControlSizingPolicyTypeEntry(
-      options["TextParam"] ?? defaults["TextParam"],
-    ),
+      (options["TextParam"] ??
+        defaults["TextParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["TextParam"]>,
     DateParam: createMetaControlSizingPolicyTypeEntry(
-      options["DateParam"] ?? defaults["DateParam"],
-    ),
+      (options["DateParam"] ??
+        defaults["DateParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["DateParam"]>,
     TimeParam: createMetaControlSizingPolicyTypeEntry(
-      options["TimeParam"] ?? defaults["TimeParam"],
-    ),
+      (options["TimeParam"] ??
+        defaults["TimeParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["TimeParam"]>,
     ButtonParam: createMetaControlSizingPolicyTypeEntry(
-      options["ButtonParam"] ?? defaults["ButtonParam"],
-    ),
+      (options["ButtonParam"] ??
+        defaults["ButtonParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["ButtonParam"]>,
     SliderParam: createMetaControlSizingPolicyTypeEntry(
-      options["SliderParam"] ?? defaults["SliderParam"],
-    ),
+      (options["SliderParam"] ??
+        defaults["SliderParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["SliderParam"]>,
     RotaryParam: createMetaControlSizingPolicyTypeEntry(
-      options["RotaryParam"] ?? defaults["RotaryParam"],
-    ),
+      (options["RotaryParam"] ??
+        defaults["RotaryParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["RotaryParam"]>,
     SwitchParam: createMetaControlSizingPolicyTypeEntry(
-      options["SwitchParam"] ?? defaults["SwitchParam"],
-    ),
+      (options["SwitchParam"] ??
+        defaults["SwitchParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["SwitchParam"]>,
     ColorPickerParam: createMetaControlSizingPolicyTypeEntry(
-      options["ColorPickerParam"] ?? defaults["ColorPickerParam"],
-    ),
+      (options["ColorPickerParam"] ??
+        defaults[
+          "ColorPickerParam"
+        ]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["ColorPickerParam"]>,
     DropdownParam: createMetaControlSizingPolicyTypeEntry(
-      options["DropdownParam"] ?? defaults["DropdownParam"],
-    ),
+      (options["DropdownParam"] ??
+        defaults["DropdownParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["DropdownParam"]>,
     PasswordParam: createMetaControlSizingPolicyTypeEntry(
-      options["PasswordParam"] ?? defaults["PasswordParam"],
-    ),
+      (options["PasswordParam"] ??
+        defaults["PasswordParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["PasswordParam"]>,
     TextAreaParam: createMetaControlSizingPolicyTypeEntry(
-      options["TextAreaParam"] ?? defaults["TextAreaParam"],
-    ),
+      (options["TextAreaParam"] ??
+        defaults["TextAreaParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["TextAreaParam"]>,
     DropzoneParam: createMetaControlSizingPolicyTypeEntry(
-      options["DropzoneParam"] ?? defaults["DropzoneParam"],
-    ),
+      (options["DropzoneParam"] ??
+        defaults["DropzoneParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["DropzoneParam"]>,
     NestedParam: createMetaControlSizingPolicyTypeEntry(
-      options["NestedParam"] ?? defaults["NestedParam"],
-    ),
+      (options["NestedParam"] ??
+        defaults["NestedParam"]) as Partial<MetaControlSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["NestedParam"]>,
   };
 }
 
@@ -1227,7 +1267,7 @@ export type MetaControlSizingPolicyTypeEntry =
   gt.MetaControlSizingPolicyTypeEntry;
 
 function createMetaControlSizingPolicyTypeEntry(
-  options: Partial<MetaControlSizingPolicyTypeEntry> = {},
+  options: CreateOptions<MetaControlSizingPolicyTypeEntry> = {} as CreateOptions<MetaControlSizingPolicyTypeEntry>,
 ): MetaControlSizingPolicyTypeEntry {
   return options as MetaControlSizingPolicyTypeEntry;
 }
@@ -1235,7 +1275,7 @@ function createMetaControlSizingPolicyTypeEntry(
 type NestedParamCodeObjImpl = gt.NestedParamCodeObjImpl;
 
 export function createNestedParamCodeObjImpl(
-  options: Partial<NestedParamCodeObjImpl> = {},
+  options: CreateOptions<NestedParamCodeObjImpl> = {} as CreateOptions<NestedParamCodeObjImpl>,
 ): NestedParamCodeObjImpl {
   return options as NestedParamCodeObjImpl;
 }
@@ -1245,7 +1285,7 @@ export type NormalizedFloatingWindowBounds = gt.NormalizedFloatingWindowBounds;
 function createNormalizedFloatingWindowBounds(
   options: Partial<NormalizedFloatingWindowBounds> = {},
 ): NormalizedFloatingWindowBounds {
-  const defaults: NormalizedFloatingWindowBounds = {
+  const defaults = {
     height: 1,
     width: 1,
     x: 0,
@@ -1259,7 +1299,7 @@ function createNormalizedFloatingWindowBounds(
 type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
 
 export function createPasswordParamCodeObjImpl(
-  options: Partial<PasswordParamCodeObjImpl> = {},
+  options: CreateOptions<PasswordParamCodeObjImpl> = {} as CreateOptions<PasswordParamCodeObjImpl>,
 ): PasswordParamCodeObjImpl {
   return options as PasswordParamCodeObjImpl;
 }
@@ -1271,7 +1311,7 @@ export type PluginInstallResponse = gt.PluginInstallResponse;
 export type PluginListEntry = gt.PluginListEntry;
 
 export function createPluginListEntry(
-  options: Partial<PluginListEntry> = {},
+  options: CreateOptions<PluginListEntry> = {} as CreateOptions<PluginListEntry>,
 ): PluginListEntry {
   return options as PluginListEntry;
 }
@@ -1279,7 +1319,7 @@ export function createPluginListEntry(
 export type PluginListResponse = gt.PluginListResponse;
 
 export function createPluginListResponse(
-  options: Partial<PluginListResponse> = {},
+  options: CreateOptions<PluginListResponse> = {} as CreateOptions<PluginListResponse>,
 ): PluginListResponse {
   return options as PluginListResponse;
 }
@@ -1291,7 +1331,7 @@ export type PluginRestartResponse = gt.PluginRestartResponse;
 export type PluginRuntimeResponse = gt.PluginRuntimeResponse;
 
 export function createPluginRuntimeResponse(
-  options: Partial<PluginRuntimeResponse> = {},
+  options: CreateOptions<PluginRuntimeResponse> = {} as CreateOptions<PluginRuntimeResponse>,
 ): PluginRuntimeResponse {
   return options as PluginRuntimeResponse;
 }
@@ -1299,7 +1339,7 @@ export function createPluginRuntimeResponse(
 export type PluginStatusEntry = gt.PluginStatusEntry;
 
 export function createPluginStatusEntry(
-  options: Partial<PluginStatusEntry> = {},
+  options: CreateOptions<PluginStatusEntry> = {} as CreateOptions<PluginStatusEntry>,
 ): PluginStatusEntry {
   return options as PluginStatusEntry;
 }
@@ -1307,14 +1347,16 @@ export function createPluginStatusEntry(
 export type PluginStatusResponse = gt.PluginStatusResponse;
 
 export function createPluginStatusResponse(
-  options: Partial<PluginStatusResponse> = {},
+  options: CreateOptions<PluginStatusResponse> = {} as CreateOptions<PluginStatusResponse>,
 ): PluginStatusResponse {
   return options as PluginStatusResponse;
 }
 
 export type Policy = gt.Policy;
 
-export function createPolicy(options: Partial<Policy> = {}): Policy {
+export function createPolicy(
+  options: CreateOptions<Policy> = {} as CreateOptions<Policy>,
+): Policy {
   return options as Policy;
 }
 
@@ -1325,7 +1367,7 @@ export type ProjectChatWindowInstance = gt.ProjectChatWindowInstance;
 export function createProjectChatWindowInstance(
   options: Partial<ProjectChatWindowInstance> = {},
 ): ProjectChatWindowInstance {
-  const defaults: ProjectChatWindowInstance = {
+  const defaults = {
     bounds: {
       height: 520,
       width: 820,
@@ -1351,10 +1393,13 @@ export function createProjectChatWindowInstance(
   };
   return {
     ...mergeGeneratedOptions<ProjectChatWindowInstance>(defaults, options),
-    bounds: createChatWindowBounds(options["bounds"] ?? defaults["bounds"]),
+    bounds: createChatWindowBounds(
+      (options["bounds"] ?? defaults["bounds"]) as Partial<ChatWindowBounds>,
+    ) as unknown as NonNullable<(typeof options)["bounds"]>,
     dockMetrics: createChatWindowDockMetrics(
-      options["dockMetrics"] ?? defaults["dockMetrics"],
-    ),
+      (options["dockMetrics"] ??
+        defaults["dockMetrics"]) as Partial<ChatWindowDockMetrics>,
+    ) as unknown as NonNullable<(typeof options)["dockMetrics"]>,
   };
 }
 
@@ -1363,7 +1408,7 @@ export type ProjectChatWindowingState = gt.ProjectChatWindowingState;
 export function createProjectChatWindowingState(
   options: Partial<ProjectChatWindowingState> = {},
 ): ProjectChatWindowingState {
-  const defaults: ProjectChatWindowingState = {
+  const defaults = {
     instancesById: {},
     nextInstanceNumber: 1,
     order: [],
@@ -1378,7 +1423,7 @@ type ProjectCodegenPluginTarget = gt.ProjectCodegenPluginTarget;
 export function createProjectCodegenPluginTarget(
   options: Partial<ProjectCodegenPluginTarget> = {},
 ): ProjectCodegenPluginTarget {
-  const defaults: ProjectCodegenPluginTarget = {
+  const defaults = {
     language: "",
     options: {},
   };
@@ -1392,7 +1437,7 @@ export type ProjectCodegenPythonTarget = gt.ProjectCodegenPythonTarget;
 export function createProjectCodegenPythonTarget(
   options: Partial<ProjectCodegenPythonTarget> = {},
 ): ProjectCodegenPythonTarget {
-  const defaults: ProjectCodegenPythonTarget = {
+  const defaults = {
     codeObjValuePolicy: {
       codeObjOverrides: {},
       typePolicies: {
@@ -1584,11 +1629,13 @@ export function createProjectCodegenPythonTarget(
   return {
     ...mergeGeneratedOptions<ProjectCodegenPythonTarget>(defaults, options),
     sectionPolicy: createSectionCodegenPolicy(
-      options["sectionPolicy"] ?? defaults["sectionPolicy"],
-    ),
+      (options["sectionPolicy"] ??
+        defaults["sectionPolicy"]) as Partial<SectionCodegenPolicy>,
+    ) as unknown as NonNullable<(typeof options)["sectionPolicy"]>,
     codeObjValuePolicy: createCodeObjValuePolicy(
-      options["codeObjValuePolicy"] ?? defaults["codeObjValuePolicy"],
-    ),
+      (options["codeObjValuePolicy"] ??
+        defaults["codeObjValuePolicy"]) as Partial<CodeObjValuePolicy>,
+    ) as unknown as NonNullable<(typeof options)["codeObjValuePolicy"]>,
   };
 }
 
@@ -1599,7 +1646,7 @@ export type ProjectConfig = gt.ProjectConfig;
 export function createProjectConfig(
   options: Partial<ProjectConfig> = {},
 ): ProjectConfig {
-  const defaults: ProjectConfig = {
+  const defaults = {
     activeIds: [],
     activeViewModeId: null,
     agenticEdges: [],
@@ -1642,22 +1689,23 @@ export function createProjectConfig(
         ? null
         : (options["viewport"] ?? defaults["viewport"]) === null
           ? null
-          : createViewport(
-              options["viewport"] === null
+          : (createViewport(
+              (options["viewport"] === null
                 ? null
-                : ((options["viewport"] ??
-                    defaults["viewport"]) as Partial<Viewport>),
-            ),
+                : options["viewport"] ??
+                  defaults["viewport"]) as Partial<Viewport>,
+            ) as unknown as NonNullable<(typeof options)["viewport"]>),
     runCapabilities: createProjectRunCapabilities(
-      options["runCapabilities"] ?? defaults["runCapabilities"],
-    ),
+      (options["runCapabilities"] ??
+        defaults["runCapabilities"]) as Partial<ProjectRunCapabilities>,
+    ) as unknown as NonNullable<(typeof options)["runCapabilities"]>,
   };
 }
 
 export type ProjectConfigDiagnostics = gt.ProjectConfigDiagnostics;
 
 export function createProjectConfigDiagnostics(
-  options: Partial<ProjectConfigDiagnostics> = {},
+  options: CreateOptions<ProjectConfigDiagnostics> = {} as CreateOptions<ProjectConfigDiagnostics>,
 ): ProjectConfigDiagnostics {
   return options as ProjectConfigDiagnostics;
 }
@@ -1669,7 +1717,7 @@ type ProjectRunCapabilities = gt.ProjectRunCapabilities;
 export function createProjectRunCapabilities(
   options: Partial<ProjectRunCapabilities> = {},
 ): ProjectRunCapabilities {
-  const defaults: ProjectRunCapabilities = {
+  const defaults = {
     canRunFromMain: false,
     effectiveEntrySectionId: null,
     mainRunDisabledReason: null,
@@ -1684,7 +1732,7 @@ export type PromptSectionImpl = gt.PromptSectionImpl;
 export function createPromptSectionImpl(
   options: Partial<PromptSectionImpl> = {},
 ): PromptSectionImpl {
-  const defaults: PromptSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -1712,7 +1760,9 @@ export function createPromptSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<PromptSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -1733,7 +1783,7 @@ export type SectionCapabilities = gt.SectionCapabilities;
 export function createSectionCapabilities(
   options: Partial<SectionCapabilities> = {},
 ): SectionCapabilities {
-  const defaults: SectionCapabilities = {
+  const defaults = {
     canRun: false,
     canSelectAsEntryCodeBlock: false,
     entryCodeBlockValue: null,
@@ -1750,7 +1800,7 @@ type SectionCodegenOverride = gt.SectionCodegenOverride;
 function createSectionCodegenOverride(
   options: Partial<SectionCodegenOverride> = {},
 ): SectionCodegenOverride {
-  const defaults: SectionCodegenOverride = {
+  const defaults = {
     mode: "inherit",
     representation: "expression",
   };
@@ -1764,7 +1814,7 @@ type SectionCodegenPolicy = gt.SectionCodegenPolicy;
 export function createSectionCodegenPolicy(
   options: Partial<SectionCodegenPolicy> = {},
 ): SectionCodegenPolicy {
-  const defaults: SectionCodegenPolicy = {
+  const defaults = {
     allowlist: [
       "Callable",
       "Dict",
@@ -1929,7 +1979,7 @@ export type SectionSize = gt.SectionSize;
 export function createSectionSize(
   options: Partial<SectionSize> = {},
 ): SectionSize {
-  const defaults: SectionSize = {
+  const defaults = {
     height: "auto",
     width: "auto",
   };
@@ -1945,7 +1995,7 @@ export type SectionSizingPolicy = gt.SectionSizingPolicy;
 function createSectionSizingPolicy(
   options: Partial<SectionSizingPolicy> = {},
 ): SectionSizingPolicy {
-  const defaults: SectionSizingPolicy = {
+  const defaults = {
     byType: {
       Browser: {
         maxHeight: 100000,
@@ -2204,14 +2254,19 @@ function createSectionSizingPolicy(
   return {
     ...mergeGeneratedOptions<SectionSizingPolicy>(defaults, options),
     byType: createSectionSizingPolicyByType(
-      options["byType"] ?? defaults["byType"],
-    ),
+      (options["byType"] ??
+        defaults["byType"]) as Partial<SectionSizingPolicyByType>,
+    ) as unknown as NonNullable<(typeof options)["byType"]>,
     metaControlByType: createMetaControlSizingPolicyByType(
-      options["metaControlByType"] ?? defaults["metaControlByType"],
-    ),
+      (options["metaControlByType"] ??
+        defaults[
+          "metaControlByType"
+        ]) as Partial<MetaControlSizingPolicyByType>,
+    ) as unknown as NonNullable<(typeof options)["metaControlByType"]>,
     globals: createSectionSizingPolicyGlobals(
-      options["globals"] ?? defaults["globals"],
-    ),
+      (options["globals"] ??
+        defaults["globals"]) as Partial<SectionSizingPolicyGlobals>,
+    ) as unknown as NonNullable<(typeof options)["globals"]>,
   };
 }
 
@@ -2220,7 +2275,7 @@ type SectionSizingPolicyByType = gt.SectionSizingPolicyByType;
 function createSectionSizingPolicyByType(
   options: Partial<SectionSizingPolicyByType> = {},
 ): SectionSizingPolicyByType {
-  const defaults: SectionSizingPolicyByType = {
+  const defaults = {
     Browser: {
       maxHeight: 100000,
       maxWidth: 100000,
@@ -2377,80 +2432,105 @@ function createSectionSizingPolicyByType(
   return {
     ...mergeGeneratedOptions<SectionSizingPolicyByType>(defaults, options),
     Callable: createSectionSizingPolicyCallableTypeEntry(
-      options["Callable"] ?? defaults["Callable"],
-    ),
+      (options["Callable"] ??
+        defaults["Callable"]) as Partial<SectionSizingPolicyCallableTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Callable"]>,
     Dict: createSectionSizingPolicyTypeEntry(
-      options["Dict"] ?? defaults["Dict"],
-    ),
+      (options["Dict"] ??
+        defaults["Dict"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Dict"]>,
     ListRoot: createSectionSizingPolicyTypeEntry(
-      options["ListRoot"] ?? defaults["ListRoot"],
-    ),
+      (options["ListRoot"] ??
+        defaults["ListRoot"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["ListRoot"]>,
     Group: createSectionSizingPolicyTypeEntry(
-      options["Group"] ?? defaults["Group"],
-    ),
+      (options["Group"] ??
+        defaults["Group"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Group"]>,
     StateMachineStart: createSectionSizingPolicyTypeEntry(
-      options["StateMachineStart"] ?? defaults["StateMachineStart"],
-    ),
+      (options["StateMachineStart"] ??
+        defaults["StateMachineStart"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["StateMachineStart"]>,
     StateMachineGate: createSectionSizingPolicyTypeEntry(
-      options["StateMachineGate"] ?? defaults["StateMachineGate"],
-    ),
+      (options["StateMachineGate"] ??
+        defaults["StateMachineGate"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["StateMachineGate"]>,
     StateMachineEnd: createSectionSizingPolicyTypeEntry(
-      options["StateMachineEnd"] ?? defaults["StateMachineEnd"],
-    ),
+      (options["StateMachineEnd"] ??
+        defaults["StateMachineEnd"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["StateMachineEnd"]>,
     Image: createSectionSizingPolicyTypeEntry(
-      options["Image"] ?? defaults["Image"],
-    ),
+      (options["Image"] ??
+        defaults["Image"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Image"]>,
     Chart: createSectionSizingPolicyTypeEntry(
-      options["Chart"] ?? defaults["Chart"],
-    ),
+      (options["Chart"] ??
+        defaults["Chart"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Chart"]>,
     Draw: createSectionSizingPolicyTypeEntry(
-      options["Draw"] ?? defaults["Draw"],
-    ),
+      (options["Draw"] ??
+        defaults["Draw"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Draw"]>,
     Prompt: createSectionSizingPolicyTypeEntry(
-      options["Prompt"] ?? defaults["Prompt"],
-    ),
+      (options["Prompt"] ??
+        defaults["Prompt"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Prompt"]>,
     TextBlock: createSectionSizingPolicyTypeEntry(
-      options["TextBlock"] ?? defaults["TextBlock"],
-    ),
+      (options["TextBlock"] ??
+        defaults["TextBlock"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["TextBlock"]>,
     MetaControl: createSectionSizingPolicyTypeEntry(
-      options["MetaControl"] ?? defaults["MetaControl"],
-    ),
+      (options["MetaControl"] ??
+        defaults["MetaControl"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["MetaControl"]>,
     Social: createSectionSizingPolicyTypeEntry(
-      options["Social"] ?? defaults["Social"],
-    ),
+      (options["Social"] ??
+        defaults["Social"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Social"]>,
     GlobalVariables: createSectionSizingPolicyTypeEntry(
-      options["GlobalVariables"] ?? defaults["GlobalVariables"],
-    ),
+      (options["GlobalVariables"] ??
+        defaults["GlobalVariables"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["GlobalVariables"]>,
     Code: createSectionSizingPolicyTypeEntry(
-      options["Code"] ?? defaults["Code"],
-    ),
+      (options["Code"] ??
+        defaults["Code"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Code"]>,
     GenPythonCode: createSectionSizingPolicyTypeEntry(
-      options["GenPythonCode"] ?? defaults["GenPythonCode"],
-    ),
+      (options["GenPythonCode"] ??
+        defaults["GenPythonCode"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["GenPythonCode"]>,
     GenPythonMetadata: createSectionSizingPolicyTypeEntry(
-      options["GenPythonMetadata"] ?? defaults["GenPythonMetadata"],
-    ),
+      (options["GenPythonMetadata"] ??
+        defaults["GenPythonMetadata"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["GenPythonMetadata"]>,
     Terminal: createSectionSizingPolicyTypeEntry(
-      options["Terminal"] ?? defaults["Terminal"],
-    ),
+      (options["Terminal"] ??
+        defaults["Terminal"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Terminal"]>,
     IFrame: createSectionSizingPolicyTypeEntry(
-      options["IFrame"] ?? defaults["IFrame"],
-    ),
+      (options["IFrame"] ??
+        defaults["IFrame"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["IFrame"]>,
     Chat: createSectionSizingPolicyTypeEntry(
-      options["Chat"] ?? defaults["Chat"],
-    ),
+      (options["Chat"] ??
+        defaults["Chat"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Chat"]>,
     Browser: createSectionSizingPolicyTypeEntry(
-      options["Browser"] ?? defaults["Browser"],
-    ),
+      (options["Browser"] ??
+        defaults["Browser"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Browser"]>,
     Plugin: createSectionSizingPolicyTypeEntry(
-      options["Plugin"] ?? defaults["Plugin"],
-    ),
+      (options["Plugin"] ??
+        defaults["Plugin"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Plugin"]>,
     TaskBoard: createSectionSizingPolicyTypeEntry(
-      options["TaskBoard"] ?? defaults["TaskBoard"],
-    ),
+      (options["TaskBoard"] ??
+        defaults["TaskBoard"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["TaskBoard"]>,
     Spreadsheet: createSectionSizingPolicyTypeEntry(
-      options["Spreadsheet"] ?? defaults["Spreadsheet"],
-    ),
+      (options["Spreadsheet"] ??
+        defaults["Spreadsheet"]) as Partial<SectionSizingPolicyTypeEntry>,
+    ) as unknown as NonNullable<(typeof options)["Spreadsheet"]>,
   };
 }
 
@@ -2458,7 +2538,7 @@ type SectionSizingPolicyCallableTypeEntry =
   gt.SectionSizingPolicyCallableTypeEntry;
 
 function createSectionSizingPolicyCallableTypeEntry(
-  options: Partial<SectionSizingPolicyCallableTypeEntry> = {},
+  options: CreateOptions<SectionSizingPolicyCallableTypeEntry> = {} as CreateOptions<SectionSizingPolicyCallableTypeEntry>,
 ): SectionSizingPolicyCallableTypeEntry {
   return options as SectionSizingPolicyCallableTypeEntry;
 }
@@ -2468,7 +2548,7 @@ type SectionSizingPolicyGlobals = gt.SectionSizingPolicyGlobals;
 function createSectionSizingPolicyGlobals(
   options: Partial<SectionSizingPolicyGlobals> = {},
 ): SectionSizingPolicyGlobals {
-  const defaults: SectionSizingPolicyGlobals = {
+  const defaults = {
     autoMaxHeight: 350,
     infiniteMaxHeight: 100000,
     infiniteMaxWidth: 100000,
@@ -2484,7 +2564,7 @@ function createSectionSizingPolicyGlobals(
 type SectionSizingPolicyTypeEntry = gt.SectionSizingPolicyTypeEntry;
 
 function createSectionSizingPolicyTypeEntry(
-  options: Partial<SectionSizingPolicyTypeEntry> = {},
+  options: CreateOptions<SectionSizingPolicyTypeEntry> = {} as CreateOptions<SectionSizingPolicyTypeEntry>,
 ): SectionSizingPolicyTypeEntry {
   return options as SectionSizingPolicyTypeEntry;
 }
@@ -2494,7 +2574,7 @@ type SectionTypeCodegenPolicy = gt.SectionTypeCodegenPolicy;
 function createSectionTypeCodegenPolicy(
   options: Partial<SectionTypeCodegenPolicy> = {},
 ): SectionTypeCodegenPolicy {
-  const defaults: SectionTypeCodegenPolicy = {
+  const defaults = {
     mode: "inherit",
     representation: "expression",
   };
@@ -2512,7 +2592,7 @@ type SettingsBackend = gt.SettingsBackend;
 function createSettingsBackend(
   options: Partial<SettingsBackend> = {},
 ): SettingsBackend {
-  const defaults: SettingsBackend = {
+  const defaults = {
     autoRefetchCallableParamsOnLspMismatch: true,
     autobackup: true,
     autobackupFreq: 300,
@@ -2542,7 +2622,7 @@ type SettingsChatWindowing = gt.SettingsChatWindowing;
 function createSettingsChatWindowing(
   options: Partial<SettingsChatWindowing> = {},
 ): SettingsChatWindowing {
-  const defaults: SettingsChatWindowing = {
+  const defaults = {
     autoCreateInitialChat: true,
     restorePriorStateOnUnmaximize: true,
     shortcuts: {
@@ -2558,8 +2638,9 @@ function createSettingsChatWindowing(
   return {
     ...mergeGeneratedOptions<SettingsChatWindowing>(defaults, options),
     shortcuts: createSettingsChatWindowingShortcuts(
-      options["shortcuts"] ?? defaults["shortcuts"],
-    ),
+      (options["shortcuts"] ??
+        defaults["shortcuts"]) as Partial<SettingsChatWindowingShortcuts>,
+    ) as unknown as NonNullable<(typeof options)["shortcuts"]>,
   };
 }
 
@@ -2568,7 +2649,7 @@ type SettingsChatWindowingShortcuts = gt.SettingsChatWindowingShortcuts;
 function createSettingsChatWindowingShortcuts(
   options: Partial<SettingsChatWindowingShortcuts> = {},
 ): SettingsChatWindowingShortcuts {
-  const defaults: SettingsChatWindowingShortcuts = {
+  const defaults = {
     canvasToggle: "Shift + Esc",
     maximizeFocused: "Mod + Shift + Enter",
     minimizeFocused: "Mod + Shift + M",
@@ -2585,7 +2666,7 @@ function createSettingsChatWindowingShortcuts(
 type SettingsGUI = gt.SettingsGUI;
 
 function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
-  const defaults: SettingsGUI = {
+  const defaults = {
     defaultZoomLevel: 1,
     gridColor: "#afbacf",
     gridColorDarkMode: "#2b364a",
@@ -2652,7 +2733,7 @@ type SettingsLanguageServer = gt.SettingsLanguageServer;
 function createSettingsLanguageServer(
   options: Partial<SettingsLanguageServer> = {},
 ): SettingsLanguageServer {
-  const defaults: SettingsLanguageServer = {
+  const defaults = {
     selectedByLanguage: {},
   };
   return {
@@ -2665,7 +2746,7 @@ type SettingsShortcuts = gt.SettingsShortcuts;
 function createSettingsShortcuts(
   options: Partial<SettingsShortcuts> = {},
 ): SettingsShortcuts {
-  const defaults: SettingsShortcuts = {
+  const defaults = {
     advancedSearchShortcut: "Mod + P",
     commandPaletteShortcut: "Mod + Shift + P",
     copyShortcut: "Mod + C",
@@ -2739,7 +2820,7 @@ export type SettingsState = gt.SettingsState;
 export function createSettingsState(
   options: Partial<SettingsState> = {},
 ): SettingsState {
-  const defaults: SettingsState = {
+  const defaults = {
     backend: {
       autoRefetchCallableParamsOnLspMismatch: true,
       autobackup: true,
@@ -3153,19 +3234,27 @@ export function createSettingsState(
   return {
     ...mergeGeneratedOptions<SettingsState>(defaults, options),
     shortcuts: createSettingsShortcuts(
-      options["shortcuts"] ?? defaults["shortcuts"],
-    ),
-    gui: createSettingsGUI(options["gui"] ?? defaults["gui"]),
-    backend: createSettingsBackend(options["backend"] ?? defaults["backend"]),
+      (options["shortcuts"] ??
+        defaults["shortcuts"]) as Partial<SettingsShortcuts>,
+    ) as unknown as NonNullable<(typeof options)["shortcuts"]>,
+    gui: createSettingsGUI(
+      (options["gui"] ?? defaults["gui"]) as Partial<SettingsGUI>,
+    ) as unknown as NonNullable<(typeof options)["gui"]>,
+    backend: createSettingsBackend(
+      (options["backend"] ?? defaults["backend"]) as Partial<SettingsBackend>,
+    ) as unknown as NonNullable<(typeof options)["backend"]>,
     chatWindowing: createSettingsChatWindowing(
-      options["chatWindowing"] ?? defaults["chatWindowing"],
-    ),
+      (options["chatWindowing"] ??
+        defaults["chatWindowing"]) as Partial<SettingsChatWindowing>,
+    ) as unknown as NonNullable<(typeof options)["chatWindowing"]>,
     sectionSizingPolicy: createSectionSizingPolicy(
-      options["sectionSizingPolicy"] ?? defaults["sectionSizingPolicy"],
-    ),
+      (options["sectionSizingPolicy"] ??
+        defaults["sectionSizingPolicy"]) as Partial<SectionSizingPolicy>,
+    ) as unknown as NonNullable<(typeof options)["sectionSizingPolicy"]>,
     languageServer: createSettingsLanguageServer(
-      options["languageServer"] ?? defaults["languageServer"],
-    ),
+      (options["languageServer"] ??
+        defaults["languageServer"]) as Partial<SettingsLanguageServer>,
+    ) as unknown as NonNullable<(typeof options)["languageServer"]>,
   };
 }
 
@@ -3176,7 +3265,7 @@ export type SingleConfig = gt.SingleConfig;
 export function createSingleConfig(
   options: Partial<SingleConfig> = {},
 ): SingleConfig {
-  const defaults: SingleConfig = {
+  const defaults = {
     artifactGroups: {},
     codeObjImpls: {},
     codeObjVariants: {},
@@ -3239,25 +3328,28 @@ export function createSingleConfig(
   return {
     ...mergeGeneratedOptions<SingleConfig>(defaults, options),
     projectConfig: createProjectConfig(
-      options["projectConfig"] ?? defaults["projectConfig"],
-    ),
+      (options["projectConfig"] ??
+        defaults["projectConfig"]) as Partial<ProjectConfig>,
+    ) as unknown as NonNullable<(typeof options)["projectConfig"]>,
     singletonSections: createSingletonSections(
-      options["singletonSections"] ?? defaults["singletonSections"],
-    ),
+      (options["singletonSections"] ??
+        defaults["singletonSections"]) as Partial<SingletonSections>,
+    ) as unknown as NonNullable<(typeof options)["singletonSections"]>,
     genCodeBinding:
       options["genCodeBinding"] === null
         ? null
         : (options["genCodeBinding"] ?? defaults["genCodeBinding"]) === null
           ? null
-          : createCodeFileBinding(
-              options["genCodeBinding"] === null
+          : (createCodeFileBinding(
+              (options["genCodeBinding"] === null
                 ? null
-                : ((options["genCodeBinding"] ??
-                    defaults["genCodeBinding"]) as Partial<CodeFileBinding>),
-            ),
+                : options["genCodeBinding"] ??
+                  defaults["genCodeBinding"]) as Partial<CodeFileBinding>,
+            ) as unknown as NonNullable<(typeof options)["genCodeBinding"]>),
     projectChatWindowing: createProjectChatWindowingState(
-      options["projectChatWindowing"] ?? defaults["projectChatWindowing"],
-    ),
+      (options["projectChatWindowing"] ??
+        defaults["projectChatWindowing"]) as Partial<ProjectChatWindowingState>,
+    ) as unknown as NonNullable<(typeof options)["projectChatWindowing"]>,
   };
 }
 
@@ -3266,7 +3358,7 @@ type SingletonSections = gt.SingletonSections;
 export function createSingletonSections(
   options: Partial<SingletonSections> = {},
 ): SingletonSections {
-  const defaults: SingletonSections = {
+  const defaults = {
     GenPythonCode: null,
     GenPythonMetadata: null,
     GlobalVariables: null,
@@ -3283,7 +3375,7 @@ type SpreadsheetSectionImpl = gt.SpreadsheetSectionImpl;
 export function createSpreadsheetSectionImpl(
   options: Partial<SpreadsheetSectionImpl> = {},
 ): SpreadsheetSectionImpl {
-  const defaults: SpreadsheetSectionImpl = {
+  const defaults = {
     activeSheet: null,
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
@@ -3310,7 +3402,9 @@ export function createSpreadsheetSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<SpreadsheetSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -3319,7 +3413,7 @@ type StateMachineStartSectionImpl = gt.StateMachineStartSectionImpl;
 export function createStateMachineStartSectionImpl(
   options: Partial<StateMachineStartSectionImpl> = {},
 ): StateMachineStartSectionImpl {
-  const defaults: StateMachineStartSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -3343,7 +3437,9 @@ export function createStateMachineStartSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<StateMachineStartSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -3354,7 +3450,7 @@ export type TaskBoardColumn = gt.TaskBoardColumn;
 export function createTaskBoardColumn(
   options: Partial<TaskBoardColumn> = {},
 ): TaskBoardColumn {
-  const defaults: TaskBoardColumn = {
+  const defaults = {
     color: "#3b82f6",
     id: "",
     name: "",
@@ -3370,7 +3466,7 @@ type TaskBoardSectionImpl = gt.TaskBoardSectionImpl;
 export function createTaskBoardSectionImpl(
   options: Partial<TaskBoardSectionImpl> = {},
 ): TaskBoardSectionImpl {
-  const defaults: TaskBoardSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -3394,7 +3490,9 @@ export function createTaskBoardSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<TaskBoardSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -3403,7 +3501,7 @@ export type TaskBoardTask = gt.TaskBoardTask;
 export function createTaskBoardTask(
   options: Partial<TaskBoardTask> = {},
 ): TaskBoardTask {
-  const defaults: TaskBoardTask = {
+  const defaults = {
     columnId: null,
     completed: false,
     description: "",
@@ -3428,7 +3526,7 @@ type TerminalSectionImpl = gt.TerminalSectionImpl;
 export function createTerminalSectionImpl(
   options: Partial<TerminalSectionImpl> = {},
 ): TerminalSectionImpl {
-  const defaults: TerminalSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -3449,7 +3547,9 @@ export function createTerminalSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<TerminalSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
@@ -3460,7 +3560,7 @@ type TextBlockSectionImpl = gt.TextBlockSectionImpl;
 export function createTextBlockSectionImpl(
   options: Partial<TextBlockSectionImpl> = {},
 ): TextBlockSectionImpl {
-  const defaults: TextBlockSectionImpl = {
+  const defaults = {
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
     aspectRatioExtraWidth: 0,
@@ -3487,14 +3587,16 @@ export function createTextBlockSectionImpl(
   };
   return {
     ...mergeGeneratedOptions<TextBlockSectionImpl>(defaults, options),
-    size: createSectionSize(options["size"] ?? defaults["size"]),
+    size: createSectionSize(
+      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
+    ) as unknown as NonNullable<(typeof options)["size"]>,
   };
 }
 
 type TextParamCodeObjImpl = gt.TextParamCodeObjImpl;
 
 export function createTextParamCodeObjImpl(
-  options: Partial<TextParamCodeObjImpl> = {},
+  options: CreateOptions<TextParamCodeObjImpl> = {} as CreateOptions<TextParamCodeObjImpl>,
 ): TextParamCodeObjImpl {
   return options as TextParamCodeObjImpl;
 }
@@ -3506,7 +3608,7 @@ export type ToolArgumentPreviewDeltaEvent = gt.ToolArgumentPreviewDeltaEvent;
 export type ToolCall = gt.ToolCall;
 
 export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
-  const defaults: ToolCall = {
+  const defaults = {
     function: {
       arguments: {},
       name: "",
@@ -3517,8 +3619,9 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
   return {
     ...mergeGeneratedOptions<ToolCall>(defaults, options),
     function: createToolCallFunction(
-      options["function"] ?? defaults["function"],
-    ),
+      (options["function"] ??
+        defaults["function"]) as Partial<ToolCallFunction>,
+    ) as unknown as NonNullable<(typeof options)["function"]>,
   };
 }
 
@@ -3529,7 +3632,7 @@ type ToolCallFunction = gt.ToolCallFunction;
 export function createToolCallFunction(
   options: Partial<ToolCallFunction> = {},
 ): ToolCallFunction {
-  const defaults: ToolCallFunction = {
+  const defaults = {
     arguments: {},
     name: "",
   };
@@ -3543,7 +3646,7 @@ export type ToolChatMessage = gt.ToolChatMessage;
 export function createToolChatMessage(
   options: Partial<ToolChatMessage> = {},
 ): ToolChatMessage {
-  const defaults: ToolChatMessage = {
+  const defaults = {
     arguments: {},
     completed_at: null,
     content: [],
@@ -3569,7 +3672,7 @@ export type TopLevelSectionLayout = gt.TopLevelSectionLayout;
 export function createTopLevelSectionLayout(
   options: Partial<TopLevelSectionLayout> = {},
 ): TopLevelSectionLayout {
-  const defaults: TopLevelSectionLayout = {
+  const defaults = {
     h: null,
     w: null,
     x: 0,
@@ -3588,7 +3691,7 @@ type TypeErrorIgnoreState = gt.TypeErrorIgnoreState;
 function createTypeErrorIgnoreState(
   options: Partial<TypeErrorIgnoreState> = {},
 ): TypeErrorIgnoreState {
-  const defaults: TypeErrorIgnoreState = {
+  const defaults = {
     callable: false,
     params: {},
   };
@@ -3610,7 +3713,7 @@ type UserChatMessage = gt.UserChatMessage;
 export function createUserChatMessage(
   options: Partial<UserChatMessage> = {},
 ): UserChatMessage {
-  const defaults: UserChatMessage = {
+  const defaults = {
     attachments: [],
     content: [],
     createdAt: 0,
@@ -3625,7 +3728,7 @@ export function createUserChatMessage(
 export type Variant = gt.Variant;
 
 export function createVariant(options: Partial<Variant> = {}): Variant {
-  const defaults: Variant = {
+  const defaults = {
     id: "",
     impl: "",
     isFrozen: false,
@@ -3641,7 +3744,7 @@ export function createVariant(options: Partial<Variant> = {}): Variant {
 export type ViewMode = gt.ViewMode;
 
 export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  const defaults: ViewMode = {
+  const defaults = {
     id: "",
     isTab: false,
     isUserFacing: false,
@@ -3659,19 +3762,19 @@ export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
         ? null
         : (options["viewport"] ?? defaults["viewport"]) === null
           ? null
-          : createViewport(
-              options["viewport"] === null
+          : (createViewport(
+              (options["viewport"] === null
                 ? null
-                : ((options["viewport"] ??
-                    defaults["viewport"]) as Partial<Viewport>),
-            ),
+                : options["viewport"] ??
+                  defaults["viewport"]) as Partial<Viewport>,
+            ) as unknown as NonNullable<(typeof options)["viewport"]>),
   };
 }
 
 export type Viewport = gt.Viewport;
 
 function createViewport(options: Partial<Viewport> = {}): Viewport {
-  const defaults: Viewport = {
+  const defaults = {
     x: 0,
     y: 0,
     zoom: 1,
@@ -3690,7 +3793,7 @@ export type WindowSpaceConfig = gt.WindowSpaceConfig;
 export function createWindowSpaceConfig(
   options: Partial<WindowSpaceConfig> = {},
 ): WindowSpaceConfig {
-  const defaults: WindowSpaceConfig = {
+  const defaults = {
     id: "",
     name: "",
     order: [],
@@ -3707,7 +3810,7 @@ export type WindowSpaceState = gt.WindowSpaceState;
 export function createWindowSpaceState(
   options: Partial<WindowSpaceState> = {},
 ): WindowSpaceState {
-  const defaults: WindowSpaceState = {
+  const defaults = {
     order: [],
     windowsById: {},
   };
@@ -3721,7 +3824,7 @@ type WindowSpaceWindow = gt.WindowSpaceWindow;
 export function createWindowSpaceWindow(
   options: Partial<WindowSpaceWindow> = {},
 ): WindowSpaceWindow {
-  const defaults: WindowSpaceWindow = {
+  const defaults = {
     chatId: null,
     embeddedGitPaneVisible: false,
     mode: "project_ai_mode",
@@ -3739,8 +3842,11 @@ export function createWindowSpaceWindow(
   return {
     ...mergeGeneratedOptions<WindowSpaceWindow>(defaults, options),
     normalizedBounds: createNormalizedFloatingWindowBounds(
-      options["normalizedBounds"] ?? defaults["normalizedBounds"],
-    ),
+      (options["normalizedBounds"] ??
+        defaults[
+          "normalizedBounds"
+        ]) as Partial<NormalizedFloatingWindowBounds>,
+    ) as unknown as NonNullable<(typeof options)["normalizedBounds"]>,
   };
 }
 
@@ -4313,7 +4419,7 @@ const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
 export function isBaseChildlessCodeObjImpl(
   x: BaseCodeObjImplUnion,
 ): x is BaseChildlessCodeObjImplUnion {
-  return BaseChildlessCodeObjImplTypeSet.has(x.type);
+  return BaseChildlessCodeObjImplTypeSet.has(x.type as CodeObjType);
 }
 
 const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
@@ -4351,7 +4457,7 @@ export function isBaseParamCodeObjImpl(
   | TextAreaParamCodeObjImpl
   | DropzoneParamCodeObjImpl
   | NestedParamCodeObjImpl {
-  return BaseParamCodeObjImplTypeSet.has(x.type);
+  return BaseParamCodeObjImplTypeSet.has(x.type as CodeObjType);
 }
 
 const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
@@ -4362,7 +4468,7 @@ const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
 export function isBaseParentCodeObjImpl(
   x: BaseCodeObjImplUnion,
 ): x is CodeCallableCodeObjImpl | NestedParamCodeObjImpl {
-  return BaseParentCodeObjImplTypeSet.has(x.type);
+  return BaseParentCodeObjImplTypeSet.has(x.type as CodeObjType);
 }
 
 export type BaseSectionImplUnion = gt.BaseSectionImplUnion;
@@ -4383,7 +4489,7 @@ export function isBaseParentSectionImpl(
   | CodeSectionImpl
   | GenPythonCodeSectionImpl
   | GenPythonMetadataSectionImpl {
-  return BaseParentSectionImplTypeSet.has(x.type);
+  return BaseParentSectionImplTypeSet.has(x.type as SectionType);
 }
 
 const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
@@ -4400,7 +4506,7 @@ export function isBaseSectionWithParamsImpl(
   | DictSectionImpl
   | MetaControlSectionImpl
   | GlobalVariablesSectionImpl {
-  return BaseSectionWithParamsImplTypeSet.has(x.type);
+  return BaseSectionWithParamsImplTypeSet.has(x.type as SectionType);
 }
 
 export const BootstrapProtocol = {

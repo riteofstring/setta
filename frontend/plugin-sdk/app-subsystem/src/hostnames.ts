@@ -1,7 +1,7 @@
 import { LocalHostnamePolicyConfig } from "./generatedTypes";
 
 const LOCAL_HOSTNAME_SET = new Set(
-  LocalHostnamePolicyConfig.loopbackHosts.map((hostname) =>
+  LocalHostnamePolicyConfig.loopbackHosts.map((hostname: string) =>
     hostname.toLowerCase(),
   ),
 );

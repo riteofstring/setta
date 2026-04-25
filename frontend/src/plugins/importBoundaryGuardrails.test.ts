@@ -113,4 +113,33 @@ describe("import boundary guardrails", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain("repo-private host paths");
   });
+
+  it("rejects SDK declaration imports of host source aliases", () => {
+    const violations = findImportBoundaryViolations([
+      {
+        filePath: "frontend/plugin-sdk/app-subsystem/types/index.d.ts",
+        source: `
+          export type SDKValue = import("state/demo").Value;
+        `,
+      },
+    ]);
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("package-owned code");
+  });
+
+  it("rejects vendored SDK declaration imports of repo-local plugin paths", () => {
+    const violations = findImportBoundaryViolations([
+      {
+        filePath:
+          "plugins/demo/frontend/vendor/app-subsystem-frontend-sdk/types/index.d.ts",
+        source: `
+          export type VendorValue = import("plugins/demo/frontend/src/index").Value;
+        `,
+      },
+    ]);
+
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("published SDK");
+  });
 });

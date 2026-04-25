@@ -118,7 +118,15 @@ func (p *ProductionCandidateProvider) resolveGitHubCandidate(ctx context.Context
 		return CandidatePlugin{}, err
 	}
 
-	candidate, err := p.finalizeCandidateFromManifestPath(tempRoot, cloneRoot, cloneRoot, manifestPath, spec.CanonicalSourceKey, cleanup)
+	candidate, err := p.finalizeCandidateFromManifestPath(
+		tempRoot,
+		cloneRoot,
+		cloneRoot,
+		manifestPath,
+		spec.CanonicalSourceKey,
+		runtimeManagedFrontendSourceBuild,
+		cleanup,
+	)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
@@ -158,7 +166,15 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 		return CandidatePlugin{}, err
 	}
 	pluginRoot := filepath.Dir(manifestPath)
-	candidate, err := p.finalizeCandidateFromManifestPath(tempRoot, installRoot, pluginRoot, manifestPath, spec.CanonicalSourceKey, cleanup)
+	candidate, err := p.finalizeCandidateFromManifestPath(
+		tempRoot,
+		installRoot,
+		pluginRoot,
+		manifestPath,
+		spec.CanonicalSourceKey,
+		runtimeManagedFrontendPackagedDeployment,
+		cleanup,
+	)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
@@ -166,12 +182,16 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 	return candidate, nil
 }
 
-func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(pluginRoot string, manifestPath string) (PluginManifest, error) {
+func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(
+	pluginRoot string,
+	manifestPath string,
+	frontendAssetMode runtimeManagedFrontendAssetMode,
+) (PluginManifest, error) {
 	manifest, err := loadPluginManifestFile(manifestPath)
 	if err != nil {
 		return PluginManifest{}, wrapManifestValidationError(err)
 	}
-	if err := ensureRuntimeManagedPluginFrontendAssets(pluginRoot, manifest, runtimeManagedFrontendSourceBuild); err != nil {
+	if err := ensureRuntimeManagedPluginFrontendAssets(pluginRoot, manifest, frontendAssetMode); err != nil {
 		return PluginManifest{}, err
 	}
 	if err := ValidatePluginManifestPaths(pluginRoot, manifest); err != nil {
@@ -183,8 +203,20 @@ func (p *ProductionCandidateProvider) loadAndValidateCandidateManifest(pluginRoo
 	return manifest, nil
 }
 
-func (p *ProductionCandidateProvider) finalizeCandidateFromManifestPath(tempRoot string, packageMetadataRoot string, pluginRoot string, manifestPath string, canonicalSourceKey string, cleanup func() error) (CandidatePlugin, error) {
-	manifest, err := p.loadAndValidateCandidateManifest(pluginRoot, manifestPath)
+func (p *ProductionCandidateProvider) finalizeCandidateFromManifestPath(
+	tempRoot string,
+	packageMetadataRoot string,
+	pluginRoot string,
+	manifestPath string,
+	canonicalSourceKey string,
+	frontendAssetMode runtimeManagedFrontendAssetMode,
+	cleanup func() error,
+) (CandidatePlugin, error) {
+	manifest, err := p.loadAndValidateCandidateManifest(
+		pluginRoot,
+		manifestPath,
+		frontendAssetMode,
+	)
 	if err != nil {
 		return CandidatePlugin{}, err
 	}
