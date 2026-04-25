@@ -21,15 +21,16 @@ describe("FlatSectionPrototype", () => {
       (markup.match(/data-flat-preview-theme="light"/g) ?? []).length,
     ).toBe(2);
     expect(markup).toContain('data-flat-section-type-menu="true"');
-    expect(markup).toContain("--flat-input-dot:rgb(100 116 139)");
+    expect(markup).toContain("flat-section-prototype-gallery");
+    expect(markup).toContain("flat-section-prototype--dark");
+    expect(markup).toContain("flat-section-prototype--light");
     expect(markup).toContain("rank_items");
     expect(markup).toContain("builtins.sorted");
     expect(markup).toContain("workspace_profile");
     expect(markup).toContain("gg-code-slash");
     expect(markup).toContain("gg-list");
-    expect(markup).toContain("px-2 py-1");
-    expect(markup).toContain("[contain:layout_style]");
-    expect(markup).toContain("[--flat-row-height:1.75rem]");
+    expect(markup).toContain("flat-section-prototype__header");
+    expect(markup).toContain("flat-section-prototype__top-controls");
     expect(markup).not.toContain("px-2.5");
     expect(markup).toContain('placeholder="please enter function name"');
     expect(markup).toContain('aria-label="Lock section"');
@@ -37,16 +38,19 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('aria-label="Close section"');
     expect(markup).toContain('data-flat-control-toggle="true"');
     expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toContain("flex min-h-8 items-center gap-2");
-    expect(markup).toContain("flex items-center gap-1");
+    expect(markup).not.toContain("flex min-h-8 items-center gap-2");
+    expect(markup).not.toContain("flex items-center gap-1");
     expect(markup).not.toContain("mr-1.5");
     expect(markup).not.toContain("grid-cols");
     expect(markup).not.toContain("justify-self");
-    expect(markup).toContain("gg-lock [--ggs:0.36]");
+    expect(markup).toContain(
+      "gg-lock flat-section-prototype__top-button--lock",
+    );
     expect(markup).not.toContain("rounded");
     expect(markup).not.toContain("shadow");
     expect(markup).not.toContain("opacity");
     expect(markup).not.toContain("dark:");
+    expect(markup).not.toContain("[color:");
     expect(markup).not.toContain('data-flat-control="column-resize"');
     expect(markup).not.toContain("filter args");
     expect(markup).not.toContain("filter keys");
@@ -74,29 +78,25 @@ describe("FlatSectionPrototype", () => {
     expect(rowGroupListCount).toBe(2);
     expect(rowGroupSectionCount).toBe(0);
     expect(markup).toContain('data-flat-shell-strip="ports"');
+    expect(markup).toContain("flat-section-prototype__ports");
+    expect(markup).toContain("flat-section-prototype__port-list--left");
+    expect(markup).toContain("flat-section-prototype__port-row--right");
     expect(markup).toContain('data-flat-row-emphasis="edge"');
     expect(markup).toContain('data-flat-row-emphasis="required"');
     expect(markup).toContain('data-flat-row-emphasis="optional"');
-    expect(markup).toContain("hover:bg-[color:var(--flat-hover)]");
-    expect(markup).toContain("focus:border-[color:var(--flat-focus)]");
-    expect(markup).toContain("border-solid");
-    expect(markup).toContain("[border-width:0_0_1px_0]");
-    expect(markup).toContain("leading-[var(--flat-row-height)]");
-    expect(markup).toContain("text-left font-mono");
-    expect(markup).toContain("whitespace-nowrap py-1");
-    expect(markup).toContain("before:left-[-0.9375rem]");
-    expect(markup).toContain("after:right-[-0.9375rem]");
-    expect(markup).toContain("var(--flat-key-width)");
+    expect(markup).toContain("flat-section-prototype__row-key");
+    expect(markup).toContain("flat-section-prototype__row-value");
+    expect(markup).not.toContain("hover:bg-[color:var(--flat-hover)]");
+    expect(markup).not.toContain("focus:border-[color:var(--flat-focus)]");
+    expect(markup).not.toContain("border-solid");
+    expect(markup).not.toContain("[border-width:0_0_1px_0]");
+    expect(markup).not.toContain("leading-[var(--flat-row-height)]");
+    expect(markup).not.toContain("before:left-[-0.9375rem]");
+    expect(markup).not.toContain("after:right-[-0.9375rem]");
     expect(markup).toContain('data-flat-port-label="IN"');
-    expect(markup).toContain("before:content-[attr(data-flat-port-label)]");
-    expect(markup).toContain(
-      "flex min-h-[var(--flat-row-height)] items-center",
-    );
-    expect(markup).toContain("-mx-3");
-    expect(markup).toContain(
-      "pl-[calc(0.75rem+var(--flat-depth-offset,0rem))]",
-    );
-    expect(markup).toContain("pr-3");
+    expect(markup).not.toContain("before:content-[attr(data-flat-port-label)]");
+    expect(markup).not.toContain("flex min-h-[var(--flat-row-height)]");
+    expect(markup).not.toContain("pl-[calc(0.75rem+var(");
     expect(markup).not.toContain("grid");
     expect(markup).not.toContain('data-flat-pinned-marker="true"');
     expect(markup).not.toContain("gg-pin-alt");
@@ -115,10 +115,13 @@ describe("FlatSectionPrototype", () => {
 
     expect(markup).toContain('aria-expanded="true"');
     expect(markup).toContain('data-flat-control="column-resize"');
+    expect(markup).toContain('data-flat-action-bar="true"');
     expect(markup).toContain('value="filter"');
     expect(markup).toContain("gg-search");
-    expect(markup).toContain("text-left");
-    expect(markup).toContain("flex min-h-9 items-center gap-0.5");
+    expect(markup).toContain("flat-section-prototype__filter-input");
+    expect(markup).toContain("flat-section-prototype__action-bar");
+    expect(markup).toContain("flat-section-prototype__action-button--resize");
+    expect(markup).not.toContain("flex min-h-9 items-center gap-0.5");
     expect(markup).not.toContain("grid-cols");
     expect(markup).not.toContain("justify-self");
     expect(markup).not.toContain(">Args<");
@@ -131,9 +134,9 @@ describe("FlatSectionPrototype", () => {
 
     expect(markup).toContain('data-flat-row-emphasis="group"');
     expect(markup).toContain('data-flat-row-emphasis="nested"');
-    expect(markup).toContain("before:left-[var(--flat-rail-left)]");
-    expect(markup).toContain("before:top-4");
-    expect(markup).toContain("before:bottom-4");
+    expect(markup).toContain("flat-section-prototype__row--rail");
+    expect(markup).toContain("flat-section-prototype__row--rail-start");
+    expect(markup).toContain("flat-section-prototype__row--rail-end");
     expect(markup).toContain("--flat-depth-offset:0.875rem");
     expect(markup).toContain("--flat-rail-left:1.1875rem");
     expect(markup).not.toContain("--flat-rail-width");
