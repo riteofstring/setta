@@ -63,6 +63,6 @@
 - If a robust solution is not possible, say so explicitly and present the real tradeoffs.
 - Prefer failing loudly and specifically over silent fallbacks, fake estimates, brittle keyword heuristics, or broad catch-all handling. Do not implement heuristic fallbacks without explicit approval.
 - Prefer provider or runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields over heuristics.
-- Preserve intended behavior for supported workflows during refactors. Do not add backward-compatibility shims unless the developer explicitly asks for them.
+- Never add backward-compatibility shims, legacy support paths, migrations, transitional adapters, dual-read/write paths, old-field aliases, silent compatibility fallbacks, or compatibility layers unless the developer explicitly asks for that exact compatibility work.
 - If behavior is unclear, stop and ask.
 - For performance-relevant refactors, baseline first, re-measure after, and record before/after results in `perf/` as append-only reports.
