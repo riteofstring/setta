@@ -280,12 +280,12 @@ function FlatSectionShell({
           {title}
         </h2>
         <nav
-          className="flex items-center gap-1"
+          className="grid grid-cols-[repeat(4,1rem)] items-center justify-items-center gap-x-1"
           aria-label={`${kind} section controls`}
         >
           <button
             type="button"
-            className={`${ICON_BUTTON_CLASS_NAME} gg-options mr-1.5 [--ggs:0.4]`}
+            className={`${ICON_BUTTON_CLASS_NAME} gg-options [--ggs:0.4]`}
             aria-controls={controlBarId}
             aria-expanded={isControlBarOpen}
             aria-label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}

@@ -34,7 +34,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('aria-label="Close section"');
     expect(markup).toContain('data-flat-control-toggle="true"');
     expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toContain("mr-1.5");
+    expect(markup).toContain("grid-cols-[repeat(4,1rem)]");
+    expect(markup).not.toContain("mr-1.5");
     expect(markup).toContain("gg-lock [--ggs:0.36]");
     expect(markup).not.toContain("rounded");
     expect(markup).not.toContain("shadow");
