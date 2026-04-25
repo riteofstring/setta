@@ -20,14 +20,9 @@ when it should delegate to Go.
   `backend/setta/api/runner.py` all talk to the active Go runtime over HTTP or
   websockets.
 - The `sdk-local-core` path exists, but it is currently narrow. Today the main
-  local-core client is `backend/setta/local_core_client.py`, used by the
-  listener runtime and package-managed plugin runtime shims to keep local
-  behavior aligned with Go-owned semantics.
-- `backend/setta/plugin_runtime/*` is a published package-facing shim surface
-  for installed plugin backends. App-subsystem helpers there should stay thin:
-  they probe/dispatch plugin backend requests and delegate correctness-sensitive
-  behavior to `sdk-local-core` rather than reimplementing app-definition logic
-  in Python.
+  local-core client is `backend/setta/api/local_core.py`, used by the listener
+  runtime to render realtime dependency values locally while keeping Go-owned
+  semantics.
 - The Python package also owns real local runtime infrastructure that should
   stay in Python, including callback scheduling and hot reload
   (`backend/setta/api/scheduling.py`, `backend/setta/api/hot_reload.py`),
@@ -69,13 +64,12 @@ Ask: "If this behavior changes, where should the canonical semantics live?"
 
 ## Relevant Code Paths
 
-- Running-backend compatibility handshake: `backend/setta/runtime_compat.py`
+- Running-backend compatibility handshake: `backend/setta/api/runtime_compat.py`
 - Running-backend listener/runtime surface: `backend/setta/api/listener.py`
 - Running-backend helper surface: `backend/setta/api/chat_toolkit.py`
 - Running-backend runner surface: `backend/setta/api/runner.py`
-- Local Go delegation client: `backend/setta/local_core_client.py`
+- Local Go delegation client: `backend/setta/api/local_core.py`
 - Local Go delegation command: `internal/settacmd/sdk_local_core.go`
-- Plugin backend runtime helpers: `backend/setta/plugin_runtime/*`
 - Python-owned callback scheduler: `backend/setta/api/scheduling.py`
 - Python-owned hot reload: `backend/setta/api/hot_reload.py`
 - Python-owned auth/session helpers: `backend/setta/auth/session.py`, `backend/setta/sessions/registry.py`

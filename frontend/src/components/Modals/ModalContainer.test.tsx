@@ -11,11 +11,9 @@ import "testUtils/reactRefreshPreamble";
 import { ModalContainer } from "./ModalContainer";
 import { ModalTypeEnum } from "./types";
 
-const { loadAllProjectMetadataMock, useAppSubsystemAppDeploymentModalMock } =
-  vi.hoisted(() => ({
-    loadAllProjectMetadataMock: vi.fn(),
-    useAppSubsystemAppDeploymentModalMock: vi.fn(() => null),
-  }));
+const { loadAllProjectMetadataMock } = vi.hoisted(() => ({
+  loadAllProjectMetadataMock: vi.fn(),
+}));
 
 vi.mock("state/actions/project/loadProject", async () => {
   const actual = await vi.importActual<
@@ -24,16 +22,6 @@ vi.mock("state/actions/project/loadProject", async () => {
   return {
     ...actual,
     loadAllProjectMetadata: loadAllProjectMetadataMock,
-  };
-});
-
-vi.mock("plugins/appSubsystem", async () => {
-  const actual = await vi.importActual<typeof import("plugins/appSubsystem")>(
-    "plugins/appSubsystem",
-  );
-  return {
-    ...actual,
-    useAppSubsystemAppDeploymentModal: useAppSubsystemAppDeploymentModalMock,
   };
 });
 
@@ -82,8 +70,6 @@ describe("ModalContainer", () => {
     resetModalStores();
     document.body.innerHTML = "";
     loadAllProjectMetadataMock.mockReset();
-    useAppSubsystemAppDeploymentModalMock.mockReset();
-    useAppSubsystemAppDeploymentModalMock.mockReturnValue(null);
     setReactActEnvironment(true);
   });
 
@@ -130,43 +116,6 @@ describe("ModalContainer", () => {
       "No saved project configs found.",
     );
     expect(loadAllProjectMetadataMock).toHaveBeenCalledTimes(1);
-
-    await act(async () => {
-      root.unmount();
-    });
-  });
-
-  it("renders the app deployment modal through the app subsystem runtime hook", async () => {
-    useAppSubsystemAppDeploymentModalMock.mockReturnValue({
-      renderer: {
-        mount: (target: HTMLElement, props: { open: boolean }) => {
-          target.textContent = props.open
-            ? "Plugin-owned App Deployment Modal"
-            : "";
-        },
-        update: (target: HTMLElement, props: { open: boolean }) => {
-          target.textContent = props.open
-            ? "Plugin-owned App Deployment Modal"
-            : "";
-        },
-        unmount: (target: HTMLElement) => {
-          target.textContent = "";
-        },
-      },
-    });
-    useModal.setState({
-      open: true,
-      modalInfo: {
-        type: ModalTypeEnum.PUBLISH_APP_DEPLOYMENT,
-        data: null,
-      },
-    });
-
-    const root = await renderModalContainer();
-
-    expect(document.body.textContent).toContain(
-      "Plugin-owned App Deployment Modal",
-    );
 
     await act(async () => {
       root.unmount();

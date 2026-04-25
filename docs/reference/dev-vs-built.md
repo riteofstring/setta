@@ -30,10 +30,8 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - In non-dev mode, the backend serves the static bundle and the SPA at the same origin (no Vite).
 - Installed `setta` and `python -m setta` enter through the Python package
   entrypoint, which dispatches into the packaged Go binaries.
-- The slim wheel includes dispatch plus package-facing runtime helpers
-  (`local_core_client`, `runtime_compat`, `plugin_runtime`); broader source SDK
-  modules remain part of the repo/sdist source boundary, not the packaged-user
-  install path.
+- The source SDK modules remain part of the repo/sdist source boundary, not the
+  slim wheel-based packaged-user install path.
 - Auth bootstrap still happens on the backend, but redirects to `/` (same origin).
 
 ## Scripts and When to Use Them
