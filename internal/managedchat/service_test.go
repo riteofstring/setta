@@ -388,7 +388,7 @@ func TestBuildAppGenerationModePromptIncludesPromptBuilderPersistenceGuidance(t 
 	t.Parallel()
 
 	mode := stringPtr(string(agentruns.AppGenerationModePromptBuilder))
-	prompt := buildAppGenerationModePromptWithResolver(
+	prompt := chatmodes.BuildAppGenerationModePrompt(
 		testAppGenerationModes(t),
 		mode,
 		false,
@@ -419,7 +419,7 @@ func TestBuildAppGenerationModePromptIncludesReferenceImageGuidance(t *testing.T
 	t.Parallel()
 
 	mode := stringPtr(string(agentruns.AppGenerationModeJSONRenderWithImage))
-	prompt := buildAppGenerationModePromptWithResolver(
+	prompt := chatmodes.BuildAppGenerationModePrompt(
 		testAppGenerationModes(t),
 		mode,
 		true,

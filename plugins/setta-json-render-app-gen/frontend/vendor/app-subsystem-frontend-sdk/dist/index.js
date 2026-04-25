@@ -562,8 +562,15 @@ function safeSessionStorage() {
     return void 0;
   }
 }
-function launcherOriginStorage() {
-  return safeSessionStorage();
+function safeLocalStorage() {
+  if (typeof window === "undefined") {
+    return void 0;
+  }
+  try {
+    return window.localStorage;
+  } catch {
+    return void 0;
+  }
 }
 function isLauncherOriginAllowed(launcherOrigin, currentOrigin) {
   let launcherUrl;
@@ -579,13 +586,19 @@ function isLauncherOriginAllowed(launcherOrigin, currentOrigin) {
   }
   return isLocalHostname(launcherUrl.hostname) && isLocalHostname(currentUrl.hostname);
 }
-function readLauncherOrigin() {
-  const storage = launcherOriginStorage();
+function currentWindowOrigin() {
+  if (typeof window === "undefined") {
+    return void 0;
+  }
+  return window.location?.origin;
+}
+function readLauncherOrigin(storageKey) {
+  const storage = safeSessionStorage();
   if (!storage) {
     return void 0;
   }
   try {
-    const raw = storage.getItem(BootstrapProtocol.launcherOriginStorageKey);
+    const raw = storage.getItem(storageKey);
     if (!raw) {
       return void 0;
     }
@@ -593,9 +606,10 @@ function readLauncherOrigin() {
     if (!normalized) {
       return void 0;
     }
-    if (typeof window !== "undefined" && !isLauncherOriginAllowed(normalized, window.location.origin)) {
+    const currentOrigin = currentWindowOrigin();
+    if (currentOrigin && !isLauncherOriginAllowed(normalized, currentOrigin)) {
       try {
-        storage.removeItem(BootstrapProtocol.launcherOriginStorageKey);
+        storage.removeItem(storageKey);
       } catch {
       }
       return void 0;
@@ -605,8 +619,8 @@ function readLauncherOrigin() {
     return void 0;
   }
 }
-function writeLauncherOrigin(origin) {
-  const storage = launcherOriginStorage();
+function writeLauncherOrigin(origin, storageKey) {
+  const storage = safeSessionStorage();
   if (!storage) {
     return;
   }
@@ -614,91 +628,103 @@ function writeLauncherOrigin(origin) {
   if (!normalized) {
     return;
   }
-  if (typeof window !== "undefined" && !isLauncherOriginAllowed(normalized, window.location.origin)) {
+  const currentOrigin = currentWindowOrigin();
+  if (currentOrigin && !isLauncherOriginAllowed(normalized, currentOrigin)) {
     return;
   }
   try {
-    storage.setItem(BootstrapProtocol.launcherOriginStorageKey, normalized);
+    storage.setItem(storageKey, normalized);
   } catch {
   }
 }
-function getOrInitLauncherOrigin(fallbackOrigin) {
-  const existing = readLauncherOrigin();
+function getOrInitLauncherOriginWithStorageKey(fallbackOrigin, storageKey) {
+  const existing = readLauncherOrigin(storageKey);
   if (existing) {
     return existing;
   }
   const normalized = normalizeOrigin(fallbackOrigin, "launcher origin");
   const resolved = normalized ?? fallbackOrigin;
-  writeLauncherOrigin(resolved);
+  writeLauncherOrigin(resolved, storageKey);
   return resolved;
+}
+function getOrInitLauncherOrigin(fallbackOrigin) {
+  return getOrInitLauncherOriginWithStorageKey(
+    fallbackOrigin,
+    BootstrapProtocol.launcherOriginStorageKey
+  );
 }
 const __vite_import_meta_env__ = {};
 const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY = "setta.backendOriginOverride";
+function resolveDevBackendOriginSessionOverride(backendOriginOverrideStorageKey) {
+  const storage = safeSessionStorage();
+  if (!storage) {
+    return void 0;
+  }
+  try {
+    const rawOverride = storage.getItem(backendOriginOverrideStorageKey);
+    if (!rawOverride) {
+      return void 0;
+    }
+    return normalizeOrigin(
+      rawOverride,
+      "backend origin override (sessionStorage)"
+    );
+  } catch (error) {
+    console.warn(
+      "Failed to read backend origin override from sessionStorage",
+      error
+    );
+    return void 0;
+  }
+}
+function resolveDevBackendOriginOverride(devBackendOriginOverride) {
+  if (!devBackendOriginOverride) {
+    return void 0;
+  }
+  return normalizeOrigin(devBackendOriginOverride, "VITE_BACKEND_ORIGIN");
+}
+function resolveBackendOrigin(config) {
+  return config.locationOrigin;
+}
+function resolveLauncherOrigin(config) {
+  {
+    return getOrInitLauncherOriginWithStorageKey(
+      config.locationOrigin,
+      config.launcherOriginStorageKey
+    );
+  }
+}
+function defaultAddressResolverConfig() {
+  return {
+    apiPrefix: TransportRouteConstants.apiPrefix,
+    backendOriginOverrideStorageKey: BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+    defaultHost: C.DEFAULT_HOST,
+    defaultPort: C.DEFAULT_PORT,
+    devBackendOriginOverride: __vite_import_meta_env__?.VITE_BACKEND_ORIGIN,
+    devMode: false,
+    launcherOriginStorageKey: BootstrapProtocol.launcherOriginStorageKey,
+    locationOrigin: typeof location === "undefined" ? "http://localhost" : location.origin
+  };
+}
 class C_ADDRESSES {
   static get DEV_MODE() {
-    return false;
+    return defaultAddressResolverConfig().devMode;
   }
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
-    const storage = safeSessionStorage();
-    if (!storage) {
-      return void 0;
-    }
-    try {
-      const rawOverride = storage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
-      if (!rawOverride) {
-        return void 0;
-      }
-      return normalizeOrigin(
-        rawOverride,
-        "backend origin override (sessionStorage)"
-      );
-    } catch (error) {
-      console.warn(
-        "Failed to read backend origin override from sessionStorage",
-        error
-      );
-      return void 0;
-    }
+    return resolveDevBackendOriginSessionOverride(
+      defaultAddressResolverConfig().backendOriginOverrideStorageKey
+    );
   }
   static get DEV_BACKEND_ORIGIN_OVERRIDE() {
-    const override = __vite_import_meta_env__?.VITE_BACKEND_ORIGIN;
-    if (!override) {
-      return void 0;
-    }
-    return normalizeOrigin(override, "VITE_BACKEND_ORIGIN");
+    return resolveDevBackendOriginOverride(
+      defaultAddressResolverConfig().devBackendOriginOverride
+    );
   }
   static get BACKEND_ORIGIN() {
-    if (this.DEV_MODE) {
-      const sessionOverride = this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE;
-      if (sessionOverride) {
-        return sessionOverride;
-      }
-      const override = this.DEV_BACKEND_ORIGIN_OVERRIDE;
-      if (override) {
-        return override;
-      }
-      return `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
-    }
-    return location.origin;
+    return resolveBackendOrigin(defaultAddressResolverConfig());
   }
   static get LAUNCHER_ORIGIN() {
-    if (!this.DEV_MODE) {
-      return getOrInitLauncherOrigin(location.origin);
-    }
-    const override = this.DEV_BACKEND_ORIGIN_OVERRIDE;
-    if (override) {
-      return getOrInitLauncherOrigin(override);
-    }
-    let fallback = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
-    try {
-      const backendUrl = new URL(this.BACKEND_ORIGIN);
-      if (backendUrl.protocol === "http:" || backendUrl.protocol === "https:") {
-        const hostname = backendUrl.hostname.includes(":") ? `[${backendUrl.hostname}]` : backendUrl.hostname;
-        fallback = `${backendUrl.protocol}//${hostname}:${C.DEFAULT_PORT}`;
-      }
-    } catch {
-    }
-    return getOrInitLauncherOrigin(fallback);
+    return resolveLauncherOrigin(defaultAddressResolverConfig());
   }
   static get LAUNCHER() {
     return `${this.LAUNCHER_ORIGIN}${TransportRouteConstants.apiPrefix}`;
@@ -2682,7 +2708,9 @@ export {
   AppSpecPatchPolicyConfig,
   AppSubsystemChatUIConfig,
   ArtifactTypeEnum,
+  BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
   CODEMIRROR_TOOLTIP_PARENT_ID,
+  C_ADDRESSES,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
   DateCalendarWeekStartEnum,
@@ -2750,6 +2778,7 @@ export {
   getErrorCode,
   getErrorDetail,
   getLatestProjectState,
+  getOrInitLauncherOrigin,
   getParamDisplayNameIfPresent,
   getPasswordParamValue,
   getSectionCodeObjVariantId,
@@ -2758,9 +2787,11 @@ export {
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
+  isLocalHostname,
   listAppDeployments,
   loadCachedImageArtifacts,
   loadProjectConfig,
+  normalizeOrigin,
   parseDropzoneValue,
   publishAppDeployment,
   registerAppSubsystemPlugin,
@@ -2771,6 +2802,8 @@ export {
   resolveRunRequest,
   runCode,
   runWithAppSubsystemFrontendHostRuntime,
+  safeLocalStorage,
+  safeSessionStorage,
   serializeDropzoneValue,
   setAppDefinition,
   setParamEnteredValue,

@@ -22,6 +22,7 @@ type AppDefinitionService struct {
 }
 
 type queuedDocumentValidator func(context.Context, projectstate.Document) error
+type queuedCompareAndSetValidator func(context.Context, projectstate.Document, projectstate.CompareAndSetResult[string]) error
 
 func validateQueuedDocument(
 	ctx context.Context,
@@ -32,6 +33,18 @@ func validateQueuedDocument(
 		return nil
 	}
 	return validate(ctx, document)
+}
+
+func validateQueuedCompareAndSet(
+	ctx context.Context,
+	validate queuedCompareAndSetValidator,
+	document projectstate.Document,
+	result projectstate.CompareAndSetResult[string],
+) error {
+	if validate == nil {
+		return nil
+	}
+	return validate(ctx, document, result)
 }
 
 var _ Runtime = (*AppDefinitionService)(nil)

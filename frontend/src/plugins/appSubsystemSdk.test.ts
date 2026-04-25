@@ -30,6 +30,7 @@ import {
   getAttachmentPolicy as getHostAttachmentPolicy,
   isAttachmentMimeAllowed as isHostAttachmentMimeAllowed,
 } from "utils/attachmentPolicy";
+import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY as hostBackendOriginOverrideStorageKey } from "utils/backendOriginOverride";
 import {
   isGeneratedPythonIdentifier as isHostGeneratedPythonIdentifier,
   normalizeGeneratedOrigin as normalizeHostGeneratedOrigin,
@@ -38,6 +39,7 @@ import {
   validateGeneratedParamNameInput as validateHostGeneratedParamNameInput,
   validateGeneratedSimpleNameInput as validateHostGeneratedSimpleNameInput,
 } from "utils/bindingRuntime";
+import { C_ADDRESSES as hostCAddresses } from "utils/c_addresses";
 import {
   createDefaultAppPolicy as createHostDefaultAppPolicy,
   resolveAppPolicy as resolveHostAppPolicy,
@@ -48,10 +50,13 @@ import {
   parseDropzoneValue as parseHostDropzoneValue,
   serializeDropzoneValue as serializeHostDropzoneValue,
 } from "utils/dropzone";
+import { isLocalHostname as isHostLocalHostname } from "utils/hostnames";
 import {
   createNewId as createHostNewId,
   createRandomName as createHostRandomName,
 } from "utils/idNameCreation";
+import { getOrInitLauncherOrigin as getHostOrInitLauncherOrigin } from "utils/launcherOrigin";
+import { normalizeOrigin as normalizeHostOrigin } from "utils/origin";
 import { shouldShowPasswordReveal as shouldShowHostPasswordReveal } from "utils/paramValue";
 import {
   getCurrentEffectiveCodeObjImplIfPresent as getHostCurrentEffectiveCodeObjImplIfPresent,
@@ -71,6 +76,10 @@ import {
   resolveWorkspaceLaunchRouteKind as resolveHostWorkspaceLaunchRouteKind,
 } from "utils/serverModeBoundaryPolicy";
 import {
+  safeLocalStorage as safeHostLocalStorage,
+  safeSessionStorage as safeHostSessionStorage,
+} from "utils/storage";
+import {
   buildTextBlockTypographyScale as buildHostTextBlockTypographyScale,
   clampTextBlockMasterFontSize as clampHostTextBlockMasterFontSize,
 } from "utils/textBlockTypography";
@@ -88,19 +97,30 @@ import {
   validateGeneratedSimpleNameInput as validateSdkSourceGeneratedSimpleNameInput,
 } from "../../plugin-sdk/app-subsystem/src/bindingRuntime";
 import {
+  BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY as sdkSourceBackendOriginOverrideStorageKey,
+  C_ADDRESSES as SdkSourceCAddresses,
+} from "../../plugin-sdk/app-subsystem/src/c_addresses";
+import {
   createDropzoneFileArtifactId as createSdkSourceDropzoneFileArtifactId,
   createDropzoneTextAttachmentId as createSdkSourceDropzoneTextAttachmentId,
   parseDropzoneValue as parseSdkSourceDropzoneValue,
   serializeDropzoneValue as serializeSdkSourceDropzoneValue,
 } from "../../plugin-sdk/app-subsystem/src/dropzone";
+import { isLocalHostname as isSdkSourceLocalHostname } from "../../plugin-sdk/app-subsystem/src/hostnames";
 import {
   createNewId as createSdkSourceNewId,
   createRandomName as createSdkSourceRandomName,
 } from "../../plugin-sdk/app-subsystem/src/idNameCreation";
+import { getOrInitLauncherOrigin as getSdkSourceOrInitLauncherOrigin } from "../../plugin-sdk/app-subsystem/src/launcherOrigin";
+import { normalizeOrigin as normalizeSdkSourceOrigin } from "../../plugin-sdk/app-subsystem/src/origin";
 import {
   resolveServerModeCapabilities as resolveSdkSourceServerModeCapabilities,
   resolveWorkspaceLaunchRouteKind as resolveSdkSourceWorkspaceLaunchRouteKind,
 } from "../../plugin-sdk/app-subsystem/src/serverModeBoundaryPolicy";
+import {
+  safeLocalStorage as safeSdkSourceLocalStorage,
+  safeSessionStorage as safeSdkSourceSessionStorage,
+} from "../../plugin-sdk/app-subsystem/src/storage";
 import {
   buildTextBlockTypographyScale as buildSdkSourceTextBlockTypographyScale,
   clampTextBlockMasterFontSize as clampSdkSourceTextBlockMasterFontSize,
@@ -447,6 +467,15 @@ describe("appSubsystemFrontendSdk", () => {
       resolveSdkSourceWorkspaceLaunchRouteKind,
     );
     expect(resolveHostEndpointOriginForMode("/", "launcher")).toBe("backend");
+    expect(hostCAddresses).toBe(SdkSourceCAddresses);
+    expect(hostBackendOriginOverrideStorageKey).toBe(
+      sdkSourceBackendOriginOverrideStorageKey,
+    );
+    expect(isHostLocalHostname).toBe(isSdkSourceLocalHostname);
+    expect(getHostOrInitLauncherOrigin).toBe(getSdkSourceOrInitLauncherOrigin);
+    expect(normalizeHostOrigin).toBe(normalizeSdkSourceOrigin);
+    expect(safeHostLocalStorage).toBe(safeSdkSourceLocalStorage);
+    expect(safeHostSessionStorage).toBe(safeSdkSourceSessionStorage);
     expect(getHostCurrentEffectiveCodeObjImplIfPresent).toBe(
       getSdkCurrentEffectiveCodeObjImplIfPresent,
     );

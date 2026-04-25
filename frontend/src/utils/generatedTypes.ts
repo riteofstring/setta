@@ -4671,10 +4671,6 @@ export const ExternalAgentUIConfig = {
   defaultClaudeSettingsSources: ["project", "local"],
 } satisfies gt.ExternalAgentUIConfigValue;
 
-export const LocalHostnamePolicyConfig = {
-  loopbackHosts: ["127.0.0.1", "localhost", "::1"],
-} satisfies gt.LocalHostnamePolicy;
-
 export const ModeScopedLauncherRoutesList = [
   "/launch",
   "/createWorkspaceLaunchIntent",

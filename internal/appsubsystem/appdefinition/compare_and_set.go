@@ -28,7 +28,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionCatalogID(
 	ctx context.Context,
 	catalogID string,
 	expectedOldValue *string,
-	validate queuedDocumentValidator,
+	validate queuedCompareAndSetValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	projectRoot, err := s.projectRoot()
 	if err != nil {
@@ -87,7 +87,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionSpecVersion(
 	ctx context.Context,
 	appSpecVersion string,
 	expectedOldValue *string,
-	validate queuedDocumentValidator,
+	validate queuedCompareAndSetValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	projectRoot, err := s.projectRoot()
 	if err != nil {
@@ -146,7 +146,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionSpecPath(
 	ctx context.Context,
 	appSpecPath string,
 	expectedOldValue *string,
-	validate queuedDocumentValidator,
+	validate queuedCompareAndSetValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	projectRoot, err := s.projectRoot()
 	if err != nil {
@@ -208,7 +208,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionThemeMode(
 	ctx context.Context,
 	themeMode string,
 	expectedOldValue *string,
-	validate queuedDocumentValidator,
+	validate queuedCompareAndSetValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	projectRoot, err := s.projectRoot()
 	if err != nil {
@@ -270,7 +270,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 	requestedNewValue string,
 	readValue func(projectstate.Document) (string, error),
 	mutate func(projectstate.Document, string) (projectstate.Document, any, string, error),
-	validate queuedDocumentValidator,
+	validate queuedCompareAndSetValidator,
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	if s == nil || s.runtime == nil {
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, projectstate.ErrRuntimeClosed
@@ -295,7 +295,7 @@ func (s *AppDefinitionService) compareAndSetAppDefinitionStringSetting(
 		if err != nil {
 			return projectstate.PersistedMutationPlan{}, err
 		}
-		if err := validateQueuedDocument(ctx, validate, document); err != nil {
+		if err := validateQueuedCompareAndSet(ctx, validate, document, result); err != nil {
 			return projectstate.PersistedMutationPlan{}, err
 		}
 		return plan, nil

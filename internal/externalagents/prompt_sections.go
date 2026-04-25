@@ -1,7 +1,6 @@
 package externalagents
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -11,77 +10,11 @@ import (
 	"setta/internal/mcpx"
 )
 
-const (
-	maxReferenceImageURLChars   = 4096
-	maxReferenceImageNotesChars = 100000
-)
-
 var (
-	ErrAppGenerationModeInvalid                 = errors.New("appGenerationMode is invalid")
-	ErrAppGenerationReferenceImageURLTooLarge   = errors.New("appGenerationReferenceImageUrl is too large. Reduce it or omit it.")
-	ErrAppGenerationReferenceImageNotesTooLarge = errors.New("appGenerationReferenceImageNotes is too large. Reduce it or omit it.")
+	ErrAppGenerationModeInvalid                 = chatmodes.ErrAppGenerationModeInvalid
+	ErrAppGenerationReferenceImageURLTooLarge   = chatmodes.ErrAppGenerationReferenceImageURLTooLarge
+	ErrAppGenerationReferenceImageNotesTooLarge = chatmodes.ErrAppGenerationReferenceImageNotesTooLarge
 )
-
-func normalizeAppGenerationModeWithResolver(
-	resolver chatmodes.AppGenerationModeResolver,
-	value *string,
-) (*string, error) {
-	if resolver == nil {
-		resolver = (*chatmodes.AppGenerationModeRegistry)(nil)
-	}
-	normalized, ok := resolver.NormalizeOptionalMode(value)
-	if !ok {
-		return nil, ErrAppGenerationModeInvalid
-	}
-	return normalized, nil
-}
-
-func appGenerationModeAllowsReferenceImage(
-	resolver chatmodes.AppGenerationModeResolver,
-	mode *string,
-) bool {
-	if resolver == nil {
-		return false
-	}
-	return resolver.AllowsReferenceImage(mode)
-}
-
-func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNotes *string) (*string, *string, error) {
-	normalizedURL := strings.TrimSpace(derefOptionalString(referenceImageURL))
-	normalizedNotes := strings.TrimSpace(derefOptionalString(referenceImageNotes))
-	if len(normalizedURL) > maxReferenceImageURLChars {
-		return nil, nil, ErrAppGenerationReferenceImageURLTooLarge
-	}
-	if len(normalizedNotes) > maxReferenceImageNotesChars {
-		return nil, nil, ErrAppGenerationReferenceImageNotesTooLarge
-	}
-	var resolvedURL *string
-	var resolvedNotes *string
-	if normalizedURL != "" {
-		resolvedURL = stringPtr(normalizedURL)
-	}
-	if normalizedNotes != "" {
-		resolvedNotes = stringPtr(normalizedNotes)
-	}
-	return resolvedURL, resolvedNotes, nil
-}
-
-func buildAppGenerationModePromptWithResolver(
-	resolver chatmodes.AppGenerationModeResolver,
-	mode *string,
-	appSpecStreamingEnabled bool,
-	referenceImageURL *string,
-	referenceImageNotes *string,
-) string {
-	if resolver == nil {
-		return ""
-	}
-	return resolver.BuildPrompt(mode, chatmodes.AppGenerationPromptOptions{
-		AppSpecStreamingEnabled: appSpecStreamingEnabled,
-		ReferenceImageURL:       referenceImageURL,
-		ReferenceImageNotes:     referenceImageNotes,
-	})
-}
 
 func buildExternalProfilePrompt(profile *agentprofiles.Profile) string {
 	if profile == nil {

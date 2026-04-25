@@ -447,6 +447,96 @@ func TestBackendRuntimeCompareAndSetRejectsStaleProviderPlan(t *testing.T) {
 	}
 }
 
+func TestBackendRuntimeCompareAndSetRejectsProviderOwnerResultMismatch(t *testing.T) {
+	cases := []struct {
+		name        string
+		current     string
+		requested   string
+		providerOld string
+		providerNew string
+	}{
+		{
+			name:        "owner changed provider noop",
+			current:     "v3",
+			requested:   "v2",
+			providerOld: "v2",
+			providerNew: "v2",
+		},
+		{
+			name:        "owner noop provider changed",
+			current:     "v2",
+			requested:   "v2",
+			providerOld: "v3",
+			providerNew: "v2",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			store, runtime := openPersistedBackendRuntimeTestProject(t)
+			pluginID := "setta-json-render-app-gen"
+			storage := MustStorageForPlugin(pluginID)
+			appSpecStore := appspec.MustForPlugin(pluginID)
+			appSpecPath := appSpecStore.DefaultPath()
+			owner := NewAppDefinitionService(runtime, pluginID)
+
+			seedBackendRuntimeTestAppDefinition(
+				t,
+				owner,
+				appspec.DefaultCatalogID,
+				appSpecPath,
+				tc.current,
+			)
+
+			service := NewBackendRuntime(runtime, pluginID, backendRuntimeInvokerStub{
+				invoke: func(
+					ctx context.Context,
+					request plugins.BackendListenerEndpointRequest,
+				) (any, bool, error) {
+					if request.EndpointName != backendruntime.ListenerEndpointCompareAndSetSpecVersion {
+						t.Fatalf("unexpected endpoint %q", request.EndpointName)
+					}
+					return CompareAndSetMutationResult{
+						CompareResult: CompareAndSetStringResult{
+							OldValue: tc.providerOld,
+							NewValue: tc.providerNew,
+						},
+					}, true, nil
+				},
+			})
+
+			_, _, err := service.CompareAndSetAppDefinitionSpecVersion(
+				projectstate.ContextWithFrontendOpID(context.Background(), "mismatched-provider-cas-op"),
+				tc.requested,
+				backendRuntimeTestStringPointer(tc.current),
+			)
+			if !errors.Is(err, ErrProviderCompareAndSetResultMismatch) {
+				t.Fatalf("expected provider compare-and-set result mismatch, got %v", err)
+			}
+
+			assertBackendRuntimeTestPersistedAppDefinition(
+				t,
+				store,
+				storage,
+				appSpecStore,
+				appSpecPath,
+				tc.current,
+				tc.current,
+			)
+			if got := mustDecodeBackendRuntimeTestDefinition(t, storage.StoredDocumentAppDefinitionRaw(runtime.Snapshot().Document)); got.AppSpecVersion != tc.current {
+				t.Fatalf("expected live app definition to remain at %q, got %#v", tc.current, got)
+			}
+			_, ops, err := runtime.SnapshotAndConsumeFrontendOps()
+			if err != nil {
+				t.Fatalf("consume frontend ops: %v", err)
+			}
+			if len(ops.Pending) != 0 || len(ops.Completed) != 0 {
+				t.Fatalf("expected failed mismatch frontend op to remain incomplete, got %#v", ops)
+			}
+		})
+	}
+}
+
 func TestBackendRuntimeReplansProviderMutationAgainstQueuedDocument(t *testing.T) {
 	t.Helper()
 

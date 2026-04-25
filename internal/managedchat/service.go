@@ -25,9 +25,7 @@ const (
 	runTypeExternalChat = "external_agent"
 	runTypeScriptable   = "scriptable_chat"
 
-	maxReferenceImageURLChars   = 4096
-	maxReferenceImageNotesChars = 100000
-	stopChatWaitTimeout         = 2 * time.Second
+	stopChatWaitTimeout = 2 * time.Second
 
 	requiredErrorCheckPrompt = "## Required completion gate for create/scaffold work\n" +
 		"- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n" +
@@ -36,35 +34,31 @@ const (
 )
 
 var (
-	ErrRunStoreRequired                       = errors.New("managed chat run store is required")
-	ErrEngineStoreRequired                    = errors.New("managed chat engine store is required")
-	ErrLLMRuntimeRequired                     = errors.New("managed chat llm runtime is required")
-	ErrProjectStateRequired                   = errors.New("managed chat project state is required")
-	ErrProfileStoreRequired                   = errors.New("managed chat profile store is required")
-	ErrStarterRequired                        = errors.New("managed chat runtime is required")
-	ErrStopperRequired                        = errors.New("managed chat stop runtime is required")
-	ErrChatNotFound                           = errors.New("managed chat not found")
-	ErrProjectConfigIDRequired                = errors.New("projectConfigId is required")
-	ErrMessageRequired                        = errors.New("message is required")
-	ErrPermissionModeRequired                 = errors.New("permissionMode is required")
-	ErrPermissionModeInvalid                  = errors.New("permissionMode is invalid")
-	ErrSectionIDRequired                      = errors.New("sectionId is required unless allowUnscoped is true.")
-	ErrAllowUnscopedRequiresSectionOmitted    = errors.New("allowUnscoped requires sectionId to be omitted.")
-	ErrBranchFieldsRequired                   = errors.New("Branch edits require branchParentChatId and branchFromMessageId.")
-	ErrContinueFromChatWithBranchEdits        = errors.New("continueFromChatId cannot be used with branch edits.")
-	ErrContinueFromChatRequiresChatIDOmitted  = errors.New("continueFromChatId requires chatId to be omitted.")
-	ErrFrontendAffinityTokenInvalid           = errors.New("frontendAffinityToken must not be blank")
-	ErrAppGenerationModeInvalid               = errors.New("appGenerationMode is invalid")
-	ErrAppGenerationReferenceImageURLTooLarge = errors.New(
-		"appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
-	)
-	ErrAppGenerationReferenceImageNotesTooLarge = errors.New(
-		"appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
-	)
-	ErrAppGenerationImageAttachmentRequired = chatmodes.ErrAppGenerationImageAttachmentRequired
-	ErrChatEngineMismatch                   = errors.New("Chat engine mismatch; start a new chat.")
-	ErrChatProjectConfigMismatch            = errors.New("Chat project config mismatch; start a new chat.")
-	ErrContinueFromChatSourceNotFound       = errors.New("continuation source chat not found")
+	ErrRunStoreRequired                         = errors.New("managed chat run store is required")
+	ErrEngineStoreRequired                      = errors.New("managed chat engine store is required")
+	ErrLLMRuntimeRequired                       = errors.New("managed chat llm runtime is required")
+	ErrProjectStateRequired                     = errors.New("managed chat project state is required")
+	ErrProfileStoreRequired                     = errors.New("managed chat profile store is required")
+	ErrStarterRequired                          = errors.New("managed chat runtime is required")
+	ErrStopperRequired                          = errors.New("managed chat stop runtime is required")
+	ErrChatNotFound                             = errors.New("managed chat not found")
+	ErrProjectConfigIDRequired                  = errors.New("projectConfigId is required")
+	ErrMessageRequired                          = errors.New("message is required")
+	ErrPermissionModeRequired                   = errors.New("permissionMode is required")
+	ErrPermissionModeInvalid                    = errors.New("permissionMode is invalid")
+	ErrSectionIDRequired                        = errors.New("sectionId is required unless allowUnscoped is true.")
+	ErrAllowUnscopedRequiresSectionOmitted      = errors.New("allowUnscoped requires sectionId to be omitted.")
+	ErrBranchFieldsRequired                     = errors.New("Branch edits require branchParentChatId and branchFromMessageId.")
+	ErrContinueFromChatWithBranchEdits          = errors.New("continueFromChatId cannot be used with branch edits.")
+	ErrContinueFromChatRequiresChatIDOmitted    = errors.New("continueFromChatId requires chatId to be omitted.")
+	ErrFrontendAffinityTokenInvalid             = errors.New("frontendAffinityToken must not be blank")
+	ErrAppGenerationModeInvalid                 = chatmodes.ErrAppGenerationModeInvalid
+	ErrAppGenerationReferenceImageURLTooLarge   = chatmodes.ErrAppGenerationReferenceImageURLTooLarge
+	ErrAppGenerationReferenceImageNotesTooLarge = chatmodes.ErrAppGenerationReferenceImageNotesTooLarge
+	ErrAppGenerationImageAttachmentRequired     = chatmodes.ErrAppGenerationImageAttachmentRequired
+	ErrChatEngineMismatch                       = errors.New("Chat engine mismatch; start a new chat.")
+	ErrChatProjectConfigMismatch                = errors.New("Chat project config mismatch; start a new chat.")
+	ErrContinueFromChatSourceNotFound           = errors.New("continuation source chat not found")
 )
 
 type ChatPermissionMode = projectstate.ChatPermissionMode
@@ -1080,67 +1074,6 @@ func normalizeOptionalString(value *string) *string {
 		return nil
 	}
 	return &trimmed
-}
-
-func normalizeAppGenerationModeWithResolver(
-	resolver chatmodes.AppGenerationModeResolver,
-	value *string,
-) (*string, error) {
-	if resolver == nil {
-		resolver = (*chatmodes.AppGenerationModeRegistry)(nil)
-	}
-	normalized, ok := resolver.NormalizeOptionalMode(value)
-	if !ok {
-		return nil, ErrAppGenerationModeInvalid
-	}
-	return normalized, nil
-}
-
-func chatmodesAllowsReferenceImage(
-	resolver chatmodes.AppGenerationModeResolver,
-	mode *string,
-) bool {
-	if resolver == nil {
-		return false
-	}
-	return resolver.AllowsReferenceImage(mode)
-}
-
-func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNotes *string) (*string, *string, error) {
-	normalizedURL := strings.TrimSpace(derefOptionalString(referenceImageURL))
-	normalizedNotes := strings.TrimSpace(derefOptionalString(referenceImageNotes))
-	if len(normalizedURL) > maxReferenceImageURLChars {
-		return nil, nil, ErrAppGenerationReferenceImageURLTooLarge
-	}
-	if len(normalizedNotes) > maxReferenceImageNotesChars {
-		return nil, nil, ErrAppGenerationReferenceImageNotesTooLarge
-	}
-	var resolvedURL *string
-	var resolvedNotes *string
-	if normalizedURL != "" {
-		resolvedURL = stringPtr(normalizedURL)
-	}
-	if normalizedNotes != "" {
-		resolvedNotes = stringPtr(normalizedNotes)
-	}
-	return resolvedURL, resolvedNotes, nil
-}
-
-func buildAppGenerationModePromptWithResolver(
-	resolver chatmodes.AppGenerationModeResolver,
-	mode *string,
-	appSpecStreamingEnabled bool,
-	referenceImageURL *string,
-	referenceImageNotes *string,
-) string {
-	if resolver == nil {
-		return ""
-	}
-	return resolver.BuildPrompt(mode, chatmodes.AppGenerationPromptOptions{
-		AppSpecStreamingEnabled: appSpecStreamingEnabled,
-		ReferenceImageURL:       referenceImageURL,
-		ReferenceImageNotes:     referenceImageNotes,
-	})
 }
 
 func buildExecutionPolicyPrompt(permissionMode ChatPermissionMode, searchEnabled bool) string {

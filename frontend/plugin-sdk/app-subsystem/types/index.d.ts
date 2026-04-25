@@ -272,6 +272,22 @@ export declare function serializeDropzoneValue(attachments: DropzoneStoredAttach
 export declare function formatBytes(value: number): string;
 export declare function getAttachmentPolicy(scope: AttachmentPolicyScope): AttachmentPolicy;
 export declare function isAttachmentMimeAllowed(mimeType: string, policy: AttachmentPolicy): boolean;
+export declare const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY: "setta.backendOriginOverride";
+export declare class C_ADDRESSES {
+  static get DEV_MODE(): boolean | undefined;
+  static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE(): string | undefined;
+  static get DEV_BACKEND_ORIGIN_OVERRIDE(): string | undefined;
+  static get BACKEND_ORIGIN(): string;
+  static get LAUNCHER_ORIGIN(): string;
+  static get LAUNCHER(): string;
+  static get BACKEND(): string;
+  static get WEBSOCKET(): string;
+}
+export declare function isLocalHostname(hostname: string): boolean;
+export declare function getOrInitLauncherOrigin(fallbackOrigin: string): string;
+export declare function normalizeOrigin(origin: string, label?: string): string | undefined;
+export declare function safeLocalStorage(): Storage | undefined;
+export declare function safeSessionStorage(): Storage | undefined;
 
 export declare function checkIfFileExists(options?: {
   body?: {

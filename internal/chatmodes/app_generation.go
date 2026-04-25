@@ -8,15 +8,41 @@ import (
 var (
 	ErrAppGenerationModeContributionInvalid   = errors.New("app generation mode contribution is invalid")
 	ErrAppGenerationModeContributionDuplicate = errors.New("app generation mode contribution is duplicated")
-	ErrAppGenerationImageAttachmentRequired   = errors.New(
+	ErrAppGenerationModeInvalid               = errors.New("appGenerationMode is invalid")
+	ErrAppGenerationReferenceImageURLTooLarge = errors.New(
+		"appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
+	)
+	ErrAppGenerationReferenceImageNotesTooLarge = errors.New(
+		"appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
+	)
+	ErrAppGenerationImageAttachmentRequired = errors.New(
 		"json_render_with_image requires a current attached image or retained image provenance from a prior image-mode turn.",
 	)
+)
+
+const (
+	MaxAppGenerationReferenceImageURLChars   = 4096
+	MaxAppGenerationReferenceImageNotesChars = 100000
 )
 
 type AppGenerationPromptOptions struct {
 	AppSpecStreamingEnabled bool
 	ReferenceImageURL       *string
 	ReferenceImageNotes     *string
+}
+
+type AppGenerationRequestOptions struct {
+	Mode                    *string
+	AppSpecStreamingEnabled bool
+	ReferenceImageURL       *string
+	ReferenceImageNotes     *string
+}
+
+type NormalizedAppGenerationRequest struct {
+	Mode                *string
+	ReferenceImageURL   *string
+	ReferenceImageNotes *string
+	Prompt              string
 }
 
 type AppGenerationTurnValidationOptions struct {
@@ -140,4 +166,115 @@ func (r *AppGenerationModeRegistry) ValidateCurrentTurn(
 		return nil
 	}
 	return validator(options)
+}
+
+func NormalizeAppGenerationMode(
+	resolver AppGenerationModeResolver,
+	value *string,
+) (*string, error) {
+	if resolver == nil {
+		if strings.TrimSpace(derefOptionalString(value)) == "" {
+			return nil, nil
+		}
+		return nil, ErrAppGenerationModeInvalid
+	}
+	normalized, ok := resolver.NormalizeOptionalMode(value)
+	if !ok {
+		return nil, ErrAppGenerationModeInvalid
+	}
+	return normalized, nil
+}
+
+func appGenerationModeAllowsReferenceImage(
+	resolver AppGenerationModeResolver,
+	mode *string,
+) bool {
+	if resolver == nil {
+		return false
+	}
+	return resolver.AllowsReferenceImage(mode)
+}
+
+func NormalizeAppGenerationReferenceImageInputs(
+	referenceImageURL *string,
+	referenceImageNotes *string,
+) (*string, *string, error) {
+	normalizedURL := strings.TrimSpace(derefOptionalString(referenceImageURL))
+	normalizedNotes := strings.TrimSpace(derefOptionalString(referenceImageNotes))
+	if len(normalizedURL) > MaxAppGenerationReferenceImageURLChars {
+		return nil, nil, ErrAppGenerationReferenceImageURLTooLarge
+	}
+	if len(normalizedNotes) > MaxAppGenerationReferenceImageNotesChars {
+		return nil, nil, ErrAppGenerationReferenceImageNotesTooLarge
+	}
+	var resolvedURL *string
+	var resolvedNotes *string
+	if normalizedURL != "" {
+		resolvedURL = stringPtr(normalizedURL)
+	}
+	if normalizedNotes != "" {
+		resolvedNotes = stringPtr(normalizedNotes)
+	}
+	return resolvedURL, resolvedNotes, nil
+}
+
+func BuildAppGenerationModePrompt(
+	resolver AppGenerationModeResolver,
+	mode *string,
+	appSpecStreamingEnabled bool,
+	referenceImageURL *string,
+	referenceImageNotes *string,
+) string {
+	if resolver == nil {
+		return ""
+	}
+	return resolver.BuildPrompt(mode, AppGenerationPromptOptions{
+		AppSpecStreamingEnabled: appSpecStreamingEnabled,
+		ReferenceImageURL:       referenceImageURL,
+		ReferenceImageNotes:     referenceImageNotes,
+	})
+}
+
+func NormalizeAppGenerationRequest(
+	resolver AppGenerationModeResolver,
+	options AppGenerationRequestOptions,
+) (NormalizedAppGenerationRequest, error) {
+	mode, err := NormalizeAppGenerationMode(resolver, options.Mode)
+	if err != nil {
+		return NormalizedAppGenerationRequest{}, err
+	}
+	referenceImageURL, referenceImageNotes, err := NormalizeAppGenerationReferenceImageInputs(
+		options.ReferenceImageURL,
+		options.ReferenceImageNotes,
+	)
+	if err != nil {
+		return NormalizedAppGenerationRequest{}, err
+	}
+	if !appGenerationModeAllowsReferenceImage(resolver, mode) {
+		referenceImageURL = nil
+		referenceImageNotes = nil
+	}
+	return NormalizedAppGenerationRequest{
+		Mode:                mode,
+		ReferenceImageURL:   referenceImageURL,
+		ReferenceImageNotes: referenceImageNotes,
+		Prompt: BuildAppGenerationModePrompt(
+			resolver,
+			mode,
+			options.AppSpecStreamingEnabled,
+			referenceImageURL,
+			referenceImageNotes,
+		),
+	}, nil
+}
+
+func derefOptionalString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func stringPtr(value string) *string {
+	return &value
 }

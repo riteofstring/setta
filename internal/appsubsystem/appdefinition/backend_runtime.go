@@ -28,6 +28,8 @@ type BackendRuntime struct {
 
 var _ Runtime = (*BackendRuntime)(nil)
 
+var ErrProviderCompareAndSetResultMismatch = errors.New("provider compare-and-set result does not match owner result")
+
 func NewBackendRuntime(
 	projectRuntime *projectstate.Runtime,
 	pluginID string,
@@ -178,7 +180,7 @@ func invokeCompareAndSetString(
 	endpointName string,
 	value string,
 	expectedOldValue *string,
-	commit func(*AppDefinitionService, context.Context, string, *string, queuedDocumentValidator) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error),
+	commit func(*AppDefinitionService, context.Context, string, *string, queuedCompareAndSetValidator) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error),
 ) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error) {
 	owner, err := r.ownerAppDefinitionService()
 	if err != nil {
@@ -272,8 +274,8 @@ func (r *BackendRuntime) validateProviderMutationWithDocument(
 func (r *BackendRuntime) validateProviderCompareAndSetWithDocument(
 	endpointName string,
 	payload any,
-) queuedDocumentValidator {
-	return func(ctx context.Context, document projectstate.Document) error {
+) queuedCompareAndSetValidator {
+	return func(ctx context.Context, document projectstate.Document, ownerResult projectstate.CompareAndSetResult[string]) error {
 		result, err := invokeBackendResultWithDocument[CompareAndSetMutationResult](
 			r,
 			ctx,
@@ -283,6 +285,17 @@ func (r *BackendRuntime) validateProviderCompareAndSetWithDocument(
 		)
 		if err != nil {
 			return err
+		}
+		providerResult := result.CompareResult.projectStateResult()
+		if providerResult != ownerResult {
+			return fmt.Errorf(
+				"%w: owner old=%q new=%q, provider old=%q new=%q",
+				ErrProviderCompareAndSetResultMismatch,
+				ownerResult.OldValue,
+				ownerResult.NewValue,
+				providerResult.OldValue,
+				providerResult.NewValue,
+			)
 		}
 		return r.validateProviderCompareAndSetMutationResult(result)
 	}

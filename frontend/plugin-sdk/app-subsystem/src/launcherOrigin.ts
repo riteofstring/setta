@@ -3,10 +3,6 @@ import { isLocalHostname } from "./hostnames";
 import { normalizeOrigin } from "./origin";
 import { safeSessionStorage } from "./storage";
 
-function launcherOriginStorage(): Storage | undefined {
-  return safeSessionStorage();
-}
-
 function isLauncherOriginAllowed(
   launcherOrigin: string,
   currentOrigin: string,
@@ -28,13 +24,20 @@ function isLauncherOriginAllowed(
   );
 }
 
-function readLauncherOrigin(): string | undefined {
-  const storage = launcherOriginStorage();
+function currentWindowOrigin(): string | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  return window.location?.origin;
+}
+
+function readLauncherOrigin(storageKey: string): string | undefined {
+  const storage = safeSessionStorage();
   if (!storage) {
     return undefined;
   }
   try {
-    const raw = storage.getItem(BootstrapProtocol.launcherOriginStorageKey);
+    const raw = storage.getItem(storageKey);
     if (!raw) {
       return undefined;
     }
@@ -42,12 +45,10 @@ function readLauncherOrigin(): string | undefined {
     if (!normalized) {
       return undefined;
     }
-    if (
-      typeof window !== "undefined" &&
-      !isLauncherOriginAllowed(normalized, window.location.origin)
-    ) {
+    const currentOrigin = currentWindowOrigin();
+    if (currentOrigin && !isLauncherOriginAllowed(normalized, currentOrigin)) {
       try {
-        storage.removeItem(BootstrapProtocol.launcherOriginStorageKey);
+        storage.removeItem(storageKey);
       } catch {
         // Ignore storage failures.
       }
@@ -59,8 +60,8 @@ function readLauncherOrigin(): string | undefined {
   }
 }
 
-function writeLauncherOrigin(origin: string): void {
-  const storage = launcherOriginStorage();
+function writeLauncherOrigin(origin: string, storageKey: string): void {
+  const storage = safeSessionStorage();
   if (!storage) {
     return;
   }
@@ -68,26 +69,34 @@ function writeLauncherOrigin(origin: string): void {
   if (!normalized) {
     return;
   }
-  if (
-    typeof window !== "undefined" &&
-    !isLauncherOriginAllowed(normalized, window.location.origin)
-  ) {
+  const currentOrigin = currentWindowOrigin();
+  if (currentOrigin && !isLauncherOriginAllowed(normalized, currentOrigin)) {
     return;
   }
   try {
-    storage.setItem(BootstrapProtocol.launcherOriginStorageKey, normalized);
+    storage.setItem(storageKey, normalized);
   } catch {
     // Ignore storage failures.
   }
 }
 
-export function getOrInitLauncherOrigin(fallbackOrigin: string): string {
-  const existing = readLauncherOrigin();
+export function getOrInitLauncherOriginWithStorageKey(
+  fallbackOrigin: string,
+  storageKey: string,
+): string {
+  const existing = readLauncherOrigin(storageKey);
   if (existing) {
     return existing;
   }
   const normalized = normalizeOrigin(fallbackOrigin, "launcher origin");
   const resolved = normalized ?? fallbackOrigin;
-  writeLauncherOrigin(resolved);
+  writeLauncherOrigin(resolved, storageKey);
   return resolved;
+}
+
+export function getOrInitLauncherOrigin(fallbackOrigin: string): string {
+  return getOrInitLauncherOriginWithStorageKey(
+    fallbackOrigin,
+    BootstrapProtocol.launcherOriginStorageKey,
+  );
 }

@@ -2,6 +2,7 @@ package chatmodes
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -171,5 +172,160 @@ func TestAppGenerationModeRegistryRunsCurrentTurnValidatorForMatchingMode(t *tes
 	plainMode := "prompt_builder"
 	if err := registry.ValidateCurrentTurn(&plainMode, AppGenerationTurnValidationOptions{}); err != nil {
 		t.Fatalf("expected unrelated mode validation to skip, got %v", err)
+	}
+}
+
+func TestNormalizeAppGenerationRequestBuildsPromptAndReferenceImageContext(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewAppGenerationModeRegistry(AppGenerationModeRegistryOptions{
+		Contributions: []AppGenerationModeContribution{
+			{
+				Mode:                 "image_mode",
+				AllowsReferenceImage: true,
+				PromptBuilder: func(options AppGenerationPromptOptions) string {
+					if !options.AppSpecStreamingEnabled {
+						return "missing streaming"
+					}
+					if options.ReferenceImageURL == nil || options.ReferenceImageNotes == nil {
+						return "missing reference image"
+					}
+					return *options.ReferenceImageURL + "\n" + *options.ReferenceImageNotes
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	normalized, err := NormalizeAppGenerationRequest(registry, AppGenerationRequestOptions{
+		Mode:                    stringPtr(" image_mode "),
+		AppSpecStreamingEnabled: true,
+		ReferenceImageURL:       stringPtr(" https://example.com/reference.png "),
+		ReferenceImageNotes:     stringPtr(" Match spacing first. "),
+	})
+	if err != nil {
+		t.Fatalf("normalize app-generation request: %v", err)
+	}
+	if normalized.Mode == nil || *normalized.Mode != "image_mode" {
+		t.Fatalf("unexpected normalized mode %#v", normalized.Mode)
+	}
+	if normalized.ReferenceImageURL == nil || *normalized.ReferenceImageURL != "https://example.com/reference.png" {
+		t.Fatalf("unexpected reference image URL %#v", normalized.ReferenceImageURL)
+	}
+	if normalized.ReferenceImageNotes == nil || *normalized.ReferenceImageNotes != "Match spacing first." {
+		t.Fatalf("unexpected reference image notes %#v", normalized.ReferenceImageNotes)
+	}
+	if normalized.Prompt != "https://example.com/reference.png\nMatch spacing first." {
+		t.Fatalf("unexpected prompt %q", normalized.Prompt)
+	}
+}
+
+func TestNormalizeAppGenerationRequestDropsReferenceImageForUnsupportedMode(t *testing.T) {
+	t.Parallel()
+
+	registry, err := NewAppGenerationModeRegistry(AppGenerationModeRegistryOptions{
+		Contributions: []AppGenerationModeContribution{
+			{
+				Mode: "plain_mode",
+				PromptBuilder: func(options AppGenerationPromptOptions) string {
+					if options.ReferenceImageURL != nil || options.ReferenceImageNotes != nil {
+						return "unexpected image"
+					}
+					return "plain prompt"
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+
+	normalized, err := NormalizeAppGenerationRequest(registry, AppGenerationRequestOptions{
+		Mode:                stringPtr("plain_mode"),
+		ReferenceImageURL:   stringPtr("https://example.com/reference.png"),
+		ReferenceImageNotes: stringPtr("Ignore me."),
+	})
+	if err != nil {
+		t.Fatalf("normalize app-generation request: %v", err)
+	}
+	if normalized.ReferenceImageURL != nil || normalized.ReferenceImageNotes != nil {
+		t.Fatalf("expected reference image inputs to be dropped, got %#v", normalized)
+	}
+	if normalized.Prompt != "plain prompt" {
+		t.Fatalf("unexpected prompt %q", normalized.Prompt)
+	}
+}
+
+func TestNormalizeAppGenerationRequestRejectsInvalidModeAndNilResolver(t *testing.T) {
+	t.Parallel()
+
+	_, err := NormalizeAppGenerationRequest(nil, AppGenerationRequestOptions{
+		Mode: stringPtr("json_render"),
+	})
+	if !errors.Is(err, ErrAppGenerationModeInvalid) {
+		t.Fatalf("expected invalid mode error for nil resolver, got %v", err)
+	}
+
+	registry, err := NewAppGenerationModeRegistry(AppGenerationModeRegistryOptions{
+		Contributions: []AppGenerationModeContribution{
+			{
+				Mode: "known",
+				PromptBuilder: func(options AppGenerationPromptOptions) string {
+					return "known"
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new registry: %v", err)
+	}
+	_, err = NormalizeAppGenerationRequest(registry, AppGenerationRequestOptions{
+		Mode: stringPtr("unknown"),
+	})
+	if !errors.Is(err, ErrAppGenerationModeInvalid) {
+		t.Fatalf("expected invalid mode error, got %v", err)
+	}
+}
+
+func TestNormalizeAppGenerationReferenceImageInputsTrimsAndLimits(t *testing.T) {
+	t.Parallel()
+
+	url, notes, err := NormalizeAppGenerationReferenceImageInputs(
+		stringPtr("  https://example.com/reference.png  "),
+		stringPtr("  Match spacing first.  "),
+	)
+	if err != nil {
+		t.Fatalf("normalize reference image inputs: %v", err)
+	}
+	if url == nil || *url != "https://example.com/reference.png" {
+		t.Fatalf("unexpected normalized URL %#v", url)
+	}
+	if notes == nil || *notes != "Match spacing first." {
+		t.Fatalf("unexpected normalized notes %#v", notes)
+	}
+
+	emptyURL, emptyNotes, err := NormalizeAppGenerationReferenceImageInputs(stringPtr("   "), nil)
+	if err != nil {
+		t.Fatalf("normalize empty reference image inputs: %v", err)
+	}
+	if emptyURL != nil || emptyNotes != nil {
+		t.Fatalf("expected empty reference image inputs to normalize to nil, got %#v %#v", emptyURL, emptyNotes)
+	}
+
+	_, _, err = NormalizeAppGenerationReferenceImageInputs(
+		stringPtr(strings.Repeat("x", MaxAppGenerationReferenceImageURLChars+1)),
+		nil,
+	)
+	if !errors.Is(err, ErrAppGenerationReferenceImageURLTooLarge) {
+		t.Fatalf("expected oversized URL error, got %v", err)
+	}
+	_, _, err = NormalizeAppGenerationReferenceImageInputs(
+		nil,
+		stringPtr(strings.Repeat("x", MaxAppGenerationReferenceImageNotesChars+1)),
+	)
+	if !errors.Is(err, ErrAppGenerationReferenceImageNotesTooLarge) {
+		t.Fatalf("expected oversized notes error, got %v", err)
 	}
 }

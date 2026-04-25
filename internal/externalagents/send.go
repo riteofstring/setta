@@ -417,31 +417,19 @@ func normalizeStartChatGenerationOptions(
 	request StartChatRequest,
 	appGenerationModes chatmodes.AppGenerationModeResolver,
 ) (*string, string, error) {
-	appGenerationMode, err := normalizeAppGenerationModeWithResolver(
+	normalized, err := chatmodes.NormalizeAppGenerationRequest(
 		appGenerationModes,
-		request.AppGenerationMode,
+		chatmodes.AppGenerationRequestOptions{
+			Mode:                    request.AppGenerationMode,
+			AppSpecStreamingEnabled: request.AppSpecStreamingEnabled,
+			ReferenceImageURL:       request.AppGenerationReferenceImageURL,
+			ReferenceImageNotes:     request.AppGenerationReferenceImageNotes,
+		},
 	)
 	if err != nil {
 		return nil, "", err
 	}
-	referenceImageURL, referenceImageNotes, err := normalizeReferenceImageInputs(
-		request.AppGenerationReferenceImageURL,
-		request.AppGenerationReferenceImageNotes,
-	)
-	if err != nil {
-		return nil, "", err
-	}
-	if !appGenerationModeAllowsReferenceImage(appGenerationModes, appGenerationMode) {
-		referenceImageURL = nil
-		referenceImageNotes = nil
-	}
-	return appGenerationMode, buildAppGenerationModePromptWithResolver(
-		appGenerationModes,
-		appGenerationMode,
-		request.AppSpecStreamingEnabled,
-		referenceImageURL,
-		referenceImageNotes,
-	), nil
+	return normalized.Mode, normalized.Prompt, nil
 }
 
 func (s *SendService) validateStartChatProjectTarget(request normalizedStartChatRequest) error {

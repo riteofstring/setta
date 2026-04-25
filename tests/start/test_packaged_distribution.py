@@ -619,7 +619,13 @@ def test_first_party_app_subsystem_plugin_sdist_includes_frontend_build_inputs(
     assert any(name.endswith("build_backend.py") for name in names)
     assert any(name.endswith("frontend/.npmrc") for name in names)
     assert any(name.endswith("frontend/package.json") for name in names)
+    assert any(name.endswith("frontend/tsconfig.json") for name in names)
+    assert any(name.endswith("frontend/tsconfig.typecheck.json") for name in names)
     assert any(name.endswith("frontend/src/index.ts") for name in names)
+    assert any(name.endswith("frontend/typecheck/standalone.ts") for name in names)
+    assert any(
+        name.endswith("frontend/tests/state/actions/app.test.ts") for name in names
+    )
     assert any(
         name.endswith("frontend/vendor/app-subsystem-frontend-sdk/package.json")
         for name in names
@@ -634,6 +640,28 @@ def test_first_party_app_subsystem_plugin_sdist_includes_frontend_build_inputs(
     )
     assert not any(name.endswith("frontend/dist/index.js") for name in names)
     assert not any("/node_modules/" in name for name in names)
+
+
+def test_first_party_app_subsystem_plugin_sdist_frontend_package_runs_standalone(
+    tmp_path: Path,
+) -> None:
+    sdist_path = _build_first_party_app_subsystem_sdist(tmp_path)
+    extracted_root = _extract_sdist(sdist_path, tmp_path / "sdist-frontend")
+    frontend_root = extracted_root / "frontend"
+
+    _assert_pnpm_command_succeeds(frontend_root, "install", "--lockfile=false")
+    _assert_pnpm_command_succeeds(frontend_root, "run", "typecheck")
+    _assert_pnpm_command_succeeds(frontend_root, "run", "test")
+    _assert_pnpm_command_succeeds(frontend_root, "run", "build")
+
+    built_js = frontend_root / "dist" / "index.js"
+    built_css = frontend_root / "dist" / "index.css"
+    assert built_js.is_file()
+    assert built_css.is_file()
+
+    bundle_text = built_js.read_text(encoding="utf-8")
+    assert "plugin-sdk/app-subsystem/src" not in bundle_text
+    assert str(_repo_root()) not in bundle_text
 
 
 def test_first_party_app_subsystem_plugin_wheel_builds_from_sdist(

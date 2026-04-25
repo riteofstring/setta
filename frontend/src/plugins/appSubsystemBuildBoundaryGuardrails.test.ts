@@ -153,6 +153,29 @@ describe("app plugin frontend build boundary guardrails", () => {
     );
   });
 
+  it("keeps host transport helpers as SDK-owned re-exports", () => {
+    expect(readHostFrontendFile("src/utils/c_addresses.ts").trim()).toBe(
+      'export { C_ADDRESSES } from "@setta/app-subsystem-frontend-sdk";',
+    );
+    expect(readHostFrontendFile("src/utils/hostnames.ts").trim()).toBe(
+      'export { isLocalHostname } from "@setta/app-subsystem-frontend-sdk";',
+    );
+    expect(readHostFrontendFile("src/utils/launcherOrigin.ts").trim()).toBe(
+      'export { getOrInitLauncherOrigin } from "@setta/app-subsystem-frontend-sdk";',
+    );
+    expect(readHostFrontendFile("src/utils/origin.ts").trim()).toBe(
+      'export { normalizeOrigin } from "@setta/app-subsystem-frontend-sdk";',
+    );
+    expect(readHostFrontendFile("src/utils/storage.ts")).toContain(
+      'from "@setta/app-subsystem-frontend-sdk";',
+    );
+
+    const sdkAddresses = readSourceSdkFile("src/c_addresses.ts");
+    expect(sdkAddresses).toContain("type AddressResolverConfig");
+    expect(sdkAddresses).toContain("backendOriginOverrideStorageKey");
+    expect(sdkAddresses).toContain("launcherOriginStorageKey");
+  });
+
   it("publishes standalone SDK types instead of source-file types", () => {
     const sdkPackageJson = JSON.parse(
       readPluginFrontendFile("vendor/app-subsystem-frontend-sdk/package.json"),
