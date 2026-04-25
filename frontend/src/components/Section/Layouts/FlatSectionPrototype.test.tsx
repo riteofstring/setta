@@ -86,13 +86,14 @@ describe("FlatSectionPrototype", () => {
 
     expect(markup).toContain('aria-expanded="true"');
     expect(markup).toContain('data-flat-control="column-resize"');
-    expect(markup).toContain("filter args");
+    expect(markup).toContain('value="filter"');
     expect(markup).toContain("gg-search");
     expect(markup).toContain("text-left");
-    expect(markup).toContain(
-      "grid-cols-[auto_repeat(5,1.375rem)_auto_minmax(0,1fr)]",
-    );
+    expect(markup).toContain("grid-cols-[repeat(5,1rem)_auto_minmax(0,1fr)]");
+    expect(markup).toContain("gap-x-0.5");
     expect(markup).toContain("justify-self-center");
+    expect(markup).not.toContain(">Args<");
+    expect(markup).not.toContain("filter args");
     expect(markup).not.toContain("group-hover");
   });
 

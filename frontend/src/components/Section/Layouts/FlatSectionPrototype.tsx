@@ -30,7 +30,6 @@ type FlatSectionShellProps = {
   kind: FlatSectionKind;
   title: string;
   controlLabel: string;
-  controlPlaceholder: string;
   controlsInitiallyOpen?: boolean;
   theme?: FlatPrototypeTheme;
   lead?: ReactNode;
@@ -252,7 +251,6 @@ function FlatSectionShell({
   kind,
   title,
   controlLabel,
-  controlPlaceholder,
   controlsInitiallyOpen = false,
   theme = "dark",
   lead,
@@ -308,11 +306,7 @@ function FlatSectionShell({
       </header>
       {lead}
       {isControlBarOpen ? (
-        <FlatPrototypeActionBar
-          id={controlBarId}
-          label={controlLabel}
-          placeholder={controlPlaceholder}
-        />
+        <FlatPrototypeActionBar id={controlBarId} label={controlLabel} />
       ) : null}
       {children}
     </section>
@@ -332,21 +326,12 @@ function FlatCallableTarget({ value }: { value: string }) {
   );
 }
 
-function FlatPrototypeActionBar({
-  id,
-  label,
-  placeholder,
-}: {
-  id: string;
-  label: string;
-  placeholder: string;
-}) {
+function FlatPrototypeActionBar({ id, label }: { id: string; label: string }) {
   return (
     <nav
       id={id}
-      className="grid min-h-9 grid-cols-[auto_repeat(5,1.375rem)_auto_minmax(0,1fr)] items-center gap-x-1 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5"
+      className="grid min-h-9 grid-cols-[repeat(5,1rem)_auto_minmax(0,1fr)] items-center gap-x-0.5 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5"
     >
-      <p className={`mr-1 shrink-0 ${HEADER_LABEL_CLASS_NAME}`}>{label}</p>
       {FLAT_PROTOTYPE_ACTIONS.map((action) => (
         <button
           key={action.label}
@@ -358,14 +343,14 @@ function FlatPrototypeActionBar({
       ))}
       <b
         aria-hidden="true"
-        className="gg-search !ml-2 !mt-0 justify-self-center text-[color:var(--flat-dim)] [--ggs:0.42]"
+        className="gg-search !ml-1 !mt-0 justify-self-center text-[color:var(--flat-dim)] [--ggs:0.42]"
       />
       <input
         aria-label={`${label} filter`}
         className="min-w-0 flex-1 border-solid border-transparent bg-transparent pb-0.5 text-left text-[10px] uppercase tracking-[0.18em] text-[color:var(--flat-dim)] outline-none [border-width:0_0_1px_0] hover:border-[color:var(--flat-border-strong)] focus:border-[color:var(--flat-focus)]"
         name={`${label.toLowerCase()}-filter`}
         readOnly
-        value={placeholder}
+        value="filter"
       />
     </nav>
   );
@@ -504,7 +489,6 @@ export function FlatCallableSectionPrototype({
       kind="callable"
       title="rank_items"
       controlLabel="Args"
-      controlPlaceholder="filter args"
       controlsInitiallyOpen={controlsInitiallyOpen}
       theme={theme}
       lead={<FlatCallableTarget value="builtins.sorted" />}
@@ -528,7 +512,6 @@ export function FlatDictSectionPrototype({
       kind="dict"
       title="workspace_profile"
       controlLabel="Entries"
-      controlPlaceholder="filter keys"
       controlsInitiallyOpen={controlsInitiallyOpen}
       theme={theme}
     >
