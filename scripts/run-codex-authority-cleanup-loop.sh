@@ -24,14 +24,13 @@ Options:
                          Default: mktemp dir under TMPDIR
   --state-dir PATH       Directory for prompt/checker state.
                          Default: <output-dir>/state
-  --model NAME           Model override passed to codex exec.
-                         Default: gpt-5.5
+  --model NAME           Optional model override passed to codex exec
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 
 Examples:
   ./scripts/run-codex-authority-cleanup-loop.sh
-  ./scripts/run-codex-authority-cleanup-loop.sh --model gpt-5.5 -- --config reasoning_effort=\"high\"
+  ./scripts/run-codex-authority-cleanup-loop.sh --model gpt-5.4 -- --config reasoning_effort=\"high\"
 EOF
 }
 
@@ -41,7 +40,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 iterations="1000"
 output_dir=""
 state_dir=""
-model="gpt-5.5"
+model=""
 yolo_mode="1"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: NO_ISSUES_FOUND"
@@ -285,7 +284,9 @@ echo "Status file: ${status_file}"
 echo "Initial HEAD file: ${head_file}"
 echo "Iterations: ${iterations}"
 echo "New session every: 1"
-echo "Model: ${model}"
+if [[ -n "${model}" ]]; then
+  echo "Model override: ${model}"
+fi
 if [[ "${yolo_mode}" == "1" ]]; then
   echo "Yolo mode: enabled"
 else

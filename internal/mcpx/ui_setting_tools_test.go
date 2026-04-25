@@ -12,6 +12,7 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
+	"setta/internal/appspec"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/plugins"
@@ -1497,7 +1498,7 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
-			"settingId": "core.project.name",
+			"settingId": "core.app.spec_path",
 		},
 	})
 	if err != nil {
@@ -1507,8 +1508,8 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 		t.Fatalf("expected get_ui_setting_value without projectConfigId success, got %#v", getResult.StructuredContent)
 	}
 	getPayload := mustStructuredMap(t, getResult.StructuredContent)
-	if getPayload["value"] != "Alpha" {
-		t.Fatalf("expected project name Alpha, got %#v", getPayload["value"])
+	if getPayload["value"] != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), getPayload["value"])
 	}
 
 	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1851,7 +1852,7 @@ func TestServerUISettingToolsRejectMissingScopedProjectContextWhenProjectIDOmitt
 	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
-			"settingId": "core.project.name",
+			"settingId": "core.app.spec_path",
 		},
 	})
 	if err != nil {
@@ -1882,7 +1883,7 @@ func TestServerGetUISettingValueReturnsStructuredPayload(t *testing.T) {
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"settingId":       "core.project.name",
+			"settingId":       "core.app.spec_path",
 		},
 	})
 	if err != nil {
@@ -1894,11 +1895,11 @@ func TestServerGetUISettingValueReturnsStructuredPayload(t *testing.T) {
 
 	payload := mustStructuredMap(t, result.StructuredContent)
 	setting := mustStructuredMap(t, payload["setting"])
-	if setting["settingId"] != "core.project.name" {
-		t.Fatalf("expected core.project.name summary, got %#v", setting)
+	if setting["settingId"] != "core.app.spec_path" {
+		t.Fatalf("expected core.app.spec_path summary, got %#v", setting)
 	}
-	if payload["value"] != "Alpha" {
-		t.Fatalf("expected project name Alpha, got %#v", payload["value"])
+	if payload["value"] != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), payload["value"])
 	}
 	if _, ok := payload["error"]; ok {
 		t.Fatalf("did not expect structured error, got %#v", payload["error"])

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/externalagents"
 	"setta/internal/hostnames"
@@ -208,6 +209,10 @@ func FrontendValueToolNameNormalizationConfig() FrontendToolNameNormalization {
 		ApprovalToolName:         externalagents.ApprovalToolName,
 		TodoWriteToolName:        externalagents.TodoWriteToolName,
 	}
+}
+
+func FrontendValueAppSpecPatchPolicyConfig() appspec.PatchPolicy {
+	return appspec.DefaultPatchPolicy()
 }
 
 func FrontendValueLocalHostnamePolicyConfig() FrontendLocalHostnamePolicy {

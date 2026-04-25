@@ -27,6 +27,8 @@
     "@fontsource/source-code-pro": "4.5.14",
     "@fontsource/work-sans": "4.5.7",
     "@glideapps/glide-data-grid": "6.0.3",
+    "@json-render/core": "0.4.3",
+    "@json-render/react": "0.4.3",
     "@lezer/highlight": "1.2.0",
     "@radix-ui/react-accordion": "1.1.0",
     "@radix-ui/react-dialog": "1.0.5",
@@ -159,5 +161,6 @@
     "remove-unused-vars": "0.0.11",
     "typescript": "5.8.3",
     "vitest": "2.1.9"
-  }
+  },
+  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319"
 }

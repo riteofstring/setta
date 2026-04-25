@@ -136,8 +136,6 @@ cd "${repo_root}"
 
 declare -a python_files=()
 declare -a frontend_eslint_files=()
-declare -a frontend_boundary_files=()
-declare -a frontend_guardrail_files=()
 declare -a go_files=()
 declare -a go_packages=()
 
@@ -151,12 +149,6 @@ while IFS= read -r file_path; do
   if quality_is_frontend_candidate "${file_path}"; then
     frontend_eslint_files+=("$(quality_frontend_cli_path "${file_path}")")
   fi
-  if quality_is_frontend_boundary_candidate "${file_path}"; then
-    frontend_boundary_files+=("${file_path}")
-  fi
-  if quality_is_frontend_guardrail_candidate "${file_path}"; then
-    frontend_guardrail_files+=("${file_path}")
-  fi
   if quality_is_go_candidate "${file_path}"; then
     go_files+=("${file_path}")
     go_packages+=("./$(dirname "${file_path}")")
@@ -168,7 +160,7 @@ if [[ ${#go_packages[@]} -gt 0 ]]; then
   unset IFS
 fi
 
-if [[ ${#python_files[@]} -eq 0 && ${#frontend_eslint_files[@]} -eq 0 && ${#frontend_boundary_files[@]} -eq 0 && ${#frontend_guardrail_files[@]} -eq 0 && ${#go_files[@]} -eq 0 ]]; then
+if [[ ${#python_files[@]} -eq 0 && ${#frontend_eslint_files[@]} -eq 0 && ${#go_files[@]} -eq 0 ]]; then
   echo "No supported files to check."
   exit 0
 fi
@@ -188,21 +180,10 @@ fi
 if [[ ${#frontend_eslint_files[@]} -gt 0 ]]; then
   echo "Frontend quality checks (${#frontend_eslint_files[@]} files)..."
   pnpm -C frontend exec eslint \
-    --no-warn-ignored \
     --rule "complexity:[\"error\",$(quality_effective_exceeds_threshold "${frontend_max}")]" \
     --rule 'max-depth:["error",4]' \
     --rule 'max-params:["error",5]' \
     -- "${frontend_eslint_files[@]}" || status=1
-fi
-
-if [[ ${#frontend_boundary_files[@]} -gt 0 ]]; then
-  echo "Frontend boundary checks (${#frontend_boundary_files[@]} files)..."
-  node ./frontend/scripts/check_import_boundaries.mjs -- "${frontend_boundary_files[@]}" || status=1
-fi
-
-if [[ ${#frontend_guardrail_files[@]} -gt 0 ]]; then
-  echo "Frontend standalone guardrail checks..."
-  pnpm -C frontend exec vitest run src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts || status=1
 fi
 
 if [[ ${#go_files[@]} -gt 0 ]]; then

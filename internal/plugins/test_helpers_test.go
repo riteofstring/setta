@@ -9,9 +9,8 @@ import (
 )
 
 const (
-	pluginFixturePythonEnv       = "SETTA_PLUGIN_FIXTURE_PYTHON"
-	pluginFixtureLSPScriptEnv    = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
-	pluginFixtureRuntimePathsEnv = "SETTA_PLUGIN_FIXTURE_RUNTIME_SEARCH_PATHS_KEY"
+	pluginFixturePythonEnv    = "SETTA_PLUGIN_FIXTURE_PYTHON"
+	pluginFixtureLSPScriptEnv = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
 )
 
 type filesystemPluginScope string
@@ -132,9 +131,6 @@ func copyBackendCodegenFixtureDir(t *testing.T, sourceRoot string, targetRoot st
 		t.Fatalf("read fixture source root %s: %v", sourceRoot, err)
 	}
 	for _, entry := range entries {
-		if entry.Name() == "node_modules" {
-			continue
-		}
 		sourcePath := filepath.Join(sourceRoot, entry.Name())
 		targetPath := filepath.Join(targetRoot, entry.Name())
 		if entry.IsDir() {

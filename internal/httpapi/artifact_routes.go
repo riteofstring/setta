@@ -136,7 +136,6 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 			withOpenAPITags("Artifacts"),
 			withOpenAPISummary("Load cached image artifacts by path."),
 			withOpenAPIModeRequirement("not-launcher"),
-			withOpenAPIAppSubsystemFrontendSDK(),
 		)
 		registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.ChartDataArtifact](
 			shareRouter,
@@ -173,7 +172,6 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 			withOpenAPITags("Artifacts"),
 			withOpenAPISummary("Create or update artifact payloads."),
 			withOpenAPIModeRequirement("not-launcher"),
-			withOpenAPIAppSubsystemFrontendSDK(),
 		)
 		registerOpenAPIPost[artifacts.DeleteRequest, []string](
 			shareRouter,
@@ -183,7 +181,6 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 			withOpenAPITags("Artifacts"),
 			withOpenAPISummary("Delete artifact payloads."),
 			withOpenAPIModeRequirement("not-launcher"),
-			withOpenAPIAppSubsystemFrontendSDK(),
 		)
 		return nil
 	}
@@ -196,7 +193,6 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 		withOpenAPITags("Artifacts"),
 		withOpenAPISummary("Load cached image artifacts by path."),
 		withOpenAPIModeRequirement("not-launcher"),
-		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	registerOpenAPIPost[artifacts.LoadCachedPathsRequest, []*artifacts.ChartDataArtifact](
 		ideRouter,
@@ -233,7 +229,6 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 		withOpenAPITags("Artifacts"),
 		withOpenAPISummary("Create or update artifact payloads."),
 		withOpenAPIModeRequirement("not-launcher"),
-		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	registerOpenAPIPost[artifacts.DeleteRequest, []string](
 		ideRouter,
@@ -243,7 +238,6 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 		withOpenAPITags("Artifacts"),
 		withOpenAPISummary("Delete artifact payloads."),
 		withOpenAPIModeRequirement("not-launcher"),
-		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	return nil
 }

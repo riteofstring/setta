@@ -9,26 +9,13 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     root = repo_root()
     sandbox_root = tmp_path / "check_quality_sandbox"
     frontend_dir = sandbox_root / "frontend" / "src"
-    sdk_package_dir = sandbox_root / "frontend" / "plugin-sdk" / "app-subsystem"
-    sdk_frontend_dir = sdk_package_dir / "src"
-    sdk_types_dir = sdk_package_dir / "types"
     plugin_frontend_dir = sandbox_root / "plugins" / "demo" / "frontend" / "src"
-    plugin_frontend_root = sandbox_root / "plugins" / "demo" / "frontend"
-    plugin_frontend_tests_dir = plugin_frontend_root / "tests"
-    plugin_vendor_dir = (
-        plugin_frontend_root / "vendor" / "app-subsystem-frontend-sdk"
-    )
-    plugin_vendor_types_dir = plugin_vendor_dir / "types"
     plugin_backend_dir = sandbox_root / "plugins" / "demo" / "backend"
     scripts_dir = sandbox_root / "scripts"
     bin_dir = sandbox_root / "bin"
 
     frontend_dir.mkdir(parents=True, exist_ok=True)
-    sdk_frontend_dir.mkdir(parents=True, exist_ok=True)
-    sdk_types_dir.mkdir(parents=True, exist_ok=True)
     plugin_frontend_dir.mkdir(parents=True, exist_ok=True)
-    plugin_frontend_tests_dir.mkdir(parents=True, exist_ok=True)
-    plugin_vendor_types_dir.mkdir(parents=True, exist_ok=True)
     plugin_backend_dir.mkdir(parents=True, exist_ok=True)
     scripts_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -54,41 +41,8 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     (sandbox_root / "activate.sh").chmod(0o755)
 
     (frontend_dir / "app.ts").write_text("export const app = true;\n", encoding="utf-8")
-    (sdk_frontend_dir / "index.ts").write_text(
-        "export const sdk = true;\n", encoding="utf-8"
-    )
-    (sdk_package_dir / "package.json").write_text("{\"name\":\"sdk\"}\n", encoding="utf-8")
-    (sdk_package_dir / "vite.config.mjs").write_text("export default {};\n", encoding="utf-8")
-    (sdk_types_dir / "index.d.ts").write_text(
-        "export type SDKValue = { value: string };\n",
-        encoding="utf-8",
-    )
     (plugin_frontend_dir / "index.ts").write_text(
         "export const plugin = true;\n",
-        encoding="utf-8",
-    )
-    (plugin_frontend_root / "package.json").write_text(
-        "{\"name\":\"plugin\"}\n",
-        encoding="utf-8",
-    )
-    (plugin_frontend_root / "vite.config.mjs").write_text(
-        "export default {};\n",
-        encoding="utf-8",
-    )
-    (plugin_frontend_root / "vitest.config.mjs").write_text(
-        "export default {};\n",
-        encoding="utf-8",
-    )
-    (plugin_frontend_tests_dir / "pluginBoundaryFixture.test.ts").write_text(
-        'import { stateValue } from "state/demo";\nexport const fixture = stateValue;\n',
-        encoding="utf-8",
-    )
-    (plugin_vendor_dir / "package.json").write_text(
-        "{\"name\":\"vendor-sdk\"}\n",
-        encoding="utf-8",
-    )
-    (plugin_vendor_types_dir / "index.d.ts").write_text(
-        'export type VendorValue = import("plugins/demo/frontend/src/index").fixture;\n',
         encoding="utf-8",
     )
     (plugin_backend_dir / "main.go").write_text(
@@ -114,14 +68,6 @@ printf '%s\\n' "$@" >> "{sandbox_root / 'ruff_calls.txt'}"
 set -euo pipefail
 printf '__CALL__\\n' >> "{sandbox_root / 'pnpm_calls.txt'}"
 printf '%s\\n' "$@" >> "{sandbox_root / 'pnpm_calls.txt'}"
-""",
-    )
-    write_stub_executable(
-        bin_dir / "node",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-printf '__CALL__\\n' >> "{sandbox_root / 'node_calls.txt'}"
-printf '%s\\n' "$@" >> "{sandbox_root / 'node_calls.txt'}"
 """,
     )
     write_stub_executable(
@@ -165,7 +111,6 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             "bash",
             str(sandbox_root / "check_quality.sh"),
             "--files",
-            "frontend/plugin-sdk/app-subsystem/src/index.ts",
             "frontend/src/app.ts",
             "plugins/demo/frontend/src/index.ts",
             "plugins/demo/backend/main.go",
@@ -200,7 +145,6 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             "frontend",
             "exec",
             "eslint",
-            "--no-warn-ignored",
             '--rule',
             'complexity:["error",9]',
             '--rule',
@@ -208,20 +152,8 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             '--rule',
             'max-params:["error",5]',
             "--",
-            "plugin-sdk/app-subsystem/src/index.ts",
             "src/app.ts",
             "../plugins/demo/frontend/src/index.ts",
-        ]
-    ]
-
-    node_calls = _split_calls(sandbox_root / "node_calls.txt")
-    assert node_calls == [
-        [
-            "./frontend/scripts/check_import_boundaries.mjs",
-            "--",
-            "frontend/plugin-sdk/app-subsystem/src/index.ts",
-            "frontend/src/app.ts",
-            "plugins/demo/frontend/src/index.ts",
         ]
     ]
 
@@ -235,91 +167,4 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
             "11",
             "plugins/demo/backend/main.go",
         ],
-    ]
-
-
-def test_check_quality_runs_standalone_guardrail_suite_for_manifest_and_config_files(
-    tmp_path: Path,
-) -> None:
-    sandbox_root = _build_check_quality_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "check_quality.sh"),
-            "--files",
-            "frontend/plugin-sdk/app-subsystem/package.json",
-            "frontend/plugin-sdk/app-subsystem/vite.config.mjs",
-            "plugins/demo/frontend/package.json",
-            "plugins/demo/frontend/vite.config.mjs",
-            "plugins/demo/frontend/vitest.config.mjs",
-            "plugins/demo/frontend/vendor/app-subsystem-frontend-sdk/package.json",
-        ],
-        cwd=sandbox_root,
-        env=_script_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
-    assert "No supported files to check." not in result.stdout
-    assert not (sandbox_root / "node_calls.txt").exists()
-
-    pnpm_calls = _split_calls(sandbox_root / "pnpm_calls.txt")
-    assert pnpm_calls == [
-        [
-            "-C",
-            "frontend",
-            "exec",
-            "vitest",
-            "run",
-            "src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts",
-        ]
-    ]
-
-
-def test_check_quality_includes_plugin_boundary_tests_and_sdk_types(tmp_path: Path) -> None:
-    sandbox_root = _build_check_quality_sandbox(tmp_path)
-
-    result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "check_quality.sh"),
-            "--files",
-            "plugins/demo/frontend/tests/pluginBoundaryFixture.test.ts",
-            "frontend/plugin-sdk/app-subsystem/types/index.d.ts",
-            "plugins/demo/frontend/vendor/app-subsystem-frontend-sdk/types/index.d.ts",
-        ],
-        cwd=sandbox_root,
-        env=_script_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
-    assert "No supported files to check." not in result.stdout
-
-    pnpm_calls = _split_calls(sandbox_root / "pnpm_calls.txt")
-    assert pnpm_calls == [
-        [
-            "-C",
-            "frontend",
-            "exec",
-            "vitest",
-            "run",
-            "src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts",
-        ]
-    ]
-
-    node_calls = _split_calls(sandbox_root / "node_calls.txt")
-    assert node_calls == [
-        [
-            "./frontend/scripts/check_import_boundaries.mjs",
-            "--",
-            "frontend/plugin-sdk/app-subsystem/types/index.d.ts",
-            "plugins/demo/frontend/tests/pluginBoundaryFixture.test.ts",
-            "plugins/demo/frontend/vendor/app-subsystem-frontend-sdk/types/index.d.ts",
-        ]
     ]

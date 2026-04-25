@@ -8,6 +8,8 @@ export const WEBSOCKET_TRANSPORT_ROUTES = Object.freeze(
   TransportRouteConstants.websocket,
 );
 
+const BINARY_TRANSPORT_ROUTES = Object.freeze(TransportRouteConstants.binary);
+
 function replaceTransportRoutePathParams(
   routePath: string,
   params: Record<string, string>,
@@ -17,6 +19,12 @@ function replaceTransportRoutePathParams(
     resolved = resolved.replaceAll(`{${key}}`, value);
   }
   return resolved;
+}
+
+export function buildBinaryDownloadRoute(contentId: string): string {
+  return replaceTransportRoutePathParams(BINARY_TRANSPORT_ROUTES.download, {
+    contentId,
+  });
 }
 
 export function buildTerminalWebsocketRoute(
