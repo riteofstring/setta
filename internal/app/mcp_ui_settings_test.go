@@ -87,6 +87,9 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
 		t.Fatalf("expected watch-code UI setting search result, got %#v", searchResults)
 	}
+	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {
+		t.Fatalf("expected plugin-sourced watch-code UI setting, got %#v", searchResults[0])
+	}
 
 	getResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
@@ -502,6 +505,9 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	searchResults := mustStructuredListValue(t, searchResult["results"])
 	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
 		t.Fatalf("expected watch-code UI setting search result, got %#v", searchResults)
+	}
+	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {
+		t.Fatalf("expected plugin-sourced watch-code UI setting, got %#v", searchResults[0])
 	}
 
 	getResponse, err := client.Post(
