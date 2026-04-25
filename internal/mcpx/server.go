@@ -61,6 +61,7 @@ type Server struct {
 	agentRuns                    agentRunProvider
 	uiSettingReveals             uisettings.RevealService
 	contributedUISettingBuilders []uisettings.RuntimeEntryBuilder
+	watchCodeCapabilities        func() plugins.PluginWatchCodeCapabilities
 	stateMachineRuns             stateMachineRunProvider
 	toolInvocations              toolInvocationRecorder
 	server                       *sdkmcp.Server
@@ -97,6 +98,7 @@ type ServerOptions struct {
 	LLMAPIKeys                     llmAPIKeyProvider
 	AgentRuns                      agentRunProvider
 	UISettingReveals               uisettings.RevealService
+	WatchCodeCapabilities          func() plugins.PluginWatchCodeCapabilities
 	StateMachineRuns               stateMachineRunProvider
 	ToolInvocations                toolInvocationRecorder
 }
@@ -337,6 +339,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		agentRuns:                    opts.AgentRuns,
 		uiSettingReveals:             opts.UISettingReveals,
 		contributedUISettingBuilders: append([]uisettings.RuntimeEntryBuilder(nil), opts.ContributedUISettingBuilders...),
+		watchCodeCapabilities:        opts.WatchCodeCapabilities,
 		stateMachineRuns:             opts.StateMachineRuns,
 		toolInvocations:              opts.ToolInvocations,
 		server:                       server,

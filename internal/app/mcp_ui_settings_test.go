@@ -29,6 +29,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -133,6 +134,93 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected authenticated SSE write to persist showParamDisplayNames")
+	}
+}
+
+func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	searchResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"search_ui_settings",
+			"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":3},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post search_ui_settings tool call route: %v", err)
+	}
+	defer searchResponse.Body.Close()
+	if searchResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(searchResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", searchResponse.StatusCode, string(body))
+	}
+	searchPayload := decodeAppToolCallRoutePayload(t, searchResponse.Body)
+	if searchPayload.IsError {
+		t.Fatalf("expected search_ui_settings success, got %#v", searchPayload.StructuredContent)
+	}
+	searchResult := mustStructuredMapValue(t, searchPayload.StructuredContent)
+	searchResults := mustStructuredListValue(t, searchResult["results"])
+	for _, rawResult := range searchResults {
+		result := mustStructuredMapValue(t, rawResult)
+		settingID, _ := result["settingId"].(string)
+		if strings.HasPrefix(settingID, "core.watch_code.") {
+			t.Fatalf("expected no watch-code UI setting search results without provider, got %#v", searchResults)
+		}
+	}
+
+	setResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_ui_setting_value",
+			"arguments":{"projectConfigId":"project-alpha","settingId":"core.watch_code.enabled","value":true},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_ui_setting_value tool call route: %v", err)
+	}
+	defer setResponse.Body.Close()
+	if setResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(setResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", setResponse.StatusCode, string(body))
+	}
+	setPayload := decodeAppToolCallRoutePayload(t, setResponse.Body)
+	if setPayload.IsError {
+		t.Fatalf("expected structured set_ui_setting_value result, got %#v", setPayload.StructuredContent)
+	}
+	setResult := mustStructuredMapValue(t, setPayload.StructuredContent)
+	errorResult := mustStructuredMapValue(t, setResult["error"])
+	if errorResult["code"] != "plugin_unavailable" {
+		t.Fatalf("expected plugin_unavailable, got %#v", errorResult)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after unavailable watch-code setting write: %v", err)
+	}
+	if project.WatchCodeEnabled {
+		t.Fatal("expected unavailable watch-code setting write not to mutate project state")
 	}
 }
 
@@ -372,6 +460,7 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {

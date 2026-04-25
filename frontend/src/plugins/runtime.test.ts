@@ -84,6 +84,7 @@ function resetPluginRuntimeStateForTests(): void {
     schemaVersion: null,
     serverMode: null,
     appSubsystemCapabilities: null,
+    watchCodeCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
@@ -1328,6 +1329,18 @@ describe("plugin runtime helpers", () => {
         status: "active",
         selectedPluginId: "setta-json-render-app-gen",
         activePluginIds: ["setta-json-render-app-gen"],
+        disabledPluginIds: [],
+        invalidPluginIds: [],
+        conflictingPluginIds: [],
+      },
+    });
+    expect(state.watchCodeCapabilities).toMatchObject({
+      pluginId: "",
+      pluginEnabled: false,
+      python: false,
+      providerSelection: {
+        status: "no_provider",
+        activePluginIds: [],
         disabledPluginIds: [],
         invalidPluginIds: [],
         conflictingPluginIds: [],

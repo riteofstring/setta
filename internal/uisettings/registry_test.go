@@ -57,6 +57,48 @@ func TestRegistrySearchRanksCoreSettingBySynonym(t *testing.T) {
 	}
 }
 
+func TestCoreRegistryHidesWatchCodeSettingsWithoutProvider(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	unavailableCapabilities := plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
+	registry, err := NewCoreRegistryWithOptions(runtime, root, CoreRegistryOptions{
+		WatchCodeCapabilities: &unavailableCapabilities,
+	})
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	results, err := registry.Search("watch toggle", 3, SourceFilterCore)
+	if err != nil {
+		t.Fatalf("search registry: %v", err)
+	}
+	for _, result := range results {
+		if isWatchCodeSettingID(result.SettingID) {
+			t.Fatalf("expected unavailable watch code settings to be hidden from search, got %#v", results)
+		}
+	}
+	if _, ok, err := registry.Get("core.watch_code.enabled"); err != nil {
+		t.Fatalf("get core.watch_code.enabled: %v", err)
+	} else if ok {
+		t.Fatal("expected unavailable watch code setting to be absent from registry entries")
+	}
+
+	_, err = registry.ReadValue(context.Background(), "project-alpha", "core.watch_code.enabled")
+	assertWatchCodeSettingUnavailable(t, err)
+	_, err = registry.WriteValue(context.Background(), "project-alpha", "core.watch_code.enabled", true, nil)
+	assertWatchCodeSettingUnavailable(t, err)
+
+	project, err := runtime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after unavailable writes: %v", err)
+	}
+	if project.WatchCodeEnabled {
+		t.Fatal("expected unavailable watch code setting write not to mutate project state")
+	}
+}
+
 func TestScopedRegistryWithoutPluginServiceBuildsCoreOnlyRegistryAndEmptyPluginMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -813,6 +855,29 @@ func mustNewCoreRegistry(t *testing.T, runtime *projectstate.Runtime, workspaceR
 		t.Fatalf("new core registry: %v", err)
 	}
 	return registry
+}
+
+func assertWatchCodeSettingUnavailable(t *testing.T, err error) {
+	t.Helper()
+	var settingErr *SettingError
+	if !errors.As(err, &settingErr) {
+		t.Fatalf("expected setting error, got %v", err)
+	}
+	if settingErr.Code != ErrorCodePluginUnavailable {
+		t.Fatalf("expected code %q, got %q", ErrorCodePluginUnavailable, settingErr.Code)
+	}
+	if !strings.Contains(settingErr.Message, "Watch Code settings are unavailable") {
+		t.Fatalf("expected Watch Code unavailable message, got %q", settingErr.Message)
+	}
+}
+
+func isWatchCodeSettingID(settingID string) bool {
+	switch settingID {
+	case watchCodeEnabledSettingID, watchCodeFoldersSettingID, watchCodeFilesSettingID:
+		return true
+	default:
+		return false
+	}
 }
 
 func mustNewScopedRegistry(t *testing.T, options ScopedRegistryOptions) *Registry {
