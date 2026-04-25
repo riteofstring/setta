@@ -68,6 +68,40 @@ func TestDiscoveryServiceRescanHonorsScopePrecedence(t *testing.T) {
 	}
 }
 
+func TestDiscoveryServiceDeploymentScopedIgnoresHostGlobalAndPackageManagerPlugins(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeGlobal, "backend")
+	sitePackages, _ := installPackageManagerFixture(
+		t,
+		"frontend",
+		"setta-fixture-frontend",
+		"0.1.0",
+		nil,
+	)
+
+	service, err := NewDiscoveryService(DiscoveryServiceOptions{
+		WorkspaceRoot:             roots.workspaceRoot,
+		SettaFilesRoot:            roots.settaFilesRoot,
+		SettaHome:                 roots.settaHome,
+		ServerMode:                config.ModeApp,
+		DeploymentScoped:          true,
+		PackageManagerRuntime:     mustNewPythonRuntime(t),
+		PackageManagerSearchPaths: []string{sitePackages},
+	})
+	if err != nil {
+		t.Fatalf("new deployment-scoped discovery service: %v", err)
+	}
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan deployment-scoped plugins: %v", err)
+	}
+	if len(snapshot.Plugins) != 0 || snapshot.InstalledPlugins != 0 || snapshot.ActivePlugins != 0 {
+		t.Fatalf("expected deployment-scoped discovery to ignore host plugins, got %#v", snapshot)
+	}
+}
+
 // Rescan should surface disabled and pending-restart states from persisted plugin state instead of flattening them into active.
 func TestDiscoveryServiceRescanUsesPersistedEnablementAndRestartState(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

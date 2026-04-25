@@ -20,10 +20,16 @@
 - Still unverified: No broader packaged-plugin runtime matrix beyond the focused local-core and packaged-distribution tests.
 
 ### Package-Manager Plugin Manifest Discovery
-- Invariant: Package-manager plugin discovery must use authoritative distribution metadata only; manifest-bearing distributions are discovered from `dist.files` and `.dist-info/RECORD`, including first-party wheel data-file installs, with no package-name or `top_level.txt` root guessing.
-- Last finding commit: 17e82652b585f3d8b80779a7d24428f3319632f5
-- Proof tests: `TestRuntimePluginDistributionsReturnsManifestBearingDistributions`, `TestRuntimePluginDistributionsSkipsDistributionsWithoutManifestMetadata`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin`, `test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root`
-- Still unverified: No additional third-party wheel layout matrix beyond the focused first-party and unknown-ID package-manager cases.
+- Invariant: Package-manager plugin discovery must use authoritative distribution metadata only; manifest-bearing distributions are discovered from `dist.files` and `.dist-info/RECORD`, including first-party wheel data-file installs, with no package-name or `top_level.txt` root guessing. When such plugins are packaged for deployment, the Python backend dependency payload must be copied with the provider plugin snapshot.
+- Last finding commit: a74b7eb1ec00a0062feb2a6c627b460302426c29
+- Proof tests: `TestRuntimePluginDistributionsReturnsManifestBearingDistributions`, `TestRuntimePluginDistributionsSkipsDistributionsWithoutManifestMetadata`, `TestServiceRuntimeActivatesFirstPartyAppSubsystemPackageManagerPlugin`, `TestServiceRuntimeActivatesUnknownIDAppSubsystemPackageManagerPlugin`, `TestServicePackageActivePluginForDeploymentVendorsPackageManagerPythonPayload`, `test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_root`
+- Still unverified: No additional third-party wheel layout matrix beyond the focused first-party and unknown-ID package-manager cases; no full packaged deployment smoke test with a real third-party wheel.
+
+### App Deployment Provider Runtime Isolation
+- Invariant: Published app deployments must package the active provider plugin and provider state, and deployment-mode app/plugin discovery must resolve only deployment-scoped packaged providers instead of host-global or package-manager plugin state.
+- Last finding commit: a74b7eb1ec00a0062feb2a6c627b460302426c29
+- Proof tests: `TestNewAppPublishServiceUsesBackendValidationRuntime`, `TestDiscoveryServiceDeploymentScopedIgnoresHostGlobalAndPackageManagerPlugins`, `TestLoadAppSubsystemCapabilitiesIgnoresGlobalScopeInDeploymentMode`, `TestAppModePluginRuntimeIgnoresHostGlobalAppSubsystemProviders`
+- Still unverified: Browser/CDP and Playwright not run because no UI behavior changed; full repo test suite not run.
 
 ## 2026-04-22 19:42:17 PDT
 Fixes applied:
@@ -53,3 +59,29 @@ Verification run:
 Residual risks / verification gaps:
 - Browser/CDP verification not run; no UI behavior was changed and no `./aireset.sh` session was active in this stage.
 - Full repo test suite and full `internal/app` package suite were not rerun; verification stayed focused on touched owners and packaging paths.
+
+## 2026-04-23 02:24:13 PDT
+Fixes applied:
+- Routed app deployment provider packaging through the plugin runtime owner so packaged app deployments include the active provider snapshot, provider state, and package-manager Python backend dependency payload.
+- Made deployment-mode plugin/app-subsystem discovery deployment-scoped, excluding host-global plugin scope and package-manager global state from packaged app startup.
+- Kept direct app-publish test fallback behavior for isolated callers while using owner-level packaging in the real app handler path.
+
+Tests added or upgraded:
+- Added package-manager Python payload packaging coverage for active provider deployment snapshots.
+- Added deployment-scoped plugin discovery coverage that proves host-global and package-manager plugins are ignored in deployment mode.
+- Added app-subsystem capability and app-mode runtime isolation coverage for packaged providers with conflicting host-global providers present.
+- Upgraded app-publish provider validation coverage to assert the owner packager path is invoked.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'TestServicePackageActivePluginForDeploymentVendorsPackageManagerPythonPayload|TestDiscoveryServiceDeploymentScopedIgnoresHostGlobalAndPackageManagerPlugins' -v`
+- `./scripts/go.sh test ./internal/appsubsystem -run 'TestNewAppPublishServiceUsesBackendValidationRuntime|TestLoadAppSubsystemCapabilitiesIgnoresGlobalScopeInDeploymentMode' -v`
+- `./scripts/go.sh test ./internal/app -run 'TestAppModePluginRuntimeIgnoresHostGlobalAppSubsystemProviders' -v`
+- `./scripts/go.sh test ./internal/appsubsystem`
+- `./scripts/go.sh test ./internal/app -run 'TestAppOpensDeploymentRuntimeForAppMode|TestAppModePluginRuntimeIgnoresHostGlobalAppSubsystemProviders|TestAppRejectsAppModeWithoutAppSubsystemProvider|TestNewDeploymentTypeRegistry'`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `git diff --check`
+
+Residual risks / verification gaps:
+- Browser/CDP and Playwright verification not run; no UI behavior changed and no `./aireset.sh` session was active at finalization.
+- Full repo test suite was not run; verification focused on touched backend owners and deployment packaging paths.

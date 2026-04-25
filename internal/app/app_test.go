@@ -13555,6 +13555,9 @@ func copyAppTestDir(t *testing.T, sourceRoot string, targetRoot string) {
 	}
 
 	for _, entry := range entries {
+		if entry.Name() == "node_modules" {
+			continue
+		}
 		sourcePath := filepath.Join(sourceRoot, entry.Name())
 		targetPath := filepath.Join(targetRoot, entry.Name())
 

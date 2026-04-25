@@ -15,13 +15,11 @@ import (
 )
 
 type service struct {
-	share            *deployments.SharePublisher
-	contentService   deploymentContentService
-	pluginID         string
-	pluginSourcePath string
-	enabledPluginIDs []string
-	pluginConfigByID map[string]any
-	storage          appdefinition.DocumentStorage
+	share           *deployments.SharePublisher
+	contentService  deploymentContentService
+	pluginID        string
+	packageProvider deployments.AppProviderPackageFunc
+	storage         appdefinition.DocumentStorage
 }
 
 type preparedPublish struct {
@@ -45,11 +43,12 @@ func NewService(
 	if err != nil {
 		return nil, err
 	}
-	appSpecStore, err := appspec.ForPlugin(pluginID)
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	appSpecStore, err := appspec.ForPlugin(trimmedPluginID)
 	if err != nil {
 		return nil, err
 	}
-	storage, err := appdefinition.StorageForPlugin(pluginID)
+	storage, err := appdefinition.StorageForPlugin(trimmedPluginID)
 	if err != nil {
 		return nil, err
 	}
@@ -59,11 +58,9 @@ func NewService(
 			appDefinitionService: appDefinitionService,
 			appSpecStore:         appSpecStore,
 		},
-		pluginID:         strings.TrimSpace(pluginID),
-		pluginSourcePath: strings.TrimSpace(options.PluginSourcePath),
-		enabledPluginIDs: append([]string(nil), options.EnabledPluginIDs...),
-		pluginConfigByID: options.PluginConfigByID,
-		storage:          storage,
+		pluginID:        trimmedPluginID,
+		packageProvider: appProviderPackageFunc(options),
+		storage:         storage,
 	}, nil
 }
 
@@ -203,16 +200,13 @@ func (p *service) writeOutput(
 }
 
 func (p *service) packageProviderPlugin(deploymentRoot string) error {
-	if p == nil || strings.TrimSpace(p.pluginID) == "" || strings.TrimSpace(p.pluginSourcePath) == "" {
+	if p == nil || strings.TrimSpace(p.pluginID) == "" || p.packageProvider == nil {
 		return deployments.ErrAppPublishProviderSourceRequired
 	}
 	targetRoot := filepath.Join(deploymentRoot, ".setta_plugins", p.pluginID)
-	if err := plugins.CopyDirectoryTree(p.pluginSourcePath, targetRoot); err != nil {
+	pluginState, err := p.packageProvider(targetRoot)
+	if err != nil {
 		return fmt.Errorf("package app deployment provider %q: %w", p.pluginID, err)
-	}
-	pluginState := plugins.PluginsStateFile{
-		EnabledPluginIDs: append([]string(nil), p.enabledPluginIDs...),
-		PluginConfigByID: p.pluginConfigByID,
 	}
 	if len(pluginState.EnabledPluginIDs) == 0 {
 		pluginState.EnabledPluginIDs = []string{p.pluginID}
@@ -233,6 +227,28 @@ func (p *service) packageProviderPlugin(deploymentRoot string) error {
 		return fmt.Errorf("write packaged plugin state: %w", err)
 	}
 	return nil
+}
+
+func appProviderPackageFunc(options deployments.AppPublisherOptions) deployments.AppProviderPackageFunc {
+	if options.PackageProviderPlugin != nil {
+		return options.PackageProviderPlugin
+	}
+
+	sourcePath := strings.TrimSpace(options.PluginSourcePath)
+	enabledPluginIDs := append([]string(nil), options.EnabledPluginIDs...)
+	pluginConfigByID := options.PluginConfigByID
+	return func(targetRoot string) (deployments.AppProviderPackageState, error) {
+		if sourcePath == "" {
+			return deployments.AppProviderPackageState{}, deployments.ErrAppPublishProviderSourceRequired
+		}
+		if err := plugins.CopyDirectoryTree(sourcePath, targetRoot); err != nil {
+			return deployments.AppProviderPackageState{}, err
+		}
+		return deployments.AppProviderPackageState{
+			EnabledPluginIDs: append([]string(nil), enabledPluginIDs...),
+			PluginConfigByID: pluginConfigByID,
+		}, nil
+	}
 }
 
 func applyAppPolicyOverrides(
