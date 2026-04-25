@@ -1,10 +1,12 @@
-import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import { useId, useState, type CSSProperties } from "react";
+
+import "./FlatSectionPrototype.css";
 
 type FlatSectionKind = "callable" | "dict";
 
 type FlatPrototypeTheme = "dark" | "light";
 
-type FlatPrototypePortAlign = "left" | "right";
+type FlatPrototypePortSide = "in" | "out";
 
 type FlatPrototypeRowEmphasis =
   | "required"
@@ -20,143 +22,75 @@ type FlatPrototypeRow = {
   depth?: number;
   emphasis?: FlatPrototypeRowEmphasis;
   trailing?: string | null;
+  height?: number;
 };
 
-type FlatPrototypeRowProps = FlatPrototypeRow & {
-  isLast: boolean;
-  nestedRailRole?: FlatPrototypeNestedRailRole;
+type FlatPrototypePort = {
+  id: string;
+  label: string;
+  side: FlatPrototypePortSide;
 };
 
-type FlatPrototypeNestedRailRole = "single" | "start" | "middle" | "end";
-
-type FlatSectionShellProps = {
-  kind: FlatSectionKind;
-  title: string;
-  controlLabel: string;
-  controlsInitiallyOpen?: boolean;
-  theme?: FlatPrototypeTheme;
-  lead?: ReactNode;
-  children: ReactNode;
-};
-
-type FlatPrototypeThemeStyleVar =
-  | "--flat-blue-strong"
-  | "--flat-border-soft"
-  | "--flat-border-strong"
-  | "--flat-dim"
-  | "--flat-focus"
-  | "--flat-hover"
-  | "--flat-input-dot"
-  | "--flat-muted"
-  | "--flat-pinned-bg"
-  | "--flat-port-dot"
-  | "--flat-shell-bg"
-  | "--flat-soft-text"
-  | "--flat-text"
-  | "--flat-title";
-
-type FlatPrototypeThemeStyle = CSSProperties &
-  Record<FlatPrototypeThemeStyleVar, string>;
+type FlatPrototypePositionedRow = Required<Pick<FlatPrototypeRow, "height">> &
+  FlatPrototypeRow & {
+    hasDivider: boolean;
+    top: number;
+  };
 
 type FlatPrototypeSectionProps = {
   controlsInitiallyOpen?: boolean;
   theme?: FlatPrototypeTheme;
 };
 
-type FlatPrototypeRowStyle = CSSProperties &
-  Partial<Record<"--flat-depth", number>> &
-  Partial<Record<"--flat-rail-left", string>>;
+type FlatPrototypeCardProps = FlatPrototypeSectionProps & {
+  callableName?: string;
+  controlLabel: string;
+  kind: FlatSectionKind;
+  pinnedRows: FlatPrototypeRow[];
+  ports?: FlatPrototypePort[];
+  rowStart: number;
+  rows: FlatPrototypeRow[];
+  title: string;
+};
 
-const FLAT_PROTOTYPE_THEME_STYLES = {
-  dark: {
-    "--flat-blue-strong": "rgb(219 234 254)",
-    "--flat-border-soft": "hsl(220 26% 14%)",
-    "--flat-border-strong": "hsl(219 26% 23%)",
-    "--flat-dim": "hsl(220 25% 45%)",
-    "--flat-focus": "rgb(96 165 250)",
-    "--flat-hover": "hsl(220 26% 14% / 0.7)",
-    "--flat-input-dot": "rgb(96 165 250)",
-    "--flat-muted": "hsl(220 26% 57%)",
-    "--flat-pinned-bg": "rgb(23 37 84 / 0.2)",
-    "--flat-port-dot": "hsl(220 25% 45%)",
-    "--flat-shell-bg": "hsl(220 25% 3%)",
-    "--flat-soft-text": "hsl(220 25% 67%)",
-    "--flat-text": "hsl(222 28% 95%)",
-    "--flat-title": "hsl(222 28% 95%)",
-  },
-  light: {
-    "--flat-blue-strong": "rgb(30 64 175)",
-    "--flat-border-soft": "rgb(229 229 229)",
-    "--flat-border-strong": "rgb(212 212 212)",
-    "--flat-dim": "rgb(163 163 163)",
-    "--flat-focus": "rgb(37 99 235)",
-    "--flat-hover": "rgb(245 245 245 / 0.8)",
-    "--flat-input-dot": "rgb(100 116 139)",
-    "--flat-muted": "rgb(115 115 115)",
-    "--flat-pinned-bg": "rgb(250 250 250)",
-    "--flat-port-dot": "rgb(163 163 163)",
-    "--flat-shell-bg": "rgb(255 255 255)",
-    "--flat-soft-text": "rgb(64 64 64)",
-    "--flat-text": "rgb(23 23 23)",
-    "--flat-title": "rgb(10 10 10)",
-  },
-} satisfies Record<FlatPrototypeTheme, FlatPrototypeThemeStyle>;
+type FlatPrototypeStyle = CSSProperties &
+  Partial<
+    Record<
+      | "--flat-action-h"
+      | "--flat-control-right"
+      | "--flat-port-top"
+      | "--flat-rail-left"
+      | "--flat-row-height"
+      | "--flat-row-indent"
+      | "--flat-row-top",
+      string
+    >
+  >;
 
-const SHELL_CLASS_NAME =
-  "relative flex min-h-[320px] w-full min-w-[280px] flex-col border border-[color:var(--flat-border-strong)] bg-[color:var(--flat-shell-bg)] font-mono text-[11px] text-[color:var(--flat-text)] [--flat-key-width:8.75rem]";
-
-const ROW_KEY_CLASS_NAME =
-  "min-w-0 truncate text-[10px] font-semibold uppercase leading-7 tracking-[0.14em]";
-
-const ROW_VALUE_CLASS_NAME =
-  "min-w-0 truncate text-left font-mono text-[11px] leading-7";
-
-const ROW_CELL_DIVIDER_CLASS_NAME =
-  "border-b border-[color:var(--flat-border-soft)]";
-
-const ROW_HOVER_CLASS_NAME = "hover:bg-[color:var(--flat-hover)]";
-
-const NESTED_ROW_RAIL_BASE_CLASS_NAME =
-  "before:absolute before:left-[var(--flat-rail-left)] before:w-px before:bg-[color:var(--flat-border-soft)] before:content-['']";
-
-const NESTED_ROW_RAIL_CLASS_NAMES: Record<FlatPrototypeNestedRailRole, string> =
+const CALLABLE_PORTS: FlatPrototypePort[] = [
   {
-    single: "before:bottom-4 before:top-4",
-    start: "before:bottom-0 before:top-4",
-    middle: "before:bottom-0 before:top-0",
-    end: "before:bottom-4 before:top-0",
-  };
-
-const NESTED_ROW_RAIL_ROLE_BY_CONTINUITY = {
-  "0:0": "single",
-  "0:1": "start",
-  "1:0": "end",
-  "1:1": "middle",
-} satisfies Record<string, FlatPrototypeNestedRailRole>;
-
-const ROW_EMPHASIS_CLASS_NAMES: Record<FlatPrototypeRowEmphasis, string> = {
-  required: "text-[color:var(--flat-text)]",
-  optional: "text-[color:var(--flat-muted)]",
-  pinned: "text-[color:var(--flat-text)]",
-  edge: "text-[color:var(--flat-blue-strong)]",
-  group: "text-[color:var(--flat-title)]",
-  nested: "text-[color:var(--flat-soft-text)]",
-};
-
-const ROW_VALUE_CLASS_NAMES: Record<FlatPrototypeRowEmphasis, string> = {
-  required: "font-semibold text-[color:var(--flat-title)]",
-  optional: "text-[color:var(--flat-muted)]",
-  pinned: "font-semibold text-[color:var(--flat-title)]",
-  edge: "font-semibold text-[color:var(--flat-blue-strong)]",
-  group: "font-semibold text-[color:var(--flat-title)]",
-  nested: "text-[color:var(--flat-soft-text)]",
-};
+    id: "items",
+    label: "items",
+    side: "in",
+  },
+  {
+    id: "limit",
+    label: "limit",
+    side: "in",
+  },
+  {
+    id: "result",
+    label: "result",
+    side: "out",
+  },
+];
 
 const CALLABLE_PINNED_ROWS: FlatPrototypeRow[] = [
   {
     keyLabel: "limit",
     valueLabel: "connected",
     emphasis: "edge",
+    height: 45,
   },
 ];
 
@@ -183,6 +117,7 @@ const DICT_PINNED_ROWS: FlatPrototypeRow[] = [
     keyLabel: "workspace",
     valueLabel: "string",
     emphasis: "pinned",
+    height: 45,
   },
 ];
 
@@ -214,7 +149,7 @@ const DICT_ROWS: FlatPrototypeRow[] = [
 const FLAT_PROTOTYPE_ACTIONS = [
   {
     label: "Remove",
-    iconClassName: "gg-math-minus before:!left-0",
+    iconClassName: "gg-math-minus",
   },
   {
     label: "Add",
@@ -227,7 +162,7 @@ const FLAT_PROTOTYPE_ACTIONS = [
   {
     label: "Resize columns",
     iconClassName: "gg-push-left",
-    extraClassName: "cursor-col-resize",
+    extraClassName: "flat-section-card__action--resize",
     dataAttr: "column-resize",
   },
   {
@@ -236,108 +171,155 @@ const FLAT_PROTOTYPE_ACTIONS = [
   },
 ];
 
-const ACTION_ICON_BUTTON_CLASS_NAME =
-  "relative !block shrink-0 text-[color:var(--flat-muted)] [--ggs:0.42] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
-
 const FLAT_PROTOTYPE_SECTION_CONTROLS = [
   {
     label: "Lock section",
-    iconClassName: "gg-lock [--ggs:0.36]",
+    iconClassName: "gg-lock",
+    right: 48,
   },
   {
     label: "Minimize section",
-    iconClassName: "gg-math-minus before:!left-0 [--ggs:0.42]",
+    iconClassName: "gg-math-minus",
+    right: 27,
   },
   {
     label: "Close section",
-    iconClassName: "gg-close [--ggs:0.42]",
+    iconClassName: "gg-close",
+    right: 8,
   },
 ];
-
-const ICON_BUTTON_CLASS_NAME =
-  "relative !block shrink-0 text-[color:var(--flat-dim)] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
 
 const SECTION_KIND_ICON_CLASS_NAMES: Record<FlatSectionKind, string> = {
   callable: "gg-code-slash",
   dict: "gg-list",
 };
 
-function FlatSectionShell({
-  kind,
-  title,
+const CONTROL_TOGGLE_RIGHT = 70;
+const DEFAULT_ROW_HEIGHT = 29;
+const ROW_INDENT_REM = 0.875;
+const RAIL_BASE_REM = 1.1875;
+const ACTION_BAR_HEIGHT = "36px";
+
+function layoutRows({
+  pinnedRows,
+  rowStart,
+  rows,
+}: {
+  pinnedRows: FlatPrototypeRow[];
+  rowStart: number;
+  rows: FlatPrototypeRow[];
+}) {
+  const allRows = [...pinnedRows, ...rows];
+  let cursor = rowStart;
+  return allRows.map((row, index): FlatPrototypePositionedRow => {
+    const height = row.height ?? DEFAULT_ROW_HEIGHT;
+    const isPinned = index < pinnedRows.length;
+    const isLastPinned = isPinned && index === pinnedRows.length - 1;
+    const isLastBody = !isPinned && index === allRows.length - 1;
+    const positionedRow = {
+      ...row,
+      height,
+      hasDivider: !(isLastPinned || isLastBody),
+      top: cursor,
+    };
+    cursor += height;
+    return positionedRow;
+  });
+}
+
+function FlatPrototypeCard({
+  callableName,
   controlLabel,
   controlsInitiallyOpen = false,
+  kind,
+  pinnedRows,
+  ports = [],
+  rowStart,
+  rows,
   theme = "dark",
-  lead,
-  children,
-}: FlatSectionShellProps) {
+  title,
+}: FlatPrototypeCardProps) {
   const controlBarId = useId();
   const [isControlBarOpen, setIsControlBarOpen] = useState(
     controlsInitiallyOpen,
   );
+  const actionHeight = isControlBarOpen ? ACTION_BAR_HEIGHT : "0px";
+  const positionedRows = layoutRows({ pinnedRows, rowStart, rows });
+  const rootStyle = {
+    "--flat-action-h": actionHeight,
+  } satisfies FlatPrototypeStyle;
 
   return (
     <section
-      className={SHELL_CLASS_NAME}
+      aria-label={title}
+      className={`flat-section-card flat-section-card--${kind}`}
+      data-flat-controls-open={isControlBarOpen}
+      data-flat-preview-theme={theme}
       data-flat-section-kind={kind}
       data-flat-section-shell="true"
-      data-flat-preview-theme={theme}
-      style={FLAT_PROTOTYPE_THEME_STYLES[theme]}
+      style={rootStyle}
     >
-      <header className="flex min-h-8 items-center gap-2 border-b border-[color:var(--flat-border-strong)] px-2 py-1">
+      <button
+        type="button"
+        className={`flat-section-card__type ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
+        aria-label={`Open ${kind} section menu`}
+        data-flat-section-type-menu="true"
+      />
+      <h2 className="flat-section-card__title">{title}</h2>
+      <button
+        type="button"
+        className="flat-section-card__control gg-options"
+        aria-controls={controlBarId}
+        aria-expanded={isControlBarOpen}
+        aria-label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}
+        data-flat-control-toggle="true"
+        style={
+          {
+            "--flat-control-right": `${CONTROL_TOGGLE_RIGHT}px`,
+          } satisfies FlatPrototypeStyle
+        }
+        onClick={() => {
+          setIsControlBarOpen((wasOpen) => !wasOpen);
+        }}
+      />
+      {FLAT_PROTOTYPE_SECTION_CONTROLS.map((control) => (
         <button
+          key={control.label}
           type="button"
-          className={`relative !block shrink-0 text-[color:var(--flat-muted)] [--ggs:0.52] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)] ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
-          aria-label={`Open ${kind} section menu`}
-          data-flat-section-type-menu="true"
+          className={`flat-section-card__control ${control.iconClassName}`}
+          aria-label={control.label}
+          style={
+            {
+              "--flat-control-right": `${control.right}px`,
+            } satisfies FlatPrototypeStyle
+          }
         />
-        <h2 className="min-w-0 flex-1 truncate text-[12px] leading-5 text-[color:var(--flat-title)]">
-          {title}
-        </h2>
-        <nav
-          className="flex items-center gap-1"
-          aria-label={`${kind} section controls`}
-        >
-          <button
-            type="button"
-            className={`${ICON_BUTTON_CLASS_NAME} gg-options [--ggs:0.4]`}
-            aria-controls={controlBarId}
-            aria-expanded={isControlBarOpen}
-            aria-label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}
-            data-flat-control-toggle="true"
-            onClick={() => {
-              setIsControlBarOpen((wasOpen) => !wasOpen);
-            }}
-          />
-          {FLAT_PROTOTYPE_SECTION_CONTROLS.map((control) => (
-            <button
-              key={control.label}
-              type="button"
-              className={`${ICON_BUTTON_CLASS_NAME} ${control.iconClassName}`}
-              aria-label={control.label}
-            />
-          ))}
-        </nav>
-      </header>
-      {lead}
+      ))}
+      {callableName ? (
+        <input
+          aria-label="Callable function name"
+          className="flat-section-card__callable"
+          name="callable-function"
+          placeholder="please enter function name"
+          readOnly
+          value={callableName}
+        />
+      ) : null}
       {isControlBarOpen ? (
         <FlatPrototypeActionBar id={controlBarId} label={controlLabel} />
       ) : null}
-      {children}
+      {ports.length > 0 ? (
+        <>
+          <FlatPrototypePortList ports={ports} side="in" />
+          <FlatPrototypePortList ports={ports} side="out" />
+        </>
+      ) : null}
+      <ol className="flat-section-card__rows">
+        {positionedRows.map((row, index) => (
+          <FlatPrototypeRowItem key={`${row.keyLabel}-${index}`} row={row} />
+        ))}
+      </ol>
     </section>
-  );
-}
-
-function FlatCallableTarget({ value }: { value: string }) {
-  return (
-    <input
-      aria-label="Callable function name"
-      className="min-h-8 border-solid border-[color:var(--flat-border-strong)] bg-transparent px-3 py-1.5 text-[12px] font-semibold text-[color:var(--flat-title)] outline-none [border-width:0_0_1px_0] placeholder:text-[color:var(--flat-dim)] focus:border-[color:var(--flat-focus)]"
-      name="callable-function"
-      placeholder="please enter function name"
-      readOnly
-      value={value}
-    />
   );
 }
 
@@ -345,24 +327,22 @@ function FlatPrototypeActionBar({ id, label }: { id: string; label: string }) {
   return (
     <nav
       id={id}
-      className="flex min-h-9 items-center gap-0.5 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5"
+      className="flat-section-card__actions"
+      aria-label={`${label} controls`}
     >
       {FLAT_PROTOTYPE_ACTIONS.map((action) => (
         <button
           key={action.label}
           type="button"
-          className={`${ACTION_ICON_BUTTON_CLASS_NAME} ${action.iconClassName} ${action.extraClassName ?? ""}`}
+          className={`flat-section-card__action ${action.iconClassName} ${action.extraClassName ?? ""}`}
           aria-label={`${action.label} placeholder action`}
           data-flat-control={action.dataAttr}
         />
       ))}
-      <b
-        aria-hidden="true"
-        className="gg-search !ml-1 !mt-0 !block shrink-0 text-[color:var(--flat-dim)] [--ggs:0.42]"
-      />
+      <b aria-hidden="true" className="flat-section-card__search gg-search" />
       <input
         aria-label={`${label} filter`}
-        className="min-w-0 flex-1 border-solid border-transparent bg-transparent pb-0.5 text-left text-[10px] uppercase tracking-[0.18em] text-[color:var(--flat-dim)] outline-none [border-width:0_0_1px_0] hover:border-[color:var(--flat-border-strong)] focus:border-[color:var(--flat-focus)]"
+        className="flat-section-card__filter"
         name={`${label.toLowerCase()}-filter`}
         readOnly
         value="filter"
@@ -372,144 +352,62 @@ function FlatPrototypeActionBar({ id, label }: { id: string; label: string }) {
 }
 
 function FlatPrototypePortList({
-  align,
-  label,
   ports,
+  side,
 }: {
-  align: FlatPrototypePortAlign;
-  label: string;
-  ports: string[];
+  ports: FlatPrototypePort[];
+  side: FlatPrototypePortSide;
 }) {
-  const isRightAligned = align === "right";
-  const labelAlignClassName = isRightAligned
-    ? "before:right-0 before:text-right"
-    : "before:left-0";
-  const listClassName = `relative flex min-w-0 flex-1 flex-col gap-1 pt-5 before:absolute before:top-0 ${labelAlignClassName} before:text-[10px] before:uppercase before:tracking-[0.18em] before:text-[color:var(--flat-muted)] before:content-[attr(data-flat-port-label)] ${
-    isRightAligned ? "items-stretch pl-2" : "pr-2"
-  }`;
-  const rowClassName = isRightAligned
-    ? "relative whitespace-nowrap py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:right-[-0.9375rem] after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
-    : "relative whitespace-nowrap py-1 text-[color:var(--flat-soft-text)] before:absolute before:left-[-0.9375rem] before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
+  const sidePorts = ports.filter((port) => port.side === side);
 
   return (
-    <ol className={listClassName} data-flat-port-label={label.toUpperCase()}>
-      {ports.map((port) => (
-        <li key={`${align}-${port}`} className={rowClassName}>
-          {port}
+    <ol
+      className={`flat-section-card__ports flat-section-card__ports--${side}`}
+      data-flat-port-label={side === "in" ? "IN" : "OUT"}
+    >
+      {sidePorts.map((port, index) => (
+        <li
+          key={port.id}
+          className="flat-section-card__port"
+          data-flat-port-id={port.id}
+          style={
+            {
+              "--flat-port-top": `${25 + index * 29}px`,
+            } satisfies FlatPrototypeStyle
+          }
+        >
+          {port.label}
         </li>
       ))}
     </ol>
   );
 }
 
-function FlatPrototypeStrip({
-  inputPorts,
-  outputPorts,
-}: {
-  inputPorts: string[];
-  outputPorts: string[];
-}) {
-  return (
-    <section
-      className="relative flex gap-3 border-b border-[color:var(--flat-border-strong)] px-3 py-2 before:absolute before:bottom-2 before:left-1/2 before:top-2 before:w-px before:bg-[color:var(--flat-border-soft)] before:content-['']"
-      data-flat-shell-strip="ports"
-    >
-      <FlatPrototypePortList align="left" label="In" ports={inputPorts} />
-      <FlatPrototypePortList align="right" label="Out" ports={outputPorts} />
-    </section>
-  );
-}
-
-function getRowGroupClassName(variant: "pinned" | "body") {
-  if (variant === "pinned") {
-    return "relative border-b border-[color:var(--flat-border-strong)] bg-[color:var(--flat-pinned-bg)] px-3 py-2";
-  }
-  return "min-h-0 flex-1 overflow-y-auto px-3 py-2";
-}
-
-function FlatPrototypeRows({
-  rows,
-  variant = "body",
-}: {
-  rows: FlatPrototypeRow[];
-  variant?: "pinned" | "body";
-}) {
-  return (
-    <section
-      className={getRowGroupClassName(variant)}
-      data-flat-row-group={variant}
-    >
-      <ol>
-        {rows.map((row, index) => (
-          <FlatPrototypeRowItem
-            key={`${variant}-${row.keyLabel}-${index}`}
-            {...row}
-            isLast={index === rows.length - 1}
-            nestedRailRole={getNestedRailRole(rows, index)}
-          />
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function getNestedRailRole(
-  rows: FlatPrototypeRow[],
-  index: number,
-): FlatPrototypeNestedRailRole | undefined {
-  const depth = rows[index]?.depth ?? 0;
-  if (depth <= 0) {
-    return undefined;
-  }
-
-  const previousContinuity = Number((rows[index - 1]?.depth ?? 0) >= depth);
-  const nextContinuity = Number((rows[index + 1]?.depth ?? 0) >= depth);
-  return NESTED_ROW_RAIL_ROLE_BY_CONTINUITY[
-    `${previousContinuity}:${nextContinuity}`
-  ];
-}
-
-function FlatPrototypeRowItem({
-  keyLabel,
-  valueLabel,
-  depth = 0,
-  emphasis = "required",
-  trailing = ":",
-  isLast,
-  nestedRailRole,
-}: FlatPrototypeRowProps) {
-  const railDepth = Math.max(depth - 1, 0);
-  const rowStyle =
-    depth > 0
-      ? ({
-          "--flat-depth": depth,
-          "--flat-rail-left": `${railDepth * 0.875 + 1.1875}rem`,
-        } satisfies FlatPrototypeRowStyle)
-      : undefined;
-  const nestedClassName = nestedRailRole
-    ? `${NESTED_ROW_RAIL_BASE_CLASS_NAME} ${NESTED_ROW_RAIL_CLASS_NAMES[nestedRailRole]}`
-    : "";
-  const cellDividerClassName = isLast ? "" : ROW_CELL_DIVIDER_CLASS_NAME;
-  const rowClassName = `relative -mx-3 flex min-h-7 items-center gap-3 pr-3 pl-[calc(0.75rem+var(--flat-depth,0)*0.875rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
-  const valueWithTrailing = trailing ? `${valueLabel}${trailing}` : valueLabel;
+function FlatPrototypeRowItem({ row }: { row: FlatPrototypePositionedRow }) {
+  const depth = row.depth ?? 0;
+  const emphasis = row.emphasis ?? "required";
+  const valueWithTrailing =
+    row.trailing === null
+      ? row.valueLabel
+      : `${row.valueLabel}${row.trailing ?? ":"}`;
+  const rowStyle = {
+    "--flat-rail-left": `${(Math.max(depth - 1, 0) * ROW_INDENT_REM + RAIL_BASE_REM).toFixed(4)}rem`,
+    "--flat-row-height": `${row.height}px`,
+    "--flat-row-indent": `${depth * ROW_INDENT_REM}rem`,
+    "--flat-row-top": `${row.top}px`,
+  } satisfies FlatPrototypeStyle;
 
   return (
     <li
-      className={rowClassName}
+      className="flat-section-card__row"
+      data-flat-row-divider={row.hasDivider}
       data-flat-row-emphasis={emphasis}
-      data-flat-row-key={keyLabel}
+      data-flat-row-key={row.keyLabel}
+      data-flat-row-depth={depth}
       style={rowStyle}
     >
-      <b
-        className={`${ROW_KEY_CLASS_NAME} w-[var(--flat-key-width)] min-w-[5.5rem] shrink-0 ${cellDividerClassName}`}
-      >
-        {keyLabel}
-      </b>
-      <code
-        className={`${ROW_VALUE_CLASS_NAME} flex-1 ${cellDividerClassName} ${ROW_VALUE_CLASS_NAMES[emphasis]}`}
-      >
-        {valueWithTrailing}
-      </code>
+      <b>{row.keyLabel}</b>
+      <code>{valueWithTrailing}</code>
     </li>
   );
 }
@@ -519,21 +417,18 @@ export function FlatCallableSectionPrototype({
   theme = "dark",
 }: FlatPrototypeSectionProps = {}) {
   return (
-    <FlatSectionShell
-      kind="callable"
-      title="rank_items"
+    <FlatPrototypeCard
+      callableName="builtins.sorted"
       controlLabel="Args"
       controlsInitiallyOpen={controlsInitiallyOpen}
+      kind="callable"
+      pinnedRows={CALLABLE_PINNED_ROWS}
+      ports={CALLABLE_PORTS}
+      rowStart={168}
+      rows={CALLABLE_ROWS}
       theme={theme}
-      lead={<FlatCallableTarget value="builtins.sorted" />}
-    >
-      <FlatPrototypeStrip
-        inputPorts={["items", "limit"]}
-        outputPorts={["result"]}
-      />
-      <FlatPrototypeRows rows={CALLABLE_PINNED_ROWS} variant="pinned" />
-      <FlatPrototypeRows rows={CALLABLE_ROWS} />
-    </FlatSectionShell>
+      title="rank_items"
+    />
   );
 }
 
@@ -542,28 +437,28 @@ export function FlatDictSectionPrototype({
   theme = "dark",
 }: FlatPrototypeSectionProps = {}) {
   return (
-    <FlatSectionShell
-      kind="dict"
-      title="workspace_profile"
+    <FlatPrototypeCard
       controlLabel="Entries"
       controlsInitiallyOpen={controlsInitiallyOpen}
+      kind="dict"
+      pinnedRows={DICT_PINNED_ROWS}
+      rowStart={33}
+      rows={DICT_ROWS}
       theme={theme}
-    >
-      <FlatPrototypeRows rows={DICT_PINNED_ROWS} variant="pinned" />
-      <FlatPrototypeRows rows={DICT_ROWS} />
-    </FlatSectionShell>
+      title="workspace_profile"
+    />
   );
 }
 
 export function FlatSectionPrototypeGallery() {
   return (
     <article
-      className="flex flex-col gap-6 xl:flex-row"
+      className="flat-section-prototype-gallery"
       data-flat-section-gallery="true"
     >
       <section
         aria-label="Dark section prototypes"
-        className="flex min-w-0 flex-1 flex-col gap-6"
+        className="flat-section-prototype-gallery__column"
         data-flat-theme-preview="dark"
       >
         <FlatCallableSectionPrototype theme="dark" />
@@ -571,7 +466,7 @@ export function FlatSectionPrototypeGallery() {
       </section>
       <section
         aria-label="Light section prototypes"
-        className="flex min-w-0 flex-1 flex-col gap-6"
+        className="flat-section-prototype-gallery__column"
         data-flat-theme-preview="light"
       >
         <FlatCallableSectionPrototype theme="light" />
