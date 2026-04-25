@@ -9,7 +9,7 @@ export function FlatSectionPrototypePage() {
   }, []);
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#f2f0ea] text-neutral-900 dark:bg-[#111111] dark:text-setta-50">
+    <main className="min-h-0 flex-1 overflow-y-auto bg-[#eef1f5] text-neutral-900 dark:bg-[#111111] dark:text-setta-50">
       <header className="border-b border-neutral-300 px-5 py-4 dark:border-setta-800">
         <div className="flex flex-wrap items-center gap-3">
           <Link
@@ -26,14 +26,14 @@ export function FlatSectionPrototypePage() {
           Flat Dict / Callable Prototype
         </h1>
         <p className="mt-2 max-w-[62ch] text-[12px] leading-5 text-neutral-600 dark:text-setta-300">
-          Static shell study for the simplified dict and callable rewrite.
-          This page is intentionally behavior-free so the layout can be judged
-          on its own.
+          Static shell study for the simplified dict and callable rewrite. This
+          page is intentionally behavior-free so the layout can be judged on its
+          own.
         </p>
       </header>
 
-      <section className="flex min-h-0 flex-1 flex-col gap-6 p-5 xl:flex-row xl:items-start">
-        <article className="min-w-0 flex-1">
+      <section className="w-full p-5">
+        <article className="min-w-0">
           <FlatSectionPrototypeGallery />
         </article>
       </section>
