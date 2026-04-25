@@ -64,7 +64,7 @@ type FlatPrototypeSectionProps = {
 };
 
 type FlatPrototypeRowStyle = CSSProperties &
-  Partial<Record<"--flat-depth", number>> &
+  Partial<Record<"--flat-depth-offset", string>> &
   Partial<Record<"--flat-rail-left", string>>;
 
 const FLAT_PROTOTYPE_THEME_STYLES = {
@@ -103,13 +103,13 @@ const FLAT_PROTOTYPE_THEME_STYLES = {
 } satisfies Record<FlatPrototypeTheme, FlatPrototypeThemeStyle>;
 
 const SHELL_CLASS_NAME =
-  "relative flex min-h-[320px] w-full min-w-[280px] flex-col border border-[color:var(--flat-border-strong)] bg-[color:var(--flat-shell-bg)] font-mono text-[11px] text-[color:var(--flat-text)] [--flat-key-width:8.75rem]";
+  "relative flex min-h-[320px] w-full min-w-[280px] flex-col border border-[color:var(--flat-border-strong)] bg-[color:var(--flat-shell-bg)] font-mono text-[11px] text-[color:var(--flat-text)] [--flat-key-width:8.75rem] [--flat-row-height:1.75rem] [contain:layout_style]";
 
 const ROW_KEY_CLASS_NAME =
-  "min-w-0 truncate text-[10px] font-semibold uppercase leading-7 tracking-[0.14em]";
+  "min-w-0 truncate text-[10px] font-semibold uppercase leading-[var(--flat-row-height)] tracking-[0.14em]";
 
 const ROW_VALUE_CLASS_NAME =
-  "min-w-0 truncate text-left font-mono text-[11px] leading-7";
+  "min-w-0 truncate text-left font-mono text-[11px] leading-[var(--flat-row-height)]";
 
 const ROW_CELL_DIVIDER_CLASS_NAME =
   "border-b border-[color:var(--flat-border-soft)]";
@@ -482,7 +482,7 @@ function FlatPrototypeRowItem({
   const rowStyle =
     depth > 0
       ? ({
-          "--flat-depth": depth,
+          "--flat-depth-offset": `${depth * 0.875}rem`,
           "--flat-rail-left": `${railDepth * 0.875 + 1.1875}rem`,
         } satisfies FlatPrototypeRowStyle)
       : undefined;
@@ -490,7 +490,7 @@ function FlatPrototypeRowItem({
     ? `${NESTED_ROW_RAIL_BASE_CLASS_NAME} ${NESTED_ROW_RAIL_CLASS_NAMES[nestedRailRole]}`
     : "";
   const cellDividerClassName = isLast ? "" : ROW_CELL_DIVIDER_CLASS_NAME;
-  const rowClassName = `relative -mx-3 flex min-h-7 items-center gap-3 pr-3 pl-[calc(0.75rem+var(--flat-depth,0)*0.875rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
+  const rowClassName = `relative -mx-3 flex min-h-[var(--flat-row-height)] items-center gap-3 pr-3 pl-[calc(0.75rem+var(--flat-depth-offset,0rem))] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
   const valueWithTrailing = trailing ? `${valueLabel}${trailing}` : valueLabel;
 
   return (

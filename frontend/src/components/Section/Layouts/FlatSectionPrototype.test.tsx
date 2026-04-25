@@ -28,6 +28,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("gg-code-slash");
     expect(markup).toContain("gg-list");
     expect(markup).toContain("px-2 py-1");
+    expect(markup).toContain("[contain:layout_style]");
+    expect(markup).toContain("[--flat-row-height:1.75rem]");
     expect(markup).not.toContain("px-2.5");
     expect(markup).toContain('placeholder="please enter function name"');
     expect(markup).toContain('aria-label="Lock section"');
@@ -71,7 +73,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("focus:border-[color:var(--flat-focus)]");
     expect(markup).toContain("border-solid");
     expect(markup).toContain("[border-width:0_0_1px_0]");
-    expect(markup).toContain("leading-7");
+    expect(markup).toContain("leading-[var(--flat-row-height)]");
     expect(markup).toContain("text-left font-mono");
     expect(markup).toContain("whitespace-nowrap py-1");
     expect(markup).toContain("before:left-[-0.9375rem]");
@@ -79,9 +81,13 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("var(--flat-key-width)");
     expect(markup).toContain('data-flat-port-label="IN"');
     expect(markup).toContain("before:content-[attr(data-flat-port-label)]");
-    expect(markup).toContain("flex min-h-7 items-center");
+    expect(markup).toContain(
+      "flex min-h-[var(--flat-row-height)] items-center",
+    );
     expect(markup).toContain("-mx-3");
-    expect(markup).toContain("pl-[calc(0.75rem+var(--flat-depth,0)*0.875rem)]");
+    expect(markup).toContain(
+      "pl-[calc(0.75rem+var(--flat-depth-offset,0rem))]",
+    );
     expect(markup).toContain("pr-3");
     expect(markup).not.toContain("grid");
     expect(markup).not.toContain('data-flat-pinned-marker="true"');
@@ -120,6 +126,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("before:left-[var(--flat-rail-left)]");
     expect(markup).toContain("before:top-4");
     expect(markup).toContain("before:bottom-4");
+    expect(markup).toContain("--flat-depth-offset:0.875rem");
     expect(markup).toContain("--flat-rail-left:1.1875rem");
     expect(markup).not.toContain("--flat-rail-width");
     expect(markup).not.toContain("after:w-[var(--flat-rail-width)]");
