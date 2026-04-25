@@ -307,7 +307,7 @@ export declare function isGeneratedPythonIdentifier(
   name: string,
   pythonIdentifierStartChars: ReadonlySet<string>,
   pythonIdentifierContinueChars: ReadonlySet<string>,
-  pythonKeywords: ReadonlySet<string>,
+  pythonKeywords?: ReadonlySet<string>,
 ): boolean;
 export declare function validateGeneratedParamNameInput(
   name: string,
