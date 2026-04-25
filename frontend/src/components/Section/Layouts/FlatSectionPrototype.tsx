@@ -27,11 +27,12 @@ type FlatPrototypeRowProps = FlatPrototypeRow & {
 type FlatSectionShellProps = {
   kind: FlatSectionKind;
   title: string;
+  callTarget?: string;
   children: ReactNode;
 };
 
 const SHELL_CLASS_NAME =
-  "relative flex min-h-[320px] w-full min-w-[280px] flex-col overflow-hidden border border-neutral-300 bg-white font-mono text-[11px] text-neutral-900 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100";
+  "relative flex min-h-[320px] w-full min-w-[280px] flex-col overflow-hidden border border-neutral-300 bg-white font-mono text-[11px] text-neutral-900 [--flat-key-width:8.75rem] dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100";
 
 const HEADER_LABEL_CLASS_NAME =
   "text-[10px] uppercase tracking-[0.18em] text-neutral-500 dark:text-setta-400";
@@ -41,6 +42,9 @@ const ROW_KEY_CLASS_NAME =
 
 const ROW_VALUE_CLASS_NAME =
   "min-w-0 truncate text-right font-mono text-[11px] leading-7";
+
+const ROW_CELL_DIVIDER_CLASS_NAME =
+  "border-b border-neutral-200 dark:border-setta-800";
 
 const ROW_HOVER_CLASS_NAME =
   "transition-colors hover:bg-neutral-100/80 dark:hover:bg-setta-800/70";
@@ -53,8 +57,7 @@ const ROW_EMPHASIS_CLASS_NAMES: Record<FlatPrototypeRowEmphasis, string> = {
   optional: "text-neutral-500 dark:text-setta-400",
   pinned: "text-neutral-900 dark:text-setta-100",
   edge: "text-blue-900 dark:text-blue-100",
-  group:
-    "bg-neutral-50/90 text-neutral-950 dark:bg-setta-900/80 dark:text-setta-50",
+  group: "text-neutral-950 dark:text-setta-50",
   nested: "text-neutral-700 dark:text-setta-300",
 };
 
@@ -133,34 +136,48 @@ const FLAT_PROTOTYPE_ACTIONS = [
   },
   {
     label: "Add",
-    iconClassName: "gg-math-plus !scale-50",
+    iconClassName: "gg-math-plus",
   },
   {
     label: "Pin",
-    iconClassName: "gg-pin-alt mt-1 !scale-50",
+    iconClassName: "gg-pin-alt",
+  },
+  {
+    label: "Resize columns",
+    iconClassName: "gg-push-left",
+    extraClassName: "cursor-col-resize",
+    dataAttr: "column-resize",
   },
   {
     label: "Edge",
-    iconClassName: "gg-link !scale-50",
+    iconClassName: "gg-link",
   },
 ];
 
 const FLAT_PROTOTYPE_SECTION_CONTROLS = [
   {
-    label: "Pin section",
-    iconClassName: "gg-pin-alt mt-1 !scale-50",
+    label: "Lock section",
+    iconClassName: "gg-lock",
   },
   {
-    label: "Maximize section",
-    iconClassName: "gg-maximize !scale-50",
+    label: "Minimize section",
+    iconClassName: "gg-math-minus before:!left-0",
   },
   {
-    label: "More section controls",
-    iconClassName: "gg-options !scale-50",
+    label: "Close section",
+    iconClassName: "gg-close",
   },
 ];
 
-function FlatSectionShell({ kind, title, children }: FlatSectionShellProps) {
+const ICON_BUTTON_CLASS_NAME =
+  "text-neutral-400 hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 dark:text-setta-500 dark:hover:text-blue-300";
+
+function FlatSectionShell({
+  kind,
+  title,
+  callTarget,
+  children,
+}: FlatSectionShellProps) {
   return (
     <section
       className={SHELL_CLASS_NAME}
@@ -178,6 +195,14 @@ function FlatSectionShell({ kind, title, children }: FlatSectionShellProps) {
         </button>
         <h2 className="min-w-0 truncate text-[12px] leading-5 text-neutral-950 dark:text-setta-50">
           {title}
+          {callTarget ? (
+            <>
+              {" "}
+              <code className="ml-1 font-mono text-[11px] font-normal text-neutral-500 dark:text-setta-400">
+                {`calls ${callTarget}`}
+              </code>
+            </>
+          ) : null}
         </h2>
         <nav
           className="flex items-center gap-1"
@@ -187,14 +212,9 @@ function FlatSectionShell({ kind, title, children }: FlatSectionShellProps) {
             <button
               key={control.label}
               type="button"
-              className="grid h-[18px] w-[18px] place-items-center bg-transparent text-neutral-400 hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 dark:text-setta-500 dark:hover:text-blue-300"
+              className={`${ICON_BUTTON_CLASS_NAME} ${control.iconClassName}`}
               aria-label={control.label}
-            >
-              <i
-                aria-hidden="true"
-                className={`${control.iconClassName} before:text-current after:text-current`}
-              />
-            </button>
+            />
           ))}
         </nav>
       </header>
@@ -212,23 +232,23 @@ function FlatPrototypeActionBar({
 }) {
   return (
     <nav className="flex min-h-9 items-center gap-1 border-b border-neutral-300 px-3 py-1.5 dark:border-setta-700">
-      <p className={`mr-1 ${HEADER_LABEL_CLASS_NAME}`}>{label}</p>
+      <p className={`mr-1 shrink-0 ${HEADER_LABEL_CLASS_NAME}`}>{label}</p>
       {FLAT_PROTOTYPE_ACTIONS.map((action) => (
         <button
           key={action.label}
           type="button"
-          className="grid h-[18px] w-[18px] place-items-center bg-transparent text-neutral-500 hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 dark:text-setta-400 dark:hover:text-blue-300"
+          className={`shrink-0 text-neutral-500 hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 dark:text-setta-400 dark:hover:text-blue-300 ${action.iconClassName} ${action.extraClassName ?? ""}`}
           aria-label={`${action.label} placeholder action`}
-        >
-          <i
-            aria-hidden="true"
-            className={`${action.iconClassName} before:text-current after:text-current`}
-          />
-        </button>
+          data-flat-control={action.dataAttr}
+        />
       ))}
-      <p className="ml-auto min-w-24 border-b border-neutral-300 pb-0.5 text-right text-[10px] uppercase tracking-[0.18em] text-neutral-400 dark:border-setta-700 dark:text-setta-500">
-        {placeholder}
-      </p>
+      <input
+        aria-label={`${label} filter`}
+        className="ml-2 min-w-0 flex-1 border-b border-neutral-300 pb-0.5 text-right text-[10px] uppercase tracking-[0.18em] text-neutral-400 dark:border-setta-700 dark:text-setta-500"
+        name={`${label.toLowerCase()}-filter`}
+        readOnly
+        value={placeholder}
+      />
     </nav>
   );
 }
@@ -336,9 +356,8 @@ function FlatPrototypeRowItem({
     "--flat-depth": depth,
   } as CSSProperties & Record<"--flat-depth", number>;
   const nestedClassName = depth > 0 ? NESTED_ROW_RAIL_CLASS_NAME : "";
-  const rowClassName = `relative grid min-h-7 grid-cols-[minmax(5.5rem,0.72fr)_minmax(0,1fr)] items-center gap-3 pr-2 pl-[calc(var(--flat-depth)*0.875rem+0.625rem)] ${
-    isLast ? "" : "border-b border-neutral-200 dark:border-setta-800"
-  } ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
+  const cellDividerClassName = isLast ? "" : ROW_CELL_DIVIDER_CLASS_NAME;
+  const rowClassName = `relative grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-2 pl-[calc(var(--flat-depth)*0.875rem+0.625rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
   const valueWithTrailing = trailing ? `${valueLabel}${trailing}` : valueLabel;
 
   return (
@@ -348,9 +367,11 @@ function FlatPrototypeRowItem({
       data-flat-row-key={keyLabel}
       style={rowStyle}
     >
-      <b className={ROW_KEY_CLASS_NAME}>{keyLabel}</b>
+      <b className={`${ROW_KEY_CLASS_NAME} ${cellDividerClassName}`}>
+        {keyLabel}
+      </b>
       <code
-        className={`${ROW_VALUE_CLASS_NAME} ${ROW_VALUE_CLASS_NAMES[emphasis]}`}
+        className={`${ROW_VALUE_CLASS_NAME} ${cellDividerClassName} ${ROW_VALUE_CLASS_NAMES[emphasis]}`}
       >
         {valueWithTrailing}
       </code>
@@ -360,7 +381,11 @@ function FlatPrototypeRowItem({
 
 export function FlatCallableSectionPrototype() {
   return (
-    <FlatSectionShell kind="callable" title="rank_items">
+    <FlatSectionShell
+      kind="callable"
+      title="rank_items"
+      callTarget="builtins.sorted"
+    >
       <FlatPrototypeActionBar label="Args" placeholder="filter args" />
       <FlatPrototypeStrip
         inputPorts={["items", "limit"]}

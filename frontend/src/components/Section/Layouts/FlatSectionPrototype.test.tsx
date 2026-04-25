@@ -14,7 +14,11 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-section-kind="dict"');
     expect(markup).toContain('data-flat-section-type-menu="true"');
     expect(markup).toContain("rank_items");
+    expect(markup).toContain("builtins.sorted");
     expect(markup).toContain("workspace_profile");
+    expect(markup).toContain('aria-label="Lock section"');
+    expect(markup).toContain('aria-label="Minimize section"');
+    expect(markup).toContain('aria-label="Close section"');
     expect(markup).not.toContain("rounded");
     expect(markup).not.toContain("shadow");
     expect(markup).not.toContain("opacity");
@@ -26,16 +30,21 @@ describe("FlatSectionPrototype", () => {
     const markup = renderToStaticMarkup(<FlatCallableSectionPrototype />);
     const divCount = (markup.match(/<div\b/g) ?? []).length;
     const spanCount = (markup.match(/<span\b/g) ?? []).length;
+    const iconElementCount = (markup.match(/<i\b/g) ?? []).length;
     const rowCount = (markup.match(/data-flat-row-key=/g) ?? []).length;
 
     expect(divCount).toBe(0);
     expect(spanCount).toBe(0);
+    expect(iconElementCount).toBe(0);
     expect(rowCount).toBeGreaterThanOrEqual(4);
     expect(markup).toContain('data-flat-shell-strip="ports"');
     expect(markup).toContain('data-flat-row-emphasis="edge"');
     expect(markup).toContain('data-flat-row-emphasis="required"');
     expect(markup).toContain('data-flat-row-emphasis="optional"');
     expect(markup).toContain("hover:bg-neutral-100/80");
+    expect(markup).toContain('data-flat-control="column-resize"');
+    expect(markup).toContain("flex-1");
+    expect(markup).toContain("var(--flat-key-width)");
     expect(markup).not.toContain("bg-blue-50/80");
   });
 
