@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
+build-backend = "build_backend"
+backend-path = ["."]
+
+[project]
+name = "setta-watch-code"
+version = "0.1.0"
+description = "First-party Watch Code plugin package for Setta"
+requires-python = ">=3.12"
+dependencies = ["setta==0.0.18"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.setuptools.data-files]
+"setta-watch-code" = ["setta.plugin.json", "README.md"]
+"setta-watch-code/frontend/dist" = ["frontend/dist/index.js", "frontend/dist/setta-watch-code-frontend.css"]

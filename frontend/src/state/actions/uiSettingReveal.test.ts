@@ -790,7 +790,8 @@ describe("receiveUISettingReveal", () => {
     const paneRoot = {
       querySelector: vi.fn((selector: string) => {
         if (
-          selector === '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
+          selector ===
+            '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
           Date.now() >= 2500
         ) {
           return anchor;
@@ -1159,7 +1160,8 @@ describe("receiveUISettingReveal", () => {
     const paneRoot = {
       querySelector: vi.fn((selector: string) => {
         if (
-          selector === '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
+          selector ===
+            '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
           Date.now() - startMs >= 300
         ) {
           return anchor;
@@ -1341,7 +1343,8 @@ describe("receiveUISettingReveal", () => {
     const paneRoot = {
       querySelector: vi.fn((selector: string) => {
         if (
-          selector === '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
+          selector ===
+            '[data-setting-anchor="plugin::setta-watch-code::enabled"]' &&
           Date.now() - startMs >= 300
         ) {
           return anchor;

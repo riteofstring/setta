@@ -28,8 +28,9 @@ type Document struct {
 	PluginData       map[string]RawJSON `json:"pluginData,omitempty"`
 	Projects         map[string]Project `json:"projects,omitempty"`
 
-	passwordSecrets       PasswordSecretStore
-	watchCodeIgnoredRoots []string
+	passwordSecrets             PasswordSecretStore
+	watchCodeIgnoredRoots       []string
+	watchCodePluginDataHydrated bool
 }
 
 // setta-go-type-discovery: skip
@@ -45,11 +46,11 @@ type Project struct {
 	ActiveViewModeID         string                            `json:"activeViewModeId,omitempty"`
 	IsEditingViewMode        bool                              `json:"isEditingViewMode,omitempty"`
 	CodegenTargets           []ProjectCodegenTarget            `json:"codegenTargets,omitempty"`
-	WatchCodeEnabled         bool                              `json:"watchCodeEnabled,omitempty"`
-	WatchCodeFolders         []WatchCodeFolder                 `json:"watchCodeFolders,omitempty"`
-	WatchCodeFiles           []string                          `json:"watchCodeFiles,omitempty"`
-	WatchCodeRegistry        map[string]WatchCodeRegistryEntry `json:"watchCodeRegistry,omitempty"`
-	WatchCodeBaselineByPath  map[string][]string               `json:"watchCodeBaselineByPath,omitempty"`
+	WatchCodeEnabled         bool                              `json:"-"`
+	WatchCodeFolders         []WatchCodeFolder                 `json:"-"`
+	WatchCodeFiles           []string                          `json:"-"`
+	WatchCodeRegistry        map[string]WatchCodeRegistryEntry `json:"-"`
+	WatchCodeBaselineByPath  map[string][]string               `json:"-"`
 	GeneratedCodeBinding     *CodeFileBinding                  `json:"generatedCodeBinding,omitempty"`
 	GeneratedMetadataBinding *CodeFileBinding                  `json:"generatedMetadataBinding,omitempty"`
 	EntryCodeBlockID         string                            `json:"entryCodeBlockId,omitempty"`
@@ -131,7 +132,16 @@ func (d Document) Normalized() (Document, error) {
 		return Document{}, err
 	}
 	normalized.PluginData = pluginData
+	if !normalized.watchCodePluginDataHydrated {
+		if err := normalized.loadWatchCodePluginDataIntoProjects(); err != nil {
+			return Document{}, err
+		}
+		normalized.watchCodePluginDataHydrated = true
+	}
 	if err := normalizeDocumentProjects(normalized.Projects); err != nil {
+		return Document{}, err
+	}
+	if err := normalized.storeWatchCodePluginDataFromProjects(); err != nil {
 		return Document{}, err
 	}
 	if err := validateDocumentDefaultProjectID(normalized.DefaultProjectID, normalized.Projects); err != nil {

@@ -130,6 +130,7 @@ type PluginProjectContext = {
 
 type PluginProjectStateSelector =
   | { kind: "projectConfig" }
+  | { kind: "pluginData"; pluginId: string }
   | { kind: "activeSectionIds" }
   | { kind: "section"; sectionId: string }
   | { kind: "sections"; sectionIds: string[] }
@@ -505,10 +506,23 @@ function normalizeSectionsProjectStateSelector(
   };
 }
 
-function normalizeProjectStateSelector(
+function normalizePluginDataProjectStateSelector(
   pluginId: string,
   selector: PluginProjectStateSelector,
-): PluginProjectStateSelector {
+): Extract<PluginProjectStateSelector, { kind: "pluginData" }> {
+  return {
+    kind: "pluginData",
+    pluginId: requireNonEmptyString(
+      (selector as { pluginId?: unknown }).pluginId,
+      `Plugin ${pluginId} pluginData selector missing pluginId.`,
+    ),
+  };
+}
+
+function requireProjectStateSelectorKind(
+  pluginId: string,
+  selector: PluginProjectStateSelector,
+): string {
   if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
     throw new PluginRuntimeError(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
@@ -522,7 +536,14 @@ function normalizeProjectStateSelector(
       `Plugin ${pluginId} project state selector is missing kind.`,
     );
   }
-  const kind = rawKind.trim();
+  return rawKind.trim();
+}
+
+function normalizeProjectStateSelector(
+  pluginId: string,
+  selector: PluginProjectStateSelector,
+): PluginProjectStateSelector {
+  const kind = requireProjectStateSelectorKind(pluginId, selector);
   if (isSimpleProjectStateSelectorKind(kind)) {
     return { kind };
   }
@@ -532,56 +553,58 @@ function normalizeProjectStateSelector(
   if (kind === "sections") {
     return normalizeSectionsProjectStateSelector(pluginId, selector);
   }
+  if (kind === "pluginData") {
+    return normalizePluginDataProjectStateSelector(pluginId, selector);
+  }
   throw new PluginRuntimeError(
     PluginFrontendErrorCodeEnum.RegistrationInvalid,
     `Plugin ${pluginId} project state selector kind ${kind} is unsupported.`,
   );
 }
 
+function getSectionImplForProjectState(
+  state: ReturnType<typeof useProjectState.getState>,
+  sectionId: string,
+): unknown {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  return impl;
+}
+
 function getRawSelectedProjectState(
   state: ReturnType<typeof useProjectState.getState>,
   selector: PluginProjectStateSelector,
 ): unknown {
-  if (selector.kind === "projectConfig") {
-    return state.projectConfig;
+  switch (selector.kind) {
+    case "projectConfig":
+      return state.projectConfig;
+    case "pluginData":
+      return (
+        (state as { pluginData?: Record<string, unknown> }).pluginData?.[
+          selector.pluginId
+        ] ?? null
+      );
+    case "activeSectionIds":
+      return useActiveSectionUI.getState().activeIds;
+    case "singletonSections":
+      return state.singletonSections;
+    case "section":
+      return getSectionImplForProjectState(state, selector.sectionId);
+    case "sections":
+      return selector.sectionIds.map((sectionId) =>
+        getSectionImplForProjectState(state, sectionId),
+      );
   }
-  if (selector.kind === "activeSectionIds") {
-    return useActiveSectionUI.getState().activeIds;
-  }
-  if (selector.kind === "singletonSections") {
-    return state.singletonSections;
-  }
-  if (selector.kind === "section") {
-    const sectionId = selector.sectionId;
-    const variantId = state.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return null;
-    }
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    return impl;
-  }
-  return selector.sectionIds.map((sectionId) => {
-    const variantId = state.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return null;
-    }
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    return impl;
-  });
 }
 
 function projectStateSubscriptionEquality(

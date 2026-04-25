@@ -57,6 +57,8 @@ function normalizeWatchCodePluginHost(
     !Array.isArray(candidate.effectiveCapabilities) ||
     typeof candidate.registerCanvasControl !== "function" ||
     typeof candidate.registerSettingRevealHandler !== "function" ||
+    typeof candidate.getProjectContext !== "function" ||
+    typeof candidate.subscribeProjectContext !== "function" ||
     typeof candidate.readProjectState !== "function" ||
     typeof candidate.subscribeProjectState !== "function" ||
     typeof candidate.setWatchCodeEnabled !== "function" ||

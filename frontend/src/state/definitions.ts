@@ -171,6 +171,15 @@ export const useProjectState = withProjectState(
           codeObjImpls: {},
           codeObjVariants: {},
           artifactGroups: {},
+          pluginData: {
+            "setta-watch-code": {
+              enabled: false,
+              folders: [],
+              files: [],
+              registry: {},
+              baselineByPath: {},
+            },
+          },
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},

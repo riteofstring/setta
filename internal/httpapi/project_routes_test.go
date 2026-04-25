@@ -4176,12 +4176,16 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs(t *test
 	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode latest project state payload: %v", err)
 	}
-	if !payload.ProjectState.ProjectConfig.WatchCodeEnabled {
+	watchCodeData, ok := payload.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
+	if !ok {
+		t.Fatalf("expected latest project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
+	}
+	if !watchCodeData.Enabled {
 		t.Fatal("expected watch code to be enabled in latest project state")
 	}
 	expectedBaselineKey := filepath.Clean(watchFile)
 	expectedIdentity := "pkg.watch_me.existing:function"
-	if got := payload.ProjectState.ProjectConfig.WatchCodeBaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
+	if got := watchCodeData.BaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
 		t.Fatalf("expected watch code baseline %#v, got %#v", []string{expectedIdentity}, got)
 	}
 }
@@ -4249,12 +4253,16 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBroadcastsProjectStateUpdate(t 
 	}
 
 	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
-	if !update.ProjectState.ProjectConfig.WatchCodeEnabled {
+	watchCodeData, ok := update.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
+	if !ok {
+		t.Fatalf("expected websocket project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
+	}
+	if !watchCodeData.Enabled {
 		t.Fatal("expected websocket project state to enable watch code")
 	}
 	expectedBaselineKey := filepath.Clean(watchFile)
 	expectedIdentity := "pkg.watch_me.existing:function"
-	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
+	if got := watchCodeData.BaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
 		t.Fatalf("expected websocket watch code baseline %#v, got %#v", []string{expectedIdentity}, got)
 	}
 }
@@ -4490,15 +4498,19 @@ func TestRegisterProjectRoutesSetWatchCodeInputsBroadcastsProjectStateUpdate(t *
 	}
 
 	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
-	if !reflect.DeepEqual(update.ProjectState.ProjectConfig.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
-		t.Fatalf("expected websocket watch files, got %#v", update.ProjectState.ProjectConfig.WatchCodeFiles)
+	watchCodeData, ok := update.ProjectState.PluginData[projectstate.WatchCodePluginDataKey]
+	if !ok {
+		t.Fatalf("expected websocket project state to include %q plugin data", projectstate.WatchCodePluginDataKey)
 	}
-	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected websocket existing baseline to stay unchanged, got %#v", update.ProjectState.ProjectConfig.WatchCodeBaselineByPath)
+	if !reflect.DeepEqual(watchCodeData.Files, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
+		t.Fatalf("expected websocket watch files, got %#v", watchCodeData.Files)
+	}
+	if got := watchCodeData.BaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected websocket existing baseline to stay unchanged, got %#v", watchCodeData.BaselineByPath)
 	}
 	newBaselineKey := filepath.Clean(newFile)
-	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
-		t.Fatalf("expected websocket new baseline, got %#v", update.ProjectState.ProjectConfig.WatchCodeBaselineByPath)
+	if got := watchCodeData.BaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
+		t.Fatalf("expected websocket new baseline, got %#v", watchCodeData.BaselineByPath)
 	}
 }
 

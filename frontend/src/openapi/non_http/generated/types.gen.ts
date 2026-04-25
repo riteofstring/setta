@@ -4589,15 +4589,6 @@ export type ProjectConfig = {
   };
   viewport: Viewport | null;
   viewportInitialized: boolean;
-  watchCodeBaselineByPath: {
-    [key: string]: null | Array<string>;
-  };
-  watchCodeEnabled: boolean;
-  watchCodeFiles: null | Array<string>;
-  watchCodeFolders: null | Array<WatchCodeFolder>;
-  watchCodeRegistry: {
-    [key: string]: WatchCodeRegistryEntry;
-  };
   windowSpaceIdsBySlug: {
     [key: string]: null | Array<string>;
   };
@@ -4626,6 +4617,13 @@ export type ProjectConfigDiagnostics = {
 export type ProjectConfigMetadata = {
   id: string;
   name: string;
+};
+
+/**
+ * ProjectPluginData
+ */
+type ProjectPluginData = {
+  [key: string]: WatchCodePluginProjectData;
 };
 
 /**
@@ -6158,6 +6156,7 @@ export type SingleConfig = {
   parentSectionMap: {
     [key: string]: null | string;
   };
+  pluginData: ProjectPluginData;
   projectChatWindowing: ProjectChatWindowingState;
   projectConfig: ProjectConfig;
   requiredDecodedImages: null | Array<string>;
@@ -7474,6 +7473,31 @@ type WatchCodeCallableKind = "function" | "async_function" | "class_init";
 type WatchCodeFolder = {
   path: string;
   recursive: boolean;
+};
+
+/**
+ * WatchCodePluginData
+ */
+type WatchCodePluginData = {
+  projects: {
+    [key: string]: WatchCodePluginProjectData;
+  };
+  schemaVersion: number;
+};
+
+/**
+ * WatchCodePluginProjectData
+ */
+type WatchCodePluginProjectData = {
+  baselineByPath: {
+    [key: string]: null | Array<string>;
+  };
+  enabled: boolean;
+  files: null | Array<string>;
+  folders: null | Array<WatchCodeFolder>;
+  registry: {
+    [key: string]: WatchCodeRegistryEntry;
+  };
 };
 
 /**
