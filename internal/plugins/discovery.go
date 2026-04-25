@@ -16,6 +16,7 @@ type DiscoveryServiceOptions struct {
 	SettaFilesRoot            string
 	SettaHome                 string
 	ServerMode                config.Mode
+	DeploymentScoped          bool
 	PackageManagerRuntime     *pythonenv.Runtime
 	PackageManagerSearchPaths []string
 }
@@ -30,6 +31,7 @@ type DiscoverySnapshot struct {
 type DiscoveryService struct {
 	store                     *Store
 	serverMode                config.Mode
+	deploymentScoped          bool
 	packageManagerRuntime     *pythonenv.Runtime
 	packageManagerSearchPaths []string
 }
@@ -58,6 +60,7 @@ func NewDiscoveryService(options DiscoveryServiceOptions) (*DiscoveryService, er
 	return &DiscoveryService{
 		store:                     store,
 		serverMode:                options.ServerMode,
+		deploymentScoped:          options.DeploymentScoped,
 		packageManagerRuntime:     options.PackageManagerRuntime,
 		packageManagerSearchPaths: append([]string(nil), options.PackageManagerSearchPaths...),
 	}, nil
@@ -229,7 +232,7 @@ func countDiscoverySnapshotEntries(entries []DiscoveredPlugin) (int, int) {
 
 func (s *DiscoveryService) discoverFilesystemPlugins(metadata PluginInstallMetadataFile) ([]DiscoveredPlugin, error) {
 	entries := []DiscoveredPlugin{}
-	for _, scope := range []PluginScope{PluginScopeWorkspace, PluginScopeSettaFiles, PluginScopeGlobal} {
+	for _, scope := range s.filesystemDiscoveryScopes() {
 		root := s.store.scopeRoot(scope)
 		children, err := os.ReadDir(root)
 		if err != nil {
@@ -251,6 +254,13 @@ func (s *DiscoveryService) discoverFilesystemPlugins(metadata PluginInstallMetad
 		}
 	}
 	return entries, nil
+}
+
+func (s *DiscoveryService) filesystemDiscoveryScopes() []PluginScope {
+	if s != nil && s.deploymentScoped {
+		return []PluginScope{PluginScopeWorkspace, PluginScopeSettaFiles}
+	}
+	return []PluginScope{PluginScopeWorkspace, PluginScopeSettaFiles, PluginScopeGlobal}
 }
 
 func (s *DiscoveryService) discoverFilesystemPlugin(scope PluginScope, pluginRoot string, metadata PluginInstallMetadataFile) (DiscoveredPlugin, error) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -608,6 +609,90 @@ func TestServiceDeploymentSnapshotForActivePluginNormalizesConfigToWorkspaceScop
 	if _, ok := snapshot.State.PluginConfigByID[string(PluginScopeGlobal)+":"+pluginID]; ok {
 		t.Fatalf("expected global-scoped config to be remapped for deployment, got %#v", snapshot.State.PluginConfigByID)
 	}
+}
+
+func TestServicePackageActivePluginForDeploymentVendorsPackageManagerPythonPayload(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages, _ := installPackageManagerFixture(
+		t,
+		"backend",
+		"setta-fixture-backend",
+		"0.1.0",
+		func(pluginRoot string) {
+			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+				payload["backend"] = map[string]any{
+					"entrypoint": "runtime_backend/main.py",
+				}
+			})
+			writePackageManagerTestFile(
+				t,
+				filepath.Join(pluginRoot, "runtime_backend", "main.py"),
+				"import shared_dep\nprint(shared_dep.VALUE)\n",
+			)
+			writePackageManagerTestFile(
+				t,
+				filepath.Join(filepath.Dir(pluginRoot), "shared_dep", "__init__.py"),
+				"VALUE = 'vendored dependency'\n",
+			)
+		},
+	)
+
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	targetRoot := filepath.Join(t.TempDir(), "packaged-provider")
+	state, err := service.PackageActivePluginForDeployment("setta-fixture-backend", targetRoot)
+	if err != nil {
+		t.Fatalf("package active plugin for deployment: %v", err)
+	}
+
+	if !slices.Equal(state.EnabledPluginIDs, []string{"setta-fixture-backend"}) {
+		t.Fatalf("expected packaged provider to be enabled, got %#v", state.EnabledPluginIDs)
+	}
+	vendoredDependency := filepath.Join(
+		targetRoot,
+		pythonBackendSitePackagesDirName,
+		"shared_dep",
+		"__init__.py",
+	)
+	if _, err := os.Stat(vendoredDependency); err != nil {
+		t.Fatalf("expected dependency payload to be vendored at %s: %v", vendoredDependency, err)
+	}
+
+	if err := os.RemoveAll(sitePackages); err != nil {
+		t.Fatalf("remove original site-packages: %v", err)
+	}
+	env, err := pythonBackendLaunchEnvironment(targetRoot)
+	if err != nil {
+		t.Fatalf("resolve packaged python launch environment: %v", err)
+	}
+	output := runPythonWithPluginEnvironment(
+		t,
+		env,
+		"import shared_dep\nprint(shared_dep.VALUE)\n",
+	)
+	if strings.TrimSpace(output) != "vendored dependency" {
+		t.Fatalf("expected packaged dependency import to succeed, got %q", output)
+	}
+}
+
+func runPythonWithPluginEnvironment(
+	t *testing.T,
+	environment map[string]string,
+	script string,
+) string {
+	t.Helper()
+
+	command := exec.Command(mustNewPythonRuntime(t).InterpreterPath(), "-c", script)
+	command.Env = os.Environ()
+	for key, value := range environment {
+		command.Env = append(command.Env, key+"="+value)
+	}
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run python with plugin environment: %v\n%s", err, string(output))
+	}
+	return string(output)
 }
 
 type runtimeAppSubsystemFixtureOptions struct {
