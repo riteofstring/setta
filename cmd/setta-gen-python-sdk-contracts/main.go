@@ -26,6 +26,7 @@ func writeOutput(path string, content string) error {
 
 func main() {
 	outputPath := flag.String("out", pythonsdkcontracts.GeneratedPythonModulePath, "path to the generated Python SDK contracts output file")
+	constantsOutputPath := flag.String("constants-out", pythonsdkcontracts.GeneratedPythonConstantsModulePath, "path to the generated lightweight Python SDK constants output file")
 	flag.Parse()
 
 	contracts, err := pythonsdkcontracts.Build()
@@ -34,6 +35,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err := writeOutput(*outputPath, contracts.PythonModule); err != nil {
+		fmt.Fprintf(os.Stderr, "setta-gen-python-sdk-contracts: %v\n", err)
+		os.Exit(1)
+	}
+	if err := writeOutput(*constantsOutputPath, contracts.PythonConstantsModule); err != nil {
 		fmt.Fprintf(os.Stderr, "setta-gen-python-sdk-contracts: %v\n", err)
 		os.Exit(1)
 	}

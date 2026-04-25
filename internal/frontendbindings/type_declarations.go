@@ -16,6 +16,7 @@ type TypeDeclaration struct {
 	GuardInputType  string
 	GuardReturnType string
 	GuardSetName    string
+	GuardSetType    string
 	FunctionParams  []TypeProperty
 	FunctionBody    string
 	FunctionReturn  string
@@ -68,13 +69,20 @@ func setDeclaration(name string, elementType string, members ...string) TypeDecl
 	}
 }
 
-func typeGuardDeclaration(name string, inputType string, returnType string, setName string) TypeDeclaration {
+func typeGuardDeclaration(
+	name string,
+	inputType string,
+	returnType string,
+	setName string,
+	setType string,
+) TypeDeclaration {
 	return TypeDeclaration{
 		Name:            name,
 		Kind:            "type_guard",
 		GuardInputType:  inputType,
 		GuardReturnType: returnType,
 		GuardSetName:    setName,
+		GuardSetType:    setType,
 	}
 }
 

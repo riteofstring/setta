@@ -1,10 +1,10 @@
+import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "@setta/app-subsystem-frontend-sdk";
 import { BootstrapProtocol } from "utils/generatedTypes";
 import { isLocalHostname } from "utils/hostnames";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
 
-export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
-  "setta.backendOriginOverride";
+export { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY };
 
 function allowNonLocalOriginOverride(): boolean {
   const raw = import.meta.env?.VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE;

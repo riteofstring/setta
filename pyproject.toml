@@ -62,6 +62,11 @@ only-include = [
     "backend/setta/__init__.py",
     "backend/setta/__main__.py",
     "backend/setta/entrypoint.py",
+    "backend/setta/local_core_client.py",
+    "backend/setta/plugin_runtime",
+    "backend/setta/runtime_compat.py",
+    "backend/setta/sdk_contracts/constants.py",
+    "backend/setta/types/generated/go_shared_constants.py",
 ]
 sources = ["backend"]
 exclude = [

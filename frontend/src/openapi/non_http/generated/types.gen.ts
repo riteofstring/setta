@@ -206,22 +206,9 @@ type Allocation = {
 };
 
 /**
- * AppCapabilities
- */
-type AppCapabilities = {
-  appSpecVersion: string;
-  catalogId: string;
-  catalogVersion: string;
-  features: {
-    [key: string]: boolean;
-  };
-  themeSchemaVersion: string;
-};
-
-/**
  * AppDefinition
  */
-export type AppDefinition = {
+type AppDefinition = {
   actions?: {
     [key: string]: RawMessage;
   } | null;
@@ -237,32 +224,9 @@ export type AppDefinition = {
 };
 
 /**
- * AppDefinitionMutationResult
- */
-type AppDefinitionMutationResult = {
-  appDefinition?: AppDefinition | null;
-};
-
-/**
- * AppDefinitionReadResult
- */
-type AppDefinitionReadResult = {
-  appDefinition?: AppDefinition | null;
-};
-
-/**
- * AppDefinitionValidationResult
- */
-type AppDefinitionValidationResult = {
-  capabilities: AppCapabilities;
-  errors: null | Array<AppValidationIssue>;
-  warnings: null | Array<AppValidationIssue>;
-};
-
-/**
  * AppGenerationMode
  */
-export type AppGenerationMode =
+type AppGenerationMode =
   | "json_render"
   | "json_render_with_image"
   | "prompt_builder"
@@ -271,19 +235,39 @@ export type AppGenerationMode =
 /**
  * AppRoute
  */
-export type AppRoute = {
+type AppRoute = {
   name?: string;
   path: string;
   rootKey?: string;
 };
 
 /**
- * AppValidationIssue
+ * AppSubsystemChatSlashCommandValue
  */
-type AppValidationIssue = {
-  elementKey?: string;
-  elementType?: string;
-  message: string;
+type AppSubsystemChatSlashCommandValue = {
+  action: string;
+  appGenerationMode: string;
+  command: string;
+  promptTemplate: string;
+  summary: string;
+};
+
+/**
+ * AppSubsystemChatUIConfigValue
+ */
+type AppSubsystemChatUIConfigValue = {
+  customSlashCommandModeOptions: null | Array<AppSubsystemCustomSlashCommandModeOptionValue>;
+  defaultCustomSlashCommandMode: string;
+  slashCommands: null | Array<AppSubsystemChatSlashCommandValue>;
+};
+
+/**
+ * AppSubsystemCustomSlashCommandModeOptionValue
+ */
+type AppSubsystemCustomSlashCommandModeOptionValue = {
+  label: string;
+  requiresImageAttachment: boolean;
+  value: string;
 };
 
 /**
@@ -395,9 +379,12 @@ export type BackendLogEvent = {
 type BackendRequestContext = {
   hasAuth: boolean;
   projectConfigId?: string;
+  runtimeRoot?: string;
   serverMode: Mode;
   sessionId?: string;
+  settaFilesRoot?: string;
   shareSessionId?: string;
+  workspaceRoot?: string;
 };
 
 /**
@@ -833,6 +820,19 @@ export type CallableSectionImpl = {
  * CanvasPoint
  */
 export type CanvasPoint = [number, number];
+
+/**
+ * Capabilities
+ */
+type Capabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
 
 /**
  * ChangeParamImplUIConfigValue
@@ -1487,6 +1487,22 @@ export type ColorPickerParamCodeObjImpl = {
 };
 
 /**
+ * CompareAndSetMutationResult
+ */
+type CompareAndSetMutationResult = {
+  appDefinition?: AppDefinition | null;
+  compareResult: CompareAndSetStringResult;
+};
+
+/**
+ * CompareAndSetStringResult
+ */
+type CompareAndSetStringResult = {
+  newValue: string;
+  oldValue: string;
+};
+
+/**
  * ConfigLanguage
  */
 type ConfigLanguage = "python" | "json";
@@ -2017,7 +2033,7 @@ type EmitStreamDeltaRequest = {
 /**
  * EndpointOrigin
  */
-export type EndpointOrigin = "backend" | "launcher" | "backend-origin";
+type EndpointOrigin = "backend" | "launcher" | "backend-origin";
 
 /**
  * EndpointOriginPolicy
@@ -3235,7 +3251,7 @@ type LocalCoreVersionHandshake = {
 /**
  * LocalHostnamePolicy
  */
-export type LocalHostnamePolicy = {
+type LocalHostnamePolicy = {
   loopbackHosts: null | Array<string>;
 };
 
@@ -3539,6 +3555,13 @@ type MoveSectionsInput = {
 };
 
 /**
+ * MutationResult
+ */
+type MutationResult = {
+  appDefinition?: AppDefinition | null;
+};
+
+/**
  * NameValidationContract
  */
 export type NameValidationContract = {
@@ -3749,7 +3772,7 @@ type PasteSectionsInput = {
 /**
  * PatchPolicy
  */
-export type PatchPolicy = {
+type PatchPolicy = {
   allowedOps: null | Array<string>;
   commentPrefix: string;
   elementsPathPrefix: string;
@@ -3757,6 +3780,51 @@ export type PatchPolicy = {
   rootResetValue: string;
   valueOptionalOps: null | Array<string>;
 };
+
+/**
+ * PluginAppSubsystemCapabilities
+ */
+type PluginAppSubsystemCapabilities = {
+  appAuthoringUi: boolean;
+  appDeploymentRuntime: boolean;
+  appGenerationChatModes: boolean;
+  appPreviewUi: boolean;
+  pluginEnabled: boolean;
+  pluginId: string;
+  providerSelection?: PluginAppSubsystemProviderSelection | null;
+};
+
+/**
+ * PluginAppSubsystemFeatureManifest
+ */
+type PluginAppSubsystemFeatureManifest = {
+  appAuthoringUi: boolean;
+  appDeploymentRuntime: boolean;
+  appGenerationChatModes: boolean;
+  appPreviewUi: boolean;
+};
+
+/**
+ * PluginAppSubsystemProviderSelection
+ */
+type PluginAppSubsystemProviderSelection = {
+  activePluginIds: null | Array<string>;
+  conflictingPluginIds: null | Array<string>;
+  disabledPluginIds: null | Array<string>;
+  invalidPluginIds: null | Array<string>;
+  selectedPluginId?: null | string;
+  status: PluginAppSubsystemProviderSelectionStatusKind;
+};
+
+/**
+ * PluginAppSubsystemProviderSelectionStatusKind
+ */
+type PluginAppSubsystemProviderSelectionStatusKind =
+  | "no_provider"
+  | "disabled_provider"
+  | "invalid_provider"
+  | "active"
+  | "provider_conflict";
 
 /**
  * PluginBackendManifest
@@ -3859,6 +3927,27 @@ type PluginErrorInfo = {
 };
 
 /**
+ * PluginFeatureCapabilities
+ */
+type PluginFeatureCapabilities = {
+  appSubsystem: PluginAppSubsystemCapabilities;
+};
+
+/**
+ * PluginFeatureCapabilitiesManifest
+ */
+type PluginFeatureCapabilitiesManifest = {
+  appSubsystem?: PluginAppSubsystemFeatureManifest | null;
+};
+
+/**
+ * PluginFrontendBuildManifest
+ */
+type PluginFrontendBuildManifest = {
+  packageManager: string;
+};
+
+/**
  * PluginFrontendDescriptor
  */
 type PluginFrontendDescriptor = {
@@ -3870,6 +3959,7 @@ type PluginFrontendDescriptor = {
  * PluginFrontendManifest
  */
 type PluginFrontendManifest = {
+  build?: PluginFrontendBuildManifest | null;
   entrypoint: string;
   style?: string;
 };
@@ -4002,6 +4092,7 @@ type PluginManifest = {
   configSchemaPath?: string;
   content?: PluginContentManifest | null;
   enabledByDefault: boolean;
+  featureCapabilities?: PluginFeatureCapabilitiesManifest | null;
   frontend?: PluginFrontendManifest | null;
   id: string;
   name: string;
@@ -4043,6 +4134,7 @@ type PluginRegisteredLanguageServer = {
   language: string;
   name: string;
   pluginId: string;
+  runtimeSearchPathsKey?: null | string;
   settingsKey?: null | string;
 };
 
@@ -4118,6 +4210,7 @@ type PluginRollbackResponse = {
  * PluginRuntimeResponse
  */
 export type PluginRuntimeResponse = {
+  featureCapabilities?: PluginFeatureCapabilities | null;
   list: PluginListResponse;
   schemaVersion: number;
   status: PluginStatusResponse;
@@ -4197,6 +4290,7 @@ export type PluginStatusEntry = {
  * PluginStatusResponse
  */
 export type PluginStatusResponse = {
+  appSubsystemSelection?: PluginAppSubsystemProviderSelection | null;
   languageServerSelections: null | Array<LanguageServerSelectionStatus>;
   plugins: null | Array<PluginStatusEntry>;
   restartCapability: PluginRestartCapability;
@@ -4289,14 +4383,6 @@ type ProjectChatAgenticEdgeContextModeOption = {
 };
 
 /**
- * ProjectChatAppGenerationModeOption
- */
-type ProjectChatAppGenerationModeOption = {
-  label: string;
-  value: string;
-};
-
-/**
  * ProjectChatDictationModeOption
  */
 type ProjectChatDictationModeOption = {
@@ -4317,8 +4403,6 @@ type ProjectChatPermissionModeOption = {
  */
 export type ProjectChatUIConfigValue = {
   agenticEdgeContextModeOptions: null | Array<ProjectChatAgenticEdgeContextModeOption>;
-  customSlashCommandModeOptions: null | Array<ProjectChatAppGenerationModeOption>;
-  defaultCustomSlashCommandMode: string;
   permissionModeOptions: null | Array<ProjectChatPermissionModeOption>;
   projectDictationModeOptions: null | Array<ProjectChatDictationModeOption>;
   sectionChatWindowModeOptions: null | Array<ProjectChatWindowModeOption>;
@@ -4646,6 +4730,13 @@ type RawMessage =
   | {
       [key: string]: RawMessage;
     };
+
+/**
+ * ReadResult
+ */
+type ReadResult = {
+  appDefinition?: AppDefinition | null;
+};
 
 /**
  * RealtimeDependencyEventContent
@@ -5588,7 +5679,7 @@ type ServerModeBoundary = {
 /**
  * ServerModeBoundaryPolicy
  */
-export type ServerModeBoundaryPolicy = {
+type ServerModeBoundaryPolicy = {
   [key: string]: ServerModeBoundary;
 };
 
@@ -5611,7 +5702,7 @@ type ServerModeBoundaryRoutes = {
 /**
  * ServerModeCapabilities
  */
-export type ServerModeCapabilities = {
+type ServerModeCapabilities = {
   canManageDesktopLauncher: boolean;
 };
 
@@ -7232,6 +7323,24 @@ export type UserChatMessage = {
 };
 
 /**
+ * ValidationIssue
+ */
+type ValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
+};
+
+/**
+ * ValidationResult
+ */
+type ValidationResult = {
+  capabilities: Capabilities;
+  errors: null | Array<ValidationIssue>;
+  warnings: null | Array<ValidationIssue>;
+};
+
+/**
  * Variant
  */
 export type Variant = {
@@ -7407,4 +7516,4 @@ type WorkingDirStrategy = "project_root" | "temp_dir" | "custom";
 /**
  * WorkspaceLaunchRouteKind
  */
-export type WorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";
+type WorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";
