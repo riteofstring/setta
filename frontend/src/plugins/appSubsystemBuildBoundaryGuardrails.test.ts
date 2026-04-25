@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const repoRoot = resolve(process.cwd(), "..");
@@ -49,6 +50,26 @@ function listRelativeFiles(root: string, relativeRoot = ""): string[] {
       return [];
     })
     .sort();
+}
+
+function strictDeclarationDiagnostics(filePath: string): string[] {
+  const program = ts.createProgram([filePath], {
+    lib: ["lib.es2020.d.ts", "lib.dom.d.ts"],
+    noEmit: true,
+    skipLibCheck: false,
+    strict: true,
+    types: [],
+  });
+  return ts.getPreEmitDiagnostics(program).map((diagnostic) => {
+    const location =
+      diagnostic.file && diagnostic.start !== undefined
+        ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
+        : null;
+    const prefix = location
+      ? `${diagnostic.file?.fileName}:${location.line + 1}:${location.character + 1}`
+      : "typescript";
+    return `${prefix} ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`;
+  });
 }
 
 describe("app plugin frontend build boundary guardrails", () => {
@@ -179,6 +200,27 @@ describe("app plugin frontend build boundary guardrails", () => {
     expect(sourceSdkTypes).not.toContain("error?: unknown;");
     expect(sourceSdkTypes).not.toContain("request?: Request;");
     expect(sourceSdkTypes).not.toContain("response?: Response;");
+  });
+
+  it("keeps source and vendored SDK declarations standalone-typecheckable", () => {
+    const sourceSdkTypesPath = resolve(
+      repoRoot,
+      "frontend",
+      "plugin-sdk",
+      "app-subsystem",
+      "types",
+      "index.d.ts",
+    );
+    const vendoredSdkTypesPath = resolve(
+      pluginFrontendRoot,
+      "vendor",
+      "app-subsystem-frontend-sdk",
+      "types",
+      "index.d.ts",
+    );
+
+    expect(strictDeclarationDiagnostics(sourceSdkTypesPath)).toEqual([]);
+    expect(strictDeclarationDiagnostics(vendoredSdkTypesPath)).toEqual([]);
   });
 
   it("keeps the source SDK package source-first and package-owned", () => {

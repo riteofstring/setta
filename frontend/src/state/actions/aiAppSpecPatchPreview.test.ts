@@ -65,6 +65,7 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByP
           applyAppSpecPatchPreviewDeltaToStoreMock,
         clearAllAppSpecPatchPreviewStreams:
           clearAllAppSpecPatchPreviewStreamsMock,
+        initializeAppSessionFromCurrentDeployment: async () => true,
       },
     },
   };

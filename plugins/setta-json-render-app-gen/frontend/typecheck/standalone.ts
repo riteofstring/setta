@@ -1,4 +1,8 @@
-import type { AppSubsystemFrontendRegistration } from "@setta/app-subsystem-frontend-sdk";
+import type {
+  AppSubsystemFrontendRegistration,
+  BinaryContentRef,
+} from "@setta/app-subsystem-frontend-sdk";
+import { runCode, uploadBinary } from "@setta/app-subsystem-frontend-sdk";
 
 import {
   APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
@@ -24,8 +28,15 @@ const registration: AppSubsystemFrontendRegistration = {
     },
   },
 };
+const binary: BinaryContentRef = {
+  byteLength: 12,
+  contentId: "content-1",
+};
 
 void registration;
+void binary;
+void runCode;
+void uploadBinary;
 void applyAppDefinitionStructuredContentToStore({ appSpec: null });
 clearAllAppSpecPatchPreviewStreams();
 void getRegisteredAppSubsystemPluginId();

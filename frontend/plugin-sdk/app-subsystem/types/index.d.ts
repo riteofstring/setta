@@ -8,6 +8,12 @@ export type ContentRef = JsonRecord & {
   contentId: string;
   mimeType?: string;
 };
+export type BinaryContentRef = {
+  byteLength: number;
+  contentId: string;
+  mimeType?: string;
+  sha256?: string;
+};
 export type ImageArtifact = JsonRecord & {
   id: string;
   value: ContentRef;
@@ -544,7 +550,7 @@ export declare function getActiveAppSubsystemFrontendHostRuntime(): AppSubsystem
 export declare function clearEffectiveImplCache(impl: object): void;
 export declare function getEffectiveImpl<T extends JsonRecord>(impl: T, core: Core, variant: Variant): T;
 export declare function getCurrentEffectiveCodeObjImplIfPresent(projectState: SingleConfig, sectionId: string, codeObjId: string, includePreview?: boolean): JsonRecord | null;
-export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T>(projectState: SingleConfig, sectionId: string, codeObjId: string, guard: (value: JsonRecord) => value is T, includePreview?: boolean): T | null;
+export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T extends JsonRecord>(projectState: SingleConfig, sectionId: string, codeObjId: string, guard: (value: JsonRecord) => value is T, includePreview?: boolean): T | null;
 export declare function getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;
 export declare function getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;
 export declare function getCurrentSectionVariantId(projectState: SingleConfig, sectionId: string, includePreview?: boolean): string;

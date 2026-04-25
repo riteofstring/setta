@@ -142,4 +142,64 @@ describe("import boundary guardrails", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain("published SDK");
   });
+
+  it("rejects frontend/src alias imports across plugin and SDK boundaries", () => {
+    const cases = [
+      {
+        filePath: "plugins/demo/frontend/src/pluginBoundaryFixture.ts",
+        expectedMessage: "published SDK",
+        source: `
+          import { store } from "frontend/src/state/foo";
+
+          export const value = store;
+        `,
+      },
+      {
+        filePath: "plugins/demo/frontend/tests/pluginBoundaryFixture.test.ts",
+        expectedMessage: "published SDK",
+        source: `
+          import { renderWithStores } from "frontend/src/testUtils/foo";
+
+          export const value = renderWithStores;
+        `,
+      },
+      {
+        filePath: "frontend/plugin-sdk/app-subsystem/src/sdkBoundaryFixture.ts",
+        expectedMessage: "package-owned code",
+        source: `
+          import { client } from "frontend/src/openapi/http";
+
+          export const value = client;
+        `,
+      },
+      {
+        filePath: "frontend/plugin-sdk/app-subsystem/types/index.d.ts",
+        expectedMessage: "package-owned code",
+        source: `
+          export type SDKValue = import("frontend/src/plugins/foo").Value;
+        `,
+      },
+      {
+        filePath:
+          "plugins/demo/frontend/vendor/app-subsystem-frontend-sdk/types/index.d.ts",
+        expectedMessage: "published SDK",
+        source: `
+          export type VendorValue = import("frontend/src/plugins/foo").Value;
+        `,
+      },
+      {
+        filePath: "plugins/demo/frontend/src/dynamicBoundaryFixture.ts",
+        expectedMessage: "published SDK",
+        source: `
+          export const value = import("frontend/src/plugins/foo");
+        `,
+      },
+    ];
+
+    for (const testCase of cases) {
+      const violations = findImportBoundaryViolations([testCase]);
+      expect(violations).toHaveLength(1);
+      expect(violations[0]?.message).toContain(testCase.expectedMessage);
+    }
+  });
 });

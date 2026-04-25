@@ -63,6 +63,7 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByP
       controller: {
         applyAppDefinitionStructuredContentToStore:
           applyAppDefinitionStructuredContentToStoreMock,
+        initializeAppSessionFromCurrentDeployment: async () => true,
       },
     },
   };

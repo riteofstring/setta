@@ -51,6 +51,7 @@ vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
 import {
   ensureAppProjectConfigLoaded,
   ensureAppSessionFromCurrentDeployment,
+  initializeAppSessionFromCurrentDeployment,
   loadAppDeploymentState,
   resetAppSessionState,
 } from "../../../src/state/actions/app";
@@ -214,6 +215,99 @@ describe("app deployment actions", () => {
       modeResolved: true,
       modeError: null,
     });
+  });
+
+  it("initializes the current deployment session and loads app deployment state", async () => {
+    const loadStates: Array<{ projectIsLoading: boolean; projectIs404: boolean }> =
+      [];
+    const resetProjectRuntimeStateMock = vi.fn();
+    frontendHost = createStatefulAppSubsystemFrontendHost({
+      onProjectLoadState: (loadState) => {
+        loadStates.push(loadState);
+      },
+      onResetProjectRuntimeState: resetProjectRuntimeStateMock,
+    });
+    const session = buildAppSessionResponse();
+    const projectState = buildProjectState("project-alpha", "Alpha");
+    const appDefinition = createAppDefinition({
+      catalogId: "catalog-demo",
+      appSpecPath: "plugins/setta-json-render-app-gen/app_specs/spec.json",
+    });
+    const appSpec = { root: { key: "root", type: "Stack" } };
+    routeCreateAppSessionCurrentMock.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: session,
+    });
+    routeGetAppDeploymentStateMock.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        projectState,
+        appDefinition,
+        appSpec,
+        appPolicy: createPolicy({ allowRun: true }),
+      },
+    });
+
+    const initialized =
+      await initializeAppSessionFromCurrentDeployment(frontendHost);
+
+    expect(initialized).toBe(true);
+    expect(resetProjectRuntimeStateMock).toHaveBeenCalledTimes(1);
+    expect(routeCreateAppSessionCurrentMock).toHaveBeenCalledTimes(1);
+    expect(routeGetAppDeploymentStateMock).toHaveBeenCalledWith({
+      path: {
+        deploymentName: session.deploymentName,
+        version: session.deploymentVersion,
+      },
+    });
+    expect(useAppDefinition.getState()).toMatchObject({
+      appDefinition,
+      appSpec,
+    });
+    expect(useAppConfigs.getState().configs["project-alpha"]).toEqual({
+      ...projectState,
+      previewSectionVariantMap: {},
+    });
+    expect(loadStates).toEqual([
+      { projectIsLoading: true, projectIs404: false },
+      { projectIsLoading: false, projectIs404: false },
+    ]);
+  });
+
+  it("marks app deployment initialization as not found when state loading fails", async () => {
+    const loadStates: Array<{ projectIsLoading: boolean; projectIs404: boolean }> =
+      [];
+    frontendHost = createStatefulAppSubsystemFrontendHost({
+      onProjectLoadState: (loadState) => {
+        loadStates.push(loadState);
+      },
+    });
+    routeCreateAppSessionCurrentMock.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: buildAppSessionResponse(),
+    });
+    routeGetAppDeploymentStateMock.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: {
+        error: {
+          code: "deployment_not_found",
+          message: "Deployment not found.",
+        },
+      },
+    });
+
+    const initialized =
+      await initializeAppSessionFromCurrentDeployment(frontendHost);
+
+    expect(initialized).toBe(false);
+    expect(loadStates).toEqual([
+      { projectIsLoading: true, projectIs404: false },
+      { projectIsLoading: false, projectIs404: true },
+    ]);
   });
 
   it("loads app deployment state into app-definition and app-config stores", async () => {

@@ -1348,7 +1348,8 @@ describe("plugin runtime helpers", () => {
           "      }\n" +
           "    },\n" +
           "    controller: {\n" +
-          "      getPreviewEnabled: function() { return true; }\n" +
+          "      getPreviewEnabled: function() { return true; },\n" +
+          "      initializeAppSessionFromCurrentDeployment: async function() { return true; }\n" +
           "    }\n" +
           "  });\n" +
           "}\n",

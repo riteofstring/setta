@@ -8,6 +8,8 @@ import {
   type AppSubsystemPatchPreviewDelta,
   type AppSubsystemPreviewSurfaceRegistration,
   type RegisteredAppSubsystemFrontendRegistration,
+  activateAppSubsystemFrontendHostRuntime,
+  deactivateAppSubsystemFrontendHostRuntime,
 } from "@setta/app-subsystem-frontend-sdk";
 import type { ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
 import type { GetLatestProjectStateResponse } from "openapi/http";
@@ -599,6 +601,17 @@ function validateFrontendRegistrationCapabilities(
       message:
         "App subsystem frontend adapter is missing the app deployment modal registration.",
     },
+    {
+      required: getAppSubsystemCapabilityFlag(
+        capabilities,
+        "appDeploymentRuntime",
+      ),
+      present: Boolean(
+        registration.controller?.initializeAppSessionFromCurrentDeployment,
+      ),
+      message:
+        "App subsystem frontend adapter is missing the app deployment initialization controller.",
+    },
   ];
   for (const requirement of requirements) {
     requireCapabilityRegistration(
@@ -1047,10 +1060,15 @@ export async function initializeAppSessionFromCurrentDeployment(
   if (!registration?.controller?.initializeAppSessionFromCurrentDeployment) {
     return false;
   }
-  return registration.controller.initializeAppSessionFromCurrentDeployment(
-    frontendHost,
-    options,
-  );
+  activateAppSubsystemFrontendHostRuntime(frontendHost);
+  try {
+    return await registration.controller.initializeAppSessionFromCurrentDeployment(
+      frontendHost,
+      options,
+    );
+  } finally {
+    deactivateAppSubsystemFrontendHostRuntime(frontendHost);
+  }
 }
 
 export function resetAppSessionState(

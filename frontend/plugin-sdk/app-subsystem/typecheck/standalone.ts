@@ -1,8 +1,10 @@
 import type {
   AppSubsystemChatSlashCommandDefinition,
   AppSubsystemFrontendRegistration,
+  BinaryContentRef,
   DropzoneStatelessAttachment,
 } from "../types/index";
+import { runCode, uploadBinary } from "../types/index";
 
 const slashCommands: AppSubsystemChatSlashCommandDefinition[] = [
   {
@@ -29,6 +31,13 @@ const attachment: DropzoneStatelessAttachment = {
   name: "notes.txt",
   text: "hello",
 };
+const binary: BinaryContentRef = {
+  byteLength: 12,
+  contentId: "content-1",
+};
 
 void registration;
 void attachment;
+void binary;
+void runCode;
+void uploadBinary;

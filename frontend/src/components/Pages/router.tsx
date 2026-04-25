@@ -10,6 +10,7 @@ import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import {
   getAppSubsystemDeploymentRuntimeUnavailableMessage,
+  initializeAppSessionFromCurrentDeployment,
   useAppSubsystemAppModeRoute,
   useAppSubsystemFrontendStatus,
   useAppSubsystemFrontendStatusMessage,
@@ -24,13 +25,20 @@ import {
   usePluginRuntimeStore,
 } from "plugins/runtime";
 import type { ReactNode } from "react";
-import { useEffect, useMemo } from "react";
-import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import {
+  createBrowserRouter,
+  Navigate,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { initializeServerMode } from "state/actions/serverMode";
+import { openWebSocket } from "state/actions/websocketReceive";
 import {
   useAllProjectMetadata,
   useServerMode,
   useSettings,
+  useShareSession,
 } from "state/definitions";
 import {
   HOME_ROUTER_PATH,
@@ -267,12 +275,155 @@ function AppModeUnavailableRoute({ message }: { message: string }) {
   );
 }
 
-function AppModeRouteElement() {
+type AppModeInitializationState = {
+  key: string | null;
+  message: string | null;
+  status: "idle" | "loading" | "ready" | "error";
+};
+
+const INITIAL_APP_MODE_INITIALIZATION_STATE: AppModeInitializationState = {
+  key: null,
+  message: null,
+  status: "idle",
+};
+
+type AppModeRouteRegistration = ReturnType<typeof useAppSubsystemAppModeRoute>;
+type AppSubsystemCapabilities = Parameters<
+  typeof getAppSubsystemDeploymentRuntimeUnavailableMessage
+>[0];
+
+function resolveAppModeInitializationKey(
+  appModeRoute: AppModeRouteRegistration,
+  appSubsystemCapabilities: AppSubsystemCapabilities,
+) {
+  const pluginId = appSubsystemCapabilities?.pluginId;
+  if (!appModeRoute || !pluginId) {
+    return null;
+  }
+  return pluginId;
+}
+
+function resolveAppModeUnavailableMessage({
+  appSubsystemCapabilities,
+  appSubsystemStatus,
+  appSubsystemStatusMessage,
+  initializationState,
+  runtimeStatus,
+  runtimeStatusMessage,
+}: {
+  appSubsystemCapabilities: AppSubsystemCapabilities;
+  appSubsystemStatus: string;
+  appSubsystemStatusMessage: string | null;
+  initializationState: AppModeInitializationState;
+  runtimeStatus: string;
+  runtimeStatusMessage: string | null;
+}) {
+  if (runtimeStatus === "error") {
+    return (
+      runtimeStatusMessage ?? "Failed to load the plugin runtime for app mode."
+    );
+  }
+  if (appSubsystemStatus === "error") {
+    return (
+      appSubsystemStatusMessage ??
+      "Failed to load the app subsystem frontend registration."
+    );
+  }
+  if (initializationState.status === "error") {
+    return (
+      initializationState.message ??
+      "Unable to load the current app deployment."
+    );
+  }
+  return getAppSubsystemDeploymentRuntimeUnavailableMessage(
+    appSubsystemCapabilities,
+  );
+}
+
+function useAppModeInitialization({
+  appModeRoute,
+  appSubsystemCapabilities,
+  appSubsystemHost,
+  appSubsystemStatus,
+  runtimeStatus,
+}: {
+  appModeRoute: AppModeRouteRegistration;
+  appSubsystemCapabilities: AppSubsystemCapabilities;
+  appSubsystemHost: ReturnType<typeof createRuntimeAppSubsystemFrontendHost>;
+  appSubsystemStatus: string;
+  runtimeStatus: string;
+}) {
+  const [initializationState, setInitializationState] =
+    useState<AppModeInitializationState>(INITIAL_APP_MODE_INITIALIZATION_STATE);
+  const initializationKey = resolveAppModeInitializationKey(
+    appModeRoute,
+    appSubsystemCapabilities,
+  );
+  const shouldInitialize =
+    runtimeStatus === "loaded" &&
+    appSubsystemStatus === "loaded" &&
+    initializationKey !== null;
+
+  useEffect(() => {
+    if (!shouldInitialize || initializationKey === null) {
+      setInitializationState(INITIAL_APP_MODE_INITIALIZATION_STATE);
+      return;
+    }
+
+    let cancelled = false;
+    setInitializationState({
+      key: initializationKey,
+      message: null,
+      status: "loading",
+    });
+    void (async () => {
+      const initialized = await initializeAppSessionFromCurrentDeployment(
+        appSubsystemHost,
+      ).catch(() => false);
+      if (cancelled) {
+        return;
+      }
+      setInitializationState({
+        key: initializationKey,
+        message: initialized
+          ? null
+          : "Unable to load the current app deployment.",
+        status: initialized ? "ready" : "error",
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appSubsystemHost, initializationKey, shouldInitialize]);
+
+  return { initializationKey, initializationState };
+}
+
+function useAppModeWebSocket({
+  pathname,
+  shareSessionId,
+  status,
+}: {
+  pathname: string;
+  shareSessionId: string | null;
+  status: AppModeInitializationState["status"];
+}) {
+  useEffect(() => {
+    if (status !== "ready" || !shareSessionId) {
+      return;
+    }
+    openWebSocket(pathname, shareSessionId);
+  }, [pathname, shareSessionId, status]);
+}
+
+export function AppModeRouteElement() {
   usePluginRuntimeBootstrap(true);
   const appSubsystemHost = useMemo(
     () => createRuntimeAppSubsystemFrontendHost(),
     [],
   );
+  const location = useLocation();
   const runtimeStatus = usePluginRuntimeStore((state) => state.status);
   const runtimeStatusMessage = usePluginRuntimeStore(
     (state) => state.statusMessage,
@@ -283,8 +434,25 @@ function AppModeRouteElement() {
   const appSubsystemStatus = useAppSubsystemFrontendStatus();
   const appSubsystemStatusMessage = useAppSubsystemFrontendStatusMessage();
   const appModeRoute = useAppSubsystemAppModeRoute();
+  const shareSessionId = useShareSession((state) => state.shareSessionId);
+  const { initializationKey, initializationState } = useAppModeInitialization({
+    appModeRoute,
+    appSubsystemCapabilities,
+    appSubsystemHost,
+    appSubsystemStatus,
+    runtimeStatus,
+  });
+  useAppModeWebSocket({
+    pathname: location.pathname,
+    shareSessionId,
+    status: initializationState.status,
+  });
 
-  if (appModeRoute) {
+  if (
+    appModeRoute &&
+    initializationState.status === "ready" &&
+    initializationState.key === initializationKey
+  ) {
     return (
       <AppSubsystemRendererHost
         renderer={appModeRoute.renderer}
@@ -299,21 +467,20 @@ function AppModeRouteElement() {
   if (
     runtimeStatus === "idle" ||
     runtimeStatus === "loading" ||
-    appSubsystemStatus === "loading"
+    appSubsystemStatus === "loading" ||
+    (appModeRoute && initializationState.status !== "error")
   ) {
     return <LoadingSpinner />;
   }
 
-  const message =
-    runtimeStatus === "error"
-      ? runtimeStatusMessage ??
-        "Failed to load the plugin runtime for app mode."
-      : appSubsystemStatus === "error"
-        ? appSubsystemStatusMessage ??
-          "Failed to load the app subsystem frontend registration."
-        : getAppSubsystemDeploymentRuntimeUnavailableMessage(
-            appSubsystemCapabilities,
-          );
+  const message = resolveAppModeUnavailableMessage({
+    appSubsystemCapabilities,
+    appSubsystemStatus,
+    appSubsystemStatusMessage,
+    initializationState,
+    runtimeStatus,
+    runtimeStatusMessage,
+  });
 
   return <AppModeUnavailableRoute message={message} />;
 }

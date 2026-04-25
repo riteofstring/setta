@@ -12,7 +12,7 @@ const PLUGIN_FRONTEND_FILE =
 const HOST_PLUGIN_FRONTEND_IMPORT =
   /^(?:\.\.\/)+plugins\/[^/]+\/frontend\/src(?:\/.*)?$/;
 const PLUGIN_FRONTEND_HOST_ALIAS_IMPORT =
-  /^(?:components|forks|openapi|plugins|state|testUtils|utils)(?:\/.*)?$/;
+  /^(?:components|forks|frontend\/src|openapi|plugins|state|testUtils|utils)(?:\/.*)?$/;
 
 const normalizePath = (filePath) => filePath.split(path.sep).join("/");
 const resolveRelativeModulePath = (filePath, specifier) =>

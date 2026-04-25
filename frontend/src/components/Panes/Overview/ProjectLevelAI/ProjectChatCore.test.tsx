@@ -83,6 +83,9 @@ const APP_SUBSYSTEM_FRONTEND_REGISTRATIONS: AppSubsystemFrontendRegistrationsByP
           defaultMode: "plain_chat",
         },
       },
+      controller: {
+        initializeAppSessionFromCurrentDeployment: async () => true,
+      },
     },
   };
 

@@ -9,7 +9,6 @@ import (
 
 	"setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
-	"setta/internal/mcpx"
 	"setta/internal/tools"
 )
 
@@ -32,20 +31,41 @@ type appDefinitionMutationFields struct {
 	assets         *[]any
 }
 
+type ScopedProjectStateOperationFunc func(
+	ctx context.Context,
+	projectConfigID string,
+	missingContextMessage string,
+	run func() (any, error),
+) (any, error)
+
+func requireScopedProjectStateOperation(
+	execute ScopedProjectStateOperationFunc,
+) ScopedProjectStateOperationFunc {
+	if execute == nil {
+		panic("scoped project-state operation executor is required for app definition tool registrations")
+	}
+	return execute
+}
+
 func BuildMCPToolRegistrations(
 	service appdefinition.Runtime,
 	defaultAppSpecPath string,
-) []mcpx.ToolRegistration {
+	executeScopedProjectStateOperation ScopedProjectStateOperationFunc,
+) []tools.ToolRegistration {
 	registrations := BuildAppCatalogToolRegistrations()
 	registrations = append(
 		registrations,
-		BuildAppDefinitionToolRegistrations(service, defaultAppSpecPath)...,
+		BuildAppDefinitionToolRegistrations(
+			service,
+			defaultAppSpecPath,
+			executeScopedProjectStateOperation,
+		)...,
 	)
 	return registrations
 }
 
-func BuildAppCatalogToolRegistrations() []mcpx.ToolRegistration {
-	return []mcpx.ToolRegistration{
+func BuildAppCatalogToolRegistrations() []tools.ToolRegistration {
+	return []tools.ToolRegistration{
 		{
 			Spec: tools.Spec{
 				Name:        "get_app_catalog",
@@ -107,15 +127,19 @@ func BuildAppCatalogToolRegistrations() []mcpx.ToolRegistration {
 func BuildAppDefinitionToolRegistrations(
 	service appdefinition.Runtime,
 	defaultAppSpecPath string,
-) []mcpx.ToolRegistration {
+	executeScopedProjectStateOperation ScopedProjectStateOperationFunc,
+) []tools.ToolRegistration {
 	if service == nil {
 		return nil
 	}
 	if strings.TrimSpace(defaultAppSpecPath) == "" {
 		panic("default app spec path is required for app definition tool registrations")
 	}
+	executeScopedProjectStateOperation = requireScopedProjectStateOperation(
+		executeScopedProjectStateOperation,
+	)
 
-	return []mcpx.ToolRegistration{
+	return []tools.ToolRegistration{
 		{
 			Spec: tools.Spec{
 				Name:        "get_app_definition",
@@ -126,7 +150,7 @@ func BuildAppDefinitionToolRegistrations(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "ui", "read", "structural"},
 				},
-				Handler: newGetAppDefinitionHandler(service),
+				Handler: newGetAppDefinitionHandler(service, executeScopedProjectStateOperation),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -162,7 +186,7 @@ func BuildAppDefinitionToolRegistrations(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "validate", "diagnostics", "structural"},
 				},
-				Handler: newValidateAppDefinitionHandler(service),
+				Handler: newValidateAppDefinitionHandler(service, executeScopedProjectStateOperation),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -253,7 +277,7 @@ func BuildAppDefinitionToolRegistrations(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "ui", "structural"},
 				},
-				Handler: newSetAppDefinitionHandler(service),
+				Handler: newSetAppDefinitionHandler(service, executeScopedProjectStateOperation),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -338,7 +362,7 @@ func BuildAppDefinitionToolRegistrations(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "stream", "patch", "structural"},
 				},
-				Handler: newStreamAppDefinitionHandler(service),
+				Handler: newStreamAppDefinitionHandler(service, executeScopedProjectStateOperation),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -379,7 +403,7 @@ func BuildAppDefinitionToolRegistrations(
 					SearchCategory: "app",
 					SearchTags:     []string{"app", "definition", "spec", "patch", "structural"},
 				},
-				Handler: newUpdateAppDefinitionHandler(service),
+				Handler: newUpdateAppDefinitionHandler(service, executeScopedProjectStateOperation),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
@@ -415,6 +439,7 @@ func newListAppComponentsHandler() tools.Handler {
 
 func newGetAppDefinitionHandler(
 	service appdefinition.Runtime,
+	executeScopedProjectStateOperation ScopedProjectStateOperationFunc,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -422,9 +447,9 @@ func newGetAppDefinitionHandler(
 			return nil, err
 		}
 		if service == nil {
-			return nil, mcpx.NewToolError("internal_error", "Project-state app-definition runtime is unavailable.")
+			return nil, tools.NewToolError("internal_error", "Project-state app-definition runtime is unavailable.")
 		}
-		return mcpx.ExecuteScopedProjectStateOperation(
+		return executeScopedProjectStateOperation(
 			ctx,
 			projectConfigID,
 			"Structural app-definition invocation context is unavailable.",
@@ -437,6 +462,7 @@ func newGetAppDefinitionHandler(
 
 func newValidateAppDefinitionHandler(
 	service appdefinition.Runtime,
+	executeScopedProjectStateOperation ScopedProjectStateOperationFunc,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readValidateAppDefinitionArgs(arguments)
@@ -444,9 +470,9 @@ func newValidateAppDefinitionHandler(
 			return nil, err
 		}
 		if service == nil {
-			return nil, mcpx.NewToolError("internal_error", "Project-state app-definition runtime is unavailable.")
+			return nil, tools.NewToolError("internal_error", "Project-state app-definition runtime is unavailable.")
 		}
-		return mcpx.ExecuteScopedProjectStateOperation(
+		return executeScopedProjectStateOperation(
 			ctx,
 			projectConfigID,
 			"Structural app-definition invocation context is unavailable.",
@@ -459,6 +485,7 @@ func newValidateAppDefinitionHandler(
 
 func newSetAppDefinitionHandler(
 	service appdefinition.Runtime,
+	executeScopedProjectStateOperation ScopedProjectStateOperationFunc,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readSetAppDefinitionArgs(arguments)
@@ -466,9 +493,9 @@ func newSetAppDefinitionHandler(
 			return nil, err
 		}
 		if service == nil {
-			return nil, mcpx.NewToolError("internal_error", "Project-state mutation runtime is unavailable.")
+			return nil, tools.NewToolError("internal_error", "Project-state mutation runtime is unavailable.")
 		}
-		return mcpx.ExecuteScopedProjectStateOperation(
+		return executeScopedProjectStateOperation(
 			ctx,
 			projectConfigID,
 			"Structural app-definition invocation context is unavailable.",
@@ -482,6 +509,7 @@ func newSetAppDefinitionHandler(
 
 func newStreamAppDefinitionHandler(
 	service appdefinition.Runtime,
+	executeScopedProjectStateOperation ScopedProjectStateOperationFunc,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, input, err := readStreamAppDefinitionArgs(arguments)
@@ -489,16 +517,16 @@ func newStreamAppDefinitionHandler(
 			return nil, err
 		}
 		if service == nil {
-			return nil, mcpx.NewToolError("internal_error", "Project-state mutation runtime is unavailable.")
+			return nil, tools.NewToolError("internal_error", "Project-state mutation runtime is unavailable.")
 		}
-		return mcpx.ExecuteScopedProjectStateOperation(
+		return executeScopedProjectStateOperation(
 			ctx,
 			projectConfigID,
 			"Structural app-definition invocation context is unavailable.",
 			func() (any, error) {
 				_, result, err := service.StreamAppDefinition(ctx, input)
 				if errors.Is(err, appdefinition.ErrAppSpecPatchInvalid) {
-					return nil, mcpx.NewToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
+					return nil, tools.NewToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
 				}
 				return result, err
 			},
@@ -508,6 +536,7 @@ func newStreamAppDefinitionHandler(
 
 func newUpdateAppDefinitionHandler(
 	service appdefinition.Runtime,
+	executeScopedProjectStateOperation ScopedProjectStateOperationFunc,
 ) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -519,9 +548,9 @@ func newUpdateAppDefinitionHandler(
 			return nil, err
 		}
 		if service == nil {
-			return nil, mcpx.NewToolError("internal_error", "Project-state mutation runtime is unavailable.")
+			return nil, tools.NewToolError("internal_error", "Project-state mutation runtime is unavailable.")
 		}
-		return mcpx.ExecuteScopedProjectStateOperation(
+		return executeScopedProjectStateOperation(
 			ctx,
 			projectConfigID,
 			"Structural app-definition invocation context is unavailable.",
@@ -588,7 +617,7 @@ func readStreamAppDefinitionArgs(
 		return "", appdefinition.StreamInput{}, err
 	}
 	if strings.TrimSpace(patches) == "" {
-		return "", appdefinition.StreamInput{}, mcpx.NewToolError("invalid_arguments", "patches must be non-empty.")
+		return "", appdefinition.StreamInput{}, tools.NewToolError("invalid_arguments", "patches must be non-empty.")
 	}
 	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
 	if err != nil {
@@ -659,15 +688,15 @@ func readAppDefinitionMutationFields(
 func readRequiredStringArgument(arguments map[string]any, key string) (string, error) {
 	rawValue, ok := arguments[key]
 	if !ok {
-		return "", mcpx.NewToolError("invalid_arguments", "%s is required", key)
+		return "", tools.NewToolError("invalid_arguments", "%s is required", key)
 	}
 	value, ok := rawValue.(string)
 	if !ok {
-		return "", mcpx.NewToolError("invalid_arguments", "%s must be a string", key)
+		return "", tools.NewToolError("invalid_arguments", "%s must be a string", key)
 	}
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "", mcpx.NewToolError("invalid_arguments", "%s must not be empty", key)
+		return "", tools.NewToolError("invalid_arguments", "%s must not be empty", key)
 	}
 	return value, nil
 }
@@ -675,11 +704,11 @@ func readRequiredStringArgument(arguments map[string]any, key string) (string, e
 func readRequiredRawStringArgument(arguments map[string]any, key string) (string, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
-		return "", mcpx.NewToolError("invalid_arguments", "%s is required", key)
+		return "", tools.NewToolError("invalid_arguments", "%s is required", key)
 	}
 	value, ok := rawValue.(string)
 	if !ok {
-		return "", mcpx.NewToolError("invalid_arguments", "%s must be a string", key)
+		return "", tools.NewToolError("invalid_arguments", "%s must be a string", key)
 	}
 	return value, nil
 }
@@ -687,11 +716,11 @@ func readRequiredRawStringArgument(arguments map[string]any, key string) (string
 func readRequiredObjectArgument(arguments map[string]any, key string) (map[string]any, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s is required", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s is required", key)
 	}
 	value, ok := rawValue.(map[string]any)
 	if !ok {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an object", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s must be an object", key)
 	}
 	return value, nil
 }
@@ -699,7 +728,7 @@ func readRequiredObjectArgument(arguments map[string]any, key string) (map[strin
 func readRequiredPresentArgument(arguments map[string]any, key string) (any, error) {
 	value, ok := arguments[key]
 	if !ok {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s is required", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s is required", key)
 	}
 	return value, nil
 }
@@ -711,7 +740,7 @@ func readOptionalNullableStringPointerArgument(arguments map[string]any, key str
 	}
 	value, ok := rawValue.(string)
 	if !ok {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s must be a string or null", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s must be a string or null", key)
 	}
 	trimmedValue := strings.TrimSpace(value)
 	return &trimmedValue, nil
@@ -724,7 +753,7 @@ func readOptionalObjectPointerArgument(arguments map[string]any, key string) (*m
 	}
 	value, ok := rawValue.(map[string]any)
 	if !ok {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an object", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s must be an object", key)
 	}
 	return &value, nil
 }
@@ -736,7 +765,7 @@ func readOptionalArrayPointerArgument(arguments map[string]any, key string) (*[]
 	}
 	value, ok := rawValue.([]any)
 	if !ok {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an array", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s must be an array", key)
 	}
 	copied := append([]any(nil), value...)
 	return &copied, nil
@@ -749,15 +778,15 @@ func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]app
 	}
 	rawRoutes, ok := rawValue.([]any)
 	if !ok {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}
 	encoded, err := json.Marshal(rawRoutes)
 	if err != nil {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}
 	var routes []appdefinition.AppRoute
 	if err := json.Unmarshal(encoded, &routes); err != nil {
-		return nil, mcpx.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
+		return nil, tools.NewToolError("invalid_arguments", "%s must be an array of route objects", key)
 	}
 	return &routes, nil
 }

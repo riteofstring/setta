@@ -107,11 +107,7 @@ type toolDefinition struct {
 	OutputSchema map[string]any
 }
 
-type ToolRegistration struct {
-	Spec         tools.Spec
-	InputSchema  map[string]any
-	OutputSchema map[string]any
-}
+type ToolRegistration = tools.ToolRegistration
 
 type InvokeToolSummary struct {
 	Result                      *sdkmcp.CallToolResult
@@ -7487,12 +7483,19 @@ func asToolError(err error, target **toolError) bool {
 	if err == nil {
 		return false
 	}
-	typed, ok := err.(*toolError)
-	if !ok {
-		return false
+	if typed, ok := err.(*toolError); ok {
+		*target = typed
+		return true
 	}
-	*target = typed
-	return true
+	if shared, ok := tools.AsToolError(err); ok {
+		*target = &toolError{
+			code:    shared.Code,
+			message: shared.Message,
+			data:    shared.Data,
+		}
+		return true
+	}
+	return false
 }
 
 func isUnscopedToolName(toolName string) bool {

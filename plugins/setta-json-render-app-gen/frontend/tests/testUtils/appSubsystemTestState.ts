@@ -41,6 +41,10 @@ export function syncStoreInitialState(store: {
 
 export function createStatefulAppSubsystemFrontendHost(args: {
   appDeploymentSession?: AppSubsystemDeploymentSession | null;
+  onProjectLoadState?: (
+    loadState: Parameters<AppSubsystemFrontendHost["setProjectLoadState"]>[0],
+  ) => void;
+  onResetProjectRuntimeState?: () => void;
   projectContext?: AppSubsystemProjectContext;
   projectStateSnapshot?: AppSubsystemProjectStateSnapshot;
   runtimeContext?: AppSubsystemRuntimeContext;
@@ -118,7 +122,11 @@ export function createStatefulAppSubsystemFrontendHost(args: {
     setServerModeState: (next) => {
       serverModeState = next;
     },
-    setProjectLoadState: () => undefined,
-    resetProjectRuntimeState: () => undefined,
+    setProjectLoadState: (loadState) => {
+      args.onProjectLoadState?.(loadState);
+    },
+    resetProjectRuntimeState: () => {
+      args.onResetProjectRuntimeState?.();
+    },
   });
 }

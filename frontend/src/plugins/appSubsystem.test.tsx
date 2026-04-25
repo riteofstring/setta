@@ -1,3 +1,4 @@
+import { getActiveAppSubsystemFrontendHostRuntime } from "@setta/app-subsystem-frontend-sdk";
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
   type AppSubsystemFrontendRegistrationsByPluginId,
@@ -5,8 +6,10 @@ import {
   applyAppDefinitionStructuredContentToStore,
   beginAppSubsystemFrontendRegistrationLoad,
   buildDefaultAppSpecPath,
+  createAppSubsystemFrontendHost,
   getAppSubsystemDeploymentRuntimeUnavailableMessage,
   getAppSubsystemFrontendRuntimeState,
+  initializeAppSessionFromCurrentDeployment,
   isAppSubsystemFrontendRegistration,
   processAppProjectStateUpdateFromBackend,
   resetAppSubsystemFrontendRuntimeState,
@@ -25,6 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const resetProjectStateMock = vi.fn();
 const applyStructuredContentMock = vi.fn();
+const initializeAppSessionMock = vi.fn();
 let mockPreviewEnabled = false;
 let previewEnabledListener: ((previewEnabled: boolean) => void) | null = null;
 const NOOP_APP_SUBSYSTEM_RENDERER = { mount: () => undefined };
@@ -75,6 +79,7 @@ const MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION = {
       };
     },
     applyAppDefinitionStructuredContentToStore: applyStructuredContentMock,
+    initializeAppSessionFromCurrentDeployment: initializeAppSessionMock,
     resetProjectState: () => {
       resetProjectStateMock();
     },
@@ -183,6 +188,8 @@ describe("appSubsystem", () => {
     resetProjectStateMock.mockReset();
     applyStructuredContentMock.mockReset();
     applyStructuredContentMock.mockReturnValue(true);
+    initializeAppSessionMock.mockReset();
+    initializeAppSessionMock.mockResolvedValue(true);
     mockPreviewEnabled = false;
     previewEnabledListener = null;
     resetAppSubsystemFrontendRuntimeState();
@@ -191,6 +198,7 @@ describe("appSubsystem", () => {
   afterEach(() => {
     resetProjectStateMock.mockReset();
     applyStructuredContentMock.mockReset();
+    initializeAppSessionMock.mockReset();
     mockPreviewEnabled = false;
     previewEnabledListener = null;
     resetAppSubsystemFrontendRuntimeState();
@@ -298,6 +306,59 @@ describe("appSubsystem", () => {
       statusMessage: null,
     });
     expect(getAppSubsystemFrontendRuntimeState().registration).not.toBeNull();
+  });
+
+  it("requires deployment-runtime providers to register an app initializer", async () => {
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+      {
+        [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+          ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+          pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+          controller: {
+            ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION.controller,
+            initializeAppSessionFromCurrentDeployment: undefined,
+          },
+        },
+      },
+    );
+
+    expect(getAppSubsystemFrontendRuntimeState()).toMatchObject({
+      status: "error",
+      statusMessage:
+        "App subsystem frontend adapter is missing the app deployment initialization controller.",
+      registration: null,
+    });
+  });
+
+  it("activates the host runtime while initializing app deployments", async () => {
+    const frontendHost = createAppSubsystemFrontendHost();
+    const activeHostMatches: boolean[] = [];
+    await syncAppSubsystemFrontendRegistration(
+      ENABLED_APP_SUBSYSTEM_CAPABILITIES,
+      {
+        [ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId]: {
+          ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION,
+          pluginId: ENABLED_APP_SUBSYSTEM_CAPABILITIES.pluginId,
+          controller: {
+            ...MOCK_APP_SUBSYSTEM_FRONTEND_REGISTRATION.controller,
+            initializeAppSessionFromCurrentDeployment: async (host) => {
+              activeHostMatches.push(
+                host === frontendHost &&
+                  getActiveAppSubsystemFrontendHostRuntime() === frontendHost,
+              );
+              return true;
+            },
+          },
+        },
+      },
+    );
+
+    await expect(
+      initializeAppSessionFromCurrentDeployment(frontendHost),
+    ).resolves.toBe(true);
+    expect(activeHostMatches).toEqual([true]);
+    expect(getActiveAppSubsystemFrontendHostRuntime()).toBeNull();
   });
 
   it("routes project reset hooks through the loaded registration", async () => {

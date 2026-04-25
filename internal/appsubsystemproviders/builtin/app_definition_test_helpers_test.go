@@ -28,7 +28,11 @@ func BuildMCPToolRegistrations(
 	service appdefinitionpkg.Runtime,
 	defaultAppSpecPath string,
 ) []mcpx.ToolRegistration {
-	return neutralmcptools.BuildMCPToolRegistrations(service, defaultAppSpecPath)
+	return neutralmcptools.BuildMCPToolRegistrations(
+		service,
+		defaultAppSpecPath,
+		mcpx.ExecuteScopedProjectStateOperation,
+	)
 }
 
 func NewAppPublishService(

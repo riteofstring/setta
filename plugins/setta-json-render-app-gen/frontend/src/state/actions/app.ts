@@ -225,6 +225,11 @@ export async function initializeAppSessionFromCurrentDeployment(
     resetAppSessionState(frontendHost);
     return false;
   }
+  frontendHost.setProjectLoadState({
+    projectIsLoading: true,
+    projectIs404: false,
+  });
+  frontendHost.resetProjectRuntimeState();
   const session = await ensureAppSessionFromCurrentDeployment(
     frontendHost,
     options,
@@ -235,7 +240,12 @@ export async function initializeAppSessionFromCurrentDeployment(
       modeResolved: true,
       modeError: null,
     });
-    return true;
+    const loaded = await loadAppDeploymentState({ frontendHost });
+    frontendHost.setProjectLoadState({
+      projectIsLoading: false,
+      projectIs404: !loaded,
+    });
+    return loaded;
   }
   if (!serverMode.modeResolved) {
     frontendHost.setServerModeState({
@@ -245,6 +255,10 @@ export async function initializeAppSessionFromCurrentDeployment(
     });
   }
   resetAppSessionState(frontendHost);
+  frontendHost.setProjectLoadState({
+    projectIsLoading: false,
+    projectIs404: true,
+  });
   return false;
 }
 

@@ -83,6 +83,9 @@ export const appSubsystemFrontendRegistration = {
       previewEnabled = true;
       notifyPreviewEnabledListeners();
     },
+    async initializeAppSessionFromCurrentDeployment() {
+      return true;
+    },
     resetProjectState() {
       previewEnabled = false;
       notifyPreviewEnabledListeners();

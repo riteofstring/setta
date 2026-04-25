@@ -168,6 +168,7 @@ func BuildMCPToolRegistrations(
 				neutralmcptools.BuildAppDefinitionToolRegistrations(
 					service,
 					defaultAppSpecPath,
+					mcpx.ExecuteScopedProjectStateOperation,
 				)...,
 			)
 		}
