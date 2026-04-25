@@ -1,21 +1,50 @@
-import { resolveGeneratedEndpointOriginForMode } from "../../plugin-sdk/app-subsystem/src/bindingRuntime";
-import type {
-  EndpointOrigin,
-  ServerMode,
-} from "../../plugin-sdk/app-subsystem/src/serverModeBoundaryPolicy";
+import type { HttpapiServerModeResponse } from "openapi/http";
+import {
+  resolveGeneratedEndpointOriginForMode,
+  resolveGeneratedServerModeCapabilities,
+  resolveGeneratedWorkspaceLaunchRouteKind,
+} from "./bindingRuntime";
 import {
   EndpointOriginEnum,
   EndpointOriginPolicyByRoute,
   ModeScopedLauncherRoutesList,
+  ServerModeBoundaryPolicyByMode,
+  WorkspaceLaunchRouteKindEnum,
+  type EndpointOrigin as GeneratedEndpointOrigin,
+  type ServerModeCapabilities as GeneratedServerModeCapabilities,
+  type WorkspaceLaunchRouteKind as GeneratedWorkspaceLaunchRouteKind,
 } from "./generatedTypes";
 import { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
 
-export {
-  resolveServerModeCapabilities,
-  resolveWorkspaceLaunchRouteKind,
-  type EndpointOrigin,
-  type WorkspaceLaunchRouteKind,
-} from "../../plugin-sdk/app-subsystem/src/serverModeBoundaryPolicy";
+export type ServerMode = HttpapiServerModeResponse["mode"] | null;
+export type EndpointOrigin = GeneratedEndpointOrigin;
+export type WorkspaceLaunchRouteKind = GeneratedWorkspaceLaunchRouteKind;
+
+export type ServerModeCapabilities = GeneratedServerModeCapabilities;
+
+const NULL_SERVER_MODE_CAPABILITIES: ServerModeCapabilities = {
+  canManageDesktopLauncher: false,
+};
+
+export function resolveServerModeCapabilities(
+  mode: ServerMode,
+): ServerModeCapabilities {
+  return resolveGeneratedServerModeCapabilities(
+    ServerModeBoundaryPolicyByMode,
+    mode,
+    NULL_SERVER_MODE_CAPABILITIES,
+  );
+}
+
+export function resolveWorkspaceLaunchRouteKind(
+  mode: ServerMode,
+): WorkspaceLaunchRouteKind {
+  return resolveGeneratedWorkspaceLaunchRouteKind(
+    ServerModeBoundaryPolicyByMode,
+    mode,
+    WorkspaceLaunchRouteKindEnum.blocked,
+  );
+}
 
 export function resolveEndpointOriginForMode(
   address: string,

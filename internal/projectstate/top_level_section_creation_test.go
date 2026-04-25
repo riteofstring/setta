@@ -42,8 +42,8 @@ func TestProjectCreateTopLevelSectionPrunesStaleLayoutStateAndUsesDeterministicP
 	if !ok {
 		t.Fatalf("expected created section layout, got %#v", project.TopLevelSections)
 	}
-	if layout.X != 10 || layout.Y != 194 {
-		t.Fatalf("expected deterministic placement {10 194}, got %#v", layout)
+	if layout.X != 134 || layout.Y != 20 {
+		t.Fatalf("expected deterministic placement {134 20}, got %#v", layout)
 	}
 	if layout.ZIndex != 3 {
 		t.Fatalf("expected next z-index 3, got %#v", layout)

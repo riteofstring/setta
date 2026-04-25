@@ -16,7 +16,6 @@ type DiscoveryServiceOptions struct {
 	SettaFilesRoot            string
 	SettaHome                 string
 	ServerMode                config.Mode
-	DeploymentScoped          bool
 	PackageManagerRuntime     *pythonenv.Runtime
 	PackageManagerSearchPaths []string
 }
@@ -31,7 +30,6 @@ type DiscoverySnapshot struct {
 type DiscoveryService struct {
 	store                     *Store
 	serverMode                config.Mode
-	deploymentScoped          bool
 	packageManagerRuntime     *pythonenv.Runtime
 	packageManagerSearchPaths []string
 }
@@ -60,7 +58,6 @@ func NewDiscoveryService(options DiscoveryServiceOptions) (*DiscoveryService, er
 	return &DiscoveryService{
 		store:                     store,
 		serverMode:                options.ServerMode,
-		deploymentScoped:          options.DeploymentScoped,
 		packageManagerRuntime:     options.PackageManagerRuntime,
 		packageManagerSearchPaths: append([]string(nil), options.PackageManagerSearchPaths...),
 	}, nil
@@ -232,7 +229,7 @@ func countDiscoverySnapshotEntries(entries []DiscoveredPlugin) (int, int) {
 
 func (s *DiscoveryService) discoverFilesystemPlugins(metadata PluginInstallMetadataFile) ([]DiscoveredPlugin, error) {
 	entries := []DiscoveredPlugin{}
-	for _, scope := range s.filesystemDiscoveryScopes() {
+	for _, scope := range []PluginScope{PluginScopeWorkspace, PluginScopeSettaFiles, PluginScopeGlobal} {
 		root := s.store.scopeRoot(scope)
 		children, err := os.ReadDir(root)
 		if err != nil {
@@ -254,13 +251,6 @@ func (s *DiscoveryService) discoverFilesystemPlugins(metadata PluginInstallMetad
 		}
 	}
 	return entries, nil
-}
-
-func (s *DiscoveryService) filesystemDiscoveryScopes() []PluginScope {
-	if s != nil && s.deploymentScoped {
-		return []PluginScope{PluginScopeWorkspace, PluginScopeSettaFiles}
-	}
-	return []PluginScope{PluginScopeWorkspace, PluginScopeSettaFiles, PluginScopeGlobal}
 }
 
 func (s *DiscoveryService) discoverFilesystemPlugin(scope PluginScope, pluginRoot string, metadata PluginInstallMetadataFile) (DiscoveredPlugin, error) {
@@ -521,8 +511,6 @@ func resetBackendRegistrations(entry *DiscoveredPlugin) {
 	entry.RegisteredBackendRoutes = []PluginRegisteredBackendRoute{}
 	entry.RegisteredStaticDirs = []PluginRegisteredStaticDir{}
 	entry.RegisteredListenerEndpoints = []PluginRegisteredListenerEndpoint{}
-	entry.appSubsystemBackend = nil
-	entry.appSubsystemListenerEndpoints = []PluginRegisteredListenerEndpoint{}
 }
 
 func shouldPopulateBackendRegistrations(entry *DiscoveredPlugin) bool {
@@ -559,28 +547,6 @@ func applyBackendProbeRegistrations(entry *DiscoveredPlugin, probe backendProbeR
 	}
 	if containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
 		entry.RegisteredListenerEndpoints = probe.ListenerEndpoints
-	}
-	if containsString(entry.EffectiveCapabilities, "registerAppSubsystemBackend") {
-		entry.appSubsystemBackend = cloneBackendProbeAppSubsystemBackendRegistration(
-			probe.AppSubsystemBackend,
-		)
-		if probe.AppSubsystemBackend != nil {
-			entry.appSubsystemListenerEndpoints = cloneRegisteredListenerEndpointsOrEmpty(
-				probe.AppSubsystemBackend.ListenerEndpoints,
-			)
-		}
-	}
-}
-
-func cloneBackendProbeAppSubsystemBackendRegistration(
-	registration *backendProbeAppSubsystemBackendRegistration,
-) *backendProbeAppSubsystemBackendRegistration {
-	if registration == nil {
-		return nil
-	}
-	return &backendProbeAppSubsystemBackendRegistration{
-		ContractVersion:   registration.ContractVersion,
-		ListenerEndpoints: cloneRegisteredListenerEndpointsOrEmpty(registration.ListenerEndpoints),
 	}
 }
 

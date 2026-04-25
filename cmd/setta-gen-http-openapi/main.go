@@ -8,43 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"setta/internal/appsubsystem"
-	"setta/internal/appsubsystemproviders"
-	"setta/internal/config"
 	"setta/internal/httpapi"
-	"setta/internal/modes"
-	"setta/internal/plugins"
 )
-
-type openAPICapabilityProvider struct {
-	capabilities plugins.PluginAppSubsystemCapabilities
-}
-
-func (p openAPICapabilityProvider) AppSubsystemCapabilities() plugins.PluginAppSubsystemCapabilities {
-	return p.capabilities
-}
-
-func buildOpenAPIDocumentAppSubsystemRegistrations(
-	deps httpapi.FrontendAPIRouteDependencies,
-	providers []plugins.PluginAppSubsystemFeatureManifest,
-) (httpapi.FrontendAPIRouteRegistrations, error) {
-	mergedCapabilities, ok := appsubsystemproviders.MergeOpenAPICapabilities(providers)
-	if !ok {
-		return httpapi.FrontendAPIRouteRegistrations{}, nil
-	}
-	return appsubsystem.BuildFrontendAPIRouteRegistrations(
-		appsubsystem.FrontendRouteRegistrationOptions{
-			Capabilities:       openAPICapabilityProvider{capabilities: mergedCapabilities},
-			ModePolicy:         deps.Project.ModePolicy,
-			ProjectState:       deps.Project.ProjectState,
-			AppGenSkill:        deps.AppGenSkill,
-			ShareDeploymentIDE: deps.ShareDeploymentIDE,
-			AppDeployment: httpapi.DeploymentRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeApp),
-			},
-		},
-	)
-}
 
 func main() {
 	outputPath := flag.String("out", "", "path to the generated OpenAPI JSON output file")
@@ -56,20 +21,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	var registrationErr error
-	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
-		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
-			registrations, err := buildOpenAPIDocumentAppSubsystemRegistrations(
-				deps,
-				appsubsystemproviders.DiscoveredProviderCapabilities(),
-			)
-			registrationErr = err
-			return registrations
-		},
-	)
-	if registrationErr != nil {
-		err = registrationErr
-	}
+	document, err := httpapi.BuildFrontendHTTPOpenAPIDocument()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "setta-gen-http-openapi: %v\n", err)
 		os.Exit(1)
