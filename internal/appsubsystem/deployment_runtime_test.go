@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/plugins"
 )
@@ -205,12 +206,26 @@ func writeDeploymentRuntimeTestBackendProbe(t *testing.T, path string) {
 		"import json",
 		"import sys",
 		`if len(sys.argv) == 2 and sys.argv[1] == "--setta-plugin-backend-probe":`,
-		`    print(json.dumps({"schemaVersion": 1, "appSubsystemBackend": {"contractVersion": 1}}))`,
+		`    print(json.dumps({"schemaVersion": 1, "appSubsystemBackend": {"contractVersion": 1}, "listenerEndpoints": ` + deploymentRuntimeTestAppSubsystemEndpointJSON(t) + `}))`,
 		"",
 	}, "\n")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write backend probe: %v", err)
 	}
+}
+
+func deploymentRuntimeTestAppSubsystemEndpointJSON(t *testing.T) string {
+	t.Helper()
+
+	endpoints := make([]map[string]string, 0, len(backendruntime.RequiredListenerEndpointNames()))
+	for _, endpointName := range backendruntime.RequiredListenerEndpointNames() {
+		endpoints = append(endpoints, map[string]string{"name": endpointName})
+	}
+	encoded, err := json.Marshal(endpoints)
+	if err != nil {
+		t.Fatalf("encode app subsystem backend listener endpoints: %v", err)
+	}
+	return string(encoded)
 }
 
 func writeDeploymentRuntimeTestJSON(t *testing.T, path string, payload any) {

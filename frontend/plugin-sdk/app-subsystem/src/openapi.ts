@@ -4,6 +4,7 @@ import {
   type ServerMode,
 } from "utils/serverModeBoundaryPolicy";
 import { buildBinaryDownloadRoute } from "utils/transportRouteConstants";
+import { rebuildBackendRequest } from "openapi/http/requestRebuild";
 import { client } from "openapi/http/generated/client.gen";
 import { getActiveAppSubsystemFrontendHostRuntime } from "./runtimeHost";
 export {
@@ -111,35 +112,6 @@ function resolveOpenAPIBaseURL(): string {
   return C_ADDRESSES.BACKEND_ORIGIN;
 }
 
-async function rebuildBackendRequest(
-  request: Request,
-  resolvedURL: string,
-): Promise<Request> {
-  const rebuiltInit: RequestInit = {
-    method: request.method,
-    headers: new Headers(request.headers),
-    mode: request.mode,
-    credentials: request.credentials,
-    cache: request.cache,
-    redirect: request.redirect,
-    referrer: request.referrer,
-    referrerPolicy: request.referrerPolicy,
-    integrity: request.integrity,
-    keepalive: request.keepalive,
-    signal: request.signal,
-  };
-
-  if (
-    request.body !== null &&
-    request.method !== "GET" &&
-    request.method !== "HEAD"
-  ) {
-    rebuiltInit.body = await request.clone().arrayBuffer();
-  }
-
-  return new Request(resolvedURL, rebuiltInit);
-}
-
 function buildShareSessionHeaders(): Record<string, string> {
   const frontendHost = getActiveAppSubsystemFrontendHostRuntime();
   const runtimeShareSessionId =
@@ -176,12 +148,14 @@ async function fetchOpenAPIRequest(
   return await fetch(nextRequest);
 }
 
-client.setConfig({
-  baseUrl: resolveOpenAPIBaseURL(),
-  credentials: "include",
-  responseStyle: "fields",
-  fetch: fetchOpenAPIRequest,
-});
+export function configureAppSubsystemOpenAPI(): void {
+  client.setConfig({
+    baseUrl: resolveOpenAPIBaseURL(),
+    credentials: "include",
+    responseStyle: "fields",
+    fetch: fetchOpenAPIRequest,
+  });
+}
 
 export function buildBinaryDownloadUrl(
   contentId: string,

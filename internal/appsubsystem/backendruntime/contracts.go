@@ -23,6 +23,25 @@ const (
 	ErrorCodeExpectedOldValueMismatch         = "expected_old_value_mismatch"
 )
 
+var requiredListenerEndpointNames = [...]string{
+	ListenerEndpointGetAppDefinition,
+	ListenerEndpointGetEffectiveAppDefinition,
+	ListenerEndpointGetEffectiveAppSpecPath,
+	ListenerEndpointGetEffectiveAppThemeMode,
+	ListenerEndpointValidateAppDefinition,
+	ListenerEndpointSetAppDefinition,
+	ListenerEndpointStreamAppDefinition,
+	ListenerEndpointUpdateAppDefinition,
+	ListenerEndpointCompareAndSetCatalogID,
+	ListenerEndpointCompareAndSetSpecVersion,
+	ListenerEndpointCompareAndSetSpecPath,
+	ListenerEndpointCompareAndSetThemeMode,
+}
+
+func RequiredListenerEndpointNames() []string {
+	return append([]string(nil), requiredListenerEndpointNames[:]...)
+}
+
 type UpdateAppDefinitionRequest struct {
 	Patch any `json:"patch"`
 }

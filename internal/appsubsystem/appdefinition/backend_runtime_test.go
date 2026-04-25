@@ -273,6 +273,68 @@ func TestBackendRuntimeMapsExpectedOldValueMismatch(t *testing.T) {
 	}
 }
 
+func TestBackendRuntimeCompareAndSetNoopCompletesFrontendOpID(t *testing.T) {
+	_, runtime := openPersistedBackendRuntimeTestProject(t)
+	service := NewBackendRuntime(runtime, "setta-json-render-app-gen", backendRuntimeInvokerStub{
+		invoke: func(
+			ctx context.Context,
+			request plugins.BackendListenerEndpointRequest,
+		) (any, bool, error) {
+			return projectstate.CompareAndSetResult[string]{
+				OldValue: "v1",
+				NewValue: "v1",
+			}, true, nil
+		},
+	})
+
+	before := runtime.Snapshot()
+	snapshot, result, err := service.CompareAndSetAppDefinitionSpecVersion(
+		projectstate.ContextWithFrontendOpID(context.Background(), "backend-noop-op"),
+		"v1",
+		backendRuntimeTestStringPointer("v1"),
+	)
+	if err != nil {
+		t.Fatalf("backend no-op compare-and-set: %v", err)
+	}
+	if result.OldValue != "v1" || result.NewValue != "v1" {
+		t.Fatalf("unexpected no-op result %#v", result)
+	}
+	if snapshot.Revision != before.Revision {
+		t.Fatalf("expected no-op revision %d, got %d", before.Revision, snapshot.Revision)
+	}
+
+	_, ops, err := runtime.SnapshotAndConsumeFrontendOps()
+	if err != nil {
+		t.Fatalf("consume frontend ops: %v", err)
+	}
+	if len(ops.Pending) != 0 || len(ops.Completed) != 1 || ops.Completed[0] != "backend-noop-op" {
+		t.Fatalf("expected completed backend no-op frontend op, got %#v", ops)
+	}
+}
+
+func TestBackendRuntimeScopesInvocationsToProviderPluginID(t *testing.T) {
+	_, runtime := openPersistedBackendRuntimeTestProject(t)
+	pluginID := "acme-app-provider"
+	service := NewBackendRuntime(runtime, pluginID, backendRuntimeInvokerStub{
+		invoke: func(
+			ctx context.Context,
+			request plugins.BackendListenerEndpointRequest,
+		) (any, bool, error) {
+			if request.PluginID != pluginID {
+				t.Fatalf("expected provider plugin id %q, got %#v", pluginID, request.PluginID)
+			}
+			if request.EndpointName != backendruntime.ListenerEndpointGetAppDefinition {
+				t.Fatalf("unexpected endpoint %q", request.EndpointName)
+			}
+			return ReadResult{}, true, nil
+		},
+	})
+
+	if _, err := service.GetAppDefinition(context.Background()); err != nil {
+		t.Fatalf("get app definition: %v", err)
+	}
+}
+
 type backendRuntimeInvokerStub struct {
 	invoke func(context.Context, plugins.BackendListenerEndpointRequest) (any, bool, error)
 }
