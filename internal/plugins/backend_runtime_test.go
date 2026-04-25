@@ -435,6 +435,9 @@ func TestServiceAppSubsystemPrivateListenerEndpointsArePluginScoped(t *testing.T
 func TestServiceBackendUISettingRoundTripInvokesGoBackendExecutable(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerUISettings"}
+	})
 	writePluginBackendUISettingFixtureMainGo(t, pluginRoot, false)
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)

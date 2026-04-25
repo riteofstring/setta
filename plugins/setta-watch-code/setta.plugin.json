@@ -5,6 +5,9 @@
   "version": "0.1.0",
   "settaVersionRange": ">=0.0.0",
   "enabledByDefault": true,
+  "backend": {
+    "entrypoint": "backend/main.py"
+  },
   "frontend": {
     "entrypoint": "frontend/dist/index.js",
     "style": "frontend/dist/setta-watch-code-frontend.css",
@@ -20,10 +23,10 @@
     }
   },
   "capabilities": [
+    "registerWatchCodeBackend",
     "registerCanvasControl",
     "registerSettingRevealHandler",
     "readProjectState",
-    "subscribeProjectState",
-    "mutateWatchCodeSettings"
+    "subscribeProjectState"
   ]
 }

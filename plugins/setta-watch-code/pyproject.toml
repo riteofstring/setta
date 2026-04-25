@@ -15,4 +15,5 @@ py-modules = []
 
 [tool.setuptools.data-files]
 "setta-watch-code" = ["setta.plugin.json", "README.md"]
+"setta-watch-code/backend" = ["backend/main.py"]
 "setta-watch-code/frontend/dist" = ["frontend/dist/index.js", "frontend/dist/setta-watch-code-frontend.css"]

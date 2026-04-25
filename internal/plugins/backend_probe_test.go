@@ -266,6 +266,56 @@ func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersio
 	}
 }
 
+func TestNormalizeBackendProbeResponseValidatesWatchCodeBackendRegistration(
+	t *testing.T,
+) {
+	t.Parallel()
+
+	pluginRoot := t.TempDir()
+	normalized, err := normalizeBackendProbeResponse(
+		pluginRoot,
+		"setta-fixture-backend",
+		backendProbeResponse{
+			WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
+				ContractVersion:        watchCodeBackendContractVersion,
+				DataSchemaVersion:      watchCodeBackendDataSchemaVersion,
+				Languages:              []string{" Python "},
+				RequiresLanguageServer: true,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("normalize watch code backend registration: %v", err)
+	}
+	if normalized.WatchCodeBackend == nil {
+		t.Fatal("expected normalized watch code backend registration")
+	}
+	if !slices.Equal(normalized.WatchCodeBackend.Languages, []string{"python"}) {
+		t.Fatalf("expected normalized watch code languages, got %#v", normalized.WatchCodeBackend.Languages)
+	}
+	if !normalized.WatchCodeBackend.RequiresLanguageServer {
+		t.Fatalf("expected language server requirement to survive normalization, got %#v", normalized.WatchCodeBackend)
+	}
+
+	_, err = normalizeBackendProbeResponse(
+		pluginRoot,
+		"setta-fixture-backend",
+		backendProbeResponse{
+			WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
+				ContractVersion:   watchCodeBackendContractVersion + 1,
+				DataSchemaVersion: watchCodeBackendDataSchemaVersion,
+				Languages:         []string{"python"},
+			},
+		},
+	)
+	if err == nil {
+		t.Fatal("expected unsupported watch code backend contract version to fail")
+	}
+	if !strings.Contains(err.Error(), "watchCodeBackend: unsupported contract version") {
+		t.Fatalf("expected watch code backend contract version error, got %v", err)
+	}
+}
+
 func TestNormalizeBackendProbeResponseRejectsDuplicateGenericAndAppSubsystemListenerEndpoint(
 	t *testing.T,
 ) {

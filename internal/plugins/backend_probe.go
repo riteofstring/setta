@@ -23,6 +23,9 @@ const (
 	backendProbeArg           = "--setta-plugin-backend-probe"
 	backendProbeSchemaVersion = 1
 	backendProbeBuildRootName = "plugin_backend_probe_builds"
+
+	watchCodeBackendContractVersion   = 1
+	watchCodeBackendDataSchemaVersion = 1
 )
 
 var backendProbeTimeout = 5 * time.Second
@@ -58,6 +61,7 @@ type backendProbeResponse struct {
 	StaticDirs          []PluginRegisteredStaticDir                  `json:"staticDirs"`
 	ListenerEndpoints   []PluginRegisteredListenerEndpoint           `json:"listenerEndpoints"`
 	AppSubsystemBackend *backendProbeAppSubsystemBackendRegistration `json:"appSubsystemBackend,omitempty"`
+	WatchCodeBackend    *backendProbeWatchCodeBackendRegistration    `json:"watchCodeBackend,omitempty"`
 
 	UISettings []PluginRegisteredUISetting `json:"-"`
 }
@@ -65,6 +69,13 @@ type backendProbeResponse struct {
 type backendProbeAppSubsystemBackendRegistration struct {
 	ContractVersion   int                                `json:"contractVersion"`
 	ListenerEndpoints []PluginRegisteredListenerEndpoint `json:"listenerEndpoints,omitempty"`
+}
+
+type backendProbeWatchCodeBackendRegistration struct {
+	ContractVersion        int      `json:"contractVersion"`
+	DataSchemaVersion      int      `json:"dataSchemaVersion"`
+	Languages              []string `json:"languages"`
+	RequiresLanguageServer bool     `json:"requiresLanguageServer"`
 }
 
 type normalizedBackendUISetting struct {
@@ -96,7 +107,9 @@ func backendProbeRequired(capabilities []string) bool {
 			"registerRouter",
 			"registerStaticDir",
 			"registerListenerEndpoint",
-			"registerAppSubsystemBackend":
+			"registerAppSubsystemBackend",
+			"registerWatchCodeBackend",
+			"registerUISettings":
 			return true
 		}
 	}
@@ -229,6 +242,12 @@ func normalizeBackendProbeResponse(pluginRoot string, pluginID string, probe bac
 	if err != nil {
 		return backendProbeResponse{}, err
 	}
+	probe.WatchCodeBackend, err = normalizeBackendWatchCodeBackendRegistration(
+		probe.WatchCodeBackend,
+	)
+	if err != nil {
+		return backendProbeResponse{}, err
+	}
 	if err := rejectDuplicateGenericAndAppSubsystemListenerEndpoints(probe); err != nil {
 		return backendProbeResponse{}, err
 	}
@@ -256,6 +275,57 @@ func normalizeBackendAppSubsystemBackendRegistration(
 		ContractVersion:   registration.ContractVersion,
 		ListenerEndpoints: listenerEndpoints,
 	}, nil
+}
+
+func normalizeBackendWatchCodeBackendRegistration(
+	registration *backendProbeWatchCodeBackendRegistration,
+) (*backendProbeWatchCodeBackendRegistration, error) {
+	if registration == nil {
+		return nil, nil
+	}
+	if registration.ContractVersion != watchCodeBackendContractVersion {
+		return nil, fmt.Errorf(
+			"watchCodeBackend: unsupported contract version %d",
+			registration.ContractVersion,
+		)
+	}
+	if registration.DataSchemaVersion != watchCodeBackendDataSchemaVersion {
+		return nil, fmt.Errorf(
+			"watchCodeBackend: unsupported data schema version %d",
+			registration.DataSchemaVersion,
+		)
+	}
+	languages, err := normalizeWatchCodeBackendLanguages(registration.Languages)
+	if err != nil {
+		return nil, fmt.Errorf("watchCodeBackend: %w", err)
+	}
+	return &backendProbeWatchCodeBackendRegistration{
+		ContractVersion:        registration.ContractVersion,
+		DataSchemaVersion:      registration.DataSchemaVersion,
+		Languages:              languages,
+		RequiresLanguageServer: registration.RequiresLanguageServer,
+	}, nil
+}
+
+func normalizeWatchCodeBackendLanguages(languages []string) ([]string, error) {
+	if len(languages) == 0 {
+		return nil, fmt.Errorf("languages must include at least one language")
+	}
+	normalized := make([]string, 0, len(languages))
+	seen := make(map[string]struct{}, len(languages))
+	for _, language := range languages {
+		trimmed := strings.ToLower(strings.TrimSpace(language))
+		if trimmed == "" {
+			return nil, fmt.Errorf("languages must not contain empty values")
+		}
+		if _, exists := seen[trimmed]; exists {
+			return nil, fmt.Errorf("duplicate language %q", trimmed)
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	slices.Sort(normalized)
+	return normalized, nil
 }
 
 func rejectDuplicateGenericAndAppSubsystemListenerEndpoints(

@@ -117,6 +117,8 @@
           "registerListenerEndpoint",
           "registerStaticDir",
           "registerAppSubsystemBackend",
+          "registerWatchCodeBackend",
+          "registerUISettings",
           "mutateWatchCodeSettings",
           "writeWorkspacePlugins"
         ]

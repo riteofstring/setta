@@ -834,13 +834,63 @@ func TestServiceRuntimeWatchCodeCapabilitiesDefaultToUnavailableWithoutPlugin(t 
 	)
 }
 
-func TestServiceRuntimeWatchCodeCapabilitiesFollowActivePluginManifest(t *testing.T) {
+func TestServiceRuntimeWatchCodeCapabilitiesRejectManifestOnlyProvider(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-watch-code-provider"
 	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
 		PluginID:         pluginID,
 		FixtureName:      "frontend",
 		EnabledByDefault: true,
+		WatchCode: map[string]any{
+			"python":                 true,
+			"requiresLanguageServer": true,
+			"canvasControlsUi":       true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected manifest-only watch code provider to stay unavailable, got %#v", watchCode)
+	}
+	assertRuntimeWatchCodeSelection(
+		t,
+		runtimeResponse.Status.WatchCodeSelection,
+		PluginWatchCodeProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+}
+
+func TestServiceRuntimeWatchCodeCapabilitiesFollowBackendProbedProvider(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-watch-code-provider"
+	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+		PluginID:                 pluginID,
+		FixtureName:              "frontend",
+		EnabledByDefault:         true,
+		RegisterWatchCodeBackend: true,
 		WatchCode: map[string]any{
 			"python":                 true,
 			"requiresLanguageServer": true,
@@ -886,12 +936,53 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowActivePluginManifest(t *testin
 	)
 }
 
+func TestServiceRuntimeWatchCodeCapabilitiesRejectBackendProbeWithoutRegistration(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-watch-code-provider"
+	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+		PluginID:                         pluginID,
+		FixtureName:                      "backend",
+		EnabledByDefault:                 true,
+		RegisterWatchCodeBackend:         true,
+		OmitWatchCodeBackendRegistration: true,
+		WatchCode: map[string]any{
+			"python":                 true,
+			"requiresLanguageServer": true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected unregistered backend-probed watch code provider unavailable, got %#v", watchCode)
+	}
+}
+
 func TestServiceRuntimeWatchCodeCapabilitiesFollowFirstPartyPluginManifest(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	repoRoot := workerRPCTestRepoRoot(t)
 	pluginID := "setta-watch-code"
 	pluginRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), pluginID)
 	copyBackendCodegenFixtureDir(t, filepath.Join(repoRoot, "plugins", pluginID), pluginRoot)
+	writeWatchCodeRuntimeFrontendBuildOutputs(t, filepath.Join(pluginRoot, "frontend"))
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
 	runtimeResponse, err := service.Runtime(RuntimeOptions{
@@ -934,9 +1025,9 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowFirstPartyPluginManifest(t *te
 	}
 	if !containsString(listEntry.EffectiveCapabilities, "registerCanvasControl") ||
 		!containsString(listEntry.EffectiveCapabilities, "registerSettingRevealHandler") ||
+		!containsString(listEntry.EffectiveCapabilities, "registerWatchCodeBackend") ||
 		!containsString(listEntry.EffectiveCapabilities, "readProjectState") ||
-		!containsString(listEntry.EffectiveCapabilities, "subscribeProjectState") ||
-		!containsString(listEntry.EffectiveCapabilities, "mutateWatchCodeSettings") {
+		!containsString(listEntry.EffectiveCapabilities, "subscribeProjectState") {
 		t.Fatalf("expected watch code frontend capabilities, got %#v", listEntry.EffectiveCapabilities)
 	}
 }
@@ -945,9 +1036,10 @@ func TestServiceRuntimeWatchCodeCapabilitiesTreatDisabledPluginAsUnavailable(t *
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-disabled-watch-code-provider"
 	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
-		PluginID:         pluginID,
-		FixtureName:      "backend",
-		EnabledByDefault: false,
+		PluginID:                 pluginID,
+		FixtureName:              "backend",
+		EnabledByDefault:         false,
+		RegisterWatchCodeBackend: true,
 		WatchCode: map[string]any{
 			"python":                 true,
 			"requiresLanguageServer": true,
@@ -986,9 +1078,10 @@ func TestServiceRuntimeWatchCodeCapabilitiesTreatProviderWithoutPythonAsInvalid(
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-invalid-watch-code-provider"
 	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
-		PluginID:         pluginID,
-		FixtureName:      "frontend",
-		EnabledByDefault: true,
+		PluginID:                 pluginID,
+		FixtureName:              "frontend",
+		EnabledByDefault:         true,
+		RegisterWatchCodeBackend: true,
 		WatchCode: map[string]any{
 			"requiresLanguageServer": true,
 			"canvasControlsUi":       true,
@@ -1026,9 +1119,10 @@ func TestServiceRuntimeWatchCodeCapabilitiesFailClosedOnProviderConflict(t *test
 	secondPluginID := "contoso-secondary-watch-code-provider"
 	for _, pluginID := range []string{firstPluginID, secondPluginID} {
 		installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
-			PluginID:         pluginID,
-			FixtureName:      "backend",
-			EnabledByDefault: true,
+			PluginID:                 pluginID,
+			FixtureName:              "backend",
+			EnabledByDefault:         true,
+			RegisterWatchCodeBackend: true,
 			WatchCode: map[string]any{
 				"python":                 true,
 				"requiresLanguageServer": true,
@@ -1327,10 +1421,12 @@ func installRuntimeAppSubsystemFixture(
 }
 
 type runtimeWatchCodeFixtureOptions struct {
-	PluginID         string
-	FixtureName      string
-	EnabledByDefault bool
-	WatchCode        map[string]any
+	PluginID                         string
+	FixtureName                      string
+	EnabledByDefault                 bool
+	RegisterWatchCodeBackend         bool
+	OmitWatchCodeBackendRegistration bool
+	WatchCode                        map[string]any
 }
 
 func installRuntimeWatchCodeFixture(
@@ -1349,11 +1445,96 @@ func installRuntimeWatchCodeFixture(
 		payload["id"] = options.PluginID
 		payload["name"] = "Runtime Watch Code Fixture"
 		payload["enabledByDefault"] = options.EnabledByDefault
+		if options.RegisterWatchCodeBackend {
+			payload["backend"] = map[string]any{
+				"entrypoint": "runtime_backend/main.py",
+			}
+			payload["capabilities"] = []string{"registerWatchCodeBackend"}
+		} else {
+			delete(payload, "backend")
+			payload["capabilities"] = []string{}
+		}
 		payload["featureCapabilities"] = map[string]any{
 			"watchCode": options.WatchCode,
 		}
 	})
+	if options.RegisterWatchCodeBackend {
+		writeRuntimeWatchCodeBackendProbe(
+			t,
+			targetRoot,
+			!options.OmitWatchCodeBackendRegistration,
+		)
+	}
 	return targetRoot
+}
+
+func writeRuntimeWatchCodeBackendProbe(
+	t *testing.T,
+	pluginRoot string,
+	register bool,
+) {
+	t.Helper()
+
+	runtimeBackendRoot := filepath.Join(pluginRoot, "runtime_backend")
+	if err := os.MkdirAll(runtimeBackendRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime backend root: %v", err)
+	}
+
+	probePayload := `"watchCodeBackend": {"contractVersion": 1, "dataSchemaVersion": 1, "languages": ["python"], "requiresLanguageServer": True},`
+	if !register {
+		probePayload = ""
+	}
+	content := "#!/usr/bin/env python3\n\n" +
+		"import json\n" +
+		"import sys\n\n" +
+		"BACKEND_PROBE_ARG = \"--setta-plugin-backend-probe\"\n" +
+		"BACKEND_RUNTIME_ARG = \"--setta-plugin-backend-runtime\"\n\n" +
+		"def write_json(payload: object) -> None:\n" +
+		"    json.dump(payload, sys.stdout)\n" +
+		"    sys.stdout.write(\"\\n\")\n" +
+		"    sys.stdout.flush()\n\n" +
+		"def main() -> None:\n" +
+		"    if len(sys.argv) != 2:\n" +
+		"        return\n\n" +
+		"    command = sys.argv[1]\n" +
+		"    if command == BACKEND_PROBE_ARG:\n" +
+		"        write_json({\n" +
+		"            \"schemaVersion\": 1,\n" +
+		"            " + probePayload + "\n" +
+		"            \"codegenTargets\": [],\n" +
+		"            \"languageServers\": [],\n" +
+		"            \"uiSettings\": [],\n" +
+		"            \"routes\": [],\n" +
+		"            \"staticDirs\": [],\n" +
+		"            \"listenerEndpoints\": [],\n" +
+		"        })\n" +
+		"        return\n\n" +
+		"    if command == BACKEND_RUNTIME_ARG:\n" +
+		"        write_json({\"schemaVersion\": 1})\n\n" +
+		"if __name__ == \"__main__\":\n" +
+		"    main()\n"
+	if err := os.WriteFile(
+		filepath.Join(runtimeBackendRoot, "main.py"),
+		[]byte(content),
+		0o755,
+	); err != nil {
+		t.Fatalf("write runtime backend probe: %v", err)
+	}
+}
+
+func writeWatchCodeRuntimeFrontendBuildOutputs(t *testing.T, frontendRoot string) {
+	t.Helper()
+
+	distRoot := filepath.Join(frontendRoot, "dist")
+	if err := os.MkdirAll(distRoot, 0o755); err != nil {
+		t.Fatalf("mkdir watch code frontend dist: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(distRoot, "index.js"), []byte("export default {};\n"), 0o644); err != nil {
+		t.Fatalf("write watch code frontend entrypoint: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(distRoot, "setta-watch-code-frontend.css"), []byte("body {}\n"), 0o644); err != nil {
+		t.Fatalf("write watch code frontend style: %v", err)
+	}
 }
 
 func writeRuntimeAppSubsystemBackendProbe(

@@ -239,6 +239,7 @@ type DiscoveredPlugin struct {
 	RegisteredListenerEndpoints   []PluginRegisteredListenerEndpoint
 	appSubsystemBackend           *backendProbeAppSubsystemBackendRegistration
 	appSubsystemListenerEndpoints []PluginRegisteredListenerEndpoint
+	watchCodeBackend              *backendProbeWatchCodeBackendRegistration
 }
 
 func (p DiscoveredPlugin) HasBackend() bool {

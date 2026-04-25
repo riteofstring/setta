@@ -33,6 +33,8 @@ var (
 		"registerListenerEndpoint":     {},
 		"registerStaticDir":            {},
 		"registerAppSubsystemBackend":  {},
+		"registerWatchCodeBackend":     {},
+		"registerUISettings":           {},
 		"mutateWatchCodeSettings":      {},
 		"writeWorkspacePlugins":        {},
 	}
@@ -54,6 +56,7 @@ var (
 			"subscribeProjectState":        {},
 			"emitListenerEvents":           {},
 			"registerAppSubsystemBackend":  {},
+			"registerUISettings":           {},
 		},
 		config.ModeApp: {
 			"registerSectionKinds":         {},
@@ -66,6 +69,7 @@ var (
 			"subscribeProjectState":        {},
 			"emitListenerEvents":           {},
 			"registerAppSubsystemBackend":  {},
+			"registerUISettings":           {},
 		},
 	}
 )

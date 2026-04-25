@@ -276,6 +276,8 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 			"registerRouter",
 			"registerStaticDir",
 			"registerAppSubsystemBackend",
+			"registerWatchCodeBackend",
+			"registerUISettings",
 		},
 	}
 	probe := backendProbeResponse{
@@ -299,6 +301,12 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 			ListenerEndpoints: []PluginRegisteredListenerEndpoint{
 				{Name: "appsubsystem_get_app_definition"},
 			},
+		},
+		WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
+			ContractVersion:        watchCodeBackendContractVersion,
+			DataSchemaVersion:      watchCodeBackendDataSchemaVersion,
+			Languages:              []string{"python"},
+			RequiresLanguageServer: true,
 		},
 	}
 
@@ -326,6 +334,9 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	if entry.appSubsystemBackend == nil || entry.appSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		t.Fatalf("expected app subsystem backend registration to be copied, got %#v", entry.appSubsystemBackend)
 	}
+	if entry.watchCodeBackend == nil || entry.watchCodeBackend.ContractVersion != watchCodeBackendContractVersion {
+		t.Fatalf("expected watch code backend registration to be copied, got %#v", entry.watchCodeBackend)
+	}
 	if len(entry.appSubsystemListenerEndpoints) != 1 || entry.appSubsystemListenerEndpoints[0].Name != "appsubsystem_get_app_definition" {
 		t.Fatalf("expected app subsystem listener endpoint to be copied privately, got %#v", entry.appSubsystemListenerEndpoints)
 	}
@@ -341,6 +352,25 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	probe.AppSubsystemBackend.ListenerEndpoints[0].Name = "mutated"
 	if entry.appSubsystemListenerEndpoints[0].Name != "appsubsystem_get_app_definition" {
 		t.Fatalf("expected app subsystem listener endpoints to be cloned, got %#v", entry.appSubsystemListenerEndpoints)
+	}
+	probe.WatchCodeBackend.Languages[0] = "mutated"
+	if entry.watchCodeBackend.Languages[0] != "python" {
+		t.Fatalf("expected watch code backend registration to be cloned, got %#v", entry.watchCodeBackend)
+	}
+
+	withoutUISettingsCapability := &DiscoveredPlugin{
+		EffectiveCapabilities: []string{"registerRouter"},
+	}
+	applyBackendProbeRegistrations(withoutUISettingsCapability, backendProbeResponse{
+		UISettings: []PluginRegisteredUISetting{
+			{PluginID: "setta-fixture-backend", LocalSettingID: "fixture-setting"},
+		},
+		Routes: []PluginRegisteredBackendRoute{
+			{Path: "/health", Methods: []string{"GET"}},
+		},
+	})
+	if len(withoutUISettingsCapability.RegisteredUISettings) != 0 {
+		t.Fatalf("expected ui settings to require registerUISettings, got %#v", withoutUISettingsCapability.RegisteredUISettings)
 	}
 }
 

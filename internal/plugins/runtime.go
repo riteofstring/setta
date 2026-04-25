@@ -206,7 +206,7 @@ func buildRuntimeWatchCodeCapabilities(entries []DiscoveredPlugin) PluginWatchCo
 	if resolution.selection.SelectedPluginID != nil {
 		capabilities.PluginID = *resolution.selection.SelectedPluginID
 		capabilities.PluginEnabled = true
-		mergeRuntimeWatchCodeCapabilities(&capabilities, resolution.feature)
+		mergeRuntimeWatchCodeCapabilities(&capabilities, resolution.feature, resolution.backend)
 	}
 	return capabilities
 }
@@ -242,11 +242,13 @@ type runtimeAppSubsystemProviderCandidate struct {
 type runtimeWatchCodeProviderResolution struct {
 	selection PluginWatchCodeProviderSelection
 	feature   *PluginWatchCodeFeatureManifest
+	backend   *backendProbeWatchCodeBackendRegistration
 }
 
 type runtimeWatchCodeProviderCandidate struct {
 	pluginID string
 	feature  *PluginWatchCodeFeatureManifest
+	backend  *backendProbeWatchCodeBackendRegistration
 }
 
 func setRuntimeAppSubsystemProviderResolutionStatus(
@@ -365,6 +367,7 @@ func setRuntimeWatchCodeProviderResolutionStatus(
 		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusActive
 		resolution.selection.SelectedPluginID = stringPointer(activeProviders[0].pluginID)
 		resolution.feature = activeProviders[0].feature
+		resolution.backend = activeProviders[0].backend
 	default:
 		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusConflict
 		resolution.selection.ConflictingPluginIDs = append(
@@ -394,8 +397,7 @@ func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProvid
 		if feature == nil {
 			continue
 		}
-		if !watchCodeFeatureSupportsRequiredLanguage(feature) ||
-			!watchCodeFrontendEntrypointAvailable(entry, feature) {
+		if !watchCodeProviderRegistrationValid(entry, feature) {
 			markRuntimeWatchCodeProviderInvalid(
 				&resolution,
 				entry,
@@ -412,6 +414,7 @@ func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProvid
 			activeProviders = append(activeProviders, runtimeWatchCodeProviderCandidate{
 				pluginID: entry.PluginID,
 				feature:  feature,
+				backend:  entry.watchCodeBackend,
 			})
 		case PluginRuntimeStateDisabled:
 			resolution.selection.DisabledPluginIDs = append(
@@ -437,6 +440,16 @@ func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProvid
 	resolution.selection.InvalidPluginIDs = cloneStringSliceOrEmpty(resolution.selection.InvalidPluginIDs)
 	resolution.selection.ConflictingPluginIDs = cloneStringSliceOrEmpty(resolution.selection.ConflictingPluginIDs)
 	return resolution
+}
+
+func watchCodeProviderRegistrationValid(
+	entry DiscoveredPlugin,
+	feature *PluginWatchCodeFeatureManifest,
+) bool {
+	return watchCodeBackendContractRegistered(entry) &&
+		watchCodeFeatureSupportsRequiredLanguage(feature) &&
+		watchCodeBackendSupportsRequiredLanguage(entry.watchCodeBackend) &&
+		watchCodeFrontendEntrypointAvailable(entry, feature)
 }
 
 func markRuntimeAppSubsystemProviderInvalid(
@@ -519,6 +532,20 @@ func watchCodeFeatureSupportsRequiredLanguage(
 	return feature != nil && feature.Python
 }
 
+func watchCodeBackendSupportsRequiredLanguage(
+	registration *backendProbeWatchCodeBackendRegistration,
+) bool {
+	if registration == nil {
+		return false
+	}
+	for _, language := range registration.Languages {
+		if strings.EqualFold(language, "python") {
+			return true
+		}
+	}
+	return false
+}
+
 func watchCodeFrontendEntrypointAvailable(
 	entry DiscoveredPlugin,
 	feature *PluginWatchCodeFeatureManifest,
@@ -558,6 +585,13 @@ func appSubsystemBackendContractRegistered(entry DiscoveredPlugin) bool {
 	return true
 }
 
+func watchCodeBackendContractRegistered(entry DiscoveredPlugin) bool {
+	if entry.watchCodeBackend == nil {
+		return false
+	}
+	return entry.watchCodeBackend.ContractVersion == watchCodeBackendContractVersion
+}
+
 func mergeRuntimeAppSubsystemCapabilities(
 	capabilities *PluginAppSubsystemCapabilities,
 	feature *PluginAppSubsystemFeatureManifest,
@@ -574,12 +608,13 @@ func mergeRuntimeAppSubsystemCapabilities(
 func mergeRuntimeWatchCodeCapabilities(
 	capabilities *PluginWatchCodeCapabilities,
 	feature *PluginWatchCodeFeatureManifest,
+	backend *backendProbeWatchCodeBackendRegistration,
 ) {
-	if capabilities == nil || feature == nil {
+	if capabilities == nil || feature == nil || backend == nil {
 		return
 	}
-	capabilities.Python = capabilities.Python || feature.Python
-	capabilities.RequiresLanguageServer = capabilities.RequiresLanguageServer || feature.RequiresLanguageServer
+	capabilities.Python = capabilities.Python || watchCodeBackendSupportsRequiredLanguage(backend)
+	capabilities.RequiresLanguageServer = capabilities.RequiresLanguageServer || backend.RequiresLanguageServer
 	capabilities.CanvasControlsUI = capabilities.CanvasControlsUI || feature.CanvasControlsUI
 }
 
