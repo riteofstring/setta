@@ -4,6 +4,10 @@ import {
   type RegisteredAppSubsystemFrontendRegistration,
 } from "@setta/app-subsystem-frontend-sdk";
 import throttle from "lodash/throttle";
+import {
+  setWatchCodeEnabled as setWatchCodeEnabledAction,
+  setWatchCodeInputs as setWatchCodeInputsAction,
+} from "state/actions/project/watchCode";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useActiveSectionUI, useProjectState } from "state/definitions";
@@ -42,6 +46,7 @@ const PLUGIN_FRONTEND_API_VERSION = 1;
 
 const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
+const settingRevealHandlerCapability = "registerSettingRevealHandler";
 const commandCapability = "registerCommand";
 const topNavBarCapability = "registerTopNavBarItem";
 const canvasControlCapability = "registerCanvasControl";
@@ -49,6 +54,7 @@ const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
+const watchCodeSettingsMutationCapability = "mutateWatchCodeSettings";
 
 type PluginSectionProps = {
   sectionId: string;
@@ -145,6 +151,22 @@ type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
+type PluginWatchCodeFolderInput = {
+  path: string;
+  recursive: boolean;
+};
+
+type PluginSetWatchCodeEnabledPayload = {
+  projectConfigId: string;
+  enabled: boolean;
+};
+
+type PluginSetWatchCodeInputsPayload = {
+  projectConfigId: string;
+  watchCodeFolders: PluginWatchCodeFolderInput[];
+  watchCodeFiles: string[];
+};
+
 type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
@@ -174,6 +196,12 @@ type SettaPluginHost = {
     listener: (nextValue: unknown, prevValue: unknown | null) => void,
     options?: PluginProjectStateSubscriptionOptions,
   ) => () => void;
+  setWatchCodeEnabled: (
+    payload: PluginSetWatchCodeEnabledPayload,
+  ) => Promise<boolean>;
+  setWatchCodeInputs: (
+    payload: PluginSetWatchCodeInputsPayload,
+  ) => Promise<boolean>;
   emitRealtimeDependencyEvent: (event: PluginRealtimeDependencyEvent) => void;
   emitSectionRealtimeValue: (
     sectionId: string,
@@ -804,6 +832,114 @@ function normalizePluginRealtimeTimestamp(
   return timestampMs as number | undefined;
 }
 
+function requirePluginPayloadRecord(
+  pluginId: string,
+  payload: unknown,
+  hostMethodName: string,
+): Record<string, unknown> {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} ${hostMethodName} requires an object payload.`,
+    );
+  }
+  return payload as Record<string, unknown>;
+}
+
+function normalizeSetWatchCodeEnabledPayload(
+  pluginId: string,
+  payload: PluginSetWatchCodeEnabledPayload,
+): PluginSetWatchCodeEnabledPayload {
+  const record = requirePluginPayloadRecord(
+    pluginId,
+    payload,
+    "setWatchCodeEnabled",
+  );
+  const projectConfigId = requireNonEmptyString(
+    record.projectConfigId,
+    `Plugin ${pluginId} setWatchCodeEnabled requires projectConfigId.`,
+  );
+  if (typeof record.enabled !== "boolean") {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} setWatchCodeEnabled requires boolean enabled.`,
+    );
+  }
+  return {
+    projectConfigId,
+    enabled: record.enabled,
+  };
+}
+
+function normalizeSetWatchCodeInputsPayload(
+  pluginId: string,
+  payload: PluginSetWatchCodeInputsPayload,
+): PluginSetWatchCodeInputsPayload {
+  const record = requirePluginPayloadRecord(
+    pluginId,
+    payload,
+    "setWatchCodeInputs",
+  );
+  const projectConfigId = requireNonEmptyString(
+    record.projectConfigId,
+    `Plugin ${pluginId} setWatchCodeInputs requires projectConfigId.`,
+  );
+  const rawFolders = record.watchCodeFolders;
+  const rawFiles = record.watchCodeFiles;
+  if (!Array.isArray(rawFolders)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} setWatchCodeInputs requires watchCodeFolders array.`,
+    );
+  }
+  if (!Array.isArray(rawFiles)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} setWatchCodeInputs requires watchCodeFiles array.`,
+    );
+  }
+  return {
+    projectConfigId,
+    watchCodeFolders: rawFolders.map((rawFolder, index) =>
+      normalizeWatchCodeFolderInput(pluginId, rawFolder, index),
+    ),
+    watchCodeFiles: rawFiles.map((rawFile, index) =>
+      requireNonEmptyString(
+        rawFile,
+        `Plugin ${pluginId} setWatchCodeInputs watchCodeFiles[${index}] must be a non-empty string.`,
+      ),
+    ),
+  };
+}
+
+function normalizeWatchCodeFolderInput(
+  pluginId: string,
+  rawFolder: unknown,
+  index: number,
+): PluginWatchCodeFolderInput {
+  if (!rawFolder || typeof rawFolder !== "object" || Array.isArray(rawFolder)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}] must be an object.`,
+    );
+  }
+  const folder = rawFolder as Record<string, unknown>;
+  const path = requireNonEmptyString(
+    folder.path,
+    `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}].path must be a non-empty string.`,
+  );
+  if (typeof folder.recursive !== "boolean") {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} setWatchCodeInputs watchCodeFolders[${index}].recursive must be a boolean.`,
+    );
+  }
+  return {
+    path,
+    recursive: folder.recursive,
+  };
+}
+
 function registerPluginModule({
   plugin,
   importedModule,
@@ -912,7 +1048,7 @@ function registerPluginModule({
       ensureCapability(
         plugin.pluginId,
         effectiveCapabilitySet,
-        paneCapability,
+        settingRevealHandlerCapability,
         "registerSettingRevealHandler",
       );
       const normalizedRevealKey = requireNonEmptyString(
@@ -1152,6 +1288,28 @@ function registerPluginModule({
         unregisterCleanup();
         cleanup();
       };
+    },
+    setWatchCodeEnabled: async (payload) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        watchCodeSettingsMutationCapability,
+        "setWatchCodeEnabled",
+      );
+      return await setWatchCodeEnabledAction(
+        normalizeSetWatchCodeEnabledPayload(plugin.pluginId, payload),
+      );
+    },
+    setWatchCodeInputs: async (payload) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        watchCodeSettingsMutationCapability,
+        "setWatchCodeInputs",
+      );
+      return await setWatchCodeInputsAction(
+        normalizeSetWatchCodeInputsPayload(plugin.pluginId, payload),
+      );
     },
     emitRealtimeDependencyEvent: (event) => {
       ensureCapability(

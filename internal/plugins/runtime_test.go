@@ -933,8 +933,10 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowFirstPartyPluginManifest(t *te
 		t.Fatalf("expected watch code frontend entrypoint URL, got %#v", listEntry.Frontend.EntrypointURL)
 	}
 	if !containsString(listEntry.EffectiveCapabilities, "registerCanvasControl") ||
+		!containsString(listEntry.EffectiveCapabilities, "registerSettingRevealHandler") ||
 		!containsString(listEntry.EffectiveCapabilities, "readProjectState") ||
-		!containsString(listEntry.EffectiveCapabilities, "subscribeProjectState") {
+		!containsString(listEntry.EffectiveCapabilities, "subscribeProjectState") ||
+		!containsString(listEntry.EffectiveCapabilities, "mutateWatchCodeSettings") {
 		t.Fatalf("expected watch code frontend capabilities, got %#v", listEntry.EffectiveCapabilities)
 	}
 }

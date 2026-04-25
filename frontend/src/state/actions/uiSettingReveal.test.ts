@@ -221,7 +221,6 @@ describe("receiveUISettingReveal", () => {
     useLocalStorage.setState({
       overviewVis: false,
       overviewTab: "Overview",
-      watchCodePortalOpen: false,
       uiEditorVis: false,
       projectChatAuxViewByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
@@ -323,7 +322,7 @@ describe("receiveUISettingReveal", () => {
     };
     docRef.document = {
       querySelector: vi.fn((selector: string) => {
-        if (selector === '[data-testid="rf__watch-code-settings-portal"]') {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
           return paneRoot;
         }
         return null;
@@ -333,7 +332,6 @@ describe("receiveUISettingReveal", () => {
     const localState = useLocalStorage.getState();
     expect(localState.overviewVis).toBe(true);
     expect(localState.overviewTab).toBe("Overview");
-    expect(localState.watchCodePortalOpen).toBe(true);
     expect(statuses).toEqual([
       {
         settingId: "core.watch_code.enabled",
@@ -349,31 +347,6 @@ describe("receiveUISettingReveal", () => {
     expect(anchor.classList.contains("setta-ui-setting-reveal-highlight")).toBe(
       false,
     );
-  });
-  it("keeps watch-code reveal visibility out of the persisted local-storage payload", async () => {
-    const anchor = createFakeAnchor("core.watch_code.enabled");
-    const paneRoot = createFakePaneRoot(anchor);
-    const docRef = globalThis as unknown as {
-      document: {
-        querySelector: (selector: string) => HTMLElement | null;
-      };
-    };
-    docRef.document = {
-      querySelector: vi.fn((selector: string) => {
-        if (selector === '[data-testid="rf__watch-code-settings-portal"]') {
-          return paneRoot;
-        }
-        return null;
-      }),
-    };
-    await receiveUISettingReveal(createRevealContent({}));
-    const partialize = useLocalStorage.persist.getOptions().partialize;
-    if (!partialize) {
-      throw new Error("Expected local-storage store to define partialize.");
-    }
-    const persisted = partialize(useLocalStorage.getState());
-    expect(useLocalStorage.getState().watchCodePortalOpen).toBe(true);
-    expect(persisted).not.toHaveProperty("watchCodePortalOpen");
   });
   it("returns a structured failure for right-pane reveals with no active section", async () => {
     const statuses = await receiveUISettingReveal(
@@ -1039,7 +1012,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
   });
   it("rolls back a failed older reveal without clobbering a newer non-overlapping reveal", async () => {
     const rightAnchorId = "core.code.section_variants";
@@ -1106,7 +1078,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
     expect(state.uiEditorVis).toBe(true);
     expect(state.uiEditorTab[SectionTypeEnum.Code]).toBe(
       "SectionVariantsConfig",
@@ -1281,7 +1252,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
     expect(
       state.runInstructionsAccordionOpenValuesByProjectConfigId["project-1"],
     ).toBeUndefined();
@@ -1418,7 +1388,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
   });
   it("keeps other-project local accordion state when rollback runs after project switch", async () => {
     const anchor = createFakeAnchor(
@@ -1669,6 +1638,44 @@ describe("receiveUISettingReveal", () => {
       errorCode: "mutation_failed",
       errorMessage:
         "Plugin plugin-a has no setting reveal handlers. No fallback anchorId is available.",
+    });
+  });
+  it("invokes plugin reveal handlers that are not backed by pane tabs", async () => {
+    invokePluginSettingRevealHandlerMock.mockResolvedValueOnce({
+      ok: true,
+      message: null,
+    });
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        reveals: [
+          createRevealTarget({
+            settingId: "core.watch_code.enabled",
+            side: "left",
+            overviewTabKey: null,
+            strategy: "plugin_handler",
+            pluginId: "setta-watch-code",
+            paneId: null,
+            pluginRevealKey: "watch-code-settings",
+            anchorId: null,
+          }),
+        ],
+      }),
+    );
+    expect(statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
+    expect(invokePluginSettingRevealHandler).toHaveBeenCalledWith({
+      pluginId: "setta-watch-code",
+      revealKey: "watch-code-settings",
+      settingId: "core.watch_code.enabled",
+      paneId: null,
+      durationMs: expect.any(Number),
+      abortSignal: expect.any(AbortSignal),
     });
   });
   it("does not retry terminal plugin handler failures once the tab is available", async () => {

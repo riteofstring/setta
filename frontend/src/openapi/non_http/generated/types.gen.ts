@@ -7471,7 +7471,7 @@ type WatchCodeCallableKind = "function" | "async_function" | "class_init";
 /**
  * WatchCodeFolder
  */
-export type WatchCodeFolder = {
+type WatchCodeFolder = {
   path: string;
   recursive: boolean;
 };

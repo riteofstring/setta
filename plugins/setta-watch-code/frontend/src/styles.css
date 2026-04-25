@@ -1,0 +1,286 @@
+.setta-watch-code-control {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: rgb(148 163 184);
+  cursor: pointer;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  padding: 4px;
+  width: 24px;
+}
+
+.setta-watch-code-control:hover {
+  color: rgb(71 85 105);
+}
+
+.setta-watch-code-control.is-active {
+  background: rgb(59 130 246);
+  color: white;
+}
+
+.setta-watch-code-control svg,
+.setta-watch-code-panel svg {
+  fill: none;
+  height: 15px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 15px;
+}
+
+.setta-watch-code-panel {
+  background: rgb(255 255 255 / 0.96);
+  border: 1px solid rgb(226 232 240 / 0.9);
+  border-radius: 8px;
+  box-shadow:
+    0 18px 44px rgb(15 23 42 / 0.18),
+    0 4px 12px rgb(15 23 42 / 0.1);
+  box-sizing: border-box;
+  color: rgb(51 65 85);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: min(70vh, 34rem);
+  overflow: auto;
+  padding: 12px;
+  position: fixed;
+  z-index: 70;
+}
+
+.setta-watch-code-panel-header,
+.setta-watch-code-input-group-header,
+.setta-watch-code-enabled-row,
+.setta-watch-code-input-row,
+.setta-watch-code-row-actions {
+  align-items: center;
+  display: flex;
+}
+
+.setta-watch-code-panel-header {
+  justify-content: space-between;
+}
+
+.setta-watch-code-panel-header h2,
+.setta-watch-code-input-group h3 {
+  color: rgb(100 116 139);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.setta-watch-code-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setta-watch-code-input-group-header {
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.setta-watch-code-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setta-watch-code-input-row {
+  gap: 6px;
+  min-width: 0;
+}
+
+.setta-watch-code-row-actions {
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.setta-watch-code-toggle,
+.setta-watch-code-add-button,
+.setta-watch-code-icon-button {
+  align-items: center;
+  border: 0;
+  border-radius: 6px;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.setta-watch-code-toggle {
+  background: rgb(248 250 252);
+  color: rgb(71 85 105);
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  min-height: 34px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.setta-watch-code-toggle.is-active {
+  background: rgb(239 246 255);
+  color: rgb(29 78 216);
+}
+
+.setta-watch-code-add-button {
+  background: transparent;
+  color: rgb(71 85 105);
+  font-size: 12px;
+  font-weight: 700;
+  gap: 4px;
+  padding: 4px 6px;
+}
+
+.setta-watch-code-icon-button {
+  background: transparent;
+  color: rgb(100 116 139);
+  height: 26px;
+  padding: 0;
+  width: 26px;
+}
+
+.setta-watch-code-icon-button:hover,
+.setta-watch-code-add-button:hover,
+.setta-watch-code-toggle:hover {
+  background: rgb(241 245 249);
+  color: rgb(15 23 42);
+}
+
+.setta-watch-code-icon-button.is-active {
+  color: rgb(37 99 235);
+}
+
+.setta-watch-code-icon-button.is-danger:hover {
+  background: rgb(254 226 226);
+  color: rgb(220 38 38);
+}
+
+.setta-watch-code-path-input {
+  background: white;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 2px rgb(226 232 240);
+  box-sizing: border-box;
+  color: rgb(51 65 85);
+  flex: 1 1 auto;
+  font-size: 13px;
+  min-width: 0;
+  padding: 7px 12px;
+}
+
+.setta-watch-code-path-input:focus {
+  box-shadow: inset 0 0 0 2px rgb(59 130 246);
+  outline: none;
+}
+
+.setta-watch-code-empty,
+.setta-watch-code-error {
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  margin: 0;
+  padding: 8px;
+}
+
+.setta-watch-code-empty {
+  background: rgb(248 250 252);
+  color: rgb(100 116 139);
+}
+
+.setta-watch-code-error {
+  background: rgb(254 242 242);
+  color: rgb(185 28 28);
+}
+
+.setta-watch-code-reveal-highlight {
+  animation: setta-watch-code-highlight 1.2s ease-in-out infinite;
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 3px;
+}
+
+.setta-watch-code-toggle:disabled,
+.setta-watch-code-add-button:disabled,
+.setta-watch-code-icon-button:disabled,
+.setta-watch-code-path-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@keyframes setta-watch-code-highlight {
+  0%,
+  100% {
+    outline-color: rgb(59 130 246);
+  }
+
+  50% {
+    outline-color: rgb(147 197 253);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .setta-watch-code-control {
+    color: rgb(71 85 105);
+  }
+
+  .setta-watch-code-control:hover {
+    color: rgb(148 163 184);
+  }
+
+  .setta-watch-code-control.is-active {
+    background: transparent;
+    color: rgb(96 165 250);
+  }
+
+  .setta-watch-code-panel {
+    background: rgb(15 23 42 / 0.96);
+    border-color: rgb(51 65 85 / 0.85);
+    color: rgb(203 213 225);
+  }
+
+  .setta-watch-code-panel-header h2,
+  .setta-watch-code-input-group h3 {
+    color: rgb(148 163 184);
+  }
+
+  .setta-watch-code-toggle,
+  .setta-watch-code-empty {
+    background: rgb(30 41 59);
+    color: rgb(203 213 225);
+  }
+
+  .setta-watch-code-toggle.is-active {
+    background: rgb(30 58 138 / 0.42);
+    color: rgb(191 219 254);
+  }
+
+  .setta-watch-code-path-input {
+    background: rgb(15 23 42);
+    box-shadow: inset 0 0 0 2px rgb(51 65 85);
+    color: rgb(203 213 225);
+  }
+
+  .setta-watch-code-icon-button,
+  .setta-watch-code-add-button {
+    color: rgb(148 163 184);
+  }
+
+  .setta-watch-code-icon-button:hover,
+  .setta-watch-code-add-button:hover,
+  .setta-watch-code-toggle:hover {
+    background: rgb(30 41 59);
+    color: white;
+  }
+
+  .setta-watch-code-error {
+    background: rgb(127 29 29 / 0.35);
+    color: rgb(254 202 202);
+  }
+}

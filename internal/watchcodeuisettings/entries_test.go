@@ -34,8 +34,14 @@ func TestBuildScopedUISettingEntriesExposePluginMetadataAndSearch(t *testing.T) 
 	if entry.Metadata.PluginID != testProviderPluginID {
 		t.Fatalf("expected provider plugin id %q, got %q", testProviderPluginID, entry.Metadata.PluginID)
 	}
-	if entry.Metadata.Highlight.AnchorID != EnabledSettingID {
-		t.Fatalf("expected stable DOM anchor %q, got %q", EnabledSettingID, entry.Metadata.Highlight.AnchorID)
+	if entry.Metadata.Location.PluginID != testProviderPluginID {
+		t.Fatalf("expected reveal provider plugin id %q, got %q", testProviderPluginID, entry.Metadata.Location.PluginID)
+	}
+	if entry.Metadata.Highlight.Strategy != uisettings.HighlightStrategyPluginHandler {
+		t.Fatalf("expected plugin reveal strategy, got %q", entry.Metadata.Highlight.Strategy)
+	}
+	if entry.Metadata.Highlight.PluginRevealKey != revealKey {
+		t.Fatalf("expected reveal key %q, got %q", revealKey, entry.Metadata.Highlight.PluginRevealKey)
 	}
 
 	pluginResults, err := registry.Search("watch toggle", 3, uisettings.SourceFilterPlugin)
