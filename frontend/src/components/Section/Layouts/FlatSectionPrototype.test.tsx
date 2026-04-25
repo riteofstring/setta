@@ -16,6 +16,9 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("rank_items");
     expect(markup).toContain("builtins.sorted");
     expect(markup).toContain("workspace_profile");
+    expect(markup).toContain("gg-code-slash");
+    expect(markup).toContain("gg-list");
+    expect(markup).toContain('placeholder="please enter function name"');
     expect(markup).toContain('aria-label="Lock section"');
     expect(markup).toContain('aria-label="Minimize section"');
     expect(markup).toContain('aria-label="Close section"');
@@ -44,6 +47,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("hover:bg-neutral-100/80");
     expect(markup).toContain('data-flat-control="column-resize"');
     expect(markup).toContain("flex-1");
+    expect(markup).toContain("leading-7");
     expect(markup).toContain("var(--flat-key-width)");
     expect(markup).not.toContain("bg-blue-50/80");
   });

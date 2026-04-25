@@ -27,7 +27,6 @@ type FlatPrototypeRowProps = FlatPrototypeRow & {
 type FlatSectionShellProps = {
   kind: FlatSectionKind;
   title: string;
-  callTarget?: string;
   children: ReactNode;
 };
 
@@ -38,7 +37,7 @@ const HEADER_LABEL_CLASS_NAME =
   "text-[10px] uppercase tracking-[0.18em] text-neutral-500 dark:text-setta-400";
 
 const ROW_KEY_CLASS_NAME =
-  "min-w-0 truncate text-[10px] font-semibold uppercase tracking-[0.14em]";
+  "min-w-0 truncate text-[10px] font-semibold uppercase leading-7 tracking-[0.14em]";
 
 const ROW_VALUE_CLASS_NAME =
   "min-w-0 truncate text-right font-mono text-[11px] leading-7";
@@ -170,39 +169,29 @@ const FLAT_PROTOTYPE_SECTION_CONTROLS = [
 ];
 
 const ICON_BUTTON_CLASS_NAME =
-  "text-neutral-400 hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 dark:text-setta-500 dark:hover:text-blue-300";
+  "relative text-neutral-400 [--ggs:0.46] hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 dark:text-setta-500 dark:hover:text-blue-300";
 
-function FlatSectionShell({
-  kind,
-  title,
-  callTarget,
-  children,
-}: FlatSectionShellProps) {
+const SECTION_KIND_ICON_CLASS_NAMES: Record<FlatSectionKind, string> = {
+  callable: "gg-code-slash",
+  dict: "gg-list",
+};
+
+function FlatSectionShell({ kind, title, children }: FlatSectionShellProps) {
   return (
     <section
       className={SHELL_CLASS_NAME}
       data-flat-section-kind={kind}
       data-flat-section-shell="true"
     >
-      <header className="grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 border-b border-neutral-300 px-3 py-2 dark:border-setta-700">
+      <header className="grid min-h-8 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-neutral-300 px-3 py-1 dark:border-setta-700">
         <button
           type="button"
-          className="text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-600 after:ml-1 after:text-neutral-400 after:content-[':'] hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 dark:text-setta-300 dark:after:text-setta-500 dark:hover:text-blue-300"
+          className={`relative text-neutral-500 [--ggs:0.52] hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 dark:text-setta-400 dark:hover:text-blue-300 ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
           aria-label={`Open ${kind} section menu`}
           data-flat-section-type-menu="true"
-        >
-          {kind}
-        </button>
+        />
         <h2 className="min-w-0 truncate text-[12px] leading-5 text-neutral-950 dark:text-setta-50">
           {title}
-          {callTarget ? (
-            <>
-              {" "}
-              <code className="ml-1 font-mono text-[11px] font-normal text-neutral-500 dark:text-setta-400">
-                {`calls ${callTarget}`}
-              </code>
-            </>
-          ) : null}
         </h2>
         <nav
           className="flex items-center gap-1"
@@ -220,6 +209,19 @@ function FlatSectionShell({
       </header>
       {children}
     </section>
+  );
+}
+
+function FlatCallableTarget({ value }: { value: string }) {
+  return (
+    <input
+      aria-label="Callable function name"
+      className="min-h-8 border-b border-neutral-300 px-3 py-1.5 text-[12px] font-semibold text-neutral-950 placeholder:text-neutral-400 dark:border-setta-700 dark:text-setta-50 dark:placeholder:text-setta-500"
+      name="callable-function"
+      placeholder="please enter function name"
+      readOnly
+      value={value}
+    />
   );
 }
 
@@ -381,11 +383,8 @@ function FlatPrototypeRowItem({
 
 export function FlatCallableSectionPrototype() {
   return (
-    <FlatSectionShell
-      kind="callable"
-      title="rank_items"
-      callTarget="builtins.sorted"
-    >
+    <FlatSectionShell kind="callable" title="rank_items">
+      <FlatCallableTarget value="builtins.sorted" />
       <FlatPrototypeActionBar label="Args" placeholder="filter args" />
       <FlatPrototypeStrip
         inputPorts={["items", "limit"]}
