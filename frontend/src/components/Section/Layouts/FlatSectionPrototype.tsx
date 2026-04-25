@@ -109,7 +109,7 @@ const ROW_KEY_CLASS_NAME =
   "min-w-0 truncate text-[10px] font-semibold uppercase leading-7 tracking-[0.14em]";
 
 const ROW_VALUE_CLASS_NAME =
-  "min-w-0 truncate text-right font-mono text-[11px] leading-7";
+  "min-w-0 truncate text-left font-mono text-[11px] leading-7";
 
 const ROW_CELL_DIVIDER_CLASS_NAME =
   "border-b border-[color:var(--flat-border-soft)]";
@@ -373,8 +373,8 @@ function FlatPrototypePortList({
     isRightAligned ? "col-start-3 items-stretch" : "col-start-1"
   }`;
   const rowClassName = isRightAligned
-    ? "relative truncate py-1 pr-3 text-right text-[color:var(--flat-soft-text)] after:absolute after:right-0 after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
-    : "relative truncate py-1 pl-3 text-[color:var(--flat-soft-text)] before:absolute before:left-0 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
+    ? "relative truncate py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:-right-3 after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
+    : "relative truncate py-1 text-[color:var(--flat-soft-text)] before:absolute before:-left-3 before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
 
   return (
     <>

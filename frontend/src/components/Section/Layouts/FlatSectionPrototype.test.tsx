@@ -65,6 +65,9 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("border-solid");
     expect(markup).toContain("[border-width:0_0_1px_0]");
     expect(markup).toContain("leading-7");
+    expect(markup).toContain("text-left font-mono");
+    expect(markup).toContain("before:-left-3");
+    expect(markup).toContain("after:-right-3");
     expect(markup).toContain("var(--flat-key-width)");
     expect(markup).toContain("grid-cols-[1.125rem_minmax(0,1fr)_auto]");
     expect(markup).toContain("pl-[calc(var(--flat-depth,0)*0.875rem)]");
