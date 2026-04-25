@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-const runtimeManagedAppSubsystemPluginID = "setta-json-render-app-gen"
+const pluginFrontendBuildPackageManagerPNPM = "pnpm"
 
-type frontendBuildRunner func(frontendRoot string, args []string) error
+type frontendBuildRunner func(frontendRoot string, packageManager string, args []string) error
 
 var pluginFrontendBuildRunner frontendBuildRunner = runPluginFrontendCommand
 
@@ -29,7 +29,7 @@ func ensureRuntimeManagedPluginFrontendAssets(
 	pluginRoot string,
 	manifest PluginManifest,
 ) error {
-	if manifest.ID != runtimeManagedAppSubsystemPluginID || manifest.Frontend == nil {
+	if manifest.Frontend == nil || manifest.Frontend.Build == nil {
 		return nil
 	}
 
@@ -37,9 +37,12 @@ func ensureRuntimeManagedPluginFrontendAssets(
 	packageJSONPath := filepath.Join(frontendRoot, "package.json")
 	if _, err := os.Stat(packageJSONPath); err != nil {
 		if os.IsNotExist(err) {
+			if err := validatePluginFrontendPaths(pluginRoot, manifest); err == nil {
+				return nil
+			}
 			return newServiceError(
 				ServiceErrorCodeSourceInvalid,
-				"Plugin %s frontend build metadata is missing: %s",
+				"Plugin %s declares a plugin-owned frontend build but %s is missing",
 				manifest.ID,
 				packageJSONPath,
 			)
@@ -50,6 +53,7 @@ func ensureRuntimeManagedPluginFrontendAssets(
 	if !directoryContainsFiles(filepath.Join(frontendRoot, "node_modules")) {
 		if err := pluginFrontendBuildRunner(
 			frontendRoot,
+			manifest.Frontend.Build.PackageManager,
 			[]string{"install", "--lockfile=false"},
 		); err != nil {
 			return newServiceError(
@@ -60,7 +64,11 @@ func ensureRuntimeManagedPluginFrontendAssets(
 			)
 		}
 	}
-	if err := pluginFrontendBuildRunner(frontendRoot, []string{"run", "build"}); err != nil {
+	if err := pluginFrontendBuildRunner(
+		frontendRoot,
+		manifest.Frontend.Build.PackageManager,
+		[]string{"run", "build"},
+	); err != nil {
 		return newServiceError(
 			ServiceErrorCodeSourceInvalid,
 			"Plugin %s frontend build failed: %s",
@@ -74,33 +82,42 @@ func ensureRuntimeManagedPluginFrontendAssets(
 	return nil
 }
 
-func runPluginFrontendCommand(frontendRoot string, args []string) error {
-	pnpmPath, err := exec.LookPath(runtimeManagedFrontendBuildCommandName())
+func runPluginFrontendCommand(frontendRoot string, packageManager string, args []string) error {
+	commandName, err := runtimeManagedFrontendBuildCommandName(packageManager)
 	if err != nil {
-		return fmt.Errorf("resolve pnpm for %s: %w", frontendRoot, err)
+		return err
+	}
+	toolPath, err := exec.LookPath(commandName)
+	if err != nil {
+		return fmt.Errorf("resolve %s for %s: %w", packageManager, frontendRoot, err)
 	}
 	commandArgs := append([]string{"--dir", frontendRoot}, args...)
-	command := exec.Command(pnpmPath, commandArgs...)
+	command := exec.Command(toolPath, commandArgs...)
 	output, err := command.CombinedOutput()
 	if err == nil {
 		return nil
 	}
 	trimmedOutput := strings.TrimSpace(string(output))
 	if trimmedOutput == "" {
-		return fmt.Errorf("%s %s: %w", pnpmPath, strings.Join(commandArgs, " "), err)
+		return fmt.Errorf("%s %s: %w", toolPath, strings.Join(commandArgs, " "), err)
 	}
 	return fmt.Errorf(
 		"%s %s: %w\n%s",
-		pnpmPath,
+		toolPath,
 		strings.Join(commandArgs, " "),
 		err,
 		trimmedOutput,
 	)
 }
 
-func runtimeManagedFrontendBuildCommandName() string {
-	if runtime.GOOS == "windows" {
-		return "pnpm.cmd"
+func runtimeManagedFrontendBuildCommandName(packageManager string) (string, error) {
+	switch packageManager {
+	case pluginFrontendBuildPackageManagerPNPM:
+		if runtime.GOOS == "windows" {
+			return "pnpm.cmd", nil
+		}
+		return "pnpm", nil
+	default:
+		return "", fmt.Errorf("unsupported plugin frontend package manager %q", packageManager)
 	}
-	return "pnpm"
 }

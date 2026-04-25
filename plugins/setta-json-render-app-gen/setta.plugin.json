@@ -10,7 +10,10 @@
   },
   "frontend": {
     "entrypoint": "frontend/dist/index.js",
-    "style": "frontend/dist/index.css"
+    "style": "frontend/dist/index.css",
+    "build": {
+      "packageManager": "pnpm"
+    }
   },
   "featureCapabilities": {
     "appSubsystem": {

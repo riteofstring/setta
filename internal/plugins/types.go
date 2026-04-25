@@ -130,8 +130,13 @@ type PluginBackendManifest struct {
 }
 
 type PluginFrontendManifest struct {
-	Entrypoint string `json:"entrypoint"`
-	Style      string `json:"style,omitempty"`
+	Entrypoint string                       `json:"entrypoint"`
+	Style      string                       `json:"style,omitempty"`
+	Build      *PluginFrontendBuildManifest `json:"build,omitempty"`
+}
+
+type PluginFrontendBuildManifest struct {
+	PackageManager string `json:"packageManager"`
 }
 
 type PluginContentManifest struct {
