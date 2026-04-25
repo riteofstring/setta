@@ -6,10 +6,8 @@ import (
 	"testing"
 	"time"
 
-	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/localsessions"
 	"setta/internal/projectstate"
-	"setta/internal/pythonsdklocalcore"
 	"setta/internal/workspacelaunch"
 )
 
@@ -79,34 +77,6 @@ func TestBuildIncludesGoOwnedLaunchIntentTTL(t *testing.T) {
 	)
 	if !strings.Contains(generated.PythonModule, expected) {
 		t.Fatalf("generated constants missing %q", expected)
-	}
-}
-
-func TestBuildIncludesGoOwnedAppSubsystemBackendContract(t *testing.T) {
-	generated, err := Build()
-	if err != nil {
-		t.Fatalf("build generated constants: %v", err)
-	}
-
-	expectedSnippets := []string{
-		fmt.Sprintf(
-			"APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION = %d",
-			backendruntime.AppSubsystemBackendContractVersion,
-		),
-		fmt.Sprintf(
-			"APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_NAMES = %s",
-			pythonStringTupleExpr(backendruntime.RequiredListenerEndpointNames()),
-		),
-		fmt.Sprintf(
-			"%s: %s",
-			pythonStringLiteral(backendruntime.ListenerEndpointValidateAppDefinition),
-			pythonStringLiteral(pythonsdklocalcore.CommandValidateAppDefinition),
-		),
-	}
-	for _, snippet := range expectedSnippets {
-		if !strings.Contains(generated.PythonModule, snippet) {
-			t.Fatalf("generated constants missing %q", snippet)
-		}
 	}
 }
 

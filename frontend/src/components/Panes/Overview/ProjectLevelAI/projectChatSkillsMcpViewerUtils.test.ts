@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { AppSubsystemChatUIConfig } from "@setta/app-subsystem-frontend-sdk";
 import type { HttpapiExternalAgentPreflightStatus } from "openapi/http";
 import {
   createAgentRun,
@@ -22,23 +21,6 @@ import {
   resolveVisibleAgentNativeSlashCommandsByEngineId,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
-
-const APP_SUBSYSTEM_IMAGE_REQUIRED_MODES = new Set(
-  AppSubsystemChatUIConfig.customSlashCommandModeOptions
-    .filter((option) => option.requiresImageAttachment)
-    .map((option) => option.value),
-);
-const APP_GENERATION_SLASH_COMMANDS =
-  AppSubsystemChatUIConfig.slashCommands.map((entry) => ({
-    command: entry.command,
-    action: entry.action,
-    summary: entry.summary,
-    promptTemplate: entry.promptTemplate,
-    appGenerationMode: entry.appGenerationMode,
-    requiresImageAttachment: APP_SUBSYSTEM_IMAGE_REQUIRED_MODES.has(
-      entry.appGenerationMode,
-    ),
-  }));
 
 function buildExternalAgentPreflightStatus(
   overrides: Partial<HttpapiExternalAgentPreflightStatus> = {},
@@ -718,7 +700,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ];
     const rows = buildSlashCommandsByEngine({
       engineConfigs,
-      appGenerationSlashCommands: APP_GENERATION_SLASH_COMMANDS,
       allLLMConfigs,
       apiKeys: { OPENAI_API_KEY: "secret" },
       externalAgentHealth,
@@ -790,7 +771,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ];
     const rows = buildSlashCommandsByEngine({
       engineConfigs,
-      appGenerationSlashCommands: APP_GENERATION_SLASH_COMMANDS,
       allLLMConfigs,
       apiKeys: {},
       externalAgentHealth,

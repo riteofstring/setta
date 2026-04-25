@@ -1514,10 +1514,6 @@ func projectMutationContext(ctx context.Context, frontendOpID *string) context.C
 	return projectstate.ContextWithFrontendOpID(ctx, *frontendOpID)
 }
 
-func ProjectMutationContext(ctx context.Context, frontendOpID *string) context.Context {
-	return projectMutationContext(ctx, frontendOpID)
-}
-
 func projectRuntimeForRequest(
 	deps ProjectRouteDependencies,
 	r *http.Request,

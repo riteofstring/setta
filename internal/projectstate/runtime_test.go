@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -743,107 +742,6 @@ func TestRuntimeSaveReturnsAfterSaveHookErrorAfterPersistingState(t *testing.T) 
 	}
 	if _, ok := loaded.Projects["project-alpha"]; !ok {
 		t.Fatal("expected persisted document despite after-save failure")
-	}
-}
-
-func TestRuntimeMutatePersistedWithContextKeepsCommittedStateOnAfterSaveError(t *testing.T) {
-	t.Parallel()
-
-	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
-	externalPath := filepath.Join(t.TempDir(), "external.txt")
-	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
-		AfterSave: func(context.Context, Snapshot) error {
-			return errors.New("after-save failed")
-		},
-	})
-
-	_, err := runtime.MutatePersistedWithContext(context.Background(), func(document Document) (PersistedMutationPlan, error) {
-		document.Projects["project-alpha"] = Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		document.DefaultProjectID = "project-alpha"
-		return PersistedMutationPlan{
-			NextDocument: document,
-			ApplyExternalChanges: func() error {
-				return os.WriteFile(externalPath, []byte("committed\n"), 0o644)
-			},
-			RollbackExternalChanges: func() error {
-				return os.WriteFile(externalPath, []byte("rolled-back\n"), 0o644)
-			},
-		}, nil
-	})
-	if err == nil || err.Error() != "after-save failed" {
-		t.Fatalf("expected after-save failure, got %v", err)
-	}
-
-	if got := runtime.Snapshot().Document.Projects["project-alpha"].Name; got != "Alpha" {
-		t.Fatalf("expected runtime state name Alpha, got %q", got)
-	}
-	loaded, loadErr := store.Load(context.Background())
-	if loadErr != nil {
-		t.Fatalf("load persisted document: %v", loadErr)
-	}
-	if got := loaded.Projects["project-alpha"].Name; got != "Alpha" {
-		t.Fatalf("expected persisted state name Alpha, got %q", got)
-	}
-	content, readErr := os.ReadFile(externalPath)
-	if readErr != nil {
-		t.Fatalf("read external file: %v", readErr)
-	}
-	if string(content) != "committed\n" {
-		t.Fatalf("expected committed external file, got %q", string(content))
-	}
-}
-
-func TestRuntimeMutatePersistedWithContextPreservesUndoHistory(t *testing.T) {
-	t.Parallel()
-
-	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
-	runtime := openTestRuntime(t, store)
-
-	if _, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
-		document.Projects["project-alpha"] = Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		document.DefaultProjectID = "project-alpha"
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed alpha: %v", err)
-	}
-	if _, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
-		project := document.Projects["project-alpha"]
-		project.Name = "Beta"
-		document.Projects["project-alpha"] = project
-		return document, nil
-	}); err != nil {
-		t.Fatalf("mutate beta: %v", err)
-	}
-	if _, err := runtime.MutatePersistedWithContext(context.Background(), func(document Document) (PersistedMutationPlan, error) {
-		if document.PluginData == nil {
-			document.PluginData = map[string]RawJSON{}
-		}
-		document.PluginData["plugin.example"] = RawJSON(`{"enabled":true}`)
-		return PersistedMutationPlan{NextDocument: document}, nil
-	}); err != nil {
-		t.Fatalf("mutate persisted plugin data: %v", err)
-	}
-	if _, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
-		project := document.Projects["project-alpha"]
-		project.Name = "Gamma"
-		document.Projects["project-alpha"] = project
-		return document, nil
-	}); err != nil {
-		t.Fatalf("mutate gamma: %v", err)
-	}
-
-	snapshot, err := runtime.UndoAndSave(context.Background(), "project-alpha", 2)
-	if err != nil {
-		t.Fatalf("undo project history: %v", err)
-	}
-	if got := snapshot.Document.Projects["project-alpha"].Name; got != "Alpha" {
-		t.Fatalf("expected undo target Alpha, got %q", got)
 	}
 }
 

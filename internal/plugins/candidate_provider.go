@@ -484,36 +484,6 @@ func preservePythonBackendInstallPayload(packageMetadataRoot string, pluginRoot 
 	if !manifestUsesPythonBackend(manifest) {
 		return nil
 	}
-	return transferPythonBackendInstallPayload(
-		packageMetadataRoot,
-		pluginRoot,
-		pluginRoot,
-		"move",
-		os.Rename,
-	)
-}
-
-func copyPythonBackendInstallPayload(
-	packageMetadataRoot string,
-	pluginRoot string,
-	targetPluginRoot string,
-) error {
-	return transferPythonBackendInstallPayload(
-		packageMetadataRoot,
-		pluginRoot,
-		targetPluginRoot,
-		"copy",
-		copyFilesystemPath,
-	)
-}
-
-func transferPythonBackendInstallPayload(
-	packageMetadataRoot string,
-	pluginRoot string,
-	targetPluginRoot string,
-	action string,
-	transfer func(string, string) error,
-) error {
 	if sameDirectoryPath(packageMetadataRoot, pluginRoot) {
 		return nil
 	}
@@ -523,8 +493,8 @@ func transferPythonBackendInstallPayload(
 		return fmt.Errorf("read python backend install root %s: %w", packageMetadataRoot, err)
 	}
 
-	vendorRoot := filepath.Join(targetPluginRoot, pythonBackendSitePackagesDirName)
-	transferredAny := false
+	vendorRoot := filepath.Join(pluginRoot, pythonBackendSitePackagesDirName)
+	movedAny := false
 	for _, entry := range entries {
 		if entry.Name() == filepath.Base(pluginRoot) {
 			continue
@@ -534,12 +504,12 @@ func transferPythonBackendInstallPayload(
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			return fmt.Errorf("create python backend vendor root %s: %w", filepath.Dir(targetPath), err)
 		}
-		if err := transfer(sourcePath, targetPath); err != nil {
-			return fmt.Errorf("%s python backend dependency payload %s to %s: %w", action, sourcePath, targetPath, err)
+		if err := os.Rename(sourcePath, targetPath); err != nil {
+			return fmt.Errorf("move python backend dependency payload %s to %s: %w", sourcePath, targetPath, err)
 		}
-		transferredAny = true
+		movedAny = true
 	}
-	if !transferredAny {
+	if !movedAny {
 		_ = os.Remove(vendorRoot)
 	}
 	return nil
