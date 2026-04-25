@@ -271,7 +271,7 @@ function FlatSectionShell({
       data-flat-preview-theme={theme}
       style={FLAT_PROTOTYPE_THEME_STYLES[theme]}
     >
-      <header className="grid min-h-8 grid-cols-[1.125rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--flat-border-strong)] px-3 py-1">
+      <header className="grid min-h-8 grid-cols-[1.125rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--flat-border-strong)] px-2.5 py-1">
         <button
           type="button"
           className={`relative justify-self-center text-[color:var(--flat-muted)] [--ggs:0.52] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)] ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
