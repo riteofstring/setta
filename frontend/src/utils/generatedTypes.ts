@@ -3784,8 +3784,6 @@ function createViewport(options: Partial<Viewport> = {}): Viewport {
 
 export type ViewportBounds = gt.ViewportBounds;
 
-export type WatchCodeFolder = gt.WatchCodeFolder;
-
 export type WindowSpaceConfig = gt.WindowSpaceConfig;
 
 export function createWindowSpaceConfig(

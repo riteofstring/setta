@@ -12,7 +12,7 @@ export default defineConfig({
     "process.env": "{}",
   },
   test: {
-    environment: "node",
+    environment: "jsdom",
     globals: false,
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
     pool: "forks",

@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "devDependencies": {
+    "jsdom": "28.1.0",
     "@types/node": "25.0.2",
     "typescript": "5.8.3",
     "vite": "6.4.2",

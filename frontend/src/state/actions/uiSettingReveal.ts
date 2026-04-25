@@ -27,11 +27,6 @@ const DEFAULT_DURATION_MS = 3000;
 const MAX_DURATION_MS = 10000;
 const FIND_TARGET_INTERVAL_MS = 50;
 const HIGHLIGHT_CLASS_NAME = "setta-ui-setting-reveal-highlight";
-const WATCH_CODE_REVEAL_SETTING_IDS = new Set<string>([
-  "core.watch_code.enabled",
-  "core.watch_code.folders",
-  "core.watch_code.files",
-]);
 
 const highlightTimeoutByElement = new WeakMap<HTMLElement, number>();
 const uiEditorTabNameValues = new Set<string>(
@@ -86,7 +81,6 @@ type ProjectChatAuxViewState =
 type RevealLocalStorageSnapshot = {
   overviewVis: LocalStorageState["overviewVis"];
   overviewTab: LocalStorageState["overviewTab"];
-  watchCodePortalOpen: LocalStorageState["watchCodePortalOpen"];
   uiEditorVis: LocalStorageState["uiEditorVis"];
   uiEditorTab: LocalStorageState["uiEditorTab"];
   projectChatAuxViewByProjectConfigId: LocalStorageState["projectChatAuxViewByProjectConfigId"];
@@ -100,7 +94,6 @@ type RevealProjectStateSnapshot = {
 type RevealMutationDiff = {
   touchedOverviewVis: boolean;
   touchedOverviewTab: boolean;
-  touchedWatchCodePortalOpen: boolean;
   touchedUiEditorVis: boolean;
   touchedUiEditorTabSectionTypes: Set<string>;
   touchedProjectChatAuxViewProjectConfigIds: Set<string>;
@@ -163,7 +156,6 @@ let revealMutationLock: Promise<void> = Promise.resolve();
 let revealMutationSequence = 0;
 let revealMutationOwnerForOverviewVis: number | null = null;
 let revealMutationOwnerForOverviewTab: number | null = null;
-let revealMutationOwnerForWatchCodePortalOpen: number | null = null;
 let revealMutationOwnerForUiEditorVis: number | null = null;
 const revealMutationOwnerByUiEditorTabSectionType = new Map<string, number>();
 const revealMutationOwnerByProjectChatAuxViewProjectConfigId = new Map<
@@ -368,7 +360,6 @@ function createEmptyRevealMutationDiff(): RevealMutationDiff {
   return {
     touchedOverviewVis: false,
     touchedOverviewTab: false,
-    touchedWatchCodePortalOpen: false,
     touchedUiEditorVis: false,
     touchedUiEditorTabSectionTypes: new Set<string>(),
     touchedProjectChatAuxViewProjectConfigIds: new Set<string>(),
@@ -806,7 +797,6 @@ function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
   return {
     overviewVis: state.overviewVis,
     overviewTab: state.overviewTab,
-    watchCodePortalOpen: state.watchCodePortalOpen,
     uiEditorVis: state.uiEditorVis,
     uiEditorTab: { ...state.uiEditorTab },
     projectChatAuxViewByProjectConfigId: {
@@ -857,13 +847,6 @@ function recordRevealMutationOwnership({
     leaseId,
     (nextLeaseId) => {
       revealMutationOwnerForOverviewTab = nextLeaseId;
-    },
-  );
-  setRevealMutationScalarOwnerIfTouched(
-    mutationDiff.touchedWatchCodePortalOpen,
-    leaseId,
-    (nextLeaseId) => {
-      revealMutationOwnerForWatchCodePortalOpen = nextLeaseId;
     },
   );
   setRevealMutationScalarOwnerIfTouched(
@@ -946,14 +929,6 @@ function clearRevealMutationOwnershipForLease({
     leaseId,
     clear: () => {
       revealMutationOwnerForOverviewTab = null;
-    },
-  });
-  clearRevealMutationScalarOwnerIfOwned({
-    wasTouched: mutationDiff.touchedWatchCodePortalOpen,
-    ownerLeaseId: revealMutationOwnerForWatchCodePortalOpen,
-    leaseId,
-    clear: () => {
-      revealMutationOwnerForWatchCodePortalOpen = null;
     },
   });
   clearRevealMutationScalarOwnerIfOwned({
@@ -1046,17 +1021,6 @@ function restoreScalarRevealLocalStorageFieldsIfOwned({
     })
   ) {
     nextState.overviewTab = snapshot.overviewTab;
-  }
-  if (
-    shouldRestoreRevealLocalStorageValue({
-      wasTouched: mutationDiff.touchedWatchCodePortalOpen,
-      ownerLeaseId: revealMutationOwnerForWatchCodePortalOpen,
-      leaseId,
-      currentValue: state.watchCodePortalOpen,
-      postMutationValue: postMutationSnapshot.watchCodePortalOpen,
-    })
-  ) {
-    nextState.watchCodePortalOpen = snapshot.watchCodePortalOpen;
   }
   if (
     shouldRestoreRevealLocalStorageValue({
@@ -1477,22 +1441,38 @@ function openPaneForRevealTarget(
   mutationDiff: RevealMutationDiff,
 ): OpenPaneResult {
   if (target.side === "left") {
-    const overviewTab = target.overviewTabKey;
-    if (typeof overviewTab !== "string" || !isOverviewTabKey(overviewTab)) {
-      return {
-        ok: false,
-        errorMessage: `Invalid overviewTabKey for ${target.settingId}.`,
-      };
-    }
-    useLocalStorage.setState({
-      overviewVis: true,
-      overviewTab: overviewTab as OverviewTabKey,
-    });
-    mutationDiff.touchedOverviewVis = true;
-    mutationDiff.touchedOverviewTab = true;
+    return openLeftPaneForRevealTarget(target, mutationDiff);
+  }
+  return openRightPaneForRevealTarget(target, mutationDiff);
+}
+
+function openLeftPaneForRevealTarget(
+  target: UISettingRevealTarget,
+  mutationDiff: RevealMutationDiff,
+): OpenPaneResult {
+  const overviewTab = target.overviewTabKey;
+  if (target.strategy === "plugin_handler" && overviewTab === null) {
     return { ok: true };
   }
+  if (typeof overviewTab !== "string" || !isOverviewTabKey(overviewTab)) {
+    return {
+      ok: false,
+      errorMessage: `Invalid overviewTabKey for ${target.settingId}.`,
+    };
+  }
+  useLocalStorage.setState({
+    overviewVis: true,
+    overviewTab: overviewTab as OverviewTabKey,
+  });
+  mutationDiff.touchedOverviewVis = true;
+  mutationDiff.touchedOverviewTab = true;
+  return { ok: true };
+}
 
+function openRightPaneForRevealTarget(
+  target: UISettingRevealTarget,
+  mutationDiff: RevealMutationDiff,
+): OpenPaneResult {
   const uiEditorTabName = target.uiEditorTabName;
   if (
     typeof uiEditorTabName !== "string" ||
@@ -1663,13 +1643,15 @@ function getPluginRevealLoopContext(
   };
 }
 
-function pluginRevealPaneTabExists(overviewTabKey: string | null): boolean {
-  if (overviewTabKey === null) {
-    return false;
+function pluginRevealTargetCanRegisterHandler(
+  target: UISettingRevealTarget,
+): boolean {
+  if (target.paneId === null || target.overviewTabKey === null) {
+    return true;
   }
   return usePluginRuntimeStore
     .getState()
-    .sortedPaneTabs.some((tab) => tab.tabKey === overviewTabKey);
+    .sortedPaneTabs.some((tab) => tab.tabKey === target.overviewTabKey);
 }
 
 async function attemptPendingPluginReveal({
@@ -1679,7 +1661,7 @@ async function attemptPendingPluginReveal({
   target: UISettingRevealTarget;
   remainingMs: number;
 }): Promise<PluginRevealPendingResult> {
-  if (!pluginRevealPaneTabExists(target.overviewTabKey)) {
+  if (!pluginRevealTargetCanRegisterHandler(target)) {
     return {
       latestErrorMessage: null,
       stop: false,
@@ -1717,13 +1699,7 @@ function applyRevealActivationSteps({
   mutationDiff: RevealMutationDiff;
 }): void {
   const activationSteps = target.revealActivationSteps;
-  const shouldOpenWatchCodePortal = WATCH_CODE_REVEAL_SETTING_IDS.has(
-    target.settingId,
-  );
-  if (
-    !shouldOpenWatchCodePortal &&
-    (!Array.isArray(activationSteps) || activationSteps.length === 0)
-  ) {
+  if (!Array.isArray(activationSteps) || activationSteps.length === 0) {
     return;
   }
   const projectConfigId = resolveProjectConfigIdForActivation(
@@ -1739,7 +1715,6 @@ function applyRevealActivationSteps({
       projectConfigId,
       activationDraft,
       mutationDiff,
-      shouldOpenWatchCodePortal,
     });
     if (nextState === null) {
       return state;
@@ -1816,29 +1791,16 @@ function buildRevealActivationLocalStorageState({
   projectConfigId,
   activationDraft,
   mutationDiff,
-  shouldOpenWatchCodePortal,
 }: {
   state: LocalStorageState;
   projectConfigId: string;
   activationDraft: RevealActivationDraft;
   mutationDiff: RevealMutationDiff;
-  shouldOpenWatchCodePortal: boolean;
 }): Partial<LocalStorageState> | null {
-  const watchCodePortalOpenChanged =
-    shouldOpenWatchCodePortal && !state.watchCodePortalOpen;
-  if (
-    !hasRevealActivationLocalStorageChanges(
-      activationDraft,
-      watchCodePortalOpenChanged,
-    )
-  ) {
+  if (!hasRevealActivationLocalStorageChanges(activationDraft)) {
     return null;
   }
   const nextState: Partial<LocalStorageState> = {};
-  if (watchCodePortalOpenChanged) {
-    nextState.watchCodePortalOpen = true;
-    mutationDiff.touchedWatchCodePortalOpen = true;
-  }
   if (activationDraft.runInstructionsChanged) {
     nextState.runInstructionsAccordionOpenValuesByProjectConfigId = {
       ...state.runInstructionsAccordionOpenValuesByProjectConfigId,
@@ -1870,12 +1832,10 @@ function buildRevealActivationLocalStorageState({
 
 function hasRevealActivationLocalStorageChanges(
   activationDraft: RevealActivationDraft,
-  watchCodePortalOpenChanged: boolean,
 ): boolean {
   return (
     activationDraft.runInstructionsChanged ||
     activationDraft.projectAiChanged ||
-    watchCodePortalOpenChanged ||
     activationDraft.projectChatAuxViewChanged
   );
 }
@@ -1970,7 +1930,7 @@ async function waitForAnchorElement({
     if (revealExecutionMismatch !== null) {
       return null;
     }
-    const paneRoot = getPaneRoot({ side, anchorId });
+    const paneRoot = getPaneRoot({ side });
     if (paneRoot) {
       const anchor = findSettingAnchor(paneRoot, anchorId);
       if (anchor) {
@@ -2115,22 +2075,8 @@ async function invokePluginRevealHandlerWithinDeadline({
   return result;
 }
 
-function getPaneRoot({
-  side,
-  anchorId,
-}: {
-  side: "left" | "right";
-  anchorId: string;
-}): HTMLElement | null {
+function getPaneRoot({ side }: { side: "left" | "right" }): HTMLElement | null {
   if (side === "left") {
-    if (WATCH_CODE_REVEAL_SETTING_IDS.has(anchorId)) {
-      const watchCodePortalRoot = document.querySelector<HTMLElement>(
-        '[data-testid="rf__watch-code-settings-portal"]',
-      );
-      if (watchCodePortalRoot) {
-        return watchCodePortalRoot;
-      }
-    }
     return document.querySelector<HTMLElement>(
       '[data-testid="overview-tab-content-shell"]',
     );

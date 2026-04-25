@@ -14,6 +14,7 @@ const (
 	EnabledSettingID = "core.watch_code.enabled"
 	FoldersSettingID = "core.watch_code.folders"
 	FilesSettingID   = "core.watch_code.files"
+	revealKey        = "watch-code-settings"
 )
 
 var (
@@ -142,12 +143,12 @@ func entryMetadata(
 		Synonyms:    append([]string(nil), synonyms...),
 		Description: description,
 		Location: uisettings.Location{
-			Side:           uisettings.SideLeft,
-			OverviewTabKey: string(uisettings.OverviewTabNameOverview),
+			Side:     uisettings.SideLeft,
+			PluginID: pluginID,
 		},
 		Highlight: uisettings.Highlight{
-			Strategy: uisettings.HighlightStrategyDOMAnchor,
-			AnchorID: settingID,
+			Strategy:        uisettings.HighlightStrategyPluginHandler,
+			PluginRevealKey: revealKey,
 		},
 		Source:      uisettings.SourcePlugin,
 		PluginID:    pluginID,

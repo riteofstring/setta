@@ -4,12 +4,7 @@
   "title": "Setta Plugin Manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "id",
-    "name",
-    "version"
-  ],
+  "required": ["schemaVersion", "id", "name", "version"],
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -106,6 +101,7 @@
         "enum": [
           "registerSectionKinds",
           "registerPane",
+          "registerSettingRevealHandler",
           "registerCommand",
           "registerTopNavBarItem",
           "registerCanvasControl",
@@ -121,6 +117,7 @@
           "registerListenerEndpoint",
           "registerStaticDir",
           "registerAppSubsystemBackend",
+          "mutateWatchCodeSettings",
           "writeWorkspacePlugins"
         ]
       },

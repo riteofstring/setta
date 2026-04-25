@@ -139,7 +139,7 @@ describe("local storage merge", () => {
     );
   });
 
-  it("ignores persisted watch-code portal visibility because it is session-local", () => {
+  it("drops legacy watch-code portal visibility from persisted state", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
@@ -148,7 +148,7 @@ describe("local storage merge", () => {
       current,
     ) as typeof current;
 
-    expect(merged.watchCodePortalOpen).toBe(false);
+    expect("watchCodePortalOpen" in merged).toBe(false);
   });
 
   it("sanitizes malformed persisted custom slash command shapes deeply", () => {

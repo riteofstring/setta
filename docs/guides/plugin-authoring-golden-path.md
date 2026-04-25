@@ -50,8 +50,9 @@ metadata.
   older frontend-facing entries, that includes
   `registerMcpTools`, `registerLanguageServer`,
   `registerExternalAgentAdapter`, `registerCodegenTarget`,
-  `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`, and
-  `registerAppSubsystemBackend`. Project-canvas controls must request
+  `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`,
+  `registerAppSubsystemBackend`, `registerSettingRevealHandler`, and
+  `mutateWatchCodeSettings`. Project-canvas controls must request
   `registerCanvasControl`.
 - `frontend.build.packageManager` currently accepts `pnpm` and is the opt-in
   contract for plugin-owned frontend builds from `frontend/package.json`.
@@ -92,13 +93,17 @@ Add `x-setta-ui-settings` entries to your plugin config schema (`content/config/
 ```
 
 Notes:
+
 - `settingId` is plugin-local; MCP callers will see `plugin::<pluginId>::<settingId>`.
 - `configPath` must be a non-empty string array.
 - `defaultValue` is required and must validate against `valueSchema` (or inferred schema at `configPath`).
 
 ### Optional: implement frontend reveal handlers for plugin settings
 
-Plugin settings use `strategy="plugin_handler"` for reveal/highlight. Register a pane and reveal handler in frontend `register(host)`:
+Plugin settings use `strategy="plugin_handler"` for reveal/highlight. Request
+`registerSettingRevealHandler`, then register a reveal handler in frontend
+`register(host)`. Pane-backed settings usually register a pane too, while
+canvas-control settings can reveal through the handler alone.
 
 ```js
 export function register(host) {
@@ -129,6 +134,7 @@ export function register(host) {
 ```
 
 Notes:
+
 - `revealKey` in schema/backend registration must match `registerSettingRevealHandler(revealKey, ...)`.
 - Reveal handlers must return `true`/`false` (or `Promise<boolean>`).
 
