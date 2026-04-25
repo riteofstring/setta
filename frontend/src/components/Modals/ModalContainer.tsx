@@ -4,9 +4,8 @@ import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFront
 import { AppSubsystemRendererHost } from "plugins/appSubsystemRendererHost";
 import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { closeModal, openWorkspaceSwitcherModal } from "state/actions/modal";
+import { openWorkspaceSwitcherModal } from "state/actions/modal";
 import { useModal } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import { MODAL_OVERLAY_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { consumeOpenWorkspaceSwitcherRequest } from "utils/workspaceSwitcherLaunch";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
@@ -81,11 +80,7 @@ function ModalContent({ open }: { open: boolean }) {
   const modalInfo = useModal((x) => x.modalInfo);
   const appDeploymentModal = useAppSubsystemAppDeploymentModal();
   const appSubsystemHost = useMemo(
-    () =>
-      createRuntimeAppSubsystemFrontendHost({
-        closeModal,
-        resetProjectRuntimeState: resetProjectStores,
-      }),
+    () => createRuntimeAppSubsystemFrontendHost(),
     [],
   );
 

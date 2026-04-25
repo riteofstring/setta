@@ -35,7 +35,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
-import { resetProjectStores } from "state/utils";
 import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   APP_MENU_Z_INDEX_CLASS_NAME,
@@ -599,10 +598,7 @@ function TabContent({
   appOverviewTab: ReturnType<typeof useAppSubsystemOverviewTab> | null;
 }) {
   const appSubsystemHost = useMemo(
-    () =>
-      createRuntimeAppSubsystemFrontendHost({
-        resetProjectRuntimeState: resetProjectStores,
-      }),
+    () => createRuntimeAppSubsystemFrontendHost(),
     [],
   );
   if (selectedPluginPaneTab) {

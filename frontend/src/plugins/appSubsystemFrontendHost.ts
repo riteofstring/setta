@@ -25,6 +25,7 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import { NotificationTypeEnum } from "utils/generatedTypes";
 
 function buildAppSubsystemProjectContext(): AppSubsystemProjectContext {
@@ -360,6 +361,7 @@ export function createRuntimeAppSubsystemFrontendHost(
     setProjectLoadState: (loadState) => {
       useProjectLoading.setState(loadState);
     },
+    resetProjectRuntimeState: resetProjectStores,
     ...overrides,
   });
 }

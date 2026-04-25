@@ -191,7 +191,16 @@ func invokeCompareAndSetString(
 		return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
 	}
 	if result.OldValue == result.NewValue {
-		return r.projectRuntime.Snapshot(), result, nil
+		snapshot, err := r.projectRuntime.MutateWithContext(
+			ctx,
+			func(document projectstate.Document) (projectstate.Document, error) {
+				return document, nil
+			},
+		)
+		if err != nil {
+			return projectstate.Snapshot{}, projectstate.CompareAndSetResult[string]{}, err
+		}
+		return snapshot, result, nil
 	}
 	snapshot, err := r.syncPersistedState(ctx, nil)
 	if err != nil {
@@ -222,6 +231,7 @@ func invokeBackendResult[T any](
 		ctx,
 		plugins.BackendListenerEndpointRequest{
 			Context:      plugins.BackendRequestContext{},
+			PluginID:     r.pluginID,
 			EndpointName: strings.TrimSpace(endpointName),
 			Payload:      encodedPayload,
 		},

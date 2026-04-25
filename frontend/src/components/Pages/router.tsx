@@ -32,7 +32,6 @@ import {
   useServerMode,
   useSettings,
 } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
@@ -271,10 +270,7 @@ function AppModeUnavailableRoute({ message }: { message: string }) {
 function AppModeRouteElement() {
   usePluginRuntimeBootstrap(true);
   const appSubsystemHost = useMemo(
-    () =>
-      createRuntimeAppSubsystemFrontendHost({
-        resetProjectRuntimeState: resetProjectStores,
-      }),
+    () => createRuntimeAppSubsystemFrontendHost(),
     [],
   );
   const runtimeStatus = usePluginRuntimeStore((state) => state.status);

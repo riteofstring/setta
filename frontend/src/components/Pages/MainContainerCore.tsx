@@ -22,7 +22,6 @@ import {
   useAIFollowZIndexBoost,
 } from "state/hooks/aiFollow";
 import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
-import { resetProjectStores } from "state/utils";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
 import { UIPage } from "./Project/UiPage";
@@ -40,10 +39,7 @@ export function MainContainerCore({
   const isAppPreviewEnabled = useAppSubsystemPreviewEnabled();
   const appPreviewSurface = useAppSubsystemPreviewSurface();
   const appSubsystemHost = useMemo(
-    () =>
-      createRuntimeAppSubsystemFrontendHost({
-        resetProjectRuntimeState: resetProjectStores,
-      }),
+    () => createRuntimeAppSubsystemFrontendHost(),
     [],
   );
   useCodeMirrorStyleLoader(doneLoading, is404);

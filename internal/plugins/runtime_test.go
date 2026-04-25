@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/testutil/firstpartyplugin"
 )
@@ -304,6 +306,104 @@ func TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithoutBackendContra
 	}
 }
 
+func TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithoutRequiredBackendEndpointsAsInvalid(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-app-provider-without-required-endpoints"
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:                    pluginID,
+		FixtureName:                 "frontend",
+		EnabledByDefault:            true,
+		RegisterAppSubsystemBackend: true,
+		OmitAppSubsystemEndpoints:   true,
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected runtime feature capabilities")
+	}
+
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+	if appSubsystem.PluginEnabled || appSubsystem.PluginID != "" {
+		t.Fatalf("expected provider without required endpoints to fail closed, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected provider without required endpoints surfaces unavailable, got %#v", appSubsystem)
+	}
+}
+
+func TestServiceRuntimeAppSubsystemCapabilitiesTreatProviderWithPartialBackendEndpointSetAsInvalid(
+	t *testing.T,
+) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-app-provider-with-partial-endpoints"
+	requiredEndpoints := backendruntime.RequiredListenerEndpointNames()
+	if len(requiredEndpoints) < 2 {
+		t.Fatalf("expected multiple required app subsystem endpoints, got %#v", requiredEndpoints)
+	}
+	installRuntimeAppSubsystemFixture(t, roots, runtimeAppSubsystemFixtureOptions{
+		PluginID:                    pluginID,
+		FixtureName:                 "frontend",
+		EnabledByDefault:            true,
+		RegisterAppSubsystemBackend: true,
+		AppSubsystemEndpointNames:   requiredEndpoints[:len(requiredEndpoints)-1],
+		AppSubsystem: map[string]any{
+			"appAuthoringUi":         true,
+			"appPreviewUi":           true,
+			"appGenerationChatModes": true,
+			"appDeploymentRuntime":   true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected runtime feature capabilities")
+	}
+
+	appSubsystem := runtimeResponse.FeatureCapabilities.AppSubsystem
+	assertRuntimeAppSubsystemSelection(
+		t,
+		appSubsystem.ProviderSelection,
+		PluginAppSubsystemProviderSelectionStatusInvalidProvider,
+		nil,
+		nil,
+		nil,
+		[]string{pluginID},
+		nil,
+	)
+	if appSubsystem.PluginEnabled || appSubsystem.PluginID != "" {
+		t.Fatalf("expected provider with partial endpoints to fail closed, got %#v", appSubsystem)
+	}
+	if appSubsystem.AppAuthoringUI || appSubsystem.AppPreviewUI || appSubsystem.AppGenerationChatModes || appSubsystem.AppDeploymentRuntime {
+		t.Fatalf("expected provider with partial endpoints surfaces unavailable, got %#v", appSubsystem)
+	}
+}
+
 func TestServiceRuntimeAppSubsystemCapabilitiesTreatMixedContractAndNoContractActiveProvidersAsInvalid(
 	t *testing.T,
 ) {
@@ -581,7 +681,12 @@ func TestServiceDeploymentSnapshotForActivePluginNormalizesConfigToWorkspaceScop
 			},
 		}
 	})
-	writeRuntimeAppSubsystemBackendProbe(t, targetRoot, true)
+	writeRuntimeAppSubsystemBackendProbe(
+		t,
+		targetRoot,
+		true,
+		backendruntime.RequiredListenerEndpointNames(),
+	)
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"pluginConfigById": map[string]any{
 			string(PluginScopeGlobal) + ":" + pluginID: map[string]any{
@@ -700,6 +805,8 @@ type runtimeAppSubsystemFixtureOptions struct {
 	FixtureName                 string
 	EnabledByDefault            bool
 	RegisterAppSubsystemBackend bool
+	OmitAppSubsystemEndpoints   bool
+	AppSubsystemEndpointNames   []string
 	AppSubsystem                map[string]any
 }
 
@@ -733,12 +840,21 @@ func installRuntimeAppSubsystemFixture(
 		}
 	})
 	if options.RegisterAppSubsystemBackend {
-		writeRuntimeAppSubsystemBackendProbe(t, targetRoot, true)
+		endpointNames := options.AppSubsystemEndpointNames
+		if endpointNames == nil && !options.OmitAppSubsystemEndpoints {
+			endpointNames = backendruntime.RequiredListenerEndpointNames()
+		}
+		writeRuntimeAppSubsystemBackendProbe(t, targetRoot, true, endpointNames)
 	}
 	return targetRoot
 }
 
-func writeRuntimeAppSubsystemBackendProbe(t *testing.T, pluginRoot string, register bool) {
+func writeRuntimeAppSubsystemBackendProbe(
+	t *testing.T,
+	pluginRoot string,
+	register bool,
+	endpointNames []string,
+) {
 	t.Helper()
 
 	runtimeBackendRoot := filepath.Join(pluginRoot, "runtime_backend")
@@ -750,6 +866,7 @@ func writeRuntimeAppSubsystemBackendProbe(t *testing.T, pluginRoot string, regis
 	if !register {
 		probePayload = ""
 	}
+	listenerEndpointJSON := runtimeAppSubsystemListenerEndpointJSON(t, endpointNames)
 	content := "#!/usr/bin/env python3\n\n" +
 		"import json\n" +
 		"import sys\n\n" +
@@ -775,7 +892,7 @@ func writeRuntimeAppSubsystemBackendProbe(t *testing.T, pluginRoot string, regis
 		"            \"uiSettings\": [],\n" +
 		"            \"routes\": [],\n" +
 		"            \"staticDirs\": [],\n" +
-		"            \"listenerEndpoints\": [],\n" +
+		"            \"listenerEndpoints\": " + listenerEndpointJSON + ",\n" +
 		"        })\n" +
 		"        return\n\n" +
 		"    if command != BACKEND_RUNTIME_ARG:\n" +
@@ -802,6 +919,20 @@ func writeRuntimeAppSubsystemBackendProbe(t *testing.T, pluginRoot string, regis
 	); err != nil {
 		t.Fatalf("write runtime backend probe: %v", err)
 	}
+}
+
+func runtimeAppSubsystemListenerEndpointJSON(t *testing.T, endpointNames []string) string {
+	t.Helper()
+
+	endpoints := make([]map[string]string, 0, len(endpointNames))
+	for _, endpointName := range endpointNames {
+		endpoints = append(endpoints, map[string]string{"name": endpointName})
+	}
+	encoded, err := json.Marshal(endpoints)
+	if err != nil {
+		t.Fatalf("encode app subsystem listener endpoints: %v", err)
+	}
+	return string(encoded)
 }
 
 func assertRuntimeAppSubsystemSelection(

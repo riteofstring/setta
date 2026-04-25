@@ -11,12 +11,18 @@ vi.mock("state/actions/realtimeDependencySend", () => ({
     realtimeMocks.sendRealtimeSectionParamLiteral,
 }));
 
-import { createRuntimeAppSubsystemFrontendHost } from "./appSubsystemFrontendHost";
+import { useProjectState } from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import {
+  createRuntimeAppSubsystemFrontendHost,
+  DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
+} from "./appSubsystemFrontendHost";
 
 describe("appSubsystemFrontendHost", () => {
   beforeEach(() => {
     realtimeMocks.sendRealtimeDependencyEvent.mockReset();
     realtimeMocks.sendRealtimeSectionParamLiteral.mockReset();
+    resetProjectStores();
   });
 
   it("forwards realtime host APIs to the shared websocket send helpers", () => {
@@ -48,5 +54,20 @@ describe("appSubsystemFrontendHost", () => {
       "value",
       "config-1",
     );
+  });
+
+  it("resets project stores through the default runtime host", () => {
+    useProjectState.setState((state) => ({
+      projectConfig: {
+        ...state.projectConfig,
+        name: "Dirty Project",
+      },
+    }));
+
+    expect(useProjectState.getState().projectConfig.name).toBe("Dirty Project");
+
+    DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST.resetProjectRuntimeState();
+
+    expect(useProjectState.getState().projectConfig.name).toBe("");
   });
 });
