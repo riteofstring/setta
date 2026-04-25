@@ -376,12 +376,12 @@
 }
 
 .flat-section-prototype__row--rail-single::before {
-  top: 1rem;
-  bottom: 1rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
 }
 
 .flat-section-prototype__row--rail-start::before {
-  top: 1rem;
+  top: 0.5rem;
   bottom: 0;
 }
 
@@ -392,7 +392,7 @@
 
 .flat-section-prototype__row--rail-end::before {
   top: 0;
-  bottom: 1rem;
+  bottom: 0.5rem;
 }
 
 .flat-section-prototype__row-key,

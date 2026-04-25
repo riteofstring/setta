@@ -457,7 +457,7 @@ function FlatPrototypeRowItem({
     depth > 0
       ? ({
           "--flat-depth-offset": `${depth * 0.875}rem`,
-          "--flat-rail-left": `${railDepth * 0.875 + 1.1875}rem`,
+          "--flat-rail-left": `${railDepth * 0.875 + 1}rem`,
         } satisfies FlatPrototypeRowStyle)
       : undefined;
   const nestedClassName = nestedRailRole

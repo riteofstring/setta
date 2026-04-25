@@ -145,7 +145,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("flat-section-prototype__row--rail-start");
     expect(markup).toContain("flat-section-prototype__row--rail-end");
     expect(markup).toContain("--flat-depth-offset:0.875rem");
-    expect(markup).toContain("--flat-rail-left:1.1875rem");
+    expect(markup).toContain("--flat-rail-left:1rem");
     expect(markup).not.toContain("--flat-rail-width");
     expect(markup).not.toContain("after:w-[var(--flat-rail-width)]");
     const spanCount = (markup.match(/<span\b/g) ?? []).length;
