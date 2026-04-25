@@ -15,8 +15,8 @@ Watch Code currently behaves like a core IDE feature:
   `/setWatchCodeInputs`.
 - The frontend owns the canvas radar button, floating settings popover, and
   OpenAPI route calls.
-- UI settings expose `core.watch_code.enabled`, `core.watch_code.folders`, and
-  `core.watch_code.files`.
+- UI settings currently expose Watch Code through core-owned IDs. The plugin
+  extraction should replace those with plugin-owned setting IDs.
 
 The app-subsystem extraction established a better pattern for large first-party
 features: the plugin contributes feature availability and plugin-owned UI, while
@@ -35,8 +35,8 @@ The target state is:
 
 - Watch Code is unavailable unless the `setta-watch-code` plugin is active.
 - The plugin owns its package metadata and user-facing frontend surface.
-- Go owns scan planning, parsing, project mutation, route contracts, state
-  migration, generated downstream surfaces, and runtime correctness.
+- Go owns scan planning, parsing, project mutation, route contracts, storage
+  contracts, generated downstream surfaces, and runtime correctness.
 - Watch Code declares and reports its dependency on an active Python language
   server capability, without hard-coding a specific language-server plugin.
 
@@ -50,10 +50,13 @@ The target state is:
   in Python or TypeScript.
 - Do not require `setta-basedpyright` specifically. Any active Python language
   server that satisfies the required LSP behavior should be accepted.
-- Do not delete or rewrite existing Watch Code project data when the plugin is
-  missing, disabled, or invalid.
-- Do not preserve old host-owned UI imports indefinitely after a plugin frontend
-  host extension exists.
+- Do not keep old host-owned UI imports after a plugin frontend host extension
+  exists.
+- Do not add backward-compatibility shims, legacy-data readers, compatibility
+  windows, migration paths, dual-write paths, route aliases, or transitional
+  adapters. This extraction is allowed to make a clean breaking change.
+- Do not commit generated plugin frontend build output such as
+  `plugins/setta-watch-code/frontend/dist/*`.
 
 ## Principles
 
@@ -62,7 +65,11 @@ The target state is:
   runtime.
 - Prefer a declarative capability contract over ad hoc plugin ID checks.
 - Fail closed when the provider is unavailable.
-- Keep project data migration reversible until the new storage path is proven.
+- Make direct owner-boundary changes instead of compatibility layers. When an
+  old core-owned surface is replaced, remove it rather than supporting both.
+- Treat plugin frontend bundles as generated artifacts. Keep source, tests,
+  package metadata, and build config in git; materialize `frontend/dist/*`
+  during runtime-managed source builds, packaging, or explicit verification.
 - Generate downstream Python and TypeScript surfaces after changing Go-owned
   route or state contracts.
 - Keep LSP dependency status explicit and actionable in runtime/UI state.
@@ -80,6 +87,7 @@ Add `plugins/setta-watch-code` with:
 - plugin-owned frontend source/build metadata once the frontend extension point
   exists
 - tests and README matching the first-party plugin style
+- no checked-in `frontend/dist` files
 
 Suggested manifest direction:
 
@@ -176,15 +184,16 @@ Route responses should make feature unavailability explicit:
 Move Watch Code setting entries out of the core settings registry and into a
 Watch Code provider contribution.
 
-Keep these stable setting IDs unless there is a deliberate migration:
+Use plugin-owned setting IDs. Do not keep the old `core.watch_code.*` IDs as
+aliases or compatibility shims.
 
-- `core.watch_code.enabled`
-- `core.watch_code.folders`
-- `core.watch_code.files`
+- `plugin::setta-watch-code::enabled`
+- `plugin::setta-watch-code::folders`
+- `plugin::setta-watch-code::files`
 
 They should be marked as plugin-sourced and associated with the active Watch
-Code provider plugin ID. This preserves MCP/search/reveal compatibility while
-making availability dependent on plugin runtime state.
+Code provider plugin ID. Direct reads or writes to the old core IDs should fail
+as unknown settings.
 
 ### LSP Dependency
 
@@ -238,27 +247,24 @@ Then move the current Watch Code UI into
 - enabled toggle
 - watched folders/files editor
 - LSP dependency status notice
-- reveal handler for `core.watch_code.*`
+- reveal handler for `plugin::setta-watch-code::*`
 
-Until that extension point exists, a staged extraction may keep a tiny host
-adapter that renders the built-in UI only when the provider is active. That is
-an intermediate state, not the final plugin extraction.
+Do not keep a host adapter that renders old Watch Code UI as a transitional
+path. Add the generic host extension point first, then move the UI.
+
+Do not commit the plugin frontend's generated `dist/` bundle. The manifest may
+point at `frontend/dist/*`, but those files must be created by the plugin-owned
+frontend build during runtime/package verification, not tracked in git.
 
 ### Persistence
 
-Use a two-step migration.
+There is no legacy migration requirement. Do not add read compatibility for old
+project fields, dual-write code, migration windows, or transitional storage
+helpers.
 
-Phase 1 keeps existing fields on `projectstate.Project`:
-
-- `watchCodeEnabled`
-- `watchCodeFolders`
-- `watchCodeFiles`
-- `watchCodeRegistry`
-- `watchCodeBaselineByPath`
-
-This minimizes behavioral risk while adding provider gating.
-
-Phase 2 migrates persisted Watch Code state into plugin-owned document data:
+If this extraction changes Watch Code storage, make a direct owner change to the
+new storage shape and remove the superseded top-level fields in the same slice.
+The target plugin-owned document data shape is:
 
 ```json
 {
@@ -282,8 +288,10 @@ Phase 2 migrates persisted Watch Code state into plugin-owned document data:
 Rules:
 
 - implement typed Go storage helpers for the plugin data shape
-- load old top-level fields and write the new plugin-data shape after migration
-- keep old field reads during one compatibility window if needed
+- do not load old top-level fields into the new shape
+- do not keep old field reads, old field writes, or duplicate effective-state
+  views
+- do not preserve old project-level Watch Code JSON for compatibility
 - never discard plugin data because the plugin is not currently active
 - keep JSON normalization deterministic
 - generate downstream Python/TypeScript surfaces from Go-owned contracts
@@ -336,13 +344,14 @@ Acceptance criteria:
 - no fixture plugin means Watch Code capability is unavailable
 - conflicting providers fail closed and surface a useful runtime status
 
-### Phase 2: Gate Existing Host Behavior
+### Phase 2: Gate Runtime Behavior By Provider Capability
 
 Deliverables:
 
-- existing Watch Code behavior is unchanged when provider is active
-- Watch Code routes, service startup, UI settings, and frontend controls are
-  hidden or blocked when provider is unavailable
+- Watch Code runtime behavior is available only when provider capability is
+  active
+- Watch Code routes, service startup, and UI settings are hidden or blocked when
+  provider capability is unavailable
 
 Tasks:
 
@@ -350,7 +359,6 @@ Tasks:
 - start `watchcode.Service` only when capability is active
 - skip Watch Code service sync when unavailable
 - gate bound-section Watch Code applies in code update paths
-- keep existing project data visible but inert when provider is unavailable
 - add route-level feature-unavailable responses
 - update tests for enabled and unavailable states
 
@@ -358,7 +366,7 @@ Acceptance criteria:
 
 - all current Watch Code tests pass with provider fixture active
 - missing provider does not mutate project Watch Code state from file changes
-- existing project files with Watch Code data still load and save safely
+- project files using the current branch's storage contract load and save safely
 
 ### Phase 3: Extract Watch Code Routes
 
@@ -372,7 +380,8 @@ Tasks:
 - create `internal/watchcodehttp`
 - move route request/handler/error logic from `internal/httpapi/project_routes.go`
 - register routes through an IDE feature contribution when provider is active
-- preserve operation IDs and route paths unless deliberately migrating them
+- use the chosen route paths and operation IDs directly; do not keep alias routes
+  for old names
 - update OpenAPI generation after route extraction
 - update route tests to target the extracted package where practical
 
@@ -386,9 +395,9 @@ Acceptance criteria:
 
 Deliverables:
 
-- `core.watch_code.*` settings are registered only when Watch Code provider is
-  active
-- setting search/read/write/reveal semantics remain stable
+- `plugin::setta-watch-code::*` settings are registered only when Watch Code
+  provider is active
+- setting search/read/write/reveal semantics work through plugin-owned IDs
 
 Tasks:
 
@@ -401,9 +410,10 @@ Tasks:
 
 Acceptance criteria:
 
-- `core.watch_code.*` settings are searchable with provider active
+- `plugin::setta-watch-code::*` settings are searchable with provider active
 - writes still baseline and broadcast project state correctly
 - settings are unavailable with a precise error when provider is inactive
+- old `core.watch_code.*` setting IDs are not registered as aliases
 
 ### Phase 5: Model LSP Dependency Status
 
@@ -472,43 +482,48 @@ Tasks:
 - register the canvas control and setting reveal handler from the plugin
 - remove host-owned Watch Code control rendering from
   `frontend/src/forks/xyflow/controls/Controls.tsx`
+- remove any host local-storage state or reveal special cases that only existed
+  for the old host-owned Watch Code UI
 - keep visual behavior stable across desktop/mobile
 - run vitest and Playwright coverage for the moved UI
 - run chrome-devtools visual verification for the Watch Code popover
+- verify `git ls-files -- 'plugins/setta-watch-code/frontend/dist/**'` prints
+  nothing before committing
 
 Acceptance criteria:
 
 - disabling the plugin removes the Watch Code control without breaking canvas
   controls
 - enabling the plugin restores the control and settings UI
-- setting reveal for `core.watch_code.*` opens/highlights the plugin-owned UI
+- setting reveal for `plugin::setta-watch-code::*` opens/highlights the
+  plugin-owned UI
+- no `plugins/setta-watch-code/frontend/dist/*` files are tracked
 
-### Phase 8: Migrate Persistence To Plugin Data
+### Phase 8: Move Persistence To Plugin Data
 
 Deliverables:
 
 - Watch Code state is stored in `pluginData["setta-watch-code"]`
-- old project-level fields are migrated safely
+- old project-level Watch Code fields are removed, not migrated
 - generated downstream surfaces reflect the Go-owned storage contract
 
 Tasks:
 
 - add typed Go storage helpers for Watch Code plugin data
-- implement load/normalization migration from legacy project fields
-- update project view to expose Watch Code state from the new storage owner
+- remove old top-level Watch Code project fields from the persisted/runtime
+  contract in the same change
 - update compare-and-set and route mutation methods to write plugin data
-- remove or deprecate legacy top-level fields after compatibility is no longer
-  needed
+- do not add load fallbacks, dual writes, compatibility readers, or transitional
+  normalizers for the old fields
 - update frontend/Python generated types
 - update docs/reference/watch-code.md
 
 Acceptance criteria:
 
-- existing projects with top-level Watch Code fields load correctly
 - saving writes canonical plugin data
 - disabled/missing provider does not erase plugin data
-- frontend receives the same effective Watch Code state shape or a clearly
-  generated replacement
+- frontend receives the new generated Watch Code state shape
+- old top-level Watch Code fields are absent from generated surfaces
 
 ### Phase 9: Packaging, Install, And Defaults
 
@@ -537,7 +552,7 @@ Acceptance criteria:
 Go tests:
 
 - `internal/watchcode` parser/planner/watcher tests
-- project-state migration and storage tests
+- project-state storage contract tests
 - route extraction tests
 - app startup/gating tests
 - plugin runtime capability tests
@@ -574,19 +589,20 @@ Generation and quality:
 - Routes and settings are available only when the provider is active.
 - The frontend Watch Code control and popover are plugin-owned.
 - Python LSP dependency status is explicit and provider-agnostic.
-- Existing Watch Code project data migrates without data loss.
 - Generated Python and TypeScript surfaces are updated from Go-owned contracts.
-- Disabling or uninstalling the plugin leaves existing data intact and makes
+- Disabling or uninstalling the plugin leaves plugin-owned data intact and makes
   the feature inert.
+- No backward-compatibility shims, legacy support, migrations, transitional
+  adapters, dual paths, or checked-in `plugins/setta-watch-code/frontend/dist/*`
+  artifacts remain.
 
 ## Suggested Execution Order
 
 1. Add provider capability plumbing.
-2. Gate existing host behavior behind the active provider.
+2. Gate runtime services behind the active provider.
 3. Extract routes and UI settings.
 4. Add LSP dependency status and degraded-mode behavior.
 5. Add frontend canvas-control plugin API.
 6. Move the frontend UI into `plugins/setta-watch-code`.
-7. Migrate persistence into plugin data.
+7. Move persistence into plugin data without migration or compatibility paths.
 8. Finish packaging, docs, and full verification.
-

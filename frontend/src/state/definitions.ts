@@ -767,7 +767,6 @@ function normalizePersistedLocalStorageState(
       merged.overviewNotificationsPaneTab,
       defaults.overviewNotificationsPaneTab,
     );
-  delete (merged as Record<string, unknown>).watchCodePortalOpen;
   merged.customProjectChatSlashCommandsByProjectConfigId =
     normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       merged.customProjectChatSlashCommandsByProjectConfigId,

@@ -33,15 +33,14 @@ new additions (so existing callables don't auto-create sections).
 
 ## UI surface
 - Watch Code no longer has its own Overview tab.
-- The primary UI entry point is the radar button in the canvas controls rail
-  (`frontend/src/forks/xyflow/controls/Controls.tsx`), which opens a floating
-  `WatchCodePane` popover.
-- The popover-open flag is session-local (`watchCodePortalOpen`) and is
-  intentionally reset on reload even though the underlying watch settings still
-  persist on `ProjectConfig`.
-- UI-setting reveal flows now keep the Overview pane targeted while opening the
-  Watch Code popover so `core.watch_code.*` anchors still resolve after the tab
-  removal.
+- The first-party `setta-watch-code` plugin contributes the radar button to the
+  canvas controls rail. It opens a floating Watch Code popover from
+  `plugins/setta-watch-code/frontend/src/watchCodeControl.ts`.
+- The plugin uses canonical UI-setting ids under
+  `plugin::setta-watch-code::*`; the old `core.watch_code.*` ids are not
+  registered as aliases.
+- UI-setting reveal flows call the plugin reveal handler, which opens the
+  popover and highlights the matching plugin-owned anchor.
 
 ## Baselines: avoiding retroactive section creation
 When Watch Code is enabled, the backend records a **baseline**:
@@ -147,4 +146,4 @@ This keeps Watch Code aligned whether edits happen in the UI or in the editor.
 - `internal/projectstate/watch_code_bound_sections.go`
 - `internal/app/code_updates.go`
 - `backend/setta/types/project_config.py`
-- `frontend/src/components/Panes/Overview/WatchCode/WatchCodePane.tsx`
+- `plugins/setta-watch-code/frontend/src/watchCodeControl.ts`

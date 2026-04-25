@@ -121,7 +121,7 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	}
 	searchResult := mustStructuredMapForRoute(t, searchPayload.StructuredContent)
 	searchResults := mustStructuredListForRoute(t, searchResult["results"])
-	if len(searchResults) == 0 || mustStructuredMapForRoute(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
+	if len(searchResults) == 0 || mustStructuredMapForRoute(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::enabled" {
 		t.Fatalf("expected ranked plugin watch-code result, got %#v", searchResults)
 	}
 	if mustStructuredMapForRoute(t, searchResults[0])["source"] != "plugin" {
@@ -213,7 +213,7 @@ func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T)
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"set_ui_setting_value",
-		"arguments":{"projectConfigId":"project-alpha","settingId":"core.watch_code.enabled","value":true},
+		"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::enabled","value":true},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {
@@ -593,7 +593,7 @@ func TestMCPToolCallRouteGetUISettingRejectsProjectArgumentMismatch(t *testing.T
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"projectConfigId":"project-beta","settingId":"core.watch_code.enabled"},
+		"arguments":{"projectConfigId":"project-beta","settingId":"plugin::setta-watch-code::enabled"},
 		"agenticContext":{"projectConfigId":"project-alpha","chatId":"chat-1","sectionId":"chat-section","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {

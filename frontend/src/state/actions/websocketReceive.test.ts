@@ -1103,7 +1103,7 @@ describe("openWebSocket", () => {
     });
     vi.mocked(receiveUISettingReveal).mockResolvedValue([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "revealed",
         errorCode: null,
         errorMessage: null,
@@ -1124,14 +1124,14 @@ describe("openWebSocket", () => {
           durationMs: 1500,
           reveals: [
             {
-              settingId: "core.watch_code.enabled",
+              settingId: "plugin::setta-watch-code::enabled",
               side: "left",
               overviewTabKey: "WatchCode",
               uiEditorTabName: null,
               pluginId: null,
               paneId: null,
               strategy: "dom_anchor",
-              anchorId: "core.watch_code.enabled",
+              anchorId: "plugin::setta-watch-code::enabled",
               pluginRevealKey: null,
               revealActivationSteps: [
                 {
@@ -1150,7 +1150,7 @@ describe("openWebSocket", () => {
       expect.objectContaining({
         reveals: [
           expect.objectContaining({
-            settingId: "core.watch_code.enabled",
+            settingId: "plugin::setta-watch-code::enabled",
             revealActivationSteps: [
               {
                 type: "run_instructions_accordion_item",
@@ -1190,7 +1190,7 @@ describe("openWebSocket", () => {
     expect(revealResultPayload).not.toBeUndefined();
     expect(revealResultPayload?.content?.statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "revealed",
         errorCode: null,
         errorMessage: null,
@@ -1250,7 +1250,7 @@ describe("openWebSocket", () => {
         buildUISettingRevealMessage({
           id: "msg-queue-1",
           requestId: "request-queue-1",
-          settingId: "core.watch_code.enabled",
+          settingId: "plugin::setta-watch-code::enabled",
         }),
       ),
     });
@@ -1271,7 +1271,7 @@ describe("openWebSocket", () => {
     }
     resolveFirstReveal([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "revealed",
         errorCode: null,
         errorMessage: null,
@@ -1284,7 +1284,7 @@ describe("openWebSocket", () => {
     const secondAck = findRevealResultPayload(socket, "request-queue-2");
     expect(firstAck?.statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "revealed",
         errorCode: null,
         errorMessage: null,
@@ -1340,7 +1340,7 @@ describe("openWebSocket", () => {
         buildUISettingRevealMessage({
           id: "msg-rollover-1",
           requestId: "request-rollover-1",
-          settingId: "core.watch_code.enabled",
+          settingId: "plugin::setta-watch-code::enabled",
         }),
       ),
     });
@@ -1354,7 +1354,7 @@ describe("openWebSocket", () => {
     }
     resolveReveal([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "revealed",
         errorCode: null,
         errorMessage: null,
@@ -1401,14 +1401,14 @@ describe("openWebSocket", () => {
           durationMs: 1500,
           reveals: [
             {
-              settingId: "core.watch_code.enabled",
+              settingId: "plugin::setta-watch-code::enabled",
               side: "left",
               overviewTabKey: "WatchCode",
               uiEditorTabName: null,
               pluginId: null,
               paneId: null,
               strategy: "dom_anchor",
-              anchorId: "core.watch_code.enabled",
+              anchorId: "plugin::setta-watch-code::enabled",
               pluginRevealKey: null,
               revealActivationSteps: [],
             },
@@ -1440,7 +1440,7 @@ describe("openWebSocket", () => {
       );
     expect(revealResultPayload?.content?.statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage: "Failed to process UI setting reveal: reveal crashed",
@@ -1524,14 +1524,14 @@ describe("openWebSocket", () => {
           durationMs: 1500,
           reveals: [
             {
-              settingId: "core.watch_code.enabled",
+              settingId: "plugin::setta-watch-code::enabled",
               side: "left",
               overviewTabKey: "WatchCode",
               uiEditorTabName: null,
               pluginId: null,
               paneId: null,
               strategy: "dom_anchor",
-              anchorId: "core.watch_code.enabled",
+              anchorId: "plugin::setta-watch-code::enabled",
               pluginRevealKey: null,
               revealActivationSteps: {},
             },
@@ -1563,7 +1563,7 @@ describe("openWebSocket", () => {
       );
     expect(revealResultPayload?.content?.statuses).toEqual([
       {
-        settingId: "core.watch_code.enabled",
+        settingId: "plugin::setta-watch-code::enabled",
         status: "failed",
         errorCode: "mutation_failed",
         errorMessage: "Invalid UISettingReveal payload.",

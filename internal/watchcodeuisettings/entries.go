@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	EnabledSettingID = "core.watch_code.enabled"
-	FoldersSettingID = "core.watch_code.folders"
-	FilesSettingID   = "core.watch_code.files"
+	EnabledSettingID = "plugin::setta-watch-code::enabled"
+	FoldersSettingID = "plugin::setta-watch-code::folders"
+	FilesSettingID   = "plugin::setta-watch-code::files"
 	revealKey        = "watch-code-settings"
 )
 
