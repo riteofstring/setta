@@ -143,3 +143,13 @@ func TestNormalizeSemanticSidecarForJSONIncludesDiscriminatorContextInErrors(t *
 		t.Fatalf("NormalizeSemanticSidecarForJSON() error = %q, want discriminator context", err)
 	}
 }
+
+func TestExportedValueDeclarationNameSanitizesRuntimeKeys(t *testing.T) {
+	t.Parallel()
+
+	got := exportedValueDeclarationName("AppSpecPatchPolicyConfig")
+	want := "AppSpecPatchPolicyConfig"
+	if got != want {
+		t.Fatalf("exportedValueDeclarationName() = %q, want %q", got, want)
+	}
+}

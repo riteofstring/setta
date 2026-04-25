@@ -7,6 +7,7 @@ import {
   zoomOut,
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { usePluginRuntimeStore } from "plugins/runtime";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaMinus, FaPlus } from "react-icons/fa6";
@@ -36,6 +37,7 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
+import type { PluginRuntimeResponse } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { onFitViewHandler } from "../core/store/utils";
 
@@ -340,8 +342,15 @@ function useZoomReached() {
 
 export function shouldShowWatchCodePortalControl(args: {
   isDeploymentMode: boolean;
+  watchCodeCapabilities:
+    | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["watchCode"]
+    | null;
 }): boolean {
-  return !args.isDeploymentMode;
+  return (
+    !args.isDeploymentMode &&
+    Boolean(args.watchCodeCapabilities?.pluginEnabled) &&
+    Boolean(args.watchCodeCapabilities?.python)
+  );
 }
 
 const Controls = () => {
@@ -358,8 +367,12 @@ const Controls = () => {
     (state) => state.projectConfig.watchCodeEnabled,
   );
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
+  const watchCodeCapabilities = usePluginRuntimeStore(
+    (state) => state.watchCodeCapabilities,
+  );
   const showWatchCodePortalControl = shouldShowWatchCodePortalControl({
     isDeploymentMode,
+    watchCodeCapabilities,
   });
   const watchCodePortalOpen = useLocalStorage(
     (state) => state.watchCodePortalOpen,

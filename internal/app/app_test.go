@@ -39,6 +39,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
+	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/transcriptionprofiles"
 )
@@ -235,6 +236,38 @@ func TestAppServesAppDefinitionRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	installAppRepoPlugin(t, cfg, firstpartyplugin.AppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, firstpartyplugin.AppSubsystemPluginID)
+
+	assertAppDefinitionRoutesServe(t, cfg)
+}
+
+func TestAppServesAppDefinitionRoutesWithUnknownIDPlugin(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	installAppFixturePlugin(t, cfg, "app-subsystem-unknown-id")
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
+
+	assertAppDefinitionRoutesServe(t, cfg)
+}
+
+func TestAppServesAppDefinitionRoutesWithUnknownIDPackageManagerPlugin(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installAppPackageManagerFixturePlugin(t, sitePackages, "app-subsystem-unknown-id")
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
+
+	assertAppDefinitionRoutesServe(t, cfg)
+}
+
+func assertAppDefinitionRoutesServe(t *testing.T, cfg config.Config) {
+	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -8705,6 +8738,7 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
@@ -8756,6 +8790,120 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 	waitForAppWatchCodeCallable(t, app, "project-alpha", "pkg.watch.watch:function", watchFile)
 }
 
+func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/watch.py"},
+				CodegenTargets: []projectstate.ProjectCodegenTarget{
+					{
+						Language: string(projectstate.CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if app.watchCode != nil {
+		t.Fatal("did not expect IDE app without watch code provider to start watch code service")
+	}
+	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	if !project.WatchCodeEnabled || !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/watch.py"}) {
+		t.Fatalf("expected existing watch code project data to remain readable, got %#v", project)
+	}
+}
+
+func TestAppSetWatchCodeEnabledRouteRejectsWithoutProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if app.watchCode != nil {
+		t.Fatal("did not expect watch code service without provider")
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetWatchCodeEnabled,
+		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
+	)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(newAppTestAuthCookie(t, app))
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set watch code enabled: %v", err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if response.StatusCode != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.StatusCode, string(body))
+	}
+	if !strings.Contains(string(body), `"code":"feature_unavailable"`) {
+		t.Fatalf("expected feature_unavailable response, got %q", string(body))
+	}
+
+	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	if project.WatchCodeEnabled || len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
+		t.Fatalf("expected watch code state to remain unchanged, got %#v", project)
+	}
+}
+
 func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -8764,6 +8912,7 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
 	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
 		payload["capabilities"] = []string{"registerCodegenTarget"}
+		enableAppPluginManifestWatchCodeProvider(payload)
 	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -8823,6 +8972,7 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -8874,14 +9024,8 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 		if !ok || entry.SourcePath != watchFile || len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 			return false
 		}
-		_, _, impl, err := project.ResolveSection(entry.SectionIDs[0])
-		if err != nil {
-			return false
-		}
-		if string(impl.Kind) != "callable" {
-			return false
-		}
-		return true
+		_, ok = project.Sections[entry.SectionIDs[0]]
+		return ok
 	})
 
 	if err := os.Remove(watchFile); err != nil {
@@ -8898,6 +9042,7 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8955,14 +9100,8 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected one callable section binding, got %#v", entry)
 	}
-
-	callableSectionID := entry.SectionIDs[0]
-	_, _, impl, err := project.ResolveSection(callableSectionID)
-	if err != nil {
-		t.Fatalf("resolve callable section: %v", err)
-	}
-	if impl.Kind != projectstate.SectionKind("callable") {
-		t.Fatalf("expected callable section impl, got %q", impl.Kind)
+	if _, ok := project.Sections[entry.SectionIDs[0]]; !ok {
+		t.Fatalf("expected callable section %q to exist", entry.SectionIDs[0])
 	}
 
 	codeObjNames := map[string]struct{}{}
@@ -8974,11 +9113,71 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	}
 }
 
+func TestAppSetCodeRouteSkipsWatchCodeBoundSectionUpdateWithoutProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if app.watchCode != nil {
+		t.Fatal("did not expect watch code service without provider")
+	}
+
+	seedAppWatchCodeBoundSectionProject(t, app)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-main","code":"def sorted(iterable):\n    return iterable\n"}`),
+	)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(newAppTestAuthCookie(t, app))
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	target, err := snapshot.Document.ResolveFormatCodeTarget("project-alpha", "section-main")
+	if err != nil {
+		t.Fatalf("resolve updated code target: %v", err)
+	}
+	if target.Code != "def sorted(iterable):\n    return iterable\n" {
+		t.Fatalf("expected setCode to update code without provider, got %q", target.Code)
+	}
+	project := snapshot.Document.Projects["project-alpha"]
+	if len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
+		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", project.WatchCodeRegistry, project.WatchCodeBaselineByPath)
+	}
+}
+
 func TestAppSetCodeRoutePublishesMissingArgDiagnosticsForRootWatchCodeBoundSection(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppFirstPartyBasedpyrightPlugin(t, cfg)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9128,6 +9327,7 @@ func TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	addRepoVenvRuffToPath(t)
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9207,6 +9407,7 @@ func TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
+	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -13123,6 +13324,27 @@ func installAppLanguageServerOnlyFixturePlugin(t *testing.T, cfg config.Config) 
 	})
 }
 
+func installAppWatchCodeProviderFixture(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
+	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		enableAppPluginManifestWatchCodeProvider(payload)
+	})
+}
+
+func enableAppPluginManifestWatchCodeProvider(payload map[string]any) {
+	featureCapabilities, ok := payload["featureCapabilities"].(map[string]any)
+	if !ok {
+		featureCapabilities = map[string]any{}
+		payload["featureCapabilities"] = featureCapabilities
+	}
+	featureCapabilities["watchCode"] = map[string]any{
+		"python":                 true,
+		"requiresLanguageServer": true,
+	}
+}
+
 func prepareAppCurrentSession(t *testing.T, cfg config.Config) {
 	t.Helper()
 
@@ -13335,6 +13557,15 @@ func installAppRepoPlugin(t *testing.T, cfg config.Config, pluginID string) {
 	sourceRoot := filepath.Join(repoRoot, "plugins", pluginID)
 	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", pluginID)
 	copyAppTestDir(t, sourceRoot, targetRoot)
+	materializeAppRuntimeManagedPluginFrontendAssets(t, targetRoot)
+}
+
+func materializeAppRuntimeManagedPluginFrontendAssets(t *testing.T, pluginRoot string) {
+	t.Helper()
+
+	if err := plugins.EnsureRuntimeManagedPluginFrontendAssetsForRoot(pluginRoot); err != nil {
+		t.Fatalf("materialize runtime-managed plugin frontend assets for %s: %v", pluginRoot, err)
+	}
 }
 
 func selectAppLanguageServer(t *testing.T, app *App, language string, pluginID string) {
@@ -13522,6 +13753,9 @@ func copyAppTestDir(t *testing.T, sourceRoot string, targetRoot string) {
 	}
 
 	for _, entry := range entries {
+		if entry.Name() == "node_modules" {
+			continue
+		}
 		sourcePath := filepath.Join(sourceRoot, entry.Name())
 		targetPath := filepath.Join(targetRoot, entry.Name())
 
