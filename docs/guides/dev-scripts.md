@@ -87,7 +87,7 @@ Use these first for day-to-day work.
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop default local setup (frozen Python env with the `defaults`, `source`, and `dev` extras; Go toolchain readiness; frozen frontend deps; frozen sidecars).
+  - One-stop default local setup (frozen Python env with the `defaults`, `source`, and `dev` extras; Go toolchain readiness; pinned repo-local `gopls`; frozen frontend deps; frozen sidecars).
 - `./update_dependencies.sh`
   - Explicit dependency refresh path for Python and pnpm lockfiles.
   - Runs `uv lock --upgrade` with the repo release-age policy, strips the transient `uv` cutoff metadata from `uv.lock`, syncs the Python env, refreshes both pnpm lockfiles, verifies their npm publish dates against the repo minimum age, then installs from them.
@@ -238,7 +238,7 @@ Useful when you need to debug a specific subsystem.
 
 ## Notes
 
-- **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
+- **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The activated shell also exposes repo-local tools installed into `.venv/bin`, including `gopls` after `./dev_install.sh`. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
 - **Supply-chain policy**: `supply_chain_policy.env` is the repo-local minimum release age policy used by `init_env.sh`, `update_dependencies.sh`, and `audit_supply_chain.sh`. Current `uv` only supports an absolute `--exclude-newer` cutoff and persists that cutoff into `uv.lock`, so the repo uses `--exclude-newer` only during explicit lock refreshes and enforces the rolling age policy for `uv.lock` during bootstrap with `scripts/check_uv_lock_release_age.py`. Go does not expose a native install-time minimum-age setting, so Go age enforcement is audit-only. pnpm’s resolver setting is `minimum-release-age` in minutes; the repo also enforces checked-in Go/pnpm metadata checks through the repo `uv` dev environment so those scripts can use managed Python dependencies instead of assuming system-installed packages.
 - **Audit remediation policy**: use `docs/guides/dependency-audits.md`.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).

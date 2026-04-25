@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 
+	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -649,6 +650,60 @@ func TestBuildSchemaDocumentMarksAppDefinitionActionsAsObjectMap(t *testing.T) {
 	if got := actionsSchema.AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
 		t.Fatalf("AppDefinition.actions additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
 	}
+}
+
+func TestDiscoveredTypesPreferPluginOwnedAppDefinitionContracts(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		contractName string
+		want         reflect.Type
+	}{
+		{
+			contractName: "AppDefinition",
+			want:         reflect.TypeOf(appdefinition.AppDefinition{}),
+		},
+		{
+			contractName: "AppRoute",
+			want:         reflect.TypeOf(appdefinition.AppRoute{}),
+		},
+	}
+
+	discovered := DiscoveredTypes()
+	for _, tc := range testCases {
+		got, ok := TypeByContractName(tc.contractName)
+		if !ok {
+			t.Fatalf("expected discovered type for %q", tc.contractName)
+		}
+		if got != tc.want {
+			t.Fatalf("%s owner = %v, want %v", tc.contractName, got, tc.want)
+		}
+	}
+
+	for _, blockedName := range []string{
+		"AppRoute",
+		"AppDefinition",
+		"ReadResult",
+		"MutationResult",
+		"ValidationIssue",
+		"Capabilities",
+		"ValidationResult",
+	} {
+		for _, candidate := range discovered {
+			if candidate.PkgPath() == "setta/internal/projectstate" && candidate.Name() == blockedName {
+				t.Fatalf("unexpected host-owned app contract discovered: %v", candidate)
+			}
+		}
+	}
+}
+
+func sharedTypesContain(types []reflect.Type, target reflect.Type) bool {
+	for _, candidate := range types {
+		if candidate == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBuildSchemaDocumentMarksSectionSharedModifierAsObjectMap(t *testing.T) {

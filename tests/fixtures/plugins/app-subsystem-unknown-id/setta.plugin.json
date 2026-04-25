@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "acme-app-subsystem-fixture",
+  "name": "Acme App Subsystem Fixture",
+  "version": "0.1.0",
+  "settaVersionRange": ">=0.0.0",
+  "enabledByDefault": true,
+  "backend": {
+    "entrypoint": "runtime_backend/main.py"
+  },
+  "frontend": {
+    "entrypoint": "frontend/dist/index.js",
+    "style": "frontend/dist/index.css"
+  },
+  "featureCapabilities": {
+    "appSubsystem": {
+      "appAuthoringUi": true,
+      "appPreviewUi": true,
+      "appGenerationChatModes": true,
+      "appDeploymentRuntime": true
+    }
+  },
+  "capabilities": [
+    "registerAppSubsystemBackend",
+    "registerListenerEndpoint"
+  ]
+}

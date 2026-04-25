@@ -35,6 +35,17 @@ func TestResolvePluginBackendLaunchIncludesPluginRootOnPythonPath(t *testing.T) 
 	if len(entries) == 0 || entries[0] != pluginRoot {
 		t.Fatalf("expected plugin root %q to lead PYTHONPATH, got %#v", pluginRoot, entries)
 	}
+	sourceCheckoutBackendRoot := resolveSourceCheckoutPythonBackendRoot()
+	if sourceCheckoutBackendRoot == "" {
+		t.Fatal("expected source checkout backend root for python backend launch")
+	}
+	if !containsString(entries, sourceCheckoutBackendRoot) {
+		t.Fatalf(
+			"expected source checkout backend root %q in PYTHONPATH, got %#v",
+			sourceCheckoutBackendRoot,
+			entries,
+		)
+	}
 }
 
 func TestServiceValidateFolderAcceptsPythonBackendImportingPluginRootHelper(t *testing.T) {

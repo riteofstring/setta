@@ -39,6 +39,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/settingsstate"
 	"setta/internal/terminals"
+	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/transcriptionprofiles"
 )
@@ -235,6 +236,38 @@ func TestAppServesAppDefinitionRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	installAppRepoPlugin(t, cfg, firstpartyplugin.AppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, firstpartyplugin.AppSubsystemPluginID)
+
+	assertAppDefinitionRoutesServe(t, cfg)
+}
+
+func TestAppServesAppDefinitionRoutesWithUnknownIDPlugin(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	installAppFixturePlugin(t, cfg, "app-subsystem-unknown-id")
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
+
+	assertAppDefinitionRoutesServe(t, cfg)
+}
+
+func TestAppServesAppDefinitionRoutesWithUnknownIDPackageManagerPlugin(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installAppPackageManagerFixturePlugin(t, sitePackages, "app-subsystem-unknown-id")
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
+
+	assertAppDefinitionRoutesServe(t, cfg)
+}
+
+func assertAppDefinitionRoutesServe(t *testing.T, cfg config.Config) {
+	t.Helper()
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
 	if err != nil {
@@ -13522,6 +13555,9 @@ func copyAppTestDir(t *testing.T, sourceRoot string, targetRoot string) {
 	}
 
 	for _, entry := range entries {
+		if entry.Name() == "node_modules" {
+			continue
+		}
 		sourcePath := filepath.Join(sourceRoot, entry.Name())
 		targetPath := filepath.Join(targetRoot, entry.Name())
 

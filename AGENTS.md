@@ -32,6 +32,7 @@
 - For Python/package tooling, use `source activate.sh && <command>`.
 - Pin checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests.
 - Run Go through `./scripts/go.sh`.
+- For Go API and documentation inspection, prefer `./scripts/go.sh doc <pkg-or-symbol>` for authoritative docs and `./scripts/gopls.sh` for semantic navigation before falling back to text search.
 - Format Go with `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>`.
 - Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh` for Python/package pytest, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
 - When changing runtime behavior, add Go tests beside the backend owner. When changing Python SDK or package boundaries, add focused pytest coverage under `tests/`.

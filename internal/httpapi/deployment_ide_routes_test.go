@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"setta/internal/appspec"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/modes"
@@ -26,8 +26,7 @@ type deploymentIDERouteFixture struct {
 	WorkspaceRoot    string
 	ProjectRuntime   *projectstate.Runtime
 	Catalog          *deployments.Catalog
-	SharePublisher   *deployments.SharePublisher
-	AppPublisher     *deployments.AppPublisher
+	SharePublisher   deployments.SharePublishService
 	setPublishedAtFn func(time.Time)
 }
 
@@ -236,353 +235,62 @@ func TestRegisterDeploymentIDERoutesSharePublishUsesLatestRuntimeSnapshot(t *tes
 	}
 }
 
-func TestRegisterDeploymentIDERoutesPublishesAppDeployment(t *testing.T) {
+func TestDeploymentTypeLabelUsesGenericTypeNames(t *testing.T) {
 	t.Parallel()
 
-	appSpecPath := appspec.DefaultPath()
-	appSpecPayload := map[string]any{
-		"root": map[string]any{
-			"key":  "root",
-			"type": "Stack",
-		},
-		"elements": map[string]any{},
+	if got := deploymentTypeLabel(deployments.TypeShare); got != "Share" {
+		t.Fatalf("expected Share label, got %q", got)
 	}
-	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{
-		AppSpecPath: appSpecPath,
-	}))
-	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
-		t.Fatalf("write app spec: %v", err)
+	if got := deploymentTypeLabel(deployments.Type("plugin-app")); got != "Plugin-app" {
+		t.Fatalf("expected generic plugin label, got %q", got)
 	}
+}
 
-	listenerPath := filepath.Join(fixture.WorkspaceRoot, "listeners", "app.py")
-	if err := os.MkdirAll(filepath.Dir(listenerPath), 0o755); err != nil {
-		t.Fatalf("mkdir app listener path: %v", err)
-	}
-	if err := os.WriteFile(listenerPath, []byte("print('listener')\n"), 0o644); err != nil {
-		t.Fatalf("write app listener source: %v", err)
-	}
+func TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnSharePublish(t *testing.T) {
+	t.Parallel()
 
+	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
 	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
 
-	fixture.setPublishedAt(time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(
 		http.MethodPost,
-		"/api"+RouteAppDeployments,
-		strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha","appPolicyOverrides":{"allowRun":false},"listenerEntrypoint":"listeners/app.py"}`),
+		"/api"+RouteShareDeployments,
+		strings.NewReader(`{"deploymentName":"demo-share","projectConfigId":"project-alpha","unexpected":true}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected app publish 200, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid publish payload 400, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload DeploymentMetadataResponse
+	var payload errorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode app publish payload: %v", err)
+		t.Fatalf("decode invalid publish response: %v", err)
 	}
-	if payload.DeploymentVersion != "v1" {
-		t.Fatalf("expected app deployment version v1, got %q", payload.DeploymentVersion)
-	}
-
-	manifest, err := deployments.LoadManifest(payload.DeploymentRoot)
-	if err != nil {
-		t.Fatalf("load app manifest: %v", err)
-	}
-	if manifest.DeploymentType != deployments.TypeApp {
-		t.Fatalf("expected app deployment type, got %q", manifest.DeploymentType)
-	}
-	if manifest.Listener == nil || !manifest.Listener.Enabled {
-		t.Fatalf("expected enabled app listener config, got %#v", manifest.Listener)
-	}
-	if manifest.Listener.Entrypoint != "listener/app.py" {
-		t.Fatalf("expected app listener entrypoint listener/app.py, got %q", manifest.Listener.Entrypoint)
-	}
-	listenerContent, err := os.ReadFile(filepath.Join(payload.DeploymentRoot, "listener", "app.py"))
-	if err != nil {
-		t.Fatalf("read copied app listener entrypoint: %v", err)
-	}
-	if string(listenerContent) != "print('listener')\n" {
-		t.Fatalf("unexpected copied app listener content %q", string(listenerContent))
-	}
-
-	policy, err := deployments.LoadPolicy(payload.DeploymentRoot)
-	if err != nil {
-		t.Fatalf("load app policy: %v", err)
-	}
-	if policy.AllowRun {
-		t.Fatalf("expected app policy allowRun override false, got %#v", policy)
-	}
-
-	store, err := projectstate.NewStore(filepath.Join(payload.DeploymentRoot, projectstate.MainFileName), projectstate.StoreOptions{})
-	if err != nil {
-		t.Fatalf("open published app store: %v", err)
-	}
-	document, err := store.Load(context.Background())
-	if err != nil {
-		t.Fatalf("load published app document: %v", err)
-	}
-	if document.AppDefinition == nil {
-		t.Fatal("expected published app definition")
-	}
-	if document.AppDefinition.AppSpecPath != appSpecPath {
-		t.Fatalf("expected published app spec path %q, got %q", appSpecPath, document.AppDefinition.AppSpecPath)
-	}
-
-	publishedSpec, err := appspec.Read(payload.DeploymentRoot, appSpecPath)
-	if err != nil {
-		t.Fatalf("read published app spec: %v", err)
-	}
-	encodedPublished, err := json.Marshal(publishedSpec)
-	if err != nil {
-		t.Fatalf("marshal published app spec: %v", err)
-	}
-	encodedExpected, err := json.Marshal(appSpecPayload)
-	if err != nil {
-		t.Fatalf("marshal expected app spec: %v", err)
-	}
-	if string(encodedPublished) != string(encodedExpected) {
-		t.Fatalf("expected published app spec %s, got %s", string(encodedExpected), string(encodedPublished))
-	}
-
-	fixture.setPublishedAt(time.Date(2026, 3, 8, 13, 0, 0, 0, time.UTC))
-	secondResponse := httptest.NewRecorder()
-	secondRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteAppDeployments,
-		strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
-	)
-	secondRequest.Header.Set("Content-Type", "application/json")
-	handler.ServeHTTP(secondResponse, secondRequest)
-	if secondResponse.Code != http.StatusOK {
-		t.Fatalf("expected second app publish 200, got %d with body %q", secondResponse.Code, secondResponse.Body.String())
-	}
-
-	var secondPayload DeploymentMetadataResponse
-	if err := json.Unmarshal(secondResponse.Body.Bytes(), &secondPayload); err != nil {
-		t.Fatalf("decode second app publish payload: %v", err)
-	}
-	if secondPayload.DeploymentVersion != "v2" {
-		t.Fatalf("expected second app deployment version v2, got %q", secondPayload.DeploymentVersion)
-	}
-
-	versionsResponse := httptest.NewRecorder()
-	versionsRequest := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-app/versions", nil)
-	handler.ServeHTTP(versionsResponse, versionsRequest)
-	if versionsResponse.Code != http.StatusOK {
-		t.Fatalf("expected app versions 200, got %d with body %q", versionsResponse.Code, versionsResponse.Body.String())
-	}
-
-	var versionsPayload []DeploymentMetadataResponse
-	if err := json.Unmarshal(versionsResponse.Body.Bytes(), &versionsPayload); err != nil {
-		t.Fatalf("decode app versions payload: %v", err)
-	}
-	if len(versionsPayload) != 2 {
-		t.Fatalf("expected two app versions, got %#v", versionsPayload)
-	}
-	if versionsPayload[0].DeploymentVersion != "v2" || versionsPayload[1].DeploymentVersion != "v1" {
-		t.Fatalf("expected newest-first app versions, got %#v", versionsPayload)
-	}
-
-	latestResponse := httptest.NewRecorder()
-	latestRequest := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-app/latest", nil)
-	handler.ServeHTTP(latestResponse, latestRequest)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected app latest 200, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-	}
-
-	var latestPayload DeploymentMetadataResponse
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
-		t.Fatalf("decode app latest payload: %v", err)
-	}
-	if latestPayload.DeploymentVersion != "v2" {
-		t.Fatalf("expected latest app deployment version v2, got %q", latestPayload.DeploymentVersion)
-	}
-
-	listResponse := httptest.NewRecorder()
-	listRequest := httptest.NewRequest(http.MethodGet, "/api"+RouteAppDeployments, nil)
-	handler.ServeHTTP(listResponse, listRequest)
-	if listResponse.Code != http.StatusOK {
-		t.Fatalf("expected app list 200, got %d with body %q", listResponse.Code, listResponse.Body.String())
-	}
-
-	var listPayload []DeploymentMetadataResponse
-	if err := json.Unmarshal(listResponse.Body.Bytes(), &listPayload); err != nil {
-		t.Fatalf("decode app list payload: %v", err)
-	}
-	if len(listPayload) != 2 {
-		t.Fatalf("expected two app list entries, got %#v", listPayload)
-	}
-	if listPayload[0].DeploymentVersion != "v2" || listPayload[1].DeploymentVersion != "v1" {
-		t.Fatalf("expected newest-first app list entries, got %#v", listPayload)
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json error code, got %#v", payload)
 	}
 }
 
-func TestRegisterDeploymentIDERoutesLatestRoutesFilterByDeploymentType(t *testing.T) {
+func TestRegisterDeploymentIDERoutesRejectMalformedSharePublishJSON(t *testing.T) {
 	t.Parallel()
 
-	appSpecPath := appspec.DefaultPath()
-	appSpecPayload := map[string]any{
-		"root": map[string]any{
-			"key":  "root",
-			"type": "Stack",
-		},
-		"elements": map[string]any{},
-	}
-	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{
-		AppSpecPath: appSpecPath,
-	}))
-	if err := appspec.Write(fixture.SettaFilesRoot, appSpecPath, appSpecPayload); err != nil {
-		t.Fatalf("write app spec: %v", err)
-	}
-
+	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
 	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
 
-	fixture.setPublishedAt(time.Date(2026, 3, 8, 14, 0, 0, 0, time.UTC))
-	shareResponse := httptest.NewRecorder()
-	shareRequest := httptest.NewRequest(
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteShareDeployments,
-		strings.NewReader(`{"deploymentName":"demo-collision","projectConfigId":"project-alpha"}`),
+		strings.NewReader(`{"deploymentName":`),
 	)
-	shareRequest.Header.Set("Content-Type", "application/json")
-	handler.ServeHTTP(shareResponse, shareRequest)
-	if shareResponse.Code != http.StatusOK {
-		t.Fatalf("expected share publish 200, got %d with body %q", shareResponse.Code, shareResponse.Body.String())
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected malformed publish payload 400, got %d with body %q", response.Code, response.Body.String())
 	}
-
-	fixture.setPublishedAt(time.Date(2026, 3, 8, 15, 0, 0, 0, time.UTC))
-	appResponse := httptest.NewRecorder()
-	appRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteAppDeployments,
-		strings.NewReader(`{"deploymentName":"demo-collision","projectConfigId":"project-alpha"}`),
-	)
-	appRequest.Header.Set("Content-Type", "application/json")
-	handler.ServeHTTP(appResponse, appRequest)
-	if appResponse.Code != http.StatusOK {
-		t.Fatalf("expected app publish 200, got %d with body %q", appResponse.Code, appResponse.Body.String())
-	}
-
-	shareLatestResponse := httptest.NewRecorder()
-	shareLatestRequest := httptest.NewRequest(http.MethodGet, "/api/share/deployments/demo-collision/latest", nil)
-	handler.ServeHTTP(shareLatestResponse, shareLatestRequest)
-	if shareLatestResponse.Code != http.StatusNotFound {
-		t.Fatalf("expected share latest 404 when newest root is app-only, got %d with body %q", shareLatestResponse.Code, shareLatestResponse.Body.String())
-	}
-	deploymentIDERouteErrorCode(t, shareLatestResponse, "not_found")
-	if !strings.Contains(shareLatestResponse.Body.String(), "Share deployment not found") {
-		t.Fatalf("expected share latest route to explain missing share deployment, got %q", shareLatestResponse.Body.String())
-	}
-
-	appLatestResponse := httptest.NewRecorder()
-	appLatestRequest := httptest.NewRequest(http.MethodGet, "/api/app/deployments/demo-collision/latest", nil)
-	handler.ServeHTTP(appLatestResponse, appLatestRequest)
-	if appLatestResponse.Code != http.StatusOK {
-		t.Fatalf("expected app latest 200, got %d with body %q", appLatestResponse.Code, appLatestResponse.Body.String())
-	}
-
-	var appLatestPayload DeploymentMetadataResponse
-	if err := json.Unmarshal(appLatestResponse.Body.Bytes(), &appLatestPayload); err != nil {
-		t.Fatalf("decode app latest payload: %v", err)
-	}
-	appManifest, err := deployments.LoadManifest(appLatestPayload.DeploymentRoot)
-	if err != nil {
-		t.Fatalf("load app latest manifest: %v", err)
-	}
-	if appManifest.DeploymentType != deployments.TypeApp {
-		t.Fatalf("expected app latest route to return app manifest, got %q", appManifest.DeploymentType)
-	}
-	if appLatestPayload.DeploymentVersion != "v2" {
-		t.Fatalf("expected app latest route to resolve newest app deployment v2, got %q", appLatestPayload.DeploymentVersion)
-	}
-}
-
-func TestRegisterDeploymentIDERoutesRejectUnknownFieldsOnPublish(t *testing.T) {
-	t.Parallel()
-
-	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
-	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
-
-	tests := []struct {
-		name string
-		path string
-		body string
-	}{
-		{
-			name: "share publish",
-			path: "/api" + RouteShareDeployments,
-			body: `{"deploymentName":"demo-share","projectConfigId":"project-alpha","unexpected":true}`,
-		},
-		{
-			name: "app publish",
-			path: "/api" + RouteAppDeployments,
-			body: `{"deploymentName":"demo-app","projectConfigId":"project-alpha","unexpected":true}`,
-		},
-	}
-
-	for _, testCase := range tests {
-		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			response := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodPost, testCase.path, strings.NewReader(testCase.body))
-			request.Header.Set("Content-Type", "application/json")
-			handler.ServeHTTP(response, request)
-			if response.Code != http.StatusBadRequest {
-				t.Fatalf("expected invalid publish payload 400, got %d with body %q", response.Code, response.Body.String())
-			}
-
-			var payload errorResponse
-			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-				t.Fatalf("decode invalid publish response: %v", err)
-			}
-			if payload.Error.Code != "invalid_json" {
-				t.Fatalf("expected invalid_json error code, got %#v", payload)
-			}
-		})
-	}
-}
-
-func TestRegisterDeploymentIDERoutesRejectMalformedPublishJSON(t *testing.T) {
-	t.Parallel()
-
-	fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
-	handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
-
-	tests := []struct {
-		name string
-		path string
-		body string
-	}{
-		{
-			name: "share publish",
-			path: "/api" + RouteShareDeployments,
-			body: `{"deploymentName":`,
-		},
-		{
-			name: "app publish",
-			path: "/api" + RouteAppDeployments,
-			body: `{"deploymentName":`,
-		},
-	}
-
-	for _, testCase := range tests {
-		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			response := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodPost, testCase.path, strings.NewReader(testCase.body))
-			request.Header.Set("Content-Type", "application/json")
-			handler.ServeHTTP(response, request)
-			if response.Code != http.StatusBadRequest {
-				t.Fatalf("expected malformed publish payload 400, got %d with body %q", response.Code, response.Body.String())
-			}
-			deploymentIDERouteErrorCode(t, response, "invalid_json")
-		})
-	}
+	deploymentIDERouteErrorCode(t, response, "invalid_json")
 }
 
 func TestRegisterDeploymentIDERoutesMapSharePublishValidationErrors(t *testing.T) {
@@ -638,97 +346,6 @@ func TestRegisterDeploymentIDERoutesMapSharePublishValidationErrors(t *testing.T
 	}
 }
 
-func TestRegisterDeploymentIDERoutesMapAppPublishValidationErrors(t *testing.T) {
-	t.Parallel()
-
-	t.Run("app definition required", func(t *testing.T) {
-		fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(nil))
-		handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
-
-		response := httptest.NewRecorder()
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+RouteAppDeployments,
-			strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusBadRequest {
-			t.Fatalf("expected app-definition-required 400, got %d with body %q", response.Code, response.Body.String())
-		}
-		deploymentIDERouteErrorCode(t, response, "app_definition_required")
-	})
-
-	t.Run("app spec path required", func(t *testing.T) {
-		fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{}))
-		handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
-
-		response := httptest.NewRecorder()
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+RouteAppDeployments,
-			strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusBadRequest {
-			t.Fatalf("expected app-spec-path-required 400, got %d with body %q", response.Code, response.Body.String())
-		}
-		deploymentIDERouteErrorCode(t, response, "app_spec_path_required")
-	})
-
-	t.Run("app spec not found", func(t *testing.T) {
-		fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{
-			AppSpecPath: appspec.DefaultPath(),
-		}))
-		handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
-
-		response := httptest.NewRecorder()
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+RouteAppDeployments,
-			strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusBadRequest {
-			t.Fatalf("expected app-spec-not-found 400, got %d with body %q", response.Code, response.Body.String())
-		}
-		deploymentIDERouteErrorCode(t, response, "app_spec_not_found")
-	})
-
-	t.Run("invalid app spec", func(t *testing.T) {
-		fixture := newDeploymentIDERouteFixture(t, deploymentIDERouteDocument(&projectstate.AppDefinition{
-			AppSpecPath: appspec.DefaultPath(),
-		}))
-		handler := newDeploymentIDERouteTestHandler(t, config.ModeIDE, fixture)
-
-		appSpecPath, err := appspec.ResolvePath(fixture.SettaFilesRoot, appspec.DefaultPath())
-		if err != nil {
-			t.Fatalf("resolve app spec path: %v", err)
-		}
-		if err := os.MkdirAll(filepath.Dir(appSpecPath), 0o755); err != nil {
-			t.Fatalf("mkdir app spec dir: %v", err)
-		}
-		if err := os.WriteFile(appSpecPath, []byte("{not-json}\n"), 0o644); err != nil {
-			t.Fatalf("write invalid app spec: %v", err)
-		}
-
-		response := httptest.NewRecorder()
-		request := httptest.NewRequest(
-			http.MethodPost,
-			"/api"+RouteAppDeployments,
-			strings.NewReader(`{"deploymentName":"demo-app","projectConfigId":"project-alpha"}`),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusBadRequest {
-			t.Fatalf("expected invalid-app-spec 400, got %d with body %q", response.Code, response.Body.String())
-		}
-		deploymentIDERouteErrorCode(t, response, "invalid_app_spec")
-	})
-}
-
 func TestRegisterDeploymentIDERoutesMapCatalogReadErrors(t *testing.T) {
 	t.Parallel()
 
@@ -750,21 +367,8 @@ func TestRegisterDeploymentIDERoutesMapCatalogReadErrors(t *testing.T) {
 			expectEmptyList: true,
 		},
 		{
-			name:            "app versions missing deployment",
-			path:            "/api/app/deployments/missing/versions",
-			expectedCode:    http.StatusOK,
-			expectEmptyList: true,
-		},
-		{
 			name:            "share versions invalid deployment name",
 			path:            "/api/share/deployments/%20/versions",
-			expectedCode:    http.StatusBadRequest,
-			expectedErrCode: "invalid_deployment_name",
-			expectedMessage: deployments.ErrDeploymentNameRequired.Error(),
-		},
-		{
-			name:            "app versions invalid deployment name",
-			path:            "/api/app/deployments/%20/versions",
 			expectedCode:    http.StatusBadRequest,
 			expectedErrCode: "invalid_deployment_name",
 			expectedMessage: deployments.ErrDeploymentNameRequired.Error(),
@@ -777,25 +381,11 @@ func TestRegisterDeploymentIDERoutesMapCatalogReadErrors(t *testing.T) {
 			expectedMessage: deployments.ErrDeploymentNameRequired.Error(),
 		},
 		{
-			name:            "app latest invalid deployment name",
-			path:            "/api/app/deployments/%20/latest",
-			expectedCode:    http.StatusBadRequest,
-			expectedErrCode: "invalid_deployment_name",
-			expectedMessage: deployments.ErrDeploymentNameRequired.Error(),
-		},
-		{
 			name:            "share latest missing deployment",
 			path:            "/api/share/deployments/missing/latest",
 			expectedCode:    http.StatusNotFound,
 			expectedErrCode: "not_found",
 			expectedMessage: "Share deployment not found: missing",
-		},
-		{
-			name:            "app latest missing deployment",
-			path:            "/api/app/deployments/missing/latest",
-			expectedCode:    http.StatusNotFound,
-			expectedErrCode: "not_found",
-			expectedMessage: "App deployment not found: missing",
 		},
 	}
 
@@ -868,14 +458,13 @@ func newDeploymentIDERouteTestHandler(t *testing.T, mode config.Mode, fixture de
 		},
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
-			if err := RegisterDeploymentIDERoutes(r, DeploymentIDERouteDependencies{
+			if err := RegisterShareDeploymentIDERoutes(r, ShareDeploymentIDERouteDependencies{
 				ModePolicy:     modes.NewPolicy(mode),
 				ProjectState:   fixture.ProjectRuntime,
 				Catalog:        fixture.Catalog,
 				SharePublisher: fixture.SharePublisher,
-				AppPublisher:   fixture.AppPublisher,
 			}); err != nil {
-				t.Fatalf("register deployment ide routes: %v", err)
+				t.Fatalf("register share deployment ide routes: %v", err)
 			}
 		},
 	})
@@ -925,25 +514,12 @@ func newDeploymentIDERouteFixture(t *testing.T, document projectstate.Document) 
 	if err != nil {
 		t.Fatalf("new share publisher: %v", err)
 	}
-	appPublisher, err := deployments.NewAppPublisher(deployments.AppPublisherOptions{
-		Catalog:        catalog,
-		SettaFilesRoot: settaFilesRoot,
-		WorkspaceRoot:  workspaceRoot,
-		Now: func() time.Time {
-			return publishedAt
-		},
-	})
-	if err != nil {
-		t.Fatalf("new app publisher: %v", err)
-	}
-
 	return deploymentIDERouteFixture{
 		SettaFilesRoot: settaFilesRoot,
 		WorkspaceRoot:  workspaceRoot,
 		ProjectRuntime: projectRuntime,
 		Catalog:        catalog,
 		SharePublisher: sharePublisher,
-		AppPublisher:   appPublisher,
 		setPublishedAtFn: func(next time.Time) {
 			publishedAt = next
 		},
@@ -966,16 +542,28 @@ func deploymentIDERouteErrorCode(t *testing.T, response *httptest.ResponseRecord
 	}
 }
 
-func deploymentIDERouteDocument(appDefinition *projectstate.AppDefinition) projectstate.Document {
-	return projectstate.Document{
+func deploymentIDERouteDocument(appDefinition *appdefinition.AppDefinition) projectstate.Document {
+	return appdefinition.MustStorageForPlugin("setta-json-render-app-gen").WithStoredDocumentAppDefinition(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
-		AppDefinition:    appDefinition,
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
 				ID:   "project-alpha",
 				Name: "Alpha",
 			},
 		},
+	}, encodeDeploymentIDERouteAppDefinition(appDefinition))
+}
+
+func encodeDeploymentIDERouteAppDefinition(
+	appDefinition *appdefinition.AppDefinition,
+) projectstate.RawJSON {
+	if appDefinition == nil {
+		return nil
 	}
+	encoded, err := json.Marshal(appDefinition)
+	if err != nil {
+		panic(err)
+	}
+	return projectstate.RawJSON(encoded)
 }

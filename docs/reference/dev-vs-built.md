@@ -35,7 +35,10 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - Auth bootstrap still happens on the backend, but redirects to `/` (same origin).
 
 ## Scripts and When to Use Them
-- `dev_install.sh`: install the default local dev deps with frozen lockfiles (sync the repo Python environment with the `defaults`, `source`, and `dev` extras, ensure the pinned Go toolchain is available, then install frontend deps, sidecars, and clean build artifacts).
+- `dev_install.sh`: install the default local dev deps with frozen lockfiles
+  (sync the repo Python environment with the `defaults`, `source`, and `dev`
+  extras, ensure the pinned Go toolchain and repo-local `gopls` are available,
+  then install frontend deps, sidecars, and clean build artifacts).
 - `update_dependencies.sh`: explicitly refresh the Python and pnpm lockfiles, then sync/install against the refreshed lock state.
 - `build.sh`: build the frontend bundle, stage built assets, build packaged Go binaries, then package the wheel through `./scripts/build_python_distribution_with_go_binaries.sh`.
 - `verify_install.sh`: dedicated sdist-completeness smoke (runs the full `./build.sh` path, installs the resulting sdist into the venv with `uv pip`, then cleans).
