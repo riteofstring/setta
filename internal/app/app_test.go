@@ -8844,7 +8844,7 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 	}
 }
 
-func TestAppSetWatchCodeEnabledRouteRejectsWithoutProvider(t *testing.T) {
+func TestAppSetWatchCodeEnabledCoreRouteIsAbsent(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -8881,7 +8881,7 @@ func TestAppSetWatchCodeEnabledRouteRejectsWithoutProvider(t *testing.T) {
 
 	request, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api"+httpapi.RouteSetWatchCodeEnabled,
+		server.URL+"/api/setWatchCodeEnabled",
 		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
 	)
 	if err != nil {
@@ -8899,11 +8899,11 @@ func TestAppSetWatchCodeEnabledRouteRejectsWithoutProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read response body: %v", err)
 	}
-	if response.StatusCode != http.StatusConflict {
-		t.Fatalf("expected 409, got %d with body %q", response.StatusCode, string(body))
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.StatusCode, string(body))
 	}
-	if !strings.Contains(string(body), `"code":"feature_unavailable"`) {
-		t.Fatalf("expected feature_unavailable response, got %q", string(body))
+	if !strings.Contains(string(body), `"code":"not_found"`) {
+		t.Fatalf("expected not_found response, got %q", string(body))
 	}
 
 	snapshot := app.ProjectStates().Main().Snapshot()

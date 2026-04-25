@@ -1994,12 +1994,6 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 		ModePolicy: deps.modePolicy,
 		Git:        deps.gitReadService,
 	}
-	watchCodeCapabilities := func() plugins.PluginWatchCodeCapabilities {
-		if deps.watchCodeCapabilities == nil {
-			return plugins.WatchCodeCapabilitiesFromSnapshot(plugins.DiscoverySnapshot{})
-		}
-		return deps.watchCodeCapabilities.WatchCodeCapabilities()
-	}
 	apiDeps.Project = httpapi.ProjectRouteDependencies{
 		ModePolicy:                     deps.modePolicy,
 		WorkspaceRoot:                  deps.cfg.Paths.WorkspaceRoot,
@@ -2141,20 +2135,6 @@ func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
 	if err != nil {
 		return err
 	}
-	watchCodeRouteRegistrations := httpapi.BuildWatchCodeFrontendAPIRouteRegistrations(
-		httpapi.WatchCodeRouteDependencies{
-			ModePolicy:            deps.modePolicy,
-			WorkspaceRoot:         deps.cfg.Paths.WorkspaceRoot,
-			ProjectState:          deps.projectRuntime,
-			SettingsProjectState:  deps.projectStates.Settings(),
-			WebsocketHub:          deps.websocketHub,
-			WatchCodeCapabilities: watchCodeCapabilities,
-		},
-	)
-	appSubsystemRouteRegistrations.Project = append(
-		appSubsystemRouteRegistrations.Project,
-		watchCodeRouteRegistrations.Project...,
-	)
 	return httpapi.RegisterFrontendAPIRoutes(
 		r,
 		apiDeps,

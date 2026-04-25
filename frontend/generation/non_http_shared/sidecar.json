@@ -4557,14 +4557,6 @@
           "value": "/setViewModeSortOrder"
         },
         {
-          "name": "SET_WATCH_CODE_ENABLED",
-          "value": "/setWatchCodeEnabled"
-        },
-        {
-          "name": "SET_WATCH_CODE_INPUTS",
-          "value": "/setWatchCodeInputs"
-        },
-        {
           "name": "SET_WINDOW_SPACE_NAME",
           "value": "/setWindowSpaceName"
         },
@@ -8123,16 +8115,6 @@
       "name": "SET_VIEW_MODE_SORT_ORDER",
       "path": "/setViewModeSortOrder",
       "sourceConstant": "RouteSetViewModeSortOrder"
-    },
-    {
-      "name": "SET_WATCH_CODE_ENABLED",
-      "path": "/setWatchCodeEnabled",
-      "sourceConstant": "RouteSetWatchCodeEnabled"
-    },
-    {
-      "name": "SET_WATCH_CODE_INPUTS",
-      "path": "/setWatchCodeInputs",
-      "sourceConstant": "RouteSetWatchCodeInputs"
     },
     {
       "name": "SET_WINDOW_SPACE_NAME",

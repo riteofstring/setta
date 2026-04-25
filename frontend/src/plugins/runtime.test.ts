@@ -45,7 +45,6 @@ import React from "react";
 import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
 import { loadProjectState } from "state/actions/project/loadProject";
-import * as watchCodeActions from "state/actions/project/watchCode";
 import * as realtimeDependencySend from "state/actions/realtimeDependencySend";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import { useActiveSectionUI } from "state/activeSectionUI";
@@ -2820,13 +2819,12 @@ describe("plugin runtime helpers", () => {
       code: PluginFrontendErrorCodeEnum.CapabilityDenied,
     });
   });
-  it("delegates Watch Code setting mutations through the generated host actions", async () => {
-    const setEnabled = vi
-      .spyOn(watchCodeActions, "setWatchCodeEnabled")
-      .mockResolvedValue(true);
-    const setInputs = vi
-      .spyOn(watchCodeActions, "setWatchCodeInputs")
-      .mockResolvedValue(true);
+  it("delegates Watch Code setting mutations through plugin-owned backend routes", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(null, { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
@@ -2860,14 +2858,35 @@ describe("plugin runtime helpers", () => {
       }),
     ).resolves.toBe(true);
 
-    expect(setEnabled).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      enabled: true,
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "/plugins/acme.plugin/watch-code/enabled",
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      credentials: "include",
+      headers: expect.objectContaining({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        enabled: true,
+      }),
     });
-    expect(setInputs).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      watchCodeFolders: [{ path: "pkg", recursive: true }],
-      watchCodeFiles: ["pkg/mod.py"],
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
+      "/plugins/acme.plugin/watch-code/inputs",
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      credentials: "include",
+      headers: expect.objectContaining({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        watchCodeFolders: [{ path: "pkg", recursive: true }],
+        watchCodeFiles: ["pkg/mod.py"],
+      }),
     });
   });
   it("exposes createStore on the plugin host", async () => {

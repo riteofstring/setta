@@ -4,10 +4,6 @@ import {
   type RegisteredAppSubsystemFrontendRegistration,
 } from "@setta/app-subsystem-frontend-sdk";
 import throttle from "lodash/throttle";
-import {
-  setWatchCodeEnabled as setWatchCodeEnabledAction,
-  setWatchCodeInputs as setWatchCodeInputsAction,
-} from "state/actions/project/watchCode";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useActiveSectionUI, useProjectState } from "state/definitions";
@@ -22,6 +18,8 @@ import {
   SectionDependencyKey,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { buildShareSessionHeaders } from "utils/shareSessionHeaders";
+import { buildBackendOriginURL } from "utils/transportUrlCore";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
 import {
   isPluginPaneIconName,
@@ -963,6 +961,30 @@ function normalizeWatchCodeFolderInput(
   };
 }
 
+function watchCodePluginRoute(pluginId: string, suffix: string): string {
+  return `/plugins/${encodeURIComponent(pluginId)}/watch-code/${suffix}`;
+}
+
+async function postWatchCodePluginRoute(
+  pluginId: string,
+  suffix: string,
+  payload: PluginSetWatchCodeEnabledPayload | PluginSetWatchCodeInputsPayload,
+): Promise<boolean> {
+  const response = await fetch(
+    buildBackendOriginURL(watchCodePluginRoute(pluginId, suffix)),
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...buildShareSessionHeaders(),
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+  return response.status === 200;
+}
+
 function registerPluginModule({
   plugin,
   importedModule,
@@ -1319,7 +1341,9 @@ function registerPluginModule({
         watchCodeSettingsMutationCapability,
         "setWatchCodeEnabled",
       );
-      return await setWatchCodeEnabledAction(
+      return await postWatchCodePluginRoute(
+        plugin.pluginId,
+        "enabled",
         normalizeSetWatchCodeEnabledPayload(plugin.pluginId, payload),
       );
     },
@@ -1330,7 +1354,9 @@ function registerPluginModule({
         watchCodeSettingsMutationCapability,
         "setWatchCodeInputs",
       );
-      return await setWatchCodeInputsAction(
+      return await postWatchCodePluginRoute(
+        plugin.pluginId,
+        "inputs",
         normalizeSetWatchCodeInputsPayload(plugin.pluginId, payload),
       );
     },

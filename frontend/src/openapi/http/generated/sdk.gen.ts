@@ -761,12 +761,6 @@ import type {
   SetViewportData,
   SetViewportErrors,
   SetViewportResponses,
-  SetWatchCodeEnabledData,
-  SetWatchCodeEnabledErrors,
-  SetWatchCodeEnabledResponses,
-  SetWatchCodeInputsData,
-  SetWatchCodeInputsErrors,
-  SetWatchCodeInputsResponses,
   SetWindowSpaceNameData,
   SetWindowSpaceNameErrors,
   SetWindowSpaceNameResponses,
@@ -5471,40 +5465,6 @@ export const setViewport = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: "/setViewport",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-};
-
-export const setWatchCodeEnabled = <ThrowOnError extends boolean = false>(
-  options: Options<SetWatchCodeEnabledData, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    SetWatchCodeEnabledResponses,
-    SetWatchCodeEnabledErrors,
-    ThrowOnError
-  >({
-    url: "/setWatchCodeEnabled",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-};
-
-export const setWatchCodeInputs = <ThrowOnError extends boolean = false>(
-  options: Options<SetWatchCodeInputsData, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    SetWatchCodeInputsResponses,
-    SetWatchCodeInputsErrors,
-    ThrowOnError
-  >({
-    url: "/setWatchCodeInputs",
     ...options,
     headers: {
       "Content-Type": "application/json",

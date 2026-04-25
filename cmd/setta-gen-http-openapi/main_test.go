@@ -33,15 +33,15 @@ func TestBuildFrontendHTTPOpenAPIDocumentIncludesDiscoveredAppSubsystemRoutes(
 	}
 }
 
-func TestBuildFrontendHTTPOpenAPIDocumentIncludesWatchCodeRoutes(t *testing.T) {
+func TestBuildFrontendHTTPOpenAPIDocumentExcludesCoreWatchCodeRoutes(t *testing.T) {
 	document := buildOpenAPIDocumentForCapabilities(t, nil)
 
 	for _, routePath := range []string{
-		httpapi.RouteSetWatchCodeEnabled,
-		httpapi.RouteSetWatchCodeInputs,
+		"/setWatchCodeEnabled",
+		"/setWatchCodeInputs",
 	} {
-		if document.Paths[routePath] == nil {
-			t.Fatalf("expected watch code route contribution to include %s", routePath)
+		if document.Paths[routePath] != nil {
+			t.Fatalf("expected core watch code route %s to stay absent", routePath)
 		}
 	}
 }

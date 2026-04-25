@@ -10671,19 +10671,6 @@
         "required": ["x", "y", "w", "h"],
         "type": "object"
       },
-      "ProjectstateWatchCodeFolder": {
-        "additionalProperties": false,
-        "properties": {
-          "path": {
-            "type": "string"
-          },
-          "recursive": {
-            "type": "boolean"
-          }
-        },
-        "required": ["path", "recursive"],
-        "type": "object"
-      },
       "ProjectstateWindowSpaceConfig": {
         "additionalProperties": false,
         "properties": {
@@ -12029,47 +12016,6 @@
           }
         },
         "required": ["appendText", "fullText", "isFinal"],
-        "type": "object"
-      },
-      "WatchcodehttpSetWatchCodeEnabledRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          }
-        },
-        "required": ["projectConfigId", "enabled"],
-        "type": "object"
-      },
-      "WatchcodehttpSetWatchCodeInputsRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          },
-          "watchCodeFiles": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeFolders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          }
-        },
-        "required": ["projectConfigId", "watchCodeFolders", "watchCodeFiles"],
         "type": "object"
       }
     }
@@ -21785,84 +21731,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/HttpapiSetViewportRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "null"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpapiErrorResponse"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled"
-      }
-    },
-    "/setWatchCodeEnabled": {
-      "post": {
-        "operationId": "setWatchCodeEnabled",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WatchcodehttpSetWatchCodeEnabledRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "null"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpapiErrorResponse"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled"
-      }
-    },
-    "/setWatchCodeInputs": {
-      "post": {
-        "operationId": "setWatchCodeInputs",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WatchcodehttpSetWatchCodeInputsRequest"
               }
             }
           },

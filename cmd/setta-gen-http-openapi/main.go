@@ -30,7 +30,7 @@ func buildOpenAPIDocumentRouteRegistrations(
 ) (httpapi.FrontendAPIRouteRegistrations, error) {
 	mergedCapabilities, ok := appsubsystemproviders.MergeOpenAPICapabilities(providers)
 	if !ok {
-		return buildOpenAPIDocumentWatchCodeRegistrations(deps), nil
+		return httpapi.FrontendAPIRouteRegistrations{}, nil
 	}
 	registrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
 		appsubsystem.FrontendRouteRegistrationOptions{
@@ -47,19 +47,7 @@ func buildOpenAPIDocumentRouteRegistrations(
 	if err != nil {
 		return httpapi.FrontendAPIRouteRegistrations{}, err
 	}
-	watchCodeRegistrations := buildOpenAPIDocumentWatchCodeRegistrations(deps)
-	registrations.Project = append(registrations.Project, watchCodeRegistrations.Project...)
 	return registrations, nil
-}
-
-func buildOpenAPIDocumentWatchCodeRegistrations(
-	deps httpapi.FrontendAPIRouteDependencies,
-) httpapi.FrontendAPIRouteRegistrations {
-	return httpapi.BuildWatchCodeFrontendAPIRouteRegistrations(
-		httpapi.WatchCodeRouteDependencies{
-			ModePolicy: deps.Project.ModePolicy,
-		},
-	)
 }
 
 func main() {

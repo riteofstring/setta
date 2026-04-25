@@ -5203,8 +5203,6 @@ type Route =
   | "/setViewport"
   | "/setViewModeName"
   | "/setViewModeSortOrder"
-  | "/setWatchCodeEnabled"
-  | "/setWatchCodeInputs"
   | "/setWindowSpaceName"
   | "/setWindowSpaceSortOrder"
   | "/share/deployments"

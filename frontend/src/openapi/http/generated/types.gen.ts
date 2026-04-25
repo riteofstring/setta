@@ -3512,11 +3512,6 @@ export type ProjectstateViewportBounds = {
   y: number;
 };
 
-export type ProjectstateWatchCodeFolder = {
-  path: string;
-  recursive: boolean;
-};
-
 export type ProjectstateWindowSpaceConfig = {
   id?: string;
   name?: string;
@@ -3925,19 +3920,6 @@ export type TranscriptionsessionsDelta = {
   appendText: string;
   fullText: string;
   isFinal: boolean;
-};
-
-export type WatchcodehttpSetWatchCodeEnabledRequest = {
-  enabled: boolean;
-  frontendOpId?: string;
-  projectConfigId: string;
-};
-
-export type WatchcodehttpSetWatchCodeInputsRequest = {
-  frontendOpId?: string;
-  projectConfigId: string;
-  watchCodeFiles: Array<string> | null;
-  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
 };
 
 export type AcceptRenameRefactorData = {
@@ -10568,60 +10550,6 @@ export type SetViewportResponses = {
 
 export type SetViewportResponse =
   SetViewportResponses[keyof SetViewportResponses];
-
-export type SetWatchCodeEnabledData = {
-  body: WatchcodehttpSetWatchCodeEnabledRequest;
-  path?: never;
-  query?: never;
-  url: "/setWatchCodeEnabled";
-};
-
-export type SetWatchCodeEnabledErrors = {
-  /**
-   * Error
-   */
-  default: HttpapiErrorResponse;
-};
-
-export type SetWatchCodeEnabledError =
-  SetWatchCodeEnabledErrors[keyof SetWatchCodeEnabledErrors];
-
-export type SetWatchCodeEnabledResponses = {
-  /**
-   * OK
-   */
-  200: null;
-};
-
-export type SetWatchCodeEnabledResponse =
-  SetWatchCodeEnabledResponses[keyof SetWatchCodeEnabledResponses];
-
-export type SetWatchCodeInputsData = {
-  body: WatchcodehttpSetWatchCodeInputsRequest;
-  path?: never;
-  query?: never;
-  url: "/setWatchCodeInputs";
-};
-
-export type SetWatchCodeInputsErrors = {
-  /**
-   * Error
-   */
-  default: HttpapiErrorResponse;
-};
-
-export type SetWatchCodeInputsError =
-  SetWatchCodeInputsErrors[keyof SetWatchCodeInputsErrors];
-
-export type SetWatchCodeInputsResponses = {
-  /**
-   * OK
-   */
-  200: null;
-};
-
-export type SetWatchCodeInputsResponse =
-  SetWatchCodeInputsResponses[keyof SetWatchCodeInputsResponses];
 
 export type SetWindowSpaceNameData = {
   body: HttpapiSetWindowSpaceNameRequest;

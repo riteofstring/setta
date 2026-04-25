@@ -1232,8 +1232,6 @@ class Route(StrEnum):
     SET_VIEWPORT = "/setViewport"
     SET_VIEW_MODE_NAME = "/setViewModeName"
     SET_VIEW_MODE_SORT_ORDER = "/setViewModeSortOrder"
-    SET_WATCH_CODE_ENABLED = "/setWatchCodeEnabled"
-    SET_WATCH_CODE_INPUTS = "/setWatchCodeInputs"
     SET_WINDOW_SPACE_NAME = "/setWindowSpaceName"
     SET_WINDOW_SPACE_SORT_ORDER = "/setWindowSpaceSortOrder"
     SHARE_DEPLOYMENTS = "/share/deployments"
