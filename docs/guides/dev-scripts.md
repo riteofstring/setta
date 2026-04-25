@@ -153,34 +153,17 @@ These are used by the top-level wrappers or for advanced workflows.
   - `chrome-devtools-mcp.sh` pins a known-good MCP version and redirects startup stderr to `${TMPDIR:-/tmp}/setta-mcp-logs/`.
 - `./scripts/bootstrap-url.sh`
   - Prints a bootstrap URL for a running session.
-- `./scripts/run-codex-loop.sh`
-  - Lowest-level `codex exec` loop helper used by the specialized wrappers below.
-  - Accepts prompt/follow-up prompt files, pre/post iteration hooks, iteration counts, session rotation, inactivity watchdogs, retry behavior, and yolo mode.
-- `./scripts/run-codex-branch-review-loop.sh`
-  - Generic branch-review loop for having Codex review the current branch, consolidate findings, implement fixes, simplify the iteration diff, and commit the result.
-  - Replaces older feature/plugin-specific review loops; pass extra branch-specific instructions with `--extra-prompt` or `--extra-prompt-file` instead of adding another one-off wrapper.
-  - Defaults to `gpt-5.5`, `xhigh`, yolo mode, and a 30-minute transcript inactivity watchdog.
-- `./scripts/run-codex-plan-loop.sh`
-  - Generic plan-driven Codex loop for executing a repository plan document until a caller-provided completion sentinel appears.
-  - Use this for focused long-running feature work that used to require a custom loop script.
-  - Requires `--plan`, `--sentinel`, and `--name`.
-- `./scripts/run-codex-test-fix-loop.sh`
-  - Codex loop for working through Go, Python, Vitest, and Playwright test failures in small chunks.
-  - Stops only after external full-suite verification passes.
 - `./scripts/run-codex-authority-cleanup-loop.sh`
   - Specialized Codex loop for Go-as-source-of-truth cleanup work.
   - Starts a fresh Codex session every iteration, defaults to yolo mode, and stops only after Codex emits an explicit clean-stop sentinel.
   - Enforces that every non-stop iteration leaves a clean worktree and advances `HEAD`, so the loop fails fast if Codex forgets to commit after running `./gcf.sh`.
 - `./scripts/run-codex-authority-sequenced-loop.sh`
   - Specialized Codex loop that works in three strict phases: remove unjustified Go/Python/TypeScript duplication, then replace unjustified polling with websocket pushes, then run `./report_quality_hotspots.sh` and fix actionable hotspots.
-  - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
+  - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
   - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./check_quality.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
   - Runs with a 30-minute transcript inactivity watchdog by default and retries cleanly after a timed-out iteration instead of hanging forever.
   - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires an agent-started or developer-started browser session.
-- `./scripts/run-codex-deadcode-authority-loop.sh`
-  - Specialized Codex loop for auditing and removing confirmed dead code, useless pass-through constant aliases, and unjustified duplicated logic while keeping Go authoritative.
-  - Requires each non-stop iteration to leave a clean worktree and either advance `HEAD` or advance the phase checklist.
 - `./scripts/run-codex-severe-typecheck-loop.sh`
   - Specialized Codex loop for fixing only actionable runtime bugs that are surfaced by type errors instead of broad repo type backlog cleanup.
   - Starts a fresh Codex session every iteration, seeds a single-phase runtime-bug checklist plus audit, and uses saved `./check_types.sh --frontend` and `./check_types.sh --python` outputs to build a filtered `runtime-break-shortlist.md` rather than handing Codex the full raw checker dump.
@@ -192,11 +175,11 @@ These are used by the top-level wrappers or for advanced workflows.
   - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
 - `./scripts/run-codex-frontendbindings-openapi-loop.sh`
   - Specialized Codex loop for replacing the bespoke HTTP half of `internal/frontendbindings` with an OpenAPI-based pipeline.
-  - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
+  - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Seeds an HTTP/OpenAPI migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids keeping AST-based HTTP endpoint discovery, handwritten endpoint inventories, compatibility-name shims, or custom per-endpoint wrappers around the generated OpenAPI client.
 - `./scripts/run-codex-shared-type-generation-loop.sh`
   - Specialized Codex loop for migrating the remaining non-HTTP Go-owned TS/Python shared model generation onto a schema + semantic-sidecar path.
-  - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
+  - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Seeds a schema-migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, forbids tautological metadata tests and inventory shuffles, and stops after sustained plateau rather than churning tiny cleanups forever.
 
 ## Layer 3: Frontend `pnpm` scripts (from `frontend/`)
@@ -212,8 +195,7 @@ These are the underlying tasks used by the wrappers above.
 - `pnpm -C frontend typecheck`
   - Runs the frontend TypeScript compiler in no-emit mode.
 - `pnpm generate`
-  - Regenerates templates/types from `frontend/generation/`, then syncs the
-    app-subsystem frontend SDK generated inputs from the host-owned artifacts.
+  - Regenerates templates/types from `frontend/generation/`.
 - `pnpm -C frontend generate-go-frontend-bindings`
   - Regenerates the Go-owned frontend contract surface, including shared schema/OpenAPI artifacts, generated OpenAPI TypeScript outputs, and `src/utils/generatedTypes.ts`.
 - `pnpm -C frontend generate-http-openapi-bindings`
@@ -238,8 +220,7 @@ Useful when you need to debug a specific subsystem.
 - `frontend/backendStart.sh`
   - Starts the backend process for source/dev runs (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
 - `frontend/generation/generate.sh`
-  - Template/type generation (used by `pnpm generate`), including the
-    app-subsystem frontend SDK generated-input sync.
+  - Template/type generation (used by `pnpm generate`).
 - `frontend/generation/generate_go_frontend_bindings.sh`
   - Runs the full Go-owned frontend generation pipeline: type/route registries, non-HTTP schema/OpenAPI artifacts, generated non-HTTP TS types, `src/utils/generatedTypes.ts`, and the HTTP OpenAPI client/types.
 - `frontend/generation/generate_go_shared_schema.sh`
@@ -248,10 +229,6 @@ Useful when you need to debug a specific subsystem.
   - Regenerates the TypeScript output under `frontend/src/openapi/non_http/generated` from the checked-in non-HTTP OpenAPI projection.
 - `frontend/generation/generate_http_openapi_bindings.sh`
   - Regenerates `frontend/generation/http_openapi/openapi.json` plus the generated frontend HTTP client/types under `frontend/src/openapi/http/generated`.
-- `frontend/generation/sync_app_subsystem_sdk_generated_inputs.sh`
-  - Prunes the host-owned shared sidecar and HTTP OpenAPI artifact for the
-    app-subsystem frontend SDK, then refreshes the SDK generated HTTP client
-    under `frontend/plugin-sdk/app-subsystem/`.
 - `frontend/generation/generate_go_python_types.sh`
   - Direct Go-to-Python generation helper (SDK contracts + shared types + generated-type pruning).
 - `frontend/scripts/gcf.sh`

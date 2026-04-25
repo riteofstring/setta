@@ -64,7 +64,6 @@ import {
   resolveChatSubmitDispatchResult,
   resolveCustomPromptSlashCommandSubmission,
   resolveEscapeComposerAction,
-  resolveQueuedDraftReplaySlashCommand,
   resolveSlashCommandRequest,
   resolveSlashCommandSubmitOptions,
   shouldAutoReplayQueuedDraft,
@@ -3901,29 +3900,23 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
 
   const replayQueuedDraft = useCallback(
     async (draft: QueuedChatDraft): Promise<SlashCommandExecutionOutcome> => {
-      const replaySnapshot = draft.replaySnapshot;
-      if (replaySnapshot.kind === "plain_message") {
+      if (draft.replaySnapshot.kind === "plain_message") {
         return submitMessage(draft.message, draft.attachments);
       }
-      const resolvedReplayCommand = resolveQueuedDraftReplaySlashCommand({
-        message: draft.message,
-        replaySnapshot,
-        slashCommands,
-        recognizedSlashCommands: slashCommandRecognitionSet,
-      });
+      const commandAvailable =
+        draft.replaySnapshot.availabilityPolicy === "fixed"
+          ? true
+          : slashCommands.some(
+              (entry) => entry.command === draft.replaySnapshot.command.command,
+            );
       return executeResolvedSlashCommand({
         message: draft.message,
         submittedAttachments: draft.attachments,
-        parsed: resolvedReplayCommand.parsed,
-        commandAvailable: resolvedReplayCommand.commandAvailable,
+        parsed: draft.replaySnapshot.command,
+        commandAvailable,
       });
     },
-    [
-      executeResolvedSlashCommand,
-      slashCommandRecognitionSet,
-      slashCommands,
-      submitMessage,
-    ],
+    [executeResolvedSlashCommand, slashCommands, submitMessage],
   );
 
   const nextQueuedDraft = queuedDrafts[0] ?? null;
@@ -3979,9 +3972,7 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
       );
       setSelectedQueuedDraftId(draftToSend.id);
       if (outcome === "failed") {
-        setSlashFeedback(
-          (current) => current ?? "Queued message failed. Edit it and retry.",
-        );
+        setSlashFeedback("Queued message failed. Edit it and retry.");
       }
     })();
   }, [

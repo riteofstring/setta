@@ -155,7 +155,9 @@ func buildGoBackedCreateBodyTS(
 		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
 	}
 	var builder strings.Builder
-	builder.WriteString("  const defaults = ")
+	builder.WriteString("  const defaults: ")
+	builder.WriteString(declarationName)
+	builder.WriteString(" = ")
 	builder.WriteString(renderTSLiteralValue(defaultsObject, "  "))
 	builder.WriteString(";\n")
 	builder.WriteString("  return {\n")
@@ -181,53 +183,29 @@ func buildGenericCreateFieldExprTS(
 	}
 	if targetTypeName := propertySpec.CreateTargetTypeName; targetTypeName != "" {
 		targetFuncName := "create" + targetTypeName
-		castCreateResultExpr := func(expr string) string {
-			return fmt.Sprintf(
-				"(%s as unknown as NonNullable<typeof %s>)",
-				expr,
-				optionsExpr,
-			)
-		}
 		if propertySpec.Nullable {
 			if hasDefault {
 				mergedExpr := fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, defaultExpr)
-				return fmt.Sprintf("%s === null ? null : %s",
+				return fmt.Sprintf(
+					"%s === null ? null : %s(%s as Partial<%s>)",
 					mergedExpr,
-					castCreateResultExpr(fmt.Sprintf(
-						"%s((%s) as Partial<%s>)",
-						targetFuncName,
-						mergedExpr,
-						targetTypeName,
-					)),
+					targetFuncName,
+					mergedExpr,
+					targetTypeName,
 				), true
 			}
 			return fmt.Sprintf(
-				"%s === undefined || %s === null ? null : %s",
+				"%s === undefined || %s === null ? null : %s(%s)",
 				optionsExpr,
 				optionsExpr,
-				castCreateResultExpr(fmt.Sprintf(
-					"%s((%s) as Partial<%s>)",
-					targetFuncName,
-					optionsExpr,
-					targetTypeName,
-				)),
+				targetFuncName,
+				optionsExpr,
 			), true
 		}
 		if hasDefault {
-			return castCreateResultExpr(fmt.Sprintf(
-				"%s((%s ?? %s) as Partial<%s>)",
-				targetFuncName,
-				optionsExpr,
-				defaultExpr,
-				targetTypeName,
-			)), true
+			return fmt.Sprintf("%s(%s ?? %s)", targetFuncName, optionsExpr, defaultExpr), true
 		}
-		return castCreateResultExpr(fmt.Sprintf(
-			"%s((%s ?? {}) as Partial<%s>)",
-			targetFuncName,
-			optionsExpr,
-			targetTypeName,
-		)), true
+		return fmt.Sprintf("%s(%s ?? {})", targetFuncName, optionsExpr), true
 	}
 	if targetTypeName := propertySpec.MapValueCreateTargetTypeName; targetTypeName != "" {
 		targetFuncName := "create" + targetTypeName
