@@ -228,20 +228,20 @@ const ACTION_ICON_BUTTON_CLASS_NAME =
 const FLAT_PROTOTYPE_SECTION_CONTROLS = [
   {
     label: "Lock section",
-    iconClassName: "gg-lock",
+    iconClassName: "gg-lock [--ggs:0.36]",
   },
   {
     label: "Minimize section",
-    iconClassName: "gg-math-minus before:!left-0",
+    iconClassName: "gg-math-minus before:!left-0 [--ggs:0.42]",
   },
   {
     label: "Close section",
-    iconClassName: "gg-close",
+    iconClassName: "gg-close [--ggs:0.42]",
   },
 ];
 
 const ICON_BUTTON_CLASS_NAME =
-  "relative text-[color:var(--flat-dim)] [--ggs:0.46] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
+  "relative text-[color:var(--flat-dim)] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
 
 const SECTION_KIND_ICON_CLASS_NAMES: Record<FlatSectionKind, string> = {
   callable: "gg-code-slash",
@@ -287,7 +287,7 @@ function FlatSectionShell({
         >
           <button
             type="button"
-            className={`${ICON_BUTTON_CLASS_NAME} gg-options`}
+            className={`${ICON_BUTTON_CLASS_NAME} gg-options mr-1.5 [--ggs:0.4]`}
             aria-controls={controlBarId}
             aria-expanded={isControlBarOpen}
             aria-label={`${isControlBarOpen ? "Hide" : "Show"} ${controlLabel.toLowerCase()} controls`}
@@ -425,7 +425,7 @@ function FlatPrototypeStrip({
 
 function getRowGroupClassName(variant: "pinned" | "body") {
   if (variant === "pinned") {
-    return "border-b border-[color:var(--flat-border-strong)] bg-[color:var(--flat-pinned-bg)] px-3 py-2";
+    return "relative border-b border-[color:var(--flat-border-strong)] bg-[color:var(--flat-pinned-bg)] px-3 py-2";
   }
   return "min-h-0 flex-1 overflow-y-auto px-3 py-2";
 }
@@ -445,7 +445,11 @@ function FlatPrototypeRows({
       data-flat-row-group={variant}
     >
       {label ? (
-        <p className={`mb-2 ${HEADER_LABEL_CLASS_NAME}`}>{label}</p>
+        <p
+          aria-hidden="true"
+          className="gg-pin-alt pointer-events-none !absolute left-1 top-1.5 text-[color:var(--flat-muted)] [--ggs:0.38]"
+          data-flat-pinned-marker="true"
+        />
       ) : null}
       <ol>
         {rows.map((row, index) => (
@@ -473,12 +477,12 @@ function FlatPrototypeRowItem({
     depth > 0
       ? ({
           "--flat-depth": depth,
-          "--flat-rail-left": `${railDepth * 0.875 + 1.0625}rem`,
+          "--flat-rail-left": `${railDepth * 0.875 + 0.4375}rem`,
         } satisfies FlatPrototypeRowStyle)
       : undefined;
   const nestedClassName = depth > 0 ? NESTED_ROW_RAIL_CLASS_NAME : "";
   const cellDividerClassName = isLast ? "" : ROW_CELL_DIVIDER_CLASS_NAME;
-  const rowClassName = `relative grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-2 pl-[calc(var(--flat-depth,0)*0.875rem+0.625rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
+  const rowClassName = `relative grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-0 pl-[calc(var(--flat-depth,0)*0.875rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
   const valueWithTrailing = trailing ? `${valueLabel}${trailing}` : valueLabel;
 
   return (
