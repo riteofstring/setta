@@ -105,9 +105,6 @@ const FLAT_PROTOTYPE_THEME_STYLES = {
 const SHELL_CLASS_NAME =
   "relative flex min-h-[320px] w-full min-w-[280px] flex-col border border-[color:var(--flat-border-strong)] bg-[color:var(--flat-shell-bg)] font-mono text-[11px] text-[color:var(--flat-text)] [--flat-key-width:8.75rem]";
 
-const HEADER_LABEL_CLASS_NAME =
-  "text-[10px] uppercase tracking-[0.18em] text-[color:var(--flat-muted)]";
-
 const ROW_KEY_CLASS_NAME =
   "min-w-0 truncate text-[10px] font-semibold uppercase leading-7 tracking-[0.14em]";
 
@@ -240,7 +237,7 @@ const FLAT_PROTOTYPE_ACTIONS = [
 ];
 
 const ACTION_ICON_BUTTON_CLASS_NAME =
-  "relative justify-self-center text-[color:var(--flat-muted)] [--ggs:0.42] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
+  "relative !block shrink-0 text-[color:var(--flat-muted)] [--ggs:0.42] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
 
 const FLAT_PROTOTYPE_SECTION_CONTROLS = [
   {
@@ -258,7 +255,7 @@ const FLAT_PROTOTYPE_SECTION_CONTROLS = [
 ];
 
 const ICON_BUTTON_CLASS_NAME =
-  "relative text-[color:var(--flat-dim)] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
+  "relative !block shrink-0 text-[color:var(--flat-dim)] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)]";
 
 const SECTION_KIND_ICON_CLASS_NAMES: Record<FlatSectionKind, string> = {
   callable: "gg-code-slash",
@@ -287,18 +284,18 @@ function FlatSectionShell({
       data-flat-preview-theme={theme}
       style={FLAT_PROTOTYPE_THEME_STYLES[theme]}
     >
-      <header className="grid min-h-8 grid-cols-[1.125rem_minmax(0,1fr)_auto] items-center gap-2 border-b border-[color:var(--flat-border-strong)] px-2 py-1">
+      <header className="flex min-h-8 items-center gap-2 border-b border-[color:var(--flat-border-strong)] px-2 py-1">
         <button
           type="button"
-          className={`relative justify-self-center text-[color:var(--flat-muted)] [--ggs:0.52] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)] ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
+          className={`relative !block shrink-0 text-[color:var(--flat-muted)] [--ggs:0.52] hover:text-[color:var(--flat-focus)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--flat-focus)] ${SECTION_KIND_ICON_CLASS_NAMES[kind]}`}
           aria-label={`Open ${kind} section menu`}
           data-flat-section-type-menu="true"
         />
-        <h2 className="min-w-0 truncate text-[12px] leading-5 text-[color:var(--flat-title)]">
+        <h2 className="min-w-0 flex-1 truncate text-[12px] leading-5 text-[color:var(--flat-title)]">
           {title}
         </h2>
         <nav
-          className="grid grid-cols-[repeat(4,1rem)] items-center justify-items-center gap-x-1"
+          className="flex items-center gap-1"
           aria-label={`${kind} section controls`}
         >
           <button
@@ -348,7 +345,7 @@ function FlatPrototypeActionBar({ id, label }: { id: string; label: string }) {
   return (
     <nav
       id={id}
-      className="grid min-h-9 grid-cols-[repeat(5,1rem)_auto_minmax(0,1fr)] items-center gap-x-0.5 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5"
+      className="flex min-h-9 items-center gap-0.5 border-b border-[color:var(--flat-border-strong)] px-3 py-1.5"
     >
       {FLAT_PROTOTYPE_ACTIONS.map((action) => (
         <button
@@ -361,7 +358,7 @@ function FlatPrototypeActionBar({ id, label }: { id: string; label: string }) {
       ))}
       <b
         aria-hidden="true"
-        className="gg-search !ml-1 !mt-0 justify-self-center text-[color:var(--flat-dim)] [--ggs:0.42]"
+        className="gg-search !ml-1 !mt-0 !block shrink-0 text-[color:var(--flat-dim)] [--ggs:0.42]"
       />
       <input
         aria-label={`${label} filter`}
@@ -384,27 +381,24 @@ function FlatPrototypePortList({
   ports: string[];
 }) {
   const isRightAligned = align === "right";
-  const labelClassName = `${HEADER_LABEL_CLASS_NAME} ${
-    isRightAligned ? "col-start-3 text-right" : "col-start-1"
-  }`;
-  const listClassName = `row-start-2 flex flex-col gap-1 ${
-    isRightAligned ? "col-start-3 items-stretch" : "col-start-1"
+  const labelAlignClassName = isRightAligned
+    ? "before:right-0 before:text-right"
+    : "before:left-0";
+  const listClassName = `relative flex min-w-0 flex-1 flex-col gap-1 pt-5 before:absolute before:top-0 ${labelAlignClassName} before:text-[10px] before:uppercase before:tracking-[0.18em] before:text-[color:var(--flat-muted)] before:content-[attr(data-flat-port-label)] ${
+    isRightAligned ? "items-stretch pl-2" : "pr-2"
   }`;
   const rowClassName = isRightAligned
     ? "relative whitespace-nowrap py-1 text-right text-[color:var(--flat-soft-text)] after:absolute after:right-[-0.9375rem] after:top-1/2 after:h-1.5 after:w-1.5 after:-translate-y-1/2 after:bg-[color:var(--flat-port-dot)] after:content-['']"
     : "relative whitespace-nowrap py-1 text-[color:var(--flat-soft-text)] before:absolute before:left-[-0.9375rem] before:top-1/2 before:h-1.5 before:w-1.5 before:-translate-y-1/2 before:bg-[color:var(--flat-input-dot)] before:content-['']";
 
   return (
-    <>
-      <p className={labelClassName}>{label}</p>
-      <ol className={listClassName}>
-        {ports.map((port) => (
-          <li key={`${align}-${port}`} className={rowClassName}>
-            {port}
-          </li>
-        ))}
-      </ol>
-    </>
+    <ol className={listClassName} data-flat-port-label={label.toUpperCase()}>
+      {ports.map((port) => (
+        <li key={`${align}-${port}`} className={rowClassName}>
+          {port}
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -417,7 +411,7 @@ function FlatPrototypeStrip({
 }) {
   return (
     <section
-      className="relative grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] gap-y-2 border-b border-[color:var(--flat-border-strong)] px-3 py-2 before:absolute before:bottom-2 before:left-1/2 before:top-2 before:w-px before:bg-[color:var(--flat-border-soft)] before:content-['']"
+      className="relative flex gap-3 border-b border-[color:var(--flat-border-strong)] px-3 py-2 before:absolute before:bottom-2 before:left-1/2 before:top-2 before:w-px before:bg-[color:var(--flat-border-soft)] before:content-['']"
       data-flat-shell-strip="ports"
     >
       <FlatPrototypePortList align="left" label="In" ports={inputPorts} />
@@ -496,7 +490,7 @@ function FlatPrototypeRowItem({
     ? `${NESTED_ROW_RAIL_BASE_CLASS_NAME} ${NESTED_ROW_RAIL_CLASS_NAMES[nestedRailRole]}`
     : "";
   const cellDividerClassName = isLast ? "" : ROW_CELL_DIVIDER_CLASS_NAME;
-  const rowClassName = `relative -mx-3 grid min-h-7 grid-cols-[minmax(5.5rem,var(--flat-key-width))_minmax(0,1fr)] items-center gap-3 pr-3 pl-[calc(0.75rem+var(--flat-depth,0)*0.875rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
+  const rowClassName = `relative -mx-3 flex min-h-7 items-center gap-3 pr-3 pl-[calc(0.75rem+var(--flat-depth,0)*0.875rem)] ${ROW_HOVER_CLASS_NAME} ${nestedClassName} ${ROW_EMPHASIS_CLASS_NAMES[emphasis]}`;
   const valueWithTrailing = trailing ? `${valueLabel}${trailing}` : valueLabel;
 
   return (
@@ -506,11 +500,13 @@ function FlatPrototypeRowItem({
       data-flat-row-key={keyLabel}
       style={rowStyle}
     >
-      <b className={`${ROW_KEY_CLASS_NAME} ${cellDividerClassName}`}>
+      <b
+        className={`${ROW_KEY_CLASS_NAME} w-[var(--flat-key-width)] min-w-[5.5rem] shrink-0 ${cellDividerClassName}`}
+      >
         {keyLabel}
       </b>
       <code
-        className={`${ROW_VALUE_CLASS_NAME} ${cellDividerClassName} ${ROW_VALUE_CLASS_NAMES[emphasis]}`}
+        className={`${ROW_VALUE_CLASS_NAME} flex-1 ${cellDividerClassName} ${ROW_VALUE_CLASS_NAMES[emphasis]}`}
       >
         {valueWithTrailing}
       </code>
@@ -562,12 +558,12 @@ export function FlatDictSectionPrototype({
 export function FlatSectionPrototypeGallery() {
   return (
     <article
-      className="grid grid-cols-1 gap-6 xl:grid-cols-2"
+      className="flex flex-col gap-6 xl:flex-row"
       data-flat-section-gallery="true"
     >
       <section
         aria-label="Dark section prototypes"
-        className="grid min-w-0 grid-cols-1 gap-6"
+        className="flex min-w-0 flex-1 flex-col gap-6"
         data-flat-theme-preview="dark"
       >
         <FlatCallableSectionPrototype theme="dark" />
@@ -575,7 +571,7 @@ export function FlatSectionPrototypeGallery() {
       </section>
       <section
         aria-label="Light section prototypes"
-        className="grid min-w-0 grid-cols-1 gap-6"
+        className="flex min-w-0 flex-1 flex-col gap-6"
         data-flat-theme-preview="light"
       >
         <FlatCallableSectionPrototype theme="light" />
