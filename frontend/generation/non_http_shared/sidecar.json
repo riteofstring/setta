@@ -3114,6 +3114,42 @@
       "schemaRef": "#/$defs/PluginWatchCodeFeatureManifest"
     },
     {
+      "name": "PluginWatchCodeLanguageServerDependencyStatus",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginWatchCodeLanguageServerDependencyStatus"
+    },
+    {
+      "name": "PluginWatchCodeLanguageServerDependencyStatusKind",
+      "kind": "enum",
+      "schemaRef": "#/$defs/PluginWatchCodeLanguageServerDependencyStatusKind",
+      "enumValues": [
+        {
+          "name": "unavailable",
+          "value": "unavailable"
+        },
+        {
+          "name": "not_required",
+          "value": "not_required"
+        },
+        {
+          "name": "active",
+          "value": "active"
+        },
+        {
+          "name": "missing",
+          "value": "missing"
+        },
+        {
+          "name": "disabled",
+          "value": "disabled"
+        },
+        {
+          "name": "pending_restart",
+          "value": "pending_restart"
+        }
+      ]
+    },
+    {
       "name": "PluginWatchCodeProviderSelection",
       "kind": "model",
       "schemaRef": "#/$defs/PluginWatchCodeProviderSelection"

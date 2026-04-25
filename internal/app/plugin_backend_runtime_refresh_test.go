@@ -624,6 +624,107 @@ func TestBuildLanguageServerSelectionStatusesReportsSelectedUnavailableAndInclud
 	}
 }
 
+func TestApplyWatchCodeLanguageServerDependencyStatusDerivesPythonLSPState(t *testing.T) {
+	activePluginID := "setta-basedpyright"
+	pendingPluginID := "setta-ty"
+
+	tests := []struct {
+		name                string
+		selections          []plugins.LanguageServerSelectionStatus
+		expectedStatus      plugins.PluginWatchCodeLanguageServerDependencyStatusKind
+		expectedSelectedID  *string
+		expectedAppliedID   *string
+		expectedRestartFlag bool
+	}{
+		{
+			name: "active provider agnostic python lsp",
+			selections: []plugins.LanguageServerSelectionStatus{
+				{
+					Language:         "python",
+					Status:           plugins.LanguageServerSelectionStatusActive,
+					SelectedPluginID: &activePluginID,
+					AppliedPluginID:  &activePluginID,
+				},
+			},
+			expectedStatus:     plugins.PluginWatchCodeLanguageServerDependencyStatusActive,
+			expectedSelectedID: &activePluginID,
+			expectedAppliedID:  &activePluginID,
+		},
+		{
+			name:           "unavailable python lsp",
+			selections:     nil,
+			expectedStatus: plugins.PluginWatchCodeLanguageServerDependencyStatusMissing,
+		},
+		{
+			name: "explicitly disabled python lsp",
+			selections: []plugins.LanguageServerSelectionStatus{
+				{
+					Language: "python",
+					Status:   plugins.LanguageServerSelectionStatusDisabled,
+				},
+			},
+			expectedStatus: plugins.PluginWatchCodeLanguageServerDependencyStatusDisabled,
+		},
+		{
+			name: "pending restart python lsp",
+			selections: []plugins.LanguageServerSelectionStatus{
+				{
+					Language:         "python",
+					Status:           plugins.LanguageServerSelectionStatusPendingRestart,
+					SelectedPluginID: &pendingPluginID,
+					RestartRequired:  true,
+				},
+			},
+			expectedStatus:      plugins.PluginWatchCodeLanguageServerDependencyStatusPendingRestart,
+			expectedSelectedID:  &pendingPluginID,
+			expectedRestartFlag: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := plugins.PluginRuntimeResponse{
+				FeatureCapabilities: &plugins.PluginFeatureCapabilities{
+					WatchCode: plugins.PluginWatchCodeCapabilities{
+						PluginID:               "setta-watch-code",
+						PluginEnabled:          true,
+						Python:                 true,
+						RequiresLanguageServer: true,
+					},
+				},
+				Status: plugins.PluginStatusResponse{
+					LanguageServerSelections: test.selections,
+				},
+			}
+
+			applyWatchCodeLanguageServerDependencyStatus(&response)
+
+			dependency := response.FeatureCapabilities.WatchCode.LanguageServerDependency
+			if dependency == nil {
+				t.Fatal("expected watch code language-server dependency status")
+			}
+			if dependency.Language != "python" || !dependency.Required {
+				t.Fatalf("expected required Python dependency, got %#v", dependency)
+			}
+			if dependency.Status != test.expectedStatus {
+				t.Fatalf("expected dependency status %q, got %#v", test.expectedStatus, dependency)
+			}
+			if !optionalStringPointersEqual(dependency.SelectedPluginID, test.expectedSelectedID) {
+				t.Fatalf("expected selected plugin id %#v, got %#v", test.expectedSelectedID, dependency.SelectedPluginID)
+			}
+			if !optionalStringPointersEqual(dependency.AppliedPluginID, test.expectedAppliedID) {
+				t.Fatalf("expected applied plugin id %#v, got %#v", test.expectedAppliedID, dependency.AppliedPluginID)
+			}
+			if dependency.RestartRequired != test.expectedRestartFlag {
+				t.Fatalf("expected restartRequired=%v, got %#v", test.expectedRestartFlag, dependency)
+			}
+			if dependency.Message == "" {
+				t.Fatalf("expected dependency message, got %#v", dependency)
+			}
+		})
+	}
+}
+
 func requireLanguageServerSelectionStatus(
 	t *testing.T,
 	statuses []plugins.LanguageServerSelectionStatus,

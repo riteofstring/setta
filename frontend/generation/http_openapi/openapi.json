@@ -8939,6 +8939,9 @@
           "canvasControlsUi": {
             "type": "boolean"
           },
+          "languageServerDependency": {
+            "$ref": "#/components/schemas/PluginsPluginWatchCodeLanguageServerDependencyStatus"
+          },
           "pluginEnabled": {
             "type": "boolean"
           },
@@ -8961,6 +8964,40 @@
           "python",
           "requiresLanguageServer",
           "canvasControlsUi"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginWatchCodeLanguageServerDependencyStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "appliedPluginId": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "selectedPluginId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "required",
+          "status",
+          "message",
+          "restartRequired"
         ],
         "type": "object"
       },

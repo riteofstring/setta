@@ -423,6 +423,8 @@ var frontendBindingGeneratedTypeNamesByType = map[reflect.Type]string{
 	reflect.TypeOf(plugins.PluginUpdateResponse{}):                                      "PluginUpdateResponse",
 	reflect.TypeOf(plugins.PluginWatchCodeCapabilities{}):                               "PluginWatchCodeCapabilities",
 	reflect.TypeOf(plugins.PluginWatchCodeFeatureManifest{}):                            "PluginWatchCodeFeatureManifest",
+	reflect.TypeOf(plugins.PluginWatchCodeLanguageServerDependencyStatus{}):             "PluginWatchCodeLanguageServerDependencyStatus",
+	reflect.TypeOf(plugins.PluginWatchCodeLanguageServerDependencyStatusKind("")):       "PluginWatchCodeLanguageServerDependencyStatusKind",
 	reflect.TypeOf(plugins.PluginWatchCodeProviderSelection{}):                          "PluginWatchCodeProviderSelection",
 	reflect.TypeOf(plugins.PluginWatchCodeProviderSelectionStatusKind("")):              "PluginWatchCodeProviderSelectionStatusKind",
 	reflect.TypeOf(plugins.PluginsGlobalStateFile{}):                                    "PluginsGlobalStateFile",
