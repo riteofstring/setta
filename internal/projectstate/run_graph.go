@@ -264,11 +264,9 @@ func (d *Document) ensureCodeSectionAttachedTerminalForVariant(project Project, 
 		ImplID: normalizedSeed.ImplID,
 	}
 	project.SectionImpls[normalizedSeed.ImplID] = SectionImpl{
-		ID:   normalizedSeed.ImplID,
-		Kind: SectionKindTerminal,
-		Terminal: &TerminalSectionImpl{
-			SessionMode: TerminalSessionModeManagedConsole,
-		},
+		ID:       normalizedSeed.ImplID,
+		Kind:     SectionKindTerminal,
+		Terminal: &TerminalSectionImpl{},
 	}
 	project.SectionVariantMap[normalizedSeed.SectionID] = normalizedSeed.VariantID
 	normalizedSettings := normalizeStructuralMutationSettings(settings)

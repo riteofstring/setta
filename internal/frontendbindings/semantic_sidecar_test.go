@@ -49,7 +49,6 @@ func TestSemanticDiscriminatedFamilyDeclarationsForManifest(t *testing.T) {
 			"WidgetUnion",
 			"InteractiveWidgetUnion",
 			"InteractiveWidgetTypeSet",
-			"WidgetKind",
 		),
 		setDeclaration("RenderableWidgetTypeSet", "WidgetKind", `"input"`, `"note"`),
 		typeGuardDeclaration(
@@ -57,7 +56,6 @@ func TestSemanticDiscriminatedFamilyDeclarationsForManifest(t *testing.T) {
 			"WidgetUnion",
 			unionAliasExpr("Widget", "Input", "Note"),
 			"RenderableWidgetTypeSet",
-			"WidgetKind",
 		),
 	}
 	if !reflect.DeepEqual(got, want) {

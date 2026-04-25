@@ -159,7 +159,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Enforces that every non-stop iteration leaves a clean worktree and advances `HEAD`, so the loop fails fast if Codex forgets to commit after running `./gcf.sh`.
 - `./scripts/run-codex-authority-sequenced-loop.sh`
   - Specialized Codex loop that works in three strict phases: remove unjustified Go/Python/TypeScript duplication, then replace unjustified polling with websocket pushes, then run `./report_quality_hotspots.sh` and fix actionable hotspots.
-  - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
+  - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
   - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./check_quality.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
   - Runs with a 30-minute transcript inactivity watchdog by default and retries cleanly after a timed-out iteration instead of hanging forever.
@@ -175,11 +175,11 @@ These are used by the top-level wrappers or for advanced workflows.
   - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
 - `./scripts/run-codex-frontendbindings-openapi-loop.sh`
   - Specialized Codex loop for replacing the bespoke HTTP half of `internal/frontendbindings` with an OpenAPI-based pipeline.
-  - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
+  - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Seeds an HTTP/OpenAPI migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids keeping AST-based HTTP endpoint discovery, handwritten endpoint inventories, compatibility-name shims, or custom per-endpoint wrappers around the generated OpenAPI client.
 - `./scripts/run-codex-shared-type-generation-loop.sh`
   - Specialized Codex loop for migrating the remaining non-HTTP Go-owned TS/Python shared model generation onto a schema + semantic-sidecar path.
-  - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
+  - Defaults to `gpt-5.4`, `xhigh`, and yolo mode.
   - Seeds a schema-migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, forbids tautological metadata tests and inventory shuffles, and stops after sustained plateau rather than churning tiny cleanups forever.
 
 ## Layer 3: Frontend `pnpm` scripts (from `frontend/`)

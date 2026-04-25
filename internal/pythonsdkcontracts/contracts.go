@@ -6,7 +6,6 @@ import (
 )
 
 const GeneratedPythonModulePath = "backend/setta/sdk_contracts/generated.py"
-const GeneratedPythonConstantsModulePath = "backend/setta/sdk_contracts/constants.py"
 const SDKContractVersion = 2
 
 type RunnerSummaryVariant struct {

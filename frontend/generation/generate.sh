@@ -20,5 +20,4 @@ progress_run --no-heartbeat "Go-owned Python types generation" bash ./generation
 
 cd "${ROOT_DIR}"
 progress_run "Python formatting" ./format_code.sh
-progress_run --no-heartbeat "App-subsystem SDK generated input sync" bash ./frontend/generation/sync_app_subsystem_sdk_generated_inputs.sh
 progress_log "Generation complete."
