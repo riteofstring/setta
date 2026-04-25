@@ -116,10 +116,10 @@ printf '%s\\n' "$@" > "{sandbox_root / 'runner_args.txt'}"
     wrapper_cases = [
         (
             "scripts/run-codex-watch-code-plugin-extraction-loop.sh",
-            "watch-code-plugin-extraction",
+            "watch-code-standalone-plugin",
             "docs/plans/watch-code-plugin-extraction-plan.md",
-            "CODEX_LOOP_STOP: WATCH_CODE_PLUGIN_EXTRACTION_COMPLETE",
-            "codex-watchcodeplugin:",
+            "CODEX_LOOP_STOP: WATCH_CODE_STANDALONE_PLUGIN_COMPLETE",
+            "codex-watchcodestandalone:",
         ),
     ]
 
