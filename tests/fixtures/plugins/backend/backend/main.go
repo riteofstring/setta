@@ -17,7 +17,6 @@ const (
 	backendRuntimeKindCodegen = "codegen_target"
 	pluginFixturePythonEnv    = "SETTA_PLUGIN_FIXTURE_PYTHON"
 	pluginFixtureLSPScriptEnv = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
-	pluginFixtureRuntimePaths = "SETTA_PLUGIN_FIXTURE_RUNTIME_SEARCH_PATHS_KEY"
 	pluginFixtureLanguageName = "setta-fixture-backend:fixturedsl"
 	pluginFixtureLanguageID   = "fixturedsl"
 	pluginFixtureSettingsKey  = "fixtureDslLanguageServer"
@@ -29,9 +28,6 @@ type backendRequestContext struct {
 	SessionID       string `json:"sessionId,omitempty"`
 	ShareSessionID  string `json:"shareSessionId,omitempty"`
 	ProjectConfigID string `json:"projectConfigId,omitempty"`
-	WorkspaceRoot   string `json:"workspaceRoot,omitempty"`
-	SettaFilesRoot  string `json:"settaFilesRoot,omitempty"`
-	RuntimeRoot     string `json:"runtimeRoot,omitempty"`
 }
 
 type backendRuntimeRequest struct {
@@ -176,17 +172,13 @@ func resolveLanguageServerRegistration() (map[string]any, bool) {
 		return nil, false
 	}
 
-	registration := map[string]any{
+	return map[string]any{
 		"name":        pluginFixtureLanguageName,
 		"language":    pluginFixtureLanguageID,
 		"command":     command,
 		"args":        []string{absoluteScriptPath},
 		"settingsKey": pluginFixtureSettingsKey,
-	}
-	if runtimeSearchPathsKey := strings.TrimSpace(os.Getenv(pluginFixtureRuntimePaths)); runtimeSearchPathsKey != "" {
-		registration["runtimeSearchPathsKey"] = runtimeSearchPathsKey
-	}
-	return registration, true
+	}, true
 }
 
 func resolveCommand(command string) (string, error) {

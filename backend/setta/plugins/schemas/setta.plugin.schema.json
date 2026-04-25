@@ -47,18 +47,7 @@
       "required": ["entrypoint"],
       "properties": {
         "entrypoint": { "type": "string", "minLength": 1 },
-        "style": { "type": "string", "minLength": 1 },
-        "build": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["packageManager"],
-          "properties": {
-            "packageManager": {
-              "type": "string",
-              "enum": ["pnpm"]
-            }
-          }
-        }
+        "style": { "type": "string", "minLength": 1 }
       }
     },
     "content": {
@@ -74,31 +63,6 @@
       "type": "string",
       "minLength": 1
     },
-    "featureCapabilities": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "appSubsystem": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "appAuthoringUi": { "type": "boolean" },
-            "appPreviewUi": { "type": "boolean" },
-            "appGenerationChatModes": { "type": "boolean" },
-            "appDeploymentRuntime": { "type": "boolean" }
-          }
-        },
-        "watchCode": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "python": { "type": "boolean" },
-            "requiresLanguageServer": { "type": "boolean" },
-            "canvasControlsUi": { "type": "boolean" }
-          }
-        }
-      }
-    },
     "capabilities": {
       "type": "array",
       "items": {
@@ -112,14 +76,6 @@
           "readProjectState",
           "subscribeProjectState",
           "emitListenerEvents",
-          "registerMcpTools",
-          "registerLanguageServer",
-          "registerExternalAgentAdapter",
-          "registerCodegenTarget",
-          "registerRouter",
-          "registerListenerEndpoint",
-          "registerStaticDir",
-          "registerAppSubsystemBackend",
           "writeWorkspacePlugins"
         ]
       },

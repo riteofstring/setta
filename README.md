@@ -8,18 +8,14 @@ and a Python package surface for CLI dispatch, source SDKs, and packaging.
 - `cmd/setta` and `cmd/setta-server` are the CLI and server entrypoints.
 - `internal/` owns the backend runtime, HTTP/ws transports, state, services,
   codegen, packaging helpers, and frontend binding generation.
-- `backend/setta/` is the Python package and SDK surface:
+- `backend/setta/` is the Python package surface:
   - `python -m setta` / installed `setta` dispatch through
     `backend/setta/entrypoint.py`
-  - `backend/setta/api/*` contains the source Python SDK/runtime helpers
+  - `backend/setta/api/*` contains the Python SDK
     (`SettaListener`, `ListenerHotReloader`, `chat_toolkit`, `SettaRunner`)
-  - package-level helpers such as `local_core_client.py`, `runtime_compat.py`,
-    and `plugin_runtime/*` are thin Go-backed/package-facing surfaces shipped
-    in the wheel
   - packaged assets, sidecars, and bundled binaries still ship from here
 - `plugins/` contains first-party Setta plugin packages, including
-  package-managed language-server plugins, the JSON Render app-subsystem
-  provider, and their manifests/config schemas.
+  package-managed language-server plugins and their manifests/config schemas.
 - `frontend/` contains the Vite/React UI and generated TS bindings.
 - `tests/` contains Python/package pytest coverage; Go tests are
   co-located under `cmd/*` and `internal/*`.
@@ -71,8 +67,7 @@ binaries:
 - installed `setta` and `python -m setta` resolve through the package
   entrypoint wrapper
 - the wrapper dispatches into packaged Go binaries under `backend/setta/go_bin`
-- the slim wheel includes dispatch plus package-facing runtime helpers; broader
-  source-only Python SDK modules stay outside the packaged-user install path
+- the source-only Python SDK modules stay outside the slim wheel install path
 - source-checkout dev flows run the Go entrypoints directly through
   `./scripts/go.sh`
 

@@ -20,15 +20,14 @@ Options:
                          Default: tmp/codex-test-fix-loop/<timestamp>
   --state-dir PATH       Directory for checklist and verification state.
                          Default: <output-dir>/state
-  --model NAME           Model override passed to codex exec.
-                         Default: gpt-5.5
+  --model NAME           Optional model override passed to codex exec
   --yolo                 Pass --dangerously-bypass-approvals-and-sandbox.
                          Default: on
   --help                 Show this help text
 
 Examples:
   ./scripts/run-codex-test-fix-loop.sh
-  ./scripts/run-codex-test-fix-loop.sh --model gpt-5.5 -- --config reasoning_effort=\"high\"
+  ./scripts/run-codex-test-fix-loop.sh --model gpt-5.4 -- --config reasoning_effort=\"high\"
 EOF
 }
 
@@ -39,7 +38,7 @@ iterations="1000000"
 new_session_every="1000000"
 output_dir=""
 state_dir=""
-model="gpt-5.5"
+model=""
 yolo_mode="1"
 complete_exit_code="42"
 codex_extra_args=()

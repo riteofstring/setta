@@ -335,48 +335,7 @@
         ],
         "type": "object"
       },
-      "AppsubsystemAppdefinitionAppDefinition": {
-        "additionalProperties": false,
-        "properties": {
-          "actions": {},
-          "appSpecPath": {
-            "type": "string"
-          },
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "assets": {},
-          "catalogId": {
-            "type": "string"
-          },
-          "dataBindings": {},
-          "routes": {
-            "items": {
-              "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppRoute"
-            },
-            "type": ["array", "null"]
-          },
-          "theme": {}
-        },
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionAppRoute": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string"
-          },
-          "rootKey": {
-            "type": "string"
-          }
-        },
-        "required": ["path"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionCapabilities": {
+      "AppspecAppCapabilities": {
         "additionalProperties": false,
         "properties": {
           "appSpecVersion": {
@@ -407,29 +366,7 @@
         ],
         "type": "object"
       },
-      "AppsubsystemAppdefinitionMutationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppDefinition"
-          },
-          "appSpec": {}
-        },
-        "required": ["appSpec"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionReadResult": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppDefinition"
-          },
-          "appSpec": {}
-        },
-        "required": ["appSpec"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionValidationIssue": {
+      "AppspecAppValidationIssue": {
         "additionalProperties": false,
         "properties": {
           "elementKey": {
@@ -443,289 +380,6 @@
           }
         },
         "required": ["message"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionValidationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "capabilities": {
-            "$ref": "#/components/schemas/AppsubsystemAppdefinitionCapabilities"
-          },
-          "errors": {
-            "items": {
-              "$ref": "#/components/schemas/AppsubsystemAppdefinitionValidationIssue"
-            },
-            "type": ["array", "null"]
-          },
-          "warnings": {
-            "items": {
-              "$ref": "#/components/schemas/AppsubsystemAppdefinitionValidationIssue"
-            },
-            "type": ["array", "null"]
-          }
-        },
-        "required": ["errors", "warnings", "capabilities"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionhttpAppCatalogActionResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": ["name"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionhttpAppCatalogComponentResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "children": {
-            "type": "boolean"
-          },
-          "props": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpAppCatalogPropResponse"
-            },
-            "type": "object"
-          },
-          "type": {
-            "type": "string"
-          }
-        },
-        "required": ["type", "children"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionhttpAppCatalogPropResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "default": {},
-          "enum": {
-            "items": {},
-            "type": ["array", "null"]
-          },
-          "max": {
-            "format": "double",
-            "type": "number"
-          },
-          "min": {
-            "format": "double",
-            "type": "number"
-          },
-          "required": {
-            "type": "boolean"
-          },
-          "responsive": {
-            "type": "boolean"
-          },
-          "type": {
-            "type": "string"
-          }
-        },
-        "required": ["type"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionhttpAppCatalogResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "actions": {
-            "items": {
-              "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpAppCatalogActionResponse"
-            },
-            "type": ["array", "null"]
-          },
-          "components": {
-            "items": {
-              "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpAppCatalogComponentResponse"
-            },
-            "type": ["array", "null"]
-          },
-          "id": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          }
-        },
-        "required": ["id", "version", "components", "actions"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionhttpGetAppDefinitionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "frontendOpId": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionhttpSetAppDefinitionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "actions": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "appSpec": {},
-          "appSpecPath": {
-            "type": "string"
-          },
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "assets": {
-            "items": {},
-            "type": "array"
-          },
-          "catalogId": {
-            "type": "string"
-          },
-          "dataBindings": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "routes": {
-            "items": {
-              "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppRoute"
-            },
-            "type": "array"
-          },
-          "theme": {
-            "additionalProperties": {},
-            "type": "object"
-          }
-        },
-        "required": ["appSpec"],
-        "type": "object"
-      },
-      "AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "actions": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "appSpec": {},
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "assets": {
-            "items": {},
-            "type": "array"
-          },
-          "catalogId": {
-            "type": "string"
-          },
-          "dataBindings": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "routes": {
-            "items": {
-              "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppRoute"
-            },
-            "type": "array"
-          },
-          "theme": {
-            "additionalProperties": {},
-            "type": "object"
-          }
-        },
-        "required": ["appSpec"],
-        "type": "object"
-      },
-      "AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "appPolicy": {
-            "$ref": "#/components/schemas/DeploymentsPolicy"
-          },
-          "defaultProjectConfigId": {
-            "type": "string"
-          },
-          "deploymentName": {
-            "type": "string"
-          },
-          "deploymentVersion": {
-            "type": "string"
-          },
-          "manifest": {
-            "$ref": "#/components/schemas/DeploymentsManifest"
-          },
-          "projectMetadata": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateProjectConfigMetadata"
-            },
-            "type": ["array", "null"]
-          },
-          "sessionRunCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "shareSessionId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "deploymentName",
-          "deploymentVersion",
-          "shareSessionId",
-          "sessionRunCount",
-          "defaultProjectConfigId",
-          "projectMetadata",
-          "appPolicy"
-        ],
-        "type": "object"
-      },
-      "AppsubsystemAppdeploymenthttpAppDeploymentStateResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "$ref": "#/components/schemas/AppsubsystemAppdefinitionAppDefinition"
-          },
-          "appPolicy": {
-            "$ref": "#/components/schemas/DeploymentsPolicy"
-          },
-          "appSpec": {},
-          "projectState": {
-            "$ref": "#/components/schemas/ProjectviewSingleConfig"
-          }
-        },
-        "required": ["projectState", "appDefinition", "appSpec", "appPolicy"],
-        "type": "object"
-      },
-      "AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "appPolicyOverrides": {
-            "$ref": "#/components/schemas/DeploymentsSharePolicyOverrides"
-          },
-          "deploymentName": {
-            "type": "string"
-          },
-          "listenerEnabled": {
-            "type": ["boolean", "null"]
-          },
-          "listenerEntrypoint": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "deploymentName",
-          "projectConfigId",
-          "appPolicyOverrides",
-          "listenerEntrypoint",
-          "listenerEnabled"
-        ],
         "type": "object"
       },
       "ArtifactsArtifactSaveResult": {
@@ -1893,6 +1547,149 @@
           "toolAllowlist",
           "memoryScope"
         ],
+        "type": "object"
+      },
+      "HttpapiAppCatalogActionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["name"],
+        "type": "object"
+      },
+      "HttpapiAppCatalogComponentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "type": "boolean"
+          },
+          "props": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HttpapiAppCatalogPropResponse"
+            },
+            "type": "object"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["type", "children"],
+        "type": "object"
+      },
+      "HttpapiAppCatalogPropResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {},
+          "enum": {
+            "items": {},
+            "type": ["array", "null"]
+          },
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "min": {
+            "format": "double",
+            "type": "number"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "responsive": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["type"],
+        "type": "object"
+      },
+      "HttpapiAppCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/HttpapiAppCatalogActionResponse"
+            },
+            "type": ["array", "null"]
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/HttpapiAppCatalogComponentResponse"
+            },
+            "type": ["array", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "version", "components", "actions"],
+        "type": "object"
+      },
+      "HttpapiAppDeploymentSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "appPolicy": {
+            "$ref": "#/components/schemas/DeploymentsPolicy"
+          },
+          "defaultProjectConfigId": {
+            "type": "string"
+          },
+          "deploymentName": {
+            "type": "string"
+          },
+          "deploymentVersion": {
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/DeploymentsManifest"
+          },
+          "projectMetadata": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateProjectConfigMetadata"
+            },
+            "type": ["array", "null"]
+          },
+          "sessionRunCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "shareSessionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "deploymentName",
+          "deploymentVersion",
+          "shareSessionId",
+          "sessionRunCount",
+          "defaultProjectConfigId",
+          "projectMetadata",
+          "appPolicy"
+        ],
+        "type": "object"
+      },
+      "HttpapiAppDeploymentStateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "$ref": "#/components/schemas/ProjectstateAppDefinition"
+          },
+          "appPolicy": {
+            "$ref": "#/components/schemas/DeploymentsPolicy"
+          },
+          "appSpec": {},
+          "projectState": {
+            "$ref": "#/components/schemas/ProjectviewSingleConfig"
+          }
+        },
+        "required": ["projectState", "appDefinition", "appSpec", "appPolicy"],
         "type": "object"
       },
       "HttpapiAppendDrawAreaLayerItemRequest": {
@@ -3357,6 +3154,15 @@
           }
         },
         "required": ["projectConfigId", "chatSectionId"],
+        "type": "object"
+      },
+      "HttpapiGetAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "frontendOpId": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "HttpapiGetAppGenSkillContentRequest": {
@@ -4979,6 +4785,34 @@
         ],
         "type": "object"
       },
+      "HttpapiPublishAppDeploymentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "appPolicyOverrides": {
+            "$ref": "#/components/schemas/DeploymentsSharePolicyOverrides"
+          },
+          "deploymentName": {
+            "type": "string"
+          },
+          "listenerEnabled": {
+            "type": ["boolean", "null"]
+          },
+          "listenerEntrypoint": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "deploymentName",
+          "projectConfigId",
+          "appPolicyOverrides",
+          "listenerEntrypoint",
+          "listenerEnabled"
+        ],
+        "type": "object"
+      },
       "HttpapiPublishShareDeploymentRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5402,6 +5236,48 @@
           }
         },
         "required": ["projectConfigId", "edges"],
+        "type": "object"
+      },
+      "HttpapiSetAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "appSpec": {},
+          "appSpecPath": {
+            "type": "string"
+          },
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "assets": {
+            "items": {},
+            "type": "array"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "dataBindings": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateAppRoute"
+            },
+            "type": "array"
+          },
+          "theme": {
+            "additionalProperties": {},
+            "type": "object"
+          }
+        },
+        "required": ["appSpec"],
         "type": "object"
       },
       "HttpapiSetBrowserAreaViewModeRequest": {
@@ -6879,6 +6755,47 @@
         "required": ["projectConfigId", "viewport"],
         "type": "object"
       },
+      "HttpapiSetWatchCodeEnabledRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          }
+        },
+        "required": ["projectConfigId", "enabled"],
+        "type": "object"
+      },
+      "HttpapiSetWatchCodeInputsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "frontendOpId": {
+            "type": "string"
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "watchCodeFiles": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "watchCodeFolders": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["projectConfigId", "watchCodeFolders", "watchCodeFiles"],
+        "type": "object"
+      },
       "HttpapiSetWindowSpaceNameRequest": {
         "additionalProperties": false,
         "properties": {
@@ -7719,6 +7636,45 @@
         "required": ["skillId", "relativePath", "content"],
         "type": "object"
       },
+      "HttpapiValidateAppDefinitionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "appSpec": {},
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "assets": {
+            "items": {},
+            "type": "array"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "dataBindings": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "frontendOpId": {
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateAppRoute"
+            },
+            "type": "array"
+          },
+          "theme": {
+            "additionalProperties": {},
+            "type": "object"
+          }
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
       "HttpapiWindowSpaceMutationResponse": {
         "additionalProperties": false,
         "properties": {
@@ -8103,84 +8059,6 @@
         ],
         "type": "object"
       },
-      "PluginsPluginAppSubsystemCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "appAuthoringUi": {
-            "type": "boolean"
-          },
-          "appDeploymentRuntime": {
-            "type": "boolean"
-          },
-          "appGenerationChatModes": {
-            "type": "boolean"
-          },
-          "appPreviewUi": {
-            "type": "boolean"
-          },
-          "pluginEnabled": {
-            "type": "boolean"
-          },
-          "pluginId": {
-            "type": "string"
-          },
-          "providerSelection": {
-            "$ref": "#/components/schemas/PluginsPluginAppSubsystemProviderSelection"
-          }
-        },
-        "required": [
-          "pluginId",
-          "pluginEnabled",
-          "appAuthoringUi",
-          "appPreviewUi",
-          "appGenerationChatModes",
-          "appDeploymentRuntime"
-        ],
-        "type": "object"
-      },
-      "PluginsPluginAppSubsystemProviderSelection": {
-        "additionalProperties": false,
-        "properties": {
-          "activePluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "conflictingPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "disabledPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "invalidPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "selectedPluginId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "activePluginIds",
-          "disabledPluginIds",
-          "invalidPluginIds",
-          "conflictingPluginIds"
-        ],
-        "type": "object"
-      },
       "PluginsPluginBlockedCapability": {
         "additionalProperties": false,
         "properties": {
@@ -8294,19 +8172,6 @@
           }
         },
         "required": ["code", "message"],
-        "type": "object"
-      },
-      "PluginsPluginFeatureCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "appSubsystem": {
-            "$ref": "#/components/schemas/PluginsPluginAppSubsystemCapabilities"
-          },
-          "watchCode": {
-            "$ref": "#/components/schemas/PluginsPluginWatchCodeCapabilities"
-          }
-        },
-        "required": ["appSubsystem", "watchCode"],
         "type": "object"
       },
       "PluginsPluginFrontendDescriptor": {
@@ -8592,9 +8457,6 @@
           "pluginId": {
             "type": "string"
           },
-          "runtimeSearchPathsKey": {
-            "type": "string"
-          },
           "settingsKey": {
             "type": "string"
           }
@@ -8687,9 +8549,6 @@
       "PluginsPluginRuntimeResponse": {
         "additionalProperties": false,
         "properties": {
-          "featureCapabilities": {
-            "$ref": "#/components/schemas/PluginsPluginFeatureCapabilities"
-          },
           "list": {
             "$ref": "#/components/schemas/PluginsPluginListResponse"
           },
@@ -8851,9 +8710,6 @@
       "PluginsPluginStatusResponse": {
         "additionalProperties": false,
         "properties": {
-          "appSubsystemSelection": {
-            "$ref": "#/components/schemas/PluginsPluginAppSubsystemProviderSelection"
-          },
           "languageServerSelections": {
             "items": {
               "$ref": "#/components/schemas/PluginsLanguageServerSelectionStatus"
@@ -8875,9 +8731,6 @@
           },
           "serverMode": {
             "type": "string"
-          },
-          "watchCodeSelection": {
-            "$ref": "#/components/schemas/PluginsPluginWatchCodeProviderSelection"
           }
         },
         "required": [
@@ -8933,80 +8786,6 @@
         ],
         "type": "object"
       },
-      "PluginsPluginWatchCodeCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "canvasControlsUi": {
-            "type": "boolean"
-          },
-          "pluginEnabled": {
-            "type": "boolean"
-          },
-          "pluginId": {
-            "type": "string"
-          },
-          "providerSelection": {
-            "$ref": "#/components/schemas/PluginsPluginWatchCodeProviderSelection"
-          },
-          "python": {
-            "type": "boolean"
-          },
-          "requiresLanguageServer": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "pluginId",
-          "pluginEnabled",
-          "python",
-          "requiresLanguageServer",
-          "canvasControlsUi"
-        ],
-        "type": "object"
-      },
-      "PluginsPluginWatchCodeProviderSelection": {
-        "additionalProperties": false,
-        "properties": {
-          "activePluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "conflictingPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "disabledPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "invalidPluginIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "selectedPluginId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "activePluginIds",
-          "disabledPluginIds",
-          "invalidPluginIds",
-          "conflictingPluginIds"
-        ],
-        "type": "object"
-      },
       "ProjectshellAllProjectMetadata": {
         "additionalProperties": false,
         "properties": {
@@ -9054,6 +8833,91 @@
           }
         },
         "required": ["id", "sourceSectionId", "targetSectionId", "kind"],
+        "type": "object"
+      },
+      "ProjectstateAppDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {},
+          "appSpecPath": {
+            "type": "string"
+          },
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "assets": {},
+          "catalogId": {
+            "type": "string"
+          },
+          "dataBindings": {},
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectstateAppRoute"
+            },
+            "type": ["array", "null"]
+          },
+          "theme": {}
+        },
+        "type": "object"
+      },
+      "ProjectstateAppDefinitionMutationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "$ref": "#/components/schemas/ProjectstateAppDefinition"
+          },
+          "appSpec": {}
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
+      "ProjectstateAppDefinitionReadResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "$ref": "#/components/schemas/ProjectstateAppDefinition"
+          },
+          "appSpec": {}
+        },
+        "required": ["appSpec"],
+        "type": "object"
+      },
+      "ProjectstateAppDefinitionValidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/AppspecAppCapabilities"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/AppspecAppValidationIssue"
+            },
+            "type": ["array", "null"]
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/AppspecAppValidationIssue"
+            },
+            "type": ["array", "null"]
+          }
+        },
+        "required": ["errors", "warnings", "capabilities"],
+        "type": "object"
+      },
+      "ProjectstateAppRoute": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "rootKey": {
+            "type": "string"
+          }
+        },
+        "required": ["path"],
         "type": "object"
       },
       "ProjectstateBrowserSavedSearch": {
@@ -12054,47 +11918,6 @@
         },
         "required": ["appendText", "fullText", "isFinal"],
         "type": "object"
-      },
-      "WatchcodehttpSetWatchCodeEnabledRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          }
-        },
-        "required": ["projectConfigId", "enabled"],
-        "type": "object"
-      },
-      "WatchcodehttpSetWatchCodeInputsRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          },
-          "watchCodeFiles": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeFolders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          }
-        },
-        "required": ["projectConfigId", "watchCodeFolders", "watchCodeFiles"],
-        "type": "object"
       }
     }
   },
@@ -12255,7 +12078,6 @@
         "summary": "List published app deployments.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "ide"
       },
       "post": {
@@ -12264,7 +12086,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest"
+                "$ref": "#/components/schemas/HttpapiPublishAppDeploymentRequest"
               }
             }
           },
@@ -12295,7 +12117,6 @@
         "summary": "Publish the current project config as an app deployment.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "ide"
       }
     },
@@ -12307,7 +12128,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse"
+                  "$ref": "#/components/schemas/HttpapiAppDeploymentSessionResponse"
                 }
               }
             },
@@ -12327,7 +12148,6 @@
         "summary": "Get or create the current app deployment session.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "app"
       }
     },
@@ -12452,7 +12272,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemAppdeploymenthttpAppDeploymentStateResponse"
+                  "$ref": "#/components/schemas/HttpapiAppDeploymentStateResponse"
                 }
               }
             },
@@ -12472,7 +12292,6 @@
         "summary": "Load a specific project config and app definition from an app deployment session.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "app"
       }
     },
@@ -12502,7 +12321,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemAppdeploymenthttpAppDeploymentStateResponse"
+                  "$ref": "#/components/schemas/HttpapiAppDeploymentStateResponse"
                 }
               }
             },
@@ -12522,7 +12341,6 @@
         "summary": "Load the default project state and app definition for an app deployment session.",
         "tags": ["App Deployments"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "app"
       }
     },
@@ -12786,7 +12604,6 @@
         "summary": "Upload a binary payload to the runtime content store.",
         "tags": ["Binary"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "full-ide"
       }
     },
@@ -12830,7 +12647,6 @@
         "summary": "Download a binary payload from the runtime content store.",
         "tags": ["Binary"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -12993,7 +12809,6 @@
         "summary": "Check whether a file exists and is accessible from the current runtime.",
         "tags": ["File Browser"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -13962,7 +13777,6 @@
         "summary": "Delete artifact payloads.",
         "tags": ["Artifacts"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -15138,7 +14952,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpAppCatalogResponse"
+                  "$ref": "#/components/schemas/HttpapiAppCatalogResponse"
                 }
               }
             },
@@ -15167,7 +14981,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpGetAppDefinitionRequest"
+                "$ref": "#/components/schemas/HttpapiGetAppDefinitionRequest"
               }
             }
           },
@@ -15178,7 +14992,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemAppdefinitionReadResult"
+                  "$ref": "#/components/schemas/ProjectstateAppDefinitionReadResult"
                 }
               }
             },
@@ -15198,7 +15012,6 @@
         "summary": "Load the current app definition and resolved app spec.",
         "tags": ["App Definition"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-deployment"
       }
     },
@@ -15312,7 +15125,6 @@
         "summary": "Build a signed download URL for a single chat attachment.",
         "tags": ["Attachment"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -15981,8 +15793,7 @@
           }
         },
         "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"]
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
       }
     },
     "/getListenerCoverage": {
@@ -16106,8 +15917,7 @@
           }
         },
         "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"]
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
       }
     },
     "/getPromptTemplate": {
@@ -17233,7 +17043,6 @@
         "summary": "Load cached image artifacts by path.",
         "tags": ["Artifacts"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -17319,7 +17128,6 @@
         "summary": "Load a single project config by name.",
         "tags": ["Projects"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "ide"
       }
     },
@@ -18642,7 +18450,6 @@
         "summary": "Run code for the requested section or generated entrypoint.",
         "tags": ["Terminal"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -18897,8 +18704,7 @@
         },
         "summary": "Get the current backend server mode.",
         "tags": ["Runtime"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"]
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
       }
     },
     "/setActiveIds": {
@@ -19025,7 +18831,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpSetAppDefinitionRequest"
+                "$ref": "#/components/schemas/HttpapiSetAppDefinitionRequest"
               }
             }
           },
@@ -19036,7 +18842,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemAppdefinitionMutationResult"
+                  "$ref": "#/components/schemas/ProjectstateAppDefinitionMutationResult"
                 }
               }
             },
@@ -19056,7 +18862,6 @@
         "summary": "Persist a standalone app definition.",
         "tags": ["App Definition"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-deployment"
       }
     },
@@ -20235,8 +20040,7 @@
           }
         },
         "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"]
+        "x-setta-auth-requirement": "auth-cookie-when-enabled"
       }
     },
     "/setParentDefaultChildSectionType": {
@@ -21847,7 +21651,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WatchcodehttpSetWatchCodeEnabledRequest"
+                "$ref": "#/components/schemas/HttpapiSetWatchCodeEnabledRequest"
               }
             }
           },
@@ -21886,7 +21690,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WatchcodehttpSetWatchCodeInputsRequest"
+                "$ref": "#/components/schemas/HttpapiSetWatchCodeInputsRequest"
               }
             }
           },
@@ -23568,7 +23372,6 @@
         "summary": "Create or update artifact payloads.",
         "tags": ["Artifacts"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-launcher"
       }
     },
@@ -23942,7 +23745,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest"
+                "$ref": "#/components/schemas/HttpapiValidateAppDefinitionRequest"
               }
             }
           },
@@ -23953,7 +23756,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AppsubsystemAppdefinitionValidationResult"
+                  "$ref": "#/components/schemas/ProjectstateAppDefinitionValidationResult"
                 }
               }
             },
@@ -23973,7 +23776,6 @@
         "summary": "Validate an app definition payload against the current catalog.",
         "tags": ["App Definition"],
         "x-setta-auth-requirement": "auth-cookie-when-enabled",
-        "x-setta-frontend-sdk-scopes": ["app-subsystem"],
         "x-setta-mode-requirement": "not-deployment"
       }
     },

@@ -11,10 +11,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"setta/internal/pythonenv"
-	"setta/internal/testutil/firstpartyplugin"
-	"setta/internal/testutil/packagedsetta"
 )
 
 // GitHub candidate resolution should clone a local bare repo, strip VCS metadata, and return a validated plugin root.
@@ -211,56 +207,6 @@ func TestProductionCandidateProviderResolvePyPICandidateFromLocalWheel(t *testin
 	}
 	if _, err := os.Stat(filepath.Join(candidate.Root, "setta.plugin.json")); err != nil {
 		t.Fatalf("expected candidate plugin root to contain manifest: %v", err)
-	}
-}
-
-func TestProductionCandidateProviderResolvePyPICandidateAcceptsFirstPartyRuntimeManagedWheelWithoutPackageJSON(t *testing.T) {
-	roots := newFilesystemResolverTestRoots(t)
-	findLinksRoot := t.TempDir()
-	repoRoot := workerRPCTestRepoRoot(t)
-	settaProjectRoot := filepath.Join(t.TempDir(), "setta")
-	packagedsetta.BuildRuntimeProject(t, repoRoot, settaProjectRoot)
-	buildLocalBuiltPyPIWheelFromRoot(t, findLinksRoot, settaProjectRoot)
-	buildLocalBuiltPyPIWheelFromRoot(t, findLinksRoot, stageFirstPartyAppSubsystemPluginSource(t))
-
-	t.Setenv("PIP_NO_INDEX", "1")
-	t.Setenv("PIP_FIND_LINKS", findLinksRoot)
-
-	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
-		PackageManagerRuntime: mustNewPythonRuntime(t),
-		SettaFilesRoot:        roots.settaFilesRoot,
-		SettaVersion:          "0.1.0",
-	})
-	spec, err := ParseSourceSpec("pypi:setta-json-render-app-gen==0.1.0")
-	if err != nil {
-		t.Fatalf("parse source spec: %v", err)
-	}
-
-	candidate, err := provider.ResolveCandidate(context.Background(), spec, PluginInstallerBackendPip)
-	if err != nil {
-		t.Fatalf("resolve first-party app subsystem candidate: %v", err)
-	}
-	defer func() {
-		if candidate.cleanup != nil {
-			_ = candidate.cleanup()
-		}
-	}()
-
-	if candidate.Manifest.ID != firstpartyplugin.AppSubsystemPluginID {
-		t.Fatalf("unexpected plugin id %q", candidate.Manifest.ID)
-	}
-	for _, relativePath := range []string{
-		"setta.plugin.json",
-		filepath.Join("runtime_backend", "main.py"),
-		filepath.Join("frontend", "dist", "index.js"),
-		filepath.Join("frontend", "dist", "index.css"),
-	} {
-		if _, err := os.Stat(filepath.Join(candidate.Root, relativePath)); err != nil {
-			t.Fatalf("expected candidate plugin root to contain %s: %v", relativePath, err)
-		}
-	}
-	if _, err := os.Stat(filepath.Join(candidate.Root, "frontend", "package.json")); !os.IsNotExist(err) {
-		t.Fatalf("expected candidate first-party wheel root to omit frontend/package.json, got %v", err)
 	}
 }
 
@@ -587,18 +533,7 @@ func buildLocalBuiltPyPIWheelFromRoot(t *testing.T, artifactDir string, sourceRo
 	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
 		t.Fatalf("mkdir artifact dir: %v", err)
 	}
-	buildRuntime, err := pythonenv.NewRuntime(pythonenv.RuntimeOptions{
-		LookupEnv: func(key string) (string, bool) {
-			if key == pythonenv.InterpreterEnv {
-				return "", false
-			}
-			return os.LookupEnv(key)
-		},
-	})
-	if err != nil {
-		t.Fatalf("new wheel-build python runtime: %v", err)
-	}
-	buildPython := buildRuntime.InterpreterPath()
+	buildPython := mustNewPythonRuntime(t).InterpreterPath()
 	runTestCommand(t, sourceRoot, buildPython, "-m", "build", "--wheel", "--outdir", artifactDir)
 
 	wheels, err := filepath.Glob(filepath.Join(artifactDir, "*.whl"))

@@ -53,15 +53,11 @@ type pluginUISettingRequiredFields struct {
 	RevealKey      string
 }
 
-type RuntimeEntryBuilder func(plugins.PluginRuntimeResponse) ([]RuntimeEntry, error)
-
 type ScopedRegistryOptions struct {
-	Runtime                  CoreProjectState
-	WorkspaceRoot            string
-	PluginService            PluginRuntimeService
-	WatchCodeCapabilities    func() plugins.PluginWatchCodeCapabilities
-	ProjectAISettings        ProjectAISettingProviders
-	ContributedEntryBuilders []RuntimeEntryBuilder
+	Runtime           CoreProjectState
+	WorkspaceRoot     string
+	PluginService     PluginRuntimeService
+	ProjectAISettings ProjectAISettingProviders
 }
 
 type pluginBackendInvalidValueError struct {
@@ -91,9 +87,8 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	if err != nil {
 		return nil, err
 	}
-	baseMetadata := buildScopedRegistryBaseMetadata(options)
 	if options.PluginService == nil {
-		return newRegistry(entries, baseMetadata)
+		return New(entries)
 	}
 
 	pluginRuntime, err := options.PluginService.Runtime(plugins.RuntimeOptions{})
@@ -102,10 +97,6 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	}
 
 	metadata := buildPluginRegistryMetadata(pluginRuntime)
-	metadata.unavailableSettings = cloneSettingErrorMap(baseMetadata.unavailableSettings)
-	if err := appendContributedRuntimeEntries(&entries, pluginRuntime, options.ContributedEntryBuilders); err != nil {
-		return nil, err
-	}
 	if err := appendPluginRuntimeEntries(&entries, &metadata, options.PluginService, pluginRuntime.List.Plugins); err != nil {
 		return nil, err
 	}
@@ -113,21 +104,8 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	return newRegistry(entries, metadata)
 }
 
-func buildScopedRegistryBaseMetadata(options ScopedRegistryOptions) registryPluginMetadata {
-	if scopedWatchCodeProviderActive(options.WatchCodeCapabilities) {
-		return registryPluginMetadata{}
-	}
-	return registryPluginMetadata{
-		unavailableSettings: unavailableWatchCodeSettingErrors(),
-	}
-}
-
 func buildScopedRegistryBaseEntries(options ScopedRegistryOptions) ([]RuntimeEntry, error) {
-	coreRegistry, err := NewCoreRegistryWithOptions(
-		options.Runtime,
-		options.WorkspaceRoot,
-		CoreRegistryOptions{WatchCodeCapabilities: scopedWatchCodeCapabilities(options.WatchCodeCapabilities)},
-	)
+	coreRegistry, err := NewCoreRegistry(options.Runtime, options.WorkspaceRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -136,42 +114,6 @@ func buildScopedRegistryBaseEntries(options ScopedRegistryOptions) ([]RuntimeEnt
 		entries = append(entries, entry)
 	}
 	return append(entries, buildProjectAISettingEntries(options.ProjectAISettings)...), nil
-}
-
-func scopedWatchCodeCapabilities(
-	capabilities func() plugins.PluginWatchCodeCapabilities,
-) *plugins.PluginWatchCodeCapabilities {
-	if capabilities == nil {
-		return nil
-	}
-	value := capabilities()
-	return &value
-}
-
-func scopedWatchCodeProviderActive(
-	capabilities func() plugins.PluginWatchCodeCapabilities,
-) bool {
-	return coreRegistryWatchCodeProviderActive(CoreRegistryOptions{
-		WatchCodeCapabilities: scopedWatchCodeCapabilities(capabilities),
-	})
-}
-
-func appendContributedRuntimeEntries(
-	entries *[]RuntimeEntry,
-	runtime plugins.PluginRuntimeResponse,
-	builders []RuntimeEntryBuilder,
-) error {
-	for _, builder := range builders {
-		if builder == nil {
-			continue
-		}
-		contributedEntries, err := builder(runtime)
-		if err != nil {
-			return err
-		}
-		*entries = append(*entries, contributedEntries...)
-	}
-	return nil
 }
 
 func appendPluginRuntimeEntries(

@@ -17,7 +17,6 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/lsp"
 	"setta/internal/lspsignature"
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/testutil/firstpartyplugin"
 )
@@ -47,16 +46,6 @@ type typeCheckingBoundSectionSynchronizer struct {
 
 type syncOnlyBoundSectionSynchronizer struct {
 	inner boundSectionSynchronizer
-}
-
-func activeWatchCodeCapabilityStateForTest() *watchCodeCapabilityState {
-	state := newWatchCodeCapabilityState()
-	state.Set(plugins.PluginWatchCodeCapabilities{
-		PluginID:      "setta-watch-code-test-provider",
-		PluginEnabled: true,
-		Python:        true,
-	})
-	return state
 }
 
 func newCurrentProcessLSPSession(t *testing.T, workspaceRoot string) *lsp.Session {
@@ -207,11 +196,10 @@ func TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply(t *tes
 	syncer := &stubBoundSectionSynchronizer{}
 	resolver := &orderingCallableSignatureResolver{syncer: syncer}
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          runtime,
-		LSPSync:               syncer,
-		CallableSignatures:    resolver,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:       runtime,
+		LSPSync:            syncer,
+		CallableSignatures: resolver,
+		WorkspaceRoot:      workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)
@@ -250,61 +238,6 @@ func TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply(t *tes
 	}
 	if boundSection.Code != updatedSource {
 		t.Fatalf("expected updated bound section source %q, got %q", updatedSource, boundSection.Code)
-	}
-}
-
-func TestCodeUpdateServiceReloadBoundCodeFileSkipsWatchCodeApplyWithoutProvider(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	project := watchCodeBoundReloadProject(t)
-	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			project.ID: project,
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := runtime.Close(); err != nil {
-			t.Fatalf("close runtime: %v", err)
-		}
-	})
-
-	syncer := &stubBoundSectionSynchronizer{}
-	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          runtime,
-		LSPSync:               syncer,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: newWatchCodeCapabilityState(),
-	})
-	if err != nil {
-		t.Fatalf("new code update service: %v", err)
-	}
-
-	updatedSource := "def watched(value, extra):\n    return value + extra\n"
-	if err := service.ReloadBoundCodeFile(context.Background(), updatedSource, []boundcode.Binding{
-		{ProjectID: "project-alpha", SectionID: "section-main"},
-	}); err != nil {
-		t.Fatalf("reload bound code file: %v", err)
-	}
-
-	target, err := runtime.Snapshot().Document.ResolveFormatCodeTarget("project-alpha", "section-main")
-	if err != nil {
-		t.Fatalf("resolve reloaded bound section: %v", err)
-	}
-	if target.Code != updatedSource {
-		t.Fatalf("expected bound section code to update without provider, got %q", target.Code)
-	}
-	project = runtime.Snapshot().Document.Projects["project-alpha"]
-	if len(project.WatchCodeRegistry) != 0 || len(project.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", project.WatchCodeRegistry, project.WatchCodeBaselineByPath)
-	}
-	if len(syncer.calls) != 0 {
-		t.Fatalf("did not expect LSP sync without provider, got %#v", syncer.calls)
 	}
 }
 
@@ -358,11 +291,10 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 	})
 
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          projectRuntime,
-		LSPSync:               &syncOnlyBoundSectionSynchronizer{inner: synchronizer},
-		CallableSignatures:    signatures,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:       projectRuntime,
+		LSPSync:            &syncOnlyBoundSectionSynchronizer{inner: synchronizer},
+		CallableSignatures: signatures,
+		WorkspaceRoot:      workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)
@@ -446,59 +378,6 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 	}
 }
 
-func TestCodeUpdateServiceSetCodeSkipsWatchCodeApplyWithoutProvider(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			project.ID: project,
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close runtime: %v", err)
-		}
-	})
-
-	syncer := &stubBoundSectionSynchronizer{}
-	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          projectRuntime,
-		LSPSync:               syncer,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: newWatchCodeCapabilityState(),
-	})
-	if err != nil {
-		t.Fatalf("new code update service: %v", err)
-	}
-
-	updatedSource := "def cool_fn(a, b, c):\n    return a + b + c\n"
-	if err := service.SetCode(context.Background(), "project-alpha", "section-main", updatedSource); err != nil {
-		t.Fatalf("set bound watch-code source without provider: %v", err)
-	}
-
-	target, err := projectRuntime.Snapshot().Document.ResolveFormatCodeTarget("project-alpha", "section-main")
-	if err != nil {
-		t.Fatalf("resolve updated bound section: %v", err)
-	}
-	if target.Code != updatedSource {
-		t.Fatalf("expected section code to update without provider, got %q", target.Code)
-	}
-	updatedProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	if len(updatedProject.WatchCodeRegistry) != 0 || len(updatedProject.WatchCodeBaselineByPath) != 0 {
-		t.Fatalf("expected watch code state to remain inert without provider, got registry %#v baseline %#v", updatedProject.WatchCodeRegistry, updatedProject.WatchCodeBaselineByPath)
-	}
-	if len(syncer.calls) != 0 {
-		t.Fatalf("did not expect LSP sync without provider, got %#v", syncer.calls)
-	}
-}
-
 func TestCodeUpdateServiceSetCodePopulatesBoundWatchCodeParamsWithoutSignatureResolver(t *testing.T) {
 	t.Parallel()
 
@@ -521,9 +400,8 @@ func TestCodeUpdateServiceSetCodePopulatesBoundWatchCodeParamsWithoutSignatureRe
 	})
 
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          projectRuntime,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:  projectRuntime,
+		WorkspaceRoot: workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)
@@ -591,9 +469,8 @@ func TestCodeUpdateServiceSetCodeReconcilesGeneratedPythonSectionForBoundWatchCo
 	})
 
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          projectRuntime,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:  projectRuntime,
+		WorkspaceRoot: workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)
@@ -771,10 +648,9 @@ func TestCodeUpdateServiceSetCodeRefreshesProjectDiagnosticsAfterBoundWatchCodeS
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	syncer := &typeCheckingBoundSectionSynchronizer{diagnostics: diagnostics}
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          projectRuntime,
-		LSPSync:               syncer,
-		WorkspaceRoot:         t.TempDir(),
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:  projectRuntime,
+		LSPSync:       syncer,
+		WorkspaceRoot: t.TempDir(),
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)
@@ -826,10 +702,9 @@ func TestCodeUpdateServiceReloadBoundCodeFileRefreshesProjectDiagnosticsAfterBou
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	syncer := &typeCheckingBoundSectionSynchronizer{diagnostics: diagnostics}
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          projectRuntime,
-		LSPSync:               syncer,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:  projectRuntime,
+		LSPSync:       syncer,
+		WorkspaceRoot: workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)
@@ -1078,9 +953,8 @@ func TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry(t *testing.T) {
 	})
 
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          runtime,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:  runtime,
+		WorkspaceRoot: workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)
@@ -1492,11 +1366,10 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 	})
 
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          projectRuntime,
-		LSPSync:               synchronizer,
-		CallableSignatures:    signatures,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:       projectRuntime,
+		LSPSync:            synchronizer,
+		CallableSignatures: signatures,
+		WorkspaceRoot:      workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)
@@ -1612,11 +1485,10 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 	}
 
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
-		ProjectState:          projectRuntime,
-		LSPSync:               synchronizer,
-		CallableSignatures:    signatures,
-		WorkspaceRoot:         workspaceRoot,
-		WatchCodeCapabilities: activeWatchCodeCapabilityStateForTest(),
+		ProjectState:       projectRuntime,
+		LSPSync:            synchronizer,
+		CallableSignatures: signatures,
+		WorkspaceRoot:      workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("new code update service: %v", err)

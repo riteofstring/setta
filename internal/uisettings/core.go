@@ -4,14 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"setta/internal/plugins"
 	"setta/internal/projectstate"
-)
-
-const (
-	watchCodeEnabledSettingID = "core.watch_code.enabled"
-	watchCodeFoldersSettingID = "core.watch_code.folders"
-	watchCodeFilesSettingID   = "core.watch_code.files"
 )
 
 var (
@@ -35,30 +28,23 @@ var (
 	}
 )
 
-type CoreRegistryOptions struct {
-	WatchCodeCapabilities *plugins.PluginWatchCodeCapabilities
-}
-
 func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry, error) {
-	return NewCoreRegistryWithOptions(runtime, workspaceRoot, CoreRegistryOptions{})
-}
-
-func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, options CoreRegistryOptions) (*Registry, error) {
 	if runtime == nil {
 		return nil, projectstate.ErrRuntimeClosed
 	}
 	boolSchema := ValueSchema{Type: ValueTypeBoolean}
 	nonEmptyStringSchema := ValueSchema{Type: ValueTypeString, MinLength: intPointer(1)}
+	themeModeSchema := ValueSchema{Type: ValueTypeString, EnumValues: []any{"auto", "dark", "light"}}
 
-	entries := []RuntimeEntry{
-		NewCompareAndSetEntry(
+	return New([]RuntimeEntry{
+		newCoreCompareAndSetEntry(
 			Entry{
-				SettingID:   watchCodeEnabledSettingID,
+				SettingID:   "core.watch_code.enabled",
 				Title:       "Watch Code Enabled",
 				Synonyms:    []string{"watch code", "watch mode", "watch toggle"},
 				Description: "Enable or disable watch code mode for the project.",
 				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameOverview)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: watchCodeEnabledSettingID},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.watch_code.enabled"},
 				Source:      SourceCore,
 				Mutability:  MutabilityWritable,
 				ValueSchema: boolSchema,
@@ -71,16 +57,16 @@ func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, 
 				_, result, err := runtime.CompareAndSetWatchCodeEnabled(ctx, projectID, enabled, workspaceRoot, expected)
 				return result, err
 			},
-			ComparableMutationResult[bool],
+			comparableMutationResult[bool],
 		),
-		NewCompareAndSetEntry(
+		newCoreCompareAndSetEntry(
 			Entry{
-				SettingID:   watchCodeFoldersSettingID,
+				SettingID:   "core.watch_code.folders",
 				Title:       "Watch Code Folders",
 				Synonyms:    []string{"watch folders", "watch code folders"},
 				Description: "List of folders watched by watch code mode.",
 				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameOverview)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: watchCodeFoldersSettingID},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.watch_code.folders"},
 				Source:      SourceCore,
 				Mutability:  MutabilityWritable,
 				ValueSchema: watchCodeFoldersSchema,
@@ -95,14 +81,14 @@ func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, 
 			},
 			watchCodeFoldersMutationResult,
 		),
-		NewCompareAndSetEntry(
+		newCoreCompareAndSetEntry(
 			Entry{
-				SettingID:   watchCodeFilesSettingID,
+				SettingID:   "core.watch_code.files",
 				Title:       "Watch Code Files",
 				Synonyms:    []string{"watch files", "watch code files"},
 				Description: "List of explicit files watched by watch code mode.",
 				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameOverview)},
-				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: watchCodeFilesSettingID},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.watch_code.files"},
 				Source:      SourceCore,
 				Mutability:  MutabilityWritable,
 				ValueSchema: watchCodeFilesSchema,
@@ -117,7 +103,7 @@ func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, 
 			},
 			stringSliceMutationResult,
 		),
-		NewCompareAndSetEntry(
+		newCoreCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.project.name",
 				Title:       "Project Name",
@@ -132,14 +118,14 @@ func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, 
 			readProjectValue(runtime, func(project *projectstate.Project) any {
 				return project.Name
 			}),
-			NormalizeOptionalNonEmptyStringWrite,
+			normalizeOptionalNonEmptyStringWrite,
 			func(ctx context.Context, projectID string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
 				_, result, err := runtime.CompareAndSetProjectName(ctx, projectID, nextValue, expected)
 				return result, err
 			},
-			ComparableMutationResult[string],
+			comparableMutationResult[string],
 		),
-		NewCompareAndSetEntry(
+		newCoreCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.project.show_param_display_names",
 				Title:       "Show Param Display Names",
@@ -159,9 +145,9 @@ func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, 
 				_, result, err := runtime.CompareAndSetShowParamDisplayNames(ctx, projectID, show, expected)
 				return result, err
 			},
-			ComparableMutationResult[bool],
+			comparableMutationResult[bool],
 		),
-		NewCompareAndSetEntry(
+		newCoreCompareAndSetEntry(
 			Entry{
 				SettingID:   "core.run_instructions.python_codegen_enabled",
 				Title:       "Python Codegen Enabled",
@@ -198,56 +184,109 @@ func NewCoreRegistryWithOptions(runtime CoreProjectState, workspaceRoot string, 
 				)
 				return result, err
 			},
-			ComparableMutationResult[bool],
+			comparableMutationResult[bool],
 		),
-	}
-	metadata := registryPluginMetadata{}
-	if !coreRegistryWatchCodeProviderActive(options) {
-		entries = filterWatchCodeSettingEntries(entries)
-		metadata.unavailableSettings = unavailableWatchCodeSettingErrors()
-	}
-	return newRegistry(entries, metadata)
+		newCoreCompareAndSetEntry(
+			Entry{
+				SettingID:   "core.app.catalog_id",
+				Title:       "App Catalog ID",
+				Synonyms:    []string{"app catalog", "catalog id"},
+				Description: "Catalog id for the app definition.",
+				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameApp)},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.app.catalog_id"},
+				Source:      SourceCore,
+				Mutability:  MutabilityWritable,
+				ValueSchema: nonEmptyStringSchema,
+			},
+			readDocumentValue(runtime, func(document projectstate.Document) any {
+				return projectstate.EffectiveAppDefinition(document).CatalogID
+			}),
+			normalizeOptionalNonEmptyStringWrite,
+			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
+				_, result, err := runtime.CompareAndSetAppDefinitionCatalogID(ctx, nextValue, expected)
+				return result, err
+			},
+			comparableMutationResult[string],
+		),
+		newCoreCompareAndSetEntry(
+			Entry{
+				SettingID:   "core.app.spec_version",
+				Title:       "App Spec Version",
+				Synonyms:    []string{"app version", "spec version"},
+				Description: "Version marker for the app definition schema payload.",
+				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameApp)},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.app.spec_version"},
+				Source:      SourceCore,
+				Mutability:  MutabilityWritable,
+				ValueSchema: nonEmptyStringSchema,
+			},
+			readDocumentValue(runtime, func(document projectstate.Document) any {
+				return projectstate.EffectiveAppDefinition(document).AppSpecVersion
+			}),
+			normalizeOptionalNonEmptyStringWrite,
+			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
+				_, result, err := runtime.CompareAndSetAppDefinitionSpecVersion(ctx, nextValue, expected)
+				return result, err
+			},
+			comparableMutationResult[string],
+		),
+		newCoreCompareAndSetEntry(
+			Entry{
+				SettingID:   "core.app.spec_path",
+				Title:       "App Spec Path",
+				Synonyms:    []string{"app path", "spec path"},
+				Description: "Filesystem path where app spec JSON is saved.",
+				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameApp)},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.app.spec_path"},
+				Source:      SourceCore,
+				Mutability:  MutabilityWritable,
+				ValueSchema: nonEmptyStringSchema,
+			},
+			readDocumentValue(runtime, func(document projectstate.Document) any {
+				return projectstate.EffectiveAppSpecPath(document)
+			}),
+			normalizeOptionalNonEmptyStringWrite,
+			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
+				_, result, err := runtime.CompareAndSetAppDefinitionSpecPath(ctx, nextValue, expected)
+				return result, err
+			},
+			comparableMutationResult[string],
+		),
+		newCoreCompareAndSetEntry(
+			Entry{
+				SettingID:   "core.app.theme_mode",
+				Title:       "App Theme Mode",
+				Synonyms:    []string{"theme mode", "app theme", "light mode", "dark mode"},
+				Description: "Theme mode for the app definition.",
+				Location:    Location{Side: SideLeft, OverviewTabKey: string(OverviewTabNameApp)},
+				Highlight:   Highlight{Strategy: HighlightStrategyDOMAnchor, AnchorID: "core.app.theme_mode"},
+				Source:      SourceCore,
+				Mutability:  MutabilityWritable,
+				ValueSchema: themeModeSchema,
+			},
+			readDocumentValue(runtime, func(document projectstate.Document) any {
+				return projectstate.EffectiveAppThemeMode(document)
+			}),
+			normalizeOptionalThemeModeWrite,
+			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
+				_, result, err := runtime.CompareAndSetAppDefinitionThemeMode(ctx, nextValue, expected)
+				return result, err
+			},
+			comparableMutationResult[string],
+		),
+	})
 }
 
-func coreRegistryWatchCodeProviderActive(options CoreRegistryOptions) bool {
-	if options.WatchCodeCapabilities == nil {
-		return true
-	}
-	return options.WatchCodeCapabilities.PluginEnabled && options.WatchCodeCapabilities.Python
-}
+type compareAndSetEntryNormalizer[Value any, Expected any] func(value any, expectedOldValue any) (Value, Expected, error)
+type compareAndSetEntryWriter[Value any, Expected any, Result any] func(ctx context.Context, projectID string, value Value, expectedOldValue Expected) (projectstate.CompareAndSetResult[Result], error)
+type compareAndSetEntryMutationBuilder[Result any] func(projectstate.CompareAndSetResult[Result]) MutationResult
 
-func filterWatchCodeSettingEntries(entries []RuntimeEntry) []RuntimeEntry {
-	filtered := make([]RuntimeEntry, 0, len(entries))
-	for _, entry := range entries {
-		switch entry.Metadata.SettingID {
-		case watchCodeEnabledSettingID, watchCodeFoldersSettingID, watchCodeFilesSettingID:
-			continue
-		default:
-			filtered = append(filtered, entry)
-		}
-	}
-	return filtered
-}
-
-func unavailableWatchCodeSettingErrors() map[string]SettingError {
-	message := "Watch Code settings are unavailable because no active Watch Code provider is selected."
-	return map[string]SettingError{
-		watchCodeEnabledSettingID: {Code: ErrorCodePluginUnavailable, Message: message},
-		watchCodeFoldersSettingID: {Code: ErrorCodePluginUnavailable, Message: message},
-		watchCodeFilesSettingID:   {Code: ErrorCodePluginUnavailable, Message: message},
-	}
-}
-
-type CompareAndSetEntryNormalizer[Value any, Expected any] func(value any, expectedOldValue any) (Value, Expected, error)
-type CompareAndSetEntryWriter[Value any, Expected any, Result any] func(ctx context.Context, projectID string, value Value, expectedOldValue Expected) (projectstate.CompareAndSetResult[Result], error)
-type CompareAndSetEntryMutationBuilder[Result any] func(projectstate.CompareAndSetResult[Result]) MutationResult
-
-func NewCompareAndSetEntry[Value any, Expected any, Result any](
+func newCoreCompareAndSetEntry[Value any, Expected any, Result any](
 	metadata Entry,
 	read ReadFunc,
-	normalize CompareAndSetEntryNormalizer[Value, Expected],
-	write CompareAndSetEntryWriter[Value, Expected, Result],
-	buildMutationResult CompareAndSetEntryMutationBuilder[Result],
+	normalize compareAndSetEntryNormalizer[Value, Expected],
+	write compareAndSetEntryWriter[Value, Expected, Result],
+	buildMutationResult compareAndSetEntryMutationBuilder[Result],
 ) RuntimeEntry {
 	return RuntimeEntry{
 		Metadata:  metadata,
@@ -276,13 +315,19 @@ func readProjectValue(runtime CoreProjectState, selectValue func(*projectstate.P
 	}
 }
 
-func normalizeBoolWrite(schema ValueSchema) CompareAndSetEntryNormalizer[bool, *bool] {
+func readDocumentValue(runtime CoreProjectState, selectValue func(projectstate.Document) any) ReadFunc {
+	return func(_ context.Context, _ string) (any, error) {
+		return selectValue(runtime.Snapshot().Document), nil
+	}
+}
+
+func normalizeBoolWrite(schema ValueSchema) compareAndSetEntryNormalizer[bool, *bool] {
 	return func(value any, expectedOldValue any) (bool, *bool, error) {
 		return normalizeOptionalBoolWrite(schema, value, expectedOldValue)
 	}
 }
 
-func normalizeStringSliceWrite(schema ValueSchema) CompareAndSetEntryNormalizer[[]string, []string] {
+func normalizeStringSliceWrite(schema ValueSchema) compareAndSetEntryNormalizer[[]string, []string] {
 	return func(value any, expectedOldValue any) ([]string, []string, error) {
 		if err := ValidateValue(schema, value); err != nil {
 			return nil, nil, err
@@ -305,7 +350,7 @@ func normalizeStringSliceWrite(schema ValueSchema) CompareAndSetEntryNormalizer[
 	}
 }
 
-func ComparableMutationResult[Value comparable](result projectstate.CompareAndSetResult[Value]) MutationResult {
+func comparableMutationResult[Value comparable](result projectstate.CompareAndSetResult[Value]) MutationResult {
 	return MutationResult{
 		OldValue:        result.OldValue,
 		NewValue:        result.NewValue,
@@ -347,7 +392,7 @@ func normalizeOptionalBoolWrite(schema ValueSchema, value any, expectedOldValue 
 	return normalizedValue, &expected, nil
 }
 
-func NormalizeOptionalNonEmptyStringWrite(value any, expectedOldValue any) (string, *string, error) {
+func normalizeOptionalNonEmptyStringWrite(value any, expectedOldValue any) (string, *string, error) {
 	normalizedValue, err := normalizeNonEmptyString(value)
 	if err != nil {
 		return "", nil, err
@@ -362,7 +407,7 @@ func NormalizeOptionalNonEmptyStringWrite(value any, expectedOldValue any) (stri
 	return normalizedValue, &expected, nil
 }
 
-func NormalizeOptionalThemeModeWrite(value any, expectedOldValue any) (string, *string, error) {
+func normalizeOptionalThemeModeWrite(value any, expectedOldValue any) (string, *string, error) {
 	normalizedValue, err := normalizeThemeMode(value)
 	if err != nil {
 		return "", nil, err

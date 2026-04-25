@@ -47,7 +47,7 @@ quality_is_python_candidate() {
 quality_is_frontend_candidate() {
   local path="${1#./}"
   case "${path}" in
-    frontend/src/*|frontend/plugin-sdk/app-subsystem/src/*|plugins/*/frontend/src/*)
+    frontend/src/*|plugins/*/frontend/src/*)
       ;;
     *)
       return 1
@@ -55,41 +55,10 @@ quality_is_frontend_candidate() {
   esac
 
   case "${path}" in
-    *.test.*|*.spec.*|*.stories.*|*.d.ts|frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts|frontend/src/openapi/*/generated/*|frontend/plugin-sdk/app-subsystem/src/generatedTypes.ts|frontend/plugin-sdk/app-subsystem/src/generated/*|frontend/plugin-sdk/app-subsystem/src/openapi/*/generated/*)
+    *.test.*|*.spec.*|*.stories.*|*.d.ts|frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts|frontend/src/openapi/*/generated/*)
       return 1
       ;;
     *.js|*.jsx|*.ts|*.tsx)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-quality_is_frontend_boundary_candidate() {
-  local path="${1#./}"
-  case "${path}" in
-    frontend/src/*|frontend/plugin-sdk/app-subsystem/src/*|frontend/plugin-sdk/app-subsystem/types/*.d.ts|plugins/*/frontend/src/*|plugins/*/frontend/tests/*|plugins/*/frontend/vendor/*/types/*.d.ts)
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-
-  case "${path}" in
-    frontend/src/utils/generatedEndpoints.ts|frontend/src/utils/generatedRoutes.ts|frontend/src/utils/generatedTypes.ts|frontend/src/openapi/*/generated/*|frontend/plugin-sdk/app-subsystem/src/generatedTypes.ts|frontend/plugin-sdk/app-subsystem/src/generated/*|frontend/plugin-sdk/app-subsystem/src/openapi/*/generated/*)
-      return 1
-      ;;
-    *.js|*.jsx|*.ts|*.tsx|*.d.ts)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-quality_is_frontend_guardrail_candidate() {
-  local path="${1#./}"
-  case "${path}" in
-    frontend/plugin-sdk/app-subsystem/package.json|frontend/plugin-sdk/app-subsystem/vite.config.mjs|frontend/plugin-sdk/app-subsystem/types/*.d.ts|plugins/*/frontend/package.json|plugins/*/frontend/vite.config.mjs|plugins/*/frontend/vitest.config.mjs|plugins/*/frontend/vendor/*/package.json|plugins/*/frontend/vendor/*/types/*.d.ts)
       return 0
       ;;
   esac
@@ -160,7 +129,6 @@ quality_collect_frontend_source_dir_args() {
   local repo_root="${1:-.}"
 
   printf '%s\n' "src"
-  printf '%s\n' "plugin-sdk/app-subsystem/src"
   while IFS= read -r path; do
     [[ -n "${path}" ]] || continue
     printf '../%s\n' "${path}"
