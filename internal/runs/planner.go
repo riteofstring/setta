@@ -43,12 +43,6 @@ var (
 
 type RunSnapshotMode = deployments.RunSnapshotMode
 
-const (
-	RunSnapshotModeNever     = deployments.RunSnapshotModeNever
-	RunSnapshotModeEphemeral = deployments.RunSnapshotModeEphemeral
-	RunSnapshotModeAlways    = deployments.RunSnapshotModeAlways
-)
-
 type PlannerOptions struct {
 	ProjectState           *projectstate.Runtime
 	SettaFilesRoot         string
@@ -127,7 +121,7 @@ func NewPlanner(options PlannerOptions) (*Planner, error) {
 
 	defaultMode := options.DefaultRunSnapshotMode
 	if defaultMode == "" {
-		defaultMode = RunSnapshotModeEphemeral
+		defaultMode = deployments.RunSnapshotModeEphemeral
 	}
 	if err := validateRunSnapshotMode(defaultMode); err != nil {
 		return nil, err
@@ -208,7 +202,7 @@ func (p *Planner) planManualCode(target projectstate.ResolvedRunTarget, mode Run
 	if err := validateManualRunTarget(target); err != nil {
 		return Plan{}, err
 	}
-	if mode == RunSnapshotModeNever {
+	if mode == deployments.RunSnapshotModeNever {
 		return p.planDirectManualCode(target, mode, revision)
 	}
 	return p.planSnapshotManualCode(target, mode, revision, overridesApplied)
@@ -298,7 +292,7 @@ func (p *Planner) planGeneratedEntry(target projectstate.ResolvedRunTarget, mode
 		return Plan{}, err
 	}
 
-	if mode == RunSnapshotModeNever {
+	if mode == deployments.RunSnapshotModeNever {
 		return p.planDirectGeneratedEntry(target.Project.ID, generated, mode, revision)
 	}
 	return p.planSnapshotGeneratedEntry(target.Project, generated, mode, revision, overridesApplied)
@@ -409,8 +403,8 @@ func (p *Planner) resolveRunSnapshotMode(request PlanRequest) (RunSnapshotMode, 
 	if err := validateRunSnapshotMode(mode); err != nil {
 		return "", err
 	}
-	if hasOverrides(request) && mode == RunSnapshotModeNever {
-		return RunSnapshotModeEphemeral, nil
+	if hasOverrides(request) && mode == deployments.RunSnapshotModeNever {
+		return deployments.RunSnapshotModeEphemeral, nil
 	}
 	return mode, nil
 }
@@ -580,9 +574,9 @@ func (p *Planner) snapshotRoot(mode RunSnapshotMode) string {
 		return p.snapshotRootPath
 	}
 	switch mode {
-	case RunSnapshotModeEphemeral:
+	case deployments.RunSnapshotModeEphemeral:
 		return p.runtimeRoot
-	case RunSnapshotModeAlways:
+	case deployments.RunSnapshotModeAlways:
 		return filepath.Join(p.settaFilesRoot, runSnapshotsCodeDirName)
 	default:
 		return p.runtimeRoot
@@ -720,7 +714,7 @@ func parseParamOverrideKey(key string) (string, string, error) {
 
 func validateRunSnapshotMode(mode RunSnapshotMode) error {
 	switch mode {
-	case RunSnapshotModeNever, RunSnapshotModeEphemeral, RunSnapshotModeAlways:
+	case deployments.RunSnapshotModeNever, deployments.RunSnapshotModeEphemeral, deployments.RunSnapshotModeAlways:
 		return nil
 	default:
 		return fmt.Errorf("%w: %q", ErrRunSnapshotModeInvalid, mode)

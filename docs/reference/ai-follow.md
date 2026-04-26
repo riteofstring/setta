@@ -25,7 +25,11 @@ This page explains how AIFollow works end-to-end, covering the backend metadata 
 - `useAIFollowViewport` filters ids by the selected chat/section list, groups tool-result bursts within 300ms, computes bounds, and animates a 500ms zoom/pan to keep the sections in view (`frontend/src/state/hooks/aiFollow.ts`).
 - Pan and zoom gestures are disabled only while a follow transition is running (`isFollowTransitioning`), not for the entire follow mode (`frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`).
 - Sections add a gradient border while they are in the active follow set or highlighted by tool results. The highlight lingers for 650ms after ids clear to avoid flicker (`frontend/src/components/Section/Container/utils.tsx`, `frontend/src/components/Section/Container/SectionContainerCore.tsx`).
-- When follow is active (all/selected), the renderer still tags agentic edges that touch tool-argument or tool-result sections, but the current UI no longer gives those tags a distinct edge style. Edges originating from a streaming Chat section still get a visible run highlight (`frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx`). See `docs/reference/edge-styles.md` for the current visual meanings.
+- When follow is active (all/selected), the renderer tags agentic edges that
+  touch tool-argument or tool-result sections. Edges originating from a
+  streaming Chat section get a visible run highlight
+  (`frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx`). See
+  `docs/reference/edge-styles.md` for the current visual meanings.
 
 ## Current limitations
 - Only `section` ids drive viewport and highlighting; `codeObj` ids are tracked but not yet consumed in the UI (`frontend/src/state/aiFollowUtils.ts`).

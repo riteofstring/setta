@@ -35,6 +35,7 @@ type openAPIOperation struct {
 	ResponseType        reflect.Type
 	RequestContentType  string
 	ResponseContentType string
+	AppSubsystemSDK     bool
 }
 
 type openAPIOperationOption func(*openAPIOperation)
@@ -173,6 +174,32 @@ func withOpenAPIResponseContentType(contentType string) openAPIOperationOption {
 	}
 }
 
+const OpenAPIFrontendSDKScopeAppSubsystem = "app-subsystem"
+
+func withOpenAPIAppSubsystemFrontendSDK() openAPIOperationOption {
+	return func(operation *openAPIOperation) {
+		operation.AppSubsystemSDK = true
+	}
+}
+
+type OpenAPIOperationOption = openAPIOperationOption
+
+func WithOpenAPITags(tags ...string) OpenAPIOperationOption {
+	return withOpenAPITags(tags...)
+}
+
+func WithOpenAPISummary(summary string) OpenAPIOperationOption {
+	return withOpenAPISummary(summary)
+}
+
+func WithOpenAPIModeRequirement(requirement string) OpenAPIOperationOption {
+	return withOpenAPIModeRequirement(requirement)
+}
+
+func WithOpenAPIAppSubsystemFrontendSDK() OpenAPIOperationOption {
+	return withOpenAPIAppSubsystemFrontendSDK()
+}
+
 func withOpenAPIPathParams[T any]() openAPIOperationOption {
 	return func(operation *openAPIOperation) {
 		operation.PathParamsType = openAPIReflectType[T]()
@@ -183,6 +210,10 @@ func withOpenAPIQuery[T any]() openAPIOperationOption {
 	return func(operation *openAPIOperation) {
 		operation.QueryParamsType = openAPIReflectType[T]()
 	}
+}
+
+func WithOpenAPIPathParams[T any]() OpenAPIOperationOption {
+	return withOpenAPIPathParams[T]()
 }
 
 func registerOpenAPIGet[Resp any](
@@ -202,6 +233,16 @@ func registerOpenAPIGet[Resp any](
 	)
 }
 
+func RegisterOpenAPIGet[Resp any](
+	router chi.Router,
+	operationID string,
+	routePath string,
+	handler http.HandlerFunc,
+	options ...OpenAPIOperationOption,
+) {
+	registerOpenAPIGet[Resp](router, operationID, routePath, handler, options...)
+}
+
 func registerOpenAPIPostNoRequest[Resp any](
 	router chi.Router,
 	operationID string,
@@ -219,6 +260,16 @@ func registerOpenAPIPostNoRequest[Resp any](
 	)
 }
 
+func RegisterOpenAPIPostNoRequest[Resp any](
+	router chi.Router,
+	operationID string,
+	routePath string,
+	handler http.HandlerFunc,
+	options ...OpenAPIOperationOption,
+) {
+	registerOpenAPIPostNoRequest[Resp](router, operationID, routePath, handler, options...)
+}
+
 func registerOpenAPIPost[Req, Resp any](
 	router chi.Router,
 	operationID string,
@@ -234,6 +285,16 @@ func registerOpenAPIPost[Req, Resp any](
 		handler,
 		options...,
 	)
+}
+
+func RegisterOpenAPIPost[Req, Resp any](
+	router chi.Router,
+	operationID string,
+	routePath string,
+	handler http.HandlerFunc,
+	options ...OpenAPIOperationOption,
+) {
+	registerOpenAPIPost[Req, Resp](router, operationID, routePath, handler, options...)
 }
 
 func registerOpenAPIOperation[Req, Resp any](
@@ -315,6 +376,10 @@ func openAPIDocumentOnlyFromRouter(router chi.Router) bool {
 	return false
 }
 
+func OpenAPIDocumentOnlyFromRouter(router chi.Router) bool {
+	return openAPIDocumentOnlyFromRouter(router)
+}
+
 func routerWithoutOpenAPI(router chi.Router) chi.Router {
 	if router == nil {
 		return nil
@@ -370,6 +435,11 @@ func (c *openAPICollector) operationExtensions(operation openAPIOperation) map[s
 	}
 	if operation.ModeRequirement != "" {
 		extensions["x-setta-mode-requirement"] = operation.ModeRequirement
+	}
+	if operation.AppSubsystemSDK {
+		extensions["x-setta-frontend-sdk-scopes"] = []string{
+			OpenAPIFrontendSDKScopeAppSubsystem,
+		}
 	}
 	return extensions
 }

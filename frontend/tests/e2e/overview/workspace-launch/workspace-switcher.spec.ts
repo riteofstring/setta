@@ -67,7 +67,7 @@ async function createWorkspaceLaunchIntentToken({
       returnUrl: string;
     }) => {
       const { createWorkspaceLaunchIntent } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/src/openapi/http/result");
+      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
       return await callOpenAPI(
         createWorkspaceLaunchIntent({
           body: payload,
@@ -223,7 +223,7 @@ test("workspace switcher launches a session and persists history", async ({
     expectedBackendOrigin,
   );
   const backendOrigin = await page.evaluate(async () => {
-    const { C_ADDRESSES } = await import("/src/utils/c_addresses");
+    const { C_ADDRESSES } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     return C_ADDRESSES.BACKEND_ORIGIN;
   });
   expect(backendOrigin).toBe(expectedBackendOrigin);
@@ -1289,7 +1289,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     tunnelOrigin,
   );
   const { backendOrigin, launcherOrigin } = await page.evaluate(async () => {
-    const { C_ADDRESSES } = await import("/src/utils/c_addresses");
+    const { C_ADDRESSES } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     return {
       backendOrigin: C_ADDRESSES.BACKEND_ORIGIN,
       launcherOrigin: C_ADDRESSES.LAUNCHER_ORIGIN,

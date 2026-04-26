@@ -8,14 +8,18 @@ and a Python package surface for CLI dispatch, source SDKs, and packaging.
 - `cmd/setta` and `cmd/setta-server` are the CLI and server entrypoints.
 - `internal/` owns the backend runtime, HTTP/ws transports, state, services,
   codegen, packaging helpers, and frontend binding generation.
-- `backend/setta/` is the Python package surface:
+- `backend/setta/` is the Python package and SDK surface:
   - `python -m setta` / installed `setta` dispatch through
     `backend/setta/entrypoint.py`
-  - `backend/setta/api/*` contains the Python SDK
+  - `backend/setta/api/*` contains the source Python SDK/runtime helpers
     (`SettaListener`, `ListenerHotReloader`, `chat_toolkit`, `SettaRunner`)
-  - packaged assets, sidecars, and bundled binaries still ship from here
+  - package-level helpers such as `local_core_client.py`, `runtime_compat.py`,
+    and `plugin_runtime/*` are thin Go-backed/package-facing surfaces shipped
+    in the wheel
+  - packaged assets, sidecars, and bundled binaries ship from here
 - `plugins/` contains first-party Setta plugin packages, including
-  package-managed language-server plugins and their manifests/config schemas.
+  package-managed language-server plugins, the Watch Code provider, the JSON
+  Render app-subsystem provider, and their manifests/config schemas.
 - `frontend/` contains the Vite/React UI and generated TS bindings.
 - `tests/` contains Python/package pytest coverage; Go tests are
   co-located under `cmd/*` and `internal/*`.
@@ -45,8 +49,8 @@ Common commands:
 - `./verify_install.sh`
 
 `./dev_install.sh` also creates the repo Python environment used for package
-tooling, tests, and the first-party basedpyright plugin. Activate it when you
-need direct Python/package commands:
+tooling, tests, and the first-party defaults plugin. Activate it when you need
+direct Python/package commands:
 
 ```sh
 source activate.sh
@@ -56,8 +60,10 @@ source activate.sh
 
 On a fresh workspace, the repo-local defaults install profile bootstraps
 `setta-basedpyright` as the selected Python language server when that
-first-party plugin is available. See
-[`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md).
+first-party plugin is available. Watch Code is available through the optional
+first-party `setta-watch-code` plugin. See
+[`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md)
+and [`docs/reference/watch-code.md`](docs/reference/watch-code.md).
 
 ## Packaging boundary
 
@@ -67,7 +73,8 @@ binaries:
 - installed `setta` and `python -m setta` resolve through the package
   entrypoint wrapper
 - the wrapper dispatches into packaged Go binaries under `backend/setta/go_bin`
-- the source-only Python SDK modules stay outside the slim wheel install path
+- the slim wheel includes dispatch plus package-facing runtime helpers; broader
+  source-only Python SDK modules stay outside the packaged-user install path
 - source-checkout dev flows run the Go entrypoints directly through
   `./scripts/go.sh`
 

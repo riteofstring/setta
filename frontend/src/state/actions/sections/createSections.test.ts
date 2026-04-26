@@ -1,4 +1,4 @@
-import { useReactFlow } from "forks/xyflow/core/store";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -23,9 +23,14 @@ vi.mock("openapi/http", () => ({
   setSectionName: vi.fn(),
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+  };
+});
 
 vi.mock("utils/tabbingLogic", () => ({
   focusOnSectionSearch: vi.fn(),
@@ -62,10 +67,10 @@ describe("createTopLevelSection", () => {
       });
       state.singletonSections = createSingletonSections();
     });
-    useReactFlow.setState({
-      transform: [0, 0, 1],
-      width: 1200,
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setViewportSize({
       height: 800,
+      width: 1200,
     });
   });
   afterEach(() => {
@@ -130,10 +135,10 @@ describe("createTopLevelSection", () => {
   it("falls back to a visible explicit position when viewport bounds are unavailable for an empty project", async () => {
     const { createTopLevelSection: createTopLevelSectionRequest } =
       await import("openapi/http");
-    useReactFlow.setState({
-      transform: [80, -40, 2],
-      width: 0,
+    gpuFlowViewportStore.getState().setTransform([80, -40, 2]);
+    gpuFlowViewportStore.getState().setViewportSize({
       height: 0,
+      width: 0,
     });
     vi.mocked(createTopLevelSectionRequest).mockResolvedValue({
       status: 200,

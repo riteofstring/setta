@@ -1,4 +1,10 @@
 import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   getGitCommitDetails,
   getGitCommitFileDiff,
   getGitDiff,
@@ -12,15 +18,9 @@ import {
   type GitreadStatusEntry as StatusEntry,
   type GitreadStatusResponse as StatusResponse,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import { useGitStore } from "state/git";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
 import {
   appendGitGraphRows,
   computeGitGraphRowsWithState,

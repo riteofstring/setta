@@ -48,8 +48,8 @@ vi.mock("components/Utils/CodeMirror/useCodeMirrorStyle", () => ({
   useCodeMirrorStyle: () => "theme",
 }));
 
-vi.mock("forks/xyflow/core/store", () => ({
-  useReactFlow: (
+vi.mock("gpuFlow/viewportHooks", () => ({
+  useGpuFlowViewportStore: (
     selector: (state: {
       fitViewOnInit: boolean;
       fitViewOnInitDone: boolean;

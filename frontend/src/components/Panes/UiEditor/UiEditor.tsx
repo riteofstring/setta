@@ -13,14 +13,12 @@ import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
-import {
-  APP_CHROME_Z_INDEX_CLASS_NAME,
-  PaneNameEnum,
-  UIEditorTabNameEnum,
-  UIEditorTabNamePrettified,
-} from "utils/constants";
+import { APP_CHROME_Z_INDEX_CLASS_NAME, PaneNameEnum } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
-import { type UIEditorTabName } from "utils/generatedTypes";
+import {
+  UIEditorTabUIConfig,
+  type UIEditorTabName,
+} from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
   getOnUIEditorTabClick,
@@ -133,35 +131,35 @@ export function UiEditor() {
         }}
       >
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabNameEnum.SectionConfig}
+          tabName={UIEditorTabUIConfig.names.SectionConfig}
           {...commonProps}
           data-testid="ui-editor-tab-section-config"
           {...getFloatingBoxHandlers({ content: "Section Config" })}
           icon={<MdOutlineSettingsApplications />}
         />
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabNameEnum.UIConfig}
+          tabName={UIEditorTabUIConfig.names.UIConfig}
           {...commonProps}
           data-testid="ui-editor-tab-ui-config"
           {...getFloatingBoxHandlers({ content: "Parameter UI Config" })}
           icon={<BsCardChecklist />}
         />
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabNameEnum.QuickInfoConfig}
+          tabName={UIEditorTabUIConfig.names.QuickInfoConfig}
           {...commonProps}
           data-testid="ui-editor-tab-quick-info-config"
           {...getFloatingBoxHandlers({ content: "Parameter Info Editing" })}
           icon={<TbEdit />}
         />
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabNameEnum.InfoConfig}
+          tabName={UIEditorTabUIConfig.names.InfoConfig}
           {...commonProps}
           data-testid="ui-editor-tab-info-config"
           {...getFloatingBoxHandlers({ content: "Info Editing" })}
           icon={<PiCursorTextFill />}
         />
         <TabButton<UIEditorTabName>
-          tabName={UIEditorTabNameEnum.SectionVariantsConfig}
+          tabName={UIEditorTabUIConfig.names.SectionVariantsConfig}
           {...commonProps}
           data-testid="ui-editor-tab-section-variants-config"
           {...getFloatingBoxHandlers({ content: "Section Variants" })}
@@ -217,7 +215,7 @@ function TabsVisible({
   selectedTabName: UIEditorTabName;
   inputTitle?: string;
 }) {
-  const title = inputTitle ?? UIEditorTabNamePrettified[selectedTabName];
+  const title = inputTitle ?? UIEditorTabUIConfig.titles[selectedTabName];
   return (
     <div
       data-testid="ui-editor-tab-content-shell"
@@ -237,15 +235,15 @@ function TabContent({
   selectedTabName: UIEditorTabName;
 }) {
   switch (selectedTabName) {
-    case UIEditorTabNameEnum.SectionConfig:
+    case UIEditorTabUIConfig.names.SectionConfig:
       return <SectionConfig sectionId={sectionId} />;
-    case UIEditorTabNameEnum.UIConfig:
+    case UIEditorTabUIConfig.names.UIConfig:
       return <UIConfig sectionId={sectionId} />;
-    case UIEditorTabNameEnum.QuickInfoConfig:
+    case UIEditorTabUIConfig.names.QuickInfoConfig:
       return <QuickInfoConfig sectionId={sectionId} />;
-    case UIEditorTabNameEnum.InfoConfig:
+    case UIEditorTabUIConfig.names.InfoConfig:
       return <MarkdownEditorInPane sectionId={sectionId} />;
-    case UIEditorTabNameEnum.SectionVariantsConfig:
+    case UIEditorTabUIConfig.names.SectionVariantsConfig:
       return <VariantList sectionId={sectionId} />;
     default:
       return selectedTabName satisfies never;

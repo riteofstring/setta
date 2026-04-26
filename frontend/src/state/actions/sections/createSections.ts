@@ -1,11 +1,16 @@
-import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { getPaneRect } from "forks/xyflow/core/utils/graph";
+import {
+  callOpenAPI,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import { getPaneRect } from "gpuFlow/flowGeometry";
+import { getViewport, getZoom, setCenter } from "gpuFlow/viewportActions";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import {
   createTopLevelSection as createTopLevelSectionRequest,
   setSectionName,
+  type CreateTopLevelSectionData,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useLocalStorage,
   useNodeInternals,
@@ -13,11 +18,9 @@ import {
   useShareSession,
 } from "state/definitions";
 import { CodeLanguage, resolveCodeLanguageFromPath } from "utils/codeLanguage";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { resolveFileDropSectionKind } from "utils/fileDropSectionKind";
 import {
   CodeFileAccessModeEnum,
-  CreateTopLevelSectionRequest,
   Position,
   SectionType,
   SectionTypeEnum,
@@ -39,10 +42,20 @@ import {
   getCurrProjectConfigId,
 } from "../sectionInfos";
 import { goToSection } from "./sectionPositions";
+
+type CreateTopLevelSectionRequestBody = CreateTopLevelSectionData["body"];
+type CreateTopLevelSectionImplOverrides =
+  | CreateTopLevelSectionRequestBody["implOverrides"]
+  | null;
+type TextBlockDisplayMode =
+  (typeof TextBlockDisplayModeEnum)[keyof typeof TextBlockDisplayModeEnum];
+type TextBlockFormat =
+  (typeof TextBlockFormatEnum)[keyof typeof TextBlockFormatEnum];
+
 type CreateTopLevelSectionArgs = {
-  implType: CreateTopLevelSectionRequest["implType"];
-  implOverrides: CreateTopLevelSectionRequest["implOverrides"];
-  controlCodeObjType?: CreateTopLevelSectionRequest["controlCodeObjType"];
+  implType: SectionType;
+  implOverrides: CreateTopLevelSectionImplOverrides;
+  controlCodeObjType?: CreateTopLevelSectionRequestBody["controlCodeObjType"];
   position?: Position | null;
   name?: string | null;
 };
@@ -82,14 +95,13 @@ function resolveCreateTopLevelSectionPosition(
   }
   return getEmptySpacePosition();
 }
-function shouldFocusCreatedSectionTextInput(
-  implType: CreateTopLevelSectionRequest["implType"],
-) {
-  return [
+function shouldFocusCreatedSectionTextInput(implType: SectionType) {
+  const focusableSectionTypes: readonly SectionType[] = [
     SectionTypeEnum.TextBlock,
     SectionTypeEnum.Code,
     SectionTypeEnum.Terminal,
-  ].includes(implType);
+  ];
+  return focusableSectionTypes.includes(implType);
 }
 async function requestTopLevelSectionCreation(
   {
@@ -116,7 +128,9 @@ async function requestTopLevelSectionCreation(
         topLevelSections: placement.topLevelSections,
         viewportBounds: placement.viewportBounds,
       },
-    } as Parameters<typeof createTopLevelSectionRequest>[0]),
+    } as Parameters<typeof createTopLevelSectionRequest>[0]) as Parameters<
+      typeof callOpenAPI
+    >[0],
   )) as CreateTopLevelSectionRouteResponse;
 }
 function centerViewportOnCreatedSection(
@@ -125,12 +139,11 @@ function centerViewportOnCreatedSection(
   if (!panTo) {
     return;
   }
-  const currentZoom = useReactFlow.getState().transform[2];
-  setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
+  setCenter(panTo.x, panTo.y, { zoom: getZoom() });
 }
 function handleCreatedTopLevelSection(
   sectionId: string,
-  implType: CreateTopLevelSectionRequest["implType"],
+  implType: SectionType,
   panTo: CreateTopLevelSectionResult["panTo"],
 ) {
   centerViewportOnCreatedSection(panTo);
@@ -236,14 +249,14 @@ function getTopLevelSectionLayoutSnapshot() {
   );
 }
 function getViewportBoundsForPlacement(): ViewportBounds | null {
-  const reactFlowState = useReactFlow.getState();
-  const { width, height } = reactFlowState;
+  const viewportState = gpuFlowViewportStore.getState();
+  const { width, height } = viewportState;
   if (width <= 0 || height <= 0) {
     return null;
   }
   const overviewWidth = useLocalStorage.getState().overviewTrueWidth;
   const uiEditorWidth = useLocalStorage.getState().uiEditorTrueWidth;
-  const paneRect = getPaneRect(reactFlowState, overviewWidth, uiEditorWidth);
+  const paneRect = getPaneRect(viewportState, overviewWidth, uiEditorWidth);
   if (paneRect.width <= 0 || paneRect.height <= 0) {
     return null;
   }
@@ -289,7 +302,9 @@ async function finalizeOpenedFileSection(
         sectionId,
         name: getValidSectionNameForOpenedFile(fileName),
       },
-    } as Parameters<typeof setSectionName>[0]),
+    } as Parameters<typeof setSectionName>[0]) as Parameters<
+      typeof callOpenAPI
+    >[0],
   );
   focusSectionIfNeeded(sectionId, focusOnSection);
   return sectionId;
@@ -329,12 +344,10 @@ export function getEmptySpacePosition() {
       y: viewportBounds.y + positionOffset.y,
     };
   }
-  const {
-    transform: [_x, _y, zoom],
-  } = useReactFlow.getState();
+  const { x: viewportX, y: viewportY, zoom } = getViewport();
   const overviewWidth = useLocalStorage.getState().overviewTrueWidth;
-  const x = (overviewWidth - _x) / zoom;
-  const y = -_y / zoom;
+  const x = (overviewWidth - viewportX) / zoom;
+  const y = -viewportY / zoom;
   return { x: x + positionOffset.x, y: y + positionOffset.y };
 }
 type OpenFileInCodeSectionArgs = {
@@ -410,8 +423,8 @@ export async function openFileInCodeSection({
 type OpenFileInTextSectionArgs = {
   fileName: string;
   text: string;
-  format: TextBlockFormatEnum;
-  textDisplayMode: TextBlockDisplayModeEnum;
+  format: TextBlockFormat;
+  textDisplayMode: TextBlockDisplayMode;
   position?: Position | null;
   focusOnSection?: boolean;
 };
@@ -564,9 +577,9 @@ export async function openFileAsSectionForDrop({
   return { status: "opened", sectionId };
 }
 function resolveTextBlockImplOverrides(
-  implType: CreateTopLevelSectionRequest["implType"],
-  implOverrides: CreateTopLevelSectionRequest["implOverrides"],
-): CreateTopLevelSectionRequest["implOverrides"] {
+  implType: SectionType,
+  implOverrides: CreateTopLevelSectionImplOverrides,
+): CreateTopLevelSectionImplOverrides {
   if (implType !== SectionTypeEnum.TextBlock) {
     return implOverrides;
   }

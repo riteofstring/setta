@@ -6,21 +6,21 @@ import {
   ViewPlugin,
   WidgetType,
 } from "@codemirror/view";
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCodeMirrorTooltipParent } from "components/Utils/CodeMirror/useCodeMirrorTooltipParent";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import { computeGpuReadyToBeVisible } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
   codeAreaCompletion,
   genCodePrefixCompletion,
   genCodeSuffixCompletion,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import React, {
   useCallback,
   useEffect,
@@ -59,7 +59,6 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
 type GenPythonDocParts = {
   isValid: boolean;
@@ -690,7 +689,7 @@ export function useCodeAreaHeight({ sectionId }) {
   const editorRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
-  const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
+  const readyToBeVisible = useGpuFlowViewportStore(computeGpuReadyToBeVisible);
   const [didFirstRender, setDidFirstRender] = useState(false);
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;

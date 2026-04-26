@@ -232,10 +232,10 @@ async function getWorkspaceTopInset(page: Page): Promise<number> {
 
 async function getCanvasDomRect(page: Page): Promise<CanvasDomRect | null> {
   return page.evaluate(async () => {
-    const { useReactFlow } = await import(
-      "/src/forks/xyflow/core/store/index.ts"
+    const { gpuFlowViewportStore } = await import(
+      "/src/gpuFlow/viewportStore.ts"
     );
-    const domNode = useReactFlow.getState().domNode;
+    const domNode = gpuFlowViewportStore.getState().domNode;
     if (!domNode) {
       return null;
     }
@@ -269,7 +269,7 @@ async function getFlowPositionFromScreenPoint(
 ): Promise<FlowPoint> {
   return page.evaluate(async (point) => {
     const { screenToFlowPosition } = await import(
-      "/src/forks/xyflow/core/hooks/useViewportHelper.ts"
+      "/src/gpuFlow/viewportActions.ts"
     );
     return screenToFlowPosition(point);
   }, screenPoint);
@@ -2309,7 +2309,7 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     await page.evaluate(
       async ({ projectConfigId, sectionId: targetSectionId }) => {
         const { deleteSections } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/src/openapi/http/result");
+        const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
         await callOpenAPI(
           deleteSections({
             body: {
@@ -2338,7 +2338,7 @@ test("project chat windows reopen canvas-bound sections as centered floating win
       const { createViewMode, toggleViewModeTab } = await import(
         "/src/openapi/http"
       );
-      const { callOpenAPI } = await import("/src/openapi/http/result");
+      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
       const response = await callOpenAPI(
         createViewMode({
           body: {
@@ -2366,7 +2366,7 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     await page.evaluate(
       async ({ projectConfigId, activeViewModeId }) => {
         const { setActiveViewMode } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/src/openapi/http/result");
+        const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
         await callOpenAPI(
           setActiveViewMode({
             body: {

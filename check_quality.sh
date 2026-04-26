@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 Usage: ./check_quality.sh [--staged | --git-changes | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
 
-Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
+Runs maintainability-oriented quality checks for supported production source, with an emphasis on cyclomatic complexity.
 
 Modes:
   --git-changes      Check tracked files changed from HEAD plus untracked files (default).
@@ -133,34 +133,57 @@ quality_validate_positive_integer "${frontend_max}" "--frontend-max"
 quality_validate_positive_integer "${go_max}" "--go-max"
 
 cd "${repo_root}"
+# shellcheck source=/dev/null
+. ./activate.sh
+if ! command -v python >/dev/null 2>&1; then
+  echo "python is required after activating ./activate.sh." >&2
+  exit 1
+fi
+
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/setta-check-quality.XXXXXX")"
+trap 'rm -rf "${tmp_dir}"' EXIT
+selected_files_path="${tmp_dir}/selected-files.txt"
+collect_files | LC_ALL=C sort -u >"${selected_files_path}"
 
 declare -a python_files=()
 declare -a frontend_eslint_files=()
+declare -a frontend_boundary_files=()
+declare -a frontend_guardrail_files=()
 declare -a go_files=()
 declare -a go_packages=()
 
 while IFS= read -r file_path; do
   [[ -z "${file_path}" ]] && continue
-  [[ -f "${file_path}" ]] || continue
+  python_files+=("${file_path}")
+done < <(quality_filter_files python <"${selected_files_path}")
 
-  if quality_is_python_candidate "${file_path}"; then
-    python_files+=("${file_path}")
-  fi
-  if quality_is_frontend_candidate "${file_path}"; then
-    frontend_eslint_files+=("$(quality_frontend_cli_path "${file_path}")")
-  fi
-  if quality_is_go_candidate "${file_path}"; then
-    go_files+=("${file_path}")
-    go_packages+=("./$(dirname "${file_path}")")
-  fi
-done < <(collect_files | LC_ALL=C sort -u)
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_eslint_files+=("$(quality_frontend_cli_path "${file_path}")")
+done < <(quality_filter_files frontend-eslint <"${selected_files_path}")
+
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_boundary_files+=("${file_path}")
+done < <(quality_filter_files frontend-boundary <"${selected_files_path}")
+
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  frontend_guardrail_files+=("${file_path}")
+done < <(quality_filter_files frontend-guardrail <"${selected_files_path}")
+
+while IFS= read -r file_path; do
+  [[ -z "${file_path}" ]] && continue
+  go_files+=("${file_path}")
+  go_packages+=("./$(dirname "${file_path}")")
+done < <(quality_filter_files go <"${selected_files_path}")
 
 if [[ ${#go_packages[@]} -gt 0 ]]; then
   IFS=$'\n' go_packages=($(printf '%s\n' "${go_packages[@]}" | LC_ALL=C sort -u))
   unset IFS
 fi
 
-if [[ ${#python_files[@]} -eq 0 && ${#frontend_eslint_files[@]} -eq 0 && ${#go_files[@]} -eq 0 ]]; then
+if [[ ${#python_files[@]} -eq 0 && ${#frontend_eslint_files[@]} -eq 0 && ${#frontend_boundary_files[@]} -eq 0 && ${#frontend_guardrail_files[@]} -eq 0 && ${#go_files[@]} -eq 0 ]]; then
   echo "No supported files to check."
   exit 0
 fi
@@ -171,7 +194,6 @@ if [[ ${#python_files[@]} -gt 0 ]]; then
   echo "Python quality checks (${#python_files[@]} files)..."
   (
     set -euo pipefail
-    . ./activate.sh
     ruff check "${python_files[@]}"
     ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = $(quality_effective_exceeds_threshold "${python_max}")" "${python_files[@]}"
   ) || status=1
@@ -180,10 +202,21 @@ fi
 if [[ ${#frontend_eslint_files[@]} -gt 0 ]]; then
   echo "Frontend quality checks (${#frontend_eslint_files[@]} files)..."
   pnpm -C frontend exec eslint \
+    --no-warn-ignored \
     --rule "complexity:[\"error\",$(quality_effective_exceeds_threshold "${frontend_max}")]" \
     --rule 'max-depth:["error",4]' \
     --rule 'max-params:["error",5]' \
     -- "${frontend_eslint_files[@]}" || status=1
+fi
+
+if [[ ${#frontend_boundary_files[@]} -gt 0 ]]; then
+  echo "Frontend boundary checks (${#frontend_boundary_files[@]} files)..."
+  node ./frontend/scripts/check_import_boundaries.mjs -- "${frontend_boundary_files[@]}" || status=1
+fi
+
+if [[ ${#frontend_guardrail_files[@]} -gt 0 ]]; then
+  echo "Frontend standalone guardrail checks..."
+  pnpm -C frontend exec vitest run src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts || status=1
 fi
 
 if [[ ${#go_files[@]} -gt 0 ]]; then

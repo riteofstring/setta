@@ -1,7 +1,7 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import _ from "lodash";
 import { setSectionStyleColor } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

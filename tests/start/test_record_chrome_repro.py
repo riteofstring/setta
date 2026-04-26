@@ -958,6 +958,9 @@ PY
         env["SETTA_CHROME_REPRO_BOOTSTRAP_URL"] = (
             f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token"
         )
+        env["CHROME_EXTRA_ARGS"] = (
+            "--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu"
+        )
         env.pop("SETTA_WORKSPACE_ROOT", None)
         env.pop("SETTA_PROJECT_URL", None)
         env.pop("SETTA_PROJECT_PATH", None)
@@ -982,6 +985,10 @@ PY
 
     assert '--user-data-dir="' not in browser_args
     assert "--user-data-dir=" in browser_args
+    if sys.platform == "darwin":
+        assert "--use-mock-keychain" in browser_args
+    assert "--enable-blink-features=CanvasDrawElement" in browser_args
+    assert "--enable-unsafe-webgpu" in browser_args
     assert "--disable-extensions-except=" in browser_args
     assert "--load-extension=" in browser_args
     assert f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token" in browser_args
@@ -1356,3 +1363,73 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
     assert payload["llmArtifactsManifest"].endswith(
         "/llm_engine_artifacts/manifest.json"
     )
+
+
+def test_latest_chrome_recording_helper_ignores_stale_latest_pointer(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, _, _, _ = build_record_chrome_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    recording_root = tmp_path / "chrome-recordings"
+    older_dir = recording_root / "recording-20260330-151418"
+    newer_dir = recording_root / "recording-20260330-151419"
+    older_dir.mkdir(parents=True, exist_ok=True)
+    newer_dir.mkdir(parents=True, exist_ok=True)
+
+    older_session = {
+        "artifactDir": str(older_dir),
+        "eventCount": 3,
+        "createdAt": "2026-03-30T15:14:18+00:00",
+        "finalizedAt": "2026-03-30T15:14:30+00:00",
+    }
+    newer_session = {
+        "artifactDir": str(newer_dir),
+        "eventCount": 7,
+        "createdAt": "2026-03-30T15:14:19+00:00",
+        "finalizedAt": "2026-03-30T15:14:31+00:00",
+    }
+    (older_dir / "session.json").write_text(
+        json.dumps(older_session, indent=2) + "\n", encoding="utf-8"
+    )
+    (newer_dir / "session.json").write_text(
+        json.dumps(newer_session, indent=2) + "\n", encoding="utf-8"
+    )
+    (newer_dir / "launcher.json").write_text(
+        json.dumps({"bootstrapUrl": "http://127.0.0.1:1234/__setta__/bootstrap"}),
+        encoding="utf-8",
+    )
+    (recording_root / "latest.json").write_text(
+        json.dumps(
+            {
+                "format": "setta.chrome-repro-latest/v1",
+                "artifactDir": str(older_dir),
+                "sessionFile": str(older_dir / "session.json"),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (recording_root / "latest").symlink_to(older_dir)
+
+    env = script_env(stub_dir, home_dir)
+    env["SETTA_CHROME_REPRO_ROOT_DIR"] = str(recording_root)
+
+    result = run_script(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "latest-chrome-recording.sh"),
+            "--json",
+        ],
+        cwd=sandbox_root,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["pointerSource"] == "scan"
+    assert payload["artifactDir"] == str(newer_dir)
+    assert payload["eventCount"] == 7

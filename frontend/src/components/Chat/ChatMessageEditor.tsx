@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { formatBytes } from "@setta/app-subsystem-frontend-sdk";
 import {
   FormEvent,
   RefObject,
@@ -10,7 +11,6 @@ import {
   useState,
 } from "react";
 import { IoAdd, IoAttach, IoClose, IoFolderOpen } from "react-icons/io5";
-import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 

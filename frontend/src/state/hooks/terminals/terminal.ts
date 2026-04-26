@@ -1,6 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { dispatchGpuFlowNodeDirtyEvent } from "gpuFlow/nodeDirtyEvents";
 import type { RefObject } from "react";
 import { useLayoutEffect, useRef } from "react";
 import {
@@ -275,11 +276,20 @@ export function useTerminal({
     });
 
     const unsub = scrollSensitivityUpdater(terminal, setHasScrollbar);
+    const dirtyRenderDisposable = terminal.onRender(() => {
+      dispatchGpuFlowNodeDirtyEvent(container, {
+        priority: terminalContainsFocusedInput(terminalRef, terminalReadyRef)
+          ? "interactive"
+          : "visible",
+        reason: "input",
+      });
+    });
 
     return () => {
       clearPendingSectionTextFocus(sectionId);
       detachReadyListener();
       resizeObserver.disconnect();
+      dirtyRenderDisposable.dispose();
       unsub();
       releaseTerminalSession(sessionKey);
     };

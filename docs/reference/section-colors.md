@@ -41,7 +41,7 @@ Frontend helpers:
 
 ## UI behavior
 
-Section Config now includes:
+Section Config includes:
 
 - `Color Tag` controls
   - pick/reset section `tagColor`

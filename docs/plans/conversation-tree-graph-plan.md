@@ -30,7 +30,7 @@ No backend schema change is required for the first version.
    - Active path fully visible.
    - Non-active siblings collapsed behind compact branch markers/badges.
 4. Selecting a graph node switches to that branch/chat and updates normal thread state.
-5. Keep existing per-message branch arrows for now (low-risk coexistence); evaluate removal later.
+5. Keep existing per-message branch arrows during validation; evaluate removal later.
 
 ## Placement Plan
 ### 1) Project Chat Pane
@@ -105,7 +105,7 @@ Keep routing/state switching outside the graph renderer. The graph emits `onSele
 ## Rollout Strategy
 1. Ship behind a local UI flag (default off) until validated.
 2. Enable by default after test coverage and UX pass.
-3. Optional follow-up: remove old per-message branch arrows once tree view usage is validated.
+3. Optional follow-up: remove existing per-message branch arrows once tree view usage is validated.
 
 ## Implementation Sequence
 1. Build shared model + tests.

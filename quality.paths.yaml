@@ -1,0 +1,75 @@
+schema_version: 1
+
+python:
+  include_globs:
+    - "**/*.py"
+  exclude_globs:
+    - "tests/**"
+    - "**/tests/**"
+  generated_globs:
+    - "backend/setta/types/generated/**"
+    - "backend/setta/sdk_contracts/constants.py"
+    - "backend/setta/sdk_contracts/generated.py"
+    - "backend/setta/api/listener_endpoint_client.py"
+
+frontend:
+  generated_globs:
+    - "frontend/src/utils/generatedEndpoints.ts"
+    - "frontend/src/utils/generatedRoutes.ts"
+    - "frontend/src/utils/generatedTypes.ts"
+    - "frontend/src/openapi/**/generated/**"
+    - "frontend/plugin-sdk/app-subsystem/src/generatedTypes.ts"
+    - "frontend/plugin-sdk/app-subsystem/src/generated/**"
+    - "frontend/plugin-sdk/app-subsystem/src/openapi/**/generated/**"
+    - "plugins/*/frontend/src/generated/**"
+  eslint:
+    include_globs:
+      - "frontend/src/**"
+      - "frontend/plugin-sdk/app-subsystem/src/**"
+      - "plugins/*/frontend/src/**"
+    extensions:
+      - ".js"
+      - ".jsx"
+      - ".ts"
+      - ".tsx"
+    exclude_globs:
+      - "**/*.test.*"
+      - "**/*.spec.*"
+      - "**/*.stories.*"
+      - "**/*.d.ts"
+    exclude_generated: true
+  boundary:
+    include_globs:
+      - "frontend/src/**"
+      - "frontend/plugin-sdk/app-subsystem/src/**"
+      - "frontend/plugin-sdk/app-subsystem/types/*.d.ts"
+      - "plugins/*/frontend/src/**"
+      - "plugins/*/frontend/tests/**"
+      - "plugins/*/frontend/vendor/*/types/*.d.ts"
+    extensions:
+      - ".js"
+      - ".jsx"
+      - ".ts"
+      - ".tsx"
+      - ".d.ts"
+    exclude_generated: true
+  guardrail:
+    include_globs:
+      - "frontend/plugin-sdk/app-subsystem/package.json"
+      - "frontend/plugin-sdk/app-subsystem/vite.config.mjs"
+      - "frontend/plugin-sdk/app-subsystem/types/*.d.ts"
+      - "plugins/*/frontend/package.json"
+      - "plugins/*/frontend/vite.config.mjs"
+      - "plugins/*/frontend/vitest.config.mjs"
+      - "plugins/*/frontend/vendor/*/package.json"
+      - "plugins/*/frontend/vendor/*/types/*.d.ts"
+
+go:
+  include_globs:
+    - "cmd/**/*.go"
+    - "internal/**/*.go"
+    - "plugins/**/*.go"
+  exclude_globs:
+    - "**/*_test.go"
+  generated_globs:
+    - "**/*_gen.go"

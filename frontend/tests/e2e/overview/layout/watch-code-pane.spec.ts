@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
@@ -14,11 +14,48 @@ type RootResponse = {
   rootPath?: string;
 };
 
+type WatchCodePluginProjectData = {
+  files?: string[];
+};
+
+const WATCH_CODE_PLUGIN_ROOT = path.resolve(
+  process.cwd(),
+  "../plugins/setta-watch-code",
+);
+
+function getWatchCodePluginData(
+  projectState: unknown,
+): WatchCodePluginProjectData {
+  if (!projectState || typeof projectState !== "object") {
+    return {};
+  }
+  const pluginData = (projectState as { pluginData?: Record<string, unknown> })
+    .pluginData;
+  const watchCodeData = pluginData?.["setta-watch-code"];
+  if (!watchCodeData || typeof watchCodeData !== "object") {
+    return {};
+  }
+  return watchCodeData as WatchCodePluginProjectData;
+}
+
+async function linkWatchCodePlugin(page: Page): Promise<void> {
+  await postBackend(page, "/plugins/link", {
+    localPluginRoot: WATCH_CODE_PLUGIN_ROOT,
+    scope: "workspace",
+    enable: true,
+    force: true,
+  });
+  await postBackend(page, "/plugins/rescan", {});
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator(".react-flow__pane")).toBeVisible();
+}
+
 test("watch code settings open from controls portal with all options", async ({
   page,
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
   await ensureAppReady(page);
+  await linkWatchCodePlugin(page);
 
   await expect(page.getByTestId("overview-tab-watch-code")).toHaveCount(0);
 
@@ -31,8 +68,6 @@ test("watch code settings open from controls portal with all options", async ({
   await expect(
     portal.getByRole("heading", { name: "Watch Code" }),
   ).toBeVisible();
-  const caret = page.getByTestId("rf__watch-code-settings-caret");
-  await expect(caret).toBeVisible();
 
   const [buttonRect, portalRect] = await Promise.all([
     watchCodeSettingsButton.boundingBox(),
@@ -45,51 +80,19 @@ test("watch code settings open from controls portal with all options", async ({
     expect(portalRect.y).toBeLessThan(buttonRect.y + 400);
   }
 
-  const toggleButton = portal.getByRole("button", {
-    name: /Enable Watch Code|Disable Watch Code/,
-  });
-  await expect(toggleButton).toBeVisible();
-  const initialPressed = await toggleButton.getAttribute("aria-pressed");
-  expect(initialPressed === "true" || initialPressed === "false").toBeTruthy();
-  await toggleButton.click();
-  if (initialPressed) {
-    await expect(toggleButton).toHaveAttribute(
-      "aria-pressed",
-      initialPressed === "true" ? "false" : "true",
-    );
-  }
   await expect(
-    portal.locator('[data-setting-anchor="core.watch_code.enabled"]'),
+    portal.locator('[data-setting-anchor="plugin::setta-watch-code::folders"]'),
   ).toBeVisible();
   await expect(
-    portal.locator('[data-setting-anchor="core.watch_code.folders"]'),
+    portal.locator('[data-setting-anchor="plugin::setta-watch-code::files"]'),
   ).toBeVisible();
-  await expect(
-    portal.locator('[data-setting-anchor="core.watch_code.files"]'),
-  ).toBeVisible();
-});
-
-test("watch code portal does not reopen from persisted visibility state", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "Overview",
-    overviewVis: true,
-    watchCodePortalOpen: true,
-  });
-  await ensureAppReady(page);
-
-  await expect(page.getByTestId("rf__watch-code-settings-portal")).toHaveCount(
-    0,
-  );
-  await expect(page.getByTestId("rf__watch-code-settings")).toBeVisible();
 });
 
 test("watch code portal stays clamped after content grows post-open", async ({
   page,
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
-  await page.route("**/api/setWatchCodeInputs", async (route) => {
+  await page.route("**/plugins/*/watch-code/inputs", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -97,14 +100,13 @@ test("watch code portal stays clamped after content grows post-open", async ({
     });
   });
   await ensureAppReady(page);
+  await linkWatchCodePlugin(page);
 
   const watchCodeSettingsButton = page.getByTestId("rf__watch-code-settings");
   await watchCodeSettingsButton.click();
 
   const portal = page.getByTestId("rf__watch-code-settings-portal");
-  const caret = page.getByTestId("rf__watch-code-settings-caret");
   await expect(portal).toBeVisible();
-  await expect(caret).toBeVisible();
 
   const addFolderButton = portal.getByRole("button", { name: "Add Folder" });
   for (let index = 0; index < 8; index += 1) {
@@ -113,27 +115,58 @@ test("watch code portal stays clamped after content grows post-open", async ({
 
   const viewport = page.viewportSize();
   expect(viewport).not.toBeNull();
-  const [portalRect, caretRect] = await Promise.all([
-    portal.boundingBox(),
-    caret.boundingBox(),
-  ]);
+  const portalRect = await portal.boundingBox();
   expect(portalRect).not.toBeNull();
-  expect(caretRect).not.toBeNull();
-  if (!viewport || !portalRect || !caretRect) {
+  if (!viewport || !portalRect) {
     throw new Error("Expected watch code portal geometry after growth.");
   }
 
   expect(portalRect.y).toBeGreaterThanOrEqual(0);
   expect(portalRect.y + portalRect.height).toBeLessThanOrEqual(viewport.height);
-  expect(caretRect.y).toBeGreaterThanOrEqual(portalRect.y);
-  expect(caretRect.y + caretRect.height).toBeLessThanOrEqual(
-    portalRect.y + portalRect.height,
-  );
+});
+
+test("watch code input controls disable while an input save is pending", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await ensureAppReady(page);
+  await linkWatchCodePlugin(page);
+
+  let releaseInputsRoute!: () => void;
+  let resolveInputsRouteStarted!: () => void;
+  const inputsRouteStarted = new Promise<void>((resolve) => {
+    resolveInputsRouteStarted = resolve;
+  });
+  await page.route("**/plugins/*/watch-code/inputs", async (route) => {
+    resolveInputsRouteStarted();
+    await new Promise<void>((release) => {
+      releaseInputsRoute = release;
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+  await page.getByTestId("rf__watch-code-settings").click();
+  const portal = page.getByTestId("rf__watch-code-settings-portal");
+  await expect(portal).toBeVisible();
+  await portal.getByRole("button", { name: "Add File" }).click();
+  const fileInput = portal.getByPlaceholder("relative/path/to/file.py");
+  await fileInput.fill("pending-save.py");
+  await fileInput.press("Enter");
+  await inputsRouteStarted;
+
+  await expect(portal.getByPlaceholder("relative/path/to/file.py")).toBeDisabled();
+  await expect(portal.getByRole("button", { name: "Add File" })).toBeDisabled();
+  releaseInputsRoute();
+  await expect(portal.getByPlaceholder("relative/path/to/file.py")).toBeEnabled();
 });
 
 test("watch code controls stay hidden in deployment mode", async ({ page }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
   await ensureAppReady(page);
+  await linkWatchCodePlugin(page);
 
   await page.evaluate(async () => {
     const { useShareSession } = await import("/src/state/definitions.ts");
@@ -154,6 +187,7 @@ test("watch code file updates appear live and reload without crashing", async ({
 }) => {
   await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
   await ensureAppReady(page);
+  await linkWatchCodePlugin(page);
 
   let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
     null;
@@ -190,7 +224,9 @@ test("watch code file updates appear live and reload without crashing", async ({
     await Promise.all([
       page.waitForResponse(
         (response) =>
-          response.url().includes("/api/setWatchCodeInputs") &&
+          response
+            .url()
+            .includes("/plugins/setta-watch-code/watch-code/inputs") &&
           response.request().method() === "POST" &&
           response.ok(),
       ),
@@ -198,34 +234,10 @@ test("watch code file updates appear live and reload without crashing", async ({
     ]);
     await expect
       .poll(async () => {
-        const projectState = (await loadProjectConfig(page)) as {
-          projectConfig?: { watchCodeFiles?: string[] };
-        };
-        return projectState.projectConfig?.watchCodeFiles ?? [];
+        const projectState = await loadProjectConfig(page);
+        return getWatchCodePluginData(projectState).files ?? [];
       })
       .toContain(relativeFilePath);
-
-    const toggleButton = portal.getByRole("button", {
-      name: /Enable Watch Code|Disable Watch Code/,
-    });
-    await Promise.all([
-      page.waitForResponse(
-        (response) =>
-          response.url().includes("/api/setWatchCodeEnabled") &&
-          response.request().method() === "POST" &&
-          response.ok(),
-      ),
-      toggleButton.click(),
-    ]);
-    await expect(toggleButton).toHaveAttribute("aria-pressed", "true");
-    await expect
-      .poll(async () => {
-        const projectState = (await loadProjectConfig(page)) as {
-          projectConfig?: { watchCodeEnabled?: boolean };
-        };
-        return projectState.projectConfig?.watchCodeEnabled ?? false;
-      })
-      .toBe(true);
 
     await fs.writeFile(
       absoluteFilePath,

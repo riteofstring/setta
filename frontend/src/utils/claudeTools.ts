@@ -1,10 +1,10 @@
+import { normalizeGeneratedToolName } from "@setta/app-subsystem-frontend-sdk";
 import {
   BaseChatMessageUnion,
   ChatRoleEnum,
   ToolCall,
   ToolNameNormalizationConfig,
 } from "utils/generatedTypes";
-import { normalizeGeneratedToolName } from "./bindingRuntime";
 
 type AskUserQuestionOption = {
   label: string;
@@ -39,39 +39,10 @@ type ToolInteractionIndex = {
 export function normalizeToolName(
   name: string | null | undefined,
 ): string | null {
-  if (typeof name !== "string") {
-    return null;
-  }
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return null;
-  }
-  let normalized = trimmed;
-  const {
-    mcpPrefix,
-    singlePrefix,
-    doublePrefix,
-    askUserQuestionToolAlias,
-    askUserQuestionToolName,
-  } = ToolNameNormalizationConfig;
-  const loweredAlias = askUserQuestionToolAlias.toLowerCase();
-  if (normalized.startsWith(mcpPrefix)) {
-    normalized = normalized.slice(mcpPrefix.length);
-  }
-  if (
-    trimmed.startsWith(mcpPrefix) &&
-    normalized.toLowerCase() === loweredAlias
-  ) {
-    return normalized;
-  }
-  if (
-    !trimmed.startsWith(mcpPrefix) &&
-    normalized.toLowerCase() === loweredAlias
-  ) {
-    return askUserQuestionToolName;
-  }
+  const { singlePrefix, doublePrefix, askUserQuestionToolName } =
+    ToolNameNormalizationConfig;
   return normalizeGeneratedToolName(
-    normalized,
+    name,
     singlePrefix,
     doublePrefix,
     askUserQuestionToolName,
