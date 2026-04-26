@@ -2,6 +2,7 @@ import type { GpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
 
 export type GpuActiveNodeTeleportController = {
   clearNode(nodeId: string): void;
+  clearSettlingClone(nodeId: string): void;
   destroy(): void;
   getTeleportedNodeId(): string | null;
   sync(snapshot: GpuActiveNodeSnapshot | null): GpuActiveNodeTeleportSyncResult;
@@ -36,6 +37,7 @@ type DomSelectionSnapshot = {
 };
 
 const TELEPORTED_NODE_CLASS = "setta-gpu-flow__node--teleported";
+const SETTLING_CLONE_CLASS = "setta-gpu-flow__node--settling-clone";
 const TELEPORTED_NODE_STYLE_KEYS = [
   "height",
   "left",
@@ -52,6 +54,7 @@ export function createGpuActiveNodeTeleportController(
   layer: HTMLElement,
 ): GpuActiveNodeTeleportController {
   let teleportedNode: TeleportedNode | null = null;
+  const settlingClones = new Map<string, HTMLElement>();
 
   function restore(): string | null {
     if (!teleportedNode) {
@@ -59,9 +62,11 @@ export function createGpuActiveNodeTeleportController(
     }
     const current = teleportedNode;
     teleportedNode = null;
+    const focusSnapshot = captureFocusSnapshot(current.element);
+    retainSettlingClone(layer, settlingClones, current);
     current.element.classList.remove(TELEPORTED_NODE_CLASS);
     delete current.element.dataset.gpuFlowTeleport;
-    restoreTeleportedNode(current);
+    restoreTeleportedNode(current, focusSnapshot);
     return current.nodeId;
   }
 
@@ -70,9 +75,14 @@ export function createGpuActiveNodeTeleportController(
       if (teleportedNode?.nodeId === nodeId) {
         restore();
       }
+      clearSettlingClone(settlingClones, nodeId);
+    },
+    clearSettlingClone(nodeId) {
+      clearSettlingClone(settlingClones, nodeId);
     },
     destroy() {
       restore();
+      clearAllSettlingClones(settlingClones);
     },
     getTeleportedNodeId() {
       return teleportedNode?.nodeId ?? null;
@@ -93,6 +103,7 @@ export function createGpuActiveNodeTeleportController(
         restoredNodeId = restore();
       }
       if (!teleportedNode) {
+        clearAllSettlingClones(settlingClones);
         teleportedNode = moveNodeToTeleportLayer(layer, snapshot);
       }
       applyTeleportedNodePresentation(snapshot);
@@ -127,12 +138,68 @@ function moveNodeToTeleportLayer(
   return teleportedNode;
 }
 
-function restoreTeleportedNode(teleportedNode: TeleportedNode) {
+function retainSettlingClone(
+  layer: HTMLElement,
+  settlingClones: Map<string, HTMLElement>,
+  teleportedNode: TeleportedNode,
+) {
+  clearAllSettlingClones(settlingClones);
+  const clone = teleportedNode.element.cloneNode(true);
+  if (!(clone instanceof HTMLElement)) {
+    return;
+  }
+  sanitizeSettlingClone(clone);
+  clone.classList.add(SETTLING_CLONE_CLASS);
+  clone.dataset.gpuFlowTeleport = "settling-clone";
+  clone.setAttribute("aria-hidden", "true");
+  clone.setAttribute("inert", "");
+  clone.style.pointerEvents = "none";
+  layer.replaceChildren(clone);
+  settlingClones.set(teleportedNode.nodeId, clone);
+}
+
+function clearSettlingClone(
+  settlingClones: Map<string, HTMLElement>,
+  nodeId: string,
+) {
+  const clone = settlingClones.get(nodeId);
+  if (!clone) {
+    return;
+  }
+  clone.remove();
+  settlingClones.delete(nodeId);
+}
+
+function clearAllSettlingClones(settlingClones: Map<string, HTMLElement>) {
+  for (const clone of settlingClones.values()) {
+    clone.remove();
+  }
+  settlingClones.clear();
+}
+
+function sanitizeSettlingClone(root: HTMLElement) {
+  sanitizeSettlingCloneElement(root);
+  for (const element of root.querySelectorAll<HTMLElement>(
+    "[id], [data-testid], [data-gpu-flow-node]",
+  )) {
+    sanitizeSettlingCloneElement(element);
+  }
+}
+
+function sanitizeSettlingCloneElement(element: HTMLElement) {
+  element.removeAttribute("id");
+  element.removeAttribute("data-testid");
+  element.removeAttribute("data-gpu-flow-node");
+}
+
+function restoreTeleportedNode(
+  teleportedNode: TeleportedNode,
+  focusSnapshot: FocusSnapshot | null,
+) {
   const { element, originalNextSibling, originalParent } = teleportedNode;
   if (!originalParent.isConnected) {
     return;
   }
-  const focusSnapshot = captureFocusSnapshot(element);
   restoreTeleportedNodeStyle(element, teleportedNode.originalStyle);
   if (
     originalNextSibling &&

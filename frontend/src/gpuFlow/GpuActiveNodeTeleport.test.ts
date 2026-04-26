@@ -12,6 +12,7 @@ describe("GpuActiveNodeTeleport", () => {
     const after = document.createElement("div");
     const layer = document.createElement("div");
     before.id = "before";
+    node.className = "setta-gpu-flow__node";
     node.dataset.id = "node-a";
     after.id = "after";
     canvas.append(before, node, after);
@@ -42,12 +43,31 @@ describe("GpuActiveNodeTeleport", () => {
     });
 
     expect(controller.getTeleportedNodeId()).toBeNull();
-    expect(layer.childElementCount).toBe(0);
     expect([...canvas.children]).toEqual([before, node, after]);
     expect(node.dataset.gpuFlowTeleport).toBeUndefined();
     expect(node.classList.contains("setta-gpu-flow__node--teleported")).toBe(
       false,
     );
+
+    const settlingClone = layer.firstElementChild;
+    expect(settlingClone).not.toBeNull();
+    expect(settlingClone).not.toBe(node);
+    expect(settlingClone?.classList.contains("setta-gpu-flow__node")).toBe(
+      true,
+    );
+    expect(
+      settlingClone?.classList.contains("setta-gpu-flow__node--settling-clone"),
+    ).toBe(true);
+    expect(settlingClone?.getAttribute("aria-hidden")).toBe("true");
+    expect(settlingClone?.getAttribute("inert")).toBe("");
+    expect(settlingClone?.getAttribute("data-gpu-flow-node")).toBeNull();
+    expect((settlingClone as HTMLElement | null)?.style.transform).toBe(
+      "translate(10px, 20px) scale(1.5)",
+    );
+
+    controller.clearSettlingClone("node-a");
+
+    expect(layer.childElementCount).toBe(0);
   });
 
   it("restores inline presentation styles that only belong to the active overlay", () => {

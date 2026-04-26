@@ -54,3 +54,7 @@
 .setta-gpu-flow__node--teleported {
   pointer-events: auto;
 }
+
+.setta-gpu-flow__node--settling-clone {
+  pointer-events: none;
+}

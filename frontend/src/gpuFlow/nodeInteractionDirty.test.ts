@@ -144,6 +144,69 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
+  it("hands off a passive node wrapper pointerdown by coordinates", async () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const switchButton = document.createElement("button");
+    switchButton.dataset.gpuFlowControl = "enabled";
+    nodeElement.append(switchButton);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    setRect(switchButton, 20, 30, 50, 24);
+    const descriptor = createGpuNodeTargetDescriptor(nodeElement, switchButton);
+    if (!descriptor) {
+      throw new Error("Expected a handoff target descriptor");
+    }
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const activatePointerHandoffNode = vi.fn(() => nodeElement);
+    const clicks: boolean[] = [];
+    switchButton.addEventListener("click", () => {
+      clicks.push(true);
+    });
+    let frame = 0;
+    const controller = createGpuNodeInteractionDirtyController({
+      activatePointerHandoffNode,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => {
+        frame += 1;
+        return frame;
+      },
+      requestFrame,
+      resolvePointerHandoffTarget: () => ({
+        descriptor,
+        nodeId: "node-a",
+      }),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 25,
+      clientY: 35,
+      pointerId: 9,
+    });
+    nodeElement.dispatchEvent(pointerDown);
+
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
+    expect(controller.getActiveNodeId()).toBe("node-a");
+
+    document.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 25,
+        clientY: 35,
+        pointerId: 9,
+      }),
+    );
+    await Promise.resolve();
+
+    expect(clicks).toEqual([true]);
+
+    detach();
+    canvas.remove();
+  });
+
   it("marks passive internal scrolls without promoting the node", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");

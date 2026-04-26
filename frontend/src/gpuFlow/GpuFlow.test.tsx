@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeScene, GpuEdgeSceneEntry } from "./edges/edgeSources";
 import {
-  clearUploadedGpuActiveFinalizingNodeIds,
   resolveGpuActiveNodeFrameSync,
   resolveGpuFlowEdgeDrawInputs,
 } from "./GpuFlow";
@@ -32,8 +31,8 @@ describe("GpuFlow active node final settle helpers", () => {
   it("defers and suppresses a teleported active node", () => {
     expect(
       resolveGpuActiveNodeFrameSync({
-        finalizingNodeIds: new Set(),
         pendingPaintNodeIds: new Set(),
+        settlingNodeIds: new Set(),
         teleportedNodeId: "node-a",
       }),
     ).toEqual({
@@ -42,11 +41,11 @@ describe("GpuFlow active node final settle helpers", () => {
     });
   });
 
-  it("keeps a restored active node suppressed until final upload", () => {
+  it("keeps a restored active node hidden behind its settling clone", () => {
     expect(
       resolveGpuActiveNodeFrameSync({
-        finalizingNodeIds: new Set(["node-a"]),
         pendingPaintNodeIds: new Set(["node-a"]),
+        settlingNodeIds: new Set(["node-a"]),
         teleportedNodeId: null,
       }),
     ).toEqual({
@@ -56,28 +55,25 @@ describe("GpuFlow active node final settle helpers", () => {
 
     expect(
       resolveGpuActiveNodeFrameSync({
-        finalizingNodeIds: new Set(["node-a"]),
         pendingPaintNodeIds: new Set(),
+        settlingNodeIds: new Set(["node-a"]),
         teleportedNodeId: null,
       }),
     ).toEqual({
       deferUploadNodeIds: undefined,
       suppressNodeIds: ["node-a"],
     });
-  });
-
-  it("clears final settle suppression only after the node uploads", () => {
-    const finalizingNodeIds = new Set(["node-a", "node-b"]);
 
     expect(
-      clearUploadedGpuActiveFinalizingNodeIds(finalizingNodeIds, ["node-c"]),
-    ).toEqual([]);
-    expect([...finalizingNodeIds]).toEqual(["node-a", "node-b"]);
-
-    expect(
-      clearUploadedGpuActiveFinalizingNodeIds(finalizingNodeIds, ["node-a"]),
-    ).toEqual(["node-a"]);
-    expect([...finalizingNodeIds]).toEqual(["node-b"]);
+      resolveGpuActiveNodeFrameSync({
+        pendingPaintNodeIds: new Set(),
+        settlingNodeIds: new Set(),
+        teleportedNodeId: null,
+      }),
+    ).toEqual({
+      deferUploadNodeIds: undefined,
+      suppressNodeIds: undefined,
+    });
   });
 });
 

@@ -69,7 +69,9 @@ type PendingPointerHandoffClick = {
 };
 
 const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
+const GPU_FLOW_TELEPORTED_NODE_SELECTOR = '[data-gpu-flow-teleport="active"]';
 const DEFAULT_ACTIVE_SETTLE_DELAY_MS = 240;
+const TRUSTED_POINTER_HANDOFF_CLICK_SUPPRESSION_MS = 120;
 
 export { isGpuNodeInteractiveEventTarget } from "./activeNodeTargeting";
 
@@ -87,6 +89,10 @@ export function createGpuNodeInteractionDirtyController({
   let activeNodeId: string | null = null;
   let dispatchingPointerHandoff = false;
   let pendingPointerHandoffClick: PendingPointerHandoffClick | null = null;
+  let pendingTrustedPointerHandoffClickTarget: HTMLElement | null = null;
+  let trustedPointerHandoffClickSuppressionTimer: ReturnType<
+    typeof globalThis.setTimeout
+  > | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
   let activeSettleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
@@ -148,7 +154,7 @@ export function createGpuNodeInteractionDirtyController({
     beginInteractiveNode(nodeId, "pointer");
   }
 
-  function handOffCanvasPointerEvent(event: PointerEvent): boolean {
+  function handOffPointerEvent(event: PointerEvent): boolean {
     const handoffTarget = resolvePointerHandoffTarget?.(event);
     if (!handoffTarget) {
       return false;
@@ -177,11 +183,16 @@ export function createGpuNodeInteractionDirtyController({
       dispatchingPointerHandoff = false;
     }
     focusPointerHandoffTarget(liveTarget);
-    pendingPointerHandoffClick = getPendingPointerHandoffClick(
-      liveTarget,
-      event,
-    );
+    queuePointerHandoffClick(liveTarget, event);
     return true;
+  }
+
+  function queuePointerHandoffClick(target: HTMLElement, event: PointerEvent) {
+    pendingPointerHandoffClick = getPendingPointerHandoffClick(target, event);
+    if (!pendingPointerHandoffClick || !event.isTrusted) {
+      return;
+    }
+    suppressNextTrustedPointerHandoffClick(target);
   }
 
   function markPointerInteractionDirty() {
@@ -219,6 +230,7 @@ export function createGpuNodeInteractionDirtyController({
         if (pendingClick.target.isConnected) {
           pendingClick.target.click();
         }
+        clearTrustedPointerHandoffClickSuppressionSoon(pendingClick.target);
       });
     }
     releasePointerInteraction();
@@ -226,7 +238,72 @@ export function createGpuNodeInteractionDirtyController({
 
   function cancelPointerInteraction() {
     pendingPointerHandoffClick = null;
+    clearTrustedPointerHandoffClickSuppression();
     releasePointerInteraction();
+  }
+
+  function suppressNextTrustedPointerHandoffClick(target: HTMLElement) {
+    pendingTrustedPointerHandoffClickTarget = target;
+    clearTrustedPointerHandoffClickSuppressionTimer();
+  }
+
+  function clearTrustedPointerHandoffClickSuppressionSoon(target: HTMLElement) {
+    clearTrustedPointerHandoffClickSuppressionTimer();
+    trustedPointerHandoffClickSuppressionTimer = globalThis.setTimeout(() => {
+      trustedPointerHandoffClickSuppressionTimer = null;
+      if (pendingTrustedPointerHandoffClickTarget === target) {
+        pendingTrustedPointerHandoffClickTarget = null;
+      }
+    }, TRUSTED_POINTER_HANDOFF_CLICK_SUPPRESSION_MS);
+  }
+
+  function clearTrustedPointerHandoffClickSuppressionTimer() {
+    if (trustedPointerHandoffClickSuppressionTimer === null) {
+      return;
+    }
+    globalThis.clearTimeout(trustedPointerHandoffClickSuppressionTimer);
+    trustedPointerHandoffClickSuppressionTimer = null;
+  }
+
+  function clearTrustedPointerHandoffClickSuppression() {
+    clearTrustedPointerHandoffClickSuppressionTimer();
+    pendingTrustedPointerHandoffClickTarget = null;
+  }
+
+  function suppressTrustedPointerHandoffClick(event: MouseEvent) {
+    const target = pendingTrustedPointerHandoffClickTarget;
+    if (
+      !target ||
+      !event.isTrusted ||
+      !shouldSuppressTrustedPointerHandoffClick(target, event)
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    clearTrustedPointerHandoffClickSuppression();
+  }
+
+  function clearPendingPointerHandoffForNode(nodeId: string) {
+    const nodeElements = elementByNodeId();
+    if (
+      pendingPointerHandoffClick &&
+      findGpuNodeIdForEventTarget(
+        pendingPointerHandoffClick.target,
+        nodeElements,
+      ) === nodeId
+    ) {
+      pendingPointerHandoffClick = null;
+    }
+    if (
+      pendingTrustedPointerHandoffClickTarget &&
+      findGpuNodeIdForEventTarget(
+        pendingTrustedPointerHandoffClickTarget,
+        nodeElements,
+      ) === nodeId
+    ) {
+      clearTrustedPointerHandoffClickSuppression();
+    }
   }
 
   function markEventTargetDirty(
@@ -371,15 +448,17 @@ export function createGpuNodeInteractionDirtyController({
           if (dispatchingPointerHandoff) {
             return;
           }
+          if (
+            !isGpuNodeTeleportedEventTarget(event.target) &&
+            handOffPointerEvent(event)
+          ) {
+            return;
+          }
           const nodeId = findGpuNodeIdForEventTarget(
             event.target,
             elementByNodeId(),
           );
-          if (!nodeId) {
-            handOffCanvasPointerEvent(event);
-            return;
-          }
-          if (!isGpuNodeInteractiveEventTarget(event.target)) {
+          if (!nodeId || !isGpuNodeInteractiveEventTarget(event.target)) {
             return;
           }
           beginPointerInteraction(nodeId);
@@ -394,6 +473,11 @@ export function createGpuNodeInteractionDirtyController({
       ownerDocument.addEventListener(
         "pointerup",
         releasePointerHandoff,
+        listenerOptions,
+      );
+      ownerDocument.addEventListener(
+        "click",
+        suppressTrustedPointerHandoffClick,
         listenerOptions,
       );
       ownerDocument.addEventListener(
@@ -415,6 +499,7 @@ export function createGpuNodeInteractionDirtyController({
       return () => {
         abortController.abort();
         clearActiveSettleTimer();
+        clearTrustedPointerHandoffClickSuppression();
       };
     },
     clearNode(nodeId) {
@@ -424,15 +509,7 @@ export function createGpuNodeInteractionDirtyController({
       if (pointerInteractionNodeId === nodeId) {
         pointerInteractionNodeId = null;
       }
-      if (
-        pendingPointerHandoffClick &&
-        findGpuNodeIdForEventTarget(
-          pendingPointerHandoffClick.target,
-          elementByNodeId(),
-        ) === nodeId
-      ) {
-        pendingPointerHandoffClick = null;
-      }
+      clearPendingPointerHandoffForNode(nodeId);
       if (activeNodeId === nodeId || releaseAfterUploadNodeId === nodeId) {
         clearActiveSettleTimer();
       }
@@ -516,6 +593,11 @@ export function findGpuNodeIdForEventTarget(
   return null;
 }
 
+function isGpuNodeTeleportedEventTarget(target: EventTarget | Node | null) {
+  const element = toElement(target);
+  return Boolean(element?.closest(GPU_FLOW_TELEPORTED_NODE_SELECTOR));
+}
+
 function dispatchPointerHandoffEvent(target: HTMLElement, event: PointerEvent) {
   const PointerEventConstructor =
     target.ownerDocument.defaultView?.PointerEvent ?? globalThis.PointerEvent;
@@ -577,7 +659,37 @@ function shouldDispatchPendingPointerHandoffClick(
   if (!target.isConnected) {
     return false;
   }
-  const rect = target.getBoundingClientRect();
+  return isMouseEventInsideElement(target, event);
+}
+
+function shouldSuppressTrustedPointerHandoffClick(
+  target: HTMLElement,
+  event: MouseEvent,
+): boolean {
+  if (!target.isConnected) {
+    return false;
+  }
+  return (
+    isTrustedClickTargetForHandoffTarget(target, event.target) ||
+    isMouseEventInsideElement(target, event)
+  );
+}
+
+function isTrustedClickTargetForHandoffTarget(
+  target: HTMLElement,
+  rawEventTarget: EventTarget | null,
+): boolean {
+  const eventTarget = toElement(rawEventTarget);
+  return Boolean(
+    eventTarget &&
+      (eventTarget === target ||
+        target.contains(eventTarget) ||
+        eventTarget.contains(target)),
+  );
+}
+
+function isMouseEventInsideElement(element: HTMLElement, event: MouseEvent) {
+  const rect = element.getBoundingClientRect();
   return (
     rect.width > 0 &&
     rect.height > 0 &&
