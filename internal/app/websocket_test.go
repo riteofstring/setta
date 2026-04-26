@@ -2279,7 +2279,6 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -2301,8 +2300,12 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
 		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			WatchCodeEnabled: true,
+			WatchCodeFolders: []projectstate.WatchCodeFolder{
+				{Path: "pkg", Recursive: false},
+			},
 			CodegenTargets: []projectstate.ProjectCodegenTarget{
 				{
 					Language: string(projectstate.CodeLanguagePython),
@@ -2310,11 +2313,6 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 				},
 			},
 		}
-		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Folders: []projectstate.WatchCodeFolder{
-				{Path: "pkg", Recursive: false},
-			},
-		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed watch code project: %v", err)
@@ -2352,21 +2350,20 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 		t.Fatalf("write initial watch file: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
-		entry, ok := projectData.Registry["pkg.missing.MissingFunc:function"]
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.missing.MissingFunc:function"]
 		return ok && len(entry.SectionIDs) == 1 && entry.SectionsCount == 1
 	})
 
 	initialSnapshot := app.ProjectStates().Main().Snapshot()
-	initialProjectData := readAppWatchCodePluginProjectData(t, initialSnapshot.Document, "project-alpha")
-	initialHash := initialProjectData.Registry["pkg.missing.MissingFunc:function"].SignatureHash
+	initialHash := initialSnapshot.Document.Projects["project-alpha"].WatchCodeRegistry["pkg.missing.MissingFunc:function"].SignatureHash
 
 	if err := os.WriteFile(watchFile, []byte("def MissingFunc(value, extra):\n    return value + extra\n"), 0o644); err != nil {
 		t.Fatalf("write signature-change watch file: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
-		entry, ok := projectData.Registry["pkg.missing.MissingFunc:function"]
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.missing.MissingFunc:function"]
 		return ok && entry.SignatureHash != initialHash
 	})
 
@@ -2392,15 +2389,14 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 	}
 
 	secondSnapshot := app.ProjectStates().Main().Snapshot()
-	secondProjectData := readAppWatchCodePluginProjectData(t, secondSnapshot.Document, "project-alpha")
-	secondHash := secondProjectData.Registry["pkg.missing.MissingFunc:function"].SignatureHash
+	secondHash := secondSnapshot.Document.Projects["project-alpha"].WatchCodeRegistry["pkg.missing.MissingFunc:function"].SignatureHash
 
 	if err := os.WriteFile(watchFile, []byte("def MissingFunc(value, extra, third):\n    return value + extra + third\n"), 0o644); err != nil {
 		t.Fatalf("write repeated signature-change watch file: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
-		entry, ok := projectData.Registry["pkg.missing.MissingFunc:function"]
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.missing.MissingFunc:function"]
 		return ok && entry.SignatureHash != secondHash
 	})
 
@@ -2412,7 +2408,6 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
 	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
 	if err := os.MkdirAll(watchDir, 0o755); err != nil {
@@ -2432,8 +2427,12 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.DefaultProjectID = "project-alpha"
 		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			WatchCodeEnabled: true,
+			WatchCodeFolders: []projectstate.WatchCodeFolder{
+				{Path: "pkg", Recursive: false},
+			},
 			CodegenTargets: []projectstate.ProjectCodegenTarget{
 				{
 					Language: string(projectstate.CodeLanguagePython),
@@ -2441,11 +2440,6 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 				},
 			},
 		}
-		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Folders: []projectstate.WatchCodeFolder{
-				{Path: "pkg", Recursive: false},
-			},
-		})
 		return document, nil
 	}); err != nil {
 		t.Fatalf("seed watch code project: %v", err)
@@ -2483,8 +2477,8 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 		t.Fatalf("write watched file: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
-		entry, ok := projectData.Registry["pkg.created.created:function"]
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.created.created:function"]
 		return ok && len(entry.SectionIDs) == 1 && entry.SectionsCount == 1
 	})
 
@@ -2496,10 +2490,9 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 	if createContent.ProjectState.ProjectConfig.ID != "project-alpha" {
 		t.Fatalf("expected project-alpha create state update, got %q", createContent.ProjectState.ProjectConfig.ID)
 	}
-	createWatchCodeData := mustAppWebsocketWatchCodeProjectData(t, createContent.ProjectState.PluginData)
-	createEntry, ok := createWatchCodeData.Registry["pkg.created.created:function"]
+	createEntry, ok := createContent.ProjectState.ProjectConfig.WatchCodeRegistry["pkg.created.created:function"]
 	if !ok {
-		t.Fatalf("expected watch code registry entry in websocket update, got %#v", createWatchCodeData.Registry)
+		t.Fatalf("expected watch code registry entry in websocket update, got %#v", createContent.ProjectState.ProjectConfig.WatchCodeRegistry)
 	}
 	if len(createEntry.SectionIDs) != 1 {
 		t.Fatalf("expected one created section id in websocket update, got %#v", createEntry)
@@ -2513,8 +2506,8 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 		t.Fatalf("remove watched file: %v", err)
 	}
 
-	waitForAppWatchCodeProject(t, app, "project-alpha", func(_ projectstate.Project, projectData projectstate.WatchCodePluginProjectData) bool {
-		return len(projectData.Registry) == 0
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		return len(project.WatchCodeRegistry) == 0
 	})
 
 	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
@@ -2525,9 +2518,8 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 	if deleteContent.ProjectState.ProjectConfig.ID != "project-alpha" {
 		t.Fatalf("expected project-alpha delete state update, got %q", deleteContent.ProjectState.ProjectConfig.ID)
 	}
-	deleteWatchCodeData := mustAppWebsocketWatchCodeProjectData(t, deleteContent.ProjectState.PluginData)
-	if len(deleteWatchCodeData.Registry) != 0 {
-		t.Fatalf("expected empty watch code registry after delete, got %#v", deleteWatchCodeData.Registry)
+	if len(deleteContent.ProjectState.ProjectConfig.WatchCodeRegistry) != 0 {
+		t.Fatalf("expected empty watch code registry after delete, got %#v", deleteContent.ProjectState.ProjectConfig.WatchCodeRegistry)
 	}
 	if _, ok := deleteContent.ProjectState.Sections[createdSectionID]; ok {
 		t.Fatalf("expected deleted watch code section %q to be absent, got %#v", createdSectionID, deleteContent.ProjectState.Sections[createdSectionID])
@@ -3095,7 +3087,6 @@ func TestAppSetCodeRouteBroadcastsProjectStateUpdateForWatchCodeBoundSection(t *
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3159,31 +3150,13 @@ func TestAppSetCodeRouteBroadcastsProjectStateUpdateForWatchCodeBoundSection(t *
 	if len(content.PendingOpIDs) != 0 {
 		t.Fatalf("expected no pending op ids after set code, got %#v", content.PendingOpIDs)
 	}
-	watchCodeData := mustAppWebsocketWatchCodeProjectData(t, content.ProjectState.PluginData)
-	entry, ok := watchCodeData.Registry["pkg.bound.sorted:function"]
+	entry, ok := content.ProjectState.ProjectConfig.WatchCodeRegistry["pkg.bound.sorted:function"]
 	if !ok {
-		t.Fatalf("expected websocket update to include derived watch code entry, got %#v", watchCodeData.Registry)
+		t.Fatalf("expected websocket update to include derived watch code entry, got %#v", content.ProjectState.ProjectConfig.WatchCodeRegistry)
 	}
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected websocket update to include one callable section binding, got %#v", entry)
 	}
-}
-
-func mustAppWebsocketWatchCodeProjectData(
-	t *testing.T,
-	pluginData map[string]projectstate.RawJSON,
-) projectstate.WatchCodePluginProjectData {
-	t.Helper()
-
-	payload, ok := pluginData[testAppWatchCodeProviderPluginID]
-	if !ok {
-		t.Fatalf("expected websocket update to include %q plugin data, got %#v", testAppWatchCodeProviderPluginID, pluginData)
-	}
-	var projectData projectstate.WatchCodePluginProjectData
-	if err := json.Unmarshal(payload, &projectData); err != nil {
-		t.Fatalf("decode watch code project plugin data: %v", err)
-	}
-	return projectData.Normalized()
 }
 
 func TestAppMoveSectionsRouteBroadcastsProjectStateUpdate(t *testing.T) {

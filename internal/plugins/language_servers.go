@@ -66,6 +66,10 @@ func (s *Service) languageServerSpecsForSnapshotLocked(
 	)
 }
 
+func LanguageServerSpecsFromSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
+	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage, "", true)
+}
+
 func languageServerSpecsFromSnapshotWithState(
 	snapshot DiscoverySnapshot,
 	pluginsState *PluginsStateFile,
@@ -178,7 +182,8 @@ func languageServerSettingsWithRuntimePaths(
 ) map[string]any {
 	settings := languageServerSettingsRoot(entries, entry, pluginsState)
 	if normalizedSettaFilesRoot := strings.TrimSpace(settaFilesRoot); normalizedSettaFilesRoot != "" {
-		settings = mergeRequiredLanguageServerRuntimeSearchPath(
+		settings = mergeRequiredPythonLanguageServerRuntimePath(
+			entry,
 			registration,
 			settings,
 			normalizedSettaFilesRoot,
@@ -187,12 +192,13 @@ func languageServerSettingsWithRuntimePaths(
 	return scopeLanguageServerSettings(settings, registration.SettingsKey)
 }
 
-func mergeRequiredLanguageServerRuntimeSearchPath(
+func mergeRequiredPythonLanguageServerRuntimePath(
+	entry DiscoveredPlugin,
 	registration PluginRegisteredLanguageServer,
 	settings map[string]any,
 	requiredPath string,
 ) map[string]any {
-	segments := requiredLanguageServerRuntimeSearchPathSegments(registration)
+	segments := requiredPythonLanguageServerSearchPathSegments(entry, registration)
 	if len(segments) == 0 {
 		return settings
 	}
@@ -214,11 +220,19 @@ func mergeRequiredLanguageServerRuntimeSearchPath(
 	return settings
 }
 
-func requiredLanguageServerRuntimeSearchPathSegments(registration PluginRegisteredLanguageServer) []string {
-	if registration.RuntimeSearchPathsKey == nil {
+func requiredPythonLanguageServerSearchPathSegments(entry DiscoveredPlugin, registration PluginRegisteredLanguageServer) []string {
+	if !strings.EqualFold(strings.TrimSpace(registration.Language), "python") {
 		return nil
 	}
-	return parseLanguageServerSettingsKey(*registration.RuntimeSearchPathsKey)
+
+	switch strings.TrimSpace(entry.PluginID) {
+	case "setta-basedpyright":
+		return []string{"basedpyright", "analysis", "extraPaths"}
+	case "setta-ty":
+		return []string{"ty", "configuration", "environment", "extra-paths"}
+	default:
+		return nil
+	}
 }
 
 func ensureSettingsMap(parent map[string]any, key string) map[string]any {

@@ -2368,7 +2368,7 @@ async function setSectionSize(
       const { dispatchOptimisticProjectStateUpdate, getCurrProjectConfigId } =
         await import("/src/state/actions/sectionInfos");
       const { setSectionSizes } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { setSelfParentSiblingChildrenWidths } = await import(
         "/src/state/actions/sections/sectionSizes"
       );
@@ -3021,15 +3021,11 @@ async function activateMovingFreeDragMode(
 
 async function resetViewport(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
-    const viewportStore = gpuFlowViewportStore.getState();
-    viewportStore.setTransform({ x: 0, y: 0, zoom: 1 });
-    viewportStore.setFitViewInitializationState({
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    useReactFlow.setState({
+      transform: [0, 0, 1],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
-      fitViewOnInitOptions: undefined,
     });
     window.reactFlowZoom = 1;
   });

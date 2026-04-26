@@ -892,7 +892,7 @@ func TestRegisterTerminalRoutesAppliesDrawSnapshotsBeforeRunningCode(t *testing.
 	requestBody, err := json.Marshal(RunCodeRequest{
 		ProjectID:       "project-alpha",
 		SectionID:       "code-section",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: runs.RunSnapshotModeNever,
 		DrawSnapshotsBySectionID: map[string]binarypayload.ContentRef{
 			"draw-section": ref,
 		},

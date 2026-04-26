@@ -22,8 +22,7 @@ import (
 	"github.com/coder/websocket"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
-	appdefinition "setta/internal/appsubsystem/appdefinition"
-	"setta/internal/appsubsystem/appspec"
+	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/mcpx"
@@ -89,7 +88,6 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	if err := os.MkdirAll(cfg.Paths.WorkspaceRoot, 0o755); err != nil {
 		t.Fatalf("mkdir workspace root: %v", err)
@@ -126,8 +124,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 74 {
-		t.Fatalf("expected 74 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 79 {
+		t.Fatalf("expected 79 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -145,8 +143,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 74 {
-		t.Fatalf("expected 74 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 79 {
+		t.Fatalf("expected 79 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "getInstalledPythonPackages") {
 		t.Fatalf("expected getInstalledPythonPackages in registered tool names, got %#v", rawNames)
@@ -249,17 +247,6 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "update_plugin") {
 		t.Fatalf("expected update_plugin in registered tool names, got %#v", rawNames)
-	}
-	for _, removedTool := range []string{
-		"set_watch_code_enabled",
-		"set_watch_code_inputs",
-		"compare_and_set_watch_code_enabled",
-		"compare_and_set_watch_code_folders",
-		"compare_and_set_watch_code_files",
-	} {
-		if containsStructuredStringValue(rawNames, removedTool) {
-			t.Fatalf("expected removed Watch Code MCP tool %q to be absent, got %#v", removedTool, rawNames)
-		}
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -633,7 +620,6 @@ func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	seedAppSettaDocsBundle(t, cfg.Paths.WorkspaceRoot)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -3250,13 +3236,338 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetMetaControlShowSectionTitleOve
 	}
 }
 
+func TestAppIDEMCPServerSupportsSetWatchCodeEnabledOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustSetAppScopedMCPProjectWatchCodeFiles(t, cfg, []string{"pkg/watch_me.py"})
+
+	watchFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "watch_me.py")
+	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_enabled",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"enabled":         true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_watch_code_enabled: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_watch_code_enabled success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_watch_code_enabled: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code enabled after app mutation")
+	}
+	expectedBaselineKey := filepath.Clean(watchFile)
+	expectedIdentity := "pkg.watch_me.existing:function"
+	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetWatchCodeEnabledOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustSetAppScopedMCPProjectWatchCodeFiles(t, cfg, []string{"pkg/watch_me.py"})
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+	})
+
+	watchFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "watch_me.py")
+	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_enabled",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"enabled":         true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_watch_code_enabled: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_watch_code_enabled success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_watch_code_enabled: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code enabled after temp-id app mutation")
+	}
+	expectedBaselineKey := filepath.Clean(watchFile)
+	expectedIdentity := "pkg.watch_me.existing:function"
+	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected temp-id watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestAppIDEMCPServerSupportsSetWatchCodeInputsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	existingFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "existing.py")
+	newFolderFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "subdir", "added.py")
+	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, true, nil, []string{"pkg/existing.py"}, map[string][]string{
+		filepath.Clean(existingFile): {"pkg.existing.existing:function"},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_inputs",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"watchCodeFolders": []any{
+				map[string]any{"path": "pkg/subdir", "recursive": true},
+			},
+			"watchCodeFiles": []any{"pkg/existing.py"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_watch_code_inputs: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_watch_code_inputs success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_watch_code_inputs: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code to stay enabled after app mutation")
+	}
+	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders, got %#v", project.WatchCodeFolders)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
+	}
+	existingBaselineKey := filepath.Clean(existingFile)
+	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged, got %#v", project.WatchCodeBaselineByPath)
+	}
+	newBaselineKey := filepath.Clean(newFolderFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetWatchCodeInputsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+	})
+
+	existingFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "existing.py")
+	newFolderFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "subdir", "added.py")
+	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, true, nil, []string{"pkg/existing.py"}, map[string][]string{
+		filepath.Clean(existingFile): {"pkg.existing.existing:function"},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_watch_code_inputs",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"watchCodeFolders": []any{
+				map[string]any{"path": "pkg/subdir", "recursive": true},
+			},
+			"watchCodeFiles": []any{"pkg/existing.py"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_watch_code_inputs: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_watch_code_inputs success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_watch_code_inputs: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code to stay enabled after temp-id app mutation")
+	}
+	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders after temp-id app mutation, got %#v", project.WatchCodeFolders)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files after temp-id app mutation, got %#v", project.WatchCodeFiles)
+	}
+	existingBaselineKey := filepath.Clean(existingFile)
+	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged after temp-id app mutation, got %#v", project.WatchCodeBaselineByPath)
+	}
+	newBaselineKey := filepath.Clean(newFolderFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline after temp-id app mutation, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
 func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3293,7 +3604,7 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 				"root":     map[string]any{"key": "root", "type": "Stack"},
 				"elements": map[string]any{},
 			},
-			"appSpecPath":    appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"),
+			"appSpecPath":    "app_specs/custom.json",
 			"appSpecVersion": "v2",
 			"catalogId":      appspec.DefaultCatalogID,
 			"theme":          map[string]any{"mode": "dark"},
@@ -3306,19 +3617,15 @@ func TestAppIDEMCPServerSupportsSetAppDefinitionOverAuthenticatedSSE(t *testing.
 		t.Fatalf("expected set_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"))
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, "app_specs/custom.json")
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
 	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"])) {
 		t.Fatalf("expected stored app spec %#v, got %#v", mustStructuredMapValue(t, mustStructuredMapValue(t, result.StructuredContent)["appSpec"]), storedSpec)
 	}
-	storedAppDefinition := mustDecodeStoredAppDefinition(
-		t,
-		appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(app.ProjectStates().Main().Snapshot().Document),
-	)
-	if storedAppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json") {
-		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", storedAppDefinition)
+	if app.ProjectStates().Main().Snapshot().Document.AppDefinition == nil || app.ProjectStates().Main().Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected persisted app definition after SSE mutation, got %#v", app.ProjectStates().Main().Snapshot().Document.AppDefinition)
 	}
 }
 
@@ -3328,7 +3635,6 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3339,12 +3645,14 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -3376,14 +3684,14 @@ func TestAppIDEMCPServerSupportsGetAppDefinitionOverAuthenticatedSSE(t *testing.
 		t.Fatalf("expected get_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
 	payload := mustStructuredMapValue(t, result.StructuredContent)
 	appDefinition := mustStructuredMapValue(t, payload["appDefinition"])
-	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), appDefinition["appSpecPath"])
+	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
 	}
 	if !reflect.DeepEqual(storedSpec, mustStructuredMapValue(t, payload["appSpec"])) {
 		t.Fatalf("expected stored app spec %#v, got %#v", storedSpec, mustStructuredMapValue(t, payload["appSpec"]))
@@ -3396,7 +3704,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticated
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3410,12 +3717,14 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticated
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -3447,7 +3756,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForGetAppDefinitionOverAuthenticated
 		t.Fatalf("expected temp-id get_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3461,7 +3770,6 @@ func TestAppIDEMCPServerSupportsValidateAppDefinitionOverAuthenticatedSSE(t *tes
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3549,7 +3857,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForValidateAppDefinitionOverAuthenti
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3610,7 +3917,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticated
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3659,7 +3965,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticated
 		t.Fatalf("expected temp-id set_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3674,7 +3980,6 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -3685,7 +3990,7 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -3697,7 +4002,9 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -3736,7 +4043,7 @@ func TestAppIDEMCPServerSupportsUpdateAppDefinitionOverAuthenticatedSSE(t *testi
 		t.Fatalf("expected update_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3760,7 +4067,6 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
 		"project-alpha": "11",
 	})
@@ -3774,7 +4080,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -3785,7 +4091,9 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -3824,7 +4132,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthentica
 		t.Fatalf("expected temp-id update_app_definition success, got %#v", result.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3888,6 +4196,217 @@ func TestAppIDEMCPServerSupportsCompareAndSetShowParamDisplayNamesOverAuthentica
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected ShowParamDisplayNames=true after app CAS mutation")
+	}
+}
+
+func TestAppIDEMCPServerSupportsCompareAndSetWatchCodeEnabledMutationFailedOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "compare_and_set_watch_code_enabled",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"enabled":          true,
+			"expectedOldValue": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call compare_and_set_watch_code_enabled stale-precondition: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected compare_and_set_watch_code_enabled stale-precondition failure")
+	}
+
+	structured := mustStructuredMapValue(t, result.StructuredContent)
+	if structured["code"] != "mutation_failed" {
+		t.Fatalf("expected mutation_failed code, got %#v", structured["code"])
+	}
+}
+
+func TestAppIDEMCPServerSupportsCompareAndSetWatchCodeFoldersOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	existingFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "existing.py")
+	newFolderFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "subdir", "added.py")
+	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, true, nil, []string{"pkg/existing.py"}, map[string][]string{
+		filepath.Clean(existingFile): {"pkg.existing.existing:function"},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "compare_and_set_watch_code_folders",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"watchCodeFolders": []any{
+				map[string]any{"path": "pkg/subdir", "recursive": true},
+			},
+			"expectedOldValue": []any{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call compare_and_set_watch_code_folders: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected compare_and_set_watch_code_folders success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app compare_and_set_watch_code_folders: %v", err)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders, got %#v", project.WatchCodeFolders)
+	}
+	newBaselineKey := filepath.Clean(newFolderFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestAppIDEMCPServerSupportsCompareAndSetWatchCodeFilesOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	existingFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "existing.py")
+	newFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "new_watch.py")
+	if err := os.MkdirAll(filepath.Dir(existingFile), 0o755); err != nil {
+		t.Fatalf("mkdir existing file parent: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFile, []byte("class Added:\n    def __init__(self, value):\n        self.value = value\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, true, nil, []string{"pkg/existing.py"}, map[string][]string{
+		filepath.Clean(existingFile): {"pkg.existing.existing:function"},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "compare_and_set_watch_code_files",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"watchCodeFiles":   []any{"pkg/existing.py", "pkg/new_watch.py"},
+			"expectedOldValue": []any{"pkg/existing.py"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call compare_and_set_watch_code_files: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected compare_and_set_watch_code_files success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app compare_and_set_watch_code_files: %v", err)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
+		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
+	}
+	newBaselineKey := filepath.Clean(newFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
+		t.Fatalf("expected new watch-file baseline, got %#v", project.WatchCodeBaselineByPath)
 	}
 }
 
@@ -7487,7 +8006,6 @@ func TestAppIDEMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8999,13 +9517,185 @@ func TestAppIDEMCPToolCallRouteSupportsToggleGroupOrientation(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsSetWatchCodeEnabled(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustSetAppScopedMCPProjectWatchCodeFiles(t, cfg, []string{"pkg/watch_me.py"})
+
+	watchFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "watch_me.py")
+	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_watch_code_enabled",
+			"arguments":{"projectConfigId":"project-alpha","enabled":true},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_watch_code_enabled tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_watch_code_enabled tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_watch_code_enabled success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_watch_code_enabled: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code enabled after route mutation")
+	}
+	expectedBaselineKey := filepath.Clean(watchFile)
+	expectedIdentity := "pkg.watch_me.existing:function"
+	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
+		t.Fatalf("expected route watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetWatchCodeInputs(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	existingFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "existing.py")
+	newFolderFile := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "subdir", "added.py")
+	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, true, nil, []string{"pkg/existing.py"}, map[string][]string{
+		filepath.Clean(existingFile): {"pkg.existing.existing:function"},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_watch_code_inputs",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"watchCodeFolders":[{"path":"pkg/subdir","recursive":true}],
+				"watchCodeFiles":["pkg/existing.py"]
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_watch_code_inputs tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_watch_code_inputs tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_watch_code_inputs success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_watch_code_inputs: %v", err)
+	}
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected watch code to stay enabled after route mutation")
+	}
+	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
+		t.Fatalf("expected normalized watch code folders after route mutation, got %#v", project.WatchCodeFolders)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
+		t.Fatalf("expected normalized watch code files after route mutation, got %#v", project.WatchCodeFiles)
+	}
+	existingBaselineKey := filepath.Clean(existingFile)
+	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline unchanged after route mutation, got %#v", project.WatchCodeBaselineByPath)
+	}
+	newBaselineKey := filepath.Clean(newFolderFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
+		t.Fatalf("expected new folder baseline after route mutation, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
 func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9032,7 +9722,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 					"root":{"key":"root","type":"Stack"},
 					"elements":{}
 				},
-				"appSpecPath":"`+appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json")+`",
+				"appSpecPath":"app_specs/custom.json",
 				"appSpecVersion":"v2",
 				"catalogId":"setta.app.default",
 				"theme":{"mode":"dark"}
@@ -9064,7 +9754,7 @@ func TestAppIDEMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 		t.Fatalf("expected set_app_definition success, got %#v", payload.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"))
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, "app_specs/custom.json")
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -9079,7 +9769,6 @@ func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9090,12 +9779,14 @@ func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -9136,7 +9827,7 @@ func TestAppIDEMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 		t.Fatalf("expected get_app_definition success, got %#v", payload.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -9150,7 +9841,6 @@ func TestAppIDEMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9231,7 +9921,6 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	enableAppSubsystemPluginForTest(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9242,7 +9931,7 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-	setTestAppDefinition(t, app.ProjectStates().Main(), appdefinition.SetInput{
+	if _, _, err := app.ProjectStates().Main().SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -9254,7 +9943,9 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 			},
 			"elements": map[string]any{},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
@@ -9296,7 +9987,7 @@ func TestAppIDEMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 		t.Fatalf("expected update_app_definition success, got %#v", payload.StructuredContent)
 	}
 
-	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(cfg.Paths.SettaFilesRoot, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
+	storedSpec, err := appspec.Read(cfg.Paths.SettaFilesRoot, appspec.DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -10733,19 +11424,19 @@ func mustEnableAppSavedPythonCodegen(t *testing.T, cfg config.Config) {
 func mustSetAppScopedMCPProjectWatchCodeFiles(t *testing.T, cfg config.Config, files []string) {
 	t.Helper()
 
-	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, nil, files, nil)
+	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, false, nil, files, nil)
 }
 
 func mustSetAppScopedMCPProjectWatchCodeState(
 	t *testing.T,
 	cfg config.Config,
+	enabled bool,
 	folders []projectstate.WatchCodeFolder,
 	files []string,
 	baseline map[string][]string,
 ) {
 	t.Helper()
 
-	installAppWatchCodeProviderFixture(t, cfg)
 	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		t.Fatalf("resolve project paths: %v", err)
@@ -10758,12 +11449,13 @@ func mustSetAppScopedMCPProjectWatchCodeState(
 	if err != nil {
 		t.Fatalf("load scoped MCP project: %v", err)
 	}
-	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Folders:        append([]projectstate.WatchCodeFolder(nil), folders...),
-		Files:          append([]string(nil), files...),
-		BaselineByPath: cloneAppStringSliceMap(baseline),
-		Registry:       map[string]projectstate.WatchCodeRegistryEntry{},
-	})
+	project := document.Projects["project-alpha"]
+	project.WatchCodeEnabled = enabled
+	project.WatchCodeFolders = append([]projectstate.WatchCodeFolder(nil), folders...)
+	project.WatchCodeFiles = append([]string(nil), files...)
+	project.WatchCodeBaselineByPath = cloneAppStringSliceMap(baseline)
+	project.WatchCodeRegistry = map[string]projectstate.WatchCodeRegistryEntry{}
+	document.Projects["project-alpha"] = project
 	if err := store.Save(context.Background(), document); err != nil {
 		t.Fatalf("save scoped MCP watch code project: %v", err)
 	}
@@ -10934,8 +11626,7 @@ func mustSetAppCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, 
 func assertAppBoundSetCodeState(t *testing.T, app *App, expectedCode string) {
 	t.Helper()
 
-	snapshot := app.ProjectStates().Main().Snapshot()
-	project, err := snapshot.Document.ProjectByID("project-alpha")
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
 	if err != nil {
 		t.Fatalf("project by id after bound set_code: %v", err)
 	}
@@ -10944,10 +11635,9 @@ func assertAppBoundSetCodeState(t *testing.T, app *App, expectedCode string) {
 		t.Fatalf("expected bound code payload %q, got %#v", expectedCode, got)
 	}
 
-	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
-	entry, ok := projectData.Registry["pkg.bound.sorted:function"]
+	entry, ok := project.WatchCodeRegistry["pkg.bound.sorted:function"]
 	if !ok {
-		t.Fatalf("expected watch code registry entry, got %#v", projectData.Registry)
+		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
 	}
 	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
 		t.Fatalf("expected one callable section binding, got %#v", entry)

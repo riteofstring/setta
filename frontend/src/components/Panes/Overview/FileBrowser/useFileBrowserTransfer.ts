@@ -1,15 +1,15 @@
 import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   transferFileBrowserEntry,
   type FilebrowserTransferResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useRef, type MutableRefObject } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   isSameOrDescendantBrowserPath,
   normalizeFileBrowserPathForComparison,

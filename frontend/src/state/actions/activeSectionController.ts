@@ -1,4 +1,4 @@
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useProjectState } from "state/definitions";
@@ -140,8 +140,7 @@ export function applyActiveSectionChange(
 ): ActiveSectionControllerResult {
   const activeIds = getActiveSectionUIIds();
   const isSelectingParams = useMisc.getState().isSelectingParams;
-  const multiSelectionActive =
-    gpuFlowViewportStore.getState().multiSelectionActive;
+  const multiSelectionActive = useReactFlow.getState().multiSelectionActive;
 
   const context = buildPolicyContext(
     intent,

@@ -15,19 +15,14 @@ when it should delegate to Go.
 
 ## Current Codebase Shape
 
-- The running-backend path is the main delegation surface for Python:
+- The running-backend path is already the main delegation surface for Python:
   `backend/setta/api/listener.py`, `backend/setta/api/chat_toolkit.py`, and
   `backend/setta/api/runner.py` all talk to the active Go runtime over HTTP or
   websockets.
-- The `sdk-local-core` path is narrow. The main local-core client is
-  `backend/setta/local_core_client.py`, used by the listener runtime and
-  package-managed plugin runtime shims to keep local behavior aligned with
-  Go-owned semantics.
-- `backend/setta/plugin_runtime/*` is a published package-facing shim surface
-  for installed plugin backends. App-subsystem helpers there should stay thin:
-  they probe/dispatch plugin backend requests and delegate correctness-sensitive
-  behavior to `sdk-local-core` rather than reimplementing app-definition logic
-  in Python.
+- The `sdk-local-core` path exists, but it is currently narrow. Today the main
+  local-core client is `backend/setta/api/local_core.py`, used by the listener
+  runtime to render realtime dependency values locally while keeping Go-owned
+  semantics.
 - The Python package also owns real local runtime infrastructure that should
   stay in Python, including callback scheduling and hot reload
   (`backend/setta/api/scheduling.py`, `backend/setta/api/hot_reload.py`),
@@ -40,8 +35,9 @@ when it should delegate to Go.
 - Use the running backend when the behavior is already backend-owned, depends
   on backend/project/session state, or naturally belongs to the existing
   HTTP/websocket runtime.
-- Use `setta sdk-local-core` for local low-latency Python SDK behavior that
-  must match Go/backend semantics.
+- Use `setta sdk-local-core` when the behavior should match Go/backend
+  semantics but the Python SDK needs a local low-latency path instead of an
+  HTTP or websocket round trip.
 
 ## What Should Stay In Python
 
@@ -68,13 +64,12 @@ Ask: "If this behavior changes, where should the canonical semantics live?"
 
 ## Relevant Code Paths
 
-- Running-backend compatibility handshake: `backend/setta/runtime_compat.py`
+- Running-backend compatibility handshake: `backend/setta/api/runtime_compat.py`
 - Running-backend listener/runtime surface: `backend/setta/api/listener.py`
 - Running-backend helper surface: `backend/setta/api/chat_toolkit.py`
 - Running-backend runner surface: `backend/setta/api/runner.py`
-- Local Go delegation client: `backend/setta/local_core_client.py`
+- Local Go delegation client: `backend/setta/api/local_core.py`
 - Local Go delegation command: `internal/settacmd/sdk_local_core.go`
-- Plugin backend runtime helpers: `backend/setta/plugin_runtime/*`
 - Python-owned callback scheduler: `backend/setta/api/scheduling.py`
 - Python-owned hot reload: `backend/setta/api/hot_reload.py`
 - Python-owned auth/session helpers: `backend/setta/auth/session.py`, `backend/setta/sessions/registry.py`

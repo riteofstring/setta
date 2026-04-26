@@ -1,5 +1,4 @@
 import * as Switch from "@radix-ui/react-switch";
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import {
@@ -7,6 +6,7 @@ import {
   setShowParamDisplayNames,
   updateParamImplConfig,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

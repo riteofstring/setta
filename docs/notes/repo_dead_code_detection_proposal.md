@@ -27,17 +27,6 @@ The initial implementation is designed around a single agent-friendly command:
 That command writes JSON reports under `reports/deadcode/` with
 `aggregate.json` as the primary machine-readable output.
 
-The report is production-oriented and advisory. It combines production
-reachability, non-production supporting evidence, and unused-symbol lint passes;
-it is not a whole-repo proof that every file in every package surface has been
-exercised.
-
-Current lint-unused lanes are intentionally broader than production
-reachability: Go Staticcheck runs against configured module package patterns,
-Python Ruff runs across configured first-party source roots, frontend ESLint
-runs across configured app and SDK source roots, and frontend package
-reachability runs per-package Knip checks for configured SDK/plugin roots.
-
 There are also narrow wrappers for language-specific runs:
 
 - `./scripts/deadcode/report_go.sh`
@@ -75,7 +64,7 @@ Current first-pass caveats:
   gathered from real package/public roots through repo-managed dev dependencies.
 - Frontend reachability compares Knip `--production` against Knip's full graph,
   then uses a repo-local import graph to classify many `prod-dead` findings as
-  `test`-live or `tooling`-live. Some package/dependency findings remain
+  `test`-live or `tooling`-live. Some package/dependency findings still remain
   generic non-production evidence.
 
 ## Non-Goals
@@ -111,7 +100,7 @@ That means the same symbol can legitimately land in different buckets:
 - `tooling-only-live`: only reachable from generators or repo utilities
 - `public-surface-live`: retained because it is part of a documented or packaged surface
 - `lint-unused`: unused local/import/parameter inside otherwise live code
-- `exempt`: intentionally retained dynamic hook, generated output, alias shim, or external-consumption surface
+- `exempt`: intentionally retained dynamic hook, generated output, compatibility shim, or external-consumption surface
 
 ## Important Repo Constraint
 

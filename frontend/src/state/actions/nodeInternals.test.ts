@@ -1,7 +1,8 @@
 /* @vitest-environment jsdom */
 
-import type { Node } from "gpuFlow/flowTypes";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useReactFlow } from "forks/xyflow/core/store";
+import initialState from "forks/xyflow/core/store/initialState";
+import type { Node } from "forks/xyflow/core/types";
 import {
   useLocalStorage,
   useMisc,
@@ -48,23 +49,26 @@ function createViewportDomNode() {
   return domNode;
 }
 
-function setupGpuViewportStore() {
-  gpuFlowViewportStore.getState().setDomNode(createViewportDomNode());
-  gpuFlowViewportStore.getState().setViewportSize({
-    height: 600,
+function setupFitViewState(overrides: Partial<typeof initialState> = {}) {
+  const transform = vi.fn();
+  const d3Selection = { id: "selection" } as unknown as NonNullable<
+    typeof initialState.d3Selection
+  >;
+  const d3Zoom = { transform } as unknown as NonNullable<
+    typeof initialState.d3Zoom
+  >;
+
+  useReactFlow.setState({
+    ...initialState,
+    domNode: createViewportDomNode(),
     width: 800,
+    height: 600,
+    d3Selection,
+    d3Zoom,
+    ...overrides,
   });
-  gpuFlowViewportStore.getState().setZoomBounds({
-    defaultZoom: 1,
-    maxZoom: 4,
-    minZoom: 0.1,
-  });
-  gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-  gpuFlowViewportStore.getState().setFitViewInitializationState({
-    fitViewOnInit: false,
-    fitViewOnInitDone: false,
-    fitViewOnInitOptions: undefined,
-  });
+
+  return { transform };
 }
 
 function createMeasuredElement({
@@ -94,16 +98,18 @@ describe("nodeInternals", () => {
     resetProjectStores();
     useSettings.setState(createSettingsState());
     useLocalStorage.setState({ overviewTrueWidth: 0, uiEditorTrueWidth: 0 });
-    setupGpuViewportStore();
+    useReactFlow.setState({
+      ...initialState,
+      domNode: createViewportDomNode(),
+      fitViewOnInit: false,
+      fitViewOnInitDone: false,
+    });
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     resetProjectStores();
-    const domNode = gpuFlowViewportStore.getState().domNode;
-    if (domNode) {
-      gpuFlowViewportStore.getState().clearDomNode(domNode);
-    }
+    useReactFlow.setState({ ...initialState });
   });
 
   it("updates measured dimensions and defers fitView until code areas finish rendering", () => {
@@ -138,11 +144,11 @@ describe("nodeInternals", () => {
     expect(debounced_route_set_top_level_section_layout).toHaveBeenCalledTimes(
       1,
     );
-    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(false);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
   });
 
   it("marks initial fitView complete once measurements are ready", () => {
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    const { transform } = setupFitViewState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
       fitViewOnInitOptions: { maxZoom: 1.5 },
@@ -169,8 +175,8 @@ describe("nodeInternals", () => {
       },
     ]);
 
-    expect(gpuFlowViewportStore.getState().transform).toEqual([310, 240, 1]);
-    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
+    expect(transform).toHaveBeenCalledTimes(1);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("collects stored refs for explicit node refresh requests", () => {

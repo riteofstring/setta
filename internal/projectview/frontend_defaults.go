@@ -114,15 +114,8 @@ func FrontendDefaultProjectCodegenPluginTarget() ProjectCodegenPluginTarget {
 func FrontendDefaultSingleConfig() SingleConfig {
 	defaults := SingleConfig{
 		ProjectConfig:        FrontendDefaultProjectConfig(),
-		PluginData:           FrontendDefaultProjectPluginData(),
 		ProjectChatWindowing: projectstate.DefaultProjectChatWindowingState(),
 	}
-	initializeNilCollections(&defaults)
-	return defaults
-}
-
-func FrontendDefaultProjectPluginData() ProjectPluginData {
-	defaults := ProjectPluginData{}
 	initializeNilCollections(&defaults)
 	return defaults
 }

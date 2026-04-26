@@ -8,18 +8,18 @@ import (
 	"strings"
 	"testing"
 
-	appdefinition "setta/internal/appsubsystem/appdefinition"
-	"setta/internal/appsubsystem/appspec"
-	"setta/internal/plugins"
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
-	"setta/internal/testutil/firstpartyplugin"
 )
 
 func TestNewCoreRegistryListsBoundedCoreEntries(t *testing.T) {
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry := mustNewCoreRegistry(t, runtime, t.TempDir())
+	registry, err := NewCoreRegistry(runtime, t.TempDir())
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
 
 	entries := registry.ListEntries(SourceFilterCore)
 	ids := make([]string, 0, len(entries))
@@ -27,9 +27,16 @@ func TestNewCoreRegistryListsBoundedCoreEntries(t *testing.T) {
 		ids = append(ids, entry.SettingID)
 	}
 	expected := []string{
+		"core.app.catalog_id",
+		"core.app.spec_path",
+		"core.app.spec_version",
+		"core.app.theme_mode",
 		"core.project.name",
 		"core.project.show_param_display_names",
 		"core.run_instructions.python_codegen_enabled",
+		"core.watch_code.enabled",
+		"core.watch_code.files",
+		"core.watch_code.folders",
 	}
 	if !reflect.DeepEqual(ids, expected) {
 		t.Fatalf("expected core entry ids %#v, got %#v", expected, ids)
@@ -40,53 +47,20 @@ func TestRegistrySearchRanksCoreSettingBySynonym(t *testing.T) {
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry := mustNewCoreRegistry(t, runtime, t.TempDir())
+	registry, err := NewCoreRegistry(runtime, t.TempDir())
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
 
-	results, err := registry.Search("display names", 3, SourceFilterCore)
+	results, err := registry.Search("watch toggle", 3, SourceFilterCore)
 	if err != nil {
 		t.Fatalf("search registry: %v", err)
 	}
 	if len(results) == 0 {
 		t.Fatal("expected search results")
 	}
-	if results[0].SettingID != "core.project.show_param_display_names" {
-		t.Fatalf("expected top result core.project.show_param_display_names, got %#v", results[0])
-	}
-}
-
-func TestScopedRegistryReportsUnavailableContributedSettings(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry, err := NewScopedRegistry(ScopedRegistryOptions{
-		Runtime:       runtime,
-		WorkspaceRoot: root,
-		UnavailableSettings: []UnavailableSettingProvider{
-			func() map[string]SettingError {
-				return map[string]SettingError{
-					"plugin.example.unavailable": {
-						Code:    ErrorCodePluginUnavailable,
-						Message: "Example plugin setting is unavailable.",
-					},
-				}
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("new scoped registry: %v", err)
-	}
-
-	_, err = registry.ReadValue(context.Background(), "project-alpha", "plugin.example.unavailable")
-	var settingErr *SettingError
-	if !errors.As(err, &settingErr) {
-		t.Fatalf("expected setting error, got %v", err)
-	}
-	if settingErr.Code != ErrorCodePluginUnavailable {
-		t.Fatalf("expected code %q, got %q", ErrorCodePluginUnavailable, settingErr.Code)
-	}
-	if settingErr.Message != "Example plugin setting is unavailable." {
-		t.Fatalf("expected contributed unavailable message, got %q", settingErr.Message)
+	if results[0].SettingID != "core.watch_code.enabled" {
+		t.Fatalf("expected top result core.watch_code.enabled, got %#v", results[0])
 	}
 }
 
@@ -94,10 +68,13 @@ func TestScopedRegistryWithoutPluginServiceBuildsCoreOnlyRegistryAndEmptyPluginM
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
 		Runtime:       runtime,
 		WorkspaceRoot: t.TempDir(),
 	})
+	if err != nil {
+		t.Fatalf("new scoped registry without plugin service: %v", err)
+	}
 
 	if len(registry.knownPluginIDs) != 0 {
 		t.Fatalf("expected no known plugin ids, got %#v", registry.knownPluginIDs)
@@ -122,50 +99,19 @@ func TestScopedRegistryWithoutPluginServiceBuildsCoreOnlyRegistryAndEmptyPluginM
 	if projectNameEntry.Metadata.Source != SourceCore {
 		t.Fatalf("expected core.project.name to stay core-sourced, got %#v", projectNameEntry.Metadata.Source)
 	}
-	if _, ok, err := registry.Get("core.app.spec_path"); err != nil {
-		t.Fatalf("get core.app.spec_path: %v", err)
-	} else if ok {
-		t.Fatal("expected app UI settings to be absent without the app plugin")
-	}
-}
-
-func TestScopedRegistryDoesNotExposeCoreWatchCodeSettings(t *testing.T) {
-	t.Parallel()
-
-	runtime := openCoreRegistryRuntime(t)
-	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
-		Runtime:       runtime,
-		WorkspaceRoot: t.TempDir(),
-	})
-
-	for _, settingID := range []string{
-		"core.watch_code.enabled",
-		"core.watch_code.folders",
-		"core.watch_code.files",
-	} {
-		if _, ok, err := registry.Get(settingID); err != nil || ok {
-			t.Fatalf("expected %s to be absent, ok=%v err=%v", settingID, ok, err)
-		}
-	}
-	results, err := registry.Search("watch toggle", 5, SourceFilterCore)
-	if err != nil {
-		t.Fatalf("search core watch settings: %v", err)
-	}
-	for _, result := range results {
-		if strings.HasPrefix(result.SettingID, "core.watch_code.") {
-			t.Fatalf("expected no core Watch Code settings in search, got %#v", results)
-		}
-	}
 }
 
 func TestScopedRegistryIncludesRequiredRevealActivationMetadata(t *testing.T) {
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
 		Runtime:       runtime,
 		WorkspaceRoot: t.TempDir(),
 	})
+	if err != nil {
+		t.Fatalf("new scoped registry: %v", err)
+	}
 
 	expectedSteps := map[string]RevealActivationStep{
 		"core.project_ai_settings.llm_api_keys": {
@@ -219,27 +165,6 @@ func TestScopedRegistryIncludesRequiredRevealActivationMetadata(t *testing.T) {
 	}
 }
 
-func TestScopedRegistryIncludesPluginOwnedAppUISettingsWhenAppPluginEnabled(t *testing.T) {
-	t.Parallel()
-
-	runtime := openCoreRegistryRuntime(t)
-	registry := mustNewAppScopedRegistry(t, runtime, t.TempDir())
-
-	entry, ok, err := registry.Get("core.app.spec_path")
-	if err != nil {
-		t.Fatalf("get core.app.spec_path: %v", err)
-	}
-	if !ok {
-		t.Fatal("expected plugin-owned app spec path UI setting")
-	}
-	if entry.Metadata.Source != SourcePlugin {
-		t.Fatalf("expected app spec path to be plugin-sourced, got %#v", entry.Metadata.Source)
-	}
-	if entry.Metadata.PluginID != firstpartyplugin.AppSubsystemPluginID {
-		t.Fatalf("expected app spec path plugin id %q, got %#v", firstpartyplugin.AppSubsystemPluginID, entry.Metadata.PluginID)
-	}
-}
-
 func TestRegistryMissingSettingErrorReportsPluginAvailabilityFailures(t *testing.T) {
 	t.Parallel()
 
@@ -288,7 +213,7 @@ func TestRegistryMissingSettingErrorReportsPluginAvailabilityFailures(t *testing
 				},
 			},
 			wantCode: ErrorCodePluginUnavailable,
-			wantMsg:  "Plugin plugin.alpha is unavailable for UI setting access (registerPane or registerUISettings capability not effective).",
+			wantMsg:  "Plugin plugin.alpha is unavailable for UI setting access (registerPane capability not effective).",
 		},
 		{
 			name: "invalid plugin setting",
@@ -337,8 +262,13 @@ func TestRegistryReadValueReturnsDefaultedAppMetadataOnFreshProject(t *testing.T
 	t.Parallel()
 
 	runtime := openCoreRegistryRuntime(t)
-	registry := mustNewAppScopedRegistry(t, runtime, t.TempDir())
-	expectedAppDefinition, expectedAppSpecPath, expectedThemeMode := effectiveAppMetadata(t, runtime)
+	registry, err := NewCoreRegistry(runtime, t.TempDir())
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+	expectedAppDefinition := projectstate.EffectiveAppDefinition(runtime.Snapshot().Document)
+	expectedAppSpecPath := projectstate.EffectiveAppSpecPath(runtime.Snapshot().Document)
+	expectedThemeMode := projectstate.EffectiveAppThemeMode(runtime.Snapshot().Document)
 
 	catalogID, err := registry.ReadValue(context.Background(), "project-alpha", "core.app.catalog_id")
 	if err != nil {
@@ -390,27 +320,95 @@ func TestRegistryWriteValueNormalizesSpecPathThroughProjectStateOwner(t *testing
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewAppScopedRegistry(t, runtime, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
 
 	result, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
 		"core.app.spec_path",
-		"  "+filepath.Join(root, filepath.FromSlash(appspec.MustForPlugin("setta-json-render-app-gen").RootPath()), "ui-settings.json")+"  ",
-		appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
+		"  "+filepath.Join(root, "app_specs", "ui-settings.json")+"  ",
+		appspec.DefaultPath(),
 	)
 	if err != nil {
 		t.Fatalf("write app spec path: %v", err)
 	}
-	if result.OldValue != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
-		t.Fatalf("expected old spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), result.OldValue)
+	if result.OldValue != appspec.DefaultPath() {
+		t.Fatalf("expected old spec path %q, got %#v", appspec.DefaultPath(), result.OldValue)
 	}
-	expectedPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("ui-settings.json")
-	if result.NewValue != expectedPath {
-		t.Fatalf("expected normalized spec path %q, got %#v", expectedPath, result.NewValue)
+	if result.NewValue != "app_specs/ui-settings.json" {
+		t.Fatalf("expected normalized spec path app_specs/ui-settings.json, got %#v", result.NewValue)
 	}
-	if result.NormalizedValue != expectedPath {
-		t.Fatalf("expected normalized value %q, got %#v", expectedPath, result.NormalizedValue)
+	if result.NormalizedValue != "app_specs/ui-settings.json" {
+		t.Fatalf("expected normalized value app_specs/ui-settings.json, got %#v", result.NormalizedValue)
+	}
+}
+
+func TestRegistryWriteValueRejectsInvalidWatchCodeFolderShape(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	_, err = registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.watch_code.folders",
+		[]any{
+			map[string]any{
+				"path":      "./backend",
+				"recursive": "not-a-boolean",
+			},
+		},
+		nil,
+	)
+	settingErr, ok := err.(*SettingError)
+	if !ok {
+		t.Fatalf("expected SettingError, got %T (%v)", err, err)
+	}
+	if settingErr.Code != ErrorCodeInvalidValueType {
+		t.Fatalf("expected invalid_value_type, got %q", settingErr.Code)
+	}
+}
+
+func TestRegistryWriteValueRejectsUnsupportedWatchCodeFolderProperties(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	_, err = registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.watch_code.folders",
+		[]any{
+			map[string]any{
+				"path":      "./backend",
+				"recursive": true,
+				"extra":     "not-allowed",
+			},
+		},
+		nil,
+	)
+	settingErr, ok := err.(*SettingError)
+	if !ok {
+		t.Fatalf("expected SettingError, got %T (%v)", err, err)
+	}
+	if settingErr.Code != ErrorCodeInvalidValueType {
+		t.Fatalf("expected invalid_value_type, got %q", settingErr.Code)
+	}
+	if !strings.Contains(settingErr.Message, "unsupported properties") {
+		t.Fatalf("expected unsupported properties message, got %q", settingErr.Message)
 	}
 }
 
@@ -419,9 +417,12 @@ func TestRegistryWriteValueMapsStaleCompareAndSetToMutationFailed(t *testing.T) 
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
 
-	_, _, err := runtime.CompareAndSetShowParamDisplayNames(context.Background(), "project-alpha", true, nil)
+	_, _, err = runtime.CompareAndSetShowParamDisplayNames(context.Background(), "project-alpha", true, nil)
 	if err != nil {
 		t.Fatalf("seed show param display names: %v", err)
 	}
@@ -447,7 +448,10 @@ func TestRegistryWriteValueRoundTripsProjectNameAndPythonCodegenEnabled(t *testi
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
 
 	projectNameResult, err := registry.WriteValue(
 		context.Background(),
@@ -504,7 +508,7 @@ func TestRegistryWriteValueRoundTripsProjectNameAndPythonCodegenEnabled(t *testi
 func TestScopedRegistryProjectAISettingsExposeReadOnlyCountEntries(t *testing.T) {
 	t.Parallel()
 
-	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
 		Runtime:       openCoreRegistryRuntime(t),
 		WorkspaceRoot: t.TempDir(),
 		ProjectAISettings: ProjectAISettingProviders{
@@ -522,6 +526,9 @@ func TestScopedRegistryProjectAISettingsExposeReadOnlyCountEntries(t *testing.T)
 			},
 		},
 	})
+	if err != nil {
+		t.Fatalf("new scoped registry: %v", err)
+	}
 
 	expected := map[string]struct {
 		query          string
@@ -616,7 +623,10 @@ func TestRegistryWriteValueProjectNameSameValueIsNoOp(t *testing.T) {
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
 
 	result, err := registry.WriteValue(
 		context.Background(),
@@ -662,7 +672,10 @@ func TestRegistryWriteValuePythonCodegenEnabledSameValueIsNoOpAndPreservesTarget
 		t.Fatalf("seed codegen targets: %v", err)
 	}
 
-	registry := mustNewCoreRegistry(t, runtime, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
 
 	result, err := registry.WriteValue(
 		context.Background(),
@@ -701,15 +714,18 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewAppScopedRegistry(t, runtime, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
 
-	nextSpecPath := appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("ui-settings-test-app.json")
+	const nextSpecPath = "app_specs/ui-settings-test-app.json"
 	result, err := registry.WriteValue(
 		context.Background(),
 		"project-alpha",
 		"core.app.spec_path",
 		nextSpecPath,
-		appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(),
+		appspec.DefaultPath(),
 	)
 	if err != nil {
 		t.Fatalf("write app spec path: %v", err)
@@ -725,8 +741,49 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 	if value != nextSpecPath {
 		t.Fatalf("expected app spec path %q after write, got %#v", nextSpecPath, value)
 	}
-	if _, got, _ := effectiveAppMetadata(t, runtime); got != nextSpecPath {
+	if got := projectstate.EffectiveAppSpecPath(runtime.Snapshot().Document); got != nextSpecPath {
 		t.Fatalf("expected effective app spec path %q, got %q", nextSpecPath, got)
+	}
+}
+
+func TestRegistryWriteValueWatchCodeFilesRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+
+	nextFiles := []string{"backend/setta/api/listener.py", "frontend/src/components/App/appTheme.ts"}
+	expectedFiles := []any{nextFiles[0], nextFiles[1]}
+	result, err := registry.WriteValue(
+		context.Background(),
+		"project-alpha",
+		"core.watch_code.files",
+		[]any{nextFiles[0], nextFiles[1]},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("write watch code files: %v", err)
+	}
+	if result.Changed != true {
+		t.Fatalf("expected watch code files write to change state, got %#v", result)
+	}
+	if !reflect.DeepEqual(result.NewValue, expectedFiles) {
+		t.Fatalf("expected new watch code files %#v, got %#v", expectedFiles, result.NewValue)
+	}
+	if !reflect.DeepEqual(result.NormalizedValue, expectedFiles) {
+		t.Fatalf("expected normalized watch code files %#v, got %#v", expectedFiles, result.NormalizedValue)
+	}
+
+	value, err := registry.ReadValue(context.Background(), "project-alpha", "core.watch_code.files")
+	if err != nil {
+		t.Fatalf("read watch code files after write: %v", err)
+	}
+	if !reflect.DeepEqual(value, expectedFiles) {
+		t.Fatalf("expected watch code files %#v after write, got %#v", expectedFiles, value)
 	}
 }
 
@@ -735,8 +792,11 @@ func TestRegistryWriteValueAppThemeModeRoundTripsOnFreshProject(t *testing.T) {
 
 	root := t.TempDir()
 	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewAppScopedRegistry(t, runtime, root)
-	_, _, expectedOldThemeMode := effectiveAppMetadata(t, runtime)
+	registry, err := NewCoreRegistry(runtime, root)
+	if err != nil {
+		t.Fatalf("new core registry: %v", err)
+	}
+	expectedOldThemeMode := projectstate.EffectiveAppThemeMode(runtime.Snapshot().Document)
 
 	result, err := registry.WriteValue(
 		context.Background(),
@@ -769,196 +829,6 @@ func openCoreRegistryRuntime(t *testing.T) *projectstate.Runtime {
 	return openCoreRegistryPersistedRuntime(t, t.TempDir())
 }
 
-func mustNewCoreRegistry(t *testing.T, runtime *projectstate.Runtime, workspaceRoot string) *Registry {
-	t.Helper()
-
-	registry, err := NewCoreRegistry(runtime, workspaceRoot)
-	if err != nil {
-		t.Fatalf("new core registry: %v", err)
-	}
-	return registry
-}
-
-func mustNewScopedRegistry(t *testing.T, options ScopedRegistryOptions) *Registry {
-	t.Helper()
-
-	registry, err := NewScopedRegistry(options)
-	if err != nil {
-		t.Fatalf("new scoped registry: %v", err)
-	}
-	return registry
-}
-
-func mustNewAppScopedRegistry(t *testing.T, runtime *projectstate.Runtime, workspaceRoot string) *Registry {
-	t.Helper()
-
-	service := appdefinition.NewAppDefinitionService(
-		runtime,
-		firstpartyplugin.AppSubsystemPluginID,
-	)
-	return mustNewScopedRegistry(t, ScopedRegistryOptions{
-		Runtime:       runtime,
-		WorkspaceRoot: workspaceRoot,
-		PluginService: &testPluginRuntimeService{
-			runtimeResponse: newActiveAppSubsystemPluginRuntimeResponse(),
-		},
-		ContributedEntryBuilders: []RuntimeEntryBuilder{
-			func(runtimeResponse plugins.PluginRuntimeResponse) ([]RuntimeEntry, error) {
-				if runtimeResponse.FeatureCapabilities == nil || !runtimeResponse.FeatureCapabilities.AppSubsystem.PluginEnabled {
-					return nil, nil
-				}
-				return buildTestAppUISettingEntries(service), nil
-			},
-		},
-	})
-}
-
-func newActiveAppSubsystemPluginRuntimeResponse() plugins.PluginRuntimeResponse {
-	return plugins.PluginRuntimeResponse{
-		FeatureCapabilities: &plugins.PluginFeatureCapabilities{
-			AppSubsystem: plugins.PluginAppSubsystemCapabilities{
-				PluginID:       firstpartyplugin.AppSubsystemPluginID,
-				PluginEnabled:  true,
-				AppAuthoringUI: true,
-			},
-		},
-		List: plugins.PluginListResponse{
-			Plugins: []plugins.PluginListEntry{
-				{
-					PluginID: firstpartyplugin.AppSubsystemPluginID,
-				},
-			},
-		},
-		Status: plugins.PluginStatusResponse{
-			Plugins: []plugins.PluginStatusEntry{
-				{
-					PluginID: firstpartyplugin.AppSubsystemPluginID,
-					State:    plugins.PluginRuntimeStateActive,
-				},
-			},
-		},
-	}
-}
-
-func buildTestAppUISettingEntries(service appdefinition.Runtime) []RuntimeEntry {
-	nonEmptyStringSchema := ValueSchema{Type: ValueTypeString, MinLength: testIntPointer(1)}
-	themeModeSchema := ValueSchema{Type: ValueTypeString, EnumValues: []any{"auto", "dark", "light"}}
-
-	return []RuntimeEntry{
-		NewCompareAndSetEntry(
-			buildTestAppEntryMetadata(
-				"core.app.catalog_id",
-				"App Catalog ID",
-				[]string{"app catalog", "catalog id"},
-				"Catalog id for the app definition.",
-				nonEmptyStringSchema,
-			),
-			func(ctx context.Context, _ string) (any, error) {
-				definition, err := service.GetEffectiveAppDefinition(ctx)
-				if err != nil {
-					return nil, err
-				}
-				return definition.CatalogID, nil
-			},
-			NormalizeOptionalNonEmptyStringWrite,
-			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := service.CompareAndSetAppDefinitionCatalogID(ctx, nextValue, expected)
-				return result, err
-			},
-			ComparableMutationResult[string],
-		),
-		NewCompareAndSetEntry(
-			buildTestAppEntryMetadata(
-				"core.app.spec_version",
-				"App Spec Version",
-				[]string{"app version", "spec version"},
-				"Version marker for the app definition schema payload.",
-				nonEmptyStringSchema,
-			),
-			func(ctx context.Context, _ string) (any, error) {
-				definition, err := service.GetEffectiveAppDefinition(ctx)
-				if err != nil {
-					return nil, err
-				}
-				return definition.AppSpecVersion, nil
-			},
-			NormalizeOptionalNonEmptyStringWrite,
-			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := service.CompareAndSetAppDefinitionSpecVersion(ctx, nextValue, expected)
-				return result, err
-			},
-			ComparableMutationResult[string],
-		),
-		NewCompareAndSetEntry(
-			buildTestAppEntryMetadata(
-				"core.app.spec_path",
-				"App Spec Path",
-				[]string{"app path", "spec path"},
-				"Filesystem path where app spec JSON is saved.",
-				nonEmptyStringSchema,
-			),
-			func(ctx context.Context, _ string) (any, error) {
-				return service.GetEffectiveAppSpecPath(ctx)
-			},
-			NormalizeOptionalNonEmptyStringWrite,
-			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := service.CompareAndSetAppDefinitionSpecPath(ctx, nextValue, expected)
-				return result, err
-			},
-			ComparableMutationResult[string],
-		),
-		NewCompareAndSetEntry(
-			buildTestAppEntryMetadata(
-				"core.app.theme_mode",
-				"App Theme Mode",
-				[]string{"theme mode", "app theme", "light mode", "dark mode"},
-				"Theme mode for the app definition.",
-				themeModeSchema,
-			),
-			func(ctx context.Context, _ string) (any, error) {
-				return service.GetEffectiveAppThemeMode(ctx)
-			},
-			NormalizeOptionalThemeModeWrite,
-			func(ctx context.Context, _ string, nextValue string, expected *string) (projectstate.CompareAndSetResult[string], error) {
-				_, result, err := service.CompareAndSetAppDefinitionThemeMode(ctx, nextValue, expected)
-				return result, err
-			},
-			ComparableMutationResult[string],
-		),
-	}
-}
-
-func buildTestAppEntryMetadata(
-	settingID string,
-	title string,
-	synonyms []string,
-	description string,
-	valueSchema ValueSchema,
-) Entry {
-	return Entry{
-		SettingID:   settingID,
-		Title:       title,
-		Synonyms:    append([]string(nil), synonyms...),
-		Description: description,
-		Location: Location{
-			Side:           SideLeft,
-			OverviewTabKey: string(OverviewTabNameApp),
-		},
-		Highlight: Highlight{
-			Strategy: HighlightStrategyDOMAnchor,
-			AnchorID: settingID,
-		},
-		Source:      SourcePlugin,
-		PluginID:    firstpartyplugin.AppSubsystemPluginID,
-		Mutability:  MutabilityWritable,
-		ValueSchema: valueSchema,
-	}
-}
-
-func testIntPointer(value int) *int {
-	return &value
-}
-
 func openCoreRegistryPersistedRuntime(t *testing.T, root string) *projectstate.Runtime {
 	t.Helper()
 
@@ -989,29 +859,4 @@ func openCoreRegistryPersistedRuntime(t *testing.T, root string) *projectstate.R
 		}
 	})
 	return runtime
-}
-
-func effectiveAppMetadata(
-	t *testing.T,
-	runtime *projectstate.Runtime,
-) (appdefinition.AppDefinition, string, string) {
-	t.Helper()
-
-	service := appdefinition.NewAppDefinitionService(
-		runtime,
-		firstpartyplugin.AppSubsystemPluginID,
-	)
-	definition, err := service.GetEffectiveAppDefinition(context.Background())
-	if err != nil {
-		t.Fatalf("get effective app definition: %v", err)
-	}
-	specPath, err := service.GetEffectiveAppSpecPath(context.Background())
-	if err != nil {
-		t.Fatalf("get effective app spec path: %v", err)
-	}
-	themeMode, err := service.GetEffectiveAppThemeMode(context.Background())
-	if err != nil {
-		t.Fatalf("get effective app theme mode: %v", err)
-	}
-	return definition, specPath, themeMode
 }

@@ -554,15 +554,11 @@ async function setViewportTransform(
   transform: { x: number; y: number; zoom: number },
 ): Promise<void> {
   await page.evaluate(async ({ x, y, zoom }) => {
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
-    const viewportStore = gpuFlowViewportStore.getState();
-    viewportStore.setTransform({ x, y, zoom });
-    viewportStore.setFitViewInitializationState({
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    useReactFlow.setState({
+      transform: [x, y, zoom],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
-      fitViewOnInitOptions: undefined,
     });
     window.reactFlowZoom = zoom;
   }, transform);

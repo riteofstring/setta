@@ -1,4 +1,7 @@
-import { screenToFlowPosition, setCenter } from "gpuFlow/viewportActions";
+import {
+  screenToFlowPosition,
+  setCenter,
+} from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";

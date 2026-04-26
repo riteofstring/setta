@@ -100,7 +100,6 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 			withOpenAPITags("Terminal"),
 			withOpenAPISummary("Run code for the requested section or generated entrypoint."),
 			withOpenAPIModeRequirement("not-launcher"),
-			withOpenAPIAppSubsystemFrontendSDK(),
 		)
 		return nil
 	}
@@ -131,7 +130,6 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 		withOpenAPITags("Terminal"),
 		withOpenAPISummary("Run code for the requested section or generated entrypoint."),
 		withOpenAPIModeRequirement("not-launcher"),
-		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	return nil
 }

@@ -1,10 +1,10 @@
-import {
-  canSelectSectionAsEntryCodeBlock,
-  getSectionEntryCodeBlockValue,
-} from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { FaFlag, FaRegFlag } from "react-icons/fa";
 import { useProjectState } from "state/definitions";
+import {
+  canSelectSectionAsEntryCodeBlock,
+  getSectionEntryCodeBlockValue,
+} from "utils/runCapabilities";
 
 export function ToggleEntryCodeBlockButton({
   sectionId,

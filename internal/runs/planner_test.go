@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"setta/internal/codegen"
-	"setta/internal/deployments"
 	"setta/internal/projectstate"
 )
 
@@ -22,7 +21,7 @@ func TestPlannerPlanUsesDirectEntryPathForNeverMode(t *testing.T) {
 
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: RunSnapshotModeNever,
 	})
 	if err != nil {
 		t.Fatalf("plan run: %v", err)
@@ -31,7 +30,7 @@ func TestPlannerPlanUsesDirectEntryPathForNeverMode(t *testing.T) {
 	if plan.SectionID != "code-section" {
 		t.Fatalf("expected entry section code-section, got %q", plan.SectionID)
 	}
-	if plan.RunSnapshotMode != deployments.RunSnapshotModeNever {
+	if plan.RunSnapshotMode != RunSnapshotModeNever {
 		t.Fatalf("expected never mode, got %q", plan.RunSnapshotMode)
 	}
 	if plan.SnapshotDirectory != "" {
@@ -81,7 +80,7 @@ func TestPlannerPlanRunsManualBashEntryWhenPythonCodegenDisabled(t *testing.T) {
 
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: RunSnapshotModeNever,
 	})
 	if err != nil {
 		t.Fatalf("plan bash run: %v", err)
@@ -120,7 +119,7 @@ func TestPlannerPlanUsesGeneratedEntryForPythonCodegenProjects(t *testing.T) {
 
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: RunSnapshotModeNever,
 	})
 	if err != nil {
 		t.Fatalf("plan generated entry run: %v", err)
@@ -145,7 +144,7 @@ func TestPlannerPlanSnapshotsGeneratedEntryAndMetadataFiles(t *testing.T) {
 
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
-		RunSnapshotMode: deployments.RunSnapshotModeEphemeral,
+		RunSnapshotMode: RunSnapshotModeEphemeral,
 	})
 	if err != nil {
 		t.Fatalf("plan generated snapshot run: %v", err)
@@ -180,7 +179,7 @@ func TestPlannerPlanCollapsesExplicitGeneratedSectionSelectionToEntry(t *testing
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
 		SectionID:       "gen-python-section",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: RunSnapshotModeNever,
 	})
 	if err != nil {
 		t.Fatalf("plan explicit generated section run: %v", err)
@@ -203,7 +202,7 @@ func TestPlannerPlanRejectsPluginGeneratedSections(t *testing.T) {
 	_, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
 		SectionID:       "gen-plugin-section",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: RunSnapshotModeNever,
 	})
 	if err == nil {
 		t.Fatal("expected plugin generated run to fail")
@@ -221,13 +220,13 @@ func TestPlannerPlanSnapshotsAllManualCodeSections(t *testing.T) {
 
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
-		RunSnapshotMode: deployments.RunSnapshotModeEphemeral,
+		RunSnapshotMode: RunSnapshotModeEphemeral,
 	})
 	if err != nil {
 		t.Fatalf("plan run: %v", err)
 	}
 
-	if plan.RunSnapshotMode != deployments.RunSnapshotModeEphemeral {
+	if plan.RunSnapshotMode != RunSnapshotModeEphemeral {
 		t.Fatalf("expected ephemeral mode, got %q", plan.RunSnapshotMode)
 	}
 	if plan.SnapshotDirectory == "" {
@@ -277,7 +276,7 @@ func TestPlannerPlanSnapshotsManualCodeWithGeneratedBindingsUnderExplicitSnapsho
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
 		SectionID:       "code-section",
-		RunSnapshotMode: deployments.RunSnapshotModeEphemeral,
+		RunSnapshotMode: RunSnapshotModeEphemeral,
 	})
 	if err != nil {
 		t.Fatalf("plan manual snapshot run: %v", err)
@@ -336,7 +335,7 @@ func TestPlannerPlanAppliesSectionVariantOverridesWithoutMutatingBaseState(t *te
 
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: RunSnapshotModeNever,
 		SectionVariantOverrides: map[string]string{
 			"code-section": "code-bash-variant",
 		},
@@ -345,7 +344,7 @@ func TestPlannerPlanAppliesSectionVariantOverridesWithoutMutatingBaseState(t *te
 		t.Fatalf("plan run with overrides: %v", err)
 	}
 
-	if plan.RunSnapshotMode != deployments.RunSnapshotModeEphemeral {
+	if plan.RunSnapshotMode != RunSnapshotModeEphemeral {
 		t.Fatalf("expected overrides to promote never to ephemeral, got %q", plan.RunSnapshotMode)
 	}
 	if plan.Language != projectstate.CodeLanguageBash {
@@ -444,7 +443,7 @@ func TestPlannerPlanAcceptsParamOverridesWithoutMutatingBaseState(t *testing.T) 
 	if err != nil {
 		t.Fatalf("plan run with param overrides: %v", err)
 	}
-	if plan.RunSnapshotMode != deployments.RunSnapshotModeEphemeral {
+	if plan.RunSnapshotMode != RunSnapshotModeEphemeral {
 		t.Fatalf("expected overrides to promote default mode to ephemeral, got %q", plan.RunSnapshotMode)
 	}
 
@@ -470,7 +469,7 @@ func TestPlannerPlanAppliesVariantAndParamOverridesWithoutMutatingBaseState(t *t
 
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: RunSnapshotModeNever,
 		SectionVariantOverrides: map[string]string{
 			"code-section": "code-bash-variant",
 		},
@@ -481,7 +480,7 @@ func TestPlannerPlanAppliesVariantAndParamOverridesWithoutMutatingBaseState(t *t
 	if err != nil {
 		t.Fatalf("plan run with combined overrides: %v", err)
 	}
-	if plan.RunSnapshotMode != deployments.RunSnapshotModeEphemeral {
+	if plan.RunSnapshotMode != RunSnapshotModeEphemeral {
 		t.Fatalf("expected combined overrides to promote never to ephemeral, got %q", plan.RunSnapshotMode)
 	}
 	if plan.Language != projectstate.CodeLanguageBash {
@@ -689,7 +688,7 @@ func TestPlannerPlanRejectsNonRunnableCodeLanguage(t *testing.T) {
 	_, err = planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
 		SectionID:       "code-section",
-		RunSnapshotMode: deployments.RunSnapshotModeNever,
+		RunSnapshotMode: RunSnapshotModeNever,
 	})
 	if err != ErrRunTargetNotRunnable {
 		t.Fatalf("expected ErrRunTargetNotRunnable, got %v", err)
@@ -753,12 +752,12 @@ func TestPlannerPlanSnapshotsNonRunnableCodeSections(t *testing.T) {
 
 	plan, err := planner.Plan(PlanRequest{
 		ProjectID:       "project-alpha",
-		RunSnapshotMode: deployments.RunSnapshotModeEphemeral,
+		RunSnapshotMode: RunSnapshotModeEphemeral,
 	})
 	if err != nil {
 		t.Fatalf("plan snapshot run: %v", err)
 	}
-	if plan.RunSnapshotMode != deployments.RunSnapshotModeEphemeral {
+	if plan.RunSnapshotMode != RunSnapshotModeEphemeral {
 		t.Fatalf("expected ephemeral mode, got %q", plan.RunSnapshotMode)
 	}
 	if plan.EntryPath != filepath.Join(plan.SnapshotDirectory, filepath.Base(fixture.pythonPath)) {

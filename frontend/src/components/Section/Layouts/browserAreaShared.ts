@@ -1,5 +1,3 @@
-import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
-import { formatBytes } from "@setta/app-subsystem-frontend-sdk";
 import type {
   FilebrowserFileBrowserDownloadUrlEntry,
   FilebrowserFolderContentItem as FolderContentItem,
@@ -7,6 +5,8 @@ import type {
   FilebrowserRootResponse as RootResponse,
 } from "openapi/http";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
+import { formatBytes } from "utils/attachments";
+import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   DEFAULT_FILE_BROWSER_TYPE_FILTERS,
   type FileBrowserTypeFilters,

@@ -14,16 +14,11 @@ vi.mock("openapi/http", () => ({
   getFolderContents: vi.fn(),
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: function <T>(promise: Promise<T>) {
-      return promise;
-    },
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 const mockedGetFolderContents = vi.mocked(getFolderContents);
 

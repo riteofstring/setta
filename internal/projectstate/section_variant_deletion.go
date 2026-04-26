@@ -79,49 +79,9 @@ func (d *Document) DeleteSectionVariant(projectID string, sectionID string, vari
 	return nil
 }
 
-func (d *Document) DeleteSectionVariantForWatchCodeProvider(
-	providerPluginID string,
-	projectID string,
-	sectionID string,
-	variantID string,
-) error {
-	if d == nil {
-		return ErrProjectNotFound
-	}
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return err
-	}
-
-	project, err := d.ProjectByID(projectID)
-	if err != nil {
-		return err
-	}
-	data, existed, err := d.decodeWatchCodePluginData(pluginID)
-	if err != nil {
-		return err
-	}
-	projectData, _ := data.projectData(project.ID)
-	if err := project.deleteSectionVariant(&projectData, sectionID, variantID); err != nil {
-		return err
-	}
-	d.Projects[project.ID] = project
-	data = data.withProjectData(project.ID, projectData, existed)
-	if err := d.setWatchCodePluginData(pluginID, data, existed); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (r *Runtime) DeleteSectionVariant(ctx context.Context, projectID string, sectionID string, variantID string) (Snapshot, error) {
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		var err error
-		if providerPluginID, ok := r.activeWatchCodeProviderPluginID(); ok {
-			err = document.DeleteSectionVariantForWatchCodeProvider(providerPluginID, projectID, sectionID, variantID)
-		} else {
-			err = document.DeleteSectionVariant(projectID, sectionID, variantID)
-		}
-		if err != nil {
+		if err := document.DeleteSectionVariant(projectID, sectionID, variantID); err != nil {
 			return Document{}, err
 		}
 		return document, nil
@@ -129,14 +89,6 @@ func (r *Runtime) DeleteSectionVariant(ctx context.Context, projectID string, se
 }
 
 func (p *Project) DeleteSectionVariant(sectionID string, variantID string) error {
-	return p.deleteSectionVariant(nil, sectionID, variantID)
-}
-
-func (p *Project) deleteSectionVariant(
-	watchCodeProjectData *WatchCodePluginProjectData,
-	sectionID string,
-	variantID string,
-) error {
 	if p == nil {
 		return ErrProjectNotFound
 	}
@@ -165,10 +117,7 @@ func (p *Project) deleteSectionVariant(
 	if err := p.pruneUnusedCodeObjects(); err != nil {
 		return err
 	}
-	if watchCodeProjectData == nil {
-		return nil
-	}
-	return p.syncWatchCodeRegistrySectionMembership(watchCodeProjectData, section.ID)
+	return p.syncWatchCodeRegistrySectionMembership(section.ID)
 }
 
 func (p *Project) deletedSectionVariantCodeObjectVariants(sectionID string, variantID string) (map[string]string, error) {

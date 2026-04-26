@@ -1,19 +1,11 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
-  requestInitialFitView,
-  setViewport as setGpuViewport,
-  setInitialFitViewDone,
-} from "gpuFlow/viewportActions";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   createProjectConfig as createProjectConfigRequest,
   getLatestLspDiagnostics,
   loadAllProjectMetadata as loadAllProjectMetadataRequest,
   loadProjectConfig as loadProjectConfigRequest,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { unstable_batchedUpdates } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections";
@@ -31,12 +23,13 @@ import {
   useProjectState,
 } from "state/definitions";
 import {
+  OverviewTabNameEnum,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  OverviewTabUIConfig,
   type AllProjectMetadata,
   type LSPDiagnosticsPayload,
   type SingleConfig,
@@ -111,11 +104,14 @@ export async function loadProjectState(projectState: LoadProjectStateInput) {
     normalizedProjectState.projectConfig;
   cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
-    requestInitialFitView();
+    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
     const { x, y, zoom } = viewport;
-    setGpuViewport({ x, y, zoom });
-    setInitialFitViewDone();
+    useReactFlow.setState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      transform: [x, y, zoom],
+    });
   }
   const nextProjectState = {
     ...sanitizeProjectStateActiveIds(normalizedProjectState),
@@ -174,7 +170,7 @@ export function useCreateAndGoToProjectConfig() {
     )) as CreateProjectConfigRouteResponse;
     if (res200(res)) {
       useLocalStorage.setState({
-        overviewTab: OverviewTabUIConfig.names.ProjectAIChat,
+        overviewTab: OverviewTabNameEnum.ProjectAIChat,
       });
       navigateToAnotherConfig(res.data);
     }

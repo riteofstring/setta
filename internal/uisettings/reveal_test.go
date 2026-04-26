@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"setta/internal/plugins"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
 )
@@ -218,7 +217,7 @@ func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t 
 		t.Fatal("expected frontend affinity token")
 	}
 
-	revealRegistry, err := newRegistry([]RuntimeEntry{
+	revealRegistry, err := New([]RuntimeEntry{
 		{
 			Metadata: Entry{
 				SettingID:   "core.project.activation_steps",
@@ -250,7 +249,7 @@ func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t 
 				},
 			},
 		},
-	}, registryPluginMetadata{})
+	})
 	if err != nil {
 		t.Fatalf("new reveal registry: %v", err)
 	}
@@ -343,125 +342,6 @@ func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t 
 	}
 	if result.Statuses[0].Target == nil || len(result.Statuses[0].Target.RevealActivationSteps) != 2 {
 		t.Fatalf("expected success status target with activation steps, got %#v", result.Statuses[0].Target)
-	}
-}
-
-func TestRevealServiceDispatchesBackendOnlyPluginSettingAsPaneLessTarget(t *testing.T) {
-	t.Parallel()
-
-	registry := realtime.NewRegistry(realtime.RegistryOptions{
-		FrontendAffinityTokenSource: sequentialTokenSource("frontend-token"),
-	})
-	connection, err := registry.Register(realtime.RegisterParams{
-		ID:   "frontend-1",
-		Type: realtime.ConnectionTypeFrontend,
-	})
-	if err != nil {
-		t.Fatalf("register frontend: %v", err)
-	}
-	token, ok := registry.FrontendAffinityToken(connection.ID)
-	if !ok {
-		t.Fatal("expected frontend affinity token")
-	}
-
-	settingRegistry, err := NewScopedRegistry(ScopedRegistryOptions{
-		Runtime:       openCoreRegistryRuntime(t),
-		WorkspaceRoot: t.TempDir(),
-		PluginService: &testPluginRuntimeService{
-			runtimeResponse:  newBackendUISettingsOnlyRuntimeResponse(),
-			backendReadValue: false,
-			backendUISettings: []plugins.PluginRegisteredUISetting{
-				{
-					PluginID:       "plugin-a",
-					LocalSettingID: "enabled",
-					Title:          "Backend Enabled",
-					Description:    "Backend-provided setting.",
-					RevealKey:      "watch-code-settings",
-					Mutability:     string(MutabilityReadOnly),
-					ValueSchema: map[string]any{
-						"type": "boolean",
-					},
-					ReadHandlerID: "read-enabled",
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("new scoped registry: %v", err)
-	}
-
-	results := realtime.NewUISettingRevealResultHub()
-	transport := &stubRevealTransport{registry: registry}
-	transport.sendJSON = func(_ context.Context, message any, connectionID string) (bool, error) {
-		if connectionID != "frontend-1" {
-			t.Fatalf("expected reveal dispatch to frontend-1, got %q", connectionID)
-		}
-		revealMessage, ok := message.(realtime.UISettingRevealMessage)
-		if !ok {
-			t.Fatalf("expected realtime.UISettingRevealMessage, got %T", message)
-		}
-		if len(revealMessage.Content.Reveals) != 1 {
-			t.Fatalf("expected one reveal target, got %#v", revealMessage.Content.Reveals)
-		}
-		target := revealMessage.Content.Reveals[0]
-		if target.SettingID != "plugin::plugin-a::enabled" {
-			t.Fatalf("expected plugin setting id, got %q", target.SettingID)
-		}
-		if target.PluginID == nil || *target.PluginID != "plugin-a" {
-			t.Fatalf("expected plugin id plugin-a, got %#v", target.PluginID)
-		}
-		if target.PluginRevealKey == nil || *target.PluginRevealKey != "watch-code-settings" {
-			t.Fatalf("expected plugin reveal key watch-code-settings, got %#v", target.PluginRevealKey)
-		}
-		if target.PaneID != nil {
-			t.Fatalf("expected pane-less backend target, got pane %#v", target.PaneID)
-		}
-		if target.OverviewTabKey != nil {
-			t.Fatalf("expected backend target without overview tab, got %#v", target.OverviewTabKey)
-		}
-		if target.Strategy != string(HighlightStrategyPluginHandler) {
-			t.Fatalf("expected plugin handler strategy, got %q", target.Strategy)
-		}
-		if !results.Resolve(realtime.UISettingRevealResultContent{
-			ProjectConfigID: "project-alpha",
-			RequestID:       revealMessage.Content.RequestID,
-			Statuses: []realtime.UISettingRevealResultStatus{
-				{
-					SettingID: "plugin::plugin-a::enabled",
-					Status:    "revealed",
-				},
-			},
-		}, connectionID) {
-			t.Fatal("expected reveal result resolution to succeed")
-		}
-		return true, nil
-	}
-
-	service, err := NewRevealService(RevealServiceOptions{
-		Transport:       transport,
-		Results:         results,
-		RequestIDSource: fixedRevealRequestIDSource("request-plugin-backend"),
-	})
-	if err != nil {
-		t.Fatalf("new reveal service: %v", err)
-	}
-
-	result, err := service.Reveal(context.Background(), RevealInput{
-		ProjectConfigID:       "project-alpha",
-		ProjectView:           revealTestProjectView(t, "callable-section", "Callable", nil),
-		Registry:              settingRegistry,
-		SettingID:             "plugin::plugin-a::enabled",
-		FrontendAffinityToken: token,
-		DurationMS:            1500,
-	})
-	if err != nil {
-		t.Fatalf("reveal: %v", err)
-	}
-	if result.EmittedRevealCount != 1 {
-		t.Fatalf("expected emittedRevealCount=1, got %d", result.EmittedRevealCount)
-	}
-	if len(result.Statuses) != 1 || result.Statuses[0].Status != "revealed" {
-		t.Fatalf("expected single revealed status, got %#v", result.Statuses)
 	}
 }
 
@@ -1132,7 +1012,7 @@ func TestRevealServiceFailsClosedWhenFrontendStatusMissing(t *testing.T) {
 			RequestID:       revealMessage.Content.RequestID,
 			Statuses: []realtime.UISettingRevealResultStatus{
 				{
-					SettingID: "plugin::setta-watch-code::files",
+					SettingID: "core.watch_code.enabled",
 					Status:    "revealed",
 				},
 			},
@@ -1165,7 +1045,7 @@ func TestRevealServiceFailsClosedWhenFrontendStatusMissing(t *testing.T) {
 	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
 		t.Fatalf("expected failed status, got %#v", result.Statuses)
 	}
-	expectedMessage := "frontend reveal response contract mismatch for request request-1 from websocket frontend-1: frontend reveal response setting id mismatch: expected [core.project.show_param_display_names] but received [plugin::setta-watch-code::files]"
+	expectedMessage := "frontend reveal response contract mismatch for request request-1 from websocket frontend-1: frontend reveal response setting id mismatch: expected [core.project.show_param_display_names] but received [core.watch_code.enabled]"
 	if result.Statuses[0].Error.Message != expectedMessage {
 		t.Fatalf("unexpected missing-status message: %q", result.Statuses[0].Error.Message)
 	}
@@ -1369,7 +1249,7 @@ func TestRevealServiceFailsClosedOnFrontendAckWebsocketMismatch(t *testing.T) {
 func revealTestRegistry(t *testing.T) *Registry {
 	t.Helper()
 
-	registry, err := newRegistry([]RuntimeEntry{
+	registry, err := New([]RuntimeEntry{
 		{
 			Metadata: Entry{
 				SettingID:   "core.project.show_param_display_names",
@@ -1391,7 +1271,7 @@ func revealTestRegistry(t *testing.T) *Registry {
 				},
 			},
 		},
-	}, registryPluginMetadata{})
+	})
 	if err != nil {
 		t.Fatalf("new reveal test registry: %v", err)
 	}

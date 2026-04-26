@@ -1,10 +1,4 @@
 import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   getFileBrowserRoot,
   getFolderContents,
   writeFileBrowserFileContent,
@@ -12,7 +6,13 @@ import {
   type FilebrowserRootResponse as RootResponse,
   type FilebrowserWriteFileContentResponse as WriteFileContentResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { uploadBinaryPayload } from "utils/binaryUpload";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 type NativeFileImportResult =
   | {
       status: "ok";

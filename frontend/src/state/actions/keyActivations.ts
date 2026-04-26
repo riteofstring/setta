@@ -21,13 +21,14 @@ import {
   activateDndSortingMode,
   deactivateDnd,
 } from "forks/dnd-kit/dndState";
-import { zoomToMouseLocation } from "gpuFlow/mouseLocation";
 import {
-  getGpuNodesBounds,
-  isMeasuredGpuNodeBoundsInput,
-} from "gpuFlow/nodeBounds";
-import { fitView, resetZoom, zoomBy } from "gpuFlow/viewportActions";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+  resetZoom,
+  zoomIn,
+  zoomOut,
+} from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { onFitViewHandler } from "forks/xyflow/core/store/utils";
+import { zoomToMouseLocation } from "forks/xyflow/core/utils/mouseLocation";
 import _ from "lodash";
 import {
   activateParamSelect,
@@ -63,7 +64,6 @@ import {
   openFileMenuLoadProjectConfigModal,
   openFileMenuSaveProjectConfigAsModal,
 } from "./modal";
-import { getNodes } from "./nodeInternals";
 import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
 import {
@@ -97,17 +97,6 @@ function deleteEdgesOrSections() {
 let keysPressed = new Set();
 let keysPressedTimeStamps = new Map();
 let aModShortcutWasPressed = false;
-const VIEWPORT_ZOOM_STEP_FACTOR = 1.2;
-const VIEWPORT_ZOOM_THROTTLE_MS = 50;
-const DEFAULT_FIT_VIEW_PADDING = 0.1;
-const zoomInViewportShortcut = _.throttle(
-  () => zoomBy(VIEWPORT_ZOOM_STEP_FACTOR),
-  VIEWPORT_ZOOM_THROTTLE_MS,
-);
-const zoomOutViewportShortcut = _.throttle(
-  () => zoomBy(1 / VIEWPORT_ZOOM_STEP_FACTOR),
-  VIEWPORT_ZOOM_THROTTLE_MS,
-);
 
 function resetKeysPressed() {
   keysPressed = new Set();
@@ -133,30 +122,6 @@ function clearStaleKeys() {
       deleteKeyPressed(key);
     }
   }
-}
-
-export function fitGpuViewportShortcut(): boolean {
-  if (gpuFlowViewportStore.getState().fitViewOnInit) {
-    return false;
-  }
-  const nodes = getNodes().filter(isMeasuredGpuNodeBoundsInput);
-  if (nodes.length === 0) {
-    return false;
-  }
-  const fitted = fitView({
-    bounds: getGpuNodesBounds(nodes),
-    padding: DEFAULT_FIT_VIEW_PADDING,
-  });
-  if (fitted) {
-    gpuFlowViewportStore
-      .getState()
-      .setFitViewInitializationState({ fitViewOnInit: true });
-  }
-  return fitted;
-}
-
-function resetGpuViewportZoom() {
-  resetZoom();
 }
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {
@@ -803,7 +768,7 @@ export function attachKeyEventListeners() {
     [shortcuts.searchShortcut, focusOnSearch],
     [shortcuts.advancedSearchShortcut, focusOnAdvancedSearch],
     [shortcuts.commandPaletteShortcut, focusOnCommandPalette],
-    [shortcuts.resetZoomShortcut, resetGpuViewportZoom],
+    [shortcuts.resetZoomShortcut, resetZoom],
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
     [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
@@ -839,7 +804,7 @@ export function attachKeyEventListeners() {
       true,
     ],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
-    [shortcuts.fitViewShortcut, fitGpuViewportShortcut],
+    [shortcuts.fitViewShortcut, onFitViewHandler],
     [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
     [shortcuts.deleteSectionShortcut, deleteEdgesOrSections],
     [
@@ -850,8 +815,8 @@ export function attachKeyEventListeners() {
     [shortcuts.showVersionsTabShortcut, showVersionsTab],
     [shortcuts.showParamUITypeTabShortcut, showParamUITypeTab],
     [shortcuts.showProjectOverviewTabShortcut, showProjectOverviewTab],
-    [shortcuts.zoomInShortcut, zoomInViewportShortcut, null, true],
-    [shortcuts.zoomOutShortcut, zoomOutViewportShortcut, null, true],
+    [shortcuts.zoomInShortcut, zoomIn, null, true],
+    [shortcuts.zoomOutShortcut, zoomOut, null, true],
     [shortcuts.restartLanguageServerShortcut, restartLanguageServer],
     [
       shortcuts.selectionKeyCode,
@@ -1102,41 +1067,41 @@ function activeSectionHasSelectedParams(): boolean {
 }
 
 function activateSelectionKeyPressed() {
-  gpuFlowViewportStore.getState().setSelectionKeyPressed(true);
+  useReactFlow.setState({ selectionKeyPressed: true });
 }
 
 function deactivateSelectionKeyPressed() {
-  gpuFlowViewportStore.getState().setSelectionKeyPressed(false);
+  useReactFlow.setState({ selectionKeyPressed: false });
 }
 
 function activateMultiSelectionPressed() {
-  gpuFlowViewportStore.getState().setMultiSelectionActive(true);
+  useReactFlow.setState({ multiSelectionActive: true });
 }
 
 function deactivateMultiSelectionPressed() {
-  gpuFlowViewportStore.getState().setMultiSelectionActive(false);
+  useReactFlow.setState({ multiSelectionActive: false });
 }
 
 function activatePanMode() {
-  gpuFlowViewportStore.getState().setPanActivationKeyPressed(true);
+  useReactFlow.setState({ panActivationKeyPressed: true });
 }
 
 function deactivatePanMode() {
-  gpuFlowViewportStore.getState().setPanActivationKeyPressed(false);
+  useReactFlow.setState({ panActivationKeyPressed: false });
 }
 
 function activateZoomMode() {
-  gpuFlowViewportStore.getState().setZoomActivationKeyPressed(true);
+  useReactFlow.setState({ zoomActivationKeyPressed: true });
 }
 
 function deactivateZoomMode() {
-  gpuFlowViewportStore.getState().setZoomActivationKeyPressed(false);
+  useReactFlow.setState({ zoomActivationKeyPressed: false });
 }
 
 function activateMoveSectionMode() {
-  gpuFlowViewportStore.getState().setMoveSectionActivationKeyPressed(true);
+  useReactFlow.setState({ moveSectionActivationKeyPressed: true });
 }
 
 function deactivateMoveSectionMode() {
-  gpuFlowViewportStore.getState().setMoveSectionActivationKeyPressed(false);
+  useReactFlow.setState({ moveSectionActivationKeyPressed: false });
 }

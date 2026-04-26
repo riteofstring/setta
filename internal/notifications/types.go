@@ -10,6 +10,13 @@ import (
 
 type NotificationType = realtime.NotificationType
 
+const (
+	NotificationTypeError   NotificationType = realtime.NotificationTypeError
+	NotificationTypeWarning NotificationType = realtime.NotificationTypeWarning
+	NotificationTypeInfo    NotificationType = realtime.NotificationTypeInfo
+	NotificationTypeSave    NotificationType = realtime.NotificationTypeSave
+)
+
 var (
 	ErrProjectConfigIDRequired = errors.New("notification project config id is required")
 	ErrNotificationIDRequired  = errors.New("notification id is required")
@@ -40,7 +47,7 @@ func (n Notification) normalized() (Notification, error) {
 	}
 
 	switch normalized.Type {
-	case realtime.NotificationTypeError, realtime.NotificationTypeWarning, realtime.NotificationTypeInfo, realtime.NotificationTypeSave:
+	case NotificationTypeError, NotificationTypeWarning, NotificationTypeInfo, NotificationTypeSave:
 	default:
 		return Notification{}, fmt.Errorf("%w: %q", ErrNotificationTypeInvalid, normalized.Type)
 	}

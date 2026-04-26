@@ -178,6 +178,10 @@ func (p Project) Clone() Project {
 	cloned := p
 	cloned.TopLevelSectionIDs = append([]string(nil), p.TopLevelSectionIDs...)
 	cloned.ActiveIDs = append([]string(nil), p.ActiveIDs...)
+	cloned.WatchCodeFolders = cloneWatchCodeFolders(p.WatchCodeFolders)
+	cloned.WatchCodeFiles = append([]string(nil), p.WatchCodeFiles...)
+	cloned.WatchCodeRegistry = cloneWatchCodeRegistry(p.WatchCodeRegistry)
+	cloned.WatchCodeBaselineByPath = cloneStringSliceMap(p.WatchCodeBaselineByPath)
 	cloned.GeneratedCodeBinding = cloneCodeFileBinding(p.GeneratedCodeBinding)
 	cloned.GeneratedMetadataBinding = cloneCodeFileBinding(p.GeneratedMetadataBinding)
 	cloned.Viewport = cloneViewport(p.Viewport)
@@ -386,13 +390,16 @@ func (p *Project) initializeNormalizedCollections() error {
 	normalized.PreviewImgColor = strings.TrimSpace(normalized.PreviewImgColor)
 	normalized.ActiveViewModeID = strings.TrimSpace(normalized.ActiveViewModeID)
 	normalized.EntryCodeBlockID = strings.TrimSpace(normalized.EntryCodeBlockID)
+	if err := normalized.initializeNormalizedWatchCodeState(); err != nil {
+		return err
+	}
 	if err := normalized.initializeNormalizedGraphCollections(); err != nil {
 		return err
 	}
 	return normalized.initializeNormalizedCodeObjectCollections()
 }
 
-func (p *Project) initializeNormalizedGraphCollections() error {
+func (p *Project) initializeNormalizedWatchCodeState() error {
 	if p == nil {
 		return nil
 	}
@@ -404,6 +411,27 @@ func (p *Project) initializeNormalizedGraphCollections() error {
 	if normalized.ViewModes == nil {
 		normalized.ViewModes = map[string]ViewMode{}
 	}
+	if normalized.WatchCodeRegistry == nil {
+		normalized.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{}
+	} else {
+		normalized.WatchCodeRegistry = cloneWatchCodeRegistry(normalized.WatchCodeRegistry)
+	}
+	if normalized.WatchCodeBaselineByPath == nil {
+		normalized.WatchCodeBaselineByPath = map[string][]string{}
+	} else {
+		normalized.WatchCodeBaselineByPath = cloneStringSliceMap(normalized.WatchCodeBaselineByPath)
+	}
+	normalized.WatchCodeFolders = cloneWatchCodeFolders(normalized.WatchCodeFolders)
+	normalized.WatchCodeFiles = append([]string(nil), normalized.WatchCodeFiles...)
+	return nil
+}
+
+func (p *Project) initializeNormalizedGraphCollections() error {
+	if p == nil {
+		return nil
+	}
+
+	normalized := p
 	if normalized.Sections == nil {
 		normalized.Sections = map[string]Section{}
 	}

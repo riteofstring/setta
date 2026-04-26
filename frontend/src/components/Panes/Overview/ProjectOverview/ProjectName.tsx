@@ -1,7 +1,7 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { setProjectConfigName } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type { ChangeEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +9,7 @@ import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
 import { validateProjectNameInput } from "utils/nameValidation";
 const editing =
   "flex-1 box-border [border-width:0_0_1px_0] border-solid bg-transparent focus:border-blue-300 focus-visible:ring-0 focus-visible:outline-none w-full ";

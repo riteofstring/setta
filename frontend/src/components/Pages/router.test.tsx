@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveWorkspaceLaunchRouteKind } from "@setta/app-subsystem-frontend-sdk";
 import { matchRoutes } from "react-router-dom";
 import {
+  FLAT_SECTION_PROTOTYPE_ROUTER_PATH,
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
   PROJECT_CHAT_STANDALONE_ROUTER_PATH,
@@ -13,6 +13,7 @@ import {
   WINDOW_SPACE_STANDALONE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
+import { resolveWorkspaceLaunchRouteKind } from "utils/serverModeBoundaryPolicy";
 import type { ServerModeValue } from "utils/serverModeTypes";
 import { resolveModeElementForServerMode } from "./modeRouteResolver";
 import { APP_ROUTE_IDS } from "./routeConfig";
@@ -24,6 +25,10 @@ function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {
 const TEST_ROUTE_PATTERNS = [
   { id: APP_ROUTE_IDS.index, path: INDEX_ROUTER_PATH },
   { id: APP_ROUTE_IDS.home, path: HOME_ROUTER_PATH },
+  {
+    id: APP_ROUTE_IDS.flatSectionPrototype,
+    path: FLAT_SECTION_PROTOTYPE_ROUTER_PATH,
+  },
   { id: APP_ROUTE_IDS.workspaceLaunch, path: WORKSPACE_LAUNCH_ROUTER_PATH },
   {
     id: APP_ROUTE_IDS.projectChatThreadStandalone,
@@ -103,6 +108,12 @@ describe("appRoutes", () => {
   it("matches standalone project chat before the generic project route", () => {
     expect(getMatchedRouteId("/demo/chat")).toBe(
       APP_ROUTE_IDS.projectChatStandalone,
+    );
+  });
+
+  it("matches the internal flat section prototype route directly", () => {
+    expect(getMatchedRouteId("/internal/flat-section-prototype")).toBe(
+      APP_ROUTE_IDS.flatSectionPrototype,
     );
   });
 

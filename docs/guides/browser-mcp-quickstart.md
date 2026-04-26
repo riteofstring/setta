@@ -117,7 +117,7 @@ Pass extra `playwright codegen` flags directly, for example:
 
 ## Chrome Repro Recording
 
-The capture-first Chrome repro workflow lives in
+The capture-first Chrome repro workflow now lives in
 [chrome-repro-recording.md](/Users/kevin/Documents/AppDevelopment/setta.go-rewrite/docs/guides/chrome-repro-recording.md).
 
 Use that guide for:

@@ -1,4 +1,4 @@
-import { updateMapPosition } from "gpuFlow/viewportActions";
+import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
@@ -8,13 +8,14 @@ import {
   useSettings,
 } from "state/definitions";
 import { getUIEditorTab } from "state/hooks/uiTypes";
-import { OverviewTabKey, PaneName, PaneNameEnum } from "utils/constants";
 import {
-  OverviewTabUIConfig,
-  UIEditorTabUIConfig,
-  type SectionType,
-  type UIEditorTabName,
-} from "utils/generatedTypes";
+  OverviewTabKey,
+  OverviewTabNameEnum,
+  PaneName,
+  PaneNameEnum,
+  UIEditorTabNameEnum,
+} from "utils/constants";
+import { type SectionType, type UIEditorTabName } from "utils/generatedTypes";
 import { togglePaneVisibility } from "./paneLayout";
 
 type TabButtonComponentType<T> = {
@@ -149,13 +150,13 @@ function changeUIEditorTab(tabName: UIEditorTabName) {
 }
 
 export function showVersionsTab() {
-  changeUIEditorTab(UIEditorTabUIConfig.names.SectionVariantsConfig);
+  changeUIEditorTab(UIEditorTabNameEnum.SectionVariantsConfig);
 }
 
 export function showParamUITypeTab() {
-  changeUIEditorTab(UIEditorTabUIConfig.names.UIConfig);
+  changeUIEditorTab(UIEditorTabNameEnum.UIConfig);
 }
 
 export function showProjectOverviewTab() {
-  onOverviewTabClick(OverviewTabUIConfig.names.Overview);
+  onOverviewTabClick(OverviewTabNameEnum.Overview);
 }

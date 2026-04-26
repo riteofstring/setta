@@ -116,24 +116,7 @@ fi
 "${PYTHON_BIN}" - "${recording_root}" "${output_json}" "${field_name}" <<'PY'
 import json
 import sys
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-
-
-SOURCE_PRIORITY = {
-    "latest-json": 0,
-    "latest-symlink": 1,
-    "scan": 2,
-}
-
-
-@dataclass(frozen=True)
-class RecordingCandidate:
-    path: Path
-    source: str
-    sort_key: tuple[float, str]
 
 
 def load_json(path: Path) -> dict:
@@ -146,102 +129,31 @@ def load_json(path: Path) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
-def parse_datetime_timestamp(value: Any) -> float | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    normalized_value = value.strip()
-    if normalized_value.endswith("Z"):
-        normalized_value = normalized_value[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(normalized_value)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.timestamp()
-
-
-def parse_recording_dir_timestamp(path: Path) -> float | None:
-    prefix = "recording-"
-    if not path.name.startswith(prefix):
-        return None
-    timestamp = path.name[len(prefix) :]
-    try:
-        parsed = datetime.strptime(timestamp, "%Y%m%d-%H%M%S")
-    except ValueError:
-        return None
-    return parsed.replace(tzinfo=timezone.utc).timestamp()
-
-
-def recording_sort_key(path: Path) -> tuple[float, str]:
-    session_payload = load_json(path / "session.json")
-    session_timestamp = parse_datetime_timestamp(
-        session_payload.get("finalizedAt")
-    ) or parse_datetime_timestamp(session_payload.get("createdAt"))
-    if session_timestamp is not None:
-        return (session_timestamp, path.name)
-    dir_timestamp = parse_recording_dir_timestamp(path)
-    if dir_timestamp is not None:
-        return (dir_timestamp, path.name)
-    try:
-        return (path.stat().st_mtime, path.name)
-    except OSError:
-        return (0.0, path.name)
-
-
-def add_recording_candidate(
-    candidates_by_path: dict[Path, RecordingCandidate],
-    path: Path,
-    source: str,
-) -> None:
-    if not path.is_dir():
-        return
-    resolved_path = path.resolve()
-    candidate = RecordingCandidate(
-        path=resolved_path,
-        source=source,
-        sort_key=recording_sort_key(resolved_path),
-    )
-    previous = candidates_by_path.get(resolved_path)
-    if previous is None or SOURCE_PRIORITY[source] < SOURCE_PRIORITY[previous.source]:
-        candidates_by_path[resolved_path] = candidate
-
-
 def resolve_latest_bundle(recording_root: Path) -> tuple[Path, str]:
-    candidates_by_path: dict[Path, RecordingCandidate] = {}
-
     latest_json_path = recording_root / "latest.json"
     latest_payload = load_json(latest_json_path)
     latest_artifact = latest_payload.get("artifactDir")
     if isinstance(latest_artifact, str):
-        add_recording_candidate(
-            candidates_by_path,
-            Path(latest_artifact),
-            "latest-json",
-        )
+        latest_bundle = Path(latest_artifact)
+        if latest_bundle.is_dir():
+            return latest_bundle.resolve(), "latest-json"
 
     latest_link = recording_root / "latest"
     if latest_link.exists():
-        add_recording_candidate(
-            candidates_by_path,
-            latest_link.resolve(),
-            "latest-symlink",
-        )
+        latest_bundle = latest_link.resolve()
+        if latest_bundle.is_dir():
+            return latest_bundle, "latest-symlink"
 
-    for path in recording_root.iterdir():
-        if path.is_dir() and path.name.startswith("recording-"):
-            add_recording_candidate(candidates_by_path, path, "scan")
-
-    candidates = list(candidates_by_path.values())
+    candidates = sorted(
+        (
+            path
+            for path in recording_root.iterdir()
+            if path.is_dir() and path.name.startswith("recording-")
+        ),
+        key=lambda path: path.name,
+    )
     if candidates:
-        latest_candidate = max(
-            candidates,
-            key=lambda candidate: (
-                candidate.sort_key,
-                -SOURCE_PRIORITY[candidate.source],
-            ),
-        )
-        return latest_candidate.path, latest_candidate.source
+        return candidates[-1].resolve(), "scan"
     raise SystemExit(
         f"No Chrome repro recordings found under {recording_root}. "
         "Run ./scripts/record-chrome-repro.sh first or pass --root."

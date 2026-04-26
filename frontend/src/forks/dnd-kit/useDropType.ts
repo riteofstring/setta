@@ -12,7 +12,7 @@ import {
   useDndState,
 } from "forks/dnd-kit/dndState";
 import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
-import { getZoom } from "gpuFlow/viewportActions";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrSectionVariant,
@@ -336,7 +336,7 @@ function resolveDragStartLayout(
 }
 
 function resolveSafeZoom() {
-  const zoom = getZoom();
+  const zoom = useReactFlow.getState().transform[2];
   return zoom > 0 ? zoom : 1;
 }
 

@@ -1,4 +1,3 @@
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -52,6 +51,17 @@ const hoistedProjectChatWindowing = vi.hoisted(() => ({
   createTopLevelSectionWithResult: vi.fn(),
   routeSetProjectChatWindowingState: vi.fn(),
   routeSetProjectChatWindowChatId: vi.fn(),
+  reactFlowState: {
+    transform: [0, 0, 1] as [number, number, number],
+    d3Zoom: null,
+    d3Selection: null,
+    domNode: null as HTMLElement | null,
+  },
+}));
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: {
+    getState: () => hoistedProjectChatWindowing.reactFlowState,
+  },
 }));
 vi.mock("./sections/createSections", () => ({
   createTopLevelSectionWithResult:
@@ -98,12 +108,10 @@ describe("project chat windowing reducer helpers", () => {
           useProjectState.getState().projectChatWindowing,
         ),
     );
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-    gpuFlowViewportStore.getState().setViewportSize({
-      height: 0,
-      width: 0,
-    });
-    gpuFlowViewportStore.getState().setDomNode(null);
+    hoistedProjectChatWindowing.reactFlowState.transform = [0, 0, 1];
+    hoistedProjectChatWindowing.reactFlowState.d3Zoom = null;
+    hoistedProjectChatWindowing.reactFlowState.d3Selection = null;
+    hoistedProjectChatWindowing.reactFlowState.domNode = null;
   });
   it("creates an open bottom-docked chat window instance by default", () => {
     // New instances should open docked so the dock owns the initial layout.
@@ -1357,7 +1365,7 @@ describe("project chat windowing reducer helpers", () => {
         sectionId: "section-created",
       },
     );
-    gpuFlowViewportStore.getState().setDomNode({
+    hoistedProjectChatWindowing.reactFlowState.domNode = {
       getBoundingClientRect: () => ({
         x: 100,
         y: 200,
@@ -1369,7 +1377,7 @@ describe("project chat windowing reducer helpers", () => {
         height: 400,
         toJSON: () => ({}),
       }),
-    } as HTMLElement);
+    } as HTMLElement;
     useMisc.setState({
       lastPaneClickLocation: { x: 160, y: 290 },
     });
@@ -1399,37 +1407,6 @@ describe("project chat windowing reducer helpers", () => {
         position: { x: 160, y: 290 },
       }),
     );
-  });
-  it("restores the GPU viewport after canvas boot section creation", async () => {
-    hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockImplementation(
-      async () => {
-        gpuFlowViewportStore.getState().setTransform([320, 240, 2]);
-        return {
-          sectionId: "section-created",
-        };
-      },
-    );
-    gpuFlowViewportStore.getState().setTransform([20, 30, 1.5]);
-    const target = createProjectChatWindowInstance({
-      instanceId: "chat-window-target",
-      placement: ChatWindowPlacementEnum.floating,
-      sectionIdOrNull: null,
-    });
-    useProjectState.setState((state) => {
-      state.projectChatWindowing = createProjectChatWindowingState({
-        order: [target.instanceId],
-        instancesById: {
-          [target.instanceId]: target,
-        },
-        nextInstanceNumber: 2,
-      });
-    });
-
-    await expect(
-      bootProjectChatWindowToCanvasSection(target.instanceId),
-    ).resolves.toBe("section-created");
-
-    expect(gpuFlowViewportStore.getState().transform).toEqual([20, 30, 1.5]);
   });
   it("does not boot git graph windows into canvas sections", async () => {
     const target = createProjectChatWindowInstance({

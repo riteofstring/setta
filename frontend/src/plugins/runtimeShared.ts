@@ -1,10 +1,4 @@
 import {
-  isSettaPluginCanvasControlPlacement,
-  SettaPluginCanvasControlPlacementEnum,
-  type SettaPluginCanvasControlDefinition,
-  type SettaPluginCanvasControlPlacement,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   PluginListResponse,
   PluginRuntimeStateEnum,
   type PluginBlockedCapability,
@@ -54,55 +48,6 @@ export type PluginPaneDefinition = {
 export type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
-
-type PluginCanvasControlPlacement = SettaPluginCanvasControlPlacement;
-
-export function isPluginCanvasControlPlacement(
-  value: string,
-): value is PluginCanvasControlPlacement {
-  return isSettaPluginCanvasControlPlacement(value);
-}
-
-export type PluginCanvasControlDefinition = SettaPluginCanvasControlDefinition;
-
-export type RegisteredPluginCanvasControl = PluginCanvasControlDefinition & {
-  pluginId: string;
-  placement: PluginCanvasControlPlacement;
-};
-
-const pluginCanvasControlPlacementRank: Record<
-  PluginCanvasControlPlacement,
-  number
-> = {
-  [SettaPluginCanvasControlPlacementEnum.Project]: 0,
-  [SettaPluginCanvasControlPlacementEnum.Viewport]: 1,
-  [SettaPluginCanvasControlPlacementEnum.Utility]: 2,
-};
-
-export function comparePluginCanvasControls(
-  left: RegisteredPluginCanvasControl,
-  right: RegisteredPluginCanvasControl,
-): number {
-  const placementDelta =
-    pluginCanvasControlPlacementRank[left.placement] -
-    pluginCanvasControlPlacementRank[right.placement];
-  if (placementDelta !== 0) {
-    return placementDelta;
-  }
-  const orderDelta = (left.order ?? 0) - (right.order ?? 0);
-  if (orderDelta !== 0) {
-    return orderDelta;
-  }
-  const byLabel = left.label.localeCompare(right.label);
-  if (byLabel !== 0) {
-    return byLabel;
-  }
-  const byPlugin = left.pluginId.localeCompare(right.pluginId);
-  if (byPlugin !== 0) {
-    return byPlugin;
-  }
-  return left.id.localeCompare(right.id);
-}
 
 type PluginSectionFallbackState = {
   pluginStatusById: Record<

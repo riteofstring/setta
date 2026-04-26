@@ -15,62 +15,24 @@ This generates:
 - `frontend/dist/` and `content/` scaffolding when using `--template full`
 - `pyproject.toml` with package metadata aligned to manifest `id` and `version`
 
-`setta plugins init` generates a Go-backed `backend/main.go` scaffold for
-backend-capable templates. Backend plugin authoring targets Go.
+`setta plugins init` now generates a Go-backed `backend/main.go` scaffold for
+backend-capable templates. Backend plugin support remains in scope, and new
+backend authoring should target Go rather than Python.
 
 ## 2. Implement plugin logic
 
-- Frontend: simple scaffolds can edit `frontend/dist/index.js` directly and export:
+- Frontend: edit `frontend/dist/index.js` and export:
   - `apiVersion`
   - `register(host)`
   - optional CSS: `frontend/dist/index.css` and set `frontend.style` in manifest
-- Frontend: source-built plugins may instead keep source/build inputs under
-  `frontend/`, emit `frontend/dist/*`, and declare `frontend.build` in the
-  manifest so Setta knows the bundle is plugin-owned.
 - Backend: edit `backend/main.go` and `backend/go.mod`.
 - Content: add templates/assets under `content/`.
 
 Language-server-only package-manager plugins may use a thin `backend/main.py`
 probe entrypoint when the package runtime already owns the actual server
 executable. Keep that entrypoint probe-only: it should validate/emit language
-server registrations, while Setta owns selection, restart, status, and
+server registrations, while Setta still owns selection, restart, status, and
 transport behavior in Go.
-
-App-subsystem backend providers that use a package-managed Python entrypoint
-should keep that entrypoint as a thin dispatcher through
-`setta.plugin_runtime.run_app_subsystem_backend(__file__)`. Do not copy
-listener endpoint inventories or local-core dispatch logic into the plugin;
-those contracts are published by the Setta package and generated from Go-owned
-metadata.
-
-Watch Code backend providers that use a package-managed Python entrypoint
-should follow the same thin-dispatcher model through
-`setta.plugin_runtime.watch_code`. The plugin may own the probe/runtime
-entrypoint, but Go owns the Watch Code route suffixes, UI-setting handler
-ids, data schema version, local-core commands, validation, and project-state
-mutation path.
-
-### Manifest contract notes
-
-- `capabilities` must use the runtime manifest vocabulary. It includes
-  `registerMcpTools`, `registerLanguageServer`,
-  `registerExternalAgentAdapter`, `registerCodegenTarget`,
-  `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`,
-  `registerAppSubsystemBackend`, `registerWatchCodeBackend`,
-  `registerUISettings`, and `registerSettingRevealHandler`.
-  Project-canvas controls must request `registerCanvasControl`.
-- `frontend.build.packageManager` currently accepts `pnpm` and is the opt-in
-  contract for plugin-owned frontend builds from `frontend/package.json`.
-- App-subsystem providers should declare both the required backend/runtime
-  capabilities and `featureCapabilities.appSubsystem` so Setta can expose the
-  correct surface area.
-- `registerAppSubsystemBackend` requires a backend probe that returns the
-  app-subsystem backend contract version and listener endpoints. The
-  `setta.plugin_runtime.run_app_subsystem_backend` helper emits that probe for
-  Python shim entrypoints.
-- Host or mode policy can block accepted capabilities. Use
-  `setta plugins validate` and `setta plugins list --json` to confirm effective
-  versus blocked capabilities for your target mode.
 
 ### Optional: define plugin UI settings from config schema
 
@@ -98,71 +60,13 @@ Add `x-setta-ui-settings` entries to your plugin config schema (`content/config/
 ```
 
 Notes:
-
 - `settingId` is plugin-local; MCP callers will see `plugin::<pluginId>::<settingId>`.
 - `configPath` must be a non-empty string array.
 - `defaultValue` is required and must validate against `valueSchema` (or inferred schema at `configPath`).
 
-### Optional: register backend routes and backend-owned UI settings
-
-Backend-capable plugins can publish runtime-owned HTTP routes from their backend
-probe by returning `routes`. Registered paths are full backend paths, usually
-under `/plugins/<pluginId>/...`, and methods must be explicit. Frontend code
-calls the same route through the plugin host with the plugin-local path:
-
-```js
-await host.fetchBackendRoute("/my-route", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    projectConfigId: host.getProjectContext().projectConfigId,
-  }),
-});
-```
-
-`fetchBackendRoute` requires `registerRouter`; the host prefixes the plugin id,
-sends same-origin credentials, forwards share-session headers when present, and
-rejects paths that do not start with a single `/` or contain dot segments.
-
-Backend probes can also return `uiSettings` for settings that are not simple
-config-schema reads/writes. Each setting uses a plugin-local `id`, required
-`readHandlerId`, and a `writeHandlerId` when `mutability` is `writable`.
-`paneId` is optional for settings revealed entirely through a frontend
-`registerSettingRevealHandler` handler.
-
-### Optional: store project-scoped plugin data
-
-For plugin state that belongs to individual projects, store it in the document
-plugin payload as:
-
-```json
-{
-  "pluginData": {
-    "<pluginId>": {
-      "schemaVersion": 1,
-      "projects": {
-        "<projectConfigId>": {}
-      }
-    }
-  }
-}
-```
-
-Setta treats any plugin payload with a top-level `projects` object as
-project-scoped for lifecycle purposes: clone and save-as copy the source
-project entry to the new project id, and project deletion removes deleted
-project entries while preserving other top-level plugin fields. Frontend plugin
-hosts expose the active project entry through
-`readProjectState({ kind: "pluginData", pluginId })` and
-`subscribeProjectState({ kind: "pluginData", pluginId }, ...)`, not the full
-document-level wrapper.
-
 ### Optional: implement frontend reveal handlers for plugin settings
 
-Plugin settings use `strategy="plugin_handler"` for reveal/highlight. Request
-`registerSettingRevealHandler`, then register a reveal handler in frontend
-`register(host)`. Pane-backed settings usually register a pane too, while
-canvas-control settings can reveal through the handler alone.
+Plugin settings use `strategy="plugin_handler"` for reveal/highlight. Register a pane and reveal handler in frontend `register(host)`:
 
 ```js
 export function register(host) {
@@ -193,43 +97,8 @@ export function register(host) {
 ```
 
 Notes:
-
 - `revealKey` in schema/backend registration must match `registerSettingRevealHandler(revealKey, ...)`.
 - Reveal handlers must return `true`/`false` (or `Promise<boolean>`).
-
-### Optional: add a project canvas control
-
-Frontend plugins that need a button in the React Flow project controls rail can
-request `registerCanvasControl` and register an imperative renderer:
-
-```js
-export function register(host) {
-  host.registerCanvasControl({
-    id: "my-control",
-    label: "My Control",
-    description: "Open my project tool",
-    placement: "project",
-    order: 100,
-    renderer: {
-      mount(el, props) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.ariaLabel = props.label;
-        button.textContent = "M";
-        el.append(button);
-      },
-      unmount(el) {
-        el.textContent = "";
-      },
-    },
-  });
-}
-```
-
-Supported placements are `project`, `viewport`, and `utility`; controls sort by
-placement, `order`, label, plugin ID, and control ID. Use
-`readProjectState`/`subscribeProjectState` when the control reflects project
-state.
 
 ## 3. Link locally during development
 
@@ -248,14 +117,10 @@ setta plugins validate ./setta-my-plugin
 
 Validation checks:
 
-- manifest schema and capability vocabulary, including `frontend.build` and
-  `featureCapabilities` when present
-- app-subsystem backend probe shape when `registerAppSubsystemBackend` is
-  declared
+- manifest schema and capability vocabulary
 - file path safety and existence
-- Go backend entrypoint shape and successful `go build` for Go backend plugins
-  (`package main`, `func main()`)
-- package-managed Python backend probe execution for Python shim entrypoints
+- Go backend entrypoint shape for backend plugins (`package main`, `func main()`)
+- successful `go build` of the backend entrypoint directory for backend plugins
 - manifest/package metadata identity consistency when package metadata exists
 
 ## 5. Build distribution artifacts

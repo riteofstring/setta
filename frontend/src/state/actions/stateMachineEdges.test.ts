@@ -1,4 +1,4 @@
-import type { Connection } from "gpuFlow/flowTypes";
+import type { Connection } from "forks/xyflow/core/types";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {

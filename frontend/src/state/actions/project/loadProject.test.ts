@@ -1,6 +1,5 @@
 /* @vitest-environment jsdom */
 
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { act, createElement, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
@@ -14,11 +13,14 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
+import {
+  OverviewTabNameEnum,
+  PAGE_LOAD_TYPES,
+  pathRelativeToProject,
+} from "utils/constants";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
-  OverviewTabUIConfig,
   createLSPDiagnosticsPayload,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
@@ -77,14 +79,9 @@ vi.mock("openapi/http", async () => {
   };
 });
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+}));
 
 vi.mock("../serverMode", () => ({
   initializeServerMode: () => initializeServerModeMock(),
@@ -322,7 +319,7 @@ describe("useCreateAndGoToProjectConfig", () => {
         },
       });
       expect(useLocalStorage.getState().overviewTab).toBe(
-        OverviewTabUIConfig.names.ProjectAIChat,
+        OverviewTabNameEnum.ProjectAIChat,
       );
       expect(navigateMock).toHaveBeenCalledWith(
         pathRelativeToProject("Created Project"),
@@ -342,7 +339,6 @@ describe("useCreateAndGoToProjectConfig", () => {
 describe("loadProjectState", () => {
   beforeEach(() => {
     resetProjectStores();
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
   });
 
   it("throws when loaded project config is missing window spaces", async () => {
@@ -418,20 +414,6 @@ describe("loadProjectState", () => {
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
       backendProjectConfig.windowSpaces,
     );
-  });
-
-  it("hydrates the saved viewport into the GPU viewport store on load", async () => {
-    await loadProjectState({
-      projectConfig: createProjectConfig({
-        id: "project-viewport",
-        name: "Project Viewport",
-        viewport: { x: 24, y: -16, zoom: 1.75 },
-        viewportInitialized: true,
-      }),
-      projectChatWindowing: createProjectChatWindowingState(),
-    });
-
-    expect(gpuFlowViewportStore.getState().transform).toEqual([24, -16, 1.75]);
   });
 
   it("prunes stale git graph ephemeral state on full project load", async () => {

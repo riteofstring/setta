@@ -56,7 +56,7 @@ async function getViewport(page: Page): Promise<{
 }> {
   return page.evaluate(async () => {
     const { getViewport } = await import(
-      "/src/gpuFlow/viewportActions.ts"
+      "/src/forks/xyflow/core/hooks/useViewportHelper"
     );
     return getViewport();
   });

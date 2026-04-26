@@ -1,7 +1,7 @@
 # Setta Assessment (OSS + SaaS Option)
 
 ## TL;DR
-Setta’s stated pitch (“instant UI for Python functions without argparse/frontend; optional AI-generated UI”) is useful, but the *pitch category* is commoditized. Setta can be a strong product if “function args → UI” is treated as the **onramp** and Setta’s identity is the higher ceiling its architecture already implies: a **persistent, programmable UI/state substrate** for Python workflows that humans and agents can operate *deterministically* (project state + dependency graph + meta controls + listeners + MCP tool surface).
+Setta’s stated pitch (“instant UI for Python functions without argparse/frontend; optional AI-generated UI”) is useful, but the *pitch category* is commoditized. Setta can still be a strong product if “function args → UI” is treated as the **onramp** and Setta’s identity is the higher ceiling its architecture already implies: a **persistent, programmable UI/state substrate** for Python workflows that humans and agents can operate *deterministically* (project state + dependency graph + meta controls + listeners + MCP tool surface).
 
 ---
 
@@ -122,7 +122,7 @@ If Setta’s UI is a canvas view of code, the hard part is making it feel trustw
 - Make UI elements stable across edits (users hate rearranging a canvas that constantly reshuffles).
 - Make it obvious that “Python stays logic”; the UI is an editable projection that you can refine (drag layout, promote widgets) without rewriting code.
 
-Pragmatically, the bar is: after a week of normal refactors (renames, moved files, default changes), the canvas should look “like the same tool”, not like it exploded into duplicates.
+Pragmatically, the bar is: after a week of normal refactors (renames, moved files, default changes), the canvas should still look “like the same tool”, not like it exploded into duplicates.
 
 ### D) “Meta controls are the ceiling”
 The differentiator you described (a single control that programmatically drives multiple underlying arguments/params, often created by prompting in the built-in chat UI) should be made central:

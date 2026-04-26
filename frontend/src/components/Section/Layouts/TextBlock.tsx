@@ -1,4 +1,3 @@
-import { buildTextBlockTypographyScale } from "@setta/app-subsystem-frontend-sdk";
 import { MarkdownEditorInSection } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
@@ -22,6 +21,7 @@ import {
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
+import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 
 const INLINE_CODE_CLASS_NAME =
   "rounded-sm bg-setta-200/70 px-1 py-[1px] font-mono text-[0.92em] text-setta-800 dark:bg-setta-700 dark:text-setta-100";

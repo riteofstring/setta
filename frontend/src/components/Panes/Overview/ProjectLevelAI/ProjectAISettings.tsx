@@ -1,11 +1,7 @@
-import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
 import { PaneAccordion } from "components/Panes/Common/PaneAccordion";
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
 import { saveSettings } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -31,6 +27,7 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   AgentProfile,
   FormatEnum,
