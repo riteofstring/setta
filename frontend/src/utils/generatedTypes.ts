@@ -4603,32 +4603,6 @@ export const ChildDefaultsUIConfig = {
   ],
 } satisfies gt.ChildDefaultsUIConfigValue;
 
-export const DefaultAppPolicy = {
-  allowExternalLinks: false,
-  allowFileDownloads: false,
-  allowLLM: false,
-  allowLayoutChanges: false,
-  allowMultipleRuns: true,
-  allowParamChanges: true,
-  allowRun: true,
-  allowVariantChanges: false,
-  runSnapshotMode: "ephemeral",
-} satisfies gt.Policy;
-
-export const EndpointOriginPolicyByRoute = {
-  "/__setta__/tools/call": "backend-origin",
-  "/addLauncherRecentWorkspace": "launcher",
-  "/createWorkspaceLaunchIntent": "launcher",
-  "/launch": "launcher",
-  "/launcherFilesystemRoots": "launcher",
-  "/launcherRecentWorkspaces": "launcher",
-  "/listLauncherDirectory": "launcher",
-  "/openLauncherWorkspace": "launcher",
-  "/pinLauncherRecentWorkspace": "launcher",
-  "/removeLauncherRecentWorkspace": "launcher",
-  "/settaHomeInfo": "backend",
-} satisfies gt.EndpointOriginPolicy;
-
 export const ExternalAgentUIConfig = {
   claudeApprovalPolicyOptions: [
     { label: "Use settings file / chat override", value: "" },

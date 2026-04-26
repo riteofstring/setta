@@ -1,10 +1,10 @@
-import { C_ADDRESSES } from "@setta/app-subsystem-frontend-sdk";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
   BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
-} from "./backendOriginOverride";
-import { TransportRouteConstants } from "./generatedTypes";
+  C_ADDRESSES,
+} from "../src/c_addresses";
+import { TransportRouteConstants } from "../src/generatedTypes";
 
 function createMemoryStorage() {
   const storage = new Map<string, string>();

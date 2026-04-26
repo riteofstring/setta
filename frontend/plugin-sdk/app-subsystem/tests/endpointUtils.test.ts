@@ -1,8 +1,5 @@
-import {
-  getErrorCode,
-  getErrorDetail,
-} from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it } from "vitest";
+import { getErrorCode, getErrorDetail } from "../src/index";
 describe("endpointUtils", () => {
   it("extracts detail from raw binary JSON payloads", () => {
     const binaryJson = new TextEncoder().encode(

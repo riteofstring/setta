@@ -3,10 +3,10 @@
 ## Recurring Subsystem Invariant Matrix
 
 ### Watch Code Plugin Mutations
-- Invariant: Watch Code plugin routes and backend UI settings may keep plugin-owned public surfaces, but provider-owned Watch Code settings must fail closed unless exactly one probed provider is active; accepted live mutations and reads must pass strict owner decoding, use the current `folders`/`files` route payload contract, be scoped to an existing project, and write through the app-owned Go runtime so persisted state, live snapshots, websocket updates, frontend op status, Watch Code service config, and ignored-root policy share one canonical writer. Field-specific setting writes must preserve sibling input fields through owner-level mutations rather than stale read-modify-write snapshots, and the plugin UI must disable input editing while an inputs save is pending.
-- Last finding commit: 9d855bf595dd6cf6b0af2d7cfe1dc097f9f1a20f
+- Invariant: Watch Code plugin routes and backend UI settings may keep plugin-owned public surfaces, but provider-owned Watch Code settings must fail closed unless exactly one probed provider is active; accepted live mutations and reads must pass strict owner decoding, use the current `folders`/`files` route payload contract, be scoped to an existing project, and write through the app-owned Go runtime so persisted state, live snapshots, websocket updates, frontend op status, Watch Code service config, and ignored-root policy share one canonical writer. Field-specific setting writes must preserve sibling input fields through owner-level mutations rather than stale read-modify-write snapshots, and the plugin UI must disable input editing while an inputs save is pending and reset project-scoped staged input buffers when the active project changes.
+- Last finding commit: abe15c05524d59b39ff43b886fff8581e06ac550
 - Proof tests: `TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave`; `TestAppWatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation`; `TestAppWatchCodePluginRouteRejectsLegacyInputFieldNamesWithoutMutation`; `TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandidates`; `TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime`; `TestAppIDEMCPToolCallRouteRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForPendingRestartProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsDuringProviderConflict`; `TestRuntimeSetWatchCodeFoldersPreservesNewerFiles`; `TestRuntimeSetWatchCodeFilesPreservesNewerFolders`; `TestAppIDEMCPToolCallRouteMergesSplitWatchCodeInputSettings`; `TestWatchCodeBackendUISettingRejectsMissingProjectWithoutNoOpSuccess`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`
-- Still unverified: Full Playwright suite was not run; targeted Watch Code pending-save Playwright passed.
+- Still unverified: Full Playwright suite was not run; no browser/CDP project-switch flow was run for staged Watch Code inputs.
 
 ### Project-Scoped Plugin Data Lifecycle
 - Invariant: Generic project-scoped plugin payloads under `Document.PluginData[pluginID].projects[projectID]` must follow project lifecycle operations: clone and save-as copy the source project's payload to the new project ID, while delete removes deleted project IDs without dropping sibling project payloads, non-project fields, or opaque non-project plugin data. Project view projection must use the same Go-owned envelope parser and must ignore payload roots that are not project-scoped.
@@ -45,16 +45,28 @@
 - Still unverified: Browser/CDP visual check not run; registration gating is covered by runtime unit tests.
 
 ### Plugin Frontend Host Contracts
-- Invariant: Generic plugin frontend host, canvas-control, setting-reveal, and project-state selector contracts have one app-subsystem SDK-owned exported surface; the core runtime, browser E2E helpers, docs, and standalone plugins import that surface or a test-owned helper over it, while plugins keep only plugin-specific capability gating. Deleted host shim paths must stay absent from app code, E2E tests, and docs.
-- Last finding commit: 02715f08878f4194f037b8d58af56542128d0d81
-- Proof tests: `frontend/src/plugins/appSubsystemSdk.test.ts`; `frontend/src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts` scans `frontend/tests/e2e` and `docs` for deleted host shim references; `frontend/src/plugins/runtime.test.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; app-subsystem SDK and Watch Code frontend typechecks.
-- Still unverified: Targeted Playwright was attempted but failed in `frontend/tests/e2e/editor/section-variant-single-handle.spec.ts:295`; no CDP visual verification was run because no UI behavior changed.
+- Invariant: Generic plugin frontend host, canvas-control, setting-reveal, and project-state selector contracts have one app-subsystem SDK-owned exported surface; the core runtime, browser E2E helpers, docs, and standalone plugins import that surface or a test-owned helper over it, while plugins keep only plugin-specific capability gating. Project-scoped plugin-data subscriptions must invalidate on active project identity changes while still delivering only the selected plugin payload to listeners. Deleted host shim paths must stay absent from app code, E2E tests, docs, and retired host utility tests.
+- Last finding commit: abe15c05524d59b39ff43b886fff8581e06ac550
+- Proof tests: `frontend/src/plugins/appSubsystemSdk.test.ts`; `frontend/src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts` scans deleted host shim and retired host utility test paths; `frontend/src/plugins/runtime.test.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; app-subsystem SDK and Watch Code frontend typechecks.
+- Still unverified: Targeted Playwright was not rerun for project-scoped plugin-data subscriptions; no CDP visual verification was run because no rendered layout or style changed.
+
+### App-Subsystem SDK Helper Ownership
+- Invariant: Shared frontend helper behavior and proof tests belong with the app-subsystem SDK owner after host utility shims are deleted; host `frontend/src/utils` must not retain ghost tests for deleted helper modules or reach into SDK internals.
+- Last finding commit: abe15c05524d59b39ff43b886fff8581e06ac550
+- Proof tests: `pnpm -C frontend exec vitest run --config plugin-sdk/app-subsystem/vitest.config.mjs`; `frontend/src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`
+- Still unverified: Packaged SDK build was not rerun in this iteration; SDK unit tests and typecheck were run.
 
 ### Extracted Watch Code Surface Contracts
-- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, `plugin::<provider>::*` settings, and the `folders`/`files` route payload contract; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, dead branch-added helper APIs, legacy `watchCodeFolders`/`watchCodeFiles` payload names, and generated local-core command constants stay deleted. Watch Code backend route suffixes, backend UI-setting IDs, handler IDs, shared route errors, and backend contract versions have one Go-owned contract that drives exact selected-provider host matching and generated Python probe constants.
-- Last finding commit: 9d855bf595dd6cf6b0af2d7cfe1dc097f9f1a20f
-- Proof tests: `TestWatchCodeBackendContractDrivesRouteAndUISettingMatching`; `TestWatchCodeBackendRouteInterceptorDeclinesUnownedRoutes`; `TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandidates`; `TestAppWatchCodePluginRouteRejectsLegacyInputFieldNamesWithoutMutation`; `TestBuildIncludesGoOwnedWatchCodeBackendContract`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`; `tests/start/test_packaged_distribution.py -k first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain`; `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, `WatchCodePluginSettingID`, `mustWatchCodePluginSettingID`, and Watch Code local-core commands.
-- Still unverified: Full Playwright suite was not run; targeted Watch Code pending-save Playwright passed.
+- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, `plugin::<provider>::*` settings, and the `folders`/`files` route payload contract; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, dead branch-added helper APIs, legacy `watchCodeFolders`/`watchCodeFiles` payload names, and generated local-core command constants stay deleted. Watch Code backend route suffixes, backend UI-setting IDs, handler IDs, shared route errors, backend contract versions, and first-party plugin frontend route/setting constants have one Go-owned generated contract.
+- Last finding commit: abe15c05524d59b39ff43b886fff8581e06ac550
+- Proof tests: `TestWatchCodeBackendContractDrivesRouteAndUISettingMatching`; `TestWatchCodeBackendRouteInterceptorDeclinesUnownedRoutes`; `TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandidates`; `TestAppWatchCodePluginRouteRejectsLegacyInputFieldNamesWithoutMutation`; `TestBuildIncludesGoOwnedWatchCodeBackendContract`; `TestBuildEmitsWatchCodeBackendContractForFrontend`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`; `tests/start/test_packaged_distribution.py -k first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain`; `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, `WatchCodePluginSettingID`, `mustWatchCodePluginSettingID`, and Watch Code local-core commands.
+- Still unverified: Full Playwright suite was not run; no browser/CDP project-switch flow was run in this iteration.
+
+### Frontend Tooling Generated Constants
+- Invariant: Frontend build-tool defaults that are also runtime contracts, including dev frontend host and port, must come from a Go-owned Node-safe generated artifact instead of local Vite literals or generated modules with browser/runtime side effects.
+- Last finding commit: abe15c05524d59b39ff43b886fff8581e06ac550
+- Proof tests: `TestBuildEmitsNodeSafeToolingConstants`; `frontend/src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`
+- Still unverified: No dev server or browser flow was started for the Vite default constants.
 
 ### UI Settings Core Registry API
 - Invariant: Core UI-setting registry construction should expose only behavior it actually supports; empty option structs and `WithOptions` constructors must not be retained as speculative future plumbing.
@@ -301,4 +313,35 @@ Verification run:
 Residual risks / verification gaps:
 - Full Playwright suite was not run; targeted browser verification passed for the affected Watch Code pending-save flow.
 - CDP visual verification was not run; no `./aireset.sh` session was started or left running.
+- `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.
+
+## 2026-04-26 05:49:58 PDT
+
+Fixes applied:
+- Made project-scoped `pluginData` subscriptions invalidate on active project ID changes while preserving the selected payload delivered to plugin listeners.
+- Reset Watch Code staged folder/file buffers from current project data when project context changes, so unsaved inputs from one project are not posted under another project ID.
+- Generated Go-owned frontend constants for Watch Code backend route/UI-setting contracts and Node-safe Vite dev defaults.
+- Moved deleted host utility helper tests into the app-subsystem SDK owner and added guardrail coverage for retired host test paths.
+
+Tests added or upgraded:
+- Added frontend runtime coverage for `pluginData` subscription notifications across equal-payload project switches.
+- Added Watch Code frontend coverage for buffer reset on project-context changes without a separate plugin-data notification.
+- Added frontendbindings tests for Node-safe tooling constants and the generated Watch Code frontend backend contract.
+- Added app-subsystem SDK vitest ownership coverage and guardrails for deleted host utility tests.
+
+Verification run:
+- `./scripts/go.sh test ./internal/frontendbindings`
+- `pnpm -C frontend exec vitest run src/plugins/runtime.test.ts src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`
+- `pnpm -C frontend exec vitest run --config plugin-sdk/app-subsystem/vitest.config.mjs`
+- `pnpm --dir plugins/setta-watch-code/frontend run test`
+- `pnpm --dir plugins/setta-watch-code/frontend run typecheck`
+- `pnpm --dir frontend/plugin-sdk/app-subsystem run typecheck`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `git diff --check`
+
+Residual risks / verification gaps:
+- Browser/CDP visual verification was not run because no rendered layout or style changed; no `./aireset.sh` session was started or left running.
+- Playwright was not run for the project-switch Watch Code panel behavior; coverage is unit/typecheck level.
+- Full repo test suites beyond `./check_quality.sh` and the focused regression suite above were not run.
 - `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.

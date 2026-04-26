@@ -1,8 +1,8 @@
+import { describe, expect, it } from "vitest";
 import {
   normalizeGeneratedOrigin,
   validateGeneratedParamNameInput,
-} from "@setta/app-subsystem-frontend-sdk";
-import { describe, expect, it } from "vitest";
+} from "../src/index";
 
 describe("normalizeGeneratedOrigin", () => {
   it("normalizes supported http origins", () => {

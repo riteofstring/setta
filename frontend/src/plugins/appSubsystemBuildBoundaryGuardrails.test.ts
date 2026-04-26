@@ -204,6 +204,33 @@ describe("app plugin frontend build boundary guardrails", () => {
     expect(sdkAddresses).toContain("launcherOriginStorageKey");
   });
 
+  it("keeps tests for deleted host app-subsystem helpers with the SDK owner", () => {
+    const staleHostTestPaths = deletedHostAppSubsystemShimPaths.map(
+      (relativePath) => relativePath.replace(/\.ts$/, ".test.ts"),
+    );
+
+    for (const relativePath of staleHostTestPaths) {
+      expect(existsSync(resolve(repoRoot, "frontend", relativePath))).toBe(
+        false,
+      );
+    }
+  });
+
+  it("keeps Vite dev defaults on the Go-owned tooling constants artifact", () => {
+    const viteConfig = readHostFrontendFile("vite.config.ts");
+
+    expect(viteConfig).toContain(
+      'import toolingConstants from "./generated/toolingConstants.json"',
+    );
+    expect(viteConfig).toContain("toolingConstants.DEFAULT_DEV_FRONTEND_HOST");
+    expect(viteConfig).toContain("toolingConstants.DEFAULT_DEV_FRONTEND_PORT");
+    expect(viteConfig).not.toContain("const DEFAULT_DEV_FRONTEND_HOST");
+    expect(viteConfig).not.toContain("const DEFAULT_DEV_FRONTEND_PORT");
+    expect(
+      existsSync(resolve(repoRoot, "frontend/generated/toolingConstants.json")),
+    ).toBe(true);
+  });
+
   it("rejects stale browser and docs references to deleted host shims", () => {
     const scanRoots = [
       {

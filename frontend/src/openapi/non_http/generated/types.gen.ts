@@ -2038,7 +2038,7 @@ type EndpointOrigin = "backend" | "launcher" | "backend-origin";
 /**
  * EndpointOriginPolicy
  */
-export type EndpointOriginPolicy = {
+type EndpointOriginPolicy = {
   [key: string]: EndpointOrigin;
 };
 

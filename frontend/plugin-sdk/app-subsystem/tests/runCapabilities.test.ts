@@ -2,16 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   createProjectConfig,
-  createProjectRunCapabilities,
   createSectionCapabilities,
   createSingleConfig,
   createSingletonSections,
-} from "utils/generatedTypes";
-
-import {
-  resolveMainRunRequest,
-  resolveRunRequest,
-} from "@setta/app-subsystem-frontend-sdk";
+} from "../src/generatedTypes";
+import { resolveMainRunRequest, resolveRunRequest } from "../src/index";
 
 describe("resolveMainRunRequest", () => {
   it("prefers the local entry code block over stale backend run capabilities", () => {
@@ -19,10 +14,11 @@ describe("resolveMainRunRequest", () => {
       projectConfig: createProjectConfig({
         entryCodeBlockId: "manual-section",
         hasPythonCodegenTarget: true,
-        runCapabilities: createProjectRunCapabilities({
+        runCapabilities: {
           canRunFromMain: true,
           effectiveEntrySectionId: "generated-section",
-        }),
+          mainRunDisabledReason: null,
+        },
       }),
       sectionCapabilities: {
         "manual-section": createSectionCapabilities({
@@ -54,10 +50,11 @@ describe("resolveMainRunRequest", () => {
       projectConfig: createProjectConfig({
         entryCodeBlockId: null,
         hasPythonCodegenTarget: true,
-        runCapabilities: createProjectRunCapabilities({
+        runCapabilities: {
           canRunFromMain: true,
           effectiveEntrySectionId: "generated-section",
-        }),
+          mainRunDisabledReason: null,
+        },
       }),
       sectionCapabilities: {
         "generated-section": createSectionCapabilities({
@@ -83,10 +80,11 @@ describe("resolveMainRunRequest", () => {
       projectConfig: createProjectConfig({
         entryCodeBlockId: null,
         hasPythonCodegenTarget: false,
-        runCapabilities: createProjectRunCapabilities({
+        runCapabilities: {
           canRunFromMain: true,
           effectiveEntrySectionId: "removed-section",
-        }),
+          mainRunDisabledReason: null,
+        },
       }),
       sectionCapabilities: {
         "removed-section": createSectionCapabilities({

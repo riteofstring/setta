@@ -4,6 +4,14 @@ import type {
   SettaPluginHost,
   SettaPluginSettingRevealHandlerContext,
 } from "@setta/app-subsystem-frontend-sdk";
+import {
+  WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED,
+  WATCH_CODE_BACKEND_LOCAL_SETTING_FILES,
+  WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS,
+  WATCH_CODE_BACKEND_ROUTE_BASE_PATH,
+  WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED,
+  WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS,
+} from "./generated/watchCodeBackendContract";
 
 export type WatchCodeFolder = {
   path: string;
@@ -25,12 +33,18 @@ const PORTAL_MAX_WIDTH_PX = 352;
 const PORTAL_MARGIN_PX = 12;
 const PORTAL_BUTTON_GAP_PX = 12;
 const PORTAL_ESTIMATED_HEIGHT_PX = 360;
+const WATCH_CODE_ENABLED_ROUTE = `${WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/${WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED}`;
+const WATCH_CODE_INPUTS_ROUTE = `${WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/${WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS}`;
 const EMPTY_WATCH_CODE_PROJECT_DATA: WatchCodeProjectData = {
   projectConfigId: NULL_PROJECT_CONFIG_ID,
   enabled: false,
   folders: [],
   files: [],
 };
+type WatchCodeLocalSettingId =
+  | typeof WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED
+  | typeof WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS
+  | typeof WATCH_CODE_BACKEND_LOCAL_SETTING_FILES;
 
 export function createWatchCodeControl(host: WatchCodePluginHost): {
   renderer: SettaPluginCanvasControlRenderer;
@@ -159,18 +173,10 @@ class WatchCodeControlController {
     if (this.unsubscribeProjectContext || this.unsubscribeWatchCodeData) {
       return;
     }
-    this.applyProjectConfigId(this.host.getProjectContext().projectConfigId);
-    this.applyWatchCodeProjectData(
-      normalizeWatchCodeProjectData(
-        this.host.readProjectState({
-          kind: "pluginData",
-          pluginId: this.host.pluginId,
-        }),
-      ),
-    );
+    this.applyCurrentProjectData(this.host.getProjectContext().projectConfigId);
     this.unsubscribeProjectContext = this.host.subscribeProjectContext(
       (context) => {
-        this.applyProjectConfigId(context.projectConfigId);
+        this.applyCurrentProjectData(context.projectConfigId);
       },
     );
     this.unsubscribeWatchCodeData = this.host.subscribeProjectState(
@@ -184,11 +190,19 @@ class WatchCodeControlController {
     );
   }
 
-  private applyProjectConfigId(projectConfigId: string): void {
+  private applyCurrentProjectData(projectConfigId: string): void {
+    const projectData = normalizeWatchCodeProjectData(
+      this.host.readProjectState({
+        kind: "pluginData",
+        pluginId: this.host.pluginId,
+      }),
+    );
     this.watchCodeData = {
-      ...this.watchCodeData,
       projectConfigId,
+      ...projectData,
     };
+    this.localFolders = cloneFolders(projectData.folders);
+    this.localFiles = projectData.files.slice();
     this.render();
   }
 
@@ -295,7 +309,9 @@ class WatchCodeControlController {
       this.renderEnabledControl(),
       this.renderError(),
       this.renderInputGroup({
-        settingId: this.pluginSettingId("folders"),
+        settingId: this.pluginSettingId(
+          WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS,
+        ),
         title: "Watch Folders",
         emptyLabel: "No folders yet.",
         addLabel: "Add Folder",
@@ -311,7 +327,7 @@ class WatchCodeControlController {
         ),
       }),
       this.renderInputGroup({
-        settingId: this.pluginSettingId("files"),
+        settingId: this.pluginSettingId(WATCH_CODE_BACKEND_LOCAL_SETTING_FILES),
         title: "Watch Files",
         emptyLabel: "No files yet.",
         addLabel: "Add File",
@@ -344,7 +360,9 @@ class WatchCodeControlController {
   private renderEnabledControl(): HTMLElement {
     const row = document.createElement("div");
     row.className = "setta-watch-code-enabled-row";
-    row.dataset.settingAnchor = this.pluginSettingId("enabled");
+    row.dataset.settingAnchor = this.pluginSettingId(
+      WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED,
+    );
     const button = document.createElement("button");
     button.type = "button";
     button.className = "setta-watch-code-toggle";
@@ -576,7 +594,7 @@ class WatchCodeControlController {
     this.errorMessage = null;
     this.render();
     try {
-      const ok = await this.postBackendRoute("/watch-code/enabled", {
+      const ok = await this.postBackendRoute(WATCH_CODE_ENABLED_ROUTE, {
         projectConfigId: this.watchCodeData.projectConfigId,
         enabled,
       });
@@ -599,7 +617,7 @@ class WatchCodeControlController {
     this.errorMessage = null;
     this.render();
     try {
-      const ok = await this.postBackendRoute("/watch-code/inputs", {
+      const ok = await this.postBackendRoute(WATCH_CODE_INPUTS_ROUTE, {
         projectConfigId: this.watchCodeData.projectConfigId,
         folders: cloneFolders(this.localFolders),
         files: this.localFiles.slice(),
@@ -615,7 +633,7 @@ class WatchCodeControlController {
     }
   }
 
-  private pluginSettingId(localId: "enabled" | "folders" | "files"): string {
+  private pluginSettingId(localId: WatchCodeLocalSettingId): string {
     return `plugin::${this.host.pluginId}::${localId}`;
   }
 

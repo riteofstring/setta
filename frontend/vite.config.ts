@@ -3,9 +3,7 @@ import path from "node:path";
 import svgrPlugin from "vite-plugin-svgr";
 import viteTsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
-
-const DEFAULT_DEV_FRONTEND_PORT = 3000;
-const DEFAULT_DEV_FRONTEND_HOST = "127.0.0.1";
+import toolingConstants from "./generated/toolingConstants.json";
 
 const resolvePort = (value: string | undefined, fallback: number): number => {
   if (!value) {
@@ -27,11 +25,11 @@ const resolveHost = (value: string | undefined, fallback: string): string => {
 
 const devFrontendPort = resolvePort(
   process.env.SETTA_DEV_FRONTEND_PORT,
-  DEFAULT_DEV_FRONTEND_PORT,
+  toolingConstants.DEFAULT_DEV_FRONTEND_PORT,
 );
 const devFrontendHost = resolveHost(
   process.env.SETTA_DEV_FRONTEND_HOST ?? process.env.SETTA_HOST,
-  DEFAULT_DEV_FRONTEND_HOST,
+  toolingConstants.DEFAULT_DEV_FRONTEND_HOST,
 );
 const srcRoot = path.resolve(__dirname, "src");
 

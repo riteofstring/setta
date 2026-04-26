@@ -1,10 +1,11 @@
+import { describe, expect, it } from "vitest";
 import {
+  DefaultAppPolicy,
   createDefaultAppPolicy,
   createDefaultSharePolicy,
+  createPolicy,
   resolveAppPolicy,
-} from "@setta/app-subsystem-frontend-sdk";
-import { describe, expect, it } from "vitest";
-import { DefaultAppPolicy, createPolicy } from "./generatedTypes";
+} from "../src/index";
 
 describe("deploymentPolicies", () => {
   it("reuses generated share defaults", () => {

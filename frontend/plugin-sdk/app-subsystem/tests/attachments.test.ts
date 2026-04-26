@@ -1,11 +1,11 @@
+import { describe, expect, it } from "vitest";
+import { C } from "../src/c";
 import {
   formatBytes,
   getAttachmentPolicy,
   isAttachmentMimeAllowed,
   resolveAttachmentLimit,
-} from "@setta/app-subsystem-frontend-sdk";
-import { describe, expect, it } from "vitest";
-import { C } from "../../plugin-sdk/app-subsystem/src/c";
+} from "../src/index";
 
 describe("formatBytes", () => {
   it("returns 0 B for non-positive values", () => {

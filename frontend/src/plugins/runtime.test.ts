@@ -666,6 +666,7 @@ function buildPluginRuntimeProjectState(
   projectConfigId: string,
   activeIds: string[],
   sectionIds: string[],
+  pluginData: Record<string, unknown> = {},
 ) {
   const uniqueSectionIds = [...new Set([...sectionIds, ...activeIds])];
   const sectionVariantMap: Record<string, string> = {};
@@ -704,6 +705,7 @@ function buildPluginRuntimeProjectState(
     codeObjImpls: {},
     codeObjVariants: {},
     artifactGroups: {},
+    pluginData,
     singletonSections: createSingletonSections(),
     parentSectionMap: {},
     shownParamIds: {},
@@ -726,6 +728,7 @@ describe("plugin runtime helpers", () => {
       state.sectionImpls = {};
       state.sectionVariants = {};
       state.previewSectionVariantMap = {};
+      state.pluginData = {};
     });
     useActiveSectionUI.setState({
       activeIds: [],
@@ -3314,6 +3317,50 @@ describe("plugin runtime helpers", () => {
       nextValue: [sectionId, "section-next"],
       prevValue: [sectionId],
     });
+  });
+  it("notifies pluginData subscribers when the active project changes with the same payload", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["subscribeProjectState"],
+    });
+    const result = await loadPluginFrontendModule(plugin, "ide");
+    expect(result?.error).toBeNull();
+    const host = getCapturedPluginHost();
+    const updates: Array<{
+      nextValue: unknown;
+      prevValue: unknown | null;
+    }> = [];
+    const unsubscribe = host.subscribeProjectState(
+      { kind: "pluginData", pluginId: "setta-watch-code" },
+      (nextValue, prevValue) => {
+        updates.push({ nextValue, prevValue });
+      },
+      {
+        fireImmediately: false,
+      },
+    );
+    await loadProjectState(
+      buildPluginRuntimeProjectState("project-config-plugin-next", [], []),
+    );
+    unsubscribe();
+
+    expect(updates).toEqual([
+      {
+        nextValue: null,
+        prevValue: null,
+      },
+    ]);
   });
   it("keeps projectConfig subscriptions structural while activeSectionIds stays live", async () => {
     const sectionId = "section-runtime-plugin-project-config";

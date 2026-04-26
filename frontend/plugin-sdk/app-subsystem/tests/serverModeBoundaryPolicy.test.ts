@@ -1,16 +1,16 @@
-import type { ServerModeValue } from "utils/serverModeTypes";
 import { describe, expect, it } from "vitest";
+import type { ServerMode as ServerModeValue } from "../src/serverModeBoundaryPolicy";
 
+import {
+  EndpointOriginPolicyByRoute,
+  TransportRouteConstants,
+} from "../src/generatedTypes";
 import {
   resolveEndpointOriginForMode,
   resolveServerModeCapabilities,
   resolveWorkspaceLaunchRouteKind,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
-  EndpointOriginPolicyByRoute,
-  TransportRouteConstants,
-} from "./generatedTypes";
-import { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
+} from "../src/serverModeBoundaryPolicy";
+import { ROOT_TRANSPORT_ROUTES } from "../src/transportRouteConstants";
 
 function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {
   return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
@@ -38,74 +38,49 @@ describe("serverModeBoundaryPolicy", () => {
     expect(modeSupportsWorkspaceLaunch(null)).toBe(false);
   });
 
-  it("keeps launch and launch-intent endpoint origin mode-scoped", () => {
-    expect(
-      resolveEndpointOriginForMode(
-        TransportRouteConstants.serverModeBoundary.launch,
-        "ide",
-      ),
-    ).toBe("backend");
-    expect(
-      resolveEndpointOriginForMode(
-        TransportRouteConstants.serverModeBoundary.launch,
-        "launcher",
-      ),
-    ).toBe("launcher");
-    expect(
-      resolveEndpointOriginForMode(
-        TransportRouteConstants.serverModeBoundary.launch,
-        null,
-      ),
-    ).toBe("backend");
-
-    expect(
-      resolveEndpointOriginForMode(
-        TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent,
-        "app",
-      ),
-    ).toBe("backend");
-    expect(
-      resolveEndpointOriginForMode(
-        TransportRouteConstants.serverModeBoundary.createWorkspaceLaunchIntent,
-        "launcher",
-      ),
-    ).toBe("launcher");
-  });
-
-  it("keeps settaHomeInfo on backend across all modes", () => {
-    expect(
-      resolveEndpointOriginForMode(
-        TransportRouteConstants.serverModeBoundary.getSettaHomeInfo,
-        "ide",
-      ),
-    ).toBe("backend");
-    expect(
-      resolveEndpointOriginForMode(
-        TransportRouteConstants.serverModeBoundary.getSettaHomeInfo,
-        "launcher",
-      ),
-    ).toBe("backend");
-    expect(
-      resolveEndpointOriginForMode(
-        TransportRouteConstants.serverModeBoundary.getSettaHomeInfo,
-        null,
-      ),
-    ).toBe("backend");
-  });
-
-  it("keeps launcher-home endpoints on launcher origin and bootstrap on backend origin", () => {
-    expect(
-      resolveEndpointOriginForMode(
-        `${TransportRouteConstants.serverModeBoundary.getLauncherRecentWorkspaces}?setta_home=/tmp/home#x`,
-        "ide",
-      ),
-    ).toBe("launcher");
+  it("keeps explicit backend-origin root routes on backend origin", () => {
     expect(
       resolveEndpointOriginForMode(
         `${ROOT_TRANSPORT_ROUTES.bootstrapPage}#token=abc`,
         "launcher",
       ),
     ).toBe("backend-origin");
+    expect(
+      resolveEndpointOriginForMode(
+        `${ROOT_TRANSPORT_ROUTES.toolsCall}?id=call-a`,
+        "launcher",
+      ),
+    ).toBe("backend-origin");
+    expect(EndpointOriginPolicyByRoute[ROOT_TRANSPORT_ROUTES.toolsCall]).toBe(
+      "backend-origin",
+    );
+  });
+
+  it("defaults unscoped SDK endpoints to backend across modes", () => {
+    expect(
+      resolveEndpointOriginForMode(
+        `${TransportRouteConstants.apiPrefix}/x`,
+        "ide",
+      ),
+    ).toBe("backend");
+    expect(
+      resolveEndpointOriginForMode(
+        `${TransportRouteConstants.apiPrefix}/x`,
+        "launcher",
+      ),
+    ).toBe("backend");
+    expect(
+      resolveEndpointOriginForMode(
+        `${TransportRouteConstants.apiPrefix}/x`,
+        null,
+      ),
+    ).toBe("backend");
+  });
+
+  it("keeps launcher-only routes out of the pruned SDK transport contract", () => {
+    expect(Object.keys(TransportRouteConstants)).not.toContain(
+      "serverModeBoundary",
+    );
     expect(Object.keys(EndpointOriginPolicyByRoute)).not.toContain(
       "/launcherAppMode",
     );

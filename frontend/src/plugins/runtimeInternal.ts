@@ -592,9 +592,49 @@ function getRawSelectedProjectState(
   }
 }
 
+type PluginDataProjectStateSubscriptionSelection = {
+  projectConfigId: string;
+  value: unknown;
+};
+
+function getRawProjectStateSubscriptionSelection(
+  state: ReturnType<typeof useProjectState.getState>,
+  selector: PluginProjectStateSelector,
+): unknown {
+  const value = getRawSelectedProjectState(state, selector);
+  if (selector.kind !== "pluginData") {
+    return value;
+  }
+  return {
+    projectConfigId: state.projectConfig.id,
+    value,
+  };
+}
+
+function getRawProjectStateSubscriptionValue(
+  selector: PluginProjectStateSelector,
+  selection: unknown,
+): unknown {
+  if (selector.kind !== "pluginData") {
+    return selection;
+  }
+  return (selection as PluginDataProjectStateSubscriptionSelection).value;
+}
+
 function projectStateSubscriptionEquality(
   selector: PluginProjectStateSelector,
 ): ((left: unknown, right: unknown) => boolean) | undefined {
+  if (selector.kind === "pluginData") {
+    return (left, right) => {
+      const leftSelection = left as PluginDataProjectStateSubscriptionSelection;
+      const rightSelection =
+        right as PluginDataProjectStateSubscriptionSelection;
+      return (
+        leftSelection.projectConfigId === rightSelection.projectConfigId &&
+        leftSelection.value === rightSelection.value
+      );
+    };
+  }
   if (selector.kind === "activeSectionIds") {
     return (left, right) => {
       if (!Array.isArray(left) || !Array.isArray(right)) {
@@ -1174,7 +1214,18 @@ function registerPluginModule({
       let previousNotifiedRawValue: unknown = undefined;
       let previousNotifiedValue: unknown | null = null;
       let hasPreviousNotifiedValue = false;
-      let notify = (nextRawValue: unknown, prevRawValue: unknown): void => {
+      let notify = (nextSelection: unknown, prevSelection: unknown): void => {
+        const nextRawValue = getRawProjectStateSubscriptionValue(
+          normalizedSelector,
+          nextSelection,
+        );
+        const prevRawValue =
+          prevSelection === undefined
+            ? undefined
+            : getRawProjectStateSubscriptionValue(
+                normalizedSelector,
+                prevSelection,
+              );
         const nextValue = toProjectStateSubscriptionValue(
           normalizedSelector,
           nextRawValue,
@@ -1222,7 +1273,11 @@ function registerPluginModule({
               },
             )
           : useProjectState.subscribe(
-              (state) => getRawSelectedProjectState(state, normalizedSelector),
+              (state) =>
+                getRawProjectStateSubscriptionSelection(
+                  state,
+                  normalizedSelector,
+                ),
               (nextRawValue, prevRawValue) =>
                 notify(nextRawValue, prevRawValue),
               {

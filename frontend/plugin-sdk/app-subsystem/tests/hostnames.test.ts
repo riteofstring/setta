@@ -1,5 +1,5 @@
-import { isLocalHostname } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it } from "vitest";
+import { isLocalHostname } from "../src/index";
 
 describe("isLocalHostname", () => {
   it("accepts common local hostnames", () => {
