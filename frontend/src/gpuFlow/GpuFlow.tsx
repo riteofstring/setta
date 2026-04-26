@@ -26,11 +26,7 @@ import {
   type GpuNodeUploadBudget,
   type RenderGpuNodeLayerFrameResult,
 } from "./GpuNodeLayer";
-import {
-  GpuNodeQuadRenderer,
-  type GpuGridInput,
-  type GpuNodeVisualEffect,
-} from "./gpuPipelines";
+import { GpuNodeQuadRenderer, type GpuGridInput } from "./gpuPipelines";
 import { measureGpuCanvasClientSize, type GpuCanvasSize } from "./gpuRenderer";
 import {
   GpuSurface,
@@ -88,7 +84,6 @@ type GpuFlowProps = Pick<
   grid?: GpuGridInput | undefined;
   marginCssPx?: number | undefined;
   nodeClassName?: string | undefined;
-  nodeVisualEffect?: GpuNodeVisualEffect | undefined;
   onNodeElementChange?:
     | ((nodeId: string, element: HTMLElement | null) => void)
     | undefined;
@@ -139,7 +134,6 @@ type GpuFlowNodeLayerState = {
     | undefined;
   readonly grid: GpuGridInput | undefined;
   readonly marginCssPx: number | undefined;
-  readonly nodeVisualEffect: GpuNodeVisualEffect | undefined;
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
@@ -166,7 +160,6 @@ export function GpuFlow({
   nodeClassName,
   nodeDrag,
   nodeVisibility,
-  nodeVisualEffect,
   nodes,
   onFrame,
   onNodeElementChange,
@@ -221,7 +214,6 @@ export function GpuFlow({
     forceVisibleNodeIds,
     grid,
     marginCssPx,
-    nodeVisualEffect,
     nodes,
     uploadBudget,
     viewport: viewport ?? viewportStore.getState().transform,
@@ -292,7 +284,6 @@ export function GpuFlow({
       forceVisibleNodeIds,
       grid,
       marginCssPx,
-      nodeVisualEffect,
       nodes,
       uploadBudget,
       viewport: viewportStore.getState().transform,
@@ -313,7 +304,6 @@ export function GpuFlow({
     forceVisibleNodeIds,
     grid,
     marginCssPx,
-    nodeVisualEffect,
     nodes,
     uploadBudget,
     viewportStore,
@@ -534,13 +524,9 @@ export function GpuFlow({
         settlingActiveNodeIdsRef,
         surfaceRef,
         textureManagerRef,
-        timestampMs: event.timestamp,
         visibleNodeIdsRef,
       });
       callbacksRef.current.onFrame?.(runtime, event);
-      if (shouldAnimateGpuNodeVisualEffect(nodeLayerRef.current)) {
-        surfaceRef.current?.requestFrame("animation");
-      }
     },
     [viewportStore],
   );
@@ -720,7 +706,6 @@ function renderGpuFlowNodeLayerFrame({
   settlingActiveNodeIdsRef,
   surfaceRef,
   textureManagerRef,
-  timestampMs,
   visibleNodeIdsRef,
 }: {
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
@@ -738,7 +723,6 @@ function renderGpuFlowNodeLayerFrame({
   readonly settlingActiveNodeIdsRef: MutableRefObject<Set<string>>;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<NodeTextureManager | null>;
-  readonly timestampMs: number;
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
 }) {
   const frameInput = resolveRenderableGpuFlowLayerFrameInput({
@@ -776,12 +760,10 @@ function renderGpuFlowNodeLayerFrame({
     frame,
     grid: layer.grid,
     marginCssPx: layer.marginCssPx,
-    nodeVisualEffect: layer.nodeVisualEffect,
     nodes,
     renderer: resources.nodeQuadRenderer,
     suppressNodeIds: activeNodeTeleportFrameSync.suppressNodeIds,
     textureManager: resources.textureManager,
-    timestampMs,
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
@@ -804,12 +786,6 @@ function hasRenderableGpuFlowLayer(layer: GpuFlowNodeLayerState): boolean {
 
 function hasRenderableGpuFlowCanvasSize(canvasSize: GpuCanvasSize): boolean {
   return canvasSize.cssWidth > 0 && canvasSize.cssHeight > 0;
-}
-
-function shouldAnimateGpuNodeVisualEffect(
-  layer: GpuFlowNodeLayerState,
-): boolean {
-  return layer.nodeVisualEffect === "cloth" && Boolean(layer.nodes?.length);
 }
 
 function resolveRenderableGpuFlowLayerFrameInput({
