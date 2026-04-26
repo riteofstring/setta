@@ -56,117 +56,59 @@ trap cleanup EXIT
 cat > "${extra_prompt_file}" <<'EOF'
 Dedicated GPU Flow Pan/Resize/Move/DnD Loop Instructions
 
-This loop is specifically for docs/plans/gpu-flow-pan-resize-move-dnd-plan.md.
+Scope and references:
+- Keep work limited to the GPU flow html-in-canvas parity described in
+  docs/plans/gpu-flow-pan-resize-move-dnd-plan.md.
+- Use the plan's detailed file inventories, go-rewrite xyflow references, and html-in-canvas example
+  repository references when choosing what to inspect for each phase.
+- Also keep the prerequisite architecture from docs/plans/webgpu-html-texture-pan-zoom-plan.md and
+  docs/plans/gpu-flow-live-active-node-dom-plan.md intact.
+- The go-rewrite branch and /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos are
+  read-only references for behavior and architecture. Do not copy xyflow back into runtime code.
 
-Primary target:
-- Execute the plan to bring the WebGPU/html-in-canvas canvas close to the old xyflow UX from the go-rewrite branch.
-- Keep the WebGPU/html-in-canvas architecture intact: GPU owns high-frequency visuals, real DOM owns active interaction, and texture uploads happen only on dirty/settle points.
-- Do not reintroduce xyflow, d3-zoom, dual renderers, compatibility shims, legacy adapters, polyfills, or silent fallbacks.
+Phase order:
+1. Optional scroll panning.
+2. Direct node movement.
+3. Node resizability.
+4. dnd-kit sortable and moving-free parity.
+5. Edge parity.
+6. Viewport, pane, and selection parity.
+7. Full section and param UI compatibility.
+8. Background grid settings parity.
+9. Browser verification.
 
-Required starting point:
-- Read docs/plans/gpu-flow-pan-resize-move-dnd-plan.md before making changes.
-- Also read docs/plans/webgpu-html-texture-pan-zoom-plan.md and docs/plans/gpu-flow-live-active-node-dom-plan.md so implementation remains aligned with the renderer and active DOM teleport architecture.
-- Read current GPU flow implementation before making changes, especially:
-  - frontend/src/gpuFlow/GpuFlow.tsx
-  - frontend/src/gpuFlow/GpuSurface.tsx
-  - frontend/src/gpuFlow/GpuNodeLayer.tsx
-  - frontend/src/gpuFlow/GpuActiveNodeTeleport.ts
-  - frontend/src/gpuFlow/interactions/panZoom.ts
-  - frontend/src/gpuFlow/interactions/nodeDrag.ts
-  - frontend/src/gpuFlow/interactions/selection.ts
-  - frontend/src/gpuFlow/interactions/edges.ts
-  - frontend/src/gpuFlow/viewportActions.ts
-  - frontend/src/gpuFlow/viewportMath.ts
-  - frontend/src/gpuFlow/viewportStore.ts
-  - frontend/src/gpuFlow/gpuPipelines.ts
-  - frontend/src/gpuFlow/Handle/
-  - frontend/src/gpuFlow/edges/
-  - frontend/src/components/Pages/Project/GpuProjectSurface.tsx
-  - frontend/src/components/Utils/Resizable/CustomResizable.tsx
-  - frontend/src/forks/dnd-kit/
-
-Use go-rewrite as read-only reference:
-- Use git show go-rewrite:<path> for old xyflow behavior. Do not copy xyflow back into runtime code.
-- Key references include:
-  - frontend/src/forks/xyflow/core/container/ZoomPane.tsx
-  - frontend/src/forks/xyflow/core/hooks/useDrag.ts
-  - frontend/src/forks/xyflow/core/components/wrapNode.tsx
-  - frontend/src/forks/xyflow/core/container/Pane.tsx
-  - frontend/src/forks/xyflow/core/components/UserSelection.tsx
-  - frontend/src/forks/xyflow/core/components/NodesSelection.tsx
-  - frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts
-  - frontend/src/forks/xyflow/minimap/MiniMap.tsx
-  - frontend/src/forks/xyflow/background/Background.tsx
-  - frontend/src/forks/xyflow/background/Patterns.tsx
-  - frontend/src/forks/xyflow/core/components/ConnectionLine.tsx
-  - frontend/src/forks/xyflow/core/components/Handle/
-  - frontend/src/forks/xyflow/core/components/Edges/
-  - frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx
-  - frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx
-  - frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx
-
-Use html-in-canvas examples as architecture references:
-- Inspect the relevant files under /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos when touching related behavior.
-- Most relevant examples:
-  - html-in-canvas-official/README.md
-  - html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts
-  - html-in-canvas-official/Examples/webgpu-jelly-slider/src/events.ts
-  - html-in-canvas-cracks/src/main.js
-  - compiz-web/src/transitions/TransitionEngine.ts
-  - three-html-render/src/htmlTexture.ts
-  - three-html-render/src/interactionManager.ts
-  - three-html-render/src/raycastInteractionManager.ts
-  - html-in-canvas/plugins/html-cloth.mjs
-  - html-in-canvas-room/extension/entrypoints/content.ts
-  - hot-tips/html-in-canvas/demos/wicg/ripple-buttons.html
-  - hot-tips/html-in-canvas/demos/wicg/text-input.html
-
-Implementation priorities:
-- Phase 1: Optional scroll panning. Ensure panOnScroll wins over plain zoomOnScroll, while pinch zoom and explicit zoom activation still zoom.
-- Phase 2: Direct node movement. Normal-mode top-level node dragging, multi-selection movement, snap-to-grid on stop, auto-pan, z-index, and final persistence must work.
-- Phase 3: Node resizability. Use CustomResizable as the owner, keep resize zoom-aware, use active DOM teleport for live feedback, and do not add a parallel resize system.
-- Phase 4: dnd-kit parity. dnd-kit owns sortable and moving-free structural drag/drop; direct GPU node drag and viewport gestures must not race it.
-- Phase 5: Edge parity. Restore edge rendering, handle hit testing/alignment, live connection preview, valid/invalid drops, cancel, selection, context menus, and coordinate updates.
-- Phase 6: Viewport, pane, and selection parity. Restore viewport helpers, animated viewport behavior, minimap navigation, pane background behavior, file drops, marquee selection, selection-box movement, and keyboard nudging.
-- Phase 7: Full section and param UI compatibility. Verify every generated section type and param UI/input family displays and remains interactive.
-- Phase 8: Background grid settings parity. Support off/on, dots/lines, custom colors, pattern size, spacing, and viewport anchoring. Do not spend time on the cross variant.
-- Phase 9: Browser verification.
+Work on the earliest incomplete phase unless a later change exposes an earlier blocker. The cross
+background-grid variant is intentionally out of scope.
 
 Architecture guardrails:
-- GPU pan/zoom/move must not recapture node textures merely because the viewport or node position changed.
-- Active DOM teleport should use the same React-owned DOM instance. Do not render duplicate active node trees unless a documented component-owner issue proves it is required.
-- During active resize/control/editing/dnd interactions, prefer real DOM for user feedback and one final texture upload after settle.
-- Keep event ownership explicit. Use typed state, existing data attributes, and owner-owned metadata; do not add broad keyword or visible-text heuristics.
-- Generated files under backend/setta/types/generated, frontend/generation, and frontend/src/openapi/*/generated must not be edited manually.
-- Keep Go-owned/backend contracts authoritative. For frontend work, reuse generated/OpenAPI surfaces instead of handwritten mirrors.
+- Preserve the WebGPU/html-in-canvas model: GPU owns high-frequency visual transforms, real DOM owns
+  active interaction, and texture uploads happen only on dirty or settled content changes.
+- Pan, zoom, node movement, resize previews, and animated viewport changes must not recapture node
+  textures merely because the viewport or a node position changed.
+- Active node editing/resizing/control interaction should use the existing React-owned DOM instance
+  via the active DOM teleport path, then upload the final texture after settle.
+- Keep event ownership explicit across viewport gestures, node movement, resize handles, handles/edges,
+  pane events, and dnd-kit. Use typed state and owner-owned metadata instead of keyword or visible-text
+  heuristics.
+- dnd-kit remains the owner for sortable and moving-free structural drag/drop. GPU direct node drag and
+  viewport gestures must cooperate with it rather than racing it.
+- Do not add xyflow, d3-zoom, dual renderers, compatibility shims, legacy adapters, broad fallbacks, or
+  hand-maintained mirrors of generated/backend-owned contracts.
 
-Testing expectations:
-- Add or extend focused tests with each implementation slice. Prefer existing test owners:
-  - frontend/src/gpuFlow/interactions/panZoom.test.ts
-  - frontend/src/gpuFlow/interactions/nodeDrag.test.ts
-  - frontend/src/gpuFlow/interactions/selection.test.ts
-  - frontend/src/gpuFlow/interactions/edges.test.ts
-  - frontend/src/gpuFlow/viewportActions.test.ts
-  - frontend/src/gpuFlow/viewportMath.test.ts
-  - frontend/src/gpuFlow/gpuPipelines.test.ts
-  - frontend/src/gpuFlow/edges/*.test.ts
-  - frontend/src/gpuFlow/Handle/*.test.ts
-  - frontend/src/components/Pages/Project/GpuProjectSurface tests if needed
-  - frontend/src/components/Utils/Resizable/CustomResizable tests if needed
-  - frontend/src/forks/dnd-kit/*.test.ts and integration tests when dnd behavior changes
-- Do not add tautological tests or generator drift tests.
-- Run focused Vitest suites during iterations. Finish with ./check_quality.sh unless a concrete environment blocker is recorded.
-
-Browser verification:
-- Use Chrome DevTools MCP for UI verification when relevant.
-- Verify all scenarios listed in the plan's Browser Verification phase, including scroll pan, node move, resize, dnd-kit sort/free-move, edge connection, animated viewport helpers, pane behavior, selection parity, section/param compatibility, and grid settings.
-- Use a Chromium build with WebGPU and html-in-canvas enabled. If required locally, start with ./aireset.sh:
-  CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu --enable-webgpu-developer-features" ./aireset.sh
-- If local browser APIs are blocked, record the blocker in perf/reports/frontend/ and keep moving on testable owner code.
-- Record performance or visual evidence in perf/reports/frontend/ when the plan calls for it, especially for pan/zoom, live DOM teleport, resize, and dnd.
+Verification:
+- Add or extend focused owner tests for each implementation slice using the relevant test targets named
+  in the plan rather than creating broad or tautological coverage.
+- Use Chrome DevTools MCP for UI verification whenever behavior is visible or interactive. Cover the
+  scenarios in the plan's Browser Verification phase, including scroll pan, movement, resize, dnd-kit
+  modes, edges, animated viewport helpers, pane behavior, selection, section/param controls, and grid
+  settings.
+- Finish with ./check_quality.sh unless a concrete environment blocker is recorded. Record visual,
+  performance, or browser-API blockers in the locations called out by the plan.
 
 Completion:
-- Emit GPU_FLOW_PAN_RESIZE_MOVE_DND_PLAN_COMPLETE only when docs/plans/gpu-flow-pan-resize-move-dnd-plan.md is complete, the old xyflow parity audit finds no remaining actionable work in scope, focused tests and ./check_quality.sh have passed or blockers are documented, and CDP visual verification is recorded.
+- Emit GPU_FLOW_PAN_RESIZE_MOVE_DND_PLAN_COMPLETE only after the plan's success criteria are complete,
+  a fresh xyflow-parity audit finds no remaining actionable in-scope work, focused verification and
+  required quality checks have passed or blockers are documented, and CDP visual verification is recorded.
 EOF
 
 "${SCRIPT_DIR}/run-codex-plan-loop.sh" \
