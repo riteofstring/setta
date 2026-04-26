@@ -7,6 +7,7 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from "react";
+import { resolveGpuNodePointerHandoffTarget } from "./activeNodeTargeting";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type { GpuEdgeScene } from "./edges/edgeSources";
 import { resolveGpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
@@ -423,6 +424,17 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       const nodeInteraction = createGpuNodeInteractionDirtyController({
+        activatePointerHandoffNode: (nodeId) =>
+          activateGpuFlowPointerHandoffNode({
+            activeNodeTeleportRef,
+            finalizingActiveNodeIdsRef,
+            frameRef,
+            nodeElementByIdRef,
+            nodeLayerRef,
+            nodeId,
+            pendingActiveNodePaintRef,
+            surfaceRef,
+          }),
         deferPassiveDirty: () =>
           viewportStore.getState().viewportInteractionActive,
         elementByNodeId: () => nodeElementByIdRef.current,
@@ -436,6 +448,17 @@ export function GpuFlow({
         },
         requestFrame: (reason) => {
           surfaceRef.current?.requestFrame(reason);
+        },
+        resolvePointerHandoffTarget: (event) => {
+          const surfaceElement = containerRef.current ?? runtime.canvas;
+          return resolveGpuNodePointerHandoffTarget({
+            clientX: event.clientX,
+            clientY: event.clientY,
+            elementByNodeId: nodeElementByIdRef.current,
+            nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
+            surfaceElement,
+            viewport: nodeLayerRef.current.viewport,
+          });
         },
         textureManager: () => textureManagerRef.current,
       });
@@ -834,6 +857,48 @@ function syncGpuFlowActiveNodeTeleportForFrame({
     pendingPaintNodeIds: pendingActiveNodePaintRef.current,
     teleportedNodeId: teleportResult.teleportedNodeId,
   });
+}
+
+function activateGpuFlowPointerHandoffNode({
+  activeNodeTeleportRef,
+  finalizingActiveNodeIdsRef,
+  frameRef,
+  nodeElementByIdRef,
+  nodeId,
+  nodeLayerRef,
+  pendingActiveNodePaintRef,
+  surfaceRef,
+}: {
+  readonly activeNodeTeleportRef: MutableRefObject<GpuActiveNodeTeleportController | null>;
+  readonly finalizingActiveNodeIdsRef: MutableRefObject<Set<string>>;
+  readonly frameRef: MutableRefObject<number>;
+  readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly nodeId: string;
+  readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
+  readonly pendingActiveNodePaintRef: MutableRefObject<Set<string>>;
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+}): HTMLElement | null {
+  const nodeElement = nodeElementByIdRef.current.get(nodeId) ?? null;
+  const teleport = activeNodeTeleportRef.current;
+  if (!nodeElement || !teleport) {
+    return nodeElement;
+  }
+  const teleportResult = syncGpuFlowActiveNodeTeleport({
+    activeNodeTeleportRef,
+    elementByNodeId: nodeElementByIdRef.current,
+    frame: nextFrame(frameRef),
+    layer: nodeLayerRef.current,
+    liveNodeId: nodeId,
+  });
+  if (teleportResult.restoredNodeId) {
+    finalizingActiveNodeIdsRef.current.add(teleportResult.restoredNodeId);
+    pendingActiveNodePaintRef.current.add(teleportResult.restoredNodeId);
+    surfaceRef.current?.requestPaint();
+  }
+  if (teleportResult.teleportedNodeId) {
+    surfaceRef.current?.requestFrame("texture-upload");
+  }
+  return nodeElementByIdRef.current.get(nodeId) ?? nodeElement;
 }
 
 function syncGpuFlowActiveNodeTeleport({

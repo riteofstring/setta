@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createGpuNodeTargetDescriptor } from "./activeNodeTargeting";
 import { dispatchGpuFlowNodeDirtyEvent } from "./nodeDirtyEvents";
 import {
   createGpuNodeInteractionDirtyController,
@@ -66,6 +67,81 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     detach();
+  });
+
+  it("hands off a canvas-origin pointerdown to the activated live control", async () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const switchButton = document.createElement("button");
+    switchButton.dataset.gpuFlowControl = "enabled";
+    nodeElement.append(switchButton);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    setRect(switchButton, 20, 30, 50, 24);
+    const descriptor = createGpuNodeTargetDescriptor(nodeElement, switchButton);
+    if (!descriptor) {
+      throw new Error("Expected a handoff target descriptor");
+    }
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const activatePointerHandoffNode = vi.fn(() => nodeElement);
+    const pointerDowns: boolean[] = [];
+    const clicks: boolean[] = [];
+    switchButton.addEventListener("pointerdown", () => {
+      pointerDowns.push(activatePointerHandoffNode.mock.calls.length > 0);
+    });
+    switchButton.addEventListener("click", () => {
+      clicks.push(true);
+    });
+    let frame = 0;
+    const controller = createGpuNodeInteractionDirtyController({
+      activatePointerHandoffNode,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => {
+        frame += 1;
+        return frame;
+      },
+      requestFrame,
+      resolvePointerHandoffTarget: () => ({
+        descriptor,
+        nodeId: "node-a",
+      }),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 25,
+      clientY: 35,
+      pointerId: 7,
+    });
+    canvas.dispatchEvent(pointerDown);
+
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
+    expect(pointerDowns).toEqual([true]);
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 1,
+      nodeId: "node-a",
+      priority: "interactive",
+      reason: "pointer",
+    });
+
+    document.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 25,
+        clientY: 35,
+        pointerId: 7,
+      }),
+    );
+    await Promise.resolve();
+
+    expect(clicks).toEqual([true]);
+
+    detach();
+    canvas.remove();
   });
 
   it("marks passive internal scrolls without promoting the node", () => {
@@ -442,4 +518,56 @@ function createInteractionTextureManager() {
     markNodeTextureDirty: vi.fn(),
     setNodeTexturePriority: vi.fn(),
   };
+}
+
+function createPointerEvent(
+  type: string,
+  init: {
+    readonly clientX: number;
+    readonly clientY: number;
+    readonly pointerId: number;
+  },
+): PointerEvent {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX: init.clientX,
+    clientY: init.clientY,
+  }) as PointerEvent;
+  Object.defineProperties(event, {
+    button: { value: 0 },
+    buttons: { value: type === "pointerup" ? 0 : 1 },
+    height: { value: 1 },
+    isPrimary: { value: true },
+    pointerId: { value: init.pointerId },
+    pointerType: { value: "mouse" },
+    pressure: { value: type === "pointerup" ? 0 : 0.5 },
+    tangentialPressure: { value: 0 },
+    tiltX: { value: 0 },
+    tiltY: { value: 0 },
+    twist: { value: 0 },
+    width: { value: 1 },
+  });
+  return event;
+}
+
+function setRect(
+  element: Element,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+) {
+  element.getBoundingClientRect = () =>
+    ({
+      bottom: top + height,
+      height,
+      left,
+      right: left + width,
+      top,
+      width,
+      x: left,
+      y: top,
+      toJSON: () => ({}),
+    }) as DOMRect;
 }

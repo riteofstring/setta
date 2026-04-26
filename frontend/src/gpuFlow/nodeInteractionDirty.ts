@@ -1,3 +1,8 @@
+import {
+  isGpuNodeInteractiveEventTarget,
+  resolveGpuNodeTargetDescriptor,
+  type GpuNodePointerHandoffTarget,
+} from "./activeNodeTargeting";
 import type { DirtyNodeReason, NodeTexturePriority } from "./dirtyTracking";
 import type { GpuFrameReason } from "./gpuRenderer";
 import {
@@ -25,6 +30,9 @@ export type GpuNodeInteractionDirtyController = {
 };
 
 type GpuNodeInteractionDirtyControllerOptions = {
+  readonly activatePointerHandoffNode?:
+    | ((nodeId: string) => HTMLElement | null)
+    | undefined;
   readonly deferPassiveDirty?: (() => boolean) | undefined;
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly getFrame: () => number;
@@ -33,6 +41,9 @@ type GpuNodeInteractionDirtyControllerOptions = {
     | ((state: GpuNodeInteractionState) => void)
     | undefined;
   readonly requestFrame: (reason: GpuFrameReason) => void;
+  readonly resolvePointerHandoffTarget?:
+    | ((event: PointerEvent) => GpuNodePointerHandoffTarget | null)
+    | undefined;
   readonly textureManager: () => Pick<
     NodeTextureManager,
     "markNodeTextureDirty" | "setNodeTexturePriority"
@@ -52,37 +63,30 @@ type NodeInteractionStatePatch = {
   readonly releaseAfterUploadNodeId?: string | null | undefined;
 };
 
+type PendingPointerHandoffClick = {
+  readonly pointerId: number;
+  readonly target: HTMLElement;
+};
+
 const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
 const DEFAULT_ACTIVE_SETTLE_DELAY_MS = 240;
-const INTERACTIVE_TARGET_SELECTOR = [
-  "button",
-  "input",
-  "select",
-  "textarea",
-  "[contenteditable='']",
-  "[contenteditable='true']",
-  "[data-gpu-flow-interactive='true']",
-  "[role='combobox']",
-  "[role='searchbox']",
-  "[role='slider']",
-  "[role='spinbutton']",
-  "[role='textbox']",
-  ".cm-content",
-  ".cm-editor",
-  ".xterm",
-  ".xterm-screen",
-].join(",");
+
+export { isGpuNodeInteractiveEventTarget } from "./activeNodeTargeting";
 
 export function createGpuNodeInteractionDirtyController({
+  activatePointerHandoffNode,
   activeSettleDelayMs = DEFAULT_ACTIVE_SETTLE_DELAY_MS,
   deferPassiveDirty,
   elementByNodeId,
   getFrame,
   onStateChange,
   requestFrame,
+  resolvePointerHandoffTarget,
   textureManager,
 }: GpuNodeInteractionDirtyControllerOptions): GpuNodeInteractionDirtyController {
   let activeNodeId: string | null = null;
+  let dispatchingPointerHandoff = false;
+  let pendingPointerHandoffClick: PendingPointerHandoffClick | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
   let activeSettleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
@@ -144,6 +148,42 @@ export function createGpuNodeInteractionDirtyController({
     beginInteractiveNode(nodeId, "pointer");
   }
 
+  function handOffCanvasPointerEvent(event: PointerEvent): boolean {
+    const handoffTarget = resolvePointerHandoffTarget?.(event);
+    if (!handoffTarget) {
+      return false;
+    }
+    const liveNodeElement =
+      activatePointerHandoffNode?.(handoffTarget.nodeId) ??
+      elementByNodeId().get(handoffTarget.nodeId) ??
+      null;
+    const liveTarget = liveNodeElement
+      ? resolveGpuNodeTargetDescriptor(
+          liveNodeElement,
+          handoffTarget.descriptor,
+        )
+      : null;
+    if (!liveTarget) {
+      return false;
+    }
+
+    beginPointerInteraction(handoffTarget.nodeId);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    dispatchingPointerHandoff = true;
+    try {
+      dispatchPointerHandoffEvent(liveTarget, event);
+    } finally {
+      dispatchingPointerHandoff = false;
+    }
+    focusPointerHandoffTarget(liveTarget);
+    pendingPointerHandoffClick = getPendingPointerHandoffClick(
+      liveTarget,
+      event,
+    );
+    return true;
+  }
+
   function markPointerInteractionDirty() {
     if (!pointerInteractionNodeId) {
       return;
@@ -165,6 +205,28 @@ export function createGpuNodeInteractionDirtyController({
       return;
     }
     releaseActiveNode("pointer");
+  }
+
+  function releasePointerHandoff(event: PointerEvent) {
+    const pendingClick = pendingPointerHandoffClick;
+    pendingPointerHandoffClick = null;
+    if (
+      pendingClick &&
+      pendingClick.pointerId === event.pointerId &&
+      shouldDispatchPendingPointerHandoffClick(pendingClick.target, event)
+    ) {
+      globalThis.queueMicrotask(() => {
+        if (pendingClick.target.isConnected) {
+          pendingClick.target.click();
+        }
+      });
+    }
+    releasePointerInteraction();
+  }
+
+  function cancelPointerInteraction() {
+    pendingPointerHandoffClick = null;
+    releasePointerInteraction();
   }
 
   function markEventTargetDirty(
@@ -306,11 +368,18 @@ export function createGpuNodeInteractionDirtyController({
       canvas.addEventListener(
         "pointerdown",
         (event) => {
+          if (dispatchingPointerHandoff) {
+            return;
+          }
           const nodeId = findGpuNodeIdForEventTarget(
             event.target,
             elementByNodeId(),
           );
-          if (!nodeId || !isGpuNodeInteractiveEventTarget(event.target)) {
+          if (!nodeId) {
+            handOffCanvasPointerEvent(event);
+            return;
+          }
+          if (!isGpuNodeInteractiveEventTarget(event.target)) {
             return;
           }
           beginPointerInteraction(nodeId);
@@ -324,12 +393,12 @@ export function createGpuNodeInteractionDirtyController({
       );
       ownerDocument.addEventListener(
         "pointerup",
-        releasePointerInteraction,
+        releasePointerHandoff,
         listenerOptions,
       );
       ownerDocument.addEventListener(
         "pointercancel",
-        releasePointerInteraction,
+        cancelPointerInteraction,
         listenerOptions,
       );
       ownerDocument.addEventListener(
@@ -354,6 +423,15 @@ export function createGpuNodeInteractionDirtyController({
         releaseAfterUploadNodeId === nodeId ? null : releaseAfterUploadNodeId;
       if (pointerInteractionNodeId === nodeId) {
         pointerInteractionNodeId = null;
+      }
+      if (
+        pendingPointerHandoffClick &&
+        findGpuNodeIdForEventTarget(
+          pendingPointerHandoffClick.target,
+          elementByNodeId(),
+        ) === nodeId
+      ) {
+        pendingPointerHandoffClick = null;
       }
       if (activeNodeId === nodeId || releaseAfterUploadNodeId === nodeId) {
         clearActiveSettleTimer();
@@ -438,11 +516,115 @@ export function findGpuNodeIdForEventTarget(
   return null;
 }
 
-export function isGpuNodeInteractiveEventTarget(
-  target: EventTarget | Node | null,
+function dispatchPointerHandoffEvent(target: HTMLElement, event: PointerEvent) {
+  const PointerEventConstructor =
+    target.ownerDocument.defaultView?.PointerEvent ?? globalThis.PointerEvent;
+  const init = {
+    altKey: event.altKey,
+    bubbles: true,
+    button: event.button,
+    buttons: event.buttons,
+    cancelable: true,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    composed: true,
+    ctrlKey: event.ctrlKey,
+    height: event.height,
+    isPrimary: event.isPrimary,
+    metaKey: event.metaKey,
+    pointerId: event.pointerId,
+    pointerType: event.pointerType,
+    pressure: event.pressure,
+    screenX: event.screenX,
+    screenY: event.screenY,
+    shiftKey: event.shiftKey,
+    tangentialPressure: event.tangentialPressure,
+    tiltX: event.tiltX,
+    tiltY: event.tiltY,
+    twist: event.twist,
+    width: event.width,
+  } satisfies PointerEventInit;
+  const handoffEvent =
+    typeof PointerEventConstructor === "function"
+      ? new PointerEventConstructor(event.type, init)
+      : new MouseEvent(event.type, init);
+  target.dispatchEvent(handoffEvent);
+}
+
+function focusPointerHandoffTarget(target: HTMLElement) {
+  if (isTextFocusTarget(target)) {
+    target.focus({ preventScroll: true });
+  }
+}
+
+function getPendingPointerHandoffClick(
+  target: HTMLElement,
+  event: PointerEvent,
+): PendingPointerHandoffClick | null {
+  if (!isClickHandoffTarget(target)) {
+    return null;
+  }
+  return {
+    pointerId: event.pointerId,
+    target,
+  };
+}
+
+function shouldDispatchPendingPointerHandoffClick(
+  target: HTMLElement,
+  event: PointerEvent,
 ): boolean {
-  const element = toElement(target);
-  return Boolean(element?.closest(INTERACTIVE_TARGET_SELECTOR));
+  if (!target.isConnected) {
+    return false;
+  }
+  const rect = target.getBoundingClientRect();
+  return (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    event.clientX >= rect.left &&
+    event.clientX < rect.right &&
+    event.clientY >= rect.top &&
+    event.clientY < rect.bottom
+  );
+}
+
+function isTextFocusTarget(target: HTMLElement): boolean {
+  return (
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLInputElement && isTextInputType(target.type)) ||
+    target.isContentEditable ||
+    target.getAttribute("role") === "textbox" ||
+    target.getAttribute("role") === "searchbox"
+  );
+}
+
+function isTextInputType(inputType: string): boolean {
+  return (
+    inputType === "" ||
+    inputType === "email" ||
+    inputType === "number" ||
+    inputType === "password" ||
+    inputType === "search" ||
+    inputType === "tel" ||
+    inputType === "text" ||
+    inputType === "url"
+  );
+}
+
+function isClickHandoffTarget(target: HTMLElement): boolean {
+  if (target instanceof HTMLButtonElement) {
+    return true;
+  }
+  if (target instanceof HTMLInputElement) {
+    return (
+      target.type === "button" ||
+      target.type === "checkbox" ||
+      target.type === "radio" ||
+      target.type === "submit"
+    );
+  }
+  const role = target.getAttribute("role");
+  return role === "button" || role === "menuitem" || role === "switch";
 }
 
 function dirtyReasonForKind(kind: DirtyEventKind): DirtyNodeReason {
