@@ -26,8 +26,7 @@ import (
 	"setta/internal/pythonsdkcontracts"
 )
 
-const apiPrefix = "/api"
-const RouteAPIPrefix = apiPrefix
+const RouteAPIPrefix = "/api"
 const RouteSDKRuntimeHandshake = "/sdkRuntimeHandshake"
 
 type InfoService interface {
@@ -144,11 +143,11 @@ func registerBootstrapRoutes(router chi.Router, deps Dependencies) {
 	if !handlerAuthEnabled(deps.Auth) {
 		return
 	}
-	router.Get(bootstrapPagePath+"/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, bootstrapPagePath, http.StatusTemporaryRedirect)
+	router.Get(RouteBootstrapPage+"/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, RouteBootstrapPage, http.StatusTemporaryRedirect)
 	})
-	router.Get(bootstrapPagePath, bootstrapPageHandler())
-	router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth, deps.TrustedOrigins))
+	router.Get(RouteBootstrapPage, bootstrapPageHandler())
+	router.Post(RouteBootstrapConsume, bootstrapConsumeHandler(deps.Auth, deps.TrustedOrigins))
 }
 
 func registerAuthenticatedRootRoutes(openAPIRouter chi.Router, deps Dependencies) {
@@ -166,7 +165,7 @@ func registerAuthenticatedRootRoutes(openAPIRouter chi.Router, deps Dependencies
 }
 
 func registerAPIRoutes(openAPIRouter chi.Router, openAPIDocument *huma.OpenAPI, deps Dependencies) {
-	openAPIRouter.Route(apiPrefix, func(r chi.Router) {
+	openAPIRouter.Route(RouteAPIPrefix, func(r chi.Router) {
 		if handlerAuthEnabled(deps.Auth) {
 			r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
 		}
@@ -399,7 +398,7 @@ func authMiddleware(authService *auth.Service, trustedOrigins *frontendorigins.S
 			if ok {
 				requestInfo, err := authService.ValidateAuthCookie(cookieValue, now)
 				if err == nil {
-					if strings.HasPrefix(r.URL.Path, apiPrefix) && authService.ShouldRefreshAuthCookie(requestInfo, now) {
+					if strings.HasPrefix(r.URL.Path, RouteAPIPrefix) && authService.ShouldRefreshAuthCookie(requestInfo, now) {
 						requestInfo, err = mintAndAttachSessionAuthCookie(w, r, authService, trustedOrigins, requestInfo.SessionID, now)
 						if err != nil {
 							writeAuthMiddlewareError(w, r, err)
@@ -460,7 +459,7 @@ func writeUnauthorizedAuthResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func requiresJSONUnauthorizedAuthResponse(path string) bool {
-	if strings.HasPrefix(path, apiPrefix) {
+	if strings.HasPrefix(path, RouteAPIPrefix) {
 		return true
 	}
 	return path == RouteMCPToolCall

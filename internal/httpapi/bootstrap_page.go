@@ -12,15 +12,12 @@ import (
 )
 
 const (
-	bootstrapPagePath        = "/__setta__/bootstrap"
-	bootstrapConsumePath     = "/__setta__/bootstrap/consume"
+	RouteBootstrapPage       = "/__setta__/bootstrap"
+	RouteBootstrapConsume    = "/__setta__/bootstrap/consume"
 	defaultDevFrontendScheme = "http"
 	devFrontendPortEnv       = "SETTA_DEV_FRONTEND_PORT"
 	devFrontendSchemeEnv     = "SETTA_DEV_FRONTEND_SCHEME"
 )
-
-const RouteBootstrapPage = bootstrapPagePath
-const RouteBootstrapConsume = bootstrapConsumePath
 
 const unauthorizedPageHTMLTemplate = `<!DOCTYPE html>
 <html lang="en">
@@ -726,8 +723,8 @@ func bootstrapPageHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		redirectURL := resolveBootstrapRedirectURL(r)
 		redirectJSON, _ := json.Marshal(redirectURL)
-		consumeJSON, _ := json.Marshal(bootstrapConsumePath)
-		pagePathJSON, _ := json.Marshal(bootstrapPagePath)
+		consumeJSON, _ := json.Marshal(RouteBootstrapConsume)
+		pagePathJSON, _ := json.Marshal(RouteBootstrapPage)
 		bootstrapProtocolJSON, _ := json.Marshal(FrontendBootstrapProtocol())
 
 		html := strings.NewReplacer(
