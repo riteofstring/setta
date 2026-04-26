@@ -102,6 +102,19 @@ Verification:
   scenarios in the plan's Browser Verification phase, including scroll pan, movement, resize, dnd-kit
   modes, edges, animated viewport helpers, pane behavior, selection, section/param controls, and grid
   settings.
+- Regularly check browser-visible work during the loop instead of saving all browser verification for
+  Phase 9. After any slice that changes user-visible GPU flow interaction behavior, start or reuse the
+  local app/browser session with `./ai.sh` and run a narrow Chrome DevTools MCP check for the changed
+  flow before committing when practical.
+- Use `./aireset.sh` instead of `./ai.sh` when a clean disposable app state is needed to make the
+  browser check reliable. Prefer `./ai.sh` for non-reset checks so a focused iteration does not wipe
+  state unnecessarily. If a session is already running, reuse it rather than starting a duplicate.
+- For html-in-canvas/WebGPU-sensitive checks, start the session with:
+  `CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu --enable-webgpu-developer-features" ./ai.sh`
+  or the same environment with `./aireset.sh` when a reset is required.
+- Record each browser check in the iteration response as `CDP visual check: done (...)`, including
+  which `ai.sh`/`aireset.sh` command was used and which interaction was exercised. If the check cannot
+  run, record the concrete blocker instead of silently deferring it.
 - Finish with ./check_quality.sh unless a concrete environment blocker is recorded. Record visual,
   performance, or browser-API blockers in the locations called out by the plan.
 
