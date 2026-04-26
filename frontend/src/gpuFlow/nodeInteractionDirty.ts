@@ -81,6 +81,7 @@ export function createGpuNodeInteractionDirtyController({
 }: GpuNodeInteractionDirtyControllerOptions): GpuNodeInteractionDirtyController {
   let activeNodeId: string | null = null;
   let overlayNodeId: string | null = null;
+  let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
 
   function setState(next: NodeInteractionStatePatch) {
@@ -141,6 +142,34 @@ export function createGpuNodeInteractionDirtyController({
     markDirty({ nodeId, priority: "interactive", reason });
   }
 
+  function beginPointerInteraction(nodeId: string) {
+    pointerInteractionNodeId = nodeId;
+    beginInteractiveNode(nodeId, "pointer");
+  }
+
+  function markPointerInteractionDirty() {
+    if (!pointerInteractionNodeId) {
+      return;
+    }
+    markDirty({
+      nodeId: pointerInteractionNodeId,
+      priority: "interactive",
+      reason: "pointer",
+    });
+  }
+
+  function releasePointerInteraction() {
+    if (!pointerInteractionNodeId) {
+      return;
+    }
+    const nodeId = pointerInteractionNodeId;
+    pointerInteractionNodeId = null;
+    if (nodeId !== activeNodeId) {
+      return;
+    }
+    releaseActiveNode("pointer");
+  }
+
   function markEventTargetDirty(
     eventTarget: EventTarget | null,
     kind: DirtyEventKind,
@@ -188,17 +217,6 @@ export function createGpuNodeInteractionDirtyController({
       return;
     }
     markDirty({ nodeId, priority, reason });
-  }
-
-  function markActiveNodeDirty(reason: DirtyNodeReason) {
-    if (!activeNodeId) {
-      return;
-    }
-    markDirty({
-      nodeId: activeNodeId,
-      priority: "interactive",
-      reason,
-    });
   }
 
   function releaseActiveNode(reason: DirtyNodeReason) {
@@ -276,23 +294,23 @@ export function createGpuNodeInteractionDirtyController({
           if (!nodeId || !isGpuNodeInteractiveEventTarget(event.target)) {
             return;
           }
-          beginInteractiveNode(nodeId, "pointer");
+          beginPointerInteraction(nodeId);
         },
         listenerOptions,
       );
-      canvas.addEventListener(
+      ownerDocument.addEventListener(
         "pointermove",
-        () => markActiveNodeDirty("pointer"),
+        markPointerInteractionDirty,
         listenerOptions,
       );
-      canvas.addEventListener(
+      ownerDocument.addEventListener(
         "pointerup",
-        () => releaseActiveNode("pointer"),
+        releasePointerInteraction,
         listenerOptions,
       );
-      canvas.addEventListener(
+      ownerDocument.addEventListener(
         "pointercancel",
-        () => releaseActiveNode("pointer"),
+        releasePointerInteraction,
         listenerOptions,
       );
       ownerDocument.addEventListener(
@@ -313,6 +331,9 @@ export function createGpuNodeInteractionDirtyController({
       const nextOverlayNodeId = overlayNodeId === nodeId ? null : overlayNodeId;
       const nextReleaseNodeId =
         releaseAfterUploadNodeId === nodeId ? null : releaseAfterUploadNodeId;
+      if (pointerInteractionNodeId === nodeId) {
+        pointerInteractionNodeId = null;
+      }
       setState({
         activeNodeId: nextActiveNodeId,
         overlayNodeId: nextOverlayNodeId,

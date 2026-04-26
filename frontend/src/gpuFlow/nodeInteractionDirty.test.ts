@@ -116,7 +116,7 @@ describe("gpu node interaction dirty tracking", () => {
     const detach = controller.attach(canvas);
 
     slider.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-    canvas.dispatchEvent(new Event("pointermove", { bubbles: true }));
+    document.dispatchEvent(new Event("pointermove", { bubbles: true }));
     controller.completeFrame({
       budgetExhausted: true,
       remainingDirtyNodeIds: ["node-a"],
@@ -129,7 +129,7 @@ describe("gpu node interaction dirty tracking", () => {
       overlayNodeId: "node-a",
     });
 
-    canvas.dispatchEvent(new Event("pointerup", { bubbles: true }));
+    document.dispatchEvent(new Event("pointerup", { bubbles: true }));
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],
@@ -142,6 +142,37 @@ describe("gpu node interaction dirty tracking", () => {
       "node-a",
       "visible",
     );
+
+    detach();
+  });
+
+  it("does not dirty focused nodes for document pointer moves without an active pointer interaction", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const input = document.createElement("input");
+    nodeElement.append(input);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 4,
+      requestFrame: vi.fn(),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    document.dispatchEvent(new Event("pointermove", { bubbles: true }));
+
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(1);
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 4,
+      nodeId: "node-a",
+      priority: "interactive",
+      reason: "focus",
+    });
 
     detach();
   });
