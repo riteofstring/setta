@@ -15,6 +15,8 @@ export type NodeQuadRenderRuntime = Pick<
   "context" | "device" | "format"
 >;
 
+export type GpuNodeVisualEffect = "cloth";
+
 type GpuGridVariant = ObjectValues<typeof BackgroundVariantEnum>;
 
 export type GpuGridInput = {
@@ -29,7 +31,9 @@ export type RenderNodeTextureQuadsInput = {
   readonly clearColor?: GPUColorDict | undefined;
   readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
   readonly grid?: GpuGridInput | undefined;
+  readonly nodeVisualEffect?: GpuNodeVisualEffect | undefined;
   readonly quads: readonly GpuTexturedNodeQuad[];
+  readonly timestampMs?: number | undefined;
   readonly viewport: GpuViewportInput;
 };
 
@@ -50,6 +54,18 @@ type NodeDrawResources = {
   readonly vertexBuffer: GPUBuffer;
 };
 
+export type NodeDrawRange = {
+  readonly nodeId: string;
+  readonly vertexCount: number;
+  readonly vertexOffset: number;
+};
+
+export type NodeQuadRenderData = {
+  readonly ranges: readonly NodeDrawRange[];
+  readonly vertexCount: number;
+  readonly vertexData: Float32Array;
+};
+
 type GridDrawResources = {
   readonly bindGroup: GPUBindGroup;
   readonly pipeline: GPURenderPipeline;
@@ -59,6 +75,10 @@ const CAMERA_UNIFORM_BYTES = 32;
 const GRID_UNIFORM_BYTES = 32;
 const FLOATS_PER_VERTEX = 4;
 const VERTICES_PER_QUAD = 6;
+const CLOTH_SEGMENTS_X = 12;
+const CLOTH_SEGMENTS_Y = 8;
+const CLOTH_VERTICES_PER_NODE =
+  CLOTH_SEGMENTS_X * CLOTH_SEGMENTS_Y * VERTICES_PER_QUAD;
 const EDGE_VERTEX_BYTES =
   Float32Array.BYTES_PER_ELEMENT * GPU_EDGE_VERTEX_FLOATS;
 const NODE_QUAD_VERTEX_BYTES =
@@ -82,6 +102,7 @@ export class GpuNodeQuadRenderer {
   private gridBindGroupLayout: GPUBindGroupLayout | null = null;
   private gridBuffer: GPUBuffer | null = null;
   private gridPipeline: GPURenderPipeline | null = null;
+  private clothNodePipeline: GPURenderPipeline | null = null;
   private nodePipeline: GPURenderPipeline | null = null;
   private uploadedEdgeBufferData: GpuEdgeLineListBufferData | null = null;
   private uploadedGridUniform: Float32Array | null = null;
@@ -115,6 +136,7 @@ export class GpuNodeQuadRenderer {
     this.gridBindGroupLayout = null;
     this.gridBuffer = null;
     this.gridPipeline = null;
+    this.clothNodePipeline = null;
     this.vertexBuffer = null;
     this.cameraBindGroup = null;
     this.nodePipeline = null;
@@ -131,7 +153,9 @@ export class GpuNodeQuadRenderer {
     clearColor = DEFAULT_CLEAR_COLOR,
     edges = EMPTY_EDGE_BUFFER_INPUTS,
     grid,
+    nodeVisualEffect,
     quads,
+    timestampMs,
     viewport,
   }: RenderNodeTextureQuadsInput): RenderNodeTextureQuadsResult {
     const edgeBufferData = this.resolveEdgeBufferData(edges);
@@ -143,8 +167,15 @@ export class GpuNodeQuadRenderer {
       canvasWidth: canvasSize.cssWidth,
       viewport,
     });
-    const vertexData = buildNodeQuadVertexData(quads);
-    const nodeDraw = this.prepareNodeDraw(quads, vertexData);
+    const nodeRenderData = buildNodeQuadRenderData(quads, {
+      nodeVisualEffect,
+      timestampMs,
+    });
+    const nodeDraw = this.prepareNodeDraw(
+      quads,
+      nodeRenderData.vertexData,
+      nodeVisualEffect,
+    );
     this.writeSceneBuffers({
       cameraUniform,
       edgeBufferData,
@@ -152,7 +183,7 @@ export class GpuNodeQuadRenderer {
       grid,
       gridDraw,
       nodeDraw,
-      vertexData,
+      vertexData: nodeRenderData.vertexData,
     });
 
     const commandEncoder = this.runtime.device.createCommandEncoder({
@@ -175,7 +206,13 @@ export class GpuNodeQuadRenderer {
 
     this.drawGrid(pass, cameraBindGroup, gridDraw);
     this.drawEdges(pass, cameraBindGroup, edgeDraw, edgeBufferData);
-    this.drawNodes(pass, cameraBindGroup, nodeDraw, quads);
+    this.drawNodes(
+      pass,
+      cameraBindGroup,
+      nodeDraw,
+      quads,
+      nodeRenderData.ranges,
+    );
     pass.end();
 
     this.runtime.device.queue.submit([commandEncoder.finish()]);
@@ -184,7 +221,7 @@ export class GpuNodeQuadRenderer {
       drawnEdgeIds: edgeBufferData.ranges.map((range) => range.edgeId),
       drawnNodeIds: quads.map((quad) => quad.nodeId),
       edgeVertexCount: edgeBufferData.vertexCount,
-      vertexCount: quads.length * VERTICES_PER_QUAD,
+      vertexCount: nodeRenderData.vertexCount,
     };
   }
 
@@ -422,6 +459,72 @@ export class GpuNodeQuadRenderer {
     return this.nodePipeline;
   }
 
+  private ensureClothNodePipeline(): GPURenderPipeline {
+    if (this.clothNodePipeline) {
+      return this.clothNodePipeline;
+    }
+    const device = this.runtime.device;
+    const cameraBindGroupLayout = this.ensureCameraBindGroupLayout();
+    const textureBindGroupLayout = this.ensureTextureBindGroupLayout();
+    const shaderModule = device.createShaderModule({
+      code: CLOTH_NODE_QUAD_SHADER,
+      label: "setta-gpu-cloth-node-quad-shader",
+    });
+    this.clothNodePipeline = device.createRenderPipeline({
+      fragment: {
+        entryPoint: "fs_main",
+        module: shaderModule,
+        targets: [
+          {
+            blend: {
+              alpha: {
+                dstFactor: "one-minus-src-alpha",
+                operation: "add",
+                srcFactor: "one",
+              },
+              color: {
+                dstFactor: "one-minus-src-alpha",
+                operation: "add",
+                srcFactor: "src-alpha",
+              },
+            },
+            format: this.runtime.format,
+          },
+        ],
+      },
+      label: "setta-gpu-cloth-node-quad-pipeline",
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [cameraBindGroupLayout, textureBindGroupLayout],
+        label: "setta-gpu-cloth-node-quad-pipeline-layout",
+      }),
+      primitive: {
+        topology: "triangle-list",
+      },
+      vertex: {
+        buffers: [
+          {
+            arrayStride: NODE_QUAD_VERTEX_BYTES,
+            attributes: [
+              {
+                format: "float32x2",
+                offset: 0,
+                shaderLocation: 0,
+              },
+              {
+                format: "float32x2",
+                offset: Float32Array.BYTES_PER_ELEMENT * 2,
+                shaderLocation: 1,
+              },
+            ],
+          },
+        ],
+        entryPoint: "vs_main",
+        module: shaderModule,
+      },
+    });
+    return this.clothNodePipeline;
+  }
+
   private prepareGridDraw(
     grid: GpuGridInput | undefined,
   ): GridDrawResources | null {
@@ -551,12 +654,16 @@ export class GpuNodeQuadRenderer {
   private prepareNodeDraw(
     quads: readonly GpuTexturedNodeQuad[],
     vertexData: Float32Array,
+    nodeVisualEffect: GpuNodeVisualEffect | undefined,
   ): NodeDrawResources | null {
     if (quads.length === 0) {
       return null;
     }
     return {
-      pipeline: this.ensureNodePipeline(),
+      pipeline:
+        nodeVisualEffect === "cloth"
+          ? this.ensureClothNodePipeline()
+          : this.ensureNodePipeline(),
       vertexBuffer: this.ensureNodeVertexBuffer(vertexData.byteLength),
     };
   }
@@ -673,6 +780,7 @@ export class GpuNodeQuadRenderer {
     cameraBindGroup: GPUBindGroup,
     nodeDraw: NodeDrawResources | null,
     quads: readonly GpuTexturedNodeQuad[],
+    ranges: readonly NodeDrawRange[],
   ) {
     if (!nodeDraw) {
       return;
@@ -680,9 +788,13 @@ export class GpuNodeQuadRenderer {
     pass.setPipeline(nodeDraw.pipeline);
     pass.setBindGroup(0, cameraBindGroup);
     pass.setVertexBuffer(0, nodeDraw.vertexBuffer);
-    quads.forEach((quad, index) => {
+    ranges.forEach((range, index) => {
+      const quad = quads[index];
+      if (!quad) {
+        return;
+      }
       pass.setBindGroup(1, this.getTextureBindGroup(quad));
-      pass.draw(VERTICES_PER_QUAD, 1, index * VERTICES_PER_QUAD, 0);
+      pass.draw(range.vertexCount, 1, range.vertexOffset, 0);
     });
   }
 
@@ -767,11 +879,40 @@ export function encodeNodeQuadCameraUniform({
 export function buildNodeQuadVertexData(
   quads: readonly Pick<GpuTexturedNodeQuad, "height" | "width" | "x" | "y">[],
 ): Float32Array {
+  return buildFlatNodeQuadRenderData(quads).vertexData;
+}
+
+export function buildNodeQuadRenderData(
+  quads: readonly Pick<
+    GpuTexturedNodeQuad,
+    "height" | "nodeId" | "width" | "x" | "y"
+  >[],
+  {
+    nodeVisualEffect,
+    timestampMs = 0,
+  }: {
+    readonly nodeVisualEffect?: GpuNodeVisualEffect | undefined;
+    readonly timestampMs?: number | undefined;
+  } = {},
+): NodeQuadRenderData {
+  if (nodeVisualEffect === "cloth") {
+    return buildClothNodeQuadRenderData(quads, timestampMs);
+  }
+  return buildFlatNodeQuadRenderData(quads);
+}
+
+function buildFlatNodeQuadRenderData(
+  quads: readonly (Pick<GpuTexturedNodeQuad, "height" | "width" | "x" | "y"> & {
+    readonly nodeId?: string | undefined;
+  })[],
+): NodeQuadRenderData {
   const data = new Float32Array(
     quads.length * VERTICES_PER_QUAD * FLOATS_PER_VERTEX,
   );
   let offset = 0;
+  const ranges: NodeDrawRange[] = [];
   for (const quad of quads) {
+    const vertexOffset = offset / FLOATS_PER_VERTEX;
     const left = quad.x;
     const top = quad.y;
     const right = quad.x + quad.width;
@@ -807,8 +948,96 @@ export function buildNodeQuadVertexData(
       x: right,
       y: bottom,
     });
+    ranges.push({
+      nodeId: quad.nodeId ?? "",
+      vertexCount: VERTICES_PER_QUAD,
+      vertexOffset,
+    });
   }
-  return data;
+  return {
+    ranges,
+    vertexCount: quads.length * VERTICES_PER_QUAD,
+    vertexData: data,
+  };
+}
+
+function buildClothNodeQuadRenderData(
+  quads: readonly Pick<
+    GpuTexturedNodeQuad,
+    "height" | "nodeId" | "width" | "x" | "y"
+  >[],
+  timestampMs: number,
+): NodeQuadRenderData {
+  const data = new Float32Array(
+    quads.length * CLOTH_VERTICES_PER_NODE * FLOATS_PER_VERTEX,
+  );
+  const ranges: NodeDrawRange[] = [];
+  const elapsedSeconds = timestampMs / 1000;
+  let offset = 0;
+  for (const quad of quads) {
+    const vertexOffset = offset / FLOATS_PER_VERTEX;
+    const seed = hashStringToUnitInterval(quad.nodeId);
+    for (let row = 0; row < CLOTH_SEGMENTS_Y; row += 1) {
+      const topV = row / CLOTH_SEGMENTS_Y;
+      const bottomV = (row + 1) / CLOTH_SEGMENTS_Y;
+      for (let column = 0; column < CLOTH_SEGMENTS_X; column += 1) {
+        const leftU = column / CLOTH_SEGMENTS_X;
+        const rightU = (column + 1) / CLOTH_SEGMENTS_X;
+        offset = writeClothNodeQuadVertex(data, offset, {
+          elapsedSeconds,
+          quad,
+          seed,
+          u: leftU,
+          v: topV,
+        });
+        offset = writeClothNodeQuadVertex(data, offset, {
+          elapsedSeconds,
+          quad,
+          seed,
+          u: rightU,
+          v: topV,
+        });
+        offset = writeClothNodeQuadVertex(data, offset, {
+          elapsedSeconds,
+          quad,
+          seed,
+          u: leftU,
+          v: bottomV,
+        });
+        offset = writeClothNodeQuadVertex(data, offset, {
+          elapsedSeconds,
+          quad,
+          seed,
+          u: leftU,
+          v: bottomV,
+        });
+        offset = writeClothNodeQuadVertex(data, offset, {
+          elapsedSeconds,
+          quad,
+          seed,
+          u: rightU,
+          v: topV,
+        });
+        offset = writeClothNodeQuadVertex(data, offset, {
+          elapsedSeconds,
+          quad,
+          seed,
+          u: rightU,
+          v: bottomV,
+        });
+      }
+    }
+    ranges.push({
+      nodeId: quad.nodeId,
+      vertexCount: CLOTH_VERTICES_PER_NODE,
+      vertexOffset,
+    });
+  }
+  return {
+    ranges,
+    vertexCount: quads.length * CLOTH_VERTICES_PER_NODE,
+    vertexData: data,
+  };
 }
 
 type NodeQuadVertex = {
@@ -828,6 +1057,85 @@ function writeNodeQuadVertex(
   data[offset + 2] = vertex.u;
   data[offset + 3] = vertex.v;
   return offset + FLOATS_PER_VERTEX;
+}
+
+function writeClothNodeQuadVertex(
+  data: Float32Array,
+  offset: number,
+  {
+    elapsedSeconds,
+    quad,
+    seed,
+    u,
+    v,
+  }: {
+    readonly elapsedSeconds: number;
+    readonly quad: Pick<GpuTexturedNodeQuad, "height" | "width" | "x" | "y">;
+    readonly seed: number;
+    readonly u: number;
+    readonly v: number;
+  },
+): number {
+  const point = resolveClothNodePoint({ elapsedSeconds, quad, seed, u, v });
+  data[offset] = point.x;
+  data[offset + 1] = point.y;
+  data[offset + 2] = u;
+  data[offset + 3] = v;
+  return offset + FLOATS_PER_VERTEX;
+}
+
+function resolveClothNodePoint({
+  elapsedSeconds,
+  quad,
+  seed,
+  u,
+  v,
+}: {
+  readonly elapsedSeconds: number;
+  readonly quad: Pick<GpuTexturedNodeQuad, "height" | "width" | "x" | "y">;
+  readonly seed: number;
+  readonly u: number;
+  readonly v: number;
+}) {
+  const pinnedWeight = Math.pow(v, 1.35);
+  const clothSize = Math.max(1, Math.min(quad.width, quad.height));
+  const xAmplitude = clampGpuNodeClothAmplitude(clothSize * 0.028, 3, 18);
+  const yAmplitude = clampGpuNodeClothAmplitude(clothSize * 0.018, 2, 12);
+  const phase = seed * Math.PI * 2;
+  const wideWave = Math.sin(u * Math.PI * 2.3 + elapsedSeconds * 1.15 + phase);
+  const diagonalWave =
+    Math.sin((u * 1.6 + v * 2.4) * Math.PI + elapsedSeconds * 0.75 + phase) *
+    0.45;
+  const smallFlutter =
+    Math.sin((u * 6.0 + v * 3.0) * Math.PI + elapsedSeconds * 1.65 + phase) *
+    0.18;
+  const breeze = wideWave + diagonalWave + smallFlutter;
+  const sag = Math.sin(u * Math.PI) * pinnedWeight * yAmplitude * 0.7;
+  return {
+    x: quad.x + u * quad.width + breeze * pinnedWeight * xAmplitude,
+    y:
+      quad.y +
+      v * quad.height +
+      sag +
+      breeze * pinnedWeight * yAmplitude * 0.45,
+  };
+}
+
+function clampGpuNodeClothAmplitude(
+  value: number,
+  min: number,
+  max: number,
+): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function hashStringToUnitInterval(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 0xffffffff;
 }
 
 export function encodeGpuGridUniform(grid: GpuGridInput): Float32Array {
@@ -1028,6 +1336,62 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
   return textureSample(nodeTexture, nodeSampler, input.uv);
+}
+`;
+
+const CLOTH_NODE_QUAD_SHADER = `
+struct Camera {
+  viewport: vec4<f32>,
+  canvas: vec4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> camera: Camera;
+@group(1) @binding(0) var nodeSampler: sampler;
+@group(1) @binding(1) var nodeTexture: texture_2d<f32>;
+
+struct VertexInput {
+  @location(0) flowPosition: vec2<f32>,
+  @location(1) uv: vec2<f32>,
+};
+
+struct VertexOutput {
+  @builtin(position) position: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+  let screen = camera.viewport.xy + input.flowPosition * camera.viewport.z;
+  let clip = vec2<f32>(
+    (screen.x / camera.canvas.x) * 2.0 - 1.0,
+    1.0 - (screen.y / camera.canvas.y) * 2.0
+  );
+  var output: VertexOutput;
+  output.position = vec4<f32>(clip, 0.0, 1.0);
+  output.uv = input.uv;
+  return output;
+}
+
+fn fabric_thread(uv: vec2<f32>) -> f32 {
+  let warp = sin(uv.x * 520.0) * 0.012;
+  let weft = sin(uv.y * 430.0) * 0.010;
+  let broad = sin((uv.x * 8.0 + uv.y * 4.0) * 3.14159265) * 0.026;
+  return warp + weft + broad;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+  let color = textureSample(nodeTexture, nodeSampler, input.uv);
+  if (color.a <= 0.001) {
+    return color;
+  }
+  let topLight = 0.05 * (1.0 - input.uv.y);
+  let lowerFold = 0.08 * smoothstep(0.56, 1.0, input.uv.y);
+  let sideFold =
+    0.035 * (smoothstep(0.0, 0.08, input.uv.x) + 1.0 - smoothstep(0.92, 1.0, input.uv.x));
+  let shade = clamp(0.98 + fabric_thread(input.uv) + topLight - lowerFold - sideFold, 0.72, 1.12);
+  let warmThread = vec3<f32>(0.018, 0.014, 0.010) * color.a;
+  return vec4<f32>(color.rgb * shade + warmThread, color.a);
 }
 `;
 

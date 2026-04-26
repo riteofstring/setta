@@ -8,7 +8,7 @@ import {
 import type { NodeDragItem } from "gpuFlow/flowTypes";
 import { GpuFlow } from "gpuFlow/GpuFlow";
 import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
-import type { GpuGridInput } from "gpuFlow/gpuPipelines";
+import type { GpuGridInput, GpuNodeVisualEffect } from "gpuFlow/gpuPipelines";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import {
   clearNodesSelectionBounds,
@@ -76,6 +76,7 @@ import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,
 } from "./gpuProjectEdgeScene";
+import { resolveProjectCanvasNodeEffectFromBrowser } from "./projectCanvasNodeEffect";
 
 type ProjectSurfaceDimensions = {
   readonly height: number;
@@ -132,6 +133,8 @@ const PROJECT_GPU_NODE_UPLOAD_BUDGET = {
   maxUploads: 2,
 } as const;
 
+const PROJECT_CANVAS_CLOTH_FILTER_ID = "setta-project-cloth-wind-filter";
+
 const SELECTION_ARROW_KEY_DIFFS: Record<string, { x: number; y: number }> = {
   ArrowDown: { x: 0, y: 1 },
   ArrowLeft: { x: -1, y: 0 },
@@ -144,6 +147,7 @@ export function GpuProjectSurface() {
   const nodeElementChange = useProjectNodeResizeObserver();
   const dimensions = useProjectSurfaceDimensions(rootRef);
   const nodeLayouts = useProjectGpuNodeLayouts();
+  const nodeVisualEffect = useProjectCanvasNodeEffect();
   const settings = useProjectGpuSurfaceSettings();
   const showAgenticEdges = useLocalStorage((state) => state.showAgenticEdges);
   const showDataEdges = useLocalStorage((state) => state.showArgEdges);
@@ -186,6 +190,7 @@ export function GpuProjectSurface() {
       className="react-flow setta-light dark:setta-dark"
       {...getProjectSurfaceDataAttributes({
         isConnecting,
+        nodeVisualEffect,
         showAgenticEdges,
         showDataEdges,
       })}
@@ -214,11 +219,13 @@ export function GpuProjectSurface() {
         isFollowTransitioning={isFollowTransitioning}
         nodeElementChange={nodeElementChange}
         nodeLayouts={nodeLayouts}
+        nodeVisualEffect={nodeVisualEffect}
         readyToBeVisible={readyToBeVisible}
         readyToRender={readyToRender}
         settings={settings}
       />
       <GpuProjectNodesSelectionOverlay snapToGrid={snapToGrid} />
+      <ProjectCanvasClothFilter enabled={nodeVisualEffect === "cloth"} />
     </div>
   );
 }
@@ -231,6 +238,7 @@ function ProjectGpuFlowLayer({
   isFollowTransitioning,
   nodeElementChange,
   nodeLayouts,
+  nodeVisualEffect,
   readyToBeVisible,
   readyToRender,
   settings,
@@ -245,6 +253,7 @@ function ProjectGpuFlowLayer({
     element: HTMLElement | null,
   ) => void;
   readonly nodeLayouts: readonly GpuNodeLayout[];
+  readonly nodeVisualEffect: GpuNodeVisualEffect | undefined;
   readonly readyToBeVisible: boolean;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
@@ -268,6 +277,7 @@ function ProjectGpuFlowLayer({
         settings,
       })}
       nodeVisibility={readyToBeVisible ? "visible" : "hidden"}
+      nodeVisualEffect={nodeVisualEffect}
       nodes={nodeLayouts}
       onNodeElementChange={nodeElementChange}
       onResize={handleProjectFlowResize}
@@ -313,6 +323,72 @@ function renderProjectGpuNode(node: GpuNodeLayout) {
   return <SectionContainer sectionId={node.nodeId} isTopLevel={true} />;
 }
 
+function ProjectCanvasClothFilter({ enabled }: { readonly enabled: boolean }) {
+  if (!enabled) {
+    return null;
+  }
+  return (
+    <svg
+      aria-hidden="true"
+      className="setta-project-cloth-filter"
+      focusable="false"
+      height="0"
+      width="0"
+    >
+      <filter
+        id={PROJECT_CANVAS_CLOTH_FILTER_ID}
+        x="-8%"
+        y="-8%"
+        width="116%"
+        height="116%"
+        colorInterpolationFilters="sRGB"
+      >
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.012 0.055"
+          numOctaves="2"
+          seed="11"
+          result="clothNoise"
+        >
+          <animate
+            attributeName="baseFrequency"
+            dur="5.6s"
+            repeatCount="indefinite"
+            values="0.012 0.055;0.018 0.045;0.014 0.060;0.012 0.055"
+          />
+        </feTurbulence>
+        <feDisplacementMap
+          in="SourceGraphic"
+          in2="clothNoise"
+          scale="5"
+          xChannelSelector="R"
+          yChannelSelector="G"
+        />
+      </filter>
+    </svg>
+  );
+}
+
+function useProjectCanvasNodeEffect(): GpuNodeVisualEffect | undefined {
+  const [effect, setEffect] = useState<GpuNodeVisualEffect | undefined>(() =>
+    resolveProjectCanvasNodeEffectFromBrowser(),
+  );
+
+  useEffect(() => {
+    const updateEffect = () => {
+      setEffect(resolveProjectCanvasNodeEffectFromBrowser());
+    };
+    window.addEventListener("storage", updateEffect);
+    window.addEventListener("popstate", updateEffect);
+    return () => {
+      window.removeEventListener("storage", updateEffect);
+      window.removeEventListener("popstate", updateEffect);
+    };
+  }, []);
+
+  return effect;
+}
+
 function getProjectGpuGridInput({
   darkMode,
   settings,
@@ -343,14 +419,17 @@ function handleProjectFlowResize(
 
 function getProjectSurfaceDataAttributes({
   isConnecting,
+  nodeVisualEffect,
   showAgenticEdges,
   showDataEdges,
 }: {
   readonly isConnecting: boolean;
+  readonly nodeVisualEffect: GpuNodeVisualEffect | undefined;
   readonly showAgenticEdges: boolean;
   readonly showDataEdges: boolean;
 }) {
   return {
+    "data-canvas-node-effect": nodeVisualEffect ?? "none",
     "data-connecting": booleanDataAttribute(isConnecting),
     "data-show-agentic-edges": booleanDataAttribute(showAgenticEdges),
     "data-show-arg-edges": booleanDataAttribute(showDataEdges),

@@ -11,6 +11,7 @@ import type { NodeTexturePriority } from "./dirtyTracking";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type {
   GpuGridInput,
+  GpuNodeVisualEffect,
   RenderNodeTextureQuadsInput,
   RenderNodeTextureQuadsResult,
 } from "./gpuPipelines";
@@ -127,6 +128,7 @@ type RenderGpuNodeLayerFrameInput = {
   readonly frame: number;
   readonly grid?: GpuGridInput | undefined;
   readonly marginCssPx?: number | undefined;
+  readonly nodeVisualEffect?: GpuNodeVisualEffect | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly renderer: GpuNodeQuadRenderTarget;
   readonly suppressNodeIds?:
@@ -134,6 +136,7 @@ type RenderGpuNodeLayerFrameInput = {
     | readonly string[]
     | undefined;
   readonly textureManager: GpuNodeTextureController;
+  readonly timestampMs?: number | undefined;
   readonly uploadBudget?: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
 };
@@ -312,10 +315,12 @@ export function renderGpuNodeLayerFrame({
   frame,
   grid,
   marginCssPx,
+  nodeVisualEffect,
   nodes,
   renderer,
   suppressNodeIds,
   textureManager,
+  timestampMs,
   uploadBudget,
   viewport,
 }: RenderGpuNodeLayerFrameInput): RenderGpuNodeLayerFrameResult {
@@ -370,7 +375,11 @@ export function renderGpuNodeLayerFrame({
     clearColor,
     ...(edges === undefined ? {} : { edges }),
     ...(grid === undefined ? {} : { grid }),
+    ...(nodeVisualEffect === undefined ? {} : { nodeVisualEffect }),
     quads: renderableTexturedQuads,
+    ...(nodeVisualEffect === undefined || timestampMs === undefined
+      ? {}
+      : { timestampMs }),
     viewport,
   });
 

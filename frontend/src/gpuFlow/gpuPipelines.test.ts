@@ -7,6 +7,7 @@ import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
 import type { NodeQuadRenderRuntime } from "./gpuPipelines";
 import {
+  buildNodeQuadRenderData,
   buildNodeQuadVertexData,
   encodeGpuGridUniform,
   encodeNodeQuadCameraUniform,
@@ -41,6 +42,33 @@ describe("gpu node quad pipeline", () => {
       10, 15, 0, 0, 40, 15, 1, 0, 10, 35, 0, 1, 10, 35, 0, 1, 40, 15, 1, 0, 40,
       35, 1, 1,
     ]);
+  });
+
+  it("builds a subdivided cloth mesh with the top edge pinned", () => {
+    const result = buildNodeQuadRenderData(
+      [{ height: 20, nodeId: "node-a", width: 30, x: 10, y: 15 }],
+      { nodeVisualEffect: "cloth", timestampMs: 1200 },
+    );
+
+    expect(result.vertexCount).toBeGreaterThan(6);
+    expect(result.ranges).toEqual([
+      {
+        nodeId: "node-a",
+        vertexCount: result.vertexCount,
+        vertexOffset: 0,
+      },
+    ]);
+    expect(result.vertexData.length).toBe(result.vertexCount * 4);
+    expect(Array.from(result.vertexData.slice(0, 4))).toEqual([10, 15, 0, 0]);
+
+    const yValues: number[] = [];
+    for (let offset = 1; offset < result.vertexData.length; offset += 4) {
+      const y = result.vertexData[offset];
+      if (y !== undefined) {
+        yValues.push(y);
+      }
+    }
+    expect(yValues.some((y) => y !== 15 && y !== 35)).toBe(true);
   });
 
   it("encodes procedural grid settings from generated background variants", () => {
@@ -121,6 +149,25 @@ describe("gpu node quad pipeline", () => {
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 6, 0);
     expect(gpu.pass.end).toHaveBeenCalledTimes(1);
     expect(gpu.device.queue.submit).toHaveBeenCalledWith([gpu.commandBuffer]);
+  });
+
+  it("draws cloth node textures with variable mesh ranges", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const quads = [texturedQuad("node-a", 0, 0, 100, 50)];
+
+    const result = renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      nodeVisualEffect: "cloth",
+      quads,
+      timestampMs: 1600,
+      viewport: [0, 0, 1],
+    });
+
+    expect(result.vertexCount).toBeGreaterThan(6);
+    expect(gpu.pass.draw).toHaveBeenCalledWith(result.vertexCount, 1, 0, 0);
+    expect(gpu.device.createRenderPipeline).toHaveBeenCalledTimes(1);
   });
 
   it("draws the procedural grid before GPU edges and node textures", () => {
