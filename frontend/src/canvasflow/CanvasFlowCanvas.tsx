@@ -1,12 +1,16 @@
 import type { CanvasHTMLAttributes, MutableRefObject, RefObject } from "react";
 import CanvasFlowNodeLayer from "./CanvasFlowNodeLayer";
-import type { CanvasFlowNodeElementMap } from "./canvasFlowTypes";
+import type {
+  CanvasFlowNodeElementMap,
+  CanvasFlowViewport,
+} from "./canvasFlowTypes";
 
 type CanvasFlowCanvasProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
   schedulePaint: () => void;
+  viewportRef: MutableRefObject<CanvasFlowViewport>;
 } & CanvasHTMLAttributes<HTMLCanvasElement>;
 
 export function CanvasFlowCanvas({
@@ -14,6 +18,7 @@ export function CanvasFlowCanvas({
   nodeElementsRef,
   resizeObserver,
   schedulePaint,
+  viewportRef,
   ...canvasProps
 }: CanvasFlowCanvasProps) {
   return (
@@ -24,9 +29,11 @@ export function CanvasFlowCanvas({
       ref={canvasRef}
     >
       <CanvasFlowNodeLayer
+        canvasRef={canvasRef}
         nodeElementsRef={nodeElementsRef}
         resizeObserver={resizeObserver}
         schedulePaint={schedulePaint}
+        viewportRef={viewportRef}
       />
     </canvas>
   );

@@ -1,6 +1,5 @@
 import cc from "classcat";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
-import useDrag from "forks/xyflow/core/hooks/useDrag";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
@@ -17,25 +16,35 @@ import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { shallow } from "zustand/shallow";
-import type { CanvasFlowNodeElementMap } from "./canvasFlowTypes";
+import type {
+  CanvasFlowNodeElementMap,
+  CanvasFlowViewport,
+} from "./canvasFlowTypes";
+import { useCanvasFlowNodeDrag } from "./useCanvasFlowNodeDrag";
 
 type CanvasFlowNodeLayerProps = {
+  canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
   schedulePaint: () => void;
+  viewportRef: MutableRefObject<CanvasFlowViewport>;
 };
 
 type CanvasFlowNodeWrapperProps = {
+  canvasRef: RefObject<HTMLCanvasElement | null>;
   id: string;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
   schedulePaint: () => void;
+  viewportRef: MutableRefObject<CanvasFlowViewport>;
 };
 
 function CanvasFlowNodeLayer({
+  canvasRef,
   nodeElementsRef,
   resizeObserver,
   schedulePaint,
+  viewportRef,
 }: CanvasFlowNodeLayerProps) {
   const nodeIds = useNodeInternals(
     (state) => Array.from(state.x.keys()),
@@ -50,11 +59,13 @@ function CanvasFlowNodeLayer({
     <>
       {nodeIds.map((nodeId) => (
         <CanvasFlowNodeWrapper
+          canvasRef={canvasRef}
           key={nodeId}
           id={nodeId}
           nodeElementsRef={nodeElementsRef}
           resizeObserver={resizeObserver}
           schedulePaint={schedulePaint}
+          viewportRef={viewportRef}
         />
       ))}
     </>
@@ -62,10 +73,12 @@ function CanvasFlowNodeLayer({
 }
 
 function _CanvasFlowNodeWrapper({
+  canvasRef,
   id,
   nodeElementsRef,
   resizeObserver,
   schedulePaint,
+  viewportRef,
 }: CanvasFlowNodeWrapperProps) {
   const node = useNodeInternals((state) => state.x.get(id), _.isEqual);
   const panActivationKeyPressed = useReactFlow((state) =>
@@ -80,6 +93,14 @@ function _CanvasFlowNodeWrapper({
   const nodeRef = useRef<HTMLDivElement>(null);
   const observedElementRef = useRef<HTMLDivElement | null>(null);
   const isDraggable = !panActivationKeyPressed && !positionAndSizeLocked;
+  const dragHandlers = useCanvasFlowNodeDrag({
+    canvasRef,
+    disabled: !isDraggable,
+    nodeId: id,
+    nodeRef,
+    schedulePaint,
+    viewportRef,
+  });
 
   const setNodeRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -121,18 +142,13 @@ function _CanvasFlowNodeWrapper({
     schedulePaint,
   ]);
 
-  useDrag({
-    nodeRef: nodeRef as RefObject<Element>,
-    disabled: !isDraggable,
-    nodeId: id,
-  });
-
   if (!node) {
     return null;
   }
 
   return (
     <div
+      {...dragHandlers}
       className={cc([
         "react-flow__node",
         "canvas-flow__node",

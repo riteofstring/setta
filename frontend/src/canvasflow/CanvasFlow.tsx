@@ -1,7 +1,3 @@
-import {
-  NodesSelectionDragHandleWrapper,
-  NodesSelectionWrapper,
-} from "forks/xyflow/core/components/NodesSelection";
 import UserSelection from "forks/xyflow/core/components/UserSelection";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
@@ -44,6 +40,10 @@ import { shallow } from "zustand/shallow";
 import "./CanvasFlow.css";
 import { CanvasFlowCanvas } from "./CanvasFlowCanvas";
 import { useCanvasFlowInteractions } from "./CanvasFlowInteractions";
+import {
+  CanvasFlowNodesSelectionDragHandleWrapper,
+  CanvasFlowNodesSelectionWrapper,
+} from "./CanvasFlowSelection";
 import {
   buildAgenticEdges,
   buildAgenticMissingEdges,
@@ -150,14 +150,7 @@ function CanvasFlow() {
   const nodeMap = useNodeInternals((state) => state.x);
   const edgePositions = useEdgeHandleRegistry((state) => state.positions);
   const projectEdgeState = useCanvasFlowProjectEdgeState();
-  const agenticEdgeState = useCanvasFlowAgenticEdgeState(
-    projectEdgeState.agenticEdges,
-    projectEdgeState.projectConfigId,
-    projectEdgeState.sectionVariantMap,
-    projectEdgeState.sectionVariants,
-    projectEdgeState.sectionImpls,
-    projectEdgeState.topLevelSections,
-  );
+  const agenticEdgeState = useCanvasFlowAgenticEdgeState(projectEdgeState);
   const edges = useMemo(
     () => [
       ...buildDataEdges({
@@ -198,14 +191,7 @@ function CanvasFlow() {
   nodesRef.current = nodes;
   edgesRef.current = edges;
 
-  useCanvasFlowAgenticScopeHighlights(
-    projectEdgeState.projectConfigId,
-    projectEdgeState.agenticEdges,
-    projectEdgeState.sectionVariantMap,
-    projectEdgeState.sectionVariants,
-    projectEdgeState.sectionImpls,
-    projectEdgeState.topLevelSections,
-  );
+  useCanvasFlowAgenticScopeHighlights(projectEdgeState);
 
   useTabScope({
     scopeId: "canvas",
@@ -379,9 +365,14 @@ function CanvasFlow() {
         nodeElementsRef={nodeElementsRef}
         resizeObserver={resizeObserver}
         schedulePaint={schedulePaint}
+        viewportRef={viewportRef}
       />
-      <NodesSelectionDragHandleWrapper />
-      <NodesSelectionWrapper />
+      <CanvasFlowNodesSelectionDragHandleWrapper />
+      <CanvasFlowNodesSelectionWrapper
+        canvasRef={canvasRef}
+        schedulePaint={schedulePaint}
+        viewportRef={viewportRef}
+      />
       <UserSelection />
       <div
         className="setta-codemirror-tooltips"
@@ -441,24 +432,14 @@ function useCanvasFlowProjectEdgeState() {
   }, _.isEqual);
 }
 
-function useCanvasFlowAgenticEdgeState(
-  agenticEdges: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["agenticEdges"],
-  projectConfigId: string,
-  sectionVariantMap: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["sectionVariantMap"],
-  sectionVariants: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["sectionVariants"],
-  sectionImpls: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["sectionImpls"],
-  topLevelSections: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["topLevelSections"],
-) {
+function useCanvasFlowAgenticEdgeState({
+  agenticEdges,
+  projectConfigId,
+  sectionImpls,
+  sectionVariantMap,
+  sectionVariants,
+  topLevelSections,
+}: ReturnType<typeof useCanvasFlowProjectEdgeState>) {
   const {
     mode,
     scopeViolationEdgesByProjectConfigId,
@@ -566,24 +547,14 @@ function useCanvasFlowAgenticEdgeState(
   };
 }
 
-function useCanvasFlowAgenticScopeHighlights(
-  projectConfigId: string,
-  agenticEdges: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["agenticEdges"],
-  sectionVariantMap: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["sectionVariantMap"],
-  sectionVariants: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["sectionVariants"],
-  sectionImpls: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["sectionImpls"],
-  topLevelSections: ReturnType<
-    typeof useCanvasFlowProjectEdgeState
-  >["topLevelSections"],
-) {
+function useCanvasFlowAgenticScopeHighlights({
+  agenticEdges,
+  projectConfigId,
+  sectionImpls,
+  sectionVariantMap,
+  sectionVariants,
+  topLevelSections,
+}: ReturnType<typeof useCanvasFlowProjectEdgeState>) {
   const activeIds = useActiveSectionUI((state) => state.activeIds, _.isEqual);
   useUpdateAgenticScopeHighlights({
     activeIds,
