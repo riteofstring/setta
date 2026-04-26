@@ -9,6 +9,8 @@ import {
 } from "../helpers";
 
 const CANVAS_SELECTOR = ".canvas-flow__canvas";
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const DEFAULT_COUNTS = [100, 500, 1000, 2500, 3000];
 const DEFAULT_STEPS = 36;
 const NODE_WIDTH = 260;
@@ -16,7 +18,7 @@ const NODE_HEIGHT = 120;
 const NODE_GAP_X = 340;
 const NODE_GAP_Y = 190;
 const CREATE_CHUNK_SIZE = 100;
-const START_VIEWPORT = { x: 80, y: 80, zoom: 1 };
+const DEFAULT_START_VIEWPORT = { x: 80, y: 80, zoom: 1 };
 const ISOLATION_VARIANTS = [
   "default",
   "no-edges",
@@ -25,6 +27,7 @@ const ISOLATION_VARIANTS = [
   "minimap-off",
   "resize-observer-off",
 ] as const;
+const PERF_TARGETS = ["seeded-textblocks", "settings-all"] as const;
 const TRACE_CATEGORIES = [
   "devtools.timeline",
   "disabled-by-default-devtools.timeline",
@@ -93,7 +96,9 @@ type SeededPerfProject = {
   projectConfigId: string;
   projectName: string;
 };
+type CanvasFlowStartViewport = typeof DEFAULT_START_VIEWPORT;
 type CanvasFlowPerfVariant = (typeof ISOLATION_VARIANTS)[number];
+type CanvasFlowPerfTarget = (typeof PERF_TARGETS)[number];
 
 test.skip(
   process.env.SETTA_CANVASFLOW_PERF !== "1",
@@ -120,7 +125,47 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
     DEFAULT_STEPS,
   );
   const variants = parseVariants(process.env.SETTA_CANVASFLOW_PERF_VARIANTS);
+  const startViewport = parseStartViewport({
+    x: process.env.SETTA_CANVASFLOW_PERF_START_X,
+    y: process.env.SETTA_CANVASFLOW_PERF_START_Y,
+    zoom: process.env.SETTA_CANVASFLOW_PERF_START_ZOOM,
+  });
+  const target = parsePerfTarget(process.env.SETTA_CANVASFLOW_PERF_TARGET);
   const results: MatrixResult[] = [];
+
+  if (target === "settings-all") {
+    const count = await gotoSettingsAllView(page);
+    const settingsStartViewport = shouldCenterStartViewportOnCurrentView()
+      ? await resolveCenteredStartViewport(page, startViewport.zoom)
+      : startViewport;
+    for (const variant of variants) {
+      results.push(
+        await measureCurrentCanvasFlowProject(
+          page,
+          cdp,
+          count,
+          steps,
+          settingsStartViewport,
+          variant,
+        ),
+      );
+    }
+
+    await writeMatrixReport(results, {
+      counts: [count],
+      datasetDescription:
+        "- Dataset: Settings project, All Settings view loaded through the normal settings-project materialization path, using real rich settings `SectionContainer` node bodies and current canvas culling.",
+      startViewport: settingsStartViewport,
+      steps,
+      target,
+      usedSeededProjects: false,
+      variants,
+    });
+
+    assertMatrixResults(results, steps);
+    return;
+  }
+
   const seededProjects = await findSeededCanvasFlowPerfProjects(page, counts);
 
   if (seededProjects.size === counts.length) {
@@ -139,6 +184,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
             cdp,
             count,
             steps,
+            startViewport,
             variant,
           ),
         );
@@ -170,6 +216,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
               cdp,
               count,
               steps,
+              startViewport,
               variant,
             ),
           );
@@ -182,11 +229,21 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
 
   await writeMatrixReport(results, {
     counts,
+    datasetDescription:
+      seededProjects.size === counts.length
+        ? "- Dataset: Go-seeded TextBlock perf projects loaded by the normal backend project-state path, using real `SectionContainer` wrappers, simple TextBlock node bodies, the active CanvasFlow renderer, and current canvas culling."
+        : "- Dataset: backend-created TextBlock sections hydrated through the normal frontend project update path, using real `SectionContainer` wrappers, simple TextBlock node bodies, the active CanvasFlow renderer, and current canvas culling.",
+    startViewport,
     steps,
+    target,
     usedSeededProjects: seededProjects.size === counts.length,
     variants,
   });
 
+  assertMatrixResults(results, steps);
+});
+
+function assertMatrixResults(results: MatrixResult[], steps: number) {
   for (const result of results) {
     expect(result.initialStats.registeredNodes).toBe(result.count);
     expect(result.pan.frames).toBe(steps);
@@ -194,23 +251,24 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
     expect(result.pan.afterStats.drawnNodes).toBeGreaterThan(0);
     expect(result.zoom.afterStats.drawnNodes).toBeGreaterThan(0);
   }
-});
+}
 
 async function measureCurrentCanvasFlowProject(
   page: Page,
   cdp: CDPSession,
   count: number,
   steps: number,
+  startViewport: CanvasFlowStartViewport,
   variant: CanvasFlowPerfVariant,
 ): Promise<MatrixResult> {
   await waitForCanvasGraph(page, count);
   await setCanvasFlowPerfVariant(page, variant);
 
-  await setCanvasViewport(page, START_VIEWPORT);
+  await setCanvasViewport(page, startViewport);
   const initialStats = await readCanvasStats(page);
 
   const pan = await measureGesture(page, cdp, "pan", steps);
-  await setCanvasViewport(page, START_VIEWPORT);
+  await setCanvasViewport(page, startViewport);
   const zoom = await measureGesture(page, cdp, "zoom", steps);
 
   return { count, initialStats, pan, variant, zoom };
@@ -239,6 +297,80 @@ function parsePositiveInteger(value: string | undefined, fallback: number) {
     throw new Error(`Expected a positive integer, got ${value}`);
   }
   return parsed;
+}
+
+function parseStartViewport({
+  x,
+  y,
+  zoom,
+}: {
+  x: string | undefined;
+  y: string | undefined;
+  zoom: string | undefined;
+}): CanvasFlowStartViewport {
+  return {
+    x: parseFiniteNumber(
+      x,
+      DEFAULT_START_VIEWPORT.x,
+      "SETTA_CANVASFLOW_PERF_START_X",
+    ),
+    y: parseFiniteNumber(
+      y,
+      DEFAULT_START_VIEWPORT.y,
+      "SETTA_CANVASFLOW_PERF_START_Y",
+    ),
+    zoom: parsePositiveNumber(
+      zoom,
+      DEFAULT_START_VIEWPORT.zoom,
+      "SETTA_CANVASFLOW_PERF_START_ZOOM",
+    ),
+  };
+}
+
+function parseFiniteNumber(
+  value: string | undefined,
+  fallback: number,
+  label: string,
+) {
+  if (!value?.trim()) {
+    return fallback;
+  }
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Expected ${label} to be a finite number, got ${value}`);
+  }
+  return parsed;
+}
+
+function parsePositiveNumber(
+  value: string | undefined,
+  fallback: number,
+  label: string,
+) {
+  const parsed = parseFiniteNumber(value, fallback, label);
+  if (parsed <= 0) {
+    throw new Error(`Expected ${label} to be positive, got ${value}`);
+  }
+  return parsed;
+}
+
+function parsePerfTarget(value: string | undefined): CanvasFlowPerfTarget {
+  if (!value?.trim()) {
+    return "seeded-textblocks";
+  }
+  const target = value.trim();
+  if (PERF_TARGETS.includes(target as CanvasFlowPerfTarget)) {
+    return target as CanvasFlowPerfTarget;
+  }
+  throw new Error(`Invalid SETTA_CANVASFLOW_PERF_TARGET: ${value}`);
+}
+
+function shouldCenterStartViewportOnCurrentView() {
+  return Boolean(
+    process.env.SETTA_CANVASFLOW_PERF_START_ZOOM?.trim() &&
+      !process.env.SETTA_CANVASFLOW_PERF_START_X?.trim() &&
+      !process.env.SETTA_CANVASFLOW_PERF_START_Y?.trim(),
+  );
 }
 
 function parseVariants(value: string | undefined): CanvasFlowPerfVariant[] {
@@ -320,6 +452,72 @@ async function gotoSeededCanvasFlowPerfProject(
       timeout: 180000,
     })
     .toBe(project.projectConfigId);
+}
+
+async function gotoSettingsAllView(page: Page): Promise<number> {
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(CANVAS_SELECTOR)).toBeVisible({ timeout: 180000 });
+  await forceCanvasFlowZoomOnWheel(page);
+  await assertCanvasFlowSupport(page);
+
+  const allSettingsTab = page.getByRole("button", {
+    exact: true,
+    name: "All Settings",
+  });
+  await expect(allSettingsTab).toBeVisible({ timeout: 180000 });
+  await allSettingsTab.click();
+
+  await expect
+    .poll(
+      async () => {
+        return await page.evaluate((selector) => {
+          const canvas = document.querySelector<HTMLCanvasElement>(selector);
+          (
+            canvas as (HTMLCanvasElement & { requestPaint?: () => void }) | null
+          )?.requestPaint?.();
+          const registeredNodes = Number.parseInt(
+            canvas?.dataset.registeredNodes ?? "0",
+            10,
+          );
+          return Number.isFinite(registeredNodes) ? registeredNodes : 0;
+        }, CANVAS_SELECTOR);
+      },
+      { timeout: 180000 },
+    )
+    .toBeGreaterThan(13);
+
+  await flushCanvasPaint(page);
+  return (await readCanvasStats(page)).registeredNodes;
+}
+
+async function resolveCenteredStartViewport(
+  page: Page,
+  zoom: number,
+): Promise<CanvasFlowStartViewport> {
+  return await page.evaluate(
+    async ({ selector, targetZoom }) => {
+      const { useReactFlow } = await import(
+        "/src/forks/xyflow/core/store/index.ts"
+      );
+      const canvas = document.querySelector<HTMLCanvasElement>(selector);
+      if (!canvas) {
+        throw new Error("Missing CanvasFlow canvas.");
+      }
+      const rect = canvas.getBoundingClientRect();
+      const [currentX, currentY, currentZoom] =
+        useReactFlow.getState().transform;
+      const safeCurrentZoom =
+        Number.isFinite(currentZoom) && currentZoom > 0 ? currentZoom : 1;
+      const centerWorldX = (rect.width / 2 - currentX) / safeCurrentZoom;
+      const centerWorldY = (rect.height / 2 - currentY) / safeCurrentZoom;
+      return {
+        x: rect.width / 2 - centerWorldX * targetZoom,
+        y: rect.height / 2 - centerWorldY * targetZoom,
+        zoom: targetZoom,
+      };
+    },
+    { selector: CANVAS_SELECTOR, targetZoom: zoom },
+  );
 }
 
 async function forceCanvasFlowZoomOnWheel(page: Page) {
@@ -898,7 +1096,10 @@ async function writeMatrixReport(
   results: MatrixResult[],
   options: {
     counts: number[];
+    datasetDescription: string;
+    startViewport: CanvasFlowStartViewport;
     steps: number;
+    target: CanvasFlowPerfTarget;
     usedSeededProjects: boolean;
     variants: CanvasFlowPerfVariant[];
   },
@@ -926,7 +1127,10 @@ async function writeMatrixReport(
     renderMatrixReport(results, {
       artifactPath: path.relative(repoRoot, artifactPath),
       counts: options.counts,
+      datasetDescription: options.datasetDescription,
+      startViewport: options.startViewport,
       steps: options.steps,
+      target: options.target,
       usedSeededProjects: options.usedSeededProjects,
       variants: options.variants,
     }),
@@ -939,7 +1143,10 @@ function renderMatrixReport(
   options: {
     artifactPath: string;
     counts: number[];
+    datasetDescription: string;
+    startViewport: CanvasFlowStartViewport;
     steps: number;
+    target: CanvasFlowPerfTarget;
     usedSeededProjects: boolean;
     variants: CanvasFlowPerfVariant[];
   },
@@ -961,12 +1168,12 @@ function renderMatrixReport(
     "- Runner: opt-in Playwright E2E harness `frontend/tests/e2e/canvasflow/html-in-canvas-pan-zoom-perf.spec.ts`.",
     "- Command: `SETTA_CANVASFLOW_PERF=1 ./scripts/run-playwright-e2e.sh tests/e2e/canvasflow/html-in-canvas-pan-zoom-perf.spec.ts`.",
     "- Browser: Chrome launched by Playwright with `--enable-blink-features=CanvasDrawElement`.",
-    `- Matrix counts: ${options.counts.map(formatInteger).join(", ")} top-level TextBlock sections.`,
+    `- Target: ${options.target}.`,
+    `- Matrix counts: ${options.counts.map(formatInteger).join(", ")} ${options.target === "settings-all" ? "registered CanvasFlow nodes" : "top-level TextBlock sections"}.`,
     `- Isolation variants: ${options.variants.join(", ")}.`,
+    `- Start viewport: x=${formatNumber(options.startViewport.x)}, y=${formatNumber(options.startViewport.y)}, zoom=${formatNumber(options.startViewport.zoom)}.`,
     `- Gesture sample: ${options.steps} event-to-paint steps for pan and ${options.steps} event-to-paint steps for wheel zoom per graph size.`,
-    options.usedSeededProjects
-      ? "- Dataset: Go-seeded TextBlock perf projects loaded by the normal backend project-state path, using real `SectionContainer` node bodies, the active CanvasFlow renderer, and current canvas culling."
-      : "- Dataset: backend-created TextBlock sections hydrated through the normal frontend project update path, using real `SectionContainer` node bodies, the active CanvasFlow renderer, and current canvas culling.",
+    options.datasetDescription,
     "- Scripting, style, layout, task, and heap numbers come from Chrome `Performance.getMetrics` deltas around each gesture.",
     "- Paint and composite numbers are summed from a short CDP trace around each gesture. These trace buckets are diagnostic event sums, not mutually exclusive frame budget totals.",
     "- Raw JSON artifact, ignored by git: `" + options.artifactPath + "`.",
@@ -1003,9 +1210,11 @@ function renderMatrixReport(
     "",
     "- Model A remains the active path: real section node bodies draw through `drawElementImage()` and pan/zoom updates stay canvas/ref-owned.",
     "- The matrix exercises culling and canvas pan/zoom at the graph sizes listed above.",
-    options.usedSeededProjects
-      ? "- Large graph setup now uses the Go-owned Playwright workspace seed path, so the matrix measures canvas interaction instead of thousands of section-creation route calls."
-      : "- If route-based production seeding times out before 1,000/2,500/largest-local graphs, use a pre-seeded project fixture or Go-owned bulk fixture writer so the large matrix measures canvas interaction rather than section-creation route calls.",
+    options.target === "settings-all"
+      ? "- This run uses the real Settings project All Settings view rather than synthetic TextBlock sections."
+      : options.usedSeededProjects
+        ? "- Large graph setup now uses the Go-owned Playwright workspace seed path, so the matrix measures canvas interaction instead of thousands of section-creation route calls."
+        : "- If route-based production seeding times out before 1,000/2,500/largest-local graphs, use a pre-seeded project fixture or Go-owned bulk fixture writer so the large matrix measures canvas interaction rather than section-creation route calls.",
     "- The remaining risk is not old renderer parity. It is whether future rich-node mixes need bitmap caching or an active-node overlay if `drawElementImage()` or DOM transform sync dominates on heavier visible sets.",
     "",
     "## Verification",
