@@ -38,6 +38,7 @@ export type GpuNodeDragControllerOptions = {
   readonly autoPanMarginPx?: number | undefined;
   readonly autoPanMaxSpeedPx?: number | undefined;
   readonly autoPanOnNodeDrag?: boolean | undefined;
+  readonly canDragNode?: ((nodeId: string) => boolean) | undefined;
   readonly disabled?: boolean | (() => boolean) | undefined;
   readonly element: HTMLElement;
   readonly getNodes: () => readonly GpuNodeLayout[];
@@ -340,6 +341,10 @@ class GpuNodeDragController {
     }
     const nodeElement = getEventNodeElement(event);
     if (!nodeElement) {
+      return false;
+    }
+    const nodeId = nodeElement.dataset.id;
+    if (nodeId && this.options.canDragNode?.(nodeId) === false) {
       return false;
     }
     return !isEventTargetWrappedWithClass(

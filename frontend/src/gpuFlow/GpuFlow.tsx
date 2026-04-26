@@ -85,6 +85,9 @@ type GpuFlowProps = Pick<
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   marginCssPx?: number | undefined;
   nodeClassName?: string | undefined;
+  onNodeElementChange?:
+    | ((nodeId: string, element: HTMLElement | null) => void)
+    | undefined;
   nodeVisibility?: GpuNodeLayerProps["nodeVisibility"];
   nodes?: readonly GpuNodeLayout[] | undefined;
   nodeDrag?:
@@ -115,7 +118,12 @@ type GpuFlowProps = Pick<
 
 type GpuFlowCallbacks = Pick<
   GpuFlowProps,
-  "onFrame" | "onNodeLayerFrame" | "onPaint" | "onReady" | "onResize"
+  | "onFrame"
+  | "onNodeElementChange"
+  | "onNodeLayerFrame"
+  | "onPaint"
+  | "onReady"
+  | "onResize"
 >;
 
 type GpuFlowNodeLayerState = {
@@ -147,6 +155,7 @@ export function GpuFlow({
   nodeVisibility,
   nodes,
   onFrame,
+  onNodeElementChange,
   onNodeLayerFrame,
   onPaint,
   onReady,
@@ -182,6 +191,7 @@ export function GpuFlow({
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   const callbacksRef = useRef<GpuFlowCallbacks>({
     onFrame,
+    onNodeElementChange,
     onNodeLayerFrame,
     onPaint,
     onReady,
@@ -200,12 +210,20 @@ export function GpuFlow({
   useEffect(() => {
     callbacksRef.current = {
       onFrame,
+      onNodeElementChange,
       onNodeLayerFrame,
       onPaint,
       onReady,
       onResize,
     };
-  }, [onFrame, onNodeLayerFrame, onPaint, onReady, onResize]);
+  }, [
+    onFrame,
+    onNodeElementChange,
+    onNodeLayerFrame,
+    onPaint,
+    onReady,
+    onResize,
+  ]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -360,6 +378,7 @@ export function GpuFlow({
 
   const handleNodeElementChange = useCallback(
     (nodeId: string, element: HTMLElement | null) => {
+      callbacksRef.current.onNodeElementChange?.(nodeId, element);
       if (!element) {
         nodeElementByIdRef.current.delete(nodeId);
         nodeInteractionRef.current?.clearNode(nodeId);

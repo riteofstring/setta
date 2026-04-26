@@ -183,6 +183,36 @@ describe("GPU node drag controller", () => {
     detach();
   });
 
+  it("ignores drag starts when the node is not draggable", () => {
+    const element = createFlowElement();
+    const nodeElement = createNodeElement("a");
+    element.append(nodeElement);
+    const onNodeDrag = vi.fn();
+    const detach = attachGpuNodeDragController({
+      autoPanOnNodeDrag: false,
+      canDragNode: (nodeId) => nodeId !== "a",
+      element,
+      getNodes: () => [node("a", 0, 0, 30, 40)],
+      onNodeDrag,
+    });
+
+    dispatchPointer(nodeElement, "pointerdown", {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 1,
+    });
+    dispatchPointer(document, "pointermove", {
+      button: 0,
+      clientX: 40,
+      clientY: 40,
+      pointerId: 1,
+    });
+
+    expect(onNodeDrag).not.toHaveBeenCalled();
+    detach();
+  });
+
   it("computes auto-pan deltas from viewport edges and configured insets", () => {
     expect(
       getGpuNodeDragAutoPanDelta({
