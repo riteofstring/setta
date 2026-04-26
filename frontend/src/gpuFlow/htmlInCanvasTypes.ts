@@ -39,7 +39,10 @@ export type GpuQueueWithElementUpload = GPUQueue & {
 
 declare global {
   type GPUCanvasAlphaMode = "opaque" | "premultiplied";
+  type GPUAddressMode = "clamp-to-edge" | "mirror-repeat" | "repeat";
+  type GPUFilterMode = "linear" | "nearest";
   type GPUIntegerCoordinate = number;
+  type GPUMipmapFilterMode = "linear" | "nearest";
   type GPUPowerPreference = "high-performance" | "low-power";
   type GPUTextureFormat = string;
   type GPUTextureUsageFlags = number;
@@ -74,6 +77,8 @@ declare global {
   interface GPUDevice {
     readonly limits: GPUSupportedLimits;
     readonly queue: GPUQueue;
+    createSampler(descriptor?: GPUSamplerDescriptor): GPUSampler;
+    createTexture(descriptor: GPUTextureDescriptor): GPUTexture;
     destroy(): void;
   }
 
@@ -102,6 +107,20 @@ declare global {
     submit?(commandBuffers: readonly unknown[]): void;
   }
 
+  interface GPUSampler {
+    readonly label?: string;
+  }
+
+  interface GPUSamplerDescriptor {
+    addressModeU?: GPUAddressMode;
+    addressModeV?: GPUAddressMode;
+    addressModeW?: GPUAddressMode;
+    label?: string;
+    magFilter?: GPUFilterMode;
+    minFilter?: GPUFilterMode;
+    mipmapFilter?: GPUMipmapFilterMode;
+  }
+
   interface GPURequestAdapterOptions {
     forceFallbackAdapter?: boolean;
     powerPreference?: GPUPowerPreference;
@@ -111,9 +130,42 @@ declare global {
     readonly maxTextureDimension2D: number;
   }
 
+  interface GPUExtent3DDict {
+    depthOrArrayLayers?: number;
+    height?: GPUIntegerCoordinate;
+    width: GPUIntegerCoordinate;
+  }
+
   interface GPUTexture {
-    createView?(): unknown;
+    createView(descriptor?: GPUTextureViewDescriptor): GPUTextureView;
     destroy?(): void;
+  }
+
+  interface GPUTextureDescriptor {
+    dimension?: "1d" | "2d" | "3d";
+    format: GPUTextureFormat;
+    label?: string;
+    mipLevelCount?: GPUIntegerCoordinate;
+    sampleCount?: GPUIntegerCoordinate;
+    size: GPUExtent3DDict | [GPUIntegerCoordinate, GPUIntegerCoordinate];
+    usage: GPUTextureUsageFlags;
+    viewFormats?: GPUTextureFormat[];
+  }
+
+  interface GPUTextureUsage {
+    readonly COPY_DST: GPUTextureUsageFlags;
+    readonly RENDER_ATTACHMENT: GPUTextureUsageFlags;
+    readonly TEXTURE_BINDING: GPUTextureUsageFlags;
+  }
+
+  var GPUTextureUsage: GPUTextureUsage;
+
+  interface GPUTextureView {
+    readonly label?: string;
+  }
+
+  interface GPUTextureViewDescriptor {
+    label?: string;
   }
 
   interface HTMLCanvasElement {
