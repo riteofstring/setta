@@ -34,7 +34,6 @@ The primary success criterion is extremely high performance pan/zoom on large gr
 
 ## Documentation Links
 - [WICG HTML-in-Canvas explainer](https://github.com/WICG/html-in-canvas)
-- [HTML-in-Canvas browser support guide](https://html-in-canvas.dev/docs/browser-support/)
 - [Chrome Platform Status: HTML-in-Canvas](https://chromestatus.com/feature/5172548013916160)
 - [Blink intent to experiment: HTML-in-Canvas](https://groups.google.com/a/chromium.org/g/blink-dev/c/t_nGEmJ_v4s)
 - [Chromium `CanvasDrawElement` runtime feature](https://chromium.googlesource.com/chromium/src.git/+/HEAD/third_party/blink/renderer/platform/runtime_enabled_features.json5)
