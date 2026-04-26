@@ -78,6 +78,11 @@ PY
   ln -s "${artifact_dir}" "${latest_link}"
 }
 
+recording_bundle_finalized() {
+  local artifact_dir="$1"
+  [[ -s "${artifact_dir}/session.json" && -s "${artifact_dir}/recording.json" ]]
+}
+
 resolve_active_setta_files_root() {
   if [[ -n "${SETTA_FILES_ROOT:-}" ]]; then
     printf '%s\n' "${SETTA_FILES_ROOT}"
@@ -544,7 +549,7 @@ cleanup() {
     wait "${chrome_pid}" || true
   fi
 
-  if [[ "${exit_code}" -eq 0 ]]; then
+  if [[ "${exit_code}" -eq 0 ]] || recording_bundle_finalized "${artifact_dir}"; then
     local resolved_setta_files_root=""
     resolved_setta_files_root="$(resolve_active_setta_files_root || true)"
     if [[ -n "${resolved_setta_files_root}" ]]; then

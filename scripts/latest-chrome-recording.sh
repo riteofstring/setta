@@ -129,31 +129,50 @@ def load_json(path: Path) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
+def bundle_sort_key(path: Path) -> tuple[str, float, str]:
+    session_payload = load_json(path / "session.json")
+    timestamp = session_payload.get("finalizedAt") or session_payload.get("createdAt")
+    if not isinstance(timestamp, str):
+        timestamp = ""
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    return timestamp, mtime, path.name
+
+
 def resolve_latest_bundle(recording_root: Path) -> tuple[Path, str]:
+    candidates: list[tuple[Path, str]] = []
+
+    def add_candidate(path: Path, source: str) -> None:
+        try:
+            resolved = path.resolve()
+        except OSError:
+            return
+        if resolved.is_dir():
+            candidates.append((resolved, source))
+
     latest_json_path = recording_root / "latest.json"
     latest_payload = load_json(latest_json_path)
     latest_artifact = latest_payload.get("artifactDir")
     if isinstance(latest_artifact, str):
-        latest_bundle = Path(latest_artifact)
-        if latest_bundle.is_dir():
-            return latest_bundle.resolve(), "latest-json"
+        add_candidate(Path(latest_artifact), "latest-json")
 
     latest_link = recording_root / "latest"
     if latest_link.exists():
-        latest_bundle = latest_link.resolve()
-        if latest_bundle.is_dir():
-            return latest_bundle, "latest-symlink"
+        add_candidate(latest_link, "latest-symlink")
 
-    candidates = sorted(
-        (
-            path
-            for path in recording_root.iterdir()
-            if path.is_dir() and path.name.startswith("recording-")
-        ),
-        key=lambda path: path.name,
-    )
+    for path in recording_root.iterdir():
+        if path.is_dir() and path.name.startswith("recording-"):
+            add_candidate(path, "scan")
+
     if candidates:
-        return candidates[-1].resolve(), "scan"
+        deduped: dict[Path, str] = {}
+        for path, source in candidates:
+            deduped.setdefault(path, source)
+        latest_bundle = max(deduped, key=bundle_sort_key)
+        return latest_bundle, deduped[latest_bundle]
+
     raise SystemExit(
         f"No Chrome repro recordings found under {recording_root}. "
         "Run ./scripts/record-chrome-repro.sh first or pass --root."
