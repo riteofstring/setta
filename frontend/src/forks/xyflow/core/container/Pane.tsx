@@ -1,6 +1,9 @@
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
+import {
+  clearNodesSelectionBounds,
+  updateActiveNodesSelectionBounds,
+} from "gpuFlow/selectionBounds";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import React, {
@@ -80,10 +83,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
         y: event.clientY,
       }),
     });
-    useReactFlow.setState({
-      nodesSelectionDims: null,
-    });
-    gpuFlowViewportStore.getState().setNodesSelectionBounds(null);
+    clearNodesSelectionBounds();
   };
 
   const onContextMenu = (event: ReactMouseEvent) => {
@@ -136,10 +136,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       return;
     }
 
-    useReactFlow.setState({
-      nodesSelectionDims: null,
-    });
-    gpuFlowViewportStore.getState().setNodesSelectionBounds(null);
+    clearNodesSelectionBounds();
 
     const mousePos = getEventPosition(event, containerBounds.current);
     const startX = userSelectionRect.startX ?? 0;
@@ -191,9 +188,9 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       onClick(event, { forceDurableSync: true });
     }
 
-    useReactFlow
-      .getState()
-      .setNodesSelection(prevSelectedNodesCount.current, true);
+    if (prevSelectedNodesCount.current > 0) {
+      updateActiveNodesSelectionBounds();
+    }
     if (userSelectionActive) {
       syncSelectionRectActiveIds();
     }
@@ -204,9 +201,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     const { userSelectionRect } = gpuFlowViewportStore.getState();
     if (userSelectionRect) {
       if (userSelectionActive) {
-        useReactFlow
-          .getState()
-          .setNodesSelection(prevSelectedNodesCount.current);
+        updateActiveNodesSelectionBounds();
       }
       syncSelectionRectActiveIds();
     }

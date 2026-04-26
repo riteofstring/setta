@@ -1,14 +1,16 @@
+import { shiftNodesSelectionBounds } from "gpuFlow/selectionBounds";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { getNodes, updateNodePositions } from "state/actions/nodeInternals";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useLocalStorage, useSettings } from "state/definitions";
-import { useReactFlow } from "../store";
 
 export const updatePositions = (params: {
   x: number;
   y: number;
   isShiftPressed: boolean;
 }) => {
-  const { nodesSelectionDims, shiftNodesSelection } = useReactFlow.getState();
+  const nodesSelectionBounds =
+    gpuFlowViewportStore.getState().nodesSelectionBounds;
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
   const activeSectionIds = getActiveSectionUIIds();
@@ -43,7 +45,7 @@ export const updatePositions = (params: {
   });
 
   updateNodePositions(nodeUpdates);
-  if (nodesSelectionDims) {
-    shiftNodesSelection({ x: positionDiffX, y: positionDiffY });
+  if (nodesSelectionBounds) {
+    shiftNodesSelectionBounds({ x: positionDiffX, y: positionDiffY });
   }
 };

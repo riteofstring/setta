@@ -5,7 +5,7 @@ import {
   setSelectionDragPrimaryId,
 } from "forks/dnd-kit/selectionDragHandle";
 import useDrag from "forks/xyflow/core/hooks/useDrag";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import _ from "lodash";
 import React, {
   useEffect,
@@ -25,7 +25,7 @@ import type { Rect } from "../types";
 import { arrowKeyDiffs } from "./wrapNode";
 
 function _NodesSelection({ x, y, width, height }: Rect) {
-  const transformString = useReactFlow(
+  const transformString = useGpuFlowViewportStore(
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
@@ -103,7 +103,7 @@ function _NodesSelection({ x, y, width, height }: Rect) {
 }
 
 function _NodesSelectionDragHandle({ x, y, width, height }: Rect) {
-  const transformString = useReactFlow(
+  const transformString = useGpuFlowViewportStore(
     (s) =>
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
@@ -142,22 +142,22 @@ function _NodesSelectionDragHandle({ x, y, width, height }: Rect) {
 }
 
 function _NodesSelectionWrapper() {
-  const nodesSelectionDims = useReactFlow(
-    (s) => s.nodesSelectionDims,
+  const nodesSelectionBounds = useGpuFlowViewportStore(
+    (s) => s.nodesSelectionBounds,
     _.isEqual,
   );
-  return nodesSelectionDims && <NodesSelection {...nodesSelectionDims} />;
+  return nodesSelectionBounds && <NodesSelection {...nodesSelectionBounds} />;
 }
 function _NodesSelectionDragHandleWrapper() {
-  const nodesSelectionDims = useReactFlow(
-    (s) => s.nodesSelectionDims,
+  const nodesSelectionBounds = useGpuFlowViewportStore(
+    (s) => s.nodesSelectionBounds,
     _.isEqual,
   );
   const { isMovingFree } = useDndMode();
-  if (!nodesSelectionDims || !isMovingFree) {
+  if (!nodesSelectionBounds || !isMovingFree) {
     return null;
   }
-  return <NodesSelectionDragHandle {...nodesSelectionDims} />;
+  return <NodesSelectionDragHandle {...nodesSelectionBounds} />;
 }
 const NodesSelection = React.memo(_NodesSelection);
 const NodesSelectionDragHandle = React.memo(_NodesSelectionDragHandle);

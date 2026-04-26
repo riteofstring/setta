@@ -1,6 +1,10 @@
 import { drag } from "d3-drag";
 import { select } from "d3-selection";
 import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  shiftNodesSelectionBounds,
+  updateActiveNodesSelectionBounds,
+} from "gpuFlow/selectionBounds";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -49,8 +53,8 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
       const selection = select(nodeRef.current);
 
       const updateNodes = ({ x, y }: Position, dragEnd = false) => {
-        const { nodesSelectionDims, shiftNodesSelection, setNodesSelection } =
-          useReactFlow.getState();
+        const nodesSelectionBounds =
+          gpuFlowViewportStore.getState().nodesSelectionBounds;
 
         const { snapGrid } = useSettings.getState().gui;
         const snapToGrid = useLocalStorage.getState().snapToGrid;
@@ -87,11 +91,11 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
 
         updateNodePositions(dragItems.current);
         // When dragging a selection, nodeId is undefined.
-        if (!nodeId && nodesSelectionDims) {
+        if (!nodeId && nodesSelectionBounds) {
           if (dragEnd && snapToGrid) {
-            setNodesSelection(dragItems.current.length);
+            updateActiveNodesSelectionBounds();
           } else {
-            shiftNodesSelection(delta);
+            shiftNodesSelectionBounds(delta);
           }
         }
         setDragging(true);

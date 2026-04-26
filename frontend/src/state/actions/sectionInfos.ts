@@ -13,8 +13,8 @@ import {
   res200,
 } from "@setta/app-subsystem-frontend-sdk";
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
-import { useReactFlow } from "forks/xyflow/core/store";
 import type { Node } from "gpuFlow/flowTypes";
+import { clearNodesSelectionBounds } from "gpuFlow/selectionBounds";
 import {
   getViewport as getGpuViewport,
   requestInitialFitView,
@@ -1294,9 +1294,6 @@ function applyViewportFromProjectState(projectState: SingleConfig): boolean {
   }
   setGpuViewport(viewport);
   setInitialFitViewDone();
-  useReactFlow.setState({
-    transform: [viewport.x, viewport.y, viewport.zoom],
-  });
   return false;
 }
 function getVisibleTopLevelSectionIdsForAutoFit(
@@ -2050,7 +2047,7 @@ export async function groupActiveSections() {
       },
     } as Parameters<typeof groupSections>[0]),
   );
-  useReactFlow.setState({ nodesSelectionDims: null });
+  clearNodesSelectionBounds();
 }
 export async function ungroupActiveGroups() {
   const shareSession = useShareSession.getState();

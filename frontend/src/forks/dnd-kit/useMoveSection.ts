@@ -3,7 +3,7 @@ import {
   getDndSectionId,
   useDndState,
 } from "forks/dnd-kit/dndState";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { updateActiveNodesSelectionBounds } from "gpuFlow/selectionBounds";
 import { screenToFlowPosition } from "gpuFlow/viewportActions";
 import { useRef } from "react";
 import {
@@ -218,7 +218,7 @@ function scheduleSelectionBoundsUpdate() {
     return;
   }
   requestAnimationFrame(() => {
-    useReactFlow.getState().setNodesSelection(activeIds.length, true);
+    updateActiveNodesSelectionBounds();
   });
 }
 
