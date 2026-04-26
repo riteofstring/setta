@@ -1034,6 +1034,84 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     expect(nodesMap.has(sectionMissingVisibility)).toBe(false);
   });
 
+  it("preserves base layout fields when the active view mode overrides only part of a section layout", () => {
+    const sectionId = "section-visible";
+    const variantId = "variant-visible";
+    const implId = "impl-visible";
+    const viewModeId = "view-1";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: {
+        [sectionId]: variantId,
+      },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 7, w: 200, h: 160 },
+      },
+      viewModes: {
+        [viewModeId]: {
+          id: viewModeId,
+          name: "Visible Only",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {
+            [sectionId]: true,
+          },
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {
+            [sectionId]: { x: 120, y: 240, w: 260, h: 180 },
+          },
+        },
+      },
+      activeViewModeId: viewModeId,
+      isEditingViewMode: false,
+    });
+    const projectState = {
+      projectConfig,
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: createTerminalSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const nodesMap = createNodesMapFromProjectConfigChildren(
+      projectState,
+      new Map(),
+    );
+
+    expect(nodesMap.get(sectionId)).toMatchObject({
+      height: 180,
+      position: { x: 120, y: 240 },
+      tempZIndex: 7,
+      width: 260,
+      zIndex: 7,
+    });
+  });
+
   it("includes node type and derived style background for minimap rendering", () => {
     const sectionId = "section-visible";
     const variantId = "variant-visible";

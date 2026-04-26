@@ -11741,6 +11741,59 @@ func TestRegisterProjectRoutesTogglePositionLocksReturnsNotFoundForUnknownSectio
 	}
 }
 
+func TestRegisterProjectRoutesSetActiveIDsUsesSettingsRuntime(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": layoutPresentationRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetActiveIDs,
+		strings.NewReader(`{"projectConfigId":"settings","activeIds":["settings-section__gui"]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for settings active ids, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"settings"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest settings response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest settings payload: %v", err)
+	}
+	if !reflect.DeepEqual(payload.ProjectState.ProjectConfig.ActiveIDs, []string{"settings-section__gui"}) {
+		t.Fatalf("expected settings active ids [settings-section__gui], got %#v", payload.ProjectState.ProjectConfig.ActiveIDs)
+	}
+}
+
 func TestRegisterProjectRoutesLayoutPresentationUsesDeploymentOverlayWhenLayoutChangesAllowed(t *testing.T) {
 	t.Parallel()
 
@@ -13223,6 +13276,18 @@ func newProjectRouteTestHandlerWithRouteOptions(
 		t.Fatalf("new settings document: %v", err)
 	}
 	settingsRuntime, _ := newSettingsRouteTestRuntimeWithDocument(t, settingsDocument)
+	settingsProjectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open settings project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsProjectRuntime.Close(); err != nil {
+			t.Fatalf("close settings project runtime: %v", err)
+		}
+	})
+	if err := settingsstate.EnsureProjectRuntimeBootstrapped(t.Context(), settingsRuntime, settingsProjectRuntime); err != nil {
+		t.Fatalf("bootstrap settings project runtime: %v", err)
+	}
 
 	promptTemplatesRoot := workspaceRoot
 	if strings.TrimSpace(promptTemplatesRoot) == "" {
@@ -13251,6 +13316,7 @@ func newProjectRouteTestHandlerWithRouteOptions(
 				ModePolicy:                     modes.NewPolicy(mode),
 				WorkspaceRoot:                  workspaceRoot,
 				ProjectState:                   projectRuntime,
+				SettingsProjectState:           settingsProjectRuntime,
 				WebsocketHub:                   websocketHub,
 				PromptTemplates:                promptTemplateStore,
 				ShareSessions:                  shareSessions,

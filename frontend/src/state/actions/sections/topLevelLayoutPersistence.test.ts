@@ -14,7 +14,15 @@ import {
   createProjectConfig,
   createVariant,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest";
 vi.mock("openapi/http", async () => {
   const actual =
     await vi.importActual<typeof import("openapi/http")>("openapi/http");
@@ -156,7 +164,7 @@ describe("top-level layout persistence", () => {
     seedProjectState();
     vi.useFakeTimers();
     const setTopLevelSectionLayout = (await import("openapi/http"))
-      .setTopLevelSectionLayout as unknown as vi.Mock;
+      .setTopLevelSectionLayout as unknown as Mock;
     setTopLevelSectionLayout.mockReturnValue(new Promise(() => {}));
   });
   afterEach(() => {
@@ -188,11 +196,24 @@ describe("top-level layout persistence", () => {
     });
     const topLevel =
       useProjectState.getState().projectConfig.topLevelSections[sectionId];
+    if (!topLevel) {
+      throw new Error(`Missing top-level layout for ${sectionId}`);
+    }
     expect(topLevel.x).toBe(120);
     expect(topLevel.y).toBe(240);
     const node = useNodeInternals.getState().x.get(sectionId);
     expect(node?.position.x).toBe(120);
     expect(node?.position.y).toBe(240);
+  });
+  it("does not persist when computed top-level layout is unchanged", async () => {
+    const setTopLevelSectionLayout = (await import("openapi/http"))
+      .setTopLevelSectionLayout as unknown as Mock;
+
+    debounced_route_set_top_level_section_layout();
+    vi.runAllTimers();
+
+    expect(usePendingOperations.getState().pending).toHaveLength(0);
+    expect(setTopLevelSectionLayout).not.toHaveBeenCalled();
   });
   it("keeps newly created section moves over backend updates", () => {
     addSubAgentSection();
@@ -219,6 +240,9 @@ describe("top-level layout persistence", () => {
     });
     const topLevel =
       useProjectState.getState().projectConfig.topLevelSections[subSectionId];
+    if (!topLevel) {
+      throw new Error(`Missing top-level layout for ${subSectionId}`);
+    }
     expect(topLevel.x).toBe(260);
     expect(topLevel.y).toBe(180);
   });

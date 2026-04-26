@@ -38,6 +38,9 @@ function shouldNormalizeZIndices(
   }
   let maxZIndex = -1;
   for (const node of nodeInternals.values()) {
+    if (!Number.isFinite(node.zIndex) || !Number.isFinite(node.tempZIndex)) {
+      return true;
+    }
     maxZIndex = Math.max(maxZIndex, node.zIndex);
   }
   return maxZIndex > nodeInternals.size * 4;
@@ -51,7 +54,9 @@ function normalizeNodeZIndices(
   const excludingInputIds = Array.from(nodeInternals.values()).filter(
     (x) => !sectionIds.includes(x.id),
   );
-  excludingInputIds.sort((a, b) => a.zIndex - b.zIndex);
+  excludingInputIds.sort(
+    (a, b) => getNodeZIndexForOrdering(a) - getNodeZIndexForOrdering(b),
+  );
   const newValues = _.cloneDeep(nodeInternals);
   for (let i = 0; i < excludingInputIds.length; i++) {
     const curr = newValues.get(excludingInputIds[i].id);
@@ -76,7 +81,7 @@ function raiseNodeZIndices(
 ) {
   let maxZIndex = -1;
   for (const node of nodeInternals.values()) {
-    maxZIndex = Math.max(maxZIndex, node.zIndex);
+    maxZIndex = Math.max(maxZIndex, getNodeZIndexForOrdering(node));
   }
   let nextZIndex = maxZIndex;
   let changed = false;
@@ -98,6 +103,9 @@ function raiseNodeZIndices(
     changed = true;
   }
   return changed ? newValues : nodeInternals;
+}
+function getNodeZIndexForOrdering(node: { zIndex: number }) {
+  return Number.isFinite(node.zIndex) ? node.zIndex : -1;
 }
 export function goToSection(sectionId: string) {
   const rfStore = useReactFlow.getState();

@@ -4977,12 +4977,13 @@ func setActiveIDsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetActiveIDs(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.ActiveIDs); err != nil {
+		if _, err := runtime.SetActiveIDs(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.ActiveIDs); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}

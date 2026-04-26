@@ -30,7 +30,10 @@ import {
 } from "state/actions/edges";
 import { flushPendingNodeDimensionLayoutPersistence } from "state/actions/nodeInternals";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { manualDndChildrenReset } from "state/actions/sectionInfos";
+import {
+  flushDeferredViewportPersistence,
+  manualDndChildrenReset,
+} from "state/actions/sectionInfos";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
 import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
 import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
@@ -208,27 +211,38 @@ export function useCanvasFlowInteractions({
     });
     useMisc.setState({ isPanScrolling: false });
     dispatchCanvasFlowViewportChange(viewportRef.current);
+    schedulePaint();
+    flushDeferredViewportPersistence();
     flushPendingNodeDimensionLayoutPersistence();
-  }, [syncStoreViewport, viewportRef]);
+  }, [schedulePaint, syncStoreViewport, viewportRef]);
 
-  const startWheelInteraction = useCallback((kind: "pan" | "zoom") => {
-    useReactFlow.setState({ viewportInteractionActive: true });
-    if (kind === "pan") {
-      useMisc.setState({ isPanScrolling: true });
-      clearTimeout(panScrollTimeoutRef.current);
-      panScrollTimeoutRef.current = setTimeout(() => {
-        useMisc.setState({ isPanScrolling: false });
+  const startWheelInteraction = useCallback(
+    (kind: "pan" | "zoom") => {
+      useReactFlow.setState({ viewportInteractionActive: true });
+      if (kind === "pan") {
+        useMisc.setState({ isPanScrolling: true });
+        clearTimeout(panScrollTimeoutRef.current);
+        panScrollTimeoutRef.current = setTimeout(() => {
+          useMisc.setState({ isPanScrolling: false });
+          useReactFlow.setState({ viewportInteractionActive: false });
+          dispatchCanvasFlowViewportChange(viewportRef.current);
+          schedulePaint();
+          flushDeferredViewportPersistence();
+          flushPendingNodeDimensionLayoutPersistence();
+        }, 150);
+        return;
+      }
+      clearTimeout(wheelZoomTimeoutRef.current);
+      wheelZoomTimeoutRef.current = setTimeout(() => {
         useReactFlow.setState({ viewportInteractionActive: false });
+        dispatchCanvasFlowViewportChange(viewportRef.current);
+        schedulePaint();
+        flushDeferredViewportPersistence();
         flushPendingNodeDimensionLayoutPersistence();
-      }, 150);
-      return;
-    }
-    clearTimeout(wheelZoomTimeoutRef.current);
-    wheelZoomTimeoutRef.current = setTimeout(() => {
-      useReactFlow.setState({ viewportInteractionActive: false });
-      flushPendingNodeDimensionLayoutPersistence();
-    }, 180);
-  }, []);
+      }, 180);
+    },
+    [schedulePaint, viewportRef],
+  );
 
   const onClick = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
@@ -405,6 +419,7 @@ export function useCanvasFlowInteractions({
           zoomOnScroll,
         })
       ) {
+        startWheelInteraction("pan");
         panCanvasFlowByWheel({
           commitViewportChange,
           event,
@@ -412,12 +427,16 @@ export function useCanvasFlowInteractions({
           panOnScrollSpeed,
           viewportRef,
         });
-        startWheelInteraction("pan");
         return;
       }
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return;
+      }
+      startWheelInteraction("zoom");
       if (
         zoomCanvasFlowByWheel({
-          canvas: canvasRef.current,
+          canvas,
           commitViewportChange,
           event,
           maxZoom,
@@ -425,7 +444,7 @@ export function useCanvasFlowInteractions({
           viewportRef,
         })
       ) {
-        startWheelInteraction("zoom");
+        return;
       }
     },
     [
@@ -1046,7 +1065,7 @@ function shouldPanCanvasFlowWheel({
   );
 }
 
-function panCanvasFlowByWheel({
+export function panCanvasFlowByWheel({
   commitViewportChange,
   event,
   panOnScrollMode,
@@ -1064,8 +1083,8 @@ function panCanvasFlowByWheel({
     panOnScrollMode,
   });
   viewportRef.current = panViewportByScreenDelta(viewportRef.current, {
-    x: -(delta.x / viewportRef.current.zoom) * panOnScrollSpeed,
-    y: -(delta.y / viewportRef.current.zoom) * panOnScrollSpeed,
+    x: -delta.x * panOnScrollSpeed,
+    y: -delta.y * panOnScrollSpeed,
   });
   commitViewportChange();
 }

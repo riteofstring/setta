@@ -64,6 +64,32 @@ describe("paintCanvasFlow", () => {
     expect(canvas.dataset.paintSequence).toBe("2");
     expect(canvas.dataset.viewportX).toBe("-20.00");
   });
+
+  it("draws HTML nodes in screen coordinates instead of a scaled canvas transform", () => {
+    const { canvas, ctx, element } = createPaintHarness();
+
+    paintCanvasFlow(
+      createPaintParams({
+        canvas,
+        ctx,
+        element,
+        node: {
+          height: 400,
+          position: { x: 100, y: 200 },
+          width: 300,
+        },
+        viewport: { x: 40, y: 30, zoom: 0.1 },
+      }),
+    );
+
+    expect(ctx.drawElementImage).toHaveBeenCalledWith(
+      element,
+      50,
+      50,
+      30,
+      40,
+    );
+  });
 });
 
 function createPaintHarness() {
@@ -79,11 +105,19 @@ function createPaintParams({
   canvas,
   ctx,
   element,
+  node,
   viewport = { x: 0, y: 0, zoom: 1 },
 }: {
   canvas: HTMLCanvasElement;
   ctx: CanvasFlowRenderingContext;
   element: HTMLElement;
+  node?: Partial<{
+    height: number;
+    position: { x: number; y: number };
+    tempZIndex: number;
+    width: number;
+    zIndex: number;
+  }>;
   viewport?: { x: number; y: number; zoom: number };
 }) {
   return {
@@ -101,12 +135,12 @@ function createPaintParams({
     nodeElements: new Map([["node-1", element]]),
     nodes: [
       {
-        height: 100,
+        height: node?.height ?? 100,
         id: "node-1",
-        position: { x: 0, y: 0 },
-        tempZIndex: 0,
-        width: 100,
-        zIndex: 0,
+        position: node?.position ?? { x: 0, y: 0 },
+        tempZIndex: node?.tempZIndex ?? 0,
+        width: node?.width ?? 100,
+        zIndex: node?.zIndex ?? 0,
       },
     ],
     previousInteractiveNodeIds: new Set<string>(),

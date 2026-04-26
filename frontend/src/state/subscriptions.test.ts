@@ -3,6 +3,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import initialState from "forks/xyflow/core/store/initialState";
 import {
   debouncedDispatchViewportUpdate,
+  flushDeferredViewportPersistence,
   processProjectStateUpdateFromBackend,
 } from "state/actions/sectionInfos";
 import {
@@ -53,9 +54,10 @@ describe("subscriptions viewport persistence", () => {
     debouncedDispatchViewportUpdate.cancel();
     routeSetViewportMock.mockReset();
     routeSetViewportMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: null,
+      response: {
+        status: 200,
+      },
     });
     useSettings.setState(createSettingsState());
     useProjectState.setState({
@@ -96,9 +98,11 @@ describe("subscriptions viewport persistence", () => {
     });
     await vi.waitFor(() => {
       expect(routeSetViewportMock).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        viewport: { x: 150, y: 125, zoom: 0.6 },
-        frontendOpId: expect.any(String),
+        body: {
+          projectConfigId: "project-1",
+          viewport: { x: 150, y: 125, zoom: 0.6 },
+          frontendOpId: expect.any(String),
+        },
       });
     });
   });
@@ -174,5 +178,58 @@ describe("subscriptions viewport persistence", () => {
     expect(useProjectState.getState().projectConfig.viewport).toEqual(
       localViewport,
     );
+  });
+  it("does not mutate project state while viewport interaction is active", async () => {
+    vi.useFakeTimers();
+    try {
+      useReactFlow.setState({
+        ...initialState,
+        transform: [0, 0, 1],
+        fitViewOnInit: false,
+        fitViewOnInitDone: true,
+      });
+      debouncedDispatchViewportUpdate.cancel();
+      routeSetViewportMock.mockClear();
+      usePendingOperations.setState({ pending: [] });
+      useProjectState.setState((state) => {
+        state.projectConfig.viewport = null;
+        state.projectConfig.viewportInitialized = false;
+      });
+
+      const localViewport = { x: 220, y: 140, zoom: 0.75 };
+      useReactFlow.setState({
+        transform: [localViewport.x, localViewport.y, localViewport.zoom],
+        viewportInteractionActive: true,
+      });
+
+      expect(useProjectState.getState().projectConfig.viewport).toBeNull();
+      expect(useProjectState.getState().projectConfig.viewportInitialized).toBe(
+        false,
+      );
+      expect(usePendingOperations.getState().pending).toHaveLength(1);
+      vi.advanceTimersByTime(1500);
+      expect(routeSetViewportMock).not.toHaveBeenCalled();
+
+      useReactFlow.setState({ viewportInteractionActive: false });
+      flushDeferredViewportPersistence();
+      expect(useProjectState.getState().projectConfig.viewport).toEqual(
+        localViewport,
+      );
+      expect(useProjectState.getState().projectConfig.viewportInitialized).toBe(
+        true,
+      );
+
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+      expect(routeSetViewportMock).toHaveBeenCalledWith({
+        body: {
+          projectConfigId: "project-1",
+          viewport: localViewport,
+          frontendOpId: expect.any(String),
+        },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

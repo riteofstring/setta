@@ -8,6 +8,7 @@ import type {
   CanvasFlowDrawableEdge,
   CanvasFlowHandlePosition,
   CanvasFlowNode,
+  CanvasFlowNodeDrawRecord,
   CanvasFlowNodeElementMap,
   CanvasFlowPaintStats,
   CanvasFlowRenderingContext,
@@ -83,6 +84,7 @@ export function paintCanvasFlow({
     positions: edgeHandlePositions,
     viewport,
   });
+  ctx.restore();
 
   const visibleRect = expandWorldRect(
     getVisibleWorldRect(size, viewport),
@@ -104,13 +106,14 @@ export function paintCanvasFlow({
       continue;
     }
     drawnNodeCount += 1;
+    const screenRect = getNodeScreenDrawRect(node, viewport);
     const drawStart = performance.now();
     const transform = ctx.drawElementImage(
       element,
-      node.x,
-      node.y,
-      node.width,
-      node.height,
+      screenRect.x,
+      screenRect.y,
+      screenRect.width,
+      screenRect.height,
     );
     drawElementImageMs += performance.now() - drawStart;
 
@@ -119,7 +122,6 @@ export function paintCanvasFlow({
     transformAssignmentMs += performance.now() - transformStart;
     nextInteractiveNodeIds.add(node.id);
   }
-  ctx.restore();
 
   disableCulledNodePointerEvents({
     nodeElements,
@@ -143,6 +145,18 @@ export function paintCanvasFlow({
   };
   writePaintStats(canvas, stats, viewport, paintEnd);
   return stats;
+}
+
+function getNodeScreenDrawRect(
+  node: Pick<CanvasFlowNodeDrawRecord, "x" | "y" | "width" | "height">,
+  viewport: CanvasFlowViewport,
+) {
+  return {
+    x: viewport.x + node.x * viewport.zoom,
+    y: viewport.y + node.y * viewport.zoom,
+    width: node.width * viewport.zoom,
+    height: node.height * viewport.zoom,
+  };
 }
 
 function getNodeElement(
@@ -177,10 +191,7 @@ function resetCanvasContext(ctx: CanvasRenderingContext2D) {
 function drawBackground({
   ctx,
   darkMode,
-  gridSize,
-  showGridLines,
   size,
-  viewport,
 }: {
   ctx: CanvasRenderingContext2D;
   darkMode: boolean;
@@ -191,6 +202,8 @@ function drawBackground({
 }) {
   ctx.fillStyle = darkMode ? "#101827" : "#f8fafc";
   ctx.fillRect(0, 0, size.cssWidth, size.cssHeight);
+  /*
+  Grid drawing is disabled temporarily to isolate canvas paint performance.
   if (!showGridLines) {
     return;
   }
@@ -214,6 +227,7 @@ function drawBackground({
     : "rgba(100, 116, 139, 0.18)";
   ctx.lineWidth = 1;
   ctx.stroke();
+  */
 }
 
 function disableCulledNodePointerEvents({
@@ -245,9 +259,11 @@ function assignNodePaintStyle(element: HTMLElement, transform: string) {
   }
 }
 
+/*
 function positiveModulo(value: number, modulo: number) {
   return ((value % modulo) + modulo) % modulo;
 }
+*/
 
 function writePaintStats(
   canvas: HTMLCanvasElement,

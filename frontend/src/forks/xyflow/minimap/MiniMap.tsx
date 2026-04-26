@@ -9,6 +9,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   memo,
   useEffect,
+  useMemo,
   useRef,
   useSyncExternalStore,
   type MouseEvent as ReactMouseEvent,
@@ -490,14 +491,19 @@ function MiniMap(props: MiniMapProps) {
     getCanvasFlowLiveViewportSnapshot,
     getCanvasFlowLiveViewportSnapshot,
   );
+  const nodeBounds = useMemo(
+    () => (nodes.length > 0 ? getNodesBounds(nodes) : null),
+    [nodes],
+  );
   const viewBB = getMiniMapPaneRect(
     viewportState,
     overviewWidth,
     uiEditorWidth,
     liveViewport,
   );
-  const boundingRect =
-    nodes.length > 0 ? getBoundsOfRects(getNodesBounds(nodes), viewBB) : viewBB;
+  const boundingRect = nodeBounds
+    ? getBoundsOfRects(nodeBounds, viewBB)
+    : viewBB;
   const elementWidth = getMiniMapDimension(style?.width, defaultWidth);
   const elementHeight = getMiniMapDimension(style?.height, defaultHeight);
 

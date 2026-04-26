@@ -59,6 +59,7 @@ import {
   assertHtmlInCanvasSupport,
   requestCanvasFlowPaint,
 } from "./canvasFlowSupport";
+import { getCanvasFlowSizeFromResizeEntry } from "./canvasFlowSizing";
 import type {
   CanvasFlowConnectionState,
   CanvasFlowDrawableEdge,
@@ -299,7 +300,7 @@ function CanvasFlow() {
       if (!entry) {
         return;
       }
-      const nextSize = getCanvasFlowSize(entry);
+      const nextSize = getCanvasFlowSizeFromResizeEntry(entry);
       if (
         canvas.width !== nextSize.pixelWidth ||
         canvas.height !== nextSize.pixelHeight
@@ -318,7 +319,7 @@ function CanvasFlow() {
       });
       schedulePaint();
     });
-    observer.observe(canvas, { box: "device-pixel-content-box" });
+    observer.observe(canvas);
     return () => {
       observer.disconnect();
     };
@@ -613,26 +614,6 @@ function useCanvasFlowAgenticScopeHighlights({
     sectionVariants,
     topLevelSectionIds: Object.keys(topLevelSections),
   });
-}
-
-function getCanvasFlowSize(entry: ResizeObserverEntry): CanvasFlowSize {
-  const cssWidth = entry.contentRect.width;
-  const cssHeight = entry.contentRect.height;
-  const devicePixelSize = entry.devicePixelContentBoxSize?.[0];
-  const pixelRatio = window.devicePixelRatio || 1;
-  const pixelWidth =
-    devicePixelSize?.inlineSize ??
-    Math.max(1, Math.round(cssWidth * pixelRatio));
-  const pixelHeight =
-    devicePixelSize?.blockSize ??
-    Math.max(1, Math.round(cssHeight * pixelRatio));
-  return {
-    cssWidth,
-    cssHeight,
-    pixelWidth,
-    pixelHeight,
-    pixelRatio: cssWidth > 0 ? pixelWidth / cssWidth : pixelRatio,
-  };
 }
 
 export default CanvasFlow;
