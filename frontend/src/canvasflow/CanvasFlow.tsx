@@ -155,29 +155,6 @@ function CanvasFlow() {
     (state) => state.connectionStartHandle !== null,
   );
 
-  const scheduleTexturePaint = useCallback(
-    (
-      reason = "source-invalidated",
-      nodeIds: ReadonlySet<string> | "all" = "all",
-    ) => {
-      const renderer = rendererRef.current;
-      if (renderer) {
-        renderer.markNodesDirty(nodeIds, reason);
-        return;
-      }
-      requestCanvasFlowPaint(canvasRef.current);
-    },
-    [],
-  );
-  const scheduleViewportFrame = useCallback((reason = "viewport-frame") => {
-    const renderer = rendererRef.current;
-    if (renderer) {
-      renderer.requestFrame(reason);
-      return;
-    }
-    requestCanvasFlowPaint(canvasRef.current);
-  }, []);
-
   const nodes = useNodeInternals(
     (state) => Array.from(state.x.values()),
     shallow,
@@ -251,6 +228,33 @@ function CanvasFlow() {
       wireColor,
     }),
     [darkMode, showGridLines, snapGrid, snapToGrid, wireColor],
+  );
+  const scheduleTexturePaint = useCallback(
+    (
+      reason = "source-invalidated",
+      nodeIds: ReadonlySet<string> | "all" = "all",
+    ) => {
+      const renderer = rendererRef.current;
+      if (renderer) {
+        renderer.updateInputs(createRenderInputs());
+        renderer.markNodesDirty(nodeIds, reason);
+        return;
+      }
+      requestCanvasFlowPaint(canvasRef.current);
+    },
+    [createRenderInputs],
+  );
+  const scheduleViewportFrame = useCallback(
+    (reason = "viewport-frame") => {
+      const renderer = rendererRef.current;
+      if (renderer) {
+        renderer.updateInputs(createRenderInputs());
+        renderer.requestFrame(reason);
+        return;
+      }
+      requestCanvasFlowPaint(canvasRef.current);
+    },
+    [createRenderInputs],
   );
 
   useEffect(() => {
