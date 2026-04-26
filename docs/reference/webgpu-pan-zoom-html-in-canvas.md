@@ -334,20 +334,21 @@ runtime:
 The renderer intentionally keeps old high-level project behaviors while
 replacing the viewport implementation underneath them.
 
-## In-Progress Live Active Node DOM Work
+## Active Node DOM Teleport Work
 
 This document describes the current WebGPU pan/zoom and html-in-canvas baseline.
-We are also in the process of implementing
+The active interaction plan is
 `docs/plans/gpu-flow-live-active-node-dom-plan.md`.
 
 That plan addresses the main remaining interaction problem: textures are
 snapshots, so repeatedly uploading a whole node texture is not the right way to
 make switches, text inputs, CodeMirror, terminals, sliders, and CSS transitions
-feel native during active manipulation. The current direction is Strategy A2:
-temporarily move the existing React-owned node DOM into the active teleport
-layer while the user interacts, defer uploads while it is outside the canvas
-layout subtree, restore it under the canvas, request one paint, upload the final
-snapshot, and return the node to the passive WebGPU texture path. Strategy A1
-CSS promotion is provisionally ruled out by local Chromium probes, and Strategy
-B duplicate live rendering remains a fallback for component families that cannot
-survive same-instance teleport safely.
+feel native during active manipulation.
+
+The selected architecture is same-instance active DOM teleport: temporarily
+move the existing React-owned node DOM into the active teleport layer while the
+user interacts, defer uploads while it is outside the canvas layout subtree,
+restore it under the canvas, request one paint, upload the final snapshot, and
+return the node to the passive WebGPU texture path. Do not introduce duplicate
+active node rendering unless a component owner requires a dedicated active
+presentation path for a documented teleport failure.
