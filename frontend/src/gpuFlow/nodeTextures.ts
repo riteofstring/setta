@@ -1,10 +1,10 @@
-import type { GpuFlowRuntime } from "./gpuDevice";
 import {
   DirtyNodeQueue,
   type DirtyNodeMark,
   type DirtyNodeState,
   type NodeTexturePriority,
 } from "./dirtyTracking";
+import type { GpuFlowRuntime } from "./gpuDevice";
 import type {
   GpuQueueWithElementUpload,
   HtmlInCanvasCanvas,
@@ -141,8 +141,7 @@ export class NodeTextureManager {
     const record = this.records.get(input.nodeId);
     if (record) {
       record.dirtyContent = record.dirtyContent || dirtyFlags.content;
-      record.dirtyResolution =
-        record.dirtyResolution || dirtyFlags.resolution;
+      record.dirtyResolution = record.dirtyResolution || dirtyFlags.resolution;
       record.priority = input.priority ?? record.priority;
     }
 

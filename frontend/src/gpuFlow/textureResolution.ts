@@ -133,7 +133,9 @@ function sizeToTexturePixels(
   );
 }
 
-function validateResolutionBuckets(buckets: readonly number[]): readonly number[] {
+function validateResolutionBuckets(
+  buckets: readonly number[],
+): readonly number[] {
   if (buckets.length === 0) {
     throw new Error("Setta GPU flow texture resolution requires buckets.");
   }

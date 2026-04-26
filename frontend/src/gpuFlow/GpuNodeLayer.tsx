@@ -1,4 +1,14 @@
-import type { NodeTextureManager, NodeTextureRecord } from "./nodeTextures";
+import { memo, useCallback, type CSSProperties, type ReactNode } from "react";
+import type {
+  RenderNodeTextureQuadsInput,
+  RenderNodeTextureQuadsResult,
+} from "./gpuPipelines";
+import type { GpuCanvasSize } from "./gpuRenderer";
+import type {
+  NodeTextureManager,
+  NodeTextureRecord,
+  UploadDirtyNodeTexturesOptions,
+} from "./nodeTextures";
 import {
   flowToScreenPosition,
   getVisibleFlowRect,
@@ -31,6 +41,16 @@ export type GpuTexturedNodeQuad = GpuVisibleNodeQuad & {
   readonly texture: NodeTextureRecord;
 };
 
+export type GpuNodeLayerProps = {
+  readonly className?: string | undefined;
+  readonly nodeVisibility?: CSSProperties["visibility"] | undefined;
+  readonly nodes: readonly GpuNodeLayout[];
+  readonly onNodeElementChange?:
+    | ((nodeId: string, element: HTMLElement | null) => void)
+    | undefined;
+  readonly renderNode: (node: GpuNodeLayout) => ReactNode;
+};
+
 export type CollectVisibleGpuNodeQuadsInput = {
   readonly canvasHeight: number;
   readonly canvasWidth: number;
@@ -59,7 +79,241 @@ export type SyncGpuNodeDomTransformsInput = {
   readonly viewport: GpuViewportInput;
 };
 
+export type GpuNodeUploadBudget = Pick<
+  UploadDirtyNodeTexturesOptions,
+  "maxDurationMs" | "maxUploads" | "now"
+>;
+
+export type GpuNodeTextureController = Pick<
+  NodeTextureManager,
+  | "getNodeTexture"
+  | "markNodeTextureDirty"
+  | "registerNodeTexture"
+  | "uploadDirtyNodeTextures"
+>;
+
+export type GpuNodeQuadRenderTarget = {
+  render(input: RenderNodeTextureQuadsInput): RenderNodeTextureQuadsResult;
+};
+
+export type RenderGpuNodeLayerFrameInput = {
+  readonly canvasSize: GpuCanvasSize;
+  readonly clearColor?: GPUColorDict | undefined;
+  readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
+  readonly forceVisibleNodeIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly frame: number;
+  readonly marginCssPx?: number | undefined;
+  readonly nodes: readonly GpuNodeLayout[];
+  readonly renderer: GpuNodeQuadRenderTarget;
+  readonly textureManager: GpuNodeTextureController;
+  readonly uploadBudget?: GpuNodeUploadBudget | undefined;
+  readonly viewport: GpuViewportInput;
+};
+
+export type RenderGpuNodeLayerFrameResult = {
+  readonly budgetExhausted: boolean;
+  readonly drawnNodeIds: readonly string[];
+  readonly missingElementNodeIds: readonly string[];
+  readonly missingTextureNodeIds: readonly string[];
+  readonly remainingDirtyNodeIds: readonly string[];
+  readonly skippedNodeIds: readonly string[];
+  readonly uploadedNodeIds: readonly string[];
+  readonly visibleNodeIds: readonly string[];
+};
+
+export type MarkGpuNodeLayerPaintDirtyInput = {
+  readonly changedElements?: readonly Element[] | undefined;
+  readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
+  readonly fallbackNodeIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly frame: number;
+  readonly textureManager: Pick<NodeTextureManager, "markNodeTextureDirty">;
+};
+
 const DEFAULT_OFFSCREEN_POSITION = -100_000;
+const DEFAULT_NODE_CLASS_NAME = "setta-gpu-flow__node react-flow__node";
+
+export function GpuNodeLayer({
+  className = DEFAULT_NODE_CLASS_NAME,
+  nodeVisibility,
+  nodes,
+  onNodeElementChange,
+  renderNode,
+}: GpuNodeLayerProps) {
+  return (
+    <>
+      {nodes.map((node) => (
+        <GpuNodeChild
+          className={className}
+          key={node.nodeId}
+          node={node}
+          onNodeElementChange={onNodeElementChange}
+          renderNode={renderNode}
+          visibility={nodeVisibility}
+        />
+      ))}
+    </>
+  );
+}
+
+const GpuNodeChild = memo(function GpuNodeChild({
+  className,
+  node,
+  onNodeElementChange,
+  renderNode,
+  visibility,
+}: {
+  readonly className: string;
+  readonly node: GpuNodeLayout;
+  readonly onNodeElementChange:
+    | ((nodeId: string, element: HTMLElement | null) => void)
+    | undefined;
+  readonly renderNode: (node: GpuNodeLayout) => ReactNode;
+  readonly visibility: CSSProperties["visibility"] | undefined;
+}) {
+  const setNodeElement = useCallback(
+    (element: HTMLDivElement | null) => {
+      onNodeElementChange?.(node.nodeId, element);
+    },
+    [node.nodeId, onNodeElementChange],
+  );
+
+  return (
+    <div
+      className={className}
+      data-gpu-flow-node="true"
+      data-id={node.nodeId}
+      data-testid={`rf__node-${node.nodeId}`}
+      ref={setNodeElement}
+      style={{
+        visibility,
+        zIndex: node.tempZIndex ?? node.zIndex,
+      }}
+    >
+      {renderNode(node)}
+    </div>
+  );
+});
+
+export function renderGpuNodeLayerFrame({
+  canvasSize,
+  clearColor,
+  elementByNodeId,
+  forceVisibleNodeIds,
+  frame,
+  marginCssPx,
+  nodes,
+  renderer,
+  textureManager,
+  uploadBudget,
+  viewport,
+}: RenderGpuNodeLayerFrameInput): RenderGpuNodeLayerFrameResult {
+  const visibleQuads = collectVisibleGpuNodeQuads({
+    canvasHeight: canvasSize.cssHeight,
+    canvasWidth: canvasSize.cssWidth,
+    forceVisibleNodeIds,
+    marginCssPx,
+    nodes,
+    viewport,
+  });
+  const visibleNodeIds = new Set(visibleQuads.map((quad) => quad.nodeId));
+
+  syncGpuNodeDomTransforms({
+    elementByNodeId,
+    nodes,
+    visibleNodeIds,
+    viewport,
+  });
+
+  const missingElementNodeIds: string[] = [];
+  for (const quad of visibleQuads) {
+    const element = elementByNodeId.get(quad.nodeId);
+    if (!element) {
+      missingElementNodeIds.push(quad.nodeId);
+      continue;
+    }
+    textureManager.registerNodeTexture({
+      cssHeight: quad.height,
+      cssWidth: quad.width,
+      devicePixelRatio: canvasSize.devicePixelRatio,
+      element,
+      frame,
+      nodeId: quad.nodeId,
+      priority: "visible",
+      zoom: normalizeGpuViewport(viewport).zoom,
+    });
+  }
+
+  const uploadResult = textureManager.uploadDirtyNodeTextures({
+    frame,
+    ...uploadBudget,
+  });
+  const textureResult = buildTexturedGpuNodeQuads(visibleQuads, textureManager);
+  const uploadedTexturedQuads = textureResult.texturedQuads.filter(
+    (quad) => quad.texture.lastUploadFrame >= 0,
+  );
+  const renderResult = renderer.render({
+    canvasSize,
+    clearColor,
+    quads: uploadedTexturedQuads,
+    viewport,
+  });
+
+  return {
+    budgetExhausted: uploadResult.budgetExhausted,
+    drawnNodeIds: renderResult.drawnNodeIds,
+    missingElementNodeIds,
+    missingTextureNodeIds: textureResult.missingTextureNodeIds,
+    remainingDirtyNodeIds: uploadResult.remainingDirtyNodeIds,
+    skippedNodeIds: uploadResult.skippedNodeIds,
+    uploadedNodeIds: uploadResult.uploaded.map((record) => record.nodeId),
+    visibleNodeIds: [...visibleNodeIds],
+  };
+}
+
+export function markGpuNodeLayerPaintDirty({
+  changedElements,
+  elementByNodeId,
+  fallbackNodeIds,
+  frame,
+  textureManager,
+}: MarkGpuNodeLayerPaintDirtyInput): string[] {
+  const dirtyNodeIds = new Set<string>();
+  if (changedElements) {
+    for (const changedElement of changedElements) {
+      const nodeId = findNodeIdForChangedElement(
+        changedElement,
+        elementByNodeId,
+      );
+      if (nodeId) {
+        dirtyNodeIds.add(nodeId);
+      }
+    }
+  }
+
+  if (!changedElements) {
+    for (const nodeId of normalizeNodeIdSet(fallbackNodeIds)) {
+      dirtyNodeIds.add(nodeId);
+    }
+  }
+
+  for (const nodeId of dirtyNodeIds) {
+    textureManager.markNodeTextureDirty({
+      content: true,
+      frame,
+      nodeId,
+      reason: "paint",
+      requestPaint: false,
+    });
+  }
+
+  return [...dirtyNodeIds];
+}
 
 export function collectVisibleGpuNodeQuads({
   canvasHeight,
@@ -207,6 +461,21 @@ function normalizeNodeIdSet(
     return nodeIds;
   }
   return new Set(nodeIds);
+}
+
+function findNodeIdForChangedElement(
+  changedElement: Element,
+  elementByNodeId: ReadonlyMap<string, HTMLElement>,
+): string | null {
+  for (const [nodeId, nodeElement] of elementByNodeId) {
+    if (
+      nodeElement === changedElement ||
+      nodeElement.contains(changedElement)
+    ) {
+      return nodeId;
+    }
+  }
+  return null;
 }
 
 function resolveElement(

@@ -1,8 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NodeTextureManager } from "./nodeTextures";
 import type { HtmlInCanvasCanvas } from "./htmlInCanvasTypes";
+import { NodeTextureManager } from "./nodeTextures";
 
 describe("NodeTextureManager", () => {
   afterEach(() => {

@@ -197,9 +197,7 @@ function resolveDirtyMarkFlags(mark: DirtyNodeMark): DirtyMarkFlags {
   return dirtyFlags;
 }
 
-function toPublicDirtyNodeState(
-  state: MutableDirtyNodeState,
-): DirtyNodeState {
+function toPublicDirtyNodeState(state: MutableDirtyNodeState): DirtyNodeState {
   return {
     dirtyContent: state.dirtyContent,
     dirtyResolution: state.dirtyResolution,

@@ -1,15 +1,27 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildTexturedGpuNodeQuads,
   collectVisibleGpuNodeQuads,
+  markGpuNodeLayerPaintDirty,
+  renderGpuNodeLayerFrame,
   syncGpuNodeDomTransforms,
   type GpuNodeLayout,
+  type GpuTexturedNodeQuad,
 } from "./GpuNodeLayer";
-import type { NodeTextureRecord } from "./nodeTextures";
+import type { RenderNodeTextureQuadsInput } from "./gpuPipelines";
+import type {
+  NodeTextureRecord,
+  UploadDirtyNodeTexturesOptions,
+} from "./nodeTextures";
+import { NodeTextureManager } from "./nodeTextures";
 
 describe("GpuNodeLayer helpers", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("culls nodes in flow space and preserves z-order draw order", () => {
     const nodes: GpuNodeLayout[] = [
       node("behind", 40, 40, 100, 100, 3),
@@ -86,6 +98,135 @@ describe("GpuNodeLayer helpers", () => {
     );
     expect(culled.style.pointerEvents).toBe("none");
   });
+
+  it("registers visible DOM nodes, uploads dirty textures, and renders uploaded quads", () => {
+    const visible = document.createElement("div");
+    const culled = document.createElement("div");
+    const elements = new Map([
+      ["visible", visible],
+      ["culled", culled],
+    ]);
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    const result = renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      elementByNodeId: elements,
+      frame: 1,
+      marginCssPx: 0,
+      nodes: [
+        node("visible", 10, 20, 100, 50, 0),
+        node("culled", 1_000, 1_000, 100, 50, 0),
+      ],
+      renderer,
+      textureManager: manager,
+      viewport: [5, -10, 1.5],
+    });
+
+    expect(manager.registerNodeTexture).toHaveBeenCalledTimes(1);
+    expect(manager.registerNodeTexture).toHaveBeenCalledWith({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element: visible,
+      frame: 1,
+      nodeId: "visible",
+      priority: "visible",
+      zoom: 1.5,
+    });
+    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({ frame: 1 });
+    expect(renderer.render).toHaveBeenCalledWith({
+      canvasSize: canvasSize(),
+      clearColor: undefined,
+      quads: [
+        expect.objectContaining({
+          nodeId: "visible",
+          texture: expect.objectContaining({
+            lastUploadFrame: 1,
+          }),
+        }),
+      ],
+      viewport: [5, -10, 1.5],
+    });
+    expect(result).toMatchObject({
+      budgetExhausted: false,
+      drawnNodeIds: ["visible"],
+      missingElementNodeIds: [],
+      missingTextureNodeIds: [],
+      uploadedNodeIds: ["visible"],
+      visibleNodeIds: ["visible"],
+    });
+    expect(visible.style.transform).toBe("translate(20px, 20px) scale(1.5)");
+    expect(culled.style.pointerEvents).toBe("none");
+  });
+
+  it("redraws viewport-only movement from cached textures without another element upload", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new NodeTextureManager(gpu.device);
+    const renderer = createFrameRenderer();
+    const element = document.createElement("div");
+    const elements = new Map([["node-a", element]]);
+    const nodes = [node("node-a", 10, 20, 100, 50, 0)];
+
+    renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      elementByNodeId: elements,
+      frame: 1,
+      nodes,
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+    renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      elementByNodeId: elements,
+      frame: 2,
+      nodes,
+      renderer,
+      textureManager: manager,
+      viewport: [25, -15, 1],
+    });
+
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+    expect(renderer.render).toHaveBeenCalledTimes(2);
+    expect(renderer.render.mock.calls[1]?.[0]).toMatchObject({
+      quads: [
+        expect.objectContaining({
+          nodeId: "node-a",
+          texture: expect.objectContaining({
+            lastUploadFrame: 1,
+          }),
+        }),
+      ],
+      viewport: [25, -15, 1],
+    });
+  });
+
+  it("marks changed paint descendants dirty without requesting another paint", () => {
+    const nodeElement = document.createElement("div");
+    const input = document.createElement("input");
+    nodeElement.append(input);
+    const manager = {
+      markNodeTextureDirty: vi.fn(),
+    };
+
+    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+      changedElements: [input],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 7,
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual(["node-a"]);
+    expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 7,
+      nodeId: "node-a",
+      reason: "paint",
+      requestPaint: false,
+    });
+  });
 });
 
 function node(
@@ -108,9 +249,101 @@ function node(
 
 function textureRecord(nodeId: string): NodeTextureRecord {
   return {
+    lastUploadFrame: 0,
     nodeId,
     sampler: {},
     texture: {},
     textureView: {},
   } as NodeTextureRecord;
+}
+
+function canvasSize() {
+  return {
+    cssHeight: 300,
+    cssWidth: 400,
+    devicePixelRatio: 2,
+    pixelHeight: 600,
+    pixelWidth: 800,
+  };
+}
+
+function createFrameTextureManager() {
+  const records = new Map<string, NodeTextureRecord>();
+  const manager = {
+    getNodeTexture: vi.fn((nodeId: string) => records.get(nodeId)),
+    markNodeTextureDirty: vi.fn(),
+    registerNodeTexture: vi.fn(({ nodeId }: { readonly nodeId: string }) => {
+      const record = textureRecord(nodeId) as NodeTextureRecord & {
+        lastUploadFrame: number;
+      };
+      record.lastUploadFrame = -1;
+      records.set(nodeId, record);
+      return record;
+    }),
+    uploadDirtyNodeTextures: vi.fn(
+      ({ frame }: UploadDirtyNodeTexturesOptions) => {
+        const uploaded = Array.from(records.values()) as Array<
+          NodeTextureRecord & { lastUploadFrame: number }
+        >;
+        uploaded.forEach((record) => {
+          record.lastUploadFrame = frame;
+        });
+        return {
+          budgetExhausted: false,
+          remainingDirtyNodeIds: [],
+          skippedNodeIds: [],
+          uploaded,
+        };
+      },
+    ),
+  };
+  return manager;
+}
+
+function createFrameRenderer() {
+  return {
+    render: vi.fn(({ quads }: RenderNodeTextureQuadsInput) => ({
+      drawnNodeIds: (quads as readonly GpuTexturedNodeQuad[]).map(
+        (quad) => quad.nodeId,
+      ),
+      vertexCount: quads.length * 6,
+    })),
+  };
+}
+
+function createGpuTextureMock() {
+  const copyElementImageToTexture = vi.fn();
+  const createTexture = vi.fn(() => {
+    return {
+      createView: vi.fn(() => ({}) as GPUTextureView),
+      destroy: vi.fn(),
+    } as unknown as GPUTexture;
+  });
+  const createSampler = vi.fn(() => ({}) as GPUSampler);
+  const device = {
+    createSampler,
+    createTexture,
+    destroy: vi.fn(),
+    limits: {
+      maxTextureDimension2D: 4096,
+    },
+    queue: {
+      copyElementImageToTexture,
+    },
+  } as unknown as GPUDevice;
+
+  return {
+    copyElementImageToTexture,
+    createSampler,
+    createTexture,
+    device,
+  };
+}
+
+function installTextureUsage() {
+  vi.stubGlobal("GPUTextureUsage", {
+    COPY_DST: 2,
+    RENDER_ATTACHMENT: 4,
+    TEXTURE_BINDING: 1,
+  });
 }
