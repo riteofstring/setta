@@ -15,7 +15,7 @@ type LoadProjectConfigWithViewModes = {
     viewModes?: Record<string, { isTab?: boolean }>;
   };
 };
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".canvas-flow__canvas";
 const NARROW_OVERVIEW_WIDTH = 250;
 const WIDE_OVERVIEW_WIDTH = 520;
 
@@ -27,7 +27,9 @@ async function ensureAtLeastTwoViewModes(
   page: Page,
   projectConfigId: string,
 ): Promise<void> {
-  const payload = (await loadProjectConfig(page)) as LoadProjectConfigWithViewModes;
+  const payload = (await loadProjectConfig(
+    page,
+  )) as LoadProjectConfigWithViewModes;
   const modeCount = Object.keys(payload.projectConfig?.viewModes ?? {}).length;
   if (modeCount >= 2) {
     return;
@@ -41,7 +43,9 @@ async function ensureOneTabbedViewMode(
   page: Page,
   projectConfigId: string,
 ): Promise<void> {
-  const payload = (await loadProjectConfig(page)) as LoadProjectConfigWithViewModes;
+  const payload = (await loadProjectConfig(
+    page,
+  )) as LoadProjectConfigWithViewModes;
   const viewModes = payload.projectConfig?.viewModes ?? {};
   const targetEntry =
     Object.entries(viewModes).find(([, mode]) => !mode?.isTab) ??
@@ -99,7 +103,9 @@ async function setOverviewWidth(page: Page, width: number): Promise<void> {
 async function assertNoTabPreviewControls(page: Page): Promise<void> {
   await expect(page.getByTestId("view-modes-tabs-panel")).toHaveCount(0);
   await expect(page.getByTestId("view-modes-tabs-panel-toggle")).toHaveCount(0);
-  await expect(page.getByTestId("view-modes-tabs-resize-handle")).toHaveCount(0);
+  await expect(page.getByTestId("view-modes-tabs-resize-handle")).toHaveCount(
+    0,
+  );
   await expect(page.getByText("Tab Preview", { exact: true })).toHaveCount(0);
 }
 
@@ -107,7 +113,9 @@ async function getActiveAndInactiveViewModeIds(page: Page): Promise<{
   activeViewModeId: string;
   inactiveViewModeId: string;
 }> {
-  const payload = (await loadProjectConfig(page)) as LoadProjectConfigWithViewModes;
+  const payload = (await loadProjectConfig(
+    page,
+  )) as LoadProjectConfigWithViewModes;
   const viewModes = payload.projectConfig?.viewModes ?? {};
   const activeViewModeId = payload.projectConfig?.activeViewModeId;
   if (!activeViewModeId) {
@@ -127,12 +135,15 @@ async function expectActiveViewModeId(
   expectedViewModeId: string,
 ): Promise<void> {
   await expect
-    .poll(async () => {
-      const payload = (await loadProjectConfig(
-        page,
-      )) as LoadProjectConfigWithViewModes;
-      return payload.projectConfig?.activeViewModeId ?? null;
-    }, { timeout: 15000 })
+    .poll(
+      async () => {
+        const payload = (await loadProjectConfig(
+          page,
+        )) as LoadProjectConfigWithViewModes;
+        return payload.projectConfig?.activeViewModeId ?? null;
+      },
+      { timeout: 15000 },
+    )
     .toBe(expectedViewModeId);
 }
 
@@ -152,7 +163,10 @@ function getViewModeRowLocator(page: Page, viewModeId: string): Locator {
     );
 }
 
-async function selectViewModeRow(page: Page, viewModeId: string): Promise<void> {
+async function selectViewModeRow(
+  page: Page,
+  viewModeId: string,
+): Promise<void> {
   const readonlyRow = page
     .getByTestId(`view-mode-row-${viewModeId}`)
     .or(
@@ -203,7 +217,8 @@ test.describe.serial("view modes pane without tab preview panel", () => {
       await expect(pane).toBeVisible();
       await assertNoTabPreviewControls(page);
 
-      const { inactiveViewModeId } = await getActiveAndInactiveViewModeIds(page);
+      const { inactiveViewModeId } =
+        await getActiveAndInactiveViewModeIds(page);
       const narrowRow = getViewModeRowLocator(page, inactiveViewModeId);
       await expect(narrowRow).toBeVisible();
       await selectViewModeRow(page, inactiveViewModeId);

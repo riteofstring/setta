@@ -293,7 +293,7 @@ async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".canvas-flow__canvas");
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,
@@ -411,7 +411,8 @@ async function configureManagedChatSection(
     const engine =
       useAIStore
         .getState()
-        .engineConfigs.find((config) => config.engineType === "setta_llm") ?? null;
+        .engineConfigs.find((config) => config.engineType === "setta_llm") ??
+      null;
     return engine?.id ?? null;
   });
   if (!managedEngineId) {

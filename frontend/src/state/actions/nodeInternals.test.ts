@@ -14,6 +14,7 @@ import { resetProjectStores } from "state/utils";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  flushPendingNodeDimensionLayoutPersistence,
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./nodeInternals";
@@ -138,6 +139,99 @@ describe("nodeInternals", () => {
       1,
     );
     expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
+  });
+
+  it("does not write state or persist layout for an empty dimension update list", () => {
+    const nodes = new Map([
+      ["section-1", createNode({ id: "section-1", width: 240, height: 120 })],
+    ]);
+    useNodeInternals.setState({ x: nodes });
+
+    updateNodeDimensions([]);
+
+    expect(useNodeInternals.getState().x).toBe(nodes);
+    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
+  });
+
+  it("does not write state or persist layout when observed dimensions are unchanged", () => {
+    const nodes = new Map([
+      ["section-1", createNode({ id: "section-1", width: 240, height: 120 })],
+    ]);
+    useNodeInternals.setState({ x: nodes });
+
+    updateNodeDimensions([
+      {
+        id: "section-1",
+        nodeElement: createMeasuredElement({
+          id: "section-1",
+          width: 240,
+          height: 120,
+        }),
+        forceUpdate: true,
+      },
+    ]);
+
+    expect(useNodeInternals.getState().x).toBe(nodes);
+    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
+  });
+
+  it("updates one changed dimension and keeps the existing layout persistence path", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        ["section-1", createNode({ id: "section-1", width: 240, height: 120 })],
+      ]),
+    });
+
+    updateNodeDimensions([
+      {
+        id: "section-1",
+        nodeElement: createMeasuredElement({
+          id: "section-1",
+          width: 260,
+          height: 120,
+        }),
+        forceUpdate: true,
+      },
+    ]);
+
+    const node = useNodeInternals.getState().x.get("section-1");
+    expect(node?.width).toBe(260);
+    expect(node?.height).toBe(120);
+    expect(debounced_route_set_top_level_section_layout).toHaveBeenCalledTimes(
+      1,
+    );
+  });
+
+  it("defers changed dimension layout persistence until the viewport gesture finishes", () => {
+    useReactFlow.setState({ viewportInteractionActive: true });
+    useNodeInternals.setState({
+      x: new Map([
+        ["section-1", createNode({ id: "section-1", width: 240, height: 120 })],
+      ]),
+    });
+
+    updateNodeDimensions([
+      {
+        id: "section-1",
+        nodeElement: createMeasuredElement({
+          id: "section-1",
+          width: 240,
+          height: 150,
+        }),
+        forceUpdate: true,
+      },
+    ]);
+
+    const node = useNodeInternals.getState().x.get("section-1");
+    expect(node?.height).toBe(150);
+    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
+
+    useReactFlow.setState({ viewportInteractionActive: false });
+    flushPendingNodeDimensionLayoutPersistence();
+
+    expect(debounced_route_set_top_level_section_layout).toHaveBeenCalledTimes(
+      1,
+    );
   });
 
   it("marks initial fitView complete once measurements are ready", () => {

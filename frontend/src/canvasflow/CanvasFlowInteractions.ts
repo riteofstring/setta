@@ -1,8 +1,8 @@
+import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { Connection, HandleType } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
-import { useDndState } from "forks/dnd-kit/dndState";
 import {
   useCallback,
   useEffect,
@@ -28,6 +28,7 @@ import {
   reconnectEdgeFromConnection,
   toggleEdgeSelection,
 } from "state/actions/edges";
+import { flushPendingNodeDimensionLayoutPersistence } from "state/actions/nodeInternals";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { manualDndChildrenReset } from "state/actions/sectionInfos";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
@@ -36,10 +37,7 @@ import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useEdgeHandleRegistry, useMisc, useSettings } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
+import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
   NotificationTypeEnum,
@@ -52,6 +50,7 @@ import {
   getCanvasFlowEdgeHit,
   type CanvasFlowEdgeHit,
 } from "./canvasFlowEdges";
+import { publishCanvasFlowLiveViewport } from "./canvasFlowLiveViewport";
 import {
   getCanvasFlowNestedDragSource,
   getCanvasFlowNestedDropTarget,
@@ -144,10 +143,7 @@ type EdgeReconnectPointerGesture = Extract<
   PointerGesture,
   { mode: "edge-reconnect" }
 >;
-type NestedDndPointerGesture = Extract<
-  PointerGesture,
-  { mode: "nested-dnd" }
->;
+type NestedDndPointerGesture = Extract<PointerGesture, { mode: "nested-dnd" }>;
 type PanPointerGesture = Extract<PointerGesture, { mode: "pan" }>;
 type SelectPointerGesture = Extract<PointerGesture, { mode: "select" }>;
 type CanvasFlowReconnectTarget = {
@@ -198,10 +194,10 @@ export function useCanvasFlowInteractions({
   }, [syncStoreViewport]);
 
   const commitViewportChange = useCallback(() => {
-    dispatchCanvasFlowViewportChange();
+    dispatchCanvasFlowViewportChange(viewportRef.current);
     schedulePaint();
     scheduleStoreViewportSync();
-  }, [schedulePaint, scheduleStoreViewportSync]);
+  }, [schedulePaint, scheduleStoreViewportSync, viewportRef]);
 
   const finishViewportGesture = useCallback(() => {
     clearTimeout(storeSyncTimeoutRef.current);
@@ -211,8 +207,9 @@ export function useCanvasFlowInteractions({
       viewportInteractionActive: false,
     });
     useMisc.setState({ isPanScrolling: false });
-    dispatchCanvasFlowViewportChange();
-  }, [syncStoreViewport]);
+    dispatchCanvasFlowViewportChange(viewportRef.current);
+    flushPendingNodeDimensionLayoutPersistence();
+  }, [syncStoreViewport, viewportRef]);
 
   const startWheelInteraction = useCallback((kind: "pan" | "zoom") => {
     useReactFlow.setState({ viewportInteractionActive: true });
@@ -222,12 +219,14 @@ export function useCanvasFlowInteractions({
       panScrollTimeoutRef.current = setTimeout(() => {
         useMisc.setState({ isPanScrolling: false });
         useReactFlow.setState({ viewportInteractionActive: false });
+        flushPendingNodeDimensionLayoutPersistence();
       }, 150);
       return;
     }
     clearTimeout(wheelZoomTimeoutRef.current);
     wheelZoomTimeoutRef.current = setTimeout(() => {
       useReactFlow.setState({ viewportInteractionActive: false });
+      flushPendingNodeDimensionLayoutPersistence();
     }, 180);
   }, []);
 
@@ -305,13 +304,7 @@ export function useCanvasFlowInteractions({
       }
       startPanPointerGesture({ event, gestureRef });
     },
-    [
-      canEditLayout,
-      edgesRef,
-      panOnDrag,
-      syncStoreViewport,
-      viewportRef,
-    ],
+    [canEditLayout, edgesRef, panOnDrag, syncStoreViewport, viewportRef],
   );
 
   const onPointerMove = useCallback(
@@ -939,7 +932,9 @@ function finishNestedDndGesture({
   schedulePaint();
 }
 
-function isNestedDndModeActive(event: PointerEvent<HTMLCanvasElement>): boolean {
+function isNestedDndModeActive(
+  event: PointerEvent<HTMLCanvasElement>,
+): boolean {
   const dndState = useDndState.getState();
   return dndState.isMovingFree || dndState.isSorting || event.altKey;
 }
@@ -1377,11 +1372,8 @@ function onBackgroundClick(
   useReactFlow.setState({ nodesSelectionDims: null });
 }
 
-function dispatchCanvasFlowViewportChange() {
-  if (typeof window === "undefined") {
-    return;
-  }
-  window.dispatchEvent(new Event(CANVAS_FLOW_VIEWPORT_CHANGE_EVENT));
+function dispatchCanvasFlowViewportChange(viewport: CanvasFlowViewport) {
+  publishCanvasFlowLiveViewport(viewport);
 }
 
 function shouldIgnoreWheelEvent({

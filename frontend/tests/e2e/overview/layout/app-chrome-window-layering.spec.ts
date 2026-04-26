@@ -75,7 +75,7 @@ test("header menus and side panes stay above docked and floating chat windows", 
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     await showSidePanes(page);
 
     const header = page.locator('[data-tab-scope="header"]').first();
@@ -169,7 +169,7 @@ test("q quick info tooltip stays above open side panes", async ({ page }) => {
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     await showSidePanes(page);
 
     const overviewRail = page.getByTestId("overview-icon-rail");

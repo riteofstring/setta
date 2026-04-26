@@ -258,7 +258,7 @@ test.describe.serial("agentic scope", () => {
       const configBUrl = new URL(page.url());
       configBUrl.pathname = `/${projectConfigNameB}`;
       await page.goto(configBUrl.toString(), { waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
 
       await expect(
         page.locator(`.react-flow__node[data-id="${chatSectionId}"]`),

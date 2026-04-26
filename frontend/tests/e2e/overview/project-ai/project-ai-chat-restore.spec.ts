@@ -118,7 +118,7 @@ test("project ai threads restore deleted thread and group via explicit restore a
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     let overviewPane = page.locator("#OverviewPane");
     await expect(

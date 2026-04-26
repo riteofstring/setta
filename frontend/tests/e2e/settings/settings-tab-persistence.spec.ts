@@ -5,7 +5,7 @@ import { ensureAppReady, postBackend } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".canvas-flow__canvas";
 
 type ViewModeSwitchTarget = {
   viewModeId: string;

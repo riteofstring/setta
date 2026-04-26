@@ -212,7 +212,7 @@ test("core project-name UI setting persists metadata after rename", async ({
     await page.goto(renamedProjectUrl.toString(), {
       waitUntil: "domcontentloaded",
     });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const metadataAfterReloadResponse = await page.request.post(
       `${BACKEND_ORIGIN}/api/loadAllProjectMetadata`,

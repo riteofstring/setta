@@ -31,7 +31,6 @@ import {
 } from "state/definitions";
 import { useUpdateAgenticScopeHighlights } from "state/hooks/agenticScopeHighlights";
 import {
-  CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
   CODEMIRROR_TOOLTIP_PARENT_ID,
   SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
@@ -51,6 +50,10 @@ import {
   buildDataEdges,
   buildStateMachineEdges,
 } from "./canvasFlowEdges";
+import {
+  clearCanvasFlowLiveViewport,
+  publishCanvasFlowLiveViewport,
+} from "./canvasFlowLiveViewport";
 import { paintCanvasFlow } from "./canvasFlowPaint";
 import {
   assertHtmlInCanvasSupport,
@@ -215,7 +218,7 @@ function CanvasFlow() {
 
   useEffect(() => {
     viewportRef.current = transformToCanvasFlowViewport(transform);
-    window.dispatchEvent(new Event(CANVAS_FLOW_VIEWPORT_CHANGE_EVENT));
+    publishCanvasFlowLiveViewport(viewportRef.current);
     schedulePaint();
   }, [schedulePaint, transform]);
 
@@ -249,6 +252,7 @@ function CanvasFlow() {
           viewportInteractionActive: false,
         });
         useMisc.setState({ isPanScrolling: false });
+        clearCanvasFlowLiveViewport();
       }
     };
   }, []);

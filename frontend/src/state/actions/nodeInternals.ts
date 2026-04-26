@@ -23,6 +23,7 @@ type NodeDimensionsUpdate = Array<{
   forceUpdate: boolean;
 }>;
 type NodesById = Map<string, Node>;
+let hasPendingDimensionLayoutPersistence = false;
 
 export function getNodes(s: null | ZustandNodeInternalsState = null) {
   const source = s ? s.x : useNodeInternals.getState().x;
@@ -49,12 +50,30 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   if (!hasViewportNode()) {
     return;
   }
+  if (updates.length === 0) {
+    maybeCompleteInitialFitView();
+    return;
+  }
 
-  const newNodes = getNewNodes();
-  applyNodeDimensionUpdates(newNodes, updates);
+  const newNodes = applyNodeDimensionUpdates(
+    useNodeInternals.getState().x,
+    updates,
+  );
+  if (!newNodes) {
+    maybeCompleteInitialFitView();
+    return;
+  }
   useNodeInternals.setState({ x: newNodes });
-  debounced_route_set_top_level_section_layout();
+  persistDimensionLayout();
   maybeCompleteInitialFitView();
+}
+
+export function flushPendingNodeDimensionLayoutPersistence() {
+  if (!hasPendingDimensionLayoutPersistence) {
+    return;
+  }
+  hasPendingDimensionLayoutPersistence = false;
+  debounced_route_set_top_level_section_layout();
 }
 
 function hasViewportNode() {
@@ -63,44 +82,53 @@ function hasViewportNode() {
 }
 
 function applyNodeDimensionUpdates(
-  newNodes: NodesById,
+  nodes: NodesById,
   updates: NodeDimensionsUpdate,
-) {
+): NodesById | null {
+  let newNodes: NodesById | null = null;
   for (const update of updates) {
-    applyNodeDimensionUpdate(newNodes, update);
+    newNodes = applyNodeDimensionUpdate(newNodes ?? nodes, update) ?? newNodes;
   }
+  return newNodes;
 }
 
 function applyNodeDimensionUpdate(
-  newNodes: NodesById,
+  nodes: NodesById,
   update: NodeDimensionsUpdate[number],
-) {
-  const node = newNodes.get(update.id);
+): NodesById | null {
+  const node = nodes.get(update.id);
   if (!node) {
-    return;
+    return null;
   }
   const dimensions = getDimensions(update.nodeElement);
-  if (!shouldUpdateNodeDimensions(node, dimensions, update.forceUpdate)) {
-    return;
+  if (!shouldUpdateNodeDimensions(node, dimensions)) {
+    return null;
   }
+  const newNodes = new Map(nodes);
   newNodes.set(node.id, {
     ...node,
     ...dimensions,
   });
+  return newNodes;
 }
 
 function shouldUpdateNodeDimensions(
   node: Node,
   dimensions: ReturnType<typeof getDimensions>,
-  forceUpdate: boolean,
 ) {
   return !!(
     dimensions.width &&
     dimensions.height &&
-    (node.width !== dimensions.width ||
-      node.height !== dimensions.height ||
-      forceUpdate)
+    (node.width !== dimensions.width || node.height !== dimensions.height)
   );
+}
+
+function persistDimensionLayout() {
+  if (useReactFlow.getState().viewportInteractionActive) {
+    hasPendingDimensionLayoutPersistence = true;
+    return;
+  }
+  debounced_route_set_top_level_section_layout();
 }
 
 function maybeCompleteInitialFitView() {
@@ -125,7 +153,11 @@ function maybeCompleteInitialFitView() {
 export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
   const newNodes = getNewNodes();
   for (const n of nodeDragItems) {
-    newNodes.get(n.id).position = n.position;
+    const node = newNodes.get(n.id);
+    if (!node) {
+      throw new Error(`Missing node ${n.id}`);
+    }
+    node.position = n.position;
   }
   useNodeInternals.setState({ x: newNodes });
   const sectionIds = new Set<string>();
@@ -145,7 +177,11 @@ export function raiseTempZIndex(nodes: Array<Node>) {
     n.tempZIndex = n.zIndex;
   }
   for (const n of nodes) {
-    newNodes.get(n.id).tempZIndex = newNodes.get(n.id).zIndex + 1000;
+    const node = newNodes.get(n.id);
+    if (!node) {
+      throw new Error(`Missing node ${n.id}`);
+    }
+    node.tempZIndex = node.zIndex + 1000;
   }
   useNodeInternals.setState({ x: newNodes });
 }

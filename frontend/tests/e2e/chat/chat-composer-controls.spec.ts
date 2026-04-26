@@ -745,7 +745,7 @@ test.describe.serial("chat composer controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
       await page.evaluate(async () => {
         const { useAIStore, useLocalStorage, useProjectState } = await import(
           "/src/state/definitions.ts"
@@ -4684,7 +4684,7 @@ test.describe.serial("chat composer controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(
@@ -5202,7 +5202,7 @@ test.describe.serial("chat composer controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(
@@ -5369,7 +5369,7 @@ test.describe.serial("chat composer controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       const input = projectChatSurface.getByPlaceholder("Type a message...");
@@ -5459,7 +5459,7 @@ test.describe.serial("chat composer controls", () => {
     try {
       await setOverviewTab(page, "ProjectAIChat");
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(
@@ -5510,7 +5510,7 @@ test.describe.serial("chat composer controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(
@@ -5692,7 +5692,7 @@ test.describe.serial("chat composer controls", () => {
     });
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(

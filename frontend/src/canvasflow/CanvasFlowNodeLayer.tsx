@@ -1,7 +1,7 @@
 import cc from "classcat";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { useReactFlow } from "forks/xyflow/core/store";
-import type { Node } from "forks/xyflow/core/types";
+import type { Node, Rect } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
   memo,
@@ -36,9 +36,17 @@ import {
 import { useCanvasFlowNodeDrag } from "./useCanvasFlowNodeDrag";
 
 const NODE_MOUNT_OVERSCAN_WORLD = 2400;
+const NODE_MOUNT_REFRESH_MARGIN_WORLD = NODE_MOUNT_OVERSCAN_WORLD / 2;
+const NODE_MOUNT_ZOOM_REFRESH_RATIO = 1.15;
 const FALLBACK_CANVAS_CSS_SIZE = {
   cssHeight: 900,
   cssWidth: 1400,
+};
+
+type CanvasFlowMountWindow = {
+  size: Pick<CanvasFlowSize, "cssHeight" | "cssWidth">;
+  viewport: CanvasFlowViewport;
+  visibleRect: Rect;
 };
 
 type CanvasFlowNodeLayerProps = {
@@ -72,28 +80,24 @@ export function CanvasFlowNodeLayer({
     shallow,
   );
   const transform = useReactFlow((state) => state.transform, shallow);
-  const [mountViewport, setMountViewport] = useState(() => ({
-    ...viewportRef.current,
-  }));
+  const [mountWindow, setMountWindow] = useState(() =>
+    createMountWindow(canvasCssSize, viewportRef.current),
+  );
 
   useEffect(() => {
     const nextViewport = transformToCanvasFlowViewport(transform);
-    setMountViewport((currentViewport) =>
-      canvasFlowViewportsEqual(currentViewport, nextViewport)
-        ? currentViewport
-        : nextViewport,
+    setMountWindow((currentWindow) =>
+      getNextMountWindow(currentWindow, canvasCssSize, nextViewport),
     );
-  }, [transform]);
+  }, [canvasCssSize, transform]);
 
   useEffect(() => {
     let frameId: number | null = null;
     const syncMountViewport = () => {
       frameId = null;
       const nextViewport = viewportRef.current;
-      setMountViewport((currentViewport) =>
-        canvasFlowViewportsEqual(currentViewport, nextViewport)
-          ? currentViewport
-          : { ...nextViewport },
+      setMountWindow((currentWindow) =>
+        getNextMountWindow(currentWindow, canvasCssSize, nextViewport),
       );
     };
     const handleViewportChange = () => {
@@ -115,18 +119,14 @@ export function CanvasFlowNodeLayer({
         window.cancelAnimationFrame(frameId);
       }
     };
-  }, [viewportRef]);
+  }, [canvasCssSize, viewportRef]);
 
   const nodeIds = useMemo(() => {
-    const size = getEffectiveCanvasCssSize(canvasCssSize);
     return getMountedNodeIds({
       nodes,
-      visibleRect: expandWorldRect(
-        getVisibleWorldRect(size, mountViewport),
-        NODE_MOUNT_OVERSCAN_WORLD,
-      ),
+      visibleRect: mountWindow.visibleRect,
     });
-  }, [canvasCssSize, mountViewport, nodes]);
+  }, [mountWindow, nodes]);
 
   useEffect(() => {
     schedulePaint();
@@ -147,6 +147,78 @@ export function CanvasFlowNodeLayer({
       ))}
     </>
   );
+}
+
+function createMountWindow(
+  canvasCssSize: Pick<CanvasFlowSize, "cssHeight" | "cssWidth">,
+  viewport: CanvasFlowViewport,
+): CanvasFlowMountWindow {
+  const size = getEffectiveCanvasCssSize(canvasCssSize);
+  return {
+    size,
+    viewport: { ...viewport },
+    visibleRect: expandWorldRect(
+      getVisibleWorldRect(size, viewport),
+      NODE_MOUNT_OVERSCAN_WORLD,
+    ),
+  };
+}
+
+function getNextMountWindow(
+  currentWindow: CanvasFlowMountWindow,
+  canvasCssSize: Pick<CanvasFlowSize, "cssHeight" | "cssWidth">,
+  viewport: CanvasFlowViewport,
+): CanvasFlowMountWindow {
+  const size = getEffectiveCanvasCssSize(canvasCssSize);
+  if (
+    currentWindow.size.cssHeight !== size.cssHeight ||
+    currentWindow.size.cssWidth !== size.cssWidth
+  ) {
+    return createMountWindow(size, viewport);
+  }
+  if (shouldReuseMountWindow(currentWindow, size, viewport)) {
+    return currentWindow;
+  }
+  return createMountWindow(size, viewport);
+}
+
+function shouldReuseMountWindow(
+  currentWindow: CanvasFlowMountWindow,
+  size: Pick<CanvasFlowSize, "cssHeight" | "cssWidth">,
+  viewport: CanvasFlowViewport,
+) {
+  if (canvasFlowViewportsEqual(currentWindow.viewport, viewport)) {
+    return true;
+  }
+  const zoomRatio = Math.max(
+    viewport.zoom / currentWindow.viewport.zoom,
+    currentWindow.viewport.zoom / viewport.zoom,
+  );
+  if (zoomRatio >= NODE_MOUNT_ZOOM_REFRESH_RATIO) {
+    return false;
+  }
+  return containsRect(
+    shrinkWorldRect(currentWindow.visibleRect, NODE_MOUNT_REFRESH_MARGIN_WORLD),
+    getVisibleWorldRect(size, viewport),
+  );
+}
+
+function containsRect(outer: Rect, inner: Rect) {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height
+  );
+}
+
+function shrinkWorldRect(rect: Rect, margin: number): Rect {
+  return {
+    x: rect.x + margin,
+    y: rect.y + margin,
+    width: Math.max(rect.width - margin * 2, 0),
+    height: Math.max(rect.height - margin * 2, 0),
+  };
 }
 
 function getEffectiveCanvasCssSize(

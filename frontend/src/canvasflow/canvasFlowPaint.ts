@@ -17,6 +17,12 @@ import type {
 import { expandWorldRect, getVisibleWorldRect } from "./canvasFlowViewport";
 
 const DEFAULT_OVERSCAN = 600;
+const PAINT_STATS_SAMPLE_INTERVAL_MS = 250;
+const CANVAS_FLOW_DIAGNOSTICS_ENABLED = "enabled";
+
+type CanvasFlowStatsCanvas = HTMLCanvasElement & {
+  __canvasFlowLastStatsWriteMs?: number;
+};
 
 type PaintCanvasFlowParams = {
   canvas: HTMLCanvasElement;
@@ -109,8 +115,7 @@ export function paintCanvasFlow({
     drawElementImageMs += performance.now() - drawStart;
 
     const transformStart = performance.now();
-    element.style.transform = transform.toString();
-    element.style.pointerEvents = "all";
+    assignNodePaintStyle(element, transform.toString());
     transformAssignmentMs += performance.now() - transformStart;
     nextInteractiveNodeIds.add(node.id);
   }
@@ -126,6 +131,7 @@ export function paintCanvasFlow({
     previousInteractiveNodeIds.add(nodeId);
   }
 
+  const paintEnd = performance.now();
   const stats = {
     visibleNodeCount: visibleNodes.length,
     drawnNodeCount,
@@ -133,9 +139,9 @@ export function paintCanvasFlow({
     mountedNodeCount: nodeElements.size,
     drawElementImageMs,
     transformAssignmentMs,
-    totalPaintMs: performance.now() - paintStart,
+    totalPaintMs: paintEnd - paintStart,
   };
-  writePaintStats(canvas, stats, viewport);
+  writePaintStats(canvas, stats, viewport, paintEnd);
   return stats;
 }
 
@@ -224,9 +230,18 @@ function disableCulledNodePointerEvents({
       continue;
     }
     const element = nodeElements.get(nodeId);
-    if (element) {
+    if (element && element.style.pointerEvents !== "none") {
       element.style.pointerEvents = "none";
     }
+  }
+}
+
+function assignNodePaintStyle(element: HTMLElement, transform: string) {
+  if (element.style.transform !== transform) {
+    element.style.transform = transform;
+  }
+  if (element.style.pointerEvents !== "all") {
+    element.style.pointerEvents = "all";
   }
 }
 
@@ -238,7 +253,11 @@ function writePaintStats(
   canvas: HTMLCanvasElement,
   stats: CanvasFlowPaintStats,
   viewport: CanvasFlowViewport,
+  now: number,
 ) {
+  if (!shouldWritePaintStats(canvas, now)) {
+    return;
+  }
   canvas.dataset.paintSequence = String(
     Number.parseInt(canvas.dataset.paintSequence ?? "0", 10) + 1,
   );
@@ -252,4 +271,23 @@ function writePaintStats(
   canvas.dataset.viewportX = viewport.x.toFixed(2);
   canvas.dataset.viewportY = viewport.y.toFixed(2);
   canvas.dataset.viewportZoom = viewport.zoom.toFixed(4);
+}
+
+function shouldWritePaintStats(canvas: HTMLCanvasElement, now: number) {
+  if (
+    canvas.dataset.canvasFlowDiagnostics === CANVAS_FLOW_DIAGNOSTICS_ENABLED
+  ) {
+    (canvas as CanvasFlowStatsCanvas).__canvasFlowLastStatsWriteMs = now;
+    return true;
+  }
+  const statsCanvas = canvas as CanvasFlowStatsCanvas;
+  const previousWrite = statsCanvas.__canvasFlowLastStatsWriteMs;
+  if (
+    previousWrite !== undefined &&
+    now - previousWrite < PAINT_STATS_SAMPLE_INTERVAL_MS
+  ) {
+    return false;
+  }
+  statsCanvas.__canvasFlowLastStatsWriteMs = now;
+  return true;
 }

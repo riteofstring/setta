@@ -1,9 +1,16 @@
+import {
+  getCanvasFlowLiveViewportSnapshot,
+  subscribeCanvasFlowLiveViewport,
+} from "canvasflow/canvasFlowLiveViewport";
+import type { CanvasFlowViewport } from "canvasflow/canvasFlowTypes";
+import { transformToCanvasFlowViewport } from "canvasflow/canvasFlowViewport";
 import cc from "classcat";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   memo,
   useEffect,
   useRef,
+  useSyncExternalStore,
   type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from "react";
@@ -17,7 +24,7 @@ import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
 import type { Node, ReactFlowState, Rect } from "../core/types";
 import { getBoundsOfRects, getWheelDelta } from "../core/utils";
-import { getNodesBounds, getPaneRect } from "../core/utils/graph";
+import { getNodesBounds } from "../core/utils/graph";
 import {
   areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
@@ -61,8 +68,10 @@ const defaultMiniMapProps = {
 >;
 
 type MiniMapSelector = {
-  viewBB: Rect;
-  boundingRect: Rect;
+  domNode: HTMLDivElement | null;
+  height: number;
+  transform: ReactFlowState["transform"];
+  width: number;
 };
 
 type XYWidthHeightParams = {
@@ -131,21 +140,39 @@ export function syncSelectedMiniMapNodes(
   }
 }
 
-function getSelector(
-  nodes: Node[],
+function getSelector(s: ReactFlowState): MiniMapSelector {
+  return {
+    domNode: s.domNode,
+    height: s.height,
+    transform: s.transform,
+    width: s.width,
+  };
+}
+
+export function getMiniMapPaneRect(
+  state: MiniMapSelector,
   overviewWidth: number,
   uiEditorWidth: number,
-) {
-  return (s: ReactFlowState): MiniMapSelector => {
-    const viewBB: Rect = getPaneRect(s, overviewWidth, uiEditorWidth);
-
+  liveViewport: CanvasFlowViewport | null,
+): Rect {
+  const viewport =
+    liveViewport ?? transformToCanvasFlowViewport(state.transform);
+  if (!state.domNode) {
     return {
-      viewBB,
-      boundingRect:
-        nodes.length > 0
-          ? getBoundsOfRects(getNodesBounds(nodes), viewBB)
-          : viewBB,
+      x: (-viewport.x + overviewWidth) / viewport.zoom,
+      y: -viewport.y / viewport.zoom,
+      width: state.width / viewport.zoom,
+      height: state.height / viewport.zoom,
     };
+  }
+
+  const bounds = state.domNode.getBoundingClientRect();
+  return {
+    x: (overviewWidth - viewport.x) / viewport.zoom,
+    y: -viewport.y / viewport.zoom,
+    width:
+      Math.max(bounds.width - overviewWidth - uiEditorWidth, 0) / viewport.zoom,
+    height: Math.max(bounds.height, 0) / viewport.zoom,
   };
 }
 
@@ -457,10 +484,20 @@ function MiniMap(props: MiniMapProps) {
   );
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
-  const { boundingRect, viewBB } = useReactFlow(
-    getSelector(nodes, overviewWidth, uiEditorWidth),
-    shallow,
+  const viewportState = useReactFlow(getSelector, shallow);
+  const liveViewport = useSyncExternalStore(
+    subscribeCanvasFlowLiveViewport,
+    getCanvasFlowLiveViewportSnapshot,
+    getCanvasFlowLiveViewportSnapshot,
   );
+  const viewBB = getMiniMapPaneRect(
+    viewportState,
+    overviewWidth,
+    uiEditorWidth,
+    liveViewport,
+  );
+  const boundingRect =
+    nodes.length > 0 ? getBoundsOfRects(getNodesBounds(nodes), viewBB) : viewBB;
   const elementWidth = getMiniMapDimension(style?.width, defaultWidth);
   const elementHeight = getMiniMapDimension(style?.height, defaultHeight);
 

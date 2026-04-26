@@ -207,7 +207,7 @@ test("project ai hydrates external threads via external provenance endpoint", as
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -382,7 +382,7 @@ test("project ai resolves selected-thread provenance from project scope when cha
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -550,7 +550,7 @@ test("project ai keeps selected threads usable when hydration reports terminal m
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -737,7 +737,7 @@ test("project ai waits for authoritative provenance before hydrating a selected 
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const overviewPane = await getVisibleProjectChatSurface(page);
     await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
 
@@ -820,7 +820,9 @@ test("project ai does not warn on ambiguous local provenance before authority is
             {
               id: "ambiguous-user-llm",
               role: "user",
-              content: [{ type: "text", text: "Resume ambiguous thread (LLM)" }],
+              content: [
+                { type: "text", text: "Resume ambiguous thread (LLM)" },
+              ],
               attachments: [],
             },
           ],
@@ -937,7 +939,9 @@ test("project ai does not warn on ambiguous local provenance before authority is
               {
                 id: "ambiguous-authoritative-user-llm",
                 role: "user",
-                content: [{ type: "text", text: "Authoritative ambiguous (LLM)" }],
+                content: [
+                  { type: "text", text: "Authoritative ambiguous (LLM)" },
+                ],
                 attachments: [],
               },
             ],
@@ -1024,7 +1028,7 @@ test("project ai does not warn on ambiguous local provenance before authority is
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const overviewPane = await getVisibleProjectChatSurface(page);
     await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
 
@@ -1192,7 +1196,7 @@ test("project ai waits for authoritative engine config metadata before hydrating
   });
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     await bindVisibleProjectChatWindowToChatId(page, selectedChatId);
 
     await page.waitForTimeout(600);
@@ -1371,7 +1375,7 @@ test("project ai rehydrates after metadata revision changes clear a terminal hyd
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const overviewPane = await getVisibleProjectChatSurface(page);
     await ensureProjectChatThreadsPanelVisible(page);
     const threadEntry = overviewPane
@@ -1603,7 +1607,7 @@ test("project ai keeps the selected sibling thread stable until the retrying thr
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -1624,9 +1628,8 @@ test("project ai keeps the selected sibling thread stable until the retrying thr
     await expect.poll(() => retryHydrateCalls).toBeGreaterThan(0);
     const retryCallsBeforeSwitch = retryHydrateCalls;
 
-    const threadsPanelAfterRetry = await ensureProjectChatThreadsPanelVisible(
-      page,
-    );
+    const threadsPanelAfterRetry =
+      await ensureProjectChatThreadsPanelVisible(page);
     const siblingEntryAfterRetry = threadsPanelAfterRetry
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Sibling thread" })
@@ -1637,22 +1640,23 @@ test("project ai keeps the selected sibling thread stable until the retrying thr
     // The sibling selection should remain authoritative in the visible pane
     // until the retrying thread is explicitly revisited.
     await page.waitForTimeout(1300);
-    await expect(overviewPane.getByText("Sibling hydrated.").first()).toBeVisible();
+    await expect(
+      overviewPane.getByText("Sibling hydrated.").first(),
+    ).toBeVisible();
     await expect(
       overviewPane.getByText("Retry chat hydrated after returning.").first(),
     ).toHaveCount(0);
 
-    const threadsPanelAfterSibling = await ensureProjectChatThreadsPanelVisible(
-      page,
-    );
+    const threadsPanelAfterSibling =
+      await ensureProjectChatThreadsPanelVisible(page);
     const retryEntryAfterSibling = threadsPanelAfterSibling
       .getByTestId("project-chat-thread-entry")
       .filter({ hasText: "Retry target thread" })
       .first();
     await retryEntryAfterSibling.click();
-    await expect.poll(() => retryHydrateCalls).toBeGreaterThan(
-      retryCallsBeforeSwitch,
-    );
+    await expect
+      .poll(() => retryHydrateCalls)
+      .toBeGreaterThan(retryCallsBeforeSwitch);
     await expect(
       overviewPane.getByText("Retry chat hydrated after returning.").first(),
     ).toBeVisible();
@@ -1765,7 +1769,7 @@ test("project ai stops retrying hydration after terminal 404 failures", async ({
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -1935,7 +1939,7 @@ test("project ai shows context unavailable when backend context telemetry is mis
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -2097,7 +2101,7 @@ test("project ai shows context-left badge for external chats when backend teleme
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -2201,7 +2205,7 @@ test("project ai warns on stale selected chat ids without hard-blocking composer
       activeChatId: staleChatId,
     });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const overviewPane = await getVisibleProjectChatSurface(page);
     await bindVisibleProjectChatWindowToChatId(page, staleChatId);
 
@@ -2332,7 +2336,7 @@ test("project ai keeps composer usable when in-flight submitted chats warn about
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const overviewPane = await getVisibleProjectChatSurface(page);
     const input = overviewPane.locator("textarea").first();
     await expect(input).toBeVisible();
@@ -2529,7 +2533,7 @@ test("project ai keeps composer usable when post-ready agent-runs refresh fails 
     });
     reloadStarted = true;
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const overviewPane = await getVisibleProjectChatSurface(page);
     const input = overviewPane.locator("textarea").first();
     const submitButton = overviewPane.locator('button[type="submit"]').first();
@@ -2693,7 +2697,7 @@ test("project ai retries transient metadata failures and hydrates after authorit
     });
     reloadStarted = true;
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const overviewPane = await getVisibleProjectChatSurface(page);
     await bindVisibleProjectChatWindowToChatId(page, staleChatId);
 
@@ -2809,7 +2813,7 @@ test("project ai defers selected-thread hydration when engine config metadata is
       count: 4,
     });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     await ensureProjectChatThreadsPanelVisible(page);
@@ -2909,7 +2913,7 @@ test("project ai thread history excludes runs from other projects", async ({
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();

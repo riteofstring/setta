@@ -285,6 +285,9 @@ async function assertCanvasFlowSupport(page: Page) {
   await expect(page.locator(CANVAS_SELECTOR)).toBeVisible();
   const support = await page.evaluate((selector) => {
     const canvas = document.querySelector<HTMLCanvasElement>(selector);
+    if (canvas) {
+      canvas.dataset.canvasFlowDiagnostics = "enabled";
+    }
     const ctx = canvas?.getContext("2d") as
       | (CanvasRenderingContext2D & {
           drawElementImage?: unknown;

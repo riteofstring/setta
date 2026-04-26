@@ -111,6 +111,52 @@ describe("CanvasFlowNodeLayer", () => {
     expect(container.querySelector('[data-id="near"]')).toBeNull();
     expect(container.querySelector('[data-id="far"]')).not.toBeNull();
   });
+
+  it("keeps the mounted node set stable for small pans inside the overscan window", async () => {
+    seedProjectSections(["near", "far"]);
+    useNodeInternals.setState({
+      x: new Map([
+        ["near", node("near", 0, 0)],
+        ["far", node("far", 3400, 0)],
+      ]),
+    });
+    const canvas = document.createElement("canvas");
+    const canvasRef = { current: canvas };
+    const nodeElementsRef = {
+      current: new Map<string, HTMLElement>() as CanvasFlowNodeElementMap,
+    };
+    const viewportRef = {
+      current: { x: 0, y: 0, zoom: 1 } satisfies CanvasFlowViewport,
+    };
+    const schedulePaint = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <CanvasFlowNodeLayer
+          canvasCssSize={{ cssWidth: 800, cssHeight: 400 }}
+          canvasRef={canvasRef}
+          nodeElementsRef={nodeElementsRef}
+          resizeObserver={null}
+          schedulePaint={schedulePaint}
+          viewportRef={viewportRef}
+        />,
+      );
+    });
+
+    expect(container.querySelector('[data-id="near"]')).not.toBeNull();
+    expect(container.querySelector('[data-id="far"]')).toBeNull();
+    schedulePaint.mockClear();
+
+    await act(async () => {
+      viewportRef.current = { x: -300, y: 0, zoom: 1 };
+      window.dispatchEvent(new Event(CANVAS_FLOW_VIEWPORT_CHANGE_EVENT));
+    });
+
+    expect(useReactFlow.getState().transform).toEqual([0, 0, 1]);
+    expect(container.querySelector('[data-id="near"]')).not.toBeNull();
+    expect(container.querySelector('[data-id="far"]')).toBeNull();
+    expect(schedulePaint).not.toHaveBeenCalled();
+  });
 });
 
 function seedProjectSections(sectionIds: string[]) {

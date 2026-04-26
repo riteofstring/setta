@@ -105,9 +105,12 @@ async function resetProjectChatStarterSurfaceState(page: Page) {
 async function ensureCreateProjectStarterButton(
   overviewPane: Locator,
 ): Promise<Locator> {
-  const starterButton = overviewPane.page().getByRole("button", {
-    name: /^Create Project$/,
-  }).first();
+  const starterButton = overviewPane
+    .page()
+    .getByRole("button", {
+      name: /^Create Project$/,
+    })
+    .first();
   if (await starterButton.isVisible().catch(() => false)) {
     return starterButton;
   }
@@ -253,7 +256,7 @@ test("project chat skips workspace root scan when returning to an existing chat"
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     await expect(
@@ -267,7 +270,9 @@ test("project chat skips workspace root scan when returning to an existing chat"
     const input = projectChatWindow.getByPlaceholder("Type a message...");
     await input.fill("Start existing chat");
     await input.press("Enter");
-    await expect(projectChatWindow.getByText("hello from playwright")).toBeVisible();
+    await expect(
+      projectChatWindow.getByText("hello from playwright"),
+    ).toBeVisible();
 
     const baselineRootScanCalls = rootScanCalls;
 
@@ -277,7 +282,9 @@ test("project chat skips workspace root scan when returning to an existing chat"
     await expect(
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
-    await expect(projectChatWindow.getByText("hello from playwright")).toBeVisible();
+    await expect(
+      projectChatWindow.getByText("hello from playwright"),
+    ).toBeVisible();
 
     await page.waitForTimeout(300);
     expect(rootScanCalls).toBe(baselineRootScanCalls);
@@ -378,7 +385,7 @@ test("project chat keeps create-project starter visible when a new root scan can
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     await expect(
@@ -397,7 +404,9 @@ test("project chat keeps create-project starter visible when a new root scan can
     await expect(projectChatWindow.getByText("chat active")).toBeVisible();
 
     useSecondWorkspaceRoot = true;
-    await projectChatWindow.getByRole("button", { name: /^New Chat$/i }).click();
+    await projectChatWindow
+      .getByRole("button", { name: /^New Chat$/i })
+      .click();
     await expect(createProjectButton).toBeVisible();
   } finally {
     await engineCleanup();
@@ -448,7 +457,7 @@ test("project chat still revalidates root scans when root path stays the same", 
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     const createProjectButton =
@@ -511,7 +520,7 @@ test("project chat avoids overlapping root scans while a folder request is in fl
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     await expect(
@@ -595,7 +604,7 @@ test("project chat immediately rescans after in-flight scan when root identity c
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     await expect(
@@ -623,7 +632,9 @@ test("project chat immediately rescans after in-flight scan when root identity c
     expect(scannedRoots[0]).toBe("/tmp/workspace-race-a");
     expect(scannedRoots[1]).toBe("/tmp/workspace-race-b");
     expect(Date.now() - releaseStartedAt).toBeLessThan(3000);
-    await expect(await ensureCreateProjectStarterButton(overviewPane)).toBeVisible();
+    await expect(
+      await ensureCreateProjectStarterButton(overviewPane),
+    ).toBeVisible();
   } finally {
     if (releaseFirstScan) {
       releaseFirstScan();
@@ -665,7 +676,7 @@ test("project chat keeps the visible chat surface stable across repeated stable 
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     const projectChatHeading = overviewPane.getByRole("heading", {
@@ -739,7 +750,7 @@ test("project chat recovers root polling after a transient getFileBrowserRoot fa
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     await expect(
@@ -749,7 +760,9 @@ test("project chat recovers root polling after a transient getFileBrowserRoot fa
     await expect
       .poll(() => getRootCalls, { timeout: 15000 })
       .toBeGreaterThanOrEqual(2);
-    await expect(await ensureCreateProjectStarterButton(overviewPane)).toBeVisible();
+    await expect(
+      await ensureCreateProjectStarterButton(overviewPane),
+    ).toBeVisible();
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
