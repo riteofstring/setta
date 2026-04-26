@@ -1,5 +1,3 @@
-import { useReactFlow } from "forks/xyflow/core/store";
-import initialState from "forks/xyflow/core/store/initialState";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { useNodeInternals } from "state/definitions";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -14,12 +12,6 @@ import {
 describe("key activation shortcut policy", () => {
   beforeEach(() => {
     useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({
-      ...initialState,
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-      transform: [0, 0, 1],
-    });
     gpuFlowViewportStore.getState().setViewportSize({
       height: 300,
       width: 500,
@@ -35,6 +27,11 @@ describe("key activation shortcut policy", () => {
     gpuFlowViewportStore.getState().setPanActivationKeyPressed(false);
     gpuFlowViewportStore.getState().setZoomActivationKeyPressed(false);
     gpuFlowViewportStore.getState().setMoveSectionActivationKeyPressed(false);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
     gpuFlowViewportStore.getState().resetUserSelection();
   });
 
@@ -124,11 +121,13 @@ describe("key activation shortcut policy", () => {
     expect(x).toBeCloseTo(-90.909, 3);
     expect(y).toBeCloseTo(-20.455, 3);
     expect(zoom).toBeCloseTo(2.273, 3);
-    expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+    expect(gpuFlowViewportStore.getState().fitViewOnInit).toBe(true);
   });
 
   it("does not run the GPU fit-view shortcut while auto-fit is already active", () => {
-    useReactFlow.setState({ fitViewOnInit: true });
+    gpuFlowViewportStore
+      .getState()
+      .setFitViewInitializationState({ fitViewOnInit: true });
 
     expect(fitGpuViewportShortcut()).toBe(false);
     expect(gpuFlowViewportStore.getState().transform).toEqual([0, 0, 1]);

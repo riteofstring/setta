@@ -8,11 +8,6 @@ import { Position } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 import type { Box, Dimensions, Rect } from "../types";
 
-export const getDimensions = (node: HTMLDivElement): Dimensions => ({
-  width: node.offsetWidth,
-  height: node.offsetHeight,
-});
-
 const getWheelDeltaModeFactor = (deltaMode: number): number => {
   if (deltaMode === 1) {
     return 0.05;

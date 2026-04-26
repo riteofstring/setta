@@ -7,9 +7,11 @@ import {
   getViewport,
   getZoom,
   panBy,
+  requestInitialFitView,
   resetZoom,
   screenToFlowPosition,
   setCenter,
+  setInitialFitViewDone,
   setViewport,
   updateMapPosition,
   zoomAtScreenPoint,
@@ -95,6 +97,45 @@ describe("gpu viewport actions", () => {
     ).toBe(true);
 
     expect(store.getState().transform).toEqual([-125, -37.5, 2.5]);
+  });
+
+  it("caps initial fit-view zoom at the store default zoom", () => {
+    const store = createGpuFlowViewportStore({
+      defaultZoom: 1,
+      height: 300,
+      maxZoom: 4,
+      minZoom: 0.25,
+      width: 500,
+    });
+
+    expect(
+      fitView({
+        bounds: { height: 100, width: 200, x: 50, y: 25 },
+        initial: true,
+        maxZoom: 3,
+        padding: 0,
+        store,
+      }),
+    ).toBe(true);
+
+    expect(store.getState().transform).toEqual([100, 75, 1]);
+  });
+
+  it("exposes initial fit-view lifecycle actions through the viewport owner", () => {
+    const store = createGpuFlowViewportStore();
+    const options = { nodes: [{ id: "section-a" }] };
+
+    requestInitialFitView(options, { store });
+
+    expect(store.getState().fitViewOnInit).toBe(true);
+    expect(store.getState().fitViewOnInitDone).toBe(false);
+    expect(store.getState().fitViewOnInitOptions).toBe(options);
+
+    setInitialFitViewDone({ store });
+
+    expect(store.getState().fitViewOnInit).toBe(false);
+    expect(store.getState().fitViewOnInitDone).toBe(true);
+    expect(store.getState().fitViewOnInitOptions).toBeUndefined();
   });
 
   it("converts through the registered DOM node before applying viewport math", () => {

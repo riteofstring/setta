@@ -21,7 +21,6 @@ import {
   activateDndSortingMode,
   deactivateDnd,
 } from "forks/dnd-kit/dndState";
-import { useReactFlow } from "forks/xyflow/core/store";
 import { zoomToMouseLocation } from "gpuFlow/mouseLocation";
 import {
   getGpuNodesBounds,
@@ -137,7 +136,7 @@ function clearStaleKeys() {
 }
 
 export function fitGpuViewportShortcut(): boolean {
-  if (useReactFlow.getState().fitViewOnInit) {
+  if (gpuFlowViewportStore.getState().fitViewOnInit) {
     return false;
   }
   const nodes = getNodes().filter(isMeasuredGpuNodeBoundsInput);
@@ -149,7 +148,9 @@ export function fitGpuViewportShortcut(): boolean {
     padding: DEFAULT_FIT_VIEW_PADDING,
   });
   if (fitted) {
-    useReactFlow.setState({ fitViewOnInit: true });
+    gpuFlowViewportStore
+      .getState()
+      .setFitViewInitializationState({ fitViewOnInit: true });
   }
   return fitted;
 }

@@ -118,6 +118,7 @@ function useSyncGpuViewportStore(
   ref: RefObject<HTMLDivElement | null>,
   transform: readonly [number, number, number],
 ) {
+  const didInitialBridgeSync = useRef(false);
   const { defaultZoomLevel, maxZoom, minZoom } = useSettings(
     (state) => ({
       defaultZoomLevel: state.gui.defaultZoomLevel,
@@ -146,6 +147,16 @@ function useSyncGpuViewportStore(
   }, [defaultZoomLevel, maxZoom, minZoom]);
 
   useEffect(() => {
+    if (!didInitialBridgeSync.current) {
+      didInitialBridgeSync.current = true;
+      const gpuTransform = gpuFlowViewportStore.getState().transform;
+      if (!areViewportTuplesEqual(gpuTransform, transform)) {
+        useReactFlow.setState({
+          transform: [gpuTransform[0], gpuTransform[1], gpuTransform[2]],
+        });
+        return;
+      }
+    }
     gpuFlowViewportStore.getState().setTransform(transform);
   }, [transform]);
 

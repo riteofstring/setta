@@ -1,3 +1,4 @@
+import type { FitViewOptions } from "./flowTypes";
 import {
   centerGpuViewportOnPoint,
   clampGpuZoom,
@@ -42,7 +43,10 @@ type GpuSetCenterOptions = SetGpuViewportOptions & {
 
 type GpuFitViewOptions = SetGpuViewportOptions & {
   readonly bounds: GpuRect;
+  readonly initial?: boolean | undefined;
   readonly keepCurrentZoomIfPossible?: boolean | undefined;
+  readonly maxZoom?: number | undefined;
+  readonly minZoom?: number | undefined;
   readonly overviewWidth?: number | undefined;
   readonly padding?: number | undefined;
 };
@@ -138,13 +142,18 @@ function fitGpuViewport(options: GpuFitViewOptions): boolean {
   assertNoViewportTransition(options.duration);
   const store = resolveViewportStore(options.store);
   const state = store.getState();
+  const minZoom = options.minZoom ?? state.minZoom;
+  const maxZoomInput = options.maxZoom ?? state.maxZoom;
+  const maxZoom = options.initial
+    ? Math.min(maxZoomInput, state.defaultZoom)
+    : maxZoomInput;
   return state.setTransform(
     getGpuViewportForBounds(options.bounds, {
       canvasHeight: state.height,
       canvasWidth: state.width,
       keepCurrentZoomIfPossible: options.keepCurrentZoomIfPossible,
-      maxZoom: state.maxZoom,
-      minZoom: state.minZoom,
+      maxZoom: Math.max(maxZoom, minZoom),
+      minZoom,
       overviewWidth: options.overviewWidth,
       padding: options.padding,
       viewport: state.transform,
@@ -183,6 +192,41 @@ function getGpuViewport(options: GpuViewportActionOptions = {}): GpuViewport {
   );
 }
 
+function requestGpuInitialFitView(
+  options?: FitViewOptions,
+  actionOptions: GpuViewportActionOptions = {},
+): void {
+  resolveViewportStore(actionOptions.store)
+    .getState()
+    .setFitViewInitializationState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: options,
+    });
+}
+
+function finishGpuInitialFitView(
+  actionOptions: GpuViewportActionOptions = {},
+): void {
+  resolveViewportStore(actionOptions.store)
+    .getState()
+    .setFitViewInitializationState({
+      fitViewOnInitDone: true,
+    });
+}
+
+function setGpuInitialFitViewDone(
+  actionOptions: GpuViewportActionOptions = {},
+): void {
+  resolveViewportStore(actionOptions.store)
+    .getState()
+    .setFitViewInitializationState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
+}
+
 function getGpuZoom(options: GpuViewportActionOptions = {}): number {
   return getGpuViewport(options).zoom;
 }
@@ -211,6 +255,9 @@ export const screenToFlowPosition = screenToGpuFlowPosition;
 export const flowToScreenPosition = flowToGpuScreenPosition;
 export const getViewport = getGpuViewport;
 export const getZoom = getGpuZoom;
+export const requestInitialFitView = requestGpuInitialFitView;
+export const finishInitialFitView = finishGpuInitialFitView;
+export const setInitialFitViewDone = setGpuInitialFitViewDone;
 export const resetZoom = resetGpuZoom;
 export const updateMapPosition = updateGpuMapPosition;
 

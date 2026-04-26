@@ -1,7 +1,14 @@
-import { useReactFlow } from "forks/xyflow/core/store";
-import { fitView } from "forks/xyflow/core/store/utils";
-import { getDimensions } from "forks/xyflow/core/utils";
-import type { Node, NodeDragItem } from "gpuFlow/flowTypes";
+import { getElementDimensions } from "gpuFlow/domDimensions";
+import type { FitViewOptions, Node, NodeDragItem } from "gpuFlow/flowTypes";
+import {
+  getGpuNodesBounds,
+  isMeasuredGpuNodeBoundsInput,
+} from "gpuFlow/nodeBounds";
+import { finishInitialFitView, fitView } from "gpuFlow/viewportActions";
+import {
+  gpuFlowViewportStore,
+  type GpuFlowViewportStore,
+} from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
   useMisc,
@@ -58,9 +65,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
 }
 
 function hasViewportNode() {
-  return !!useReactFlow
-    .getState()
-    .domNode?.querySelector(".react-flow__viewport");
+  return gpuFlowViewportStore.getState().domNode !== null;
 }
 
 function applyNodeDimensionUpdates(
@@ -80,7 +85,7 @@ function applyNodeDimensionUpdate(
   if (!node) {
     return;
   }
-  const dimensions = getDimensions(update.nodeElement);
+  const dimensions = getElementDimensions(update.nodeElement);
   if (!shouldUpdateNodeDimensions(node, dimensions, update.forceUpdate)) {
     return;
   }
@@ -92,7 +97,7 @@ function applyNodeDimensionUpdate(
 
 function shouldUpdateNodeDimensions(
   node: Node,
-  dimensions: ReturnType<typeof getDimensions>,
+  dimensions: ReturnType<typeof getElementDimensions>,
   forceUpdate: boolean,
 ) {
   return !!(
@@ -105,22 +110,65 @@ function shouldUpdateNodeDimensions(
 }
 
 function maybeCompleteInitialFitView() {
-  const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } =
-    useReactFlow.getState();
-  const miscState = useMisc.getState();
-  // don't do fitView until all code areas are done rendering
-  if (miscState.numInitializedCodeAreas !== miscState.numDisplayedCodeAreas) {
+  const fitViewState = gpuFlowViewportStore.getState();
+  if (!shouldAttemptInitialFitView(fitViewState)) {
     return;
   }
-  if (!fitViewOnInit || fitViewOnInitDone) {
+  const nodes = getMeasuredFitViewTargetNodes(
+    fitViewState.fitViewOnInitOptions,
+  );
+  if (!nodes) {
     return;
   }
-  useReactFlow.setState({
-    fitViewOnInitDone: fitView({
-      initial: true,
-      ...fitViewOnInitOptions,
-    }),
+  const completed = fitView({
+    bounds: getGpuNodesBounds(nodes),
+    duration: fitViewState.fitViewOnInitOptions?.duration,
+    initial: true,
+    maxZoom: fitViewState.fitViewOnInitOptions?.maxZoom,
+    minZoom: fitViewState.fitViewOnInitOptions?.minZoom,
+    padding: fitViewState.fitViewOnInitOptions?.padding,
   });
+  if (completed) {
+    finishInitialFitView();
+  }
+}
+
+function shouldAttemptInitialFitView(
+  state: Pick<GpuFlowViewportStore, "fitViewOnInit" | "fitViewOnInitDone">,
+): boolean {
+  return (
+    state.fitViewOnInit &&
+    !state.fitViewOnInitDone &&
+    areCodeAreasReadyForInitialFitView()
+  );
+}
+
+function areCodeAreasReadyForInitialFitView(): boolean {
+  const miscState = useMisc.getState();
+  return miscState.numInitializedCodeAreas === miscState.numDisplayedCodeAreas;
+}
+
+function getMeasuredFitViewTargetNodes(options: FitViewOptions | undefined) {
+  const nodes = getNodes();
+  const targetNodes = filterFitViewTargetNodes(nodes, options);
+  if (
+    targetNodes.length === 0 ||
+    !targetNodes.every((node) => isMeasuredGpuNodeBoundsInput(node))
+  ) {
+    return null;
+  }
+  return targetNodes;
+}
+
+function filterFitViewTargetNodes(
+  nodes: Array<Node>,
+  options: FitViewOptions | undefined,
+) {
+  if (!options?.nodes?.length) {
+    return nodes;
+  }
+  const targetNodeIds = new Set(options.nodes.map((node) => node.id));
+  return nodes.filter((node) => targetNodeIds.has(node.id));
 }
 
 export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {

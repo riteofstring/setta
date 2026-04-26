@@ -1,6 +1,4 @@
 /* @vitest-environment jsdom */
-import { useReactFlow } from "forks/xyflow/core/store";
-import initialState from "forks/xyflow/core/store/initialState";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import {
   debouncedDispatchViewportUpdate,
@@ -78,21 +76,19 @@ describe("subscriptions viewport persistence", () => {
       requiredDecodedImages: [],
     });
     usePendingOperations.setState({ pending: [] });
-    useReactFlow.setState({
-      ...initialState,
-      transform: [0, 0, 1],
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
+      fitViewOnInitOptions: undefined,
     });
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
   });
   afterEach(() => {
     debouncedDispatchViewportUpdate.cancel();
   });
   it("flushes the fitted viewport immediately when auto-fit completes", async () => {
-    useReactFlow.setState({
-      transform: [150, 125, 0.6],
-      fitViewOnInit: false,
+    gpuFlowViewportStore.getState().setTransform([150, 125, 0.6]);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInitDone: true,
     });
     await vi.waitFor(() => {
@@ -105,6 +101,7 @@ describe("subscriptions viewport persistence", () => {
       });
     });
     expect(gpuFlowViewportStore.getState().transform).toEqual([150, 125, 0.6]);
+    expect(gpuFlowViewportStore.getState().fitViewOnInit).toBe(false);
   });
   it("keeps the local viewport when a backend update arrives before the debounced write flushes", () => {
     const localViewport = { x: 160, y: 120, zoom: 0.6 };
@@ -128,19 +125,22 @@ describe("subscriptions viewport persistence", () => {
       previewSectionVariantMap: {},
       requiredDecodedImages: [],
     });
-    useReactFlow.setState({
-      ...initialState,
-      transform: [0, 0, 1],
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
     });
     debouncedDispatchViewportUpdate.cancel();
     routeSetViewportMock.mockClear();
     usePendingOperations.setState({ pending: [] });
-    useReactFlow.setState({
-      transform: [localViewport.x, localViewport.y, localViewport.zoom],
+    gpuFlowViewportStore
+      .getState()
+      .setTransform([localViewport.x, localViewport.y, localViewport.zoom]);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
     });
     expect(useProjectState.getState().projectConfig.viewport).toEqual(
       localViewport,
@@ -170,7 +170,7 @@ describe("subscriptions viewport persistence", () => {
       completedOpIds: [],
       pendingOpIds: [],
     });
-    expect(useReactFlow.getState().transform).toEqual([
+    expect(gpuFlowViewportStore.getState().transform).toEqual([
       localViewport.x,
       localViewport.y,
       localViewport.zoom,

@@ -4,6 +4,7 @@ import {
   ConnectionMode,
   type ConnectingHandle,
   type ConnectionStatus,
+  type FitViewOptions,
 } from "./flowTypes";
 import {
   gpuViewportToTuple,
@@ -58,6 +59,9 @@ type GpuFlowViewportStoreState = {
   readonly connectionStatus: ConnectionStatus | null;
   readonly defaultZoom: number;
   readonly domNode: HTMLElement | null;
+  readonly fitViewOnInit: boolean;
+  readonly fitViewOnInitDone: boolean;
+  readonly fitViewOnInitOptions: FitViewOptions | undefined;
   readonly height: number;
   readonly maxZoom: number;
   readonly minZoom: number;
@@ -85,6 +89,14 @@ type GpuFlowViewportStoreActions = {
   getViewport(): GpuViewport;
   setDomNode(domNode: HTMLElement | null): void;
   setConnectionState(input: SetGpuConnectionStateInput): void;
+  setFitViewInitializationState(
+    input: Partial<
+      Pick<
+        GpuFlowViewportStoreState,
+        "fitViewOnInit" | "fitViewOnInitDone" | "fitViewOnInitOptions"
+      >
+    >,
+  ): void;
   setMoveSectionActivationKeyPressed(pressed: boolean): void;
   setMultiSelectionActive(active: boolean): void;
   setNodesSelectionBounds(bounds: GpuRect | null): void;
@@ -135,6 +147,9 @@ const DEFAULT_GPU_VIEWPORT_STORE_STATE = {
   connectionStatus: null,
   defaultZoom: 1,
   domNode: null,
+  fitViewOnInit: false,
+  fitViewOnInitDone: false,
+  fitViewOnInitOptions: undefined,
   height: 0,
   maxZoom: 4,
   minZoom: 0.1,
@@ -199,6 +214,17 @@ export function createGpuFlowViewportStore(
         set((state) => {
           const nextState = normalizeGpuConnectionStateInput(state, input);
           return areGpuConnectionStatesEqual(state, nextState)
+            ? state
+            : nextState;
+        });
+      },
+      setFitViewInitializationState(input) {
+        set((state) => {
+          const nextState = normalizeGpuFitViewInitializationStateInput(
+            state,
+            input,
+          );
+          return areGpuFitViewInitializationStatesEqual(state, nextState)
             ? state
             : nextState;
         });
@@ -322,6 +348,12 @@ export function createGpuFlowViewportStore(
 
 export const gpuFlowViewportStore = createGpuFlowViewportStore();
 
+export function computeGpuReadyToBeVisible(
+  state: Pick<GpuFlowViewportStore, "fitViewOnInit" | "fitViewOnInitDone">,
+): boolean {
+  return !state.fitViewOnInit || state.fitViewOnInitDone;
+}
+
 export function getGpuViewportStorePointRelativeToDomNode(
   point: GpuPoint,
   store: GpuFlowViewportStoreApi = gpuFlowViewportStore,
@@ -402,6 +434,56 @@ function normalizeGpuConnectionStateInput(
         ? state.connectionStatus
         : input.connectionStatus,
   };
+}
+
+function normalizeGpuFitViewInitializationStateInput(
+  state: Pick<
+    GpuFlowViewportStoreState,
+    "fitViewOnInit" | "fitViewOnInitDone" | "fitViewOnInitOptions"
+  >,
+  input: Partial<
+    Pick<
+      GpuFlowViewportStoreState,
+      "fitViewOnInit" | "fitViewOnInitDone" | "fitViewOnInitOptions"
+    >
+  >,
+): Pick<
+  GpuFlowViewportStoreState,
+  "fitViewOnInit" | "fitViewOnInitDone" | "fitViewOnInitOptions"
+> {
+  return {
+    fitViewOnInit:
+      input.fitViewOnInit === undefined
+        ? state.fitViewOnInit
+        : input.fitViewOnInit,
+    fitViewOnInitDone:
+      input.fitViewOnInitDone === undefined
+        ? state.fitViewOnInitDone
+        : input.fitViewOnInitDone,
+    fitViewOnInitOptions: Object.prototype.hasOwnProperty.call(
+      input,
+      "fitViewOnInitOptions",
+    )
+      ? input.fitViewOnInitOptions
+      : state.fitViewOnInitOptions,
+  };
+}
+
+function areGpuFitViewInitializationStatesEqual(
+  left: Pick<
+    GpuFlowViewportStoreState,
+    "fitViewOnInit" | "fitViewOnInitDone" | "fitViewOnInitOptions"
+  >,
+  right: Pick<
+    GpuFlowViewportStoreState,
+    "fitViewOnInit" | "fitViewOnInitDone" | "fitViewOnInitOptions"
+  >,
+): boolean {
+  return (
+    left.fitViewOnInit === right.fitViewOnInit &&
+    left.fitViewOnInitDone === right.fitViewOnInitDone &&
+    left.fitViewOnInitOptions === right.fitViewOnInitOptions
+  );
 }
 
 function normalizeOptionalConnectingHandle(

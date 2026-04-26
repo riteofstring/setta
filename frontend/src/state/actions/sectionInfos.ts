@@ -17,8 +17,11 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import type { Node } from "gpuFlow/flowTypes";
 import {
   getViewport as getGpuViewport,
+  requestInitialFitView,
   setViewport as setGpuViewport,
+  setInitialFitViewDone,
 } from "gpuFlow/viewportActions";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
   deleteSections,
@@ -1286,18 +1289,12 @@ function applyViewportFromProjectState(projectState: SingleConfig): boolean {
     return false;
   }
   if (!viewport || !viewportInitialized) {
-    useReactFlow.setState({
-      fitViewOnInit: true,
-      fitViewOnInitDone: false,
-      fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
-    });
+    requestInitialFitView(getFitViewOptionsForVisibleSections(projectState));
     return true;
   }
   setGpuViewport(viewport);
+  setInitialFitViewDone();
   useReactFlow.setState({
-    fitViewOnInit: false,
-    fitViewOnInitDone: true,
-    fitViewOnInitOptions: undefined,
     transform: [viewport.x, viewport.y, viewport.zoom],
   });
   return false;
@@ -2025,7 +2022,9 @@ export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
 }
 function getCurrProjectConfigViewport() {
-  return useReactFlow.getState().fitViewOnInit ? null : getGpuViewport();
+  return gpuFlowViewportStore.getState().fitViewOnInit
+    ? null
+    : getGpuViewport();
 }
 export function getSectionChildren(
   state: ZustandProjectState,

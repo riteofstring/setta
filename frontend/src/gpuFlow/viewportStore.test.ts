@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createGpuFlowViewportStore } from "./viewportStore";
+import {
+  computeGpuReadyToBeVisible,
+  createGpuFlowViewportStore,
+} from "./viewportStore";
 
 describe("gpu viewport store", () => {
   it("owns connection preview state and clears active handles explicitly", () => {
@@ -58,5 +61,31 @@ describe("gpu viewport store", () => {
     expect(store.getState().panActivationKeyPressed).toBe(false);
     expect(store.getState().zoomActivationKeyPressed).toBe(false);
     expect(store.getState().moveSectionActivationKeyPressed).toBe(false);
+  });
+
+  it("owns initial fit-view readiness state", () => {
+    const store = createGpuFlowViewportStore();
+    const fitViewOptions = { nodes: [{ id: "section-a" }] };
+
+    expect(computeGpuReadyToBeVisible(store.getState())).toBe(true);
+
+    store.getState().setFitViewInitializationState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: fitViewOptions,
+    });
+
+    expect(store.getState().fitViewOnInit).toBe(true);
+    expect(store.getState().fitViewOnInitDone).toBe(false);
+    expect(store.getState().fitViewOnInitOptions).toBe(fitViewOptions);
+    expect(computeGpuReadyToBeVisible(store.getState())).toBe(false);
+
+    store.getState().setFitViewInitializationState({
+      fitViewOnInitDone: true,
+    });
+
+    expect(store.getState().fitViewOnInit).toBe(true);
+    expect(store.getState().fitViewOnInitDone).toBe(true);
+    expect(computeGpuReadyToBeVisible(store.getState())).toBe(true);
   });
 });

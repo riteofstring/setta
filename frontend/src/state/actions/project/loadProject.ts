@@ -3,8 +3,11 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { setViewport as setGpuViewport } from "gpuFlow/viewportActions";
+import {
+  requestInitialFitView,
+  setViewport as setGpuViewport,
+  setInitialFitViewDone,
+} from "gpuFlow/viewportActions";
 import {
   createProjectConfig as createProjectConfigRequest,
   getLatestLspDiagnostics,
@@ -108,15 +111,11 @@ export async function loadProjectState(projectState: LoadProjectStateInput) {
     normalizedProjectState.projectConfig;
   cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
-    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+    requestInitialFitView();
   } else {
     const { x, y, zoom } = viewport;
     setGpuViewport({ x, y, zoom });
-    useReactFlow.setState({
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-      transform: [x, y, zoom],
-    });
+    setInitialFitViewDone();
   }
   const nextProjectState = {
     ...sanitizeProjectStateActiveIds(normalizedProjectState),
