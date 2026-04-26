@@ -1,6 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
+import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
 import type { NodeQuadRenderRuntime } from "./gpuPipelines";
 import {
@@ -54,7 +56,9 @@ describe("gpu node quad pipeline", () => {
     });
 
     expect(result).toEqual({
+      drawnEdgeIds: [],
       drawnNodeIds: ["node-a", "node-b"],
+      edgeVertexCount: 0,
       vertexCount: 12,
     });
     expect(gpu.device.createRenderPipeline).toHaveBeenCalledTimes(1);
@@ -72,7 +76,7 @@ describe("gpu node quad pipeline", () => {
     expect(Array.from(vertexWrite[2])).toEqual(
       Array.from(buildNodeQuadVertexData(quads)),
     );
-    expect(gpu.pass.setPipeline).toHaveBeenCalledWith(gpu.pipeline);
+    expect(gpu.pass.setPipeline).toHaveBeenCalledWith(gpu.pipelines[0]);
     expect(gpu.pass.setBindGroup).toHaveBeenNthCalledWith(
       1,
       0,
@@ -110,6 +114,80 @@ describe("gpu node quad pipeline", () => {
 
     expect(gpu.device.createBindGroup).toHaveBeenCalledTimes(3);
   });
+
+  it("draws GPU edge line lists before node textures in the same pass", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const edges = [edge("edge-a", 0, 0, 100, 0, true)];
+
+    const result = renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edges,
+      quads: [texturedQuad("node-a", 0, 0, 100, 50)],
+      viewport: [10, 20, 1.25],
+    });
+
+    expect(result).toEqual({
+      drawnEdgeIds: ["edge-a"],
+      drawnNodeIds: ["node-a"],
+      edgeVertexCount: 2,
+      vertexCount: 6,
+    });
+    expect(gpu.device.createRenderPipeline).toHaveBeenCalledTimes(2);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(1, gpu.pipelines[0]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 2, 1, 0, 0);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(2, gpu.pipelines[1]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 0, 0);
+  });
+
+  it("keeps edge GPU buffers stable on viewport-only redraws", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const edges = [edge("edge-a", 0, 0, 100, 0)];
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edges,
+      quads: [],
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edges,
+      quads: [],
+      viewport: [50, -25, 1.5],
+    });
+
+    const cameraBuffer = getBufferByLabel(
+      gpu.buffers,
+      "setta-gpu-node-quad-camera-uniform",
+    );
+    const edgeBuffer = getBufferByLabel(
+      gpu.buffers,
+      "setta-gpu-edge-line-vertices",
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenCalledTimes(3);
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      1,
+      cameraBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      2,
+      edgeBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      3,
+      cameraBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+  });
 });
 
 function installGpuConstants() {
@@ -127,7 +205,7 @@ function installGpuConstants() {
 function createGpuRenderMock() {
   const buffers: GPUBuffer[] = [];
   const bindGroups: GPUBindGroup[] = [];
-  const pipeline = {} as GPURenderPipeline;
+  const pipelines: GPURenderPipeline[] = [];
   const commandBuffer = {} as GPUCommandBuffer;
   const pass = {
     draw: vi.fn(),
@@ -160,7 +238,11 @@ function createGpuRenderMock() {
     }),
     createCommandEncoder: vi.fn(() => commandEncoder),
     createPipelineLayout: vi.fn(() => ({}) as GPUPipelineLayout),
-    createRenderPipeline: vi.fn(() => pipeline),
+    createRenderPipeline: vi.fn((descriptor: GPURenderPipelineDescriptor) => {
+      const pipeline = { descriptor } as unknown as GPURenderPipeline;
+      pipelines.push(pipeline);
+      return pipeline;
+    }),
     createSampler: vi.fn(),
     createShaderModule: vi.fn(() => ({}) as GPUShaderModule),
     createTexture: vi.fn(),
@@ -192,7 +274,7 @@ function createGpuRenderMock() {
     commandBuffer,
     device,
     pass,
-    pipeline,
+    pipelines,
     runtime,
   };
 }
@@ -223,4 +305,36 @@ function textureRecord(nodeId: string): NodeTextureRecord {
     texture: {},
     textureView: {},
   } as NodeTextureRecord;
+}
+
+function getBufferByLabel(buffers: readonly GPUBuffer[], label: string) {
+  const buffer = buffers.find(
+    (candidate) =>
+      (candidate as GPUBuffer & { descriptor?: GPUBufferDescriptor }).descriptor
+        ?.label === label,
+  );
+  if (!buffer) {
+    throw new Error(`Expected GPU buffer ${label}.`);
+  }
+  return buffer;
+}
+
+function edge(
+  edgeId: string,
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+  selected = false,
+): GpuEdgeBufferInput {
+  return {
+    edgeId,
+    geometry: buildGpuEdgeGeometry({
+      edgeId,
+      source: { x: sourceX, y: sourceY },
+      target: { x: targetX, y: targetY },
+      type: "straight",
+    }),
+    selected,
+  };
 }

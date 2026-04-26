@@ -1,5 +1,6 @@
 import { memo, useCallback, type CSSProperties, type ReactNode } from "react";
 import type { NodeTexturePriority } from "./dirtyTracking";
+import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type {
   RenderNodeTextureQuadsInput,
   RenderNodeTextureQuadsResult,
@@ -103,6 +104,7 @@ export type RenderGpuNodeLayerFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
+  readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly forceVisibleNodeIds?:
     | ReadonlySet<string>
@@ -121,7 +123,9 @@ export type RenderGpuNodeLayerFrameInput = {
 export type RenderGpuNodeLayerFrameResult = {
   readonly activeNodeId: string | null;
   readonly budgetExhausted: boolean;
+  readonly drawnEdgeIds: readonly string[];
   readonly drawnNodeIds: readonly string[];
+  readonly edgeVertexCount: number;
   readonly missingElementNodeIds: readonly string[];
   readonly missingTextureNodeIds: readonly string[];
   readonly remainingDirtyNodeIds: readonly string[];
@@ -211,6 +215,7 @@ export function renderGpuNodeLayerFrame({
   activeNodeId,
   canvasSize,
   clearColor,
+  edges,
   elementByNodeId,
   forceVisibleNodeIds,
   frame,
@@ -277,6 +282,7 @@ export function renderGpuNodeLayerFrame({
   const renderResult = renderer.render({
     canvasSize,
     clearColor,
+    ...(edges === undefined ? {} : { edges }),
     quads: uploadedTexturedQuads,
     viewport,
   });
@@ -284,7 +290,9 @@ export function renderGpuNodeLayerFrame({
   return {
     activeNodeId: activeNodeId ?? null,
     budgetExhausted: uploadResult.budgetExhausted,
+    drawnEdgeIds: renderResult.drawnEdgeIds,
     drawnNodeIds: renderResult.drawnNodeIds,
+    edgeVertexCount: renderResult.edgeVertexCount,
     missingElementNodeIds,
     missingTextureNodeIds: textureResult.missingTextureNodeIds,
     overlayNodeId: overlayNodeId ?? null,

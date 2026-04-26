@@ -1,6 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
+import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import {
   buildTexturedGpuNodeQuads,
   collectVisibleGpuNodeQuads,
@@ -219,6 +221,32 @@ describe("GpuNodeLayer helpers", () => {
     });
   });
 
+  it("passes renderable GPU edges into the scene renderer", () => {
+    const element = document.createElement("div");
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+    const edgeInput = edge("edge-a", 0, 0, 100, 0);
+
+    const result = renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      edges: [edgeInput],
+      elementByNodeId: new Map([["node-a", element]]),
+      frame: 1,
+      nodes: [node("node-a", 10, 20, 100, 50, 0)],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(renderer.render).toHaveBeenCalledWith(
+      expect.objectContaining({
+        edges: [edgeInput],
+      }),
+    );
+    expect(result.drawnEdgeIds).toEqual(["edge-a"]);
+    expect(result.edgeVertexCount).toBe(2);
+  });
+
   it("marks changed paint descendants dirty without requesting another paint", () => {
     const nodeElement = document.createElement("div");
     const input = document.createElement("input");
@@ -318,10 +346,12 @@ function createFrameTextureManager() {
 
 function createFrameRenderer() {
   return {
-    render: vi.fn(({ quads }: RenderNodeTextureQuadsInput) => ({
+    render: vi.fn(({ edges, quads }: RenderNodeTextureQuadsInput) => ({
+      drawnEdgeIds: edges?.map((edge) => edge.edgeId) ?? [],
       drawnNodeIds: (quads as readonly GpuTexturedNodeQuad[]).map(
         (quad) => quad.nodeId,
       ),
+      edgeVertexCount: (edges?.length ?? 0) * 2,
       vertexCount: quads.length * 6,
     })),
   };
@@ -362,4 +392,22 @@ function installTextureUsage() {
     RENDER_ATTACHMENT: 4,
     TEXTURE_BINDING: 1,
   });
+}
+
+function edge(
+  edgeId: string,
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+): GpuEdgeBufferInput {
+  return {
+    edgeId,
+    geometry: buildGpuEdgeGeometry({
+      edgeId,
+      source: { x: sourceX, y: sourceY },
+      target: { x: targetX, y: targetY },
+      type: "straight",
+    }),
+  };
 }

@@ -9,6 +9,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import {
   areGpuActiveNodeOverlaySnapshotsEqual,
   GpuActiveNodeOverlay,
@@ -67,6 +68,7 @@ export type GpuFlowProps = Pick<
 > & {
   children?: ReactNode;
   className?: string | undefined;
+  edges?: readonly GpuEdgeBufferInput[] | undefined;
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   marginCssPx?: number | undefined;
   nodeClassName?: string | undefined;
@@ -104,6 +106,7 @@ type GpuFlowCallbacks = Pick<
 >;
 
 type GpuFlowNodeLayerState = {
+  readonly edges: readonly GpuEdgeBufferInput[] | undefined;
   readonly forceVisibleNodeIds:
     | ReadonlySet<string>
     | readonly string[]
@@ -118,6 +121,7 @@ export function GpuFlow({
   children,
   className = "setta-gpu-flow",
   deviceOptions,
+  edges,
   forceVisibleNodeIds,
   marginCssPx,
   nodeClassName,
@@ -164,6 +168,7 @@ export function GpuFlow({
     onResize,
   });
   const nodeLayerRef = useRef<GpuFlowNodeLayerState>({
+    edges,
     forceVisibleNodeIds,
     marginCssPx,
     nodes,
@@ -221,6 +226,7 @@ export function GpuFlow({
 
   useEffect(() => {
     nodeLayerRef.current = {
+      edges,
       forceVisibleNodeIds,
       marginCssPx,
       nodes,
@@ -233,7 +239,14 @@ export function GpuFlow({
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
     }
     surfaceRef.current?.requestFrame("viewport");
-  }, [forceVisibleNodeIds, marginCssPx, nodes, uploadBudget, viewportStore]);
+  }, [
+    edges,
+    forceVisibleNodeIds,
+    marginCssPx,
+    nodes,
+    uploadBudget,
+    viewportStore,
+  ]);
 
   useEffect(() => {
     if (panZoom === false) {
@@ -556,6 +569,7 @@ function renderGpuFlowNodeLayerFrame({
   const layerResult = renderGpuNodeLayerFrame({
     activeNodeId: nodeInteraction?.getActiveNodeId(),
     canvasSize,
+    edges: layer.edges,
     elementByNodeId: nodeElementByIdRef.current,
     forceVisibleNodeIds: layer.forceVisibleNodeIds,
     frame,
