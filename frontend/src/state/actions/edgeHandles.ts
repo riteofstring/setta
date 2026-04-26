@@ -2,14 +2,9 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import type { HandlePosition, HandleType } from "forks/xyflow/core/types";
 import type { EdgeHandleRecord } from "state/definitions";
 import { useEdgeHandleRegistry } from "state/definitions";
+import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 
-export function makeEdgeHandleKey(
-  sectionId: string,
-  portId: string,
-  type: HandleType,
-) {
-  return `${sectionId}:${portId}:${type}`;
-}
+export { makeEdgeHandleKey };
 
 function getHandleCenter(element: HTMLElement) {
   const rect = element.getBoundingClientRect();

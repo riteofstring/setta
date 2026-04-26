@@ -1,12 +1,10 @@
 import _ from "lodash";
 import type { CSSProperties } from "react";
 import { memo, useEffect } from "react";
-import {
-  makeEdgeHandleKey,
-  recomputeEdgeHandlePositions,
-} from "state/actions/edgeHandles";
+import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
 import { reconnectEdgeFromConnection } from "state/actions/edges";
 import { useEdgeHandleRegistry, useProjectState } from "state/definitions";
+import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import type { Edge } from "utils/generatedTypes";
 import { ConnectionLine } from "../components/ConnectionLine";
 import BezierEdge from "../components/Edges/BezierEdge";

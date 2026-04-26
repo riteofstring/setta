@@ -7,12 +7,12 @@ import {
   setEdges,
   updateEdge,
 } from "openapi/http";
-import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import {
   useEdgeHandleRegistry,
   useProjectState,
   useShareSession,
 } from "state/definitions";
+import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
 import {
   dispatchOptimisticProjectStateUpdate,
