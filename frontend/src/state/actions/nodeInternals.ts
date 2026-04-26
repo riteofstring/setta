@@ -10,6 +10,7 @@ import {
   type GpuFlowViewportStore,
 } from "gpuFlow/viewportStore";
 import _ from "lodash";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useMisc,
   useNodeInternals,
@@ -58,8 +59,10 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   }
 
   const newNodes = getNewNodes();
-  applyNodeDimensionUpdates(newNodes, updates);
+  const changedNodeIds = applyNodeDimensionUpdates(newNodes, updates);
   useNodeInternals.setState({ x: newNodes });
+  scheduleEdgeHandlePositionUpdatesForDimensionUpdates(changedNodeIds);
+  updateSelectionBoundsForDimensionUpdates(newNodes, changedNodeIds);
   debounced_route_set_top_level_section_layout();
   maybeCompleteInitialFitView();
 }
@@ -71,28 +74,33 @@ function hasViewportNode() {
 function applyNodeDimensionUpdates(
   newNodes: NodesById,
   updates: NodeDimensionsUpdate,
-) {
+): string[] {
+  const changedNodeIds: string[] = [];
   for (const update of updates) {
-    applyNodeDimensionUpdate(newNodes, update);
+    if (applyNodeDimensionUpdate(newNodes, update)) {
+      changedNodeIds.push(update.id);
+    }
   }
+  return changedNodeIds;
 }
 
 function applyNodeDimensionUpdate(
   newNodes: NodesById,
   update: NodeDimensionsUpdate[number],
-) {
+): boolean {
   const node = newNodes.get(update.id);
   if (!node) {
-    return;
+    return false;
   }
   const dimensions = getElementDimensions(update.nodeElement);
   if (!shouldUpdateNodeDimensions(node, dimensions, update.forceUpdate)) {
-    return;
+    return false;
   }
   newNodes.set(node.id, {
     ...node,
     ...dimensions,
   });
+  return true;
 }
 
 function shouldUpdateNodeDimensions(
@@ -107,6 +115,41 @@ function shouldUpdateNodeDimensions(
       node.height !== dimensions.height ||
       forceUpdate)
   );
+}
+
+function scheduleEdgeHandlePositionUpdatesForDimensionUpdates(
+  changedNodeIds: readonly string[],
+) {
+  if (changedNodeIds.length === 0) {
+    return;
+  }
+  const projectState = useProjectState.getState();
+  const sectionIds = new Set<string>();
+  for (const nodeId of changedNodeIds) {
+    for (const descendantId of getSectionDescendants(nodeId, projectState)) {
+      sectionIds.add(descendantId);
+    }
+  }
+  scheduleEdgeHandlePositionUpdate(Array.from(sectionIds));
+}
+
+function updateSelectionBoundsForDimensionUpdates(
+  nodesById: NodesById,
+  changedNodeIds: readonly string[],
+) {
+  const viewportState = gpuFlowViewportStore.getState();
+  if (!viewportState.nodesSelectionBounds || changedNodeIds.length === 0) {
+    return;
+  }
+  const changedNodeIdSet = new Set(changedNodeIds);
+  const activeSectionIds = getActiveSectionUIIds();
+  if (!activeSectionIds.some((sectionId) => changedNodeIdSet.has(sectionId))) {
+    return;
+  }
+  const selectedNodes = activeSectionIds
+    .map((sectionId) => nodesById.get(sectionId))
+    .filter((node): node is Node => node !== undefined);
+  viewportState.setNodesSelectionBounds(getGpuNodesBounds(selectedNodes));
 }
 
 function maybeCompleteInitialFitView() {

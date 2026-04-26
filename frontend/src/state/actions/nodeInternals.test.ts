@@ -4,6 +4,7 @@ import type { Node } from "gpuFlow/flowTypes";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import {
   useLocalStorage,
+  useActiveSectionUI,
   useMisc,
   useNodeInternals,
   useSectionRefs,
@@ -16,7 +17,11 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./nodeInternals";
-import { debounced_route_set_top_level_section_layout } from "./sectionInfos";
+import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
+import {
+  debounced_route_set_top_level_section_layout,
+  getSectionDescendants,
+} from "./sectionInfos";
 
 vi.mock("./edgeHandles", () => ({
   scheduleEdgeHandlePositionUpdate: vi.fn(),
@@ -92,6 +97,9 @@ function createMeasuredElement({
 describe("nodeInternals", () => {
   beforeEach(() => {
     resetProjectStores();
+    vi.mocked(getSectionDescendants).mockImplementation((sectionId) => [
+      sectionId,
+    ]);
     useSettings.setState(createSettingsState());
     useLocalStorage.setState({ overviewTrueWidth: 0, uiEditorTrueWidth: 0 });
     setupGpuViewportStore();
@@ -139,6 +147,88 @@ describe("nodeInternals", () => {
       1,
     );
     expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(false);
+  });
+
+  it("schedules edge handle refreshes for resized section descendants", () => {
+    vi.mocked(getSectionDescendants).mockImplementation((sectionId) =>
+      sectionId === "section-1" ? ["section-1", "child-1"] : [sectionId],
+    );
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-1",
+          createNode({ id: "section-1", width: 200, height: 100 }),
+        ],
+      ]),
+    });
+
+    updateNodeDimensions([
+      {
+        id: "section-1",
+        nodeElement: createMeasuredElement({
+          id: "section-1",
+          width: 240,
+          height: 120,
+        }),
+        forceUpdate: false,
+      },
+    ]);
+
+    expect(scheduleEdgeHandlePositionUpdate).toHaveBeenCalledWith([
+      "section-1",
+      "child-1",
+    ]);
+  });
+
+  it("refreshes existing selected-node bounds when a selected node resizes", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-1",
+          createNode({
+            id: "section-1",
+            height: 50,
+            position: { x: 10, y: 20 },
+            width: 100,
+          }),
+        ],
+        [
+          "section-2",
+          createNode({
+            id: "section-2",
+            height: 40,
+            position: { x: 200, y: 40 },
+            width: 30,
+          }),
+        ],
+      ]),
+    });
+    useActiveSectionUI.setState({ activeIds: ["section-1", "section-2"] });
+    gpuFlowViewportStore.getState().setNodesSelectionBounds({
+      height: 60,
+      width: 220,
+      x: 10,
+      y: 20,
+    });
+
+    updateNodeDimensions([
+      {
+        id: "section-1",
+        nodeElement: createMeasuredElement({
+          id: "section-1",
+          width: 160,
+          height: 80,
+        }),
+        forceUpdate: false,
+      },
+    ]);
+
+    expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
+      height: 80,
+      width: 220,
+      x: 10,
+      y: 20,
+    });
   });
 
   it("marks initial fitView complete once measurements are ready", () => {
