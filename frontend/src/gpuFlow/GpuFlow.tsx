@@ -518,7 +518,13 @@ export function GpuFlow({
           textureManager,
         });
       }
-      pendingActiveNodePaintRef.current.clear();
+      for (const nodeId of resolveGpuActiveNodePaintedIds({
+        changedElements: event.changedElements,
+        elementByNodeId: nodeElementByIdRef.current,
+        pendingPaintNodeIds: pendingActiveNodePaintRef.current,
+      })) {
+        pendingActiveNodePaintRef.current.delete(nodeId);
+      }
       callbacksRef.current.onPaint?.(runtime, event);
     },
     [],
@@ -979,6 +985,48 @@ export function resolveGpuActiveNodeFrameSync({
       teleportedNodeId,
     }),
   };
+}
+
+export function resolveGpuActiveNodePaintedIds({
+  changedElements,
+  elementByNodeId,
+  pendingPaintNodeIds,
+}: {
+  readonly changedElements?: readonly Element[] | undefined;
+  readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
+  readonly pendingPaintNodeIds: ReadonlySet<string>;
+}): readonly string[] {
+  if (pendingPaintNodeIds.size === 0) {
+    return EMPTY_NODE_IDS;
+  }
+  if (!changedElements) {
+    return [...pendingPaintNodeIds];
+  }
+
+  const paintedNodeIds = new Set<string>();
+  for (const changedElement of changedElements) {
+    for (const nodeId of pendingPaintNodeIds) {
+      const nodeElement = elementByNodeId.get(nodeId);
+      if (
+        nodeElement &&
+        isGpuActiveNodePaintCoveredByElement(nodeElement, changedElement)
+      ) {
+        paintedNodeIds.add(nodeId);
+      }
+    }
+  }
+  return [...paintedNodeIds];
+}
+
+function isGpuActiveNodePaintCoveredByElement(
+  nodeElement: HTMLElement,
+  changedElement: Element,
+): boolean {
+  return (
+    nodeElement === changedElement ||
+    nodeElement.contains(changedElement) ||
+    changedElement.contains(nodeElement)
+  );
 }
 
 function getDeferredActiveNodeUploadIds({
