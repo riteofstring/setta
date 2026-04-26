@@ -78,6 +78,9 @@ import {
 } from "./gpuProjectEdgeScene";
 import {
   isProjectGpuNodeDragDisabled,
+  isProjectGpuSelectionDisabled,
+  isProjectGpuViewportGestureDisabled,
+  type ProjectGpuDndMode,
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
 } from "./gpuProjectInteractionGuards";
 
@@ -254,6 +257,7 @@ function ProjectGpuFlowLayer({
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
+  const dndMode = useDndMode();
   if (!readyToRender) {
     return null;
   }
@@ -276,13 +280,16 @@ function ProjectGpuFlowLayer({
       onNodeElementChange={nodeElementChange}
       onResize={handleProjectFlowResize}
       panZoom={getProjectPanZoomOptions({
+        dndMode,
         flowInteractionKeys,
         isFollowTransitioning,
         settings,
       })}
       renderNode={renderProjectGpuNode}
       selection={{
-        isSelecting: () => gpuFlowViewportStore.getState().selectionKeyPressed,
+        isSelecting: () =>
+          gpuFlowViewportStore.getState().selectionKeyPressed &&
+          !isProjectGpuSelectionDisabled({ dndMode }),
         mode: settings.selectionMode,
         onSelectionChange: handleProjectSelectionChange,
       }}
@@ -396,15 +403,20 @@ function getProjectNodeDragOptions({
 }
 
 function getProjectPanZoomOptions({
+  dndMode,
   flowInteractionKeys,
   isFollowTransitioning,
   settings,
 }: {
+  readonly dndMode: ProjectGpuDndMode;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
-  const interactionEnabled = !isFollowTransitioning;
+  const interactionEnabled = !isProjectGpuViewportGestureDisabled({
+    dndMode,
+    isFollowTransitioning,
+  });
   return {
     panActivationKeyPressed:
       interactionEnabled && flowInteractionKeys.panActivationKeyPressed,

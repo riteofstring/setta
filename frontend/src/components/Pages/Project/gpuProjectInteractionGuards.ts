@@ -22,6 +22,28 @@ export function isProjectGpuNodeDragDisabled({
   );
 }
 
+export type ProjectGpuViewportGestureGuardInput = {
+  readonly dndMode: ProjectGpuDndMode;
+  readonly isFollowTransitioning: boolean;
+};
+
+export function isProjectGpuViewportGestureDisabled({
+  dndMode,
+  isFollowTransitioning,
+}: ProjectGpuViewportGestureGuardInput): boolean {
+  return isFollowTransitioning || isProjectGpuDndModeActive(dndMode);
+}
+
+export type ProjectGpuSelectionGuardInput = {
+  readonly dndMode: ProjectGpuDndMode;
+};
+
+export function isProjectGpuSelectionDisabled({
+  dndMode,
+}: ProjectGpuSelectionGuardInput): boolean {
+  return isProjectGpuDndModeActive(dndMode);
+}
+
 export type ProjectGpuSelectionBoundsShiftInput = {
   readonly activeSelectedNodeIds: readonly string[];
   readonly movedNodeIds: readonly string[];
@@ -39,4 +61,8 @@ export function shouldShiftProjectGpuSelectionBoundsForNodeMove({
     return false;
   }
   return activeSelectedNodeIds.every((nodeId) => movedIds.has(nodeId));
+}
+
+function isProjectGpuDndModeActive(dndMode: ProjectGpuDndMode): boolean {
+  return dndMode.isSorting || dndMode.isMovingFree;
 }
