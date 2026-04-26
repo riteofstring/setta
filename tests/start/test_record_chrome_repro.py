@@ -958,6 +958,9 @@ PY
         env["SETTA_CHROME_REPRO_BOOTSTRAP_URL"] = (
             f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token"
         )
+        env["CHROME_EXTRA_ARGS"] = (
+            "--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu"
+        )
         env.pop("SETTA_WORKSPACE_ROOT", None)
         env.pop("SETTA_PROJECT_URL", None)
         env.pop("SETTA_PROJECT_PATH", None)
@@ -982,6 +985,10 @@ PY
 
     assert '--user-data-dir="' not in browser_args
     assert "--user-data-dir=" in browser_args
+    if sys.platform == "darwin":
+        assert "--use-mock-keychain" in browser_args
+    assert "--enable-blink-features=CanvasDrawElement" in browser_args
+    assert "--enable-unsafe-webgpu" in browser_args
     assert "--disable-extensions-except=" in browser_args
     assert "--load-extension=" in browser_args
     assert f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token" in browser_args
