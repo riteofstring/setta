@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   flowToScreenPosition,
+  getGpuViewportForBounds,
   getVisibleFlowRect,
+  panGpuViewportBy,
   rectsIntersect,
   screenToFlowPosition,
+  zoomGpuViewportAtScreenPoint,
 } from "./viewportMath";
 
 describe("gpu viewport math", () => {
@@ -44,5 +47,48 @@ describe("gpu viewport math", () => {
         { height: 10, width: 10, x: 30, y: 30 },
       ),
     ).toBe(false);
+  });
+
+  it("keeps a screen point stable when zooming the GPU viewport", () => {
+    expect(
+      zoomGpuViewportAtScreenPoint({
+        maxZoom: 4,
+        minZoom: 0.25,
+        point: { x: 100, y: 80 },
+        viewport: [0, 0, 1],
+        zoom: 2,
+      }),
+    ).toEqual({
+      x: -100,
+      y: -80,
+      zoom: 2,
+    });
+  });
+
+  it("pans the viewport by screen-space deltas", () => {
+    expect(panGpuViewportBy([10, 20, 2], { x: 5, y: -4 })).toEqual({
+      x: 15,
+      y: 16,
+      zoom: 2,
+    });
+  });
+
+  it("resolves fit bounds without depending on d3", () => {
+    expect(
+      getGpuViewportForBounds(
+        { height: 50, width: 100, x: 10, y: 20 },
+        {
+          canvasHeight: 200,
+          canvasWidth: 400,
+          maxZoom: 4,
+          minZoom: 0.25,
+          padding: 0,
+        },
+      ),
+    ).toEqual({
+      x: -40,
+      y: -80,
+      zoom: 4,
+    });
   });
 });

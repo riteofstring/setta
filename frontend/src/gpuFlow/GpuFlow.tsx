@@ -34,6 +34,10 @@ import {
   type GpuSurfaceProps,
 } from "./GpuSurface";
 import {
+  attachGpuPanZoomController,
+  type GpuPanZoomControllerOptions,
+} from "./interactions/panZoom";
+import {
   createGpuNodeInteractionDirtyController,
   type GpuNodeInteractionDirtyController,
   type GpuNodeInteractionState,
@@ -43,6 +47,10 @@ import {
   type NodeTextureManager,
 } from "./nodeTextures";
 import type { GpuViewportInput } from "./viewportMath";
+import {
+  gpuFlowViewportStore,
+  type GpuFlowViewportStoreApi,
+} from "./viewportStore";
 
 export type GpuFlowProps = Pick<
   GpuSurfaceProps,
@@ -58,11 +66,16 @@ export type GpuFlowProps = Pick<
   onNodeLayerFrame?:
     | ((result: RenderGpuNodeLayerFrameResult) => void)
     | undefined;
+  panZoom?:
+    | false
+    | Omit<GpuPanZoomControllerOptions, "element" | "requestFrame" | "store">
+    | undefined;
   renderNode?: ((node: GpuNodeLayout) => ReactNode) | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
   viewport?: GpuViewportInput | undefined;
+  viewportStore?: GpuFlowViewportStoreApi | undefined;
 };
 
 type GpuFlowCallbacks = Pick<
@@ -95,12 +108,15 @@ export function GpuFlow({
   onPaint,
   onReady,
   onResize,
+  panZoom,
   renderNode,
   style,
   surfaceClassName,
   uploadBudget,
-  viewport = [0, 0, 1],
+  viewport,
+  viewportStore = gpuFlowViewportStore,
 }: GpuFlowProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);
   const [activeNodeOverlaySnapshot, setActiveNodeOverlaySnapshot] =
     useState<GpuActiveNodeOverlaySnapshot | null>(null);
@@ -126,7 +142,7 @@ export function GpuFlow({
     marginCssPx,
     nodes,
     uploadBudget,
-    viewport,
+    viewport: viewport ?? viewportStore.getState().transform,
   });
 
   useEffect(() => {
@@ -140,12 +156,42 @@ export function GpuFlow({
   }, [onFrame, onNodeLayerFrame, onPaint, onReady, onResize]);
 
   useEffect(() => {
+    const container = containerRef.current;
+    viewportStore.getState().setDomNode(container);
+    return () => {
+      if (container) {
+        viewportStore.getState().clearDomNode(container);
+      }
+    };
+  }, [viewportStore]);
+
+  useEffect(() => {
+    if (!viewport) {
+      return;
+    }
+    viewportStore.getState().setTransform(viewport);
+  }, [viewport, viewportStore]);
+
+  useEffect(() => {
+    return viewportStore.subscribe((state, previousState) => {
+      if (state.transform === previousState.transform) {
+        return;
+      }
+      nodeLayerRef.current = {
+        ...nodeLayerRef.current,
+        viewport: state.transform,
+      };
+      surfaceRef.current?.requestFrame("viewport");
+    });
+  }, [viewportStore]);
+
+  useEffect(() => {
     nodeLayerRef.current = {
       forceVisibleNodeIds,
       marginCssPx,
       nodes,
       uploadBudget,
-      viewport,
+      viewport: viewportStore.getState().transform,
     };
     if (!nodes) {
       visibleNodeIdsRef.current = new Set();
@@ -153,7 +199,25 @@ export function GpuFlow({
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
     }
     surfaceRef.current?.requestFrame("viewport");
-  }, [forceVisibleNodeIds, marginCssPx, nodes, uploadBudget, viewport]);
+  }, [forceVisibleNodeIds, marginCssPx, nodes, uploadBudget, viewportStore]);
+
+  useEffect(() => {
+    if (panZoom === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    return attachGpuPanZoomController({
+      ...panZoom,
+      element: container,
+      requestFrame: (reason) => {
+        surfaceRef.current?.requestFrame(reason);
+      },
+      store: viewportStore,
+    });
+  }, [panZoom, viewportStore]);
 
   useEffect(() => {
     return () => {
@@ -222,9 +286,13 @@ export function GpuFlow({
   const handleResize = useCallback<NonNullable<GpuSurfaceProps["onResize"]>>(
     (runtime, size) => {
       canvasSizeRef.current = size;
+      viewportStore.getState().setViewportSize({
+        height: size.cssHeight,
+        width: size.cssWidth,
+      });
       callbacksRef.current.onResize?.(runtime, size);
     },
-    [],
+    [viewportStore],
   );
 
   const handlePaint = useCallback<NonNullable<GpuSurfaceProps["onPaint"]>>(
@@ -276,7 +344,12 @@ export function GpuFlow({
   );
 
   return (
-    <div className={className} data-tab-scope="canvas" style={style}>
+    <div
+      className={className}
+      data-tab-scope="canvas"
+      ref={containerRef}
+      style={style}
+    >
       <GpuSurface
         className={surfaceClassName}
         deviceOptions={deviceOptions}
