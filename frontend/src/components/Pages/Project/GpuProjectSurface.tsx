@@ -245,6 +245,9 @@ function ProjectGpuFlowLayer({
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
+  if (!readyToRender) {
+    return null;
+  }
   return (
     <GpuFlow
       className="setta-gpu-flow react-flow__pane"
@@ -252,7 +255,7 @@ function ProjectGpuFlowLayer({
         onEdgeClick: selectEdge,
         onEdgeContextMenu: selectEdge,
       }}
-      edgeScene={getReadyProjectFlowValue(readyToRender, edgeScene)}
+      edgeScene={edgeScene}
       grid={getProjectGpuGridInput({ darkMode, settings })}
       nodeDrag={getProjectNodeDragOptions({
         flowInteractionKeys,
@@ -260,7 +263,7 @@ function ProjectGpuFlowLayer({
         settings,
       })}
       nodeVisibility={readyToBeVisible ? "visible" : "hidden"}
-      nodes={getReadyProjectFlowValue(readyToRender, nodeLayouts)}
+      nodes={nodeLayouts}
       onNodeElementChange={nodeElementChange}
       onResize={handleProjectFlowResize}
       panZoom={getProjectPanZoomOptions({
@@ -397,13 +400,6 @@ function getProjectPanZoomOptions({
     zoomOnPinch: interactionEnabled && settings.zoomOnPinch,
     zoomOnScroll: interactionEnabled && settings.zoomOnScroll,
   };
-}
-
-function getReadyProjectFlowValue<T>(
-  readyToRender: boolean,
-  value: T,
-): T | undefined {
-  return readyToRender ? value : undefined;
 }
 
 function booleanDataAttribute(value: boolean): "true" | "false" {

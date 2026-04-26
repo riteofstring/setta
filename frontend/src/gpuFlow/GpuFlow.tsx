@@ -456,7 +456,6 @@ export function GpuFlow({
         markGpuNodeLayerPaintDirty({
           changedElements: event.changedElements,
           elementByNodeId: nodeElementByIdRef.current,
-          fallbackNodeIds: visibleNodeIdsRef.current,
           frame: nextFrame(frameRef),
           textureManager,
         });

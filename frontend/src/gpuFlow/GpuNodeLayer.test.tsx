@@ -335,6 +335,39 @@ describe("GpuNodeLayer helpers", () => {
       requestPaint: false,
     });
   });
+
+  it("does not dirty visible nodes when a paint event omits changed elements", () => {
+    const nodeElement = document.createElement("div");
+    const manager = {
+      markNodeTextureDirty: vi.fn(),
+    };
+
+    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 8,
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markNodeTextureDirty).not.toHaveBeenCalled();
+  });
+
+  it("ignores paint changes on the GPU node wrapper itself", () => {
+    const nodeElement = document.createElement("div");
+    const manager = {
+      markNodeTextureDirty: vi.fn(),
+    };
+
+    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+      changedElements: [nodeElement],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 9,
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markNodeTextureDirty).not.toHaveBeenCalled();
+  });
 });
 
 function node(

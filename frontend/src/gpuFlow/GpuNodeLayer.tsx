@@ -140,10 +140,6 @@ export type RenderGpuNodeLayerFrameResult = {
 type MarkGpuNodeLayerPaintDirtyInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
-  readonly fallbackNodeIds?:
-    | ReadonlySet<string>
-    | readonly string[]
-    | undefined;
   readonly frame: number;
   readonly textureManager: Pick<NodeTextureManager, "markNodeTextureDirty">;
 };
@@ -310,7 +306,6 @@ export function renderGpuNodeLayerFrame({
 export function markGpuNodeLayerPaintDirty({
   changedElements,
   elementByNodeId,
-  fallbackNodeIds,
   frame,
   textureManager,
 }: MarkGpuNodeLayerPaintDirtyInput): string[] {
@@ -324,12 +319,6 @@ export function markGpuNodeLayerPaintDirty({
       if (nodeId) {
         dirtyNodeIds.add(nodeId);
       }
-    }
-  }
-
-  if (!changedElements) {
-    for (const nodeId of normalizeNodeIdSet(fallbackNodeIds)) {
-      dirtyNodeIds.add(nodeId);
     }
   }
 
@@ -548,8 +537,8 @@ function findNodeIdForChangedElement(
 ): string | null {
   for (const [nodeId, nodeElement] of elementByNodeId) {
     if (
-      nodeElement === changedElement ||
-      nodeElement.contains(changedElement)
+      nodeElement.contains(changedElement) &&
+      nodeElement !== changedElement
     ) {
       return nodeId;
     }
