@@ -80,11 +80,13 @@ describe("GpuNodeLayer helpers", () => {
     ]);
 
     syncGpuNodeDomTransforms({
+      activeNodeIds: ["visible"],
       elementByNodeId: elements,
       nodes: [
         node("visible", 10, 20, 100, 50, 0),
         node("culled", 30, 40, 100, 50, 0),
       ],
+      overlayNodeIds: ["visible"],
       visibleNodeIds: new Set(["visible"]),
       viewport: { x: 5, y: -10, zoom: 1.5 },
     });
@@ -93,10 +95,20 @@ describe("GpuNodeLayer helpers", () => {
     expect(visible.style.transformOrigin).toBe("0 0");
     expect(visible.style.transform).toBe("translate(20px, 20px) scale(1.5)");
     expect(visible.style.pointerEvents).toBe("all");
+    expect(visible.dataset.gpuFlowInteractive).toBe("true");
+    expect(visible.dataset.gpuFlowOverlay).toBe("active");
+    expect(
+      visible.classList.contains("setta-gpu-flow__node--interactive"),
+    ).toBe(true);
+    expect(
+      visible.classList.contains("setta-gpu-flow__node--overlay-active"),
+    ).toBe(true);
     expect(culled.style.transform).toBe(
       "translate(-100000px, -100000px) scale(1)",
     );
     expect(culled.style.pointerEvents).toBe("none");
+    expect(culled.dataset.gpuFlowInteractive).toBe("false");
+    expect(culled.dataset.gpuFlowOverlay).toBe("none");
   });
 
   it("registers visible DOM nodes, uploads dirty textures, and renders uploaded quads", () => {
@@ -111,6 +123,7 @@ describe("GpuNodeLayer helpers", () => {
 
     const result = renderGpuNodeLayerFrame({
       canvasSize: canvasSize(),
+      activeNodeId: "visible",
       elementByNodeId: elements,
       frame: 1,
       marginCssPx: 0,
@@ -118,6 +131,7 @@ describe("GpuNodeLayer helpers", () => {
         node("visible", 10, 20, 100, 50, 0),
         node("culled", 1_000, 1_000, 100, 50, 0),
       ],
+      overlayNodeId: "visible",
       renderer,
       textureManager: manager,
       viewport: [5, -10, 1.5],
@@ -131,7 +145,7 @@ describe("GpuNodeLayer helpers", () => {
       element: visible,
       frame: 1,
       nodeId: "visible",
-      priority: "visible",
+      priority: "interactive",
       zoom: 1.5,
     });
     expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({ frame: 1 });
@@ -150,9 +164,11 @@ describe("GpuNodeLayer helpers", () => {
     });
     expect(result).toMatchObject({
       budgetExhausted: false,
+      activeNodeId: "visible",
       drawnNodeIds: ["visible"],
       missingElementNodeIds: [],
       missingTextureNodeIds: [],
+      overlayNodeId: "visible",
       uploadedNodeIds: ["visible"],
       visibleNodeIds: ["visible"],
     });

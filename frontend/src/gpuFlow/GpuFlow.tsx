@@ -25,6 +25,11 @@ import {
   type GpuSurfaceProps,
 } from "./GpuSurface";
 import {
+  createGpuNodeInteractionDirtyController,
+  type GpuNodeInteractionDirtyController,
+  type GpuNodeInteractionState,
+} from "./nodeInteractionDirty";
+import {
   createNodeTextureManager,
   type NodeTextureManager,
 } from "./nodeTextures";
@@ -91,6 +96,10 @@ export function GpuFlow({
   const canvasSizeRef = useRef<GpuCanvasSize | null>(null);
   const frameRef = useRef(0);
   const nodeElementByIdRef = useRef(new Map<string, HTMLElement>());
+  const nodeInteractionCleanupRef = useRef<(() => void) | null>(null);
+  const nodeInteractionRef = useRef<GpuNodeInteractionDirtyController | null>(
+    null,
+  );
   const nodeQuadRendererRef = useRef<GpuNodeQuadRenderer | null>(null);
   const textureManagerRef = useRef<NodeTextureManager | null>(null);
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
@@ -136,6 +145,10 @@ export function GpuFlow({
 
   useEffect(() => {
     return () => {
+      destroyNodeInteractionResources(
+        nodeInteractionRef,
+        nodeInteractionCleanupRef,
+      );
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
     };
   }, []);
@@ -144,6 +157,7 @@ export function GpuFlow({
     (nodeId: string, element: HTMLElement | null) => {
       if (!element) {
         nodeElementByIdRef.current.delete(nodeId);
+        nodeInteractionRef.current?.clearNode(nodeId);
         textureManagerRef.current?.destroyNodeTexture(nodeId);
         return;
       }
@@ -162,6 +176,29 @@ export function GpuFlow({
         textureManagerRef.current = createNodeTextureManager(runtime);
         nodeQuadRendererRef.current = new GpuNodeQuadRenderer(runtime);
       }
+      destroyNodeInteractionResources(
+        nodeInteractionRef,
+        nodeInteractionCleanupRef,
+      );
+      const nodeInteraction = createGpuNodeInteractionDirtyController({
+        elementByNodeId: () => nodeElementByIdRef.current,
+        getFrame: () => nextFrame(frameRef),
+        onStateChange: (state) => {
+          syncGpuFlowNodeInteractionState({
+            nodeElementByIdRef,
+            state,
+          });
+          surfaceRef.current?.requestFrame("texture-upload");
+        },
+        requestFrame: (reason) => {
+          surfaceRef.current?.requestFrame(reason);
+        },
+        textureManager: () => textureManagerRef.current,
+      });
+      nodeInteractionRef.current = nodeInteraction;
+      nodeInteractionCleanupRef.current = nodeInteraction.attach(
+        runtime.canvas,
+      );
       callbacksRef.current.onReady?.(runtime);
     },
     [],
@@ -199,6 +236,7 @@ export function GpuFlow({
         canvasSizeRef,
         frameRef,
         nodeElementByIdRef,
+        nodeInteractionRef,
         nodeLayerRef,
         nodeQuadRendererRef,
         runtime,
@@ -276,6 +314,7 @@ function renderGpuFlowNodeLayerFrame({
   canvasSizeRef,
   frameRef,
   nodeElementByIdRef,
+  nodeInteractionRef,
   nodeLayerRef,
   nodeQuadRendererRef,
   runtime,
@@ -287,6 +326,7 @@ function renderGpuFlowNodeLayerFrame({
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
   readonly frameRef: MutableRefObject<number>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>;
   readonly runtime: GpuFlowRuntime;
@@ -310,22 +350,23 @@ function renderGpuFlowNodeLayerFrame({
   }
 
   const layerResult = renderGpuNodeLayerFrame({
+    activeNodeId: nodeInteractionRef.current?.getActiveNodeId(),
     canvasSize,
     elementByNodeId: nodeElementByIdRef.current,
     forceVisibleNodeIds: layer.forceVisibleNodeIds,
     frame: nextFrame(frameRef),
     marginCssPx: layer.marginCssPx,
     nodes: layer.nodes,
+    overlayNodeId: nodeInteractionRef.current?.getOverlayNodeId(),
     renderer: resources.nodeQuadRenderer,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
   visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
+  completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
-  if (layerResult.budgetExhausted) {
-    surfaceRef.current?.requestFrame("texture-upload");
-  }
+  requestRemainingTextureUploadFrame(surfaceRef, layerResult);
 }
 
 function ensureNodeLayerResources({
@@ -358,6 +399,51 @@ function destroyNodeLayerResources(
   textureManagerRef.current = null;
   nodeQuadRendererRef.current?.destroy();
   nodeQuadRendererRef.current = null;
+}
+
+function destroyNodeInteractionResources(
+  nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
+  nodeInteractionCleanupRef: MutableRefObject<(() => void) | null>,
+) {
+  nodeInteractionCleanupRef.current?.();
+  nodeInteractionCleanupRef.current = null;
+  nodeInteractionRef.current = null;
+}
+
+function syncGpuFlowNodeInteractionState({
+  nodeElementByIdRef,
+  state,
+}: {
+  readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly state: GpuNodeInteractionState;
+}) {
+  for (const [nodeId, element] of nodeElementByIdRef.current) {
+    const interactive = state.activeNodeId === nodeId;
+    const overlayActive = state.overlayNodeId === nodeId;
+    element.dataset.gpuFlowInteractive = interactive ? "true" : "false";
+    element.dataset.gpuFlowOverlay = overlayActive ? "active" : "none";
+    element.classList.toggle("setta-gpu-flow__node--interactive", interactive);
+    element.classList.toggle(
+      "setta-gpu-flow__node--overlay-active",
+      overlayActive,
+    );
+  }
+}
+
+function completeGpuNodeInteractionFrame(
+  nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
+  layerResult: RenderGpuNodeLayerFrameResult,
+) {
+  nodeInteractionRef.current?.completeFrame(layerResult);
+}
+
+function requestRemainingTextureUploadFrame(
+  surfaceRef: MutableRefObject<GpuSurfaceHandle | null>,
+  layerResult: RenderGpuNodeLayerFrameResult,
+) {
+  if (layerResult.budgetExhausted) {
+    surfaceRef.current?.requestFrame("texture-upload");
+  }
 }
 
 function nextFrame(frameRef: MutableRefObject<number>): number {

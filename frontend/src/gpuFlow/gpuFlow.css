@@ -20,3 +20,11 @@
   transform-origin: 0 0;
   user-select: none;
 }
+
+.setta-gpu-flow__node--interactive {
+  pointer-events: auto;
+}
+
+.setta-gpu-flow__node--overlay-active {
+  pointer-events: auto;
+}

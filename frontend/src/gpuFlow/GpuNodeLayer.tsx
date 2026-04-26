@@ -1,4 +1,5 @@
 import { memo, useCallback, type CSSProperties, type ReactNode } from "react";
+import type { NodeTexturePriority } from "./dirtyTracking";
 import type {
   RenderNodeTextureQuadsInput,
   RenderNodeTextureQuadsResult,
@@ -69,12 +70,14 @@ export type BuildTexturedGpuNodeQuadsResult = {
 };
 
 export type SyncGpuNodeDomTransformsInput = {
+  readonly activeNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   readonly elementByNodeId:
     | ReadonlyMap<string, HTMLElement>
     | ((nodeId: string) => HTMLElement | null | undefined);
   readonly nodes: readonly GpuNodeLayout[];
   readonly offscreenX?: number | undefined;
   readonly offscreenY?: number | undefined;
+  readonly overlayNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   readonly visibleNodeIds: ReadonlySet<string>;
   readonly viewport: GpuViewportInput;
 };
@@ -97,6 +100,7 @@ export type GpuNodeQuadRenderTarget = {
 };
 
 export type RenderGpuNodeLayerFrameInput = {
+  readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
@@ -108,17 +112,20 @@ export type RenderGpuNodeLayerFrameInput = {
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly renderer: GpuNodeQuadRenderTarget;
+  readonly overlayNodeId?: string | null | undefined;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget?: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
 };
 
 export type RenderGpuNodeLayerFrameResult = {
+  readonly activeNodeId: string | null;
   readonly budgetExhausted: boolean;
   readonly drawnNodeIds: readonly string[];
   readonly missingElementNodeIds: readonly string[];
   readonly missingTextureNodeIds: readonly string[];
   readonly remainingDirtyNodeIds: readonly string[];
+  readonly overlayNodeId: string | null;
   readonly skippedNodeIds: readonly string[];
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeIds: readonly string[];
@@ -201,6 +208,7 @@ const GpuNodeChild = memo(function GpuNodeChild({
 });
 
 export function renderGpuNodeLayerFrame({
+  activeNodeId,
   canvasSize,
   clearColor,
   elementByNodeId,
@@ -208,15 +216,22 @@ export function renderGpuNodeLayerFrame({
   frame,
   marginCssPx,
   nodes,
+  overlayNodeId,
   renderer,
   textureManager,
   uploadBudget,
   viewport,
 }: RenderGpuNodeLayerFrameInput): RenderGpuNodeLayerFrameResult {
+  const activeNodeIds = normalizeNodeIdSet(
+    activeNodeId ? [activeNodeId] : undefined,
+  );
+  const overlayNodeIds = normalizeNodeIdSet(
+    overlayNodeId ? [overlayNodeId] : undefined,
+  );
   const visibleQuads = collectVisibleGpuNodeQuads({
     canvasHeight: canvasSize.cssHeight,
     canvasWidth: canvasSize.cssWidth,
-    forceVisibleNodeIds,
+    forceVisibleNodeIds: mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds),
     marginCssPx,
     nodes,
     viewport,
@@ -224,8 +239,10 @@ export function renderGpuNodeLayerFrame({
   const visibleNodeIds = new Set(visibleQuads.map((quad) => quad.nodeId));
 
   syncGpuNodeDomTransforms({
+    activeNodeIds,
     elementByNodeId,
     nodes,
+    overlayNodeIds,
     visibleNodeIds,
     viewport,
   });
@@ -244,7 +261,7 @@ export function renderGpuNodeLayerFrame({
       element,
       frame,
       nodeId: quad.nodeId,
-      priority: "visible",
+      priority: resolveVisibleNodeTexturePriority(quad.nodeId, activeNodeIds),
       zoom: normalizeGpuViewport(viewport).zoom,
     });
   }
@@ -265,10 +282,12 @@ export function renderGpuNodeLayerFrame({
   });
 
   return {
+    activeNodeId: activeNodeId ?? null,
     budgetExhausted: uploadResult.budgetExhausted,
     drawnNodeIds: renderResult.drawnNodeIds,
     missingElementNodeIds,
     missingTextureNodeIds: textureResult.missingTextureNodeIds,
+    overlayNodeId: overlayNodeId ?? null,
     remainingDirtyNodeIds: uploadResult.remainingDirtyNodeIds,
     skippedNodeIds: uploadResult.skippedNodeIds,
     uploadedNodeIds: uploadResult.uploaded.map((record) => record.nodeId),
@@ -387,14 +406,18 @@ export function buildTexturedGpuNodeQuads(
 }
 
 export function syncGpuNodeDomTransforms({
+  activeNodeIds,
   elementByNodeId,
   nodes,
   offscreenX = DEFAULT_OFFSCREEN_POSITION,
   offscreenY = DEFAULT_OFFSCREEN_POSITION,
+  overlayNodeIds,
   visibleNodeIds,
   viewport,
 }: SyncGpuNodeDomTransformsInput) {
   const normalizedViewport = normalizeGpuViewport(viewport);
+  const activeIds = normalizeNodeIdSet(activeNodeIds);
+  const overlayIds = normalizeNodeIdSet(overlayNodeIds);
   for (const node of nodes) {
     const element = resolveElement(elementByNodeId, node.nodeId);
     if (!element) {
@@ -407,6 +430,8 @@ export function syncGpuNodeDomTransforms({
         normalizedViewport,
       );
       applyVisibleNodeDomTransform(element, {
+        interactive: activeIds.has(node.nodeId),
+        overlayActive: overlayIds.has(node.nodeId),
         screenX: screenPosition.x,
         screenY: screenPosition.y,
         zoom: normalizedViewport.zoom,
@@ -421,10 +446,14 @@ export function syncGpuNodeDomTransforms({
 export function applyVisibleNodeDomTransform(
   element: HTMLElement,
   {
+    interactive,
+    overlayActive,
     screenX,
     screenY,
     zoom,
   }: {
+    readonly interactive?: boolean | undefined;
+    readonly overlayActive?: boolean | undefined;
     readonly screenX: number;
     readonly screenY: number;
     readonly zoom: number;
@@ -436,6 +465,16 @@ export function applyVisibleNodeDomTransform(
   element.style.transformOrigin = "0 0";
   element.style.transform = `translate(${screenX}px, ${screenY}px) scale(${zoom})`;
   element.style.pointerEvents = "all";
+  element.dataset.gpuFlowInteractive = interactive ? "true" : "false";
+  element.dataset.gpuFlowOverlay = overlayActive ? "active" : "none";
+  element.classList.toggle(
+    "setta-gpu-flow__node--interactive",
+    Boolean(interactive),
+  );
+  element.classList.toggle(
+    "setta-gpu-flow__node--overlay-active",
+    Boolean(overlayActive),
+  );
 }
 
 export function applyCulledNodeDomTransform(
@@ -449,6 +488,34 @@ export function applyCulledNodeDomTransform(
   element.style.transformOrigin = "0 0";
   element.style.transform = `translate(${offscreenX}px, ${offscreenY}px) scale(1)`;
   element.style.pointerEvents = "none";
+  element.dataset.gpuFlowInteractive = "false";
+  element.dataset.gpuFlowOverlay = "none";
+  element.classList.remove(
+    "setta-gpu-flow__node--interactive",
+    "setta-gpu-flow__node--overlay-active",
+  );
+}
+
+function mergeNodeIdSets(
+  left: ReadonlySet<string> | readonly string[] | undefined,
+  right: ReadonlySet<string> | readonly string[] | undefined,
+): ReadonlySet<string> | undefined {
+  const leftIds = normalizeNodeIdSet(left);
+  const rightIds = normalizeNodeIdSet(right);
+  if (leftIds.size === 0) {
+    return rightIds.size === 0 ? undefined : rightIds;
+  }
+  if (rightIds.size === 0) {
+    return leftIds;
+  }
+  return new Set([...leftIds, ...rightIds]);
+}
+
+function resolveVisibleNodeTexturePriority(
+  nodeId: string,
+  activeNodeIds: ReadonlySet<string>,
+): NodeTexturePriority {
+  return activeNodeIds.has(nodeId) ? "interactive" : "visible";
 }
 
 function normalizeNodeIdSet(
