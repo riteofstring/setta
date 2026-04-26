@@ -1724,43 +1724,6 @@ export function createProjectRunCapabilities(
 
 export type PromptSectionImpl = gt.PromptSectionImpl;
 
-export function createPromptSectionImpl(
-  options: Partial<PromptSectionImpl> = {},
-): PromptSectionImpl {
-  const defaults = {
-    aspectRatio: false,
-    aspectRatioExtraHeight: 0,
-    aspectRatioExtraWidth: 0,
-    format: "Jinja",
-    id: "",
-    inputs: {},
-    isFrozen: false,
-    isInOtherProjectConfigs: false,
-    isMinimized: false,
-    isPreset: false,
-    missingVariables: [],
-    name: "",
-    positionAndSizeLocked: false,
-    promptTemplateId: null,
-    renderError: null,
-    renderedText: "",
-    size: {
-      height: 150,
-      width: 300,
-    },
-    styleColor: null,
-    tagColor: null,
-    template: "",
-    type: "Prompt",
-  };
-  return {
-    ...mergeGeneratedOptions<PromptSectionImpl>(defaults, options),
-    size: createSectionSize(
-      (options["size"] ?? defaults["size"]) as Partial<SectionSize>,
-    ) as unknown as NonNullable<(typeof options)["size"]>,
-  };
-}
-
 export type RealtimeDependencyEventMessage = gt.RealtimeDependencyEventMessage;
 
 export type RealtimeUIChangeMessage = gt.RealtimeUIChangeMessage;

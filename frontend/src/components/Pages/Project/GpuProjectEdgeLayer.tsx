@@ -1,4 +1,3 @@
-import { AgenticScopeHighlightsUpdater } from "forks/xyflow/core/container/AgenticEdgeRenderer";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { GpuFlow } from "gpuFlow/GpuFlow";
 import {
@@ -11,6 +10,7 @@ import {
 } from "gpuFlow/viewportStore";
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useShareCapabilities } from "state/hooks/share";
+import { AgenticScopeHighlightsUpdater } from "./AgenticScopeHighlightsUpdater";
 import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,

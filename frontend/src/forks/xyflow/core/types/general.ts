@@ -83,14 +83,6 @@ type ReactFlowActions = {
 
 export type ReactFlowState = ReactFlowStore & ReactFlowActions;
 
-export type PanelPosition =
-  | "top-left"
-  | "top-center"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-center"
-  | "bottom-right";
-
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 
 type SelectionRect = Rect & {
