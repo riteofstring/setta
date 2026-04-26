@@ -213,6 +213,59 @@ describe("GPU node drag controller", () => {
     detach();
   });
 
+  it("re-checks the disabled predicate before starting a drag", () => {
+    const element = createFlowElement();
+    const nodeElement = createNodeElement("a");
+    element.append(nodeElement);
+    const onNodeDrag = vi.fn();
+    let disabled = true;
+    const detach = attachGpuNodeDragController({
+      autoPanOnNodeDrag: false,
+      disabled: () => disabled,
+      element,
+      getNodes: () => [node("a", 0, 0, 30, 40)],
+      onNodeDrag,
+    });
+
+    dispatchPointer(nodeElement, "pointerdown", {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 1,
+    });
+    dispatchPointer(document, "pointermove", {
+      button: 0,
+      clientX: 40,
+      clientY: 40,
+      pointerId: 1,
+    });
+
+    expect(onNodeDrag).not.toHaveBeenCalled();
+
+    disabled = false;
+    dispatchPointer(nodeElement, "pointerdown", {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 2,
+    });
+    dispatchPointer(document, "pointermove", {
+      button: 0,
+      clientX: 40,
+      clientY: 40,
+      pointerId: 2,
+    });
+
+    expect(onNodeDrag).toHaveBeenCalledWith({
+      active: true,
+      delta: { x: 30, y: 30 },
+      items: [expect.objectContaining({ nodeId: "a" })],
+      nodeId: "a",
+      phase: "drag",
+    });
+    detach();
+  });
+
   it("computes auto-pan deltas from viewport edges and configured insets", () => {
     expect(
       getGpuNodeDragAutoPanDelta({

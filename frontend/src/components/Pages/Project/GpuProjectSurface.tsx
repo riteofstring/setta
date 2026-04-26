@@ -1,6 +1,6 @@
 import cc from "classcat";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
-import { useDndMode } from "forks/dnd-kit/dndState";
+import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import {
   setSelectionDragHandle,
   setSelectionDragPrimaryId,
@@ -76,6 +76,7 @@ import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,
 } from "./gpuProjectEdgeScene";
+import { isProjectGpuNodeDragDisabled } from "./gpuProjectInteractionGuards";
 
 type ProjectSurfaceDimensions = {
   readonly height: number;
@@ -369,8 +370,17 @@ function getProjectNodeDragOptions({
   return {
     autoPanOnNodeDrag: true,
     canDragNode: canDragProjectNode,
-    disabled: () =>
-      flowInteractionKeys.panActivationKeyPressed || isFollowTransitioning,
+    disabled: () => {
+      const dndState = useDndState.getState();
+      return isProjectGpuNodeDragDisabled({
+        dndMode: {
+          isMovingFree: dndState.isMovingFree,
+          isSorting: dndState.isSorting,
+        },
+        isFollowTransitioning,
+        panActivationKeyPressed: flowInteractionKeys.panActivationKeyPressed,
+      });
+    },
     getSelectedNodeIds: getActiveSectionUIIds,
     nodeDragThresholdPx: 1,
     onNodeDrag: handleProjectNodeDrag,
