@@ -744,7 +744,7 @@ func TestMigratedRouteRegistrationsPopulateOpenAPIDocument(t *testing.T) {
 }
 
 func TestBuildFrontendHTTPOpenAPIDocumentIncludesProjectRoutes(t *testing.T) {
-	document, err := BuildFrontendHTTPOpenAPIDocument()
+	document, err := BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(nil)
 	if err != nil {
 		t.Fatalf("build frontend http openapi document: %v", err)
 	}

@@ -55,9 +55,9 @@ func TestNewTypeRegistryAcceptsPluginOwnedDeploymentTypes(t *testing.T) {
 		t.Fatalf("new type registry: %v", err)
 	}
 
-	registration, err := registry.RegistrationForType(Type("plugin-app"))
+	registration, err := registry.RegistrationForStartupMode("plugin-app")
 	if err != nil {
-		t.Fatalf("lookup plugin deployment type: %v", err)
+		t.Fatalf("lookup plugin deployment startup mode: %v", err)
 	}
 	if registration.Type != Type("plugin-app") {
 		t.Fatalf("expected normalized plugin deployment type, got %#v", registration)
@@ -113,7 +113,7 @@ func TestTypeRegistryResolveStartupRegistrationRejectsMismatchedManifest(t *test
 	}
 }
 
-func TestTypeRegistryOpenRuntimeForTypeUsesRegisteredOpener(t *testing.T) {
+func TestTypeRegistryResolvedRegistrationUsesRegisteredOpener(t *testing.T) {
 	t.Parallel()
 
 	called := false
@@ -134,8 +134,16 @@ func TestTypeRegistryOpenRuntimeForTypeUsesRegisteredOpener(t *testing.T) {
 		t.Fatalf("new type registry: %v", err)
 	}
 
-	if _, err := registry.OpenRuntimeForType(context.Background(), TypeShare, RuntimeOptions{}); err != nil {
-		t.Fatalf("open runtime for type: %v", err)
+	registration, err := registry.ResolveStartupRegistration("share", Manifest{
+		DeploymentName:    "demo-share",
+		DeploymentType:    TypeShare,
+		DeploymentVersion: "v1",
+	})
+	if err != nil {
+		t.Fatalf("resolve startup registration: %v", err)
+	}
+	if _, err := registration.OpenRuntime(context.Background(), RuntimeOptions{}); err != nil {
+		t.Fatalf("open runtime through resolved registration: %v", err)
 	}
 	if !called {
 		t.Fatal("expected registered opener to be called")

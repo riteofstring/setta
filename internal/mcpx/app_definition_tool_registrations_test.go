@@ -10,9 +10,13 @@ import (
 func appDefinitionToolRegistrationsForTest(
 	service appdefinition.Runtime,
 ) []ToolRegistration {
-	return neutralmcptools.BuildMCPToolRegistrations(
-		service,
-		appspec.MustForPlugin(firstpartyplugin.AppSubsystemPluginID).DefaultPath(),
-		ExecuteScopedProjectStateOperation,
+	registrations := neutralmcptools.BuildAppCatalogToolRegistrations()
+	return append(
+		registrations,
+		neutralmcptools.BuildAppDefinitionToolRegistrations(
+			service,
+			appspec.MustForPlugin(firstpartyplugin.AppSubsystemPluginID).DefaultPath(),
+			ExecuteScopedProjectStateOperation,
+		)...,
 	)
 }

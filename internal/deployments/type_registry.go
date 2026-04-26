@@ -12,7 +12,6 @@ var (
 	ErrTypeRegistrationDuplicate        = errors.New("deployment type registration is duplicated")
 	ErrStartupModeRegistrationMissing   = errors.New("deployment startup mode is not registered")
 	ErrStartupModeRegistrationDuplicate = errors.New("deployment startup mode registration is duplicated")
-	ErrDeploymentTypeUnregistered       = errors.New("deployment type is not registered")
 )
 
 type StartupRegistration struct {
@@ -95,19 +94,6 @@ func normalizeTypeRegistration(
 	return registration, nil
 }
 
-func (r *TypeRegistry) RegistrationForType(
-	deploymentType Type,
-) (TypeRegistration, error) {
-	if r == nil {
-		return TypeRegistration{}, fmt.Errorf("%w: %q", ErrDeploymentTypeUnregistered, deploymentType)
-	}
-	registration, ok := r.byType[deploymentType]
-	if !ok {
-		return TypeRegistration{}, fmt.Errorf("%w: %q", ErrDeploymentTypeUnregistered, deploymentType)
-	}
-	return registration, nil
-}
-
 func (r *TypeRegistry) RegistrationForStartupMode(
 	modeName string,
 ) (TypeRegistration, error) {
@@ -139,16 +125,4 @@ func (r *TypeRegistry) ResolveStartupRegistration(
 		)
 	}
 	return registration, nil
-}
-
-func (r *TypeRegistry) OpenRuntimeForType(
-	ctx context.Context,
-	deploymentType Type,
-	options RuntimeOptions,
-) (*Runtime, error) {
-	registration, err := r.RegistrationForType(deploymentType)
-	if err != nil {
-		return nil, err
-	}
-	return registration.OpenRuntime(ctx, options)
 }

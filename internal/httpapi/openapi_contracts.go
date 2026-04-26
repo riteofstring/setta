@@ -196,14 +196,6 @@ func WithOpenAPIModeRequirement(requirement string) OpenAPIOperationOption {
 	return withOpenAPIModeRequirement(requirement)
 }
 
-func WithOpenAPIRequestContentType(contentType string) OpenAPIOperationOption {
-	return withOpenAPIRequestContentType(contentType)
-}
-
-func WithOpenAPIResponseContentType(contentType string) OpenAPIOperationOption {
-	return withOpenAPIResponseContentType(contentType)
-}
-
 func WithOpenAPIAppSubsystemFrontendSDK() OpenAPIOperationOption {
 	return withOpenAPIAppSubsystemFrontendSDK()
 }
@@ -222,10 +214,6 @@ func withOpenAPIQuery[T any]() openAPIOperationOption {
 
 func WithOpenAPIPathParams[T any]() OpenAPIOperationOption {
 	return withOpenAPIPathParams[T]()
-}
-
-func WithOpenAPIQuery[T any]() OpenAPIOperationOption {
-	return withOpenAPIQuery[T]()
 }
 
 func registerOpenAPIGet[Resp any](

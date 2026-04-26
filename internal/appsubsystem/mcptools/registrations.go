@@ -47,23 +47,6 @@ func requireScopedProjectStateOperation(
 	return execute
 }
 
-func BuildMCPToolRegistrations(
-	service appdefinition.Runtime,
-	defaultAppSpecPath string,
-	executeScopedProjectStateOperation ScopedProjectStateOperationFunc,
-) []tools.ToolRegistration {
-	registrations := BuildAppCatalogToolRegistrations()
-	registrations = append(
-		registrations,
-		BuildAppDefinitionToolRegistrations(
-			service,
-			defaultAppSpecPath,
-			executeScopedProjectStateOperation,
-		)...,
-	)
-	return registrations
-}
-
 func BuildAppCatalogToolRegistrations() []tools.ToolRegistration {
 	return []tools.ToolRegistration{
 		{

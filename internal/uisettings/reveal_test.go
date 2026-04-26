@@ -218,7 +218,7 @@ func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t 
 		t.Fatal("expected frontend affinity token")
 	}
 
-	revealRegistry, err := New([]RuntimeEntry{
+	revealRegistry, err := newRegistry([]RuntimeEntry{
 		{
 			Metadata: Entry{
 				SettingID:   "core.project.activation_steps",
@@ -250,7 +250,7 @@ func TestRevealServiceDispatchesStructuredWebsocketPayloadWithActivationSteps(t 
 				},
 			},
 		},
-	})
+	}, registryPluginMetadata{})
 	if err != nil {
 		t.Fatalf("new reveal registry: %v", err)
 	}
@@ -1369,7 +1369,7 @@ func TestRevealServiceFailsClosedOnFrontendAckWebsocketMismatch(t *testing.T) {
 func revealTestRegistry(t *testing.T) *Registry {
 	t.Helper()
 
-	registry, err := New([]RuntimeEntry{
+	registry, err := newRegistry([]RuntimeEntry{
 		{
 			Metadata: Entry{
 				SettingID:   "core.project.show_param_display_names",
@@ -1391,7 +1391,7 @@ func revealTestRegistry(t *testing.T) *Registry {
 				},
 			},
 		},
-	})
+	}, registryPluginMetadata{})
 	if err != nil {
 		t.Fatalf("new reveal test registry: %v", err)
 	}

@@ -147,7 +147,7 @@ func TestFrontendRouteRegistrationsRestoreContributedRoutes(t *testing.T) {
 }
 
 func TestBuildFrontendHTTPOpenAPIDocumentLeavesAppSubsystemRoutesOutWithoutRegistrations(t *testing.T) {
-	document, err := BuildFrontendHTTPOpenAPIDocument()
+	document, err := BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(nil)
 	if err != nil {
 		t.Fatalf("build frontend openapi document: %v", err)
 	}

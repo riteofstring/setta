@@ -66,10 +66,6 @@ func (s *Service) languageServerSpecsForSnapshotLocked(
 	)
 }
 
-func LanguageServerSpecsFromSnapshot(snapshot DiscoverySnapshot, selectedByLanguage map[string]*string) ([]lsp.LanguageServerSpec, error) {
-	return languageServerSpecsFromSnapshotWithState(snapshot, nil, selectedByLanguage, "", true)
-}
-
 func languageServerSpecsFromSnapshotWithState(
 	snapshot DiscoverySnapshot,
 	pluginsState *PluginsStateFile,

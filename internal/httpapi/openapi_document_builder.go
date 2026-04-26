@@ -88,10 +88,6 @@ func setOpenAPIDocumentRouteDependencyModePolicy(field reflect.Value, policy mod
 	return nil
 }
 
-func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
-	return BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(nil)
-}
-
 func BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
 	registrationBuilder FrontendAPIRouteRegistrationBuilder,
 ) (*huma.OpenAPI, error) {

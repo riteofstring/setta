@@ -18,10 +18,6 @@ type Registry struct {
 	pluginStatusByPluginID map[string]pluginRegistryStatus
 }
 
-func New(entries []RuntimeEntry) (*Registry, error) {
-	return newRegistry(entries, registryPluginMetadata{})
-}
-
 type registryPluginMetadata struct {
 	knownPluginIDs         map[string]struct{}
 	knownPluginSettingIDs  map[string]struct{}
