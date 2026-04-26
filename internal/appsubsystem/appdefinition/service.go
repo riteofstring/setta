@@ -815,14 +815,6 @@ func decodeAppDefinitionJSONArray(raw projectstate.RawJSON, field string) ([]any
 	return array, nil
 }
 
-func cloneAppDefinitionPointer(appDefinition *AppDefinition) *AppDefinition {
-	if appDefinition == nil {
-		return nil
-	}
-	cloned := appDefinition.Clone()
-	return &cloned
-}
-
 func rollbackAppSpecWrite(
 	projectRoot string,
 	appSpecPath string,

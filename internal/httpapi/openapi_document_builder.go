@@ -19,10 +19,6 @@ var frontendOpenAPIDocumentModeOverrides = map[string]config.Mode{
 	"AI":              config.ModeShare,
 }
 
-func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
-	return registerFrontendHTTPOpenAPIDocumentRoutesWithRegistrations(router, nil)
-}
-
 func registerFrontendHTTPOpenAPIDocumentRoutesWithRegistrations(
 	router chi.Router,
 	registrationBuilder FrontendAPIRouteRegistrationBuilder,

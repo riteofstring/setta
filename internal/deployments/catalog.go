@@ -300,11 +300,6 @@ func parseDeploymentVersion(value string) (int, bool) {
 	return number, true
 }
 
-func validateDeploymentType(deploymentType Type) error {
-	_, err := normalizeDeploymentType(deploymentType)
-	return err
-}
-
 func loadDeploymentMetadata(ctx context.Context, deploymentRoot string, deploymentType Type) (Metadata, bool, error) {
 	manifest, ok, err := loadManifestOptional(deploymentRoot)
 	if err != nil {

@@ -256,13 +256,6 @@ func optionalStringAny(value *string) any {
 	return *value
 }
 
-func optionalStringSliceAny(value []string) any {
-	if value == nil {
-		return nil
-	}
-	return canonicalStringSlice(value)
-}
-
 func projectCodegenTargetsWithPythonEnabled(targets []ProjectCodegenTarget, enabled bool) []ProjectCodegenTarget {
 	next := make([]ProjectCodegenTarget, 0, len(targets)+1)
 	hasPython := false
@@ -282,11 +275,4 @@ func projectCodegenTargetsWithPythonEnabled(targets []ProjectCodegenTarget, enab
 		})
 	}
 	return next
-}
-
-func canonicalStringSlice(value []string) []string {
-	if len(value) == 0 {
-		return []string{}
-	}
-	return append([]string(nil), value...)
 }

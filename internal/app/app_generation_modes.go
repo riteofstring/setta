@@ -7,13 +7,6 @@ import (
 	"strings"
 )
 
-func initializeAppSubsystemCapabilities(
-	projectServices projectServices,
-) (*appSubsystemCapabilityState, error) {
-	appSubsystemCapabilities, _, err := initializePluginFeatureCapabilities(projectServices)
-	return appSubsystemCapabilities, err
-}
-
 func initializePluginFeatureCapabilities(
 	projectServices projectServices,
 ) (*appSubsystemCapabilityState, *watchCodeCapabilityState, error) {

@@ -38,14 +38,3 @@ func cloneProjectCodegenTargets(values []projectview.ProjectCodegenTarget) []pro
 	}
 	return cloned
 }
-
-func cloneStringSliceMap(values map[string][]string) map[string][]string {
-	if values == nil {
-		return map[string][]string{}
-	}
-	cloned := make(map[string][]string, len(values))
-	for key, value := range values {
-		cloned[key] = append([]string(nil), value...)
-	}
-	return cloned
-}

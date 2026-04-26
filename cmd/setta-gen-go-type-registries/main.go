@@ -1227,18 +1227,6 @@ func frontendValueExportPackagePaths() ([]string, error) {
 	)
 }
 
-func internalPackagePaths() ([]string, error) {
-	repoRoot, err := generatorRepoRoot()
-	if err != nil {
-		return nil, err
-	}
-	return walkInternalPackagePaths(repoRoot, filepath.Join(repoRoot, "internal"))
-}
-
-func walkInternalPackagePaths(repoRoot string, internalRoot string) ([]string, error) {
-	return walkPackagePaths(repoRoot, internalRoot)
-}
-
 func walkPackagePaths(repoRoot string, roots ...string) ([]string, error) {
 	packages := []string{}
 	for _, root := range roots {

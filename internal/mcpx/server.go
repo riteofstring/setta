@@ -5688,19 +5688,6 @@ func readOptionalObjectPointerArgument(arguments map[string]any, key string) (*m
 	return &value, nil
 }
 
-func readOptionalArrayPointerArgument(arguments map[string]any, key string) (*[]any, error) {
-	rawValue, ok := arguments[key]
-	if !ok || rawValue == nil {
-		return nil, nil
-	}
-	value, ok := rawValue.([]any)
-	if !ok {
-		return nil, newToolError("invalid_arguments", "%s must be an array", key)
-	}
-	copied := append([]any(nil), value...)
-	return &copied, nil
-}
-
 func readOptionalPositionArgument(arguments map[string]any, key string) (*projectstate.Position, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {

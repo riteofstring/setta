@@ -161,7 +161,7 @@ func TestFrontendValueExportNameKeepsInternalExportsGlobal(t *testing.T) {
 	}
 }
 
-func TestWalkInternalPackagePathsSkipsHiddenAndTestdata(t *testing.T) {
+func TestWalkPackagePathsSkipsHiddenAndTestdata(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
@@ -171,9 +171,9 @@ func TestWalkInternalPackagePathsSkipsHiddenAndTestdata(t *testing.T) {
 	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "internal", "testdata"), "fixture.go")
 	writeGeneratorPackageFile(t, filepath.Join(repoRoot, "internal", "onlytests"), "only_test.go")
 
-	packages, err := walkInternalPackagePaths(repoRoot, filepath.Join(repoRoot, "internal"))
+	packages, err := walkPackagePaths(repoRoot, filepath.Join(repoRoot, "internal"))
 	if err != nil {
-		t.Fatalf("walk internal package paths: %v", err)
+		t.Fatalf("walk package paths: %v", err)
 	}
 	if !reflect.DeepEqual(packages, []string{"setta/internal/alpha"}) {
 		t.Fatalf("unexpected internal packages %#v", packages)

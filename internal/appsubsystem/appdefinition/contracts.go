@@ -136,17 +136,6 @@ func (d AppDefinition) Clone() AppDefinition {
 	return cloned
 }
 
-func cloneFeatures(features map[string]bool) map[string]bool {
-	if len(features) == 0 {
-		return nil
-	}
-	cloned := make(map[string]bool, len(features))
-	for key, value := range features {
-		cloned[key] = value
-	}
-	return cloned
-}
-
 func cloneRawJSON(raw projectstate.RawJSON) projectstate.RawJSON {
 	if len(raw) == 0 {
 		return nil

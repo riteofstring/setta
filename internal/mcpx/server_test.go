@@ -8716,66 +8716,6 @@ func mustSetTestCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime,
 	}
 }
 
-func mustSetScopedTestWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
-	t.Helper()
-
-	mustSetScopedTestWatchCodeState(t, runtime, nil, files, nil)
-}
-
-func mustSetScopedTestWatchCodeState(
-	t *testing.T,
-	runtime *projectstate.Runtime,
-	folders []projectstate.WatchCodeFolder,
-	files []string,
-	baseline map[string][]string,
-) {
-	t.Helper()
-
-	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		setScopedTestWatchCodeProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Folders:        append([]projectstate.WatchCodeFolder(nil), folders...),
-			Files:          append([]string(nil), files...),
-			BaselineByPath: cloneStringSliceMap(baseline),
-			Registry:       map[string]projectstate.WatchCodeRegistryEntry{},
-		})
-		return document, nil
-	})
-	if err != nil {
-		t.Fatalf("seed watch code state: %v", err)
-	}
-}
-
-func setScopedTestWatchCodeProjectData(
-	t *testing.T,
-	document *projectstate.Document,
-	projectID string,
-	projectData projectstate.WatchCodePluginProjectData,
-) {
-	t.Helper()
-	providerPluginID := activeScopedTestWatchCodeProviderID
-	if document.PluginData == nil {
-		document.PluginData = map[string]projectstate.RawJSON{}
-	}
-	data := projectstate.WatchCodePluginData{
-		SchemaVersion: projectstate.WatchCodePluginDataSchemaVersion,
-		Projects:      map[string]projectstate.WatchCodePluginProjectData{},
-	}
-	if raw := document.PluginData[providerPluginID]; len(raw) > 0 {
-		if err := json.Unmarshal(raw, &data); err != nil {
-			t.Fatalf("decode watch code plugin data: %v", err)
-		}
-		if data.Projects == nil {
-			data.Projects = map[string]projectstate.WatchCodePluginProjectData{}
-		}
-	}
-	data.Projects[projectID] = projectData.Normalized()
-	raw, err := json.Marshal(data.Normalized())
-	if err != nil {
-		t.Fatalf("encode watch code plugin data: %v", err)
-	}
-	document.PluginData[providerPluginID] = projectstate.RawJSON(raw)
-}
-
 func readScopedTestWatchCodeProjectData(
 	t *testing.T,
 	document projectstate.Document,
