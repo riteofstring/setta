@@ -29,11 +29,19 @@ const DEFAULT_ISOLATION_VARIANTS = [
 ] as const;
 const CANVAS_FLOW_PERF_VARIANTS = [
   ...DEFAULT_ISOLATION_VARIANTS,
+  "node-accordion-buttons-hidden",
+  "node-action-button-proxies",
+  "node-action-buttons-hidden",
+  "node-buttons-hidden",
   "node-chrome-hidden",
+  "node-comboboxes-hidden",
   "node-controls-hidden",
   "node-controls-plain",
   "node-effects-off",
+  "node-native-selects-hidden",
+  "node-range-color-hidden",
   "node-shell-only",
+  "node-text-inputs-hidden",
   "node-text-only",
   "snapshot-cache",
   "world-transform-nodes",
@@ -642,11 +650,19 @@ async function setCanvasFlowPerfVariant(
       default: undefined,
       "minimap-off": undefined,
       "no-edges": undefined,
+      "node-accordion-buttons-hidden": "node-accordion-buttons-hidden",
+      "node-action-button-proxies": undefined,
+      "node-action-buttons-hidden": "node-action-buttons-hidden",
+      "node-buttons-hidden": "node-buttons-hidden",
       "node-chrome-hidden": "node-chrome-hidden",
+      "node-comboboxes-hidden": "node-comboboxes-hidden",
       "node-controls-hidden": "node-controls-hidden",
       "node-controls-plain": "node-controls-plain",
       "node-effects-off": "node-effects-off",
+      "node-native-selects-hidden": "node-native-selects-hidden",
+      "node-range-color-hidden": "node-range-color-hidden",
       "node-shell-only": "node-shell-only",
+      "node-text-inputs-hidden": "node-text-inputs-hidden",
       "node-text-only": "node-text-only",
       "rect-nodes": undefined,
       "resize-observer-off": undefined,
@@ -669,6 +685,10 @@ async function setCanvasFlowPerfVariant(
         delete canvasFlowRoot.dataset.nodePerfVariant;
       }
     }
+    clearCanvasFlowActionButtonProxies();
+    if (nextVariant === "node-action-button-proxies") {
+      installCanvasFlowActionButtonProxies();
+    }
     windowRef.__settaCanvasFlowPerfDisableResizeObserver =
       nextVariant === "resize-observer-off";
 
@@ -676,6 +696,47 @@ async function setCanvasFlowPerfVariant(
     useLocalStorage.setState({
       showMinimap: nextVariant !== "minimap-off",
     });
+
+    function clearCanvasFlowActionButtonProxies() {
+      document
+        .querySelectorAll<HTMLElement>("[data-canvas-flow-button-proxy]")
+        .forEach((proxy) => proxy.remove());
+      document
+        .querySelectorAll<HTMLElement>(
+          "[data-canvas-flow-proxied-action-button]",
+        )
+        .forEach((button) => {
+          const originalDisplay =
+            button.dataset.canvasFlowOriginalButtonDisplay;
+          if (originalDisplay !== undefined) {
+            button.style.display = originalDisplay;
+          } else {
+            button.style.removeProperty("display");
+          }
+          delete button.dataset.canvasFlowOriginalButtonDisplay;
+          delete button.dataset.canvasFlowProxiedActionButton;
+        });
+    }
+
+    function installCanvasFlowActionButtonProxies() {
+      document
+        .querySelectorAll<HTMLButtonElement>(
+          '.canvas-flow__node button:not([data-state]):not([role="switch"]):not([role="checkbox"])',
+        )
+        .forEach((button) => {
+          const proxy = document.createElement("div");
+          proxy.className = button.className;
+          proxy.innerHTML = button.innerHTML;
+          proxy.setAttribute("aria-disabled", String(button.disabled));
+          proxy.setAttribute("role", "button");
+          proxy.dataset.canvasFlowButtonProxy = "true";
+          proxy.style.display = getComputedStyle(button).display;
+          button.dataset.canvasFlowOriginalButtonDisplay = button.style.display;
+          button.dataset.canvasFlowProxiedActionButton = "true";
+          button.style.display = "none";
+          button.after(proxy);
+        });
+    }
   }, variant);
   await flushCanvasPaint(page);
 }

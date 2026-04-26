@@ -41,48 +41,83 @@
 
 .canvas-flow:is(
     [data-node-perf-variant="node-effects-off"],
+    [data-node-perf-variant="node-accordion-buttons-hidden"],
+    [data-node-perf-variant="node-action-buttons-hidden"],
+    [data-node-perf-variant="node-buttons-hidden"],
+    [data-node-perf-variant="node-comboboxes-hidden"],
     [data-node-perf-variant="node-controls-plain"],
     [data-node-perf-variant="node-controls-hidden"],
+    [data-node-perf-variant="node-native-selects-hidden"],
+    [data-node-perf-variant="node-range-color-hidden"],
     [data-node-perf-variant="node-chrome-hidden"],
     [data-node-perf-variant="node-shell-only"],
+    [data-node-perf-variant="node-text-inputs-hidden"],
     [data-node-perf-variant="node-text-only"]
   )
   .canvas-flow__node,
 .canvas-flow:is(
     [data-node-perf-variant="node-effects-off"],
+    [data-node-perf-variant="node-accordion-buttons-hidden"],
+    [data-node-perf-variant="node-action-buttons-hidden"],
+    [data-node-perf-variant="node-buttons-hidden"],
+    [data-node-perf-variant="node-comboboxes-hidden"],
     [data-node-perf-variant="node-controls-plain"],
     [data-node-perf-variant="node-controls-hidden"],
+    [data-node-perf-variant="node-native-selects-hidden"],
+    [data-node-perf-variant="node-range-color-hidden"],
     [data-node-perf-variant="node-chrome-hidden"],
     [data-node-perf-variant="node-shell-only"],
+    [data-node-perf-variant="node-text-inputs-hidden"],
     [data-node-perf-variant="node-text-only"]
   )
   .canvas-flow__node
   *,
 .canvas-flow:is(
     [data-node-perf-variant="node-effects-off"],
+    [data-node-perf-variant="node-accordion-buttons-hidden"],
+    [data-node-perf-variant="node-action-buttons-hidden"],
+    [data-node-perf-variant="node-buttons-hidden"],
+    [data-node-perf-variant="node-comboboxes-hidden"],
     [data-node-perf-variant="node-controls-plain"],
     [data-node-perf-variant="node-controls-hidden"],
+    [data-node-perf-variant="node-native-selects-hidden"],
+    [data-node-perf-variant="node-range-color-hidden"],
     [data-node-perf-variant="node-chrome-hidden"],
     [data-node-perf-variant="node-shell-only"],
+    [data-node-perf-variant="node-text-inputs-hidden"],
     [data-node-perf-variant="node-text-only"]
   )
   .canvas-flow__node::before,
 .canvas-flow:is(
     [data-node-perf-variant="node-effects-off"],
+    [data-node-perf-variant="node-accordion-buttons-hidden"],
+    [data-node-perf-variant="node-action-buttons-hidden"],
+    [data-node-perf-variant="node-buttons-hidden"],
+    [data-node-perf-variant="node-comboboxes-hidden"],
     [data-node-perf-variant="node-controls-plain"],
     [data-node-perf-variant="node-controls-hidden"],
+    [data-node-perf-variant="node-native-selects-hidden"],
+    [data-node-perf-variant="node-range-color-hidden"],
     [data-node-perf-variant="node-chrome-hidden"],
     [data-node-perf-variant="node-shell-only"],
+    [data-node-perf-variant="node-text-inputs-hidden"],
     [data-node-perf-variant="node-text-only"]
   )
   .canvas-flow__node
   *::before,
 .canvas-flow:is(
     [data-node-perf-variant="node-effects-off"],
+    [data-node-perf-variant="node-accordion-buttons-hidden"],
+    [data-node-perf-variant="node-action-buttons-hidden"],
+    [data-node-perf-variant="node-buttons-hidden"],
+    [data-node-perf-variant="node-comboboxes-hidden"],
     [data-node-perf-variant="node-controls-plain"],
     [data-node-perf-variant="node-controls-hidden"],
+    [data-node-perf-variant="node-native-selects-hidden"],
+    [data-node-perf-variant="node-range-color-hidden"],
     [data-node-perf-variant="node-chrome-hidden"],
     [data-node-perf-variant="node-shell-only"],
+    [data-node-perf-variant="node-text-inputs-hidden"],
     [data-node-perf-variant="node-text-only"]
   )
   .canvas-flow__node
@@ -93,6 +128,33 @@
   filter: none !important;
   text-shadow: none !important;
   transition: none !important;
+}
+
+.canvas-flow[data-node-perf-variant="node-accordion-buttons-hidden"]
+  .canvas-flow__node
+  button[data-state]:not([role="switch"]):not([role="checkbox"]) {
+  visibility: hidden !important;
+}
+
+.canvas-flow[data-node-perf-variant="node-action-buttons-hidden"]
+  .canvas-flow__node
+  :is(
+    button:not([data-state]):not([role="switch"]):not([role="checkbox"]),
+    [role="button"]
+  ) {
+  visibility: hidden !important;
+}
+
+.canvas-flow[data-node-perf-variant="node-buttons-hidden"]
+  .canvas-flow__node
+  :is(button:not([role="switch"]):not([role="checkbox"]), [role="button"]) {
+  visibility: hidden !important;
+}
+
+.canvas-flow[data-node-perf-variant="node-comboboxes-hidden"]
+  .canvas-flow__node
+  :is([role="combobox"], [aria-haspopup="listbox"]) {
+  visibility: hidden !important;
 }
 
 .canvas-flow[data-node-perf-variant="node-controls-plain"]
@@ -128,6 +190,34 @@ html.dark
   ) {
   background: rgb(15 23 42 / 0.94) !important;
   border-color: rgb(71 85 105 / 0.9) !important;
+}
+
+.canvas-flow[data-node-perf-variant="node-native-selects-hidden"]
+  .canvas-flow__node
+  select {
+  visibility: hidden !important;
+}
+
+.canvas-flow[data-node-perf-variant="node-range-color-hidden"]
+  .canvas-flow__node
+  :is(input[type="color"], input[type="range"]) {
+  visibility: hidden !important;
+}
+
+.canvas-flow[data-node-perf-variant="node-text-inputs-hidden"]
+  .canvas-flow__node
+  :is(
+    textarea,
+    [contenteditable="true"],
+    input:not([role="combobox"]):not([type="button"]):not(
+        [type="checkbox"]
+      ):not([type="color"]):not([type="file"]):not([type="hidden"]):not(
+        [type="image"]
+      ):not([type="radio"]):not([type="range"]):not([type="reset"]):not(
+        [type="submit"]
+      )
+  ) {
+  visibility: hidden !important;
 }
 
 .canvas-flow[data-node-perf-variant="node-controls-hidden"]
