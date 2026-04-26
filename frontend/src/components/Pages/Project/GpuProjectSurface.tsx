@@ -76,6 +76,11 @@ import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,
 } from "./gpuProjectEdgeScene";
+import {
+  PROJECT_CANVAS_SHOWCASE_EFFECT_STORAGE_KEY,
+  resolveProjectCanvasShowcaseEffectFromBrowser,
+  type ProjectCanvasShowcaseEffect,
+} from "./projectCanvasShowcaseEffect";
 
 type ProjectSurfaceDimensions = {
   readonly height: number;
@@ -149,6 +154,7 @@ export function GpuProjectSurface() {
   const showDataEdges = useLocalStorage((state) => state.showArgEdges);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const snapToGrid = useLocalStorage((state) => state.snapToGrid);
+  const canvasShowcaseEffect = useProjectCanvasShowcaseEffect();
   const isConnecting = useGpuFlowViewportStore(
     (state) => state.connectionStartHandle !== null,
   );
@@ -219,6 +225,9 @@ export function GpuProjectSurface() {
         settings={settings}
       />
       <GpuProjectNodesSelectionOverlay snapToGrid={snapToGrid} />
+      {canvasShowcaseEffect === "aurora" && (
+        <ProjectCanvasShowcaseEffectOverlay rootRef={rootRef} />
+      )}
     </div>
   );
 }
@@ -469,6 +478,145 @@ function useProjectViewportSettingsSync(
       minZoom: settings.minZoom,
     });
   }, [settings.defaultZoomLevel, settings.maxZoom, settings.minZoom]);
+}
+
+function useProjectCanvasShowcaseEffect(): ProjectCanvasShowcaseEffect | null {
+  const [effect, setEffect] = useState<ProjectCanvasShowcaseEffect | null>(() =>
+    resolveProjectCanvasShowcaseEffectFromBrowser(),
+  );
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== PROJECT_CANVAS_SHOWCASE_EFFECT_STORAGE_KEY) {
+        return;
+      }
+      setEffect(resolveProjectCanvasShowcaseEffectFromBrowser());
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  return effect;
+}
+
+function ProjectCanvasShowcaseEffectOverlay({
+  rootRef,
+}: {
+  readonly rootRef: RefObject<HTMLDivElement | null>;
+}) {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    const overlay = overlayRef.current;
+    if (!root || !overlay) {
+      return;
+    }
+
+    let cursorIdleTimeout: ReturnType<typeof window.setTimeout> | null = null;
+
+    const syncPointerPosition = (event: PointerEvent) => {
+      const rect = root.getBoundingClientRect();
+      const xPx = event.clientX - rect.left;
+      const yPx = event.clientY - rect.top;
+      const xPercent = clampPercent(xPx / Math.max(1, rect.width));
+      const yPercent = clampPercent(yPx / Math.max(1, rect.height));
+      overlay.style.setProperty(
+        "--setta-canvas-effect-x",
+        `${xPercent * 100}%`,
+      );
+      overlay.style.setProperty(
+        "--setta-canvas-effect-y",
+        `${yPercent * 100}%`,
+      );
+      overlay.style.setProperty("--setta-canvas-effect-x-px", `${xPx}px`);
+      overlay.style.setProperty("--setta-canvas-effect-y-px", `${yPx}px`);
+      overlay.dataset.pointerActive = "true";
+
+      if (cursorIdleTimeout !== null) {
+        window.clearTimeout(cursorIdleTimeout);
+      }
+      cursorIdleTimeout = window.setTimeout(() => {
+        overlay.dataset.pointerActive = "false";
+        cursorIdleTimeout = null;
+      }, 1200);
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      syncPointerPosition(event);
+      appendProjectCanvasShowcaseRipple({ event, overlay, root });
+    };
+
+    const handlePointerLeave = () => {
+      overlay.dataset.pointerActive = "false";
+    };
+
+    root.addEventListener("pointermove", syncPointerPosition, {
+      passive: true,
+    });
+    root.addEventListener("pointerdown", handlePointerDown, {
+      passive: true,
+    });
+    root.addEventListener("pointerleave", handlePointerLeave);
+    return () => {
+      if (cursorIdleTimeout !== null) {
+        window.clearTimeout(cursorIdleTimeout);
+      }
+      root.removeEventListener("pointermove", syncPointerPosition);
+      root.removeEventListener("pointerdown", handlePointerDown);
+      root.removeEventListener("pointerleave", handlePointerLeave);
+    };
+  }, [rootRef]);
+
+  return (
+    <div
+      aria-hidden="true"
+      className="setta-canvas-showcase-effect"
+      data-pointer-active="false"
+      ref={overlayRef}
+    >
+      <div className="setta-canvas-showcase-effect__aurora" />
+      <div className="setta-canvas-showcase-effect__lens" />
+      <div className="setta-canvas-showcase-effect__grain" />
+      <div className="setta-canvas-showcase-effect__scanlines" />
+    </div>
+  );
+}
+
+function appendProjectCanvasShowcaseRipple({
+  event,
+  overlay,
+  root,
+}: {
+  readonly event: PointerEvent;
+  readonly overlay: HTMLElement;
+  readonly root: HTMLElement;
+}) {
+  const rect = root.getBoundingClientRect();
+  const ripple = document.createElement("span");
+  ripple.className = "setta-canvas-showcase-effect__ripple";
+  ripple.style.setProperty(
+    "--setta-canvas-effect-ripple-x",
+    `${event.clientX - rect.left}px`,
+  );
+  ripple.style.setProperty(
+    "--setta-canvas-effect-ripple-y",
+    `${event.clientY - rect.top}px`,
+  );
+  ripple.addEventListener("animationend", () => ripple.remove(), {
+    once: true,
+  });
+  overlay.appendChild(ripple);
+}
+
+function clampPercent(value: number): number {
+  if (value < 0) {
+    return 0;
+  }
+  if (value > 1) {
+    return 1;
+  }
+  return value;
 }
 
 function useProjectSurfaceDimensions(
