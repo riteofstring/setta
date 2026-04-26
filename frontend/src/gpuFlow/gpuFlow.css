@@ -29,6 +29,24 @@
   pointer-events: auto;
 }
 
+.setta-gpu-flow__selection-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.setta-gpu-flow__selection {
+  box-sizing: border-box;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.75);
+  pointer-events: none;
+}
+
 .setta-gpu-flow__active-node-overlay-layer {
   position: absolute;
   inset: 0;

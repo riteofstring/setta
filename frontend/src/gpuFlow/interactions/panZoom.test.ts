@@ -196,6 +196,37 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().viewportInteractionActive).toBe(false);
     detach();
   });
+
+  it("does not start background panning while the selection key is active", () => {
+    const element = createSurfaceElement();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    store.getState().setSelectionKeyPressed(true);
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      requestFrame: vi.fn(),
+      store,
+    });
+
+    dispatchPointer(element, "pointerdown", {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 1,
+    });
+    dispatchPointer(element, "pointermove", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    });
+
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+    expect(store.getState().paneDragging).toBe(false);
+    detach();
+  });
 });
 
 function createSurfaceElement(): HTMLElement {

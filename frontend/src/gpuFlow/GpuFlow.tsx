@@ -38,6 +38,10 @@ import {
   type GpuPanZoomControllerOptions,
 } from "./interactions/panZoom";
 import {
+  attachGpuSelectionController,
+  type GpuSelectionControllerOptions,
+} from "./interactions/selection";
+import {
   createGpuNodeInteractionDirtyController,
   type GpuNodeInteractionDirtyController,
   type GpuNodeInteractionState,
@@ -50,6 +54,7 @@ import type { GpuViewportInput } from "./viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
+  type GpuUserSelectionRect,
 } from "./viewportStore";
 
 export type GpuFlowProps = Pick<
@@ -71,6 +76,10 @@ export type GpuFlowProps = Pick<
     | Omit<GpuPanZoomControllerOptions, "element" | "requestFrame" | "store">
     | undefined;
   renderNode?: ((node: GpuNodeLayout) => ReactNode) | undefined;
+  selection?:
+    | false
+    | Omit<GpuSelectionControllerOptions, "element" | "getNodes" | "store">
+    | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
@@ -110,6 +119,7 @@ export function GpuFlow({
   onResize,
   panZoom,
   renderNode,
+  selection,
   style,
   surfaceClassName,
   uploadBudget,
@@ -120,6 +130,10 @@ export function GpuFlow({
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);
   const [activeNodeOverlaySnapshot, setActiveNodeOverlaySnapshot] =
     useState<GpuActiveNodeOverlaySnapshot | null>(null);
+  const [userSelectionRect, setUserSelectionRect] =
+    useState<GpuUserSelectionRect | null>(() =>
+      getVisibleGpuUserSelectionRect(viewportStore.getState()),
+    );
   const canvasSizeRef = useRef<GpuCanvasSize | null>(null);
   const frameRef = useRef(0);
   const nodeElementByIdRef = useRef(new Map<string, HTMLElement>());
@@ -173,15 +187,23 @@ export function GpuFlow({
   }, [viewport, viewportStore]);
 
   useEffect(() => {
+    setUserSelectionRect(
+      getVisibleGpuUserSelectionRect(viewportStore.getState()),
+    );
     return viewportStore.subscribe((state, previousState) => {
-      if (state.transform === previousState.transform) {
-        return;
+      if (state.transform !== previousState.transform) {
+        nodeLayerRef.current = {
+          ...nodeLayerRef.current,
+          viewport: state.transform,
+        };
+        surfaceRef.current?.requestFrame("viewport");
       }
-      nodeLayerRef.current = {
-        ...nodeLayerRef.current,
-        viewport: state.transform,
-      };
-      surfaceRef.current?.requestFrame("viewport");
+      if (
+        state.userSelectionActive !== previousState.userSelectionActive ||
+        state.userSelectionRect !== previousState.userSelectionRect
+      ) {
+        setUserSelectionRect(getVisibleGpuUserSelectionRect(state));
+      }
     });
   }, [viewportStore]);
 
@@ -218,6 +240,22 @@ export function GpuFlow({
       store: viewportStore,
     });
   }, [panZoom, viewportStore]);
+
+  useEffect(() => {
+    if (selection === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    return attachGpuSelectionController({
+      ...selection,
+      element: container,
+      getNodes: () => nodeLayerRef.current.nodes ?? [],
+      store: viewportStore,
+    });
+  }, [selection, viewportStore]);
 
   useEffect(() => {
     return () => {
@@ -342,6 +380,9 @@ export function GpuFlow({
   const activeNodeOverlayElement = (
     <GpuActiveNodeOverlay snapshot={activeNodeOverlaySnapshot} />
   );
+  const userSelectionElement = (
+    <GpuUserSelectionOverlay rect={userSelectionRect} />
+  );
 
   return (
     <div
@@ -362,9 +403,42 @@ export function GpuFlow({
         {nodeLayerElement}
         {children}
       </GpuSurface>
+      {userSelectionElement}
       {activeNodeOverlayElement}
     </div>
   );
+}
+
+function GpuUserSelectionOverlay({
+  rect,
+}: {
+  readonly rect: GpuUserSelectionRect | null;
+}) {
+  if (!rect) {
+    return null;
+  }
+  return (
+    <div
+      className="setta-gpu-flow__selection-layer"
+      data-gpu-flow-selection-layer="true"
+    >
+      <div
+        className="setta-gpu-flow__selection"
+        data-gpu-flow-selection="true"
+        style={{
+          height: rect.height,
+          transform: `translate(${rect.x}px, ${rect.y}px)`,
+          width: rect.width,
+        }}
+      />
+    </div>
+  );
+}
+
+function getVisibleGpuUserSelectionRect(
+  state: ReturnType<GpuFlowViewportStoreApi["getState"]>,
+): GpuUserSelectionRect | null {
+  return state.userSelectionActive ? state.userSelectionRect : null;
 }
 
 function renderGpuFlowNodeLayerElement({

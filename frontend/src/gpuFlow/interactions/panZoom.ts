@@ -404,6 +404,9 @@ class GpuPanZoomController {
     if (!isAllowedPanButton(event.button, this.options.panOnDrag)) {
       return false;
     }
+    if (this.store.getState().selectionKeyPressed) {
+      return false;
+    }
     if (isEventTargetWrappedWithClass(event, NO_PAN_CLASS_NAME)) {
       return false;
     }
