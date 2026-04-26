@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdkcontracts"
+	"setta/internal/watchcodecontracts"
 )
 
 func TestRunWritesHandshakeAndHandlesRealtimeRenderCommand(t *testing.T) {
@@ -275,6 +277,111 @@ func TestRunAppDefinitionPlanningUsesPayloadDocumentInsteadOfPersistedDisk(t *te
 	if raw := storage.StoredDocumentAppDefinitionRaw(persisted); len(raw) != 0 {
 		t.Fatalf("local core command should not write queued document to disk, got %s", string(raw))
 	}
+}
+
+func TestRunWatchCodeSetInputsPersistsCurrentPluginContract(t *testing.T) {
+	t.Helper()
+
+	settaFilesRoot := t.TempDir()
+	workspaceRoot := t.TempDir()
+	if err := writeWatchCodeLocalCoreProject(t, settaFilesRoot); err != nil {
+		t.Fatalf("seed project state: %v", err)
+	}
+	watchedDir := filepath.Join(workspaceRoot, "pkg")
+	if err := writeWatchCodeLocalCoreFile(t, filepath.Join(watchedDir, "tracked.py"), "def tracked(value):\n    return value\n"); err != nil {
+		t.Fatalf("write watched file: %v", err)
+	}
+
+	result := runLocalCoreCommand(t, "call-watch-code-inputs", CommandWatchCodeSetInputs, map[string]any{
+		"settaFilesRoot":  settaFilesRoot,
+		"workspaceRoot":   workspaceRoot,
+		"runtimeRoot":     filepath.Join(settaFilesRoot, "runtime"),
+		"pluginId":        "setta-watch-code",
+		"projectConfigId": "project-alpha",
+		"folders": []map[string]any{
+			{"path": "pkg", "recursive": true},
+		},
+		"files": []string{},
+	})
+	if !result.OK {
+		t.Fatalf("expected ok Watch Code result, got error %v details %#v", result.Error, result.Details)
+	}
+	typedResult := decodeLocalCoreCommandResult[projectstate.WatchCodePluginProjectData](t, result)
+	if len(typedResult.Folders) != 1 || typedResult.Folders[0].Path != "pkg" || !typedResult.Folders[0].Recursive {
+		t.Fatalf("expected normalized folders in command result, got %#v", typedResult.Folders)
+	}
+
+	store, err := projectstate.NewStore(
+		filepath.Join(settaFilesRoot, projectstate.MainFileName),
+		projectstate.StoreOptions{},
+	)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	persisted, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document: %v", err)
+	}
+	projectData, _, err := persisted.WatchCodePluginProjectData("setta-watch-code", "project-alpha")
+	if err != nil {
+		t.Fatalf("read persisted watch code project data: %v", err)
+	}
+	if _, ok := projectData.BaselineByPath[filepath.Join(watchedDir, "tracked.py")]; !ok {
+		t.Fatalf("expected watched file baseline in persisted data, got %#v", projectData.BaselineByPath)
+	}
+}
+
+func TestRunWatchCodeSetInputsRejectsLegacyInputFields(t *testing.T) {
+	t.Helper()
+
+	settaFilesRoot := t.TempDir()
+	if err := writeWatchCodeLocalCoreProject(t, settaFilesRoot); err != nil {
+		t.Fatalf("seed project state: %v", err)
+	}
+
+	result := runLocalCoreCommand(t, "call-watch-code-legacy-inputs", CommandWatchCodeSetInputs, map[string]any{
+		"settaFilesRoot":   settaFilesRoot,
+		"workspaceRoot":    t.TempDir(),
+		"pluginId":         "setta-watch-code",
+		"projectConfigId":  "project-alpha",
+		"watchCodeFolders": []map[string]any{},
+		"watchCodeFiles":   []string{},
+	})
+	if result.OK {
+		t.Fatalf("expected legacy Watch Code payload to fail, got %#v", result)
+	}
+	if got := localCoreErrorCode(result); got != watchcodecontracts.BackendErrorInvalidWatchCodeInput {
+		t.Fatalf("expected invalid watch code input error, got %q from %#v", got, result)
+	}
+}
+
+func writeWatchCodeLocalCoreProject(t *testing.T, settaFilesRoot string) error {
+	t.Helper()
+	store, err := projectstate.NewStore(
+		filepath.Join(settaFilesRoot, projectstate.MainFileName),
+		projectstate.StoreOptions{},
+	)
+	if err != nil {
+		return err
+	}
+	return store.Save(context.Background(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+}
+
+func writeWatchCodeLocalCoreFile(t *testing.T, path string, content string) error {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content), 0o644)
 }
 
 func runLocalCoreCommand(

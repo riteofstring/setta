@@ -32,6 +32,10 @@ const CommandCompareAndSetAppDefinitionCatalogID = "compare_and_set_app_definiti
 const CommandCompareAndSetAppDefinitionSpecVersion = "compare_and_set_app_definition_spec_version"
 const CommandCompareAndSetAppDefinitionSpecPath = "compare_and_set_app_definition_spec_path"
 const CommandCompareAndSetAppDefinitionThemeMode = "compare_and_set_app_definition_theme_mode"
+const CommandWatchCodeGetProjectData = "watch_code_get_project_data"
+const CommandWatchCodeSetInputs = "watch_code_set_inputs"
+const CommandWatchCodeSetFolders = "watch_code_set_folders"
+const CommandWatchCodeSetFiles = "watch_code_set_files"
 
 type AppSubsystemBackendListenerEndpointCommand struct {
 	ListenerEndpointName string
@@ -212,6 +216,9 @@ func executeCommand(
 		return executeRenderRealtimeDependencyValuesCommand(result, envelope.Payload)
 	}
 	if handler, ok := appDefinitionCommandHandlers[envelope.CommandName]; ok {
+		return handler(result, envelope.Payload)
+	}
+	if handler, ok := watchCodeCommandHandlers[envelope.CommandName]; ok {
 		return handler(result, envelope.Payload)
 	}
 	failLocalCoreResult(

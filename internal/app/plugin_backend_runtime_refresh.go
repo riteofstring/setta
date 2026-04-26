@@ -268,16 +268,25 @@ func (s *pluginMutationRuntimeService) DispatchRegisteredBackendRoute(
 	request plugins.BackendHTTPRequest,
 ) (plugins.BackendHTTPResponse, bool, error) {
 	if s.watchCodeBackendHost != nil {
-		response, handled, err := s.watchCodeBackendHost.intercept(ctx, request)
-		if handled || err != nil {
-			return response, handled, err
+		response, handled := s.watchCodeBackendHost.preflight(request)
+		if handled {
+			return response, true, nil
 		}
 	}
 	snapshot, err := s.currentSnapshot()
 	if err != nil {
 		return plugins.BackendHTTPResponse{}, false, err
 	}
-	return s.base.DispatchRegisteredBackendRouteFromSnapshot(ctx, snapshot, request)
+	response, matched, err := s.base.DispatchRegisteredBackendRouteFromSnapshot(ctx, snapshot, request)
+	if err != nil || !matched {
+		return response, matched, err
+	}
+	if s.watchCodeBackendHost != nil {
+		if err := s.watchCodeBackendHost.reconcileSuccessfulRoute(ctx, request, response); err != nil {
+			return plugins.BackendHTTPResponse{}, true, err
+		}
+	}
+	return response, true, nil
 }
 
 func (s *pluginMutationRuntimeService) InvokeRegisteredListenerEndpoint(
@@ -590,11 +599,7 @@ func (s *pluginMutationRuntimeService) ReadBackendUISettingValue(ctx context.Con
 		if err := watchCodeBackendUISettingAccessError(snapshot, options.PluginID, s.watchCodeBackendHost); err != nil {
 			return nil, err
 		}
-		value, handled, err := s.watchCodeBackendHost.readUISettingValue(options)
-		if handled || err != nil {
-			return value, err
-		}
-		return nil, watchCodeProviderUISettingUnavailableError(options.PluginID)
+		return s.base.ReadBackendUISettingValueFromSnapshot(ctx, snapshot, options)
 	}
 	return s.base.ReadBackendUISettingValueFromSnapshot(ctx, snapshot, options)
 }
@@ -608,11 +613,10 @@ func (s *pluginMutationRuntimeService) WriteBackendUISettingValue(ctx context.Co
 		if err := watchCodeBackendUISettingAccessError(snapshot, options.PluginID, s.watchCodeBackendHost); err != nil {
 			return err
 		}
-		handled, err := s.watchCodeBackendHost.writeUISettingValue(ctx, options)
-		if handled || err != nil {
+		if err := s.base.WriteBackendUISettingValueFromSnapshot(ctx, snapshot, options); err != nil {
 			return err
 		}
-		return watchCodeProviderUISettingUnavailableError(options.PluginID)
+		return s.watchCodeBackendHost.reconcileSuccessfulUISettingWrite(ctx, options)
 	}
 	return s.base.WriteBackendUISettingValueFromSnapshot(ctx, snapshot, options)
 }

@@ -57,6 +57,7 @@ def _write_minimal_distribution_project(
         "runtime_compat.py",
         "plugin_runtime/__init__.py",
         "plugin_runtime/app_subsystem.py",
+        "plugin_runtime/watch_code.py",
         "types/generated/go_shared_constants.py",
     ):
         shutil.copy2(source_package_root / relative_path, package_root / relative_path)
@@ -348,6 +349,7 @@ def _build_plugin_runtime_test_setta_wheel(tmp_path: Path) -> Path:
         "runtime_compat.py",
         "plugin_runtime/__init__.py",
         "plugin_runtime/app_subsystem.py",
+        "plugin_runtime/watch_code.py",
         "sdk_contracts/constants.py",
         "types/generated/go_shared_constants.py",
     ):
@@ -497,9 +499,12 @@ def test_minimal_distribution_project_uses_packaged_runtime_modules(
     assert runtime_text == (
         _repo_root() / "backend" / "setta" / "plugin_runtime" / "app_subsystem.py"
     ).read_text(encoding="utf-8")
-    assert not (
+    watch_code_runtime = (
         project_root / "backend" / "setta" / "plugin_runtime" / "watch_code.py"
-    ).exists()
+    )
+    assert watch_code_runtime.read_text(encoding="utf-8") == (
+        _repo_root() / "backend" / "setta" / "plugin_runtime" / "watch_code.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_pyproject_defaults_extra_installs_first_party_language_server_plugin() -> (
@@ -1253,7 +1258,51 @@ def test_first_party_watch_code_plugin_backend_runs_without_developer_go_toolcha
     go_stub = tmp_path / "setta-go-stub.py"
     go_stub.write_text(
         """#!/usr/bin/env python3
-raise SystemExit("watch code backend runtime should not invoke local core")
+import json
+import os
+import sys
+
+if sys.argv[1:] != ["sdk-local-core"]:
+    raise SystemExit(f"unexpected args: {sys.argv[1:]!r}")
+
+print(json.dumps({
+    "protocolVersion": 1,
+    "sdkVersion": os.environ["SETTA_STUB_SDK_VERSION"],
+    "coreVersion": "stub-core",
+    "sdkContractVersion": 2,
+}), flush=True)
+
+for line in sys.stdin:
+    request = json.loads(line)
+    command = request["commandName"]
+    payload = request.get("payload", {})
+    if command == "watch_code_set_inputs":
+        result = {
+            "folders": payload["folders"],
+            "files": payload["files"],
+            "registry": {},
+            "baselineByPath": {},
+        }
+    elif command == "watch_code_get_project_data":
+        result = {
+            "folders": [{"path": "pkg", "recursive": True}],
+            "files": ["pkg/watch.py"],
+            "registry": {},
+            "baselineByPath": {},
+        }
+    else:
+        result = {
+            "folders": [],
+            "files": payload.get("files", []),
+            "registry": {},
+            "baselineByPath": {},
+        }
+    print(json.dumps({
+        "callId": request["callId"],
+        "ok": True,
+        "result": result,
+        "details": {},
+    }), flush=True)
 """,
         encoding="utf-8",
     )
@@ -1264,6 +1313,7 @@ raise SystemExit("watch code backend runtime should not invoke local core")
     env = os.environ.copy()
     env["PYTHONPATH"] = str(site_packages)
     env["SETTA_GO_CLI_BIN"] = str(go_stub)
+    env["SETTA_STUB_SDK_VERSION"] = _read_setta_package_version()
 
     probe_result = subprocess.run(
         [sys.executable, str(plugin_backend), "--setta-plugin-backend-probe"],
@@ -1324,13 +1374,17 @@ raise SystemExit("watch code backend runtime should not invoke local core")
         f"{route_result.stdout}\n{route_result.stderr}"
     ).strip()
     route_payload = json.loads(route_result.stdout)
-    assert route_payload["http"]["statusCode"] == 409
+    assert route_payload["http"]["statusCode"] == 200
     route_response_body = json.loads(
         base64.b64decode(route_payload["http"]["bodyBase64"]).decode("utf-8")
     )
-    assert route_response_body["error"] == {
-        "code": "watch_code_provider_required",
-        "message": "Watch Code mutations are handled by the active Setta Go host.",
+    assert route_response_body == {
+        "projectData": {
+            "folders": [],
+            "files": ["pkg/watch.py"],
+            "registry": {},
+            "baselineByPath": {},
+        }
     }
 
     setting_request = {
@@ -1359,12 +1413,7 @@ raise SystemExit("watch code backend runtime should not invoke local core")
         f"{setting_result.stdout}\n{setting_result.stderr}"
     ).strip()
     setting_payload = json.loads(setting_result.stdout)
-    assert setting_payload["uiSetting"] == {
-        "error": {
-            "code": "watch_code_provider_required",
-            "message": "Watch Code mutations are handled by the active Setta Go host.",
-        }
-    }
+    assert setting_payload["uiSetting"] == {"value": ["pkg/watch.py"]}
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:
@@ -1440,6 +1489,7 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/sdk_contracts/constants.py",
         "setta/plugin_runtime/__init__.py",
         "setta/plugin_runtime/app_subsystem.py",
+        "setta/plugin_runtime/watch_code.py",
         "setta/types/generated/go_shared_constants.py",
         "setta/agentic/external_adapters/sidecars/claude_sdk_runner.py",
         "setta/agentic/external_adapters/sidecars/package.json",

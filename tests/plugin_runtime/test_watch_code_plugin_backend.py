@@ -7,6 +7,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import pytest
 from setta.types.generated import go_shared_constants as C
 
 
@@ -43,6 +44,7 @@ def _runtime_context() -> dict[str, str]:
     return {
         "settaFilesRoot": "/tmp/setta_files",
         "workspaceRoot": "/tmp/workspace",
+        "runtimeRoot": "/tmp/runtime",
     }
 
 
@@ -86,8 +88,22 @@ def test_watch_code_backend_probe_declares_routes_and_ui_settings() -> None:
     }
 
 
-def test_watch_code_backend_runtime_fails_closed_without_go_host() -> None:
+def test_watch_code_backend_runtime_executes_inputs_through_plugin_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     backend = _load_backend()
+    captured: dict[str, Any] = {}
+
+    def _set_inputs(**kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {
+            "folders": kwargs["folders"],
+            "files": kwargs["files"],
+            "registry": {},
+            "baselineByPath": {},
+        }
+
+    monkeypatch.setattr(backend.watch_code, "set_inputs", _set_inputs)
 
     inputs_response = backend._handle_runtime_request(
         {
@@ -111,12 +127,49 @@ def test_watch_code_backend_runtime_fails_closed_without_go_host() -> None:
         },
         plugin_id=PLUGIN_ID,
     )
-    assert inputs_response["http"]["statusCode"] == 409
-    assert _decode_http_body(inputs_response)["error"] == {
-        "code": C.WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED,
-        "message": "Watch Code mutations are handled by the active Setta Go host.",
+    assert inputs_response["http"]["statusCode"] == 200
+    assert _decode_http_body(inputs_response) == {
+        "projectData": {
+            "folders": [],
+            "files": ["pkg/watch.py"],
+            "registry": {},
+            "baselineByPath": {},
+        }
+    }
+    assert captured == {
+        "setta_files_root": "/tmp/setta_files",
+        "workspace_root": "/tmp/workspace",
+        "runtime_root": "/tmp/runtime",
+        "plugin_id": PLUGIN_ID,
+        "project_config_id": "project-alpha",
+        "folders": [],
+        "files": ["pkg/watch.py"],
+        "frontend_op_id": "op-1",
     }
 
+
+def test_watch_code_backend_runtime_executes_ui_settings_through_plugin_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = _load_backend()
+    captured: dict[str, Any] = {}
+
+    def _get_project_data(**kwargs: Any) -> dict[str, Any]:
+        captured["read"] = kwargs
+        return {
+            "folders": [{"path": "pkg", "recursive": True}],
+            "files": ["pkg/watch.py"],
+        }
+
+    def _set_files(**kwargs: Any) -> dict[str, Any]:
+        captured["write"] = kwargs
+        return {
+            "folders": [{"path": "pkg", "recursive": True}],
+            "files": kwargs["files"],
+        }
+
+    monkeypatch.setattr(backend.watch_code, "get_project_data", _get_project_data)
+    monkeypatch.setattr(backend.watch_code, "set_files", _set_files)
     ui_setting_response = backend._handle_runtime_request(
         {
             "kind": "ui_setting",
@@ -131,11 +184,37 @@ def test_watch_code_backend_runtime_fails_closed_without_go_host() -> None:
         },
         plugin_id=PLUGIN_ID,
     )
-    assert ui_setting_response["uiSetting"] == {
-        "error": {
-            "code": C.WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED,
-            "message": "Watch Code mutations are handled by the active Setta Go host.",
-        }
+    assert ui_setting_response["uiSetting"] == {"value": ["pkg/watch.py"]}
+    assert captured["read"] == {
+        "setta_files_root": "/tmp/setta_files",
+        "runtime_root": "/tmp/runtime",
+        "plugin_id": PLUGIN_ID,
+        "project_config_id": "project-alpha",
+    }
+
+    write_response = backend._handle_runtime_request(
+        {
+            "kind": "ui_setting",
+            "uiSetting": {
+                "context": _runtime_context(),
+                "operation": "write",
+                "handlerId": C.WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID[
+                    C.WATCH_CODE_BACKEND_LOCAL_SETTING_FILES
+                ],
+                "projectConfigId": "project-alpha",
+                "value": ["pkg/updated.py"],
+            },
+        },
+        plugin_id=PLUGIN_ID,
+    )
+    assert write_response["uiSetting"] == {"value": ["pkg/updated.py"]}
+    assert captured["write"] == {
+        "setta_files_root": "/tmp/setta_files",
+        "workspace_root": "/tmp/workspace",
+        "runtime_root": "/tmp/runtime",
+        "plugin_id": PLUGIN_ID,
+        "project_config_id": "project-alpha",
+        "files": ["pkg/updated.py"],
     }
 
 

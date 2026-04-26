@@ -1,15 +1,11 @@
 package app
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"testing"
 
 	"setta/internal/plugins"
-	"setta/internal/projectstate"
-	"setta/internal/uisettings"
 	"setta/internal/watchcodecontracts"
 )
 
@@ -76,14 +72,12 @@ func TestWatchCodeBackendRouteInterceptorDeclinesUnownedRoutes(t *testing.T) {
 	for _, path := range []string{
 		"/plugins/plugin-alpha/watch-code/inputs",
 		"/plugins/plugin-alpha/nested/watch-code/inputs",
+		watchcodecontracts.BackendRoutePath("setta-watch-code", watchcodecontracts.BackendRouteSuffixInputs),
 	} {
-		response, handled, err := host.intercept(context.Background(), plugins.BackendHTTPRequest{
+		response, handled := host.preflight(plugins.BackendHTTPRequest{
 			Method: http.MethodGet,
 			Path:   path,
 		})
-		if err != nil {
-			t.Fatalf("intercept %s: %v", path, err)
-		}
 		if handled {
 			t.Fatalf("expected unowned route %s to fall through, got response %#v", path, response)
 		}
@@ -132,14 +126,11 @@ func TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandid
 			capabilities.Set(capabilitiesPayload)
 			host := newWatchCodeBackendRouteHost(nil, capabilities, nil, "/workspace")
 
-			response, handled, err := host.intercept(context.Background(), plugins.BackendHTTPRequest{
+			response, handled := host.preflight(plugins.BackendHTTPRequest{
 				Method: http.MethodPost,
 				Path:   watchcodecontracts.BackendRoutePath(providerPluginID, watchcodecontracts.BackendRouteSuffixInputs),
 				Body:   []byte(`{"projectConfigId":"project-alpha","folders":[],"files":[]}`),
 			})
-			if err != nil {
-				t.Fatalf("intercept unavailable provider route: %v", err)
-			}
 			if !handled {
 				t.Fatal("expected Watch Code provider candidate route to be handled by Go host")
 			}
@@ -214,143 +205,4 @@ func TestWatchCodeBackendUISettingsFilterModeBlockedProviderCandidate(t *testing
 	if !watchCodeBackendUISettingCandidate(snapshot, providerPluginID, watchCodeSettings[0].ReadHandlerID) {
 		t.Fatal("expected mode-blocked Watch Code provider to remain an unavailable UI-setting candidate")
 	}
-}
-
-func TestWatchCodeBackendUISettingRejectsMissingProjectWithoutNoOpSuccess(t *testing.T) {
-	t.Parallel()
-
-	const providerPluginID = "setta-watch-code"
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("open project runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close project runtime: %v", err)
-		}
-	})
-
-	capabilities := newWatchCodeCapabilityState()
-	capabilities.Set(plugins.PluginWatchCodeCapabilities{
-		PluginID:      providerPluginID,
-		PluginEnabled: true,
-		Python:        true,
-	})
-	host := newWatchCodeBackendRouteHost(projectRuntime, capabilities, nil, t.TempDir())
-
-	_, handled, err := host.readUISettingValue(plugins.BackendUISettingReadOptions{
-		PluginID:        providerPluginID,
-		HandlerID:       watchcodecontracts.BackendReadHandlerIDFolders,
-		ProjectConfigID: "missing-project",
-	})
-	if !handled {
-		t.Fatal("expected Watch Code read handler to handle active provider setting")
-	}
-	if !errors.Is(err, projectstate.ErrProjectNotFound) {
-		t.Fatalf("expected missing project read to return ErrProjectNotFound, got %v", err)
-	}
-
-	registry, err := uisettings.NewScopedRegistry(uisettings.ScopedRegistryOptions{
-		Runtime:       projectRuntime,
-		WorkspaceRoot: t.TempDir(),
-		PluginService: watchCodeBackendUISettingHostTestService{
-			host:     host,
-			pluginID: providerPluginID,
-		},
-	})
-	if err != nil {
-		t.Fatalf("new ui settings registry: %v", err)
-	}
-	initialRevision := projectRuntime.Snapshot().Revision
-	_, err = registry.WriteValue(
-		context.Background(),
-		"missing-project",
-		"plugin::"+providerPluginID+"::folders",
-		[]projectstate.WatchCodeFolder{},
-		nil,
-	)
-	var settingErr *uisettings.SettingError
-	if !errors.As(err, &settingErr) {
-		t.Fatalf("expected missing project write to return SettingError, got %v", err)
-	}
-	if settingErr.Code != uisettings.ErrorCodeMutationFailed {
-		t.Fatalf("expected mutation_failed, got %q from %v", settingErr.Code, settingErr)
-	}
-	if revision := projectRuntime.Snapshot().Revision; revision != initialRevision {
-		t.Fatalf("expected failed missing project write to leave revision %d unchanged, got %d", initialRevision, revision)
-	}
-}
-
-type watchCodeBackendUISettingHostTestService struct {
-	host     *watchCodeBackendRouteHost
-	pluginID string
-}
-
-func (s watchCodeBackendUISettingHostTestService) Runtime(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
-	capabilities := []string{"registerUISettings"}
-	return plugins.PluginRuntimeResponse{
-		List: plugins.PluginListResponse{
-			Plugins: []plugins.PluginListEntry{
-				{
-					PluginID:              s.pluginID,
-					EffectiveCapabilities: capabilities,
-				},
-			},
-		},
-		Status: plugins.PluginStatusResponse{
-			Plugins: []plugins.PluginStatusEntry{
-				{
-					PluginID:              s.pluginID,
-					State:                 plugins.PluginRuntimeStateActive,
-					EffectiveCapabilities: capabilities,
-				},
-			},
-		},
-	}, nil
-}
-
-func (s watchCodeBackendUISettingHostTestService) WriteConfig(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
-	return plugins.PluginConfigWriteResponse{}, nil
-}
-
-func (s watchCodeBackendUISettingHostTestService) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
-	if pluginID != s.pluginID {
-		return nil, nil
-	}
-	writeHandlerID := watchcodecontracts.BackendWriteHandlerIDFolders
-	return []plugins.PluginRegisteredUISetting{
-		{
-			PluginID:       s.pluginID,
-			LocalSettingID: watchcodecontracts.BackendLocalSettingIDFolders,
-			Title:          "Watch Code Folders",
-			Mutability:     string(uisettings.MutabilityWritable),
-			ValueSchema: map[string]any{
-				"type": "array",
-			},
-			ReadHandlerID:  watchcodecontracts.BackendReadHandlerIDFolders,
-			WriteHandlerID: &writeHandlerID,
-		},
-	}, nil
-}
-
-func (s watchCodeBackendUISettingHostTestService) ReadBackendUISettingValue(_ context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
-	value, handled, err := s.host.readUISettingValue(options)
-	if handled || err != nil {
-		return value, err
-	}
-	return nil, projectstate.ErrWatchCodeProviderPluginIDRequired
-}
-
-func (s watchCodeBackendUISettingHostTestService) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
-	handled, err := s.host.writeUISettingValue(ctx, options)
-	if handled || err != nil {
-		return err
-	}
-	return projectstate.ErrWatchCodeProviderPluginIDRequired
 }

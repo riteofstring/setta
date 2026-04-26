@@ -150,6 +150,22 @@ func TestBuildIncludesGoOwnedAppSubsystemBackendContract(t *testing.T) {
 			"LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE = %s",
 			pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
 		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeGetProjectData),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetInputs),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_WATCH_CODE_SET_FOLDERS = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetFolders),
+		),
+		fmt.Sprintf(
+			"LOCAL_CORE_COMMAND_WATCH_CODE_SET_FILES = %s",
+			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetFiles),
+		),
 	}
 	for _, snippet := range expectedSnippets {
 		if !strings.Contains(generated.PythonModule, snippet) {
@@ -174,6 +190,10 @@ func TestBuildIncludesGoOwnedWatchCodeBackendContract(t *testing.T) {
 			pythonStringTupleExpr(watchcodecontracts.BackendRouteSuffixes()),
 		),
 		fmt.Sprintf(
+			"WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS = %s",
+			pythonStringLiteral(watchcodecontracts.BackendRouteSuffixInputs),
+		),
+		fmt.Sprintf(
 			"WATCH_CODE_BACKEND_LOCAL_SETTING_IDS = %s",
 			pythonStringTupleExpr(watchcodecontracts.BackendLocalSettingIDs()),
 		),
@@ -188,6 +208,10 @@ func TestBuildIncludesGoOwnedWatchCodeBackendContract(t *testing.T) {
 		fmt.Sprintf(
 			"WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED = %s",
 			pythonStringLiteral(watchcodecontracts.BackendErrorProviderRequired),
+		),
+		fmt.Sprintf(
+			"WATCH_CODE_BACKEND_ERROR_INVALID_WATCH_CODE_INPUT = %s",
+			pythonStringLiteral(watchcodecontracts.BackendErrorInvalidWatchCodeInput),
 		),
 	}
 	for _, snippet := range expectedSnippets {
