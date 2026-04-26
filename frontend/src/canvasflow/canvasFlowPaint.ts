@@ -20,8 +20,6 @@ import { expandWorldRect, getVisibleWorldRect } from "./canvasFlowViewport";
 const DEFAULT_OVERSCAN = 600;
 const PAINT_STATS_SAMPLE_INTERVAL_MS = 250;
 const CANVAS_FLOW_DIAGNOSTICS_ENABLED = "enabled";
-const GESTURE_PREVIEW_MAX_ZOOM = 0.35;
-const GESTURE_PREVIEW_MIN_VISIBLE_NODES = 8;
 const CANVAS_FLOW_PERF_VARIANTS = new Set([
   "no-edges",
   "rect-nodes",
@@ -52,7 +50,6 @@ type PaintCanvasFlowParams = {
   nodes: CanvasFlowNode[];
   overscan?: number;
   previousInteractiveNodeIds: Set<string>;
-  viewportGestureActive?: boolean;
   showGridLines: boolean;
   size: CanvasFlowSize;
   viewport: CanvasFlowViewport;
@@ -71,7 +68,6 @@ export function paintCanvasFlow({
   nodes,
   overscan = DEFAULT_OVERSCAN,
   previousInteractiveNodeIds,
-  viewportGestureActive = false,
   showGridLines,
   size,
   viewport,
@@ -119,85 +115,10 @@ export function paintCanvasFlow({
     visibleRect,
   });
   const visibilityScanMs = performance.now() - visibilityScanStart;
-  const useGesturePreview =
-    viewportGestureActive &&
-    viewport.zoom <= GESTURE_PREVIEW_MAX_ZOOM &&
-    visibleNodes.length >= GESTURE_PREVIEW_MIN_VISIBLE_NODES &&
-    perfVariant !== "skip-transform";
-  const nodePaintResult = drawVisibleCanvasFlowNodes({
-    canvas,
-    ctx,
-    darkMode,
-    nodeElements,
-    perfVariant,
-    useGesturePreview,
-    viewport,
-    visibleNodes,
-  });
-
-  disableCulledNodePointerEvents({
-    nodeElements,
-    previousInteractiveNodeIds,
-    nextInteractiveNodeIds: nodePaintResult.nextInteractiveNodeIds,
-  });
-  previousInteractiveNodeIds.clear();
-  for (const nodeId of nodePaintResult.nextInteractiveNodeIds) {
-    previousInteractiveNodeIds.add(nodeId);
-  }
-
-  const paintEnd = performance.now();
-  const stats = {
-    edgeCount: edges.length,
-    edgeDrawMs,
-    gesturePreviewNodeCount: nodePaintResult.gesturePreviewNodeCount,
-    visibleNodeCount: visibleNodes.length,
-    drawnNodeCount: nodePaintResult.drawnNodeCount,
-    registeredNodeCount: nodes.length,
-    mountedNodeCount: nodeElements.size,
-    drawElementImageMs: nodePaintResult.drawElementImageMs,
-    visibilityScanMs,
-    transformAssignmentMs: nodePaintResult.transformAssignmentMs,
-    totalPaintMs: paintEnd - paintStart,
-  };
-  writePaintStats(canvas, stats, viewport, paintEnd);
-  return stats;
-}
-
-function getCanvasFlowPerfVariant(): CanvasFlowPerfVariant {
-  if (typeof window === "undefined") {
-    return "default";
-  }
-  const variant = (window as CanvasFlowPerfWindow).__settaCanvasFlowPerfVariant;
-  if (variant && CANVAS_FLOW_PERF_VARIANTS.has(variant)) {
-    return variant as CanvasFlowPerfVariant;
-  }
-  return "default";
-}
-
-function drawVisibleCanvasFlowNodes({
-  canvas,
-  ctx,
-  darkMode,
-  nodeElements,
-  perfVariant,
-  useGesturePreview,
-  viewport,
-  visibleNodes,
-}: {
-  canvas: HTMLCanvasElement;
-  ctx: CanvasFlowRenderingContext;
-  darkMode: boolean;
-  nodeElements: CanvasFlowNodeElementMap;
-  perfVariant: CanvasFlowPerfVariant;
-  useGesturePreview: boolean;
-  viewport: CanvasFlowViewport;
-  visibleNodes: CanvasFlowNodeDrawRecord[];
-}) {
   const nextInteractiveNodeIds = new Set<string>();
   let drawElementImageMs = 0;
   let transformAssignmentMs = 0;
   let drawnNodeCount = 0;
-  let gesturePreviewNodeCount = 0;
 
   for (const node of visibleNodes) {
     const element = getNodeElement(canvas, nodeElements, node.id);
@@ -206,12 +127,10 @@ function drawVisibleCanvasFlowNodes({
     }
     drawnNodeCount += 1;
     const screenRect = getNodeScreenDrawRect(node, viewport);
-    if (perfVariant === "rect-nodes" || useGesturePreview) {
-      drawNodePreviewRect(ctx, darkMode, node, screenRect);
-      gesturePreviewNodeCount += useGesturePreview ? 1 : 0;
+    if (perfVariant === "rect-nodes") {
+      drawNodeDiagnosticRect(ctx, node, screenRect);
       continue;
     }
-
     const drawStart = performance.now();
     const transform = ctx.drawElementImage(
       element,
@@ -230,28 +149,52 @@ function drawVisibleCanvasFlowNodes({
     nextInteractiveNodeIds.add(node.id);
   }
 
-  return {
-    drawElementImageMs,
-    drawnNodeCount,
-    gesturePreviewNodeCount,
+  disableCulledNodePointerEvents({
+    nodeElements,
+    previousInteractiveNodeIds,
     nextInteractiveNodeIds,
+  });
+  previousInteractiveNodeIds.clear();
+  for (const nodeId of nextInteractiveNodeIds) {
+    previousInteractiveNodeIds.add(nodeId);
+  }
+
+  const paintEnd = performance.now();
+  const stats = {
+    edgeCount: edges.length,
+    edgeDrawMs,
+    visibleNodeCount: visibleNodes.length,
+    drawnNodeCount,
+    registeredNodeCount: nodes.length,
+    mountedNodeCount: nodeElements.size,
+    drawElementImageMs,
+    visibilityScanMs,
     transformAssignmentMs,
+    totalPaintMs: paintEnd - paintStart,
   };
+  writePaintStats(canvas, stats, viewport, paintEnd);
+  return stats;
 }
 
-function drawNodePreviewRect(
+function getCanvasFlowPerfVariant(): CanvasFlowPerfVariant {
+  if (typeof window === "undefined") {
+    return "default";
+  }
+  const variant = (window as CanvasFlowPerfWindow).__settaCanvasFlowPerfVariant;
+  if (variant && CANVAS_FLOW_PERF_VARIANTS.has(variant)) {
+    return variant as CanvasFlowPerfVariant;
+  }
+  return "default";
+}
+
+function drawNodeDiagnosticRect(
   ctx: CanvasRenderingContext2D,
-  darkMode: boolean,
   node: CanvasFlowNodeDrawRecord,
   screenRect: ReturnType<typeof getNodeScreenDrawRect>,
 ) {
-  ctx.fillStyle = darkMode
-    ? "rgba(30, 41, 59, 0.9)"
-    : "rgba(255, 255, 255, 0.92)";
+  ctx.fillStyle = "rgba(59, 130, 246, 0.22)";
   ctx.fillRect(screenRect.x, screenRect.y, screenRect.width, screenRect.height);
-  ctx.strokeStyle = darkMode
-    ? "rgba(148, 163, 184, 0.45)"
-    : "rgba(100, 116, 139, 0.4)";
+  ctx.strokeStyle = "rgba(30, 64, 175, 0.72)";
   ctx.lineWidth = 1;
   ctx.strokeRect(
     screenRect.x,
@@ -262,16 +205,7 @@ function drawNodePreviewRect(
   if (screenRect.width < 36 || screenRect.height < 18) {
     return;
   }
-  ctx.fillStyle = darkMode
-    ? "rgba(96, 165, 250, 0.75)"
-    : "rgba(37, 99, 235, 0.55)";
-  ctx.fillRect(screenRect.x, screenRect.y, screenRect.width, 4);
-  if (screenRect.width < 80 || screenRect.height < 40) {
-    return;
-  }
-  ctx.fillStyle = darkMode
-    ? "rgba(226, 232, 240, 0.72)"
-    : "rgba(15, 23, 42, 0.7)";
+  ctx.fillStyle = "rgba(15, 23, 42, 0.86)";
   ctx.font = "11px sans-serif";
   ctx.fillText(node.id, screenRect.x + 6, screenRect.y + 14);
 }
@@ -412,7 +346,6 @@ function writePaintStats(
   canvas.dataset.mountedNodes = String(stats.mountedNodeCount);
   canvas.dataset.edgeCount = String(stats.edgeCount);
   canvas.dataset.edgeDrawMs = stats.edgeDrawMs.toFixed(2);
-  canvas.dataset.gesturePreviewNodes = String(stats.gesturePreviewNodeCount);
   canvas.dataset.drawElementImageMs = stats.drawElementImageMs.toFixed(2);
   canvas.dataset.visibilityScanMs = stats.visibilityScanMs.toFixed(2);
   canvas.dataset.transformAssignmentMs = stats.transformAssignmentMs.toFixed(2);

@@ -118,7 +118,6 @@ function CanvasFlow() {
   const viewportRef = useRef<CanvasFlowViewport>(
     transformToCanvasFlowViewport(transform),
   );
-  const viewportGestureActiveRef = useRef(false);
 
   const {
     darkMode,
@@ -284,7 +283,6 @@ function CanvasFlow() {
         showGridLines,
         size: sizeRef.current,
         viewport: viewportRef.current,
-        viewportGestureActive: viewportGestureActiveRef.current,
         wireColor,
       });
     };
@@ -382,7 +380,6 @@ function CanvasFlow() {
     panOnScrollSpeed,
     schedulePaint,
     viewportRef,
-    viewportGestureActiveRef,
     zoomActivationKeyPressed,
     zoomOnPinch,
     zoomOnScroll,

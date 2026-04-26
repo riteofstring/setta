@@ -129,48 +129,6 @@ describe("paintCanvasFlow", () => {
     expect(ctx.drawElementImage).toHaveBeenCalled();
     expect(element.style.transform).toBe("");
   });
-
-  it("uses cheap node previews during low-zoom viewport gestures", () => {
-    const { canvas, ctx, element } = createPaintHarness();
-    const { elements, nodes } = createNodeSet(element, 8);
-
-    const stats = paintCanvasFlow(
-      createPaintParams({
-        canvas,
-        ctx,
-        element,
-        nodeElements: elements,
-        nodes,
-        viewport: { x: 0, y: 0, zoom: 0.1 },
-        viewportGestureActive: true,
-      }),
-    );
-
-    expect(stats.gesturePreviewNodeCount).toBe(8);
-    expect(ctx.drawElementImage).not.toHaveBeenCalled();
-    expect(element.style.transform).toBe("");
-  });
-
-  it("keeps full HTML drawing during high-zoom viewport gestures", () => {
-    const { canvas, ctx, element } = createPaintHarness();
-    const { elements, nodes } = createNodeSet(element, 8);
-
-    const stats = paintCanvasFlow(
-      createPaintParams({
-        canvas,
-        ctx,
-        element,
-        nodeElements: elements,
-        nodes,
-        viewport: { x: 0, y: 0, zoom: 1 },
-        viewportGestureActive: true,
-      }),
-    );
-
-    expect(stats.gesturePreviewNodeCount).toBe(0);
-    expect(ctx.drawElementImage).toHaveBeenCalled();
-    expect(element.style.transform).toBe("matrix(1, 0, 0, 1, 0, 0)");
-  });
 });
 
 function createPaintHarness() {
@@ -188,16 +146,12 @@ function createPaintParams({
   edge,
   element,
   node,
-  nodeElements,
-  nodes,
   viewport = { x: 0, y: 0, zoom: 1 },
-  viewportGestureActive,
 }: {
   canvas: HTMLCanvasElement;
   ctx: CanvasFlowRenderingContext;
   element: HTMLElement;
   edge?: boolean;
-  nodeElements?: Map<string, HTMLElement>;
   node?: Partial<{
     height: number;
     position: { x: number; y: number };
@@ -205,16 +159,7 @@ function createPaintParams({
     width: number;
     zIndex: number;
   }>;
-  nodes?: Array<{
-    height: number;
-    id: string;
-    position: { x: number; y: number };
-    tempZIndex: number;
-    width: number;
-    zIndex: number;
-  }>;
   viewport?: { x: number; y: number; zoom: number };
-  viewportGestureActive?: boolean;
 }) {
   return {
     canvas,
@@ -228,8 +173,8 @@ function createPaintParams({
     edgeHandlePositions: {},
     edges: edge ? [createTestEdge()] : [],
     gridSize: 20,
-    nodeElements: nodeElements ?? new Map([["node-1", element]]),
-    nodes: nodes ?? [
+    nodeElements: new Map([["node-1", element]]),
+    nodes: [
       {
         height: node?.height ?? 100,
         id: "node-1",
@@ -249,7 +194,6 @@ function createPaintParams({
       pixelWidth: 800,
     },
     viewport,
-    viewportGestureActive,
     wireColor: "#000",
   };
 }
@@ -275,24 +219,6 @@ function createContext(): CanvasFlowRenderingContext {
     strokeRect: vi.fn(),
     translate: vi.fn(),
   } as unknown as CanvasFlowRenderingContext;
-}
-
-function createNodeSet(element: HTMLElement, count: number) {
-  const elements = new Map<string, HTMLElement>();
-  const nodes = Array.from({ length: count }, (_, index) => {
-    const nodeElement = index === 0 ? element : document.createElement("div");
-    const id = `node-${index}`;
-    elements.set(id, nodeElement);
-    return {
-      height: 100,
-      id,
-      position: { x: index * 120, y: 0 },
-      tempZIndex: 0,
-      width: 100,
-      zIndex: 0,
-    };
-  });
-  return { elements, nodes };
 }
 
 function createTestEdge() {

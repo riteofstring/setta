@@ -96,7 +96,6 @@ type UseCanvasFlowInteractionsParams = {
   panOnScrollSpeed: number;
   schedulePaint: () => void;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
-  viewportGestureActiveRef: MutableRefObject<boolean>;
   zoomActivationKeyPressed: boolean;
   zoomOnPinch: boolean;
   zoomOnScroll: boolean;
@@ -168,7 +167,6 @@ export function useCanvasFlowInteractions({
   panOnScrollSpeed,
   schedulePaint,
   viewportRef,
-  viewportGestureActiveRef,
   zoomActivationKeyPressed,
   zoomOnPinch,
   zoomOnScroll,
@@ -206,7 +204,6 @@ export function useCanvasFlowInteractions({
 
   const finishViewportGesture = useCallback(() => {
     clearTimeout(storeSyncTimeoutRef.current);
-    viewportGestureActiveRef.current = false;
     syncStoreViewport();
     useReactFlow.setState({
       paneDragging: false,
@@ -217,17 +214,15 @@ export function useCanvasFlowInteractions({
     schedulePaint();
     flushDeferredViewportPersistence();
     flushPendingNodeDimensionLayoutPersistence();
-  }, [schedulePaint, syncStoreViewport, viewportGestureActiveRef, viewportRef]);
+  }, [schedulePaint, syncStoreViewport, viewportRef]);
 
   const startWheelInteraction = useCallback(
     (kind: "pan" | "zoom") => {
-      viewportGestureActiveRef.current = true;
       useReactFlow.setState({ viewportInteractionActive: true });
       if (kind === "pan") {
         useMisc.setState({ isPanScrolling: true });
         clearTimeout(panScrollTimeoutRef.current);
         panScrollTimeoutRef.current = setTimeout(() => {
-          viewportGestureActiveRef.current = false;
           useMisc.setState({ isPanScrolling: false });
           useReactFlow.setState({ viewportInteractionActive: false });
           dispatchCanvasFlowViewportChange(viewportRef.current);
@@ -239,7 +234,6 @@ export function useCanvasFlowInteractions({
       }
       clearTimeout(wheelZoomTimeoutRef.current);
       wheelZoomTimeoutRef.current = setTimeout(() => {
-        viewportGestureActiveRef.current = false;
         useReactFlow.setState({ viewportInteractionActive: false });
         dispatchCanvasFlowViewportChange(viewportRef.current);
         schedulePaint();
@@ -247,7 +241,7 @@ export function useCanvasFlowInteractions({
         flushPendingNodeDimensionLayoutPersistence();
       }, 180);
     },
-    [schedulePaint, viewportGestureActiveRef, viewportRef],
+    [schedulePaint, viewportRef],
   );
 
   const onClick = useCallback(
@@ -322,16 +316,9 @@ export function useCanvasFlowInteractions({
       if (!isPanButtonAllowed(event.button, panOnDrag)) {
         return;
       }
-      startPanPointerGesture({ event, gestureRef, viewportGestureActiveRef });
+      startPanPointerGesture({ event, gestureRef });
     },
-    [
-      canEditLayout,
-      edgesRef,
-      panOnDrag,
-      syncStoreViewport,
-      viewportGestureActiveRef,
-      viewportRef,
-    ],
+    [canEditLayout, edgesRef, panOnDrag, syncStoreViewport, viewportRef],
   );
 
   const onPointerMove = useCallback(
@@ -739,15 +726,12 @@ function tryStartSelectionPointerGesture({
 function startPanPointerGesture({
   event,
   gestureRef,
-  viewportGestureActiveRef,
 }: {
   event: PointerEvent<HTMLCanvasElement>;
   gestureRef: MutableRefObject<PointerGesture | null>;
-  viewportGestureActiveRef: MutableRefObject<boolean>;
 }) {
   event.preventDefault();
   closeAllContextMenus();
-  viewportGestureActiveRef.current = true;
   useReactFlow.setState({
     paneDragging: true,
     viewportInteractionActive: true,
