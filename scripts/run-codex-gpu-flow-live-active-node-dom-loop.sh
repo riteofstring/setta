@@ -67,12 +67,15 @@ Primary target:
 Required starting point:
 - Read docs/plans/gpu-flow-live-active-node-dom-plan.md before making changes.
 - Read the current gpuFlow implementation before making changes, especially GpuFlow, GpuSurface, GpuNodeLayer, GpuActiveNodeOverlay, nodeInteractionDirty, nodeTextures, and GpuProjectSurface.
-- Read the relevant examples under /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos before choosing a strategy:
-  - html-in-canvas-official for the API contract.
-  - three-html-render for DOM overlay alignment and interaction managers.
-  - html-cloth for UV-to-DOM event discipline and texture invalidation.
-  - html-in-canvas-room for transform-aligned native interaction.
-  - html-in-canvas-cracks and compiz-web for DOM-as-texture pipeline tradeoffs.
+- Read the plan's Relevant Example References section, then inspect the exact files under /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos before choosing a strategy:
+  - html-in-canvas/plugins/html-cloth.mjs for one fixed source DOM texture, input wiring, slider bridging, UV-to-DOM event discipline, and one-shot paint/upload scheduling. Do not copy its every-frame texture refresh cadence as the Setta node architecture.
+  - html-in-canvas-room/extension/entrypoints/content.ts for transform-aligned native interaction, especially applyScreenTransform(), dirty tracking, and uploadPageTexture().
+  - three-html-render/src/interactionManager.ts for CSS matrix alignment of real DOM with a rendered surface.
+  - three-html-render/src/raycastInteractionManager.ts for pointer/UV fallback handoff when a direct screen transform is not enough.
+  - three-html-render/src/threeHTMLRenderer.ts and three-html-render/src/htmlTexture.ts for paint/upload sequencing, event isolation, and keeping the source element separate from the uploaded texture image.
+  - html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts for the WebGPU copyElementImageToTexture API on a small purpose-built element.
+  - hot-tips/html-in-canvas/demos/wicg/ripple-buttons.html for control-level drawElementImage() plus returned-transform behavior.
+  - Treat html-in-canvas-cracks and compiz-web as secondary references only if the plan work needs more DOM-as-texture pipeline tradeoff context.
 
 Phase discipline:
 - Do Phase 1 first. Record baseline/probe results in perf/reports/frontend/ before broad implementation.
