@@ -1,5 +1,5 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { moveSections, setCodeSectionAttachedTerminal } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { addNodes, deleteNodes, moveNodes } from "state/actions/nodeInternals";
 import {
   useNodeInternals,

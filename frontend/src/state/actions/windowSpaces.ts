@@ -1,4 +1,10 @@
 import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   denormalizeFloatingBounds,
   normalizeFloatingBounds,
 } from "components/ChatWindowing/projectChatSnapLayout";
@@ -9,7 +15,6 @@ import {
   setWindowSpaceName as setWindowSpaceNameRequest,
   setWindowSpaceSortOrder,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   flushPendingProjectChatWindowingWrites,
   normalizeProjectChatWindowingState,
@@ -28,11 +33,6 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,

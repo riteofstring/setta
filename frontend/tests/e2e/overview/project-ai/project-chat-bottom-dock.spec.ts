@@ -2309,7 +2309,7 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     await page.evaluate(
       async ({ projectConfigId, sectionId: targetSectionId }) => {
         const { deleteSections } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/src/openapi/http/result");
+        const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
         await callOpenAPI(
           deleteSections({
             body: {
@@ -2338,7 +2338,7 @@ test("project chat windows reopen canvas-bound sections as centered floating win
       const { createViewMode, toggleViewModeTab } = await import(
         "/src/openapi/http"
       );
-      const { callOpenAPI } = await import("/src/openapi/http/result");
+      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
       const response = await callOpenAPI(
         createViewMode({
           body: {
@@ -2366,7 +2366,7 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     await page.evaluate(
       async ({ projectConfigId, activeViewModeId }) => {
         const { setActiveViewMode } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/src/openapi/http/result");
+        const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
         await callOpenAPI(
           setActiveViewMode({
             body: {

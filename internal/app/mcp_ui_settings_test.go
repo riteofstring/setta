@@ -7,18 +7,25 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
+	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
+	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/wsapi"
 )
+
+const firstPartyWatchCodePluginID = "setta-watch-code"
 
 func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
@@ -26,6 +33,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -68,7 +76,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 		Name: "search_ui_settings",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"query":           "watch toggle",
+			"query":           "watch files",
 			"limit":           3,
 		},
 	})
@@ -80,15 +88,18 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	}
 	searchPayload := mustStructuredMapValue(t, searchResult.StructuredContent)
 	searchResults := mustStructuredListValue(t, searchPayload["results"])
-	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
+	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::files" {
 		t.Fatalf("expected watch-code UI setting search result, got %#v", searchResults)
+	}
+	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {
+		t.Fatalf("expected plugin-sourced watch-code UI setting, got %#v", searchResults[0])
 	}
 
 	getResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"settingId":       "core.app.spec_path",
+			"settingId":       "core.project.name",
 		},
 	})
 	if err != nil {
@@ -98,8 +109,8 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 		t.Fatalf("expected get_ui_setting_value success, got %#v", getResult.StructuredContent)
 	}
 	getPayload := mustStructuredMapValue(t, getResult.StructuredContent)
-	if getPayload["value"] != "app_specs/app.json" {
-		t.Fatalf("expected default app spec path, got %#v", getPayload["value"])
+	if getPayload["value"] != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", getPayload["value"])
 	}
 
 	setResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -130,6 +141,431 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected authenticated SSE write to persist showParamDisplayNames")
+	}
+}
+
+func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	searchResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+				"tool":"search_ui_settings",
+				"arguments":{"projectConfigId":"project-alpha","query":"watch files","limit":3},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`),
+	)
+	if err != nil {
+		t.Fatalf("post search_ui_settings tool call route: %v", err)
+	}
+	defer searchResponse.Body.Close()
+	if searchResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(searchResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", searchResponse.StatusCode, string(body))
+	}
+	searchPayload := decodeAppToolCallRoutePayload(t, searchResponse.Body)
+	if searchPayload.IsError {
+		t.Fatalf("expected search_ui_settings success, got %#v", searchPayload.StructuredContent)
+	}
+	searchResult := mustStructuredMapValue(t, searchPayload.StructuredContent)
+	searchResults := mustStructuredListValue(t, searchResult["results"])
+	for _, rawResult := range searchResults {
+		result := mustStructuredMapValue(t, rawResult)
+		settingID, _ := result["settingId"].(string)
+		if strings.HasPrefix(settingID, "plugin::setta-watch-code::") {
+			t.Fatalf("expected no watch-code UI setting search results without provider, got %#v", searchResults)
+		}
+	}
+
+	setResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+				"tool":"set_ui_setting_value",
+				"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::files","value":["pkg/watch.py"]},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_ui_setting_value tool call route: %v", err)
+	}
+	defer setResponse.Body.Close()
+	if setResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(setResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", setResponse.StatusCode, string(body))
+	}
+	setPayload := decodeAppToolCallRoutePayload(t, setResponse.Body)
+	if setPayload.IsError {
+		t.Fatalf("expected structured set_ui_setting_value result, got %#v", setPayload.StructuredContent)
+	}
+	setResult := mustStructuredMapValue(t, setPayload.StructuredContent)
+	errorResult := mustStructuredMapValue(t, setResult["error"])
+	if errorResult["code"] != "setting_not_found" {
+		t.Fatalf("expected setting_not_found, got %#v", errorResult)
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project, err := snapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after unavailable watch-code setting write: %v", err)
+	}
+	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
+	if !projectData.IsEmpty() {
+		t.Fatal("expected unavailable watch-code setting write not to mutate project state")
+	}
+}
+
+func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForUnavailableProvider(t *testing.T) {
+	cases := []struct {
+		name      string
+		configure func(*testing.T, config.Config)
+	}{
+		{
+			name: "pending_restart",
+			configure: func(t *testing.T, cfg config.Config) {
+				writeAppPendingRestartPluginState(t, cfg, firstPartyWatchCodePluginID)
+			},
+		},
+		{
+			name: "provider_conflict",
+			configure: func(t *testing.T, cfg config.Config) {
+				installAppWatchCodeProviderFixture(t, cfg)
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := testConfig(t)
+			cfg.Server.Mode = config.ModeIDE
+			prepareAppCurrentSession(t, cfg)
+			saveAppScopedMCPProject(t, cfg)
+			installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
+			tc.configure(t, cfg)
+
+			app, err := New(cfg, observability.NewLogger(0, io.Discard))
+			if err != nil {
+				t.Fatalf("new app: %v", err)
+			}
+			t.Cleanup(func() {
+				if err := app.Shutdown(context.Background()); err != nil {
+					t.Fatalf("shutdown app: %v", err)
+				}
+			})
+			if app.watchCodeRef.Current() != nil {
+				t.Fatal("did not expect unavailable watch code provider to start the service")
+			}
+
+			server := httptest.NewServer(app.Handler())
+			defer server.Close()
+
+			initialRevision := app.ProjectStates().Main().Snapshot().Revision
+			client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+			assertAppWatchCodeUISettingSearchHidden(t, client, server.URL, firstPartyWatchCodePluginID)
+			assertAppWatchCodeUISettingWriteRejected(t, client, server.URL, firstPartyWatchCodePluginID, "setting_not_found")
+			assertAppWatchCodePluginDataUnchanged(t, cfg, app, firstPartyWatchCodePluginID, initialRevision)
+		})
+	}
+}
+
+func TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	structuredContent, isError := postAppMCPToolCallRoute(t, client, server.URL, `{
+				"tool":"set_ui_setting_value",
+				"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::files","value":["pkg/live.py"]},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`)
+	if isError {
+		t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
+	}
+	setResult := mustStructuredMapValue(t, structuredContent)
+	if _, ok := setResult["error"]; ok {
+		t.Fatalf("did not expect active watch-code setting write error, got %#v", setResult)
+	}
+	if setResult["changed"] != true {
+		t.Fatalf("expected changed=true, got %#v", setResult["changed"])
+	}
+
+	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, firstPartyWatchCodePluginID, "project-alpha")
+	if !reflect.DeepEqual(liveProjectData.Files, []string{"pkg/live.py"}) {
+		t.Fatalf("expected active watch-code UI setting write to update live runtime, got %#v", liveProjectData)
+	}
+	persistedProjectData := readPersistedAppWatchCodePluginProjectDataForProvider(t, cfg, firstPartyWatchCodePluginID, "project-alpha")
+	if !reflect.DeepEqual(persistedProjectData.Files, []string{"pkg/live.py"}) {
+		t.Fatalf("expected active watch-code UI setting write to persist, got %#v", persistedProjectData)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteMergesSplitWatchCodeInputSettings(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	for _, payload := range []string{
+		`{
+			"tool":"set_ui_setting_value",
+			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::files","value":["pkg/newer.py"]},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`,
+		`{
+			"tool":"set_ui_setting_value",
+			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::folders","value":[{"path":"pkg/newer","recursive":true}]},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`,
+	} {
+		structuredContent, isError := postAppMCPToolCallRoute(t, client, server.URL, payload)
+		if isError {
+			t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
+		}
+		setResult := mustStructuredMapValue(t, structuredContent)
+		if _, ok := setResult["error"]; ok {
+			t.Fatalf("did not expect split watch-code setting write error, got %#v", setResult)
+		}
+	}
+
+	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, firstPartyWatchCodePluginID, "project-alpha")
+	if !reflect.DeepEqual(liveProjectData.Files, []string{"pkg/newer.py"}) {
+		t.Fatalf("expected files update to remain, got %#v", liveProjectData.Files)
+	}
+	if !reflect.DeepEqual(liveProjectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg/newer", Recursive: true}}) {
+		t.Fatalf("expected folders update to remain, got %#v", liveProjectData.Folders)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	initialRevision := app.ProjectStates().Main().Snapshot().Revision
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	structuredContent, isError := postAppMCPToolCallRoute(t, client, server.URL, `{
+			"tool":"set_ui_setting_value",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"settingId":"plugin::setta-watch-code::folders",
+				"value":[{"path":"pkg","recursive":true,"extra":"rejected"}]
+			},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`)
+	if isError {
+		t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
+	}
+	setResult := mustStructuredMapValue(t, structuredContent)
+	if setResult["changed"] != false {
+		t.Fatalf("expected changed=false, got %#v", setResult["changed"])
+	}
+	errorResult := mustStructuredMapValue(t, setResult["error"])
+	if errorResult["code"] != "invalid_value_type" {
+		t.Fatalf("expected invalid_value_type, got %#v", errorResult)
+	}
+	if !strings.Contains(errorResult["message"].(string), "unsupported properties") {
+		t.Fatalf("expected unsupported properties message, got %#v", errorResult["message"])
+	}
+	assertAppWatchCodePluginDataUnchanged(t, cfg, app, firstPartyWatchCodePluginID, initialRevision)
+}
+
+func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppProviderEnabled(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	installAppFixturePlugin(t, cfg, "app-subsystem-unknown-id")
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	getResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.app.spec_path",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected get_ui_setting_value success, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMapValue(t, getResult.StructuredContent)
+	if getPayload["value"] != appspec.MustForPlugin(appsubsystemprovider.PluginID).DefaultPath() {
+		t.Fatalf("expected default app spec path, got %#v", getPayload["value"])
+	}
+}
+
+func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppPackageManagerProviderEnabled(
+	t *testing.T,
+) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	installAppPackageManagerFixturePlugin(t, sitePackages, "app-subsystem-unknown-id")
+	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
+	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	getResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_ui_setting_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"settingId":       "core.app.spec_path",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_ui_setting_value: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected get_ui_setting_value success, got %#v", getResult.StructuredContent)
+	}
+	getPayload := mustStructuredMapValue(t, getResult.StructuredContent)
+	if getPayload["value"] != appspec.MustForPlugin(appsubsystemprovider.PluginID).DefaultPath() {
+		t.Fatalf("expected default app spec path, got %#v", getPayload["value"])
 	}
 }
 
@@ -233,6 +669,7 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -253,10 +690,10 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 		server.URL+httpapi.RouteMCPToolCall,
 		"application/json",
 		strings.NewReader(`{
-			"tool":"search_ui_settings",
-			"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":3},
-			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
-		}`),
+				"tool":"search_ui_settings",
+				"arguments":{"projectConfigId":"project-alpha","query":"watch files","limit":3},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`),
 	)
 	if err != nil {
 		t.Fatalf("post search_ui_settings tool call route: %v", err)
@@ -272,8 +709,11 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	}
 	searchResult := mustStructuredMapValue(t, searchPayload.StructuredContent)
 	searchResults := mustStructuredListValue(t, searchResult["results"])
-	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
+	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::files" {
 		t.Fatalf("expected watch-code UI setting search result, got %#v", searchResults)
+	}
+	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {
+		t.Fatalf("expected plugin-sourced watch-code UI setting, got %#v", searchResults[0])
 	}
 
 	getResponse, err := client.Post(
@@ -281,7 +721,7 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 		"application/json",
 		strings.NewReader(`{
 			"tool":"get_ui_setting_value",
-			"arguments":{"projectConfigId":"project-alpha","settingId":"core.app.spec_path"},
+			"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.name"},
 			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 		}`),
 	)
@@ -298,8 +738,8 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 		t.Fatalf("expected get_ui_setting_value success, got %#v", getPayload.StructuredContent)
 	}
 	getResult := mustStructuredMapValue(t, getPayload.StructuredContent)
-	if getResult["value"] != "app_specs/app.json" {
-		t.Fatalf("expected default app spec path, got %#v", getResult["value"])
+	if getResult["value"] != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", getResult["value"])
 	}
 
 	setResponse, err := client.Post(
@@ -531,8 +971,8 @@ func TestAppIDEMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+		responseBody, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(responseBody))
 	}
 	if err := <-ackErrCh; err != nil {
 		t.Fatalf("ack reveal websocket round-trip: %v", err)
@@ -547,6 +987,133 @@ func TestAppIDEMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 	if len(statuses) != 1 || mustStructuredMapValue(t, statuses[0])["status"] != "revealed" {
 		t.Fatalf("expected single revealed status, got %#v", statuses)
 	}
+}
+
+func postAppMCPToolCallRoute(
+	t *testing.T,
+	client *http.Client,
+	serverURL string,
+	body string,
+) (any, bool) {
+	t.Helper()
+
+	response, err := client.Post(
+		serverURL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(body),
+	)
+	if err != nil {
+		t.Fatalf("post MCP tool call route: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+	payload := decodeAppToolCallRoutePayload(t, response.Body)
+	return payload.StructuredContent, payload.IsError
+}
+
+func assertAppWatchCodeUISettingSearchHidden(t *testing.T, client *http.Client, serverURL string, pluginID string) {
+	t.Helper()
+
+	structuredContent, isError := postAppMCPToolCallRoute(t, client, serverURL, `{
+				"tool":"search_ui_settings",
+				"arguments":{"projectConfigId":"project-alpha","query":"watch files","limit":5},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`)
+	if isError {
+		t.Fatalf("expected search_ui_settings success, got %#v", structuredContent)
+	}
+	searchResult := mustStructuredMapValue(t, structuredContent)
+	searchResults := mustStructuredListValue(t, searchResult["results"])
+	settingPrefix := "plugin::" + pluginID + "::"
+	for _, rawResult := range searchResults {
+		result := mustStructuredMapValue(t, rawResult)
+		settingID, _ := result["settingId"].(string)
+		if strings.HasPrefix(settingID, settingPrefix) {
+			t.Fatalf("expected no watch-code UI setting search results for %s, got %#v", pluginID, searchResults)
+		}
+	}
+}
+
+func assertAppWatchCodeUISettingWriteRejected(t *testing.T, client *http.Client, serverURL string, pluginID string, expectedCode string) {
+	t.Helper()
+
+	structuredContent, isError := postAppMCPToolCallRoute(t, client, serverURL, `{
+				"tool":"set_ui_setting_value",
+				"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::`+pluginID+`::files","value":["pkg/watch.py"]},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`)
+	if isError {
+		t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
+	}
+	setResult := mustStructuredMapValue(t, structuredContent)
+	errorResult := mustStructuredMapValue(t, setResult["error"])
+	if errorResult["code"] != expectedCode {
+		t.Fatalf("expected %s, got %#v", expectedCode, errorResult)
+	}
+}
+
+func assertAppWatchCodePluginDataUnchanged(
+	t *testing.T,
+	cfg config.Config,
+	app *App,
+	pluginID string,
+	expectedRevision uint64,
+) {
+	t.Helper()
+
+	liveSnapshot := app.ProjectStates().Main().Snapshot()
+	if liveSnapshot.Revision != expectedRevision {
+		t.Fatalf("expected live runtime revision %d, got %d", expectedRevision, liveSnapshot.Revision)
+	}
+	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, liveSnapshot.Document, pluginID, "project-alpha")
+	if !liveProjectData.IsEmpty() {
+		t.Fatalf("expected live watch-code plugin data to remain disabled, got %#v", liveProjectData)
+	}
+	persistedProjectData := readPersistedAppWatchCodePluginProjectDataForProvider(t, cfg, pluginID, "project-alpha")
+	if !persistedProjectData.IsEmpty() {
+		t.Fatalf("expected persisted watch-code plugin data to remain disabled, got %#v", persistedProjectData)
+	}
+}
+
+func readPersistedAppWatchCodePluginProjectDataForProvider(
+	t *testing.T,
+	cfg config.Config,
+	pluginID string,
+	projectID string,
+) projectstate.WatchCodePluginProjectData {
+	t.Helper()
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project state paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted project state: %v", err)
+	}
+	return readAppWatchCodePluginProjectDataForProvider(t, document, pluginID, projectID)
+}
+
+func readAppWatchCodePluginProjectDataForProvider(
+	t *testing.T,
+	document projectstate.Document,
+	pluginID string,
+	projectID string,
+) projectstate.WatchCodePluginProjectData {
+	t.Helper()
+
+	projectData, _, err := document.WatchCodePluginProjectData(pluginID, projectID)
+	if err != nil {
+		t.Fatalf("read %s watch-code plugin data: %v", pluginID, err)
+	}
+	return projectData
 }
 
 func dialAppRevealFrontend(t *testing.T, app *App, serverURL string) (*websocket.Conn, string) {

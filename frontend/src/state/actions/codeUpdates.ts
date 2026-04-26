@@ -1,8 +1,10 @@
+import {
+  callOpenAPI,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { setCode, setGenCodePrefix, setGenCodeSuffix } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { getPythonCodegenTarget } from "utils/codegenTargets";
-import { type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,

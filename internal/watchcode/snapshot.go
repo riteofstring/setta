@@ -137,9 +137,6 @@ func DiffTrackedFileSnapshots(previous TrackedFileSnapshot, current TrackedFileS
 func trackedPythonFiles(configs map[string]ConfigSnapshot) ([]string, error) {
 	trackedPaths := make(map[string]struct{})
 	for _, snapshot := range configs {
-		if !snapshot.Enabled {
-			continue
-		}
 		for _, filePath := range snapshot.Files {
 			if !isPythonSourcePath(filePath) || shouldIgnorePath(filePath, snapshot.IgnoredRoots) {
 				continue

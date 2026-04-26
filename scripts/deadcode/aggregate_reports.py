@@ -60,11 +60,17 @@ GO_REACHABILITY_REPORTS = (
     ("go-test.json", "test", True),
     ("go-tooling.json", "tooling", False),
 )
+DEFAULT_GO_STATICCHECK_PACKAGES = ["./..."]
+DEFAULT_PYTHON_LINT_ROOTS = ["backend/setta", "scripts"]
+DEFAULT_FRONTEND_LINT_ROOTS = ["src"]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Generate dead code candidate reports."
+        description=(
+            "Generate production-oriented dead-code candidate reports. "
+            "This is not a whole-repo unused-code proof."
+        )
     )
     parser.add_argument(
         "--config",
@@ -151,6 +157,17 @@ def load_config(path: Path) -> dict[str, Any]:
     return data
 
 
+def config_string_list(
+    config: dict[str, Any],
+    key: str,
+    default: list[str],
+) -> list[str]:
+    value = config.get(key, default)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise TypeError(f"Dead code config key {key!r} must be a list of strings.")
+    return list(value)
+
+
 def build_go_reports(
     config: dict[str, Any],
     output_dir: Path,
@@ -170,6 +187,9 @@ def build_go_reports(
     )
     generated_globs = list(
         go_config.get("generated_globs", GO_GENERATED_FALLBACK_GLOBS)
+    )
+    staticcheck_packages = config_string_list(
+        go_config, "staticcheck_packages", DEFAULT_GO_STATICCHECK_PACKAGES
     )
 
     warnings: list[str] = list(production_warnings)
@@ -198,6 +218,7 @@ def build_go_reports(
         generated_at=generated_at,
         staticcheck_version=staticcheck_version,
         generated_globs=generated_globs,
+        package_patterns=staticcheck_packages,
     )
     report_paths.append({"language": "go", "path": relative_path(staticcheck_path)})
 
@@ -225,6 +246,7 @@ def build_go_reports(
             "production_root_sources": production_root_sources,
             "tooling_mains": tooling_mains,
             "build_matrix": build_matrix,
+            "staticcheck_packages": staticcheck_packages,
         },
     }
 
@@ -344,6 +366,7 @@ def write_go_staticcheck_report(
     generated_at: str,
     staticcheck_version: str,
     generated_globs: list[str],
+    package_patterns: list[str],
 ) -> tuple[list[dict[str, Any]], Path]:
     staticcheck_cmd = [
         str(ROOT_DIR / "scripts" / "go.sh"),
@@ -354,9 +377,8 @@ def write_go_staticcheck_report(
         "-f",
         "json",
         "-fail=none",
-        "./cmd/...",
-        "./internal/...",
     ]
+    staticcheck_cmd.extend(package_patterns)
     staticcheck_completed = run_command(staticcheck_cmd)
     staticcheck_findings = normalize_staticcheck_findings(
         output=staticcheck_completed.stdout,
@@ -414,8 +436,24 @@ def current_go_platform() -> tuple[str, str]:
 
 def discover_go_main_packages() -> list[str]:
     mains = []
-    for path in sorted((ROOT_DIR / "cmd").glob("*/main.go")):
-        mains.append(f"./{path.parent.relative_to(ROOT_DIR).as_posix()}")
+    completed = run_command(
+        [
+            str(ROOT_DIR / "scripts" / "go.sh"),
+            "list",
+            "-f",
+            '{{if eq .Name "main"}}{{.Dir}}{{end}}',
+            "./...",
+        ]
+    )
+    for raw_line in completed.stdout.splitlines():
+        raw_path = raw_line.strip()
+        if not raw_path:
+            continue
+        path = Path(raw_path).resolve(strict=False)
+        try:
+            mains.append(f"./{path.relative_to(ROOT_DIR).as_posix()}")
+        except ValueError:
+            continue
     return mains
 
 
@@ -651,6 +689,9 @@ def build_python_reports(
     python_config = config.get("python", {})
     coverage_version = installed_python_package_version("coverage")
     generated_globs = list(python_config.get("generated_globs", []))
+    lint_roots = config_string_list(
+        python_config, "lint_roots", DEFAULT_PYTHON_LINT_ROOTS
+    )
     public_modules = list(python_config.get("public_modules", []))
     vulture_min_confidence = int(python_config.get("vulture_min_confidence", 80))
     vulture_version = installed_python_package_version("vulture")
@@ -659,8 +700,7 @@ def build_python_reports(
         "-m",
         "ruff",
         "check",
-        "backend/setta",
-        "scripts",
+        *lint_roots,
         "--output-format",
         "json",
         "--exit-zero",
@@ -678,6 +718,7 @@ def build_python_reports(
         "tool": "ruff",
         "lane": "lint-unused",
         "commands": [command_display(command)],
+        "lint_roots": lint_roots,
         "public_modules": public_modules,
         "warnings": [],
         "limitations": [],
@@ -742,6 +783,7 @@ def build_python_reports(
         "tool_status": {
             "lint_unused": "ok",
             "reachability": "ok",
+            "lint_roots": lint_roots,
             "public_modules": public_modules,
             "public_import_modules": public_import_modules,
             "coverage_version": coverage_version,
@@ -994,6 +1036,10 @@ def build_frontend_reports(
 ) -> dict[str, Any]:
     frontend_config = config.get("frontend", {})
     app_roots = list(frontend_config.get("app_roots", ["frontend/src/index.tsx"]))
+    lint_roots = config_string_list(
+        frontend_config, "lint_roots", DEFAULT_FRONTEND_LINT_ROOTS
+    )
+    package_roots = config_string_list(frontend_config, "package_roots", [])
     generated_globs = list(frontend_config.get("generated_globs", []))
     frontend_scope_support = build_frontend_scope_support(app_roots)
     warnings = [
@@ -1020,6 +1066,8 @@ def build_frontend_reports(
         generated_globs,
         scope="prod",
         issue_label="knip --production",
+        root_prefix="frontend",
+        bucket="prod-dead",
     )
     knip_prod_report = {
         "schema_version": SCHEMA_VERSION,
@@ -1057,6 +1105,8 @@ def build_frontend_reports(
         generated_globs,
         scope="all",
         issue_label="knip full graph",
+        root_prefix="frontend",
+        bucket="prod-dead",
     )
     knip_full_report = {
         "schema_version": SCHEMA_VERSION,
@@ -1076,13 +1126,20 @@ def build_frontend_reports(
     knip_full_path = output_dir / "frontend-all.json"
     write_json(knip_full_path, knip_full_report)
 
+    package_reports, package_findings = build_frontend_package_reports(
+        output_dir=output_dir,
+        generated_at=generated_at,
+        package_roots=package_roots,
+        generated_globs=generated_globs,
+    )
+
     eslint_command = [
         "pnpm",
         "-C",
         "frontend",
         "exec",
         "eslint",
-        "src",
+        *lint_roots,
         "--ext",
         ".js,.jsx,.ts,.tsx",
         "--format",
@@ -1105,9 +1162,10 @@ def build_frontend_reports(
         "tool": "eslint",
         "commands": [command_display(eslint_command)],
         "app_roots": app_roots,
+        "lint_roots": lint_roots,
         "warnings": warnings,
         "limitations": [
-            "Frontend lint-unused uses a focused ESLint no-unused-vars pass because repo-wide tsc currently has unrelated type errors.",
+            "Frontend lint-unused uses a focused ESLint no-unused-vars pass across configured app and SDK roots because repo-wide tsc currently has unrelated type errors.",
         ],
         "findings": eslint_findings,
     }
@@ -1119,25 +1177,34 @@ def build_frontend_reports(
         full_findings=knip_full_findings,
         scope_support=frontend_scope_support,
     )
-    findings = dedupe_findings(reachability_findings + eslint_findings)
+    findings = dedupe_findings(
+        reachability_findings + package_findings + eslint_findings
+    )
     limitations = (
         list(knip_prod_report["limitations"])
         + list(knip_full_report["limitations"])
+        + [
+            "Frontend package reachability uses per-package Knip directory runs for configured SDK and plugin package roots."
+        ]
         + list(eslint_report["limitations"])
     )
+    report_paths = [
+        {"language": "frontend", "path": relative_path(knip_prod_path)},
+        {"language": "frontend", "path": relative_path(knip_full_path)},
+        *package_reports,
+        {"language": "frontend", "path": relative_path(eslint_path)},
+    ]
     return {
         "findings": findings,
         "warnings": warnings,
         "limitations": limitations,
-        "report_paths": [
-            {"language": "frontend", "path": relative_path(knip_prod_path)},
-            {"language": "frontend", "path": relative_path(knip_full_path)},
-            {"language": "frontend", "path": relative_path(eslint_path)},
-        ],
+        "report_paths": report_paths,
         "tool_status": {
             "reachability": "ok",
             "lint_unused": "ok",
             "app_roots": app_roots,
+            "lint_roots": lint_roots,
+            "package_roots": package_roots,
             "test_roots": frontend_scope_support["test_roots"],
             "tooling_roots": frontend_scope_support["tooling_roots"],
             "test_reachable_file_count": len(
@@ -1150,17 +1217,92 @@ def build_frontend_reports(
     }
 
 
+def build_frontend_package_reports(
+    *,
+    output_dir: Path,
+    generated_at: str,
+    package_roots: list[str],
+    generated_globs: list[str],
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    report_paths: list[dict[str, str]] = []
+    findings: list[dict[str, Any]] = []
+
+    for package_root in package_roots:
+        if not (ROOT_DIR / package_root / "package.json").exists():
+            continue
+        command = [
+            "pnpm",
+            "-C",
+            "frontend",
+            "exec",
+            "knip",
+            "--directory",
+            frontend_knip_directory_arg(package_root),
+            "--reporter",
+            "json",
+            "--no-exit-code",
+        ]
+        completed = run_command(command)
+        payload = json.loads(completed.stdout or "{}")
+        package_findings = normalize_knip_findings(
+            payload,
+            generated_globs,
+            scope="package",
+            issue_label=f"knip package graph ({package_root})",
+            root_prefix=package_root,
+            bucket="package-dead",
+        )
+        findings.extend(package_findings)
+
+        report_name = package_root.replace("/", "-") + "-deadcode.json"
+        report_path = output_dir / report_name
+        write_json(
+            report_path,
+            {
+                "schema_version": SCHEMA_VERSION,
+                "generated_at": generated_at,
+                "language": "frontend",
+                "lane": "reachability",
+                "tool": "knip",
+                "scope": "package",
+                "package_root": package_root,
+                "commands": [command_display(command)],
+                "warnings": [],
+                "limitations": [
+                    "Package reachability reflects Knip's graph for this standalone frontend package root."
+                ],
+                "findings": package_findings,
+            },
+        )
+        report_paths.append(
+            {"language": "frontend", "path": relative_path(report_path)}
+        )
+
+    return report_paths, dedupe_findings(findings)
+
+
+def frontend_knip_directory_arg(package_root: str) -> str:
+    if package_root == "frontend":
+        return "."
+    frontend_prefix = "frontend/"
+    if package_root.startswith(frontend_prefix):
+        return package_root.removeprefix(frontend_prefix)
+    return f"../{package_root}"
+
+
 def normalize_knip_findings(
     payload: dict[str, Any],
     generated_globs: list[str],
     *,
     scope: str,
     issue_label: str,
+    root_prefix: str,
+    bucket: str,
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
 
     for file_path in payload.get("files", []):
-        path = normalize_tool_path(f"frontend/{file_path}")
+        path = normalize_tool_path(f"{root_prefix}/{file_path}")
         if (
             not path
             or matches_any_glob(path, generated_globs)
@@ -1171,7 +1313,7 @@ def normalize_knip_findings(
             {
                 "language": "frontend",
                 "lane": "reachability",
-                "bucket": "prod-dead",
+                "bucket": bucket,
                 "tool": "knip",
                 "confidence": "medium",
                 "scope": scope,
@@ -1185,7 +1327,7 @@ def normalize_knip_findings(
         )
 
     for issue in payload.get("issues", []):
-        file_path = normalize_tool_path(f"frontend/{issue.get('file', '')}")
+        file_path = normalize_tool_path(f"{root_prefix}/{issue.get('file', '')}")
         if (
             not file_path
             or matches_any_glob(file_path, generated_globs)
@@ -1202,7 +1344,7 @@ def normalize_knip_findings(
                     {
                         "language": "frontend",
                         "lane": "reachability",
-                        "bucket": "prod-dead",
+                        "bucket": bucket,
                         "tool": "knip",
                         "confidence": "medium",
                         "scope": scope,
@@ -1516,7 +1658,11 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def relative_path(path: Path) -> str:
-    return path.resolve(strict=False).relative_to(ROOT_DIR).as_posix()
+    resolved = path.resolve(strict=False)
+    try:
+        return resolved.relative_to(ROOT_DIR).as_posix()
+    except ValueError:
+        return resolved.as_posix()
 
 
 def normalize_tool_path(value: str) -> str:

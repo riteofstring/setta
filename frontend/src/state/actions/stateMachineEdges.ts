@@ -1,20 +1,19 @@
-import type { Connection } from "forks/xyflow/core/types";
+import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
+import { callOpenAPI, createNewId } from "@setta/app-subsystem-frontend-sdk";
+import type { Connection } from "gpuFlow/flowTypes";
 import {
   createStateMachineEdge,
   deleteStateMachineEdges,
   setStateMachineEdges,
   updateStateMachineEdge,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState, useShareSession } from "state/definitions";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   SectionTypeEnum,
   StateMachineUIConfig,
   type SingleConfig,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import { clearActiveSectionIds } from "./activeSections";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
 import {

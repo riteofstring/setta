@@ -7,8 +7,7 @@
   filters sections and layout based on the active mode.
 - `isTab` view modes render as tabs. `isUserFacing` gates whether a mode is
   intended for share/user-facing surfaces.
-- The Overview `View Modes` pane now also includes the project-config list and
-  controls that used to live in the separate `Project Configs` tab.
+- The Overview `View Modes` pane includes the project-config list and controls.
 
 ## ListRoot Section View Modes
 
@@ -54,7 +53,7 @@
   order (not insertion order), then compacts `sortIndex` values.
 
 ## Overview pane behavior
-- `ViewingEditingMode` now includes:
+- `ViewingEditingMode` includes:
   - a `Window Spaces` pane at the top
   - `View Modes` (collapsible)
   - `Project Configs` (collapsible + vertically resizable)

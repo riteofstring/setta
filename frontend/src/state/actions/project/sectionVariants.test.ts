@@ -11,9 +11,14 @@ vi.mock("openapi/http", () => ({
   deleteSectionVariantOrAsk: vi.fn(),
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+  };
+});
 
 describe("section variant delete actions", () => {
   beforeEach(() => {

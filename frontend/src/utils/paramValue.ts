@@ -1,14 +1,9 @@
-import { CodeObjTypeEnum } from "utils/generatedTypes";
+import { CodeObjTypeEnum, type CodeObjType } from "utils/generatedTypes";
 
 type RealtimeValueCheck = {
   previousValue: string;
   nextValue: string;
-  codeObjType: CodeObjTypeEnum;
-};
-
-type PasswordRevealCheck = {
-  value: string;
-  hasSecret: boolean;
+  codeObjType: CodeObjType;
 };
 
 export function shouldEmitRealtimeValue({
@@ -20,11 +15,4 @@ export function shouldEmitRealtimeValue({
     return false;
   }
   return codeObjType !== CodeObjTypeEnum.PasswordParam;
-}
-
-export function shouldShowPasswordReveal({
-  value,
-  hasSecret,
-}: PasswordRevealCheck): boolean {
-  return hasSecret && value === "";
 }

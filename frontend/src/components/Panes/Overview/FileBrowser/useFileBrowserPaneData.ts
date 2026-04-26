@@ -1,11 +1,16 @@
 import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   checkWorkspaceInitialized,
   getFileBrowserRoot,
   getFolderContents,
   type FilebrowserListFolderResponse,
   type FilebrowserRootResponse,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,
@@ -15,11 +20,6 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
 import { parseFileBrowserFilterText } from "utils/fileBrowserFilter";
 import type { FileBrowserSearchScope } from "utils/fileBrowserTypes";
 import {

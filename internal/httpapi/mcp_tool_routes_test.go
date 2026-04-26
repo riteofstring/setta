@@ -20,13 +20,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
-	"setta/internal/appspec"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
+	"setta/internal/testutil/firstpartyplugin"
 )
 
 type routePythonPackageProvider struct {
@@ -207,15 +209,10 @@ func TestMCPToolCallRouteRejectsNonObjectArgumentsAtTransportBoundary(t *testing
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -272,15 +269,10 @@ func TestMCPToolCallRouteRejectsLegacyInvokeLinkedChatTool(t *testing.T) {
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1412,16 +1404,11 @@ func TestMCPToolCallRouteSetTopLevelSectionLayoutAcceptsTemporaryIDs(t *testing.
 		"chat-section":    "13",
 		"allowed-section": "14",
 	})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1495,15 +1482,10 @@ func TestMCPToolCallRouteSupportsAutoLayoutTopLevelSections(t *testing.T) {
 	beforeBlocked := project.TopLevelSections["blocked-section"]
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1585,16 +1567,11 @@ func TestMCPToolCallRouteAutoLayoutTopLevelSectionsAcceptsTemporaryIDs(t *testin
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha": "11",
 	})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1663,15 +1640,10 @@ func TestMCPToolCallRouteSupportsSetShowParamDisplayNames(t *testing.T) {
 	}
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1736,16 +1708,11 @@ func TestMCPToolCallRouteSetShowParamDisplayNamesAcceptsTemporaryIDs(t *testing.
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha": "11",
 	})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1798,15 +1765,10 @@ func TestMCPToolCallRouteSupportsSetSectionTagColor(t *testing.T) {
 
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1869,16 +1831,11 @@ func TestMCPToolCallRouteSetSectionTagColorAcceptsTemporaryIDs(t *testing.T) {
 		"chat-section":    "13",
 		"allowed-section": "14",
 	})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newAppDefinitionToolRouteServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      t.TempDir(),
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1939,6 +1896,9 @@ func TestMCPToolCallRouteSupportsSetSectionStyleColor(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2011,6 +1971,9 @@ func TestMCPToolCallRouteSetSectionStyleColorAcceptsTemporaryIDs(t *testing.T) {
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2075,6 +2038,9 @@ func TestMCPToolCallRouteSupportsSetSectionParamFilter(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2147,6 +2113,9 @@ func TestMCPToolCallRouteSetSectionParamFilterAcceptsTemporaryIDs(t *testing.T) 
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2213,6 +2182,9 @@ func TestMCPToolCallRouteSupportsSetMetaControlShowSectionTitle(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2287,6 +2259,9 @@ func TestMCPToolCallRouteSetMetaControlShowSectionTitleAcceptsTemporaryIDs(t *te
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2341,362 +2316,21 @@ func TestMCPToolCallRouteSetMetaControlShowSectionTitleAcceptsTemporaryIDs(t *te
 	}
 }
 
-func TestMCPToolCallRouteSupportsSetWatchCodeEnabled(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
-	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
-		t.Fatalf("mkdir watch file parent: %v", err)
-	}
-	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write watch file: %v", err)
-	}
-
-	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	mustSetRouteWatchCodeFiles(t, projectRuntime, []string{"pkg/watch_me.py"})
-	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:  workspaceRoot,
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics: diagnostics,
-	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"set_watch_code_enabled",
-		"arguments":{
-			"projectConfigId":"project-alpha",
-			"enabled":true
-		},
-		"agenticContext":{
-			"projectConfigId":"project-alpha",
-			"allowUnscoped":true
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_watch_code_enabled success, got %#v", payload.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_watch_code_enabled: %v", err)
-	}
-	if !project.WatchCodeEnabled {
-		t.Fatal("expected watch code enabled after route mutation")
-	}
-	expectedBaselineKey := filepath.Clean(watchFile)
-	expectedIdentity := "pkg.watch_me.existing:function"
-	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
-		t.Fatalf("expected watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
-	}
-}
-
-func TestMCPToolCallRouteSetWatchCodeEnabledAcceptsTemporaryIDs(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
-	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
-		t.Fatalf("mkdir watch file parent: %v", err)
-	}
-	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write watch file: %v", err)
-	}
-
-	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	mustSetRouteWatchCodeFiles(t, projectRuntime, []string{"pkg/watch_me.py"})
-	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
-	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
-		"project-alpha": "11",
-	})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:      workspaceRoot,
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics:     diagnostics,
-		TemporaryIDMapPath: temporaryIDMapPath,
-	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"set_watch_code_enabled",
-		"arguments":{
-			"projectConfigId":"11",
-			"enabled":true
-		},
-		"agenticContext":{
-			"projectConfigId":"11",
-			"allowUnscoped":true
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected temp-id set_watch_code_enabled success, got %#v", payload.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id route set_watch_code_enabled: %v", err)
-	}
-	if !project.WatchCodeEnabled {
-		t.Fatal("expected watch code enabled after temp-id route mutation")
-	}
-	expectedBaselineKey := filepath.Clean(watchFile)
-	expectedIdentity := "pkg.watch_me.existing:function"
-	if ids := project.WatchCodeBaselineByPath[expectedBaselineKey]; len(ids) != 1 || ids[0] != expectedIdentity {
-		t.Fatalf("expected temp-id watch code baseline [%s] for %q, got %#v", expectedIdentity, expectedBaselineKey, project.WatchCodeBaselineByPath)
-	}
-}
-
-func TestMCPToolCallRouteSupportsSetWatchCodeInputs(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
-	newFolderFile := filepath.Join(workspaceRoot, "pkg", "subdir", "added.py")
-	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
-		t.Fatalf("mkdir watch file parent: %v", err)
-	}
-	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write existing file: %v", err)
-	}
-	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write new file: %v", err)
-	}
-
-	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	existingBaselineKey := filepath.Clean(existingFile)
-	mustSetRouteWatchCodeState(t, projectRuntime, true, nil, []string{"pkg/existing.py"}, map[string][]string{
-		existingBaselineKey: {"pkg.existing.existing:function"},
-	})
-	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:  workspaceRoot,
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics: diagnostics,
-	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"set_watch_code_inputs",
-		"arguments":{
-			"projectConfigId":"project-alpha",
-			"watchCodeFolders":[{"path":"pkg/subdir","recursive":true}],
-			"watchCodeFiles":["pkg/existing.py"]
-		},
-		"agenticContext":{
-			"projectConfigId":"project-alpha",
-			"allowUnscoped":true
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected set_watch_code_inputs success, got %#v", payload.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after route set_watch_code_inputs: %v", err)
-	}
-	if !project.WatchCodeEnabled {
-		t.Fatal("expected watch code to stay enabled after route mutation")
-	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
-		t.Fatalf("expected normalized watch code folders, got %#v", project.WatchCodeFolders)
-	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
-		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
-	}
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline unchanged, got %#v", project.WatchCodeBaselineByPath)
-	}
-	newBaselineKey := filepath.Clean(newFolderFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
-		t.Fatalf("expected new folder baseline, got %#v", project.WatchCodeBaselineByPath)
-	}
-}
-
-func TestMCPToolCallRouteSetWatchCodeInputsAcceptsTemporaryIDs(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
-	newFolderFile := filepath.Join(workspaceRoot, "pkg", "subdir", "added.py")
-	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
-		t.Fatalf("mkdir watch file parent: %v", err)
-	}
-	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write existing file: %v", err)
-	}
-	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write new file: %v", err)
-	}
-
-	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	existingBaselineKey := filepath.Clean(existingFile)
-	mustSetRouteWatchCodeState(t, projectRuntime, true, nil, []string{"pkg/existing.py"}, map[string][]string{
-		existingBaselineKey: {"pkg.existing.existing:function"},
-	})
-	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
-	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
-		"project-alpha": "11",
-	})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:      workspaceRoot,
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics:     diagnostics,
-		TemporaryIDMapPath: temporaryIDMapPath,
-	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"set_watch_code_inputs",
-		"arguments":{
-			"projectConfigId":"11",
-			"watchCodeFolders":[{"path":"pkg/subdir","recursive":true}],
-			"watchCodeFiles":["pkg/existing.py"]
-		},
-		"agenticContext":{
-			"projectConfigId":"11",
-			"allowUnscoped":true
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected temp-id set_watch_code_inputs success, got %#v", payload.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id route set_watch_code_inputs: %v", err)
-	}
-	if !project.WatchCodeEnabled {
-		t.Fatal("expected watch code to stay enabled after temp-id route mutation")
-	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
-		t.Fatalf("expected normalized watch code folders after temp-id route, got %#v", project.WatchCodeFolders)
-	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py"}) {
-		t.Fatalf("expected normalized watch code files after temp-id route, got %#v", project.WatchCodeFiles)
-	}
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline unchanged after temp-id route, got %#v", project.WatchCodeBaselineByPath)
-	}
-	newBaselineKey := filepath.Clean(newFolderFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
-		t.Fatalf("expected new folder baseline after temp-id route, got %#v", project.WatchCodeBaselineByPath)
-	}
-}
-
 func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	appDefinitionService := appdefinition.NewAppDefinitionService(
+		projectRuntime,
+		firstpartyplugin.AppSubsystemPluginID,
+	)
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:  t.TempDir(),
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics: diagnostics,
+		WorkspaceRoot:                t.TempDir(),
+		ProjectState:                 projectRuntime,
+		SectionNames:                 routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:               diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(appDefinitionService),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2727,7 +2361,7 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 				"root":{"key":"root","type":"Stack"},
 				"elements":{}
 			},
-			"appSpecPath":"app_specs/custom.json",
+			"appSpecPath":"`+appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json")+`",
 			"appSpecVersion":"v2",
 			"catalogId":"setta.app.default",
 			"theme":{"mode":"dark"}
@@ -2747,15 +2381,19 @@ func TestMCPToolCallRouteSupportsSetAppDefinition(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.Read(root, "app_specs/custom.json")
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json"))
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
 	if !reflect.DeepEqual(storedSpec, result["appSpec"]) {
 		t.Fatalf("expected stored app spec %#v, got %#v", result["appSpec"], storedSpec)
 	}
-	if projectRuntime.Snapshot().Document.AppDefinition == nil || projectRuntime.Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
-		t.Fatalf("expected persisted app definition after route mutation, got %#v", projectRuntime.Snapshot().Document.AppDefinition)
+	storedAppDefinition := mustDecodeStoredAppDefinition(
+		t,
+		appdefinition.MustStorageForPlugin("setta-json-render-app-gen").StoredDocumentAppDefinitionRaw(projectRuntime.Snapshot().Document),
+	)
+	if storedAppDefinition.AppSpecPath != appspec.MustForPlugin("setta-json-render-app-gen").JoinPath("custom.json") {
+		t.Fatalf("expected persisted app definition after route mutation, got %#v", storedAppDefinition)
 	}
 }
 
@@ -2763,14 +2401,12 @@ func TestMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
@@ -2778,6 +2414,9 @@ func TestMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2821,10 +2460,10 @@ func TestMCPToolCallRouteSupportsGetAppDefinition(t *testing.T) {
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
 	appDefinition := mustStructuredMapForRoute(t, result["appDefinition"])
-	if appDefinition["appSpecPath"] != appspec.DefaultPath() {
-		t.Fatalf("expected default app spec path %q, got %#v", appspec.DefaultPath(), appDefinition["appSpecPath"])
+	if appDefinition["appSpecPath"] != appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath() {
+		t.Fatalf("expected default app spec path %q, got %#v", appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath(), appDefinition["appSpecPath"])
 	}
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -2837,14 +2476,12 @@ func TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root":     map[string]any{"key": "root", "type": "Stack"},
 			"elements": map[string]any{},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
@@ -2857,6 +2494,9 @@ func TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -2899,7 +2539,7 @@ func TestMCPToolCallRouteGetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -2918,6 +2558,9 @@ func TestMCPToolCallRouteSupportsValidateAppDefinition(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3005,6 +2648,9 @@ func TestMCPToolCallRouteValidateAppDefinitionAcceptsTemporaryIDs(t *testing.T) 
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3059,16 +2705,21 @@ func TestMCPToolCallRouteSetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	appDefinitionService := appdefinition.NewAppDefinitionService(
+		projectRuntime,
+		firstpartyplugin.AppSubsystemPluginID,
+	)
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
 		"project-alpha": "11",
 	})
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:      t.TempDir(),
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics:     diagnostics,
-		TemporaryIDMapPath: temporaryIDMapPath,
+		WorkspaceRoot:                t.TempDir(),
+		ProjectState:                 projectRuntime,
+		SectionNames:                 routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:               diagnostics,
+		TemporaryIDMapPath:           temporaryIDMapPath,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(appDefinitionService),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3115,7 +2766,7 @@ func TestMCPToolCallRouteSetAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3128,7 +2779,7 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -3140,9 +2791,7 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 			},
 			"elements": map[string]any{},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
@@ -3150,6 +2799,9 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3202,7 +2854,7 @@ func TestMCPToolCallRouteSupportsUpdateAppDefinition(t *testing.T) {
 	if props["direction"] != "column" {
 		t.Fatalf("expected preserved direction column, got %#v", props["direction"])
 	}
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3215,7 +2867,7 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedMCPToolRouteAppDefinitionRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": map[string]any{
 				"key":  "root",
@@ -3226,9 +2878,7 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 			},
 			"elements": map[string]any{},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
@@ -3241,6 +2891,9 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3284,7 +2937,7 @@ func TestMCPToolCallRouteUpdateAppDefinitionAcceptsTemporaryIDs(t *testing.T) {
 	}
 
 	result := mustStructuredMapForRoute(t, payload.StructuredContent)
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}
@@ -3311,6 +2964,9 @@ func TestMCPToolCallRouteCompareAndSetShowParamDisplayNames(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -3360,241 +3016,6 @@ func TestMCPToolCallRouteCompareAndSetShowParamDisplayNames(t *testing.T) {
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected ShowParamDisplayNames=true after CAS route mutation")
-	}
-}
-
-func TestMCPToolCallRouteCompareAndSetWatchCodeEnabledReturnsMutationFailed(t *testing.T) {
-	t.Parallel()
-
-	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:  t.TempDir(),
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics: diagnostics,
-	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"compare_and_set_watch_code_enabled",
-		"arguments":{
-			"projectConfigId":"project-alpha",
-			"enabled":true,
-			"expectedOldValue":true
-		},
-		"agenticContext":{
-			"projectConfigId":"project-alpha",
-			"allowUnscoped":true
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if !payload.IsError {
-		t.Fatal("expected compare_and_set_watch_code_enabled stale-precondition failure")
-	}
-	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
-	if structured["code"] != "mutation_failed" {
-		t.Fatalf("expected mutation_failed code, got %#v", structured["code"])
-	}
-}
-
-func TestMCPToolCallRouteCompareAndSetWatchCodeFolders(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
-	newFolderFile := filepath.Join(workspaceRoot, "pkg", "subdir", "added.py")
-	if err := os.MkdirAll(filepath.Dir(newFolderFile), 0o755); err != nil {
-		t.Fatalf("mkdir watch file parent: %v", err)
-	}
-	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write existing file: %v", err)
-	}
-	if err := os.WriteFile(newFolderFile, []byte("def added(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write new file: %v", err)
-	}
-
-	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	existingBaselineKey := filepath.Clean(existingFile)
-	mustSetRouteWatchCodeState(t, projectRuntime, true, nil, []string{"pkg/existing.py"}, map[string][]string{
-		existingBaselineKey: {"pkg.existing.existing:function"},
-	})
-	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:  workspaceRoot,
-		ProjectState:   projectRuntime,
-		SectionNames:   routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics: diagnostics,
-	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"compare_and_set_watch_code_folders",
-		"arguments":{
-			"projectConfigId":"project-alpha",
-			"watchCodeFolders":[{"path":"pkg/subdir","recursive":true}],
-			"expectedOldValue":[]
-		},
-		"agenticContext":{
-			"projectConfigId":"project-alpha",
-			"allowUnscoped":true
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected compare_and_set_watch_code_folders success, got %#v", payload.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after compare_and_set_watch_code_folders: %v", err)
-	}
-	if !reflect.DeepEqual(project.WatchCodeFolders, []projectstate.WatchCodeFolder{{Path: "pkg/subdir", Recursive: true}}) {
-		t.Fatalf("expected normalized watch code folders, got %#v", project.WatchCodeFolders)
-	}
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline unchanged, got %#v", project.WatchCodeBaselineByPath)
-	}
-	newBaselineKey := filepath.Clean(newFolderFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
-		t.Fatalf("expected new folder baseline, got %#v", project.WatchCodeBaselineByPath)
-	}
-}
-
-func TestMCPToolCallRouteCompareAndSetWatchCodeFilesAcceptsTemporaryIDs(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
-	newFile := filepath.Join(workspaceRoot, "pkg", "new_watch.py")
-	if err := os.MkdirAll(filepath.Dir(existingFile), 0o755); err != nil {
-		t.Fatalf("mkdir existing file parent: %v", err)
-	}
-	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write existing file: %v", err)
-	}
-	if err := os.WriteFile(newFile, []byte("class Added:\n    def __init__(self, value):\n        self.value = value\n"), 0o644); err != nil {
-		t.Fatalf("write new file: %v", err)
-	}
-
-	projectRuntime := openMCPToolRouteProjectRuntime(t)
-	existingBaselineKey := filepath.Clean(existingFile)
-	mustSetRouteWatchCodeState(t, projectRuntime, true, nil, []string{"pkg/existing.py"}, map[string][]string{
-		existingBaselineKey: {"pkg.existing.existing:function"},
-	})
-	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
-	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
-		"project-alpha": "11",
-	})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
-		WorkspaceRoot:      workspaceRoot,
-		ProjectState:       projectRuntime,
-		SectionNames:       routeSectionNameService{runtime: projectRuntime},
-		LSPDiagnostics:     diagnostics,
-		TemporaryIDMapPath: temporaryIDMapPath,
-	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
-
-	handler, err := NewHandler(Dependencies{
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
-		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Server:     server,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		t.Fatalf("new handler: %v", err)
-	}
-
-	response := postMCPToolRoute(t, handler, `{
-		"tool":"compare_and_set_watch_code_files",
-		"arguments":{
-			"projectConfigId":"11",
-			"watchCodeFiles":["pkg/existing.py","pkg/new_watch.py"],
-			"expectedOldValue":["pkg/existing.py"]
-		},
-		"agenticContext":{
-			"projectConfigId":"11",
-			"allowUnscoped":true
-		}
-	}`)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
-	if payload.IsError {
-		t.Fatalf("expected temp-id compare_and_set_watch_code_files success, got %#v", payload.StructuredContent)
-	}
-
-	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
-	if err != nil {
-		t.Fatalf("project by id after temp-id compare_and_set_watch_code_files: %v", err)
-	}
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
-		t.Fatalf("expected normalized watch code files, got %#v", project.WatchCodeFiles)
-	}
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline unchanged, got %#v", project.WatchCodeBaselineByPath)
-	}
-	newBaselineKey := filepath.Clean(newFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
-		t.Fatalf("expected new watch-file baseline, got %#v", project.WatchCodeBaselineByPath)
 	}
 }
 
@@ -6137,6 +5558,9 @@ func TestMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		ContributedToolRegistrations: appDefinitionToolRegistrationsForTest(
+			appdefinition.NewAppDefinitionService(projectRuntime, firstpartyplugin.AppSubsystemPluginID),
+		),
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -7192,37 +6616,6 @@ func mustAddRouteMetaControlSections(t *testing.T, runtime *projectstate.Runtime
 	}
 }
 
-func mustSetRouteWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
-	t.Helper()
-
-	mustSetRouteWatchCodeState(t, runtime, false, nil, files, nil)
-}
-
-func mustSetRouteWatchCodeState(
-	t *testing.T,
-	runtime *projectstate.Runtime,
-	enabled bool,
-	folders []projectstate.WatchCodeFolder,
-	files []string,
-	baseline map[string][]string,
-) {
-	t.Helper()
-
-	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		project := document.Projects["project-alpha"]
-		project.WatchCodeEnabled = enabled
-		project.WatchCodeFolders = append([]projectstate.WatchCodeFolder(nil), folders...)
-		project.WatchCodeFiles = append([]string(nil), files...)
-		project.WatchCodeBaselineByPath = cloneRouteStringSliceMap(baseline)
-		project.WatchCodeRegistry = map[string]projectstate.WatchCodeRegistryEntry{}
-		document.Projects["project-alpha"] = project
-		return document, nil
-	})
-	if err != nil {
-		t.Fatalf("seed route watch code state: %v", err)
-	}
-}
-
 func mustSetRouteCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {
 	t.Helper()
 
@@ -7245,15 +6638,4 @@ func writeRouteTemporaryIDMap(t *testing.T, path string, payload map[string]stri
 	if err := os.WriteFile(path, encoded, 0o644); err != nil {
 		t.Fatalf("write temporary id map: %v", err)
 	}
-}
-
-func cloneRouteStringSliceMap(values map[string][]string) map[string][]string {
-	if len(values) == 0 {
-		return map[string][]string{}
-	}
-	cloned := make(map[string][]string, len(values))
-	for key, current := range values {
-		cloned[key] = append([]string(nil), current...)
-	}
-	return cloned
 }

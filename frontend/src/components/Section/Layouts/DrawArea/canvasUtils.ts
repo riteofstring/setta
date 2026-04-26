@@ -1,6 +1,6 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { appendDrawAreaLayerItem } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   queueBrushStrokeForSave,
   queueTransformsForSave,

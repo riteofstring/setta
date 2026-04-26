@@ -1,9 +1,9 @@
+import { buildTextBlockTypographyScale } from "@setta/app-subsystem-frontend-sdk";
 import {
   DateDisplayFormatEnum,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { buildTextBlockTypographyScale } from "./textBlockTypography";
 import {
   formatDateForDisplay,
   formatTimeForDisplay,

@@ -31,8 +31,9 @@ const (
 )
 
 const (
-	DefaultServerHost = "127.0.0.1"
-	DefaultServerPort = 8000
+	DefaultServerHost      = "127.0.0.1"
+	DefaultServerPort      = 8000
+	DefaultDevFrontendPort = 3000
 )
 
 var (

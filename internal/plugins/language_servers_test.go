@@ -91,6 +91,53 @@ func TestServiceLanguageServerSpecsSchemaLessPluginUsesEmptySettingsMap(t *testi
 	}
 }
 
+func TestServiceLanguageServerSpecsInjectsRuntimePathsFromRegistrationMetadataForUnknownPluginID(t *testing.T) {
+	preparePluginLanguageServerFixture(t)
+	t.Setenv(pluginFixtureRuntimePathsEnv, "fixtureDslLanguageServer.analysis.extraPaths")
+
+	roots := newFilesystemResolverTestRoots(t)
+	repoRoot := workerRPCTestRepoRoot(t)
+	pluginID := "acme-fixture-language-server"
+	pluginRoot := filepath.Join(pluginScopeRoot(roots, filesystemPluginScopeWorkspace), pluginID)
+	copyBackendCodegenFixtureDir(
+		t,
+		filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend"),
+		pluginRoot,
+	)
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["id"] = pluginID
+		payload["name"] = "Acme Fixture Language Server"
+		payload["capabilities"] = []string{"registerLanguageServer"}
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	specs, err := service.LanguageServerSpecs(context.Background(), map[string]*string{
+		"fixturedsl": testStringPointer(pluginID),
+	})
+	if err != nil {
+		t.Fatalf("load unknown-id language server specs: %v", err)
+	}
+	if len(specs) != 1 {
+		t.Fatalf("expected one unknown-id language server spec, got %#v", specs)
+	}
+	if specs[0].PluginID != pluginID || specs[0].LanguageID != "fixturedsl" {
+		t.Fatalf("unexpected unknown-id language server spec %#v", specs[0])
+	}
+
+	settingsRoot, ok := specs[0].Settings["fixtureDslLanguageServer"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected fixture language-server settings root, got %#v", specs[0].Settings)
+	}
+	analysis, ok := settingsRoot["analysis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected analysis settings, got %#v", settingsRoot["analysis"])
+	}
+	extraPaths, ok := analysis["extraPaths"].([]any)
+	if !ok || len(extraPaths) != 1 || extraPaths[0] != roots.settaFilesRoot {
+		t.Fatalf("expected metadata-driven extraPaths %#v, got %#v", []any{roots.settaFilesRoot}, analysis["extraPaths"])
+	}
+}
+
 func TestServiceLanguageServerSpecsAllowsSameLanguagePluginsUntilSelectionChoosesOne(t *testing.T) {
 	preparePluginLanguageServerFixture(t)
 

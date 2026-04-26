@@ -206,7 +206,7 @@ Per-commit processing:
   - When a lane is removed, its colorId becomes available for reuse.
 
 Pagination interaction:
-- If we implement "Load more" (older commits), we have two options:
+- If we implement "Load more" (earlier commits), we have two options:
   - Recompute lanes from scratch for the entire loaded list after each page load.
   - Keep `activeLanes` state at the pagination boundary and continue incrementally (preferred once lists exceed a few thousand commits).
 
@@ -564,7 +564,7 @@ To avoid giving AI raw bash by default, add MCP tools that expose git operations
 - `mcp__setta__gitMergePreview(sourceRef, targetRef)` (runs in temp worktree)
 - `mcp__setta__gitApplyResolution(...)` (apply selected file edits to real workspace, gated)
 
-External agent profiles can then allow `mcp__setta__git*` broadly while still requiring "ask" for destructive bash patterns like `git reset`.
+External agent profiles can then allow `mcp__setta__git*` broadly while requiring "ask" for destructive bash patterns like `git reset`.
 
 ## Merge Conflict Preflight + Resolution (Core AI Workflow)
 ### Desired user flow

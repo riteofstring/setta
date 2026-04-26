@@ -77,9 +77,6 @@ export const boxToRect = ({ x, y, x2, y2 }: Box): Rect => ({
   height: y2 - y,
 });
 
-export const getBoundsOfRects = (rect1: Rect, rect2: Rect): Rect =>
-  boxToRect(getBoundsOfBoxes(rectToBox(rect1), rectToBox(rect2)));
-
 export const getOverlappingArea = (rectA: Rect, rectB: Rect): number => {
   const xOverlap = Math.max(
     0,
@@ -95,7 +92,7 @@ export const getOverlappingArea = (rectA: Rect, rectB: Rect): number => {
   return Math.ceil(xOverlap * yOverlap);
 };
 
-export const isMouseEvent = (
+const isMouseEvent = (
   event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,
 ): event is MouseEvent | ReactMouseEvent => "clientX" in event;
 
@@ -112,8 +109,3 @@ export const getEventPosition = (
     y: evtY - (bounds?.top ?? 0),
   };
 };
-
-export const getHostForElement = (
-  element: HTMLElement,
-): Document | ShadowRoot =>
-  (element.getRootNode?.() as Document | ShadowRoot) || window?.document;

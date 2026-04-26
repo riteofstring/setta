@@ -30,6 +30,9 @@ type BackendRequestContext struct {
 	SessionID       string      `json:"sessionId,omitempty"`
 	ShareSessionID  string      `json:"shareSessionId,omitempty"`
 	ProjectConfigID string      `json:"projectConfigId,omitempty"`
+	WorkspaceRoot   string      `json:"workspaceRoot,omitempty"`
+	SettaFilesRoot  string      `json:"settaFilesRoot,omitempty"`
+	RuntimeRoot     string      `json:"runtimeRoot,omitempty"`
 }
 
 type BackendHTTPRequest struct {
@@ -49,6 +52,7 @@ type BackendHTTPResponse struct {
 
 type BackendListenerEndpointRequest struct {
 	Context      BackendRequestContext `json:"context"`
+	PluginID     string                `json:"-"`
 	EndpointName string                `json:"endpointName"`
 	Payload      map[string]any        `json:"payload"`
 }
@@ -120,19 +124,44 @@ type backendRuntimeCodegenFile struct {
 }
 
 type backendRuntimeUISettingRequest struct {
-	HandlerID       string `json:"handlerId"`
-	Operation       string `json:"operation"`
-	ProjectConfigID string `json:"projectConfigId"`
-	Value           any    `json:"value,omitempty"`
+	Context         BackendRequestContext `json:"context"`
+	HandlerID       string                `json:"handlerId"`
+	Operation       string                `json:"operation"`
+	ProjectConfigID string                `json:"projectConfigId"`
+	Value           any                   `json:"value,omitempty"`
 }
 
 type backendRuntimeUISettingResponse struct {
-	Value json.RawMessage `json:"value,omitempty"`
+	Value json.RawMessage              `json:"value,omitempty"`
+	Error *backendRuntimeResponseError `json:"error,omitempty"`
 }
 
 type backendRuntimeResponseError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Details map[string]any `json:"details,omitempty"`
+}
+
+type BackendRuntimeError struct {
+	Code    string
+	Message string
+	Details map[string]any
+}
+
+func (e *BackendRuntimeError) Error() string {
+	if e == nil {
+		return ""
+	}
+	code := strings.TrimSpace(e.Code)
+	message := strings.TrimSpace(e.Message)
+	switch {
+	case code == "":
+		return message
+	case message == "":
+		return code
+	default:
+		return code + ": " + message
+	}
 }
 
 type backendRouteMatch struct {
@@ -206,7 +235,7 @@ func (s *Service) DispatchRegisteredBackendRoute(
 		*match.Entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
 		BackendHTTPRequest{
-			Context:  request.Context,
+			Context:  s.enrichBackendRequestContext(request.Context),
 			Method:   match.Method,
 			Path:     request.Path,
 			RawQuery: request.RawQuery,
@@ -236,7 +265,7 @@ func (s *Service) InvokeRegisteredListenerEndpoint(
 		return nil, false, err
 	}
 
-	match, ok, err := findRegisteredListenerEndpointMatch(snapshot.Plugins, request.EndpointName)
+	match, ok, err := findRegisteredListenerEndpointMatch(snapshot.Plugins, request)
 	if err != nil {
 		return nil, true, err
 	}
@@ -249,7 +278,11 @@ func (s *Service) InvokeRegisteredListenerEndpoint(
 		match.Entry.SourcePath,
 		*match.Entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
-		request,
+		BackendListenerEndpointRequest{
+			Context:      s.enrichBackendRequestContext(request.Context),
+			EndpointName: request.EndpointName,
+			Payload:      cloneBackendPayload(request.Payload),
+		},
 	)
 	if err != nil {
 		return nil, true, err
@@ -306,6 +339,7 @@ func (s *Service) ReadBackendUISettingValue(ctx context.Context, options Backend
 		*entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
 		backendRuntimeUISettingRequest{
+			Context:         s.backendUISettingRequestContext(options.ProjectConfigID),
 			HandlerID:       strings.TrimSpace(options.HandlerID),
 			Operation:       "read",
 			ProjectConfigID: strings.TrimSpace(options.ProjectConfigID),
@@ -337,6 +371,7 @@ func (s *Service) WriteBackendUISettingValue(ctx context.Context, options Backen
 		*entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
 		backendRuntimeUISettingRequest{
+			Context:         s.backendUISettingRequestContext(options.ProjectConfigID),
 			HandlerID:       strings.TrimSpace(options.HandlerID),
 			Operation:       "write",
 			ProjectConfigID: strings.TrimSpace(options.ProjectConfigID),
@@ -459,47 +494,100 @@ func firstRegisteredBackendRouteMethod(route PluginRegisteredBackendRoute, metho
 	return "", false
 }
 
-func findRegisteredListenerEndpointMatch(entries []DiscoveredPlugin, endpointName string) (backendListenerEndpointMatch, bool, error) {
-	normalizedName := strings.TrimSpace(endpointName)
+func findRegisteredListenerEndpointMatch(
+	entries []DiscoveredPlugin,
+	request BackendListenerEndpointRequest,
+) (backendListenerEndpointMatch, bool, error) {
+	normalizedName := strings.TrimSpace(request.EndpointName)
 	if normalizedName == "" {
 		return backendListenerEndpointMatch{}, false, fmt.Errorf("listener endpoint name is required")
 	}
+	normalizedPluginID := strings.TrimSpace(request.PluginID)
 
 	var match backendListenerEndpointMatch
 	found := false
 	for _, entry := range entries {
-		if entry.Manifest == nil {
+		endpoint, ok := findListenerEndpointInEntry(
+			entry,
+			normalizedPluginID,
+			normalizedName,
+		)
+		if !ok {
 			continue
 		}
-		if entry.State != PluginRuntimeStateActive && entry.State != PluginRuntimeStatePendingRestart {
-			continue
-		}
-		if !containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
-			continue
-		}
-
-		for _, endpoint := range entry.RegisteredListenerEndpoints {
-			if endpoint.Name != normalizedName {
-				continue
+		if !found {
+			match = backendListenerEndpointMatch{
+				Entry:    entry,
+				Endpoint: endpoint,
 			}
-			if !found {
-				match = backendListenerEndpointMatch{
-					Entry:    entry,
-					Endpoint: endpoint,
-				}
-				found = true
-				break
-			}
-			return backendListenerEndpointMatch{}, false, newServiceError(
-				ServiceErrorCodeBackendRuntimeInvalid,
-				"Conflicting plugin listener endpoint registration for %s: %s and %s",
-				normalizedName,
-				match.Entry.PluginID,
-				entry.PluginID,
-			)
+			found = true
+			continue
 		}
+		return backendListenerEndpointMatch{}, false, newServiceError(
+			ServiceErrorCodeBackendRuntimeInvalid,
+			"Conflicting plugin listener endpoint registration for %s: %s and %s",
+			normalizedName,
+			match.Entry.PluginID,
+			entry.PluginID,
+		)
 	}
 	return match, found, nil
+}
+
+func findListenerEndpointInEntry(
+	entry DiscoveredPlugin,
+	normalizedPluginID string,
+	normalizedName string,
+) (PluginRegisteredListenerEndpoint, bool) {
+	if !listenerEndpointEntryEligible(entry, normalizedPluginID) {
+		return PluginRegisteredListenerEndpoint{}, false
+	}
+	endpoints := listenerEndpointsForRequest(entry, normalizedPluginID != "")
+	for _, endpoint := range endpoints {
+		if endpoint.Name == normalizedName {
+			return endpoint, true
+		}
+	}
+	return PluginRegisteredListenerEndpoint{}, false
+}
+
+func listenerEndpointEntryEligible(entry DiscoveredPlugin, normalizedPluginID string) bool {
+	if entry.Manifest == nil {
+		return false
+	}
+	if normalizedPluginID != "" && entry.PluginID != normalizedPluginID {
+		return false
+	}
+	switch entry.State {
+	case PluginRuntimeStateActive, PluginRuntimeStatePendingRestart:
+		return true
+	default:
+		return false
+	}
+}
+
+func listenerEndpointsForRequest(
+	entry DiscoveredPlugin,
+	pluginScoped bool,
+) []PluginRegisteredListenerEndpoint {
+	if !pluginScoped {
+		if !containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
+			return nil
+		}
+		return entry.RegisteredListenerEndpoints
+	}
+	endpoints := make(
+		[]PluginRegisteredListenerEndpoint,
+		0,
+		len(entry.RegisteredListenerEndpoints)+len(entry.appSubsystemListenerEndpoints),
+	)
+	if containsString(entry.EffectiveCapabilities, "registerListenerEndpoint") {
+		endpoints = append(endpoints, entry.RegisteredListenerEndpoints...)
+	}
+	if containsString(entry.EffectiveCapabilities, "registerAppSubsystemBackend") {
+		endpoints = append(endpoints, entry.appSubsystemListenerEndpoints...)
+	}
+	return endpoints
 }
 
 func invokeGoBackendHTTP(
@@ -587,17 +675,31 @@ func invokeGoBackendListenerEndpoint(
 		)
 	}
 	if response.Listener.Error != nil {
-		message := strings.TrimSpace(response.Listener.Error.Message)
-		if message == "" {
-			message = "plugin listener endpoint failed"
-		}
-		code := strings.TrimSpace(response.Listener.Error.Code)
-		if code == "" {
-			return nil, fmt.Errorf("%s", message)
-		}
-		return nil, fmt.Errorf("%s: %s", code, message)
+		return nil, backendRuntimeResponseErrorToError(response.Listener.Error, "plugin listener endpoint failed")
 	}
 	return response.Listener.Result, nil
+}
+
+func (s *Service) enrichBackendRequestContext(
+	requestContext BackendRequestContext,
+) BackendRequestContext {
+	if s == nil || s.store == nil {
+		return requestContext
+	}
+	if strings.TrimSpace(string(requestContext.ServerMode)) == "" {
+		requestContext.ServerMode = s.serverMode()
+	}
+	requestContext.WorkspaceRoot = s.store.workspaceRoot
+	requestContext.SettaFilesRoot = s.store.settaFilesRoot
+	requestContext.RuntimeRoot = s.store.settaHome
+	return requestContext
+}
+
+func (s *Service) backendUISettingRequestContext(projectConfigID string) BackendRequestContext {
+	return s.enrichBackendRequestContext(BackendRequestContext{
+		ServerMode:      s.serverMode(),
+		ProjectConfigID: strings.TrimSpace(projectConfigID),
+	})
 }
 
 func invokeGoBackendCodegenTarget(
@@ -645,6 +747,7 @@ func invokeGoBackendUISetting(
 		SchemaVersion: backendRuntimeSchemaVersion,
 		Kind:          backendRuntimeKindUISetting,
 		UISetting: &backendRuntimeUISettingRequest{
+			Context:         request.Context,
 			HandlerID:       strings.TrimSpace(request.HandlerID),
 			Operation:       strings.TrimSpace(request.Operation),
 			ProjectConfigID: strings.TrimSpace(request.ProjectConfigID),
@@ -662,6 +765,9 @@ func invokeGoBackendUISetting(
 			"Invalid backend runtime response for plugin %s: missing ui setting response payload",
 			manifest.ID,
 		)
+	}
+	if response.UISetting.Error != nil {
+		return nil, backendRuntimeResponseErrorToError(response.UISetting.Error, "plugin ui setting handler failed")
 	}
 	if strings.TrimSpace(request.Operation) == "write" {
 		return nil, nil
@@ -684,6 +790,25 @@ func invokeGoBackendUISetting(
 		)
 	}
 	return value, nil
+}
+
+func backendRuntimeResponseErrorToError(responseError *backendRuntimeResponseError, fallbackMessage string) error {
+	if responseError == nil {
+		return nil
+	}
+	message := strings.TrimSpace(responseError.Message)
+	if message == "" {
+		message = fallbackMessage
+	}
+	code := strings.TrimSpace(responseError.Code)
+	if code == "" {
+		return fmt.Errorf("%s", message)
+	}
+	return &BackendRuntimeError{
+		Code:    code,
+		Message: message,
+		Details: cloneBackendPayload(responseError.Details),
+	}
 }
 
 func invokeGoBackendRuntime(
