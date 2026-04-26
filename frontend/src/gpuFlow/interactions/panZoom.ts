@@ -14,7 +14,7 @@ import {
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
 
-export type GpuPanOnScrollMode =
+type GpuPanOnScrollMode =
   (typeof PanOnScrollModeEnum)[keyof typeof PanOnScrollModeEnum];
 
 export type GpuPanZoomControllerOptions = {
@@ -33,7 +33,7 @@ export type GpuPanZoomControllerOptions = {
   readonly zoomOnScroll?: boolean | undefined;
 };
 
-export type GpuPanZoomWheelDelta = {
+type GpuPanZoomWheelDelta = {
   readonly deltaX: number;
   readonly deltaY: number;
 };

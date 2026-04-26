@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   fitView,
   flowToScreenPosition,
+  getViewport,
+  getZoom,
   panBy,
   resetZoom,
   screenToFlowPosition,
@@ -11,6 +13,8 @@ import {
   setViewport,
   updateMapPosition,
   zoomAtScreenPoint,
+  zoomBy,
+  zoomTo,
 } from "./viewportActions";
 import { createGpuFlowViewportStore } from "./viewportStore";
 
@@ -59,6 +63,19 @@ describe("gpu viewport actions", () => {
     expect(store.getState().transform).toEqual([200, 70, 2]);
     expect(resetZoom({ store })).toBe(true);
     expect(store.getState().transform[2]).toBe(0.75);
+  });
+
+  it("exposes direct zoom aliases and viewport readers", () => {
+    const store = createGpuFlowViewportStore({
+      maxZoom: 4,
+      minZoom: 0.25,
+      transform: [10, 20, 1],
+    });
+
+    expect(zoomBy(2, { store })).toBe(true);
+    expect(getZoom({ store })).toBe(2);
+    expect(zoomTo(0.5, { store })).toBe(true);
+    expect(getViewport({ store })).toEqual({ x: 5, y: 10, zoom: 0.5 });
   });
 
   it("fits bounds with the same center contract as the existing viewport", () => {

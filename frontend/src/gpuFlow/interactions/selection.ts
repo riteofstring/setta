@@ -13,12 +13,12 @@ import {
   type GpuUserSelectionRect,
 } from "../viewportStore";
 
-export type GpuSelectionMode =
+type GpuSelectionMode =
   (typeof SelectionModeEnum)[keyof typeof SelectionModeEnum];
 
-export type GpuSelectionPhase = "start" | "change" | "end" | "cancel";
+type GpuSelectionPhase = "start" | "change" | "end" | "cancel";
 
-export type GpuSelectionChange = {
+type GpuSelectionChange = {
   readonly active: boolean;
   readonly phase: GpuSelectionPhase;
   readonly rect: GpuUserSelectionRect | null;

@@ -4,8 +4,6 @@ import type { EdgeHandleRecord } from "state/definitions";
 import { useEdgeHandleRegistry } from "state/definitions";
 import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 
-export { makeEdgeHandleKey };
-
 function getHandleCenter(element: HTMLElement) {
   const rect = element.getBoundingClientRect();
   return {

@@ -36,7 +36,7 @@ export type NodeTextureRecord = {
   readonly zoomBucket: number;
 };
 
-export type RegisterNodeTextureInput = {
+type RegisterNodeTextureInput = {
   readonly cssHeight: number;
   readonly cssWidth: number;
   readonly devicePixelRatio: number;
@@ -47,7 +47,7 @@ export type RegisterNodeTextureInput = {
   readonly zoom: number;
 };
 
-export type MarkNodeTextureDirtyInput = Pick<
+type MarkNodeTextureDirtyInput = Pick<
   DirtyNodeMark,
   "content" | "frame" | "priority" | "reason" | "resolution"
 > & {
@@ -62,14 +62,14 @@ export type UploadDirtyNodeTexturesOptions = {
   readonly now?: (() => number) | undefined;
 };
 
-export type UploadDirtyNodeTexturesResult = {
+type UploadDirtyNodeTexturesResult = {
   readonly budgetExhausted: boolean;
   readonly remainingDirtyNodeIds: readonly string[];
   readonly skippedNodeIds: readonly string[];
   readonly uploaded: readonly NodeTextureRecord[];
 };
 
-export type NodeTextureManagerOptions = {
+type NodeTextureManagerOptions = {
   readonly canvas?: HtmlInCanvasCanvas | undefined;
   readonly format?: GPUTextureFormat | undefined;
   readonly maxTextureDimension2D?: number | undefined;

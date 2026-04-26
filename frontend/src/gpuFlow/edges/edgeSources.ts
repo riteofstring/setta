@@ -100,7 +100,7 @@ type GpuWorkflowEdgeEntriesInput = {
   readonly topLevelSections: TopLevelSections;
 };
 
-export type BuildGpuEdgeSceneInput = {
+type BuildGpuEdgeSceneInput = {
   readonly agenticEdges?: readonly AgenticEdge[] | undefined;
   readonly connectionLine?: GpuConnectionLineSource | null | undefined;
   readonly dataEdges?: readonly Edge[] | undefined;

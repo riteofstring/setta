@@ -6,7 +6,7 @@ import {
 } from "./nodeDirtyEvents";
 import type { NodeTextureManager } from "./nodeTextures";
 
-export type GpuNodeInteractionFrameResult = {
+type GpuNodeInteractionFrameResult = {
   readonly budgetExhausted: boolean;
   readonly remainingDirtyNodeIds: readonly string[];
   readonly uploadedNodeIds: readonly string[];
@@ -25,7 +25,7 @@ export type GpuNodeInteractionDirtyController = {
   getOverlayNodeId(): string | null;
 };
 
-export type GpuNodeInteractionDirtyControllerOptions = {
+type GpuNodeInteractionDirtyControllerOptions = {
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly getFrame: () => number;
   readonly onStateChange?:

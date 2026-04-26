@@ -77,9 +77,6 @@ export const boxToRect = ({ x, y, x2, y2 }: Box): Rect => ({
   height: y2 - y,
 });
 
-export const getBoundsOfRects = (rect1: Rect, rect2: Rect): Rect =>
-  boxToRect(getBoundsOfBoxes(rectToBox(rect1), rectToBox(rect2)));
-
 export const getOverlappingArea = (rectA: Rect, rectB: Rect): number => {
   const xOverlap = Math.max(
     0,

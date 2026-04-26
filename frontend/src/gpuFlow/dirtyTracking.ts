@@ -96,17 +96,6 @@ export class DirtyNodeQueue {
   }
 }
 
-export function compareDirtyNodeStates(
-  left: DirtyNodeState,
-  right: DirtyNodeState,
-): number {
-  return (
-    comparePriority(left.priority, right.priority) ||
-    compareDirtyKind(left, right) ||
-    left.sequence - right.sequence
-  );
-}
-
 function compareMutableDirtyNodeStates(
   left: MutableDirtyNodeState,
   right: MutableDirtyNodeState,

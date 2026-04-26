@@ -4,7 +4,7 @@ import type {
   HtmlInCanvasCanvas,
 } from "./htmlInCanvasTypes";
 
-export type GpuFlowSupportFailure =
+type GpuFlowSupportFailure =
   | "layout-subtree-missing"
   | "request-paint-missing"
   | "paint-event-missing"
@@ -118,7 +118,7 @@ export function assertHtmlInCanvasSupport(
   return canvas as HtmlInCanvasCanvas;
 }
 
-export function configureGpuCanvas(
+function configureGpuCanvas(
   canvas: HtmlInCanvasCanvas,
   device: GPUDevice,
   gpu: GPU,

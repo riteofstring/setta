@@ -13,7 +13,7 @@ import {
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
 
-export type GpuEdgeInteractionHit = {
+type GpuEdgeInteractionHit = {
   readonly distance: number;
   readonly edgeId: string;
   readonly family: GpuEdgeFamily;
@@ -30,7 +30,7 @@ export type GpuEdgeInteractionEvent<
   readonly nativeEvent: NativeEvent;
 };
 
-export type GpuEdgeInteractionHoverEvent = {
+type GpuEdgeInteractionHoverEvent = {
   readonly hit: GpuEdgeInteractionHit | null;
   readonly nativeEvent: PointerEvent;
 };

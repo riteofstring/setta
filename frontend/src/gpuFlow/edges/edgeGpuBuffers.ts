@@ -9,7 +9,7 @@ export type GpuEdgeBufferInput = {
   readonly zIndex?: number | undefined;
 };
 
-export type GpuEdgeBufferSegmentRange = {
+type GpuEdgeBufferSegmentRange = {
   readonly edgeId: string;
   readonly vertexCount: number;
   readonly vertexOffset: number;

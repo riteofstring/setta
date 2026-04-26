@@ -67,7 +67,7 @@ import {
   type GpuUserSelectionRect,
 } from "./viewportStore";
 
-export type GpuFlowProps = Pick<
+type GpuFlowProps = Pick<
   GpuSurfaceProps,
   "deviceOptions" | "onFrame" | "onPaint" | "onReady" | "onResize"
 > & {

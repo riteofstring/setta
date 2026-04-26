@@ -8,9 +8,9 @@ import {
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
 
-export type GpuNodeDragPhase = "start" | "drag" | "stop" | "cancel";
+type GpuNodeDragPhase = "start" | "drag" | "stop" | "cancel";
 
-export type GpuNodeDragItem = {
+type GpuNodeDragItem = {
   readonly distance: GpuPoint;
   readonly height: number | null;
   readonly nodeId: string;
@@ -18,7 +18,7 @@ export type GpuNodeDragItem = {
   readonly width: number | null;
 };
 
-export type GpuNodeDragChange = {
+type GpuNodeDragChange = {
   readonly active: boolean;
   readonly delta: GpuPoint;
   readonly items: readonly GpuNodeDragItem[];
@@ -26,7 +26,7 @@ export type GpuNodeDragChange = {
   readonly phase: GpuNodeDragPhase;
 };
 
-export type GpuNodeDragAutoPanInsets = {
+type GpuNodeDragAutoPanInsets = {
   readonly bottom?: number | undefined;
   readonly left?: number | undefined;
   readonly right?: number | undefined;

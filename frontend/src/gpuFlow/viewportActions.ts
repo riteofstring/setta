@@ -18,30 +18,30 @@ import {
   type GpuFlowViewportStoreApi,
 } from "./viewportStore";
 
-export type GpuViewportActionOptions = {
+type GpuViewportActionOptions = {
   readonly store?: GpuFlowViewportStoreApi | undefined;
 };
 
-export type SetGpuViewportOptions = GpuViewportActionOptions & {
+type SetGpuViewportOptions = GpuViewportActionOptions & {
   readonly duration?: number | undefined;
 };
 
-export type GpuZoomActionOptions = SetGpuViewportOptions & {
+type GpuZoomActionOptions = SetGpuViewportOptions & {
   readonly point?: GpuPoint | undefined;
 };
 
-export type GpuSetCenterOptions = SetGpuViewportOptions & {
+type GpuSetCenterOptions = SetGpuViewportOptions & {
   readonly zoom?: number | undefined;
 };
 
-export type GpuFitViewOptions = SetGpuViewportOptions & {
+type GpuFitViewOptions = SetGpuViewportOptions & {
   readonly bounds: GpuRect;
   readonly keepCurrentZoomIfPossible?: boolean | undefined;
   readonly overviewWidth?: number | undefined;
   readonly padding?: number | undefined;
 };
 
-export function setGpuViewport(
+function setGpuViewport(
   viewport: Partial<GpuViewport>,
   options: SetGpuViewportOptions = {},
 ): boolean {
@@ -102,14 +102,14 @@ export function zoomGpuViewportByFactor(
   );
 }
 
-export function zoomGpuViewportTo(
+function zoomGpuViewportTo(
   zoom: number,
   options: GpuZoomActionOptions = {},
 ): boolean {
   return zoomGpuViewportAt(zoom, options);
 }
 
-export function setGpuViewportCenter(
+function setGpuViewportCenter(
   x: number,
   y: number,
   options: GpuSetCenterOptions = {},
@@ -128,7 +128,7 @@ export function setGpuViewportCenter(
   );
 }
 
-export function fitGpuViewport(options: GpuFitViewOptions): boolean {
+function fitGpuViewport(options: GpuFitViewOptions): boolean {
   assertNoViewportTransition(options.duration);
   const store = resolveViewportStore(options.store);
   const state = store.getState();
@@ -146,7 +146,7 @@ export function fitGpuViewport(options: GpuFitViewOptions): boolean {
   );
 }
 
-export function screenToGpuFlowPosition(
+function screenToGpuFlowPosition(
   point: GpuPoint,
   options: GpuViewportActionOptions & {
     readonly ignoreDomNode?: boolean | undefined;
@@ -159,7 +159,7 @@ export function screenToGpuFlowPosition(
   return screenPointToFlowPosition(relativePoint, store.getState().transform);
 }
 
-export function flowToGpuScreenPosition(
+function flowToGpuScreenPosition(
   point: GpuPoint,
   options: GpuViewportActionOptions = {},
 ): GpuPoint {
@@ -167,24 +167,22 @@ export function flowToGpuScreenPosition(
   return flowPointToScreenPosition(point, store.getState().transform);
 }
 
-export function getGpuViewport(
-  options: GpuViewportActionOptions = {},
-): GpuViewport {
+function getGpuViewport(options: GpuViewportActionOptions = {}): GpuViewport {
   return normalizeGpuViewport(
     resolveViewportStore(options.store).getState().transform,
   );
 }
 
-export function getGpuZoom(options: GpuViewportActionOptions = {}): number {
+function getGpuZoom(options: GpuViewportActionOptions = {}): number {
   return getGpuViewport(options).zoom;
 }
 
-export function resetGpuZoom(options: SetGpuViewportOptions = {}): boolean {
+function resetGpuZoom(options: SetGpuViewportOptions = {}): boolean {
   const store = resolveViewportStore(options.store);
   return zoomGpuViewportAt(store.getState().defaultZoom, options);
 }
 
-export function updateGpuMapPosition(
+function updateGpuMapPosition(
   widthDiff: number,
   options: SetGpuViewportOptions = {},
 ): boolean {

@@ -30,7 +30,7 @@ export type GpuNodeLayout = {
   readonly zIndex?: number | undefined;
 };
 
-export type GpuVisibleNodeQuad = {
+type GpuVisibleNodeQuad = {
   readonly height: number;
   readonly nodeId: string;
   readonly width: number;
@@ -53,7 +53,7 @@ export type GpuNodeLayerProps = {
   readonly renderNode: (node: GpuNodeLayout) => ReactNode;
 };
 
-export type CollectVisibleGpuNodeQuadsInput = {
+type CollectVisibleGpuNodeQuadsInput = {
   readonly canvasHeight: number;
   readonly canvasWidth: number;
   readonly forceVisibleNodeIds?:
@@ -65,12 +65,12 @@ export type CollectVisibleGpuNodeQuadsInput = {
   readonly viewport: GpuViewportInput;
 };
 
-export type BuildTexturedGpuNodeQuadsResult = {
+type BuildTexturedGpuNodeQuadsResult = {
   readonly missingTextureNodeIds: readonly string[];
   readonly texturedQuads: readonly GpuTexturedNodeQuad[];
 };
 
-export type SyncGpuNodeDomTransformsInput = {
+type SyncGpuNodeDomTransformsInput = {
   readonly activeNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   readonly elementByNodeId:
     | ReadonlyMap<string, HTMLElement>
@@ -88,7 +88,7 @@ export type GpuNodeUploadBudget = Pick<
   "maxDurationMs" | "maxUploads" | "now"
 >;
 
-export type GpuNodeTextureController = Pick<
+type GpuNodeTextureController = Pick<
   NodeTextureManager,
   | "getNodeTexture"
   | "markNodeTextureDirty"
@@ -96,11 +96,11 @@ export type GpuNodeTextureController = Pick<
   | "uploadDirtyNodeTextures"
 >;
 
-export type GpuNodeQuadRenderTarget = {
+type GpuNodeQuadRenderTarget = {
   render(input: RenderNodeTextureQuadsInput): RenderNodeTextureQuadsResult;
 };
 
-export type RenderGpuNodeLayerFrameInput = {
+type RenderGpuNodeLayerFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
@@ -135,7 +135,7 @@ export type RenderGpuNodeLayerFrameResult = {
   readonly visibleNodeIds: readonly string[];
 };
 
-export type MarkGpuNodeLayerPaintDirtyInput = {
+type MarkGpuNodeLayerPaintDirtyInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly fallbackNodeIds?:
@@ -451,7 +451,7 @@ export function syncGpuNodeDomTransforms({
   }
 }
 
-export function applyVisibleNodeDomTransform(
+function applyVisibleNodeDomTransform(
   element: HTMLElement,
   {
     interactive,
@@ -485,7 +485,7 @@ export function applyVisibleNodeDomTransform(
   );
 }
 
-export function applyCulledNodeDomTransform(
+function applyCulledNodeDomTransform(
   element: HTMLElement,
   offscreenX = DEFAULT_OFFSCREEN_POSITION,
   offscreenY = DEFAULT_OFFSCREEN_POSITION,

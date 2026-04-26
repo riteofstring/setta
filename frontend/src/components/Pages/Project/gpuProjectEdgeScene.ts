@@ -4,7 +4,6 @@ import {
   buildGpuEdgeScene,
   type GpuAgenticMissingEdgeSource,
   type GpuConnectionLineSource,
-  type GpuEdgeFamily,
   type GpuEdgeNodeFrame,
   type GpuEdgeScene,
 } from "gpuFlow/edges/edgeSources";
@@ -179,20 +178,6 @@ export function selectProjectGpuEdge({
   }
 }
 
-export function buildProjectGpuEdgeClickHandler({
-  canEditStructure,
-}: {
-  readonly canEditStructure: boolean;
-}): (event: GpuEdgeInteractionEvent<PointerEvent>) => void {
-  return (event) => {
-    selectProjectGpuEdge({
-      canEditStructure,
-      event,
-      multiSelect: useReactFlow.getState().multiSelectionActive,
-    });
-  };
-}
-
 function buildGpuEdgeNodeFrames(
   nodeInternals: NodeInternals,
 ): ReadonlyMap<string, GpuEdgeNodeFrame> {
@@ -294,10 +279,4 @@ function shouldShowConnectionLineForHandle({
     return showAgenticEdges;
   }
   return showDataEdges;
-}
-
-export function isSelectableProjectGpuEdgeFamily(
-  family: GpuEdgeFamily,
-): boolean {
-  return family === "data" || family === "agentic" || family === "workflow";
 }

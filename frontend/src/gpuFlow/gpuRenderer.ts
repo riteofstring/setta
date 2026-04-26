@@ -20,7 +20,7 @@ export type GpuFrameScheduler = {
   requestFrame(reason?: GpuFrameReason): void;
 };
 
-export type GpuFrameSchedulerOptions = {
+type GpuFrameSchedulerOptions = {
   cancelAnimationFrame?: (handle: number) => void;
   onFrame(event: GpuFrameEvent): void;
   requestAnimationFrame?: (callback: FrameRequestCallback) => number;
@@ -34,7 +34,7 @@ export type GpuCanvasSize = {
   readonly pixelWidth: number;
 };
 
-export type GpuCanvasResizeObserverOptions = {
+type GpuCanvasResizeObserverOptions = {
   ResizeObserver?: typeof ResizeObserver;
   devicePixelRatio?: number;
   notifyUnchanged?: boolean;

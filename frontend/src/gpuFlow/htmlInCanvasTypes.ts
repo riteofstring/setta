@@ -4,7 +4,7 @@ export type HtmlInCanvasPaintEvent = Event & {
   readonly changedElements?: readonly Element[];
 };
 
-export type HtmlInCanvasPaintHandler = (
+type HtmlInCanvasPaintHandler = (
   this: HTMLCanvasElement,
   event: HtmlInCanvasPaintEvent,
 ) => void;

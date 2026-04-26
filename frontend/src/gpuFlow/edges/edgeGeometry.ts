@@ -1,22 +1,15 @@
 import { type GpuPoint, type GpuRect } from "../viewportMath";
 
-export const GPU_EDGE_SIDES = {
-  bottom: "bottom",
-  left: "left",
-  right: "right",
-  top: "top",
-} as const;
+export type GpuEdgeSide = "bottom" | "left" | "right" | "top";
 
-export type GpuEdgeSide = (typeof GPU_EDGE_SIDES)[keyof typeof GPU_EDGE_SIDES];
+type GpuEdgeKind = "bezier" | "straight";
 
-export type GpuEdgeKind = "bezier" | "straight";
-
-export type GpuEdgeLabelGeometry = GpuPoint & {
+type GpuEdgeLabelGeometry = GpuPoint & {
   readonly offsetX: number;
   readonly offsetY: number;
 };
 
-export type GpuStraightEdgeGeometry = {
+type GpuStraightEdgeGeometry = {
   readonly bounds: GpuRect;
   readonly edgeId: string;
   readonly kind: "straight";
@@ -25,7 +18,7 @@ export type GpuStraightEdgeGeometry = {
   readonly target: GpuPoint;
 };
 
-export type GpuBezierEdgeGeometry = {
+type GpuBezierEdgeGeometry = {
   readonly bounds: GpuRect;
   readonly curvature: number;
   readonly edgeId: string;
@@ -41,7 +34,7 @@ export type GpuBezierEdgeGeometry = {
 
 export type GpuEdgeGeometry = GpuBezierEdgeGeometry | GpuStraightEdgeGeometry;
 
-export type GpuEdgeGeometryInput = {
+type GpuEdgeGeometryInput = {
   readonly curvature?: number | undefined;
   readonly edgeId: string;
   readonly source: GpuPoint;
@@ -147,7 +140,7 @@ export function getGpuBezierEdgeGeometry({
   };
 }
 
-export function getGpuBezierControlPoint({
+function getGpuBezierControlPoint({
   curvature,
   point,
   side,
