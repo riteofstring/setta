@@ -115,6 +115,10 @@ Verification:
 - Record each browser check in the iteration response as `CDP visual check: done (...)`, including
   which `ai.sh`/`aireset.sh` command was used and which interaction was exercised. If the check cannot
   run, record the concrete blocker instead of silently deferring it.
+- Before finishing each iteration, stop every long-running app, browser, MCP, watcher, or dev-server
+  process that the iteration started. If the iteration started `./ai.sh` or `./aireset.sh`, stop that
+  session with `./kill.sh` before the final response and before leaving the worktree for the outer loop.
+  Do not stop an app/browser session that was already running and merely reused; note that it was reused.
 - Finish with ./check_quality.sh unless a concrete environment blocker is recorded. Record visual,
   performance, or browser-API blockers in the locations called out by the plan.
 

@@ -474,6 +474,9 @@ Execution rules for every iteration:
 - If Go-owned contracts, generator inputs, Python SDK contracts, or frontend generation inputs change, regenerate affected outputs before cleanup.
 - Run focused verification for the behavior you changed.
 - Before every commit, run the repository-required cleanup and quality checks from the plan or AGENTS.md.
+- Before ending the iteration, stop every long-running process you started, including app sessions,
+  browser sessions, browser MCP helpers, dev servers, watchers, and recorders. Do not stop a
+  pre-existing developer-started session that you only reused; record that it was reused instead.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`${commit_prefix}\`.
 - If you make no repo changes, leave the repo clean and advance ${checklist_file} and/or ${audit_file} meaningfully for the next audited step.
 - If an attempt fails or leaves invalid worktree state, the outer loop may reset the repo to HEAD and retry from the most recent clean commit.
