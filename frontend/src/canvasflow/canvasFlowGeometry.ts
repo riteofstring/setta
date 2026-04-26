@@ -4,6 +4,9 @@ import type {
   CanvasFlowNodeDrawRecord,
 } from "./canvasFlowTypes";
 
+const FALLBACK_NODE_WIDTH = 500;
+const FALLBACK_NODE_HEIGHT = 150;
+
 export function getNodeDrawDimensions(
   node: Pick<CanvasFlowNode, "width" | "height">,
   element?: HTMLElement,
@@ -31,6 +34,15 @@ export function getNodeDrawRecord(
     width: dimensions.width,
     height: dimensions.height,
     zIndex: node.tempZIndex ?? node.zIndex,
+  };
+}
+
+export function getNodeCullingRect(node: CanvasFlowNode): Rect {
+  return {
+    x: node.position.x,
+    y: node.position.y,
+    width: node.width ?? FALLBACK_NODE_WIDTH,
+    height: node.height ?? FALLBACK_NODE_HEIGHT,
   };
 }
 
@@ -73,4 +85,22 @@ export function getVisibleNodeDrawRecords({
   }
   visible.sort((left, right) => left.zIndex - right.zIndex);
   return visible;
+}
+
+export function getMountedNodeIds({
+  nodes,
+  visibleRect,
+}: {
+  nodes: CanvasFlowNode[];
+  visibleRect: Rect;
+}): string[] {
+  const mounted: Array<{ id: string; zIndex: number }> = [];
+  for (const node of nodes) {
+    if (!rectsOverlap(getNodeCullingRect(node), visibleRect)) {
+      continue;
+    }
+    mounted.push({ id: node.id, zIndex: node.tempZIndex ?? node.zIndex });
+  }
+  mounted.sort((left, right) => left.zIndex - right.zIndex);
+  return mounted.map((node) => node.id);
 }

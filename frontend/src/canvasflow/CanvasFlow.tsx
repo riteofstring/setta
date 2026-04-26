@@ -391,6 +391,10 @@ function CanvasFlow() {
     >
       <CanvasFlowCanvas
         {...interactionHandlers}
+        canvasCssSize={{
+          cssHeight: canvasCssSize.height,
+          cssWidth: canvasCssSize.width,
+        }}
         canvasRef={canvasRef}
         nodeElementsRef={nodeElementsRef}
         resizeObserver={resizeObserver}

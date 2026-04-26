@@ -7,6 +7,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   type CSSProperties,
   type MutableRefObject,
@@ -16,13 +17,27 @@ import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { shallow } from "zustand/shallow";
+import { getMountedNodeIds } from "./canvasFlowGeometry";
 import type {
   CanvasFlowNodeElementMap,
+  CanvasFlowSize,
   CanvasFlowViewport,
 } from "./canvasFlowTypes";
+import {
+  expandWorldRect,
+  getVisibleWorldRect,
+  transformToCanvasFlowViewport,
+} from "./canvasFlowViewport";
 import { useCanvasFlowNodeDrag } from "./useCanvasFlowNodeDrag";
 
+const NODE_MOUNT_OVERSCAN_WORLD = 2400;
+const FALLBACK_CANVAS_CSS_SIZE = {
+  cssHeight: 900,
+  cssWidth: 1400,
+};
+
 type CanvasFlowNodeLayerProps = {
+  canvasCssSize: Pick<CanvasFlowSize, "cssHeight" | "cssWidth">;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
@@ -40,16 +55,29 @@ type CanvasFlowNodeWrapperProps = {
 };
 
 function CanvasFlowNodeLayer({
+  canvasCssSize,
   canvasRef,
   nodeElementsRef,
   resizeObserver,
   schedulePaint,
   viewportRef,
 }: CanvasFlowNodeLayerProps) {
-  const nodeIds = useNodeInternals(
-    (state) => Array.from(state.x.keys()),
+  const nodes = useNodeInternals(
+    (state) => Array.from(state.x.values()),
     shallow,
   );
+  const transform = useReactFlow((state) => state.transform, shallow);
+  const nodeIds = useMemo(() => {
+    const size = getEffectiveCanvasCssSize(canvasCssSize);
+    const viewport = transformToCanvasFlowViewport(transform);
+    return getMountedNodeIds({
+      nodes,
+      visibleRect: expandWorldRect(
+        getVisibleWorldRect(size, viewport),
+        NODE_MOUNT_OVERSCAN_WORLD,
+      ),
+    });
+  }, [canvasCssSize, nodes, transform]);
 
   useEffect(() => {
     schedulePaint();
@@ -70,6 +98,21 @@ function CanvasFlowNodeLayer({
       ))}
     </>
   );
+}
+
+function getEffectiveCanvasCssSize(
+  size: Pick<CanvasFlowSize, "cssHeight" | "cssWidth">,
+) {
+  if (size.cssWidth > 0 && size.cssHeight > 0) {
+    return size;
+  }
+  if (typeof window !== "undefined") {
+    return {
+      cssHeight: window.innerHeight || FALLBACK_CANVAS_CSS_SIZE.cssHeight,
+      cssWidth: window.innerWidth || FALLBACK_CANVAS_CSS_SIZE.cssWidth,
+    };
+  }
+  return FALLBACK_CANVAS_CSS_SIZE;
 }
 
 function _CanvasFlowNodeWrapper({

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getMountedNodeIds,
   getNodeDrawRecord,
   getVisibleNodeDrawRecords,
   rectsOverlap,
@@ -58,6 +59,21 @@ describe("canvasFlowGeometry", () => {
         nodeElements: new Map(),
         visibleRect: { x: 25, y: 25, width: 150, height: 150 },
       }).map((record) => record.id),
+    ).toEqual(["back", "front"]);
+  });
+
+  it("selects mounted nodes using fallback dimensions before measurement", () => {
+    const nodes = [
+      node("front", 0, 0, null, null, 5),
+      node("back", 450, 0, null, null, 1),
+      node("outside", 1000, 0, null, null, 0),
+    ];
+
+    expect(
+      getMountedNodeIds({
+        nodes,
+        visibleRect: { x: 0, y: 0, width: 600, height: 200 },
+      }),
     ).toEqual(["back", "front"]);
   });
 });

@@ -129,8 +129,8 @@ export function paintCanvasFlow({
   const stats = {
     visibleNodeCount: visibleNodes.length,
     drawnNodeCount,
-    registeredNodeCount: nodeElements.size,
-    mountedNodeCount: nodes.length,
+    registeredNodeCount: nodes.length,
+    mountedNodeCount: nodeElements.size,
     drawElementImageMs,
     transformAssignmentMs,
     totalPaintMs: performance.now() - paintStart,
@@ -239,6 +239,9 @@ function writePaintStats(
   stats: CanvasFlowPaintStats,
   viewport: CanvasFlowViewport,
 ) {
+  canvas.dataset.paintSequence = String(
+    Number.parseInt(canvas.dataset.paintSequence ?? "0", 10) + 1,
+  );
   canvas.dataset.visibleNodes = String(stats.visibleNodeCount);
   canvas.dataset.drawnNodes = String(stats.drawnNodeCount);
   canvas.dataset.registeredNodes = String(stats.registeredNodeCount);
