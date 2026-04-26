@@ -502,7 +502,9 @@ def test_minimal_distribution_project_uses_packaged_runtime_modules(
     ).exists()
 
 
-def test_pyproject_defaults_extra_installs_first_party_plugins() -> None:
+def test_pyproject_defaults_extra_installs_first_party_language_server_plugin() -> (
+    None
+):
     pyproject = tomllib.loads(
         (_repo_root() / "pyproject.toml").read_text(encoding="utf-8")
     )
@@ -510,7 +512,6 @@ def test_pyproject_defaults_extra_installs_first_party_plugins() -> None:
     optional_dependencies = pyproject["project"]["optional-dependencies"]
     assert optional_dependencies["defaults"] == [
         "setta-basedpyright==0.1.0",
-        "setta-watch-code==0.1.0",
     ]
 
 
@@ -1501,7 +1502,6 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     assert "Provides-Extra: defaults" in metadata
     assert defaults_requires == {
         "Requires-Dist: setta-basedpyright==0.1.0; extra == 'defaults'",
-        "Requires-Dist: setta-watch-code==0.1.0; extra == 'defaults'",
     }
 
     assert "Requires-Dist: click==8.2.1" not in default_requires

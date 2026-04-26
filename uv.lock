@@ -1313,7 +1313,6 @@ dependencies = [
 [package.optional-dependencies]
 defaults = [
     { name = "setta-basedpyright" },
-    { name = "setta-watch-code" },
 ]
 dev = [
     { name = "build" },
@@ -1355,7 +1354,6 @@ requires-dist = [
     { name = "requests", marker = "extra == 'source'", specifier = "==2.32.4" },
     { name = "ruff", specifier = "==0.12.12" },
     { name = "setta-basedpyright", marker = "extra == 'defaults'", directory = "plugins/setta-basedpyright" },
-    { name = "setta-watch-code", marker = "extra == 'defaults'", directory = "plugins/setta-watch-code" },
     { name = "twine", marker = "extra == 'dev'", specifier = "==6.1.0" },
     { name = "ty", marker = "extra == 'dev'", specifier = "==0.0.29" },
     { name = "vulture", marker = "extra == 'dev'", specifier = "==2.14" },
@@ -1375,17 +1373,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "basedpyright", specifier = "==1.25.0" }]
-
-[[package]]
-name = "setta-watch-code"
-version = "0.1.0"
-source = { directory = "plugins/setta-watch-code" }
-dependencies = [
-    { name = "setta" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "setta", specifier = "==0.0.18" }]
 
 [[package]]
 name = "sortedcontainers"

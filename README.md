@@ -49,7 +49,7 @@ Common commands:
 - `./verify_install.sh`
 
 `./dev_install.sh` also creates the repo Python environment used for package
-tooling, tests, and the first-party defaults plugins. Activate it when you need
+tooling, tests, and the first-party defaults plugin. Activate it when you need
 direct Python/package commands:
 
 ```sh
@@ -60,8 +60,8 @@ source activate.sh
 
 On a fresh workspace, the repo-local defaults install profile bootstraps
 `setta-basedpyright` as the selected Python language server when that
-first-party plugin is available. Watch Code is provided by the enabled-by-default
-`setta-watch-code` plugin. See
+first-party plugin is available. Watch Code is available through the optional
+first-party `setta-watch-code` plugin. See
 [`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md).
 
 ## Packaging boundary

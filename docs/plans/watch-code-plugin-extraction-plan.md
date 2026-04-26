@@ -717,8 +717,8 @@ Update packaging:
 - installed wheel root does not require repo source files
 - source checkout remains free of tracked `plugins/setta-watch-code/frontend/dist/**`
   files after packaging tests
-- default Setta extra includes `setta-watch-code==<version>` if the product
-  default remains enabled
+- default Setta extra does not include `setta-watch-code==<version>` unless the
+  product default is intentionally re-enabled
 
 Tests:
 
