@@ -47,12 +47,10 @@ export const APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS: AppSubsystemCustom
     name: option.label,
   }));
 
-export const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE =
-  AppSubsystemChatUIConfig.defaultCustomSlashCommandMode;
-
 if (
   !APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS.some(
-    (option) => option.id === DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
+    (option) =>
+      option.id === AppSubsystemChatUIConfig.defaultCustomSlashCommandMode,
   )
 ) {
   throw new Error(

@@ -127,7 +127,7 @@ export function applyAppDefinitionStructuredContentToStore(
   return true;
 }
 
-function clearAppSpecPatchStream(toolCallId: string): void {
+export function clearAppSpecPatchStream(toolCallId: string): void {
   if (!toolCallId) {
     return;
   }
@@ -137,6 +137,3 @@ function clearAppSpecPatchStream(toolCallId: string): void {
 export function clearAllAppSpecPatchStreams(): void {
   streamByToolCallId.clear();
 }
-
-export const clearAppSpecPatchPreviewStream = clearAppSpecPatchStream;
-export const clearAllAppSpecPatchPreviewStreams = clearAllAppSpecPatchStreams;

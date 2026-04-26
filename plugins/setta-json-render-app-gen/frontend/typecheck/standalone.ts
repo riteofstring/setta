@@ -7,11 +7,11 @@ import { runCode, uploadBinary } from "@setta/app-subsystem-frontend-sdk";
 import {
   APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
   buildAppGenerationSlashCommandDefinitions,
-  DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
 } from "../src/appSubsystemChatUi";
+import { AppSubsystemChatUIConfig } from "../src/appSubsystemContracts";
 import {
   applyAppDefinitionStructuredContentToStore,
-  clearAllAppSpecPatchPreviewStreams,
+  clearAllAppSpecPatchStreams,
 } from "../src/appSubsystemPreviewController";
 import {
   getRegisteredAppSubsystemPluginId,
@@ -24,7 +24,7 @@ const registration: AppSubsystemFrontendRegistration = {
     imageRequiredModes: [],
     customSlashCommandModes: {
       options: APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
-      defaultMode: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
+      defaultMode: AppSubsystemChatUIConfig.defaultCustomSlashCommandMode,
     },
   },
 };
@@ -38,6 +38,6 @@ void binary;
 void runCode;
 void uploadBinary;
 void applyAppDefinitionStructuredContentToStore({ appSpec: null });
-clearAllAppSpecPatchPreviewStreams();
+clearAllAppSpecPatchStreams();
 void getRegisteredAppSubsystemPluginId();
 resetRegisteredAppSubsystemPluginHost();

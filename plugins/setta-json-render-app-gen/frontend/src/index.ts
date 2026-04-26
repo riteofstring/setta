@@ -10,14 +10,14 @@ import { AppConfigPane } from "./components/Panes/Overview/App/AppConfigPane";
 import {
   APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
   buildAppGenerationSlashCommandDefinitions,
-  DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
   doesAppSubsystemModeRequireImageAttachment,
 } from "./appSubsystemChatUi";
+import { AppSubsystemChatUIConfig } from "./appSubsystemContracts";
 import {
   applyAppDefinitionStructuredContentToStore,
   applyAppSpecPatchPreviewDeltaToStore,
-  clearAllAppSpecPatchPreviewStreams,
-  clearAppSpecPatchPreviewStream,
+  clearAllAppSpecPatchStreams,
+  clearAppSpecPatchStream,
 } from "./appSubsystemPreviewController";
 import { useAppConfigs, useAppPreview } from "./appSubsystemProjectState";
 import {
@@ -62,7 +62,7 @@ export const appSubsystemFrontendRegistration: AppSubsystemFrontendRegistration 
         ).map((option) => option.id),
       customSlashCommandModes: {
         options: APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
-        defaultMode: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
+        defaultMode: AppSubsystemChatUIConfig.defaultCustomSlashCommandMode,
       },
     },
     controller: {
@@ -81,8 +81,8 @@ export const appSubsystemFrontendRegistration: AppSubsystemFrontendRegistration 
       },
       applyAppDefinitionStructuredContentToStore,
       applyAppSpecPatchPreviewDeltaToStore,
-      clearAppSpecPatchPreviewStream,
-      clearAllAppSpecPatchPreviewStreams,
+      clearAppSpecPatchPreviewStream: clearAppSpecPatchStream,
+      clearAllAppSpecPatchPreviewStreams: clearAllAppSpecPatchStreams,
       initializeAppSessionFromCurrentDeployment: (host, options) =>
         runWithAppSubsystemFrontendHostRuntime(host, () =>
           initializeAppSessionFromCurrentDeployment(host, options),
@@ -92,7 +92,7 @@ export const appSubsystemFrontendRegistration: AppSubsystemFrontendRegistration 
       },
       processAppProjectStateUpdateFromBackend,
       resetProjectState: () => {
-        clearAllAppSpecPatchPreviewStreams();
+        clearAllAppSpecPatchStreams();
         useAppConfigs.getState().reset?.();
         useAppPreview.getState().reset?.();
       },

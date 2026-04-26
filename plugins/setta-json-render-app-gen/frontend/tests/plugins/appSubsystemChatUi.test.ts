@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS,
   buildAppGenerationSlashCommandDefinitions,
-  DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE,
   doesAppSubsystemModeRequireImageAttachment,
   getAppGenerationSlashCommandByAction,
   resolveAppGenerationModeForSlashAction,
 } from "../../src/appSubsystemChatUi";
+import { AppSubsystemChatUIConfig } from "../../src/appSubsystemContracts";
 
 describe("appSubsystemChatUi", () => {
   it("defines fixed built-in app generation slash commands with unique tokens", () => {
@@ -91,7 +91,9 @@ describe("appSubsystemChatUi", () => {
   });
 
   it("keeps plain chat as the default custom slash mode while exposing plugin-owned app modes", () => {
-    expect(DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE).toBe("plain_chat");
+    expect(AppSubsystemChatUIConfig.defaultCustomSlashCommandMode).toBe(
+      "plain_chat",
+    );
     expect(APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS).toEqual([
       { id: "plain_chat", name: "Plain chat" },
       { id: "json_render", name: "JSON Render" },
