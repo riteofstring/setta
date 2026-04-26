@@ -418,7 +418,7 @@ async function seedProjectChatWindowThreads(
       setChatSectionChatId,
       setProjectChatWindowChatId,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     const { useAIStore, useProjectState } = await import(
       "/src/state/definitions.ts"
     );
@@ -625,7 +625,7 @@ async function clearProjectChatWindowingState(
       setProjectChatWindowChatId,
       setProjectChatWindowingState,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     const { useProjectState } = await import("/src/state/definitions.ts");
     const { ChatWindowModeEnum } = await import("/src/utils/generatedTypes.ts");
     const { createProjectChatWindowingState } = await import(
@@ -4601,7 +4601,7 @@ test.describe.serial("standalone project surface routes", () => {
           chatId: string;
         }) => {
           const { setChatSectionChatId } = await import("/src/openapi/http");
-          const { callOpenAPI } = await import("/src/openapi/http/result");
+          const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
           await callOpenAPI(
             setChatSectionChatId({
               body: {

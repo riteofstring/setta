@@ -19,6 +19,32 @@ const pluginFrontendRoot = resolve(
   "setta-json-render-app-gen",
   "frontend",
 );
+const deletedHostAppSubsystemShimPaths = [
+  "src/openapi/http/requestRebuild.ts",
+  "src/openapi/http/result.ts",
+  "src/utils/attachmentPolicy.ts",
+  "src/utils/attachments.ts",
+  "src/utils/bindingRuntime.ts",
+  "src/utils/c_addresses.ts",
+  "src/utils/deploymentPolicies.ts",
+  "src/utils/dropzone.ts",
+  "src/utils/endpointUtils.ts",
+  "src/utils/hostnames.ts",
+  "src/utils/idNameCreation.ts",
+  "src/utils/launcherOrigin.ts",
+  "src/utils/origin.ts",
+  "src/utils/projectStateSelectors.ts",
+  "src/utils/runCapabilities.ts",
+  "src/utils/serverModeBoundaryPolicy.ts",
+  "src/utils/serverModeCapabilities.ts",
+  "src/utils/storage.ts",
+  "src/utils/textBlockTypography.ts",
+] as const;
+const deletedHostAppSubsystemShimReferenceSnippets =
+  deletedHostAppSubsystemShimPaths.flatMap((relativePath) => [
+    relativePath,
+    relativePath.replace(/\.ts$/, ""),
+  ]);
 
 function readPluginFrontendFile(relativePath: string): string {
   return readFileSync(resolve(pluginFrontendRoot, relativePath), "utf8");
@@ -166,27 +192,7 @@ describe("app plugin frontend build boundary guardrails", () => {
   });
 
   it("rejects host app-subsystem compatibility re-export shims", () => {
-    for (const relativePath of [
-      "src/openapi/http/requestRebuild.ts",
-      "src/openapi/http/result.ts",
-      "src/utils/attachmentPolicy.ts",
-      "src/utils/attachments.ts",
-      "src/utils/bindingRuntime.ts",
-      "src/utils/c_addresses.ts",
-      "src/utils/deploymentPolicies.ts",
-      "src/utils/dropzone.ts",
-      "src/utils/endpointUtils.ts",
-      "src/utils/hostnames.ts",
-      "src/utils/idNameCreation.ts",
-      "src/utils/launcherOrigin.ts",
-      "src/utils/origin.ts",
-      "src/utils/projectStateSelectors.ts",
-      "src/utils/runCapabilities.ts",
-      "src/utils/serverModeBoundaryPolicy.ts",
-      "src/utils/serverModeCapabilities.ts",
-      "src/utils/storage.ts",
-      "src/utils/textBlockTypography.ts",
-    ]) {
+    for (const relativePath of deletedHostAppSubsystemShimPaths) {
       expect(existsSync(resolve(repoRoot, "frontend", relativePath))).toBe(
         false,
       );
@@ -196,6 +202,47 @@ describe("app plugin frontend build boundary guardrails", () => {
     expect(sdkAddresses).toContain("type AddressResolverConfig");
     expect(sdkAddresses).toContain("backendOriginOverrideStorageKey");
     expect(sdkAddresses).toContain("launcherOriginStorageKey");
+  });
+
+  it("rejects stale browser and docs references to deleted host shims", () => {
+    const scanRoots = [
+      {
+        root: resolve(repoRoot, "frontend/tests/e2e"),
+        label: "frontend/tests/e2e",
+        extensions: [".ts", ".tsx"],
+      },
+      {
+        root: resolve(repoRoot, "docs"),
+        label: "docs",
+        extensions: [".md"],
+      },
+    ];
+    const violations: string[] = [];
+
+    for (const scanRoot of scanRoots) {
+      for (const relativePath of listRelativeFiles(scanRoot.root)) {
+        if (
+          !scanRoot.extensions.some((extension) =>
+            relativePath.endsWith(extension),
+          )
+        ) {
+          continue;
+        }
+        const content = readFileSync(
+          resolve(scanRoot.root, relativePath),
+          "utf8",
+        );
+        for (const forbiddenPath of deletedHostAppSubsystemShimReferenceSnippets) {
+          if (content.includes(forbiddenPath)) {
+            violations.push(
+              `${scanRoot.label}/${relativePath}: ${forbiddenPath}`,
+            );
+          }
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
   });
 
   it("publishes standalone SDK types instead of source-file types", () => {

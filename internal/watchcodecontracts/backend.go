@@ -102,8 +102,12 @@ func ParseBackendRoutePath(path string) (string, string, bool) {
 	if !ok {
 		return "", "", false
 	}
-	pluginID, suffix, ok := strings.Cut(rest, BackendRouteBasePath+"/")
-	if !ok || strings.TrimSpace(pluginID) == "" || !IsBackendRouteSuffix(suffix) {
+	pluginID, routePath, ok := strings.Cut(rest, "/")
+	if !ok || strings.TrimSpace(pluginID) == "" || strings.TrimSpace(pluginID) != pluginID {
+		return "", "", false
+	}
+	suffix, ok := strings.CutPrefix("/"+routePath, BackendRouteBasePath+"/")
+	if !ok || !IsBackendRouteSuffix(suffix) {
 		return "", "", false
 	}
 	return pluginID, suffix, true

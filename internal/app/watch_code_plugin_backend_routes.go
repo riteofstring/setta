@@ -58,11 +58,14 @@ func (h watchCodeBackendRouteHost) intercept(
 	if !ok {
 		return plugins.BackendHTTPResponse{}, false, nil
 	}
+	providerPluginID, providerActive := h.activeProviderPluginID()
+	if !providerActive || providerPluginID != pluginID {
+		return plugins.BackendHTTPResponse{}, false, nil
+	}
 	if strings.ToUpper(strings.TrimSpace(request.Method)) != http.MethodPost {
 		return watchCodeBackendErrorResponse(http.StatusMethodNotAllowed, watchcodecontracts.BackendErrorMethodNotAllowed, "Method not allowed.", nil), true, nil
 	}
-	providerPluginID, providerActive := h.activeProviderPluginID()
-	if h.projectState == nil || !providerActive || providerPluginID != pluginID {
+	if h.projectState == nil {
 		return watchCodeBackendErrorResponse(http.StatusConflict, watchcodecontracts.BackendErrorProviderRequired, projectstate.ErrWatchCodeProviderPluginIDRequired.Error(), nil), true, nil
 	}
 	if h.workspaceRoot == "" {
@@ -90,10 +93,7 @@ func (h *watchCodeBackendRouteHost) readUISettingValue(
 	if !watchcodecontracts.IsBackendReadHandlerID(handlerID) {
 		return nil, false, nil
 	}
-	if h == nil || h.projectState == nil || h.workspaceRoot == "" {
-		return nil, true, projectstate.ErrRuntimeClosed
-	}
-	projectData, _, err := h.projectState.Snapshot().Document.WatchCodePluginProjectData(providerPluginID, options.ProjectConfigID)
+	projectData, err := h.readWatchCodeUISettingProjectData(providerPluginID, options.ProjectConfigID)
 	if err != nil {
 		return nil, true, err
 	}
@@ -108,6 +108,22 @@ func (h *watchCodeBackendRouteHost) readUISettingValue(
 	default:
 		return nil, false, nil
 	}
+}
+
+func (h *watchCodeBackendRouteHost) readWatchCodeUISettingProjectData(
+	providerPluginID string,
+	projectConfigID string,
+) (projectstate.WatchCodePluginProjectData, error) {
+	if h == nil || h.projectState == nil || h.workspaceRoot == "" {
+		return projectstate.WatchCodePluginProjectData{}, projectstate.ErrRuntimeClosed
+	}
+	document := h.projectState.Snapshot().Document
+	project, err := document.ProjectByID(projectConfigID)
+	if err != nil {
+		return projectstate.WatchCodePluginProjectData{}, err
+	}
+	projectData, _, err := document.WatchCodePluginProjectData(providerPluginID, project.ID)
+	return projectData, err
 }
 
 func (h *watchCodeBackendRouteHost) writeUISettingValue(

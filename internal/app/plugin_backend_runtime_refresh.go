@@ -1030,29 +1030,32 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 			transition.nextWatchCodeCapabilities,
 		),
 	); err != nil {
-		capabilities.rollback()
 		return committedSnapshot, errors.Join(
 			err,
-			r.rollbackRefreshTransitionLocked(transition),
+			r.rollbackCommittedRefreshTransitionLocked(
+				transition,
+				capabilities,
+				previousRefreshState,
+			),
 		)
 	}
 	if err := r.refreshAppHandlerLocked(); err != nil {
-		capabilities.rollback()
-		rollbackErr := r.rollbackRefreshTransitionLocked(transition)
-		restoreErr := r.service.RestoreBackendRuntimeRefreshState(
+		rollbackErr := r.rollbackCommittedRefreshTransitionLocked(
+			transition,
+			capabilities,
 			previousRefreshState,
 		)
-		return committedSnapshot, errors.Join(err, rollbackErr, restoreErr)
+		return committedSnapshot, errors.Join(err, rollbackErr)
 	}
 	if err := r.reconcileWatchCodeServiceLocked(context.Background()); err != nil {
-		capabilities.rollback()
-		restoreHandlerErr := r.refreshAppHandlerLocked()
-		restoreWatchErr := r.reconcileWatchCodeServiceLocked(context.Background())
-		rollbackErr := r.rollbackRefreshTransitionLocked(transition)
-		restoreErr := r.service.RestoreBackendRuntimeRefreshState(
+		rollbackErr := r.rollbackCommittedRefreshTransitionLocked(
+			transition,
+			capabilities,
 			previousRefreshState,
 		)
-		return committedSnapshot, errors.Join(err, restoreHandlerErr, restoreWatchErr, rollbackErr, restoreErr)
+		restoreHandlerErr := r.refreshAppHandlerLocked()
+		restoreWatchErr := r.reconcileWatchCodeServiceLocked(context.Background())
+		return committedSnapshot, errors.Join(err, rollbackErr, restoreHandlerErr, restoreWatchErr)
 	}
 
 	r.lspSpecs = cloneLanguageServerSpecs(transition.nextLSPSpecs)
@@ -1060,6 +1063,17 @@ func (r *pluginBackendRuntimeRefresher) commitRefreshTransitionLocked(
 	r.pendingLanguageServerSelectionPluginIDs = nil
 	closePluginBackendRuntime(transition.previousRuntime)
 	return committedSnapshot, nil
+}
+
+func (r *pluginBackendRuntimeRefresher) rollbackCommittedRefreshTransitionLocked(
+	transition *pluginBackendRefreshTransition,
+	capabilities pluginFeatureCapabilityRefreshState,
+	previousRefreshState plugins.BackendRuntimeRefreshState,
+) error {
+	capabilities.rollback()
+	rollbackErr := r.rollbackRefreshTransitionLocked(transition)
+	restoreErr := r.service.RestoreBackendRuntimeRefreshState(previousRefreshState)
+	return errors.Join(rollbackErr, restoreErr)
 }
 
 func (r *pluginBackendRuntimeRefresher) rollbackRefreshTransitionLocked(
