@@ -1,0 +1,66 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+frontend/test-results/
+frontend/tests/e2e/.storageState.json
+
+# production
+*/dist
+*/build
+
+# misc
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+setta.db
+setta-settings*.json
+setta-meta-settings.json
+
+__pycache__/
+*.py[cod]
+.nfs*
+build/
+dist/
+# Local workspace plugin fixture links from scripts/plugin-fixtures/*.sh
+.setta_plugins/setta-fixture-*
+*.egg-info/
+site/
+venv/
+setta_code/
+.DS_Store
+.mypy_cache/
+.dmypy.json
+backend/setta/frontend
+setta_files/
+setta_files_dev/
+tests.log
+tests-backend.log
+tests-frontend.log
+backend.log
+chrome_mcp_backend.log
+frontend.log
+gcf.log
+auth.json
+mcp-tools.json
+docs/temporary/
+backend/setta/go_bin/
+backend/setta/vendor/node/
+.tools/
+.claude
+tmp/
+/.gocache/
+/reports/deadcode/
