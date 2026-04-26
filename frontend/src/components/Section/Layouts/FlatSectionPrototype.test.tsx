@@ -208,6 +208,11 @@ describe("FlatSectionPrototype", () => {
     expect(flatSectionPrototypeCss).toContain("--flat-divider");
     expect(flatSectionPrototypeCss).toContain("--flat-chrome-bg");
     expect(flatSectionPrototypeCss).toContain("font-weight: 700;");
+    expect(flatSectionPrototypeCss).toContain(
+      '.flat-section-prototype[data-flat-section-kind="callable"]',
+    );
+    expect(flatSectionPrototypeCss).toContain("min-height: 2.625rem;");
+    expect(flatSectionPrototypeCss).toContain("font-size: 13px;");
   });
 
   it("keeps the callable prototype markup lean and row-oriented", () => {
@@ -306,7 +311,7 @@ describe("FlatSectionPrototype", () => {
     expect(spanCount).toBe(iconGlyphCount);
   });
 
-  it("renders list root child controls, selected view mode, and nested child layout", () => {
+  it("renders list root child controls and nested child layout without task-board language", () => {
     const markup = renderToStaticMarkup(<FlatListRootSectionPrototype />);
 
     expect(markup).toContain('data-flat-section-kind="list-root"');
@@ -324,15 +329,15 @@ describe("FlatSectionPrototype", () => {
     );
     expect(markup).toContain("Default child");
     expect(markup).toContain('data-flat-list-root-view-mode="default"');
-    expect(markup).toContain('data-flat-list-root-view-option="default"');
-    expect(markup).toContain('data-flat-list-root-view-option="task_list"');
-    expect(markup).toContain('data-flat-list-root-view-option="kanban"');
-    expect(markup).toContain("Default Stack");
-    expect(markup).toContain("Task List");
-    expect(markup).toContain("Kanban Board");
-    expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain('data-flat-list-root-children="default-stack"');
+    expect(markup).toContain('data-flat-list-root-layout="stacked-children"');
     expect(markup).not.toContain('data-flat-list-root-children="kanban"');
+    expect(markup).not.toContain('data-flat-list-root-view-option="task_list"');
+    expect(markup).not.toContain('data-flat-list-root-view-option="kanban"');
+    expect(markup).not.toContain("Task List");
+    expect(markup).not.toContain("Kanban Board");
+    expect(markup).not.toContain('data-flat-task-board="true"');
+    expect(markup).not.toContain('data-flat-task-board-kanban="true"');
     expect(markup).toContain('data-flat-list-root-sortable-child="true"');
     expect(markup).toContain('data-flat-list-root-child-type="Callable"');
     expect(markup).toContain('data-flat-list-root-child-type="TextBlock"');

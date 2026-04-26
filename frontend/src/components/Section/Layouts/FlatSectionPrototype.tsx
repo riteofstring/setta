@@ -8,7 +8,6 @@ import {
   ChatDictationModeEnum,
   ChatPermissionModeEnum,
   ChatRoleEnum,
-  ChildDefaultsUIConfig,
   CodeFileAccessModeEnum,
   CodeLanguageEnum,
   CodeObjTypeEnum,
@@ -2479,26 +2478,10 @@ function FlatListRootBody() {
       </section>
 
       <section
-        aria-label="List root view mode"
-        className="flat-section-prototype__list-root-modes"
-      >
-        {ChildDefaultsUIConfig.listRootViewModeOptions.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={option.value === selectedViewMode}
-            className="flat-section-prototype__list-root-mode"
-            data-flat-list-root-view-option={option.value}
-          >
-            {option.label}
-          </button>
-        ))}
-      </section>
-
-      <section
         aria-label="Nested child sections"
         className="flat-section-prototype__list-root-children"
         data-flat-list-root-children="default-stack"
+        data-flat-list-root-layout="stacked-children"
       >
         <ol className="flat-section-prototype__list-root-child-list">
           {LIST_ROOT_CHILDREN.map((child) => (

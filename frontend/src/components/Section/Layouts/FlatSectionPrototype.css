@@ -632,6 +632,15 @@
   border-color: var(--flat-focus);
 }
 
+.flat-section-prototype[data-flat-section-kind="callable"]
+  .flat-section-prototype__callable-target {
+  min-height: 2.625rem;
+  background: var(--flat-shell-bg);
+  color: var(--flat-title);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .flat-section-prototype__action-bar {
   box-sizing: border-box;
   display: flex;
