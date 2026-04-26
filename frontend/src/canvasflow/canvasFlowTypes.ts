@@ -36,6 +36,9 @@ export type CanvasFlowNodeDrawRecord = {
 export type CanvasFlowPaintStats = {
   edgeCount: number;
   edgeDrawMs: number;
+  snapshotCacheHitCount: number;
+  snapshotCacheMissCount: number;
+  snapshotCaptureMs: number;
   visibleNodeCount: number;
   drawnNodeCount: number;
   registeredNodeCount: number;
@@ -46,9 +49,15 @@ export type CanvasFlowPaintStats = {
   totalPaintMs: number;
 };
 
+export type CanvasFlowElementImage = {
+  close: () => void;
+  height: number;
+  width: number;
+};
+
 export type CanvasFlowRenderingContext = CanvasRenderingContext2D & {
   drawElementImage: (
-    element: Element,
+    element: Element | CanvasFlowElementImage,
     x: number,
     y: number,
     width?: number,
@@ -57,6 +66,7 @@ export type CanvasFlowRenderingContext = CanvasRenderingContext2D & {
 };
 
 export type CanvasFlowCanvasElement = HTMLCanvasElement & {
+  captureElementImage?: (element: Element) => CanvasFlowElementImage;
   requestPaint: () => void;
 };
 

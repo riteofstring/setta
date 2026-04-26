@@ -129,6 +129,90 @@ describe("paintCanvasFlow", () => {
     expect(ctx.drawElementImage).toHaveBeenCalled();
     expect(element.style.transform).toBe("");
   });
+
+  it("can reuse captured element images for the snapshot-cache perf variant", () => {
+    const { canvas, ctx, element } = createPaintHarness();
+    (
+      window as { __settaCanvasFlowPerfVariant?: string }
+    ).__settaCanvasFlowPerfVariant = "snapshot-cache";
+    const image = createElementImage();
+    const captureElementImage = vi.fn(() => image);
+    (
+      canvas as HTMLCanvasElement & {
+        captureElementImage: (element: Element) => typeof image;
+      }
+    ).captureElementImage = captureElementImage;
+
+    const firstStats = paintCanvasFlow(
+      createPaintParams({ canvas, ctx, element }),
+    );
+    const secondStats = paintCanvasFlow(
+      createPaintParams({ canvas, ctx, element }),
+    );
+
+    expect(captureElementImage).toHaveBeenCalledTimes(1);
+    expect(ctx.drawElementImage).toHaveBeenNthCalledWith(
+      1,
+      image,
+      0,
+      0,
+      100,
+      100,
+    );
+    expect(ctx.drawElementImage).toHaveBeenNthCalledWith(
+      2,
+      image,
+      0,
+      0,
+      100,
+      100,
+    );
+    expect(firstStats.snapshotCacheMissCount).toBe(1);
+    expect(firstStats.snapshotCacheHitCount).toBe(0);
+    expect(secondStats.snapshotCacheMissCount).toBe(0);
+    expect(secondStats.snapshotCacheHitCount).toBe(1);
+  });
+
+  it("invalidates cached element images for changed node ids", () => {
+    const { canvas, ctx, element } = createPaintHarness();
+    (
+      window as { __settaCanvasFlowPerfVariant?: string }
+    ).__settaCanvasFlowPerfVariant = "snapshot-cache";
+    const firstImage = createElementImage();
+    const secondImage = createElementImage();
+    const captureElementImage = vi
+      .fn()
+      .mockReturnValueOnce(firstImage)
+      .mockReturnValueOnce(secondImage);
+    (
+      canvas as HTMLCanvasElement & {
+        captureElementImage: (element: Element) => typeof firstImage;
+      }
+    ).captureElementImage = captureElementImage;
+
+    paintCanvasFlow(createPaintParams({ canvas, ctx, element }));
+    const stats = paintCanvasFlow(
+      createPaintParams({
+        canvas,
+        changedNodeIds: new Set(["node-1"]),
+        ctx,
+        element,
+      }),
+    );
+
+    expect(firstImage.close).toHaveBeenCalledTimes(1);
+    expect(captureElementImage).toHaveBeenCalledTimes(2);
+    expect(ctx.drawElementImage).toHaveBeenNthCalledWith(
+      2,
+      secondImage,
+      0,
+      0,
+      100,
+      100,
+    );
+    expect(stats.snapshotCacheMissCount).toBe(1);
+    expect(stats.snapshotCacheHitCount).toBe(0);
+  });
 });
 
 function createPaintHarness() {
@@ -142,6 +226,7 @@ function createPaintHarness() {
 
 function createPaintParams({
   canvas,
+  changedNodeIds,
   ctx,
   edge,
   element,
@@ -149,6 +234,7 @@ function createPaintParams({
   viewport = { x: 0, y: 0, zoom: 1 },
 }: {
   canvas: HTMLCanvasElement;
+  changedNodeIds?: ReadonlySet<string>;
   ctx: CanvasFlowRenderingContext;
   element: HTMLElement;
   edge?: boolean;
@@ -163,6 +249,7 @@ function createPaintParams({
 }) {
   return {
     canvas,
+    changedNodeIds,
     connectionState: {
       connectionPosition: { x: 0, y: 0 },
       connectionStartHandle: null,
@@ -219,6 +306,14 @@ function createContext(): CanvasFlowRenderingContext {
     strokeRect: vi.fn(),
     translate: vi.fn(),
   } as unknown as CanvasFlowRenderingContext;
+}
+
+function createElementImage() {
+  return {
+    close: vi.fn(),
+    height: 100,
+    width: 100,
+  };
 }
 
 function createTestEdge() {

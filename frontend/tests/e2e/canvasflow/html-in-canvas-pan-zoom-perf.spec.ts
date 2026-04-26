@@ -19,13 +19,17 @@ const NODE_GAP_X = 340;
 const NODE_GAP_Y = 190;
 const CREATE_CHUNK_SIZE = 100;
 const DEFAULT_START_VIEWPORT = { x: 80, y: 80, zoom: 1 };
-const ISOLATION_VARIANTS = [
+const DEFAULT_ISOLATION_VARIANTS = [
   "default",
   "no-edges",
   "rect-nodes",
   "skip-transform",
   "minimap-off",
   "resize-observer-off",
+] as const;
+const CANVAS_FLOW_PERF_VARIANTS = [
+  ...DEFAULT_ISOLATION_VARIANTS,
+  "snapshot-cache",
 ] as const;
 const PERF_TARGETS = ["seeded-textblocks", "settings-all"] as const;
 const TRACE_CATEGORIES = [
@@ -44,6 +48,9 @@ type CanvasStats = {
   mountedNodes: number;
   paintSequence: number;
   registeredNodes: number;
+  snapshotCacheHits: number;
+  snapshotCacheMisses: number;
+  snapshotCaptureMs: number;
   totalPaintMs: number;
   transformAssignmentMs: number;
   viewportX: number;
@@ -57,9 +64,13 @@ type GestureMetrics = {
   averageInputLatencyMs: number;
   defaultPreventedCount: number;
   durationMs: number;
+  firstInputLatencyMs: number;
   fps: number;
   frames: number;
+  lastInputLatencyMs: number;
   p95InputLatencyMs: number;
+  settleLatencyMs: number;
+  settleTimedOut: boolean;
   timedOutPaints: number;
 };
 
@@ -97,8 +108,11 @@ type SeededPerfProject = {
   projectName: string;
 };
 type CanvasFlowStartViewport = typeof DEFAULT_START_VIEWPORT;
-type CanvasFlowPerfVariant = (typeof ISOLATION_VARIANTS)[number];
+type CanvasFlowPerfVariant = (typeof CANVAS_FLOW_PERF_VARIANTS)[number];
 type CanvasFlowPerfTarget = (typeof PERF_TARGETS)[number];
+type CanvasFlowSupportOptions = {
+  requireCaptureElementImage?: boolean;
+};
 
 test.skip(
   process.env.SETTA_CANVASFLOW_PERF !== "1",
@@ -107,14 +121,6 @@ test.skip(
 
 test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
   test.setTimeout(20 * 60 * 1000);
-
-  await page.setViewportSize({ width: 1400, height: 900 });
-  await ensureAppReady(page);
-  await forceCanvasFlowZoomOnWheel(page);
-  await assertCanvasFlowSupport(page);
-
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Performance.enable");
 
   const counts = parseCounts(
     process.env.SETTA_CANVASFLOW_PERF_COUNTS,
@@ -131,10 +137,21 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
     zoom: process.env.SETTA_CANVASFLOW_PERF_START_ZOOM,
   });
   const target = parsePerfTarget(process.env.SETTA_CANVASFLOW_PERF_TARGET);
+  const supportOptions = {
+    requireCaptureElementImage: variants.includes("snapshot-cache"),
+  };
   const results: MatrixResult[] = [];
 
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await ensureAppReady(page);
+  await forceCanvasFlowZoomOnWheel(page);
+  await assertCanvasFlowSupport(page, supportOptions);
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Performance.enable");
+
   if (target === "settings-all") {
-    const count = await gotoSettingsAllView(page);
+    const count = await gotoSettingsAllView(page, supportOptions);
     const settingsStartViewport = shouldCenterStartViewportOnCurrentView()
       ? await resolveCenteredStartViewport(page, startViewport.zoom)
       : startViewport;
@@ -176,7 +193,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
       }
       await gotoSeededCanvasFlowPerfProject(page, project);
       await forceCanvasFlowZoomOnWheel(page);
-      await assertCanvasFlowSupport(page);
+      await assertCanvasFlowSupport(page, supportOptions);
       for (const variant of variants) {
         results.push(
           await measureCurrentCanvasFlowProject(
@@ -376,7 +393,7 @@ function shouldCenterStartViewportOnCurrentView() {
 function parseVariants(value: string | undefined): CanvasFlowPerfVariant[] {
   if (!value?.trim()) {
     return process.env.SETTA_CANVASFLOW_PERF_ISOLATION === "1"
-      ? [...ISOLATION_VARIANTS]
+      ? [...DEFAULT_ISOLATION_VARIANTS]
       : ["default"];
   }
   const requested = value
@@ -384,7 +401,8 @@ function parseVariants(value: string | undefined): CanvasFlowPerfVariant[] {
     .map((part) => part.trim())
     .filter(Boolean);
   const invalid = requested.filter(
-    (variant) => !ISOLATION_VARIANTS.includes(variant as CanvasFlowPerfVariant),
+    (variant) =>
+      !CANVAS_FLOW_PERF_VARIANTS.includes(variant as CanvasFlowPerfVariant),
   );
   if (invalid.length > 0) {
     throw new Error(
@@ -454,11 +472,14 @@ async function gotoSeededCanvasFlowPerfProject(
     .toBe(project.projectConfigId);
 }
 
-async function gotoSettingsAllView(page: Page): Promise<number> {
+async function gotoSettingsAllView(
+  page: Page,
+  supportOptions: CanvasFlowSupportOptions,
+): Promise<number> {
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await expect(page.locator(CANVAS_SELECTOR)).toBeVisible({ timeout: 180000 });
   await forceCanvasFlowZoomOnWheel(page);
-  await assertCanvasFlowSupport(page);
+  await assertCanvasFlowSupport(page, supportOptions);
 
   const allSettingsTab = page.getByRole("button", {
     exact: true,
@@ -533,7 +554,10 @@ async function forceCanvasFlowZoomOnWheel(page: Page) {
   });
 }
 
-async function assertCanvasFlowSupport(page: Page) {
+async function assertCanvasFlowSupport(
+  page: Page,
+  options: CanvasFlowSupportOptions,
+) {
   await expect(page.locator(CANVAS_SELECTOR)).toBeVisible();
   const support = await page.evaluate((selector) => {
     const canvas = document.querySelector<HTMLCanvasElement>(selector);
@@ -547,6 +571,9 @@ async function assertCanvasFlowSupport(page: Page) {
       | null
       | undefined;
     return {
+      captureElementImage: typeof (
+        canvas as { captureElementImage?: unknown } | null
+      )?.captureElementImage,
       drawElementImage: typeof ctx?.drawElementImage,
       requestPaint: typeof (canvas as { requestPaint?: unknown } | null)
         ?.requestPaint,
@@ -559,6 +586,9 @@ async function assertCanvasFlowSupport(page: Page) {
   }, CANVAS_SELECTOR);
   expect(support.drawElementImage).toBe("function");
   expect(support.requestPaint).toBe("function");
+  if (options.requireCaptureElementImage) {
+    expect(support.captureElementImage).toBe("function");
+  }
   expect(support.layoutSubtree).toBe(true);
   expect(support.reactFlowViewportCount).toBe(0);
   expect(support.svgEdgeLayerCount).toBe(0);
@@ -580,6 +610,7 @@ async function setCanvasFlowPerfVariant(
       "rect-nodes": "rect-nodes",
       "resize-observer-off": undefined,
       "skip-transform": "skip-transform",
+      "snapshot-cache": "snapshot-cache",
     };
     const paintVariant = paintVariantByIsolationVariant[nextVariant];
     if (paintVariant) {
@@ -805,6 +836,9 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
       mountedNodes: readNumber(dataset.mountedNodes),
       paintSequence: readNumber(dataset.paintSequence),
       registeredNodes: readNumber(dataset.registeredNodes),
+      snapshotCacheHits: readNumber(dataset.snapshotCacheHits),
+      snapshotCacheMisses: readNumber(dataset.snapshotCacheMisses),
+      snapshotCaptureMs: readNumber(dataset.snapshotCaptureMs),
       totalPaintMs: readNumber(dataset.totalPaintMs),
       transformAssignmentMs: readNumber(dataset.transformAssignmentMs),
       viewportX: readNumber(dataset.viewportX),
@@ -847,6 +881,8 @@ async function measureGesture(
       const latencies: number[] = [];
       let defaultPreventedCount = 0;
       let timedOutPaints = 0;
+      let settleLatencyMs = 0;
+      let settleTimedOut = false;
       const startTime = performance.now();
       let lastSamplePaintTime = startTime;
 
@@ -895,6 +931,8 @@ async function measureGesture(
               timedOutPaints += 1;
             }
           }
+          const settlePreviousSequence = readPaintSequence(canvas);
+          const settleStart = performance.now();
           canvas.dispatchEvent(
             new PointerEvent("pointerup", {
               bubbles: true,
@@ -908,6 +946,13 @@ async function measureGesture(
               pointerType: "mouse",
             }),
           );
+          const settleResult = await waitForPaintAfter(
+            canvas,
+            settlePreviousSequence,
+            500,
+          );
+          settleLatencyMs = settleResult.time - settleStart;
+          settleTimedOut = settleResult.timedOut;
         } finally {
           canvas.setPointerCapture = originalSetPointerCapture;
           canvas.releasePointerCapture = originalReleasePointerCapture;
@@ -935,6 +980,16 @@ async function measureGesture(
             timedOutPaints += 1;
           }
         }
+        const settlePreviousSequence = readPaintSequence(canvas);
+        const settleStart = performance.now();
+        await new Promise<void>((resolve) => setTimeout(() => resolve(), 220));
+        const settleResult = await waitForPaintAfter(
+          canvas,
+          settlePreviousSequence,
+          650,
+        );
+        settleLatencyMs = settleResult.time - settleStart;
+        settleTimedOut = settleResult.timedOut;
       }
 
       await new Promise<void>((resolve) =>
@@ -954,9 +1009,13 @@ async function measureGesture(
           Math.max(1, latencies.length),
         defaultPreventedCount,
         durationMs,
+        firstInputLatencyMs: latencies[0] ?? 0,
         fps: (latencies.length / durationMs) * 1000,
         frames: latencies.length,
+        lastInputLatencyMs: latencies[latencies.length - 1] ?? 0,
         p95InputLatencyMs: sortedLatencies[p95Index] ?? 0,
+        settleLatencyMs,
+        settleTimedOut,
         timedOutPaints,
       };
 
@@ -971,8 +1030,9 @@ async function measureGesture(
       async function waitForPaintAfter(
         target: HTMLCanvasElement,
         previousSequence: number,
+        timeoutMs = 2000,
       ) {
-        const deadline = performance.now() + 2000;
+        const deadline = performance.now() + timeoutMs;
         while (performance.now() < deadline) {
           await new Promise<void>((resolve) =>
             requestAnimationFrame(() => resolve()),
@@ -1173,6 +1233,7 @@ function renderMatrixReport(
     `- Isolation variants: ${options.variants.join(", ")}.`,
     `- Start viewport: x=${formatNumber(options.startViewport.x)}, y=${formatNumber(options.startViewport.y)}, zoom=${formatNumber(options.startViewport.zoom)}.`,
     `- Gesture sample: ${options.steps} event-to-paint steps for pan and ${options.steps} event-to-paint steps for wheel zoom per graph size.`,
+    "- First/last input columns isolate gesture-start and gesture-end event-to-paint latency; settle measures the paint requested after pointer-up or the wheel-stop debounce.",
     options.datasetDescription,
     "- Scripting, style, layout, task, and heap numbers come from Chrome `Performance.getMetrics` deltas around each gesture.",
     "- Paint and composite numbers are summed from a short CDP trace around each gesture. These trace buckets are diagnostic event sums, not mutually exclusive frame budget totals.",
@@ -1185,8 +1246,8 @@ function renderMatrixReport(
     "",
     "## Current CanvasFlow Matrix",
     "",
-    "| Nodes | Variant | Gesture | FPS | Avg Input Latency | P95 Input Latency | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Transform Sync | Total Paint | Timeouts |",
-    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Variant | Gesture | FPS | First Input | Last Input | Avg Input Latency | P95 Input Latency | Settle | Settle Timeout | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Snapshot Hits | Snapshot Misses | Snapshot Capture | Transform Sync | Total Paint | Timeouts |",
+    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ];
   for (const result of results) {
     lines.push(renderGestureRow(result, "pan", result.pan));
@@ -1196,12 +1257,12 @@ function renderMatrixReport(
     "",
     "## Initial Culling Snapshot",
     "",
-    "| Nodes | Variant | Visible | Drawn | Registered | Mounted | Edges | Edge Draw | Visibility Scan | Total Paint | drawElementImage | Transform Sync |",
-    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Variant | Visible | Drawn | Registered | Mounted | Edges | Edge Draw | Visibility Scan | Total Paint | drawElementImage | Snapshot Hits | Snapshot Misses | Snapshot Capture | Transform Sync |",
+    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   );
   for (const result of results) {
     lines.push(
-      `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatInteger(result.initialStats.edgeCount)} | ${formatMs(result.initialStats.edgeDrawMs)} | ${formatMs(result.initialStats.visibilityScanMs)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
+      `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatInteger(result.initialStats.edgeCount)} | ${formatMs(result.initialStats.edgeDrawMs)} | ${formatMs(result.initialStats.visibilityScanMs)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatInteger(result.initialStats.snapshotCacheHits)} | ${formatInteger(result.initialStats.snapshotCacheMisses)} | ${formatMs(result.initialStats.snapshotCaptureMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
     );
   }
   lines.push(
@@ -1236,8 +1297,12 @@ function renderGestureRow(
     result.variant,
     gestureName,
     formatNumber(gesture.fps),
+    formatMs(gesture.firstInputLatencyMs),
+    formatMs(gesture.lastInputLatencyMs),
     formatMs(gesture.averageInputLatencyMs),
     formatMs(gesture.p95InputLatencyMs),
+    formatMs(gesture.settleLatencyMs),
+    gesture.settleTimedOut ? "yes" : "no",
     formatMs(gesture.performanceDelta.scriptDurationMs),
     formatMs(gesture.performanceDelta.recalcStyleDurationMs),
     formatMs(gesture.performanceDelta.layoutDurationMs),
@@ -1251,6 +1316,9 @@ function renderGestureRow(
     formatMs(gesture.afterStats.edgeDrawMs),
     formatMs(gesture.afterStats.visibilityScanMs),
     formatMs(gesture.afterStats.drawElementImageMs),
+    formatInteger(gesture.afterStats.snapshotCacheHits),
+    formatInteger(gesture.afterStats.snapshotCacheMisses),
+    formatMs(gesture.afterStats.snapshotCaptureMs),
     formatMs(gesture.afterStats.transformAssignmentMs),
     formatMs(gesture.afterStats.totalPaintMs),
     formatInteger(gesture.timedOutPaints),
