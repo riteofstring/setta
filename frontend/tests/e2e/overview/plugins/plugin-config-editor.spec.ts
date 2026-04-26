@@ -34,7 +34,7 @@ test("plugin config editor saves valid JSON and rejects invalid JSON drafts", as
     await page.goto(new URL("/settings", BASE_URL).toString(), {
       waitUntil: "domcontentloaded",
     });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const pluginCard = page
       .locator("article")
@@ -47,7 +47,9 @@ test("plugin config editor saves valid JSON and rejects invalid JSON drafts", as
       .first();
 
     await expect(pluginCard).toBeVisible();
-    await expect(pluginCard.getByText("Plugin Config", { exact: true })).toBeVisible();
+    await expect(
+      pluginCard.getByText("Plugin Config", { exact: true }),
+    ).toBeVisible();
 
     const configTextarea = pluginCard.locator("textarea").first();
     await configTextarea.fill("{");
@@ -127,7 +129,7 @@ test("plugin config persists across reload and disable/enable lifecycle", async 
     await page.goto(new URL("/settings", BASE_URL).toString(), {
       waitUntil: "domcontentloaded",
     });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const pluginCard = page
       .locator("article")
@@ -150,7 +152,7 @@ test("plugin config persists across reload and disable/enable lifecycle", async 
     ).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const reloadedTextarea = page
       .locator("article")
       .filter({
@@ -180,7 +182,7 @@ test("plugin config persists across reload and disable/enable lifecycle", async 
     await page.goto(new URL("/settings", BASE_URL).toString(), {
       waitUntil: "domcontentloaded",
     });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
     const lifecycleTextarea = page
       .locator("article")
       .filter({
@@ -192,7 +194,9 @@ test("plugin config persists across reload and disable/enable lifecycle", async 
       .first()
       .locator("textarea")
       .first();
-    const lifecycleConfig = JSON.parse(await lifecycleTextarea.inputValue()) as {
+    const lifecycleConfig = JSON.parse(
+      await lifecycleTextarea.inputValue(),
+    ) as {
       enabled: boolean;
       label: string;
     };
@@ -263,7 +267,7 @@ test("plugin config enum fields persist selected values", async ({ page }) => {
     await page.goto(new URL("/settings", BASE_URL).toString(), {
       waitUntil: "domcontentloaded",
     });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const pluginCard = page
       .locator("article")

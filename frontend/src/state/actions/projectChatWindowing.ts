@@ -12,7 +12,6 @@ import {
   resolveProjectChatFloatingBottomInsetPx,
   resolveProjectChatFloatingWorkspaceTopInsetPx,
 } from "components/ChatWindowing/projectChatViewport";
-import { zoomIdentity } from "d3-zoom";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
@@ -2150,14 +2149,7 @@ function restoreProjectChatCanvasViewport(
   viewportY: number,
   viewportZoom: number,
 ): void {
-  const { d3Zoom, d3Selection } = useReactFlow.getState();
-  if (!d3Zoom || !d3Selection) {
-    return;
-  }
-  d3Zoom.transform(
-    d3Selection,
-    zoomIdentity.translate(viewportX, viewportY).scale(viewportZoom),
-  );
+  useReactFlow.setState({ transform: [viewportX, viewportY, viewportZoom] });
 }
 async function resolveProjectChatWindowCanvasBootSectionId(
   instanceId: string,

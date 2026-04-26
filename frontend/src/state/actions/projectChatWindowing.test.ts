@@ -53,14 +53,17 @@ const hoistedProjectChatWindowing = vi.hoisted(() => ({
   routeSetProjectChatWindowChatId: vi.fn(),
   reactFlowState: {
     transform: [0, 0, 1] as [number, number, number],
-    d3Zoom: null,
-    d3Selection: null,
     domNode: null as HTMLElement | null,
   },
 }));
 vi.mock("forks/xyflow/core/store", () => ({
   useReactFlow: {
     getState: () => hoistedProjectChatWindowing.reactFlowState,
+    setState: (
+      nextState: Partial<typeof hoistedProjectChatWindowing.reactFlowState>,
+    ) => {
+      Object.assign(hoistedProjectChatWindowing.reactFlowState, nextState);
+    },
   },
 }));
 vi.mock("./sections/createSections", () => ({
@@ -109,8 +112,6 @@ describe("project chat windowing reducer helpers", () => {
         ),
     );
     hoistedProjectChatWindowing.reactFlowState.transform = [0, 0, 1];
-    hoistedProjectChatWindowing.reactFlowState.d3Zoom = null;
-    hoistedProjectChatWindowing.reactFlowState.d3Selection = null;
     hoistedProjectChatWindowing.reactFlowState.domNode = null;
   });
   it("creates an open bottom-docked chat window instance by default", () => {

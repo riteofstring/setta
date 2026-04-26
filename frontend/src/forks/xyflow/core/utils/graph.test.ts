@@ -1,5 +1,6 @@
 import { setActiveSectionUIIds } from "state/activeSectionUI";
 import {
+  useLocalStorage,
   useNodeInternals,
   useProjectState,
   useSectionRefs,
@@ -8,8 +9,15 @@ import { resetProjectStores } from "state/utils";
 import { createCore } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
+import { useReactFlow } from "../store";
+import initialState from "../store/initialState";
 import type { ReactFlowState } from "../types";
-import { getActiveSectionsBounds, getNodesInside, getPaneRect } from "./graph";
+import {
+  getActiveSectionsBounds,
+  getNodesInside,
+  getPaneRect,
+  movePaneToIncludeElement,
+} from "./graph";
 
 vi.mock("../hooks/useViewportHelper", () => ({
   screenToFlowPosition: vi.fn((point) => point),
@@ -88,6 +96,57 @@ describe("getPaneRect", () => {
       { x: 500, y: 600 },
       true,
     );
+  });
+});
+
+describe("movePaneToIncludeElement", () => {
+  beforeEach(() => {
+    mockedScreenToFlowPosition.mockClear();
+    useReactFlow.setState({ ...initialState });
+    useLocalStorage.setState({
+      overviewTrueWidth: 0,
+      uiEditorTrueWidth: 0,
+    });
+  });
+
+  it("updates the canvas transform directly when the element is outside the padded pane", () => {
+    useReactFlow.setState({
+      domNode: null,
+      height: 800,
+      transform: [0, 0, 2],
+      width: 1000,
+    });
+
+    movePaneToIncludeElement(
+      createSectionElement({
+        x: 50,
+        y: 250,
+        width: 40,
+        height: 40,
+      }),
+    );
+
+    expect(useReactFlow.getState().transform).toEqual([100, 0, 2]);
+  });
+
+  it("leaves the transform unchanged when the element is already inside the padded pane", () => {
+    useReactFlow.setState({
+      domNode: null,
+      height: 800,
+      transform: [20, 30, 2],
+      width: 1000,
+    });
+
+    movePaneToIncludeElement(
+      createSectionElement({
+        x: 250,
+        y: 200,
+        width: 40,
+        height: 40,
+      }),
+    );
+
+    expect(useReactFlow.getState().transform).toEqual([20, 30, 2]);
   });
 });
 

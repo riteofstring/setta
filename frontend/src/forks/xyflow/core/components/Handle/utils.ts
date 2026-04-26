@@ -3,6 +3,11 @@ import type {
   ConnectionMode,
   HandleType,
 } from "forks/xyflow/core/types";
+import {
+  HANDLE_CLASS_NAME,
+  HANDLE_CONNECTING_CLASS_NAME,
+  HANDLE_VALID_CLASS_NAME,
+} from "./classes";
 
 export type ConnectionHandle = {
   sectionId: string;
@@ -110,8 +115,8 @@ export function resetRecentHandle(handleDomNode: Element | null): void {
   handleDomNode?.classList.remove(
     "valid",
     "connecting",
-    "react-flow__handle-valid",
-    "react-flow__handle-connecting",
+    HANDLE_VALID_CLASS_NAME,
+    HANDLE_CONNECTING_CLASS_NAME,
   );
 }
 
@@ -138,7 +143,7 @@ function getDefaultResult(handleDomNode: Element | null = null): Result {
 }
 
 function getHandleSelector(handle: HandleRef): string {
-  return `.react-flow__handle[data-id="${handle.sectionId}-${handle.portId}-${handle.type}"]`;
+  return `.${HANDLE_CLASS_NAME}[data-id="${handle.sectionId}-${handle.portId}-${handle.type}"]`;
 }
 
 function buildConnection(
@@ -264,7 +269,7 @@ function getHandleBelowPointer({
   const eventPos = getPointerPosition(event);
   return doc
     .elementsFromPoint(eventPos.x, eventPos.y)
-    .find((el) => el.classList.contains("react-flow__handle"));
+    .find((el) => el.classList.contains(HANDLE_CLASS_NAME));
 }
 
 function resolveHandleBelowPointer(

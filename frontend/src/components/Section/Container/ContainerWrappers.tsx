@@ -101,8 +101,8 @@ function _DndWatcherAndContainer({
     };
   }, [isTopLevel, trueDragListeners]);
 
-  // Don't want the react-flow node (which contains this child)
-  // to move when sorting
+  // Don't want the top-level canvas node containing this child to move while
+  // nested sorting/free-move is active.
   const className = isSorting || isMovingFree ? "nodrag" : "";
   const fullStyle = {
     ...style,

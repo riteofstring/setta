@@ -78,7 +78,7 @@ test("overview file browser shows dotfiles and supports breadcrumb up-navigation
     await fs.writeFile(path.join(rootPath, ".env"), "API_KEY=test\n", "utf-8");
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     const pathInput = overviewPane

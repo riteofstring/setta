@@ -19,7 +19,9 @@ test("project ai combobox chevron sizing", async ({ page }) => {
     overviewPane.getByRole("heading", { name: "Project AI Chat" }),
   ).toBeVisible();
 
-  await overviewPane.getByRole("button", { name: "Project AI Settings" }).click();
+  await overviewPane
+    .getByRole("button", { name: "Project AI Settings" })
+    .click();
 
   const engineInput = page.getByPlaceholder("Select an engine");
   await expect(engineInput).toBeVisible();
@@ -174,7 +176,9 @@ test("project chat keeps selected Setta LLM engine and shows missing-key warning
     overviewPane.getByRole("heading", { name: "Project AI Chat" }),
   ).toBeVisible();
 
-  await overviewPane.getByRole("button", { name: "Project AI Settings" }).click();
+  await overviewPane
+    .getByRole("button", { name: "Project AI Settings" })
+    .click();
   const engineInput = page.getByPlaceholder("Select an engine");
   await expect(engineInput).toBeVisible();
 
@@ -436,7 +440,7 @@ test("project chat shows continue-in-new-thread banner after engine switch on se
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     const projectChatSurface = overviewPane
@@ -696,7 +700,7 @@ test("project chat continuation preserves source chat id across failed first sub
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = page.locator("#OverviewPane");
     const projectChatSurface = overviewPane

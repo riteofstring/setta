@@ -413,6 +413,9 @@ Execution rules for every iteration:
 - Do not hand-edit generated files.
 - If Go-owned contracts, generator inputs, Python SDK contracts, or frontend generation inputs change, regenerate affected outputs before cleanup.
 - Run focused verification for the behavior you changed.
+- For frontend runtime, UI, browser, or performance verification, you may start the repo-root dev/CDP helper with \`./ai.sh\`; use \`./aireset.sh\` only when a clean app-state reset is required. Do not use pnpm ai/aireset wrappers.
+- For HTML-in-Canvas verification, start the helper with a Chromium build that exposes the API and pass the experimental flag when needed, for example \`CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement" ./ai.sh\` or set \`CHROME_BIN\` to Chrome Canary/compatible Chromium plus the same \`CHROME_EXTRA_ARGS\`.
+- If you started \`./ai.sh\` or \`./aireset.sh\` for temporary verification, stop that session before finishing the iteration; \`./kill.sh\` is the repo-scoped fallback. If you only started browser MCP directly, stop it with \`./scripts/stop-browser-mcp.sh --devtools\`.
 - Before every commit, run the repository-required cleanup and quality checks from the plan or AGENTS.md.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`${commit_prefix}\`.
 - If you make no repo changes, leave the repo clean and advance ${checklist_file} and/or ${audit_file} meaningfully for the next audited step.

@@ -1,7 +1,5 @@
-import { zoomIdentity } from "d3-zoom";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
-  getD3Transition,
   getSectionBounds,
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
@@ -69,10 +67,8 @@ export function useAIFollowViewport(): void {
       }),
       _.isEqual,
     );
-  const { d3Zoom, d3Selection, width, height } = useReactFlow(
+  const { width, height } = useReactFlow(
     (state) => ({
-      d3Zoom: state.d3Zoom,
-      d3Selection: state.d3Selection,
       width: state.width,
       height: state.height,
     }),
@@ -166,32 +162,26 @@ export function useAIFollowViewport(): void {
       return;
     }
 
-    if (!d3Zoom || !d3Selection) {
-      return;
-    }
     if (width === 0 || height === 0) {
       return;
     }
 
-    const { x, y, zoom } = getViewportForBounds(
+    const { x, y, zoom } = getViewportForBounds({
       bounds,
-      width,
       height,
-      0,
-      1,
-      0.1,
-      true,
-    );
+      keepCurrZoomIfPossible: true,
+      maxZoom: 1,
+      minZoom: 0,
+      padding: 0.1,
+      width,
+    });
 
-    // const duration = useSettings.getState().gui.transitionDuration;
     const duration = 500;
-    const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
     const transitionId = followTransitionId.current + 1;
     followTransitionId.current = transitionId;
     useAIFollow.setState((state) => {
       state.isFollowTransitioning = true;
     });
-    const transition = getD3Transition(d3Selection, duration);
     const clearTransitionLock = () => {
       if (followTransitionId.current !== transitionId) {
         return;
@@ -200,18 +190,13 @@ export function useAIFollowViewport(): void {
         state.isFollowTransitioning = false;
       });
     };
-    transition.on("end", clearTransitionLock);
-    transition.on("interrupt", clearTransitionLock);
-    d3Zoom.transform(transition, nextTransform);
-  }, [
-    d3Selection,
-    d3Zoom,
-    height,
-    mode,
-    projectConfigId,
-    sectionIdsKey,
-    width,
-  ]);
+    useReactFlow.setState({ transform: [x, y, zoom] });
+    const clearTransitionLockTimer = window.setTimeout(
+      clearTransitionLock,
+      duration,
+    );
+    return () => window.clearTimeout(clearTransitionLockTimer);
+  }, [height, mode, projectConfigId, sectionIdsKey, width]);
 }
 
 export function useAIFollowZIndexBoost(): void {

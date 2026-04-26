@@ -8,7 +8,7 @@ import {
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const HOME_URL = new URL("/home", BASE_URL).toString();
 const PROJECT_URL = resolveProjectUrl();
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".canvas-flow__canvas";
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -921,7 +921,7 @@ test("embedded terminal can detach via frontend move action", async ({
     ).toBeVisible();
 
     const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-    const pane = page.locator(".react-flow__pane");
+    const pane = page.locator(".canvas-flow__canvas");
     const paneBox = await pane.boundingBox();
     const codeBox = await codeNode.boundingBox();
     if (!paneBox || !codeBox) {
@@ -2266,7 +2266,7 @@ test("terminal resize messages are throttled during drag detach", async ({
     const releaseMovingFreeMode = await activateMovingFreeDragMode(page);
     altPressed = true;
 
-    const pane = page.locator(".react-flow__pane");
+    const pane = page.locator(".canvas-flow__canvas");
     const paneBox = await pane.boundingBox();
     const codeBox = await page
       .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
@@ -2368,7 +2368,9 @@ async function setSectionSize(
       const { dispatchOptimisticProjectStateUpdate, getCurrProjectConfigId } =
         await import("/src/state/actions/sectionInfos");
       const { setSectionSizes } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+      const { callOpenAPI } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const { setSelfParentSiblingChildrenWidths } = await import(
         "/src/state/actions/sections/sectionSizes"
       );
@@ -2981,7 +2983,7 @@ async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
 }
 
 async function focusPaneForDnd(page: Page): Promise<void> {
-  await page.click(".react-flow__pane", {
+  await page.click(".canvas-flow__canvas", {
     position: { x: 8, y: 8 },
     force: true,
   });

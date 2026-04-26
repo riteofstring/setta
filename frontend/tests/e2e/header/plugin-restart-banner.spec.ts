@@ -88,7 +88,7 @@ test("header plugin restart banner refreshes runtime after accepted restart", as
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const restartBannerText = page.getByText(
       /^Restart required for \d+ plugins?$/,
@@ -155,7 +155,7 @@ test("header plugin restart banner remains visible for status-only restart tombs
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     await expect(page.getByText("Restart required for 1 plugin")).toBeVisible();
   } finally {
@@ -231,7 +231,7 @@ test("header plugin restart banner is hidden in non-IDE runtime modes", async ({
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     await expect(
       page.getByText(/^Restart required for \d+ plugins?$/),
@@ -284,7 +284,7 @@ test("header plugin restart banner shows manual command when capability is manua
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const restartBannerText = page.getByText(
       /^Restart required for \d+ plugins?$/,
@@ -374,7 +374,7 @@ test("header plugin restart banner handles rejected and failed restart requests"
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const restartBannerText = page.getByText(
       /^Restart required for \d+ plugins?$/,

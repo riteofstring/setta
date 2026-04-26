@@ -4,7 +4,7 @@ import { ensureAppReady, postBackend } from "../helpers";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const HOME_URL = new URL("/home", BASE_URL).toString();
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".canvas-flow__canvas";
 
 test("settings core view stays populated when opened from home", async ({
   page,
@@ -142,20 +142,12 @@ async function waitForOverviewCount(
 }
 
 async function getViewportScale(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const viewport = document.querySelector(".react-flow__viewport");
-    if (!viewport) {
-      return 1;
-    }
-    const transform = window.getComputedStyle(viewport).transform;
-    if (!transform || transform === "none") {
-      return 1;
-    }
-    const matrix = new DOMMatrixReadOnly(transform);
-    if (!Number.isFinite(matrix.a) || matrix.a <= 0) {
-      return 1;
-    }
-    return matrix.a;
+  return page.evaluate(async () => {
+    const { useReactFlow } = await import(
+      "/src/forks/xyflow/core/store/index.ts"
+    );
+    const zoom = useReactFlow.getState().transform[2];
+    return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
   });
 }
 

@@ -11,8 +11,8 @@ import {
   applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   clearProjectChatWindows,
-  createTopLevelSectionFromFrontend,
   createTextBlockSection,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
@@ -118,11 +118,11 @@ async function createChildSectionsViaIncrementerFromFrontend(
   },
 ): Promise<void> {
   await page.evaluate(async (input) => {
-    const {
-      createChildSectionsViaIncrementer,
-      getLatestProjectState,
-    } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { createChildSectionsViaIncrementer, getLatestProjectState } =
+      await import("/src/openapi/http");
+    const { callOpenAPI } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const { getCurrProjectConfigId, processProjectStateUpdateFromBackend } =
       await import("/src/state/actions/sectionInfos");
 
@@ -214,20 +214,12 @@ async function dragPointerSurfaceToTarget(
 }
 
 async function getViewportScale(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const viewport = document.querySelector(".react-flow__viewport");
-    if (!viewport) {
-      return 1;
-    }
-    const transform = window.getComputedStyle(viewport).transform;
-    if (!transform || transform === "none") {
-      return 1;
-    }
-    const matrix = new DOMMatrixReadOnly(transform);
-    if (!Number.isFinite(matrix.a) || matrix.a <= 0) {
-      return 1;
-    }
-    return matrix.a;
+  return page.evaluate(async () => {
+    const { useReactFlow } = await import(
+      "/src/forks/xyflow/core/store/index.ts"
+    );
+    const zoom = useReactFlow.getState().transform[2];
+    return Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
   });
 }
 
@@ -706,7 +698,7 @@ test.describe.serial("section types data authoring", () => {
       ).toBe(true);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
       const reloadedNode = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,
       );
@@ -1598,7 +1590,7 @@ test.describe.serial("section types data authoring", () => {
       await fs.writeFile(xlsxPath, xlsxBytes);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
 
       const listPane = page.getByTestId("file-browser-list-pane");
       const previewPane = page.getByTestId("file-browser-preview-pane");

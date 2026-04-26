@@ -202,10 +202,11 @@ Suggested files:
 3. Send `PresenceUpdate` with flow coords + optional `viewport`.
 
 ### Phase 2: Cursor rendering (high performance)
-1. Add a `RemoteCursorsOverlay` rendered inside `react-flow__pane` (not the
-   scaled viewport) so cursor size stays constant.
+1. Add a `RemoteCursorsOverlay` rendered as a sibling overlay inside the
+   CanvasFlow root so cursor size stays constant.
 2. Convert remote flow coords to pane coords with:
-   - `rendererPointToPoint(flowPos, transform)` using current ReactFlow transform.
+   - `rendererPointToPoint(flowPos, transform)` using the current CanvasFlow
+     transform.
 3. Keep DOM small:
    - 1 wrapper element per participant.
    - `pointer-events: none`.

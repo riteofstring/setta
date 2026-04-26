@@ -174,7 +174,7 @@ test("project ai thread spinner clears when latest run in a chat is completed", 
   });
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
 
@@ -211,7 +211,7 @@ test("project ai shows styled empty state when no threads exist", async ({
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const projectChatSurface = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -226,7 +226,9 @@ test("project ai shows styled empty state when no threads exist", async ({
     );
     await expect(startNewThreadButton).toBeVisible();
     await startNewThreadButton.click();
-    await expect(projectChatSurface.getByTestId("chat-input-textarea")).toBeVisible();
+    await expect(
+      projectChatSurface.getByTestId("chat-input-textarea"),
+    ).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -317,7 +319,7 @@ test("project ai thread spinner clears after polling observes run completion", a
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
 
@@ -434,7 +436,7 @@ test("project ai selected thread spinner follows live chat state before agent-ru
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
 
@@ -794,7 +796,9 @@ test("project ai threads remember explicit large-width close after narrow resize
         return null;
       }
       const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
-      return parsed.state?.projectChatThreadsExplicitlyClosedAtLargeWidth ?? null;
+      return (
+        parsed.state?.projectChatThreadsExplicitlyClosedAtLargeWidth ?? null
+      );
     });
     expect(explicitClosePersisted).toBe(true);
 
@@ -834,7 +838,7 @@ test("project ai preserves draft text when resize reveals inline threads", async
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     let overviewPane = await getOverviewProjectChatSurface(page);
     let composerInput = overviewPane.getByTestId("chat-input-textarea");
@@ -872,7 +876,7 @@ test("project ai preserves unsent draft text across reloads", async ({
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getOverviewProjectChatSurface(page);
     const composerInput = overviewPane.getByTestId("chat-input-textarea");
@@ -883,7 +887,7 @@ test("project ai preserves unsent draft text across reloads", async ({
     // Reload should keep the in-progress composer text instead of resetting the
     // controlled input back to an empty project chat draft.
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const reloadedOverviewPane = await getOverviewProjectChatSurface(page);
     await expect(
@@ -996,7 +1000,7 @@ test("project ai conversation search dedupes duplicate terms and ignores code-on
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -1144,7 +1148,7 @@ test("project ai conversation search ignores hidden tool payloads and counts vis
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -1391,7 +1395,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".canvas-flow__canvas");
 
     await maximizeProjectChatWindow(page);
     const overviewPane = await getVisibleProjectChatSurface(page);
@@ -1741,7 +1745,9 @@ test("project ai chat keeps conversation search on the top row at medium width",
 
     expect(headerGeometry).not.toBeNull();
     if (!headerGeometry) {
-      throw new Error("Expected project chat header controls to be measurable.");
+      throw new Error(
+        "Expected project chat header controls to be measurable.",
+      );
     }
     expect(
       Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
@@ -1805,7 +1811,9 @@ test("project ai chat keeps settings and conversation search visible when very n
 
     expect(headerGeometry).not.toBeNull();
     if (!headerGeometry) {
-      throw new Error("Expected project chat header controls to be measurable.");
+      throw new Error(
+        "Expected project chat header controls to be measurable.",
+      );
     }
     expect(
       Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),

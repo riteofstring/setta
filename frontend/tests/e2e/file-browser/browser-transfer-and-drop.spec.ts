@@ -346,7 +346,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       }
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".canvas-flow__canvas");
       const browserNode = page.locator(
         `.react-flow__node[data-id="${browserSectionId}"]`,
       );
@@ -381,7 +381,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         })
         .not.toBeNull();
 
-      const canvasPane = page.locator(".react-flow__pane").first();
+      const canvasPane = page.locator(".canvas-flow__canvas").first();
       await dragBrowserRowToTarget(csvRow, canvasPane);
 
       await expect

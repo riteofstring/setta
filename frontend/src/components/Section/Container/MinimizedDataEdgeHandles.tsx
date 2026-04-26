@@ -1,3 +1,7 @@
+import {
+  HANDLE_CLASS_NAME,
+  getHandlePositionClassName,
+} from "forks/xyflow/core/components/Handle/classes";
 import { HandlePosition, type HandleType } from "forks/xyflow/core/types";
 import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
@@ -87,6 +91,25 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
 
   const hasInputPorts = inputPortIds.length > 0;
   const hasOutputPorts = outputPortIds.length > 0;
+  const leftHandleClasses = [
+    HANDLE_CLASS_NAME,
+    getHandlePositionClassName(HandlePosition.Left),
+    "arg-edge-handle",
+    "arg-edge-handle--minimized",
+    "arg-edge-handle--target",
+    SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+    SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  ].join(" ");
+  const rightHandleClasses = [
+    HANDLE_CLASS_NAME,
+    getHandlePositionClassName(HandlePosition.Right),
+    "arg-edge-handle",
+    "arg-edge-handle--minimized",
+    "arg-edge-handle--source",
+    SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
+    SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  ].join(" ");
+
   if (!hasInputPorts && !hasOutputPorts) {
     return null;
   }
@@ -96,14 +119,14 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
       {hasInputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
+          className={leftHandleClasses}
           ref={leftDotRef}
         />
       )}
       {hasOutputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
+          className={rightHandleClasses}
           ref={rightDotRef}
         />
       )}

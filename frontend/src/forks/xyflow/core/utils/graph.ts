@@ -1,4 +1,3 @@
-import type { Selection as D3Selection } from "d3";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useLocalStorage,
@@ -50,7 +49,13 @@ export const rendererPointToPoint = (
   };
 };
 
-export const getNodesBounds = (nodes: Node[]): Rect => {
+type NodeBounds = {
+  position: Position;
+  width: number | null | undefined;
+  height: number | null | undefined;
+};
+
+export const getNodesBounds = (nodes: NodeBounds[]): Rect => {
   if (nodes.length === 0) {
     return { x: 0, y: 0, width: 0, height: 0 };
   }
@@ -98,7 +103,7 @@ export function getNodesInside(
     height: rect.height / tScale,
   };
 
-  const visibleNodes = [];
+  const visibleNodes: string[] = [];
   const nodeInternals = useNodeInternals.getState().x;
   const handledSectionIds = new Set<string>();
 
@@ -125,15 +130,25 @@ export function getNodesInside(
   return visibleNodes;
 }
 
-export const getViewportForBounds = (
-  bounds: Rect,
-  width: number,
-  height: number,
-  minZoom: number,
-  maxZoom: number,
-  padding = 0.1,
+type ViewportForBoundsOptions = {
+  bounds: Rect;
+  width: number;
+  height: number;
+  minZoom: number;
+  maxZoom: number;
+  padding?: number;
+  keepCurrZoomIfPossible?: boolean;
+};
+
+export const getViewportForBounds = ({
+  bounds,
+  height,
   keepCurrZoomIfPossible = false,
-): Viewport => {
+  maxZoom,
+  minZoom,
+  padding = 0.1,
+  width,
+}: ViewportForBoundsOptions): Viewport => {
   const xZoom = width / (bounds.width * (1 + padding));
   const yZoom = height / (bounds.height * (1 + padding));
   const unclampedZoom = Math.min(xZoom, yZoom);
@@ -159,13 +174,6 @@ export const getViewportForBounds = (
   const y = height / 2 - boundsCenterY * zoom;
 
   return { x, y, zoom };
-};
-
-export const getD3Transition = (
-  selection: D3Selection<Element, unknown, null, undefined>,
-  duration = 0,
-) => {
-  return selection.transition().duration(duration);
 };
 
 export function getSectionRect(sectionId: string, ignoreGrid = false) {
@@ -195,12 +203,14 @@ export function getSectionBounds(
   const nodeInternals = useNodeInternals.getState().x;
   const sections = sectionIds.flatMap((sectionId) => {
     const node = nodeInternals.get(sectionId);
-    if (node && hasPositiveRectBounds(node.width, node.height)) {
+    const nodeWidth = node?.width;
+    const nodeHeight = node?.height;
+    if (node && isPositiveNumber(nodeWidth) && isPositiveNumber(nodeHeight)) {
       return [
         {
           position: { x: node.position.x, y: node.position.y },
-          width: node.width,
-          height: node.height,
+          width: nodeWidth,
+          height: nodeHeight,
         },
       ];
     }
@@ -297,7 +307,7 @@ function isNodeOverlappingWithRect(
 ) {
   const width = node.width;
   const height = node.height;
-  if (!hasPositiveRectBounds(width, height)) {
+  if (!isPositiveNumber(width) || !isPositiveNumber(height)) {
     return false;
   }
   const nodeRect = {
@@ -320,12 +330,11 @@ function hasPositiveRectBounds(
   width: number | null | undefined,
   height: number | null | undefined,
 ) {
-  return (
-    typeof width === "number" &&
-    typeof height === "number" &&
-    width > 0 &&
-    height > 0
-  );
+  return isPositiveNumber(width) && isPositiveNumber(height);
+}
+
+function isPositiveNumber(value: number | null | undefined): value is number {
+  return typeof value === "number" && value > 0;
 }
 
 export function movePaneToIncludeElement(element: HTMLElement) {
@@ -337,8 +346,11 @@ export function movePaneToIncludeElement(element: HTMLElement) {
   );
   const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (!isInside) {
-    const { d3Zoom, d3Selection } = useReactFlow.getState();
-    d3Zoom.translateBy(d3Selection, -x, -y);
+    const {
+      panBy,
+      transform: [, , zoom],
+    } = useReactFlow.getState();
+    panBy({ x: -x * zoom, y: -y * zoom });
   }
 }
 

@@ -17,7 +17,7 @@ function Panel({ position, children, className, style, ...rest }: PanelProps) {
 
   return (
     <div
-      className={cc(["react-flow__panel", className, ...positionClasses])}
+      className={cc(["canvas-flow__panel", className, ...positionClasses])}
       style={{ ...style, pointerEvents }}
       {...rest}
     >

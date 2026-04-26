@@ -8,6 +8,7 @@ import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import { describe, expect, it } from "vitest";
 import {
+  getMiniMapPaneRect,
   getXYWidthHeight,
   MinimapSvg,
   syncSelectedMiniMapNodes,
@@ -45,6 +46,29 @@ describe("getXYWidthHeight", () => {
     expect(result.y).toBeCloseTo(-8);
     expect(result.width).toBeCloseTo(306);
     expect(result.height).toBeCloseTo(156);
+  });
+});
+
+describe("getMiniMapPaneRect", () => {
+  it("uses the live CanvasFlow viewport before the delayed store transform", () => {
+    const result = getMiniMapPaneRect(
+      {
+        domNode: null,
+        height: 600,
+        transform: [0, 0, 1],
+        width: 800,
+      },
+      100,
+      0,
+      { x: -300, y: -120, zoom: 2 },
+    );
+
+    expect(result).toEqual({
+      x: 200,
+      y: 60,
+      width: 400,
+      height: 300,
+    });
   });
 });
 

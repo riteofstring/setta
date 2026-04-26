@@ -35,7 +35,7 @@ test("worktree hint shows (when available), is dismissible, and returns on refre
   await expect(hint).toHaveCount(0);
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".canvas-flow__canvas");
 
   await expect(hint).toBeVisible();
   await expect(hint).toContainText(expected);

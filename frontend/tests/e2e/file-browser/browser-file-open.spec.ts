@@ -158,7 +158,9 @@ async function setBrowserPath(
 
     await expect
       .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+        normalizePathForComparison(
+          await readCodeMirrorValue(page, pathInputId),
+        ),
       )
       .toContain(normalizePathForComparison(nextPath));
   };
@@ -553,7 +555,7 @@ test("browser path commits latest value on blur after fast typing", async ({
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
     await page.keyboard.insertText(workspaceRoot);
-    await page.click(".react-flow__pane", {
+    await page.click(".canvas-flow__canvas", {
       position: { x: 8, y: 8 },
       force: true,
     });
@@ -570,7 +572,7 @@ test("browser path commits latest value on blur after fast typing", async ({
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
     await page.keyboard.insertText(folderPath);
-    await page.click(".react-flow__pane", {
+    await page.click(".canvas-flow__canvas", {
       position: { x: 8, y: 8 },
       force: true,
     });
