@@ -3,13 +3,13 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/run-codex-canvasflow-settings-pan-zoom-performance-loop.sh [options] [-- <extra codex exec args>]
+Usage: ./scripts/run-codex-canvasflow-pan-zoom-performance-loop.sh [options] [-- <extra codex exec args>]
 
-Run a resilient Codex loop for the CanvasFlow Settings pan/zoom performance plan.
+Run a resilient Codex loop for the CanvasFlow pan/zoom performance plan.
 
 Defaults:
-- Plan: docs/plans/canvasflow-settings-pan-zoom-performance-plan.md
-- Completion sentinel: CANVASFLOW_SETTINGS_PAN_ZOOM_PERFORMANCE_PLAN_COMPLETE
+- Plan: docs/plans/canvasflow-pan-zoom-performance-plan.md
+- Completion sentinel: CANVASFLOW_PAN_ZOOM_PERFORMANCE_PLAN_COMPLETE
 - Maximum iterations: 1000
 - Model: gpt-5.5
 - Reasoning effort: xhigh
@@ -21,11 +21,11 @@ Defaults:
 
 Options:
   --plan PATH            Plan file path relative to the repository root.
-                         Default: docs/plans/canvasflow-settings-pan-zoom-performance-plan.md
+                         Default: docs/plans/canvasflow-pan-zoom-performance-plan.md
   --sentinel TEXT        Exact completion sentinel expected from Codex.
-                         Default: CANVASFLOW_SETTINGS_PAN_ZOOM_PERFORMANCE_PLAN_COMPLETE
+                         Default: CANVASFLOW_PAN_ZOOM_PERFORMANCE_PLAN_COMPLETE
   --name NAME            Short loop name used for artifact paths.
-                         Default: canvasflow-settings-pan-zoom-performance
+                         Default: canvasflow-pan-zoom-performance
   --commit-prefix TEXT   Commit prefix Codex should use for commits it makes.
                          Default: canvasflow-perf:
   --iterations N         Maximum loop iterations. Default: 1000
@@ -55,18 +55,18 @@ Options:
   --help                 Show this help text
 
 Examples:
-  ./scripts/run-codex-canvasflow-settings-pan-zoom-performance-loop.sh
-  ./scripts/run-codex-canvasflow-settings-pan-zoom-performance-loop.sh --output-dir /tmp/canvasflow-perf-loop
-  ./scripts/run-codex-canvasflow-settings-pan-zoom-performance-loop.sh -- --config reasoning_effort=\"high\"
+  ./scripts/run-codex-canvasflow-pan-zoom-performance-loop.sh
+  ./scripts/run-codex-canvasflow-pan-zoom-performance-loop.sh --output-dir /tmp/canvasflow-perf-loop
+  ./scripts/run-codex-canvasflow-pan-zoom-performance-loop.sh -- --config reasoning_effort=\"high\"
 EOF
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-plan_relpath="docs/plans/canvasflow-settings-pan-zoom-performance-plan.md"
-stop_sentinel="CANVASFLOW_SETTINGS_PAN_ZOOM_PERFORMANCE_PLAN_COMPLETE"
-loop_name="canvasflow-settings-pan-zoom-performance"
+plan_relpath="docs/plans/canvasflow-pan-zoom-performance-plan.md"
+stop_sentinel="CANVASFLOW_PAN_ZOOM_PERFORMANCE_PLAN_COMPLETE"
+loop_name="canvasflow-pan-zoom-performance"
 commit_prefix="canvasflow-perf:"
 iterations="1000"
 root_dir="${DEFAULT_ROOT_DIR}"
@@ -147,7 +147,7 @@ append_extra_prompt_section() {
 
   {
     printf '\nAdditional Instructions\n'
-    printf 'These instructions were supplied to this loop run. Apply them with the base prompt; if they conflict, prefer the instruction that gets the Settings pan/zoom performance plan done with less process overhead.\n\n'
+    printf 'These instructions were supplied to this loop run. Apply them with the base prompt; if they conflict, prefer the instruction that gets the CanvasFlow pan/zoom performance plan done with less process overhead.\n\n'
     if [[ -n "${extra_prompt}" ]]; then
       printf '%s\n' "${extra_prompt}"
     fi
@@ -310,7 +310,7 @@ mkdir -p "${output_dir}" "${state_dir}"
 
 plan_file="${root_dir}/${plan_relpath}"
 checklist_file="${state_dir}/checklist.md"
-audit_file="${state_dir}/canvasflow-settings-pan-zoom-performance-audit.md"
+audit_file="${state_dir}/canvasflow-pan-zoom-performance-audit.md"
 prompt_file="${state_dir}/prompt.md"
 completion_check_script="${state_dir}/check-complete.sh"
 post_iteration_script="${state_dir}/post-iteration.sh"
@@ -319,7 +319,7 @@ launch_log_file="${output_dir}/loop-launch.log"
 
 if [[ ! -f "${audit_file}" ]]; then
   cat > "${audit_file}" <<'EOF'
-# CanvasFlow Settings Pan/Zoom Performance Audit
+# CanvasFlow Pan/Zoom Performance Audit
 
 Keep this file compact. Rewrite stale notes instead of appending a diary.
 
@@ -339,15 +339,15 @@ fi
 
 if [[ ! -f "${checklist_file}" ]]; then
   cat > "${checklist_file}" <<EOF
-# CanvasFlow Settings Pan/Zoom Performance Checklist
+# CanvasFlow Pan/Zoom Performance Checklist
 
 Keep this checklist useful, not ceremonial. Mark items complete when they are
 implemented and have at least focused verification or a recorded reason why
 verification is currently blocked by the experimental browser/runtime.
 
 ## Baseline
-- [ ] Audit ${plan_file} and the current CanvasFlow Settings pan/zoom path.
-- [ ] Capture or update a real Settings All Settings performance baseline under perf/ when practical.
+- [ ] Audit ${plan_file} and the current CanvasFlow pan/zoom path.
+- [ ] Capture or update a real rich-node performance baseline under perf/ when practical.
 - [ ] Record current network, console, canvas paint, React commit, and node mount signals.
 
 ## Layout and measurement churn
@@ -380,11 +380,10 @@ cat > "${prompt_file}" <<EOF
 You are running inside a resilient automated Codex loop for this repository.
 
 Mission:
-Execute ${plan_file} to completion. The priority is real Settings project,
-All Settings view pan/zoom performance after the CanvasFlow HTML-in-Canvas
-renderer replacement. Remove avoidable React, ResizeObserver, layout
-persistence, backend round-trip, and minimap-lag work from viewport-only
-gestures.
+Execute ${plan_file} to completion. The priority is real rich-node CanvasFlow
+pan/zoom performance after the HTML-in-Canvas renderer replacement. Remove
+avoidable React, ResizeObserver, layout persistence, backend round-trip, and
+minimap-lag work from viewport-only gestures.
 
 Read first, in this order:
 - ${root_dir}/AGENTS.md
@@ -421,7 +420,7 @@ Verification posture:
   or set \`CHROME_BIN\` to Chrome Canary/compatible Chromium plus that \`CHROME_EXTRA_ARGS\`.
 - If you start \`./ai.sh\` or \`./aireset.sh\`, stop it before finishing the iteration unless you have a concrete reason to leave it running. \`./kill.sh\` is the repo-scoped fallback.
 - If browser verification is blocked by missing local Chrome/flag support, record the blocker and continue with code/test work that does not require the browser.
-- Treat Settings project, All Settings view as the important performance case. Synthetic TextBlock graphs are useful regression checks, but they are not sufficient.
+- Treat real rich-node project views as the important performance case. Synthetic TextBlock graphs are useful regression checks, but they are not sufficient.
 - When changing performance-relevant behavior, baseline first when practical, re-measure after, and record before/after results in perf/ as append-only reports.
 
 Implementation rules:

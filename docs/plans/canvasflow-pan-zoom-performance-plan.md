@@ -1,14 +1,14 @@
-# CanvasFlow Settings Pan/Zoom Performance Plan
+# CanvasFlow Pan/Zoom Performance Plan
 
 ## Goal
-Make pan/zoom in the Settings project, All Settings view, feel consistently smooth after the HTML-in-Canvas renderer replacement.
+Make CanvasFlow pan/zoom feel consistently smooth in large, rich project views after the HTML-in-Canvas renderer replacement.
 
-The immediate target is to remove avoidable React, ResizeObserver, layout persistence, and backend round-trip work from viewport-only gestures. The longer-term target is to make the real Settings view perform well, not only synthetic TextBlock graphs.
+The immediate target is to remove avoidable React, ResizeObserver, layout persistence, and backend round-trip work from viewport-only gestures. The longer-term target is to make real rich-node views perform well, not only synthetic TextBlock graphs.
 
 ## Current Diagnosis
-CanvasFlow replaced the old DOM/SVG viewport renderer, but the real Settings view still keeps rich HTML node bodies mounted. Pan/zoom now updates a live canvas viewport ref and repaints quickly, but adjacent systems still observe, measure, mount, and persist node/layout state during or near viewport gestures.
+CanvasFlow replaced the old DOM/SVG viewport renderer, but real project views still keep rich HTML node bodies mounted. Pan/zoom now updates a live canvas viewport ref and repaints quickly, but adjacent systems still observe, measure, mount, and persist node/layout state during or near viewport gestures.
 
-The latest Chrome recording did not include a CPU trace, but it showed these strong signals after switching to All Settings:
+The latest Chrome recording did not include a CPU trace, but it showed these strong signals after switching to a large all-nodes view:
 
 - A large `UpdateFrontendProjectState` websocket payload arrived immediately after the view-mode change.
 - Multiple `POST /api/setTopLevelSectionLayout` requests followed in the same interaction window.
@@ -38,7 +38,6 @@ This points to layout and measurement churn as the primary current problem, not 
   - `frontend/src/state/actions/sectionInfos.ts`
 - Relevant prior reports:
   - `perf/reports/frontend/2026-04-27_html-in-canvas-pan-zoom-matrix.md`
-  - `perf/reports/frontend/2026-03-07_settings-all-settings-pan-zoom-benchmark.md`
 
 ## Non-Goals
 - Do not reintroduce React Flow or d3 zoom as the primary renderer.
@@ -58,7 +57,7 @@ This points to layout and measurement churn as the primary current problem, not 
 ## Work Plan
 
 ### 1. Capture a real baseline
-- Record a CPU/performance trace for Settings project, All Settings view, with a fixed pan and zoom script.
+- Record a CPU/performance trace for a representative large, rich project view with a fixed pan and zoom script.
 - Record counts for:
   - `setTopLevelSectionLayout` requests during viewport-only gestures
   - `setViewport` requests
@@ -107,8 +106,8 @@ This points to layout and measurement churn as the primary current problem, not 
 - Inventory tests that still refer to `.react-flow__pane` or `.react-flow__viewport`.
 - Rename or replace stale selectors with CanvasFlow-owned selectors where the tests cover active behavior.
 
-### 8. Re-measure the real Settings view
-- Re-run the same Settings All Settings pan/zoom trace.
+### 8. Re-measure real rich-node views
+- Re-run the same large-view pan/zoom trace.
 - Compare before/after:
   - FPS / frame time
   - scripting time
@@ -122,23 +121,23 @@ This points to layout and measurement churn as the primary current problem, not 
 ## Verification
 - Targeted Vitest for `nodeInternals` dimension update behavior.
 - Targeted Vitest or component test for minimap live viewport updates.
-- Browser verification in Settings project, All Settings view.
+- Browser verification in at least one representative large, rich project view.
 - CDP performance trace before and after the changes.
 - Network check confirming no repeated `setTopLevelSectionLayout` calls during pure pan/zoom.
 - Console check confirming no repeated ResizeObserver loop errors during the tested gesture.
 - `./check_quality.sh` before finishing the implementation branch unless scope is explicitly narrowed.
 
 ## Acceptance Criteria
-- Pure pan/zoom in Settings All Settings does not trigger repeated top-level layout persistence.
+- Pure pan/zoom in large, rich project views does not trigger repeated top-level layout persistence.
 - Pure pan/zoom does not produce repeated ResizeObserver loop errors.
 - The minimap viewport mask tracks canvas pan/zoom without the current visible delay.
 - React work during active pan/zoom is materially reduced from the baseline.
-- Real Settings All Settings performance improves in a recorded before/after trace.
+- Real rich-node view performance improves in a recorded before/after trace.
 - Synthetic TextBlock benchmark performance does not regress.
 - Stale d3 dependencies and stale React Flow selectors are either removed or documented with a concrete remaining use.
 
 ## Suggested Execution Order
-1. Capture the CPU baseline for the real Settings view.
+1. Capture the CPU baseline for a real rich-node view.
 2. Fix no-op dimension update persistence.
 3. Suppress or defer layout persistence during viewport gestures.
 4. Add live minimap viewport updates.
