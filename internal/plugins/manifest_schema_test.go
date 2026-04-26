@@ -73,8 +73,6 @@ func TestPluginManifestSchemaTracksRuntimeContract(t *testing.T) {
 	}
 
 	wantWatchCodeFields := []string{
-		"python",
-		"requiresLanguageServer",
 		"canvasControlsUi",
 	}
 	gotWatchCodeFields := make([]string, 0, len(watchCodeProperties))
@@ -85,6 +83,9 @@ func TestPluginManifestSchemaTracksRuntimeContract(t *testing.T) {
 	slices.Sort(gotWatchCodeFields)
 	if !reflect.DeepEqual(gotWatchCodeFields, wantWatchCodeFields) {
 		t.Fatalf("expected schema featureCapabilities.watchCode fields %v, got %v", wantWatchCodeFields, gotWatchCodeFields)
+	}
+	if got := schemaObject(t, featureProperties, "watchCode")["additionalProperties"]; got != false {
+		t.Fatalf("expected featureCapabilities.watchCode to reject removed metadata fields, got additionalProperties=%#v", got)
 	}
 }
 

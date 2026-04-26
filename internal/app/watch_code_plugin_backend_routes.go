@@ -103,7 +103,8 @@ func (h *watchCodeBackendRouteHost) readUISettingValue(
 	case "read_enabled":
 		return projectData.Enabled, true, nil
 	case "read_folders":
-		return projectData.Folders, true, nil
+		value, err := watchCodeUISettingJSONValue(projectData.Folders)
+		return value, true, err
 	case "read_files":
 		return projectData.Files, true, nil
 	default:
@@ -119,11 +120,23 @@ func (h *watchCodeBackendRouteHost) writeUISettingValue(
 	if !ok || strings.TrimSpace(options.PluginID) != providerPluginID {
 		return false, nil
 	}
-	projectData, handled, err := h.watchCodeProjectDataForUISetting(providerPluginID, options.ProjectConfigID, options.HandlerID, "write_")
-	if err != nil || !handled {
-		return handled, err
+	handlerID := strings.TrimSpace(options.HandlerID)
+	if !isWatchCodeUISettingHandler(handlerID, "write_") {
+		return false, nil
 	}
-	switch strings.TrimSpace(options.HandlerID) {
+	if h == nil || h.projectState == nil || h.workspaceRoot == "" {
+		return true, projectstate.ErrRuntimeClosed
+	}
+	return h.writeWatchCodeUISettingValue(ctx, providerPluginID, options, handlerID)
+}
+
+func (h *watchCodeBackendRouteHost) writeWatchCodeUISettingValue(
+	ctx context.Context,
+	providerPluginID string,
+	options plugins.BackendUISettingWriteOptions,
+	handlerID string,
+) (bool, error) {
+	switch handlerID {
 	case "write_enabled":
 		enabled, ok := options.Value.(bool)
 		if !ok {
@@ -136,14 +149,14 @@ func (h *watchCodeBackendRouteHost) writeUISettingValue(
 		if err != nil {
 			return true, err
 		}
-		_, err = h.projectState.SetWatchCodeInputs(ctx, providerPluginID, options.ProjectConfigID, folders, projectData.Files, h.workspaceRoot)
+		_, err = h.projectState.SetWatchCodeFolders(ctx, providerPluginID, options.ProjectConfigID, folders, h.workspaceRoot)
 		return true, err
 	case "write_files":
 		files, err := decodeWatchCodeUISettingValue[[]string](options.Value)
 		if err != nil {
 			return true, err
 		}
-		_, err = h.projectState.SetWatchCodeInputs(ctx, providerPluginID, options.ProjectConfigID, projectData.Folders, files, h.workspaceRoot)
+		_, err = h.projectState.SetWatchCodeFiles(ctx, providerPluginID, options.ProjectConfigID, files, h.workspaceRoot)
 		return true, err
 	default:
 		return false, nil
@@ -160,7 +173,7 @@ func (h *watchCodeBackendRouteHost) watchCodeProjectDataForUISetting(
 		return projectstate.WatchCodePluginProjectData{}, true, projectstate.ErrRuntimeClosed
 	}
 	handlerID = strings.TrimSpace(handlerID)
-	if handlerID != prefix+"enabled" && handlerID != prefix+"folders" && handlerID != prefix+"files" {
+	if !isWatchCodeUISettingHandler(handlerID, prefix) {
 		return projectstate.WatchCodePluginProjectData{}, false, nil
 	}
 	projectData, _, err := h.projectState.Snapshot().Document.WatchCodePluginProjectData(providerPluginID, projectID)
@@ -168,6 +181,10 @@ func (h *watchCodeBackendRouteHost) watchCodeProjectDataForUISetting(
 		return projectstate.WatchCodePluginProjectData{}, true, err
 	}
 	return projectData, true, nil
+}
+
+func isWatchCodeUISettingHandler(handlerID string, prefix string) bool {
+	return handlerID == prefix+"enabled" || handlerID == prefix+"folders" || handlerID == prefix+"files"
 }
 
 func (h *watchCodeBackendRouteHost) activeProviderPluginID() (string, bool) {
@@ -387,6 +404,18 @@ func decodeWatchCodeUISettingValue[T any](value any) (T, error) {
 		return result, errors.New("watch code setting value must contain a single JSON value")
 	}
 	return result, nil
+}
+
+func watchCodeUISettingJSONValue(value any) (any, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	var decoded any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
 
 func watchCodeBackendProjectDataResponse(

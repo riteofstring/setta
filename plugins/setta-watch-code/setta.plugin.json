@@ -17,8 +17,6 @@
   },
   "featureCapabilities": {
     "watchCode": {
-      "python": true,
-      "requiresLanguageServer": true,
       "canvasControlsUi": true
     }
   },

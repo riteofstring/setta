@@ -458,7 +458,6 @@ func watchCodeProviderRegistrationValid(
 	feature *PluginWatchCodeFeatureManifest,
 ) bool {
 	return watchCodeBackendContractRegistered(entry) &&
-		watchCodeFeatureSupportsRequiredLanguage(feature) &&
 		watchCodeBackendSupportsRequiredLanguage(entry.watchCodeBackend) &&
 		watchCodeFrontendEntrypointAvailable(entry, feature)
 }
@@ -535,12 +534,6 @@ func appSubsystemFrontendEntrypointAvailable(
 		"plugin frontend entrypoint",
 	)
 	return err == nil
-}
-
-func watchCodeFeatureSupportsRequiredLanguage(
-	feature *PluginWatchCodeFeatureManifest,
-) bool {
-	return feature != nil && feature.Python
 }
 
 func watchCodeBackendSupportsRequiredLanguage(

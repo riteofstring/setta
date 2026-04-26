@@ -4339,8 +4339,6 @@ type PluginWatchCodeCapabilities = {
  */
 type PluginWatchCodeFeatureManifest = {
   canvasControlsUi: boolean;
-  python: boolean;
-  requiresLanguageServer: boolean;
 };
 
 /**

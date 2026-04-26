@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/lsp"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 )
 
 func TestCloneLanguageServerSpecsDeepCopiesSettings(t *testing.T) {
@@ -371,6 +372,133 @@ func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) 
 	}
 }
 
+func TestPluginBackendRuntimeRefresherReconcilesProjectDocumentWhenWatchCodeProviderStateChanges(
+	t *testing.T,
+) {
+	tests := []struct {
+		name       string
+		previous   plugins.PluginWatchCodeCapabilities
+		next       plugins.PluginWatchCodeCapabilities
+		wantActive bool
+		wantID     string
+	}{
+		{
+			name: "provider activates",
+			next: plugins.PluginWatchCodeCapabilities{
+				PluginID:      "setta-watch-code",
+				PluginEnabled: true,
+				Python:        true,
+			},
+			wantActive: true,
+			wantID:     "setta-watch-code",
+		},
+		{
+			name: "provider deactivates",
+			previous: plugins.PluginWatchCodeCapabilities{
+				PluginID:      "setta-watch-code",
+				PluginEnabled: true,
+				Python:        true,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+				SchemaVersion:    projectstate.CurrentSchemaVersion,
+				DefaultProjectID: "project-alpha",
+				Projects: map[string]projectstate.Project{
+					"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+				},
+			})
+			if err != nil {
+				t.Fatalf("open project runtime: %v", err)
+			}
+			t.Cleanup(func() {
+				if err := projectRuntime.Close(); err != nil {
+					t.Fatalf("close project runtime: %v", err)
+				}
+			})
+
+			capabilities := newWatchCodeCapabilityState()
+			capabilities.Set(test.next)
+			restarter := &recordingProjectDocumentRestarter{
+				onRestart: func(_ projectstate.Document) error {
+					pluginID, active := capabilities.ActiveProviderPluginID()
+					if active != test.wantActive || pluginID != test.wantID {
+						t.Fatalf("restart saw active provider (%q, %v), want (%q, %v)", pluginID, active, test.wantID, test.wantActive)
+					}
+					return nil
+				},
+			}
+			specs := []lsp.LanguageServerSpec{{PluginID: "setta-basedpyright", LanguageID: "python"}}
+			refresher := &pluginBackendRuntimeRefresher{
+				projectState:          projectRuntime,
+				projectSync:           restarter,
+				watchCodeCapabilities: capabilities,
+			}
+
+			err = refresher.reconcileProjectDocumentLocked(
+				context.Background(),
+				specs,
+				cloneLanguageServerSpecs(specs),
+				watchCodeActiveProviderChanged(test.previous, test.next),
+			)
+			if err != nil {
+				t.Fatalf("reconcile project document: %v", err)
+			}
+			if restarter.restartCount != 1 {
+				t.Fatalf("expected one project restart, got %d", restarter.restartCount)
+			}
+		})
+	}
+}
+
+func TestPluginBackendRuntimeRefresherSkipsProjectReconcileWhenSpecsAndProviderAreUnchanged(
+	t *testing.T,
+) {
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	capabilities := plugins.PluginWatchCodeCapabilities{
+		PluginID:      "setta-watch-code",
+		PluginEnabled: true,
+		Python:        true,
+	}
+	restarter := &recordingProjectDocumentRestarter{}
+	specs := []lsp.LanguageServerSpec{{PluginID: "setta-basedpyright", LanguageID: "python"}}
+	refresher := &pluginBackendRuntimeRefresher{
+		projectState: projectRuntime,
+		projectSync:  restarter,
+	}
+
+	err = refresher.reconcileProjectDocumentLocked(
+		context.Background(),
+		specs,
+		cloneLanguageServerSpecs(specs),
+		watchCodeActiveProviderChanged(capabilities, capabilities),
+	)
+	if err != nil {
+		t.Fatalf("reconcile project document: %v", err)
+	}
+	if restarter.restartCount != 0 {
+		t.Fatalf("expected no project restart, got %d", restarter.restartCount)
+	}
+}
+
 func newPluginRuntimeRefreshTestService(t *testing.T) (*plugins.Service, string) {
 	service, _, settaFilesRoot := newPluginRuntimeRefreshTestServiceWithRoots(t)
 	return service, settaFilesRoot
@@ -414,6 +542,27 @@ func writePluginRuntimeRefreshTestJSON(t *testing.T, path string, payload any) {
 	if err := os.WriteFile(path, append(content, '\n'), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
+}
+
+type recordingProjectDocumentRestarter struct {
+	restartCount int
+	onRestart    func(projectstate.Document) error
+}
+
+func (r *recordingProjectDocumentRestarter) Restart(_ context.Context, document projectstate.Document) error {
+	r.restartCount++
+	if r.onRestart != nil {
+		return r.onRestart(document)
+	}
+	return nil
+}
+
+func (r *recordingProjectDocumentRestarter) TypeCheckProject(
+	context.Context,
+	projectstate.Document,
+	string,
+) error {
+	return nil
 }
 
 func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatusForInvalidEntry(t *testing.T) {

@@ -68,28 +68,9 @@ func (d *Document) SetWatchCodeEnabled(
 	enabled bool,
 	workspaceRoot string,
 ) error {
-	if d == nil {
-		return ErrProjectNotFound
-	}
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return err
-	}
-	project, err := d.ProjectByID(projectID)
-	if err != nil {
-		return err
-	}
-	data, existed, err := d.decodeWatchCodePluginData(pluginID)
-	if err != nil {
-		return err
-	}
-	projectData, _ := data.projectData(project.ID)
-	if err := project.setWatchCodeEnabledWithIgnoredRoots(&projectData, enabled, workspaceRoot, d.watchCodeIgnoredRoots); err != nil {
-		return err
-	}
-	d.Projects[project.ID] = project
-	data = data.withProjectData(project.ID, projectData, existed)
-	return d.setWatchCodePluginData(pluginID, data, existed)
+	return d.updateWatchCodeProjectData(providerPluginID, projectID, func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error {
+		return project.setWatchCodeEnabledWithIgnoredRoots(projectData, enabled, workspaceRoot, ignoredRoots)
+	})
 }
 
 func (r *Runtime) SetWatchCodeEnabled(
@@ -143,6 +124,38 @@ func (d *Document) SetWatchCodeInputs(
 	files []string,
 	workspaceRoot string,
 ) error {
+	return d.updateWatchCodeProjectData(providerPluginID, projectID, func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error {
+		return project.setWatchCodeInputsWithIgnoredRoots(projectData, folders, files, workspaceRoot, ignoredRoots)
+	})
+}
+
+func (d *Document) SetWatchCodeFolders(
+	providerPluginID string,
+	projectID string,
+	folders []WatchCodeFolder,
+	workspaceRoot string,
+) error {
+	return d.updateWatchCodeProjectData(providerPluginID, projectID, func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error {
+		return project.setWatchCodeInputsWithIgnoredRoots(projectData, folders, projectData.Files, workspaceRoot, ignoredRoots)
+	})
+}
+
+func (d *Document) SetWatchCodeFiles(
+	providerPluginID string,
+	projectID string,
+	files []string,
+	workspaceRoot string,
+) error {
+	return d.updateWatchCodeProjectData(providerPluginID, projectID, func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error {
+		return project.setWatchCodeInputsWithIgnoredRoots(projectData, projectData.Folders, files, workspaceRoot, ignoredRoots)
+	})
+}
+
+func (d *Document) updateWatchCodeProjectData(
+	providerPluginID string,
+	projectID string,
+	update func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error,
+) error {
 	if d == nil {
 		return ErrProjectNotFound
 	}
@@ -159,7 +172,10 @@ func (d *Document) SetWatchCodeInputs(
 		return err
 	}
 	projectData, _ := data.projectData(project.ID)
-	if err := project.setWatchCodeInputsWithIgnoredRoots(&projectData, folders, files, workspaceRoot, d.watchCodeIgnoredRoots); err != nil {
+	if update == nil {
+		return ErrMutationMissing
+	}
+	if err := update(&project, &projectData, d.watchCodeIgnoredRoots); err != nil {
 		return err
 	}
 	d.Projects[project.ID] = project
@@ -181,6 +197,44 @@ func (r *Runtime) SetWatchCodeInputs(
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		if err := document.SetWatchCodeInputs(providerPluginID, projectID, folders, files, workspaceRoot); err != nil {
+			return document, err
+		}
+		return document, nil
+	})
+}
+
+func (r *Runtime) SetWatchCodeFolders(
+	ctx context.Context,
+	providerPluginID string,
+	projectID string,
+	folders []WatchCodeFolder,
+	workspaceRoot string,
+) (Snapshot, error) {
+	if r == nil {
+		return Snapshot{}, ErrRuntimeClosed
+	}
+
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.SetWatchCodeFolders(providerPluginID, projectID, folders, workspaceRoot); err != nil {
+			return document, err
+		}
+		return document, nil
+	})
+}
+
+func (r *Runtime) SetWatchCodeFiles(
+	ctx context.Context,
+	providerPluginID string,
+	projectID string,
+	files []string,
+	workspaceRoot string,
+) (Snapshot, error) {
+	if r == nil {
+		return Snapshot{}, ErrRuntimeClosed
+	}
+
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.SetWatchCodeFiles(providerPluginID, projectID, files, workspaceRoot); err != nil {
 			return document, err
 		}
 		return document, nil

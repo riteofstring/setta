@@ -10348,15 +10348,9 @@
         "properties": {
           "canvasControlsUi": {
             "type": "boolean"
-          },
-          "python": {
-            "type": "boolean"
-          },
-          "requiresLanguageServer": {
-            "type": "boolean"
           }
         },
-        "required": ["python", "requiresLanguageServer", "canvasControlsUi"],
+        "required": ["canvasControlsUi"],
         "title": "PluginWatchCodeFeatureManifest",
         "type": "object"
       },

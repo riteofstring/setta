@@ -153,9 +153,7 @@ type PluginAppSubsystemFeatureManifest struct {
 }
 
 type PluginWatchCodeFeatureManifest struct {
-	Python                 bool `json:"python"`
-	RequiresLanguageServer bool `json:"requiresLanguageServer"`
-	CanvasControlsUI       bool `json:"canvasControlsUi"`
+	CanvasControlsUI bool `json:"canvasControlsUi"`
 }
 
 type PluginFeatureCapabilitiesManifest struct {

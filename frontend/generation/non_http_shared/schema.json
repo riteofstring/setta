@@ -12292,20 +12292,12 @@
     "PluginWatchCodeFeatureManifest": {
       "type": "object",
       "properties": {
-        "python": {
-          "type": "boolean"
-        },
-        "requiresLanguageServer": {
-          "type": "boolean"
-        },
         "canvasControlsUi": {
           "type": "boolean"
         }
       },
       "title": "PluginWatchCodeFeatureManifest",
       "required": [
-        "python",
-        "requiresLanguageServer",
         "canvasControlsUi"
       ],
       "additionalProperties": false

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -329,6 +330,58 @@ func TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime(
 	persistedProjectData := readPersistedAppWatchCodePluginProjectDataForProvider(t, cfg, firstPartyWatchCodePluginID, "project-alpha")
 	if !persistedProjectData.Enabled {
 		t.Fatalf("expected active watch-code UI setting write to persist, got %#v", persistedProjectData)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteMergesSplitWatchCodeInputSettings(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	for _, payload := range []string{
+		`{
+			"tool":"set_ui_setting_value",
+			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::files","value":["pkg/newer.py"]},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`,
+		`{
+			"tool":"set_ui_setting_value",
+			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::folders","value":[{"path":"pkg/newer","recursive":true}]},
+			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+		}`,
+	} {
+		structuredContent, isError := postAppMCPToolCallRoute(t, client, server.URL, payload)
+		if isError {
+			t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
+		}
+		setResult := mustStructuredMapValue(t, structuredContent)
+		if _, ok := setResult["error"]; ok {
+			t.Fatalf("did not expect split watch-code setting write error, got %#v", setResult)
+		}
+	}
+
+	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, firstPartyWatchCodePluginID, "project-alpha")
+	if !reflect.DeepEqual(liveProjectData.Files, []string{"pkg/newer.py"}) {
+		t.Fatalf("expected files update to remain, got %#v", liveProjectData.Files)
+	}
+	if !reflect.DeepEqual(liveProjectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg/newer", Recursive: true}}) {
+		t.Fatalf("expected folders update to remain, got %#v", liveProjectData.Folders)
 	}
 }
 

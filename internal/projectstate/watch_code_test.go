@@ -435,6 +435,92 @@ func TestRuntimeSetWatchCodeInputsBaselinesOnlyNewInputsWhenEnabled(t *testing.T
 	}
 }
 
+func TestRuntimeSetWatchCodeFoldersPreservesNewerFiles(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	document := watchCodeInputsFieldMutationDocument(t)
+	runtime, err := OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.SetWatchCodeFiles(
+		context.Background(),
+		testWatchCodeProviderPluginID,
+		"project-alpha",
+		[]string{"pkg/newer.py"},
+		workspaceRoot,
+	); err != nil {
+		t.Fatalf("set watch code files: %v", err)
+	}
+	if _, err := runtime.SetWatchCodeFolders(
+		context.Background(),
+		testWatchCodeProviderPluginID,
+		"project-alpha",
+		[]WatchCodeFolder{{Path: "pkg/newer", Recursive: true}},
+		workspaceRoot,
+	); err != nil {
+		t.Fatalf("set watch code folders: %v", err)
+	}
+
+	projectData := mustReadTestWatchCodePluginProjectData(t, runtime.Snapshot().Document, "project-alpha")
+	if !reflect.DeepEqual(projectData.Folders, []WatchCodeFolder{{Path: "pkg/newer", Recursive: true}}) {
+		t.Fatalf("expected folders update, got %#v", projectData.Folders)
+	}
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/newer.py"}) {
+		t.Fatalf("expected newer files to remain, got %#v", projectData.Files)
+	}
+}
+
+func TestRuntimeSetWatchCodeFilesPreservesNewerFolders(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	document := watchCodeInputsFieldMutationDocument(t)
+	runtime, err := OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	if _, err := runtime.SetWatchCodeFolders(
+		context.Background(),
+		testWatchCodeProviderPluginID,
+		"project-alpha",
+		[]WatchCodeFolder{{Path: "pkg/newer", Recursive: true}},
+		workspaceRoot,
+	); err != nil {
+		t.Fatalf("set watch code folders: %v", err)
+	}
+	if _, err := runtime.SetWatchCodeFiles(
+		context.Background(),
+		testWatchCodeProviderPluginID,
+		"project-alpha",
+		[]string{"pkg/newer.py"},
+		workspaceRoot,
+	); err != nil {
+		t.Fatalf("set watch code files: %v", err)
+	}
+
+	projectData := mustReadTestWatchCodePluginProjectData(t, runtime.Snapshot().Document, "project-alpha")
+	if !reflect.DeepEqual(projectData.Folders, []WatchCodeFolder{{Path: "pkg/newer", Recursive: true}}) {
+		t.Fatalf("expected newer folders to remain, got %#v", projectData.Folders)
+	}
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/newer.py"}) {
+		t.Fatalf("expected files update, got %#v", projectData.Files)
+	}
+}
+
 func TestRuntimeSetWatchCodeEnabledBaselineScansIgnoreConfiguredRootsAndExplicitIgnoredFiles(t *testing.T) {
 	t.Parallel()
 
@@ -527,6 +613,26 @@ func TestRuntimeSetWatchCodeEnabledBaselineScansIgnoreConfiguredRootsAndExplicit
 			t.Fatalf("expected ignored path %q to stay out of baseline %#v", ignoredPath, projectData.BaselineByPath)
 		}
 	}
+}
+
+func watchCodeInputsFieldMutationDocument(t *testing.T) Document {
+	t.Helper()
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Folders: []WatchCodeFolder{{Path: "pkg/old", Recursive: false}},
+		Files:   []string{"pkg/old.py"},
+	})
+	return document
 }
 
 func TestIterWatchCodePythonFilesHonorsTraversalModeAndIgnoredRoots(t *testing.T) {

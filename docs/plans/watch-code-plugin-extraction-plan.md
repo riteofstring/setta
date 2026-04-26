@@ -119,8 +119,6 @@ The manifest must include a backend entrypoint and explicit capabilities:
   },
   "featureCapabilities": {
     "watchCode": {
-      "python": true,
-      "requiresLanguageServer": true,
       "canvasControlsUi": true
     }
   },

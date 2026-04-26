@@ -842,9 +842,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesRejectManifestOnlyProvider(t *testin
 		FixtureName:      "frontend",
 		EnabledByDefault: true,
 		WatchCode: map[string]any{
-			"python":                 true,
-			"requiresLanguageServer": true,
-			"canvasControlsUi":       true,
+			"canvasControlsUi": true,
 		},
 	})
 
@@ -892,9 +890,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowBackendProbedProvider(t *testi
 		EnabledByDefault:         true,
 		RegisterWatchCodeBackend: true,
 		WatchCode: map[string]any{
-			"python":                 true,
-			"requiresLanguageServer": true,
-			"canvasControlsUi":       true,
+			"canvasControlsUi": true,
 		},
 	})
 
@@ -936,6 +932,42 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowBackendProbedProvider(t *testi
 	)
 }
 
+func TestServiceRuntimeWatchCodeCapabilitiesUseProbedLanguageServerRequirement(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-watch-code-provider"
+	requiresLanguageServer := false
+	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+		PluginID:                               pluginID,
+		FixtureName:                            "frontend",
+		EnabledByDefault:                       true,
+		RegisterWatchCodeBackend:               true,
+		WatchCodeBackendRequiresLanguageServer: &requiresLanguageServer,
+		WatchCode: map[string]any{
+			"canvasControlsUi": true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	if watchCode.PluginID != pluginID || !watchCode.PluginEnabled || !watchCode.Python {
+		t.Fatalf("expected selected probed watch-code provider %q, got %#v", pluginID, watchCode)
+	}
+	if watchCode.RequiresLanguageServer {
+		t.Fatalf("expected language-server requirement to follow backend probe, got %#v", watchCode)
+	}
+	if !watchCode.CanvasControlsUI {
+		t.Fatalf("expected manifest-owned canvas control flag to remain enabled, got %#v", watchCode)
+	}
+}
+
 func TestServiceRuntimeWatchCodeCapabilitiesRejectBackendProbeWithoutRegistration(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-watch-code-provider"
@@ -945,10 +977,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesRejectBackendProbeWithoutRegistratio
 		EnabledByDefault:                 true,
 		RegisterWatchCodeBackend:         true,
 		OmitWatchCodeBackendRegistration: true,
-		WatchCode: map[string]any{
-			"python":                 true,
-			"requiresLanguageServer": true,
-		},
+		WatchCode:                        map[string]any{},
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -1040,10 +1069,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesTreatDisabledPluginAsUnavailable(t *
 		FixtureName:              "backend",
 		EnabledByDefault:         false,
 		RegisterWatchCodeBackend: true,
-		WatchCode: map[string]any{
-			"python":                 true,
-			"requiresLanguageServer": true,
-		},
+		WatchCode:                map[string]any{},
 	})
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -1082,10 +1108,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesFailClosedOnPendingRestartProvider(t
 		FixtureName:              "backend",
 		EnabledByDefault:         true,
 		RegisterWatchCodeBackend: true,
-		WatchCode: map[string]any{
-			"python":                 true,
-			"requiresLanguageServer": true,
-		},
+		WatchCode:                map[string]any{},
 	})
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
 		"enabledPluginIds":               []string{pluginID},
@@ -1144,10 +1167,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesFailClosedWhenProviderPendingRestart
 			FixtureName:              "backend",
 			EnabledByDefault:         true,
 			RegisterWatchCodeBackend: true,
-			WatchCode: map[string]any{
-				"python":                 true,
-				"requiresLanguageServer": true,
-			},
+			WatchCode:                map[string]any{},
 		})
 	}
 	writeJSONFile(t, filepath.Join(roots.settaFilesRoot, "plugins_state.json"), map[string]any{
@@ -1195,17 +1215,17 @@ func TestServiceRuntimeWatchCodeCapabilitiesFailClosedWhenProviderPendingRestart
 	)
 }
 
-func TestServiceRuntimeWatchCodeCapabilitiesTreatProviderWithoutPythonAsInvalid(t *testing.T) {
+func TestServiceRuntimeWatchCodeCapabilitiesTreatBackendProbeWithoutPythonAsInvalid(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-invalid-watch-code-provider"
 	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
-		PluginID:                 pluginID,
-		FixtureName:              "frontend",
-		EnabledByDefault:         true,
-		RegisterWatchCodeBackend: true,
+		PluginID:                  pluginID,
+		FixtureName:               "frontend",
+		EnabledByDefault:          true,
+		RegisterWatchCodeBackend:  true,
+		WatchCodeBackendLanguages: []string{"typescript"},
 		WatchCode: map[string]any{
-			"requiresLanguageServer": true,
-			"canvasControlsUi":       true,
+			"canvasControlsUi": true,
 		},
 	})
 
@@ -1244,10 +1264,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesFailClosedOnProviderConflict(t *test
 			FixtureName:              "backend",
 			EnabledByDefault:         true,
 			RegisterWatchCodeBackend: true,
-			WatchCode: map[string]any{
-				"python":                 true,
-				"requiresLanguageServer": true,
-			},
+			WatchCode:                map[string]any{},
 		})
 	}
 
@@ -1542,12 +1559,14 @@ func installRuntimeAppSubsystemFixture(
 }
 
 type runtimeWatchCodeFixtureOptions struct {
-	PluginID                         string
-	FixtureName                      string
-	EnabledByDefault                 bool
-	RegisterWatchCodeBackend         bool
-	OmitWatchCodeBackendRegistration bool
-	WatchCode                        map[string]any
+	PluginID                               string
+	FixtureName                            string
+	EnabledByDefault                       bool
+	RegisterWatchCodeBackend               bool
+	OmitWatchCodeBackendRegistration       bool
+	WatchCodeBackendLanguages              []string
+	WatchCodeBackendRequiresLanguageServer *bool
+	WatchCode                              map[string]any
 }
 
 func installRuntimeWatchCodeFixture(
@@ -1584,6 +1603,8 @@ func installRuntimeWatchCodeFixture(
 			t,
 			targetRoot,
 			!options.OmitWatchCodeBackendRegistration,
+			options.WatchCodeBackendLanguages,
+			options.WatchCodeBackendRequiresLanguageServer,
 		)
 	}
 	return targetRoot
@@ -1593,6 +1614,8 @@ func writeRuntimeWatchCodeBackendProbe(
 	t *testing.T,
 	pluginRoot string,
 	register bool,
+	languages []string,
+	requiresLanguageServer *bool,
 ) {
 	t.Helper()
 
@@ -1601,7 +1624,18 @@ func writeRuntimeWatchCodeBackendProbe(
 		t.Fatalf("mkdir runtime backend root: %v", err)
 	}
 
-	probePayload := `"watchCodeBackend": {"contractVersion": 1, "dataSchemaVersion": 1, "languages": ["python"], "requiresLanguageServer": True},`
+	if len(languages) == 0 {
+		languages = []string{"python"}
+	}
+	languagesJSON, err := json.Marshal(languages)
+	if err != nil {
+		t.Fatalf("marshal watch code backend languages: %v", err)
+	}
+	requiresLanguageServerValue := "True"
+	if requiresLanguageServer != nil && !*requiresLanguageServer {
+		requiresLanguageServerValue = "False"
+	}
+	probePayload := `"watchCodeBackend": {"contractVersion": 1, "dataSchemaVersion": 1, "languages": ` + string(languagesJSON) + `, "requiresLanguageServer": ` + requiresLanguageServerValue + `},`
 	if !register {
 		probePayload = ""
 	}

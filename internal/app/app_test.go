@@ -14046,10 +14046,7 @@ func enableAppPluginManifestWatchCodeProvider(payload map[string]any) {
 		featureCapabilities = map[string]any{}
 		payload["featureCapabilities"] = featureCapabilities
 	}
-	featureCapabilities["watchCode"] = map[string]any{
-		"python":                 true,
-		"requiresLanguageServer": true,
-	}
+	featureCapabilities["watchCode"] = map[string]any{}
 }
 
 func ensureAppPluginManifestCapability(payload map[string]any, capability string) {
