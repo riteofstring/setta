@@ -27,7 +27,6 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamesMovedRegistryIdentityWithinConfig
 
 	project := callableTestProject(t)
 	projectData := EmptyWatchCodePluginProjectData()
-	projectData.Enabled = true
 	projectData.Folders = []WatchCodeFolder{{Path: "pkg", Recursive: false}}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
@@ -151,7 +150,6 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 		},
 	}
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
-		Enabled: true,
 		Folders: []WatchCodeFolder{{Path: "source", Recursive: false}},
 		Registry: map[string]WatchCodeRegistryEntry{
 			sourceIdentity: {
@@ -169,7 +167,6 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 		},
 	})
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-beta", WatchCodePluginProjectData{
-		Enabled: true,
 		Folders: []WatchCodeFolder{{Path: "dest", Recursive: false}},
 	})
 	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
@@ -287,8 +284,7 @@ func TestRuntimeApplyWatchCodeFileUpdateReconcilesGeneratedPythonSectionsWhenCon
 		ProjectChatWindowing: &defaultWindowing,
 	}
 	projectData := WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watched.py"},
+		Files: []string{"pkg/watched.py"},
 	}
 
 	structuralReconciler := testRuntimeStructuralMutationPythonGeneratedSectionReconciler()
@@ -435,7 +431,6 @@ func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverl
 		},
 	}
 	projectData := WatchCodePluginProjectData{
-		Enabled:  true,
 		Files:    []string{sourceRelativePath},
 		Registry: map[string]WatchCodeRegistryEntry{},
 	}
@@ -573,8 +568,7 @@ func TestRuntimeApplyWatchCodeFileDeleteClearsRegistryAndBaseline(t *testing.T) 
 		},
 	}
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watched.py"},
+		Files: []string{"pkg/watched.py"},
 		Registry: map[string]WatchCodeRegistryEntry{
 			identity: {
 				CallableName:  "pkg.watched.added",
@@ -644,8 +638,7 @@ func TestRuntimeApplyWatchCodeFileUpdateSyntaxErrorPreservesProjectState(t *test
 		},
 	}
 	mustSetTestWatchCodePluginProjectData(t, &initialDocument, "project-alpha", WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watched.py"},
+		Files: []string{"pkg/watched.py"},
 		Registry: map[string]WatchCodeRegistryEntry{
 			identity: {
 				CallableName:  "pkg.watched.watched",
@@ -710,7 +703,6 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesCallableParams(t
 
 	project := callableTestProject(t)
 	projectData := EmptyWatchCodePluginProjectData()
-	projectData.Enabled = true
 	projectData.Files = []string{"pkg/watched.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
@@ -861,8 +853,7 @@ func TestRuntimeApplyWatchCodeFileUpdateInitialAdditionRefetchesCallableParams(t
 		},
 	}
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watched.py"},
+		Files: []string{"pkg/watched.py"},
 	})
 	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
 		WatchCodeProviderPluginID: func() (string, bool) {
@@ -986,7 +977,6 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKe
 
 	project := callableTestProject(t)
 	projectData := EmptyWatchCodePluginProjectData()
-	projectData.Enabled = true
 	projectData.Files = []string{"pkg/watched.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
@@ -1089,7 +1079,6 @@ func TestRuntimeApplyWatchCodeFileUpdateRenamePreservesSectionIDsAndParams(t *te
 
 	project := callableTestProject(t)
 	projectData := EmptyWatchCodePluginProjectData()
-	projectData.Enabled = true
 	projectData.Files = []string{"pkg/watched.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
@@ -1200,7 +1189,6 @@ func TestRuntimeApplyWatchCodeFileDeleteRemovesCallableSectionAndCodeObjects(t *
 	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
 	project := callableTestProject(t)
 	projectData := EmptyWatchCodePluginProjectData()
-	projectData.Enabled = true
 	projectData.Files = []string{"pkg/watched.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
@@ -1508,7 +1496,6 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveIntoTrackedDestinationFromUntrackedC
 		},
 	}
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
-		Enabled: true,
 		Folders: []WatchCodeFolder{{Path: "pkg", Recursive: false}},
 	})
 	runtime, err := OpenOverlayRuntime(document)
@@ -1582,8 +1569,7 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveOverExistingDestinationReplacesDesti
 		},
 	}
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/source.py", "pkg/dest.py"},
+		Files: []string{"pkg/source.py", "pkg/dest.py"},
 	})
 	runtime, err := OpenOverlayRuntime(document)
 	if err != nil {
@@ -1740,8 +1726,7 @@ func seedMixedWatchCodeVariantFixture(t *testing.T) mixedWatchCodeVariantFixture
 		},
 	}
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watched.py"},
+		Files: []string{"pkg/watched.py"},
 	})
 	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
 		WatchCodeProviderPluginID: func() (string, bool) {

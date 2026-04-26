@@ -191,7 +191,9 @@ func TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply(t *tes
 
 	workspaceRoot := t.TempDir()
 	project := watchCodeBoundReloadProject(t)
-	projectData := projectstate.WatchCodePluginProjectData{Enabled: true}.Normalized()
+	projectData := projectstate.WatchCodePluginProjectData{
+		Files: []string{"pkg/bound.py"},
+	}.Normalized()
 
 	if _, err := project.ApplyWatchCodeBoundSectionUpdate(
 		context.Background(),
@@ -361,7 +363,7 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 	}
 
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeEnabledProjectData()))
+	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeConfiguredProjectData()))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -522,7 +524,7 @@ func TestCodeUpdateServiceSetCodePopulatesBoundWatchCodeParamsWithoutSignatureRe
 
 	workspaceRoot := t.TempDir()
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeEnabledProjectData()))
+	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeConfiguredProjectData()))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -584,7 +586,7 @@ func TestCodeUpdateServiceSetCodeReconcilesGeneratedPythonSectionForBoundWatchCo
 	workspaceRoot := t.TempDir()
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
 	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(
-		watchCodeTestDocument(t, project, watchCodeEnabledProjectData()),
+		watchCodeTestDocument(t, project, watchCodeConfiguredProjectData()),
 		projectstate.RuntimeOptions{
 			PythonCodegenSectionReconciler: testCodeUpdateGeneratedPythonSectionReconciler(),
 		},
@@ -762,7 +764,7 @@ func TestCodeUpdateServiceSetCodeRefreshesProjectDiagnosticsAfterBoundWatchCodeS
 	t.Parallel()
 
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeEnabledProjectData()))
+	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeConfiguredProjectData()))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -813,7 +815,7 @@ func TestCodeUpdateServiceReloadBoundCodeFileRefreshesProjectDiagnosticsAfterBou
 
 	workspaceRoot := t.TempDir()
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
-	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeEnabledProjectData()))
+	projectRuntime, err := projectstate.OpenOverlayRuntime(watchCodeTestDocument(t, project, watchCodeConfiguredProjectData()))
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
 	}
@@ -1056,7 +1058,7 @@ func TestCodeUpdateServiceFormatCodeUpdatesWatchCodeRegistry(t *testing.T) {
 		t.Fatalf("seed unformatted bound code content: %v", err)
 	}
 
-	projectData := watchCodeEnabledProjectData()
+	projectData := watchCodeConfiguredProjectData()
 	if _, err := project.ApplyWatchCodeBoundSectionUpdate(
 		context.Background(),
 		&projectData,
@@ -1347,9 +1349,9 @@ func watchCodeRootBoundProject(t *testing.T, bindingPath string) projectstate.Pr
 	return watchCodeBoundProject(t, bindingPath, "")
 }
 
-func watchCodeEnabledProjectData() projectstate.WatchCodePluginProjectData {
+func watchCodeConfiguredProjectData() projectstate.WatchCodePluginProjectData {
 	return projectstate.WatchCodePluginProjectData{
-		Enabled: true,
+		Files: []string{"watch_code_test.py", "pkg/bound.py"},
 	}.Normalized()
 }
 
@@ -1487,7 +1489,7 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 
 	project := watchCodeRootBoundProject(t, "watch_code_test.py")
 	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(
-		watchCodeTestDocument(t, project, watchCodeEnabledProjectData()),
+		watchCodeTestDocument(t, project, watchCodeConfiguredProjectData()),
 		projectstate.RuntimeOptions{
 			PythonCodegenSectionReconciler: materializer,
 			WatchCodeProviderPluginID: func() (string, bool) {
@@ -1590,7 +1592,7 @@ func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCode
 	if err != nil {
 		t.Fatalf("new project store: %v", err)
 	}
-	if err := store.Save(context.Background(), watchCodeTestDocument(t, project, watchCodeEnabledProjectData())); err != nil {
+	if err := store.Save(context.Background(), watchCodeTestDocument(t, project, watchCodeConfiguredProjectData())); err != nil {
 		t.Fatalf("seed project store: %v", err)
 	}
 

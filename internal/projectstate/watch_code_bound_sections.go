@@ -92,6 +92,9 @@ func (p Project) ResolveWatchCodeBoundSection(
 	if err != nil || !ok {
 		return WatchCodeBoundSection{}, ok, err
 	}
+	if !watchCodePathMatches(projectData, workspaceRoot, resolved.SourcePath) {
+		return WatchCodeBoundSection{}, false, nil
+	}
 	ignoreState, err := p.CodeSectionDiagnosticsIgnoreStateForSection(section.ID)
 	if err != nil {
 		return WatchCodeBoundSection{}, false, err
@@ -104,7 +107,8 @@ func (p Project) resolveWatchCodeBoundSectionTarget(
 	projectData WatchCodePluginProjectData,
 	sectionID string,
 ) (Section, string, bool, error) {
-	if !projectData.Normalized().Enabled || !p.HasPythonCodegenTarget() {
+	_ = projectData
+	if !p.HasPythonCodegenTarget() {
 		return Section{}, "", false, nil
 	}
 

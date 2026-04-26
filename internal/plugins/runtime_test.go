@@ -972,7 +972,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesRejectIncompleteBackendRouteContract
 			OmitWatchCodeRouterCapability: true,
 		},
 		"missing inputs route": {
-			WatchCodeBackendRouteSuffixes: []string{watchcodecontracts.BackendRouteSuffixEnabled},
+			WatchCodeBackendRouteSuffixes: []string{},
 		},
 	}
 

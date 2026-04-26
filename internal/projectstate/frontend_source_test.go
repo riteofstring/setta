@@ -33,9 +33,6 @@ func TestDocumentNormalizedSupportsFrontendSourceFields(t *testing.T) {
 	if project.ActiveViewModeID != "focus" {
 		t.Fatalf("expected active view mode focus, got %q", project.ActiveViewModeID)
 	}
-	if !watchCodeData.Enabled {
-		t.Fatal("expected watch code enabled to be preserved")
-	}
 	if len(watchCodeData.Folders) != 1 || watchCodeData.Folders[0].Path != "src" || !watchCodeData.Folders[0].Recursive {
 		t.Fatalf("expected watch code folders to be preserved, got %#v", watchCodeData.Folders)
 	}
@@ -342,7 +339,6 @@ func newFrontendSourceTestDocument(t *testing.T) Document {
 				SchemaVersion: WatchCodePluginDataSchemaVersion,
 				Projects: map[string]WatchCodePluginProjectData{
 					"project-alpha": {
-						Enabled: true,
 						Folders: []WatchCodeFolder{
 							{Path: "src", Recursive: true},
 						},

@@ -1279,11 +1279,9 @@ raise SystemExit("watch code backend runtime should not invoke local core")
     probe_payload = json.loads(probe_result.stdout)
     assert probe_payload["watchCodeBackend"]["contractVersion"] == 1
     assert probe_payload["routes"] == [
-        {"path": "/plugins/setta-watch-code/watch-code/enabled", "methods": ["POST"]},
         {"path": "/plugins/setta-watch-code/watch-code/inputs", "methods": ["POST"]},
     ]
     assert {setting["id"] for setting in probe_payload["uiSettings"]} == {
-        "enabled",
         "folders",
         "files",
     }
@@ -1291,7 +1289,11 @@ raise SystemExit("watch code backend runtime should not invoke local core")
 
     route_body = base64.b64encode(
         json.dumps(
-            {"projectConfigId": "project-alpha", "enabled": True},
+            {
+                "projectConfigId": "project-alpha",
+                "folders": [],
+                "files": ["pkg/watch.py"],
+            },
             separators=(",", ":"),
         ).encode("utf-8")
     ).decode("ascii")
@@ -1304,7 +1306,7 @@ raise SystemExit("watch code backend runtime should not invoke local core")
                 "workspaceRoot": str(tmp_path / "workspace"),
             },
             "method": "POST",
-            "path": "/plugins/setta-watch-code/watch-code/enabled",
+            "path": "/plugins/setta-watch-code/watch-code/inputs",
             "headers": {},
             "bodyBase64": route_body,
         },
@@ -1340,7 +1342,7 @@ raise SystemExit("watch code backend runtime should not invoke local core")
                 "workspaceRoot": str(tmp_path / "workspace"),
             },
             "operation": "read",
-            "handlerId": "read_enabled",
+            "handlerId": "read_files",
             "projectConfigId": "project-alpha",
         },
     }

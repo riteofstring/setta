@@ -44,7 +44,6 @@ type WatchCodeRegistryEntry struct {
 }
 
 type watchCodeConfigSnapshot struct {
-	Enabled bool
 	Files   []string
 	Folders []WatchCodeFolder
 }
@@ -60,61 +59,6 @@ var defaultWatchCodeIgnoreDirNames = map[string]struct{}{
 	"node_modules":    {},
 	"setta_files":     {},
 	"setta_files_dev": {},
-}
-
-func (d *Document) SetWatchCodeEnabled(
-	providerPluginID string,
-	projectID string,
-	enabled bool,
-	workspaceRoot string,
-) error {
-	return d.updateWatchCodeProjectData(providerPluginID, projectID, func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error {
-		return project.setWatchCodeEnabledWithIgnoredRoots(projectData, enabled, workspaceRoot, ignoredRoots)
-	})
-}
-
-func (r *Runtime) SetWatchCodeEnabled(
-	ctx context.Context,
-	providerPluginID string,
-	projectID string,
-	enabled bool,
-	workspaceRoot string,
-) (Snapshot, error) {
-	if r == nil {
-		return Snapshot{}, ErrRuntimeClosed
-	}
-
-	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetWatchCodeEnabled(providerPluginID, projectID, enabled, workspaceRoot); err != nil {
-			return document, err
-		}
-		return document, nil
-	})
-}
-
-func (p *Project) setWatchCodeEnabledWithIgnoredRoots(
-	projectData *WatchCodePluginProjectData,
-	enabled bool,
-	workspaceRoot string,
-	ignoredRoots []string,
-) error {
-	if p == nil {
-		return ErrProjectNotFound
-	}
-	if projectData == nil {
-		return ErrWatchCodeProjectDataRequired
-	}
-	if err := requireWatchCodeWorkspaceRoot(workspaceRoot); err != nil {
-		return err
-	}
-
-	*projectData = projectData.Normalized()
-	previousEnabled := projectData.Enabled
-	projectData.Enabled = enabled
-	if enabled && !previousEnabled {
-		return p.baselineWatchCodeOnEnable(projectData, workspaceRoot, ignoredRoots)
-	}
-	return nil
 }
 
 func (d *Document) SetWatchCodeInputs(
@@ -271,10 +215,7 @@ func (p *Project) setWatchCodeInputsWithIgnoredRoots(
 
 	projectData.Folders = normalizedFolders
 	projectData.Files = normalizedFiles
-	if projectData.Enabled {
-		return p.baselineWatchCodeForNewInputs(projectData, workspaceRoot, previousSnapshot, ignoredRoots)
-	}
-	return nil
+	return p.baselineWatchCodeForNewInputs(projectData, workspaceRoot, previousSnapshot, ignoredRoots)
 }
 
 func requireWatchCodeWorkspaceRoot(workspaceRoot string) error {
@@ -364,7 +305,6 @@ func normalizeWatchCodeInputPath(workspaceRoot string, raw string, label string)
 func buildWatchCodeConfigSnapshot(projectData WatchCodePluginProjectData) watchCodeConfigSnapshot {
 	normalized := projectData.Normalized()
 	return watchCodeConfigSnapshot{
-		Enabled: normalized.Enabled,
 		Files:   append([]string(nil), normalized.Files...),
 		Folders: cloneWatchCodeFolders(normalized.Folders),
 	}
@@ -387,24 +327,12 @@ func WatchCodeConfigInputs(document Document, providerPluginID string) (map[stri
 			})
 		}
 		configs[projectID] = watchcode.ConfigInputs{
-			Enabled:      projectData.Enabled,
 			Files:        append([]string(nil), projectData.Files...),
 			Folders:      folders,
 			IgnoredRoots: append([]string(nil), document.watchCodeIgnoredRoots...),
 		}
 	}
 	return configs, nil
-}
-
-func (p *Project) baselineWatchCodeOnEnable(
-	projectData *WatchCodePluginProjectData,
-	workspaceRoot string,
-	ignoredRoots []string,
-) error {
-	if err := p.baselineWatchCodeInputs(projectData, workspaceRoot, ignoredRoots); err != nil {
-		return err
-	}
-	return p.baselineWatchCodeCodeSections(projectData, workspaceRoot)
 }
 
 func (p *Project) baselineWatchCodeForNewInputs(
@@ -414,9 +342,6 @@ func (p *Project) baselineWatchCodeForNewInputs(
 	ignoredRoots []string,
 ) error {
 	next := buildWatchCodeConfigSnapshot(*projectData)
-	if !next.Enabled {
-		return nil
-	}
 
 	previousFiles := make(map[string]struct{}, len(previous.Files))
 	for _, filePath := range previous.Files {

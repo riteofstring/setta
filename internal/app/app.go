@@ -2694,13 +2694,17 @@ func initializeAppMCPServer(
 		return nil
 	}
 	services.pluginRuntime.mcpServer = services.mcpServer
-	if err := services.pluginRuntime.Initialize(context.Background()); err != nil {
+	pluginSnapshot, err := services.pluginRuntime.InitializeAfterProcessStart(context.Background())
+	if err != nil {
 		_ = errors.Join(
 			closeMCPClient(base.mcpClient, context.Background()),
 			closeSettingsState(projectServices.settingsStateRuntime),
 			services.pluginRuntime.Close(context.Background()),
 		)
 		return err
+	}
+	if pluginRouteService, ok := services.pluginRouteService.(*pluginMutationRuntimeService); ok {
+		pluginRouteService.commitSnapshot(pluginSnapshot)
 	}
 	return nil
 }

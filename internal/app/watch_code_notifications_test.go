@@ -136,7 +136,7 @@ func TestWatchCodeSignatureObserverRecordsFinalBoundWatchCodeStatus(t *testing.T
 		t.Fatalf("set bound watch-code source: %v", err)
 	}
 	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
+		Files: []string{"watch_code_test.py"},
 	})
 
 	observer := newWatchCodeSignatureObserver(noMatchCallableSignatureResolver{})

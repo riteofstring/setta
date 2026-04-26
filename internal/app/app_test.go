@@ -7739,7 +7739,8 @@ func TestAppPluginRuntimeReportsProgrammaticRestartCapabilityInIDE(t *testing.T)
 }
 
 func TestAppPluginRestartClearsPendingBackendPluginState(t *testing.T) {
-	// Programmatic restart should rebuild backend plugin runtime and clear persisted pending_restart markers.
+	// Process start and programmatic restart should both rebuild backend plugin runtime
+	// and clear persisted pending_restart markers.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -7811,8 +7812,29 @@ func TestAppPluginRestartClearsPendingBackendPluginState(t *testing.T) {
 		return ""
 	}
 
+	if state := readPluginState(); state != "active" {
+		t.Fatalf("expected backend plugin to be active after process start, got %q", state)
+	}
+	persistedState := readAppPluginsState(t, cfg)
+	if len(persistedState.PendingRestartBackendPluginIDs) != 0 {
+		t.Fatalf("expected process start to clear pending restart ids, got %#v", persistedState.PendingRestartBackendPluginIDs)
+	}
+
+	if err := os.WriteFile(
+		filepath.Join(cfg.Paths.SettaFilesRoot, "plugins_state.json"),
+		[]byte(`{"pendingRestartBackendPluginIds":["setta-fixture-backend"]}`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write pending restart plugin state after startup: %v", err)
+	}
+	rescanResponse := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsRescan)
+	defer rescanResponse.Body.Close()
+	if rescanResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rescanResponse.Body)
+		t.Fatalf("expected plugin rescan 200, got %d with body %q", rescanResponse.StatusCode, string(body))
+	}
 	if state := readPluginState(); state != "pending_restart" {
-		t.Fatalf("expected backend plugin to start pending_restart, got %q", state)
+		t.Fatalf("expected backend plugin to be pending_restart before restart, got %q", state)
 	}
 
 	restartResponse := doRequest(http.MethodPost, "/api"+httpapi.RoutePluginsRestart)
@@ -8759,8 +8781,7 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 		},
 	}
 	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watch.py"},
+		Files: []string{"pkg/watch.py"},
 		Folders: []projectstate.WatchCodeFolder{
 			{Path: "pkg", Recursive: true},
 		},
@@ -8819,8 +8840,7 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 		},
 	}
 	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watch.py"},
+		Files: []string{"pkg/watch.py"},
 	})
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
@@ -8842,7 +8862,7 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 	}
 	snapshot := app.ProjectStates().Main().Snapshot()
 	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
-	if !projectData.Enabled || !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
 		t.Fatalf("expected existing watch code project data to remain readable, got %#v", projectData)
 	}
 }
@@ -8872,8 +8892,7 @@ func TestAppPluginEnableStartsWatchCodeService(t *testing.T) {
 		},
 	}
 	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watch.py"},
+		Files: []string{"pkg/watch.py"},
 	})
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
@@ -8940,8 +8959,7 @@ func TestAppWatchCodeProviderChangeReplacesRunningService(t *testing.T) {
 	}
 	for _, providerID := range []string{providerPluginID, alternateProviderID} {
 		setAppWatchCodePluginProjectDataForProvider(t, &document, providerID, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Enabled: true,
-			Files:   []string{"pkg/watch.py"},
+			Files: []string{"pkg/watch.py"},
 		})
 	}
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
@@ -9011,8 +9029,7 @@ func TestAppPluginDisableStopsWatchCodeServiceAndPreservesData(t *testing.T) {
 		},
 	}
 	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watch.py"},
+		Files: []string{"pkg/watch.py"},
 		Folders: []projectstate.WatchCodeFolder{
 			{Path: "pkg", Recursive: true},
 		},
@@ -9043,8 +9060,7 @@ func TestAppPluginDisableStopsWatchCodeServiceAndPreservesData(t *testing.T) {
 		t.Fatal("expected disabling the provider to stop the watch code service")
 	}
 	projectData := readAppWatchCodePluginProjectData(t, app.ProjectStates().Main().Snapshot().Document, "project-alpha")
-	if !projectData.Enabled ||
-		!reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) ||
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) ||
 		!reflect.DeepEqual(projectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
 		t.Fatalf("expected disabling provider to preserve plugin data, got %#v", projectData)
 	}
@@ -9074,8 +9090,7 @@ func TestAppPluginUninstallStopsWatchCodeServiceAndPreservesData(t *testing.T) {
 		},
 	}
 	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watch.py"},
+		Files: []string{"pkg/watch.py"},
 		Folders: []projectstate.WatchCodeFolder{
 			{Path: "pkg", Recursive: true},
 		},
@@ -9134,8 +9149,8 @@ func TestAppPluginUninstallStopsWatchCodeServiceAndPreservesData(t *testing.T) {
 	}
 	backendRouteRequest, err := http.NewRequest(
 		http.MethodPost,
-		server.URL+"/api/plugins/"+testAppWatchCodeProviderPluginID+"/watch-code/enabled",
-		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":false}`),
+		server.URL+"/api/plugins/"+testAppWatchCodeProviderPluginID+"/watch-code/inputs",
+		strings.NewReader(`{"projectConfigId":"project-alpha","folders":[],"files":[]}`),
 	)
 	if err != nil {
 		t.Fatalf("new watch code backend route request after uninstall: %v", err)
@@ -9152,14 +9167,13 @@ func TestAppPluginUninstallStopsWatchCodeServiceAndPreservesData(t *testing.T) {
 		t.Fatalf("expected watch code backend route to disappear after uninstall, got %d with body %q", backendRouteResponse.StatusCode, string(payload))
 	}
 	projectData := readAppWatchCodePluginProjectData(t, app.ProjectStates().Main().Snapshot().Document, "project-alpha")
-	if !projectData.Enabled ||
-		!reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) ||
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) ||
 		!reflect.DeepEqual(projectData.Folders, []projectstate.WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
 		t.Fatalf("expected uninstalling provider to preserve plugin data, got %#v", projectData)
 	}
 }
 
-func TestAppSetWatchCodeEnabledCoreRouteIsAbsent(t *testing.T) {
+func TestAppSetWatchCodeCoreRouteIsAbsent(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -9197,7 +9211,7 @@ func TestAppSetWatchCodeEnabledCoreRouteIsAbsent(t *testing.T) {
 	request, err := http.NewRequest(
 		http.MethodPost,
 		server.URL+"/api/setWatchCodeEnabled",
-		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
 	)
 	if err != nil {
 		t.Fatalf("new request: %v", err)
@@ -9207,7 +9221,7 @@ func TestAppSetWatchCodeEnabledCoreRouteIsAbsent(t *testing.T) {
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		t.Fatalf("post set watch code enabled: %v", err)
+		t.Fatalf("post old set watch code route: %v", err)
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(response.Body)
@@ -9298,36 +9312,25 @@ func TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave(t *
 		filepath.ToSlash(runtimeRel),
 	)
 	inputsResponse := postAppWatchCodePluginRoute(t, server.URL, cookie, providerPluginID, "inputs", inputsPayload)
+	defer inputsResponse.Body.Close()
 	if inputsResponse.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(inputsResponse.Body)
-		inputsResponse.Body.Close()
 		t.Fatalf("expected inputs route 200, got %d with body %q", inputsResponse.StatusCode, string(body))
-	}
-	inputsResponse.Body.Close()
-
-	enabledResponse := postAppWatchCodePluginRoute(t, server.URL, cookie, providerPluginID, "enabled", `{"projectConfigId":"project-alpha","enabled":true,"frontendOpId":"watch-enable-op"}`)
-	defer enabledResponse.Body.Close()
-	if enabledResponse.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(enabledResponse.Body)
-		t.Fatalf("expected enabled route 200, got %d with body %q", enabledResponse.StatusCode, string(body))
 	}
 	var routeBody struct {
 		ProjectData projectstate.WatchCodePluginProjectData `json:"projectData"`
 	}
-	if err := json.NewDecoder(enabledResponse.Body).Decode(&routeBody); err != nil {
-		t.Fatalf("decode enabled route response: %v", err)
+	if err := json.NewDecoder(inputsResponse.Body).Decode(&routeBody); err != nil {
+		t.Fatalf("decode inputs route response: %v", err)
 	}
-	if !routeBody.ProjectData.Enabled {
-		t.Fatalf("expected enabled project data in response, got %#v", routeBody.ProjectData)
+	if len(routeBody.ProjectData.Folders) != 3 || len(routeBody.ProjectData.Files) != 0 {
+		t.Fatalf("expected configured project data in response, got %#v", routeBody.ProjectData)
 	}
 
 	snapshot := app.ProjectStates().Main().Snapshot()
 	projectData, _, err := snapshot.Document.WatchCodePluginProjectData(providerPluginID, "project-alpha")
 	if err != nil {
 		t.Fatalf("read live watch code plugin data: %v", err)
-	}
-	if !projectData.Enabled {
-		t.Fatalf("expected live runtime plugin data enabled, got %#v", projectData)
 	}
 	if _, ok := projectData.BaselineByPath[filepath.Join(trackedDir, "tracked.py")]; !ok {
 		t.Fatalf("expected tracked file baseline, got %#v", projectData.BaselineByPath)
@@ -9341,7 +9344,7 @@ func TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave(t *
 		}
 	}
 	status := app.ProjectStates().Main().FrontendOpStatus()
-	if !slices.Contains(status.Completed, "watch-enable-op") {
+	if !slices.Contains(status.Completed, "watch-inputs-op") {
 		t.Fatalf("expected completed frontend op in live runtime status, got %#v", status)
 	}
 
@@ -9369,8 +9372,7 @@ func TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave(t *
 	if err != nil {
 		t.Fatalf("read persisted watch code plugin data: %v", err)
 	}
-	if !persistedProjectData.Enabled ||
-		!reflect.DeepEqual(persistedProjectData.Files, projectData.Files) ||
+	if !reflect.DeepEqual(persistedProjectData.Files, projectData.Files) ||
 		!reflect.DeepEqual(persistedProjectData.Folders, projectData.Folders) {
 		t.Fatalf("expected plugin data to survive app save, got %#v", persistedProjectData)
 	}
@@ -9516,7 +9518,7 @@ func TestAppWatchCodePluginRouteRejectsProviderMissingRouteContractWithoutMutati
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	const providerPluginID = testAppWatchCodeProviderPluginID
-	installAppWatchCodeProviderFixtureWithRouteSuffixes(t, cfg, []string{watchcodecontracts.BackendRouteSuffixEnabled})
+	installAppWatchCodeProviderFixtureWithRouteSuffixes(t, cfg, []string{})
 
 	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
@@ -9529,8 +9531,7 @@ func TestAppWatchCodePluginRouteRejectsProviderMissingRouteContractWithoutMutati
 		},
 	}
 	setAppWatchCodePluginProjectDataForProvider(t, &document, providerPluginID, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watch.py"},
+		Files: []string{"pkg/watch.py"},
 	})
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
@@ -9568,19 +9569,19 @@ func TestAppWatchCodePluginRouteRejectsProviderMissingRouteContractWithoutMutati
 		server.URL,
 		cookie,
 		providerPluginID,
-		watchcodecontracts.BackendRouteSuffixEnabled,
-		`{"projectConfigId":"project-alpha","enabled":false}`,
+		watchcodecontracts.BackendRouteSuffixInputs,
+		`{"projectConfigId":"project-alpha","folders":[],"files":[]}`,
 	)
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusConflict {
+	if response.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected incomplete provider route to fail closed with 409, got %d with body %q", response.StatusCode, string(body))
+		t.Fatalf("expected incomplete provider route to be absent, got %d with body %q", response.StatusCode, string(body))
 	}
 	if revision := app.ProjectStates().Main().Snapshot().Revision; revision != initialRevision {
 		t.Fatalf("expected incomplete provider route not to mutate revision %d, got %d", initialRevision, revision)
 	}
 	projectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, providerPluginID, "project-alpha")
-	if !projectData.Enabled || !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
 		t.Fatalf("expected incomplete provider route not to mutate plugin data, got %#v", projectData)
 	}
 }
@@ -9690,8 +9691,7 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 			},
 		}
 		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Enabled: true,
-			Files:   []string{"pkg/watch.py"},
+			Files: []string{"pkg/watch.py"},
 			Folders: []projectstate.WatchCodeFolder{
 				{Path: "pkg/nested", Recursive: false},
 			},
@@ -9752,7 +9752,6 @@ func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
 			},
 		}
 		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Enabled: true,
 			Folders: []projectstate.WatchCodeFolder{
 				{Path: "pkg", Recursive: false},
 			},
@@ -10036,8 +10035,7 @@ func TestAppSavePublishesMissingArgDiagnosticsForExistingRootWatchCodeCallable(t
 		t.Fatalf("set root watch code source: %v", err)
 	}
 	projectData := projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"watch_code_test.py"},
+		Files: []string{"watch_code_test.py"},
 	}.Normalized()
 	if _, err := project.ApplyWatchCodeBoundSectionUpdate(context.Background(), &projectData, "section-main", cfg.Paths.WorkspaceRoot, nil); err != nil {
 		t.Fatalf("apply root watch code bound update: %v", err)
@@ -10246,8 +10244,7 @@ func TestAppLauncherModeBlocksWatchCodeProviderHost(t *testing.T) {
 		},
 	}
 	setAppWatchCodePluginProjectDataForProvider(t, &document, providerPluginID, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/watch.py"},
+		Files: []string{"pkg/watch.py"},
 	})
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
@@ -10328,7 +10325,7 @@ func TestAppLauncherModeBlocksWatchCodeProviderHost(t *testing.T) {
 		t.Fatalf("expected launcher Watch Code route not to mutate revision %d, got %d", initialRevision, revision)
 	}
 	projectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, providerPluginID, "project-alpha")
-	if !projectData.Enabled || !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
 		t.Fatalf("expected launcher Watch Code route not to mutate plugin data, got %#v", projectData)
 	}
 }
@@ -12041,7 +12038,6 @@ func TestAppRestartLanguageServerKeepsMixedBackendPluginPendingUntilPluginRestar
 	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
 		payload["capabilities"] = []string{"registerLanguageServer", "registerRouter"}
 	})
-	writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(t, cfg, []string{"setta-fixture-backend"}, nil)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -12054,29 +12050,45 @@ func TestAppRestartLanguageServerKeepsMixedBackendPluginPendingUntilPluginRestar
 	})
 	setAppLanguageServerSelectionWithoutRefresh(t, app, "fixturedsl", "setta-fixture-backend")
 	seedAppLSPCodeSectionProjectWithLanguage(t, app, projectstate.CodeLanguage("fixturedsl"), "fixture.")
+	writeAppPendingRestartPluginStateWithLanguageServerOnlyIDs(t, cfg, []string{"setta-fixture-backend"}, nil)
+	if err := app.pluginRuntime.Close(context.Background()); err != nil {
+		t.Fatalf("close plugin runtime before reinitialize: %v", err)
+	}
+	if err := app.pluginRuntime.Initialize(context.Background()); err != nil {
+		t.Fatalf("reinitialize plugin runtime with pending mixed backend plugin: %v", err)
+	}
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 	authCookie := newAppTestAuthCookie(t, app)
 
+	rescanResponse := rescanAppPlugins(t, server.URL, authCookie)
+	defer rescanResponse.Body.Close()
+	if rescanResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rescanResponse.Body)
+		t.Fatalf("expected plugins rescan 200, got %d with body %q", rescanResponse.StatusCode, string(body))
+	}
+
 	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "before restart")
 
 	restartResponse := restartAppLanguageServer(t, server.URL, authCookie)
 	defer restartResponse.Body.Close()
-	if restartResponse.StatusCode != http.StatusConflict {
+	if restartResponse.StatusCode != http.StatusOK && restartResponse.StatusCode != http.StatusConflict {
 		body, _ := io.ReadAll(restartResponse.Body)
-		t.Fatalf("expected restart conflict for pending mixed backend plugin, got %d with body %q", restartResponse.StatusCode, string(body))
+		t.Fatalf("expected LSP restart to leave pending mixed backend plugin untouched, got %d with body %q", restartResponse.StatusCode, string(body))
 	}
-	var restartPayload struct {
-		Error struct {
-			Code string `json:"code"`
-		} `json:"error"`
-	}
-	if err := json.NewDecoder(restartResponse.Body).Decode(&restartPayload); err != nil {
-		t.Fatalf("decode restart response: %v", err)
-	}
-	if restartPayload.Error.Code != "language_server_not_configured" {
-		t.Fatalf("expected language_server_not_configured restart error, got %#v", restartPayload.Error)
+	if restartResponse.StatusCode == http.StatusConflict {
+		var restartPayload struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		if err := json.NewDecoder(restartResponse.Body).Decode(&restartPayload); err != nil {
+			t.Fatalf("decode restart response: %v", err)
+		}
+		if restartPayload.Error.Code != "language_server_not_configured" {
+			t.Fatalf("expected language_server_not_configured restart error, got %#v", restartPayload.Error)
+		}
 	}
 
 	expectAppFixturePluginPendingRestartState(t, cfg, server.URL, authCookie, "after LSP restart")
@@ -14144,7 +14156,7 @@ func seedAppWatchCodeBoundSectionProject(t *testing.T, app *App) {
 		}
 		document.DefaultProjectID = "project-alpha"
 		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Enabled: true,
+			Files: []string{"pkg/bound.py"},
 		})
 		return document, nil
 	}); err != nil {
@@ -14293,8 +14305,7 @@ func seedAppRootWatchCodeBoundSectionProject(t *testing.T, app *App) {
 		}
 		document.DefaultProjectID = "project-alpha"
 		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Enabled: true,
-			Files:   []string{"watch_code_test.py"},
+			Files: []string{"watch_code_test.py"},
 		})
 		return document, nil
 	}); err != nil {
@@ -14379,6 +14390,7 @@ func installAppWatchCodeProviderFixtureWithRouteSuffixes(t *testing.T, cfg confi
 	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
 	pluginRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend")
 	writeAppFixtureWatchCodeBackendRoutes(t, pluginRoot, suffixes)
+	writeAppFixtureWatchCodeBackendUISettings(t, pluginRoot)
 	rewriteAppPluginManifest(t, pluginRoot, func(payload map[string]any) {
 		enableAppPluginManifestWatchCodeProvider(payload)
 	})
@@ -14416,13 +14428,68 @@ func writeAppFixtureWatchCodeBackendRoutes(
 		))
 	}
 	const marker = `"routes": []map[string]any{`
-	replacement := marker
-	if len(routeEntries) > 0 {
-		replacement += "\n\t\t\t\t" + strings.Join(routeEntries, ",\n\t\t\t\t") + ","
+	if len(routeEntries) == 0 {
+		if !strings.Contains(string(content), marker) {
+			t.Fatalf("failed to find backend routes marker in %s", backendPath)
+		}
+		return
 	}
+	replacement := marker
+	replacement += "\n\t\t\t\t" + strings.Join(routeEntries, ",\n\t\t\t\t") + ","
 	next := strings.Replace(string(content), marker, replacement, 1)
 	if next == string(content) {
 		t.Fatalf("failed to insert Watch Code backend routes into %s", backendPath)
+	}
+	if err := os.WriteFile(backendPath, []byte(next), 0o644); err != nil {
+		t.Fatalf("write backend fixture source: %v", err)
+	}
+}
+
+func writeAppFixtureWatchCodeBackendUISettings(t *testing.T, pluginRoot string) {
+	t.Helper()
+
+	backendPath := filepath.Join(pluginRoot, "backend", "main.go")
+	content, err := os.ReadFile(backendPath)
+	if err != nil {
+		t.Fatalf("read backend fixture source: %v", err)
+	}
+	const marker = `"staticDirs": []map[string]any{`
+	uiSettings := fmt.Sprintf(`"uiSettings": []map[string]any{
+				{
+					"id":             %q,
+					"title":          "Watch Code Folders",
+					"description":    "List of folders watched by Watch Code.",
+					"synonyms":       []string{"watch folders", "watch code folders"},
+					"revealKey":      "watch-code-settings",
+					"mutability":     "writable",
+					"valueSchema":    map[string]any{"type": "array"},
+					"readHandlerId":  %q,
+					"writeHandlerId": %q,
+				},
+				{
+					"id":             %q,
+					"title":          "Watch Code Files",
+					"description":    "List of explicit files watched by Watch Code.",
+					"synonyms":       []string{"watch files", "watch code files"},
+					"revealKey":      "watch-code-settings",
+					"mutability":     "writable",
+					"valueSchema":    map[string]any{"type": "array"},
+					"readHandlerId":  %q,
+					"writeHandlerId": %q,
+				},
+			},
+			`,
+		watchcodecontracts.BackendLocalSettingIDFolders,
+		watchcodecontracts.BackendReadHandlerIDFolders,
+		watchcodecontracts.BackendWriteHandlerIDFolders,
+		watchcodecontracts.BackendLocalSettingIDFiles,
+		watchcodecontracts.BackendReadHandlerIDFiles,
+		watchcodecontracts.BackendWriteHandlerIDFiles,
+	)
+	replacement := uiSettings + marker
+	next := strings.Replace(string(content), marker, replacement, 1)
+	if next == string(content) {
+		t.Fatalf("failed to insert Watch Code backend UI settings into %s", backendPath)
 	}
 	if err := os.WriteFile(backendPath, []byte(next), 0o644); err != nil {
 		t.Fatalf("write backend fixture source: %v", err)

@@ -168,12 +168,10 @@ func (p *watchCodeBackendUISettingPluginMutationProvider) ReadBackendUISettingVa
 		return nil, err
 	}
 	switch strings.TrimSpace(options.HandlerID) {
-	case "read_enabled":
-		return projectData.Enabled, nil
 	case "read_folders":
 		return watchCodeFoldersToPluginSettingValue(projectData.Folders), nil
 	case "read_files":
-		return append([]string(nil), projectData.Files...), nil
+		return append([]string{}, projectData.Files...), nil
 	default:
 		return nil, fmt.Errorf("unsupported watch code read handler %q", options.HandlerID)
 	}
@@ -184,19 +182,6 @@ func (p *watchCodeBackendUISettingPluginMutationProvider) WriteBackendUISettingV
 		return fmt.Errorf("plugin %q is not active", options.PluginID)
 	}
 	switch strings.TrimSpace(options.HandlerID) {
-	case "write_enabled":
-		enabled, ok := options.Value.(bool)
-		if !ok {
-			return fmt.Errorf("watch code enabled value must be boolean")
-		}
-		_, err := p.runtime.SetWatchCodeEnabled(
-			ctx,
-			p.pluginID,
-			options.ProjectConfigID,
-			enabled,
-			p.workspaceRoot,
-		)
-		return err
 	case "write_folders":
 		folders, err := decodeWatchCodeBackendUISettingValue[[]projectstate.WatchCodeFolder](options.Value)
 		if err != nil {
@@ -255,25 +240,9 @@ func (p *watchCodeBackendUISettingPluginMutationProvider) watchCodeProjectData(
 }
 
 func watchCodeBackendUISettingRegistrations(pluginID string) []plugins.PluginRegisteredUISetting {
-	enabledWriteHandlerID := "write_enabled"
 	foldersWriteHandlerID := "write_folders"
 	filesWriteHandlerID := "write_files"
 	return []plugins.PluginRegisteredUISetting{
-		{
-			PluginID:       pluginID,
-			LocalSettingID: "enabled",
-			Title:          "Watch Code Enabled",
-			Description:    "Enable or disable Watch Code for the project.",
-			Synonyms:       []string{"watch code", "watch mode", "watch toggle"},
-			PaneID:         "left",
-			RevealKey:      "watch-code-settings",
-			Mutability:     string(uisettings.MutabilityWritable),
-			ValueSchema: map[string]any{
-				"type": "boolean",
-			},
-			ReadHandlerID:  "read_enabled",
-			WriteHandlerID: &enabledWriteHandlerID,
-		},
 		{
 			PluginID:       pluginID,
 			LocalSettingID: "folders",
@@ -1598,7 +1567,7 @@ func TestServerSearchUISettingsReturnsRankedWatchCodePluginResults(t *testing.T)
 		Name: "search_ui_settings",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"query":           "watch toggle",
+			"query":           "watch files",
 			"limit":           3,
 			"sourceFilter":    "plugin",
 		},
@@ -1616,8 +1585,8 @@ func TestServerSearchUISettingsReturnsRankedWatchCodePluginResults(t *testing.T)
 		t.Fatal("expected ranked UI setting results")
 	}
 	first := mustStructuredMap(t, results[0])
-	if first["settingId"] != "plugin::setta-fixture-watch-code-provider::enabled" {
-		t.Fatalf("expected top result plugin::setta-fixture-watch-code-provider::enabled, got %#v", first)
+	if first["settingId"] != "plugin::setta-fixture-watch-code-provider::files" {
+		t.Fatalf("expected top result plugin::setta-fixture-watch-code-provider::files, got %#v", first)
 	}
 	if first["source"] != "plugin" {
 		t.Fatalf("expected plugin-sourced watch-code setting, got %#v", first)
@@ -1627,7 +1596,7 @@ func TestServerSearchUISettingsReturnsRankedWatchCodePluginResults(t *testing.T)
 		Name: "search_ui_settings",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"query":           "watch toggle",
+			"query":           "watch files",
 			"sourceFilter":    "core",
 		},
 	})
@@ -1640,7 +1609,7 @@ func TestServerSearchUISettingsReturnsRankedWatchCodePluginResults(t *testing.T)
 	corePayload := mustStructuredMap(t, coreOnly.StructuredContent)
 	for _, rawResult := range mustStructuredList(t, corePayload["results"]) {
 		resultMap := mustStructuredMap(t, rawResult)
-		if resultMap["settingId"] == "plugin::setta-fixture-watch-code-provider::enabled" {
+		if resultMap["settingId"] == "plugin::setta-fixture-watch-code-provider::files" {
 			t.Fatalf("expected no core watch-code UI setting results, got %#v", corePayload["results"])
 		}
 	}
@@ -1693,7 +1662,7 @@ func TestServerGetUISettingValueRejectsMalformedProjectConfigIDMetaWithoutFallba
 		},
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-watch-code-provider::enabled",
+			"settingId":       "plugin::setta-fixture-watch-code-provider::files",
 		},
 	})
 	if err != nil {
@@ -1727,7 +1696,7 @@ func TestServerGetUISettingValueRejectsMalformedAllowUnscopedMetaWithoutFallback
 		},
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-watch-code-provider::enabled",
+			"settingId":       "plugin::setta-fixture-watch-code-provider::files",
 		},
 	})
 	if err != nil {
@@ -1758,7 +1727,7 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 	searchResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "search_ui_settings",
 		Arguments: map[string]any{
-			"query": "watch toggle",
+			"query": "watch files",
 			"limit": 3,
 		},
 	})
@@ -1770,7 +1739,7 @@ func TestServerUISettingToolsDefaultProjectConfigIDFromAgenticContext(t *testing
 	}
 	searchPayload := mustStructuredMap(t, searchResult.StructuredContent)
 	searchResults := mustStructuredList(t, searchPayload["results"])
-	if len(searchResults) == 0 || mustStructuredMap(t, searchResults[0])["settingId"] != "plugin::setta-fixture-watch-code-provider::enabled" {
+	if len(searchResults) == 0 || mustStructuredMap(t, searchResults[0])["settingId"] != "plugin::setta-fixture-watch-code-provider::files" {
 		t.Fatalf("expected watch-code search result without projectConfigId, got %#v", searchResults)
 	}
 
@@ -1825,7 +1794,7 @@ func TestServerUISettingToolsPreferSessionProjectConfigIDOverRequestMeta(t *test
 			"projectConfigId": "missing-project",
 		},
 		Arguments: map[string]any{
-			"query": "watch toggle",
+			"query": "watch files",
 			"limit": 3,
 		},
 	})
@@ -1838,7 +1807,7 @@ func TestServerUISettingToolsPreferSessionProjectConfigIDOverRequestMeta(t *test
 
 	payload := mustStructuredMap(t, result.StructuredContent)
 	results := mustStructuredList(t, payload["results"])
-	if len(results) == 0 || mustStructuredMap(t, results[0])["settingId"] != "plugin::setta-fixture-watch-code-provider::enabled" {
+	if len(results) == 0 || mustStructuredMap(t, results[0])["settingId"] != "plugin::setta-fixture-watch-code-provider::files" {
 		t.Fatalf("expected watch-code search result, got %#v", results)
 	}
 }
@@ -1868,7 +1837,7 @@ func TestServerUISettingToolsRejectProjectArgumentMismatchingAgenticContext(t *t
 			toolName: "get_ui_setting_value",
 			arguments: map[string]any{
 				"projectConfigId": "project-beta",
-				"settingId":       "plugin::setta-fixture-watch-code-provider::enabled",
+				"settingId":       "plugin::setta-fixture-watch-code-provider::files",
 			},
 		},
 		{
@@ -1876,8 +1845,8 @@ func TestServerUISettingToolsRejectProjectArgumentMismatchingAgenticContext(t *t
 			toolName: "set_ui_setting_value",
 			arguments: map[string]any{
 				"projectConfigId": "project-beta",
-				"settingId":       "plugin::setta-fixture-watch-code-provider::enabled",
-				"value":           true,
+				"settingId":       "plugin::setta-fixture-watch-code-provider::files",
+				"value":           []any{"pkg/watch.py"},
 			},
 		},
 		{
@@ -1949,11 +1918,11 @@ func TestServerUISettingToolsRejectProjectArgumentMismatchingAgenticContext(t *t
 			}
 			afterAlpha := readScopedTestWatchCodeProjectData(t, afterSnapshot.Document, "project-alpha")
 			afterBeta := readScopedTestWatchCodeProjectData(t, afterSnapshot.Document, "project-beta")
-			if beforeAlpha.Enabled != afterAlpha.Enabled {
-				t.Fatalf("expected project-alpha watchCodeEnabled to remain unchanged, before=%v after=%v", beforeAlpha.Enabled, afterAlpha.Enabled)
+			if !reflect.DeepEqual(beforeAlpha.Files, afterAlpha.Files) || !reflect.DeepEqual(beforeAlpha.Folders, afterAlpha.Folders) {
+				t.Fatalf("expected project-alpha Watch Code inputs to remain unchanged, before=%#v after=%#v", beforeAlpha, afterAlpha)
 			}
-			if beforeBeta.Enabled != afterBeta.Enabled {
-				t.Fatalf("expected project-beta watchCodeEnabled to remain unchanged, before=%v after=%v", beforeBeta.Enabled, afterBeta.Enabled)
+			if !reflect.DeepEqual(beforeBeta.Files, afterBeta.Files) || !reflect.DeepEqual(beforeBeta.Folders, afterBeta.Folders) {
+				t.Fatalf("expected project-beta Watch Code inputs to remain unchanged, before=%#v after=%#v", beforeBeta, afterBeta)
 			}
 			if tc.revealService != nil && tc.revealService.input.ProjectConfigID != "" {
 				t.Fatalf("expected reveal service not to be invoked on project mismatch, got %#v", tc.revealService.input)
@@ -1988,7 +1957,7 @@ func TestServerGetUISettingValueRejectsProjectArgumentMismatchInShareSession(t *
 		Name: "get_ui_setting_value",
 		Arguments: map[string]any{
 			"projectConfigId": "project-beta",
-			"settingId":       "plugin::setta-fixture-watch-code-provider::enabled",
+			"settingId":       "plugin::setta-fixture-watch-code-provider::files",
 		},
 	})
 	if err != nil {
@@ -2347,7 +2316,7 @@ func TestServerSetUISettingValueDefaultsProjectConfigIDFromShareScope(t *testing
 			EmittedRevealCount: 1,
 			Statuses: []uisettings.RevealStatus{
 				{
-					SettingID: "plugin::setta-fixture-watch-code-provider::enabled",
+					SettingID: "plugin::setta-fixture-watch-code-provider::files",
 					Status:    "revealed",
 				},
 			},
@@ -2378,8 +2347,8 @@ func TestServerSetUISettingValueDefaultsProjectConfigIDFromShareScope(t *testing
 			"frontendAffinityToken": "frontend-from-request",
 		},
 		Arguments: map[string]any{
-			"settingId":      "plugin::setta-fixture-watch-code-provider::enabled",
-			"value":          true,
+			"settingId":      "plugin::setta-fixture-watch-code-provider::files",
+			"value":          []any{"pkg/share.py"},
 			"revealAfterSet": true,
 		},
 	})
@@ -2692,7 +2661,7 @@ func TestServerSetUISettingValueRevealAfterSetShareScopePrefersAgenticFrontendAf
 			EmittedRevealCount: 1,
 			Statuses: []uisettings.RevealStatus{
 				{
-					SettingID: "plugin::setta-fixture-watch-code-provider::enabled",
+					SettingID: "plugin::setta-fixture-watch-code-provider::files",
 					Status:    "revealed",
 				},
 			},
@@ -2724,8 +2693,8 @@ func TestServerSetUISettingValueRevealAfterSetShareScopePrefersAgenticFrontendAf
 		},
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"settingId":       "plugin::setta-fixture-watch-code-provider::enabled",
-			"value":           true,
+			"settingId":       "plugin::setta-fixture-watch-code-provider::files",
+			"value":           []any{"pkg/reveal.py"},
 			"revealAfterSet":  true,
 		},
 	})
@@ -3002,14 +2971,14 @@ func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
 			EmittedRevealCount: 1,
 			Statuses: []uisettings.RevealStatus{
 				{
-					SettingID: "plugin::setta-fixture-watch-code-provider::enabled",
+					SettingID: "plugin::setta-fixture-watch-code-provider::files",
 					Status:    "revealed",
 					Target: &realtime.UISettingRevealTarget{
-						SettingID:      "plugin::setta-fixture-watch-code-provider::enabled",
+						SettingID:      "plugin::setta-fixture-watch-code-provider::files",
 						Side:           "left",
 						OverviewTabKey: testStringPointer("Overview"),
 						Strategy:       "dom_anchor",
-						AnchorID:       testStringPointer("plugin::setta-fixture-watch-code-provider::enabled"),
+						AnchorID:       testStringPointer("plugin::setta-fixture-watch-code-provider::files"),
 					},
 				},
 			},
@@ -3025,7 +2994,7 @@ func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
 
 	setUISettingAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section", true)
 
-	paddedSettingID := "  plugin::setta-fixture-watch-code-provider::enabled\t"
+	paddedSettingID := "  plugin::setta-fixture-watch-code-provider::files\t"
 
 	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name: "get_ui_setting_value",
@@ -3042,8 +3011,8 @@ func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
 	}
 
 	getPayload := mustStructuredMap(t, getResult.StructuredContent)
-	if getPayload["value"] != false {
-		t.Fatalf("expected initial watch-code value false, got %#v", getPayload["value"])
+	if value := mustStructuredList(t, getPayload["value"]); len(value) != 0 {
+		t.Fatalf("expected initial watch-code files to be empty, got %#v", value)
 	}
 
 	setResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -3051,7 +3020,7 @@ func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
 			"settingId":       paddedSettingID,
-			"value":           true,
+			"value":           []any{"pkg/padded.py"},
 		},
 	})
 	if err != nil {
@@ -3063,7 +3032,7 @@ func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
 
 	setPayload := mustStructuredMap(t, setResult.StructuredContent)
 	if setPayload["changed"] != true {
-		t.Fatalf("expected padded set_ui_setting_value to change state, got %#v", setPayload["changed"])
+		t.Fatalf("expected padded set_ui_setting_value to change state, got %#v", setPayload)
 	}
 
 	revealResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -3087,10 +3056,10 @@ func TestServerUISettingToolsTrimSettingIDWhitespace(t *testing.T) {
 		t.Fatalf("project by id after padded UI-setting writes: %v", err)
 	}
 	projectData := readScopedTestWatchCodeProjectData(t, snapshot.Document, project.ID)
-	if !projectData.Enabled {
-		t.Fatal("expected padded set_ui_setting_value to persist watch-code enabled=true")
+	if !reflect.DeepEqual(projectData.Files, []string{"pkg/padded.py"}) {
+		t.Fatalf("expected padded set_ui_setting_value to persist watch-code files, got %#v", projectData.Files)
 	}
-	if revealService.input.SettingID != "plugin::setta-fixture-watch-code-provider::enabled" {
+	if revealService.input.SettingID != "plugin::setta-fixture-watch-code-provider::files" {
 		t.Fatalf("expected trimmed reveal setting id, got %q", revealService.input.SettingID)
 	}
 }

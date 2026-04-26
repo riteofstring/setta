@@ -24,7 +24,6 @@ type WatchCodePluginData struct {
 
 // setta-go-type-discovery: skip
 type WatchCodePluginProjectData struct {
-	Enabled        bool                              `json:"enabled"`
 	Folders        []WatchCodeFolder                 `json:"folders"`
 	Files          []string                          `json:"files"`
 	Registry       map[string]WatchCodeRegistryEntry `json:"registry"`
@@ -59,8 +58,7 @@ func (data WatchCodePluginProjectData) Normalized() WatchCodePluginProjectData {
 
 func (data WatchCodePluginProjectData) IsEmpty() bool {
 	normalized := data.Normalized()
-	return !normalized.Enabled &&
-		len(normalized.Folders) == 0 &&
+	return len(normalized.Folders) == 0 &&
 		len(normalized.Files) == 0 &&
 		len(normalized.Registry) == 0 &&
 		len(normalized.BaselineByPath) == 0

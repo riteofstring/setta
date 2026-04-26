@@ -3403,11 +3403,9 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 		},
 	}
 	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
-		Files:   []string{"pkg/alpha.py"},
+		Files: []string{"pkg/alpha.py"},
 	})
 	setAppWatchCodePluginProjectData(t, &document, "project-beta", projectstate.WatchCodePluginProjectData{
-		Enabled: true,
 		Folders: []projectstate.WatchCodeFolder{
 			{Path: "pkg/beta", Recursive: true},
 		},

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -112,21 +113,22 @@ func (p *routeWatchCodeBackendUISettingPluginMutationProvider) GetBackendUISetti
 	if strings.TrimSpace(pluginID) != p.pluginID {
 		return nil, fmt.Errorf("plugin %q is not active", pluginID)
 	}
-	writeHandlerID := "write_enabled"
+	writeHandlerID := "write_files"
 	return []plugins.PluginRegisteredUISetting{
 		{
 			PluginID:       p.pluginID,
-			LocalSettingID: "enabled",
-			Title:          "Watch Code Enabled",
-			Description:    "Enable or disable Watch Code for the project.",
-			Synonyms:       []string{"watch code", "watch mode", "watch toggle"},
+			LocalSettingID: "files",
+			Title:          "Watch Code Files",
+			Description:    "List of explicit files watched by Watch Code.",
+			Synonyms:       []string{"watch files", "watch code files"},
 			PaneID:         "left",
 			RevealKey:      "watch-code-settings",
 			Mutability:     string(uisettings.MutabilityWritable),
 			ValueSchema: map[string]any{
-				"type": "boolean",
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
 			},
-			ReadHandlerID:  "read_enabled",
+			ReadHandlerID:  "read_files",
 			WriteHandlerID: &writeHandlerID,
 		},
 	}, nil
@@ -136,7 +138,7 @@ func (p *routeWatchCodeBackendUISettingPluginMutationProvider) ReadBackendUISett
 	if strings.TrimSpace(options.PluginID) != p.pluginID {
 		return nil, fmt.Errorf("plugin %q is not active", options.PluginID)
 	}
-	if strings.TrimSpace(options.HandlerID) != "read_enabled" {
+	if strings.TrimSpace(options.HandlerID) != "read_files" {
 		return nil, fmt.Errorf("unsupported watch code read handler %q", options.HandlerID)
 	}
 	document := p.runtime.Snapshot().Document
@@ -148,28 +150,40 @@ func (p *routeWatchCodeBackendUISettingPluginMutationProvider) ReadBackendUISett
 	if err != nil {
 		return nil, err
 	}
-	return projectData.Enabled, nil
+	return append([]string{}, projectData.Files...), nil
 }
 
 func (p *routeWatchCodeBackendUISettingPluginMutationProvider) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
 	if strings.TrimSpace(options.PluginID) != p.pluginID {
 		return fmt.Errorf("plugin %q is not active", options.PluginID)
 	}
-	if strings.TrimSpace(options.HandlerID) != "write_enabled" {
+	if strings.TrimSpace(options.HandlerID) != "write_files" {
 		return fmt.Errorf("unsupported watch code write handler %q", options.HandlerID)
 	}
-	enabled, ok := options.Value.(bool)
-	if !ok {
-		return fmt.Errorf("watch code enabled value must be boolean")
+	files, err := decodeRouteWatchCodeStringSlice(options.Value)
+	if err != nil {
+		return err
 	}
-	_, err := p.runtime.SetWatchCodeEnabled(
+	_, err = p.runtime.SetWatchCodeFiles(
 		ctx,
 		p.pluginID,
 		options.ProjectConfigID,
-		enabled,
+		files,
 		p.workspaceRoot,
 	)
 	return err
+}
+
+func decodeRouteWatchCodeStringSlice(value any) ([]string, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	if err := json.Unmarshal(raw, &files); err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
@@ -204,7 +218,7 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 
 	searchResponse := postMCPToolRoute(t, handler, `{
 		"tool":"search_ui_settings",
-		"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":3,"sourceFilter":"plugin"},
+		"arguments":{"projectConfigId":"project-alpha","query":"watch files","limit":3,"sourceFilter":"plugin"},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if searchResponse.Code != http.StatusOK {
@@ -216,7 +230,7 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	}
 	searchResult := mustStructuredMapForRoute(t, searchPayload.StructuredContent)
 	searchResults := mustStructuredListForRoute(t, searchResult["results"])
-	if len(searchResults) == 0 || mustStructuredMapForRoute(t, searchResults[0])["settingId"] != "plugin::setta-fixture-watch-code-provider::enabled" {
+	if len(searchResults) == 0 || mustStructuredMapForRoute(t, searchResults[0])["settingId"] != "plugin::setta-fixture-watch-code-provider::files" {
 		t.Fatalf("expected ranked plugin watch-code result, got %#v", searchResults)
 	}
 	if mustStructuredMapForRoute(t, searchResults[0])["source"] != "plugin" {
@@ -308,7 +322,7 @@ func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T)
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"set_ui_setting_value",
-		"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-fixture-watch-code-provider::enabled","value":true},
+		"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-fixture-watch-code-provider::files","value":["pkg/route.py"]},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {
@@ -333,8 +347,8 @@ func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T)
 		t.Fatalf("expected project-alpha project update, got %q", update.ProjectState.ProjectConfig.ID)
 	}
 	watchCodeData := mustHTTPWatchCodeProjectData(t, update.ProjectState.PluginData, "setta-fixture-watch-code-provider", "project-alpha")
-	if !watchCodeData.Enabled {
-		t.Fatal("expected broadcast project state to include watch code plugin enabled=true")
+	if !reflect.DeepEqual(watchCodeData.Files, []string{"pkg/route.py"}) {
+		t.Fatalf("expected broadcast project state to include watch code files, got %#v", watchCodeData)
 	}
 }
 
@@ -689,7 +703,7 @@ func TestMCPToolCallRouteGetUISettingRejectsProjectArgumentMismatch(t *testing.T
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"projectConfigId":"project-beta","settingId":"plugin::setta-fixture-watch-code-provider::enabled"},
+		"arguments":{"projectConfigId":"project-beta","settingId":"plugin::setta-fixture-watch-code-provider::files"},
 		"agenticContext":{"projectConfigId":"project-alpha","chatId":"chat-1","sectionId":"chat-section","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {

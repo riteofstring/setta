@@ -242,9 +242,6 @@ func (p *Project) prepareWatchCodeFileUpdate(
 	if !watchCodePathMatches(*projectData, workspaceRoot, normalizedSourcePath) {
 		return watchCodeFileUpdate{}, false, nil
 	}
-	if !baselineOnly && !projectData.Enabled {
-		return watchCodeFileUpdate{}, false, nil
-	}
 
 	relativeSourcePath, err := watchCodeRelativePath(workspaceRoot, normalizedSourcePath)
 	if err != nil {
@@ -337,7 +334,7 @@ func (p *Project) ApplyWatchCodeFileDelete(
 	if err != nil || !ok {
 		return false, err
 	}
-	if !projectData.Enabled || !p.HasPythonCodegenTarget() {
+	if !p.HasPythonCodegenTarget() {
 		return false, nil
 	}
 	if !watchCodePathMatches(*projectData, workspaceRoot, normalizedSourcePath) {

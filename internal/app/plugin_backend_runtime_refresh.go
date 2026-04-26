@@ -651,12 +651,38 @@ func (s *pluginMutationRuntimeService) ApplyLockfile(ctx context.Context, check 
 }
 
 func (s *pluginMutationRuntimeService) Restart(ctx context.Context) (plugins.PluginRestartResponse, error) {
-	return s.base.Restart(ctx)
+	s.opMu.Lock()
+	defer s.opMu.Unlock()
+
+	result, err := s.base.Restart(ctx)
+	if err != nil || !result.Accepted {
+		return result, err
+	}
+	snapshot, err := s.base.Rescan()
+	if err != nil {
+		return result, err
+	}
+	s.commitSnapshot(snapshot)
+	return result, nil
 }
 
 func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
+	_, err := r.initialize(ctx, false)
+	return err
+}
+
+func (r *pluginBackendRuntimeRefresher) InitializeAfterProcessStart(
+	ctx context.Context,
+) (plugins.DiscoverySnapshot, error) {
+	return r.initialize(ctx, true)
+}
+
+func (r *pluginBackendRuntimeRefresher) initialize(
+	ctx context.Context,
+	commitPendingRestart bool,
+) (plugins.DiscoverySnapshot, error) {
 	if r == nil || r.service == nil {
-		return nil
+		return plugins.DiscoverySnapshot{}, nil
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -665,19 +691,45 @@ func (r *pluginBackendRuntimeRefresher) Initialize(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	nextRuntime, nextLSPSpecs, err := r.prepareInitializeRuntimeLocked(ctx)
+	snapshot, nextRuntime, nextLSPSpecs, err := r.prepareInitializeRuntimeLocked(
+		ctx,
+		commitPendingRestart,
+	)
 	if err != nil {
-		return err
+		return plugins.DiscoverySnapshot{}, err
 	}
-	return r.commitInitializedRuntimeLocked(ctx, nextRuntime, nextLSPSpecs)
+	if err := r.commitInitializedRuntimeLocked(ctx, nextRuntime, nextLSPSpecs); err != nil {
+		return plugins.DiscoverySnapshot{}, err
+	}
+	if !commitPendingRestart {
+		return snapshot, nil
+	}
+	committedSnapshot, err := r.service.CommitBackendRuntimeRefresh()
+	if err != nil {
+		return committedSnapshot, err
+	}
+	if r.appSubsystemCapabilities != nil {
+		r.appSubsystemCapabilities.SetFromSnapshot(committedSnapshot)
+	}
+	if r.watchCodeCapabilities != nil {
+		r.watchCodeCapabilities.SetFromSnapshot(committedSnapshot)
+	}
+	return committedSnapshot, nil
 }
 
 func (r *pluginBackendRuntimeRefresher) prepareInitializeRuntimeLocked(
 	ctx context.Context,
-) (*pluginBackendMCPRuntime, []lsp.LanguageServerSpec, error) {
-	snapshot, err := r.service.Rescan()
+	previewPendingRestart bool,
+) (plugins.DiscoverySnapshot, *pluginBackendMCPRuntime, []lsp.LanguageServerSpec, error) {
+	var snapshot plugins.DiscoverySnapshot
+	var err error
+	if previewPendingRestart {
+		snapshot, err = r.service.PreviewBackendRuntimeRefresh()
+	} else {
+		snapshot, err = r.service.Rescan()
+	}
 	if err != nil {
-		return nil, nil, err
+		return plugins.DiscoverySnapshot{}, nil, nil, err
 	}
 	if r.appSubsystemCapabilities != nil {
 		r.appSubsystemCapabilities.SetFromSnapshot(snapshot)
@@ -687,13 +739,13 @@ func (r *pluginBackendRuntimeRefresher) prepareInitializeRuntimeLocked(
 	}
 	nextLSPSpecs, err := r.selectedLanguageServerSpecs(snapshot, false)
 	if err != nil {
-		return nil, nil, err
+		return plugins.DiscoverySnapshot{}, nil, nil, err
 	}
 	nextRuntime, err := r.buildRuntimeLocked(ctx, snapshot)
 	if err != nil {
-		return nil, nil, err
+		return plugins.DiscoverySnapshot{}, nil, nil, err
 	}
-	return nextRuntime, nextLSPSpecs, nil
+	return snapshot, nextRuntime, nextLSPSpecs, nil
 }
 
 func (r *pluginBackendRuntimeRefresher) commitInitializedRuntimeLocked(

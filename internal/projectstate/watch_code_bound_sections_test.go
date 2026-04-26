@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-func TestProjectApplyWatchCodeBoundSectionUpdateCreatesCallableWithoutWatchInputs(t *testing.T) {
+func TestProjectApplyWatchCodeBoundSectionUpdateCreatesCallableWithWatchInput(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
 	project := codeUpdateTestProject(t, CodeFileAccessModeReadWrite)
 	projectData := EmptyWatchCodePluginProjectData()
-	projectData.Enabled = true
+	projectData.Files = []string{"pkg/bound.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),
@@ -73,7 +73,7 @@ func TestProjectResolveWatchCodeBoundSectionLoadsBoundFileAndIgnoreState(t *test
 	workspaceRoot := t.TempDir()
 	project := codeUpdateTestProject(t, CodeFileAccessModeReadWrite)
 	projectData := EmptyWatchCodePluginProjectData()
-	projectData.Enabled = true
+	projectData.Files = []string{"pkg/bound.py"}
 	project.CodegenTargets = []ProjectCodegenTarget{
 		{
 			Language: string(CodeLanguagePython),

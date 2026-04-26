@@ -7,7 +7,7 @@ import {
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const WATCH_CODE_ENABLED_SETTING_ID = "plugin::setta-watch-code::enabled";
+const WATCH_CODE_FILES_SETTING_ID = "plugin::setta-watch-code::files";
 const FRONTEND_IDENTITY_MESSAGE_TYPE = "FrontendIdentity";
 const FRONTEND_IDENTITY_GLOBAL_KEY = "__settaFrontendIdentity";
 const FRONTEND_IDENTITY_HISTORY_GLOBAL_KEY = "__settaFrontendIdentityHistory";
@@ -209,7 +209,7 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 600,
       },
       frontendIdOne,
@@ -231,7 +231,7 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 600,
       },
       frontendIdTwo,
@@ -262,7 +262,7 @@ test("reveal_ui_setting fails fast when frontend websocket id is unavailable", a
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 8000,
       },
       requestedFrontendId,
@@ -302,7 +302,7 @@ test("reveal_ui_setting invalidates stale affinity after websocket reconnect in 
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 900,
       },
       initialFrontendIdentity,
@@ -338,7 +338,7 @@ test("reveal_ui_setting ignores malformed frontend-affinity header when agentic 
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 1000,
       },
       frontendIdentity,
@@ -367,7 +367,7 @@ test("reveal_ui_setting succeeds without affinity when only one frontend is conn
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        settingId: WATCH_CODE_FILES_SETTING_ID,
         durationMs: 1000,
       },
     );

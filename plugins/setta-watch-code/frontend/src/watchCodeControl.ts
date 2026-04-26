@@ -5,11 +5,9 @@ import type {
   SettaPluginSettingRevealHandlerContext,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
-  WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED,
   WATCH_CODE_BACKEND_LOCAL_SETTING_FILES,
   WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS,
   WATCH_CODE_BACKEND_ROUTE_BASE_PATH,
-  WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED,
   WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS,
 } from "./generated/watchCodeBackendContract";
 
@@ -20,7 +18,6 @@ export type WatchCodeFolder = {
 
 type WatchCodeProjectData = {
   projectConfigId: string;
-  enabled: boolean;
   folders: WatchCodeFolder[];
   files: string[];
 };
@@ -33,16 +30,13 @@ const PORTAL_MAX_WIDTH_PX = 352;
 const PORTAL_MARGIN_PX = 12;
 const PORTAL_BUTTON_GAP_PX = 12;
 const PORTAL_ESTIMATED_HEIGHT_PX = 360;
-const WATCH_CODE_ENABLED_ROUTE = `${WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/${WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED}`;
 const WATCH_CODE_INPUTS_ROUTE = `${WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/${WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS}`;
 const EMPTY_WATCH_CODE_PROJECT_DATA: WatchCodeProjectData = {
   projectConfigId: NULL_PROJECT_CONFIG_ID,
-  enabled: false,
   folders: [],
   files: [],
 };
 type WatchCodeLocalSettingId =
-  | typeof WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED
   | typeof WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS
   | typeof WATCH_CODE_BACKEND_LOCAL_SETTING_FILES;
 
@@ -229,9 +223,9 @@ class WatchCodeControlController {
   }
 
   private renderControlButton(button: HTMLButtonElement): void {
-    const enabled = this.watchCodeData.enabled;
-    button.classList.toggle("is-active", enabled);
-    button.setAttribute("aria-pressed", enabled ? "true" : "false");
+    const hasInputs = watchCodeInputsConfigured(this.watchCodeData);
+    button.classList.toggle("is-active", hasInputs);
+    button.setAttribute("aria-pressed", hasInputs ? "true" : "false");
   }
 
   private firstButton(): HTMLButtonElement | null {
@@ -306,7 +300,6 @@ class WatchCodeControlController {
     portal.textContent = "";
     portal.append(
       this.renderPanelHeader(),
-      this.renderEnabledControl(),
       this.renderError(),
       this.renderInputGroup({
         settingId: this.pluginSettingId(
@@ -355,32 +348,6 @@ class WatchCodeControlController {
     closeButton.addEventListener("click", () => this.closePortal());
     header.append(title, closeButton);
     return header;
-  }
-
-  private renderEnabledControl(): HTMLElement {
-    const row = document.createElement("div");
-    row.className = "setta-watch-code-enabled-row";
-    row.dataset.settingAnchor = this.pluginSettingId(
-      WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED,
-    );
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "setta-watch-code-toggle";
-    button.classList.toggle("is-active", this.watchCodeData.enabled);
-    button.disabled = this.inputsDisabled();
-    button.setAttribute("aria-pressed", String(this.watchCodeData.enabled));
-    button.setAttribute(
-      "aria-label",
-      this.watchCodeData.enabled ? "Disable Watch Code" : "Enable Watch Code",
-    );
-    button.innerHTML = `${radarIconMarkup()}<span>${
-      this.watchCodeData.enabled ? "Enabled" : "Disabled"
-    }</span>`;
-    button.addEventListener("click", () => {
-      void this.setEnabled(!this.watchCodeData.enabled);
-    });
-    row.append(button);
-    return row;
   }
 
   private renderError(): HTMLElement {
@@ -586,29 +553,6 @@ class WatchCodeControlController {
     );
   }
 
-  private async setEnabled(enabled: boolean): Promise<void> {
-    if (this.inputsDisabled()) {
-      return;
-    }
-    this.pendingMutation = true;
-    this.errorMessage = null;
-    this.render();
-    try {
-      const ok = await this.postBackendRoute(WATCH_CODE_ENABLED_ROUTE, {
-        projectConfigId: this.watchCodeData.projectConfigId,
-        enabled,
-      });
-      if (!ok) {
-        this.errorMessage = "Watch Code update failed.";
-      }
-    } catch (error) {
-      this.errorMessage = errorMessage(error);
-    } finally {
-      this.pendingMutation = false;
-      this.render();
-    }
-  }
-
   private async persistInputs(): Promise<void> {
     if (this.inputsDisabled()) {
       return;
@@ -672,17 +616,22 @@ function normalizeWatchCodeProjectData(
 ): Omit<WatchCodeProjectData, "projectConfigId"> {
   if (!value || typeof value !== "object") {
     return {
-      enabled: false,
       folders: [],
       files: [],
     };
   }
   const record = value as Record<string, unknown>;
   return {
-    enabled: record.enabled === true,
     folders: normalizeFolders(record.folders),
     files: normalizeStringArray(record.files),
   };
+}
+
+function watchCodeInputsConfigured(data: {
+  folders: WatchCodeFolder[];
+  files: string[];
+}): boolean {
+  return data.folders.length > 0 || data.files.length > 0;
 }
 
 function normalizeFolders(value: unknown): WatchCodeFolder[] {

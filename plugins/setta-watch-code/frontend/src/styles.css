@@ -54,7 +54,6 @@
 
 .setta-watch-code-panel-header,
 .setta-watch-code-input-group-header,
-.setta-watch-code-enabled-row,
 .setta-watch-code-input-row,
 .setta-watch-code-row-actions {
   align-items: center;
@@ -102,7 +101,6 @@
   gap: 4px;
 }
 
-.setta-watch-code-toggle,
 .setta-watch-code-add-button,
 .setta-watch-code-icon-button {
   align-items: center;
@@ -112,22 +110,6 @@
   cursor: pointer;
   display: inline-flex;
   justify-content: center;
-}
-
-.setta-watch-code-toggle {
-  background: rgb(248 250 252);
-  color: rgb(71 85 105);
-  font-size: 12px;
-  font-weight: 700;
-  gap: 8px;
-  min-height: 34px;
-  padding: 8px 12px;
-  width: 100%;
-}
-
-.setta-watch-code-toggle.is-active {
-  background: rgb(239 246 255);
-  color: rgb(29 78 216);
 }
 
 .setta-watch-code-add-button {
@@ -148,8 +130,7 @@
 }
 
 .setta-watch-code-icon-button:hover,
-.setta-watch-code-add-button:hover,
-.setta-watch-code-toggle:hover {
+.setta-watch-code-add-button:hover {
   background: rgb(241 245 249);
   color: rgb(15 23 42);
 }
@@ -206,7 +187,6 @@
   outline-offset: 3px;
 }
 
-.setta-watch-code-toggle:disabled,
 .setta-watch-code-add-button:disabled,
 .setta-watch-code-icon-button:disabled,
 .setta-watch-code-path-input:disabled {
@@ -250,15 +230,9 @@
     color: rgb(148 163 184);
   }
 
-  .setta-watch-code-toggle,
   .setta-watch-code-empty {
     background: rgb(30 41 59);
     color: rgb(203 213 225);
-  }
-
-  .setta-watch-code-toggle.is-active {
-    background: rgb(30 58 138 / 0.42);
-    color: rgb(191 219 254);
   }
 
   .setta-watch-code-path-input {
@@ -273,8 +247,7 @@
   }
 
   .setta-watch-code-icon-button:hover,
-  .setta-watch-code-add-button:hover,
-  .setta-watch-code-toggle:hover {
+  .setta-watch-code-add-button:hover {
     background: rgb(30 41 59);
     color: white;
   }

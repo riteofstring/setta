@@ -8719,13 +8719,12 @@ func mustSetTestCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime,
 func mustSetScopedTestWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
 	t.Helper()
 
-	mustSetScopedTestWatchCodeState(t, runtime, false, nil, files, nil)
+	mustSetScopedTestWatchCodeState(t, runtime, nil, files, nil)
 }
 
 func mustSetScopedTestWatchCodeState(
 	t *testing.T,
 	runtime *projectstate.Runtime,
-	enabled bool,
 	folders []projectstate.WatchCodeFolder,
 	files []string,
 	baseline map[string][]string,
@@ -8734,7 +8733,6 @@ func mustSetScopedTestWatchCodeState(
 
 	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
 		setScopedTestWatchCodeProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Enabled:        enabled,
 			Folders:        append([]projectstate.WatchCodeFolder(nil), folders...),
 			Files:          append([]string(nil), files...),
 			BaselineByPath: cloneStringSliceMap(baseline),

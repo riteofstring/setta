@@ -76,7 +76,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 		Name: "search_ui_settings",
 		Arguments: map[string]any{
 			"projectConfigId": "project-alpha",
-			"query":           "watch toggle",
+			"query":           "watch files",
 			"limit":           3,
 		},
 	})
@@ -88,7 +88,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	}
 	searchPayload := mustStructuredMapValue(t, searchResult.StructuredContent)
 	searchResults := mustStructuredListValue(t, searchPayload["results"])
-	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::enabled" {
+	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::files" {
 		t.Fatalf("expected watch-code UI setting search result, got %#v", searchResults)
 	}
 	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {
@@ -168,10 +168,10 @@ func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testin
 		server.URL+httpapi.RouteMCPToolCall,
 		"application/json",
 		strings.NewReader(`{
-			"tool":"search_ui_settings",
-			"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":3},
-			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
-		}`),
+				"tool":"search_ui_settings",
+				"arguments":{"projectConfigId":"project-alpha","query":"watch files","limit":3},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`),
 	)
 	if err != nil {
 		t.Fatalf("post search_ui_settings tool call route: %v", err)
@@ -199,10 +199,10 @@ func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testin
 		server.URL+httpapi.RouteMCPToolCall,
 		"application/json",
 		strings.NewReader(`{
-			"tool":"set_ui_setting_value",
-			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::enabled","value":true},
-			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
-		}`),
+				"tool":"set_ui_setting_value",
+				"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::files","value":["pkg/watch.py"]},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`),
 	)
 	if err != nil {
 		t.Fatalf("post set_ui_setting_value tool call route: %v", err)
@@ -228,7 +228,7 @@ func TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsWithoutProvider(t *testin
 		t.Fatalf("project by id after unavailable watch-code setting write: %v", err)
 	}
 	projectData := readAppWatchCodePluginProjectData(t, snapshot.Document, project.ID)
-	if projectData.Enabled {
+	if !projectData.IsEmpty() {
 		t.Fatal("expected unavailable watch-code setting write not to mutate project state")
 	}
 }
@@ -308,10 +308,10 @@ func TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime(
 
 	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
 	structuredContent, isError := postAppMCPToolCallRoute(t, client, server.URL, `{
-			"tool":"set_ui_setting_value",
-			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::enabled","value":true},
-			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
-		}`)
+				"tool":"set_ui_setting_value",
+				"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-watch-code::files","value":["pkg/live.py"]},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`)
 	if isError {
 		t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
 	}
@@ -324,11 +324,11 @@ func TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime(
 	}
 
 	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, firstPartyWatchCodePluginID, "project-alpha")
-	if !liveProjectData.Enabled {
+	if !reflect.DeepEqual(liveProjectData.Files, []string{"pkg/live.py"}) {
 		t.Fatalf("expected active watch-code UI setting write to update live runtime, got %#v", liveProjectData)
 	}
 	persistedProjectData := readPersistedAppWatchCodePluginProjectDataForProvider(t, cfg, firstPartyWatchCodePluginID, "project-alpha")
-	if !persistedProjectData.Enabled {
+	if !reflect.DeepEqual(persistedProjectData.Files, []string{"pkg/live.py"}) {
 		t.Fatalf("expected active watch-code UI setting write to persist, got %#v", persistedProjectData)
 	}
 }
@@ -669,7 +669,7 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	prepareAppLSPFixture(t)
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
-	installAppWatchCodeProviderFixture(t, cfg)
+	installAppRepoPlugin(t, cfg, firstPartyWatchCodePluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -690,10 +690,10 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 		server.URL+httpapi.RouteMCPToolCall,
 		"application/json",
 		strings.NewReader(`{
-			"tool":"search_ui_settings",
-			"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":3},
-			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
-		}`),
+				"tool":"search_ui_settings",
+				"arguments":{"projectConfigId":"project-alpha","query":"watch files","limit":3},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`),
 	)
 	if err != nil {
 		t.Fatalf("post search_ui_settings tool call route: %v", err)
@@ -709,7 +709,7 @@ func TestAppIDEMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	}
 	searchResult := mustStructuredMapValue(t, searchPayload.StructuredContent)
 	searchResults := mustStructuredListValue(t, searchResult["results"])
-	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::enabled" {
+	if len(searchResults) == 0 || mustStructuredMapValue(t, searchResults[0])["settingId"] != "plugin::setta-watch-code::files" {
 		t.Fatalf("expected watch-code UI setting search result, got %#v", searchResults)
 	}
 	if mustStructuredMapValue(t, searchResults[0])["source"] != "plugin" {
@@ -1018,10 +1018,10 @@ func assertAppWatchCodeUISettingSearchHidden(t *testing.T, client *http.Client, 
 	t.Helper()
 
 	structuredContent, isError := postAppMCPToolCallRoute(t, client, serverURL, `{
-			"tool":"search_ui_settings",
-			"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":5},
-			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
-		}`)
+				"tool":"search_ui_settings",
+				"arguments":{"projectConfigId":"project-alpha","query":"watch files","limit":5},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`)
 	if isError {
 		t.Fatalf("expected search_ui_settings success, got %#v", structuredContent)
 	}
@@ -1041,10 +1041,10 @@ func assertAppWatchCodeUISettingWriteRejected(t *testing.T, client *http.Client,
 	t.Helper()
 
 	structuredContent, isError := postAppMCPToolCallRoute(t, client, serverURL, `{
-			"tool":"set_ui_setting_value",
-			"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::`+pluginID+`::enabled","value":true},
-			"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
-		}`)
+				"tool":"set_ui_setting_value",
+				"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::`+pluginID+`::files","value":["pkg/watch.py"]},
+				"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
+			}`)
 	if isError {
 		t.Fatalf("expected structured set_ui_setting_value result, got %#v", structuredContent)
 	}
@@ -1069,11 +1069,11 @@ func assertAppWatchCodePluginDataUnchanged(
 		t.Fatalf("expected live runtime revision %d, got %d", expectedRevision, liveSnapshot.Revision)
 	}
 	liveProjectData := readAppWatchCodePluginProjectDataForProvider(t, liveSnapshot.Document, pluginID, "project-alpha")
-	if liveProjectData.Enabled {
+	if !liveProjectData.IsEmpty() {
 		t.Fatalf("expected live watch-code plugin data to remain disabled, got %#v", liveProjectData)
 	}
 	persistedProjectData := readPersistedAppWatchCodePluginProjectDataForProvider(t, cfg, pluginID, "project-alpha")
-	if persistedProjectData.Enabled {
+	if !persistedProjectData.IsEmpty() {
 		t.Fatalf("expected persisted watch-code plugin data to remain disabled, got %#v", persistedProjectData)
 	}
 }

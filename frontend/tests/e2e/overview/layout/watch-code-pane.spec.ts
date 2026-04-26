@@ -15,7 +15,6 @@ type RootResponse = {
 };
 
 type WatchCodePluginProjectData = {
-  enabled?: boolean;
   files?: string[];
 };
 
@@ -81,22 +80,6 @@ test("watch code settings open from controls portal with all options", async ({
     expect(portalRect.y).toBeLessThan(buttonRect.y + 400);
   }
 
-  const toggleButton = portal.getByRole("button", {
-    name: /Enable Watch Code|Disable Watch Code/,
-  });
-  await expect(toggleButton).toBeVisible();
-  const initialPressed = await toggleButton.getAttribute("aria-pressed");
-  expect(initialPressed === "true" || initialPressed === "false").toBeTruthy();
-  await toggleButton.click();
-  if (initialPressed) {
-    await expect(toggleButton).toHaveAttribute(
-      "aria-pressed",
-      initialPressed === "true" ? "false" : "true",
-    );
-  }
-  await expect(
-    portal.locator('[data-setting-anchor="plugin::setta-watch-code::enabled"]'),
-  ).toBeVisible();
   await expect(
     portal.locator('[data-setting-anchor="plugin::setta-watch-code::folders"]'),
   ).toBeVisible();
@@ -255,28 +238,6 @@ test("watch code file updates appear live and reload without crashing", async ({
         return getWatchCodePluginData(projectState).files ?? [];
       })
       .toContain(relativeFilePath);
-
-    const toggleButton = portal.getByRole("button", {
-      name: /Enable Watch Code|Disable Watch Code/,
-    });
-    await Promise.all([
-      page.waitForResponse(
-        (response) =>
-          response
-            .url()
-            .includes("/plugins/setta-watch-code/watch-code/enabled") &&
-          response.request().method() === "POST" &&
-          response.ok(),
-      ),
-      toggleButton.click(),
-    ]);
-    await expect(toggleButton).toHaveAttribute("aria-pressed", "true");
-    await expect
-      .poll(async () => {
-        const projectState = await loadProjectConfig(page);
-        return getWatchCodePluginData(projectState).enabled ?? false;
-      })
-      .toBe(true);
 
     await fs.writeFile(
       absoluteFilePath,

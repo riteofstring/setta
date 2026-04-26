@@ -10733,13 +10733,12 @@ func mustEnableAppSavedPythonCodegen(t *testing.T, cfg config.Config) {
 func mustSetAppScopedMCPProjectWatchCodeFiles(t *testing.T, cfg config.Config, files []string) {
 	t.Helper()
 
-	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, false, nil, files, nil)
+	mustSetAppScopedMCPProjectWatchCodeState(t, cfg, nil, files, nil)
 }
 
 func mustSetAppScopedMCPProjectWatchCodeState(
 	t *testing.T,
 	cfg config.Config,
-	enabled bool,
 	folders []projectstate.WatchCodeFolder,
 	files []string,
 	baseline map[string][]string,
@@ -10760,7 +10759,6 @@ func mustSetAppScopedMCPProjectWatchCodeState(
 		t.Fatalf("load scoped MCP project: %v", err)
 	}
 	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Enabled:        enabled,
 		Folders:        append([]projectstate.WatchCodeFolder(nil), folders...),
 		Files:          append([]string(nil), files...),
 		BaselineByPath: cloneAppStringSliceMap(baseline),

@@ -825,7 +825,6 @@ func assertCodeObjectSharedHasSecret(t *testing.T, project Project, codeObjID st
 
 func testWatchCodeLifecycleProjectData() WatchCodePluginProjectData {
 	return WatchCodePluginProjectData{
-		Enabled: true,
 		Folders: []WatchCodeFolder{
 			{Path: "pkg", Recursive: true},
 		},

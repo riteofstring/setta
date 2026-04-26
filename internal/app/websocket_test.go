@@ -2311,7 +2311,6 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 			},
 		}
 		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Enabled: true,
 			Folders: []projectstate.WatchCodeFolder{
 				{Path: "pkg", Recursive: false},
 			},
@@ -2443,7 +2442,6 @@ func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
 			},
 		}
 		setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-			Enabled: true,
 			Folders: []projectstate.WatchCodeFolder{
 				{Path: "pkg", Recursive: false},
 			},

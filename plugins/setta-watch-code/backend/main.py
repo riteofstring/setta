@@ -59,17 +59,6 @@ def _ui_settings() -> list[dict[str, Any]]:
     return [
         _with_ui_setting_handlers(
             {
-                "id": C.WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED,
-                "title": "Watch Code Enabled",
-                "description": "Enable or disable Watch Code for the project.",
-                "synonyms": ["watch code", "watch mode", "watch toggle"],
-                "revealKey": "watch-code-settings",
-                "mutability": "writable",
-                "valueSchema": {"type": "boolean"},
-            }
-        ),
-        _with_ui_setting_handlers(
-            {
                 "id": C.WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS,
                 "title": "Watch Code Folders",
                 "description": "List of folders watched by Watch Code.",

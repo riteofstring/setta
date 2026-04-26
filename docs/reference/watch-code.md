@@ -1,7 +1,8 @@
 # Watch Code
 
-Watch Code keeps the UI in sync with top-level Python definitions. When enabled, it
-watches a set of repo-relative files and folders, parses `.py` files for new
+Watch Code keeps the UI in sync with top-level Python definitions. When the
+plugin provider is active and a project has configured file or folder inputs, it
+watches those repo-relative paths, parses `.py` files for new
 callables, and automatically creates, updates, or removes **Callable** sections to
 match what's on disk.
 
@@ -22,7 +23,6 @@ Watch Code state is stored under document plugin data:
       "schemaVersion": 1,
       "projects": {
         "<projectId>": {
-          "enabled": false,
           "folders": [],
           "files": [],
           "registry": {},
@@ -35,7 +35,6 @@ Watch Code state is stored under document plugin data:
 ```
 
 The per-project fields are:
-- `enabled`: master toggle.
 - `folders`: list of `{ path, recursive }` folder inputs.
 - `files`: list of file paths.
 - `registry`: identity -> metadata (callable name, hashes, source path,
@@ -48,11 +47,10 @@ Input rules:
 - Only `.py` files are considered.
 - Default ignore dirs: `node_modules`, `.venv`, `setta_files`, `__pycache__`.
 
-The plugin UI writes inputs through its backend routes with
-`fetchBackendRoute("/watch-code/enabled")` and
-`fetchBackendRoute("/watch-code/inputs")`. When inputs change, the backend
-baselines only the new additions (so existing callables don't auto-create
-sections).
+The plugin UI writes inputs through `fetchBackendRoute("/watch-code/inputs")`.
+An active provider plus non-empty `folders` or `files` is the project-level
+activation signal. When inputs change, the backend baselines only the new
+additions (so existing callables don't auto-create sections).
 
 ## UI surface
 - Watch Code no longer has its own Overview tab.
@@ -66,7 +64,7 @@ sections).
   popover and highlights the matching plugin-owned anchor.
 
 ## Baselines: avoiding retroactive section creation
-When Watch Code is enabled, the backend records a **baseline**:
+When Watch Code inputs are added, the backend records a **baseline**:
 1. It scans the configured watch inputs and stores every discovered identity in
    plugin-owned `baselineByPath`.
 2. It also scans existing code sections bound to files, so current callables are
@@ -76,8 +74,8 @@ During updates:
 - If a callable is in the baseline for that file, it is **not** auto-created.
 - The baseline is pruned as definitions disappear.
 
-This keeps "turn on Watch Code" from creating a flood of sections for existing
-code.
+This keeps adding Watch Code inputs from creating a flood of sections for
+existing code.
 
 ## Callable discovery
 Watch Code parses each `.py` file with `ast.parse` and captures:

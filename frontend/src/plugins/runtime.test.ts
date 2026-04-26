@@ -3030,18 +3030,6 @@ describe("plugin runtime helpers", () => {
     const host = getCapturedPluginHost();
 
     await expect(
-      host.fetchBackendRoute("/watch-code/enabled", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectConfigId: "project-alpha",
-          enabled: true,
-        }),
-      }),
-    ).resolves.toMatchObject({ status: 200 });
-    await expect(
       host.fetchBackendRoute("/watch-code/inputs", {
         method: "POST",
         headers: {
@@ -3058,26 +3046,11 @@ describe("plugin runtime helpers", () => {
       status: 200,
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
-      "/plugins/acme.plugin/watch-code/enabled",
-    );
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({
-        projectConfigId: "project-alpha",
-        enabled: true,
-      }),
-    });
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toBeInstanceOf(Headers);
-    expect(
-      (fetchMock.mock.calls[0]?.[1]?.headers as Headers).get("Content-Type"),
-    ).toBe("application/json");
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
       "/plugins/acme.plugin/watch-code/inputs",
     );
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       credentials: "include",
       body: JSON.stringify({
@@ -3086,18 +3059,18 @@ describe("plugin runtime helpers", () => {
         files: ["pkg/mod.py"],
       }),
     });
-    expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeInstanceOf(Headers);
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toBeInstanceOf(Headers);
     expect(
-      (fetchMock.mock.calls[1]?.[1]?.headers as Headers).get("Content-Type"),
+      (fetchMock.mock.calls[0]?.[1]?.headers as Headers).get("Content-Type"),
     ).toBe("application/json");
-    expect(String(fetchMock.mock.calls[2]?.[0])).toContain(
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
       "/plugins/acme.plugin/health",
     );
-    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
       credentials: "include",
     });
     await expect(
-      host.fetchBackendRoute("watch-code/enabled"),
+      host.fetchBackendRoute("watch-code/inputs"),
     ).rejects.toMatchObject({
       code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
     });

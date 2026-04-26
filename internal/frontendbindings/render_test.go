@@ -67,9 +67,7 @@ func TestBuildEmitsWatchCodeBackendContractForFrontend(t *testing.T) {
 	for _, snippet := range []string{
 		"export const WATCH_CODE_BACKEND_CONTRACT_VERSION = " + strconv.Itoa(watchcodecontracts.BackendContractVersion) + ";",
 		"export const WATCH_CODE_BACKEND_ROUTE_BASE_PATH = " + strconv.Quote(watchcodecontracts.BackendRouteBasePath) + ";",
-		"export const WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED = " + strconv.Quote(watchcodecontracts.BackendRouteSuffixEnabled) + ";",
 		"export const WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS = " + strconv.Quote(watchcodecontracts.BackendRouteSuffixInputs) + ";",
-		"export const WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED = " + strconv.Quote(watchcodecontracts.BackendLocalSettingIDEnabled) + ";",
 		"export const WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS = " + strconv.Quote(watchcodecontracts.BackendLocalSettingIDFolders) + ";",
 		"export const WATCH_CODE_BACKEND_LOCAL_SETTING_FILES = " + strconv.Quote(watchcodecontracts.BackendLocalSettingIDFiles) + ";",
 	} {

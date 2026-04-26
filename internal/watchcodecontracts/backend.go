@@ -6,19 +6,15 @@ const (
 	BackendContractVersion   = 1
 	BackendDataSchemaVersion = 1
 
-	BackendRouteBasePath      = "/watch-code"
-	BackendRouteSuffixEnabled = "enabled"
-	BackendRouteSuffixInputs  = "inputs"
+	BackendRouteBasePath     = "/watch-code"
+	BackendRouteSuffixInputs = "inputs"
 
-	BackendLocalSettingIDEnabled = "enabled"
 	BackendLocalSettingIDFolders = "folders"
 	BackendLocalSettingIDFiles   = "files"
 
-	BackendReadHandlerIDEnabled = "read_enabled"
 	BackendReadHandlerIDFolders = "read_folders"
 	BackendReadHandlerIDFiles   = "read_files"
 
-	BackendWriteHandlerIDEnabled = "write_enabled"
 	BackendWriteHandlerIDFolders = "write_folders"
 	BackendWriteHandlerIDFiles   = "write_files"
 
@@ -41,7 +37,6 @@ type BackendUISettingContract struct {
 
 func BackendRouteSuffixes() []string {
 	return []string{
-		BackendRouteSuffixEnabled,
 		BackendRouteSuffixInputs,
 	}
 }
@@ -57,11 +52,6 @@ func BackendLocalSettingIDs() []string {
 
 func BackendUISettings() []BackendUISettingContract {
 	return []BackendUISettingContract{
-		{
-			LocalSettingID: BackendLocalSettingIDEnabled,
-			ReadHandlerID:  BackendReadHandlerIDEnabled,
-			WriteHandlerID: BackendWriteHandlerIDEnabled,
-		},
 		{
 			LocalSettingID: BackendLocalSettingIDFolders,
 			ReadHandlerID:  BackendReadHandlerIDFolders,

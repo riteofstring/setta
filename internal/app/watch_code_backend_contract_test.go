@@ -32,11 +32,14 @@ func TestWatchCodeBackendContractDrivesRouteAndUISettingMatching(t *testing.T) {
 	if _, _, ok := watchcodecontracts.ParseBackendRoutePath("/plugins/" + pluginID + "/watch-code/ enabled"); ok {
 		t.Fatal("expected route suffixes with segment whitespace to be rejected")
 	}
-	if _, _, ok := watchcodecontracts.ParseBackendRoutePath("/plugins/plugin-alpha/nested/watch-code/enabled"); ok {
+	if _, _, ok := watchcodecontracts.ParseBackendRoutePath("/plugins/plugin-alpha/nested/watch-code/inputs"); ok {
 		t.Fatal("expected nested non-contract Watch Code-looking route to be rejected")
 	}
-	if gotPluginID, gotSuffix, ok := watchcodecontracts.ParseBackendRoutePath("/plugins/plugin-alpha/watch-code/enabled"); !ok || gotPluginID != "plugin-alpha" || gotSuffix != watchcodecontracts.BackendRouteSuffixEnabled {
+	if gotPluginID, gotSuffix, ok := watchcodecontracts.ParseBackendRoutePath("/plugins/plugin-alpha/watch-code/inputs"); !ok || gotPluginID != "plugin-alpha" || gotSuffix != watchcodecontracts.BackendRouteSuffixInputs {
 		t.Fatalf("expected exact Watch Code route to parse, got plugin=%q suffix=%q ok=%v", gotPluginID, gotSuffix, ok)
+	}
+	if _, _, ok := watchcodecontracts.ParseBackendRoutePath("/plugins/plugin-alpha/watch-code/enabled"); ok {
+		t.Fatal("expected removed Watch Code enabled route to be rejected")
 	}
 
 	for _, setting := range watchcodecontracts.BackendUISettings() {
@@ -71,8 +74,8 @@ func TestWatchCodeBackendRouteInterceptorDeclinesUnownedRoutes(t *testing.T) {
 	host := newWatchCodeBackendRouteHost(nil, capabilities, nil, "/workspace")
 
 	for _, path := range []string{
-		"/plugins/plugin-alpha/watch-code/enabled",
-		"/plugins/plugin-alpha/nested/watch-code/enabled",
+		"/plugins/plugin-alpha/watch-code/inputs",
+		"/plugins/plugin-alpha/nested/watch-code/inputs",
 	} {
 		response, handled, err := host.intercept(context.Background(), plugins.BackendHTTPRequest{
 			Method: http.MethodGet,
@@ -131,8 +134,8 @@ func TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandid
 
 			response, handled, err := host.intercept(context.Background(), plugins.BackendHTTPRequest{
 				Method: http.MethodPost,
-				Path:   watchcodecontracts.BackendRoutePath(providerPluginID, watchcodecontracts.BackendRouteSuffixEnabled),
-				Body:   []byte(`{"projectConfigId":"project-alpha","enabled":true}`),
+				Path:   watchcodecontracts.BackendRoutePath(providerPluginID, watchcodecontracts.BackendRouteSuffixInputs),
+				Body:   []byte(`{"projectConfigId":"project-alpha","folders":[],"files":[]}`),
 			})
 			if err != nil {
 				t.Fatalf("intercept unavailable provider route: %v", err)
@@ -243,7 +246,7 @@ func TestWatchCodeBackendUISettingRejectsMissingProjectWithoutNoOpSuccess(t *tes
 
 	_, handled, err := host.readUISettingValue(plugins.BackendUISettingReadOptions{
 		PluginID:        providerPluginID,
-		HandlerID:       watchcodecontracts.BackendReadHandlerIDEnabled,
+		HandlerID:       watchcodecontracts.BackendReadHandlerIDFolders,
 		ProjectConfigID: "missing-project",
 	})
 	if !handled {
@@ -268,8 +271,8 @@ func TestWatchCodeBackendUISettingRejectsMissingProjectWithoutNoOpSuccess(t *tes
 	_, err = registry.WriteValue(
 		context.Background(),
 		"missing-project",
-		"plugin::"+providerPluginID+"::enabled",
-		false,
+		"plugin::"+providerPluginID+"::folders",
+		[]projectstate.WatchCodeFolder{},
 		nil,
 	)
 	var settingErr *uisettings.SettingError
@@ -320,17 +323,17 @@ func (s watchCodeBackendUISettingHostTestService) GetBackendUISettings(pluginID 
 	if pluginID != s.pluginID {
 		return nil, nil
 	}
-	writeHandlerID := watchcodecontracts.BackendWriteHandlerIDEnabled
+	writeHandlerID := watchcodecontracts.BackendWriteHandlerIDFolders
 	return []plugins.PluginRegisteredUISetting{
 		{
 			PluginID:       s.pluginID,
-			LocalSettingID: watchcodecontracts.BackendLocalSettingIDEnabled,
-			Title:          "Watch Code Enabled",
+			LocalSettingID: watchcodecontracts.BackendLocalSettingIDFolders,
+			Title:          "Watch Code Folders",
 			Mutability:     string(uisettings.MutabilityWritable),
 			ValueSchema: map[string]any{
-				"type": "boolean",
+				"type": "array",
 			},
-			ReadHandlerID:  watchcodecontracts.BackendReadHandlerIDEnabled,
+			ReadHandlerID:  watchcodecontracts.BackendReadHandlerIDFolders,
 			WriteHandlerID: &writeHandlerID,
 		},
 	}, nil

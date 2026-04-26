@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED,
   WATCH_CODE_BACKEND_LOCAL_SETTING_FILES,
   WATCH_CODE_BACKEND_ROUTE_BASE_PATH,
-  WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED,
   WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS,
 } from "../src/generated/watchCodeBackendContract";
 import { apiVersion, register } from "../src/index";
@@ -25,7 +23,6 @@ type ProjectStateSelector = Parameters<
   WatchCodePluginHost["subscribeProjectState"]
 >[0];
 
-const watchCodeEnabledRoute = `${WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/${WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED}`;
 const watchCodeInputsRoute = `${WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/${WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS}`;
 
 const effectiveCapabilities = [
@@ -51,7 +48,6 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
     id: "project-alpha",
   };
   let watchCodeData: unknown = {
-    enabled: false,
     folders: [] as WatchCodeFolder[],
     files: [] as string[],
   };
@@ -217,30 +213,9 @@ describe("setta-watch-code frontend registration", () => {
     register(host);
     const portal = openSettingsPortal(mountCanvasControl(registeredControls));
 
-    portal
-      .querySelector<HTMLButtonElement>(
-        `[data-setting-anchor="plugin::setta-watch-code::${WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED}"] button`,
-      )
-      ?.click();
-    await Promise.resolve();
-    await Promise.resolve();
     expect(pluginDataSelectorIds).toContain("setta-watch-code");
-    expect(fetchBackendRoute).toHaveBeenCalledWith(
-      watchCodeEnabledRoute,
-      expect.objectContaining({
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectConfigId: "project-alpha",
-          enabled: true,
-        }),
-      }),
-    );
 
     updateWatchCodeData({
-      enabled: true,
       folders: [{ path: "pkg", recursive: true }],
       files: ["pkg/mod.py"],
     });
@@ -281,7 +256,6 @@ describe("setta-watch-code frontend registration", () => {
     register(host);
     const portal = openSettingsPortal(mountCanvasControl(registeredControls));
     updateWatchCodeData({
-      enabled: true,
       folders: [{ path: "alpha-src", recursive: true }],
       files: ["alpha.py"],
     });
@@ -346,7 +320,6 @@ describe("setta-watch-code frontend registration", () => {
     register(host);
     const mount = mountCanvasControl(registeredControls);
     updateWatchCodeData({
-      enabled: true,
       folders: [{ path: "pkg", recursive: true }],
       files: ["pkg/mod.py"],
     });
@@ -386,7 +359,6 @@ describe("setta-watch-code frontend registration", () => {
     await pendingSave;
     await Promise.resolve();
     updateWatchCodeData({
-      enabled: true,
       folders: [{ path: "pkg", recursive: true }],
       files: ["pkg/pending.py"],
     });

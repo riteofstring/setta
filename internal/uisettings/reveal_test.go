@@ -1132,7 +1132,7 @@ func TestRevealServiceFailsClosedWhenFrontendStatusMissing(t *testing.T) {
 			RequestID:       revealMessage.Content.RequestID,
 			Statuses: []realtime.UISettingRevealResultStatus{
 				{
-					SettingID: "plugin::setta-watch-code::enabled",
+					SettingID: "plugin::setta-watch-code::files",
 					Status:    "revealed",
 				},
 			},
@@ -1165,7 +1165,7 @@ func TestRevealServiceFailsClosedWhenFrontendStatusMissing(t *testing.T) {
 	if len(result.Statuses) != 1 || result.Statuses[0].Error == nil {
 		t.Fatalf("expected failed status, got %#v", result.Statuses)
 	}
-	expectedMessage := "frontend reveal response contract mismatch for request request-1 from websocket frontend-1: frontend reveal response setting id mismatch: expected [core.project.show_param_display_names] but received [plugin::setta-watch-code::enabled]"
+	expectedMessage := "frontend reveal response contract mismatch for request request-1 from websocket frontend-1: frontend reveal response setting id mismatch: expected [core.project.show_param_display_names] but received [plugin::setta-watch-code::files]"
 	if result.Statuses[0].Error.Message != expectedMessage {
 		t.Fatalf("unexpected missing-status message: %q", result.Statuses[0].Error.Message)
 	}
