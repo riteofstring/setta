@@ -10,11 +10,6 @@ import (
 
 type NotificationType = realtime.NotificationType
 
-const (
-	NotificationTypeWarning NotificationType = realtime.NotificationTypeWarning
-	NotificationTypeInfo    NotificationType = realtime.NotificationTypeInfo
-)
-
 var (
 	ErrProjectConfigIDRequired = errors.New("notification project config id is required")
 	ErrNotificationIDRequired  = errors.New("notification id is required")
