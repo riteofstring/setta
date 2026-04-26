@@ -1,9 +1,3 @@
-/* https://github.com/wbkd/react-flow/issues/1421 */
-
-.react-flow__renderer {
-  z-index: auto;
-}
-
 .react-flow__pane {
   z-index: auto;
 }

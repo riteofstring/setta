@@ -5,9 +5,9 @@ import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { useLocalStorage, useMisc } from "state/definitions";
+import "./gpu-flow-project.css";
+import "./gpu-flow-runtime.css";
 import { GpuProjectSurface } from "./GpuProjectSurface";
-import "./react-flow-css.css";
-import "./react-flow-runtime.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
 export function UIPage() {

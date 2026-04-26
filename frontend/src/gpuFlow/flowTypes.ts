@@ -8,12 +8,6 @@ export interface Dimensions {
 
 export interface Rect extends Dimensions, Position {}
 
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-
 export type Node = {
   id: string;
   position: Position;
