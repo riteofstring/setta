@@ -5,6 +5,7 @@ import {
   getBezierControls,
   getCanvasFlowConnectionPreviewEdge,
   getCanvasFlowEdgeHit,
+  getCanvasFlowEdgeLabelLayout,
   getCanvasFlowEdgePolyline,
   getCanvasFlowEdgeStroke,
 } from "./canvasFlowEdges";
@@ -163,6 +164,23 @@ describe("canvasFlowEdges", () => {
     expect(polyline).toHaveLength(5);
     expect(polyline[0]).toEqual({ x: 0, y: 0 });
     expect(polyline[4]).toEqual({ x: 100, y: 50 });
+  });
+
+  it("exposes shared label layout for 2d and WebGL edge renderers", () => {
+    expect(
+      getCanvasFlowEdgeLabelLayout(
+        createEdge({
+          label: "Activated at least once",
+          source: { x: 20, y: 40 },
+          target: { x: 220, y: 80 },
+        }),
+      ),
+    ).toEqual({
+      height: 20,
+      width: 150,
+      x: 45,
+      y: 50,
+    });
   });
 
   it("builds connection preview edges from registered handle positions", () => {

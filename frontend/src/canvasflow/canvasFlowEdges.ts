@@ -40,6 +40,12 @@ export type CanvasFlowEdgeStroke = {
   dashPattern?: readonly number[] | undefined;
   lineWidth: number;
 };
+export type CanvasFlowEdgeLabelLayout = {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
 
 const sourceActivationCountOperatorLabelByValue = new Map(
   StateMachineUIConfig.sourceActivationCountOperatorOptions.map((option) => [
@@ -788,22 +794,20 @@ function drawEdgeLabel({
   ctx: CanvasRenderingContext2D;
   edge: CanvasFlowDrawableEdge;
 }) {
-  if (!edge.label) {
+  const labelLayout = getCanvasFlowEdgeLabelLayout(edge);
+  if (!labelLayout || !edge.label) {
     return;
   }
-  const x = (edge.source.x + edge.target.x) / 2;
-  const y = (edge.source.y + edge.target.y) / 2;
-  const width = Math.max(80, edge.label.length * 6 + 12);
   ctx.save();
   ctx.fillStyle = "rgba(255, 255, 255, 0.86)";
   ctx.strokeStyle = "rgba(100, 116, 139, 0.45)";
   ctx.lineWidth = 1;
   drawRoundedRect({
     ctx,
-    x: x - width / 2,
-    y: y - 10,
-    width,
-    height: 20,
+    x: labelLayout.x,
+    y: labelLayout.y,
+    width: labelLayout.width,
+    height: labelLayout.height,
     radius: 10,
   });
   ctx.fill();
@@ -812,8 +816,37 @@ function drawEdgeLabel({
   ctx.font = "11px Inter, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(edge.label, x, y);
+  ctx.fillText(
+    edge.label,
+    labelLayout.x + labelLayout.width / 2,
+    labelLayout.y + labelLayout.height / 2,
+  );
   ctx.restore();
+}
+
+export function getCanvasFlowEdgeLabelLayout(
+  edge: CanvasFlowDrawableEdge,
+): CanvasFlowEdgeLabelLayout | null {
+  if (!edge.label) {
+    return null;
+  }
+  const { height, width } = getCanvasFlowEdgeLabelSize(edge.label);
+  return {
+    height,
+    width,
+    x: (edge.source.x + edge.target.x) / 2 - width / 2,
+    y: (edge.source.y + edge.target.y) / 2 - height / 2,
+  };
+}
+
+export function getCanvasFlowEdgeLabelSize(label: string): {
+  height: number;
+  width: number;
+} {
+  return {
+    height: 20,
+    width: Math.max(80, label.length * 6 + 12),
+  };
 }
 
 function resolveStrokeColor(

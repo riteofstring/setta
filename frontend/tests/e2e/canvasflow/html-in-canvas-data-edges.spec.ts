@@ -219,7 +219,7 @@ async function installCanvasFlowRendererInitScript(
       windowRef.__settaCanvasFlowRenderer = mode;
       return;
     }
-    delete windowRef.__settaCanvasFlowRenderer;
+    windowRef.__settaCanvasFlowRenderer = "2d";
   }, rendererMode);
 }
 
@@ -391,23 +391,26 @@ async function expectPointTargetsCanvas(
 
 async function describePointTarget(page: Page, point: CanvasPoint) {
   return page.evaluate(({ x, y }) => {
+    const describeElementForError = (element: Element | null) => {
+      if (!element) {
+        return "<none>";
+      }
+      return [
+        element.tagName.toLowerCase(),
+        element.id ? `#${element.id}` : "",
+        element.className
+          ? `.${String(element.className).replace(/\s+/g, ".")}`
+          : "",
+        element.getAttribute("data-nodeid")
+          ? `[data-nodeid="${element.getAttribute("data-nodeid")}"]`
+          : "",
+        element.getAttribute("data-handleid")
+          ? `[data-handleid="${element.getAttribute("data-handleid")}"]`
+          : "",
+      ].join("");
+    };
     const element = document.elementFromPoint(x, y);
-    if (!element) {
-      return "<none>";
-    }
-    return [
-      element.tagName.toLowerCase(),
-      element.id ? `#${element.id}` : "",
-      element.className
-        ? `.${String(element.className).replace(/\s+/g, ".")}`
-        : "",
-      element.getAttribute("data-nodeid")
-        ? `[data-nodeid="${element.getAttribute("data-nodeid")}"]`
-        : "",
-      element.getAttribute("data-handleid")
-        ? `[data-handleid="${element.getAttribute("data-handleid")}"]`
-        : "",
-    ].join("");
+    return describeElementForError(element);
   }, point);
 }
 

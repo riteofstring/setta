@@ -12,8 +12,8 @@ import {
 } from "./canvasFlowHtmlTextureCache";
 import { getCanvasFlowNodeElement } from "./canvasFlowNodeElements";
 import {
-  type CanvasFlowChangedNodeElements,
   getCanvasFlowChangedNodeElements,
+  type CanvasFlowChangedNodeElements,
 } from "./canvasFlowPaintEvents";
 import {
   assertHtmlInCanvasWebglSupport,
@@ -28,6 +28,11 @@ import type {
 } from "./canvasFlowTypes";
 import { expandWorldRect, getVisibleWorldRect } from "./canvasFlowViewport";
 import {
+  CanvasFlowWebglEdgeLabelTextureCache,
+  drawCanvasFlowWebglEdgeLabels,
+  drawCanvasFlowWebglEdges,
+} from "./canvasFlowWebglEdges";
+import {
   createCanvasFlowColorProgram,
   createCanvasFlowTextureProgram,
   destroyCanvasFlowColorProgram,
@@ -35,7 +40,6 @@ import {
   type CanvasFlowColorProgram,
   type CanvasFlowTextureProgram,
 } from "./canvasFlowWebglShaders";
-import { drawCanvasFlowWebglEdges } from "./canvasFlowWebglEdges";
 
 const DEFAULT_OVERSCAN = 600;
 const FRAME_STATS_SAMPLE_INTERVAL_MS = 250;
@@ -60,6 +64,7 @@ type WebglRendererState = {
 
 type CanvasFlowWebglResources = {
   colorProgram: CanvasFlowColorProgram;
+  edgeLabelCache: CanvasFlowWebglEdgeLabelTextureCache;
   textureProgram: CanvasFlowTextureProgram;
 };
 
@@ -120,6 +125,7 @@ export function createCanvasFlowWebglRenderer({
       state.frameId = null;
     }
     textureCache.handleContextLost();
+    resources?.edgeLabelCache.handleContextLost();
     resources = null;
     canvas.dataset.webglContextLost = "true";
   };
@@ -163,8 +169,7 @@ export function createCanvasFlowWebglRenderer({
       );
       clearHandledRendererTransformChanges({
         changedNodeIds: changedElements?.nodeIds,
-        rendererTransformChangedNodeIds:
-          state.rendererTransformChangedNodeIds,
+        rendererTransformChangedNodeIds: state.rendererTransformChangedNodeIds,
       });
       const visibleNodes = getVisibleCanvasFlowNodes(inputs);
       const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
@@ -240,6 +245,7 @@ function renderWebglFrame({
       drawMs: performance.now() - drawStart,
       drawnNodes: 0,
       drawnEdges: 0,
+      drawnEdgeLabels: 0,
       edgeDrawMs: 0,
       inputs,
       now,
@@ -279,6 +285,14 @@ function renderWebglFrame({
     size,
     viewport: inputs.viewport,
     wireColor: inputs.wireColor,
+  });
+  const edgeLabelsDraw = drawCanvasFlowWebglEdgeLabels({
+    edgeLabelCache: resources.edgeLabelCache,
+    edges: inputs.edges,
+    gl,
+    size,
+    textureProgram: resources.textureProgram,
+    viewport: inputs.viewport,
   });
   const edgeDrawMs = performance.now() - edgeDrawStart;
 
@@ -333,6 +347,7 @@ function renderWebglFrame({
     drawMs,
     drawnNodes: textureDraw.drawnNodes,
     drawnEdges: edgeDraw.drawnEdges,
+    drawnEdgeLabels: edgeLabelsDraw.drawnLabels,
     edgeDrawMs,
     inputs,
     now,
@@ -632,6 +647,7 @@ function createCanvasFlowWebglResources(
 ): CanvasFlowWebglResources {
   return {
     colorProgram: createCanvasFlowColorProgram(gl),
+    edgeLabelCache: new CanvasFlowWebglEdgeLabelTextureCache({ gl }),
     textureProgram: createCanvasFlowTextureProgram(gl),
   };
 }
@@ -641,6 +657,7 @@ function destroyCanvasFlowWebglResources(
   resources: CanvasFlowWebglResources,
 ) {
   destroyCanvasFlowColorProgram(gl, resources.colorProgram);
+  resources.edgeLabelCache.dispose();
   destroyCanvasFlowTextureProgram(gl, resources.textureProgram);
 }
 
@@ -664,6 +681,7 @@ function writeWebglStats({
   drawMs,
   drawnNodes,
   drawnEdges,
+  drawnEdgeLabels,
   edgeDrawMs,
   inputs,
   now,
@@ -679,6 +697,7 @@ function writeWebglStats({
   drawMs: number;
   drawnNodes: number;
   drawnEdges: number;
+  drawnEdgeLabels: number;
   edgeDrawMs: number;
   inputs: CanvasFlowRenderInputs;
   now: number;
@@ -704,6 +723,7 @@ function writeWebglStats({
   canvas.dataset.visibleNodes = String(visibleNodes.length);
   canvas.dataset.drawnNodes = String(drawnNodes);
   canvas.dataset.webglDrawnEdges = String(drawnEdges);
+  canvas.dataset.webglDrawnEdgeLabels = String(drawnEdgeLabels);
   canvas.dataset.registeredNodes = String(inputs.nodes.length);
   canvas.dataset.mountedNodes = String(inputs.nodeElements.size);
   canvas.dataset.edgeCount = String(inputs.edges.length);
@@ -783,6 +803,7 @@ function clearWebglRendererDiagnostics(canvas: HTMLCanvasElement) {
   delete canvas.dataset.webglDirtyNodes;
   delete canvas.dataset.webglDrawMs;
   delete canvas.dataset.webglDrawnEdges;
+  delete canvas.dataset.webglDrawnEdgeLabels;
   delete canvas.dataset.webglEstimatedTextureBytes;
   delete canvas.dataset.webglFrame;
   delete canvas.dataset.webglLastFrameReason;

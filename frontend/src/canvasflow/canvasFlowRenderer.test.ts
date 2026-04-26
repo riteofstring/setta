@@ -2,22 +2,28 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  canUseCanvasFlowWebglTextureNodesByDefault,
   createCanvasFlowRenderer,
   getCanvasFlowRendererMode,
 } from "./canvasFlowRenderer";
 import type {
+  CanvasFlowCanvasElement,
   CanvasFlowRenderer,
   CanvasFlowRendererMode,
   CanvasFlowRenderInputs,
+  CanvasFlowWebglRenderingContext,
 } from "./canvasFlowTypes";
 
 describe("canvasFlowRenderer", () => {
   afterEach(() => {
     delete (window as { __settaCanvasFlowRenderer?: CanvasFlowRendererMode })
       .__settaCanvasFlowRenderer;
+    delete (HTMLCanvasElement.prototype as Partial<CanvasFlowCanvasElement>)
+      .requestPaint;
+    vi.unstubAllGlobals();
   });
 
-  it("defaults to the 2d renderer", () => {
+  it("defaults to the 2d renderer when WebGL texture support is unavailable", () => {
     const canvas = document.createElement("canvas");
     const create2dRenderer = vi.fn(() => createRendererStub());
     const createWebglRenderer = vi.fn(() => createRendererStub());
@@ -34,7 +40,46 @@ describe("canvasFlowRenderer", () => {
     expect(createWebglRenderer).not.toHaveBeenCalled();
   });
 
-  it("selects WebGL only when explicitly requested", () => {
+  it("defaults to WebGL texture nodes when required browser APIs are present", () => {
+    installWebglTextureDefaultSupport();
+    const canvas = document.createElement("canvas");
+    const create2dRenderer = vi.fn(() => createRendererStub());
+    const createWebglRenderer = vi.fn(() => createRendererStub());
+
+    createCanvasFlowRenderer({
+      canvas,
+      create2dRenderer,
+      createWebglRenderer,
+      initialInputs: createRenderInputs(),
+    });
+
+    expect(getCanvasFlowRendererMode()).toBe("webgl-texture-nodes");
+    expect(createWebglRenderer).toHaveBeenCalledTimes(1);
+    expect(create2dRenderer).not.toHaveBeenCalled();
+  });
+
+  it("keeps explicit 2d renderer requests ahead of default support probing", () => {
+    installWebglTextureDefaultSupport();
+    (
+      window as { __settaCanvasFlowRenderer?: CanvasFlowRendererMode }
+    ).__settaCanvasFlowRenderer = "2d";
+    const canvas = document.createElement("canvas");
+    const create2dRenderer = vi.fn(() => createRendererStub());
+    const createWebglRenderer = vi.fn(() => createRendererStub());
+
+    createCanvasFlowRenderer({
+      canvas,
+      create2dRenderer,
+      createWebglRenderer,
+      initialInputs: createRenderInputs(),
+    });
+
+    expect(getCanvasFlowRendererMode()).toBe("2d");
+    expect(create2dRenderer).toHaveBeenCalledTimes(1);
+    expect(createWebglRenderer).not.toHaveBeenCalled();
+  });
+
+  it("selects WebGL when explicitly requested", () => {
     (
       window as { __settaCanvasFlowRenderer?: CanvasFlowRendererMode }
     ).__settaCanvasFlowRenderer = "webgl-texture-nodes";
@@ -53,7 +98,24 @@ describe("canvasFlowRenderer", () => {
     expect(createWebglRenderer).toHaveBeenCalledTimes(1);
     expect(create2dRenderer).not.toHaveBeenCalled();
   });
+
+  it("checks WebGL texture default support without creating a canvas context", () => {
+    expect(canUseCanvasFlowWebglTextureNodesByDefault()).toBe(false);
+    installWebglTextureDefaultSupport();
+    expect(canUseCanvasFlowWebglTextureNodesByDefault()).toBe(true);
+  });
 });
+
+function installWebglTextureDefaultSupport() {
+  (
+    HTMLCanvasElement.prototype as Partial<CanvasFlowCanvasElement>
+  ).requestPaint = vi.fn();
+  class WebGLRenderingContextMock {}
+  (
+    WebGLRenderingContextMock.prototype as Partial<CanvasFlowWebglRenderingContext>
+  ).texElementImage2D = vi.fn();
+  vi.stubGlobal("WebGLRenderingContext", WebGLRenderingContextMock);
+}
 
 function createRendererStub(): CanvasFlowRenderer {
   return {

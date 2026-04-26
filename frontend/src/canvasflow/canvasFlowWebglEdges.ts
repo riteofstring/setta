@@ -1,6 +1,8 @@
 import type { Position } from "utils/generatedTypes";
 import {
   getCanvasFlowConnectionPreviewEdge,
+  getCanvasFlowEdgeLabelLayout,
+  getCanvasFlowEdgeLabelSize,
   getCanvasFlowEdgePolyline,
   getCanvasFlowEdgeStroke,
 } from "./canvasFlowEdges";
@@ -12,16 +14,29 @@ import type {
   CanvasFlowViewport,
   CanvasFlowWebglRenderingContext,
 } from "./canvasFlowTypes";
-import type { CanvasFlowColorProgram } from "./canvasFlowWebglShaders";
+import type {
+  CanvasFlowColorProgram,
+  CanvasFlowTextureProgram,
+} from "./canvasFlowWebglShaders";
 
 type CanvasFlowScreenPoint = {
   x: number;
   y: number;
 };
 type CanvasFlowRgba = [number, number, number, number];
+type CanvasFlowEdgeLabelTextureEntry = {
+  cssHeight: number;
+  cssWidth: number;
+  key: string;
+  pixelHeight: number;
+  pixelRatio: number;
+  pixelWidth: number;
+  texture: WebGLTexture;
+};
 
 const BEZIER_EDGE_SEGMENTS = 24;
 const MIN_EDGE_SCREEN_WIDTH = 0.75;
+const MAX_EDGE_LABEL_PIXEL_RATIO = 2;
 const NAMED_WEBGL_EDGE_COLORS = new Map<string, CanvasFlowRgba>([
   ["black", [0, 0, 0, 1]],
   ["blue", [0, 0, 1, 1]],
@@ -76,6 +91,125 @@ export function drawCanvasFlowWebglEdges({
     });
   }
   return { drawnEdges };
+}
+
+export class CanvasFlowWebglEdgeLabelTextureCache {
+  private readonly entries = new Map<string, CanvasFlowEdgeLabelTextureEntry>();
+  private readonly gl: CanvasFlowWebglRenderingContext;
+
+  constructor({ gl }: { gl: CanvasFlowWebglRenderingContext }) {
+    this.gl = gl;
+  }
+
+  dispose() {
+    for (const entry of this.entries.values()) {
+      this.gl.deleteTexture(entry.texture);
+    }
+    this.entries.clear();
+  }
+
+  handleContextLost() {
+    this.entries.clear();
+  }
+
+  getOrCreate(label: string): CanvasFlowEdgeLabelTextureEntry {
+    const pixelRatio = getCanvasFlowEdgeLabelPixelRatio();
+    const key = getCanvasFlowEdgeLabelTextureKey(label, pixelRatio);
+    const existing = this.entries.get(key);
+    if (existing) {
+      return existing;
+    }
+    const entry = createCanvasFlowEdgeLabelTexture({
+      gl: this.gl,
+      key,
+      label,
+      pixelRatio,
+    });
+    this.entries.set(key, entry);
+    return entry;
+  }
+
+  releaseUnused(activeKeys: ReadonlySet<string>) {
+    for (const [key, entry] of this.entries) {
+      if (activeKeys.has(key)) {
+        continue;
+      }
+      this.gl.deleteTexture(entry.texture);
+      this.entries.delete(key);
+    }
+  }
+}
+
+export function drawCanvasFlowWebglEdgeLabels({
+  edgeLabelCache,
+  edges,
+  gl,
+  size,
+  textureProgram,
+  viewport,
+}: {
+  edgeLabelCache: CanvasFlowWebglEdgeLabelTextureCache;
+  edges: CanvasFlowDrawableEdge[];
+  gl: CanvasFlowWebglRenderingContext;
+  size: CanvasFlowSize;
+  textureProgram: CanvasFlowTextureProgram;
+  viewport: CanvasFlowViewport;
+}) {
+  let drawnLabels = 0;
+  const activeKeys = new Set<string>();
+  gl.useProgram(textureProgram.program);
+  gl.enableVertexAttribArray(textureProgram.positionLocation);
+  gl.enableVertexAttribArray(textureProgram.texCoordLocation);
+  gl.uniform2f(
+    textureProgram.resolutionLocation,
+    size.cssWidth,
+    size.cssHeight,
+  );
+  gl.uniform1i(textureProgram.textureLocation, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureProgram.texCoordBuffer);
+  gl.vertexAttribPointer(
+    textureProgram.texCoordLocation,
+    2,
+    gl.FLOAT,
+    false,
+    0,
+    0,
+  );
+  for (const edge of edges) {
+    if (!edge.label) {
+      continue;
+    }
+    const screenRect = getCanvasFlowWebglEdgeLabelScreenRect({
+      edge,
+      viewport,
+    });
+    if (!screenRect || screenRect.width <= 0 || screenRect.height <= 0) {
+      continue;
+    }
+    const entry = edgeLabelCache.getOrCreate(edge.label);
+    activeKeys.add(entry.key);
+    gl.bindBuffer(gl.ARRAY_BUFFER, textureProgram.positionBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      createQuadVertices(screenRect),
+      gl.STREAM_DRAW,
+    );
+    gl.vertexAttribPointer(
+      textureProgram.positionLocation,
+      2,
+      gl.FLOAT,
+      false,
+      0,
+      0,
+    );
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    drawnLabels += 1;
+  }
+  gl.bindTexture(gl.TEXTURE_2D, null);
+  edgeLabelCache.releaseUnused(activeKeys);
+  return { drawnLabels };
 }
 
 export function buildCanvasFlowWebglStrokeVertices({
@@ -139,6 +273,25 @@ export function parseCanvasFlowWebglColor(
   throw new Error(`Unsupported CanvasFlow WebGL edge color: ${color}`);
 }
 
+export function getCanvasFlowWebglEdgeLabelScreenRect({
+  edge,
+  viewport,
+}: {
+  edge: CanvasFlowDrawableEdge;
+  viewport: CanvasFlowViewport;
+}): CanvasFlowScreenRect | null {
+  const labelLayout = getCanvasFlowEdgeLabelLayout(edge);
+  if (!labelLayout) {
+    return null;
+  }
+  return {
+    height: labelLayout.height * viewport.zoom,
+    width: labelLayout.width * viewport.zoom,
+    x: viewport.x + labelLayout.x * viewport.zoom,
+    y: viewport.y + labelLayout.y * viewport.zoom,
+  };
+}
+
 function drawCanvasFlowWebglEdge({
   colorProgram,
   edge,
@@ -157,7 +310,10 @@ function drawCanvasFlowWebglEdge({
   const stroke = getCanvasFlowEdgeStroke({ edge, wireColor });
   const vertices = buildCanvasFlowWebglStrokeVertices({
     dashPattern: scaleDashPattern(stroke.dashPattern, viewport.zoom),
-    lineWidth: Math.max(stroke.lineWidth * viewport.zoom, MIN_EDGE_SCREEN_WIDTH),
+    lineWidth: Math.max(
+      stroke.lineWidth * viewport.zoom,
+      MIN_EDGE_SCREEN_WIDTH,
+    ),
     points: getCanvasFlowEdgePolyline(edge, BEZIER_EDGE_SEGMENTS).map((point) =>
       worldToScreenPoint(point, viewport),
     ),
@@ -229,6 +385,142 @@ type CanvasFlowDashState = {
   index: number;
   offset: number;
 };
+
+type CanvasFlowScreenRect = CanvasFlowScreenPoint & {
+  height: number;
+  width: number;
+};
+
+function createCanvasFlowEdgeLabelTexture({
+  gl,
+  key,
+  label,
+  pixelRatio,
+}: {
+  gl: CanvasFlowWebglRenderingContext;
+  key: string;
+  label: string;
+  pixelRatio: number;
+}): CanvasFlowEdgeLabelTextureEntry {
+  const { height: cssHeight, width: cssWidth } =
+    getCanvasFlowEdgeLabelSize(label);
+  const pixelWidth = Math.max(1, Math.ceil(cssWidth * pixelRatio));
+  const pixelHeight = Math.max(1, Math.ceil(cssHeight * pixelRatio));
+  const source = document.createElement("canvas");
+  source.width = pixelWidth;
+  source.height = pixelHeight;
+  const ctx = source.getContext("2d");
+  if (!ctx) {
+    throw new Error(
+      "CanvasFlow WebGL edge labels require 2D text rasterization.",
+    );
+  }
+  ctx.scale(pixelRatio, pixelRatio);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.86)";
+  ctx.strokeStyle = "rgba(100, 116, 139, 0.45)";
+  ctx.lineWidth = 1;
+  drawRoundedRectPath({
+    ctx,
+    height: cssHeight - 1,
+    radius: 10,
+    width: cssWidth - 1,
+    x: 0.5,
+    y: 0.5,
+  });
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#334155";
+  ctx.font = "11px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, cssWidth / 2, cssHeight / 2);
+
+  const texture = gl.createTexture();
+  if (!texture) {
+    throw new Error("CanvasFlow WebGL edge label texture creation failed.");
+  }
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+  return {
+    cssHeight,
+    cssWidth,
+    key,
+    pixelHeight,
+    pixelRatio,
+    pixelWidth,
+    texture,
+  };
+}
+
+function getCanvasFlowEdgeLabelPixelRatio() {
+  if (typeof window === "undefined") {
+    return 1;
+  }
+  return Math.max(
+    1,
+    Math.min(window.devicePixelRatio || 1, MAX_EDGE_LABEL_PIXEL_RATIO),
+  );
+}
+
+function getCanvasFlowEdgeLabelTextureKey(label: string, pixelRatio: number) {
+  return `${pixelRatio}:${label}`;
+}
+
+function createQuadVertices({ height, width, x, y }: CanvasFlowScreenRect) {
+  const right = x + width;
+  const bottom = y + height;
+  return new Float32Array([
+    x,
+    y,
+    right,
+    y,
+    x,
+    bottom,
+    x,
+    bottom,
+    right,
+    y,
+    right,
+    bottom,
+  ]);
+}
+
+function drawRoundedRectPath({
+  ctx,
+  height,
+  radius,
+  width,
+  x,
+  y,
+}: {
+  ctx: CanvasRenderingContext2D;
+  height: number;
+  radius: number;
+  width: number;
+  x: number;
+  y: number;
+}) {
+  const right = x + width;
+  const bottom = y + height;
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(right - radius, y);
+  ctx.quadraticCurveTo(right, y, right, y + radius);
+  ctx.lineTo(right, bottom - radius);
+  ctx.quadraticCurveTo(right, bottom, right - radius, bottom);
+  ctx.lineTo(x + radius, bottom);
+  ctx.quadraticCurveTo(x, bottom, x, bottom - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
 
 function appendDashedStrokeSegmentVertices({
   dashPattern,
@@ -317,7 +609,9 @@ function normalizeDashPattern(pattern: readonly number[] | undefined) {
   if (!pattern || pattern.length === 0) {
     return null;
   }
-  const normalized = pattern.filter((value) => Number.isFinite(value) && value > 0);
+  const normalized = pattern.filter(
+    (value) => Number.isFinite(value) && value > 0,
+  );
   return normalized.length === pattern.length ? normalized : null;
 }
 
@@ -328,10 +622,7 @@ function scaleDashPattern(
   return pattern?.map((value) => Math.max(value * zoom, 1));
 }
 
-function parseHexColor(
-  value: string,
-  alpha: number,
-): CanvasFlowRgba | null {
+function parseHexColor(value: string, alpha: number): CanvasFlowRgba | null {
   const hex = value.startsWith("#") ? value.slice(1) : null;
   if (!hex) {
     return null;
@@ -418,8 +709,7 @@ function parseRgbChannels(parts: string[]) {
 }
 
 function parseRgbAlpha(parts: string[]) {
-  const parsedAlpha =
-    parts[3] !== undefined ? Number.parseFloat(parts[3]) : 1;
+  const parsedAlpha = parts[3] !== undefined ? Number.parseFloat(parts[3]) : 1;
   return Number.isNaN(parsedAlpha) ? null : parsedAlpha;
 }
 

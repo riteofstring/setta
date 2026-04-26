@@ -30,6 +30,10 @@ test("CanvasFlow WebGL Settings nodes stay interactive and reuse textures", asyn
   await fillSettingsTextInput(page);
   await toggleSettingsCheckboxOrSwitch(page);
   await openSettingsComboboxOrPopover(page);
+  await scrollSettingsNodeBody(page);
+  await verifyKeyboardFocusInSettingsNode(page);
+  await zoomCanvasFlowToward(page, 0.5);
+  await verifyKeyboardFocusInSettingsNode(page);
   await dragFirstSettingsNode(page);
 
   const uploadsBeforeViewportGesture = await readCanvasDatasetNumber(
@@ -45,9 +49,9 @@ test("CanvasFlow WebGL Settings nodes stay interactive and reuse textures", asyn
     .poll(async () => await readCanvasDatasetNumber(page, "webglFrame"))
     .toBeGreaterThan(frameBeforeViewportGesture);
   expect(await readCanvasDatasetNumber(page, "drawElementImageMs")).toBe(0);
-  expect(
-    await readCanvasDatasetNumber(page, "webglTextureUploadsTotal"),
-  ).toBe(uploadsBeforeViewportGesture);
+  expect(await readCanvasDatasetNumber(page, "webglTextureUploadsTotal")).toBe(
+    uploadsBeforeViewportGesture,
+  );
 });
 
 async function installCanvasFlowRendererInitScript(page: Page) {
@@ -113,7 +117,10 @@ async function clickSettingsButtonLikeControl(page: Page) {
   await button.click({ force: true, timeout: 10000 });
   await page.keyboard.press("Escape");
   await expect
-    .poll(async () => await readCanvasDatasetNumber(page, "webglTextureUploadsTotal"))
+    .poll(
+      async () =>
+        await readCanvasDatasetNumber(page, "webglTextureUploadsTotal"),
+    )
     .toBeGreaterThanOrEqual(beforeUploads);
 }
 
@@ -147,11 +154,99 @@ async function openSettingsComboboxOrPopover(page: Page) {
   await expect(combobox).toBeVisible({ timeout: 30000 });
   await combobox.click({ force: true, timeout: 10000 });
   await page
-    .locator(':is([role="listbox"], [role="option"], [data-radix-popper-content-wrapper])')
+    .locator(
+      ':is([role="listbox"], [role="option"], [data-radix-popper-content-wrapper])',
+    )
     .first()
     .waitFor({ state: "visible", timeout: 1000 })
     .catch(() => undefined);
   await page.keyboard.press("Escape");
+}
+
+async function scrollSettingsNodeBody(page: Page) {
+  const scrollTarget = page.locator('[data-canvas-flow-scroll-probe="true"]');
+  const found = await page.evaluate(() => {
+    const nodes = Array.from(
+      document.querySelectorAll<HTMLElement>(".canvas-flow__node"),
+    );
+    for (const node of nodes) {
+      const candidates = [
+        node,
+        ...Array.from(node.querySelectorAll<HTMLElement>("*")),
+      ];
+      for (const candidate of candidates) {
+        const style = window.getComputedStyle(candidate);
+        const canScroll =
+          /(auto|scroll)/.test(style.overflowY) &&
+          candidate.scrollHeight > candidate.clientHeight + 8;
+        if (!canScroll) {
+          continue;
+        }
+        candidate.scrollTop = 0;
+        candidate.dataset.canvasFlowScrollProbe = "true";
+        return true;
+      }
+    }
+    return false;
+  });
+  expect(found).toBe(true);
+  await expect(scrollTarget).toBeVisible({ timeout: 30000 });
+  const box = await scrollTarget.boundingBox();
+  if (!box) {
+    throw new Error("Missing scrollable Settings node body bounding box.");
+  }
+  const before = await scrollTarget.evaluate((element) => element.scrollTop);
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, 180);
+  await expect
+    .poll(async () => scrollTarget.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(before);
+}
+
+async function verifyKeyboardFocusInSettingsNode(page: Page) {
+  await page.keyboard.press("Escape");
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    await page.keyboard.press("Tab");
+    const focusState = await readCanvasFlowFocusState(page);
+    if (focusState.inCanvasNode) {
+      expect(focusState.withinCanvasBounds).toBe(true);
+      expect(focusState.hasVisibleFocusStyle).toBe(true);
+      return;
+    }
+  }
+  throw new Error("Unable to keyboard-focus a visible Settings node control.");
+}
+
+async function readCanvasFlowFocusState(page: Page) {
+  return page.evaluate((canvasSelector) => {
+    const active = document.activeElement;
+    const canvas = document.querySelector<HTMLCanvasElement>(canvasSelector);
+    if (!(active instanceof HTMLElement) || !canvas) {
+      return {
+        hasVisibleFocusStyle: false,
+        inCanvasNode: false,
+        withinCanvasBounds: false,
+      };
+    }
+    const node = active.closest(".canvas-flow__node");
+    const activeRect = active.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const style = window.getComputedStyle(active);
+    const hasVisibleFocusStyle =
+      active.matches(":focus-visible") ||
+      style.outlineStyle !== "none" ||
+      style.boxShadow !== "none";
+    const withinCanvasBounds =
+      activeRect.right >= canvasRect.left &&
+      activeRect.left <= canvasRect.right &&
+      activeRect.bottom >= canvasRect.top &&
+      activeRect.top <= canvasRect.bottom;
+    return {
+      hasVisibleFocusStyle,
+      inCanvasNode: Boolean(node),
+      withinCanvasBounds,
+    };
+  }, CANVAS_SELECTOR);
 }
 
 async function findFirstEnabledVisible(
@@ -169,16 +264,15 @@ async function findFirstEnabledVisible(
       return candidate;
     }
   }
-  throw new Error(`No enabled visible CanvasFlow Settings control: ${selector}`);
+  throw new Error(
+    `No enabled visible CanvasFlow Settings control: ${selector}`,
+  );
 }
 
 async function dragFirstSettingsNode(page: Page) {
   const node = page.locator(".canvas-flow__node").first();
   await expect(node).toBeVisible({ timeout: 30000 });
-  const frameBeforeDrag = await readCanvasDatasetNumber(
-    page,
-    "webglFrame",
-  );
+  const frameBeforeDrag = await readCanvasDatasetNumber(page, "webglFrame");
   const box = await node.boundingBox();
   if (!box) {
     throw new Error("Missing Settings node bounding box.");
@@ -190,6 +284,36 @@ async function dragFirstSettingsNode(page: Page) {
   await expect
     .poll(async () => await readCanvasDatasetNumber(page, "webglFrame"))
     .toBeGreaterThanOrEqual(frameBeforeDrag);
+}
+
+async function zoomCanvasFlowToward(page: Page, targetZoom: number) {
+  const canvas = page.locator(CANVAS_SELECTOR);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const currentZoom = await readCanvasDatasetNumber(page, "viewportZoom");
+    if (
+      (currentZoom > targetZoom && currentZoom <= targetZoom + 0.08) ||
+      (currentZoom <= targetZoom && currentZoom >= targetZoom - 0.08)
+    ) {
+      return;
+    }
+    await canvas.evaluate((element, target) => {
+      const zoom = Number.parseFloat(
+        (element as HTMLCanvasElement).dataset.viewportZoom ?? "1",
+      );
+      const rect = element.getBoundingClientRect();
+      element.dispatchEvent(
+        new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top + rect.height / 2,
+          deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+          deltaY: zoom > target ? 220 : -220,
+        }),
+      );
+    }, targetZoom);
+    await page.waitForTimeout(90);
+  }
 }
 
 async function flushCanvasPaint(page: Page) {

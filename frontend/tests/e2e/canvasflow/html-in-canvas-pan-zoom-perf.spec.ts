@@ -519,9 +519,7 @@ function parseRendererPlans(
     .filter(Boolean);
   const invalid = requested.filter(
     (renderer) =>
-      !CANVAS_FLOW_PERF_RENDERERS.includes(
-        renderer as CanvasFlowPerfRenderer,
-      ),
+      !CANVAS_FLOW_PERF_RENDERERS.includes(renderer as CanvasFlowPerfRenderer),
   );
   if (invalid.length > 0) {
     throw new Error(
@@ -572,7 +570,7 @@ async function installCanvasFlowRendererInitScript(page: Page) {
       windowRef.__settaCanvasFlowRenderer = "webgl-texture-nodes";
       return;
     }
-    delete windowRef.__settaCanvasFlowRenderer;
+    windowRef.__settaCanvasFlowRenderer = "2d";
   });
 }
 
@@ -765,46 +763,50 @@ async function assertCanvasFlowSupport(
   options: CanvasFlowSupportOptions,
 ) {
   await expect(page.locator(CANVAS_SELECTOR)).toBeVisible();
-  const support = await page.evaluate(({ rendererMode, selector }) => {
-    const canvas = document.querySelector<HTMLCanvasElement>(selector);
-    if (canvas) {
-      canvas.dataset.canvasFlowDiagnostics = "enabled";
-    }
-    const ctx =
-      rendererMode === "2d"
-        ? (canvas?.getContext("2d") as
-            | (CanvasRenderingContext2D & {
-                drawElementImage?: unknown;
-              })
-            | null
-            | undefined)
-        : null;
-    const gl =
-      rendererMode === "webgl-texture-nodes"
-        ? (canvas?.getContext("webgl") as
-            | (WebGLRenderingContext & {
-                texElementImage2D?: unknown;
-              })
-            | null
-            | undefined)
-        : null;
-    return {
-      captureElementImage: typeof (
-        canvas as { captureElementImage?: unknown } | null
-      )?.captureElementImage,
-      drawElementImage: typeof ctx?.drawElementImage,
-      rendererMode: canvas?.dataset.rendererMode,
-      requestPaint: typeof (canvas as { requestPaint?: unknown } | null)
-        ?.requestPaint,
-      texElementImage2D: typeof gl?.texElementImage2D,
-      webglContextCreated: canvas?.dataset.webglContextCreated,
-      layoutSubtree: canvas ? "layoutSubtree" in canvas : false,
-      reactFlowViewportCount: document.querySelectorAll(".react-flow__viewport")
-        .length,
-      svgEdgeLayerCount: document.querySelectorAll("svg.react-flow__edges")
-        .length,
-    };
-  }, { rendererMode: options.rendererMode, selector: CANVAS_SELECTOR });
+  const support = await page.evaluate(
+    ({ rendererMode, selector }) => {
+      const canvas = document.querySelector<HTMLCanvasElement>(selector);
+      if (canvas) {
+        canvas.dataset.canvasFlowDiagnostics = "enabled";
+      }
+      const ctx =
+        rendererMode === "2d"
+          ? (canvas?.getContext("2d") as
+              | (CanvasRenderingContext2D & {
+                  drawElementImage?: unknown;
+                })
+              | null
+              | undefined)
+          : null;
+      const gl =
+        rendererMode === "webgl-texture-nodes"
+          ? (canvas?.getContext("webgl") as
+              | (WebGLRenderingContext & {
+                  texElementImage2D?: unknown;
+                })
+              | null
+              | undefined)
+          : null;
+      return {
+        captureElementImage: typeof (
+          canvas as { captureElementImage?: unknown } | null
+        )?.captureElementImage,
+        drawElementImage: typeof ctx?.drawElementImage,
+        rendererMode: canvas?.dataset.rendererMode,
+        requestPaint: typeof (canvas as { requestPaint?: unknown } | null)
+          ?.requestPaint,
+        texElementImage2D: typeof gl?.texElementImage2D,
+        webglContextCreated: canvas?.dataset.webglContextCreated,
+        layoutSubtree: canvas ? "layoutSubtree" in canvas : false,
+        reactFlowViewportCount: document.querySelectorAll(
+          ".react-flow__viewport",
+        ).length,
+        svgEdgeLayerCount: document.querySelectorAll("svg.react-flow__edges")
+          .length,
+      };
+    },
+    { rendererMode: options.rendererMode, selector: CANVAS_SELECTOR },
+  );
   expect(support.rendererMode).toBe(options.rendererMode);
   if (options.rendererMode === "webgl-texture-nodes") {
     expect(support.texElementImage2D).toBe("function");
@@ -1167,9 +1169,7 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
       webglTextureEntries: readNumber(dataset.webglTextureEntries),
       webglTextureEvictions: readNumber(dataset.webglTextureEvictions),
       webglTextureUploadMs: readNumber(dataset.webglTextureUploadMs),
-      webglTextureUploadMsTotal: readNumber(
-        dataset.webglTextureUploadMsTotal,
-      ),
+      webglTextureUploadMsTotal: readNumber(dataset.webglTextureUploadMsTotal),
       webglTextureUploadsThisFrame: readNumber(
         dataset.webglTextureUploadsThisFrame,
       ),

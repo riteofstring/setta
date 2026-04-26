@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { CanvasFlowDrawableEdge } from "./canvasFlowTypes";
 import {
   buildCanvasFlowWebglStrokeVertices,
+  getCanvasFlowWebglEdgeLabelScreenRect,
   parseCanvasFlowWebglColor,
 } from "./canvasFlowWebglEdges";
 
@@ -32,8 +34,8 @@ describe("canvasFlowWebglEdges", () => {
         }),
       ),
     ).toEqual([
-      0, 1, 4, 1, 0, -1, 0, -1, 4, 1, 4, -1, 8, 1, 10, 1, 8, -1, 8, -1, 10,
-      1, 10, -1,
+      0, 1, 4, 1, 0, -1, 0, -1, 4, 1, 4, -1, 8, 1, 10, 1, 8, -1, 8, -1, 10, 1,
+      10, -1,
     ]);
   });
 
@@ -42,7 +44,43 @@ describe("canvasFlowWebglEdges", () => {
       0.2, 0.4, 0.6, 0.5,
     ]);
     expect(parseCanvasFlowWebglColor("rgba(255, 128, 0, 0.25)")).toEqual([
-      1, 128 / 255, 0, 0.25,
+      1,
+      128 / 255,
+      0,
+      0.25,
     ]);
   });
+
+  it("projects edge label layout into screen coordinates", () => {
+    expect(
+      getCanvasFlowWebglEdgeLabelScreenRect({
+        edge: createEdge({
+          label: "Ready",
+          source: { x: 10, y: 30 },
+          target: { x: 210, y: 70 },
+        }),
+        viewport: { x: 20, y: 30, zoom: 0.5 },
+      }),
+    ).toEqual({
+      height: 10,
+      width: 40,
+      x: 55,
+      y: 50,
+    });
+  });
 });
+
+function createEdge(
+  overrides: Partial<CanvasFlowDrawableEdge>,
+): CanvasFlowDrawableEdge {
+  return {
+    id: "edge",
+    kind: "data",
+    pathType: "bezier",
+    source: { x: 0, y: 0 },
+    target: { x: 100, y: 0 },
+    selectable: true,
+    zIndex: 0,
+    ...overrides,
+  };
+}
