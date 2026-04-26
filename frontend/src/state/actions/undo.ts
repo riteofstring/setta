@@ -1,7 +1,6 @@
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { redo, undo } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useMisc } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
 import {
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,

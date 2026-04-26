@@ -30,9 +30,6 @@ func TestNewCoreRegistryListsBoundedCoreEntries(t *testing.T) {
 		"core.project.name",
 		"core.project.show_param_display_names",
 		"core.run_instructions.python_codegen_enabled",
-		"core.watch_code.enabled",
-		"core.watch_code.files",
-		"core.watch_code.folders",
 	}
 	if !reflect.DeepEqual(ids, expected) {
 		t.Fatalf("expected core entry ids %#v, got %#v", expected, ids)
@@ -45,15 +42,51 @@ func TestRegistrySearchRanksCoreSettingBySynonym(t *testing.T) {
 	runtime := openCoreRegistryRuntime(t)
 	registry := mustNewCoreRegistry(t, runtime, t.TempDir())
 
-	results, err := registry.Search("watch toggle", 3, SourceFilterCore)
+	results, err := registry.Search("display names", 3, SourceFilterCore)
 	if err != nil {
 		t.Fatalf("search registry: %v", err)
 	}
 	if len(results) == 0 {
 		t.Fatal("expected search results")
 	}
-	if results[0].SettingID != "core.watch_code.enabled" {
-		t.Fatalf("expected top result core.watch_code.enabled, got %#v", results[0])
+	if results[0].SettingID != "core.project.show_param_display_names" {
+		t.Fatalf("expected top result core.project.show_param_display_names, got %#v", results[0])
+	}
+}
+
+func TestScopedRegistryReportsUnavailableContributedSettings(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	runtime := openCoreRegistryPersistedRuntime(t, root)
+	registry, err := NewScopedRegistry(ScopedRegistryOptions{
+		Runtime:       runtime,
+		WorkspaceRoot: root,
+		UnavailableSettings: []UnavailableSettingProvider{
+			func() map[string]SettingError {
+				return map[string]SettingError{
+					"plugin.example.unavailable": {
+						Code:    ErrorCodePluginUnavailable,
+						Message: "Example plugin setting is unavailable.",
+					},
+				}
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new scoped registry: %v", err)
+	}
+
+	_, err = registry.ReadValue(context.Background(), "project-alpha", "plugin.example.unavailable")
+	var settingErr *SettingError
+	if !errors.As(err, &settingErr) {
+		t.Fatalf("expected setting error, got %v", err)
+	}
+	if settingErr.Code != ErrorCodePluginUnavailable {
+		t.Fatalf("expected code %q, got %q", ErrorCodePluginUnavailable, settingErr.Code)
+	}
+	if settingErr.Message != "Example plugin setting is unavailable." {
+		t.Fatalf("expected contributed unavailable message, got %q", settingErr.Message)
 	}
 }
 
@@ -93,6 +126,35 @@ func TestScopedRegistryWithoutPluginServiceBuildsCoreOnlyRegistryAndEmptyPluginM
 		t.Fatalf("get core.app.spec_path: %v", err)
 	} else if ok {
 		t.Fatal("expected app UI settings to be absent without the app plugin")
+	}
+}
+
+func TestScopedRegistryDoesNotExposeCoreWatchCodeSettings(t *testing.T) {
+	t.Parallel()
+
+	runtime := openCoreRegistryRuntime(t)
+	registry := mustNewScopedRegistry(t, ScopedRegistryOptions{
+		Runtime:       runtime,
+		WorkspaceRoot: t.TempDir(),
+	})
+
+	for _, settingID := range []string{
+		"core.watch_code.enabled",
+		"core.watch_code.folders",
+		"core.watch_code.files",
+	} {
+		if _, ok, err := registry.Get(settingID); err != nil || ok {
+			t.Fatalf("expected %s to be absent, ok=%v err=%v", settingID, ok, err)
+		}
+	}
+	results, err := registry.Search("watch toggle", 5, SourceFilterCore)
+	if err != nil {
+		t.Fatalf("search core watch settings: %v", err)
+	}
+	for _, result := range results {
+		if strings.HasPrefix(result.SettingID, "core.watch_code.") {
+			t.Fatalf("expected no core Watch Code settings in search, got %#v", results)
+		}
 	}
 }
 
@@ -226,7 +288,7 @@ func TestRegistryMissingSettingErrorReportsPluginAvailabilityFailures(t *testing
 				},
 			},
 			wantCode: ErrorCodePluginUnavailable,
-			wantMsg:  "Plugin plugin.alpha is unavailable for UI setting access (registerPane capability not effective).",
+			wantMsg:  "Plugin plugin.alpha is unavailable for UI setting access (registerPane or registerUISettings capability not effective).",
 		},
 		{
 			name: "invalid plugin setting",
@@ -349,66 +411,6 @@ func TestRegistryWriteValueNormalizesSpecPathThroughProjectStateOwner(t *testing
 	}
 	if result.NormalizedValue != expectedPath {
 		t.Fatalf("expected normalized value %q, got %#v", expectedPath, result.NormalizedValue)
-	}
-}
-
-func TestRegistryWriteValueRejectsInvalidWatchCodeFolderShape(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
-
-	_, err := registry.WriteValue(
-		context.Background(),
-		"project-alpha",
-		"core.watch_code.folders",
-		[]any{
-			map[string]any{
-				"path":      "./backend",
-				"recursive": "not-a-boolean",
-			},
-		},
-		nil,
-	)
-	settingErr, ok := err.(*SettingError)
-	if !ok {
-		t.Fatalf("expected SettingError, got %T (%v)", err, err)
-	}
-	if settingErr.Code != ErrorCodeInvalidValueType {
-		t.Fatalf("expected invalid_value_type, got %q", settingErr.Code)
-	}
-}
-
-func TestRegistryWriteValueRejectsUnsupportedWatchCodeFolderProperties(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
-
-	_, err := registry.WriteValue(
-		context.Background(),
-		"project-alpha",
-		"core.watch_code.folders",
-		[]any{
-			map[string]any{
-				"path":      "./backend",
-				"recursive": true,
-				"extra":     "not-allowed",
-			},
-		},
-		nil,
-	)
-	settingErr, ok := err.(*SettingError)
-	if !ok {
-		t.Fatalf("expected SettingError, got %T (%v)", err, err)
-	}
-	if settingErr.Code != ErrorCodeInvalidValueType {
-		t.Fatalf("expected invalid_value_type, got %q", settingErr.Code)
-	}
-	if !strings.Contains(settingErr.Message, "unsupported properties") {
-		t.Fatalf("expected unsupported properties message, got %q", settingErr.Message)
 	}
 }
 
@@ -725,44 +727,6 @@ func TestRegistryWriteValueAppSpecPathRoundTripsOnFreshProject(t *testing.T) {
 	}
 	if _, got, _ := effectiveAppMetadata(t, runtime); got != nextSpecPath {
 		t.Fatalf("expected effective app spec path %q, got %q", nextSpecPath, got)
-	}
-}
-
-func TestRegistryWriteValueWatchCodeFilesRoundTrips(t *testing.T) {
-	t.Parallel()
-
-	root := t.TempDir()
-	runtime := openCoreRegistryPersistedRuntime(t, root)
-	registry := mustNewCoreRegistry(t, runtime, root)
-
-	nextFiles := []string{"backend/setta/api/listener.py", "frontend/src/components/App/appTheme.ts"}
-	expectedFiles := []any{nextFiles[0], nextFiles[1]}
-	result, err := registry.WriteValue(
-		context.Background(),
-		"project-alpha",
-		"core.watch_code.files",
-		[]any{nextFiles[0], nextFiles[1]},
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("write watch code files: %v", err)
-	}
-	if result.Changed != true {
-		t.Fatalf("expected watch code files write to change state, got %#v", result)
-	}
-	if !reflect.DeepEqual(result.NewValue, expectedFiles) {
-		t.Fatalf("expected new watch code files %#v, got %#v", expectedFiles, result.NewValue)
-	}
-	if !reflect.DeepEqual(result.NormalizedValue, expectedFiles) {
-		t.Fatalf("expected normalized watch code files %#v, got %#v", expectedFiles, result.NormalizedValue)
-	}
-
-	value, err := registry.ReadValue(context.Background(), "project-alpha", "core.watch_code.files")
-	if err != nil {
-		t.Fatalf("read watch code files after write: %v", err)
-	}
-	if !reflect.DeepEqual(value, expectedFiles) {
-		t.Fatalf("expected watch code files %#v after write, got %#v", expectedFiles, value)
 	}
 }
 

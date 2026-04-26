@@ -1,3 +1,4 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import type { Connection } from "forks/xyflow/core/types";
 import {
   createEdge,
@@ -6,7 +7,6 @@ import {
   setEdges,
   updateEdge,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import {
   useEdgeHandleRegistry,

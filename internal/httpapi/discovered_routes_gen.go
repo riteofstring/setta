@@ -253,8 +253,6 @@ func DiscoveredRouteConstants() []RouteConstant {
 		{Name: "RouteSetViewModeName", Path: RouteSetViewModeName},
 		{Name: "RouteSetViewModeSortOrder", Path: RouteSetViewModeSortOrder},
 		{Name: "RouteSetViewport", Path: RouteSetViewport},
-		{Name: "RouteSetWatchCodeEnabled", Path: RouteSetWatchCodeEnabled},
-		{Name: "RouteSetWatchCodeInputs", Path: RouteSetWatchCodeInputs},
 		{Name: "RouteSetWindowSpaceName", Path: RouteSetWindowSpaceName},
 		{Name: "RouteSetWindowSpaceSortOrder", Path: RouteSetWindowSpaceSortOrder},
 		{Name: "RouteSetupLauncher", Path: RouteSetupLauncher},

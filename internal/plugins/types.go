@@ -103,7 +103,7 @@ type PluginRegisteredUISetting struct {
 	Title          string         `json:"title"`
 	Description    string         `json:"description"`
 	Synonyms       []string       `json:"synonyms"`
-	PaneID         string         `json:"paneId"`
+	PaneID         string         `json:"paneId,omitempty"`
 	RevealKey      string         `json:"revealKey"`
 	Mutability     string         `json:"mutability"`
 	ValueSchema    map[string]any `json:"valueSchema"`
@@ -152,8 +152,13 @@ type PluginAppSubsystemFeatureManifest struct {
 	AppDeploymentRuntime   bool `json:"appDeploymentRuntime"`
 }
 
+type PluginWatchCodeFeatureManifest struct {
+	CanvasControlsUI bool `json:"canvasControlsUi"`
+}
+
 type PluginFeatureCapabilitiesManifest struct {
 	AppSubsystem *PluginAppSubsystemFeatureManifest `json:"appSubsystem,omitempty"`
+	WatchCode    *PluginWatchCodeFeatureManifest    `json:"watchCode,omitempty"`
 }
 
 type PluginManifest struct {
@@ -232,6 +237,7 @@ type DiscoveredPlugin struct {
 	RegisteredListenerEndpoints   []PluginRegisteredListenerEndpoint
 	appSubsystemBackend           *backendProbeAppSubsystemBackendRegistration
 	appSubsystemListenerEndpoints []PluginRegisteredListenerEndpoint
+	watchCodeBackend              *backendProbeWatchCodeBackendRegistration
 }
 
 func (p DiscoveredPlugin) HasBackend() bool {

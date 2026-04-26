@@ -46,7 +46,7 @@ What changed:
 - `internal/frontendbindings/bootstrap_handoff_support.go` exports the same protocol into generated frontend bindings as `GENERATED_BOOTSTRAP_PROTOCOL`.
 - Frontend consumers now read that generated contract instead of carrying their own copies:
   - `frontend/src/utils/workspaceHistory.ts`
-  - `frontend/src/utils/launcherOrigin.ts`
+  - `frontend/plugin-sdk/app-subsystem/src/launcherOrigin.ts`
   - `frontend/src/utils/backendOriginOverride.ts`
   - `frontend/src/utils/workspaceLaunchNavigation.ts`
   - `frontend/src/utils/workspaceSwitcherLaunch.ts`

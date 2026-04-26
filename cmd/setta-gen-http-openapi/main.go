@@ -24,7 +24,7 @@ func (p openAPICapabilityProvider) AppSubsystemCapabilities() plugins.PluginAppS
 	return p.capabilities
 }
 
-func buildOpenAPIDocumentAppSubsystemRegistrations(
+func buildOpenAPIDocumentRouteRegistrations(
 	deps httpapi.FrontendAPIRouteDependencies,
 	providers []plugins.PluginAppSubsystemFeatureManifest,
 ) (httpapi.FrontendAPIRouteRegistrations, error) {
@@ -32,7 +32,7 @@ func buildOpenAPIDocumentAppSubsystemRegistrations(
 	if !ok {
 		return httpapi.FrontendAPIRouteRegistrations{}, nil
 	}
-	return appsubsystem.BuildFrontendAPIRouteRegistrations(
+	registrations, err := appsubsystem.BuildFrontendAPIRouteRegistrations(
 		appsubsystem.FrontendRouteRegistrationOptions{
 			Capabilities:       openAPICapabilityProvider{capabilities: mergedCapabilities},
 			ModePolicy:         deps.Project.ModePolicy,
@@ -44,6 +44,10 @@ func buildOpenAPIDocumentAppSubsystemRegistrations(
 			},
 		},
 	)
+	if err != nil {
+		return httpapi.FrontendAPIRouteRegistrations{}, err
+	}
+	return registrations, nil
 }
 
 func main() {
@@ -59,7 +63,7 @@ func main() {
 	var registrationErr error
 	document, err := httpapi.BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
 		func(deps httpapi.FrontendAPIRouteDependencies) httpapi.FrontendAPIRouteRegistrations {
-			registrations, err := buildOpenAPIDocumentAppSubsystemRegistrations(
+			registrations, err := buildOpenAPIDocumentRouteRegistrations(
 				deps,
 				appsubsystemproviders.DiscoveredProviderCapabilities(),
 			)

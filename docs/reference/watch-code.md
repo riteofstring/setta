@@ -1,7 +1,8 @@
 # Watch Code
 
-Watch Code keeps the UI in sync with top-level Python definitions. When enabled, it
-watches a set of repo-relative files and folders, parses `.py` files for new
+Watch Code keeps the UI in sync with top-level Python definitions. When the
+plugin provider is active and a project has configured file or folder inputs, it
+watches those repo-relative paths, parses `.py` files for new
 callables, and automatically creates, updates, or removes **Callable** sections to
 match what's on disk.
 
@@ -12,14 +13,54 @@ match what's on disk.
   paths, and linked section IDs.
 - **Sync sources:** File watcher events, inline code edits, and bound code file reloads.
 
+## Provider Contract
+Watch Code is available only when exactly one active plugin contributes the
+Watch Code provider capability. The provider must declare
+`featureCapabilities.watchCode`, probe a `watchCodeBackend` registration with
+contract/data schema version `1`, support the `python` language, and register
+the required backend route under `/plugins/<pluginId>/watch-code/inputs`.
+
+The first-party provider is `setta-watch-code`. It declares:
+- `registerWatchCodeBackend`
+- `registerRouter`
+- `registerUISettings`
+- `registerCanvasControl`
+- `registerSettingRevealHandler`
+- `readProjectState`
+- `subscribeProjectState`
+
+If the provider probe sets `requiresLanguageServer=true`, plugin runtime status
+also reports a Python language-server dependency. The parser and persistence
+contract are still Go-owned, but callable param refresh depends on the selected
+Python language server being active after any required restart.
+
 ## Configuration & Inputs
-Watch Code lives on `ProjectConfig`:
-- `watchCodeEnabled`: master toggle.
-- `watchCodeFolders`: list of `{ path, recursive }` folder inputs.
-- `watchCodeFiles`: list of file paths.
-- `watchCodeRegistry`: identity -> metadata (callable name, hashes, source path,
+Watch Code state is stored under document plugin data:
+
+```json
+{
+  "pluginData": {
+    "setta-watch-code": {
+      "schemaVersion": 1,
+      "projects": {
+        "<projectId>": {
+          "folders": [],
+          "files": [],
+          "registry": {},
+          "baselineByPath": {}
+        }
+      }
+    }
+  }
+}
+```
+
+The per-project fields are:
+- `folders`: list of `{ path, recursive }` folder inputs.
+- `files`: list of file paths.
+- `registry`: identity -> metadata (callable name, hashes, source path,
   sections).
-- `watchCodeBaselineByPath`: file -> list of identities recorded at baseline.
+- `baselineByPath`: file -> list of identities recorded at baseline.
 
 Input rules:
 - Paths must be **repo-relative**. Absolute or outside-the-repo paths raise.
@@ -27,26 +68,31 @@ Input rules:
 - Only `.py` files are considered.
 - Default ignore dirs: `node_modules`, `.venv`, `setta_files`, `__pycache__`.
 
-The UI writes inputs via `route_set_watch_code_enabled` and
-`route_set_watch_code_inputs`. When inputs change, the backend baselines only the
-new additions (so existing callables don't auto-create sections).
+The plugin UI writes inputs through `fetchBackendRoute("/watch-code/inputs")`.
+An active provider plus non-empty `folders` or `files` is the project-level
+activation signal. When inputs change, the backend baselines only the new
+additions (so existing callables don't auto-create sections).
+
+Frontend project-state snapshots expose only the active project's payload as
+`pluginData[providerPluginId]`. The full `schemaVersion/projects` wrapper is
+kept in `project.json`; project clone/save-as copies matching project-scoped
+payloads, and project deletion removes matching project entries.
 
 ## UI surface
 - Watch Code no longer has its own Overview tab.
-- The primary UI entry point is the radar button in the canvas controls rail
-  (`frontend/src/forks/xyflow/controls/Controls.tsx`), which opens a floating
-  `WatchCodePane` popover.
-- The popover-open flag is session-local (`watchCodePortalOpen`) and is
-  intentionally reset on reload even though the underlying watch settings still
-  persist on `ProjectConfig`.
-- UI-setting reveal flows now keep the Overview pane targeted while opening the
-  Watch Code popover so `core.watch_code.*` anchors still resolve after the tab
-  removal.
+- The first-party `setta-watch-code` plugin contributes the radar button to the
+  canvas controls rail. It opens a floating Watch Code popover from
+  `plugins/setta-watch-code/frontend/src/watchCodeControl.ts`.
+- The plugin uses canonical UI-setting ids under
+  `plugin::setta-watch-code::*`; the old `core.watch_code.*` ids are not
+  registered as aliases.
+- UI-setting reveal flows call the plugin reveal handler, which opens the
+  popover and highlights the matching plugin-owned anchor.
 
 ## Baselines: avoiding retroactive section creation
-When Watch Code is enabled, the backend records a **baseline**:
+When Watch Code inputs are added, the backend records a **baseline**:
 1. It scans the configured watch inputs and stores every discovered identity in
-   `watchCodeBaselineByPath`.
+   plugin-owned `baselineByPath`.
 2. It also scans existing code sections bound to files, so current callables are
    considered "already known."
 
@@ -54,8 +100,8 @@ During updates:
 - If a callable is in the baseline for that file, it is **not** auto-created.
 - The baseline is pruned as definitions disappear.
 
-This keeps "turn on Watch Code" from creating a flood of sections for existing
-code.
+This keeps adding Watch Code inputs from creating a flood of sections for
+existing code.
 
 ## Callable discovery
 Watch Code parses each `.py` file with `ast.parse` and captures:
@@ -82,8 +128,9 @@ Watch Code now uses a Go-owned polling/runtime path under `internal/watchcode`:
   `recursive` flag, and keeps pending dirs when configured roots do not exist
   yet.
 
-App wiring keeps the service in sync with project config changes and routes file
-updates into the Go project-state watch-code apply path.
+App wiring keeps the service in sync with the active provider and
+project-scoped plugin data, then routes file updates into the Go project-state
+watch-code apply path.
 
 ## Update flow (file changes)
 On file changes, Watch Code compares the current scan with the registry for that
@@ -145,6 +192,10 @@ This keeps Watch Code aligned whether edits happen in the UI or in the editor.
 - `internal/projectstate/watch_code.go`
 - `internal/projectstate/watch_code_apply.go`
 - `internal/projectstate/watch_code_bound_sections.go`
+- `internal/projectstate/watch_code_plugin_data.go`
 - `internal/app/code_updates.go`
-- `backend/setta/types/project_config.py`
-- `frontend/src/components/Panes/Overview/WatchCode/WatchCodePane.tsx`
+- `internal/app/watch_code_plugin_backend_routes.go`
+- `internal/watchcodecontracts/backend.go`
+- `backend/setta/plugin_runtime/watch_code.py`
+- `plugins/setta-watch-code/backend/main.py`
+- `plugins/setta-watch-code/frontend/src/watchCodeControl.ts`

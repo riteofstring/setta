@@ -1,3 +1,4 @@
+import type { DropzoneStatelessAttachment } from "@setta/app-subsystem-frontend-sdk";
 import {
   ConfiguredButtonInput,
   ConfiguredColorPickerInput,
@@ -19,7 +20,6 @@ import {
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStart,

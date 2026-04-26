@@ -462,21 +462,6 @@ export type ProjectstateViewport = {
   zoom: number;
 };
 
-export type ProjectstateWatchCodeFolder = {
-  path: string;
-  recursive: boolean;
-};
-
-export type ProjectstateWatchCodeRegistryEntry = {
-  bodyHash: string;
-  callableName: string;
-  kind: string;
-  sectionIds?: Array<string> | null;
-  sectionsCount?: number;
-  signatureHash: string;
-  sourcePath: string;
-};
-
 export type ProjectstateWindowSpaceConfig = {
   id?: string;
   name?: string;
@@ -541,15 +526,6 @@ export type ProjectviewProjectConfig = {
   };
   viewport: ProjectstateViewport;
   viewportInitialized: boolean;
-  watchCodeBaselineByPath: {
-    [key: string]: Array<string> | null;
-  };
-  watchCodeEnabled: boolean;
-  watchCodeFiles: Array<string> | null;
-  watchCodeFolders: Array<ProjectstateWatchCodeFolder> | null;
-  watchCodeRegistry: {
-    [key: string]: ProjectstateWatchCodeRegistryEntry;
-  };
   windowSpaceIdsBySlug: {
     [key: string]: Array<string> | null;
   };
@@ -603,6 +579,9 @@ export type ProjectviewSingleConfig = {
   genCodeBinding: ProjectstateFrontendCodeFileBinding;
   parentSectionMap: {
     [key: string]: string | null;
+  };
+  pluginData: {
+    [key: string]: unknown;
   };
   projectChatWindowing: ProjectstateProjectChatWindowingState;
   projectConfig: ProjectviewProjectConfig;

@@ -1,4 +1,10 @@
 import {
+  callOpenAPI,
+  createNewId,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   PROJECT_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX,
   PROJECT_CHAT_FALLBACK_VIEWPORT_WIDTH_PX,
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX,
@@ -13,7 +19,6 @@ import {
   setProjectChatWindowChatId as setProjectChatWindowChatIdRequest,
   setProjectChatWindowingState,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
@@ -23,7 +28,6 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
@@ -37,7 +41,6 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import {
   getAuthoritativeProjectChatWindowingState,
   recordAuthoritativeProjectChatWindowingState,

@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import shutil
@@ -56,7 +57,7 @@ def _write_minimal_distribution_project(
         "runtime_compat.py",
         "plugin_runtime/__init__.py",
         "plugin_runtime/app_subsystem.py",
-        "plugin_runtime/local_core.py",
+        "plugin_runtime/watch_code.py",
         "types/generated/go_shared_constants.py",
     ):
         shutil.copy2(source_package_root / relative_path, package_root / relative_path)
@@ -128,23 +129,41 @@ def _write_minimal_distribution_project(
     return project_root
 
 
-def _build_wheel(project_root: Path, outdir: Path) -> subprocess.CompletedProcess[str]:
+def _build_wheel(
+    project_root: Path,
+    outdir: Path,
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
     return subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "--outdir", str(outdir)],
         cwd=project_root,
         capture_output=True,
         text=True,
         check=False,
+        env=process_env,
     )
 
 
-def _build_sdist(project_root: Path, outdir: Path) -> subprocess.CompletedProcess[str]:
+def _build_sdist(
+    project_root: Path,
+    outdir: Path,
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
     return subprocess.run(
         [sys.executable, "-m", "build", "--sdist", "--outdir", str(outdir)],
         cwd=project_root,
         capture_output=True,
         text=True,
         check=False,
+        env=process_env,
     )
 
 
@@ -179,12 +198,20 @@ def _pnpm_command() -> str:
     return "pnpm.cmd" if os.name == "nt" else "pnpm"
 
 
-def _assert_pnpm_command_succeeds(package_root: Path, *args: str) -> None:
+def _assert_pnpm_command_succeeds(
+    package_root: Path,
+    *args: str,
+    env: dict[str, str] | None = None,
+) -> None:
+    process_env = os.environ.copy()
+    if env:
+        process_env.update(env)
     result = subprocess.run(
         [_pnpm_command(), "--dir", str(package_root), *args],
         capture_output=True,
         text=True,
         check=False,
+        env=process_env,
     )
     output = f"{result.stdout}\n{result.stderr}".strip()
     assert result.returncode == 0, output
@@ -206,11 +233,39 @@ def _build_first_party_basedpyright_wheel(tmp_path: Path) -> Path:
     return wheel_paths[0]
 
 
+def _app_subsystem_frontend_sdk_env(source_root: Path | None = None) -> dict[str, str]:
+    if source_root is None:
+        source_root = _repo_root() / "frontend" / "plugin-sdk" / "app-subsystem"
+    return {"SETTA_APP_SUBSYSTEM_FRONTEND_SDK_SOURCE_ROOT": str(source_root)}
+
+
 def _stage_first_party_app_subsystem_plugin_source(
-    tmp_path: Path, *, remove_dist: bool = True
+    tmp_path: Path,
+    *,
+    remove_dist: bool = True,
+    remove_vendored_sdk_dist: bool = True,
 ) -> Path:
     source_root = _repo_root() / "plugins" / "setta-json-render-app-gen"
     plugin_root = tmp_path / "setta-json-render-app-gen"
+    frontend_root = plugin_root / "frontend"
+    shutil.copytree(source_root, plugin_root)
+    shutil.rmtree(plugin_root / "build", ignore_errors=True)
+    if remove_dist:
+        shutil.rmtree(frontend_root / "dist", ignore_errors=True)
+    if remove_vendored_sdk_dist:
+        shutil.rmtree(
+            frontend_root / "vendor" / "app-subsystem-frontend-sdk" / "dist",
+            ignore_errors=True,
+        )
+    shutil.rmtree(frontend_root / "node_modules", ignore_errors=True)
+    return plugin_root
+
+
+def _stage_first_party_watch_code_plugin_source(
+    tmp_path: Path, *, remove_dist: bool = True
+) -> Path:
+    source_root = _repo_root() / "plugins" / "setta-watch-code"
+    plugin_root = tmp_path / "setta-watch-code"
     frontend_root = plugin_root / "frontend"
     shutil.copytree(source_root, plugin_root)
     shutil.rmtree(plugin_root / "build", ignore_errors=True)
@@ -254,11 +309,31 @@ def _build_first_party_app_subsystem_wheel(
         tmp_path, remove_dist=remove_dist
     )
     outdir = tmp_path / "dist"
-    result = _build_wheel(plugin_root, outdir)
+    result = _build_wheel(
+        plugin_root,
+        outdir,
+        env=_app_subsystem_frontend_sdk_env(),
+    )
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
     wheel_paths = list(outdir.glob("setta_json_render_app_gen-*.whl"))
+    assert len(wheel_paths) == 1
+    return wheel_paths[0]
+
+
+def _build_first_party_watch_code_wheel(
+    tmp_path: Path, *, remove_dist: bool = True
+) -> Path:
+    plugin_root = _stage_first_party_watch_code_plugin_source(
+        tmp_path, remove_dist=remove_dist
+    )
+    outdir = tmp_path / "dist"
+    result = _build_wheel(plugin_root, outdir)
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta_watch_code-*.whl"))
     assert len(wheel_paths) == 1
     return wheel_paths[0]
 
@@ -274,7 +349,7 @@ def _build_plugin_runtime_test_setta_wheel(tmp_path: Path) -> Path:
         "runtime_compat.py",
         "plugin_runtime/__init__.py",
         "plugin_runtime/app_subsystem.py",
-        "plugin_runtime/local_core.py",
+        "plugin_runtime/watch_code.py",
         "sdk_contracts/constants.py",
         "types/generated/go_shared_constants.py",
     ):
@@ -353,7 +428,11 @@ def _build_first_party_app_subsystem_sdist(tmp_path: Path) -> Path:
         tmp_path, remove_dist=True
     )
     outdir = tmp_path / "dist"
-    result = _build_sdist(plugin_root, outdir)
+    result = _build_sdist(
+        plugin_root,
+        outdir,
+        env=_app_subsystem_frontend_sdk_env(),
+    )
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
@@ -411,11 +490,7 @@ def test_minimal_distribution_project_uses_packaged_runtime_modules(
         include_go_binaries=False,
     )
     app_subsystem_runtime = (
-        project_root
-        / "backend"
-        / "setta"
-        / "plugin_runtime"
-        / "app_subsystem.py"
+        project_root / "backend" / "setta" / "plugin_runtime" / "app_subsystem.py"
     )
 
     runtime_text = app_subsystem_runtime.read_text(encoding="utf-8")
@@ -424,15 +499,25 @@ def test_minimal_distribution_project_uses_packaged_runtime_modules(
     assert runtime_text == (
         _repo_root() / "backend" / "setta" / "plugin_runtime" / "app_subsystem.py"
     ).read_text(encoding="utf-8")
+    watch_code_runtime = (
+        project_root / "backend" / "setta" / "plugin_runtime" / "watch_code.py"
+    )
+    assert watch_code_runtime.read_text(encoding="utf-8") == (
+        _repo_root() / "backend" / "setta" / "plugin_runtime" / "watch_code.py"
+    ).read_text(encoding="utf-8")
 
 
-def test_pyproject_defaults_extra_installs_basedpyright_plugin() -> None:
+def test_pyproject_defaults_extra_installs_first_party_language_server_plugin() -> (
+    None
+):
     pyproject = tomllib.loads(
         (_repo_root() / "pyproject.toml").read_text(encoding="utf-8")
     )
 
     optional_dependencies = pyproject["project"]["optional-dependencies"]
-    assert optional_dependencies["defaults"] == ["setta-basedpyright==0.1.0"]
+    assert optional_dependencies["defaults"] == [
+        "setta-basedpyright==0.1.0",
+    ]
 
 
 def test_first_party_basedpyright_plugin_package_owns_basedpyright_dependency() -> None:
@@ -452,6 +537,19 @@ def test_first_party_app_subsystem_plugin_package_declares_setta_runtime_depende
         (
             _repo_root() / "plugins" / "setta-json-render-app-gen" / "pyproject.toml"
         ).read_text(encoding="utf-8")
+    )
+
+    expected_version = _read_setta_package_version()
+    assert plugin_pyproject["project"]["dependencies"] == [f"setta=={expected_version}"]
+
+
+def test_first_party_watch_code_plugin_package_declares_setta_runtime_dependency() -> (
+    None
+):
+    plugin_pyproject = tomllib.loads(
+        (_repo_root() / "plugins" / "setta-watch-code" / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
     )
 
     expected_version = _read_setta_package_version()
@@ -480,14 +578,21 @@ def test_first_party_app_subsystem_plugin_frontend_builds_from_staged_source_tre
 ) -> None:
     plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
     frontend_root = plugin_root / "frontend"
+    vendored_sdk_dist = (
+        frontend_root / "vendor" / "app-subsystem-frontend-sdk" / "dist" / "index.js"
+    )
+    sdk_env = _app_subsystem_frontend_sdk_env()
+
+    assert not vendored_sdk_dist.exists()
 
     _assert_pnpm_command_succeeds(frontend_root, "install", "--lockfile=false")
     _assert_pnpm_command_succeeds(frontend_root, "run", "typecheck")
-    _assert_pnpm_command_succeeds(frontend_root, "run", "test")
-    _assert_pnpm_command_succeeds(frontend_root, "run", "build")
+    _assert_pnpm_command_succeeds(frontend_root, "run", "test", env=sdk_env)
+    _assert_pnpm_command_succeeds(frontend_root, "run", "build", env=sdk_env)
 
     built_js = frontend_root / "dist" / "index.js"
     built_css = frontend_root / "dist" / "index.css"
+    assert vendored_sdk_dist.is_file()
     assert built_js.is_file()
     assert built_css.is_file()
 
@@ -514,12 +619,17 @@ def test_vendored_app_subsystem_frontend_sdk_matches_source_package_build(
 ) -> None:
     package_root = _stage_app_subsystem_frontend_sdk_source(tmp_path)
     plugin_root = _stage_first_party_app_subsystem_plugin_source(tmp_path)
-    vendored_sdk_root = (
-        plugin_root / "frontend" / "vendor" / "app-subsystem-frontend-sdk"
-    )
+    frontend_root = plugin_root / "frontend"
+    vendored_sdk_root = frontend_root / "vendor" / "app-subsystem-frontend-sdk"
 
     _assert_pnpm_command_succeeds(package_root, "install", "--lockfile=false")
     _assert_pnpm_command_succeeds(package_root, "run", "build")
+    _assert_pnpm_command_succeeds(
+        frontend_root,
+        "run",
+        "prepare-sdk",
+        env=_app_subsystem_frontend_sdk_env(package_root),
+    )
 
     _assert_matching_file_content(
         package_root / "dist" / "index.js",
@@ -529,6 +639,23 @@ def test_vendored_app_subsystem_frontend_sdk_matches_source_package_build(
         package_root / "types" / "index.d.ts",
         vendored_sdk_root / "types" / "index.d.ts",
     )
+
+
+def test_vendored_app_subsystem_frontend_sdk_dist_is_not_tracked() -> None:
+    result = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "plugins/setta-json-render-app-gen/frontend/vendor/app-subsystem-frontend-sdk/dist/**",
+        ],
+        cwd=_repo_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == ""
 
 
 def test_first_party_basedpyright_plugin_wheel_packages_python_backend_only(
@@ -608,6 +735,26 @@ def test_first_party_app_subsystem_plugin_wheel_packages_runtime_managed_assets(
     )
 
 
+def test_first_party_watch_code_plugin_wheel_packages_runtime_managed_assets(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_watch_code_wheel(tmp_path)
+
+    with zipfile.ZipFile(wheel_path) as wheel_archive:
+        names = set(wheel_archive.namelist())
+
+    assert any(name.endswith("setta-watch-code/setta.plugin.json") for name in names)
+    assert any(name.endswith("setta-watch-code/README.md") for name in names)
+    assert any(name.endswith("setta-watch-code/backend/main.py") for name in names)
+    assert any(
+        name.endswith("setta-watch-code/frontend/dist/index.js") for name in names
+    )
+    assert any(
+        name.endswith("setta-watch-code/frontend/dist/setta-watch-code-frontend.css")
+        for name in names
+    )
+
+
 def test_first_party_app_subsystem_plugin_sdist_includes_frontend_build_inputs(
     tmp_path: Path,
 ) -> None:
@@ -621,6 +768,10 @@ def test_first_party_app_subsystem_plugin_sdist_includes_frontend_build_inputs(
     assert any(name.endswith("frontend/package.json") for name in names)
     assert any(name.endswith("frontend/tsconfig.json") for name in names)
     assert any(name.endswith("frontend/tsconfig.typecheck.json") for name in names)
+    assert any(
+        name.endswith("frontend/scripts/materialize-vendored-app-subsystem-sdk.mjs")
+        for name in names
+    )
     assert any(name.endswith("frontend/src/index.ts") for name in names)
     assert any(name.endswith("frontend/typecheck/standalone.ts") for name in names)
     assert any(
@@ -702,7 +853,11 @@ def test_first_party_app_subsystem_plugin_wheel_rebuilds_stale_frontend_bundle(
     (stale_dist_root / "index.css").write_text("STALE_CSS\n", encoding="utf-8")
 
     outdir = tmp_path / "dist"
-    result = _build_wheel(plugin_root, outdir)
+    result = _build_wheel(
+        plugin_root,
+        outdir,
+        env=_app_subsystem_frontend_sdk_env(),
+    )
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
@@ -738,7 +893,11 @@ def test_first_party_app_subsystem_plugin_wheel_build_installs_dependencies_when
     (node_modules_root / "marker.txt").write_text("stale\n", encoding="utf-8")
 
     outdir = tmp_path / "dist"
-    result = _build_wheel(plugin_root, outdir)
+    result = _build_wheel(
+        plugin_root,
+        outdir,
+        env=_app_subsystem_frontend_sdk_env(),
+    )
 
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
@@ -813,6 +972,40 @@ def test_first_party_app_subsystem_plugin_wheel_installs_under_plugin_specific_r
     assert "setta-json-render-app-gen/frontend/dist/index.css" in record_text
 
 
+def test_first_party_watch_code_plugin_wheel_installs_under_plugin_specific_root(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_watch_code_wheel(tmp_path)
+    setta_wheel_path = _build_plugin_runtime_test_setta_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = _install_plugin_wheel_with_packaged_setta_runtime(
+        site_packages,
+        wheel_path,
+        setta_wheel_path,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    installed_plugin_root = site_packages / "setta-watch-code"
+    assert (installed_plugin_root / "setta.plugin.json").is_file()
+    assert (installed_plugin_root / "README.md").is_file()
+    assert (installed_plugin_root / "backend" / "main.py").is_file()
+    assert (installed_plugin_root / "frontend" / "dist" / "index.js").is_file()
+    assert (
+        installed_plugin_root / "frontend" / "dist" / "setta-watch-code-frontend.css"
+    ).is_file()
+    assert not (installed_plugin_root / "frontend" / "package.json").exists()
+
+    record_path = site_packages / "setta_watch_code-0.1.0.dist-info" / "RECORD"
+    record_text = record_path.read_text(encoding="utf-8")
+    assert "setta-watch-code/setta.plugin.json" in record_text
+    assert "setta-watch-code/README.md" in record_text
+    assert "setta-watch-code/backend/main.py" in record_text
+    assert "setta-watch-code/frontend/dist/index.js" in record_text
+    assert "setta-watch-code/frontend/dist/setta-watch-code-frontend.css" in record_text
+
+
 def test_plugin_runtime_test_setta_wheel_keeps_local_core_boundary_packaged_only(
     tmp_path: Path,
 ) -> None:
@@ -846,8 +1039,6 @@ def test_plugin_runtime_test_setta_wheel_keeps_local_core_boundary_packaged_only
                     "import sys",
                     f"sys.path.insert(0, {str(site_packages)!r})",
                     "from setta.local_core_client import LocalCoreClient",
-                    "from setta.plugin_runtime import run_local_core_command",
-                    "assert callable(run_local_core_command)",
                     "assert not hasattr(LocalCoreClient, 'render_realtime_dependency_values')",
                 ]
             ),
@@ -1049,6 +1240,182 @@ sys.stdout.flush()
     assert runtime_payload["listenerEndpoint"].get("error") is None
 
 
+def test_first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain(
+    tmp_path: Path,
+) -> None:
+    wheel_path = _build_first_party_watch_code_wheel(tmp_path)
+    setta_wheel_path = _build_plugin_runtime_test_setta_wheel(tmp_path)
+    site_packages = tmp_path / "site-packages"
+    install_result = _install_plugin_wheel_with_packaged_setta_runtime(
+        site_packages,
+        wheel_path,
+        setta_wheel_path,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    go_stub = tmp_path / "setta-go-stub.py"
+    go_stub.write_text(
+        """#!/usr/bin/env python3
+import json
+import os
+import sys
+
+if sys.argv[1:] != ["sdk-local-core"]:
+    raise SystemExit(f"unexpected args: {sys.argv[1:]!r}")
+
+print(json.dumps({
+    "protocolVersion": 1,
+    "sdkVersion": os.environ["SETTA_STUB_SDK_VERSION"],
+    "coreVersion": "stub-core",
+    "sdkContractVersion": 2,
+}), flush=True)
+
+for line in sys.stdin:
+    request = json.loads(line)
+    command = request["commandName"]
+    payload = request.get("payload", {})
+    if command == "watch_code_set_inputs":
+        result = {
+            "folders": payload["folders"],
+            "files": payload["files"],
+            "registry": {},
+            "baselineByPath": {},
+        }
+    elif command == "watch_code_get_project_data":
+        result = {
+            "folders": [{"path": "pkg", "recursive": True}],
+            "files": ["pkg/watch.py"],
+            "registry": {},
+            "baselineByPath": {},
+        }
+    else:
+        result = {
+            "folders": [],
+            "files": payload.get("files", []),
+            "registry": {},
+            "baselineByPath": {},
+        }
+    print(json.dumps({
+        "callId": request["callId"],
+        "ok": True,
+        "result": result,
+        "details": {},
+    }), flush=True)
+""",
+        encoding="utf-8",
+    )
+    go_stub.chmod(0o755)
+
+    installed_plugin_root = site_packages / "setta-watch-code"
+    plugin_backend = installed_plugin_root / "backend" / "main.py"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(site_packages)
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+    env["SETTA_STUB_SDK_VERSION"] = _read_setta_package_version()
+
+    probe_result = subprocess.run(
+        [sys.executable, str(plugin_backend), "--setta-plugin-backend-probe"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert probe_result.returncode == 0, (
+        f"{probe_result.stdout}\n{probe_result.stderr}"
+    ).strip()
+    probe_payload = json.loads(probe_result.stdout)
+    assert probe_payload["watchCodeBackend"]["contractVersion"] == 1
+    assert probe_payload["routes"] == [
+        {"path": "/plugins/setta-watch-code/watch-code/inputs", "methods": ["POST"]},
+    ]
+    assert {setting["id"] for setting in probe_payload["uiSettings"]} == {
+        "folders",
+        "files",
+    }
+    assert all("paneId" not in setting for setting in probe_payload["uiSettings"])
+
+    route_body = base64.b64encode(
+        json.dumps(
+            {
+                "projectConfigId": "project-alpha",
+                "folders": [],
+                "files": ["pkg/watch.py"],
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).decode("ascii")
+    route_request = {
+        "schemaVersion": 1,
+        "kind": "http",
+        "http": {
+            "context": {
+                "settaFilesRoot": str(tmp_path / "setta_files"),
+                "workspaceRoot": str(tmp_path / "workspace"),
+            },
+            "method": "POST",
+            "path": "/plugins/setta-watch-code/watch-code/inputs",
+            "headers": {},
+            "bodyBase64": route_body,
+        },
+    }
+    route_result = subprocess.run(
+        [sys.executable, str(plugin_backend), "--setta-plugin-backend-runtime"],
+        cwd=tmp_path,
+        input=json.dumps(route_request),
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert route_result.returncode == 0, (
+        f"{route_result.stdout}\n{route_result.stderr}"
+    ).strip()
+    route_payload = json.loads(route_result.stdout)
+    assert route_payload["http"]["statusCode"] == 200
+    route_response_body = json.loads(
+        base64.b64decode(route_payload["http"]["bodyBase64"]).decode("utf-8")
+    )
+    assert route_response_body == {
+        "projectData": {
+            "folders": [],
+            "files": ["pkg/watch.py"],
+            "registry": {},
+            "baselineByPath": {},
+        }
+    }
+
+    setting_request = {
+        "schemaVersion": 1,
+        "kind": "ui_setting",
+        "uiSetting": {
+            "context": {
+                "settaFilesRoot": str(tmp_path / "setta_files"),
+                "workspaceRoot": str(tmp_path / "workspace"),
+            },
+            "operation": "read",
+            "handlerId": "read_files",
+            "projectConfigId": "project-alpha",
+        },
+    }
+    setting_result = subprocess.run(
+        [sys.executable, str(plugin_backend), "--setta-plugin-backend-runtime"],
+        cwd=tmp_path,
+        input=json.dumps(setting_request),
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert setting_result.returncode == 0, (
+        f"{setting_result.stdout}\n{setting_result.stderr}"
+    ).strip()
+    setting_payload = json.loads(setting_result.stdout)
+    assert setting_payload["uiSetting"] == {"value": ["pkg/watch.py"]}
+
+
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:
     # Wheel builds must fail fast instead of silently shipping a broken router.
     project_root = _write_minimal_distribution_project(
@@ -1122,7 +1489,7 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/sdk_contracts/constants.py",
         "setta/plugin_runtime/__init__.py",
         "setta/plugin_runtime/app_subsystem.py",
-        "setta/plugin_runtime/local_core.py",
+        "setta/plugin_runtime/watch_code.py",
         "setta/types/generated/go_shared_constants.py",
         "setta/agentic/external_adapters/sidecars/claude_sdk_runner.py",
         "setta/agentic/external_adapters/sidecars/package.json",

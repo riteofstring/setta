@@ -5,13 +5,15 @@ export type JsonRecord = Record<string, any>;
 export type ObjectValues<T> = T[keyof T];
 type CreateOptions<T> = T extends object ? Partial<T> : T;
 
-type GeneratedMutableValue =
+export type JsonValue =
   | null
   | boolean
   | number
   | string
-  | Array<GeneratedMutableValue>
-  | { [key: string]: GeneratedMutableValue | undefined };
+  | Array<JsonValue>
+  | { [key: string]: JsonValue | undefined };
+
+type GeneratedMutableValue = JsonValue;
 
 type SidecarExportedValueEntry = {
   name: string;
@@ -119,6 +121,7 @@ export type ProjectConfig = JsonRecord & {
   sectionVariantMap: Record<string, string>;
   showParamDisplayNames: boolean;
 };
+export type ProjectPluginData = Record<string, JsonValue | undefined>;
 export type SingletonSections = JsonRecord & {
   GenPythonCode: string | null;
   GenPythonMetadata: string | null;
@@ -138,6 +141,7 @@ export type SingleConfig = JsonRecord & {
   codeObjs: Record<string, Core>;
   genCodeBinding: unknown | null;
   parentSectionMap: Record<string, string | null>;
+  pluginData: ProjectPluginData;
   projectConfig: ProjectConfig;
   requiredDecodedImages: unknown[];
   sectionCapabilities: Record<string, SectionCapabilities>;
@@ -379,11 +383,6 @@ export function createProjectConfig(
     viewModes: {},
     viewport: null,
     viewportInitialized: false,
-    watchCodeBaselineByPath: {},
-    watchCodeEnabled: false,
-    watchCodeFiles: [],
-    watchCodeFolders: [],
-    watchCodeRegistry: {},
     windowSpaceIdsBySlug: {},
     windowSpaceSlugsById: {},
     windowSpaces: {},
@@ -425,6 +424,7 @@ export function createSingleConfig(
     codeObjs: {},
     genCodeBinding: null,
     parentSectionMap: {},
+    pluginData: {},
     projectChatWindowing: {
       instancesById: {},
       nextInstanceNumber: 1,

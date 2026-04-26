@@ -1,6 +1,6 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { toggleMinimized } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ButtonHTMLAttributes } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

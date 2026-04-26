@@ -94,7 +94,9 @@ describe("applyBackendOriginOverrideFromUrl", () => {
       "http://127.0.0.1:8000",
     );
     expect(
-      memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY),
+      memoryStorage.getItem(
+        BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+      ),
     ).toBeNull();
   });
 
@@ -136,7 +138,9 @@ describe("applyBackendOriginOverrideFromUrl", () => {
       "http://127.0.0.1:8000",
     );
     expect(
-      memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY),
+      memoryStorage.getItem(
+        BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+      ),
     ).toBeNull();
   });
 
@@ -152,7 +156,9 @@ describe("applyBackendOriginOverrideFromUrl", () => {
       memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY),
     ).toBeNull();
     expect(
-      memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY),
+      memoryStorage.getItem(
+        BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
+      ),
     ).toBeNull();
     expect(warnSpy).toHaveBeenCalled();
   });

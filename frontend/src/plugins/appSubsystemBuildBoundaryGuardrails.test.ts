@@ -19,6 +19,32 @@ const pluginFrontendRoot = resolve(
   "setta-json-render-app-gen",
   "frontend",
 );
+const deletedHostAppSubsystemShimPaths = [
+  "src/openapi/http/requestRebuild.ts",
+  "src/openapi/http/result.ts",
+  "src/utils/attachmentPolicy.ts",
+  "src/utils/attachments.ts",
+  "src/utils/bindingRuntime.ts",
+  "src/utils/c_addresses.ts",
+  "src/utils/deploymentPolicies.ts",
+  "src/utils/dropzone.ts",
+  "src/utils/endpointUtils.ts",
+  "src/utils/hostnames.ts",
+  "src/utils/idNameCreation.ts",
+  "src/utils/launcherOrigin.ts",
+  "src/utils/origin.ts",
+  "src/utils/projectStateSelectors.ts",
+  "src/utils/runCapabilities.ts",
+  "src/utils/serverModeBoundaryPolicy.ts",
+  "src/utils/serverModeCapabilities.ts",
+  "src/utils/storage.ts",
+  "src/utils/textBlockTypography.ts",
+] as const;
+const deletedHostAppSubsystemShimReferenceSnippets =
+  deletedHostAppSubsystemShimPaths.flatMap((relativePath) => [
+    relativePath,
+    relativePath.replace(/\.ts$/, ""),
+  ]);
 
 function readPluginFrontendFile(relativePath: string): string {
   return readFileSync(resolve(pluginFrontendRoot, relativePath), "utf8");
@@ -94,6 +120,18 @@ describe("app plugin frontend build boundary guardrails", () => {
         "file:./vendor/app-subsystem-frontend-sdk",
       ],
     ]);
+    expect(packageJson.scripts?.["prepare-sdk"]).toBe(
+      "node ./scripts/materialize-vendored-app-subsystem-sdk.mjs",
+    );
+    expect(packageJson.scripts?.["prepare-build-deps"]).toBe(
+      "pnpm run prepare-sdk && pnpm install --lockfile=false",
+    );
+    expect(packageJson.scripts?.build).toBe(
+      "pnpm run prepare-build-deps && vite build",
+    );
+    expect(packageJson.scripts?.test).toBe(
+      "pnpm run prepare-build-deps && vitest run --config vitest.config.mjs",
+    );
     expect(packageJson.scripts?.typecheck).toBe(
       "tsc --noEmit -p tsconfig.typecheck.json",
     );
@@ -153,27 +191,85 @@ describe("app plugin frontend build boundary guardrails", () => {
     );
   });
 
-  it("keeps host transport helpers as SDK-owned re-exports", () => {
-    expect(readHostFrontendFile("src/utils/c_addresses.ts").trim()).toBe(
-      'export { C_ADDRESSES } from "@setta/app-subsystem-frontend-sdk";',
-    );
-    expect(readHostFrontendFile("src/utils/hostnames.ts").trim()).toBe(
-      'export { isLocalHostname } from "@setta/app-subsystem-frontend-sdk";',
-    );
-    expect(readHostFrontendFile("src/utils/launcherOrigin.ts").trim()).toBe(
-      'export { getOrInitLauncherOrigin } from "@setta/app-subsystem-frontend-sdk";',
-    );
-    expect(readHostFrontendFile("src/utils/origin.ts").trim()).toBe(
-      'export { normalizeOrigin } from "@setta/app-subsystem-frontend-sdk";',
-    );
-    expect(readHostFrontendFile("src/utils/storage.ts")).toContain(
-      'from "@setta/app-subsystem-frontend-sdk";',
-    );
+  it("rejects host app-subsystem compatibility re-export shims", () => {
+    for (const relativePath of deletedHostAppSubsystemShimPaths) {
+      expect(existsSync(resolve(repoRoot, "frontend", relativePath))).toBe(
+        false,
+      );
+    }
 
     const sdkAddresses = readSourceSdkFile("src/c_addresses.ts");
     expect(sdkAddresses).toContain("type AddressResolverConfig");
     expect(sdkAddresses).toContain("backendOriginOverrideStorageKey");
     expect(sdkAddresses).toContain("launcherOriginStorageKey");
+  });
+
+  it("keeps tests for deleted host app-subsystem helpers with the SDK owner", () => {
+    const staleHostTestPaths = deletedHostAppSubsystemShimPaths.map(
+      (relativePath) => relativePath.replace(/\.ts$/, ".test.ts"),
+    );
+
+    for (const relativePath of staleHostTestPaths) {
+      expect(existsSync(resolve(repoRoot, "frontend", relativePath))).toBe(
+        false,
+      );
+    }
+  });
+
+  it("keeps Vite dev defaults on the Go-owned tooling constants artifact", () => {
+    const viteConfig = readHostFrontendFile("vite.config.ts");
+
+    expect(viteConfig).toContain(
+      'import toolingConstants from "./generated/toolingConstants.json"',
+    );
+    expect(viteConfig).toContain("toolingConstants.DEFAULT_DEV_FRONTEND_HOST");
+    expect(viteConfig).toContain("toolingConstants.DEFAULT_DEV_FRONTEND_PORT");
+    expect(viteConfig).not.toContain("const DEFAULT_DEV_FRONTEND_HOST");
+    expect(viteConfig).not.toContain("const DEFAULT_DEV_FRONTEND_PORT");
+    expect(
+      existsSync(resolve(repoRoot, "frontend/generated/toolingConstants.json")),
+    ).toBe(true);
+  });
+
+  it("rejects stale browser and docs references to deleted host shims", () => {
+    const scanRoots = [
+      {
+        root: resolve(repoRoot, "frontend/tests/e2e"),
+        label: "frontend/tests/e2e",
+        extensions: [".ts", ".tsx"],
+      },
+      {
+        root: resolve(repoRoot, "docs"),
+        label: "docs",
+        extensions: [".md"],
+      },
+    ];
+    const violations: string[] = [];
+
+    for (const scanRoot of scanRoots) {
+      for (const relativePath of listRelativeFiles(scanRoot.root)) {
+        if (
+          !scanRoot.extensions.some((extension) =>
+            relativePath.endsWith(extension),
+          )
+        ) {
+          continue;
+        }
+        const content = readFileSync(
+          resolve(scanRoot.root, relativePath),
+          "utf8",
+        );
+        for (const forbiddenPath of deletedHostAppSubsystemShimReferenceSnippets) {
+          if (content.includes(forbiddenPath)) {
+            violations.push(
+              `${scanRoot.label}/${relativePath}: ${forbiddenPath}`,
+            );
+          }
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
   });
 
   it("publishes standalone SDK types instead of source-file types", () => {
@@ -215,10 +311,10 @@ describe("app plugin frontend build boundary guardrails", () => {
       "response is ResponseDataAndStatus<T> & { data: T; status: number }",
     );
     expect(sourceSdkTypes).toContain(
-      "getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;",
+      "export declare function getCurrentEffectiveSectionImpl(",
     );
     expect(sourceSdkTypes).toContain(
-      "getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;",
+      "export declare function getCurrentEffectiveSectionImplIfPresent(",
     );
     expect(sourceSdkTypes).not.toContain("error?: unknown;");
     expect(sourceSdkTypes).not.toContain("request?: Request;");

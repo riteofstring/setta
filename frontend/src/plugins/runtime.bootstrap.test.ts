@@ -79,6 +79,8 @@ describe("plugin runtime bootstrap", () => {
       sortedCommands: [],
       topNavBarItemsByPluginId: {},
       sortedTopNavBarItems: [],
+      canvasControlsByPluginId: {},
+      sortedCanvasControls: [],
       frontendErrorsByPluginId: {},
     });
 

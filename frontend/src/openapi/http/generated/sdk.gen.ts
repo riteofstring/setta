@@ -761,12 +761,6 @@ import type {
   SetViewportData,
   SetViewportErrors,
   SetViewportResponses,
-  SetWatchCodeEnabledData,
-  SetWatchCodeEnabledErrors,
-  SetWatchCodeEnabledResponses,
-  SetWatchCodeInputsData,
-  SetWatchCodeInputsErrors,
-  SetWatchCodeInputsResponses,
   SetWindowSpaceNameData,
   SetWindowSpaceNameErrors,
   SetWindowSpaceNameResponses,
@@ -913,7 +907,7 @@ import type {
   WritePluginLockfileResponses,
 } from "./types.gen";
 
-export type Options<
+type Options<
   TData extends TDataShape = TDataShape,
   ThrowOnError extends boolean = boolean,
 > = Options2<TData, ThrowOnError> & {
@@ -967,9 +961,7 @@ export const addKwarg = <ThrowOnError extends boolean = false>(
 /**
  * Add a workspace to the launcher recent-workspaces list.
  */
-export const addLauncherRecentWorkspace = <
-  ThrowOnError extends boolean = false,
->(
+const addLauncherRecentWorkspace = <ThrowOnError extends boolean = false>(
   options: Options<AddLauncherRecentWorkspaceData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -989,7 +981,7 @@ export const addLauncherRecentWorkspace = <
 /**
  * List published app deployments.
  */
-export const listAppDeployments = <ThrowOnError extends boolean = false>(
+const listAppDeployments = <ThrowOnError extends boolean = false>(
   options?: Options<ListAppDeploymentsData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
@@ -1005,7 +997,7 @@ export const listAppDeployments = <ThrowOnError extends boolean = false>(
 /**
  * Publish the current project config as an app deployment.
  */
-export const publishAppDeployment = <ThrowOnError extends boolean = false>(
+const publishAppDeployment = <ThrowOnError extends boolean = false>(
   options: Options<PublishAppDeploymentData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -1025,9 +1017,7 @@ export const publishAppDeployment = <ThrowOnError extends boolean = false>(
 /**
  * Get or create the current app deployment session.
  */
-export const getAppDeploymentCurrentSession = <
-  ThrowOnError extends boolean = false,
->(
+const getAppDeploymentCurrentSession = <ThrowOnError extends boolean = false>(
   options?: Options<GetAppDeploymentCurrentSessionData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).post<
@@ -1043,7 +1033,7 @@ export const getAppDeploymentCurrentSession = <
 /**
  * Get the latest published version for an app deployment.
  */
-export const getAppDeploymentLatest = <ThrowOnError extends boolean = false>(
+const getAppDeploymentLatest = <ThrowOnError extends boolean = false>(
   options: Options<GetAppDeploymentLatestData, ThrowOnError>,
 ) => {
   return (options.client ?? client).get<
@@ -1059,7 +1049,7 @@ export const getAppDeploymentLatest = <ThrowOnError extends boolean = false>(
 /**
  * List published versions for an app deployment.
  */
-export const listAppDeploymentVersions = <ThrowOnError extends boolean = false>(
+const listAppDeploymentVersions = <ThrowOnError extends boolean = false>(
   options: Options<ListAppDeploymentVersionsData, ThrowOnError>,
 ) => {
   return (options.client ?? client).get<
@@ -1075,9 +1065,7 @@ export const listAppDeploymentVersions = <ThrowOnError extends boolean = false>(
 /**
  * Load a specific project config and app definition from an app deployment session.
  */
-export const getAppDeploymentProjectConfig = <
-  ThrowOnError extends boolean = false,
->(
+const getAppDeploymentProjectConfig = <ThrowOnError extends boolean = false>(
   options: Options<GetAppDeploymentProjectConfigData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -1097,7 +1085,7 @@ export const getAppDeploymentProjectConfig = <
 /**
  * Load the default project state and app definition for an app deployment session.
  */
-export const getAppDeploymentState = <ThrowOnError extends boolean = false>(
+const getAppDeploymentState = <ThrowOnError extends boolean = false>(
   options: Options<GetAppDeploymentStateData, ThrowOnError>,
 ) => {
   return (options.client ?? client).get<
@@ -1150,7 +1138,7 @@ export const appendTranscriptionAudio = <ThrowOnError extends boolean = false>(
 /**
  * Download a chat attachment by signed token.
  */
-export const downloadAttachment = <ThrowOnError extends boolean = false>(
+const downloadAttachment = <ThrowOnError extends boolean = false>(
   options: Options<DownloadAttachmentData, ThrowOnError>,
 ) => {
   return (options.client ?? client).get<
@@ -1254,7 +1242,7 @@ export const downloadBinary = <ThrowOnError extends boolean = false>(
 /**
  * Cancel a detached run.
  */
-export const cancelRun = <ThrowOnError extends boolean = false>(
+const cancelRun = <ThrowOnError extends boolean = false>(
   options: Options<CancelRunData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -1483,7 +1471,7 @@ export const createEdge = <ThrowOnError extends boolean = false>(
 /**
  * Create a new execution engine configuration.
  */
-export const createEngineConfig = <ThrowOnError extends boolean = false>(
+const createEngineConfig = <ThrowOnError extends boolean = false>(
   options: Options<CreateEngineConfigData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -1523,7 +1511,7 @@ export const createExternalAgentConfig = <ThrowOnError extends boolean = false>(
 /**
  * Create an empty file inside the workspace root.
  */
-export const createFile = <ThrowOnError extends boolean = false>(
+const createFile = <ThrowOnError extends boolean = false>(
   options: Options<CreateFileData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -1822,7 +1810,7 @@ export const deleteEdges = <ThrowOnError extends boolean = false>(
 /**
  * Delete an execution engine configuration.
  */
-export const deleteEngineConfig = <ThrowOnError extends boolean = false>(
+const deleteEngineConfig = <ThrowOnError extends boolean = false>(
   options: Options<DeleteEngineConfigData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2026,7 +2014,7 @@ export const deleteStateMachineEdges = <ThrowOnError extends boolean = false>(
 /**
  * Delete terminal sessions for the requested terminal sections.
  */
-export const deleteTerminals = <ThrowOnError extends boolean = false>(
+const deleteTerminals = <ThrowOnError extends boolean = false>(
   options: Options<DeleteTerminalsData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2122,7 +2110,7 @@ export const docstringToMarkdown = <ThrowOnError extends boolean = false>(
 /**
  * Download a file browser entry by signed token.
  */
-export const downloadFileBrowserEntry = <ThrowOnError extends boolean = false>(
+const downloadFileBrowserEntry = <ThrowOnError extends boolean = false>(
   options: Options<DownloadFileBrowserEntryData, ThrowOnError>,
 ) => {
   return (options.client ?? client).get<
@@ -2235,7 +2223,7 @@ export const getAiFollowSnapshot = <ThrowOnError extends boolean = false>(
 /**
  * Get a single agent profile.
  */
-export const getAgentProfile = <ThrowOnError extends boolean = false>(
+const getAgentProfile = <ThrowOnError extends boolean = false>(
   options: Options<GetAgentProfileData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2271,7 +2259,7 @@ export const getAgentProfiles = <ThrowOnError extends boolean = false>(
 /**
  * Load a single managed agent or run-chain run by ID.
  */
-export const getAgentRun = <ThrowOnError extends boolean = false>(
+const getAgentRun = <ThrowOnError extends boolean = false>(
   options: Options<GetAgentRunData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2329,7 +2317,7 @@ export const getAgenticSummaryCacheStatus = <
 /**
  * Get the built-in standalone app component catalog.
  */
-export const getAppCatalog = <ThrowOnError extends boolean = false>(
+const getAppCatalog = <ThrowOnError extends boolean = false>(
   options?: Options<GetAppCatalogData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
@@ -2345,7 +2333,7 @@ export const getAppCatalog = <ThrowOnError extends boolean = false>(
 /**
  * Load the current app definition and resolved app spec.
  */
-export const getAppDefinition = <ThrowOnError extends boolean = false>(
+const getAppDefinition = <ThrowOnError extends boolean = false>(
   options: Options<GetAppDefinitionData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2401,7 +2389,7 @@ export const getAppGenSkills = <ThrowOnError extends boolean = false>(
 /**
  * Build a signed download URL for a single chat attachment.
  */
-export const getAttachmentDownloadUrl = <ThrowOnError extends boolean = false>(
+const getAttachmentDownloadUrl = <ThrowOnError extends boolean = false>(
   options: Options<GetAttachmentDownloadUrlData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2438,7 +2426,7 @@ export const getAttachmentDownloadUrls = <ThrowOnError extends boolean = false>(
   });
 };
 
-export const getChatSectionChatId = <ThrowOnError extends boolean = false>(
+const getChatSectionChatId = <ThrowOnError extends boolean = false>(
   options: Options<GetChatSectionChatIdData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2458,7 +2446,7 @@ export const getChatSectionChatId = <ThrowOnError extends boolean = false>(
 /**
  * Get a single execution engine configuration.
  */
-export const getEngineConfig = <ThrowOnError extends boolean = false>(
+const getEngineConfig = <ThrowOnError extends boolean = false>(
   options: Options<GetEngineConfigData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2514,7 +2502,7 @@ export const getExternalAgentChat = <ThrowOnError extends boolean = false>(
 /**
  * Get a single external agent runtime configuration.
  */
-export const getExternalAgentConfig = <ThrowOnError extends boolean = false>(
+const getExternalAgentConfig = <ThrowOnError extends boolean = false>(
   options: Options<GetExternalAgentConfigData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2798,7 +2786,7 @@ export const getPasswordParamValue = <ThrowOnError extends boolean = false>(
 /**
  * Get a single prompt template.
  */
-export const getPromptTemplate = <ThrowOnError extends boolean = false>(
+const getPromptTemplate = <ThrowOnError extends boolean = false>(
   options: Options<GetPromptTemplateData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2834,7 +2822,7 @@ export const getPromptTemplates = <ThrowOnError extends boolean = false>(
 /**
  * Get the latest detached-run status.
  */
-export const getRunStatus = <ThrowOnError extends boolean = false>(
+const getRunStatus = <ThrowOnError extends boolean = false>(
   options: Options<GetRunStatusData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2854,7 +2842,7 @@ export const getRunStatus = <ThrowOnError extends boolean = false>(
 /**
  * Get the runner summary snapshot for a project.
  */
-export const getRunnerSummary = <ThrowOnError extends boolean = false>(
+const getRunnerSummary = <ThrowOnError extends boolean = false>(
   options: Options<GetRunnerSummaryData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -2874,7 +2862,7 @@ export const getRunnerSummary = <ThrowOnError extends boolean = false>(
 /**
  * Get the latest state-machine run.
  */
-export const getStateMachineRun = <ThrowOnError extends boolean = false>(
+const getStateMachineRun = <ThrowOnError extends boolean = false>(
   options: Options<GetStateMachineRunData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -3630,7 +3618,7 @@ export const installPlugin = <ThrowOnError extends boolean = false>(
 /**
  * Link a local plugin directory into the runtime.
  */
-export const linkPlugin = <ThrowOnError extends boolean = false>(
+const linkPlugin = <ThrowOnError extends boolean = false>(
   options: Options<LinkPluginData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -3650,7 +3638,7 @@ export const linkPlugin = <ThrowOnError extends boolean = false>(
 /**
  * Apply the plugin lockfile to the current runtime.
  */
-export const applyPluginLockfile = <ThrowOnError extends boolean = false>(
+const applyPluginLockfile = <ThrowOnError extends boolean = false>(
   options: Options<ApplyPluginLockfileData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -3670,7 +3658,7 @@ export const applyPluginLockfile = <ThrowOnError extends boolean = false>(
 /**
  * Write the plugin lockfile for the current runtime.
  */
-export const writePluginLockfile = <ThrowOnError extends boolean = false>(
+const writePluginLockfile = <ThrowOnError extends boolean = false>(
   options?: Options<WritePluginLockfileData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).post<
@@ -4029,7 +4017,7 @@ export const runCode = <ThrowOnError extends boolean = false>(
 /**
  * Start a detached run for a project entrypoint.
  */
-export const runDetached = <ThrowOnError extends boolean = false>(
+const runDetached = <ThrowOnError extends boolean = false>(
   options: Options<RunDetachedData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -4049,7 +4037,7 @@ export const runDetached = <ThrowOnError extends boolean = false>(
 /**
  * Get runtime path and auth metadata for the current backend.
  */
-export const getRuntimeInfo = <ThrowOnError extends boolean = false>(
+const getRuntimeInfo = <ThrowOnError extends boolean = false>(
   options?: Options<GetRuntimeInfoData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
@@ -4125,7 +4113,7 @@ export const saveSettings = <ThrowOnError extends boolean = false>(
 /**
  * Get the running backend version handshake for the local SDK.
  */
-export const sdkRuntimeHandshake = <ThrowOnError extends boolean = false>(
+const sdkRuntimeHandshake = <ThrowOnError extends boolean = false>(
   options?: Options<SdkRuntimeHandshakeData, ThrowOnError>,
 ) => {
   return (options?.client ?? client).get<
@@ -4208,7 +4196,7 @@ export const setAgenticEdges = <ThrowOnError extends boolean = false>(
 /**
  * Persist a standalone app definition.
  */
-export const setAppDefinition = <ThrowOnError extends boolean = false>(
+const setAppDefinition = <ThrowOnError extends boolean = false>(
   options: Options<SetAppDefinitionData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -4870,7 +4858,7 @@ export const setPromptFormat = <ThrowOnError extends boolean = false>(
   });
 };
 
-export const setPromptInputs = <ThrowOnError extends boolean = false>(
+const setPromptInputs = <ThrowOnError extends boolean = false>(
   options: Options<SetPromptInputsData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -5479,40 +5467,6 @@ export const setViewport = <ThrowOnError extends boolean = false>(
   });
 };
 
-export const setWatchCodeEnabled = <ThrowOnError extends boolean = false>(
-  options: Options<SetWatchCodeEnabledData, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    SetWatchCodeEnabledResponses,
-    SetWatchCodeEnabledErrors,
-    ThrowOnError
-  >({
-    url: "/setWatchCodeEnabled",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-};
-
-export const setWatchCodeInputs = <ThrowOnError extends boolean = false>(
-  options: Options<SetWatchCodeInputsData, ThrowOnError>,
-) => {
-  return (options.client ?? client).post<
-    SetWatchCodeInputsResponses,
-    SetWatchCodeInputsErrors,
-    ThrowOnError
-  >({
-    url: "/setWatchCodeInputs",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-};
-
 export const setWindowSpaceName = <ThrowOnError extends boolean = false>(
   options: Options<SetWindowSpaceNameData, ThrowOnError>,
 ) => {
@@ -5640,7 +5594,7 @@ export const getShareDeploymentCurrentSession = <
 /**
  * Get the latest published version for a share deployment.
  */
-export const getShareDeploymentLatest = <ThrowOnError extends boolean = false>(
+const getShareDeploymentLatest = <ThrowOnError extends boolean = false>(
   options: Options<GetShareDeploymentLatestData, ThrowOnError>,
 ) => {
   return (options.client ?? client).get<
@@ -5656,9 +5610,7 @@ export const getShareDeploymentLatest = <ThrowOnError extends boolean = false>(
 /**
  * List published versions for a share deployment.
  */
-export const listShareDeploymentVersions = <
-  ThrowOnError extends boolean = false,
->(
+const listShareDeploymentVersions = <ThrowOnError extends boolean = false>(
   options: Options<ListShareDeploymentVersionsData, ThrowOnError>,
 ) => {
   return (options.client ?? client).get<
@@ -5696,7 +5648,7 @@ export const getShareDeploymentProjectConfig = <
 /**
  * Load the default project state for a share deployment session.
  */
-export const getShareDeploymentState = <ThrowOnError extends boolean = false>(
+const getShareDeploymentState = <ThrowOnError extends boolean = false>(
   options: Options<GetShareDeploymentStateData, ThrowOnError>,
 ) => {
   return (options.client ?? client).get<
@@ -5712,7 +5664,7 @@ export const getShareDeploymentState = <ThrowOnError extends boolean = false>(
 /**
  * Start a managed agent run from an agent profile.
  */
-export const startAgentRun = <ThrowOnError extends boolean = false>(
+const startAgentRun = <ThrowOnError extends boolean = false>(
   options: Options<StartAgentRunData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -5732,7 +5684,7 @@ export const startAgentRun = <ThrowOnError extends boolean = false>(
 /**
  * Start a run chain.
  */
-export const startRunChain = <ThrowOnError extends boolean = false>(
+const startRunChain = <ThrowOnError extends boolean = false>(
   options: Options<StartRunChainData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -5792,7 +5744,7 @@ export const startTranscriptionSession = <ThrowOnError extends boolean = false>(
 /**
  * Stop a managed agent run.
  */
-export const stopAgentRun = <ThrowOnError extends boolean = false>(
+const stopAgentRun = <ThrowOnError extends boolean = false>(
   options: Options<StopAgentRunData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -5852,7 +5804,7 @@ export const stopLlmChat = <ThrowOnError extends boolean = false>(
 /**
  * Stop a run chain.
  */
-export const stopRunChain = <ThrowOnError extends boolean = false>(
+const stopRunChain = <ThrowOnError extends boolean = false>(
   options: Options<StopRunChainData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<
@@ -6440,7 +6392,7 @@ export const upsertAppGenCustomSkill = <ThrowOnError extends boolean = false>(
 /**
  * Validate an app definition payload against the current catalog.
  */
-export const validateAppDefinition = <ThrowOnError extends boolean = false>(
+const validateAppDefinition = <ThrowOnError extends boolean = false>(
   options: Options<ValidateAppDefinitionData, ThrowOnError>,
 ) => {
   return (options.client ?? client).post<

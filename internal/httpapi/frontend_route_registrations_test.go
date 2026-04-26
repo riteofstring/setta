@@ -50,9 +50,11 @@ func TestRegisterFrontendAPIRoutesLeavesAppSubsystemRoutesOutWithoutContribution
 		RouteAppDeploymentCurrentSession,
 		RouteAppDeploymentProjectConfig,
 		RouteAppDeploymentState,
+		"/setWatchCodeEnabled",
+		"/setWatchCodeInputs",
 	} {
 		if document.Paths[routePath] != nil {
-			t.Fatalf("expected %s to stay absent without app subsystem contributions", routePath)
+			t.Fatalf("expected %s to stay absent without frontend route contributions", routePath)
 		}
 	}
 }
@@ -163,6 +165,8 @@ func TestBuildFrontendHTTPOpenAPIDocumentLeavesAppSubsystemRoutesOutWithoutRegis
 		RouteAppDeploymentCurrentSession,
 		RouteAppDeploymentProjectConfig,
 		RouteAppDeploymentState,
+		"/setWatchCodeEnabled",
+		"/setWatchCodeInputs",
 	} {
 		if document.Paths[routePath] != nil {
 			t.Fatalf("expected %s to stay absent without app subsystem registration builder", routePath)

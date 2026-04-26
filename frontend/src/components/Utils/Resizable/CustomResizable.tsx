@@ -1,7 +1,7 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { useDndMode } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { setSectionSizes } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

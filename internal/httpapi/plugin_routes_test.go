@@ -1619,6 +1619,87 @@ func TestRegisterPluginRootRoutesDispatchesRegisteredBackendRoutes(t *testing.T)
 	}
 }
 
+func TestRegisterPluginRootRoutesDispatchesPluginPrefixedGETBackendRoutesBeforeAssets(t *testing.T) {
+	t.Parallel()
+
+	const routePath = "/plugins/acme.plugin/health"
+	var dispatchedPath string
+	var assetLookups int
+	service := pluginRouteServiceStub{
+		lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+			if method == http.MethodGet && requestPath == routePath {
+				return plugins.BackendRouteLookup{Matched: true, PathExists: true}, nil
+			}
+			return plugins.BackendRouteLookup{}, nil
+		},
+		dispatchRegisteredBackendRouteFunc: func(ctx context.Context, request plugins.BackendHTTPRequest) (plugins.BackendHTTPResponse, bool, error) {
+			dispatchedPath = request.Path
+			return plugins.BackendHTTPResponse{
+				StatusCode: http.StatusOK,
+				Headers: map[string][]string{
+					"Content-Type": {"application/json"},
+				},
+				Body: []byte(`{"ok":true}`),
+			}, true, nil
+		},
+		resolveAssetPathFunc: func(pluginID string, assetPath string) (string, error) {
+			assetLookups++
+			return "", os.ErrNotExist
+		},
+	}
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, routePath, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected backend route 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if dispatchedPath != routePath {
+		t.Fatalf("expected dispatch path %q, got %q", routePath, dispatchedPath)
+	}
+	if assetLookups != 0 {
+		t.Fatalf("expected backend route to bypass asset lookup, got %d lookups", assetLookups)
+	}
+}
+
+func TestRegisterPluginRootRoutesFallsBackToPluginAssetsForUnregisteredGETRoutes(t *testing.T) {
+	t.Parallel()
+
+	assetRoot := t.TempDir()
+	assetPath := filepath.Join(assetRoot, "static.js")
+	if err := os.WriteFile(assetPath, []byte("export const ok = true;\n"), 0o644); err != nil {
+		t.Fatalf("write plugin asset: %v", err)
+	}
+	var lookupCalls int
+	service := pluginRouteServiceStub{
+		lookupRegisteredBackendRouteFunc: func(method string, requestPath string) (plugins.BackendRouteLookup, error) {
+			lookupCalls++
+			return plugins.BackendRouteLookup{}, nil
+		},
+		resolveAssetPathFunc: func(pluginID string, requestAssetPath string) (string, error) {
+			if pluginID != "acme.plugin" || requestAssetPath != "static.js" {
+				t.Fatalf("unexpected asset lookup plugin=%q path=%q", pluginID, requestAssetPath)
+			}
+			return assetPath, nil
+		},
+	}
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/plugins/acme.plugin/static.js", nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected plugin asset 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if lookupCalls != 1 {
+		t.Fatalf("expected backend lookup before asset fallback, got %d calls", lookupCalls)
+	}
+	if !strings.Contains(response.Body.String(), "export const ok = true;") {
+		t.Fatalf("unexpected asset body %q", response.Body.String())
+	}
+}
+
 func TestRegisterPluginRootRoutesRequireAuthOnlyForRegisteredBackendRoutes(t *testing.T) {
 	t.Parallel()
 

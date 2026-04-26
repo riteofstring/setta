@@ -110,18 +110,6 @@ describe("local storage merge", () => {
     expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
-  it("treats the removed WatchCode overview tab as invalid state", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      { overviewTab: "WatchCode" } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
-  });
-
   it("sanitizes invalid notifications pane tab values", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
@@ -137,18 +125,6 @@ describe("local storage merge", () => {
     expect(merged.overviewNotificationsPaneTab).toBe(
       OverviewNotificationsPaneTabEnum.Notifications,
     );
-  });
-
-  it("ignores persisted watch-code portal visibility because it is session-local", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      { watchCodePortalOpen: true } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.watchCodePortalOpen).toBe(false);
   });
 
   it("sanitizes malformed persisted custom slash command shapes deeply", () => {

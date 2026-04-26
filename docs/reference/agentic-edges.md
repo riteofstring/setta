@@ -15,8 +15,11 @@ Scope semantics (used by agentic scope enforcement):
 - `chat_chat` grants read access to the peer chat section.
 
 ## Data model
-Agentic edges live on `ProjectConfig.agenticEdges` and use the `AgenticEdge`
-model (`backend/setta/types/project_config.py`):
+Agentic edges live on Go `Project.AgenticEdges`
+(`internal/projectstate/document.go`) and use the Go `AgenticEdge` model
+(`internal/projectstate/frontend_source.go`). Downstream Python consumes the
+generated `ProjectConfig.agenticEdges` and `AgenticEdge` models in
+`backend/setta/types/generated/go_shared_types.py`:
 - `id`: edge id.
 - `sourceSectionId` / `targetSectionId`: section endpoints (no port ids).
 - `kind`: one of the edge kinds above.

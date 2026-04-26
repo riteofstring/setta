@@ -18,6 +18,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdklocalcore"
 	"setta/internal/realtime"
+	"setta/internal/watchcodecontracts"
 	"setta/internal/workspacelaunch"
 )
 
@@ -140,6 +141,51 @@ func Build() (GeneratedConstants, error) {
 			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE",
 			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
 		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeGetProjectData),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetInputs),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_SET_FOLDERS",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetFolders),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_SET_FILES",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetFiles),
+		},
+		{Name: "WATCH_CODE_BACKEND_CONTRACT_VERSION", PythonExpr: strconv.Itoa(watchcodecontracts.BackendContractVersion)},
+		{Name: "WATCH_CODE_BACKEND_DATA_SCHEMA_VERSION", PythonExpr: strconv.Itoa(watchcodecontracts.BackendDataSchemaVersion)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_BASE_PATH", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendRouteBasePath)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendRouteSuffixInputs)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_SUFFIXES", PythonExpr: pythonStringTupleExpr(watchcodecontracts.BackendRouteSuffixes())},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendLocalSettingIDFolders)},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_FILES", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendLocalSettingIDFiles)},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_IDS", PythonExpr: pythonStringTupleExpr(watchcodecontracts.BackendLocalSettingIDs())},
+		{
+			Name: "WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID",
+			PythonExpr: "MappingProxyType(" + pythonStringDictExpr(
+				watchcodecontracts.BackendReadHandlerByLocalSettingID(),
+			) + ")",
+		},
+		{
+			Name: "WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID",
+			PythonExpr: "MappingProxyType(" + pythonStringDictExpr(
+				watchcodecontracts.BackendWriteHandlerByLocalSettingID(),
+			) + ")",
+		},
+		{Name: "WATCH_CODE_BACKEND_ERROR_INVALID_JSON", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInvalidJSON)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_INVALID_REQUEST", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInvalidRequest)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_INTERNAL", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInternal)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_METHOD_NOT_ALLOWED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorMethodNotAllowed)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_NOT_FOUND", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorNotFound)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_ID_REQUIRED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorProjectConfigIDRequired)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_NOT_FOUND", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorProjectConfigNotFound)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_INVALID_WATCH_CODE_INPUT", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInvalidWatchCodeInput)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorProviderRequired)},
 		{
 			Name:       "DEPLOYMENT_LISTENER_READY_SENTINEL",
 			PythonExpr: pythonStringLiteral(deployments.DeploymentListenerReadySentinel),

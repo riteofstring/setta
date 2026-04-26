@@ -1322,57 +1322,6 @@
         "required": ["x", "y", "zoom"],
         "type": "object"
       },
-      "ProjectstateWatchCodeFolder": {
-        "additionalProperties": false,
-        "properties": {
-          "path": {
-            "type": "string"
-          },
-          "recursive": {
-            "type": "boolean"
-          }
-        },
-        "required": ["path", "recursive"],
-        "type": "object"
-      },
-      "ProjectstateWatchCodeRegistryEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "bodyHash": {
-            "type": "string"
-          },
-          "callableName": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "sectionIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "sectionsCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "signatureHash": {
-            "type": "string"
-          },
-          "sourcePath": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "callableName",
-          "kind",
-          "signatureHash",
-          "bodyHash",
-          "sourcePath"
-        ],
-        "type": "object"
-      },
       "ProjectstateWindowSpaceConfig": {
         "additionalProperties": false,
         "properties": {
@@ -1576,36 +1525,6 @@
           "viewportInitialized": {
             "type": "boolean"
           },
-          "watchCodeBaselineByPath": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": ["array", "null"]
-            },
-            "type": "object"
-          },
-          "watchCodeEnabled": {
-            "type": "boolean"
-          },
-          "watchCodeFiles": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeFolders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeRegistry": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeRegistryEntry"
-            },
-            "type": "object"
-          },
           "windowSpaceIdsBySlug": {
             "additionalProperties": {
               "items": {
@@ -1641,11 +1560,6 @@
           "hasPythonCodegenTarget",
           "runCapabilities",
           "codegenTargets",
-          "watchCodeEnabled",
-          "watchCodeFolders",
-          "watchCodeFiles",
-          "watchCodeRegistry",
-          "watchCodeBaselineByPath",
           "entryCodeBlockId",
           "sectionPathSlugsById",
           "sectionIdsByPathSlug",
@@ -1776,6 +1690,10 @@
             },
             "type": "object"
           },
+          "pluginData": {
+            "additionalProperties": {},
+            "type": "object"
+          },
           "projectChatWindowing": {
             "$ref": "#/components/schemas/ProjectstateProjectChatWindowingState"
           },
@@ -1829,6 +1747,7 @@
           "codeObjImpls",
           "codeObjVariants",
           "projectConfig",
+          "pluginData",
           "singletonSections",
           "parentSectionMap",
           "shownParamIds",

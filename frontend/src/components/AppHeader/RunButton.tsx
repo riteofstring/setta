@@ -1,4 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
+import { resolveMainRunRequest } from "@setta/app-subsystem-frontend-sdk";
 import { onOverviewTabClick } from "components/Panes/paneFns";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
@@ -24,7 +25,6 @@ import {
   useRunControl,
 } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
-import { resolveMainRunRequest } from "utils/runCapabilities";
 
 type RunModeOption = {
   label: string;

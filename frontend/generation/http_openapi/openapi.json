@@ -6879,47 +6879,6 @@
         "required": ["projectConfigId", "viewport"],
         "type": "object"
       },
-      "HttpapiSetWatchCodeEnabledRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          }
-        },
-        "required": ["projectConfigId", "enabled"],
-        "type": "object"
-      },
-      "HttpapiSetWatchCodeInputsRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "frontendOpId": {
-            "type": "string"
-          },
-          "projectConfigId": {
-            "type": "string"
-          },
-          "watchCodeFiles": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeFolders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          }
-        },
-        "required": ["projectConfigId", "watchCodeFolders", "watchCodeFiles"],
-        "type": "object"
-      },
       "HttpapiSetWindowSpaceNameRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8342,9 +8301,12 @@
         "properties": {
           "appSubsystem": {
             "$ref": "#/components/schemas/PluginsPluginAppSubsystemCapabilities"
+          },
+          "watchCode": {
+            "$ref": "#/components/schemas/PluginsPluginWatchCodeCapabilities"
           }
         },
-        "required": ["appSubsystem"],
+        "required": ["appSubsystem", "watchCode"],
         "type": "object"
       },
       "PluginsPluginFrontendDescriptor": {
@@ -8913,6 +8875,9 @@
           },
           "serverMode": {
             "type": "string"
+          },
+          "watchCodeSelection": {
+            "$ref": "#/components/schemas/PluginsPluginWatchCodeProviderSelection"
           }
         },
         "required": [
@@ -8965,6 +8930,124 @@
           "toVersion",
           "sourceDigestSha256",
           "restartRequired"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginWatchCodeCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasControlsUi": {
+            "type": "boolean"
+          },
+          "languageServerDependency": {
+            "$ref": "#/components/schemas/PluginsPluginWatchCodeLanguageServerDependencyStatus"
+          },
+          "pluginEnabled": {
+            "type": "boolean"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "providerSelection": {
+            "$ref": "#/components/schemas/PluginsPluginWatchCodeProviderSelection"
+          },
+          "python": {
+            "type": "boolean"
+          },
+          "requiresLanguageServer": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pluginId",
+          "pluginEnabled",
+          "python",
+          "requiresLanguageServer",
+          "canvasControlsUi"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginWatchCodeLanguageServerDependencyStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "appliedPluginId": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "selectedPluginId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "required",
+          "status",
+          "message",
+          "restartRequired"
+        ],
+        "type": "object"
+      },
+      "PluginsPluginWatchCodeProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "activePluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "conflictingPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "disabledPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "invalidPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "pendingRestartPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["array", "null"]
+          },
+          "selectedPluginId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "activePluginIds",
+          "disabledPluginIds",
+          "invalidPluginIds",
+          "pendingRestartPluginIds",
+          "conflictingPluginIds"
         ],
         "type": "object"
       },
@@ -10588,57 +10671,6 @@
         "required": ["x", "y", "w", "h"],
         "type": "object"
       },
-      "ProjectstateWatchCodeFolder": {
-        "additionalProperties": false,
-        "properties": {
-          "path": {
-            "type": "string"
-          },
-          "recursive": {
-            "type": "boolean"
-          }
-        },
-        "required": ["path", "recursive"],
-        "type": "object"
-      },
-      "ProjectstateWatchCodeRegistryEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "bodyHash": {
-            "type": "string"
-          },
-          "callableName": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "sectionIds": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "sectionsCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "signatureHash": {
-            "type": "string"
-          },
-          "sourcePath": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "callableName",
-          "kind",
-          "signatureHash",
-          "bodyHash",
-          "sourcePath"
-        ],
-        "type": "object"
-      },
       "ProjectstateWindowSpaceConfig": {
         "additionalProperties": false,
         "properties": {
@@ -10861,36 +10893,6 @@
           "viewportInitialized": {
             "type": "boolean"
           },
-          "watchCodeBaselineByPath": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": ["array", "null"]
-            },
-            "type": "object"
-          },
-          "watchCodeEnabled": {
-            "type": "boolean"
-          },
-          "watchCodeFiles": {
-            "items": {
-              "type": "string"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeFolders": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeFolder"
-            },
-            "type": ["array", "null"]
-          },
-          "watchCodeRegistry": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ProjectstateWatchCodeRegistryEntry"
-            },
-            "type": "object"
-          },
           "windowSpaceIdsBySlug": {
             "additionalProperties": {
               "items": {
@@ -10926,11 +10928,6 @@
           "hasPythonCodegenTarget",
           "runCapabilities",
           "codegenTargets",
-          "watchCodeEnabled",
-          "watchCodeFolders",
-          "watchCodeFiles",
-          "watchCodeRegistry",
-          "watchCodeBaselineByPath",
           "entryCodeBlockId",
           "sectionPathSlugsById",
           "sectionIdsByPathSlug",
@@ -11061,6 +11058,10 @@
             },
             "type": "object"
           },
+          "pluginData": {
+            "additionalProperties": {},
+            "type": "object"
+          },
           "projectChatWindowing": {
             "$ref": "#/components/schemas/ProjectstateProjectChatWindowingState"
           },
@@ -11114,6 +11115,7 @@
           "codeObjImpls",
           "codeObjVariants",
           "projectConfig",
+          "pluginData",
           "singletonSections",
           "parentSectionMap",
           "shownParamIds",
@@ -21729,84 +21731,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/HttpapiSetViewportRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "null"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpapiErrorResponse"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled"
-      }
-    },
-    "/setWatchCodeEnabled": {
-      "post": {
-        "operationId": "setWatchCodeEnabled",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HttpapiSetWatchCodeEnabledRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "null"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HttpapiErrorResponse"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "tags": ["Project"],
-        "x-setta-auth-requirement": "auth-cookie-when-enabled"
-      }
-    },
-    "/setWatchCodeInputs": {
-      "post": {
-        "operationId": "setWatchCodeInputs",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HttpapiSetWatchCodeInputsRequest"
               }
             }
           },

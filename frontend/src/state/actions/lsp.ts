@@ -1,5 +1,5 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { restartLanguageServer as restartLanguageServerRequest } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useShareSession, useWaitingForLSPResult } from "state/definitions";
 import { addTemporaryNotification } from "./notifications";
 

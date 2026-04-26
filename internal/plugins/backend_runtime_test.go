@@ -435,6 +435,9 @@ func TestServiceAppSubsystemPrivateListenerEndpointsArePluginScoped(t *testing.T
 func TestServiceBackendUISettingRoundTripInvokesGoBackendExecutable(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerUISettings"}
+	})
 	writePluginBackendUISettingFixtureMainGo(t, pluginRoot, false)
 
 	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
@@ -484,6 +487,38 @@ func TestServiceBackendUISettingRoundTripInvokesGoBackendExecutable(t *testing.T
 	}
 }
 
+func TestServiceBackendUISettingStructuredErrorRoundTrips(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "full")
+	rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+		payload["capabilities"] = []string{"registerUISettings"}
+	})
+	writePluginBackendUISettingFixtureMainGo(t, pluginRoot, false)
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+
+	err := service.WriteBackendUISettingValue(context.Background(), BackendUISettingWriteOptions{
+		PluginID:        "setta-fixture-full",
+		HandlerID:       "write-backend-enabled",
+		ProjectConfigID: "project-alpha",
+		Value:           "backend-error",
+	})
+	if err == nil {
+		t.Fatal("expected structured backend ui setting error")
+	}
+
+	var runtimeErr *BackendRuntimeError
+	if !errors.As(err, &runtimeErr) {
+		t.Fatalf("expected BackendRuntimeError, got %T (%v)", err, err)
+	}
+	if runtimeErr.Code != "fixture_backend_error" || runtimeErr.Message != "Fixture backend error." {
+		t.Fatalf("unexpected backend runtime error %#v", runtimeErr)
+	}
+	if runtimeErr.Details["handlerId"] != "write-backend-enabled" {
+		t.Fatalf("expected error details to round-trip, got %#v", runtimeErr.Details)
+	}
+}
+
 func writePluginBackendUISettingFixtureMainGo(t *testing.T, pluginRoot string, invalidPostWrite bool) {
 	t.Helper()
 
@@ -513,11 +548,23 @@ type runtimeRequest struct {
 	UISetting     *uiSettingRequest `+"`json:\"uiSetting,omitempty\"`"+`
 }
 
+type backendRequestContext struct {
+	ServerMode      string `+"`json:\"serverMode\"`"+`
+	HasAuth         bool   `+"`json:\"hasAuth\"`"+`
+	SessionID       string `+"`json:\"sessionId,omitempty\"`"+`
+	ShareSessionID  string `+"`json:\"shareSessionId,omitempty\"`"+`
+	ProjectConfigID string `+"`json:\"projectConfigId,omitempty\"`"+`
+	WorkspaceRoot   string `+"`json:\"workspaceRoot,omitempty\"`"+`
+	SettaFilesRoot  string `+"`json:\"settaFilesRoot,omitempty\"`"+`
+	RuntimeRoot     string `+"`json:\"runtimeRoot,omitempty\"`"+`
+}
+
 type uiSettingRequest struct {
-	HandlerID       string `+"`json:\"handlerId\"`"+`
-	Operation       string `+"`json:\"operation\"`"+`
-	ProjectConfigID string `+"`json:\"projectConfigId\"`"+`
-	Value           any    `+"`json:\"value,omitempty\"`"+`
+	Context         backendRequestContext `+"`json:\"context\"`"+`
+	HandlerID       string                `+"`json:\"handlerId\"`"+`
+	Operation       string                `+"`json:\"operation\"`"+`
+	ProjectConfigID string                `+"`json:\"projectConfigId\"`"+`
+	Value           any                   `+"`json:\"value,omitempty\"`"+`
 }
 
 type runtimeResponse struct {
@@ -579,6 +626,7 @@ func handleRuntime() {
 }
 
 func handleUISetting(request uiSettingRequest) {
+	validateUISettingContext(request)
 	switch strings.TrimSpace(request.HandlerID) {
 	case "read-backend-enabled":
 		if strings.TrimSpace(request.Operation) != "read" {
@@ -595,6 +643,21 @@ func handleUISetting(request uiSettingRequest) {
 		if strings.TrimSpace(request.Operation) != "write" {
 			fail("unexpected ui setting operation %%q", request.Operation)
 		}
+		if text, ok := request.Value.(string); ok && text == "backend-error" {
+			writeJSON(runtimeResponse{
+				SchemaVersion: 1,
+				UISetting: map[string]any{
+					"error": map[string]any{
+						"code":    "fixture_backend_error",
+						"message": "Fixture backend error.",
+						"details": map[string]any{
+							"handlerId": request.HandlerID,
+						},
+					},
+				},
+			})
+			return
+		}
 		value, ok := request.Value.(bool)
 		if !ok {
 			fail("ui setting write value must be boolean")
@@ -610,6 +673,21 @@ func handleUISetting(request uiSettingRequest) {
 		})
 	default:
 		fail("unsupported ui setting handler %%q", request.HandlerID)
+	}
+}
+
+func validateUISettingContext(request uiSettingRequest) {
+	if strings.TrimSpace(request.Context.ServerMode) != "ide" {
+		fail("ui setting runtime context serverMode is required")
+	}
+	if strings.TrimSpace(request.Context.ProjectConfigID) != strings.TrimSpace(request.ProjectConfigID) {
+		fail("ui setting runtime context projectConfigId mismatch")
+	}
+	if strings.TrimSpace(request.Context.WorkspaceRoot) == "" {
+		fail("ui setting runtime context workspaceRoot is required")
+	}
+	if strings.TrimSpace(request.Context.SettaFilesRoot) == "" {
+		fail("ui setting runtime context settaFilesRoot is required")
 	}
 }
 

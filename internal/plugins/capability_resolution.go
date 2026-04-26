@@ -17,8 +17,10 @@ var (
 	resolverKnownPluginCapabilities = map[string]struct{}{
 		"registerSectionKinds":         {},
 		"registerPane":                 {},
+		"registerSettingRevealHandler": {},
 		"registerCommand":              {},
 		"registerTopNavBarItem":        {},
+		"registerCanvasControl":        {},
 		"registerContextMenu":          {},
 		"readProjectState":             {},
 		"subscribeProjectState":        {},
@@ -31,37 +33,60 @@ var (
 		"registerListenerEndpoint":     {},
 		"registerStaticDir":            {},
 		"registerAppSubsystemBackend":  {},
+		"registerWatchCodeBackend":     {},
+		"registerUISettings":           {},
 		"writeWorkspacePlugins":        {},
 	}
+	resolverLauncherAllowedCapabilities = resolverCapabilitySetWithout(
+		resolverKnownPluginCapabilities,
+		"registerWatchCodeBackend",
+	)
 	resolverHostBlockedCapabilities = map[string]struct{}{
 		"registerContextMenu":          {},
 		"registerExternalAgentAdapter": {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{
 		config.ModeIDE:      resolverKnownPluginCapabilities,
-		config.ModeLauncher: resolverKnownPluginCapabilities,
+		config.ModeLauncher: resolverLauncherAllowedCapabilities,
 		config.ModeShare: {
-			"registerSectionKinds":        {},
-			"registerPane":                {},
-			"registerCommand":             {},
-			"registerTopNavBarItem":       {},
-			"readProjectState":            {},
-			"subscribeProjectState":       {},
-			"emitListenerEvents":          {},
-			"registerAppSubsystemBackend": {},
+			"registerSectionKinds":         {},
+			"registerPane":                 {},
+			"registerSettingRevealHandler": {},
+			"registerCommand":              {},
+			"registerTopNavBarItem":        {},
+			"registerCanvasControl":        {},
+			"readProjectState":             {},
+			"subscribeProjectState":        {},
+			"emitListenerEvents":           {},
+			"registerAppSubsystemBackend":  {},
+			"registerUISettings":           {},
 		},
 		config.ModeApp: {
-			"registerSectionKinds":        {},
-			"registerPane":                {},
-			"registerCommand":             {},
-			"registerTopNavBarItem":       {},
-			"readProjectState":            {},
-			"subscribeProjectState":       {},
-			"emitListenerEvents":          {},
-			"registerAppSubsystemBackend": {},
+			"registerSectionKinds":         {},
+			"registerPane":                 {},
+			"registerSettingRevealHandler": {},
+			"registerCommand":              {},
+			"registerTopNavBarItem":        {},
+			"registerCanvasControl":        {},
+			"readProjectState":             {},
+			"subscribeProjectState":        {},
+			"emitListenerEvents":           {},
+			"registerAppSubsystemBackend":  {},
+			"registerUISettings":           {},
 		},
 	}
 )
+
+func resolverCapabilitySetWithout(source map[string]struct{}, blocked ...string) map[string]struct{} {
+	result := make(map[string]struct{}, len(source))
+	for capability := range source {
+		result[capability] = struct{}{}
+	}
+	for _, capability := range blocked {
+		delete(result, capability)
+	}
+	return result
+}
 
 func resolveFilesystemPluginCapabilities(requested []string, serverMode config.Mode) ([]string, []string, []PluginBlockedCapability, error) {
 	allowed, ok := resolverModeAllowedCapabilities[serverMode]

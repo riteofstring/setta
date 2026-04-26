@@ -1,11 +1,14 @@
 import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   getAttachmentDownloadUrls,
   type HttpapiAttachmentDownloadUrlEntry,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { BaseChatMessageUnion, ChatFileAttachment } from "utils/generatedTypes";
 const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30000;
 export type AttachmentUrlEntry = {

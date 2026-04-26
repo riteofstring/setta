@@ -84,7 +84,7 @@ test("deployment terminals still use the Go websocket route shape", async ({
 
     const latestProjectState = await page.evaluate(async (projectConfigId) => {
       const { getLatestProjectState } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/src/openapi/http/result");
+      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
       const response = await callOpenAPI(
         getLatestProjectState({
           body: {

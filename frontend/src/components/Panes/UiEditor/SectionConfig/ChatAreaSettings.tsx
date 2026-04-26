@@ -1,3 +1,9 @@
+import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
 import { DICTATION_MODE_ITEMS } from "components/Chat/dictationMode";
 import { buildEngineGroups } from "components/Chat/engineUtils";
 import {
@@ -20,7 +26,6 @@ import {
   type AgenticsummarycacheAgenticSummaryCacheStatus as AgenticSummaryCacheStatus,
   type SetChatSectionSettingsData,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createAgenticEdgeFromSections,
@@ -45,11 +50,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,

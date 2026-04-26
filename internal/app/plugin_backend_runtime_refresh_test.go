@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/lsp"
 	"setta/internal/plugins"
+	"setta/internal/projectstate"
 )
 
 func TestCloneLanguageServerSpecsDeepCopiesSettings(t *testing.T) {
@@ -129,16 +130,28 @@ func TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError(t *tes
 		PluginEnabled: true,
 		AppPreviewUI:  true,
 	})
+	watchCodeCapabilities := newWatchCodeCapabilityState()
+	watchCodeCapabilities.Set(plugins.PluginWatchCodeCapabilities{
+		PluginID:      "setta-fixture-watch-code-provider",
+		PluginEnabled: true,
+		Python:        true,
+	})
 	refresher := &pluginBackendRuntimeRefresher{
 		service:                  service,
 		runtime:                  previousRuntime,
 		appSubsystemCapabilities: capabilities,
+		watchCodeCapabilities:    watchCodeCapabilities,
 		refreshAppHandler: func() error {
 			return context.Canceled
 		},
 	}
 
-	_, err := newPluginMutationRuntimeService(service, refresher, capabilities).Rescan()
+	_, err := newPluginMutationRuntimeService(
+		service,
+		refresher,
+		capabilities,
+		watchCodeCapabilities,
+	).Rescan()
 	if err == nil {
 		t.Fatal("expected handler refresh failure")
 	}
@@ -148,6 +161,10 @@ func TestPluginMutationRuntimeServiceRescanRollsBackOnHandlerRefreshError(t *tes
 	currentCapabilities := capabilities.AppSubsystemCapabilities()
 	if !currentCapabilities.PluginEnabled || currentCapabilities.PluginID != "setta-fixture-app-provider" || !currentCapabilities.AppPreviewUI {
 		t.Fatalf("expected app subsystem capabilities to roll back, got %#v", currentCapabilities)
+	}
+	currentWatchCodeCapabilities := watchCodeCapabilities.WatchCodeCapabilities()
+	if !currentWatchCodeCapabilities.PluginEnabled || currentWatchCodeCapabilities.PluginID != "setta-fixture-watch-code-provider" || !currentWatchCodeCapabilities.Python {
+		t.Fatalf("expected watch code capabilities to roll back, got %#v", currentWatchCodeCapabilities)
 	}
 }
 
@@ -161,7 +178,12 @@ func TestPluginMutationRuntimeServiceRescanKeepsCommittedSnapshotOnHandlerRefres
 			return context.Canceled
 		},
 	}
-	runtimeService := newPluginMutationRuntimeService(service, refresher, newAppSubsystemCapabilityState())
+	runtimeService := newPluginMutationRuntimeService(
+		service,
+		refresher,
+		newAppSubsystemCapabilityState(),
+		newWatchCodeCapabilityState(),
+	)
 
 	initial, err := runtimeService.Runtime(plugins.RuntimeOptions{})
 	if err != nil {
@@ -215,13 +237,7 @@ func TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefres
 	t *testing.T,
 ) {
 	service, settaFilesRoot := newPluginRuntimeRefreshTestService(t)
-	if err := os.WriteFile(
-		filepath.Join(settaFilesRoot, "plugins_state.json"),
-		[]byte("{\n  \"pendingRestartBackendPluginIds\": [\"setta-fixture-backend\"],\n  \"pendingRestartLanguageServerOnlyPluginIds\": [\"setta-fixture-backend\"]\n}\n"),
-		0o644,
-	); err != nil {
-		t.Fatalf("write pending restart plugin state: %v", err)
-	}
+	writePluginRuntimeRefreshPendingRestartState(t, settaFilesRoot, "setta-fixture-backend")
 
 	previousRuntime := &pluginBackendMCPRuntime{toolNames: []string{"existing_tool"}}
 	previousSpecs := []lsp.LanguageServerSpec{
@@ -278,6 +294,96 @@ func TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefres
 	}
 }
 
+func TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnProjectReconcileError(
+	t *testing.T,
+) {
+	service, workspaceRoot, settaFilesRoot := newPluginRuntimeRefreshTestServiceWithRoots(t)
+	seedAppPluginFixture(t, workspaceRoot, "backend")
+	rewriteAppPluginManifest(t, filepath.Join(workspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+		enableAppPluginManifestWatchCodeProvider(payload)
+	})
+	writePluginRuntimeRefreshPendingRestartState(t, settaFilesRoot, "setta-fixture-backend")
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	previousRuntime := &pluginBackendMCPRuntime{toolNames: []string{"existing_tool"}}
+	previousSpecs := []lsp.LanguageServerSpec{
+		{
+			PluginID:   "setta-previous-lsp",
+			LanguageID: "python",
+			Command:    "python",
+			Settings:   map[string]any{},
+		},
+	}
+	watchCodeCapabilities := newWatchCodeCapabilityState()
+	watchCodeCapabilities.Set(plugins.PluginWatchCodeCapabilities{
+		PluginID:      "setta-previous-watch-code",
+		PluginEnabled: true,
+		Python:        true,
+	})
+	restarter := &recordingProjectDocumentRestarter{
+		onRestart: func(projectstate.Document) error {
+			return context.Canceled
+		},
+	}
+	refresher := &pluginBackendRuntimeRefresher{
+		service:               service,
+		runtime:               previousRuntime,
+		lspSpecs:              cloneLanguageServerSpecs(previousSpecs),
+		appliedLSPSpecs:       cloneLanguageServerSpecs(previousSpecs),
+		projectState:          projectRuntime,
+		projectSync:           restarter,
+		watchCodeCapabilities: watchCodeCapabilities,
+	}
+
+	_, err = refresher.Refresh(context.Background())
+	if err == nil {
+		t.Fatal("expected project reconcile failure")
+	}
+	if restarter.restartCount == 0 {
+		t.Fatal("expected project reconciliation to be attempted")
+	}
+	if refresher.runtime != previousRuntime {
+		t.Fatalf("expected runtime to roll back to previous instance, got %#v", refresher.runtime)
+	}
+	if !languageServerSpecSlicesEqual(refresher.lspSpecs, previousSpecs) {
+		t.Fatalf("expected lsp specs to remain unchanged, got %#v", refresher.lspSpecs)
+	}
+	if !languageServerSpecSlicesEqual(refresher.appliedLSPSpecs, previousSpecs) {
+		t.Fatalf("expected applied lsp specs to remain unchanged, got %#v", refresher.appliedLSPSpecs)
+	}
+	state, err := service.BackendRuntimeRefreshState()
+	if err != nil {
+		t.Fatalf("load backend runtime refresh state: %v", err)
+	}
+	if len(state.PendingRestartBackendPluginIDs) != 1 || state.PendingRestartBackendPluginIDs[0] != "setta-fixture-backend" {
+		t.Fatalf("expected pending backend ids to be restored, got %#v", state.PendingRestartBackendPluginIDs)
+	}
+	if len(state.PendingRestartLanguageServerOnlyPluginIDs) != 1 || state.PendingRestartLanguageServerOnlyPluginIDs[0] != "setta-fixture-backend" {
+		t.Fatalf("expected pending language-server-only ids to be restored, got %#v", state.PendingRestartLanguageServerOnlyPluginIDs)
+	}
+	currentWatchCodeCapabilities := watchCodeCapabilities.WatchCodeCapabilities()
+	if currentWatchCodeCapabilities.PluginID != "setta-previous-watch-code" ||
+		!currentWatchCodeCapabilities.PluginEnabled ||
+		!currentWatchCodeCapabilities.Python {
+		t.Fatalf("expected watch code capabilities to roll back, got %#v", currentWatchCodeCapabilities)
+	}
+}
+
 func TestPluginMutationRuntimeServiceApplyLockfileRestoresOnHandlerRefreshError(t *testing.T) {
 	service, workspaceRoot, _ := newPluginRuntimeRefreshTestServiceWithRoots(t)
 	seedAppPluginFixture(t, workspaceRoot, "frontend")
@@ -298,6 +404,7 @@ func TestPluginMutationRuntimeServiceApplyLockfileRestoresOnHandlerRefreshError(
 				return context.Canceled
 			},
 		},
+		nil,
 		nil,
 	)
 
@@ -349,6 +456,133 @@ func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatus(t *testing.T) 
 	}
 }
 
+func TestPluginBackendRuntimeRefresherReconcilesProjectDocumentWhenWatchCodeProviderStateChanges(
+	t *testing.T,
+) {
+	tests := []struct {
+		name       string
+		previous   plugins.PluginWatchCodeCapabilities
+		next       plugins.PluginWatchCodeCapabilities
+		wantActive bool
+		wantID     string
+	}{
+		{
+			name: "provider activates",
+			next: plugins.PluginWatchCodeCapabilities{
+				PluginID:      "setta-watch-code",
+				PluginEnabled: true,
+				Python:        true,
+			},
+			wantActive: true,
+			wantID:     "setta-watch-code",
+		},
+		{
+			name: "provider deactivates",
+			previous: plugins.PluginWatchCodeCapabilities{
+				PluginID:      "setta-watch-code",
+				PluginEnabled: true,
+				Python:        true,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+				SchemaVersion:    projectstate.CurrentSchemaVersion,
+				DefaultProjectID: "project-alpha",
+				Projects: map[string]projectstate.Project{
+					"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+				},
+			})
+			if err != nil {
+				t.Fatalf("open project runtime: %v", err)
+			}
+			t.Cleanup(func() {
+				if err := projectRuntime.Close(); err != nil {
+					t.Fatalf("close project runtime: %v", err)
+				}
+			})
+
+			capabilities := newWatchCodeCapabilityState()
+			capabilities.Set(test.next)
+			restarter := &recordingProjectDocumentRestarter{
+				onRestart: func(_ projectstate.Document) error {
+					pluginID, active := capabilities.ActiveProviderPluginID()
+					if active != test.wantActive || pluginID != test.wantID {
+						t.Fatalf("restart saw active provider (%q, %v), want (%q, %v)", pluginID, active, test.wantID, test.wantActive)
+					}
+					return nil
+				},
+			}
+			specs := []lsp.LanguageServerSpec{{PluginID: "setta-basedpyright", LanguageID: "python"}}
+			refresher := &pluginBackendRuntimeRefresher{
+				projectState:          projectRuntime,
+				projectSync:           restarter,
+				watchCodeCapabilities: capabilities,
+			}
+
+			err = refresher.reconcileProjectDocumentLocked(
+				context.Background(),
+				specs,
+				cloneLanguageServerSpecs(specs),
+				watchCodeActiveProviderChanged(test.previous, test.next),
+			)
+			if err != nil {
+				t.Fatalf("reconcile project document: %v", err)
+			}
+			if restarter.restartCount != 1 {
+				t.Fatalf("expected one project restart, got %d", restarter.restartCount)
+			}
+		})
+	}
+}
+
+func TestPluginBackendRuntimeRefresherSkipsProjectReconcileWhenSpecsAndProviderAreUnchanged(
+	t *testing.T,
+) {
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	capabilities := plugins.PluginWatchCodeCapabilities{
+		PluginID:      "setta-watch-code",
+		PluginEnabled: true,
+		Python:        true,
+	}
+	restarter := &recordingProjectDocumentRestarter{}
+	specs := []lsp.LanguageServerSpec{{PluginID: "setta-basedpyright", LanguageID: "python"}}
+	refresher := &pluginBackendRuntimeRefresher{
+		projectState: projectRuntime,
+		projectSync:  restarter,
+	}
+
+	err = refresher.reconcileProjectDocumentLocked(
+		context.Background(),
+		specs,
+		cloneLanguageServerSpecs(specs),
+		watchCodeActiveProviderChanged(capabilities, capabilities),
+	)
+	if err != nil {
+		t.Fatalf("reconcile project document: %v", err)
+	}
+	if restarter.restartCount != 0 {
+		t.Fatalf("expected no project restart, got %d", restarter.restartCount)
+	}
+}
+
 func newPluginRuntimeRefreshTestService(t *testing.T) (*plugins.Service, string) {
 	service, _, settaFilesRoot := newPluginRuntimeRefreshTestServiceWithRoots(t)
 	return service, settaFilesRoot
@@ -392,6 +626,40 @@ func writePluginRuntimeRefreshTestJSON(t *testing.T, path string, payload any) {
 	if err := os.WriteFile(path, append(content, '\n'), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
+}
+
+func writePluginRuntimeRefreshPendingRestartState(t *testing.T, settaFilesRoot string, pluginID string) {
+	t.Helper()
+
+	writePluginRuntimeRefreshTestJSON(
+		t,
+		filepath.Join(settaFilesRoot, "plugins_state.json"),
+		map[string]any{
+			"pendingRestartBackendPluginIds":            []string{pluginID},
+			"pendingRestartLanguageServerOnlyPluginIds": []string{pluginID},
+		},
+	)
+}
+
+type recordingProjectDocumentRestarter struct {
+	restartCount int
+	onRestart    func(projectstate.Document) error
+}
+
+func (r *recordingProjectDocumentRestarter) Restart(_ context.Context, document projectstate.Document) error {
+	r.restartCount++
+	if r.onRestart != nil {
+		return r.onRestart(document)
+	}
+	return nil
+}
+
+func (r *recordingProjectDocumentRestarter) TypeCheckProject(
+	context.Context,
+	projectstate.Document,
+	string,
+) error {
+	return nil
 }
 
 func TestPluginBackendRuntimeRefresherAppliesLanguageServerStatusForInvalidEntry(t *testing.T) {
@@ -599,6 +867,107 @@ func TestBuildLanguageServerSelectionStatusesReportsSelectedUnavailableAndInclud
 	}
 	if status.AvailableProviders[1].PluginID != "setta-basedpyright" || status.AvailableProviders[1].Available {
 		t.Fatalf("expected unavailable selected provider to remain in options, got %#v", status.AvailableProviders)
+	}
+}
+
+func TestApplyWatchCodeLanguageServerDependencyStatusDerivesPythonLSPState(t *testing.T) {
+	activePluginID := "setta-basedpyright"
+	pendingPluginID := "setta-ty"
+
+	tests := []struct {
+		name                string
+		selections          []plugins.LanguageServerSelectionStatus
+		expectedStatus      plugins.PluginWatchCodeLanguageServerDependencyStatusKind
+		expectedSelectedID  *string
+		expectedAppliedID   *string
+		expectedRestartFlag bool
+	}{
+		{
+			name: "active provider agnostic python lsp",
+			selections: []plugins.LanguageServerSelectionStatus{
+				{
+					Language:         "python",
+					Status:           plugins.LanguageServerSelectionStatusActive,
+					SelectedPluginID: &activePluginID,
+					AppliedPluginID:  &activePluginID,
+				},
+			},
+			expectedStatus:     plugins.PluginWatchCodeLanguageServerDependencyStatusActive,
+			expectedSelectedID: &activePluginID,
+			expectedAppliedID:  &activePluginID,
+		},
+		{
+			name:           "unavailable python lsp",
+			selections:     nil,
+			expectedStatus: plugins.PluginWatchCodeLanguageServerDependencyStatusMissing,
+		},
+		{
+			name: "explicitly disabled python lsp",
+			selections: []plugins.LanguageServerSelectionStatus{
+				{
+					Language: "python",
+					Status:   plugins.LanguageServerSelectionStatusDisabled,
+				},
+			},
+			expectedStatus: plugins.PluginWatchCodeLanguageServerDependencyStatusDisabled,
+		},
+		{
+			name: "pending restart python lsp",
+			selections: []plugins.LanguageServerSelectionStatus{
+				{
+					Language:         "python",
+					Status:           plugins.LanguageServerSelectionStatusPendingRestart,
+					SelectedPluginID: &pendingPluginID,
+					RestartRequired:  true,
+				},
+			},
+			expectedStatus:      plugins.PluginWatchCodeLanguageServerDependencyStatusPendingRestart,
+			expectedSelectedID:  &pendingPluginID,
+			expectedRestartFlag: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			response := plugins.PluginRuntimeResponse{
+				FeatureCapabilities: &plugins.PluginFeatureCapabilities{
+					WatchCode: plugins.PluginWatchCodeCapabilities{
+						PluginID:               "setta-watch-code",
+						PluginEnabled:          true,
+						Python:                 true,
+						RequiresLanguageServer: true,
+					},
+				},
+				Status: plugins.PluginStatusResponse{
+					LanguageServerSelections: test.selections,
+				},
+			}
+
+			applyWatchCodeLanguageServerDependencyStatus(&response)
+
+			dependency := response.FeatureCapabilities.WatchCode.LanguageServerDependency
+			if dependency == nil {
+				t.Fatal("expected watch code language-server dependency status")
+			}
+			if dependency.Language != "python" || !dependency.Required {
+				t.Fatalf("expected required Python dependency, got %#v", dependency)
+			}
+			if dependency.Status != test.expectedStatus {
+				t.Fatalf("expected dependency status %q, got %#v", test.expectedStatus, dependency)
+			}
+			if !optionalStringPointersEqual(dependency.SelectedPluginID, test.expectedSelectedID) {
+				t.Fatalf("expected selected plugin id %#v, got %#v", test.expectedSelectedID, dependency.SelectedPluginID)
+			}
+			if !optionalStringPointersEqual(dependency.AppliedPluginID, test.expectedAppliedID) {
+				t.Fatalf("expected applied plugin id %#v, got %#v", test.expectedAppliedID, dependency.AppliedPluginID)
+			}
+			if dependency.RestartRequired != test.expectedRestartFlag {
+				t.Fatalf("expected restartRequired=%v, got %#v", test.expectedRestartFlag, dependency)
+			}
+			if dependency.Message == "" {
+				t.Fatalf("expected dependency message, got %#v", dependency)
+			}
+		})
 	}
 }
 

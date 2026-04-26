@@ -1,8 +1,8 @@
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import {
   getBackendInitStatus,
   type HttpapiBackendInitStatusResponse as BackendInitStatusResponse,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   createContext,
   useContext,
@@ -10,7 +10,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { res200 } from "utils/endpointUtils";
 
 const BackendInitStatusContext =
   createContext<BackendInitStatusResponse | null>(null);

@@ -10,16 +10,45 @@ import (
 func initializeAppSubsystemCapabilities(
 	projectServices projectServices,
 ) (*appSubsystemCapabilityState, error) {
-	capabilities := newAppSubsystemCapabilityState()
+	appSubsystemCapabilities, _, err := initializePluginFeatureCapabilities(projectServices)
+	return appSubsystemCapabilities, err
+}
+
+func initializePluginFeatureCapabilities(
+	projectServices projectServices,
+) (*appSubsystemCapabilityState, *watchCodeCapabilityState, error) {
+	appSubsystemCapabilities := newAppSubsystemCapabilityState()
+	watchCodeCapabilities := newWatchCodeCapabilityState()
 	if projectServices.pluginMutationService == nil {
-		return capabilities, nil
+		return appSubsystemCapabilities, watchCodeCapabilities, nil
 	}
 	snapshot, err := projectServices.pluginMutationService.Rescan()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	capabilities.SetFromSnapshot(snapshot)
-	return capabilities, nil
+	appSubsystemCapabilities.SetFromSnapshot(snapshot)
+	watchCodeCapabilities.SetFromSnapshot(snapshot)
+	return appSubsystemCapabilities, watchCodeCapabilities, nil
+}
+
+func ensureProjectPluginFeatureCapabilities(
+	projectServices *projectServices,
+) (*appSubsystemCapabilityState, *watchCodeCapabilityState, error) {
+	if projectServices == nil {
+		appSubsystemCapabilities := newAppSubsystemCapabilityState()
+		watchCodeCapabilities := newWatchCodeCapabilityState()
+		return appSubsystemCapabilities, watchCodeCapabilities, nil
+	}
+	if projectServices.appSubsystemCapabilities != nil && projectServices.watchCodeCapabilities != nil {
+		return projectServices.appSubsystemCapabilities, projectServices.watchCodeCapabilities, nil
+	}
+	appSubsystemCapabilities, watchCodeCapabilities, err := initializePluginFeatureCapabilities(*projectServices)
+	if err != nil {
+		return nil, nil, err
+	}
+	projectServices.appSubsystemCapabilities = appSubsystemCapabilities
+	projectServices.watchCodeCapabilities = watchCodeCapabilities
+	return appSubsystemCapabilities, watchCodeCapabilities, nil
 }
 
 func newAppGenerationModeResolver(

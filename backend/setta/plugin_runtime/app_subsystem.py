@@ -3,10 +3,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from setta.plugin_runtime.local_core import (
-    LocalCoreCommandError,
-    run_local_core_command,
-)
+from setta.local_core_client import LocalCoreCommandError, run_local_core_command_once
 from setta.types.generated.go_shared_constants import (
     APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION as _GENERATED_APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION,
 )
@@ -138,7 +135,7 @@ def _handle_listener_endpoint(
     request_context = _request_context(request)
     payload = _request_payload(request)
     try:
-        result = run_local_core_command(
+        result = run_local_core_command_once(
             local_core_command_for_listener_endpoint(endpoint_name),
             _local_core_payload(plugin_id, request_context, payload),
         )

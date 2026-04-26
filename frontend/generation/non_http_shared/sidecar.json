@@ -3104,6 +3104,88 @@
       "schemaRef": "#/$defs/PluginUpdateResponse"
     },
     {
+      "name": "PluginWatchCodeCapabilities",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginWatchCodeCapabilities"
+    },
+    {
+      "name": "PluginWatchCodeFeatureManifest",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginWatchCodeFeatureManifest"
+    },
+    {
+      "name": "PluginWatchCodeLanguageServerDependencyStatus",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginWatchCodeLanguageServerDependencyStatus"
+    },
+    {
+      "name": "PluginWatchCodeLanguageServerDependencyStatusKind",
+      "kind": "enum",
+      "schemaRef": "#/$defs/PluginWatchCodeLanguageServerDependencyStatusKind",
+      "enumValues": [
+        {
+          "name": "unavailable",
+          "value": "unavailable"
+        },
+        {
+          "name": "not_required",
+          "value": "not_required"
+        },
+        {
+          "name": "active",
+          "value": "active"
+        },
+        {
+          "name": "missing",
+          "value": "missing"
+        },
+        {
+          "name": "disabled",
+          "value": "disabled"
+        },
+        {
+          "name": "pending_restart",
+          "value": "pending_restart"
+        }
+      ]
+    },
+    {
+      "name": "PluginWatchCodeProviderSelection",
+      "kind": "model",
+      "schemaRef": "#/$defs/PluginWatchCodeProviderSelection"
+    },
+    {
+      "name": "PluginWatchCodeProviderSelectionStatusKind",
+      "kind": "enum",
+      "schemaRef": "#/$defs/PluginWatchCodeProviderSelectionStatusKind",
+      "enumValues": [
+        {
+          "name": "no_provider",
+          "value": "no_provider"
+        },
+        {
+          "name": "disabled_provider",
+          "value": "disabled_provider"
+        },
+        {
+          "name": "invalid_provider",
+          "value": "invalid_provider"
+        },
+        {
+          "name": "pending_restart",
+          "value": "pending_restart"
+        },
+        {
+          "name": "active",
+          "value": "active"
+        },
+        {
+          "name": "provider_conflict",
+          "value": "provider_conflict"
+        }
+      ]
+    },
+    {
       "name": "PluginsGlobalStateFile",
       "kind": "model",
       "schemaRef": "#/$defs/PluginsGlobalStateFile"
@@ -3226,6 +3308,11 @@
       "name": "ProjectConfigMetadata",
       "kind": "model",
       "schemaRef": "#/$defs/ProjectConfigMetadata"
+    },
+    {
+      "name": "ProjectPluginData",
+      "kind": "alias",
+      "schemaRef": "#/$defs/ProjectPluginData"
     },
     {
       "name": "ProjectRunCapabilities",
@@ -4468,14 +4555,6 @@
         {
           "name": "SET_VIEW_MODE_SORT_ORDER",
           "value": "/setViewModeSortOrder"
-        },
-        {
-          "name": "SET_WATCH_CODE_ENABLED",
-          "value": "/setWatchCodeEnabled"
-        },
-        {
-          "name": "SET_WATCH_CODE_INPUTS",
-          "value": "/setWatchCodeInputs"
         },
         {
           "name": "SET_WINDOW_SPACE_NAME",
@@ -8038,16 +8117,6 @@
       "sourceConstant": "RouteSetViewModeSortOrder"
     },
     {
-      "name": "SET_WATCH_CODE_ENABLED",
-      "path": "/setWatchCodeEnabled",
-      "sourceConstant": "RouteSetWatchCodeEnabled"
-    },
-    {
-      "name": "SET_WATCH_CODE_INPUTS",
-      "path": "/setWatchCodeInputs",
-      "sourceConstant": "RouteSetWatchCodeInputs"
-    },
-    {
       "name": "SET_WINDOW_SPACE_NAME",
       "path": "/setWindowSpaceName",
       "sourceConstant": "RouteSetWindowSpaceName"
@@ -9083,11 +9152,6 @@
         "viewModes": {},
         "viewport": null,
         "viewportInitialized": false,
-        "watchCodeBaselineByPath": {},
-        "watchCodeEnabled": false,
-        "watchCodeFiles": [],
-        "watchCodeFolders": [],
-        "watchCodeRegistry": {},
         "windowSpaceIdsBySlug": {},
         "windowSpaceSlugsById": {},
         "windowSpaces": {}
@@ -9317,15 +9381,15 @@
           "zoom": 1
         },
         "viewportInitialized": false,
-        "watchCodeBaselineByPath": {},
-        "watchCodeEnabled": false,
-        "watchCodeFiles": [],
-        "watchCodeFolders": [],
-        "watchCodeRegistry": {},
         "windowSpaceIdsBySlug": {},
         "windowSpaceSlugsById": {},
         "windowSpaces": {}
       }
+    },
+    {
+      "profile": "frontend",
+      "type": "ProjectPluginData",
+      "value": {}
     },
     {
       "profile": "frontend",
@@ -10616,6 +10680,7 @@
         "codeObjs": {},
         "genCodeBinding": null,
         "parentSectionMap": {},
+        "pluginData": {},
         "projectChatWindowing": {
           "instancesById": {},
           "nextInstanceNumber": 1,
@@ -10648,11 +10713,6 @@
           "viewModes": {},
           "viewport": null,
           "viewportInitialized": false,
-          "watchCodeBaselineByPath": {},
-          "watchCodeEnabled": false,
-          "watchCodeFiles": [],
-          "watchCodeFolders": [],
-          "watchCodeRegistry": {},
           "windowSpaceIdsBySlug": {},
           "windowSpaceSlugsById": {},
           "windowSpaces": {}

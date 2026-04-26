@@ -1,6 +1,9 @@
+import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+} from "@setta/app-subsystem-frontend-sdk";
 import { uploadBinary } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 type UploadBinaryPayloadResult =
   | {
       status: "ok";

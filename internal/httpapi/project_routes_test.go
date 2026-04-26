@@ -4115,305 +4115,9 @@ func TestRegisterProjectRoutesFormatCodeReturns422ForInvalidTarget(t *testing.T)
 	}
 }
 
-func TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs(t *testing.T) {
+func TestRegisterProjectRoutesExcludesCoreWatchCodeRoutes(t *testing.T) {
 	t.Parallel()
 
-	workspaceRoot := t.TempDir()
-	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
-	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
-		t.Fatalf("mkdir watch file parent: %v", err)
-	}
-	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write watch file: %v", err)
-	}
-
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:             "project-alpha",
-				Name:           "Alpha",
-				WatchCodeFiles: []string{"pkg/watch_me.py"},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetWatchCodeEnabled,
-		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	latestRequest := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteGetLatestProjectState,
-		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
-	)
-	latestRequest.Header.Set("Content-Type", "application/json")
-	latestResponse := httptest.NewRecorder()
-	handler.ServeHTTP(latestResponse, latestRequest)
-	if latestResponse.Code != http.StatusOK {
-		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
-	}
-
-	var payload ProjectStateSingleConfigWithCompletedOpIDs
-	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode latest project state payload: %v", err)
-	}
-	if !payload.ProjectState.ProjectConfig.WatchCodeEnabled {
-		t.Fatal("expected watch code to be enabled in latest project state")
-	}
-	expectedBaselineKey := filepath.Clean(watchFile)
-	expectedIdentity := "pkg.watch_me.existing:function"
-	if got := payload.ProjectState.ProjectConfig.WatchCodeBaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
-		t.Fatalf("expected watch code baseline %#v, got %#v", []string{expectedIdentity}, got)
-	}
-}
-
-func TestRegisterProjectRoutesSetWatchCodeEnabledBroadcastsProjectStateUpdate(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
-	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
-		t.Fatalf("mkdir pkg: %v", err)
-	}
-	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write watch file: %v", err)
-	}
-
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:             "project-alpha",
-				Name:           "Alpha",
-				WatchCodeFiles: []string{"pkg/watch_me.py"},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	handler := newProjectRouteTestHandlerWithWebsocketHub(
-		t,
-		config.ModeIDE,
-		projectRuntime,
-		workspaceRoot,
-		websocketHub,
-		nil,
-		nil,
-		nil,
-	)
-	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
-	defer websocketServer.Close()
-
-	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
-	defer websocketClient.CloseNow()
-	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
-
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetWatchCodeEnabled,
-		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
-	if !update.ProjectState.ProjectConfig.WatchCodeEnabled {
-		t.Fatal("expected websocket project state to enable watch code")
-	}
-	expectedBaselineKey := filepath.Clean(watchFile)
-	expectedIdentity := "pkg.watch_me.existing:function"
-	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
-		t.Fatalf("expected websocket watch code baseline %#v, got %#v", []string{expectedIdentity}, got)
-	}
-}
-
-func TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
-	newFile := filepath.Join(workspaceRoot, "pkg", "new_watch.py")
-	if err := os.MkdirAll(filepath.Dir(existingFile), 0o755); err != nil {
-		t.Fatalf("mkdir pkg: %v", err)
-	}
-	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write existing file: %v", err)
-	}
-	if err := os.WriteFile(newFile, []byte("class Added:\n    pass\n"), 0o644); err != nil {
-		t.Fatalf("write new file: %v", err)
-	}
-
-	existingBaselineKey := filepath.Clean(existingFile)
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/existing.py"},
-				WatchCodeBaselineByPath: map[string][]string{
-					existingBaselineKey: []string{"pkg.existing.existing:function"},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetWatchCodeInputs,
-		strings.NewReader(`{"projectConfigId":"project-alpha","watchCodeFolders":[],"watchCodeFiles":["pkg/existing.py","pkg/new_watch.py"]}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
-	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
-		t.Fatalf("expected normalized watch files, got %#v", project.WatchCodeFiles)
-	}
-	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected existing baseline to stay unchanged, got %#v", project.WatchCodeBaselineByPath)
-	}
-	newBaselineKey := filepath.Clean(newFile)
-	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
-		t.Fatalf("expected new baseline, got %#v", project.WatchCodeBaselineByPath)
-	}
-}
-
-func TestRegisterProjectRoutesSetWatchCodeInputsBroadcastsProjectStateUpdate(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
-	newFile := filepath.Join(workspaceRoot, "pkg", "new_watch.py")
-	if err := os.MkdirAll(filepath.Dir(existingFile), 0o755); err != nil {
-		t.Fatalf("mkdir pkg: %v", err)
-	}
-	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
-		t.Fatalf("write existing file: %v", err)
-	}
-	if err := os.WriteFile(newFile, []byte("class Added:\n    pass\n"), 0o644); err != nil {
-		t.Fatalf("write new file: %v", err)
-	}
-
-	existingBaselineKey := filepath.Clean(existingFile)
-	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "project-alpha",
-		Projects: map[string]projectstate.Project{
-			"project-alpha": {
-				ID:               "project-alpha",
-				Name:             "Alpha",
-				WatchCodeEnabled: true,
-				WatchCodeFiles:   []string{"pkg/existing.py"},
-				WatchCodeBaselineByPath: map[string][]string{
-					existingBaselineKey: []string{"pkg.existing.existing:function"},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("open overlay runtime: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := projectRuntime.Close(); err != nil {
-			t.Fatalf("close overlay runtime: %v", err)
-		}
-	})
-
-	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	handler := newProjectRouteTestHandlerWithWebsocketHub(
-		t,
-		config.ModeIDE,
-		projectRuntime,
-		workspaceRoot,
-		websocketHub,
-		nil,
-		nil,
-		nil,
-	)
-	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
-	defer websocketServer.Close()
-
-	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
-	defer websocketClient.CloseNow()
-	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
-
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetWatchCodeInputs,
-		strings.NewReader(`{"projectConfigId":"project-alpha","watchCodeFolders":[],"watchCodeFiles":["pkg/existing.py","pkg/new_watch.py"]}`),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-	}
-
-	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
-	if !reflect.DeepEqual(update.ProjectState.ProjectConfig.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
-		t.Fatalf("expected websocket watch files, got %#v", update.ProjectState.ProjectConfig.WatchCodeFiles)
-	}
-	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
-		t.Fatalf("expected websocket existing baseline to stay unchanged, got %#v", update.ProjectState.ProjectConfig.WatchCodeBaselineByPath)
-	}
-	newBaselineKey := filepath.Clean(newFile)
-	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
-		t.Fatalf("expected websocket new baseline, got %#v", update.ProjectState.ProjectConfig.WatchCodeBaselineByPath)
-	}
-}
-
-func TestRegisterProjectRoutesRejectsWatchCodeInputsOutsideWorkspace(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -4433,21 +4137,25 @@ func TestRegisterProjectRoutesRejectsWatchCodeInputsOutsideWorkspace(t *testing.
 		}
 	})
 
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
-	outsideFile := filepath.Join(filepath.Dir(workspaceRoot), "outside_watch.py")
-	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api"+RouteSetWatchCodeInputs,
-		strings.NewReader(fmt.Sprintf(`{"projectConfigId":"project-alpha","watchCodeFolders":[],"watchCodeFiles":["%s"]}`, outsideFile)),
-	)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
-	}
-	if !strings.Contains(response.Body.String(), `"code":"invalid_watch_code_input"`) {
-		t.Fatalf("expected invalid_watch_code_input error, got %q", response.Body.String())
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	for _, routePath := range []string{
+		"/setWatchCodeEnabled",
+		"/setWatchCodeInputs",
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+routePath,
+			strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("expected %s to return 404, got %d with body %q", routePath, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"not_found"`) {
+			t.Fatalf("expected not_found response for %s, got %q", routePath, response.Body.String())
+		}
 	}
 }
 

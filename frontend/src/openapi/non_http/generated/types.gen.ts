@@ -2038,7 +2038,7 @@ type EndpointOrigin = "backend" | "launcher" | "backend-origin";
 /**
  * EndpointOriginPolicy
  */
-export type EndpointOriginPolicy = {
+type EndpointOriginPolicy = {
   [key: string]: EndpointOrigin;
 };
 
@@ -3513,7 +3513,7 @@ type Mode = "ide" | "share" | "app" | "launcher";
 /**
  * ModeScopedLauncherRoutes
  */
-export type ModeScopedLauncherRoutes = null | Array<string>;
+type ModeScopedLauncherRoutes = null | Array<string>;
 
 /**
  * MoveParamGroupInput
@@ -3931,6 +3931,7 @@ type PluginErrorInfo = {
  */
 type PluginFeatureCapabilities = {
   appSubsystem: PluginAppSubsystemCapabilities;
+  watchCode: PluginWatchCodeCapabilities;
 };
 
 /**
@@ -3938,6 +3939,7 @@ type PluginFeatureCapabilities = {
  */
 type PluginFeatureCapabilitiesManifest = {
   appSubsystem?: PluginAppSubsystemFeatureManifest | null;
+  watchCode?: PluginWatchCodeFeatureManifest | null;
 };
 
 /**
@@ -4160,7 +4162,7 @@ type PluginRegisteredUISetting = {
   description: string;
   localSettingId: string;
   mutability: string;
-  paneId: string;
+  paneId?: string;
   pluginId: string;
   readHandlerId: string;
   revealKey: string;
@@ -4296,6 +4298,7 @@ export type PluginStatusResponse = {
   restartCapability: PluginRestartCapability;
   schemaVersion: number;
   serverMode: Mode;
+  watchCodeSelection?: PluginWatchCodeProviderSelection | null;
 };
 
 /**
@@ -4317,6 +4320,74 @@ type PluginUpdateResponse = {
   sourceDigestSha256: null | string;
   toVersion: string;
 };
+
+/**
+ * PluginWatchCodeCapabilities
+ */
+type PluginWatchCodeCapabilities = {
+  canvasControlsUi: boolean;
+  languageServerDependency?: PluginWatchCodeLanguageServerDependencyStatus | null;
+  pluginEnabled: boolean;
+  pluginId: string;
+  providerSelection?: PluginWatchCodeProviderSelection | null;
+  python: boolean;
+  requiresLanguageServer: boolean;
+};
+
+/**
+ * PluginWatchCodeFeatureManifest
+ */
+type PluginWatchCodeFeatureManifest = {
+  canvasControlsUi: boolean;
+};
+
+/**
+ * PluginWatchCodeLanguageServerDependencyStatus
+ */
+type PluginWatchCodeLanguageServerDependencyStatus = {
+  appliedPluginId?: null | string;
+  language: string;
+  message: string;
+  required: boolean;
+  restartRequired: boolean;
+  selectedPluginId?: null | string;
+  status: PluginWatchCodeLanguageServerDependencyStatusKind;
+};
+
+/**
+ * PluginWatchCodeLanguageServerDependencyStatusKind
+ */
+type PluginWatchCodeLanguageServerDependencyStatusKind =
+  | "unavailable"
+  | "not_required"
+  | "active"
+  | "missing"
+  | "disabled"
+  | "pending_restart";
+
+/**
+ * PluginWatchCodeProviderSelection
+ */
+type PluginWatchCodeProviderSelection = {
+  activePluginIds: null | Array<string>;
+  conflictingPluginIds: null | Array<string>;
+  disabledPluginIds: null | Array<string>;
+  invalidPluginIds: null | Array<string>;
+  pendingRestartPluginIds: null | Array<string>;
+  selectedPluginId?: null | string;
+  status: PluginWatchCodeProviderSelectionStatusKind;
+};
+
+/**
+ * PluginWatchCodeProviderSelectionStatusKind
+ */
+type PluginWatchCodeProviderSelectionStatusKind =
+  | "no_provider"
+  | "disabled_provider"
+  | "invalid_provider"
+  | "pending_restart"
+  | "active"
+  | "provider_conflict";
 
 /**
  * PluginsGlobalStateFile
@@ -4518,15 +4589,6 @@ export type ProjectConfig = {
   };
   viewport: Viewport | null;
   viewportInitialized: boolean;
-  watchCodeBaselineByPath: {
-    [key: string]: null | Array<string>;
-  };
-  watchCodeEnabled: boolean;
-  watchCodeFiles: null | Array<string>;
-  watchCodeFolders: null | Array<WatchCodeFolder>;
-  watchCodeRegistry: {
-    [key: string]: WatchCodeRegistryEntry;
-  };
   windowSpaceIdsBySlug: {
     [key: string]: null | Array<string>;
   };
@@ -4555,6 +4617,13 @@ export type ProjectConfigDiagnostics = {
 export type ProjectConfigMetadata = {
   id: string;
   name: string;
+};
+
+/**
+ * ProjectPluginData
+ */
+type ProjectPluginData = {
+  [key: string]: RawMessage | null;
 };
 
 /**
@@ -5132,8 +5201,6 @@ type Route =
   | "/setViewport"
   | "/setViewModeName"
   | "/setViewModeSortOrder"
-  | "/setWatchCodeEnabled"
-  | "/setWatchCodeInputs"
   | "/setWindowSpaceName"
   | "/setWindowSpaceSortOrder"
   | "/share/deployments"
@@ -6087,6 +6154,7 @@ export type SingleConfig = {
   parentSectionMap: {
     [key: string]: null | string;
   };
+  pluginData: ProjectPluginData;
   projectChatWindowing: ProjectChatWindowingState;
   projectConfig: ProjectConfig;
   requiredDecodedImages: null | Array<string>;
@@ -7400,7 +7468,7 @@ type WatchCodeCallableKind = "function" | "async_function" | "class_init";
 /**
  * WatchCodeFolder
  */
-export type WatchCodeFolder = {
+type WatchCodeFolder = {
   path: string;
   recursive: boolean;
 };

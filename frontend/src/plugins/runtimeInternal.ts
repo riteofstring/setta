@@ -1,7 +1,11 @@
 import {
   isAppSubsystemFrontendRegistration,
+  SETTA_PLUGIN_FRONTEND_HOST_API_VERSION,
   type AppSubsystemFrontendRegistration,
   type RegisteredAppSubsystemFrontendRegistration,
+  type SettaPluginProjectStateSelector,
+  type SettaPluginSettingRevealHandler,
+  type SettaPluginHost as SharedSettaPluginHost,
 } from "@setta/app-subsystem-frontend-sdk";
 import throttle from "lodash/throttle";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
@@ -13,11 +17,14 @@ import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   PluginListEntry,
+  PluginRuntimeResponse,
   PluginRuntimeStateEnum,
   PluginStatusEntry,
   SectionDependencyKey,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { buildShareSessionHeaders } from "utils/shareSessionHeaders";
+import { buildBackendOriginURL } from "utils/transportUrlCore";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
 import {
   isPluginPaneIconName,
@@ -25,25 +32,33 @@ import {
   type PluginPaneIconName,
 } from "./paneIcons";
 import {
+  comparePluginCanvasControls,
+  isPluginCanvasControlPlacement,
+  PluginCanvasControlPlacementEnum,
   PluginFrontendErrorCodeEnum,
   toPluginSectionKindKey,
+  type PluginCanvasControlDefinition,
   type PluginFrontendErrorCode,
   type PluginPaneDefinition,
   type PluginServerMode,
+  type RegisteredPluginCanvasControl,
   type RegisteredPluginPane,
 } from "./runtimeShared";
 import { buildPluginAssetUrl } from "./transport";
 
-const PLUGIN_FRONTEND_API_VERSION = 1;
+const PLUGIN_FRONTEND_API_VERSION = SETTA_PLUGIN_FRONTEND_HOST_API_VERSION;
 
 const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
+const settingRevealHandlerCapability = "registerSettingRevealHandler";
 const commandCapability = "registerCommand";
 const topNavBarCapability = "registerTopNavBarItem";
+const canvasControlCapability = "registerCanvasControl";
 const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
+const backendRouteCapability = "registerRouter";
 
 type PluginSectionProps = {
   sectionId: string;
@@ -73,16 +88,7 @@ export type RegisteredPluginSectionKind = PluginSectionKindDefinition & {
   pluginId: string;
 };
 
-type PluginSettingRevealHandlerContext = {
-  settingId: string;
-  paneId: string | null;
-  durationMs: number;
-  abortSignal: AbortSignal;
-};
-
-type PluginSettingRevealHandler = (
-  context: PluginSettingRevealHandlerContext,
-) => boolean | Promise<boolean>;
+type PluginSettingRevealHandler = SettaPluginSettingRevealHandler;
 
 type PluginCommandDefinition = {
   id: string;
@@ -112,22 +118,7 @@ export type PluginFrontendError = {
   message: string;
 };
 
-type PluginProjectContext = {
-  projectConfigId: string;
-  serverMode: PluginServerMode;
-};
-
-type PluginProjectStateSelector =
-  | { kind: "projectConfig" }
-  | { kind: "activeSectionIds" }
-  | { kind: "section"; sectionId: string }
-  | { kind: "sections"; sectionIds: string[] }
-  | { kind: "singletonSections" };
-
-type PluginProjectStateSubscriptionOptions = {
-  fireImmediately?: boolean;
-  throttleMs?: number;
-};
+type PluginProjectStateSelector = SettaPluginProjectStateSelector;
 
 type PluginRealtimeDependencyEvent = {
   dependencyKey: BaseDependencyKeyUnion;
@@ -140,34 +131,16 @@ type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
-type SettaPluginHost = {
-  apiVersion: number;
-  pluginId: string;
-  serverMode: PluginServerMode;
-  effectiveCapabilities: string[];
+type SettaPluginHost = SharedSettaPluginHost & {
   createStore: <TState extends object>(
     initializer: StateCreator<TState, [], []>,
   ) => StoreApi<TState>;
   registerAppSubsystem: (definition: AppSubsystemFrontendRegistration) => void;
   registerSectionKind: (definition: PluginSectionKindDefinition) => void;
   registerPane: (definition: PluginPaneDefinition) => void;
-  registerSettingRevealHandler: (
-    revealKey: string,
-    handler: PluginSettingRevealHandler,
-  ) => void;
   registerCommand: (definition: PluginCommandDefinition) => void;
   registerTopNavBarItem: (definition: PluginTopNavBarItemDefinition) => void;
   registerContextMenu: (_definition: Record<string, unknown>) => void;
-  getProjectContext: () => PluginProjectContext;
-  subscribeProjectContext: (
-    listener: (context: PluginProjectContext) => void,
-  ) => () => void;
-  readProjectState: (selector: PluginProjectStateSelector) => unknown;
-  subscribeProjectState: (
-    selector: PluginProjectStateSelector,
-    listener: (nextValue: unknown, prevValue: unknown | null) => void,
-    options?: PluginProjectStateSubscriptionOptions,
-  ) => () => void;
   emitRealtimeDependencyEvent: (event: PluginRealtimeDependencyEvent) => void;
   emitSectionRealtimeValue: (
     sectionId: string,
@@ -203,12 +176,17 @@ export type PluginRegistryAccumulator = {
   panes: Record<string, RegisteredPluginPane[]>;
   commands: Record<string, RegisteredPluginCommand[]>;
   topNavBarItems: Record<string, RegisteredPluginTopNavBarItem[]>;
+  canvasControls: Record<string, RegisteredPluginCanvasControl[]>;
 };
 
 type LoadPluginFrontendResult = {
   error: PluginFrontendError | null;
   registryDelta: PluginRegistryAccumulator | null;
 };
+
+type WatchCodeCapabilities = NonNullable<
+  PluginRuntimeResponse["featureCapabilities"]
+>["watchCode"];
 
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
@@ -273,6 +251,49 @@ export function shouldLoadPluginFrontend(
   );
 }
 
+export function shouldLoadPluginFrontendForFeatureSelection({
+  pluginId,
+  statusEntry,
+  watchCodeCapabilities,
+}: {
+  pluginId: string;
+  statusEntry: PluginStatusEntry | undefined;
+  watchCodeCapabilities?: WatchCodeCapabilities | null;
+}): boolean {
+  if (!shouldLoadPluginFrontend(statusEntry)) {
+    return false;
+  }
+  return !isUnavailableWatchCodeProviderFrontendCandidate(
+    pluginId,
+    watchCodeCapabilities,
+  );
+}
+
+function isUnavailableWatchCodeProviderFrontendCandidate(
+  pluginId: string,
+  watchCodeCapabilities?: WatchCodeCapabilities | null,
+): boolean {
+  const providerSelection = watchCodeCapabilities?.providerSelection;
+  if (!providerSelection) {
+    return false;
+  }
+  const selectedPluginId = providerSelection.selectedPluginId?.trim() ?? "";
+  if (
+    providerSelection.status === "active" &&
+    selectedPluginId !== "" &&
+    selectedPluginId === pluginId
+  ) {
+    return false;
+  }
+  return [
+    providerSelection.activePluginIds,
+    providerSelection.conflictingPluginIds,
+    providerSelection.disabledPluginIds,
+    providerSelection.invalidPluginIds,
+    providerSelection.pendingRestartPluginIds,
+  ].some((candidates) => candidates?.includes(pluginId));
+}
+
 export async function runWithConcurrencyLimit<T>(
   items: T[],
   concurrencyLimit: number,
@@ -314,6 +335,7 @@ export async function loadPluginFrontendModule(
         panes: {},
         commands: {},
         topNavBarItems: {},
+        canvasControls: {},
       },
     };
   }
@@ -469,10 +491,23 @@ function normalizeSectionsProjectStateSelector(
   };
 }
 
-function normalizeProjectStateSelector(
+function normalizePluginDataProjectStateSelector(
   pluginId: string,
   selector: PluginProjectStateSelector,
-): PluginProjectStateSelector {
+): Extract<PluginProjectStateSelector, { kind: "pluginData" }> {
+  return {
+    kind: "pluginData",
+    pluginId: requireNonEmptyString(
+      (selector as { pluginId?: unknown }).pluginId,
+      `Plugin ${pluginId} pluginData selector missing pluginId.`,
+    ),
+  };
+}
+
+function requireProjectStateSelectorKind(
+  pluginId: string,
+  selector: PluginProjectStateSelector,
+): string {
   if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
     throw new PluginRuntimeError(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
@@ -486,7 +521,14 @@ function normalizeProjectStateSelector(
       `Plugin ${pluginId} project state selector is missing kind.`,
     );
   }
-  const kind = rawKind.trim();
+  return rawKind.trim();
+}
+
+function normalizeProjectStateSelector(
+  pluginId: string,
+  selector: PluginProjectStateSelector,
+): PluginProjectStateSelector {
+  const kind = requireProjectStateSelectorKind(pluginId, selector);
   if (isSimpleProjectStateSelectorKind(kind)) {
     return { kind };
   }
@@ -496,61 +538,103 @@ function normalizeProjectStateSelector(
   if (kind === "sections") {
     return normalizeSectionsProjectStateSelector(pluginId, selector);
   }
+  if (kind === "pluginData") {
+    return normalizePluginDataProjectStateSelector(pluginId, selector);
+  }
   throw new PluginRuntimeError(
     PluginFrontendErrorCodeEnum.RegistrationInvalid,
     `Plugin ${pluginId} project state selector kind ${kind} is unsupported.`,
   );
 }
 
+function getSectionImplForProjectState(
+  state: ReturnType<typeof useProjectState.getState>,
+  sectionId: string,
+): unknown {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  return impl;
+}
+
 function getRawSelectedProjectState(
   state: ReturnType<typeof useProjectState.getState>,
   selector: PluginProjectStateSelector,
 ): unknown {
-  if (selector.kind === "projectConfig") {
-    return state.projectConfig;
+  switch (selector.kind) {
+    case "projectConfig":
+      return state.projectConfig;
+    case "pluginData":
+      return (
+        (state as { pluginData?: Record<string, unknown> }).pluginData?.[
+          selector.pluginId
+        ] ?? null
+      );
+    case "activeSectionIds":
+      return useActiveSectionUI.getState().activeIds;
+    case "singletonSections":
+      return state.singletonSections;
+    case "section":
+      return getSectionImplForProjectState(state, selector.sectionId);
+    case "sections":
+      return selector.sectionIds.map((sectionId) =>
+        getSectionImplForProjectState(state, sectionId),
+      );
   }
-  if (selector.kind === "activeSectionIds") {
-    return useActiveSectionUI.getState().activeIds;
+}
+
+type PluginDataProjectStateSubscriptionSelection = {
+  projectConfigId: string;
+  value: unknown;
+};
+
+function getRawProjectStateSubscriptionSelection(
+  state: ReturnType<typeof useProjectState.getState>,
+  selector: PluginProjectStateSelector,
+): unknown {
+  const value = getRawSelectedProjectState(state, selector);
+  if (selector.kind !== "pluginData") {
+    return value;
   }
-  if (selector.kind === "singletonSections") {
-    return state.singletonSections;
+  return {
+    projectConfigId: state.projectConfig.id,
+    value,
+  };
+}
+
+function getRawProjectStateSubscriptionValue(
+  selector: PluginProjectStateSelector,
+  selection: unknown,
+): unknown {
+  if (selector.kind !== "pluginData") {
+    return selection;
   }
-  if (selector.kind === "section") {
-    const sectionId = selector.sectionId;
-    const variantId = state.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return null;
-    }
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    return impl;
-  }
-  return selector.sectionIds.map((sectionId) => {
-    const variantId = state.projectConfig.sectionVariantMap[sectionId];
-    if (!variantId) {
-      return null;
-    }
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      return null;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl) {
-      return null;
-    }
-    return impl;
-  });
+  return (selection as PluginDataProjectStateSubscriptionSelection).value;
 }
 
 function projectStateSubscriptionEquality(
   selector: PluginProjectStateSelector,
 ): ((left: unknown, right: unknown) => boolean) | undefined {
+  if (selector.kind === "pluginData") {
+    return (left, right) => {
+      const leftSelection = left as PluginDataProjectStateSubscriptionSelection;
+      const rightSelection =
+        right as PluginDataProjectStateSubscriptionSelection;
+      return (
+        leftSelection.projectConfigId === rightSelection.projectConfigId &&
+        leftSelection.value === rightSelection.value
+      );
+    };
+  }
   if (selector.kind === "activeSectionIds") {
     return (left, right) => {
       if (!Array.isArray(left) || !Array.isArray(right)) {
@@ -796,6 +880,60 @@ function normalizePluginRealtimeTimestamp(
   return timestampMs as number | undefined;
 }
 
+function normalizePluginBackendRoutePath(
+  pluginId: string,
+  path: string,
+): string {
+  const routePath = requireNonEmptyString(
+    path,
+    `Plugin ${pluginId} fetchBackendRoute requires a route path.`,
+  );
+  if (!routePath.startsWith("/") || routePath.startsWith("//")) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} fetchBackendRoute route path must start with a single slash.`,
+    );
+  }
+  const pathOnly = routePath.split(/[?#]/, 1)[0] ?? "";
+  for (const segment of pathOnly.split("/")) {
+    let decodedSegment = segment;
+    try {
+      decodedSegment = decodeURIComponent(segment);
+    } catch {
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.RegistrationInvalid,
+        `Plugin ${pluginId} fetchBackendRoute route path must contain valid percent-encoding.`,
+      );
+    }
+    if (decodedSegment === "." || decodedSegment === "..") {
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.RegistrationInvalid,
+        `Plugin ${pluginId} fetchBackendRoute route path must not contain dot segments.`,
+      );
+    }
+  }
+  return `/plugins/${encodeURIComponent(pluginId)}${routePath}`;
+}
+
+async function fetchPluginBackendRoute(
+  pluginId: string,
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  for (const [key, value] of Object.entries(buildShareSessionHeaders())) {
+    headers.set(key, value);
+  }
+  return await fetch(
+    buildBackendOriginURL(normalizePluginBackendRoutePath(pluginId, path)),
+    {
+      ...(init ?? {}),
+      credentials: init?.credentials ?? "include",
+      headers,
+    },
+  );
+}
+
 function registerPluginModule({
   plugin,
   importedModule,
@@ -830,6 +968,7 @@ function registerPluginModule({
     panes: {},
     commands: {},
     topNavBarItems: {},
+    canvasControls: {},
   };
 
   const effectiveCapabilitySet = new Set(plugin.effectiveCapabilities);
@@ -903,7 +1042,7 @@ function registerPluginModule({
       ensureCapability(
         plugin.pluginId,
         effectiveCapabilitySet,
-        paneCapability,
+        settingRevealHandlerCapability,
         "registerSettingRevealHandler",
       );
       const normalizedRevealKey = requireNonEmptyString(
@@ -967,6 +1106,31 @@ function registerPluginModule({
       }
       pluginTopNavBarItems.push(validated);
       registryDelta.topNavBarItems[plugin.pluginId] = pluginTopNavBarItems;
+    },
+    registerCanvasControl: (definition) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        canvasControlCapability,
+        "registerCanvasControl",
+      );
+      const validated = validateCanvasControlDefinition(
+        plugin.pluginId,
+        definition,
+      );
+      const pluginCanvasControls =
+        registryDelta.canvasControls[plugin.pluginId] ?? [];
+      for (const existingControl of pluginCanvasControls) {
+        if (existingControl.id === validated.id) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            `Plugin ${plugin.pluginId} registered duplicate canvas control ` +
+              `${validated.id}.`,
+          );
+        }
+      }
+      pluginCanvasControls.push(validated);
+      registryDelta.canvasControls[plugin.pluginId] = pluginCanvasControls;
     },
     registerContextMenu: () => {
       ensureCapability(
@@ -1050,7 +1214,18 @@ function registerPluginModule({
       let previousNotifiedRawValue: unknown = undefined;
       let previousNotifiedValue: unknown | null = null;
       let hasPreviousNotifiedValue = false;
-      let notify = (nextRawValue: unknown, prevRawValue: unknown): void => {
+      let notify = (nextSelection: unknown, prevSelection: unknown): void => {
+        const nextRawValue = getRawProjectStateSubscriptionValue(
+          normalizedSelector,
+          nextSelection,
+        );
+        const prevRawValue =
+          prevSelection === undefined
+            ? undefined
+            : getRawProjectStateSubscriptionValue(
+                normalizedSelector,
+                prevSelection,
+              );
         const nextValue = toProjectStateSubscriptionValue(
           normalizedSelector,
           nextRawValue,
@@ -1098,7 +1273,11 @@ function registerPluginModule({
               },
             )
           : useProjectState.subscribe(
-              (state) => getRawSelectedProjectState(state, normalizedSelector),
+              (state) =>
+                getRawProjectStateSubscriptionSelection(
+                  state,
+                  normalizedSelector,
+                ),
               (nextRawValue, prevRawValue) =>
                 notify(nextRawValue, prevRawValue),
               {
@@ -1118,6 +1297,15 @@ function registerPluginModule({
         unregisterCleanup();
         cleanup();
       };
+    },
+    fetchBackendRoute: async (path, init) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        backendRouteCapability,
+        "fetchBackendRoute",
+      );
+      return await fetchPluginBackendRoute(plugin.pluginId, path, init);
     },
     emitRealtimeDependencyEvent: (event) => {
       ensureCapability(
@@ -1306,6 +1494,9 @@ function registerPluginModule({
       }
       return a.id.localeCompare(b.id);
     });
+  }
+  for (const canvasControls of Object.values(registryDelta.canvasControls)) {
+    canvasControls.sort(comparePluginCanvasControls);
   }
 
   return registryDelta;
@@ -1547,6 +1738,66 @@ function validateTopNavBarItemDefinition(
     topNavBarItem.order = definition.order;
   }
   return topNavBarItem;
+}
+
+function validateCanvasControlDefinition(
+  pluginId: string,
+  definition: PluginCanvasControlDefinition,
+): RegisteredPluginCanvasControl {
+  const id = requireNonEmptyString(
+    definition.id,
+    `Plugin ${pluginId} canvas control definition missing id.`,
+  );
+  const label = requireNonEmptyString(
+    definition.label,
+    `Plugin ${pluginId} canvas control ${id} missing label.`,
+  );
+  let placement = PluginCanvasControlPlacementEnum.Project;
+  if (definition.placement !== undefined) {
+    const placementValue = requireNonEmptyString(
+      definition.placement,
+      `Plugin ${pluginId} canvas control ${id} placement must be supported.`,
+    );
+    if (!isPluginCanvasControlPlacement(placementValue)) {
+      const supportedPlacements = Object.values(
+        PluginCanvasControlPlacementEnum,
+      ).join(", ");
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.RegistrationInvalid,
+        `Plugin ${pluginId} canvas control ${id} placement ${placementValue} is invalid. ` +
+          `Supported placements: ${supportedPlacements}.`,
+      );
+    }
+    placement = placementValue;
+  }
+  if (
+    definition.order !== undefined &&
+    (!Number.isFinite(definition.order) || Number.isNaN(definition.order))
+  ) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} canvas control ${id} order must be a finite number.`,
+    );
+  }
+  const renderer = validatePluginRenderer(
+    pluginId,
+    `canvas control ${id}`,
+    definition.renderer,
+  );
+  const canvasControl: RegisteredPluginCanvasControl = {
+    pluginId,
+    id,
+    label,
+    placement,
+    renderer,
+  };
+  if (definition.description !== undefined) {
+    canvasControl.description = definition.description;
+  }
+  if (definition.order !== undefined) {
+    canvasControl.order = definition.order;
+  }
+  return canvasControl;
 }
 
 function requireNonEmptyString(value: unknown, errorMessage: string): string {
