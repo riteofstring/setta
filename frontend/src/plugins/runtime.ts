@@ -57,7 +57,6 @@ export type {
   RegisteredPluginCommand,
   RegisteredPluginSectionKind,
 } from "./runtimeInternal";
-export { PluginCanvasControlPlacementEnum } from "./runtimeShared";
 export type {
   PluginServerMode,
   RegisteredPluginCanvasControl,

@@ -55,9 +55,6 @@ export type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
-export const PluginCanvasControlPlacementEnum =
-  SettaPluginCanvasControlPlacementEnum;
-
 type PluginCanvasControlPlacement = SettaPluginCanvasControlPlacement;
 
 export function isPluginCanvasControlPlacement(
@@ -77,9 +74,9 @@ const pluginCanvasControlPlacementRank: Record<
   PluginCanvasControlPlacement,
   number
 > = {
-  [PluginCanvasControlPlacementEnum.Project]: 0,
-  [PluginCanvasControlPlacementEnum.Viewport]: 1,
-  [PluginCanvasControlPlacementEnum.Utility]: 2,
+  [SettaPluginCanvasControlPlacementEnum.Project]: 0,
+  [SettaPluginCanvasControlPlacementEnum.Viewport]: 1,
+  [SettaPluginCanvasControlPlacementEnum.Utility]: 2,
 };
 
 export function comparePluginCanvasControls(

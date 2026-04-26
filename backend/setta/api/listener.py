@@ -77,6 +77,8 @@ from setta.types.artifact import (
     BaseArtifactUnion,
 )
 from setta.types.generated.go_shared_constants import (
+    DEFAULT_HOST,
+    DEFAULT_PORT,
     LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES,
     LOOPBACK_HOSTS,
 )
@@ -642,8 +644,8 @@ class SettaListener:
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
         self._explicit_host = host is not None
         self._explicit_port = port is not None
-        self._host = host or C.HOST
-        self._port = port or C.PORT
+        self._host = host or DEFAULT_HOST
+        self._port = port or DEFAULT_PORT
         self._reconnect_delay = reconnect_delay
         self._auth_headers = dict(auth_headers) if auth_headers is not None else None
         self._frontend_affinity_token = parse_frontend_affinity_token(

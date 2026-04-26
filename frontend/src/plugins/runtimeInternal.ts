@@ -1,6 +1,7 @@
 import {
   isAppSubsystemFrontendRegistration,
   SETTA_PLUGIN_FRONTEND_HOST_API_VERSION,
+  SettaPluginCanvasControlPlacementEnum,
   type AppSubsystemFrontendRegistration,
   type RegisteredAppSubsystemFrontendRegistration,
   type SettaPluginProjectStateSelector,
@@ -34,7 +35,6 @@ import {
 import {
   comparePluginCanvasControls,
   isPluginCanvasControlPlacement,
-  PluginCanvasControlPlacementEnum,
   PluginFrontendErrorCodeEnum,
   toPluginSectionKindKey,
   type PluginCanvasControlDefinition,
@@ -45,8 +45,6 @@ import {
   type RegisteredPluginPane,
 } from "./runtimeShared";
 import { buildPluginAssetUrl } from "./transport";
-
-const PLUGIN_FRONTEND_API_VERSION = SETTA_PLUGIN_FRONTEND_HOST_API_VERSION;
 
 const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
@@ -954,11 +952,11 @@ function registerPluginModule({
   const apiVersion = importedModule.apiVersion;
   if (
     typeof apiVersion !== "number" ||
-    apiVersion !== PLUGIN_FRONTEND_API_VERSION
+    apiVersion !== SETTA_PLUGIN_FRONTEND_HOST_API_VERSION
   ) {
     throw new PluginRuntimeError(
       PluginFrontendErrorCodeEnum.ApiVersionMismatch,
-      `Plugin ${plugin.pluginId} apiVersion mismatch. Expected ${PLUGIN_FRONTEND_API_VERSION}.`,
+      `Plugin ${plugin.pluginId} apiVersion mismatch. Expected ${SETTA_PLUGIN_FRONTEND_HOST_API_VERSION}.`,
     );
   }
 
@@ -974,7 +972,7 @@ function registerPluginModule({
   const effectiveCapabilitySet = new Set(plugin.effectiveCapabilities);
 
   const host: SettaPluginHost = {
-    apiVersion: PLUGIN_FRONTEND_API_VERSION,
+    apiVersion: SETTA_PLUGIN_FRONTEND_HOST_API_VERSION,
     pluginId: plugin.pluginId,
     serverMode,
     effectiveCapabilities: plugin.effectiveCapabilities,
@@ -1752,7 +1750,7 @@ function validateCanvasControlDefinition(
     definition.label,
     `Plugin ${pluginId} canvas control ${id} missing label.`,
   );
-  let placement = PluginCanvasControlPlacementEnum.Project;
+  let placement = SettaPluginCanvasControlPlacementEnum.Project;
   if (definition.placement !== undefined) {
     const placementValue = requireNonEmptyString(
       definition.placement,
@@ -1760,7 +1758,7 @@ function validateCanvasControlDefinition(
     );
     if (!isPluginCanvasControlPlacement(placementValue)) {
       const supportedPlacements = Object.values(
-        PluginCanvasControlPlacementEnum,
+        SettaPluginCanvasControlPlacementEnum,
       ).join(", ");
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.RegistrationInvalid,

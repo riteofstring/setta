@@ -1,3 +1,4 @@
+import { SettaPluginCanvasControlPlacementEnum } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import "forks/xyflow/controls/style.css";
 import {
@@ -7,7 +8,6 @@ import {
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
-  PluginCanvasControlPlacementEnum,
   usePluginCanvasControls,
   usePluginRuntimeStore,
   type RegisteredPluginCanvasControl,
@@ -373,7 +373,7 @@ const Controls = () => {
       />
       <PluginCanvasControls
         controls={pluginCanvasControls}
-        placement={PluginCanvasControlPlacementEnum.Project}
+        placement={SettaPluginCanvasControlPlacementEnum.Project}
       />
       <ViewportControls
         fitViewOnInit={fitViewOnInit}
@@ -383,11 +383,11 @@ const Controls = () => {
       />
       <PluginCanvasControls
         controls={pluginCanvasControls}
-        placement={PluginCanvasControlPlacementEnum.Viewport}
+        placement={SettaPluginCanvasControlPlacementEnum.Viewport}
       />
       <PluginCanvasControls
         controls={pluginCanvasControls}
-        placement={PluginCanvasControlPlacementEnum.Utility}
+        placement={SettaPluginCanvasControlPlacementEnum.Utility}
       />
       <MiniMapControls minimapSide={minimapSide} showMinimap={showMinimap} />
     </div>

@@ -44,11 +44,6 @@ class classproperty:
 
 
 class C:
-    # Basic configuration
-    # Set HOST and PORT from defaults (can be overridden)
-    HOST: str = go_shared_constants.DEFAULT_HOST
-    PORT: int = go_shared_constants.DEFAULT_PORT
-
     @classproperty
     def RUNTIME_SESSIONS_FOLDER(cls) -> Path:
         return get_setta_paths().runtime_sessions_root
@@ -59,4 +54,7 @@ class C:
 
     @classproperty
     def BACKEND(cls):
-        return f"http://{cls.HOST}:{cls.PORT}"
+        return (
+            f"http://{go_shared_constants.DEFAULT_HOST}:"
+            f"{go_shared_constants.DEFAULT_PORT}"
+        )
