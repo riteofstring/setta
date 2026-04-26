@@ -6,13 +6,19 @@ import type {
   CanvasFlowViewport,
 } from "./canvasFlowTypes";
 
+type ScheduleCanvasFlowTexturePaint = (
+  reason?: string,
+  nodeIds?: ReadonlySet<string> | "all",
+) => void;
+type ScheduleCanvasFlowViewportFrame = (reason?: string) => void;
+
 type CanvasFlowCanvasProps = {
   canvasCssSize: Pick<CanvasFlowSize, "cssHeight" | "cssWidth">;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
-  scheduleTexturePaint: () => void;
-  scheduleViewportFrame: () => void;
+  scheduleTexturePaint: ScheduleCanvasFlowTexturePaint;
+  scheduleViewportFrame: ScheduleCanvasFlowViewportFrame;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
 } & CanvasHTMLAttributes<HTMLCanvasElement>;
 

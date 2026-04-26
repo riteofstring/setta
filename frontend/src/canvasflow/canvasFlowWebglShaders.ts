@@ -22,12 +22,50 @@ void main() {
 }
 `;
 
+export const CANVAS_FLOW_TEXTURE_VERTEX_SHADER = `
+attribute vec2 a_position;
+attribute vec2 a_texCoord;
+
+uniform vec2 u_resolution;
+
+varying vec2 v_texCoord;
+
+void main() {
+  vec2 zeroToOne = a_position / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace * vec2(1.0, -1.0), 0.0, 1.0);
+  v_texCoord = a_texCoord;
+}
+`;
+
+export const CANVAS_FLOW_TEXTURE_FRAGMENT_SHADER = `
+precision mediump float;
+
+uniform sampler2D u_texture;
+
+varying vec2 v_texCoord;
+
+void main() {
+  gl_FragColor = texture2D(u_texture, v_texCoord);
+}
+`;
+
 export type CanvasFlowColorProgram = {
   colorLocation: WebGLUniformLocation;
   positionBuffer: WebGLBuffer;
   positionLocation: number;
   program: WebGLProgram;
   resolutionLocation: WebGLUniformLocation;
+};
+
+export type CanvasFlowTextureProgram = {
+  positionBuffer: WebGLBuffer;
+  positionLocation: number;
+  program: WebGLProgram;
+  resolutionLocation: WebGLUniformLocation;
+  texCoordBuffer: WebGLBuffer;
+  texCoordLocation: number;
+  textureLocation: WebGLUniformLocation;
 };
 
 export function createCanvasFlowColorProgram(
@@ -55,6 +93,61 @@ export function createCanvasFlowColorProgram(
     program,
     resolutionLocation,
   };
+}
+
+export function createCanvasFlowTextureProgram(
+  gl: CanvasFlowWebglRenderingContext,
+): CanvasFlowTextureProgram {
+  const vertexShader = createShader(
+    gl,
+    gl.VERTEX_SHADER,
+    CANVAS_FLOW_TEXTURE_VERTEX_SHADER,
+  );
+  const fragmentShader = createShader(
+    gl,
+    gl.FRAGMENT_SHADER,
+    CANVAS_FLOW_TEXTURE_FRAGMENT_SHADER,
+  );
+  const program = createProgram(gl, vertexShader, fragmentShader);
+  const positionLocation = gl.getAttribLocation(program, "a_position");
+  const texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+  const resolutionLocation = getUniformLocation(gl, program, "u_resolution");
+  const textureLocation = getUniformLocation(gl, program, "u_texture");
+  const positionBuffer = createBuffer(gl);
+  const texCoordBuffer = createBuffer(gl);
+  gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]),
+    gl.STATIC_DRAW,
+  );
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  return {
+    positionBuffer,
+    positionLocation,
+    program,
+    resolutionLocation,
+    texCoordBuffer,
+    texCoordLocation,
+    textureLocation,
+  };
+}
+
+export function destroyCanvasFlowColorProgram(
+  gl: CanvasFlowWebglRenderingContext,
+  program: CanvasFlowColorProgram,
+) {
+  gl.deleteBuffer(program.positionBuffer);
+  gl.deleteProgram(program.program);
+}
+
+export function destroyCanvasFlowTextureProgram(
+  gl: CanvasFlowWebglRenderingContext,
+  program: CanvasFlowTextureProgram,
+) {
+  gl.deleteBuffer(program.positionBuffer);
+  gl.deleteBuffer(program.texCoordBuffer);
+  gl.deleteProgram(program.program);
 }
 
 function createShader(

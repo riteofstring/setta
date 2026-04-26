@@ -150,3 +150,14 @@ type CanvasFlowTexElementImage2DArgs = [
 export type CanvasFlowWebglRenderingContext = WebGLRenderingContext & {
   texElementImage2D: (...args: CanvasFlowTexElementImage2DArgs) => void;
 };
+
+export type CanvasFlowNodeTextureEntry = {
+  cssHeight: number;
+  cssWidth: number;
+  dirty: boolean;
+  estimatedBytes: number;
+  lastUsedFrame: number;
+  nodeId: string;
+  texture: WebGLTexture;
+  uploadCount: number;
+};

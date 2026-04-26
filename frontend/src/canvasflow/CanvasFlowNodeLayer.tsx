@@ -49,13 +49,19 @@ type CanvasFlowMountWindow = {
   visibleRect: Rect;
 };
 
+type ScheduleCanvasFlowTexturePaint = (
+  reason?: string,
+  nodeIds?: ReadonlySet<string> | "all",
+) => void;
+type ScheduleCanvasFlowViewportFrame = (reason?: string) => void;
+
 type CanvasFlowNodeLayerProps = {
   canvasCssSize: Pick<CanvasFlowSize, "cssHeight" | "cssWidth">;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
-  scheduleTexturePaint: () => void;
-  scheduleViewportFrame: () => void;
+  scheduleTexturePaint: ScheduleCanvasFlowTexturePaint;
+  scheduleViewportFrame: ScheduleCanvasFlowViewportFrame;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
 };
 
@@ -64,8 +70,8 @@ type CanvasFlowNodeWrapperProps = {
   id: string;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
-  scheduleTexturePaint: () => void;
-  scheduleViewportFrame: () => void;
+  scheduleTexturePaint: ScheduleCanvasFlowTexturePaint;
+  scheduleViewportFrame: ScheduleCanvasFlowViewportFrame;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
 };
 
@@ -86,6 +92,7 @@ export function CanvasFlowNodeLayer({
   const [mountWindow, setMountWindow] = useState(() =>
     createMountWindow(canvasCssSize, viewportRef.current),
   );
+  const previousMountedNodeIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const nextViewport = transformToCanvasFlowViewport(transform);
@@ -132,8 +139,16 @@ export function CanvasFlowNodeLayer({
   }, [mountWindow, nodes]);
 
   useEffect(() => {
-    scheduleTexturePaint();
-  }, [nodeIds, scheduleTexturePaint]);
+    const previousNodeIds = previousMountedNodeIdsRef.current;
+    const nextNodeIds = new Set(nodeIds);
+    const addedNodeIds = getAddedNodeIds(previousNodeIds, nextNodeIds);
+    previousMountedNodeIdsRef.current = nextNodeIds;
+    if (addedNodeIds.size > 0) {
+      scheduleTexturePaint("node-mount", addedNodeIds);
+      return;
+    }
+    scheduleViewportFrame("node-mount-window");
+  }, [nodeIds, scheduleTexturePaint, scheduleViewportFrame]);
 
   return (
     <>
@@ -240,6 +255,19 @@ function getEffectiveCanvasCssSize(
   return FALLBACK_CANVAS_CSS_SIZE;
 }
 
+function getAddedNodeIds(
+  previousNodeIds: ReadonlySet<string>,
+  nextNodeIds: ReadonlySet<string>,
+) {
+  const addedNodeIds = new Set<string>();
+  for (const nodeId of nextNodeIds) {
+    if (!previousNodeIds.has(nodeId)) {
+      addedNodeIds.add(nodeId);
+    }
+  }
+  return addedNodeIds;
+}
+
 function _CanvasFlowNodeWrapper({
   canvasRef,
   id,
@@ -282,10 +310,18 @@ function _CanvasFlowNodeWrapper({
       if (element) {
         nodeElementsRef.current.set(id, element);
         resizeObserver?.observe(element);
+        scheduleTexturePaint("node-ref", new Set([id]));
+        return;
       }
-      scheduleTexturePaint();
+      scheduleViewportFrame("node-ref-cleared");
     },
-    [id, nodeElementsRef, resizeObserver, scheduleTexturePaint],
+    [
+      id,
+      nodeElementsRef,
+      resizeObserver,
+      scheduleTexturePaint,
+      scheduleViewportFrame,
+    ],
   );
 
   useEffect(() => {
@@ -295,13 +331,13 @@ function _CanvasFlowNodeWrapper({
         resizeObserver?.unobserve(element);
       }
       nodeElementsRef.current.delete(id);
-      scheduleTexturePaint();
+      scheduleViewportFrame("node-unmount");
     };
-  }, [id, nodeElementsRef, resizeObserver, scheduleTexturePaint]);
+  }, [id, nodeElementsRef, resizeObserver, scheduleViewportFrame]);
 
   useEffect(() => {
-    scheduleTexturePaint();
-  }, [node?.height, node?.width, scheduleTexturePaint]);
+    scheduleTexturePaint("node-size", new Set([id]));
+  }, [id, node?.height, node?.width, scheduleTexturePaint]);
 
   useEffect(() => {
     scheduleViewportFrame();

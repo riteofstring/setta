@@ -2,9 +2,19 @@ import {
   assignCanvasFlowNodeTransform,
   disableCulledCanvasFlowNodePointerEvents,
 } from "./canvasFlowDomTransform";
-import { getVisibleNodeDrawRecords } from "./canvasFlowGeometry";
+import {
+  getNodeScreenDrawRect,
+  getVisibleNodeDrawRecords,
+} from "./canvasFlowGeometry";
+import {
+  CanvasFlowHtmlTextureCache,
+  type CanvasFlowTextureUploadStats,
+} from "./canvasFlowHtmlTextureCache";
 import { getCanvasFlowNodeElement } from "./canvasFlowNodeElements";
-import { getCanvasFlowChangedNodeIds } from "./canvasFlowPaintEvents";
+import {
+  type CanvasFlowChangedNodeElements,
+  getCanvasFlowChangedNodeElements,
+} from "./canvasFlowPaintEvents";
 import {
   assertHtmlInCanvasWebglSupport,
   requestCanvasFlowPaint,
@@ -19,7 +29,11 @@ import type {
 import { expandWorldRect, getVisibleWorldRect } from "./canvasFlowViewport";
 import {
   createCanvasFlowColorProgram,
+  createCanvasFlowTextureProgram,
+  destroyCanvasFlowColorProgram,
+  destroyCanvasFlowTextureProgram,
   type CanvasFlowColorProgram,
+  type CanvasFlowTextureProgram,
 } from "./canvasFlowWebglShaders";
 
 const DEFAULT_OVERSCAN = 600;
@@ -31,12 +45,19 @@ type CreateCanvasFlowWebglRendererParams = {
 };
 
 type WebglRendererState = {
-  dirtyNodeIds: Set<string>;
+  contextLost: boolean;
   frameId: number | null;
   frameNumber: number;
   lastStatsWriteMs?: number;
+  pendingUploadStats: CanvasFlowTextureUploadStats;
   previousInteractiveNodeIds: Set<string>;
-  textureUploadRequestsThisPaint: number;
+  rendererTransformChangedNodeIds: Set<string>;
+  totalTextureEvictions: number;
+};
+
+type CanvasFlowWebglResources = {
+  colorProgram: CanvasFlowColorProgram;
+  textureProgram: CanvasFlowTextureProgram;
 };
 
 export function createCanvasFlowWebglRenderer({
@@ -44,13 +65,17 @@ export function createCanvasFlowWebglRenderer({
   initialInputs,
 }: CreateCanvasFlowWebglRendererParams): CanvasFlowRenderer {
   const gl = assertHtmlInCanvasWebglSupport(canvas);
-  const colorProgram = createCanvasFlowColorProgram(gl);
+  const textureCache = new CanvasFlowHtmlTextureCache({ gl });
+  let resources: CanvasFlowWebglResources | null =
+    createCanvasFlowWebglResources(gl);
   const state: WebglRendererState = {
-    dirtyNodeIds: new Set<string>(),
+    contextLost: false,
     frameId: null,
     frameNumber: 0,
+    pendingUploadStats: createEmptyTextureUploadStats(),
     previousInteractiveNodeIds: new Set<string>(),
-    textureUploadRequestsThisPaint: 0,
+    rendererTransformChangedNodeIds: new Set<string>(),
+    totalTextureEvictions: 0,
   };
   let inputs = initialInputs;
   let destroyed = false;
@@ -60,26 +85,48 @@ export function createCanvasFlowWebglRenderer({
   canvas.dataset.webglTextureUploadsThisFrame = "0";
 
   const requestFrame = (reason: string) => {
-    if (destroyed || state.frameId !== null) {
+    if (destroyed || state.contextLost || state.frameId !== null) {
       return;
     }
     canvas.dataset.webglLastFrameReason = reason;
     state.frameId = window.requestAnimationFrame((now) => {
       state.frameId = null;
-      if (destroyed) {
+      if (destroyed || state.contextLost || !resources) {
         return;
       }
       state.frameNumber += 1;
       renderWebglFrame({
         canvas,
-        colorProgram,
+        resources,
         gl,
         inputs,
         now,
         state,
+        textureCache,
       });
     });
   };
+
+  const handleContextLost = (event: Event) => {
+    event.preventDefault();
+    state.contextLost = true;
+    if (state.frameId !== null) {
+      window.cancelAnimationFrame(state.frameId);
+      state.frameId = null;
+    }
+    textureCache.handleContextLost();
+    resources = null;
+    canvas.dataset.webglContextLost = "true";
+  };
+  const handleContextRestored = () => {
+    resources = createCanvasFlowWebglResources(gl);
+    state.contextLost = false;
+    canvas.dataset.webglContextLost = "false";
+    textureCache.markDirty("all");
+    requestCanvasFlowPaint(canvas);
+  };
+  canvas.addEventListener("webglcontextlost", handleContextLost);
+  canvas.addEventListener("webglcontextrestored", handleContextRestored);
 
   return {
     destroy() {
@@ -88,22 +135,60 @@ export function createCanvasFlowWebglRenderer({
         window.cancelAnimationFrame(state.frameId);
         state.frameId = null;
       }
-      gl.deleteBuffer(colorProgram.positionBuffer);
-      gl.deleteProgram(colorProgram.program);
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      canvas.removeEventListener("webglcontextrestored", handleContextRestored);
+      textureCache.dispose();
+      if (resources) {
+        destroyCanvasFlowWebglResources(gl, resources);
+        resources = null;
+      }
       clearWebglRendererDiagnostics(canvas);
     },
     handleCanvasPaint(event) {
-      markDirtyNodeIds(state, getCanvasFlowChangedNodeIds(event));
-      state.textureUploadRequestsThisPaint = state.dirtyNodeIds.size;
+      if (state.contextLost) {
+        return;
+      }
+      const changedElements = getCanvasFlowChangedNodeElements(event);
+      textureCache.markDirty(
+        getTextureDirtyChangedNodeIds({
+          changedElements,
+          rendererTransformChangedNodeIds:
+            state.rendererTransformChangedNodeIds,
+        }),
+      );
+      clearHandledRendererTransformChanges({
+        changedNodeIds: changedElements?.nodeIds,
+        rendererTransformChangedNodeIds:
+          state.rendererTransformChangedNodeIds,
+      });
+      const visibleNodes = getVisibleCanvasFlowNodes(inputs);
+      const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+      textureCache.releaseUnmounted(
+        getMountedCanvasFlowNodeIds(canvas, inputs.nodeElements),
+      );
+      const uploadStats = textureCache.uploadDirtyVisible({
+        frameNumber: state.frameNumber,
+        resolveElement: (nodeId) =>
+          getCanvasFlowNodeElement({
+            canvas,
+            nodeElements: inputs.nodeElements,
+            nodeId,
+          }),
+        visibleNodeIds,
+        visibleNodes,
+      });
+      state.totalTextureEvictions += uploadStats.evictions;
+      state.pendingUploadStats = uploadStats;
+      canvas.dataset.webglDirtyNodes = String(textureCache.dirtyCount);
+      canvas.dataset.webglTextureUploadRequestsThisPaint = String(
+        uploadStats.dirtyVisibleEntries,
+      );
       requestFrame("paint");
     },
-    markNodesDirty(nodeIds) {
-      if (nodeIds === "all") {
-        state.dirtyNodeIds = new Set(inputs.nodes.map((node) => node.id));
-      } else {
-        markDirtyNodeIds(state, nodeIds);
-      }
-      canvas.dataset.webglDirtyNodes = String(state.dirtyNodeIds.size);
+    markNodesDirty(nodeIds, reason) {
+      textureCache.markDirty(nodeIds);
+      canvas.dataset.webglDirtyNodes = String(textureCache.dirtyCount);
+      canvas.dataset.webglLastTexturePaintReason = reason;
       requestCanvasFlowPaint(canvas);
     },
     requestFrame,
@@ -113,39 +198,49 @@ export function createCanvasFlowWebglRenderer({
     },
     updateInputs(nextInputs) {
       inputs = nextInputs;
+      textureCache.releaseUnmounted(
+        getMountedCanvasFlowNodeIds(canvas, inputs.nodeElements),
+      );
+      canvas.dataset.webglDirtyNodes = String(textureCache.dirtyCount);
     },
   };
 }
 
 function renderWebglFrame({
   canvas,
-  colorProgram,
   gl,
   inputs,
   now,
+  resources,
   state,
+  textureCache,
 }: {
   canvas: HTMLCanvasElement;
-  colorProgram: CanvasFlowColorProgram;
   gl: CanvasFlowWebglRenderingContext;
   inputs: CanvasFlowRenderInputs;
   now: number;
+  resources: CanvasFlowWebglResources;
   state: WebglRendererState;
+  textureCache: CanvasFlowHtmlTextureCache;
 }) {
   const drawStart = performance.now();
   const size = inputs.size;
   if (size.cssWidth <= 0 || size.cssHeight <= 0) {
     writeWebglStats({
+      cacheHits: 0,
+      cacheMisses: 0,
       canvas,
       drawMs: performance.now() - drawStart,
       drawnNodes: 0,
       inputs,
       now,
       state,
+      textureCache,
       transformAssignmentMs: 0,
       visibleNodes: [],
       visibilityScanMs: 0,
     });
+    state.pendingUploadStats = createEmptyTextureUploadStats();
     return;
   }
 
@@ -161,32 +256,24 @@ function renderWebglFrame({
   gl.clear(gl.COLOR_BUFFER_BIT);
 
   drawGrid({
-    colorProgram,
+    colorProgram: resources.colorProgram,
     gl,
     inputs,
   });
 
-  const visibleRect = expandWorldRect(
-    getVisibleWorldRect(size, inputs.viewport),
-    DEFAULT_OVERSCAN,
-  );
   const visibilityScanStart = performance.now();
-  const visibleNodes = getVisibleNodeDrawRecords({
-    nodes: inputs.nodes,
-    nodeElements: inputs.nodeElements,
-    visibleRect,
-  });
+  const visibleNodes = getVisibleCanvasFlowNodes(inputs);
   const visibilityScanMs = performance.now() - visibilityScanStart;
-  const drawnNodes = drawPlaceholderNodeQuads({
-    colorProgram,
+  const textureDraw = drawTexturedNodeQuads({
+    frameNumber: state.frameNumber,
     gl,
+    inputs,
     nodes: visibleNodes,
-    darkMode: inputs.darkMode,
-    size,
-    viewport: inputs.viewport,
+    textureCache,
+    textureProgram: resources.textureProgram,
   });
   const transformStart = performance.now();
-  const nextInteractiveNodeIds = assignVisibleNodeTransforms({
+  const transformResult = assignVisibleNodeTransforms({
     canvas,
     inputs,
     visibleNodes,
@@ -196,27 +283,43 @@ function renderWebglFrame({
   disableCulledCanvasFlowNodePointerEvents({
     nodeElements: inputs.nodeElements,
     previousInteractiveNodeIds: state.previousInteractiveNodeIds,
-    nextInteractiveNodeIds,
+    nextInteractiveNodeIds: transformResult.nextInteractiveNodeIds,
   });
   state.previousInteractiveNodeIds.clear();
-  for (const nodeId of nextInteractiveNodeIds) {
+  for (const nodeId of transformResult.nextInteractiveNodeIds) {
     state.previousInteractiveNodeIds.add(nodeId);
+  }
+  for (const nodeId of transformResult.transformChangedNodeIds) {
+    state.rendererTransformChangedNodeIds.add(nodeId);
+  }
+
+  textureCache.releaseUnmounted(
+    getMountedCanvasFlowNodeIds(canvas, inputs.nodeElements),
+  );
+  const evictions = textureCache.evictLeastRecentlyUsed(
+    new Set(visibleNodes.map((node) => node.id)),
+  );
+  state.totalTextureEvictions += evictions;
+  if (textureDraw.missingTextureNodeIds.size > 0) {
+    requestCanvasFlowPaint(canvas);
   }
 
   const drawMs = performance.now() - drawStart;
   writeWebglStats({
+    cacheHits: textureDraw.cacheHits,
+    cacheMisses: textureDraw.cacheMisses,
     canvas,
     drawMs,
-    drawnNodes,
+    drawnNodes: textureDraw.drawnNodes,
     inputs,
     now,
     state,
+    textureCache,
     transformAssignmentMs,
     visibleNodes,
     visibilityScanMs,
   });
-  state.dirtyNodeIds.clear();
-  state.textureUploadRequestsThisPaint = 0;
+  state.pendingUploadStats = createEmptyTextureUploadStats();
 }
 
 function drawGrid({
@@ -256,52 +359,80 @@ function drawGrid({
   });
 }
 
-function drawPlaceholderNodeQuads({
-  colorProgram,
-  darkMode,
+function drawTexturedNodeQuads({
+  frameNumber,
   gl,
+  inputs,
   nodes,
-  size,
-  viewport,
+  textureCache,
+  textureProgram,
 }: {
-  colorProgram: CanvasFlowColorProgram;
-  darkMode: boolean;
+  frameNumber: number;
   gl: CanvasFlowWebglRenderingContext;
+  inputs: CanvasFlowRenderInputs;
   nodes: CanvasFlowNodeDrawRecord[];
-  size: CanvasFlowSize;
-  viewport: CanvasFlowRenderInputs["viewport"];
+  textureCache: CanvasFlowHtmlTextureCache;
+  textureProgram: CanvasFlowTextureProgram;
 }) {
-  const fillVertices: number[] = [];
-  const strokeVertices: number[] = [];
+  let cacheHits = 0;
+  let cacheMisses = 0;
+  let drawnNodes = 0;
+  const missingTextureNodeIds = new Set<string>();
+  gl.useProgram(textureProgram.program);
+  gl.enableVertexAttribArray(textureProgram.positionLocation);
+  gl.enableVertexAttribArray(textureProgram.texCoordLocation);
+  gl.uniform2f(
+    textureProgram.resolutionLocation,
+    inputs.size.cssWidth,
+    inputs.size.cssHeight,
+  );
+  gl.uniform1i(textureProgram.textureLocation, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureProgram.texCoordBuffer);
+  gl.vertexAttribPointer(
+    textureProgram.texCoordLocation,
+    2,
+    gl.FLOAT,
+    false,
+    0,
+    0,
+  );
+
   for (const node of nodes) {
-    const x = viewport.x + node.x * viewport.zoom;
-    const y = viewport.y + node.y * viewport.zoom;
-    const width = node.width * viewport.zoom;
-    const height = node.height * viewport.zoom;
-    appendRectTriangles(fillVertices, x, y, width, height);
-    appendRectLines(strokeVertices, x, y, width, height);
+    const entry = textureCache.getEntry(node.id);
+    if (!entry || entry.dirty) {
+      cacheMisses += 1;
+      missingTextureNodeIds.add(node.id);
+      continue;
+    }
+    cacheHits += 1;
+    entry.lastUsedFrame = frameNumber;
+    const screenRect = getNodeScreenDrawRect(node, inputs.viewport);
+    gl.bindBuffer(gl.ARRAY_BUFFER, textureProgram.positionBuffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      createQuadVertices(screenRect),
+      gl.STREAM_DRAW,
+    );
+    gl.vertexAttribPointer(
+      textureProgram.positionLocation,
+      2,
+      gl.FLOAT,
+      false,
+      0,
+      0,
+    );
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    drawnNodes += 1;
   }
-  drawColoredVertices({
-    color: darkMode
-      ? [37 / 255, 99 / 255, 235 / 255, 0.26]
-      : [59 / 255, 130 / 255, 246 / 255, 0.2],
-    colorProgram,
-    drawMode: gl.TRIANGLES,
-    gl,
-    size,
-    vertices: fillVertices,
-  });
-  drawColoredVertices({
-    color: darkMode
-      ? [147 / 255, 197 / 255, 253 / 255, 0.7]
-      : [30 / 255, 64 / 255, 175 / 255, 0.58],
-    colorProgram,
-    drawMode: gl.LINES,
-    gl,
-    size,
-    vertices: strokeVertices,
-  });
-  return nodes.length;
+  gl.bindTexture(gl.TEXTURE_2D, null);
+  return {
+    cacheHits,
+    cacheMisses,
+    drawnNodes,
+    missingTextureNodeIds,
+  };
 }
 
 function drawColoredVertices({
@@ -345,45 +476,33 @@ function drawColoredVertices({
   gl.drawArrays(drawMode, 0, vertices.length / 2);
 }
 
-function appendRectTriangles(
-  vertices: number[],
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
+function createQuadVertices({
+  height,
+  width,
+  x,
+  y,
+}: {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}) {
   const right = x + width;
   const bottom = y + height;
-  vertices.push(x, y, right, y, x, bottom, x, bottom, right, y, right, bottom);
-}
-
-function appendRectLines(
-  vertices: number[],
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
-  const right = x + width;
-  const bottom = y + height;
-  vertices.push(
+  return new Float32Array([
     x,
     y,
     right,
     y,
+    x,
+    bottom,
+    x,
+    bottom,
     right,
     y,
     right,
     bottom,
-    right,
-    bottom,
-    x,
-    bottom,
-    x,
-    bottom,
-    x,
-    y,
-  );
+  ]);
 }
 
 function assignVisibleNodeTransforms({
@@ -396,6 +515,7 @@ function assignVisibleNodeTransforms({
   visibleNodes: CanvasFlowNodeDrawRecord[];
 }) {
   const nextInteractiveNodeIds = new Set<string>();
+  const transformChangedNodeIds = new Set<string>();
   for (const node of visibleNodes) {
     const element = getCanvasFlowNodeElement({
       canvas,
@@ -405,49 +525,149 @@ function assignVisibleNodeTransforms({
     if (!element) {
       continue;
     }
-    assignCanvasFlowNodeTransform({
+    const changed = assignCanvasFlowNodeTransform({
       element,
       node,
       viewport: inputs.viewport,
     });
+    if (changed) {
+      transformChangedNodeIds.add(node.id);
+    }
     nextInteractiveNodeIds.add(node.id);
   }
-  return nextInteractiveNodeIds;
+  return {
+    nextInteractiveNodeIds,
+    transformChangedNodeIds,
+  };
 }
 
-function markDirtyNodeIds(
-  state: WebglRendererState,
-  nodeIds: ReadonlySet<string> | undefined,
-) {
-  if (!nodeIds) {
+function getTextureDirtyChangedNodeIds({
+  changedElements,
+  rendererTransformChangedNodeIds,
+}: {
+  changedElements: CanvasFlowChangedNodeElements | undefined;
+  rendererTransformChangedNodeIds: ReadonlySet<string>;
+}) {
+  if (!changedElements || changedElements.nodeIds.size === 0) {
+    return new Set<string>();
+  }
+  const textureDirtyNodeIds = new Set<string>();
+  for (const nodeId of changedElements.nodeIds) {
+    // Browser paint events can report descendants after our own wrapper
+    // transform updates. Those transforms move hit targets only; they do not
+    // change the source pixels that belong in the texture cache.
+    const rendererTransformOnly = rendererTransformChangedNodeIds.has(nodeId);
+    if (!rendererTransformOnly) {
+      textureDirtyNodeIds.add(nodeId);
+    }
+  }
+  return textureDirtyNodeIds;
+}
+
+function clearHandledRendererTransformChanges({
+  changedNodeIds,
+  rendererTransformChangedNodeIds,
+}: {
+  changedNodeIds: ReadonlySet<string> | undefined;
+  rendererTransformChangedNodeIds: Set<string>;
+}) {
+  if (!changedNodeIds) {
     return;
   }
-  for (const nodeId of nodeIds) {
-    state.dirtyNodeIds.add(nodeId);
+  for (const nodeId of changedNodeIds) {
+    rendererTransformChangedNodeIds.delete(nodeId);
   }
+}
+
+function getVisibleCanvasFlowNodes(inputs: CanvasFlowRenderInputs) {
+  const visibleRect = expandWorldRect(
+    getVisibleWorldRect(inputs.size, inputs.viewport),
+    DEFAULT_OVERSCAN,
+  );
+  return getVisibleNodeDrawRecords({
+    nodes: inputs.nodes,
+    nodeElements: inputs.nodeElements,
+    visibleRect,
+  });
+}
+
+function getMountedCanvasFlowNodeIds(
+  canvas: HTMLCanvasElement,
+  nodeElements: CanvasFlowRenderInputs["nodeElements"],
+) {
+  const nodeIds = new Set(nodeElements.keys());
+  for (const child of canvas.children) {
+    if (child instanceof HTMLElement && child.dataset.id) {
+      nodeIds.add(child.dataset.id);
+    }
+  }
+  return nodeIds;
+}
+
+function createCanvasFlowWebglResources(
+  gl: CanvasFlowWebglRenderingContext,
+): CanvasFlowWebglResources {
+  return {
+    colorProgram: createCanvasFlowColorProgram(gl),
+    textureProgram: createCanvasFlowTextureProgram(gl),
+  };
+}
+
+function destroyCanvasFlowWebglResources(
+  gl: CanvasFlowWebglRenderingContext,
+  resources: CanvasFlowWebglResources,
+) {
+  destroyCanvasFlowColorProgram(gl, resources.colorProgram);
+  destroyCanvasFlowTextureProgram(gl, resources.textureProgram);
+}
+
+function createEmptyTextureUploadStats(): CanvasFlowTextureUploadStats {
+  return {
+    createdEntries: 0,
+    dirtyVisibleEntries: 0,
+    entryCount: 0,
+    estimatedBytes: 0,
+    evictions: 0,
+    resizedEntries: 0,
+    uploadCount: 0,
+    uploadMs: 0,
+  };
 }
 
 function writeWebglStats({
+  cacheHits,
+  cacheMisses,
   canvas,
   drawMs,
   drawnNodes,
   inputs,
   now,
   state,
+  textureCache,
   transformAssignmentMs,
   visibleNodes,
   visibilityScanMs,
 }: {
+  cacheHits: number;
+  cacheMisses: number;
   canvas: HTMLCanvasElement;
   drawMs: number;
   drawnNodes: number;
   inputs: CanvasFlowRenderInputs;
   now: number;
   state: WebglRendererState;
+  textureCache: CanvasFlowHtmlTextureCache;
   transformAssignmentMs: number;
   visibleNodes: CanvasFlowNodeDrawRecord[];
   visibilityScanMs: number;
 }) {
+  writeWebglFrameTextureStats({
+    cacheHits,
+    cacheMisses,
+    canvas,
+    state,
+    textureCache,
+  });
   if (!shouldWriteWebglStats(canvas, state, now)) {
     return;
   }
@@ -473,10 +693,37 @@ function writeWebglStats({
   canvas.dataset.viewportZoom = inputs.viewport.zoom.toFixed(4);
   canvas.dataset.webglFrame = String(state.frameNumber);
   canvas.dataset.webglDrawMs = drawMs.toFixed(2);
-  canvas.dataset.webglTextureUploadsThisFrame = "0";
-  canvas.dataset.webglTextureUploadRequestsThisPaint = String(
-    state.textureUploadRequestsThisPaint,
+}
+
+function writeWebglFrameTextureStats({
+  cacheHits,
+  cacheMisses,
+  canvas,
+  state,
+  textureCache,
+}: {
+  cacheHits: number;
+  cacheMisses: number;
+  canvas: HTMLCanvasElement;
+  state: WebglRendererState;
+  textureCache: CanvasFlowHtmlTextureCache;
+}) {
+  canvas.dataset.webglTextureUploadsThisFrame = String(
+    state.pendingUploadStats.uploadCount,
   );
+  canvas.dataset.webglTextureUploadMs =
+    state.pendingUploadStats.uploadMs.toFixed(2);
+  canvas.dataset.webglTextureUploadRequestsThisPaint = String(
+    state.pendingUploadStats.dirtyVisibleEntries,
+  );
+  canvas.dataset.webglTextureEntries = String(textureCache.size);
+  canvas.dataset.webglTextureCacheHits = String(cacheHits);
+  canvas.dataset.webglTextureCacheMisses = String(cacheMisses);
+  canvas.dataset.webglTextureEvictions = String(state.totalTextureEvictions);
+  canvas.dataset.webglEstimatedTextureBytes = String(
+    textureCache.estimatedBytes,
+  );
+  canvas.dataset.webglDirtyNodes = String(textureCache.dirtyCount);
 }
 
 function shouldWriteWebglStats(
@@ -501,10 +748,18 @@ function shouldWriteWebglStats(
 function clearWebglRendererDiagnostics(canvas: HTMLCanvasElement) {
   delete canvas.dataset.rendererMode;
   delete canvas.dataset.webglContextCreated;
+  delete canvas.dataset.webglContextLost;
   delete canvas.dataset.webglDirtyNodes;
   delete canvas.dataset.webglDrawMs;
+  delete canvas.dataset.webglEstimatedTextureBytes;
   delete canvas.dataset.webglFrame;
   delete canvas.dataset.webglLastFrameReason;
+  delete canvas.dataset.webglLastTexturePaintReason;
+  delete canvas.dataset.webglTextureCacheHits;
+  delete canvas.dataset.webglTextureCacheMisses;
+  delete canvas.dataset.webglTextureEntries;
+  delete canvas.dataset.webglTextureEvictions;
+  delete canvas.dataset.webglTextureUploadMs;
   delete canvas.dataset.webglTextureUploadRequestsThisPaint;
   delete canvas.dataset.webglTextureUploadsThisFrame;
 }

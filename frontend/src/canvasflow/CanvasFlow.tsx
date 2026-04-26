@@ -155,14 +155,20 @@ function CanvasFlow() {
     (state) => state.connectionStartHandle !== null,
   );
 
-  const scheduleTexturePaint = useCallback((reason = "source-invalidated") => {
-    const renderer = rendererRef.current;
-    if (renderer) {
-      renderer.markNodesDirty("all", reason);
-      return;
-    }
-    requestCanvasFlowPaint(canvasRef.current);
-  }, []);
+  const scheduleTexturePaint = useCallback(
+    (
+      reason = "source-invalidated",
+      nodeIds: ReadonlySet<string> | "all" = "all",
+    ) => {
+      const renderer = rendererRef.current;
+      if (renderer) {
+        renderer.markNodesDirty(nodeIds, reason);
+        return;
+      }
+      requestCanvasFlowPaint(canvasRef.current);
+    },
+    [],
+  );
   const scheduleViewportFrame = useCallback((reason = "viewport-frame") => {
     const renderer = rendererRef.current;
     if (renderer) {
@@ -250,6 +256,10 @@ function CanvasFlow() {
   useEffect(() => {
     rendererRef.current?.updateInputs(createRenderInputs());
   });
+
+  useEffect(() => {
+    scheduleTexturePaint("theme");
+  }, [darkMode, scheduleTexturePaint]);
 
   useEffect(() => {
     viewportRef.current = transformToCanvasFlowViewport(transform);
