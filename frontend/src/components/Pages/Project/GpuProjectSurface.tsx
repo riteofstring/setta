@@ -76,7 +76,10 @@ import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,
 } from "./gpuProjectEdgeScene";
-import { isProjectGpuNodeDragDisabled } from "./gpuProjectInteractionGuards";
+import {
+  isProjectGpuNodeDragDisabled,
+  shouldShiftProjectGpuSelectionBoundsForNodeMove,
+} from "./gpuProjectInteractionGuards";
 
 type ProjectSurfaceDimensions = {
   readonly height: number;
@@ -624,8 +627,9 @@ function GpuProjectNodesSelectionOverlay({
     if (selectedNodeIds.length === 0) {
       return;
     }
-    const selectedNodes = getNodes().filter((node) =>
-      selectedNodeIds.includes(node.id),
+    const selectedNodes = getNodes().filter(
+      (node) =>
+        selectedNodeIds.includes(node.id) && canDragProjectNode(node.id),
     );
     if (selectedNodes.length === 0) {
       return;
@@ -648,7 +652,7 @@ function GpuProjectNodesSelectionOverlay({
         y: event.clientY,
       }),
       pointerId: event.pointerId,
-      selectedNodeIds,
+      selectedNodeIds: selectedNodes.map((node) => node.id),
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -682,7 +686,10 @@ function GpuProjectNodesSelectionOverlay({
       },
     }));
     updateNodePositions(dragState.items);
-    shiftNodesSelectionBounds(delta);
+    updateProjectSelectionBoundsAfterMovedNodes({
+      delta,
+      movedNodeIds: dragState.items.map((item) => item.id),
+    });
   };
 
   const handleSelectionDragPointerUp = (
@@ -775,9 +782,10 @@ function handleProjectNodeDragStart(change: ProjectGpuNodeDragChange) {
 
 function handleProjectNodeDrag(change: ProjectGpuNodeDragChange) {
   updateNodePositions(toNodeDragItems(change.items));
-  if (gpuFlowViewportStore.getState().nodesSelectionBounds) {
-    shiftNodesSelectionBounds(change.delta);
-  }
+  updateProjectSelectionBoundsAfterMovedNodes({
+    delta: change.delta,
+    movedNodeIds: change.items.map((item) => item.nodeId),
+  });
 }
 
 function handleProjectNodeDragStop(change: ProjectGpuNodeDragChange) {
@@ -945,9 +953,12 @@ function updateSelectedNodePositionsFromKeyboard({
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
   const activeSectionIds = getActiveSectionUIIds();
-  const selectedNodes = getNodes().filter((node) =>
-    activeSectionIds.includes(node.id),
+  const selectedNodes = getNodes().filter(
+    (node) => activeSectionIds.includes(node.id) && canDragProjectNode(node.id),
   );
+  if (selectedNodes.length === 0) {
+    return;
+  }
   const xVelocity = snapToGrid ? snapGrid[0] : 5;
   const yVelocity = snapToGrid ? snapGrid[1] : 5;
   const factor = isShiftPressed ? 4 : 1;
@@ -972,8 +983,37 @@ function updateSelectedNodePositionsFromKeyboard({
   });
   updateNodePositions(nodeUpdates);
   if (nodesSelectionBounds) {
-    shiftNodesSelectionBounds(positionDiff);
+    updateProjectSelectionBoundsAfterMovedNodes({
+      delta: positionDiff,
+      forceRefresh: snapToGrid,
+      movedNodeIds: nodeUpdates.map((item) => item.id),
+    });
   }
+}
+
+function updateProjectSelectionBoundsAfterMovedNodes({
+  delta,
+  forceRefresh = false,
+  movedNodeIds,
+}: {
+  readonly delta: { readonly x: number; readonly y: number };
+  readonly forceRefresh?: boolean | undefined;
+  readonly movedNodeIds: readonly string[];
+}) {
+  if (!gpuFlowViewportStore.getState().nodesSelectionBounds) {
+    return;
+  }
+  if (
+    !forceRefresh &&
+    shouldShiftProjectGpuSelectionBoundsForNodeMove({
+      activeSelectedNodeIds: getActiveSectionUIIds(),
+      movedNodeIds,
+    })
+  ) {
+    shiftNodesSelectionBounds(delta);
+    return;
+  }
+  updateActiveNodesSelectionBounds();
 }
 
 function toNodeDragItems(

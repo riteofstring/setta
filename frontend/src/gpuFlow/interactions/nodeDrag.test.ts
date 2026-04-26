@@ -40,6 +40,24 @@ describe("GPU node drag controller", () => {
     ).toEqual(["c"]);
   });
 
+  it("filters grouped drag items through per-node draggability", () => {
+    const nodes = [
+      node("a", 10, 20, 30, 40),
+      node("b", 50, 60, 70, 80),
+      node("c", 90, 100, 110, 120),
+    ];
+
+    expect(
+      getGpuNodeDragItems({
+        canDragNode: (nodeId) => nodeId !== "b",
+        nodeId: "a",
+        nodes,
+        pointerPosition: { x: 15, y: 25 },
+        selectedNodeIds: ["a", "b", "c"],
+      }).map((item) => item.nodeId),
+    ).toEqual(["a", "c"]);
+  });
+
   it("moves drag items from flow-space pointer distance and snaps on request", () => {
     const items = getGpuNodeDragItems({
       nodeId: "a",

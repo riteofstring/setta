@@ -93,11 +93,13 @@ export function attachGpuNodeDragController(
 }
 
 export function getGpuNodeDragItems({
+  canDragNode,
   nodeId,
   nodes,
   pointerPosition,
   selectedNodeIds = [],
 }: {
+  readonly canDragNode?: ((nodeId: string) => boolean) | undefined;
   readonly nodeId: string;
   readonly nodes: readonly GpuNodeLayout[];
   readonly pointerPosition: GpuPoint;
@@ -107,6 +109,9 @@ export function getGpuNodeDragItems({
   const items: GpuNodeDragItem[] = [];
   for (const node of nodes) {
     if (!draggedIds.has(node.nodeId)) {
+      continue;
+    }
+    if (canDragNode?.(node.nodeId) === false) {
       continue;
     }
     items.push({
@@ -374,6 +379,7 @@ class GpuNodeDragController {
     event.preventDefault();
     event.stopImmediatePropagation();
     const items = getGpuNodeDragItems({
+      canDragNode: this.options.canDragNode,
       nodeId: pendingDrag.nodeId,
       nodes: this.options.getNodes(),
       pointerPosition: pendingDrag.startFlowPoint,

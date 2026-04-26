@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isProjectGpuNodeDragDisabled } from "./gpuProjectInteractionGuards";
+import {
+  isProjectGpuNodeDragDisabled,
+  shouldShiftProjectGpuSelectionBoundsForNodeMove,
+} from "./gpuProjectInteractionGuards";
 
 describe("gpu project interaction guards", () => {
   it.each([
@@ -32,6 +35,33 @@ describe("gpu project interaction guards", () => {
         dndMode: { isMovingFree: false, isSorting: false },
         isFollowTransitioning: false,
         panActivationKeyPressed: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("shifts selection bounds only when every active selected node moved", () => {
+    expect(
+      shouldShiftProjectGpuSelectionBoundsForNodeMove({
+        activeSelectedNodeIds: ["a", "b"],
+        movedNodeIds: ["b", "a"],
+      }),
+    ).toBe(true);
+    expect(
+      shouldShiftProjectGpuSelectionBoundsForNodeMove({
+        activeSelectedNodeIds: ["a", "b"],
+        movedNodeIds: ["a"],
+      }),
+    ).toBe(false);
+    expect(
+      shouldShiftProjectGpuSelectionBoundsForNodeMove({
+        activeSelectedNodeIds: ["a"],
+        movedNodeIds: ["a", "c"],
+      }),
+    ).toBe(false);
+    expect(
+      shouldShiftProjectGpuSelectionBoundsForNodeMove({
+        activeSelectedNodeIds: [],
+        movedNodeIds: ["a"],
       }),
     ).toBe(false);
   });

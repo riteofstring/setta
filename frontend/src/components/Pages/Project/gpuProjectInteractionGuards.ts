@@ -21,3 +21,22 @@ export function isProjectGpuNodeDragDisabled({
     dndMode.isMovingFree
   );
 }
+
+export type ProjectGpuSelectionBoundsShiftInput = {
+  readonly activeSelectedNodeIds: readonly string[];
+  readonly movedNodeIds: readonly string[];
+};
+
+export function shouldShiftProjectGpuSelectionBoundsForNodeMove({
+  activeSelectedNodeIds,
+  movedNodeIds,
+}: ProjectGpuSelectionBoundsShiftInput): boolean {
+  if (activeSelectedNodeIds.length === 0) {
+    return false;
+  }
+  const movedIds = new Set(movedNodeIds);
+  if (movedIds.size !== activeSelectedNodeIds.length) {
+    return false;
+  }
+  return activeSelectedNodeIds.every((nodeId) => movedIds.has(nodeId));
+}
