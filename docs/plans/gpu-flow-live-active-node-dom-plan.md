@@ -166,7 +166,12 @@ Prefer skipping the active quad once the live layer confirms mount. That avoids 
 
 Use the Phase 1 probe results to choose one strategy.
 
-### Strategy A: Promote Existing Source DOM
+The initial Phase 1 probe ruled out CSS-only promotion of a canvas child. A deeper follow-up investigation is recorded in `perf/reports/frontend/2026-04-29_strategy-a-investigation.md`. That investigation splits Strategy A into two variants:
+
+- Strategy A1: CSS-promote an existing canvas child. This is not viable in the local Chromium build.
+- Strategy A2: temporarily move the same React-owned DOM node into an outside active overlay, then move it back before final texture capture. This is plausible enough to prototype before falling back to duplicate-render Strategy B.
+
+### Strategy A1: CSS-Promote Existing Source DOM
 
 Use this only if canvas layout subtree children can be visually promoted above the canvas without breaking capture.
 
@@ -192,9 +197,53 @@ Risks:
 - Browser may not composite canvas fallback/layoutsubtree children as normal DOM.
 - CSS stacking may not escape the canvas rendering model.
 
+Current investigation result:
+
+- Not viable in Chrome 147 with the local html-in-canvas/WebGPU flags.
+- Layout-subtree children hit-test but do not visually composite above the canvas.
+- CSS `z-index`, `position: fixed`, 3D transforms, and nested wrappers did not change that.
+
+### Strategy A2: Same-Instance Active DOM Teleport
+
+Prototype this before Strategy B.
+
+Approach:
+
+- Keep one React-owned `SectionContainer` instance.
+- On active interaction, move the existing canvas-child node DOM into an outside active overlay under the same React root.
+- Apply the same screen transform as the GPU quad.
+- Stop active texture uploads while the node is outside the canvas.
+- Let the moved DOM receive real pointer, keyboard, focus, caret, CSS transition, editor, and terminal behavior.
+- Keep the previous GPU texture underneath until the moved DOM is visible; then optionally suppress the GPU quad.
+- On settle, move the same DOM node back under the canvas as an immediate canvas child.
+- Request one paint, upload the final texture, then return to the passive texture path.
+
+Advantages:
+
+- No duplicate React tree.
+- Preserves local component state, editor instances, terminal instances, focus, and selection.
+- Matches the examples' key rule that active interaction is real DOM while texture pixels are snapshots.
+
+Risks:
+
+- Imperatively reparenting React-owned DOM is fragile and must be tightly contained.
+- React updates while the node is moved need browser testing.
+- Texture upload must be explicitly suppressed while the node is outside the canvas or `copyElementImageToTexture` will throw.
+- The node must be restored to an immediate canvas child before final capture.
+- Complex components may perform layout or observer work that assumes the original parent.
+
+Required prototype checks:
+
+- Switch first-click handoff while teleported.
+- Text input focus/caret while teleported.
+- Input-driven React rerender while teleported.
+- Reattach-before-final-capture ordering.
+- No `copyElementImageToTexture` calls for the active node while teleported.
+- CodeMirror and terminal behavior before enabling broadly.
+
 ### Strategy B: Separate Live Overlay Render
 
-Use this if source DOM cannot be promoted.
+Use this if Strategy A2 fails on React reconciliation or component behavior.
 
 Primary examples:
 
@@ -367,6 +416,8 @@ After live DOM active interaction is verified:
 
 - Can a canvas layoutsubtree child be visually promoted above the canvas on the local Chromium build?
 - Can WebGPU `copyElementImageToTexture` capture outside-canvas DOM elements?
+- Can same-instance active DOM teleport survive React updates, focus, selection, CodeMirror, and terminal behavior without duplicate mounting?
+- Can the active node upload path be cleanly suppressed while a source node is temporarily outside the canvas?
 - Which Setta section types are unsafe to duplicate?
 - Do CodeMirror and terminal need dedicated active presentation wrappers?
 - Should active DOM be node-level always, or control-level for simple params?
