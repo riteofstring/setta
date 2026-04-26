@@ -44,6 +44,13 @@ listener endpoint inventories or local-core dispatch logic into the plugin;
 those contracts are published by the Setta package and generated from Go-owned
 metadata.
 
+Watch Code backend providers that use a package-managed Python entrypoint
+should follow the same thin-dispatcher model through
+`setta.plugin_runtime.watch_code`. The plugin may own the probe/runtime
+entrypoint, but Go still owns the Watch Code route suffixes, UI-setting handler
+ids, data schema version, local-core commands, validation, and project-state
+mutation path.
+
 ### Manifest contract notes
 
 - `capabilities` must use the runtime manifest vocabulary. In addition to the
@@ -97,6 +104,60 @@ Notes:
 - `settingId` is plugin-local; MCP callers will see `plugin::<pluginId>::<settingId>`.
 - `configPath` must be a non-empty string array.
 - `defaultValue` is required and must validate against `valueSchema` (or inferred schema at `configPath`).
+
+### Optional: register backend routes and backend-owned UI settings
+
+Backend-capable plugins can publish runtime-owned HTTP routes from their backend
+probe by returning `routes`. Registered paths are full backend paths, usually
+under `/plugins/<pluginId>/...`, and methods must be explicit. Frontend code
+calls the same route through the plugin host with the plugin-local path:
+
+```js
+await host.fetchBackendRoute("/my-route", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    projectConfigId: host.getProjectContext().projectConfigId,
+  }),
+});
+```
+
+`fetchBackendRoute` requires `registerRouter`; the host prefixes the plugin id,
+sends same-origin credentials, forwards share-session headers when present, and
+rejects paths that do not start with a single `/` or contain dot segments.
+
+Backend probes can also return `uiSettings` for settings that are not simple
+config-schema reads/writes. Each setting uses a plugin-local `id`, required
+`readHandlerId`, and a `writeHandlerId` when `mutability` is `writable`.
+`paneId` is optional for settings revealed entirely through a frontend
+`registerSettingRevealHandler` handler.
+
+### Optional: store project-scoped plugin data
+
+For plugin state that belongs to individual projects, store it in the document
+plugin payload as:
+
+```json
+{
+  "pluginData": {
+    "<pluginId>": {
+      "schemaVersion": 1,
+      "projects": {
+        "<projectConfigId>": {}
+      }
+    }
+  }
+}
+```
+
+Setta treats any plugin payload with a top-level `projects` object as
+project-scoped for lifecycle purposes: clone and save-as copy the source
+project entry to the new project id, and project deletion removes deleted
+project entries while preserving other top-level plugin fields. Frontend plugin
+hosts expose the active project entry through
+`readProjectState({ kind: "pluginData", pluginId })` and
+`subscribeProjectState({ kind: "pluginData", pluginId }, ...)`, not the full
+document-level wrapper.
 
 ### Optional: implement frontend reveal handlers for plugin settings
 

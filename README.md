@@ -62,7 +62,8 @@ On a fresh workspace, the repo-local defaults install profile bootstraps
 `setta-basedpyright` as the selected Python language server when that
 first-party plugin is available. Watch Code is available through the optional
 first-party `setta-watch-code` plugin. See
-[`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md).
+[`docs/reference/plugin-language-servers.md`](docs/reference/plugin-language-servers.md)
+and [`docs/reference/watch-code.md`](docs/reference/watch-code.md).
 
 ## Packaging boundary
 

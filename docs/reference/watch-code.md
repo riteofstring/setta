@@ -13,6 +13,27 @@ match what's on disk.
   paths, and linked section IDs.
 - **Sync sources:** File watcher events, inline code edits, and bound code file reloads.
 
+## Provider Contract
+Watch Code is available only when exactly one active plugin contributes the
+Watch Code provider capability. The provider must declare
+`featureCapabilities.watchCode`, probe a `watchCodeBackend` registration with
+contract/data schema version `1`, support the `python` language, and register
+the required backend route under `/plugins/<pluginId>/watch-code/inputs`.
+
+The first-party provider is `setta-watch-code`. It declares:
+- `registerWatchCodeBackend`
+- `registerRouter`
+- `registerUISettings`
+- `registerCanvasControl`
+- `registerSettingRevealHandler`
+- `readProjectState`
+- `subscribeProjectState`
+
+If the provider probe sets `requiresLanguageServer=true`, plugin runtime status
+also reports a Python language-server dependency. The parser and persistence
+contract are still Go-owned, but callable param refresh depends on the selected
+Python language server being active after any required restart.
+
 ## Configuration & Inputs
 Watch Code state is stored under document plugin data:
 
@@ -51,6 +72,11 @@ The plugin UI writes inputs through `fetchBackendRoute("/watch-code/inputs")`.
 An active provider plus non-empty `folders` or `files` is the project-level
 activation signal. When inputs change, the backend baselines only the new
 additions (so existing callables don't auto-create sections).
+
+Frontend project-state snapshots expose only the active project's payload as
+`pluginData[providerPluginId]`. The full `schemaVersion/projects` wrapper is
+kept in `project.json`; project clone/save-as copies matching project-scoped
+payloads, and project deletion removes matching project entries.
 
 ## UI surface
 - Watch Code no longer has its own Overview tab.
@@ -102,8 +128,9 @@ Watch Code now uses a Go-owned polling/runtime path under `internal/watchcode`:
   `recursive` flag, and keeps pending dirs when configured roots do not exist
   yet.
 
-App wiring keeps the service in sync with project config changes and routes file
-updates into the Go project-state watch-code apply path.
+App wiring keeps the service in sync with the active provider and
+project-scoped plugin data, then routes file updates into the Go project-state
+watch-code apply path.
 
 ## Update flow (file changes)
 On file changes, Watch Code compares the current scan with the registry for that
@@ -165,6 +192,10 @@ This keeps Watch Code aligned whether edits happen in the UI or in the editor.
 - `internal/projectstate/watch_code.go`
 - `internal/projectstate/watch_code_apply.go`
 - `internal/projectstate/watch_code_bound_sections.go`
+- `internal/projectstate/watch_code_plugin_data.go`
 - `internal/app/code_updates.go`
-- `backend/setta/types/project_config.py`
+- `internal/app/watch_code_plugin_backend_routes.go`
+- `internal/watchcodecontracts/backend.go`
+- `backend/setta/plugin_runtime/watch_code.py`
+- `plugins/setta-watch-code/backend/main.py`
 - `plugins/setta-watch-code/frontend/src/watchCodeControl.ts`

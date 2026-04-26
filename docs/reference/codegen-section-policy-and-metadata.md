@@ -4,7 +4,13 @@ This document explains how code generation decides which sections to emit and ho
 
 ## Section policy model
 
-Section policy lives on the Python codegen target as `ProjectCodegenPythonTarget.sectionPolicy` (`backend/setta/types/project_config.py`). When no Python target is present, `get_section_codegen_policy` falls back to the default policy.
+Section policy lives on the Python codegen target payload as `sectionPolicy`.
+Go owns decoding, defaults, and validation in
+`internal/projectstate/python_codegen.go` and
+`internal/projectstate/python_codegen_policy.go`; downstream Python sees the
+generated `ProjectCodegenPythonTarget.sectionPolicy` model in
+`backend/setta/types/generated/go_shared_types.py`. When no Python target is
+present, callers use `DefaultPythonSectionCodegenPolicy`.
 
 The policy has five levers:
 - `allowlist`: section types that are eligible for codegen. `None` means "no allowlist" (everything is eligible). Defaults to Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, MetaControl, TaskBoard, and Spreadsheet (Image and Chat are excluded by default).
@@ -15,7 +21,7 @@ The policy has five levers:
 
 ## Section value representation (policy)
 
-Section representation is the "value policy" for sections: it decides how a section's value is encoded in the dependency graph and emitted in generated Python. Representation comes from `typePolicies` + `sectionOverrides` and is validated by `resolve_section_codegen_policy`.
+Section representation is the "value policy" for sections: it decides how a section's value is encoded in the dependency graph and emitted in generated Python. Representation comes from `typePolicies` + `sectionOverrides` and is validated by `ResolvePythonSectionCodegenPolicy`.
 
 Supported representations by section type:
 - Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, MetaControl, TaskBoard, Spreadsheet: `expression` only. (MetaControl formatting is driven by code obj value policy.)
@@ -33,7 +39,14 @@ File-based representations fall back when backing data is missing:
 
 ## Code obj value policy model
 
-Code obj value policy lives on the Python codegen target as `ProjectCodegenPythonTarget.codeObjValuePolicy` (`backend/setta/types/project_config.py`). It controls how code object (param) values are formatted in generated Python and in MetaControl section outputs.
+Code obj value policy lives on the Python codegen target payload as
+`codeObjValuePolicy`. Go owns decoding, defaults, and validation in
+`internal/projectstate/python_codegen.go` and
+`internal/projectstate/python_codegen_policy.go`; downstream Python sees the
+generated `ProjectCodegenPythonTarget.codeObjValuePolicy` model in
+`backend/setta/types/generated/go_shared_types.py`. It controls how code object
+(param) values are formatted in generated Python and in MetaControl section
+outputs.
 
 The policy has two levers:
 - `typePolicies`: per-code-obj-type defaults (representation only).
@@ -45,7 +58,7 @@ Supported representations:
 - `string`: always emit the stored string via `repr(literal_value)`.
 - `file_path`: for DropzoneParam only, emit a list of attachment file paths (plus dropped text entries); if the stored value is not a dropzone payload, fall back to `repr(literal_value)`.
 - `file_read`: for DropzoneParam only, emit a list where file attachments are read via `read_file_value(...)` (text entries stay as strings).
-Some code obj types only support specific representations; unsupported combinations raise `ValueError`.
+Some code obj types only support specific representations; unsupported combinations fail Go-owned policy validation.
 Current limits:
 - Expression only: `ButtonParam`, `NestedParam`, `CodeCallable`.
 - String only: `TextParam`, `DateParam`, `TimeParam`, `TextAreaParam`, `PasswordParam`, `ColorPickerParam`.
@@ -64,21 +77,21 @@ PasswordParam secrets:
 
 ## Policy resolution order
 
-`resolve_section_codegen_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedSectionCodegenPolicy` in this order:
+`ResolvePythonSectionCodegenPolicy` (`internal/projectstate/python_codegen_policy.go`) computes a `ResolvedPythonSectionCodegenPolicy` in this order:
 - Start with `allowlist`: include if `allowlist is None` or the section type is listed.
 - Apply the `typePolicies[section_type].mode` using `include`, `exclude`, or `inherit`.
 - Apply `exclude`: if the section id is listed, force exclusion.
 - Apply `sectionOverrides[section_id]`: the override mode can flip inclusion, and the override representation wins.
-- Validate representation support for the section type; unsupported combinations raise a `ValueError`.
+- Validate representation support for the section type; unsupported combinations return a Go validation error.
 
 The result is `include_in_codegen` plus the chosen `representation`.
 
 ## Code obj value policy resolution order
 
-`resolve_code_obj_value_policy` (`backend/setta/types/project_config.py`) computes a `ResolvedCodeObjValuePolicy` in this order:
+`ResolvePythonCodeObjValuePolicy` (`internal/projectstate/python_codegen_policy.go`) computes a `ResolvedPythonCodeObjValuePolicy` in this order:
 - Start with `typePolicies[code_obj_type]` (defaulting to `expression`).
 - Apply `codeObjOverrides[code_obj_id]` if present.
-- Validate representation support for the code obj type; unsupported combinations raise a `ValueError`.
+- Validate representation support for the code obj type; unsupported combinations return a Go validation error.
 
 ## How policy affects codegen
 
@@ -142,7 +155,10 @@ prefix/suffix). The UI reconstructs the full file by stitching
 
 ## Generated metadata
 
-Python metadata output is controlled by `ProjectCodegenPythonTarget.generateMetadata` (`backend/setta/types/project_config.py`).
+Python metadata output is controlled by `GenerateMetadata` on the decoded
+`PythonCodegenTarget` (`internal/projectstate/python_codegen.go`). Downstream
+Python sees the generated `ProjectCodegenPythonTarget.generateMetadata` field in
+`backend/setta/types/generated/go_shared_types.py`.
 
 When enabled:
 - `internal/codegen.PythonMetadataRenderer` renders `setta_gen_meta.py` using the project export and dependency graph (`internal/codegen/python_meta_renderer.go`).
