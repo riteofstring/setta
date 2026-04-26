@@ -7,8 +7,9 @@ import (
 )
 
 type watchCodeServiceRef struct {
-	mu      sync.Mutex
-	service *watchcode.Service
+	mu         sync.Mutex
+	service    *watchcode.Service
+	providerID string
 }
 
 func newWatchCodeServiceRef() *watchCodeServiceRef {
@@ -24,15 +25,26 @@ func (r *watchCodeServiceRef) Current() *watchcode.Service {
 	return r.service
 }
 
-func (r *watchCodeServiceRef) Replace(service *watchcode.Service) error {
+func (r *watchCodeServiceRef) CurrentProviderID() string {
+	if r == nil {
+		return ""
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.providerID
+}
+
+func (r *watchCodeServiceRef) Replace(providerID string, service *watchcode.Service) error {
 	if r == nil {
 		return closeWatchCodeService(service)
 	}
 	r.mu.Lock()
 	previous := r.service
+	previousProviderID := r.providerID
 	r.service = service
+	r.providerID = providerID
 	r.mu.Unlock()
-	if previous == service {
+	if previous == service && previousProviderID == providerID {
 		return nil
 	}
 	return closeWatchCodeService(previous)
@@ -45,6 +57,7 @@ func (r *watchCodeServiceRef) Close() error {
 	r.mu.Lock()
 	service := r.service
 	r.service = nil
+	r.providerID = ""
 	r.mu.Unlock()
 	return closeWatchCodeService(service)
 }

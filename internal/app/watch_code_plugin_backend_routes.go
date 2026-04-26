@@ -30,10 +30,10 @@ type watchCodeBackendSetEnabledPayload struct {
 }
 
 type watchCodeBackendSetInputsPayload struct {
-	ProjectConfigID  string                          `json:"projectConfigId"`
-	WatchCodeFolders *[]projectstate.WatchCodeFolder `json:"watchCodeFolders"`
-	WatchCodeFiles   *[]string                       `json:"watchCodeFiles"`
-	FrontendOpID     *string                         `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                          `json:"projectConfigId"`
+	Folders         *[]projectstate.WatchCodeFolder `json:"folders"`
+	Files           *[]string                       `json:"files"`
+	FrontendOpID    *string                         `json:"frontendOpId,omitempty"`
 }
 
 func newWatchCodeBackendRouteHost(
@@ -58,8 +58,12 @@ func (h watchCodeBackendRouteHost) intercept(
 	if !ok {
 		return plugins.BackendHTTPResponse{}, false, nil
 	}
-	providerPluginID, providerActive := h.activeProviderPluginID()
+	capabilities := h.watchCodeCapabilities.WatchCodeCapabilities()
+	providerPluginID, providerActive := capabilities.ActiveProviderPluginID()
 	if !providerActive || providerPluginID != pluginID {
+		if capabilities.ProviderSelection.ContainsPluginID(pluginID) {
+			return watchCodeBackendUnavailableResponse(), true, nil
+		}
 		return plugins.BackendHTTPResponse{}, false, nil
 	}
 	if strings.ToUpper(strings.TrimSpace(request.Method)) != http.MethodPost {
@@ -184,6 +188,15 @@ func (h *watchCodeBackendRouteHost) activeProviderPluginID() (string, bool) {
 	return h.watchCodeCapabilities.ActiveProviderPluginID()
 }
 
+func watchCodeBackendUnavailableResponse() plugins.BackendHTTPResponse {
+	return watchCodeBackendErrorResponse(
+		http.StatusConflict,
+		watchcodecontracts.BackendErrorProviderRequired,
+		projectstate.ErrWatchCodeProviderPluginIDRequired.Error(),
+		nil,
+	)
+}
+
 func (h watchCodeBackendRouteHost) handleSetEnabled(
 	ctx context.Context,
 	shareSessionID string,
@@ -241,11 +254,11 @@ func (h watchCodeBackendRouteHost) handleSetInputs(
 	if !ok {
 		return response, true, nil
 	}
-	if payload.WatchCodeFolders == nil {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidRequest, "watchCodeFolders must be an array of objects.", nil), true, nil
+	if payload.Folders == nil {
+		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidRequest, "folders must be an array of objects.", nil), true, nil
 	}
-	if payload.WatchCodeFiles == nil {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidRequest, "watchCodeFiles must be an array of strings.", nil), true, nil
+	if payload.Files == nil {
+		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidRequest, "files must be an array of strings.", nil), true, nil
 	}
 	frontendOpID := optionalWatchCodeBackendPayloadString(payload.FrontendOpID)
 
@@ -253,8 +266,8 @@ func (h watchCodeBackendRouteHost) handleSetInputs(
 		watchCodeBackendMutationContext(ctx, frontendOpID),
 		providerPluginID,
 		projectID,
-		*payload.WatchCodeFolders,
-		*payload.WatchCodeFiles,
+		*payload.Folders,
+		*payload.Files,
 		h.workspaceRoot,
 	)
 	if err != nil {

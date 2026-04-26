@@ -911,16 +911,17 @@ func reconcileIDEWatchCodeService(
 	if services.watchCodeServiceRef == nil {
 		services.watchCodeServiceRef = newWatchCodeServiceRef()
 	}
-	if !services.watchCodeCapabilities.ProviderActive() {
+	providerPluginID, providerActive := services.watchCodeCapabilities.ActiveProviderPluginID()
+	if !providerActive {
 		return services.watchCodeServiceRef.Close()
 	}
 	currentService := services.watchCodeServiceRef.Current()
-	if currentService == nil {
+	if currentService == nil || services.watchCodeServiceRef.CurrentProviderID() != providerPluginID {
 		watchCodeService, err := newIDEWatchCodeService(cfg, logger, websocketHub, services)
 		if err != nil {
 			return err
 		}
-		if err := services.watchCodeServiceRef.Replace(watchCodeService); err != nil {
+		if err := services.watchCodeServiceRef.Replace(providerPluginID, watchCodeService); err != nil {
 			_ = watchCodeService.Close()
 			return err
 		}

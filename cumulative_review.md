@@ -3,10 +3,10 @@
 ## Recurring Subsystem Invariant Matrix
 
 ### Watch Code Plugin Mutations
-- Invariant: Watch Code plugin routes and backend UI settings may keep plugin-owned public surfaces, but provider-owned Watch Code settings must fail closed unless exactly one probed provider is active; accepted live mutations and reads must pass strict owner decoding, be scoped to an existing project, and write through the app-owned Go runtime so persisted state, live snapshots, websocket updates, frontend op status, Watch Code service config, and ignored-root policy share one canonical writer. Field-specific setting writes must preserve sibling input fields through owner-level mutations rather than stale read-modify-write snapshots.
-- Last finding commit: 02715f08878f4194f037b8d58af56542128d0d81
-- Proof tests: `TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave`; `TestAppWatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation`; `TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime`; `TestAppIDEMCPToolCallRouteRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForPendingRestartProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsDuringProviderConflict`; `TestRuntimeSetWatchCodeFoldersPreservesNewerFiles`; `TestRuntimeSetWatchCodeFilesPreservesNewerFolders`; `TestAppIDEMCPToolCallRouteMergesSplitWatchCodeInputSettings`; `TestWatchCodeBackendUISettingRejectsMissingProjectWithoutNoOpSuccess`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`
-- Still unverified: Targeted Playwright was attempted but failed in `frontend/tests/e2e/editor/section-variant-single-handle.spec.ts:295` waiting for the `Variants` heading; no CDP visual check was run because no UI behavior changed.
+- Invariant: Watch Code plugin routes and backend UI settings may keep plugin-owned public surfaces, but provider-owned Watch Code settings must fail closed unless exactly one probed provider is active; accepted live mutations and reads must pass strict owner decoding, use the current `folders`/`files` route payload contract, be scoped to an existing project, and write through the app-owned Go runtime so persisted state, live snapshots, websocket updates, frontend op status, Watch Code service config, and ignored-root policy share one canonical writer. Field-specific setting writes must preserve sibling input fields through owner-level mutations rather than stale read-modify-write snapshots, and the plugin UI must disable input editing while an inputs save is pending.
+- Last finding commit: 9d855bf595dd6cf6b0af2d7cfe1dc097f9f1a20f
+- Proof tests: `TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave`; `TestAppWatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation`; `TestAppWatchCodePluginRouteRejectsLegacyInputFieldNamesWithoutMutation`; `TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandidates`; `TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime`; `TestAppIDEMCPToolCallRouteRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForPendingRestartProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsDuringProviderConflict`; `TestRuntimeSetWatchCodeFoldersPreservesNewerFiles`; `TestRuntimeSetWatchCodeFilesPreservesNewerFolders`; `TestAppIDEMCPToolCallRouteMergesSplitWatchCodeInputSettings`; `TestWatchCodeBackendUISettingRejectsMissingProjectWithoutNoOpSuccess`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`
+- Still unverified: Full Playwright suite was not run; targeted Watch Code pending-save Playwright passed.
 
 ### Project-Scoped Plugin Data Lifecycle
 - Invariant: Generic project-scoped plugin payloads under `Document.PluginData[pluginID].projects[projectID]` must follow project lifecycle operations: clone and save-as copy the source project's payload to the new project ID, while delete removes deleted project IDs without dropping sibling project payloads, non-project fields, or opaque non-project plugin data. Project view projection must use the same Go-owned envelope parser and must ignore payload roots that are not project-scoped.
@@ -15,10 +15,10 @@
 - Still unverified: Only generic projectstate and projectview unit paths were exercised; no browser flow uses the lifecycle directly in this iteration.
 
 ### Generic Plugin UI Settings
-- Invariant: Backend-registered plugin UI settings are capability-gated by `registerUISettings` and may reveal through pane-less plugin handlers when no plugin pane can exist; schema-defined plugin settings remain pane-backed and require `registerPane`.
-- Last finding commit: a1ab5007a9537bfee64932cabb4cf2adf085040e
-- Proof tests: `TestNewScopedRegistryIncludesBackendRegisteredSettingWithRegisterUISettingsOnly`; `TestRevealServiceDispatchesBackendOnlyPluginSettingAsPaneLessTarget`; `TestNewScopedRegistryOmitsSchemaDefinedSettingWithoutRegisterPane`; `frontend/src/plugins/runtime.test.ts`
-- Still unverified: Browser/CDP visual verification and Playwright were not run; no rendered layout or style flow changed.
+- Invariant: Backend-registered plugin UI settings are capability-gated by `registerUISettings`, do not require synthetic `paneId` metadata, and may reveal through pane-less plugin handlers when no plugin pane can exist; schema-defined plugin settings remain pane-backed and require `registerPane`.
+- Last finding commit: 9d855bf595dd6cf6b0af2d7cfe1dc097f9f1a20f
+- Proof tests: `TestNormalizeBackendUISettingRegistrationAllowsPaneLessBackendSetting`; `TestNewScopedRegistryIncludesBackendRegisteredSettingWithRegisterUISettingsOnly`; `TestRevealServiceDispatchesBackendOnlyPluginSettingAsPaneLessTarget`; `TestNewScopedRegistryOmitsSchemaDefinedSettingWithoutRegisterPane`; `frontend/src/plugins/runtime.test.ts`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`; `tests/start/test_packaged_distribution.py -k first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain`
+- Still unverified: No browser reveal flow for pane-less backend settings was rerun in this iteration.
 
 ### Watch Code Provider Registry
 - Invariant: When an active Watch Code provider exists, project mutations that can change callable membership must update the provider's pluginData registry in the same document revision; providerless project paths must not recreate core Watch Code fields.
@@ -27,10 +27,10 @@
 - Still unverified: No separate negative no-provider callable test was added in this iteration.
 
 ### Watch Code Provider Service Lifecycle
-- Invariant: Watch Code service lifecycle has one mutable owner, `watchCodeServiceRef`; provider unavailability must stop the service without fallback raw pointers or stored-data processing. Active provider changes must invalidate and rematerialize project LSP documents and callbacks even when language-server specs are unchanged. Plugin backend refresh transitions that fail after commit must roll back runtime, capability, LSP, and pending-restart metadata together so the service does not stay on a half-applied provider state.
-- Last finding commit: 02715f08878f4194f037b8d58af56542128d0d81
-- Proof tests: Existing app tests assert `app.watchCodeRef.Current()` across startup, enable, no-provider, launcher, and core-route absence paths; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForPendingRestartProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsDuringProviderConflict`; `TestPluginBackendRuntimeRefresherReconcilesProjectDocumentWhenWatchCodeProviderStateChanges`; `TestPluginBackendRuntimeRefresherSkipsProjectReconcileWhenSpecsAndProviderAreUnchanged`; `TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefreshError`; `TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnProjectReconcileError`
-- Still unverified: No full generated diagnostics or callable callback E2E was run; targeted Playwright was attempted but failed in `frontend/tests/e2e/editor/section-variant-single-handle.spec.ts:295`.
+- Invariant: Watch Code service lifecycle has one mutable owner, `watchCodeServiceRef`; provider unavailability must stop the service without fallback raw pointers or stored-data processing. Active provider changes must replace the running service even when language-server specs are unchanged. Launcher mode must not host `registerWatchCodeBackend` providers. Plugin backend refresh transitions that fail after commit must roll back runtime, capability, LSP, and pending-restart metadata together so the service does not stay on a half-applied provider state.
+- Last finding commit: 9d855bf595dd6cf6b0af2d7cfe1dc097f9f1a20f
+- Proof tests: Existing app tests assert `app.watchCodeRef.Current()` across startup, enable, no-provider, launcher, and core-route absence paths; `TestAppWatchCodeProviderChangeReplacesRunningService`; `TestAppLauncherModeBlocksWatchCodeProviderHost`; `TestServiceRuntimeWatchCodeCapabilitiesBlockHostlessLauncherProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForPendingRestartProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsDuringProviderConflict`; `TestPluginBackendRuntimeRefresherReconcilesProjectDocumentWhenWatchCodeProviderStateChanges`; `TestPluginBackendRuntimeRefresherSkipsProjectReconcileWhenSpecsAndProviderAreUnchanged`; `TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnHandlerRefreshError`; `TestPluginBackendRuntimeRefresherRefreshRestoresPendingStateOnProjectReconcileError`
+- Still unverified: No full generated diagnostics or callable callback E2E was run.
 
 ### Watch Code Provider Metadata Ownership
 - Invariant: Watch Code provider language support and language-server requirement are backend probe-owned runtime facts; public plugin manifests must not mirror them and should only retain static or frontend-facing knobs such as `canvasControlsUi`.
@@ -51,10 +51,10 @@
 - Still unverified: Targeted Playwright was attempted but failed in `frontend/tests/e2e/editor/section-variant-single-handle.spec.ts:295`; no CDP visual verification was run because no UI behavior changed.
 
 ### Extracted Watch Code Surface Contracts
-- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, and `plugin::<provider>::*` settings; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, dead branch-added helper APIs, and generated local-core command constants stay deleted. Watch Code backend route suffixes, backend UI-setting IDs, handler IDs, and shared route errors have one Go-owned contract that drives exact selected-provider host matching and generated Python probe constants.
-- Last finding commit: 02715f08878f4194f037b8d58af56542128d0d81
-- Proof tests: `TestWatchCodeBackendContractDrivesRouteAndUISettingMatching`; `TestWatchCodeBackendRouteInterceptorDeclinesUnownedRoutes`; `TestBuildIncludesGoOwnedWatchCodeBackendContract`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`; `tests/start/test_packaged_distribution.py -k first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain`; `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, `WatchCodePluginSettingID`, `mustWatchCodePluginSettingID`, and Watch Code local-core commands.
-- Still unverified: Targeted Playwright was attempted but failed in `frontend/tests/e2e/editor/section-variant-single-handle.spec.ts:295`; no CDP visual verification was run because no rendered UI behavior changed.
+- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, `plugin::<provider>::*` settings, and the `folders`/`files` route payload contract; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, dead branch-added helper APIs, legacy `watchCodeFolders`/`watchCodeFiles` payload names, and generated local-core command constants stay deleted. Watch Code backend route suffixes, backend UI-setting IDs, handler IDs, shared route errors, and backend contract versions have one Go-owned contract that drives exact selected-provider host matching and generated Python probe constants.
+- Last finding commit: 9d855bf595dd6cf6b0af2d7cfe1dc097f9f1a20f
+- Proof tests: `TestWatchCodeBackendContractDrivesRouteAndUISettingMatching`; `TestWatchCodeBackendRouteInterceptorDeclinesUnownedRoutes`; `TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandidates`; `TestAppWatchCodePluginRouteRejectsLegacyInputFieldNamesWithoutMutation`; `TestBuildIncludesGoOwnedWatchCodeBackendContract`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`; `tests/start/test_packaged_distribution.py -k first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain`; `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, `WatchCodePluginSettingID`, `mustWatchCodePluginSettingID`, and Watch Code local-core commands.
+- Still unverified: Full Playwright suite was not run; targeted Watch Code pending-save Playwright passed.
 
 ### UI Settings Core Registry API
 - Invariant: Core UI-setting registry construction should expose only behavior it actually supports; empty option structs and `WithOptions` constructors must not be retained as speculative future plumbing.
@@ -269,4 +269,36 @@ Verification run:
 Residual risks / verification gaps:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-variant-single-handle.spec.ts` passed the first test, then failed at `frontend/tests/e2e/editor/section-variant-single-handle.spec.ts:295` waiting for the `Variants` heading; broader Playwright remains blocked.
 - CDP visual verification was not run because no UI behavior changed.
+- `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.
+
+## 2026-04-26 04:48:51 PDT
+
+Fixes applied:
+- Made Watch Code plugin backend routes fail closed for unavailable selected/candidate providers, blocked `registerWatchCodeBackend` in launcher mode, and replaced the running Watch Code service when the active provider ID changes.
+- Changed Watch Code input mutation payloads to `folders` / `files`, rejected legacy payload names without mutation, and reused Go-owned Watch Code backend contract constants instead of duplicate probe/runtime constants.
+- Made backend-registered UI-setting `paneId` optional, removed fake `paneId` values from the first-party Watch Code backend probe, and regenerated the non-HTTP frontend contract.
+- Disabled Watch Code file/folder controls while an inputs save is pending, and updated the Watch Code E2E spec to link the first-party plugin explicitly and match the real `/plugins/...` backend route.
+
+Tests added or upgraded:
+- Added app/provider coverage for unavailable-provider route interception, legacy input-field rejection, provider service replacement, and launcher-mode Watch Code provider blocking.
+- Added plugin runtime probe coverage for Go-owned Watch Code contract versions and pane-less backend UI settings.
+- Added Watch Code frontend unit coverage and Playwright coverage for pending-save input disabling.
+- Updated Python/package tests to assert first-party Watch Code backend UI settings omit `paneId`.
+
+Verification run:
+- `./scripts/go.sh test ./internal/plugins -run 'Test(NormalizeBackendProbeResponseValidatesWatchCodeBackendRegistration|NormalizeBackendUISettingRegistrationAllowsPaneLessBackendSetting|ServiceRuntimeWatchCodeCapabilitiesBlockHostlessLauncherProvider)'`
+- `./scripts/go.sh test ./internal/uisettings -run 'Test(NewScopedRegistryIncludesBackendRegisteredSettingWithRegisterUISettingsOnly|RevealServiceDispatchesBackendOnlyPluginSettingAsPaneLessTarget|NewScopedRegistryOmitsSchemaDefinedSettingWithoutRegisterPane)'`
+- `./scripts/go.sh test ./internal/app -run 'Test(WatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandidates|WatchCodeBackendRouteInterceptorDeclinesUnownedRoutes|AppWatchCodeProviderChangeReplacesRunningService|AppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave|AppWatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation|AppWatchCodePluginRouteRejectsLegacyInputFieldNamesWithoutMutation|AppLauncherModeBlocksWatchCodeProviderHost)'`
+- `source activate.sh && pytest tests/plugin_runtime/test_watch_code_plugin_backend.py -q`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -k first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain -q`
+- `pnpm -C frontend exec vitest run src/plugins/runtime.test.ts`
+- `pnpm --dir plugins/setta-watch-code/frontend run typecheck && pnpm --dir plugins/setta-watch-code/frontend run test`
+- `SETTA_E2E_BUILD_PLUGIN_FIXTURES=1 SETTA_E2E_SEED_PLUGIN_FIXTURES=1 SETTA_E2E_SEED_PLUGIN_ARTIFACTS=1 ./scripts/run-playwright-e2e.sh tests/e2e/overview/layout/watch-code-pane.spec.ts -g "watch code input controls disable while an input save is pending"`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `git diff --check`
+
+Residual risks / verification gaps:
+- Full Playwright suite was not run; targeted browser verification passed for the affected Watch Code pending-save flow.
+- CDP visual verification was not run; no `./aireset.sh` session was started or left running.
 - `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.

@@ -376,7 +376,6 @@ func TestRevealServiceDispatchesBackendOnlyPluginSettingAsPaneLessTarget(t *test
 					LocalSettingID: "enabled",
 					Title:          "Backend Enabled",
 					Description:    "Backend-provided setting.",
-					PaneID:         "settings",
 					RevealKey:      "watch-code-settings",
 					Mutability:     string(MutabilityReadOnly),
 					ValueSchema: map[string]any{

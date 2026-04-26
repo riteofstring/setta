@@ -9,6 +9,7 @@ import (
 	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/testutil/firstpartyplugin"
+	"setta/internal/watchcodecontracts"
 )
 
 // Rescan should preserve the documented workspace > setta_files > global precedence and keep shadowed entries visible.
@@ -303,8 +304,8 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 			},
 		},
 		WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
-			ContractVersion:        watchCodeBackendContractVersion,
-			DataSchemaVersion:      watchCodeBackendDataSchemaVersion,
+			ContractVersion:        watchcodecontracts.BackendContractVersion,
+			DataSchemaVersion:      watchcodecontracts.BackendDataSchemaVersion,
 			Languages:              []string{"python"},
 			RequiresLanguageServer: true,
 		},
@@ -334,7 +335,7 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	if entry.appSubsystemBackend == nil || entry.appSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
 		t.Fatalf("expected app subsystem backend registration to be copied, got %#v", entry.appSubsystemBackend)
 	}
-	if entry.watchCodeBackend == nil || entry.watchCodeBackend.ContractVersion != watchCodeBackendContractVersion {
+	if entry.watchCodeBackend == nil || entry.watchCodeBackend.ContractVersion != watchcodecontracts.BackendContractVersion {
 		t.Fatalf("expected watch code backend registration to be copied, got %#v", entry.watchCodeBackend)
 	}
 	if len(entry.appSubsystemListenerEndpoints) != 1 || entry.appSubsystemListenerEndpoints[0].Name != "appsubsystem_get_app_definition" {

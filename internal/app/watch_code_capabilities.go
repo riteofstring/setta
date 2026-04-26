@@ -1,7 +1,6 @@
 package app
 
 import (
-	"strings"
 	"sync"
 
 	"setta/internal/plugins"
@@ -53,7 +52,5 @@ func (s *watchCodeCapabilityState) ProviderActive() bool {
 }
 
 func (s *watchCodeCapabilityState) ActiveProviderPluginID() (string, bool) {
-	capabilities := s.WatchCodeCapabilities()
-	pluginID := strings.TrimSpace(capabilities.PluginID)
-	return pluginID, capabilities.PluginEnabled && capabilities.Python && pluginID != ""
+	return s.WatchCodeCapabilities().ActiveProviderPluginID()
 }

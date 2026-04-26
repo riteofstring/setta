@@ -63,7 +63,6 @@ def _ui_settings() -> list[dict[str, Any]]:
                 "title": "Watch Code Enabled",
                 "description": "Enable or disable Watch Code for the project.",
                 "synonyms": ["watch code", "watch mode", "watch toggle"],
-                "paneId": "left",
                 "revealKey": "watch-code-settings",
                 "mutability": "writable",
                 "valueSchema": {"type": "boolean"},
@@ -75,7 +74,6 @@ def _ui_settings() -> list[dict[str, Any]]:
                 "title": "Watch Code Folders",
                 "description": "List of folders watched by Watch Code.",
                 "synonyms": ["watch folders", "watch code folders"],
-                "paneId": "left",
                 "revealKey": "watch-code-settings",
                 "mutability": "writable",
                 "valueSchema": {
@@ -98,7 +96,6 @@ def _ui_settings() -> list[dict[str, Any]]:
                 "title": "Watch Code Files",
                 "description": "List of explicit files watched by Watch Code.",
                 "synonyms": ["watch files", "watch code files"],
-                "paneId": "left",
                 "revealKey": "watch-code-settings",
                 "mutability": "writable",
                 "valueSchema": {

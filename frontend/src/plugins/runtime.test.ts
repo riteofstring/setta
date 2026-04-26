@@ -3046,8 +3046,8 @@ describe("plugin runtime helpers", () => {
         },
         body: JSON.stringify({
           projectConfigId: "project-alpha",
-          watchCodeFolders: [{ path: "pkg", recursive: true }],
-          watchCodeFiles: ["pkg/mod.py"],
+          folders: [{ path: "pkg", recursive: true }],
+          files: ["pkg/mod.py"],
         }),
       }),
     ).resolves.toMatchObject({ status: 200 });
@@ -3076,8 +3076,8 @@ describe("plugin runtime helpers", () => {
       credentials: "include",
       body: JSON.stringify({
         projectConfigId: "project-alpha",
-        watchCodeFolders: [{ path: "pkg", recursive: true }],
-        watchCodeFiles: ["pkg/mod.py"],
+        folders: [{ path: "pkg", recursive: true }],
+        files: ["pkg/mod.py"],
       }),
     });
     expect(fetchMock.mock.calls[1]?.[1]?.headers).toBeInstanceOf(Headers);

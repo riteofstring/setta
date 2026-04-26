@@ -597,12 +597,12 @@ class WatchCodeControlController {
     }
     this.pendingMutation = true;
     this.errorMessage = null;
-    this.renderControlButtonsOnly();
+    this.render();
     try {
       const ok = await this.postBackendRoute("/watch-code/inputs", {
         projectConfigId: this.watchCodeData.projectConfigId,
-        watchCodeFolders: cloneFolders(this.localFolders),
-        watchCodeFiles: this.localFiles.slice(),
+        folders: cloneFolders(this.localFolders),
+        files: this.localFiles.slice(),
       });
       if (!ok) {
         this.errorMessage = "Watch Code inputs were not saved.";
@@ -612,12 +612,6 @@ class WatchCodeControlController {
     } finally {
       this.pendingMutation = false;
       this.render();
-    }
-  }
-
-  private renderControlButtonsOnly(): void {
-    for (const button of this.mounts.values()) {
-      this.renderControlButton(button);
     }
   }
 

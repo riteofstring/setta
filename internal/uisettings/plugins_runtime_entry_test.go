@@ -197,7 +197,6 @@ func TestNewScopedRegistryIncludesBackendRegisteredSettingWithRegisterUISettings
 				LocalSettingID: "enabled",
 				Title:          "Backend Enabled",
 				Description:    "Backend-provided setting.",
-				PaneID:         "settings",
 				RevealKey:      "enabled",
 				Mutability:     string(MutabilityWritable),
 				ValueSchema: map[string]any{

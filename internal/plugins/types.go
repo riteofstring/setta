@@ -103,7 +103,7 @@ type PluginRegisteredUISetting struct {
 	Title          string         `json:"title"`
 	Description    string         `json:"description"`
 	Synonyms       []string       `json:"synonyms"`
-	PaneID         string         `json:"paneId"`
+	PaneID         string         `json:"paneId,omitempty"`
 	RevealKey      string         `json:"revealKey"`
 	Mutability     string         `json:"mutability"`
 	ValueSchema    map[string]any `json:"valueSchema"`

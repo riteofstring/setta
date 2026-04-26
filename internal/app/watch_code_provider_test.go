@@ -14,6 +14,16 @@ func setAppWatchCodePluginProjectData(
 	projectID string,
 	projectData projectstate.WatchCodePluginProjectData,
 ) {
+	setAppWatchCodePluginProjectDataForProvider(t, document, testAppWatchCodeProviderPluginID, projectID, projectData)
+}
+
+func setAppWatchCodePluginProjectDataForProvider(
+	t appTestHelper,
+	document *projectstate.Document,
+	pluginID string,
+	projectID string,
+	projectData projectstate.WatchCodePluginProjectData,
+) {
 	t.Helper()
 	if document.PluginData == nil {
 		document.PluginData = map[string]projectstate.RawJSON{}
@@ -22,7 +32,7 @@ func setAppWatchCodePluginProjectData(
 		SchemaVersion: projectstate.WatchCodePluginDataSchemaVersion,
 		Projects:      map[string]projectstate.WatchCodePluginProjectData{},
 	}
-	if raw := document.PluginData[testAppWatchCodeProviderPluginID]; len(raw) > 0 {
+	if raw := document.PluginData[pluginID]; len(raw) > 0 {
 		if err := json.Unmarshal(raw, &data); err != nil {
 			t.Fatalf("decode app watch code plugin data: %v", err)
 		}
@@ -35,7 +45,7 @@ func setAppWatchCodePluginProjectData(
 	if err != nil {
 		t.Fatalf("marshal app watch code plugin data: %v", err)
 	}
-	document.PluginData[testAppWatchCodeProviderPluginID] = projectstate.RawJSON(raw)
+	document.PluginData[pluginID] = projectstate.RawJSON(raw)
 }
 
 func readAppWatchCodePluginProjectData(

@@ -37,13 +37,17 @@ var (
 		"registerUISettings":           {},
 		"writeWorkspacePlugins":        {},
 	}
+	resolverLauncherAllowedCapabilities = resolverCapabilitySetWithout(
+		resolverKnownPluginCapabilities,
+		"registerWatchCodeBackend",
+	)
 	resolverHostBlockedCapabilities = map[string]struct{}{
 		"registerContextMenu":          {},
 		"registerExternalAgentAdapter": {},
 	}
 	resolverModeAllowedCapabilities = map[config.Mode]map[string]struct{}{
 		config.ModeIDE:      resolverKnownPluginCapabilities,
-		config.ModeLauncher: resolverKnownPluginCapabilities,
+		config.ModeLauncher: resolverLauncherAllowedCapabilities,
 		config.ModeShare: {
 			"registerSectionKinds":         {},
 			"registerPane":                 {},
@@ -72,6 +76,17 @@ var (
 		},
 	}
 )
+
+func resolverCapabilitySetWithout(source map[string]struct{}, blocked ...string) map[string]struct{} {
+	result := make(map[string]struct{}, len(source))
+	for capability := range source {
+		result[capability] = struct{}{}
+	}
+	for _, capability := range blocked {
+		delete(result, capability)
+	}
+	return result
+}
 
 func resolveFilesystemPluginCapabilities(requested []string, serverMode config.Mode) ([]string, []string, []PluginBlockedCapability, error) {
 	allowed, ok := resolverModeAllowedCapabilities[serverMode]

@@ -9893,7 +9893,6 @@
           "title",
           "description",
           "synonyms",
-          "paneId",
           "revealKey",
           "mutability",
           "valueSchema",

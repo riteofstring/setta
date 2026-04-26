@@ -4162,7 +4162,7 @@ type PluginRegisteredUISetting = {
   description: string;
   localSettingId: string;
   mutability: string;
-  paneId: string;
+  paneId?: string;
   pluginId: string;
   readHandlerId: string;
   revealKey: string;

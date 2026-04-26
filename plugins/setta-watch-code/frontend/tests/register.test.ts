@@ -109,6 +109,40 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
   };
 }
 
+function mountCanvasControl(
+  registeredControls: RegisteredCanvasControl[],
+  pluginId = "setta-watch-code",
+): HTMLElement {
+  const control = registeredControls[0];
+  if (!control) {
+    throw new Error("expected registered Watch Code canvas control");
+  }
+  const mount = document.createElement("div");
+  document.body.append(mount);
+  control.renderer.mount(mount, {
+    pluginId,
+    controlId: "watch-code",
+    label: "Watch Code",
+    placement: "project",
+    serverMode: "ide",
+    effectiveCapabilities,
+  });
+  return mount;
+}
+
+function openSettingsPortal(mount: HTMLElement): HTMLElement {
+  const button = mount.querySelector<HTMLButtonElement>(
+    '[data-testid="rf__watch-code-settings"]',
+  );
+  expect(button).not.toBeNull();
+  button?.click();
+  const portal = document.querySelector<HTMLElement>(
+    '[data-testid="rf__watch-code-settings-portal"]',
+  );
+  expect(portal).not.toBeNull();
+  return portal as HTMLElement;
+}
+
 describe("setta-watch-code frontend registration", () => {
   afterEach(() => {
     document.body.textContent = "";
@@ -139,29 +173,10 @@ describe("setta-watch-code frontend registration", () => {
       updateWatchCodeData,
     } = buildHost();
     register(host);
-    const mount = document.createElement("div");
-    document.body.append(mount);
-    registeredControls[0]?.renderer.mount(mount, {
-      pluginId: "setta-watch-code",
-      controlId: "watch-code",
-      label: "Watch Code",
-      placement: "project",
-      serverMode: "ide",
-      effectiveCapabilities,
-    });
-
-    const button = mount.querySelector<HTMLButtonElement>(
-      '[data-testid="rf__watch-code-settings"]',
-    );
-    expect(button).not.toBeNull();
-    button?.click();
-    const portal = document.querySelector<HTMLElement>(
-      '[data-testid="rf__watch-code-settings-portal"]',
-    );
-    expect(portal).not.toBeNull();
+    const portal = openSettingsPortal(mountCanvasControl(registeredControls));
 
     portal
-      ?.querySelector<HTMLButtonElement>(
+      .querySelector<HTMLButtonElement>(
         '[data-setting-anchor="plugin::setta-watch-code::enabled"] button',
       )
       ?.click();
@@ -206,11 +221,79 @@ describe("setta-watch-code frontend registration", () => {
         },
         body: JSON.stringify({
           projectConfigId: "project-alpha",
-          watchCodeFolders: [{ path: "pkg", recursive: true }],
-          watchCodeFiles: ["pkg/updated.py"],
+          folders: [{ path: "pkg", recursive: true }],
+          files: ["pkg/updated.py"],
         }),
       }),
     );
+  });
+
+  it("disables input controls during an inputs save", async () => {
+    let resolveSave!: (response: Response) => void;
+    const pendingSave = new Promise<Response>((resolve) => {
+      resolveSave = resolve;
+    });
+    const fetchBackendRoute = vi.fn(async (path) => {
+      if (path === "/watch-code/inputs") {
+        return pendingSave;
+      }
+      return new Response(null, { status: 200 });
+    });
+    const { host, registeredControls, updateWatchCodeData } = buildHost({
+      fetchBackendRoute,
+    });
+    register(host);
+    const mount = mountCanvasControl(registeredControls);
+    updateWatchCodeData({
+      enabled: true,
+      folders: [{ path: "pkg", recursive: true }],
+      files: ["pkg/mod.py"],
+    });
+    const portal = openSettingsPortal(mount);
+    const fileInput = portal.querySelector<HTMLInputElement>(
+      '[data-setting-anchor="plugin::setta-watch-code::files"] input',
+    );
+    expect(fileInput).not.toBeNull();
+    if (fileInput) {
+      fileInput.value = "pkg/pending.py";
+      fileInput.dispatchEvent(new Event("input", { bubbles: true }));
+      fileInput.dispatchEvent(new Event("blur", { bubbles: true }));
+    }
+    await Promise.resolve();
+
+    expect(fetchBackendRoute).toHaveBeenCalledWith(
+      "/watch-code/inputs",
+      expect.objectContaining({
+        body: JSON.stringify({
+          projectConfigId: "project-alpha",
+          folders: [{ path: "pkg", recursive: true }],
+          files: ["pkg/pending.py"],
+        }),
+      }),
+    );
+    const disabledInput = portal.querySelector<HTMLInputElement>(
+      '[data-setting-anchor="plugin::setta-watch-code::files"] input',
+    );
+    expect(disabledInput?.disabled).toBe(true);
+    expect(
+      portal.querySelector<HTMLButtonElement>(
+        '[data-setting-anchor="plugin::setta-watch-code::files"] button',
+      )?.disabled,
+    ).toBe(true);
+
+    resolveSave(new Response(null, { status: 200 }));
+    await pendingSave;
+    await Promise.resolve();
+    updateWatchCodeData({
+      enabled: true,
+      folders: [{ path: "pkg", recursive: true }],
+      files: ["pkg/pending.py"],
+    });
+    expect(
+      portal.querySelector<HTMLInputElement>(
+        '[data-setting-anchor="plugin::setta-watch-code::files"] input',
+      )?.value,
+    ).toBe("pkg/pending.py");
   });
 
   it("opens and highlights the plugin setting from the reveal handler", async () => {
@@ -223,16 +306,7 @@ describe("setta-watch-code frontend registration", () => {
       pluginId: "alternate-watch-provider",
     });
     register(host);
-    const mount = document.createElement("div");
-    document.body.append(mount);
-    registeredControls[0]?.renderer.mount(mount, {
-      pluginId: "alternate-watch-provider",
-      controlId: "watch-code",
-      label: "Watch Code",
-      placement: "project",
-      serverMode: "ide",
-      effectiveCapabilities,
-    });
+    mountCanvasControl(registeredControls, "alternate-watch-provider");
 
     const handled = await revealHandlers.get("watch-code-settings")?.({
       settingId: "plugin::alternate-watch-provider::files",

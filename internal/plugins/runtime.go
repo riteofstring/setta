@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
 	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/statefs"
+	"setta/internal/watchcodecontracts"
 )
 
 const (
@@ -107,6 +109,26 @@ type PluginWatchCodeCapabilities struct {
 	Python                   bool                                           `json:"python"`
 	RequiresLanguageServer   bool                                           `json:"requiresLanguageServer"`
 	CanvasControlsUI         bool                                           `json:"canvasControlsUi"`
+}
+
+func (c PluginWatchCodeCapabilities) ActiveProviderPluginID() (string, bool) {
+	pluginID := strings.TrimSpace(c.PluginID)
+	return pluginID, c.PluginEnabled && c.Python && pluginID != ""
+}
+
+func (s *PluginWatchCodeProviderSelection) ContainsPluginID(pluginID string) bool {
+	pluginID = strings.TrimSpace(pluginID)
+	if s == nil || pluginID == "" {
+		return false
+	}
+	if s.SelectedPluginID != nil && strings.TrimSpace(*s.SelectedPluginID) == pluginID {
+		return true
+	}
+	return slices.Contains(s.ActivePluginIDs, pluginID) ||
+		slices.Contains(s.DisabledPluginIDs, pluginID) ||
+		slices.Contains(s.InvalidPluginIDs, pluginID) ||
+		slices.Contains(s.PendingRestartPluginIDs, pluginID) ||
+		slices.Contains(s.ConflictingPluginIDs, pluginID)
 }
 
 type PluginFeatureCapabilities struct {
@@ -402,6 +424,9 @@ func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProvid
 		if feature == nil {
 			continue
 		}
+		if watchCodeBackendCapabilityModeBlocked(entry) {
+			continue
+		}
 		if !watchCodeProviderRegistrationValid(entry, feature) {
 			markRuntimeWatchCodeProviderInvalid(
 				&resolution,
@@ -506,6 +531,16 @@ func runtimeWatchCodeFeatureManifest(
 	return entry.Manifest.FeatureCapabilities.WatchCode
 }
 
+func watchCodeBackendCapabilityModeBlocked(entry DiscoveredPlugin) bool {
+	for _, blocked := range entry.BlockedCapabilities {
+		if blocked.Capability == "registerWatchCodeBackend" &&
+			blocked.Reason == PluginBlockedCapabilityReasonModePolicy {
+			return true
+		}
+	}
+	return false
+}
+
 func appSubsystemFeatureRequiresFrontend(
 	feature *PluginAppSubsystemFeatureManifest,
 ) bool {
@@ -593,7 +628,7 @@ func watchCodeBackendContractRegistered(entry DiscoveredPlugin) bool {
 	if entry.watchCodeBackend == nil {
 		return false
 	}
-	return entry.watchCodeBackend.ContractVersion == watchCodeBackendContractVersion
+	return entry.watchCodeBackend.ContractVersion == watchcodecontracts.BackendContractVersion
 }
 
 func mergeRuntimeAppSubsystemCapabilities(

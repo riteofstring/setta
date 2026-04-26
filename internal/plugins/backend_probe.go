@@ -17,15 +17,13 @@ import (
 
 	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/statefs"
+	"setta/internal/watchcodecontracts"
 )
 
 const (
 	backendProbeArg           = "--setta-plugin-backend-probe"
 	backendProbeSchemaVersion = 1
 	backendProbeBuildRootName = "plugin_backend_probe_builds"
-
-	watchCodeBackendContractVersion   = 1
-	watchCodeBackendDataSchemaVersion = 1
 )
 
 var backendProbeTimeout = 5 * time.Second
@@ -283,13 +281,13 @@ func normalizeBackendWatchCodeBackendRegistration(
 	if registration == nil {
 		return nil, nil
 	}
-	if registration.ContractVersion != watchCodeBackendContractVersion {
+	if registration.ContractVersion != watchcodecontracts.BackendContractVersion {
 		return nil, fmt.Errorf(
 			"watchCodeBackend: unsupported contract version %d",
 			registration.ContractVersion,
 		)
 	}
-	if registration.DataSchemaVersion != watchCodeBackendDataSchemaVersion {
+	if registration.DataSchemaVersion != watchcodecontracts.BackendDataSchemaVersion {
 		return nil, fmt.Errorf(
 			"watchCodeBackend: unsupported data schema version %d",
 			registration.DataSchemaVersion,
@@ -905,9 +903,12 @@ func normalizeBackendUISettingRequiredFieldsFromRaw(raw map[string]any) (normali
 	if err != nil {
 		return normalizedBackendUISettingRequiredFields{}, err
 	}
-	paneID, err := backendProbeRequiredString(raw["paneId"], "paneId")
-	if err != nil {
-		return normalizedBackendUISettingRequiredFields{}, err
+	var paneID string
+	if rawPaneID, ok := raw["paneId"]; ok && rawPaneID != nil {
+		paneID, err = backendProbeRequiredString(rawPaneID, "paneId")
+		if err != nil {
+			return normalizedBackendUISettingRequiredFields{}, err
+		}
 	}
 	revealKey, err := backendProbeRequiredString(raw["revealKey"], "revealKey")
 	if err != nil {

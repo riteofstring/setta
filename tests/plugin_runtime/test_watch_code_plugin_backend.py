@@ -73,6 +73,7 @@ def test_watch_code_backend_probe_declares_routes_and_ui_settings() -> None:
         C.WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS,
         C.WATCH_CODE_BACKEND_LOCAL_SETTING_FILES,
     }
+    assert all("paneId" not in setting for setting in payload["uiSettings"])
     handlers_by_setting = {
         setting["id"]: (setting["readHandlerId"], setting["writeHandlerId"])
         for setting in payload["uiSettings"]

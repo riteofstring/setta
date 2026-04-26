@@ -1286,6 +1286,7 @@ raise SystemExit("watch code backend runtime should not invoke local core")
         "folders",
         "files",
     }
+    assert all("paneId" not in setting for setting in probe_payload["uiSettings"])
 
     route_body = base64.b64encode(
         json.dumps(

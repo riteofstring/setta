@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
@@ -16,6 +17,7 @@ import (
 	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/testutil/firstpartyplugin"
+	"setta/internal/watchcodecontracts"
 )
 
 func TestServiceRuntimeBuildsFrontendListAndStatusPayloads(t *testing.T) {
@@ -932,6 +934,55 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowBackendProbedProvider(t *testi
 	)
 }
 
+func TestServiceRuntimeWatchCodeCapabilitiesBlockHostlessLauncherProvider(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	pluginID := "acme-watch-code-provider"
+	installRuntimeWatchCodeFixture(t, roots, runtimeWatchCodeFixtureOptions{
+		PluginID:                 pluginID,
+		FixtureName:              "frontend",
+		EnabledByDefault:         true,
+		RegisterWatchCodeBackend: true,
+		WatchCode: map[string]any{
+			"canvasControlsUi": true,
+		},
+	})
+
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeLauncher)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load launcher runtime payload: %v", err)
+	}
+	if runtimeResponse.FeatureCapabilities == nil {
+		t.Fatal("expected feature capabilities payload")
+	}
+
+	watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+	assertRuntimeWatchCodeSelection(
+		t,
+		watchCode.ProviderSelection,
+		PluginWatchCodeProviderSelectionStatusNoProvider,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	if watchCode.PluginEnabled || watchCode.PluginID != "" {
+		t.Fatalf("expected launcher watch code provider unavailable, got %#v", watchCode)
+	}
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one status entry, got %#v", runtimeResponse.Status.Plugins)
+	}
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if len(statusEntry.BlockedCapabilities) != 1 {
+		t.Fatalf("expected registerWatchCodeBackend to be blocked, got %#v", statusEntry.BlockedCapabilities)
+	}
+	if statusEntry.BlockedCapabilities[0].Capability != "registerWatchCodeBackend" ||
+		statusEntry.BlockedCapabilities[0].Reason != PluginBlockedCapabilityReasonModePolicy {
+		t.Fatalf("expected mode-policy Watch Code block, got %#v", statusEntry.BlockedCapabilities[0])
+	}
+}
+
 func TestServiceRuntimeWatchCodeCapabilitiesUseProbedLanguageServerRequirement(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-watch-code-provider"
@@ -1635,7 +1686,13 @@ func writeRuntimeWatchCodeBackendProbe(
 	if requiresLanguageServer != nil && !*requiresLanguageServer {
 		requiresLanguageServerValue = "False"
 	}
-	probePayload := `"watchCodeBackend": {"contractVersion": 1, "dataSchemaVersion": 1, "languages": ` + string(languagesJSON) + `, "requiresLanguageServer": ` + requiresLanguageServerValue + `},`
+	probePayload := fmt.Sprintf(
+		`"watchCodeBackend": {"contractVersion": %d, "dataSchemaVersion": %d, "languages": %s, "requiresLanguageServer": %s},`,
+		watchcodecontracts.BackendContractVersion,
+		watchcodecontracts.BackendDataSchemaVersion,
+		string(languagesJSON),
+		requiresLanguageServerValue,
+	)
 	if !register {
 		probePayload = ""
 	}

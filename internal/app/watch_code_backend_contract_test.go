@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -83,6 +84,77 @@ func TestWatchCodeBackendRouteInterceptorDeclinesUnownedRoutes(t *testing.T) {
 		if handled {
 			t.Fatalf("expected unowned route %s to fall through, got response %#v", path, response)
 		}
+	}
+}
+
+func TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandidates(t *testing.T) {
+	t.Parallel()
+
+	const providerPluginID = "setta-watch-code"
+	cases := map[string]plugins.PluginWatchCodeCapabilities{
+		"pending restart": {
+			ProviderSelection: &plugins.PluginWatchCodeProviderSelection{
+				Status:                  plugins.PluginWatchCodeProviderSelectionStatusPendingRestart,
+				PendingRestartPluginIDs: []string{providerPluginID},
+			},
+		},
+		"provider conflict": {
+			ProviderSelection: &plugins.PluginWatchCodeProviderSelection{
+				Status:               plugins.PluginWatchCodeProviderSelectionStatusConflict,
+				ActivePluginIDs:      []string{providerPluginID, "other-watch-code"},
+				ConflictingPluginIDs: []string{providerPluginID, "other-watch-code"},
+			},
+		},
+		"disabled provider": {
+			ProviderSelection: &plugins.PluginWatchCodeProviderSelection{
+				Status:            plugins.PluginWatchCodeProviderSelectionStatusDisabledProvider,
+				DisabledPluginIDs: []string{providerPluginID},
+			},
+		},
+		"invalid provider": {
+			ProviderSelection: &plugins.PluginWatchCodeProviderSelection{
+				Status:           plugins.PluginWatchCodeProviderSelectionStatusInvalidProvider,
+				InvalidPluginIDs: []string{providerPluginID},
+			},
+		},
+	}
+
+	for name, capabilitiesPayload := range cases {
+		name := name
+		capabilitiesPayload := capabilitiesPayload
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			capabilities := newWatchCodeCapabilityState()
+			capabilities.Set(capabilitiesPayload)
+			host := newWatchCodeBackendRouteHost(nil, capabilities, nil, "/workspace")
+
+			response, handled, err := host.intercept(context.Background(), plugins.BackendHTTPRequest{
+				Method: http.MethodPost,
+				Path:   watchcodecontracts.BackendRoutePath(providerPluginID, watchcodecontracts.BackendRouteSuffixEnabled),
+				Body:   []byte(`{"projectConfigId":"project-alpha","enabled":true}`),
+			})
+			if err != nil {
+				t.Fatalf("intercept unavailable provider route: %v", err)
+			}
+			if !handled {
+				t.Fatal("expected Watch Code provider candidate route to be handled by Go host")
+			}
+			if response.StatusCode != http.StatusConflict {
+				t.Fatalf("expected fail-closed 409 response, got %#v", response)
+			}
+			var payload struct {
+				Error struct {
+					Code string `json:"code"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(response.Body, &payload); err != nil {
+				t.Fatalf("decode fail-closed response: %v", err)
+			}
+			if payload.Error.Code != watchcodecontracts.BackendErrorProviderRequired {
+				t.Fatalf("expected provider-required error, got %#v", payload.Error)
+			}
+		})
 	}
 }
 

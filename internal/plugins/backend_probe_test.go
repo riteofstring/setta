@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	backendruntime "setta/internal/appsubsystem/backendruntime"
+	"setta/internal/watchcodecontracts"
 )
 
 func TestNormalizeBackendProbeResponseRejectsInvalidRoutePaths(t *testing.T) {
@@ -277,8 +278,8 @@ func TestNormalizeBackendProbeResponseValidatesWatchCodeBackendRegistration(
 		"setta-fixture-backend",
 		backendProbeResponse{
 			WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
-				ContractVersion:        watchCodeBackendContractVersion,
-				DataSchemaVersion:      watchCodeBackendDataSchemaVersion,
+				ContractVersion:        watchcodecontracts.BackendContractVersion,
+				DataSchemaVersion:      watchcodecontracts.BackendDataSchemaVersion,
 				Languages:              []string{" Python "},
 				RequiresLanguageServer: true,
 			},
@@ -302,8 +303,8 @@ func TestNormalizeBackendProbeResponseValidatesWatchCodeBackendRegistration(
 		"setta-fixture-backend",
 		backendProbeResponse{
 			WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
-				ContractVersion:   watchCodeBackendContractVersion + 1,
-				DataSchemaVersion: watchCodeBackendDataSchemaVersion,
+				ContractVersion:   watchcodecontracts.BackendContractVersion + 1,
+				DataSchemaVersion: watchcodecontracts.BackendDataSchemaVersion,
 				Languages:         []string{"python"},
 			},
 		},
@@ -722,6 +723,26 @@ func TestNormalizeBackendUISettingRegistrationDefaultWritable(t *testing.T) {
 	rawSchema["type"] = "string"
 	if registration.ValueSchema["type"] != "boolean" {
 		t.Fatalf("expected cloned value schema, got %#v", registration.ValueSchema)
+	}
+}
+
+func TestNormalizeBackendUISettingRegistrationAllowsPaneLessBackendSetting(t *testing.T) {
+	t.Parallel()
+
+	registration, err := normalizeBackendUISettingRegistration("plugin.test", map[string]any{
+		"id":             "setting-id",
+		"title":          "Setting Title",
+		"description":    "Description",
+		"revealKey":      "reveal.key",
+		"valueSchema":    map[string]any{"type": "boolean"},
+		"readHandlerId":  "read-handler",
+		"writeHandlerId": "write-handler",
+	})
+	if err != nil {
+		t.Fatalf("normalize pane-less backend ui setting registration: %v", err)
+	}
+	if registration.PaneID != "" {
+		t.Fatalf("expected pane-less backend setting, got pane id %q", registration.PaneID)
 	}
 }
 
