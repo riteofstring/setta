@@ -7,7 +7,10 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from "react";
-import { resolveGpuNodePointerHandoffTarget } from "./activeNodeTargeting";
+import {
+  resolveGpuNodePointerHandoffTarget,
+  resolveGpuNodeWheelHandoffTarget,
+} from "./activeNodeTargeting";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type { GpuEdgeScene } from "./edges/edgeSources";
 import { resolveGpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
@@ -456,6 +459,23 @@ export function GpuFlow({
         resolvePointerHandoffTarget: (event) => {
           const surfaceElement = containerRef.current ?? runtime.canvas;
           return resolveGpuNodePointerHandoffTarget({
+            clientX: event.clientX,
+            clientY: event.clientY,
+            elementByNodeId: nodeElementByIdRef.current,
+            nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
+            surfaceElement,
+            viewport: nodeLayerRef.current.viewport,
+          });
+        },
+        resolveWheelHandoffTarget: (event) => {
+          if (
+            viewportStore.getState().zoomActivationKeyPressed ||
+            event.ctrlKey
+          ) {
+            return null;
+          }
+          const surfaceElement = containerRef.current ?? runtime.canvas;
+          return resolveGpuNodeWheelHandoffTarget({
             clientX: event.clientX,
             clientY: event.clientY,
             elementByNodeId: nodeElementByIdRef.current,

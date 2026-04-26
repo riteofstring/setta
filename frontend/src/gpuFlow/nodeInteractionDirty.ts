@@ -44,6 +44,9 @@ type GpuNodeInteractionDirtyControllerOptions = {
   readonly resolvePointerHandoffTarget?:
     | ((event: PointerEvent) => GpuNodePointerHandoffTarget | null)
     | undefined;
+  readonly resolveWheelHandoffTarget?:
+    | ((event: WheelEvent) => GpuNodePointerHandoffTarget | null)
+    | undefined;
   readonly textureManager: () => Pick<
     NodeTextureManager,
     "markNodeTextureDirty" | "setNodeTexturePriority"
@@ -88,6 +91,7 @@ const GPU_FLOW_PERSISTENT_FOCUS_SELECTOR = [
 ].join(",");
 const DEFAULT_ACTIVE_SETTLE_DELAY_MS = 240;
 const TRUSTED_POINTER_HANDOFF_CLICK_SUPPRESSION_MS = 120;
+const WHEEL_LINE_DELTA_PX = 20;
 
 export { isGpuNodeInteractiveEventTarget } from "./activeNodeTargeting";
 
@@ -100,6 +104,7 @@ export function createGpuNodeInteractionDirtyController({
   onStateChange,
   requestFrame,
   resolvePointerHandoffTarget,
+  resolveWheelHandoffTarget,
   textureManager,
 }: GpuNodeInteractionDirtyControllerOptions): GpuNodeInteractionDirtyController {
   let activeNodeId: string | null = null;
@@ -204,6 +209,33 @@ export function createGpuNodeInteractionDirtyController({
     }
     focusPointerHandoffTarget(liveTarget);
     queuePointerHandoffClick(liveTarget, event);
+    return true;
+  }
+
+  function handOffWheelEvent(event: WheelEvent): boolean {
+    const handoffTarget = resolveWheelHandoffTarget?.(event);
+    if (!handoffTarget) {
+      return false;
+    }
+    const liveNodeElement =
+      activatePointerHandoffNode?.(handoffTarget.nodeId) ??
+      elementByNodeId().get(handoffTarget.nodeId) ??
+      null;
+    const liveTarget = liveNodeElement
+      ? resolveGpuNodeTargetDescriptor(
+          liveNodeElement,
+          handoffTarget.descriptor,
+        )
+      : null;
+    if (!liveTarget) {
+      return false;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    beginInteractiveNode(handoffTarget.nodeId, "scroll");
+    applyWheelScroll(liveTarget, event);
+    scheduleActiveNodeRelease(handoffTarget.nodeId);
     return true;
   }
 
@@ -342,13 +374,19 @@ export function createGpuNodeInteractionDirtyController({
     if (kind === "focus" && isGpuNodePersistentFocusEventTarget(eventTarget)) {
       focusedPersistentNodeId = nodeId;
     }
-    const priority =
-      activeNodeId === nodeId || interactiveTarget ? "interactive" : "visible";
-    if (interactiveTarget && priority === "interactive") {
+    const priority = resolveEventDirtyPriority({
+      activeNodeId,
+      interactiveTarget,
+      nodeId,
+    });
+    if (shouldBeginEventTargetInteraction({ interactiveTarget, priority })) {
       beginInteractiveNode(nodeId, dirtyReasonForKind(kind));
       return;
     }
     markDirty({ nodeId, priority, reason: dirtyReasonForKind(kind) });
+    if (kind === "scroll" && activeNodeId === nodeId) {
+      scheduleActiveNodeRelease(nodeId);
+    }
   }
 
   function markCustomDirtyEvent(
@@ -387,6 +425,13 @@ export function createGpuNodeInteractionDirtyController({
     }
     const nodeId = activeNodeId;
     markDirty({ nodeId, priority: "interactive", reason });
+    scheduleActiveNodeRelease(nodeId);
+  }
+
+  function scheduleActiveNodeRelease(nodeId: string) {
+    if (activeNodeId !== nodeId) {
+      return;
+    }
     setState({ releaseAfterUploadNodeId: nodeId });
     scheduleActiveSettleFrame(nodeId);
   }
@@ -448,6 +493,13 @@ export function createGpuNodeInteractionDirtyController({
       canvas.addEventListener(
         "scroll",
         (event) => markEventTargetDirty(event.target, "scroll"),
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "wheel",
+        (event) => {
+          handOffWheelEvent(event);
+        },
         listenerOptions,
       );
       canvas.addEventListener(
@@ -613,9 +665,7 @@ export function createGpuNodeInteractionDirtyController({
     return isNodePersistentFocusTarget(nodeId, activeElement);
   }
 
-  function getNodeOwnerDocumentActiveElement(
-    nodeId: string,
-  ): Element | null {
+  function getNodeOwnerDocumentActiveElement(nodeId: string): Element | null {
     const nodeElement = elementByNodeId().get(nodeId);
     return nodeElement?.ownerDocument.activeElement ?? null;
   }
@@ -734,6 +784,57 @@ function dispatchPointerHandoffMouseEvent(
     shiftKey: event.shiftKey,
   } satisfies MouseEventInit;
   target.dispatchEvent(new MouseEvent("mousedown", init));
+}
+
+function applyWheelScroll(target: HTMLElement, event: WheelEvent): boolean {
+  const { deltaX, deltaY } = getWheelScrollDelta(target, event);
+  const previousScrollLeft = target.scrollLeft;
+  const previousScrollTop = target.scrollTop;
+  if (deltaX !== 0) {
+    target.scrollLeft = clampScrollOffset(
+      previousScrollLeft + deltaX,
+      target.scrollWidth - target.clientWidth,
+    );
+  }
+  if (deltaY !== 0) {
+    target.scrollTop = clampScrollOffset(
+      previousScrollTop + deltaY,
+      target.scrollHeight - target.clientHeight,
+    );
+  }
+  return (
+    target.scrollLeft !== previousScrollLeft ||
+    target.scrollTop !== previousScrollTop
+  );
+}
+
+function getWheelScrollDelta(
+  target: HTMLElement,
+  event: Pick<WheelEvent, "deltaMode" | "deltaX" | "deltaY">,
+): { readonly deltaX: number; readonly deltaY: number } {
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+    return {
+      deltaX: event.deltaX * WHEEL_LINE_DELTA_PX,
+      deltaY: event.deltaY * WHEEL_LINE_DELTA_PX,
+    };
+  }
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    return {
+      deltaX: event.deltaX * target.clientWidth,
+      deltaY: event.deltaY * target.clientHeight,
+    };
+  }
+  return {
+    deltaX: event.deltaX,
+    deltaY: event.deltaY,
+  };
+}
+
+function clampScrollOffset(value: number, maxValue: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.min(Math.max(value, 0), Math.max(0, maxValue));
 }
 
 function shouldDispatchPointerHandoffMouseDown(target: HTMLElement): boolean {
@@ -859,6 +960,30 @@ function dirtyReasonForKind(kind: DirtyEventKind): DirtyNodeReason {
     case "input":
       return "input";
   }
+}
+
+function resolveEventDirtyPriority({
+  activeNodeId,
+  interactiveTarget,
+  nodeId,
+}: {
+  readonly activeNodeId: string | null;
+  readonly interactiveTarget: boolean;
+  readonly nodeId: string;
+}): NodeTexturePriority {
+  return activeNodeId === nodeId || interactiveTarget
+    ? "interactive"
+    : "visible";
+}
+
+function shouldBeginEventTargetInteraction({
+  interactiveTarget,
+  priority,
+}: {
+  readonly interactiveTarget: boolean;
+  readonly priority: NodeTexturePriority;
+}): boolean {
+  return interactiveTarget && priority === "interactive";
 }
 
 function normalizeDirtyEventPriority(

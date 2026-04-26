@@ -270,6 +270,96 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
+  it("hands off a first wheel event to a passive native scroll region", () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const scroller = document.createElement("div");
+    scroller.className = "nowheel";
+    scroller.style.overflowY = "auto";
+    setScrollMetrics(scroller, {
+      clientHeight: 100,
+      clientWidth: 200,
+      scrollHeight: 400,
+      scrollWidth: 200,
+    });
+    nodeElement.append(scroller);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    setRect(scroller, 20, 30, 200, 100);
+    const descriptor = createGpuNodeTargetDescriptor(nodeElement, scroller);
+    if (!descriptor) {
+      throw new Error("Expected a wheel handoff target descriptor");
+    }
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const activatePointerHandoffNode = vi.fn(() => nodeElement);
+    let frame = 0;
+    const controller = createGpuNodeInteractionDirtyController({
+      activatePointerHandoffNode,
+      activeSettleDelayMs: 50,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => {
+        frame += 1;
+        return frame;
+      },
+      requestFrame,
+      resolveWheelHandoffTarget: () => ({
+        descriptor,
+        nodeId: "node-a",
+      }),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    const wheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 25,
+      clientY: 35,
+      deltaY: 80,
+    });
+    canvas.dispatchEvent(wheel);
+
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
+    expect(scroller.scrollTop).toBe(80);
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(controller.getLiveNodeId()).toBe("node-a");
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 1,
+      nodeId: "node-a",
+      priority: "interactive",
+      reason: "scroll",
+    });
+
+    nodeElement.dataset.gpuFlowTeleport = "active";
+    const activeWheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 25,
+      clientY: 35,
+      deltaY: 40,
+    });
+    scroller.dispatchEvent(activeWheel);
+
+    expect(activeWheel.defaultPrevented).toBe(true);
+    expect(scroller.scrollTop).toBe(120);
+
+    vi.advanceTimersByTime(50);
+    expect(controller.getLiveNodeId()).toBeNull();
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+    expect(controller.getActiveNodeId()).toBeNull();
+
+    detach();
+    canvas.remove();
+  });
+
   it("marks passive internal scrolls without promoting the node", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -744,4 +834,21 @@ function setRect(
       y: top,
       toJSON: () => ({}),
     }) as DOMRect;
+}
+
+function setScrollMetrics(
+  element: HTMLElement,
+  metrics: {
+    readonly clientHeight: number;
+    readonly clientWidth: number;
+    readonly scrollHeight: number;
+    readonly scrollWidth: number;
+  },
+) {
+  Object.defineProperties(element, {
+    clientHeight: { configurable: true, value: metrics.clientHeight },
+    clientWidth: { configurable: true, value: metrics.clientWidth },
+    scrollHeight: { configurable: true, value: metrics.scrollHeight },
+    scrollWidth: { configurable: true, value: metrics.scrollWidth },
+  });
 }

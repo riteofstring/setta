@@ -110,7 +110,12 @@ describe("GpuActiveNodeTeleport", () => {
       teleportedNodeId: "second",
     });
 
-    expect(layer.firstElementChild).toBe(second);
+    expect(layer.lastElementChild).toBe(second);
+    const firstClone = layer.firstElementChild;
+    expect(firstClone).not.toBe(first);
+    expect(firstClone?.getAttribute("data-gpu-flow-teleport")).toBe(
+      "settling-clone",
+    );
     expect([...canvas.children]).toEqual([first]);
     expect(first.dataset.gpuFlowTeleport).toBeUndefined();
 
@@ -118,6 +123,37 @@ describe("GpuActiveNodeTeleport", () => {
 
     expect([...canvas.children]).toEqual([first, second]);
     expect(layer.childElementCount).toBe(0);
+  });
+
+  it("preserves scroll offsets on settling clones", () => {
+    const canvas = document.createElement("canvas");
+    const node = document.createElement("div");
+    const scroller = document.createElement("div");
+    const nestedScroller = document.createElement("div");
+    const layer = document.createElement("div");
+    scroller.className = "scroller";
+    nestedScroller.className = "nested-scroller";
+    scroller.scrollLeft = 12;
+    scroller.scrollTop = 96;
+    nestedScroller.scrollTop = 24;
+    scroller.append(nestedScroller);
+    node.append(scroller);
+    canvas.append(node);
+    document.body.append(canvas, layer);
+    const controller = createGpuActiveNodeTeleportController(layer);
+
+    controller.sync(snapshot(node, "node-a"));
+    controller.sync(null);
+
+    const cloneScroller = layer.querySelector<HTMLElement>(".scroller");
+    const cloneNestedScroller =
+      layer.querySelector<HTMLElement>(".nested-scroller");
+    expect(cloneScroller?.scrollLeft).toBe(12);
+    expect(cloneScroller?.scrollTop).toBe(96);
+    expect(cloneNestedScroller?.scrollTop).toBe(24);
+    expect(scroller.scrollLeft).toBe(12);
+    expect(scroller.scrollTop).toBe(96);
+    expect(nestedScroller.scrollTop).toBe(24);
   });
 
   it("preserves focused input selection while moving the node", () => {

@@ -1,3 +1,4 @@
+import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import type { GpuNodeLayout } from "./GpuNodeLayer";
 import { resolveGpuNodeZIndex } from "./nodeZIndex";
 import {
@@ -100,6 +101,55 @@ export function resolveGpuNodePointerHandoffTarget({
     return null;
   }
   const target = findInteractiveTargetAtClientPoint({
+    clientX,
+    clientY,
+    root: nodeElement,
+  });
+  if (!target) {
+    return null;
+  }
+  const descriptor = createGpuNodeTargetDescriptor(nodeElement, target);
+  if (!descriptor) {
+    return null;
+  }
+  return {
+    descriptor,
+    nodeId: node.nodeId,
+  };
+}
+
+export function resolveGpuNodeWheelHandoffTarget({
+  clientX,
+  clientY,
+  elementByNodeId,
+  nodes,
+  surfaceElement,
+  viewport,
+}: ResolveGpuNodePointerHandoffTargetInput): GpuNodePointerHandoffTarget | null {
+  const node = findTopmostGpuNodeAtClientPoint({
+    clientX,
+    clientY,
+    nodes,
+    surfaceElement,
+    viewport,
+  });
+  if (!node) {
+    return null;
+  }
+
+  const nodeElement = elementByNodeId.get(node.nodeId);
+  if (!nodeElement) {
+    return null;
+  }
+  const target = findWheelTargetAtClientPoint({
+    clientX,
+    clientY,
+    root: nodeElement,
+  }) ?? findScrollableTargetAtClientPoint({
+    clientX,
+    clientY,
+    root: nodeElement,
+  }) ?? findNearestScrollableWheelTarget({
     clientX,
     clientY,
     root: nodeElement,
@@ -243,6 +293,100 @@ export function findInteractiveTargetAtClientPoint({
   return match;
 }
 
+function findWheelTargetAtClientPoint({
+  clientX,
+  clientY,
+  root,
+}: {
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly root: HTMLElement;
+}): HTMLElement | null {
+  const explicitTarget = findSmallestContainingElement(
+    getNativeWheelTargetCandidates(root),
+    clientX,
+    clientY,
+  );
+  if (!explicitTarget) {
+    return null;
+  }
+  return (
+    findSmallestContainingElement(
+      getScrollableDescendantCandidates(explicitTarget),
+      clientX,
+      clientY,
+    ) ?? explicitTarget
+  );
+}
+
+function findNearestScrollableWheelTarget({
+  clientX,
+  clientY,
+  root,
+}: {
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly root: HTMLElement;
+}): HTMLElement | null {
+  let match: HTMLElement | null = null;
+  let matchDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of getNativeWheelTargetCandidates(root)) {
+    const scrollTarget =
+      findNearestScrollableDescendant(candidate, clientX, clientY) ??
+      (isScrollableElement(candidate) ? candidate : null);
+    if (!scrollTarget) {
+      continue;
+    }
+    const distance = getDistanceSquaredToElementRect(
+      scrollTarget,
+      clientX,
+      clientY,
+    );
+    if (distance < matchDistance) {
+      match = scrollTarget;
+      matchDistance = distance;
+    }
+  }
+  return match;
+}
+
+function findScrollableTargetAtClientPoint({
+  clientX,
+  clientY,
+  root,
+}: {
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly root: HTMLElement;
+}): HTMLElement | null {
+  return findSmallestContainingElement(
+    getScrollableDescendantCandidates(root),
+    clientX,
+    clientY,
+  );
+}
+
+function findNearestScrollableDescendant(
+  root: HTMLElement,
+  clientX: number,
+  clientY: number,
+): HTMLElement | null {
+  let match: HTMLElement | null = null;
+  let matchDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of getScrollableDescendantCandidates(root)) {
+    const distance = getDistanceSquaredToElementRect(
+      candidate,
+      clientX,
+      clientY,
+    );
+    if (distance < matchDistance) {
+      match = candidate;
+      matchDistance = distance;
+    }
+  }
+  return match;
+}
+
 function findTopmostGpuNodeAtClientPoint({
   clientX,
   clientY,
@@ -325,6 +469,96 @@ function getInteractiveTargetCandidates(root: HTMLElement): HTMLElement[] {
     candidates.push(candidate);
   }
   return candidates;
+}
+
+function getNativeWheelTargetCandidates(root: HTMLElement): HTMLElement[] {
+  const candidates: HTMLElement[] = [];
+  if (isNativeWheelTargetCandidate(root)) {
+    candidates.push(root);
+  }
+  for (const candidate of root.querySelectorAll<HTMLElement>(
+    `.${NO_WHEEL_CLASS_NAME}, [data-gpu-flow-wheel-target="true"]`,
+  )) {
+    candidates.push(candidate);
+  }
+  return candidates;
+}
+
+function getScrollableDescendantCandidates(root: HTMLElement): HTMLElement[] {
+  const candidates: HTMLElement[] = [];
+  if (isScrollableElement(root)) {
+    candidates.push(root);
+  }
+  for (const candidate of root.querySelectorAll<HTMLElement>("*")) {
+    if (isScrollableElement(candidate)) {
+      candidates.push(candidate);
+    }
+  }
+  return candidates;
+}
+
+function isNativeWheelTargetCandidate(element: HTMLElement): boolean {
+  return (
+    element.classList.contains(NO_WHEEL_CLASS_NAME) ||
+    element.dataset.gpuFlowWheelTarget === "true"
+  );
+}
+
+function isScrollableElement(element: HTMLElement): boolean {
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  const scrollableY =
+    isScrollableOverflowValue(style?.overflowY) &&
+    element.scrollHeight > element.clientHeight;
+  const scrollableX =
+    isScrollableOverflowValue(style?.overflowX) &&
+    element.scrollWidth > element.clientWidth;
+  return scrollableY || scrollableX;
+}
+
+function isScrollableOverflowValue(value: string | undefined): boolean {
+  return value === "auto" || value === "overlay" || value === "scroll";
+}
+
+function findSmallestContainingElement(
+  candidates: readonly HTMLElement[],
+  clientX: number,
+  clientY: number,
+): HTMLElement | null {
+  let match: HTMLElement | null = null;
+  for (const candidate of candidates) {
+    if (!elementContainsClientPoint(candidate, clientX, clientY)) {
+      continue;
+    }
+    if (
+      !match ||
+      match.contains(candidate) ||
+      getElementRectArea(candidate) < getElementRectArea(match)
+    ) {
+      match = candidate;
+    }
+  }
+  return match;
+}
+
+function getDistanceSquaredToElementRect(
+  element: HTMLElement,
+  clientX: number,
+  clientY: number,
+): number {
+  const rect = element.getBoundingClientRect();
+  const dx =
+    clientX < rect.left
+      ? rect.left - clientX
+      : clientX > rect.right
+        ? clientX - rect.right
+        : 0;
+  const dy =
+    clientY < rect.top
+      ? rect.top - clientY
+      : clientY > rect.bottom
+        ? clientY - rect.bottom
+        : 0;
+  return dx * dx + dy * dy;
 }
 
 function elementContainsClientPoint(

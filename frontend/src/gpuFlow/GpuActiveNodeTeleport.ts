@@ -36,6 +36,12 @@ type DomSelectionSnapshot = {
   readonly focusOffset: number;
 };
 
+type ElementScrollOffsetSnapshot = {
+  readonly path: readonly number[];
+  readonly scrollLeft: number;
+  readonly scrollTop: number;
+};
+
 const TELEPORTED_NODE_CLASS = "setta-gpu-flow__node--teleported";
 const SETTLING_CLONE_CLASS = "setta-gpu-flow__node--settling-clone";
 const TELEPORTED_NODE_STYLE_KEYS = [
@@ -103,7 +109,7 @@ export function createGpuActiveNodeTeleportController(
         restoredNodeId = restore();
       }
       if (!teleportedNode) {
-        clearAllSettlingClones(settlingClones);
+        clearSettlingClone(settlingClones, snapshot.nodeId);
         teleportedNode = moveNodeToTeleportLayer(layer, snapshot);
       }
       applyTeleportedNodePresentation(snapshot);
@@ -131,7 +137,9 @@ function moveNodeToTeleportLayer(
     originalStyle: captureTeleportedNodeStyle(snapshot.sourceElement),
   };
   const focusSnapshot = captureFocusSnapshot(snapshot.sourceElement);
-  layer.replaceChildren(snapshot.sourceElement);
+  const scrollSnapshot = captureElementScrollOffsets(snapshot.sourceElement);
+  layer.append(snapshot.sourceElement);
+  restoreElementScrollOffsets(snapshot.sourceElement, scrollSnapshot);
   snapshot.sourceElement.classList.add(TELEPORTED_NODE_CLASS);
   snapshot.sourceElement.dataset.gpuFlowTeleport = "active";
   restoreFocusSnapshot(focusSnapshot);
@@ -143,7 +151,7 @@ function retainSettlingClone(
   settlingClones: Map<string, HTMLElement>,
   teleportedNode: TeleportedNode,
 ) {
-  clearAllSettlingClones(settlingClones);
+  clearSettlingClone(settlingClones, teleportedNode.nodeId);
   const clone = teleportedNode.element.cloneNode(true);
   if (!(clone instanceof HTMLElement)) {
     return;
@@ -154,7 +162,8 @@ function retainSettlingClone(
   clone.setAttribute("aria-hidden", "true");
   clone.setAttribute("inert", "");
   clone.style.pointerEvents = "none";
-  layer.replaceChildren(clone);
+  layer.append(clone);
+  copyElementScrollOffsets(teleportedNode.element, clone);
   settlingClones.set(teleportedNode.nodeId, clone);
 }
 
@@ -192,11 +201,86 @@ function sanitizeSettlingCloneElement(element: HTMLElement) {
   element.removeAttribute("data-gpu-flow-node");
 }
 
+function copyElementScrollOffsets(source: Element, clone: Element) {
+  if (source instanceof HTMLElement && clone instanceof HTMLElement) {
+    clone.scrollLeft = source.scrollLeft;
+    clone.scrollTop = source.scrollTop;
+  }
+  const sourceChildren = source.children;
+  const cloneChildren = clone.children;
+  const childCount = Math.min(sourceChildren.length, cloneChildren.length);
+  for (let index = 0; index < childCount; index += 1) {
+    const sourceChild = sourceChildren.item(index);
+    const cloneChild = cloneChildren.item(index);
+    if (sourceChild && cloneChild) {
+      copyElementScrollOffsets(sourceChild, cloneChild);
+    }
+  }
+}
+
+function captureElementScrollOffsets(
+  root: HTMLElement,
+): ElementScrollOffsetSnapshot[] {
+  const snapshots: ElementScrollOffsetSnapshot[] = [];
+  collectElementScrollOffsets(root, [], snapshots);
+  return snapshots;
+}
+
+function collectElementScrollOffsets(
+  element: Element,
+  path: readonly number[],
+  snapshots: ElementScrollOffsetSnapshot[],
+) {
+  if (element instanceof HTMLElement) {
+    snapshots.push({
+      path,
+      scrollLeft: element.scrollLeft,
+      scrollTop: element.scrollTop,
+    });
+  }
+  const children = element.children;
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children.item(index);
+    if (child) {
+      collectElementScrollOffsets(child, [...path, index], snapshots);
+    }
+  }
+}
+
+function restoreElementScrollOffsets(
+  root: HTMLElement,
+  snapshots: readonly ElementScrollOffsetSnapshot[],
+) {
+  for (const snapshot of snapshots) {
+    const element = resolveElementPath(root, snapshot.path);
+    if (element instanceof HTMLElement) {
+      element.scrollLeft = snapshot.scrollLeft;
+      element.scrollTop = snapshot.scrollTop;
+    }
+  }
+}
+
+function resolveElementPath(
+  root: HTMLElement,
+  path: readonly number[],
+): Element | null {
+  let current: Element = root;
+  for (const index of path) {
+    const child = current.children.item(index);
+    if (!child) {
+      return null;
+    }
+    current = child;
+  }
+  return current;
+}
+
 function restoreTeleportedNode(
   teleportedNode: TeleportedNode,
   focusSnapshot: FocusSnapshot | null,
 ) {
   const { element, originalNextSibling, originalParent } = teleportedNode;
+  const scrollSnapshot = captureElementScrollOffsets(element);
   if (!originalParent.isConnected) {
     return;
   }
@@ -206,10 +290,12 @@ function restoreTeleportedNode(
     originalNextSibling.parentNode === originalParent
   ) {
     originalParent.insertBefore(element, originalNextSibling);
+    restoreElementScrollOffsets(element, scrollSnapshot);
     restoreFocusSnapshot(focusSnapshot);
     return;
   }
   originalParent.appendChild(element);
+  restoreElementScrollOffsets(element, scrollSnapshot);
   restoreFocusSnapshot(focusSnapshot);
 }
 

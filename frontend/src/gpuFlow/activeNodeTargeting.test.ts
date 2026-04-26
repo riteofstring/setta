@@ -6,6 +6,7 @@ import {
   createGpuNodeTargetDescriptor,
   resolveGpuNodePointerHandoffTarget,
   resolveGpuNodeTargetDescriptor,
+  resolveGpuNodeWheelHandoffTarget,
 } from "./activeNodeTargeting";
 
 describe("gpu active node pointer targeting", () => {
@@ -233,6 +234,134 @@ describe("gpu active node pointer targeting", () => {
       tagName: "div",
     });
   });
+
+  it("resolves explicit native wheel regions to their scrollable descendant", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const wheelRegion = document.createElement("div");
+    const scroller = document.createElement("div");
+    wheelRegion.className = "nowheel";
+    scroller.style.overflowY = "auto";
+    setScrollMetrics(scroller, {
+      clientHeight: 120,
+      clientWidth: 180,
+      scrollHeight: 360,
+      scrollWidth: 180,
+    });
+    wheelRegion.append(scroller);
+    nodeElement.append(wheelRegion);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(wheelRegion, 20, 20, 200, 140);
+    setRect(scroller, 24, 24, 180, 120);
+
+    expect(
+      resolveGpuNodeWheelHandoffTarget({
+        clientX: 40,
+        clientY: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      })?.descriptor,
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [0, 0],
+      role: null,
+      tagName: "div",
+    });
+  });
+
+  it("resolves scrollable overflow targets without a native wheel marker", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const scroller = document.createElement("div");
+    scroller.style.overflowY = "auto";
+    setScrollMetrics(scroller, {
+      clientHeight: 120,
+      clientWidth: 180,
+      scrollHeight: 360,
+      scrollWidth: 180,
+    });
+    nodeElement.append(scroller);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(scroller, 24, 24, 180, 120);
+
+    expect(
+      resolveGpuNodeWheelHandoffTarget({
+        clientX: 40,
+        clientY: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      })?.descriptor,
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [0],
+      role: null,
+      tagName: "div",
+    });
+  });
+
+  it("falls back to the nearest scrollable wheel region inside the node", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const wheelRegion = document.createElement("div");
+    const scroller = document.createElement("div");
+    wheelRegion.className = "nowheel";
+    scroller.style.overflowY = "auto";
+    setScrollMetrics(scroller, {
+      clientHeight: 120,
+      clientWidth: 180,
+      scrollHeight: 360,
+      scrollWidth: 180,
+    });
+    wheelRegion.append(scroller);
+    nodeElement.append(wheelRegion);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(wheelRegion, 20, 20, 200, 140);
+    setRect(scroller, 24, 24, 180, 120);
+
+    expect(
+      resolveGpuNodeWheelHandoffTarget({
+        clientX: 40,
+        clientY: 18,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      })?.descriptor,
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [0, 0],
+      role: null,
+      tagName: "div",
+    });
+  });
+
+  it("does not fall back to non-scrollable wheel regions", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const button = document.createElement("button");
+    button.className = "nowheel";
+    nodeElement.append(button);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(button, 20, 20, 80, 32);
+
+    expect(
+      resolveGpuNodeWheelHandoffTarget({
+        clientX: 40,
+        clientY: 18,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      }),
+    ).toBeNull();
+  });
 });
 
 function createNodeElement(nodeId: string): HTMLElement {
@@ -279,6 +408,23 @@ function setRect(
       y: top,
       toJSON: () => ({}),
     }) as DOMRect;
+}
+
+function setScrollMetrics(
+  element: HTMLElement,
+  metrics: {
+    readonly clientHeight: number;
+    readonly clientWidth: number;
+    readonly scrollHeight: number;
+    readonly scrollWidth: number;
+  },
+) {
+  Object.defineProperties(element, {
+    clientHeight: { configurable: true, value: metrics.clientHeight },
+    clientWidth: { configurable: true, value: metrics.clientWidth },
+    scrollHeight: { configurable: true, value: metrics.scrollHeight },
+    scrollWidth: { configurable: true, value: metrics.scrollWidth },
+  });
 }
 
 function resolveTargetValue({
