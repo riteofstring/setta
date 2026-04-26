@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it, vi } from "vitest";
+import { dispatchGpuFlowNodeDirtyEvent } from "./nodeDirtyEvents";
 import {
   createGpuNodeInteractionDirtyController,
   findGpuNodeIdForEventTarget,
@@ -174,6 +175,99 @@ describe("gpu node interaction dirty tracking", () => {
 
     detach();
     canvas.remove();
+  });
+
+  it("marks custom CodeMirror and terminal dirty events for only the owning node", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const editor = document.createElement("div");
+    editor.className = "cm-editor";
+    nodeElement.append(editor);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 21,
+      requestFrame,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    dispatchGpuFlowNodeDirtyEvent(editor, {
+      priority: "visible",
+      reason: "input",
+    });
+
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 21,
+      nodeId: "node-a",
+      priority: "visible",
+      reason: "input",
+    });
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+
+    dispatchGpuFlowNodeDirtyEvent(editor, {
+      priority: "interactive",
+      reason: "selection",
+    });
+
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(textureManager.setNodeTexturePriority).toHaveBeenCalledWith(
+      "node-a",
+      "interactive",
+    );
+    expect(textureManager.markNodeTextureDirty).toHaveBeenLastCalledWith({
+      content: true,
+      frame: 21,
+      nodeId: "node-a",
+      priority: "interactive",
+      reason: "selection",
+    });
+
+    detach();
+  });
+
+  it("does not reopen a released interactive node for visible custom dirty events", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const editor = document.createElement("div");
+    editor.className = "cm-editor";
+    nodeElement.append(editor);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 33,
+      requestFrame: vi.fn(),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    dispatchGpuFlowNodeDirtyEvent(editor, {
+      priority: "interactive",
+      reason: "input",
+    });
+    editor.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    dispatchGpuFlowNodeDirtyEvent(editor, {
+      priority: "visible",
+      reason: "focus",
+    });
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(textureManager.setNodeTexturePriority).toHaveBeenLastCalledWith(
+      "node-a",
+      "visible",
+    );
+
+    detach();
   });
 });
 

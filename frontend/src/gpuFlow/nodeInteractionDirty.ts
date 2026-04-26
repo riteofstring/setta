@@ -1,5 +1,9 @@
 import type { DirtyNodeReason, NodeTexturePriority } from "./dirtyTracking";
 import type { GpuFrameReason } from "./gpuRenderer";
+import {
+  getGpuFlowNodeDirtyEventDetail,
+  GPU_FLOW_NODE_DIRTY_EVENT,
+} from "./nodeDirtyEvents";
 import type { NodeTextureManager } from "./nodeTextures";
 
 export type GpuNodeInteractionFrameResult = {
@@ -156,6 +160,36 @@ export function createGpuNodeInteractionDirtyController({
     markDirty({ nodeId, priority, reason: dirtyReasonForKind(kind) });
   }
 
+  function markCustomDirtyEvent(
+    eventTarget: EventTarget | null,
+    detail: {
+      readonly priority?: NodeTexturePriority | undefined;
+      readonly reason?: DirtyNodeReason | undefined;
+    },
+  ) {
+    const nodeId = findGpuNodeIdForEventTarget(eventTarget, elementByNodeId());
+    if (!nodeId) {
+      return;
+    }
+
+    const explicitPriority = normalizeDirtyEventPriority(detail.priority);
+    const reason = detail.reason ?? "content";
+    const priority = resolveCustomDirtyEventPriority({
+      activeNodeId,
+      eventTarget,
+      explicitPriority,
+      nodeId,
+    });
+    if (
+      priority === "interactive" &&
+      shouldBeginCustomDirtyInteraction(eventTarget, explicitPriority)
+    ) {
+      beginInteractiveNode(nodeId, reason);
+      return;
+    }
+    markDirty({ nodeId, priority, reason });
+  }
+
   function markActiveNodeDirty(reason: DirtyNodeReason) {
     if (!activeNodeId) {
       return;
@@ -184,6 +218,16 @@ export function createGpuNodeInteractionDirtyController({
         signal: abortController.signal,
       } satisfies AddEventListenerOptions;
 
+      canvas.addEventListener(
+        GPU_FLOW_NODE_DIRTY_EVENT,
+        (event) => {
+          const detail = getGpuFlowNodeDirtyEventDetail(event);
+          if (detail) {
+            markCustomDirtyEvent(event.target, detail);
+          }
+        },
+        listenerOptions,
+      );
       canvas.addEventListener(
         "beforeinput",
         (event) => markEventTargetDirty(event.target, "input"),
@@ -357,6 +401,51 @@ function dirtyReasonForKind(kind: DirtyEventKind): DirtyNodeReason {
     case "input":
       return "input";
   }
+}
+
+function normalizeDirtyEventPriority(
+  priority: NodeTexturePriority | undefined,
+): NodeTexturePriority | null {
+  return priority === "interactive" ||
+    priority === "visible" ||
+    priority === "prefetch"
+    ? priority
+    : null;
+}
+
+function resolveCustomDirtyEventPriority({
+  activeNodeId,
+  eventTarget,
+  explicitPriority,
+  nodeId,
+}: {
+  readonly activeNodeId: string | null;
+  readonly eventTarget: EventTarget | null;
+  readonly explicitPriority: NodeTexturePriority | null;
+  readonly nodeId: string;
+}): NodeTexturePriority {
+  if (activeNodeId === nodeId || explicitPriority === "interactive") {
+    return "interactive";
+  }
+  if (explicitPriority) {
+    return explicitPriority;
+  }
+  return isGpuNodeInteractiveEventTarget(eventTarget)
+    ? "interactive"
+    : "visible";
+}
+
+function shouldBeginCustomDirtyInteraction(
+  eventTarget: EventTarget | null,
+  explicitPriority: NodeTexturePriority | null,
+): boolean {
+  if (explicitPriority === "interactive") {
+    return true;
+  }
+  if (explicitPriority) {
+    return false;
+  }
+  return isGpuNodeInteractiveEventTarget(eventTarget);
 }
 
 function resolveNullableStatePatchValue(
