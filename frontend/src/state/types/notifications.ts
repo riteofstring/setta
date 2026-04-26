@@ -1,9 +1,9 @@
+import { createNewId } from "@setta/app-subsystem-frontend-sdk";
 import type { NotificationsNotification } from "openapi/http";
 import {
   NotificationTypeEnum,
   type NotificationType,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 
 export type AppNotification = Omit<NotificationsNotification, "type"> & {
   type: NotificationType;

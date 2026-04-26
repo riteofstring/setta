@@ -11,7 +11,7 @@ Run Codex in a fresh-session loop with one strict phase:
 Defaults:
 - Maximum iterations: 1000
 - New Codex session every iteration
-- Model: `gpt-5.4`
+- Model: `gpt-5.5`
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
@@ -26,7 +26,7 @@ Options:
   --state-dir PATH       Directory for checklist and loop state.
                          Default: <output-dir>/state
   --model NAME           Model override passed to codex exec.
-                         Default: gpt-5.4
+                         Default: gpt-5.5
   --inactivity-timeout-seconds N
                          Abort and retry an iteration if Codex produces no
                          transcript output for N seconds. Default: 1800
@@ -39,7 +39,7 @@ Options:
 
 Examples:
   ./scripts/run-codex-severe-typecheck-loop.sh
-  ./scripts/run-codex-severe-typecheck-loop.sh --model gpt-5.4
+  ./scripts/run-codex-severe-typecheck-loop.sh --model gpt-5.5
   ./scripts/run-codex-severe-typecheck-loop.sh -- --config reasoning_effort=\"high\"
 EOF
 }
@@ -50,7 +50,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 iterations="1000"
 output_dir=""
 state_dir=""
-model="gpt-5.4"
+model="gpt-5.5"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"

@@ -47,5 +47,6 @@ setta auth --json --latest | setta api get_latest_project_state_summary --auth-s
 
 ## Useful references
 
-See `docs/reference/setta-cli-commands.md` for CLI contracts. Use `setta tools` output
-for MCP tool schemas. `/api/openapi.json` is only needed for legacy REST calls.
+See `docs/reference/setta-cli-commands.md` for CLI contracts. Use `setta tools`
+output for MCP tool schemas. `/api/openapi.json` is available for direct REST
+calls.

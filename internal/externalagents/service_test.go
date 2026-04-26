@@ -159,9 +159,9 @@ func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T)
 		"chatId":          "chat-app-generation",
 		"projectConfigId": "project-alpha",
 		"appGenerationByMessageId": map[string]any{
-			"user-app":   agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
-			"user-plain": agentruns.ChatAppGenerationMessageModePlainChat,
-			"user-bad":   "invalid_mode",
+			"user-app":    agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
+			"user-plain":  agentruns.ChatAppGenerationMessageModePlainChat,
+			"user-vendor": "vendor_mode",
 		},
 		"messages": []any{
 			map[string]any{
@@ -192,14 +192,17 @@ func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T)
 	if err != nil {
 		t.Fatalf("get chat: %v", err)
 	}
-	if len(hydrated.AppGenerationByMessageID) != 2 {
-		t.Fatalf("expected two hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
+	if len(hydrated.AppGenerationByMessageID) != 3 {
+		t.Fatalf("expected three hydrated app-generation entries, got %#v", hydrated.AppGenerationByMessageID)
 	}
 	if hydrated.AppGenerationByMessageID["user-app"] != string(agentruns.ChatAppGenerationMessageModeJSONRenderWithImage) {
 		t.Fatalf("expected image-generation provenance, got %#v", hydrated.AppGenerationByMessageID)
 	}
 	if hydrated.AppGenerationByMessageID["user-plain"] != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected plain-chat provenance, got %#v", hydrated.AppGenerationByMessageID)
+	}
+	if hydrated.AppGenerationByMessageID["user-vendor"] != "vendor_mode" {
+		t.Fatalf("expected provider-defined provenance, got %#v", hydrated.AppGenerationByMessageID)
 	}
 }
 

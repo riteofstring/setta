@@ -1,9 +1,12 @@
+import {
+  callOpenAPI,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
 import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import { pasteSections, prepareSectionsForCopy } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useShareSession } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   ClipboardDataTypeEnum,
   NotificationTypeEnum,

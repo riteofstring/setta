@@ -1,9 +1,9 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import {
   createChildSectionsViaIncrementer,
   deleteChildSectionsViaDecrementer,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
 import {

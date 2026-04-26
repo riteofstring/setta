@@ -14,11 +14,16 @@ vi.mock("openapi/http", () => ({
   uploadBinary: uploadBinaryMock,
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: function <T>(promise: Promise<T>) {
+      return promise;
+    },
+  };
+});
 
 describe("collectDrawSnapshotPayloads", () => {
   const sectionIds = ["draw-a", "draw-b", "draw-missing"] as const;

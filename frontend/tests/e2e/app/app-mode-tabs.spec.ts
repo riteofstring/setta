@@ -22,8 +22,9 @@ async function syncAppDefinitionStateWithExpectedRootKey(
     .poll(async () => {
       return await page.evaluate(async ({ expectedKey }) => {
         const { getAppDefinition } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/src/openapi/http/result");
-        const { res200 } = await import("/src/utils/endpointUtils.ts");
+        const { callOpenAPI, res200 } = await import(
+          "/tests/e2e/browserAppSubsystemSdk.ts"
+        );
         const { useAppDefinition, useAppPreview } = await import(
           "/src/state/definitions.ts"
         );
@@ -300,8 +301,9 @@ test("app tabs scope outputs per config", async ({ page }) => {
   await page.evaluate(
     async ({ defaultConfigName, newConfigName, sectionAId, sectionBId }) => {
       const { loadProjectConfig } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/src/openapi/http/result");
-      const { res200 } = await import("/src/utils/endpointUtils.ts");
+      const { callOpenAPI, res200 } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const { useAppConfigs, useProjectState } = await import(
         "/src/state/definitions.ts"
       );

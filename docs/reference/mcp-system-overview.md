@@ -14,7 +14,9 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ac
 - `defaultToolDefinitions()` in `internal/mcpx/server.go` is the source of truth for the built-in Go MCP tool catalog.
 - `internal/tools/registry.go` validates tool names and metadata, rejects duplicates, and keeps the registered catalog sorted for listing and search.
 - `internal/mcpx/tool_catalog.go` builds the same Go-owned tool payloads for CLI/tool-introspection paths, so the live server and offline tool catalog stay aligned.
-- No Python-side decorator registry remains in the active tool-definition path. MCP tool catalog/metadata ownership is fully Go-side under `internal/mcpx` and `internal/tools`; the Python `backend/setta/mcp/*` files are client/annotation helpers for the package surface rather than server-side tool registration.
+- MCP tool catalog/metadata ownership is Go-side under `internal/mcpx` and
+  `internal/tools`; the Python `backend/setta/mcp/*` files are
+  client/annotation helpers for the package surface.
 
 ## Tool search tags and categories
 - Every tool can carry `SearchTags` and `SearchCategory` in `internal/tools.Metadata`.
@@ -27,14 +29,14 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ac
 - Scope enforcement, result filtering, and managed tool-preview streaming all consume this same normalized Go metadata.
 
 ## UI setting tools and reveal flow
-- Setta now exposes UI-setting tools as discoverable MCP tools:
+- Setta exposes UI-setting tools as discoverable MCP tools:
   - `search_ui_settings(query, limit, sourceFilter, projectConfigId?)`
   - `get_ui_setting_value(settingId, projectConfigId?)`
   - `set_ui_setting_value(settingId, value, revealAfterSet, durationMs, projectConfigId?)`
   - `reveal_ui_setting(settingId, sectionIdToActivate, durationMs, projectConfigId?)`
 - Canonical setting ids are stable:
-  - Core settings: `core.*` (for example `core.watch_code.enabled`)
-  - Plugin settings: `plugin::<pluginId>::<localSettingId>`
+  - Core settings: `core.*` (for example `core.project.name`)
+  - Plugin settings: `plugin::<pluginId>::<localSettingId>` (for example `plugin::setta-watch-code::files`)
 - `set_ui_setting_value` validates input against each setting’s `valueSchema`, enforces read-only/writable semantics, and performs compare-and-set style writes (`expected_old_value`) to avoid stale clobbers.
 - `reveal_ui_setting` (and `set_ui_setting_value(..., revealAfterSet=true)`) dispatches a `UISettingReveal` websocket message to a selected frontend and waits for a `UISettingRevealResult` acknowledgement.
 - Right-pane reveals require section context. If no section is active, pass `sectionIdToActivate`; otherwise reveal returns a structured failure instead of guessing.
@@ -48,10 +50,10 @@ instead of executing unscoped.
 Agentic context inputs:
 - Required: `projectConfigId`.
 - Required unless unscoped: `sectionId` (the Chat section id).
-- Optional: `chatId` (used to associate follow/highlight state with a specific chat/run).
-- Optional: `shareSessionId` (used to constrain deployment/share-scoped tool routing to the active session).
+- Optional: `chatId` (associates follow/highlight state with a specific chat/run).
+- Optional: `shareSessionId` (constrains deployment/share-scoped tool routing to the active session).
 - Optional: `runId` (used by workflow child chats when calling `report_state_machine_signal`).
-- Optional: `frontendAffinityToken` (used to route UI-setting reveal requests back to the originating frontend when multiple frontends are connected).
+- Optional: `frontendAffinityToken` (routes UI-setting reveal requests back to the originating frontend when multiple frontends are connected).
 - Optional: `allowUnscoped=true` (project-level access; used by Project Chat).
 
 Ways to provide agentic context:
@@ -76,8 +78,10 @@ Tool enforcement details:
   state summaries and LSP diagnostics).
 
 ## Linked chat edges
-- Linked `chat_chat` edges still participate in scoped chat context and executable-target discovery, but the old standalone Python `invoke_linked_chat` MCP tool is not part of the current Go-owned tool catalog.
-- The active Go agentic MCP flow uses `run_agent_profile` plus `report_state_machine_signal`; linked chat edges remain project-state metadata rather than a caller-backed direct MCP tool surface.
+- Linked `chat_chat` edges participate in scoped chat context and
+  executable-target discovery.
+- The Go agentic MCP flow uses `run_agent_profile` plus
+  `report_state_machine_signal`; linked chat edges remain project-state metadata.
 
 ## Frontend affinity routing
 - On websocket connect, each frontend receives a `FrontendIdentity` message with a `frontendAffinityToken`.
@@ -88,10 +92,11 @@ Tool enforcement details:
 - In share/app mode, routing is additionally constrained by the active `shareSessionId`.
 
 ## Go MCP client (`internal/mcpx/client.go`)
-- The active multi-server MCP client runtime is now Go-owned under `internal/mcpx/client.go`.
-- It maintains a session per configured MCP server (SSE, Streamable HTTP, or stdio), calls `list_tools`, and caches init/discoverable tool definitions plus runtime status for the managed-chat/runtime paths that still need outbound MCP client behavior.
+- The active multi-server MCP client runtime is Go-owned under `internal/mcpx/client.go`.
+- It maintains a session per configured MCP server (SSE, Streamable HTTP, or stdio), calls `list_tools`, and caches init/discoverable tool definitions plus runtime status for managed-chat/runtime paths that use outbound MCP client behavior.
 - Tool names are always namespaced as `<serverId>__<toolName>`, and the client keeps a routing map so `call_tool` can strip the prefix and send the request to the correct server/session.
-- Retry and reconnect behavior for configured external MCP servers now lives in the Go client/runtime rather than the deleted Python `MultiMCPClient`.
+- Retry and reconnect behavior for configured external MCP servers lives in the
+  Go client/runtime.
 
 ## Packaged stdio bridge (`internal/settacmd/mcp.go`, `internal/mcpx/stdio_bridge.go`)
 - `setta mcp` (or the explicit `setta mcp bridge`) lets Setta’s Go MCP server look like a local `stdio` transport for third-party MCP orchestrators.
@@ -104,19 +109,20 @@ Tool enforcement details:
 - `internal/managedchat/live_runtime.go` keeps the active in-memory overlay for running chats and broadcasts `LLMStreamingResponse` chunks over the frontend websocket.
 - Provider execution, tool-call streaming, tool previews, and tool-result follow updates live under `internal/managedllm/*`.
 - Tool names are always namespaced as `<serverId>__<toolName>` so the prompt never contains ambiguous tool names.
-- Project summaries, tool catalogs, and MCP-tool dispatch now stay entirely on the Go side through `internal/tools` and `internal/mcpx`.
+- Project summaries, tool catalogs, and MCP-tool dispatch stay on the Go side
+  through `internal/tools` and `internal/mcpx`.
 
 ## LLM configuration (`setta_files/llm_config.json`)
 - All provider definitions live in `setta_files/llm_config.json`.
 - `internal/llmconfig/service.go` is the active read/write/validation owner, and `internal/httpapi/llm_routes.go` broadcasts `LLMConfigUpdated` and `LLMApiKeysUpdated` when config or managed keys change.
 - `mcpServers` defines the global MCP server registry (transport + connection settings), and `defaultMcpServerIds` selects the default server set when a config does not override it.
-- A pre-populated `setta_files/llm_config.example.json` still ships as a starter file.
+- A pre-populated `setta_files/llm_config.example.json` ships as a starter file.
 - Managed key values live in workspace `.env` (`./.env`), and `internal/llmconfig/managed_api_keys.go` owns revisioned reads/writes plus process-env merging for runtime use.
 
 ## Frontend chat interface (`frontend/src/components/Panes/Overview/ProjectLevelAI`)
-- The Overview `Project AI Chat` tab now renders `ProjectChatManager`, which is
+- The Overview `Project AI Chat` tab renders `ProjectChatManager`, which is
   a window manager for project-chat instances rather than the only chat host.
-- `ProjectChat.tsx` still hydrates LLM/API-key state and switches between active
+- `ProjectChat.tsx` hydrates LLM/API-key state and switches between active
   chat (`ProjectChatCore`), chat history (`ProjectChatHistory`), and
   session-local auxiliary views (`Skills`, `MCP`, `Slash Commands`, and `AI Settings`).
 - `UnifiedChatSurface` is the shared host abstraction used by workspace windows,
@@ -124,13 +130,16 @@ Tool enforcement details:
   window-space routes.
 - `ProjectChatCore` pulls chat details from the zustand `useAIStore`. `ChatMessageList`/`ChatMessage` filter out tool-only messages, stitch assistant streams together, and surface edit + branch switcher controls using branch metadata derived from agent runs.
 - Empty-chat state includes a create-project starter action. It seeds a normal project-creation prompt when a codebase exists, and uses a question-first starter prompt when no codebase is detected (`projectChatStarterPrompts.ts`).
-- `ProjectChatSkillsMcpViewer` now handles three aux surfaces:
+- `ProjectChatSkillsMcpViewer` handles three aux surfaces:
   - `Skills`: discovery plus rendered/raw markdown preview, editability metadata, custom-skill create/save flows, and root-path reveal helpers.
   - `MCP`: configured MCP servers plus runtime status scoped by the active `chatId`/`engineConfigId` when present.
   - `Slash Commands`: built-in Setta commands, runtime native external-agent commands, and per-project custom prompt commands.
 - The viewer calls `/getAppGenSkills`, `/getAppGenSkillContent`, `/upsertAppGenCustomSkill`, `/settaHomeInfo`, and `/mcpServerRuntimeStatus`, then optionally reveals roots in the OS file explorer through `/revealPathInOsFileExplorer`.
 - `ChatInput` manages optimistic user submissions and attachments via `submitMessage`. `ChatMessageEditor` powers user-message edits and calls `submitEditedMessage`, which POSTs `/getLLMResponse` with `branchParentChatId`/`branchFromMessageId` to create a new branch chat. Pressing the send button while a response is inflight issues `/stopLLMChat`; the stop response includes `alreadyStopped`, `stoppedRunId`, and `stoppedMessageId` so the UI can reconcile interruption markers.
-- Project chat slash-command handling now separates recognized commands from executable commands. This lets the composer keep temporarily unavailable external-agent native commands local, reload authority, and then retry resolution instead of sending the slash text as a normal prompt.
+- Project chat slash-command handling separates recognized commands from
+  executable commands. This lets the composer keep temporarily unavailable
+  external-agent native commands local, reload authority, and then retry
+  resolution instead of sending the slash text as a normal prompt.
 - Websocket payloads of type `LLMStreamingResponse` are handled in `state/actions/ai.ts`. The reducer updates each chat’s `messages`, `toolCallArguments`, and `waitingForResponse` flags so the React tree stays synchronized with whatever the `LLMChatManager` is emitting.
 - Project-chat windowing and window-space behavior is documented in
   `docs/reference/project-chat-windowing.md`.

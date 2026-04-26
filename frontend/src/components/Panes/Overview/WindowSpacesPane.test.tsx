@@ -52,8 +52,8 @@ let mockProjectState: MockProjectState = {
 };
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({ children }: { children: ReactNode }) => children,
-  useViewModeSortableItem: () => ({
+  SortableListProvider: ({ children }: { children: ReactNode }) => children,
+  useSortableListItem: () => ({
     attributes: {},
     listeners: {},
     setNodeRef: () => {},

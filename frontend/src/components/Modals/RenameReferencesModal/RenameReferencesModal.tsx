@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { saveSettings } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { closeModal, useModalData } from "state/actions/modal";

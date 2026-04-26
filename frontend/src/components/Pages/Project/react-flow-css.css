@@ -13,6 +13,17 @@
   pointer-events: none;
 }
 
+.setta-project-gpu-edge-layer-host {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.setta-project-gpu-edge-layer {
+  pointer-events: none;
+}
+
 .react-flow__minimap {
   background-color: #94a3b8b6 !important;
 }

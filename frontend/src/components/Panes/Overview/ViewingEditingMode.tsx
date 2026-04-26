@@ -1,6 +1,11 @@
 import {
-  useViewModeSortableItem,
-  ViewModeSortableProvider,
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
+  SortableListProvider,
+  useSortableListItem,
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
 import {
@@ -11,7 +16,6 @@ import {
   toggleViewModeTab,
   toggleViewModeUserFacing,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { Resizable } from "re-resizable";
 import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -35,7 +39,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { ViewMode } from "utils/generatedTypes";
 import { validateViewModeNameInput } from "utils/nameValidation";
 import { sortViewModes } from "utils/viewModeOrdering";
@@ -69,7 +72,7 @@ const VIEW_MODE_TOGGLE_DISABLED_CLASSES = "text-setta-400 hover:text-setta-600";
 
 type OpenAPIRequest = Parameters<typeof callOpenAPI>[0];
 type ViewModeActions = ReturnType<typeof useViewModeActions>;
-type ViewModeSortableItem = ReturnType<typeof useViewModeSortableItem>;
+type ViewModeSortableItem = ReturnType<typeof useSortableListItem>;
 
 function joinClasses(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -409,7 +412,7 @@ function ViewModesPane({
             </div>
           )}
 
-          <ViewModeSortableProvider
+          <SortableListProvider
             id="overview-view-modes-sortable"
             items={viewModeList.map((mode) => mode.id)}
             direction="vertical"
@@ -431,7 +434,7 @@ function ViewModesPane({
                 }),
               )}
             </div>
-          </ViewModeSortableProvider>
+          </SortableListProvider>
         </div>
       )}
     </section>
@@ -703,7 +706,7 @@ function ViewModeRowSortable({
   onSelect,
   disabled,
 }: ViewModeRowProps) {
-  const sortable = useViewModeSortableItem(mode.id, false, "vertical");
+  const sortable = useSortableListItem(mode.id, false, "vertical");
   return (
     <ViewModeRowContent
       mode={mode}
@@ -806,7 +809,7 @@ function ViewModeEditingRowSortable({
   canEditVariants,
   canEditStructure,
 }: ViewModeEditingRowProps) {
-  const sortable = useViewModeSortableItem(mode.id, false, "vertical");
+  const sortable = useSortableListItem(mode.id, false, "vertical");
   return (
     <ViewModeEditingRowContent
       mode={mode}

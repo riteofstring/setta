@@ -12,7 +12,9 @@ import (
 func TestWatchCodeWarningTrackerDedupesUntilCallableStateChanges(t *testing.T) {
 	t.Parallel()
 
-	tracker := newWatchCodeWarningTracker()
+	tracker := newWatchCodeWarningTracker(func() (string, bool) {
+		return testAppWatchCodeProviderPluginID, true
+	})
 	tracker.idGenerator = func() string { return "notif-1" }
 	tracker.timeNow = func() time.Time { return time.Unix(1_700_000_000, 0).UTC() }
 
@@ -23,14 +25,16 @@ func TestWatchCodeWarningTrackerDedupesUntilCallableStateChanges(t *testing.T) {
 			"project-alpha": {
 				ID:   "project-alpha",
 				Name: "Alpha",
-				WatchCodeRegistry: map[string]projectstate.WatchCodeRegistryEntry{
-					"pkg.missing.MissingFunc:function": {
-						CallableName: "MissingFunc",
-					},
-				},
 			},
 		},
 	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Registry: map[string]projectstate.WatchCodeRegistryEntry{
+			"pkg.missing.MissingFunc:function": {
+				CallableName: "MissingFunc",
+			},
+		},
+	})
 
 	first := tracker.ConsumeNotifications(document, "project-alpha", map[string]projectstate.SignatureHelpStatus{
 		"MissingFunc": projectstate.SignatureHelpStatusNoMatch,
@@ -61,23 +65,27 @@ func TestWatchCodeWarningTrackerDedupesUntilCallableStateChanges(t *testing.T) {
 	document.Projects["project-alpha"] = projectstate.Project{
 		ID:   "project-alpha",
 		Name: "Alpha",
-		WatchCodeRegistry: map[string]projectstate.WatchCodeRegistryEntry{
+	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Registry: map[string]projectstate.WatchCodeRegistryEntry{
 			"pkg.sorted.sorted:function": {
 				CallableName: "sorted",
 			},
 		},
-	}
+	})
 	tracker.ReconcileDocument(document)
 
 	document.Projects["project-alpha"] = projectstate.Project{
 		ID:   "project-alpha",
 		Name: "Alpha",
-		WatchCodeRegistry: map[string]projectstate.WatchCodeRegistryEntry{
+	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Registry: map[string]projectstate.WatchCodeRegistryEntry{
 			"pkg.missing.MissingFunc:function": {
 				CallableName: "MissingFunc",
 			},
 		},
-	}
+	})
 	third := tracker.ConsumeNotifications(document, "project-alpha", map[string]projectstate.SignatureHelpStatus{
 		"MissingFunc": projectstate.SignatureHelpStatusNoMatch,
 	})
@@ -127,10 +135,14 @@ func TestWatchCodeSignatureObserverRecordsFinalBoundWatchCodeStatus(t *testing.T
 	if err := document.SetCode("project-alpha", "section-main", "def cool_fn(a, b, c):\n    return a + b + c\n"); err != nil {
 		t.Fatalf("set bound watch-code source: %v", err)
 	}
+	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Files: []string{"watch_code_test.py"},
+	})
 
 	observer := newWatchCodeSignatureObserver(noMatchCallableSignatureResolver{})
 	if _, err := document.ApplyWatchCodeBoundSectionUpdate(
 		context.Background(),
+		testAppWatchCodeProviderPluginID,
 		"project-alpha",
 		"section-main",
 		workspaceRoot,

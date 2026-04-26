@@ -143,6 +143,7 @@ def main() -> None:
                     "command": command,
                     "args": args,
                     "settingsKey": "basedpyright",
+                    "runtimeSearchPathsKey": "basedpyright.analysis.extraPaths",
                 }
             ],
         },

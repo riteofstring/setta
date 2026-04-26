@@ -1,3 +1,5 @@
+import type { DropzoneStatelessAttachment } from "@setta/app-subsystem-frontend-sdk";
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import type {
   ParamValueChange,
   ParamValueChangeOptions,
@@ -5,7 +7,6 @@ import type {
 import { MetaControlContent } from "components/Section/Layouts/MetaControl/MetaControlNode";
 import _ from "lodash";
 import { setParamEnteredValue } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -25,7 +26,6 @@ import {
 } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
-import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import type {
   BaseChildlessCodeObjImplUnion,
   BaseCodeObjImplUnion,

@@ -32,7 +32,7 @@ test("create launch intent rejects missing workspace root", async ({ page }) => 
 
   const response = await page.evaluate(async (nextReturnUrl: string) => {
     const { createWorkspaceLaunchIntent } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     return await callOpenAPI(
       createWorkspaceLaunchIntent({
         body: {

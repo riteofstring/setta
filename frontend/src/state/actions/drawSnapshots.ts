@@ -1,6 +1,5 @@
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { uploadBinary } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import { res200 } from "utils/endpointUtils";
 import { ContentRef } from "utils/generatedTypes";
 type DrawSnapshotProvider = () => Promise<Blob | null> | Blob | null;
 const drawSnapshotProviders = new Map<string, DrawSnapshotProvider>();

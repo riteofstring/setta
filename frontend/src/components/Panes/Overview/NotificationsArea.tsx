@@ -1,6 +1,6 @@
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { deleteNotification, getNotifications } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useState } from "react";
 import {
   IoAlertCircleSharp,
@@ -29,7 +29,6 @@ import {
   OverviewNotificationsPaneTabEnum,
   type OverviewNotificationsPaneTab,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
 import {
   NotificationTypeEnum,
   type NotificationType,

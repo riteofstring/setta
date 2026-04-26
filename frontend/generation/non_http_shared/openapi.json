@@ -466,38 +466,6 @@
         "title": "Allocation",
         "type": "object"
       },
-      "AppCapabilities": {
-        "additionalProperties": false,
-        "properties": {
-          "appSpecVersion": {
-            "type": "string"
-          },
-          "catalogId": {
-            "type": "string"
-          },
-          "catalogVersion": {
-            "type": "string"
-          },
-          "features": {
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "type": "object"
-          },
-          "themeSchemaVersion": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "catalogId",
-          "catalogVersion",
-          "appSpecVersion",
-          "themeSchemaVersion",
-          "features"
-        ],
-        "title": "AppCapabilities",
-        "type": "object"
-      },
       "AppDefinition": {
         "additionalProperties": false,
         "properties": {
@@ -552,67 +520,6 @@
         "title": "AppDefinition",
         "type": "object"
       },
-      "AppDefinitionMutationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AppDefinition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "appSpec": true
-        },
-        "required": ["appSpec"],
-        "title": "AppDefinitionMutationResult",
-        "type": "object"
-      },
-      "AppDefinitionReadResult": {
-        "additionalProperties": false,
-        "properties": {
-          "appDefinition": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AppDefinition"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "appSpec": true
-        },
-        "required": ["appSpec"],
-        "title": "AppDefinitionReadResult",
-        "type": "object"
-      },
-      "AppDefinitionValidationResult": {
-        "additionalProperties": false,
-        "properties": {
-          "capabilities": {
-            "$ref": "#/components/schemas/AppCapabilities"
-          },
-          "errors": {
-            "items": {
-              "$ref": "#/components/schemas/AppValidationIssue"
-            },
-            "type": ["null", "array"]
-          },
-          "warnings": {
-            "items": {
-              "$ref": "#/components/schemas/AppValidationIssue"
-            },
-            "type": ["null", "array"]
-          }
-        },
-        "required": ["errors", "warnings", "capabilities"],
-        "title": "AppDefinitionValidationResult",
-        "type": "object"
-      },
       "AppGenerationMode": {
         "enum": [
           "json_render",
@@ -640,21 +547,77 @@
         "title": "AppRoute",
         "type": "object"
       },
-      "AppValidationIssue": {
+      "AppSubsystemChatSlashCommandValue": {
         "additionalProperties": false,
         "properties": {
-          "elementKey": {
+          "action": {
             "type": "string"
           },
-          "elementType": {
+          "appGenerationMode": {
             "type": "string"
           },
-          "message": {
+          "command": {
+            "type": "string"
+          },
+          "promptTemplate": {
+            "type": "string"
+          },
+          "summary": {
             "type": "string"
           }
         },
-        "required": ["message"],
-        "title": "AppValidationIssue",
+        "required": [
+          "command",
+          "action",
+          "summary",
+          "promptTemplate",
+          "appGenerationMode"
+        ],
+        "title": "AppSubsystemChatSlashCommandValue",
+        "type": "object"
+      },
+      "AppSubsystemChatUIConfigValue": {
+        "additionalProperties": false,
+        "properties": {
+          "customSlashCommandModeOptions": {
+            "items": {
+              "$ref": "#/components/schemas/AppSubsystemCustomSlashCommandModeOptionValue"
+            },
+            "type": ["null", "array"]
+          },
+          "defaultCustomSlashCommandMode": {
+            "type": "string"
+          },
+          "slashCommands": {
+            "items": {
+              "$ref": "#/components/schemas/AppSubsystemChatSlashCommandValue"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": [
+          "slashCommands",
+          "customSlashCommandModeOptions",
+          "defaultCustomSlashCommandMode"
+        ],
+        "title": "AppSubsystemChatUIConfigValue",
+        "type": "object"
+      },
+      "AppSubsystemCustomSlashCommandModeOptionValue": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "requiresImageAttachment": {
+            "type": "boolean"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": ["value", "label", "requiresImageAttachment"],
+        "title": "AppSubsystemCustomSlashCommandModeOptionValue",
         "type": "object"
       },
       "AppendMessagesRequest": {
@@ -876,13 +839,22 @@
           "projectConfigId": {
             "type": "string"
           },
+          "runtimeRoot": {
+            "type": "string"
+          },
           "serverMode": {
             "$ref": "#/components/schemas/Mode"
           },
           "sessionId": {
             "type": "string"
           },
+          "settaFilesRoot": {
+            "type": "string"
+          },
           "shareSessionId": {
+            "type": "string"
+          },
+          "workspaceRoot": {
             "type": "string"
           }
         },
@@ -2034,6 +2006,38 @@
         "minItems": 2,
         "title": "CanvasPoint",
         "type": "array"
+      },
+      "Capabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object"
+          },
+          "themeSchemaVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalogId",
+          "catalogVersion",
+          "appSpecVersion",
+          "themeSchemaVersion",
+          "features"
+        ],
+        "title": "Capabilities",
+        "type": "object"
       },
       "ChangeParamImplUIConfigValue": {
         "additionalProperties": false,
@@ -3579,6 +3583,42 @@
           "colorChoices"
         ],
         "title": "ColorPickerParamCodeObjImpl",
+        "type": "object"
+      },
+      "CompareAndSetMutationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appSpec": true,
+          "compareResult": {
+            "$ref": "#/components/schemas/CompareAndSetStringResult"
+          }
+        },
+        "required": ["compareResult"],
+        "title": "CompareAndSetMutationResult",
+        "type": "object"
+      },
+      "CompareAndSetStringResult": {
+        "additionalProperties": false,
+        "properties": {
+          "newValue": {
+            "type": "string"
+          },
+          "oldValue": {
+            "type": "string"
+          }
+        },
+        "required": ["oldValue", "newValue"],
+        "title": "CompareAndSetStringResult",
         "type": "object"
       },
       "ConfigLanguage": {
@@ -8330,6 +8370,25 @@
         "title": "MoveSectionsInput",
         "type": "object"
       },
+      "MutationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appSpec": true
+        },
+        "required": ["appSpec"],
+        "title": "MutationResult",
+        "type": "object"
+      },
       "NameValidationContract": {
         "additionalProperties": false,
         "properties": {
@@ -8865,6 +8924,129 @@
         "title": "PatchPolicy",
         "type": "object"
       },
+      "PluginAppSubsystemCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appAuthoringUi": {
+            "type": "boolean"
+          },
+          "appDeploymentRuntime": {
+            "type": "boolean"
+          },
+          "appGenerationChatModes": {
+            "type": "boolean"
+          },
+          "appPreviewUi": {
+            "type": "boolean"
+          },
+          "pluginEnabled": {
+            "type": "boolean"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "providerSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginAppSubsystemProviderSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "pluginId",
+          "pluginEnabled",
+          "appAuthoringUi",
+          "appPreviewUi",
+          "appGenerationChatModes",
+          "appDeploymentRuntime"
+        ],
+        "title": "PluginAppSubsystemCapabilities",
+        "type": "object"
+      },
+      "PluginAppSubsystemFeatureManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "appAuthoringUi": {
+            "type": "boolean"
+          },
+          "appDeploymentRuntime": {
+            "type": "boolean"
+          },
+          "appGenerationChatModes": {
+            "type": "boolean"
+          },
+          "appPreviewUi": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "appAuthoringUi",
+          "appPreviewUi",
+          "appGenerationChatModes",
+          "appDeploymentRuntime"
+        ],
+        "title": "PluginAppSubsystemFeatureManifest",
+        "type": "object"
+      },
+      "PluginAppSubsystemProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "activePluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "conflictingPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "disabledPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "invalidPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "selectedPluginId": {
+            "type": ["null", "string"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PluginAppSubsystemProviderSelectionStatusKind"
+          }
+        },
+        "required": [
+          "status",
+          "activePluginIds",
+          "disabledPluginIds",
+          "invalidPluginIds",
+          "conflictingPluginIds"
+        ],
+        "title": "PluginAppSubsystemProviderSelection",
+        "type": "object"
+      },
+      "PluginAppSubsystemProviderSelectionStatusKind": {
+        "enum": [
+          "no_provider",
+          "disabled_provider",
+          "invalid_provider",
+          "active",
+          "provider_conflict"
+        ],
+        "title": "PluginAppSubsystemProviderSelectionStatusKind",
+        "type": "string"
+      },
       "PluginBackendManifest": {
         "additionalProperties": false,
         "properties": {
@@ -9029,6 +9211,58 @@
         "title": "PluginErrorInfo",
         "type": "object"
       },
+      "PluginFeatureCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSubsystem": {
+            "$ref": "#/components/schemas/PluginAppSubsystemCapabilities"
+          },
+          "watchCode": {
+            "$ref": "#/components/schemas/PluginWatchCodeCapabilities"
+          }
+        },
+        "required": ["appSubsystem", "watchCode"],
+        "title": "PluginFeatureCapabilities",
+        "type": "object"
+      },
+      "PluginFeatureCapabilitiesManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "appSubsystem": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginAppSubsystemFeatureManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watchCode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginWatchCodeFeatureManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "PluginFeatureCapabilitiesManifest",
+        "type": "object"
+      },
+      "PluginFrontendBuildManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "packageManager": {
+            "type": "string"
+          }
+        },
+        "required": ["packageManager"],
+        "title": "PluginFrontendBuildManifest",
+        "type": "object"
+      },
       "PluginFrontendDescriptor": {
         "additionalProperties": false,
         "properties": {
@@ -9046,6 +9280,16 @@
       "PluginFrontendManifest": {
         "additionalProperties": false,
         "properties": {
+          "build": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginFrontendBuildManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "entrypoint": {
             "type": "string"
           },
@@ -9446,6 +9690,16 @@
           "enabledByDefault": {
             "type": "boolean"
           },
+          "featureCapabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginFeatureCapabilitiesManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "frontend": {
             "anyOf": [
               {
@@ -9556,6 +9810,9 @@
           "pluginId": {
             "type": "string"
           },
+          "runtimeSearchPathsKey": {
+            "type": ["null", "string"]
+          },
           "settingsKey": {
             "type": ["null", "string"]
           }
@@ -9636,7 +9893,6 @@
           "title",
           "description",
           "synonyms",
-          "paneId",
           "revealKey",
           "mutability",
           "valueSchema",
@@ -9715,6 +9971,16 @@
       "PluginRuntimeResponse": {
         "additionalProperties": false,
         "properties": {
+          "featureCapabilities": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginFeatureCapabilities"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "list": {
             "$ref": "#/components/schemas/PluginListResponse"
           },
@@ -9929,6 +10195,16 @@
       "PluginStatusResponse": {
         "additionalProperties": false,
         "properties": {
+          "appSubsystemSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginAppSubsystemProviderSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "languageServerSelections": {
             "items": {
               "$ref": "#/components/schemas/LanguageServerSelectionStatus"
@@ -9949,6 +10225,16 @@
           },
           "serverMode": {
             "$ref": "#/components/schemas/Mode"
+          },
+          "watchCodeSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginWatchCodeProviderSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -10006,6 +10292,176 @@
         ],
         "title": "PluginUpdateResponse",
         "type": "object"
+      },
+      "PluginWatchCodeCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasControlsUi": {
+            "type": "boolean"
+          },
+          "languageServerDependency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginWatchCodeLanguageServerDependencyStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pluginEnabled": {
+            "type": "boolean"
+          },
+          "pluginId": {
+            "type": "string"
+          },
+          "providerSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PluginWatchCodeProviderSelection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "python": {
+            "type": "boolean"
+          },
+          "requiresLanguageServer": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pluginId",
+          "pluginEnabled",
+          "python",
+          "requiresLanguageServer",
+          "canvasControlsUi"
+        ],
+        "title": "PluginWatchCodeCapabilities",
+        "type": "object"
+      },
+      "PluginWatchCodeFeatureManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "canvasControlsUi": {
+            "type": "boolean"
+          }
+        },
+        "required": ["canvasControlsUi"],
+        "title": "PluginWatchCodeFeatureManifest",
+        "type": "object"
+      },
+      "PluginWatchCodeLanguageServerDependencyStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "appliedPluginId": {
+            "type": ["null", "string"]
+          },
+          "language": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "selectedPluginId": {
+            "type": ["null", "string"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PluginWatchCodeLanguageServerDependencyStatusKind"
+          }
+        },
+        "required": [
+          "language",
+          "required",
+          "status",
+          "message",
+          "restartRequired"
+        ],
+        "title": "PluginWatchCodeLanguageServerDependencyStatus",
+        "type": "object"
+      },
+      "PluginWatchCodeLanguageServerDependencyStatusKind": {
+        "enum": [
+          "unavailable",
+          "not_required",
+          "active",
+          "missing",
+          "disabled",
+          "pending_restart"
+        ],
+        "title": "PluginWatchCodeLanguageServerDependencyStatusKind",
+        "type": "string"
+      },
+      "PluginWatchCodeProviderSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "activePluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "conflictingPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "disabledPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "invalidPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "pendingRestartPluginIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "selectedPluginId": {
+            "type": ["null", "string"]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PluginWatchCodeProviderSelectionStatusKind"
+          }
+        },
+        "required": [
+          "status",
+          "activePluginIds",
+          "disabledPluginIds",
+          "invalidPluginIds",
+          "pendingRestartPluginIds",
+          "conflictingPluginIds"
+        ],
+        "title": "PluginWatchCodeProviderSelection",
+        "type": "object"
+      },
+      "PluginWatchCodeProviderSelectionStatusKind": {
+        "enum": [
+          "no_provider",
+          "disabled_provider",
+          "invalid_provider",
+          "pending_restart",
+          "active",
+          "provider_conflict"
+        ],
+        "title": "PluginWatchCodeProviderSelectionStatusKind",
+        "type": "string"
       },
       "PluginsGlobalStateFile": {
         "additionalProperties": false,
@@ -10158,20 +10614,6 @@
         "title": "ProjectChatAgenticEdgeContextModeOption",
         "type": "object"
       },
-      "ProjectChatAppGenerationModeOption": {
-        "additionalProperties": false,
-        "properties": {
-          "label": {
-            "type": "string"
-          },
-          "value": {
-            "type": "string"
-          }
-        },
-        "required": ["value", "label"],
-        "title": "ProjectChatAppGenerationModeOption",
-        "type": "object"
-      },
       "ProjectChatDictationModeOption": {
         "additionalProperties": false,
         "properties": {
@@ -10209,15 +10651,6 @@
             },
             "type": ["null", "array"]
           },
-          "customSlashCommandModeOptions": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectChatAppGenerationModeOption"
-            },
-            "type": ["null", "array"]
-          },
-          "defaultCustomSlashCommandMode": {
-            "type": "string"
-          },
           "permissionModeOptions": {
             "items": {
               "$ref": "#/components/schemas/ProjectChatPermissionModeOption"
@@ -10248,9 +10681,7 @@
           "agenticEdgeContextModeOptions",
           "sectionDictationModeOptions",
           "projectDictationModeOptions",
-          "permissionModeOptions",
-          "customSlashCommandModeOptions",
-          "defaultCustomSlashCommandMode"
+          "permissionModeOptions"
         ],
         "title": "ProjectChatUIConfigValue",
         "type": "object"
@@ -10551,41 +10982,6 @@
             "default": false,
             "type": "boolean"
           },
-          "watchCodeBaselineByPath": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": ["null", "array"]
-            },
-            "default": {},
-            "type": "object"
-          },
-          "watchCodeEnabled": {
-            "default": false,
-            "type": "boolean"
-          },
-          "watchCodeFiles": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "type": ["null", "array"]
-          },
-          "watchCodeFolders": {
-            "default": [],
-            "items": {
-              "$ref": "#/components/schemas/WatchCodeFolder"
-            },
-            "type": ["null", "array"]
-          },
-          "watchCodeRegistry": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/WatchCodeRegistryEntry"
-            },
-            "default": {},
-            "type": "object"
-          },
           "windowSpaceIdsBySlug": {
             "additionalProperties": {
               "items": {
@@ -10624,11 +11020,6 @@
           "hasPythonCodegenTarget",
           "runCapabilities",
           "codegenTargets",
-          "watchCodeEnabled",
-          "watchCodeFolders",
-          "watchCodeFiles",
-          "watchCodeRegistry",
-          "watchCodeBaselineByPath",
           "entryCodeBlockId",
           "sectionPathSlugsById",
           "sectionIdsByPathSlug",
@@ -10677,6 +11068,20 @@
         },
         "required": ["name", "id"],
         "title": "ProjectConfigMetadata",
+        "type": "object"
+      },
+      "ProjectPluginData": {
+        "additionalProperties": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": "ProjectPluginData",
         "type": "object"
       },
       "ProjectRunCapabilities": {
@@ -11144,6 +11549,25 @@
           }
         ],
         "title": "RawMessage"
+      },
+      "ReadResult": {
+        "additionalProperties": false,
+        "properties": {
+          "appDefinition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "appSpec": true
+        },
+        "required": ["appSpec"],
+        "title": "ReadResult",
+        "type": "object"
       },
       "RealtimeDependencyEventContent": {
         "additionalProperties": false,
@@ -11718,8 +12142,6 @@
           "/setViewport",
           "/setViewModeName",
           "/setViewModeSortOrder",
-          "/setWatchCodeEnabled",
-          "/setWatchCodeInputs",
           "/setWindowSpaceName",
           "/setWindowSpaceSortOrder",
           "/share/deployments",
@@ -12026,8 +12448,6 @@
           "SET_VIEWPORT",
           "SET_VIEW_MODE_NAME",
           "SET_VIEW_MODE_SORT_ORDER",
-          "SET_WATCH_CODE_ENABLED",
-          "SET_WATCH_CODE_INPUTS",
           "SET_WINDOW_SPACE_NAME",
           "SET_WINDOW_SPACE_SORT_ORDER",
           "SHARE_DEPLOYMENTS",
@@ -12332,8 +12752,6 @@
           "SET_VIEWPORT",
           "SET_VIEW_MODE_NAME",
           "SET_VIEW_MODE_SORT_ORDER",
-          "SET_WATCH_CODE_ENABLED",
-          "SET_WATCH_CODE_INPUTS",
           "SET_WINDOW_SPACE_NAME",
           "SET_WINDOW_SPACE_SORT_ORDER",
           "SHARE_DEPLOYMENTS",
@@ -14479,6 +14897,10 @@
             },
             "type": "object"
           },
+          "pluginData": {
+            "$ref": "#/components/schemas/ProjectPluginData",
+            "default": {}
+          },
           "projectChatWindowing": {
             "$ref": "#/components/schemas/ProjectChatWindowingState"
           },
@@ -14601,6 +15023,7 @@
           "codeObjImpls",
           "codeObjVariants",
           "projectConfig",
+          "pluginData",
           "singletonSections",
           "parentSectionMap",
           "shownParamIds",
@@ -17534,6 +17957,46 @@
         },
         "required": ["id", "role", "createdAt", "content", "attachments"],
         "title": "UserChatMessage",
+        "type": "object"
+      },
+      "ValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "elementKey": {
+            "type": "string"
+          },
+          "elementType": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "title": "ValidationIssue",
+        "type": "object"
+      },
+      "ValidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": ["null", "array"]
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssue"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["errors", "warnings", "capabilities"],
+        "title": "ValidationResult",
         "type": "object"
       },
       "Variant": {

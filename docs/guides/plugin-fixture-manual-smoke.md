@@ -15,7 +15,7 @@ scripts/plugin-fixtures/smoke.sh
 
 The smoke script:
 
-- removes previously linked fixture plugins,
+- removes linked fixture plugins,
 - links a core fixture set,
 - links scope-shadowing fixtures across `global`, `setta_files`, and `workspace`,
 - runs `setta plugins rescan`.

@@ -17,6 +17,7 @@ import (
 var (
 	ErrWatchCodeWorkspaceRootRequired = errors.New("watch code workspace root is required")
 	ErrWatchCodeInputPathInvalid      = errors.New("watch code input path is invalid")
+	ErrWatchCodeProjectDataRequired   = errors.New("watch code project data is required")
 )
 
 type WatchCodeCallableKind string
@@ -43,7 +44,6 @@ type WatchCodeRegistryEntry struct {
 }
 
 type watchCodeConfigSnapshot struct {
-	Enabled bool
 	Files   []string
 	Folders []WatchCodeFolder
 }
@@ -61,83 +61,75 @@ var defaultWatchCodeIgnoreDirNames = map[string]struct{}{
 	"setta_files_dev": {},
 }
 
-func (d *Document) SetWatchCodeEnabled(projectID string, enabled bool, workspaceRoot string) error {
-	if d == nil {
-		return ErrProjectNotFound
-	}
-
-	project, err := d.ProjectByID(projectID)
-	if err != nil {
-		return err
-	}
-	if err := project.setWatchCodeEnabledWithIgnoredRoots(enabled, workspaceRoot, d.watchCodeIgnoredRoots); err != nil {
-		return err
-	}
-	d.Projects[project.ID] = project
-	return nil
-}
-
-func (r *Runtime) SetWatchCodeEnabled(
-	ctx context.Context,
-	projectID string,
-	enabled bool,
-	workspaceRoot string,
-) (Snapshot, error) {
-	if r == nil {
-		return Snapshot{}, ErrRuntimeClosed
-	}
-
-	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetWatchCodeEnabled(projectID, enabled, workspaceRoot); err != nil {
-			return document, err
-		}
-		return document, nil
-	})
-}
-
-func (p *Project) SetWatchCodeEnabled(enabled bool, workspaceRoot string) error {
-	return p.setWatchCodeEnabledWithIgnoredRoots(enabled, workspaceRoot, nil)
-}
-
-func (p *Project) setWatchCodeEnabledWithIgnoredRoots(enabled bool, workspaceRoot string, ignoredRoots []string) error {
-	if p == nil {
-		return ErrProjectNotFound
-	}
-	if err := requireWatchCodeWorkspaceRoot(workspaceRoot); err != nil {
-		return err
-	}
-
-	previousEnabled := p.WatchCodeEnabled
-	p.WatchCodeEnabled = enabled
-	if enabled && !previousEnabled {
-		return p.baselineWatchCodeOnEnable(workspaceRoot, ignoredRoots)
-	}
-	return nil
-}
-
 func (d *Document) SetWatchCodeInputs(
+	providerPluginID string,
 	projectID string,
 	folders []WatchCodeFolder,
 	files []string,
 	workspaceRoot string,
 ) error {
+	return d.updateWatchCodeProjectData(providerPluginID, projectID, func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error {
+		return project.setWatchCodeInputsWithIgnoredRoots(projectData, folders, files, workspaceRoot, ignoredRoots)
+	})
+}
+
+func (d *Document) SetWatchCodeFolders(
+	providerPluginID string,
+	projectID string,
+	folders []WatchCodeFolder,
+	workspaceRoot string,
+) error {
+	return d.updateWatchCodeProjectData(providerPluginID, projectID, func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error {
+		return project.setWatchCodeInputsWithIgnoredRoots(projectData, folders, projectData.Files, workspaceRoot, ignoredRoots)
+	})
+}
+
+func (d *Document) SetWatchCodeFiles(
+	providerPluginID string,
+	projectID string,
+	files []string,
+	workspaceRoot string,
+) error {
+	return d.updateWatchCodeProjectData(providerPluginID, projectID, func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error {
+		return project.setWatchCodeInputsWithIgnoredRoots(projectData, projectData.Folders, files, workspaceRoot, ignoredRoots)
+	})
+}
+
+func (d *Document) updateWatchCodeProjectData(
+	providerPluginID string,
+	projectID string,
+	update func(project *Project, projectData *WatchCodePluginProjectData, ignoredRoots []string) error,
+) error {
 	if d == nil {
 		return ErrProjectNotFound
 	}
-
+	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
+	if err != nil {
+		return err
+	}
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return err
 	}
-	if err := project.setWatchCodeInputsWithIgnoredRoots(folders, files, workspaceRoot, d.watchCodeIgnoredRoots); err != nil {
+	data, existed, err := d.decodeWatchCodePluginData(pluginID)
+	if err != nil {
+		return err
+	}
+	projectData, _ := data.projectData(project.ID)
+	if update == nil {
+		return ErrMutationMissing
+	}
+	if err := update(&project, &projectData, d.watchCodeIgnoredRoots); err != nil {
 		return err
 	}
 	d.Projects[project.ID] = project
-	return nil
+	data = data.withProjectData(project.ID, projectData, existed)
+	return d.setWatchCodePluginData(pluginID, data, existed)
 }
 
 func (r *Runtime) SetWatchCodeInputs(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	folders []WatchCodeFolder,
 	files []string,
@@ -148,18 +140,53 @@ func (r *Runtime) SetWatchCodeInputs(
 	}
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetWatchCodeInputs(projectID, folders, files, workspaceRoot); err != nil {
+		if err := document.SetWatchCodeInputs(providerPluginID, projectID, folders, files, workspaceRoot); err != nil {
 			return document, err
 		}
 		return document, nil
 	})
 }
 
-func (p *Project) SetWatchCodeInputs(folders []WatchCodeFolder, files []string, workspaceRoot string) error {
-	return p.setWatchCodeInputsWithIgnoredRoots(folders, files, workspaceRoot, nil)
+func (r *Runtime) SetWatchCodeFolders(
+	ctx context.Context,
+	providerPluginID string,
+	projectID string,
+	folders []WatchCodeFolder,
+	workspaceRoot string,
+) (Snapshot, error) {
+	if r == nil {
+		return Snapshot{}, ErrRuntimeClosed
+	}
+
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.SetWatchCodeFolders(providerPluginID, projectID, folders, workspaceRoot); err != nil {
+			return document, err
+		}
+		return document, nil
+	})
+}
+
+func (r *Runtime) SetWatchCodeFiles(
+	ctx context.Context,
+	providerPluginID string,
+	projectID string,
+	files []string,
+	workspaceRoot string,
+) (Snapshot, error) {
+	if r == nil {
+		return Snapshot{}, ErrRuntimeClosed
+	}
+
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.SetWatchCodeFiles(providerPluginID, projectID, files, workspaceRoot); err != nil {
+			return document, err
+		}
+		return document, nil
+	})
 }
 
 func (p *Project) setWatchCodeInputsWithIgnoredRoots(
+	projectData *WatchCodePluginProjectData,
 	folders []WatchCodeFolder,
 	files []string,
 	workspaceRoot string,
@@ -168,11 +195,15 @@ func (p *Project) setWatchCodeInputsWithIgnoredRoots(
 	if p == nil {
 		return ErrProjectNotFound
 	}
+	if projectData == nil {
+		return ErrWatchCodeProjectDataRequired
+	}
 	if err := requireWatchCodeWorkspaceRoot(workspaceRoot); err != nil {
 		return err
 	}
 
-	previousSnapshot := buildWatchCodeConfigSnapshot(*p)
+	*projectData = projectData.Normalized()
+	previousSnapshot := buildWatchCodeConfigSnapshot(*projectData)
 	normalizedFolders, err := normalizeWatchCodeFolders(workspaceRoot, folders)
 	if err != nil {
 		return err
@@ -182,12 +213,9 @@ func (p *Project) setWatchCodeInputsWithIgnoredRoots(
 		return err
 	}
 
-	p.WatchCodeFolders = normalizedFolders
-	p.WatchCodeFiles = normalizedFiles
-	if p.WatchCodeEnabled {
-		return p.baselineWatchCodeForNewInputs(workspaceRoot, previousSnapshot, ignoredRoots)
-	}
-	return nil
+	projectData.Folders = normalizedFolders
+	projectData.Files = normalizedFiles
+	return p.baselineWatchCodeForNewInputs(projectData, workspaceRoot, previousSnapshot, ignoredRoots)
 }
 
 func requireWatchCodeWorkspaceRoot(workspaceRoot string) error {
@@ -274,50 +302,46 @@ func normalizeWatchCodeInputPath(workspaceRoot string, raw string, label string)
 	return filepath.ToSlash(filepath.Clean(relative)), true, nil
 }
 
-func buildWatchCodeConfigSnapshot(project Project) watchCodeConfigSnapshot {
+func buildWatchCodeConfigSnapshot(projectData WatchCodePluginProjectData) watchCodeConfigSnapshot {
+	normalized := projectData.Normalized()
 	return watchCodeConfigSnapshot{
-		Enabled: project.WatchCodeEnabled,
-		Files:   append([]string(nil), project.WatchCodeFiles...),
-		Folders: cloneWatchCodeFolders(project.WatchCodeFolders),
+		Files:   append([]string(nil), normalized.Files...),
+		Folders: cloneWatchCodeFolders(normalized.Folders),
 	}
 }
 
-func WatchCodeConfigInputs(document Document) map[string]watchcode.ConfigInputs {
+func WatchCodeConfigInputs(document Document, providerPluginID string) (map[string]watchcode.ConfigInputs, error) {
+	data, _, err := document.decodeWatchCodePluginData(providerPluginID)
+	if err != nil {
+		return nil, err
+	}
+
 	configs := make(map[string]watchcode.ConfigInputs, len(document.Projects))
-	for projectID, project := range document.Projects {
-		folders := make([]watchcode.FolderInput, 0, len(project.WatchCodeFolders))
-		for _, folder := range project.WatchCodeFolders {
+	for projectID := range document.Projects {
+		projectData, _ := data.projectData(projectID)
+		folders := make([]watchcode.FolderInput, 0, len(projectData.Folders))
+		for _, folder := range projectData.Folders {
 			folders = append(folders, watchcode.FolderInput{
 				Path:      folder.Path,
 				Recursive: folder.Recursive,
 			})
 		}
 		configs[projectID] = watchcode.ConfigInputs{
-			Enabled:      project.WatchCodeEnabled,
-			Files:        append([]string(nil), project.WatchCodeFiles...),
+			Files:        append([]string(nil), projectData.Files...),
 			Folders:      folders,
 			IgnoredRoots: append([]string(nil), document.watchCodeIgnoredRoots...),
 		}
 	}
-	return configs
-}
-
-func (p *Project) baselineWatchCodeOnEnable(workspaceRoot string, ignoredRoots []string) error {
-	if err := p.baselineWatchCodeInputs(workspaceRoot, ignoredRoots); err != nil {
-		return err
-	}
-	return p.baselineWatchCodeCodeSections(workspaceRoot)
+	return configs, nil
 }
 
 func (p *Project) baselineWatchCodeForNewInputs(
+	projectData *WatchCodePluginProjectData,
 	workspaceRoot string,
 	previous watchCodeConfigSnapshot,
 	ignoredRoots []string,
 ) error {
-	next := buildWatchCodeConfigSnapshot(*p)
-	if !next.Enabled {
-		return nil
-	}
+	next := buildWatchCodeConfigSnapshot(*projectData)
 
 	previousFiles := make(map[string]struct{}, len(previous.Files))
 	for _, filePath := range previous.Files {
@@ -327,7 +351,7 @@ func (p *Project) baselineWatchCodeForNewInputs(
 		if _, exists := previousFiles[filePath]; exists {
 			continue
 		}
-		if err := p.baselineWatchCodeFile(workspaceRoot, filePath, ignoredRoots); err != nil {
+		if err := p.baselineWatchCodeFile(projectData, workspaceRoot, filePath, ignoredRoots); err != nil {
 			return err
 		}
 	}
@@ -347,90 +371,16 @@ func (p *Project) baselineWatchCodeForNewInputs(
 		if _, exists := previousFolders[key]; exists {
 			continue
 		}
-		if err := p.baselineWatchCodeFolder(workspaceRoot, folder.Path, folder.Recursive, ignoredRoots); err != nil {
+		if err := p.baselineWatchCodeFolder(projectData, workspaceRoot, folder.Path, folder.Recursive, ignoredRoots); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func (p *Project) baselineWatchCodeInputs(workspaceRoot string, ignoredRoots []string) error {
-	for _, filePath := range p.WatchCodeFiles {
-		if err := p.baselineWatchCodeFile(workspaceRoot, filePath, ignoredRoots); err != nil {
-			return err
-		}
-	}
-	for _, folder := range p.WatchCodeFolders {
-		if strings.TrimSpace(folder.Path) == "" {
-			continue
-		}
-		if err := p.baselineWatchCodeFolder(workspaceRoot, folder.Path, folder.Recursive, ignoredRoots); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p *Project) baselineWatchCodeCodeSections(workspaceRoot string) error {
-	for sectionID := range p.Sections {
-		bindingRelativePath, code, ok, err := p.watchCodeBoundSectionBaselineSource(workspaceRoot, sectionID)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			continue
-		}
-		if err := p.recordParsedWatchCodeBaseline(workspaceRoot, bindingRelativePath, code, "code binding"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p *Project) watchCodeBoundSectionBaselineSource(workspaceRoot string, sectionID string) (string, string, bool, error) {
-	_, _, impl, err := p.ResolveSection(sectionID)
-	if err != nil {
-		return "", "", false, err
-	}
-	if !isWatchCodePythonBoundSection(impl) {
-		return "", "", false, nil
-	}
-
-	bindingRelativePath, ok, err := normalizeWatchCodeInputPath(workspaceRoot, impl.Code.Binding.Path, "code binding")
-	if err != nil {
-		return "", "", false, err
-	}
-	if !ok {
-		return "", "", false, nil
-	}
-
-	code, ok, err := watchCodeBoundSectionSource(*p, sectionID, workspaceRoot, bindingRelativePath)
-	if err != nil || !ok {
-		return "", "", ok, err
-	}
-	return bindingRelativePath, code, true, nil
 }
 
 func isWatchCodePythonBoundSection(impl SectionImpl) bool {
 	return impl.IsCode() && impl.Code.Language == CodeLanguagePython && impl.Code.Binding != nil
-}
-
-func (p *Project) recordParsedWatchCodeBaseline(workspaceRoot string, relativePath string, code string, label string) error {
-	identities, parsed, err := parseWatchCodeBaselineIdentities(code, relativePath)
-	if err != nil {
-		return err
-	}
-	if !parsed {
-		return nil
-	}
-
-	absolutePath, err := resolveWatchCodeAbsolutePath(workspaceRoot, relativePath, label)
-	if err != nil {
-		return err
-	}
-	p.recordWatchCodeBaseline(absolutePath, identities)
-	return nil
 }
 
 func watchCodeBoundSectionSource(project Project, sectionID string, workspaceRoot string, bindingRelativePath string) (string, bool, error) {
@@ -457,6 +407,7 @@ func watchCodeBoundSectionSource(project Project, sectionID string, workspaceRoo
 }
 
 func (p *Project) baselineWatchCodeFolder(
+	projectData *WatchCodePluginProjectData,
 	workspaceRoot string,
 	relativeFolderPath string,
 	recursive bool,
@@ -476,14 +427,19 @@ func (p *Project) baselineWatchCodeFolder(
 		if err != nil {
 			return err
 		}
-		if err := p.baselineWatchCodeAbsoluteFile(workspaceRoot, absoluteFilePath, relativeFilePath); err != nil {
+		if err := p.baselineWatchCodeAbsoluteFile(projectData, workspaceRoot, absoluteFilePath, relativeFilePath); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *Project) baselineWatchCodeFile(workspaceRoot string, relativeFilePath string, ignoredRoots []string) error {
+func (p *Project) baselineWatchCodeFile(
+	projectData *WatchCodePluginProjectData,
+	workspaceRoot string,
+	relativeFilePath string,
+	ignoredRoots []string,
+) error {
 	absoluteFilePath, err := resolveWatchCodeAbsolutePath(workspaceRoot, relativeFilePath, "watch code file path")
 	if err != nil {
 		return err
@@ -491,10 +447,15 @@ func (p *Project) baselineWatchCodeFile(workspaceRoot string, relativeFilePath s
 	if shouldIgnoreWatchCodePath(absoluteFilePath, ignoredRoots) {
 		return nil
 	}
-	return p.baselineWatchCodeAbsoluteFile(workspaceRoot, absoluteFilePath, relativeFilePath)
+	return p.baselineWatchCodeAbsoluteFile(projectData, workspaceRoot, absoluteFilePath, relativeFilePath)
 }
 
-func (p *Project) baselineWatchCodeAbsoluteFile(workspaceRoot string, absoluteFilePath string, relativeFilePath string) error {
+func (p *Project) baselineWatchCodeAbsoluteFile(
+	projectData *WatchCodePluginProjectData,
+	workspaceRoot string,
+	absoluteFilePath string,
+	relativeFilePath string,
+) error {
 	raw, ok, err := readWatchCodeFile(absoluteFilePath)
 	if err != nil {
 		return err
@@ -510,7 +471,7 @@ func (p *Project) baselineWatchCodeAbsoluteFile(workspaceRoot string, absoluteFi
 	if !parsed {
 		return nil
 	}
-	p.recordWatchCodeBaseline(absoluteFilePath, identities)
+	recordWatchCodeBaseline(projectData, absoluteFilePath, identities)
 	return nil
 }
 
@@ -533,12 +494,15 @@ func readWatchCodeFile(absolutePath string) (string, bool, error) {
 	return string(raw), true, nil
 }
 
-func (p *Project) recordWatchCodeBaseline(absolutePath string, identities []string) {
-	if p.WatchCodeBaselineByPath == nil {
-		p.WatchCodeBaselineByPath = map[string][]string{}
+func recordWatchCodeBaseline(projectData *WatchCodePluginProjectData, absolutePath string, identities []string) {
+	if projectData == nil {
+		return
+	}
+	if projectData.BaselineByPath == nil {
+		projectData.BaselineByPath = map[string][]string{}
 	}
 	cloned := append([]string(nil), identities...)
-	p.WatchCodeBaselineByPath[absolutePath] = cloned
+	projectData.BaselineByPath[absolutePath] = cloned
 }
 
 func iterWatchCodePythonFiles(root string, recursive bool, ignoredRoots []string) ([]string, error) {

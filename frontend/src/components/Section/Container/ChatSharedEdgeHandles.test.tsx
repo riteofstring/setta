@@ -1,5 +1,5 @@
-import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { NodeIdContext } from "gpuFlow/NodeIdContext";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -13,7 +13,8 @@ import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState
->["projectConfig"]["stateMachineEdges"][number];
+>["projectConfig"]["stateMachineEdges"];
+type WorkflowEdgeItem = NonNullable<WorkflowEdge>[number];
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -26,7 +27,9 @@ function syncStoreInitialState(store: {
   Object.assign(initialState, store.getState());
 }
 
-function createWorkflowEdge(options: Partial<WorkflowEdge> = {}): WorkflowEdge {
+function createWorkflowEdge(
+  options: Partial<WorkflowEdgeItem> = {},
+): WorkflowEdgeItem {
   return {
     id: "",
     machineGroupId: "workflow-main",
@@ -49,7 +52,7 @@ function seedSharedChatEdges({
   stateMachineEdges = [],
 }: {
   agenticEdges?: ReturnType<typeof createAgenticEdge>[];
-  stateMachineEdges?: WorkflowEdge[];
+  stateMachineEdges?: WorkflowEdgeItem[];
 } = {}): void {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -63,9 +66,9 @@ function seedSharedChatEdges({
 
 function renderHandles(sectionId: string, isUserView: boolean = false): string {
   return renderToStaticMarkup(
-    <NodeIdProvider value={sectionId}>
+    <NodeIdContext.Provider value={sectionId}>
       <ChatSharedEdgeHandles isUserView={isUserView} />
-    </NodeIdProvider>,
+    </NodeIdContext.Provider>,
   );
 }
 
@@ -97,20 +100,12 @@ function createSharedChatEdge(options: {
 describe("ChatSharedEdgeHandles", () => {
   beforeEach(() => {
     resetProjectStores();
-    useReactFlow.setState({
-      connectionStartHandle: null,
-      connectionEndHandle: null,
-      connectionStatus: null,
-    });
+    gpuFlowViewportStore.getState().cancelConnection();
   });
 
   afterEach(() => {
     resetProjectStores();
-    useReactFlow.setState({
-      connectionStartHandle: null,
-      connectionEndHandle: null,
-      connectionStatus: null,
-    });
+    gpuFlowViewportStore.getState().cancelConnection();
   });
 
   it("marks shared chat handles connected across agentic and workflow edges", () => {

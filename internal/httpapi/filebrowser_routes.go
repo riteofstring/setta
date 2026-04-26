@@ -231,6 +231,7 @@ func RegisterFileBrowserRoutes(router chi.Router, deps FileBrowserRouteDependenc
 		withOpenAPITags("File Browser"),
 		withOpenAPISummary("Check whether a file exists and is accessible from the current runtime."),
 		withOpenAPIModeRequirement("not-launcher"),
+		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	registerOpenAPIPost[CheckWorkspaceInitializedRequest, bool](
 		sharedRouter,
@@ -738,5 +739,5 @@ func buildAbsoluteAPIRouteURL(r *http.Request, route string, pathParams map[stri
 	for key, value := range pathParams {
 		resolvedPath = strings.ReplaceAll(resolvedPath, "{"+key+"}", url.PathEscape(value))
 	}
-	return requestOrigin(r) + apiPrefix + resolvedPath
+	return requestOrigin(r) + RouteAPIPrefix + resolvedPath
 }

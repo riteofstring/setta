@@ -14,7 +14,7 @@ code sections, how they are broadcast to the UI, and how suppression works.
     generated code).
   - `codeSections`: map of `sectionId -> [SettaLspDiagnostic]` for Code sections.
   - `unmappedGenCode`: diagnostics from generated code that do not map to a
-    section/param (still reported with line/column ranges).
+    section/param (reported with line/column ranges).
 
 ## Diagnostic shape
 `SettaLspDiagnostic` is a thin wrapper around LSP diagnostics:
@@ -26,7 +26,7 @@ code sections, how they are broadcast to the UI, and how suppression works.
 - `uri`: document URI when available.
 
 ## Generated code diagnostics
-- Generated code diagnostics are still mapped into `SettaProjectConfigDiagnostics`
+- Generated code diagnostics are mapped into `SettaProjectConfigDiagnostics`
   so the UI can associate errors with sections/params.
 - Diagnostics that cannot be mapped are preserved in `unmappedGenCode` so the
   GenPythonCode section can surface them with line/column context.

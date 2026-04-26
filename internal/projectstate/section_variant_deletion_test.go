@@ -1,6 +1,8 @@
 package projectstate
 
 import (
+	"context"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -168,6 +170,127 @@ func TestProjectDeleteSectionVariantKeepsCodeObjectVariantStillUsedByRemainingVa
 	}
 	if secret != "keep-me" {
 		t.Fatalf("expected still-referenced password secret to remain, got %q", secret)
+	}
+}
+
+func TestRuntimeDeleteSectionVariantPrunesWatchCodeProviderRegistryMembership(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                       string
+		remainingVariantUsesTarget bool
+		expectedSectionIDs         []string
+		expectedCount              int
+	}{
+		{
+			name:               "prunes_only_variant",
+			expectedSectionIDs: []string{},
+			expectedCount:      0,
+		},
+		{
+			name:                       "keeps_remaining_variant",
+			remainingVariantUsesTarget: true,
+			expectedSectionIDs:         []string{"callable-section"},
+			expectedCount:              1,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			document := watchCodeVariantDeletionDocument(t, test.remainingVariantUsesTarget)
+			store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+			if err := store.Save(context.Background(), document); err != nil {
+				t.Fatalf("save initial document: %v", err)
+			}
+			runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+				WatchCodeProviderPluginID: func() (string, bool) {
+					return testWatchCodeProviderPluginID, true
+				},
+			})
+
+			snapshot, err := runtime.DeleteSectionVariant(context.Background(), "project-alpha", "callable-section", "callable-variant-1")
+			if err != nil {
+				t.Fatalf("delete section variant: %v", err)
+			}
+			assertWatchCodeRegistryMembership(t, snapshot.Document, test.expectedSectionIDs, test.expectedCount)
+			persisted, err := store.Load(context.Background())
+			if err != nil {
+				t.Fatalf("load persisted document: %v", err)
+			}
+			assertWatchCodeRegistryMembership(t, persisted, test.expectedSectionIDs, test.expectedCount)
+		})
+	}
+}
+
+func watchCodeVariantDeletionDocument(t *testing.T, remainingVariantUsesTarget bool) Document {
+	t.Helper()
+
+	project := callableTestProject(t)
+	section := project.Sections["callable-section"]
+	section.VariantIDs = []string{"callable-variant-1", "callable-variant-2"}
+	project.Sections["callable-section"] = section
+	project.SectionVariants["callable-variant-2"] = SectionVariant{
+		ID:     "callable-variant-2",
+		ImplID: "callable-impl-2",
+	}
+	callableID := "callable-2"
+	if remainingVariantUsesTarget {
+		callableID = "callable-1"
+	}
+	project.SectionImpls["callable-impl-2"] = SectionImpl{
+		ID:   "callable-impl-2",
+		Kind: SectionKind("callable"),
+		Payload: mustMarshalProjectObject(map[string]any{
+			"id":       "callable-impl-2",
+			"type":     "Callable",
+			"callable": callableID,
+			"codeObjVariantMap": map[string]string{
+				"callable-1":     "callable-variant-a",
+				"callable-2":     "callable-variant-b",
+				"param-existing": "param-variant-existing",
+			},
+		}),
+	}
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Registry: map[string]WatchCodeRegistryEntry{
+			"pkg.mod.existing_callable:function": {
+				CallableName:  "existing_callable",
+				Kind:          WatchCodeCallableKindFunction,
+				SignatureHash: "sig",
+				BodyHash:      "body",
+				SourcePath:    "pkg/mod.py",
+				SectionIDs:    []string{"callable-section"},
+				SectionsCount: 1,
+			},
+		},
+	})
+	return document
+}
+
+func assertWatchCodeRegistryMembership(t *testing.T, document Document, expectedSectionIDs []string, expectedCount int) {
+	t.Helper()
+
+	projectData := mustReadTestWatchCodePluginProjectData(t, document, "project-alpha")
+	entry := projectData.Registry["pkg.mod.existing_callable:function"]
+	if len(expectedSectionIDs) == 0 {
+		if len(entry.SectionIDs) != 0 {
+			t.Fatalf("expected no section ids, got %#v", entry.SectionIDs)
+		}
+	} else if !reflect.DeepEqual(entry.SectionIDs, expectedSectionIDs) {
+		t.Fatalf("expected section ids %#v, got %#v", expectedSectionIDs, entry.SectionIDs)
+	}
+	if entry.SectionsCount != expectedCount {
+		t.Fatalf("expected sections count %d, got %d", expectedCount, entry.SectionsCount)
 	}
 }
 

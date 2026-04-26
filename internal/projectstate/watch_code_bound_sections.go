@@ -17,12 +17,22 @@ type WatchCodeBoundSection struct {
 	IgnoreState  CodeSectionDiagnosticsIgnoreState
 }
 
-func (d Document) ResolveWatchCodeBoundSection(projectID string, sectionID string, workspaceRoot string) (WatchCodeBoundSection, bool, error) {
+func (d Document) ResolveWatchCodeBoundSection(
+	providerPluginID string,
+	projectID string,
+	sectionID string,
+	workspaceRoot string,
+) (WatchCodeBoundSection, bool, error) {
+	data, _, err := d.decodeWatchCodePluginData(providerPluginID)
+	if err != nil {
+		return WatchCodeBoundSection{}, false, err
+	}
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return WatchCodeBoundSection{}, false, err
 	}
-	section, ok, err := project.ResolveWatchCodeBoundSection(sectionID, workspaceRoot)
+	projectData, _ := data.projectData(project.ID)
+	section, ok, err := project.ResolveWatchCodeBoundSection(projectData, sectionID, workspaceRoot)
 	if err != nil || !ok {
 		return section, ok, err
 	}
@@ -32,6 +42,7 @@ func (d Document) ResolveWatchCodeBoundSection(projectID string, sectionID strin
 
 func (d *Document) ApplyWatchCodeBoundSectionUpdate(
 	ctx context.Context,
+	providerPluginID string,
 	projectID string,
 	sectionID string,
 	workspaceRoot string,
@@ -40,27 +51,49 @@ func (d *Document) ApplyWatchCodeBoundSectionUpdate(
 	if d == nil {
 		return false, ErrProjectNotFound
 	}
+	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
+	if err != nil {
+		return false, err
+	}
 
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
 		return false, err
 	}
-	didUpdate, err := project.ApplyWatchCodeBoundSectionUpdate(ctx, sectionID, workspaceRoot, resolver)
+	data, existed, err := d.decodeWatchCodePluginData(pluginID)
+	if err != nil {
+		return false, err
+	}
+	projectData, _ := data.projectData(project.ID)
+	didUpdate, err := project.ApplyWatchCodeBoundSectionUpdate(ctx, &projectData, sectionID, workspaceRoot, resolver)
 	if err != nil {
 		return false, err
 	}
 	d.Projects[project.ID] = project
+	if didUpdate {
+		data = data.withProjectData(project.ID, projectData, existed)
+		if err := d.setWatchCodePluginData(pluginID, data, existed); err != nil {
+			return false, err
+		}
+	}
 	return didUpdate, nil
 }
 
-func (p Project) ResolveWatchCodeBoundSection(sectionID string, workspaceRoot string) (WatchCodeBoundSection, bool, error) {
-	section, bindingPath, ok, err := p.resolveWatchCodeBoundSectionTarget(sectionID)
+func (p Project) ResolveWatchCodeBoundSection(
+	projectData WatchCodePluginProjectData,
+	sectionID string,
+	workspaceRoot string,
+) (WatchCodeBoundSection, bool, error) {
+	section, bindingPath, ok, err := p.resolveWatchCodeBoundSectionTarget(projectData, sectionID)
 	if err != nil || !ok {
 		return WatchCodeBoundSection{}, ok, err
 	}
 	resolved, ok, err := resolveWatchCodeBoundSectionDetails(p, section.ID, workspaceRoot, bindingPath)
 	if err != nil || !ok {
 		return WatchCodeBoundSection{}, ok, err
+	}
+	if !watchCodePathMatches(projectData, workspaceRoot, resolved.SourcePath) {
+		return WatchCodeBoundSection{}, false, nil
 	}
 	ignoreState, err := p.CodeSectionDiagnosticsIgnoreStateForSection(section.ID)
 	if err != nil {
@@ -70,8 +103,12 @@ func (p Project) ResolveWatchCodeBoundSection(sectionID string, workspaceRoot st
 	return resolved, true, nil
 }
 
-func (p Project) resolveWatchCodeBoundSectionTarget(sectionID string) (Section, string, bool, error) {
-	if !p.WatchCodeEnabled || !p.HasPythonCodegenTarget() {
+func (p Project) resolveWatchCodeBoundSectionTarget(
+	projectData WatchCodePluginProjectData,
+	sectionID string,
+) (Section, string, bool, error) {
+	_ = projectData
+	if !p.HasPythonCodegenTarget() {
 		return Section{}, "", false, nil
 	}
 
@@ -120,6 +157,7 @@ func resolveWatchCodeBoundSectionDetails(
 
 func (p *Project) ApplyWatchCodeBoundSectionUpdate(
 	ctx context.Context,
+	projectData *WatchCodePluginProjectData,
 	sectionID string,
 	workspaceRoot string,
 	resolver CallableSignatureResolver,
@@ -130,8 +168,12 @@ func (p *Project) ApplyWatchCodeBoundSectionUpdate(
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if projectData == nil {
+		return false, ErrWatchCodeProjectDataRequired
+	}
+	*projectData = projectData.Normalized()
 
-	section, ok, err := p.ResolveWatchCodeBoundSection(sectionID, workspaceRoot)
+	section, ok, err := p.ResolveWatchCodeBoundSection(*projectData, sectionID, workspaceRoot)
 	if err != nil || !ok {
 		return false, err
 	}
@@ -147,11 +189,12 @@ func (p *Project) ApplyWatchCodeBoundSectionUpdate(
 	scanPlan := watchcode.PlanScanUpdate(
 		section.SourcePath,
 		callables,
-		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
-		cloneStringSliceMap(p.WatchCodeBaselineByPath),
+		projectWatchCodeRegistryPlanView(projectData.Registry),
+		cloneStringSliceMap(projectData.BaselineByPath),
 	)
 	return p.applyWatchCodeScanPlanWithParsedSignatures(
 		ctx,
+		projectData,
 		scanPlan,
 		resolver,
 		watchCodeParsedSignatureResults(callables),

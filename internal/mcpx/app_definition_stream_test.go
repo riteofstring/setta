@@ -8,15 +8,15 @@ import (
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
-	"setta/internal/appspec"
-	"setta/internal/projectstate"
+	appdefinition "setta/internal/appsubsystem/appdefinition"
+	"setta/internal/appsubsystem/appspec"
 )
 
 func TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
 	t.Parallel()
 
 	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
-	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+	setTestAppDefinition(t, projectRuntime, appdefinition.SetInput{
 		AppSpec: map[string]any{
 			"root": "root",
 			"elements": map[string]any{
@@ -29,9 +29,7 @@ func TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 				},
 			},
 		},
-	}); err != nil {
-		t.Fatalf("seed app definition: %v", err)
-	}
+	})
 
 	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
 	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
@@ -72,7 +70,7 @@ func TestServerStreamAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemp
 		t.Fatalf("expected streamed gap 12, got %#v", rootProps["gap"])
 	}
 
-	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	storedSpec, err := appspec.MustForPlugin("setta-json-render-app-gen").Read(root, appspec.MustForPlugin("setta-json-render-app-gen").DefaultPath())
 	if err != nil {
 		t.Fatalf("read stored app spec: %v", err)
 	}

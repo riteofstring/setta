@@ -1,6 +1,7 @@
+import { getErrorDetail, res200 } from "@setta/app-subsystem-frontend-sdk";
 import {
-  useViewModeSortableItem,
-  ViewModeSortableProvider,
+  SortableListProvider,
+  useSortableListItem,
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
 import type { ChangeEvent } from "react";
@@ -19,7 +20,6 @@ import {
 } from "state/actions/windowSpaces";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   ChatWindowPlacementEnum,
   type WindowSpaceConfig,
@@ -198,7 +198,7 @@ export function WindowSpacesPane({
           then save it here to reopen that layout later by URL.
         </div>
       ) : (
-        <ViewModeSortableProvider
+        <SortableListProvider
           id="overview-window-spaces-sortable"
           items={windowSpaceList.map((windowSpace) => windowSpace.id)}
           direction="vertical"
@@ -230,7 +230,7 @@ export function WindowSpacesPane({
               ),
             )}
           </div>
-        </ViewModeSortableProvider>
+        </SortableListProvider>
       )}
     </section>
   );
@@ -381,7 +381,7 @@ function WindowSpaceEditingRow({
   sortableEnabled,
 }: WindowSpaceRowSharedProps) {
   const sortable = sortableEnabled
-    ? useViewModeSortableItem(windowSpace.id, false, "vertical")
+    ? useSortableListItem(windowSpace.id, false, "vertical")
     : null;
 
   const { inputValue, onChange, onBlur, onKeyDown, validationError } =

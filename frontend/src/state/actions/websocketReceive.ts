@@ -1,3 +1,9 @@
+import {
+  callOpenAPI,
+  createNewId,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import {
   getAuthRefreshStatus,
@@ -7,9 +13,13 @@ import {
   type HttpapiAuthRefreshStatusResponse as AuthRefreshStatusResponse,
   type GetLatestProjectStateResponse,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
+import {
+  initializeAppSessionFromCurrentDeployment,
+  processAppProjectStateUpdateFromBackend,
+  resetAppSessionState,
+} from "plugins/appSubsystem";
+import { DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST } from "plugins/appSubsystemFrontendHost";
 import { receivePluginRuntimeUpdate } from "plugins/runtime";
-import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import {
   buildFrontendAffinityCurrentAddress,
@@ -44,7 +54,6 @@ import {
 } from "utils/backendOriginTransport";
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   BinaryDependencyValue,
   ConnectionTypeEnum,
@@ -64,7 +73,6 @@ import {
   type LSPDiagnosticsPayload,
   type WebsocketMessageType,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import {
   loadAgentRuns,
   receiveAgentProfilesUpdate,
@@ -82,10 +90,6 @@ import {
   receiveAIFollowToolResultUpdate,
   requestAIFollowSnapshot,
 } from "./aiFollow";
-import {
-  initializeAppSessionFromCurrentDeployment,
-  resetAppSessionState,
-} from "./app";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -571,16 +575,13 @@ async function handleShareSessionRecovery() {
   if (shareSessionRecoveryInFlight) {
     return;
   }
-  const shareSession = useShareSession.getState();
-  const serverMode = useServerMode.getState();
-  const isAppMode =
-    shareSession.deploymentMode === "app" || serverMode.mode === "app";
+  const isAppMode = isAppDeploymentWebsocketContext();
   const expiredMessage = isAppMode
     ? "App session expired. Refresh to continue."
     : "Share session expired. Refresh to continue.";
   if (shareSessionRecoveryAttempts >= SHARE_SESSION_RECOVERY_MAX_ATTEMPTS) {
     if (isAppMode) {
-      resetAppSessionState();
+      resetAppSessionState(DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST);
     } else {
       resetShareSessionState();
     }
@@ -590,16 +591,19 @@ async function handleShareSessionRecovery() {
   shareSessionRecoveryInFlight = true;
   shareSessionRecoveryAttempts += 1;
   const recovered = isAppMode
-    ? await initializeAppSessionFromCurrentDeployment({
-        forceNewSession: true,
-      })
+    ? await initializeAppSessionFromCurrentDeployment(
+        DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST,
+        {
+          forceNewSession: true,
+        },
+      )
     : await initializeShareSessionFromCurrentDeployment({
         forceNewSession: true,
       });
   shareSessionRecoveryInFlight = false;
   if (!recovered) {
     if (isAppMode) {
-      resetAppSessionState();
+      resetAppSessionState(DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST);
     } else {
       resetShareSessionState();
     }
@@ -608,6 +612,15 @@ async function handleShareSessionRecovery() {
   }
   shareSessionRecoveryAttempts = 0;
 }
+
+function isAppDeploymentWebsocketContext(): boolean {
+  const shareSession = useShareSession.getState();
+  if (shareSession.isDeploymentMode && shareSession.deploymentMode === "app") {
+    return true;
+  }
+  return useServerMode.getState().mode === "app";
+}
+
 function createWebsocketMessageHandler<T>(
   handler: (content: T, socketGeneration: number) => void,
 ): WebsocketMessageHandler {
@@ -616,7 +629,7 @@ function createWebsocketMessageHandler<T>(
   };
 }
 function receiveFrontendProjectState(content: unknown): void {
-  if (useServerMode.getState().mode === "app") {
+  if (isAppDeploymentWebsocketContext()) {
     processAppProjectStateUpdateFromBackend(
       content as Parameters<typeof processAppProjectStateUpdateFromBackend>[0],
     );

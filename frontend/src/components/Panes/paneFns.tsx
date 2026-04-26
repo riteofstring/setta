@@ -8,14 +8,13 @@ import {
   useSettings,
 } from "state/definitions";
 import { getUIEditorTab } from "state/hooks/uiTypes";
+import { OverviewTabKey, PaneName, PaneNameEnum } from "utils/constants";
 import {
-  OverviewTabKey,
-  OverviewTabNameEnum,
-  PaneName,
-  PaneNameEnum,
-  UIEditorTabNameEnum,
-} from "utils/constants";
-import { type SectionType, type UIEditorTabName } from "utils/generatedTypes";
+  OverviewTabUIConfig,
+  UIEditorTabUIConfig,
+  type SectionType,
+  type UIEditorTabName,
+} from "utils/generatedTypes";
 import { togglePaneVisibility } from "./paneLayout";
 
 type TabButtonComponentType<T> = {
@@ -150,13 +149,13 @@ function changeUIEditorTab(tabName: UIEditorTabName) {
 }
 
 export function showVersionsTab() {
-  changeUIEditorTab(UIEditorTabNameEnum.SectionVariantsConfig);
+  changeUIEditorTab(UIEditorTabUIConfig.names.SectionVariantsConfig);
 }
 
 export function showParamUITypeTab() {
-  changeUIEditorTab(UIEditorTabNameEnum.UIConfig);
+  changeUIEditorTab(UIEditorTabUIConfig.names.UIConfig);
 }
 
 export function showProjectOverviewTab() {
-  onOverviewTabClick(OverviewTabNameEnum.Overview);
+  onOverviewTabClick(OverviewTabUIConfig.names.Overview);
 }

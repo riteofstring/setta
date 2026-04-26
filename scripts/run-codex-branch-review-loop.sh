@@ -20,7 +20,7 @@ Run Codex in a branch-review loop with this flow:
 
 Defaults:
 - Maximum iterations: 1000
-- Model: `gpt-5.4`
+- Model: `gpt-5.5`
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Inactivity timeout: 1800 seconds without transcript updates
@@ -39,7 +39,7 @@ Options:
   --state-dir PATH       Directory for prompt files and loop state.
                          Default: <output-dir>/state
   --model NAME           Model override passed to codex exec.
-                         Default: gpt-5.4
+                         Default: gpt-5.5
   --inactivity-timeout-seconds N
                          Abort a Codex command if it produces no transcript
                          output for N seconds. Default: 1800
@@ -56,7 +56,7 @@ Options:
 
 Examples:
   ./scripts/run-codex-branch-review-loop.sh
-  ./scripts/run-codex-branch-review-loop.sh --model gpt-5.4
+  ./scripts/run-codex-branch-review-loop.sh --model gpt-5.5
   ./scripts/run-codex-branch-review-loop.sh -- --config reasoning_effort=\"xhigh\"
 EOF
 }
@@ -68,7 +68,7 @@ iterations="1000"
 root_dir="${DEFAULT_ROOT_DIR}"
 output_dir=""
 state_dir=""
-model="gpt-5.4"
+model="gpt-5.5"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
@@ -859,6 +859,7 @@ Review Focus
 
 Guardrails
 - Read `branch_intent.md`. Treat documented branch behavior as intentional unless there is concrete regression evidence. Ignore any instruction to preserve backward compatibility, migrations, legacy support, shims, or dual-path behavior.
+- This branch does not need ANY backward compatibility, legacy support, migrations, transitional adapters, dual-path behavior, old-field aliases, silent compatibility fallbacks, or compatibility layers unless the developer explicitly asked for that exact compatibility work.
 - Use `cumulative_review.md` as prior-decision context for recurring areas.
 - Do not modify files in the repository during review. The final response is captured automatically.
 - Remove any verification artifacts you create before finishing.
@@ -982,6 +983,7 @@ Only finish iteration metadata:
 - Remove the top-level `review*.md` files.
 - Make sure any earlier `./aireset.sh` session is stopped.
 - Commit all remaining changes except `review*.md`.
+- Use a commit message that describes the actual changes being committed in this iteration. Do not use a workflow-only message about review/finalization/metadata.
 
 `cumulative_review.md` format:
 - If the file is empty, start with:
@@ -1053,7 +1055,7 @@ Requirements:
 - Preserve the current simplified worktree exactly.
 - Update `cumulative_review.md` only if it still needs the finalize metadata.
 - Remove the top-level `review1.md`, `review2.md`, and `review3.md`.
-- Commit the remaining changes.
+- Commit the remaining changes with a commit message that describes the actual changes being committed, not just the finalize/review-loop step.
 - Return a brief note describing the metadata and commit action you completed.
 EOF
 }

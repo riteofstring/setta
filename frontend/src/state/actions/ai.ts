@@ -1,4 +1,11 @@
 import {
+  callOpenAPI,
+  createNewId,
+  getErrorCode,
+  getErrorDetail,
+  res200,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   appendTranscriptionAudio as apiAppendTranscriptionAudio,
   cancelTranscriptionSession as apiCancelTranscriptionSession,
   createAgentProfile as apiCreateAgentProfile,
@@ -49,7 +56,12 @@ import {
   type TranscriptionprofilesProfile,
   type TranscriptionsessionsDelta,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
+import {
+  applyAppDefinitionStructuredContentToStore,
+  applyAppSpecPatchPreviewDeltaToStore,
+  clearAllAppSpecPatchPreviewStreams,
+  clearAppSpecPatchPreviewStream,
+} from "plugins/appSubsystem";
 import {
   clearAIFollowToolArgumentsForChat,
   getAIFollowToolArgumentsSnapshot,
@@ -74,17 +86,10 @@ import {
   shouldPersistOnMessageStop,
 } from "state/aiStreamingTracker";
 import {
-  applyAppSpecPatchPreviewDelta,
-  clearAllAppSpecPatchStreams,
-  clearAppSpecPatchStream,
-} from "state/appSpecPatchStreaming";
-import {
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
-  useAppDefinition,
-  useAppPreview,
   useProjectState,
   useToolArgumentPreview,
 } from "state/definitions";
@@ -101,12 +106,10 @@ import {
   type ChatAppGenerationDetails,
 } from "state/utils/chatAppGeneration";
 import { C } from "utils/c";
-import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   AgentProfile,
   AgentRun,
   AllConfigs,
-  AppDefinition,
   AssistantChatMessage,
   BaseChatMessageUnion,
   ChatFileAttachment,
@@ -131,7 +134,6 @@ import {
   TranscriptionProfile,
   UpdateEngineConfigRequest,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
@@ -2100,7 +2102,7 @@ function stopChatResponseLocally(
   } else {
     updatePendingChatDetails(stopDetails, pendingSurfaceId);
   }
-  clearAllAppSpecPatchStreams();
+  clearAllAppSpecPatchPreviewStreams();
   return snapshot;
 }
 function applyConfirmedExternalStopInterruption(
@@ -3463,7 +3465,7 @@ function maybeClearFailedStreamAppDefinition(
     toolMessage.tool_name === "setta__stream_app_definition" &&
     toolMessage.is_error
   ) {
-    clearAppSpecPatchStream(toolMessage.tool_call_id);
+    clearAppSpecPatchPreviewStream(toolMessage.tool_call_id);
     // Keep the last streamed preview visible even if the tool call fails validation.
     // Otherwise the preview disappears while the AI iterates on fixes.
   }
@@ -3471,31 +3473,9 @@ function maybeClearFailedStreamAppDefinition(
 function applyAppDefinitionStructuredContent(
   structured: Record<string, unknown>,
 ): void {
-  const hasSpec = Object.prototype.hasOwnProperty.call(structured, "appSpec");
-  const hasDefinition = Object.prototype.hasOwnProperty.call(
-    structured,
-    "appDefinition",
-  );
-  if (!hasSpec && !hasDefinition) {
+  if (!applyAppDefinitionStructuredContentToStore(structured)) {
     return;
   }
-  const nextSpec = hasSpec ? (structured.appSpec as unknown) : undefined;
-  const nextDefinition = hasDefinition
-    ? (structured.appDefinition as unknown)
-    : undefined;
-  useAppDefinition.setState((state) => ({
-    appSpec: nextSpec === undefined ? state.appSpec : nextSpec ?? null,
-    appDefinition:
-      nextDefinition === undefined
-        ? state.appDefinition
-        : ((nextDefinition ?? null) as AppDefinition | null),
-  }));
-  useAppPreview.setState({
-    previewSpecOverride: undefined,
-    aiPreviewSpecOverride: undefined,
-    previewThemeOverride: undefined,
-    previewAssetsOverride: undefined,
-  });
   addTemporaryNotification("App spec updated.");
 }
 function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
@@ -3513,7 +3493,7 @@ function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
   }
   applyAppDefinitionStructuredContent(structured);
   if (toolName === "setta__stream_app_definition") {
-    clearAppSpecPatchStream(toolMessage.tool_call_id);
+    clearAppSpecPatchPreviewStream(toolMessage.tool_call_id);
   }
 }
 function handleToolResult(
@@ -3536,7 +3516,7 @@ function handleMessageStop(chatId: string, projectConfigId: string) {
     message_id: "",
   });
   clearAIFollowToolArgumentsForChat(projectConfigId, chatId);
-  clearAllAppSpecPatchStreams();
+  clearAllAppSpecPatchPreviewStreams();
 }
 function handleMessageFinalized(
   chatId: string,
@@ -3678,13 +3658,10 @@ function applyToolArgumentPreviewDeltaToPreviewStore(
   projectConfigId?: string,
 ) {
   if (chunk.preview_kind === "appSpecPatch") {
-    const nextSpec = applyAppSpecPatchPreviewDelta({
+    applyAppSpecPatchPreviewDeltaToStore({
       toolCallId: chunk.tool_call_id,
       previewValueDelta: chunk.preview_value_delta,
     });
-    if (nextSpec) {
-      useAppPreview.setState({ aiPreviewSpecOverride: nextSpec });
-    }
     return;
   }
   const resolvedProjectConfigId = projectConfigId ?? getCurrProjectConfigId();
