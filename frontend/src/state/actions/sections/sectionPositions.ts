@@ -111,15 +111,20 @@ export function goToSection(sectionId: string) {
     width: sectionWidth,
     height: sectionHeight,
   } = rect;
-  const { x, y, zoom } = getViewportForBounds(
-    { x: sectionX, y: sectionY, width: sectionWidth, height: sectionHeight },
-    rfStore.width,
-    rfStore.height,
-    0,
-    1,
-    0.1,
-    true,
-  );
+  const { x, y, zoom } = getViewportForBounds({
+    bounds: {
+      x: sectionX,
+      y: sectionY,
+      width: sectionWidth,
+      height: sectionHeight,
+    },
+    height: rfStore.height,
+    keepCurrZoomIfPossible: true,
+    maxZoom: 1,
+    minZoom: 0,
+    padding: 0.1,
+    width: rfStore.width,
+  });
   useReactFlow.setState({
     transform: [x, y, zoom],
   });

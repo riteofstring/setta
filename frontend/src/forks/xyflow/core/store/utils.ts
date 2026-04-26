@@ -75,14 +75,14 @@ export function fitView(options: InternalFitViewOptions = {}) {
   }
 
   const zoomLimits = resolveFitViewZoomLimits(options);
-  const viewport = getViewportForBounds(
-    getNodesBounds(nodes),
-    runtime.width,
-    runtime.height,
-    zoomLimits.minZoom,
-    zoomLimits.maxZoom,
-    options.padding ?? DEFAULT_FIT_VIEW_PADDING,
-  );
+  const viewport = getViewportForBounds({
+    bounds: getNodesBounds(nodes),
+    height: runtime.height,
+    maxZoom: zoomLimits.maxZoom,
+    minZoom: zoomLimits.minZoom,
+    padding: options.padding ?? DEFAULT_FIT_VIEW_PADDING,
+    width: runtime.width,
+  });
 
   applyFitViewTransform(viewport);
   return true;

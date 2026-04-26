@@ -53,8 +53,6 @@ const hoistedProjectChatWindowing = vi.hoisted(() => ({
   routeSetProjectChatWindowChatId: vi.fn(),
   reactFlowState: {
     transform: [0, 0, 1] as [number, number, number],
-    d3Zoom: null,
-    d3Selection: null,
     domNode: null as HTMLElement | null,
   },
 }));
@@ -114,8 +112,6 @@ describe("project chat windowing reducer helpers", () => {
         ),
     );
     hoistedProjectChatWindowing.reactFlowState.transform = [0, 0, 1];
-    hoistedProjectChatWindowing.reactFlowState.d3Zoom = null;
-    hoistedProjectChatWindowing.reactFlowState.d3Selection = null;
     hoistedProjectChatWindowing.reactFlowState.domNode = null;
   });
   it("creates an open bottom-docked chat window instance by default", () => {

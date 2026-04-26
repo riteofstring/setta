@@ -166,15 +166,15 @@ export function useAIFollowViewport(): void {
       return;
     }
 
-    const { x, y, zoom } = getViewportForBounds(
+    const { x, y, zoom } = getViewportForBounds({
       bounds,
-      width,
       height,
-      0,
-      1,
-      0.1,
-      true,
-    );
+      keepCurrZoomIfPossible: true,
+      maxZoom: 1,
+      minZoom: 0,
+      padding: 0.1,
+      width,
+    });
 
     const duration = 500;
     const transitionId = followTransitionId.current + 1;
