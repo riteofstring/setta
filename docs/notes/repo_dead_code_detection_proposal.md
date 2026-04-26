@@ -100,7 +100,7 @@ That means the same symbol can legitimately land in different buckets:
 - `tooling-only-live`: only reachable from generators or repo utilities
 - `public-surface-live`: retained because it is part of a documented or packaged surface
 - `lint-unused`: unused local/import/parameter inside otherwise live code
-- `exempt`: intentionally retained dynamic hook, generated output, compatibility shim, or external-consumption surface
+- `exempt`: intentionally retained dynamic hook, generated output, alias shim, or external-consumption surface
 
 ## Important Repo Constraint
 

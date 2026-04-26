@@ -95,7 +95,7 @@ stateful routes require a `shareSessionId`.
 - Per-session state is an in-memory copy of the deployment snapshot; updates are scoped to a session and never written back to `project.json`.
 - Artifact updates are cached in memory and broadcast only to the active share session; filesystem access is restricted to `artifacts/`, `json_sources/`, and `code/` under the deployment root.
 - Runs always use snapshot files under `deployment_runtime/.../share_runs/<shareSessionId>/...`; terminal input is disabled in deployment mode.
-- If `runSnapshotMode=ephemeral`, a cleanup loop deletes old run outputs (30 minute TTL). `always` keeps run outputs.
+- If `runSnapshotMode=ephemeral`, a cleanup loop deletes aged run outputs (30 minute TTL). `always` keeps run outputs.
 - LLM is only available when `allowLLM=true`; deployment mode uses `ShareChatManager` with an in-memory chat store and no MCP tools.
 - If `manifest.json` defines a listener entrypoint and it is enabled, the Go backend starts a Python listener process per share session; listener emits are gated by `allowParamChanges`.
 

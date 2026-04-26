@@ -79,13 +79,11 @@ kept in `project.json`; project clone/save-as copies matching project-scoped
 payloads, and project deletion removes matching project entries.
 
 ## UI surface
-- Watch Code no longer has its own Overview tab.
 - The first-party `setta-watch-code` plugin contributes the radar button to the
   canvas controls rail. It opens a floating Watch Code popover from
   `plugins/setta-watch-code/frontend/src/watchCodeControl.ts`.
 - The plugin uses canonical UI-setting ids under
-  `plugin::setta-watch-code::*`; the old `core.watch_code.*` ids are not
-  registered as aliases.
+  `plugin::setta-watch-code::*`.
 - UI-setting reveal flows call the plugin reveal handler, which opens the
   popover and highlights the matching plugin-owned anchor.
 
@@ -118,7 +116,7 @@ Each callable yields:
 errors short-circuit updates to avoid corrupting registry state.
 
 ## Watcher architecture
-Watch Code now uses a Go-owned polling/runtime path under `internal/watchcode`:
+Watch Code uses a Go-owned polling/runtime path under `internal/watchcode`:
 - `Manager` normalizes config snapshots into tracked files/dirs, desired watch
   dirs, and scheduled scan/delete work.
 - `Service` snapshots tracked files on a poll interval (default 300ms), diffs

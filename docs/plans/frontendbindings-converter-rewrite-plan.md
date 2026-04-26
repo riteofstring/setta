@@ -42,7 +42,7 @@ The important design ideas to keep are:
 - the converter works from authoritative type information instead of from a
   giant handwritten TS inventory
 
-The important thing not to copy is Python ownership. On this branch, Go owns
+The important thing not to copy is Python ownership. In this repo, Go owns
 the contracts, so the equivalent design is:
 - Go reflection and Go-owned metadata instead of Python Pydantic metadata
 - Go endpoint specs instead of FastAPI route introspection
@@ -201,7 +201,7 @@ another monolith.
 - Compile ordinary named structs, aliases, maps, slices, pointers, and enums
   through the new compiler.
 - Route endpoint request and response types through the new compiler.
-- Keep only the genuinely special families on the old path.
+- Keep only the genuinely special families on the reference converter path.
 
 Completion bar for this phase:
 - adding a new ordinary backend owner type should not require editing a
@@ -230,14 +230,13 @@ Completion bar for this phase:
 
 ### Phase 5: Switch Rendering To The New Compiler
 - Change `Build()` to use the new compiler
-- delete the old converter path
-- update focused tests to assert the new metadata-driven behavior instead of the
-  old helper shape
+- delete the reference converter path
+- update focused tests to assert the metadata-driven behavior
 
 ### Phase 6: Cleanup
 - delete `internal/frontendbindings/converter.go`
-- remove dead tests that only pinned old converter helper shapes
-- remove dead helper functions that existed only to support the old converter
+- remove dead tests that only pinned reference converter helper shapes
+- remove dead helper functions that existed only to support the reference converter
 
 ## Testing Strategy
 
@@ -273,7 +272,7 @@ Unacceptable approach:
 - letting Zod schema generation become the new source of truth
 
 ## Risks
-- replacing the old converter too abruptly could break subtle frontend create
+- replacing the converter too abruptly could break subtle frontend create
   helper semantics
 - the metadata layer could regrow into a second manual schema system if it is
   not kept narrow

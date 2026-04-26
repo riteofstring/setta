@@ -52,8 +52,8 @@ against backend-owned slug maps on loaded project state:
 - `projectConfig.windowSpaceSlugsById`
 - `projectConfig.windowSpaceIdsBySlug`
 
-Section routes are namespaced under `/section`, so section slugs no longer need
-to reserve `chat` or `windowspace`.
+Section routes are namespaced under `/section`, so section slugs can use names
+such as `chat` or `windowspace`.
 
 Window-space names also use explicit namespacing under `/windowspace`, so names
 such as `home`, `settings`, `chat`, or `windowspace` are not reserved at the
@@ -143,7 +143,7 @@ Transcription profile CRUD is separate from chat engine config:
     - `managed_api_keys_revision_conflict` (`409`)
     - `managed_api_keys_store_corrupt` (`409`)
     - `managed_api_keys_store_unavailable` (`503`)
-- `LLMApiKeysUpdated` websocket messages now carry snapshots:
+- `LLMApiKeysUpdated` websocket messages carry snapshots:
   - `{ apiKeys, revision, corrupt, errorCode, message }`
 
 ### Managed chat stop route
@@ -218,7 +218,7 @@ app-subsystem provider contributes the corresponding feature capability:
       can be determined.
     - `customSkillCreateRootActionable`: whether that root already exists and can
       be revealed directly in the OS file explorer.
-  - Each skill entry now includes `isEditable` and `editabilityReason` so the
+  - Each skill entry includes `isEditable` and `editabilityReason` so the
     frontend can distinguish editable custom skills from read-only roots.
 - `/api/getAppGenSkillContent`
   - Reads `SKILL.md` preview content for a selected skill id.
@@ -234,12 +234,6 @@ app-subsystem provider contributes the corresponding feature capability:
     - `skillId`, `created`, `rootPath`, `skillDocPath`
     - refreshed `skill` metadata
     - refreshed `skillContent`
-- Legacy `/api/streamAppSpec`
-  - This older standalone streaming helper is not part of the current
-    caller-backed flow on this branch.
-  - The current app-config pane generation path uses `/api/getLLMResponse` plus
-    `/ws/frontend` tool-preview updates and Go-owned app-subsystem
-    `stream_app_definition` persistence.
 - `/api/getLLMResponse` (extended payload)
   - Accepts `appGenerationMode` and `appGenerationByMessageId` for Project Chat
     app-generation turns.
@@ -261,7 +255,7 @@ For project-chat/window-space behavior, see
 
 ## View Mode + File Browser Route Notes
 
-Recent frontend features in this branch rely on these backend API routes:
+The frontend relies on these backend API routes:
 
 - `/api/setViewModeSortOrder`
   - Persists drag-reordered view mode order from tabs and the Overview View
@@ -277,5 +271,5 @@ Recent frontend features in this branch rely on these backend API routes:
 - `/api/checkWorkspaceInitialized`
   - Returns whether a folder has Setta workspace state.
   - Request fields: `folderPath`, optional `allowOutsideWorkspaceRoot`.
-  - Used to resolve root-folder badge state (since `getFolderContents` returns
+  - Resolves root-folder badge state (since `getFolderContents` returns
     metadata for children, not the root node itself).

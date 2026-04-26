@@ -67,7 +67,7 @@ git route contracts it depends on.
 - Core content UI: `frontend/src/components/Git/GitGraphOverlay.tsx`
 - Window host wrapper: `frontend/src/components/Git/GitGraphWindowContent.tsx`
 - Opened from the pane `Graph` button.
-- The `Graph` button now opens or focuses a tracked `git_graph_mode` project
+- The `Graph` button opens or focuses a tracked `git_graph_mode` project
   window instead of rendering commit history in the center overlay layer.
 - That tracked window participates in:
   - project-chat window focus/maximize state

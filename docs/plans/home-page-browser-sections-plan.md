@@ -14,7 +14,8 @@
 ## Non-goals
 - Changing how project metadata is loaded (`loadAllProjectMetadata`) or backend project storage.
 - Changing the thumbnail “look” (node color, mask, sizing) unless required for parity.
-- Introducing backwards compatibility (we can delete old home page thumbnail code once replaced).
+- Keeping a second implementation path for the current home page thumbnail code
+  after replacement.
 
 ## Current Implementation (Feb 2026)
 - Home page projects grid + SVG thumbnail:
@@ -129,10 +130,10 @@ Navigation + selection semantics:
 1. Add `ProjectBrowser.tsx` implementing list/icon/carousel.
 2. Add `useHomePageProjectBrowserViewMode` store + optional persistence.
 3. Update `frontend/src/components/Pages/Home/HomePage.tsx` to render `ProjectBrowser` instead of the current grid card implementation.
-4. Delete now-dead components inside `HomePage.tsx` (old `ProjectItem`, `PreviewImg`, etc.), keeping only high-level orchestration.
+4. Delete unused components inside `HomePage.tsx` (`ProjectItem`, `PreviewImg`, etc.), keeping only high-level orchestration.
 
 ### Phase C: Polish + parity checks
-- Verify SVG thumbnails match the old appearance in icon view.
+- Verify SVG thumbnails match the current appearance in icon view.
 - Ensure carousel thumbnail strip uses SVG thumbnails (no regressions to icon placeholders).
 - Ensure selection mode + share mode behaviors still match current home behavior.
 - Confirm layout works for small screens (thumbnail grid wrapping, carousel sizing).
@@ -159,7 +160,7 @@ Navigation + selection semantics:
   - Share mode coverage can be a follow-up if not already exercised elsewhere.
 
 ## Verification Checklist (when implementing)
-- CDP visual check: confirm icon + carousel thumbnails are SVG minimaps and match the old home cards.
+- CDP visual check: confirm icon + carousel thumbnails are SVG minimaps and match the current home cards.
 - Performance: with a large number of projects, confirm view switching does not cause large layout thrash or excessive re-rendering.
 
 ## Risks / Notes

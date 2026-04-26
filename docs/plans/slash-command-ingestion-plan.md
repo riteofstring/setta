@@ -23,7 +23,7 @@ This plan turns command discovery into a first-class capability (instead of pass
 ## Non-Goals
 1. Replacing Setta local slash commands.
 2. Adding heuristic keyword fallbacks when official command surfaces are unavailable.
-3. Backward-compat behavior shims for deprecated command systems.
+3. Adapter shims for unsupported command systems.
 
 ## Architecture
 
@@ -102,7 +102,7 @@ Plan:
    - `skills/list` -> `$skill` canonical invocations (plus optional slash alias policy for UI only)
    - `app/list` -> connector mentions
 3. Include static built-in CLI command table as curated `origin=builtin` entries, version-stamped in code with update policy.
-4. Optionally ingest deprecated custom prompts from `~/.codex/prompts/*.md` as `/prompts:<name>` (`origin=custom_file`).
+4. Optionally ingest custom prompts from `~/.codex/prompts/*.md` as `/prompts:<name>` (`origin=custom_file`).
 
 Execution mapping:
 - `exec.kind = jsonrpc` for app-server-integrated commands/items.

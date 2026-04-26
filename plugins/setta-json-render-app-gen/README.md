@@ -5,17 +5,16 @@ This first-party plugin gates the extracted app subsystem.
 ## Packaging Model
 
 - `enabledByDefault` remains `false`.
-- The package-manager wheel now ships the normal runtime-managed plugin shape:
+- The package-manager wheel ships the normal runtime-managed plugin shape:
   `setta.plugin.json`, a backend entrypoint under `runtime_backend/`, and the
   bundled frontend entrypoint under `frontend/dist/`.
-- The plugin frontend now owns its build metadata under `frontend/` with
+- The plugin frontend owns its build metadata under `frontend/` with
   explicit third-party dependencies and a vendored packaged
   `@setta/app-subsystem-frontend-sdk` surface for staged-source builds.
   The vendored SDK `dist/` is generated from
   `frontend/plugin-sdk/app-subsystem`; it is not checked into git.
-- The plugin now declares its plugin-owned frontend build contract in
-  `setta.plugin.json`, so source/deployment packaging no longer depends on a
-  host-side plugin-id special case.
+- The plugin declares its plugin-owned frontend build contract in
+  `setta.plugin.json` for source/deployment packaging.
 - The plugin still depends on Setta runtime contracts for app-subsystem
   integration, which is intentional.
 
@@ -46,7 +45,7 @@ Build the plugin wheel from this folder:
 python -m build
 ```
 
-The wheel and editable build paths now rebuild `frontend/dist/*` from the
+The wheel and editable build paths rebuild `frontend/dist/*` from the
 plugin-owned frontend package before packaging. The source distribution
 materializes the vendored SDK `dist/` first, then includes the frontend
 source/build inputs needed to build the plugin frontend from `sdist`.

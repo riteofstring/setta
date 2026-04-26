@@ -70,15 +70,13 @@ This format is designed for progressive UI updates while a model is generating a
 spec, and matches streaming UI contracts (for example `@json-render/react`'s
 `useUIStream`).
 
-The older standalone `/api/streamAppSpec` HTTP helper is now a legacy/dormant
-surface. The current app-config and Project Chat flow uses
-`/api/getLLMResponse` plus `/ws/frontend` tool-preview updates and the Go-owned
-app-subsystem `stream_app_definition` MCP tool instead of a dedicated streaming
-HTTP route.
+App Config and Project Chat generation use `/api/getLLMResponse` plus
+`/ws/frontend` tool-preview updates and the Go-owned app-subsystem
+`stream_app_definition` MCP tool.
 
 ### Current app-generation mode inputs
 
-The surviving app-generation input contract now centers on:
+The app-generation input contract centers on:
 
 - `mode`: `"json_render" | "json_render_with_image" | "prompt_builder" | "mcp_server" | null`
 - `referenceImageUrl`

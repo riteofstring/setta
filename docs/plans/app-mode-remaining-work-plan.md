@@ -4,7 +4,7 @@
 
 App mode v1 (json-render AppSpec + theme tokens + deployments/sessions + policy gating + IDE preview/config UX) is implemented.
 
-This document consolidates the remaining work that was previously tracked across multiple App mode plan docs and focuses only on what is not yet implemented.
+This document tracks remaining App mode work that is not yet implemented.
 
 ## Goals
 

@@ -206,7 +206,7 @@ Per-commit processing:
   - When a lane is removed, its colorId becomes available for reuse.
 
 Pagination interaction:
-- If we implement "Load more" (older commits), we have two options:
+- If we implement "Load more" (earlier commits), we have two options:
   - Recompute lanes from scratch for the entire loaded list after each page load.
   - Keep `activeLanes` state at the pagination boundary and continue incrementally (preferred once lists exceed a few thousand commits).
 

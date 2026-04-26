@@ -8,7 +8,7 @@
 ## `jsonSourceKeys` behavior
 - `jsonSourceKeys` is a list of string keys (path parts) that must resolve to a **dict** in the JSON source payload.
 - The path is treated as a **name-path prefix** during traversal/merge. That means code objects are matched by full name paths that include the prefix.
-  - Changing `jsonSourceKeys` effectively changes every name path, so existing code objects for that section are replaced on the next load.
+  - Changing `jsonSourceKeys` effectively changes every name path, so code objects for that section are recreated on the next load.
 - Load-time validation:
   - If the file is missing, the path is missing, or the path resolves to a non-dict, the section is marked `jsonSourceMissing` and no merge happens.
 - Update-time validation (when editing keys via the API/UI):
@@ -43,7 +43,7 @@ The section’s top-level params are mapped to:
    merge the processed tree into the project state by **name path**:
    - Reuses existing code objects when name paths match.
    - Updates children/value fields.
-   - Deletes code objects that no longer exist in the file.
+   - Deletes code objects that do not exist in the file.
    - Sets `topLevelParamId` to the object at `jsonSourceKeys` and updates `codeObjVariantMap`.
    - Marks `jsonSourceMissing` if the file is absent (no merge happens in that case).
 

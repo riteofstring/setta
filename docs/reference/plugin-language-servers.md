@@ -61,8 +61,8 @@ frontend can surface why Watch Code cannot refresh callable params reliably.
 ## Plugin config
 
 - Server-specific settings stay under plugin-owned config roots such as
-  `basedpyright` or `ty`; they are no longer part of the top-level
-  `settings.languageServer` contract.
+  `basedpyright` or `ty`. The top-level `settings.languageServer` contract
+  stores language selection.
 - A language-server registration can provide `settingsKey` so Setta scopes the
   plugin config branch passed to that server.
 - Setta also injects required runtime search paths for first-party Python

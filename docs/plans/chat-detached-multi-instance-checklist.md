@@ -4,7 +4,7 @@
 - This file is append-only.
 - Do not edit, delete, or reorder existing lines.
 - To update progress, append a new line in `Status Log` referencing the task ID.
-- If a task changes meaning, append a new task ID in `Task Catalog` instead of rewriting old items.
+- If a task changes meaning, append a new task ID in `Task Catalog` instead of rewriting existing items.
 
 ## Status Values
 - `planned`

@@ -10,17 +10,18 @@
 
 ## Resolved findings
 
-### 1. Backend-owned name validation no longer lives as a handwritten frontend mirror
+### 1. Backend-owned name validation uses generated frontend helpers
 
 Status: resolved.
 
-The frontend now consumes generated validation helpers instead of maintaining its own copy of backend name-validation rules.
+The frontend consumes generated validation helpers from the backend-owned
+name-validation contract.
 
 What changed:
 
-- `frontend/src/utils/nameValidation.ts` now re-exports generated helpers from `frontend/src/utils/generatedTypes.ts`.
+- `frontend/src/utils/nameValidation.ts` re-exports generated helpers from `frontend/src/utils/generatedTypes.ts`.
 - `internal/frontendbindings/name_validation_support.go` generates the frontend validation helpers and option types.
-- `internal/projectstate/name_validation_frontend_support.go` exposes the Go-owned validation contract data used to generate those helpers.
+- `internal/projectstate/name_validation_frontend_support.go` exposes the Go-owned validation contract data for those helpers.
 - Shared backend/frontend fixture coverage remains in place to prove the generated client-side validators still match backend-owned caller-visible behavior.
 
 Result:
@@ -31,20 +32,21 @@ Result:
 - window space names
 - param names
 
-All now use a generated/backend-owned validation contract instead of a manually maintained TypeScript implementation.
+All use a generated/backend-owned validation contract.
 
-### 2. Workspace bootstrap/handoff protocol now has a single Go-owned contract
+### 2. Workspace bootstrap/handoff protocol has a single Go-owned contract
 
 Status: resolved.
 
-The bootstrap/handoff protocol keys and limits are now defined once in Go and consumed by both the backend-served bootstrap page and the frontend utilities.
+The bootstrap/handoff protocol keys and limits are defined once in Go and
+consumed by both the backend-served bootstrap page and the frontend utilities.
 
 What changed:
 
 - `internal/httpapi/bootstrap_handoff_contract.go` defines the protocol constants and exported contract shape.
 - `internal/httpapi/bootstrap_page.go` injects that contract into the bootstrap-page script instead of hardcoding raw literals inline.
 - `internal/frontendbindings/bootstrap_handoff_support.go` exports the same protocol into generated frontend bindings as `GENERATED_BOOTSTRAP_PROTOCOL`.
-- Frontend consumers now read that generated contract instead of carrying their own copies:
+- Frontend consumers read that generated contract:
   - `frontend/src/utils/workspaceHistory.ts`
   - `frontend/plugin-sdk/app-subsystem/src/launcherOrigin.ts`
   - `frontend/src/utils/backendOriginOverride.ts`
@@ -53,34 +55,39 @@ What changed:
 
 Result:
 
-The launcher/bootstrap handoff storage keys, query/hash parameters, and max handoff length now come from one Go-owned source of truth.
+The launcher/bootstrap handoff storage keys, query/hash parameters, and max
+handoff length come from one Go-owned source of truth.
 
-### 3. App-generation modes and the `plain_chat` sentinel now come from `internal/agentruns`
+### 3. App-generation modes and the `plain_chat` sentinel come from `internal/agentruns`
 
 Status: resolved.
 
-The frontend no longer hand-maintains the canonical app-generation mode set or the `plain_chat` sentinel.
+The frontend consumes the canonical app-generation mode set and the `plain_chat`
+sentinel from generated backend-owned bindings.
 
 What changed:
 
-- `internal/agentruns/app_generation.go` now owns the shared app-generation mode constants, parser, and optional-mode normalizer.
+- `internal/agentruns/app_generation.go` owns the shared app-generation mode constants, parser, and optional-mode normalizer.
 - `internal/frontendbindings/app_generation_support.go` exports generated frontend bindings for:
   - the app-generation mode union
   - the mode enum object
   - the `plain_chat` sentinel
   - the shared parser
-- Frontend consumers now use those generated bindings:
+- Frontend consumers use those generated bindings:
   - `frontend/src/state/types/appGenerationMode.ts`
   - `frontend/src/state/utils/chatAppGeneration.ts`
   - `frontend/src/components/Chat/appGenerationSlashCommands.ts`
   - `frontend/src/components/Chat/chatInputHelpers.ts`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatCoreUtils.ts`
-- Managed-chat and external-agent backend code paths were also updated to consume the same `agentruns` owner instead of keeping local copies.
+- Managed-chat and external-agent backend code paths consume the same
+  `agentruns` owner.
 
 Result:
 
-The canonical allowed-value set for `appGenerationMode` and `appGenerationByMessageId` provenance handling is now owned in one backend package and generated outward.
+The canonical allowed-value set for `appGenerationMode` and
+`appGenerationByMessageId` provenance handling is owned in one backend package
+and generated outward.
 
 ## Remaining unjustified duplications
 
@@ -102,4 +109,6 @@ None found in the audited areas after the fixes above.
 
 ## Bottom line
 
-The three unjustified frontend/backend duplications identified in this audit have been removed. The remaining overlaps reviewed in this pass are the justified UX/runtime splits listed above, where the frontend still needs local behavior but no longer re-owns backend authority.
+The audited frontend/backend overlaps are the justified UX/runtime splits listed
+above, where the frontend needs local behavior while the backend remains
+authoritative.

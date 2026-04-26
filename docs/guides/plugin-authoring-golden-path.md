@@ -15,7 +15,7 @@ This generates:
 - `frontend/dist/` and `content/` scaffolding when using `--template full`
 - `pyproject.toml` with package metadata aligned to manifest `id` and `version`
 
-`setta plugins init` now generates a Go-backed `backend/main.go` scaffold for
+`setta plugins init` generates a Go-backed `backend/main.go` scaffold for
 backend-capable templates. Backend plugin support remains in scope, and new
 backend authoring should target Go rather than Python.
 
@@ -53,8 +53,7 @@ mutation path.
 
 ### Manifest contract notes
 
-- `capabilities` must use the runtime manifest vocabulary. In addition to the
-  older frontend-facing entries, that includes
+- `capabilities` must use the runtime manifest vocabulary. It includes
   `registerMcpTools`, `registerLanguageServer`,
   `registerExternalAgentAdapter`, `registerCodegenTarget`,
   `registerRouter`, `registerListenerEndpoint`, `registerStaticDir`,

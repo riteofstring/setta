@@ -24,11 +24,11 @@ This does not reopen the HTTP problem. HTTP stays on OpenAPI.
 The OpenAPI loop already removed the worst architectural problem:
 
 - bespoke HTTP endpoint generation is gone
-- HTTP clients now come from OpenAPI
+- HTTP clients come from OpenAPI
 - the remaining custom generator surface is concentrated in shared model
   generation
 
-That means the remaining problem is now mostly:
+The remaining problem is mostly:
 
 - structural shared models and enums
 - naming policy
@@ -63,7 +63,7 @@ enough by itself, such as:
 
 - Do not reopen or redesign the HTTP/OpenAPI endpoint path.
 - Do not do a protobuf/RPC/IDL rewrite.
-- Do not preserve the current generated TS/Python API for compatibility.
+- Do not preserve the current generated TS/Python API through alias shims.
 - Do not keep two target-specific custom structural model generators in
   parallel after the schema path is working.
 - Do not force schema `default` to serve as a full constructor mechanism.
@@ -92,7 +92,7 @@ enough by itself, such as:
 - Any newly created helper or generator file that carries naming,
   collision-resolution, normalization, selection, or registry-assembly
   heuristics must be counted in the audited migration surface immediately.
-- Now that the schema + sidecar bootstrap exists, total audited migration-surface
+- With the schema + sidecar bootstrap in place, total audited migration-surface
   LOC should trend downward. Do not accept commits that grow shared schema,
   sidecar, or other glue unless the same commit deletes a larger bespoke path
   and still leaves the total audited migration surface lower than before.
@@ -114,7 +114,7 @@ Also prefer deleting the remaining handwritten naming and selection heuristics
 in place over recreating them in `cmd/`, `internal/sharedtypes`, or other
 generator helper packages.
 
-## Main Legacy Targets To Delete
+## Main Bespoke Targets To Delete
 
 - `internal/frontendbindings/type_naming.go`
 - `internal/frontendbindings/type_compiler.go` structural-model-specific logic
@@ -179,18 +179,18 @@ Allowed fallback:
 
 Rules:
 
-- do not preserve current generated names with compatibility shims
+- do not preserve current generated names with alias shims
 - update callers instead
-- do not keep the old `type_naming.go` / structural reflection path alive in
+- do not keep the existing `type_naming.go` / structural reflection path alive in
   parallel once the schema path covers the same surface
 
-## Phase 4: Delete Legacy Generators
+## Phase 4: Delete Bespoke Generators
 
 After schema + sidecar generation is live:
 
 - delete the handwritten TS/Python structural emitters
 - delete duplicated naming logic
-- delete handwritten inventories/default tables that the sidecar replaced
+- delete handwritten inventories/default tables covered by the sidecar
 - keep only the minimal residual glue needed to:
   - emit schema/sidecar from Go
   - run standard generators
@@ -240,9 +240,9 @@ And:
   than land more schema/sidecar glue
 - the only acceptable exception is when the same commit deletes a larger bespoke
   path and the total audited migration surface still ends lower than before
-- shrinking one file while introducing similar handwritten heuristics in newly
-  created helper/generator files does not qualify unless the net handwritten
-  logic across both old and new locations still drops materially
+- shrinking one file while introducing similar handwritten heuristics in helper
+  or generator files does not qualify unless the net handwritten logic across
+  both locations drops materially
 
 If three consecutive iterations fail to meet that bar, stop instead of
 continuing tiny cleanups.

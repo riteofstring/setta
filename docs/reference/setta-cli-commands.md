@@ -579,7 +579,7 @@ Options:
 - `--open-mode {browser,chrome-app}` default launcher mode (optional; omitted preserves existing metadata)
 - `--workspace-behavior {last-used-or-prompt,always-prompt}` workspace fallback preference
 - `--artifact-option NAME=VALUE` configures platform artifact generation (for example `app_name`, `icon_path`, `desktop_shortcut`)
-- `--clear-artifact-options` clears previously stored launcher artifact options
+- `--clear-artifact-options` clears stored launcher artifact options
 - `--install-artifacts` / `--no-install-artifacts` controls managed platform artifact installation; omit both to preserve current behavior
 - `--json` emits machine-readable payload
 

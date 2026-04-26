@@ -52,8 +52,8 @@ endpoint compiler.
 
 - Do not migrate websocket transport to OpenAPI.
 - Do not do a Connect RPC / protobuf rewrite in this effort.
-- Do not preserve the current generated TypeScript or Python surfaces for
-  compatibility.
+- Do not preserve the current generated TypeScript or Python surfaces through
+  alias shims.
 - Do not keep a custom HTTP endpoint converter in parallel "temporarily" after
   the OpenAPI path is working.
 
@@ -69,7 +69,7 @@ endpoint compiler.
   handler-body inference for HTTP generation.
 - Do not write a second custom OpenAPI generator when a standard backend layer
   or library can emit the schema.
-- Do not preserve old generated names with compatibility shims. Change callers.
+- Do not preserve custom generated names with alias shims. Change callers.
 - Do not reintroduce per-endpoint wrappers in `generatedEndpoints.ts`.
 - A small transport adapter is acceptable only if it configures the generated
   client once. It must not enumerate endpoints or restate schemas.
@@ -91,9 +91,9 @@ After this migration:
 - `/api/openapi.json` is a real backend output and testable artifact
 - frontend HTTP types and endpoint functions come from standard OpenAPI
   generation
-- `internal/frontendbindings` no longer discovers or names HTTP endpoints
-- `internal/frontendbindings` no longer owns HTTP request/response type naming
-  policy
+- HTTP endpoint discovery and naming live outside `internal/frontendbindings`
+- HTTP request/response type naming policy lives outside
+  `internal/frontendbindings`
 - the remaining `internal/frontendbindings` package is limited to non-HTTP
   frontend contract generation
 
@@ -117,8 +117,7 @@ Expected deleted custom generator scope:
 Before refactoring:
 
 - declare that HTTP endpoint generation is moving to OpenAPI
-- declare that `internal/frontendbindings` is no longer allowed to own HTTP
-  endpoint discovery
+- declare that HTTP endpoint discovery belongs outside `internal/frontendbindings`
 - declare the chosen frontend generator and runtime integration approach
 - explicitly separate HTTP contract generation from websocket/default/constant
   generation
@@ -162,7 +161,7 @@ Rules:
 - if one shared registration path cannot directly serve both runtime and
   OpenAPI, use typed descriptors consumed by both; do not duplicate route
   declarations
-- do not keep the old route/endpoint discovery path alive once the new one
+- do not keep the custom route/endpoint discovery path alive once the OpenAPI path
   covers a route family
 
 ## Phase 2: Emit A Real OpenAPI Artifact
@@ -183,7 +182,7 @@ Rules:
 - use OpenAPI features and explicit schema metadata for union-heavy cases
 - do not push that complexity back into `internal/frontendbindings`
 - if a schema needs custom shaping, put it on the Go owner or operation schema,
-  not in a frontend compatibility table
+  not in a frontend override table
 - fake service implementations used only for doc generation are not an end
   state; treat them as temporary scaffolding and delete or replace them with
   shared typed descriptors as soon as practical
@@ -206,20 +205,20 @@ Rules:
 
 - generated frontend endpoint functions must come from operation ids
 - frontend callers must be updated to the generated client instead of preserving
-  the old custom helpers
+  custom helper names
 - a thin shared transport configuration layer is allowed
 - do not add handwritten per-endpoint wrappers around the generated client
 
 Success bar:
 
-- frontend HTTP callers no longer depend on `internal/frontendbindings`
-  endpoint discovery or templates
+- frontend HTTP callers depend on OpenAPI-generated client functions instead of
+  `internal/frontendbindings` endpoint discovery or templates
 - the number of real imports of `frontend/src/utils/generatedEndpoints.ts`
   keeps decreasing as route families migrate
 
 ## Phase 4: Delete HTTP Logic From `internal/frontendbindings`
 
-Once the OpenAPI path exists, remove the old HTTP-specific custom generator
+Once the OpenAPI path exists, remove the HTTP-specific custom generator
 pieces.
 
 Delete:
@@ -231,7 +230,7 @@ Delete:
 
 Deletion rule:
 
-- when a route family migrates to OpenAPI, remove that family from the old
+- when a route family migrates to OpenAPI, remove that family from the custom
   `internal/frontendbindings` HTTP path in the same batch or the very next one;
   do not let both systems carry the same family for long
 
@@ -242,7 +241,7 @@ Keep only if still needed outside HTTP:
 
 Success bar:
 
-- `internal/frontendbindings` is no longer on the HTTP critical path
+- `internal/frontendbindings` is outside the HTTP critical path
 
 ## Phase 5: Narrow The Remaining Custom Generation
 
@@ -259,7 +258,7 @@ Disallowed remaining scope:
 
 - endpoint discovery
 - route naming inference for HTTP
-- per-type HTTP request/response compatibility hacks
+- per-type HTTP request/response translation hacks
 - recreating OpenAPI-generated surfaces inside `generatedTypes.ts`
 
 ## Phase 6: Minimize The Remaining Exception Surface
@@ -292,7 +291,7 @@ Rules:
   rather than claiming a win from moving explicit metadata into another package
 - any new explicit member enumeration must delete more handwritten exception
   logic than it adds in the same commit
-- do not do another scorched-earth rewrite of the whole package now that the
+- do not do another scorched-earth rewrite of the whole package when the
   architecture is mostly corrected
 - do not broaden the scope just to chase zero handwritten lines
 - stop when cleanup clearly plateaus: if three consecutive iterations cannot
@@ -306,7 +305,7 @@ Good deletions:
 - one-off type overrides that can be fixed by owner DTO shape or owner metadata
 - default/factory code that still duplicates downstream structure instead of
   consuming typed Go defaults
-- doc-builder-only OpenAPI scaffolding that can be replaced by shared
+- doc-builder-only OpenAPI scaffolding that can move to shared
   registration descriptors
 
 Bad deletions:
@@ -321,9 +320,9 @@ Update downstream frontend and Python code to the new generated surfaces.
 
 Rules:
 
-- do not preserve legacy generated names
+- do not preserve custom generated names
 - delete dead helpers immediately
-- prefer mechanical caller updates over compatibility layers
+- prefer mechanical caller updates over alias layers
 
 Python guidance:
 
@@ -348,7 +347,7 @@ For frontend generation work:
 
 For deletion work:
 
-- verify removed custom generator paths are no longer referenced
+- verify removed custom generator paths are unreferenced
 - do not replace them with equivalent metadata tables elsewhere
 - track the count of live frontend imports of `utils/generatedEndpoints` and
   keep driving it down
@@ -373,9 +372,9 @@ The plan is complete only when all of these are true:
 - HTTP operation metadata is explicit and backend-owned
 - `/api/openapi.json` is real
 - frontend HTTP generation comes from a standard OpenAPI tool
-- `internal/frontendbindings` no longer discovers or renders HTTP endpoints
+- HTTP endpoint discovery and rendering live outside `internal/frontendbindings`
 - frontend callers use the OpenAPI-generated HTTP client
-- no handwritten HTTP compatibility layer replaces the deleted generator
+- no handwritten HTTP alias layer replaces the deleted generator
 - the remaining `internal/frontendbindings` package is limited to non-HTTP
   frontend contract generation
 - the remaining explicit metadata/default surface is small, owner-backed, and

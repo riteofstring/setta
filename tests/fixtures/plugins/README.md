@@ -49,7 +49,8 @@ Each fixture should include:
 - minimal implementation required to exercise its feature
 - a short `README.md` describing purpose, capabilities, and expected behavior
 
-Each fixture is intentionally minimal but valid for `setta plugins validate` unless it is an explicit failure fixture used to test deterministic error paths.
+Each fixture is intentionally minimal but valid for `setta plugins validate`
+unless it is an explicit failure fixture for deterministic error paths.
 
 Build fixture frontend assets:
 

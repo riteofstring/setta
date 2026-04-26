@@ -56,7 +56,7 @@ The long-term ideal is:
 Before more cleanup work, set explicit boundaries:
 
 - `generatedRoutes.ts`, `generatedTypes.ts`, and `generatedEndpoints.ts` are the
-  compatibility surface
+  generated frontend API surface
 - `internal/frontendbindings/type_compiler.go` is not the primary rewrite target
 - no new support file should add mirror-owner structs just to make generation
   easier
@@ -116,7 +116,7 @@ Work domain by domain, not helper by helper.
 
 Recommended order:
 
-1. Route-level request and response contracts now trapped in
+1. Route-level request and response contracts defined in
    `internal/frontendbindings/specs.go`
 2. Project-state families in
    `internal/frontendbindings/project_state_support.go`
@@ -148,8 +148,8 @@ Success bar for this phase:
 
 - `project_state_support.go` and the domain support files become mostly aliases,
   wrapper redirects, or disappear entirely
-- adding a normal backend type no longer requires creating a local mirror struct
-  in `frontendbindings`
+- adding a normal backend type requires touching the backend owner package, not
+  creating a local mirror struct in `frontendbindings`
 
 ## Phase 3: Collapse Factories And Defaults To Generic Paths
 
@@ -230,7 +230,7 @@ What matters:
 
 - one source of truth
 - generator reads typed backend metadata
-- `frontendbindings` no longer inventories thousands of lines of endpoint specs
+- `frontendbindings` does not inventory thousands of lines of endpoint specs
 
 Success bar for this phase:
 
@@ -272,8 +272,8 @@ For each migration batch, verify:
 
 - the generated TypeScript shape for the touched surface still matches expected
   caller usage
-- the backend owner package now exports the canonical type
-- `frontendbindings` no longer contains the deleted mirror
+- the backend owner package exports the canonical type
+- the deleted mirror is absent from `frontendbindings`
 
 ## Order Of Attack
 

@@ -64,8 +64,8 @@ Suggested model (exact names can vary):
 - `zIndex`
 - `viewState` (per-instance replacement for current global view toggles such as threads panel)
 
-Important migration note:
-- Keep `activeChatId` read path temporarily for backward compatibility only during migration.
+Important transition note:
+- Keep `activeChatId` reads limited to the transition window.
 - New work should read/write per-instance state.
 
 ## 3) New Global Chat Overlay Host
@@ -219,7 +219,7 @@ Keep/restore ability to show chat in Overview pane:
 4. In pane fallback mode, should floating windows auto-close or stay available in parallel?
 
 ## Acceptance Criteria
-- Project chat is no longer primarily tied to the Overview pane.
+- Project chat has first-class surfaces outside the Overview pane.
 - A docked bottom-corner chat exists with minimize support.
 - Users can undock, drag, resize, snap, and fullscreen chat windows.
 - Multiple chat windows can be opened and used independently.

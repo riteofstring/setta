@@ -106,15 +106,15 @@ reparent both sections and params in the project UI.
 - `adapter/collision.ts` defines two detectors:
   - `customCollisionDetection` for moving free.
   - `customCollisionDetectionSorting` for sorting within a container.
-- Collisions carry extra metadata (`pastHalfway`, `triggerDistCondition`) used to
-  place the placeholder.
+- Collisions carry extra metadata (`pastHalfway`, `triggerDistCondition`) for
+  placeholder placement.
 - `adapter/collisionCompare.ts` promotes the best collision, preferring child
   collisions, and adds hysteresis to reduce flicker.
 - `SortableContext` caches rects and uses `sortingOverState` to stabilize over
   resolution during sort drags.
 - `useSortable` applies the configured sorting strategy and optional axis
   restrictions.
-- Collision orientation can now come from sortable item metadata
+- Collision orientation can come from sortable item metadata
   (`sortableOrientation: "horizontal" | "vertical"`), not only section
   orientation. This is used by list-style sortables outside the canvas section
   tree.
@@ -204,7 +204,7 @@ param lists.
   - overview view mode rows (`ViewingEditingMode`)
   - overview project-config rows (`ProjectConfigs`)
   - section variant rows (`VariantList`)
-- `useSortable` now exposes `setActivatorNodeRef`, so drag handles can be
+- `useSortable` exposes `setActivatorNodeRef`, so drag handles can be
   separated from click-to-open row interactions.
 - The list wrapper ignores tiny drags (4px threshold) so clicking a handle does
   not accidentally trigger a reorder.
