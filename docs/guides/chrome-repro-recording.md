@@ -22,11 +22,6 @@ flag:
 
 `CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement" ./scripts/record-chrome-repro.sh`
 
-When that flag is present, the recorder prefers an installed Chrome/Chromium
-before Playwright's bundled Chrome for Testing. This keeps CanvasFlow recordings
-on the same browser family as `./ai.sh` / `./aireset.sh`, because older bundled
-Playwright browsers can expose `drawElementImage` without `canvas.requestPaint`.
-
 Behavior:
 
 - starts Setta with the normal dev-state defaults
@@ -105,5 +100,4 @@ running local Setta instance, and `SETTA_CHROME_REPRO_BOOTSTRAP_URL=<url>` to
 skip bootstrap URL discovery. Use `SETTA_CHROME_REPRO_LOG_LEVEL=<level>` to override
 the default debug backend logging for the repro session. Use `CHROME_EXTRA_ARGS`
 for required Chromium feature flags such as
-`--enable-blink-features=CanvasDrawElement`. Use `CHROME_BIN=<path>` when you
-need to force a specific Chrome/Chromium binary.
+`--enable-blink-features=CanvasDrawElement`.

@@ -171,9 +171,6 @@ Environment:
 
 The recorder prefers Playwright's bundled Chrome for Testing when available,
 because recent branded Google Chrome builds can reject unpacked extensions.
-When CHROME_EXTRA_ARGS requests CanvasDrawElement, the recorder prefers an
-installed Chrome/Chromium first so HTML-in-Canvas APIs match the normal
-./ai.sh and ./aireset.sh browser path.
 EOF
 }
 
@@ -193,16 +190,20 @@ resolve_playwright_chrome_bin() {
   printf '%s\n' "${candidate}"
 }
 
-chrome_extra_args_request_canvas_draw_element() {
-  [[ "${CHROME_EXTRA_ARGS:-}" == *CanvasDrawElement* ]]
-}
+resolve_chrome_bin() {
+  if [[ -n "${CHROME_BIN:-}" ]]; then
+    printf '%s\n' "${CHROME_BIN}"
+    return 0
+  fi
 
-resolve_installed_chrome_bin() {
+  local playwright_chrome_bin=""
+  playwright_chrome_bin="$(resolve_playwright_chrome_bin || true)"
+  if [[ -n "${playwright_chrome_bin}" ]]; then
+    printf '%s\n' "${playwright_chrome_bin}"
+    return 0
+  fi
+
   if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-    if [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
-      printf '%s\n' "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-      return 0
-    fi
     if [[ -x "/Applications/Chromium.app/Contents/MacOS/Chromium" ]]; then
       printf '%s\n' "/Applications/Chromium.app/Contents/MacOS/Chromium"
       return 0
@@ -213,10 +214,6 @@ resolve_installed_chrome_bin() {
     fi
   fi
 
-  if command -v google-chrome >/dev/null 2>&1; then
-    command -v google-chrome
-    return 0
-  fi
   if command -v chromium >/dev/null 2>&1; then
     command -v chromium
     return 0
@@ -225,34 +222,12 @@ resolve_installed_chrome_bin() {
     command -v chromium-browser
     return 0
   fi
-  return 1
-}
-
-resolve_chrome_bin() {
-  if [[ -n "${CHROME_BIN:-}" ]]; then
-    printf '%s\n' "${CHROME_BIN}"
+  if command -v google-chrome >/dev/null 2>&1; then
+    command -v google-chrome
     return 0
   fi
-
-  local installed_chrome_bin=""
-  if chrome_extra_args_request_canvas_draw_element; then
-    installed_chrome_bin="$(resolve_installed_chrome_bin || true)"
-    if [[ -n "${installed_chrome_bin}" ]]; then
-      printf '%s\n' "${installed_chrome_bin}"
-      return 0
-    fi
-  fi
-
-  local playwright_chrome_bin=""
-  playwright_chrome_bin="$(resolve_playwright_chrome_bin || true)"
-  if [[ -n "${playwright_chrome_bin}" ]]; then
-    printf '%s\n' "${playwright_chrome_bin}"
-    return 0
-  fi
-
-  installed_chrome_bin="$(resolve_installed_chrome_bin || true)"
-  if [[ -n "${installed_chrome_bin}" ]]; then
-    printf '%s\n' "${installed_chrome_bin}"
+  if [[ "${OSTYPE:-}" == "darwin"* ]] && [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
+    printf '%s\n' "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     return 0
   fi
   return 1
@@ -618,20 +593,8 @@ fi
 log "Waiting for Setta bootstrap URL."
 bootstrap_url="$(wait_for_bootstrap_url 120)"
 
-chrome_bin="$(resolve_chrome_bin || true)"
-if [[ -z "${chrome_bin}" ]]; then
-  echo "Could not find Chrome/Chromium. Set CHROME_BIN to the binary path." >&2
-  exit 1
-fi
-
-chrome_log="${log_dir}/chrome.log"
-chrome_extra_args=()
-if [[ -n "${CHROME_EXTRA_ARGS:-}" ]]; then
-  read -r -a chrome_extra_args <<<"${CHROME_EXTRA_ARGS}"
-fi
-
 launcher_metadata_file="${artifact_dir}/launcher.json"
-"${PYTHON_BIN}" - "${launcher_metadata_file}" "${artifact_dir}" "${bootstrap_url}" "${log_dir}" "${profile_dir}" "${extension_dir}" "${SETTA_WORKSPACE_ROOT}" "${SETTA_HOME}" "${chrome_bin}" "${CHROME_EXTRA_ARGS:-}" <<'PY'
+"${PYTHON_BIN}" - "${launcher_metadata_file}" "${artifact_dir}" "${bootstrap_url}" "${log_dir}" "${profile_dir}" "${extension_dir}" "${SETTA_WORKSPACE_ROOT}" "${SETTA_HOME}" "${CHROME_EXTRA_ARGS:-}" <<'PY'
 import json
 import sys
 from datetime import UTC, datetime
@@ -647,22 +610,37 @@ payload = {
     "extensionDir": sys.argv[6],
     "workspaceRoot": sys.argv[7],
     "settaHome": sys.argv[8],
-    "chromeBin": sys.argv[9],
-    "chromeExtraArgs": sys.argv[10],
+    "chromeExtraArgs": sys.argv[9],
 }
 metadata_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 
+chrome_bin="$(resolve_chrome_bin || true)"
+if [[ -z "${chrome_bin}" ]]; then
+  echo "Could not find Chrome/Chromium. Set CHROME_BIN to the binary path." >&2
+  exit 1
+fi
+
+chrome_log="${log_dir}/chrome.log"
+chrome_launch_args=(
+  "--user-data-dir=${profile_dir}"
+  "--no-first-run"
+  "--no-default-browser-check"
+  "--disable-extensions-except=${extension_dir}"
+  "--load-extension=${extension_dir}"
+)
+if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+  chrome_launch_args+=("--use-mock-keychain")
+fi
+if [[ -n "${CHROME_EXTRA_ARGS:-}" ]]; then
+  chrome_extra_args=()
+  read -r -a chrome_extra_args <<<"${CHROME_EXTRA_ARGS}"
+  chrome_launch_args+=("${chrome_extra_args[@]}")
+fi
+chrome_launch_args+=("${bootstrap_url}")
+
 log "Launching dedicated Chrome recorder window with ${chrome_bin}."
-"${chrome_bin}" \
-  --user-data-dir="${profile_dir}" \
-  --no-first-run \
-  --no-default-browser-check \
-  --disable-extensions-except="${extension_dir}" \
-  --load-extension="${extension_dir}" \
-  "${chrome_extra_args[@]}" \
-  "${bootstrap_url}" \
-  >"${chrome_log}" 2>&1 &
+"${chrome_bin}" "${chrome_launch_args[@]}" >"${chrome_log}" 2>&1 &
 chrome_pid="$!"
 
 if ! wait_for_extension_registration "${profile_dir}" "${extension_dir}" 20 "${chrome_pid}"; then
