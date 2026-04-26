@@ -11,15 +11,6 @@ import (
 	"setta/internal/watchcode"
 )
 
-func (p *Project) applyWatchCodeScanPlan(
-	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
-	plan watchcode.ScanPlan,
-	resolver CallableSignatureResolver,
-) (bool, error) {
-	return p.applyWatchCodeScanPlanWithParsedSignatures(ctx, projectData, plan, resolver, nil)
-}
-
 func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
 	ctx context.Context,
 	projectData *WatchCodePluginProjectData,
