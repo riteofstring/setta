@@ -26,6 +26,7 @@ export type GpuNodeInteractionDirtyController = {
 };
 
 type GpuNodeInteractionDirtyControllerOptions = {
+  readonly deferPassiveDirty?: (() => boolean) | undefined;
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly getFrame: () => number;
   readonly onStateChange?:
@@ -73,6 +74,7 @@ const INTERACTIVE_TARGET_SELECTOR = [
 ].join(",");
 
 export function createGpuNodeInteractionDirtyController({
+  deferPassiveDirty,
   elementByNodeId,
   getFrame,
   onStateChange,
@@ -120,12 +122,15 @@ export function createGpuNodeInteractionDirtyController({
       return false;
     }
 
+    const deferRequestPaint =
+      priority !== "interactive" && Boolean(deferPassiveDirty?.());
     manager.markNodeTextureDirty({
       content: true,
       frame: getFrame(),
       nodeId,
       priority,
       reason,
+      ...(deferRequestPaint ? { requestPaint: false } : {}),
     });
     requestFrame("texture-upload");
     return true;

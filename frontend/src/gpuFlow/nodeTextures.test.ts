@@ -115,6 +115,136 @@ describe("NodeTextureManager", () => {
     );
   });
 
+  it("defers zoom resolution upgrades while viewport interaction is active", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new NodeTextureManager(gpu.device);
+    const element = document.createElement("div");
+
+    const record = manager.registerNodeTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      nodeId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtyNodeTextures({ frame: 1 });
+
+    manager.registerNodeTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      deferResolution: true,
+      devicePixelRatio: 2,
+      element,
+      frame: 2,
+      nodeId: "node-a",
+      zoom: 1.4,
+    });
+
+    expect(manager.getDirtyNodes()).toEqual([]);
+    expect(record.pixelWidth).toBe(200);
+    expect(gpu.createTexture).toHaveBeenCalledTimes(1);
+
+    manager.registerNodeTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      frame: 3,
+      nodeId: "node-a",
+      zoom: 1.4,
+    });
+    expect(manager.getDirtyNodes()).toMatchObject([
+      {
+        dirtyContent: false,
+        dirtyResolution: true,
+        nodeId: "node-a",
+      },
+    ]);
+
+    manager.uploadDirtyNodeTextures({ frame: 4 });
+    expect(record).toMatchObject({
+      lastUploadFrame: 4,
+      pixelHeight: 150,
+      pixelWidth: 300,
+      resolutionScale: 3,
+    });
+  });
+
+  it("keeps queued resolution-only uploads out of active viewport frames", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new NodeTextureManager(gpu.device);
+    const element = document.createElement("div");
+
+    manager.registerNodeTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      nodeId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtyNodeTextures({ frame: 1 });
+    manager.registerNodeTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      frame: 2,
+      nodeId: "node-a",
+      zoom: 1.4,
+    });
+
+    const deferred = manager.uploadDirtyNodeTextures({
+      deferResolutionOnly: true,
+      frame: 3,
+    });
+
+    expect(deferred).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: ["node-a"],
+      uploaded: [],
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+
+    const uploaded = manager.uploadDirtyNodeTextures({ frame: 4 });
+    expect(uploaded.uploaded.map((node) => node.nodeId)).toEqual(["node-a"]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
+  });
+
+  it("defers existing passive content uploads during active viewport frames", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new NodeTextureManager(gpu.device);
+
+    registerNode(manager, "node-a", "visible");
+    manager.uploadDirtyNodeTextures({ frame: 1 });
+    manager.markNodeTextureDirty({
+      content: true,
+      frame: 2,
+      nodeId: "node-a",
+      reason: "paint",
+    });
+
+    const deferred = manager.uploadDirtyNodeTextures({
+      deferPassiveUploads: true,
+      frame: 3,
+    });
+
+    expect(deferred).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: ["node-a"],
+      uploaded: [],
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+
+    const uploaded = manager.uploadDirtyNodeTextures({ frame: 4 });
+    expect(uploaded.uploaded.map((node) => node.nodeId)).toEqual(["node-a"]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
+  });
+
   it("uploads dirty nodes by interactive priority within the upload budget", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

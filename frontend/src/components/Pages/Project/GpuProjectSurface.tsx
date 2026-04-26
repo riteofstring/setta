@@ -127,6 +127,11 @@ const PROJECT_SURFACE_STYLE: CSSProperties = {
   width: "100%",
 };
 
+const PROJECT_GPU_NODE_UPLOAD_BUDGET = {
+  maxDurationMs: 4,
+  maxUploads: 2,
+} as const;
+
 const SELECTION_ARROW_KEY_DIFFS: Record<string, { x: number; y: number }> = {
   ArrowDown: { x: 0, y: 1 },
   ArrowLeft: { x: -1, y: 0 },
@@ -277,6 +282,7 @@ function ProjectGpuFlowLayer({
         mode: settings.selectionMode,
         onSelectionChange: handleProjectSelectionChange,
       }}
+      uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
     >
       <div
         className="setta-codemirror-tooltips"

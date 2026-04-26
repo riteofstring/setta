@@ -39,6 +39,7 @@ export type NodeTextureRecord = {
 type RegisterNodeTextureInput = {
   readonly cssHeight: number;
   readonly cssWidth: number;
+  readonly deferResolution?: boolean | undefined;
   readonly devicePixelRatio: number;
   readonly element: Element;
   readonly frame?: number | undefined;
@@ -56,10 +57,21 @@ type MarkNodeTextureDirtyInput = Pick<
 };
 
 export type UploadDirtyNodeTexturesOptions = {
+  readonly deferPassiveUploads?: boolean | undefined;
+  readonly deferResolutionOnly?: boolean | undefined;
   readonly frame: number;
   readonly maxDurationMs?: number | undefined;
   readonly maxUploads?: number | undefined;
   readonly now?: (() => number) | undefined;
+};
+
+type ResolvedUploadDirtyNodeTexturesOptions = {
+  readonly deferPassiveUploads: boolean;
+  readonly deferResolutionOnly: boolean;
+  readonly frame: number;
+  readonly maxDurationMs: number;
+  readonly maxUploads: number;
+  readonly now: () => number;
 };
 
 type UploadDirtyNodeTexturesResult = {
@@ -213,7 +225,7 @@ export class NodeTextureManager {
       resolutionSnapshot(existing),
       resolution,
     );
-    if (resolutionChanged) {
+    if (resolutionChanged && !input.deferResolution) {
       existing.pendingResolution = resolution;
       existing.dirtyResolution = true;
       this.markNodeTextureDirty({
@@ -246,45 +258,109 @@ export class NodeTextureManager {
   }
 
   uploadDirtyNodeTextures({
+    deferPassiveUploads = false,
+    deferResolutionOnly = false,
     frame,
     maxDurationMs = Number.POSITIVE_INFINITY,
     maxUploads = Number.POSITIVE_INFINITY,
     now = getNow,
   }: UploadDirtyNodeTexturesOptions): UploadDirtyNodeTexturesResult {
-    const startedAt = now();
-    const uploaded: NodeTextureRecord[] = [];
-    const skippedNodeIds: string[] = [];
-
-    for (const dirtyNode of this.dirtyQueue.orderedDirtyNodes()) {
-      if (uploaded.length >= maxUploads) {
-        break;
-      }
-      if (uploaded.length > 0 && now() - startedAt >= maxDurationMs) {
-        break;
-      }
-
-      const record = this.records.get(dirtyNode.nodeId);
-      if (!record) {
-        skippedNodeIds.push(dirtyNode.nodeId);
-        this.dirtyQueue.clear(dirtyNode.nodeId);
-        continue;
-      }
-
-      this.uploadRecord(record, frame);
-      this.dirtyQueue.clear(record.nodeId);
-      uploaded.push(record);
-    }
-
-    const remainingDirtyNodeIds = this.dirtyQueue
-      .orderedDirtyNodes()
-      .map((node) => node.nodeId);
+    const uploadOptions = {
+      deferPassiveUploads,
+      deferResolutionOnly,
+      frame,
+      maxDurationMs,
+      maxUploads,
+      now,
+    };
+    const { skippedNodeIds, uploaded } =
+      this.uploadQueuedDirtyNodeTextures(uploadOptions);
+    const remainingDirtyNodes = this.dirtyQueue.orderedDirtyNodes();
+    const uploadableRemainingDirtyNodes = this.uploadableDirtyNodes(
+      remainingDirtyNodes,
+      uploadOptions,
+    );
+    const remainingDirtyNodeIds = remainingDirtyNodes.map(
+      (node) => node.nodeId,
+    );
 
     return {
-      budgetExhausted: remainingDirtyNodeIds.length > 0,
+      budgetExhausted: uploadableRemainingDirtyNodes.length > 0,
       remainingDirtyNodeIds,
       skippedNodeIds,
       uploaded,
     };
+  }
+
+  private uploadQueuedDirtyNodeTextures(
+    options: ResolvedUploadDirtyNodeTexturesOptions,
+  ): {
+    readonly skippedNodeIds: string[];
+    readonly uploaded: NodeTextureRecord[];
+  } {
+    const startedAt = options.now();
+    const uploaded: NodeTextureRecord[] = [];
+    const skippedNodeIds: string[] = [];
+
+    for (const dirtyNode of this.dirtyQueue.orderedDirtyNodes()) {
+      if (shouldStopUploadLoop({ options, startedAt, uploaded })) {
+        break;
+      }
+      const outcome = this.uploadDirtyNodeIfAllowed(dirtyNode, options);
+      if (outcome === "deferred") {
+        continue;
+      }
+      if (outcome === "missing") {
+        skippedNodeIds.push(dirtyNode.nodeId);
+        continue;
+      }
+      uploaded.push(outcome);
+    }
+
+    return { skippedNodeIds, uploaded };
+  }
+
+  private uploadDirtyNodeIfAllowed(
+    dirtyNode: DirtyNodeState,
+    options: ResolvedUploadDirtyNodeTexturesOptions,
+  ): NodeTextureRecord | "deferred" | "missing" {
+    const record = this.records.get(dirtyNode.nodeId);
+    if (!record) {
+      this.dirtyQueue.clear(dirtyNode.nodeId);
+      return "missing";
+    }
+    if (this.shouldDeferDirtyNodeUpload(dirtyNode, record, options)) {
+      return "deferred";
+    }
+
+    this.uploadRecord(record, options.frame);
+    this.dirtyQueue.clear(record.nodeId);
+    return record;
+  }
+
+  private uploadableDirtyNodes(
+    dirtyNodes: readonly DirtyNodeState[],
+    options: ResolvedUploadDirtyNodeTexturesOptions,
+  ): readonly DirtyNodeState[] {
+    if (!options.deferPassiveUploads && !options.deferResolutionOnly) {
+      return dirtyNodes;
+    }
+    return dirtyNodes.filter((node) => {
+      const record = this.records.get(node.nodeId);
+      return !this.shouldDeferDirtyNodeUpload(node, record, options);
+    });
+  }
+
+  private shouldDeferDirtyNodeUpload(
+    dirtyNode: DirtyNodeState,
+    record: NodeTextureRecord | undefined,
+    options: ResolvedUploadDirtyNodeTexturesOptions,
+  ): boolean {
+    return shouldDeferDirtyNodeUpload(dirtyNode, record, {
+      deferPassiveUploads: options.deferPassiveUploads,
+      deferResolutionOnly:
+        options.deferResolutionOnly && isResolutionOnlyDirtyNode(dirtyNode),
+    });
   }
 
   private createTextureResources(
@@ -384,6 +460,26 @@ function getNow(): number {
   return globalThis.performance.now();
 }
 
+function shouldStopUploadLoop({
+  options,
+  startedAt,
+  uploaded,
+}: {
+  readonly options: Pick<
+    ResolvedUploadDirtyNodeTexturesOptions,
+    "maxDurationMs" | "maxUploads" | "now"
+  >;
+  readonly startedAt: number;
+  readonly uploaded: readonly NodeTextureRecord[];
+}): boolean {
+  if (uploaded.length >= options.maxUploads) {
+    return true;
+  }
+  return (
+    uploaded.length > 0 && options.now() - startedAt >= options.maxDurationMs
+  );
+}
+
 function resolutionSnapshot(
   record: NodeTextureEntry,
 ): TextureResolutionSnapshot {
@@ -402,4 +498,33 @@ function resolveDirtyFlags(
     content: input.content ?? (input.resolution === undefined ? true : false),
     resolution: input.resolution ?? false,
   };
+}
+
+function isResolutionOnlyDirtyNode(
+  dirtyNode: Pick<DirtyNodeState, "dirtyContent" | "dirtyResolution">,
+): boolean {
+  return dirtyNode.dirtyResolution && !dirtyNode.dirtyContent;
+}
+
+function shouldDeferDirtyNodeUpload(
+  dirtyNode: Pick<
+    DirtyNodeState,
+    "dirtyContent" | "dirtyResolution" | "priority"
+  >,
+  record: Pick<NodeTextureRecord, "lastUploadFrame"> | undefined,
+  {
+    deferPassiveUploads,
+    deferResolutionOnly,
+  }: {
+    readonly deferPassiveUploads: boolean;
+    readonly deferResolutionOnly: boolean;
+  },
+): boolean {
+  if (!record || record.lastUploadFrame < 0) {
+    return false;
+  }
+  if (dirtyNode.priority === "interactive") {
+    return false;
+  }
+  return deferPassiveUploads || deferResolutionOnly;
 }

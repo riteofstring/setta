@@ -105,6 +105,7 @@ type RenderGpuNodeLayerFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
+  readonly deferResolutionUpdates?: boolean | undefined;
   readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly forceVisibleNodeIds?:
@@ -146,6 +147,9 @@ type MarkGpuNodeLayerPaintDirtyInput = {
 
 const DEFAULT_OFFSCREEN_POSITION = -100_000;
 const DEFAULT_NODE_CLASS_NAME = "setta-gpu-flow__node react-flow__node";
+const GPU_FLOW_NODE_INTERACTIVE_CLASS = "setta-gpu-flow__node--interactive";
+const GPU_FLOW_NODE_OVERLAY_ACTIVE_CLASS =
+  "setta-gpu-flow__node--overlay-active";
 
 export function GpuNodeLayer({
   className = DEFAULT_NODE_CLASS_NAME,
@@ -213,6 +217,7 @@ export function renderGpuNodeLayerFrame({
   activeNodeId,
   canvasSize,
   clearColor,
+  deferResolutionUpdates,
   edges,
   elementByNodeId,
   forceVisibleNodeIds,
@@ -251,28 +256,21 @@ export function renderGpuNodeLayerFrame({
     viewport,
   });
 
-  const missingElementNodeIds: string[] = [];
-  for (const quad of visibleQuads) {
-    const element = elementByNodeId.get(quad.nodeId);
-    if (!element) {
-      missingElementNodeIds.push(quad.nodeId);
-      continue;
-    }
-    textureManager.registerNodeTexture({
-      cssHeight: quad.height,
-      cssWidth: quad.width,
-      devicePixelRatio: canvasSize.devicePixelRatio,
-      element,
-      frame,
-      nodeId: quad.nodeId,
-      priority: resolveVisibleNodeTexturePriority(quad.nodeId, activeNodeIds),
-      zoom: normalizeGpuViewport(viewport).zoom,
-    });
-  }
-
-  const uploadResult = textureManager.uploadDirtyNodeTextures({
+  const missingElementNodeIds = registerVisibleGpuNodeTextures({
+    activeNodeIds,
+    deferResolutionUpdates,
+    devicePixelRatio: canvasSize.devicePixelRatio,
+    elementByNodeId,
     frame,
-    ...uploadBudget,
+    quads: visibleQuads,
+    textureManager,
+    viewport,
+  });
+  const uploadResult = uploadGpuNodeTextures({
+    deferResolutionUpdates,
+    frame,
+    textureManager,
+    uploadBudget,
   });
   const textureResult = buildTexturedGpuNodeQuads(visibleQuads, textureManager);
   const uploadedTexturedQuads = textureResult.texturedQuads.filter(
@@ -301,6 +299,68 @@ export function renderGpuNodeLayerFrame({
     uploadedNodeIds: uploadResult.uploaded.map((record) => record.nodeId),
     visibleNodeIds: [...visibleNodeIds],
   };
+}
+
+function registerVisibleGpuNodeTextures({
+  activeNodeIds,
+  deferResolutionUpdates,
+  devicePixelRatio,
+  elementByNodeId,
+  frame,
+  quads,
+  textureManager,
+  viewport,
+}: {
+  readonly activeNodeIds: ReadonlySet<string>;
+  readonly deferResolutionUpdates: boolean | undefined;
+  readonly devicePixelRatio: number;
+  readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
+  readonly frame: number;
+  readonly quads: readonly GpuVisibleNodeQuad[];
+  readonly textureManager: GpuNodeTextureController;
+  readonly viewport: GpuViewportInput;
+}): string[] {
+  const missingElementNodeIds: string[] = [];
+  const zoom = normalizeGpuViewport(viewport).zoom;
+  for (const quad of quads) {
+    const element = elementByNodeId.get(quad.nodeId);
+    if (!element) {
+      missingElementNodeIds.push(quad.nodeId);
+      continue;
+    }
+    textureManager.registerNodeTexture({
+      cssHeight: quad.height,
+      cssWidth: quad.width,
+      ...(deferResolutionUpdates && !activeNodeIds.has(quad.nodeId)
+        ? { deferResolution: true }
+        : {}),
+      devicePixelRatio,
+      element,
+      frame,
+      nodeId: quad.nodeId,
+      priority: resolveVisibleNodeTexturePriority(quad.nodeId, activeNodeIds),
+      zoom,
+    });
+  }
+  return missingElementNodeIds;
+}
+
+function uploadGpuNodeTextures({
+  deferResolutionUpdates,
+  frame,
+  textureManager,
+  uploadBudget,
+}: {
+  readonly deferResolutionUpdates: boolean | undefined;
+  readonly frame: number;
+  readonly textureManager: GpuNodeTextureController;
+  readonly uploadBudget: GpuNodeUploadBudget | undefined;
+}) {
+  return textureManager.uploadDirtyNodeTextures({
+    frame,
+    ...(deferResolutionUpdates ? { deferPassiveUploads: true } : {}),
+    ...uploadBudget,
+  });
 }
 
 export function markGpuNodeLayerPaintDirty({
@@ -460,20 +520,28 @@ function applyVisibleNodeDomTransform(
     readonly zoom: number;
   },
 ) {
-  element.style.position = "absolute";
-  element.style.left = "0px";
-  element.style.top = "0px";
-  element.style.transformOrigin = "0 0";
-  element.style.transform = `translate(${screenX}px, ${screenY}px) scale(${zoom})`;
-  element.style.pointerEvents = "all";
-  element.dataset.gpuFlowInteractive = interactive ? "true" : "false";
-  element.dataset.gpuFlowOverlay = overlayActive ? "active" : "none";
-  element.classList.toggle(
-    "setta-gpu-flow__node--interactive",
+  setGpuNodeBaseStyle(element);
+  setStyleValue(
+    element,
+    "transform",
+    `translate(${screenX}px, ${screenY}px) scale(${zoom})`,
+  );
+  setStyleValue(element, "pointerEvents", "all");
+  setDatasetValue(element, "gpuFlowVisible", "true");
+  setDatasetValue(
+    element,
+    "gpuFlowInteractive",
+    interactive ? "true" : "false",
+  );
+  setDatasetValue(element, "gpuFlowOverlay", overlayActive ? "active" : "none");
+  setClassPresence(
+    element,
+    GPU_FLOW_NODE_INTERACTIVE_CLASS,
     Boolean(interactive),
   );
-  element.classList.toggle(
-    "setta-gpu-flow__node--overlay-active",
+  setClassPresence(
+    element,
+    GPU_FLOW_NODE_OVERLAY_ACTIVE_CLASS,
     Boolean(overlayActive),
   );
 }
@@ -483,18 +551,63 @@ function applyCulledNodeDomTransform(
   offscreenX = DEFAULT_OFFSCREEN_POSITION,
   offscreenY = DEFAULT_OFFSCREEN_POSITION,
 ) {
-  element.style.position = "absolute";
-  element.style.left = "0px";
-  element.style.top = "0px";
-  element.style.transformOrigin = "0 0";
-  element.style.transform = `translate(${offscreenX}px, ${offscreenY}px) scale(1)`;
-  element.style.pointerEvents = "none";
-  element.dataset.gpuFlowInteractive = "false";
-  element.dataset.gpuFlowOverlay = "none";
-  element.classList.remove(
-    "setta-gpu-flow__node--interactive",
-    "setta-gpu-flow__node--overlay-active",
+  setGpuNodeBaseStyle(element);
+  setStyleValue(
+    element,
+    "transform",
+    `translate(${offscreenX}px, ${offscreenY}px) scale(1)`,
   );
+  setStyleValue(element, "pointerEvents", "none");
+  setDatasetValue(element, "gpuFlowVisible", "false");
+  setDatasetValue(element, "gpuFlowInteractive", "false");
+  setDatasetValue(element, "gpuFlowOverlay", "none");
+  setClassPresence(element, GPU_FLOW_NODE_INTERACTIVE_CLASS, false);
+  setClassPresence(element, GPU_FLOW_NODE_OVERLAY_ACTIVE_CLASS, false);
+}
+
+type GpuNodeStyleKey =
+  | "left"
+  | "pointerEvents"
+  | "position"
+  | "top"
+  | "transform"
+  | "transformOrigin";
+
+function setGpuNodeBaseStyle(element: HTMLElement) {
+  setStyleValue(element, "position", "absolute");
+  setStyleValue(element, "left", "0px");
+  setStyleValue(element, "top", "0px");
+  setStyleValue(element, "transformOrigin", "0 0");
+}
+
+function setStyleValue(
+  element: HTMLElement,
+  property: GpuNodeStyleKey,
+  value: string,
+) {
+  if (element.style[property] !== value) {
+    element.style[property] = value;
+  }
+}
+
+function setDatasetValue(
+  element: HTMLElement,
+  property: string,
+  value: string,
+) {
+  if (element.dataset[property] !== value) {
+    element.dataset[property] = value;
+  }
+}
+
+function setClassPresence(
+  element: HTMLElement,
+  className: string,
+  enabled: boolean,
+) {
+  if (element.classList.contains(className) !== enabled) {
+    element.classList.toggle(className, enabled);
+  }
 }
 
 function mergeNodeIdSets(

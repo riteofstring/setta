@@ -414,6 +414,8 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       const nodeInteraction = createGpuNodeInteractionDirtyController({
+        deferPassiveDirty: () =>
+          viewportStore.getState().viewportInteractionActive,
         elementByNodeId: () => nodeElementByIdRef.current,
         getFrame: () => nextFrame(frameRef),
         onStateChange: (state) => {
@@ -434,7 +436,7 @@ export function GpuFlow({
       );
       callbacksRef.current.onReady?.(runtime);
     },
-    [],
+    [viewportStore],
   );
 
   const handleResize = useCallback<NonNullable<GpuSurfaceProps["onResize"]>>(
@@ -470,6 +472,9 @@ export function GpuFlow({
       renderGpuFlowNodeLayerFrame({
         callbacksRef,
         canvasSizeRef,
+        deferResolutionUpdates:
+          event.reasons.includes("viewport") ||
+          viewportStore.getState().viewportInteractionActive,
         frameRef,
         nodeElementByIdRef,
         nodeInteractionRef,
@@ -483,7 +488,7 @@ export function GpuFlow({
       });
       callbacksRef.current.onFrame?.(runtime, event);
     },
-    [],
+    [viewportStore],
   );
   const nodeLayerElement = renderGpuFlowNodeLayerElement({
     nodeClassName,
@@ -624,6 +629,7 @@ function renderGpuFlowNodeLayerElement({
 function renderGpuFlowNodeLayerFrame({
   callbacksRef,
   canvasSizeRef,
+  deferResolutionUpdates,
   frameRef,
   nodeElementByIdRef,
   nodeInteractionRef,
@@ -637,6 +643,7 @@ function renderGpuFlowNodeLayerFrame({
 }: {
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
+  readonly deferResolutionUpdates: boolean;
   readonly frameRef: MutableRefObject<number>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
@@ -671,6 +678,7 @@ function renderGpuFlowNodeLayerFrame({
   const layerResult = renderGpuNodeLayerFrame({
     activeNodeId: nodeInteraction?.getActiveNodeId(),
     canvasSize,
+    deferResolutionUpdates,
     edges: layer.edges,
     elementByNodeId: nodeElementByIdRef.current,
     forceVisibleNodeIds: layer.forceVisibleNodeIds,

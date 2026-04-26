@@ -436,6 +436,7 @@ class GpuPanZoomController {
       this.store
         .getState()
         .setViewportInteractionFlags({ wheelZooming: false });
+      this.requestTextureUploadFrame();
       this.wheelZoomTimeout = null;
     }, 180);
   }
@@ -451,6 +452,7 @@ class GpuPanZoomController {
       this.store
         .getState()
         .setViewportInteractionFlags({ panScrolling: false });
+      this.requestTextureUploadFrame();
       this.panScrollTimeout = null;
     }, 150);
   }
@@ -461,6 +463,7 @@ class GpuPanZoomController {
       paneDragging: false,
       pointerPanning: false,
     });
+    this.requestTextureUploadFrame();
   }
 
   private clearWheelZoomTimeout() {
@@ -479,6 +482,10 @@ class GpuPanZoomController {
 
   private requestViewportFrame() {
     this.options.requestFrame?.("viewport");
+  }
+
+  private requestTextureUploadFrame() {
+    this.options.requestFrame?.("texture-upload");
   }
 }
 

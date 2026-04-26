@@ -179,6 +179,40 @@ describe("GpuNodeLayer helpers", () => {
     expect(culled.style.pointerEvents).toBe("none");
   });
 
+  it("defers non-active resolution upgrades during viewport interactions", () => {
+    const visible = document.createElement("div");
+    const elements = new Map([["visible", visible]]);
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      deferResolutionUpdates: true,
+      elementByNodeId: elements,
+      frame: 1,
+      nodes: [node("visible", 10, 20, 100, 50, 0)],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1.5],
+    });
+
+    expect(manager.registerNodeTexture).toHaveBeenCalledWith({
+      cssHeight: 50,
+      cssWidth: 100,
+      deferResolution: true,
+      devicePixelRatio: 2,
+      element: visible,
+      frame: 1,
+      nodeId: "visible",
+      priority: "visible",
+      zoom: 1.5,
+    });
+    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({
+      deferPassiveUploads: true,
+      frame: 1,
+    });
+  });
+
   it("redraws viewport-only movement from cached textures without another element upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

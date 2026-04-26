@@ -109,6 +109,7 @@ describe("GPU pan/zoom controller", () => {
 
     vi.advanceTimersByTime(180);
     expect(store.getState().wheelZooming).toBe(false);
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
   });
 
@@ -118,11 +119,12 @@ describe("GPU pan/zoom controller", () => {
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 1],
     });
+    const requestFrame = vi.fn();
     const detach = attachGpuPanZoomController({
       element,
       isMacOS: false,
       panOnScroll: true,
-      requestFrame: vi.fn(),
+      requestFrame,
       store,
       zoomOnScroll: false,
     });
@@ -140,6 +142,7 @@ describe("GPU pan/zoom controller", () => {
     expect(store.getState().panScrolling).toBe(true);
     vi.advanceTimersByTime(150);
     expect(store.getState().panScrolling).toBe(false);
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     detach();
   });
 

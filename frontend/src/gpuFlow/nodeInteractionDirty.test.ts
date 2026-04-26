@@ -94,6 +94,36 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
+  it("marks passive interaction dirty without requesting paint while viewport movement is active", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const scroller = document.createElement("div");
+    nodeElement.append(scroller);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const controller = createGpuNodeInteractionDirtyController({
+      deferPassiveDirty: () => true,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 10,
+      requestFrame: vi.fn(),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
+
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 10,
+      nodeId: "node-a",
+      priority: "visible",
+      reason: "scroll",
+      requestPaint: false,
+    });
+
+    detach();
+  });
+
   it("keeps an interactive node overlay-active until its upload catches up", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
