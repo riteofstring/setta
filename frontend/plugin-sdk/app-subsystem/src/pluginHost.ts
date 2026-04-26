@@ -107,21 +107,40 @@ function isFunction(value: unknown): value is (...args: unknown[]) => unknown {
   return typeof value === "function";
 }
 
+const SETTA_PLUGIN_HOST_REQUIRED_FUNCTION_KEYS = [
+  "registerCanvasControl",
+  "registerSettingRevealHandler",
+  "getProjectContext",
+  "subscribeProjectContext",
+  "readProjectState",
+  "subscribeProjectState",
+  "fetchBackendRoute",
+] as const;
+
+function hasRequiredFunctions(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  return keys.every((key) => isFunction(value[key]));
+}
+
+function hasSettaPluginHostMetadata(
+  value: Record<string, unknown>,
+): boolean {
+  return (
+    value.apiVersion === SETTA_PLUGIN_FRONTEND_HOST_API_VERSION &&
+    typeof value.pluginId === "string" &&
+    typeof value.serverMode === "string" &&
+    Array.isArray(value.effectiveCapabilities)
+  );
+}
+
 export function isSettaPluginHost(value: unknown): value is SettaPluginHost {
   if (!isRecord(value)) {
     return false;
   }
   return (
-    value.apiVersion === SETTA_PLUGIN_FRONTEND_HOST_API_VERSION &&
-    typeof value.pluginId === "string" &&
-    typeof value.serverMode === "string" &&
-    Array.isArray(value.effectiveCapabilities) &&
-    isFunction(value.registerCanvasControl) &&
-    isFunction(value.registerSettingRevealHandler) &&
-    isFunction(value.getProjectContext) &&
-    isFunction(value.subscribeProjectContext) &&
-    isFunction(value.readProjectState) &&
-    isFunction(value.subscribeProjectState) &&
-    isFunction(value.fetchBackendRoute)
+    hasSettaPluginHostMetadata(value) &&
+    hasRequiredFunctions(value, SETTA_PLUGIN_HOST_REQUIRED_FUNCTION_KEYS)
   );
 }

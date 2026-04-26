@@ -359,21 +359,58 @@ function isSlashCommandRegistration(
   if (!Array.isArray(value)) {
     return false;
   }
-  return value.every(
-    (entry) =>
-      isRecord(entry) &&
-      typeof entry.command === "string" &&
-      typeof entry.action === "string" &&
-      typeof entry.summary === "string" &&
-      (entry.requiresImageAttachment === undefined ||
-        typeof entry.requiresImageAttachment === "boolean") &&
-      (entry.promptTemplate === undefined ||
-        typeof entry.promptTemplate === "string") &&
-      (entry.appGenerationMode === undefined ||
-        entry.appGenerationMode === null ||
-        typeof entry.appGenerationMode === "string") &&
-      (entry.unavailableFeedback === undefined ||
-        typeof entry.unavailableFeedback === "string"),
+  return value.every(isSlashCommandDefinition);
+}
+
+const SLASH_COMMAND_REQUIRED_STRING_KEYS = [
+  "command",
+  "action",
+  "summary",
+] as const;
+
+function hasRequiredStringFields(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): boolean {
+  return keys.every((key) => typeof value[key] === "string");
+}
+
+function hasOptionalBooleanField(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  const entry = value[key];
+  return entry === undefined || typeof entry === "boolean";
+}
+
+function hasOptionalStringField(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  const entry = value[key];
+  return entry === undefined || typeof entry === "string";
+}
+
+function hasOptionalNullableStringField(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  const entry = value[key];
+  return entry === undefined || entry === null || typeof entry === "string";
+}
+
+function isSlashCommandDefinition(
+  value: unknown,
+): value is AppSubsystemChatSlashCommandDefinition {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    hasRequiredStringFields(value, SLASH_COMMAND_REQUIRED_STRING_KEYS) &&
+    hasOptionalBooleanField(value, "requiresImageAttachment") &&
+    hasOptionalStringField(value, "promptTemplate") &&
+    hasOptionalNullableStringField(value, "appGenerationMode") &&
+    hasOptionalStringField(value, "unavailableFeedback")
   );
 }
 
