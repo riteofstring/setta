@@ -136,6 +136,7 @@ async function loadSpreadsheetDraft(
       path: {
         contentId: response.data.contentId,
       },
+      parseAs: "blob",
     } as Parameters<typeof downloadBinary>[0]),
   )) as BinaryDownloadRouteResponse;
   if (!res200(binaryResponse) || !binaryResponse.data) {

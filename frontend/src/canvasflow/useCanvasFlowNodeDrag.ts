@@ -1,3 +1,4 @@
+import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { NodeDragItem } from "forks/xyflow/core/types";
 import type {
@@ -170,9 +171,7 @@ export function useCanvasFlowNodeDrag({
 
       if (gesture.shiftsSelection) {
         (
-          useReactFlow.getState() as ReturnType<
-            typeof useReactFlow.getState
-          > &
+          useReactFlow.getState() as ReturnType<typeof useReactFlow.getState> &
             CanvasFlowSelectionActions
         ).setNodesSelection(getActiveSectionUIIds().length, true);
       }
@@ -190,11 +189,16 @@ export function useCanvasFlowNodeDrag({
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
-      if (disabled || event.button !== 0 || !(event.target instanceof Element)) {
+      const target = getCanvasFlowNodeDragTarget({
+        disabled,
+        event,
+        nodeId,
+      });
+      if (!target) {
         return;
       }
       const currentNode = nodeRef.current;
-      if (!currentNode || event.target.closest(`.${NO_DRAG_CLASS_NAME}`)) {
+      if (!currentNode) {
         return;
       }
       const pointer = getPointerWorld(event);
@@ -281,6 +285,47 @@ export function useCanvasFlowNodeDrag({
     onPointerMove,
     onPointerUp,
   };
+}
+
+function getCanvasFlowNodeDragTarget({
+  disabled,
+  event,
+  nodeId,
+}: {
+  disabled: boolean;
+  event: ReactPointerEvent<HTMLElement>;
+  nodeId: string | undefined;
+}) {
+  if (disabled || event.button !== 0 || !(event.target instanceof Element)) {
+    return null;
+  }
+  if (event.target.closest(`.${NO_DRAG_CLASS_NAME}`)) {
+    return null;
+  }
+  if (isSectionDndActive()) {
+    return null;
+  }
+  if (isNestedSectionTarget(event.target, nodeId)) {
+    return null;
+  }
+  return event.target;
+}
+
+function isSectionDndActive() {
+  const { isMovingFree, isSorting } = useDndState.getState();
+  return isMovingFree || isSorting;
+}
+
+function isNestedSectionTarget(target: Element, nodeId: string | undefined) {
+  if (nodeId === undefined) {
+    return false;
+  }
+  const section = target.closest("section[data-section-id]");
+  return (
+    section instanceof HTMLElement &&
+    section.dataset.sectionId !== undefined &&
+    section.dataset.sectionId !== nodeId
+  );
 }
 
 function hasPassedDragThreshold(

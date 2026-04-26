@@ -158,6 +158,9 @@ test("CanvasFlow keeps embedded node surfaces interactive through zoom", async (
       spreadsheetNode.getByTestId("spreadsheet-add-row"),
     ).toBeVisible();
     await expect(spreadsheetNode.getByTestId("spreadsheet-save")).toBeVisible();
+    await expect
+      .poll(async () => spreadsheetNode.evaluate((node) => node.textContent))
+      .toContain("3 rows · 2 columns");
     await expect(
       browserNode
         .locator('[role="region"][aria-label="File explorer"]')

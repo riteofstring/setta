@@ -242,12 +242,14 @@ function CanvasFlow() {
       domNode: root,
     });
     return () => {
-      useReactFlow.setState({
-        domNode: null,
-        paneDragging: false,
-        viewportInteractionActive: false,
-      });
-      useMisc.setState({ isPanScrolling: false });
+      if (useReactFlow.getState().domNode === root) {
+        useReactFlow.setState({
+          domNode: null,
+          paneDragging: false,
+          viewportInteractionActive: false,
+        });
+        useMisc.setState({ isPanScrolling: false });
+      }
     };
   }, []);
 

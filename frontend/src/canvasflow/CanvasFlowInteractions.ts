@@ -1,6 +1,5 @@
-import { handlePointerDown } from "forks/xyflow/core/components/Handle/handler";
 import { useReactFlow } from "forks/xyflow/core/store";
-import type { HandleType } from "forks/xyflow/core/types";
+import type { Connection, HandleType } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
 import {
@@ -24,6 +23,7 @@ import {
   openPaneContextMenu,
 } from "state/actions/contextMenus";
 import {
+  isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
   toggleEdgeSelection,
 } from "state/actions/edges";
@@ -31,7 +31,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
 import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useMisc, useSettings } from "state/definitions";
+import { useEdgeHandleRegistry, useMisc, useSettings } from "state/definitions";
 import {
   CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
   NO_WHEEL_CLASS_NAME,
@@ -50,6 +50,7 @@ import {
 } from "./canvasFlowEdges";
 import type {
   CanvasFlowDrawableEdge,
+  CanvasFlowHandlePosition,
   CanvasFlowViewport,
 } from "./canvasFlowTypes";
 import {
@@ -111,10 +112,26 @@ type PointerGesture =
       startClientX: number;
       startClientY: number;
       moved: boolean;
+    }
+  | {
+      mode: "edge-reconnect";
+      edgeHit: CanvasFlowEdgeHit;
+      pointerId: number;
+      reconnectTarget: CanvasFlowReconnectTarget;
     };
 type EdgePointerGesture = Extract<PointerGesture, { mode: "edge" }>;
+type EdgeReconnectPointerGesture = Extract<
+  PointerGesture,
+  { mode: "edge-reconnect" }
+>;
 type PanPointerGesture = Extract<PointerGesture, { mode: "pan" }>;
 type SelectPointerGesture = Extract<PointerGesture, { mode: "select" }>;
+type CanvasFlowReconnectTarget = {
+  handleId: string | null;
+  handleType: HandleType;
+  isTarget: boolean;
+  nodeId: string;
+};
 
 export function useCanvasFlowInteractions({
   canvasRef,
@@ -243,14 +260,22 @@ export function useCanvasFlowInteractions({
       if (edgeHit && event.button === 0) {
         event.preventDefault();
         closeAllContextMenus();
-        if (
-          edgeHit.endpoint &&
+        const reconnectTarget = edgeHit.endpoint
+          ? getCanvasFlowReconnectTarget(edgeHit)
+          : null;
+        if (reconnectTarget) {
           startCanvasFlowEdgeReconnect({
+            canvas: event.currentTarget,
             event,
+            reconnectTarget,
+          });
+          gestureRef.current = {
+            mode: "edge-reconnect",
             edgeHit,
-            schedulePaint,
-          })
-        ) {
+            pointerId: event.pointerId,
+            reconnectTarget,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
           suppressNextClickRef.current = true;
           return;
         }
@@ -324,6 +349,14 @@ export function useCanvasFlowInteractions({
         case "edge":
           updateEdgeGestureMove(gesture, event);
           return;
+        case "edge-reconnect":
+          updateEdgeReconnectGestureMove({
+            canvas: event.currentTarget,
+            event,
+            gesture,
+            viewport: viewportRef.current,
+          });
+          return;
         case "pan":
           updatePanGestureMove({
             commitViewportChange,
@@ -357,6 +390,17 @@ export function useCanvasFlowInteractions({
           toggleCanvasFlowEdgeSelection(gesture.edgeHit.edge);
           schedulePaint();
         }
+        return;
+      }
+      if (gesture.mode === "edge-reconnect") {
+        suppressNextClickRef.current = true;
+        finishEdgeReconnectGesture({
+          canvas: event.currentTarget,
+          event,
+          gesture,
+          schedulePaint,
+          viewport: viewportRef.current,
+        });
         return;
       }
       if (gesture.mode === "pan") {
@@ -395,6 +439,9 @@ export function useCanvasFlowInteractions({
       }
       if (gestureRef.current.mode === "edge") {
         gestureRef.current.moved = true;
+      }
+      if (gestureRef.current.mode === "edge-reconnect") {
+        cancelCanvasFlowConnection();
       }
       onPointerUp(event);
     },
@@ -760,42 +807,208 @@ function zoomCanvasFlowByWheel({
 }
 
 function startCanvasFlowEdgeReconnect({
-  edgeHit,
+  canvas,
   event,
-  schedulePaint,
+  reconnectTarget,
 }: {
-  edgeHit: CanvasFlowEdgeHit;
+  canvas: HTMLCanvasElement;
   event: PointerEvent<HTMLCanvasElement>;
-  schedulePaint: () => void;
-}): boolean {
-  const reconnectTarget = getCanvasFlowReconnectTarget(edgeHit);
-  if (!reconnectTarget) {
-    return false;
-  }
-  handlePointerDown({
-    event: event as unknown as Parameters<typeof handlePointerDown>[0]["event"],
-    handleId: reconnectTarget.handleId,
-    nodeId: reconnectTarget.nodeId,
-    onConnect: (connection) => {
-      reconnectEdgeFromConnection(edgeHit.edge.id, connection);
-      schedulePaint();
+  reconnectTarget: CanvasFlowReconnectTarget;
+}) {
+  useReactFlow.setState({
+    connectionEndHandle: null,
+    connectionPosition: getCanvasRelativePoint(canvas, event),
+    connectionStartHandle: {
+      sectionId: reconnectTarget.nodeId,
+      handleId: reconnectTarget.handleId,
+      type: reconnectTarget.handleType,
     },
-    isTarget: reconnectTarget.isTarget,
-    getState: useReactFlow.getState,
-    setState: useReactFlow.setState,
-    isValidConnection: () => true,
-    edgeUpdaterType: reconnectTarget.handleType,
-    onReconnectEnd: schedulePaint,
+    connectionStatus: null,
   });
-  return true;
 }
 
-function getCanvasFlowReconnectTarget(edgeHit: CanvasFlowEdgeHit): {
+function updateEdgeReconnectGestureMove({
+  canvas,
+  event,
+  gesture,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  gesture: EdgeReconnectPointerGesture;
+  viewport: CanvasFlowViewport;
+}) {
+  const closest = getClosestCanvasFlowReconnectHandle({
+    canvas,
+    event,
+    reconnectTarget: gesture.reconnectTarget,
+    viewport,
+  });
+  useReactFlow.setState({
+    connectionEndHandle: closest
+      ? {
+          sectionId: closest.sectionId,
+          handleId: closest.handleId,
+          type: closest.type,
+        }
+      : null,
+    connectionPosition: getCanvasRelativePoint(canvas, event),
+    connectionStatus: closest ? "valid" : null,
+  });
+}
+
+function finishEdgeReconnectGesture({
+  canvas,
+  event,
+  gesture,
+  schedulePaint,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  gesture: EdgeReconnectPointerGesture;
+  schedulePaint: () => void;
+  viewport: CanvasFlowViewport;
+}) {
+  const closest = getClosestCanvasFlowReconnectHandle({
+    canvas,
+    event,
+    reconnectTarget: gesture.reconnectTarget,
+    viewport,
+  });
+  if (closest) {
+    const connection = buildCanvasFlowReconnectConnection({
+      closest,
+      reconnectTarget: gesture.reconnectTarget,
+    });
+    if (isValidDataEdgeConnection(connection)) {
+      reconnectEdgeFromConnection(gesture.edgeHit.edge.id, connection);
+    }
+  }
+  cancelCanvasFlowConnection();
+  schedulePaint();
+}
+
+function getClosestCanvasFlowReconnectHandle({
+  canvas,
+  event,
+  reconnectTarget,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  reconnectTarget: CanvasFlowReconnectTarget;
+  viewport: CanvasFlowViewport;
+}): {
   handleId: string | null;
-  handleType: HandleType;
-  isTarget: boolean;
-  nodeId: string;
+  sectionId: string;
+  type: HandleType;
 } | null {
+  const position = screenToWorldPoint(
+    getCanvasRelativePoint(canvas, event),
+    viewport,
+  );
+  const tolerance =
+    useReactFlow.getState().connectionRadius / Math.max(viewport.zoom, 0.001);
+  let closest: {
+    distance: number;
+    handleId: string | null;
+    sectionId: string;
+    type: HandleType;
+  } | null = null;
+  for (const handle of Object.values(
+    useEdgeHandleRegistry.getState().positions,
+  )) {
+    if (!isReconnectHandleCandidate(handle, reconnectTarget)) {
+      continue;
+    }
+    const distance = Math.hypot(handle.x - position.x, handle.y - position.y);
+    if (!isCloserReconnectHandle(distance, tolerance, closest?.distance)) {
+      continue;
+    }
+    closest = {
+      distance,
+      handleId: handle.portId,
+      sectionId: handle.sectionId,
+      type: handle.type,
+    };
+  }
+  if (!closest) {
+    return null;
+  }
+  return {
+    handleId: closest.handleId,
+    sectionId: closest.sectionId,
+    type: closest.type,
+  };
+}
+
+function isReconnectHandleCandidate(
+  handle: CanvasFlowHandlePosition,
+  reconnectTarget: CanvasFlowReconnectTarget,
+) {
+  if (handle.type === reconnectTarget.handleType) {
+    return false;
+  }
+  if (
+    handle.sectionId === reconnectTarget.nodeId &&
+    handle.portId === reconnectTarget.handleId
+  ) {
+    return false;
+  }
+  return isValidDataEdgeConnection(
+    buildCanvasFlowReconnectConnection({
+      closest: {
+        handleId: handle.portId,
+        sectionId: handle.sectionId,
+        type: handle.type,
+      },
+      reconnectTarget,
+    }),
+  );
+}
+
+function isCloserReconnectHandle(
+  distance: number,
+  tolerance: number,
+  closestDistance: number | undefined,
+) {
+  return (
+    distance <= tolerance &&
+    (closestDistance === undefined || distance < closestDistance)
+  );
+}
+
+function buildCanvasFlowReconnectConnection({
+  closest,
+  reconnectTarget,
+}: {
+  closest: { handleId: string | null; sectionId: string; type: HandleType };
+  reconnectTarget: CanvasFlowReconnectTarget;
+}): Connection {
+  if (reconnectTarget.handleType === "source") {
+    return {
+      source: reconnectTarget.nodeId,
+      sourceHandle: reconnectTarget.handleId,
+      target: closest.sectionId,
+      targetHandle: closest.handleId,
+    };
+  }
+  return {
+    source: closest.sectionId,
+    sourceHandle: closest.handleId,
+    target: reconnectTarget.nodeId,
+    targetHandle: reconnectTarget.handleId,
+  };
+}
+
+function cancelCanvasFlowConnection() {
+  useReactFlow.getState().cancelConnection();
+}
+
+function getCanvasFlowReconnectTarget(
+  edgeHit: CanvasFlowEdgeHit,
+): CanvasFlowReconnectTarget | null {
   const edge = edgeHit.edge;
   if (edge.kind !== "data" || !edgeHit.endpoint) {
     return null;

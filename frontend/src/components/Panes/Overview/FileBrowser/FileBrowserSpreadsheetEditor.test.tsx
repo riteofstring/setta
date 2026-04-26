@@ -481,6 +481,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       });
       expect(downloadBinary).toHaveBeenCalledWith({
         path: { contentId: "content-1" },
+        parseAs: "blob",
       });
       expect(host.textContent).toContain("report.csv");
       expect(

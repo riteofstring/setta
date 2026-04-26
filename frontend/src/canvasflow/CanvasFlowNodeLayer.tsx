@@ -112,7 +112,6 @@ function _CanvasFlowNodeWrapper({
       observedElementRef.current = element;
       if (element) {
         nodeElementsRef.current.set(id, element);
-        element.style.pointerEvents = "none";
         resizeObserver?.observe(element);
       }
       schedulePaint();
@@ -169,7 +168,7 @@ function getNodeStyle(node: Node): CSSProperties {
   return {
     height: node.height ?? undefined,
     left: 0,
-    pointerEvents: "none",
+    pointerEvents: "auto",
     position: "absolute",
     top: 0,
     transformOrigin: "0 0",
