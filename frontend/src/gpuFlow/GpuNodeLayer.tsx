@@ -120,6 +120,10 @@ type RenderGpuNodeLayerFrameInput = {
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly renderer: GpuNodeQuadRenderTarget;
+  readonly suppressNodeIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget?: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
@@ -226,6 +230,7 @@ export function renderGpuNodeLayerFrame({
   marginCssPx,
   nodes,
   renderer,
+  suppressNodeIds,
   textureManager,
   uploadBudget,
   viewport,
@@ -272,12 +277,16 @@ export function renderGpuNodeLayerFrame({
   const uploadedTexturedQuads = textureResult.texturedQuads.filter(
     (quad) => quad.texture.lastUploadFrame >= 0,
   );
+  const renderableTexturedQuads = suppressGpuNodeQuads(
+    uploadedTexturedQuads,
+    suppressNodeIds,
+  );
   const renderResult = renderer.render({
     canvasSize,
     clearColor,
     ...(edges === undefined ? {} : { edges }),
     ...(grid === undefined ? {} : { grid }),
-    quads: uploadedTexturedQuads,
+    quads: renderableTexturedQuads,
     viewport,
   });
 
@@ -294,6 +303,17 @@ export function renderGpuNodeLayerFrame({
     uploadedNodeIds: uploadResult.uploaded.map((record) => record.nodeId),
     visibleNodeIds: [...visibleNodeIds],
   };
+}
+
+function suppressGpuNodeQuads(
+  quads: readonly GpuTexturedNodeQuad[],
+  suppressNodeIds: ReadonlySet<string> | readonly string[] | undefined,
+): readonly GpuTexturedNodeQuad[] {
+  const suppressedIds = normalizeNodeIdSet(suppressNodeIds);
+  if (suppressedIds.size === 0) {
+    return quads;
+  }
+  return quads.filter((quad) => !suppressedIds.has(quad.nodeId));
 }
 
 function registerVisibleGpuNodeTextures({

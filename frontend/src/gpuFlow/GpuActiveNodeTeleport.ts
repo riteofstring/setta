@@ -17,6 +17,7 @@ type TeleportedNode = {
   readonly nodeId: string;
   readonly originalNextSibling: ChildNode | null;
   readonly originalParent: Node;
+  readonly originalStyle: TeleportedNodeStyleSnapshot;
 };
 
 type FocusSnapshot = {
@@ -27,6 +28,17 @@ type FocusSnapshot = {
 };
 
 const TELEPORTED_NODE_CLASS = "setta-gpu-flow__node--teleported";
+const TELEPORTED_NODE_STYLE_KEYS = [
+  "height",
+  "left",
+  "pointerEvents",
+  "position",
+  "top",
+  "transform",
+  "transformOrigin",
+  "width",
+  "zIndex",
+] as const;
 
 export function createGpuActiveNodeTeleportController(
   layer: HTMLElement,
@@ -97,6 +109,7 @@ function moveNodeToTeleportLayer(
     nodeId: snapshot.nodeId,
     originalNextSibling: snapshot.sourceElement.nextSibling,
     originalParent,
+    originalStyle: captureTeleportedNodeStyle(snapshot.sourceElement),
   };
   const focusSnapshot = captureFocusSnapshot(snapshot.sourceElement);
   layer.replaceChildren(snapshot.sourceElement);
@@ -112,6 +125,7 @@ function restoreTeleportedNode(teleportedNode: TeleportedNode) {
     return;
   }
   const focusSnapshot = captureFocusSnapshot(element);
+  restoreTeleportedNodeStyle(element, teleportedNode.originalStyle);
   if (
     originalNextSibling &&
     originalNextSibling.parentNode === originalParent
@@ -130,21 +144,31 @@ function applyTeleportedNodePresentation(snapshot: GpuActiveNodeSnapshot) {
   setStyleValue(sourceElement, "left", "0px");
   setStyleValue(sourceElement, "top", "0px");
   setStyleValue(sourceElement, "transformOrigin", "0 0");
+  setStyleValue(sourceElement, "height", `${snapshot.height}px`);
   setStyleValue(
     sourceElement,
     "transform",
     `translate(${snapshot.screenX}px, ${snapshot.screenY}px) scale(${snapshot.zoom})`,
   );
   setStyleValue(sourceElement, "pointerEvents", "all");
+  setStyleValue(sourceElement, "width", `${snapshot.width}px`);
+  setStyleValue(sourceElement, "zIndex", String(snapshot.zIndex));
 }
 
 type TeleportedNodeStyleKey =
+  | "height"
   | "left"
   | "pointerEvents"
   | "position"
   | "top"
   | "transform"
-  | "transformOrigin";
+  | "transformOrigin"
+  | "width"
+  | "zIndex";
+
+type TeleportedNodeStyleSnapshot = {
+  readonly [Key in TeleportedNodeStyleKey]: string;
+};
 
 function setStyleValue(
   element: HTMLElement,
@@ -153,6 +177,25 @@ function setStyleValue(
 ) {
   if (element.style[property] !== value) {
     element.style[property] = value;
+  }
+}
+
+function captureTeleportedNodeStyle(
+  element: HTMLElement,
+): TeleportedNodeStyleSnapshot {
+  const snapshot = {} as Record<TeleportedNodeStyleKey, string>;
+  for (const property of TELEPORTED_NODE_STYLE_KEYS) {
+    snapshot[property] = element.style[property];
+  }
+  return snapshot;
+}
+
+function restoreTeleportedNodeStyle(
+  element: HTMLElement,
+  snapshot: TeleportedNodeStyleSnapshot,
+) {
+  for (const property of TELEPORTED_NODE_STYLE_KEYS) {
+    element.style[property] = snapshot[property];
   }
 }
 

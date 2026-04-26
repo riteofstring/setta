@@ -138,6 +138,11 @@ type GpuFlowNodeLayerState = {
   readonly viewport: GpuViewportInput;
 };
 
+type GpuActiveNodeTeleportFrameSync = {
+  readonly deferUploadNodeIds: readonly string[] | undefined;
+  readonly suppressNodeIds: readonly string[] | undefined;
+};
+
 const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
 const EMPTY_NODE_IDS: readonly string[] = [];
 
@@ -698,7 +703,7 @@ function renderGpuFlowNodeLayerFrame({
 
   const frame = nextFrame(frameRef);
   const nodeInteraction = nodeInteractionRef.current;
-  const deferredActiveNodeUploadIds = syncGpuFlowActiveNodeTeleportForFrame({
+  const activeNodeTeleportFrameSync = syncGpuFlowActiveNodeTeleportForFrame({
     activeNodeTeleportRef,
     elementByNodeId: nodeElementByIdRef.current,
     frame,
@@ -710,7 +715,7 @@ function renderGpuFlowNodeLayerFrame({
   const layerResult = renderGpuNodeLayerFrame({
     activeNodeId: nodeInteraction?.getActiveNodeId(),
     canvasSize,
-    deferUploadNodeIds: deferredActiveNodeUploadIds,
+    deferUploadNodeIds: activeNodeTeleportFrameSync.deferUploadNodeIds,
     deferResolutionUpdates,
     edges: layer.edges,
     elementByNodeId: nodeElementByIdRef.current,
@@ -720,6 +725,7 @@ function renderGpuFlowNodeLayerFrame({
     marginCssPx: layer.marginCssPx,
     nodes,
     renderer: resources.nodeQuadRenderer,
+    suppressNodeIds: activeNodeTeleportFrameSync.suppressNodeIds,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
@@ -796,7 +802,7 @@ function syncGpuFlowActiveNodeTeleportForFrame({
   readonly liveNodeId: string | null;
   readonly pendingActiveNodePaintRef: MutableRefObject<Set<string>>;
   readonly runtime: GpuFlowRuntime;
-}): readonly string[] | undefined {
+}): GpuActiveNodeTeleportFrameSync {
   const teleportResult = syncGpuFlowActiveNodeTeleport({
     activeNodeTeleportRef,
     elementByNodeId,
@@ -808,10 +814,15 @@ function syncGpuFlowActiveNodeTeleportForFrame({
     pendingActiveNodePaintRef.current.add(teleportResult.restoredNodeId);
     runtime.canvas.requestPaint();
   }
-  return getDeferredActiveNodeUploadIds({
-    pendingPaintNodeIds: pendingActiveNodePaintRef.current,
-    teleportedNodeId: teleportResult.teleportedNodeId,
-  });
+  return {
+    deferUploadNodeIds: getDeferredActiveNodeUploadIds({
+      pendingPaintNodeIds: pendingActiveNodePaintRef.current,
+      teleportedNodeId: teleportResult.teleportedNodeId,
+    }),
+    suppressNodeIds: getSuppressedActiveNodeIds(
+      teleportResult.teleportedNodeId,
+    ),
+  };
 }
 
 function syncGpuFlowActiveNodeTeleport({
@@ -858,6 +869,12 @@ function getDeferredActiveNodeUploadIds({
     ...(teleportedNodeId ? [teleportedNodeId] : EMPTY_NODE_IDS),
     ...pendingPaintNodeIds,
   ];
+}
+
+function getSuppressedActiveNodeIds(
+  teleportedNodeId: string | null,
+): readonly string[] | undefined {
+  return teleportedNodeId ? [teleportedNodeId] : undefined;
 }
 
 function ensureNodeLayerResources({

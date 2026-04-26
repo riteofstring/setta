@@ -30,8 +30,11 @@ describe("GpuActiveNodeTeleport", () => {
     expect(node.classList.contains("setta-gpu-flow__node--teleported")).toBe(
       true,
     );
+    expect(node.style.height).toBe("50px");
     expect(node.style.transform).toBe("translate(10px, 20px) scale(1.5)");
     expect(node.style.pointerEvents).toBe("all");
+    expect(node.style.width).toBe("100px");
+    expect(node.style.zIndex).toBe("2");
 
     expect(controller.sync(null)).toEqual({
       restoredNodeId: "node-a",
@@ -45,6 +48,31 @@ describe("GpuActiveNodeTeleport", () => {
     expect(node.classList.contains("setta-gpu-flow__node--teleported")).toBe(
       false,
     );
+  });
+
+  it("restores inline presentation styles that only belong to the active overlay", () => {
+    const canvas = document.createElement("canvas");
+    const node = document.createElement("div");
+    const layer = document.createElement("div");
+    node.style.height = "75px";
+    node.style.transform = "translate(1px, 2px) scale(1)";
+    node.style.width = "125px";
+    node.style.zIndex = "4";
+    canvas.append(node);
+    document.body.append(canvas, layer);
+    const controller = createGpuActiveNodeTeleportController(layer);
+
+    controller.sync(snapshot(node, "node-a"));
+    expect(node.style.height).toBe("50px");
+    expect(node.style.width).toBe("100px");
+    expect(node.style.zIndex).toBe("2");
+
+    controller.sync(null);
+
+    expect(node.style.height).toBe("75px");
+    expect(node.style.transform).toBe("translate(1px, 2px) scale(1)");
+    expect(node.style.width).toBe("125px");
+    expect(node.style.zIndex).toBe("4");
   });
 
   it("restores the previous node before teleporting another one", () => {

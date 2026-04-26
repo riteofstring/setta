@@ -228,6 +228,54 @@ describe("GpuNodeLayer helpers", () => {
     });
   });
 
+  it("suppresses live active node quads while preserving texture bookkeeping", () => {
+    const active = document.createElement("div");
+    const passive = document.createElement("div");
+    const elements = new Map([
+      ["active", active],
+      ["passive", passive],
+    ]);
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    const result = renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      deferUploadNodeIds: ["active"],
+      elementByNodeId: elements,
+      frame: 1,
+      nodes: [
+        node("active", 10, 20, 100, 50, 2),
+        node("passive", 40, 60, 100, 50, 1),
+      ],
+      renderer,
+      suppressNodeIds: ["active"],
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(manager.registerNodeTexture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        element: active,
+        nodeId: "active",
+      }),
+    );
+    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({
+      deferNodeIds: ["active"],
+      frame: 1,
+    });
+    expect(renderer.render).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quads: [
+          expect.objectContaining({
+            nodeId: "passive",
+          }),
+        ],
+      }),
+    );
+    expect(result.drawnNodeIds).toEqual(["passive"]);
+    expect(result.visibleNodeIds).toEqual(["passive", "active"]);
+  });
+
   it("redraws viewport-only movement from cached textures without another element upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

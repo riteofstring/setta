@@ -1,8 +1,8 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it } from "vitest";
-import type { GpuNodeLayout } from "./GpuNodeLayer";
 import { resolveGpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
+import type { GpuNodeLayout } from "./GpuNodeLayer";
 
 describe("GpuActiveNodeSnapshot", () => {
   it("resolves an active node to screen-space presentation", () => {
