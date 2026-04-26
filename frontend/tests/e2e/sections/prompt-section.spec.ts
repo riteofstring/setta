@@ -348,7 +348,7 @@ async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".canvas-flow__canvas");
+  await page.waitForSelector(".react-flow__pane");
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,

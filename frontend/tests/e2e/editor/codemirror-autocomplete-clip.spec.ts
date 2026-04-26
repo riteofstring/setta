@@ -117,13 +117,21 @@ test("code autocomplete tooltip escapes section bounds", async ({ page }) => {
 async function getSectionHeight(
   resizable: ReturnType<Page["locator"]>,
 ): Promise<number> {
-  return resizable.evaluate(async (el) => {
+  return resizable.evaluate((el) => {
     const rect = el.getBoundingClientRect();
-    const { useReactFlow } = await import(
-      "/src/forks/xyflow/core/store/index.ts"
-    );
-    const zoom = useReactFlow.getState().transform[2];
-    const scale = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+    const viewport =
+      el.closest(".react-flow__viewport") ??
+      document.querySelector(".react-flow__viewport");
+    let scale = 1;
+    if (viewport) {
+      const transform = window.getComputedStyle(viewport).transform;
+      if (transform && transform !== "none") {
+        const matrix = new DOMMatrixReadOnly(transform);
+        if (Number.isFinite(matrix.a) && matrix.a > 0) {
+          scale = matrix.a;
+        }
+      }
+    }
     return scale > 0 ? rect.height / scale : rect.height;
   });
 }

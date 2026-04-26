@@ -1,12 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
-  loadProjectConfig,
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
+  loadProjectConfig,
 } from "../../helpers";
 
-const READY_SELECTOR = ".canvas-flow__canvas";
+const READY_SELECTOR = ".react-flow__pane";
 const VIEW_MODE_TABS_SELECTOR = '[data-testid="view-mode-tabs-bar"]';
 const IS_DARWIN = process.platform === "darwin";
 let warnedAboutCrossPlatformScreenshots = false;
@@ -39,9 +39,7 @@ async function expectMacOnlyScreenshot(locator: Locator, name: string) {
 }
 
 async function ensureNoTabbedViewModes(page: Page, projectConfigId: string) {
-  const payload = (await loadProjectConfig(
-    page,
-  )) as LoadProjectConfigWithViewModes;
+  const payload = (await loadProjectConfig(page)) as LoadProjectConfigWithViewModes;
   const viewModes = payload.projectConfig?.viewModes ?? {};
   for (const [viewModeId, mode] of Object.entries(viewModes)) {
     if (mode?.isTab) {
@@ -242,9 +240,7 @@ test.describe("view mode bottom tab bar layout", () => {
       if (!minimapBox) {
         throw new Error("Missing minimap bounding box.");
       }
-      expect(minimapBox.y + minimapBox.height).toBeLessThanOrEqual(
-        barBox.y - 2,
-      );
+      expect(minimapBox.y + minimapBox.height).toBeLessThanOrEqual(barBox.y - 2);
 
       // These are the smallest, most stable screenshots and are meant to catch
       // regressions like losing the visible tab outline.

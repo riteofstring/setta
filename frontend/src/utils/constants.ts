@@ -149,8 +149,6 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
   "setta-prevent-section-on-click-trigger";
 export const CODEMIRROR_TOOLTIP_PARENT_ID = "setta-codemirror-tooltips";
 export const SETTA_POPOVER_PORTAL_PARENT_ID = "setta-popover-portals";
-export const CANVAS_FLOW_VIEWPORT_CHANGE_EVENT =
-  "setta:canvas-flow-viewport-change";
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";

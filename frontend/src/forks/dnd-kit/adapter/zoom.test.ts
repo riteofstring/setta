@@ -9,7 +9,7 @@ describe("zoom adapter utilities", () => {
     expect(transformToString(null)).toBe("");
   });
 
-  it("normalizes translation by current canvas zoom", () => {
+  it("normalizes translation by current react-flow zoom", () => {
     // Validates drag translation stays in flow-space regardless of viewport zoom.
     useReactFlow.setState({ transform: [0, 0, 2] });
 

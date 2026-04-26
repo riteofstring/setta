@@ -10,7 +10,7 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 const HOME_URL = new URL("/home", BASE_URL).toString();
-const READY_SELECTOR = ".canvas-flow__canvas";
+const READY_SELECTOR = ".react-flow__pane";
 const CANVAS_SELECTOR = ".react-flow";
 
 type ProjectMetadataEntry = { id: string; name: string };
@@ -29,9 +29,7 @@ test("new config opens with initial section in view", async ({ page }) => {
   const projectState = await loadProjectConfig(page);
   const generatedSectionId = projectState.singletonSections.GenPythonCode;
   if (!generatedSectionId) {
-    throw new Error(
-      "Expected new project to include generated python section.",
-    );
+    throw new Error("Expected new project to include generated python section.");
   }
 
   const canvas = page.locator(CANVAS_SELECTOR);

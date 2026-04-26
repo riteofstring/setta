@@ -17,11 +17,6 @@ Run:
 
 `./scripts/record-chrome-repro.sh`
 
-For branches that require HTML-in-Canvas / CanvasFlow, pass the Chromium feature
-flag:
-
-`CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement" ./scripts/record-chrome-repro.sh`
-
 Behavior:
 
 - starts Setta with the normal dev-state defaults
@@ -98,6 +93,4 @@ so the agent can jump straight to the newest bundle and its logs.
 Pass `SETTA_CHROME_REPRO_SKIP_DEV_START=1` when you want to attach to an already
 running local Setta instance, and `SETTA_CHROME_REPRO_BOOTSTRAP_URL=<url>` to
 skip bootstrap URL discovery. Use `SETTA_CHROME_REPRO_LOG_LEVEL=<level>` to override
-the default debug backend logging for the repro session. Use `CHROME_EXTRA_ARGS`
-for required Chromium feature flags such as
-`--enable-blink-features=CanvasDrawElement`.
+the default debug backend logging for the repro session.

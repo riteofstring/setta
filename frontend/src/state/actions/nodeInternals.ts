@@ -23,7 +23,6 @@ type NodeDimensionsUpdate = Array<{
   forceUpdate: boolean;
 }>;
 type NodesById = Map<string, Node>;
-let hasPendingDimensionLayoutPersistence = false;
 
 export function getNodes(s: null | ZustandNodeInternalsState = null) {
   const source = s ? s.x : useNodeInternals.getState().x;
@@ -50,85 +49,59 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   if (!hasViewportNode()) {
     return;
   }
-  if (updates.length === 0) {
-    maybeCompleteInitialFitView();
-    return;
-  }
 
-  const newNodes = applyNodeDimensionUpdates(
-    useNodeInternals.getState().x,
-    updates,
-  );
-  if (!newNodes) {
-    maybeCompleteInitialFitView();
-    return;
-  }
+  const newNodes = getNewNodes();
+  applyNodeDimensionUpdates(newNodes, updates);
   useNodeInternals.setState({ x: newNodes });
-  persistDimensionLayout();
+  debounced_route_set_top_level_section_layout();
   maybeCompleteInitialFitView();
 }
 
-export function flushPendingNodeDimensionLayoutPersistence() {
-  if (!hasPendingDimensionLayoutPersistence) {
-    return;
-  }
-  hasPendingDimensionLayoutPersistence = false;
-  debounced_route_set_top_level_section_layout();
-}
-
 function hasViewportNode() {
-  const domNode = useReactFlow.getState().domNode;
-  return !!domNode?.querySelector(".canvas-flow__canvas");
+  return !!useReactFlow
+    .getState()
+    .domNode?.querySelector(".react-flow__viewport");
 }
 
 function applyNodeDimensionUpdates(
-  nodes: NodesById,
+  newNodes: NodesById,
   updates: NodeDimensionsUpdate,
-): NodesById | null {
-  let newNodes: NodesById | null = null;
+) {
   for (const update of updates) {
-    newNodes = applyNodeDimensionUpdate(newNodes ?? nodes, update) ?? newNodes;
+    applyNodeDimensionUpdate(newNodes, update);
   }
-  return newNodes;
 }
 
 function applyNodeDimensionUpdate(
-  nodes: NodesById,
+  newNodes: NodesById,
   update: NodeDimensionsUpdate[number],
-): NodesById | null {
-  const node = nodes.get(update.id);
+) {
+  const node = newNodes.get(update.id);
   if (!node) {
-    return null;
+    return;
   }
   const dimensions = getDimensions(update.nodeElement);
-  if (!shouldUpdateNodeDimensions(node, dimensions)) {
-    return null;
+  if (!shouldUpdateNodeDimensions(node, dimensions, update.forceUpdate)) {
+    return;
   }
-  const newNodes = new Map(nodes);
   newNodes.set(node.id, {
     ...node,
     ...dimensions,
   });
-  return newNodes;
 }
 
 function shouldUpdateNodeDimensions(
   node: Node,
   dimensions: ReturnType<typeof getDimensions>,
+  forceUpdate: boolean,
 ) {
   return !!(
     dimensions.width &&
     dimensions.height &&
-    (node.width !== dimensions.width || node.height !== dimensions.height)
+    (node.width !== dimensions.width ||
+      node.height !== dimensions.height ||
+      forceUpdate)
   );
-}
-
-function persistDimensionLayout() {
-  if (useReactFlow.getState().viewportInteractionActive) {
-    hasPendingDimensionLayoutPersistence = true;
-    return;
-  }
-  debounced_route_set_top_level_section_layout();
 }
 
 function maybeCompleteInitialFitView() {
@@ -153,11 +126,7 @@ function maybeCompleteInitialFitView() {
 export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
   const newNodes = getNewNodes();
   for (const n of nodeDragItems) {
-    const node = newNodes.get(n.id);
-    if (!node) {
-      throw new Error(`Missing node ${n.id}`);
-    }
-    node.position = n.position;
+    newNodes.get(n.id).position = n.position;
   }
   useNodeInternals.setState({ x: newNodes });
   const sectionIds = new Set<string>();
@@ -177,11 +146,7 @@ export function raiseTempZIndex(nodes: Array<Node>) {
     n.tempZIndex = n.zIndex;
   }
   for (const n of nodes) {
-    const node = newNodes.get(n.id);
-    if (!node) {
-      throw new Error(`Missing node ${n.id}`);
-    }
-    node.tempZIndex = node.zIndex + 1000;
+    newNodes.get(n.id).tempZIndex = newNodes.get(n.id).zIndex + 1000;
   }
   useNodeInternals.setState({ x: newNodes });
 }

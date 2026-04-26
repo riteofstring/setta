@@ -19,7 +19,7 @@ import {
 } from "../../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const READY_SELECTOR = ".canvas-flow__canvas";
+const READY_SELECTOR = ".react-flow__pane";
 
 type ProjectCodegenTarget = {
   language: string;
@@ -216,9 +216,10 @@ async function createSectionVariantFromFrontend(
       targetProjectConfigId: string;
       targetSectionId: string;
     }) => {
-      const { createNewSectionVariant, getLatestProjectState } = await import(
-        "/src/openapi/http"
-      );
+      const {
+        createNewSectionVariant,
+        getLatestProjectState,
+      } = await import("/src/openapi/http");
       const { callOpenAPI, res200 } = await import(
         "/tests/e2e/browserAppSubsystemSdk.ts"
       );
@@ -414,9 +415,10 @@ async function setGenCodePrefixFromFrontend(
 ): Promise<void> {
   await page.evaluate(
     async ({ targetProjectConfigId, nextPrefix }) => {
-      const { getLatestProjectState, setGenCodePrefix } = await import(
-        "/src/openapi/http"
-      );
+      const {
+        getLatestProjectState,
+        setGenCodePrefix,
+      } = await import("/src/openapi/http");
       const { callOpenAPI, res200 } = await import(
         "/tests/e2e/browserAppSubsystemSdk.ts"
       );
@@ -464,9 +466,10 @@ async function setGenCodeSuffixFromFrontend(
 ): Promise<void> {
   await page.evaluate(
     async ({ targetProjectConfigId, nextSuffix }) => {
-      const { getLatestProjectState, setGenCodeSuffix } = await import(
-        "/src/openapi/http"
-      );
+      const {
+        getLatestProjectState,
+        setGenCodeSuffix,
+      } = await import("/src/openapi/http");
       const { callOpenAPI, res200 } = await import(
         "/tests/e2e/browserAppSubsystemSdk.ts"
       );
@@ -1503,7 +1506,7 @@ test("generated python run hides internal readiness markers across repeated runs
       })
       .toContain("RUN_OK_MARKER");
     await expect(reloadedTerminalNode).not.toContainText("SETTA_RDY");
-    await expect(page.locator(".canvas-flow__canvas")).toBeVisible();
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
     await expect(
       page.getByText("Unexpected Application Error", { exact: true }),
     ).toHaveCount(0);

@@ -77,7 +77,7 @@ describe("MiniMapNodes", () => {
 
     expect(markup).toContain('data-minimap-node-id="section-a"');
     expect(markup).toContain('data-minimap-node-id="section-b"');
-    expect(markup).not.toContain("canvas-flow__minimap-node selected");
+    expect(markup).not.toContain("react-flow__minimap-node selected");
   });
 
   it("tracks style changes as render-affecting minimap inputs", () => {

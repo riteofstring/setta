@@ -306,37 +306,6 @@ trap 'log "Error on line ${LINENO}: ${BASH_COMMAND}"' ERR
 readonly WORKSPACE_SEED_FIXTURES=(
 )
 
-resolve_canvasflow_perf_seed_counts() {
-  if [[ "${SETTA_CANVASFLOW_PERF:-}" != "1" ]]; then
-    return 0
-  fi
-  local raw_counts="${SETTA_CANVASFLOW_PERF_SEED_COUNTS:-${SETTA_CANVASFLOW_PERF_COUNTS:-100,500,1000,2500,3000}}"
-  if [[ -z "${raw_counts}" || "${raw_counts}" == "0" ]]; then
-    return 0
-  fi
-  "${PYTHON_BIN}" - "${raw_counts}" <<'PY'
-import sys
-
-raw = sys.argv[1]
-counts = []
-seen = set()
-for part in raw.split(","):
-    part = part.strip()
-    if not part:
-        continue
-    try:
-        count = int(part)
-    except ValueError as exc:
-        raise SystemExit(f"Invalid SETTA_CANVASFLOW_PERF seed count: {part}") from exc
-    if count <= 0:
-        raise SystemExit(f"SETTA_CANVASFLOW_PERF seed counts must be positive: {part}")
-    if count not in seen:
-        seen.add(count)
-        counts.append(count)
-print(",".join(str(count) for count in sorted(counts)))
-PY
-}
-
 seed_workspace() {
   if [[ "${SETTA_E2E_SEED_WORKSPACE:-1}" == "0" ]]; then
     log "Skipping workspace seed (SETTA_E2E_SEED_WORKSPACE=0)."
@@ -348,20 +317,10 @@ seed_workspace() {
     log "Workspace already seeded (${project_file} exists)."
   else
     log "Seeding minimal setta_files into ${SETTA_WORKSPACE_ROOT}."
-    local canvasflow_perf_seed_counts
-    canvasflow_perf_seed_counts="$(resolve_canvasflow_perf_seed_counts)"
-    local -a seed_args=(
-      --setta-files-root "${SETTA_WORKSPACE_ROOT}/setta_files"
-    )
-    if [[ -n "${canvasflow_perf_seed_counts}" ]]; then
-      log "Seeding CanvasFlow perf projects with node counts: ${canvasflow_perf_seed_counts}."
-      seed_args+=(
-        --canvasflow-perf-node-counts "${canvasflow_perf_seed_counts}"
-      )
-    fi
     (
       cd "${ROOT_DIR}"
-      ./scripts/go.sh run ./cmd/setta-seed-playwright-workspace "${seed_args[@]}"
+      ./scripts/go.sh run ./cmd/setta-seed-playwright-workspace \
+        --setta-files-root "${SETTA_WORKSPACE_ROOT}/setta_files"
     ) >"${LOG_DIR}/seed.log" 2>&1
     seeded_workspace="1"
   fi

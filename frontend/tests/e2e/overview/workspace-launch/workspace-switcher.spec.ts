@@ -67,9 +67,7 @@ async function createWorkspaceLaunchIntentToken({
       returnUrl: string;
     }) => {
       const { createWorkspaceLaunchIntent } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import(
-        "/tests/e2e/browserAppSubsystemSdk.ts"
-      );
+      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
       return await callOpenAPI(
         createWorkspaceLaunchIntent({
           body: payload,
@@ -218,16 +216,14 @@ test("workspace switcher launches a session and persists history", async ({
   expect(typeof requestBody.launchIntentToken).toBe("string");
   expect(requestBody.workspaceRoot).toBeUndefined();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.waitForSelector(".canvas-flow__canvas");
+  await page.waitForSelector(".react-flow__pane");
   await page.waitForFunction(
     (origin) =>
       sessionStorage.getItem("setta.backendOriginOverride") === origin,
     expectedBackendOrigin,
   );
   const backendOrigin = await page.evaluate(async () => {
-    const { C_ADDRESSES } = await import(
-      "/tests/e2e/browserAppSubsystemSdk.ts"
-    );
+    const { C_ADDRESSES } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     return C_ADDRESSES.BACKEND_ORIGIN;
   });
   expect(backendOrigin).toBe(expectedBackendOrigin);
@@ -1285,7 +1281,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   expect(connectedPort).toBeGreaterThan(0);
 
   await page.waitForLoadState("domcontentloaded");
-  await page.waitForSelector(".canvas-flow__canvas");
+  await page.waitForSelector(".react-flow__pane");
   const tunnelOrigin = `http://127.0.0.1:${connectedPort}`;
   await page.waitForFunction(
     (origin) =>
@@ -1293,9 +1289,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     tunnelOrigin,
   );
   const { backendOrigin, launcherOrigin } = await page.evaluate(async () => {
-    const { C_ADDRESSES } = await import(
-      "/tests/e2e/browserAppSubsystemSdk.ts"
-    );
+    const { C_ADDRESSES } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     return {
       backendOrigin: C_ADDRESSES.BACKEND_ORIGIN,
       launcherOrigin: C_ADDRESSES.LAUNCHER_ORIGIN,

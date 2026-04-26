@@ -466,7 +466,7 @@ test.describe.serial("chat tool calls", () => {
       await expect(itemTimers.nth(1)).toHaveText("00:02");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".canvas-flow__canvas");
+      await page.waitForSelector(".react-flow__pane");
       section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       const refreshedActivityTrigger = section.locator(

@@ -4,7 +4,7 @@ import { ensureAppReady } from "../helpers";
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const READY_SELECTOR = ".canvas-flow__canvas";
+const READY_SELECTOR = ".react-flow__pane";
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -206,9 +206,7 @@ async function createProjectConfig(
     { previewImgColor },
   );
   if (!projectConfigName) {
-    throw new Error(
-      "Missing project config name when creating project config.",
-    );
+    throw new Error("Missing project config name when creating project config.");
   }
 
   const metadata = await postBackend<ProjectMetadataResponse>(
@@ -272,9 +270,7 @@ async function postBackend<T>(
   const text = await response.text();
   if (!response.ok()) {
     const detail = text ? ` ${text}` : "";
-    throw new Error(
-      `Backend request failed (${response.status()}): ${path}${detail}`,
-    );
+    throw new Error(`Backend request failed (${response.status()}): ${path}${detail}`);
   }
   if (!text) {
     return null;

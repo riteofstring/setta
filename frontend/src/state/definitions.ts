@@ -875,7 +875,7 @@ export type EdgeHandleRecord = {
   element: HTMLElement | null;
 };
 
-export type EdgeHandlePosition = {
+type EdgeHandlePosition = {
   sectionId: string;
   portId: string;
   type: HandleType;

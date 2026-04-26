@@ -12,7 +12,7 @@ const BACKEND_ORIGIN =
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL = resolveProjectUrl();
 const HOME_URL = new URL("/home", BASE_URL).toString();
-const READY_SELECTOR = ".canvas-flow__canvas";
+const READY_SELECTOR = ".react-flow__pane";
 const FORMAT_SHORTCUT = "Alt+Shift+F";
 const REQUEST_TIMEOUT_MS = 5000;
 

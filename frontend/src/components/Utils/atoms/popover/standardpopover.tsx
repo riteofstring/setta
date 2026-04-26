@@ -2,7 +2,6 @@ import * as Popover from "@radix-ui/react-popover";
 import { useEffect, useState } from "react";
 
 import { useReactFlow } from "forks/xyflow/core/store";
-import { CANVAS_FLOW_VIEWPORT_CHANGE_EVENT } from "utils/constants";
 
 export function StandardPopover({
   trigger,
@@ -15,7 +14,7 @@ export function StandardPopover({
   onOpenChange,
   arrowClasses,
   portalContainerId,
-  repositionOnCanvasTransform = true,
+  repositionOnCanvasTransform = false,
 }: {
   trigger: React.ReactElement;
   contentClasses?: string;
@@ -37,10 +36,6 @@ export function StandardPopover({
       : null;
   const [internalOpen, setInternalOpen] = useState(false);
   const resolvedOpen = open ?? internalOpen;
-  const resolvedContentProps = {
-    updatePositionStrategy: "always" as const,
-    ...contentProps,
-  };
 
   useEffect(() => {
     if (!repositionOnCanvasTransform || !resolvedOpen) {
@@ -50,8 +45,8 @@ export function StandardPopover({
       return;
     }
 
-    // Radix popovers portaled outside the canvas need an explicit reposition
-    // signal while CanvasFlow mutates viewport refs between durable store syncs.
+    // ReactFlow pans and zooms via CSS transforms, so Radix popovers portaled
+    // to document.body need an explicit reposition signal to stay attached.
     let rafId: number | null = null;
     const scheduleReposition = () => {
       if (rafId !== null) {
@@ -65,20 +60,12 @@ export function StandardPopover({
     };
 
     scheduleReposition();
-    window.addEventListener(
-      CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
-      scheduleReposition,
-    );
     const unsubscribe = useReactFlow.subscribe(
       (state) => state.transform,
       () => scheduleReposition(),
     );
 
     return () => {
-      window.removeEventListener(
-        CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
-        scheduleReposition,
-      );
       unsubscribe();
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);
@@ -99,7 +86,7 @@ export function StandardPopover({
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
 
       <Popover.Portal container={portalContainer ?? undefined}>
-        <Popover.Content className={contentClasses} {...resolvedContentProps}>
+        <Popover.Content className={contentClasses} {...contentProps}>
           {close && (
             <Popover.Close className={closeClasses}>{close}</Popover.Close>
           )}

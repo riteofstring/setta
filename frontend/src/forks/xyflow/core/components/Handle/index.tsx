@@ -9,7 +9,6 @@ import {
 import { useReactFlow } from "../../store";
 import type { Connection, HandleProps } from "../../types";
 import { isMouseEvent } from "../../utils";
-import { HANDLE_CLASS_NAME, getHandlePositionClassName } from "./classes";
 import { handlePointerDown } from "./handler";
 
 type HandleComponentProps = HandleProps &
@@ -122,8 +121,8 @@ function HandleComponent({
   };
 
   const classes = [
-    HANDLE_CLASS_NAME,
-    getHandlePositionClassName(position),
+    "react-flow__handle",
+    `react-flow__handle-${position}`,
     "nodrag",
     className,
     type,

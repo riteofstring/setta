@@ -63,26 +63,6 @@ describe("ComboboxInput", () => {
     expect(markup).toContain("pr-8");
   });
 
-  it("uses the variant background when callers omit bg", () => {
-    const markup = renderToStaticMarkup(
-      <ComboboxInput
-        divId="combobox-test-no-bg"
-        getInputProps={() => ({})}
-        getToggleButtonProps={() => ({})}
-        isOpen={false}
-        small={true}
-        onKeyDown={() => {}}
-        placeholder="Pick one"
-        isDisabled={false}
-        inputRef={inputRef}
-        variant="pill"
-      />,
-    );
-
-    expect(markup).toContain("bg-white");
-    expect(markup).toContain("dark:bg-setta-900");
-  });
-
   it("uses svg chevron icons instead of gg chevron classes", () => {
     // SVG chevrons keep optical centering stable across both variants.
     const paneMarkup = renderInputMarkup("pane");

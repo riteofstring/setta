@@ -78,11 +78,6 @@ PY
   ln -s "${artifact_dir}" "${latest_link}"
 }
 
-recording_bundle_finalized() {
-  local artifact_dir="$1"
-  [[ -s "${artifact_dir}/session.json" && -s "${artifact_dir}/recording.json" ]]
-}
-
 resolve_active_setta_files_root() {
   if [[ -n "${SETTA_FILES_ROOT:-}" ]]; then
     printf '%s\n' "${SETTA_FILES_ROOT}"
@@ -172,7 +167,6 @@ Environment:
   SETTA_CHROME_REPRO_DEV_MODE         Dev runner mode: start | startr (default: start)
   SETTA_CHROME_REPRO_LOG_LEVEL        Backend log level for repro runs (default: debug)
   CHROME_BIN                          Path to Chrome/Chromium binary.
-  CHROME_EXTRA_ARGS                   Extra Chrome flags (space-separated).
 
 The recorder prefers Playwright's bundled Chrome for Testing when available,
 because recent branded Google Chrome builds can reject unpacked extensions.
@@ -549,7 +543,7 @@ cleanup() {
     wait "${chrome_pid}" || true
   fi
 
-  if [[ "${exit_code}" -eq 0 ]] || recording_bundle_finalized "${artifact_dir}"; then
+  if [[ "${exit_code}" -eq 0 ]]; then
     local resolved_setta_files_root=""
     resolved_setta_files_root="$(resolve_active_setta_files_root || true)"
     if [[ -n "${resolved_setta_files_root}" ]]; then
@@ -599,7 +593,7 @@ log "Waiting for Setta bootstrap URL."
 bootstrap_url="$(wait_for_bootstrap_url 120)"
 
 launcher_metadata_file="${artifact_dir}/launcher.json"
-"${PYTHON_BIN}" - "${launcher_metadata_file}" "${artifact_dir}" "${bootstrap_url}" "${log_dir}" "${profile_dir}" "${extension_dir}" "${SETTA_WORKSPACE_ROOT}" "${SETTA_HOME}" "${CHROME_EXTRA_ARGS:-}" <<'PY'
+"${PYTHON_BIN}" - "${launcher_metadata_file}" "${artifact_dir}" "${bootstrap_url}" "${log_dir}" "${profile_dir}" "${extension_dir}" "${SETTA_WORKSPACE_ROOT}" "${SETTA_HOME}" <<'PY'
 import json
 import sys
 from datetime import UTC, datetime
@@ -615,7 +609,6 @@ payload = {
     "extensionDir": sys.argv[6],
     "workspaceRoot": sys.argv[7],
     "settaHome": sys.argv[8],
-    "chromeExtraArgs": sys.argv[9],
 }
 metadata_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -627,25 +620,16 @@ if [[ -z "${chrome_bin}" ]]; then
 fi
 
 chrome_log="${log_dir}/chrome.log"
-chrome_launch_args=(
-  "--user-data-dir=${profile_dir}"
-  "--no-first-run"
-  "--no-default-browser-check"
-  "--disable-extensions-except=${extension_dir}"
-  "--load-extension=${extension_dir}"
-)
-if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-  chrome_launch_args+=("--use-mock-keychain")
-fi
-if [[ -n "${CHROME_EXTRA_ARGS:-}" ]]; then
-  chrome_extra_args=()
-  read -r -a chrome_extra_args <<<"${CHROME_EXTRA_ARGS}"
-  chrome_launch_args+=("${chrome_extra_args[@]}")
-fi
-chrome_launch_args+=("${bootstrap_url}")
 
 log "Launching dedicated Chrome recorder window with ${chrome_bin}."
-"${chrome_bin}" "${chrome_launch_args[@]}" >"${chrome_log}" 2>&1 &
+"${chrome_bin}" \
+  --user-data-dir="${profile_dir}" \
+  --no-first-run \
+  --no-default-browser-check \
+  --disable-extensions-except="${extension_dir}" \
+  --load-extension="${extension_dir}" \
+  "${bootstrap_url}" \
+  >"${chrome_log}" 2>&1 &
 chrome_pid="$!"
 
 if ! wait_for_extension_registration "${profile_dir}" "${extension_dir}" 20 "${chrome_pid}"; then

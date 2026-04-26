@@ -38,7 +38,6 @@ import {
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX,
   PROJECT_CHAT_SIDE_RAIL_WIDTH_PX,
   PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX,
-  PROJECT_CHAT_WORKSPACE_SELECTOR,
   resolveProjectChatFloatingBoundaryInsets,
 } from "components/ChatWindowing/projectChatViewport";
 import { ProjectChatWindowIcon } from "components/ChatWindowing/ProjectChatWindowIcon";
@@ -3044,11 +3043,11 @@ export function ProjectChatBottomDock() {
       setViewportHeightPx((current) =>
         current === window.innerHeight ? current : window.innerHeight,
       );
-      const workspace = document.querySelector(PROJECT_CHAT_WORKSPACE_SELECTOR);
-      if (!(workspace instanceof HTMLElement)) {
+      const pane = document.querySelector(".react-flow__pane");
+      if (!(pane instanceof HTMLElement)) {
         return;
       }
-      const nextTopInsetPx = workspace.getBoundingClientRect().top;
+      const nextTopInsetPx = pane.getBoundingClientRect().top;
       if (Number.isFinite(nextTopInsetPx) && nextTopInsetPx > 0) {
         setWorkspaceTopInsetPx((current) => {
           if (Math.abs(nextTopInsetPx - current) <= 0.5) {

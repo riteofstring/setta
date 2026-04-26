@@ -43,12 +43,13 @@ test.describe.serial("chat stop reconciliation", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".canvas-flow__canvas");
+      await page.waitForSelector(".react-flow__pane");
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       const chatId = "pw-stop-null-message-id";
-      const windowInstanceId =
-        await getVisibleProjectChatWindowInstanceId(projectChatSurface);
+      const windowInstanceId = await getVisibleProjectChatWindowInstanceId(
+        projectChatSurface,
+      );
       await page.evaluate(
         async ({ instanceId, nextChatId }) => {
           const { setProjectChatWindowChatId } = await import(

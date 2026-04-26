@@ -42,9 +42,7 @@ async function readFixtureRenderMetrics(
         (count) => count > 0,
       ).length,
       maxRendersForAnySection:
-        perCreatedSectionCounts.length > 0
-          ? Math.max(...perCreatedSectionCounts)
-          : 0,
+        perCreatedSectionCounts.length > 0 ? Math.max(...perCreatedSectionCounts) : 0,
     };
   }, sectionIds);
 }
@@ -70,7 +68,7 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
     await page.evaluate(() => {
       const scope = window as {
         __settaFixtureRenderCount?: number;
@@ -82,9 +80,7 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
 
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for plugin section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for plugin section placement.");
     }
 
     const totalSections = 110;
@@ -133,9 +129,7 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
     await expect
       .poll(
         async () => {
-          return await page
-            .locator("[data-testid='fixture-plugin-card']")
-            .count();
+          return await page.locator("[data-testid='fixture-plugin-card']").count();
         },
         { timeout: 20000 },
       )
@@ -145,9 +139,7 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
       page,
       createdSectionIds,
     );
-    expect(baselineRenderMetrics.uniqueCreatedSectionsRendered).toBeGreaterThan(
-      80,
-    );
+    expect(baselineRenderMetrics.uniqueCreatedSectionsRendered).toBeGreaterThan(80);
     expect(baselineRenderMetrics.totalRendersForCreatedSections).toBeLessThan(
       totalSections * 60,
     );
@@ -187,10 +179,7 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
     );
     const additionalRendersBySection =
       postCommandRenderMetrics.perCreatedSectionCounts.map((count, index) =>
-        Math.max(
-          0,
-          count - baselineRenderMetrics.perCreatedSectionCounts[index],
-        ),
+        Math.max(0, count - baselineRenderMetrics.perCreatedSectionCounts[index]),
       );
     const totalAdditionalRenders = additionalRendersBySection.reduce(
       (sum, count) => sum + count,

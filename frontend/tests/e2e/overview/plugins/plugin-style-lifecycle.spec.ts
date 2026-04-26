@@ -30,7 +30,7 @@ test("plugin stylesheet links follow plugin lifecycle state", async ({
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(styleLink).toHaveCount(1);
     await expect(styleLink.first()).toHaveAttribute(
@@ -43,7 +43,7 @@ test("plugin stylesheet links follow plugin lifecycle state", async ({
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
     await expect(styleLink).toHaveCount(0);
 
     await postBackend(page, "/plugins/enable", {
@@ -51,7 +51,7 @@ test("plugin stylesheet links follow plugin lifecycle state", async ({
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
     await expect(styleLink).toHaveCount(1);
 
     await postBackend(page, "/plugins/uninstall", {
@@ -60,7 +60,7 @@ test("plugin stylesheet links follow plugin lifecycle state", async ({
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
     await expect(styleLink).toHaveCount(0);
   } finally {
     await postBackend(page, "/plugins/uninstall", {
@@ -94,7 +94,7 @@ test("failed plugin frontend loads do not keep stylesheet links mounted", async 
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(styleLink).toHaveCount(0);
     await expect(
@@ -135,7 +135,7 @@ test("runtime refresh errors clear plugin styles and the next success restores t
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
     await expect(styleLink).toHaveCount(1);
 
     allowExpectedApiError(page, {
@@ -172,7 +172,7 @@ test("runtime refresh errors clear plugin styles and the next success restores t
     await expect(styleLink).toHaveCount(0);
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
     await expect.poll(() => runtimeCalls).toBe(2);
     await expect(styleLink).toHaveCount(1);
   } finally {

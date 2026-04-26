@@ -150,7 +150,7 @@ test.describe.serial("section style colors", () => {
         .toBe("#ff0000");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".canvas-flow__canvas");
+      await page.waitForSelector(".react-flow__pane");
 
       const nodeAfter = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,

@@ -48,7 +48,7 @@ test("blank-canvas deselect persists after a selection-key click and reload", as
     await expect.poll(async () => await readBackendActiveIds(page)).toEqual([]);
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     // Reload must preserve the empty selection instead of restoring stale backend state.
     await expect(sectionNode).toBeVisible();
@@ -72,7 +72,7 @@ async function getBlankCanvasPoint(
   page: Page,
 ): Promise<{ x: number; y: number }> {
   return await page.evaluate(() => {
-    const pane = document.querySelector(".canvas-flow__canvas");
+    const pane = document.querySelector(".react-flow__pane");
     if (!(pane instanceof HTMLElement)) {
       throw new Error("Missing canvas pane.");
     }

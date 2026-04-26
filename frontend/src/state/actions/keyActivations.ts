@@ -945,7 +945,7 @@ function specialModTabCase(shortcutInfo) {
 
 function getEventSectionNode(event: KeyboardEvent) {
   const target = event.target instanceof HTMLElement ? event.target : null;
-  return target?.closest(".canvas-flow__node");
+  return target?.closest(".react-flow__node");
 }
 
 function getDocumentActiveElement() {

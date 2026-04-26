@@ -1,3 +1,10 @@
+import type {
+  D3DragEvent,
+  Selection as D3Selection,
+  SubjectPosition,
+  ZoomBehavior,
+} from "d3";
+
 import { Position } from "utils/generatedTypes";
 import type {
   ConnectingHandle,
@@ -29,6 +36,11 @@ export type ReactFlowStore = {
   paneDragging: boolean;
   viewportInteractionActive: boolean;
 
+  d3Zoom: ZoomBehavior<Element, unknown> | null;
+  d3Selection: D3Selection<Element, unknown, null, undefined> | null;
+  d3ZoomHandler:
+    | ((this: Element, event: WheelEvent, d: unknown) => void)
+    | undefined;
   translateExtent: CoordinateExtent;
   nodeDragThreshold: number;
 
@@ -61,10 +73,11 @@ export type ReactFlowStore = {
 };
 
 type ReactFlowActions = {
+  setMinZoom: (minZoom: number) => void;
+  setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
+  reset: () => void;
   panBy: (delta: Position) => boolean;
-  setNodesSelection: (selectedNodesCount: number, ignoreGrid?: boolean) => void;
-  shiftNodesSelection: (delta: Position) => void;
   cancelConnection: () => void;
 };
 
@@ -77,6 +90,8 @@ export type PanelPosition =
   | "bottom-left"
   | "bottom-center"
   | "bottom-right";
+
+export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 
 type SelectionRect = Rect & {
   startX: number;

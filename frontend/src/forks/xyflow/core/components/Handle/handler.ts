@@ -11,10 +11,6 @@ import type { Connection, HandleType, ReactFlowState } from "../../types";
 import { calcAutoPan, getEventPosition, getHostForElement } from "../../utils";
 import { pointToRendererPoint, rendererPointToPoint } from "../../utils/graph";
 import {
-  HANDLE_CONNECTING_CLASS_NAME,
-  HANDLE_VALID_CLASS_NAME,
-} from "./classes";
-import {
   getClosestHandle,
   getConnectionStatus,
   getHandleLookup,
@@ -202,9 +198,12 @@ export function handlePointerDown({
 
     resetRecentHandle(prevActiveHandle);
     prevActiveHandle = nextHandleDomNode;
-    nextHandleDomNode.classList.add("connecting", HANDLE_CONNECTING_CLASS_NAME);
+    nextHandleDomNode.classList.add(
+      "connecting",
+      "react-flow__handle-connecting",
+    );
     nextHandleDomNode.classList.toggle("valid", nextIsValid);
-    nextHandleDomNode.classList.toggle(HANDLE_VALID_CLASS_NAME, nextIsValid);
+    nextHandleDomNode.classList.toggle("react-flow__handle-valid", nextIsValid);
   };
 
   const resolvePointerUpState = (
