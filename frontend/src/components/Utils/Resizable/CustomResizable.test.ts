@@ -3,10 +3,13 @@ import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   clampChangedSize,
+  getResizableEnable,
+  getResizeAxisAvailability,
   getResizableHandleConfig,
   setGpuNodeResizeInteractionActive,
   shouldEmitResizeEndEvent,
 } from "./CustomResizable";
+import { SIZE_MODE } from "./utils";
 
 describe("clampChangedSize", () => {
   it("clamps width and height independently when aspect ratio is off", () => {
@@ -119,5 +122,115 @@ describe("resize GPU interaction ownership", () => {
         expect(className).toContain(NO_PAN_CLASS_NAME);
       }
     }
+  });
+});
+
+describe("resize axis and handle availability", () => {
+  it("uses min/max policy and auto-only mode to decide resizable axes", () => {
+    expect(
+      getResizeAxisAvailability({
+        maxHeight: 300,
+        maxWidth: 400,
+        minHeight: 120,
+        minWidth: 180,
+        sizeMode: { height: SIZE_MODE.any, width: SIZE_MODE.any },
+      }),
+    ).toEqual({ heightResizable: true, widthResizable: true });
+
+    expect(
+      getResizeAxisAvailability({
+        maxHeight: 300,
+        maxWidth: 180,
+        minHeight: 120,
+        minWidth: 180,
+        sizeMode: { height: SIZE_MODE.any, width: SIZE_MODE.any },
+      }),
+    ).toEqual({ heightResizable: true, widthResizable: false });
+
+    expect(
+      getResizeAxisAvailability({
+        maxHeight: 120,
+        maxWidth: 400,
+        minHeight: 120,
+        minWidth: 180,
+        sizeMode: { height: SIZE_MODE.auto_only, width: SIZE_MODE.auto_only },
+      }),
+    ).toEqual({ heightResizable: false, widthResizable: false });
+  });
+
+  it("maps axis availability to only right, bottom, and bottom-right handles", () => {
+    expect(
+      getResizableEnable({
+        disablePointerEvents: false,
+        heightResizable: true,
+        positionAndSizeLocked: false,
+        widthResizable: true,
+      }),
+    ).toEqual({
+      bottom: true,
+      bottomLeft: false,
+      bottomRight: true,
+      left: false,
+      right: true,
+      top: false,
+      topLeft: false,
+      topRight: false,
+    });
+
+    expect(
+      getResizableEnable({
+        disablePointerEvents: false,
+        heightResizable: true,
+        positionAndSizeLocked: false,
+        widthResizable: false,
+      }),
+    ).toEqual({
+      bottom: true,
+      bottomLeft: false,
+      bottomRight: false,
+      left: false,
+      right: false,
+      top: false,
+      topLeft: false,
+      topRight: false,
+    });
+
+    expect(
+      getResizableEnable({
+        disablePointerEvents: false,
+        heightResizable: false,
+        positionAndSizeLocked: false,
+        widthResizable: true,
+      }),
+    ).toEqual({
+      bottom: false,
+      bottomLeft: false,
+      bottomRight: false,
+      left: false,
+      right: true,
+      top: false,
+      topLeft: false,
+      topRight: false,
+    });
+  });
+
+  it("disables every handle when pointer ownership or layout locks block resize", () => {
+    expect(
+      getResizableEnable({
+        disablePointerEvents: true,
+        heightResizable: true,
+        positionAndSizeLocked: false,
+        widthResizable: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      getResizableEnable({
+        disablePointerEvents: false,
+        heightResizable: true,
+        positionAndSizeLocked: true,
+        widthResizable: true,
+      }),
+    ).toBe(false);
   });
 });

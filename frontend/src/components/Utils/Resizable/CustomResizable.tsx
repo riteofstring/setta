@@ -347,9 +347,13 @@ function CustomResizableCore({
     canEditLayout,
     positionAndSizeLocked,
   ]);
-  const heightResizable =
-    minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
-  const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
+  const { heightResizable, widthResizable } = getResizeAxisAvailability({
+    maxHeight,
+    maxWidth,
+    minHeight,
+    minWidth,
+    sizeMode,
+  });
   const snapGrid = useSettings((x) => x.gui.snapGrid);
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   return (
@@ -790,7 +794,27 @@ function getAutoClampSize({
     minWidth,
   });
 }
-function getResizableEnable({
+export function getResizeAxisAvailability({
+  maxHeight,
+  maxWidth,
+  minHeight,
+  minWidth,
+  sizeMode,
+}: {
+  maxHeight: number;
+  maxWidth: number;
+  minHeight: number;
+  minWidth: number;
+  sizeMode: { width: string; height: string };
+}) {
+  return {
+    heightResizable:
+      minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only,
+    widthResizable:
+      minWidth !== maxWidth && sizeMode.width !== SIZE_MODE.auto_only,
+  };
+}
+export function getResizableEnable({
   disablePointerEvents,
   positionAndSizeLocked,
   heightResizable,
