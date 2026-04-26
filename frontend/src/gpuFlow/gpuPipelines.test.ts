@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
@@ -7,8 +8,10 @@ import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
 import type { NodeQuadRenderRuntime } from "./gpuPipelines";
 import {
   buildNodeQuadVertexData,
+  encodeGpuGridUniform,
   encodeNodeQuadCameraUniform,
   GpuNodeQuadRenderer,
+  parseGpuGridColor,
 } from "./gpuPipelines";
 import type { NodeTextureRecord } from "./nodeTextures";
 
@@ -38,6 +41,37 @@ describe("gpu node quad pipeline", () => {
       10, 15, 0, 0, 40, 15, 1, 0, 10, 35, 0, 1, 10, 35, 0, 1, 40, 15, 1, 0, 40,
       35, 1, 1,
     ]);
+  });
+
+  it("encodes procedural grid settings from generated background variants", () => {
+    const encoded = Array.from(
+      encodeGpuGridUniform({
+        color: "#afbacf80",
+        patternSize: 2,
+        snapGrid: [25, 50],
+        variant: BackgroundVariantEnum.dots,
+      }),
+    );
+
+    expect(encoded[0]).toBeCloseTo(175 / 255);
+    expect(encoded[1]).toBeCloseTo(186 / 255);
+    expect(encoded[2]).toBeCloseTo(207 / 255);
+    expect(encoded[3]).toBeCloseTo(128 / 255);
+    expect(encoded.slice(4)).toEqual([25, 50, 2, 1]);
+    expect(parseGpuGridColor("#abc")).toEqual([
+      170 / 255,
+      187 / 255,
+      204 / 255,
+      1,
+    ]);
+    expect(() =>
+      encodeGpuGridUniform({
+        color: "slate",
+        patternSize: 2,
+        snapGrid: [25, 25],
+        variant: BackgroundVariantEnum.lines,
+      }),
+    ).toThrow("Setta GPU grid requires a hex color");
   });
 
   it("draws cached node textures with one camera uniform update and per-node texture bindings", () => {
@@ -87,6 +121,91 @@ describe("gpu node quad pipeline", () => {
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 6, 0);
     expect(gpu.pass.end).toHaveBeenCalledTimes(1);
     expect(gpu.device.queue.submit).toHaveBeenCalledWith([gpu.commandBuffer]);
+  });
+
+  it("draws the procedural grid before GPU edges and node textures", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+
+    const result = renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edges: [edge("edge-a", 0, 0, 100, 0)],
+      grid: {
+        color: "#afbacf",
+        patternSize: 2,
+        snapGrid: [25, 25],
+        variant: BackgroundVariantEnum.lines,
+      },
+      quads: [texturedQuad("node-a", 0, 0, 100, 50)],
+      viewport: [10, 20, 1.25],
+    });
+
+    expect(result).toEqual({
+      drawnEdgeIds: ["edge-a"],
+      drawnNodeIds: ["node-a"],
+      edgeVertexCount: 2,
+      vertexCount: 6,
+    });
+    expect(gpu.device.createRenderPipeline).toHaveBeenCalledTimes(3);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(1, gpu.pipelines[0]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 3, 1, 0, 0);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(2, gpu.pipelines[1]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 2, 1, 0, 0);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(3, gpu.pipelines[2]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(3, 6, 1, 0, 0);
+  });
+
+  it("keeps grid settings uniform stable on viewport-only redraws", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const grid = {
+      color: "#afbacf",
+      patternSize: 2,
+      snapGrid: [25, 25],
+      variant: BackgroundVariantEnum.dots,
+    } as const;
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      grid,
+      quads: [],
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      grid,
+      quads: [],
+      viewport: [50, -25, 1.5],
+    });
+
+    const cameraBuffer = getBufferByLabel(
+      gpu.buffers,
+      "setta-gpu-node-quad-camera-uniform",
+    );
+    const gridBuffer = getBufferByLabel(gpu.buffers, "setta-gpu-grid-uniform");
+    expect(gpu.device.queue.writeBuffer).toHaveBeenCalledTimes(3);
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      1,
+      cameraBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      2,
+      gridBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      3,
+      cameraBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 3, 1, 0, 0);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 3, 1, 0, 0);
   });
 
   it("reuses texture bind groups until a node texture view or sampler changes", () => {

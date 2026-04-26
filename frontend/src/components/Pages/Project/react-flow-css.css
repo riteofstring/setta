@@ -8,11 +8,6 @@
   z-index: auto;
 }
 
-.react-flow__background {
-  z-index: auto;
-  pointer-events: none;
-}
-
 .setta-project-gpu-edge-layer-host {
   position: absolute;
   inset: 0;

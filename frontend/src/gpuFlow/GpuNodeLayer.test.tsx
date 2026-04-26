@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
@@ -277,6 +278,36 @@ describe("GpuNodeLayer helpers", () => {
       drawnNodeIds: [],
       edgeVertexCount: 2,
       visibleNodeIds: [],
+    });
+  });
+
+  it("passes procedural grid settings into the scene renderer", () => {
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+    const grid = {
+      color: "#afbacf",
+      patternSize: 2,
+      snapGrid: [25, 25],
+      variant: BackgroundVariantEnum.dots,
+    } as const;
+
+    renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      elementByNodeId: new Map(),
+      frame: 1,
+      grid,
+      nodes: [],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(renderer.render).toHaveBeenCalledWith({
+      canvasSize: canvasSize(),
+      clearColor: undefined,
+      grid,
+      quads: [],
+      viewport: [0, 0, 1],
     });
   });
 

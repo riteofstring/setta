@@ -2,6 +2,7 @@ import { memo, useCallback, type CSSProperties, type ReactNode } from "react";
 import type { NodeTexturePriority } from "./dirtyTracking";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type {
+  GpuGridInput,
   RenderNodeTextureQuadsInput,
   RenderNodeTextureQuadsResult,
 } from "./gpuPipelines";
@@ -111,6 +112,7 @@ type RenderGpuNodeLayerFrameInput = {
     | readonly string[]
     | undefined;
   readonly frame: number;
+  readonly grid?: GpuGridInput | undefined;
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly renderer: GpuNodeQuadRenderTarget;
@@ -219,6 +221,7 @@ export function renderGpuNodeLayerFrame({
   elementByNodeId,
   forceVisibleNodeIds,
   frame,
+  grid,
   marginCssPx,
   nodes,
   overlayNodeId,
@@ -283,6 +286,7 @@ export function renderGpuNodeLayerFrame({
     canvasSize,
     clearColor,
     ...(edges === undefined ? {} : { edges }),
+    ...(grid === undefined ? {} : { grid }),
     quads: uploadedTexturedQuads,
     viewport,
   });

@@ -28,7 +28,7 @@ import {
   type GpuNodeUploadBudget,
   type RenderGpuNodeLayerFrameResult,
 } from "./GpuNodeLayer";
-import { GpuNodeQuadRenderer } from "./gpuPipelines";
+import { GpuNodeQuadRenderer, type GpuGridInput } from "./gpuPipelines";
 import { measureGpuCanvasClientSize, type GpuCanvasSize } from "./gpuRenderer";
 import {
   GpuSurface,
@@ -83,6 +83,7 @@ type GpuFlowProps = Pick<
   edgeScene?: GpuEdgeScene | undefined;
   edges?: readonly GpuEdgeBufferInput[] | undefined;
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
+  grid?: GpuGridInput | undefined;
   marginCssPx?: number | undefined;
   nodeClassName?: string | undefined;
   onNodeElementChange?:
@@ -133,6 +134,7 @@ type GpuFlowNodeLayerState = {
     | ReadonlySet<string>
     | readonly string[]
     | undefined;
+  readonly grid: GpuGridInput | undefined;
   readonly marginCssPx: number | undefined;
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
@@ -149,6 +151,7 @@ export function GpuFlow({
   edgeScene,
   edges,
   forceVisibleNodeIds,
+  grid,
   marginCssPx,
   nodeClassName,
   nodeDrag,
@@ -201,6 +204,7 @@ export function GpuFlow({
     edgeScene,
     edges: drawEdges,
     forceVisibleNodeIds,
+    grid,
     marginCssPx,
     nodes,
     uploadBudget,
@@ -270,12 +274,13 @@ export function GpuFlow({
       edgeScene,
       edges: nextEdges,
       forceVisibleNodeIds,
+      grid,
       marginCssPx,
       nodes,
       uploadBudget,
       viewport: viewportStore.getState().transform,
     };
-    if (!nodes && !nextEdges) {
+    if (!nodes && !nextEdges && !grid) {
       visibleNodeIdsRef.current = new Set();
       setActiveNodeOverlaySnapshot(null);
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
@@ -286,6 +291,7 @@ export function GpuFlow({
     edgeScene,
     edges,
     forceVisibleNodeIds,
+    grid,
     marginCssPx,
     nodes,
     uploadBudget,
@@ -646,7 +652,7 @@ function renderGpuFlowNodeLayerFrame({
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
 }) {
   const layer = nodeLayerRef.current;
-  if (!layer.nodes && !layer.edges) {
+  if (!hasRenderableGpuFlowLayer(layer)) {
     return;
   }
   const nodes = layer.nodes ?? EMPTY_GPU_NODE_LAYOUTS;
@@ -670,6 +676,7 @@ function renderGpuFlowNodeLayerFrame({
     elementByNodeId: nodeElementByIdRef.current,
     forceVisibleNodeIds: layer.forceVisibleNodeIds,
     frame,
+    grid: layer.grid,
     marginCssPx: layer.marginCssPx,
     nodes,
     overlayNodeId: nodeInteraction?.getOverlayNodeId(),
@@ -692,6 +699,10 @@ function renderGpuFlowNodeLayerFrame({
   });
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
   requestRemainingTextureUploadFrame(surfaceRef, layerResult);
+}
+
+function hasRenderableGpuFlowLayer(layer: GpuFlowNodeLayerState): boolean {
+  return Boolean(layer.nodes || layer.edges || layer.grid);
 }
 
 function hasRenderableGpuFlowCanvasSize(canvasSize: GpuCanvasSize): boolean {

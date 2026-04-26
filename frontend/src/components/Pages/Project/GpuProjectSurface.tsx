@@ -8,6 +8,7 @@ import {
 import type { NodeDragItem } from "gpuFlow/flowTypes";
 import { GpuFlow } from "gpuFlow/GpuFlow";
 import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
+import type { GpuGridInput } from "gpuFlow/gpuPipelines";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import {
   clearNodesSelectionBounds,
@@ -21,7 +22,6 @@ import _ from "lodash";
 import {
   useCallback,
   useEffect,
-  useId,
   useRef,
   useState,
   type CSSProperties,
@@ -69,10 +69,7 @@ import {
 } from "utils/constants";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { useTabScope } from "utils/focusManager";
-import {
-  BackgroundVariantEnum,
-  NotificationTypeEnum,
-} from "utils/generatedTypes";
+import { NotificationTypeEnum } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { AgenticScopeHighlightsUpdater } from "./AgenticScopeHighlightsUpdater";
 import {
@@ -204,9 +201,9 @@ export function GpuProjectSurface() {
       }
     >
       <AgenticScopeHighlightsUpdater />
-      <ProjectGpuGridLayer darkMode={darkMode} settings={settings} />
       <ProjectGpuFlowLayer
         canEditStructure={canEditStructure}
+        darkMode={darkMode}
         edgeScene={edgeScene}
         flowInteractionKeys={flowInteractionKeys}
         isFollowTransitioning={isFollowTransitioning}
@@ -221,28 +218,9 @@ export function GpuProjectSurface() {
   );
 }
 
-function ProjectGpuGridLayer({
-  darkMode,
-  settings,
-}: {
-  readonly darkMode: boolean;
-  readonly settings: ProjectGpuSurfaceSettings;
-}) {
-  if (!settings.showGridLines) {
-    return null;
-  }
-  return (
-    <GpuProjectGrid
-      patternColor={darkMode ? settings.gridColorDarkMode : settings.gridColor}
-      patternSize={settings.gridPatternSize}
-      snapGrid={settings.snapGrid}
-      variant={settings.gridPattern}
-    />
-  );
-}
-
 function ProjectGpuFlowLayer({
   canEditStructure,
+  darkMode,
   edgeScene,
   flowInteractionKeys,
   isFollowTransitioning,
@@ -253,6 +231,7 @@ function ProjectGpuFlowLayer({
   settings,
 }: {
   readonly canEditStructure: boolean;
+  readonly darkMode: boolean;
   readonly edgeScene: ReturnType<typeof useProjectGpuEdgeScene>;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
@@ -274,6 +253,7 @@ function ProjectGpuFlowLayer({
         onEdgeContextMenu: selectEdge,
       }}
       edgeScene={getReadyProjectFlowValue(readyToRender, edgeScene)}
+      grid={getProjectGpuGridInput({ darkMode, settings })}
       nodeDrag={getProjectNodeDragOptions({
         flowInteractionKeys,
         isFollowTransitioning,
@@ -322,6 +302,24 @@ function useProjectGpuEdgeSelection(canEditStructure: boolean) {
 
 function renderProjectGpuNode(node: GpuNodeLayout) {
   return <SectionContainer sectionId={node.nodeId} isTopLevel={true} />;
+}
+
+function getProjectGpuGridInput({
+  darkMode,
+  settings,
+}: {
+  readonly darkMode: boolean;
+  readonly settings: ProjectGpuSurfaceSettings;
+}): GpuGridInput | undefined {
+  if (!settings.showGridLines) {
+    return undefined;
+  }
+  return {
+    color: darkMode ? settings.gridColorDarkMode : settings.gridColor,
+    patternSize: settings.gridPatternSize,
+    snapGrid: settings.snapGrid,
+    variant: settings.gridPattern,
+  };
 }
 
 function handleProjectFlowResize(
@@ -536,77 +534,6 @@ function useProjectNodeResizeObserver() {
     elementByNodeId.current.set(nodeId, element);
     observer?.observe(element);
   }, []);
-}
-
-function GpuProjectGrid({
-  patternColor,
-  patternSize,
-  snapGrid,
-  variant,
-}: {
-  readonly patternColor: string;
-  readonly patternSize: number;
-  readonly snapGrid: readonly [number, number];
-  readonly variant: (typeof BackgroundVariantEnum)[keyof typeof BackgroundVariantEnum];
-}) {
-  const transform = useGpuFlowViewportStore(
-    (state) => state.transform,
-    _.isEqual,
-  );
-  const patternId = useId().replaceAll(":", "");
-  const scaledGap: [number, number] = [
-    snapGrid[0] * transform[2] || 1,
-    snapGrid[1] * transform[2] || 1,
-  ];
-  const scaledSize = patternSize * transform[2];
-  const isDots = variant === BackgroundVariantEnum.dots;
-  const isCross = variant === BackgroundVariantEnum.cross;
-  const patternDimensions: [number, number] = isCross
-    ? [scaledSize, scaledSize]
-    : scaledGap;
-  const patternOffset: [number, number] = isDots
-    ? [scaledSize / 2, scaledSize / 2]
-    : [patternDimensions[0] / 2, patternDimensions[1] / 2];
-  return (
-    <svg
-      className="react-flow__background setta-gpu-project-grid"
-      data-testid="rf__background"
-    >
-      <pattern
-        height={scaledGap[1]}
-        id={patternId}
-        patternTransform={`translate(-${patternOffset[0]},-${patternOffset[1]})`}
-        patternUnits="userSpaceOnUse"
-        width={scaledGap[0]}
-        x={transform[0] % scaledGap[0]}
-        y={transform[1] % scaledGap[1]}
-      >
-        {isDots ? (
-          <circle
-            cx={scaledSize / 2}
-            cy={scaledSize / 2}
-            fill={patternColor}
-            r={scaledSize / 2}
-          />
-        ) : (
-          <path
-            d={`M${patternDimensions[0] / 2} 0 V${patternDimensions[1]} M0 ${
-              patternDimensions[1] / 2
-            } H${patternDimensions[0]}`}
-            stroke={patternColor}
-            strokeWidth={patternSize * transform[2]}
-          />
-        )}
-      </pattern>
-      <rect
-        fill={`url(#${patternId})`}
-        height="100%"
-        width="100%"
-        x="0"
-        y="0"
-      />
-    </svg>
-  );
 }
 
 function GpuProjectNodesSelectionOverlay({
