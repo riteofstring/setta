@@ -3,7 +3,7 @@ import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown"
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
-import Controls from "forks/xyflow/controls/Controls";
+import { GpuControls } from "gpuFlow/GpuControls";
 import { useAppSubsystemOverviewTab } from "plugins/appSubsystem";
 import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
 import {
@@ -523,7 +523,7 @@ function OverviewRail({
           ))}
         </NavbarMenuDropdown>
       </Menubar.Root>
-      <Controls />
+      <GpuControls />
       <Link
         to={SETTINGS_ROUTER_PATH}
         state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
