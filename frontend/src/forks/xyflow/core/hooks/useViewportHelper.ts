@@ -17,18 +17,30 @@ type ZoomOptions = TransitionOptions & {
 type ViewportTransform = Partial<Viewport>;
 
 export const zoomIn = _.throttle((options?: TransitionOptions) => {
-  const { d3Zoom, d3Selection } = useReactFlow.getState();
-  d3Zoom!.scaleBy(getD3Transition(d3Selection!, options?.duration), 1.2);
+  const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
+  if (!d3Zoom || !d3Selection) {
+    setViewport({ zoom: transform[2] * 1.2 }, options);
+    return;
+  }
+  d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1.2);
 }, 50);
 
 export const zoomOut = _.throttle((options?: TransitionOptions) => {
-  const { d3Zoom, d3Selection } = useReactFlow.getState();
-  d3Zoom!.scaleBy(getD3Transition(d3Selection!, options?.duration), 1 / 1.2);
+  const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
+  if (!d3Zoom || !d3Selection) {
+    setViewport({ zoom: transform[2] / 1.2 }, options);
+    return;
+  }
+  d3Zoom.scaleBy(getD3Transition(d3Selection, options?.duration), 1 / 1.2);
 }, 50);
 
 function zoomTo(zoomLevel: number, options?: TransitionOptions) {
   const { d3Zoom, d3Selection } = useReactFlow.getState();
-  d3Zoom!.scaleTo(getD3Transition(d3Selection!, options?.duration), zoomLevel);
+  if (!d3Zoom || !d3Selection) {
+    setViewport({ zoom: zoomLevel }, options);
+    return;
+  }
+  d3Zoom.scaleTo(getD3Transition(d3Selection, options?.duration), zoomLevel);
 }
 
 export function resetZoom() {
@@ -52,6 +64,12 @@ function setViewport(
   const nextTransform = zoomIdentity
     .translate(transform.x ?? x, transform.y ?? y)
     .scale(transform.zoom ?? zoom);
+  if (!d3Zoom || !d3Selection) {
+    useReactFlow.setState({
+      transform: [nextTransform.x, nextTransform.y, nextTransform.k],
+    });
+    return;
+  }
   d3Zoom!.transform(
     getD3Transition(d3Selection!, options?.duration),
     nextTransform,
@@ -74,6 +92,12 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const centerY = height / 2 - y * nextZoom;
   const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
+  if (!d3Zoom || !d3Selection) {
+    useReactFlow.setState({
+      transform: [transform.x, transform.y, transform.k],
+    });
+    return;
+  }
   d3Zoom!.transform(
     getD3Transition(d3Selection!, options?.duration),
     transform,

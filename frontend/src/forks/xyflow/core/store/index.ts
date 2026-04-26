@@ -32,8 +32,19 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
       const { transform, width, height, d3Zoom, d3Selection, translateExtent } =
         get();
 
-      if (!d3Zoom || !d3Selection || (!delta.x && !delta.y)) {
+      if (!delta.x && !delta.y) {
         return false;
+      }
+
+      if (!d3Zoom || !d3Selection) {
+        set({
+          transform: [
+            transform[0] + delta.x,
+            transform[1] + delta.y,
+            transform[2],
+          ],
+        });
+        return true;
       }
 
       const nextTransform = zoomIdentity

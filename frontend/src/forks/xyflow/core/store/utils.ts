@@ -17,8 +17,8 @@ type InternalFitViewOptions = {
 type FitViewRuntime = {
   width: number;
   height: number;
-  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
-  d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
+  d3Zoom: ReactFlowState["d3Zoom"];
+  d3Selection: ReactFlowState["d3Selection"];
 };
 
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
@@ -36,9 +36,6 @@ function getFitViewRuntime(
     fitViewOnInit,
   } = state;
 
-  if (!d3Zoom || !d3Selection) {
-    return null;
-  }
   if (initial && (!fitViewOnInit || fitViewOnInitDone)) {
     return null;
   }
@@ -81,6 +78,13 @@ function applyFitViewTransform(
   const nextTransform = zoomIdentity
     .translate(viewport.x, viewport.y)
     .scale(viewport.zoom);
+
+  if (!runtime.d3Zoom || !runtime.d3Selection) {
+    useReactFlow.setState({
+      transform: [nextTransform.x, nextTransform.y, nextTransform.k],
+    });
+    return;
+  }
 
   if (typeof duration === "number" && duration > 0) {
     runtime.d3Zoom.transform(

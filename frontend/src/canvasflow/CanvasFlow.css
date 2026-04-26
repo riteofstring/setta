@@ -1,0 +1,53 @@
+.canvas-flow {
+  background: #f8fafc;
+  touch-action: none;
+}
+
+.canvas-flow__canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.canvas-flow__canvas:active {
+  cursor: grabbing;
+}
+
+.canvas-flow__node {
+  box-sizing: border-box;
+  contain: layout paint style;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+.canvas-flow .react-flow__selection {
+  pointer-events: none;
+  z-index: 50;
+}
+
+.canvas-flow .react-flow__nodesselection,
+.canvas-flow .react-flow__nodesselection-hitbox {
+  z-index: 55;
+}
+
+.canvas-flow .setta-codemirror-tooltips,
+.canvas-flow .setta-popover-portals {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.canvas-flow .setta-codemirror-tooltips {
+  z-index: 300;
+}
+
+.canvas-flow .setta-popover-portals {
+  z-index: 320;
+}

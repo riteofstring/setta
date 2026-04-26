@@ -128,6 +128,13 @@ export function goToSection(sectionId: string) {
   );
   const duration = useSettings.getState().gui.transitionDuration;
   const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
+  if (!rfStore.d3Zoom || !rfStore.d3Selection) {
+    useReactFlow.setState({
+      transform: [nextTransform.x, nextTransform.y, nextTransform.k],
+    });
+    applyActiveSectionChange({ interaction: "go-to", sectionId });
+    return;
+  }
   rfStore.d3Zoom.transform(
     getD3Transition(rfStore.d3Selection, duration),
     nextTransform,
