@@ -2,7 +2,7 @@ import {
   FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
   FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
 } from "components/Panes/Overview/FileBrowser/fileBrowserPaneShared";
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
+import { getSectionRect } from "gpuFlow/flowGeometry";
 import _ from "lodash";
 import { useRef } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";

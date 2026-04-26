@@ -1,4 +1,4 @@
-import { useReactFlow } from "forks/xyflow/core/store";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -67,10 +67,10 @@ describe("createTopLevelSection", () => {
       });
       state.singletonSections = createSingletonSections();
     });
-    useReactFlow.setState({
-      transform: [0, 0, 1],
-      width: 1200,
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setViewportSize({
       height: 800,
+      width: 1200,
     });
   });
   afterEach(() => {
@@ -135,10 +135,10 @@ describe("createTopLevelSection", () => {
   it("falls back to a visible explicit position when viewport bounds are unavailable for an empty project", async () => {
     const { createTopLevelSection: createTopLevelSectionRequest } =
       await import("openapi/http");
-    useReactFlow.setState({
-      transform: [80, -40, 2],
-      width: 0,
+    gpuFlowViewportStore.getState().setTransform([80, -40, 2]);
+    gpuFlowViewportStore.getState().setViewportSize({
       height: 0,
+      width: 0,
     });
     vi.mocked(createTopLevelSectionRequest).mockResolvedValue({
       status: 200,

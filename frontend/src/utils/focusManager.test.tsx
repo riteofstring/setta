@@ -42,7 +42,7 @@ const hoisted = vi.hoisted(() => {
   };
 });
 
-vi.mock("forks/xyflow/core/utils/graph", () => ({
+vi.mock("gpuFlow/flowGeometry", () => ({
   movePaneToIncludeElement: hoisted.movePaneToIncludeElementMock,
 }));
 

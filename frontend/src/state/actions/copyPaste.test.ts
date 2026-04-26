@@ -46,6 +46,15 @@ const sectionsClipboardPayload: SectionsClipboardData = {
     sectionVariantMap: {},
   },
 };
+
+function createOpenAPISuccess<T>(data: T) {
+  return {
+    data,
+    request: new Request("http://setta.test"),
+    response: { status: 200 } as Response,
+  };
+}
+
 describe("copyPaste actions", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -121,15 +130,17 @@ describe("copyPaste actions", () => {
   it("copies active sections through the canonical Go clipboard route", async () => {
     // Copy should request the canonical clipboard payload and write it to the browser clipboard.
     useActiveSectionUI.setState({ activeIds: ["section-a", "section-b"] });
-    mockedRoutePrepareSectionsForCopy.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: sectionsClipboardPayload,
-    });
+    mockedRoutePrepareSectionsForCopy.mockResolvedValue(
+      createOpenAPISuccess(sectionsClipboardPayload) as unknown as Awaited<
+        ReturnType<typeof prepareSectionsForCopy>
+      >,
+    );
     await copy();
     expect(mockedRoutePrepareSectionsForCopy).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      sectionIds: ["section-a", "section-b"],
+      body: {
+        projectConfigId: "project-alpha",
+        sectionIds: ["section-a", "section-b"],
+      },
     });
     expect(clipboardWriteTextMock).toHaveBeenCalledWith(
       JSON.stringify(sectionsClipboardPayload),
@@ -145,18 +156,18 @@ describe("copyPaste actions", () => {
   });
   it("pastes section clipboard payloads through the canonical Go route", async () => {
     // Paste should preserve the current pane click location when no sections are active.
-    mockedRoutePasteSections.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
+    mockedRoutePasteSections.mockResolvedValue(
+      createOpenAPISuccess(null) as Awaited<ReturnType<typeof pasteSections>>,
+    );
     await paste({ asRef: true });
     expect(clipboardReadTextMock).toHaveBeenCalledTimes(1);
     expect(mockedRoutePasteSections).toHaveBeenCalledWith({
-      projectConfigId: "project-alpha",
-      data: sectionsClipboardPayload.data,
-      position: { x: 240, y: 180 },
-      asRef: true,
+      body: {
+        projectConfigId: "project-alpha",
+        data: sectionsClipboardPayload.data,
+        position: { x: 240, y: 180 },
+        asRef: true,
+      },
     });
   });
   it("blocks paste in deployment mode before touching clipboard state", async () => {
