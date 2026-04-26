@@ -149,3 +149,41 @@ used before treating reconnect UX as fully audited.
   hit state on a small graph.
 - The full 100 / 500 / 1,000 / 2,500 / largest-local graph performance matrix is
   still not recorded.
+
+## Addendum: Automated Embedded Surface Smoke
+
+Date: 2026-04-26
+Branch/Commit: go-rewrite-canvas-replace-xyflow working tree
+
+### Scenario
+
+- Entry point: disposable project started by
+  `./scripts/run-playwright-e2e.sh tests/e2e/canvasflow/html-in-canvas-embedded-surfaces.spec.ts`
+- Browser: installed Chrome launched by Playwright with
+  `--enable-blink-features=CanvasDrawElement`.
+- The Playwright harness now waits on `.canvas-flow__canvas` and computes test
+  placement bounds from the canvas viewport data attributes.
+
+### Results
+
+- The CanvasFlow E2E smoke passed.
+- Covered surfaces:
+  - CodeMirror autocomplete tooltip remained visible and moved after a CanvasFlow
+    wheel zoom.
+  - Terminal section rendered an xterm surface.
+  - Browser section rendered the file explorer.
+  - IFrame section rendered its iframe element.
+  - Spreadsheet section rendered shell controls after selecting a CSV path.
+  - Nested child rendering was validated after moving a TextBlock into a Group
+    through the production `moveSections` path.
+- The test verified that `.react-flow__viewport` and old SVG edge layers were
+  absent.
+
+### Caveat
+
+An earlier version of this smoke attempted to assert the file-backed
+Spreadsheet grid itself. The section rendered the selected CSV name and toolbar
+controls but entered the component's generic `Failed to load spreadsheet file`
+/ `Unable to load spreadsheet content` state in the disposable E2E workspace.
+That grid-load path still needs a targeted follow-up before spreadsheet
+validation is complete.

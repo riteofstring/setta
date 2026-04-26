@@ -23,7 +23,7 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".canvas-flow__canvas";
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -728,7 +728,9 @@ export async function setChatSectionState(
       getLatestProjectState,
       setChatSectionState: setChatSectionStateRequest,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { callOpenAPI } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const {
       getCurrProjectConfigId,
       processProjectStateUpdateFromBackend,
@@ -1423,7 +1425,9 @@ export async function setChatSectionChatId(
       getLatestProjectState,
       setChatSectionChatId: setChatSectionChatIdRequest,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { callOpenAPI } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const {
       getCurrProjectConfigId,
       processProjectStateUpdateFromBackend,
@@ -1493,26 +1497,24 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
 } | null> {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const bounds = await page.evaluate(async () => {
-      const pane = document.querySelector(".react-flow__pane");
-      const viewport = document.querySelector(".react-flow__viewport");
-      if (
-        !(pane instanceof HTMLElement) ||
-        !(viewport instanceof HTMLElement)
-      ) {
+      const canvas = document.querySelector(".canvas-flow__canvas");
+      if (!(canvas instanceof HTMLElement)) {
         return null;
       }
-      const paneRect = pane.getBoundingClientRect();
-      if (paneRect.width <= 0 || paneRect.height <= 0) {
+      const canvasRect = canvas.getBoundingClientRect();
+      if (canvasRect.width <= 0 || canvasRect.height <= 0) {
         return null;
       }
       const gutter = 16;
-      const transform = window.getComputedStyle(viewport).transform;
-      if (!transform || transform === "none") {
-        return null;
-      }
-      const matrix = new DOMMatrixReadOnly(transform);
-      const scale = matrix.a || 1;
-      if (!Number.isFinite(scale) || scale <= 0) {
+      const viewportX = Number.parseFloat(canvas.dataset.viewportX ?? "");
+      const viewportY = Number.parseFloat(canvas.dataset.viewportY ?? "");
+      const zoom = Number.parseFloat(canvas.dataset.viewportZoom ?? "");
+      if (
+        !Number.isFinite(viewportX) ||
+        !Number.isFinite(viewportY) ||
+        !Number.isFinite(zoom) ||
+        zoom <= 0
+      ) {
         return null;
       }
       const overviewPane = document.getElementById("OverviewPane");
@@ -1555,28 +1557,28 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
         if (rect.width <= 0 || rect.height <= 0) {
           continue;
         }
-        leftPx = Math.max(leftPx, rect.right - paneRect.left + gutter);
+        leftPx = Math.max(leftPx, rect.right - canvasRect.left + gutter);
       }
 
-      let rightPx = paneRect.width - gutter;
+      let rightPx = canvasRect.width - gutter;
       for (const overlay of rightOverlays) {
         const rect = overlay.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) {
           continue;
         }
-        rightPx = Math.min(rightPx, rect.left - paneRect.left - gutter);
+        rightPx = Math.min(rightPx, rect.left - canvasRect.left - gutter);
       }
 
       const topPx = gutter;
-      const bottomPx = paneRect.height - gutter;
+      const bottomPx = canvasRect.height - gutter;
 
-      const x = (-matrix.e + leftPx) / scale;
-      const y = (-matrix.f + topPx) / scale;
+      const x = (leftPx - viewportX) / zoom;
+      const y = (topPx - viewportY) / zoom;
       return {
         x,
         y,
-        w: Math.max(1, (rightPx - leftPx) / scale),
-        h: Math.max(1, (bottomPx - topPx) / scale),
+        w: Math.max(1, (rightPx - leftPx) / zoom),
+        h: Math.max(1, (bottomPx - topPx) / zoom),
       };
     });
     if (bounds) {
@@ -1637,7 +1639,9 @@ async function refreshProjectStateFromBackend(
   // Prefer browser-side frontend actions or pre-navigation seeding instead.
   await page.evaluate(async (targetProjectConfigId) => {
     const { getLatestProjectState } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { callOpenAPI } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const { processProjectStateUpdateFromBackend } = await import(
       "/src/state/actions/sectionInfos.ts"
     );
@@ -1949,8 +1953,10 @@ async function buildReadinessDebugLines(
 
       return {
         title: document.title,
-        hasReadySelector: Boolean(document.querySelector(".react-flow__pane")),
-        hasViewport: Boolean(document.querySelector(".react-flow__viewport")),
+        hasReadySelector: Boolean(
+          document.querySelector(".canvas-flow__canvas"),
+        ),
+        hasViewport: Boolean(document.querySelector(".canvas-flow__canvas")),
         hasSpinner: Boolean(document.querySelector(".animate-spin")),
         appShellText: collectText(".app-shell"),
         bodyText,
