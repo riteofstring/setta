@@ -1,7 +1,8 @@
 .flat-section-prototype-gallery {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  min-width: 0;
+  gap: 1rem;
 }
 
 .flat-section-prototype-gallery__column {
@@ -9,7 +10,7 @@
   min-width: 0;
   flex: 1 1 0;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .flat-section-prototype-gallery__item {
@@ -38,18 +39,18 @@
 
 .flat-section-prototype {
   --flat-blue-strong: rgb(29 78 216);
-  --flat-border-soft: rgb(244 247 251);
-  --flat-border-strong: rgb(232 237 245);
-  --flat-chip-bg: rgb(246 248 252);
+  --flat-border-soft: rgb(241 245 249 / 0.72);
+  --flat-border-strong: rgb(226 232 240 / 0.9);
+  --flat-chip-bg: rgb(248 250 252);
   --flat-chrome-bg: rgb(248 250 252);
   --flat-dim: rgb(148 163 184);
-  --flat-divider: rgb(234 239 247);
+  --flat-divider: rgb(226 232 240 / 0.82);
   --flat-focus: rgb(37 99 235);
   --flat-hover: rgb(241 245 249 / 0.85);
   --flat-input-dot: rgb(100 116 139);
   --flat-key-width: 8.75rem;
   --flat-muted: rgb(100 116 139);
-  --flat-panel-bg: rgb(250 252 255);
+  --flat-panel-bg: rgb(249 251 254);
   --flat-pinned-bg: rgb(248 250 252);
   --flat-port-dot: rgb(148 163 184);
   --flat-row-height: 1.75rem;
@@ -62,6 +63,7 @@
   position: relative;
   display: flex;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 320px;
   flex-direction: column;
@@ -71,30 +73,46 @@
   border: 1px solid var(--flat-divider);
   background: var(--flat-shell-bg);
   color: var(--flat-text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", monospace;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   font-size: 11px;
 }
 
 .flat-section-prototype--dark {
-  --flat-blue-strong: rgb(219 234 254);
-  --flat-border-soft: hsl(220 16% 9%);
-  --flat-border-strong: hsl(220 16% 14%);
-  --flat-chip-bg: hsl(220 18% 8%);
-  --flat-chrome-bg: hsl(220 20% 6%);
-  --flat-dim: hsl(220 18% 44%);
-  --flat-divider: hsl(220 16% 13%);
+  --flat-blue-strong: rgb(147 197 253);
+  --flat-border-soft: hsl(220 15% 11% / 0.68);
+  --flat-border-strong: hsl(220 14% 17% / 0.78);
+  --flat-chip-bg: hsl(220 18% 7%);
+  --flat-chrome-bg: hsl(220 20% 5%);
+  --flat-dim: hsl(220 13% 38%);
+  --flat-divider: hsl(220 14% 15% / 0.78);
   --flat-focus: rgb(96 165 250);
   --flat-hover: hsl(220 18% 12% / 0.72);
   --flat-input-dot: rgb(96 165 250);
-  --flat-muted: hsl(220 18% 60%);
-  --flat-panel-bg: hsl(220 19% 5%);
-  --flat-pinned-bg: hsl(220 20% 7%);
+  --flat-muted: hsl(220 13% 55%);
+  --flat-panel-bg: hsl(220 18% 6%);
+  --flat-pinned-bg: hsl(220 18% 7%);
   --flat-port-dot: hsl(220 18% 44%);
   --flat-shell-bg: hsl(220 25% 3%);
-  --flat-soft-text: hsl(220 20% 75%);
+  --flat-soft-text: hsl(220 18% 72%);
   --flat-text: hsl(222 28% 95%);
   --flat-title: hsl(222 28% 95%);
+}
+
+.flat-section-prototype code,
+.flat-section-prototype pre,
+.flat-section-prototype input,
+.flat-section-prototype select,
+.flat-section-prototype textarea,
+.flat-section-prototype output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
 }
 
 .flat-section-prototype__header {
@@ -6449,6 +6467,37 @@
   background: var(--flat-panel-bg);
 }
 
+.flat-section-prototype__global-status-item,
+.flat-section-prototype__code-status-list li,
+.flat-section-prototype__code-diagnostics p,
+.flat-section-prototype__terminal-status p,
+.flat-section-prototype__iframe-status p,
+.flat-section-prototype__chat-threadbar p,
+.flat-section-prototype__chat-settings p,
+.flat-section-prototype__chat-composer-controls p,
+.flat-section-prototype__plugin-host p,
+.flat-section-prototype__plugin-stats li,
+.flat-section-prototype__task-board-task {
+  border-color: transparent;
+  background: transparent;
+}
+
+.flat-section-prototype__list-root-child,
+.flat-section-prototype__group-child,
+.flat-section-prototype__browser-row {
+  border-color: var(--flat-border-soft);
+}
+
+.flat-section-prototype__list-root-child-title,
+.flat-section-prototype__group-child-title,
+.flat-section-prototype__task-board-column-name,
+.flat-section-prototype__task-board-title-input,
+.flat-section-prototype__plugin-renderer-header h3,
+.flat-section-prototype__text-block-content h1 {
+  color: var(--flat-title);
+  font-weight: 700;
+}
+
 @container (max-width: 14rem) {
   .flat-section-prototype__header {
     gap: 0.375rem;
@@ -6522,6 +6571,12 @@
   .flat-section-prototype__image-path-field,
   .flat-section-prototype__chart-path-field,
   .flat-section-prototype__social-url-field,
+  .flat-section-prototype__browser-path-field,
+  .flat-section-prototype__browser-filter-field,
+  .flat-section-prototype__code-field--path,
+  .flat-section-prototype__code-field--mode,
+  .flat-section-prototype__spreadsheet-filter,
+  .flat-section-prototype__spreadsheet-sort,
   .flat-section-prototype__group-orientation {
     min-width: 0;
     flex-basis: 100%;
@@ -6568,6 +6623,113 @@
     border-bottom: 1px solid var(--flat-border-soft);
     padding-right: 0;
     padding-bottom: 0.625rem;
+  }
+}
+
+@container (max-width: 12.5rem) {
+  .flat-section-prototype {
+    font-size: 10px;
+  }
+
+  .flat-section-prototype__header,
+  .flat-section-prototype__top-controls,
+  .flat-section-prototype__action-bar,
+  .flat-section-prototype__global-toolbar,
+  .flat-section-prototype__task-board-toolbar,
+  .flat-section-prototype__spreadsheet-toolbar {
+    gap: 0.25rem;
+  }
+
+  .flat-section-prototype__top-controls {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .flat-section-prototype__title {
+    font-size: 11px;
+    line-height: 1.125rem;
+  }
+
+  .flat-section-prototype__ports {
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .flat-section-prototype__ports::before {
+    display: none;
+  }
+
+  .flat-section-prototype__port-list--left,
+  .flat-section-prototype__port-list--right {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .flat-section-prototype__port-list--right::before {
+    left: 0;
+    right: auto;
+    text-align: left;
+  }
+
+  .flat-section-prototype__port-row--right {
+    text-align: left;
+  }
+
+  .flat-section-prototype__port-row--left::before,
+  .flat-section-prototype__port-row--right::after {
+    display: none;
+  }
+
+  .flat-section-prototype__list-root-modes,
+  .flat-section-prototype__group-orientation,
+  .flat-section-prototype__task-board-view,
+  .flat-section-prototype__browser-view {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .flat-section-prototype__list-root-mode,
+  .flat-section-prototype__group-orientation-button,
+  .flat-section-prototype__task-board-view button,
+  .flat-section-prototype__browser-view-button {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .flat-section-prototype__code-status-list,
+  .flat-section-prototype__code-diagnostics,
+  .flat-section-prototype__terminal-status,
+  .flat-section-prototype__iframe-status,
+  .flat-section-prototype__chat-threadbar,
+  .flat-section-prototype__chat-settings,
+  .flat-section-prototype__chat-composer-controls,
+  .flat-section-prototype__plugin-host {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .flat-section-prototype__plugin-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .flat-section-prototype__browser-row,
+  .flat-section-prototype__browser-list-header {
+    grid-template-columns: 1.25rem minmax(0, 1fr);
+  }
+
+  .flat-section-prototype__browser-row-date,
+  .flat-section-prototype__browser-list-resize,
+  .flat-section-prototype__browser-list-header button:last-child {
+    display: none;
+  }
+
+  .flat-section-prototype__task-board-lane {
+    width: 10.5rem;
+    flex-basis: 10.5rem;
+  }
+
+  .flat-section-prototype__spreadsheet-grid {
+    min-width: 20rem;
   }
 }
 

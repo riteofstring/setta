@@ -198,9 +198,13 @@ describe("FlatSectionPrototype", () => {
 
   it("keeps section shells narrow-capable and hierarchy-led", () => {
     expect(flatSectionPrototypeCss).toContain("min-width: 0;");
+    expect(flatSectionPrototypeCss).toContain("max-width: 100%;");
     expect(flatSectionPrototypeCss).not.toContain("min-width: 280px");
     expect(flatSectionPrototypeCss).toContain("container-type: inline-size");
     expect(flatSectionPrototypeCss).toContain("@container (max-width: 14rem)");
+    expect(flatSectionPrototypeCss).toContain(
+      "@container (max-width: 12.5rem)",
+    );
     expect(flatSectionPrototypeCss).toContain("--flat-divider");
     expect(flatSectionPrototypeCss).toContain("--flat-chrome-bg");
     expect(flatSectionPrototypeCss).toContain("font-weight: 700;");
@@ -407,6 +411,48 @@ describe("FlatSectionPrototype", () => {
     expect(dictMarkup).not.toContain("data-flat-group");
     expect(callableMarkup).not.toContain("Prototype Group");
     expect(dictMarkup).not.toContain("Prototype Group");
+  });
+
+  it("keeps every non-board section prototype out of task board and kanban markup", () => {
+    const nonBoardPrototypes = [
+      ["Browser", <FlatBrowserSectionPrototype />],
+      ["Callable", <FlatCallableSectionPrototype />],
+      ["Chart", <FlatChartSectionPrototype />],
+      ["Chat", <FlatChatSectionPrototype />],
+      ["Code", <FlatCodeSectionPrototype />],
+      ["Dict", <FlatDictSectionPrototype />],
+      ["Draw", <FlatDrawSectionPrototype />],
+      ["GenPythonCode", <FlatGenPythonCodeSectionPrototype />],
+      ["GenPythonMetadata", <FlatGenPythonMetadataSectionPrototype />],
+      ["GlobalVariables", <FlatGlobalVariablesSectionPrototype />],
+      ["Group", <FlatGroupSectionPrototype />],
+      ["IFrame", <FlatIFrameSectionPrototype />],
+      ["Image", <FlatImageSectionPrototype />],
+      ["ListRoot", <FlatListRootSectionPrototype />],
+      ["MetaControl", <FlatMetaControlSectionPrototype />],
+      ["Plugin", <FlatPluginSectionPrototype />],
+      ["Prompt", <FlatPromptSectionPrototype />],
+      ["Social", <FlatSocialSectionPrototype />],
+      ["Spreadsheet", <FlatSpreadsheetSectionPrototype />],
+      ["StateMachineEnd", <FlatStateMachineEndSectionPrototype />],
+      ["StateMachineGate", <FlatStateMachineGateSectionPrototype />],
+      ["StateMachineStart", <FlatStateMachineStartSectionPrototype />],
+      ["Terminal", <FlatTerminalSectionPrototype />],
+      ["TextBlock", <FlatTextBlockSectionPrototype />],
+    ] as const;
+
+    for (const [label, prototype] of nonBoardPrototypes) {
+      const markup = renderToStaticMarkup(prototype);
+
+      expect(markup, label).not.toContain('data-flat-task-board="true"');
+      expect(markup, label).not.toContain('data-flat-task-board-kanban="true"');
+      expect(markup, label).not.toContain(
+        "flat-section-prototype__task-board-board",
+      );
+      expect(markup, label).not.toContain(
+        "flat-section-prototype__task-board-lane",
+      );
+    }
   });
 
   it("renders draw controls, layer stack, canvas items, and active draft overlay", () => {
