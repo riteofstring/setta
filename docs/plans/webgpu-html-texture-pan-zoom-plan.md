@@ -246,13 +246,16 @@ Settled-view guarantee:
 
 ## Avoiding Laggy Interactive Updates
 
-The real DOM remains interactive, so the browser updates controls immediately. The GPU texture must catch up at frame latency.
+The active node becomes normal browser DOM while the user interacts, so control
+feedback does not depend on recapturing the full node texture at frame cadence.
+The GPU texture catches up once after the interaction settles.
 
 Dirty tracking sources:
 
 - `paint` events from the html-in-canvas canvas
 - `input` and `change` events inside node children
-- `pointermove` during active control drags
+- active control pointer/focus/input events that arm DOM teleport and schedule
+  the final settled upload
 - CodeMirror update hooks where available
 - terminal output hooks where available
 - ResizeObserver for node dimensions
@@ -309,7 +312,7 @@ Viewport draw should happen every frame during pan/zoom and should not wait for 
 
 Suggested initial budgets:
 
-- interactive node uploads: up to 1 per frame, always first
+- restored active-node final snapshots: first priority after the restore paint
 - visible passive uploads: up to 2 per frame or 4 ms, whichever comes first
 - resolution upgrades during active zoom: defer unless active/focused
 - resolution upgrades after zoom settles: budgeted over subsequent frames
@@ -318,7 +321,8 @@ If a dirty node misses the current upload budget:
 
 - draw its previous texture for this frame
 - keep it in the dirty queue
-- if it is interactive and cannot be uploaded in time, temporarily show the real DOM child over its quad for immediate feedback
+- if it is the active node, keep the teleported DOM visible until the restored
+  final snapshot uploads
 
 ## GPU Rendering Pipeline
 
@@ -471,7 +475,8 @@ Verify:
 - CSS transforms on the child affect hit testing but not capture content.
 - The copied texture is crisp at DPR-aware sizes.
 - React events fire through canvas child DOM.
-- Slider drag schedules uploads every frame and visibly updates at frame latency.
+- Slider drag updates through the active DOM teleport path without depending on
+  repeated full-node uploads.
 - Text input, caret, selection, and nested scroll update correctly.
 - Max texture limits are available and realistic.
 
@@ -677,6 +682,8 @@ Moving edges from SVG to GPU removes DOM hit targets. CPU path geometry must be 
 - Node texture uploads happen only for dirty content or resolution changes.
 - Settled nodes are crisp at their current zoom and DPR.
 - Sliders, text inputs, CodeMirror, terminals, scrolling, buttons, and handles remain real interactive HTML.
-- Dragging an active slider updates at frame latency without making the whole viewport DOM-painted.
+- Dragging an active slider updates immediately in the teleported DOM; the final
+  settled texture uploads after restore without making the whole viewport
+  DOM-painted.
 - Grid, edges, selection, and connection state render through GPU paths.
 - Profiling shows pan/zoom dominated by GPU draw work, not DOM paint/composite.
