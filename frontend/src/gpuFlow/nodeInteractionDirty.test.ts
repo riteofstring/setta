@@ -385,6 +385,54 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
+  it("keeps focused text controls live after pointer release until blur", () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const input = document.createElement("input");
+    input.type = "text";
+    nodeElement.append(input);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    const textureManager = createInteractionTextureManager();
+    const controller = createGpuNodeInteractionDirtyController({
+      activeSettleDelayMs: 50,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame: vi.fn(),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    input.focus();
+    input.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    document.dispatchEvent(new Event("pointerup", { bubbles: true }));
+
+    expect(document.activeElement).toBe(input);
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(controller.getLiveNodeId()).toBe("node-a");
+
+    vi.advanceTimersByTime(500);
+
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(controller.getLiveNodeId()).toBe("node-a");
+
+    input.blur();
+    expect(controller.getLiveNodeId()).toBe("node-a");
+    vi.advanceTimersByTime(50);
+
+    expect(controller.getLiveNodeId()).toBeNull();
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+    expect(controller.getActiveNodeId()).toBeNull();
+
+    detach();
+    canvas.remove();
+  });
+
   it("does not re-dirty an active control during the settle delay", () => {
     vi.useFakeTimers();
     const canvas = document.createElement("canvas");

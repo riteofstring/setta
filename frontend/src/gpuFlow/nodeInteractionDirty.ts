@@ -72,6 +72,20 @@ const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
 const GPU_FLOW_TELEPORTED_NODE_SELECTOR = '[data-gpu-flow-teleport="active"]';
 const GPU_FLOW_MOUSE_ACTIVATION_SELECTOR =
   '[data-gpu-flow-activation="mousedown"]';
+const GPU_FLOW_PERSISTENT_FOCUS_SELECTOR = [
+  "iframe",
+  "textarea",
+  "[contenteditable]:not([contenteditable='false'])",
+  "[contenteditable='']",
+  "[contenteditable='true']",
+  "[data-section-main-editor]",
+  "[role='searchbox']",
+  "[role='textbox']",
+  ".cm-content",
+  ".cm-editor",
+  ".xterm",
+  ".xterm-screen",
+].join(",");
 const DEFAULT_ACTIVE_SETTLE_DELAY_MS = 240;
 const TRUSTED_POINTER_HANDOFF_CLICK_SUPPRESSION_MS = 120;
 
@@ -95,6 +109,7 @@ export function createGpuNodeInteractionDirtyController({
   let trustedPointerHandoffClickSuppressionTimer: ReturnType<
     typeof globalThis.setTimeout
   > | null = null;
+  let focusedPersistentNodeId: string | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
   let activeSettleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
@@ -220,6 +235,9 @@ export function createGpuNodeInteractionDirtyController({
     if (nodeId !== activeNodeId) {
       return;
     }
+    if (hasPersistentFocusForNode(nodeId)) {
+      return;
+    }
     releaseActiveNode("pointer");
   }
 
@@ -321,6 +339,9 @@ export function createGpuNodeInteractionDirtyController({
     }
 
     const interactiveTarget = isGpuNodeInteractiveEventTarget(eventTarget);
+    if (kind === "focus" && isGpuNodePersistentFocusEventTarget(eventTarget)) {
+      focusedPersistentNodeId = nodeId;
+    }
     const priority =
       activeNodeId === nodeId || interactiveTarget ? "interactive" : "visible";
     if (interactiveTarget && priority === "interactive") {
@@ -441,6 +462,15 @@ export function createGpuNodeInteractionDirtyController({
             event.target,
             elementByNodeId(),
           );
+          if (
+            nodeId &&
+            isNodePersistentFocusTarget(nodeId, event.relatedTarget)
+          ) {
+            return;
+          }
+          if (nodeId && nodeId === focusedPersistentNodeId) {
+            focusedPersistentNodeId = null;
+          }
           if (nodeId && nodeId === activeNodeId) {
             releaseActiveNode("focus");
           }
@@ -514,6 +544,9 @@ export function createGpuNodeInteractionDirtyController({
       if (pointerInteractionNodeId === nodeId) {
         pointerInteractionNodeId = null;
       }
+      if (focusedPersistentNodeId === nodeId) {
+        focusedPersistentNodeId = null;
+      }
       clearPendingPointerHandoffForNode(nodeId);
       if (activeNodeId === nodeId || releaseAfterUploadNodeId === nodeId) {
         clearActiveSettleTimer();
@@ -574,6 +607,35 @@ export function createGpuNodeInteractionDirtyController({
       return activeNodeId;
     },
   };
+
+  function hasPersistentFocusForNode(nodeId: string): boolean {
+    const activeElement = getNodeOwnerDocumentActiveElement(nodeId);
+    return isNodePersistentFocusTarget(nodeId, activeElement);
+  }
+
+  function getNodeOwnerDocumentActiveElement(
+    nodeId: string,
+  ): Element | null {
+    const nodeElement = elementByNodeId().get(nodeId);
+    return nodeElement?.ownerDocument.activeElement ?? null;
+  }
+
+  function isNodePersistentFocusTarget(
+    nodeId: string,
+    target: EventTarget | Node | null,
+  ): boolean {
+    if (focusedPersistentNodeId !== nodeId) {
+      return false;
+    }
+    const nodeElement = elementByNodeId().get(nodeId);
+    const element = toElement(target);
+    return Boolean(
+      nodeElement &&
+        element &&
+        (nodeElement === element || nodeElement.contains(element)) &&
+        isGpuNodePersistentFocusEventTarget(element),
+    );
+  }
 }
 
 export function findGpuNodeIdForEventTarget(
@@ -601,6 +663,19 @@ export function findGpuNodeIdForEventTarget(
 function isGpuNodeTeleportedEventTarget(target: EventTarget | Node | null) {
   const element = toElement(target);
   return Boolean(element?.closest(GPU_FLOW_TELEPORTED_NODE_SELECTOR));
+}
+
+function isGpuNodePersistentFocusEventTarget(
+  target: EventTarget | Node | null,
+): boolean {
+  const element = toElement(target);
+  if (!element) {
+    return false;
+  }
+  if (element instanceof HTMLInputElement) {
+    return isTextInputType(element.type);
+  }
+  return Boolean(element.closest(GPU_FLOW_PERSISTENT_FOCUS_SELECTOR));
 }
 
 function dispatchPointerHandoffEvent(target: HTMLElement, event: PointerEvent) {
