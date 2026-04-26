@@ -74,10 +74,42 @@ declare global {
     unconfigure?(): void;
   }
 
+  interface GPUCommandBuffer {
+    readonly __gpuCommandBufferBrand?: never;
+  }
+
+  interface GPUCommandBufferDescriptor {
+    label?: string;
+  }
+
+  interface GPUCommandEncoder {
+    beginRenderPass(descriptor: GPURenderPassDescriptor): GPURenderPassEncoder;
+    finish(descriptor?: GPUCommandBufferDescriptor): GPUCommandBuffer;
+  }
+
+  interface GPUCommandEncoderDescriptor {
+    label?: string;
+  }
+
   interface GPUDevice {
     readonly limits: GPUSupportedLimits;
     readonly queue: GPUQueue;
+    createBindGroup(descriptor: GPUBindGroupDescriptor): GPUBindGroup;
+    createBindGroupLayout(
+      descriptor: GPUBindGroupLayoutDescriptor,
+    ): GPUBindGroupLayout;
+    createBuffer(descriptor: GPUBufferDescriptor): GPUBuffer;
+    createCommandEncoder(
+      descriptor?: GPUCommandEncoderDescriptor,
+    ): GPUCommandEncoder;
+    createPipelineLayout(
+      descriptor: GPUPipelineLayoutDescriptor,
+    ): GPUPipelineLayout;
+    createRenderPipeline(
+      descriptor: GPURenderPipelineDescriptor,
+    ): GPURenderPipeline;
     createSampler(descriptor?: GPUSamplerDescriptor): GPUSampler;
+    createShaderModule(descriptor: GPUShaderModuleDescriptor): GPUShaderModule;
     createTexture(descriptor: GPUTextureDescriptor): GPUTexture;
     destroy(): void;
   }
@@ -104,12 +136,188 @@ declare global {
   }
 
   interface GPUQueue {
-    submit?(commandBuffers: readonly unknown[]): void;
+    submit(commandBuffers: readonly GPUCommandBuffer[]): void;
+    writeBuffer(
+      buffer: GPUBuffer,
+      bufferOffset: number,
+      data: BufferSource,
+      dataOffset?: number,
+      size?: number,
+    ): void;
+  }
+
+  interface GPUBindGroup {
+    readonly __gpuBindGroupBrand?: never;
+  }
+
+  interface GPUBindGroupDescriptor {
+    entries: GPUBindGroupEntry[];
+    label?: string;
+    layout: GPUBindGroupLayout;
+  }
+
+  interface GPUBindGroupEntry {
+    binding: number;
+    resource: GPUBindingResource;
+  }
+
+  interface GPUBindGroupLayout {
+    readonly __gpuBindGroupLayoutBrand?: never;
+  }
+
+  interface GPUBindGroupLayoutDescriptor {
+    entries: GPUBindGroupLayoutEntry[];
+    label?: string;
+  }
+
+  interface GPUBindGroupLayoutEntry {
+    binding: number;
+    buffer?: GPUBufferBindingLayout;
+    sampler?: GPUSamplerBindingLayout;
+    texture?: GPUTextureBindingLayout;
+    visibility: GPUShaderStageFlags;
+  }
+
+  type GPUBindingResource = GPUSampler | GPUTextureView | GPUBufferBinding;
+
+  interface GPUBlendComponent {
+    dstFactor?: GPUBlendFactor;
+    operation?: GPUBlendOperation;
+    srcFactor?: GPUBlendFactor;
+  }
+
+  type GPUBlendFactor = "one" | "one-minus-src-alpha" | "src-alpha" | "zero";
+
+  type GPUBlendOperation = "add";
+
+  interface GPUBlendState {
+    alpha: GPUBlendComponent;
+    color: GPUBlendComponent;
+  }
+
+  interface GPUBuffer {
+    destroy?(): void;
+  }
+
+  interface GPUBufferBinding {
+    buffer: GPUBuffer;
+    offset?: number;
+    size?: number;
+  }
+
+  interface GPUBufferBindingLayout {
+    hasDynamicOffset?: boolean;
+    minBindingSize?: number;
+    type?: GPUBufferBindingType;
+  }
+
+  type GPUBufferBindingType = "read-only-storage" | "storage" | "uniform";
+
+  interface GPUBufferDescriptor {
+    label?: string;
+    mappedAtCreation?: boolean;
+    size: number;
+    usage: GPUBufferUsageFlags;
+  }
+
+  type GPUBufferUsageFlags = number;
+
+  interface GPUBufferUsage {
+    readonly COPY_DST: GPUBufferUsageFlags;
+    readonly UNIFORM: GPUBufferUsageFlags;
+    readonly VERTEX: GPUBufferUsageFlags;
+  }
+
+  var GPUBufferUsage: GPUBufferUsage;
+
+  interface GPUColorDict {
+    a: number;
+    b: number;
+    g: number;
+    r: number;
+  }
+
+  type GPUColorWriteFlags = number;
+
+  interface GPUColorTargetState {
+    blend?: GPUBlendState;
+    format: GPUTextureFormat;
+    writeMask?: GPUColorWriteFlags;
+  }
+
+  type GPUIndexFormat = "uint16" | "uint32";
+  type GPULoadOp = "clear" | "load";
+
+  interface GPUPipelineLayout {
+    readonly __gpuPipelineLayoutBrand?: never;
+  }
+
+  interface GPUPipelineLayoutDescriptor {
+    bindGroupLayouts: GPUBindGroupLayout[];
+    label?: string;
+  }
+
+  type GPUPrimitiveTopology =
+    | "line-list"
+    | "line-strip"
+    | "point-list"
+    | "triangle-list"
+    | "triangle-strip";
+
+  interface GPUPrimitiveState {
+    cullMode?: "back" | "front" | "none";
+    frontFace?: "ccw" | "cw";
+    stripIndexFormat?: GPUIndexFormat;
+    topology?: GPUPrimitiveTopology;
+    unclippedDepth?: boolean;
+  }
+
+  interface GPURenderPassColorAttachment {
+    clearValue?: GPUColorDict;
+    loadOp: GPULoadOp;
+    storeOp: GPUStoreOp;
+    view: GPUTextureView;
+  }
+
+  interface GPURenderPassDescriptor {
+    colorAttachments: GPURenderPassColorAttachment[];
+    label?: string;
+  }
+
+  interface GPURenderPassEncoder {
+    draw(
+      vertexCount: number,
+      instanceCount?: number,
+      firstVertex?: number,
+      firstInstance?: number,
+    ): void;
+    end(): void;
+    setBindGroup(index: number, bindGroup: GPUBindGroup): void;
+    setPipeline(pipeline: GPURenderPipeline): void;
+    setVertexBuffer(slot: number, buffer: GPUBuffer): void;
+  }
+
+  interface GPURenderPipeline {
+    readonly __gpuRenderPipelineBrand?: never;
+  }
+
+  interface GPURenderPipelineDescriptor {
+    fragment?: GPUFragmentState;
+    label?: string;
+    layout: GPUPipelineLayout;
+    primitive?: GPUPrimitiveState;
+    vertex: GPUVertexState;
   }
 
   interface GPUSampler {
     readonly label?: string;
   }
+
+  interface GPUSamplerBindingLayout {
+    type?: GPUSamplerBindingType;
+  }
+
+  type GPUSamplerBindingType = "comparison" | "filtering" | "non-filtering";
 
   interface GPUSamplerDescriptor {
     addressModeU?: GPUAddressMode;
@@ -126,8 +334,49 @@ declare global {
     powerPreference?: GPUPowerPreference;
   }
 
+  type GPUShaderStageFlags = number;
+
+  interface GPUShaderStage {
+    readonly FRAGMENT: GPUShaderStageFlags;
+    readonly VERTEX: GPUShaderStageFlags;
+  }
+
+  var GPUShaderStage: GPUShaderStage;
+
+  interface GPUShaderModule {
+    readonly __gpuShaderModuleBrand?: never;
+  }
+
+  interface GPUShaderModuleDescriptor {
+    code: string;
+    label?: string;
+  }
+
+  type GPUStoreOp = "discard" | "store";
+
   interface GPUSupportedLimits {
     readonly maxTextureDimension2D: number;
+  }
+
+  type GPUTextureSampleType =
+    | "depth"
+    | "float"
+    | "sint"
+    | "uint"
+    | "unfilterable-float";
+
+  type GPUTextureViewDimension =
+    | "1d"
+    | "2d"
+    | "2d-array"
+    | "3d"
+    | "cube"
+    | "cube-array";
+
+  interface GPUTextureBindingLayout {
+    multisampled?: boolean;
+    sampleType?: GPUTextureSampleType;
+    viewDimension?: GPUTextureViewDimension;
   }
 
   interface GPUExtent3DDict {
@@ -166,6 +415,36 @@ declare global {
 
   interface GPUTextureViewDescriptor {
     label?: string;
+  }
+
+  type GPUVertexFormat = "float32" | "float32x2" | "float32x3" | "float32x4";
+
+  interface GPUVertexAttribute {
+    format: GPUVertexFormat;
+    offset: number;
+    shaderLocation: number;
+  }
+
+  interface GPUVertexBufferLayout {
+    arrayStride: number;
+    attributes: GPUVertexAttribute[];
+    stepMode?: GPUVertexStepMode;
+  }
+
+  type GPUVertexStepMode = "instance" | "vertex";
+
+  interface GPUVertexState {
+    buffers?: GPUVertexBufferLayout[];
+    constants?: Record<string, number>;
+    entryPoint: string;
+    module: GPUShaderModule;
+  }
+
+  interface GPUFragmentState {
+    constants?: Record<string, number>;
+    entryPoint: string;
+    module: GPUShaderModule;
+    targets: GPUColorTargetState[];
   }
 
   interface HTMLCanvasElement {
