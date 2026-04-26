@@ -1,5 +1,6 @@
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
   useDecodedImages,
@@ -49,6 +50,7 @@ export function subscribe() {
   useReactFlow.subscribe(
     reactFlowTransformSubscriptionFn,
     (newState, prevState) => {
+      gpuFlowViewportStore.getState().setTransform(newState.transform);
       const autoFitTransition =
         newState.fitViewOnInitDone &&
         (newState.fitViewOnInit || prevState.fitViewOnInit);

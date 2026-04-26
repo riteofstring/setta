@@ -1,4 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import * as endpoints from "openapi/http";
 import {
   createNodesMapFromProjectConfigChildren,
@@ -1506,6 +1507,7 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     const reactFlowState = useReactFlow.getState();
     expect(reactFlowState.transform).toEqual([10, -20, 1.5]);
+    expect(gpuFlowViewportStore.getState().transform).toEqual([10, -20, 1.5]);
     expect(reactFlowState.fitViewOnInit).toBe(false);
     expect(reactFlowState.fitViewOnInitDone).toBe(true);
   });

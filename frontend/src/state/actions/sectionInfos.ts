@@ -13,9 +13,12 @@ import {
   res200,
 } from "@setta/app-subsystem-frontend-sdk";
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
-import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { Node } from "gpuFlow/flowTypes";
+import {
+  getViewport as getGpuViewport,
+  setViewport as setGpuViewport,
+} from "gpuFlow/viewportActions";
 import _ from "lodash";
 import {
   deleteSections,
@@ -1290,6 +1293,7 @@ function applyViewportFromProjectState(projectState: SingleConfig): boolean {
     });
     return true;
   }
+  setGpuViewport(viewport);
   useReactFlow.setState({
     fitViewOnInit: false,
     fitViewOnInitDone: true,
@@ -2021,7 +2025,7 @@ export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
 }
 function getCurrProjectConfigViewport() {
-  return useReactFlow.getState().fitViewOnInit ? null : getViewport();
+  return useReactFlow.getState().fitViewOnInit ? null : getGpuViewport();
 }
 export function getSectionChildren(
   state: ZustandProjectState,

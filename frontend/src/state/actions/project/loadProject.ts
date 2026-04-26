@@ -4,6 +4,7 @@ import {
   type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { setViewport as setGpuViewport } from "gpuFlow/viewportActions";
 import {
   createProjectConfig as createProjectConfigRequest,
   getLatestLspDiagnostics,
@@ -110,6 +111,7 @@ export async function loadProjectState(projectState: LoadProjectStateInput) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
     const { x, y, zoom } = viewport;
+    setGpuViewport({ x, y, zoom });
     useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,

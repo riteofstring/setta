@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 import { useReactFlow } from "forks/xyflow/core/store";
 import initialState from "forks/xyflow/core/store/initialState";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import {
   debouncedDispatchViewportUpdate,
   processProjectStateUpdateFromBackend,
@@ -53,9 +54,8 @@ describe("subscriptions viewport persistence", () => {
     debouncedDispatchViewportUpdate.cancel();
     routeSetViewportMock.mockReset();
     routeSetViewportMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: null,
+      response: { status: 200 },
     });
     useSettings.setState(createSettingsState());
     useProjectState.setState({
@@ -84,6 +84,7 @@ describe("subscriptions viewport persistence", () => {
       fitViewOnInit: true,
       fitViewOnInitDone: false,
     });
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
   });
   afterEach(() => {
     debouncedDispatchViewportUpdate.cancel();
@@ -96,11 +97,14 @@ describe("subscriptions viewport persistence", () => {
     });
     await vi.waitFor(() => {
       expect(routeSetViewportMock).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        viewport: { x: 150, y: 125, zoom: 0.6 },
-        frontendOpId: expect.any(String),
+        body: {
+          projectConfigId: "project-1",
+          viewport: { x: 150, y: 125, zoom: 0.6 },
+          frontendOpId: expect.any(String),
+        },
       });
     });
+    expect(gpuFlowViewportStore.getState().transform).toEqual([150, 125, 0.6]);
   });
   it("keeps the local viewport when a backend update arrives before the debounced write flushes", () => {
     const localViewport = { x: 160, y: 120, zoom: 0.6 };
