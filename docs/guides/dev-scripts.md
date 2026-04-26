@@ -190,14 +190,6 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-codex-frontendbindings-rebuild-loop.sh`
   - Specialized Codex loop for rebuilding `internal/frontendbindings` from scratch to match the main-branch two-converter shape.
   - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
-- `./scripts/run-codex-frontendbindings-openapi-loop.sh`
-  - Specialized Codex loop for replacing the bespoke HTTP half of `internal/frontendbindings` with an OpenAPI-based pipeline.
-  - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
-  - Seeds an HTTP/OpenAPI migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids keeping AST-based HTTP endpoint discovery, handwritten endpoint inventories, compatibility-name shims, or custom per-endpoint wrappers around the generated OpenAPI client.
-- `./scripts/run-codex-shared-type-generation-loop.sh`
-  - Specialized Codex loop for migrating the remaining non-HTTP Go-owned TS/Python shared model generation onto a schema + semantic-sidecar path.
-  - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
-  - Seeds a schema-migration checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, forbids tautological metadata tests and inventory shuffles, and stops after sustained plateau rather than churning tiny cleanups forever.
 
 ## Layer 3: Frontend `pnpm` scripts (from `frontend/`)
 
