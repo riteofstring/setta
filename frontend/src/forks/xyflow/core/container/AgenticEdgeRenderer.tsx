@@ -26,7 +26,10 @@ import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
-type FallbackSectionSize = { w?: number; h?: number };
+type FallbackSectionSize = {
+  h: number | null | undefined;
+  w: number | null | undefined;
+};
 type EdgeSections = Pick<
   AgenticEdge,
   "kind" | "sourceSectionId" | "targetSectionId"
@@ -85,8 +88,8 @@ function buildEdgeKey(
 }
 
 function resolveNodeDimension(
-  primaryValue: number | undefined,
-  fallbackValue: number | undefined,
+  primaryValue: number | null | undefined,
+  fallbackValue: number | null | undefined,
 ): number | null {
   return primaryValue ?? fallbackValue ?? null;
 }
@@ -189,11 +192,11 @@ function edgeTouchesTrackedSections(
 function buildAgenticEdgePathClassNames(
   edge: EdgeSections,
   options: {
-    isMissing?: boolean;
-    isRunningFromSource?: boolean;
-    isSelected?: boolean;
-    touchesToolArgs?: boolean;
-    touchesToolResults?: boolean;
+    isMissing?: boolean | undefined;
+    isRunningFromSource?: boolean | undefined;
+    isSelected?: boolean | undefined;
+    touchesToolArgs?: boolean | undefined;
+    touchesToolResults?: boolean | undefined;
   },
 ): string {
   const classNames = [
@@ -313,7 +316,7 @@ function renderMissingAgenticEdge(
   );
 }
 
-function AgenticScopeHighlightsUpdater() {
+export function AgenticScopeHighlightsUpdater() {
   const {
     agenticEdges,
     topLevelSectionIds,
@@ -338,7 +341,7 @@ function AgenticScopeHighlightsUpdater() {
 
   useUpdateAgenticScopeHighlights({
     projectConfigId,
-    agenticEdges,
+    agenticEdges: agenticEdges ?? [],
     activeIds,
     topLevelSectionIds,
     sectionVariantMap,
@@ -421,7 +424,11 @@ const _AgenticEdgeRenderer = () => {
       if (!impl) {
         continue;
       }
-      if (impl.type === SectionTypeEnum.Chat && impl.waitingForResponse) {
+      if (
+        impl.type === SectionTypeEnum.Chat &&
+        "waitingForResponse" in impl &&
+        impl.waitingForResponse
+      ) {
         running.add(sectionId);
       }
     }
@@ -480,7 +487,7 @@ const _AgenticEdgeRenderer = () => {
       return [];
     }
     const existingKeys = new Set(
-      agenticEdges.map((edge) =>
+      (agenticEdges ?? []).map((edge) =>
         buildEdgeKey(edge.sourceSectionId, edge.targetSectionId, edge.kind),
       ),
     );
@@ -504,7 +511,10 @@ const _AgenticEdgeRenderer = () => {
   }, [agenticEdges, projectConfigId, scopeViolationEdgesByProjectConfigId]);
 
   const sortedEdges = useMemo(
-    () => [...agenticEdges].sort((a, b) => a.zIndex - b.zIndex),
+    () =>
+      [...(agenticEdges ?? [])].sort(
+        (a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0),
+      ),
     [agenticEdges],
   );
   const edgeRenderContext = {

@@ -247,6 +247,39 @@ describe("GpuNodeLayer helpers", () => {
     expect(result.edgeVertexCount).toBe(2);
   });
 
+  it("renders edge-only frames without registering node textures", () => {
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+    const edgeInput = edge("edge-a", 0, 0, 100, 0);
+
+    const result = renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      edges: [edgeInput],
+      elementByNodeId: new Map(),
+      frame: 1,
+      nodes: [],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(manager.registerNodeTexture).not.toHaveBeenCalled();
+    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({ frame: 1 });
+    expect(renderer.render).toHaveBeenCalledWith({
+      canvasSize: canvasSize(),
+      clearColor: undefined,
+      edges: [edgeInput],
+      quads: [],
+      viewport: [0, 0, 1],
+    });
+    expect(result).toMatchObject({
+      drawnEdgeIds: ["edge-a"],
+      drawnNodeIds: [],
+      edgeVertexCount: 2,
+      visibleNodeIds: [],
+    });
+  });
+
   it("marks changed paint descendants dirty without requesting another paint", () => {
     const nodeElement = document.createElement("div");
     const input = document.createElement("input");

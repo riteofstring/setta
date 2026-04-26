@@ -131,6 +131,8 @@ type GpuFlowNodeLayerState = {
   readonly viewport: GpuViewportInput;
 };
 
+const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
+
 export function GpuFlow({
   children,
   className = "setta-gpu-flow",
@@ -245,16 +247,17 @@ export function GpuFlow({
 
   useEffect(() => {
     validateGpuFlowEdgeInput({ edgeInteraction, edgeScene, edges });
+    const nextEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
     nodeLayerRef.current = {
       edgeScene,
-      edges: resolveGpuFlowEdgeDrawInputs({ edgeScene, edges }),
+      edges: nextEdges,
       forceVisibleNodeIds,
       marginCssPx,
       nodes,
       uploadBudget,
       viewport: viewportStore.getState().transform,
     };
-    if (!nodes) {
+    if (!nodes && !nextEdges) {
       visibleNodeIdsRef.current = new Set();
       setActiveNodeOverlaySnapshot(null);
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
@@ -624,9 +627,10 @@ function renderGpuFlowNodeLayerFrame({
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
 }) {
   const layer = nodeLayerRef.current;
-  if (!layer.nodes) {
+  if (!layer.nodes && !layer.edges) {
     return;
   }
+  const nodes = layer.nodes ?? EMPTY_GPU_NODE_LAYOUTS;
   const resources = ensureNodeLayerResources({
     nodeQuadRendererRef,
     runtime,
@@ -648,7 +652,7 @@ function renderGpuFlowNodeLayerFrame({
     forceVisibleNodeIds: layer.forceVisibleNodeIds,
     frame,
     marginCssPx: layer.marginCssPx,
-    nodes: layer.nodes,
+    nodes,
     overlayNodeId: nodeInteraction?.getOverlayNodeId(),
     renderer: resources.nodeQuadRenderer,
     textureManager: resources.textureManager,

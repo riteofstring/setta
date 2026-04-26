@@ -1,3 +1,4 @@
+import { GpuProjectEdgeLayer } from "components/Pages/Project/GpuProjectEdgeLayer";
 import Background from "forks/xyflow/background/Background";
 import _ from "lodash";
 import {
@@ -11,11 +12,8 @@ import {
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
-import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
-import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
-import StateMachineEdgeRenderer from "./StateMachineEdgeRenderer";
 import ViewportWrapper from "./Viewport";
 
 const wrapperStyle: CSSProperties = {
@@ -54,7 +52,7 @@ const ReactFlow = () => {
   useTabScope({
     scopeId: "canvas",
     order: 20,
-    rootRef: ref,
+    rootRef: ref as RefObject<HTMLElement>,
     behavior: "canvas",
   });
 
@@ -98,16 +96,13 @@ const ReactFlow = () => {
         }}
       >
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
-          <ViewportWrapper>
-            {readyToRender && (
-              <>
-                <EdgeRenderer />
-                <AgenticEdgeRenderer />
-                <StateMachineEdgeRenderer />
-                <NodeRenderer />
-              </>
-            )}
-          </ViewportWrapper>
+          {readyToRender && (
+            <GpuProjectEdgeLayer
+              showAgenticEdges={showAgenticEdges}
+              showDataEdges={showArgEdges}
+            />
+          )}
+          <ViewportWrapper>{readyToRender && <NodeRenderer />}</ViewportWrapper>
         </FlowRenderer>
         {snapToGrid && showGridLines && <Background />}
       </div>
@@ -120,8 +115,11 @@ function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
     return;
   }
   const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
-  d3Zoom!.translateBy(
-    d3Selection!,
+  if (!d3Zoom || !d3Selection) {
+    return;
+  }
+  d3Zoom.translateBy(
+    d3Selection,
     -(e.currentTarget.scrollLeft - SCROLL_INIT) / transform[2],
     -(e.currentTarget.scrollTop - SCROLL_INIT) / transform[2],
   );
@@ -129,7 +127,7 @@ function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
   e.currentTarget.scrollLeft = SCROLL_INIT;
 }
 
-function useWrapperDivDimensions(ref: RefObject<HTMLDivElement>) {
+function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {
   const { overviewWidth, uiEditorWidth } = useLocalStorage(
     (x) => ({
       overviewWidth: x.overviewTrueWidth,
