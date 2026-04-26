@@ -4,7 +4,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -24,6 +23,8 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import {
   areMiniMapNodesRenderableInputsEqual,
+  getMiniMapMaskPath,
+  getMiniMapViewBox,
   getXYWidthHeight,
   MinimapSvg,
   syncSelectedMiniMapNodes,
@@ -118,7 +119,34 @@ type ResolvedGpuMiniMapProps = GpuMiniMapProps &
 
 type GpuMiniMapSelector = {
   readonly boundingRect: GpuRect;
+  readonly height: number;
+  readonly maskPath: string;
+  readonly offset: number;
   readonly viewBB: GpuRect;
+  readonly viewBox: string;
+  readonly viewScale: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+};
+
+type GpuMiniMapViewportState = {
+  readonly height: number;
+  readonly transform: ReturnType<
+    GpuFlowViewportStoreApi["getState"]
+  >["transform"];
+  readonly width: number;
+};
+
+type GpuMiniMapViewportSyncInput = {
+  readonly elementHeight: number;
+  readonly elementWidth: number;
+  readonly maskRef: RefObject<SVGPathElement | null>;
+  readonly nodeBounds: GpuRect | null;
+  readonly offsetScale: number;
+  readonly svgRef: RefObject<SVGSVGElement | null>;
+  readonly viewportSnapshot: GpuMiniMapSelector;
+  readonly viewportStore: GpuFlowViewportStoreApi;
 };
 
 type MiniMapPreviewStyleColors = Record<string, string | null>;
@@ -135,7 +163,7 @@ type GpuMiniMapInteractionOptions = {
   readonly onNodeClick: GpuMiniMapProps["onNodeClick"];
   readonly pannable: boolean;
   readonly viewportStore: GpuFlowViewportStoreApi;
-  readonly viewScale: number;
+  readonly viewScaleRef: RefObject<number>;
 };
 
 const selectorNodes = (state: ZustandNodeInternalsState) =>
@@ -164,15 +192,30 @@ function GpuMiniMap(props: GpuMiniMapProps) {
     viewportStore,
   } = resolveGpuMiniMapProps(props);
   const svgRef = useRef<SVGSVGElement>(null);
+  const maskRef = useRef<SVGPathElement>(null);
   const nodes = useGpuMiniMapNodes();
-  const { boundingRect, viewBB } = useGpuMiniMapSelector(viewportStore, nodes);
   const elementWidth = getMiniMapDimension(style?.width, DEFAULT_WIDTH);
   const elementHeight = getMiniMapDimension(style?.height, DEFAULT_HEIGHT);
-  const { x, y, width, height, viewScale, offset } = getXYWidthHeight({
-    boundingRect,
+  const nodeBounds = useMemo(
+    () => (nodes.length > 0 ? getGpuNodesBounds(nodes) : null),
+    [nodes],
+  );
+  const viewportSnapshot = getGpuMiniMapViewportSnapshot({
     elementHeight,
     elementWidth,
+    nodeBounds,
     offsetScale,
+    viewportState: selectGpuViewportMiniMapState(viewportStore),
+  });
+  const viewScaleRef = useGpuMiniMapViewportSync({
+    elementHeight,
+    elementWidth,
+    maskRef,
+    nodeBounds,
+    offsetScale,
+    svgRef,
+    viewportSnapshot,
+    viewportStore,
   });
   const interactions = useGpuMiniMapInteractions({
     inversePan,
@@ -180,7 +223,7 @@ function GpuMiniMap(props: GpuMiniMapProps) {
     onNodeClick,
     pannable,
     viewportStore,
-    viewScale,
+    viewScaleRef,
   });
 
   return (
@@ -197,14 +240,15 @@ function GpuMiniMap(props: GpuMiniMapProps) {
       <MinimapSvg
         elementWidth={elementWidth}
         elementHeight={elementHeight}
-        x={x}
-        y={y}
-        width={width}
-        height={height}
+        x={viewportSnapshot.x}
+        y={viewportSnapshot.y}
+        width={viewportSnapshot.width}
+        height={viewportSnapshot.height}
         svgRef={svgRef}
-        offset={offset}
-        viewBB={viewBB}
+        offset={viewportSnapshot.offset}
+        viewBB={viewportSnapshot.viewBB}
         maskColor={maskColor}
+        maskRef={maskRef}
         maskStrokeColor={maskStrokeColor}
         maskStrokeWidth={maskStrokeWidth}
         nodes={nodes}
@@ -256,16 +300,14 @@ function useGpuMiniMapInteractions({
   onNodeClick,
   pannable,
   viewportStore,
-  viewScale,
+  viewScaleRef,
 }: GpuMiniMapInteractionOptions) {
-  const viewScaleRef = useRef<number>(viewScale);
   const suppressNextClickRef = useRef(false);
   const dragStateRef = useRef<{
     lastClientX: number;
     lastClientY: number;
     pointerId: number;
   } | null>(null);
-  viewScaleRef.current = viewScale;
 
   const onSvgClick = useMemo(() => {
     return (event: ReactMouseEvent<SVGSVGElement>) => {
@@ -343,7 +385,7 @@ function useGpuMiniMapInteractions({
         zoom,
       });
     };
-  }, [inversePan, pannable, viewportStore]);
+  }, [inversePan, pannable, viewportStore, viewScaleRef]);
 
   const endPointerInteraction = useMemo(() => {
     if (!pannable) {
@@ -432,50 +474,92 @@ function useGpuMiniMapNodes(): readonly GpuMiniMapNode[] {
   );
 }
 
-function useGpuMiniMapSelector(
-  store: GpuFlowViewportStoreApi,
-  nodes: readonly GpuMiniMapNode[],
-): GpuMiniMapSelector {
-  const viewportState = useGpuViewportMiniMapState(store);
-  return useMemo(() => {
-    const viewBB = getVisibleFlowRect({
-      canvasHeight: viewportState.height,
-      canvasWidth: viewportState.width,
-      viewport: viewportState.transform,
-    });
-    return {
-      viewBB,
-      boundingRect:
-        nodes.length > 0
-          ? getBoundsOfGpuRects(getGpuNodesBounds(nodes), viewBB)
-          : viewBB,
-    };
-  }, [nodes, viewportState]);
-}
+function useGpuMiniMapViewportSync({
+  elementHeight,
+  elementWidth,
+  maskRef,
+  nodeBounds,
+  offsetScale,
+  svgRef,
+  viewportSnapshot,
+  viewportStore,
+}: GpuMiniMapViewportSyncInput): RefObject<number> {
+  const viewScaleRef = useRef(viewportSnapshot.viewScale);
+  const inputRef = useRef({
+    elementHeight,
+    elementWidth,
+    nodeBounds,
+    offsetScale,
+  });
+  const frameRef = useRef<number | null>(null);
+  viewScaleRef.current = viewportSnapshot.viewScale;
+  inputRef.current = {
+    elementHeight,
+    elementWidth,
+    nodeBounds,
+    offsetScale,
+  };
 
-function useGpuViewportMiniMapState(store: GpuFlowViewportStoreApi) {
-  const [state, setState] = useState(() =>
-    selectGpuViewportMiniMapState(store),
-  );
   useEffect(() => {
-    return store.subscribe((nextStoreState) => {
-      const nextState = {
-        height: nextStoreState.height,
-        transform: nextStoreState.transform,
-        width: nextStoreState.width,
-      };
-      setState((currentState) =>
-        areGpuViewportMiniMapStatesEqual(currentState, nextState)
-          ? currentState
-          : nextState,
-      );
+    const apply = () => {
+      frameRef.current = null;
+      const snapshot = getGpuMiniMapViewportSnapshot({
+        ...inputRef.current,
+        viewportState: selectGpuViewportMiniMapState(viewportStore),
+      });
+      viewScaleRef.current = snapshot.viewScale;
+      applyGpuMiniMapViewportSnapshot({
+        mask: maskRef.current,
+        snapshot,
+        svg: svgRef.current,
+      });
+    };
+    const schedule = () => {
+      if (frameRef.current !== null) {
+        return;
+      }
+      frameRef.current = requestMiniMapFrame(apply);
+    };
+
+    apply();
+    const unsubscribe = viewportStore.subscribe((state, previousState) => {
+      const nextState = selectGpuViewportMiniMapStateFromStoreState(state);
+      const previous =
+        selectGpuViewportMiniMapStateFromStoreState(previousState);
+      if (!areGpuViewportMiniMapStatesEqual(previous, nextState)) {
+        schedule();
+      }
     });
-  }, [store]);
-  return state;
+    return () => {
+      unsubscribe();
+      if (frameRef.current !== null) {
+        cancelMiniMapFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    };
+  }, [maskRef, svgRef, viewportStore]);
+
+  useEffect(() => {
+    viewScaleRef.current = viewportSnapshot.viewScale;
+    applyGpuMiniMapViewportSnapshot({
+      mask: maskRef.current,
+      snapshot: viewportSnapshot,
+      svg: svgRef.current,
+    });
+  }, [maskRef, svgRef, viewportSnapshot]);
+
+  return viewScaleRef;
 }
 
-function selectGpuViewportMiniMapState(store: GpuFlowViewportStoreApi) {
-  const state = store.getState();
+function selectGpuViewportMiniMapState(
+  store: GpuFlowViewportStoreApi,
+): GpuMiniMapViewportState {
+  return selectGpuViewportMiniMapStateFromStoreState(store.getState());
+}
+
+function selectGpuViewportMiniMapStateFromStoreState(
+  state: ReturnType<GpuFlowViewportStoreApi["getState"]>,
+): GpuMiniMapViewportState {
   return {
     height: state.height,
     transform: state.transform,
@@ -483,9 +567,77 @@ function selectGpuViewportMiniMapState(store: GpuFlowViewportStoreApi) {
   };
 }
 
+function getGpuMiniMapViewportSnapshot({
+  elementHeight,
+  elementWidth,
+  nodeBounds,
+  offsetScale,
+  viewportState,
+}: {
+  readonly elementHeight: number;
+  readonly elementWidth: number;
+  readonly nodeBounds: GpuRect | null;
+  readonly offsetScale: number;
+  readonly viewportState: GpuMiniMapViewportState;
+}): GpuMiniMapSelector {
+  const viewBB = getVisibleFlowRect({
+    canvasHeight: viewportState.height,
+    canvasWidth: viewportState.width,
+    viewport: viewportState.transform,
+  });
+  const boundingRect = nodeBounds
+    ? getBoundsOfGpuRects(nodeBounds, viewBB)
+    : viewBB;
+  const sizing = getXYWidthHeight({
+    boundingRect,
+    elementHeight,
+    elementWidth,
+    offsetScale,
+  });
+  return {
+    ...sizing,
+    boundingRect,
+    maskPath: getMiniMapMaskPath({ ...sizing, viewBB }),
+    viewBB,
+    viewBox: getMiniMapViewBox(sizing),
+  };
+}
+
+function applyGpuMiniMapViewportSnapshot({
+  mask,
+  snapshot,
+  svg,
+}: {
+  readonly mask: SVGPathElement | null;
+  readonly snapshot: GpuMiniMapSelector;
+  readonly svg: SVGSVGElement | null;
+}) {
+  if (svg && svg.getAttribute("viewBox") !== snapshot.viewBox) {
+    svg.setAttribute("viewBox", snapshot.viewBox);
+  }
+  if (mask && mask.getAttribute("d") !== snapshot.maskPath) {
+    mask.setAttribute("d", snapshot.maskPath);
+  }
+}
+
+function requestMiniMapFrame(callback: FrameRequestCallback): number {
+  if (typeof window.requestAnimationFrame === "function") {
+    return window.requestAnimationFrame(callback);
+  }
+  return window.setTimeout(() => callback(performance.now()), 16);
+}
+
+function cancelMiniMapFrame(frameId: number) {
+  if (typeof window.cancelAnimationFrame === "function") {
+    window.cancelAnimationFrame(frameId);
+    return;
+  }
+  window.clearTimeout(frameId);
+}
+
 function areGpuViewportMiniMapStatesEqual(
-  left: ReturnType<typeof selectGpuViewportMiniMapState>,
-  right: ReturnType<typeof selectGpuViewportMiniMapState>,
+  left: GpuMiniMapViewportState,
+  right: GpuMiniMapViewportState,
 ): boolean {
   return (
     left.height === right.height &&

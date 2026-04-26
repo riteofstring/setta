@@ -76,6 +76,7 @@ type MinimapSvgProps = GpuMiniMapNodesProps & {
   readonly elementWidth: number;
   readonly height: number;
   readonly maskColor: string;
+  readonly maskRef?: RefObject<SVGPathElement | null> | undefined;
   readonly maskStrokeColor: string;
   readonly maskStrokeWidth: number;
   readonly nodes: readonly GpuMiniMapNode[];
@@ -130,6 +131,29 @@ export function getXYWidthHeight({
   return { height, offset, viewScale, width, x, y };
 }
 
+export function getMiniMapViewBox({
+  height,
+  width,
+  x,
+  y,
+}: Pick<XYWidthHeightResult, "height" | "width" | "x" | "y">): string {
+  return `${x} ${y} ${width} ${height}`;
+}
+
+export function getMiniMapMaskPath({
+  height,
+  offset,
+  viewBB,
+  width,
+  x,
+  y,
+}: Pick<XYWidthHeightResult, "height" | "offset" | "width" | "x" | "y"> & {
+  readonly viewBB: GpuRect;
+}): string {
+  return `M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
+M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`;
+}
+
 export function syncSelectedMiniMapNodes(
   svg: SVGSVGElement | null | undefined,
   activeIds: readonly string[],
@@ -177,6 +201,7 @@ export function MinimapSvg({
   elementWidth,
   height,
   maskColor,
+  maskRef,
   maskStrokeColor,
   maskStrokeWidth,
   nodes,
@@ -204,7 +229,7 @@ export function MinimapSvg({
     <svg
       width={elementWidth}
       height={elementHeight}
-      viewBox={`${x} ${y} ${width} ${height}`}
+      viewBox={getMiniMapViewBox({ height, width, x, y })}
       role="img"
       ref={svgRef}
       onClick={onSvgClick}
@@ -226,10 +251,10 @@ export function MinimapSvg({
       />
       <path
         className="react-flow__minimap-mask"
-        d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
-M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
+        d={getMiniMapMaskPath({ height, offset, viewBB, width, x, y })}
         fill={maskColor}
         fillRule="evenodd"
+        ref={maskRef}
         stroke={maskStrokeColor}
         strokeWidth={maskStrokeWidth}
         pointerEvents="none"

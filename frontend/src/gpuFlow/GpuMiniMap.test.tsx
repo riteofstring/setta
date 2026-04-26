@@ -1,13 +1,17 @@
 /* @vitest-environment jsdom */
 
-import { createElement } from "react";
+import { act, createElement } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import "testUtils/reactRefreshPreamble";
 import { describe, expect, it } from "vitest";
+import GpuMiniMap from "./GpuMiniMap";
 import {
   getXYWidthHeight,
   MinimapSvg,
   syncSelectedMiniMapNodes,
 } from "./GpuMiniMapSvg";
+import { createGpuFlowViewportStore } from "./viewportStore";
 
 describe("GpuMiniMap helpers", () => {
   it("keeps the same minimap viewbox sizing contract", () => {
@@ -90,5 +94,75 @@ describe("GpuMiniMap helpers", () => {
         .querySelector('[data-minimap-node-id="section-b"]')
         ?.classList.contains("selected"),
     ).toBe(true);
+  });
+
+  it("updates viewport chrome from the store without rerendering React", async () => {
+    const store = createGpuFlowViewportStore({
+      height: 600,
+      transform: [0, 0, 1],
+      width: 800,
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    let renderCount = 0;
+    const frameCallbacks: FrameRequestCallback[] = [];
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const originalCancelAnimationFrame = window.cancelAnimationFrame;
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      value: (callback: FrameRequestCallback) => {
+        frameCallbacks.push(callback);
+        return frameCallbacks.length;
+      },
+    });
+    Object.defineProperty(window, "cancelAnimationFrame", {
+      configurable: true,
+      value: () => undefined,
+    });
+
+    function Harness() {
+      renderCount += 1;
+      return <GpuMiniMap viewportStore={store} />;
+    }
+
+    try {
+      await act(async () => {
+        root.render(<Harness />);
+      });
+      const svg = host.querySelector("svg");
+      const mask = host.querySelector(".react-flow__minimap-mask");
+      const initialViewBox = svg?.getAttribute("viewBox");
+      const initialMaskPath = mask?.getAttribute("d");
+
+      act(() => {
+        store.getState().setTransform([100, 50, 2]);
+      });
+      expect(renderCount).toBe(1);
+      expect(svg?.getAttribute("viewBox")).toBe(initialViewBox);
+
+      await act(async () => {
+        for (const callback of frameCallbacks.splice(0)) {
+          callback(performance.now());
+        }
+      });
+
+      expect(renderCount).toBe(1);
+      expect(svg?.getAttribute("viewBox")).not.toBe(initialViewBox);
+      expect(mask?.getAttribute("d")).not.toBe(initialMaskPath);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+      Object.defineProperty(window, "requestAnimationFrame", {
+        configurable: true,
+        value: originalRequestAnimationFrame,
+      });
+      Object.defineProperty(window, "cancelAnimationFrame", {
+        configurable: true,
+        value: originalCancelAnimationFrame,
+      });
+    }
   });
 });
