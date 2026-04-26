@@ -4832,6 +4832,32 @@ describe("plugin runtime helpers", () => {
         statusEntry: buildPluginStatusEntry({
           pluginId: "setta-watch-code",
           state: PluginRuntimeStateEnum.active,
+          blockedCapabilities: [
+            {
+              capability: "registerWatchCodeBackend",
+              reason: "mode_policy",
+            },
+          ],
+        }),
+        watchCodeCapabilities: buildWatchCodeCapabilities({
+          providerSelection: {
+            status: "invalid_provider",
+            selectedPluginId: null,
+            activePluginIds: [],
+            pendingRestartPluginIds: [],
+            disabledPluginIds: [],
+            invalidPluginIds: ["setta-watch-code"],
+            conflictingPluginIds: [],
+          },
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldLoadPluginFrontendForFeatureSelection({
+        pluginId: "setta-watch-code",
+        statusEntry: buildPluginStatusEntry({
+          pluginId: "setta-watch-code",
+          state: PluginRuntimeStateEnum.active,
         }),
         watchCodeCapabilities: buildWatchCodeCapabilities({
           providerSelection: {

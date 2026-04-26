@@ -425,6 +425,11 @@ func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProvid
 			continue
 		}
 		if watchCodeBackendCapabilityModeBlocked(entry) {
+			markRuntimeWatchCodeProviderModeBlocked(
+				&resolution,
+				entry,
+				&hasInvalidActiveProvider,
+			)
 			continue
 		}
 		if !watchCodeProviderRegistrationValid(entry, feature) {
@@ -511,6 +516,31 @@ func markRuntimeWatchCodeProviderInvalid(
 	)
 	*hasInvalidActiveProvider =
 		*hasInvalidActiveProvider || entry.State == PluginRuntimeStateActive
+}
+
+func markRuntimeWatchCodeProviderModeBlocked(
+	resolution *runtimeWatchCodeProviderResolution,
+	entry DiscoveredPlugin,
+	hasInvalidActiveProvider *bool,
+) {
+	switch entry.State {
+	case PluginRuntimeStateActive, PluginRuntimeStateInvalid:
+		markRuntimeWatchCodeProviderInvalid(
+			resolution,
+			entry,
+			hasInvalidActiveProvider,
+		)
+	case PluginRuntimeStateDisabled:
+		resolution.selection.DisabledPluginIDs = append(
+			resolution.selection.DisabledPluginIDs,
+			entry.PluginID,
+		)
+	case PluginRuntimeStatePendingRestart:
+		resolution.selection.PendingRestartPluginIDs = append(
+			resolution.selection.PendingRestartPluginIDs,
+			entry.PluginID,
+		)
+	}
 }
 
 func runtimeAppSubsystemFeatureManifest(

@@ -158,6 +158,61 @@ func TestWatchCodeBackendRouteInterceptorFailsClosedForUnavailableProviderCandid
 	}
 }
 
+func TestWatchCodeBackendUISettingsFilterModeBlockedProviderCandidate(t *testing.T) {
+	t.Parallel()
+
+	const providerPluginID = "setta-watch-code"
+	watchCodeSettings := make([]plugins.PluginRegisteredUISetting, 0)
+	for _, setting := range watchcodecontracts.BackendUISettings() {
+		writeHandlerID := setting.WriteHandlerID
+		watchCodeSettings = append(watchCodeSettings, plugins.PluginRegisteredUISetting{
+			PluginID:       providerPluginID,
+			LocalSettingID: setting.LocalSettingID,
+			ReadHandlerID:  setting.ReadHandlerID,
+			WriteHandlerID: &writeHandlerID,
+		})
+	}
+	nonWatchCodeSetting := plugins.PluginRegisteredUISetting{
+		PluginID:       providerPluginID,
+		LocalSettingID: "label",
+		ReadHandlerID:  "read_label",
+	}
+	snapshot := plugins.DiscoverySnapshot{
+		Plugins: []plugins.DiscoveredPlugin{
+			{
+				PluginID: providerPluginID,
+				State:    plugins.PluginRuntimeStateActive,
+				Manifest: &plugins.PluginManifest{
+					FeatureCapabilities: &plugins.PluginFeatureCapabilitiesManifest{
+						WatchCode: &plugins.PluginWatchCodeFeatureManifest{
+							CanvasControlsUI: true,
+						},
+					},
+				},
+				BlockedCapabilities: []plugins.PluginBlockedCapability{
+					{
+						Capability: "registerWatchCodeBackend",
+						Reason:     plugins.PluginBlockedCapabilityReasonModePolicy,
+					},
+				},
+			},
+		},
+	}
+
+	registrations := append(watchCodeSettings, nonWatchCodeSetting)
+	filtered := filterUnavailableWatchCodeBackendUISettings(
+		snapshot,
+		providerPluginID,
+		registrations,
+	)
+	if len(filtered) != 1 || filtered[0].LocalSettingID != nonWatchCodeSetting.LocalSettingID {
+		t.Fatalf("expected only non-Watch Code setting to remain, got %#v", filtered)
+	}
+	if !watchCodeBackendUISettingCandidate(snapshot, providerPluginID, watchCodeSettings[0].ReadHandlerID) {
+		t.Fatal("expected mode-blocked Watch Code provider to remain an unavailable UI-setting candidate")
+	}
+}
+
 func TestWatchCodeBackendUISettingRejectsMissingProjectWithoutNoOpSuccess(t *testing.T) {
 	t.Parallel()
 

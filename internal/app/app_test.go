@@ -43,6 +43,7 @@ import (
 	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/testutil/firstpartyplugin"
 	"setta/internal/transcriptionprofiles"
+	"setta/internal/watchcodecontracts"
 )
 
 func TestAppServesFoundationRoutes(t *testing.T) {
@@ -10197,8 +10198,10 @@ func TestAppLauncherModeBlocksWatchCodeProviderHost(t *testing.T) {
 	if watchCode.PluginEnabled || watchCode.PluginID != "" {
 		t.Fatalf("expected launcher Watch Code provider to be unavailable, got %#v", watchCode)
 	}
-	if watchCode.ProviderSelection == nil || watchCode.ProviderSelection.Status != plugins.PluginWatchCodeProviderSelectionStatusNoProvider {
-		t.Fatalf("expected no launcher Watch Code provider selection, got %#v", watchCode.ProviderSelection)
+	if watchCode.ProviderSelection == nil ||
+		watchCode.ProviderSelection.Status != plugins.PluginWatchCodeProviderSelectionStatusInvalidProvider ||
+		!slices.Equal(watchCode.ProviderSelection.InvalidPluginIDs, []string{providerPluginID}) {
+		t.Fatalf("expected launcher Watch Code provider to be an invalid unavailable candidate, got %#v", watchCode.ProviderSelection)
 	}
 	var providerStatus *plugins.PluginStatusEntry
 	for i := range runtimePayload.Status.Plugins {
@@ -10228,6 +10231,19 @@ func TestAppLauncherModeBlocksWatchCodeProviderHost(t *testing.T) {
 	if response.StatusCode != http.StatusConflict {
 		body, _ := io.ReadAll(response.Body)
 		t.Fatalf("expected launcher Watch Code route to fail closed with 409, got %d with body %q", response.StatusCode, string(body))
+	}
+	var payload struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode launcher Watch Code fail-closed response: %v", err)
+	}
+	if payload.Error.Code != watchcodecontracts.BackendErrorProviderRequired ||
+		payload.Error.Message != projectstate.ErrWatchCodeProviderPluginIDRequired.Error() {
+		t.Fatalf("expected Go-host provider-required response, got %#v", payload.Error)
 	}
 	if revision := app.ProjectStates().Main().Snapshot().Revision; revision != initialRevision {
 		t.Fatalf("expected launcher Watch Code route not to mutate revision %d, got %d", initialRevision, revision)

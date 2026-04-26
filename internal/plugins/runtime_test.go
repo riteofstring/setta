@@ -960,11 +960,11 @@ func TestServiceRuntimeWatchCodeCapabilitiesBlockHostlessLauncherProvider(t *tes
 	assertRuntimeWatchCodeSelection(
 		t,
 		watchCode.ProviderSelection,
-		PluginWatchCodeProviderSelectionStatusNoProvider,
+		PluginWatchCodeProviderSelectionStatusInvalidProvider,
 		nil,
 		nil,
 		nil,
-		nil,
+		[]string{pluginID},
 		nil,
 	)
 	if watchCode.PluginEnabled || watchCode.PluginID != "" {

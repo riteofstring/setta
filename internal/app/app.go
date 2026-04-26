@@ -2581,32 +2581,34 @@ func configureAppPluginRuntime(
 	websocketHub *realtime.WebsocketHub,
 	services *appPlatformServices,
 ) {
-	if !modePolicy.IsIDE() || projectServices.pluginDiscovery == nil {
+	if projectServices.pluginMutationService == nil {
 		return
 	}
-	services.pluginRuntime = &pluginBackendRuntimeRefresher{
-		service:                  projectServices.pluginMutationService,
-		logger:                   logger,
-		runtimeRoot:              cfg.Paths.RuntimeRoot,
-		settings:                 projectServices.settingsStateRuntime,
-		lspRouter:                projectServices.lspRouter,
-		projectState:             projectServices.projectRuntime,
-		projectSync:              projectServices.projectLSPSyncer,
-		appSubsystemCapabilities: services.appSubsystemCapabilities,
-		watchCodeCapabilities:    services.watchCodeCapabilities,
-		reconcileWatchCodeService: func(ctx context.Context) error {
-			return reconcileIDEWatchCodeService(ctx, cfg, logger, websocketHub, &projectServices)
-		},
+	if modePolicy.IsIDE() && projectServices.pluginDiscovery != nil {
+		services.pluginRuntime = &pluginBackendRuntimeRefresher{
+			service:                  projectServices.pluginMutationService,
+			logger:                   logger,
+			runtimeRoot:              cfg.Paths.RuntimeRoot,
+			settings:                 projectServices.settingsStateRuntime,
+			lspRouter:                projectServices.lspRouter,
+			projectState:             projectServices.projectRuntime,
+			projectSync:              projectServices.projectLSPSyncer,
+			appSubsystemCapabilities: services.appSubsystemCapabilities,
+			watchCodeCapabilities:    services.watchCodeCapabilities,
+			reconcileWatchCodeService: func(ctx context.Context) error {
+				return reconcileIDEWatchCodeService(ctx, cfg, logger, websocketHub, &projectServices)
+			},
+		}
+		projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
+			if services.pluginRuntime == nil {
+				return false, errors.New("plugin backend runtime refresher is not configured")
+			}
+			if _, err := services.pluginRuntime.Refresh(ctx); err != nil {
+				return false, err
+			}
+			return true, nil
+		})
 	}
-	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
-		if services.pluginRuntime == nil {
-			return false, errors.New("plugin backend runtime refresher is not configured")
-		}
-		if _, err := services.pluginRuntime.Refresh(ctx); err != nil {
-			return false, err
-		}
-		return true, nil
-	})
 	pluginRouteService := newPluginMutationRuntimeService(
 		projectServices.pluginMutationService,
 		services.pluginRuntime,
