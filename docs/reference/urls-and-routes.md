@@ -75,7 +75,7 @@ sync:
   with the active view mode name.
 
 Navigation uses `replace: true` to avoid stacking history entries. Query string
-and hash are not preserved during the replace (current behavior).
+and hash are not preserved during the replace.
 
 ## Backend API Routes
 

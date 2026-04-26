@@ -564,7 +564,7 @@ To avoid giving AI raw bash by default, add MCP tools that expose git operations
 - `mcp__setta__gitMergePreview(sourceRef, targetRef)` (runs in temp worktree)
 - `mcp__setta__gitApplyResolution(...)` (apply selected file edits to real workspace, gated)
 
-External agent profiles can then allow `mcp__setta__git*` broadly while still requiring "ask" for destructive bash patterns like `git reset`.
+External agent profiles can then allow `mcp__setta__git*` broadly while requiring "ask" for destructive bash patterns like `git reset`.
 
 ## Merge Conflict Preflight + Resolution (Core AI Workflow)
 ### Desired user flow

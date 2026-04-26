@@ -101,7 +101,7 @@ Inside the Git Graph window:
 ## Overlay Layer and Escape Behavior
 
 - Host file: `frontend/src/components/Git/GitOverlayLayer.tsx`.
-- Only the diff overlay still renders in the center canvas layer, between
+- Only the diff overlay renders in the center canvas layer, between
   Overview and UI Editor pane widths.
 - `Escape` closes the active diff overlay unless focus is in an editable target
   (`input`, `textarea`, `contenteditable`).

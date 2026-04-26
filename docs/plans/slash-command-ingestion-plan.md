@@ -7,10 +7,10 @@ Implement robust slash-command ingestion and execution routing for external-agen
 
 This plan turns command discovery into a first-class capability (instead of passive run-metadata scraping) and keeps command execution deterministic per agent.
 
-## Current State (Setta)
-- Setta already has local composer slash commands (`/new`, `/resume`, `/model`, `/permissions`, `/search`, `/help`) in `frontend/src/components/Chat/chatComposerControls.ts`.
-- External-agent native command metadata is currently best-effort and mostly sourced from Go-owned external-agent run/runtime metadata in `internal/externalagents` and shown in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
-- The active Go Codex executor path still treats native slash-command enumeration as unsupported in app-server mode (`internal/externalagents/codex_executor.go`).
+## Implementation Context
+- Setta has local composer slash commands (`/new`, `/resume`, `/model`, `/permissions`, `/search`, `/help`) in `frontend/src/components/Chat/chatComposerControls.ts`.
+- External-agent native command metadata is best-effort and mostly sourced from Go-owned external-agent run/runtime metadata in `internal/externalagents` and shown in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+- The active Go Codex executor path treats native slash-command enumeration as unsupported in app-server mode (`internal/externalagents/codex_executor.go`).
 - There is no dedicated backend API for command ingestion by selected engine/config.
 
 ## Scope

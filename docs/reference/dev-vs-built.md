@@ -9,7 +9,7 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - UI assets come from Vite; the backend does **not** serve static files in dev.
 - In dev mode, requests from the local Vite origin auto-mint an auth cookie so
   the frontend can connect without manual bootstrapping.
-- The bootstrap page (`/__setta__/bootstrap`) is still available for manual
+- The bootstrap page (`/__setta__/bootstrap`) is available for manual
   auth or non-local clients.
 - CORS is enabled with credentials so the frontend can send cookies.
 - Workspace vs `setta_files`:
@@ -34,7 +34,7 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
   (`local_core_client`, `runtime_compat`, `plugin_runtime`); broader source SDK
   modules remain part of the repo/sdist source boundary, not the packaged-user
   install path.
-- Auth bootstrap still happens on the backend, but redirects to `/` (same origin).
+- Auth bootstrap happens on the backend and redirects to `/` (same origin).
 
 ## Scripts and When to Use Them
 - `dev_install.sh`: install the default local dev deps with frozen lockfiles

@@ -5,7 +5,7 @@
 - Reviewed manual logic in `frontend/src`, the Go backend runtime under `internal/` and `cmd/`, and backend-owned browser-side JS embedded in Go HTML templates.
 - Did not count generated artifacts as unjustified duplication. If a frontend enum/helper already comes from generated Go bindings, that was treated as the intended source of truth.
 - Did not count test-only overlap as a finding by itself, but used tests and fixtures as evidence when they proved two implementations were being kept in lockstep.
-- Marked a duplicate as justified when the frontend needed local-only UX behavior or optimistic state handling while the backend still remained the authoritative validator/persistence owner.
+- Marked a duplicate as justified when the frontend needed local-only UX behavior or optimistic state handling while the backend remained the authoritative validator/persistence owner.
 - Marked a duplicate as unjustified when the frontend manually mirrored backend-owned validation/protocol semantics and the repo already showed explicit sync pressure between the two copies.
 
 ## Resolved findings
@@ -22,7 +22,7 @@ What changed:
 - `frontend/src/utils/nameValidation.ts` re-exports generated helpers from `frontend/src/utils/generatedTypes.ts`.
 - `internal/frontendbindings/name_validation_support.go` generates the frontend validation helpers and option types.
 - `internal/projectstate/name_validation_frontend_support.go` exposes the Go-owned validation contract data for those helpers.
-- Shared backend/frontend fixture coverage remains in place to prove the generated client-side validators still match backend-owned caller-visible behavior.
+- Shared backend/frontend fixture coverage remains in place to prove the generated client-side validators match backend-owned caller-visible behavior.
 
 Result:
 
@@ -91,7 +91,7 @@ and generated outward.
 
 ## Remaining unjustified duplications
 
-None found in the audited areas after the fixes above.
+None found in the audited areas.
 
 ## Reviewed but judged justified
 
@@ -99,7 +99,7 @@ None found in the audited areas after the fixes above.
   `internal/appsubsystem/appspec/patch_stream.go`
   - Justified. The frontend needs local patch parsing/application for streaming preview, while the backend remains authoritative for persisted app-spec state.
 - `frontend/src/state/actions/stateMachineDraftValidation.ts` vs `internal/statemachineruns/runtime.go`
-  - Justified. The frontend is warning early about obvious draft issues; the backend still owns execution-time validation and runtime behavior.
+  - Justified. The frontend is warning early about obvious draft issues; the backend owns execution-time validation and runtime behavior.
 - `frontend/src/state/actions/projectChatWindowing.ts` vs `internal/projectstate/project_chat_windowing*.go`
   - Justified. The frontend needs optimistic/local window management and intentionally does not re-own backend conflict resolution.
 - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.helpers.ts` vs `internal/plugins/config_write.go`

@@ -16,8 +16,7 @@ This generates:
 - `pyproject.toml` with package metadata aligned to manifest `id` and `version`
 
 `setta plugins init` generates a Go-backed `backend/main.go` scaffold for
-backend-capable templates. Backend plugin support remains in scope, and new
-backend authoring should target Go rather than Python.
+backend-capable templates. Backend plugin authoring targets Go.
 
 ## 2. Implement plugin logic
 
@@ -34,7 +33,7 @@ backend authoring should target Go rather than Python.
 Language-server-only package-manager plugins may use a thin `backend/main.py`
 probe entrypoint when the package runtime already owns the actual server
 executable. Keep that entrypoint probe-only: it should validate/emit language
-server registrations, while Setta still owns selection, restart, status, and
+server registrations, while Setta owns selection, restart, status, and
 transport behavior in Go.
 
 App-subsystem backend providers that use a package-managed Python entrypoint
@@ -47,7 +46,7 @@ metadata.
 Watch Code backend providers that use a package-managed Python entrypoint
 should follow the same thin-dispatcher model through
 `setta.plugin_runtime.watch_code`. The plugin may own the probe/runtime
-entrypoint, but Go still owns the Watch Code route suffixes, UI-setting handler
+entrypoint, but Go owns the Watch Code route suffixes, UI-setting handler
 ids, data schema version, local-core commands, validation, and project-state
 mutation path.
 
@@ -69,7 +68,7 @@ mutation path.
   app-subsystem backend contract version and listener endpoints. The
   `setta.plugin_runtime.run_app_subsystem_backend` helper emits that probe for
   Python shim entrypoints.
-- Some accepted capabilities may still be blocked by host or mode policy. Use
+- Host or mode policy can block accepted capabilities. Use
   `setta plugins validate` and `setta plugins list --json` to confirm effective
   versus blocked capabilities for your target mode.
 

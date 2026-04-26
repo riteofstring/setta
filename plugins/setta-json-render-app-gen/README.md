@@ -15,11 +15,11 @@ This first-party plugin gates the extracted app subsystem.
   `frontend/plugin-sdk/app-subsystem`; it is not checked into git.
 - The plugin declares its plugin-owned frontend build contract in
   `setta.plugin.json` for source/deployment packaging.
-- The plugin still depends on Setta runtime contracts for app-subsystem
+- The plugin depends on Setta runtime contracts for app-subsystem
   integration, which is intentional.
 
 Installing this package makes the app subsystem available to the plugin system,
-but the feature still stays off until the plugin is enabled.
+but the feature stays off until the plugin is enabled.
 
 ## Build Frontend Bundle
 

@@ -38,7 +38,7 @@ The bootstrap chain is:
 | Missing launcher target | Desktop app opens an error saying Setta cannot start | Run `setta launcher repair`, then retry launch |
 | Stale shortcut/app bundle | Launcher opens the wrong path or environment | Run `setta launcher setup` again |
 | Permission errors | Installer script cannot write app/shortcut files | Re-run with proper permissions for your user paths |
-| Browser opens instead of app mode | Launcher is configured for Chrome app mode but browser still opens | Install Chrome, or use `--open-mode browser` |
+| Browser opens instead of app mode | Launcher is configured for Chrome app mode but opens in a normal browser window | Install Chrome, or use `--open-mode browser` |
 | Launcher metadata missing | `setta launcher status` shows `installed=false` | Run the bootstrap installer again |
 
 ## Native Installer Notes

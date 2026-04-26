@@ -93,7 +93,7 @@ Tool enforcement details:
 
 ## Go MCP client (`internal/mcpx/client.go`)
 - The active multi-server MCP client runtime is Go-owned under `internal/mcpx/client.go`.
-- It maintains a session per configured MCP server (SSE, Streamable HTTP, or stdio), calls `list_tools`, and caches init/discoverable tool definitions plus runtime status for the managed-chat/runtime paths that still need outbound MCP client behavior.
+- It maintains a session per configured MCP server (SSE, Streamable HTTP, or stdio), calls `list_tools`, and caches init/discoverable tool definitions plus runtime status for managed-chat/runtime paths that use outbound MCP client behavior.
 - Tool names are always namespaced as `<serverId>__<toolName>`, and the client keeps a routing map so `call_tool` can strip the prefix and send the request to the correct server/session.
 - Retry and reconnect behavior for configured external MCP servers lives in the
   Go client/runtime.
@@ -116,13 +116,13 @@ Tool enforcement details:
 - All provider definitions live in `setta_files/llm_config.json`.
 - `internal/llmconfig/service.go` is the active read/write/validation owner, and `internal/httpapi/llm_routes.go` broadcasts `LLMConfigUpdated` and `LLMApiKeysUpdated` when config or managed keys change.
 - `mcpServers` defines the global MCP server registry (transport + connection settings), and `defaultMcpServerIds` selects the default server set when a config does not override it.
-- A pre-populated `setta_files/llm_config.example.json` still ships as a starter file.
+- A pre-populated `setta_files/llm_config.example.json` ships as a starter file.
 - Managed key values live in workspace `.env` (`./.env`), and `internal/llmconfig/managed_api_keys.go` owns revisioned reads/writes plus process-env merging for runtime use.
 
 ## Frontend chat interface (`frontend/src/components/Panes/Overview/ProjectLevelAI`)
 - The Overview `Project AI Chat` tab renders `ProjectChatManager`, which is
   a window manager for project-chat instances rather than the only chat host.
-- `ProjectChat.tsx` still hydrates LLM/API-key state and switches between active
+- `ProjectChat.tsx` hydrates LLM/API-key state and switches between active
   chat (`ProjectChatCore`), chat history (`ProjectChatHistory`), and
   session-local auxiliary views (`Skills`, `MCP`, `Slash Commands`, and `AI Settings`).
 - `UnifiedChatSurface` is the shared host abstraction used by workspace windows,

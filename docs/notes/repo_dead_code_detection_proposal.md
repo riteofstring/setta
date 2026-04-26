@@ -64,7 +64,7 @@ Current first-pass caveats:
   gathered from real package/public roots through repo-managed dev dependencies.
 - Frontend reachability compares Knip `--production` against Knip's full graph,
   then uses a repo-local import graph to classify many `prod-dead` findings as
-  `test`-live or `tooling`-live. Some package/dependency findings still remain
+  `test`-live or `tooling`-live. Some package/dependency findings remain
   generic non-production evidence.
 
 ## Non-Goals

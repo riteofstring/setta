@@ -13,7 +13,7 @@ This document tracks remaining App mode work that is not yet implemented.
 - Expand App mode outputs/data bindings beyond TextBlock + Image artifacts.
 - Provide an export escape hatch to a standalone React project (optional, clearly unsupported by default).
 - Improve IDE UX for editing `AppDefinition` fields beyond the raw JSON editors.
-- Finish tokenization/polish for any remaining app-mode UI that still uses hard-coded styling.
+- Finish tokenization/polish for any remaining app-mode UI that uses hard-coded styling.
 
 ## Non-Goals
 

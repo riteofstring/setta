@@ -58,7 +58,7 @@ Use `./configure_supply_chain.sh` to update the repo-local or user-level minimum
 - pnpm uses `minimum-release-age` in minutes, not `min-release-age` in days.
 - Treat pnpm config as resolver guidance only. Hard enforcement for checked-in Node dependencies comes from `scripts/check_pnpm_lock_release_age.py` via `./update_dependencies.sh` and `./audit_supply_chain.sh`, which run that checker through the repo's `uv`-managed dev environment.
 
-## When the audit still fails
+## When the audit fails
 
-- If `./audit_supply_chain.sh` still fails only because of intentionally unaddressed lower-severity findings, say that explicitly instead of widening the remediation scope without approval.
+- If `./audit_supply_chain.sh` fails only because of intentionally unaddressed lower-severity findings, say that explicitly instead of widening the remediation scope without approval.
 - If a remaining severe finding has no acceptable upstream fix, document the blocker and stop there unless the developer explicitly asks for a replacement or migration.

@@ -20,7 +20,7 @@ hosts, and standalone routes.
   - `StandaloneProjectSurfacePage`
   - `StandaloneWindowSpaceSurface`
 - The Git Graph uses the same tracked window layer via `git_graph_mode`;
-  file diffs still use the separate centered diff overlay.
+  file diffs use the separate centered diff overlay.
 
 ## Authoritative State
 
@@ -83,7 +83,7 @@ Backend normalization keeps this state coherent:
 - Standalone thread routes (`/:projectConfigName/chat/:chatId`) keep the shared
   project-chat frame and can switch between thread ids in-place without
   requiring a full page refresh.
-- Route-owned waiting threads still hydrate the full transcript on reload; the
+- Route-owned waiting threads hydrate the full transcript on reload; the
   UI does not intentionally fall back to showing only the latest optimistic
   fragment.
 - Conversation search highlights visible transcript text, skips hidden tool
@@ -166,7 +166,7 @@ Backend persistence routes:
 - If `allowLLM` is false on a standalone managed surface, that surface fails
   closed.
 - Mixed standalone window spaces remain available when at least one saved window
-  is still allowed after managed-chat filtering.
+  is allowed after managed-chat filtering.
 
 ## Related Docs
 

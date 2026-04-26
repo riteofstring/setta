@@ -57,7 +57,7 @@ Use these first for day-to-day work.
   - Defaults to the current git changes relative to `HEAD` plus untracked files so it works before staging or committing.
   - Use `--staged` when you intentionally want to verify only the staged set.
   - Python: `ruff check` plus `C901` complexity checks, failing at complexity `>= 10`.
-  - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files, failing at complexity `>= 10` (`max-depth` `4`, `max-params` `5` still apply separately).
+  - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files, failing at complexity `>= 10` (`max-depth` `4`, `max-params` `5` apply separately).
   - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files, failing at complexity `>= 12`.
   - Supports `--all`, `--git-changes`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
 - `./check_types.sh`
@@ -261,7 +261,7 @@ Useful when you need to debug a specific subsystem.
 
 ## Notes
 
-- **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The activated shell also exposes repo-local tools installed into `.venv/bin`, including `gopls` after `./dev_install.sh`. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
+- **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The activated shell also exposes repo-local tools installed into `.venv/bin`, including `gopls` after `./dev_install.sh`. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
 - **Supply-chain policy**: `supply_chain_policy.env` is the repo-local minimum release age policy used by `init_env.sh`, `update_dependencies.sh`, and `audit_supply_chain.sh`. The repo uses `--exclude-newer` only during explicit `uv` lock refreshes and enforces the rolling age policy for `uv.lock` during bootstrap with `scripts/check_uv_lock_release_age.py`. Go age enforcement is audit-only. pnpm’s resolver setting is `minimum-release-age` in minutes; the repo also enforces checked-in Go/pnpm metadata checks through the repo `uv` dev environment so those scripts can use managed Python dependencies instead of assuming system-installed packages.
 - **Audit remediation policy**: use `docs/guides/dependency-audits.md`.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).

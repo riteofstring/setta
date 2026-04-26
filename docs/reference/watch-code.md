@@ -31,7 +31,7 @@ The first-party provider is `setta-watch-code`. It declares:
 
 If the provider probe sets `requiresLanguageServer=true`, plugin runtime status
 also reports a Python language-server dependency. The parser and persistence
-contract are still Go-owned, but callable param refresh depends on the selected
+contract are Go-owned, and callable param refresh depends on the selected
 Python language server being active after any required restart.
 
 ## Configuration & Inputs

@@ -82,14 +82,14 @@ The app-generation input contract centers on:
 - `referenceImageUrl`
 - `referenceImageNotes`
 
-Current behavior:
+Image mode behavior:
 
 - `referenceImageUrl` / `referenceImageNotes` are only applied when
   `mode="json_render_with_image"`.
 - Image mode validates that the selected model supports vision before issuing the
   LLM request.
 - `referenceImageUrl` and `referenceImageNotes` are hard-limited by the
-  current Go send/prompt normalization path in `internal/managedchat` and
+  Go send/prompt normalization path in `internal/managedchat` and
   `internal/externalagents`.
 
 ### Patch Op semantics

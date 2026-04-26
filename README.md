@@ -16,7 +16,7 @@ and a Python package surface for CLI dispatch, source SDKs, and packaging.
   - package-level helpers such as `local_core_client.py`, `runtime_compat.py`,
     and `plugin_runtime/*` are thin Go-backed/package-facing surfaces shipped
     in the wheel
-  - packaged assets, sidecars, and bundled binaries still ship from here
+  - packaged assets, sidecars, and bundled binaries ship from here
 - `plugins/` contains first-party Setta plugin packages, including
   package-managed language-server plugins, the Watch Code provider, the JSON
   Render app-subsystem provider, and their manifests/config schemas.

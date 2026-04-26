@@ -62,11 +62,10 @@ Suggested model (exact names can vary):
 - `bounds: { x: number; y: number; width: number; height: number }`
 - `snap: "none" | "left" | "right" | "top-left" | "top-right" | "bottom-left" | "bottom-right"`
 - `zIndex`
-- `viewState` (per-instance replacement for current global view toggles such as threads panel)
+- `viewState` (per-instance view toggles such as threads panel)
 
-Important transition note:
-- Keep `activeChatId` reads limited to the transition window.
-- New work should read/write per-instance state.
+Implementation rule:
+- Windowed chat code reads and writes per-instance state.
 
 ## 3) New Global Chat Overlay Host
 Mount a top-level chat window layer in `MainContainerCore` so chat can render independently from pane tab content.
@@ -136,7 +135,7 @@ Keep/restore ability to show chat in Overview pane:
 
 ## Phase 0: Foundations and Extraction
 - Extract shared project chat content from pane-specific wrapper.
-- Introduce per-instance state model and migration layer from singleton fields.
+- Introduce the per-instance state model and initialization from existing project-chat fields.
 - Add window layer host in `MainContainerCore`.
 
 ## Phase 1: Docked Primary Chat
@@ -172,7 +171,7 @@ Keep/restore ability to show chat in Overview pane:
   - instance create/focus/close,
   - dock/undock/minimize/fullscreen transitions,
   - snap behavior mapping,
-  - migration from singleton chat state.
+  - initialization from existing project-chat state.
 - Component tests:
   - docked launcher and window chrome,
   - new-tab button URL generation,

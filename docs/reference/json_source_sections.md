@@ -59,7 +59,7 @@ The section’s top-level params are mapped to:
 
 ## Formats: JSON, YAML, and TOML
 - JSON source files can use `.json`, `.yaml` / `.yml`, or `.toml`.
-- The root payload must still be an **object** for every supported format.
+- The root payload must be an **object** for every supported format.
 - Leaf values must remain JSON-compatible (`string`, number, bool, null,
   arrays, and nested objects with string keys).
 - YAML/TOML-only value shapes outside that JSON-compatible set are rejected by
@@ -79,7 +79,7 @@ The section’s top-level params are mapped to:
 
 ### Overlapping coverage (root + nested, or shared paths)
 On load:
-- Overlapping paths still produce **separate** code-object trees per section.
+- Overlapping paths produce **separate** code-object trees per section.
 - The loader only merges into **requested** section variants, but it **does** update `jsonSourceMissing` for every section that shares the same `(file, jsonSourceKeys)` pair.
   - Example: if the file goes missing, all sections that point to that same file+keys are marked missing, even if only one variant was in the load request.
 

@@ -15,14 +15,14 @@ when it should delegate to Go.
 
 ## Current Codebase Shape
 
-- The running-backend path is already the main delegation surface for Python:
+- The running-backend path is the main delegation surface for Python:
   `backend/setta/api/listener.py`, `backend/setta/api/chat_toolkit.py`, and
   `backend/setta/api/runner.py` all talk to the active Go runtime over HTTP or
   websockets.
-- The `sdk-local-core` path exists, but it is currently narrow. Today the main
-  local-core client is `backend/setta/local_core_client.py`, used by the
-  listener runtime and package-managed plugin runtime shims to keep local
-  behavior aligned with Go-owned semantics.
+- The `sdk-local-core` path is narrow. The main local-core client is
+  `backend/setta/local_core_client.py`, used by the listener runtime and
+  package-managed plugin runtime shims to keep local behavior aligned with
+  Go-owned semantics.
 - `backend/setta/plugin_runtime/*` is a published package-facing shim surface
   for installed plugin backends. App-subsystem helpers there should stay thin:
   they probe/dispatch plugin backend requests and delegate correctness-sensitive
@@ -40,9 +40,8 @@ when it should delegate to Go.
 - Use the running backend when the behavior is already backend-owned, depends
   on backend/project/session state, or naturally belongs to the existing
   HTTP/websocket runtime.
-- Use `setta sdk-local-core` when the behavior should match Go/backend
-  semantics but the Python SDK needs a local low-latency path instead of an
-  HTTP or websocket round trip.
+- Use `setta sdk-local-core` for local low-latency Python SDK behavior that
+  must match Go/backend semantics.
 
 ## What Should Stay In Python
 

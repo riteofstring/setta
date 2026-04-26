@@ -46,7 +46,7 @@ the Go-owned runtime.
 - The backend publishes plugin runtime updates over websocket after settings or
   plugin-runtime changes so the frontend can show current selection health.
 - The header banner and `Overview > Plugins` pane use backend-owned selection
-  status to show whether the current selection is active, unavailable, or still
+  status to show whether the current selection is active, unavailable, or
   pending restart.
 
 ## Watch Code dependency

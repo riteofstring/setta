@@ -53,7 +53,7 @@ The policy has two levers:
 - `codeObjOverrides`: per-code-obj-id overrides (representation only).
 
 Supported representations:
-- `expression` (default): use the existing type-specific formatting (current behavior).
+- `expression` (default): use type-specific formatting.
 - `json_parsed`: parse the stored value as JSON and emit the resulting Python literal; invalid JSON falls back to `repr(literal_value)`.
 - `string`: always emit the stored string via `repr(literal_value)`.
 - `file_path`: for DropzoneParam only, emit a list of attachment file paths (plus dropped text entries); if the stored value is not a dropzone payload, fall back to `repr(literal_value)`.

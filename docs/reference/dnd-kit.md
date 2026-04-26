@@ -59,7 +59,7 @@ reparent both sections and params in the project UI.
   selection, and pane deselects. Durable `projectConfig.activeIds` sync is
   deferred until the gesture completes or the next sync point, so drag targeting
   follows the live UI state instead of waiting for the full project-store write.
-- Dragging still uses root selections (selected sections that do not have a
+- Dragging uses root selections (selected sections that do not have a
   selected ancestor).
 - Selection across multiple parents is rejected with a notification and falls
   back to dragging the active section only.
@@ -69,8 +69,8 @@ reparent both sections and params in the project UI.
   during moving-free mode so users can drag the entire selection from the
   selection box.
 - Marquee hit testing uses node internals when they are measured and falls back
-  to live DOM bounds for unmeasured or nested sections, so nested children can
-  still be captured by box selection.
+  to live DOM bounds for unmeasured or nested sections, so box selection can
+  capture nested children.
 
 ## Drag lifecycle
 
