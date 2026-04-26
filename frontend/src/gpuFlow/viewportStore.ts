@@ -16,6 +16,7 @@ export type GpuUserSelectionRect = GpuRect & {
 };
 
 type GpuViewportInteractionFlags = {
+  readonly nodeDragging?: boolean | undefined;
   readonly panScrolling?: boolean | undefined;
   readonly paneDragging?: boolean | undefined;
   readonly pointerPanning?: boolean | undefined;
@@ -29,6 +30,7 @@ type GpuFlowViewportStoreState = {
   readonly maxZoom: number;
   readonly minZoom: number;
   readonly multiSelectionActive: boolean;
+  readonly nodeDragging: boolean;
   readonly nodesSelectionBounds: GpuRect | null;
   readonly panScrolling: boolean;
   readonly paneDragging: boolean;
@@ -90,6 +92,7 @@ const DEFAULT_GPU_VIEWPORT_STORE_STATE = {
   maxZoom: 4,
   minZoom: 0.1,
   multiSelectionActive: false,
+  nodeDragging: false,
   nodesSelectionBounds: null,
   panScrolling: false,
   paneDragging: false,
@@ -358,16 +361,20 @@ function resolveGpuViewportInteractionState(
   | "pointerPanning"
   | "viewportInteractionActive"
   | "wheelZooming"
+  | "nodeDragging"
 > {
+  const nodeDragging = flags.nodeDragging ?? state.nodeDragging;
   const panScrolling = flags.panScrolling ?? state.panScrolling;
   const paneDragging = flags.paneDragging ?? state.paneDragging;
   const pointerPanning = flags.pointerPanning ?? state.pointerPanning;
   const wheelZooming = flags.wheelZooming ?? state.wheelZooming;
   return {
+    nodeDragging,
     panScrolling,
     paneDragging,
     pointerPanning,
-    viewportInteractionActive: panScrolling || pointerPanning || wheelZooming,
+    viewportInteractionActive:
+      nodeDragging || panScrolling || pointerPanning || wheelZooming,
     wheelZooming,
   };
 }
@@ -380,6 +387,7 @@ function areGpuViewportInteractionStatesEqual(
     | "pointerPanning"
     | "viewportInteractionActive"
     | "wheelZooming"
+    | "nodeDragging"
   >,
   right: Pick<
     GpuFlowViewportStoreState,
@@ -388,9 +396,11 @@ function areGpuViewportInteractionStatesEqual(
     | "pointerPanning"
     | "viewportInteractionActive"
     | "wheelZooming"
+    | "nodeDragging"
   >,
 ): boolean {
   return (
+    left.nodeDragging === right.nodeDragging &&
     left.panScrolling === right.panScrolling &&
     left.paneDragging === right.paneDragging &&
     left.pointerPanning === right.pointerPanning &&

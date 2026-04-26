@@ -34,6 +34,10 @@ import {
   type GpuSurfaceProps,
 } from "./GpuSurface";
 import {
+  attachGpuNodeDragController,
+  type GpuNodeDragControllerOptions,
+} from "./interactions/nodeDrag";
+import {
   attachGpuPanZoomController,
   type GpuPanZoomControllerOptions,
 } from "./interactions/panZoom";
@@ -68,6 +72,13 @@ export type GpuFlowProps = Pick<
   nodeClassName?: string | undefined;
   nodeVisibility?: GpuNodeLayerProps["nodeVisibility"];
   nodes?: readonly GpuNodeLayout[] | undefined;
+  nodeDrag?:
+    | false
+    | Omit<
+        GpuNodeDragControllerOptions,
+        "element" | "getNodes" | "requestFrame" | "store"
+      >
+    | undefined;
   onNodeLayerFrame?:
     | ((result: RenderGpuNodeLayerFrameResult) => void)
     | undefined;
@@ -110,6 +121,7 @@ export function GpuFlow({
   forceVisibleNodeIds,
   marginCssPx,
   nodeClassName,
+  nodeDrag,
   nodeVisibility,
   nodes,
   onFrame,
@@ -256,6 +268,25 @@ export function GpuFlow({
       store: viewportStore,
     });
   }, [selection, viewportStore]);
+
+  useEffect(() => {
+    if (nodeDrag === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    return attachGpuNodeDragController({
+      ...nodeDrag,
+      element: container,
+      getNodes: () => nodeLayerRef.current.nodes ?? [],
+      requestFrame: (reason) => {
+        surfaceRef.current?.requestFrame(reason);
+      },
+      store: viewportStore,
+    });
+  }, [nodeDrag, viewportStore]);
 
   useEffect(() => {
     return () => {
