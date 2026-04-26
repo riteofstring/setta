@@ -480,6 +480,7 @@ class GpuNodeDragController {
     this.clearPendingDrag();
     this.cancelAutoPanLoop();
     this.store.getState().setViewportInteractionFlags({ nodeDragging: false });
+    this.options.requestFrame?.("texture-upload");
   }
 
   private clearPendingDrag() {

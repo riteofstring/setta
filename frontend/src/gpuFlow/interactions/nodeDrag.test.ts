@@ -125,6 +125,7 @@ describe("GPU node drag controller", () => {
       nodeId: "a",
       phase: "drag",
     });
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
 
     dispatchPointer(document, "pointerup", {
       button: 0,
@@ -148,6 +149,60 @@ describe("GPU node drag controller", () => {
     expect(store.getState().nodeDragging).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("viewport");
+    expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
+    detach();
+  });
+
+  it("requests a texture upload frame after an active drag is canceled", () => {
+    const element = createFlowElement();
+    const nodeElement = createNodeElement("a");
+    element.append(nodeElement);
+    const store = createGpuFlowViewportStore();
+    const onNodeDragCancel = vi.fn();
+    const requestFrame = vi.fn();
+    const detach = attachGpuNodeDragController({
+      autoPanOnNodeDrag: false,
+      element,
+      getNodes: () => [node("a", 0, 0, 30, 40)],
+      onNodeDragCancel,
+      requestFrame,
+      store,
+    });
+
+    dispatchPointer(nodeElement, "pointerdown", {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 1,
+    });
+    dispatchPointer(document, "pointermove", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    });
+
+    expect(store.getState().nodeDragging).toBe(true);
+    requestFrame.mockClear();
+
+    dispatchPointer(document, "pointercancel", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 1,
+    });
+
+    expect(onNodeDragCancel).toHaveBeenCalledWith({
+      active: false,
+      delta: { x: 0, y: 0 },
+      items: [expect.objectContaining({ nodeId: "a" })],
+      nodeId: "a",
+      phase: "cancel",
+    });
+    expect(store.getState().nodeDragging).toBe(false);
+    expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(requestFrame).toHaveBeenCalledOnce();
+    expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();
   });
 
