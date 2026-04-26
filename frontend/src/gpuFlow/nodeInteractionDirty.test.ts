@@ -132,6 +132,7 @@ describe("gpu node interaction dirty tracking", () => {
     nodeElement.append(slider);
     canvas.append(nodeElement);
     const textureManager = createInteractionTextureManager();
+    let nowMs = 0;
     const states: Array<{
       readonly activeNodeId: string | null;
       readonly overlayNodeId: string | null;
@@ -139,6 +140,8 @@ describe("gpu node interaction dirty tracking", () => {
     const controller = createGpuNodeInteractionDirtyController({
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 1,
+      interactiveFeedbackDurationMs: 100,
+      now: () => nowMs,
       onStateChange: (state) => states.push(state),
       requestFrame: vi.fn(),
       textureManager: () => textureManager,
@@ -160,6 +163,7 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     document.dispatchEvent(new Event("pointerup", { bubbles: true }));
+    nowMs = 101;
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],
@@ -172,6 +176,60 @@ describe("gpu node interaction dirty tracking", () => {
       "node-a",
       "visible",
     );
+
+    detach();
+  });
+
+  it("keeps repainting an active control during the feedback window", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const switchInput = document.createElement("button");
+    switchInput.setAttribute("role", "switch");
+    nodeElement.append(switchInput);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    let nowMs = 10;
+    let frame = 0;
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => {
+        frame += 1;
+        return frame;
+      },
+      interactiveFeedbackDurationMs: 50,
+      now: () => nowMs,
+      requestFrame,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    switchInput.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+
+    expect(textureManager.markNodeTextureDirty).toHaveBeenLastCalledWith({
+      content: true,
+      frame: 2,
+      nodeId: "node-a",
+      priority: "interactive",
+      reason: "pointer",
+    });
+    expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
+    expect(controller.getActiveNodeId()).toBe("node-a");
+
+    nowMs = 61;
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(2);
+    expect(controller.getOverlayNodeId()).toBeNull();
 
     detach();
   });
@@ -299,9 +357,12 @@ describe("gpu node interaction dirty tracking", () => {
     nodeElement.append(editor);
     canvas.append(nodeElement);
     const textureManager = createInteractionTextureManager();
+    let nowMs = 0;
     const controller = createGpuNodeInteractionDirtyController({
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 33,
+      interactiveFeedbackDurationMs: 100,
+      now: () => nowMs,
       requestFrame: vi.fn(),
       textureManager: () => textureManager,
     });
@@ -316,6 +377,7 @@ describe("gpu node interaction dirty tracking", () => {
       priority: "visible",
       reason: "focus",
     });
+    nowMs = 101;
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],

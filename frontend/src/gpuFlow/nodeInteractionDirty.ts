@@ -29,6 +29,8 @@ type GpuNodeInteractionDirtyControllerOptions = {
   readonly deferPassiveDirty?: (() => boolean) | undefined;
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly getFrame: () => number;
+  readonly interactiveFeedbackDurationMs?: number | undefined;
+  readonly now?: (() => number) | undefined;
   readonly onStateChange?:
     | ((state: GpuNodeInteractionState) => void)
     | undefined;
@@ -54,6 +56,7 @@ type NodeInteractionStatePatch = {
 };
 
 const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
+const DEFAULT_INTERACTIVE_FEEDBACK_DURATION_MS = 240;
 const INTERACTIVE_TARGET_SELECTOR = [
   "button",
   "input",
@@ -77,6 +80,8 @@ export function createGpuNodeInteractionDirtyController({
   deferPassiveDirty,
   elementByNodeId,
   getFrame,
+  interactiveFeedbackDurationMs = DEFAULT_INTERACTIVE_FEEDBACK_DURATION_MS,
+  now = () => performance.now(),
   onStateChange,
   requestFrame,
   textureManager,
@@ -85,6 +90,8 @@ export function createGpuNodeInteractionDirtyController({
   let overlayNodeId: string | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
+  let interactiveFeedbackReason: DirtyNodeReason = "input";
+  let interactiveFeedbackUntilMs = 0;
 
   function setState(next: NodeInteractionStatePatch) {
     const previousActiveNodeId = activeNodeId;
@@ -139,6 +146,7 @@ export function createGpuNodeInteractionDirtyController({
   function beginInteractiveNode(nodeId: string, reason: DirtyNodeReason) {
     const manager = textureManager();
     manager?.setNodeTexturePriority(nodeId, "interactive");
+    extendInteractiveFeedback(reason);
     setState({
       activeNodeId: nodeId,
       overlayNodeId: overlayNodeId === nodeId ? overlayNodeId : null,
@@ -156,6 +164,7 @@ export function createGpuNodeInteractionDirtyController({
     if (!pointerInteractionNodeId) {
       return;
     }
+    extendInteractiveFeedback("pointer");
     markDirty({
       nodeId: pointerInteractionNodeId,
       priority: "interactive",
@@ -229,8 +238,36 @@ export function createGpuNodeInteractionDirtyController({
       return;
     }
     const nodeId = activeNodeId;
+    extendInteractiveFeedback(reason);
     markDirty({ nodeId, priority: "interactive", reason });
     setState({ releaseAfterUploadNodeId: nodeId });
+  }
+
+  function extendInteractiveFeedback(reason: DirtyNodeReason) {
+    if (interactiveFeedbackDurationMs <= 0) {
+      interactiveFeedbackUntilMs = 0;
+      return;
+    }
+    interactiveFeedbackReason = reason;
+    interactiveFeedbackUntilMs = Math.max(
+      interactiveFeedbackUntilMs,
+      now() + interactiveFeedbackDurationMs,
+    );
+  }
+
+  function isInteractiveFeedbackActive() {
+    return Boolean(activeNodeId && now() < interactiveFeedbackUntilMs);
+  }
+
+  function requestInteractiveFeedbackFrame() {
+    if (!activeNodeId) {
+      return false;
+    }
+    return markDirty({
+      nodeId: activeNodeId,
+      priority: "interactive",
+      reason: interactiveFeedbackReason,
+    });
   }
 
   return {
@@ -339,6 +376,9 @@ export function createGpuNodeInteractionDirtyController({
       if (pointerInteractionNodeId === nodeId) {
         pointerInteractionNodeId = null;
       }
+      if (activeNodeId === nodeId) {
+        interactiveFeedbackUntilMs = 0;
+      }
       setState({
         activeNodeId: nextActiveNodeId,
         overlayNodeId: nextOverlayNodeId,
@@ -354,8 +394,17 @@ export function createGpuNodeInteractionDirtyController({
       const activeUploaded = result.uploadedNodeIds.includes(activeNodeId);
       const activeStillDirty =
         result.remainingDirtyNodeIds.includes(activeNodeId);
+      const feedbackActive = isInteractiveFeedbackActive();
       if (activeStillDirty && result.budgetExhausted) {
         setState({ overlayNodeId: activeNodeId });
+        if (feedbackActive) {
+          requestInteractiveFeedbackFrame();
+        }
+        return;
+      }
+
+      if (feedbackActive) {
+        requestInteractiveFeedbackFrame();
         return;
       }
 

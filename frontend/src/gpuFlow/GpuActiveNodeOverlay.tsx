@@ -40,6 +40,24 @@ const OVERLAY_SNAPSHOT_COMPARE_KEYS = [
   "zIndex",
   "zoom",
 ] as const;
+const OVERLAY_CLONE_MIRRORED_ATTRIBUTE_NAMES = [
+  "aria-checked",
+  "aria-disabled",
+  "aria-expanded",
+  "aria-pressed",
+  "aria-selected",
+  "checked",
+  "class",
+  "data-disabled",
+  "data-highlighted",
+  "data-orientation",
+  "data-placeholder",
+  "data-state",
+  "data-value",
+  "disabled",
+  "style",
+  "value",
+] as const;
 
 export function GpuActiveNodeOverlay({ snapshot }: GpuActiveNodeOverlayProps) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -51,7 +69,21 @@ export function GpuActiveNodeOverlay({ snapshot }: GpuActiveNodeOverlayProps) {
     const clone = cloneActiveNodeOverlaySource(snapshot);
     overlay.replaceChildren(clone);
     overlay.setAttribute("inert", "");
+    let disposed = false;
+    let animationFrameId: number | null = null;
+    const syncClone = () => {
+      if (disposed) {
+        return;
+      }
+      syncActiveNodeOverlayClone(snapshot, clone);
+      animationFrameId = requestOverlayAnimationFrame(syncClone);
+    };
+    animationFrameId = requestOverlayAnimationFrame(syncClone);
     return () => {
+      disposed = true;
+      if (animationFrameId !== null) {
+        cancelOverlayAnimationFrame(animationFrameId);
+      }
       overlay.replaceChildren();
       overlay.removeAttribute("inert");
     };
@@ -160,10 +192,85 @@ function cloneActiveNodeOverlaySource(
 ): HTMLElement {
   const clone = snapshot.sourceElement.cloneNode(true) as HTMLElement;
   clone.dataset.gpuFlowActiveNodeOverlayClone = "true";
+  sanitizeOverlayCloneIds(clone);
+  applyActiveNodeOverlayCloneStyle(snapshot, clone);
+  syncActiveNodeOverlayClone(snapshot, clone);
+  return clone;
+}
+
+function syncActiveNodeOverlayClone(
+  snapshot: GpuActiveNodeOverlaySnapshot,
+  clone: HTMLElement,
+) {
+  syncOverlayCloneAttributes(snapshot.sourceElement, clone);
+  syncOverlayCloneFormState(snapshot.sourceElement, clone);
+  sanitizeOverlayCloneIds(clone);
+  applyActiveNodeOverlayCloneStyle(snapshot, clone);
+}
+
+function syncOverlayCloneAttributes(source: HTMLElement, clone: HTMLElement) {
+  const sourceElements = collectElementTree(source);
+  const cloneElements = collectElementTree(clone);
+  sourceElements.forEach((sourceElement, index) => {
+    const cloneElement = cloneElements[index];
+    if (!cloneElement) {
+      return;
+    }
+    syncOverlayCloneElementAttributes({
+      cloneElement,
+      isRoot: index === 0,
+      sourceElement,
+    });
+  });
+}
+
+function syncOverlayCloneElementAttributes({
+  cloneElement,
+  isRoot,
+  sourceElement,
+}: {
+  readonly cloneElement: HTMLElement;
+  readonly isRoot: boolean;
+  readonly sourceElement: HTMLElement;
+}) {
+  for (const attributeName of OVERLAY_CLONE_MIRRORED_ATTRIBUTE_NAMES) {
+    if (isRoot && attributeName === "style") {
+      continue;
+    }
+    syncOverlayCloneAttribute(sourceElement, cloneElement, attributeName);
+  }
+}
+
+function syncOverlayCloneAttribute(
+  sourceElement: HTMLElement,
+  cloneElement: HTMLElement,
+  attributeName: string,
+) {
+  const sourceValue = sourceElement.getAttribute(attributeName);
+  if (sourceValue === null) {
+    cloneElement.removeAttribute(attributeName);
+    return;
+  }
+  if (cloneElement.getAttribute(attributeName) !== sourceValue) {
+    cloneElement.setAttribute(attributeName, sourceValue);
+  }
+}
+
+function collectElementTree(root: HTMLElement): HTMLElement[] {
+  return [root, ...root.querySelectorAll<HTMLElement>("*")];
+}
+
+function sanitizeOverlayCloneIds(clone: HTMLElement) {
   clone.removeAttribute("id");
   clone.querySelectorAll("[id]").forEach((element) => {
     element.removeAttribute("id");
   });
+}
+
+function applyActiveNodeOverlayCloneStyle(
+  snapshot: GpuActiveNodeOverlaySnapshot,
+  clone: HTMLElement,
+) {
   clone.style.position = "relative";
   clone.style.left = "0px";
   clone.style.top = "0px";
@@ -172,8 +279,21 @@ function cloneActiveNodeOverlaySource(
   clone.style.transform = "none";
   clone.style.transformOrigin = "0 0";
   clone.style.pointerEvents = "none";
-  syncOverlayCloneFormState(snapshot.sourceElement, clone);
-  return clone;
+}
+
+function requestOverlayAnimationFrame(callback: FrameRequestCallback): number {
+  if (typeof window.requestAnimationFrame === "function") {
+    return window.requestAnimationFrame(callback);
+  }
+  return window.setTimeout(() => callback(performance.now()), 16);
+}
+
+function cancelOverlayAnimationFrame(handle: number) {
+  if (typeof window.cancelAnimationFrame === "function") {
+    window.cancelAnimationFrame(handle);
+    return;
+  }
+  window.clearTimeout(handle);
 }
 
 function syncOverlayCloneFormState(source: HTMLElement, clone: HTMLElement) {

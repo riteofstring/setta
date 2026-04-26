@@ -119,6 +119,68 @@ describe("GpuActiveNodeOverlay", () => {
     });
   });
 
+  it("keeps active overlay form values and switch state synced", () => {
+    const animationFrames = installAnimationFrameQueue();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    const source = document.createElement("div");
+    source.dataset.id = "active";
+    const input = document.createElement("input");
+    input.value = "initial";
+    const switchRoot = document.createElement("button");
+    switchRoot.setAttribute("role", "switch");
+    switchRoot.setAttribute("aria-checked", "false");
+    switchRoot.setAttribute("data-state", "unchecked");
+    const switchThumb = document.createElement("span");
+    switchThumb.setAttribute("data-state", "unchecked");
+    switchRoot.append(switchThumb);
+    source.append(input, switchRoot);
+    const snapshot: GpuActiveNodeOverlaySnapshot = {
+      frame: 1,
+      height: 50,
+      nodeId: "active",
+      screenX: 20,
+      screenY: 30,
+      sourceElement: source,
+      width: 100,
+      zIndex: 3,
+      zoom: 2,
+    };
+
+    act(() => {
+      root.render(<GpuActiveNodeOverlay snapshot={snapshot} />);
+    });
+
+    input.value = "typed";
+    switchRoot.setAttribute("aria-checked", "true");
+    switchRoot.setAttribute("data-state", "checked");
+    switchThumb.setAttribute("data-state", "checked");
+
+    act(() => {
+      animationFrames.flushNext();
+    });
+
+    const clone = host.querySelector<HTMLElement>(
+      "[data-gpu-flow-active-node-overlay-clone='true']",
+    );
+    expect(clone?.querySelector("input")?.value).toBe("typed");
+    expect(
+      clone?.querySelector("[role='switch']")?.getAttribute("data-state"),
+    ).toBe("checked");
+    expect(
+      clone?.querySelector("[role='switch']")?.getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(clone?.querySelector("span")?.getAttribute("data-state")).toBe(
+      "checked",
+    );
+
+    act(() => {
+      root.unmount();
+    });
+    animationFrames.restore();
+  });
+
   it("keeps unchanged overlay snapshots stable", () => {
     const sourceElement = document.createElement("div");
     const snapshot: GpuActiveNodeOverlaySnapshot = {
@@ -150,6 +212,36 @@ describe("GpuActiveNodeOverlay", () => {
     ).toBe(false);
   });
 });
+
+function installAnimationFrameQueue() {
+  const originalRequestAnimationFrame = window.requestAnimationFrame;
+  const originalCancelAnimationFrame = window.cancelAnimationFrame;
+  let nextHandle = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  window.requestAnimationFrame = (callback: FrameRequestCallback) => {
+    const handle = nextHandle;
+    nextHandle += 1;
+    callbacks.set(handle, callback);
+    return handle;
+  };
+  window.cancelAnimationFrame = (handle: number) => {
+    callbacks.delete(handle);
+  };
+  return {
+    flushNext() {
+      const [handle, callback] = callbacks.entries().next().value ?? [];
+      if (handle === undefined || !callback) {
+        throw new Error("Expected a pending animation frame callback.");
+      }
+      callbacks.delete(handle);
+      callback(performance.now());
+    },
+    restore() {
+      window.requestAnimationFrame = originalRequestAnimationFrame;
+      window.cancelAnimationFrame = originalCancelAnimationFrame;
+    },
+  };
+}
 
 function node(
   nodeId: string,
