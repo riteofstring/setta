@@ -90,3 +90,10 @@ export function transformToCanvasFlowViewport(
     zoom: transform[2],
   };
 }
+
+export function canvasFlowViewportsEqual(
+  left: CanvasFlowViewport,
+  right: CanvasFlowViewport,
+): boolean {
+  return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
+}

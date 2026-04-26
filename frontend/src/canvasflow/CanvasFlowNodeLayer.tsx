@@ -9,13 +9,17 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type CSSProperties,
   type MutableRefObject,
   type RefObject,
 } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
-import { NO_PAN_CLASS_NAME } from "utils/constants";
+import {
+  CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
+  NO_PAN_CLASS_NAME,
+} from "utils/constants";
 import { shallow } from "zustand/shallow";
 import { getMountedNodeIds } from "./canvasFlowGeometry";
 import type {
@@ -24,6 +28,7 @@ import type {
   CanvasFlowViewport,
 } from "./canvasFlowTypes";
 import {
+  canvasFlowViewportsEqual,
   expandWorldRect,
   getVisibleWorldRect,
   transformToCanvasFlowViewport,
@@ -54,7 +59,7 @@ type CanvasFlowNodeWrapperProps = {
   viewportRef: MutableRefObject<CanvasFlowViewport>;
 };
 
-function CanvasFlowNodeLayer({
+export function CanvasFlowNodeLayer({
   canvasCssSize,
   canvasRef,
   nodeElementsRef,
@@ -67,17 +72,61 @@ function CanvasFlowNodeLayer({
     shallow,
   );
   const transform = useReactFlow((state) => state.transform, shallow);
+  const [mountViewport, setMountViewport] = useState(() => ({
+    ...viewportRef.current,
+  }));
+
+  useEffect(() => {
+    const nextViewport = transformToCanvasFlowViewport(transform);
+    setMountViewport((currentViewport) =>
+      canvasFlowViewportsEqual(currentViewport, nextViewport)
+        ? currentViewport
+        : nextViewport,
+    );
+  }, [transform]);
+
+  useEffect(() => {
+    let frameId: number | null = null;
+    const syncMountViewport = () => {
+      frameId = null;
+      const nextViewport = viewportRef.current;
+      setMountViewport((currentViewport) =>
+        canvasFlowViewportsEqual(currentViewport, nextViewport)
+          ? currentViewport
+          : { ...nextViewport },
+      );
+    };
+    const handleViewportChange = () => {
+      if (frameId !== null) {
+        return;
+      }
+      frameId = window.requestAnimationFrame(syncMountViewport);
+    };
+    window.addEventListener(
+      CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
+      handleViewportChange,
+    );
+    return () => {
+      window.removeEventListener(
+        CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
+        handleViewportChange,
+      );
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [viewportRef]);
+
   const nodeIds = useMemo(() => {
     const size = getEffectiveCanvasCssSize(canvasCssSize);
-    const viewport = transformToCanvasFlowViewport(transform);
     return getMountedNodeIds({
       nodes,
       visibleRect: expandWorldRect(
-        getVisibleWorldRect(size, viewport),
+        getVisibleWorldRect(size, mountViewport),
         NODE_MOUNT_OVERSCAN_WORLD,
       ),
     });
-  }, [canvasCssSize, nodes, transform]);
+  }, [canvasCssSize, mountViewport, nodes]);
 
   useEffect(() => {
     schedulePaint();
