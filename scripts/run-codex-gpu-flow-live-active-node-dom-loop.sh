@@ -112,7 +112,7 @@ Verification:
 
 Browser setup:
 - Use a Chromium build with WebGPU and html-in-canvas enabled. If required locally, start with:
-  CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement" ./ai.sh
+  CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu" ./aireset.sh
 - If the local browser cannot expose the native APIs, record that blocker in perf/reports/frontend/ and keep moving on testable owner code.
 
 Completion:
