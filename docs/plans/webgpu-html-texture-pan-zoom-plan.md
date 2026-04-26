@@ -260,28 +260,36 @@ Dirty tracking sources:
 
 High-priority live interaction mode:
 
-1. On `pointerdown` inside an input, slider, contenteditable, CodeMirror editor, terminal, or other interactive surface, mark the owning node `priority: "interactive"`.
-2. On each `input`, `beforeinput`, `selectionchange`, `scroll`, or relevant pointer move, set `dirtyContent = true`.
-3. Call `canvas.requestPaint()`.
-4. On the next `paint` event or next animation frame, upload that node before the scene draw.
-5. Keep uploading that node at most once per frame while the interaction continues.
-6. On `pointerup`, `blur`, or interaction end, return it to normal visible priority after one final upload.
+Use the active DOM teleport architecture in
+`docs/plans/gpu-flow-live-active-node-dom-plan.md`. The active node is normal
+browser DOM while the user interacts; WebGPU keeps rendering cached textures for
+the rest of the viewport.
+
+1. On `pointerdown`, focus, or another activation event inside an input,
+   slider, contenteditable, CodeMirror editor, terminal, or other interactive
+   surface, mark the owning node `priority: "interactive"` and teleport the
+   existing node DOM into the active layer.
+2. While the node is teleported, let the browser handle pointer, keyboard,
+   focus, caret, selection, CSS transitions, editor behavior, and terminal
+   behavior directly.
+3. Defer texture uploads for the active node while it is outside the canvas
+   layout subtree. Keep passive node uploads budgeted.
+4. On `pointerup`, `blur`, or interaction settle, restore the node under the
+   canvas, request one paint, upload the final snapshot, and return it to
+   normal visible priority.
 
 Slider requirement:
 
-- a range input drag must schedule a node texture upload every frame while its value changes
-- the interactive node bypasses normal debounce
-- if multiple nodes are dirty, the interactive node uploads first
-- if upload cost exceeds the frame budget, keep the DOM element visible above the GPU quad for that one active node until the texture catches up, then hide it again
-
-That last overlay escape hatch is not a compatibility path. It is a performance valve for active controls only. It preserves immediate visual feedback for the node being manipulated without putting the whole viewport back on a transformed DOM path.
+- a range input drag must remain live in the teleported DOM
+- active drag feedback must not depend on repeated full-node texture uploads
+- the final settled texture upload happens only after the node has been restored
+  under the canvas
 
 Text input and caret:
 
-- focus/caret changes mark the node interactive
-- caret blink may dirty the node periodically while focused
-- text selection changes inside the node schedule uploads
-- if the browser's html-in-canvas paint event already tracks caret/selection, rely on it; otherwise add focused-element dirty timers only for the focused node
+- focus/caret changes activate DOM teleport for the owning node
+- typing, caret, selection, and IME feedback happen in normal DOM
+- after blur or input settle, restore the node and upload one final texture
 
 Scroll inside a node:
 
@@ -523,7 +531,7 @@ Wire event listeners for:
 - `focusin`
 - `focusout`
 
-Implement interactive priority and the active-node DOM overlay performance valve.
+Implement interactive priority and the active-node DOM teleport path.
 
 Verify sliders, text inputs, CodeMirror, terminals, and scrollable section internals.
 
@@ -631,7 +639,7 @@ Success targets:
 
 - pan/zoom hot path has no node HTML capture
 - passive pan/zoom is camera uniform update plus GPU draw
-- interactive control updates are visible within one frame or use the active-node overlay valve
+- interactive control updates are visible through active-node DOM teleport
 - settled zoom views are crisp at the current DPR and zoom bucket
 - no recurring long tasks during pan/zoom on the profiling project
 
@@ -651,7 +659,7 @@ Very large nodes may exceed texture limits at high zoom. Start with clamped reso
 
 ### Interactive Upload Cost
 
-A complex node may be expensive to upload every frame while a slider or editor is active. The active-node DOM overlay valve protects immediate feedback for the active node while keeping the rest of the viewport GPU-rendered.
+A complex node may be expensive to upload every frame while a slider or editor is active. Active-node DOM teleport protects immediate feedback for the active node while keeping the rest of the viewport GPU-rendered.
 
 ### DOM Hit Testing Alignment
 

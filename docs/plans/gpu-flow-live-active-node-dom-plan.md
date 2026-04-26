@@ -203,7 +203,6 @@ Record before/after evidence in `perf/reports/frontend/`:
 
 After active DOM teleport is verified:
 
-- Remove or narrow the old active-node clone overlay code.
 - Remove the short repeated active texture upload loop.
 - Keep dirty texture uploads for final snapshots and passive updates.
 - Keep upload budget controls for passive nodes.

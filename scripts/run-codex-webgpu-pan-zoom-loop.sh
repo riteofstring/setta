@@ -68,9 +68,9 @@ Primary target:
 Implementation priorities:
 - Start with the WebGPU/html-in-canvas upload probe and record exact local browser API support.
 - If WebGPU element upload is unavailable but WebGL2 texElementImage2D is available, pause at a clean decision point and document the evidence. Do not silently ship a fallback renderer.
-- Prioritize crisp texture resolution buckets, max texture limits, dirty-node upload scheduling, and real-time interactive updates.
+- Prioritize crisp texture resolution buckets, max texture limits, dirty-node upload scheduling, and active DOM teleport for real-time interactive updates.
 - Sliders, text inputs, CodeMirror, terminals, scrollable node contents, and edge handles must remain native HTML interactions.
-- Use the active-node DOM overlay valve only for the node currently being manipulated, and only when texture upload misses the frame budget.
+- Use same-instance active DOM teleport for the node currently being manipulated. Do not rely on repeated full-node texture uploads for live control feedback.
 - Do not add compatibility layers, dual renderers, old XYFlow preservation paths, or polyfills.
 
 Browser verification:

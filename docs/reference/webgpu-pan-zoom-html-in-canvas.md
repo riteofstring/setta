@@ -305,14 +305,15 @@ Interactive targets include native form controls, contenteditable elements,
 ARIA text/slider/spinbutton roles, CodeMirror content, and xterm surfaces.
 
 When an interactive target is used, the node is promoted to interactive
-priority, marked dirty, and tracked as the active node. While active feedback is
-ongoing, the controller can request additional texture-upload frames. When the
-interaction settles, the node priority returns to visible after the final upload.
+priority and tracked as the active node. The active node is moved into the
+active-node teleport layer so the browser handles live pointer, keyboard,
+focus, caret, selection, CSS transition, editor, and terminal behavior as normal
+DOM.
 
-The current architecture has an active-node teleport layer as part of the
-in-progress live DOM work described below. While a node is teleported out of the
-canvas layout subtree, uploads for that node are deferred; after it is restored,
-the canvas requests a paint before the final texture upload.
+While a node is teleported out of the canvas layout subtree, uploads for that
+node are deferred. When the interaction settles, the node is restored under the
+canvas, the canvas requests a paint, one final texture snapshot is uploaded, and
+the node priority returns to visible.
 
 ## Current Project Integration
 
@@ -334,10 +335,9 @@ runtime:
 The renderer intentionally keeps old high-level project behaviors while
 replacing the viewport implementation underneath them.
 
-## Active Node DOM Teleport Work
+## Active Node DOM Teleport
 
-This document describes the current WebGPU pan/zoom and html-in-canvas baseline.
-The active interaction plan is
+The active interaction architecture is described in
 `docs/plans/gpu-flow-live-active-node-dom-plan.md`.
 
 That plan addresses the main remaining interaction problem: textures are
@@ -345,10 +345,14 @@ snapshots, so repeatedly uploading a whole node texture is not the right way to
 make switches, text inputs, CodeMirror, terminals, sliders, and CSS transitions
 feel native during active manipulation.
 
-The selected architecture is same-instance active DOM teleport: temporarily
-move the existing React-owned node DOM into the active teleport layer while the
-user interacts, defer uploads while it is outside the canvas layout subtree,
-restore it under the canvas, request one paint, upload the final snapshot, and
-return the node to the passive WebGPU texture path. Do not introduce duplicate
-active node rendering unless a component owner requires a dedicated active
-presentation path for a documented teleport failure.
+Setta uses same-instance active DOM teleport: temporarily move the existing
+React-owned node DOM into the active teleport layer while the user interacts,
+defer uploads while it is outside the canvas layout subtree, restore it under
+the canvas, request one paint, upload the final snapshot, and return the node to
+the passive WebGPU texture path.
+
+The shared active-node positioning data lives in `GpuActiveNodeSnapshot`.
+`GpuActiveNodeTeleport` owns the imperative DOM move, focus/selection
+preservation, presentation transform, and restore behavior. Do not mirror the
+active node with duplicate DOM unless a component owner requires a dedicated
+active presentation path for a documented teleport failure.

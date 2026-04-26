@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it } from "vitest";
-import type { GpuActiveNodeOverlaySnapshot } from "./GpuActiveNodeOverlay";
+import type { GpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
 import { createGpuActiveNodeTeleportController } from "./GpuActiveNodeTeleport";
 
 describe("GpuActiveNodeTeleport", () => {
@@ -102,7 +102,7 @@ describe("GpuActiveNodeTeleport", () => {
 function snapshot(
   sourceElement: HTMLElement,
   nodeId: string,
-): GpuActiveNodeOverlaySnapshot {
+): GpuActiveNodeSnapshot {
   return {
     frame: 1,
     height: 50,

@@ -1,12 +1,10 @@
-import type { GpuActiveNodeOverlaySnapshot } from "./GpuActiveNodeOverlay";
+import type { GpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
 
 export type GpuActiveNodeTeleportController = {
   clearNode(nodeId: string): void;
   destroy(): void;
   getTeleportedNodeId(): string | null;
-  sync(
-    snapshot: GpuActiveNodeOverlaySnapshot | null,
-  ): GpuActiveNodeTeleportSyncResult;
+  sync(snapshot: GpuActiveNodeSnapshot | null): GpuActiveNodeTeleportSyncResult;
 };
 
 export type GpuActiveNodeTeleportSyncResult = {
@@ -88,7 +86,7 @@ export function createGpuActiveNodeTeleportController(
 
 function moveNodeToTeleportLayer(
   layer: HTMLElement,
-  snapshot: GpuActiveNodeOverlaySnapshot,
+  snapshot: GpuActiveNodeSnapshot,
 ): TeleportedNode {
   const originalParent = snapshot.sourceElement.parentNode;
   if (!originalParent) {
@@ -126,9 +124,7 @@ function restoreTeleportedNode(teleportedNode: TeleportedNode) {
   restoreFocusSnapshot(focusSnapshot);
 }
 
-function applyTeleportedNodePresentation(
-  snapshot: GpuActiveNodeOverlaySnapshot,
-) {
+function applyTeleportedNodePresentation(snapshot: GpuActiveNodeSnapshot) {
   const { sourceElement } = snapshot;
   setStyleValue(sourceElement, "position", "absolute");
   setStyleValue(sourceElement, "left", "0px");

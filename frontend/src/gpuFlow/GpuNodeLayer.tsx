@@ -79,7 +79,6 @@ type SyncGpuNodeDomTransformsInput = {
   readonly nodes: readonly GpuNodeLayout[];
   readonly offscreenX?: number | undefined;
   readonly offscreenY?: number | undefined;
-  readonly overlayNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   readonly visibleNodeIds: ReadonlySet<string>;
   readonly viewport: GpuViewportInput;
 };
@@ -121,7 +120,6 @@ type RenderGpuNodeLayerFrameInput = {
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly renderer: GpuNodeQuadRenderTarget;
-  readonly overlayNodeId?: string | null | undefined;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget?: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
@@ -136,7 +134,6 @@ export type RenderGpuNodeLayerFrameResult = {
   readonly missingElementNodeIds: readonly string[];
   readonly missingTextureNodeIds: readonly string[];
   readonly remainingDirtyNodeIds: readonly string[];
-  readonly overlayNodeId: string | null;
   readonly skippedNodeIds: readonly string[];
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeIds: readonly string[];
@@ -152,8 +149,6 @@ type MarkGpuNodeLayerPaintDirtyInput = {
 const DEFAULT_OFFSCREEN_POSITION = -100_000;
 const DEFAULT_NODE_CLASS_NAME = "setta-gpu-flow__node react-flow__node";
 const GPU_FLOW_NODE_INTERACTIVE_CLASS = "setta-gpu-flow__node--interactive";
-const GPU_FLOW_NODE_OVERLAY_ACTIVE_CLASS =
-  "setta-gpu-flow__node--overlay-active";
 
 export function GpuNodeLayer({
   className = DEFAULT_NODE_CLASS_NAME,
@@ -230,7 +225,6 @@ export function renderGpuNodeLayerFrame({
   grid,
   marginCssPx,
   nodes,
-  overlayNodeId,
   renderer,
   textureManager,
   uploadBudget,
@@ -238,9 +232,6 @@ export function renderGpuNodeLayerFrame({
 }: RenderGpuNodeLayerFrameInput): RenderGpuNodeLayerFrameResult {
   const activeNodeIds = normalizeNodeIdSet(
     activeNodeId ? [activeNodeId] : undefined,
-  );
-  const overlayNodeIds = normalizeNodeIdSet(
-    overlayNodeId ? [overlayNodeId] : undefined,
   );
   const visibleQuads = collectVisibleGpuNodeQuads({
     canvasHeight: canvasSize.cssHeight,
@@ -256,7 +247,6 @@ export function renderGpuNodeLayerFrame({
     activeNodeIds,
     elementByNodeId,
     nodes,
-    overlayNodeIds,
     visibleNodeIds,
     viewport,
   });
@@ -299,7 +289,6 @@ export function renderGpuNodeLayerFrame({
     edgeVertexCount: renderResult.edgeVertexCount,
     missingElementNodeIds,
     missingTextureNodeIds: textureResult.missingTextureNodeIds,
-    overlayNodeId: overlayNodeId ?? null,
     remainingDirtyNodeIds: uploadResult.remainingDirtyNodeIds,
     skippedNodeIds: uploadResult.skippedNodeIds,
     uploadedNodeIds: uploadResult.uploaded.map((record) => record.nodeId),
@@ -484,13 +473,11 @@ export function syncGpuNodeDomTransforms({
   nodes,
   offscreenX = DEFAULT_OFFSCREEN_POSITION,
   offscreenY = DEFAULT_OFFSCREEN_POSITION,
-  overlayNodeIds,
   visibleNodeIds,
   viewport,
 }: SyncGpuNodeDomTransformsInput) {
   const normalizedViewport = normalizeGpuViewport(viewport);
   const activeIds = normalizeNodeIdSet(activeNodeIds);
-  const overlayIds = normalizeNodeIdSet(overlayNodeIds);
   for (const node of nodes) {
     const element = resolveElement(elementByNodeId, node.nodeId);
     if (!element) {
@@ -504,7 +491,6 @@ export function syncGpuNodeDomTransforms({
       );
       applyVisibleNodeDomTransform(element, {
         interactive: activeIds.has(node.nodeId),
-        overlayActive: overlayIds.has(node.nodeId),
         screenX: screenPosition.x,
         screenY: screenPosition.y,
         zoom: normalizedViewport.zoom,
@@ -520,13 +506,11 @@ function applyVisibleNodeDomTransform(
   element: HTMLElement,
   {
     interactive,
-    overlayActive,
     screenX,
     screenY,
     zoom,
   }: {
     readonly interactive?: boolean | undefined;
-    readonly overlayActive?: boolean | undefined;
     readonly screenX: number;
     readonly screenY: number;
     readonly zoom: number;
@@ -545,16 +529,10 @@ function applyVisibleNodeDomTransform(
     "gpuFlowInteractive",
     interactive ? "true" : "false",
   );
-  setDatasetValue(element, "gpuFlowOverlay", overlayActive ? "active" : "none");
   setClassPresence(
     element,
     GPU_FLOW_NODE_INTERACTIVE_CLASS,
     Boolean(interactive),
-  );
-  setClassPresence(
-    element,
-    GPU_FLOW_NODE_OVERLAY_ACTIVE_CLASS,
-    Boolean(overlayActive),
   );
 }
 
@@ -572,9 +550,7 @@ function applyCulledNodeDomTransform(
   setStyleValue(element, "pointerEvents", "none");
   setDatasetValue(element, "gpuFlowVisible", "false");
   setDatasetValue(element, "gpuFlowInteractive", "false");
-  setDatasetValue(element, "gpuFlowOverlay", "none");
   setClassPresence(element, GPU_FLOW_NODE_INTERACTIVE_CLASS, false);
-  setClassPresence(element, GPU_FLOW_NODE_OVERLAY_ACTIVE_CLASS, false);
 }
 
 type GpuNodeStyleKey =

@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type { GpuEdgeScene } from "./edges/edgeSources";
-import { resolveGpuActiveNodeOverlaySnapshot } from "./GpuActiveNodeOverlay";
+import { resolveGpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
 import {
   createGpuActiveNodeTeleportController,
   type GpuActiveNodeTeleportController,
@@ -719,7 +719,6 @@ function renderGpuFlowNodeLayerFrame({
     grid: layer.grid,
     marginCssPx: layer.marginCssPx,
     nodes,
-    overlayNodeId: nodeInteraction?.getOverlayNodeId(),
     renderer: resources.nodeQuadRenderer,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
@@ -835,11 +834,11 @@ function syncGpuFlowActiveNodeTeleport({
   if (!teleport) {
     return { restoredNodeId: null, teleportedNodeId: null };
   }
-  const nextSnapshot = resolveGpuActiveNodeOverlaySnapshot({
+  const nextSnapshot = resolveGpuActiveNodeSnapshot({
+    activeNodeId: liveNodeId,
     elementByNodeId,
     frame,
     nodes: layer.nodes,
-    overlayNodeId: liveNodeId,
     viewport: layer.viewport,
   });
   return teleport.sync(nextSnapshot);
@@ -911,14 +910,8 @@ function syncGpuFlowNodeInteractionState({
 }) {
   for (const [nodeId, element] of nodeElementByIdRef.current) {
     const interactive = state.activeNodeId === nodeId;
-    const overlayActive = state.overlayNodeId === nodeId;
     element.dataset.gpuFlowInteractive = interactive ? "true" : "false";
-    element.dataset.gpuFlowOverlay = overlayActive ? "active" : "none";
     element.classList.toggle("setta-gpu-flow__node--interactive", interactive);
-    element.classList.toggle(
-      "setta-gpu-flow__node--overlay-active",
-      overlayActive,
-    );
   }
 }
 

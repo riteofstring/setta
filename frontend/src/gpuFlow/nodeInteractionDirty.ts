@@ -14,7 +14,6 @@ type GpuNodeInteractionFrameResult = {
 
 export type GpuNodeInteractionState = {
   readonly activeNodeId: string | null;
-  readonly overlayNodeId: string | null;
 };
 
 export type GpuNodeInteractionDirtyController = {
@@ -23,7 +22,6 @@ export type GpuNodeInteractionDirtyController = {
   completeFrame(result: GpuNodeInteractionFrameResult): void;
   getActiveNodeId(): string | null;
   getLiveNodeId(): string | null;
-  getOverlayNodeId(): string | null;
 };
 
 type GpuNodeInteractionDirtyControllerOptions = {
@@ -52,7 +50,6 @@ type MarkInteractionDirtyInput = {
 
 type NodeInteractionStatePatch = {
   readonly activeNodeId?: string | null | undefined;
-  readonly overlayNodeId?: string | null | undefined;
   readonly releaseAfterUploadNodeId?: string | null | undefined;
 };
 
@@ -88,7 +85,6 @@ export function createGpuNodeInteractionDirtyController({
   textureManager,
 }: GpuNodeInteractionDirtyControllerOptions): GpuNodeInteractionDirtyController {
   let activeNodeId: string | null = null;
-  let overlayNodeId: string | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
   let interactiveFeedbackReason: DirtyNodeReason = "input";
@@ -96,27 +92,18 @@ export function createGpuNodeInteractionDirtyController({
 
   function setState(next: NodeInteractionStatePatch) {
     const previousActiveNodeId = activeNodeId;
-    const previousOverlayNodeId = overlayNodeId;
     activeNodeId = resolveNullableStatePatchValue(
       next,
       "activeNodeId",
       activeNodeId,
-    );
-    overlayNodeId = resolveNullableStatePatchValue(
-      next,
-      "overlayNodeId",
-      overlayNodeId,
     );
     releaseAfterUploadNodeId = resolveNullableStatePatchValue(
       next,
       "releaseAfterUploadNodeId",
       releaseAfterUploadNodeId,
     );
-    if (
-      previousActiveNodeId !== activeNodeId ||
-      previousOverlayNodeId !== overlayNodeId
-    ) {
-      onStateChange?.({ activeNodeId, overlayNodeId });
+    if (previousActiveNodeId !== activeNodeId) {
+      onStateChange?.({ activeNodeId });
     }
   }
 
@@ -150,7 +137,6 @@ export function createGpuNodeInteractionDirtyController({
     extendInteractiveFeedback(reason);
     setState({
       activeNodeId: nodeId,
-      overlayNodeId: overlayNodeId === nodeId ? overlayNodeId : null,
       releaseAfterUploadNodeId: null,
     });
     markDirty({ nodeId, priority: "interactive", reason });
@@ -371,7 +357,6 @@ export function createGpuNodeInteractionDirtyController({
     },
     clearNode(nodeId) {
       const nextActiveNodeId = activeNodeId === nodeId ? null : activeNodeId;
-      const nextOverlayNodeId = overlayNodeId === nodeId ? null : overlayNodeId;
       const nextReleaseNodeId =
         releaseAfterUploadNodeId === nodeId ? null : releaseAfterUploadNodeId;
       if (pointerInteractionNodeId === nodeId) {
@@ -382,13 +367,12 @@ export function createGpuNodeInteractionDirtyController({
       }
       setState({
         activeNodeId: nextActiveNodeId,
-        overlayNodeId: nextOverlayNodeId,
         releaseAfterUploadNodeId: nextReleaseNodeId,
       });
     },
     completeFrame(result) {
       if (!activeNodeId) {
-        setState({ overlayNodeId: null, releaseAfterUploadNodeId: null });
+        setState({ releaseAfterUploadNodeId: null });
         return;
       }
 
@@ -397,7 +381,6 @@ export function createGpuNodeInteractionDirtyController({
         result.remainingDirtyNodeIds.includes(activeNodeId);
       const feedbackActive = isInteractiveFeedbackActive();
       if (activeStillDirty && result.budgetExhausted) {
-        setState({ overlayNodeId: activeNodeId });
         if (feedbackActive) {
           requestInteractiveFeedbackFrame();
         }
@@ -418,13 +401,10 @@ export function createGpuNodeInteractionDirtyController({
         manager?.setNodeTexturePriority(activeNodeId, "visible");
         setState({
           activeNodeId: null,
-          overlayNodeId: null,
           releaseAfterUploadNodeId: null,
         });
         return;
       }
-
-      setState({ overlayNodeId: null });
     },
     getActiveNodeId() {
       return activeNodeId;
@@ -440,9 +420,6 @@ export function createGpuNodeInteractionDirtyController({
         return null;
       }
       return activeNodeId;
-    },
-    getOverlayNodeId() {
-      return overlayNodeId;
     },
   };
 }

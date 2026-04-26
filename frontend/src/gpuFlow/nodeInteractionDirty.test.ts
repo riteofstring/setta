@@ -59,7 +59,6 @@ describe("gpu node interaction dirty tracking", () => {
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     expect(onStateChange).toHaveBeenCalledWith({
       activeNodeId: "node-a",
-      overlayNodeId: null,
     });
 
     detach();
@@ -124,7 +123,7 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
-  it("keeps an interactive node overlay-active until its upload catches up", () => {
+  it("keeps an interactive node live until its upload catches up", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const slider = document.createElement("input");
@@ -135,7 +134,6 @@ describe("gpu node interaction dirty tracking", () => {
     let nowMs = 0;
     const states: Array<{
       readonly activeNodeId: string | null;
-      readonly overlayNodeId: string | null;
     }> = [];
     const controller = createGpuNodeInteractionDirtyController({
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
@@ -156,11 +154,9 @@ describe("gpu node interaction dirty tracking", () => {
       uploadedNodeIds: [],
     });
 
-    expect(controller.getOverlayNodeId()).toBe("node-a");
     expect(controller.getLiveNodeId()).toBe("node-a");
     expect(states.at(-1)).toEqual({
       activeNodeId: "node-a",
-      overlayNodeId: "node-a",
     });
 
     document.dispatchEvent(new Event("pointerup", { bubbles: true }));
@@ -174,7 +170,6 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     expect(controller.getActiveNodeId()).toBeNull();
-    expect(controller.getOverlayNodeId()).toBeNull();
     expect(textureManager.setNodeTexturePriority).toHaveBeenLastCalledWith(
       "node-a",
       "visible",
@@ -232,7 +227,6 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(2);
-    expect(controller.getOverlayNodeId()).toBeNull();
 
     detach();
   });
