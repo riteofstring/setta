@@ -20,6 +20,7 @@ type GpuPanOnScrollMode =
 export type GpuPanZoomControllerOptions = {
   readonly element: HTMLElement;
   readonly isMacOS?: boolean | undefined;
+  readonly panActivationKeyPressed?: boolean | undefined;
   readonly panOnDrag?: boolean | readonly number[] | undefined;
   readonly panOnScroll?: boolean | undefined;
   readonly panOnScrollMode?: GpuPanOnScrollMode | undefined;
@@ -45,6 +46,7 @@ type ActivePointerPan = {
 };
 
 type ResolvedGpuPanZoomControllerOptions = {
+  readonly panActivationKeyPressed: boolean | undefined;
   readonly panOnDrag: boolean | readonly number[];
   readonly panOnScroll: boolean;
   readonly panOnScrollMode: GpuPanOnScrollMode;
@@ -204,6 +206,7 @@ function resolveGpuPanZoomControllerOptions(
   options: GpuPanZoomControllerOptions,
 ): ResolvedGpuPanZoomControllerOptions {
   return {
+    panActivationKeyPressed: options.panActivationKeyPressed,
     panOnDrag: options.panOnDrag ?? DEFAULT_PAN_ZOOM_OPTIONS.panOnDrag,
     panOnScroll: options.panOnScroll ?? DEFAULT_PAN_ZOOM_OPTIONS.panOnScroll,
     panOnScrollMode:
@@ -395,13 +398,19 @@ class GpuPanZoomController {
   }
 
   private shouldStartPointerPan(event: PointerEvent): boolean {
-    if (!this.options.panOnDrag) {
+    const panActivationKeyPressed = Boolean(
+      this.options.panActivationKeyPressed,
+    );
+    const panOnDrag = panActivationKeyPressed
+      ? DEFAULT_PAN_ZOOM_OPTIONS.panOnDrag
+      : this.options.panOnDrag;
+    if (!panOnDrag) {
       return false;
     }
-    if (event.ctrlKey || event.metaKey) {
+    if (hasBlockedPanModifier(event)) {
       return false;
     }
-    if (!isAllowedPanButton(event.button, this.options.panOnDrag)) {
+    if (!isAllowedPanButton(event.button, panOnDrag)) {
       return false;
     }
     if (this.store.getState().selectionKeyPressed) {
@@ -410,7 +419,7 @@ class GpuPanZoomController {
     if (isEventTargetWrappedWithClass(event, NO_PAN_CLASS_NAME)) {
       return false;
     }
-    if (isPrimaryButtonNodeEvent(event)) {
+    if (shouldBlockPrimaryNodePan(event, panActivationKeyPressed)) {
       return false;
     }
     return true;
@@ -517,6 +526,19 @@ function isPrimaryButtonNodeEvent(event: PointerEvent): boolean {
     isEventTargetWrappedWithClass(event, "setta-gpu-flow__node") ||
     isEventTargetWrappedWithClass(event, "react-flow__node")
   );
+}
+
+function hasBlockedPanModifier(
+  event: Pick<PointerEvent, "ctrlKey" | "metaKey">,
+): boolean {
+  return event.ctrlKey || event.metaKey;
+}
+
+function shouldBlockPrimaryNodePan(
+  event: PointerEvent,
+  panActivationKeyPressed: boolean,
+): boolean {
+  return !panActivationKeyPressed && isPrimaryButtonNodeEvent(event);
 }
 
 function getEventPointRelativeToElement(

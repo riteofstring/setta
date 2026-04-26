@@ -387,6 +387,8 @@ function getProjectPanZoomOptions({
 }) {
   const interactionEnabled = !isFollowTransitioning;
   return {
+    panActivationKeyPressed:
+      interactionEnabled && flowInteractionKeys.panActivationKeyPressed,
     panOnDrag:
       interactionEnabled &&
       !flowInteractionKeys.selectionKeyPressed &&

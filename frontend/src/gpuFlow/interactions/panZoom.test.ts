@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGpuFlowViewportStore } from "../viewportStore";
@@ -194,6 +195,62 @@ describe("GPU pan/zoom controller", () => {
     });
     expect(store.getState().paneDragging).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
+    detach();
+  });
+
+  it("pans primary node drags while the pan activation key is active", () => {
+    const element = createSurfaceElement();
+    const node = document.createElement("div");
+    node.className = "setta-gpu-flow__node";
+    element.append(node);
+    const noPanChild = document.createElement("div");
+    noPanChild.className = NO_PAN_CLASS_NAME;
+    node.append(noPanChild);
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      panActivationKeyPressed: true,
+      panOnDrag: false,
+      requestFrame: vi.fn(),
+      store,
+    });
+
+    dispatchPointer(node, "pointerdown", {
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+      pointerId: 1,
+    });
+    dispatchPointer(element, "pointermove", {
+      button: 0,
+      clientX: 10,
+      clientY: 12,
+      pointerId: 1,
+    });
+    expect(store.getState().transform).toEqual([9, 11, 1]);
+    dispatchPointer(element, "pointerup", {
+      button: 0,
+      clientX: 10,
+      clientY: 12,
+      pointerId: 1,
+    });
+
+    dispatchPointer(noPanChild, "pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+      pointerId: 2,
+    });
+    dispatchPointer(element, "pointermove", {
+      button: 0,
+      clientX: 30,
+      clientY: 30,
+      pointerId: 2,
+    });
+    expect(store.getState().transform).toEqual([9, 11, 1]);
     detach();
   });
 
