@@ -209,6 +209,12 @@ describe("FlatSectionPrototype", () => {
     expect(flatSectionPrototypeCss).not.toContain("@media (min-width: 1280px)");
     expect(flatSectionPrototypeCss).toContain("--flat-divider");
     expect(flatSectionPrototypeCss).toContain("--flat-chrome-bg");
+    expect(flatSectionPrototypeCss).toContain(
+      "--flat-header-title: var(--flat-soft-text);",
+    );
+    expect(flatSectionPrototypeCss).toContain(
+      "color: var(--flat-header-title);",
+    );
     expect(flatSectionPrototypeCss).toContain("font-weight: 700;");
     expect(flatSectionPrototypeCss).toContain(
       '.flat-section-prototype[data-flat-section-kind="callable"]',

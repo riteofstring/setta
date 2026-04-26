@@ -47,6 +47,7 @@
   --flat-divider: rgb(226 232 240 / 0.82);
   --flat-focus: rgb(37 99 235);
   --flat-hover: rgb(241 245 249 / 0.85);
+  --flat-header-title: var(--flat-soft-text);
   --flat-input-dot: rgb(100 116 139);
   --flat-key-width: 8.75rem;
   --flat-muted: rgb(100 116 139);
@@ -594,7 +595,7 @@
   min-width: 0;
   flex: 1 1 0;
   overflow: hidden;
-  color: var(--flat-title);
+  color: var(--flat-header-title);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.25rem;
