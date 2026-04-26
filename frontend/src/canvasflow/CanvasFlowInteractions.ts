@@ -1,16 +1,16 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import { handlePointerDown } from "forks/xyflow/core/components/Handle/handler";
+import { useReactFlow } from "forks/xyflow/core/store";
 import type { HandleType } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
 import {
   useCallback,
+  useEffect,
   useRef,
   type DragEvent,
   type MouseEvent,
   type MutableRefObject,
   type PointerEvent,
-  type WheelEvent as ReactWheelEvent,
   type RefObject,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
@@ -32,7 +32,10 @@ import { openFileAsSectionForDrop } from "state/actions/sections/createSections"
 import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useSettings } from "state/definitions";
-import { NO_WHEEL_CLASS_NAME } from "utils/constants";
+import {
+  CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
+  NO_WHEEL_CLASS_NAME,
+} from "utils/constants";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
   NotificationTypeEnum,
@@ -66,7 +69,6 @@ type CanvasFlowInteractionHandlers = {
   onPointerLeave: (event: PointerEvent<HTMLCanvasElement>) => void;
   onPointerMove: (event: PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp: (event: PointerEvent<HTMLCanvasElement>) => void;
-  onWheel: (event: ReactWheelEvent<HTMLCanvasElement>) => void;
 };
 
 type UseCanvasFlowInteractionsParams = {
@@ -154,6 +156,7 @@ export function useCanvasFlowInteractions({
   }, [syncStoreViewport]);
 
   const commitViewportChange = useCallback(() => {
+    dispatchCanvasFlowViewportChange();
     schedulePaint();
     scheduleStoreViewportSync();
   }, [schedulePaint, scheduleStoreViewportSync]);
@@ -166,6 +169,7 @@ export function useCanvasFlowInteractions({
       viewportInteractionActive: false,
     });
     useMisc.setState({ isPanScrolling: false });
+    dispatchCanvasFlowViewportChange();
   }, [syncStoreViewport]);
 
   const startWheelInteraction = useCallback((kind: "pan" | "zoom") => {
@@ -397,22 +401,22 @@ export function useCanvasFlowInteractions({
     [onPointerUp],
   );
 
-  const onWheel = useCallback(
-    (event: ReactWheelEvent<HTMLCanvasElement>) => {
+  const handleWheelEvent = useCallback(
+    (event: WheelEvent) => {
       if (
         shouldIgnoreWheelEvent({
-          event,
+          ctrlKey: event.ctrlKey,
+          target: event.target,
           zoomActivationKeyPressed,
           zoomOnPinch,
         })
       ) {
         return;
       }
-      const nativeEvent = event.nativeEvent;
       event.preventDefault();
       if (
         shouldPanCanvasFlowWheel({
-          event: nativeEvent,
+          event,
           panOnScroll,
           zoomActivationKeyPressed,
           zoomOnPinch,
@@ -421,7 +425,7 @@ export function useCanvasFlowInteractions({
       ) {
         panCanvasFlowByWheel({
           commitViewportChange,
-          event: nativeEvent,
+          event,
           panOnScrollMode,
           panOnScrollSpeed,
           viewportRef,
@@ -433,7 +437,7 @@ export function useCanvasFlowInteractions({
         zoomCanvasFlowByWheel({
           canvas: canvasRef.current,
           commitViewportChange,
-          event: nativeEvent,
+          event,
           maxZoom,
           minZoom,
           viewportRef,
@@ -457,6 +461,17 @@ export function useCanvasFlowInteractions({
       zoomOnScroll,
     ],
   );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    canvas.addEventListener("wheel", handleWheelEvent, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", handleWheelEvent);
+    };
+  }, [canvasRef, handleWheelEvent]);
 
   const onDragOver = useCallback((event: DragEvent<HTMLCanvasElement>) => {
     if (event.target !== event.currentTarget) {
@@ -544,7 +559,6 @@ export function useCanvasFlowInteractions({
     onPointerLeave,
     onPointerMove,
     onPointerUp,
-    onWheel,
   };
 }
 
@@ -556,9 +570,7 @@ function getEdgeHitForEvent({
 }: {
   canvas: HTMLCanvasElement;
   edges: CanvasFlowDrawableEdge[];
-  event:
-    | PointerEvent<HTMLCanvasElement>
-    | MouseEvent<HTMLCanvasElement>;
+  event: PointerEvent<HTMLCanvasElement> | MouseEvent<HTMLCanvasElement>;
   viewport: CanvasFlowViewport;
 }): CanvasFlowEdgeHit | null {
   const rect = canvas.getBoundingClientRect();
@@ -778,9 +790,7 @@ function startCanvasFlowEdgeReconnect({
   return true;
 }
 
-function getCanvasFlowReconnectTarget(
-  edgeHit: CanvasFlowEdgeHit,
-): {
+function getCanvasFlowReconnectTarget(edgeHit: CanvasFlowEdgeHit): {
   handleId: string | null;
   handleType: HandleType;
   isTarget: boolean;
@@ -846,16 +856,24 @@ function onBackgroundClick(
   useReactFlow.setState({ nodesSelectionDims: null });
 }
 
+function dispatchCanvasFlowViewportChange() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(CANVAS_FLOW_VIEWPORT_CHANGE_EVENT));
+}
+
 function shouldIgnoreWheelEvent({
-  event,
+  ctrlKey,
+  target,
   zoomActivationKeyPressed,
   zoomOnPinch,
 }: {
-  event: ReactWheelEvent<HTMLCanvasElement>;
+  ctrlKey: boolean;
+  target: EventTarget | null;
   zoomActivationKeyPressed: boolean;
   zoomOnPinch: boolean;
 }) {
-  const target = event.target;
   if (!(target instanceof Element)) {
     return false;
   }
@@ -865,7 +883,7 @@ function shouldIgnoreWheelEvent({
   if (zoomActivationKeyPressed) {
     return false;
   }
-  return !(event.ctrlKey && zoomOnPinch && isMacOs());
+  return !(ctrlKey && zoomOnPinch && isMacOs());
 }
 
 function resolvePanOnScrollDelta({

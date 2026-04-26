@@ -31,6 +31,7 @@ import {
 } from "state/definitions";
 import { useUpdateAgenticScopeHighlights } from "state/hooks/agenticScopeHighlights";
 import {
+  CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
   CODEMIRROR_TOOLTIP_PARENT_ID,
   SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
@@ -214,6 +215,7 @@ function CanvasFlow() {
 
   useEffect(() => {
     viewportRef.current = transformToCanvasFlowViewport(transform);
+    window.dispatchEvent(new Event(CANVAS_FLOW_VIEWPORT_CHANGE_EVENT));
     schedulePaint();
   }, [schedulePaint, transform]);
 
