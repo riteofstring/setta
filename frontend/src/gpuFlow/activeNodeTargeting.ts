@@ -58,6 +58,7 @@ const INTERACTIVE_TARGET_SELECTOR = [
   "[role='spinbutton']",
   "[role='switch']",
   "[role='textbox']",
+  ".section-resize-handle",
   ".cm-content",
   ".cm-editor",
   ".xterm",

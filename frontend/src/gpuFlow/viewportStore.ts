@@ -43,6 +43,7 @@ type SetGpuConnectionStateInput = Partial<
 
 type GpuViewportInteractionFlags = {
   readonly nodeDragging?: boolean | undefined;
+  readonly nodeResizing?: boolean | undefined;
   readonly panScrolling?: boolean | undefined;
   readonly paneDragging?: boolean | undefined;
   readonly pointerPanning?: boolean | undefined;
@@ -68,6 +69,7 @@ type GpuFlowViewportStoreState = {
   readonly moveSectionActivationKeyPressed: boolean;
   readonly multiSelectionActive: boolean;
   readonly nodeDragging: boolean;
+  readonly nodeResizing: boolean;
   readonly nodesSelectionBounds: GpuRect | null;
   readonly panScrolling: boolean;
   readonly panActivationKeyPressed: boolean;
@@ -156,6 +158,7 @@ const DEFAULT_GPU_VIEWPORT_STORE_STATE = {
   moveSectionActivationKeyPressed: false,
   multiSelectionActive: false,
   nodeDragging: false,
+  nodeResizing: false,
   nodesSelectionBounds: null,
   panActivationKeyPressed: false,
   panScrolling: false,
@@ -636,21 +639,34 @@ function resolveGpuViewportInteractionState(
   | "viewportInteractionActive"
   | "wheelZooming"
   | "nodeDragging"
+  | "nodeResizing"
 > {
   const nodeDragging = flags.nodeDragging ?? state.nodeDragging;
+  const nodeResizing = flags.nodeResizing ?? state.nodeResizing;
   const panScrolling = flags.panScrolling ?? state.panScrolling;
   const paneDragging = flags.paneDragging ?? state.paneDragging;
   const pointerPanning = flags.pointerPanning ?? state.pointerPanning;
   const wheelZooming = flags.wheelZooming ?? state.wheelZooming;
+  const viewportInteractionActive = isGpuViewportInteractionActive([
+    nodeDragging,
+    nodeResizing,
+    panScrolling,
+    pointerPanning,
+    wheelZooming,
+  ]);
   return {
     nodeDragging,
+    nodeResizing,
     panScrolling,
     paneDragging,
     pointerPanning,
-    viewportInteractionActive:
-      nodeDragging || panScrolling || pointerPanning || wheelZooming,
+    viewportInteractionActive,
     wheelZooming,
   };
+}
+
+function isGpuViewportInteractionActive(flags: readonly boolean[]): boolean {
+  return flags.some(Boolean);
 }
 
 function areGpuViewportInteractionStatesEqual(
@@ -662,6 +678,7 @@ function areGpuViewportInteractionStatesEqual(
     | "viewportInteractionActive"
     | "wheelZooming"
     | "nodeDragging"
+    | "nodeResizing"
   >,
   right: Pick<
     GpuFlowViewportStoreState,
@@ -671,10 +688,12 @@ function areGpuViewportInteractionStatesEqual(
     | "viewportInteractionActive"
     | "wheelZooming"
     | "nodeDragging"
+    | "nodeResizing"
   >,
 ): boolean {
   return (
     left.nodeDragging === right.nodeDragging &&
+    left.nodeResizing === right.nodeResizing &&
     left.panScrolling === right.panScrolling &&
     left.paneDragging === right.paneDragging &&
     left.pointerPanning === right.pointerPanning &&

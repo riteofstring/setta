@@ -88,4 +88,26 @@ describe("gpu viewport store", () => {
     expect(store.getState().fitViewOnInitDone).toBe(true);
     expect(computeGpuReadyToBeVisible(store.getState())).toBe(true);
   });
+
+  it("treats node resizing as an explicit viewport interaction", () => {
+    const store = createGpuFlowViewportStore();
+
+    store.getState().setViewportInteractionFlags({ nodeResizing: true });
+
+    expect(store.getState().nodeResizing).toBe(true);
+    expect(store.getState().viewportInteractionActive).toBe(true);
+
+    store.getState().setViewportInteractionFlags({
+      nodeDragging: true,
+      nodeResizing: false,
+    });
+
+    expect(store.getState().nodeResizing).toBe(false);
+    expect(store.getState().nodeDragging).toBe(true);
+    expect(store.getState().viewportInteractionActive).toBe(true);
+
+    store.getState().setViewportInteractionFlags({ nodeDragging: false });
+
+    expect(store.getState().viewportInteractionActive).toBe(false);
+  });
 });

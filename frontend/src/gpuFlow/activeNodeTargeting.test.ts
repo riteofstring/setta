@@ -86,6 +86,37 @@ describe("gpu active node pointer targeting", () => {
     ).toBe(structural);
   });
 
+  it("routes section resize handles through active node handoff", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className =
+      "section-resize-handle section-resize-handle-bottom-right";
+    nodeElement.append(resizeHandle);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(resizeHandle, 180, 120, 16, 16);
+
+    expect(
+      resolveGpuNodePointerHandoffTarget({
+        clientX: 188,
+        clientY: 128,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      }),
+    ).toEqual({
+      descriptor: {
+        inputType: null,
+        kind: "dom-path",
+        path: [0],
+        role: null,
+        tagName: "div",
+      },
+      nodeId: "node-a",
+    });
+  });
+
   it("resolves audited component-family active surfaces without visible text selectors", () => {
     const surface = document.createElement("div");
     const nodeElement = createNodeElement("node-a");
