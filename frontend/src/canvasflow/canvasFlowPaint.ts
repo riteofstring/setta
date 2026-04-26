@@ -27,6 +27,7 @@ const CANVAS_FLOW_PERF_VARIANTS = new Set([
   "rect-nodes",
   "snapshot-cache",
   "skip-transform",
+  "world-transform-nodes",
 ]);
 
 type CanvasFlowStatsCanvas = HTMLCanvasElement & {
@@ -60,7 +61,8 @@ type CanvasFlowPerfVariant =
   | "no-edges"
   | "rect-nodes"
   | "snapshot-cache"
-  | "skip-transform";
+  | "skip-transform"
+  | "world-transform-nodes";
 type CanvasFlowPerfWindow = typeof window & {
   __settaCanvasFlowPerfVariant?: string;
 };
@@ -328,8 +330,10 @@ function drawVisibleCanvasFlowNode({
   const liveResult = drawLiveCanvasFlowNode({
     ctx,
     element,
+    node,
     perfVariant,
     screenRect,
+    viewport,
   });
   return {
     ...liveResult,
@@ -342,14 +346,27 @@ function drawVisibleCanvasFlowNode({
 function drawLiveCanvasFlowNode({
   ctx,
   element,
+  node,
   perfVariant,
   screenRect,
+  viewport,
 }: {
   ctx: CanvasFlowRenderingContext;
   element: HTMLElement;
+  node: CanvasFlowNodeDrawRecord;
   perfVariant: CanvasFlowPerfVariant;
   screenRect: ReturnType<typeof getNodeScreenDrawRect>;
+  viewport: CanvasFlowViewport;
 }): CanvasFlowNodePaintResult {
+  if (perfVariant === "world-transform-nodes") {
+    return drawLiveCanvasFlowNodeWithWorldTransform({
+      ctx,
+      element,
+      node,
+      perfVariant,
+      viewport,
+    });
+  }
   const drawStart = performance.now();
   const transform = ctx.drawElementImage(
     element,
@@ -358,6 +375,43 @@ function drawLiveCanvasFlowNode({
     screenRect.width,
     screenRect.height,
   );
+  return createNodePaintResult({
+    drawElementImageMs: performance.now() - drawStart,
+    drawn: true,
+    interactive: true,
+    transformAssignmentMs: assignNodeTransform(
+      element,
+      transform,
+      perfVariant !== "skip-transform",
+    ),
+  });
+}
+
+function drawLiveCanvasFlowNodeWithWorldTransform({
+  ctx,
+  element,
+  node,
+  perfVariant,
+  viewport,
+}: {
+  ctx: CanvasFlowRenderingContext;
+  element: HTMLElement;
+  node: CanvasFlowNodeDrawRecord;
+  perfVariant: CanvasFlowPerfVariant;
+  viewport: CanvasFlowViewport;
+}): CanvasFlowNodePaintResult {
+  const drawStart = performance.now();
+  ctx.save();
+  ctx.translate(viewport.x, viewport.y);
+  ctx.scale(viewport.zoom, viewport.zoom);
+  const transform = ctx.drawElementImage(
+    element,
+    node.x,
+    node.y,
+    node.width,
+    node.height,
+  );
+  ctx.restore();
   return createNodePaintResult({
     drawElementImageMs: performance.now() - drawStart,
     drawn: true,

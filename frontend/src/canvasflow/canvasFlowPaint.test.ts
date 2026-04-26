@@ -87,6 +87,37 @@ describe("paintCanvasFlow", () => {
     expect(ctx.drawElementImage).toHaveBeenCalledWith(element, 50, 50, 30, 40);
   });
 
+  it("can draw HTML nodes with the viewport as the canvas transform", () => {
+    const { canvas, ctx, element } = createPaintHarness();
+    (
+      window as { __settaCanvasFlowPerfVariant?: string }
+    ).__settaCanvasFlowPerfVariant = "world-transform-nodes";
+
+    paintCanvasFlow(
+      createPaintParams({
+        canvas,
+        ctx,
+        element,
+        node: {
+          height: 400,
+          position: { x: 100, y: 200 },
+          width: 300,
+        },
+        viewport: { x: 40, y: 30, zoom: 0.1 },
+      }),
+    );
+
+    expect(ctx.translate).toHaveBeenCalledWith(40, 30);
+    expect(ctx.scale).toHaveBeenCalledWith(0.1, 0.1);
+    expect(ctx.drawElementImage).toHaveBeenCalledWith(
+      element,
+      100,
+      200,
+      300,
+      400,
+    );
+  });
+
   it("can skip edge drawing for the perf isolation harness", () => {
     const { canvas, ctx, element } = createPaintHarness();
     (

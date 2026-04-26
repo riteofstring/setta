@@ -30,6 +30,7 @@ const DEFAULT_ISOLATION_VARIANTS = [
 const CANVAS_FLOW_PERF_VARIANTS = [
   ...DEFAULT_ISOLATION_VARIANTS,
   "snapshot-cache",
+  "world-transform-nodes",
 ] as const;
 const PERF_TARGETS = ["seeded-textblocks", "settings-all"] as const;
 const TRACE_CATEGORIES = [
@@ -479,7 +480,7 @@ async function gotoSettingsAllView(
   supportOptions: CanvasFlowSupportOptions,
 ): Promise<number> {
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await expect(page.locator(CANVAS_SELECTOR)).toBeVisible({ timeout: 180000 });
+  await expectSettingsCanvasVisible(page);
   await forceCanvasFlowZoomOnWheel(page);
   await assertCanvasFlowSupport(page, supportOptions);
 
@@ -511,6 +512,22 @@ async function gotoSettingsAllView(
 
   await flushCanvasPaint(page);
   return (await readCanvasStats(page)).registeredNodes;
+}
+
+async function expectSettingsCanvasVisible(page: Page) {
+  try {
+    await expect(page.locator(CANVAS_SELECTOR)).toBeVisible({
+      timeout: 180000,
+    });
+  } catch (error) {
+    const bodyText = await page
+      .locator("body")
+      .innerText({ timeout: 1000 })
+      .catch(() => "<body unavailable>");
+    throw new Error(
+      `${String(error)}\n\nSettings page body while waiting for CanvasFlow:\n${bodyText.slice(0, 4000)}`,
+    );
+  }
 }
 
 async function resolveCenteredStartViewport(
@@ -613,6 +630,7 @@ async function setCanvasFlowPerfVariant(
       "resize-observer-off": undefined,
       "skip-transform": "skip-transform",
       "snapshot-cache": "snapshot-cache",
+      "world-transform-nodes": "world-transform-nodes",
     };
     const paintVariant = paintVariantByIsolationVariant[nextVariant];
     if (paintVariant) {
