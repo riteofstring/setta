@@ -32,6 +32,11 @@ Use the examples in `/Users/kevin/Documents/AppDevelopment/example_html_in_canva
   - Key sections: `_createSourceElement`, `_wireInteractions`, `_updateSliderFromClient`, `_drawVideoFrame`, `_uploadTexture`, `_refreshTexture`, `_handlePointer`.
   - Main lesson: smooth demos use controlled texture sources and explicit update timing. They do not prove that many large independent React node trees can be recaptured at live-control cadence.
 
+- `html-in-canvas-room/extension/entrypoints/content.ts`
+  - Useful for transform-aligned native interaction and dirty texture upload sequencing.
+  - Key sections: `applyScreenTransform()`, `onClick`, `onWheel`, `uploadPageTexture()`, and `renderLoop()`.
+  - Main lesson: keep the real DOM interaction plane aligned with the rendered surface, and upload only when the source is dirty.
+
 - `three-html-render/src/interactionManager.ts`
   - Useful for keeping a real DOM element aligned with a rendered surface using CSS matrix transforms.
   - Key section: `InteractionManager.update()`.

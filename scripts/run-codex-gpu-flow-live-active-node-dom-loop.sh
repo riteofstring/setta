@@ -69,6 +69,7 @@ Required starting point:
 - Read the current gpuFlow implementation before making changes, especially GpuFlow, GpuSurface, GpuNodeLayer, GpuActiveNodeTeleport, nodeInteractionDirty, nodeTextures, and GpuProjectSurface.
 - Read the plan's Reference Lessons section, then inspect the exact files under /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos when touching related behavior:
   - html-in-canvas/plugins/html-cloth.mjs for one fixed source DOM texture, input wiring, slider bridging, UV-to-DOM event discipline, and one-shot paint/upload scheduling. Do not copy its every-frame texture refresh cadence as the Setta node architecture.
+  - html-in-canvas-room/extension/entrypoints/content.ts for transform-aligned native interaction, dirty texture upload sequencing, and applyScreenTransform().
   - three-html-render/src/interactionManager.ts for CSS matrix alignment of real DOM with a rendered surface.
   - three-html-render/src/raycastInteractionManager.ts for pointer/UV handoff when a direct screen transform is not enough.
   - three-html-render/src/threeHTMLRenderer.ts and three-html-render/src/htmlTexture.ts for paint/upload sequencing, event isolation, and keeping the source element separate from the uploaded texture image.
