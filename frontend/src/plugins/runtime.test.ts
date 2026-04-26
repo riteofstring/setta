@@ -3054,8 +3054,11 @@ describe("plugin runtime helpers", () => {
         }),
       }),
     ).resolves.toMatchObject({ status: 200 });
+    await expect(host.fetchBackendRoute("/health")).resolves.toMatchObject({
+      status: 200,
+    });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
       "/plugins/acme.plugin/watch-code/enabled",
     );
@@ -3087,6 +3090,12 @@ describe("plugin runtime helpers", () => {
     expect(
       (fetchMock.mock.calls[1]?.[1]?.headers as Headers).get("Content-Type"),
     ).toBe("application/json");
+    expect(String(fetchMock.mock.calls[2]?.[0])).toContain(
+      "/plugins/acme.plugin/health",
+    );
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      credentials: "include",
+    });
     await expect(
       host.fetchBackendRoute("watch-code/enabled"),
     ).rejects.toMatchObject({

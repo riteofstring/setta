@@ -4,9 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 
@@ -124,11 +124,19 @@ func (s *PluginWatchCodeProviderSelection) ContainsPluginID(pluginID string) boo
 	if s.SelectedPluginID != nil && strings.TrimSpace(*s.SelectedPluginID) == pluginID {
 		return true
 	}
-	return slices.Contains(s.ActivePluginIDs, pluginID) ||
-		slices.Contains(s.DisabledPluginIDs, pluginID) ||
-		slices.Contains(s.InvalidPluginIDs, pluginID) ||
-		slices.Contains(s.PendingRestartPluginIDs, pluginID) ||
-		slices.Contains(s.ConflictingPluginIDs, pluginID)
+	return containsTrimmedString(s.ActivePluginIDs, pluginID) ||
+		containsTrimmedString(s.DisabledPluginIDs, pluginID) ||
+		containsTrimmedString(s.InvalidPluginIDs, pluginID) ||
+		containsTrimmedString(s.PendingRestartPluginIDs, pluginID) ||
+		containsTrimmedString(s.ConflictingPluginIDs, pluginID)
+}
+
+func (s *PluginWatchCodeProviderSelection) ActivePluginIDMatches(pluginID string) bool {
+	pluginID = strings.TrimSpace(pluginID)
+	if s == nil || s.Status != PluginWatchCodeProviderSelectionStatusActive || s.SelectedPluginID == nil || pluginID == "" {
+		return false
+	}
+	return strings.TrimSpace(*s.SelectedPluginID) == pluginID
 }
 
 type PluginFeatureCapabilities struct {
@@ -488,8 +496,40 @@ func watchCodeProviderRegistrationValid(
 	feature *PluginWatchCodeFeatureManifest,
 ) bool {
 	return watchCodeBackendContractRegistered(entry) &&
+		watchCodeBackendRoutesRegistered(entry) &&
 		watchCodeBackendSupportsRequiredLanguage(entry.watchCodeBackend) &&
 		watchCodeFrontendEntrypointAvailable(entry, feature)
+}
+
+func watchCodeBackendRoutesRegistered(entry DiscoveredPlugin) bool {
+	if !containsString(entry.EffectiveCapabilities, "registerRouter") {
+		return false
+	}
+	for _, suffix := range watchcodecontracts.BackendRouteSuffixes() {
+		if !watchCodeBackendRouteRegistered(entry, suffix) {
+			return false
+		}
+	}
+	return true
+}
+
+func watchCodeBackendRouteRegistered(entry DiscoveredPlugin, suffix string) bool {
+	path := watchcodecontracts.BackendRoutePath(entry.PluginID, suffix)
+	for _, route := range entry.RegisteredBackendRoutes {
+		if route.Path == path && containsString(route.Methods, http.MethodPost) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsTrimmedString(values []string, expected string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func markRuntimeAppSubsystemProviderInvalid(

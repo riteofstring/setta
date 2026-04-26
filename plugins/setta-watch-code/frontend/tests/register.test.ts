@@ -37,6 +37,16 @@ const effectiveCapabilities = [
 ];
 
 function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
+  const configuredEffectiveCapabilities =
+    overrides.effectiveCapabilities ?? effectiveCapabilities;
+  const requireCapability = (capability: string, methodName: string): void => {
+    if (configuredEffectiveCapabilities.includes(capability)) {
+      return;
+    }
+    throw new Error(
+      `Plugin setta-watch-code cannot call ${methodName}; missing effective capability ${capability}.`,
+    );
+  };
   let projectConfig = {
     id: "project-alpha",
   };
@@ -63,11 +73,16 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
     apiVersion,
     pluginId: "setta-watch-code",
     serverMode: "ide",
-    effectiveCapabilities,
+    effectiveCapabilities: configuredEffectiveCapabilities,
     registerCanvasControl: (definition) => {
+      requireCapability("registerCanvasControl", "registerCanvasControl");
       registeredControls.push(definition);
     },
     registerSettingRevealHandler: (revealKey, handler) => {
+      requireCapability(
+        "registerSettingRevealHandler",
+        "registerSettingRevealHandler",
+      );
       revealHandlers.set(revealKey, handler);
     },
     getProjectContext: () => ({
@@ -411,12 +426,14 @@ describe("setta-watch-code frontend registration", () => {
     ).toBe(true);
   });
 
-  it("does not register when required capabilities are unavailable", () => {
+  it("fails loudly when required capabilities are unavailable", () => {
     const { host, registeredControls, revealHandlers } = buildHost({
-      effectiveCapabilities: ["registerCanvasControl"],
+      effectiveCapabilities: [],
     });
 
-    register(host);
+    expect(() => register(host)).toThrow(
+      "missing effective capability registerCanvasControl",
+    );
 
     expect(registeredControls).toHaveLength(0);
     expect(revealHandlers.size).toBe(0);

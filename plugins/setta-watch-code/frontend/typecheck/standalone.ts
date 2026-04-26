@@ -3,6 +3,25 @@ import { apiVersion, register } from "../src/index";
 
 const host = {
   apiVersion,
-} satisfies Partial<SettaPluginHost>;
+  pluginId: "setta-watch-code",
+  serverMode: "ide",
+  effectiveCapabilities: [
+    "registerCanvasControl",
+    "registerSettingRevealHandler",
+    "registerRouter",
+    "readProjectState",
+    "subscribeProjectState",
+  ],
+  registerCanvasControl: () => undefined,
+  registerSettingRevealHandler: () => undefined,
+  getProjectContext: () => ({
+    projectConfigId: "project-alpha",
+    serverMode: "ide",
+  }),
+  subscribeProjectContext: () => () => undefined,
+  readProjectState: () => ({}),
+  subscribeProjectState: () => () => undefined,
+  fetchBackendRoute: async () => new Response(null, { status: 200 }),
+} satisfies SettaPluginHost;
 
 register(host);

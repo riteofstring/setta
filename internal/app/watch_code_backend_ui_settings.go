@@ -47,37 +47,13 @@ func watchCodeBackendUISettingAccessError(
 }
 
 func watchCodeProviderCandidateSelected(snapshot plugins.DiscoverySnapshot, pluginID string) bool {
-	trimmedPluginID := strings.TrimSpace(pluginID)
-	if trimmedPluginID == "" {
-		return false
-	}
 	selection := plugins.WatchCodeProviderSelectionFromSnapshot(snapshot)
-	return selection.Status == plugins.PluginWatchCodeProviderSelectionStatusActive &&
-		selection.SelectedPluginID != nil &&
-		strings.TrimSpace(*selection.SelectedPluginID) == trimmedPluginID
+	return selection.ActivePluginIDMatches(pluginID)
 }
 
 func watchCodeProviderCandidate(snapshot plugins.DiscoverySnapshot, pluginID string) bool {
-	trimmedPluginID := strings.TrimSpace(pluginID)
-	if trimmedPluginID == "" {
-		return false
-	}
 	selection := plugins.WatchCodeProviderSelectionFromSnapshot(snapshot)
-	if selection.SelectedPluginID != nil && strings.TrimSpace(*selection.SelectedPluginID) == trimmedPluginID {
-		return true
-	}
-	for _, candidates := range [][]string{
-		selection.ActivePluginIDs,
-		selection.DisabledPluginIDs,
-		selection.InvalidPluginIDs,
-		selection.PendingRestartPluginIDs,
-		selection.ConflictingPluginIDs,
-	} {
-		if stringSliceContainsTrimmed(candidates, trimmedPluginID) {
-			return true
-		}
-	}
-	return false
+	return selection.ContainsPluginID(pluginID)
 }
 
 func watchCodeBackendUISettingRegistration(registration plugins.PluginRegisteredUISetting) bool {
@@ -86,15 +62,6 @@ func watchCodeBackendUISettingRegistration(registration plugins.PluginRegistered
 		return true
 	}
 	return registration.WriteHandlerID != nil && watchcodecontracts.IsBackendUISettingHandlerID(*registration.WriteHandlerID)
-}
-
-func stringSliceContainsTrimmed(values []string, expected string) bool {
-	for _, value := range values {
-		if strings.TrimSpace(value) == expected {
-			return true
-		}
-	}
-	return false
 }
 
 func watchCodeProviderUISettingUnavailableError(pluginID string) error {

@@ -8768,6 +8768,7 @@ func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
+	writeAppGeneratedPythonCodeFixture(t, cfg, "Alpha")
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8824,6 +8825,7 @@ func TestAppIDEStartupSkipsWatchCodeServiceWithoutProvider(t *testing.T) {
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
+	writeAppGeneratedPythonCodeFixture(t, cfg, "Alpha")
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8876,6 +8878,7 @@ func TestAppPluginEnableStartsWatchCodeService(t *testing.T) {
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
+	writeAppGeneratedPythonCodeFixture(t, cfg, "Alpha")
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -8944,6 +8947,7 @@ func TestAppWatchCodeProviderChangeReplacesRunningService(t *testing.T) {
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
+	writeAppGeneratedPythonCodeFixture(t, cfg, "Alpha")
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9016,6 +9020,7 @@ func TestAppPluginDisableStopsWatchCodeServiceAndPreservesData(t *testing.T) {
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
+	writeAppGeneratedPythonCodeFixture(t, cfg, "Alpha")
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9078,6 +9083,7 @@ func TestAppPluginUninstallStopsWatchCodeServiceAndPreservesData(t *testing.T) {
 	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
+	writeAppGeneratedPythonCodeFixture(t, cfg, "Alpha")
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -9505,6 +9511,80 @@ func TestAppWatchCodePluginRouteRejectsLegacyInputFieldNamesWithoutMutation(t *t
 	}
 }
 
+func TestAppWatchCodePluginRouteRejectsProviderMissingRouteContractWithoutMutation(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	const providerPluginID = testAppWatchCodeProviderPluginID
+	installAppWatchCodeProviderFixtureWithRouteSuffixes(t, cfg, []string{watchcodecontracts.BackendRouteSuffixEnabled})
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}
+	setAppWatchCodePluginProjectDataForProvider(t, &document, providerPluginID, "project-alpha", projectstate.WatchCodePluginProjectData{
+		Enabled: true,
+		Files:   []string{"pkg/watch.py"},
+	})
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if app.watchCodeRef.Current() != nil {
+		t.Fatal("expected incomplete Watch Code provider not to start service")
+	}
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	cookie := newAppTestAuthCookie(t, app)
+
+	runtimePayload := fetchAppPluginRuntime(t, server.URL, cookie)
+	watchCode := runtimePayload.FeatureCapabilities.WatchCode
+	if watchCode.ProviderSelection == nil ||
+		watchCode.ProviderSelection.Status != plugins.PluginWatchCodeProviderSelectionStatusInvalidProvider ||
+		!slices.Equal(watchCode.ProviderSelection.InvalidPluginIDs, []string{providerPluginID}) ||
+		watchCode.PluginEnabled ||
+		watchCode.PluginID != "" {
+		t.Fatalf("expected incomplete provider to be invalid and inactive, got %#v", watchCode)
+	}
+
+	initialRevision := app.ProjectStates().Main().Snapshot().Revision
+	response := postAppWatchCodePluginRoute(
+		t,
+		server.URL,
+		cookie,
+		providerPluginID,
+		watchcodecontracts.BackendRouteSuffixEnabled,
+		`{"projectConfigId":"project-alpha","enabled":false}`,
+	)
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusConflict {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected incomplete provider route to fail closed with 409, got %d with body %q", response.StatusCode, string(body))
+	}
+	if revision := app.ProjectStates().Main().Snapshot().Revision; revision != initialRevision {
+		t.Fatalf("expected incomplete provider route not to mutate revision %d, got %d", initialRevision, revision)
+	}
+	projectData := readAppWatchCodePluginProjectDataForProvider(t, app.ProjectStates().Main().Snapshot().Document, providerPluginID, "project-alpha")
+	if !projectData.Enabled || !reflect.DeepEqual(projectData.Files, []string{"pkg/watch.py"}) {
+		t.Fatalf("expected incomplete provider route not to mutate plugin data, got %#v", projectData)
+	}
+}
+
 func TestAppSetCallableRouteSyncsActiveWatchCodeProviderRegistry(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -9578,10 +9658,9 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
-	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
-		payload["capabilities"] = []string{"registerCodegenTarget"}
-		enableAppPluginManifestWatchCodeProvider(payload)
+	pluginRoot := installAppWatchCodeProviderFixtureWithRouteSuffixes(t, cfg, watchcodecontracts.BackendRouteSuffixes())
+	rewriteAppPluginManifest(t, pluginRoot, func(payload map[string]any) {
+		ensureAppPluginManifestCapability(payload, "registerCodegenTarget")
 	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -14240,6 +14319,21 @@ func prepareAppLSPFixture(t *testing.T) {
 	)
 }
 
+func writeAppGeneratedPythonCodeFixture(t *testing.T, cfg config.Config, projectName string) {
+	t.Helper()
+
+	codePath := filepath.Join(
+		cfg.Paths.SettaFilesRoot,
+		filepath.FromSlash(projectstate.GeneratedPythonCodeRelativePath(projectName)),
+	)
+	if err := os.MkdirAll(filepath.Dir(codePath), 0o755); err != nil {
+		t.Fatalf("mkdir generated python code dir: %v", err)
+	}
+	if err := os.WriteFile(codePath, []byte("class SettaState:\n    pass\n"), 0o644); err != nil {
+		t.Fatalf("write generated python code fixture: %v", err)
+	}
+}
+
 func prepareAppFirstPartyBasedpyrightPlugin(t *testing.T, cfg config.Config) {
 	t.Helper()
 
@@ -14276,20 +14370,63 @@ func installAppLanguageServerOnlyFixturePlugin(t *testing.T, cfg config.Config) 
 func installAppWatchCodeProviderFixture(t *testing.T, cfg config.Config) {
 	t.Helper()
 
+	installAppWatchCodeProviderFixtureWithRouteSuffixes(t, cfg, watchcodecontracts.BackendRouteSuffixes())
+}
+
+func installAppWatchCodeProviderFixtureWithRouteSuffixes(t *testing.T, cfg config.Config, suffixes []string) string {
+	t.Helper()
+
 	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
-	rewriteAppPluginManifest(t, filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend"), func(payload map[string]any) {
+	pluginRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend")
+	writeAppFixtureWatchCodeBackendRoutes(t, pluginRoot, suffixes)
+	rewriteAppPluginManifest(t, pluginRoot, func(payload map[string]any) {
 		enableAppPluginManifestWatchCodeProvider(payload)
 	})
+	return pluginRoot
 }
 
 func enableAppPluginManifestWatchCodeProvider(payload map[string]any) {
 	ensureAppPluginManifestCapability(payload, "registerWatchCodeBackend")
+	ensureAppPluginManifestCapability(payload, "registerRouter")
 	featureCapabilities, ok := payload["featureCapabilities"].(map[string]any)
 	if !ok {
 		featureCapabilities = map[string]any{}
 		payload["featureCapabilities"] = featureCapabilities
 	}
 	featureCapabilities["watchCode"] = map[string]any{}
+}
+
+func writeAppFixtureWatchCodeBackendRoutes(
+	t *testing.T,
+	pluginRoot string,
+	suffixes []string,
+) {
+	t.Helper()
+
+	backendPath := filepath.Join(pluginRoot, "backend", "main.go")
+	content, err := os.ReadFile(backendPath)
+	if err != nil {
+		t.Fatalf("read backend fixture source: %v", err)
+	}
+	routeEntries := make([]string, 0, len(suffixes))
+	for _, suffix := range suffixes {
+		routeEntries = append(routeEntries, fmt.Sprintf(
+			"{\"path\": %q, \"methods\": []string{\"POST\"}}",
+			watchcodecontracts.BackendRoutePath(testAppWatchCodeProviderPluginID, suffix),
+		))
+	}
+	const marker = `"routes": []map[string]any{`
+	replacement := marker
+	if len(routeEntries) > 0 {
+		replacement += "\n\t\t\t\t" + strings.Join(routeEntries, ",\n\t\t\t\t") + ","
+	}
+	next := strings.Replace(string(content), marker, replacement, 1)
+	if next == string(content) {
+		t.Fatalf("failed to insert Watch Code backend routes into %s", backendPath)
+	}
+	if err := os.WriteFile(backendPath, []byte(next), 0o644); err != nil {
+		t.Fatalf("write backend fixture source: %v", err)
+	}
 }
 
 func ensureAppPluginManifestCapability(payload map[string]any, capability string) {

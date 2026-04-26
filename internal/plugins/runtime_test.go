@@ -836,6 +836,38 @@ func TestServiceRuntimeWatchCodeCapabilitiesDefaultToUnavailableWithoutPlugin(t 
 	)
 }
 
+func TestWatchCodeProviderSelectionHelpersUseTrimmedOwnerBuckets(t *testing.T) {
+	providerID := "setta-watch-code"
+	selectedProviderID := " " + providerID + " "
+	selection := PluginWatchCodeProviderSelection{
+		Status:                  PluginWatchCodeProviderSelectionStatusActive,
+		SelectedPluginID:        &selectedProviderID,
+		ActivePluginIDs:         []string{" " + providerID + " "},
+		DisabledPluginIDs:       []string{" disabled-provider "},
+		InvalidPluginIDs:        []string{" invalid-provider "},
+		PendingRestartPluginIDs: []string{" pending-provider "},
+		ConflictingPluginIDs:    []string{" conflict-provider "},
+	}
+
+	if !selection.ActivePluginIDMatches(providerID) {
+		t.Fatalf("expected selected active provider %q to match %#v", providerID, selection)
+	}
+	for _, candidate := range []string{
+		providerID,
+		"disabled-provider",
+		"invalid-provider",
+		"pending-provider",
+		"conflict-provider",
+	} {
+		if !selection.ContainsPluginID(candidate) {
+			t.Fatalf("expected provider selection to contain %q in %#v", candidate, selection)
+		}
+	}
+	if selection.ContainsPluginID("missing-provider") {
+		t.Fatalf("did not expect missing provider to match %#v", selection)
+	}
+}
+
 func TestServiceRuntimeWatchCodeCapabilitiesRejectManifestOnlyProvider(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
 	pluginID := "acme-watch-code-provider"
@@ -932,6 +964,68 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowBackendProbedProvider(t *testi
 		nil,
 		nil,
 	)
+}
+
+func TestServiceRuntimeWatchCodeCapabilitiesRejectIncompleteBackendRouteContract(t *testing.T) {
+	cases := map[string]runtimeWatchCodeFixtureOptions{
+		"missing registerRouter": {
+			OmitWatchCodeRouterCapability: true,
+		},
+		"missing inputs route": {
+			WatchCodeBackendRouteSuffixes: []string{watchcodecontracts.BackendRouteSuffixEnabled},
+		},
+	}
+
+	for name, options := range cases {
+		name := name
+		options := options
+		t.Run(name, func(t *testing.T) {
+			roots := newFilesystemResolverTestRoots(t)
+			pluginID := "acme-watch-code-provider"
+			options.PluginID = pluginID
+			options.FixtureName = "frontend"
+			options.EnabledByDefault = true
+			options.RegisterWatchCodeBackend = true
+			options.WatchCode = map[string]any{
+				"canvasControlsUi": true,
+			}
+			installRuntimeWatchCodeFixture(t, roots, options)
+
+			service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+			runtimeResponse, err := service.Runtime(RuntimeOptions{})
+			if err != nil {
+				t.Fatalf("load runtime payload: %v", err)
+			}
+			if runtimeResponse.FeatureCapabilities == nil {
+				t.Fatal("expected feature capabilities payload")
+			}
+
+			watchCode := runtimeResponse.FeatureCapabilities.WatchCode
+			assertRuntimeWatchCodeSelection(
+				t,
+				watchCode.ProviderSelection,
+				PluginWatchCodeProviderSelectionStatusInvalidProvider,
+				nil,
+				nil,
+				nil,
+				[]string{pluginID},
+				nil,
+			)
+			if watchCode.PluginEnabled || watchCode.PluginID != "" {
+				t.Fatalf("expected incomplete watch code provider unavailable, got %#v", watchCode)
+			}
+			assertRuntimeWatchCodeSelection(
+				t,
+				runtimeResponse.Status.WatchCodeSelection,
+				PluginWatchCodeProviderSelectionStatusInvalidProvider,
+				nil,
+				nil,
+				nil,
+				[]string{pluginID},
+				nil,
+			)
+		})
+	}
 }
 
 func TestServiceRuntimeWatchCodeCapabilitiesBlockHostlessLauncherProvider(t *testing.T) {
@@ -1105,6 +1199,7 @@ func TestServiceRuntimeWatchCodeCapabilitiesFollowFirstPartyPluginManifest(t *te
 	}
 	if !containsString(listEntry.EffectiveCapabilities, "registerCanvasControl") ||
 		!containsString(listEntry.EffectiveCapabilities, "registerSettingRevealHandler") ||
+		!containsString(listEntry.EffectiveCapabilities, "registerRouter") ||
 		!containsString(listEntry.EffectiveCapabilities, "registerWatchCodeBackend") ||
 		!containsString(listEntry.EffectiveCapabilities, "readProjectState") ||
 		!containsString(listEntry.EffectiveCapabilities, "subscribeProjectState") {
@@ -1614,9 +1709,11 @@ type runtimeWatchCodeFixtureOptions struct {
 	FixtureName                            string
 	EnabledByDefault                       bool
 	RegisterWatchCodeBackend               bool
+	OmitWatchCodeRouterCapability          bool
 	OmitWatchCodeBackendRegistration       bool
 	WatchCodeBackendLanguages              []string
 	WatchCodeBackendRequiresLanguageServer *bool
+	WatchCodeBackendRouteSuffixes          []string
 	WatchCode                              map[string]any
 }
 
@@ -1640,7 +1737,11 @@ func installRuntimeWatchCodeFixture(
 			payload["backend"] = map[string]any{
 				"entrypoint": "runtime_backend/main.py",
 			}
-			payload["capabilities"] = []string{"registerWatchCodeBackend"}
+			capabilities := []string{"registerWatchCodeBackend"}
+			if !options.OmitWatchCodeRouterCapability {
+				capabilities = append(capabilities, "registerRouter")
+			}
+			payload["capabilities"] = capabilities
 		} else {
 			delete(payload, "backend")
 			payload["capabilities"] = []string{}
@@ -1653,9 +1754,11 @@ func installRuntimeWatchCodeFixture(
 		writeRuntimeWatchCodeBackendProbe(
 			t,
 			targetRoot,
+			options.PluginID,
 			!options.OmitWatchCodeBackendRegistration,
 			options.WatchCodeBackendLanguages,
 			options.WatchCodeBackendRequiresLanguageServer,
+			options.WatchCodeBackendRouteSuffixes,
 		)
 	}
 	return targetRoot
@@ -1664,9 +1767,11 @@ func installRuntimeWatchCodeFixture(
 func writeRuntimeWatchCodeBackendProbe(
 	t *testing.T,
 	pluginRoot string,
+	pluginID string,
 	register bool,
 	languages []string,
 	requiresLanguageServer *bool,
+	routeSuffixes []string,
 ) {
 	t.Helper()
 
@@ -1696,6 +1801,20 @@ func writeRuntimeWatchCodeBackendProbe(
 	if !register {
 		probePayload = ""
 	}
+	if routeSuffixes == nil {
+		routeSuffixes = watchcodecontracts.BackendRouteSuffixes()
+	}
+	routes := make([]map[string]any, 0, len(routeSuffixes))
+	for _, suffix := range routeSuffixes {
+		routes = append(routes, map[string]any{
+			"path":    watchcodecontracts.BackendRoutePath(pluginID, suffix),
+			"methods": []string{"POST"},
+		})
+	}
+	routesJSON, err := json.Marshal(routes)
+	if err != nil {
+		t.Fatalf("marshal watch code backend routes: %v", err)
+	}
 	content := "#!/usr/bin/env python3\n\n" +
 		"import json\n" +
 		"import sys\n\n" +
@@ -1716,7 +1835,7 @@ func writeRuntimeWatchCodeBackendProbe(
 		"            \"codegenTargets\": [],\n" +
 		"            \"languageServers\": [],\n" +
 		"            \"uiSettings\": [],\n" +
-		"            \"routes\": [],\n" +
+		"            \"routes\": " + string(routesJSON) + ",\n" +
 		"            \"staticDirs\": [],\n" +
 		"            \"listenerEndpoints\": [],\n" +
 		"        })\n" +
