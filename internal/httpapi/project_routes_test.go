@@ -10602,6 +10602,147 @@ func TestRegisterProjectRoutesGraphEdgeMutationsPersistLatestState(t *testing.T)
 	}
 }
 
+func TestRegisterProjectRoutesGraphEdgeMutationsBroadcastProjectStateUpdate(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": graphEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	handler := newProjectRouteTestHandlerWithWebsocketHub(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		websocketHub,
+		nil,
+		nil,
+		nil,
+	)
+	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
+	defer websocketServer.Close()
+
+	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
+	defer websocketClient.CloseNow()
+	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
+
+	post := func(route string, body any) {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(mustMarshalProjectRouteRequest(t, body)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 %s response, got %d with body %q", route, response.Code, response.Body.String())
+		}
+	}
+	assertCompletedOp := func(update realtime.ProjectStateUpdateContent, opID string) {
+		t.Helper()
+		for _, completedOpID := range update.CompletedOpIDs {
+			if completedOpID == opID {
+				return
+			}
+		}
+		t.Fatalf("expected completed op %q in websocket update, got %#v", opID, update.CompletedOpIDs)
+	}
+
+	post(RouteCreateEdge, map[string]any{
+		"frontendOpId":    "create-edge-op",
+		"projectConfigId": "project-alpha",
+		"sourceSectionId": "source-section",
+		"sourceVariantId": "source-variant",
+		"sourcePortId":    "result",
+		"targetSectionId": "target-a",
+		"targetVariantId": "target-a-variant",
+		"targetPortId":    "input-a",
+		"type":            "default",
+	})
+	createUpdate := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	assertCompletedOp(createUpdate, "create-edge-op")
+	if len(createUpdate.ProjectState.ProjectConfig.Edges) != 1 {
+		t.Fatalf("expected create-edge websocket update with one edge, got %#v", createUpdate.ProjectState.ProjectConfig.Edges)
+	}
+	createdEdge := createUpdate.ProjectState.ProjectConfig.Edges[0]
+	if createdEdge.ID == "" {
+		t.Fatalf("expected create-edge websocket update to include generated edge id, got %#v", createdEdge)
+	}
+
+	label := "Primary"
+	createdEdge.Label = &label
+	createdEdge.Selected = true
+	post(RouteUpdateEdge, UpdateEdgeRequest{
+		FrontendOpID: projectRouteStringPointer("update-edge-op"),
+		ProjectID:    "project-alpha",
+		Edge:         createdEdge,
+	})
+	updateUpdate := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	assertCompletedOp(updateUpdate, "update-edge-op")
+	updatedEdge := updateUpdate.ProjectState.ProjectConfig.Edges[0]
+	if updatedEdge.Label == nil || *updatedEdge.Label != "Primary" || !updatedEdge.Selected {
+		t.Fatalf("expected update-edge websocket update with label/selection, got %#v", updatedEdge)
+	}
+
+	post(RouteReconnectEdge, ReconnectEdgeRequest{
+		FrontendOpID:    projectRouteStringPointer("reconnect-edge-op"),
+		ProjectID:       "project-alpha",
+		EdgeID:          updatedEdge.ID,
+		SourceSectionID: "source-section",
+		SourceVariantID: "source-variant",
+		SourcePortID:    "summary",
+		TargetSectionID: "target-b",
+		TargetVariantID: "target-b-variant",
+		TargetPortID:    "input-b",
+	})
+	reconnectUpdate := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	assertCompletedOp(reconnectUpdate, "reconnect-edge-op")
+	reconnectedEdge := reconnectUpdate.ProjectState.ProjectConfig.Edges[0]
+	if reconnectedEdge.TargetSectionID != "target-b" || reconnectedEdge.TargetPortID != "input-b" || reconnectedEdge.SourcePortID != "summary" {
+		t.Fatalf("expected reconnect-edge websocket update with new endpoints, got %#v", reconnectedEdge)
+	}
+
+	reconnectedEdge.Hidden = true
+	reconnectedEdge.Selected = false
+	post(RouteSetEdges, SetEdgesRequest{
+		FrontendOpID: projectRouteStringPointer("set-edges-op"),
+		ProjectID:    "project-alpha",
+		Edges:        []projectstate.Edge{reconnectedEdge},
+	})
+	setUpdate := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	assertCompletedOp(setUpdate, "set-edges-op")
+	setEdge := setUpdate.ProjectState.ProjectConfig.Edges[0]
+	if !setEdge.Hidden || setEdge.Selected {
+		t.Fatalf("expected set-edges websocket update with hidden/unselected edge, got %#v", setEdge)
+	}
+
+	post(RouteDeleteEdges, DeleteEdgesRequest{
+		FrontendOpID: projectRouteStringPointer("delete-edges-op"),
+		ProjectID:    "project-alpha",
+		EdgeIDs:      []string{setEdge.ID},
+	})
+	deleteUpdate := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	assertCompletedOp(deleteUpdate, "delete-edges-op")
+	if len(deleteUpdate.ProjectState.ProjectConfig.Edges) != 0 {
+		t.Fatalf("expected delete-edges websocket update to remove edges, got %#v", deleteUpdate.ProjectState.ProjectConfig.Edges)
+	}
+}
+
 func TestRegisterProjectRoutesGraphEdgeMutationsRejectInvalidInputs(t *testing.T) {
 	t.Parallel()
 

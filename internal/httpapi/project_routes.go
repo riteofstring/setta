@@ -3429,12 +3429,13 @@ func createEdgeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.CreateEdge(
+		snapshot, err := runtime.CreateEdge(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.Edge{
@@ -3453,8 +3454,13 @@ func createEdgeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 				Data:            projectstate.RawJSON(payload.Data),
 			},
 			deps.EdgeExpressionBuilder,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3474,17 +3480,23 @@ func updateEdgeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.UpdateEdge(
+		snapshot, err := runtime.UpdateEdge(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.Edge,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3504,17 +3516,23 @@ func deleteEdgesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.DeleteEdges(
+		snapshot, err := runtime.DeleteEdges(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.EdgeIDs,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3534,12 +3552,13 @@ func reconnectEdgeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.ReconnectEdge(
+		snapshot, err := runtime.ReconnectEdge(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.EdgeID,
@@ -3550,8 +3569,13 @@ func reconnectEdgeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			payload.TargetVariantID,
 			payload.TargetPortID,
 			deps.EdgeExpressionBuilder,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3571,17 +3595,23 @@ func setEdgesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil {
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 
-		if _, err := deps.ProjectState.SetEdges(
+		snapshot, err := runtime.SetEdges(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.Edges,
-		); err != nil {
+		)
+		if err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

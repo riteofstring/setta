@@ -1,4 +1,4 @@
-import type { Connection } from "forks/xyflow/core/types";
+import { HandlePosition, type Connection } from "forks/xyflow/core/types";
 import {
   createEdge,
   deleteEdges,
@@ -23,6 +23,7 @@ import { makeEdgeHandleKey } from "./edgeHandles";
 import {
   createEdgeFromConnection,
   deleteSelectedEdges,
+  isDataEdgeHandleId,
   reconnectEdgeFromConnection,
   toggleEdgeSelection,
 } from "./edges";
@@ -50,6 +51,11 @@ const sourceVariantId = "source-variant";
 const targetVariantId = "target-variant";
 const sourcePortId = "result";
 const targetPortId = "input";
+const okRouteResult = {
+  data: null,
+  request: new Request("http://setta.test/edge"),
+  response: { status: 200 } as Response,
+};
 function seedEdgeState(edges: Array<Edge>) {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -97,7 +103,7 @@ function seedEdgeState(edges: Array<Edge>) {
         sectionId: sourceSectionId,
         portId: sourcePortId,
         type: "source",
-        side: "right",
+        side: HandlePosition.Right,
         x: 10,
         y: 10,
       },
@@ -105,7 +111,7 @@ function seedEdgeState(edges: Array<Edge>) {
         sectionId: targetSectionId,
         portId: targetPortId,
         type: "target",
-        side: "left",
+        side: HandlePosition.Left,
         x: 20,
         y: 20,
       },
@@ -125,48 +131,36 @@ describe("edges actions", () => {
     resetProjectStores();
     useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
-    mockedRouteCreateEdge.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteUpdateEdge.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteDeleteEdges.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteReconnectEdge.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteSetEdges.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    mockedRouteCreateEdge.mockResolvedValue(okRouteResult);
+    mockedRouteUpdateEdge.mockResolvedValue(okRouteResult);
+    mockedRouteDeleteEdges.mockResolvedValue(okRouteResult);
+    mockedRouteReconnectEdge.mockResolvedValue(okRouteResult);
+    mockedRouteSetEdges.mockResolvedValue(okRouteResult);
   });
   afterEach(() => {
     resetProjectStores();
+  });
+  it("classifies data edge handles without admitting workflow-only handles", () => {
+    expect(isDataEdgeHandleId("result")).toBe(true);
+    expect(isDataEdgeHandleId(null)).toBe(false);
+    expect(isDataEdgeHandleId("agentic-edge-source")).toBe(false);
+    expect(isDataEdgeHandleId("workflow-target")).toBe(false);
   });
   it("posts createEdge with the canonical connection payload", () => {
     seedEdgeState([]);
     createEdgeFromConnection(createConnection());
     expect(mockedRouteCreateEdge).toHaveBeenCalledTimes(1);
     expect(mockedRouteCreateEdge).toHaveBeenCalledWith({
-      projectConfigId,
-      sourceSectionId,
-      sourceVariantId,
-      sourcePortId,
-      targetSectionId,
-      targetVariantId,
-      targetPortId,
-      type: "default",
+      body: {
+        projectConfigId,
+        sourceSectionId,
+        sourceVariantId,
+        sourcePortId,
+        targetSectionId,
+        targetVariantId,
+        targetPortId,
+        type: "default",
+      },
     });
   });
   it("posts reconnectEdge with the canonical connection payload", () => {
@@ -174,14 +168,16 @@ describe("edges actions", () => {
     reconnectEdgeFromConnection("edge-1", createConnection());
     expect(mockedRouteReconnectEdge).toHaveBeenCalledTimes(1);
     expect(mockedRouteReconnectEdge).toHaveBeenCalledWith({
-      projectConfigId,
-      edgeId: "edge-1",
-      sourceSectionId,
-      sourceVariantId,
-      sourcePortId,
-      targetSectionId,
-      targetVariantId,
-      targetPortId,
+      body: {
+        projectConfigId,
+        edgeId: "edge-1",
+        sourceSectionId,
+        sourceVariantId,
+        sourcePortId,
+        targetSectionId,
+        targetVariantId,
+        targetPortId,
+      },
     });
   });
   it("single-selects an edge and persists the full edge list", () => {
@@ -218,12 +214,14 @@ describe("edges actions", () => {
     expect(mockedRouteSetEdges).toHaveBeenCalledTimes(1);
     expect(mockedRouteSetEdges.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        frontendOpId: expect.any(String),
-        edges: expect.arrayContaining([
-          expect.objectContaining({ id: "edge-a", selected: true }),
-          expect.objectContaining({ id: "edge-b", selected: false }),
-        ]),
+        body: expect.objectContaining({
+          projectConfigId,
+          frontendOpId: expect.any(String),
+          edges: expect.arrayContaining([
+            expect.objectContaining({ id: "edge-a", selected: true }),
+            expect.objectContaining({ id: "edge-b", selected: false }),
+          ]),
+        }),
       }),
     );
   });
@@ -242,17 +240,19 @@ describe("edges actions", () => {
       },
     ]);
     toggleEdgeSelection("edge-a", true);
-    expect(useProjectState.getState().projectConfig.edges[0]?.selected).toBe(
+    expect(useProjectState.getState().projectConfig.edges?.[0]?.selected).toBe(
       true,
     );
     expect(mockedRouteUpdateEdge).toHaveBeenCalledTimes(1);
     expect(mockedRouteUpdateEdge.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        frontendOpId: expect.any(String),
-        edge: expect.objectContaining({
-          id: "edge-a",
-          selected: true,
+        body: expect.objectContaining({
+          projectConfigId,
+          frontendOpId: expect.any(String),
+          edge: expect.objectContaining({
+            id: "edge-a",
+            selected: true,
+          }),
         }),
       }),
     );
@@ -290,9 +290,11 @@ describe("edges actions", () => {
     expect(mockedRouteDeleteEdges).toHaveBeenCalledTimes(1);
     expect(mockedRouteDeleteEdges.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        frontendOpId: expect.any(String),
-        edgeIds: ["edge-a"],
+        body: expect.objectContaining({
+          projectConfigId,
+          frontendOpId: expect.any(String),
+          edgeIds: ["edge-a"],
+        }),
       }),
     );
   });

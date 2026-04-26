@@ -1,4 +1,5 @@
 import { useDndState } from "forks/dnd-kit/dndState";
+import { HANDLE_CLASS_NAME } from "forks/xyflow/core/components/Handle/classes";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { Connection, HandleType } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
@@ -24,6 +25,8 @@ import {
   openPaneContextMenu,
 } from "state/actions/contextMenus";
 import {
+  createEdgeFromConnection,
+  isDataEdgeHandleId,
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
   toggleEdgeSelection,
@@ -133,6 +136,14 @@ type PointerGesture =
       reconnectTarget: CanvasFlowReconnectTarget;
     }
   | {
+      mode: "edge-create";
+      moved: boolean;
+      pointerId: number;
+      startClientX: number;
+      startClientY: number;
+      startHandle: CanvasFlowDataEdgeHandle;
+    }
+  | {
       mode: "nested-dnd";
       draggingRectsById: Record<string, CanvasFlowClientRect>;
       moved: boolean;
@@ -146,9 +157,18 @@ type EdgeReconnectPointerGesture = Extract<
   PointerGesture,
   { mode: "edge-reconnect" }
 >;
+type EdgeCreatePointerGesture = Extract<
+  PointerGesture,
+  { mode: "edge-create" }
+>;
 type NestedDndPointerGesture = Extract<PointerGesture, { mode: "nested-dnd" }>;
 type PanPointerGesture = Extract<PointerGesture, { mode: "pan" }>;
 type SelectPointerGesture = Extract<PointerGesture, { mode: "select" }>;
+type CanvasFlowDataEdgeHandle = {
+  handleId: string;
+  handleType: HandleType;
+  nodeId: string;
+};
 type CanvasFlowReconnectTarget = {
   handleId: string | null;
   handleType: HandleType;
@@ -297,6 +317,10 @@ export function useCanvasFlowInteractions({
     (event: MouseEvent<HTMLCanvasElement>) => {
       if (suppressNextClickRef.current) {
         suppressNextClickRef.current = false;
+        recordCanvasFlowInteractionMetric(
+          event.currentTarget,
+          "suppressedClicks",
+        );
         event.preventDefault();
         return;
       }
@@ -309,12 +333,25 @@ export function useCanvasFlowInteractions({
         event,
         viewport: viewportRef.current,
       });
+      recordCanvasFlowPointerDiagnostics({
+        canvas: event.currentTarget,
+        edges: edgesRef.current,
+        edgeHit,
+        event,
+        prefix: "lastClick",
+        viewport: viewportRef.current,
+      });
       if (edgeHit && !edgeHit.endpoint) {
         event.preventDefault();
+        recordCanvasFlowInteractionMetric(
+          event.currentTarget,
+          "edgeSelectionClicks",
+        );
         toggleCanvasFlowEdgeSelection(edgeHit.edge);
         schedulePaint();
         return;
       }
+      recordCanvasFlowInteractionMetric(event.currentTarget, "backgroundClicks");
       onBackgroundClick(event, viewportRef.current, { forceDurableSync: true });
     },
     [edgesRef, schedulePaint, viewportRef],
@@ -347,6 +384,15 @@ export function useCanvasFlowInteractions({
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLCanvasElement>) => {
       syncStoreViewport();
+      if (
+        tryStartDataEdgeCreatePointerGesture({
+          event,
+          gestureRef,
+          suppressNextClickRef,
+        })
+      ) {
+        return;
+      }
       if (event.target !== event.currentTarget) {
         return;
       }
@@ -372,6 +418,7 @@ export function useCanvasFlowInteractions({
         return;
       }
       if (tryStartSelectionPointerGesture({ event, gestureRef })) {
+        recordCanvasFlowInteractionMetric(event.currentTarget, "selectionStarts");
         return;
       }
       if (!isPanButtonAllowed(event.button, panOnDrag)) {
@@ -391,6 +438,14 @@ export function useCanvasFlowInteractions({
       switch (gesture.mode) {
         case "edge":
           updateEdgeGestureMove(gesture, event);
+          return;
+        case "edge-create":
+          updateEdgeCreateGestureMove({
+            canvas: event.currentTarget,
+            event,
+            gesture,
+            viewport: viewportRef.current,
+          });
           return;
         case "edge-reconnect":
           updateEdgeReconnectGestureMove({
@@ -412,6 +467,10 @@ export function useCanvasFlowInteractions({
           });
           return;
         case "select":
+          recordCanvasFlowInteractionMetric(
+            event.currentTarget,
+            "selectionUpdates",
+          );
           updateSelectionGestureMove({
             event,
             gesture,
@@ -451,6 +510,9 @@ export function useCanvasFlowInteractions({
         gestureRef.current.moved = true;
       }
       if (gestureRef.current.mode === "edge-reconnect") {
+        cancelCanvasFlowConnection();
+      }
+      if (gestureRef.current.mode === "edge-create") {
         cancelCanvasFlowConnection();
       }
       onPointerUp(event);
@@ -624,6 +686,43 @@ export function useCanvasFlowInteractions({
   };
 }
 
+function recordCanvasFlowPointerDiagnostics({
+  canvas,
+  edges,
+  edgeHit,
+  event,
+  prefix,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  edges: CanvasFlowDrawableEdge[];
+  edgeHit: CanvasFlowEdgeHit | null;
+  event: PointerEvent<HTMLCanvasElement> | MouseEvent<HTMLCanvasElement>;
+  prefix: string;
+  viewport: CanvasFlowViewport;
+}) {
+  if (canvas.dataset.canvasFlowDiagnostics !== "enabled") {
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const point = screenToWorldPoint(
+    {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    },
+    viewport,
+  );
+  canvas.dataset[`${prefix}ClientX`] = event.clientX.toFixed(2);
+  canvas.dataset[`${prefix}ClientY`] = event.clientY.toFixed(2);
+  canvas.dataset[`${prefix}EdgeCount`] = String(edges.length);
+  canvas.dataset[`${prefix}EdgeHit`] = edgeHit?.edge.id ?? "";
+  canvas.dataset[`${prefix}ViewportX`] = viewport.x.toFixed(2);
+  canvas.dataset[`${prefix}ViewportY`] = viewport.y.toFixed(2);
+  canvas.dataset[`${prefix}ViewportZoom`] = viewport.zoom.toFixed(4);
+  canvas.dataset[`${prefix}WorldX`] = point.x.toFixed(2);
+  canvas.dataset[`${prefix}WorldY`] = point.y.toFixed(2);
+}
+
 function getEdgeHitForEvent({
   canvas,
   edges,
@@ -748,6 +847,52 @@ function startEdgeHitGesture({
   return true;
 }
 
+function tryStartDataEdgeCreatePointerGesture({
+  event,
+  gestureRef,
+  suppressNextClickRef,
+}: {
+  event: PointerEvent<HTMLCanvasElement>;
+  gestureRef: MutableRefObject<PointerGesture | null>;
+  suppressNextClickRef: MutableRefObject<boolean>;
+}): boolean {
+  if (event.button !== 0) {
+    return false;
+  }
+  if (
+    event.target instanceof Element &&
+    event.target.closest(`.${HANDLE_CLASS_NAME}`)
+  ) {
+    return false;
+  }
+  const startHandle = getCanvasFlowDataEdgeHandleAtPoint({
+    canvas: event.currentTarget,
+    event,
+    mode: "start",
+  });
+  if (!startHandle) {
+    return false;
+  }
+  event.preventDefault();
+  closeAllContextMenus();
+  startCanvasFlowDataEdgeCreate({
+    canvas: event.currentTarget,
+    event,
+    startHandle,
+  });
+  gestureRef.current = {
+    mode: "edge-create",
+    moved: false,
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startHandle,
+  };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  suppressNextClickRef.current = true;
+  return true;
+}
+
 function tryStartSelectionPointerGesture({
   event,
   gestureRef,
@@ -828,6 +973,16 @@ function finishPointerGesture({
     case "edge":
       finishEdgeGesture({ gesture, schedulePaint, suppressNextClickRef });
       return;
+    case "edge-create":
+      suppressNextClickRef.current = !gesture.moved;
+      finishEdgeCreateGesture({
+        canvas: event.currentTarget,
+        event,
+        gesture,
+        schedulePaint,
+        viewport,
+      });
+      return;
     case "edge-reconnect":
       suppressNextClickRef.current = true;
       finishEdgeReconnectGesture({
@@ -852,6 +1007,11 @@ function finishPointerGesture({
       finishPanGesture({ event, finishViewportGesture, gesture, viewport });
       return;
     case "select":
+      recordCanvasFlowInteractionMetric(
+        event.currentTarget,
+        "selectionFinishes",
+      );
+      suppressNextClickRef.current = gesture.moved;
       finishSelectionGesture();
   }
 }
@@ -1187,6 +1347,339 @@ function zoomCanvasFlowByWheel({
   });
   commitViewportChange();
   return true;
+}
+
+function startCanvasFlowDataEdgeCreate({
+  canvas,
+  event,
+  startHandle,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  startHandle: CanvasFlowDataEdgeHandle;
+}) {
+  useReactFlow.setState({
+    connectionEndHandle: null,
+    connectionPosition: getCanvasRelativePoint(canvas, event),
+    connectionStartHandle: {
+      sectionId: startHandle.nodeId,
+      handleId: startHandle.handleId,
+      type: startHandle.handleType,
+    },
+    connectionStatus: null,
+  });
+}
+
+function updateEdgeCreateGestureMove({
+  canvas,
+  event,
+  gesture,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  gesture: EdgeCreatePointerGesture;
+  viewport: CanvasFlowViewport;
+}) {
+  gesture.moved =
+    gesture.moved ||
+    Math.hypot(
+      event.clientX - gesture.startClientX,
+      event.clientY - gesture.startClientY,
+    ) > 3;
+  const closest = getClosestCanvasFlowDataEdgeCreateHandle({
+    canvas,
+    event,
+    startHandle: gesture.startHandle,
+    viewport,
+  });
+  useReactFlow.setState({
+    connectionEndHandle: closest
+      ? {
+          sectionId: closest.nodeId,
+          handleId: closest.handleId,
+          type: closest.handleType,
+        }
+      : null,
+    connectionPosition: getCanvasRelativePoint(canvas, event),
+    connectionStatus: closest ? "valid" : null,
+  });
+}
+
+function finishEdgeCreateGesture({
+  canvas,
+  event,
+  gesture,
+  schedulePaint,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  gesture: EdgeCreatePointerGesture;
+  schedulePaint: () => void;
+  viewport: CanvasFlowViewport;
+}) {
+  const closest = getClosestCanvasFlowDataEdgeCreateHandle({
+    canvas,
+    event,
+    startHandle: gesture.startHandle,
+    viewport,
+  });
+  if (closest) {
+    const connection = buildCanvasFlowDataEdgeConnection({
+      closest,
+      startHandle: gesture.startHandle,
+    });
+    if (isValidDataEdgeConnection(connection)) {
+      createEdgeFromConnection(connection);
+    }
+  }
+  cancelCanvasFlowConnection();
+  schedulePaint();
+}
+
+function getCanvasFlowDataEdgeHandleAtPoint({
+  canvas,
+  event,
+  mode,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  mode: "end" | "start";
+}): CanvasFlowDataEdgeHandle | null {
+  let closest: { distance: number; handle: CanvasFlowDataEdgeHandle } | null =
+    null;
+  for (const handle of Object.values(
+    useEdgeHandleRegistry.getState().positions,
+  )) {
+    const candidate = getCanvasFlowDataEdgeHandleAtPointCandidate({
+      canvas,
+      event,
+      handle,
+      mode,
+    });
+    if (!candidate) {
+      continue;
+    }
+    if (closest && candidate.distance >= closest.distance) {
+      continue;
+    }
+    closest = candidate;
+  }
+  return closest?.handle ?? null;
+}
+
+function getCanvasFlowDataEdgeHandleAtPointCandidate({
+  canvas,
+  event,
+  handle,
+  mode,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  handle: CanvasFlowHandlePosition;
+  mode: "end" | "start";
+}): { distance: number; handle: CanvasFlowDataEdgeHandle } | null {
+  if (!isDataEdgeHandleId(handle.portId)) {
+    return null;
+  }
+  const element = getCanvasFlowDataHandleElement(canvas, handle);
+  if (!element || !isCanvasFlowDataEdgeHandleElementConnectable(element, mode)) {
+    return null;
+  }
+  if (!isPointInsideInflatedElement(event, element, 5)) {
+    return null;
+  }
+  return {
+    distance: getEventDistanceToElementCenter(event, element),
+    handle: {
+      handleId: handle.portId,
+      handleType: handle.type,
+      nodeId: handle.sectionId,
+    },
+  };
+}
+
+function getClosestCanvasFlowDataEdgeCreateHandle({
+  canvas,
+  event,
+  startHandle,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  startHandle: CanvasFlowDataEdgeHandle;
+  viewport: CanvasFlowViewport;
+}): CanvasFlowDataEdgeHandle | null {
+  const position = screenToWorldPoint(
+    getCanvasRelativePoint(canvas, event),
+    viewport,
+  );
+  const tolerance =
+    useReactFlow.getState().connectionRadius / Math.max(viewport.zoom, 0.001);
+  let closest: {
+    distance: number;
+    handle: CanvasFlowDataEdgeHandle;
+  } | null = null;
+  for (const handle of Object.values(
+    useEdgeHandleRegistry.getState().positions,
+  )) {
+    const candidate = getCanvasFlowDataEdgeCreateTargetCandidate({
+      canvas,
+      event,
+      handle,
+      position,
+      startHandle,
+      tolerance,
+    });
+    if (!candidate) {
+      continue;
+    }
+    if (closest && candidate.distance >= closest.distance) {
+      continue;
+    }
+    closest = candidate;
+  }
+  return closest?.handle ?? null;
+}
+
+function getCanvasFlowDataEdgeCreateTargetCandidate({
+  canvas,
+  event,
+  handle,
+  position,
+  startHandle,
+  tolerance,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  handle: CanvasFlowHandlePosition;
+  position: { x: number; y: number };
+  startHandle: CanvasFlowDataEdgeHandle;
+  tolerance: number;
+}): { distance: number; handle: CanvasFlowDataEdgeHandle } | null {
+  if (!isDataEdgeCreateTargetCandidate(handle, startHandle)) {
+    return null;
+  }
+  const element = getCanvasFlowDataHandleElement(canvas, handle);
+  if (!element || !isCanvasFlowDataEdgeHandleElementConnectable(element, "end")) {
+    return null;
+  }
+  const distance = Math.hypot(handle.x - position.x, handle.y - position.y);
+  if (!isPointInsideInflatedElement(event, element, 6) && distance > tolerance) {
+    return null;
+  }
+  const dataHandle = {
+    handleId: handle.portId,
+    handleType: handle.type,
+    nodeId: handle.sectionId,
+  };
+  if (
+    !isValidDataEdgeConnection(
+      buildCanvasFlowDataEdgeConnection({
+        closest: dataHandle,
+        startHandle,
+      }),
+    )
+  ) {
+    return null;
+  }
+  return { distance, handle: dataHandle };
+}
+
+function getCanvasFlowDataHandleElement(
+  canvas: HTMLCanvasElement,
+  handle: Pick<CanvasFlowHandlePosition, "portId" | "sectionId" | "type">,
+): HTMLElement | null {
+  for (const element of canvas.querySelectorAll<HTMLElement>(
+    `.${HANDLE_CLASS_NAME}`,
+  )) {
+    if (
+      element.dataset.nodeid === handle.sectionId &&
+      element.dataset.handleid === handle.portId &&
+      element.classList.contains(handle.type) &&
+      element.classList.contains("arg-edge-handle")
+    ) {
+      return element;
+    }
+  }
+  return null;
+}
+
+function isCanvasFlowDataEdgeHandleElementConnectable(
+  element: HTMLElement,
+  mode: "end" | "start",
+) {
+  return (
+    element.classList.contains("connectable") &&
+    element.classList.contains(
+      mode === "start" ? "connectablestart" : "connectableend",
+    )
+  );
+}
+
+function isDataEdgeCreateTargetCandidate(
+  handle: CanvasFlowHandlePosition,
+  startHandle: CanvasFlowDataEdgeHandle,
+) {
+  if (!isDataEdgeHandleId(handle.portId)) {
+    return false;
+  }
+  if (handle.type === startHandle.handleType) {
+    return false;
+  }
+  return !(
+    handle.sectionId === startHandle.nodeId &&
+    handle.portId === startHandle.handleId
+  );
+}
+
+function buildCanvasFlowDataEdgeConnection({
+  closest,
+  startHandle,
+}: {
+  closest: CanvasFlowDataEdgeHandle;
+  startHandle: CanvasFlowDataEdgeHandle;
+}): Connection {
+  if (startHandle.handleType === "source") {
+    return {
+      source: startHandle.nodeId,
+      sourceHandle: startHandle.handleId,
+      target: closest.nodeId,
+      targetHandle: closest.handleId,
+    };
+  }
+  return {
+    source: closest.nodeId,
+    sourceHandle: closest.handleId,
+    target: startHandle.nodeId,
+    targetHandle: startHandle.handleId,
+  };
+}
+
+function isPointInsideInflatedElement(
+  event: PointerEvent<HTMLCanvasElement>,
+  element: HTMLElement,
+  padding: number,
+) {
+  const rect = element.getBoundingClientRect();
+  return (
+    event.clientX >= rect.left - padding &&
+    event.clientX <= rect.right + padding &&
+    event.clientY >= rect.top - padding &&
+    event.clientY <= rect.bottom + padding
+  );
+}
+
+function getEventDistanceToElementCenter(
+  event: PointerEvent<HTMLCanvasElement>,
+  element: HTMLElement,
+) {
+  const rect = element.getBoundingClientRect();
+  return Math.hypot(
+    event.clientX - (rect.left + rect.width / 2),
+    event.clientY - (rect.top + rect.height / 2),
+  );
 }
 
 function startCanvasFlowEdgeReconnect({

@@ -36,6 +36,7 @@ type CompleteEdgeConnection = Connection & {
   sourceHandle: string;
   targetHandle: string;
 };
+type OpenAPIPromise = Parameters<typeof callOpenAPI>[0];
 
 const nonDataHandleIds = new Set<string>([
   AGENTIC_EDGE_HANDLE_IDS.source,
@@ -43,14 +44,16 @@ const nonDataHandleIds = new Set<string>([
   STATE_MACHINE_EDGE_HANDLE_IDS.source,
   STATE_MACHINE_EDGE_HANDLE_IDS.target,
 ]);
+
+export function isDataEdgeHandleId(handleId: string | null): handleId is string {
+  return handleId !== null && !nonDataHandleIds.has(handleId);
+}
+
 export function isValidDataEdgeConnection(connection: Connection): boolean {
-  if (!connection.sourceHandle || !connection.targetHandle) {
-    return false;
-  }
-  if (nonDataHandleIds.has(connection.sourceHandle)) {
-    return false;
-  }
-  if (nonDataHandleIds.has(connection.targetHandle)) {
+  if (
+    !isDataEdgeHandleId(connection.sourceHandle) ||
+    !isDataEdgeHandleId(connection.targetHandle)
+  ) {
     return false;
   }
   return true;
@@ -58,7 +61,7 @@ export function isValidDataEdgeConnection(connection: Connection): boolean {
 export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const edges = state.projectConfig.edges;
+      const edges = state.projectConfig.edges ?? [];
       for (const edge of edges) {
         if (edge.id === edgeId) {
           edge.selected = multiSelect ? !edge.selected : true;
@@ -71,7 +74,7 @@ export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
       if (multiSelect) {
         const edge = useProjectState
           .getState()
-          .projectConfig.edges.find((candidate) => candidate.id === edgeId);
+          .projectConfig.edges?.find((candidate) => candidate.id === edgeId);
         if (!edge) {
           return;
         }
@@ -82,17 +85,17 @@ export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
               edge,
               frontendOpId,
             },
-          } as Parameters<typeof updateEdge>[0]),
+          } as Parameters<typeof updateEdge>[0]) as OpenAPIPromise,
         );
       }
       return callOpenAPI(
         setEdges({
           body: {
             projectConfigId: getCurrProjectConfigId(),
-            edges: useProjectState.getState().projectConfig.edges,
+            edges: useProjectState.getState().projectConfig.edges ?? [],
             frontendOpId,
           },
-        } as Parameters<typeof setEdges>[0]),
+        } as Parameters<typeof setEdges>[0]) as OpenAPIPromise,
       );
     },
   });
@@ -102,7 +105,7 @@ export function deleteSelectedEdges() {
     return false;
   }
   const state = useProjectState.getState();
-  const selectedIds = state.projectConfig.edges
+  const selectedIds = (state.projectConfig.edges ?? [])
     .filter((edge) => edge.selected)
     .map((edge) => edge.id);
   if (selectedIds.length === 0) {
@@ -110,7 +113,7 @@ export function deleteSelectedEdges() {
   }
   dispatchOptimisticProjectStateUpdate({
     apply: (draft) => {
-      draft.projectConfig.edges = draft.projectConfig.edges.filter(
+      draft.projectConfig.edges = (draft.projectConfig.edges ?? []).filter(
         (edge) => !selectedIds.includes(edge.id),
       );
     },
@@ -122,7 +125,7 @@ export function deleteSelectedEdges() {
             edgeIds: selectedIds,
             frontendOpId,
           },
-        } as Parameters<typeof deleteEdges>[0]),
+        } as Parameters<typeof deleteEdges>[0]) as OpenAPIPromise,
       ),
   });
   return true;
@@ -206,7 +209,7 @@ export function createEdgeFromConnection(connection: Connection) {
   void callOpenAPI(
     createEdge({
       body: { ...body, type: "default" },
-    } as Parameters<typeof createEdge>[0]),
+    } as Parameters<typeof createEdge>[0]) as OpenAPIPromise,
   );
 }
 export function reconnectEdgeFromConnection(
@@ -220,6 +223,6 @@ export function reconnectEdgeFromConnection(
   void callOpenAPI(
     reconnectEdge({
       body: { ...body, edgeId },
-    } as Parameters<typeof reconnectEdge>[0]),
+    } as Parameters<typeof reconnectEdge>[0]) as OpenAPIPromise,
   );
 }
