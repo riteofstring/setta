@@ -1,5 +1,6 @@
 import { GpuProjectEdgeLayer } from "components/Pages/Project/GpuProjectEdgeLayer";
 import Background from "forks/xyflow/background/Background";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
@@ -34,7 +35,7 @@ const ReactFlow = () => {
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const darkMode = useLocalStorage((x) => x.darkMode);
   const transform = useReactFlow((state) => state.transform, _.isEqual);
-  const isConnecting = useReactFlow(
+  const isConnecting = useGpuFlowViewportStore(
     (state) => state.connectionStartHandle !== null,
   );
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);

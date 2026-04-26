@@ -1,8 +1,4 @@
-import type {
-  Connection,
-  ConnectionMode,
-  HandleType,
-} from "forks/xyflow/core/types";
+import type { Connection, ConnectionMode, HandleType } from "../flowTypes";
 
 export type ConnectionHandle = {
   sectionId: string;
@@ -354,12 +350,13 @@ function isPreferredClosestHandle(
 function pickClosestHandle(
   closestHandles: ClosestHandleMatch[],
 ): ClosestHandleResult {
-  if (!closestHandles.length) {
+  const firstHandle = closestHandles[0];
+  if (!firstHandle) {
     return { handle: null, validHandleResult: getDefaultResult() };
   }
 
   if (closestHandles.length === 1) {
-    return closestHandles[0];
+    return firstHandle;
   }
 
   const preferTargetHandle = closestHandles.some(
@@ -372,7 +369,7 @@ function pickClosestHandle(
   return (
     closestHandles.find((match) =>
       isPreferredClosestHandle(match, preferTargetHandle, requireValidHandle),
-    ) ?? closestHandles[0]
+    ) ?? firstHandle
   );
 }
 

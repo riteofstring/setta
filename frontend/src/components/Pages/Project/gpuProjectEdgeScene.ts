@@ -1,4 +1,3 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import {
   buildGpuEdgeScene,
   type GpuAgenticMissingEdgeSource,
@@ -7,7 +6,9 @@ import {
   type GpuEdgeScene,
 } from "gpuFlow/edges/edgeSources";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { screenToFlowPosition } from "gpuFlow/viewportMath";
+import type { GpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { useMemo } from "react";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import { isSharedChatHandleId } from "state/actions/chatSharedHandleIds";
@@ -35,8 +36,8 @@ type EdgeHandlePositions = ReturnType<
   typeof useEdgeHandleRegistry.getState
 >["positions"];
 type NodeInternals = ReturnType<typeof useNodeInternals.getState>["x"];
-type ReactFlowConnectionState = Pick<
-  ReturnType<typeof useReactFlow.getState>,
+type ProjectGpuConnectionState = Pick<
+  GpuFlowViewportStore,
   "connectionPosition" | "connectionStartHandle" | "transform"
 >;
 
@@ -46,7 +47,7 @@ type ProjectGpuEdgeVisibility = {
 };
 
 export type BuildProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
-  readonly connectionState: ReactFlowConnectionState;
+  readonly connectionState: ProjectGpuConnectionState;
   readonly handlePositions: EdgeHandlePositions;
   readonly nodeInternals: NodeInternals;
   readonly projectConfig: ProjectConfig;
@@ -81,7 +82,10 @@ export function useProjectGpuEdgeScene({
   );
   const nodeInternals = useNodeInternals((state) => state.x);
   const handlePositions = useEdgeHandleRegistry((state) => state.positions);
-  const connectionState = useReactFlow(selectReactFlowConnectionState, shallow);
+  const connectionState = useGpuFlowViewportStore(
+    selectGpuConnectionState,
+    shallow,
+  );
   const scopeViolationEdges = useAIFollow(
     (state) => state.scopeViolationEdgesByProjectConfigId[projectConfig.id],
   );
@@ -225,9 +229,9 @@ function getRunningAgenticSourceSectionIds({
   return running;
 }
 
-function selectReactFlowConnectionState(
-  state: ReturnType<typeof useReactFlow.getState>,
-): ReactFlowConnectionState {
+function selectGpuConnectionState(
+  state: GpuFlowViewportStore,
+): ProjectGpuConnectionState {
   return {
     connectionPosition: state.connectionPosition,
     connectionStartHandle: state.connectionStartHandle,
@@ -240,7 +244,7 @@ function resolveProjectGpuConnectionLine({
   showAgenticEdges,
   showDataEdges,
 }: ProjectGpuEdgeVisibility & {
-  readonly connectionState: ReactFlowConnectionState;
+  readonly connectionState: ProjectGpuConnectionState;
 }): GpuConnectionLineSource | null {
   const startHandle = connectionState.connectionStartHandle;
   if (!startHandle?.handleId) {

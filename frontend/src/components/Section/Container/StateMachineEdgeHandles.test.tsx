@@ -1,5 +1,5 @@
-import { NodeIdContext } from "forks/xyflow/core/contexts/NodeIdContext";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { NodeIdContext } from "gpuFlow/NodeIdContext";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -41,7 +41,8 @@ function syncStoreInitialState(store: {
 
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState
->["projectConfig"]["stateMachineEdges"][number];
+>["projectConfig"]["stateMachineEdges"];
+type WorkflowEdgeItem = NonNullable<WorkflowEdge>[number];
 
 function seedWorkflowSection({
   sectionId,
@@ -52,7 +53,7 @@ function seedWorkflowSection({
   sectionId: string;
   variantId: string;
   impl: BaseSectionImplUnion;
-  edges?: WorkflowEdge[];
+  edges?: WorkflowEdgeItem[];
 }): void {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -95,7 +96,7 @@ function seedWorkflowSectionWithoutImpl({
   sectionId: string;
   variantId: string;
   implId: string;
-  edges?: WorkflowEdge[];
+  edges?: WorkflowEdgeItem[];
 }): void {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -141,20 +142,12 @@ function renderEdgeHandles(
 describe("StateMachineEdgeHandles", () => {
   beforeEach(() => {
     resetProjectStores();
-    useReactFlow.setState({
-      connectionStartHandle: null,
-      connectionEndHandle: null,
-      connectionStatus: null,
-    });
+    gpuFlowViewportStore.getState().cancelConnection();
   });
 
   afterEach(() => {
     resetProjectStores();
-    useReactFlow.setState({
-      connectionStartHandle: null,
-      connectionEndHandle: null,
-      connectionStatus: null,
-    });
+    gpuFlowViewportStore.getState().cancelConnection();
   });
 
   it("renders only a source handle on workflow start nodes", () => {

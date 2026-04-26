@@ -2,14 +2,22 @@ import type {
   MouseEvent as ReactMouseEvent,
   TouchEvent as ReactTouchEvent,
 } from "react";
-import type { StoreApi } from "zustand";
 
 import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
 import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
-import { useEdgeHandleRegistry } from "state/definitions";
-import type { Connection, HandleType, ReactFlowState } from "../../types";
-import { calcAutoPan, getEventPosition, getHostForElement } from "../../utils";
-import { pointToRendererPoint, rendererPointToPoint } from "../../utils/graph";
+import { useEdgeHandleRegistry, useLocalStorage } from "state/definitions";
+import type { Connection, HandleType } from "../flowTypes";
+import { getGpuNodeDragAutoPanDelta } from "../interactions/nodeDrag";
+import { panGpuViewport } from "../viewportActions";
+import {
+  flowToScreenPosition,
+  screenToFlowPosition,
+  type GpuPoint,
+} from "../viewportMath";
+import type {
+  GpuConnectionState,
+  GpuFlowViewportStoreApi,
+} from "../viewportStore";
 import {
   getClosestHandle,
   getConnectionStatus,
@@ -21,43 +29,38 @@ import {
   type ValidConnectionFunc,
 } from "./utils";
 
+type HandlePointerEvent = ReactMouseEvent | ReactTouchEvent;
+type NativeHandlePointerEvent = MouseEvent | TouchEvent;
+
 export function handlePointerDown({
   event,
   handleId,
   nodeId,
   onConnect,
   isTarget,
-  getState,
-  setState,
+  store,
   isValidConnection,
   edgeUpdaterType,
   onReconnectEnd,
 }: {
-  event: ReactMouseEvent | ReactTouchEvent;
+  event: HandlePointerEvent;
   handleId: string | null;
   nodeId: string;
   onConnect: (connection: Connection) => void;
   isTarget: boolean;
-  getState: StoreApi<ReactFlowState>["getState"];
-  setState: StoreApi<ReactFlowState>["setState"];
+  store: GpuFlowViewportStoreApi;
   isValidConnection: ValidConnectionFunc;
   edgeUpdaterType?: HandleType;
   onReconnectEnd?: (evt: MouseEvent | TouchEvent) => void;
 }): void {
   const doc = getHostForElement(event.target as HTMLElement);
-  const {
-    connectionMode,
-    domNode,
-    autoPanOnConnect,
-    connectionRadius,
-    panBy,
-    cancelConnection,
-  } = getState();
+  const { connectionMode, domNode, autoPanOnConnect, connectionRadius } =
+    store.getState();
   let autoPanId = 0;
   let closestHandle: ConnectionHandle | null = null;
 
   const { x, y } = getEventPosition(event);
-  const clickedHandle = doc?.elementFromPoint(x, y);
+  const clickedHandle = doc.elementFromPoint(x, y);
   const handleType = getHandleType(edgeUpdaterType, clickedHandle);
   const containerBounds = domNode?.getBoundingClientRect();
 
@@ -114,17 +117,15 @@ export function handlePointerDown({
     event,
     position,
     radius,
-    transform,
   }: {
-    event: MouseEvent | TouchEvent;
-    position: { x: number; y: number };
+    event: NativeHandlePointerEvent;
+    position: GpuPoint;
     radius: number;
-    transform: ReactFlowState["transform"];
   }) =>
     getClosestHandle({
       event,
       doc,
-      pos: pointToRendererPoint(position, transform, false, [1, 1], true),
+      pos: screenToFlowPosition(position, store.getState().transform),
       connectionRadius: radius,
       handles: handleLookup,
       allowHandle,
@@ -135,38 +136,44 @@ export function handlePointerDown({
     if (!autoPanOnConnect) {
       return;
     }
-    const [xMovement, yMovement] = calcAutoPan(
-      connectionPosition,
-      containerBounds,
-    );
+    const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage.getState();
+    const delta = getGpuNodeDragAutoPanDelta({
+      insetsPx: {
+        left: overviewTrueWidth,
+        right: uiEditorTrueWidth,
+      },
+      point: connectionPosition,
+      viewportSize: {
+        height: containerBounds.height,
+        width: containerBounds.width,
+      },
+    });
 
-    panBy({ x: xMovement, y: yMovement });
+    panGpuViewport(delta, { store });
     autoPanId = requestAnimationFrame(autoPan);
   };
 
   const setConnectionPreview = ({
-    transform,
     nextClosestHandle,
     nextIsValid,
     endHandle,
   }: {
-    transform: ReactFlowState["transform"];
     nextClosestHandle: ConnectionHandle | null;
     nextIsValid: boolean;
-    endHandle: ReactFlowState["connectionEndHandle"];
+    endHandle: GpuConnectionState["connectionEndHandle"];
   }) => {
     const nextConnectionPosition =
       nextClosestHandle && nextIsValid
-        ? rendererPointToPoint(
+        ? flowToScreenPosition(
             {
               x: nextClosestHandle.x,
               y: nextClosestHandle.y,
             },
-            transform,
+            store.getState().transform,
           )
         : connectionPosition;
 
-    setState({
+    store.getState().setConnectionState({
       connectionPosition: nextConnectionPosition,
       connectionStatus: getConnectionStatus(!!nextClosestHandle, nextIsValid),
       connectionEndHandle: endHandle,
@@ -207,7 +214,7 @@ export function handlePointerDown({
   };
 
   const resolvePointerUpState = (
-    event: MouseEvent | TouchEvent,
+    event: NativeHandlePointerEvent,
   ): {
     closestHandle: ConnectionHandle | null;
     connection: Connection | null;
@@ -221,12 +228,10 @@ export function handlePointerDown({
       };
     }
 
-    const { transform } = getState();
     const fallback = getClosestHandleForEvent({
       event,
       position: getEventPosition(event, containerBounds),
       radius: Math.max(connectionRadius, 80),
-      transform,
     });
 
     return {
@@ -236,7 +241,7 @@ export function handlePointerDown({
     };
   };
 
-  setState({
+  store.getState().setConnectionState({
     connectionPosition,
     connectionStatus: null,
     connectionStartHandle: {
@@ -247,16 +252,13 @@ export function handlePointerDown({
     connectionEndHandle: null,
   });
 
-  function onPointerMove(event: MouseEvent | TouchEvent) {
-    const { transform } = getState();
-
+  function onPointerMove(event: NativeHandlePointerEvent) {
     connectionPosition = getEventPosition(event, containerBounds);
 
     const { handle, validHandleResult } = getClosestHandleForEvent({
       event,
       position: connectionPosition,
       radius: connectionRadius,
-      transform,
     });
 
     closestHandle = handle;
@@ -271,7 +273,6 @@ export function handlePointerDown({
     isValid = validHandleResult.isValid;
 
     setConnectionPreview({
-      transform,
       nextClosestHandle: closestHandle,
       nextIsValid: isValid,
       endHandle: validHandleResult.endHandle
@@ -290,7 +291,7 @@ export function handlePointerDown({
     });
   }
 
-  function onPointerUp(event: MouseEvent | TouchEvent) {
+  function onPointerUp(event: NativeHandlePointerEvent) {
     const {
       closestHandle: resolvedClosestHandle,
       connection: resolvedConnection,
@@ -310,7 +311,7 @@ export function handlePointerDown({
     }
 
     resetRecentHandle(prevActiveHandle);
-    cancelConnection();
+    store.getState().cancelConnection();
     cancelAnimationFrame(autoPanId);
     autoPanStarted = false;
     isValid = false;
@@ -329,4 +330,35 @@ export function handlePointerDown({
 
   doc.addEventListener("touchmove", onPointerMove as EventListener);
   doc.addEventListener("touchend", onPointerUp as EventListener);
+}
+
+function getEventPosition(
+  event: HandlePointerEvent | NativeHandlePointerEvent,
+  bounds?: DOMRect,
+): GpuPoint {
+  const point = getClientPoint(event);
+  return {
+    x: point.x - (bounds?.left ?? 0),
+    y: point.y - (bounds?.top ?? 0),
+  };
+}
+
+function getClientPoint(
+  event: HandlePointerEvent | NativeHandlePointerEvent,
+): GpuPoint {
+  if ("clientX" in event) {
+    return {
+      x: event.clientX,
+      y: event.clientY,
+    };
+  }
+  const touch = event.touches[0] ?? event.changedTouches[0];
+  return {
+    x: touch?.clientX ?? 0,
+    y: touch?.clientY ?? 0,
+  };
+}
+
+function getHostForElement(element: HTMLElement): Document | ShadowRoot {
+  return (element.getRootNode?.() as Document | ShadowRoot) || window.document;
 }

@@ -92,7 +92,7 @@ export const getOverlappingArea = (rectA: Rect, rectB: Rect): number => {
   return Math.ceil(xOverlap * yOverlap);
 };
 
-export const isMouseEvent = (
+const isMouseEvent = (
   event: MouseEvent | ReactMouseEvent | TouchEvent | ReactTouchEvent,
 ): event is MouseEvent | ReactMouseEvent => "clientX" in event;
 
@@ -109,8 +109,3 @@ export const getEventPosition = (
     y: evtY - (bounds?.top ?? 0),
   };
 };
-
-export const getHostForElement = (
-  element: HTMLElement,
-): Document | ShadowRoot =>
-  (element.getRootNode?.() as Document | ShadowRoot) || window?.document;

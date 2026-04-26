@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ConnectionMode } from "../flowTypes";
 import {
   getClosestHandle,
   isValidHandle,
@@ -77,7 +78,7 @@ describe("isValidHandle", () => {
         portId: "output-port",
         type: "source",
       },
-      connectionMode: "strict",
+      connectionMode: ConnectionMode.Strict,
       from: {
         sectionId: "section-a",
         handleId: "input-port",
@@ -165,7 +166,7 @@ describe("getClosestHandle", () => {
         y: 40,
       },
     ];
-    const validator = vi.fn((handle: ConnectionHandle) =>
+    const validator = vi.fn((handle: Pick<ConnectionHandle, "type">) =>
       createConnectionResult(handle.type === "target"),
     );
 

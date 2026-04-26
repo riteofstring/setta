@@ -1,21 +1,24 @@
-import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
-import type { HTMLAttributes } from "react";
+import type {
+  HTMLAttributes,
+  MouseEvent as ReactMouseEvent,
+  TouchEvent as ReactTouchEvent,
+} from "react";
 import { memo, useLayoutEffect, useRef } from "react";
 import {
   registerEdgeHandle,
   unregisterEdgeHandle,
   updateEdgeHandlePosition,
 } from "state/actions/edgeHandles";
-import { useReactFlow } from "../../store";
-import type { Connection, HandleProps } from "../../types";
-import { isMouseEvent } from "../../utils";
+import { useNodeId } from "../NodeIdContext";
+import type { Connection, HandleProps } from "../flowTypes";
+import { gpuFlowViewportStore } from "../viewportStore";
 import { handlePointerDown } from "./handler";
 
 type HandleComponentProps = HandleProps &
   Omit<HTMLAttributes<HTMLDivElement>, "id">;
 type HandlePointerEvent =
-  | React.MouseEvent<HTMLDivElement>
-  | React.TouchEvent<HTMLDivElement>;
+  | ReactMouseEvent<HTMLDivElement>
+  | ReactTouchEvent<HTMLDivElement>;
 
 const alwaysValid = () => true;
 
@@ -111,8 +114,7 @@ function HandleComponent({
         nodeId,
         onConnect: onConnectExtended,
         isTarget: (connectionStartSemanticType ?? type) === "target",
-        getState: useReactFlow.getState,
-        setState: useReactFlow.setState,
+        store: gpuFlowViewportStore,
         isValidConnection: isValidConnection ?? alwaysValid,
       });
     }
@@ -146,6 +148,12 @@ function HandleComponent({
       {...rest}
     />
   );
+}
+
+function isMouseEvent(
+  event: HandlePointerEvent,
+): event is ReactMouseEvent<HTMLDivElement> {
+  return "button" in event;
 }
 
 export const Handle = memo(HandleComponent);

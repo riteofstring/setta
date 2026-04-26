@@ -1,6 +1,11 @@
 import { subscribeWithSelector } from "zustand/middleware";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import {
+  ConnectionMode,
+  type ConnectingHandle,
+  type ConnectionStatus,
+} from "./flowTypes";
+import {
   gpuViewportToTuple,
   normalizeGpuViewport,
   type GpuPoint,
@@ -15,6 +20,26 @@ export type GpuUserSelectionRect = GpuRect & {
   readonly startY: number;
 };
 
+export type GpuConnectionState = {
+  readonly autoPanOnConnect: boolean;
+  readonly connectionEndHandle: ConnectingHandle | null;
+  readonly connectionMode: ConnectionMode;
+  readonly connectionPosition: GpuPoint;
+  readonly connectionRadius: number;
+  readonly connectionStartHandle: ConnectingHandle | null;
+  readonly connectionStatus: ConnectionStatus | null;
+};
+
+type SetGpuConnectionStateInput = Partial<
+  Pick<
+    GpuConnectionState,
+    | "connectionEndHandle"
+    | "connectionPosition"
+    | "connectionStartHandle"
+    | "connectionStatus"
+  >
+>;
+
 type GpuViewportInteractionFlags = {
   readonly nodeDragging?: boolean | undefined;
   readonly panScrolling?: boolean | undefined;
@@ -24,6 +49,13 @@ type GpuViewportInteractionFlags = {
 };
 
 type GpuFlowViewportStoreState = {
+  readonly autoPanOnConnect: boolean;
+  readonly connectionEndHandle: ConnectingHandle | null;
+  readonly connectionMode: ConnectionMode;
+  readonly connectionPosition: GpuPoint;
+  readonly connectionRadius: number;
+  readonly connectionStartHandle: ConnectingHandle | null;
+  readonly connectionStatus: ConnectionStatus | null;
   readonly defaultZoom: number;
   readonly domNode: HTMLElement | null;
   readonly height: number;
@@ -45,9 +77,11 @@ type GpuFlowViewportStoreState = {
 };
 
 type GpuFlowViewportStoreActions = {
+  cancelConnection(): void;
   clearDomNode(domNode: HTMLElement): void;
   getViewport(): GpuViewport;
   setDomNode(domNode: HTMLElement | null): void;
+  setConnectionState(input: SetGpuConnectionStateInput): void;
   setMultiSelectionActive(active: boolean): void;
   setNodesSelectionBounds(bounds: GpuRect | null): void;
   setSelectionKeyPressed(pressed: boolean): void;
@@ -69,7 +103,7 @@ type GpuFlowViewportStoreActions = {
   resetUserSelection(): void;
 };
 
-type GpuFlowViewportStore = GpuFlowViewportStoreState &
+export type GpuFlowViewportStore = GpuFlowViewportStoreState &
   GpuFlowViewportStoreActions;
 
 export type GpuFlowViewportStoreApi = StoreApi<GpuFlowViewportStore>;
@@ -86,6 +120,13 @@ type MutableGpuFlowViewportStoreState = {
 };
 
 const DEFAULT_GPU_VIEWPORT_STORE_STATE = {
+  autoPanOnConnect: true,
+  connectionEndHandle: null,
+  connectionMode: ConnectionMode.Strict,
+  connectionPosition: { x: 0, y: 0 },
+  connectionRadius: 20,
+  connectionStartHandle: null,
+  connectionStatus: null,
   defaultZoom: 1,
   domNode: null,
   height: 0,
@@ -113,6 +154,19 @@ export function createGpuFlowViewportStore(
     subscribeWithSelector((set, get) => ({
       ...DEFAULT_GPU_VIEWPORT_STORE_STATE,
       ...normalizeInitialViewportStoreOptions(options),
+      cancelConnection() {
+        set((state) =>
+          state.connectionStartHandle ||
+          state.connectionEndHandle ||
+          state.connectionStatus
+            ? {
+                connectionEndHandle: null,
+                connectionStartHandle: null,
+                connectionStatus: null,
+              }
+            : state,
+        );
+      },
       clearDomNode(domNode) {
         set((state) => (state.domNode === domNode ? { domNode: null } : state));
       },
@@ -131,6 +185,14 @@ export function createGpuFlowViewportStore(
       },
       setDomNode(domNode) {
         set((state) => (state.domNode === domNode ? state : { domNode }));
+      },
+      setConnectionState(input) {
+        set((state) => {
+          const nextState = normalizeGpuConnectionStateInput(state, input);
+          return areGpuConnectionStatesEqual(state, nextState)
+            ? state
+            : nextState;
+        });
       },
       setMultiSelectionActive(active) {
         set((state) =>
@@ -280,6 +342,106 @@ function areGpuViewportTuplesEqual(
   right: GpuViewportTuple,
 ): boolean {
   return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
+}
+
+function normalizeGpuConnectionStateInput(
+  state: GpuConnectionState,
+  input: SetGpuConnectionStateInput,
+): Pick<
+  GpuConnectionState,
+  | "connectionEndHandle"
+  | "connectionPosition"
+  | "connectionStartHandle"
+  | "connectionStatus"
+> {
+  return {
+    connectionEndHandle:
+      input.connectionEndHandle === undefined
+        ? state.connectionEndHandle
+        : normalizeOptionalConnectingHandle(input.connectionEndHandle),
+    connectionPosition:
+      input.connectionPosition === undefined
+        ? state.connectionPosition
+        : normalizeGpuPoint("connection position", input.connectionPosition),
+    connectionStartHandle:
+      input.connectionStartHandle === undefined
+        ? state.connectionStartHandle
+        : normalizeOptionalConnectingHandle(input.connectionStartHandle),
+    connectionStatus:
+      input.connectionStatus === undefined
+        ? state.connectionStatus
+        : input.connectionStatus,
+  };
+}
+
+function normalizeOptionalConnectingHandle(
+  handle: ConnectingHandle | null,
+): ConnectingHandle | null {
+  if (!handle) {
+    return null;
+  }
+  if (!handle.sectionId) {
+    throw new Error("connection handle section id is required.");
+  }
+  return {
+    handleId: handle.handleId,
+    sectionId: handle.sectionId,
+    type: handle.type,
+  };
+}
+
+function normalizeGpuPoint(name: string, point: GpuPoint): GpuPoint {
+  assertFiniteNumber(`${name} x`, point.x);
+  assertFiniteNumber(`${name} y`, point.y);
+  return {
+    x: point.x,
+    y: point.y,
+  };
+}
+
+function areGpuConnectionStatesEqual(
+  left: GpuConnectionState,
+  right: Pick<
+    GpuConnectionState,
+    | "connectionEndHandle"
+    | "connectionPosition"
+    | "connectionStartHandle"
+    | "connectionStatus"
+  >,
+): boolean {
+  return (
+    areOptionalConnectingHandlesEqual(
+      left.connectionEndHandle,
+      right.connectionEndHandle,
+    ) &&
+    areGpuPointsEqual(left.connectionPosition, right.connectionPosition) &&
+    areOptionalConnectingHandlesEqual(
+      left.connectionStartHandle,
+      right.connectionStartHandle,
+    ) &&
+    left.connectionStatus === right.connectionStatus
+  );
+}
+
+function areOptionalConnectingHandlesEqual(
+  left: ConnectingHandle | null,
+  right: ConnectingHandle | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.handleId === right.handleId &&
+    left.sectionId === right.sectionId &&
+    left.type === right.type
+  );
+}
+
+function areGpuPointsEqual(left: GpuPoint, right: GpuPoint): boolean {
+  return left.x === right.x && left.y === right.y;
 }
 
 function normalizeOptionalGpuRect(

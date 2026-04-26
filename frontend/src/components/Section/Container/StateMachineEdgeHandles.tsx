@@ -1,8 +1,8 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { Handle } from "forks/xyflow/core/components/Handle";
-import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { Handle } from "gpuFlow/Handle";
+import { useNodeId } from "gpuFlow/NodeIdContext";
 import { HandlePosition } from "gpuFlow/flowTypes";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import {
   createStateMachineEdgeFromConnection,
   isValidStateMachineEdgeConnection,
@@ -14,12 +14,12 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 
 type ConnectionVisibility = {
   hasIncoming: boolean;
   hasOutgoing: boolean;
-  sectionType: SectionTypeEnum | null;
+  sectionType: SectionType | null;
 };
 
 type HandleLayout = {
@@ -60,7 +60,7 @@ const EMPTY_CONNECTION_VISIBILITY: ConnectionVisibility = {
 };
 
 const HANDLE_LAYOUT_BY_SECTION_TYPE: Partial<
-  Record<SectionTypeEnum, HandleLayout>
+  Record<SectionType, HandleLayout>
 > = {
   [SectionTypeEnum.Chat]: {
     canSource: true,
@@ -110,13 +110,14 @@ function getConnectionVisibility(
 function getSectionType(
   sectionId: string,
   state: ProjectStateSnapshot,
-): SectionTypeEnum | null {
+): SectionType | null {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
   const variant = variantId ? state.sectionVariants[variantId] : null;
   if (!variant) {
     return null;
   }
-  return state.sectionImpls[variant.impl]?.type ?? null;
+  const sectionType = state.sectionImpls[variant.impl]?.type;
+  return sectionType ? (sectionType as SectionType) : null;
 }
 
 function getEdgeVisibility(
@@ -125,7 +126,7 @@ function getEdgeVisibility(
 ): Pick<ConnectionVisibility, "hasIncoming" | "hasOutgoing"> {
   let hasIncoming = false;
   let hasOutgoing = false;
-  for (const edge of edges) {
+  for (const edge of edges ?? []) {
     if (edge.targetSectionId === sectionId) {
       hasIncoming = true;
     }
@@ -142,9 +143,7 @@ function getEdgeVisibility(
   };
 }
 
-function getHandleLayout(
-  sectionType: SectionTypeEnum | null,
-): HandleLayout | null {
+function getHandleLayout(sectionType: SectionType | null): HandleLayout | null {
   return sectionType === null
     ? null
     : HANDLE_LAYOUT_BY_SECTION_TYPE[sectionType] ?? null;
@@ -300,6 +299,25 @@ function StateMachineHandleGroup({
               content: handle.floatingBoxContent,
             })
           : {};
+        const optionalHandleProps = {
+          ...(handle.dataReverseStart === undefined
+            ? {}
+            : { "data-reverse-start": handle.dataReverseStart }),
+          ...(handle.ariaHidden === undefined
+            ? {}
+            : { "aria-hidden": handle.ariaHidden }),
+          ...(handle.tabIndex === undefined
+            ? {}
+            : { tabIndex: handle.tabIndex }),
+          ...(handle.connectionStartSemanticType === undefined
+            ? {}
+            : {
+                connectionStartSemanticType: handle.connectionStartSemanticType,
+              }),
+          ...(handle.ariaLabel === undefined
+            ? {}
+            : { "aria-label": handle.ariaLabel }),
+        };
         return (
           <Handle
             key={`${group.side}-${handle.id}`}
@@ -308,16 +326,12 @@ function StateMachineHandleGroup({
             position={handle.position}
             className={handle.className}
             data-testid={handle.dataTestId}
-            data-reverse-start={handle.dataReverseStart}
-            aria-hidden={handle.ariaHidden}
-            tabIndex={handle.tabIndex}
             isConnectable={canEditStructure}
             isConnectableStart={canEditStructure && handle.isConnectableStart}
             isConnectableEnd={canEditStructure && handle.isConnectableEnd}
-            connectionStartSemanticType={handle.connectionStartSemanticType}
             isValidConnection={isValidStateMachineEdgeConnection}
             onConnect={createStateMachineEdgeFromConnection}
-            aria-label={handle.ariaLabel}
+            {...optionalHandleProps}
             {...floatingBoxHandlers}
           />
         );
@@ -333,7 +347,7 @@ export function StateMachineEdgeHandles({
 }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
-  const isSelectingEdge = useReactFlow(
+  const isSelectingEdge = useGpuFlowViewportStore(
     (state) => state.connectionStartHandle !== null,
   );
   const connectionVisibility = useProjectState(
