@@ -156,6 +156,11 @@ type CanvasFlowReconnectTarget = {
   nodeId: string;
 };
 
+const STORE_VIEWPORT_SYNC_DELAY_MS = 120;
+const PAN_SCROLL_IDLE_DELAY_MS = 96;
+const WHEEL_ZOOM_IDLE_DELAY_MS = 96;
+const VIEWPORT_DURABLE_SYNC_DELAY_MS = 80;
+
 export function useCanvasFlowInteractions({
   canvasRef,
   edgesRef,
@@ -182,18 +187,31 @@ export function useCanvasFlowInteractions({
   const wheelZoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const durableViewportSyncTimeoutRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
   const { canEditLayout } = useShareCapabilities();
 
   const syncStoreViewport = useCallback(() => {
     const viewport = viewportRef.current;
-    useReactFlow.setState({
-      transform: canvasFlowViewportToTransform(viewport),
-    });
+    const transform = canvasFlowViewportToTransform(viewport);
+    const currentTransform = useReactFlow.getState().transform;
+    if (
+      currentTransform[0] === transform[0] &&
+      currentTransform[1] === transform[1] &&
+      currentTransform[2] === transform[2]
+    ) {
+      return;
+    }
+    useReactFlow.setState({ transform });
   }, [viewportRef]);
 
   const scheduleStoreViewportSync = useCallback(() => {
     clearTimeout(storeSyncTimeoutRef.current);
-    storeSyncTimeoutRef.current = setTimeout(syncStoreViewport, 120);
+    storeSyncTimeoutRef.current = setTimeout(
+      syncStoreViewport,
+      STORE_VIEWPORT_SYNC_DELAY_MS,
+    );
   }, [syncStoreViewport]);
 
   const commitViewportChange = useCallback(() => {
@@ -202,19 +220,37 @@ export function useCanvasFlowInteractions({
     scheduleStoreViewportSync();
   }, [schedulePaint, scheduleStoreViewportSync, viewportRef]);
 
-  const finishViewportGesture = useCallback(() => {
+  const runDurableViewportSync = useCallback(() => {
+    durableViewportSyncTimeoutRef.current = undefined;
     clearTimeout(storeSyncTimeoutRef.current);
     syncStoreViewport();
+    recordCanvasFlowInteractionMetric(
+      canvasRef.current,
+      "viewportDurableSyncs",
+    );
+    flushDeferredViewportPersistence();
+    flushPendingNodeDimensionLayoutPersistence();
+  }, [canvasRef, syncStoreViewport]);
+
+  const scheduleDurableViewportSync = useCallback(() => {
+    clearTimeout(durableViewportSyncTimeoutRef.current);
+    durableViewportSyncTimeoutRef.current = setTimeout(
+      runDurableViewportSync,
+      VIEWPORT_DURABLE_SYNC_DELAY_MS,
+    );
+  }, [runDurableViewportSync]);
+
+  const finishViewportGesture = useCallback(() => {
+    clearTimeout(storeSyncTimeoutRef.current);
     useReactFlow.setState({
       paneDragging: false,
       viewportInteractionActive: false,
     });
     useMisc.setState({ isPanScrolling: false });
     dispatchCanvasFlowViewportChange(viewportRef.current);
-    schedulePaint();
-    flushDeferredViewportPersistence();
-    flushPendingNodeDimensionLayoutPersistence();
-  }, [schedulePaint, syncStoreViewport, viewportRef]);
+    recordCanvasFlowInteractionMetric(canvasRef.current, "viewportFinalizes");
+    scheduleDurableViewportSync();
+  }, [canvasRef, scheduleDurableViewportSync, viewportRef]);
 
   const startWheelInteraction = useCallback(
     (kind: "pan" | "zoom") => {
@@ -226,23 +262,36 @@ export function useCanvasFlowInteractions({
           useMisc.setState({ isPanScrolling: false });
           useReactFlow.setState({ viewportInteractionActive: false });
           dispatchCanvasFlowViewportChange(viewportRef.current);
-          schedulePaint();
-          flushDeferredViewportPersistence();
-          flushPendingNodeDimensionLayoutPersistence();
-        }, 150);
+          recordCanvasFlowInteractionMetric(
+            canvasRef.current,
+            "viewportFinalizes",
+          );
+          scheduleDurableViewportSync();
+        }, PAN_SCROLL_IDLE_DELAY_MS);
         return;
       }
       clearTimeout(wheelZoomTimeoutRef.current);
       wheelZoomTimeoutRef.current = setTimeout(() => {
         useReactFlow.setState({ viewportInteractionActive: false });
         dispatchCanvasFlowViewportChange(viewportRef.current);
-        schedulePaint();
-        flushDeferredViewportPersistence();
-        flushPendingNodeDimensionLayoutPersistence();
-      }, 180);
+        recordCanvasFlowInteractionMetric(
+          canvasRef.current,
+          "viewportFinalizes",
+        );
+        scheduleDurableViewportSync();
+      }, WHEEL_ZOOM_IDLE_DELAY_MS);
     },
-    [schedulePaint, viewportRef],
+    [canvasRef, scheduleDurableViewportSync, viewportRef],
   );
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(storeSyncTimeoutRef.current);
+      clearTimeout(panScrollTimeoutRef.current);
+      clearTimeout(wheelZoomTimeoutRef.current);
+      clearTimeout(durableViewportSyncTimeoutRef.current);
+    };
+  }, []);
 
   const onClick = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
@@ -1393,6 +1442,19 @@ function onBackgroundClick(
 
 function dispatchCanvasFlowViewportChange(viewport: CanvasFlowViewport) {
   publishCanvasFlowLiveViewport(viewport);
+}
+
+function recordCanvasFlowInteractionMetric(
+  canvas: HTMLCanvasElement | null,
+  key: string,
+) {
+  if (!canvas) {
+    return;
+  }
+  const currentValue = Number.parseInt(canvas.dataset[key] ?? "0", 10);
+  canvas.dataset[key] = String(
+    Number.isFinite(currentValue) ? currentValue + 1 : 1,
+  );
 }
 
 function shouldIgnoreWheelEvent({

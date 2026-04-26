@@ -53,6 +53,8 @@ type CanvasStats = {
   snapshotCaptureMs: number;
   totalPaintMs: number;
   transformAssignmentMs: number;
+  viewportDurableSyncs: number;
+  viewportFinalizes: number;
   viewportX: number;
   viewportY: number;
   viewportZoom: number;
@@ -841,6 +843,8 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
       snapshotCaptureMs: readNumber(dataset.snapshotCaptureMs),
       totalPaintMs: readNumber(dataset.totalPaintMs),
       transformAssignmentMs: readNumber(dataset.transformAssignmentMs),
+      viewportDurableSyncs: readNumber(dataset.viewportDurableSyncs),
+      viewportFinalizes: readNumber(dataset.viewportFinalizes),
       viewportX: readNumber(dataset.viewportX),
       viewportY: readNumber(dataset.viewportY),
       viewportZoom: readNumber(dataset.viewportZoom),
@@ -871,6 +875,9 @@ async function measureGesture(
 
   const gesture = await page.evaluate(
     async ({ kind: gestureKind, selector, steps: gestureSteps }) => {
+      const { useReactFlow } = await import(
+        "/src/forks/xyflow/core/store/index.ts"
+      );
       const canvas = document.querySelector<HTMLCanvasElement>(selector);
       if (!canvas) {
         throw new Error("Missing CanvasFlow canvas.");
@@ -931,7 +938,6 @@ async function measureGesture(
               timedOutPaints += 1;
             }
           }
-          const settlePreviousSequence = readPaintSequence(canvas);
           const settleStart = performance.now();
           canvas.dispatchEvent(
             new PointerEvent("pointerup", {
@@ -946,12 +952,12 @@ async function measureGesture(
               pointerType: "mouse",
             }),
           );
-          const settleResult = await waitForPaintAfter(
-            canvas,
-            settlePreviousSequence,
+          const settleResult = await waitForViewportInteractionEnd(
+            useReactFlow,
             500,
           );
-          settleLatencyMs = settleResult.time - settleStart;
+          settleLatencyMs =
+            Math.max(settleResult.time, getLastPaintTime(canvas)) - settleStart;
           settleTimedOut = settleResult.timedOut;
         } finally {
           canvas.setPointerCapture = originalSetPointerCapture;
@@ -980,12 +986,9 @@ async function measureGesture(
             timedOutPaints += 1;
           }
         }
-        const settlePreviousSequence = readPaintSequence(canvas);
         const settleStart = performance.now();
-        await new Promise<void>((resolve) => setTimeout(() => resolve(), 220));
-        const settleResult = await waitForPaintAfter(
-          canvas,
-          settlePreviousSequence,
+        const settleResult = await waitForViewportInteractionEnd(
+          useReactFlow,
           650,
         );
         settleLatencyMs = settleResult.time - settleStart;
@@ -1025,6 +1028,35 @@ async function measureGesture(
           10,
         );
         return Number.isFinite(sequence) ? sequence : 0;
+      }
+
+      function getLastPaintTime(target: HTMLCanvasElement) {
+        const rawValue = target.dataset.lastPaintTime;
+        const parsed = Number.parseFloat(rawValue ?? "0");
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+
+      async function waitForViewportInteractionEnd(
+        reactFlowStore: typeof useReactFlow,
+        timeoutMs: number,
+      ) {
+        const deadline = performance.now() + timeoutMs;
+        while (performance.now() < deadline) {
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          );
+          const state = reactFlowStore.getState();
+          if (!state.viewportInteractionActive && !state.paneDragging) {
+            return {
+              time: performance.now(),
+              timedOut: false,
+            };
+          }
+        }
+        return {
+          time: performance.now(),
+          timedOut: true,
+        };
       }
 
       async function waitForPaintAfter(
@@ -1233,7 +1265,7 @@ function renderMatrixReport(
     `- Isolation variants: ${options.variants.join(", ")}.`,
     `- Start viewport: x=${formatNumber(options.startViewport.x)}, y=${formatNumber(options.startViewport.y)}, zoom=${formatNumber(options.startViewport.zoom)}.`,
     `- Gesture sample: ${options.steps} event-to-paint steps for pan and ${options.steps} event-to-paint steps for wheel zoom per graph size.`,
-    "- First/last input columns isolate gesture-start and gesture-end event-to-paint latency; settle measures the paint requested after pointer-up or the wheel-stop debounce.",
+    "- First/last input columns isolate gesture-start and gesture-end event-to-paint latency; settle measures time until CanvasFlow marks viewport interaction inactive after pointer-up or the final wheel event.",
     options.datasetDescription,
     "- Scripting, style, layout, task, and heap numbers come from Chrome `Performance.getMetrics` deltas around each gesture.",
     "- Paint and composite numbers are summed from a short CDP trace around each gesture. These trace buckets are diagnostic event sums, not mutually exclusive frame budget totals.",
@@ -1246,8 +1278,8 @@ function renderMatrixReport(
     "",
     "## Current CanvasFlow Matrix",
     "",
-    "| Nodes | Variant | Gesture | FPS | First Input | Last Input | Avg Input Latency | P95 Input Latency | Settle | Settle Timeout | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Snapshot Hits | Snapshot Misses | Snapshot Capture | Transform Sync | Total Paint | Timeouts |",
-    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Variant | Gesture | FPS | First Input | Last Input | Avg Input Latency | P95 Input Latency | Settle | Settle Timeout | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Snapshot Hits | Snapshot Misses | Snapshot Capture | Transform Sync | Finalizes | Durable Syncs | Total Paint | Timeouts |",
+    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ];
   for (const result of results) {
     lines.push(renderGestureRow(result, "pan", result.pan));
@@ -1320,6 +1352,14 @@ function renderGestureRow(
     formatInteger(gesture.afterStats.snapshotCacheMisses),
     formatMs(gesture.afterStats.snapshotCaptureMs),
     formatMs(gesture.afterStats.transformAssignmentMs),
+    formatInteger(
+      gesture.afterStats.viewportFinalizes -
+        gesture.beforeStats.viewportFinalizes,
+    ),
+    formatInteger(
+      gesture.afterStats.viewportDurableSyncs -
+        gesture.beforeStats.viewportDurableSyncs,
+    ),
     formatMs(gesture.afterStats.totalPaintMs),
     formatInteger(gesture.timedOutPaints),
   ];

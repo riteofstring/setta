@@ -710,6 +710,7 @@ function writePaintStats(
   canvas.dataset.mountedNodes = String(stats.mountedNodeCount);
   canvas.dataset.edgeCount = String(stats.edgeCount);
   canvas.dataset.edgeDrawMs = stats.edgeDrawMs.toFixed(2);
+  canvas.dataset.lastPaintTime = now.toFixed(2);
   canvas.dataset.snapshotCacheHits = String(stats.snapshotCacheHitCount);
   canvas.dataset.snapshotCacheMisses = String(stats.snapshotCacheMissCount);
   canvas.dataset.snapshotCaptureMs = stats.snapshotCaptureMs.toFixed(2);
