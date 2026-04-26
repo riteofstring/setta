@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { NO_PAN_CLASS_NAME } from "utils/constants";
+import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGpuFlowViewportStore } from "../viewportStore";
@@ -33,6 +33,13 @@ describe("GPU pan/zoom controller", () => {
     ).toEqual({ deltaX: 2, deltaY: 0 });
     expect(
       resolveGpuPanOnScrollDelta({
+        event: wheelLike({ deltaX: 2, deltaY: 3 }),
+        isMacOS: false,
+        panOnScrollMode: PanOnScrollModeEnum.vertical,
+      }),
+    ).toEqual({ deltaX: 0, deltaY: 3 });
+    expect(
+      resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaX: 2, deltaY: 3, shiftKey: true }),
         isMacOS: false,
         panOnScrollMode: PanOnScrollModeEnum.free,
@@ -40,15 +47,8 @@ describe("GPU pan/zoom controller", () => {
     ).toEqual({ deltaX: 3, deltaY: 0 });
   });
 
-  it("blocks wheel events from native scroll regions unless zoom is explicitly activated", () => {
-    const target = document.createElement("div");
-    target.className = "nowheel";
-    const event = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      deltaY: -50,
-    });
-    target.dispatchEvent(event);
+  it("preserves native nowheel targets unless zoom is explicitly activated", () => {
+    const event = dispatchWheelFromClass(NO_WHEEL_CLASS_NAME);
 
     expect(
       shouldHandleGpuWheelEvent({
@@ -65,6 +65,32 @@ describe("GPU pan/zoom controller", () => {
         event,
         isMacOS: false,
         panOnScroll: false,
+        preventScrolling: true,
+        zoomActivationKeyPressed: true,
+        zoomOnPinch: true,
+        zoomOnScroll: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("preserves native nopan targets when plain pan-on-scroll would own the gesture", () => {
+    const event = dispatchWheelFromClass(NO_PAN_CLASS_NAME);
+
+    expect(
+      shouldHandleGpuWheelEvent({
+        event,
+        isMacOS: false,
+        panOnScroll: true,
+        preventScrolling: true,
+        zoomOnPinch: true,
+        zoomOnScroll: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHandleGpuWheelEvent({
+        event,
+        isMacOS: false,
+        panOnScroll: true,
         preventScrolling: true,
         zoomActivationKeyPressed: true,
         zoomOnPinch: true,
@@ -113,7 +139,7 @@ describe("GPU pan/zoom controller", () => {
     detach();
   });
 
-  it("pans on wheel when pan-on-scroll owns the gesture", () => {
+  it("lets pan-on-scroll own plain wheel when zoom-on-scroll is also enabled", () => {
     vi.useFakeTimers();
     const element = createSurfaceElement();
     const store = createGpuFlowViewportStore({
@@ -126,7 +152,7 @@ describe("GPU pan/zoom controller", () => {
       panOnScroll: true,
       requestFrame,
       store,
-      zoomOnScroll: false,
+      zoomOnScroll: true,
     });
 
     element.dispatchEvent(
@@ -140,9 +166,91 @@ describe("GPU pan/zoom controller", () => {
 
     expect(store.getState().transform).toEqual([-5, -10, 1]);
     expect(store.getState().panScrolling).toBe(true);
+    expect(store.getState().wheelZooming).toBe(false);
     vi.advanceTimersByTime(150);
     expect(store.getState().panScrolling).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    detach();
+  });
+
+  it("lets pinch zoom win over pan-on-scroll", () => {
+    vi.useFakeTimers();
+    const element = createSurfaceElement();
+    const store = createGpuFlowViewportStore({
+      height: 400,
+      transform: [0, 0, 1],
+      width: 600,
+    });
+    const requestFrame = vi.fn();
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: true,
+      panOnScroll: true,
+      requestFrame,
+      store,
+      zoomOnPinch: true,
+      zoomOnScroll: true,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 120,
+        clientY: 90,
+        ctrlKey: true,
+        deltaY: -20,
+      }),
+    );
+
+    const [x, y, zoom] = store.getState().transform;
+    expect(zoom).toBeGreaterThan(1);
+    expect(x).toBeCloseTo(120 - 120 * zoom);
+    expect(y).toBeCloseTo(90 - 90 * zoom);
+    expect(store.getState().wheelZooming).toBe(true);
+    expect(store.getState().panScrolling).toBe(false);
+    vi.advanceTimersByTime(180);
+    expect(store.getState().wheelZooming).toBe(false);
+    detach();
+  });
+
+  it("lets the zoom activation key win over pan-on-scroll", () => {
+    vi.useFakeTimers();
+    const element = createSurfaceElement();
+    const store = createGpuFlowViewportStore({
+      height: 400,
+      transform: [0, 0, 1],
+      width: 600,
+    });
+    const requestFrame = vi.fn();
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      panOnScroll: true,
+      requestFrame,
+      store,
+      zoomActivationKeyPressed: true,
+      zoomOnScroll: false,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 40,
+        clientY: 30,
+        deltaY: -100,
+      }),
+    );
+
+    const [x, y, zoom] = store.getState().transform;
+    expect(zoom).toBeGreaterThan(1);
+    expect(x).toBeCloseTo(40 - 40 * zoom);
+    expect(y).toBeCloseTo(30 - 30 * zoom);
+    expect(store.getState().wheelZooming).toBe(true);
+    expect(store.getState().panScrolling).toBe(false);
+    vi.advanceTimersByTime(180);
+    expect(store.getState().wheelZooming).toBe(false);
     detach();
   });
 
@@ -304,6 +412,18 @@ function createSurfaceElement(): HTMLElement {
     }) as DOMRect;
   document.body.append(element);
   return element;
+}
+
+function dispatchWheelFromClass(className: string): WheelEvent {
+  const target = document.createElement("div");
+  target.className = className;
+  const event = new WheelEvent("wheel", {
+    bubbles: true,
+    cancelable: true,
+    deltaY: -50,
+  });
+  target.dispatchEvent(event);
+  return event;
 }
 
 function wheelLike(

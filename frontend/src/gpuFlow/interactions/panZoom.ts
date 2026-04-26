@@ -287,8 +287,7 @@ class GpuPanZoomController {
     const zoomRequested =
       pinchZoom ||
       Boolean(this.options.zoomActivationKeyPressed) ||
-      this.options.zoomOnScroll ||
-      !this.options.panOnScroll;
+      (!this.options.panOnScroll && this.options.zoomOnScroll);
 
     if (zoomRequested) {
       this.startWheelZoomBurst();
