@@ -55,11 +55,11 @@ import {
   publishCanvasFlowLiveViewport,
 } from "./canvasFlowLiveViewport";
 import { paintCanvasFlow } from "./canvasFlowPaint";
+import { getCanvasFlowSizeFromResizeEntry } from "./canvasFlowSizing";
 import {
   assertHtmlInCanvasSupport,
   requestCanvasFlowPaint,
 } from "./canvasFlowSupport";
-import { getCanvasFlowSizeFromResizeEntry } from "./canvasFlowSizing";
 import type {
   CanvasFlowConnectionState,
   CanvasFlowDrawableEdge,
@@ -92,6 +92,9 @@ const wrapperStyle: CSSProperties = {
   position: "relative",
   userSelect: "none",
   overflowAnchor: "none",
+};
+type CanvasFlowPerfWindow = typeof window & {
+  __settaCanvasFlowPerfDisableResizeObserver?: boolean;
 };
 
 function CanvasFlow() {
@@ -331,6 +334,9 @@ function CanvasFlow() {
       return;
     }
     const observer = new ResizeObserver((entries) => {
+      if (isCanvasFlowPerfResizeObserverDisabled()) {
+        return;
+      }
       const updates = getNodeUpdateInformation(entries, true);
       updateNodeDimensions(updates);
       schedulePaint();
@@ -422,6 +428,14 @@ function CanvasFlow() {
         id={SETTA_POPOVER_PORTAL_PARENT_ID}
       />
     </div>
+  );
+}
+
+function isCanvasFlowPerfResizeObserverDisabled() {
+  return (
+    typeof window !== "undefined" &&
+    (window as CanvasFlowPerfWindow)
+      .__settaCanvasFlowPerfDisableResizeObserver === true
   );
 }
 

@@ -20,9 +20,22 @@ import { expandWorldRect, getVisibleWorldRect } from "./canvasFlowViewport";
 const DEFAULT_OVERSCAN = 600;
 const PAINT_STATS_SAMPLE_INTERVAL_MS = 250;
 const CANVAS_FLOW_DIAGNOSTICS_ENABLED = "enabled";
+const CANVAS_FLOW_PERF_VARIANTS = new Set([
+  "no-edges",
+  "rect-nodes",
+  "skip-transform",
+]);
 
 type CanvasFlowStatsCanvas = HTMLCanvasElement & {
   __canvasFlowLastStatsWriteMs?: number;
+};
+type CanvasFlowPerfVariant =
+  | "default"
+  | "no-edges"
+  | "rect-nodes"
+  | "skip-transform";
+type CanvasFlowPerfWindow = typeof window & {
+  __settaCanvasFlowPerfVariant?: string;
 };
 
 type PaintCanvasFlowParams = {
@@ -60,6 +73,7 @@ export function paintCanvasFlow({
   viewport,
   wireColor,
 }: PaintCanvasFlowParams): CanvasFlowPaintStats {
+  const perfVariant = getCanvasFlowPerfVariant();
   const paintStart = performance.now();
   resetCanvasContext(ctx);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -77,24 +91,30 @@ export function paintCanvasFlow({
   ctx.save();
   ctx.translate(viewport.x, viewport.y);
   ctx.scale(viewport.zoom, viewport.zoom);
-  drawCanvasFlowEdges({ ctx, edges, wireColor });
-  drawCanvasFlowConnectionPreview({
-    connectionState,
-    ctx,
-    positions: edgeHandlePositions,
-    viewport,
-  });
+  const edgeDrawStart = performance.now();
+  if (perfVariant !== "no-edges") {
+    drawCanvasFlowEdges({ ctx, edges, wireColor });
+    drawCanvasFlowConnectionPreview({
+      connectionState,
+      ctx,
+      positions: edgeHandlePositions,
+      viewport,
+    });
+  }
+  const edgeDrawMs = performance.now() - edgeDrawStart;
   ctx.restore();
 
   const visibleRect = expandWorldRect(
     getVisibleWorldRect(size, viewport),
     overscan,
   );
+  const visibilityScanStart = performance.now();
   const visibleNodes = getVisibleNodeDrawRecords({
     nodes,
     nodeElements,
     visibleRect,
   });
+  const visibilityScanMs = performance.now() - visibilityScanStart;
   const nextInteractiveNodeIds = new Set<string>();
   let drawElementImageMs = 0;
   let transformAssignmentMs = 0;
@@ -107,6 +127,10 @@ export function paintCanvasFlow({
     }
     drawnNodeCount += 1;
     const screenRect = getNodeScreenDrawRect(node, viewport);
+    if (perfVariant === "rect-nodes") {
+      drawNodeDiagnosticRect(ctx, node, screenRect);
+      continue;
+    }
     const drawStart = performance.now();
     const transform = ctx.drawElementImage(
       element,
@@ -118,7 +142,9 @@ export function paintCanvasFlow({
     drawElementImageMs += performance.now() - drawStart;
 
     const transformStart = performance.now();
-    assignNodePaintStyle(element, transform.toString());
+    if (perfVariant !== "skip-transform") {
+      assignNodePaintStyle(element, transform.toString());
+    }
     transformAssignmentMs += performance.now() - transformStart;
     nextInteractiveNodeIds.add(node.id);
   }
@@ -135,16 +161,53 @@ export function paintCanvasFlow({
 
   const paintEnd = performance.now();
   const stats = {
+    edgeCount: edges.length,
+    edgeDrawMs,
     visibleNodeCount: visibleNodes.length,
     drawnNodeCount,
     registeredNodeCount: nodes.length,
     mountedNodeCount: nodeElements.size,
     drawElementImageMs,
+    visibilityScanMs,
     transformAssignmentMs,
     totalPaintMs: paintEnd - paintStart,
   };
   writePaintStats(canvas, stats, viewport, paintEnd);
   return stats;
+}
+
+function getCanvasFlowPerfVariant(): CanvasFlowPerfVariant {
+  if (typeof window === "undefined") {
+    return "default";
+  }
+  const variant = (window as CanvasFlowPerfWindow).__settaCanvasFlowPerfVariant;
+  if (variant && CANVAS_FLOW_PERF_VARIANTS.has(variant)) {
+    return variant as CanvasFlowPerfVariant;
+  }
+  return "default";
+}
+
+function drawNodeDiagnosticRect(
+  ctx: CanvasRenderingContext2D,
+  node: CanvasFlowNodeDrawRecord,
+  screenRect: ReturnType<typeof getNodeScreenDrawRect>,
+) {
+  ctx.fillStyle = "rgba(59, 130, 246, 0.22)";
+  ctx.fillRect(screenRect.x, screenRect.y, screenRect.width, screenRect.height);
+  ctx.strokeStyle = "rgba(30, 64, 175, 0.72)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(
+    screenRect.x,
+    screenRect.y,
+    screenRect.width,
+    screenRect.height,
+  );
+  if (screenRect.width < 36 || screenRect.height < 18) {
+    return;
+  }
+  ctx.fillStyle = "rgba(15, 23, 42, 0.86)";
+  ctx.font = "11px sans-serif";
+  ctx.fillText(node.id, screenRect.x + 6, screenRect.y + 14);
 }
 
 function getNodeScreenDrawRect(
@@ -281,7 +344,10 @@ function writePaintStats(
   canvas.dataset.drawnNodes = String(stats.drawnNodeCount);
   canvas.dataset.registeredNodes = String(stats.registeredNodeCount);
   canvas.dataset.mountedNodes = String(stats.mountedNodeCount);
+  canvas.dataset.edgeCount = String(stats.edgeCount);
+  canvas.dataset.edgeDrawMs = stats.edgeDrawMs.toFixed(2);
   canvas.dataset.drawElementImageMs = stats.drawElementImageMs.toFixed(2);
+  canvas.dataset.visibilityScanMs = stats.visibilityScanMs.toFixed(2);
   canvas.dataset.transformAssignmentMs = stats.transformAssignmentMs.toFixed(2);
   canvas.dataset.totalPaintMs = stats.totalPaintMs.toFixed(2);
   canvas.dataset.viewportX = viewport.x.toFixed(2);

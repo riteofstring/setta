@@ -17,6 +17,14 @@ const NODE_GAP_X = 340;
 const NODE_GAP_Y = 190;
 const CREATE_CHUNK_SIZE = 100;
 const START_VIEWPORT = { x: 80, y: 80, zoom: 1 };
+const ISOLATION_VARIANTS = [
+  "default",
+  "no-edges",
+  "rect-nodes",
+  "skip-transform",
+  "minimap-off",
+  "resize-observer-off",
+] as const;
 const TRACE_CATEGORIES = [
   "devtools.timeline",
   "disabled-by-default-devtools.timeline",
@@ -28,6 +36,8 @@ const TRACE_CATEGORIES = [
 type CanvasStats = {
   drawElementImageMs: number;
   drawnNodes: number;
+  edgeCount: number;
+  edgeDrawMs: number;
   mountedNodes: number;
   paintSequence: number;
   registeredNodes: number;
@@ -37,6 +47,7 @@ type CanvasStats = {
   viewportY: number;
   viewportZoom: number;
   visibleNodes: number;
+  visibilityScanMs: number;
 };
 
 type GestureMetrics = {
@@ -73,6 +84,7 @@ type MatrixResult = {
   count: number;
   initialStats: CanvasStats;
   pan: MeasuredGesture;
+  variant: CanvasFlowPerfVariant;
   zoom: MeasuredGesture;
 };
 
@@ -81,6 +93,7 @@ type SeededPerfProject = {
   projectConfigId: string;
   projectName: string;
 };
+type CanvasFlowPerfVariant = (typeof ISOLATION_VARIANTS)[number];
 
 test.skip(
   process.env.SETTA_CANVASFLOW_PERF !== "1",
@@ -106,6 +119,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
     process.env.SETTA_CANVASFLOW_PERF_STEPS,
     DEFAULT_STEPS,
   );
+  const variants = parseVariants(process.env.SETTA_CANVASFLOW_PERF_VARIANTS);
   const results: MatrixResult[] = [];
   const seededProjects = await findSeededCanvasFlowPerfProjects(page, counts);
 
@@ -118,9 +132,17 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
       await gotoSeededCanvasFlowPerfProject(page, project);
       await forceCanvasFlowZoomOnWheel(page);
       await assertCanvasFlowSupport(page);
-      results.push(
-        await measureCurrentCanvasFlowProject(page, cdp, count, steps),
-      );
+      for (const variant of variants) {
+        results.push(
+          await measureCurrentCanvasFlowProject(
+            page,
+            cdp,
+            count,
+            steps,
+            variant,
+          ),
+        );
+      }
     }
   } else {
     const projectContext = await openIsolatedProject(page);
@@ -141,9 +163,17 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
           createdSyntheticCount = nextSyntheticCount;
           currentNodeCount = count;
         }
-        results.push(
-          await measureCurrentCanvasFlowProject(page, cdp, count, steps),
-        );
+        for (const variant of variants) {
+          results.push(
+            await measureCurrentCanvasFlowProject(
+              page,
+              cdp,
+              count,
+              steps,
+              variant,
+            ),
+          );
+        }
       }
     } finally {
       await cleanupIsolatedProject(page, projectContext);
@@ -154,6 +184,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
     counts,
     steps,
     usedSeededProjects: seededProjects.size === counts.length,
+    variants,
   });
 
   for (const result of results) {
@@ -170,8 +201,10 @@ async function measureCurrentCanvasFlowProject(
   cdp: CDPSession,
   count: number,
   steps: number,
+  variant: CanvasFlowPerfVariant,
 ): Promise<MatrixResult> {
   await waitForCanvasGraph(page, count);
+  await setCanvasFlowPerfVariant(page, variant);
 
   await setCanvasViewport(page, START_VIEWPORT);
   const initialStats = await readCanvasStats(page);
@@ -180,7 +213,7 @@ async function measureCurrentCanvasFlowProject(
   await setCanvasViewport(page, START_VIEWPORT);
   const zoom = await measureGesture(page, cdp, "zoom", steps);
 
-  return { count, initialStats, pan, zoom };
+  return { count, initialStats, pan, variant, zoom };
 }
 
 function parseCounts(value: string | undefined, fallback: number[]): number[] {
@@ -206,6 +239,27 @@ function parsePositiveInteger(value: string | undefined, fallback: number) {
     throw new Error(`Expected a positive integer, got ${value}`);
   }
   return parsed;
+}
+
+function parseVariants(value: string | undefined): CanvasFlowPerfVariant[] {
+  if (!value?.trim()) {
+    return process.env.SETTA_CANVASFLOW_PERF_ISOLATION === "1"
+      ? [...ISOLATION_VARIANTS]
+      : ["default"];
+  }
+  const requested = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const invalid = requested.filter(
+    (variant) => !ISOLATION_VARIANTS.includes(variant as CanvasFlowPerfVariant),
+  );
+  if (invalid.length > 0) {
+    throw new Error(
+      `Invalid SETTA_CANVASFLOW_PERF_VARIANTS: ${invalid.join(", ")}`,
+    );
+  }
+  return requested as CanvasFlowPerfVariant[];
 }
 
 async function findSeededCanvasFlowPerfProjects(
@@ -310,6 +364,40 @@ async function assertCanvasFlowSupport(page: Page) {
   expect(support.layoutSubtree).toBe(true);
   expect(support.reactFlowViewportCount).toBe(0);
   expect(support.svgEdgeLayerCount).toBe(0);
+}
+
+async function setCanvasFlowPerfVariant(
+  page: Page,
+  variant: CanvasFlowPerfVariant,
+) {
+  await page.evaluate(async (nextVariant) => {
+    const windowRef = window as typeof window & {
+      __settaCanvasFlowPerfDisableResizeObserver?: boolean;
+      __settaCanvasFlowPerfVariant?: string;
+    };
+    const paintVariantByIsolationVariant: Record<string, string | undefined> = {
+      default: undefined,
+      "minimap-off": undefined,
+      "no-edges": "no-edges",
+      "rect-nodes": "rect-nodes",
+      "resize-observer-off": undefined,
+      "skip-transform": "skip-transform",
+    };
+    const paintVariant = paintVariantByIsolationVariant[nextVariant];
+    if (paintVariant) {
+      windowRef.__settaCanvasFlowPerfVariant = paintVariant;
+    } else {
+      delete windowRef.__settaCanvasFlowPerfVariant;
+    }
+    windowRef.__settaCanvasFlowPerfDisableResizeObserver =
+      nextVariant === "resize-observer-off";
+
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    useLocalStorage.setState({
+      showMinimap: nextVariant !== "minimap-off",
+    });
+  }, variant);
+  await flushCanvasPaint(page);
 }
 
 async function createSyntheticTextBlockSections(
@@ -514,6 +602,8 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
     return {
       drawElementImageMs: readNumber(dataset.drawElementImageMs),
       drawnNodes: readNumber(dataset.drawnNodes),
+      edgeCount: readNumber(dataset.edgeCount),
+      edgeDrawMs: readNumber(dataset.edgeDrawMs),
       mountedNodes: readNumber(dataset.mountedNodes),
       paintSequence: readNumber(dataset.paintSequence),
       registeredNodes: readNumber(dataset.registeredNodes),
@@ -523,6 +613,7 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
       viewportY: readNumber(dataset.viewportY),
       viewportZoom: readNumber(dataset.viewportZoom),
       visibleNodes: readNumber(dataset.visibleNodes),
+      visibilityScanMs: readNumber(dataset.visibilityScanMs),
     };
 
     function readNumber(value: string | undefined) {
@@ -805,7 +896,12 @@ function summarizeTrace(traceText: string): TraceSummary {
 
 async function writeMatrixReport(
   results: MatrixResult[],
-  options: { counts: number[]; steps: number; usedSeededProjects: boolean },
+  options: {
+    counts: number[];
+    steps: number;
+    usedSeededProjects: boolean;
+    variants: CanvasFlowPerfVariant[];
+  },
 ) {
   const repoRoot = path.resolve(process.cwd(), "..");
   const reportPath =
@@ -832,6 +928,7 @@ async function writeMatrixReport(
       counts: options.counts,
       steps: options.steps,
       usedSeededProjects: options.usedSeededProjects,
+      variants: options.variants,
     }),
     "utf-8",
   );
@@ -844,6 +941,7 @@ function renderMatrixReport(
     counts: number[];
     steps: number;
     usedSeededProjects: boolean;
+    variants: CanvasFlowPerfVariant[];
   },
 ) {
   const lines = [
@@ -864,6 +962,7 @@ function renderMatrixReport(
     "- Command: `SETTA_CANVASFLOW_PERF=1 ./scripts/run-playwright-e2e.sh tests/e2e/canvasflow/html-in-canvas-pan-zoom-perf.spec.ts`.",
     "- Browser: Chrome launched by Playwright with `--enable-blink-features=CanvasDrawElement`.",
     `- Matrix counts: ${options.counts.map(formatInteger).join(", ")} top-level TextBlock sections.`,
+    `- Isolation variants: ${options.variants.join(", ")}.`,
     `- Gesture sample: ${options.steps} event-to-paint steps for pan and ${options.steps} event-to-paint steps for wheel zoom per graph size.`,
     options.usedSeededProjects
       ? "- Dataset: Go-seeded TextBlock perf projects loaded by the normal backend project-state path, using real `SectionContainer` node bodies, the active CanvasFlow renderer, and current canvas culling."
@@ -879,23 +978,23 @@ function renderMatrixReport(
     "",
     "## Current CanvasFlow Matrix",
     "",
-    "| Nodes | Gesture | FPS | Avg Input Latency | P95 Input Latency | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | drawElementImage | Transform Sync | Total Paint | Timeouts |",
-    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Variant | Gesture | FPS | Avg Input Latency | P95 Input Latency | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Transform Sync | Total Paint | Timeouts |",
+    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ];
   for (const result of results) {
-    lines.push(renderGestureRow(result.count, "pan", result.pan));
-    lines.push(renderGestureRow(result.count, "zoom", result.zoom));
+    lines.push(renderGestureRow(result, "pan", result.pan));
+    lines.push(renderGestureRow(result, "zoom", result.zoom));
   }
   lines.push(
     "",
     "## Initial Culling Snapshot",
     "",
-    "| Nodes | Visible | Drawn | Registered | Mounted | Total Paint | drawElementImage | Transform Sync |",
-    "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Variant | Visible | Drawn | Registered | Mounted | Edges | Edge Draw | Visibility Scan | Total Paint | drawElementImage | Transform Sync |",
+    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   );
   for (const result of results) {
     lines.push(
-      `| ${formatInteger(result.count)} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
+      `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatInteger(result.initialStats.edgeCount)} | ${formatMs(result.initialStats.edgeDrawMs)} | ${formatMs(result.initialStats.visibilityScanMs)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
     );
   }
   lines.push(
@@ -919,12 +1018,13 @@ function renderMatrixReport(
 }
 
 function renderGestureRow(
-  count: number,
+  result: MatrixResult,
   gestureName: "pan" | "zoom",
   gesture: MeasuredGesture,
 ) {
   const cells = [
-    formatInteger(count),
+    formatInteger(result.count),
+    result.variant,
     gestureName,
     formatNumber(gesture.fps),
     formatMs(gesture.averageInputLatencyMs),
@@ -938,6 +1038,9 @@ function renderGestureRow(
     formatInteger(gesture.afterStats.visibleNodes),
     formatInteger(gesture.afterStats.drawnNodes),
     formatInteger(gesture.afterStats.mountedNodes),
+    formatInteger(gesture.afterStats.edgeCount),
+    formatMs(gesture.afterStats.edgeDrawMs),
+    formatMs(gesture.afterStats.visibilityScanMs),
     formatMs(gesture.afterStats.drawElementImageMs),
     formatMs(gesture.afterStats.transformAssignmentMs),
     formatMs(gesture.afterStats.totalPaintMs),

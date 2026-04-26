@@ -6,6 +6,8 @@ import type { CanvasFlowRenderingContext } from "./canvasFlowTypes";
 
 describe("paintCanvasFlow", () => {
   afterEach(() => {
+    delete (window as { __settaCanvasFlowPerfVariant?: string })
+      .__settaCanvasFlowPerfVariant;
     vi.restoreAllMocks();
   });
 
@@ -82,13 +84,50 @@ describe("paintCanvasFlow", () => {
       }),
     );
 
-    expect(ctx.drawElementImage).toHaveBeenCalledWith(
-      element,
-      50,
-      50,
-      30,
-      40,
+    expect(ctx.drawElementImage).toHaveBeenCalledWith(element, 50, 50, 30, 40);
+  });
+
+  it("can skip edge drawing for the perf isolation harness", () => {
+    const { canvas, ctx, element } = createPaintHarness();
+    (
+      window as { __settaCanvasFlowPerfVariant?: string }
+    ).__settaCanvasFlowPerfVariant = "no-edges";
+
+    const stats = paintCanvasFlow(
+      createPaintParams({
+        canvas,
+        ctx,
+        element,
+        edge: true,
+      }),
     );
+
+    expect(stats.edgeCount).toBe(1);
+    expect(ctx.beginPath).not.toHaveBeenCalled();
+  });
+
+  it("can replace HTML node drawing with diagnostic rectangles", () => {
+    const { canvas, ctx, element } = createPaintHarness();
+    (
+      window as { __settaCanvasFlowPerfVariant?: string }
+    ).__settaCanvasFlowPerfVariant = "rect-nodes";
+
+    paintCanvasFlow(createPaintParams({ canvas, ctx, element }));
+
+    expect(ctx.drawElementImage).not.toHaveBeenCalled();
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 100, 100);
+  });
+
+  it("can skip DOM transform assignment for the perf isolation harness", () => {
+    const { canvas, ctx, element } = createPaintHarness();
+    (
+      window as { __settaCanvasFlowPerfVariant?: string }
+    ).__settaCanvasFlowPerfVariant = "skip-transform";
+
+    paintCanvasFlow(createPaintParams({ canvas, ctx, element }));
+
+    expect(ctx.drawElementImage).toHaveBeenCalled();
+    expect(element.style.transform).toBe("");
   });
 });
 
@@ -104,6 +143,7 @@ function createPaintHarness() {
 function createPaintParams({
   canvas,
   ctx,
+  edge,
   element,
   node,
   viewport = { x: 0, y: 0, zoom: 1 },
@@ -111,6 +151,7 @@ function createPaintParams({
   canvas: HTMLCanvasElement;
   ctx: CanvasFlowRenderingContext;
   element: HTMLElement;
+  edge?: boolean;
   node?: Partial<{
     height: number;
     position: { x: number; y: number };
@@ -130,7 +171,7 @@ function createPaintParams({
     ctx,
     darkMode: false,
     edgeHandlePositions: {},
-    edges: [],
+    edges: edge ? [createTestEdge()] : [],
     gridSize: 20,
     nodeElements: new Map([["node-1", element]]),
     nodes: [
@@ -159,16 +200,34 @@ function createPaintParams({
 
 function createContext(): CanvasFlowRenderingContext {
   return {
+    beginPath: vi.fn(),
     clearRect: vi.fn(),
+    bezierCurveTo: vi.fn(),
     drawElementImage: vi.fn(() => ({
       toString: () => "matrix(1, 0, 0, 1, 0, 0)",
     })),
+    fillText: vi.fn(),
     fillRect: vi.fn(),
+    lineTo: vi.fn(),
+    moveTo: vi.fn(),
     restore: vi.fn(),
     resetTransform: vi.fn(),
     save: vi.fn(),
     scale: vi.fn(),
     setTransform: vi.fn(),
+    stroke: vi.fn(),
+    strokeRect: vi.fn(),
     translate: vi.fn(),
   } as unknown as CanvasFlowRenderingContext;
+}
+
+function createTestEdge() {
+  return {
+    id: "edge-1",
+    kind: "data",
+    pathType: "straight",
+    source: { x: 0, y: 0 },
+    target: { x: 100, y: 100 },
+    zIndex: 0,
+  } as const;
 }

@@ -34,11 +34,14 @@ export type CanvasFlowNodeDrawRecord = {
 };
 
 export type CanvasFlowPaintStats = {
+  edgeCount: number;
+  edgeDrawMs: number;
   visibleNodeCount: number;
   drawnNodeCount: number;
   registeredNodeCount: number;
   mountedNodeCount: number;
   drawElementImageMs: number;
+  visibilityScanMs: number;
   transformAssignmentMs: number;
   totalPaintMs: number;
 };
