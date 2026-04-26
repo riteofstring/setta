@@ -1,10 +1,10 @@
+import { safeLocalStorage } from "@setta/app-subsystem-frontend-sdk";
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
 import { BootstrapProtocol } from "utils/generatedTypes";
 import {
   normalizeSettaFilesLocation,
   type SettaFilesLocation,
 } from "utils/settaFilesLocation";
-import { safeLocalStorage } from "utils/storage";
 
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;

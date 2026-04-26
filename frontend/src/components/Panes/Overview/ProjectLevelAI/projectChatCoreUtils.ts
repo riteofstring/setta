@@ -13,6 +13,7 @@ import {
   resolveAuthoritativeContextTelemetry,
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
+import { appSubsystemModeRequiresImageAttachment } from "plugins/appSubsystem";
 import {
   getRunInputString,
   getRunLastUpdatedMs,
@@ -31,6 +32,7 @@ import {
   type ChatRunType,
 } from "state/actions/chatHistory";
 import { type ProjectChatCustomSlashCommand } from "state/definitions";
+import { parseAppGenerationMode } from "state/types/appGenerationMode";
 import {
   type ChatAppGenerationContext,
   type ChatAppGenerationMessageState,
@@ -43,7 +45,6 @@ import {
 } from "utils/conversationSearch";
 import {
   AgentRun,
-  AppGenerationModeEnum,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -64,6 +65,8 @@ export const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
   "Custom slash commands are unavailable until native command authority is loaded for this project.";
 export const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
   "Native slash commands are unavailable until agent metadata reloads.";
+export const HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE =
+  "This turn used app generation. Enable an app subsystem provider with app-generation chat-mode support to edit or replay it.";
 
 export type ProjectChatBlockedErrorCode =
   | ChatHydrationErrorCode
@@ -107,6 +110,32 @@ export function getProjectChatBlockedReasonMessage(
     return "This thread's saved LLM config is unavailable. You can continue chatting after choosing any valid model.";
   }
   return "This thread hit a terminal hydration error. You can still continue chatting from the current state.";
+}
+
+export function getHistoricalAppGenerationEditReplayBlockedReason({
+  mode,
+  replaySupported,
+  modeRegistryResolved,
+  supportedAppGenerationModes,
+}: {
+  mode: string | null | undefined;
+  replaySupported: boolean;
+  modeRegistryResolved: boolean;
+  supportedAppGenerationModes: string[];
+}): string | null {
+  const normalizedMode = parseAppGenerationMode(mode);
+  if (normalizedMode == null) {
+    return null;
+  }
+  if (!replaySupported) {
+    return HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
+  }
+  if (!modeRegistryResolved) {
+    return null;
+  }
+  return supportedAppGenerationModes.includes(normalizedMode)
+    ? null
+    : HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
 }
 
 export function buildProjectChatHydrationCacheKey({
@@ -251,6 +280,7 @@ function appendUniqueSlashCommands({
 
 export function resolveProjectChatComposerSlashCommandSets({
   customProjectChatSlashCommands,
+  appGenerationSlashCommands = [],
   discoveredAgentNativeSlashCommands,
   executableAgentNativeSlashCommands = discoveredAgentNativeSlashCommands,
   customCommandsExecutable = true,
@@ -259,6 +289,7 @@ export function resolveProjectChatComposerSlashCommandSets({
   showSearchExecutionControl,
 }: {
   customProjectChatSlashCommands: ProjectChatCustomSlashCommand[];
+  appGenerationSlashCommands?: ChatSlashCommandDefinition[];
   discoveredAgentNativeSlashCommands: string[];
   executableAgentNativeSlashCommands?: string[];
   customCommandsExecutable?: boolean;
@@ -273,13 +304,13 @@ export function resolveProjectChatComposerSlashCommandSets({
     model: true,
     permissions: showPermissionExecutionControl,
     search: showSearchExecutionControl,
-    appGenerationModes: true,
+    appGenerationCommands: appGenerationSlashCommands,
   });
   const globallyReservedManagedCommands = buildChatSlashCommands({
     model: true,
     permissions: true,
     search: true,
-    appGenerationModes: true,
+    appGenerationCommands: appGenerationSlashCommands,
   });
   const customCommandDefinitions = buildCustomPromptSlashCommandDefinitions(
     customProjectChatSlashCommands,
@@ -893,8 +924,9 @@ export function hasRetainedImageAttachmentFromImageModeThread(
       return false;
     }
     if (
-      appGenerationByMessageId[message.id]?.mode !==
-      AppGenerationModeEnum.json_render_with_image
+      !appSubsystemModeRequiresImageAttachment(
+        appGenerationByMessageId[message.id]?.mode,
+      )
     ) {
       return false;
     }

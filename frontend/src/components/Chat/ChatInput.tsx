@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { formatBytes } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   type CSSProperties,
@@ -28,7 +29,6 @@ import {
   IoStop,
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { formatBytes } from "utils/attachments";
 import {
   type ChatDictationMode,
   ChatFileAttachment,
@@ -64,6 +64,7 @@ import {
   resolveChatSubmitDispatchResult,
   resolveCustomPromptSlashCommandSubmission,
   resolveEscapeComposerAction,
+  resolveQueuedDraftReplaySlashCommand,
   resolveSlashCommandRequest,
   resolveSlashCommandSubmitOptions,
   shouldAutoReplayQueuedDraft,
@@ -3900,23 +3901,29 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
 
   const replayQueuedDraft = useCallback(
     async (draft: QueuedChatDraft): Promise<SlashCommandExecutionOutcome> => {
-      if (draft.replaySnapshot.kind === "plain_message") {
+      const replaySnapshot = draft.replaySnapshot;
+      if (replaySnapshot.kind === "plain_message") {
         return submitMessage(draft.message, draft.attachments);
       }
-      const commandAvailable =
-        draft.replaySnapshot.availabilityPolicy === "fixed"
-          ? true
-          : slashCommands.some(
-              (entry) => entry.command === draft.replaySnapshot.command.command,
-            );
+      const resolvedReplayCommand = resolveQueuedDraftReplaySlashCommand({
+        message: draft.message,
+        replaySnapshot,
+        slashCommands,
+        recognizedSlashCommands: slashCommandRecognitionSet,
+      });
       return executeResolvedSlashCommand({
         message: draft.message,
         submittedAttachments: draft.attachments,
-        parsed: draft.replaySnapshot.command,
-        commandAvailable,
+        parsed: resolvedReplayCommand.parsed,
+        commandAvailable: resolvedReplayCommand.commandAvailable,
       });
     },
-    [executeResolvedSlashCommand, slashCommands, submitMessage],
+    [
+      executeResolvedSlashCommand,
+      slashCommandRecognitionSet,
+      slashCommands,
+      submitMessage,
+    ],
   );
 
   const nextQueuedDraft = queuedDrafts[0] ?? null;
@@ -3972,7 +3979,9 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
       );
       setSelectedQueuedDraftId(draftToSend.id);
       if (outcome === "failed") {
-        setSlashFeedback("Queued message failed. Edit it and retry.");
+        setSlashFeedback(
+          (current) => current ?? "Queued message failed. Edit it and retry.",
+        );
       }
     })();
   }, [

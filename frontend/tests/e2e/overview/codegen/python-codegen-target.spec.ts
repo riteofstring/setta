@@ -220,8 +220,9 @@ async function createSectionVariantFromFrontend(
         createNewSectionVariant,
         getLatestProjectState,
       } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/src/openapi/http/result");
-      const { res200 } = await import("/src/utils/endpointUtils");
+      const { callOpenAPI, res200 } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
@@ -280,8 +281,9 @@ async function setSectionVariantFromFrontend(
       targetVariantId: string;
     }) => {
       const { setSectionVariant } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/src/openapi/http/result");
-      const { res200 } = await import("/src/utils/endpointUtils");
+      const { callOpenAPI, res200 } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
 
       const response = await callOpenAPI(
         setSectionVariant({
@@ -417,8 +419,9 @@ async function setGenCodePrefixFromFrontend(
         getLatestProjectState,
         setGenCodePrefix,
       } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/src/openapi/http/result");
-      const { res200 } = await import("/src/utils/endpointUtils");
+      const { callOpenAPI, res200 } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
@@ -467,8 +470,9 @@ async function setGenCodeSuffixFromFrontend(
         getLatestProjectState,
         setGenCodeSuffix,
       } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/src/openapi/http/result");
-      const { res200 } = await import("/src/utils/endpointUtils");
+      const { callOpenAPI, res200 } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
@@ -618,8 +622,9 @@ async function setParamValueFromFrontend(
       nextValue,
     }) => {
       const { setParamEnteredValue } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/src/openapi/http/result");
-      const { res200 } = await import("/src/utils/endpointUtils");
+      const { callOpenAPI, res200 } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const { useProjectState } = await import("/src/state/definitions");
       const sectionVariantId =
         useProjectState.getState().projectConfig.sectionVariantMap[

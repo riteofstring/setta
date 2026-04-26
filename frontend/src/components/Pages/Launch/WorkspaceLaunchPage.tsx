@@ -1,18 +1,18 @@
 import {
+  callOpenAPI,
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   launchWorkspace,
   type HttpapiLaunchResponse as LaunchResponse,
   type HttpapiWorkspaceLaunchErrorPayload as WorkspaceLaunchErrorPayload,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
-import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
 import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
 import { buildLaunchRequestDedupeKey } from "utils/launchRequestDedupeKey";
 import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";

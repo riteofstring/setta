@@ -12,8 +12,8 @@ vi.mock("re-resizable", () => ({
   Resizable: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({ children }: { children: ReactNode }) => children,
-  useViewModeSortableItem: () => ({
+  SortableListProvider: ({ children }: { children: ReactNode }) => children,
+  useSortableListItem: () => ({
     attributes: {},
     listeners: {},
     setNodeRef: () => {},

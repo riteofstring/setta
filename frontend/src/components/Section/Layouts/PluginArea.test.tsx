@@ -1,4 +1,4 @@
-import { OverviewTabNameEnum } from "utils/constants";
+import { OverviewTabUIConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginArea } from "./PluginArea";
 type ElementNode = {
@@ -191,9 +191,8 @@ describe("PluginArea fallback actions", () => {
     runtimeStatusMessage = null;
     currentProjectConfigId = "project-config-1";
     routeGetLatestProjectStateMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: { projectState: "latest" },
+      response: { status: 200 } as Response,
     });
     pluginImpl = {
       pluginId: "setta-fixture-plugin",
@@ -240,7 +239,7 @@ describe("PluginArea fallback actions", () => {
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
     expect(event.stopPropagation).toHaveBeenCalledTimes(1);
     expect(onOverviewTabClickMock).toHaveBeenCalledWith(
-      OverviewTabNameEnum.Plugins,
+      OverviewTabUIConfig.names.Plugins,
     );
   });
   it("shows section-kind-missing fallback wording", () => {
@@ -335,9 +334,8 @@ describe("PluginArea fallback actions", () => {
   it("deletes section and shows success notification", async () => {
     // Successful delete should call backend delete endpoint with exact section payload.
     routeDeleteSectionsMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: null,
+      response: { status: 200 } as Response,
     });
     const fallbackCard = renderFallbackCard("section-delete");
     const deleteButton = findButtonByLabel(fallbackCard, "Delete Section");
@@ -346,11 +344,15 @@ describe("PluginArea fallback actions", () => {
       event,
     );
     expect(routeDeleteSectionsMock).toHaveBeenCalledWith({
-      projectConfigId: "project-config-1",
-      sectionIds: ["section-delete"],
+      body: {
+        projectConfigId: "project-config-1",
+        sectionIds: ["section-delete"],
+      },
     });
     expect(routeGetLatestProjectStateMock).toHaveBeenCalledWith({
-      projectConfigId: "project-config-1",
+      body: {
+        projectConfigId: "project-config-1",
+      },
     });
     expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith({
       projectState: "latest",
@@ -363,9 +365,8 @@ describe("PluginArea fallback actions", () => {
   it("reports delete failure when backend request is not 200", async () => {
     // Non-200 delete responses should surface error notification and avoid success messaging.
     routeDeleteSectionsMock.mockResolvedValue({
-      status: 500,
-      hasResponse: true,
       data: null,
+      response: { status: 500 } as Response,
     });
     const fallbackCard = renderFallbackCard("section-delete-fail");
     const deleteButton = findButtonByLabel(fallbackCard, "Delete Section");

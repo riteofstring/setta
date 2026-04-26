@@ -9,6 +9,7 @@ import (
 	"setta/internal/launcher"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
+	"setta/internal/realtime"
 	"setta/internal/stringenumvalues"
 )
 
@@ -94,6 +95,39 @@ func TestRegistryValuesForImportedWrapperEnumWithoutLocalConsts(t *testing.T) {
 		{Name: "lost", Value: "lost"},
 	}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("DetachedRunStatus values = %#v, want %#v", got, want)
+	}
+}
+
+func TestRegistryValuesUsesStringEnumValueProvider(t *testing.T) {
+	t.Helper()
+
+	values, ok, err := stringenumvalues.New().Values(
+		reflect.TypeOf(realtime.WebsocketMessageType("")),
+	)
+	if err != nil {
+		t.Fatalf("Values() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("Values() did not resolve WebsocketMessageType")
+	}
+
+	byValue := make(map[string]string, len(values))
+	for _, value := range values {
+		byValue[value.Value] = value.Name
+	}
+	for _, want := range []string{
+		realtime.MessageTypeFrontendIdentity,
+		realtime.MessageTypeNotification,
+		realtime.MessageTypeAllConnections,
+		realtime.MessageTypeLLMStreamingResponse,
+		string(realtime.WebsocketMessageTypeBackendLogEvent),
+	} {
+		if byValue[want] != want {
+			t.Fatalf("expected provider-backed enum value %q, got %#v", want, values)
+		}
+	}
+	if _, ok := byValue[realtime.MessageTypeUISettingRevealResult]; ok {
+		t.Fatalf("WebsocketMessageType should not include frontend-only message type %q", realtime.MessageTypeUISettingRevealResult)
 	}
 }
 

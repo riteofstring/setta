@@ -1,3 +1,9 @@
+import {
+  callOpenAPI,
+  clampTextBlockMasterFontSize,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import {
   docstringToMarkdown,
@@ -5,7 +11,6 @@ import {
   setTextBlockMasterFontSize,
   setTextBlockMetaControlStyle,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useEffect,
   useRef,
@@ -21,9 +26,7 @@ import {
 import { useProjectState, useShareSession } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { useShareCapabilities } from "state/hooks/share";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
-import { clampTextBlockMasterFontSize } from "utils/textBlockTypography";
 type TextBlockSettingsProps = {
   sectionId: string;
 };

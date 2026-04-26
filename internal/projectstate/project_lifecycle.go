@@ -90,6 +90,9 @@ func (d *Document) CloneProject(projectID string, newName string) (string, strin
 	if d.Projects == nil {
 		d.Projects = map[string]Project{}
 	}
+	if err := d.copyProjectScopedPluginData(project.ID, clonedProjectID); err != nil {
+		return "", "", err
+	}
 	d.Projects[clonedProjectID] = cloned
 	d.reconcileDefaultProjectID()
 	return clonedProjectID, normalizedName, nil
@@ -127,6 +130,9 @@ func (d *Document) SaveAsNewProjectConfig(
 
 	if d.Projects == nil {
 		d.Projects = map[string]Project{}
+	}
+	if err := d.copyProjectScopedPluginData(project.ID, clonedProjectID); err != nil {
+		return "", "", err
 	}
 	d.Projects[clonedProjectID] = cloned
 	d.reconcileDefaultProjectID()
@@ -372,6 +378,9 @@ func (d *Document) DeleteProjects(projectIDs []string) ([]string, error) {
 		trimmedIDs = append(trimmedIDs, projectID)
 	}
 
+	if err := d.deleteProjectScopedPluginData(trimmedIDs); err != nil {
+		return nil, err
+	}
 	for _, projectID := range trimmedIDs {
 		delete(d.Projects, projectID)
 	}

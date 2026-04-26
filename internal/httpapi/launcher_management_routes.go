@@ -518,6 +518,10 @@ func decodeStrictJSONBody[T any](r *http.Request) (T, error) {
 	return payload, nil
 }
 
+func DecodeStrictJSONBody[T any](r *http.Request) (T, error) {
+	return decodeStrictJSONBody[T](r)
+}
+
 type strictJSONUnknownFieldError struct {
 	Field string
 }

@@ -167,10 +167,7 @@ func TestRegisterSettingsRoutesSetLanguageServerSelectionPersistsPluginAndNull(t
 		t.Fatalf("expected set language server selection 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	pythonSelection, ok, err := settingsstate.LanguageServerSelectionForLanguage(runtime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage runtime python returned error: %v", err)
-	}
+	pythonSelection, ok := settingsRouteLanguageServerSelection(t, runtime.Snapshot().Document, "python")
 	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
 		t.Fatalf("expected runtime python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
 	}
@@ -183,10 +180,7 @@ func TestRegisterSettingsRoutesSetLanguageServerSelectionPersistsPluginAndNull(t
 	if err := json.Unmarshal(content, &persisted); err != nil {
 		t.Fatalf("decode saved settings file: %v", err)
 	}
-	pythonSelection, ok, err = settingsstate.LanguageServerSelectionForLanguage(persisted, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage persisted python returned error: %v", err)
-	}
+	pythonSelection, ok = settingsRouteLanguageServerSelection(t, persisted, "python")
 	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
 		t.Fatalf("expected persisted python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
 	}
@@ -210,10 +204,7 @@ func TestRegisterSettingsRoutesSetLanguageServerSelectionPersistsPluginAndNull(t
 		t.Fatalf("expected disable language server selection 200, got %d with body %q", disableResponse.Code, disableResponse.Body.String())
 	}
 
-	pythonSelection, ok, err = settingsstate.LanguageServerSelectionForLanguage(runtime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage runtime python after disable returned error: %v", err)
-	}
+	pythonSelection, ok = settingsRouteLanguageServerSelection(t, runtime.Snapshot().Document, "python")
 	if !ok || pythonSelection != nil {
 		t.Fatalf("expected explicit runtime python null selection after disable, got ok=%v selection=%#v", ok, pythonSelection)
 	}
@@ -833,6 +824,17 @@ func writeSettingsRouteDocument(path string, payload map[string]any) error {
 		return err
 	}
 	return os.WriteFile(path, append(content, '\n'), 0o644)
+}
+
+func settingsRouteLanguageServerSelection(t *testing.T, document settingsstate.Document, language string) (*string, bool) {
+	t.Helper()
+
+	selectedByLanguage, err := settingsstate.LanguageServerSelectedByLanguage(document)
+	if err != nil {
+		t.Fatalf("LanguageServerSelectedByLanguage returned error: %v", err)
+	}
+	selection, ok := selectedByLanguage[language]
+	return selection, ok
 }
 
 func newSettingsRouteTestHandler(

@@ -4,6 +4,15 @@
     "target": "ESNext",
     "jsx": "react-jsx",
     "baseUrl": "src",
+    "paths": {
+      "@setta/app-subsystem-frontend-sdk": ["../plugin-sdk/app-subsystem/src"],
+      "components/*": ["components/*"],
+      "forks/*": ["forks/*"],
+      "openapi/*": ["openapi/*"],
+      "plugins/*": ["plugins/*"],
+      "state/*": ["state/*"],
+      "utils/*": ["utils/*"]
+    },
     "lib": ["dom", "dom.iterable", "esnext"],
     "types": ["vite/client", "vite-plugin-svgr/client"],
     "allowJs": true,

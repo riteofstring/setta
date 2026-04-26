@@ -1,8 +1,8 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { Handle } from "forks/xyflow/core/components/Handle";
-import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { HandlePosition } from "forks/xyflow/core/types";
+import { Handle } from "gpuFlow/Handle";
+import { useNodeId } from "gpuFlow/NodeIdContext";
+import { HandlePosition } from "gpuFlow/flowTypes";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import {
   createSharedChatEdgeFromConnection,
   getChatSharedEdgeModeLabel,
@@ -43,13 +43,13 @@ function getSharedChatConnectionVisibility(
     hasIncoming: false,
     hasOutgoing: false,
   };
-  for (const edge of state.projectConfig.agenticEdges) {
+  for (const edge of state.projectConfig.agenticEdges ?? []) {
     mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
     if (visibility.hasIncoming && visibility.hasOutgoing) {
       return visibility;
     }
   }
-  for (const edge of state.projectConfig.stateMachineEdges) {
+  for (const edge of state.projectConfig.stateMachineEdges ?? []) {
     mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
     if (visibility.hasIncoming && visibility.hasOutgoing) {
       return visibility;
@@ -61,7 +61,7 @@ function getSharedChatConnectionVisibility(
 export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
-  const isSelectingEdge = useReactFlow(
+  const isSelectingEdge = useGpuFlowViewportStore(
     (state) => state.connectionStartHandle !== null,
   );
   const chatSharedEdgeMode = useLocalStorage(

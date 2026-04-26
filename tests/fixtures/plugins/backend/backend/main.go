@@ -17,6 +17,7 @@ const (
 	backendRuntimeKindCodegen = "codegen_target"
 	pluginFixturePythonEnv    = "SETTA_PLUGIN_FIXTURE_PYTHON"
 	pluginFixtureLSPScriptEnv = "SETTA_PLUGIN_FIXTURE_LSP_SCRIPT"
+	pluginFixtureRuntimePaths = "SETTA_PLUGIN_FIXTURE_RUNTIME_SEARCH_PATHS_KEY"
 	pluginFixtureLanguageName = "setta-fixture-backend:fixturedsl"
 	pluginFixtureLanguageID   = "fixturedsl"
 	pluginFixtureSettingsKey  = "fixtureDslLanguageServer"
@@ -28,6 +29,9 @@ type backendRequestContext struct {
 	SessionID       string `json:"sessionId,omitempty"`
 	ShareSessionID  string `json:"shareSessionId,omitempty"`
 	ProjectConfigID string `json:"projectConfigId,omitempty"`
+	WorkspaceRoot   string `json:"workspaceRoot,omitempty"`
+	SettaFilesRoot  string `json:"settaFilesRoot,omitempty"`
+	RuntimeRoot     string `json:"runtimeRoot,omitempty"`
 }
 
 type backendRuntimeRequest struct {
@@ -114,6 +118,12 @@ func main() {
 				},
 			},
 			"languageServers": languageServers,
+			"watchCodeBackend": map[string]any{
+				"contractVersion":        1,
+				"dataSchemaVersion":      1,
+				"languages":              []string{"python"},
+				"requiresLanguageServer": true,
+			},
 			"routes": []map[string]any{
 				{
 					"path":    "/health",
@@ -172,13 +182,17 @@ func resolveLanguageServerRegistration() (map[string]any, bool) {
 		return nil, false
 	}
 
-	return map[string]any{
+	registration := map[string]any{
 		"name":        pluginFixtureLanguageName,
 		"language":    pluginFixtureLanguageID,
 		"command":     command,
 		"args":        []string{absoluteScriptPath},
 		"settingsKey": pluginFixtureSettingsKey,
-	}, true
+	}
+	if runtimeSearchPathsKey := strings.TrimSpace(os.Getenv(pluginFixtureRuntimePaths)); runtimeSearchPathsKey != "" {
+		registration["runtimeSearchPathsKey"] = runtimeSearchPathsKey
+	}
+	return registration, true
 }
 
 func resolveCommand(command string) (string, error) {

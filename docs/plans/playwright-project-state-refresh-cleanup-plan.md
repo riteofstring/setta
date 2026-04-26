@@ -75,11 +75,11 @@ Reduce and narrow `refreshProjectStateFromBackend` usage in Playwright so E2E te
 - Confirm remaining helper uses are intentional and documented.
 
 ## Acceptance Criteria
-- Most current refresh call sites are removed or replaced with higher-fidelity setup.
+- Most current refresh call sites are removed or converted to higher-fidelity setup.
 - Remaining refresh uses are clearly deliberate out-of-band setup cases.
-- Realtime Playwright tests no longer rely on manual project-state recovery.
+- Realtime Playwright tests rely on pushed project-state updates.
 - Backend routes that are supposed to broadcast are covered by automated tests.
-- The resulting test suite is easier to reason about: setup, frontend hydration, and realtime behavior are no longer mixed together.
+- The resulting test suite is easier to reason about: setup, frontend hydration, and realtime behavior are separated.
 
 ## Suggested Execution Order
 1. Inventory and route-contract audit.

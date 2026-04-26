@@ -36,9 +36,14 @@ vi.mock("openapi/http", () => ({
   togglePositionLocks: (request: unknown) => togglePositionLocksMock(request),
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: (request: unknown) => callOpenAPIMock(request),
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: (request: unknown) => callOpenAPIMock(request),
+  };
+});
 
 vi.mock("state/actions/sectionInfos", () => ({
   dispatchOptimisticProjectStateUpdate: (request: unknown) =>

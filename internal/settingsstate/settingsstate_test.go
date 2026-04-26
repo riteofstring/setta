@@ -337,7 +337,7 @@ func TestValidateDirectSaveDocumentRejectsInvalidSupportedBranchValues(t *testin
 	}
 }
 
-func TestLanguageServerSelectionForLanguageDistinguishesMissingNullAndPluginID(t *testing.T) {
+func TestLanguageServerSelectedByLanguageDistinguishesMissingNullAndPluginID(t *testing.T) {
 	t.Parallel()
 
 	document, err := DefaultDocument()
@@ -351,29 +351,9 @@ func TestLanguageServerSelectionForLanguageDistinguishesMissingNullAndPluginID(t
 		},
 	}
 
-	pythonSelection, ok, err := LanguageServerSelectionForLanguage(document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage python returned error: %v", err)
-	}
-	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
-		t.Fatalf("expected python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
-	}
-
-	bashSelection, ok, err := LanguageServerSelectionForLanguage(document, "bash")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage bash returned error: %v", err)
-	}
-	if !ok || bashSelection != nil {
-		t.Fatalf("expected explicit bash null selection, got ok=%v selection=%#v", ok, bashSelection)
-	}
-
-	goSelection, ok, err := LanguageServerSelectionForLanguage(document, "go")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage go returned error: %v", err)
-	}
-	if ok || goSelection != nil {
-		t.Fatalf("expected missing go selection, got ok=%v selection=%#v", ok, goSelection)
-	}
+	assertLanguageServerSelection(t, document, "python", true, stringPointer("setta-basedpyright"))
+	assertLanguageServerSelection(t, document, "bash", true, nil)
+	assertLanguageServerSelection(t, document, "go", false, nil)
 }
 
 func TestLanguageServerSelectedByLanguageRejectsInvalidDocumentValues(t *testing.T) {
@@ -418,21 +398,8 @@ func TestBootstrapLanguageServerSelectionsWritesOnlyMissingKeys(t *testing.T) {
 		t.Fatal("expected bootstrap helper to write missing python selection")
 	}
 
-	pythonSelection, ok, err := LanguageServerSelectionForLanguage(next, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage python returned error: %v", err)
-	}
-	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
-		t.Fatalf("expected python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
-	}
-
-	bashSelection, ok, err := LanguageServerSelectionForLanguage(next, "bash")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage bash returned error: %v", err)
-	}
-	if !ok || bashSelection != nil {
-		t.Fatalf("expected explicit bash null selection to remain, got ok=%v selection=%#v", ok, bashSelection)
-	}
+	assertLanguageServerSelection(t, next, "python", true, stringPointer("setta-basedpyright"))
+	assertLanguageServerSelection(t, next, "bash", true, nil)
 }
 
 func TestBootstrapLanguageServerSelectionsLeavesExplicitPluginSelectionUntouched(t *testing.T) {
@@ -458,13 +425,7 @@ func TestBootstrapLanguageServerSelectionsLeavesExplicitPluginSelectionUntouched
 		t.Fatal("expected bootstrap helper to leave explicit plugin selection unchanged")
 	}
 
-	pythonSelection, ok, err := LanguageServerSelectionForLanguage(next, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage python returned error: %v", err)
-	}
-	if !ok || pythonSelection == nil || *pythonSelection != "custom-python-lsp" {
-		t.Fatalf("expected explicit python selection to remain, got ok=%v selection=%#v", ok, pythonSelection)
-	}
+	assertLanguageServerSelection(t, next, "python", true, stringPointer("custom-python-lsp"))
 }
 
 func TestSetLanguageServerSelectionWritesPluginAndExplicitNull(t *testing.T) {
@@ -480,25 +441,43 @@ func TestSetLanguageServerSelectionWritesPluginAndExplicitNull(t *testing.T) {
 		t.Fatalf("SetLanguageServerSelection plugin returned error: %v", err)
 	}
 
-	pythonSelection, ok, err := LanguageServerSelectionForLanguage(next, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage python returned error: %v", err)
-	}
-	if !ok || pythonSelection == nil || *pythonSelection != "setta-basedpyright" {
-		t.Fatalf("expected python selection setta-basedpyright, got ok=%v selection=%#v", ok, pythonSelection)
-	}
+	assertLanguageServerSelection(t, next, "python", true, stringPointer("setta-basedpyright"))
 
 	disabled, err := SetLanguageServerSelection(next, "python", nil)
 	if err != nil {
 		t.Fatalf("SetLanguageServerSelection nil returned error: %v", err)
 	}
 
-	pythonSelection, ok, err = LanguageServerSelectionForLanguage(disabled, "python")
+	assertLanguageServerSelection(t, disabled, "python", true, nil)
+}
+
+func assertLanguageServerSelection(t *testing.T, document Document, language string, wantOK bool, wantPluginID *string) {
+	t.Helper()
+
+	selectedByLanguage, err := LanguageServerSelectedByLanguage(document)
 	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage python after disable returned error: %v", err)
+		t.Fatalf("LanguageServerSelectedByLanguage returned error: %v", err)
 	}
-	if !ok || pythonSelection != nil {
-		t.Fatalf("expected explicit python null selection after disable, got ok=%v selection=%#v", ok, pythonSelection)
+
+	selection, ok := selectedByLanguage[language]
+	if ok != wantOK {
+		t.Fatalf("expected %s selection presence %v, got %v", language, wantOK, ok)
+	}
+	if !wantOK {
+		if selection != nil {
+			t.Fatalf("expected missing %s selection to have nil value, got %#v", language, selection)
+		}
+		return
+	}
+
+	if wantPluginID == nil {
+		if selection != nil {
+			t.Fatalf("expected explicit %s null selection, got %#v", language, selection)
+		}
+		return
+	}
+	if selection == nil || *selection != *wantPluginID {
+		t.Fatalf("expected %s selection %q, got %#v", language, *wantPluginID, selection)
 	}
 }
 

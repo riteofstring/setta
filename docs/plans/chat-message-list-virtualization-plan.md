@@ -1,7 +1,7 @@
 # Chat Message List Virtualization Plan
 
 ## Goal
-Add virtualization to the chat message list so very long conversations remain responsive while preserving current behavior (streaming, edit-in-place, branch switching, attachments, and auto-scroll UX).
+Add virtualization to the chat message list so very long conversations remain responsive while preserving streaming, edit-in-place, branch switching, attachments, and auto-scroll UX.
 
 ## Scope
 - In scope:
@@ -13,7 +13,7 @@ Add virtualization to the chat message list so very long conversations remain re
   - backend chat schema/state changes
   - changes to chat behavior or permissions model
 
-## Current State (Observed)
+## Implementation Context
 - Chat renders all non-tool messages directly in a loop and relies on a scrolling container (`flex-col-reverse overflow-y-auto`).
 - File browser already uses `react-window` with fixed row heights.
 - Chat rows are variable height and mutate during streaming/editing, so fixed-height virtualization is not sufficient.
@@ -36,7 +36,7 @@ Use `react-window` for chat virtualization with variable-size rows.
 2. Introduce virtualized chat list shell
 - Replace direct message rendering container in `ChatMessageList` with a `react-window` list wrapper.
 - Keep existing message renderers (`ChatMessage`) unchanged where possible to limit regression risk.
-- Preserve current top/bottom spacing and message order semantics.
+- Preserve top/bottom spacing and message order semantics.
 
 3. Add variable-size row measurement
 - Add deterministic row height cache keyed by message id.
@@ -44,7 +44,7 @@ Use `react-window` for chat virtualization with variable-size rows.
 - Invalidate only affected rows when content changes (streaming deltas, edit mode toggle, attachment preview/text expansion, branch controls).
 
 4. Preserve chat UX invariants
-- Preserve current auto-scroll behavior when user is pinned to latest messages.
+- Preserve auto-scroll behavior when user is pinned to latest messages.
 - Preserve "do not jump" behavior when user scrolls away from bottom.
 - Keep streaming placeholder/assistant updates stable.
 - Keep branch switch controls and edit interactions identical.
@@ -61,8 +61,8 @@ Use `react-window` for chat virtualization with variable-size rows.
   - verifies row height cache invalidation behavior for streaming/edit toggles
 - Playwright (`frontend/tests/e2e/`):
   - long chat scroll behavior remains stable
-  - editing a previous message still works after virtualization
-  - branch switching still targets correct chat
+  - editing a previous message works after virtualization
+  - branch switching targets the correct chat
 
 7. Verify and profile after refactor
 - Run relevant Vitest and Playwright suites.

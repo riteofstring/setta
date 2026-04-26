@@ -1,15 +1,15 @@
 import {
-  getFileBrowserDownloadUrls,
-  type FilebrowserFileBrowserDownloadUrlEntry,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
-import { useCallback, useRef, useState } from "react";
-import { getAttachmentPreviewKind } from "utils/attachmentPreview";
-import {
+  callOpenAPI,
   getErrorDetail,
   res200,
   type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+} from "@setta/app-subsystem-frontend-sdk";
+import {
+  getFileBrowserDownloadUrls,
+  type FilebrowserFileBrowserDownloadUrlEntry,
+} from "openapi/http";
+import { useCallback, useRef, useState } from "react";
+import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import {
   FILE_URL_REFRESH_BUFFER_MS,
   type FileUrlEntry,

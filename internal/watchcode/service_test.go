@@ -45,7 +45,6 @@ func TestServiceSyncConfigsPreservesFirstScanForNewlyTrackedExistingFiles(t *tes
 
 	if err := service.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: "pkg", Recursive: false}},
 		},
 	}); err != nil {
@@ -105,7 +104,6 @@ func TestServicePollsCreateModifyDeleteCallbacks(t *testing.T) {
 
 	if err := service.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: "pkg", Recursive: false}},
 		},
 	}); err != nil {
@@ -192,11 +190,9 @@ func TestServicePollsMoveAcrossConfigs(t *testing.T) {
 
 	if err := service.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: "source", Recursive: false}},
 		},
 		"project-beta": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: "dest", Recursive: false}},
 		},
 	}); err != nil {

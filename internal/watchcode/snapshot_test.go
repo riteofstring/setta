@@ -27,7 +27,6 @@ func TestBuildTrackedFileSnapshotIgnoresDefaultIgnoredDirs(t *testing.T) {
 
 	snapshot, err := BuildTrackedFileSnapshot(map[string]ConfigSnapshot{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: projectDir, Recursive: true}},
 		},
 	})
@@ -82,7 +81,6 @@ func TestBuildTrackedFileSnapshotIgnoresEachDocumentedDefaultDirAndKeepsUserRunt
 
 	snapshot, err := BuildTrackedFileSnapshot(map[string]ConfigSnapshot{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: projectDir, Recursive: true}},
 		},
 	})
@@ -137,7 +135,6 @@ func TestBuildTrackedFileSnapshotIgnoresConfiguredRootsByResolvedPath(t *testing
 
 	snapshot, err := BuildTrackedFileSnapshot(map[string]ConfigSnapshot{
 		"project-alpha": {
-			Enabled:      true,
 			Folders:      []FolderInput{{Path: projectDir, Recursive: true}},
 			IgnoredRoots: []string{stateRoot, configuredRuntimeRoot},
 		},
@@ -183,7 +180,6 @@ func TestBuildTrackedFileSnapshotNonRecursiveFolderKeepsOnlyTopLevelPythonFiles(
 
 	snapshot, err := BuildTrackedFileSnapshot(map[string]ConfigSnapshot{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: projectDir, Recursive: false}},
 		},
 	})
@@ -216,7 +212,6 @@ func TestDiffTrackedFileSnapshotsDetectsRenameWithoutHeuristics(t *testing.T) {
 
 	configs := map[string]ConfigSnapshot{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: watchDir, Recursive: false}},
 		},
 	}
@@ -263,11 +258,9 @@ func TestDiffTrackedFileSnapshotsDetectsCrossConfigMove(t *testing.T) {
 
 	configs := map[string]ConfigSnapshot{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: sourceDir, Recursive: false}},
 		},
 		"project-beta": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: destDir, Recursive: false}},
 		},
 	}
@@ -306,7 +299,6 @@ func TestDiffTrackedFileSnapshotsDetectsRecursiveAdditionsAndModifications(t *te
 
 	configs := map[string]ConfigSnapshot{
 		"project-alpha": {
-			Enabled: true,
 			Folders: []FolderInput{{Path: rootDir, Recursive: true}},
 		},
 	}

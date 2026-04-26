@@ -1,6 +1,6 @@
+import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { onOverviewTabClick } from "components/Panes/paneFns";
 import { deleteSections, getLatestProjectState } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   usePluginRuntimeStore,
   usePluginSectionFallbackReason,
@@ -21,9 +21,7 @@ import {
   processProjectStateUpdateFromBackend,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { OverviewTabNameEnum } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { OverviewTabUIConfig, SectionTypeEnum } from "utils/generatedTypes";
 type PluginAreaProps = {
   sectionId: string;
   isUserView: boolean;
@@ -284,7 +282,9 @@ function PluginSectionRuntimeErrorCard({
           <button
             type="button"
             className="rounded border border-red-400 bg-white px-2 py-1 text-[11px] font-medium text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60"
-            onClick={() => onOverviewTabClick(OverviewTabNameEnum.Plugins)}
+            onClick={() =>
+              onOverviewTabClick(OverviewTabUIConfig.names.Plugins)
+            }
           >
             Open Plugins
           </button>
@@ -362,7 +362,7 @@ function PluginSectionFallbackCard({
   async function onOpenPlugins(event: ReactMouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
-    onOverviewTabClick(OverviewTabNameEnum.Plugins);
+    onOverviewTabClick(OverviewTabUIConfig.names.Plugins);
   }
   return (
     <section className="section-main-full-w flex h-full min-h-0 items-center justify-center p-3">

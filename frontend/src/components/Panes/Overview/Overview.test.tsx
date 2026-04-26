@@ -1,3 +1,4 @@
+import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystem";
 import {
   usePluginRuntimeStore,
   type PluginPaneTabEntry,
@@ -17,9 +18,12 @@ import { resetProjectStores } from "state/utils";
 import {
   APP_MENU_Z_INDEX_CLASS_NAME,
   buildPluginPaneOverviewTabName,
-  OverviewTabNameEnum,
 } from "utils/constants";
-import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
+import {
+  createProjectConfig,
+  createSettingsState,
+  OverviewTabUIConfig,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
 import { Overview } from "./Overview";
@@ -27,8 +31,8 @@ import { Overview } from "./Overview";
 let latestNavbarMenuDropdownContentClassName: string | undefined;
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
-  useViewModeSortableItem: () => ({
+  SortableListProvider: ({ children }: { children: unknown }) => children,
+  useSortableListItem: () => ({
     attributes: {},
     listeners: {},
     setNodeRef: () => {},
@@ -86,11 +90,13 @@ function resetPluginRuntimeStateForTests(): void {
     statusMessage: null,
     schemaVersion: null,
     serverMode: null,
+    appSubsystemCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
     pluginStatusById: {},
     statusEntries: [],
+    appSubsystemRegistrationsByPluginId: {},
     sectionKindsByKey: {},
     sortedSectionKinds: [],
     panesByPluginId: {},
@@ -123,6 +129,7 @@ describe("Overview rail offsets", () => {
   beforeEach(() => {
     resetProjectStores();
     resetPluginRuntimeStateForTests();
+    resetAppSubsystemFrontendRuntimeState();
     latestNavbarMenuDropdownContentClassName = undefined;
     memoryStorage.reset();
     const viewId = "default-view";
@@ -156,7 +163,7 @@ describe("Overview rail offsets", () => {
     useShareSession.setState({ isDeploymentMode: false, sharePolicy: null });
     useLocalStorage.setState({
       overviewVis: true,
-      overviewTab: OverviewTabNameEnum.Overview,
+      overviewTab: OverviewTabUIConfig.names.Overview,
       overviewWidth: 320,
       overviewTrueWidth: 320,
     });
@@ -171,6 +178,7 @@ describe("Overview rail offsets", () => {
   afterEach(() => {
     resetProjectStores();
     resetPluginRuntimeStateForTests();
+    resetAppSubsystemFrontendRuntimeState();
   });
 
   it("extends to the bottom when no view mode tabs exist", () => {
@@ -280,7 +288,9 @@ describe("Overview rail offsets", () => {
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
     });
-    useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.ViewModes });
+    useLocalStorage.setState({
+      overviewTab: OverviewTabUIConfig.names.ViewModes,
+    });
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useLocalStorage);
     const markup = renderToStaticMarkup(
@@ -395,7 +405,7 @@ describe("Overview rail offsets", () => {
   it("falls back to Overview when deployment mode hides the selected tab", () => {
     useShareSession.setState({ isDeploymentMode: true, sharePolicy: null });
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.FileBrowser,
+      overviewTab: OverviewTabUIConfig.names.FileBrowser,
     });
     syncStoreInitialState(useShareSession);
     syncStoreInitialState(useLocalStorage);
@@ -434,7 +444,7 @@ describe("Overview rail offsets", () => {
     });
     useAIStore.setState({ viewThreads: true });
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.ProjectAIChat,
+      overviewTab: OverviewTabUIConfig.names.ProjectAIChat,
       overviewWidth: 1040,
       overviewTrueWidth: 1040,
     });
@@ -470,9 +480,9 @@ describe("Overview rail offsets", () => {
     expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 
-  it("renders JSON Render quick info without crashing the App tab", () => {
+  it("falls back to Overview when the app subsystem authoring UI is unavailable", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.App,
+      overviewTab: OverviewTabUIConfig.names.App,
     });
     syncStoreInitialState(useLocalStorage);
 
@@ -482,12 +492,10 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(">JSON Render<");
-    expect(markup).toContain(
+    expect(markup).toContain(">Overview<");
+    expect(markup).not.toContain("Mock App Workbench");
+    expect(markup).not.toContain(
       "Advanced app-definition workbench for previewing, validating, saving, and editing the current app spec.",
-    );
-    expect(markup).toContain(
-      "Use Project Chat slash commands like /app-json, /app-image, /app-prompt, and /app-mcp to initiate generation.",
     );
   });
 

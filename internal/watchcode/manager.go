@@ -15,14 +15,12 @@ type FolderInput struct {
 }
 
 type ConfigInputs struct {
-	Enabled      bool
 	Files        []string
 	Folders      []FolderInput
 	IgnoredRoots []string
 }
 
 type ConfigSnapshot struct {
-	Enabled      bool
 	Files        []string
 	Folders      []FolderInput
 	IgnoredRoots []string
@@ -205,9 +203,6 @@ func (m *Manager) resolveMovedPaths(path string, destinationPath string) (string
 }
 
 func (m *Manager) scheduleMoveForSnapshot(configID string, snapshot ConfigSnapshot, sourcePath string, destPath string) {
-	if !snapshot.Enabled {
-		return
-	}
 	srcMatches := matchesTrackedPythonPath(sourcePath, snapshot)
 	destMatches := matchesTrackedPythonPath(destPath, snapshot)
 	if destMatches {
@@ -248,7 +243,7 @@ func (m *Manager) scheduleTrackedFileEvent(configID string, snapshot ConfigSnaps
 }
 
 func matchesTrackedPythonPath(normalizedPath string, snapshot ConfigSnapshot) bool {
-	if !snapshot.Enabled || !isPythonSourcePath(normalizedPath) || shouldIgnorePath(normalizedPath, snapshot.IgnoredRoots) {
+	if !isPythonSourcePath(normalizedPath) || shouldIgnorePath(normalizedPath, snapshot.IgnoredRoots) {
 		return false
 	}
 	return pathMatchesSnapshot(normalizedPath, snapshot)
@@ -268,7 +263,6 @@ func buildConfigSnapshot(workspaceRoot string, config ConfigInputs) (ConfigSnaps
 		return ConfigSnapshot{}, err
 	}
 	return ConfigSnapshot{
-		Enabled:      config.Enabled,
 		Files:        files,
 		Folders:      folders,
 		IgnoredRoots: ignoredRoots,
@@ -370,7 +364,7 @@ func (m *Manager) discardStaleScheduledState() {
 
 func (m *Manager) taskKeyStillMatchesSnapshot(key taskKey) bool {
 	snapshot, ok := m.configSnapshots[key.ConfigID]
-	if !ok || !snapshot.Enabled {
+	if !ok {
 		return false
 	}
 	return pathMatchesSnapshot(key.Path, snapshot)

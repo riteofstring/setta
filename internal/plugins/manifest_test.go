@@ -49,6 +49,24 @@ func TestValidatePluginManifestPaths(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects unsupported frontend build package managers", func(t *testing.T) {
+		err := ValidatePluginManifestPaths(t.TempDir(), PluginManifest{
+			ID: "setta-fixture",
+			Frontend: &PluginFrontendManifest{
+				Entrypoint: "frontend/dist/index.js",
+				Build: &PluginFrontendBuildManifest{
+					PackageManager: "npm",
+				},
+			},
+		})
+		if !errors.Is(err, ErrPluginManifestInvalid) {
+			t.Fatalf("expected invalid manifest error, got %v", err)
+		}
+		if !strings.Contains(err.Error(), `unsupported plugin frontend build packageManager "npm"`) {
+			t.Fatalf("expected unsupported packageManager message, got %v", err)
+		}
+	})
+
 	t.Run("rejects missing configured content directories", func(t *testing.T) {
 		err := ValidatePluginManifestPaths(t.TempDir(), PluginManifest{
 			ID: "setta-fixture",

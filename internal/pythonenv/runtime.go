@@ -35,6 +35,7 @@ print(json.dumps({"packages": packages}))
 `
 	pluginDistributionsCmd = `
 import importlib.metadata
+import csv
 import json
 import pathlib
 import sys
@@ -44,17 +45,53 @@ kwargs = {}
 if search_paths is not None:
     kwargs["path"] = search_paths
 
+def add_manifest_path(manifest_paths, seen_paths, candidate):
+    resolved = pathlib.Path(candidate).resolve(strict=False)
+    resolved_key = str(resolved)
+    if resolved_key in seen_paths or not resolved.is_file():
+        return
+    seen_paths.add(resolved_key)
+    manifest_paths.append(resolved_key)
+
+def normalize_record_path(candidate):
+    parts = list(pathlib.Path(candidate).parts)
+    while parts and parts[0] == "..":
+        parts.pop(0)
+    if not parts:
+        return pathlib.Path(candidate)
+    return pathlib.Path(*parts)
+
 distributions = []
 for dist in importlib.metadata.distributions(**kwargs):
-    files = dist.files
-    if files is None:
-        continue
     manifest_paths = []
-    for file in files:
-        path_value = pathlib.Path(str(file))
-        if path_value.name != "setta.plugin.json":
-            continue
-        manifest_paths.append(str(pathlib.Path(dist.locate_file(file)).resolve(strict=False)))
+    seen_manifest_paths = set()
+    files = dist.files
+    metadata_root = None
+    if files is not None:
+        for file in files:
+            located = pathlib.Path(dist.locate_file(file)).resolve(strict=False)
+            if metadata_root is None:
+                metadata_root = located.parent
+            path_value = pathlib.Path(str(file))
+            if path_value.name != "setta.plugin.json":
+                continue
+            add_manifest_path(manifest_paths, seen_manifest_paths, located)
+    record_text = dist.read_text("RECORD")
+    if record_text:
+        for row in csv.reader(record_text.splitlines()):
+            if not row:
+                continue
+            path_value = pathlib.Path(row[0])
+            if path_value.name != "setta.plugin.json":
+                continue
+            resolved_path = dist.locate_file(path_value)
+            if metadata_root is not None and not pathlib.Path(resolved_path).is_file():
+                resolved_path = metadata_root.parent / normalize_record_path(path_value)
+            add_manifest_path(
+                manifest_paths,
+                seen_manifest_paths,
+                resolved_path,
+            )
     if not manifest_paths:
         continue
     manifest_paths.sort(key=str.lower)

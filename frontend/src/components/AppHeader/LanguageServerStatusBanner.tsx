@@ -1,8 +1,10 @@
 import { onOverviewTabClick } from "components/Panes/paneFns";
 import { usePluginRuntimeStore } from "plugins/runtime";
 import { useShareSession } from "state/definitions";
-import { OverviewTabNameEnum } from "utils/constants";
-import { LanguageServerSelectionStatusKindEnum } from "utils/generatedTypes";
+import {
+  LanguageServerSelectionStatusKindEnum,
+  OverviewTabUIConfig,
+} from "utils/generatedTypes";
 
 const PYTHON_LANGUAGE_ID = "python";
 
@@ -43,5 +45,5 @@ export function LanguageServerStatusBanner() {
 }
 
 function openPluginsTab(): void {
-  onOverviewTabClick(OverviewTabNameEnum.Plugins);
+  onOverviewTabClick(OverviewTabUIConfig.names.Plugins);
 }

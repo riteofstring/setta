@@ -4,13 +4,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/config"
 	"setta/internal/statefs"
+	"setta/internal/watchcodecontracts"
 )
 
 const (
@@ -25,6 +28,120 @@ type AssetURLBuilder func(pluginID string, relativePath string, sourceDigestSHA2
 
 type RuntimeOptions struct {
 	AssetURLBuilder AssetURLBuilder
+}
+
+type PluginAppSubsystemProviderSelectionStatusKind string
+
+const (
+	PluginAppSubsystemProviderSelectionStatusNoProvider       PluginAppSubsystemProviderSelectionStatusKind = "no_provider"
+	PluginAppSubsystemProviderSelectionStatusDisabledProvider PluginAppSubsystemProviderSelectionStatusKind = "disabled_provider"
+	PluginAppSubsystemProviderSelectionStatusInvalidProvider  PluginAppSubsystemProviderSelectionStatusKind = "invalid_provider"
+	PluginAppSubsystemProviderSelectionStatusActive           PluginAppSubsystemProviderSelectionStatusKind = "active"
+	PluginAppSubsystemProviderSelectionStatusConflict         PluginAppSubsystemProviderSelectionStatusKind = "provider_conflict"
+)
+
+type PluginAppSubsystemProviderSelection struct {
+	Status               PluginAppSubsystemProviderSelectionStatusKind `json:"status"`
+	SelectedPluginID     *string                                       `json:"selectedPluginId,omitempty"`
+	ActivePluginIDs      []string                                      `json:"activePluginIds"`
+	DisabledPluginIDs    []string                                      `json:"disabledPluginIds"`
+	InvalidPluginIDs     []string                                      `json:"invalidPluginIds"`
+	ConflictingPluginIDs []string                                      `json:"conflictingPluginIds"`
+}
+
+type PluginAppSubsystemCapabilities struct {
+	ProviderSelection      *PluginAppSubsystemProviderSelection `json:"providerSelection,omitempty"`
+	PluginID               string                               `json:"pluginId"`
+	PluginEnabled          bool                                 `json:"pluginEnabled"`
+	AppAuthoringUI         bool                                 `json:"appAuthoringUi"`
+	AppPreviewUI           bool                                 `json:"appPreviewUi"`
+	AppGenerationChatModes bool                                 `json:"appGenerationChatModes"`
+	AppDeploymentRuntime   bool                                 `json:"appDeploymentRuntime"`
+}
+
+type PluginWatchCodeProviderSelectionStatusKind string
+
+const (
+	PluginWatchCodeProviderSelectionStatusNoProvider       PluginWatchCodeProviderSelectionStatusKind = "no_provider"
+	PluginWatchCodeProviderSelectionStatusDisabledProvider PluginWatchCodeProviderSelectionStatusKind = "disabled_provider"
+	PluginWatchCodeProviderSelectionStatusInvalidProvider  PluginWatchCodeProviderSelectionStatusKind = "invalid_provider"
+	PluginWatchCodeProviderSelectionStatusPendingRestart   PluginWatchCodeProviderSelectionStatusKind = "pending_restart"
+	PluginWatchCodeProviderSelectionStatusActive           PluginWatchCodeProviderSelectionStatusKind = "active"
+	PluginWatchCodeProviderSelectionStatusConflict         PluginWatchCodeProviderSelectionStatusKind = "provider_conflict"
+)
+
+type PluginWatchCodeProviderSelection struct {
+	Status                  PluginWatchCodeProviderSelectionStatusKind `json:"status"`
+	SelectedPluginID        *string                                    `json:"selectedPluginId,omitempty"`
+	ActivePluginIDs         []string                                   `json:"activePluginIds"`
+	DisabledPluginIDs       []string                                   `json:"disabledPluginIds"`
+	InvalidPluginIDs        []string                                   `json:"invalidPluginIds"`
+	PendingRestartPluginIDs []string                                   `json:"pendingRestartPluginIds"`
+	ConflictingPluginIDs    []string                                   `json:"conflictingPluginIds"`
+}
+
+type PluginWatchCodeLanguageServerDependencyStatusKind string
+
+const (
+	PluginWatchCodeLanguageServerDependencyStatusUnavailable    PluginWatchCodeLanguageServerDependencyStatusKind = "unavailable"
+	PluginWatchCodeLanguageServerDependencyStatusNotRequired    PluginWatchCodeLanguageServerDependencyStatusKind = "not_required"
+	PluginWatchCodeLanguageServerDependencyStatusActive         PluginWatchCodeLanguageServerDependencyStatusKind = "active"
+	PluginWatchCodeLanguageServerDependencyStatusMissing        PluginWatchCodeLanguageServerDependencyStatusKind = "missing"
+	PluginWatchCodeLanguageServerDependencyStatusDisabled       PluginWatchCodeLanguageServerDependencyStatusKind = "disabled"
+	PluginWatchCodeLanguageServerDependencyStatusPendingRestart PluginWatchCodeLanguageServerDependencyStatusKind = "pending_restart"
+)
+
+type PluginWatchCodeLanguageServerDependencyStatus struct {
+	Language         string                                            `json:"language"`
+	Required         bool                                              `json:"required"`
+	Status           PluginWatchCodeLanguageServerDependencyStatusKind `json:"status"`
+	Message          string                                            `json:"message"`
+	SelectedPluginID *string                                           `json:"selectedPluginId,omitempty"`
+	AppliedPluginID  *string                                           `json:"appliedPluginId,omitempty"`
+	RestartRequired  bool                                              `json:"restartRequired"`
+}
+
+type PluginWatchCodeCapabilities struct {
+	ProviderSelection        *PluginWatchCodeProviderSelection              `json:"providerSelection,omitempty"`
+	LanguageServerDependency *PluginWatchCodeLanguageServerDependencyStatus `json:"languageServerDependency,omitempty"`
+	PluginID                 string                                         `json:"pluginId"`
+	PluginEnabled            bool                                           `json:"pluginEnabled"`
+	Python                   bool                                           `json:"python"`
+	RequiresLanguageServer   bool                                           `json:"requiresLanguageServer"`
+	CanvasControlsUI         bool                                           `json:"canvasControlsUi"`
+}
+
+func (c PluginWatchCodeCapabilities) ActiveProviderPluginID() (string, bool) {
+	pluginID := strings.TrimSpace(c.PluginID)
+	return pluginID, c.PluginEnabled && c.Python && pluginID != ""
+}
+
+func (s *PluginWatchCodeProviderSelection) ContainsPluginID(pluginID string) bool {
+	pluginID = strings.TrimSpace(pluginID)
+	if s == nil || pluginID == "" {
+		return false
+	}
+	if s.SelectedPluginID != nil && strings.TrimSpace(*s.SelectedPluginID) == pluginID {
+		return true
+	}
+	return containsTrimmedString(s.ActivePluginIDs, pluginID) ||
+		containsTrimmedString(s.DisabledPluginIDs, pluginID) ||
+		containsTrimmedString(s.InvalidPluginIDs, pluginID) ||
+		containsTrimmedString(s.PendingRestartPluginIDs, pluginID) ||
+		containsTrimmedString(s.ConflictingPluginIDs, pluginID)
+}
+
+func (s *PluginWatchCodeProviderSelection) ActivePluginIDMatches(pluginID string) bool {
+	pluginID = strings.TrimSpace(pluginID)
+	if s == nil || s.Status != PluginWatchCodeProviderSelectionStatusActive || s.SelectedPluginID == nil || pluginID == "" {
+		return false
+	}
+	return strings.TrimSpace(*s.SelectedPluginID) == pluginID
+}
+
+type PluginFeatureCapabilities struct {
+	AppSubsystem PluginAppSubsystemCapabilities `json:"appSubsystem"`
+	WatchCode    PluginWatchCodeCapabilities    `json:"watchCode"`
 }
 
 type PluginFrontendDescriptor struct {
@@ -73,9 +190,10 @@ type PluginListResponse struct {
 }
 
 type PluginRuntimeResponse struct {
-	SchemaVersion int                  `json:"schemaVersion"`
-	List          PluginListResponse   `json:"list"`
-	Status        PluginStatusResponse `json:"status"`
+	SchemaVersion       int                        `json:"schemaVersion"`
+	FeatureCapabilities *PluginFeatureCapabilities `json:"featureCapabilities,omitempty"`
+	List                PluginListResponse         `json:"list"`
+	Status              PluginStatusResponse       `json:"status"`
 }
 
 func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error) {
@@ -90,45 +208,523 @@ func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error)
 	if err != nil {
 		return PluginRuntimeResponse{}, err
 	}
+	return s.RuntimeFromSnapshot(snapshot, options)
+}
 
-	redactSourceDetails := shouldRedactRuntimeSourceDetails(snapshot.ServerMode)
-	redactConfigDetails := shouldRedactRuntimeConfigDetails(snapshot.ServerMode)
-	redactedSourcePathByPath := map[string]string{}
-	if redactSourceDetails {
-		redactedSourcePathByPath = buildRedactedSourcePathMap(snapshot.Plugins)
+func buildRuntimeAppSubsystemCapabilities(entries []DiscoveredPlugin) PluginAppSubsystemCapabilities {
+	resolution := resolveAppSubsystemProvider(entries)
+	capabilities := PluginAppSubsystemCapabilities{
+		ProviderSelection: &resolution.selection,
 	}
+	if resolution.selection.SelectedPluginID != nil {
+		capabilities.PluginID = *resolution.selection.SelectedPluginID
+		capabilities.PluginEnabled = true
+		mergeRuntimeAppSubsystemCapabilities(&capabilities, resolution.feature)
+	}
+	return capabilities
+}
 
-	var pluginsState *PluginsStateFile
-	if !redactConfigDetails {
-		state, err := s.store.LoadPluginsState()
-		if err != nil {
-			return PluginRuntimeResponse{}, err
+func AppSubsystemCapabilitiesFromSnapshot(
+	snapshot DiscoverySnapshot,
+) PluginAppSubsystemCapabilities {
+	return buildRuntimeAppSubsystemCapabilities(snapshot.Plugins)
+}
+
+func buildRuntimeWatchCodeCapabilities(entries []DiscoveredPlugin) PluginWatchCodeCapabilities {
+	resolution := resolveWatchCodeProvider(entries)
+	capabilities := PluginWatchCodeCapabilities{
+		ProviderSelection: &resolution.selection,
+	}
+	if resolution.selection.SelectedPluginID != nil {
+		capabilities.PluginID = *resolution.selection.SelectedPluginID
+		capabilities.PluginEnabled = true
+		mergeRuntimeWatchCodeCapabilities(&capabilities, resolution.feature, resolution.backend)
+	}
+	return capabilities
+}
+
+func WatchCodeCapabilitiesFromSnapshot(
+	snapshot DiscoverySnapshot,
+) PluginWatchCodeCapabilities {
+	return buildRuntimeWatchCodeCapabilities(snapshot.Plugins)
+}
+
+func AppSubsystemProviderSelectionFromSnapshot(
+	snapshot DiscoverySnapshot,
+) PluginAppSubsystemProviderSelection {
+	return resolveAppSubsystemProvider(snapshot.Plugins).selection
+}
+
+func WatchCodeProviderSelectionFromSnapshot(
+	snapshot DiscoverySnapshot,
+) PluginWatchCodeProviderSelection {
+	return resolveWatchCodeProvider(snapshot.Plugins).selection
+}
+
+type runtimeAppSubsystemProviderResolution struct {
+	selection PluginAppSubsystemProviderSelection
+	feature   *PluginAppSubsystemFeatureManifest
+}
+
+type runtimeAppSubsystemProviderCandidate struct {
+	pluginID string
+	feature  *PluginAppSubsystemFeatureManifest
+}
+
+type runtimeWatchCodeProviderResolution struct {
+	selection PluginWatchCodeProviderSelection
+	feature   *PluginWatchCodeFeatureManifest
+	backend   *backendProbeWatchCodeBackendRegistration
+}
+
+type runtimeWatchCodeProviderCandidate struct {
+	pluginID string
+	feature  *PluginWatchCodeFeatureManifest
+	backend  *backendProbeWatchCodeBackendRegistration
+}
+
+func setRuntimeAppSubsystemProviderResolutionStatus(
+	resolution *runtimeAppSubsystemProviderResolution,
+	activeProviders []runtimeAppSubsystemProviderCandidate,
+	hasInvalidActiveProvider bool,
+) {
+	switch {
+	case hasInvalidActiveProvider:
+		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusInvalidProvider
+	case len(activeProviders) == 0:
+		switch {
+		case len(resolution.selection.InvalidPluginIDs) != 0:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusInvalidProvider
+		case len(resolution.selection.DisabledPluginIDs) != 0:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusDisabledProvider
+		default:
+			resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusNoProvider
 		}
-		pluginsState = &state
+	case len(activeProviders) == 1:
+		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusActive
+		resolution.selection.SelectedPluginID = stringPointer(activeProviders[0].pluginID)
+		resolution.feature = activeProviders[0].feature
+	default:
+		resolution.selection.Status = PluginAppSubsystemProviderSelectionStatusConflict
+		resolution.selection.ConflictingPluginIDs = append(
+			resolution.selection.ConflictingPluginIDs,
+			resolution.selection.ActivePluginIDs...,
+		)
+	}
+}
+
+func resolveAppSubsystemProvider(entries []DiscoveredPlugin) runtimeAppSubsystemProviderResolution {
+	resolution := runtimeAppSubsystemProviderResolution{
+		selection: PluginAppSubsystemProviderSelection{
+			Status:               PluginAppSubsystemProviderSelectionStatusNoProvider,
+			ActivePluginIDs:      []string{},
+			DisabledPluginIDs:    []string{},
+			InvalidPluginIDs:     []string{},
+			ConflictingPluginIDs: []string{},
+		},
+	}
+	activeProviders := make([]runtimeAppSubsystemProviderCandidate, 0)
+	hasInvalidActiveProvider := false
+	for _, entry := range entries {
+		if entry.State == PluginRuntimeStateShadowed || entry.ShadowedBySourcePath != "" {
+			continue
+		}
+		feature := runtimeAppSubsystemFeatureManifest(entry)
+		if feature == nil {
+			continue
+		}
+		if !appSubsystemBackendContractRegistered(entry) ||
+			!appSubsystemFrontendEntrypointAvailable(entry, feature) {
+			markRuntimeAppSubsystemProviderInvalid(
+				&resolution,
+				entry,
+				&hasInvalidActiveProvider,
+			)
+			continue
+		}
+		switch entry.State {
+		case PluginRuntimeStateActive:
+			resolution.selection.ActivePluginIDs = append(
+				resolution.selection.ActivePluginIDs,
+				entry.PluginID,
+			)
+			activeProviders = append(activeProviders, runtimeAppSubsystemProviderCandidate{
+				pluginID: entry.PluginID,
+				feature:  feature,
+			})
+		case PluginRuntimeStateDisabled:
+			resolution.selection.DisabledPluginIDs = append(
+				resolution.selection.DisabledPluginIDs,
+				entry.PluginID,
+			)
+		case PluginRuntimeStateInvalid:
+			resolution.selection.InvalidPluginIDs = append(
+				resolution.selection.InvalidPluginIDs,
+				entry.PluginID,
+			)
+		}
 	}
 
-	restartCapability := s.restartCapability()
-	return PluginRuntimeResponse{
-		SchemaVersion: pluginRuntimeSchemaVersion,
-		List: PluginListResponse{
-			SchemaVersion:     pluginListSchemaVersion,
-			ServerMode:        snapshot.ServerMode,
-			RestartCapability: restartCapability,
-			Plugins: s.buildRuntimeListEntries(
-				snapshot.Plugins,
-				pluginsState,
-				options.AssetURLBuilder,
-				redactSourceDetails,
-				redactConfigDetails,
-			),
+	setRuntimeAppSubsystemProviderResolutionStatus(
+		&resolution,
+		activeProviders,
+		hasInvalidActiveProvider,
+	)
+
+	resolution.selection.ActivePluginIDs = cloneStringSliceOrEmpty(resolution.selection.ActivePluginIDs)
+	resolution.selection.DisabledPluginIDs = cloneStringSliceOrEmpty(resolution.selection.DisabledPluginIDs)
+	resolution.selection.InvalidPluginIDs = cloneStringSliceOrEmpty(resolution.selection.InvalidPluginIDs)
+	resolution.selection.ConflictingPluginIDs = cloneStringSliceOrEmpty(resolution.selection.ConflictingPluginIDs)
+	return resolution
+}
+
+func setRuntimeWatchCodeProviderResolutionStatus(
+	resolution *runtimeWatchCodeProviderResolution,
+	activeProviders []runtimeWatchCodeProviderCandidate,
+	hasInvalidActiveProvider bool,
+) {
+	switch {
+	case hasInvalidActiveProvider:
+		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusInvalidProvider
+	case len(resolution.selection.PendingRestartPluginIDs) != 0:
+		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusPendingRestart
+	case len(activeProviders) == 0:
+		switch {
+		case len(resolution.selection.InvalidPluginIDs) != 0:
+			resolution.selection.Status = PluginWatchCodeProviderSelectionStatusInvalidProvider
+		case len(resolution.selection.DisabledPluginIDs) != 0:
+			resolution.selection.Status = PluginWatchCodeProviderSelectionStatusDisabledProvider
+		default:
+			resolution.selection.Status = PluginWatchCodeProviderSelectionStatusNoProvider
+		}
+	case len(activeProviders) == 1:
+		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusActive
+		resolution.selection.SelectedPluginID = stringPointer(activeProviders[0].pluginID)
+		resolution.feature = activeProviders[0].feature
+		resolution.backend = activeProviders[0].backend
+	default:
+		resolution.selection.Status = PluginWatchCodeProviderSelectionStatusConflict
+		resolution.selection.ConflictingPluginIDs = append(
+			resolution.selection.ConflictingPluginIDs,
+			resolution.selection.ActivePluginIDs...,
+		)
+	}
+}
+
+func resolveWatchCodeProvider(entries []DiscoveredPlugin) runtimeWatchCodeProviderResolution {
+	resolution := runtimeWatchCodeProviderResolution{
+		selection: PluginWatchCodeProviderSelection{
+			Status:                  PluginWatchCodeProviderSelectionStatusNoProvider,
+			ActivePluginIDs:         []string{},
+			DisabledPluginIDs:       []string{},
+			InvalidPluginIDs:        []string{},
+			PendingRestartPluginIDs: []string{},
+			ConflictingPluginIDs:    []string{},
 		},
-		Status: buildRuntimeStatusResponse(
-			snapshot,
-			restartCapability,
-			redactSourceDetails,
-			redactedSourcePathByPath,
-		),
-	}, nil
+	}
+	activeProviders := make([]runtimeWatchCodeProviderCandidate, 0)
+	hasInvalidActiveProvider := false
+	for _, entry := range entries {
+		if entry.State == PluginRuntimeStateShadowed || entry.ShadowedBySourcePath != "" {
+			continue
+		}
+		feature := runtimeWatchCodeFeatureManifest(entry)
+		if feature == nil {
+			continue
+		}
+		if watchCodeBackendCapabilityModeBlocked(entry) {
+			markRuntimeWatchCodeProviderModeBlocked(
+				&resolution,
+				entry,
+				&hasInvalidActiveProvider,
+			)
+			continue
+		}
+		if !watchCodeProviderRegistrationValid(entry, feature) {
+			markRuntimeWatchCodeProviderInvalid(
+				&resolution,
+				entry,
+				&hasInvalidActiveProvider,
+			)
+			continue
+		}
+		switch entry.State {
+		case PluginRuntimeStateActive:
+			resolution.selection.ActivePluginIDs = append(
+				resolution.selection.ActivePluginIDs,
+				entry.PluginID,
+			)
+			activeProviders = append(activeProviders, runtimeWatchCodeProviderCandidate{
+				pluginID: entry.PluginID,
+				feature:  feature,
+				backend:  entry.watchCodeBackend,
+			})
+		case PluginRuntimeStateDisabled:
+			resolution.selection.DisabledPluginIDs = append(
+				resolution.selection.DisabledPluginIDs,
+				entry.PluginID,
+			)
+		case PluginRuntimeStateInvalid:
+			resolution.selection.InvalidPluginIDs = append(
+				resolution.selection.InvalidPluginIDs,
+				entry.PluginID,
+			)
+		case PluginRuntimeStatePendingRestart:
+			resolution.selection.PendingRestartPluginIDs = append(
+				resolution.selection.PendingRestartPluginIDs,
+				entry.PluginID,
+			)
+		}
+	}
+
+	setRuntimeWatchCodeProviderResolutionStatus(
+		&resolution,
+		activeProviders,
+		hasInvalidActiveProvider,
+	)
+
+	resolution.selection.ActivePluginIDs = cloneStringSliceOrEmpty(resolution.selection.ActivePluginIDs)
+	resolution.selection.DisabledPluginIDs = cloneStringSliceOrEmpty(resolution.selection.DisabledPluginIDs)
+	resolution.selection.InvalidPluginIDs = cloneStringSliceOrEmpty(resolution.selection.InvalidPluginIDs)
+	resolution.selection.PendingRestartPluginIDs = cloneStringSliceOrEmpty(resolution.selection.PendingRestartPluginIDs)
+	resolution.selection.ConflictingPluginIDs = cloneStringSliceOrEmpty(resolution.selection.ConflictingPluginIDs)
+	return resolution
+}
+
+func watchCodeProviderRegistrationValid(
+	entry DiscoveredPlugin,
+	feature *PluginWatchCodeFeatureManifest,
+) bool {
+	return watchCodeBackendContractRegistered(entry) &&
+		watchCodeBackendRoutesRegistered(entry) &&
+		watchCodeBackendSupportsRequiredLanguage(entry.watchCodeBackend) &&
+		watchCodeFrontendEntrypointAvailable(entry, feature)
+}
+
+func watchCodeBackendRoutesRegistered(entry DiscoveredPlugin) bool {
+	if !containsString(entry.EffectiveCapabilities, "registerRouter") {
+		return false
+	}
+	for _, suffix := range watchcodecontracts.BackendRouteSuffixes() {
+		if !watchCodeBackendRouteRegistered(entry, suffix) {
+			return false
+		}
+	}
+	return true
+}
+
+func watchCodeBackendRouteRegistered(entry DiscoveredPlugin, suffix string) bool {
+	path := watchcodecontracts.BackendRoutePath(entry.PluginID, suffix)
+	for _, route := range entry.RegisteredBackendRoutes {
+		if route.Path == path && containsString(route.Methods, http.MethodPost) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsTrimmedString(values []string, expected string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func markRuntimeAppSubsystemProviderInvalid(
+	resolution *runtimeAppSubsystemProviderResolution,
+	entry DiscoveredPlugin,
+	hasInvalidActiveProvider *bool,
+) {
+	resolution.selection.InvalidPluginIDs = append(
+		resolution.selection.InvalidPluginIDs,
+		entry.PluginID,
+	)
+	*hasInvalidActiveProvider =
+		*hasInvalidActiveProvider || entry.State == PluginRuntimeStateActive
+}
+
+func markRuntimeWatchCodeProviderInvalid(
+	resolution *runtimeWatchCodeProviderResolution,
+	entry DiscoveredPlugin,
+	hasInvalidActiveProvider *bool,
+) {
+	resolution.selection.InvalidPluginIDs = append(
+		resolution.selection.InvalidPluginIDs,
+		entry.PluginID,
+	)
+	*hasInvalidActiveProvider =
+		*hasInvalidActiveProvider || entry.State == PluginRuntimeStateActive
+}
+
+func markRuntimeWatchCodeProviderModeBlocked(
+	resolution *runtimeWatchCodeProviderResolution,
+	entry DiscoveredPlugin,
+	hasInvalidActiveProvider *bool,
+) {
+	switch entry.State {
+	case PluginRuntimeStateActive, PluginRuntimeStateInvalid:
+		markRuntimeWatchCodeProviderInvalid(
+			resolution,
+			entry,
+			hasInvalidActiveProvider,
+		)
+	case PluginRuntimeStateDisabled:
+		resolution.selection.DisabledPluginIDs = append(
+			resolution.selection.DisabledPluginIDs,
+			entry.PluginID,
+		)
+	case PluginRuntimeStatePendingRestart:
+		resolution.selection.PendingRestartPluginIDs = append(
+			resolution.selection.PendingRestartPluginIDs,
+			entry.PluginID,
+		)
+	}
+}
+
+func runtimeAppSubsystemFeatureManifest(
+	entry DiscoveredPlugin,
+) *PluginAppSubsystemFeatureManifest {
+	if entry.Manifest == nil || entry.Manifest.FeatureCapabilities == nil {
+		return nil
+	}
+	return entry.Manifest.FeatureCapabilities.AppSubsystem
+}
+
+func runtimeWatchCodeFeatureManifest(
+	entry DiscoveredPlugin,
+) *PluginWatchCodeFeatureManifest {
+	if entry.Manifest == nil || entry.Manifest.FeatureCapabilities == nil {
+		return nil
+	}
+	return entry.Manifest.FeatureCapabilities.WatchCode
+}
+
+func watchCodeBackendCapabilityModeBlocked(entry DiscoveredPlugin) bool {
+	for _, blocked := range entry.BlockedCapabilities {
+		if blocked.Capability == "registerWatchCodeBackend" &&
+			blocked.Reason == PluginBlockedCapabilityReasonModePolicy {
+			return true
+		}
+	}
+	return false
+}
+
+func appSubsystemFeatureRequiresFrontend(
+	feature *PluginAppSubsystemFeatureManifest,
+) bool {
+	if feature == nil {
+		return false
+	}
+	return feature.AppAuthoringUI ||
+		feature.AppPreviewUI ||
+		feature.AppGenerationChatModes ||
+		feature.AppDeploymentRuntime
+}
+
+func appSubsystemFrontendEntrypointAvailable(
+	entry DiscoveredPlugin,
+	feature *PluginAppSubsystemFeatureManifest,
+) bool {
+	if !appSubsystemFeatureRequiresFrontend(feature) {
+		return true
+	}
+	if entry.Manifest == nil || entry.Manifest.Frontend == nil {
+		return false
+	}
+	_, err := resolveManifestRegularFile(
+		entry.SourcePath,
+		entry.Manifest.Frontend.Entrypoint,
+		"plugin frontend entrypoint",
+	)
+	return err == nil
+}
+
+func watchCodeBackendSupportsRequiredLanguage(
+	registration *backendProbeWatchCodeBackendRegistration,
+) bool {
+	if registration == nil {
+		return false
+	}
+	for _, language := range registration.Languages {
+		if strings.EqualFold(language, "python") {
+			return true
+		}
+	}
+	return false
+}
+
+func watchCodeFrontendEntrypointAvailable(
+	entry DiscoveredPlugin,
+	feature *PluginWatchCodeFeatureManifest,
+) bool {
+	if feature == nil || !feature.CanvasControlsUI {
+		return true
+	}
+	if entry.Manifest == nil || entry.Manifest.Frontend == nil {
+		return false
+	}
+	_, err := resolveManifestRegularFile(
+		entry.SourcePath,
+		entry.Manifest.Frontend.Entrypoint,
+		"plugin frontend entrypoint",
+	)
+	return err == nil
+}
+
+func appSubsystemBackendContractRegistered(entry DiscoveredPlugin) bool {
+	if entry.appSubsystemBackend == nil {
+		return false
+	}
+
+	registeredEndpoints := make(map[string]struct{}, len(entry.appSubsystemListenerEndpoints))
+	for _, endpoint := range entry.appSubsystemListenerEndpoints {
+		normalizedName := strings.TrimSpace(endpoint.Name)
+		if normalizedName == "" {
+			continue
+		}
+		registeredEndpoints[normalizedName] = struct{}{}
+	}
+	for _, requiredEndpoint := range backendruntime.RequiredListenerEndpointNames() {
+		if _, ok := registeredEndpoints[requiredEndpoint]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func watchCodeBackendContractRegistered(entry DiscoveredPlugin) bool {
+	if entry.watchCodeBackend == nil {
+		return false
+	}
+	return entry.watchCodeBackend.ContractVersion == watchcodecontracts.BackendContractVersion
+}
+
+func mergeRuntimeAppSubsystemCapabilities(
+	capabilities *PluginAppSubsystemCapabilities,
+	feature *PluginAppSubsystemFeatureManifest,
+) {
+	if capabilities == nil || feature == nil {
+		return
+	}
+	capabilities.AppAuthoringUI = capabilities.AppAuthoringUI || feature.AppAuthoringUI
+	capabilities.AppPreviewUI = capabilities.AppPreviewUI || feature.AppPreviewUI
+	capabilities.AppGenerationChatModes = capabilities.AppGenerationChatModes || feature.AppGenerationChatModes
+	capabilities.AppDeploymentRuntime = capabilities.AppDeploymentRuntime || feature.AppDeploymentRuntime
+}
+
+func mergeRuntimeWatchCodeCapabilities(
+	capabilities *PluginWatchCodeCapabilities,
+	feature *PluginWatchCodeFeatureManifest,
+	backend *backendProbeWatchCodeBackendRegistration,
+) {
+	if capabilities == nil || feature == nil || backend == nil {
+		return
+	}
+	capabilities.Python = capabilities.Python || watchCodeBackendSupportsRequiredLanguage(backend)
+	capabilities.RequiresLanguageServer = capabilities.RequiresLanguageServer || backend.RequiresLanguageServer
+	capabilities.CanvasControlsUI = capabilities.CanvasControlsUI || feature.CanvasControlsUI
 }
 
 func (s *Service) ResolveAssetPath(pluginID string, assetPath string) (string, error) {
@@ -405,9 +1001,23 @@ func buildRuntimeStatusResponse(
 		SchemaVersion:            pluginStatusSchemaVersion,
 		ServerMode:               snapshot.ServerMode,
 		RestartCapability:        capability,
+		AppSubsystemSelection:    appSubsystemProviderSelectionPointer(resolveAppSubsystemProvider(snapshot.Plugins).selection),
+		WatchCodeSelection:       watchCodeProviderSelectionPointer(resolveWatchCodeProvider(snapshot.Plugins).selection),
 		Plugins:                  entries,
 		LanguageServerSelections: []LanguageServerSelectionStatus{},
 	}
+}
+
+func appSubsystemProviderSelectionPointer(
+	selection PluginAppSubsystemProviderSelection,
+) *PluginAppSubsystemProviderSelection {
+	return &selection
+}
+
+func watchCodeProviderSelectionPointer(
+	selection PluginWatchCodeProviderSelection,
+) *PluginWatchCodeProviderSelection {
+	return &selection
 }
 
 func buildRuntimeStatusEntry(entry DiscoveredPlugin, redactSourceDetails bool, redactedSourcePathByPath map[string]string) PluginStatusEntry {

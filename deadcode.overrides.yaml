@@ -3,6 +3,8 @@ schema_version: 1
 go:
   deadcode_version: v0.44.0
   staticcheck_version: 2025.1.1
+  staticcheck_packages:
+    - ./...
   build_matrix:
     - goos: env
       goarch: env
@@ -11,6 +13,11 @@ go:
     - "**/*_gen.go"
 
 python:
+  lint_roots:
+    - backend/setta
+    - backend/scripts
+    - scripts
+    - plugins
   public_modules:
     - backend/setta/api/__init__.py
     - backend/setta/llm/chat_toolkit/__init__.py
@@ -23,6 +30,17 @@ python:
 frontend:
   app_roots:
     - frontend/src/index.tsx
+  lint_roots:
+    - src
+    - plugin-sdk/app-subsystem/src
+  package_roots:
+    - frontend/plugin-sdk/app-subsystem
+    - plugins/setta-json-render-app-gen/frontend
+    - plugins/setta-watch-code/frontend
   generated_globs:
     - frontend/src/openapi/**/generated/**
     - frontend/src/utils/generatedTypes.ts
+    - frontend/plugin-sdk/app-subsystem/src/generatedTypes.ts
+    - frontend/plugin-sdk/app-subsystem/src/generated/**
+    - frontend/plugin-sdk/app-subsystem/src/openapi/**/generated/**
+    - plugins/*/frontend/src/generated/**
