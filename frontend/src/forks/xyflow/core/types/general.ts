@@ -5,28 +5,18 @@ import type {
   ZoomBehavior,
 } from "d3";
 
-import { Position } from "utils/generatedTypes";
 import type {
   ConnectingHandle,
   ConnectionMode,
   ConnectionStatus,
-} from "./edges";
-import type { Node } from "./nodes";
-import type { CoordinateExtent, Rect, Transform } from "./utils";
+  CoordinateExtent,
+  FitViewOptions,
+  Rect,
+  Transform,
+} from "gpuFlow/flowTypes";
+import { Position } from "utils/generatedTypes";
 
-export type FitViewOptions = {
-  padding?: number;
-  minZoom?: number;
-  maxZoom?: number;
-  duration?: number;
-  nodes?: (Partial<Node> & { id: Node["id"] })[];
-};
-
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
+export type { FitViewOptions, Viewport } from "gpuFlow/flowTypes";
 
 export type ReactFlowStore = {
   width: number;

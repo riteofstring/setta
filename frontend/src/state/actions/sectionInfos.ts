@@ -15,7 +15,7 @@ import {
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { Node } from "forks/xyflow/core/types";
+import type { Node } from "gpuFlow/flowTypes";
 import _ from "lodash";
 import {
   deleteSections,

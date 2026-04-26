@@ -1,6 +1,6 @@
 import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
 import { callOpenAPI, createNewId } from "@setta/app-subsystem-frontend-sdk";
-import type { Connection } from "forks/xyflow/core/types";
+import type { Connection } from "gpuFlow/flowTypes";
 import {
   createStateMachineEdge,
   deleteStateMachineEdges,

@@ -2,7 +2,7 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { HandlePosition } from "forks/xyflow/core/types";
+import { HandlePosition } from "gpuFlow/flowTypes";
 import {
   createSharedChatEdgeFromConnection,
   getChatSharedEdgeModeLabel,

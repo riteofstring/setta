@@ -1,5 +1,4 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import type { ReactFlowState } from "forks/xyflow/core/types";
 import {
   buildGpuEdgeScene,
   type GpuAgenticMissingEdgeSource,
@@ -37,7 +36,7 @@ type EdgeHandlePositions = ReturnType<
 >["positions"];
 type NodeInternals = ReturnType<typeof useNodeInternals.getState>["x"];
 type ReactFlowConnectionState = Pick<
-  ReactFlowState,
+  ReturnType<typeof useReactFlow.getState>,
   "connectionPosition" | "connectionStartHandle" | "transform"
 >;
 
@@ -227,7 +226,7 @@ function getRunningAgenticSourceSectionIds({
 }
 
 function selectReactFlowConnectionState(
-  state: ReactFlowState,
+  state: ReturnType<typeof useReactFlow.getState>,
 ): ReactFlowConnectionState {
   return {
     connectionPosition: state.connectionPosition,

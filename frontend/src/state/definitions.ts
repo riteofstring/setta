@@ -1,5 +1,5 @@
 import { ModalInfoType } from "components/Modals/types";
-import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type { HandlePosition, HandleType, Node } from "gpuFlow/flowTypes";
 import type {
   HttpapiExternalAgentPreflightStatus,
   HttpapiLlmapiKeysSnapshot,
