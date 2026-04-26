@@ -2,6 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import type { Connection, HandleType } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
+import { useDndState } from "forks/dnd-kit/dndState";
 import {
   useCallback,
   useEffect,
@@ -28,10 +29,13 @@ import {
   toggleEdgeSelection,
 } from "state/actions/edges";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { manualDndChildrenReset } from "state/actions/sectionInfos";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
+import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
 import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useEdgeHandleRegistry, useMisc, useSettings } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
   NO_WHEEL_CLASS_NAME,
@@ -48,6 +52,13 @@ import {
   getCanvasFlowEdgeHit,
   type CanvasFlowEdgeHit,
 } from "./canvasFlowEdges";
+import {
+  getCanvasFlowNestedDragSource,
+  getCanvasFlowNestedDropTarget,
+  resolveCanvasFlowNestedDndDropPlan,
+  type CanvasFlowClientPoint,
+  type CanvasFlowClientRect,
+} from "./canvasFlowNestedDnd";
 import type {
   CanvasFlowDrawableEdge,
   CanvasFlowHandlePosition,
@@ -118,11 +129,24 @@ type PointerGesture =
       edgeHit: CanvasFlowEdgeHit;
       pointerId: number;
       reconnectTarget: CanvasFlowReconnectTarget;
+    }
+  | {
+      mode: "nested-dnd";
+      draggingRectsById: Record<string, CanvasFlowClientRect>;
+      moved: boolean;
+      pointerId: number;
+      sectionIds: string[];
+      sourceId: string;
+      startPoint: CanvasFlowClientPoint;
     };
 type EdgePointerGesture = Extract<PointerGesture, { mode: "edge" }>;
 type EdgeReconnectPointerGesture = Extract<
   PointerGesture,
   { mode: "edge-reconnect" }
+>;
+type NestedDndPointerGesture = Extract<
+  PointerGesture,
+  { mode: "nested-dnd" }
 >;
 type PanPointerGesture = Extract<PointerGesture, { mode: "pan" }>;
 type SelectPointerGesture = Extract<PointerGesture, { mode: "select" }>;
@@ -159,6 +183,7 @@ export function useCanvasFlowInteractions({
   const wheelZoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const { canEditLayout } = useShareCapabilities();
 
   const syncStoreViewport = useCallback(() => {
     const viewport = viewportRef.current;
@@ -251,92 +276,42 @@ export function useCanvasFlowInteractions({
       if (event.target !== event.currentTarget) {
         return;
       }
-      const edgeHit = getEdgeHitForEvent({
-        canvas: event.currentTarget,
-        edges: edgesRef.current,
-        event,
-        viewport: viewportRef.current,
-      });
-      if (edgeHit && event.button === 0) {
-        event.preventDefault();
-        closeAllContextMenus();
-        const reconnectTarget = edgeHit.endpoint
-          ? getCanvasFlowReconnectTarget(edgeHit)
-          : null;
-        if (reconnectTarget) {
-          startCanvasFlowEdgeReconnect({
-            canvas: event.currentTarget,
-            event,
-            reconnectTarget,
-          });
-          gestureRef.current = {
-            mode: "edge-reconnect",
-            edgeHit,
-            pointerId: event.pointerId,
-            reconnectTarget,
-          };
-          event.currentTarget.setPointerCapture(event.pointerId);
-          suppressNextClickRef.current = true;
-          return;
-        }
-        gestureRef.current = {
-          mode: "edge",
-          edgeHit,
-          pointerId: event.pointerId,
-          startClientX: event.clientX,
-          startClientY: event.clientY,
-          moved: false,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
+      if (
+        tryStartNestedDndPointerGesture({
+          canEditLayout,
+          event,
+          gestureRef,
+          suppressNextClickRef,
+        })
+      ) {
         return;
       }
-      if (useReactFlow.getState().selectionKeyPressed && event.button === 0) {
-        const rect = getCanvasRelativePoint(event.currentTarget, event);
-        applyActiveSectionChange(
-          { interaction: "selection-rect", selectedIds: [] },
-          { syncMode: "ui-only" },
-        );
-        useReactFlow.setState({
-          userSelectionRect: {
-            width: 0,
-            height: 0,
-            startX: rect.x,
-            startY: rect.y,
-            x: rect.x,
-            y: rect.y,
-          },
-        });
-        gestureRef.current = {
-          mode: "select",
-          pointerId: event.pointerId,
-          startX: rect.x,
-          startY: rect.y,
-          moved: false,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
+      if (
+        tryStartEdgePointerGesture({
+          edges: edgesRef.current,
+          event,
+          gestureRef,
+          suppressNextClickRef,
+          viewport: viewportRef.current,
+        })
+      ) {
+        return;
+      }
+      if (tryStartSelectionPointerGesture({ event, gestureRef })) {
         return;
       }
       if (!isPanButtonAllowed(event.button, panOnDrag)) {
         return;
       }
-      event.preventDefault();
-      closeAllContextMenus();
-      useReactFlow.setState({
-        paneDragging: true,
-        viewportInteractionActive: true,
-      });
-      gestureRef.current = {
-        mode: "pan",
-        pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        lastClientX: event.clientX,
-        lastClientY: event.clientY,
-        moved: false,
-      };
-      event.currentTarget.setPointerCapture(event.pointerId);
+      startPanPointerGesture({ event, gestureRef });
     },
-    [edgesRef, panOnDrag, schedulePaint, syncStoreViewport, viewportRef],
+    [
+      canEditLayout,
+      edgesRef,
+      panOnDrag,
+      syncStoreViewport,
+      viewportRef,
+    ],
   );
 
   const onPointerMove = useCallback(
@@ -356,6 +331,9 @@ export function useCanvasFlowInteractions({
             gesture,
             viewport: viewportRef.current,
           });
+          return;
+        case "nested-dnd":
+          updateNestedDndGestureMove(gesture, event);
           return;
         case "pan":
           updatePanGestureMove({
@@ -384,49 +362,13 @@ export function useCanvasFlowInteractions({
       }
       event.currentTarget.releasePointerCapture(event.pointerId);
       gestureRef.current = null;
-      if (gesture.mode === "edge") {
-        suppressNextClickRef.current = true;
-        if (!gesture.moved) {
-          toggleCanvasFlowEdgeSelection(gesture.edgeHit.edge);
-          schedulePaint();
-        }
-        return;
-      }
-      if (gesture.mode === "edge-reconnect") {
-        suppressNextClickRef.current = true;
-        finishEdgeReconnectGesture({
-          canvas: event.currentTarget,
-          event,
-          gesture,
-          schedulePaint,
-          viewport: viewportRef.current,
-        });
-        return;
-      }
-      if (gesture.mode === "pan") {
-        finishViewportGesture();
-        if (!gesture.moved && event.target === event.currentTarget) {
-          onBackgroundClick(event, viewportRef.current, {
-            forceDurableSync: true,
-          });
-        }
-        return;
-      }
-      const activeCount = getActiveSectionUIIds().length;
-      (
-        useReactFlow.getState() as unknown as {
-          setNodesSelection: (
-            selectedNodesCount: number,
-            ignoreGrid?: boolean,
-          ) => void;
-        }
-      ).setNodesSelection(activeCount, true);
-      setActiveSectionIds(getActiveSectionUIIds(), {
-        forceDurableSync: true,
-      });
-      useReactFlow.setState({
-        userSelectionActive: false,
-        userSelectionRect: null,
+      finishPointerGesture({
+        event,
+        finishViewportGesture,
+        gesture,
+        schedulePaint,
+        suppressNextClickRef,
+        viewport: viewportRef.current,
       });
     },
     [finishViewportGesture, schedulePaint, viewportRef],
@@ -631,6 +573,270 @@ function getEdgeHitForEvent({
   return getCanvasFlowEdgeHit({ edges, point, viewport });
 }
 
+function tryStartNestedDndPointerGesture({
+  canEditLayout,
+  event,
+  gestureRef,
+  suppressNextClickRef,
+}: {
+  canEditLayout: boolean;
+  event: PointerEvent<HTMLCanvasElement>;
+  gestureRef: MutableRefObject<PointerGesture | null>;
+  suppressNextClickRef: MutableRefObject<boolean>;
+}): boolean {
+  const nestedDndGesture = getNestedDndGestureForPointerDown({
+    canEditLayout,
+    canvas: event.currentTarget,
+    event,
+  });
+  if (!nestedDndGesture) {
+    return false;
+  }
+  event.preventDefault();
+  closeAllContextMenus();
+  gestureRef.current = nestedDndGesture;
+  event.currentTarget.setPointerCapture(event.pointerId);
+  suppressNextClickRef.current = true;
+  useReactFlow.setState({ viewportInteractionActive: true });
+  return true;
+}
+
+function tryStartEdgePointerGesture({
+  edges,
+  event,
+  gestureRef,
+  suppressNextClickRef,
+  viewport,
+}: {
+  edges: CanvasFlowDrawableEdge[];
+  event: PointerEvent<HTMLCanvasElement>;
+  gestureRef: MutableRefObject<PointerGesture | null>;
+  suppressNextClickRef: MutableRefObject<boolean>;
+  viewport: CanvasFlowViewport;
+}): boolean {
+  const edgeHit = getEdgeHitForEvent({
+    canvas: event.currentTarget,
+    edges,
+    event,
+    viewport,
+  });
+  if (!edgeHit || event.button !== 0) {
+    return false;
+  }
+  event.preventDefault();
+  closeAllContextMenus();
+  return startEdgeHitGesture({
+    edgeHit,
+    event,
+    gestureRef,
+    suppressNextClickRef,
+  });
+}
+
+function startEdgeHitGesture({
+  edgeHit,
+  event,
+  gestureRef,
+  suppressNextClickRef,
+}: {
+  edgeHit: CanvasFlowEdgeHit;
+  event: PointerEvent<HTMLCanvasElement>;
+  gestureRef: MutableRefObject<PointerGesture | null>;
+  suppressNextClickRef: MutableRefObject<boolean>;
+}): boolean {
+  const reconnectTarget = edgeHit.endpoint
+    ? getCanvasFlowReconnectTarget(edgeHit)
+    : null;
+  if (reconnectTarget) {
+    startCanvasFlowEdgeReconnect({
+      canvas: event.currentTarget,
+      event,
+      reconnectTarget,
+    });
+    gestureRef.current = {
+      mode: "edge-reconnect",
+      edgeHit,
+      pointerId: event.pointerId,
+      reconnectTarget,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    suppressNextClickRef.current = true;
+    return true;
+  }
+  gestureRef.current = {
+    mode: "edge",
+    edgeHit,
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    moved: false,
+  };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  return true;
+}
+
+function tryStartSelectionPointerGesture({
+  event,
+  gestureRef,
+}: {
+  event: PointerEvent<HTMLCanvasElement>;
+  gestureRef: MutableRefObject<PointerGesture | null>;
+}): boolean {
+  if (!useReactFlow.getState().selectionKeyPressed || event.button !== 0) {
+    return false;
+  }
+  const rect = getCanvasRelativePoint(event.currentTarget, event);
+  applyActiveSectionChange(
+    { interaction: "selection-rect", selectedIds: [] },
+    { syncMode: "ui-only" },
+  );
+  useReactFlow.setState({
+    userSelectionRect: {
+      width: 0,
+      height: 0,
+      startX: rect.x,
+      startY: rect.y,
+      x: rect.x,
+      y: rect.y,
+    },
+  });
+  gestureRef.current = {
+    mode: "select",
+    pointerId: event.pointerId,
+    startX: rect.x,
+    startY: rect.y,
+    moved: false,
+  };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  return true;
+}
+
+function startPanPointerGesture({
+  event,
+  gestureRef,
+}: {
+  event: PointerEvent<HTMLCanvasElement>;
+  gestureRef: MutableRefObject<PointerGesture | null>;
+}) {
+  event.preventDefault();
+  closeAllContextMenus();
+  useReactFlow.setState({
+    paneDragging: true,
+    viewportInteractionActive: true,
+  });
+  gestureRef.current = {
+    mode: "pan",
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    lastClientX: event.clientX,
+    lastClientY: event.clientY,
+    moved: false,
+  };
+  event.currentTarget.setPointerCapture(event.pointerId);
+}
+
+function finishPointerGesture({
+  event,
+  finishViewportGesture,
+  gesture,
+  schedulePaint,
+  suppressNextClickRef,
+  viewport,
+}: {
+  event: PointerEvent<HTMLCanvasElement>;
+  finishViewportGesture: () => void;
+  gesture: PointerGesture;
+  schedulePaint: () => void;
+  suppressNextClickRef: MutableRefObject<boolean>;
+  viewport: CanvasFlowViewport;
+}) {
+  switch (gesture.mode) {
+    case "edge":
+      finishEdgeGesture({ gesture, schedulePaint, suppressNextClickRef });
+      return;
+    case "edge-reconnect":
+      suppressNextClickRef.current = true;
+      finishEdgeReconnectGesture({
+        canvas: event.currentTarget,
+        event,
+        gesture,
+        schedulePaint,
+        viewport,
+      });
+      return;
+    case "nested-dnd":
+      suppressNextClickRef.current = true;
+      finishNestedDndGesture({
+        canvas: event.currentTarget,
+        event,
+        gesture,
+        schedulePaint,
+        viewport,
+      });
+      return;
+    case "pan":
+      finishPanGesture({ event, finishViewportGesture, gesture, viewport });
+      return;
+    case "select":
+      finishSelectionGesture();
+  }
+}
+
+function finishEdgeGesture({
+  gesture,
+  schedulePaint,
+  suppressNextClickRef,
+}: {
+  gesture: EdgePointerGesture;
+  schedulePaint: () => void;
+  suppressNextClickRef: MutableRefObject<boolean>;
+}) {
+  suppressNextClickRef.current = true;
+  if (!gesture.moved) {
+    toggleCanvasFlowEdgeSelection(gesture.edgeHit.edge);
+    schedulePaint();
+  }
+}
+
+function finishPanGesture({
+  event,
+  finishViewportGesture,
+  gesture,
+  viewport,
+}: {
+  event: PointerEvent<HTMLCanvasElement>;
+  finishViewportGesture: () => void;
+  gesture: PanPointerGesture;
+  viewport: CanvasFlowViewport;
+}) {
+  finishViewportGesture();
+  if (!gesture.moved && event.target === event.currentTarget) {
+    onBackgroundClick(event, viewport, {
+      forceDurableSync: true,
+    });
+  }
+}
+
+function finishSelectionGesture() {
+  const activeCount = getActiveSectionUIIds().length;
+  (
+    useReactFlow.getState() as unknown as {
+      setNodesSelection: (
+        selectedNodesCount: number,
+        ignoreGrid?: boolean,
+      ) => void;
+    }
+  ).setNodesSelection(activeCount, true);
+  setActiveSectionIds(getActiveSectionUIIds(), {
+    forceDurableSync: true,
+  });
+  useReactFlow.setState({
+    userSelectionActive: false,
+    userSelectionRect: null,
+  });
+}
+
 function updateEdgeGestureMove(
   gesture: EdgePointerGesture,
   event: PointerEvent<HTMLCanvasElement>,
@@ -641,6 +847,108 @@ function updateEdgeGestureMove(
       event.clientX - gesture.startClientX,
       event.clientY - gesture.startClientY,
     ) > 3;
+}
+
+function getNestedDndGestureForPointerDown({
+  canEditLayout,
+  canvas,
+  event,
+}: {
+  canEditLayout: boolean;
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+}): NestedDndPointerGesture | null {
+  if (!canEditLayout || event.button !== 0 || !isNestedDndModeActive(event)) {
+    return null;
+  }
+  const point = getClientPoint(event);
+  const source = getCanvasFlowNestedDragSource({ point, root: canvas });
+  if (!source) {
+    return null;
+  }
+  return {
+    mode: "nested-dnd",
+    draggingRectsById: {
+      [source.sectionId]: source.rect,
+    },
+    moved: false,
+    pointerId: event.pointerId,
+    sectionIds: [source.sectionId],
+    sourceId: source.sectionId,
+    startPoint: point,
+  };
+}
+
+function updateNestedDndGestureMove(
+  gesture: NestedDndPointerGesture,
+  event: PointerEvent<HTMLCanvasElement>,
+) {
+  event.preventDefault();
+  gesture.moved =
+    gesture.moved ||
+    Math.hypot(
+      event.clientX - gesture.startPoint.x,
+      event.clientY - gesture.startPoint.y,
+    ) > 3;
+}
+
+function finishNestedDndGesture({
+  canvas,
+  event,
+  gesture,
+  schedulePaint,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  event: PointerEvent<HTMLCanvasElement>;
+  gesture: NestedDndPointerGesture;
+  schedulePaint: () => void;
+  viewport: CanvasFlowViewport;
+}) {
+  if (!gesture.moved) {
+    useReactFlow.setState({ viewportInteractionActive: false });
+    return;
+  }
+  const dragEndPoint = getClientPoint(event);
+  const target = getCanvasFlowNestedDropTarget({
+    point: dragEndPoint,
+    root: canvas,
+    sourceId: gesture.sourceId,
+  });
+  const canvasRect = canvas.getBoundingClientRect();
+  const plan = resolveCanvasFlowNestedDndDropPlan({
+    dragEndPoint,
+    dragStartPoint: gesture.startPoint,
+    draggingRectsById: gesture.draggingRectsById,
+    sectionIds: gesture.sectionIds,
+    target,
+    toWorldPosition: (position) =>
+      screenToWorldPoint(
+        {
+          x: position.x - canvasRect.left,
+          y: position.y - canvasRect.top,
+        },
+        viewport,
+      ),
+  });
+  if (plan) {
+    moveSectionsWithBackend(plan);
+  }
+  manualDndChildrenReset();
+  useReactFlow.setState({ viewportInteractionActive: false });
+  schedulePaint();
+}
+
+function isNestedDndModeActive(event: PointerEvent<HTMLCanvasElement>): boolean {
+  const dndState = useDndState.getState();
+  return dndState.isMovingFree || dndState.isSorting || event.altKey;
+}
+
+function getClientPoint(event: PointerEvent<HTMLCanvasElement>) {
+  return {
+    x: event.clientX,
+    y: event.clientY,
+  };
 }
 
 function updatePanGestureMove({
