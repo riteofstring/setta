@@ -367,6 +367,10 @@ class GpuNodeDragController {
     if (!pendingDrag) {
       return;
     }
+    if (!this.canStartPendingDrag(pendingDrag)) {
+      this.abortPendingDrag(pendingDrag);
+      return;
+    }
     event.preventDefault();
     event.stopImmediatePropagation();
     const items = getGpuNodeDragItems({
@@ -376,7 +380,7 @@ class GpuNodeDragController {
       selectedNodeIds: this.options.getSelectedNodeIds?.() ?? [],
     });
     if (items.length === 0) {
-      this.clearPendingDrag();
+      this.abortPendingDrag(pendingDrag);
       return;
     }
 
@@ -397,6 +401,16 @@ class GpuNodeDragController {
     this.options.onNodeDragStart?.(change);
     this.options.requestFrame?.("viewport");
     this.startAutoPanLoop();
+  }
+
+  private canStartPendingDrag(drag: PendingGpuNodeDrag): boolean {
+    if (isDragDisabled(this.options.disabled)) {
+      return false;
+    }
+    if (this.options.canDragNode?.(drag.nodeId) === false) {
+      return false;
+    }
+    return true;
   }
 
   private updateActiveDragFromScreenPoint(
@@ -471,6 +485,11 @@ class GpuNodeDragController {
   private clearPendingDrag() {
     this.pendingDrag = null;
     this.removeDocumentListeners();
+  }
+
+  private abortPendingDrag(drag: PendingGpuNodeDrag) {
+    drag.nodeElement.releasePointerCapture?.(drag.pointerId);
+    this.clearPendingDrag();
   }
 
   private addDocumentListeners() {
