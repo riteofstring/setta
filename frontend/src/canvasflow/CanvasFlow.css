@@ -3,6 +3,14 @@
   touch-action: none;
 }
 
+.canvas-flow__container {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .canvas-flow__canvas {
   display: block;
   height: 100%;
@@ -18,19 +26,64 @@
 .canvas-flow__node {
   box-sizing: border-box;
   contain: layout paint style;
+  cursor: move;
   left: 0;
+  pointer-events: none;
+  position: absolute;
   top: 0;
   transform-origin: 0 0;
+  user-select: none;
 }
 
-.canvas-flow .react-flow__selection {
+.canvas-flow__node.dragging {
+  cursor: grabbing;
+}
+
+.canvas-flow__selection {
   pointer-events: none;
   z-index: 50;
 }
 
-.canvas-flow .react-flow__nodesselection,
-.canvas-flow .react-flow__nodesselection-hitbox {
+.canvas-flow__nodesselection,
+.canvas-flow__nodesselection-hitbox {
   z-index: 55;
+}
+
+.canvas-flow__nodesselection {
+  transform-origin: left top;
+  pointer-events: none;
+}
+
+.canvas-flow__nodesselection-hitbox {
+  transform-origin: left top;
+  pointer-events: none;
+}
+
+.canvas-flow__nodesselection-rect {
+  position: absolute;
+  pointer-events: all;
+  cursor: grab;
+}
+
+.canvas-flow__nodesselection-hitbox-rect {
+  position: absolute;
+  pointer-events: all;
+  cursor: grab;
+  background: transparent;
+  border: none;
+}
+
+.canvas-flow__nodesselection-rect,
+.canvas-flow__selection {
+  background: rgba(0, 89, 220, 0.08);
+  border: 1px dotted rgba(0, 89, 220, 0.8);
+}
+
+.canvas-flow__nodesselection-rect:focus,
+.canvas-flow__nodesselection-rect:focus-visible,
+.canvas-flow__selection:focus,
+.canvas-flow__selection:focus-visible {
+  outline: none;
 }
 
 .canvas-flow .setta-codemirror-tooltips,
@@ -50,4 +103,378 @@
 
 .canvas-flow .setta-popover-portals {
   z-index: 320;
+}
+
+.canvas-flow .react-flow__handle {
+  position: absolute;
+  pointer-events: none;
+  min-width: 5px;
+  min-height: 5px;
+  width: 6px;
+  height: 6px;
+  background: hsl(219, 25%, 34%);
+  border: 1px solid hsl(219, 24%, 89%);
+  border-radius: 999px;
+}
+
+.canvas-flow .react-flow__handle.connectionindicator {
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+.canvas-flow .react-flow__handle-bottom {
+  top: auto;
+  left: 50%;
+  bottom: -4px;
+  transform: translate(-50%, 0);
+}
+
+.canvas-flow .react-flow__handle-top {
+  left: 50%;
+  top: -4px;
+  transform: translate(-50%, 0);
+}
+
+.canvas-flow .react-flow__handle-left {
+  top: 50%;
+  left: -4px;
+  transform: translate(0, -50%);
+}
+
+.canvas-flow .react-flow__handle-right {
+  right: -4px;
+  top: 50%;
+  transform: translate(0, -50%);
+}
+
+html.dark .canvas-flow .react-flow__handle {
+  background: hsl(219, 25%, 77%);
+  border-color: hsl(220, 25%, 11%);
+}
+
+.canvas-flow[data-show-agentic-edges="false"]
+  .react-flow__handle.agentic-handle:not(.workflow-handle):not(
+    .chat-shared-handle
+  ),
+.canvas-flow[data-show-agentic-edges="false"]
+  .agentic-handle-safe-zone:not(.workflow-handle-safe-zone):not(
+    .chat-shared-handle-safe-zone
+  ) {
+  display: none !important;
+}
+
+.canvas-flow[data-show-arg-edges="false"] .react-flow__handle.arg-edge-handle {
+  display: none !important;
+}
+
+.canvas-flow .react-flow__handle.arg-edge-handle {
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  z-index: 40;
+  transition:
+    background-color 80ms ease-out,
+    border-color 80ms ease-out,
+    box-shadow 80ms ease-out;
+}
+
+.canvas-flow .agentic-handle-scope--themed .react-flow__handle.arg-edge-handle {
+  background-color: var(--setta-section-style-arg-handle);
+  border-color: var(--setta-section-style-arg-handle);
+}
+
+.canvas-flow .react-flow__handle.arg-edge-handle.arg-edge-handle--selecting {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.canvas-flow .react-flow__handle.arg-edge-handle.react-flow__handle-left {
+  left: -6px;
+}
+
+.canvas-flow .react-flow__handle.arg-edge-handle.react-flow__handle-right {
+  right: -6px;
+}
+
+.canvas-flow
+  .react-flow__handle.arg-edge-handle.arg-edge-handle--minimized.react-flow__handle-left,
+.canvas-flow
+  .react-flow__handle.arg-edge-handle.arg-edge-handle--minimized.react-flow__handle-right {
+  top: var(--agentic-handle-top, 50%);
+}
+
+.canvas-flow .agentic-handle-scope {
+  --agentic-handle-top: 50%;
+}
+
+.canvas-flow .agentic-handle-metrics {
+  --agentic-handle-accent: #2563eb;
+  --agentic-handle-size: 18px;
+  --agentic-handle-gap: 12px;
+  --agentic-handle-safe-overhang: max(
+    16px,
+    calc(var(--agentic-handle-size) + 2px)
+  );
+  --agentic-handle-safe-y-pad: 12px;
+  --agentic-handle-ring-width: 2px;
+  --agentic-handle-fade-in-duration: 70ms;
+  --agentic-handle-fade-out-duration: 80ms;
+}
+
+html.dark .canvas-flow .agentic-handle-metrics {
+  --agentic-handle-accent: #3b82f6;
+}
+
+.canvas-flow .agentic-handle-scope--themed .agentic-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
+html.dark .canvas-flow .agentic-handle-scope--themed .agentic-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
+.canvas-flow .workflow-handle-metrics {
+  --agentic-handle-accent: #d97706;
+}
+
+html.dark .canvas-flow .workflow-handle-metrics {
+  --agentic-handle-accent: #f59e0b;
+}
+
+.canvas-flow .chat-shared-handle-metrics {
+  --agentic-handle-accent: #0f766e;
+}
+
+html.dark .canvas-flow .chat-shared-handle-metrics {
+  --agentic-handle-accent: #14b8a6;
+}
+
+.canvas-flow .agentic-handle-scope--themed .chat-shared-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
+html.dark
+  .canvas-flow
+  .agentic-handle-scope--themed
+  .chat-shared-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
+.canvas-flow .workflow-handle-scope {
+  --agentic-handle-top: 50%;
+}
+
+.canvas-flow .workflow-handle-scope--chat {
+  --agentic-handle-top: 32%;
+}
+
+.canvas-flow .react-flow__handle.arg-edge-handle:hover {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.canvas-flow
+  .agentic-handle-scope--themed
+  .react-flow__handle.arg-edge-handle:hover {
+  background-color: var(--setta-section-style-arg-handle-hover);
+  border-color: var(--setta-section-style-arg-handle-hover);
+}
+
+.canvas-flow .react-flow__handle.arg-edge-handle:active {
+  background-color: #67e8f9;
+  border-color: #67e8f9;
+}
+
+.canvas-flow
+  .agentic-handle-scope--themed
+  .react-flow__handle.arg-edge-handle:active {
+  background-color: var(--setta-section-style-arg-handle-active);
+  border-color: var(--setta-section-style-arg-handle-active);
+}
+
+.canvas-flow .react-flow__handle.agentic-handle {
+  --agentic-handle-inner-size: calc(
+    var(--agentic-handle-size) - (2 * var(--agentic-handle-ring-width))
+  );
+  --agentic-handle-render-size: var(--agentic-handle-size);
+
+  width: var(--agentic-handle-render-size);
+  height: var(--agentic-handle-render-size);
+  z-index: 160;
+  border-width: var(--agentic-handle-ring-width);
+  border-color: var(--agentic-handle-accent);
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--agentic-handle-fade-out-duration) ease-out 0ms,
+    visibility 0s linear var(--agentic-handle-fade-out-duration);
+}
+
+.canvas-flow[data-connecting="true"] .react-flow__handle.agentic-handle,
+.canvas-flow .react-flow__handle.agentic-handle.agentic-handle--always-visible,
+.canvas-flow .react-flow__handle.agentic-handle.agentic-handle--selecting,
+.canvas-flow .react-flow__handle.agentic-handle.agentic-handle--connected {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+  transition: none;
+  animation: none;
+}
+
+.canvas-flow__node:hover .react-flow__handle.agentic-handle,
+.canvas-flow
+  .agentic-handle-safe-zone:hover
+  + .react-flow__handle.agentic-handle,
+.canvas-flow .react-flow__handle.agentic-handle:hover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+  transition:
+    opacity var(--agentic-handle-fade-in-duration) ease-out 0ms,
+    visibility 0s linear 0ms;
+  animation: none;
+}
+
+.canvas-flow__node:hover .react-flow__handle.agentic-handle:not(.connectable),
+.canvas-flow[data-connecting="true"]
+  .react-flow__handle.agentic-handle:not(.connectable),
+.canvas-flow
+  .react-flow__handle.agentic-handle.agentic-handle--always-visible:not(
+    .connectable
+  ),
+.canvas-flow
+  .agentic-handle-safe-zone:hover
+  + .react-flow__handle.agentic-handle:not(.connectable),
+.canvas-flow
+  .react-flow__handle.agentic-handle.agentic-handle--selecting:not(
+    .connectable
+  ),
+.canvas-flow .react-flow__handle.agentic-handle:hover:not(.connectable),
+.canvas-flow
+  .react-flow__handle.agentic-handle.agentic-handle--connected:not(
+    .connectable
+  ) {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.canvas-flow .react-flow__handle.agentic-handle.agentic-handle--target {
+  --agentic-handle-render-size: var(--agentic-handle-inner-size);
+  background: transparent;
+  border-color: var(--agentic-handle-accent);
+}
+
+.canvas-flow .react-flow__handle.agentic-handle.agentic-handle--source {
+  --agentic-handle-render-size: var(--agentic-handle-inner-size);
+  background: var(--agentic-handle-accent);
+  border-width: 0;
+}
+
+.canvas-flow .react-flow__handle.agentic-handle.agentic-handle--reverse-start {
+  z-index: 161;
+  background: transparent;
+  border-width: 0;
+}
+
+.canvas-flow__node:hover
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.canvas-flow
+  .agentic-handle-safe-zone:hover
+  + .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.canvas-flow
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start:hover,
+.canvas-flow
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--always-visible,
+.canvas-flow
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--connected,
+.canvas-flow
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--selecting {
+  opacity: 0;
+}
+
+.canvas-flow[data-connecting="true"]
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.canvas-flow .react-flow__handle.agentic-handle.react-flow__handle-left {
+  left: calc(
+    -1 * (var(--agentic-handle-render-size) + var(--agentic-handle-gap))
+  );
+  top: var(--agentic-handle-top, 50%);
+}
+
+.canvas-flow .react-flow__handle.agentic-handle.react-flow__handle-right {
+  right: calc(
+    -1 * (var(--agentic-handle-render-size) + var(--agentic-handle-gap))
+  );
+  top: var(--agentic-handle-top, 50%);
+}
+
+.canvas-flow .agentic-handle-safe-zone {
+  position: absolute;
+  top: var(--agentic-handle-top, 50%);
+  transform: translateY(-50%);
+  width: calc(var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang));
+  height: calc(
+    var(--agentic-handle-size) + (2 * var(--agentic-handle-safe-y-pad))
+  );
+  z-index: 0;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.canvas-flow .agentic-handle-safe-zone--left {
+  left: calc(
+    -1 * (var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang))
+  );
+  clip-path: polygon(0 35%, 100% 0, 100% 100%, 0 65%);
+}
+
+.canvas-flow .agentic-handle-safe-zone--right {
+  right: calc(
+    -1 * (var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang))
+  );
+  clip-path: polygon(0 0, 100% 35%, 100% 65%, 0 100%);
+}
+
+.canvas-flow__panel {
+  position: absolute;
+  z-index: 5;
+  margin: 15px;
+}
+
+.canvas-flow__panel.top {
+  top: 0;
+}
+
+.canvas-flow__panel.bottom {
+  bottom: 0;
+}
+
+.canvas-flow__panel.left {
+  left: 0;
+}
+
+.canvas-flow__panel.right {
+  right: 0;
+}
+
+.canvas-flow__panel.center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.canvas-flow__minimap {
+  background-color: #94a3b8b6 !important;
+}
+
+html.dark .canvas-flow__minimap {
+  background-color: hsla(220, 27%, 6%, 0.72) !important;
+  border-color: hsla(220, 26%, 14%, 0.55) !important;
 }

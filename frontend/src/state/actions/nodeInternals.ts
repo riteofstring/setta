@@ -59,9 +59,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
 
 function hasViewportNode() {
   const domNode = useReactFlow.getState().domNode;
-  return !!domNode?.querySelector(
-    ".react-flow__viewport, .canvas-flow__canvas",
-  );
+  return !!domNode?.querySelector(".canvas-flow__canvas");
 }
 
 function applyNodeDimensionUpdates(

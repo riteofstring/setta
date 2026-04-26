@@ -514,7 +514,7 @@ function MiniMap(props: MiniMapProps) {
     <Panel
       position={position}
       style={style}
-      className={cc(["react-flow__minimap", className])}
+      className={cc(["canvas-flow__minimap", className])}
       data-testid="rf__minimap"
     >
       <MinimapSvg {...minimapSvgProps} />

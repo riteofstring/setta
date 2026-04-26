@@ -374,7 +374,7 @@ function CanvasFlow() {
 
   return (
     <div
-      className="react-flow canvas-flow setta-light dark:setta-dark"
+      className="canvas-flow setta-light dark:setta-dark"
       data-connecting={isConnecting ? "true" : "false"}
       data-show-agentic-edges={showAgenticEdges ? "true" : "false"}
       data-show-arg-edges={showArgEdges ? "true" : "false"}

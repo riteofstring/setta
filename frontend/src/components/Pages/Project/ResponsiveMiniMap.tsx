@@ -1,7 +1,6 @@
 import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { MiniMap } from "forks/xyflow/minimap";
-import "forks/xyflow/minimap/style.css";
 import { useLocalStorage } from "state/definitions";
 
 type ResponsiveMiniMapPlacement = {

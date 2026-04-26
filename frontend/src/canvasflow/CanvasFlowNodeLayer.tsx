@@ -150,7 +150,6 @@ function _CanvasFlowNodeWrapper({
     <div
       {...dragHandlers}
       className={cc([
-        "react-flow__node",
         "canvas-flow__node",
         {
           [NO_PAN_CLASS_NAME]: isDraggable,

@@ -56,7 +56,7 @@ function _CanvasFlowNodesSelection({
   const activeIds = useActiveSectionUI((state) => state.activeIds, _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
   const primarySelectionId =
-    activeIds.length > 0 ? (activeIds[activeIds.length - 1] ?? null) : null;
+    activeIds.length > 0 ? activeIds[activeIds.length - 1] ?? null : null;
   const dragHandlers = useCanvasFlowNodeDrag({
     canvasRef,
     disabled: isSorting || isMovingFree,
@@ -105,8 +105,8 @@ function _CanvasFlowNodesSelection({
   return (
     <div
       className={cc([
-        "react-flow__nodesselection",
-        "react-flow__container",
+        "canvas-flow__nodesselection",
+        "canvas-flow__container",
         NO_PAN_CLASS_NAME,
       ])}
       style={{
@@ -115,7 +115,7 @@ function _CanvasFlowNodesSelection({
     >
       <div
         {...dragHandlers}
-        className="react-flow__nodesselection-rect"
+        className="canvas-flow__nodesselection-rect"
         onContextMenu={onContextMenu}
         onKeyDown={onKeyDown}
         ref={nodeRef}
@@ -132,12 +132,7 @@ function _CanvasFlowNodesSelection({
   );
 }
 
-function _CanvasFlowNodesSelectionDragHandle({
-  height,
-  width,
-  x,
-  y,
-}: Rect) {
+function _CanvasFlowNodesSelectionDragHandle({ height, width, x, y }: Rect) {
   const transformString = useReactFlow(
     (state) =>
       `translate(${state.transform[0]}px,${state.transform[1]}px) scale(${state.transform[2]})`,
@@ -154,8 +149,8 @@ function _CanvasFlowNodesSelectionDragHandle({
   return (
     <div
       className={cc([
-        "react-flow__nodesselection-hitbox",
-        "react-flow__container",
+        "canvas-flow__nodesselection-hitbox",
+        "canvas-flow__container",
         NO_PAN_CLASS_NAME,
       ])}
       style={{
@@ -163,7 +158,7 @@ function _CanvasFlowNodesSelectionDragHandle({
       }}
     >
       <div
-        className="react-flow__nodesselection-hitbox-rect"
+        className="canvas-flow__nodesselection-hitbox-rect"
         ref={nodeRef}
         style={{
           height,

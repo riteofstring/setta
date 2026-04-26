@@ -6,6 +6,7 @@ export const PROJECT_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX = 900;
 export const PROJECT_CHAT_SIDE_RAIL_WIDTH_PX = 40;
 export const PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX = 40;
 export const PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX = 36;
+export const PROJECT_CHAT_WORKSPACE_SELECTOR = ".canvas-flow";
 
 type ProjectChatFloatingViewport = {
   viewportWidthPx: number;
@@ -23,11 +24,11 @@ export function resolveProjectChatFloatingWorkspaceTopInsetPx(): number {
   if (typeof document === "undefined") {
     return PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
   }
-  const pane = document.querySelector(".react-flow__pane");
-  if (!(pane instanceof HTMLElement)) {
+  const workspace = document.querySelector(PROJECT_CHAT_WORKSPACE_SELECTOR);
+  if (!(workspace instanceof HTMLElement)) {
     return PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
   }
-  const topInsetPx = pane.getBoundingClientRect().top;
+  const topInsetPx = workspace.getBoundingClientRect().top;
   if (!Number.isFinite(topInsetPx) || topInsetPx <= 0) {
     return PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
   }

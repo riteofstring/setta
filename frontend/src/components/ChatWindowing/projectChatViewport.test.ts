@@ -2,7 +2,10 @@ import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveProjectChatFloatingViewport } from "./projectChatViewport";
+import {
+  PROJECT_CHAT_WORKSPACE_SELECTOR,
+  resolveProjectChatFloatingViewport,
+} from "./projectChatViewport";
 
 describe("resolveProjectChatFloatingViewport", () => {
   beforeEach(() => {
@@ -77,5 +80,6 @@ describe("resolveProjectChatFloatingViewport", () => {
         bottom: 36,
       },
     });
+    expect(querySelector).toHaveBeenCalledWith(PROJECT_CHAT_WORKSPACE_SELECTOR);
   });
 });
