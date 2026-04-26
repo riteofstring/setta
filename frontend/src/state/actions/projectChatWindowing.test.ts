@@ -61,6 +61,11 @@ const hoistedProjectChatWindowing = vi.hoisted(() => ({
 vi.mock("forks/xyflow/core/store", () => ({
   useReactFlow: {
     getState: () => hoistedProjectChatWindowing.reactFlowState,
+    setState: (
+      nextState: Partial<typeof hoistedProjectChatWindowing.reactFlowState>,
+    ) => {
+      Object.assign(hoistedProjectChatWindowing.reactFlowState, nextState);
+    },
   },
 }));
 vi.mock("./sections/createSections", () => ({

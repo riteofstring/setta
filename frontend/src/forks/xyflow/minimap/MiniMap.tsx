@@ -1,6 +1,4 @@
 import cc from "classcat";
-import { pointer, select } from "d3-selection";
-import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   memo,
@@ -17,12 +15,7 @@ import {
 } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
-import type {
-  CoordinateExtent,
-  Node,
-  ReactFlowState,
-  Rect,
-} from "../core/types";
+import type { Node, ReactFlowState, Rect } from "../core/types";
 import { getBoundsOfRects, getWheelDelta } from "../core/utils";
 import { getNodesBounds, getPaneRect } from "../core/utils/graph";
 import {
@@ -70,18 +63,6 @@ const defaultMiniMapProps = {
 type MiniMapSelector = {
   viewBB: Rect;
   boundingRect: Rect;
-};
-
-type MiniMapZoomState = {
-  transform: ReactFlowState["transform"];
-  d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
-  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
-};
-
-type MiniMapPanState = MiniMapZoomState & {
-  translateExtent: ReactFlowState["translateExtent"];
-  width: ReactFlowState["width"];
-  height: ReactFlowState["height"];
 };
 
 type XYWidthHeightParams = {
@@ -175,50 +156,20 @@ function getMiniMapDimension(
   return typeof value === "number" ? value : fallback;
 }
 
-function isWheelZoomEvent(
-  sourceEvent: Event | null | undefined,
-): sourceEvent is WheelEvent {
-  return sourceEvent?.type === "wheel";
-}
-
-function isMouseMoveEvent(
-  sourceEvent: Event | null | undefined,
-): sourceEvent is MouseEvent {
-  return sourceEvent?.type === "mousemove";
-}
-
-function getMiniMapZoomState(): MiniMapZoomState | null {
-  const { transform, d3Selection, d3Zoom } = useReactFlow.getState();
-  if (!d3Selection || !d3Zoom) {
-    return null;
-  }
-  return { transform, d3Selection, d3Zoom };
-}
-
-function getMiniMapPanState(): MiniMapPanState | null {
-  const zoomState = getMiniMapZoomState();
-  if (!zoomState) {
-    return null;
-  }
-  const { translateExtent, width, height } = useReactFlow.getState();
-  return { ...zoomState, translateExtent, width, height };
-}
-
 function createMiniMapZoomHandler(zoomStep: number) {
-  return (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-    if (!isWheelZoomEvent(event.sourceEvent)) {
-      return;
-    }
-
-    const zoomState = getMiniMapZoomState();
-    if (!zoomState) {
-      return;
-    }
-
-    const pinchDelta = getWheelDelta(event.sourceEvent, zoomStep);
-    const zoomLevel = zoomState.transform[2] * Math.pow(2, pinchDelta);
-
-    zoomState.d3Zoom.scaleTo(zoomState.d3Selection, zoomLevel);
+  return (event: WheelEvent) => {
+    const { transform, width, height } = useReactFlow.getState();
+    const pinchDelta = getWheelDelta(event, zoomStep);
+    const nextZoom = transform[2] * Math.pow(2, pinchDelta);
+    const centerWorldX = (width / 2 - transform[0]) / transform[2];
+    const centerWorldY = (height / 2 - transform[1]) / transform[2];
+    useReactFlow.setState({
+      transform: [
+        width / 2 - centerWorldX * nextZoom,
+        height / 2 - centerWorldY * nextZoom,
+        nextZoom,
+      ],
+    });
   };
 }
 
@@ -226,39 +177,19 @@ function createMiniMapPanHandler(
   viewScaleRef: { current: number },
   inversePan: boolean,
 ) {
-  return (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
-    if (!isMouseMoveEvent(event.sourceEvent)) {
-      return;
-    }
-
-    const panState = getMiniMapPanState();
-    if (!panState) {
-      return;
-    }
-
+  return (movement: { movementX: number; movementY: number }) => {
+    const { transform } = useReactFlow.getState();
     const moveScale =
       viewScaleRef.current *
-      Math.max(panState.transform[2], Math.log(panState.transform[2])) *
+      Math.max(transform[2], Math.log(transform[2])) *
       (inversePan ? -1 : 1);
-    const position = {
-      x: panState.transform[0] - event.sourceEvent.movementX * moveScale,
-      y: panState.transform[1] - event.sourceEvent.movementY * moveScale,
-    };
-    const extent: CoordinateExtent = [
-      [0, 0],
-      [panState.width, panState.height],
-    ];
-
-    const nextTransform = zoomIdentity
-      .translate(position.x, position.y)
-      .scale(panState.transform[2]);
-    const constrainedTransform = panState.d3Zoom.constrain()(
-      nextTransform,
-      extent,
-      panState.translateExtent,
-    );
-
-    panState.d3Zoom.transform(panState.d3Selection, constrainedTransform);
+    useReactFlow.setState({
+      transform: [
+        transform[0] - movement.movementX * moveScale,
+        transform[1] - movement.movementY * moveScale,
+        transform[2],
+      ],
+    });
   };
 }
 
@@ -280,22 +211,61 @@ function bindMiniMapInteractions({
   if (!svg) {
     return undefined;
   }
+  const pan = createMiniMapPanHandler(viewScaleRef, inversePan);
+  const zoom = createMiniMapZoomHandler(zoomStep);
+  let activePointerId: number | null = null;
+  let lastClientX = 0;
+  let lastClientY = 0;
 
-  const selection = select(svg);
-  const zoomBehavior = zoom<SVGSVGElement, unknown>();
+  const handlePointerDown = (event: PointerEvent) => {
+    if (!pannable || event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    activePointerId = event.pointerId;
+    lastClientX = event.clientX;
+    lastClientY = event.clientY;
+    svg.setPointerCapture(event.pointerId);
+  };
+  const handlePointerMove = (event: PointerEvent) => {
+    if (activePointerId !== event.pointerId) {
+      return;
+    }
+    const movementX = event.clientX - lastClientX;
+    const movementY = event.clientY - lastClientY;
+    lastClientX = event.clientX;
+    lastClientY = event.clientY;
+    pan({ movementX, movementY });
+  };
+  const handlePointerUp = (event: PointerEvent) => {
+    if (activePointerId !== event.pointerId) {
+      return;
+    }
+    activePointerId = null;
+    if (svg.hasPointerCapture(event.pointerId)) {
+      svg.releasePointerCapture(event.pointerId);
+    }
+  };
+  const handleWheel = (event: WheelEvent) => {
+    if (!zoomable) {
+      return;
+    }
+    event.preventDefault();
+    zoom(event);
+  };
 
-  if (pannable) {
-    zoomBehavior.on("zoom", createMiniMapPanHandler(viewScaleRef, inversePan));
-  }
-
-  if (zoomable) {
-    zoomBehavior.on("zoom.wheel", createMiniMapZoomHandler(zoomStep));
-  }
-
-  selection.call(zoomBehavior);
+  svg.addEventListener("pointerdown", handlePointerDown);
+  svg.addEventListener("pointermove", handlePointerMove);
+  svg.addEventListener("pointerup", handlePointerUp);
+  svg.addEventListener("pointercancel", handlePointerUp);
+  svg.addEventListener("wheel", handleWheel, { passive: false });
 
   return () => {
-    selection.on("zoom", null);
+    svg.removeEventListener("pointerdown", handlePointerDown);
+    svg.removeEventListener("pointermove", handlePointerMove);
+    svg.removeEventListener("pointerup", handlePointerUp);
+    svg.removeEventListener("pointercancel", handlePointerUp);
+    svg.removeEventListener("wheel", handleWheel);
   };
 }
 
@@ -307,12 +277,29 @@ function createMiniMapClickHandler(
   }
 
   return (event: ReactMouseEvent<SVGSVGElement>) => {
-    const rfCoord = pointer(event);
+    const rfCoord = getSvgPoint(event.currentTarget, event);
+    if (!rfCoord) {
+      return;
+    }
     onClick(event, {
-      x: rfCoord[0] - useLocalStorage.getState().overviewTrueWidth,
-      y: rfCoord[1],
+      x: rfCoord.x - useLocalStorage.getState().overviewTrueWidth,
+      y: rfCoord.y,
     });
   };
+}
+
+function getSvgPoint(
+  svg: SVGSVGElement,
+  event: ReactMouseEvent<SVGSVGElement>,
+): { x: number; y: number } | null {
+  const transform = svg.getScreenCTM();
+  if (!transform) {
+    return null;
+  }
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  return point.matrixTransform(transform.inverse());
 }
 
 function getMiniMapNodeOrThrow(nodeId: string): Node {

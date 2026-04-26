@@ -240,9 +240,6 @@ function CanvasFlow() {
     }
     useReactFlow.setState({
       domNode: root,
-      d3Zoom: null,
-      d3Selection: null,
-      d3ZoomHandler: undefined,
     });
     return () => {
       useReactFlow.setState({

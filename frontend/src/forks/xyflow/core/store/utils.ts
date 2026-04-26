@@ -1,14 +1,8 @@
-import { zoomIdentity } from "d3-zoom";
-
 import { getNodes } from "state/actions/nodeInternals";
 import { useSettings } from "state/definitions";
 import { useReactFlow } from ".";
 import type { FitViewOptions, ReactFlowState } from "../types";
-import {
-  getD3Transition,
-  getNodesBounds,
-  getViewportForBounds,
-} from "../utils/graph";
+import { getNodesBounds, getViewportForBounds } from "../utils/graph";
 
 type InternalFitViewOptions = {
   initial?: boolean;
@@ -17,8 +11,6 @@ type InternalFitViewOptions = {
 type FitViewRuntime = {
   width: number;
   height: number;
-  d3Zoom: ReactFlowState["d3Zoom"];
-  d3Selection: ReactFlowState["d3Selection"];
 };
 
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
@@ -27,20 +19,13 @@ function getFitViewRuntime(
   state: ReactFlowState,
   initial: boolean,
 ): FitViewRuntime | null {
-  const {
-    width,
-    height,
-    d3Zoom,
-    d3Selection,
-    fitViewOnInitDone,
-    fitViewOnInit,
-  } = state;
+  const { width, height, fitViewOnInitDone, fitViewOnInit } = state;
 
   if (initial && (!fitViewOnInit || fitViewOnInitDone)) {
     return null;
   }
 
-  return { width, height, d3Zoom, d3Selection };
+  return { width, height };
 }
 
 function resolveFitViewZoomLimits(options: InternalFitViewOptions) {
@@ -71,30 +56,11 @@ function areNodesReadyForFitView(nodes: ReturnType<typeof getNodes>) {
 }
 
 function applyFitViewTransform(
-  runtime: FitViewRuntime,
   viewport: ReturnType<typeof getViewportForBounds>,
-  duration?: number,
 ) {
-  const nextTransform = zoomIdentity
-    .translate(viewport.x, viewport.y)
-    .scale(viewport.zoom);
-
-  if (!runtime.d3Zoom || !runtime.d3Selection) {
-    useReactFlow.setState({
-      transform: [nextTransform.x, nextTransform.y, nextTransform.k],
-    });
-    return;
-  }
-
-  if (typeof duration === "number" && duration > 0) {
-    runtime.d3Zoom.transform(
-      getD3Transition(runtime.d3Selection, duration),
-      nextTransform,
-    );
-    return;
-  }
-
-  runtime.d3Zoom.transform(runtime.d3Selection, nextTransform);
+  useReactFlow.setState({
+    transform: [viewport.x, viewport.y, viewport.zoom],
+  });
 }
 
 export function fitView(options: InternalFitViewOptions = {}) {
@@ -118,7 +84,7 @@ export function fitView(options: InternalFitViewOptions = {}) {
     options.padding ?? DEFAULT_FIT_VIEW_PADDING,
   );
 
-  applyFitViewTransform(runtime, viewport, options.duration);
+  applyFitViewTransform(viewport);
   return true;
 }
 

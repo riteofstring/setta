@@ -1,4 +1,3 @@
-import { zoomIdentity } from "d3-zoom";
 import { Position } from "utils/generatedTypes";
 import { subscribeWithSelector } from "zustand/middleware";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -16,59 +15,32 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
     },
     shiftNodesSelection: (delta) => {
       set((state) => ({
-        nodesSelectionDims: {
-          ...state.nodesSelectionDims,
-          x: state.nodesSelectionDims.x + delta.x,
-          y: state.nodesSelectionDims.y + delta.y,
-        },
+        nodesSelectionDims: state.nodesSelectionDims
+          ? {
+              ...state.nodesSelectionDims,
+              x: state.nodesSelectionDims.x + delta.x,
+              y: state.nodesSelectionDims.y + delta.y,
+            }
+          : null,
       }));
     },
     setTranslateExtent: (translateExtent: CoordinateExtent) => {
-      get().d3Zoom?.translateExtent(translateExtent);
-
       set({ translateExtent });
     },
     panBy: (delta: Position): boolean => {
-      const { transform, width, height, d3Zoom, d3Selection, translateExtent } =
-        get();
+      const { transform } = get();
 
       if (!delta.x && !delta.y) {
         return false;
       }
-
-      if (!d3Zoom || !d3Selection) {
-        set({
-          transform: [
-            transform[0] + delta.x,
-            transform[1] + delta.y,
-            transform[2],
-          ],
-        });
-        return true;
-      }
-
-      const nextTransform = zoomIdentity
-        .translate(transform[0] + delta.x, transform[1] + delta.y)
-        .scale(transform[2]);
-
-      const extent: CoordinateExtent = [
-        [0, 0],
-        [width, height],
-      ];
-
-      const constrainedTransform = d3Zoom?.constrain()(
-        nextTransform,
-        extent,
-        translateExtent,
-      );
-      d3Zoom.transform(d3Selection, constrainedTransform);
-
-      const transformChanged =
-        transform[0] !== constrainedTransform.x ||
-        transform[1] !== constrainedTransform.y ||
-        transform[2] !== constrainedTransform.k;
-
-      return transformChanged;
+      set({
+        transform: [
+          transform[0] + delta.x,
+          transform[1] + delta.y,
+          transform[2],
+        ],
+      });
+      return true;
     },
     cancelConnection: () => {
       set({

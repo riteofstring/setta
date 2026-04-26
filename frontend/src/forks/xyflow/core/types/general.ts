@@ -73,11 +73,10 @@ export type ReactFlowStore = {
 };
 
 type ReactFlowActions = {
-  setMinZoom: (minZoom: number) => void;
-  setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
-  reset: () => void;
   panBy: (delta: Position) => boolean;
+  setNodesSelection: (selectedNodesCount: number, ignoreGrid?: boolean) => void;
+  shiftNodesSelection: (delta: Position) => void;
   cancelConnection: () => void;
 };
 

@@ -1,18 +1,12 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
-import { zoomIdentity } from "d3-zoom";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
-  getD3Transition,
   getSectionRect,
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { autoLayoutTopLevelSections } from "openapi/http";
-import {
-  useNodeInternals,
-  useSettings,
-  useShareSession,
-} from "state/definitions";
+import { useNodeInternals, useShareSession } from "state/definitions";
 import { applyActiveSectionChange } from "../activeSectionController";
 import {
   debounced_route_set_top_level_section_layout,
@@ -126,19 +120,9 @@ export function goToSection(sectionId: string) {
     0.1,
     true,
   );
-  const duration = useSettings.getState().gui.transitionDuration;
-  const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
-  if (!rfStore.d3Zoom || !rfStore.d3Selection) {
-    useReactFlow.setState({
-      transform: [nextTransform.x, nextTransform.y, nextTransform.k],
-    });
-    applyActiveSectionChange({ interaction: "go-to", sectionId });
-    return;
-  }
-  rfStore.d3Zoom.transform(
-    getD3Transition(rfStore.d3Selection, duration),
-    nextTransform,
-  );
+  useReactFlow.setState({
+    transform: [x, y, zoom],
+  });
   applyActiveSectionChange({ interaction: "go-to", sectionId });
 }
 export function autoLayout() {

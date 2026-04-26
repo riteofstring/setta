@@ -29,46 +29,39 @@ vi.mock("./sectionInfos", () => ({
 }));
 
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
-  return {
+  const node: Node = {
     id: overrides.id,
     position: overrides.position ?? { x: 0, y: 0 },
     width: overrides.width ?? null,
     height: overrides.height ?? null,
     zIndex: overrides.zIndex ?? 0,
     tempZIndex: overrides.tempZIndex ?? 0,
-    type: overrides.type,
-    style: overrides.style,
   };
+  if (overrides.type !== undefined) {
+    node.type = overrides.type;
+  }
+  if (overrides.style !== undefined) {
+    node.style = overrides.style;
+  }
+  return node;
 }
 
 function createViewportDomNode() {
   const domNode = document.createElement("div");
   const viewport = document.createElement("div");
-  viewport.className = "react-flow__viewport";
+  viewport.className = "canvas-flow__canvas";
   domNode.appendChild(viewport);
   return domNode;
 }
 
 function setupFitViewState(overrides: Partial<typeof initialState> = {}) {
-  const transform = vi.fn();
-  const d3Selection = { id: "selection" } as unknown as NonNullable<
-    typeof initialState.d3Selection
-  >;
-  const d3Zoom = { transform } as unknown as NonNullable<
-    typeof initialState.d3Zoom
-  >;
-
   useReactFlow.setState({
     ...initialState,
     domNode: createViewportDomNode(),
     width: 800,
     height: 600,
-    d3Selection,
-    d3Zoom,
     ...overrides,
   });
-
-  return { transform };
 }
 
 function createMeasuredElement({
@@ -148,7 +141,7 @@ describe("nodeInternals", () => {
   });
 
   it("marks initial fitView complete once measurements are ready", () => {
-    const { transform } = setupFitViewState({
+    setupFitViewState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
       fitViewOnInitOptions: { maxZoom: 1.5 },
@@ -175,7 +168,9 @@ describe("nodeInternals", () => {
       },
     ]);
 
-    expect(transform).toHaveBeenCalledTimes(1);
+    expect(useReactFlow.getState().transform).not.toEqual(
+      initialState.transform,
+    );
     expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
