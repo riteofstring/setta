@@ -319,7 +319,7 @@ describe("FlatSectionPrototype", () => {
       'data-flat-list-root-default-child-type="Callable"',
     );
     expect(markup).toContain("Default child");
-    expect(markup).toContain('data-flat-list-root-view-mode="kanban"');
+    expect(markup).toContain('data-flat-list-root-view-mode="default"');
     expect(markup).toContain('data-flat-list-root-view-option="default"');
     expect(markup).toContain('data-flat-list-root-view-option="task_list"');
     expect(markup).toContain('data-flat-list-root-view-option="kanban"');
@@ -327,7 +327,8 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain("Task List");
     expect(markup).toContain("Kanban Board");
     expect(markup).toContain('aria-pressed="true"');
-    expect(markup).toContain('data-flat-list-root-children="kanban"');
+    expect(markup).toContain('data-flat-list-root-children="default-stack"');
+    expect(markup).not.toContain('data-flat-list-root-children="kanban"');
     expect(markup).toContain('data-flat-list-root-sortable-child="true"');
     expect(markup).toContain('data-flat-list-root-child-type="Callable"');
     expect(markup).toContain('data-flat-list-root-child-type="TextBlock"');
@@ -360,14 +361,14 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('data-flat-section-kind="group"');
     expect(markup).toContain('data-flat-group="true"');
     expect(markup).toContain("Prototype Group");
-    expect(markup).toContain('data-flat-group-orientation="horizontal"');
-    expect(markup).toContain('data-flat-group-overflow-mode="on"');
+    expect(markup).toContain('data-flat-group-orientation="vertical"');
+    expect(markup).toContain('data-flat-group-overflow-mode="off"');
     expect(markup).toContain('aria-label="Group layout controls"');
     expect(markup).toContain('aria-label="Group orientation"');
     expect(markup).toContain('data-flat-group-orientation-option="vertical"');
     expect(markup).toContain('data-flat-group-orientation-option="horizontal"');
     expect(markup).toContain('aria-pressed="true"');
-    expect(markup).toContain('data-flat-group-overflow="on"');
+    expect(markup).toContain('data-flat-group-overflow="off"');
     expect(markup).toContain('data-flat-group-default-child-type="Callable"');
     expect(markup).toContain("Default child");
     expect(markup).toContain('aria-label="Ungroup sections"');
@@ -379,7 +380,7 @@ describe("FlatSectionPrototype", () => {
     expect(markup).toContain('aria-label="Create group child sections"');
     expect(markup).toContain('data-flat-group-action="delete"');
     expect(markup).toContain('data-flat-group-action="create"');
-    expect(markup).toContain('data-flat-group-children="horizontal"');
+    expect(markup).toContain('data-flat-group-children="vertical"');
     expect(markup).toContain('data-flat-group-sortable-child="true"');
     expect(markup).toContain('data-flat-group-child-type="Dict"');
     expect(markup).toContain('data-flat-group-child-type="Callable"');
@@ -2234,7 +2235,7 @@ describe("FlatSectionPrototype", () => {
     expect(flatSectionPrototypeCss).toContain("min-height: 8rem");
   });
 
-  it("keeps list root compact while allowing kanban child overflow", () => {
+  it("keeps list root compact with stacked child rows", () => {
     expect(flatSectionPrototypeCss).toContain(
       '.flat-section-prototype[data-flat-section-kind="list-root"]',
     );
@@ -2242,10 +2243,10 @@ describe("FlatSectionPrototype", () => {
     expect(flatSectionPrototypeCss).toContain(
       ".flat-section-prototype__list-root-child-list",
     );
-    expect(flatSectionPrototypeCss).toContain("overflow-x: auto");
+    expect(flatSectionPrototypeCss).toContain("overflow-y: auto");
   });
 
-  it("keeps group compact while allowing horizontal child overflow", () => {
+  it("keeps group compact with stacked child rows", () => {
     expect(flatSectionPrototypeCss).toContain(
       '.flat-section-prototype[data-flat-section-kind="group"]',
     );
@@ -2253,7 +2254,7 @@ describe("FlatSectionPrototype", () => {
     expect(flatSectionPrototypeCss).toContain(
       ".flat-section-prototype__group-child-list",
     );
-    expect(flatSectionPrototypeCss).toContain("overflow-x: auto");
+    expect(flatSectionPrototypeCss).toContain("overflow-y: auto");
   });
 
   it("keeps image media-oriented with a contained clipped preview", () => {

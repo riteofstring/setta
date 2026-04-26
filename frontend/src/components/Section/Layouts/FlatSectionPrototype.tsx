@@ -2416,7 +2416,7 @@ function FlatGlobalVariablesBody() {
 }
 
 function FlatListRootBody() {
-  const selectedViewMode = ListRootViewModeEnum.kanban;
+  const selectedViewMode = ListRootViewModeEnum.default;
 
   return (
     <section
@@ -2498,7 +2498,7 @@ function FlatListRootBody() {
       <section
         aria-label="Nested child sections"
         className="flat-section-prototype__list-root-children"
-        data-flat-list-root-children="kanban"
+        data-flat-list-root-children="default-stack"
       >
         <ol className="flat-section-prototype__list-root-child-list">
           {LIST_ROOT_CHILDREN.map((child) => (
@@ -2532,8 +2532,8 @@ function FlatGroupBody() {
     <section
       className="flat-section-prototype__group"
       data-flat-group="true"
-      data-flat-group-orientation="horizontal"
-      data-flat-group-overflow-mode="on"
+      data-flat-group-orientation="vertical"
+      data-flat-group-overflow-mode="off"
     >
       <section
         aria-label="Group layout controls"
@@ -2550,10 +2550,10 @@ function FlatGroupBody() {
         </p>
         <p
           className="flat-section-prototype__group-setting"
-          data-flat-group-overflow="on"
+          data-flat-group-overflow="off"
         >
           <span className="flat-section-prototype__group-kicker">Overflow</span>
-          <b>On</b>
+          <b>Off</b>
         </p>
         <nav
           aria-label="Group orientation"
@@ -2562,7 +2562,7 @@ function FlatGroupBody() {
           <button
             type="button"
             aria-label="Use vertical group orientation"
-            aria-pressed="false"
+            aria-pressed="true"
             className="flat-section-prototype__group-orientation-button"
             data-flat-group-orientation-option="vertical"
           >
@@ -2571,7 +2571,7 @@ function FlatGroupBody() {
           <button
             type="button"
             aria-label="Use horizontal group orientation"
-            aria-pressed="true"
+            aria-pressed="false"
             className="flat-section-prototype__group-orientation-button"
             data-flat-group-orientation-option="horizontal"
           >
@@ -2634,7 +2634,7 @@ function FlatGroupBody() {
       <section
         aria-label="Nested group children"
         className="flat-section-prototype__group-children"
-        data-flat-group-children="horizontal"
+        data-flat-group-children="vertical"
       >
         <ol className="flat-section-prototype__group-child-list">
           {GROUP_CHILDREN.map((child) => (
