@@ -206,6 +206,10 @@ func TestBuildIncludesGoOwnedWatchCodeBackendContract(t *testing.T) {
 			pythonStringDictExpr(watchcodecontracts.BackendWriteHandlerByLocalSettingID()),
 		),
 		fmt.Sprintf(
+			"WATCH_CODE_BACKEND_ERROR_HTTP_STATUS_BY_CODE = MappingProxyType(%s)",
+			pythonStringIntDictExpr(watchcodecontracts.BackendErrorHTTPStatusByCode()),
+		),
+		fmt.Sprintf(
 			"WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED = %s",
 			pythonStringLiteral(watchcodecontracts.BackendErrorProviderRequired),
 		),

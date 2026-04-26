@@ -14,15 +14,6 @@ from setta.types.generated import go_shared_constants as C
 BACKEND_PROBE_ARG = "--setta-plugin-backend-probe"
 BACKEND_RUNTIME_ARG = "--setta-plugin-backend-runtime"
 
-LOCAL_CORE_HTTP_STATUS = {
-    C.WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_ID_REQUIRED: 400,
-    C.WATCH_CODE_BACKEND_ERROR_INVALID_WATCH_CODE_INPUT: 400,
-    C.WATCH_CODE_BACKEND_ERROR_INVALID_REQUEST: 400,
-    C.WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_NOT_FOUND: 404,
-    C.WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED: 409,
-    C.WATCH_CODE_BACKEND_ERROR_INTERNAL: 500,
-}
-
 INPUT_ROUTE_KEYS = frozenset(("projectConfigId", "folders", "files", "frontendOpId"))
 FOLDER_KEYS = frozenset(("path", "recursive"))
 
@@ -33,13 +24,17 @@ class WatchCodeBackendRequestError(RuntimeError):
         code: str,
         message: str,
         *,
-        status_code: int = 400,
+        status_code: int | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.message = message
-        self.status_code = status_code
+        self.status_code = (
+            status_code
+            if status_code is not None
+            else C.WATCH_CODE_BACKEND_ERROR_HTTP_STATUS_BY_CODE.get(code, 500)
+        )
         self.details = details or {}
 
 
@@ -198,7 +193,6 @@ def _handle_http_request(
             raise WatchCodeBackendRequestError(
                 C.WATCH_CODE_BACKEND_ERROR_METHOD_NOT_ALLOWED,
                 "Method not allowed.",
-                status_code=405,
             )
 
         path = str(request.get("path", "")).strip()
@@ -210,7 +204,6 @@ def _handle_http_request(
         raise WatchCodeBackendRequestError(
             C.WATCH_CODE_BACKEND_ERROR_NOT_FOUND,
             "Route not found.",
-            status_code=404,
         )
     except WatchCodeBackendRequestError as error:
         return _http_error_response(error.status_code, error)
@@ -359,7 +352,6 @@ def _request_context(request: dict[str, Any]) -> dict[str, Any]:
         raise WatchCodeBackendRequestError(
             C.WATCH_CODE_BACKEND_ERROR_INTERNAL,
             "backend runtime request context is required.",
-            status_code=500,
         )
     return context
 
@@ -421,7 +413,6 @@ def _required_context_string(context: dict[str, Any], key: str) -> str:
         key,
         C.WATCH_CODE_BACKEND_ERROR_INTERNAL,
         f"backend runtime context {key} is required.",
-        status_code=500,
     )
 
 
@@ -433,7 +424,6 @@ def _optional_context_string(context: dict[str, Any], key: str) -> str | None:
         raise WatchCodeBackendRequestError(
             C.WATCH_CODE_BACKEND_ERROR_INTERNAL,
             f"backend runtime context {key} must be a string when provided.",
-            status_code=500,
         )
     return value
 
@@ -443,15 +433,12 @@ def _required_string(
     key: str,
     code: str,
     message: str | None = None,
-    *,
-    status_code: int = 400,
 ) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
         raise WatchCodeBackendRequestError(
             code,
             message or f"{key} is required.",
-            status_code=status_code,
         )
     return value.strip()
 
@@ -470,7 +457,7 @@ def _optional_string(payload: dict[str, Any], key: str) -> str | None:
 
 def _http_status_for_local_core_error(error: watch_code.WatchCodeCommandError) -> int:
     code = str(error.code or C.WATCH_CODE_BACKEND_ERROR_INTERNAL).strip()
-    return LOCAL_CORE_HTTP_STATUS.get(code, 500)
+    return C.WATCH_CODE_BACKEND_ERROR_HTTP_STATUS_BY_CODE.get(code, 500)
 
 
 def _http_json_response(status_code: int, payload: Any) -> dict[str, Any]:

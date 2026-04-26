@@ -221,7 +221,7 @@ func cloneWatchCodeBackendProviderPluginData(
 
 func watchCodeBackendUnavailableResponse() plugins.BackendHTTPResponse {
 	return watchCodeBackendErrorResponse(
-		http.StatusConflict,
+		watchcodecontracts.BackendErrorHTTPStatus(watchcodecontracts.BackendErrorProviderRequired),
 		watchcodecontracts.BackendErrorProviderRequired,
 		projectstate.ErrWatchCodeProviderPluginIDRequired.Error(),
 	)

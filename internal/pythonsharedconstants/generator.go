@@ -177,6 +177,12 @@ func Build() (GeneratedConstants, error) {
 				watchcodecontracts.BackendWriteHandlerByLocalSettingID(),
 			) + ")",
 		},
+		{
+			Name: "WATCH_CODE_BACKEND_ERROR_HTTP_STATUS_BY_CODE",
+			PythonExpr: "MappingProxyType(" + pythonStringIntDictExpr(
+				watchcodecontracts.BackendErrorHTTPStatusByCode(),
+			) + ")",
+		},
 		{Name: "WATCH_CODE_BACKEND_ERROR_INVALID_JSON", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInvalidJSON)},
 		{Name: "WATCH_CODE_BACKEND_ERROR_INVALID_REQUEST", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInvalidRequest)},
 		{Name: "WATCH_CODE_BACKEND_ERROR_INTERNAL", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInternal)},
@@ -280,6 +286,18 @@ func pythonStringDictExpr(values map[string]string) string {
 	parts := make([]string, 0, len(keys))
 	for _, key := range keys {
 		parts = append(parts, fmt.Sprintf("%s: %s", pythonStringLiteral(key), pythonStringLiteral(values[key])))
+	}
+	return fmt.Sprintf("{%s}", strings.Join(parts, ", "))
+}
+
+func pythonStringIntDictExpr(values map[string]int) string {
+	if len(values) == 0 {
+		return "{}"
+	}
+	keys := slices.Sorted(maps.Keys(values))
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s: %d", pythonStringLiteral(key), values[key]))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(parts, ", "))
 }

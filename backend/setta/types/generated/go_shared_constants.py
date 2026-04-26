@@ -508,13 +508,24 @@ WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID = MappingProxyType(
 WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID = MappingProxyType(
     {"files": "write_files", "folders": "write_folders"}
 )
+WATCH_CODE_BACKEND_ERROR_HTTP_STATUS_BY_CODE = MappingProxyType(
+    {
+        "internal_error": 500,
+        "invalid_json": 400,
+        "invalid_request": 400,
+        "invalid_watch_code_input": 400,
+        "method_not_allowed": 405,
+        "not_found": 404,
+        "project_config_id_required": 400,
+        "project_config_not_found": 404,
+        "watch_code_provider_required": 409,
+    }
+)
 WATCH_CODE_BACKEND_ERROR_INVALID_JSON = "invalid_json"
 WATCH_CODE_BACKEND_ERROR_INVALID_REQUEST = "invalid_request"
 WATCH_CODE_BACKEND_ERROR_INTERNAL = "internal_error"
 WATCH_CODE_BACKEND_ERROR_METHOD_NOT_ALLOWED = "method_not_allowed"
 WATCH_CODE_BACKEND_ERROR_NOT_FOUND = "not_found"
 WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_ID_REQUIRED = "project_config_id_required"
-WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_NOT_FOUND = "project_config_not_found"
 WATCH_CODE_BACKEND_ERROR_INVALID_WATCH_CODE_INPUT = "invalid_watch_code_input"
-WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED = "watch_code_provider_required"
 DEPLOYMENT_LISTENER_READY_SENTINEL = "SETTA_DEPLOYMENT_LISTENER_READY"

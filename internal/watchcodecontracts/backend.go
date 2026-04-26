@@ -1,6 +1,9 @@
 package watchcodecontracts
 
-import "strings"
+import (
+	"net/http"
+	"strings"
+)
 
 const (
 	BackendContractVersion   = 1
@@ -29,6 +32,18 @@ const (
 	BackendErrorProviderRequired        = "watch_code_provider_required"
 )
 
+var backendErrorHTTPStatusByCode = map[string]int{
+	BackendErrorInvalidJSON:             http.StatusBadRequest,
+	BackendErrorInvalidRequest:          http.StatusBadRequest,
+	BackendErrorInternal:                http.StatusInternalServerError,
+	BackendErrorMethodNotAllowed:        http.StatusMethodNotAllowed,
+	BackendErrorNotFound:                http.StatusNotFound,
+	BackendErrorProjectConfigIDRequired: http.StatusBadRequest,
+	BackendErrorProjectConfigNotFound:   http.StatusNotFound,
+	BackendErrorInvalidWatchCodeInput:   http.StatusBadRequest,
+	BackendErrorProviderRequired:        http.StatusConflict,
+}
+
 type BackendUISettingContract struct {
 	LocalSettingID string
 	ReadHandlerID  string
@@ -39,6 +54,22 @@ func BackendRouteSuffixes() []string {
 	return []string{
 		BackendRouteSuffixInputs,
 	}
+}
+
+func BackendErrorHTTPStatusByCode() map[string]int {
+	result := make(map[string]int, len(backendErrorHTTPStatusByCode))
+	for code, status := range backendErrorHTTPStatusByCode {
+		result[code] = status
+	}
+	return result
+}
+
+func BackendErrorHTTPStatus(code string) int {
+	status, ok := backendErrorHTTPStatusByCode[strings.TrimSpace(code)]
+	if !ok {
+		return http.StatusInternalServerError
+	}
+	return status
 }
 
 func BackendLocalSettingIDs() []string {
