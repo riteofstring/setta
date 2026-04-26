@@ -18,9 +18,12 @@ import { resetProjectStores } from "state/utils";
 import {
   APP_MENU_Z_INDEX_CLASS_NAME,
   buildPluginPaneOverviewTabName,
-  OverviewTabNameEnum,
 } from "utils/constants";
-import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
+import {
+  createProjectConfig,
+  createSettingsState,
+  OverviewTabUIConfig,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
 import { Overview } from "./Overview";
@@ -160,7 +163,7 @@ describe("Overview rail offsets", () => {
     useShareSession.setState({ isDeploymentMode: false, sharePolicy: null });
     useLocalStorage.setState({
       overviewVis: true,
-      overviewTab: OverviewTabNameEnum.Overview,
+      overviewTab: OverviewTabUIConfig.names.Overview,
       overviewWidth: 320,
       overviewTrueWidth: 320,
     });
@@ -285,7 +288,9 @@ describe("Overview rail offsets", () => {
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
     });
-    useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.ViewModes });
+    useLocalStorage.setState({
+      overviewTab: OverviewTabUIConfig.names.ViewModes,
+    });
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useLocalStorage);
     const markup = renderToStaticMarkup(
@@ -400,7 +405,7 @@ describe("Overview rail offsets", () => {
   it("falls back to Overview when deployment mode hides the selected tab", () => {
     useShareSession.setState({ isDeploymentMode: true, sharePolicy: null });
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.FileBrowser,
+      overviewTab: OverviewTabUIConfig.names.FileBrowser,
     });
     syncStoreInitialState(useShareSession);
     syncStoreInitialState(useLocalStorage);
@@ -439,7 +444,7 @@ describe("Overview rail offsets", () => {
     });
     useAIStore.setState({ viewThreads: true });
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.ProjectAIChat,
+      overviewTab: OverviewTabUIConfig.names.ProjectAIChat,
       overviewWidth: 1040,
       overviewTrueWidth: 1040,
     });
@@ -477,7 +482,7 @@ describe("Overview rail offsets", () => {
 
   it("falls back to Overview when the app subsystem authoring UI is unavailable", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.App,
+      overviewTab: OverviewTabUIConfig.names.App,
     });
     syncStoreInitialState(useLocalStorage);
 

@@ -1,9 +1,7 @@
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  OverviewNotificationsPaneTabEnum,
-  OverviewTabNameEnum,
-} from "utils/constants";
+import { OverviewNotificationsPaneTabEnum } from "utils/constants";
+import { OverviewTabUIConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   setColorModePreference,
@@ -95,7 +93,7 @@ describe("local storage merge", () => {
       current,
     ) as typeof current;
 
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
+    expect(merged.overviewTab).toBe(OverviewTabUIConfig.names.Overview);
   });
 
   it("treats the removed BackendLogs overview tab as invalid state", () => {
@@ -107,7 +105,7 @@ describe("local storage merge", () => {
       current,
     ) as typeof current;
 
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
+    expect(merged.overviewTab).toBe(OverviewTabUIConfig.names.Overview);
   });
 
   it("sanitizes invalid notifications pane tab values", () => {

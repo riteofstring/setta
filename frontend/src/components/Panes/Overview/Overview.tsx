@@ -39,15 +39,16 @@ import {
   APP_CHROME_Z_INDEX_CLASS_NAME,
   APP_MENU_Z_INDEX_CLASS_NAME,
   OverviewTabKey,
-  OverviewTabNameEnum,
-  OverviewTabNamePrettified,
   PAGE_LOAD_TYPES,
   PaneNameEnum,
   parsePluginPaneOverviewTabName,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
-import { type OverviewTabName } from "utils/generatedTypes";
+import {
+  OverviewTabUIConfig,
+  type OverviewTabName,
+} from "utils/generatedTypes";
 import {
   onOverviewResizeStop,
   onOverviewTabClick,
@@ -69,13 +70,13 @@ const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 const OVERVIEW_MORE_MENU_CONTENT_CLASS_NAME = `${APP_MENU_Z_INDEX_CLASS_NAME} min-w-[180px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850`;
 const PROJECT_AI_OVERVIEW_TABS = new Set<OverviewTabName>([
-  OverviewTabNameEnum.ProjectAIChat,
-  OverviewTabNameEnum.ProjectAISettings,
+  OverviewTabUIConfig.names.ProjectAIChat,
+  OverviewTabUIConfig.names.ProjectAISettings,
 ]);
 const OVERVIEW_MORE_MENU_ACTIVE_TABS = new Set<OverviewTabName>([
-  OverviewTabNameEnum.RunInstructions,
-  OverviewTabNameEnum.App,
-  OverviewTabNameEnum.Plugins,
+  OverviewTabUIConfig.names.RunInstructions,
+  OverviewTabUIConfig.names.App,
+  OverviewTabUIConfig.names.Plugins,
 ]);
 const PLUGIN_PANE_TAB_ICONS = {
   folder: <TbFolder size={14} className="setta-plugin-pane-icon--folder" />,
@@ -104,22 +105,22 @@ const PLUGIN_PANE_TAB_ICONS = {
   ),
 } as const satisfies Record<PluginPaneIconName, ReactElement>;
 const OVERVIEW_TAB_CONTENT = {
-  [OverviewTabNameEnum.Overview]: () => <ProjectOverview />,
-  [OverviewTabNameEnum.Plugins]: () => <PluginsPane />,
-  [OverviewTabNameEnum.FileBrowser]: () => (
+  [OverviewTabUIConfig.names.Overview]: () => <ProjectOverview />,
+  [OverviewTabUIConfig.names.Plugins]: () => <PluginsPane />,
+  [OverviewTabUIConfig.names.FileBrowser]: () => (
     <FileBrowserWorkspace
       metaPaddingClassName={FILE_BROWSER_META_INSET_CLASS}
       listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
     />
   ),
-  [OverviewTabNameEnum.Git]: () => <GitPane />,
-  [OverviewTabNameEnum.RunInstructions]: () => <RunInstructions />,
-  [OverviewTabNameEnum.ViewModes]: () => <ViewingEditingMode />,
-  [OverviewTabNameEnum.Notifications]: () => <NotificationsArea />,
-  [OverviewTabNameEnum.ProjectAIChat]: () => <ProjectChat />,
-  [OverviewTabNameEnum.ProjectAISettings]: () => <ProjectAISettings />,
+  [OverviewTabUIConfig.names.Git]: () => <GitPane />,
+  [OverviewTabUIConfig.names.RunInstructions]: () => <RunInstructions />,
+  [OverviewTabUIConfig.names.ViewModes]: () => <ViewingEditingMode />,
+  [OverviewTabUIConfig.names.Notifications]: () => <NotificationsArea />,
+  [OverviewTabUIConfig.names.ProjectAIChat]: () => <ProjectChat />,
+  [OverviewTabUIConfig.names.ProjectAISettings]: () => <ProjectAISettings />,
 } as const satisfies Record<
-  Exclude<OverviewTabName, typeof OverviewTabNameEnum.App>,
+  Exclude<OverviewTabName, typeof OverviewTabUIConfig.names.App>,
   () => ReactElement
 >;
 
@@ -193,7 +194,8 @@ export function Overview() {
     availability,
   );
   const effectivePluginPaneTab = pluginPaneTabByKey[effectiveTabName] ?? null;
-  const isFileBrowserTab = effectiveTabName === OverviewTabNameEnum.FileBrowser;
+  const isFileBrowserTab =
+    effectiveTabName === OverviewTabUIConfig.names.FileBrowser;
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
   );
@@ -266,13 +268,13 @@ function isOverviewTabVisible(
   if (PROJECT_AI_OVERVIEW_TABS.has(tabName)) {
     return availability.showLLMTabs;
   }
-  if (tabName === OverviewTabNameEnum.FileBrowser) {
+  if (tabName === OverviewTabUIConfig.names.FileBrowser) {
     return availability.showFileBrowserTab;
   }
-  if (tabName === OverviewTabNameEnum.Git) {
+  if (tabName === OverviewTabUIConfig.names.Git) {
     return availability.showGitTab;
   }
-  if (tabName === OverviewTabNameEnum.App) {
+  if (tabName === OverviewTabUIConfig.names.App) {
     return availability.showAppTab;
   }
   return true;
@@ -281,9 +283,9 @@ function isOverviewTabVisible(
 function getOverviewBaseTabName(
   selectedTabName: OverviewTabKey,
 ): OverviewTabName {
-  return selectedTabName in OverviewTabNamePrettified
+  return selectedTabName in OverviewTabUIConfig.titles
     ? (selectedTabName as OverviewTabName)
-    : OverviewTabNameEnum.Overview;
+    : OverviewTabUIConfig.names.Overview;
 }
 
 function resolveEffectiveOverviewTabName(
@@ -295,12 +297,12 @@ function resolveEffectiveOverviewTabName(
     parsePluginPaneOverviewTabName(selectedTabName) !== null &&
     !selectedPluginPaneTab
   ) {
-    return OverviewTabNameEnum.Plugins;
+    return OverviewTabUIConfig.names.Plugins;
   }
   const selectedBaseTabName = getOverviewBaseTabName(selectedTabName);
   return isOverviewTabVisible(selectedBaseTabName, availability)
     ? selectedTabName
-    : OverviewTabNameEnum.Overview;
+    : OverviewTabUIConfig.names.Overview;
 }
 
 function renderPluginPaneTabIcon(
@@ -317,16 +319,16 @@ function buildOverviewRailTabs(
   const tabs: OverviewRailTab[] = [];
   if (availability.showLLMTabs) {
     tabs.push({
-      key: OverviewTabNameEnum.ProjectAIChat,
-      tabName: OverviewTabNameEnum.ProjectAIChat,
+      key: OverviewTabUIConfig.names.ProjectAIChat,
+      tabName: OverviewTabUIConfig.names.ProjectAIChat,
       dataTestId: "overview-tab-project-ai-chat",
       floatingContent: "ProjectAI Chat",
       icon: <IoChatbox size={20} />,
     });
   }
   tabs.push({
-    key: OverviewTabNameEnum.Overview,
-    tabName: OverviewTabNameEnum.Overview,
+    key: OverviewTabUIConfig.names.Overview,
+    tabName: OverviewTabUIConfig.names.Overview,
     dataTestId: "overview-tab-overview",
     floatingContent: "Project Overview",
     icon: <i className="gg-list !scale-100" />,
@@ -342,8 +344,8 @@ function buildOverviewRailTabs(
   );
   if (availability.showFileBrowserTab) {
     tabs.push({
-      key: OverviewTabNameEnum.FileBrowser,
-      tabName: OverviewTabNameEnum.FileBrowser,
+      key: OverviewTabUIConfig.names.FileBrowser,
+      tabName: OverviewTabUIConfig.names.FileBrowser,
       dataTestId: "overview-tab-file-browser",
       floatingContent: "Explorer",
       icon: <TbFolder size={18} />,
@@ -351,8 +353,8 @@ function buildOverviewRailTabs(
   }
   if (availability.showGitTab) {
     tabs.push({
-      key: OverviewTabNameEnum.Git,
-      tabName: OverviewTabNameEnum.Git,
+      key: OverviewTabUIConfig.names.Git,
+      tabName: OverviewTabUIConfig.names.Git,
       dataTestId: "overview-tab-git",
       floatingContent: "Git",
       icon: <IoMdGitBranch size={18} />,
@@ -360,15 +362,15 @@ function buildOverviewRailTabs(
   }
   tabs.push(
     {
-      key: OverviewTabNameEnum.ViewModes,
-      tabName: OverviewTabNameEnum.ViewModes,
+      key: OverviewTabUIConfig.names.ViewModes,
+      tabName: OverviewTabUIConfig.names.ViewModes,
       dataTestId: "overview-tab-view-modes",
       floatingContent: "Viewing/Editing Mode",
       icon: <HiOutlineEye size={20} />,
     },
     {
-      key: OverviewTabNameEnum.Notifications,
-      tabName: OverviewTabNameEnum.Notifications,
+      key: OverviewTabUIConfig.names.Notifications,
+      tabName: OverviewTabUIConfig.names.Notifications,
       dataTestId: "overview-tab-notifications",
       floatingContent: "Notifications",
       icon: (
@@ -390,8 +392,8 @@ function buildOverviewMoreMenuItems(
 ): OverviewMoreMenuItem[] {
   const items: OverviewMoreMenuItem[] = [
     {
-      key: OverviewTabNameEnum.RunInstructions,
-      tabName: OverviewTabNameEnum.RunInstructions,
+      key: OverviewTabUIConfig.names.RunInstructions,
+      tabName: OverviewTabUIConfig.names.RunInstructions,
       label: "Custom Runs",
       icon: (
         <i className="w-3 opacity-80">
@@ -402,8 +404,8 @@ function buildOverviewMoreMenuItems(
   ];
   if (showMoreAppTab && appOverviewTab) {
     items.push({
-      key: OverviewTabNameEnum.App,
-      tabName: OverviewTabNameEnum.App,
+      key: OverviewTabUIConfig.names.App,
+      tabName: OverviewTabUIConfig.names.App,
       label: appOverviewTab.moreMenuLabel,
       icon: (
         <i className="w-3 opacity-80">
@@ -413,8 +415,8 @@ function buildOverviewMoreMenuItems(
     });
   }
   items.push({
-    key: OverviewTabNameEnum.Plugins,
-    tabName: OverviewTabNameEnum.Plugins,
+    key: OverviewTabUIConfig.names.Plugins,
+    tabName: OverviewTabUIConfig.names.Plugins,
     label: "Plugins",
     icon: (
       <i className="w-3 opacity-80">
@@ -469,7 +471,7 @@ function OverviewRail({
     "mx-1 flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs text-setta-700 hover:bg-setta-600 hover:text-white active:bg-blue-100 dark:text-setta-200 dark:hover:bg-setta-900 dark:hover:text-white active:dark:bg-blue-950";
   const isAppMoreMenuTitle =
     vis &&
-    effectiveTabName === OverviewTabNameEnum.App &&
+    effectiveTabName === OverviewTabUIConfig.names.App &&
     appOverviewTab !== null;
 
   return (
@@ -548,9 +550,9 @@ function TabsVisible({
   const title = selectedPluginPaneTab
     ? selectedPluginPaneTab.title
     : resolveOverviewTitle(selectedTabName);
-  const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
+  const isFullWidth = selectedTabName === OverviewTabUIConfig.names.FileBrowser;
   const titleQuickInfo =
-    selectedTabName === OverviewTabNameEnum.App && appOverviewTab
+    selectedTabName === OverviewTabUIConfig.names.App && appOverviewTab
       ? appOverviewTab.titleQuickInfo
       : undefined;
   return (
@@ -609,7 +611,7 @@ function TabContent({
       />
     );
   }
-  if (selectedTabName === OverviewTabNameEnum.App && appOverviewTab) {
+  if (selectedTabName === OverviewTabUIConfig.names.App && appOverviewTab) {
     return (
       <AppSubsystemRendererHost
         renderer={appOverviewTab.renderer}
@@ -626,5 +628,5 @@ function TabContent({
 }
 
 function resolveOverviewTitle(selectedTabName: OverviewTabKey): string {
-  return OverviewTabNamePrettified[getOverviewBaseTabName(selectedTabName)];
+  return OverviewTabUIConfig.titles[getOverviewBaseTabName(selectedTabName)];
 }

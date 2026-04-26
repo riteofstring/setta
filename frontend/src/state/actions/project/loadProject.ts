@@ -27,12 +27,12 @@ import {
   useProjectState,
 } from "state/definitions";
 import {
-  OverviewTabNameEnum,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
 import {
+  OverviewTabUIConfig,
   type AllProjectMetadata,
   type LSPDiagnosticsPayload,
   type SingleConfig,
@@ -173,7 +173,7 @@ export function useCreateAndGoToProjectConfig() {
     )) as CreateProjectConfigRouteResponse;
     if (res200(res)) {
       useLocalStorage.setState({
-        overviewTab: OverviewTabNameEnum.ProjectAIChat,
+        overviewTab: OverviewTabUIConfig.names.ProjectAIChat,
       });
       navigateToAnotherConfig(res.data);
     }

@@ -225,13 +225,31 @@ func semanticExportedValueDeclarations() ([]TypeDeclaration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("frontend semantic sidecar export %s: %w", name, err)
 		}
+		valueExpr := renderTSLiteralValue(value, "")
+		if semanticExportedValueCanUseConstAssertion(value) {
+			valueExpr += " as const"
+		}
 		declarations = append(declarations, constDeclaration(
 			declarationName,
 			true,
-			renderTSLiteralValue(value, "")+" satisfies gt."+typeName,
+			valueExpr+" satisfies gt."+typeName,
 		))
 	}
 	return declarations, nil
+}
+
+func semanticExportedValueCanUseConstAssertion(value any) bool {
+	switch typed := value.(type) {
+	case []any:
+		return false
+	case map[string]any:
+		for _, entry := range typed {
+			if !semanticExportedValueCanUseConstAssertion(entry) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func semanticDefaultLiteralForType(

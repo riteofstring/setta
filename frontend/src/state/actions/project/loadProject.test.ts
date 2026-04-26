@@ -13,14 +13,11 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  OverviewTabNameEnum,
-  PAGE_LOAD_TYPES,
-  pathRelativeToProject,
-} from "utils/constants";
+import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
+  OverviewTabUIConfig,
   createLSPDiagnosticsPayload,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
@@ -324,7 +321,7 @@ describe("useCreateAndGoToProjectConfig", () => {
         },
       });
       expect(useLocalStorage.getState().overviewTab).toBe(
-        OverviewTabNameEnum.ProjectAIChat,
+        OverviewTabUIConfig.names.ProjectAIChat,
       );
       expect(navigateMock).toHaveBeenCalledWith(
         pathRelativeToProject("Created Project"),

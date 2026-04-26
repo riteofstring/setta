@@ -1,9 +1,9 @@
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { UIEditorTabNameEnum } from "utils/constants";
 import {
   SectionTypeEnum,
+  UIEditorTabUIConfig,
   createCore,
   createDictSectionImpl,
   createVariant,
@@ -38,7 +38,7 @@ describe("paneFns tab helpers", () => {
       uiEditorVis: true,
       uiEditorTab: {
         ...state.uiEditorTab,
-        [SectionTypeEnum.Dict]: UIEditorTabNameEnum.SectionConfig,
+        [SectionTypeEnum.Dict]: UIEditorTabUIConfig.names.SectionConfig,
       },
     }));
   });
@@ -47,7 +47,7 @@ describe("paneFns tab helpers", () => {
     showVersionsTab();
 
     expect(useLocalStorage.getState().uiEditorTab[SectionTypeEnum.Dict]).toBe(
-      UIEditorTabNameEnum.SectionVariantsConfig,
+      UIEditorTabUIConfig.names.SectionVariantsConfig,
     );
   });
 
@@ -55,7 +55,7 @@ describe("paneFns tab helpers", () => {
     showParamUITypeTab();
 
     expect(useLocalStorage.getState().uiEditorTab[SectionTypeEnum.Dict]).toBe(
-      UIEditorTabNameEnum.UIConfig,
+      UIEditorTabUIConfig.names.UIConfig,
     );
   });
 });

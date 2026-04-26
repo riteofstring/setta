@@ -6,17 +6,14 @@ import {
 } from "plugins/runtime";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useLocalStorage, useProjectState } from "state/definitions";
+import { isOverviewTabKey, type OverviewTabKey } from "utils/constants";
 import {
-  REQUIRED_UI_EDITOR_TABS,
-  UIEditorTabNameEnum,
-  isOverviewTabKey,
-  type OverviewTabKey,
-} from "utils/constants";
-import type {
-  SectionType,
-  UIEditorTabName,
-  UISettingRevealContent,
-  UISettingRevealTarget,
+  RequiredUIEditorTabs,
+  UIEditorTabUIConfig,
+  type SectionType,
+  type UIEditorTabName,
+  type UISettingRevealContent,
+  type UISettingRevealTarget,
 } from "utils/generatedTypes";
 import {
   restoreBackendAuthoritativeActiveSectionIds,
@@ -30,7 +27,7 @@ const HIGHLIGHT_CLASS_NAME = "setta-ui-setting-reveal-highlight";
 
 const highlightTimeoutByElement = new WeakMap<HTMLElement, number>();
 const uiEditorTabNameValues = new Set<string>(
-  Object.values(UIEditorTabNameEnum),
+  Object.values(UIEditorTabUIConfig.names),
 );
 
 type UISettingRevealResultStatus = {
@@ -1492,7 +1489,9 @@ function openRightPaneForRevealTarget(
     };
   }
   const requestedTab = uiEditorTabName as UIEditorTabName;
-  const requiredTabs = REQUIRED_UI_EDITOR_TABS[sectionType];
+  const requiredTabs = RequiredUIEditorTabs[
+    sectionType
+  ] as readonly UIEditorTabName[];
   if (!requiredTabs.includes(requestedTab)) {
     return {
       ok: false,

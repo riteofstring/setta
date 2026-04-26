@@ -9,11 +9,7 @@ import {
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
-import {
-  REQUIRED_UI_EDITOR_TABS,
-  UIEditorTabLocalStorage,
-  UIEditorTabNameEnum,
-} from "utils/constants";
+import { UIEditorTabLocalStorage } from "utils/constants";
 import {
   ButtonParamCodeObjImpl,
   CodeObjType,
@@ -22,11 +18,13 @@ import {
   DateParamCodeObjImpl,
   DropdownParamCodeObjImpl,
   DropzoneParamCodeObjImpl,
+  RequiredUIEditorTabs,
   RotaryParamCodeObjImpl,
   SectionType,
   SectionTypeEnum,
   SliderParamCodeObjImpl,
   TimeParamCodeObjImpl,
+  UIEditorTabUIConfig,
   type UIEditorTabName,
 } from "utils/generatedTypes";
 
@@ -88,13 +86,14 @@ export function getUIEditorTab(
   sectionType: SectionType,
   _storedTab: UIEditorTabLocalStorage,
 ) {
-  const requiredTabs = REQUIRED_UI_EDITOR_TABS[sectionType];
+  const requiredTabs = RequiredUIEditorTabs[
+    sectionType
+  ] as readonly UIEditorTabName[];
   const storedTab =
-    _storedTab?.[sectionType] ?? UIEditorTabNameEnum.SectionConfig;
+    _storedTab?.[sectionType] ?? UIEditorTabUIConfig.names.SectionConfig;
   // when sectionId changes, the requiredTabs might not include the previously active tab
   let selectedTabName: UIEditorTabName | null;
   if (requiredTabs.length > 0) {
-    // @ts-expect-error The includes function typing is annoying
     selectedTabName = requiredTabs.includes(storedTab) ? storedTab : null;
   } else {
     selectedTabName = null;

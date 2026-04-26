@@ -4150,7 +4150,6 @@ export const PluginInstallerBackendEnum = {
   uv: "uv",
 } as const;
 export type PluginInstallerBackend = gt.PluginInstallerBackend;
-export type PluginOverviewTabPrefix = gt.PluginOverviewTabPrefix;
 
 export const PluginRuntimeStateEnum = {
   active: "active",
@@ -4493,7 +4492,7 @@ export const BootstrapProtocol = {
   workspaceHistoryHashParam: "wh",
   workspaceHistoryQueryParam: "__setta_workspace_history",
   workspaceHistoryStorageKey: "setta.workspaceHistoryHandoff",
-} satisfies gt.BootstrapHandoffProtocol;
+} as const satisfies gt.BootstrapHandoffProtocol;
 
 export const ButtonParamUIConfig = {
   actionModeOptions: [
@@ -4593,7 +4592,7 @@ export const ChatRunTypesByName = {
   external_agent: true,
   llm_chat: true,
   scriptable_chat: true,
-} satisfies gt.ChatRunTypeSet;
+} as const satisfies gt.ChatRunTypeSet;
 
 export const ChildDefaultsUIConfig = {
   listRootViewModeOptions: [
@@ -4886,7 +4885,7 @@ export const OverviewTabUIConfig = {
     RunInstructions: "Custom Runs",
     ViewModes: "View Modes",
   },
-} satisfies gt.OverviewTabUIConfigValue;
+} as const satisfies gt.OverviewTabUIConfigValue;
 
 export const ProjectChatUIConfig = {
   agenticEdgeContextModeOptions: [
@@ -5254,7 +5253,7 @@ export const ToolNameNormalizationConfig = {
   mcpPrefix: "mcp__",
   singlePrefix: "setta_",
   todoWriteToolName: "TodoWrite",
-} satisfies gt.ToolNameNormalization;
+} as const satisfies gt.ToolNameNormalization;
 
 export const TranscriptionProfileUIConfig = {
   defaultChunkMs: 1200,
@@ -5314,7 +5313,7 @@ export const TransportRouteConstants = {
     listenerById: "/ws/listeners/{listenerID}",
     terminalBySection: "/ws/terminals/{projectID}/{sectionID}",
   },
-} satisfies gt.TransportRoutes;
+} as const satisfies gt.TransportRoutes;
 
 export const UIEditorTabUIConfig = {
   names: {
@@ -5331,4 +5330,4 @@ export const UIEditorTabUIConfig = {
     SectionVariantsConfig: "Variants",
     UIConfig: "Params",
   },
-} satisfies gt.UIEditorTabUIConfigValue;
+} as const satisfies gt.UIEditorTabUIConfigValue;

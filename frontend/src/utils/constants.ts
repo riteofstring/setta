@@ -2,21 +2,12 @@ import { C } from "./c";
 import {
   ObjectValues,
   OverviewTabUIConfig,
-  RequiredUIEditorTabs,
-  UIEditorTabUIConfig,
   type OverviewTabName,
-  type PluginOverviewTabPrefix,
   type SectionType,
   type UIEditorTabName,
 } from "./generatedTypes";
 
-export const UIEditorTabNameEnum = UIEditorTabUIConfig.names as Readonly<
-  Record<keyof typeof UIEditorTabUIConfig.names, UIEditorTabName>
->;
 export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
-export const REQUIRED_UI_EDITOR_TABS = RequiredUIEditorTabs as Readonly<
-  Record<SectionType, readonly UIEditorTabName[]>
->;
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 
@@ -35,9 +26,6 @@ export const PaneNameEnum = {
 
 export type PaneName = ObjectValues<typeof PaneNameEnum>;
 
-export const OverviewTabNameEnum = OverviewTabUIConfig.names as Readonly<
-  Record<keyof typeof OverviewTabUIConfig.names, OverviewTabName>
->;
 export const OverviewNotificationsPaneTabEnum = {
   Notifications: "notifications",
   BackendLogs: "backend_logs",
@@ -45,13 +33,11 @@ export const OverviewNotificationsPaneTabEnum = {
 export type OverviewNotificationsPaneTab = ObjectValues<
   typeof OverviewNotificationsPaneTabEnum
 >;
-const PLUGIN_OVERVIEW_TAB_PREFIX: PluginOverviewTabPrefix =
-  OverviewTabUIConfig.pluginPanePrefix;
 type PluginOverviewTabName =
-  `${typeof PLUGIN_OVERVIEW_TAB_PREFIX}:${string}:${string}`;
+  `${typeof OverviewTabUIConfig.pluginPanePrefix}:${string}:${string}`;
 export type OverviewTabKey = OverviewTabName | PluginOverviewTabName;
 const overviewTabNameValues = new Set<string>(
-  Object.values(OverviewTabNameEnum),
+  Object.values(OverviewTabUIConfig.names),
 );
 
 function isOverviewTabName(value: unknown): value is OverviewTabName {
@@ -66,10 +52,6 @@ export function isOverviewTabKey(value: unknown): value is OverviewTabKey {
   );
 }
 
-export const OverviewTabNamePrettified = OverviewTabUIConfig.titles as Readonly<
-  Record<OverviewTabName, string>
->;
-
 // Keep this encode/decode logic aligned with Go's buildPluginPaneOverviewTabKey:
 // Go emits canonical reveal keys, while the frontend must build and parse the
 // same keys locally for routing and tab state without a round trip.
@@ -77,13 +59,13 @@ export function buildPluginPaneOverviewTabName(
   pluginId: string,
   paneId: string,
 ): PluginOverviewTabName {
-  return `${PLUGIN_OVERVIEW_TAB_PREFIX}:${encodeURIComponent(pluginId)}:${encodeURIComponent(paneId)}`;
+  return `${OverviewTabUIConfig.pluginPanePrefix}:${encodeURIComponent(pluginId)}:${encodeURIComponent(paneId)}`;
 }
 
 export function parsePluginPaneOverviewTabName(
   tabName: string,
 ): { pluginId: string; paneId: string } | null {
-  if (!tabName.startsWith(`${PLUGIN_OVERVIEW_TAB_PREFIX}:`)) {
+  if (!tabName.startsWith(`${OverviewTabUIConfig.pluginPanePrefix}:`)) {
     return null;
   }
   const parts = tabName.split(":");
@@ -104,10 +86,6 @@ export function parsePluginPaneOverviewTabName(
     return null;
   }
 }
-
-export const UIEditorTabNamePrettified = UIEditorTabUIConfig.titles as Readonly<
-  Record<UIEditorTabName, string>
->;
 
 export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
   "bg-red-500/60 dark:bg-red-600/30",

@@ -4106,7 +4106,7 @@ type PluginManifest = {
 /**
  * PluginOverviewTabPrefix
  */
-export type PluginOverviewTabPrefix = "PluginPane";
+type PluginOverviewTabPrefix = "PluginPane";
 
 /**
  * PluginRegisteredBackendRoute

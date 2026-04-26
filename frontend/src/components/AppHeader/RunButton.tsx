@@ -24,7 +24,7 @@ import {
   useProjectState,
   useRunControl,
 } from "state/definitions";
-import { OverviewTabNameEnum } from "utils/constants";
+import { OverviewTabUIConfig } from "utils/generatedTypes";
 
 type RunModeOption = {
   label: string;
@@ -214,7 +214,9 @@ function RunButtonDropdown({
       <Menubar.Separator className="mx-2 my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
       <MenuItem
         className={MENU_ITEM_CLASSES}
-        onClick={() => onOverviewTabClick(OverviewTabNameEnum.RunInstructions)}
+        onClick={() =>
+          onOverviewTabClick(OverviewTabUIConfig.names.RunInstructions)
+        }
       >
         <i className="w-3 opacity-80">
           <RiPlayList2Fill />
