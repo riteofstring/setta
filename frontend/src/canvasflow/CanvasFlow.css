@@ -138,16 +138,13 @@
 
 .canvas-flow[data-node-perf-variant="node-action-buttons-hidden"]
   .canvas-flow__node
-  :is(
-    button:not([data-state]):not([role="switch"]):not([role="checkbox"]),
-    [role="button"]
-  ) {
+  button:not([data-state]):not([role="switch"]):not([role="checkbox"]) {
   visibility: hidden !important;
 }
 
 .canvas-flow[data-node-perf-variant="node-buttons-hidden"]
   .canvas-flow__node
-  :is(button:not([role="switch"]):not([role="checkbox"]), [role="button"]) {
+  button:not([role="switch"]):not([role="checkbox"]) {
   visibility: hidden !important;
 }
 
@@ -227,7 +224,6 @@ html.dark
     input,
     select,
     textarea,
-    [role="button"],
     [role="checkbox"],
     [role="combobox"],
     [role="switch"],

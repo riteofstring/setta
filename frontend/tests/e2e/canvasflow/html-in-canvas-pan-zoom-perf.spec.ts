@@ -104,6 +104,18 @@ type TraceSummary = {
   paintMs: number;
 };
 
+type CanvasSourceVisualStats = {
+  hiddenAccordionButtons: number;
+  hiddenActionButtons: number;
+  hiddenButtonLikeElements: number;
+  mountedNodes: number;
+  nodesWithVisibleText: number;
+  visibleAccordionButtons: number;
+  visibleActionButtons: number;
+  visibleButtonLikeElements: number;
+  visibleTextChars: number;
+};
+
 type MeasuredGesture = GestureMetrics & {
   afterStats: CanvasStats;
   beforeStats: CanvasStats;
@@ -115,6 +127,7 @@ type MatrixResult = {
   count: number;
   initialStats: CanvasStats;
   pan: MeasuredGesture;
+  sourceVisualStats: CanvasSourceVisualStats;
   variant: CanvasFlowPerfVariant;
   zoom: MeasuredGesture;
 };
@@ -300,12 +313,13 @@ async function measureCurrentCanvasFlowProject(
 
   await setCanvasViewport(page, startViewport);
   const initialStats = await readCanvasStats(page);
+  const sourceVisualStats = await readCanvasSourceVisualStats(page);
 
   const pan = await measureGesture(page, cdp, "pan", steps);
   await setCanvasViewport(page, startViewport);
   const zoom = await measureGesture(page, cdp, "zoom", steps);
 
-  return { count, initialStats, pan, variant, zoom };
+  return { count, initialStats, pan, sourceVisualStats, variant, zoom };
 }
 
 function parseCounts(value: string | undefined, fallback: number[]): number[] {
@@ -969,6 +983,108 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
   });
 }
 
+async function readCanvasSourceVisualStats(
+  page: Page,
+): Promise<CanvasSourceVisualStats> {
+  return await page.evaluate(() => {
+    const nodeElements = Array.from(
+      document.querySelectorAll<HTMLElement>(".canvas-flow__node"),
+    );
+    const stats: CanvasSourceVisualStats = {
+      hiddenAccordionButtons: 0,
+      hiddenActionButtons: 0,
+      hiddenButtonLikeElements: 0,
+      mountedNodes: nodeElements.length,
+      nodesWithVisibleText: 0,
+      visibleAccordionButtons: 0,
+      visibleActionButtons: 0,
+      visibleButtonLikeElements: 0,
+      visibleTextChars: 0,
+    };
+
+    for (const nodeElement of nodeElements) {
+      const textChars = countVisibleTextChars(nodeElement);
+      if (textChars > 0) {
+        stats.nodesWithVisibleText += 1;
+        stats.visibleTextChars += textChars;
+      }
+    }
+
+    for (const element of document.querySelectorAll<HTMLElement>(
+      ".canvas-flow__node button, .canvas-flow__node [role='button']",
+    )) {
+      const visible = isVisibleThroughAncestors(element);
+      const isAccordionButton =
+        element instanceof HTMLButtonElement &&
+        element.hasAttribute("data-state") &&
+        element.getAttribute("role") !== "switch" &&
+        element.getAttribute("role") !== "checkbox";
+      const isActionButton =
+        (element instanceof HTMLButtonElement &&
+          !element.hasAttribute("data-state") &&
+          element.getAttribute("role") !== "switch" &&
+          element.getAttribute("role") !== "checkbox") ||
+        (element.getAttribute("role") === "button" &&
+          !(element instanceof HTMLButtonElement));
+
+      if (visible) {
+        stats.visibleButtonLikeElements += 1;
+        if (isAccordionButton) {
+          stats.visibleAccordionButtons += 1;
+        }
+        if (isActionButton) {
+          stats.visibleActionButtons += 1;
+        }
+      } else {
+        stats.hiddenButtonLikeElements += 1;
+        if (isAccordionButton) {
+          stats.hiddenAccordionButtons += 1;
+        }
+        if (isActionButton) {
+          stats.hiddenActionButtons += 1;
+        }
+      }
+    }
+
+    return stats;
+
+    function countVisibleTextChars(root: HTMLElement) {
+      let visibleTextChars = 0;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let current = walker.nextNode();
+      while (current) {
+        const text = current.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        const parent = current.parentElement;
+        if (text && parent && isVisibleThroughAncestors(parent)) {
+          visibleTextChars += text.length;
+        }
+        current = walker.nextNode();
+      }
+      return visibleTextChars;
+    }
+
+    function isVisibleThroughAncestors(element: HTMLElement) {
+      let current: HTMLElement | null = element;
+      while (current && current !== document.body) {
+        const style = getComputedStyle(current);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          style.visibility === "collapse" ||
+          style.opacity === "0"
+        ) {
+          return false;
+        }
+        current = current.parentElement;
+      }
+      const rects = element.getClientRects();
+      return Array.from(rects).some(
+        (rect) => rect.width > 0 && rect.height > 0,
+      );
+    }
+  });
+}
+
 async function measureGesture(
   page: Page,
   cdp: CDPSession,
@@ -1380,6 +1496,7 @@ function renderMatrixReport(
     "- Scripting, style, layout, task, and heap numbers come from Chrome `Performance.getMetrics` deltas around each gesture.",
     "- Paint and composite numbers are summed from a short CDP trace around each gesture. These trace buckets are diagnostic event sums, not mutually exclusive frame budget totals.",
     "- Node content variants are CSS-only diagnostics layered on the same mounted nodes; they progressively hide or simplify node internals without changing the CanvasFlow draw path.",
+    "- Source visual stats count visible text and button-like DOM before the gesture so destructive variants cannot be mistaken for UX-preserving optimizations.",
     "- Raw JSON artifact, ignored by git: `" + options.artifactPath + "`.",
     "",
     "## Before",
@@ -1406,6 +1523,19 @@ function renderMatrixReport(
   for (const result of results) {
     lines.push(
       `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatInteger(result.initialStats.edgeCount)} | ${formatMs(result.initialStats.edgeDrawMs)} | ${formatMs(result.initialStats.visibilityScanMs)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatInteger(result.initialStats.snapshotCacheHits)} | ${formatInteger(result.initialStats.snapshotCacheMisses)} | ${formatMs(result.initialStats.snapshotCaptureMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
+    );
+  }
+  lines.push(
+    "",
+    "## Source Visual Snapshot",
+    "",
+    "| Nodes | Variant | Mounted Source Nodes | Nodes With Visible Text | Visible Text Chars | Visible Button-Like | Hidden Button-Like | Visible Action Buttons | Hidden Action Buttons | Visible Accordion Buttons | Hidden Accordion Buttons |",
+    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+  );
+  for (const result of results) {
+    const stats = result.sourceVisualStats;
+    lines.push(
+      `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(stats.mountedNodes)} | ${formatInteger(stats.nodesWithVisibleText)} | ${formatInteger(stats.visibleTextChars)} | ${formatInteger(stats.visibleButtonLikeElements)} | ${formatInteger(stats.hiddenButtonLikeElements)} | ${formatInteger(stats.visibleActionButtons)} | ${formatInteger(stats.hiddenActionButtons)} | ${formatInteger(stats.visibleAccordionButtons)} | ${formatInteger(stats.hiddenAccordionButtons)} |`,
     );
   }
   lines.push(

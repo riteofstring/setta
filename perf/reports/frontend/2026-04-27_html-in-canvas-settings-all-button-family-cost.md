@@ -1,5 +1,7 @@
 # HTML-in-Canvas Pan/Zoom Matrix
 
+Superseded: `perf/reports/frontend/2026-04-27_html-in-canvas-settings-all-button-visual-guard.md` adds source-visual stats and shows the high-FPS action-button result was caused by a destructive selector that blanked source node content.
+
 Date: 2026-04-27
 Area: frontend
 Branch/Commit: go-rewrite-canvas-replace-xyflow working tree
