@@ -12,6 +12,10 @@ export function useGpuFlowViewportStore<T>(
   return useGpuFlowViewportStoreApi(gpuFlowViewportStore, selector, equalityFn);
 }
 
+export function useGpuFlowZoom(): number {
+  return useGpuFlowViewportStore((state) => state.transform[2]);
+}
+
 function useGpuFlowViewportStoreApi<T>(
   store: GpuFlowViewportStoreApi,
   selector: (state: GpuFlowViewportStore) => T,

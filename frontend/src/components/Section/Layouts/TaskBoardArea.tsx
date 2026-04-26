@@ -22,7 +22,7 @@ import {
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { getZoom } from "gpuFlow/viewportActions";
 import { setTaskBoardSectionState } from "openapi/http";
 import {
   Fragment,
@@ -956,7 +956,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
           cancelAnimationFrame(kanbanResizeAnimationFrameRef.current);
         }
         kanbanResizeAnimationFrameRef.current = requestAnimationFrame(() => {
-          const zoom = useReactFlow.getState().transform[2];
+          const zoom = getZoom();
           const scale = zoom === 0 ? 1 : zoom;
           const deltaX = (moveEvent.clientX - startX) / scale;
           const nextWidth = Math.max(
