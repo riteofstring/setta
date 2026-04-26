@@ -1,11 +1,12 @@
-import { describe, expect, it } from "vitest";
 import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
+import { describe, expect, it } from "vitest";
 import {
   clampChangedSize,
   getResizableEnable,
-  getResizeAxisAvailability,
   getResizableHandleConfig,
+  getResizeAxisAvailability,
+  resolveResizableGrid,
   setGpuNodeResizeInteractionActive,
   shouldEmitResizeEndEvent,
 } from "./CustomResizable";
@@ -232,5 +233,29 @@ describe("resize axis and handle availability", () => {
         widthResizable: true,
       }),
     ).toBe(false);
+  });
+});
+
+describe("resize snap grid handoff", () => {
+  it("passes no grid to re-resizable when snap-to-grid is disabled", () => {
+    expect(
+      resolveResizableGrid({ snapGrid: [20, 30], snapToGrid: false }),
+    ).toBeUndefined();
+  });
+
+  it("passes the configured snap grid to re-resizable when enabled", () => {
+    const snapGrid = [20, 30] as const;
+
+    expect(resolveResizableGrid({ snapGrid, snapToGrid: true })).toBe(snapGrid);
+  });
+
+  it("fails loudly when snap-to-grid is enabled with invalid grid values", () => {
+    expect(() =>
+      resolveResizableGrid({ snapGrid: [0, 30], snapToGrid: true }),
+    ).toThrow("snap grid x must be a finite positive number");
+
+    expect(() =>
+      resolveResizableGrid({ snapGrid: [20, Number.NaN], snapToGrid: true }),
+    ).toThrow("snap grid y must be a finite positive number");
   });
 });

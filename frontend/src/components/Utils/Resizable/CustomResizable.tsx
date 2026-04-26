@@ -78,10 +78,8 @@ const META_CONTROL_HANDLE_STYLES = {
   },
   bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
 };
-const DEFAULT_HANDLE_WRAPPER_CLASS_NAME =
-  `absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} [&>div]:z-20`;
-const ATTACHED_TERMINAL_HANDLE_WRAPPER_CLASS_NAME =
-  `absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} [&>div]:z-30`;
+const DEFAULT_HANDLE_WRAPPER_CLASS_NAME = `absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} [&>div]:z-20`;
+const ATTACHED_TERMINAL_HANDLE_WRAPPER_CLASS_NAME = `absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} [&>div]:z-30`;
 const META_CONTROL_HANDLE_BASE_CLASS_NAME =
   "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
 const ACTIVE_META_CONTROL_HANDLE_CLASS_NAME =
@@ -382,8 +380,7 @@ function CustomResizableCore({
       aspectRatio={aspectRatio}
       aspectRatioExtraHeight={aspectRatioExtraHeight}
       aspectRatioExtraWidth={aspectRatioExtraWidth}
-      snapGrid={snapGrid}
-      snapToGrid={snapToGrid}
+      snapGrid={resolveResizableGrid({ snapGrid, snapToGrid })}
     >
       {children}
     </CustomResizableSuperCore>
@@ -415,7 +412,6 @@ function CustomResizableSuperCore({
   aspectRatioExtraHeight,
   aspectRatioExtraWidth,
   snapGrid,
-  snapToGrid,
   children,
 }) {
   const { isSorting } = useDndMode();
@@ -511,7 +507,7 @@ function CustomResizableSuperCore({
       className={inputClasses}
       handleStyles={handleStyles}
       handleClasses={handleClasses}
-      grid={snapToGrid ? snapGrid : null}
+      grid={snapGrid}
     >
       {children}
     </ResizableWithScale>
@@ -838,6 +834,26 @@ export function getResizableEnable({
     topLeft: false,
     bottomLeft: false,
   };
+}
+export function resolveResizableGrid({
+  snapGrid,
+  snapToGrid,
+}: {
+  snapGrid: readonly [number, number];
+  snapToGrid: boolean;
+}): readonly [number, number] | undefined {
+  if (!snapToGrid) {
+    return undefined;
+  }
+  const [xGrid, yGrid] = snapGrid;
+  assertFinitePositiveResizeGridValue("snap grid x", xGrid);
+  assertFinitePositiveResizeGridValue("snap grid y", yGrid);
+  return snapGrid;
+}
+function assertFinitePositiveResizeGridValue(name: string, value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${name} must be a finite positive number.`);
+  }
 }
 function getMetaControlHandleClass(
   direction: keyof typeof META_CONTROL_HANDLE_CURSOR_CLASSES,

@@ -41,6 +41,58 @@ describe("resize utils", () => {
     ).toEqual({ height: 120 });
   });
 
+  it("persists the dragged axes for right, bottom, and bottom-right handles", () => {
+    const ref = { style: { width: "240px", height: "120px" } };
+    const event = { detail: 1 };
+    const sizeMode = { width: SIZE_MODE.any, height: SIZE_MODE.any };
+
+    expect(
+      getChangedSize({
+        props: [event, "right", ref, { width: 40, height: 0 }],
+        sizeMode,
+        aspectRatio: false,
+      }),
+    ).toEqual({ width: 240 });
+
+    expect(
+      getChangedSize({
+        props: [event, "bottom", ref, { width: 0, height: 20 }],
+        sizeMode,
+        aspectRatio: false,
+      }),
+    ).toEqual({ height: 120 });
+
+    expect(
+      getChangedSize({
+        props: [event, "bottomRight", ref, { width: 40, height: 20 }],
+        sizeMode,
+        aspectRatio: false,
+      }),
+    ).toEqual({ width: 240, height: 120 });
+  });
+
+  it("persists paired dimensions for aspect-ratio right and bottom handles", () => {
+    const ref = { style: { width: "240px", height: "120px" } };
+    const event = { detail: 1 };
+    const sizeMode = { width: SIZE_MODE.any, height: SIZE_MODE.any };
+
+    expect(
+      getChangedSize({
+        props: [event, "right", ref, { width: 40, height: 20 }],
+        sizeMode,
+        aspectRatio: true,
+      }),
+    ).toEqual({ width: 240, height: 120 });
+
+    expect(
+      getChangedSize({
+        props: [event, "bottom", ref, { width: 40, height: 20 }],
+        sizeMode,
+        aspectRatio: true,
+      }),
+    ).toEqual({ width: 240, height: 120 });
+  });
+
   it("filters manual bottom-right resize updates by size mode", () => {
     const ref = { style: { width: "240px", height: "120px" } };
     const event = { detail: 1 };
