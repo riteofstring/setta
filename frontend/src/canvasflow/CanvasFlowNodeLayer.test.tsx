@@ -5,10 +5,18 @@ import initialState from "forks/xyflow/core/store/initialState";
 import type { Node } from "forks/xyflow/core/types";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useNodeInternals, useProjectState } from "state/definitions";
+import { setActiveSectionUIIds } from "state/activeSectionUI";
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { CANVAS_FLOW_VIEWPORT_CHANGE_EVENT } from "utils/constants";
+import {
+  CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
+  getSectionStylePreviewColorKey,
+} from "utils/constants";
 import {
   createChatSectionImpl,
   createCore,
@@ -161,6 +169,102 @@ describe("CanvasFlowNodeLayer", () => {
     expect(container.querySelector('[data-id="far"]')).toBeNull();
     expect(scheduleTexturePaint).not.toHaveBeenCalled();
     expect(scheduleViewportFrame).not.toHaveBeenCalled();
+  });
+
+  it("invalidates node textures for interactive source state changes", async () => {
+    seedProjectSections(["near"]);
+    useNodeInternals.setState({
+      x: new Map([["near", node("near", 0, 0)]]),
+    });
+    const canvas = document.createElement("canvas");
+    const canvasRef = { current: canvas };
+    const nodeElementsRef = {
+      current: new Map<string, HTMLElement>() as CanvasFlowNodeElementMap,
+    };
+    const viewportRef = {
+      current: { x: 0, y: 0, zoom: 1 } satisfies CanvasFlowViewport,
+    };
+    const scheduleTexturePaint = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <CanvasFlowNodeLayer
+          canvasCssSize={{ cssWidth: 800, cssHeight: 400 }}
+          canvasRef={canvasRef}
+          nodeElementsRef={nodeElementsRef}
+          resizeObserver={null}
+          scheduleTexturePaint={scheduleTexturePaint}
+          scheduleViewportFrame={vi.fn()}
+          viewportRef={viewportRef}
+        />,
+      );
+    });
+
+    const nodeElement = container.querySelector<HTMLElement>(
+      '[data-id="near"]',
+    );
+    expect(nodeElement).not.toBeNull();
+    scheduleTexturePaint.mockClear();
+
+    await act(async () => {
+      nodeElement?.dispatchEvent(new Event("focusin", { bubbles: true }));
+      nodeElement?.dispatchEvent(new Event("input", { bubbles: true }));
+      nodeElement?.dispatchEvent(new Event("click", { bubbles: true }));
+      nodeElement?.dispatchEvent(new Event("pointerover", { bubbles: true }));
+    });
+
+    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+      "node-focus",
+      new Set(["near"]),
+    );
+    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+      "node-input",
+      new Set(["near"]),
+    );
+    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+      "node-click",
+      new Set(["near"]),
+    );
+    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+      "node-hover",
+      new Set(["near"]),
+    );
+
+    scheduleTexturePaint.mockClear();
+    await act(async () => {
+      setActiveSectionUIIds(["near"]);
+    });
+    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+      "node-selection",
+      new Set(["near"]),
+    );
+
+    scheduleTexturePaint.mockClear();
+    await act(async () => {
+      useProjectState.setState((state) => {
+        const impl = state.sectionImpls["near-impl"] as
+          | { styleColor?: string | null }
+          | undefined;
+        if (impl) {
+          impl.styleColor = "#dbeafe";
+        }
+      });
+    });
+    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+      "node-section-style",
+      new Set(["near"]),
+    );
+
+    scheduleTexturePaint.mockClear();
+    await act(async () => {
+      useLocalStorage.setState({
+        [getSectionStylePreviewColorKey("near")]: "#fef3c7",
+      } as unknown as Partial<ReturnType<typeof useLocalStorage.getState>>);
+    });
+    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+      "node-section-style",
+      new Set(["near"]),
+    );
   });
 });
 

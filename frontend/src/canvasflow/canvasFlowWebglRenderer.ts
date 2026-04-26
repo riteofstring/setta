@@ -35,6 +35,7 @@ import {
   type CanvasFlowColorProgram,
   type CanvasFlowTextureProgram,
 } from "./canvasFlowWebglShaders";
+import { drawCanvasFlowWebglEdges } from "./canvasFlowWebglEdges";
 
 const DEFAULT_OVERSCAN = 600;
 const FRAME_STATS_SAMPLE_INTERVAL_MS = 250;
@@ -53,6 +54,8 @@ type WebglRendererState = {
   previousInteractiveNodeIds: Set<string>;
   rendererTransformChangedNodeIds: Set<string>;
   totalTextureEvictions: number;
+  totalTextureUploadMs: number;
+  totalTextureUploads: number;
 };
 
 type CanvasFlowWebglResources = {
@@ -76,6 +79,8 @@ export function createCanvasFlowWebglRenderer({
     previousInteractiveNodeIds: new Set<string>(),
     rendererTransformChangedNodeIds: new Set<string>(),
     totalTextureEvictions: 0,
+    totalTextureUploadMs: 0,
+    totalTextureUploads: 0,
   };
   let inputs = initialInputs;
   let destroyed = false;
@@ -178,6 +183,8 @@ export function createCanvasFlowWebglRenderer({
         visibleNodes,
       });
       state.totalTextureEvictions += uploadStats.evictions;
+      state.totalTextureUploads += uploadStats.uploadCount;
+      state.totalTextureUploadMs += uploadStats.uploadMs;
       state.pendingUploadStats = uploadStats;
       canvas.dataset.webglDirtyNodes = String(textureCache.dirtyCount);
       canvas.dataset.webglTextureUploadRequestsThisPaint = String(
@@ -232,6 +239,8 @@ function renderWebglFrame({
       canvas,
       drawMs: performance.now() - drawStart,
       drawnNodes: 0,
+      drawnEdges: 0,
+      edgeDrawMs: 0,
       inputs,
       now,
       state,
@@ -260,6 +269,18 @@ function renderWebglFrame({
     gl,
     inputs,
   });
+  const edgeDrawStart = performance.now();
+  const edgeDraw = drawCanvasFlowWebglEdges({
+    colorProgram: resources.colorProgram,
+    connectionState: inputs.connectionState,
+    edgeHandlePositions: inputs.edgeHandlePositions,
+    edges: inputs.edges,
+    gl,
+    size,
+    viewport: inputs.viewport,
+    wireColor: inputs.wireColor,
+  });
+  const edgeDrawMs = performance.now() - edgeDrawStart;
 
   const visibilityScanStart = performance.now();
   const visibleNodes = getVisibleCanvasFlowNodes(inputs);
@@ -311,6 +332,8 @@ function renderWebglFrame({
     canvas,
     drawMs,
     drawnNodes: textureDraw.drawnNodes,
+    drawnEdges: edgeDraw.drawnEdges,
+    edgeDrawMs,
     inputs,
     now,
     state,
@@ -640,6 +663,8 @@ function writeWebglStats({
   canvas,
   drawMs,
   drawnNodes,
+  drawnEdges,
+  edgeDrawMs,
   inputs,
   now,
   state,
@@ -653,6 +678,8 @@ function writeWebglStats({
   canvas: HTMLCanvasElement;
   drawMs: number;
   drawnNodes: number;
+  drawnEdges: number;
+  edgeDrawMs: number;
   inputs: CanvasFlowRenderInputs;
   now: number;
   state: WebglRendererState;
@@ -676,10 +703,11 @@ function writeWebglStats({
   );
   canvas.dataset.visibleNodes = String(visibleNodes.length);
   canvas.dataset.drawnNodes = String(drawnNodes);
+  canvas.dataset.webglDrawnEdges = String(drawnEdges);
   canvas.dataset.registeredNodes = String(inputs.nodes.length);
   canvas.dataset.mountedNodes = String(inputs.nodeElements.size);
   canvas.dataset.edgeCount = String(inputs.edges.length);
-  canvas.dataset.edgeDrawMs = "0.00";
+  canvas.dataset.edgeDrawMs = edgeDrawMs.toFixed(2);
   canvas.dataset.lastPaintTime = now.toFixed(2);
   canvas.dataset.snapshotCacheHits = "0";
   canvas.dataset.snapshotCacheMisses = "0";
@@ -713,9 +741,12 @@ function writeWebglFrameTextureStats({
   );
   canvas.dataset.webglTextureUploadMs =
     state.pendingUploadStats.uploadMs.toFixed(2);
+  canvas.dataset.webglTextureUploadMsTotal =
+    state.totalTextureUploadMs.toFixed(2);
   canvas.dataset.webglTextureUploadRequestsThisPaint = String(
     state.pendingUploadStats.dirtyVisibleEntries,
   );
+  canvas.dataset.webglTextureUploadsTotal = String(state.totalTextureUploads);
   canvas.dataset.webglTextureEntries = String(textureCache.size);
   canvas.dataset.webglTextureCacheHits = String(cacheHits);
   canvas.dataset.webglTextureCacheMisses = String(cacheMisses);
@@ -751,6 +782,7 @@ function clearWebglRendererDiagnostics(canvas: HTMLCanvasElement) {
   delete canvas.dataset.webglContextLost;
   delete canvas.dataset.webglDirtyNodes;
   delete canvas.dataset.webglDrawMs;
+  delete canvas.dataset.webglDrawnEdges;
   delete canvas.dataset.webglEstimatedTextureBytes;
   delete canvas.dataset.webglFrame;
   delete canvas.dataset.webglLastFrameReason;
@@ -760,8 +792,10 @@ function clearWebglRendererDiagnostics(canvas: HTMLCanvasElement) {
   delete canvas.dataset.webglTextureEntries;
   delete canvas.dataset.webglTextureEvictions;
   delete canvas.dataset.webglTextureUploadMs;
+  delete canvas.dataset.webglTextureUploadMsTotal;
   delete canvas.dataset.webglTextureUploadRequestsThisPaint;
   delete canvas.dataset.webglTextureUploadsThisFrame;
+  delete canvas.dataset.webglTextureUploadsTotal;
 }
 
 function positiveModulo(value: number, modulo: number) {

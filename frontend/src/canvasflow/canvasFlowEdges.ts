@@ -34,6 +34,12 @@ export type CanvasFlowEdgeHit = {
   endpoint: CanvasFlowEdgeEndpoint | null;
   distance: number;
 };
+export type CanvasFlowEdgeStroke = {
+  alpha: number;
+  color: string;
+  dashPattern?: readonly number[] | undefined;
+  lineWidth: number;
+};
 
 const sourceActivationCountOperatorLabelByValue = new Map(
   StateMachineUIConfig.sourceActivationCountOperatorOptions.map((option) => [
@@ -100,9 +106,51 @@ export function drawCanvasFlowConnectionPreview({
   positions: EdgeHandlePositions;
   viewport: CanvasFlowViewport;
 }) {
+  const previewEdge = getCanvasFlowConnectionPreviewEdge({
+    connectionState,
+    positions,
+    viewport,
+  });
+  if (!previewEdge) {
+    return;
+  }
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  applyEdgeStroke({
+    ctx,
+    edge: previewEdge,
+    wireColor: "#3b82f6",
+  });
+  ctx.beginPath();
+  ctx.moveTo(previewEdge.source.x, previewEdge.source.y);
+  const { sourceControl, targetControl } =
+    getCanvasFlowEdgeBezierControls(previewEdge);
+  ctx.bezierCurveTo(
+    sourceControl.x,
+    sourceControl.y,
+    targetControl.x,
+    targetControl.y,
+    previewEdge.target.x,
+    previewEdge.target.y,
+  );
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function getCanvasFlowConnectionPreviewEdge({
+  connectionState,
+  positions,
+  viewport,
+}: {
+  connectionState: CanvasFlowConnectionState;
+  positions: EdgeHandlePositions;
+  viewport: CanvasFlowViewport;
+}): CanvasFlowDrawableEdge | null {
   const startHandle = connectionState.connectionStartHandle;
   if (!startHandle?.handleId) {
-    return;
+    return null;
   }
   const start =
     positions[
@@ -113,40 +161,78 @@ export function drawCanvasFlowConnectionPreview({
       )
     ];
   if (!start) {
-    return;
+    return null;
   }
   const sourcePosition = start.side;
-  const targetPosition = getOppositeHandlePosition(sourcePosition);
-  const target = screenToWorldPoint(
-    connectionState.connectionPosition,
-    viewport,
-  );
-
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = 2;
-  ctx.strokeStyle =
-    connectionState.connectionStatus === "invalid" ? "#ef4444" : "#3b82f6";
-  ctx.setLineDash([7, 6]);
-  ctx.beginPath();
-  ctx.moveTo(start.x, start.y);
-  const { sourceControl, targetControl } = getBezierControls({
-    source: start,
-    target,
+  return {
+    id: "connection-preview",
+    kind: "data",
+    pathType: "bezier",
+    source: { x: start.x, y: start.y },
+    target: screenToWorldPoint(connectionState.connectionPosition, viewport),
+    animated: true,
     sourcePosition,
-    targetPosition,
-  });
-  ctx.bezierCurveTo(
-    sourceControl.x,
-    sourceControl.y,
-    targetControl.x,
-    targetControl.y,
-    target.x,
-    target.y,
-  );
-  ctx.stroke();
-  ctx.restore();
+    targetPosition: getOppositeHandlePosition(sourcePosition),
+    selected: connectionState.connectionStatus !== "invalid",
+    style: {
+      stroke:
+        connectionState.connectionStatus === "invalid" ? "#ef4444" : "#3b82f6",
+      strokeWidth: 2,
+    },
+    zIndex: Number.MAX_SAFE_INTEGER,
+  };
+}
+
+export function getCanvasFlowEdgePolyline(
+  edge: CanvasFlowDrawableEdge,
+  segmentCount = 24,
+): Position[] {
+  if (edge.pathType === "straight") {
+    return [edge.source, edge.target];
+  }
+  const { sourceControl, targetControl } =
+    getCanvasFlowEdgeBezierControls(edge);
+  const points: Position[] = [edge.source];
+  for (let step = 1; step <= segmentCount; step += 1) {
+    points.push(
+      cubicBezierPoint({
+        t: step / segmentCount,
+        source: edge.source,
+        sourceControl,
+        targetControl,
+        target: edge.target,
+      }),
+    );
+  }
+  return points;
+}
+
+export function getCanvasFlowEdgeStroke({
+  edge,
+  wireColor,
+}: {
+  edge: CanvasFlowDrawableEdge;
+  wireColor: string;
+}): CanvasFlowEdgeStroke {
+  let alpha = 1;
+  let dashPattern: readonly number[] | undefined;
+  if (edge.animated) {
+    dashPattern = [8, 6];
+  }
+  if (edge.missing) {
+    alpha = 0.7;
+    dashPattern = [4, 8];
+  }
+  if (edge.kind === "state-machine-prompt") {
+    alpha = 0.8;
+    dashPattern = [5, 5];
+  }
+  return {
+    alpha,
+    color: resolveStrokeColor(edge, edge.style, wireColor),
+    dashPattern,
+    lineWidth: resolveLineWidth(edge, edge.style),
+  };
 }
 
 export function getCanvasFlowEdgeHit({
@@ -646,7 +732,9 @@ function drawCanvasFlowEdge({
   ctx.restore();
 }
 
-function getOppositeHandlePosition(position: HandlePosition): HandlePosition {
+export function getOppositeHandlePosition(
+  position: HandlePosition,
+): HandlePosition {
   switch (position) {
     case HandlePosition.Left:
       return HandlePosition.Right;
@@ -668,22 +756,29 @@ function applyEdgeStroke({
   edge: CanvasFlowDrawableEdge;
   wireColor: string;
 }) {
-  const style = edge.style;
+  const stroke = getCanvasFlowEdgeStroke({ edge, wireColor });
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = resolveStrokeColor(edge, style, wireColor);
-  ctx.lineWidth = resolveLineWidth(edge, style);
-  if (edge.animated) {
-    ctx.setLineDash([8, 6]);
+  ctx.strokeStyle = stroke.color;
+  ctx.lineWidth = stroke.lineWidth;
+  ctx.globalAlpha = stroke.alpha;
+  if (stroke.dashPattern) {
+    ctx.setLineDash([...stroke.dashPattern]);
   }
-  if (edge.missing) {
-    ctx.setLineDash([4, 8]);
-    ctx.globalAlpha = 0.7;
+}
+
+function getCanvasFlowEdgeBezierControls(edge: CanvasFlowDrawableEdge) {
+  const controlParams: Parameters<typeof getBezierControls>[0] = {
+    source: edge.source,
+    target: edge.target,
+  };
+  if (edge.sourcePosition !== undefined) {
+    controlParams.sourcePosition = edge.sourcePosition;
   }
-  if (edge.kind === "state-machine-prompt") {
-    ctx.setLineDash([5, 5]);
-    ctx.globalAlpha = 0.8;
+  if (edge.targetPosition !== undefined) {
+    controlParams.targetPosition = edge.targetPosition;
   }
+  return getBezierControls(controlParams);
 }
 
 function drawEdgeLabel({

@@ -1,6 +1,13 @@
 import { HandlePosition } from "forks/xyflow/core/types";
+import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import { describe, expect, it } from "vitest";
-import { getBezierControls, getCanvasFlowEdgeHit } from "./canvasFlowEdges";
+import {
+  getBezierControls,
+  getCanvasFlowConnectionPreviewEdge,
+  getCanvasFlowEdgeHit,
+  getCanvasFlowEdgePolyline,
+  getCanvasFlowEdgeStroke,
+} from "./canvasFlowEdges";
 import type { CanvasFlowDrawableEdge } from "./canvasFlowTypes";
 
 describe("canvasFlowEdges", () => {
@@ -116,6 +123,79 @@ describe("canvasFlowEdges", () => {
         viewport: { x: 0, y: 0, zoom: 1 },
       })?.edge.id,
     ).toBe("second");
+  });
+
+  it("exposes shared stroke styles for WebGL edge drawing", () => {
+    expect(
+      getCanvasFlowEdgeStroke({
+        edge: createEdge({ animated: true }),
+        wireColor: "#111827",
+      }),
+    ).toEqual({
+      alpha: 1,
+      color: "#111827",
+      dashPattern: [8, 6],
+      lineWidth: 1.25,
+    });
+
+    expect(
+      getCanvasFlowEdgeStroke({
+        edge: createEdge({ kind: "agentic", missing: true }),
+        wireColor: "#111827",
+      }),
+    ).toEqual({
+      alpha: 0.7,
+      color: "#ef4444",
+      dashPattern: [4, 8],
+      lineWidth: 2,
+    });
+  });
+
+  it("samples bezier edges into a polyline ending at the target", () => {
+    const polyline = getCanvasFlowEdgePolyline(
+      createEdge({
+        source: { x: 0, y: 0 },
+        target: { x: 100, y: 50 },
+      }),
+      4,
+    );
+
+    expect(polyline).toHaveLength(5);
+    expect(polyline[0]).toEqual({ x: 0, y: 0 });
+    expect(polyline[4]).toEqual({ x: 100, y: 50 });
+  });
+
+  it("builds connection preview edges from registered handle positions", () => {
+    const previewEdge = getCanvasFlowConnectionPreviewEdge({
+      connectionState: {
+        connectionPosition: { x: 180, y: 90 },
+        connectionStartHandle: {
+          handleId: "out",
+          sectionId: "source",
+          type: "source",
+        },
+        connectionStatus: "invalid",
+      },
+      positions: {
+        [makeEdgeHandleKey("source", "out", "source")]: {
+          portId: "out",
+          sectionId: "source",
+          side: HandlePosition.Right,
+          type: "source",
+          x: 20,
+          y: 30,
+        },
+      },
+      viewport: { x: 100, y: 50, zoom: 2 },
+    });
+
+    expect(previewEdge).toMatchObject({
+      source: { x: 20, y: 30 },
+      target: { x: 40, y: 20 },
+      sourcePosition: HandlePosition.Right,
+      targetPosition: HandlePosition.Left,
+      style: { stroke: "#ef4444", strokeWidth: 2 },
+    });
   });
 });
 

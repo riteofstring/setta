@@ -12,13 +12,20 @@ import {
   useState,
   type CSSProperties,
   type MutableRefObject,
+  type PointerEvent,
   type RefObject,
 } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { useNodeInternals, useProjectState } from "state/definitions";
+import { useActiveSectionUI } from "state/activeSectionUI";
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useProjectState,
+} from "state/definitions";
 import {
   CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
   NO_PAN_CLASS_NAME,
+  getSectionStylePreviewColorKey,
 } from "utils/constants";
 import { shallow } from "zustand/shallow";
 import { getMountedNodeIds } from "./canvasFlowGeometry";
@@ -283,10 +290,23 @@ function _CanvasFlowNodeWrapper({
       (state as { panActivationKeyPressed?: boolean }).panActivationKeyPressed,
     ),
   );
-  const positionAndSizeLocked = useProjectState((state) => {
+  const { positionAndSizeLocked, styleColor } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImpl(state, id);
-    return impl.positionAndSizeLocked;
-  });
+    return {
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      styleColor: impl.styleColor ?? null,
+    };
+  }, _.isEqual);
+  const styleColorPreviewKey = useMemo(
+    () => getSectionStylePreviewColorKey(id),
+    [id],
+  );
+  const styleColorPreview = useLocalStorage(
+    (state) => state[styleColorPreviewKey] as string | null | undefined,
+  );
+  const isActiveSection = useActiveSectionUI((state) =>
+    state.activeIds.includes(id),
+  );
   const nodeRef = useRef<HTMLDivElement>(null);
   const observedElementRef = useRef<HTMLDivElement | null>(null);
   const isDraggable = !panActivationKeyPressed && !positionAndSizeLocked;
@@ -340,6 +360,20 @@ function _CanvasFlowNodeWrapper({
   }, [id, node?.height, node?.width, scheduleTexturePaint]);
 
   useEffect(() => {
+    scheduleTexturePaint("node-selection", new Set([id]));
+  }, [id, isActiveSection, scheduleTexturePaint]);
+
+  useEffect(() => {
+    scheduleTexturePaint("node-section-style", new Set([id]));
+  }, [
+    id,
+    scheduleTexturePaint,
+    styleColor,
+    styleColorPreview,
+    styleColorPreviewKey,
+  ]);
+
+  useEffect(() => {
     scheduleViewportFrame();
   }, [
     node?.position.x,
@@ -347,6 +381,31 @@ function _CanvasFlowNodeWrapper({
     node?.tempZIndex,
     scheduleViewportFrame,
   ]);
+
+  const scheduleNodeSourcePaint = useCallback(
+    (reason: string) => {
+      scheduleTexturePaint(reason, new Set([id]));
+    },
+    [id, scheduleTexturePaint],
+  );
+  const handlePointerOverCapture = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (isRelatedTargetInside(event.currentTarget, event.relatedTarget)) {
+        return;
+      }
+      scheduleNodeSourcePaint("node-hover");
+    },
+    [scheduleNodeSourcePaint],
+  );
+  const handlePointerOutCapture = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (isRelatedTargetInside(event.currentTarget, event.relatedTarget)) {
+        return;
+      }
+      scheduleNodeSourcePaint("node-hover");
+    },
+    [scheduleNodeSourcePaint],
+  );
 
   if (!node) {
     return null;
@@ -363,6 +422,13 @@ function _CanvasFlowNodeWrapper({
       ])}
       data-id={id}
       data-testid={`rf__node-${id}`}
+      onBlurCapture={() => scheduleNodeSourcePaint("node-focus")}
+      onChangeCapture={() => scheduleNodeSourcePaint("node-change")}
+      onClickCapture={() => scheduleNodeSourcePaint("node-click")}
+      onFocusCapture={() => scheduleNodeSourcePaint("node-focus")}
+      onInputCapture={() => scheduleNodeSourcePaint("node-input")}
+      onPointerOutCapture={handlePointerOutCapture}
+      onPointerOverCapture={handlePointerOverCapture}
       ref={setNodeRef}
       style={getNodeStyle(node)}
     >
@@ -382,6 +448,16 @@ function getNodeStyle(node: Node): CSSProperties {
     width: node.width ?? undefined,
     zIndex: node.tempZIndex,
   };
+}
+
+function isRelatedTargetInside(
+  currentTarget: HTMLElement,
+  relatedTarget: EventTarget | null,
+) {
+  return (
+    relatedTarget instanceof globalThis.Node &&
+    currentTarget.contains(relatedTarget)
+  );
 }
 
 const CanvasFlowNodeWrapper = memo(_CanvasFlowNodeWrapper);

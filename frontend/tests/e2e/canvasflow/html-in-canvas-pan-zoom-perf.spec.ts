@@ -46,6 +46,11 @@ const CANVAS_FLOW_PERF_VARIANTS = [
   "snapshot-cache",
   "world-transform-nodes",
 ] as const;
+const CANVAS_FLOW_PERF_RENDERERS = [
+  "2d",
+  "webgl-texture-nodes",
+  "rect-nodes",
+] as const;
 const PERF_TARGETS = ["seeded-textblocks", "settings-all"] as const;
 const TRACE_CATEGORIES = [
   "devtools.timeline",
@@ -63,6 +68,7 @@ type CanvasStats = {
   mountedNodes: number;
   paintSequence: number;
   registeredNodes: number;
+  rendererMode: CanvasFlowRendererMode;
   snapshotCacheHits: number;
   snapshotCacheMisses: number;
   snapshotCaptureMs: number;
@@ -75,6 +81,16 @@ type CanvasStats = {
   viewportZoom: number;
   visibleNodes: number;
   visibilityScanMs: number;
+  webglDrawMs: number;
+  webglEstimatedTextureBytes: number;
+  webglTextureCacheHits: number;
+  webglTextureCacheMisses: number;
+  webglTextureEntries: number;
+  webglTextureEvictions: number;
+  webglTextureUploadMs: number;
+  webglTextureUploadMsTotal: number;
+  webglTextureUploadsThisFrame: number;
+  webglTextureUploadsTotal: number;
 };
 
 type GestureMetrics = {
@@ -127,6 +143,8 @@ type MatrixResult = {
   count: number;
   initialStats: CanvasStats;
   pan: MeasuredGesture;
+  renderer: CanvasFlowPerfRenderer;
+  rendererMode: CanvasFlowRendererMode;
   sourceVisualStats: CanvasSourceVisualStats;
   variant: CanvasFlowPerfVariant;
   zoom: MeasuredGesture;
@@ -139,9 +157,17 @@ type SeededPerfProject = {
 };
 type CanvasFlowStartViewport = typeof DEFAULT_START_VIEWPORT;
 type CanvasFlowPerfVariant = (typeof CANVAS_FLOW_PERF_VARIANTS)[number];
+type CanvasFlowPerfRenderer = (typeof CANVAS_FLOW_PERF_RENDERERS)[number];
 type CanvasFlowPerfTarget = (typeof PERF_TARGETS)[number];
+type CanvasFlowRendererMode = "2d" | "webgl-texture-nodes";
+type CanvasFlowRendererPlan = {
+  renderer: CanvasFlowPerfRenderer;
+  rendererMode: CanvasFlowRendererMode;
+  variant: CanvasFlowPerfVariant;
+};
 type CanvasFlowSupportOptions = {
   requireCaptureElementImage?: boolean;
+  rendererMode: CanvasFlowRendererMode;
 };
 
 test.skip(
@@ -161,31 +187,38 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
     DEFAULT_STEPS,
   );
   const variants = parseVariants(process.env.SETTA_CANVASFLOW_PERF_VARIANTS);
+  const rendererPlans = parseRendererPlans(
+    process.env.SETTA_CANVASFLOW_RENDERERS,
+    variants,
+  );
   const startViewport = parseStartViewport({
     x: process.env.SETTA_CANVASFLOW_PERF_START_X,
     y: process.env.SETTA_CANVASFLOW_PERF_START_Y,
     zoom: process.env.SETTA_CANVASFLOW_PERF_START_ZOOM,
   });
   const target = parsePerfTarget(process.env.SETTA_CANVASFLOW_PERF_TARGET);
-  const supportOptions = {
-    requireCaptureElementImage: variants.includes("snapshot-cache"),
-  };
   const results: MatrixResult[] = [];
 
   await page.setViewportSize({ width: 1400, height: 900 });
+  await installCanvasFlowRendererInitScript(page);
   await ensureAppReady(page);
   await forceCanvasFlowZoomOnWheel(page);
-  await assertCanvasFlowSupport(page, supportOptions);
+  await assertCanvasFlowSupport(page, {
+    rendererMode: "2d",
+    requireCaptureElementImage: variants.includes("snapshot-cache"),
+  });
 
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Performance.enable");
 
   if (target === "settings-all") {
-    const count = await gotoSettingsAllView(page, supportOptions);
-    const settingsStartViewport = shouldCenterStartViewportOnCurrentView()
-      ? await resolveCenteredStartViewport(page, startViewport.zoom)
-      : startViewport;
-    for (const variant of variants) {
+    let count = 0;
+    let settingsStartViewport = startViewport;
+    for (const plan of rendererPlans) {
+      count = await gotoSettingsAllView(page, getSupportOptionsForPlan(plan));
+      settingsStartViewport = shouldCenterStartViewportOnCurrentView()
+        ? await resolveCenteredStartViewport(page, startViewport.zoom)
+        : startViewport;
       results.push(
         await measureCurrentCanvasFlowProject(
           page,
@@ -193,7 +226,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
           count,
           steps,
           settingsStartViewport,
-          variant,
+          plan,
         ),
       );
     }
@@ -206,6 +239,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
       steps,
       target,
       usedSeededProjects: false,
+      rendererPlans,
       variants,
     });
 
@@ -221,10 +255,10 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
       if (!project) {
         throw new Error(`Missing seeded CanvasFlow perf project for ${count}.`);
       }
-      await gotoSeededCanvasFlowPerfProject(page, project);
-      await forceCanvasFlowZoomOnWheel(page);
-      await assertCanvasFlowSupport(page, supportOptions);
-      for (const variant of variants) {
+      for (const plan of rendererPlans) {
+        await gotoSeededCanvasFlowPerfProject(page, project, plan.rendererMode);
+        await forceCanvasFlowZoomOnWheel(page);
+        await assertCanvasFlowSupport(page, getSupportOptionsForPlan(plan));
         results.push(
           await measureCurrentCanvasFlowProject(
             page,
@@ -232,7 +266,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
             count,
             steps,
             startViewport,
-            variant,
+            plan,
           ),
         );
       }
@@ -256,7 +290,9 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
           createdSyntheticCount = nextSyntheticCount;
           currentNodeCount = count;
         }
-        for (const variant of variants) {
+        for (const plan of rendererPlans) {
+          await reloadCurrentCanvasFlowRenderer(page, plan.rendererMode);
+          await assertCanvasFlowSupport(page, getSupportOptionsForPlan(plan));
           results.push(
             await measureCurrentCanvasFlowProject(
               page,
@@ -264,7 +300,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
               count,
               steps,
               startViewport,
-              variant,
+              plan,
             ),
           );
         }
@@ -284,6 +320,7 @@ test("records CanvasFlow pan and zoom performance matrix", async ({ page }) => {
     steps,
     target,
     usedSeededProjects: seededProjects.size === counts.length,
+    rendererPlans,
     variants,
   });
 
@@ -297,7 +334,19 @@ function assertMatrixResults(results: MatrixResult[], steps: number) {
     expect(result.zoom.frames).toBe(steps);
     expect(result.pan.afterStats.drawnNodes).toBeGreaterThan(0);
     expect(result.zoom.afterStats.drawnNodes).toBeGreaterThan(0);
+    if (result.rendererMode === "webgl-texture-nodes") {
+      expect(result.initialStats.drawElementImageMs).toBe(0);
+      expect(getGestureTextureUploadCount(result.pan)).toBe(0);
+      expect(getGestureTextureUploadCount(result.zoom)).toBe(0);
+    }
   }
+}
+
+function getGestureTextureUploadCount(gesture: MeasuredGesture) {
+  return (
+    gesture.afterStats.webglTextureUploadsTotal -
+    gesture.beforeStats.webglTextureUploadsTotal
+  );
 }
 
 async function measureCurrentCanvasFlowProject(
@@ -306,20 +355,30 @@ async function measureCurrentCanvasFlowProject(
   count: number,
   steps: number,
   startViewport: CanvasFlowStartViewport,
-  variant: CanvasFlowPerfVariant,
+  plan: CanvasFlowRendererPlan,
 ): Promise<MatrixResult> {
   await waitForCanvasGraph(page, count);
-  await setCanvasFlowPerfVariant(page, variant);
+  await setCanvasFlowPerfVariant(page, plan.variant);
 
   await setCanvasViewport(page, startViewport);
   const initialStats = await readCanvasStats(page);
+  expect(initialStats.rendererMode).toBe(plan.rendererMode);
   const sourceVisualStats = await readCanvasSourceVisualStats(page);
 
   const pan = await measureGesture(page, cdp, "pan", steps);
   await setCanvasViewport(page, startViewport);
   const zoom = await measureGesture(page, cdp, "zoom", steps);
 
-  return { count, initialStats, pan, sourceVisualStats, variant, zoom };
+  return {
+    count,
+    initialStats,
+    pan,
+    renderer: plan.renderer,
+    rendererMode: plan.rendererMode,
+    sourceVisualStats,
+    variant: plan.variant,
+    zoom,
+  };
 }
 
 function parseCounts(value: string | undefined, fallback: number[]): number[] {
@@ -443,6 +502,80 @@ function parseVariants(value: string | undefined): CanvasFlowPerfVariant[] {
   return requested as CanvasFlowPerfVariant[];
 }
 
+function parseRendererPlans(
+  value: string | undefined,
+  variants: CanvasFlowPerfVariant[],
+): CanvasFlowRendererPlan[] {
+  if (!value?.trim()) {
+    return variants.map((variant) => ({
+      renderer: "2d",
+      rendererMode: "2d",
+      variant,
+    }));
+  }
+  const requested = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const invalid = requested.filter(
+    (renderer) =>
+      !CANVAS_FLOW_PERF_RENDERERS.includes(
+        renderer as CanvasFlowPerfRenderer,
+      ),
+  );
+  if (invalid.length > 0) {
+    throw new Error(
+      `Invalid SETTA_CANVASFLOW_RENDERERS: ${invalid.join(", ")}`,
+    );
+  }
+  return (requested as CanvasFlowPerfRenderer[]).map((renderer) => {
+    if (renderer === "webgl-texture-nodes") {
+      return {
+        renderer,
+        rendererMode: "webgl-texture-nodes",
+        variant: "default",
+      };
+    }
+    if (renderer === "rect-nodes") {
+      return {
+        renderer,
+        rendererMode: "2d",
+        variant: "rect-nodes",
+      };
+    }
+    return {
+      renderer,
+      rendererMode: "2d",
+      variant: "default",
+    };
+  });
+}
+
+function getSupportOptionsForPlan(
+  plan: CanvasFlowRendererPlan,
+): CanvasFlowSupportOptions {
+  return {
+    rendererMode: plan.rendererMode,
+    requireCaptureElementImage: plan.variant === "snapshot-cache",
+  };
+}
+
+async function installCanvasFlowRendererInitScript(page: Page) {
+  await page.addInitScript(() => {
+    const renderer = new URL(window.location.href).searchParams.get(
+      "__setta_canvasflow_renderer",
+    );
+    const windowRef = window as typeof window & {
+      __settaCanvasFlowRenderer?: string;
+    };
+    if (renderer === "webgl-texture-nodes") {
+      windowRef.__settaCanvasFlowRenderer = "webgl-texture-nodes";
+      return;
+    }
+    delete windowRef.__settaCanvasFlowRenderer;
+  });
+}
+
 async function findSeededCanvasFlowPerfProjects(
   page: Page,
   counts: number[],
@@ -487,6 +620,7 @@ async function findSeededCanvasFlowPerfProjects(
 async function gotoSeededCanvasFlowPerfProject(
   page: Page,
   project: SeededPerfProject,
+  rendererMode: CanvasFlowRendererMode = "2d",
 ) {
   const currentUrl = new URL(page.url());
   const targetUrl = new URL(`/${project.projectName}`, currentUrl.origin);
@@ -494,6 +628,7 @@ async function gotoSeededCanvasFlowPerfProject(
   if (backendOrigin) {
     targetUrl.searchParams.set("__setta_backend_origin", backendOrigin);
   }
+  applyCanvasFlowRendererUrlParam(targetUrl, rendererMode);
   await page.goto(targetUrl.toString(), { waitUntil: "domcontentloaded" });
   await expect(page.locator(CANVAS_SELECTOR)).toBeVisible({ timeout: 180000 });
   await expect
@@ -507,7 +642,9 @@ async function gotoSettingsAllView(
   page: Page,
   supportOptions: CanvasFlowSupportOptions,
 ): Promise<number> {
-  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  const settingsUrl = new URL(SETTINGS_URL);
+  applyCanvasFlowRendererUrlParam(settingsUrl, supportOptions.rendererMode);
+  await page.goto(settingsUrl.toString(), { waitUntil: "domcontentloaded" });
   await expectSettingsCanvasVisible(page);
   await forceCanvasFlowZoomOnWheel(page);
   await assertCanvasFlowSupport(page, supportOptions);
@@ -540,6 +677,28 @@ async function gotoSettingsAllView(
 
   await flushCanvasPaint(page);
   return (await readCanvasStats(page)).registeredNodes;
+}
+
+async function reloadCurrentCanvasFlowRenderer(
+  page: Page,
+  rendererMode: CanvasFlowRendererMode,
+) {
+  const targetUrl = new URL(page.url());
+  applyCanvasFlowRendererUrlParam(targetUrl, rendererMode);
+  await page.goto(targetUrl.toString(), { waitUntil: "domcontentloaded" });
+  await expect(page.locator(CANVAS_SELECTOR)).toBeVisible({ timeout: 180000 });
+  await forceCanvasFlowZoomOnWheel(page);
+}
+
+function applyCanvasFlowRendererUrlParam(
+  url: URL,
+  rendererMode: CanvasFlowRendererMode,
+) {
+  if (rendererMode === "webgl-texture-nodes") {
+    url.searchParams.set("__setta_canvasflow_renderer", rendererMode);
+    return;
+  }
+  url.searchParams.set("__setta_canvasflow_renderer", "2d");
 }
 
 async function expectSettingsCanvasVisible(page: Page) {
@@ -606,32 +765,53 @@ async function assertCanvasFlowSupport(
   options: CanvasFlowSupportOptions,
 ) {
   await expect(page.locator(CANVAS_SELECTOR)).toBeVisible();
-  const support = await page.evaluate((selector) => {
+  const support = await page.evaluate(({ rendererMode, selector }) => {
     const canvas = document.querySelector<HTMLCanvasElement>(selector);
     if (canvas) {
       canvas.dataset.canvasFlowDiagnostics = "enabled";
     }
-    const ctx = canvas?.getContext("2d") as
-      | (CanvasRenderingContext2D & {
-          drawElementImage?: unknown;
-        })
-      | null
-      | undefined;
+    const ctx =
+      rendererMode === "2d"
+        ? (canvas?.getContext("2d") as
+            | (CanvasRenderingContext2D & {
+                drawElementImage?: unknown;
+              })
+            | null
+            | undefined)
+        : null;
+    const gl =
+      rendererMode === "webgl-texture-nodes"
+        ? (canvas?.getContext("webgl") as
+            | (WebGLRenderingContext & {
+                texElementImage2D?: unknown;
+              })
+            | null
+            | undefined)
+        : null;
     return {
       captureElementImage: typeof (
         canvas as { captureElementImage?: unknown } | null
       )?.captureElementImage,
       drawElementImage: typeof ctx?.drawElementImage,
+      rendererMode: canvas?.dataset.rendererMode,
       requestPaint: typeof (canvas as { requestPaint?: unknown } | null)
         ?.requestPaint,
+      texElementImage2D: typeof gl?.texElementImage2D,
+      webglContextCreated: canvas?.dataset.webglContextCreated,
       layoutSubtree: canvas ? "layoutSubtree" in canvas : false,
       reactFlowViewportCount: document.querySelectorAll(".react-flow__viewport")
         .length,
       svgEdgeLayerCount: document.querySelectorAll("svg.react-flow__edges")
         .length,
     };
-  }, CANVAS_SELECTOR);
-  expect(support.drawElementImage).toBe("function");
+  }, { rendererMode: options.rendererMode, selector: CANVAS_SELECTOR });
+  expect(support.rendererMode).toBe(options.rendererMode);
+  if (options.rendererMode === "webgl-texture-nodes") {
+    expect(support.texElementImage2D).toBe("function");
+    expect(support.webglContextCreated).toBe("true");
+  } else {
+    expect(support.drawElementImage).toBe("function");
+  }
   expect(support.requestPaint).toBe("function");
   if (options.requireCaptureElementImage) {
     expect(support.captureElementImage).toBe("function");
@@ -962,6 +1142,10 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
       mountedNodes: readNumber(dataset.mountedNodes),
       paintSequence: readNumber(dataset.paintSequence),
       registeredNodes: readNumber(dataset.registeredNodes),
+      rendererMode:
+        dataset.rendererMode === "webgl-texture-nodes"
+          ? "webgl-texture-nodes"
+          : "2d",
       snapshotCacheHits: readNumber(dataset.snapshotCacheHits),
       snapshotCacheMisses: readNumber(dataset.snapshotCacheMisses),
       snapshotCaptureMs: readNumber(dataset.snapshotCaptureMs),
@@ -974,6 +1158,22 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
       viewportZoom: readNumber(dataset.viewportZoom),
       visibleNodes: readNumber(dataset.visibleNodes),
       visibilityScanMs: readNumber(dataset.visibilityScanMs),
+      webglDrawMs: readNumber(dataset.webglDrawMs),
+      webglEstimatedTextureBytes: readNumber(
+        dataset.webglEstimatedTextureBytes,
+      ),
+      webglTextureCacheHits: readNumber(dataset.webglTextureCacheHits),
+      webglTextureCacheMisses: readNumber(dataset.webglTextureCacheMisses),
+      webglTextureEntries: readNumber(dataset.webglTextureEntries),
+      webglTextureEvictions: readNumber(dataset.webglTextureEvictions),
+      webglTextureUploadMs: readNumber(dataset.webglTextureUploadMs),
+      webglTextureUploadMsTotal: readNumber(
+        dataset.webglTextureUploadMsTotal,
+      ),
+      webglTextureUploadsThisFrame: readNumber(
+        dataset.webglTextureUploadsThisFrame,
+      ),
+      webglTextureUploadsTotal: readNumber(dataset.webglTextureUploadsTotal),
     };
 
     function readNumber(value: string | undefined) {
@@ -1419,6 +1619,7 @@ async function writeMatrixReport(
     steps: number;
     target: CanvasFlowPerfTarget;
     usedSeededProjects: boolean;
+    rendererPlans: CanvasFlowRendererPlan[];
     variants: CanvasFlowPerfVariant[];
   },
 ) {
@@ -1427,7 +1628,7 @@ async function writeMatrixReport(
     process.env.SETTA_CANVASFLOW_PERF_REPORT_PATH ??
     path.join(
       repoRoot,
-      "perf/reports/frontend/2026-04-27_html-in-canvas-pan-zoom-matrix.md",
+      "perf/reports/frontend/2026-04-28_canvasflow-webgl-renderer-matrix.md",
     );
   const artifactPath = path.join(
     repoRoot,
@@ -1450,6 +1651,7 @@ async function writeMatrixReport(
       steps: options.steps,
       target: options.target,
       usedSeededProjects: options.usedSeededProjects,
+      rendererPlans: options.rendererPlans,
       variants: options.variants,
     }),
     "utf-8",
@@ -1466,13 +1668,14 @@ function renderMatrixReport(
     steps: number;
     target: CanvasFlowPerfTarget;
     usedSeededProjects: boolean;
+    rendererPlans: CanvasFlowRendererPlan[];
     variants: CanvasFlowPerfVariant[];
   },
 ) {
   const lines = [
     "# HTML-in-Canvas Pan/Zoom Matrix",
     "",
-    "Date: 2026-04-27",
+    "Date: 2026-04-28",
     "Area: frontend",
     "Branch/Commit: go-rewrite-canvas-replace-xyflow working tree",
     "Related PR: n/a",
@@ -1484,11 +1687,14 @@ function renderMatrixReport(
     "## Method",
     "",
     "- Runner: opt-in Playwright E2E harness `frontend/tests/e2e/canvasflow/html-in-canvas-pan-zoom-perf.spec.ts`.",
-    "- Command: `SETTA_CANVASFLOW_PERF=1 ./scripts/run-playwright-e2e.sh tests/e2e/canvasflow/html-in-canvas-pan-zoom-perf.spec.ts`.",
+    "- Command: `SETTA_CANVASFLOW_PERF=1 SETTA_CANVASFLOW_RENDERERS=2d,webgl-texture-nodes,rect-nodes ./scripts/run-playwright-e2e.sh tests/e2e/canvasflow/html-in-canvas-pan-zoom-perf.spec.ts`.",
     "- Browser: Chrome launched by Playwright with `--enable-blink-features=CanvasDrawElement`.",
     `- Target: ${options.target}.`,
     `- Matrix counts: ${options.counts.map(formatInteger).join(", ")} ${options.target === "settings-all" ? "registered CanvasFlow nodes" : "top-level TextBlock sections"}.`,
     `- Isolation variants: ${options.variants.join(", ")}.`,
+    `- Renderer plans: ${options.rendererPlans
+      .map((plan) => `${plan.renderer}(${plan.rendererMode}/${plan.variant})`)
+      .join(", ")}.`,
     `- Start viewport: x=${formatNumber(options.startViewport.x)}, y=${formatNumber(options.startViewport.y)}, zoom=${formatNumber(options.startViewport.zoom)}.`,
     `- Gesture sample: ${options.steps} event-to-paint steps for pan and ${options.steps} event-to-paint steps for wheel zoom per graph size.`,
     "- First/last input columns isolate gesture-start and gesture-end event-to-paint latency; settle measures time until CanvasFlow marks viewport interaction inactive after pointer-up or the final wheel event.",
@@ -1506,8 +1712,8 @@ function renderMatrixReport(
     "",
     "## Current CanvasFlow Matrix",
     "",
-    "| Nodes | Variant | Gesture | FPS | First Input | Last Input | Avg Input Latency | P95 Input Latency | Settle | Settle Timeout | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Snapshot Hits | Snapshot Misses | Snapshot Capture | Transform Sync | Finalizes | Durable Syncs | Total Paint | Timeouts |",
-    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Renderer | Variant | Gesture | FPS | First Input | Last Input | Avg Input Latency | P95 Input Latency | Settle | Settle Timeout | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Texture Uploads | Texture Upload Time | WebGL Draw | Cache Hits | Cache Misses | Texture Entries | Texture MB | Evictions | Snapshot Hits | Snapshot Misses | Snapshot Capture | Transform Sync | Finalizes | Durable Syncs | Total Paint | Timeouts |",
+    "| ---: | :--- | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ];
   for (const result of results) {
     lines.push(renderGestureRow(result, "pan", result.pan));
@@ -1517,39 +1723,39 @@ function renderMatrixReport(
     "",
     "## Initial Culling Snapshot",
     "",
-    "| Nodes | Variant | Visible | Drawn | Registered | Mounted | Edges | Edge Draw | Visibility Scan | Total Paint | drawElementImage | Snapshot Hits | Snapshot Misses | Snapshot Capture | Transform Sync |",
-    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Renderer | Variant | Visible | Drawn | Registered | Mounted | Edges | Edge Draw | Visibility Scan | Total Paint | drawElementImage | Texture Entries | Texture MB | Texture Uploads Total | Snapshot Hits | Snapshot Misses | Snapshot Capture | Transform Sync |",
+    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   );
   for (const result of results) {
     lines.push(
-      `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatInteger(result.initialStats.edgeCount)} | ${formatMs(result.initialStats.edgeDrawMs)} | ${formatMs(result.initialStats.visibilityScanMs)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatInteger(result.initialStats.snapshotCacheHits)} | ${formatInteger(result.initialStats.snapshotCacheMisses)} | ${formatMs(result.initialStats.snapshotCaptureMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
+      `| ${formatInteger(result.count)} | ${result.renderer} | ${result.variant} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatInteger(result.initialStats.edgeCount)} | ${formatMs(result.initialStats.edgeDrawMs)} | ${formatMs(result.initialStats.visibilityScanMs)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatInteger(result.initialStats.webglTextureEntries)} | ${formatMb(result.initialStats.webglEstimatedTextureBytes)} | ${formatInteger(result.initialStats.webglTextureUploadsTotal)} | ${formatInteger(result.initialStats.snapshotCacheHits)} | ${formatInteger(result.initialStats.snapshotCacheMisses)} | ${formatMs(result.initialStats.snapshotCaptureMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
     );
   }
   lines.push(
     "",
     "## Source Visual Snapshot",
     "",
-    "| Nodes | Variant | Mounted Source Nodes | Nodes With Visible Text | Visible Text Chars | Visible Button-Like | Hidden Button-Like | Visible Action Buttons | Hidden Action Buttons | Visible Accordion Buttons | Hidden Accordion Buttons |",
-    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Renderer | Variant | Mounted Source Nodes | Nodes With Visible Text | Visible Text Chars | Visible Button-Like | Hidden Button-Like | Visible Action Buttons | Hidden Action Buttons | Visible Accordion Buttons | Hidden Accordion Buttons |",
+    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   );
   for (const result of results) {
     const stats = result.sourceVisualStats;
     lines.push(
-      `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(stats.mountedNodes)} | ${formatInteger(stats.nodesWithVisibleText)} | ${formatInteger(stats.visibleTextChars)} | ${formatInteger(stats.visibleButtonLikeElements)} | ${formatInteger(stats.hiddenButtonLikeElements)} | ${formatInteger(stats.visibleActionButtons)} | ${formatInteger(stats.hiddenActionButtons)} | ${formatInteger(stats.visibleAccordionButtons)} | ${formatInteger(stats.hiddenAccordionButtons)} |`,
+      `| ${formatInteger(result.count)} | ${result.renderer} | ${result.variant} | ${formatInteger(stats.mountedNodes)} | ${formatInteger(stats.nodesWithVisibleText)} | ${formatInteger(stats.visibleTextChars)} | ${formatInteger(stats.visibleButtonLikeElements)} | ${formatInteger(stats.hiddenButtonLikeElements)} | ${formatInteger(stats.visibleActionButtons)} | ${formatInteger(stats.hiddenActionButtons)} | ${formatInteger(stats.visibleAccordionButtons)} | ${formatInteger(stats.hiddenAccordionButtons)} |`,
     );
   }
   lines.push(
     "",
     "## Decision",
     "",
-    "- Model A remains the active path: real section node bodies draw through `drawElementImage()` and pan/zoom updates stay canvas/ref-owned.",
-    "- The matrix exercises culling and canvas pan/zoom at the graph sizes listed above.",
+    "- The default renderer remains `2d`; `webgl-texture-nodes` is still an opt-in renderer until broader interaction and performance gates pass.",
+    "- The matrix exercises renderer selection, culling, and canvas pan/zoom at the graph sizes listed above.",
     options.target === "settings-all"
       ? "- This run uses the real Settings project All Settings view rather than synthetic TextBlock sections."
       : options.usedSeededProjects
         ? "- Large graph setup now uses the Go-owned Playwright workspace seed path, so the matrix measures canvas interaction instead of thousands of section-creation route calls."
         : "- If route-based production seeding times out before 1,000/2,500/largest-local graphs, use a pre-seeded project fixture or Go-owned bulk fixture writer so the large matrix measures canvas interaction rather than section-creation route calls.",
-    "- The remaining risk is not old renderer parity. It is whether future rich-node mixes need bitmap caching or an active-node overlay if `drawElementImage()` or DOM transform sync dominates on heavier visible sets.",
+    "- WebGL rows are valid only when source visual stats remain comparable and texture upload deltas stay at zero during viewport-only gestures after warm-up.",
     "",
     "## Verification",
     "",
@@ -1567,6 +1773,7 @@ function renderGestureRow(
 ) {
   const cells = [
     formatInteger(result.count),
+    result.renderer,
     result.variant,
     gestureName,
     formatNumber(gesture.fps),
@@ -1589,6 +1796,17 @@ function renderGestureRow(
     formatMs(gesture.afterStats.edgeDrawMs),
     formatMs(gesture.afterStats.visibilityScanMs),
     formatMs(gesture.afterStats.drawElementImageMs),
+    formatInteger(getGestureTextureUploadCount(gesture)),
+    formatMs(
+      gesture.afterStats.webglTextureUploadMsTotal -
+        gesture.beforeStats.webglTextureUploadMsTotal,
+    ),
+    formatMs(gesture.afterStats.webglDrawMs),
+    formatInteger(gesture.afterStats.webglTextureCacheHits),
+    formatInteger(gesture.afterStats.webglTextureCacheMisses),
+    formatInteger(gesture.afterStats.webglTextureEntries),
+    formatMb(gesture.afterStats.webglEstimatedTextureBytes),
+    formatInteger(gesture.afterStats.webglTextureEvictions),
     formatInteger(gesture.afterStats.snapshotCacheHits),
     formatInteger(gesture.afterStats.snapshotCacheMisses),
     formatMs(gesture.afterStats.snapshotCaptureMs),
@@ -1613,6 +1831,10 @@ function formatInteger(value: number) {
 
 function formatMs(value: number) {
   return `${formatNumber(value)} ms`;
+}
+
+function formatMb(bytes: number) {
+  return `${formatNumber(bytes / 1024 / 1024)} MB`;
 }
 
 function formatNumber(value: number) {
