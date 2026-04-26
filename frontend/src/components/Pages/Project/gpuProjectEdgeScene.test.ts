@@ -21,6 +21,7 @@ vi.mock("state/actions/stateMachineEdges", () => {
 });
 
 import { HandlePosition } from "gpuFlow/flowTypes";
+import { createGpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import { toggleEdgeSelection } from "state/actions/edges";
 import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
@@ -37,6 +38,7 @@ import {
 import type { BuildProjectGpuEdgeSceneInput } from "./gpuProjectEdgeScene";
 import {
   buildProjectGpuEdgeScene,
+  selectProjectGpuConnectionState,
   selectProjectGpuEdge,
 } from "./gpuProjectEdgeScene";
 
@@ -240,6 +242,39 @@ describe("gpuProjectEdgeScene", () => {
     ).toBe("none");
     expect(toggleDataEdgeSelectionMock).not.toHaveBeenCalled();
     expect(toggleWorkflowEdgeSelectionMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps inactive connection state stable across viewport-only changes", () => {
+    const store = createGpuFlowViewportStore();
+    const inactiveState = selectProjectGpuConnectionState(store.getState());
+
+    store.getState().setTransform({ x: 100, y: 80, zoom: 2 });
+
+    expect(selectProjectGpuConnectionState(store.getState())).toBe(
+      inactiveState,
+    );
+  });
+
+  it("tracks viewport changes while a connection preview is active", () => {
+    const store = createGpuFlowViewportStore();
+    store.getState().setConnectionState({
+      connectionPosition: { x: 450, y: 220 },
+      connectionStartHandle: {
+        handleId: "out",
+        sectionId: "source",
+        type: "source",
+      },
+    });
+    const activeState = selectProjectGpuConnectionState(store.getState());
+
+    store.getState().setTransform({ x: 100, y: 80, zoom: 2 });
+
+    expect(selectProjectGpuConnectionState(store.getState())).not.toBe(
+      activeState,
+    );
+    expect(selectProjectGpuConnectionState(store.getState()).transform).toEqual(
+      [100, 80, 2],
+    );
   });
 });
 

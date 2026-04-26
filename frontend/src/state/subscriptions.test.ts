@@ -128,7 +128,7 @@ describe("subscriptions viewport persistence", () => {
     gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
     gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
-      fitViewOnInitDone: true,
+      fitViewOnInitDone: false,
       fitViewOnInitOptions: undefined,
     });
     debouncedDispatchViewportUpdate.cancel();
@@ -139,11 +139,11 @@ describe("subscriptions viewport persistence", () => {
       .setTransform([localViewport.x, localViewport.y, localViewport.zoom]);
     gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
-      fitViewOnInitDone: true,
+      fitViewOnInitDone: false,
       fitViewOnInitOptions: undefined,
     });
     expect(useProjectState.getState().projectConfig.viewport).toEqual(
-      localViewport,
+      staleBackendViewport,
     );
     expect(usePendingOperations.getState().pending).toHaveLength(1);
     expect(routeSetViewportMock).not.toHaveBeenCalled();
@@ -178,5 +178,27 @@ describe("subscriptions viewport persistence", () => {
     expect(useProjectState.getState().projectConfig.viewport).toEqual(
       localViewport,
     );
+  });
+
+  it("queues viewport persistence without mutating project state during gestures", () => {
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
+    debouncedDispatchViewportUpdate.cancel();
+    routeSetViewportMock.mockClear();
+    usePendingOperations.setState({ pending: [] });
+    const viewportBeforeGesture =
+      useProjectState.getState().projectConfig.viewport;
+
+    gpuFlowViewportStore.getState().setTransform([10, 20, 1.25]);
+    gpuFlowViewportStore.getState().setTransform([30, 40, 1.5]);
+
+    expect(useProjectState.getState().projectConfig.viewport).toEqual(
+      viewportBeforeGesture,
+    );
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(routeSetViewportMock).not.toHaveBeenCalled();
   });
 });

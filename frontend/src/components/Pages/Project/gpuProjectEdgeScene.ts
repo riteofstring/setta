@@ -67,6 +67,11 @@ type SelectProjectGpuEdgeInput = {
 type SelectProjectGpuEdgeAction = "agentic" | "data" | "workflow" | "none";
 
 const AGENTIC_HANDLE_PREFIX = "agentic-edge-";
+const INACTIVE_PROJECT_GPU_CONNECTION_STATE: ProjectGpuConnectionState = {
+  connectionPosition: { x: 0, y: 0 },
+  connectionStartHandle: null,
+  transform: [0, 0, 1],
+};
 
 export function useProjectGpuEdgeScene({
   showAgenticEdges,
@@ -83,7 +88,7 @@ export function useProjectGpuEdgeScene({
   const nodeInternals = useNodeInternals((state) => state.x);
   const handlePositions = useEdgeHandleRegistry((state) => state.positions);
   const connectionState = useGpuFlowViewportStore(
-    selectGpuConnectionState,
+    selectProjectGpuConnectionState,
     shallow,
   );
   const scopeViolationEdges = useAIFollow(
@@ -229,9 +234,12 @@ function getRunningAgenticSourceSectionIds({
   return running;
 }
 
-function selectGpuConnectionState(
+export function selectProjectGpuConnectionState(
   state: GpuFlowViewportStore,
 ): ProjectGpuConnectionState {
+  if (!state.connectionStartHandle?.handleId) {
+    return INACTIVE_PROJECT_GPU_CONNECTION_STATE;
+  }
   return {
     connectionPosition: state.connectionPosition,
     connectionStartHandle: state.connectionStartHandle,

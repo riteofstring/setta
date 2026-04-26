@@ -141,6 +141,12 @@ describe("GpuActiveNodeOverlay", () => {
         ...snapshot,
         frame: 2,
       }),
+    ).toBe(true);
+    expect(
+      areGpuActiveNodeOverlaySnapshotsEqual(snapshot, {
+        ...snapshot,
+        screenX: 3,
+      }),
     ).toBe(false);
   });
 });

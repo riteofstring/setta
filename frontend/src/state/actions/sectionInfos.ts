@@ -2361,9 +2361,11 @@ function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
   }
   pendingViewportRef.snapshot = viewport;
   pendingViewportRef.hasQueuedSend = true;
-  useProjectState.setState((state) => {
-    applyViewportSnapshotToProjectState(state, viewport);
-  });
+  if (immediate) {
+    useProjectState.setState((state) => {
+      applyViewportSnapshotToProjectState(state, viewport);
+    });
+  }
   if (!pendingViewportRef.opId) {
     pendingViewportRef.opId = addPendingOp(applyPendingViewport);
   }

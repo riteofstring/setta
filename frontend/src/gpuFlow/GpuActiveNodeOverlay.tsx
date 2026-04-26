@@ -31,7 +31,6 @@ type GpuActiveNodeOverlayProps = {
 };
 
 const OVERLAY_SNAPSHOT_COMPARE_KEYS = [
-  "frame",
   "height",
   "nodeId",
   "screenX",

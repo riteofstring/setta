@@ -353,7 +353,6 @@ function MiniMapControls(props: {
 }
 
 function useGpuControlsZoomState(store: GpuFlowViewportStoreApi) {
-  const zoom = useGpuViewportZoom(store);
   const { defaultZoom, maxZoom, minZoom } = useSettings(
     (state) => ({
       defaultZoom: state.gui.defaultZoomLevel,
@@ -367,22 +366,78 @@ function useGpuControlsZoomState(store: GpuFlowViewportStoreApi) {
     store.getState().setZoomBounds({ defaultZoom, maxZoom, minZoom });
   }, [defaultZoom, maxZoom, minZoom, store]);
 
+  const zoomLimitState = useGpuViewportZoomLimitState(store, {
+    maxZoom,
+    minZoom,
+  });
+
   return {
-    maxZoomReached: zoom >= maxZoom,
-    minZoomReached: zoom <= minZoom,
+    maxZoomReached: decodeGpuZoomLimitState(zoomLimitState).maxZoomReached,
+    minZoomReached: decodeGpuZoomLimitState(zoomLimitState).minZoomReached,
   };
 }
 
-function useGpuViewportZoom(store: GpuFlowViewportStoreApi): number {
+function useGpuViewportZoomLimitState(
+  store: GpuFlowViewportStoreApi,
+  {
+    maxZoom,
+    minZoom,
+  }: {
+    readonly maxZoom: number;
+    readonly minZoom: number;
+  },
+): number {
+  const getSnapshot = useCallback(
+    () =>
+      encodeGpuZoomLimitState({
+        maxZoom,
+        minZoom,
+        zoom: store.getState().transform[2],
+      }),
+    [maxZoom, minZoom, store],
+  );
   const subscribe = useCallback(
-    (onStoreChange: () => void) => store.subscribe(() => onStoreChange()),
-    [store],
+    (onStoreChange: () => void) =>
+      store.subscribe((state, previousState) => {
+        const nextLimitState = encodeGpuZoomLimitState({
+          maxZoom,
+          minZoom,
+          zoom: state.transform[2],
+        });
+        const previousLimitState = encodeGpuZoomLimitState({
+          maxZoom,
+          minZoom,
+          zoom: previousState.transform[2],
+        });
+        if (nextLimitState !== previousLimitState) {
+          onStoreChange();
+        }
+      }),
+    [maxZoom, minZoom, store],
   );
-  return useSyncExternalStore(
-    subscribe,
-    () => store.getState().transform[2],
-    () => store.getState().transform[2],
-  );
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+function encodeGpuZoomLimitState({
+  maxZoom,
+  minZoom,
+  zoom,
+}: {
+  readonly maxZoom: number;
+  readonly minZoom: number;
+  readonly zoom: number;
+}): number {
+  return (zoom >= maxZoom ? 1 : 0) | (zoom <= minZoom ? 2 : 0);
+}
+
+function decodeGpuZoomLimitState(state: number): {
+  readonly maxZoomReached: boolean;
+  readonly minZoomReached: boolean;
+} {
+  return {
+    maxZoomReached: (state & 1) !== 0,
+    minZoomReached: (state & 2) !== 0,
+  };
 }
 
 function GpuControlsComponent({
