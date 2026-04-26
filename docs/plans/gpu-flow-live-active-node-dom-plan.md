@@ -35,6 +35,47 @@ The `html-cloth.mjs` reference is fundamentally different:
 
 Setta has many large, independently dirty, React-owned node trees. Re-uploading a whole node at animation cadence is not equivalent.
 
+## Relevant Example References
+
+Use these examples from `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` as concrete implementation references.
+
+Primary references:
+
+- `html-in-canvas/plugins/html-cloth.mjs`
+  - Use for understanding why smooth interaction is possible in the reference: one fixed-size source DOM element, direct texture upload, explicit paint invalidation, and a deliberate interaction bridge.
+  - Key sections: `_createSourceElement`, `_wireInteractions`, `_updateSliderFromClient`, `_drawVideoFrame`, `_uploadTexture`, `_refreshTexture`, and `_handlePointer`.
+  - Most relevant lesson: it does not rely on repeatedly recapturing many large independently dirty UI trees. It maps the user's pointer to the DOM/control that should behave live, then refreshes one texture.
+
+- `html-in-canvas-room/extension/entrypoints/content.ts`
+  - Use for Strategy A probing. `applyScreenTransform()` projects the 3D screen to viewport coordinates and applies a CSS transform to the real DOM wrapper so native browser events hit its children.
+  - Key sections: `getScreenBounds`, `applyScreenTransform`, `onClick`, `onWheel`, `uploadPageTexture`, and `renderLoop`.
+  - Most relevant lesson: transformed layout-subtree DOM can handle native hit testing while texture capture remains stable. This is the closest example for promoting an existing source element instead of duplicating it.
+
+- `three-html-render/src/interactionManager.ts`
+  - Use for active DOM transform math. It positions each HTML texture's source element with one CSS `matrix3d(...)` per frame so the browser dispatches pointer events to real HTML.
+  - Key sections: `InteractionManager.update()` and the `viewport x projection x view x world x pixelToLocal` matrix path.
+  - Most relevant lesson: keep the GPU mesh and real DOM presentation aligned, then let the browser handle hover, focus, selection, and clicks.
+
+- `three-html-render/src/raycastInteractionManager.ts`
+  - Use for fallback interaction handoff when a direct screen transform is not enough. It raycasts, reads UVs, and moves the source element so the relevant texture pixel sits under the pointer.
+  - Key sections: `_onPointer`, `_parkElement`, and `_getElement`.
+  - Most relevant lesson: when the displayed surface and DOM layout do not naturally overlap, route the pointer to the correct DOM coordinates before native hit testing.
+
+Supporting references:
+
+- `three-html-render/src/threeHTMLRenderer.ts`
+  - Use for paint/upload sequencing and event isolation. It requests paint for animated HTML textures, stops control events from leaking into canvas controls, and uploads only managed HTML texture elements.
+
+- `three-html-render/src/htmlTexture.ts`
+  - Use for separating the texture image from the real source element. The fallback keeps `_sourceElement` even when the texture image is a captured canvas snapshot, which is the same distinction Setta needs between passive texture source and active DOM presentation.
+
+- `html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts`
+  - Use as the WebGPU `copyElementImageToTexture` reference. It captures a small value element into a WebGPU texture and keeps the shader/render loop separate from DOM paint updates.
+  - Important limitation: this is a small, purpose-built element, not a full Setta node tree.
+
+- `hot-tips/html-in-canvas/demos/wicg/ripple-buttons.html`
+  - Use as a control-level reference. `MeshButton.paint()` calls `drawElementImage()` and applies the returned transform to the real button, which is useful when evaluating whether simple params can be handled at control granularity.
+
 ## Design Principle
 
 Textures are snapshots. Active interaction is live DOM.
@@ -70,10 +111,12 @@ Required probes:
 1. Verify whether a `<canvas layoutsubtree>` child can be visually promoted above the canvas with CSS alone.
    - If yes, prefer promoting the existing node element.
    - If no, use an outside-canvas live DOM layer.
+   - Model this probe after `html-in-canvas-room/extension/entrypoints/content.ts` `applyScreenTransform()` and `three-html-render/src/interactionManager.ts` `update()`.
 
 2. Verify whether `copyElementImageToTexture` can capture an element outside the canvas layout subtree.
    - If yes, the live overlay can be the capture source after settle.
    - If no, keep a canvas-child source element for capture and a separate outside-canvas live layer for interaction.
+   - Compare against `html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts`, which uses WebGPU `copyElementImageToTexture` for a small element.
 
 3. Measure whole-node capture cost for representative nodes:
    - small settings node
@@ -127,6 +170,11 @@ Use the Phase 1 probe results to choose one strategy.
 
 Use this only if canvas layout subtree children can be visually promoted above the canvas without breaking capture.
 
+Primary examples:
+
+- `html-in-canvas-room/extension/entrypoints/content.ts` for CSS-transforming the same DOM wrapper used for capture.
+- `three-html-render/src/interactionManager.ts` for maintaining alignment between GPU surface and DOM source element.
+
 Approach:
 
 - Keep one React-owned `SectionContainer` instance.
@@ -147,6 +195,11 @@ Risks:
 ### Strategy B: Separate Live Overlay Render
 
 Use this if source DOM cannot be promoted.
+
+Primary examples:
+
+- `three-html-render/src/htmlTexture.ts` for retaining the source element separately from the uploaded texture image.
+- `three-html-render/src/threeHTMLRenderer.ts` for managing a small set of active HTML texture elements and isolating their events from canvas controls.
 
 Approach:
 
@@ -196,6 +249,8 @@ For controls:
 
 The `html-cloth.mjs` example manually maps raycast UVs to DOM events. Setta should not need UV raycasting, but it does need the same discipline: interaction must be routed to the DOM that is visually presented to the user.
 
+Use `html-in-canvas/plugins/html-cloth.mjs` `_handlePointer()` and `three-html-render/src/raycastInteractionManager.ts` `_onPointer()` as references for the fallback path where the first pointer event lands on the texture/canvas path and must be handed to the live DOM target.
+
 ## Phase 5: Texture Refresh Policy
 
 Remove the current "upload every frame for 240ms" behavior once live DOM is in place.
@@ -221,6 +276,8 @@ Settle triggers:
 - explicit dirty events from CodeMirror/terminal after their own update cycle
 
 Do not hide the live DOM until the final GPU texture upload has completed. This prevents a stale texture flash.
+
+Use `html-in-canvas/plugins/html-cloth.mjs` `_refreshTexture()` as a reference for one-shot paint/upload scheduling, but do not copy its every-frame refresh cadence for Setta nodes. Use `html-in-canvas-room/extension/entrypoints/content.ts` `dirty` plus `uploadPageTexture()` as the closer model for uploading only when the DOM source is dirty.
 
 ## Phase 6: Component Safety Audit
 
