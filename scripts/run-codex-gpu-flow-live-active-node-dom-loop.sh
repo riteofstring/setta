@@ -67,41 +67,24 @@ Primary target:
 Required starting point:
 - Read docs/plans/gpu-flow-live-active-node-dom-plan.md before making changes.
 - Read the current gpuFlow implementation before making changes, especially GpuFlow, GpuSurface, GpuNodeLayer, GpuActiveNodeTeleport, nodeInteractionDirty, nodeTextures, and GpuProjectSurface.
-- Read the plan's Relevant Example References section, then inspect the exact files under /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos before choosing a strategy:
+- Read the plan's Reference Lessons section, then inspect the exact files under /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos when touching related behavior:
   - html-in-canvas/plugins/html-cloth.mjs for one fixed source DOM texture, input wiring, slider bridging, UV-to-DOM event discipline, and one-shot paint/upload scheduling. Do not copy its every-frame texture refresh cadence as the Setta node architecture.
-  - html-in-canvas-room/extension/entrypoints/content.ts for transform-aligned native interaction, especially applyScreenTransform(), dirty tracking, and uploadPageTexture().
   - three-html-render/src/interactionManager.ts for CSS matrix alignment of real DOM with a rendered surface.
-  - three-html-render/src/raycastInteractionManager.ts for pointer/UV fallback handoff when a direct screen transform is not enough.
+  - three-html-render/src/raycastInteractionManager.ts for pointer/UV handoff when a direct screen transform is not enough.
   - three-html-render/src/threeHTMLRenderer.ts and three-html-render/src/htmlTexture.ts for paint/upload sequencing, event isolation, and keeping the source element separate from the uploaded texture image.
   - html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts for the WebGPU copyElementImageToTexture API on a small purpose-built element.
   - hot-tips/html-in-canvas/demos/wicg/ripple-buttons.html for control-level drawElementImage() plus returned-transform behavior.
-  - Treat html-in-canvas-cracks and compiz-web as secondary references only if the plan work needs more DOM-as-texture pipeline tradeoff context.
-
-Current strategy status:
-- Strategy A1 means CSS-promoting the same canvas layoutsubtree child so it visually paints above the canvas while remaining capture-eligible. Local probes provisionally ruled this out: hit testing worked, but visual compositing did not.
-- Do not treat A1 as viable based on hit testing, focus, events, or DOM inspector state alone. A1 requires a minimal repro where the same canvas-child element visibly composites above the canvas as normal DOM and remains eligible for the intended capture path without a restore/repaint step.
-- If a new Chromium flag, channel, origin trial, or API usage pattern appears to make A1 possible, stop and record the exact minimal repro and browser setup in perf/reports/frontend/ before changing architecture.
-- Strategy A2 means same-instance active DOM teleport. This is the current implementation path: move the existing React-owned node DOM into an outside overlay while active, restore it under the canvas before capture, and suppress/defer active texture uploads while teleported.
-- Strategy B means duplicate live overlay render. Keep it as a fallback only if A2 fails for important components.
-
-Phase discipline:
-- Treat Phase 1 as partially complete, not complete forever. Read perf/reports/frontend/2026-04-29_strategy-a-investigation.md and perf/reports/frontend/2026-04-29_strategy-a2-active-teleport-prototype.md before deciding what remains.
-- Re-probe whether a <canvas layoutsubtree> child can be visually promoted above the WebGPU canvas with CSS alone only if you are testing a new browser setup or a meaningfully different API/CSS pattern.
-- Probe whether GPUQueue.copyElementImageToTexture can capture an element outside the canvas layout subtree only if it changes the A2 restore-before-capture design.
-- Measure representative whole-node capture costs for small settings, large settings, CodeMirror, terminal, and chat nodes when those fixtures are locally available.
-- Use probe results to decide whether to continue hardening A2, reopen A1, or fall back to B. Do not guess.
 
 Implementation priorities:
-- Prefer Strategy A2 unless A1 is proven or A2 fails in a documented way. A2 avoids duplicate React trees and is likely best for CodeMirror, terminals, focus, and local state.
-- If A1 is proven, update the plan first; it would likely be architecturally better than A2 because it avoids DOM reparenting and restore-before-capture sequencing.
-- If A2 does not work for a specific component family, document the failure and decide whether that family needs Strategy B, a dedicated active presentation mode, or a temporary texture-only path.
-- The active DOM layer must receive real pointer and keyboard interaction. A cloned inert mirror is not sufficient.
+- Implement and harden same-instance active DOM teleport. Move the existing React-owned node DOM into an outside active overlay while active, restore it under the canvas before capture, and suppress/defer active texture uploads while teleported.
+- Do not render a duplicate active node tree unless a component-owned active presentation is explicitly required for a documented component failure.
+- The teleported DOM must receive real pointer and keyboard interaction. A cloned inert mirror is not sufficient.
 - Handle first-click handoff: activation must happen before the user's first actionable control event is lost.
 - Use stable target descriptors based on existing data attributes where possible; do not identify controls by visible text.
 - While live DOM is active, suppress the matching GPU node quad once the live layer has mounted.
 - During active interaction, do not upload the active node texture every frame. Keep passive uploads budgeted.
-- On settle for A2, restore the node under the canvas, mark the active node dirty, request one paint, upload the final texture snapshot, restore the GPU quad, then deactivate live DOM.
-- Audit teleport safety before enabling broadly for sections like params, switches, comboboxes, CodeMirror, terminals, chat, spreadsheet, browser/iframe, image, and media sections. Audit duplicate-mount safety only if falling back to Strategy B.
+- On settle, restore the node under the canvas, mark the active node dirty, request one paint, upload the final texture snapshot, restore the GPU quad, then deactivate live DOM.
+- Audit teleport safety for sections like params, switches, comboboxes, CodeMirror, terminals, chat, spreadsheet, browser/iframe, image, and media sections.
 
 Non-goals and guardrails:
 - Do not re-optimize the 240ms active-node texture-upload feedback loop as the final architecture.
