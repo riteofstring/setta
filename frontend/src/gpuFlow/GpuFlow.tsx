@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
+import type { GpuEdgeScene } from "./edges/edgeSources";
 import {
   areGpuActiveNodeOverlaySnapshotsEqual,
   GpuActiveNodeOverlay,
@@ -34,6 +35,10 @@ import {
   type GpuSurfaceHandle,
   type GpuSurfaceProps,
 } from "./GpuSurface";
+import {
+  attachGpuEdgeInteractionController,
+  type GpuEdgeInteractionControllerOptions,
+} from "./interactions/edges";
 import {
   attachGpuNodeDragController,
   type GpuNodeDragControllerOptions,
@@ -68,6 +73,14 @@ export type GpuFlowProps = Pick<
 > & {
   children?: ReactNode;
   className?: string | undefined;
+  edgeInteraction?:
+    | false
+    | Omit<
+        GpuEdgeInteractionControllerOptions,
+        "element" | "getScene" | "store"
+      >
+    | undefined;
+  edgeScene?: GpuEdgeScene | undefined;
   edges?: readonly GpuEdgeBufferInput[] | undefined;
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   marginCssPx?: number | undefined;
@@ -106,6 +119,7 @@ type GpuFlowCallbacks = Pick<
 >;
 
 type GpuFlowNodeLayerState = {
+  readonly edgeScene: GpuEdgeScene | undefined;
   readonly edges: readonly GpuEdgeBufferInput[] | undefined;
   readonly forceVisibleNodeIds:
     | ReadonlySet<string>
@@ -121,6 +135,8 @@ export function GpuFlow({
   children,
   className = "setta-gpu-flow",
   deviceOptions,
+  edgeInteraction,
+  edgeScene,
   edges,
   forceVisibleNodeIds,
   marginCssPx,
@@ -142,6 +158,8 @@ export function GpuFlow({
   viewport,
   viewportStore = gpuFlowViewportStore,
 }: GpuFlowProps) {
+  validateGpuFlowEdgeInput({ edgeInteraction, edgeScene, edges });
+  const drawEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);
   const [activeNodeOverlaySnapshot, setActiveNodeOverlaySnapshot] =
@@ -168,7 +186,8 @@ export function GpuFlow({
     onResize,
   });
   const nodeLayerRef = useRef<GpuFlowNodeLayerState>({
-    edges,
+    edgeScene,
+    edges: drawEdges,
     forceVisibleNodeIds,
     marginCssPx,
     nodes,
@@ -225,8 +244,10 @@ export function GpuFlow({
   }, [viewportStore]);
 
   useEffect(() => {
+    validateGpuFlowEdgeInput({ edgeInteraction, edgeScene, edges });
     nodeLayerRef.current = {
-      edges,
+      edgeScene,
+      edges: resolveGpuFlowEdgeDrawInputs({ edgeScene, edges }),
       forceVisibleNodeIds,
       marginCssPx,
       nodes,
@@ -240,6 +261,8 @@ export function GpuFlow({
     }
     surfaceRef.current?.requestFrame("viewport");
   }, [
+    edgeInteraction,
+    edgeScene,
     edges,
     forceVisibleNodeIds,
     marginCssPx,
@@ -300,6 +323,27 @@ export function GpuFlow({
       store: viewportStore,
     });
   }, [nodeDrag, viewportStore]);
+
+  useEffect(() => {
+    if (!edgeInteraction) {
+      return;
+    }
+    if (!edgeScene) {
+      throw new Error(
+        "Setta GPU flow edge interaction requires a GpuEdgeScene.",
+      );
+    }
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    return attachGpuEdgeInteractionController({
+      ...edgeInteraction,
+      element: container,
+      getScene: () => nodeLayerRef.current.edgeScene,
+      store: viewportStore,
+    });
+  }, [edgeInteraction, edgeScene, viewportStore]);
 
   useEffect(() => {
     return () => {
@@ -483,6 +527,36 @@ function getVisibleGpuUserSelectionRect(
   state: ReturnType<GpuFlowViewportStoreApi["getState"]>,
 ): GpuUserSelectionRect | null {
   return state.userSelectionActive ? state.userSelectionRect : null;
+}
+
+export function resolveGpuFlowEdgeDrawInputs({
+  edgeScene,
+  edges,
+}: {
+  readonly edgeScene?: GpuEdgeScene | undefined;
+  readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
+}): readonly GpuEdgeBufferInput[] | undefined {
+  if (edgeScene && edges) {
+    throw new Error(
+      "Setta GPU flow accepts either edgeScene or edges, not both.",
+    );
+  }
+  return edgeScene?.edges ?? edges;
+}
+
+function validateGpuFlowEdgeInput({
+  edgeInteraction,
+  edgeScene,
+  edges,
+}: {
+  readonly edgeInteraction: GpuFlowProps["edgeInteraction"];
+  readonly edgeScene: GpuFlowProps["edgeScene"];
+  readonly edges: GpuFlowProps["edges"];
+}) {
+  resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
+  if (edgeInteraction && !edgeScene) {
+    throw new Error("Setta GPU flow edge interaction requires a GpuEdgeScene.");
+  }
 }
 
 function renderGpuFlowNodeLayerElement({
