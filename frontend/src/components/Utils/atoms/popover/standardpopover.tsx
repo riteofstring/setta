@@ -15,7 +15,7 @@ export function StandardPopover({
   onOpenChange,
   arrowClasses,
   portalContainerId,
-  repositionOnCanvasTransform = false,
+  repositionOnCanvasTransform = true,
 }: {
   trigger: React.ReactElement;
   contentClasses?: string;
@@ -37,6 +37,10 @@ export function StandardPopover({
       : null;
   const [internalOpen, setInternalOpen] = useState(false);
   const resolvedOpen = open ?? internalOpen;
+  const resolvedContentProps = {
+    updatePositionStrategy: "always" as const,
+    ...contentProps,
+  };
 
   useEffect(() => {
     if (!repositionOnCanvasTransform || !resolvedOpen) {
@@ -95,7 +99,7 @@ export function StandardPopover({
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
 
       <Popover.Portal container={portalContainer ?? undefined}>
-        <Popover.Content className={contentClasses} {...contentProps}>
+        <Popover.Content className={contentClasses} {...resolvedContentProps}>
           {close && (
             <Popover.Close className={closeClasses}>{close}</Popover.Close>
           )}
