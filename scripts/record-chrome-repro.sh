@@ -167,6 +167,7 @@ Environment:
   SETTA_CHROME_REPRO_DEV_MODE         Dev runner mode: start | startr (default: start)
   SETTA_CHROME_REPRO_LOG_LEVEL        Backend log level for repro runs (default: debug)
   CHROME_BIN                          Path to Chrome/Chromium binary.
+  CHROME_EXTRA_ARGS                   Extra Chrome flags (space-separated).
 
 The recorder prefers Playwright's bundled Chrome for Testing when available,
 because recent branded Google Chrome builds can reject unpacked extensions.
@@ -593,7 +594,7 @@ log "Waiting for Setta bootstrap URL."
 bootstrap_url="$(wait_for_bootstrap_url 120)"
 
 launcher_metadata_file="${artifact_dir}/launcher.json"
-"${PYTHON_BIN}" - "${launcher_metadata_file}" "${artifact_dir}" "${bootstrap_url}" "${log_dir}" "${profile_dir}" "${extension_dir}" "${SETTA_WORKSPACE_ROOT}" "${SETTA_HOME}" <<'PY'
+"${PYTHON_BIN}" - "${launcher_metadata_file}" "${artifact_dir}" "${bootstrap_url}" "${log_dir}" "${profile_dir}" "${extension_dir}" "${SETTA_WORKSPACE_ROOT}" "${SETTA_HOME}" "${CHROME_EXTRA_ARGS:-}" <<'PY'
 import json
 import sys
 from datetime import UTC, datetime
@@ -609,6 +610,7 @@ payload = {
     "extensionDir": sys.argv[6],
     "workspaceRoot": sys.argv[7],
     "settaHome": sys.argv[8],
+    "chromeExtraArgs": sys.argv[9],
 }
 metadata_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -620,6 +622,10 @@ if [[ -z "${chrome_bin}" ]]; then
 fi
 
 chrome_log="${log_dir}/chrome.log"
+chrome_extra_args=()
+if [[ -n "${CHROME_EXTRA_ARGS:-}" ]]; then
+  read -r -a chrome_extra_args <<<"${CHROME_EXTRA_ARGS}"
+fi
 
 log "Launching dedicated Chrome recorder window with ${chrome_bin}."
 "${chrome_bin}" \
@@ -628,6 +634,7 @@ log "Launching dedicated Chrome recorder window with ${chrome_bin}."
   --no-default-browser-check \
   --disable-extensions-except="${extension_dir}" \
   --load-extension="${extension_dir}" \
+  "${chrome_extra_args[@]}" \
   "${bootstrap_url}" \
   >"${chrome_log}" 2>&1 &
 chrome_pid="$!"
