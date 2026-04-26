@@ -624,7 +624,7 @@ export function MinimapSvg({
       ) : null}
       {viewBB && (
         <path
-          className="react-flow__minimap-mask"
+          className="canvas-flow__minimap-mask"
           d={`M${x - offset},${y - offset}h${width + offset * 2}v${height + offset * 2}h${-width - offset * 2}z
 M${viewBB.x},${viewBB.y}h${viewBB.width}v${viewBB.height}h${-viewBB.width}z`}
           fill={maskColor}

@@ -72,7 +72,7 @@ describe("ProjectConfigPreview", () => {
       expect(subscribeSpy).not.toHaveBeenCalled();
       const getPreviewNodeFills = () =>
         Array.from(
-          host.querySelectorAll<SVGRectElement>(".react-flow__minimap-node"),
+          host.querySelectorAll<SVGRectElement>(".canvas-flow__minimap-node"),
         ).map((node) => node.getAttribute("fill"));
 
       expect(getPreviewNodeFills()).toEqual(["#d6dee8", "#d6dee8"]);

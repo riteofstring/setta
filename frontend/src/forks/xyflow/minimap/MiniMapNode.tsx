@@ -24,7 +24,7 @@ const MiniMapNode = ({
 
   return (
     <rect
-      className={cc(["react-flow__minimap-node", className])}
+      className={cc(["canvas-flow__minimap-node", className])}
       data-minimap-node-id={dataMinimapNodeId}
       x={x}
       y={y}
