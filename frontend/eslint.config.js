@@ -10,6 +10,8 @@ export default [
     basePath: "..",
     files: [
       "frontend/src/**/*.{js,jsx,ts,tsx}",
+      "frontend/plugin-sdk/app-subsystem/src/**/*.{js,jsx,ts,tsx}",
+      "plugin-sdk/app-subsystem/src/**/*.{js,jsx,ts,tsx}",
       "plugins/*/frontend/src/**/*.{js,jsx,ts,tsx}",
     ],
     languageOptions: {

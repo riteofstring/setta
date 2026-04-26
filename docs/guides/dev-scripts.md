@@ -61,10 +61,10 @@ Use these first for day-to-day work.
   - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files, failing at complexity `>= 12`.
   - Supports `--all`, `--git-changes`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
 - `./check_types.sh`
-  - Runs full-repo type checks across Go, Python, and frontend TypeScript.
+  - Runs full-repo type checks across Go, Python, and frontend TypeScript packages.
   - Go: compile-only `go test -run '^$' -count=1 ./...` through the pinned repo Go toolchain.
   - Python: `ty check` across all tracked repo Python files after env activation.
-  - Frontend: `pnpm -C frontend typecheck` (`tsc --noEmit`).
+  - Frontend: `pnpm -C frontend typecheck`, the app-subsystem SDK typecheck, and each first-party `plugins/*/frontend` package typecheck.
   - Supports `--go`, `--python`, and `--frontend` to limit the run to selected language groups.
 - `./report_quality_hotspots.sh`
   - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.

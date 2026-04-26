@@ -27,6 +27,17 @@ The initial implementation is designed around a single agent-friendly command:
 That command writes JSON reports under `reports/deadcode/` with
 `aggregate.json` as the primary machine-readable output.
 
+The report is production-oriented and advisory. It combines production
+reachability, non-production supporting evidence, and unused-symbol lint passes;
+it is not a whole-repo proof that every file in every package surface has been
+exercised.
+
+Current lint-unused lanes are intentionally broader than production
+reachability: Go Staticcheck runs against configured module package patterns,
+Python Ruff runs across configured first-party source roots, frontend ESLint
+runs across configured app and SDK source roots, and frontend package
+reachability runs per-package Knip checks for configured SDK/plugin roots.
+
 There are also narrow wrappers for language-specific runs:
 
 - `./scripts/deadcode/report_go.sh`
