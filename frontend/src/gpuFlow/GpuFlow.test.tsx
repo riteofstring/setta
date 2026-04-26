@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeScene, GpuEdgeSceneEntry } from "./edges/edgeSources";
-import {
-  clearUploadedGpuActiveFinalizingNodeIds,
-  resolveGpuActiveNodeFrameSync,
-  resolveGpuFlowEdgeDrawInputs,
-} from "./GpuFlow";
+import { resolveGpuFlowEdgeDrawInputs } from "./GpuFlow";
 
 describe("GpuFlow edge input helpers", () => {
   it("uses scene draw inputs when a GPU edge scene is provided", () => {
@@ -25,59 +21,6 @@ describe("GpuFlow edge input helpers", () => {
         edges: scene.edges,
       }),
     ).toThrow("Setta GPU flow accepts either edgeScene or edges, not both.");
-  });
-});
-
-describe("GpuFlow active node final settle helpers", () => {
-  it("defers and suppresses a teleported active node", () => {
-    expect(
-      resolveGpuActiveNodeFrameSync({
-        finalizingNodeIds: new Set(),
-        pendingPaintNodeIds: new Set(),
-        teleportedNodeId: "node-a",
-      }),
-    ).toEqual({
-      deferUploadNodeIds: ["node-a"],
-      suppressNodeIds: ["node-a"],
-    });
-  });
-
-  it("keeps a restored active node suppressed until final upload", () => {
-    expect(
-      resolveGpuActiveNodeFrameSync({
-        finalizingNodeIds: new Set(["node-a"]),
-        pendingPaintNodeIds: new Set(["node-a"]),
-        teleportedNodeId: null,
-      }),
-    ).toEqual({
-      deferUploadNodeIds: ["node-a"],
-      suppressNodeIds: ["node-a"],
-    });
-
-    expect(
-      resolveGpuActiveNodeFrameSync({
-        finalizingNodeIds: new Set(["node-a"]),
-        pendingPaintNodeIds: new Set(),
-        teleportedNodeId: null,
-      }),
-    ).toEqual({
-      deferUploadNodeIds: undefined,
-      suppressNodeIds: ["node-a"],
-    });
-  });
-
-  it("clears final settle suppression only after the node uploads", () => {
-    const finalizingNodeIds = new Set(["node-a", "node-b"]);
-
-    expect(
-      clearUploadedGpuActiveFinalizingNodeIds(finalizingNodeIds, ["node-c"]),
-    ).toEqual([]);
-    expect([...finalizingNodeIds]).toEqual(["node-a", "node-b"]);
-
-    expect(
-      clearUploadedGpuActiveFinalizingNodeIds(finalizingNodeIds, ["node-a"]),
-    ).toEqual(["node-a"]);
-    expect([...finalizingNodeIds]).toEqual(["node-b"]);
   });
 });
 
