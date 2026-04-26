@@ -1,5 +1,6 @@
 import {
   isGpuNodeInteractiveEventTarget,
+  isGpuNodeResizeHandleEventTarget,
   resolveGpuNodeTargetDescriptor,
   type GpuNodePointerHandoffTarget,
 } from "./activeNodeTargeting";
@@ -115,6 +116,7 @@ export function createGpuNodeInteractionDirtyController({
     typeof globalThis.setTimeout
   > | null = null;
   let focusedPersistentNodeId: string | null = null;
+  let hoverInteractionNodeId: string | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
   let activeSettleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
@@ -172,8 +174,35 @@ export function createGpuNodeInteractionDirtyController({
   }
 
   function beginPointerInteraction(nodeId: string) {
+    hoverInteractionNodeId = null;
     pointerInteractionNodeId = nodeId;
     beginInteractiveNode(nodeId, "pointer");
+  }
+
+  function beginResizeHandleHoverInteraction(nodeId: string) {
+    if (pointerInteractionNodeId) {
+      return;
+    }
+    if (hoverInteractionNodeId === nodeId && activeNodeId === nodeId) {
+      return;
+    }
+    hoverInteractionNodeId = nodeId;
+    beginInteractiveNode(nodeId, "pointer");
+  }
+
+  function releaseResizeHandleHoverInteraction() {
+    if (!hoverInteractionNodeId) {
+      return;
+    }
+    const nodeId = hoverInteractionNodeId;
+    hoverInteractionNodeId = null;
+    if (pointerInteractionNodeId || nodeId !== activeNodeId) {
+      return;
+    }
+    if (hasPersistentFocusForNode(nodeId)) {
+      return;
+    }
+    releaseActiveNode("pointer");
   }
 
   function handOffPointerEvent(event: PointerEvent): boolean {
@@ -295,6 +324,7 @@ export function createGpuNodeInteractionDirtyController({
     pendingPointerHandoffClick = null;
     clearTrustedPointerHandoffClickSuppression();
     releasePointerInteraction();
+    releaseResizeHandleHoverInteraction();
   }
 
   function suppressNextTrustedPointerHandoffClick(target: HTMLElement) {
@@ -359,6 +389,69 @@ export function createGpuNodeInteractionDirtyController({
     ) {
       clearTrustedPointerHandoffClickSuppression();
     }
+  }
+
+  function updateResizeHandleHoverInteraction(event: PointerEvent) {
+    if (dispatchingPointerHandoff || pointerInteractionNodeId) {
+      return;
+    }
+
+    if (tryBeginResizeHandleHoverFromEventTarget(event.target)) {
+      return;
+    }
+
+    const handoffTarget = resolvePointerHandoffTarget?.(event);
+    if (
+      handoffTarget &&
+      tryBeginResizeHandleHoverFromHandoffTarget(handoffTarget)
+    ) {
+      return;
+    }
+
+    releaseResizeHandleHoverInteraction();
+  }
+
+  function tryBeginResizeHandleHoverFromEventTarget(
+    target: EventTarget | null,
+  ): boolean {
+    const teleportedNodeId = findGpuNodeIdForEventTarget(
+      target,
+      elementByNodeId(),
+    );
+    if (!teleportedNodeId || !isGpuNodeResizeHandleEventTarget(target)) {
+      return false;
+    }
+
+    activateResizeHandleHoverNode(teleportedNodeId);
+    return true;
+  }
+
+  function tryBeginResizeHandleHoverFromHandoffTarget(
+    handoffTarget: GpuNodePointerHandoffTarget,
+  ): boolean {
+    if (!isResizeHandleHandoffTarget(handoffTarget)) {
+      return false;
+    }
+
+    activateResizeHandleHoverNode(handoffTarget.nodeId);
+    return true;
+  }
+
+  function isResizeHandleHandoffTarget(
+    handoffTarget: GpuNodePointerHandoffTarget,
+  ): boolean {
+    const nodeElement = elementByNodeId().get(handoffTarget.nodeId) ?? null;
+    const liveTarget = nodeElement
+      ? resolveGpuNodeTargetDescriptor(nodeElement, handoffTarget.descriptor)
+      : null;
+    return isGpuNodeResizeHandleEventTarget(liveTarget);
+  }
+
+  function activateResizeHandleHoverNode(nodeId: string) {
+    if (hoverInteractionNodeId !== nodeId || activeNodeId !== nodeId) {
+      activatePointerHandoffNode?.(nodeId);
+    }
+    beginResizeHandleHoverInteraction(nodeId);
   }
 
   function markEventTargetDirty(
@@ -554,7 +647,10 @@ export function createGpuNodeInteractionDirtyController({
       );
       ownerDocument.addEventListener(
         "pointermove",
-        markPointerInteractionDirty,
+        (event) => {
+          markPointerInteractionDirty();
+          updateResizeHandleHoverInteraction(event);
+        },
         listenerOptions,
       );
       ownerDocument.addEventListener(
@@ -595,6 +691,9 @@ export function createGpuNodeInteractionDirtyController({
         releaseAfterUploadNodeId === nodeId ? null : releaseAfterUploadNodeId;
       if (pointerInteractionNodeId === nodeId) {
         pointerInteractionNodeId = null;
+      }
+      if (hoverInteractionNodeId === nodeId) {
+        hoverInteractionNodeId = null;
       }
       if (focusedPersistentNodeId === nodeId) {
         focusedPersistentNodeId = null;

@@ -212,6 +212,109 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
+  it("activates resize handles on hover without broad control hover handoff", () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className =
+      "section-resize-handle section-resize-handle-bottom-right";
+    nodeElement.append(resizeHandle);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    setRect(resizeHandle, 20, 30, 16, 16);
+    const descriptor = createGpuNodeTargetDescriptor(nodeElement, resizeHandle);
+    if (!descriptor) {
+      throw new Error("Expected a resize handoff target descriptor");
+    }
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const activatePointerHandoffNode = vi.fn(() => nodeElement);
+    const resolvePointerHandoffTarget = vi.fn(() => ({
+      descriptor,
+      nodeId: "node-a",
+    }));
+    let frame = 0;
+    const controller = createGpuNodeInteractionDirtyController({
+      activatePointerHandoffNode,
+      activeSettleDelayMs: 50,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => {
+        frame += 1;
+        return frame;
+      },
+      requestFrame,
+      resolvePointerHandoffTarget,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    canvas.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 25,
+        clientY: 35,
+        pointerId: 3,
+      }),
+    );
+
+    expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(controller.getLiveNodeId()).toBe("node-a");
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 1,
+      nodeId: "node-a",
+      priority: "interactive",
+      reason: "pointer",
+    });
+
+    canvas.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 26,
+        clientY: 36,
+        pointerId: 3,
+      }),
+    );
+    expect(activatePointerHandoffNode).toHaveBeenCalledTimes(1);
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(1);
+
+    const button = document.createElement("button");
+    button.dataset.gpuFlowControl = "regular-control";
+    nodeElement.replaceChildren(button);
+    const buttonDescriptor = createGpuNodeTargetDescriptor(nodeElement, button);
+    if (!buttonDescriptor) {
+      throw new Error("Expected a control handoff target descriptor");
+    }
+    resolvePointerHandoffTarget.mockReturnValue({
+      descriptor: buttonDescriptor,
+      nodeId: "node-a",
+    });
+    canvas.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 80,
+        clientY: 80,
+        pointerId: 3,
+      }),
+    );
+
+    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(2);
+    expect(controller.getLiveNodeId()).toBe("node-a");
+    vi.advanceTimersByTime(50);
+    expect(controller.getLiveNodeId()).toBeNull();
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+    expect(controller.getActiveNodeId()).toBeNull();
+
+    detach();
+    canvas.remove();
+  });
+
   it("replays mousedown for controls that activate on mouse capture", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -787,6 +890,7 @@ function createInteractionTextureManager() {
 function createPointerEvent(
   type: string,
   init: {
+    readonly buttons?: number | undefined;
     readonly clientX: number;
     readonly clientY: number;
     readonly pointerId: number;
@@ -800,7 +904,7 @@ function createPointerEvent(
   }) as PointerEvent;
   Object.defineProperties(event, {
     button: { value: 0 },
-    buttons: { value: type === "pointerup" ? 0 : 1 },
+    buttons: { value: init.buttons ?? (type === "pointerup" ? 0 : 1) },
     height: { value: 1 },
     isPrimary: { value: true },
     pointerId: { value: init.pointerId },

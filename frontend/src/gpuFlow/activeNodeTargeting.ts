@@ -36,6 +36,8 @@ export type ResolveGpuNodePointerHandoffTargetInput = {
   readonly viewport: GpuViewportInput;
 };
 
+const RESIZE_HANDLE_SELECTOR = ".section-resize-handle";
+
 const INTERACTIVE_TARGET_SELECTOR = [
   "button",
   "input",
@@ -58,7 +60,7 @@ const INTERACTIVE_TARGET_SELECTOR = [
   "[role='spinbutton']",
   "[role='switch']",
   "[role='textbox']",
-  ".section-resize-handle",
+  RESIZE_HANDLE_SELECTOR,
   ".cm-content",
   ".cm-editor",
   ".xterm",
@@ -229,6 +231,13 @@ export function isGpuNodeInteractiveEventTarget(
 ): boolean {
   const element = toElement(target);
   return Boolean(element?.closest(INTERACTIVE_TARGET_SELECTOR));
+}
+
+export function isGpuNodeResizeHandleEventTarget(
+  target: EventTarget | Node | null,
+): boolean {
+  const element = toElement(target);
+  return Boolean(element?.closest(RESIZE_HANDLE_SELECTOR));
 }
 
 export function createGpuNodeTargetDescriptor(
