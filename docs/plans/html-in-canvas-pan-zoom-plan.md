@@ -518,10 +518,3 @@ Record profiles before and after under `perf/`.
 8. Heavy node/portal pass.
 9. Delete old active renderer paths.
 10. Final performance comparison and Model A vs Model B decision.
-
-## Open Questions
-1. Should `CanvasFlow` live in `frontend/src/canvasflow/` permanently, or should it replace `frontend/src/forks/xyflow/` in place after the first working pass?
-2. Which graph size is the real target for "extremely high performance": 1,000 nodes, 2,500 nodes, or higher?
-3. Should minimap be removed during the first replacement pass, or rebuilt immediately against the canvas viewport?
-4. Are there node types that may be temporarily disabled if they block pan/zoom performance validation?
-5. Should active/focused node overlay behavior be allowed in the first implementation, or only after Model A measurements prove it is needed?
