@@ -964,7 +964,126 @@ func TestRuntimeApplyWatchCodeFileUpdateInitialAdditionRefetchesCallableParams(t
 	}
 }
 
-func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKeepsParams(t *testing.T) {
+func TestRuntimeApplyWatchCodeFileUpdateInitialAdditionUsesParsedParamsWhenSignatureResolverNoMatch(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				CodegenTargets: []ProjectCodegenTarget{
+					{
+						Language: string(CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", WatchCodePluginProjectData{
+		Files: []string{"pkg/watched.py"},
+	})
+	runtime, err := OpenOverlayRuntimeWithOptions(document, RuntimeOptions{
+		WatchCodeProviderPluginID: func() (string, bool) {
+			return testWatchCodeProviderPluginID, true
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	resolver := &stubCallableSignatureResolver{
+		ok: true,
+		result: CallableSignatureResult{
+			Status: SignatureHelpStatusNoMatch,
+		},
+	}
+
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		testWatchCodeProviderPluginID,
+		"project-alpha",
+		sourcePath,
+		"def added(alpha: int, beta='fallback'):\n    return alpha\n",
+		false,
+		"",
+		workspaceRoot,
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("apply initial watch code update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected initial watch code update to create and bind a callable section")
+	}
+	if resolver.callCount != 1 {
+		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
+	}
+
+	projectData := mustReadTestWatchCodePluginProjectData(t, snapshot.Document, "project-alpha")
+	entry, ok := projectData.Registry["pkg.watched.added:function"]
+	if !ok {
+		t.Fatalf("expected watch code registry entry, got %#v", projectData.Registry)
+	}
+	if len(entry.SectionIDs) != 1 {
+		t.Fatalf("expected one created callable section, got %#v", entry)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	sectionID := entry.SectionIDs[0]
+	payload, err := currentCallablePayloadForWatchCodeTest(project, sectionID)
+	if err != nil {
+		t.Fatalf("current callable payload: %v", err)
+	}
+	callableID := payloadStringField(payload, "callable")
+	if callableID == "" {
+		t.Fatalf("expected created callable binding, got %#v", payload)
+	}
+
+	callablePayload, _, _, _, err := project.resolveCurrentCodeObjectContext(sectionID, callableID)
+	if err != nil {
+		t.Fatalf("resolve callable payload: %v", err)
+	}
+	children := payloadStringArrayField(callablePayload, "children")
+	if len(children) != 2 {
+		t.Fatalf("expected parsed watch code params, got %#v", children)
+	}
+	if got := project.CodeObjs[children[0]].Name; got != "alpha" {
+		t.Fatalf("expected first param alpha, got %q", got)
+	}
+	if got := project.CodeObjs[children[1]].Name; got != "beta" {
+		t.Fatalf("expected second param beta, got %q", got)
+	}
+
+	alphaPayload, _, _, _, err := project.resolveCurrentCodeObjectContext(sectionID, children[0])
+	if err != nil {
+		t.Fatalf("resolve alpha param payload: %v", err)
+	}
+	if got := payloadStringField(alphaPayload, "typeAnnotation"); got != "int" {
+		t.Fatalf("expected alpha param type annotation int, got %q", got)
+	}
+
+	betaPayload, _, _, _, err := project.resolveCurrentCodeObjectContext(sectionID, children[1])
+	if err != nil {
+		t.Fatalf("resolve beta param payload: %v", err)
+	}
+	if got := payloadStringField(betaPayload, "defaultVal"); got != "'fallback'" {
+		t.Fatalf("expected beta param default fallback, got %q", got)
+	}
+}
+
+func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeUsesParsedParamsWhenSignatureContextUnavailable(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
@@ -1061,8 +1180,124 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKe
 	if err != nil {
 		t.Fatalf("resolve callable payload: %v", err)
 	}
-	if got := payloadStringArrayField(callablePayload, "children"); !reflect.DeepEqual(got, []string{"param-existing"}) {
-		t.Fatalf("expected existing params to stay unchanged, got %#v", got)
+	children := payloadStringArrayField(callablePayload, "children")
+	if len(children) != 2 || children[0] != "param-existing" {
+		t.Fatalf("expected parsed params to update existing callable, got %#v", children)
+	}
+	reverseID := children[1]
+	if got := project.CodeObjs[reverseID].Name; got != "reverse" {
+		t.Fatalf("expected new param reverse, got %q", got)
+	}
+	reversePayload, _, _, _, err := project.resolveCurrentCodeObjectContext("callable-section", reverseID)
+	if err != nil {
+		t.Fatalf("resolve reverse param payload: %v", err)
+	}
+	if got := payloadStringField(reversePayload, "defaultVal"); got != "False" {
+		t.Fatalf("expected reverse param default False, got %q", got)
+	}
+	iterablePayload, _, _, _, err := project.resolveCurrentCodeObjectContext("callable-section", "param-existing")
+	if err != nil {
+		t.Fatalf("resolve iterable param payload: %v", err)
+	}
+	if got := payloadRawStringField(iterablePayload, "value"); got != "user_value" {
+		t.Fatalf("expected existing param value to stay user_value, got %q", got)
+	}
+}
+
+func TestRuntimeApplyWatchCodeFileUpdateReconcilesStaleParamsWhenSignatureHashAlreadyChanged(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
+	changedCallable := mustWatchCodeApplyCallable(
+		t,
+		"def sorted(iterable, reverse=False):\n    return iterable\n",
+		"pkg/watched.py",
+	)
+
+	project := callableTestProject(t)
+	projectData := EmptyWatchCodePluginProjectData()
+	projectData.Files = []string{"pkg/watched.py"}
+	project.CodegenTargets = []ProjectCodegenTarget{
+		{
+			Language: string(CodeLanguagePython),
+			Payload:  json.RawMessage(`{"language":"python"}`),
+		},
+	}
+	projectData.Registry = map[string]WatchCodeRegistryEntry{
+		"pkg.watched.sorted:function": {
+			CallableName:  "sorted",
+			Kind:          WatchCodeCallableKindFunction,
+			SignatureHash: changedCallable.SignatureHash,
+			BodyHash:      changedCallable.BodyHash,
+			SourcePath:    sourcePath,
+			SectionIDs:    []string{"callable-section"},
+			SectionsCount: 1,
+		},
+	}
+	projectData.BaselineByPath = map[string][]string{
+		sourcePath: {"pkg.watched.sorted:function"},
+	}
+	if err := project.setCurrentSectionField("callable-section", "callable", "callable-2"); err != nil {
+		t.Fatalf("seed current callable: %v", err)
+	}
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", projectData)
+	runtime, err := OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	resolver := &stubCallableSignatureResolver{ok: false}
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		testWatchCodeProviderPluginID,
+		"project-alpha",
+		sourcePath,
+		"def sorted(iterable, reverse=False):\n    return iterable\n",
+		false,
+		"",
+		workspaceRoot,
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("apply watch code stale param reconciliation: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected stale params to be reconciled")
+	}
+	if resolver.callCount != 1 {
+		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
+	}
+
+	project = snapshot.Document.Projects["project-alpha"]
+	payload, err := currentCallablePayloadForWatchCodeTest(project, "callable-section")
+	if err != nil {
+		t.Fatalf("current callable payload: %v", err)
+	}
+	callableID := payloadStringField(payload, "callable")
+	callablePayload, _, _, _, err := project.resolveCurrentCodeObjectContext("callable-section", callableID)
+	if err != nil {
+		t.Fatalf("resolve callable payload: %v", err)
+	}
+	children := payloadStringArrayField(callablePayload, "children")
+	if len(children) != 2 || children[0] != "param-existing" {
+		t.Fatalf("expected stale params to be replaced by parsed params, got %#v", children)
+	}
+	if got := project.CodeObjs[children[1]].Name; got != "reverse" {
+		t.Fatalf("expected new param reverse, got %q", got)
 	}
 }
 

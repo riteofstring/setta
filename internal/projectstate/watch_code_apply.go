@@ -310,7 +310,13 @@ func (p *Project) applyParsedWatchCodeFileUpdate(
 		projectWatchCodeRegistryPlanView(projectData.Registry),
 		cloneStringSliceMap(projectData.BaselineByPath),
 	)
-	updated, err := p.applyWatchCodeScanPlan(ctx, projectData, scanPlan, resolver)
+	updated, err := p.applyWatchCodeScanPlanWithParsedSignatures(
+		ctx,
+		projectData,
+		scanPlan,
+		resolver,
+		watchCodeParsedSignatureResults(update.callables),
+	)
 	if err != nil {
 		return false, err
 	}

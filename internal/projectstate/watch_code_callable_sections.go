@@ -49,6 +49,10 @@ func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
 
 	state.markUpdated(applyWatchCodeAdditions(projectData, plan.SourcePath, plan.Additions, state))
 
+	if err := p.applyWatchCodeParsedSignatureReconciliations(projectData, parsedSignatures, state); err != nil {
+		return false, err
+	}
+
 	updated, err = p.ensurePendingWatchCodeCallableSections(
 		ctx,
 		projectData,
@@ -211,6 +215,36 @@ func (p *Project) applyWatchCodeTrackedCallableChange(
 	return nil
 }
 
+func (p *Project) applyWatchCodeParsedSignatureReconciliations(
+	projectData *WatchCodePluginProjectData,
+	parsedSignatures map[string]CallableSignatureResult,
+	state *watchCodeScanPlanState,
+) error {
+	if len(parsedSignatures) == 0 {
+		return nil
+	}
+	for _, identity := range sortedCallableSignatureResultIdentities(parsedSignatures) {
+		if _, ok := state.pendingByIdentity[identity]; ok {
+			continue
+		}
+		if _, ok := state.signatureRefetchByIdentity[identity]; ok {
+			continue
+		}
+		parsedSignature := parsedSignatures[identity]
+		if parsedSignature.Status != SignatureHelpStatusMatched {
+			continue
+		}
+		mismatched, err := p.watchCodeParsedSignatureParamsMismatch(projectData, identity, parsedSignature.Params)
+		if err != nil {
+			return err
+		}
+		if mismatched {
+			state.trackSignatureRefetch(identity, watchcode.CallableInfo{})
+		}
+	}
+	return nil
+}
+
 func applyWatchCodeAdditions(
 	projectData *WatchCodePluginProjectData,
 	sourcePath string,
@@ -234,6 +268,15 @@ func applyWatchCodeAdditions(
 		state.trackPending(addition.Identity, addition)
 	}
 	return didUpdate
+}
+
+func sortedCallableSignatureResultIdentities(signatures map[string]CallableSignatureResult) []string {
+	identities := make([]string, 0, len(signatures))
+	for identity := range signatures {
+		identities = append(identities, identity)
+	}
+	sort.Strings(identities)
+	return identities
 }
 
 func (p *Project) ensurePendingWatchCodeCallableSections(
@@ -557,6 +600,81 @@ func (p *Project) refetchWatchCodeCallableSectionVariant(
 		return false, err
 	}
 	return response.LSPStatus != SignatureHelpStatusSkipped, nil
+}
+
+func (p *Project) watchCodeParsedSignatureParamsMismatch(
+	projectData *WatchCodePluginProjectData,
+	identity string,
+	params []CallableParamProposal,
+) (bool, error) {
+	entry, ok := projectData.Registry[identity]
+	if !ok {
+		return false, nil
+	}
+	callableName := strings.TrimSpace(entry.CallableName)
+	if callableName == "" {
+		return false, nil
+	}
+
+	expectedNames := callableParamProposalNames(params)
+	for _, sectionID := range uniqueSortedTrimmedStrings(entry.SectionIDs) {
+		variantIDs, err := p.watchCodeCallableVariantsForName(sectionID, callableName)
+		if err != nil {
+			return false, err
+		}
+		for _, variantID := range variantIDs {
+			currentNames, ok, err := p.watchCodeCallableVariantParamNames(sectionID, variantID)
+			if err != nil {
+				return false, err
+			}
+			if ok && !stringSlicesEqual(currentNames, expectedNames) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func callableParamProposalNames(params []CallableParamProposal) []string {
+	names := make([]string, 0, len(params))
+	for _, param := range params {
+		name := strings.TrimSpace(param.Name)
+		if isSkippedCallableParamProposal(name) {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
+func (p *Project) watchCodeCallableVariantParamNames(sectionID string, variantID string) ([]string, bool, error) {
+	sectionPayload, err := effectiveSectionPayload(*p, sectionID, variantID)
+	if err != nil {
+		return nil, false, err
+	}
+	callableID := payloadStringField(sectionPayload, "callable")
+	if callableID == "" {
+		return nil, false, nil
+	}
+	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
+	callableVariantID := strings.TrimSpace(codeObjVariantMap[callableID])
+	if callableVariantID == "" {
+		return nil, false, fmt.Errorf("%w: codeObj=%q", ErrCodeObjVariantNotFound, callableID)
+	}
+	callablePayload, err := effectiveCodeObjectPayloadForVariant(*p, callableID, callableVariantID)
+	if err != nil {
+		return nil, false, err
+	}
+	childIDs := payloadStringArrayField(callablePayload, "children")
+	names := make([]string, 0, len(childIDs))
+	for _, childID := range childIDs {
+		codeObj, ok := p.CodeObjs[childID]
+		if !ok {
+			return nil, false, fmt.Errorf("%w: %q", ErrCodeObjNotFound, childID)
+		}
+		names = append(names, strings.TrimSpace(codeObj.Name))
+	}
+	return names, true, nil
 }
 
 func replaceWatchCodeRegistryIdentity(
