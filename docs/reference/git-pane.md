@@ -67,7 +67,7 @@ git route contracts it depends on.
 - Core content UI: `frontend/src/components/Git/GitGraphOverlay.tsx`
 - Window host wrapper: `frontend/src/components/Git/GitGraphWindowContent.tsx`
 - Opened from the pane `Graph` button.
-- The `Graph` button opens or focuses a tracked `git_graph_mode` project
+- The `Graph` button now opens or focuses a tracked `git_graph_mode` project
   window instead of rendering commit history in the center overlay layer.
 - That tracked window participates in:
   - project-chat window focus/maximize state
@@ -101,7 +101,7 @@ Inside the Git Graph window:
 ## Overlay Layer and Escape Behavior
 
 - Host file: `frontend/src/components/Git/GitOverlayLayer.tsx`.
-- Only the diff overlay renders in the center canvas layer, between
+- Only the diff overlay still renders in the center canvas layer, between
   Overview and UI Editor pane widths.
 - `Escape` closes the active diff overlay unless focus is in an editable target
   (`input`, `textarea`, `contenteditable`).

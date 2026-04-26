@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 Usage: ./report_quality_hotspots.sh [--top N] [--python-min N] [--frontend-min N] [--go-min N]
 
-Report the highest-complexity code hotspots across supported production source.
+Report the highest-complexity code hotspots across the repo.
 
 Options:
   --top N            Show up to N hotspots per language section (default: 20).
@@ -16,7 +16,7 @@ Options:
 
 Notes:
   - Scores are per-tool and are not directly comparable across languages.
-  - The report mirrors the same tracked-file, test, and generated-file exclusions used by ./check_quality.sh --all.
+  - The report mirrors the same test/generated-file exclusions used by ./check_quality.sh.
 EOF
 }
 
@@ -123,6 +123,11 @@ quality_validate_positive_integer "${top_n}" "--top"
 quality_validate_positive_integer "${python_min}" "--python-min"
 quality_validate_positive_integer "${frontend_min}" "--frontend-min"
 quality_validate_positive_integer "${go_min}" "--go-min"
+
+if ! command -v rg >/dev/null 2>&1; then
+  echo "rg is required to build the hotspot report." >&2
+  exit 1
+fi
 
 cd "${repo_root}"
 # shellcheck source=/dev/null

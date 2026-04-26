@@ -593,10 +593,6 @@ func copyDirectoryTree(sourceRoot string, destRoot string) error {
 	return filepath.WalkDir(sourceRoot, copier.walk)
 }
 
-func CopyDirectoryTree(sourceRoot string, destRoot string) error {
-	return copyDirectoryTree(sourceRoot, destRoot)
-}
-
 func resolveDirectoryDigestRoot(root string) (string, error) {
 	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
@@ -623,9 +619,6 @@ func collectDirectoryDigestEntries(root string) ([]string, error) {
 			return walkErr
 		}
 		if entry.IsDir() {
-			if entry.Name() == "node_modules" {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 		relativePath, err := filepath.Rel(root, path)
@@ -684,9 +677,6 @@ type directoryTreeCopier struct {
 func (c directoryTreeCopier) walk(path string, entry fs.DirEntry, walkErr error) error {
 	if walkErr != nil {
 		return walkErr
-	}
-	if entry.IsDir() && entry.Name() == "node_modules" {
-		return filepath.SkipDir
 	}
 	targetPath, err := c.targetPath(path)
 	if err != nil {

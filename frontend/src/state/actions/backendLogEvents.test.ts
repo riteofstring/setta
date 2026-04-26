@@ -1,10 +1,10 @@
 import { useBackendLogEvents, useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import {
-  OverviewTabUIConfig,
-  type BackendLogEvent,
-} from "utils/generatedTypes";
+  OverviewNotificationsPaneTabEnum,
+  OverviewTabNameEnum,
+} from "utils/constants";
+import { type BackendLogEvent } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { addBackendLogEvent } from "./backendLogEvents";
 
@@ -28,7 +28,7 @@ describe("backend log unread tracking", () => {
     resetProjectStores();
     useLocalStorage.setState({
       overviewVis: true,
-      overviewTab: OverviewTabUIConfig.names.Overview,
+      overviewTab: OverviewTabNameEnum.Overview,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.Notifications,
     });
@@ -40,7 +40,7 @@ describe("backend log unread tracking", () => {
 
   it("marks high-severity events unread when logs are not visible", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabUIConfig.names.Notifications,
+      overviewTab: OverviewTabNameEnum.Notifications,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.Notifications,
     });
@@ -52,7 +52,7 @@ describe("backend log unread tracking", () => {
 
   it("does not mark high-severity events unread when logs sub-tab is visible", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabUIConfig.names.Notifications,
+      overviewTab: OverviewTabNameEnum.Notifications,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.BackendLogs,
     });

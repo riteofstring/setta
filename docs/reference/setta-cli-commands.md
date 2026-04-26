@@ -6,7 +6,7 @@ packaged Go binary for the shipped command surface. Root help, bare
 `setta plugins` / `setta plugins lock` navigation, and invalid root argv all
 resolve through that packaged CLI boundary. Inside a source checkout, that same
 wrapper detects the repo root and dispatches into `./scripts/go.sh run
-./cmd/setta`.
+./cmd/setta` instead of a packaged binary.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -14,7 +14,7 @@ identity and roots with:
 `--workspace`, `--profile`, `--profile-lookup-home`, `--setta-home`,
 `--setta-files-root`, `--setta-files-location`, and `--runtime-root`
 (or matching env vars).
-`setta_files` resolution follows the local/global rules from
+`setta_files` resolution still follows local/global rules from
 `docs/reference/setta-files.md`.
 
 Deployment commands (`setta share`, `setta app`) serve published deployment
@@ -144,11 +144,7 @@ setta share --deployment-root /opt/setta/deployments/demo-share/v5 --host 0.0.0.
 
 Starts the backend server in app deployment mode. App mode serves an app
 deployment snapshot (AppSpec + theme + assets) using the same session + policy
-model as share mode. The deployment root must include exactly one active
-app-subsystem provider with app deployment runtime support; published app
-deployments package that provider into the deployment root. `setta app` exits
-before server startup if the provider is missing, disabled, invalid,
-conflicting, or lacks `appDeploymentRuntime`.
+model as share mode.
 
 Options:
 - `--deployment-root PATH` uses an explicit app deployment root.
@@ -579,8 +575,8 @@ Options:
 - `--open-mode {browser,chrome-app}` default launcher mode (optional; omitted preserves existing metadata)
 - `--workspace-behavior {last-used-or-prompt,always-prompt}` workspace fallback preference
 - `--artifact-option NAME=VALUE` configures platform artifact generation (for example `app_name`, `icon_path`, `desktop_shortcut`)
-- `--clear-artifact-options` clears stored launcher artifact options
-- `--install-artifacts` / `--no-install-artifacts` controls managed platform artifact installation; omit both to leave existing artifact-install metadata unchanged
+- `--clear-artifact-options` clears previously stored launcher artifact options
+- `--install-artifacts` / `--no-install-artifacts` controls managed platform artifact installation; omit both to preserve current behavior
 - `--json` emits machine-readable payload
 
 The metadata stores:

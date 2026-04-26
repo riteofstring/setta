@@ -12,7 +12,7 @@ branch Python -> TypeScript converters, adapted to Go.
 Defaults:
 - Maximum iterations: 1000
 - New Codex session every iteration
-- Model: `gpt-5.5`
+- Model: `gpt-5.4`
 - Reasoning effort: `xhigh`
 - Yolo mode: on
 - Stop when Codex explicitly reports the frontendbindings rebuild is complete
@@ -25,13 +25,13 @@ Options:
   --state-dir PATH       Directory for checklist and loop state.
                          Default: <output-dir>/state
   --model NAME           Model override passed to codex exec.
-                         Default: gpt-5.5
+                         Default: gpt-5.4
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 
 Examples:
   ./scripts/run-codex-frontendbindings-rebuild-loop.sh
-  ./scripts/run-codex-frontendbindings-rebuild-loop.sh --model gpt-5.5
+  ./scripts/run-codex-frontendbindings-rebuild-loop.sh --model gpt-5.4
   ./scripts/run-codex-frontendbindings-rebuild-loop.sh -- --config reasoning_effort=\"high\"
 EOF
 }
@@ -42,7 +42,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 iterations="1000"
 output_dir=""
 state_dir=""
-model="gpt-5.5"
+model="gpt-5.4"
 yolo_mode="1"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: FRONTENDBINDINGS_REBUILT"

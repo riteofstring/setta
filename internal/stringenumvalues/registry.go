@@ -22,10 +22,6 @@ type EnumValue struct {
 	Value string
 }
 
-type ValueProvider interface {
-	StringEnumValues() []string
-}
-
 type Registry struct {
 	mu       sync.Mutex
 	packages map[string]*packageData
@@ -87,10 +83,6 @@ func (r *Registry) Values(t reflect.Type) ([]EnumValue, bool, error) {
 		return nil, false, nil
 	}
 
-	if values, ok := providedEnumValues(t); ok {
-		return values, true, nil
-	}
-
 	pkg, err := r.loadPackage(t.PkgPath())
 	if err != nil {
 		return nil, false, err
@@ -118,29 +110,6 @@ func (r *Registry) ValuesByTypeName(
 		return slices.Clone(values), true, nil
 	}
 	return nil, false, nil
-}
-
-func providedEnumValues(t reflect.Type) ([]EnumValue, bool) {
-	value := reflect.Zero(t)
-	if !value.CanInterface() {
-		return nil, false
-	}
-	provider, ok := value.Interface().(ValueProvider)
-	if !ok {
-		return nil, false
-	}
-	rawValues := provider.StringEnumValues()
-	if len(rawValues) == 0 {
-		return nil, false
-	}
-	values := make([]EnumValue, 0, len(rawValues))
-	for _, rawValue := range rawValues {
-		values = append(values, EnumValue{
-			Name:  deriveEnumMemberName(t.Name(), "", rawValue),
-			Value: rawValue,
-		})
-	}
-	return values, true
 }
 
 func (r *Registry) loadPackage(pkgPath string) (*packageData, error) {

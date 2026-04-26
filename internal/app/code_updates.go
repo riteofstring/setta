@@ -23,25 +23,23 @@ type projectTypeCheckingSynchronizer interface {
 }
 
 type codeUpdateService struct {
-	projectState          *projectstate.Runtime
-	lspSync               boundSectionSynchronizer
-	callableSignatures    projectstate.CallableSignatureResolver
-	workspaceRoot         string
-	watchCodeCapabilities *watchCodeCapabilityState
-	watchCodeWarnings     *watchCodeWarningTracker
-	frontendWebsocketHub  *realtime.WebsocketHub
-	logger                *slog.Logger
+	projectState         *projectstate.Runtime
+	lspSync              boundSectionSynchronizer
+	callableSignatures   projectstate.CallableSignatureResolver
+	workspaceRoot        string
+	watchCodeWarnings    *watchCodeWarningTracker
+	frontendWebsocketHub *realtime.WebsocketHub
+	logger               *slog.Logger
 }
 
 type codeUpdateServiceOptions struct {
-	ProjectState          *projectstate.Runtime
-	LSPSync               boundSectionSynchronizer
-	CallableSignatures    projectstate.CallableSignatureResolver
-	WorkspaceRoot         string
-	WatchCodeCapabilities *watchCodeCapabilityState
-	WatchCodeWarnings     *watchCodeWarningTracker
-	WebsocketHub          *realtime.WebsocketHub
-	Logger                *slog.Logger
+	ProjectState       *projectstate.Runtime
+	LSPSync            boundSectionSynchronizer
+	CallableSignatures projectstate.CallableSignatureResolver
+	WorkspaceRoot      string
+	WatchCodeWarnings  *watchCodeWarningTracker
+	WebsocketHub       *realtime.WebsocketHub
+	Logger             *slog.Logger
 }
 
 func newCodeUpdateService(options codeUpdateServiceOptions) (*codeUpdateService, error) {
@@ -49,14 +47,13 @@ func newCodeUpdateService(options codeUpdateServiceOptions) (*codeUpdateService,
 		return nil, fmt.Errorf("project runtime is required")
 	}
 	return &codeUpdateService{
-		projectState:          options.ProjectState,
-		lspSync:               options.LSPSync,
-		callableSignatures:    options.CallableSignatures,
-		workspaceRoot:         strings.TrimSpace(options.WorkspaceRoot),
-		watchCodeCapabilities: options.WatchCodeCapabilities,
-		watchCodeWarnings:     options.WatchCodeWarnings,
-		frontendWebsocketHub:  options.WebsocketHub,
-		logger:                options.Logger,
+		projectState:         options.ProjectState,
+		lspSync:              options.LSPSync,
+		callableSignatures:   options.CallableSignatures,
+		workspaceRoot:        strings.TrimSpace(options.WorkspaceRoot),
+		watchCodeWarnings:    options.WatchCodeWarnings,
+		frontendWebsocketHub: options.WebsocketHub,
+		logger:               options.Logger,
 	}, nil
 }
 
@@ -129,13 +126,9 @@ func (s *codeUpdateService) applySetCodeUpdate(
 	if err := document.SetCode(projectID, sectionID, code); err != nil {
 		return document, false, err
 	}
-	providerPluginID, ok := s.activeWatchCodeProviderPluginID()
-	if !ok {
-		return document, false, nil
-	}
 
-	boundSection, found, err := document.ResolveWatchCodeBoundSection(providerPluginID, projectID, sectionID, s.workspaceRoot)
-	if err != nil || !found {
+	boundSection, ok, err := document.ResolveWatchCodeBoundSection(projectID, sectionID, s.workspaceRoot)
+	if err != nil || !ok {
 		return document, false, err
 	}
 	if err := s.syncBoundCodeSection(ctx, boundSection); err != nil {
@@ -143,7 +136,6 @@ func (s *codeUpdateService) applySetCodeUpdate(
 	}
 	if _, err := document.ApplyWatchCodeBoundSectionUpdate(
 		ctx,
-		providerPluginID,
 		projectID,
 		sectionID,
 		s.workspaceRoot,
@@ -289,46 +281,17 @@ func (s *codeUpdateService) reloadBoundCodeBinding(
 		return document, nil
 	}
 
-	providerPluginID, hasWatchCodeProvider := s.activeWatchCodeProviderPluginID()
-	updatedProject, err := s.reloadBoundCodeProject(
+	updatedProject, needsTypeCheck, err := s.reloadBoundCodeProject(
+		ctx,
 		project,
 		binding,
 		raw,
+		signatureObserver,
 	)
 	if err != nil {
 		return document, err
 	}
 	document.Projects[updatedProject.ID] = updatedProject
-
-	needsTypeCheck := false
-	if hasWatchCodeProvider {
-		boundSection, ok, err := document.ResolveWatchCodeBoundSection(
-			providerPluginID,
-			binding.ProjectID,
-			binding.SectionID,
-			s.workspaceRoot,
-		)
-		if err != nil {
-			return document, err
-		}
-		if ok {
-			if err := s.syncBoundCodeSection(ctx, boundSection); err != nil {
-				return document, err
-			}
-			updated, err := document.ApplyWatchCodeBoundSectionUpdate(
-				ctx,
-				providerPluginID,
-				binding.ProjectID,
-				binding.SectionID,
-				s.workspaceRoot,
-				signatureObserver,
-			)
-			if err != nil {
-				return document, err
-			}
-			needsTypeCheck = updated
-		}
-	}
 	if needsTypeCheck {
 		typeCheckProjectIDs[updatedProject.ID] = struct{}{}
 	}
@@ -336,21 +299,35 @@ func (s *codeUpdateService) reloadBoundCodeBinding(
 }
 
 func (s *codeUpdateService) reloadBoundCodeProject(
+	ctx context.Context,
 	project projectstate.Project,
 	binding boundcode.Binding,
 	raw string,
-) (projectstate.Project, error) {
+	signatureObserver *watchCodeSignatureObserver,
+) (projectstate.Project, bool, error) {
 	if _, err := project.SetBoundCodeSectionContent(binding.SectionID, raw); err != nil {
-		return project, err
+		return project, false, err
 	}
-	return project, nil
-}
 
-func (s *codeUpdateService) activeWatchCodeProviderPluginID() (string, bool) {
-	if s == nil || s.watchCodeCapabilities == nil {
-		return "", false
+	boundSection, ok, err := project.ResolveWatchCodeBoundSection(binding.SectionID, s.workspaceRoot)
+	if err != nil {
+		return project, false, err
 	}
-	return s.watchCodeCapabilities.ActiveProviderPluginID()
+	if !ok {
+		return project, false, nil
+	}
+	if err := s.syncBoundCodeSection(ctx, boundSection); err != nil {
+		return project, false, err
+	}
+	if _, err := project.ApplyWatchCodeBoundSectionUpdate(
+		ctx,
+		binding.SectionID,
+		s.workspaceRoot,
+		signatureObserver,
+	); err != nil {
+		return project, false, err
+	}
+	return project, true, nil
 }
 
 func (s *codeUpdateService) syncBoundCodeSection(ctx context.Context, boundSection projectstate.WatchCodeBoundSection) error {

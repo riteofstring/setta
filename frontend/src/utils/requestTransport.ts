@@ -1,4 +1,3 @@
-import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
 import { buildShareSessionHeaders } from "./shareSessionHeaders";
 import { buildBackendURL } from "./transportUrlCore";
 
@@ -6,6 +5,12 @@ type AddressParams = Record<
   string,
   string | number | boolean | null | undefined
 >;
+
+export type ResponseDataAndStatus<T> = {
+  data: T | undefined;
+  status: number | undefined;
+  hasResponse: boolean;
+};
 
 async function parseResponse<T>(response: Response): Promise<T | undefined> {
   if (response.status === 204) {

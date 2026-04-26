@@ -12,7 +12,6 @@ import (
 
 func (d *Document) ApplyWatchCodeFileUpdate(
 	ctx context.Context,
-	providerPluginID string,
 	projectID string,
 	sourcePath string,
 	raw string,
@@ -24,10 +23,6 @@ func (d *Document) ApplyWatchCodeFileUpdate(
 	if d == nil {
 		return false, ErrProjectNotFound
 	}
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return false, err
-	}
 
 	trimmedProjectID := strings.TrimSpace(projectID)
 	if trimmedProjectID == "" {
@@ -38,27 +33,17 @@ func (d *Document) ApplyWatchCodeFileUpdate(
 		return false, nil
 	}
 
-	data, existed, err := d.decodeWatchCodePluginData(pluginID)
-	if err != nil {
-		return false, err
-	}
-	projectData, _ := data.projectData(project.ID)
-	didUpdate, err := project.ApplyWatchCodeFileUpdate(ctx, &projectData, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
+	didUpdate, err := project.ApplyWatchCodeFileUpdate(ctx, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
 	if err != nil {
 		return false, err
 	}
 	if didUpdate {
 		d.Projects[trimmedProjectID] = project
-		data = data.withProjectData(project.ID, projectData, existed)
-		if err := d.setWatchCodePluginData(pluginID, data, existed); err != nil {
-			return false, err
-		}
 	}
 	return didUpdate, nil
 }
 
 func (d *Document) ApplyWatchCodeFileDelete(
-	providerPluginID string,
 	projectID string,
 	sourcePath string,
 	workspaceRoot string,
@@ -66,10 +51,6 @@ func (d *Document) ApplyWatchCodeFileDelete(
 	if d == nil {
 		return false, ErrProjectNotFound
 	}
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return false, err
-	}
 
 	trimmedProjectID := strings.TrimSpace(projectID)
 	if trimmedProjectID == "" {
@@ -80,28 +61,18 @@ func (d *Document) ApplyWatchCodeFileDelete(
 		return false, nil
 	}
 
-	data, existed, err := d.decodeWatchCodePluginData(pluginID)
-	if err != nil {
-		return false, err
-	}
-	projectData, _ := data.projectData(project.ID)
-	didUpdate, err := project.ApplyWatchCodeFileDelete(&projectData, sourcePath, workspaceRoot)
+	didUpdate, err := project.ApplyWatchCodeFileDelete(sourcePath, workspaceRoot)
 	if err != nil {
 		return false, err
 	}
 	if didUpdate {
 		d.Projects[trimmedProjectID] = project
-		data = data.withProjectData(project.ID, projectData, existed)
-		if err := d.setWatchCodePluginData(pluginID, data, existed); err != nil {
-			return false, err
-		}
 	}
 	return didUpdate, nil
 }
 
 func (r *Runtime) ApplyWatchCodeFileUpdate(
 	ctx context.Context,
-	providerPluginID string,
 	projectID string,
 	sourcePath string,
 	raw string,
@@ -115,7 +86,7 @@ func (r *Runtime) ApplyWatchCodeFileUpdate(
 	}
 
 	return r.mutateAndSaveIfUpdated(ctx, func(document Document) (Document, bool, error) {
-		didUpdate, err := document.ApplyWatchCodeFileUpdate(ctx, providerPluginID, projectID, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
+		didUpdate, err := document.ApplyWatchCodeFileUpdate(ctx, projectID, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
 		if err != nil || !didUpdate || baselineOnly {
 			return document, didUpdate, err
 		}
@@ -128,7 +99,6 @@ func (r *Runtime) ApplyWatchCodeFileUpdate(
 
 func (r *Runtime) ApplyWatchCodeFileDelete(
 	ctx context.Context,
-	providerPluginID string,
 	projectID string,
 	sourcePath string,
 	workspaceRoot string,
@@ -138,7 +108,7 @@ func (r *Runtime) ApplyWatchCodeFileDelete(
 	}
 
 	return r.mutateAndSaveIfUpdated(ctx, func(document Document) (Document, bool, error) {
-		didUpdate, err := document.ApplyWatchCodeFileDelete(providerPluginID, projectID, sourcePath, workspaceRoot)
+		didUpdate, err := document.ApplyWatchCodeFileDelete(projectID, sourcePath, workspaceRoot)
 		if err != nil || !didUpdate {
 			return document, didUpdate, err
 		}
@@ -191,7 +161,6 @@ func (r *Runtime) mutateAndSaveIfUpdated(
 
 func (p *Project) ApplyWatchCodeFileUpdate(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	sourcePath string,
 	raw string,
 	baselineOnly bool,
@@ -205,21 +174,17 @@ func (p *Project) ApplyWatchCodeFileUpdate(
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if projectData == nil {
-		return false, ErrWatchCodeProjectDataRequired
-	}
-	*projectData = projectData.Normalized()
 
-	update, ok, err := p.prepareWatchCodeFileUpdate(projectData, workspaceRoot, sourcePath, raw, baselineOnly)
+	update, ok, err := p.prepareWatchCodeFileUpdate(workspaceRoot, sourcePath, raw, baselineOnly)
 	if err != nil || !ok {
 		return false, err
 	}
 
-	didUpdate, err := p.applyWatchCodeMovedFileUpdate(projectData, workspaceRoot, movedFrom, update)
+	didUpdate, err := p.applyWatchCodeMovedFileUpdate(workspaceRoot, movedFrom, update)
 	if err != nil {
 		return false, err
 	}
-	return p.applyParsedWatchCodeFileUpdate(ctx, projectData, update, baselineOnly, didUpdate, resolver)
+	return p.applyParsedWatchCodeFileUpdate(ctx, update, baselineOnly, didUpdate, resolver)
 }
 
 type watchCodeFileUpdate struct {
@@ -229,7 +194,6 @@ type watchCodeFileUpdate struct {
 }
 
 func (p *Project) prepareWatchCodeFileUpdate(
-	projectData *WatchCodePluginProjectData,
 	workspaceRoot string,
 	sourcePath string,
 	raw string,
@@ -239,7 +203,10 @@ func (p *Project) prepareWatchCodeFileUpdate(
 	if err != nil || !ok {
 		return watchCodeFileUpdate{}, false, err
 	}
-	if !watchCodePathMatches(*projectData, workspaceRoot, normalizedSourcePath) {
+	if !p.watchCodePathMatches(workspaceRoot, normalizedSourcePath) {
+		return watchCodeFileUpdate{}, false, nil
+	}
+	if !baselineOnly && !p.WatchCodeEnabled {
 		return watchCodeFileUpdate{}, false, nil
 	}
 
@@ -260,7 +227,6 @@ func (p *Project) prepareWatchCodeFileUpdate(
 }
 
 func (p *Project) applyWatchCodeMovedFileUpdate(
-	projectData *WatchCodePluginProjectData,
 	workspaceRoot string,
 	movedFrom string,
 	update watchCodeFileUpdate,
@@ -280,15 +246,14 @@ func (p *Project) applyWatchCodeMovedFileUpdate(
 		update.sourcePath,
 		update.callables,
 		update.parsed,
-		projectWatchCodeRegistryPlanView(projectData.Registry),
-		cloneStringSliceMap(projectData.BaselineByPath),
+		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
+		cloneStringSliceMap(p.WatchCodeBaselineByPath),
 	)
-	return applyWatchCodeMovePlan(projectData, movePlan), nil
+	return p.applyWatchCodeMovePlan(movePlan), nil
 }
 
 func (p *Project) applyParsedWatchCodeFileUpdate(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	update watchCodeFileUpdate,
 	baselineOnly bool,
 	didUpdate bool,
@@ -298,7 +263,7 @@ func (p *Project) applyParsedWatchCodeFileUpdate(
 		return didUpdate, nil
 	}
 	if baselineOnly {
-		return didUpdate || setWatchCodeBaseline(projectData, update.sourcePath, watchcode.IdentityList(update.callables)), nil
+		return didUpdate || p.setWatchCodeBaseline(update.sourcePath, watchcode.IdentityList(update.callables)), nil
 	}
 	if !p.HasPythonCodegenTarget() {
 		return didUpdate, nil
@@ -307,16 +272,10 @@ func (p *Project) applyParsedWatchCodeFileUpdate(
 	scanPlan := watchcode.PlanScanUpdate(
 		update.sourcePath,
 		update.callables,
-		projectWatchCodeRegistryPlanView(projectData.Registry),
-		cloneStringSliceMap(projectData.BaselineByPath),
+		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
+		cloneStringSliceMap(p.WatchCodeBaselineByPath),
 	)
-	updated, err := p.applyWatchCodeScanPlanWithParsedSignatures(
-		ctx,
-		projectData,
-		scanPlan,
-		resolver,
-		watchCodeParsedSignatureResults(update.callables),
-	)
+	updated, err := p.applyWatchCodeScanPlan(ctx, scanPlan, resolver)
 	if err != nil {
 		return false, err
 	}
@@ -324,35 +283,30 @@ func (p *Project) applyParsedWatchCodeFileUpdate(
 }
 
 func (p *Project) ApplyWatchCodeFileDelete(
-	projectData *WatchCodePluginProjectData,
 	sourcePath string,
 	workspaceRoot string,
 ) (bool, error) {
 	if p == nil {
 		return false, ErrProjectNotFound
 	}
-	if projectData == nil {
-		return false, ErrWatchCodeProjectDataRequired
-	}
-	*projectData = projectData.Normalized()
 
 	normalizedSourcePath, ok, err := resolveWatchCodeActivePath(workspaceRoot, sourcePath, "watch code source path")
 	if err != nil || !ok {
 		return false, err
 	}
-	if !p.HasPythonCodegenTarget() {
+	if !p.WatchCodeEnabled || !p.HasPythonCodegenTarget() {
 		return false, nil
 	}
-	if !watchCodePathMatches(*projectData, workspaceRoot, normalizedSourcePath) {
+	if !p.watchCodePathMatches(workspaceRoot, normalizedSourcePath) {
 		return false, nil
 	}
 
 	deletePlan := watchcode.PlanDeleteUpdate(
 		normalizedSourcePath,
-		projectWatchCodeRegistryPlanView(projectData.Registry),
-		cloneStringSliceMap(projectData.BaselineByPath),
+		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
+		cloneStringSliceMap(p.WatchCodeBaselineByPath),
 	)
-	return p.applyWatchCodeDeletePlan(projectData, deletePlan)
+	return p.applyWatchCodeDeletePlan(deletePlan)
 }
 
 func resolveWatchCodeActivePath(workspaceRoot string, raw string, label string) (string, bool, error) {
@@ -369,19 +323,18 @@ func resolveWatchCodeActivePath(workspaceRoot string, raw string, label string) 
 	return resolved, true, nil
 }
 
-func watchCodePathMatches(projectData WatchCodePluginProjectData, workspaceRoot string, absolutePath string) bool {
+func (p *Project) watchCodePathMatches(workspaceRoot string, absolutePath string) bool {
 	normalizedRelativePath, relativeDir, ok := normalizeWatchCodeMatchedRelativePath(workspaceRoot, absolutePath)
 	if !ok {
 		return false
 	}
 
-	normalized := projectData.Normalized()
-	for _, filePath := range normalized.Files {
+	for _, filePath := range p.WatchCodeFiles {
 		if path.Clean(strings.TrimSpace(filePath)) == normalizedRelativePath {
 			return true
 		}
 	}
-	for _, folder := range normalized.Folders {
+	for _, folder := range p.WatchCodeFolders {
 		if watchCodeFolderMatchesPath(folder, normalizedRelativePath, relativeDir) {
 			return true
 		}
@@ -431,40 +384,35 @@ func projectWatchCodeRegistryPlanView(registry map[string]WatchCodeRegistryEntry
 	return output
 }
 
-func applyWatchCodeMovePlan(projectData *WatchCodePluginProjectData, plan watchcode.MovePlan) bool {
+func (p *Project) applyWatchCodeMovePlan(plan watchcode.MovePlan) bool {
 	if !plan.Tracked {
 		return false
 	}
 
 	didUpdate := false
 	if plan.RemoveSourceBaseline {
-		if _, ok := projectData.BaselineByPath[plan.SourcePath]; ok {
-			delete(projectData.BaselineByPath, plan.SourcePath)
+		if _, ok := p.WatchCodeBaselineByPath[plan.SourcePath]; ok {
+			delete(p.WatchCodeBaselineByPath, plan.SourcePath)
 			didUpdate = true
 		}
 	}
-	if plan.DestinationBaseline != nil && setWatchCodeBaseline(projectData, plan.DestinationPath, plan.DestinationBaseline) {
+	if plan.DestinationBaseline != nil && p.setWatchCodeBaseline(plan.DestinationPath, plan.DestinationBaseline) {
 		didUpdate = true
 	}
 	for _, identity := range plan.MovedRegistryIdentities {
-		entry, ok := projectData.Registry[identity]
+		entry, ok := p.WatchCodeRegistry[identity]
 		if !ok || strings.TrimSpace(entry.SourcePath) == plan.DestinationPath {
 			continue
 		}
 		entry.SourcePath = plan.DestinationPath
-		projectData.Registry[identity] = entry
+		p.WatchCodeRegistry[identity] = entry
 		didUpdate = true
 	}
 	return didUpdate
 }
 
-func applyWatchCodeMetadataChange(
-	projectData *WatchCodePluginProjectData,
-	identity string,
-	callable watchcode.CallableInfo,
-	sourcePath string,
-) bool {
-	entry, ok := projectData.Registry[identity]
+func (p *Project) applyWatchCodeMetadataChange(identity string, callable watchcode.CallableInfo, sourcePath string) bool {
+	entry, ok := p.WatchCodeRegistry[identity]
 	if !ok {
 		return false
 	}
@@ -490,20 +438,20 @@ func applyWatchCodeMetadataChange(
 	if !updated {
 		return false
 	}
-	projectData.Registry[identity] = entry
+	p.WatchCodeRegistry[identity] = entry
 	return true
 }
 
-func setWatchCodeBaseline(projectData *WatchCodePluginProjectData, sourcePath string, identities []string) bool {
-	if projectData.BaselineByPath == nil {
-		projectData.BaselineByPath = map[string][]string{}
+func (p *Project) setWatchCodeBaseline(sourcePath string, identities []string) bool {
+	if p.WatchCodeBaselineByPath == nil {
+		p.WatchCodeBaselineByPath = map[string][]string{}
 	}
 	cloned := append([]string(nil), identities...)
-	current, ok := projectData.BaselineByPath[sourcePath]
+	current, ok := p.WatchCodeBaselineByPath[sourcePath]
 	if ok && reflect.DeepEqual(current, cloned) {
 		return false
 	}
-	projectData.BaselineByPath[sourcePath] = cloned
+	p.WatchCodeBaselineByPath[sourcePath] = cloned
 	return true
 }
 

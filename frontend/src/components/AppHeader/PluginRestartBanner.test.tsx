@@ -1,4 +1,4 @@
-import { OverviewTabUIConfig } from "utils/generatedTypes";
+import { OverviewTabNameEnum } from "utils/constants";
 import type { ServerModeValue } from "utils/serverModeTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginRestartBanner } from "./PluginRestartBanner";
@@ -302,7 +302,7 @@ describe("PluginRestartBanner", () => {
     (pluginsButton.props.onClick as () => void)();
 
     expect(onOverviewTabClickMock).toHaveBeenCalledWith(
-      OverviewTabUIConfig.names.Plugins,
+      OverviewTabNameEnum.Plugins,
     );
   });
 });

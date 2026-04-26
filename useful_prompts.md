@@ -95,7 +95,7 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the go-rewrite branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-The current simplified worktree is authoritative. Do not change code, tests, generated files, or rerun `pnpm -C frontend gcf` / `./check_quality.sh` in this stage. Only finish the iteration metadata: update `cumulative_review.md` for any touched or new recurring subsystems, refresh `Last finding commit` and unverified notes using the current pre-finalization `HEAD`, append the dated entry, remove the top-level `review*.md` files, make sure any earlier `./aireset.sh` session is stopped, and commit all remaining changes except `review*.md`. Keep it factual. Be explicit about blocked verification and browser-verification status.
+The current simplified worktree is authoritative. Do not change code, tests, generated files, or rerun `pnpm -C frontend gcf` / `./check_quality.sh` in this stage. Only finish the iteration metadata: update `cumulative_review.md` for any touched or new recurring subsystems, refresh `Last finding commit` and `Still unverified` notes using the current pre-finalization `HEAD`, append the dated entry, remove the top-level `review*.md` files, make sure any earlier `./aireset.sh` session is stopped, and commit all remaining changes except `review*.md`. Keep it factual. Be explicit about blocked verification and browser-verification status.
 
 Compare the current branch with `go-rewrite` and write a detailed branch-intent summary to `branch_intent.md`.
 

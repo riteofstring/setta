@@ -20,7 +20,6 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
-	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
 	"setta/internal/plugins"
@@ -41,33 +40,31 @@ const (
 )
 
 type Server struct {
-	logger                       *slog.Logger
-	registry                     *tools.Registry
-	projectState                 projectStateProvider
-	afterProjectMutation         func(context.Context, string) error
-	pluginMutations              pluginMutationProvider
-	pythonPackages               pythonPackageProvider
-	lspDiagnostics               lspDiagnosticsProvider
-	mcpStatuses                  mcpStatusProvider
-	terminals                    terminalHistoryProvider
-	docs                         *settadocs.Loader
-	toolSearch                   *tools.SearchIndex
-	searchEntries                []tools.SearchEntry
-	temporaryIDs                 *TemporaryIDStore
-	agentProfiles                agentProfileProvider
-	promptTemplates              promptTemplateProvider
-	externalAgentConfigs         externalAgentConfigProvider
-	llmAPIKeys                   llmAPIKeyProvider
-	agentRuns                    agentRunProvider
-	uiSettingReveals             uisettings.RevealService
-	contributedUISettingBuilders []uisettings.RuntimeEntryBuilder
-	unavailableUISettings        []uisettings.UnavailableSettingProvider
-	stateMachineRuns             stateMachineRunProvider
-	toolInvocations              toolInvocationRecorder
-	server                       *sdkmcp.Server
-	handler                      http.Handler
-	agenticContextMu             sync.RWMutex
-	agenticContextBySess         map[string]AgenticContext
+	logger               *slog.Logger
+	registry             *tools.Registry
+	projectState         projectStateProvider
+	afterProjectMutation func(context.Context, string) error
+	pluginMutations      pluginMutationProvider
+	pythonPackages       pythonPackageProvider
+	lspDiagnostics       lspDiagnosticsProvider
+	mcpStatuses          mcpStatusProvider
+	terminals            terminalHistoryProvider
+	docs                 *settadocs.Loader
+	toolSearch           *tools.SearchIndex
+	searchEntries        []tools.SearchEntry
+	temporaryIDs         *TemporaryIDStore
+	agentProfiles        agentProfileProvider
+	promptTemplates      promptTemplateProvider
+	externalAgentConfigs externalAgentConfigProvider
+	llmAPIKeys           llmAPIKeyProvider
+	agentRuns            agentRunProvider
+	uiSettingReveals     uisettings.RevealService
+	stateMachineRuns     stateMachineRunProvider
+	toolInvocations      toolInvocationRecorder
+	server               *sdkmcp.Server
+	handler              http.Handler
+	agenticContextMu     sync.RWMutex
+	agenticContextBySess map[string]AgenticContext
 }
 
 type ServerOptions struct {
@@ -75,10 +72,6 @@ type ServerOptions struct {
 	Registry                       *tools.Registry
 	WorkspaceRoot                  string
 	ProjectState                   projectStateProvider
-	SkipDefaultAppSubsystemTools   bool
-	ContributedToolRegistrations   []ToolRegistration
-	ContributedUISettingBuilders   []uisettings.RuntimeEntryBuilder
-	UnavailableUISettings          []uisettings.UnavailableSettingProvider
 	AfterProjectStateMutation      func(context.Context, string) error
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
@@ -109,7 +102,11 @@ type toolDefinition struct {
 	OutputSchema map[string]any
 }
 
-type ToolRegistration = tools.ToolRegistration
+type ToolRegistration struct {
+	Spec         tools.Spec
+	InputSchema  map[string]any
+	OutputSchema map[string]any
+}
 
 type InvokeToolSummary struct {
 	Result                      *sdkmcp.CallToolResult
@@ -120,6 +117,11 @@ type InvokeToolSummary struct {
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	SetProjectName(ctx context.Context, projectID string, name string) (projectstate.Snapshot, error)
+	GetAppDefinition(ctx context.Context) (projectstate.AppDefinitionReadResult, error)
+	ValidateAppDefinition(ctx context.Context, input projectstate.ValidateAppDefinitionInput) (projectstate.AppDefinitionValidationResult, error)
+	SetAppDefinition(ctx context.Context, input projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
+	StreamAppDefinition(ctx context.Context, input projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
+	UpdateAppDefinition(ctx context.Context, patch any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
 	AutoLayoutTopLevelSections(ctx context.Context, projectID string, settings projectstate.StructuralMutationSettings, margin int) (projectstate.Snapshot, error)
 	ChangeParamImpl(ctx context.Context, projectID string, sectionID string, paramInfoID string, selectedID string) (projectstate.Snapshot, error)
@@ -155,9 +157,18 @@ type projectStateProvider interface {
 	SetSectionVariant(ctx context.Context, projectID string, sectionID string, variantID string) (projectstate.Snapshot, error)
 	SetSectionVariantSortOrder(ctx context.Context, projectID string, sectionID string, orderedVariantIDs []string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
+	SetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string) (projectstate.Snapshot, error)
+	SetWatchCodeInputs(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, files []string, workspaceRoot string) (projectstate.Snapshot, error)
 	CompareAndSetProjectName(ctx context.Context, projectID string, name string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
 	CompareAndSetShowParamDisplayNames(ctx context.Context, projectID string, show bool, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
 	CompareAndSetPythonCodegenEnabled(ctx context.Context, projectID string, enabled bool, expectedOldValue *bool, validator projectstate.CodegenTargetValidator, pythonReconciler projectstate.PythonCodegenSectionReconciler) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
+	CompareAndSetWatchCodeFiles(ctx context.Context, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
+	CompareAndSetAppDefinitionCatalogID(ctx context.Context, catalogID string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionSpecVersion(ctx context.Context, appSpecVersion string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionSpecPath(ctx context.Context, appSpecPath string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionThemeMode(ctx context.Context, themeMode string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
 	ToggleGroupOrientation(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
@@ -318,27 +329,25 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	})
 
 	instance := &Server{
-		logger:                       opts.Logger,
-		registry:                     registry,
-		projectState:                 opts.ProjectState,
-		afterProjectMutation:         opts.AfterProjectStateMutation,
-		pluginMutations:              opts.PluginMutations,
-		pythonPackages:               opts.PythonPackages,
-		lspDiagnostics:               opts.LSPDiagnostics,
-		mcpStatuses:                  opts.MCPStatuses,
-		terminals:                    opts.Terminals,
-		agentProfiles:                opts.AgentProfiles,
-		promptTemplates:              opts.PromptTemplates,
-		externalAgentConfigs:         opts.ExternalAgentConfigs,
-		llmAPIKeys:                   opts.LLMAPIKeys,
-		agentRuns:                    opts.AgentRuns,
-		uiSettingReveals:             opts.UISettingReveals,
-		contributedUISettingBuilders: append([]uisettings.RuntimeEntryBuilder(nil), opts.ContributedUISettingBuilders...),
-		unavailableUISettings:        append([]uisettings.UnavailableSettingProvider(nil), opts.UnavailableUISettings...),
-		stateMachineRuns:             opts.StateMachineRuns,
-		toolInvocations:              opts.ToolInvocations,
-		server:                       server,
-		agenticContextBySess:         map[string]AgenticContext{},
+		logger:               opts.Logger,
+		registry:             registry,
+		projectState:         opts.ProjectState,
+		afterProjectMutation: opts.AfterProjectStateMutation,
+		pluginMutations:      opts.PluginMutations,
+		pythonPackages:       opts.PythonPackages,
+		lspDiagnostics:       opts.LSPDiagnostics,
+		mcpStatuses:          opts.MCPStatuses,
+		terminals:            opts.Terminals,
+		agentProfiles:        opts.AgentProfiles,
+		promptTemplates:      opts.PromptTemplates,
+		externalAgentConfigs: opts.ExternalAgentConfigs,
+		llmAPIKeys:           opts.LLMAPIKeys,
+		agentRuns:            opts.AgentRuns,
+		uiSettingReveals:     opts.UISettingReveals,
+		stateMachineRuns:     opts.StateMachineRuns,
+		toolInvocations:      opts.ToolInvocations,
+		server:               server,
+		agenticContextBySess: map[string]AgenticContext{},
 	}
 	if strings.TrimSpace(opts.DocsRoot) != "" {
 		docsLoader, err := settadocs.NewLoader(opts.DocsRoot)
@@ -354,20 +363,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		}
 		instance.temporaryIDs = temporaryIDs
 	}
-	if err := registerServerToolDefinitions(instance, workspaceRoot, registry, opts); err != nil {
-		return nil, err
-	}
 
-	instance.handler = newHTTPHandler(instance.server)
-	return instance, nil
-}
-
-func registerServerToolDefinitions(
-	instance *Server,
-	workspaceRoot string,
-	registry *tools.Registry,
-	opts ServerOptions,
-) error {
 	searchEntries := []tools.SearchEntry{}
 	for _, definition := range defaultToolDefinitions(
 		instance,
@@ -385,7 +381,7 @@ func registerServerToolDefinitions(
 	) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		instance.addTool(registered, definition.InputSchema, definition.OutputSchema)
 		if registered.Metadata.Kind == tools.KindDiscoverable {
@@ -398,13 +394,10 @@ func registerServerToolDefinitions(
 		}
 	}
 	instance.searchEntries = append([]tools.SearchEntry(nil), searchEntries...)
-	instance.toolSearch = tools.BuildSearchIndex(instance.searchEntries)
-	for _, registration := range opts.ContributedToolRegistrations {
-		if _, err := instance.RegisterTool(registration); err != nil {
-			return err
-		}
-	}
-	return nil
+	instance.toolSearch = tools.BuildSearchIndex(searchEntries)
+
+	instance.handler = newHTTPHandler(instance.server)
+	return instance, nil
 }
 
 func (s *Server) Handler() http.Handler {
@@ -1580,6 +1573,209 @@ func newSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools
 	}
 }
 
+func newSetWatchCodeEnabledHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		enabled, err := readRequiredBoolArgument(arguments, "enabled")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural watch-code invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetWatchCodeEnabled(ctx, projectConfigID, enabled, workspaceRoot); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		watchCodeFolders, err := readRequiredWatchCodeFoldersArgument(arguments, "watchCodeFolders")
+		if err != nil {
+			return nil, err
+		}
+		watchCodeFiles, err := readRequiredStringArrayArgument(arguments, "watchCodeFiles")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural watch-code inputs invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetWatchCodeInputs(ctx, projectConfigID, watchCodeFolders, watchCodeFiles, workspaceRoot); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newGetAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state app-definition runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		result, err := projectState.GetAppDefinition(ctx)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newValidateAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, input, err := readValidateAppDefinitionArgs(arguments)
+		if err != nil {
+			return nil, err
+		}
+		if err := requireProjectStateRuntime(projectState, "Project-state app-definition runtime is unavailable."); err != nil {
+			return nil, err
+		}
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Structural app-definition invocation context is unavailable.",
+			func() (any, error) {
+				return projectState.ValidateAppDefinition(ctx, input)
+			},
+		)
+	}
+}
+
+func newSetAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, input, err := readSetAppDefinitionArgs(arguments)
+		if err != nil {
+			return nil, err
+		}
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+			return nil, err
+		}
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Structural app-definition invocation context is unavailable.",
+			func() (any, error) {
+				_, result, err := projectState.SetAppDefinition(ctx, input)
+				return result, err
+			},
+		)
+	}
+}
+
+func newStreamAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, input, err := readStreamAppDefinitionArgs(arguments)
+		if err != nil {
+			return nil, err
+		}
+		if err := requireProjectStateRuntime(projectState, "Project-state mutation runtime is unavailable."); err != nil {
+			return nil, err
+		}
+		return executeScopedProjectStateOperation(
+			ctx,
+			projectConfigID,
+			"Structural app-definition invocation context is unavailable.",
+			func() (any, error) {
+				_, result, err := projectState.StreamAppDefinition(ctx, input)
+				if errors.Is(err, projectstate.ErrAppSpecPatchInvalid) {
+					return nil, newToolError("invalid_arguments", "Invalid patches payload: %s", err.Error())
+				}
+				return result, err
+			},
+		)
+	}
+}
+
+func newUpdateAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		patch, err := readRequiredPresentArgument(arguments, "patch")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.UpdateAppDefinition(ctx, patch)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
 func newCompareAndSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -1612,6 +1808,120 @@ func newCompareAndSetShowParamDisplayNamesHandler(projectState projectStateProvi
 		}
 
 		if _, _, err := projectState.CompareAndSetShowParamDisplayNames(ctx, projectConfigID, showParamDisplayNames, expectedOldValue); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newCompareAndSetWatchCodeEnabledHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		enabled, err := readRequiredBoolArgument(arguments, "enabled")
+		if err != nil {
+			return nil, err
+		}
+		expectedOldValue, err := readOptionalBoolPointerArgument(arguments, "expectedOldValue")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural compare-and-set watch-code invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, _, err := projectState.CompareAndSetWatchCodeEnabled(ctx, projectConfigID, enabled, workspaceRoot, expectedOldValue); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newCompareAndSetWatchCodeFoldersHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		watchCodeFolders, err := readRequiredWatchCodeFoldersArgument(arguments, "watchCodeFolders")
+		if err != nil {
+			return nil, err
+		}
+		expectedOldValue, err := readOptionalWatchCodeFoldersArgument(arguments, "expectedOldValue")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural compare-and-set watch-code folders invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, _, err := projectState.CompareAndSetWatchCodeFolders(ctx, projectConfigID, watchCodeFolders, workspaceRoot, expectedOldValue); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newCompareAndSetWatchCodeFilesHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		watchCodeFiles, err := readRequiredStringArrayArgument(arguments, "watchCodeFiles")
+		if err != nil {
+			return nil, err
+		}
+		expectedOldValue, err := readOptionalStringArrayArgument(arguments, "expectedOldValue")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural compare-and-set watch-code files invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, _, err := projectState.CompareAndSetWatchCodeFiles(ctx, projectConfigID, watchCodeFiles, workspaceRoot, expectedOldValue); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2692,6 +3002,61 @@ func defaultToolDefinitions(
 		},
 		{
 			Spec: tools.Spec{
+				Name:        "get_app_catalog",
+				Description: "Return the JSON render catalog used for app generation.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"app", "catalog", "components", "generation"},
+				},
+				Handler: newGetAppCatalogHandler(),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"catalog": map[string]any{
+						"type": "object",
+					},
+				},
+				"required": []string{"catalog"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "list_app_components",
+				Description: "List the allowed component types for app generation.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"app", "components", "catalog", "generation"},
+				},
+				Handler: newListAppComponentsHandler(),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"components": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"components"},
+			},
+		},
+		{
+			Spec: tools.Spec{
 				Name:        "get_setta_docs",
 				Description: "Return docs from the Setta docs directory.",
 				Metadata: tools.Metadata{
@@ -3092,6 +3457,7 @@ func defaultToolDefinitions(
 			OutputSchema: pluginRollbackResponseSchema(),
 		},
 	}
+
 	if projectState != nil {
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
@@ -4054,6 +4420,382 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "set_watch_code_enabled",
+				Description: "Enable or disable Watch Code for the active project and baseline existing watched inputs when enabling.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "project", "structural"},
+				},
+				Handler: newSetWatchCodeEnabledHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code setting should be updated.",
+					},
+					"enabled": map[string]any{
+						"type":        "boolean",
+						"description": "True to enable Watch Code and baseline existing watched inputs; false to disable it.",
+					},
+				},
+				"required": []string{"projectConfigId", "enabled"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_watch_code_inputs",
+				Description: "Update Watch Code folders/files for the active project and baseline only new inputs when Watch Code is already enabled.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "inputs", "files", "folders", "project", "structural"},
+				},
+				Handler: newSetWatchCodeInputsHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code folders and files should be updated.",
+					},
+					"watchCodeFolders": map[string]any{
+						"type":        "array",
+						"description": "Folder inputs for Watch Code, each with a repo-relative path and recursive flag.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type":        "string",
+									"description": "Repo-relative folder path to watch.",
+								},
+								"recursive": map[string]any{
+									"type":        "boolean",
+									"description": "Whether Watch Code should scan this folder recursively.",
+								},
+							},
+							"required": []string{"path", "recursive"},
+						},
+					},
+					"watchCodeFiles": map[string]any{
+						"type":        "array",
+						"description": "Repo-relative file paths Watch Code should track explicitly.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "watchCodeFolders", "watchCodeFiles"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "get_app_definition",
+				Description: "Fetch the stored app UI spec and document-level app-definition metadata for the active project.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "ui", "read", "structural"},
+				},
+				Handler: newGetAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose document-level app definition should be read.",
+					},
+				},
+				"required": []string{"projectConfigId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"appSpec": map[string]any{
+						"description": "Stored JSON Render app spec, or null when no spec is configured or stored.",
+					},
+					"appDefinition": map[string]any{
+						"type":        "object",
+						"description": "Current document-level app-definition metadata, or null when none is configured.",
+					},
+				},
+				"required": []string{"appSpec"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "validate_app_definition",
+				Description: "Validate an app spec and optional app-definition metadata overrides without persisting them.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "validate", "diagnostics", "structural"},
+				},
+				Handler: newValidateAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose app definition should be validated.",
+					},
+					"appSpec": map[string]any{
+						"type":        "object",
+						"description": "Full JSON Render app spec to validate.",
+					},
+					"appSpecVersion": map[string]any{
+						"type":        "string",
+						"description": "Optional app-spec version override used only for validation and capabilities.",
+					},
+					"catalogId": map[string]any{
+						"type":        "string",
+						"description": "Optional app catalog id override used only for validation and capabilities.",
+					},
+					"routes": map[string]any{
+						"type":        "array",
+						"description": "Optional app routes metadata to validate alongside the app definition.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type": "string",
+								},
+								"name": map[string]any{
+									"type": "string",
+								},
+								"rootKey": map[string]any{
+									"type": "string",
+								},
+							},
+							"required": []string{"path"},
+						},
+					},
+					"dataBindings": map[string]any{
+						"type":        "object",
+						"description": "Optional app data-binding overrides to validate.",
+					},
+					"actions": map[string]any{
+						"type":        "object",
+						"description": "Optional app action-definition overrides to validate.",
+					},
+					"theme": map[string]any{
+						"type":        "object",
+						"description": "Optional app theme overrides to validate.",
+					},
+					"assets": map[string]any{
+						"type":        "array",
+						"description": "Optional asset list overrides to validate.",
+					},
+				},
+				"required": []string{"projectConfigId", "appSpec"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"errors": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+						},
+					},
+					"warnings": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+						},
+					},
+					"capabilities": map[string]any{
+						"type": "object",
+					},
+				},
+				"required": []string{"errors", "warnings", "capabilities"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_app_definition",
+				Description: "Replace the stored app UI spec and optionally update persisted app-definition metadata.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "ui", "structural"},
+				},
+				Handler: newSetAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose document-level app definition should be replaced.",
+					},
+					"appSpec": map[string]any{
+						"type":        "object",
+						"description": "Full JSON Render app spec to persist.",
+					},
+					"appSpecPath": map[string]any{
+						"type":        "string",
+						"description": "Optional app-spec file path. Defaults to the existing configured path or app_specs/app.json.",
+					},
+					"appSpecVersion": map[string]any{
+						"type":        "string",
+						"description": "Optional app-spec version metadata to persist alongside the spec.",
+					},
+					"catalogId": map[string]any{
+						"type":        "string",
+						"description": "Optional app catalog id to persist alongside the spec.",
+					},
+					"routes": map[string]any{
+						"type":        "array",
+						"description": "Optional app routes metadata to persist with the definition.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type": "string",
+								},
+								"name": map[string]any{
+									"type": "string",
+								},
+								"rootKey": map[string]any{
+									"type": "string",
+								},
+							},
+							"required": []string{"path"},
+						},
+					},
+					"dataBindings": map[string]any{
+						"type":        "object",
+						"description": "Optional app data-binding metadata to persist.",
+					},
+					"actions": map[string]any{
+						"type":        "object",
+						"description": "Optional app action-definition metadata to persist.",
+					},
+					"theme": map[string]any{
+						"type":        "object",
+						"description": "Optional app theme metadata to persist.",
+					},
+					"assets": map[string]any{
+						"type":        "array",
+						"description": "Optional app asset metadata to persist.",
+					},
+				},
+				"required": []string{"projectConfigId", "appSpec"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "stream_app_definition",
+				Description: "Persist an app spec by applying newline-delimited JSON Pointer patch operations to a base or stored app definition.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					ToolArgumentPreview: &tools.ToolArgumentPreviewMetadata{
+						TargetIDPathsByType: map[tools.IDType][]string{},
+						PreviewValuePath:    "patches",
+						PreviewKind:         tools.PreviewKindAppSpecPatch,
+					},
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "stream", "patch", "structural"},
+				},
+				Handler: newStreamAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose app definition should be streamed and persisted.",
+					},
+					"patches": map[string]any{
+						"type":        "string",
+						"description": "Newline-delimited JSON patch operations using the bounded /root and /elements/... pointer format.",
+					},
+					"appSpecPath": map[string]any{
+						"type":        "string",
+						"description": "Optional app-spec file path override. Defaults to the existing configured path or app_specs/app.json.",
+					},
+					"baseAppSpec": map[string]any{
+						"type":        "object",
+						"description": "Optional base app spec object to patch instead of the currently stored spec.",
+					},
+				},
+				"required": []string{"projectConfigId", "patches"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "update_app_definition",
+				Description: "Apply a JSON merge patch to the stored app UI spec for the active project.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "patch", "structural"},
+				},
+				Handler: newUpdateAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose stored app spec should be patched.",
+					},
+					"patch": map[string]any{
+						"description": "JSON merge patch to apply to the stored app spec. May be any JSON value.",
+					},
+				},
+				"required": []string{"projectConfigId", "patch"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "compare_and_set_show_param_display_names",
 				Description: "Update parameter display-name visibility only if the caller's optional expectedOldValue still matches the current project setting.",
 				Metadata: tools.Metadata{
@@ -4081,6 +4823,161 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "showParamDisplayNames"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "compare_and_set_watch_code_enabled",
+				Description: "Enable or disable Watch Code only if the caller's optional expectedOldValue still matches the current project setting.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "project", "structural", "compare-and-set"},
+				},
+				Handler: newCompareAndSetWatchCodeEnabledHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code enabled setting should be compare-and-set updated.",
+					},
+					"enabled": map[string]any{
+						"type":        "boolean",
+						"description": "True to enable Watch Code and baseline existing watched inputs; false to disable it.",
+					},
+					"expectedOldValue": map[string]any{
+						"type":        "boolean",
+						"description": "Optional precondition. When provided, the mutation fails with mutation_failed unless the current stored value still matches this boolean.",
+					},
+				},
+				"required": []string{"projectConfigId", "enabled"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "compare_and_set_watch_code_folders",
+				Description: "Update Watch Code folders only if the caller's optional expectedOldValue still matches the current stored folder list.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "folders", "project", "structural", "compare-and-set"},
+				},
+				Handler: newCompareAndSetWatchCodeFoldersHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code folder inputs should be compare-and-set updated.",
+					},
+					"watchCodeFolders": map[string]any{
+						"type":        "array",
+						"description": "Folder inputs for Watch Code, each with a repo-relative path and recursive flag.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type":        "string",
+									"description": "Repo-relative folder path to watch.",
+								},
+								"recursive": map[string]any{
+									"type":        "boolean",
+									"description": "Whether Watch Code should scan this folder recursively.",
+								},
+							},
+							"required": []string{"path", "recursive"},
+						},
+					},
+					"expectedOldValue": map[string]any{
+						"type":        "array",
+						"description": "Optional precondition. When provided, the mutation fails with mutation_failed unless the current stored folder list still matches this array exactly.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type": "string",
+								},
+								"recursive": map[string]any{
+									"type": "boolean",
+								},
+							},
+							"required": []string{"path", "recursive"},
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "watchCodeFolders"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "compare_and_set_watch_code_files",
+				Description: "Update Watch Code files only if the caller's optional expectedOldValue still matches the current stored file list.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "files", "project", "structural", "compare-and-set"},
+				},
+				Handler: newCompareAndSetWatchCodeFilesHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code file inputs should be compare-and-set updated.",
+					},
+					"watchCodeFiles": map[string]any{
+						"type":        "array",
+						"description": "Repo-relative file paths for Watch Code inputs.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+					"expectedOldValue": map[string]any{
+						"type":        "array",
+						"description": "Optional precondition. When provided, the mutation fails with mutation_failed unless the current stored file list still matches this array exactly.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "watchCodeFiles"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -5688,6 +6585,39 @@ func readOptionalObjectPointerArgument(arguments map[string]any, key string) (*m
 	return &value, nil
 }
 
+func readOptionalArrayPointerArgument(arguments map[string]any, key string) (*[]any, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	value, ok := rawValue.([]any)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be an array", key)
+	}
+	copied := append([]any(nil), value...)
+	return &copied, nil
+}
+
+func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]projectstate.AppRoute, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	rawRoutes, ok := rawValue.([]any)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
+	}
+	encoded, err := json.Marshal(rawRoutes)
+	if err != nil {
+		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
+	}
+	var routes []projectstate.AppRoute
+	if err := json.Unmarshal(encoded, &routes); err != nil {
+		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
+	}
+	return &routes, nil
+}
+
 func readOptionalPositionArgument(arguments map[string]any, key string) (*projectstate.Position, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -5755,6 +6685,17 @@ type setCallableArgs struct {
 type autoLayoutTopLevelSectionsArgs struct {
 	projectConfigID string
 	margin          int
+}
+
+type appDefinitionMutationFields struct {
+	appSpec        map[string]any
+	appSpecVersion *string
+	catalogID      *string
+	routes         *[]projectstate.AppRoute
+	dataBindings   *map[string]any
+	actions        *map[string]any
+	theme          *map[string]any
+	assets         *[]any
 }
 
 func readCreateTopLevelSectionArgs(arguments map[string]any) (createTopLevelSectionArgs, error) {
@@ -5973,6 +6914,121 @@ func readAutoLayoutTopLevelSectionsArgs(arguments map[string]any) (autoLayoutTop
 	return autoLayoutTopLevelSectionsArgs{
 		projectConfigID: projectConfigID,
 		margin:          margin,
+	}, nil
+}
+
+func readAppDefinitionMutationFields(arguments map[string]any) (string, appDefinitionMutationFields, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	appSpec, err := readRequiredObjectArgument(arguments, "appSpec")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	appSpecVersion, err := readOptionalNullableStringPointerArgument(arguments, "appSpecVersion")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	catalogID, err := readOptionalNullableStringPointerArgument(arguments, "catalogId")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	routes, err := readOptionalAppRoutesArgument(arguments, "routes")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	dataBindings, err := readOptionalObjectPointerArgument(arguments, "dataBindings")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	actions, err := readOptionalObjectPointerArgument(arguments, "actions")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	theme, err := readOptionalObjectPointerArgument(arguments, "theme")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	assets, err := readOptionalArrayPointerArgument(arguments, "assets")
+	if err != nil {
+		return "", appDefinitionMutationFields{}, err
+	}
+	return projectConfigID, appDefinitionMutationFields{
+		appSpec:        appSpec,
+		appSpecVersion: appSpecVersion,
+		catalogID:      catalogID,
+		routes:         routes,
+		dataBindings:   dataBindings,
+		actions:        actions,
+		theme:          theme,
+		assets:         assets,
+	}, nil
+}
+
+func readValidateAppDefinitionArgs(arguments map[string]any) (string, projectstate.ValidateAppDefinitionInput, error) {
+	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
+	if err != nil {
+		return "", projectstate.ValidateAppDefinitionInput{}, err
+	}
+	return projectConfigID, projectstate.ValidateAppDefinitionInput{
+		AppSpec:        fields.appSpec,
+		AppSpecVersion: fields.appSpecVersion,
+		CatalogID:      fields.catalogID,
+		Routes:         fields.routes,
+		DataBindings:   fields.dataBindings,
+		Actions:        fields.actions,
+		Theme:          fields.theme,
+		Assets:         fields.assets,
+	}, nil
+}
+
+func readSetAppDefinitionArgs(arguments map[string]any) (string, projectstate.SetAppDefinitionInput, error) {
+	projectConfigID, fields, err := readAppDefinitionMutationFields(arguments)
+	if err != nil {
+		return "", projectstate.SetAppDefinitionInput{}, err
+	}
+	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
+	if err != nil {
+		return "", projectstate.SetAppDefinitionInput{}, err
+	}
+	return projectConfigID, projectstate.SetAppDefinitionInput{
+		AppSpec:        fields.appSpec,
+		AppSpecPath:    appSpecPath,
+		AppSpecVersion: fields.appSpecVersion,
+		CatalogID:      fields.catalogID,
+		Routes:         fields.routes,
+		DataBindings:   fields.dataBindings,
+		Actions:        fields.actions,
+		Theme:          fields.theme,
+		Assets:         fields.assets,
+	}, nil
+}
+
+func readStreamAppDefinitionArgs(arguments map[string]any) (string, projectstate.StreamAppDefinitionInput, error) {
+	projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+	if err != nil {
+		return "", projectstate.StreamAppDefinitionInput{}, err
+	}
+	patches, err := readRequiredRawStringArgument(arguments, "patches")
+	if err != nil {
+		return "", projectstate.StreamAppDefinitionInput{}, err
+	}
+	if strings.TrimSpace(patches) == "" {
+		return "", projectstate.StreamAppDefinitionInput{}, newToolError("invalid_arguments", "patches must be non-empty.")
+	}
+	appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
+	if err != nil {
+		return "", projectstate.StreamAppDefinitionInput{}, err
+	}
+	baseAppSpec, err := readOptionalObjectPointerArgument(arguments, "baseAppSpec")
+	if err != nil {
+		return "", projectstate.StreamAppDefinitionInput{}, err
+	}
+	return projectConfigID, projectstate.StreamAppDefinitionInput{
+		Patches:     patches,
+		AppSpecPath: appSpecPath,
+		BaseAppSpec: baseAppSpec,
 	}, nil
 }
 
@@ -6325,6 +7381,112 @@ func readOptionalStringArrayArgument(arguments map[string]any, key string) ([]st
 	}
 }
 
+func readRequiredWatchCodeFoldersArgument(arguments map[string]any, key string) ([]projectstate.WatchCodeFolder, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, newToolError("invalid_arguments", "%s is required", key)
+	}
+
+	switch typed := rawValue.(type) {
+	case []projectstate.WatchCodeFolder:
+		output := make([]projectstate.WatchCodeFolder, len(typed))
+		copy(output, typed)
+		return output, nil
+	case []map[string]any:
+		output := make([]projectstate.WatchCodeFolder, 0, len(typed))
+		for index, entry := range typed {
+			folder, err := readWatchCodeFolderValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, folder)
+		}
+		return output, nil
+	case []any:
+		output := make([]projectstate.WatchCodeFolder, 0, len(typed))
+		for index, entry := range typed {
+			folder, err := readWatchCodeFolderValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, folder)
+		}
+		return output, nil
+	default:
+		return nil, newToolError("invalid_arguments", "%s must be an array of objects", key)
+	}
+}
+
+func readOptionalWatchCodeFoldersArgument(arguments map[string]any, key string) ([]projectstate.WatchCodeFolder, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+
+	switch typed := rawValue.(type) {
+	case []projectstate.WatchCodeFolder:
+		output := make([]projectstate.WatchCodeFolder, len(typed))
+		copy(output, typed)
+		return output, nil
+	case []map[string]any:
+		output := make([]projectstate.WatchCodeFolder, 0, len(typed))
+		for index, entry := range typed {
+			folder, err := readWatchCodeFolderValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, folder)
+		}
+		return output, nil
+	case []any:
+		output := make([]projectstate.WatchCodeFolder, 0, len(typed))
+		for index, entry := range typed {
+			folder, err := readWatchCodeFolderValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, folder)
+		}
+		return output, nil
+	default:
+		return nil, newToolError("invalid_arguments", "%s must be an array of objects", key)
+	}
+}
+
+func readWatchCodeFolderValue(rawValue any, key string, index int) (projectstate.WatchCodeFolder, error) {
+	if folder, ok := rawValue.(projectstate.WatchCodeFolder); ok {
+		return folder, nil
+	}
+
+	object, ok := rawValue.(map[string]any)
+	if !ok {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d] must be an object", key, index)
+	}
+
+	pathValue, ok := object["path"]
+	if !ok || pathValue == nil {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d].path is required", key, index)
+	}
+	path, ok := pathValue.(string)
+	if !ok {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d].path must be a string", key, index)
+	}
+
+	recursiveValue, ok := object["recursive"]
+	if !ok || recursiveValue == nil {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d].recursive is required", key, index)
+	}
+	recursive, ok := recursiveValue.(bool)
+	if !ok {
+		return projectstate.WatchCodeFolder{}, newToolError("invalid_arguments", "%s[%d].recursive must be a boolean", key, index)
+	}
+
+	return projectstate.WatchCodeFolder{
+		Path:      strings.TrimSpace(path),
+		Recursive: recursive,
+	}, nil
+}
+
 func readRequiredProjectCodegenTargetsArgument(arguments map[string]any, key string) ([]projectstate.ProjectCodegenTarget, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -6488,7 +7650,7 @@ func buildToolErrorResult(err error) *sdkmcp.CallToolResult {
 	}
 }
 
-func requireProjectStateRuntime(projectState any, unavailableMessage string) error {
+func requireProjectStateRuntime(projectState projectStateProvider, unavailableMessage string) error {
 	if projectState != nil {
 		return nil
 	}
@@ -6590,11 +7752,11 @@ func projectStateMutationErrorCode(err error) string {
 	switch {
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		return projectNotFoundErrorCode
-	case errors.Is(err, appdefinition.ErrAppSpecNotFound):
-		return "file_not_found"
 	case projectstate.IsExpectedOldValueMismatchError(err):
 		return "mutation_failed"
-	case errors.Is(err, projectstate.ErrPersistedStoreUnsupported):
+	case errors.Is(err, projectstate.ErrAppSpecNotFound):
+		return "file_not_found"
+	case errors.Is(err, projectstate.ErrAppSpecStoreUnsupported):
 		return "internal_error"
 	case isInvalidProjectStateMutationError(err):
 		return "invalid_arguments"
@@ -6627,7 +7789,7 @@ func isSettingsOrWatchCodeMutationError(err error) bool {
 }
 
 func isAppSpecOrCodegenMutationError(err error) bool {
-	return isCodegenMutationError(err)
+	return isAppSpecMutationError(err) || isCodegenMutationError(err)
 }
 
 func isSectionOrParamMutationError(err error) bool {
@@ -6646,6 +7808,10 @@ func isStructureMutationError(err error) bool {
 		isDeleteSectionsMutationError(err) ||
 		isTopLevelSectionMutationError(err) ||
 		isCodeSectionStructureMutationError(err)
+}
+
+func isAppSpecMutationError(err error) bool {
+	return errors.Is(err, projectstate.ErrAppSpecPathUnconfigured)
 }
 
 func isCodegenMutationError(err error) bool {
@@ -6897,15 +8063,6 @@ func NewToolError(code string, format string, args ...any) error {
 	return newToolError(code, format, args...)
 }
 
-func ExecuteScopedProjectStateOperation(
-	ctx context.Context,
-	projectConfigID string,
-	missingContextMessage string,
-	run func() (any, error),
-) (any, error) {
-	return executeScopedProjectStateOperation(ctx, projectConfigID, missingContextMessage, run)
-}
-
 func boolPtr(value bool) *bool {
 	return &value
 }
@@ -6926,19 +8083,12 @@ func asToolError(err error, target **toolError) bool {
 	if err == nil {
 		return false
 	}
-	if typed, ok := err.(*toolError); ok {
-		*target = typed
-		return true
+	typed, ok := err.(*toolError)
+	if !ok {
+		return false
 	}
-	if shared, ok := tools.AsToolError(err); ok {
-		*target = &toolError{
-			code:    shared.Code,
-			message: shared.Message,
-			data:    shared.Data,
-		}
-		return true
-	}
-	return false
+	*target = typed
+	return true
 }
 
 func isUnscopedToolName(toolName string) bool {

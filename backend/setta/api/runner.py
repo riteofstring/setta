@@ -7,17 +7,15 @@ from urllib.parse import urlparse
 
 import requests
 
+from setta.api.runtime_compat import verify_running_backend_compatibility
 from setta.auth.bootstrap import origin_from_backend_url, select_auth_cookie_name
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
-from setta.runtime_compat import (
-    RunningBackendVersionHandshake,
-    verify_running_backend_compatibility,
-)
 from setta.sdk_contracts.generated import (
     RunnerSummarySection,
     RunnerSummarySnapshot,
+    RunningBackendVersionHandshake,
 )
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.sessions.utils import resolve_sessions_root

@@ -1,21 +1,17 @@
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
-import { afterEach, describe, expect, it } from "vitest";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { describe, expect, it } from "vitest";
 import { applyZoomToTransform, transformToString } from "./zoom";
 
 describe("zoom adapter utilities", () => {
-  afterEach(() => {
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-  });
-
   it("returns null and empty string for null transforms", () => {
     // Validates null-safe transform handling in drag style plumbing.
     expect(applyZoomToTransform(null)).toBeNull();
     expect(transformToString(null)).toBe("");
   });
 
-  it("normalizes translation by current GPU viewport zoom", () => {
+  it("normalizes translation by current react-flow zoom", () => {
     // Validates drag translation stays in flow-space regardless of viewport zoom.
-    gpuFlowViewportStore.getState().setTransform([0, 0, 2]);
+    useReactFlow.setState({ transform: [0, 0, 2] });
 
     expect(
       applyZoomToTransform({ x: 20, y: 10, scaleX: 1, scaleY: 1 }),

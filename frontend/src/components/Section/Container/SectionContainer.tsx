@@ -1,4 +1,4 @@
-import { NodeIdContext } from "gpuFlow/NodeIdContext";
+import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
 import _ from "lodash";
 import React from "react";
 import {
@@ -102,7 +102,7 @@ function _SectionContainer({
   }
 
   return (
-    <NodeIdContext.Provider value={sectionId}>
+    <NodeIdProvider value={sectionId}>
       <ContainerSwitch
         isGroup={isGroup}
         sectionId={sectionId}
@@ -123,7 +123,7 @@ function _SectionContainer({
           isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
       </ContainerSwitch>
-    </NodeIdContext.Provider>
+    </NodeIdProvider>
   );
 }
 export const SectionContainer = React.memo(_SectionContainer, (p, n) =>

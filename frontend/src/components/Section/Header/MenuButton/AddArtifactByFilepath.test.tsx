@@ -48,14 +48,9 @@ vi.mock("openapi/http", () => ({
   setImageAreaImagePath: addArtifactMocks.setImageAreaImagePathMock,
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: <T,>(value: T) => value,
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: <T,>(value: T) => value,
+}));
 
 vi.mock("state/actions/artifacts", () => ({
   queueTransformsForSave: addArtifactMocks.queueTransformsForSaveMock,

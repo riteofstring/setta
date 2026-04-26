@@ -1,7 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
+import { Node, NodeDragItem } from "forks/xyflow/core/types";
 import { getDimensions } from "forks/xyflow/core/utils";
-import type { Node, NodeDragItem } from "gpuFlow/flowTypes";
 import _ from "lodash";
 import {
   useMisc,

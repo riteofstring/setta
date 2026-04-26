@@ -1,9 +1,10 @@
+import { NameValidationRules } from "utils/generatedTypes";
 import {
+  isGeneratedPythonIdentifier,
   sanitizeGeneratedSimpleNameSlug,
   validateGeneratedParamNameInput,
   validateGeneratedSimpleNameInput,
-} from "@setta/app-subsystem-frontend-sdk";
-import { NameValidationRules } from "utils/generatedTypes";
+} from "./bindingRuntime";
 
 type ProjectNameValidationOptions = {
   allowReserved?: boolean;
@@ -46,6 +47,14 @@ function validateSimpleNameInput(
 
 function sanitizeSimpleNameSlug(name: string): string {
   return sanitizeGeneratedSimpleNameSlug(name, slugReplacementChars);
+}
+
+function isPythonIdentifier(value: string): boolean {
+  return isGeneratedPythonIdentifier(
+    value,
+    pythonIdentifierStartChars,
+    pythonIdentifierContinueChars,
+  );
 }
 
 export function validateProjectNameInput(
@@ -106,11 +115,10 @@ export function validateParamNameInput(
   name: string,
   options: ParamNameValidationOptions,
 ): string | null {
-  return validateGeneratedParamNameInput(name, {
-    ...options,
-    label: "Param name",
-    pythonIdentifierStartChars,
-    pythonIdentifierContinueChars,
+  return validateGeneratedParamNameInput(
+    name,
+    options,
     pythonKeywords,
-  });
+    isPythonIdentifier,
+  );
 }

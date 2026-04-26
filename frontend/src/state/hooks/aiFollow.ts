@@ -1,8 +1,10 @@
-import { getSectionBounds } from "gpuFlow/flowGeometry";
-import { setViewport } from "gpuFlow/viewportActions";
-import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
-import { getGpuViewportForBounds } from "gpuFlow/viewportMath";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { zoomIdentity } from "d3-zoom";
+import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  getD3Transition,
+  getSectionBounds,
+  getViewportForBounds,
+} from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getHighestAncestor } from "state/actions/sectionInfos";
@@ -11,12 +13,7 @@ import {
   getAllowedChatIdsForProject,
   getSectionIdsForProject,
 } from "state/aiFollowUtils";
-import {
-  useAIFollow,
-  useLocalStorage,
-  useMisc,
-  useProjectState,
-} from "state/definitions";
+import { useAIFollow, useMisc, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
@@ -72,8 +69,10 @@ export function useAIFollowViewport(): void {
       }),
       _.isEqual,
     );
-  const { width, height } = useGpuFlowViewportStore(
+  const { d3Zoom, d3Selection, width, height } = useReactFlow(
     (state) => ({
+      d3Zoom: state.d3Zoom,
+      d3Selection: state.d3Selection,
       width: state.width,
       height: state.height,
     }),
@@ -106,6 +105,7 @@ export function useAIFollowViewport(): void {
   const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] =
     useState<string[]>([]);
   const toolResultGroupTimeout = useRef<number | null>(null);
+  const followTransitionId = useRef(0);
   const toolResultSectionIdsKey = toolResultSectionIds.join("|");
 
   useEffect(() => {
@@ -166,29 +166,52 @@ export function useAIFollowViewport(): void {
       return;
     }
 
+    if (!d3Zoom || !d3Selection) {
+      return;
+    }
     if (width === 0 || height === 0) {
       return;
     }
 
-    const viewportState = gpuFlowViewportStore.getState();
-    const maxZoom = Math.min(viewportState.maxZoom, 1);
-    const minZoom = Math.min(viewportState.minZoom, maxZoom);
-    const { x, y, zoom } = getGpuViewportForBounds(bounds, {
-      canvasHeight: height,
-      canvasWidth: width,
-      keepCurrentZoomIfPossible: true,
-      maxZoom,
-      minZoom,
-      overviewWidth: useLocalStorage.getState().overviewTrueWidth,
-      padding: 0.1,
-      viewport: viewportState.transform,
-    });
+    const { x, y, zoom } = getViewportForBounds(
+      bounds,
+      width,
+      height,
+      0,
+      1,
+      0.1,
+      true,
+    );
 
-    setViewport({ x, y, zoom });
+    // const duration = useSettings.getState().gui.transitionDuration;
+    const duration = 500;
+    const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
+    const transitionId = followTransitionId.current + 1;
+    followTransitionId.current = transitionId;
     useAIFollow.setState((state) => {
-      state.isFollowTransitioning = false;
+      state.isFollowTransitioning = true;
     });
-  }, [height, mode, projectConfigId, sectionIdsKey, width]);
+    const transition = getD3Transition(d3Selection, duration);
+    const clearTransitionLock = () => {
+      if (followTransitionId.current !== transitionId) {
+        return;
+      }
+      useAIFollow.setState((state) => {
+        state.isFollowTransitioning = false;
+      });
+    };
+    transition.on("end", clearTransitionLock);
+    transition.on("interrupt", clearTransitionLock);
+    d3Zoom.transform(transition, nextTransform);
+  }, [
+    d3Selection,
+    d3Zoom,
+    height,
+    mode,
+    projectConfigId,
+    sectionIdsKey,
+    width,
+  ]);
 }
 
 export function useAIFollowZIndexBoost(): void {

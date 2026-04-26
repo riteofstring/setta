@@ -1,19 +1,16 @@
 import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   resetStateMachine as apiResetStateMachine,
   startStateMachineRun as apiStartStateMachineRun,
   stopStateMachineRun as apiStopStateMachineRun,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
   useShareSession,
 } from "state/definitions";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   NotificationTypeEnum,
   RunStatusEnum,

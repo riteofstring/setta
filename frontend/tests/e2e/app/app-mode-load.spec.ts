@@ -5,7 +5,6 @@ import {
 } from "utils/generatedTypes";
 
 import { ensureAppReady } from "../helpers";
-import { enableFirstPartyAppSubsystemPlugin } from "./appModePlugin";
 
 test("app deployment loads with run gating", async ({ page }) => {
   let sessionCalls = 0;
@@ -90,7 +89,6 @@ test("app deployment loads with run gating", async ({ page }) => {
 
   await ensureAppReady(page);
   await page.waitForLoadState("domcontentloaded");
-  await enableFirstPartyAppSubsystemPlugin(page);
 
   await page.route("**/loadSettings", (route) =>
     route.fulfill({
@@ -125,6 +123,14 @@ test("app deployment loads with run gating", async ({ page }) => {
   await expect(page.getByText("App Mode")).toBeVisible();
   await expect.poll(() => sessionCalls).toBeGreaterThan(0);
   await expect.poll(() => stateCalls).toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const { useAppConfigs } = await import("/src/state/definitions.ts");
+        return Object.keys(useAppConfigs.getState().configs).length;
+      }),
+    )
+    .toBe(1);
   await expect
     .poll(() =>
       page.evaluate(async () => {

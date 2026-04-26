@@ -227,12 +227,7 @@ func (p *Project) detachCodeSectionAttachedTerminal(
 	return p.restoreDetachedTerminalTopLevel(terminalSectionID, &terminalSection, terminalImpl, policy)
 }
 
-func normalizeAttachedTerminalPayloadSize(
-	codePayload map[string]any,
-	terminalPayload map[string]any,
-	terminalPayloadExplicit bool,
-	terminalHeight float64,
-) error {
+func normalizeAttachedTerminalPayloadSize(codePayload map[string]any, terminalPayload map[string]any, terminalHeight float64) error {
 	codeSize, ok := payloadObjectField(codePayload, "size")
 	if !ok {
 		codeSize = map[string]any{}
@@ -254,7 +249,7 @@ func normalizeAttachedTerminalPayloadSize(
 	if err != nil {
 		return err
 	}
-	if !terminalPayloadExplicit || !present || isAuto || terminalCurrentHeight <= 0 {
+	if !present || isAuto || terminalCurrentHeight <= 0 {
 		terminalSize["height"] = terminalHeight
 	}
 
@@ -291,17 +286,11 @@ func (p *Project) resolveCodeSectionTerminalAttachTarget(
 		return codeSectionTerminalAttachTarget{}, err
 	}
 
-	terminalPayloadExplicit := len(terminalImpl.Payload) != 0
 	terminalPayload, err := effectiveSectionPayload(*p, terminalSection.ID, terminalVariant.ID)
 	if err != nil {
 		return codeSectionTerminalAttachTarget{}, err
 	}
-	if err := normalizeAttachedTerminalPayloadSize(
-		codePayload,
-		terminalPayload,
-		terminalPayloadExplicit,
-		terminalDefaultHeight,
-	); err != nil {
+	if err := normalizeAttachedTerminalPayloadSize(codePayload, terminalPayload, terminalDefaultHeight); err != nil {
 		return codeSectionTerminalAttachTarget{}, err
 	}
 	return codeSectionTerminalAttachTarget{

@@ -87,5 +87,5 @@ Stop only the CDP/Chrome helpers (repo root):
 
 ## End chat vs. keep running
 
-- Want Setta running? Leave the `./ai.sh` terminal open and just end the chat.
+- Want Setta still running? Leave the `./ai.sh` terminal open and just end the chat.
 - Want a clean stop? Run `./kill.sh`, then close tabs.

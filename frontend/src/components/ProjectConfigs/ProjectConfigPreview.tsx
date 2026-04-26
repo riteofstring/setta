@@ -1,5 +1,5 @@
-import { getXYWidthHeight, MinimapSvg } from "gpuFlow/GpuMiniMapSvg";
-import { getGpuNodesBounds } from "gpuFlow/nodeBounds";
+import { getNodesBounds } from "forks/xyflow/core/utils/graph";
+import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { ProjectConfig } from "utils/generatedTypes";
 
 export function ProjectConfigPreview({
@@ -16,7 +16,7 @@ export function ProjectConfigPreview({
 
   const elementWidth = 200;
   const elementHeight = 150;
-  const boundingRect = getGpuNodesBounds(nodes);
+  const boundingRect = getNodesBounds(nodes);
   const { x, y, width, height, offset } = getXYWidthHeight({
     boundingRect,
     elementHeight,
@@ -32,7 +32,6 @@ export function ProjectConfigPreview({
     width,
     height,
     offset,
-    viewBB: boundingRect,
     nodes,
     nodeColor: "#d6dee8",
     nodeBorderRadius: 2,
@@ -42,5 +41,6 @@ export function ProjectConfigPreview({
     maskStrokeColor: "transparent",
     maskStrokeWidth: 1,
     shapeRendering: "geometricPrecision",
+    enableSelectionSync: false,
   });
 }

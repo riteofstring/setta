@@ -1,7 +1,4 @@
-import { GpuProjectEdgeLayer } from "components/Pages/Project/GpuProjectEdgeLayer";
 import Background from "forks/xyflow/background/Background";
-import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
   useEffect,
@@ -14,8 +11,11 @@ import {
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
+import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
+import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
+import StateMachineEdgeRenderer from "./StateMachineEdgeRenderer";
 import ViewportWrapper from "./Viewport";
 
 const wrapperStyle: CSSProperties = {
@@ -34,8 +34,7 @@ const ReactFlow = () => {
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const transform = useReactFlow((state) => state.transform, _.isEqual);
-  const isConnecting = useGpuFlowViewportStore(
+  const isConnecting = useReactFlow(
     (state) => state.connectionStartHandle !== null,
   );
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
@@ -52,11 +51,10 @@ const ReactFlow = () => {
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
-  useSyncGpuViewportStore(ref, transform);
   useTabScope({
     scopeId: "canvas",
     order: 20,
-    rootRef: ref as RefObject<HTMLElement>,
+    rootRef: ref,
     behavior: "canvas",
   });
 
@@ -100,13 +98,16 @@ const ReactFlow = () => {
         }}
       >
         <FlowRenderer wrapperDimensions={wrapperDimensions}>
-          {readyToRender && (
-            <GpuProjectEdgeLayer
-              showAgenticEdges={showAgenticEdges}
-              showDataEdges={showArgEdges}
-            />
-          )}
-          <ViewportWrapper>{readyToRender && <NodeRenderer />}</ViewportWrapper>
+          <ViewportWrapper>
+            {readyToRender && (
+              <>
+                <EdgeRenderer />
+                <AgenticEdgeRenderer />
+                <StateMachineEdgeRenderer />
+                <NodeRenderer />
+              </>
+            )}
+          </ViewportWrapper>
         </FlowRenderer>
         {snapToGrid && showGridLines && <Background />}
       </div>
@@ -114,74 +115,13 @@ const ReactFlow = () => {
   );
 };
 
-function useSyncGpuViewportStore(
-  ref: RefObject<HTMLDivElement | null>,
-  transform: readonly [number, number, number],
-) {
-  const { defaultZoomLevel, maxZoom, minZoom } = useSettings(
-    (state) => ({
-      defaultZoomLevel: state.gui.defaultZoomLevel,
-      maxZoom: state.gui.maxZoom,
-      minZoom: state.gui.minZoom,
-    }),
-    _.isEqual,
-  );
-
-  useEffect(() => {
-    const node = ref.current;
-    gpuFlowViewportStore.getState().setDomNode(node);
-    return () => {
-      if (node) {
-        gpuFlowViewportStore.getState().clearDomNode(node);
-      }
-    };
-  }, [ref]);
-
-  useEffect(() => {
-    gpuFlowViewportStore.getState().setZoomBounds({
-      defaultZoom: defaultZoomLevel,
-      maxZoom,
-      minZoom,
-    });
-  }, [defaultZoomLevel, maxZoom, minZoom]);
-
-  useEffect(() => {
-    gpuFlowViewportStore.getState().setTransform(transform);
-  }, [transform]);
-
-  useEffect(() => {
-    return gpuFlowViewportStore.subscribe((state, previousState) => {
-      if (areViewportTuplesEqual(state.transform, previousState.transform)) {
-        return;
-      }
-      const reactFlowState = useReactFlow.getState();
-      if (areViewportTuplesEqual(reactFlowState.transform, state.transform)) {
-        return;
-      }
-      useReactFlow.setState({
-        transform: [state.transform[0], state.transform[1], state.transform[2]],
-      });
-    });
-  }, []);
-}
-
-function areViewportTuplesEqual(
-  left: readonly [number, number, number],
-  right: readonly [number, number, number],
-) {
-  return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
-}
-
 function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
   if (!initialized) {
     return;
   }
   const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
-  if (!d3Zoom || !d3Selection) {
-    return;
-  }
-  d3Zoom.translateBy(
-    d3Selection,
+  d3Zoom!.translateBy(
+    d3Selection!,
     -(e.currentTarget.scrollLeft - SCROLL_INIT) / transform[2],
     -(e.currentTarget.scrollTop - SCROLL_INIT) / transform[2],
   );
@@ -189,7 +129,7 @@ function cancelOutScrolling(e: UIEvent<HTMLDivElement>, initialized: boolean) {
   e.currentTarget.scrollLeft = SCROLL_INIT;
 }
 
-function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {
+function useWrapperDivDimensions(ref: RefObject<HTMLDivElement>) {
   const { overviewWidth, uiEditorWidth } = useLocalStorage(
     (x) => ({
       overviewWidth: x.overviewTrueWidth,
@@ -219,10 +159,6 @@ function useWrapperDivDimensions(ref: RefObject<HTMLDivElement | null>) {
 
         // Set React Flow state
         useReactFlow.setState({
-          width: width - overviewWidth - uiEditorWidth || 500,
-          height: height || 500,
-        });
-        gpuFlowViewportStore.getState().setViewportSize({
           width: width - overviewWidth - uiEditorWidth || 500,
           height: height || 500,
         });

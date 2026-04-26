@@ -1,4 +1,4 @@
-import { getZoom } from "gpuFlow/viewportActions";
+import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import cloneDeep from "lodash/cloneDeep";
 import { queueTransformsForSave } from "state/actions/artifacts";
 import {

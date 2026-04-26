@@ -143,4 +143,11 @@ type CoreProjectState interface {
 	CompareAndSetProjectName(ctx context.Context, projectID string, name string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
 	CompareAndSetShowParamDisplayNames(ctx context.Context, projectID string, show bool, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
 	CompareAndSetPythonCodegenEnabled(ctx context.Context, projectID string, enabled bool, expectedOldValue *bool, validator projectstate.CodegenTargetValidator, pythonReconciler projectstate.PythonCodegenSectionReconciler) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
+	CompareAndSetWatchCodeFiles(ctx context.Context, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
+	CompareAndSetAppDefinitionCatalogID(ctx context.Context, catalogID string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionSpecVersion(ctx context.Context, appSpecVersion string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionSpecPath(ctx context.Context, appSpecPath string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionThemeMode(ctx context.Context, themeMode string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
 }

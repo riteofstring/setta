@@ -3,7 +3,6 @@ package uisettings
 import (
 	"context"
 	"errors"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -13,9 +12,7 @@ import (
 type testPluginRuntimeService struct {
 	runtimeResponse   plugins.PluginRuntimeResponse
 	writeConfigCalls  int
-	backendUISettings []plugins.PluginRegisteredUISetting
 	backendReadValue  any
-	backendWriteValue func(any) any
 	backendWriteCalls int
 }
 
@@ -38,7 +35,7 @@ func (s *testPluginRuntimeService) WriteConfig(_ context.Context, options plugin
 }
 
 func (s *testPluginRuntimeService) GetBackendUISettings(string) ([]plugins.PluginRegisteredUISetting, error) {
-	return append([]plugins.PluginRegisteredUISetting(nil), s.backendUISettings...), nil
+	return nil, nil
 }
 
 func (s *testPluginRuntimeService) ReadBackendUISettingValue(_ context.Context, _ plugins.BackendUISettingReadOptions) (any, error) {
@@ -47,11 +44,7 @@ func (s *testPluginRuntimeService) ReadBackendUISettingValue(_ context.Context, 
 
 func (s *testPluginRuntimeService) WriteBackendUISettingValue(_ context.Context, options plugins.BackendUISettingWriteOptions) error {
 	s.backendWriteCalls++
-	if s.backendWriteValue != nil {
-		s.backendReadValue = cloneJSONValue(s.backendWriteValue(options.Value))
-	} else {
-		s.backendReadValue = cloneJSONValue(options.Value)
-	}
+	s.backendReadValue = cloneJSONValue(options.Value)
 	return nil
 }
 
@@ -111,29 +104,7 @@ func newBackendRegisteredRuntimeEntry(service PluginRuntimeService) RuntimeEntry
 		},
 		ReadHandlerID:  "read-enabled",
 		WriteHandlerID: &writeHandlerID,
-	}, true)
-}
-
-func newBackendUISettingsOnlyRuntimeResponse() plugins.PluginRuntimeResponse {
-	return plugins.PluginRuntimeResponse{
-		List: plugins.PluginListResponse{
-			Plugins: []plugins.PluginListEntry{
-				{
-					PluginID:              "plugin-a",
-					EffectiveCapabilities: []string{pluginRegisterUISettingsCapability},
-				},
-			},
-		},
-		Status: plugins.PluginStatusResponse{
-			Plugins: []plugins.PluginStatusEntry{
-				{
-					PluginID:              "plugin-a",
-					State:                 plugins.PluginRuntimeStateActive,
-					EffectiveCapabilities: []string{pluginRegisterUISettingsCapability},
-				},
-			},
-		},
-	}
+	})
 }
 
 func requireSettingError(t *testing.T, err error) *SettingError {
@@ -181,116 +152,6 @@ func TestReadPluginConfigPathValueRejectsNonObjectIntermediateNode(t *testing.T)
 	}
 	if !strings.Contains(settingErr.Message, "non-object node at settings") {
 		t.Fatalf("expected non-object intermediate message, got %q", settingErr.Message)
-	}
-}
-
-func TestNewScopedRegistryIncludesBackendRegisteredSettingWithRegisterUISettingsOnly(t *testing.T) {
-	t.Parallel()
-
-	writeHandlerID := "write-enabled"
-	service := &testPluginRuntimeService{
-		runtimeResponse:  newBackendUISettingsOnlyRuntimeResponse(),
-		backendReadValue: false,
-		backendUISettings: []plugins.PluginRegisteredUISetting{
-			{
-				PluginID:       "plugin-a",
-				LocalSettingID: "enabled",
-				Title:          "Backend Enabled",
-				Description:    "Backend-provided setting.",
-				RevealKey:      "enabled",
-				Mutability:     string(MutabilityWritable),
-				ValueSchema: map[string]any{
-					"type": "boolean",
-				},
-				ReadHandlerID:  "read-enabled",
-				WriteHandlerID: &writeHandlerID,
-			},
-		},
-	}
-	registry, err := NewScopedRegistry(ScopedRegistryOptions{
-		Runtime:       openCoreRegistryRuntime(t),
-		WorkspaceRoot: t.TempDir(),
-		PluginService: service,
-	})
-	if err != nil {
-		t.Fatalf("new scoped registry: %v", err)
-	}
-
-	settingID := "plugin::plugin-a::enabled"
-	if !registry.HasKnownPluginSetting("plugin-a", "enabled") {
-		t.Fatalf("expected backend-registered setting %s to be known", settingID)
-	}
-	entry, ok, err := registry.Get(settingID)
-	if err != nil {
-		t.Fatalf("get backend-registered setting: %v", err)
-	}
-	if !ok {
-		t.Fatalf("expected backend-registered setting %s", settingID)
-	}
-	if entry.Metadata.Title != "Backend Enabled" {
-		t.Fatalf("expected backend title, got %#v", entry.Metadata.Title)
-	}
-	if entry.Metadata.Location.PluginID != "plugin-a" {
-		t.Fatalf("expected plugin location plugin-a, got %#v", entry.Metadata.Location)
-	}
-	if entry.Metadata.Location.PaneID != "" {
-		t.Fatalf("expected backend-only setting to be pane-less, got pane %q", entry.Metadata.Location.PaneID)
-	}
-	if entry.Metadata.Location.OverviewTabKey != "" {
-		t.Fatalf("expected backend-only setting to omit overview tab, got %q", entry.Metadata.Location.OverviewTabKey)
-	}
-	if entry.Metadata.Highlight.Strategy != HighlightStrategyPluginHandler {
-		t.Fatalf("expected plugin handler highlight, got %q", entry.Metadata.Highlight.Strategy)
-	}
-	if entry.Metadata.Highlight.PluginRevealKey != "enabled" {
-		t.Fatalf("expected reveal key enabled, got %q", entry.Metadata.Highlight.PluginRevealKey)
-	}
-	value, err := registry.ReadValue(context.Background(), "project-alpha", settingID)
-	if err != nil {
-		t.Fatalf("read backend-registered setting: %v", err)
-	}
-	if value != false {
-		t.Fatalf("expected backend value false, got %#v", value)
-	}
-}
-
-func TestNewScopedRegistryOmitsSchemaDefinedSettingWithoutRegisterPane(t *testing.T) {
-	t.Parallel()
-
-	service := &testPluginRuntimeService{
-		runtimeResponse: newBackendUISettingsOnlyRuntimeResponse(),
-	}
-	service.runtimeResponse.List.Plugins[0].Config = plugins.PluginConfigDescriptor{
-		SchemaJSON: map[string]any{
-			pluginUISettingsSchemaKey: []any{
-				map[string]any{
-					"settingId":    "theme_mode",
-					"title":        "Theme mode",
-					"description":  "Controls the plugin theme.",
-					"paneId":       "appearance",
-					"revealKey":    "theme-mode",
-					"configPath":   []any{"appearance", "themeMode"},
-					"valueSchema":  map[string]any{"type": string(ValueTypeString)},
-					"defaultValue": "auto",
-				},
-			},
-		},
-	}
-
-	registry, err := NewScopedRegistry(ScopedRegistryOptions{
-		Runtime:       openCoreRegistryRuntime(t),
-		WorkspaceRoot: t.TempDir(),
-		PluginService: service,
-	})
-	if err != nil {
-		t.Fatalf("new scoped registry: %v", err)
-	}
-	if registry.HasKnownPluginSetting("plugin-a", "theme_mode") {
-		t.Fatal("expected schema-defined setting to require registerPane")
-	}
-	_, ok, err := registry.Get("plugin::plugin-a::theme_mode")
-	if err != nil || ok {
-		t.Fatalf("expected schema-defined setting to be absent without registerPane, ok=%v err=%v", ok, err)
 	}
 }
 
@@ -427,57 +288,5 @@ func TestBuildPluginBackendRuntimeEntryStalePreconditionUsesCanonicalSettingID(t
 	}
 	if service.backendWriteCalls != 0 {
 		t.Fatalf("expected no backend writes, got %d", service.backendWriteCalls)
-	}
-}
-
-func TestBuildPluginBackendRuntimeEntryReturnsBackendNormalizedValue(t *testing.T) {
-	t.Parallel()
-
-	writeHandlerID := "write-files"
-	service := &testPluginRuntimeService{
-		runtimeResponse:  newActivePluginRuntimeResponse(map[string]any{}),
-		backendReadValue: []any{},
-		backendWriteValue: func(value any) any {
-			if reflect.DeepEqual(value, []any{"pkg/./file.py"}) {
-				return []any{"pkg/file.py"}
-			}
-			return value
-		},
-	}
-	entry := buildPluginBackendRuntimeEntry(service, plugins.PluginRegisteredUISetting{
-		LocalSettingID: "files",
-		PluginID:       "plugin-a",
-		Title:          "Files",
-		Description:    "Test files setting",
-		PaneID:         "plugin-pane",
-		RevealKey:      "files",
-		Mutability:     string(MutabilityWritable),
-		ValueSchema: map[string]any{
-			"type": "array",
-			"items": map[string]any{
-				"type": "string",
-			},
-		},
-		ReadHandlerID:  "read-files",
-		WriteHandlerID: &writeHandlerID,
-	}, true)
-
-	result, err := entry.WriteValue(context.Background(), "project-1", []any{"pkg/./file.py"}, nil)
-	if err != nil {
-		t.Fatalf("write backend value: %v", err)
-	}
-
-	expected := []any{"pkg/file.py"}
-	if !reflect.DeepEqual(result.NewValue, expected) {
-		t.Fatalf("expected normalized new value %#v, got %#v", expected, result.NewValue)
-	}
-	if !reflect.DeepEqual(result.NormalizedValue, expected) {
-		t.Fatalf("expected normalized value %#v, got %#v", expected, result.NormalizedValue)
-	}
-	if reflect.DeepEqual(result.NormalizedValue, []any{"pkg/./file.py"}) {
-		t.Fatalf("normalized value should not echo raw request: %#v", result.NormalizedValue)
-	}
-	if !result.Changed {
-		t.Fatal("expected backend write to report changed")
 	}
 }

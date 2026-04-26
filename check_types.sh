@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 Usage: ./check_types.sh [--go] [--python] [--frontend]
 
-Run full-repo type checks across Go, Python, and frontend TypeScript packages.
+Run full-repo type checks across Go, Python, and frontend TypeScript.
 
 Options:
   --go        Run Go compile/type checks only.
@@ -99,21 +99,7 @@ fi
 
 if [[ "${run_frontend}" -eq 1 ]]; then
   echo "Frontend type checks..."
-  declare -a frontend_typecheck_dirs=("frontend")
-  if [[ -f "frontend/plugin-sdk/app-subsystem/package.json" ]]; then
-    frontend_typecheck_dirs+=("frontend/plugin-sdk/app-subsystem")
-  fi
-  if [[ -d "plugins" ]]; then
-    while IFS= read -r plugin_frontend_package; do
-      [[ -n "${plugin_frontend_package}" ]] || continue
-      frontend_typecheck_dirs+=("$(dirname "${plugin_frontend_package}")")
-    done < <(find plugins -mindepth 3 -maxdepth 3 -path 'plugins/*/frontend/package.json' -type f | LC_ALL=C sort)
-  fi
-
-  for frontend_typecheck_dir in "${frontend_typecheck_dirs[@]}"; do
-    echo "Frontend type checks (${frontend_typecheck_dir})..."
-    pnpm -C "${frontend_typecheck_dir}" typecheck || status=1
-  done
+  pnpm -C frontend typecheck || status=1
 fi
 
 exit "${status}"

@@ -767,14 +767,14 @@ func TestHandlerServesBootstrapPageWhenAuthEnabled(t *testing.T) {
 	}
 
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, RouteBootstrapPage, nil))
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, bootstrapPagePath, nil))
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 	if contentType := response.Header().Get("Content-Type"); !strings.Contains(contentType, "text/html") {
 		t.Fatalf("expected html content type, got %q", contentType)
 	}
-	if !strings.Contains(response.Body.String(), RouteBootstrapConsume) {
+	if !strings.Contains(response.Body.String(), bootstrapConsumePath) {
 		t.Fatalf("expected bootstrap page to reference consume path, got %q", response.Body.String())
 	}
 }
@@ -793,12 +793,12 @@ func TestHandlerRedirectsBootstrapPageTrailingSlash(t *testing.T) {
 	}
 
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, RouteBootstrapPage+"/", nil))
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, bootstrapPagePath+"/", nil))
 	if response.Code != http.StatusTemporaryRedirect {
 		t.Fatalf("expected 307, got %d with body %q", response.Code, response.Body.String())
 	}
-	if location := response.Header().Get("Location"); location != RouteBootstrapPage {
-		t.Fatalf("expected redirect location %q, got %q", RouteBootstrapPage, location)
+	if location := response.Header().Get("Location"); location != bootstrapPagePath {
+		t.Fatalf("expected redirect location %q, got %q", bootstrapPagePath, location)
 	}
 }
 
@@ -954,7 +954,7 @@ func TestBootstrapPageUsesDevFrontendRedirectWhenConfigured(t *testing.T) {
 	}
 
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000"+RouteBootstrapPage, nil)
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000"+bootstrapPagePath, nil)
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
@@ -979,7 +979,7 @@ func TestBootstrapPageDefaultsDevFrontendRedirectToHTTPWhenSchemeUnset(t *testin
 	}
 
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "https://backend.example:61234"+RouteBootstrapPage, nil)
+	request := httptest.NewRequest(http.MethodGet, "https://backend.example:61234"+bootstrapPagePath, nil)
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
@@ -1047,7 +1047,7 @@ func TestBootstrapConsumeReturnsVerifiedLauncherOrigin(t *testing.T) {
 
 	requestBody := `{"token":"` + token + `","launcherOrigin":"` + launcherOrigin + `","launcherOriginProof":"` + launcherOriginProof + `"}`
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, RouteBootstrapConsume, bytes.NewBufferString(requestBody))
+	request := httptest.NewRequest(http.MethodPost, bootstrapConsumePath, bytes.NewBufferString(requestBody))
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
@@ -1100,7 +1100,7 @@ func TestBootstrapConsumeIgnoresInvalidLauncherOriginProof(t *testing.T) {
 
 	requestBody := `{"token":"` + token + `","launcherOrigin":"http://127.0.0.1:9001","launcherOriginProof":"invalid-proof"}`
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, RouteBootstrapConsume, bytes.NewBufferString(requestBody))
+	request := httptest.NewRequest(http.MethodPost, bootstrapConsumePath, bytes.NewBufferString(requestBody))
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
@@ -1155,7 +1155,7 @@ func TestBootstrapConsumeReturnsStoreUnavailableWhenTrustPersistenceFails(t *tes
 
 	requestBody := `{"token":"` + token + `","launcherOrigin":"` + launcherOrigin + `","launcherOriginProof":"` + launcherOriginProof + `"}`
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, RouteBootstrapConsume, bytes.NewBufferString(requestBody))
+	request := httptest.NewRequest(http.MethodPost, bootstrapConsumePath, bytes.NewBufferString(requestBody))
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusServiceUnavailable {
@@ -1180,7 +1180,7 @@ func TestBootstrapPageIncludesLauncherHandoffAndWorkspaceHistoryStorage(t *testi
 	}
 
 	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, RouteBootstrapPage, nil))
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, bootstrapPagePath, nil))
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
@@ -1327,7 +1327,7 @@ func TestHandlerReturnsBootstrapHTMLForUnauthorizedAuthenticatedRootRoutes(t *te
 	if !strings.Contains(body, "Setta Unauthorized") {
 		t.Fatalf("expected unauthorized html title, got %q", body)
 	}
-	if !strings.Contains(body, RouteBootstrapPage) {
+	if !strings.Contains(body, bootstrapPagePath) {
 		t.Fatalf("expected unauthorized html to link to bootstrap page, got %q", body)
 	}
 	if strings.Contains(body, `"code":"unauthorized"`) {

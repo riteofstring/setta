@@ -15,9 +15,7 @@ import (
 	"time"
 	"unicode"
 
-	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/statefs"
-	"setta/internal/watchcodecontracts"
 )
 
 const (
@@ -51,29 +49,15 @@ var allowedBackendUISettingKeys = map[string]struct{}{
 }
 
 type backendProbeResponse struct {
-	SchemaVersion       int                                          `json:"schemaVersion"`
-	CodegenTargets      []PluginRegisteredCodegenTarget              `json:"codegenTargets"`
-	LanguageServers     []PluginRegisteredLanguageServer             `json:"languageServers"`
-	UISettingsRaw       []map[string]any                             `json:"uiSettings"`
-	Routes              []PluginRegisteredBackendRoute               `json:"routes"`
-	StaticDirs          []PluginRegisteredStaticDir                  `json:"staticDirs"`
-	ListenerEndpoints   []PluginRegisteredListenerEndpoint           `json:"listenerEndpoints"`
-	AppSubsystemBackend *backendProbeAppSubsystemBackendRegistration `json:"appSubsystemBackend,omitempty"`
-	WatchCodeBackend    *backendProbeWatchCodeBackendRegistration    `json:"watchCodeBackend,omitempty"`
+	SchemaVersion     int                                `json:"schemaVersion"`
+	CodegenTargets    []PluginRegisteredCodegenTarget    `json:"codegenTargets"`
+	LanguageServers   []PluginRegisteredLanguageServer   `json:"languageServers"`
+	UISettingsRaw     []map[string]any                   `json:"uiSettings"`
+	Routes            []PluginRegisteredBackendRoute     `json:"routes"`
+	StaticDirs        []PluginRegisteredStaticDir        `json:"staticDirs"`
+	ListenerEndpoints []PluginRegisteredListenerEndpoint `json:"listenerEndpoints"`
 
 	UISettings []PluginRegisteredUISetting `json:"-"`
-}
-
-type backendProbeAppSubsystemBackendRegistration struct {
-	ContractVersion   int                                `json:"contractVersion"`
-	ListenerEndpoints []PluginRegisteredListenerEndpoint `json:"listenerEndpoints,omitempty"`
-}
-
-type backendProbeWatchCodeBackendRegistration struct {
-	ContractVersion        int      `json:"contractVersion"`
-	DataSchemaVersion      int      `json:"dataSchemaVersion"`
-	Languages              []string `json:"languages"`
-	RequiresLanguageServer bool     `json:"requiresLanguageServer"`
 }
 
 type normalizedBackendUISetting struct {
@@ -99,15 +83,7 @@ type normalizedBackendUISettingRequiredFields struct {
 func backendProbeRequired(capabilities []string) bool {
 	for _, capability := range capabilities {
 		switch capability {
-		case "registerCodegenTarget",
-			"registerLanguageServer",
-			"registerPane",
-			"registerRouter",
-			"registerStaticDir",
-			"registerListenerEndpoint",
-			"registerAppSubsystemBackend",
-			"registerWatchCodeBackend",
-			"registerUISettings":
+		case "registerCodegenTarget", "registerLanguageServer", "registerPane", "registerRouter", "registerStaticDir", "registerListenerEndpoint":
 			return true
 		}
 	}
@@ -234,118 +210,8 @@ func normalizeBackendProbeResponse(pluginRoot string, pluginID string, probe bac
 	if err != nil {
 		return backendProbeResponse{}, err
 	}
-	probe.AppSubsystemBackend, err = normalizeBackendAppSubsystemBackendRegistration(
-		probe.AppSubsystemBackend,
-	)
-	if err != nil {
-		return backendProbeResponse{}, err
-	}
-	probe.WatchCodeBackend, err = normalizeBackendWatchCodeBackendRegistration(
-		probe.WatchCodeBackend,
-	)
-	if err != nil {
-		return backendProbeResponse{}, err
-	}
-	if err := rejectDuplicateGenericAndAppSubsystemListenerEndpoints(probe); err != nil {
-		return backendProbeResponse{}, err
-	}
 
 	return probe, nil
-}
-
-func normalizeBackendAppSubsystemBackendRegistration(
-	registration *backendProbeAppSubsystemBackendRegistration,
-) (*backendProbeAppSubsystemBackendRegistration, error) {
-	if registration == nil {
-		return nil, nil
-	}
-	if registration.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
-		return nil, fmt.Errorf(
-			"appSubsystemBackend: unsupported contract version %d",
-			registration.ContractVersion,
-		)
-	}
-	listenerEndpoints, err := normalizeBackendListenerEndpoints(registration.ListenerEndpoints)
-	if err != nil {
-		return nil, fmt.Errorf("appSubsystemBackend: %w", err)
-	}
-	return &backendProbeAppSubsystemBackendRegistration{
-		ContractVersion:   registration.ContractVersion,
-		ListenerEndpoints: listenerEndpoints,
-	}, nil
-}
-
-func normalizeBackendWatchCodeBackendRegistration(
-	registration *backendProbeWatchCodeBackendRegistration,
-) (*backendProbeWatchCodeBackendRegistration, error) {
-	if registration == nil {
-		return nil, nil
-	}
-	if registration.ContractVersion != watchcodecontracts.BackendContractVersion {
-		return nil, fmt.Errorf(
-			"watchCodeBackend: unsupported contract version %d",
-			registration.ContractVersion,
-		)
-	}
-	if registration.DataSchemaVersion != watchcodecontracts.BackendDataSchemaVersion {
-		return nil, fmt.Errorf(
-			"watchCodeBackend: unsupported data schema version %d",
-			registration.DataSchemaVersion,
-		)
-	}
-	languages, err := normalizeWatchCodeBackendLanguages(registration.Languages)
-	if err != nil {
-		return nil, fmt.Errorf("watchCodeBackend: %w", err)
-	}
-	return &backendProbeWatchCodeBackendRegistration{
-		ContractVersion:        registration.ContractVersion,
-		DataSchemaVersion:      registration.DataSchemaVersion,
-		Languages:              languages,
-		RequiresLanguageServer: registration.RequiresLanguageServer,
-	}, nil
-}
-
-func normalizeWatchCodeBackendLanguages(languages []string) ([]string, error) {
-	if len(languages) == 0 {
-		return nil, fmt.Errorf("languages must include at least one language")
-	}
-	normalized := make([]string, 0, len(languages))
-	seen := make(map[string]struct{}, len(languages))
-	for _, language := range languages {
-		trimmed := strings.ToLower(strings.TrimSpace(language))
-		if trimmed == "" {
-			return nil, fmt.Errorf("languages must not contain empty values")
-		}
-		if _, exists := seen[trimmed]; exists {
-			return nil, fmt.Errorf("duplicate language %q", trimmed)
-		}
-		seen[trimmed] = struct{}{}
-		normalized = append(normalized, trimmed)
-	}
-	slices.Sort(normalized)
-	return normalized, nil
-}
-
-func rejectDuplicateGenericAndAppSubsystemListenerEndpoints(
-	probe backendProbeResponse,
-) error {
-	if probe.AppSubsystemBackend == nil || len(probe.ListenerEndpoints) == 0 {
-		return nil
-	}
-	genericNames := make(map[string]struct{}, len(probe.ListenerEndpoints))
-	for _, endpoint := range probe.ListenerEndpoints {
-		genericNames[strings.TrimSpace(endpoint.Name)] = struct{}{}
-	}
-	for _, endpoint := range probe.AppSubsystemBackend.ListenerEndpoints {
-		name := strings.TrimSpace(endpoint.Name)
-		if _, ok := genericNames[name]; ok {
-			return fmt.Errorf(
-				"listener endpoint %q is published through both generic listenerEndpoints and appSubsystemBackend.listenerEndpoints",
-				name,
-			)
-		}
-	}
-	return nil
 }
 
 func normalizeBackendCodegenTargets(pluginID string, targets []PluginRegisteredCodegenTarget) ([]PluginRegisteredCodegenTarget, error) {
@@ -640,16 +506,14 @@ func normalizeBackendLanguageServerRegistration(pluginRoot string, pluginID stri
 		return PluginRegisteredLanguageServer{}, err
 	}
 	settingsKey := normalizeBackendLanguageServerSettingsKey(registration.SettingsKey)
-	runtimeSearchPathsKey := normalizeBackendLanguageServerSettingsKey(registration.RuntimeSearchPathsKey)
 
 	return PluginRegisteredLanguageServer{
-		PluginID:              strings.TrimSpace(pluginID),
-		Name:                  name,
-		Language:              language,
-		Command:               command,
-		Args:                  append([]string(nil), args...),
-		SettingsKey:           cloneOptionalString(settingsKey),
-		RuntimeSearchPathsKey: cloneOptionalString(runtimeSearchPathsKey),
+		PluginID:    strings.TrimSpace(pluginID),
+		Name:        name,
+		Language:    language,
+		Command:     command,
+		Args:        append([]string(nil), args...),
+		SettingsKey: cloneOptionalString(settingsKey),
 	}, nil
 }
 
@@ -748,9 +612,6 @@ func ensureSinglePluginLanguageServerImplementation(registrations []PluginRegist
 			return fmt.Errorf("language servers must share one implementation per plugin")
 		}
 		if !optionalStringsEqual(baseline.SettingsKey, registration.SettingsKey) {
-			return fmt.Errorf("language servers must share one implementation per plugin")
-		}
-		if !optionalStringsEqual(baseline.RuntimeSearchPathsKey, registration.RuntimeSearchPathsKey) {
 			return fmt.Errorf("language servers must share one implementation per plugin")
 		}
 	}
@@ -903,12 +764,9 @@ func normalizeBackendUISettingRequiredFieldsFromRaw(raw map[string]any) (normali
 	if err != nil {
 		return normalizedBackendUISettingRequiredFields{}, err
 	}
-	var paneID string
-	if rawPaneID, ok := raw["paneId"]; ok && rawPaneID != nil {
-		paneID, err = backendProbeRequiredString(rawPaneID, "paneId")
-		if err != nil {
-			return normalizedBackendUISettingRequiredFields{}, err
-		}
+	paneID, err := backendProbeRequiredString(raw["paneId"], "paneId")
+	if err != nil {
+		return normalizedBackendUISettingRequiredFields{}, err
 	}
 	revealKey, err := backendProbeRequiredString(raw["revealKey"], "revealKey")
 	if err != nil {

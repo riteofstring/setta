@@ -4,11 +4,11 @@ import {
   useBackendLogEvents,
   useLocalStorage,
 } from "state/definitions";
-import { OverviewNotificationsPaneTabEnum } from "utils/constants";
 import {
-  OverviewTabUIConfig,
-  type BackendLogEvent,
-} from "utils/generatedTypes";
+  OverviewNotificationsPaneTabEnum,
+  OverviewTabNameEnum,
+} from "utils/constants";
+import { type BackendLogEvent } from "utils/generatedTypes";
 
 const MAX_BACKEND_LOG_EVENTS = 500;
 
@@ -23,7 +23,7 @@ function backendLogsTabIsVisible() {
     return false;
   }
   return (
-    overviewTab === OverviewTabUIConfig.names.Notifications &&
+    overviewTab === OverviewTabNameEnum.Notifications &&
     overviewNotificationsPaneTab ===
       OverviewNotificationsPaneTabEnum.BackendLogs
   );
