@@ -157,13 +157,16 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     expect(controller.getOverlayNodeId()).toBe("node-a");
+    expect(controller.getLiveNodeId()).toBe("node-a");
     expect(states.at(-1)).toEqual({
       activeNodeId: "node-a",
       overlayNodeId: "node-a",
     });
 
     document.dispatchEvent(new Event("pointerup", { bubbles: true }));
+    expect(controller.getLiveNodeId()).toBe("node-a");
     nowMs = 101;
+    expect(controller.getLiveNodeId()).toBeNull();
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],

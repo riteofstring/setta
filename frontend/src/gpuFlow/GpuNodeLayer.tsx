@@ -105,6 +105,10 @@ type RenderGpuNodeLayerFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
+  readonly deferUploadNodeIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   readonly deferResolutionUpdates?: boolean | undefined;
   readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
@@ -217,6 +221,7 @@ export function renderGpuNodeLayerFrame({
   activeNodeId,
   canvasSize,
   clearColor,
+  deferUploadNodeIds,
   deferResolutionUpdates,
   edges,
   elementByNodeId,
@@ -267,6 +272,7 @@ export function renderGpuNodeLayerFrame({
     viewport,
   });
   const uploadResult = uploadGpuNodeTextures({
+    deferUploadNodeIds,
     deferResolutionUpdates,
     frame,
     textureManager,
@@ -346,17 +352,23 @@ function registerVisibleGpuNodeTextures({
 }
 
 function uploadGpuNodeTextures({
+  deferUploadNodeIds,
   deferResolutionUpdates,
   frame,
   textureManager,
   uploadBudget,
 }: {
+  readonly deferUploadNodeIds:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   readonly deferResolutionUpdates: boolean | undefined;
   readonly frame: number;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
 }) {
   return textureManager.uploadDirtyNodeTextures({
+    ...(deferUploadNodeIds ? { deferNodeIds: deferUploadNodeIds } : {}),
     frame,
     ...(deferResolutionUpdates ? { deferPassiveUploads: true } : {}),
     ...uploadBudget,

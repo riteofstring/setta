@@ -213,6 +213,29 @@ describe("GpuNodeLayer helpers", () => {
     });
   });
 
+  it("passes explicitly deferred upload nodes to the texture manager", () => {
+    const visible = document.createElement("div");
+    const elements = new Map([["visible", visible]]);
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      deferUploadNodeIds: ["visible"],
+      elementByNodeId: elements,
+      frame: 1,
+      nodes: [node("visible", 10, 20, 100, 50, 0)],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({
+      deferNodeIds: ["visible"],
+      frame: 1,
+    });
+  });
+
   it("redraws viewport-only movement from cached textures without another element upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

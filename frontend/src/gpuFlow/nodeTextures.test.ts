@@ -245,6 +245,46 @@ describe("NodeTextureManager", () => {
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 
+  it("defers explicit nodes without reporting exhausted upload budget", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new NodeTextureManager(gpu.device);
+
+    registerNode(manager, "live", "interactive");
+    registerNode(manager, "visible", "visible");
+    manager.uploadDirtyNodeTextures({ frame: 1 });
+    manager.markNodeTextureDirty({
+      content: true,
+      frame: 2,
+      nodeId: "live",
+      priority: "interactive",
+      reason: "input",
+    });
+    manager.markNodeTextureDirty({
+      content: true,
+      frame: 2,
+      nodeId: "visible",
+      priority: "visible",
+      reason: "paint",
+    });
+
+    const deferred = manager.uploadDirtyNodeTextures({
+      deferNodeIds: ["live"],
+      frame: 3,
+    });
+
+    expect(deferred).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: ["live"],
+    });
+    expect(deferred.uploaded.map((node) => node.nodeId)).toEqual(["visible"]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(3);
+
+    const uploaded = manager.uploadDirtyNodeTextures({ frame: 4 });
+    expect(uploaded.uploaded.map((node) => node.nodeId)).toEqual(["live"]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(4);
+  });
+
   it("uploads dirty nodes by interactive priority within the upload budget", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

@@ -58,6 +58,7 @@ type MarkNodeTextureDirtyInput = Pick<
 
 export type UploadDirtyNodeTexturesOptions = {
   readonly deferPassiveUploads?: boolean | undefined;
+  readonly deferNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   readonly deferResolutionOnly?: boolean | undefined;
   readonly frame: number;
   readonly maxDurationMs?: number | undefined;
@@ -66,6 +67,7 @@ export type UploadDirtyNodeTexturesOptions = {
 };
 
 type ResolvedUploadDirtyNodeTexturesOptions = {
+  readonly deferNodeIds: ReadonlySet<string>;
   readonly deferPassiveUploads: boolean;
   readonly deferResolutionOnly: boolean;
   readonly frame: number;
@@ -258,6 +260,7 @@ export class NodeTextureManager {
   }
 
   uploadDirtyNodeTextures({
+    deferNodeIds,
     deferPassiveUploads = false,
     deferResolutionOnly = false,
     frame,
@@ -266,6 +269,7 @@ export class NodeTextureManager {
     now = getNow,
   }: UploadDirtyNodeTexturesOptions): UploadDirtyNodeTexturesResult {
     const uploadOptions = {
+      deferNodeIds: normalizeNodeIdSet(deferNodeIds),
       deferPassiveUploads,
       deferResolutionOnly,
       frame,
@@ -342,7 +346,11 @@ export class NodeTextureManager {
     dirtyNodes: readonly DirtyNodeState[],
     options: ResolvedUploadDirtyNodeTexturesOptions,
   ): readonly DirtyNodeState[] {
-    if (!options.deferPassiveUploads && !options.deferResolutionOnly) {
+    if (
+      options.deferNodeIds.size === 0 &&
+      !options.deferPassiveUploads &&
+      !options.deferResolutionOnly
+    ) {
       return dirtyNodes;
     }
     return dirtyNodes.filter((node) => {
@@ -357,6 +365,7 @@ export class NodeTextureManager {
     options: ResolvedUploadDirtyNodeTexturesOptions,
   ): boolean {
     return shouldDeferDirtyNodeUpload(dirtyNode, record, {
+      deferNodeIds: options.deferNodeIds,
       deferPassiveUploads: options.deferPassiveUploads,
       deferResolutionOnly:
         options.deferResolutionOnly && isResolutionOnlyDirtyNode(dirtyNode),
@@ -510,16 +519,21 @@ function shouldDeferDirtyNodeUpload(
   dirtyNode: Pick<
     DirtyNodeState,
     "dirtyContent" | "dirtyResolution" | "priority"
-  >,
+  > & { readonly nodeId?: string | undefined },
   record: Pick<NodeTextureRecord, "lastUploadFrame"> | undefined,
   {
+    deferNodeIds,
     deferPassiveUploads,
     deferResolutionOnly,
   }: {
+    readonly deferNodeIds?: ReadonlySet<string> | undefined;
     readonly deferPassiveUploads: boolean;
     readonly deferResolutionOnly: boolean;
   },
 ): boolean {
+  if (dirtyNode.nodeId && deferNodeIds?.has(dirtyNode.nodeId)) {
+    return true;
+  }
   if (!record || record.lastUploadFrame < 0) {
     return false;
   }
@@ -527,4 +541,16 @@ function shouldDeferDirtyNodeUpload(
     return false;
   }
   return deferPassiveUploads || deferResolutionOnly;
+}
+
+function normalizeNodeIdSet(
+  nodeIds: ReadonlySet<string> | readonly string[] | undefined,
+): ReadonlySet<string> {
+  if (!nodeIds) {
+    return new Set();
+  }
+  if (nodeIds instanceof Set) {
+    return nodeIds;
+  }
+  return new Set(nodeIds);
 }

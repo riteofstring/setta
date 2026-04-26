@@ -60,3 +60,15 @@
   pointer-events: none;
   user-select: none;
 }
+
+.setta-gpu-flow__active-node-teleport-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.setta-gpu-flow__node--teleported {
+  pointer-events: auto;
+}

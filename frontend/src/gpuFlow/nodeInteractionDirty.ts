@@ -22,6 +22,7 @@ export type GpuNodeInteractionDirtyController = {
   clearNode(nodeId: string): void;
   completeFrame(result: GpuNodeInteractionFrameResult): void;
   getActiveNodeId(): string | null;
+  getLiveNodeId(): string | null;
   getOverlayNodeId(): string | null;
 };
 
@@ -426,6 +427,18 @@ export function createGpuNodeInteractionDirtyController({
       setState({ overlayNodeId: null });
     },
     getActiveNodeId() {
+      return activeNodeId;
+    },
+    getLiveNodeId() {
+      if (!activeNodeId) {
+        return null;
+      }
+      if (
+        releaseAfterUploadNodeId === activeNodeId &&
+        !isInteractiveFeedbackActive()
+      ) {
+        return null;
+      }
       return activeNodeId;
     },
     getOverlayNodeId() {
