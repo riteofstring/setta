@@ -1,12 +1,18 @@
 /* @vitest-environment jsdom */
 
+import { act } from "react";
+import { createRoot } from "react-dom/client";
+import "testUtils/reactRefreshPreamble";
 import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
+import type { GpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
+import { createGpuActiveNodeTeleportController } from "./GpuActiveNodeTeleport";
 import {
   buildTexturedGpuNodeQuads,
   collectVisibleGpuNodeQuads,
+  GpuNodeLayer,
   markGpuNodeLayerPaintDirty,
   renderGpuNodeLayerFrame,
   syncGpuNodeDomTransforms,
@@ -106,6 +112,101 @@ describe("GpuNodeLayer helpers", () => {
     );
     expect(culled.style.pointerEvents).toBe("none");
     expect(culled.dataset.gpuFlowInteractive).toBe("false");
+  });
+
+  it("keeps React reconciliation stable while a node host is teleported", () => {
+    const canvas = document.createElement("canvas");
+    const teleportLayer = document.createElement("div");
+    document.body.append(canvas, teleportLayer);
+    const root = createRoot(canvas);
+    const elements = new Map<string, HTMLElement>();
+    const onNodeElementChange = (
+      nodeId: string,
+      element: HTMLElement | null,
+    ) => {
+      if (element) {
+        elements.set(nodeId, element);
+        return;
+      }
+      elements.delete(nodeId);
+    };
+
+    act(() => {
+      root.render(
+        <GpuNodeLayer
+          nodes={[
+            node("node-a", 10, 20, 100, 50, 1),
+            node("node-b", 40, 50, 100, 50, 2),
+          ]}
+          onNodeElementChange={onNodeElementChange}
+          renderNode={(renderedNode) => (
+            <span data-testid={`content-${renderedNode.nodeId}`}>
+              {renderedNode.nodeId}
+            </span>
+          )}
+        />,
+      );
+    });
+
+    const nodeHost = elements.get("node-a");
+    expect(nodeHost).toBeInstanceOf(HTMLElement);
+    expect(nodeHost?.parentElement).toBe(canvas);
+    expect(nodeHost?.dataset.gpuFlowNode).toBe("true");
+    expect(
+      canvas.querySelector(
+        '[data-gpu-flow-node-anchor="true"][data-id="node-a"]',
+      ),
+    ).not.toBeNull();
+
+    const teleport = createGpuActiveNodeTeleportController(teleportLayer);
+    teleport.sync(activeSnapshot(nodeHost as HTMLElement, "node-a"));
+    expect(nodeHost?.parentElement).toBe(teleportLayer);
+
+    act(() => {
+      root.render(
+        <GpuNodeLayer
+          nodes={[
+            node("node-a", 20, 30, 100, 50, 4),
+            node("node-b", 40, 50, 100, 50, 2),
+          ]}
+          onNodeElementChange={onNodeElementChange}
+          renderNode={(renderedNode) => (
+            <span data-testid={`content-${renderedNode.nodeId}`}>
+              {renderedNode.nodeId}
+            </span>
+          )}
+        />,
+      );
+    });
+    expect(nodeHost?.parentElement).toBe(teleportLayer);
+    expect(
+      nodeHost?.classList.contains("setta-gpu-flow__node--teleported"),
+    ).toBe(true);
+
+    expect(() => {
+      act(() => {
+        root.render(
+          <GpuNodeLayer
+            nodes={[
+              node("node-b", 40, 50, 100, 50, 2),
+              node("node-c", 70, 80, 100, 50, 3),
+            ]}
+            onNodeElementChange={onNodeElementChange}
+            renderNode={(renderedNode) => (
+              <span data-testid={`content-${renderedNode.nodeId}`}>
+                {renderedNode.nodeId}
+              </span>
+            )}
+          />,
+        );
+      });
+    }).not.toThrow();
+    expect(elements.has("node-a")).toBe(false);
+
+    act(() => root.unmount());
+    teleport.destroy();
+    canvas.remove();
+    teleportLayer.remove();
   });
 
   it("registers visible DOM nodes, uploads dirty textures, and renders uploaded quads", () => {
@@ -482,6 +583,23 @@ function node(
     x,
     y,
     zIndex,
+  };
+}
+
+function activeSnapshot(
+  sourceElement: HTMLElement,
+  nodeId: string,
+): GpuActiveNodeSnapshot {
+  return {
+    frame: 1,
+    height: 50,
+    nodeId,
+    screenX: 10,
+    screenY: 20,
+    sourceElement,
+    width: 100,
+    zIndex: 2,
+    zoom: 1,
   };
 }
 

@@ -245,6 +245,52 @@ describe("NodeTextureManager", () => {
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps dirty nodes queued when Chromium has not cached a paint record yet", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const canvas = createHtmlInCanvasCanvas();
+    const manager = new NodeTextureManager(gpu.device, { canvas });
+    const element = document.createElement("div");
+    gpu.copyElementImageToTexture.mockImplementationOnce(() => {
+      throw new DOMException(
+        "No cached paint record for element.",
+        "InvalidStateError",
+      );
+    });
+
+    manager.registerNodeTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      frame: 1,
+      nodeId: "node-a",
+      zoom: 1,
+    });
+    const deferred = manager.uploadDirtyNodeTextures({ frame: 2 });
+
+    expect(deferred).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: ["node-a"],
+      uploaded: [],
+    });
+    expect(canvas.requestPaint).toHaveBeenCalledTimes(2);
+    expect(manager.getNodeTexture("node-a")).toMatchObject({
+      dirtyContent: true,
+      dirtyResolution: true,
+      lastUploadFrame: -1,
+    });
+
+    const uploaded = manager.uploadDirtyNodeTextures({ frame: 3 });
+
+    expect(uploaded.uploaded.map((node) => node.nodeId)).toEqual(["node-a"]);
+    expect(manager.getNodeTexture("node-a")).toMatchObject({
+      dirtyContent: false,
+      dirtyResolution: false,
+      lastUploadFrame: 3,
+    });
+  });
+
   it("defers explicit nodes without reporting exhausted upload budget", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

@@ -104,6 +104,12 @@ type TextureResources = Pick<
   "sampler" | "texture" | "textureView"
 >;
 
+type DirtyNodeUploadOutcome =
+  | NodeTextureRecord
+  | "deferred"
+  | "missing"
+  | "paint-unavailable";
+
 const DEFAULT_NODE_TEXTURE_FORMAT = "rgba8unorm";
 
 export class NodeTextureManager {
@@ -277,13 +283,13 @@ export class NodeTextureManager {
       maxUploads,
       now,
     };
-    const { skippedNodeIds, uploaded } =
+    const { paintUnavailableNodeIds, skippedNodeIds, uploaded } =
       this.uploadQueuedDirtyNodeTextures(uploadOptions);
     const remainingDirtyNodes = this.dirtyQueue.orderedDirtyNodes();
     const uploadableRemainingDirtyNodes = this.uploadableDirtyNodes(
       remainingDirtyNodes,
       uploadOptions,
-    );
+    ).filter((node) => !paintUnavailableNodeIds.has(node.nodeId));
     const remainingDirtyNodeIds = remainingDirtyNodes.map(
       (node) => node.nodeId,
     );
@@ -299,10 +305,12 @@ export class NodeTextureManager {
   private uploadQueuedDirtyNodeTextures(
     options: ResolvedUploadDirtyNodeTexturesOptions,
   ): {
+    readonly paintUnavailableNodeIds: ReadonlySet<string>;
     readonly skippedNodeIds: string[];
     readonly uploaded: NodeTextureRecord[];
   } {
     const startedAt = options.now();
+    const paintUnavailableNodeIds = new Set<string>();
     const uploaded: NodeTextureRecord[] = [];
     const skippedNodeIds: string[] = [];
 
@@ -314,6 +322,10 @@ export class NodeTextureManager {
       if (outcome === "deferred") {
         continue;
       }
+      if (outcome === "paint-unavailable") {
+        paintUnavailableNodeIds.add(dirtyNode.nodeId);
+        continue;
+      }
       if (outcome === "missing") {
         skippedNodeIds.push(dirtyNode.nodeId);
         continue;
@@ -321,13 +333,13 @@ export class NodeTextureManager {
       uploaded.push(outcome);
     }
 
-    return { skippedNodeIds, uploaded };
+    return { paintUnavailableNodeIds, skippedNodeIds, uploaded };
   }
 
   private uploadDirtyNodeIfAllowed(
     dirtyNode: DirtyNodeState,
     options: ResolvedUploadDirtyNodeTexturesOptions,
-  ): NodeTextureRecord | "deferred" | "missing" {
+  ): DirtyNodeUploadOutcome {
     const record = this.records.get(dirtyNode.nodeId);
     if (!record) {
       this.dirtyQueue.clear(dirtyNode.nodeId);
@@ -337,7 +349,15 @@ export class NodeTextureManager {
       return "deferred";
     }
 
-    this.uploadRecord(record, options.frame);
+    try {
+      this.uploadRecord(record, options.frame);
+    } catch (error: unknown) {
+      if (isMissingElementPaintRecordError(error)) {
+        this.canvas?.requestPaint();
+        return "paint-unavailable";
+      }
+      throw error;
+    }
     this.dirtyQueue.clear(record.nodeId);
     return record;
   }
@@ -463,6 +483,14 @@ function getNodeTextureUsage(): GPUTextureUsageFlags {
     throw new Error("Setta GPU flow requires GPUTextureUsage constants.");
   }
   return usage.TEXTURE_BINDING | usage.COPY_DST | usage.RENDER_ATTACHMENT;
+}
+
+function isMissingElementPaintRecordError(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    error.name === "InvalidStateError" &&
+    error.message.includes("No cached paint record for element")
+  );
 }
 
 function getNow(): number {

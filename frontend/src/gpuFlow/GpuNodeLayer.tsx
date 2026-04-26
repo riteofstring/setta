@@ -1,4 +1,12 @@
-import { memo, useCallback, type CSSProperties, type ReactNode } from "react";
+import {
+  memo,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import type { NodeTexturePriority } from "./dirtyTracking";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type {
@@ -154,6 +162,10 @@ type MarkGpuNodeLayerPaintDirtyInput = {
 const DEFAULT_OFFSCREEN_POSITION = -100_000;
 const DEFAULT_NODE_CLASS_NAME = "setta-gpu-flow__node react-flow__node";
 const GPU_FLOW_NODE_INTERACTIVE_CLASS = "setta-gpu-flow__node--interactive";
+const PRESERVED_GPU_NODE_STATE_CLASSES = [
+  GPU_FLOW_NODE_INTERACTIVE_CLASS,
+  "setta-gpu-flow__node--teleported",
+] as const;
 
 export function GpuNodeLayer({
   className = DEFAULT_NODE_CLASS_NAME,
@@ -193,29 +205,100 @@ const GpuNodeChild = memo(function GpuNodeChild({
   readonly renderNode: (node: GpuNodeLayout) => ReactNode;
   readonly visibility: CSSProperties["visibility"] | undefined;
 }) {
-  const setNodeElement = useCallback(
-    (element: HTMLDivElement | null) => {
-      onNodeElementChange?.(node.nodeId, element);
-    },
-    [node.nodeId, onNodeElementChange],
-  );
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) {
+      return;
+    }
+    const host =
+      hostRef.current ?? createGpuNodeHostElement(anchor.ownerDocument);
+    hostRef.current = host;
+    insertGpuNodeHostAfterAnchor(anchor, host);
+    setHostElement(host);
+    onNodeElementChange?.(node.nodeId, host);
+    return () => {
+      onNodeElementChange?.(node.nodeId, null);
+      host.remove();
+      if (hostRef.current === host) {
+        hostRef.current = null;
+      }
+    };
+  }, [node.nodeId, onNodeElementChange]);
+
+  useLayoutEffect(() => {
+    if (!hostElement) {
+      return;
+    }
+    configureGpuNodeHostElement({
+      className,
+      host: hostElement,
+      node,
+      visibility,
+    });
+  }, [className, hostElement, node, visibility]);
 
   return (
-    <div
-      className={className}
-      data-gpu-flow-node="true"
-      data-id={node.nodeId}
-      data-testid={`rf__node-${node.nodeId}`}
-      ref={setNodeElement}
-      style={{
-        visibility,
-        zIndex: resolveGpuNodeCssZIndex(node),
-      }}
-    >
-      {renderNode(node)}
-    </div>
+    <>
+      <span
+        aria-hidden="true"
+        data-gpu-flow-node-anchor="true"
+        data-id={node.nodeId}
+        ref={anchorRef}
+        style={{ display: "none" }}
+      />
+      {hostElement ? createPortal(renderNode(node), hostElement) : null}
+    </>
   );
 });
+
+function createGpuNodeHostElement(ownerDocument: Document): HTMLDivElement {
+  return ownerDocument.createElement("div");
+}
+
+function insertGpuNodeHostAfterAnchor(anchor: HTMLElement, host: HTMLElement) {
+  const parent = anchor.parentNode;
+  if (!parent || host.parentNode === parent) {
+    return;
+  }
+  parent.insertBefore(host, anchor.nextSibling);
+}
+
+function configureGpuNodeHostElement({
+  className,
+  host,
+  node,
+  visibility,
+}: {
+  readonly className: string;
+  readonly host: HTMLElement;
+  readonly node: GpuNodeLayout;
+  readonly visibility: CSSProperties["visibility"] | undefined;
+}) {
+  host.className = mergeGpuNodeHostClassName(className, host.classList);
+  host.dataset.gpuFlowNode = "true";
+  host.dataset.id = node.nodeId;
+  host.setAttribute("data-testid", `rf__node-${node.nodeId}`);
+  host.style.visibility = visibility ?? "";
+  const zIndex = resolveGpuNodeCssZIndex(node);
+  host.style.zIndex = zIndex === undefined ? "" : String(zIndex);
+}
+
+function mergeGpuNodeHostClassName(
+  baseClassName: string,
+  currentClassList: DOMTokenList,
+): string {
+  const classes = new Set(baseClassName.split(/\s+/).filter(Boolean));
+  for (const stateClass of PRESERVED_GPU_NODE_STATE_CLASSES) {
+    if (currentClassList.contains(stateClass)) {
+      classes.add(stateClass);
+    }
+  }
+  return [...classes].join(" ");
+}
 
 export function renderGpuNodeLayerFrame({
   activeNodeId,
