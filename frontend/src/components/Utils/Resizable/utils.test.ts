@@ -20,6 +20,72 @@ describe("resize utils", () => {
     expect(result).toEqual({ width: "auto" });
   });
 
+  it("does not persist auto-only paired dimensions during aspect-ratio resize", () => {
+    const ref = { style: { width: "240px", height: "120px" } };
+    const event = { detail: 1 };
+
+    expect(
+      getChangedSize({
+        props: [event, "right", ref, { width: 40, height: 20 }],
+        sizeMode: { width: SIZE_MODE.any, height: SIZE_MODE.auto_only },
+        aspectRatio: true,
+      }),
+    ).toEqual({ width: 240 });
+
+    expect(
+      getChangedSize({
+        props: [event, "bottom", ref, { width: 40, height: 20 }],
+        sizeMode: { width: SIZE_MODE.auto_only, height: SIZE_MODE.any },
+        aspectRatio: true,
+      }),
+    ).toEqual({ height: 120 });
+  });
+
+  it("filters manual bottom-right resize updates by size mode", () => {
+    const ref = { style: { width: "240px", height: "120px" } };
+    const event = { detail: 1 };
+
+    expect(
+      getChangedSize({
+        props: [event, "bottomRight", ref, { width: 40, height: 20 }],
+        sizeMode: { width: SIZE_MODE.auto_only, height: SIZE_MODE.any },
+        aspectRatio: false,
+      }),
+    ).toEqual({ height: 120 });
+
+    expect(
+      getChangedSize({
+        props: [event, "bottomRight", ref, { width: 40, height: 20 }],
+        sizeMode: {
+          width: SIZE_MODE.auto_only,
+          height: SIZE_MODE.auto_only,
+        },
+        aspectRatio: false,
+      }),
+    ).toEqual({});
+  });
+
+  it("ignores manual resize updates for directly auto-only axes", () => {
+    const ref = { style: { width: "240px", height: "120px" } };
+    const event = { detail: 1 };
+
+    expect(
+      getChangedSize({
+        props: [event, "right", ref, { width: 40, height: 0 }],
+        sizeMode: { width: SIZE_MODE.auto_only, height: SIZE_MODE.any },
+        aspectRatio: false,
+      }),
+    ).toEqual({});
+
+    expect(
+      getChangedSize({
+        props: [event, "bottom", ref, { width: 0, height: 20 }],
+        sizeMode: { width: SIZE_MODE.any, height: SIZE_MODE.auto_only },
+        aspectRatio: false,
+      }),
+    ).toEqual({});
+  });
+
   it("detects double-clicks on the same resize handle direction", () => {
     const first = getResizeHandleClickState({
       state: { lastTimestampMs: null, lastDirection: null },
