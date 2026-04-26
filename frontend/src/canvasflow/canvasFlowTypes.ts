@@ -109,3 +109,44 @@ export type CanvasFlowConnectionState = {
   connectionPosition: Position;
   connectionStatus: ConnectionStatus | null;
 };
+
+export type CanvasFlowRenderInputs = {
+  connectionState: CanvasFlowConnectionState;
+  darkMode: boolean;
+  edges: CanvasFlowDrawableEdge[];
+  edgeHandlePositions: Record<string, CanvasFlowHandlePosition>;
+  gridSize: number;
+  nodeElements: CanvasFlowNodeElementMap;
+  nodes: CanvasFlowNode[];
+  showGridLines: boolean;
+  size: CanvasFlowSize;
+  viewport: CanvasFlowViewport;
+  wireColor: string;
+};
+
+export type CanvasFlowRendererMode = "2d" | "webgl-texture-nodes";
+
+export type CanvasFlowRenderer = {
+  destroy: () => void;
+  handleCanvasPaint: (event: Event) => void;
+  markNodesDirty: (
+    nodeIds: ReadonlySet<string> | "all",
+    reason: string,
+  ) => void;
+  requestFrame: (reason: string) => void;
+  resize: (size: CanvasFlowSize) => void;
+  updateInputs: (inputs: CanvasFlowRenderInputs) => void;
+};
+
+type CanvasFlowTexElementImage2DArgs = [
+  target: number,
+  level: number,
+  internalformat: number,
+  format: number,
+  type: number,
+  element: Element,
+];
+
+export type CanvasFlowWebglRenderingContext = WebGLRenderingContext & {
+  texElementImage2D: (...args: CanvasFlowTexElementImage2DArgs) => void;
+};

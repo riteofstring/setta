@@ -3,6 +3,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -54,19 +55,17 @@ import {
   clearCanvasFlowLiveViewport,
   publishCanvasFlowLiveViewport,
 } from "./canvasFlowLiveViewport";
-import { paintCanvasFlow } from "./canvasFlowPaint";
+import { createCanvasFlowRenderer } from "./canvasFlowRenderer";
 import { getCanvasFlowSizeFromResizeEntry } from "./canvasFlowSizing";
-import {
-  assertHtmlInCanvasSupport,
-  requestCanvasFlowPaint,
-} from "./canvasFlowSupport";
+import { requestCanvasFlowPaint } from "./canvasFlowSupport";
 import type {
   CanvasFlowConnectionState,
   CanvasFlowDrawableEdge,
   CanvasFlowHandlePosition,
   CanvasFlowNode,
   CanvasFlowNodeElementMap,
-  CanvasFlowRenderingContext,
+  CanvasFlowRenderer,
+  CanvasFlowRenderInputs,
   CanvasFlowSize,
   CanvasFlowViewport,
 } from "./canvasFlowTypes";
@@ -101,8 +100,7 @@ function CanvasFlow() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const nodeElementsRef = useRef<CanvasFlowNodeElementMap>(new Map());
-  const ctxRef = useRef<CanvasFlowRenderingContext | null>(null);
-  const previousInteractiveNodeIdsRef = useRef(new Set<string>());
+  const rendererRef = useRef<CanvasFlowRenderer | null>(null);
   const sizeRef = useRef<CanvasFlowSize>(EMPTY_SIZE);
   const nodesRef = useRef<CanvasFlowNode[]>([]);
   const edgesRef = useRef<CanvasFlowDrawableEdge[]>([]);
@@ -157,10 +155,22 @@ function CanvasFlow() {
     (state) => state.connectionStartHandle !== null,
   );
 
-  const schedulePaint = useMemo(
-    () => () => requestCanvasFlowPaint(canvasRef.current),
-    [],
-  );
+  const scheduleTexturePaint = useCallback((reason = "source-invalidated") => {
+    const renderer = rendererRef.current;
+    if (renderer) {
+      renderer.markNodesDirty("all", reason);
+      return;
+    }
+    requestCanvasFlowPaint(canvasRef.current);
+  }, []);
+  const scheduleViewportFrame = useCallback((reason = "viewport-frame") => {
+    const renderer = rendererRef.current;
+    if (renderer) {
+      renderer.requestFrame(reason);
+      return;
+    }
+    requestCanvasFlowPaint(canvasRef.current);
+  }, []);
 
   const nodes = useNodeInternals(
     (state) => Array.from(state.x.values()),
@@ -220,11 +230,32 @@ function CanvasFlow() {
     behavior: "canvas",
   });
 
+  const createRenderInputs = useCallback(
+    (): CanvasFlowRenderInputs => ({
+      connectionState: connectionStateRef.current,
+      darkMode,
+      edges: edgesRef.current,
+      edgeHandlePositions: edgePositionsRef.current,
+      gridSize: snapToGrid ? snapGrid[0] : 20,
+      nodeElements: nodeElementsRef.current,
+      nodes: nodesRef.current,
+      showGridLines,
+      size: sizeRef.current,
+      viewport: viewportRef.current,
+      wireColor,
+    }),
+    [darkMode, showGridLines, snapGrid, snapToGrid, wireColor],
+  );
+
+  useEffect(() => {
+    rendererRef.current?.updateInputs(createRenderInputs());
+  });
+
   useEffect(() => {
     viewportRef.current = transformToCanvasFlowViewport(transform);
     publishCanvasFlowLiveViewport(viewportRef.current);
-    schedulePaint();
-  }, [schedulePaint, transform]);
+    scheduleViewportFrame("viewport-store-transform");
+  }, [scheduleViewportFrame, transform]);
 
   useEffect(() => {
     connectionStateRef.current = selectCanvasFlowConnectionState(
@@ -234,11 +265,12 @@ function CanvasFlow() {
       selectCanvasFlowConnectionState,
       (connectionState) => {
         connectionStateRef.current = connectionState;
-        schedulePaint();
+        rendererRef.current?.updateInputs(createRenderInputs());
+        scheduleViewportFrame("connection-state");
       },
       { equalityFn: shallow },
     );
-  }, [schedulePaint]);
+  }, [createRenderInputs, scheduleViewportFrame]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -266,34 +298,25 @@ function CanvasFlow() {
     if (!canvas) {
       return;
     }
-    const ctx = assertHtmlInCanvasSupport(canvas);
-    ctxRef.current = ctx;
+    const renderer = createCanvasFlowRenderer({
+      canvas,
+      initialInputs: createRenderInputs(),
+    });
+    rendererRef.current = renderer;
     const paint = (event: Event) => {
-      paintCanvasFlow({
-        canvas,
-        changedNodeIds: getCanvasFlowChangedNodeIds(event),
-        connectionState: connectionStateRef.current,
-        ctx,
-        darkMode,
-        edges: edgesRef.current,
-        edgeHandlePositions: edgePositionsRef.current,
-        gridSize: snapToGrid ? snapGrid[0] : 20,
-        nodeElements: nodeElementsRef.current,
-        nodes: nodesRef.current,
-        previousInteractiveNodeIds: previousInteractiveNodeIdsRef.current,
-        showGridLines,
-        size: sizeRef.current,
-        viewport: viewportRef.current,
-        wireColor,
-      });
+      renderer.handleCanvasPaint(event);
     };
     canvas.addEventListener("paint", paint as EventListener);
-    schedulePaint();
+    renderer.resize(sizeRef.current);
+    renderer.markNodesDirty("all", "renderer-init");
     return () => {
       canvas.removeEventListener("paint", paint as EventListener);
-      ctxRef.current = null;
+      if (rendererRef.current === renderer) {
+        rendererRef.current = null;
+      }
+      renderer.destroy();
     };
-  }, [darkMode, schedulePaint, showGridLines, snapGrid, snapToGrid, wireColor]);
+  }, [createRenderInputs]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -321,13 +344,14 @@ function CanvasFlow() {
         width: Math.max(nextSize.cssWidth - overviewWidth - uiEditorWidth, 0),
         height: nextSize.cssHeight,
       });
-      schedulePaint();
+      rendererRef.current?.resize(nextSize);
+      scheduleViewportFrame("canvas-resize");
     });
     observer.observe(canvas);
     return () => {
       observer.disconnect();
     };
-  }, [overviewWidth, schedulePaint, uiEditorWidth]);
+  }, [overviewWidth, scheduleViewportFrame, uiEditorWidth]);
 
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") {
@@ -340,23 +364,23 @@ function CanvasFlow() {
       }
       const updates = getNodeUpdateInformation(entries, true);
       updateNodeDimensions(updates);
-      schedulePaint();
+      scheduleTexturePaint("node-resize");
     });
     setResizeObserver(observer);
     return () => {
       observer.disconnect();
     };
-  }, [schedulePaint]);
+  }, [scheduleTexturePaint]);
 
   useEffect(() => {
     recomputeEdgeHandlePositions();
-    schedulePaint();
+    scheduleViewportFrame("edges");
   }, [
     canvasCssSize.height,
     canvasCssSize.width,
     edges,
     projectEdgeState.topLevelSections,
-    schedulePaint,
+    scheduleViewportFrame,
   ]);
 
   useEffect(() => {
@@ -379,7 +403,7 @@ function CanvasFlow() {
     panOnScroll,
     panOnScrollMode,
     panOnScrollSpeed,
-    schedulePaint,
+    schedulePaint: scheduleViewportFrame,
     viewportRef,
     zoomActivationKeyPressed,
     zoomOnPinch,
@@ -410,13 +434,14 @@ function CanvasFlow() {
         canvasRef={canvasRef}
         nodeElementsRef={nodeElementsRef}
         resizeObserver={resizeObserver}
-        schedulePaint={schedulePaint}
+        scheduleTexturePaint={scheduleTexturePaint}
+        scheduleViewportFrame={scheduleViewportFrame}
         viewportRef={viewportRef}
       />
       <CanvasFlowNodesSelectionDragHandleWrapper />
       <CanvasFlowNodesSelectionWrapper
         canvasRef={canvasRef}
-        schedulePaint={schedulePaint}
+        schedulePaint={scheduleViewportFrame}
         viewportRef={viewportRef}
       />
       <UserSelection />
@@ -438,21 +463,6 @@ function isCanvasFlowPerfResizeObserverDisabled() {
     (window as CanvasFlowPerfWindow)
       .__settaCanvasFlowPerfDisableResizeObserver === true
   );
-}
-
-function getCanvasFlowChangedNodeIds(event: Event) {
-  const changedElements = (event as { changedElements?: readonly Element[] })
-    .changedElements;
-  if (!changedElements || changedElements.length === 0) {
-    return undefined;
-  }
-  const changedNodeIds = new Set<string>();
-  for (const element of changedElements) {
-    if (element instanceof HTMLElement && element.dataset.id) {
-      changedNodeIds.add(element.dataset.id);
-    }
-  }
-  return changedNodeIds.size > 0 ? changedNodeIds : undefined;
 }
 
 function selectCanvasFlowConnectionState(

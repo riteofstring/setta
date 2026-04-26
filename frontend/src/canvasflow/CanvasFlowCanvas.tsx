@@ -11,7 +11,8 @@ type CanvasFlowCanvasProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
-  schedulePaint: () => void;
+  scheduleTexturePaint: () => void;
+  scheduleViewportFrame: () => void;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
 } & CanvasHTMLAttributes<HTMLCanvasElement>;
 
@@ -20,7 +21,8 @@ export function CanvasFlowCanvas({
   canvasRef,
   nodeElementsRef,
   resizeObserver,
-  schedulePaint,
+  scheduleTexturePaint,
+  scheduleViewportFrame,
   viewportRef,
   ...canvasProps
 }: CanvasFlowCanvasProps) {
@@ -36,7 +38,8 @@ export function CanvasFlowCanvas({
         canvasRef={canvasRef}
         nodeElementsRef={nodeElementsRef}
         resizeObserver={resizeObserver}
-        schedulePaint={schedulePaint}
+        scheduleTexturePaint={scheduleTexturePaint}
+        scheduleViewportFrame={scheduleViewportFrame}
         viewportRef={viewportRef}
       />
     </canvas>

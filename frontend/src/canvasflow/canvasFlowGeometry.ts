@@ -2,6 +2,7 @@ import type { Rect } from "forks/xyflow/core/types";
 import type {
   CanvasFlowNode,
   CanvasFlowNodeDrawRecord,
+  CanvasFlowViewport,
 } from "./canvasFlowTypes";
 
 const FALLBACK_NODE_WIDTH = 500;
@@ -61,6 +62,18 @@ export function nodeRecordToRect(record: CanvasFlowNodeDrawRecord): Rect {
     y: record.y,
     width: record.width,
     height: record.height,
+  };
+}
+
+export function getNodeScreenDrawRect(
+  node: Pick<CanvasFlowNodeDrawRecord, "x" | "y" | "width" | "height">,
+  viewport: CanvasFlowViewport,
+) {
+  return {
+    x: viewport.x + node.x * viewport.zoom,
+    y: viewport.y + node.y * viewport.zoom,
+    width: node.width * viewport.zoom,
+    height: node.height * viewport.zoom,
   };
 }
 

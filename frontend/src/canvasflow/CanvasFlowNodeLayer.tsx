@@ -54,7 +54,8 @@ type CanvasFlowNodeLayerProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
-  schedulePaint: () => void;
+  scheduleTexturePaint: () => void;
+  scheduleViewportFrame: () => void;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
 };
 
@@ -63,7 +64,8 @@ type CanvasFlowNodeWrapperProps = {
   id: string;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
-  schedulePaint: () => void;
+  scheduleTexturePaint: () => void;
+  scheduleViewportFrame: () => void;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
 };
 
@@ -72,7 +74,8 @@ export function CanvasFlowNodeLayer({
   canvasRef,
   nodeElementsRef,
   resizeObserver,
-  schedulePaint,
+  scheduleTexturePaint,
+  scheduleViewportFrame,
   viewportRef,
 }: CanvasFlowNodeLayerProps) {
   const nodes = useNodeInternals(
@@ -129,8 +132,8 @@ export function CanvasFlowNodeLayer({
   }, [mountWindow, nodes]);
 
   useEffect(() => {
-    schedulePaint();
-  }, [nodeIds, schedulePaint]);
+    scheduleTexturePaint();
+  }, [nodeIds, scheduleTexturePaint]);
 
   return (
     <>
@@ -141,7 +144,8 @@ export function CanvasFlowNodeLayer({
           id={nodeId}
           nodeElementsRef={nodeElementsRef}
           resizeObserver={resizeObserver}
-          schedulePaint={schedulePaint}
+          scheduleTexturePaint={scheduleTexturePaint}
+          scheduleViewportFrame={scheduleViewportFrame}
           viewportRef={viewportRef}
         />
       ))}
@@ -241,7 +245,8 @@ function _CanvasFlowNodeWrapper({
   id,
   nodeElementsRef,
   resizeObserver,
-  schedulePaint,
+  scheduleTexturePaint,
+  scheduleViewportFrame,
   viewportRef,
 }: CanvasFlowNodeWrapperProps) {
   const node = useNodeInternals((state) => state.x.get(id), _.isEqual);
@@ -262,7 +267,7 @@ function _CanvasFlowNodeWrapper({
     disabled: !isDraggable,
     nodeId: id,
     nodeRef,
-    schedulePaint,
+    schedulePaint: scheduleViewportFrame,
     viewportRef,
   });
 
@@ -278,9 +283,9 @@ function _CanvasFlowNodeWrapper({
         nodeElementsRef.current.set(id, element);
         resizeObserver?.observe(element);
       }
-      schedulePaint();
+      scheduleTexturePaint();
     },
-    [id, nodeElementsRef, resizeObserver, schedulePaint],
+    [id, nodeElementsRef, resizeObserver, scheduleTexturePaint],
   );
 
   useEffect(() => {
@@ -290,19 +295,21 @@ function _CanvasFlowNodeWrapper({
         resizeObserver?.unobserve(element);
       }
       nodeElementsRef.current.delete(id);
-      schedulePaint();
+      scheduleTexturePaint();
     };
-  }, [id, nodeElementsRef, resizeObserver, schedulePaint]);
+  }, [id, nodeElementsRef, resizeObserver, scheduleTexturePaint]);
 
   useEffect(() => {
-    schedulePaint();
+    scheduleTexturePaint();
+  }, [node?.height, node?.width, scheduleTexturePaint]);
+
+  useEffect(() => {
+    scheduleViewportFrame();
   }, [
-    node?.height,
     node?.position.x,
     node?.position.y,
     node?.tempZIndex,
-    node?.width,
-    schedulePaint,
+    scheduleViewportFrame,
   ]);
 
   if (!node) {

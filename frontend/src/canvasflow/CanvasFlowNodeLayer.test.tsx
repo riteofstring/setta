@@ -93,7 +93,8 @@ describe("CanvasFlowNodeLayer", () => {
           canvasRef={canvasRef}
           nodeElementsRef={nodeElementsRef}
           resizeObserver={null}
-          schedulePaint={vi.fn()}
+          scheduleTexturePaint={vi.fn()}
+          scheduleViewportFrame={vi.fn()}
           viewportRef={viewportRef}
         />,
       );
@@ -128,7 +129,8 @@ describe("CanvasFlowNodeLayer", () => {
     const viewportRef = {
       current: { x: 0, y: 0, zoom: 1 } satisfies CanvasFlowViewport,
     };
-    const schedulePaint = vi.fn();
+    const scheduleTexturePaint = vi.fn();
+    const scheduleViewportFrame = vi.fn();
 
     await act(async () => {
       root.render(
@@ -137,7 +139,8 @@ describe("CanvasFlowNodeLayer", () => {
           canvasRef={canvasRef}
           nodeElementsRef={nodeElementsRef}
           resizeObserver={null}
-          schedulePaint={schedulePaint}
+          scheduleTexturePaint={scheduleTexturePaint}
+          scheduleViewportFrame={scheduleViewportFrame}
           viewportRef={viewportRef}
         />,
       );
@@ -145,7 +148,8 @@ describe("CanvasFlowNodeLayer", () => {
 
     expect(container.querySelector('[data-id="near"]')).not.toBeNull();
     expect(container.querySelector('[data-id="far"]')).toBeNull();
-    schedulePaint.mockClear();
+    scheduleTexturePaint.mockClear();
+    scheduleViewportFrame.mockClear();
 
     await act(async () => {
       viewportRef.current = { x: -300, y: 0, zoom: 1 };
@@ -155,7 +159,8 @@ describe("CanvasFlowNodeLayer", () => {
     expect(useReactFlow.getState().transform).toEqual([0, 0, 1]);
     expect(container.querySelector('[data-id="near"]')).not.toBeNull();
     expect(container.querySelector('[data-id="far"]')).toBeNull();
-    expect(schedulePaint).not.toHaveBeenCalled();
+    expect(scheduleTexturePaint).not.toHaveBeenCalled();
+    expect(scheduleViewportFrame).not.toHaveBeenCalled();
   });
 });
 

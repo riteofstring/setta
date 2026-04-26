@@ -1,8 +1,16 @@
 import {
+  assignCanvasFlowNodePaintStyle,
+  disableCulledCanvasFlowNodePointerEvents,
+} from "./canvasFlowDomTransform";
+import {
   drawCanvasFlowConnectionPreview,
   drawCanvasFlowEdges,
 } from "./canvasFlowEdges";
-import { getVisibleNodeDrawRecords } from "./canvasFlowGeometry";
+import {
+  getNodeScreenDrawRect,
+  getVisibleNodeDrawRecords,
+} from "./canvasFlowGeometry";
+import { getCanvasFlowNodeElement } from "./canvasFlowNodeElements";
 import type {
   CanvasFlowCanvasElement,
   CanvasFlowConnectionState,
@@ -73,7 +81,7 @@ const snapshotCaches = new WeakMap<
 
 type PaintCanvasFlowParams = {
   canvas: HTMLCanvasElement;
-  changedNodeIds?: ReadonlySet<string>;
+  changedNodeIds?: ReadonlySet<string> | undefined;
   connectionState: CanvasFlowConnectionState;
   ctx: CanvasFlowRenderingContext;
   darkMode: boolean;
@@ -165,7 +173,7 @@ export function paintCanvasFlow({
     visibleNodes,
   });
 
-  disableCulledNodePointerEvents({
+  disableCulledCanvasFlowNodePointerEvents({
     nodeElements,
     previousInteractiveNodeIds,
     nextInteractiveNodeIds: nodeDraw.nextInteractiveNodeIds,
@@ -287,7 +295,11 @@ function drawVisibleCanvasFlowNode({
   snapshotCache: Map<string, CanvasFlowSnapshotCacheEntry> | null;
   viewport: CanvasFlowViewport;
 }): CanvasFlowNodePaintResult {
-  const element = getNodeElement(canvas, nodeElements, node.id);
+  const element = getCanvasFlowNodeElement({
+    canvas,
+    nodeElements,
+    nodeId: node.id,
+  });
   if (!element) {
     return createNodePaintResult({ drawn: false, interactive: false });
   }
@@ -431,7 +443,7 @@ function assignNodeTransform(
 ) {
   const transformStart = performance.now();
   if (shouldAssign) {
-    assignNodePaintStyle(element, transform.toString());
+    assignCanvasFlowNodePaintStyle(element, transform.toString());
   }
   return performance.now() - transformStart;
 }
@@ -463,7 +475,7 @@ function resolveSnapshotCache({
   perfVariant,
 }: {
   canvas: HTMLCanvasElement;
-  changedNodeIds?: ReadonlySet<string>;
+  changedNodeIds?: ReadonlySet<string> | undefined;
   perfVariant: CanvasFlowPerfVariant;
 }) {
   if (perfVariant !== "snapshot-cache") {
@@ -628,39 +640,6 @@ function drawNodeDiagnosticRect(
   ctx.fillText(node.id, screenRect.x + 6, screenRect.y + 14);
 }
 
-function getNodeScreenDrawRect(
-  node: Pick<CanvasFlowNodeDrawRecord, "x" | "y" | "width" | "height">,
-  viewport: CanvasFlowViewport,
-) {
-  return {
-    x: viewport.x + node.x * viewport.zoom,
-    y: viewport.y + node.y * viewport.zoom,
-    width: node.width * viewport.zoom,
-    height: node.height * viewport.zoom,
-  };
-}
-
-function getNodeElement(
-  canvas: HTMLCanvasElement,
-  nodeElements: CanvasFlowNodeElementMap,
-  nodeId: string,
-): HTMLElement | null {
-  const existing = nodeElements.get(nodeId);
-  if (existing) {
-    return existing;
-  }
-  for (const child of canvas.children) {
-    if (!(child instanceof HTMLElement)) {
-      continue;
-    }
-    if (child.dataset.id === nodeId) {
-      nodeElements.set(nodeId, child);
-      return child;
-    }
-  }
-  return null;
-}
-
 function resetCanvasContext(ctx: CanvasRenderingContext2D) {
   if (typeof ctx.reset === "function") {
     ctx.reset();
@@ -709,35 +688,6 @@ function drawBackground({
   ctx.lineWidth = 1;
   ctx.stroke();
   */
-}
-
-function disableCulledNodePointerEvents({
-  nodeElements,
-  previousInteractiveNodeIds,
-  nextInteractiveNodeIds,
-}: {
-  nodeElements: CanvasFlowNodeElementMap;
-  previousInteractiveNodeIds: Set<string>;
-  nextInteractiveNodeIds: Set<string>;
-}) {
-  for (const nodeId of previousInteractiveNodeIds) {
-    if (nextInteractiveNodeIds.has(nodeId)) {
-      continue;
-    }
-    const element = nodeElements.get(nodeId);
-    if (element && element.style.pointerEvents !== "none") {
-      element.style.pointerEvents = "none";
-    }
-  }
-}
-
-function assignNodePaintStyle(element: HTMLElement, transform: string) {
-  if (element.style.transform !== transform) {
-    element.style.transform = transform;
-  }
-  if (element.style.pointerEvents !== "all") {
-    element.style.pointerEvents = "all";
-  }
 }
 
 /*

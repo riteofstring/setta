@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getMountedNodeIds,
   getNodeDrawRecord,
+  getNodeScreenDrawRect,
   getVisibleNodeDrawRecords,
   rectsOverlap,
 } from "./canvasFlowGeometry";
@@ -60,6 +61,20 @@ describe("canvasFlowGeometry", () => {
         visibleRect: { x: 25, y: 25, width: 150, height: 150 },
       }).map((record) => record.id),
     ).toEqual(["back", "front"]);
+  });
+
+  it("projects world node bounds into screen coordinates", () => {
+    expect(
+      getNodeScreenDrawRect(
+        { x: 100, y: 200, width: 300, height: 400 },
+        { x: 40, y: 30, zoom: 0.1 },
+      ),
+    ).toEqual({
+      x: 50,
+      y: 50,
+      width: 30,
+      height: 40,
+    });
   });
 
   it("selects mounted nodes using fallback dimensions before measurement", () => {
