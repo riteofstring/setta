@@ -49,15 +49,6 @@ the Go-owned runtime.
   status to show whether the current selection is active, unavailable, or still
   pending restart.
 
-## Watch Code dependency
-
-The Watch Code provider probe can declare `requiresLanguageServer=true`. When
-the active Watch Code provider does this, plugin runtime status includes a
-Python language-server dependency status under
-`featureCapabilities.watchCode.languageServerDependency`. A missing, disabled,
-unavailable, or pending-restart Python selection is reported there so the
-frontend can surface why Watch Code cannot refresh callable params reliably.
-
 ## Plugin config
 
 - Server-specific settings stay under plugin-owned config roots such as

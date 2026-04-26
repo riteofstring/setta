@@ -1,7 +1,3 @@
-import {
-  resolveWorkspaceLaunchRouteKind,
-  type WorkspaceLaunchRouteKind,
-} from "@setta/app-subsystem-frontend-sdk";
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { AppShell } from "components/Pages/AppShell";
@@ -55,6 +51,10 @@ import {
   WINDOW_SPACE_STANDALONE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
+import {
+  resolveWorkspaceLaunchRouteKind,
+  type WorkspaceLaunchRouteKind,
+} from "utils/serverModeBoundaryPolicy";
 import type { ResolvedServerMode } from "utils/serverModeTypes";
 import { resolveDefaultProjectConfigName } from "./defaultProjectRouting";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";

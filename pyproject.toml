@@ -103,4 +103,3 @@ artifacts = [
 
 [tool.uv.sources]
 setta-basedpyright = { path = "plugins/setta-basedpyright" }
-setta-watch-code = { path = "plugins/setta-watch-code" }

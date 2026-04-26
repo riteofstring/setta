@@ -1,11 +1,4 @@
 export type JsonRecord = Record<string, any>;
-export type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JsonValue[]
-  | { [key: string]: JsonValue | undefined };
 
 export type RunSnapshotMode = "ephemeral" | "always" | "never";
 export type Policy = JsonRecord;
@@ -40,10 +33,8 @@ export type ProjectConfig = JsonRecord & {
   entryCodeBlockId?: string | null;
   sectionVariantMap?: Record<string, string>;
 };
-export type ProjectPluginData = Record<string, JsonValue | undefined>;
 export type SingleConfig = JsonRecord & {
   projectConfig: ProjectConfig;
-  pluginData: ProjectPluginData;
   sections: Record<string, Core>;
   sectionVariants: Record<string, Variant>;
   sectionImpls: Record<string, JsonRecord>;
@@ -134,12 +125,6 @@ export type ResponseDataAndStatus<T = JsonRecord> = {
   status: number | undefined;
   hasResponse: boolean;
 };
-export type EndpointOrigin = string;
-export type ServerMode = string | null;
-export type ServerModeCapabilities = {
-  canManageDesktopLauncher: boolean;
-};
-export type WorkspaceLaunchRouteKind = string;
 
 export type ResolvedRunRequest =
   | {
@@ -157,9 +142,7 @@ export type ResolvedRunRequest =
 
 export declare const CodeObjTypeEnum: Readonly<Record<string, string>>;
 export declare const ConfigLanguageEnum: Readonly<Record<string, string>>;
-export declare const DateCalendarWeekStartEnum: Readonly<
-  Record<string, string>
->;
+export declare const DateCalendarWeekStartEnum: Readonly<Record<string, string>>;
 export declare const DateControlModeEnum: Readonly<Record<string, string>>;
 export declare const DateDisplayFormatEnum: Readonly<Record<string, string>>;
 export declare const DateSelectionModeEnum: Readonly<Record<string, string>>;
@@ -201,63 +184,24 @@ export declare const AppSubsystemChatUIConfig: {
 };
 
 export declare function createSettingsState(overrides?: JsonRecord): JsonRecord;
-export declare function createSingleConfig(
-  overrides?: Partial<SingleConfig>,
-): SingleConfig;
+export declare function createSingleConfig(overrides?: Partial<SingleConfig>): SingleConfig;
 export declare function createPolicy(overrides?: Policy): Policy;
-export declare function createProjectConfig(
-  overrides?: Partial<ProjectConfig>,
-): ProjectConfig;
-export declare function createSectionCapabilities(
-  overrides?: JsonRecord,
-): JsonRecord;
-export declare function createSingletonSections(
-  overrides?: JsonRecord,
-): JsonRecord;
+export declare function createProjectConfig(overrides?: Partial<ProjectConfig>): ProjectConfig;
+export declare function createSectionCapabilities(overrides?: JsonRecord): JsonRecord;
+export declare function createSingletonSections(overrides?: JsonRecord): JsonRecord;
 export declare function createCore(overrides?: JsonRecord): Core;
 export declare function createVariant(overrides?: JsonRecord): Variant;
-export declare function createCallableSectionImpl(
-  overrides?: JsonRecord,
-): JsonRecord;
-export declare function createCodeParamCodeObjImpl(
-  overrides?: JsonRecord,
-): JsonRecord;
-export declare function createTextBlockSectionImpl(
-  overrides?: JsonRecord,
-): JsonRecord;
-export declare function createContentRef(
-  overrides?: Partial<ContentRef>,
-): ContentRef;
-export declare function createImageArtifact(
-  overrides?: Partial<ImageArtifact>,
-): ImageArtifact;
-export declare function isBaseParamCodeObjImpl(
-  value: unknown,
-): value is JsonRecord;
-export declare function isBaseChildlessCodeObjImpl(
-  value: unknown,
-): value is JsonRecord;
-export declare function isBaseSectionWithParamsImpl(
-  value: unknown,
-): value is JsonRecord;
+export declare function createCallableSectionImpl(overrides?: JsonRecord): JsonRecord;
+export declare function createCodeParamCodeObjImpl(overrides?: JsonRecord): JsonRecord;
+export declare function createTextBlockSectionImpl(overrides?: JsonRecord): JsonRecord;
+export declare function createContentRef(overrides?: Partial<ContentRef>): ContentRef;
+export declare function createImageArtifact(overrides?: Partial<ImageArtifact>): ImageArtifact;
+export declare function isBaseParamCodeObjImpl(value: unknown): value is JsonRecord;
+export declare function isBaseChildlessCodeObjImpl(value: unknown): value is JsonRecord;
+export declare function isBaseSectionWithParamsImpl(value: unknown): value is JsonRecord;
 export declare function createDefaultAppPolicy(): Policy;
-export declare function createDefaultSharePolicy(): Policy;
 export declare function resolveAppPolicy(policy?: Policy | null): Policy;
-export declare function canSectionRun(
-  state: SingleConfig,
-  sectionId: string,
-): boolean;
-export declare function canSelectSectionAsEntryCodeBlock(
-  state: SingleConfig,
-  sectionId: string,
-): boolean;
-export declare function getSectionEntryCodeBlockValue(
-  state: SingleConfig,
-  sectionId: string,
-): string | null;
-export declare function resolveMainRunRequest(
-  state: SingleConfig,
-): ResolvedRunRequest;
+export declare function resolveMainRunRequest(state: SingleConfig): ResolvedRunRequest;
 export declare function resolveRunRequest(
   state: SingleConfig,
   requestedSectionId: string | null,
@@ -268,55 +212,8 @@ export declare const NO_PAN_CLASS_NAME: string;
 export declare const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION: string;
 export declare const SETTA_PREVENT_SECTION_ACTIVE_CSS: string;
 export declare function shouldShowPasswordReveal(args: JsonRecord): boolean;
-export declare function clampTextBlockMasterFontSize(value: number): number;
-export declare function buildTextBlockTypographyScale(
-  masterFontSizePx: number,
-): JsonRecord;
-export declare const ARTIFACTS_ROOT: "artifacts";
-export declare function createNewId(): string;
-export declare function createJsonArtifactId(): string;
-export declare function createCsvArtifactId(): string;
-export declare function createPngArtifactId(): string;
-export declare function createFileArtifactId(extension?: string): string;
+export declare function buildTextBlockTypographyScale(masterFontSizePx: number): JsonRecord;
 export declare function createRandomName(): string;
-export declare function normalizeGeneratedOrigin(
-  rawOrigin: string | null | undefined,
-): string | null;
-export declare function normalizeGeneratedToolName(
-  rawToolName: string | null | undefined,
-  singlePrefix: string,
-  doublePrefix: string,
-  askUserQuestionToolName: string,
-): string | null;
-export declare function validateGeneratedSimpleNameInput(
-  name: string,
-  label: string,
-  reservedNames: ReadonlySet<string>,
-  allowedChars: ReadonlySet<string>,
-  allowReserved?: boolean,
-): string | null;
-export declare function sanitizeGeneratedSimpleNameSlug(
-  name: string,
-  replacementChars: ReadonlySet<string>,
-): string;
-export declare function isGeneratedPythonIdentifier(
-  name: string,
-  pythonIdentifierStartChars: ReadonlySet<string>,
-  pythonIdentifierContinueChars: ReadonlySet<string>,
-  pythonKeywords?: ReadonlySet<string>,
-): boolean;
-export declare function validateGeneratedParamNameInput(
-  name: string,
-  options: {
-    allowEmpty: boolean;
-    label: string;
-    requirePythonIdentifier: boolean;
-    pythonIdentifierStartChars: ReadonlySet<string>;
-    pythonIdentifierContinueChars: ReadonlySet<string>;
-    pythonKeywords: ReadonlySet<string>;
-    skipPathChecks?: boolean;
-  },
-): string | null;
 export type DropzoneStoredFileAttachment = {
   kind: "file";
   id: string;
@@ -368,29 +265,13 @@ export type AttachmentPolicy = {
   allowedMimePrefixes: string[];
   allowedMimeLabel: string;
 };
-export declare function createDropzoneFileArtifactId(
-  fileName: string,
-  baseFolder?: string,
-): string;
+export declare function createDropzoneFileArtifactId(fileName: string, baseFolder?: string): string;
 export declare function createDropzoneTextAttachmentId(): string;
-export declare function parseDropzoneValue(
-  value: string,
-): DropzoneStoredValue | null;
-export declare function serializeDropzoneValue(
-  attachments: DropzoneStoredAttachment[],
-): string;
-export declare function resolveAttachmentLimit(value: number): {
-  maxFiles: number | null;
-  disabled: boolean;
-};
+export declare function parseDropzoneValue(value: string): DropzoneStoredValue | null;
+export declare function serializeDropzoneValue(attachments: DropzoneStoredAttachment[]): string;
 export declare function formatBytes(value: number): string;
-export declare function getAttachmentPolicy(
-  scope: AttachmentPolicyScope,
-): AttachmentPolicy;
-export declare function isAttachmentMimeAllowed(
-  mimeType: string,
-  policy: AttachmentPolicy,
-): boolean;
+export declare function getAttachmentPolicy(scope: AttachmentPolicyScope): AttachmentPolicy;
+export declare function isAttachmentMimeAllowed(mimeType: string, policy: AttachmentPolicy): boolean;
 export declare const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY: "setta.backendOriginOverride";
 export declare const BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY: "setta.backendOriginOverrideAllowNonLocal";
 export declare class C_ADDRESSES {
@@ -405,10 +286,7 @@ export declare class C_ADDRESSES {
 }
 export declare function isLocalHostname(hostname: string): boolean;
 export declare function getOrInitLauncherOrigin(fallbackOrigin: string): string;
-export declare function normalizeOrigin(
-  origin: string,
-  label?: string,
-): string | undefined;
+export declare function normalizeOrigin(origin: string, label?: string): string | undefined;
 export declare function safeLocalStorage(): Storage | undefined;
 export declare function safeSessionStorage(): Storage | undefined;
 
@@ -422,32 +300,22 @@ export declare function deleteArtifacts(options: {
     artifacts: DeleteArtifactRequestItem[] | null;
   };
 }): Promise<ResponseDataAndStatus<string[] | null>>;
-export declare function downloadBinary(
-  options?: unknown,
-): Promise<ResponseDataAndStatus<Blob>>;
+export declare function downloadBinary(options?: unknown): Promise<ResponseDataAndStatus<Blob>>;
 export declare function getAppDefinition(options?: {
   body?: {
     frontendOpId?: string;
   };
 }): Promise<ResponseDataAndStatus<AppDefinitionReadResult>>;
-export declare function getAppDeploymentCurrentSession(
-  options?: unknown,
-): Promise<ResponseDataAndStatus<GetAppDeploymentCurrentSessionResponses[200]>>;
-export declare function getAppDeploymentProjectConfig(
-  options?: unknown,
-): Promise<ResponseDataAndStatus<GetAppDeploymentStateResponses[200]>>;
-export declare function getAppDeploymentState(
-  options?: unknown,
-): Promise<ResponseDataAndStatus<GetAppDeploymentStateResponses[200]>>;
+export declare function getAppDeploymentCurrentSession(options?: unknown): Promise<ResponseDataAndStatus<GetAppDeploymentCurrentSessionResponses[200]>>;
+export declare function getAppDeploymentProjectConfig(options?: unknown): Promise<ResponseDataAndStatus<GetAppDeploymentStateResponses[200]>>;
+export declare function getAppDeploymentState(options?: unknown): Promise<ResponseDataAndStatus<GetAppDeploymentStateResponses[200]>>;
 export declare function getAttachmentDownloadUrl(options?: {
   body?: {
     artifactId: string;
     projectConfigId: string;
   };
 }): Promise<ResponseDataAndStatus<AttachmentDownloadURLResponse>>;
-export declare function getLatestProjectState(
-  options?: unknown,
-): Promise<ResponseDataAndStatus<GetLatestProjectStateResponse>>;
+export declare function getLatestProjectState(options?: unknown): Promise<ResponseDataAndStatus<GetLatestProjectStateResponse>>;
 export declare function getPasswordParamValue(options: {
   body: {
     paramInfoId: string;
@@ -458,12 +326,8 @@ export declare function getPasswordParamValue(options: {
 export declare function listAppDeployments(
   options?: unknown,
 ): Promise<ResponseDataAndStatus<HttpapiDeploymentMetadataResponse[]>>;
-export declare function loadCachedImageArtifacts(
-  options?: unknown,
-): Promise<ResponseDataAndStatus<ImageArtifact[]>>;
-export declare function loadProjectConfig(
-  options?: unknown,
-): Promise<ResponseDataAndStatus<SingleConfig>>;
+export declare function loadCachedImageArtifacts(options?: unknown): Promise<ResponseDataAndStatus<ImageArtifact[]>>;
+export declare function loadProjectConfig(options?: unknown): Promise<ResponseDataAndStatus<SingleConfig>>;
 export declare function publishAppDeployment(options?: {
   body: HttpapiPublishAppDeploymentRequest;
 }): Promise<ResponseDataAndStatus<HttpapiDeploymentMetadataResponse>>;
@@ -524,123 +388,14 @@ export declare function validateAppDefinition(options?: {
   body?: JsonRecord;
 }): Promise<ResponseDataAndStatus<AppDefinitionValidationResult>>;
 export declare function callOpenAPI<T>(promise: Promise<T> | T): Promise<T>;
-export declare function rebuildBackendRequest(
-  original: Request,
-  nextURL: string,
-): Promise<Request>;
 export declare function getErrorDetail(value: unknown): string | null;
 export declare function getErrorCode(value: unknown): string | null;
-export declare function res200<T>(
-  response: ResponseDataAndStatus<T>,
-): response is ResponseDataAndStatus<T> & { data: T; status: number };
+export declare function res200<T>(response: ResponseDataAndStatus<T>): response is ResponseDataAndStatus<T> & { data: T; status: number };
 export declare function configureAppSubsystemOpenAPI(): void;
-export declare function buildBinaryDownloadUrl(
-  contentId: string,
-  shareSessionId: string | null,
-  serverMode: string | null,
-): string;
-export declare function resolveEndpointOriginForMode(
-  address: string,
-  serverMode: ServerMode,
-): EndpointOrigin;
-export declare function resolveServerModeCapabilities(
-  mode: ServerMode,
-): ServerModeCapabilities;
-export declare function resolveWorkspaceLaunchRouteKind(
-  mode: ServerMode,
-): WorkspaceLaunchRouteKind;
-
-export declare const SETTA_PLUGIN_FRONTEND_HOST_API_VERSION: 1;
-export type SettaPluginServerMode = "ide" | "share" | "app" | "launcher";
-export declare const SettaPluginCanvasControlPlacementEnum: {
-  readonly Project: "project";
-  readonly Viewport: "viewport";
-  readonly Utility: "utility";
-};
-export type SettaPluginCanvasControlPlacement =
-  (typeof SettaPluginCanvasControlPlacementEnum)[keyof typeof SettaPluginCanvasControlPlacementEnum];
-export declare function isSettaPluginCanvasControlPlacement(
-  value: string,
-): value is SettaPluginCanvasControlPlacement;
-export type SettaPluginCanvasControlProps = {
-  pluginId: string;
-  controlId: string;
-  label: string;
-  placement: SettaPluginCanvasControlPlacement;
-  serverMode: SettaPluginServerMode;
-  effectiveCapabilities: string[];
-};
-export type SettaPluginCanvasControlRenderer = {
-  mount: (el: HTMLElement, props: SettaPluginCanvasControlProps) => void;
-  update?: (el: HTMLElement, props: SettaPluginCanvasControlProps) => void;
-  unmount?: (el: HTMLElement) => void;
-};
-export type SettaPluginCanvasControlDefinition = {
-  id: string;
-  label: string;
-  description?: string;
-  placement?: SettaPluginCanvasControlPlacement;
-  order?: number;
-  renderer: SettaPluginCanvasControlRenderer;
-};
-export type SettaPluginSettingRevealHandlerContext = {
-  settingId: string;
-  paneId: string | null;
-  durationMs: number;
-  abortSignal: AbortSignal;
-};
-export type SettaPluginSettingRevealHandler = (
-  context: SettaPluginSettingRevealHandlerContext,
-) => boolean | Promise<boolean>;
-export type SettaPluginProjectContext = {
-  projectConfigId: string;
-  serverMode: SettaPluginServerMode;
-};
-export type SettaPluginProjectStateSelector =
-  | { kind: "projectConfig" }
-  | { kind: "pluginData"; pluginId: string }
-  | { kind: "activeSectionIds" }
-  | { kind: "section"; sectionId: string }
-  | { kind: "sections"; sectionIds: string[] }
-  | { kind: "singletonSections" };
-export type SettaPluginProjectStateSubscriptionOptions = {
-  fireImmediately?: boolean;
-  throttleMs?: number;
-};
-export type SettaPluginHost = {
-  apiVersion: typeof SETTA_PLUGIN_FRONTEND_HOST_API_VERSION;
-  pluginId: string;
-  serverMode: SettaPluginServerMode;
-  effectiveCapabilities: string[];
-  registerCanvasControl: (
-    definition: SettaPluginCanvasControlDefinition,
-  ) => void;
-  registerSettingRevealHandler: (
-    revealKey: string,
-    handler: SettaPluginSettingRevealHandler,
-  ) => void;
-  getProjectContext: () => SettaPluginProjectContext;
-  subscribeProjectContext: (
-    listener: (context: SettaPluginProjectContext) => void,
-  ) => () => void;
-  readProjectState: (selector: SettaPluginProjectStateSelector) => unknown;
-  subscribeProjectState: (
-    selector: SettaPluginProjectStateSelector,
-    listener: (nextValue: unknown, prevValue: unknown | null) => void,
-    options?: SettaPluginProjectStateSubscriptionOptions,
-  ) => () => void;
-  fetchBackendRoute: (path: string, init?: RequestInit) => Promise<Response>;
-};
-export declare function isSettaPluginHost(
-  value: unknown,
-): value is SettaPluginHost;
+export declare function buildBinaryDownloadUrl(contentId: string, shareSessionId: string | null, serverMode: string | null): string;
 
 export declare const APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION: 1;
-export type AppSubsystemNotificationType =
-  | "error"
-  | "warning"
-  | "info"
-  | "save";
+export type AppSubsystemNotificationType = "error" | "warning" | "info" | "save";
 export type AppSubsystemNotification = {
   message: string;
   type?: AppSubsystemNotificationType;
@@ -699,44 +454,24 @@ export type AppSubsystemFrontendHost = {
   apiVersion: typeof APP_SUBSYSTEM_FRONTEND_HOST_API_VERSION;
   closeModal: () => void;
   notify: (notification: AppSubsystemNotification) => void;
-  emitRealtimeDependencyEvent: (
-    event: AppSubsystemRealtimeDependencyEvent,
-    projectConfigIdOverride?: string | null,
-  ) => void;
-  emitRealtimeSectionParamLiteral: (
-    sectionId: string,
-    codeObjId: string,
-    payload: string,
-    projectConfigIdOverride?: string | null,
-  ) => void;
+  emitRealtimeDependencyEvent: (event: AppSubsystemRealtimeDependencyEvent, projectConfigIdOverride?: string | null) => void;
+  emitRealtimeSectionParamLiteral: (sectionId: string, codeObjId: string, payload: string, projectConfigIdOverride?: string | null) => void;
   getProjectContext: () => AppSubsystemProjectContext;
-  subscribeProjectContext: (
-    listener: (context: AppSubsystemProjectContext) => void,
-  ) => () => void;
+  subscribeProjectContext: (listener: (context: AppSubsystemProjectContext) => void) => () => void;
   getProjectStateSnapshot: () => AppSubsystemProjectStateSnapshot;
-  subscribeProjectStateSnapshot: (
-    listener: (projectState: AppSubsystemProjectStateSnapshot) => void,
-  ) => () => void;
+  subscribeProjectStateSnapshot: (listener: (projectState: AppSubsystemProjectStateSnapshot) => void) => () => void;
   getRuntimeContext: () => AppSubsystemRuntimeContext;
-  subscribeRuntimeContext: (
-    listener: (context: AppSubsystemRuntimeContext) => void,
-  ) => () => void;
+  subscribeRuntimeContext: (listener: (context: AppSubsystemRuntimeContext) => void) => () => void;
   getAppDeploymentSession: () => AppSubsystemDeploymentSession | null;
-  setAppDeploymentSession: (
-    session: AppSubsystemDeploymentSession | null,
-  ) => void;
+  setAppDeploymentSession: (session: AppSubsystemDeploymentSession | null) => void;
   incrementAppDeploymentSessionRunCount: () => void;
   getServerModeState: () => AppSubsystemServerModeState;
-  subscribeServerModeState: (
-    listener: (serverMode: AppSubsystemServerModeState) => void,
-  ) => () => void;
+  subscribeServerModeState: (listener: (serverMode: AppSubsystemServerModeState) => void) => () => void;
   setServerModeState: (serverMode: AppSubsystemServerModeState) => void;
   setProjectLoadState: (loadState: AppSubsystemProjectLoadState) => void;
   resetProjectRuntimeState: () => void;
 };
-export declare function createAppSubsystemFrontendHost(
-  overrides?: Partial<AppSubsystemFrontendHost>,
-): AppSubsystemFrontendHost;
+export declare function createAppSubsystemFrontendHost(overrides?: Partial<AppSubsystemFrontendHost>): AppSubsystemFrontendHost;
 
 export type AppSubsystemOverviewTabProps = Record<string, never>;
 export type AppSubsystemPreviewSurfaceProps = Record<string, never>;
@@ -745,16 +480,8 @@ export type AppSubsystemAppDeploymentModalProps = {
   open: boolean;
 };
 export type AppSubsystemRenderer<Props> = {
-  mount: (
-    target: HTMLElement,
-    props: Props,
-    host: AppSubsystemFrontendHost,
-  ) => void;
-  update?: (
-    target: HTMLElement,
-    props: Props,
-    host: AppSubsystemFrontendHost,
-  ) => void;
+  mount: (target: HTMLElement, props: Props, host: AppSubsystemFrontendHost) => void;
+  update?: (target: HTMLElement, props: Props, host: AppSubsystemFrontendHost) => void;
   unmount?: (target: HTMLElement) => void;
 };
 export type AppSubsystemOverviewTabRegistration = {
@@ -803,25 +530,14 @@ export type AppSubsystemChatRegistration = {
 };
 export type AppSubsystemFrontendController = {
   getPreviewEnabled?: () => boolean;
-  subscribePreviewEnabled?: (
-    listener: (previewEnabled: boolean) => void,
-  ) => () => void;
-  applyAppDefinitionStructuredContentToStore?: (
-    structured: Record<string, unknown>,
-  ) => boolean;
-  applyAppSpecPatchPreviewDeltaToStore?: (
-    args: AppSubsystemPatchPreviewDelta,
-  ) => void;
+  subscribePreviewEnabled?: (listener: (previewEnabled: boolean) => void) => () => void;
+  applyAppDefinitionStructuredContentToStore?: (structured: Record<string, unknown>) => boolean;
+  applyAppSpecPatchPreviewDeltaToStore?: (args: AppSubsystemPatchPreviewDelta) => void;
   clearAppSpecPatchPreviewStream?: (toolCallId: string) => void;
   clearAllAppSpecPatchPreviewStreams?: () => void;
-  initializeAppSessionFromCurrentDeployment?: (
-    host: AppSubsystemFrontendHost,
-    options?: AppSubsystemSessionInitializationOptions,
-  ) => Promise<boolean>;
+  initializeAppSessionFromCurrentDeployment?: (host: AppSubsystemFrontendHost, options?: AppSubsystemSessionInitializationOptions) => Promise<boolean>;
   resetAppSessionState?: (host: AppSubsystemFrontendHost) => void;
-  processAppProjectStateUpdateFromBackend?: (
-    payload: GetLatestProjectStateResponse,
-  ) => void;
+  processAppProjectStateUpdateFromBackend?: (payload: GetLatestProjectStateResponse) => void;
   initializeProjectState?: () => void;
   resetProjectState?: () => void;
 };
@@ -833,86 +549,29 @@ export type AppSubsystemFrontendRegistration = {
   chat?: AppSubsystemChatRegistration;
   controller?: AppSubsystemFrontendController;
 };
-export type RegisteredAppSubsystemFrontendRegistration =
-  AppSubsystemFrontendRegistration & {
-    pluginId: string;
-  };
+export type RegisteredAppSubsystemFrontendRegistration = AppSubsystemFrontendRegistration & {
+  pluginId: string;
+};
 export type AppSubsystemPluginRegistrationHost = {
   apiVersion: number;
   pluginId: string;
   registerAppSubsystem: (definition: AppSubsystemFrontendRegistration) => void;
 };
-export declare function isAppSubsystemFrontendRegistration(
-  value: unknown,
-): value is AppSubsystemFrontendRegistration;
-export declare function resolveAppSubsystemPluginRegistrationHost(
-  host: unknown,
-): AppSubsystemPluginRegistrationHost;
-export declare function registerAppSubsystemPlugin(
-  host: unknown,
-  registration: AppSubsystemFrontendRegistration,
-): AppSubsystemPluginRegistrationHost;
-export declare function buildDefaultAppSpecPath(
-  pluginId: string | null | undefined,
-): string;
-export declare function activateAppSubsystemFrontendHostRuntime(
-  host: AppSubsystemFrontendHost,
-): void;
-export declare function deactivateAppSubsystemFrontendHostRuntime(
-  host: AppSubsystemFrontendHost,
-): void;
+export declare function isAppSubsystemFrontendRegistration(value: unknown): value is AppSubsystemFrontendRegistration;
+export declare function resolveAppSubsystemPluginRegistrationHost(host: unknown): AppSubsystemPluginRegistrationHost;
+export declare function registerAppSubsystemPlugin(host: unknown, registration: AppSubsystemFrontendRegistration): AppSubsystemPluginRegistrationHost;
+export declare function buildDefaultAppSpecPath(pluginId: string | null | undefined): string;
+export declare function activateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
+export declare function deactivateAppSubsystemFrontendHostRuntime(host: AppSubsystemFrontendHost): void;
 export declare function getActiveAppSubsystemFrontendHostRuntime(): AppSubsystemFrontendHost | null;
-export declare function runWithAppSubsystemFrontendHostRuntime<T>(
-  host: AppSubsystemFrontendHost,
-  run: () => T | Promise<T>,
-): Promise<T>;
+export declare function runWithAppSubsystemFrontendHostRuntime<T>(host: AppSubsystemFrontendHost, run: () => T | Promise<T>): Promise<T>;
 export declare function clearEffectiveImplCache(impl: object): void;
-export declare function getEffectiveImpl<T extends JsonRecord>(
-  impl: T,
-  core: Core,
-  variant: Variant,
-): T;
-export declare function getCurrentEffectiveCodeObjImplIfPresent(
-  projectState: SingleConfig,
-  sectionId: string,
-  codeObjId: string,
-  includePreview?: boolean,
-): JsonRecord | null;
-export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<
-  T extends JsonRecord,
->(
-  projectState: SingleConfig,
-  sectionId: string,
-  codeObjId: string,
-  guard: (value: JsonRecord) => value is T,
-  includePreview?: boolean,
-): T | null;
-export declare function getCurrentEffectiveSectionImpl(
-  projectState: SingleConfig,
-  sectionId: string,
-  includePreview?: boolean,
-): JsonRecord;
-export declare function getCurrentEffectiveSectionImplIfPresent(
-  projectState: SingleConfig,
-  sectionId: string,
-  includePreview?: boolean,
-): JsonRecord | null;
-export declare function getCurrentSectionVariantId(
-  projectState: SingleConfig,
-  sectionId: string,
-  includePreview?: boolean,
-): string;
-export declare function getCurrentSectionVariantIdIfPresent(
-  projectState: SingleConfig,
-  sectionId: string,
-  includePreview?: boolean,
-): string | null;
-export declare function getParamDisplayNameIfPresent(
-  projectState: SingleConfig,
-  sectionId: string,
-  codeObjId: string,
-): string | null;
-export declare function getSectionCodeObjVariantId(
-  sectionImpl: BaseSectionImplUnion,
-  codeObjId: string,
-): string | null;
+export declare function getEffectiveImpl<T extends JsonRecord>(impl: T, core: Core, variant: Variant): T;
+export declare function getCurrentEffectiveCodeObjImplIfPresent(projectState: SingleConfig, sectionId: string, codeObjId: string, includePreview?: boolean): JsonRecord | null;
+export declare function getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent<T extends JsonRecord>(projectState: SingleConfig, sectionId: string, codeObjId: string, guard: (value: JsonRecord) => value is T, includePreview?: boolean): T | null;
+export declare function getCurrentEffectiveSectionImpl(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord;
+export declare function getCurrentEffectiveSectionImplIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): JsonRecord | null;
+export declare function getCurrentSectionVariantId(projectState: SingleConfig, sectionId: string, includePreview?: boolean): string;
+export declare function getCurrentSectionVariantIdIfPresent(projectState: SingleConfig, sectionId: string, includePreview?: boolean): string | null;
+export declare function getParamDisplayNameIfPresent(projectState: SingleConfig, sectionId: string, codeObjId: string): string | null;
+export declare function getSectionCodeObjVariantId(sectionImpl: BaseSectionImplUnion, codeObjId: string): string | null;

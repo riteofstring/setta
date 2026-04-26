@@ -9,13 +9,10 @@ PROFILE_ENV = "SETTA_PROFILE"
 PROFILE_LOOKUP_HOME_ENV = "SETTA_PROFILE_LOOKUP_HOME"
 SETTA_HOME_ENV = "SETTA_HOME"
 FILES_LOCATION_ENV = "SETTA_FILES_LOCATION"
-SETTA_FILES_LOCATION_VALUES = ("auto", "local", "global")
 RESOLVED_SETTA_FILES_LOCATION_VALUES = ("local", "global")
 SESSION_ID_ENV_VAR = "SETTA_SESSION_ID"
 SESSIONS_ROOT_ENV_VAR = "SETTA_SESSIONS_ROOT"
 IN_PROCESS_ENV_VAR = "SETTA_IN_PROCESS_BACKEND"
-ALLOWED_SETTA_HOME_NAMES = frozenset((".setta", ".setta-development"))
-ALLOWED_SETTA_FILES_ROOT_SEGMENTS = frozenset(("setta_files", "setta_files_dev"))
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8000
 DEFAULT_AUTH_COOKIE_NAME = "setta_auth"
@@ -25,28 +22,454 @@ LAUNCH_INTENT_TOKEN_TTL_SECONDS = 600
 SESSION_SECRET_BYTES = 32
 SESSION_METADATA_FILENAME = "session.json"
 SESSION_SECRET_FILENAME = "secret"
-SESSION_PROCESS_BASENAMES = frozenset(("setta", "setta.exe", "setta-script.py", "setta-server", "setta-server.exe"))
+SESSION_PROCESS_BASENAMES = frozenset(
+    ("setta", "setta.exe", "setta-script.py", "setta-server", "setta-server.exe")
+)
 SESSION_PROCESS_INVOCATION_ARGUMENTS = frozenset(("setta",))
 SESSION_PROCESS_INVOCATION_PREFIXES = ("setta.", "setta:")
 SESSION_SERVER_MODE_VALUES = ("ide", "launcher")
 DEFAULT_SESSION_SERVER_MODE = "ide"
 PASSWORD_STORE_FILENAME = "passwords.json"
-MEMORABLE_NAME_ADJECTIVES = ("happy", "clever", "swift", "brave", "bright", "calm", "eager", "fierce", "gentle", "kind", "lively", "proud", "quiet", "rapid", "sharp", "smart", "strong", "warm", "wise", "bold", "crisp", "deep", "free", "grand", "high", "keen", "neat", "rich", "safe", "true", "young", "dark", "light", "wild", "soft", "loud", "quick", "slow", "tall", "short", "fresh", "clean", "cool", "hot", "fair", "sweet", "tough", "pure", "nice", "raw", "real", "rare", "fine", "vast", "mild", "firm", "fast", "late", "main", "wide", "deep", "blue", "red", "green", "gold", "pink", "gray", "tiny", "huge", "broad", "flat", "thick", "thin", "white", "black", "round", "dry", "wet", "full", "empty", "heavy", "light", "loose", "tight", "long", "brief", "clear", "dark", "busy", "lazy", "spare", "prime", "royal", "plain", "spare", "crude", "chief", "swift", "dim", "dull", "rough", "smooth", "still", "small", "great", "quick", "ready", "right", "rust", "tame", "vital", "young", "zinc", "zesty")
-MEMORABLE_NAME_NOUNS = ("apple", "bear", "bird", "cat", "cloud", "deer", "dog", "fish", "fox", "frog", "hawk", "lion", "moon", "owl", "pine", "rose", "star", "sun", "tree", "wolf", "river", "mountain", "ocean", "forest", "desert", "valley", "meadow", "garden", "brook", "lake", "beach", "cliff", "coast", "creek", "field", "flame", "flood", "frost", "glade", "grove", "shore", "spring", "storm", "stream", "tide", "trail", "whale", "wind", "wood", "world", "amber", "ash", "balm", "bark", "bay", "blade", "bloom", "branch", "brass", "bronze", "cane", "cedar", "chalk", "clay", "cliff", "coal", "coast", "coral", "crown", "crystal", "dew", "dove", "drake", "dune", "dust", "elm", "fern", "flake", "flame", "flock", "foam", "fog", "frost", "gale", "gem", "gill", "glacier", "grove", "gull", "harbor", "hare", "heath", "hill", "jazz", "jewel", "kale", "kelp", "kite", "lark", "leaf", "lime", "mane", "marsh", "mint", "mist", "moss", "nest", "night", "north", "oak", "opal", "otter", "palm", "peak", "pear", "pearl", "petal", "pike", "pine", "plant", "plum", "pond", "pool", "quail", "queen", "quill", "rain", "reef", "rice", "ridge", "rock", "root", "rose", "ruby", "rush", "sage", "sail", "salt", "sand", "seal", "seed", "shark", "shell", "shore", "silk", "slag", "slate", "sleet", "slope", "snow", "south", "spark", "spine", "spray", "spring", "sprout", "squid", "star", "stone", "storm", "swan", "swift", "tank", "tide", "tiger", "torch", "trout", "tulip", "vapor", "vine", "voice", "wave", "weed", "well", "whale", "wind", "wing", "winter", "wolf", "womb", "wood", "wren", "yarn", "yeast", "zebra")
-MEMORABLE_NAME_VERBS = ("running", "jumping", "flying", "dancing", "singing", "laughing", "sleeping", "dreaming", "playing", "swimming", "climbing", "diving", "gliding", "hopping", "leaping", "racing", "skating", "sliding", "walking", "wandering", "acting", "baking", "being", "brewing", "buying", "calling", "caring", "catching", "chasing", "coding", "cooking", "dealing", "doing", "drawing", "driving", "eating", "falling", "feeling", "finding", "flowing", "giving", "glowing", "going", "growing", "having", "hearing", "hiding", "hitting", "holding", "keeping", "knowing", "leading", "leaving", "making", "moving", "painting", "playing", "reading", "riding", "rising", "saying", "seeing", "selling", "sending", "setting", "shining", "showing", "singing", "sitting", "speaking", "spending", "standing", "staying", "taking", "talking", "teaching", "telling", "thinking", "turning", "using", "waiting", "watching", "winning", "working", "writing", "zooming")
+MEMORABLE_NAME_ADJECTIVES = (
+    "happy",
+    "clever",
+    "swift",
+    "brave",
+    "bright",
+    "calm",
+    "eager",
+    "fierce",
+    "gentle",
+    "kind",
+    "lively",
+    "proud",
+    "quiet",
+    "rapid",
+    "sharp",
+    "smart",
+    "strong",
+    "warm",
+    "wise",
+    "bold",
+    "crisp",
+    "deep",
+    "free",
+    "grand",
+    "high",
+    "keen",
+    "neat",
+    "rich",
+    "safe",
+    "true",
+    "young",
+    "dark",
+    "light",
+    "wild",
+    "soft",
+    "loud",
+    "quick",
+    "slow",
+    "tall",
+    "short",
+    "fresh",
+    "clean",
+    "cool",
+    "hot",
+    "fair",
+    "sweet",
+    "tough",
+    "pure",
+    "nice",
+    "raw",
+    "real",
+    "rare",
+    "fine",
+    "vast",
+    "mild",
+    "firm",
+    "fast",
+    "late",
+    "main",
+    "wide",
+    "deep",
+    "blue",
+    "red",
+    "green",
+    "gold",
+    "pink",
+    "gray",
+    "tiny",
+    "huge",
+    "broad",
+    "flat",
+    "thick",
+    "thin",
+    "white",
+    "black",
+    "round",
+    "dry",
+    "wet",
+    "full",
+    "empty",
+    "heavy",
+    "light",
+    "loose",
+    "tight",
+    "long",
+    "brief",
+    "clear",
+    "dark",
+    "busy",
+    "lazy",
+    "spare",
+    "prime",
+    "royal",
+    "plain",
+    "spare",
+    "crude",
+    "chief",
+    "swift",
+    "dim",
+    "dull",
+    "rough",
+    "smooth",
+    "still",
+    "small",
+    "great",
+    "quick",
+    "ready",
+    "right",
+    "rust",
+    "tame",
+    "vital",
+    "young",
+    "zinc",
+    "zesty",
+)
+MEMORABLE_NAME_NOUNS = (
+    "apple",
+    "bear",
+    "bird",
+    "cat",
+    "cloud",
+    "deer",
+    "dog",
+    "fish",
+    "fox",
+    "frog",
+    "hawk",
+    "lion",
+    "moon",
+    "owl",
+    "pine",
+    "rose",
+    "star",
+    "sun",
+    "tree",
+    "wolf",
+    "river",
+    "mountain",
+    "ocean",
+    "forest",
+    "desert",
+    "valley",
+    "meadow",
+    "garden",
+    "brook",
+    "lake",
+    "beach",
+    "cliff",
+    "coast",
+    "creek",
+    "field",
+    "flame",
+    "flood",
+    "frost",
+    "glade",
+    "grove",
+    "shore",
+    "spring",
+    "storm",
+    "stream",
+    "tide",
+    "trail",
+    "whale",
+    "wind",
+    "wood",
+    "world",
+    "amber",
+    "ash",
+    "balm",
+    "bark",
+    "bay",
+    "blade",
+    "bloom",
+    "branch",
+    "brass",
+    "bronze",
+    "cane",
+    "cedar",
+    "chalk",
+    "clay",
+    "cliff",
+    "coal",
+    "coast",
+    "coral",
+    "crown",
+    "crystal",
+    "dew",
+    "dove",
+    "drake",
+    "dune",
+    "dust",
+    "elm",
+    "fern",
+    "flake",
+    "flame",
+    "flock",
+    "foam",
+    "fog",
+    "frost",
+    "gale",
+    "gem",
+    "gill",
+    "glacier",
+    "grove",
+    "gull",
+    "harbor",
+    "hare",
+    "heath",
+    "hill",
+    "jazz",
+    "jewel",
+    "kale",
+    "kelp",
+    "kite",
+    "lark",
+    "leaf",
+    "lime",
+    "mane",
+    "marsh",
+    "mint",
+    "mist",
+    "moss",
+    "nest",
+    "night",
+    "north",
+    "oak",
+    "opal",
+    "otter",
+    "palm",
+    "peak",
+    "pear",
+    "pearl",
+    "petal",
+    "pike",
+    "pine",
+    "plant",
+    "plum",
+    "pond",
+    "pool",
+    "quail",
+    "queen",
+    "quill",
+    "rain",
+    "reef",
+    "rice",
+    "ridge",
+    "rock",
+    "root",
+    "rose",
+    "ruby",
+    "rush",
+    "sage",
+    "sail",
+    "salt",
+    "sand",
+    "seal",
+    "seed",
+    "shark",
+    "shell",
+    "shore",
+    "silk",
+    "slag",
+    "slate",
+    "sleet",
+    "slope",
+    "snow",
+    "south",
+    "spark",
+    "spine",
+    "spray",
+    "spring",
+    "sprout",
+    "squid",
+    "star",
+    "stone",
+    "storm",
+    "swan",
+    "swift",
+    "tank",
+    "tide",
+    "tiger",
+    "torch",
+    "trout",
+    "tulip",
+    "vapor",
+    "vine",
+    "voice",
+    "wave",
+    "weed",
+    "well",
+    "whale",
+    "wind",
+    "wing",
+    "winter",
+    "wolf",
+    "womb",
+    "wood",
+    "wren",
+    "yarn",
+    "yeast",
+    "zebra",
+)
+MEMORABLE_NAME_VERBS = (
+    "running",
+    "jumping",
+    "flying",
+    "dancing",
+    "singing",
+    "laughing",
+    "sleeping",
+    "dreaming",
+    "playing",
+    "swimming",
+    "climbing",
+    "diving",
+    "gliding",
+    "hopping",
+    "leaping",
+    "racing",
+    "skating",
+    "sliding",
+    "walking",
+    "wandering",
+    "acting",
+    "baking",
+    "being",
+    "brewing",
+    "buying",
+    "calling",
+    "caring",
+    "catching",
+    "chasing",
+    "coding",
+    "cooking",
+    "dealing",
+    "doing",
+    "drawing",
+    "driving",
+    "eating",
+    "falling",
+    "feeling",
+    "finding",
+    "flowing",
+    "giving",
+    "glowing",
+    "going",
+    "growing",
+    "having",
+    "hearing",
+    "hiding",
+    "hitting",
+    "holding",
+    "keeping",
+    "knowing",
+    "leading",
+    "leaving",
+    "making",
+    "moving",
+    "painting",
+    "playing",
+    "reading",
+    "riding",
+    "rising",
+    "saying",
+    "seeing",
+    "selling",
+    "sending",
+    "setting",
+    "shining",
+    "showing",
+    "singing",
+    "sitting",
+    "speaking",
+    "spending",
+    "standing",
+    "staying",
+    "taking",
+    "talking",
+    "teaching",
+    "telling",
+    "thinking",
+    "turning",
+    "using",
+    "waiting",
+    "watching",
+    "winning",
+    "working",
+    "writing",
+    "zooming",
+)
 HEADER_LENGTH_BYTES = 4
 LOOPBACK_HOSTS = frozenset(("127.0.0.1", "localhost", "::1"))
-SESSION_MATCH_HOST_REWRITES = {"0.0.0.0": "127.0.0.1", "127.0.0.1": "127.0.0.1", "::": "::1", "::1": "::1", "localhost": "127.0.0.1"}
+SESSION_MATCH_HOST_REWRITES = {
+    "0.0.0.0": "127.0.0.1",
+    "127.0.0.1": "127.0.0.1",
+    "::": "::1",
+    "::1": "::1",
+    "localhost": "127.0.0.1",
+}
 MCP_TOOL_PREFIX = "mcp__"
 SETTA_TOOL_SINGLE_PREFIX = "setta_"
 SETTA_TOOL_DOUBLE_PREFIX = "setta__"
 ASK_USER_QUESTION_TOOL_ALIAS = "question"
 ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
 APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION = 1
-APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_NAMES = ("appsubsystem_get_app_definition", "appsubsystem_get_effective_app_definition", "appsubsystem_get_effective_app_spec_path", "appsubsystem_get_effective_app_theme_mode", "appsubsystem_validate_app_definition", "appsubsystem_set_app_definition", "appsubsystem_stream_app_definition", "appsubsystem_update_app_definition", "appsubsystem_compare_and_set_catalog_id", "appsubsystem_compare_and_set_spec_version", "appsubsystem_compare_and_set_spec_path", "appsubsystem_compare_and_set_theme_mode")
-APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_TO_LOCAL_CORE_COMMAND = MappingProxyType({"appsubsystem_compare_and_set_catalog_id": "compare_and_set_app_definition_catalog_id", "appsubsystem_compare_and_set_spec_path": "compare_and_set_app_definition_spec_path", "appsubsystem_compare_and_set_spec_version": "compare_and_set_app_definition_spec_version", "appsubsystem_compare_and_set_theme_mode": "compare_and_set_app_definition_theme_mode", "appsubsystem_get_app_definition": "get_app_definition", "appsubsystem_get_effective_app_definition": "get_effective_app_definition", "appsubsystem_get_effective_app_spec_path": "get_effective_app_spec_path", "appsubsystem_get_effective_app_theme_mode": "get_effective_app_theme_mode", "appsubsystem_set_app_definition": "set_app_definition", "appsubsystem_stream_app_definition": "stream_app_definition", "appsubsystem_update_app_definition": "update_app_definition", "appsubsystem_validate_app_definition": "validate_app_definition"})
+APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_NAMES = (
+    "appsubsystem_get_app_definition",
+    "appsubsystem_get_effective_app_definition",
+    "appsubsystem_get_effective_app_spec_path",
+    "appsubsystem_get_effective_app_theme_mode",
+    "appsubsystem_validate_app_definition",
+    "appsubsystem_set_app_definition",
+    "appsubsystem_stream_app_definition",
+    "appsubsystem_update_app_definition",
+    "appsubsystem_compare_and_set_catalog_id",
+    "appsubsystem_compare_and_set_spec_version",
+    "appsubsystem_compare_and_set_spec_path",
+    "appsubsystem_compare_and_set_theme_mode",
+)
+APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_TO_LOCAL_CORE_COMMAND = MappingProxyType(
+    {
+        "appsubsystem_compare_and_set_catalog_id": "compare_and_set_app_definition_catalog_id",
+        "appsubsystem_compare_and_set_spec_path": "compare_and_set_app_definition_spec_path",
+        "appsubsystem_compare_and_set_spec_version": "compare_and_set_app_definition_spec_version",
+        "appsubsystem_compare_and_set_theme_mode": "compare_and_set_app_definition_theme_mode",
+        "appsubsystem_get_app_definition": "get_app_definition",
+        "appsubsystem_get_effective_app_definition": "get_effective_app_definition",
+        "appsubsystem_get_effective_app_spec_path": "get_effective_app_spec_path",
+        "appsubsystem_get_effective_app_theme_mode": "get_effective_app_theme_mode",
+        "appsubsystem_set_app_definition": "set_app_definition",
+        "appsubsystem_stream_app_definition": "stream_app_definition",
+        "appsubsystem_update_app_definition": "update_app_definition",
+        "appsubsystem_validate_app_definition": "validate_app_definition",
+    }
+)
 LOCAL_CORE_PROTOCOL_VERSION = 1
-LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES = "listener_render_realtime_dependency_values"
+LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES = (
+    "listener_render_realtime_dependency_values"
+)
 LOCAL_CORE_COMMAND_GET_APP_DEFINITION = "get_app_definition"
 LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION = "get_effective_app_definition"
 LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH = "get_effective_app_spec_path"
@@ -55,31 +478,16 @@ LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION = "validate_app_definition"
 LOCAL_CORE_COMMAND_SET_APP_DEFINITION = "set_app_definition"
 LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION = "stream_app_definition"
 LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION = "update_app_definition"
-LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID = "compare_and_set_app_definition_catalog_id"
-LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION = "compare_and_set_app_definition_spec_version"
-LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH = "compare_and_set_app_definition_spec_path"
-LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE = "compare_and_set_app_definition_theme_mode"
-LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA = "watch_code_get_project_data"
-LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS = "watch_code_set_inputs"
-LOCAL_CORE_COMMAND_WATCH_CODE_SET_FOLDERS = "watch_code_set_folders"
-LOCAL_CORE_COMMAND_WATCH_CODE_SET_FILES = "watch_code_set_files"
-WATCH_CODE_BACKEND_CONTRACT_VERSION = 1
-WATCH_CODE_BACKEND_DATA_SCHEMA_VERSION = 1
-WATCH_CODE_BACKEND_ROUTE_BASE_PATH = "/watch-code"
-WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS = "inputs"
-WATCH_CODE_BACKEND_ROUTE_SUFFIXES = ("inputs",)
-WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS = "folders"
-WATCH_CODE_BACKEND_LOCAL_SETTING_FILES = "files"
-WATCH_CODE_BACKEND_LOCAL_SETTING_IDS = ("folders", "files")
-WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID = MappingProxyType({"files": "read_files", "folders": "read_folders"})
-WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID = MappingProxyType({"files": "write_files", "folders": "write_folders"})
-WATCH_CODE_BACKEND_ERROR_INVALID_JSON = "invalid_json"
-WATCH_CODE_BACKEND_ERROR_INVALID_REQUEST = "invalid_request"
-WATCH_CODE_BACKEND_ERROR_INTERNAL = "internal_error"
-WATCH_CODE_BACKEND_ERROR_METHOD_NOT_ALLOWED = "method_not_allowed"
-WATCH_CODE_BACKEND_ERROR_NOT_FOUND = "not_found"
-WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_ID_REQUIRED = "project_config_id_required"
-WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_NOT_FOUND = "project_config_not_found"
-WATCH_CODE_BACKEND_ERROR_INVALID_WATCH_CODE_INPUT = "invalid_watch_code_input"
-WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED = "watch_code_provider_required"
+LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID = (
+    "compare_and_set_app_definition_catalog_id"
+)
+LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION = (
+    "compare_and_set_app_definition_spec_version"
+)
+LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH = (
+    "compare_and_set_app_definition_spec_path"
+)
+LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE = (
+    "compare_and_set_app_definition_theme_mode"
+)
 DEPLOYMENT_LISTENER_READY_SENTINEL = "SETTA_DEPLOYMENT_LISTENER_READY"

@@ -330,18 +330,13 @@ func TestPythonGeneratedDiagnosticsMapperWrapsMultilineCodeParamExpressions(t *t
 func TestPythonGeneratedDiagnosticsMapperFiltersImplicitRelativeImportForWatchCodeModule(t *testing.T) {
 	t.Parallel()
 
-	options := pythonGeneratedDiagnosticsProjectOptions{
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
 		GenCodePrefix:       "from watch_code_test import cool_fn\n",
 		ParamValue:          "value",
 		WatchCodeIdentity:   "watch_code_test.cool_fn:function",
 		WatchCodeCallable:   "cool_fn",
 		WatchCodeSourcePath: "/tmp/workspace/watch_code_test.py",
-	}
-	mapper := mustPythonGeneratedDiagnosticsMapper(
-		t,
-		pythonGeneratedDiagnosticsProject(t, options),
-		pythonGeneratedDiagnosticsWatchCodeRegistry(options),
-	)
+	}))
 
 	start := strings.Index(mapper.renderer.Code, "watch_code_test")
 	if start < 0 {
@@ -369,18 +364,13 @@ func TestPythonGeneratedDiagnosticsMapperFiltersImplicitRelativeImportForWatchCo
 func TestPythonGeneratedDiagnosticsMapperFiltersMissingImportForWatchCodeModule(t *testing.T) {
 	t.Parallel()
 
-	options := pythonGeneratedDiagnosticsProjectOptions{
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
 		GenCodePrefix:       "from watch_code_test import cool_fn\n",
 		ParamValue:          "value",
 		WatchCodeIdentity:   "watch_code_test.cool_fn:function",
 		WatchCodeCallable:   "cool_fn",
 		WatchCodeSourcePath: "/tmp/workspace/watch_code_test.py",
-	}
-	mapper := mustPythonGeneratedDiagnosticsMapper(
-		t,
-		pythonGeneratedDiagnosticsProject(t, options),
-		pythonGeneratedDiagnosticsWatchCodeRegistry(options),
-	)
+	}))
 
 	start := strings.Index(mapper.renderer.Code, "watch_code_test")
 	if start < 0 {
@@ -408,7 +398,7 @@ func TestPythonGeneratedDiagnosticsMapperFiltersMissingImportForWatchCodeModule(
 func TestPythonGeneratedDiagnosticsMapperFallsBackToWatchCodeRequiredParamErrorsWhenImportFiltered(t *testing.T) {
 	t.Parallel()
 
-	options := pythonGeneratedDiagnosticsProjectOptions{
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
 		CallableName:        "cool_fn",
 		ParamNames:          []string{"a", "b", "c"},
 		ParamValue:          "",
@@ -416,12 +406,7 @@ func TestPythonGeneratedDiagnosticsMapperFallsBackToWatchCodeRequiredParamErrors
 		WatchCodeIdentity:   "watch_code_test.cool_fn:function",
 		WatchCodeCallable:   "cool_fn",
 		WatchCodeSourcePath: "/tmp/workspace/watch_code_test.py",
-	}
-	mapper := mustPythonGeneratedDiagnosticsMapper(
-		t,
-		pythonGeneratedDiagnosticsProject(t, options),
-		pythonGeneratedDiagnosticsWatchCodeRegistry(options),
-	)
+	}))
 
 	start := strings.Index(mapper.renderer.Code, "watch_code_test")
 	if start < 0 {
@@ -496,20 +481,11 @@ type pythonGeneratedDiagnosticsProjectOptions struct {
 	WatchCodeSourcePath string
 }
 
-func mustPythonGeneratedDiagnosticsMapper(
-	t *testing.T,
-	project projectstate.Project,
-	watchCodeRegistry ...map[string]projectstate.WatchCodeRegistryEntry,
-) *PythonGeneratedDiagnosticsMapper {
+func mustPythonGeneratedDiagnosticsMapper(t *testing.T, project projectstate.Project) *PythonGeneratedDiagnosticsMapper {
 	t.Helper()
 
-	var registry map[string]projectstate.WatchCodeRegistryEntry
-	if len(watchCodeRegistry) > 0 {
-		registry = watchCodeRegistry[0]
-	}
 	mapper, ok, err := NewPythonGeneratedDiagnosticsMapper(project, PythonGeneratedDiagnosticsMapperOptions{
-		PasswordSecrets:   map[string]string{},
-		WatchCodeRegistry: registry,
+		PasswordSecrets: map[string]string{},
 	})
 	if err != nil {
 		t.Fatalf("new generated diagnostics mapper: %v", err)
@@ -518,26 +494,6 @@ func mustPythonGeneratedDiagnosticsMapper(
 		t.Fatal("expected generated diagnostics mapper to exist")
 	}
 	return mapper
-}
-
-func pythonGeneratedDiagnosticsWatchCodeRegistry(
-	options pythonGeneratedDiagnosticsProjectOptions,
-) map[string]projectstate.WatchCodeRegistryEntry {
-	if options.WatchCodeIdentity == "" {
-		return nil
-	}
-	callableName := options.WatchCodeCallable
-	if callableName == "" {
-		callableName = options.CallableName
-	}
-	return map[string]projectstate.WatchCodeRegistryEntry{
-		options.WatchCodeIdentity: {
-			CallableName: strings.TrimSpace(callableName),
-			Kind:         projectstate.WatchCodeCallableKindFunction,
-			SourcePath:   options.WatchCodeSourcePath,
-			SectionIDs:   []string{"section-1"},
-		},
-	}
 }
 
 func pythonGeneratedDiagnosticsProject(
@@ -580,6 +536,21 @@ func pythonGeneratedDiagnosticsProject(
 			t.Fatalf("encode python codegen target: %v", err)
 		}
 		target.Payload = encodedTarget
+	}
+
+	watchCodeRegistry := map[string]projectstate.WatchCodeRegistryEntry{}
+	if options.WatchCodeIdentity != "" {
+		callableName := options.WatchCodeCallable
+		if callableName == "" {
+			callableName = "cool_fn"
+		}
+		watchCodeRegistry[options.WatchCodeIdentity] = projectstate.WatchCodeRegistryEntry{
+			CallableName:  callableName,
+			Kind:          projectstate.WatchCodeCallableKindFunction,
+			SourcePath:    options.WatchCodeSourcePath,
+			SectionIDs:    []string{"section-1"},
+			SectionsCount: 1,
+		}
 	}
 
 	codeObjVariantMapEntries := []string{`"callable-1":"callable-variant-1"`}
@@ -636,6 +607,7 @@ func pythonGeneratedDiagnosticsProject(
 		CodegenTargets: []projectstate.ProjectCodegenTarget{
 			target,
 		},
+		WatchCodeRegistry:  watchCodeRegistry,
 		TopLevelSectionIDs: []string{"section-1"},
 		SectionVariantMap: map[string]string{
 			"section-1": "section-variant-1",

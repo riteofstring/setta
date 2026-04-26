@@ -1,10 +1,8 @@
-import {
-  C_ADDRESSES,
-  rebuildBackendRequest,
-} from "@setta/app-subsystem-frontend-sdk";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { buildShareSessionHeaders } from "utils/shareSessionHeaders";
 import { buildBackendURL } from "utils/transportUrlCore";
 import { client } from "./generated/client.gen";
+import { rebuildBackendRequest } from "./requestRebuild";
 
 function resolveOpenAPIBaseURL(): string {
   if (typeof location === "undefined") {

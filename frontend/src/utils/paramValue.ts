@@ -1,9 +1,10 @@
-import { CodeObjTypeEnum, type CodeObjType } from "utils/generatedTypes";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
+export { shouldShowPasswordReveal } from "../../plugin-sdk/app-subsystem/src/paramValue";
 
 type RealtimeValueCheck = {
   previousValue: string;
   nextValue: string;
-  codeObjType: CodeObjType;
+  codeObjType: CodeObjTypeEnum;
 };
 
 export function shouldEmitRealtimeValue({

@@ -2368,7 +2368,7 @@ async function setSectionSize(
       const { dispatchOptimisticProjectStateUpdate, getCurrProjectConfigId } =
         await import("/src/state/actions/sectionInfos");
       const { setSectionSizes } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+      const { callOpenAPI } = await import("/src/openapi/http/result");
       const { setSelfParentSiblingChildrenWidths } = await import(
         "/src/state/actions/sections/sectionSizes"
       );

@@ -16,6 +16,7 @@ var runtimeModuleRelativePaths = []string{
 	"runtime_compat.py",
 	"plugin_runtime/__init__.py",
 	"plugin_runtime/app_subsystem.py",
+	"plugin_runtime/local_core.py",
 	"sdk_contracts/constants.py",
 	"types/generated/go_shared_constants.py",
 }

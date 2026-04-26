@@ -124,16 +124,14 @@ type backendRuntimeCodegenFile struct {
 }
 
 type backendRuntimeUISettingRequest struct {
-	Context         BackendRequestContext `json:"context"`
-	HandlerID       string                `json:"handlerId"`
-	Operation       string                `json:"operation"`
-	ProjectConfigID string                `json:"projectConfigId"`
-	Value           any                   `json:"value,omitempty"`
+	HandlerID       string `json:"handlerId"`
+	Operation       string `json:"operation"`
+	ProjectConfigID string `json:"projectConfigId"`
+	Value           any    `json:"value,omitempty"`
 }
 
 type backendRuntimeUISettingResponse struct {
-	Value json.RawMessage              `json:"value,omitempty"`
-	Error *backendRuntimeResponseError `json:"error,omitempty"`
+	Value json.RawMessage `json:"value,omitempty"`
 }
 
 type backendRuntimeResponseError struct {
@@ -339,7 +337,6 @@ func (s *Service) ReadBackendUISettingValue(ctx context.Context, options Backend
 		*entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
 		backendRuntimeUISettingRequest{
-			Context:         s.backendUISettingRequestContext(options.ProjectConfigID),
 			HandlerID:       strings.TrimSpace(options.HandlerID),
 			Operation:       "read",
 			ProjectConfigID: strings.TrimSpace(options.ProjectConfigID),
@@ -371,7 +368,6 @@ func (s *Service) WriteBackendUISettingValue(ctx context.Context, options Backen
 		*entry.Manifest,
 		filepath.Join(s.store.settaFilesRoot, BackendBuildRootName),
 		backendRuntimeUISettingRequest{
-			Context:         s.backendUISettingRequestContext(options.ProjectConfigID),
 			HandlerID:       strings.TrimSpace(options.HandlerID),
 			Operation:       "write",
 			ProjectConfigID: strings.TrimSpace(options.ProjectConfigID),
@@ -675,7 +671,19 @@ func invokeGoBackendListenerEndpoint(
 		)
 	}
 	if response.Listener.Error != nil {
-		return nil, backendRuntimeResponseErrorToError(response.Listener.Error, "plugin listener endpoint failed")
+		message := strings.TrimSpace(response.Listener.Error.Message)
+		if message == "" {
+			message = "plugin listener endpoint failed"
+		}
+		code := strings.TrimSpace(response.Listener.Error.Code)
+		if code == "" {
+			return nil, fmt.Errorf("%s", message)
+		}
+		return nil, &BackendRuntimeError{
+			Code:    code,
+			Message: message,
+			Details: cloneBackendPayload(response.Listener.Error.Details),
+		}
 	}
 	return response.Listener.Result, nil
 }
@@ -686,20 +694,10 @@ func (s *Service) enrichBackendRequestContext(
 	if s == nil || s.store == nil {
 		return requestContext
 	}
-	if strings.TrimSpace(string(requestContext.ServerMode)) == "" {
-		requestContext.ServerMode = s.serverMode()
-	}
 	requestContext.WorkspaceRoot = s.store.workspaceRoot
 	requestContext.SettaFilesRoot = s.store.settaFilesRoot
 	requestContext.RuntimeRoot = s.store.settaHome
 	return requestContext
-}
-
-func (s *Service) backendUISettingRequestContext(projectConfigID string) BackendRequestContext {
-	return s.enrichBackendRequestContext(BackendRequestContext{
-		ServerMode:      s.serverMode(),
-		ProjectConfigID: strings.TrimSpace(projectConfigID),
-	})
 }
 
 func invokeGoBackendCodegenTarget(
@@ -747,7 +745,6 @@ func invokeGoBackendUISetting(
 		SchemaVersion: backendRuntimeSchemaVersion,
 		Kind:          backendRuntimeKindUISetting,
 		UISetting: &backendRuntimeUISettingRequest{
-			Context:         request.Context,
 			HandlerID:       strings.TrimSpace(request.HandlerID),
 			Operation:       strings.TrimSpace(request.Operation),
 			ProjectConfigID: strings.TrimSpace(request.ProjectConfigID),
@@ -765,9 +762,6 @@ func invokeGoBackendUISetting(
 			"Invalid backend runtime response for plugin %s: missing ui setting response payload",
 			manifest.ID,
 		)
-	}
-	if response.UISetting.Error != nil {
-		return nil, backendRuntimeResponseErrorToError(response.UISetting.Error, "plugin ui setting handler failed")
 	}
 	if strings.TrimSpace(request.Operation) == "write" {
 		return nil, nil
@@ -790,25 +784,6 @@ func invokeGoBackendUISetting(
 		)
 	}
 	return value, nil
-}
-
-func backendRuntimeResponseErrorToError(responseError *backendRuntimeResponseError, fallbackMessage string) error {
-	if responseError == nil {
-		return nil
-	}
-	message := strings.TrimSpace(responseError.Message)
-	if message == "" {
-		message = fallbackMessage
-	}
-	code := strings.TrimSpace(responseError.Code)
-	if code == "" {
-		return fmt.Errorf("%s", message)
-	}
-	return &BackendRuntimeError{
-		Code:    code,
-		Message: message,
-		Details: cloneBackendPayload(responseError.Details),
-	}
 }
 
 func invokeGoBackendRuntime(

@@ -6,23 +6,125 @@ import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   createAppSubsystemFrontendHost,
   createRandomName,
+  createDefaultAppPolicy as createSdkDefaultAppPolicy,
   createSingleConfig,
   getCurrentEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrentEffectiveSectionImpl,
   getCurrentSectionVariantId,
   getParamDisplayNameIfPresent,
+  getCurrentEffectiveCodeObjImplIfPresent as getSdkCurrentEffectiveCodeObjImplIfPresent,
+  getCurrentEffectiveSectionImplIfPresent as getSdkCurrentEffectiveSectionImplIfPresent,
+  getCurrentSectionVariantIdIfPresent as getSdkCurrentSectionVariantIdIfPresent,
   isAppSubsystemFrontendRegistration,
-  isSettaPluginCanvasControlPlacement,
-  isSettaPluginHost,
   NO_PAN_CLASS_NAME,
   registerAppSubsystemPlugin,
+  resolveAppPolicy as resolveSdkAppPolicy,
+  resolveMainRunRequest as resolveSdkMainRunRequest,
+  resolveRunRequest as resolveSdkRunRequest,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
-  SettaPluginCanvasControlPlacementEnum,
   shouldShowPasswordReveal,
   type DropzoneStatelessAttachment,
 } from "@setta/app-subsystem-frontend-sdk";
+import {
+  getAttachmentPolicy as getHostAttachmentPolicy,
+  isAttachmentMimeAllowed as isHostAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
+import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY as hostBackendOriginOverrideStorageKey } from "utils/backendOriginOverride";
+import {
+  isGeneratedPythonIdentifier as isHostGeneratedPythonIdentifier,
+  normalizeGeneratedOrigin as normalizeHostGeneratedOrigin,
+  normalizeGeneratedToolName as normalizeHostGeneratedToolName,
+  sanitizeGeneratedSimpleNameSlug as sanitizeHostGeneratedSimpleNameSlug,
+  validateGeneratedParamNameInput as validateHostGeneratedParamNameInput,
+  validateGeneratedSimpleNameInput as validateHostGeneratedSimpleNameInput,
+} from "utils/bindingRuntime";
+import { C_ADDRESSES as hostCAddresses } from "utils/c_addresses";
+import {
+  createDefaultAppPolicy as createHostDefaultAppPolicy,
+  resolveAppPolicy as resolveHostAppPolicy,
+} from "utils/deploymentPolicies";
+import {
+  createDropzoneFileArtifactId as createHostDropzoneFileArtifactId,
+  createDropzoneTextAttachmentId as createHostDropzoneTextAttachmentId,
+  parseDropzoneValue as parseHostDropzoneValue,
+  serializeDropzoneValue as serializeHostDropzoneValue,
+} from "utils/dropzone";
+import { isLocalHostname as isHostLocalHostname } from "utils/hostnames";
+import {
+  createNewId as createHostNewId,
+  createRandomName as createHostRandomName,
+} from "utils/idNameCreation";
+import { getOrInitLauncherOrigin as getHostOrInitLauncherOrigin } from "utils/launcherOrigin";
+import { normalizeOrigin as normalizeHostOrigin } from "utils/origin";
+import { shouldShowPasswordReveal as shouldShowHostPasswordReveal } from "utils/paramValue";
+import {
+  getCurrentEffectiveCodeObjImplIfPresent as getHostCurrentEffectiveCodeObjImplIfPresent,
+  getCurrentEffectiveSectionImpl as getHostCurrentEffectiveSectionImpl,
+  getCurrentEffectiveSectionImplIfPresent as getHostCurrentEffectiveSectionImplIfPresent,
+  getCurrentSectionVariantId as getHostCurrentSectionVariantId,
+  getCurrentSectionVariantIdIfPresent as getHostCurrentSectionVariantIdIfPresent,
+  getParamDisplayNameIfPresent as getHostParamDisplayNameIfPresent,
+} from "utils/projectStateSelectors";
+import {
+  resolveMainRunRequest as resolveHostMainRunRequest,
+  resolveRunRequest as resolveHostRunRequest,
+} from "utils/runCapabilities";
+import {
+  resolveEndpointOriginForMode as resolveHostEndpointOriginForMode,
+  resolveServerModeCapabilities as resolveHostServerModeCapabilities,
+  resolveWorkspaceLaunchRouteKind as resolveHostWorkspaceLaunchRouteKind,
+} from "utils/serverModeBoundaryPolicy";
+import {
+  safeLocalStorage as safeHostLocalStorage,
+  safeSessionStorage as safeHostSessionStorage,
+} from "utils/storage";
+import {
+  buildTextBlockTypographyScale as buildHostTextBlockTypographyScale,
+  clampTextBlockMasterFontSize as clampHostTextBlockMasterFontSize,
+} from "utils/textBlockTypography";
 import { describe, expect, it, vi } from "vitest";
+import {
+  getAttachmentPolicy as getSdkSourceAttachmentPolicy,
+  isAttachmentMimeAllowed as isSdkSourceAttachmentMimeAllowed,
+} from "../../plugin-sdk/app-subsystem/src/attachmentPolicy";
+import {
+  isGeneratedPythonIdentifier as isSdkSourceGeneratedPythonIdentifier,
+  normalizeGeneratedOrigin as normalizeSdkSourceGeneratedOrigin,
+  normalizeGeneratedToolName as normalizeSdkSourceGeneratedToolName,
+  sanitizeGeneratedSimpleNameSlug as sanitizeSdkSourceGeneratedSimpleNameSlug,
+  validateGeneratedParamNameInput as validateSdkSourceGeneratedParamNameInput,
+  validateGeneratedSimpleNameInput as validateSdkSourceGeneratedSimpleNameInput,
+} from "../../plugin-sdk/app-subsystem/src/bindingRuntime";
+import {
+  BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY as sdkSourceBackendOriginOverrideStorageKey,
+  C_ADDRESSES as SdkSourceCAddresses,
+} from "../../plugin-sdk/app-subsystem/src/c_addresses";
+import {
+  createDropzoneFileArtifactId as createSdkSourceDropzoneFileArtifactId,
+  createDropzoneTextAttachmentId as createSdkSourceDropzoneTextAttachmentId,
+  parseDropzoneValue as parseSdkSourceDropzoneValue,
+  serializeDropzoneValue as serializeSdkSourceDropzoneValue,
+} from "../../plugin-sdk/app-subsystem/src/dropzone";
+import { isLocalHostname as isSdkSourceLocalHostname } from "../../plugin-sdk/app-subsystem/src/hostnames";
+import {
+  createNewId as createSdkSourceNewId,
+  createRandomName as createSdkSourceRandomName,
+} from "../../plugin-sdk/app-subsystem/src/idNameCreation";
+import { getOrInitLauncherOrigin as getSdkSourceOrInitLauncherOrigin } from "../../plugin-sdk/app-subsystem/src/launcherOrigin";
+import { normalizeOrigin as normalizeSdkSourceOrigin } from "../../plugin-sdk/app-subsystem/src/origin";
+import {
+  resolveServerModeCapabilities as resolveSdkSourceServerModeCapabilities,
+  resolveWorkspaceLaunchRouteKind as resolveSdkSourceWorkspaceLaunchRouteKind,
+} from "../../plugin-sdk/app-subsystem/src/serverModeBoundaryPolicy";
+import {
+  safeLocalStorage as safeSdkSourceLocalStorage,
+  safeSessionStorage as safeSdkSourceSessionStorage,
+} from "../../plugin-sdk/app-subsystem/src/storage";
+import {
+  buildTextBlockTypographyScale as buildSdkSourceTextBlockTypographyScale,
+  clampTextBlockMasterFontSize as clampSdkSourceTextBlockMasterFontSize,
+} from "../../plugin-sdk/app-subsystem/src/textBlockTypography";
 
 describe("appSubsystemFrontendSdk", () => {
   it("registers app subsystem providers through the typed SDK host", () => {
@@ -46,34 +148,6 @@ describe("appSubsystemFrontendSdk", () => {
 
     expect(host.pluginId).toBe("acme.plugin");
     expect(registerAppSubsystem).toHaveBeenCalledWith(registration);
-  });
-
-  it("exports the generic plugin frontend host contract", () => {
-    const host = {
-      apiVersion: 1,
-      pluginId: "acme.plugin",
-      serverMode: "ide",
-      effectiveCapabilities: ["registerCanvasControl"],
-      registerCanvasControl: () => undefined,
-      registerSettingRevealHandler: () => undefined,
-      getProjectContext: () => ({
-        projectConfigId: "project-alpha",
-        serverMode: "ide",
-      }),
-      subscribeProjectContext: () => () => undefined,
-      readProjectState: () => null,
-      subscribeProjectState: () => () => undefined,
-      fetchBackendRoute: async () => new Response(null, { status: 200 }),
-    };
-
-    expect(isSettaPluginHost(host)).toBe(true);
-    expect(isSettaPluginHost({ apiVersion: 1 })).toBe(false);
-    expect(
-      isSettaPluginCanvasControlPlacement(
-        SettaPluginCanvasControlPlacementEnum.Project,
-      ),
-    ).toBe(true);
-    expect(isSettaPluginCanvasControlPlacement("header")).toBe(false);
   });
 
   it("rejects hosts that do not expose the app subsystem registration capability", () => {
@@ -344,6 +418,80 @@ describe("appSubsystemFrontendSdk", () => {
     ).toBe("Fallback Param Name");
   });
 
+  it("keeps host helper entrypoints wired to SDK-owned implementations", () => {
+    expect(resolveHostMainRunRequest).toBe(resolveSdkMainRunRequest);
+    expect(resolveHostRunRequest).toBe(resolveSdkRunRequest);
+    expect(createHostDefaultAppPolicy).toBe(createSdkDefaultAppPolicy);
+    expect(resolveHostAppPolicy).toBe(resolveSdkAppPolicy);
+    expect(getHostAttachmentPolicy).toBe(getSdkSourceAttachmentPolicy);
+    expect(isHostAttachmentMimeAllowed).toBe(isSdkSourceAttachmentMimeAllowed);
+    expect(parseHostDropzoneValue).toBe(parseSdkSourceDropzoneValue);
+    expect(serializeHostDropzoneValue).toBe(serializeSdkSourceDropzoneValue);
+    expect(createHostDropzoneFileArtifactId).toBe(
+      createSdkSourceDropzoneFileArtifactId,
+    );
+    expect(createHostDropzoneTextAttachmentId).toBe(
+      createSdkSourceDropzoneTextAttachmentId,
+    );
+    expect(createHostNewId).toBe(createSdkSourceNewId);
+    expect(createHostRandomName).toBe(createSdkSourceRandomName);
+    expect(normalizeHostGeneratedOrigin).toBe(
+      normalizeSdkSourceGeneratedOrigin,
+    );
+    expect(normalizeHostGeneratedToolName).toBe(
+      normalizeSdkSourceGeneratedToolName,
+    );
+    expect(validateHostGeneratedSimpleNameInput).toBe(
+      validateSdkSourceGeneratedSimpleNameInput,
+    );
+    expect(sanitizeHostGeneratedSimpleNameSlug).toBe(
+      sanitizeSdkSourceGeneratedSimpleNameSlug,
+    );
+    expect(isHostGeneratedPythonIdentifier).toBe(
+      isSdkSourceGeneratedPythonIdentifier,
+    );
+    expect(validateHostGeneratedParamNameInput).toBe(
+      validateSdkSourceGeneratedParamNameInput,
+    );
+    expect(shouldShowHostPasswordReveal).toBe(shouldShowPasswordReveal);
+    expect(buildHostTextBlockTypographyScale).toBe(
+      buildSdkSourceTextBlockTypographyScale,
+    );
+    expect(clampHostTextBlockMasterFontSize).toBe(
+      clampSdkSourceTextBlockMasterFontSize,
+    );
+    expect(resolveHostServerModeCapabilities).toBe(
+      resolveSdkSourceServerModeCapabilities,
+    );
+    expect(resolveHostWorkspaceLaunchRouteKind).toBe(
+      resolveSdkSourceWorkspaceLaunchRouteKind,
+    );
+    expect(resolveHostEndpointOriginForMode("/", "launcher")).toBe("backend");
+    expect(hostCAddresses).toBe(SdkSourceCAddresses);
+    expect(hostBackendOriginOverrideStorageKey).toBe(
+      sdkSourceBackendOriginOverrideStorageKey,
+    );
+    expect(isHostLocalHostname).toBe(isSdkSourceLocalHostname);
+    expect(getHostOrInitLauncherOrigin).toBe(getSdkSourceOrInitLauncherOrigin);
+    expect(normalizeHostOrigin).toBe(normalizeSdkSourceOrigin);
+    expect(safeHostLocalStorage).toBe(safeSdkSourceLocalStorage);
+    expect(safeHostSessionStorage).toBe(safeSdkSourceSessionStorage);
+    expect(getHostCurrentEffectiveCodeObjImplIfPresent).toBe(
+      getSdkCurrentEffectiveCodeObjImplIfPresent,
+    );
+    expect(getHostCurrentEffectiveSectionImpl).toBe(
+      getCurrentEffectiveSectionImpl,
+    );
+    expect(getHostCurrentEffectiveSectionImplIfPresent).toBe(
+      getSdkCurrentEffectiveSectionImplIfPresent,
+    );
+    expect(getHostCurrentSectionVariantId).toBe(getCurrentSectionVariantId);
+    expect(getHostCurrentSectionVariantIdIfPresent).toBe(
+      getSdkCurrentSectionVariantIdIfPresent,
+    );
+    expect(getHostParamDisplayNameIfPresent).toBe(getParamDisplayNameIfPresent);
+  });
+
   it("keeps the source SDK package detached from host-private imports", () => {
     const projectStateSource = readFileSync(
       new URL(
@@ -367,9 +515,17 @@ describe("appSubsystemFrontendSdk", () => {
       ),
       "utf-8",
     );
+    const hostProjectStateSelectorSource = readFileSync(
+      new URL("../utils/projectStateSelectors.ts", import.meta.url),
+      "utf-8",
+    );
 
     expect(projectStateSource).not.toContain('from "utils/');
     expect(projectStateSource).not.toContain("cloneDeep");
+    expect(hostProjectStateSelectorSource).toContain(
+      'from "@setta/app-subsystem-frontend-sdk"',
+    );
+    expect(hostProjectStateSelectorSource).not.toContain("WeakMap");
     expect(helpersSource).not.toContain('from "utils/');
     expect(openapiSource).not.toContain('from "utils/');
     expect(openapiSource).not.toContain('from "openapi/');

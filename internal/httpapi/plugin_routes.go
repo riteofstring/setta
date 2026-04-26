@@ -263,10 +263,8 @@ func RegisterPluginRootRoutes(router chi.Router, deps PluginRootRouteDependencie
 		return fmt.Errorf("plugin root routes: plugin service is required")
 	}
 
-	pluginAssetOrBackendHandler := pluginBackendRootHandler(deps, pluginAssetHandler(deps))
-	router.Get(RoutePluginsAssetWildcard, pluginAssetOrBackendHandler)
-	router.Method(http.MethodHead, RoutePluginsAssetWildcard, pluginAssetOrBackendHandler)
-	router.Handle("/*", pluginBackendRootHandler(deps, pluginStaticDirHandler(deps)))
+	router.Get(RoutePluginsAssetWildcard, pluginAssetHandler(deps))
+	router.Handle("/*", pluginBackendRootHandler(deps))
 	return nil
 }
 
@@ -568,10 +566,8 @@ func pluginStaticDirHandler(deps PluginRootRouteDependencies) http.HandlerFunc {
 	}
 }
 
-func pluginBackendRootHandler(
-	deps PluginRootRouteDependencies,
-	getFallback http.Handler,
-) http.HandlerFunc {
+func pluginBackendRootHandler(deps PluginRootRouteDependencies) http.HandlerFunc {
+	staticHandler := pluginStaticDirHandler(deps)
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestPath, err := url.PathUnescape(r.URL.EscapedPath())
 		if err != nil {
@@ -605,7 +601,7 @@ func pluginBackendRootHandler(
 		}
 
 		if r.Method == http.MethodGet || r.Method == http.MethodHead {
-			getFallback.ServeHTTP(w, r)
+			staticHandler.ServeHTTP(w, r)
 			return
 		}
 

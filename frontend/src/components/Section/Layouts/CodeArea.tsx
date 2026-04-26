@@ -6,7 +6,6 @@ import {
   ViewPlugin,
   WidgetType,
 } from "@codemirror/view";
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
@@ -21,6 +20,7 @@ import {
   genCodePrefixCompletion,
   genCodeSuffixCompletion,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React, {
   useCallback,
   useEffect,
@@ -59,6 +59,7 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
 type GenPythonDocParts = {
   isValid: boolean;

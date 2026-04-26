@@ -1,4 +1,3 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { Item } from "components/Utils/atoms/dropdown/item";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -8,6 +7,7 @@ import {
   togglePositionLocks,
   toggleSectionVisibility,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {

@@ -1,4 +1,3 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { HomePageSearchBar } from "components/AppHeader/SearchBar/HomePageSearch";
 import { FileBrowserPane } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { togglePaneVisibility } from "components/Panes/paneLayout";
@@ -11,6 +10,7 @@ import { withRightPaneTitleClearance } from "components/Utils/paneTitleSpacing";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { setAsDefaultProject } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { FiGrid, FiList } from "react-icons/fi";

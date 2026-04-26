@@ -188,7 +188,7 @@ Transcription profile CRUD is separate from chat engine config:
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
 but a small set is intentionally routed through the launcher origin
-(`C_ADDRESSES.LAUNCHER`) by the app-subsystem frontend SDK OpenAPI helpers:
+(`C_ADDRESSES.LAUNCHER`) in `frontend/src/utils/endpointUtils.ts`:
 
 - `/api/launch`
 - `/api/settaHomeInfo`

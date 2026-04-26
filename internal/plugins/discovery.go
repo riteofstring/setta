@@ -523,7 +523,6 @@ func resetBackendRegistrations(entry *DiscoveredPlugin) {
 	entry.RegisteredListenerEndpoints = []PluginRegisteredListenerEndpoint{}
 	entry.appSubsystemBackend = nil
 	entry.appSubsystemListenerEndpoints = []PluginRegisteredListenerEndpoint{}
-	entry.watchCodeBackend = nil
 }
 
 func shouldPopulateBackendRegistrations(entry *DiscoveredPlugin) bool {
@@ -551,9 +550,7 @@ func applyBackendProbeRegistrations(entry *DiscoveredPlugin, probe backendProbeR
 	if containsString(entry.EffectiveCapabilities, "registerLanguageServer") {
 		entry.RegisteredLanguageServers = probe.LanguageServers
 	}
-	if containsString(entry.EffectiveCapabilities, "registerUISettings") {
-		entry.RegisteredUISettings = cloneRegisteredUISettings(probe.UISettings)
-	}
+	entry.RegisteredUISettings = cloneRegisteredUISettings(probe.UISettings)
 	if containsString(entry.EffectiveCapabilities, "registerRouter") {
 		entry.RegisteredBackendRoutes = probe.Routes
 	}
@@ -573,11 +570,6 @@ func applyBackendProbeRegistrations(entry *DiscoveredPlugin, probe backendProbeR
 			)
 		}
 	}
-	if containsString(entry.EffectiveCapabilities, "registerWatchCodeBackend") {
-		entry.watchCodeBackend = cloneBackendProbeWatchCodeBackendRegistration(
-			probe.WatchCodeBackend,
-		)
-	}
 }
 
 func cloneBackendProbeAppSubsystemBackendRegistration(
@@ -589,20 +581,6 @@ func cloneBackendProbeAppSubsystemBackendRegistration(
 	return &backendProbeAppSubsystemBackendRegistration{
 		ContractVersion:   registration.ContractVersion,
 		ListenerEndpoints: cloneRegisteredListenerEndpointsOrEmpty(registration.ListenerEndpoints),
-	}
-}
-
-func cloneBackendProbeWatchCodeBackendRegistration(
-	registration *backendProbeWatchCodeBackendRegistration,
-) *backendProbeWatchCodeBackendRegistration {
-	if registration == nil {
-		return nil
-	}
-	return &backendProbeWatchCodeBackendRegistration{
-		ContractVersion:        registration.ContractVersion,
-		DataSchemaVersion:      registration.DataSchemaVersion,
-		Languages:              cloneStringSliceOrEmpty(registration.Languages),
-		RequiresLanguageServer: registration.RequiresLanguageServer,
 	}
 }
 

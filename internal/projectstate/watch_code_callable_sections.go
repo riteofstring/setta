@@ -13,49 +13,42 @@ import (
 
 func (p *Project) applyWatchCodeScanPlan(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	plan watchcode.ScanPlan,
 	resolver CallableSignatureResolver,
 ) (bool, error) {
-	return p.applyWatchCodeScanPlanWithParsedSignatures(ctx, projectData, plan, resolver, nil)
+	return p.applyWatchCodeScanPlanWithParsedSignatures(ctx, plan, resolver, nil)
 }
 
 func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	plan watchcode.ScanPlan,
 	resolver CallableSignatureResolver,
 	parsedSignatures map[string]CallableSignatureResult,
 ) (bool, error) {
 	state := newWatchCodeScanPlanState()
-	state.markUpdated(applyWatchCodePrunedBaseline(projectData, plan.SourcePath, plan.PrunedBaseline))
+	state.markUpdated(p.applyWatchCodePrunedBaseline(plan.SourcePath, plan.PrunedBaseline))
 
-	if err := p.applyWatchCodeRenamePlans(projectData, plan.SourcePath, plan.Renames, state); err != nil {
+	if err := p.applyWatchCodeRenamePlans(plan.SourcePath, plan.Renames, state); err != nil {
 		return false, err
 	}
 
-	updated, err := p.removeWatchCodeIdentities(projectData, plan.RemovedIdentities)
+	updated, err := p.removeWatchCodeIdentities(plan.RemovedIdentities)
 	if err != nil {
 		return false, err
 	}
 	state.markUpdated(updated)
 
-	if err := p.applyWatchCodeMetadataChanges(projectData, plan.SourcePath, plan.MetadataChanges, state); err != nil {
+	if err := p.applyWatchCodeMetadataChanges(plan.SourcePath, plan.MetadataChanges, state); err != nil {
 		return false, err
 	}
-	if err := p.applyWatchCodeSignatureChanges(projectData, plan.SourcePath, plan.SignatureChanges, state); err != nil {
+	if err := p.applyWatchCodeSignatureChanges(plan.SourcePath, plan.SignatureChanges, state); err != nil {
 		return false, err
 	}
 
-	state.markUpdated(applyWatchCodeAdditions(projectData, plan.SourcePath, plan.Additions, state))
-
-	if err := p.applyWatchCodeParsedSignatureReconciliations(projectData, parsedSignatures, state); err != nil {
-		return false, err
-	}
+	state.markUpdated(p.applyWatchCodeAdditions(plan.SourcePath, plan.Additions, state))
 
 	updated, err = p.ensurePendingWatchCodeCallableSections(
 		ctx,
-		projectData,
 		state.pendingByIdentity,
 		resolver,
 		parsedSignatures,
@@ -67,7 +60,6 @@ func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
 
 	updated, err = p.refetchPendingWatchCodeCallableSections(
 		ctx,
-		projectData,
 		state.signatureRefetchByIdentity,
 		resolver,
 		parsedSignatures,
@@ -107,21 +99,20 @@ func (s *watchCodeScanPlanState) trackSignatureRefetch(identity string, callable
 	s.signatureRefetchByIdentity[identity] = callable
 }
 
-func applyWatchCodePrunedBaseline(projectData *WatchCodePluginProjectData, sourcePath string, prunedBaseline []string) bool {
-	if _, ok := projectData.BaselineByPath[sourcePath]; !ok {
+func (p *Project) applyWatchCodePrunedBaseline(sourcePath string, prunedBaseline []string) bool {
+	if _, ok := p.WatchCodeBaselineByPath[sourcePath]; !ok {
 		return false
 	}
-	return setWatchCodeBaseline(projectData, sourcePath, prunedBaseline)
+	return p.setWatchCodeBaseline(sourcePath, prunedBaseline)
 }
 
 func (p *Project) applyWatchCodeRenamePlans(
-	projectData *WatchCodePluginProjectData,
 	sourcePath string,
 	renames []watchcode.RenamePlan,
 	state *watchCodeScanPlanState,
 ) error {
 	for _, rename := range renames {
-		updated, pending, err := p.applyWatchCodeRename(projectData, rename, sourcePath)
+		updated, pending, err := p.applyWatchCodeRename(rename, sourcePath)
 		if err != nil {
 			return err
 		}
@@ -133,13 +124,10 @@ func (p *Project) applyWatchCodeRenamePlans(
 	return nil
 }
 
-func (p *Project) removeWatchCodeIdentities(
-	projectData *WatchCodePluginProjectData,
-	identities []string,
-) (bool, error) {
+func (p *Project) removeWatchCodeIdentities(identities []string) (bool, error) {
 	didUpdate := false
 	for _, identity := range identities {
-		updated, err := p.removeWatchCodeIdentity(projectData, identity)
+		updated, err := p.removeWatchCodeIdentity(identity)
 		if err != nil {
 			return false, err
 		}
@@ -151,14 +139,12 @@ func (p *Project) removeWatchCodeIdentities(
 }
 
 func (p *Project) applyWatchCodeMetadataChanges(
-	projectData *WatchCodePluginProjectData,
 	sourcePath string,
 	changes []watchcode.MetadataChangePlan,
 	state *watchCodeScanPlanState,
 ) error {
 	for _, change := range changes {
 		if err := p.applyWatchCodeTrackedCallableChange(
-			projectData,
 			sourcePath,
 			change.Identity,
 			change.Callable,
@@ -172,14 +158,12 @@ func (p *Project) applyWatchCodeMetadataChanges(
 }
 
 func (p *Project) applyWatchCodeSignatureChanges(
-	projectData *WatchCodePluginProjectData,
 	sourcePath string,
 	changes []watchcode.SignatureChangePlan,
 	state *watchCodeScanPlanState,
 ) error {
 	for _, change := range changes {
 		if err := p.applyWatchCodeTrackedCallableChange(
-			projectData,
 			sourcePath,
 			change.Identity,
 			change.Callable,
@@ -193,19 +177,18 @@ func (p *Project) applyWatchCodeSignatureChanges(
 }
 
 func (p *Project) applyWatchCodeTrackedCallableChange(
-	projectData *WatchCodePluginProjectData,
 	sourcePath string,
 	identity string,
 	callable watchcode.CallableInfo,
 	shouldRefetch bool,
 	state *watchCodeScanPlanState,
 ) error {
-	state.markUpdated(applyWatchCodeMetadataChange(projectData, identity, callable, sourcePath))
+	state.markUpdated(p.applyWatchCodeMetadataChange(identity, callable, sourcePath))
 	if shouldRefetch {
 		state.trackSignatureRefetch(identity, callable)
 	}
 
-	pending, err := p.watchCodeEntryNeedsSection(projectData, identity)
+	pending, err := p.watchCodeEntryNeedsSection(identity)
 	if err != nil {
 		return err
 	}
@@ -215,46 +198,15 @@ func (p *Project) applyWatchCodeTrackedCallableChange(
 	return nil
 }
 
-func (p *Project) applyWatchCodeParsedSignatureReconciliations(
-	projectData *WatchCodePluginProjectData,
-	parsedSignatures map[string]CallableSignatureResult,
-	state *watchCodeScanPlanState,
-) error {
-	if len(parsedSignatures) == 0 {
-		return nil
-	}
-	for _, identity := range sortedCallableSignatureResultIdentities(parsedSignatures) {
-		if _, ok := state.pendingByIdentity[identity]; ok {
-			continue
-		}
-		if _, ok := state.signatureRefetchByIdentity[identity]; ok {
-			continue
-		}
-		parsedSignature := parsedSignatures[identity]
-		if parsedSignature.Status != SignatureHelpStatusMatched {
-			continue
-		}
-		mismatched, err := p.watchCodeParsedSignatureParamsMismatch(projectData, identity, parsedSignature.Params)
-		if err != nil {
-			return err
-		}
-		if mismatched {
-			state.trackSignatureRefetch(identity, watchcode.CallableInfo{})
-		}
-	}
-	return nil
-}
-
-func applyWatchCodeAdditions(
-	projectData *WatchCodePluginProjectData,
+func (p *Project) applyWatchCodeAdditions(
 	sourcePath string,
 	additions []watchcode.CallableInfo,
 	state *watchCodeScanPlanState,
 ) bool {
 	didUpdate := false
 	for _, addition := range additions {
-		if _, ok := projectData.Registry[addition.Identity]; !ok {
-			projectData.Registry[addition.Identity] = WatchCodeRegistryEntry{
+		if _, ok := p.WatchCodeRegistry[addition.Identity]; !ok {
+			p.WatchCodeRegistry[addition.Identity] = WatchCodeRegistryEntry{
 				CallableName:  addition.CanonicalName,
 				Kind:          fromWatchcodeCallableKind(addition.Kind),
 				SignatureHash: addition.SignatureHash,
@@ -270,18 +222,8 @@ func applyWatchCodeAdditions(
 	return didUpdate
 }
 
-func sortedCallableSignatureResultIdentities(signatures map[string]CallableSignatureResult) []string {
-	identities := make([]string, 0, len(signatures))
-	for identity := range signatures {
-		identities = append(identities, identity)
-	}
-	sort.Strings(identities)
-	return identities
-}
-
 func (p *Project) ensurePendingWatchCodeCallableSections(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	pendingByIdentity map[string]watchcode.CallableInfo,
 	resolver CallableSignatureResolver,
 	parsedSignatures map[string]CallableSignatureResult,
@@ -290,7 +232,6 @@ func (p *Project) ensurePendingWatchCodeCallableSections(
 	for _, identity := range sortedWatchCodeCallableIdentities(pendingByIdentity) {
 		updated, err := p.ensureWatchCodeCallableSection(
 			ctx,
-			projectData,
 			identity,
 			pendingByIdentity[identity],
 			resolver,
@@ -308,7 +249,6 @@ func (p *Project) ensurePendingWatchCodeCallableSections(
 
 func (p *Project) refetchPendingWatchCodeCallableSections(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	signatureRefetchByIdentity map[string]watchcode.CallableInfo,
 	resolver CallableSignatureResolver,
 	parsedSignatures map[string]CallableSignatureResult,
@@ -317,7 +257,6 @@ func (p *Project) refetchPendingWatchCodeCallableSections(
 	for _, identity := range sortedWatchCodeCallableIdentities(signatureRefetchByIdentity) {
 		updated, err := p.refetchWatchCodeCallableSections(
 			ctx,
-			projectData,
 			identity,
 			resolver,
 			parsedSignatures[identity],
@@ -341,13 +280,10 @@ func sortedWatchCodeCallableIdentities(callablesByIdentity map[string]watchcode.
 	return identities
 }
 
-func (p *Project) applyWatchCodeDeletePlan(
-	projectData *WatchCodePluginProjectData,
-	plan watchcode.DeletePlan,
-) (bool, error) {
+func (p *Project) applyWatchCodeDeletePlan(plan watchcode.DeletePlan) (bool, error) {
 	didUpdate := false
 	for _, identity := range plan.RemovedIdentities {
-		updated, err := p.removeWatchCodeIdentity(projectData, identity)
+		updated, err := p.removeWatchCodeIdentity(identity)
 		if err != nil {
 			return false, err
 		}
@@ -356,35 +292,34 @@ func (p *Project) applyWatchCodeDeletePlan(
 		}
 	}
 	if plan.RemoveBaselinePath {
-		if _, ok := projectData.BaselineByPath[plan.SourcePath]; ok {
-			delete(projectData.BaselineByPath, plan.SourcePath)
+		if _, ok := p.WatchCodeBaselineByPath[plan.SourcePath]; ok {
+			delete(p.WatchCodeBaselineByPath, plan.SourcePath)
 			didUpdate = true
 		}
 	}
 	return didUpdate, nil
 }
 
-func (p *Project) watchCodeEntryNeedsSection(projectData *WatchCodePluginProjectData, identity string) (bool, error) {
-	entry, ok := projectData.Registry[identity]
+func (p *Project) watchCodeEntryNeedsSection(identity string) (bool, error) {
+	entry, ok := p.WatchCodeRegistry[identity]
 	if !ok {
 		return false, nil
 	}
 	entry, updated := p.normalizeWatchCodeRegistryEntrySections(entry)
 	if updated {
-		projectData.Registry[identity] = entry
+		p.WatchCodeRegistry[identity] = entry
 	}
 	return len(entry.SectionIDs) == 0, nil
 }
 
 func (p *Project) ensureWatchCodeCallableSection(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	identity string,
 	callable watchcode.CallableInfo,
 	resolver CallableSignatureResolver,
 	parsedSignature CallableSignatureResult,
 ) (bool, error) {
-	entry, ok := projectData.Registry[identity]
+	entry, ok := p.WatchCodeRegistry[identity]
 	if !ok {
 		return false, nil
 	}
@@ -395,7 +330,6 @@ func (p *Project) ensureWatchCodeCallableSection(
 	markWatchCodeUpdated(&didUpdate, updated)
 
 	entry, previousReferenceName, referenceName, updated, err := p.syncWatchCodeEntryReferenceName(
-		projectData,
 		identity,
 		entry,
 		callable,
@@ -417,11 +351,10 @@ func (p *Project) ensureWatchCodeCallableSection(
 	}
 	markWatchCodeUpdated(&didUpdate, updated)
 
-	projectData.Registry[identity] = entry
+	p.WatchCodeRegistry[identity] = entry
 
 	bound, err := p.bindWatchCodeCallableSections(
 		ctx,
-		projectData,
 		entry.SectionIDs,
 		referenceName,
 		wrapWatchCodeParsedSignatureResolver(referenceName, parsedSignature, resolver),
@@ -447,12 +380,11 @@ func (p *Project) ensureWatchCodeCallableSection(
 
 func (p *Project) refetchWatchCodeCallableSections(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	identity string,
 	resolver CallableSignatureResolver,
 	parsedSignature CallableSignatureResult,
 ) (bool, error) {
-	entry, ok := projectData.Registry[identity]
+	entry, ok := p.WatchCodeRegistry[identity]
 	if !ok {
 		return false, nil
 	}
@@ -461,7 +393,7 @@ func (p *Project) refetchWatchCodeCallableSections(
 	didUpdate := false
 	entry, updated := p.normalizeWatchCodeRegistryEntrySections(entry)
 	if updated {
-		projectData.Registry[identity] = entry
+		p.WatchCodeRegistry[identity] = entry
 		didUpdate = true
 	}
 	if len(entry.SectionIDs) == 0 {
@@ -475,7 +407,7 @@ func (p *Project) refetchWatchCodeCallableSections(
 
 	signatureResolver := wrapWatchCodeParsedSignatureResolver(callableName, parsedSignature, resolver)
 	for _, sectionID := range uniqueSortedTrimmedStrings(entry.SectionIDs) {
-		updated, err := p.refetchWatchCodeCallableSectionVariants(ctx, projectData, sectionID, callableName, signatureResolver)
+		updated, err := p.refetchWatchCodeCallableSectionVariants(ctx, sectionID, callableName, signatureResolver)
 		if err != nil {
 			return false, err
 		}
@@ -509,13 +441,12 @@ func (p *Project) normalizeWatchCodeRegistryEntrySections(entry WatchCodeRegistr
 }
 
 func (p *Project) syncWatchCodeEntryReferenceName(
-	projectData *WatchCodePluginProjectData,
 	identity string,
 	entry WatchCodeRegistryEntry,
 	callable watchcode.CallableInfo,
 ) (WatchCodeRegistryEntry, string, string, bool, error) {
 	previousReferenceName := strings.TrimSpace(entry.CallableName)
-	referenceName := resolveWatchCodeReferenceName(projectData, callable, identity)
+	referenceName := p.resolveWatchCodeReferenceName(callable, identity)
 	if previousReferenceName == referenceName {
 		return entry, previousReferenceName, referenceName, false, nil
 	}
@@ -559,7 +490,6 @@ func (p *Project) renameWatchCodeCallableSectionsIfNeeded(
 
 func (p *Project) refetchWatchCodeCallableSectionVariants(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	sectionID string,
 	callableName string,
 	resolver CallableSignatureResolver,
@@ -574,7 +504,7 @@ func (p *Project) refetchWatchCodeCallableSectionVariants(
 		return false, err
 	}
 	for _, variantID := range variantIDs {
-		updated, err := p.refetchWatchCodeCallableSectionVariant(ctx, projectData, sectionID, variantID, callableName, resolver)
+		updated, err := p.refetchWatchCodeCallableSectionVariant(ctx, sectionID, variantID, callableName, resolver)
 		if err != nil {
 			return false, err
 		}
@@ -585,7 +515,6 @@ func (p *Project) refetchWatchCodeCallableSectionVariants(
 
 func (p *Project) refetchWatchCodeCallableSectionVariant(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	sectionID string,
 	variantID string,
 	callableName string,
@@ -594,7 +523,7 @@ func (p *Project) refetchWatchCodeCallableSectionVariant(
 	var response SetCallableResponse
 	if err := p.withSectionVariantSelected(sectionID, variantID, func() error {
 		var setCallableErr error
-		response, setCallableErr = p.setCallable(ctx, projectData, sectionID, callableName, true, resolver)
+		response, setCallableErr = p.SetCallable(ctx, sectionID, callableName, true, resolver)
 		return setCallableErr
 	}); err != nil {
 		return false, err
@@ -602,94 +531,18 @@ func (p *Project) refetchWatchCodeCallableSectionVariant(
 	return response.LSPStatus != SignatureHelpStatusSkipped, nil
 }
 
-func (p *Project) watchCodeParsedSignatureParamsMismatch(
-	projectData *WatchCodePluginProjectData,
-	identity string,
-	params []CallableParamProposal,
-) (bool, error) {
-	entry, ok := projectData.Registry[identity]
-	if !ok {
-		return false, nil
-	}
-	callableName := strings.TrimSpace(entry.CallableName)
-	if callableName == "" {
-		return false, nil
-	}
-
-	expectedNames := callableParamProposalNames(params)
-	for _, sectionID := range uniqueSortedTrimmedStrings(entry.SectionIDs) {
-		variantIDs, err := p.watchCodeCallableVariantsForName(sectionID, callableName)
-		if err != nil {
-			return false, err
-		}
-		for _, variantID := range variantIDs {
-			currentNames, ok, err := p.watchCodeCallableVariantParamNames(sectionID, variantID)
-			if err != nil {
-				return false, err
-			}
-			if ok && !stringSlicesEqual(currentNames, expectedNames) {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
-}
-
-func callableParamProposalNames(params []CallableParamProposal) []string {
-	names := make([]string, 0, len(params))
-	for _, param := range params {
-		name := strings.TrimSpace(param.Name)
-		if isSkippedCallableParamProposal(name) {
-			continue
-		}
-		names = append(names, name)
-	}
-	return names
-}
-
-func (p *Project) watchCodeCallableVariantParamNames(sectionID string, variantID string) ([]string, bool, error) {
-	sectionPayload, err := effectiveSectionPayload(*p, sectionID, variantID)
-	if err != nil {
-		return nil, false, err
-	}
-	callableID := payloadStringField(sectionPayload, "callable")
-	if callableID == "" {
-		return nil, false, nil
-	}
-	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-	callableVariantID := strings.TrimSpace(codeObjVariantMap[callableID])
-	if callableVariantID == "" {
-		return nil, false, fmt.Errorf("%w: codeObj=%q", ErrCodeObjVariantNotFound, callableID)
-	}
-	callablePayload, err := effectiveCodeObjectPayloadForVariant(*p, callableID, callableVariantID)
-	if err != nil {
-		return nil, false, err
-	}
-	childIDs := payloadStringArrayField(callablePayload, "children")
-	names := make([]string, 0, len(childIDs))
-	for _, childID := range childIDs {
-		codeObj, ok := p.CodeObjs[childID]
-		if !ok {
-			return nil, false, fmt.Errorf("%w: %q", ErrCodeObjNotFound, childID)
-		}
-		names = append(names, strings.TrimSpace(codeObj.Name))
-	}
-	return names, true, nil
-}
-
-func replaceWatchCodeRegistryIdentity(
-	projectData *WatchCodePluginProjectData,
+func (p *Project) replaceWatchCodeRegistryIdentity(
 	oldIdentity string,
 	newCallable watchcode.CallableInfo,
 	sourcePath string,
 	entry WatchCodeRegistryEntry,
 ) {
-	delete(projectData.Registry, oldIdentity)
+	delete(p.WatchCodeRegistry, oldIdentity)
 	entry.Kind = fromWatchcodeCallableKind(newCallable.Kind)
 	entry.SignatureHash = newCallable.SignatureHash
 	entry.BodyHash = newCallable.BodyHash
 	entry.SourcePath = sourcePath
-	projectData.Registry[newCallable.Identity] = entry
+	p.WatchCodeRegistry[newCallable.Identity] = entry
 }
 
 func (p *Project) syncWatchCodeRenameImports(
@@ -717,25 +570,17 @@ func (p *Project) syncWatchCodeRenameImports(
 	return didUpdate || importUpdated, nil
 }
 
-func setWatchCodeRegistryCallableName(
-	projectData *WatchCodePluginProjectData,
-	identity string,
-	referenceName string,
-) bool {
-	entry := projectData.Registry[identity]
+func (p *Project) setWatchCodeRegistryCallableName(identity string, referenceName string) bool {
+	entry := p.WatchCodeRegistry[identity]
 	if entry.CallableName == referenceName {
 		return false
 	}
 	entry.CallableName = referenceName
-	projectData.Registry[identity] = entry
+	p.WatchCodeRegistry[identity] = entry
 	return true
 }
 
-func (p *Project) removeWatchCodeCallableFromSection(
-	projectData *WatchCodePluginProjectData,
-	sectionID string,
-	callableName string,
-) (bool, error) {
+func (p *Project) removeWatchCodeCallableFromSection(sectionID string, callableName string) (bool, error) {
 	if _, ok := p.Sections[sectionID]; !ok {
 		return false, nil
 	}
@@ -750,7 +595,7 @@ func (p *Project) removeWatchCodeCallableFromSection(
 		return true, nil
 	}
 	for _, variantID := range variantsToRemove {
-		if err := p.deleteWatchCodeSectionVariant(projectData, sectionID, variantID); err != nil {
+		if err := p.deleteWatchCodeSectionVariant(sectionID, variantID); err != nil {
 			return false, err
 		}
 	}
@@ -959,12 +804,8 @@ func sameCallableParamNames(left []CallableParamProposal, right []CallableParamP
 	return true
 }
 
-func (p *Project) applyWatchCodeRename(
-	projectData *WatchCodePluginProjectData,
-	plan watchcode.RenamePlan,
-	sourcePath string,
-) (bool, bool, error) {
-	entry, ok := projectData.Registry[plan.OldIdentity]
+func (p *Project) applyWatchCodeRename(plan watchcode.RenamePlan, sourcePath string) (bool, bool, error) {
+	entry, ok := p.WatchCodeRegistry[plan.OldIdentity]
 	if !ok {
 		return false, false, nil
 	}
@@ -979,10 +820,10 @@ func (p *Project) applyWatchCodeRename(
 		return false, false, err
 	}
 
-	replaceWatchCodeRegistryIdentity(projectData, plan.OldIdentity, plan.NewCallable, sourcePath, entry)
+	p.replaceWatchCodeRegistryIdentity(plan.OldIdentity, plan.NewCallable, sourcePath, entry)
 	didUpdate = true
 
-	referenceName := resolveWatchCodeReferenceName(projectData, plan.NewCallable, plan.NewCallable.Identity)
+	referenceName := p.resolveWatchCodeReferenceName(plan.NewCallable, plan.NewCallable.Identity)
 	updated, err = p.syncWatchCodeRenameImports(
 		oldModulePath,
 		oldSymbolName,
@@ -995,9 +836,9 @@ func (p *Project) applyWatchCodeRename(
 	}
 	didUpdate = didUpdate || updated
 
-	didUpdate = didUpdate || setWatchCodeRegistryCallableName(projectData, plan.NewCallable.Identity, referenceName)
+	didUpdate = didUpdate || p.setWatchCodeRegistryCallableName(plan.NewCallable.Identity, referenceName)
 
-	entry = projectData.Registry[plan.NewCallable.Identity]
+	entry = p.WatchCodeRegistry[plan.NewCallable.Identity]
 	renamedSections, err := p.renameWatchCodeCallableSections(
 		entry.SectionIDs,
 		previousReferenceName,
@@ -1013,11 +854,8 @@ func (p *Project) applyWatchCodeRename(
 	return didUpdate, len(entry.SectionIDs) == 0, nil
 }
 
-func (p *Project) removeWatchCodeIdentity(
-	projectData *WatchCodePluginProjectData,
-	identity string,
-) (bool, error) {
-	entry, ok := projectData.Registry[identity]
+func (p *Project) removeWatchCodeIdentity(identity string) (bool, error) {
+	entry, ok := p.WatchCodeRegistry[identity]
 	if !ok {
 		return false, nil
 	}
@@ -1035,7 +873,7 @@ func (p *Project) removeWatchCodeIdentity(
 	sectionIDs := p.pruneWatchCodeSectionIDs(entry)
 	sectionsToDelete := make([]string, 0)
 	for _, sectionID := range sectionIDs {
-		deleteSection, err := p.removeWatchCodeCallableFromSection(projectData, sectionID, entry.CallableName)
+		deleteSection, err := p.removeWatchCodeCallableFromSection(sectionID, entry.CallableName)
 		if err != nil {
 			return false, err
 		}
@@ -1050,7 +888,7 @@ func (p *Project) removeWatchCodeIdentity(
 		}
 	}
 
-	delete(projectData.Registry, identity)
+	delete(p.WatchCodeRegistry, identity)
 	return true, nil
 }
 
@@ -1093,11 +931,7 @@ func (p *Project) watchCodeCallableVariantsForName(sectionID string, callableNam
 	return matched, nil
 }
 
-func (p *Project) deleteWatchCodeSectionVariant(
-	projectData *WatchCodePluginProjectData,
-	sectionID string,
-	variantID string,
-) error {
+func (p *Project) deleteWatchCodeSectionVariant(sectionID string, variantID string) error {
 	section, ok := p.Sections[sectionID]
 	if !ok {
 		return fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
@@ -1123,7 +957,7 @@ func (p *Project) deleteWatchCodeSectionVariant(
 	if err := p.pruneUnusedCodeObjects(); err != nil {
 		return err
 	}
-	return p.syncWatchCodeRegistrySectionMembership(projectData, sectionID)
+	return p.syncWatchCodeRegistrySectionMembership(sectionID)
 }
 
 func (p *Project) pruneUnusedCodeObjects() error {
@@ -1190,7 +1024,6 @@ func (p *Project) deleteWatchCodeCodeObject(codeObjID string) error {
 
 func (p *Project) bindWatchCodeCallableSections(
 	ctx context.Context,
-	projectData *WatchCodePluginProjectData,
 	sectionIDs []string,
 	callableName string,
 	resolver CallableSignatureResolver,
@@ -1214,7 +1047,7 @@ func (p *Project) bindWatchCodeCallableSections(
 		if !updated {
 			continue
 		}
-		response, err := p.setCallable(ctx, projectData, sectionID, callableName, true, resolver)
+		response, err := p.SetCallable(ctx, sectionID, callableName, true, resolver)
 		if err != nil {
 			return false, err
 		}
@@ -1345,13 +1178,9 @@ func (p *Project) createWatchCodeCallableSection() (string, error) {
 	return result.SectionID, nil
 }
 
-func resolveWatchCodeReferenceName(
-	projectData *WatchCodePluginProjectData,
-	callable watchcode.CallableInfo,
-	excludeIdentity string,
-) string {
+func (p *Project) resolveWatchCodeReferenceName(callable watchcode.CallableInfo, excludeIdentity string) string {
 	reserved := map[string]struct{}{}
-	for identity, entry := range projectData.Registry {
+	for identity, entry := range p.WatchCodeRegistry {
 		if excludeIdentity != "" && identity == excludeIdentity {
 			continue
 		}
@@ -1581,11 +1410,8 @@ func (p *Project) pruneWatchCodeSectionIDs(entry WatchCodeRegistryEntry) []strin
 	return valid
 }
 
-func (p *Project) syncWatchCodeRegistrySectionMembership(
-	projectData *WatchCodePluginProjectData,
-	sectionID string,
-) error {
-	if p == nil || projectData == nil || len(projectData.Registry) == 0 {
+func (p *Project) syncWatchCodeRegistrySectionMembership(sectionID string) error {
+	if p == nil || len(p.WatchCodeRegistry) == 0 {
 		return nil
 	}
 
@@ -1599,8 +1425,8 @@ func (p *Project) syncWatchCodeRegistrySectionMembership(
 		return err
 	}
 
-	for _, identity := range sortedWatchCodeRegistryIdentities(projectData.Registry) {
-		p.syncWatchCodeRegistryEntryMembership(projectData, identity, trimmedSectionID, callableNamesBySection)
+	for _, identity := range sortedWatchCodeRegistryIdentities(p.WatchCodeRegistry) {
+		p.syncWatchCodeRegistryEntryMembership(identity, trimmedSectionID, callableNamesBySection)
 	}
 
 	return nil
@@ -1672,12 +1498,11 @@ func sortedWatchCodeRegistryIdentities(registry map[string]WatchCodeRegistryEntr
 }
 
 func (p *Project) syncWatchCodeRegistryEntryMembership(
-	projectData *WatchCodePluginProjectData,
 	identity string,
 	sectionID string,
 	callableNamesBySection map[string]struct{},
 ) {
-	entry := projectData.Registry[identity]
+	entry := p.WatchCodeRegistry[identity]
 	nextSectionIDs := filterStringSlice(
 		uniqueSortedTrimmedStrings(p.pruneWatchCodeSectionIDs(entry)),
 		map[string]struct{}{sectionID: {}},
@@ -1690,7 +1515,7 @@ func (p *Project) syncWatchCodeRegistryEntryMembership(
 	}
 	entry.SectionIDs = nextSectionIDs
 	entry.SectionsCount = len(nextSectionIDs)
-	projectData.Registry[identity] = entry
+	p.WatchCodeRegistry[identity] = entry
 }
 
 func (p *Project) withSectionVariantSelected(

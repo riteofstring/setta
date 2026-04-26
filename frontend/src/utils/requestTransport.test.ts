@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { C_ADDRESSES } from "@setta/app-subsystem-frontend-sdk";
 import { useServerMode } from "state/definitions";
+import { C_ADDRESSES } from "./c_addresses";
 import { TransportRouteConstants } from "./generatedTypes";
 import { post } from "./requestTransport";
 

@@ -1,8 +1,3 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import {
@@ -11,6 +6,7 @@ import {
   toggleMinimized,
   type GetLatestProjectStateResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import { FaTerminal } from "react-icons/fa";
 import {
@@ -23,6 +19,7 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   SectionTypeEnum,
   type CreateChildSectionsResult,

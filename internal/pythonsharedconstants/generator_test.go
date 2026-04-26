@@ -10,7 +10,6 @@ import (
 	"setta/internal/localsessions"
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdklocalcore"
-	"setta/internal/watchcodecontracts"
 	"setta/internal/workspacelaunch"
 )
 
@@ -149,69 +148,6 @@ func TestBuildIncludesGoOwnedAppSubsystemBackendContract(t *testing.T) {
 		fmt.Sprintf(
 			"LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE = %s",
 			pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
-		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeGetProjectData),
-		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetInputs),
-		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_SET_FOLDERS = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetFolders),
-		),
-		fmt.Sprintf(
-			"LOCAL_CORE_COMMAND_WATCH_CODE_SET_FILES = %s",
-			pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetFiles),
-		),
-	}
-	for _, snippet := range expectedSnippets {
-		if !strings.Contains(generated.PythonModule, snippet) {
-			t.Fatalf("generated constants missing %q", snippet)
-		}
-	}
-}
-
-func TestBuildIncludesGoOwnedWatchCodeBackendContract(t *testing.T) {
-	generated, err := Build()
-	if err != nil {
-		t.Fatalf("build generated constants: %v", err)
-	}
-
-	expectedSnippets := []string{
-		fmt.Sprintf(
-			"WATCH_CODE_BACKEND_CONTRACT_VERSION = %d",
-			watchcodecontracts.BackendContractVersion,
-		),
-		fmt.Sprintf(
-			"WATCH_CODE_BACKEND_ROUTE_SUFFIXES = %s",
-			pythonStringTupleExpr(watchcodecontracts.BackendRouteSuffixes()),
-		),
-		fmt.Sprintf(
-			"WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS = %s",
-			pythonStringLiteral(watchcodecontracts.BackendRouteSuffixInputs),
-		),
-		fmt.Sprintf(
-			"WATCH_CODE_BACKEND_LOCAL_SETTING_IDS = %s",
-			pythonStringTupleExpr(watchcodecontracts.BackendLocalSettingIDs()),
-		),
-		fmt.Sprintf(
-			"WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID = MappingProxyType(%s)",
-			pythonStringDictExpr(watchcodecontracts.BackendReadHandlerByLocalSettingID()),
-		),
-		fmt.Sprintf(
-			"WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID = MappingProxyType(%s)",
-			pythonStringDictExpr(watchcodecontracts.BackendWriteHandlerByLocalSettingID()),
-		),
-		fmt.Sprintf(
-			"WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED = %s",
-			pythonStringLiteral(watchcodecontracts.BackendErrorProviderRequired),
-		),
-		fmt.Sprintf(
-			"WATCH_CODE_BACKEND_ERROR_INVALID_WATCH_CODE_INPUT = %s",
-			pythonStringLiteral(watchcodecontracts.BackendErrorInvalidWatchCodeInput),
 		),
 	}
 	for _, snippet := range expectedSnippets {

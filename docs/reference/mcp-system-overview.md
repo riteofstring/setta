@@ -33,8 +33,8 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ac
   - `set_ui_setting_value(settingId, value, revealAfterSet, durationMs, projectConfigId?)`
   - `reveal_ui_setting(settingId, sectionIdToActivate, durationMs, projectConfigId?)`
 - Canonical setting ids are stable:
-  - Core settings: `core.*` (for example `core.project.name`)
-  - Plugin settings: `plugin::<pluginId>::<localSettingId>` (for example `plugin::setta-watch-code::files`)
+  - Core settings: `core.*` (for example `core.watch_code.enabled`)
+  - Plugin settings: `plugin::<pluginId>::<localSettingId>`
 - `set_ui_setting_value` validates input against each setting’s `valueSchema`, enforces read-only/writable semantics, and performs compare-and-set style writes (`expected_old_value`) to avoid stale clobbers.
 - `reveal_ui_setting` (and `set_ui_setting_value(..., revealAfterSet=true)`) dispatches a `UISettingReveal` websocket message to a selected frontend and waits for a `UISettingRevealResult` acknowledgement.
 - Right-pane reveals require section context. If no section is active, pass `sectionIdToActivate`; otherwise reveal returns a structured failure instead of guessing.

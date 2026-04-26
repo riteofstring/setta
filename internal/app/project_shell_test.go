@@ -3374,15 +3374,16 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppLSPFixture(t)
-	installAppWatchCodeProviderFixture(t, cfg)
 
-	document := projectstate.Document{
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/alpha.py"},
 				CodegenTargets: []projectstate.ProjectCodegenTarget{
 					{
 						Language: string(projectstate.CodeLanguagePython),
@@ -3391,8 +3392,12 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 				},
 			},
 			"project-beta": {
-				ID:   "project-beta",
-				Name: "Beta",
+				ID:               "project-beta",
+				Name:             "Beta",
+				WatchCodeEnabled: true,
+				WatchCodeFolders: []projectstate.WatchCodeFolder{
+					{Path: "pkg/beta", Recursive: true},
+				},
 				CodegenTargets: []projectstate.ProjectCodegenTarget{
 					{
 						Language: string(projectstate.CodeLanguagePython),
@@ -3401,16 +3406,7 @@ func TestAppDeleteProjectConfigsSyncsWatchCodeServiceConfigs(t *testing.T) {
 				},
 			},
 		},
-	}
-	setAppWatchCodePluginProjectData(t, &document, "project-alpha", projectstate.WatchCodePluginProjectData{
-		Files: []string{"pkg/alpha.py"},
-	})
-	setAppWatchCodePluginProjectData(t, &document, "project-beta", projectstate.WatchCodePluginProjectData{
-		Folders: []projectstate.WatchCodeFolder{
-			{Path: "pkg/beta", Recursive: true},
-		},
-	})
-	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
+	}); err != nil {
 		t.Fatalf("seed saved main project state: %v", err)
 	}
 

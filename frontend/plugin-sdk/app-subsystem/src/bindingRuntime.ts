@@ -174,7 +174,6 @@ export function isGeneratedPythonIdentifier(
   value: string,
   startChars: ReadonlySet<string>,
   continueChars: ReadonlySet<string>,
-  pythonKeywords?: ReadonlySet<string>,
 ): boolean {
   let index = 0;
   for (const char of value) {
@@ -187,33 +186,24 @@ export function isGeneratedPythonIdentifier(
     }
     index += 1;
   }
-  return index > 0 && !(pythonKeywords?.has(value) ?? false);
+  return index > 0;
 }
 
 export function validateGeneratedParamNameInput(
   name: string,
   options: {
     allowEmpty: boolean;
-    label: string;
     requirePythonIdentifier: boolean;
-    pythonIdentifierStartChars: ReadonlySet<string>;
-    pythonIdentifierContinueChars: ReadonlySet<string>;
-    pythonKeywords: ReadonlySet<string>;
     skipPathChecks?: boolean;
   },
+  pythonKeywords: ReadonlySet<string>,
+  isPythonIdentifier: (value: string) => boolean,
 ): string | null {
-  const commonOptions: {
-    allowEmpty: boolean;
-    label: string;
-    skipPathChecks?: boolean;
-  } = {
+  const baseError = validateGeneratedCommonNameInput(name, {
     allowEmpty: options.allowEmpty,
-    label: options.label,
-  };
-  if (options.skipPathChecks !== undefined) {
-    commonOptions.skipPathChecks = options.skipPathChecks;
-  }
-  const baseError = validateGeneratedCommonNameInput(name, commonOptions);
+    label: "Param name",
+    skipPathChecks: options.skipPathChecks,
+  });
   if (baseError) {
     return baseError;
   }
@@ -222,17 +212,11 @@ export function validateGeneratedParamNameInput(
     return null;
   }
   if (options.requirePythonIdentifier) {
-    if (
-      !isGeneratedPythonIdentifier(
-        normalized,
-        options.pythonIdentifierStartChars,
-        options.pythonIdentifierContinueChars,
-      )
-    ) {
-      return options.label + " must be a valid Python identifier.";
+    if (!isPythonIdentifier(normalized)) {
+      return "Param name must be a valid Python identifier.";
     }
-    if (options.pythonKeywords.has(normalized)) {
-      return options.label + " cannot be a Python keyword.";
+    if (pythonKeywords.has(normalized)) {
+      return "Param name cannot be a Python keyword.";
     }
   }
   return null;

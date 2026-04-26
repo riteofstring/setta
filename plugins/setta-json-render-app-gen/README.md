@@ -9,10 +9,8 @@ This first-party plugin gates the extracted app subsystem.
   `setta.plugin.json`, a backend entrypoint under `runtime_backend/`, and the
   bundled frontend entrypoint under `frontend/dist/`.
 - The plugin frontend now owns its build metadata under `frontend/` with
-  explicit third-party dependencies and a vendored packaged
-  `@setta/app-subsystem-frontend-sdk` surface for staged-source builds.
-  The vendored SDK `dist/` is generated from
-  `frontend/plugin-sdk/app-subsystem`; it is not checked into git.
+  explicit third-party dependencies and a vendored packaged copy of
+  `@setta/app-subsystem-frontend-sdk` for staged-source builds.
 - The plugin now declares its plugin-owned frontend build contract in
   `setta.plugin.json`, so source/deployment packaging no longer depends on a
   host-side plugin-id special case.
@@ -27,16 +25,11 @@ but the feature still stays off until the plugin is enabled.
 Build the frontend bundle through the plugin-owned frontend package metadata:
 
 ```bash
-pnpm --dir plugins/setta-json-render-app-gen/frontend run prepare-sdk
 pnpm --dir plugins/setta-json-render-app-gen/frontend install --lockfile=false
 pnpm --dir plugins/setta-json-render-app-gen/frontend typecheck
 pnpm --dir plugins/setta-json-render-app-gen/frontend test
 pnpm --dir plugins/setta-json-render-app-gen/frontend build
 ```
-
-The `test` and `build` scripts run `prepare-sdk` and refresh frontend
-dependencies before invoking Vitest or Vite, so staged source trees can rebuild
-from source even when the vendored SDK `dist/` directory is absent.
 
 ## Build Wheel
 
@@ -47,9 +40,9 @@ python -m build
 ```
 
 The wheel and editable build paths now rebuild `frontend/dist/*` from the
-plugin-owned frontend package before packaging. The source distribution
-materializes the vendored SDK `dist/` first, then includes the frontend
-source/build inputs needed to build the plugin frontend from `sdist`.
+plugin-owned frontend package before packaging, and the source distribution
+includes the frontend source/build inputs needed to do the same when building a
+wheel from `sdist`.
 
 ## Install
 

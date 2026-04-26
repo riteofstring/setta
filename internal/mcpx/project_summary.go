@@ -39,6 +39,26 @@ func cloneProjectCodegenTargets(values []projectview.ProjectCodegenTarget) []pro
 	return cloned
 }
 
+func cloneWatchCodeFolders(values []projectstate.WatchCodeFolder) []projectstate.WatchCodeFolder {
+	if values == nil {
+		return nil
+	}
+	cloned := make([]projectstate.WatchCodeFolder, len(values))
+	copy(cloned, values)
+	return cloned
+}
+
+func cloneWatchCodeRegistry(values map[string]projectstate.WatchCodeRegistryEntry) map[string]projectstate.WatchCodeRegistryEntry {
+	if values == nil {
+		return map[string]projectstate.WatchCodeRegistryEntry{}
+	}
+	cloned := make(map[string]projectstate.WatchCodeRegistryEntry, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
+}
+
 func cloneStringSliceMap(values map[string][]string) map[string][]string {
 	if values == nil {
 		return map[string][]string{}

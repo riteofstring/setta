@@ -17,7 +17,6 @@ import {
   invokePluginSettingRevealHandler,
   receivePluginRuntimeUpdate,
   refreshPluginRuntime,
-  usePluginCanvasControls,
   usePluginCommands,
   usePluginListEntries,
   usePluginPaneTabs,
@@ -35,7 +34,6 @@ import {
   loadPluginFrontendModule,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,
-  shouldLoadPluginFrontendForFeatureSelection,
 } from "plugins/runtimeInternal";
 import {
   computePluginSectionFallbackReason,
@@ -86,7 +84,6 @@ function resetPluginRuntimeStateForTests(): void {
     schemaVersion: null,
     serverMode: null,
     appSubsystemCapabilities: null,
-    watchCodeCapabilities: null,
     restartCapability: null,
     pluginListById: {},
     sortedPluginListEntries: [],
@@ -103,8 +100,6 @@ function resetPluginRuntimeStateForTests(): void {
     sortedCommands: [],
     topNavBarItemsByPluginId: {},
     sortedTopNavBarItems: [],
-    canvasControlsByPluginId: {},
-    sortedCanvasControls: [],
     frontendErrorsByPluginId: {},
   });
 }
@@ -252,25 +247,6 @@ function buildRuntimeEndpointResponse(
     response: new Response(null, { status: 200 }),
   };
 }
-function buildRuntimeEndpointResponseWithWatchCode(
-  list: PluginListResponse,
-  status: PluginStatusResponse,
-  watchCode: NonNullable<
-    PluginRuntimeResponse["featureCapabilities"]
-  >["watchCode"],
-): Awaited<ReturnType<typeof openAPI.getPluginsRuntime>> {
-  const response = buildRuntimeEndpointResponse(list, status);
-  const data = response.data as PluginRuntimeResponse;
-  return {
-    ...response,
-    data: {
-      ...data,
-      featureCapabilities: {
-        watchCode,
-      },
-    },
-  };
-}
 function buildRuntimeRequestFailure(
   status: number,
 ): Awaited<ReturnType<typeof openAPI.getPluginsRuntime>> {
@@ -310,36 +286,6 @@ function buildActiveAppSubsystemCapabilities(
   };
 }
 
-function buildUnavailableWatchCodeCapabilities(): NonNullable<
-  PluginRuntimeResponse["featureCapabilities"]
->["watchCode"] {
-  return {
-    providerSelection: {
-      status: "no_provider",
-      activePluginIds: [],
-      disabledPluginIds: [],
-      invalidPluginIds: [],
-      conflictingPluginIds: [],
-    },
-    pluginId: "",
-    pluginEnabled: false,
-    python: false,
-    requiresLanguageServer: false,
-    canvasControlsUi: false,
-  };
-}
-
-function buildWatchCodeCapabilities(
-  overrides: Partial<
-    NonNullable<PluginRuntimeResponse["featureCapabilities"]>["watchCode"]
-  >,
-): NonNullable<PluginRuntimeResponse["featureCapabilities"]>["watchCode"] {
-  return {
-    ...buildUnavailableWatchCodeCapabilities(),
-    ...overrides,
-  };
-}
-
 function buildAppSubsystemRegistrationDelta(
   pluginId: string,
   applyStructuredContent: (structured: Record<string, unknown>) => boolean,
@@ -372,14 +318,12 @@ function buildAppSubsystemRegistrationDelta(
     panes: {},
     commands: {},
     topNavBarItems: {},
-    canvasControls: {},
   };
 }
 type CapturedPluginHost = {
   createStore: <TState extends object>(
     initializer: StateCreator<TState, [], []>,
   ) => StoreApi<TState>;
-  registerCanvasControl: (definition: Record<string, unknown>) => void;
   registerContextMenu: (definition: Record<string, unknown>) => void;
   getProjectContext: () => {
     projectConfigId: string;
@@ -400,7 +344,6 @@ type CapturedPluginHost = {
       throttleMs?: number;
     },
   ) => () => void;
-  fetchBackendRoute: (path: string, init?: RequestInit) => Promise<Response>;
   emitRealtimeDependencyEvent: (event: Record<string, unknown>) => void;
   emitSectionRealtimeValue: (
     sectionId: string,
@@ -482,7 +425,7 @@ async function loadPluginRevealHandlerFixture(
         entrypointUrl: moduleUrl,
         styleUrl: null,
       },
-      effectiveCapabilities: ["registerSettingRevealHandler"],
+      effectiveCapabilities: ["registerPane"],
     }),
     "ide",
   );
@@ -666,7 +609,6 @@ function buildPluginRuntimeProjectState(
   projectConfigId: string,
   activeIds: string[],
   sectionIds: string[],
-  pluginData: Record<string, unknown> = {},
 ) {
   const uniqueSectionIds = [...new Set([...sectionIds, ...activeIds])];
   const sectionVariantMap: Record<string, string> = {};
@@ -705,7 +647,6 @@ function buildPluginRuntimeProjectState(
     codeObjImpls: {},
     codeObjVariants: {},
     artifactGroups: {},
-    pluginData,
     singletonSections: createSingletonSections(),
     parentSectionMap: {},
     shownParamIds: {},
@@ -728,7 +669,6 @@ describe("plugin runtime helpers", () => {
       state.sectionImpls = {};
       state.sectionVariants = {};
       state.previewSectionVariantMap = {};
-      state.pluginData = {};
     });
     useActiveSectionUI.setState({
       activeIds: [],
@@ -751,12 +691,10 @@ describe("plugin runtime helpers", () => {
         callCount: number;
       };
       __settaRevealHandlerSpy?: (...args: unknown[]) => unknown;
-      __settaWatchCodeRegisterCalls?: number;
     };
     delete globalScope.__settaCapturedPluginHost;
     delete globalScope.__settaCleanupProbe;
     delete globalScope.__settaRevealHandlerSpy;
-    delete globalScope.__settaWatchCodeRegisterCalls;
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-after-each";
       state.projectConfig.activeIds = [];
@@ -1175,231 +1113,11 @@ describe("plugin runtime helpers", () => {
       "quick-action",
     );
   });
-  it("registers canvas controls when capability is effective", async () => {
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  host.registerCanvasControl({ id: 'utility', label: 'Utility', placement: 'utility', order: 1, renderer: { mount() {} } });\n" +
-          "  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', placement: 'project', order: 20, renderer: { mount(el, props) { el.dataset.controlId = props.controlId; } } });\n" +
-          "  host.registerCanvasControl({ id: 'project-first', label: 'Project First', placement: 'project', order: 10, renderer: { mount() {} } });\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: ["registerCanvasControl"],
-    });
-    const result = await loadPluginFrontendModule(plugin, "ide");
-    expect(result?.error).toBeNull();
-    const control = result?.registryDelta?.canvasControls["acme.plugin"]?.[0];
-    expect(
-      result?.registryDelta?.canvasControls["acme.plugin"]?.map(
-        (entry) => entry.id,
-      ),
-    ).toEqual(["project-first", "watch-code", "utility"]);
-    expect(control?.id).toBe("project-first");
-    expect(control?.label).toBe("Project First");
-    expect(control?.placement).toBe("project");
-    expect(control?.order).toBe(10);
-  });
-  it("suppresses pending-restart Watch Code provider frontend side effects", async () => {
-    const pluginId = "setta-watch-code";
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  globalThis.__settaWatchCodeRegisterCalls = (globalThis.__settaWatchCodeRegisterCalls ?? 0) + 1;\n" +
-          "  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', placement: 'project', renderer: { mount() {} } });\n" +
-          "  host.registerSettingRevealHandler('watch-code-settings', () => true);\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      pluginId,
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: [
-        "registerCanvasControl",
-        "registerSettingRevealHandler",
-      ],
-    });
-    const status = buildPluginStatusEntry({
-      pluginId,
-      state: PluginRuntimeStateEnum.pending_restart,
-      effectiveCapabilities: plugin.effectiveCapabilities,
-    });
-    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
-      buildRuntimeEndpointResponseWithWatchCode(
-        buildPluginListResponse([plugin]),
-        buildPluginStatusResponse([status]),
-        buildWatchCodeCapabilities({
-          providerSelection: {
-            status: "pending_restart",
-            selectedPluginId: null,
-            activePluginIds: [],
-            pendingRestartPluginIds: [pluginId],
-            disabledPluginIds: [],
-            invalidPluginIds: [],
-            conflictingPluginIds: [],
-          },
-          pluginId: "",
-          pluginEnabled: false,
-        }),
-      ),
-    );
-
-    await refreshPluginRuntime();
-
-    const state = usePluginRuntimeStore.getState();
-    expect(state.canvasControlsByPluginId[pluginId]).toBeUndefined();
-    expect(state.sortedCanvasControls).toHaveLength(0);
-    expect(
-      (globalThis as { __settaWatchCodeRegisterCalls?: number })
-        .__settaWatchCodeRegisterCalls,
-    ).toBeUndefined();
-    await expect(
-      invokePluginSettingRevealHandler({
-        pluginId,
-        revealKey: "watch-code-settings",
-        settingId: `plugin::${pluginId}::enabled`,
-        paneId: null,
-        durationMs: 1000,
-        abortSignal: new AbortController().signal,
-      }),
-    ).resolves.toEqual({
-      ok: false,
-      message: `Plugin ${pluginId} has no setting reveal handlers.`,
-    });
-  });
-  it("suppresses conflicting Watch Code provider frontend controls and keeps the selected provider active", async () => {
-    const registerModuleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', placement: 'project', renderer: { mount() {} } });\n" +
-          "  host.registerSettingRevealHandler('watch-code-settings', () => true);\n" +
-          "}\n",
-      );
-    const capabilities = [
-      "registerCanvasControl",
-      "registerSettingRevealHandler",
-    ];
-    const firstPlugin = buildPluginListEntry({
-      pluginId: "setta-watch-code-a",
-      frontend: {
-        entrypointUrl: registerModuleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: capabilities,
-    });
-    const secondPlugin = buildPluginListEntry({
-      pluginId: "setta-watch-code-b",
-      frontend: {
-        entrypointUrl: registerModuleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: capabilities,
-    });
-    const firstStatus = buildPluginStatusEntry({
-      pluginId: firstPlugin.pluginId,
-      effectiveCapabilities: capabilities,
-    });
-    const secondStatus = buildPluginStatusEntry({
-      pluginId: secondPlugin.pluginId,
-      effectiveCapabilities: capabilities,
-    });
-    vi.spyOn(openAPI, "getPluginsRuntime").mockImplementation(async () =>
-      buildRuntimeEndpointResponseWithWatchCode(
-        buildPluginListResponse([firstPlugin, secondPlugin]),
-        buildPluginStatusResponse([firstStatus, secondStatus]),
-        buildWatchCodeCapabilities({
-          providerSelection: {
-            status: "provider_conflict",
-            selectedPluginId: null,
-            activePluginIds: [firstPlugin.pluginId, secondPlugin.pluginId],
-            pendingRestartPluginIds: [],
-            disabledPluginIds: [],
-            invalidPluginIds: [],
-            conflictingPluginIds: [firstPlugin.pluginId, secondPlugin.pluginId],
-          },
-          pluginId: "",
-          pluginEnabled: false,
-        }),
-      ),
-    );
-
-    await refreshPluginRuntime();
-
-    expect(usePluginRuntimeStore.getState().sortedCanvasControls).toHaveLength(
-      0,
-    );
-
-    vi.mocked(openAPI.getPluginsRuntime).mockImplementation(async () =>
-      buildRuntimeEndpointResponseWithWatchCode(
-        buildPluginListResponse([firstPlugin, secondPlugin]),
-        buildPluginStatusResponse([
-          firstStatus,
-          buildPluginStatusEntry({
-            pluginId: secondPlugin.pluginId,
-            state: PluginRuntimeStateEnum.disabled,
-            effectiveCapabilities: [],
-          }),
-        ]),
-        buildWatchCodeCapabilities({
-          providerSelection: {
-            status: "active",
-            selectedPluginId: firstPlugin.pluginId,
-            activePluginIds: [firstPlugin.pluginId],
-            pendingRestartPluginIds: [],
-            disabledPluginIds: [secondPlugin.pluginId],
-            invalidPluginIds: [],
-            conflictingPluginIds: [],
-          },
-          pluginId: firstPlugin.pluginId,
-          pluginEnabled: true,
-          python: true,
-          canvasControlsUi: true,
-        }),
-      ),
-    );
-
-    await refreshPluginRuntime();
-
-    const controls = usePluginRuntimeStore.getState().sortedCanvasControls;
-    expect(controls).toHaveLength(1);
-    expect(controls[0]?.pluginId).toBe(firstPlugin.pluginId);
-    expect(controls[0]?.id).toBe("watch-code");
-  });
   it("rejects section-kind registration when capability is not effective", async () => {
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
         "export const apiVersion = 1;\nexport function register(host) {\n  host.registerSectionKind({ kind: 'widget', title: 'Widget', renderer: { mount() {} } });\n}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: [],
-    });
-    const result = await loadPluginFrontendModule(plugin, "ide");
-    expect(result?.error?.code).toBe(
-      PluginFrontendErrorCodeEnum.CapabilityDenied,
-    );
-  });
-  it("rejects canvas control registration when capability is not effective", async () => {
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerCanvasControl({ id: 'watch-code', label: 'Watch Code', renderer: { mount() {} } });\n}\n",
       );
     const plugin = buildPluginListEntry({
       frontend: {
@@ -1449,24 +1167,6 @@ describe("plugin runtime helpers", () => {
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
   });
-  it("rejects invalid canvas control registrations", async () => {
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerCanvasControl({ id: 'bad-placement', label: 'Bad', placement: 'header', renderer: { mount() {} } });\n}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: ["registerCanvasControl"],
-    });
-    const result = await loadPluginFrontendModule(plugin, "ide");
-    expect(result?.error?.code).toBe(
-      PluginFrontendErrorCodeEnum.RegistrationInvalid,
-    );
-  });
   it("reports runtime error and clears stale runtime-derived plugin state", async () => {
     usePluginRuntimeStore.setState({
       pluginListById: {
@@ -1501,30 +1201,6 @@ describe("plugin runtime helpers", () => {
           },
         ],
       },
-      canvasControlsByPluginId: {
-        "stale.plugin": [
-          {
-            pluginId: "stale.plugin",
-            id: "stale-control",
-            label: "Stale Control",
-            placement: "project",
-            renderer: {
-              mount: () => undefined,
-            },
-          },
-        ],
-      },
-      sortedCanvasControls: [
-        {
-          pluginId: "stale.plugin",
-          id: "stale-control",
-          label: "Stale Control",
-          placement: "project",
-          renderer: {
-            mount: () => undefined,
-          },
-        },
-      ],
     });
     vi.spyOn(openAPI, "getPluginsRuntime").mockResolvedValue(
       buildRuntimeRequestFailure(500),
@@ -1539,8 +1215,6 @@ describe("plugin runtime helpers", () => {
     expect(Object.keys(state.pluginStatusById)).toHaveLength(0);
     expect(Object.keys(state.sectionKindsByKey)).toHaveLength(0);
     expect(Object.keys(state.panesByPluginId)).toHaveLength(0);
-    expect(Object.keys(state.canvasControlsByPluginId)).toHaveLength(0);
-    expect(state.sortedCanvasControls).toHaveLength(0);
   });
   it("reports runtime error when plugins runtime request fails without response", async () => {
     vi.spyOn(openAPI, "getPluginsRuntime").mockRejectedValue(
@@ -1607,7 +1281,6 @@ describe("plugin runtime helpers", () => {
               appGenerationChatModes: false,
               appDeploymentRuntime: false,
             },
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1640,18 +1313,6 @@ describe("plugin runtime helpers", () => {
         conflictingPluginIds: [],
       },
     });
-    expect(state.watchCodeCapabilities).toMatchObject({
-      pluginId: "",
-      pluginEnabled: false,
-      python: false,
-      providerSelection: {
-        status: "no_provider",
-        activePluginIds: [],
-        disabledPluginIds: [],
-        invalidPluginIds: [],
-        conflictingPluginIds: [],
-      },
-    });
   });
   it("loads app-subsystem frontend surfaces from runtime metadata for unknown provider ids", async () => {
     const providerPluginId = "acme.third-party-app-provider";
@@ -1672,17 +1333,16 @@ describe("plugin runtime helpers", () => {
           "    appDeploymentModal: { renderer: { mount() {} } },\n" +
           "    chat: {\n" +
           "      slashCommands: [{\n" +
-          "        command: '/app-json',\n" +
-          "        action: 'app_json_render',\n" +
-          "        summary: 'Generate a standalone app spec through JSON render.',\n" +
-          "        promptTemplate: 'Generate a polished standalone JSON-render app spec. Use a strong hero section, clear content grouping, and consistent spacing/typography by default. Include one obvious primary action path and production-ready baseline structure.',\n" +
-          "        appGenerationMode: 'json_render'\n" +
+          "        command: '/acme-app',\n" +
+          "        action: 'acme_app',\n" +
+          "        summary: 'Generate an Acme app.',\n" +
+          "        promptTemplate: 'Generate an Acme app.'\n" +
           "      }],\n" +
-          "      imageRequiredModes: [],\n" +
+          "      imageRequiredModes: ['image_mode'],\n" +
           "      customSlashCommandModes: {\n" +
           "        options: [\n" +
           "          { id: 'plain_chat', name: 'Plain chat' },\n" +
-          "          { id: 'json_render', name: 'JSON Render' }\n" +
+          "          { id: 'image_mode', name: 'Image mode' }\n" +
           "        ],\n" +
           "        defaultMode: 'plain_chat'\n" +
           "      }\n" +
@@ -1731,7 +1391,6 @@ describe("plugin runtime helpers", () => {
               appGenerationChatModes: true,
               appDeploymentRuntime: true,
             },
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1746,11 +1405,11 @@ describe("plugin runtime helpers", () => {
       readAppSubsystemHookValue(() => useAppSubsystemSlashCommands()).map(
         (entry) => entry.command,
       ),
-    ).toEqual(["/app-json"]);
+    ).toEqual(["/acme-app"]);
     expect(
       readAppSubsystemHookValue(() => useAppSubsystemAppDeploymentModal()),
     ).not.toBeNull();
-    expect(appSubsystemModeRequiresImageAttachment("json_render")).toBe(false);
+    expect(appSubsystemModeRequiresImageAttachment("image_mode")).toBe(true);
   });
   it("buffers app-subsystem updates while the selected provider frontend is still importing", async () => {
     const providerPluginId = "acme.loading-app-provider";
@@ -1769,7 +1428,6 @@ describe("plugin runtime helpers", () => {
               panes: {},
               commands: {},
               topNavBarItems: {},
-              canvasControls: {},
             },
           };
         }
@@ -1806,7 +1464,6 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1877,7 +1534,6 @@ describe("plugin runtime helpers", () => {
             panes: {},
             commands: {},
             topNavBarItems: {},
-            canvasControls: {},
           },
         };
       },
@@ -1906,7 +1562,6 @@ describe("plugin runtime helpers", () => {
             appSubsystem: buildActiveAppSubsystemCapabilities(
               firstProviderPluginId,
             ),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1942,7 +1597,6 @@ describe("plugin runtime helpers", () => {
             appSubsystem: buildActiveAppSubsystemCapabilities(
               secondProviderPluginId,
             ),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -1993,7 +1647,6 @@ describe("plugin runtime helpers", () => {
               panes: {},
               commands: {},
               topNavBarItems: {},
-              canvasControls: {},
             },
           };
         }
@@ -2042,7 +1695,6 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -2072,7 +1724,6 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -2129,7 +1780,6 @@ describe("plugin runtime helpers", () => {
               panes: {},
               commands: {},
               topNavBarItems: {},
-              canvasControls: {},
             },
           };
         }
@@ -2183,7 +1833,6 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -2223,7 +1872,6 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -2269,7 +1917,6 @@ describe("plugin runtime helpers", () => {
               panes: {},
               commands: {},
               topNavBarItems: {},
-              canvasControls: {},
             },
           };
         }
@@ -2325,7 +1972,6 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -2362,7 +2008,6 @@ describe("plugin runtime helpers", () => {
         {
           featureCapabilities: {
             appSubsystem: buildActiveAppSubsystemCapabilities(providerPluginId),
-            watchCode: buildUnavailableWatchCodeCapabilities(),
           },
         },
       ),
@@ -2650,7 +2295,6 @@ describe("plugin runtime helpers", () => {
           "  host.registerPane({ id: 'fixture-pane', title: 'Fixture Pane', renderer: { mount() {} } });\n" +
           "  host.registerCommand({ id: 'fixture-command', title: 'Fixture Command', run() {} });\n" +
           "  host.registerTopNavBarItem({ id: 'fixture-nav', label: 'Fixture Nav', onClick() {} });\n" +
-          "  host.registerCanvasControl({ id: 'fixture-control', label: 'Fixture Control', renderer: { mount() {} } });\n" +
           "}\n",
       );
     const runtimeCapabilities = [
@@ -2658,7 +2302,6 @@ describe("plugin runtime helpers", () => {
       "registerPane",
       "registerCommand",
       "registerTopNavBarItem",
-      "registerCanvasControl",
     ];
     const plugin = buildPluginListEntry({
       pluginId: "acme.runtime-perf",
@@ -2687,7 +2330,6 @@ describe("plugin runtime helpers", () => {
     const firstSortedPaneTabs = firstState.sortedPaneTabs;
     const firstSortedCommands = firstState.sortedCommands;
     const firstSortedTopNavBarItems = firstState.sortedTopNavBarItems;
-    const firstSortedCanvasControls = firstState.sortedCanvasControls;
     await refreshPluginRuntime();
     const secondState = usePluginRuntimeStore.getState();
     expect(secondState.sortedPluginListEntries).toBe(
@@ -2697,7 +2339,6 @@ describe("plugin runtime helpers", () => {
     expect(secondState.sortedPaneTabs).toBe(firstSortedPaneTabs);
     expect(secondState.sortedCommands).toBe(firstSortedCommands);
     expect(secondState.sortedTopNavBarItems).toBe(firstSortedTopNavBarItems);
-    expect(secondState.sortedCanvasControls).toBe(firstSortedCanvasControls);
   });
   it("reuses plugin status entry references across no-op runtime refreshes", async () => {
     const plugin = buildPluginListEntry({
@@ -2995,93 +2636,11 @@ describe("plugin runtime helpers", () => {
       () => host.openArtifact("artifact-1"),
       PluginFrontendErrorCodeEnum.CapabilityDenied,
     );
-    await expect(host.fetchBackendRoute("/fixture")).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.CapabilityDenied,
-    });
     await expect(
       host.createArtifact({ kind: "artifact" }),
     ).rejects.toMatchObject({
       code: PluginFrontendErrorCodeEnum.CapabilityDenied,
     });
-  });
-  it("fetches plugin-owned backend routes through the generic host route helper", async () => {
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Response(null, { status: 200 }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  globalThis.__settaCapturedPluginHost = host;\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: ["registerRouter"],
-    });
-    const result = await loadPluginFrontendModule(plugin, "ide");
-    expect(result?.error).toBeNull();
-    const host = getCapturedPluginHost();
-
-    await expect(
-      host.fetchBackendRoute("/watch-code/inputs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectConfigId: "project-alpha",
-          folders: [{ path: "pkg", recursive: true }],
-          files: ["pkg/mod.py"],
-        }),
-      }),
-    ).resolves.toMatchObject({ status: 200 });
-    await expect(host.fetchBackendRoute("/health")).resolves.toMatchObject({
-      status: 200,
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
-      "/plugins/acme.plugin/watch-code/inputs",
-    );
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
-      method: "POST",
-      credentials: "include",
-      body: JSON.stringify({
-        projectConfigId: "project-alpha",
-        folders: [{ path: "pkg", recursive: true }],
-        files: ["pkg/mod.py"],
-      }),
-    });
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toBeInstanceOf(Headers);
-    expect(
-      (fetchMock.mock.calls[0]?.[1]?.headers as Headers).get("Content-Type"),
-    ).toBe("application/json");
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(
-      "/plugins/acme.plugin/health",
-    );
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
-      credentials: "include",
-    });
-    await expect(
-      host.fetchBackendRoute("watch-code/inputs"),
-    ).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
-    });
-    await expect(host.fetchBackendRoute("/../admin")).rejects.toMatchObject({
-      code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
-    });
-    await expect(host.fetchBackendRoute("/%2e%2e/admin")).rejects.toMatchObject(
-      {
-        code: PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      },
-    );
   });
   it("exposes createStore on the plugin host", async () => {
     const moduleUrl =
@@ -3299,50 +2858,6 @@ describe("plugin runtime helpers", () => {
       nextValue: [sectionId, "section-next"],
       prevValue: [sectionId],
     });
-  });
-  it("notifies pluginData subscribers when the active project changes with the same payload", async () => {
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  globalThis.__settaCapturedPluginHost = host;\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: ["subscribeProjectState"],
-    });
-    const result = await loadPluginFrontendModule(plugin, "ide");
-    expect(result?.error).toBeNull();
-    const host = getCapturedPluginHost();
-    const updates: Array<{
-      nextValue: unknown;
-      prevValue: unknown | null;
-    }> = [];
-    const unsubscribe = host.subscribeProjectState(
-      { kind: "pluginData", pluginId: "setta-watch-code" },
-      (nextValue, prevValue) => {
-        updates.push({ nextValue, prevValue });
-      },
-      {
-        fireImmediately: false,
-      },
-    );
-    await loadProjectState(
-      buildPluginRuntimeProjectState("project-config-plugin-next", [], []),
-    );
-    unsubscribe();
-
-    expect(updates).toEqual([
-      {
-        nextValue: null,
-        prevValue: null,
-      },
-    ]);
   });
   it("keeps projectConfig subscriptions structural while activeSectionIds stays live", async () => {
     const sectionId = "section-runtime-plugin-project-config";
@@ -4565,54 +4080,6 @@ describe("plugin runtime helpers", () => {
       "2:Build:acme.plugin:item-build",
     ]);
   });
-  it("returns sorted canvas controls by placement then order, label, plugin id, and id", () => {
-    const sortedCanvasControls = [
-      {
-        pluginId: "acme.plugin",
-        id: "control-a",
-        label: "Watch Code",
-        placement: "project" as const,
-        order: 1,
-        renderer: { mount: () => undefined },
-      },
-      {
-        pluginId: "beta.plugin",
-        id: "control-z",
-        label: "Watch Code",
-        placement: "project" as const,
-        order: 1,
-        renderer: { mount: () => undefined },
-      },
-      {
-        pluginId: "acme.plugin",
-        id: "control-utility",
-        label: "Utility",
-        placement: "utility" as const,
-        order: 0,
-        renderer: { mount: () => undefined },
-      },
-    ];
-    usePluginRuntimeStore.setState({
-      canvasControlsByPluginId: {
-        "beta.plugin": [sortedCanvasControls[1]],
-        "acme.plugin": [sortedCanvasControls[0], sortedCanvasControls[2]],
-      },
-      sortedCanvasControls,
-    });
-    const controls = readPluginRuntimeHookValue(() =>
-      usePluginCanvasControls(),
-    );
-    expect(
-      controls.map(
-        (control) =>
-          `${control.placement}:${control.order}:${control.label}:${control.pluginId}:${control.id}`,
-      ),
-    ).toEqual([
-      "project:1:Watch Code:acme.plugin:control-a",
-      "project:1:Watch Code:beta.plugin:control-z",
-      "utility:0:Utility:acme.plugin:control-utility",
-    ]);
-  });
   it("returns plugin list entries sorted by plugin id", () => {
     const alpha = buildPluginListEntry({
       pluginId: "alpha.plugin",
@@ -4786,74 +4253,6 @@ describe("plugin runtime helpers", () => {
         buildPluginStatusEntry({ state: PluginRuntimeStateEnum.invalid }),
       ),
     ).toBe(false);
-  });
-  it("does not load unavailable Watch Code provider frontends", () => {
-    expect(
-      shouldLoadPluginFrontendForFeatureSelection({
-        pluginId: "setta-watch-code",
-        statusEntry: buildPluginStatusEntry({
-          pluginId: "setta-watch-code",
-          state: PluginRuntimeStateEnum.pending_restart,
-        }),
-        watchCodeCapabilities: buildWatchCodeCapabilities({
-          providerSelection: {
-            status: "pending_restart",
-            selectedPluginId: null,
-            activePluginIds: [],
-            pendingRestartPluginIds: ["setta-watch-code"],
-            disabledPluginIds: [],
-            invalidPluginIds: [],
-            conflictingPluginIds: [],
-          },
-        }),
-      }),
-    ).toBe(false);
-    expect(
-      shouldLoadPluginFrontendForFeatureSelection({
-        pluginId: "setta-watch-code",
-        statusEntry: buildPluginStatusEntry({
-          pluginId: "setta-watch-code",
-          state: PluginRuntimeStateEnum.active,
-          blockedCapabilities: [
-            {
-              capability: "registerWatchCodeBackend",
-              reason: "mode_policy",
-            },
-          ],
-        }),
-        watchCodeCapabilities: buildWatchCodeCapabilities({
-          providerSelection: {
-            status: "invalid_provider",
-            selectedPluginId: null,
-            activePluginIds: [],
-            pendingRestartPluginIds: [],
-            disabledPluginIds: [],
-            invalidPluginIds: ["setta-watch-code"],
-            conflictingPluginIds: [],
-          },
-        }),
-      }),
-    ).toBe(false);
-    expect(
-      shouldLoadPluginFrontendForFeatureSelection({
-        pluginId: "setta-watch-code",
-        statusEntry: buildPluginStatusEntry({
-          pluginId: "setta-watch-code",
-          state: PluginRuntimeStateEnum.active,
-        }),
-        watchCodeCapabilities: buildWatchCodeCapabilities({
-          providerSelection: {
-            status: "active",
-            selectedPluginId: "setta-watch-code",
-            activePluginIds: ["setta-watch-code"],
-            pendingRestartPluginIds: [],
-            disabledPluginIds: [],
-            invalidPluginIds: [],
-            conflictingPluginIds: [],
-          },
-        }),
-      }),
-    ).toBe(true);
   });
   it("returns section_kind_missing fallback when plugin is active but kind is not registered", () => {
     usePluginRuntimeStore.setState({

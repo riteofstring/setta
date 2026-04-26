@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	backendruntime "setta/internal/appsubsystem/backendruntime"
-	"setta/internal/watchcodecontracts"
 )
 
 func TestNormalizeBackendProbeResponseRejectsInvalidRoutePaths(t *testing.T) {
@@ -264,56 +263,6 @@ func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersio
 	}
 	if !strings.Contains(err.Error(), "appSubsystemBackend: unsupported contract version") {
 		t.Fatalf("expected app subsystem backend version error, got %v", err)
-	}
-}
-
-func TestNormalizeBackendProbeResponseValidatesWatchCodeBackendRegistration(
-	t *testing.T,
-) {
-	t.Parallel()
-
-	pluginRoot := t.TempDir()
-	normalized, err := normalizeBackendProbeResponse(
-		pluginRoot,
-		"setta-fixture-backend",
-		backendProbeResponse{
-			WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
-				ContractVersion:        watchcodecontracts.BackendContractVersion,
-				DataSchemaVersion:      watchcodecontracts.BackendDataSchemaVersion,
-				Languages:              []string{" Python "},
-				RequiresLanguageServer: true,
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("normalize watch code backend registration: %v", err)
-	}
-	if normalized.WatchCodeBackend == nil {
-		t.Fatal("expected normalized watch code backend registration")
-	}
-	if !slices.Equal(normalized.WatchCodeBackend.Languages, []string{"python"}) {
-		t.Fatalf("expected normalized watch code languages, got %#v", normalized.WatchCodeBackend.Languages)
-	}
-	if !normalized.WatchCodeBackend.RequiresLanguageServer {
-		t.Fatalf("expected language server requirement to survive normalization, got %#v", normalized.WatchCodeBackend)
-	}
-
-	_, err = normalizeBackendProbeResponse(
-		pluginRoot,
-		"setta-fixture-backend",
-		backendProbeResponse{
-			WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
-				ContractVersion:   watchcodecontracts.BackendContractVersion + 1,
-				DataSchemaVersion: watchcodecontracts.BackendDataSchemaVersion,
-				Languages:         []string{"python"},
-			},
-		},
-	)
-	if err == nil {
-		t.Fatal("expected unsupported watch code backend contract version to fail")
-	}
-	if !strings.Contains(err.Error(), "watchCodeBackend: unsupported contract version") {
-		t.Fatalf("expected watch code backend contract version error, got %v", err)
 	}
 }
 
@@ -723,26 +672,6 @@ func TestNormalizeBackendUISettingRegistrationDefaultWritable(t *testing.T) {
 	rawSchema["type"] = "string"
 	if registration.ValueSchema["type"] != "boolean" {
 		t.Fatalf("expected cloned value schema, got %#v", registration.ValueSchema)
-	}
-}
-
-func TestNormalizeBackendUISettingRegistrationAllowsPaneLessBackendSetting(t *testing.T) {
-	t.Parallel()
-
-	registration, err := normalizeBackendUISettingRegistration("plugin.test", map[string]any{
-		"id":             "setting-id",
-		"title":          "Setting Title",
-		"description":    "Description",
-		"revealKey":      "reveal.key",
-		"valueSchema":    map[string]any{"type": "boolean"},
-		"readHandlerId":  "read-handler",
-		"writeHandlerId": "write-handler",
-	})
-	if err != nil {
-		t.Fatalf("normalize pane-less backend ui setting registration: %v", err)
-	}
-	if registration.PaneID != "" {
-		t.Fatalf("expected pane-less backend setting, got pane id %q", registration.PaneID)
 	}
 }
 

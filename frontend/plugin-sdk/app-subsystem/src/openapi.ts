@@ -7,11 +7,7 @@ import {
   type ServerMode,
 } from "./serverModeBoundaryPolicy";
 import { buildBinaryDownloadRoute } from "./transportRouteConstants";
-export {
-  createDefaultAppPolicy,
-  createDefaultSharePolicy,
-  resolveAppPolicy,
-} from "./deploymentPolicies";
+export { createDefaultAppPolicy, resolveAppPolicy } from "./deploymentPolicies";
 export {
   getErrorCode,
   getErrorDetail,
@@ -99,24 +95,8 @@ export type {
   AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest as HttpapiPublishAppDeploymentRequest,
   HttpapiServerModeResponse,
 } from "./openapi/http/generated/types.gen";
-export { rebuildBackendRequest } from "./openapi/http/requestRebuild";
 export { callOpenAPI } from "./openapi/http/result";
-export {
-  canSectionRun,
-  canSelectSectionAsEntryCodeBlock,
-  getSectionEntryCodeBlockValue,
-  resolveMainRunRequest,
-  resolveRunRequest,
-} from "./runCapabilities";
-export {
-  resolveEndpointOriginForMode,
-  resolveServerModeCapabilities,
-  resolveWorkspaceLaunchRouteKind,
-  type EndpointOrigin,
-  type ServerMode,
-  type ServerModeCapabilities,
-  type WorkspaceLaunchRouteKind,
-} from "./serverModeBoundaryPolicy";
+export { resolveMainRunRequest, resolveRunRequest } from "./runCapabilities";
 
 function resolveTransportBaseUrl(
   serverMode: ServerMode,

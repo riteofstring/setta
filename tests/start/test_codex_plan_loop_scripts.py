@@ -100,3 +100,82 @@ esac
     assert "--iterations\n1\n" in loop_args
     assert "--new-session-every\n1\n" in loop_args
     assert "--yolo" not in loop_args
+
+
+def test_plan_loop_wrappers_delegate_to_shared_runner(tmp_path: Path) -> None:
+    sandbox_root = tmp_path / "plan_loop_wrappers"
+    scripts_dir = sandbox_root / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    write_stub_executable(
+        scripts_dir / "run-codex-plan-loop.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$@" > "{sandbox_root / 'runner_args.txt'}"
+""",
+    )
+    wrapper_cases = [
+        (
+            "scripts/run-codex-app-plugin-boundary-closure-loop.sh",
+            "app-plugin-boundary-closure",
+            "docs/plans/app-plugin-boundary-closure-plan.md",
+            "CODEX_LOOP_STOP: APP_PLUGIN_BOUNDARY_CLOSURE_COMPLETE",
+            "codex-apppluginboundary:",
+        ),
+        (
+            "scripts/run-codex-app-subsystem-backend-externalization-loop.sh",
+            "app-subsystem-backend-externalization",
+            "docs/plans/app-subsystem-backend-externalization-plan.md",
+            "CODEX_LOOP_STOP: APP_SUBSYSTEM_BACKEND_EXTERNALIZATION_COMPLETE",
+            "codex-apppluginbackend:",
+        ),
+        (
+            "scripts/run-codex-app-subsystem-real-plugin-loop.sh",
+            "app-subsystem-real-plugin",
+            "docs/plans/app-subsystem-real-plugin-plan.md",
+            "CODEX_LOOP_STOP: APP_SUBSYSTEM_REAL_PLUGIN_COMPLETE",
+            "codex-realplugin:",
+        ),
+        (
+            "scripts/run-codex-first-party-plugin-standalone-loop.sh",
+            "first-party-plugin-standalone",
+            "docs/plans/first-party-plugin-standalone-completion-plan.md",
+            "CODEX_LOOP_STOP: FIRST_PARTY_PLUGIN_STANDALONE_COMPLETE",
+            "codex-pluginstandalone:",
+        ),
+        (
+            "scripts/run-codex-first-party-plugin-finalization-loop.sh",
+            "first-party-plugin-finalization",
+            "docs/plans/first-party-plugin-finalization-plan.md",
+            "CODEX_LOOP_STOP: FIRST_PARTY_PLUGIN_FINALIZATION_COMPLETE",
+            "codex-pluginfinal:",
+        ),
+        (
+            "scripts/run-codex-third-party-plugin-generalization-loop.sh",
+            "third-party-plugin-generalization",
+            "docs/plans/third-party-plugin-generalization-plan.md",
+            "CODEX_LOOP_STOP: THIRD_PARTY_PLUGIN_GENERALIZATION_COMPLETE",
+            "codex-pluginplan:",
+        ),
+    ]
+
+    for wrapper_path, name, plan, sentinel, commit_prefix in wrapper_cases:
+        wrapper = _copy_script(sandbox_root, wrapper_path)
+        wrapper_source = wrapper.read_text(encoding="utf-8")
+        assert "run-codex-plan-loop.sh" in wrapper_source
+        assert "prepare_managed_worktree_from_dirty_repo" not in wrapper_source
+        assert "while [[ $# -gt 0 ]]" not in wrapper_source
+        assert "repo_is_clean" not in wrapper_source
+        result = subprocess.run(
+            ["bash", str(wrapper), "--iterations", "3"],
+            cwd=sandbox_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"{wrapper_path}\n{result.stderr}"
+        args = (sandbox_root / "runner_args.txt").read_text(encoding="utf-8")
+        assert f"--name\n{name}\n" in args
+        assert f"--plan\n{plan}\n" in args
+        assert f"--sentinel\n{sentinel}\n" in args
+        assert f"--commit-prefix\n{commit_prefix}\n" in args
+        assert "--iterations\n3\n" in args

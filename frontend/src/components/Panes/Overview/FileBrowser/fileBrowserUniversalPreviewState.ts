@@ -1,18 +1,18 @@
 import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   downloadBinary,
   getFileBrowserDownloadUrls,
   getFileBrowserFileContent,
   type FilebrowserFileBrowserDownloadUrlEntry,
   type FilebrowserFileContentResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useState } from "react";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 
 const TEXT_PREVIEW_CHAR_LIMIT = 4000;

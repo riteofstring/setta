@@ -114,6 +114,48 @@ func (r *Runtime) CompareAndSetProjectName(
 	})
 }
 
+func (d *Document) CompareAndSetWatchCodeEnabled(
+	projectID string,
+	enabled bool,
+	workspaceRoot string,
+	expectedOldValue *bool,
+) (CompareAndSetResult[bool], error) {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return CompareAndSetResult[bool]{}, err
+	}
+
+	oldValue := project.WatchCodeEnabled
+	if noop, err := isUISettingCompareAndSetNoop(
+		"core.watch_code.enabled",
+		optionalBoolAny(expectedOldValue),
+		oldValue,
+		enabled,
+	); err != nil {
+		return CompareAndSetResult[bool]{}, err
+	} else if noop {
+		return CompareAndSetResult[bool]{OldValue: oldValue, NewValue: oldValue}, nil
+	}
+
+	if err := d.SetWatchCodeEnabled(projectID, enabled, workspaceRoot); err != nil {
+		return CompareAndSetResult[bool]{}, err
+	}
+	return CompareAndSetResult[bool]{OldValue: oldValue, NewValue: enabled}, nil
+}
+
+func (r *Runtime) CompareAndSetWatchCodeEnabled(
+	ctx context.Context,
+	projectID string,
+	enabled bool,
+	workspaceRoot string,
+	expectedOldValue *bool,
+) (Snapshot, CompareAndSetResult[bool], error) {
+	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[bool], error) {
+		result, err := document.CompareAndSetWatchCodeEnabled(projectID, enabled, workspaceRoot, expectedOldValue)
+		return document, result, err
+	})
+}
+
 func (d *Document) CompareAndSetPythonCodegenEnabled(
 	ctx context.Context,
 	projectID string,
@@ -172,6 +214,110 @@ func (r *Runtime) CompareAndSetPythonCodegenEnabled(
 			validator,
 			pythonReconciler,
 		)
+		return document, result, err
+	})
+}
+
+func (d *Document) CompareAndSetWatchCodeFolders(
+	projectID string,
+	folders []WatchCodeFolder,
+	workspaceRoot string,
+	expectedOldValue []WatchCodeFolder,
+) (CompareAndSetResult[[]WatchCodeFolder], error) {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return CompareAndSetResult[[]WatchCodeFolder]{}, err
+	}
+
+	oldFolders := canonicalWatchCodeFolders(project.WatchCodeFolders)
+	nextFolders, err := normalizeWatchCodeFolders(workspaceRoot, folders)
+	if err != nil {
+		return CompareAndSetResult[[]WatchCodeFolder]{}, err
+	}
+	if noop, err := isUISettingCompareAndSetNoop(
+		"core.watch_code.folders",
+		optionalWatchCodeFoldersAny(expectedOldValue),
+		oldFolders,
+		nextFolders,
+	); err != nil {
+		return CompareAndSetResult[[]WatchCodeFolder]{}, err
+	} else if noop {
+		return CompareAndSetResult[[]WatchCodeFolder]{
+			OldValue: oldFolders,
+			NewValue: cloneWatchCodeFolders(oldFolders),
+		}, nil
+	}
+
+	if err := d.SetWatchCodeInputs(projectID, nextFolders, project.WatchCodeFiles, workspaceRoot); err != nil {
+		return CompareAndSetResult[[]WatchCodeFolder]{}, err
+	}
+	return CompareAndSetResult[[]WatchCodeFolder]{
+		OldValue: oldFolders,
+		NewValue: cloneWatchCodeFolders(nextFolders),
+	}, nil
+}
+
+func (r *Runtime) CompareAndSetWatchCodeFolders(
+	ctx context.Context,
+	projectID string,
+	folders []WatchCodeFolder,
+	workspaceRoot string,
+	expectedOldValue []WatchCodeFolder,
+) (Snapshot, CompareAndSetResult[[]WatchCodeFolder], error) {
+	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[[]WatchCodeFolder], error) {
+		result, err := document.CompareAndSetWatchCodeFolders(projectID, folders, workspaceRoot, expectedOldValue)
+		return document, result, err
+	})
+}
+
+func (d *Document) CompareAndSetWatchCodeFiles(
+	projectID string,
+	files []string,
+	workspaceRoot string,
+	expectedOldValue []string,
+) (CompareAndSetResult[[]string], error) {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return CompareAndSetResult[[]string]{}, err
+	}
+
+	oldFiles := canonicalStringSlice(project.WatchCodeFiles)
+	nextFiles, err := normalizeWatchCodeFiles(workspaceRoot, files)
+	if err != nil {
+		return CompareAndSetResult[[]string]{}, err
+	}
+	if noop, err := isUISettingCompareAndSetNoop(
+		"core.watch_code.files",
+		optionalStringSliceAny(expectedOldValue),
+		oldFiles,
+		nextFiles,
+	); err != nil {
+		return CompareAndSetResult[[]string]{}, err
+	} else if noop {
+		return CompareAndSetResult[[]string]{
+			OldValue: oldFiles,
+			NewValue: append([]string(nil), oldFiles...),
+		}, nil
+	}
+
+	if err := d.SetWatchCodeInputs(projectID, project.WatchCodeFolders, nextFiles, workspaceRoot); err != nil {
+		return CompareAndSetResult[[]string]{}, err
+	}
+	return CompareAndSetResult[[]string]{
+		OldValue: oldFiles,
+		NewValue: append([]string(nil), nextFiles...),
+	}, nil
+}
+
+func (r *Runtime) CompareAndSetWatchCodeFiles(
+	ctx context.Context,
+	projectID string,
+	files []string,
+	workspaceRoot string,
+	expectedOldValue []string,
+) (Snapshot, CompareAndSetResult[[]string], error) {
+	return mutateAndSaveIfChanged(r, ctx, func(document Document) (Document, CompareAndSetResult[[]string], error) {
+		result, err := document.CompareAndSetWatchCodeFiles(projectID, files, workspaceRoot, expectedOldValue)
 		return document, result, err
 	})
 }
@@ -263,6 +409,13 @@ func optionalStringSliceAny(value []string) any {
 	return canonicalStringSlice(value)
 }
 
+func optionalWatchCodeFoldersAny(value []WatchCodeFolder) any {
+	if value == nil {
+		return nil
+	}
+	return canonicalWatchCodeFolders(value)
+}
+
 func projectCodegenTargetsWithPythonEnabled(targets []ProjectCodegenTarget, enabled bool) []ProjectCodegenTarget {
 	next := make([]ProjectCodegenTarget, 0, len(targets)+1)
 	hasPython := false
@@ -289,4 +442,11 @@ func canonicalStringSlice(value []string) []string {
 		return []string{}
 	}
 	return append([]string(nil), value...)
+}
+
+func canonicalWatchCodeFolders(value []WatchCodeFolder) []WatchCodeFolder {
+	if len(value) == 0 {
+		return []WatchCodeFolder{}
+	}
+	return cloneWatchCodeFolders(value)
 }

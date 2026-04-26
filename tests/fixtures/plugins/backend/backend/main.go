@@ -118,12 +118,6 @@ func main() {
 				},
 			},
 			"languageServers": languageServers,
-			"watchCodeBackend": map[string]any{
-				"contractVersion":        1,
-				"dataSchemaVersion":      1,
-				"languages":              []string{"python"},
-				"requiresLanguageServer": true,
-			},
 			"routes": []map[string]any{
 				{
 					"path":    "/health",

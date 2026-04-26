@@ -14,7 +14,6 @@ type Registry struct {
 	knownPluginIDs         map[string]struct{}
 	knownPluginSettingIDs  map[string]struct{}
 	invalidPluginSettings  map[string]SettingError
-	unavailableSettings    map[string]SettingError
 	pluginStatusByPluginID map[string]pluginRegistryStatus
 }
 
@@ -26,7 +25,6 @@ type registryPluginMetadata struct {
 	knownPluginIDs         map[string]struct{}
 	knownPluginSettingIDs  map[string]struct{}
 	invalidPluginSettings  map[string]SettingError
-	unavailableSettings    map[string]SettingError
 	pluginStatusByPluginID map[string]pluginRegistryStatus
 }
 
@@ -64,7 +62,6 @@ func newRegistry(entries []RuntimeEntry, metadata registryPluginMetadata) (*Regi
 		knownPluginIDs:         cloneStringSet(metadata.knownPluginIDs),
 		knownPluginSettingIDs:  cloneStringSet(metadata.knownPluginSettingIDs),
 		invalidPluginSettings:  cloneSettingErrorMap(metadata.invalidPluginSettings),
-		unavailableSettings:    cloneSettingErrorMap(metadata.unavailableSettings),
 		pluginStatusByPluginID: clonePluginRegistryStatusMap(metadata.pluginStatusByPluginID),
 	}, nil
 }
@@ -144,7 +141,7 @@ func (r *Registry) ReadValue(ctx context.Context, projectID string, settingID st
 		return nil, err
 	}
 	if !ok {
-		return nil, r.MissingSettingError(settingID)
+		return nil, newSettingError(ErrorCodeSettingNotFound, "UI setting %q was not found.", strings.TrimSpace(settingID))
 	}
 	if entry.ReadValue == nil {
 		return nil, newSettingError(ErrorCodeSettingNotFound, "UI setting %q does not expose a readable value.", entry.Metadata.SettingID)
@@ -166,7 +163,7 @@ func (r *Registry) WriteValue(ctx context.Context, projectID string, settingID s
 		return MutationResult{}, err
 	}
 	if !ok {
-		return MutationResult{}, r.MissingSettingError(settingID)
+		return MutationResult{}, newSettingError(ErrorCodeSettingNotFound, "UI setting %q was not found.", strings.TrimSpace(settingID))
 	}
 	if entry.Metadata.Mutability != MutabilityWritable || entry.WriteValue == nil {
 		return MutationResult{}, newSettingError(ErrorCodeSettingReadOnly, "UI setting %q is read-only.", entry.Metadata.SettingID)
@@ -216,12 +213,6 @@ func (r *Registry) MissingSettingError(settingID string) error {
 	normalizedSettingID, err := normalizeSettingID(settingID)
 	if err != nil {
 		return newUnknownSettingIDError(settingID)
-	}
-	if r == nil {
-		return newUnknownSettingIDError(normalizedSettingID)
-	}
-	if settingErr, ok := r.unavailableSettings[normalizedSettingID]; ok {
-		return newSettingError(settingErr.Code, "%s", settingErr.Message)
 	}
 
 	pluginID, _, ok := parsePluginSettingID(normalizedSettingID)
@@ -449,7 +440,7 @@ func newPluginRuntimeEntryMissingError(pluginID string, observedState string) er
 func newPluginUISettingsCapabilityError(pluginID string) error {
 	return newSettingError(
 		ErrorCodePluginUnavailable,
-		"Plugin %s is unavailable for UI setting access (registerPane or registerUISettings capability not effective).",
+		"Plugin %s is unavailable for UI setting access (registerPane capability not effective).",
 		pluginID,
 	)
 }

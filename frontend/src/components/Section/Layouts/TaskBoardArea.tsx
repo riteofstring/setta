@@ -5,7 +5,6 @@ import {
   PointerSensor,
 } from "@dnd-kit/dom";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { callOpenAPI, createNewId } from "@setta/app-subsystem-frontend-sdk";
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import {
   DragDropProvider,
@@ -24,6 +23,7 @@ import {
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { setTaskBoardSectionState } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   Fragment,
   useCallback,
@@ -67,6 +67,7 @@ import {
   TaskBoardViewMode,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   applyTaskBoardMutation,
   buildTaskBoardLanes,
