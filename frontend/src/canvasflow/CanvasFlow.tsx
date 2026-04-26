@@ -56,7 +56,9 @@ import {
   requestCanvasFlowPaint,
 } from "./canvasFlowSupport";
 import type {
+  CanvasFlowConnectionState,
   CanvasFlowDrawableEdge,
+  CanvasFlowHandlePosition,
   CanvasFlowNode,
   CanvasFlowNodeElementMap,
   CanvasFlowRenderingContext,
@@ -71,6 +73,11 @@ const EMPTY_SIZE: CanvasFlowSize = {
   pixelWidth: 0,
   pixelHeight: 0,
   pixelRatio: 1,
+};
+const EMPTY_CONNECTION_STATE: CanvasFlowConnectionState = {
+  connectionStartHandle: null,
+  connectionPosition: { x: 0, y: 0 },
+  connectionStatus: null,
 };
 
 const wrapperStyle: CSSProperties = {
@@ -91,6 +98,10 @@ function CanvasFlow() {
   const sizeRef = useRef<CanvasFlowSize>(EMPTY_SIZE);
   const nodesRef = useRef<CanvasFlowNode[]>([]);
   const edgesRef = useRef<CanvasFlowDrawableEdge[]>([]);
+  const edgePositionsRef = useRef<Record<string, CanvasFlowHandlePosition>>({});
+  const connectionStateRef = useRef<CanvasFlowConnectionState>(
+    EMPTY_CONNECTION_STATE,
+  );
   const [resizeObserver, setResizeObserver] = useState<ResizeObserver | null>(
     null,
   );
@@ -190,6 +201,7 @@ function CanvasFlow() {
 
   nodesRef.current = nodes;
   edgesRef.current = edges;
+  edgePositionsRef.current = edgePositions;
 
   useCanvasFlowAgenticScopeHighlights(projectEdgeState);
 
@@ -204,6 +216,20 @@ function CanvasFlow() {
     viewportRef.current = transformToCanvasFlowViewport(transform);
     schedulePaint();
   }, [schedulePaint, transform]);
+
+  useEffect(() => {
+    connectionStateRef.current = selectCanvasFlowConnectionState(
+      useReactFlow.getState(),
+    );
+    return useReactFlow.subscribe(
+      selectCanvasFlowConnectionState,
+      (connectionState) => {
+        connectionStateRef.current = connectionState;
+        schedulePaint();
+      },
+      { equalityFn: shallow },
+    );
+  }, [schedulePaint]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -236,9 +262,11 @@ function CanvasFlow() {
     const paint = () => {
       paintCanvasFlow({
         canvas,
+        connectionState: connectionStateRef.current,
         ctx,
         darkMode,
         edges: edgesRef.current,
+        edgeHandlePositions: edgePositionsRef.current,
         gridSize: snapToGrid ? snapGrid[0] : 20,
         nodeElements: nodeElementsRef.current,
         nodes: nodesRef.current,
@@ -331,6 +359,7 @@ function CanvasFlow() {
 
   const interactionHandlers = useCanvasFlowInteractions({
     canvasRef,
+    edgesRef,
     maxZoom,
     minZoom,
     panOnDrag,
@@ -384,6 +413,16 @@ function CanvasFlow() {
       />
     </div>
   );
+}
+
+function selectCanvasFlowConnectionState(
+  state: ReturnType<typeof useReactFlow.getState>,
+): CanvasFlowConnectionState {
+  return {
+    connectionStartHandle: state.connectionStartHandle,
+    connectionPosition: state.connectionPosition,
+    connectionStatus: state.connectionStatus,
+  };
 }
 
 function useCanvasFlowSettings(darkMode: boolean) {

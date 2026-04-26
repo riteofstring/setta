@@ -11,7 +11,12 @@ import {
   type SingleConfig,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
-import type { CanvasFlowDrawableEdge } from "./canvasFlowTypes";
+import type {
+  CanvasFlowConnectionState,
+  CanvasFlowDrawableEdge,
+  CanvasFlowViewport,
+} from "./canvasFlowTypes";
+import { screenToWorldPoint } from "./canvasFlowViewport";
 
 type EdgeHandlePositions = Record<string, EdgeHandlePosition>;
 type SectionVariantMap = SingleConfig["projectConfig"]["sectionVariantMap"];
@@ -22,6 +27,12 @@ type TopLevelSections = SingleConfig["projectConfig"]["topLevelSections"];
 type FallbackSectionSize = {
   w?: number | null | undefined;
   h?: number | null | undefined;
+};
+type CanvasFlowEdgeEndpoint = "source" | "target";
+export type CanvasFlowEdgeHit = {
+  edge: CanvasFlowDrawableEdge;
+  endpoint: CanvasFlowEdgeEndpoint | null;
+  distance: number;
 };
 
 const sourceActivationCountOperatorLabelByValue = new Map(
@@ -78,6 +89,105 @@ export function drawCanvasFlowEdges({
   }
 }
 
+export function drawCanvasFlowConnectionPreview({
+  connectionState,
+  ctx,
+  positions,
+  viewport,
+}: {
+  connectionState: CanvasFlowConnectionState;
+  ctx: CanvasRenderingContext2D;
+  positions: EdgeHandlePositions;
+  viewport: CanvasFlowViewport;
+}) {
+  const startHandle = connectionState.connectionStartHandle;
+  if (!startHandle?.handleId) {
+    return;
+  }
+  const start =
+    positions[
+      makeEdgeHandleKey(
+        startHandle.sectionId,
+        startHandle.handleId,
+        startHandle.type,
+      )
+    ];
+  if (!start) {
+    return;
+  }
+  const sourcePosition = start.side;
+  const targetPosition = getOppositeHandlePosition(sourcePosition);
+  const target = screenToWorldPoint(
+    connectionState.connectionPosition,
+    viewport,
+  );
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 2;
+  ctx.strokeStyle =
+    connectionState.connectionStatus === "invalid" ? "#ef4444" : "#3b82f6";
+  ctx.setLineDash([7, 6]);
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  const { sourceControl, targetControl } = getBezierControls({
+    source: start,
+    target,
+    sourcePosition,
+    targetPosition,
+  });
+  ctx.bezierCurveTo(
+    sourceControl.x,
+    sourceControl.y,
+    targetControl.x,
+    targetControl.y,
+    target.x,
+    target.y,
+  );
+  ctx.stroke();
+  ctx.restore();
+}
+
+export function getCanvasFlowEdgeHit({
+  edges,
+  point,
+  viewport,
+  endpointScreenRadius = 12,
+  pathScreenRadius = 10,
+}: {
+  edges: CanvasFlowDrawableEdge[];
+  point: Position;
+  viewport: CanvasFlowViewport;
+  endpointScreenRadius?: number;
+  pathScreenRadius?: number;
+}): CanvasFlowEdgeHit | null {
+  const endpointTolerance = endpointScreenRadius / viewport.zoom;
+  const pathTolerance = pathScreenRadius / viewport.zoom;
+  let bestHit: CanvasFlowEdgeHit | null = null;
+
+  for (let index = edges.length - 1; index >= 0; index -= 1) {
+    const edge = edges[index];
+    const hit = edge
+      ? getCanvasFlowSingleEdgeHit({
+          edge,
+          endpointTolerance,
+          pathTolerance,
+          point,
+        })
+      : null;
+    if (!hit) {
+      continue;
+    }
+    if (hit.endpoint) {
+      return hit;
+    }
+    bestHit = pickCloserEdgeHit(bestHit, hit);
+  }
+
+  return bestHit;
+}
+
 export function buildDataEdges({
   edges,
   positions,
@@ -94,38 +204,14 @@ export function buildDataEdges({
   }
   const output: CanvasFlowDrawableEdge[] = [];
   for (const edge of edges) {
-    if (
-      edge.hidden ||
-      sectionVariantMap[edge.sourceSectionId] !== edge.sourceVariantId ||
-      sectionVariantMap[edge.targetSectionId] !== edge.targetVariantId
-    ) {
-      continue;
-    }
-    const source =
-      positions[
-        makeEdgeHandleKey(edge.sourceSectionId, edge.sourcePortId, "source")
-      ];
-    const target =
-      positions[
-        makeEdgeHandleKey(edge.targetSectionId, edge.targetPortId, "target")
-      ];
-    if (!source || !target) {
-      continue;
-    }
-    output.push({
-      id: edge.id,
-      kind: "data",
-      pathType: edge.type === "straight" ? "straight" : "bezier",
-      source: { x: source.x, y: source.y },
-      target: { x: target.x, y: target.y },
-      sourcePosition: source.side,
-      targetPosition: target.side,
-      selected: edge.selected,
-      animated: edge.animated,
-      style: edge.style ? (edge.style as CSSProperties) : undefined,
-      label: edge.label ?? undefined,
-      zIndex: edge.zIndex ?? 0,
+    const drawableEdge = buildDataEdge({
+      edge,
+      positions,
+      sectionVariantMap,
     });
+    if (drawableEdge) {
+      output.push(drawableEdge);
+    }
   }
   output.sort((left, right) => left.zIndex - right.zIndex);
   return output;
@@ -176,10 +262,13 @@ export function buildAgenticEdges({
       pathType: "bezier",
       source: resolved.source,
       target: resolved.target,
+      sourceSectionId: edge.sourceSectionId,
+      targetSectionId: edge.targetSectionId,
       sourcePosition: HandlePosition.Right,
       targetPosition: HandlePosition.Left,
       selected: edge.selected,
       animated: runningChatSectionIds.has(edge.sourceSectionId),
+      selectable: true,
       style: buildAgenticEdgeStyle(
         edge,
         toolArgSectionIds,
@@ -203,9 +292,12 @@ export function buildAgenticEdges({
       pathType: "bezier",
       source: resolved.source,
       target: resolved.target,
+      sourceSectionId: edge.sourceSectionId,
+      targetSectionId: edge.targetSectionId,
       sourcePosition: HandlePosition.Right,
       targetPosition: HandlePosition.Left,
       missing: true,
+      selectable: false,
       zIndex: Number.MAX_SAFE_INTEGER,
     });
   }
@@ -224,53 +316,22 @@ export function buildStateMachineEdges({
 }): CanvasFlowDrawableEdge[] {
   const output: CanvasFlowDrawableEdge[] = [];
   for (const edge of edges) {
-    if (edge.hidden) {
-      continue;
-    }
-    const sourceFrame = getNodeFrame(
-      nodes.get(edge.sourceSectionId),
-      topLevelSections[edge.sourceSectionId],
-    );
-    const targetNode = nodes.get(edge.targetSectionId);
-    const targetFrame = getNodeFrame(
-      targetNode,
-      topLevelSections[edge.targetSectionId],
-    );
-    const source = resolveNodeAnchor(sourceFrame, "right");
-    const target = resolveNodeAnchor(targetFrame, "left");
-    if (!source || !target) {
-      continue;
-    }
-    output.push({
-      id: edge.id,
-      kind: "state-machine",
-      pathType: "bezier",
-      source,
-      target,
-      sourcePosition: HandlePosition.Right,
-      targetPosition: HandlePosition.Left,
-      selected: edge.selected,
-      style: edge.style ? (edge.style as CSSProperties) : undefined,
-      label: getSourceActivationCountLabel(edge) ?? undefined,
-      zIndex: edge.zIndex ?? 0,
-    });
-    const promptLink = getPromptLink({
+    const mainEdge = buildStateMachineMainEdge({
       edge,
       nodes,
-      targetNode,
+      topLevelSections,
+    });
+    if (!mainEdge) {
+      continue;
+    }
+    output.push(mainEdge);
+    const promptLink = buildStateMachinePromptEdge({
+      edge,
+      nodes,
       topLevelSections,
     });
     if (promptLink) {
-      output.push({
-        id: `${edge.id}:prompt`,
-        kind: "state-machine-prompt",
-        pathType: "bezier",
-        source: promptLink.source,
-        target: promptLink.target,
-        sourcePosition: promptLink.sourcePosition,
-        targetPosition: promptLink.targetPosition,
-        zIndex: (edge.zIndex ?? 0) - 0.5,
-      });
+      output.push(promptLink);
     }
   }
   output.sort((left, right) => left.zIndex - right.zIndex);
@@ -322,6 +383,226 @@ export function buildAgenticMissingEdges({
     }));
 }
 
+function buildDataEdge({
+  edge,
+  positions,
+  sectionVariantMap,
+}: {
+  edge: Edge;
+  positions: EdgeHandlePositions;
+  sectionVariantMap: SectionVariantMap;
+}): CanvasFlowDrawableEdge | null {
+  if (!shouldDrawDataEdge(edge, sectionVariantMap)) {
+    return null;
+  }
+  const source =
+    positions[
+      makeEdgeHandleKey(edge.sourceSectionId, edge.sourcePortId, "source")
+    ];
+  const target =
+    positions[
+      makeEdgeHandleKey(edge.targetSectionId, edge.targetPortId, "target")
+    ];
+  if (!source || !target) {
+    return null;
+  }
+  return {
+    id: edge.id,
+    kind: "data",
+    pathType: edge.type === "straight" ? "straight" : "bezier",
+    source: { x: source.x, y: source.y },
+    target: { x: target.x, y: target.y },
+    sourceSectionId: edge.sourceSectionId,
+    sourceHandleId: edge.sourcePortId,
+    targetSectionId: edge.targetSectionId,
+    targetHandleId: edge.targetPortId,
+    sourcePosition: source.side,
+    targetPosition: target.side,
+    selected: edge.selected,
+    animated: edge.animated,
+    reconnectable: true,
+    selectable: true,
+    style: edge.style ? (edge.style as CSSProperties) : undefined,
+    label: edge.label ?? undefined,
+    zIndex: edge.zIndex ?? 0,
+  };
+}
+
+function shouldDrawDataEdge(edge: Edge, sectionVariantMap: SectionVariantMap) {
+  return (
+    !edge.hidden &&
+    sectionVariantMap[edge.sourceSectionId] === edge.sourceVariantId &&
+    sectionVariantMap[edge.targetSectionId] === edge.targetVariantId
+  );
+}
+
+function buildStateMachineMainEdge({
+  edge,
+  nodes,
+  topLevelSections,
+}: {
+  edge: WorkflowEdge;
+  nodes: Map<string, Node>;
+  topLevelSections: TopLevelSections;
+}): CanvasFlowDrawableEdge | null {
+  if (edge.hidden) {
+    return null;
+  }
+  const sourceFrame = getNodeFrame(
+    nodes.get(edge.sourceSectionId),
+    topLevelSections[edge.sourceSectionId],
+  );
+  const targetFrame = getNodeFrame(
+    nodes.get(edge.targetSectionId),
+    topLevelSections[edge.targetSectionId],
+  );
+  const source = resolveNodeAnchor(sourceFrame, "right");
+  const target = resolveNodeAnchor(targetFrame, "left");
+  if (!source || !target) {
+    return null;
+  }
+  return {
+    id: edge.id,
+    kind: "state-machine",
+    pathType: "bezier",
+    source,
+    target,
+    sourceSectionId: edge.sourceSectionId,
+    targetSectionId: edge.targetSectionId,
+    sourcePosition: HandlePosition.Right,
+    targetPosition: HandlePosition.Left,
+    selected: edge.selected,
+    selectable: true,
+    style: edge.style ? (edge.style as CSSProperties) : undefined,
+    label: getSourceActivationCountLabel(edge) ?? undefined,
+    zIndex: edge.zIndex ?? 0,
+  };
+}
+
+function buildStateMachinePromptEdge({
+  edge,
+  nodes,
+  topLevelSections,
+}: {
+  edge: WorkflowEdge;
+  nodes: Map<string, Node>;
+  topLevelSections: TopLevelSections;
+}): CanvasFlowDrawableEdge | null {
+  const promptLink = getPromptLink({
+    edge,
+    nodes,
+    targetNode: nodes.get(edge.targetSectionId),
+    topLevelSections,
+  });
+  if (!promptLink) {
+    return null;
+  }
+  return {
+    id: `${edge.id}:prompt`,
+    kind: "state-machine-prompt",
+    pathType: "bezier",
+    source: promptLink.source,
+    target: promptLink.target,
+    sourcePosition: promptLink.sourcePosition,
+    targetPosition: promptLink.targetPosition,
+    selectable: false,
+    zIndex: (edge.zIndex ?? 0) - 0.5,
+  };
+}
+
+function getCanvasFlowSingleEdgeHit({
+  edge,
+  endpointTolerance,
+  pathTolerance,
+  point,
+}: {
+  edge: CanvasFlowDrawableEdge;
+  endpointTolerance: number;
+  pathTolerance: number;
+  point: Position;
+}): CanvasFlowEdgeHit | null {
+  if (!isCanvasFlowEdgeInteractive(edge)) {
+    return null;
+  }
+  const endpoint = getCanvasFlowEdgeEndpointHit({
+    edge,
+    point,
+    tolerance: endpointTolerance,
+  });
+  if (endpoint) {
+    return endpoint;
+  }
+  const distance = getCanvasFlowEdgeDistance(edge, point);
+  if (distance > pathTolerance) {
+    return null;
+  }
+  return { edge, endpoint: null, distance };
+}
+
+function pickCloserEdgeHit(
+  current: CanvasFlowEdgeHit | null,
+  next: CanvasFlowEdgeHit,
+): CanvasFlowEdgeHit {
+  return !current || next.distance < current.distance ? next : current;
+}
+
+function isCanvasFlowEdgeInteractive(edge: CanvasFlowDrawableEdge): boolean {
+  return edge.selectable !== false && !edge.missing;
+}
+
+function getCanvasFlowEdgeEndpointHit({
+  edge,
+  point,
+  tolerance,
+}: {
+  edge: CanvasFlowDrawableEdge;
+  point: Position;
+  tolerance: number;
+}): CanvasFlowEdgeHit | null {
+  if (!edge.reconnectable) {
+    return null;
+  }
+  const sourceDistance = distanceBetweenPoints(point, edge.source);
+  const targetDistance = distanceBetweenPoints(point, edge.target);
+  if (sourceDistance <= tolerance && sourceDistance <= targetDistance) {
+    return { edge, endpoint: "source", distance: sourceDistance };
+  }
+  if (targetDistance <= tolerance) {
+    return { edge, endpoint: "target", distance: targetDistance };
+  }
+  return null;
+}
+
+function getCanvasFlowEdgeDistance(
+  edge: CanvasFlowDrawableEdge,
+  point: Position,
+): number {
+  if (edge.pathType === "straight") {
+    return distanceToSegment(point, edge.source, edge.target);
+  }
+  const controls = getBezierControls({
+    source: edge.source,
+    target: edge.target,
+    sourcePosition: edge.sourcePosition ?? HandlePosition.Bottom,
+    targetPosition: edge.targetPosition ?? HandlePosition.Top,
+  });
+  let distance = Infinity;
+  let previous = edge.source;
+  for (let step = 1; step <= 24; step += 1) {
+    const t = step / 24;
+    const current = cubicBezierPoint({
+      t,
+      source: edge.source,
+      sourceControl: controls.sourceControl,
+      targetControl: controls.targetControl,
+      target: edge.target,
+    });
+    distance = Math.min(distance, distanceToSegment(point, previous, current));
+    previous = current;
+  }
+  return distance;
+}
+
 function drawCanvasFlowEdge({
   ctx,
   edge,
@@ -363,6 +644,19 @@ function drawCanvasFlowEdge({
     drawEdgeLabel({ ctx, edge });
   }
   ctx.restore();
+}
+
+function getOppositeHandlePosition(position: HandlePosition): HandlePosition {
+  switch (position) {
+    case HandlePosition.Left:
+      return HandlePosition.Right;
+    case HandlePosition.Right:
+      return HandlePosition.Left;
+    case HandlePosition.Top:
+      return HandlePosition.Bottom;
+    case HandlePosition.Bottom:
+      return HandlePosition.Top;
+  }
 }
 
 function applyEdgeStroke({
@@ -409,7 +703,14 @@ function drawEdgeLabel({
   ctx.fillStyle = "rgba(255, 255, 255, 0.86)";
   ctx.strokeStyle = "rgba(100, 116, 139, 0.45)";
   ctx.lineWidth = 1;
-  drawRoundedRect(ctx, x - width / 2, y - 10, width, 20, 10);
+  drawRoundedRect({
+    ctx,
+    x: x - width / 2,
+    y: y - 10,
+    width,
+    height: 20,
+    radius: 10,
+  });
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = "#334155";
@@ -469,6 +770,66 @@ function resolveLineWidth(
     return 2;
   }
   return 1.25;
+}
+
+function distanceBetweenPoints(left: Position, right: Position): number {
+  return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
+function distanceToSegment(
+  point: Position,
+  start: Position,
+  end: Position,
+): number {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (dx === 0 && dy === 0) {
+    return distanceBetweenPoints(point, start);
+  }
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - start.x) * dx + (point.y - start.y) * dy) /
+        (dx * dx + dy * dy),
+    ),
+  );
+  return distanceBetweenPoints(point, {
+    x: start.x + t * dx,
+    y: start.y + t * dy,
+  });
+}
+
+function cubicBezierPoint({
+  t,
+  source,
+  sourceControl,
+  targetControl,
+  target,
+}: {
+  t: number;
+  source: Position;
+  sourceControl: Position;
+  targetControl: Position;
+  target: Position;
+}): Position {
+  const oneMinusT = 1 - t;
+  const sourceWeight = oneMinusT * oneMinusT * oneMinusT;
+  const sourceControlWeight = 3 * oneMinusT * oneMinusT * t;
+  const targetControlWeight = 3 * oneMinusT * t * t;
+  const targetWeight = t * t * t;
+  return {
+    x:
+      sourceWeight * source.x +
+      sourceControlWeight * sourceControl.x +
+      targetControlWeight * targetControl.x +
+      targetWeight * target.x,
+    y:
+      sourceWeight * source.y +
+      sourceControlWeight * sourceControl.y +
+      targetControlWeight * targetControl.y +
+      targetWeight * target.y,
+  };
 }
 
 function calculateControlOffset(distance: number, curvature: number): number {
@@ -685,14 +1046,21 @@ function buildAgenticEdgeKey(
   return `${kind}:${sourceSectionId}:${targetSectionId}`;
 }
 
-function drawRoundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
+function drawRoundedRect({
+  ctx,
+  height,
+  radius,
+  width,
+  x,
+  y,
+}: {
+  ctx: CanvasRenderingContext2D;
+  height: number;
+  radius: number;
+  width: number;
+  x: number;
+  y: number;
+}) {
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
   ctx.lineTo(x + width - radius, y);

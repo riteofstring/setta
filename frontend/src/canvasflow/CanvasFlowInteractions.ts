@@ -1,4 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import { handlePointerDown } from "forks/xyflow/core/components/Handle/handler";
+import type { HandleType } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
 import {
@@ -16,12 +18,18 @@ import {
   setActiveSectionIds,
   type SetActiveSectionIdsOptions,
 } from "state/actions/activeSections";
+import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import {
   closeAllContextMenus,
   openPaneContextMenu,
 } from "state/actions/contextMenus";
+import {
+  reconnectEdgeFromConnection,
+  toggleEdgeSelection,
+} from "state/actions/edges";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
+import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useSettings } from "state/definitions";
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
@@ -33,7 +41,14 @@ import {
 } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { isMacOs } from "utils/utils";
-import type { CanvasFlowViewport } from "./canvasFlowTypes";
+import {
+  getCanvasFlowEdgeHit,
+  type CanvasFlowEdgeHit,
+} from "./canvasFlowEdges";
+import type {
+  CanvasFlowDrawableEdge,
+  CanvasFlowViewport,
+} from "./canvasFlowTypes";
 import {
   canvasFlowViewportToTransform,
   clampZoom,
@@ -56,6 +71,7 @@ type CanvasFlowInteractionHandlers = {
 
 type UseCanvasFlowInteractionsParams = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  edgesRef: MutableRefObject<CanvasFlowDrawableEdge[]>;
   maxZoom: number;
   minZoom: number;
   panOnDrag: boolean | number[];
@@ -85,10 +101,22 @@ type PointerGesture =
       startX: number;
       startY: number;
       moved: boolean;
+    }
+  | {
+      mode: "edge";
+      edgeHit: CanvasFlowEdgeHit;
+      pointerId: number;
+      startClientX: number;
+      startClientY: number;
+      moved: boolean;
     };
+type EdgePointerGesture = Extract<PointerGesture, { mode: "edge" }>;
+type PanPointerGesture = Extract<PointerGesture, { mode: "pan" }>;
+type SelectPointerGesture = Extract<PointerGesture, { mode: "select" }>;
 
 export function useCanvasFlowInteractions({
   canvasRef,
+  edgesRef,
   maxZoom,
   minZoom,
   panOnDrag,
@@ -102,6 +130,7 @@ export function useCanvasFlowInteractions({
   zoomOnScroll,
 }: UseCanvasFlowInteractionsParams): CanvasFlowInteractionHandlers {
   const gestureRef = useRef<PointerGesture | null>(null);
+  const suppressNextClickRef = useRef(false);
   const storeSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -158,6 +187,11 @@ export function useCanvasFlowInteractions({
 
   const onClick = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
+      if (suppressNextClickRef.current) {
+        suppressNextClickRef.current = false;
+        event.preventDefault();
+        return;
+      }
       if (event.target !== event.currentTarget) {
         return;
       }
@@ -171,19 +205,60 @@ export function useCanvasFlowInteractions({
       if (event.target !== event.currentTarget) {
         return;
       }
+      const edgeHit = getEdgeHitForEvent({
+        canvas: event.currentTarget,
+        edges: edgesRef.current,
+        event,
+        viewport: viewportRef.current,
+      });
+      if (edgeHit) {
+        event.preventDefault();
+        return;
+      }
       if (Array.isArray(panOnDrag) && panOnDrag.includes(2)) {
         event.preventDefault();
         return;
       }
       openPaneContextMenu(event);
     },
-    [panOnDrag],
+    [edgesRef, panOnDrag, viewportRef],
   );
 
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLCanvasElement>) => {
       syncStoreViewport();
       if (event.target !== event.currentTarget) {
+        return;
+      }
+      const edgeHit = getEdgeHitForEvent({
+        canvas: event.currentTarget,
+        edges: edgesRef.current,
+        event,
+        viewport: viewportRef.current,
+      });
+      if (edgeHit && event.button === 0) {
+        event.preventDefault();
+        closeAllContextMenus();
+        if (
+          edgeHit.endpoint &&
+          startCanvasFlowEdgeReconnect({
+            event,
+            edgeHit,
+            schedulePaint,
+          })
+        ) {
+          suppressNextClickRef.current = true;
+          return;
+        }
+        gestureRef.current = {
+          mode: "edge",
+          edgeHit,
+          pointerId: event.pointerId,
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          moved: false,
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
       if (useReactFlow.getState().selectionKeyPressed && event.button === 0) {
@@ -232,7 +307,7 @@ export function useCanvasFlowInteractions({
       };
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [panOnDrag, syncStoreViewport],
+    [edgesRef, panOnDrag, schedulePaint, syncStoreViewport, viewportRef],
   );
 
   const onPointerMove = useCallback(
@@ -241,52 +316,25 @@ export function useCanvasFlowInteractions({
       if (!gesture || gesture.pointerId !== event.pointerId) {
         return;
       }
-      if (gesture.mode === "pan") {
-        const delta = {
-          x: event.clientX - gesture.lastClientX,
-          y: event.clientY - gesture.lastClientY,
-        };
-        const totalDelta = Math.hypot(
-          event.clientX - gesture.startClientX,
-          event.clientY - gesture.startClientY,
-        );
-        gesture.lastClientX = event.clientX;
-        gesture.lastClientY = event.clientY;
-        gesture.moved = gesture.moved || totalDelta > 2;
-        viewportRef.current = panViewportByScreenDelta(
-          viewportRef.current,
-          delta,
-        );
-        commitViewportChange();
-        return;
+      switch (gesture.mode) {
+        case "edge":
+          updateEdgeGestureMove(gesture, event);
+          return;
+        case "pan":
+          updatePanGestureMove({
+            commitViewportChange,
+            event,
+            gesture,
+            viewportRef,
+          });
+          return;
+        case "select":
+          updateSelectionGestureMove({
+            event,
+            gesture,
+            viewport: viewportRef.current,
+          });
       }
-      const rect = getCanvasRelativePoint(event.currentTarget, event);
-      const nextRect = {
-        x: rect.x < gesture.startX ? rect.x : gesture.startX,
-        y: rect.y < gesture.startY ? rect.y : gesture.startY,
-        width: Math.abs(rect.x - gesture.startX),
-        height: Math.abs(rect.y - gesture.startY),
-        startX: gesture.startX,
-        startY: gesture.startY,
-      };
-      gesture.moved = nextRect.width > 2 || nextRect.height > 2;
-      const selectedNodeIds = getNodesInside(
-        nextRect,
-        canvasFlowViewportToTransform(viewportRef.current),
-        useSettings.getState().gui.selectionMode === SelectionModeEnum.partial,
-      );
-      applyActiveSectionChange(
-        {
-          interaction: "selection-rect",
-          selectedIds: selectedNodeIds,
-        },
-        { syncMode: "ui-only" },
-      );
-      useReactFlow.setState({
-        userSelectionActive: true,
-        userSelectionRect: nextRect,
-        nodesSelectionDims: null,
-      });
     },
     [commitViewportChange, viewportRef],
   );
@@ -299,6 +347,14 @@ export function useCanvasFlowInteractions({
       }
       event.currentTarget.releasePointerCapture(event.pointerId);
       gestureRef.current = null;
+      if (gesture.mode === "edge") {
+        suppressNextClickRef.current = true;
+        if (!gesture.moved) {
+          toggleCanvasFlowEdgeSelection(gesture.edgeHit.edge);
+          schedulePaint();
+        }
+        return;
+      }
       if (gesture.mode === "pan") {
         finishViewportGesture();
         if (!gesture.moved && event.target === event.currentTarget) {
@@ -325,13 +381,16 @@ export function useCanvasFlowInteractions({
         userSelectionRect: null,
       });
     },
-    [finishViewportGesture, viewportRef],
+    [finishViewportGesture, schedulePaint, viewportRef],
   );
 
   const onPointerLeave = useCallback(
     (event: PointerEvent<HTMLCanvasElement>) => {
       if (!gestureRef.current) {
         return;
+      }
+      if (gestureRef.current.mode === "edge") {
+        gestureRef.current.moved = true;
       }
       onPointerUp(event);
     },
@@ -350,45 +409,38 @@ export function useCanvasFlowInteractions({
         return;
       }
       const nativeEvent = event.nativeEvent;
-      const isPinch = nativeEvent.ctrlKey && zoomOnPinch && isMacOs();
-      const shouldPan =
-        panOnScroll && !zoomActivationKeyPressed && !zoomOnScroll && !isPinch;
       event.preventDefault();
-      if (shouldPan) {
-        const delta = resolvePanOnScrollDelta({
+      if (
+        shouldPanCanvasFlowWheel({
+          event: nativeEvent,
+          panOnScroll,
+          zoomActivationKeyPressed,
+          zoomOnPinch,
+          zoomOnScroll,
+        })
+      ) {
+        panCanvasFlowByWheel({
+          commitViewportChange,
           event: nativeEvent,
           panOnScrollMode,
-        });
-        viewportRef.current = panViewportByScreenDelta(viewportRef.current, {
-          x: -(delta.x / viewportRef.current.zoom) * panOnScrollSpeed,
-          y: -(delta.y / viewportRef.current.zoom) * panOnScrollSpeed,
+          panOnScrollSpeed,
+          viewportRef,
         });
         startWheelInteraction("pan");
-        commitViewportChange();
         return;
       }
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) {
-        return;
+      if (
+        zoomCanvasFlowByWheel({
+          canvas: canvasRef.current,
+          commitViewportChange,
+          event: nativeEvent,
+          maxZoom,
+          minZoom,
+          viewportRef,
+        })
+      ) {
+        startWheelInteraction("zoom");
       }
-      const point = {
-        x: nativeEvent.clientX - rect.left,
-        y: nativeEvent.clientY - rect.top,
-      };
-      const wheelFactor = nativeEvent.ctrlKey && isMacOs() ? 10 : 1;
-      const delta = getWheelDelta(nativeEvent, wheelFactor);
-      const nextZoom = clampZoom(
-        viewportRef.current.zoom * Math.pow(2, delta),
-        minZoom,
-        maxZoom,
-      );
-      viewportRef.current = zoomViewportAroundScreenPoint({
-        viewport: viewportRef.current,
-        screenPoint: point,
-        nextZoom,
-      });
-      startWheelInteraction("zoom");
-      commitViewportChange();
     },
     [
       canvasRef,
@@ -493,6 +545,272 @@ export function useCanvasFlowInteractions({
     onPointerMove,
     onPointerUp,
     onWheel,
+  };
+}
+
+function getEdgeHitForEvent({
+  canvas,
+  edges,
+  event,
+  viewport,
+}: {
+  canvas: HTMLCanvasElement;
+  edges: CanvasFlowDrawableEdge[];
+  event:
+    | PointerEvent<HTMLCanvasElement>
+    | MouseEvent<HTMLCanvasElement>;
+  viewport: CanvasFlowViewport;
+}): CanvasFlowEdgeHit | null {
+  const rect = canvas.getBoundingClientRect();
+  const point = screenToWorldPoint(
+    {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    },
+    viewport,
+  );
+  return getCanvasFlowEdgeHit({ edges, point, viewport });
+}
+
+function updateEdgeGestureMove(
+  gesture: EdgePointerGesture,
+  event: PointerEvent<HTMLCanvasElement>,
+) {
+  gesture.moved =
+    gesture.moved ||
+    Math.hypot(
+      event.clientX - gesture.startClientX,
+      event.clientY - gesture.startClientY,
+    ) > 3;
+}
+
+function updatePanGestureMove({
+  commitViewportChange,
+  event,
+  gesture,
+  viewportRef,
+}: {
+  commitViewportChange: () => void;
+  event: PointerEvent<HTMLCanvasElement>;
+  gesture: PanPointerGesture;
+  viewportRef: MutableRefObject<CanvasFlowViewport>;
+}) {
+  const delta = {
+    x: event.clientX - gesture.lastClientX,
+    y: event.clientY - gesture.lastClientY,
+  };
+  const totalDelta = Math.hypot(
+    event.clientX - gesture.startClientX,
+    event.clientY - gesture.startClientY,
+  );
+  gesture.lastClientX = event.clientX;
+  gesture.lastClientY = event.clientY;
+  gesture.moved = gesture.moved || totalDelta > 2;
+  viewportRef.current = panViewportByScreenDelta(viewportRef.current, delta);
+  commitViewportChange();
+}
+
+function updateSelectionGestureMove({
+  event,
+  gesture,
+  viewport,
+}: {
+  event: PointerEvent<HTMLCanvasElement>;
+  gesture: SelectPointerGesture;
+  viewport: CanvasFlowViewport;
+}) {
+  const rect = getCanvasRelativePoint(event.currentTarget, event);
+  const nextRect = {
+    x: rect.x < gesture.startX ? rect.x : gesture.startX,
+    y: rect.y < gesture.startY ? rect.y : gesture.startY,
+    width: Math.abs(rect.x - gesture.startX),
+    height: Math.abs(rect.y - gesture.startY),
+    startX: gesture.startX,
+    startY: gesture.startY,
+  };
+  gesture.moved = nextRect.width > 2 || nextRect.height > 2;
+  const selectedNodeIds = getNodesInside(
+    nextRect,
+    canvasFlowViewportToTransform(viewport),
+    useSettings.getState().gui.selectionMode === SelectionModeEnum.partial,
+  );
+  applyActiveSectionChange(
+    {
+      interaction: "selection-rect",
+      selectedIds: selectedNodeIds,
+    },
+    { syncMode: "ui-only" },
+  );
+  useReactFlow.setState({
+    userSelectionActive: true,
+    userSelectionRect: nextRect,
+    nodesSelectionDims: null,
+  });
+}
+
+function toggleCanvasFlowEdgeSelection(edge: CanvasFlowDrawableEdge) {
+  const multiSelect = useReactFlow.getState().multiSelectionActive;
+  if (edge.kind === "data") {
+    toggleEdgeSelection(edge.id, multiSelect);
+    return;
+  }
+  if (edge.kind === "agentic") {
+    toggleAgenticEdgeSelection(edge.id, multiSelect);
+    return;
+  }
+  if (edge.kind === "state-machine") {
+    toggleStateMachineEdgeSelection(edge.id, multiSelect);
+  }
+}
+
+function shouldPanCanvasFlowWheel({
+  event,
+  panOnScroll,
+  zoomActivationKeyPressed,
+  zoomOnPinch,
+  zoomOnScroll,
+}: {
+  event: WheelEvent;
+  panOnScroll: boolean;
+  zoomActivationKeyPressed: boolean;
+  zoomOnPinch: boolean;
+  zoomOnScroll: boolean;
+}) {
+  return (
+    panOnScroll &&
+    !zoomActivationKeyPressed &&
+    !zoomOnScroll &&
+    !(event.ctrlKey && zoomOnPinch && isMacOs())
+  );
+}
+
+function panCanvasFlowByWheel({
+  commitViewportChange,
+  event,
+  panOnScrollMode,
+  panOnScrollSpeed,
+  viewportRef,
+}: {
+  commitViewportChange: () => void;
+  event: WheelEvent;
+  panOnScrollMode: PanOnScrollMode;
+  panOnScrollSpeed: number;
+  viewportRef: MutableRefObject<CanvasFlowViewport>;
+}) {
+  const delta = resolvePanOnScrollDelta({
+    event,
+    panOnScrollMode,
+  });
+  viewportRef.current = panViewportByScreenDelta(viewportRef.current, {
+    x: -(delta.x / viewportRef.current.zoom) * panOnScrollSpeed,
+    y: -(delta.y / viewportRef.current.zoom) * panOnScrollSpeed,
+  });
+  commitViewportChange();
+}
+
+function zoomCanvasFlowByWheel({
+  canvas,
+  commitViewportChange,
+  event,
+  maxZoom,
+  minZoom,
+  viewportRef,
+}: {
+  canvas: HTMLCanvasElement | null;
+  commitViewportChange: () => void;
+  event: WheelEvent;
+  maxZoom: number;
+  minZoom: number;
+  viewportRef: MutableRefObject<CanvasFlowViewport>;
+}) {
+  const rect = canvas?.getBoundingClientRect();
+  if (!rect) {
+    return false;
+  }
+  const point = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+  const wheelFactor = event.ctrlKey && isMacOs() ? 10 : 1;
+  const delta = getWheelDelta(event, wheelFactor);
+  const nextZoom = clampZoom(
+    viewportRef.current.zoom * Math.pow(2, delta),
+    minZoom,
+    maxZoom,
+  );
+  viewportRef.current = zoomViewportAroundScreenPoint({
+    viewport: viewportRef.current,
+    screenPoint: point,
+    nextZoom,
+  });
+  commitViewportChange();
+  return true;
+}
+
+function startCanvasFlowEdgeReconnect({
+  edgeHit,
+  event,
+  schedulePaint,
+}: {
+  edgeHit: CanvasFlowEdgeHit;
+  event: PointerEvent<HTMLCanvasElement>;
+  schedulePaint: () => void;
+}): boolean {
+  const reconnectTarget = getCanvasFlowReconnectTarget(edgeHit);
+  if (!reconnectTarget) {
+    return false;
+  }
+  handlePointerDown({
+    event: event as unknown as Parameters<typeof handlePointerDown>[0]["event"],
+    handleId: reconnectTarget.handleId,
+    nodeId: reconnectTarget.nodeId,
+    onConnect: (connection) => {
+      reconnectEdgeFromConnection(edgeHit.edge.id, connection);
+      schedulePaint();
+    },
+    isTarget: reconnectTarget.isTarget,
+    getState: useReactFlow.getState,
+    setState: useReactFlow.setState,
+    isValidConnection: () => true,
+    edgeUpdaterType: reconnectTarget.handleType,
+    onReconnectEnd: schedulePaint,
+  });
+  return true;
+}
+
+function getCanvasFlowReconnectTarget(
+  edgeHit: CanvasFlowEdgeHit,
+): {
+  handleId: string | null;
+  handleType: HandleType;
+  isTarget: boolean;
+  nodeId: string;
+} | null {
+  const edge = edgeHit.edge;
+  if (edge.kind !== "data" || !edgeHit.endpoint) {
+    return null;
+  }
+  if (
+    !edge.sourceSectionId ||
+    !edge.sourceHandleId ||
+    !edge.targetSectionId ||
+    !edge.targetHandleId
+  ) {
+    return null;
+  }
+  if (edgeHit.endpoint === "source") {
+    return {
+      nodeId: edge.targetSectionId,
+      handleId: edge.targetHandleId,
+      handleType: "target",
+      isTarget: true,
+    };
+  }
+  return {
+    nodeId: edge.sourceSectionId,
+    handleId: edge.sourceHandleId,
+    handleType: "source",
+    isTarget: false,
   };
 }
 

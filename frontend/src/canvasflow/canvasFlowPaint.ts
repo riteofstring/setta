@@ -1,7 +1,12 @@
-import { drawCanvasFlowEdges } from "./canvasFlowEdges";
+import {
+  drawCanvasFlowConnectionPreview,
+  drawCanvasFlowEdges,
+} from "./canvasFlowEdges";
 import { getVisibleNodeDrawRecords } from "./canvasFlowGeometry";
 import type {
+  CanvasFlowConnectionState,
   CanvasFlowDrawableEdge,
+  CanvasFlowHandlePosition,
   CanvasFlowNode,
   CanvasFlowNodeElementMap,
   CanvasFlowPaintStats,
@@ -15,9 +20,11 @@ const DEFAULT_OVERSCAN = 600;
 
 type PaintCanvasFlowParams = {
   canvas: HTMLCanvasElement;
+  connectionState: CanvasFlowConnectionState;
   ctx: CanvasFlowRenderingContext;
   darkMode: boolean;
   edges: CanvasFlowDrawableEdge[];
+  edgeHandlePositions: Record<string, CanvasFlowHandlePosition>;
   gridSize: number;
   nodeElements: CanvasFlowNodeElementMap;
   nodes: CanvasFlowNode[];
@@ -31,9 +38,11 @@ type PaintCanvasFlowParams = {
 
 export function paintCanvasFlow({
   canvas,
+  connectionState,
   ctx,
   darkMode,
   edges,
+  edgeHandlePositions,
   gridSize,
   nodeElements,
   nodes,
@@ -62,6 +71,12 @@ export function paintCanvasFlow({
   ctx.translate(viewport.x, viewport.y);
   ctx.scale(viewport.zoom, viewport.zoom);
   drawCanvasFlowEdges({ ctx, edges, wireColor });
+  drawCanvasFlowConnectionPreview({
+    connectionState,
+    ctx,
+    positions: edgeHandlePositions,
+    viewport,
+  });
 
   const visibleRect = expandWorldRect(
     getVisibleWorldRect(size, viewport),
