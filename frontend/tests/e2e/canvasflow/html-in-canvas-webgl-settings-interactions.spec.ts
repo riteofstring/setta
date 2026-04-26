@@ -5,6 +5,7 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const CANVAS_SELECTOR = ".canvas-flow__canvas";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const WEBGL_RENDERER = "webgl-texture-nodes";
+const INTERACTIVE_TEXTURE_REFRESH_SETTLE_MS = 1000;
 
 test("CanvasFlow WebGL Settings nodes stay interactive and reuse textures", async ({
   page,
@@ -35,6 +36,7 @@ test("CanvasFlow WebGL Settings nodes stay interactive and reuse textures", asyn
   await zoomCanvasFlowToward(page, 0.5);
   await verifyKeyboardFocusInSettingsNode(page);
   await dragFirstSettingsNode(page);
+  await page.waitForTimeout(INTERACTIVE_TEXTURE_REFRESH_SETTLE_MS);
 
   const uploadsBeforeViewportGesture = await readCanvasDatasetNumber(
     page,

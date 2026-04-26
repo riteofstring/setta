@@ -101,6 +101,7 @@ describe("CanvasFlowNodeLayer", () => {
           canvasRef={canvasRef}
           nodeElementsRef={nodeElementsRef}
           resizeObserver={null}
+          scheduleLiveTextureRefresh={vi.fn()}
           scheduleTexturePaint={vi.fn()}
           scheduleViewportFrame={vi.fn()}
           viewportRef={viewportRef}
@@ -147,6 +148,7 @@ describe("CanvasFlowNodeLayer", () => {
           canvasRef={canvasRef}
           nodeElementsRef={nodeElementsRef}
           resizeObserver={null}
+          scheduleLiveTextureRefresh={vi.fn()}
           scheduleTexturePaint={scheduleTexturePaint}
           scheduleViewportFrame={scheduleViewportFrame}
           viewportRef={viewportRef}
@@ -184,6 +186,7 @@ describe("CanvasFlowNodeLayer", () => {
     const viewportRef = {
       current: { x: 0, y: 0, zoom: 1 } satisfies CanvasFlowViewport,
     };
+    const scheduleLiveTextureRefresh = vi.fn();
     const scheduleTexturePaint = vi.fn();
 
     await act(async () => {
@@ -193,6 +196,7 @@ describe("CanvasFlowNodeLayer", () => {
           canvasRef={canvasRef}
           nodeElementsRef={nodeElementsRef}
           resizeObserver={null}
+          scheduleLiveTextureRefresh={scheduleLiveTextureRefresh}
           scheduleTexturePaint={scheduleTexturePaint}
           scheduleViewportFrame={vi.fn()}
           viewportRef={viewportRef}
@@ -204,6 +208,7 @@ describe("CanvasFlowNodeLayer", () => {
       '[data-id="near"]',
     );
     expect(nodeElement).not.toBeNull();
+    scheduleLiveTextureRefresh.mockClear();
     scheduleTexturePaint.mockClear();
 
     await act(async () => {
@@ -213,22 +218,23 @@ describe("CanvasFlowNodeLayer", () => {
       nodeElement?.dispatchEvent(new Event("pointerover", { bubbles: true }));
     });
 
-    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+    expect(scheduleLiveTextureRefresh).toHaveBeenCalledWith(
       "node-focus",
       new Set(["near"]),
     );
-    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+    expect(scheduleLiveTextureRefresh).toHaveBeenCalledWith(
       "node-input",
       new Set(["near"]),
     );
-    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+    expect(scheduleLiveTextureRefresh).toHaveBeenCalledWith(
       "node-click",
       new Set(["near"]),
     );
-    expect(scheduleTexturePaint).toHaveBeenCalledWith(
+    expect(scheduleLiveTextureRefresh).toHaveBeenCalledWith(
       "node-hover",
       new Set(["near"]),
     );
+    expect(scheduleTexturePaint).not.toHaveBeenCalled();
 
     scheduleTexturePaint.mockClear();
     await act(async () => {

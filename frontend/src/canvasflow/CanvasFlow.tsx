@@ -55,6 +55,10 @@ import {
   clearCanvasFlowLiveViewport,
   publishCanvasFlowLiveViewport,
 } from "./canvasFlowLiveViewport";
+import {
+  createCanvasFlowLiveTextureRefreshController,
+  type CanvasFlowLiveTextureRefreshController,
+} from "./canvasFlowLiveTextureRefresh";
 import { createCanvasFlowRenderer } from "./canvasFlowRenderer";
 import { getCanvasFlowSizeFromResizeEntry } from "./canvasFlowSizing";
 import { requestCanvasFlowPaint } from "./canvasFlowSupport";
@@ -101,6 +105,8 @@ function CanvasFlow() {
   const rootRef = useRef<HTMLDivElement>(null);
   const nodeElementsRef = useRef<CanvasFlowNodeElementMap>(new Map());
   const rendererRef = useRef<CanvasFlowRenderer | null>(null);
+  const liveTextureRefreshRef =
+    useRef<CanvasFlowLiveTextureRefreshController | null>(null);
   const sizeRef = useRef<CanvasFlowSize>(EMPTY_SIZE);
   const nodesRef = useRef<CanvasFlowNode[]>([]);
   const edgesRef = useRef<CanvasFlowDrawableEdge[]>([]);
@@ -255,6 +261,29 @@ function CanvasFlow() {
       requestCanvasFlowPaint(canvasRef.current);
     },
     [createRenderInputs],
+  );
+  useEffect(() => {
+    const controller = createCanvasFlowLiveTextureRefreshController({
+      scheduleTexturePaint,
+    });
+    liveTextureRefreshRef.current = controller;
+    return () => {
+      if (liveTextureRefreshRef.current === controller) {
+        liveTextureRefreshRef.current = null;
+      }
+      controller.destroy();
+    };
+  }, [scheduleTexturePaint]);
+  const scheduleLiveTextureRefresh = useCallback(
+    (reason: string, nodeIds: ReadonlySet<string>, durationMs?: number) => {
+      const controller = liveTextureRefreshRef.current;
+      if (controller) {
+        controller.request(reason, nodeIds, durationMs);
+        return;
+      }
+      scheduleTexturePaint(reason, nodeIds);
+    },
+    [scheduleTexturePaint],
   );
 
   useEffect(() => {
@@ -448,6 +477,7 @@ function CanvasFlow() {
         canvasRef={canvasRef}
         nodeElementsRef={nodeElementsRef}
         resizeObserver={resizeObserver}
+        scheduleLiveTextureRefresh={scheduleLiveTextureRefresh}
         scheduleTexturePaint={scheduleTexturePaint}
         scheduleViewportFrame={scheduleViewportFrame}
         viewportRef={viewportRef}

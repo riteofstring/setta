@@ -21,6 +21,7 @@ import {
 } from "./canvasFlowSupport";
 import type {
   CanvasFlowNodeDrawRecord,
+  CanvasFlowNodeTextureEntry,
   CanvasFlowRenderer,
   CanvasFlowRenderInputs,
   CanvasFlowSize,
@@ -436,13 +437,20 @@ function drawTexturedNodeQuads({
   );
 
   for (const node of nodes) {
-    const entry = textureCache.getEntry(node.id);
-    if (!entry || entry.dirty) {
+    const drawState = getCanvasFlowTextureDrawState(
+      textureCache.getEntry(node.id),
+    );
+    if (drawState.missing) {
       cacheMisses += 1;
       missingTextureNodeIds.add(node.id);
       continue;
     }
-    cacheHits += 1;
+    if (drawState.cacheHit) {
+      cacheHits += 1;
+    } else {
+      cacheMisses += 1;
+    }
+    const entry = drawState.entry;
     entry.lastUsedFrame = frameNumber;
     const screenRect = getNodeScreenDrawRect(node, inputs.viewport);
     gl.bindBuffer(gl.ARRAY_BUFFER, textureProgram.positionBuffer);
@@ -470,6 +478,35 @@ function drawTexturedNodeQuads({
     cacheMisses,
     drawnNodes,
     missingTextureNodeIds,
+  };
+}
+
+type CanvasFlowTextureDrawState =
+  | {
+      cacheHit: false;
+      entry: null;
+      missing: true;
+    }
+  | {
+      cacheHit: boolean;
+      entry: CanvasFlowNodeTextureEntry;
+      missing: false;
+    };
+
+export function getCanvasFlowTextureDrawState(
+  entry: CanvasFlowNodeTextureEntry | null,
+): CanvasFlowTextureDrawState {
+  if (!entry) {
+    return {
+      cacheHit: false,
+      entry: null,
+      missing: true,
+    };
+  }
+  return {
+    cacheHit: !entry.dirty,
+    entry,
+    missing: false,
   };
 }
 

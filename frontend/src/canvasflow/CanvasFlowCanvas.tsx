@@ -10,6 +10,11 @@ type ScheduleCanvasFlowTexturePaint = (
   reason?: string,
   nodeIds?: ReadonlySet<string> | "all",
 ) => void;
+type ScheduleCanvasFlowLiveTextureRefresh = (
+  reason: string,
+  nodeIds: ReadonlySet<string>,
+  durationMs?: number,
+) => void;
 type ScheduleCanvasFlowViewportFrame = (reason?: string) => void;
 
 type CanvasFlowCanvasProps = {
@@ -17,6 +22,7 @@ type CanvasFlowCanvasProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
+  scheduleLiveTextureRefresh: ScheduleCanvasFlowLiveTextureRefresh;
   scheduleTexturePaint: ScheduleCanvasFlowTexturePaint;
   scheduleViewportFrame: ScheduleCanvasFlowViewportFrame;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
@@ -27,6 +33,7 @@ export function CanvasFlowCanvas({
   canvasRef,
   nodeElementsRef,
   resizeObserver,
+  scheduleLiveTextureRefresh,
   scheduleTexturePaint,
   scheduleViewportFrame,
   viewportRef,
@@ -44,6 +51,7 @@ export function CanvasFlowCanvas({
         canvasRef={canvasRef}
         nodeElementsRef={nodeElementsRef}
         resizeObserver={resizeObserver}
+        scheduleLiveTextureRefresh={scheduleLiveTextureRefresh}
         scheduleTexturePaint={scheduleTexturePaint}
         scheduleViewportFrame={scheduleViewportFrame}
         viewportRef={viewportRef}

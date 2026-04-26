@@ -60,6 +60,11 @@ type ScheduleCanvasFlowTexturePaint = (
   reason?: string,
   nodeIds?: ReadonlySet<string> | "all",
 ) => void;
+type ScheduleCanvasFlowLiveTextureRefresh = (
+  reason: string,
+  nodeIds: ReadonlySet<string>,
+  durationMs?: number,
+) => void;
 type ScheduleCanvasFlowViewportFrame = (reason?: string) => void;
 
 type CanvasFlowNodeLayerProps = {
@@ -67,6 +72,7 @@ type CanvasFlowNodeLayerProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
+  scheduleLiveTextureRefresh: ScheduleCanvasFlowLiveTextureRefresh;
   scheduleTexturePaint: ScheduleCanvasFlowTexturePaint;
   scheduleViewportFrame: ScheduleCanvasFlowViewportFrame;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
@@ -77,6 +83,7 @@ type CanvasFlowNodeWrapperProps = {
   id: string;
   nodeElementsRef: MutableRefObject<CanvasFlowNodeElementMap>;
   resizeObserver: ResizeObserver | null;
+  scheduleLiveTextureRefresh: ScheduleCanvasFlowLiveTextureRefresh;
   scheduleTexturePaint: ScheduleCanvasFlowTexturePaint;
   scheduleViewportFrame: ScheduleCanvasFlowViewportFrame;
   viewportRef: MutableRefObject<CanvasFlowViewport>;
@@ -87,6 +94,7 @@ export function CanvasFlowNodeLayer({
   canvasRef,
   nodeElementsRef,
   resizeObserver,
+  scheduleLiveTextureRefresh,
   scheduleTexturePaint,
   scheduleViewportFrame,
   viewportRef,
@@ -166,6 +174,7 @@ export function CanvasFlowNodeLayer({
           id={nodeId}
           nodeElementsRef={nodeElementsRef}
           resizeObserver={resizeObserver}
+          scheduleLiveTextureRefresh={scheduleLiveTextureRefresh}
           scheduleTexturePaint={scheduleTexturePaint}
           scheduleViewportFrame={scheduleViewportFrame}
           viewportRef={viewportRef}
@@ -280,6 +289,7 @@ function _CanvasFlowNodeWrapper({
   id,
   nodeElementsRef,
   resizeObserver,
+  scheduleLiveTextureRefresh,
   scheduleTexturePaint,
   scheduleViewportFrame,
   viewportRef,
@@ -384,9 +394,9 @@ function _CanvasFlowNodeWrapper({
 
   const scheduleNodeSourcePaint = useCallback(
     (reason: string) => {
-      scheduleTexturePaint(reason, new Set([id]));
+      scheduleLiveTextureRefresh(reason, new Set([id]));
     },
-    [id, scheduleTexturePaint],
+    [id, scheduleLiveTextureRefresh],
   );
   const handlePointerOverCapture = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
