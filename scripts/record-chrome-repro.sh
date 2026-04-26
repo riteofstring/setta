@@ -167,7 +167,6 @@ Environment:
   SETTA_CHROME_REPRO_DEV_MODE         Dev runner mode: start | startr (default: start)
   SETTA_CHROME_REPRO_LOG_LEVEL        Backend log level for repro runs (default: debug)
   CHROME_BIN                          Path to Chrome/Chromium binary.
-  CHROME_EXTRA_ARGS                   Extra Chrome flags (space-separated).
 
 The recorder prefers Playwright's bundled Chrome for Testing when available,
 because recent branded Google Chrome builds can reject unpacked extensions.
@@ -621,26 +620,15 @@ if [[ -z "${chrome_bin}" ]]; then
 fi
 
 chrome_log="${log_dir}/chrome.log"
-chrome_command=("${chrome_bin}")
-if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-  chrome_command+=("--use-mock-keychain")
-fi
-if [[ -n "${CHROME_EXTRA_ARGS:-}" ]]; then
-  # shellcheck disable=SC2206
-  chrome_extra_args=(${CHROME_EXTRA_ARGS})
-  chrome_command+=("${chrome_extra_args[@]}")
-fi
-chrome_command+=(
-  "--user-data-dir=${profile_dir}"
-  "--no-first-run"
-  "--no-default-browser-check"
-  "--disable-extensions-except=${extension_dir}"
-  "--load-extension=${extension_dir}"
-  "${bootstrap_url}"
-)
 
 log "Launching dedicated Chrome recorder window with ${chrome_bin}."
-"${chrome_command[@]}" \
+"${chrome_bin}" \
+  --user-data-dir="${profile_dir}" \
+  --no-first-run \
+  --no-default-browser-check \
+  --disable-extensions-except="${extension_dir}" \
+  --load-extension="${extension_dir}" \
+  "${bootstrap_url}" \
   >"${chrome_log}" 2>&1 &
 chrome_pid="$!"
 

@@ -15,14 +15,12 @@ var openAPIRouteDependencyModePolicyType = reflect.TypeFor[modes.Policy]()
 
 var frontendOpenAPIDocumentModeOverrides = map[string]config.Mode{
 	"ShareDeployment": config.ModeShare,
+	"AppDeployment":   config.ModeApp,
 	"LauncherHome":    config.ModeLauncher,
 	"AI":              config.ModeShare,
 }
 
-func registerFrontendHTTPOpenAPIDocumentRoutesWithRegistrations(
-	router chi.Router,
-	registrationBuilder FrontendAPIRouteRegistrationBuilder,
-) error {
+func registerFrontendHTTPOpenAPIDocumentRoutes(router chi.Router) error {
 	rootDeps, err := newOpenAPIDocumentRouteDependencies[FrontendRootRouteDependencies](nil)
 	if err != nil {
 		return err
@@ -39,15 +37,7 @@ func registerFrontendHTTPOpenAPIDocumentRoutesWithRegistrations(
 	if err := RegisterFrontendRootRoutes(router, rootDeps); err != nil {
 		return err
 	}
-	registrations := FrontendAPIRouteRegistrations{}
-	if registrationBuilder != nil {
-		registrations = registrationBuilder(apiDeps)
-	}
-	return RegisterFrontendAPIRoutes(
-		router,
-		apiDeps,
-		registrations,
-	)
+	return RegisterFrontendAPIRoutes(router, apiDeps)
 }
 
 func newOpenAPIDocumentRouteDependencies[T any](modeOverrides map[string]config.Mode) (T, error) {
@@ -88,12 +78,10 @@ func setOpenAPIDocumentRouteDependencyModePolicy(field reflect.Value, policy mod
 	return nil
 }
 
-func BuildFrontendHTTPOpenAPIDocumentWithRegistrationBuilder(
-	registrationBuilder FrontendAPIRouteRegistrationBuilder,
-) (*huma.OpenAPI, error) {
+func BuildFrontendHTTPOpenAPIDocument() (*huma.OpenAPI, error) {
 	document := newOpenAPIDocument()
 	router := wrapRouterWithOpenAPIDocumentOnly(chi.NewRouter(), document)
-	if err := registerFrontendHTTPOpenAPIDocumentRoutesWithRegistrations(router, registrationBuilder); err != nil {
+	if err := registerFrontendHTTPOpenAPIDocumentRoutes(router); err != nil {
 		return nil, err
 	}
 	return document, nil

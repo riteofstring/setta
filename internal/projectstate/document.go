@@ -25,7 +25,7 @@ var (
 type Document struct {
 	SchemaVersion    int                `json:"schemaVersion"`
 	DefaultProjectID string             `json:"defaultProjectId,omitempty"`
-	PluginData       map[string]RawJSON `json:"pluginData,omitempty"`
+	AppDefinition    *AppDefinition     `json:"appDefinition,omitempty"`
 	Projects         map[string]Project `json:"projects,omitempty"`
 
 	passwordSecrets       PasswordSecretStore
@@ -34,35 +34,40 @@ type Document struct {
 
 // setta-go-type-discovery: skip
 type Project struct {
-	ID                       string                           `json:"id"`
-	Name                     string                           `json:"name"`
-	ShowParamDisplayNames    bool                             `json:"showParamDisplayNames,omitempty"`
-	AllowJSONSourceKeyEdits  bool                             `json:"allowJsonSourceKeyEdits,omitempty"`
-	PreviewImgColor          string                           `json:"previewImgColor,omitempty"`
-	Viewport                 *Viewport                        `json:"viewport,omitempty"`
-	ViewportInitialized      bool                             `json:"viewportInitialized,omitempty"`
-	ViewModes                map[string]ViewMode              `json:"viewModes,omitempty"`
-	ActiveViewModeID         string                           `json:"activeViewModeId,omitempty"`
-	IsEditingViewMode        bool                             `json:"isEditingViewMode,omitempty"`
-	CodegenTargets           []ProjectCodegenTarget           `json:"codegenTargets,omitempty"`
-	GeneratedCodeBinding     *CodeFileBinding                 `json:"generatedCodeBinding,omitempty"`
-	GeneratedMetadataBinding *CodeFileBinding                 `json:"generatedMetadataBinding,omitempty"`
-	EntryCodeBlockID         string                           `json:"entryCodeBlockId,omitempty"`
-	TopLevelSectionIDs       []string                         `json:"topLevelSectionIds,omitempty"`
-	TopLevelSections         map[string]TopLevelSectionLayout `json:"topLevelSections,omitempty"`
-	WindowSpaces             map[string]WindowSpaceConfig     `json:"windowSpaces,omitempty"`
-	SectionVariantMap        map[string]string                `json:"sectionVariantMap,omitempty"`
-	ActiveIDs                []string                         `json:"activeIds,omitempty"`
-	Edges                    []Edge                           `json:"edges,omitempty"`
-	AgenticEdges             []AgenticEdge                    `json:"agenticEdges,omitempty"`
-	StateMachineEdges        []StateMachineEdge               `json:"stateMachineEdges,omitempty"`
-	ProjectChatWindowing     *ProjectChatWindowingState       `json:"projectChatWindowing,omitempty"`
-	Sections                 map[string]Section               `json:"sections,omitempty"`
-	SectionVariants          map[string]SectionVariant        `json:"sectionVariants,omitempty"`
-	SectionImpls             map[string]SectionImpl           `json:"sectionImpls,omitempty"`
-	CodeObjs                 map[string]CodeObject            `json:"codeObjs,omitempty"`
-	CodeObjVariants          map[string]CodeObjectVariant     `json:"codeObjVariants,omitempty"`
-	CodeObjImpls             map[string]CodeObjectImpl        `json:"codeObjImpls,omitempty"`
+	ID                       string                            `json:"id"`
+	Name                     string                            `json:"name"`
+	ShowParamDisplayNames    bool                              `json:"showParamDisplayNames,omitempty"`
+	AllowJSONSourceKeyEdits  bool                              `json:"allowJsonSourceKeyEdits,omitempty"`
+	PreviewImgColor          string                            `json:"previewImgColor,omitempty"`
+	Viewport                 *Viewport                         `json:"viewport,omitempty"`
+	ViewportInitialized      bool                              `json:"viewportInitialized,omitempty"`
+	ViewModes                map[string]ViewMode               `json:"viewModes,omitempty"`
+	ActiveViewModeID         string                            `json:"activeViewModeId,omitempty"`
+	IsEditingViewMode        bool                              `json:"isEditingViewMode,omitempty"`
+	CodegenTargets           []ProjectCodegenTarget            `json:"codegenTargets,omitempty"`
+	WatchCodeEnabled         bool                              `json:"watchCodeEnabled,omitempty"`
+	WatchCodeFolders         []WatchCodeFolder                 `json:"watchCodeFolders,omitempty"`
+	WatchCodeFiles           []string                          `json:"watchCodeFiles,omitempty"`
+	WatchCodeRegistry        map[string]WatchCodeRegistryEntry `json:"watchCodeRegistry,omitempty"`
+	WatchCodeBaselineByPath  map[string][]string               `json:"watchCodeBaselineByPath,omitempty"`
+	GeneratedCodeBinding     *CodeFileBinding                  `json:"generatedCodeBinding,omitempty"`
+	GeneratedMetadataBinding *CodeFileBinding                  `json:"generatedMetadataBinding,omitempty"`
+	EntryCodeBlockID         string                            `json:"entryCodeBlockId,omitempty"`
+	TopLevelSectionIDs       []string                          `json:"topLevelSectionIds,omitempty"`
+	TopLevelSections         map[string]TopLevelSectionLayout  `json:"topLevelSections,omitempty"`
+	WindowSpaces             map[string]WindowSpaceConfig      `json:"windowSpaces,omitempty"`
+	SectionVariantMap        map[string]string                 `json:"sectionVariantMap,omitempty"`
+	ActiveIDs                []string                          `json:"activeIds,omitempty"`
+	Edges                    []Edge                            `json:"edges,omitempty"`
+	AgenticEdges             []AgenticEdge                     `json:"agenticEdges,omitempty"`
+	StateMachineEdges        []StateMachineEdge                `json:"stateMachineEdges,omitempty"`
+	ProjectChatWindowing     *ProjectChatWindowingState        `json:"projectChatWindowing,omitempty"`
+	Sections                 map[string]Section                `json:"sections,omitempty"`
+	SectionVariants          map[string]SectionVariant         `json:"sectionVariants,omitempty"`
+	SectionImpls             map[string]SectionImpl            `json:"sectionImpls,omitempty"`
+	CodeObjs                 map[string]CodeObject             `json:"codeObjs,omitempty"`
+	CodeObjVariants          map[string]CodeObjectVariant      `json:"codeObjVariants,omitempty"`
+	CodeObjImpls             map[string]CodeObjectImpl         `json:"codeObjImpls,omitempty"`
 
 	passwordSecrets PasswordSecretStore
 }
@@ -78,11 +83,9 @@ func (d Document) Clone() Document {
 	cloned := d
 	cloned.passwordSecrets = d.passwordSecrets
 	cloned.watchCodeIgnoredRoots = append([]string(nil), d.watchCodeIgnoredRoots...)
-	if d.PluginData != nil {
-		cloned.PluginData = make(map[string]RawJSON, len(d.PluginData))
-		for pluginID, payload := range d.PluginData {
-			cloned.PluginData[pluginID] = cloneRawJSON(payload)
-		}
+	if d.AppDefinition != nil {
+		appDefinition := d.AppDefinition.Clone()
+		cloned.AppDefinition = &appDefinition
 	}
 	if d.Projects == nil {
 		return cloned
@@ -121,11 +124,11 @@ func (d Document) Normalized() (Document, error) {
 	}
 
 	normalized.Projects = normalizeDocumentProjectMap(normalized.Projects)
-	pluginData, err := normalizeDocumentPluginData(normalized.PluginData)
+	appDefinition, err := normalizeDocumentAppDefinition(normalized.AppDefinition)
 	if err != nil {
 		return Document{}, err
 	}
-	normalized.PluginData = pluginData
+	normalized.AppDefinition = appDefinition
 	if err := normalizeDocumentProjects(normalized.Projects); err != nil {
 		return Document{}, err
 	}
@@ -150,39 +153,16 @@ func normalizeDocumentProjectMap(projects map[string]Project) map[string]Project
 	return projects
 }
 
-func normalizeDocumentPluginData(pluginData map[string]RawJSON) (map[string]RawJSON, error) {
-	if pluginData == nil {
+func normalizeDocumentAppDefinition(appDefinition *AppDefinition) (*AppDefinition, error) {
+	if appDefinition == nil {
 		return nil, nil
 	}
 
-	normalized := make(map[string]RawJSON, len(pluginData))
-	for pluginID, payload := range pluginData {
-		normalizedPluginID := strings.TrimSpace(pluginID)
-		if normalizedPluginID == "" {
-			return nil, fmt.Errorf("pluginData key is required")
-		}
-		if _, exists := normalized[normalizedPluginID]; exists {
-			return nil, fmt.Errorf(
-				"pluginData key %q collides after normalization",
-				normalizedPluginID,
-			)
-		}
-		normalizedPayload, err := normalizeRawJSON(
-			payload,
-			fmt.Sprintf("pluginData.%s", normalizedPluginID),
-		)
-		if err != nil {
-			return nil, err
-		}
-		if len(normalizedPayload) == 0 {
-			continue
-		}
-		normalized[normalizedPluginID] = normalizedPayload
+	normalized, err := appDefinition.Normalized()
+	if err != nil {
+		return nil, fmt.Errorf("normalize app definition: %w", err)
 	}
-	if len(normalized) == 0 {
-		return nil, nil
-	}
-	return normalized, nil
+	return &normalized, nil
 }
 
 func normalizeDocumentProjects(projects map[string]Project) error {

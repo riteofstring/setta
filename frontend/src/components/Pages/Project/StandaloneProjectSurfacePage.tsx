@@ -15,7 +15,7 @@ import { SectionWindowSurface } from "components/Section/Container/SectionWindow
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
-import { useAddMouseLocationListener } from "gpuFlow/mouseLocation";
+import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
 import {
   useEffect,

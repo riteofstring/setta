@@ -1,10 +1,10 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import {
   indentParams,
   moveParamGroups,
   moveParams,
   unindentParams,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   buildParamParentMap,

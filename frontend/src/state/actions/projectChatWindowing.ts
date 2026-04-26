@@ -1,10 +1,4 @@
 import {
-  callOpenAPI,
-  createNewId,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   PROJECT_CHAT_FALLBACK_VIEWPORT_HEIGHT_PX,
   PROJECT_CHAT_FALLBACK_VIEWPORT_WIDTH_PX,
   PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX,
@@ -12,17 +6,14 @@ import {
   resolveProjectChatFloatingBottomInsetPx,
   resolveProjectChatFloatingWorkspaceTopInsetPx,
 } from "components/ChatWindowing/projectChatViewport";
-import {
-  getViewport,
-  getZoom,
-  screenToFlowPosition,
-  setViewport,
-} from "gpuFlow/viewportActions";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { zoomIdentity } from "d3-zoom";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   setProjectChatWindowChatId as setProjectChatWindowChatIdRequest,
   setProjectChatWindowingState,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
@@ -32,6 +23,7 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
@@ -45,6 +37,7 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   getAuthoritativeProjectChatWindowingState,
   recordAuthoritativeProjectChatWindowingState,
@@ -404,7 +397,7 @@ function resolveProjectChatCanvasCursorBootPosition(
 function resolveProjectChatCanvasBootPosition(
   instanceId?: string,
 ): Position | null {
-  const domNode = gpuFlowViewportStore.getState().domNode;
+  const domNode = useReactFlow.getState().domNode;
   if (!domNode) {
     return null;
   }
@@ -456,7 +449,7 @@ function resolveProjectChatCanvasBootSectionSize(instanceId: string) {
   if (!rect) {
     return null;
   }
-  const zoom = getZoom();
+  const zoom = useReactFlow.getState().transform[2];
   const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
   return createSectionSize({
     width: Math.max(1, Math.round(rect.width / safeZoom)),
@@ -2154,7 +2147,14 @@ function restoreProjectChatCanvasViewport(
   viewportY: number,
   viewportZoom: number,
 ): void {
-  setViewport({ x: viewportX, y: viewportY, zoom: viewportZoom });
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  if (!d3Zoom || !d3Selection) {
+    return;
+  }
+  d3Zoom.transform(
+    d3Selection,
+    zoomIdentity.translate(viewportX, viewportY).scale(viewportZoom),
+  );
 }
 async function resolveProjectChatWindowCanvasBootSectionId(
   instanceId: string,
@@ -2164,7 +2164,8 @@ async function resolveProjectChatWindowCanvasBootSectionId(
     return currentInstance.sectionIdOrNull;
   }
   const canvasSectionSize = resolveProjectChatCanvasBootSectionSize(instanceId);
-  const { x: viewportX, y: viewportY, zoom: viewportZoom } = getViewport();
+  const [viewportX, viewportY, viewportZoom] =
+    useReactFlow.getState().transform;
   const created = await createTopLevelSectionWithResult({
     implType: SectionTypeEnum.Chat,
     implOverrides: {

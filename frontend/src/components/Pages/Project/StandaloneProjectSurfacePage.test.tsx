@@ -253,7 +253,7 @@ vi.mock("forks/dnd-kit/SectionDndContext", () => ({
   SectionDndContext: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock("gpuFlow/mouseLocation", () => ({
+vi.mock("forks/xyflow/core/utils/mouseLocation", () => ({
   useAddMouseLocationListener: () => undefined,
 }));
 

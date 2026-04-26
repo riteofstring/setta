@@ -7,12 +7,20 @@ let mockMinimapSide: "left" | "right" = "left";
 let mockOverviewWidth = 0;
 let mockUiEditorWidth = 0;
 
-vi.mock("gpuFlow/viewportActions", () => ({
+vi.mock("forks/xyflow/core/hooks/useViewportHelper", () => ({
   setCenter: vi.fn(),
 }));
 
-vi.mock("gpuFlow/GpuMiniMap", () => ({
-  default: ({
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: {
+    getState: () => ({
+      transform: [0, 0, 1],
+    }),
+  },
+}));
+
+vi.mock("forks/xyflow/minimap", () => ({
+  MiniMap: ({
     position,
     style,
   }: {

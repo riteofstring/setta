@@ -13,9 +13,8 @@ const (
 )
 
 var (
-	ErrRuntimeClosed             = errors.New("project runtime is closed")
-	ErrMutationMissing           = errors.New("project runtime mutation is required")
-	ErrPersistedStoreUnsupported = errors.New("persisted project store is required")
+	ErrRuntimeClosed   = errors.New("project runtime is closed")
+	ErrMutationMissing = errors.New("project runtime mutation is required")
 )
 
 type SavePolicy string
@@ -41,7 +40,6 @@ type RuntimeOptions struct {
 	PersistedTransform             PersistedDocumentTransform
 	PasswordSecrets                PasswordSecretStore
 	PythonCodegenSectionReconciler PythonCodegenSectionReconciler
-	WatchCodeProviderPluginID      func() (string, bool)
 	WatchCodeIgnoredRoots          []string
 }
 
@@ -71,7 +69,6 @@ type Runtime struct {
 	completedFrontendOps []string
 
 	pythonCodegenSectionReconciler PythonCodegenSectionReconciler
-	watchCodeProviderPluginID      func() (string, bool)
 
 	submitMu sync.Mutex
 	closed   bool
@@ -95,32 +92,6 @@ type runtimeState struct {
 	revision     uint64
 	history      []Document
 	historyIndex int
-}
-
-type persistSnapshotCommittedError struct {
-	err error
-}
-
-func (e *persistSnapshotCommittedError) Error() string {
-	if e == nil || e.err == nil {
-		return ""
-	}
-	return e.err.Error()
-}
-
-func (e *persistSnapshotCommittedError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.err
-}
-
-func persistSnapshotErrorCommitted(err error) bool {
-	if err == nil {
-		return true
-	}
-	var committedErr *persistSnapshotCommittedError
-	return errors.As(err, &committedErr)
 }
 
 func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOptions) (*Runtime, error) {
@@ -151,7 +122,6 @@ func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOp
 		return nil, err
 	}
 	runtime.pythonCodegenSectionReconciler = options.PythonCodegenSectionReconciler
-	runtime.watchCodeProviderPluginID = options.WatchCodeProviderPluginID
 	return runtime, nil
 }
 
@@ -176,7 +146,6 @@ func OpenOverlayRuntimeWithOptions(document Document, options RuntimeOptions) (*
 		return nil, err
 	}
 	runtime.pythonCodegenSectionReconciler = options.PythonCodegenSectionReconciler
-	runtime.watchCodeProviderPluginID = options.WatchCodeProviderPluginID
 	return runtime, nil
 }
 
@@ -472,7 +441,7 @@ func (r *Runtime) persistSnapshot(ctx context.Context, snapshot Snapshot) error 
 	}
 	if r.afterSave != nil {
 		if err := r.afterSave(ctx, snapshot); err != nil {
-			return &persistSnapshotCommittedError{err: err}
+			return err
 		}
 	}
 	return nil

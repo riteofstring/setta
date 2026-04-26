@@ -1,4 +1,4 @@
-import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -267,7 +267,7 @@ function _SectionContainerCore({
     useMetaControlStyle,
   });
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const viewportInteractionActive = useGpuFlowViewportStore(
+  const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
   const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);

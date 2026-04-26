@@ -194,52 +194,35 @@ async function simulateGroupedDragStep(
 ): Promise<string[]> {
   return await page.evaluate(
     async ({ deltaByAxis, sectionId }) => {
-      const [
-        { getGpuNodeDragItems },
-        { getActiveSectionUIIds },
-        { useNodeInternals },
-        { updateNodePositions },
-      ] = await Promise.all([
-        import("/src/gpuFlow/interactions/nodeDrag.ts"),
-        import("/src/state/activeSectionUI.ts"),
-        import("/src/state/definitions.ts"),
-        import("/src/state/actions/nodeInternals.ts"),
-      ]);
+      const [{ getDragItems }, { useNodeInternals }, { updateNodePositions }] =
+        await Promise.all([
+          import("/src/forks/xyflow/core/hooks/utils.ts"),
+          import("/src/state/definitions.ts"),
+          import("/src/state/actions/nodeInternals.ts"),
+        ]);
       const nodeInternals = useNodeInternals.getState().x;
       const draggedNode = nodeInternals.get(sectionId);
       if (!draggedNode) {
         throw new Error(`Missing node internals for ${sectionId}.`);
       }
-      const dragItems = getGpuNodeDragItems({
-        nodeId: sectionId,
-        nodes: Array.from(nodeInternals.values()).map((node) => ({
-          height: node.height,
-          nodeId: node.id,
-          tempZIndex: node.tempZIndex,
-          width: node.width,
-          x: node.position.x,
-          y: node.position.y,
-          zIndex: node.zIndex,
-        })),
-        pointerPosition: {
+      const dragItems = getDragItems(
+        nodeInternals,
+        {
           x: draggedNode.position.x + 12,
           y: draggedNode.position.y + 12,
         },
-        selectedNodeIds: getActiveSectionUIIds(),
-      });
+        sectionId,
+      );
       updateNodePositions(
         dragItems.map((item) => ({
-          distance: item.distance,
-          height: item.height,
-          id: item.nodeId,
+          ...item,
           position: {
             x: item.position.x + deltaByAxis.x,
             y: item.position.y + deltaByAxis.y,
           },
-          width: item.width,
         })),
       );
-      return dragItems.map((item) => item.nodeId);
+      return dragItems.map((item) => item.id);
     },
     {
       sectionId: draggedSectionId,

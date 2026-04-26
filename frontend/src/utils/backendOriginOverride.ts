@@ -1,16 +1,10 @@
-import {
-  BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
-  BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
-  isLocalHostname,
-  normalizeOrigin,
-  safeSessionStorage,
-} from "@setta/app-subsystem-frontend-sdk";
 import { BootstrapProtocol } from "utils/generatedTypes";
+import { isLocalHostname } from "utils/hostnames";
+import { normalizeOrigin } from "utils/origin";
+import { safeSessionStorage } from "utils/storage";
 
-export {
-  BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
-  BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
-};
+export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
+  "setta.backendOriginOverride";
 
 function allowNonLocalOriginOverride(): boolean {
   const raw = import.meta.env?.VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE;
@@ -21,7 +15,7 @@ function allowNonLocalOriginOverride(): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
-function isSameHostOrLocalPeerOverrideAllowed(
+function isOverrideAllowed(
   overrideOrigin: string,
   currentOrigin: string,
 ): boolean {
@@ -42,13 +36,10 @@ function isSameHostOrLocalPeerOverrideAllowed(
   ) {
     return true;
   }
-  return false;
+  return allowNonLocalOriginOverride();
 }
 
-function writeBackendOriginOverrideToStorage(
-  origin: string | undefined,
-  allowNonLocal = false,
-): void {
+function writeBackendOriginOverrideToStorage(origin: string | undefined): void {
   const storage = safeSessionStorage();
   if (!storage) {
     return;
@@ -56,18 +47,9 @@ function writeBackendOriginOverrideToStorage(
   try {
     if (!origin) {
       storage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
-      storage.removeItem(BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY);
       return;
     }
     storage.setItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY, origin);
-    if (allowNonLocal) {
-      storage.setItem(
-        BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY,
-        origin,
-      );
-    } else {
-      storage.removeItem(BACKEND_ORIGIN_OVERRIDE_ALLOW_NON_LOCAL_STORAGE_KEY);
-    }
   } catch (error) {
     console.warn(
       "Failed to store backend origin override in sessionStorage",
@@ -100,13 +82,8 @@ function persistBackendOriginOverride(
     return;
   }
 
-  if (isSameHostOrLocalPeerOverrideAllowed(override, currentOrigin)) {
+  if (isOverrideAllowed(override, currentOrigin)) {
     writeBackendOriginOverrideToStorage(override);
-    return;
-  }
-
-  if (allowNonLocalOriginOverride()) {
-    writeBackendOriginOverrideToStorage(override, true);
     return;
   }
 

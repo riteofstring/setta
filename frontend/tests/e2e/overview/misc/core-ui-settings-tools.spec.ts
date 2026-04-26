@@ -7,7 +7,7 @@ import {
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const WATCH_CODE_FILES_SETTING_ID = "plugin::setta-watch-code::files";
+const WATCH_CODE_ENABLED_SETTING_ID = "core.watch_code.enabled";
 const PROJECT_AI_LLM_API_KEYS_SETTING_ID =
   "core.project_ai_settings.llm_api_keys";
 const PROJECT_AI_AGENT_PROFILES_SETTING_ID =
@@ -247,7 +247,7 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       "search_ui_settings",
       {
         query: "watch code enabled",
-        sourceFilter: "plugin",
+        sourceFilter: "core",
         limit: 5,
       },
     );
@@ -256,20 +256,20 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       .filter(
         (settingId): settingId is string => typeof settingId === "string",
       );
-    expect(matchedSettingIds).toContain(WATCH_CODE_FILES_SETTING_ID);
+    expect(matchedSettingIds).toContain(WATCH_CODE_ENABLED_SETTING_ID);
 
     const initialValueResult = await callMcpTool<GetUISettingValueResult>(
       page,
       projectContext.projectConfigId,
       "get_ui_setting_value",
       {
-        settingId: WATCH_CODE_FILES_SETTING_ID,
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
       },
     );
     expectNoToolError(initialValueResult.error);
     if (typeof initialValueResult.value !== "boolean") {
       throw new Error(
-        `Expected boolean value for ${WATCH_CODE_FILES_SETTING_ID}, got: ${JSON.stringify(initialValueResult)}`,
+        `Expected boolean value for ${WATCH_CODE_ENABLED_SETTING_ID}, got: ${JSON.stringify(initialValueResult)}`,
       );
     }
     const nextValue = !initialValueResult.value;
@@ -279,7 +279,7 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       projectContext.projectConfigId,
       "set_ui_setting_value",
       {
-        settingId: WATCH_CODE_FILES_SETTING_ID,
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
         value: nextValue,
       },
     );
@@ -292,7 +292,7 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       projectContext.projectConfigId,
       "get_ui_setting_value",
       {
-        settingId: WATCH_CODE_FILES_SETTING_ID,
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
       },
     );
     expectNoToolError(updatedValueResult.error);
@@ -303,7 +303,7 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       projectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_FILES_SETTING_ID,
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
         durationMs: 8000,
       },
     );
@@ -315,7 +315,7 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
     await expect(watchCodeHeading).toBeVisible();
 
     const toggleButton = page.locator(
-      '[data-setting-anchor="plugin::setta-watch-code::files"]',
+      '[data-setting-anchor="core.watch_code.enabled"]',
     );
     await expect(toggleButton).toBeVisible();
     await expect(toggleButton).toHaveAttribute(
@@ -329,7 +329,7 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       projectContext.projectConfigId,
       "set_ui_setting_value",
       {
-        settingId: WATCH_CODE_FILES_SETTING_ID,
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
         value: "invalid-boolean-value",
       },
     );
@@ -524,7 +524,7 @@ test("core reveal_ui_setting fails when requested project does not match active 
       firstProjectContext.projectConfigId,
       "reveal_ui_setting",
       {
-        settingId: WATCH_CODE_FILES_SETTING_ID,
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
         durationMs: 5000,
       },
     );
@@ -565,7 +565,7 @@ test("core UI-setting tools reject explicit projectConfigId mismatches against a
         data: {
           tool: "get_ui_setting_value",
           arguments: {
-            settingId: WATCH_CODE_FILES_SETTING_ID,
+            settingId: WATCH_CODE_ENABLED_SETTING_ID,
             projectConfigId: firstProjectContext.projectConfigId,
           },
           agenticContext: {
@@ -601,7 +601,7 @@ test("core UI-setting tools normalize whitespace-padded setting ids", async ({
 }) => {
   await setOverviewTab(page, "Overview");
   const projectContext = await openIsolatedProject(page);
-  const paddedSettingId = `  ${WATCH_CODE_FILES_SETTING_ID}\t`;
+  const paddedSettingId = `  ${WATCH_CODE_ENABLED_SETTING_ID}\t`;
 
   try {
     const initialGetResult = await callMcpTool<GetUISettingValueResult>(
@@ -615,7 +615,7 @@ test("core UI-setting tools normalize whitespace-padded setting ids", async ({
     expectNoToolError(initialGetResult.error);
     if (typeof initialGetResult.value !== "boolean") {
       throw new Error(
-        `Expected boolean value for ${WATCH_CODE_FILES_SETTING_ID}, got: ${JSON.stringify(initialGetResult)}`,
+        `Expected boolean value for ${WATCH_CODE_ENABLED_SETTING_ID}, got: ${JSON.stringify(initialGetResult)}`,
       );
     }
     const nextValue = !initialGetResult.value;
@@ -646,7 +646,7 @@ test("core UI-setting tools normalize whitespace-padded setting ids", async ({
     expectNoToolError(revealResult.statuses[0]?.error);
 
     const settingAnchor = page.locator(
-      '[data-setting-anchor="plugin::setta-watch-code::files"]',
+      '[data-setting-anchor="core.watch_code.enabled"]',
     );
     await expect(settingAnchor).toBeVisible();
     await expect(settingAnchor).toHaveClass(

@@ -10,14 +10,10 @@ def _build_check_types_sandbox(tmp_path: Path) -> Path:
     sandbox_root = tmp_path / "check_types_sandbox"
     scripts_dir = sandbox_root / "scripts"
     frontend_dir = sandbox_root / "frontend"
-    sdk_frontend_dir = frontend_dir / "plugin-sdk" / "app-subsystem"
-    plugin_frontend_dir = sandbox_root / "plugins" / "demo" / "frontend"
     bin_dir = sandbox_root / "bin"
 
     scripts_dir.mkdir(parents=True, exist_ok=True)
     frontend_dir.mkdir(parents=True, exist_ok=True)
-    sdk_frontend_dir.mkdir(parents=True, exist_ok=True)
-    plugin_frontend_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
     script_src = root / "check_types.sh"
@@ -33,14 +29,6 @@ def _build_check_types_sandbox(tmp_path: Path) -> Path:
 
     (frontend_dir / "package.json").write_text(
         '{"name":"sandbox-frontend","version":"1.0.0","scripts":{"typecheck":"tsc --noEmit"}}\n',
-        encoding="utf-8",
-    )
-    (sdk_frontend_dir / "package.json").write_text(
-        '{"name":"sandbox-sdk","version":"1.0.0","scripts":{"typecheck":"tsc --noEmit"}}\n',
-        encoding="utf-8",
-    )
-    (plugin_frontend_dir / "package.json").write_text(
-        '{"name":"sandbox-plugin","version":"1.0.0","scripts":{"typecheck":"tsc --noEmit"}}\n',
         encoding="utf-8",
     )
 
@@ -59,7 +47,7 @@ def _build_check_types_sandbox(tmp_path: Path) -> Path:
         scripts_dir / "go.sh",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-echo "$*" > "{sandbox_root / "go_args.txt"}"
+echo "$*" > "{sandbox_root / 'go_args.txt'}"
 """,
     )
     write_stub_executable(
@@ -78,16 +66,15 @@ exit 1
         bin_dir / "ty",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-echo "$*" > "{sandbox_root / "ty_args.txt"}"
-echo "${{CHECK_TYPES_ACTIVATED:-}}" > "{sandbox_root / "ty_activation.txt"}"
+echo "$*" > "{sandbox_root / 'ty_args.txt'}"
+echo "${{CHECK_TYPES_ACTIVATED:-}}" > "{sandbox_root / 'ty_activation.txt'}"
 """,
     )
     write_stub_executable(
         bin_dir / "pnpm",
         f"""#!/usr/bin/env bash
 set -euo pipefail
-printf '__CALL__\\n' >> "{sandbox_root / "pnpm_args.txt"}"
-printf '%s\\n' "$@" >> "{sandbox_root / "pnpm_args.txt"}"
+echo "$*" > "{sandbox_root / 'pnpm_args.txt'}"
 """,
     )
 
@@ -98,21 +85,6 @@ def _script_env(sandbox_root: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
     return env
-
-
-def _split_calls(calls_path: Path) -> list[list[str]]:
-    calls: list[list[str]] = []
-    current: list[str] = []
-    for line in calls_path.read_text(encoding="utf-8").splitlines():
-        if line == "__CALL__":
-            if current:
-                calls.append(current)
-            current = []
-            continue
-        current.append(line)
-    if current:
-        calls.append(current)
-    return calls
 
 
 def test_check_types_help(tmp_path: Path) -> None:
@@ -128,10 +100,7 @@ def test_check_types_help(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0
-    assert (
-        "Run full-repo type checks across Go, Python, and frontend TypeScript packages."
-        in result.stdout
-    )
+    assert "Run full-repo type checks across Go, Python, and frontend TypeScript." in result.stdout
 
 
 def test_check_types_runs_all_languages_by_default(tmp_path: Path) -> None:
@@ -147,20 +116,14 @@ def test_check_types_runs_all_languages_by_default(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
-    assert (sandbox_root / "go_args.txt").read_text(
-        encoding="utf-8"
-    ).strip() == "test -run ^$ -count=1 ./..."
+    assert (sandbox_root / "go_args.txt").read_text(encoding="utf-8").strip() == "test -run ^$ -count=1 ./..."
     assert (sandbox_root / "ty_args.txt").read_text(encoding="utf-8").strip() == (
         "check --output-format concise backend/setta/example.py tests/test_example.py"
     )
-    assert (sandbox_root / "ty_activation.txt").read_text(
-        encoding="utf-8"
-    ).strip() == "1"
-    assert _split_calls(sandbox_root / "pnpm_args.txt") == [
-        ["-C", "frontend", "typecheck"],
-        ["-C", "frontend/plugin-sdk/app-subsystem", "typecheck"],
-        ["-C", "plugins/demo/frontend", "typecheck"],
-    ]
+    assert (sandbox_root / "ty_activation.txt").read_text(encoding="utf-8").strip() == "1"
+    assert (sandbox_root / "pnpm_args.txt").read_text(encoding="utf-8").strip() == (
+        "-C frontend typecheck"
+    )
 
 
 def test_check_types_selection_flags_limit_the_run(tmp_path: Path) -> None:
@@ -180,8 +143,6 @@ def test_check_types_selection_flags_limit_the_run(tmp_path: Path) -> None:
     assert (sandbox_root / "ty_args.txt").read_text(encoding="utf-8").strip() == (
         "check --output-format concise backend/setta/example.py tests/test_example.py"
     )
-    assert _split_calls(sandbox_root / "pnpm_args.txt") == [
-        ["-C", "frontend", "typecheck"],
-        ["-C", "frontend/plugin-sdk/app-subsystem", "typecheck"],
-        ["-C", "plugins/demo/frontend", "typecheck"],
-    ]
+    assert (sandbox_root / "pnpm_args.txt").read_text(encoding="utf-8").strip() == (
+        "-C frontend typecheck"
+    )

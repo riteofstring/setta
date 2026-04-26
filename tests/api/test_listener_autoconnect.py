@@ -38,6 +38,8 @@ def test_autoconnect_requires_env_opt_in(monkeypatch) -> None:
             )
 
             monkeypatch.delenv("SETTA_LISTENER_AUTOCONNECT", raising=False)
+            monkeypatch.setattr(C, "HOST", go_shared_constants.DEFAULT_HOST)
+            monkeypatch.setattr(C, "PORT", go_shared_constants.DEFAULT_PORT)
             monkeypatch.setattr(
                 C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
             )
@@ -73,6 +75,8 @@ def test_autoconnect_skips_when_explicit_host_port_provided(monkeypatch) -> None
             )
 
             monkeypatch.setenv("SETTA_LISTENER_AUTOCONNECT", "1")
+            monkeypatch.setattr(C, "HOST", "example.com")
+            monkeypatch.setattr(C, "PORT", 9001)
             monkeypatch.setattr(
                 C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
             )
@@ -112,6 +116,8 @@ def test_autoconnect_can_be_disabled(monkeypatch) -> None:
             )
 
             monkeypatch.setenv("SETTA_LISTENER_AUTOCONNECT", "0")
+            monkeypatch.setattr(C, "HOST", go_shared_constants.DEFAULT_HOST)
+            monkeypatch.setattr(C, "PORT", go_shared_constants.DEFAULT_PORT)
             monkeypatch.setattr(
                 C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
             )
@@ -147,6 +153,8 @@ def test_autoconnect_can_be_forced(monkeypatch) -> None:
             )
 
             monkeypatch.setenv("SETTA_LISTENER_AUTOCONNECT", "1")
+            monkeypatch.setattr(C, "HOST", "example.com")
+            monkeypatch.setattr(C, "PORT", 9001)
             monkeypatch.setattr(
                 C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
             )
@@ -183,6 +191,8 @@ def test_autoconnect_skips_when_explicit_auth_headers_provided(monkeypatch) -> N
             )
 
             monkeypatch.setenv("SETTA_LISTENER_AUTOCONNECT", "1")
+            monkeypatch.setattr(C, "HOST", go_shared_constants.DEFAULT_HOST)
+            monkeypatch.setattr(C, "PORT", go_shared_constants.DEFAULT_PORT)
             monkeypatch.setattr(
                 C, "RUNTIME_SESSIONS_FOLDER", Path("setta_files/runtime/sessions")
             )

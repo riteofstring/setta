@@ -1,4 +1,4 @@
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   buildProjectChatEphemeralWindowInstanceKey,
   getTrackedGitPaneGraphWindowInstanceIdForProject,
@@ -48,11 +48,10 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
     resetProjectStores();
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({
+      transform: [0, 0, 1],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
-      fitViewOnInitOptions: undefined,
     });
   });
 

@@ -12,7 +12,7 @@ import { ViewModeTabs } from "./ViewModeTabs";
 let latestProviderEnabled: boolean | undefined;
 
 vi.mock("./ViewModeDnd", () => ({
-  SortableListProvider: ({
+  ViewModeSortableProvider: ({
     children,
     enabled,
   }: {
@@ -22,7 +22,7 @@ vi.mock("./ViewModeDnd", () => ({
     latestProviderEnabled = enabled;
     return children;
   },
-  useSortableListItem: () => ({
+  useViewModeSortableItem: () => ({
     attributes: {},
     listeners: {},
     setNodeRef: () => {},

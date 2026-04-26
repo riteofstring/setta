@@ -40,7 +40,7 @@ Current structure rules:
 - Start/Gate/End nodes with the same `machineGroupId` belong to the same
   workflow.
 - Each workflow edge also stores a `machineGroupId`.
-- Creating a workflow edge can merge separate machine groups when
+- Creating a workflow edge can merge previously separate machine groups when
   the new edge connects them into one graph.
 
 Section settings for control nodes are persisted through

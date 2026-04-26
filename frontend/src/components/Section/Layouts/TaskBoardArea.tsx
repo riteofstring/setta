@@ -5,7 +5,6 @@ import {
   PointerSensor,
 } from "@dnd-kit/dom";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { callOpenAPI, createNewId } from "@setta/app-subsystem-frontend-sdk";
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import {
   DragDropProvider,
@@ -22,8 +21,9 @@ import {
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
-import { getZoom } from "gpuFlow/viewportActions";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { setTaskBoardSectionState } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   Fragment,
   useCallback,
@@ -67,6 +67,7 @@ import {
   TaskBoardViewMode,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   applyTaskBoardMutation,
   buildTaskBoardLanes,
@@ -956,7 +957,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
           cancelAnimationFrame(kanbanResizeAnimationFrameRef.current);
         }
         kanbanResizeAnimationFrameRef.current = requestAnimationFrame(() => {
-          const zoom = getZoom();
+          const zoom = useReactFlow.getState().transform[2];
           const scale = zoom === 0 ? 1 : zoom;
           const deltaX = (moveEvent.clientX - startX) / scale;
           const nextWidth = Math.max(

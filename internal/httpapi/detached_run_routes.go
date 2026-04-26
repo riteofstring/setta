@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"setta/internal/deployments"
 	"setta/internal/detachedruns"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -117,7 +116,7 @@ func runDetachedHandler(deps DetachedRunRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
-		if payload.RunSnapshotMode == deployments.RunSnapshotModeNever {
+		if payload.RunSnapshotMode == runs.RunSnapshotModeNever {
 			writeDetail(w, http.StatusBadRequest, "Detached runs always snapshot; runSnapshotMode=never is not supported.")
 			return
 		}
