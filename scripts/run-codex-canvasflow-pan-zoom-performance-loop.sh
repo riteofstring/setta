@@ -348,6 +348,7 @@ verification is currently blocked by the experimental browser/runtime.
 ## Baseline
 - [ ] Audit ${plan_file} and the current CanvasFlow pan/zoom path.
 - [ ] Capture or update a real rich-node performance baseline under perf/ when practical.
+- [ ] If using Settings project, All Settings view as the benchmark, treat it as a repro for general CanvasFlow behavior rather than a page-specific optimization target.
 - [ ] Record current network, console, canvas paint, React commit, and node mount signals.
 
 ## Layout and measurement churn
@@ -385,6 +386,10 @@ pan/zoom performance after the HTML-in-Canvas renderer replacement. Remove
 avoidable React, ResizeObserver, layout persistence, backend round-trip, and
 minimap-lag work from viewport-only gestures.
 
+Settings project, All Settings view is an acceptable benchmark and recent repro
+because it exercises rich real nodes. Do not optimize Settings specifically;
+use it to validate CanvasFlow and shared rich-node performance fixes.
+
 Read first, in this order:
 - ${root_dir}/AGENTS.md
 - ${plan_file}
@@ -420,7 +425,7 @@ Verification posture:
   or set \`CHROME_BIN\` to Chrome Canary/compatible Chromium plus that \`CHROME_EXTRA_ARGS\`.
 - If you start \`./ai.sh\` or \`./aireset.sh\`, stop it before finishing the iteration unless you have a concrete reason to leave it running. \`./kill.sh\` is the repo-scoped fallback.
 - If browser verification is blocked by missing local Chrome/flag support, record the blocker and continue with code/test work that does not require the browser.
-- Treat real rich-node project views as the important performance case. Synthetic TextBlock graphs are useful regression checks, but they are not sufficient.
+- Treat real rich-node project views as the important performance case. Settings project, All Settings view may be the primary benchmark, but it is not the scope boundary. Synthetic TextBlock graphs are useful regression checks, but they are not sufficient.
 - When changing performance-relevant behavior, baseline first when practical, re-measure after, and record before/after results in perf/ as append-only reports.
 
 Implementation rules:

@@ -5,6 +5,8 @@ Make CanvasFlow pan/zoom feel consistently smooth in large, rich project views a
 
 The immediate target is to remove avoidable React, ResizeObserver, layout persistence, and backend round-trip work from viewport-only gestures. The longer-term target is to make real rich-node views perform well, not only synthetic TextBlock graphs.
 
+Settings project, All Settings view is a valid recent repro and benchmark target because it exercises rich real nodes. It is not the product scope of the work. Fixes should improve CanvasFlow and shared rich-node behavior rather than adding Settings-specific performance paths.
+
 ## Current Diagnosis
 CanvasFlow replaced the old DOM/SVG viewport renderer, but real project views still keep rich HTML node bodies mounted. Pan/zoom now updates a live canvas viewport ref and repaints quickly, but adjacent systems still observe, measure, mount, and persist node/layout state during or near viewport gestures.
 
@@ -58,6 +60,7 @@ This points to layout and measurement churn as the primary current problem, not 
 
 ### 1. Capture a real baseline
 - Record a CPU/performance trace for a representative large, rich project view with a fixed pan and zoom script.
+- Settings project, All Settings view may be used as the primary benchmark when it is the easiest real rich-node case to reproduce.
 - Record counts for:
   - `setTopLevelSectionLayout` requests during viewport-only gestures
   - `setViewport` requests
@@ -122,6 +125,7 @@ This points to layout and measurement churn as the primary current problem, not 
 - Targeted Vitest for `nodeInternals` dimension update behavior.
 - Targeted Vitest or component test for minimap live viewport updates.
 - Browser verification in at least one representative large, rich project view.
+- It is acceptable for that browser verification to use Settings project, All Settings view, but the verified change should be general CanvasFlow behavior.
 - CDP performance trace before and after the changes.
 - Network check confirming no repeated `setTopLevelSectionLayout` calls during pure pan/zoom.
 - Console check confirming no repeated ResizeObserver loop errors during the tested gesture.
