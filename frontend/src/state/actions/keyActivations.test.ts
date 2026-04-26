@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { useReactFlow } from "forks/xyflow/core/store";
+import initialState from "forks/xyflow/core/store/initialState";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useNodeInternals } from "state/definitions";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
+  fitGpuViewportShortcut,
   getIgnoreWhenInInputField,
   getShouldPreventDefault,
   getTabParamActionForShortcuts,
@@ -7,6 +12,26 @@ import {
 } from "./keyActivations";
 
 describe("key activation shortcut policy", () => {
+  beforeEach(() => {
+    useNodeInternals.setState({ x: new Map() });
+    useReactFlow.setState({
+      ...initialState,
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      transform: [0, 0, 1],
+    });
+    gpuFlowViewportStore.getState().setViewportSize({
+      height: 300,
+      width: 500,
+    });
+    gpuFlowViewportStore.getState().setZoomBounds({
+      defaultZoom: 1,
+      maxZoom: 4,
+      minZoom: 0.25,
+    });
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+  });
+
   it("does not prevent default copy or paste shortcuts", () => {
     expect(getShouldPreventDefault(parseShortcut("mod + c"))).toBe(false);
     expect(getShouldPreventDefault(parseShortcut("mod + v"))).toBe(false);
@@ -68,5 +93,38 @@ describe("key activation shortcut policy", () => {
       null,
     );
     expect(getTabParamActionForShortcuts("tab", "tab", true)).toBe(null);
+  });
+
+  it("fits measured nodes through the GPU viewport shortcut owner", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            height: 100,
+            id: "section-a",
+            position: { x: 50, y: 25 },
+            tempZIndex: 0,
+            width: 200,
+            zIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(fitGpuViewportShortcut()).toBe(true);
+
+    const [x, y, zoom] = gpuFlowViewportStore.getState().transform;
+    expect(x).toBeCloseTo(-90.909, 3);
+    expect(y).toBeCloseTo(-20.455, 3);
+    expect(zoom).toBeCloseTo(2.273, 3);
+    expect(useReactFlow.getState().fitViewOnInit).toBe(true);
+  });
+
+  it("does not run the GPU fit-view shortcut while auto-fit is already active", () => {
+    useReactFlow.setState({ fitViewOnInit: true });
+
+    expect(fitGpuViewportShortcut()).toBe(false);
+    expect(gpuFlowViewportStore.getState().transform).toEqual([0, 0, 1]);
   });
 });
