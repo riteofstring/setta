@@ -16,7 +16,8 @@ Defaults:
 - Yolo mode: on
 - Quiet terminal output with periodic progress logs
 - Continue after Codex failures and inactivity timeouts
-- Do not enforce clean worktree or per-iteration commits
+- Each successful Codex session is instructed to commit its work and stop
+  long-running scripts before responding
 
 Options:
   --plan PATH            Plan file path relative to the repository root.
@@ -396,7 +397,8 @@ Operating posture:
 - Do not preserve xyflow architecture for its own sake.
 - If the worktree is dirty from a prior loop iteration, inspect it and continue from that state. Do not reset useful progress just because it is not committed yet.
 - Make meaningful progress each iteration. One cohesive implementation slice is enough.
-- Commit coherent stable chunks when useful. Use commit messages starting with \`${commit_prefix}\`.
+- Before your final response in every iteration, stop any long-running scripts/processes you started, including dev servers, \`./ai.sh\`, \`./aireset.sh\`, Playwright watch-like processes, profiling runs, or browser/CDP helpers. Use \`./kill.sh\` as the repo-scoped fallback when appropriate.
+- Before your final response in every iteration, if you changed repository files, stage and commit the work. Use commit messages starting with \`${commit_prefix}\`.
 - If a broad quality check fails for unrelated existing issues, experimental browser setup, or a temporary in-progress state, record that in ${audit_file} and keep moving. Do not let unrelated noise stop the loop.
 - Keep ${checklist_file} and ${audit_file} current enough that a fresh Codex session can continue without guessing.
 - Do not ask for follow-up.
