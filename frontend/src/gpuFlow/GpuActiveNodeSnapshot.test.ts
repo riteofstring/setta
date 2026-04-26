@@ -51,6 +51,19 @@ describe("GpuActiveNodeSnapshot", () => {
       }),
     ).toBeNull();
   });
+
+  it("normalizes invalid active node z-index values", () => {
+    const element = document.createElement("div");
+    const snapshot = resolveGpuActiveNodeSnapshot({
+      activeNodeId: "active",
+      elementByNodeId: new Map([["active", element]]),
+      frame: 1,
+      nodes: [node("active", 10, 20, 100, 50, Number.NaN)],
+      viewport: [0, 0, 1],
+    });
+
+    expect(snapshot?.zIndex).toBe(0);
+  });
 });
 
 function node(

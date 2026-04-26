@@ -209,6 +209,30 @@ describe("gpu active node pointer targeting", () => {
       tagName: "video",
     });
   });
+
+  it("treats editable descendants as active controls", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const editor = document.createElement("div");
+    editor.setAttribute("contenteditable", "plaintext-only");
+    nodeElement.append(editor);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(editor, 20, 20, 80, 40);
+
+    expect(
+      resolveTargetValue({
+        clientX: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [0],
+      role: null,
+      tagName: "div",
+    });
+  });
 });
 
 function createNodeElement(nodeId: string): HTMLElement {

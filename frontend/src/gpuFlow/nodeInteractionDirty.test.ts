@@ -86,9 +86,13 @@ describe("gpu node interaction dirty tracking", () => {
     const requestFrame = vi.fn();
     const activatePointerHandoffNode = vi.fn(() => nodeElement);
     const pointerDowns: boolean[] = [];
+    const mouseDowns: boolean[] = [];
     const clicks: boolean[] = [];
     switchButton.addEventListener("pointerdown", () => {
       pointerDowns.push(activatePointerHandoffNode.mock.calls.length > 0);
+    });
+    switchButton.addEventListener("mousedown", () => {
+      mouseDowns.push(true);
     });
     switchButton.addEventListener("click", () => {
       clicks.push(true);
@@ -120,6 +124,7 @@ describe("gpu node interaction dirty tracking", () => {
     expect(pointerDown.defaultPrevented).toBe(true);
     expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
     expect(pointerDowns).toEqual([true]);
+    expect(mouseDowns).toEqual([]);
     expect(controller.getActiveNodeId()).toBe("node-a");
     expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
       content: true,
@@ -202,6 +207,64 @@ describe("gpu node interaction dirty tracking", () => {
     await Promise.resolve();
 
     expect(clicks).toEqual([true]);
+
+    detach();
+    canvas.remove();
+  });
+
+  it("replays mousedown for controls that activate on mouse capture", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const editorShell = document.createElement("div");
+    editorShell.dataset.gpuFlowActivation = "mousedown";
+    editorShell.dataset.gpuFlowControl = "editor";
+    nodeElement.append(editorShell);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    setRect(editorShell, 20, 30, 100, 24);
+    const descriptor = createGpuNodeTargetDescriptor(nodeElement, editorShell);
+    if (!descriptor) {
+      throw new Error("Expected a handoff target descriptor");
+    }
+    const textureManager = createInteractionTextureManager();
+    const activatePointerHandoffNode = vi.fn(() => nodeElement);
+    const mouseDowns: Array<{
+      readonly clientX: number;
+      readonly clientY: number;
+    }> = [];
+    editorShell.addEventListener("mousedown", (event) => {
+      mouseDowns.push({
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+    });
+    const controller = createGpuNodeInteractionDirtyController({
+      activatePointerHandoffNode,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame: vi.fn(),
+      resolvePointerHandoffTarget: () => ({
+        descriptor,
+        nodeId: "node-a",
+      }),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    canvas.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 25,
+        clientY: 35,
+        pointerId: 11,
+      }),
+    );
+
+    expect(mouseDowns).toEqual([
+      {
+        clientX: 25,
+        clientY: 35,
+      },
+    ]);
 
     detach();
     canvas.remove();

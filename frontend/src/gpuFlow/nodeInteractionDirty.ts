@@ -70,6 +70,8 @@ type PendingPointerHandoffClick = {
 
 const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
 const GPU_FLOW_TELEPORTED_NODE_SELECTOR = '[data-gpu-flow-teleport="active"]';
+const GPU_FLOW_MOUSE_ACTIVATION_SELECTOR =
+  '[data-gpu-flow-activation="mousedown"]';
 const DEFAULT_ACTIVE_SETTLE_DELAY_MS = 240;
 const TRUSTED_POINTER_HANDOFF_CLICK_SUPPRESSION_MS = 120;
 
@@ -179,6 +181,9 @@ export function createGpuNodeInteractionDirtyController({
     dispatchingPointerHandoff = true;
     try {
       dispatchPointerHandoffEvent(liveTarget, event);
+      if (shouldDispatchPointerHandoffMouseDown(liveTarget)) {
+        dispatchPointerHandoffMouseEvent(liveTarget, event);
+      }
     } finally {
       dispatchingPointerHandoff = false;
     }
@@ -631,6 +636,33 @@ function dispatchPointerHandoffEvent(target: HTMLElement, event: PointerEvent) {
       ? new PointerEventConstructor(event.type, init)
       : new MouseEvent(event.type, init);
   target.dispatchEvent(handoffEvent);
+}
+
+function dispatchPointerHandoffMouseEvent(
+  target: HTMLElement,
+  event: PointerEvent,
+) {
+  const init = {
+    altKey: event.altKey,
+    bubbles: true,
+    button: event.button,
+    buttons: event.buttons,
+    cancelable: true,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    composed: true,
+    ctrlKey: event.ctrlKey,
+    detail: 1,
+    metaKey: event.metaKey,
+    screenX: event.screenX,
+    screenY: event.screenY,
+    shiftKey: event.shiftKey,
+  } satisfies MouseEventInit;
+  target.dispatchEvent(new MouseEvent("mousedown", init));
+}
+
+function shouldDispatchPointerHandoffMouseDown(target: HTMLElement): boolean {
+  return Boolean(target.closest(GPU_FLOW_MOUSE_ACTIVATION_SELECTOR));
 }
 
 function focusPointerHandoffTarget(target: HTMLElement) {

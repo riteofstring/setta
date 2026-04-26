@@ -1,4 +1,5 @@
 import type { GpuNodeLayout } from "./GpuNodeLayer";
+import { resolveGpuNodeZIndex } from "./nodeZIndex";
 import {
   flowToScreenPosition,
   normalizeGpuViewport,
@@ -42,6 +43,7 @@ const INTERACTIVE_TARGET_SELECTOR = [
   "audio[controls]",
   "iframe",
   "video[controls]",
+  "[contenteditable]:not([contenteditable='false'])",
   "[contenteditable='']",
   "[contenteditable='true']",
   "[data-gpu-flow-control]",
@@ -307,8 +309,8 @@ function compareGpuNodeStacking(
   sourceIndex: number,
   current: GpuNodeLayout & { readonly sourceIndex: number },
 ): number {
-  const zIndex = node.tempZIndex ?? node.zIndex ?? 0;
-  const currentZIndex = current.tempZIndex ?? current.zIndex ?? 0;
+  const zIndex = resolveGpuNodeZIndex(node);
+  const currentZIndex = resolveGpuNodeZIndex(current);
   return zIndex - currentZIndex || sourceIndex - current.sourceIndex;
 }
 

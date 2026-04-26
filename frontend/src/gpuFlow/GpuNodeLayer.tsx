@@ -12,6 +12,7 @@ import type {
   NodeTextureRecord,
   UploadDirtyNodeTexturesOptions,
 } from "./nodeTextures";
+import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "./nodeZIndex";
 import {
   flowToScreenPosition,
   getVisibleFlowRect,
@@ -208,7 +209,7 @@ const GpuNodeChild = memo(function GpuNodeChild({
       ref={setNodeElement}
       style={{
         visibility,
-        zIndex: node.tempZIndex ?? node.zIndex,
+        zIndex: resolveGpuNodeCssZIndex(node),
       }}
     >
       {renderNode(node)}
@@ -694,7 +695,7 @@ function toNodeQuad(node: GpuNodeLayout): GpuVisibleNodeQuad | null {
     width: node.width,
     x: node.x,
     y: node.y,
-    zIndex: node.tempZIndex ?? node.zIndex ?? 0,
+    zIndex: resolveGpuNodeZIndex(node),
   };
 }
 

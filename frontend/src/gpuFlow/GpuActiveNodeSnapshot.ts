@@ -1,4 +1,5 @@
 import type { GpuNodeLayout } from "./GpuNodeLayer";
+import { resolveGpuNodeZIndex } from "./nodeZIndex";
 import {
   flowToScreenPosition,
   normalizeGpuViewport,
@@ -57,7 +58,7 @@ export function resolveGpuActiveNodeSnapshot({
     screenY: screenPosition.y,
     sourceElement,
     width: node.width,
-    zIndex: node.tempZIndex ?? node.zIndex ?? 0,
+    zIndex: resolveGpuNodeZIndex(node),
     zoom: normalizedViewport.zoom,
   };
 }
