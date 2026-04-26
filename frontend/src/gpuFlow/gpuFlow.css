@@ -28,3 +28,17 @@
 .setta-gpu-flow__node--overlay-active {
   pointer-events: auto;
 }
+
+.setta-gpu-flow__active-node-overlay-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.setta-gpu-flow__active-node-overlay {
+  box-sizing: border-box;
+  pointer-events: none;
+  user-select: none;
+}

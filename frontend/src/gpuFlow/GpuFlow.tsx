@@ -2,10 +2,19 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type CSSProperties,
+  type Dispatch,
   type MutableRefObject,
   type ReactNode,
+  type SetStateAction,
 } from "react";
+import {
+  areGpuActiveNodeOverlaySnapshotsEqual,
+  GpuActiveNodeOverlay,
+  resolveGpuActiveNodeOverlaySnapshot,
+  type GpuActiveNodeOverlaySnapshot,
+} from "./GpuActiveNodeOverlay";
 import type { GpuFlowRuntime } from "./gpuDevice";
 import "./gpuFlow.css";
 import {
@@ -93,6 +102,8 @@ export function GpuFlow({
   viewport = [0, 0, 1],
 }: GpuFlowProps) {
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);
+  const [activeNodeOverlaySnapshot, setActiveNodeOverlaySnapshot] =
+    useState<GpuActiveNodeOverlaySnapshot | null>(null);
   const canvasSizeRef = useRef<GpuCanvasSize | null>(null);
   const frameRef = useRef(0);
   const nodeElementByIdRef = useRef(new Map<string, HTMLElement>());
@@ -138,6 +149,7 @@ export function GpuFlow({
     };
     if (!nodes) {
       visibleNodeIdsRef.current = new Set();
+      setActiveNodeOverlaySnapshot(null);
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
     }
     surfaceRef.current?.requestFrame("viewport");
@@ -158,6 +170,9 @@ export function GpuFlow({
       if (!element) {
         nodeElementByIdRef.current.delete(nodeId);
         nodeInteractionRef.current?.clearNode(nodeId);
+        setActiveNodeOverlaySnapshot((snapshot) =>
+          snapshot?.nodeId === nodeId ? null : snapshot,
+        );
         textureManagerRef.current?.destroyNodeTexture(nodeId);
         return;
       }
@@ -240,6 +255,7 @@ export function GpuFlow({
         nodeLayerRef,
         nodeQuadRendererRef,
         runtime,
+        setActiveNodeOverlaySnapshot,
         surfaceRef,
         textureManagerRef,
         visibleNodeIdsRef,
@@ -255,6 +271,9 @@ export function GpuFlow({
     onNodeElementChange: handleNodeElementChange,
     renderNode,
   });
+  const activeNodeOverlayElement = (
+    <GpuActiveNodeOverlay snapshot={activeNodeOverlaySnapshot} />
+  );
 
   return (
     <div className={className} data-tab-scope="canvas" style={style}>
@@ -270,6 +289,7 @@ export function GpuFlow({
         {nodeLayerElement}
         {children}
       </GpuSurface>
+      {activeNodeOverlayElement}
     </div>
   );
 }
@@ -318,6 +338,7 @@ function renderGpuFlowNodeLayerFrame({
   nodeLayerRef,
   nodeQuadRendererRef,
   runtime,
+  setActiveNodeOverlaySnapshot,
   surfaceRef,
   textureManagerRef,
   visibleNodeIdsRef,
@@ -330,6 +351,9 @@ function renderGpuFlowNodeLayerFrame({
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>;
   readonly runtime: GpuFlowRuntime;
+  readonly setActiveNodeOverlaySnapshot: Dispatch<
+    SetStateAction<GpuActiveNodeOverlaySnapshot | null>
+  >;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<NodeTextureManager | null>;
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
@@ -345,19 +369,21 @@ function renderGpuFlowNodeLayerFrame({
   });
   const canvasSize =
     canvasSizeRef.current ?? measureGpuCanvasClientSize(runtime.canvas);
-  if (canvasSize.cssWidth <= 0 || canvasSize.cssHeight <= 0) {
+  if (!hasRenderableGpuFlowCanvasSize(canvasSize)) {
     return;
   }
 
+  const frame = nextFrame(frameRef);
+  const nodeInteraction = nodeInteractionRef.current;
   const layerResult = renderGpuNodeLayerFrame({
-    activeNodeId: nodeInteractionRef.current?.getActiveNodeId(),
+    activeNodeId: nodeInteraction?.getActiveNodeId(),
     canvasSize,
     elementByNodeId: nodeElementByIdRef.current,
     forceVisibleNodeIds: layer.forceVisibleNodeIds,
-    frame: nextFrame(frameRef),
+    frame,
     marginCssPx: layer.marginCssPx,
     nodes: layer.nodes,
-    overlayNodeId: nodeInteractionRef.current?.getOverlayNodeId(),
+    overlayNodeId: nodeInteraction?.getOverlayNodeId(),
     renderer: resources.nodeQuadRenderer,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
@@ -365,8 +391,58 @@ function renderGpuFlowNodeLayerFrame({
   });
   visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
   completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
+  updateGpuFlowActiveNodeOverlaySnapshot({
+    elementByNodeId: nodeElementByIdRef.current,
+    frame,
+    layer,
+    overlayNodeId: resolveGpuFlowOverlayNodeId(
+      nodeInteractionRef.current,
+      layerResult,
+    ),
+    setActiveNodeOverlaySnapshot,
+  });
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
   requestRemainingTextureUploadFrame(surfaceRef, layerResult);
+}
+
+function hasRenderableGpuFlowCanvasSize(canvasSize: GpuCanvasSize): boolean {
+  return canvasSize.cssWidth > 0 && canvasSize.cssHeight > 0;
+}
+
+function resolveGpuFlowOverlayNodeId(
+  nodeInteraction: GpuNodeInteractionDirtyController | null,
+  layerResult: RenderGpuNodeLayerFrameResult,
+): string | null {
+  return nodeInteraction?.getOverlayNodeId() ?? layerResult.overlayNodeId;
+}
+
+function updateGpuFlowActiveNodeOverlaySnapshot({
+  elementByNodeId,
+  frame,
+  layer,
+  overlayNodeId,
+  setActiveNodeOverlaySnapshot,
+}: {
+  readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
+  readonly frame: number;
+  readonly layer: GpuFlowNodeLayerState;
+  readonly overlayNodeId: string | null;
+  readonly setActiveNodeOverlaySnapshot: Dispatch<
+    SetStateAction<GpuActiveNodeOverlaySnapshot | null>
+  >;
+}) {
+  const nextSnapshot = resolveGpuActiveNodeOverlaySnapshot({
+    elementByNodeId,
+    frame,
+    nodes: layer.nodes,
+    overlayNodeId,
+    viewport: layer.viewport,
+  });
+  setActiveNodeOverlaySnapshot((previousSnapshot) =>
+    areGpuActiveNodeOverlaySnapshotsEqual(previousSnapshot, nextSnapshot)
+      ? previousSnapshot
+      : nextSnapshot,
+  );
 }
 
 function ensureNodeLayerResources({
