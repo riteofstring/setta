@@ -1,4 +1,4 @@
-import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
+import { NodeIdContext } from "forks/xyflow/core/contexts/NodeIdContext";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
@@ -63,9 +63,9 @@ function seedSharedChatEdges({
 
 function renderHandles(sectionId: string, isUserView: boolean = false): string {
   return renderToStaticMarkup(
-    <NodeIdProvider value={sectionId}>
+    <NodeIdContext.Provider value={sectionId}>
       <ChatSharedEdgeHandles isUserView={isUserView} />
-    </NodeIdProvider>,
+    </NodeIdContext.Provider>,
   );
 }
 

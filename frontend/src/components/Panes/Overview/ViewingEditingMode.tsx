@@ -4,8 +4,8 @@ import {
   res200,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
-  useViewModeSortableItem,
-  ViewModeSortableProvider,
+  SortableListProvider,
+  useSortableListItem,
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
 import {
@@ -72,7 +72,7 @@ const VIEW_MODE_TOGGLE_DISABLED_CLASSES = "text-setta-400 hover:text-setta-600";
 
 type OpenAPIRequest = Parameters<typeof callOpenAPI>[0];
 type ViewModeActions = ReturnType<typeof useViewModeActions>;
-type ViewModeSortableItem = ReturnType<typeof useViewModeSortableItem>;
+type ViewModeSortableItem = ReturnType<typeof useSortableListItem>;
 
 function joinClasses(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -412,7 +412,7 @@ function ViewModesPane({
             </div>
           )}
 
-          <ViewModeSortableProvider
+          <SortableListProvider
             id="overview-view-modes-sortable"
             items={viewModeList.map((mode) => mode.id)}
             direction="vertical"
@@ -434,7 +434,7 @@ function ViewModesPane({
                 }),
               )}
             </div>
-          </ViewModeSortableProvider>
+          </SortableListProvider>
         </div>
       )}
     </section>
@@ -706,7 +706,7 @@ function ViewModeRowSortable({
   onSelect,
   disabled,
 }: ViewModeRowProps) {
-  const sortable = useViewModeSortableItem(mode.id, false, "vertical");
+  const sortable = useSortableListItem(mode.id, false, "vertical");
   return (
     <ViewModeRowContent
       mode={mode}
@@ -809,7 +809,7 @@ function ViewModeEditingRowSortable({
   canEditVariants,
   canEditStructure,
 }: ViewModeEditingRowProps) {
-  const sortable = useViewModeSortableItem(mode.id, false, "vertical");
+  const sortable = useSortableListItem(mode.id, false, "vertical");
   return (
     <ViewModeEditingRowContent
       mode={mode}

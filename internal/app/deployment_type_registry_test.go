@@ -8,6 +8,7 @@ import (
 	"setta/internal/appsubsystem"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	appsubsystemprovider "setta/internal/testutil/appsubsystemprovider"
 	"setta/internal/testutil/firstpartyplugin"
 )
 
@@ -52,7 +53,7 @@ func TestNewDeploymentTypeRegistryIncludesUnknownProviderAppRegistration(t *test
 		t,
 		cfg.Paths.DeploymentRoot,
 		firstpartyplugin.AppSubsystemPluginID,
-		unknownAppSubsystemPluginID,
+		appsubsystemprovider.PluginID,
 	)
 
 	registry, err := NewDeploymentTypeRegistry(cfg)

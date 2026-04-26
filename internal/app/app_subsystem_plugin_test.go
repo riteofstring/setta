@@ -23,8 +23,6 @@ import (
 	"setta/internal/testutil/packagedsetta"
 )
 
-const unknownAppSubsystemPluginID = appsubsystemprovider.PluginID
-
 func TestAppSubsystemPluginDisabledHidesBackendRoutesAndTools(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -351,7 +349,7 @@ func TestAppSubsystemUnknownIDPackageManagerPluginEnabledRestoresBackendRoutesAn
 	installAppPackageManagerFixturePlugin(t, sitePackages, "app-subsystem-unknown-id")
 	t.Setenv("SETTA_PYTHON", firstpartyplugin.EmptyPython(t))
 	t.Setenv("PYTHONPATH", appendAppPythonPath(sitePackages))
-	writeEnabledAppPluginState(t, cfg, unknownAppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -401,7 +399,7 @@ func TestAppSubsystemUnknownIDPluginEnabledRestoresBackendRoutesAndTools(t *test
 	}
 
 	installAppFixturePlugin(t, cfg, "app-subsystem-unknown-id")
-	writeEnabledAppPluginState(t, cfg, unknownAppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, appsubsystemprovider.PluginID)
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -544,7 +542,7 @@ func installAppFixturePlugin(t *testing.T, cfg config.Config, fixtureName string
 
 	repoRoot := appTestRepoRoot(t)
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
-	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", unknownAppSubsystemPluginID)
+	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", appsubsystemprovider.PluginID)
 	copyAppTestDir(t, sourceRoot, targetRoot)
 	materializeAppRuntimeManagedPluginFrontendAssets(t, targetRoot)
 }
@@ -619,15 +617,15 @@ func installAppPackageManagerFixturePlugin(t *testing.T, sitePackages string, fi
 	packagedsetta.InstallRuntimeSitePackages(t, appTestRepoRoot(t), sitePackages)
 
 	repoRoot := appTestRepoRoot(t)
-	pluginRoot := filepath.Join(sitePackages, unknownAppSubsystemPluginID)
+	pluginRoot := filepath.Join(sitePackages, appsubsystemprovider.PluginID)
 	copyAppTestDir(t, filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName), pluginRoot)
 	materializeAppPackageManagerFixtureFrontendAssets(t, pluginRoot)
 
-	distInfoName := strings.ReplaceAll(unknownAppSubsystemPluginID, "-", "_") + "-0.1.0.dist-info"
+	distInfoName := strings.ReplaceAll(appsubsystemprovider.PluginID, "-", "_") + "-0.1.0.dist-info"
 	distInfoRoot := filepath.Join(sitePackages, distInfoName)
 	writeAppPackageManagerFile(t, filepath.Join(distInfoRoot, "METADATA"), strings.Join([]string{
 		"Metadata-Version: 2.1",
-		"Name: " + unknownAppSubsystemPluginID,
+		"Name: " + appsubsystemprovider.PluginID,
 		"Version: 0.1.0",
 		"Summary: Unknown-id app subsystem fixture",
 		"",

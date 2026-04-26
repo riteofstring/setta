@@ -31,8 +31,8 @@ import { Overview } from "./Overview";
 let latestNavbarMenuDropdownContentClassName: string | undefined;
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
-  useViewModeSortableItem: () => ({
+  SortableListProvider: ({ children }: { children: unknown }) => children,
+  useSortableListItem: () => ({
     attributes: {},
     listeners: {},
     setNodeRef: () => {},

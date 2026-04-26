@@ -11126,13 +11126,11 @@ func TestAppStartsWithoutPythonLanguageServerPluginOrSelection(t *testing.T) {
 		}
 	})
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(
-		app.SettingsState().Snapshot().Document,
-		"python",
-	)
+	selectedByLanguage, err := settingsstate.LanguageServerSelectedByLanguage(app.SettingsState().Snapshot().Document)
 	if err != nil {
-		t.Fatalf("python language-server selection: %v", err)
+		t.Fatalf("LanguageServerSelectedByLanguage returned error: %v", err)
 	}
+	selection, ok := selectedByLanguage["python"]
 	if ok || selection != nil {
 		t.Fatalf("expected missing Python selection by default, got ok=%v selection=%#v", ok, selection)
 	}
@@ -12777,10 +12775,11 @@ func prepareAppDefaultsProfilePackageManagerBasedpyrightEnv(t *testing.T) {
 func assertAppDefaultsProfileBasedpyrightBootstrapped(t *testing.T, app *App) {
 	t.Helper()
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(app.SettingsState().Snapshot().Document, "python")
+	selectedByLanguage, err := settingsstate.LanguageServerSelectedByLanguage(app.SettingsState().Snapshot().Document)
 	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
+		t.Fatalf("LanguageServerSelectedByLanguage returned error: %v", err)
 	}
+	selection, ok := selectedByLanguage["python"]
 	if !ok || selection == nil || *selection != "setta-basedpyright" {
 		t.Fatalf("expected bootstrapped defaults selection, got ok=%v selection=%#v", ok, selection)
 	}
