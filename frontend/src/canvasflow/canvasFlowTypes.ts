@@ -36,6 +36,7 @@ export type CanvasFlowNodeDrawRecord = {
 export type CanvasFlowPaintStats = {
   edgeCount: number;
   edgeDrawMs: number;
+  gesturePreviewNodeCount: number;
   visibleNodeCount: number;
   drawnNodeCount: number;
   registeredNodeCount: number;

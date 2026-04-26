@@ -41,6 +41,7 @@ type CanvasStats = {
   drawnNodes: number;
   edgeCount: number;
   edgeDrawMs: number;
+  gesturePreviewNodes: number;
   mountedNodes: number;
   paintSequence: number;
   registeredNodes: number;
@@ -802,6 +803,7 @@ async function readCanvasStats(page: Page): Promise<CanvasStats> {
       drawnNodes: readNumber(dataset.drawnNodes),
       edgeCount: readNumber(dataset.edgeCount),
       edgeDrawMs: readNumber(dataset.edgeDrawMs),
+      gesturePreviewNodes: readNumber(dataset.gesturePreviewNodes),
       mountedNodes: readNumber(dataset.mountedNodes),
       paintSequence: readNumber(dataset.paintSequence),
       registeredNodes: readNumber(dataset.registeredNodes),
@@ -1185,8 +1187,8 @@ function renderMatrixReport(
     "",
     "## Current CanvasFlow Matrix",
     "",
-    "| Nodes | Variant | Gesture | FPS | Avg Input Latency | P95 Input Latency | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Transform Sync | Total Paint | Timeouts |",
-    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Variant | Gesture | FPS | Avg Input Latency | P95 Input Latency | Script | Style | Layout | Paint Trace | Composite Trace | JS Heap | Visible | Drawn | Preview | Mounted | Edges | Edge Draw | Visibility Scan | drawElementImage | Transform Sync | Total Paint | Timeouts |",
+    "| ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   ];
   for (const result of results) {
     lines.push(renderGestureRow(result, "pan", result.pan));
@@ -1196,12 +1198,12 @@ function renderMatrixReport(
     "",
     "## Initial Culling Snapshot",
     "",
-    "| Nodes | Variant | Visible | Drawn | Registered | Mounted | Edges | Edge Draw | Visibility Scan | Total Paint | drawElementImage | Transform Sync |",
-    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| Nodes | Variant | Visible | Drawn | Preview | Registered | Mounted | Edges | Edge Draw | Visibility Scan | Total Paint | drawElementImage | Transform Sync |",
+    "| ---: | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
   );
   for (const result of results) {
     lines.push(
-      `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatInteger(result.initialStats.edgeCount)} | ${formatMs(result.initialStats.edgeDrawMs)} | ${formatMs(result.initialStats.visibilityScanMs)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
+      `| ${formatInteger(result.count)} | ${result.variant} | ${formatInteger(result.initialStats.visibleNodes)} | ${formatInteger(result.initialStats.drawnNodes)} | ${formatInteger(result.initialStats.gesturePreviewNodes)} | ${formatInteger(result.initialStats.registeredNodes)} | ${formatInteger(result.initialStats.mountedNodes)} | ${formatInteger(result.initialStats.edgeCount)} | ${formatMs(result.initialStats.edgeDrawMs)} | ${formatMs(result.initialStats.visibilityScanMs)} | ${formatMs(result.initialStats.totalPaintMs)} | ${formatMs(result.initialStats.drawElementImageMs)} | ${formatMs(result.initialStats.transformAssignmentMs)} |`,
     );
   }
   lines.push(
@@ -1246,6 +1248,7 @@ function renderGestureRow(
     `${formatNumber(gesture.performanceDelta.jsHeapUsedMb)} MB`,
     formatInteger(gesture.afterStats.visibleNodes),
     formatInteger(gesture.afterStats.drawnNodes),
+    formatInteger(gesture.afterStats.gesturePreviewNodes),
     formatInteger(gesture.afterStats.mountedNodes),
     formatInteger(gesture.afterStats.edgeCount),
     formatMs(gesture.afterStats.edgeDrawMs),
