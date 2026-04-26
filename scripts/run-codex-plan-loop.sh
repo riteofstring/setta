@@ -34,7 +34,7 @@ Options:
   --allow-clean-failures N
                          Tolerate up to N consecutive clean Codex failures that
                          leave HEAD unchanged and the worktree clean.
-                         Default: 10
+                         Default: 1000
   --progress-log-interval-seconds N
                          Print at most one status progress line every N seconds.
                          Default: 120
@@ -59,7 +59,7 @@ yolo_mode="1"
 inactivity_timeout_seconds="1800"
 post_commit_settle_seconds="20"
 retry_sleep_seconds="15"
-allow_clean_failures="10"
+allow_clean_failures="1000"
 progress_log_interval_seconds="120"
 complete_exit_code="42"
 plan_relpath=""
@@ -136,6 +136,11 @@ resolve_path_without_creating() {
 
   if [[ "${candidate}" != /* ]]; then
     candidate="${PWD}/${candidate}"
+  fi
+
+  if [[ -e "${candidate}" && ! -d "${candidate}" ]]; then
+    suffix="/$(basename "${candidate}")"
+    candidate="$(dirname "${candidate}")"
   fi
 
   while [[ ! -e "${candidate}" ]]; do
@@ -471,6 +476,7 @@ Execution rules for every iteration:
 - Before every commit, run the repository-required cleanup and quality checks from the plan or AGENTS.md.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`${commit_prefix}\`.
 - If you make no repo changes, leave the repo clean and advance ${checklist_file} and/or ${audit_file} meaningfully for the next audited step.
+- If an attempt fails or leaves invalid worktree state, the outer loop may reset the repo to HEAD and retry from the most recent clean commit.
 - Do not ask for follow-up.
 
 If a fresh audit shows the plan is complete under these rules, make no repo changes, leave the worktree clean, explain that the stop reason is complete, and end your final response with this exact line:
@@ -495,7 +501,8 @@ pre_iteration_command="$(
     --sentinel "${stop_sentinel}" \
     --progress-file "${checklist_file}" \
     --progress-file "${audit_file}" \
-    --allow-clean-failures "${allow_clean_failures}"
+    --allow-clean-failures "${allow_clean_failures}" \
+    --reset-failed-attempts
 )"
 
 post_iteration_command="$(
@@ -519,6 +526,7 @@ loop_args=(
   --watchdog-interval-seconds "30"
   --continue-on-inactivity-timeout
   --continue-on-codex-failure
+  --continue-on-post-iteration-failure
   --retry-sleep-seconds "${retry_sleep_seconds}"
   --pre-iteration-command "${pre_iteration_command}"
   --post-iteration-command "${post_iteration_command}"
@@ -560,6 +568,7 @@ echo "Quiet progress log interval: ${progress_log_interval_seconds}s"
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Retry sleep: ${retry_sleep_seconds}s"
 echo "Allowed consecutive clean Codex failures: ${allow_clean_failures}"
+echo "Failed attempt recovery: reset to HEAD and retry"
 echo "Post-commit settle check: ${post_commit_settle_seconds}s"
 if [[ "${yolo_mode}" == "1" ]]; then
   echo "Yolo mode: enabled"
