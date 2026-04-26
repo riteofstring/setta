@@ -180,6 +180,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires an agent-started or developer-started browser session.
 - `./scripts/run-codex-deadcode-authority-loop.sh`
   - Specialized Codex loop for auditing and removing confirmed dead code, useless pass-through constant aliases, and unjustified duplicated logic while keeping Go authoritative.
+  - Defaults to `gpt-5.5`, `xhigh`, yolo mode, and quiet status/progress logs.
   - Requires each non-stop iteration to leave a clean worktree and either advance `HEAD` or advance the phase checklist.
 - `./scripts/run-codex-severe-typecheck-loop.sh`
   - Specialized Codex loop for fixing only actionable runtime bugs that are surfaced by type errors instead of broad repo type backlog cleanup.

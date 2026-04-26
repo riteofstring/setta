@@ -14,8 +14,10 @@ Defaults:
 - Maximum iterations: 1000
 - New Codex session every iteration
 - Model: `gpt-5.5`
-- Reasoning effort: `high`
+- Reasoning effort: `xhigh`
 - Yolo mode: on
+- Terminal output: quiet status/progress logs only
+- Progress log interval: 60 seconds
 - Inactivity timeout: 1800 seconds without transcript updates
 - Stop only when Codex explicitly reports audited completion of all three phases
 - Require every non-stop iteration to leave a clean worktree and either advance HEAD or advance the checklist to the next phase
@@ -31,6 +33,9 @@ Options:
   --inactivity-timeout-seconds N
                          Abort and retry an iteration if Codex produces no
                          transcript output for N seconds. Default: 1800
+  --progress-log-interval-seconds N
+                         Print quiet-mode progress logs at most once every N
+                         seconds while Codex is still running. Default: 60
   --post-commit-settle-seconds N
                          Wait N seconds after each successful iteration and
                          verify the repo is still clean before marking that
@@ -41,7 +46,7 @@ Options:
 Examples:
   ./scripts/run-codex-deadcode-authority-loop.sh
   ./scripts/run-codex-deadcode-authority-loop.sh --model gpt-5.5
-  ./scripts/run-codex-deadcode-authority-loop.sh -- --config reasoning_effort=\"high\"
+  ./scripts/run-codex-deadcode-authority-loop.sh -- --config reasoning_effort=\"xhigh\"
 EOF
 }
 
@@ -54,6 +59,7 @@ state_dir=""
 model="gpt-5.5"
 yolo_mode="1"
 inactivity_timeout_seconds="1800"
+progress_log_interval_seconds="60"
 post_commit_settle_seconds="20"
 complete_exit_code="42"
 complete_stop_sentinel="CODEX_LOOP_STOP: DEADCODE_ALIAS_AUTHORITY_AUDITED_STOP"
@@ -145,6 +151,11 @@ while [[ $# -gt 0 ]]; do
       inactivity_timeout_seconds="$2"
       shift 2
       ;;
+    --progress-log-interval-seconds)
+      require_value "$1" "${2:-}"
+      progress_log_interval_seconds="$2"
+      shift 2
+      ;;
     --post-commit-settle-seconds)
       require_value "$1" "${2:-}"
       post_commit_settle_seconds="$2"
@@ -178,6 +189,11 @@ fi
 
 if [[ ! "${inactivity_timeout_seconds}" =~ ^[0-9]+$ ]] || [[ "${inactivity_timeout_seconds}" -lt 1 ]]; then
   echo "--inactivity-timeout-seconds must be a positive integer" >&2
+  exit 1
+fi
+
+if [[ ! "${progress_log_interval_seconds}" =~ ^[0-9]+$ ]]; then
+  echo "--progress-log-interval-seconds must be a non-negative integer" >&2
   exit 1
 fi
 
@@ -512,6 +528,8 @@ loop_args=(
   --workdir "${ROOT_DIR}"
   --inactivity-timeout-seconds "${inactivity_timeout_seconds}"
   --watchdog-interval-seconds "30"
+  --quiet
+  --progress-log-interval-seconds "${progress_log_interval_seconds}"
   --continue-on-inactivity-timeout
   --pre-iteration-command "${pre_iteration_command}"
   --post-iteration-command "${post_iteration_command}"
@@ -548,7 +566,9 @@ echo "Loop state directory: ${state_dir}"
 echo "Iterations: ${iterations}"
 echo "New session every: 1"
 echo "Model: ${model}"
-echo 'Reasoning effort: high'
+echo 'Reasoning effort: xhigh'
+echo "Terminal output mode: quiet status/progress logs"
+echo "Quiet progress log interval: ${progress_log_interval_seconds}s"
 echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 echo "Post-commit settle check: ${post_commit_settle_seconds}s"
 if [[ "${yolo_mode}" == "1" ]]; then
