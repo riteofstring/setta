@@ -23,6 +23,23 @@ function renderInputMarkup(variant: "pill" | "pane") {
   );
 }
 
+function renderInputMarkupWithoutBg(variant: "pill" | "pane") {
+  return renderToStaticMarkup(
+    <ComboboxInput
+      divId="combobox-test-no-bg"
+      getInputProps={() => ({})}
+      getToggleButtonProps={() => ({})}
+      isOpen={false}
+      small={true}
+      onKeyDown={() => {}}
+      placeholder="Pick one"
+      isDisabled={false}
+      inputRef={inputRef}
+      variant={variant}
+    />,
+  );
+}
+
 function renderNormalInputMarkup(variant: "pill" | "pane") {
   return renderToStaticMarkup(
     <ComboboxInput
@@ -47,6 +64,14 @@ describe("ComboboxInput", () => {
     // match that compact height instead of rendering shorter.
     const markup = renderInputMarkup("pane");
     expect(markup).toContain("h-6 w-6");
+  });
+
+  it("uses the variant background when bg is omitted", () => {
+    const paneMarkup = renderInputMarkupWithoutBg("pane");
+    const pillMarkup = renderInputMarkupWithoutBg("pill");
+
+    expect(paneMarkup).toContain("bg-white/80");
+    expect(pillMarkup).toContain("bg-white");
   });
 
   it("keeps compact toggle sizing for pill variants", () => {
