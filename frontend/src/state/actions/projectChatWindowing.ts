@@ -12,9 +12,13 @@ import {
   resolveProjectChatFloatingBottomInsetPx,
   resolveProjectChatFloatingWorkspaceTopInsetPx,
 } from "components/ChatWindowing/projectChatViewport";
-import { zoomIdentity } from "d3-zoom";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  getViewport,
+  getZoom,
+  screenToFlowPosition,
+  setViewport,
+} from "gpuFlow/viewportActions";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import {
   setProjectChatWindowChatId as setProjectChatWindowChatIdRequest,
   setProjectChatWindowingState,
@@ -400,7 +404,7 @@ function resolveProjectChatCanvasCursorBootPosition(
 function resolveProjectChatCanvasBootPosition(
   instanceId?: string,
 ): Position | null {
-  const domNode = useReactFlow.getState().domNode;
+  const domNode = gpuFlowViewportStore.getState().domNode;
   if (!domNode) {
     return null;
   }
@@ -452,7 +456,7 @@ function resolveProjectChatCanvasBootSectionSize(instanceId: string) {
   if (!rect) {
     return null;
   }
-  const zoom = useReactFlow.getState().transform[2];
+  const zoom = getZoom();
   const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
   return createSectionSize({
     width: Math.max(1, Math.round(rect.width / safeZoom)),
@@ -2150,14 +2154,7 @@ function restoreProjectChatCanvasViewport(
   viewportY: number,
   viewportZoom: number,
 ): void {
-  const { d3Zoom, d3Selection } = useReactFlow.getState();
-  if (!d3Zoom || !d3Selection) {
-    return;
-  }
-  d3Zoom.transform(
-    d3Selection,
-    zoomIdentity.translate(viewportX, viewportY).scale(viewportZoom),
-  );
+  setViewport({ x: viewportX, y: viewportY, zoom: viewportZoom });
 }
 async function resolveProjectChatWindowCanvasBootSectionId(
   instanceId: string,
@@ -2167,8 +2164,7 @@ async function resolveProjectChatWindowCanvasBootSectionId(
     return currentInstance.sectionIdOrNull;
   }
   const canvasSectionSize = resolveProjectChatCanvasBootSectionSize(instanceId);
-  const [viewportX, viewportY, viewportZoom] =
-    useReactFlow.getState().transform;
+  const { x: viewportX, y: viewportY, zoom: viewportZoom } = getViewport();
   const created = await createTopLevelSectionWithResult({
     implType: SectionTypeEnum.Chat,
     implOverrides: {
