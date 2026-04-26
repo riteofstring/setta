@@ -1,7 +1,7 @@
 import cc from "classcat";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import type { GpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { type HTMLAttributes, type ReactNode } from "react";
-import type { ReactFlowState } from "../types";
 
 type PanelPosition =
   | "top-left"
@@ -16,11 +16,11 @@ type PanelProps = HTMLAttributes<HTMLDivElement> & {
   children: ReactNode;
 };
 
-const selector = (s: ReactFlowState) =>
+const selector = (s: GpuFlowViewportStore) =>
   s.userSelectionActive ? "none" : "all";
 
 function Panel({ position, children, className, style, ...rest }: PanelProps) {
-  const pointerEvents = useReactFlow(selector);
+  const pointerEvents = useGpuFlowViewportStore(selector);
   const positionClasses = `${position}`.split("-");
 
   return (

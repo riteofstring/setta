@@ -1,14 +1,14 @@
-import { useReactFlow } from "forks/xyflow/core/store";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import type { GpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { shallow } from "zustand/shallow";
-import type { ReactFlowState } from "../types";
 
-const selector = (s: ReactFlowState) => ({
+const selector = (s: GpuFlowViewportStore) => ({
   userSelectionActive: s.userSelectionActive,
   userSelectionRect: s.userSelectionRect,
 });
 
 function UserSelection() {
-  const { userSelectionActive, userSelectionRect } = useReactFlow(
+  const { userSelectionActive, userSelectionRect } = useGpuFlowViewportStore(
     selector,
     shallow,
   );

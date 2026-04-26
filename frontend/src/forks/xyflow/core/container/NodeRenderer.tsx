@@ -1,5 +1,6 @@
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { memo, useEffect, useMemo, useRef } from "react";
 import {
   getNodeUpdateInformation,
@@ -9,14 +10,11 @@ import { useNodeInternals } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { computeReadyToBeVisible } from "../store/utils";
 import { containerStyle } from "../styles";
-import type { ReactFlowState } from "../types";
-
-const selector = (s: ReactFlowState) => ({
-  panActivationKeyPressed: s.panActivationKeyPressed,
-});
 
 const NodeRenderer = () => {
-  const { panActivationKeyPressed } = useReactFlow(selector, shallow);
+  const panActivationKeyPressed = useGpuFlowViewportStore(
+    (state) => state.panActivationKeyPressed,
+  );
   // The getNodes selector has to use the "shallow" comparison
   // and not _.isEqual, otherwise it only re-renders every other update,
   // even though the MiniMap component uses the exact same hook and comparison fn

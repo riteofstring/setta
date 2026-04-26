@@ -30,6 +30,12 @@ describe("key activation shortcut policy", () => {
       minZoom: 0.25,
     });
     gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setSelectionKeyPressed(false);
+    gpuFlowViewportStore.getState().setMultiSelectionActive(false);
+    gpuFlowViewportStore.getState().setPanActivationKeyPressed(false);
+    gpuFlowViewportStore.getState().setZoomActivationKeyPressed(false);
+    gpuFlowViewportStore.getState().setMoveSectionActivationKeyPressed(false);
+    gpuFlowViewportStore.getState().resetUserSelection();
   });
 
   it("does not prevent default copy or paste shortcuts", () => {

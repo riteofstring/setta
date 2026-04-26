@@ -1,6 +1,8 @@
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import React, {
   memo,
   DragEvent as ReactDragEvent,
@@ -21,10 +23,8 @@ import { useMisc, useSettings } from "state/definitions";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { NotificationTypeEnum, SelectionModeEnum } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
-import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
 import { containerStyle } from "../styles";
-import type { ReactFlowState } from "../types";
 import { getEventPosition } from "../utils";
 
 type PaneProps = {
@@ -45,16 +45,13 @@ const wrapHandler = (
   };
 };
 
-const selector = (s: ReactFlowState) => ({
-  userSelectionActive: s.userSelectionActive,
-  dragging: s.paneDragging,
-});
-
 const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   const container = useRef<HTMLDivElement | null>(null);
   const prevSelectedNodesCount = useRef<number>(0);
   const containerBounds = useRef<DOMRect>();
-  const { userSelectionActive } = useReactFlow(selector, shallow);
+  const userSelectionActive = useGpuFlowViewportStore(
+    (state) => state.userSelectionActive,
+  );
 
   const syncSelectionRectActiveIds = () => {
     setActiveSectionIds(getActiveSectionUIIds(), {
@@ -63,10 +60,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   };
 
   const resetUserSelection = () => {
-    useReactFlow.setState({
-      userSelectionActive: false,
-      userSelectionRect: null,
-    });
+    gpuFlowViewportStore.getState().resetUserSelection();
 
     prevSelectedNodesCount.current = 0;
   };
@@ -89,6 +83,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     useReactFlow.setState({
       nodesSelectionDims: null,
     });
+    gpuFlowViewportStore.getState().setNodesSelectionBounds(null);
   };
 
   const onContextMenu = (event: ReactMouseEvent) => {
@@ -100,7 +95,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   };
 
   const onMouseDown = (event: ReactMouseEvent): void => {
-    const { domNode } = useReactFlow.getState();
+    const { domNode } = gpuFlowViewportStore.getState();
     containerBounds.current = domNode?.getBoundingClientRect();
 
     if (
@@ -122,8 +117,9 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       { syncMode: "ui-only" },
     );
 
-    useReactFlow.setState({
-      userSelectionRect: {
+    gpuFlowViewportStore.getState().setUserSelection({
+      active: false,
+      rect: {
         width: 0,
         height: 0,
         startX: x,
@@ -135,15 +131,15 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   };
 
   const onMouseMove = (event: ReactMouseEvent): void => {
-    const { userSelectionRect, transform } = useReactFlow.getState();
+    const { userSelectionRect, transform } = gpuFlowViewportStore.getState();
     if (!isSelecting || !containerBounds.current || !userSelectionRect) {
       return;
     }
 
     useReactFlow.setState({
-      userSelectionActive: true,
       nodesSelectionDims: null,
     });
+    gpuFlowViewportStore.getState().setNodesSelectionBounds(null);
 
     const mousePos = getEventPosition(event, containerBounds.current);
     const startX = userSelectionRect.startX ?? 0;
@@ -159,7 +155,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
 
     const selectedNodeIds = getNodesInside(
       nextUserSelectRect,
-      transform,
+      [transform[0], transform[1], transform[2]],
       useSettings.getState().gui.selectionMode === SelectionModeEnum.partial,
     );
 
@@ -174,8 +170,9 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       );
     }
 
-    useReactFlow.setState({
-      userSelectionRect: nextUserSelectRect,
+    gpuFlowViewportStore.getState().setUserSelection({
+      active: true,
+      rect: nextUserSelectRect,
     });
   };
 
@@ -183,7 +180,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     if (event.button !== 0) {
       return;
     }
-    const { userSelectionRect } = useReactFlow.getState();
+    const { userSelectionRect } = gpuFlowViewportStore.getState();
     // We only want to trigger click functions when in selection mode if
     // the user did not move the mouse.
     if (
@@ -204,7 +201,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   };
 
   const onMouseLeave = () => {
-    const { userSelectionRect } = useReactFlow.getState();
+    const { userSelectionRect } = gpuFlowViewportStore.getState();
     if (userSelectionRect) {
       if (userSelectionActive) {
         useReactFlow

@@ -1,11 +1,12 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import { GpuFlow } from "gpuFlow/GpuFlow";
 import {
   attachGpuEdgeInteractionController,
   type GpuEdgeInteractionEvent,
 } from "gpuFlow/interactions/edges";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import {
   createGpuFlowViewportStore,
+  gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
 } from "gpuFlow/viewportStore";
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
@@ -43,7 +44,7 @@ export function GpuProjectEdgeLayer({
   });
   const sceneRef = useRef(edgeScene);
   sceneRef.current = edgeScene;
-  const viewport = useReactFlow((state) => state.transform);
+  const viewport = useGpuFlowViewportStore((state) => state.transform);
   const viewportStore = useStableGpuFlowViewportStore();
   const { canEditStructure } = useShareCapabilities();
   const selectEdgeRef =
@@ -52,7 +53,7 @@ export function GpuProjectEdgeLayer({
     selectProjectGpuEdge({
       canEditStructure,
       event,
-      multiSelect: useReactFlow.getState().multiSelectionActive,
+      multiSelect: gpuFlowViewportStore.getState().multiSelectionActive,
     });
   };
 

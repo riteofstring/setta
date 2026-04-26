@@ -28,6 +28,7 @@ import {
   isMeasuredGpuNodeBoundsInput,
 } from "gpuFlow/nodeBounds";
 import { fitView, resetZoom, zoomBy } from "gpuFlow/viewportActions";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
   activateParamSelect,
@@ -1100,41 +1101,41 @@ function activeSectionHasSelectedParams(): boolean {
 }
 
 function activateSelectionKeyPressed() {
-  useReactFlow.setState({ selectionKeyPressed: true });
+  gpuFlowViewportStore.getState().setSelectionKeyPressed(true);
 }
 
 function deactivateSelectionKeyPressed() {
-  useReactFlow.setState({ selectionKeyPressed: false });
+  gpuFlowViewportStore.getState().setSelectionKeyPressed(false);
 }
 
 function activateMultiSelectionPressed() {
-  useReactFlow.setState({ multiSelectionActive: true });
+  gpuFlowViewportStore.getState().setMultiSelectionActive(true);
 }
 
 function deactivateMultiSelectionPressed() {
-  useReactFlow.setState({ multiSelectionActive: false });
+  gpuFlowViewportStore.getState().setMultiSelectionActive(false);
 }
 
 function activatePanMode() {
-  useReactFlow.setState({ panActivationKeyPressed: true });
+  gpuFlowViewportStore.getState().setPanActivationKeyPressed(true);
 }
 
 function deactivatePanMode() {
-  useReactFlow.setState({ panActivationKeyPressed: false });
+  gpuFlowViewportStore.getState().setPanActivationKeyPressed(false);
 }
 
 function activateZoomMode() {
-  useReactFlow.setState({ zoomActivationKeyPressed: true });
+  gpuFlowViewportStore.getState().setZoomActivationKeyPressed(true);
 }
 
 function deactivateZoomMode() {
-  useReactFlow.setState({ zoomActivationKeyPressed: false });
+  gpuFlowViewportStore.getState().setZoomActivationKeyPressed(false);
 }
 
 function activateMoveSectionMode() {
-  useReactFlow.setState({ moveSectionActivationKeyPressed: true });
+  gpuFlowViewportStore.getState().setMoveSectionActivationKeyPressed(true);
 }
 
 function deactivateMoveSectionMode() {
-  useReactFlow.setState({ moveSectionActivationKeyPressed: false });
+  gpuFlowViewportStore.getState().setMoveSectionActivationKeyPressed(false);
 }

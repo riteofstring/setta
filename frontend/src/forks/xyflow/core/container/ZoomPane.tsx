@@ -3,6 +3,7 @@ import { pointer, select, type Selection as D3Selection } from "d3-selection";
 import { zoom, zoomIdentity, type D3ZoomEvent } from "d3-zoom";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useAIFollow, useMisc, useSettings } from "state/definitions";
@@ -204,7 +205,6 @@ const selector = (s: ReactFlowState) => ({
   d3Zoom: s.d3Zoom,
   d3Selection: s.d3Selection,
   d3ZoomHandler: s.d3ZoomHandler,
-  userSelectionActive: s.userSelectionActive,
   fitViewOnInit: s.fitViewOnInit,
   fitViewOnInitDone: s.fitViewOnInitDone,
   fitViewOnInitOptions: s.fitViewOnInitOptions,
@@ -1047,11 +1047,13 @@ const ZoomPane = (props: ZoomPaneProps) => {
     d3Zoom,
     d3Selection,
     d3ZoomHandler,
-    userSelectionActive,
     fitViewOnInit,
     fitViewOnInitDone,
     fitViewOnInitOptions,
   } = useReactFlow(selector, shallow);
+  const userSelectionActive = useGpuFlowViewportStore(
+    (state) => state.userSelectionActive,
+  );
   const isPanScrolling = useRef(false);
   const isWheelZooming = useRef(false);
   const panScrollTimeout = useRef<ReturnType<typeof setTimeout>>();

@@ -2,10 +2,10 @@ import {
   NodesSelectionDragHandleWrapper,
   NodesSelectionWrapper,
 } from "forks/xyflow/core/components/NodesSelection";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import _ from "lodash";
 import { memo, type ReactNode } from "react";
 import { useAIFollow, useSettings } from "state/definitions";
-import { useReactFlow } from "../store";
 import Pane from "./Pane";
 import ZoomPane from "./ZoomPane";
 
@@ -15,15 +15,13 @@ type FlowRendererProps = {
 };
 
 const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
-  const { zoomActivationKeyPressed, selectionKeyPressed } = useReactFlow(
-    (x) => {
+  const { zoomActivationKeyPressed, selectionKeyPressed } =
+    useGpuFlowViewportStore((x) => {
       return {
         zoomActivationKeyPressed: x.zoomActivationKeyPressed,
         selectionKeyPressed: x.selectionKeyPressed,
       };
-    },
-    _.isEqual,
-  );
+    }, _.isEqual);
 
   const isFollowTransitioning = useAIFollow(
     (state) => state.isFollowTransitioning,

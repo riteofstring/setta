@@ -61,10 +61,12 @@ type GpuFlowViewportStoreState = {
   readonly height: number;
   readonly maxZoom: number;
   readonly minZoom: number;
+  readonly moveSectionActivationKeyPressed: boolean;
   readonly multiSelectionActive: boolean;
   readonly nodeDragging: boolean;
   readonly nodesSelectionBounds: GpuRect | null;
   readonly panScrolling: boolean;
+  readonly panActivationKeyPressed: boolean;
   readonly paneDragging: boolean;
   readonly pointerPanning: boolean;
   readonly selectionKeyPressed: boolean;
@@ -74,6 +76,7 @@ type GpuFlowViewportStoreState = {
   readonly width: number;
   readonly userSelectionActive: boolean;
   readonly userSelectionRect: GpuUserSelectionRect | null;
+  readonly zoomActivationKeyPressed: boolean;
 };
 
 type GpuFlowViewportStoreActions = {
@@ -82,8 +85,10 @@ type GpuFlowViewportStoreActions = {
   getViewport(): GpuViewport;
   setDomNode(domNode: HTMLElement | null): void;
   setConnectionState(input: SetGpuConnectionStateInput): void;
+  setMoveSectionActivationKeyPressed(pressed: boolean): void;
   setMultiSelectionActive(active: boolean): void;
   setNodesSelectionBounds(bounds: GpuRect | null): void;
+  setPanActivationKeyPressed(pressed: boolean): void;
   setSelectionKeyPressed(pressed: boolean): void;
   setTransform(viewport: GpuViewportInput): boolean;
   setUserSelection(input: {
@@ -95,6 +100,7 @@ type GpuFlowViewportStoreActions = {
     readonly height: number;
     readonly width: number;
   }): void;
+  setZoomActivationKeyPressed(pressed: boolean): void;
   setZoomBounds(bounds: {
     readonly defaultZoom?: number | undefined;
     readonly maxZoom?: number | undefined;
@@ -132,9 +138,11 @@ const DEFAULT_GPU_VIEWPORT_STORE_STATE = {
   height: 0,
   maxZoom: 4,
   minZoom: 0.1,
+  moveSectionActivationKeyPressed: false,
   multiSelectionActive: false,
   nodeDragging: false,
   nodesSelectionBounds: null,
+  panActivationKeyPressed: false,
   panScrolling: false,
   paneDragging: false,
   pointerPanning: false,
@@ -145,6 +153,7 @@ const DEFAULT_GPU_VIEWPORT_STORE_STATE = {
   viewportInteractionActive: false,
   wheelZooming: false,
   width: 0,
+  zoomActivationKeyPressed: false,
 } satisfies GpuFlowViewportStoreState;
 
 export function createGpuFlowViewportStore(
@@ -194,6 +203,13 @@ export function createGpuFlowViewportStore(
             : nextState;
         });
       },
+      setMoveSectionActivationKeyPressed(pressed) {
+        set((state) =>
+          state.moveSectionActivationKeyPressed === pressed
+            ? state
+            : { moveSectionActivationKeyPressed: pressed },
+        );
+      },
       setMultiSelectionActive(active) {
         set((state) =>
           state.multiSelectionActive === active
@@ -210,6 +226,13 @@ export function createGpuFlowViewportStore(
           areOptionalGpuRectsEqual(state.nodesSelectionBounds, nextBounds)
             ? state
             : { nodesSelectionBounds: nextBounds },
+        );
+      },
+      setPanActivationKeyPressed(pressed) {
+        set((state) =>
+          state.panActivationKeyPressed === pressed
+            ? state
+            : { panActivationKeyPressed: pressed },
         );
       },
       setSelectionKeyPressed(pressed) {
@@ -261,6 +284,13 @@ export function createGpuFlowViewportStore(
           state.width === size.width && state.height === size.height
             ? state
             : { height: size.height, width: size.width },
+        );
+      },
+      setZoomActivationKeyPressed(pressed) {
+        set((state) =>
+          state.zoomActivationKeyPressed === pressed
+            ? state
+            : { zoomActivationKeyPressed: pressed },
         );
       },
       setZoomBounds(bounds) {

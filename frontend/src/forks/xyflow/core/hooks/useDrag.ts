@@ -1,6 +1,7 @@
 import { drag } from "d3-drag";
 import { select } from "d3-selection";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import type { MouseEvent, RefObject } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -127,7 +128,8 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
       };
 
       const startDrag = (event: UseDragEvent) => {
-        const { multiSelectionActive } = useReactFlow.getState();
+        const multiSelectionActive =
+          gpuFlowViewportStore.getState().multiSelectionActive;
         const nodeInternals = useNodeInternals.getState().x;
         dragStarted.current = true;
 
