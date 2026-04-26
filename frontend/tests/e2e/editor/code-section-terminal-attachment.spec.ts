@@ -3021,11 +3021,15 @@ async function activateMovingFreeDragMode(
 
 async function resetViewport(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
-    useReactFlow.setState({
-      transform: [0, 0, 1],
+    const { gpuFlowViewportStore } = await import(
+      "/src/gpuFlow/viewportStore.ts"
+    );
+    const viewportStore = gpuFlowViewportStore.getState();
+    viewportStore.setTransform({ x: 0, y: 0, zoom: 1 });
+    viewportStore.setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
     });
     window.reactFlowZoom = 1;
   });

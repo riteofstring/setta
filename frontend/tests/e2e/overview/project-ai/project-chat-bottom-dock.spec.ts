@@ -232,10 +232,10 @@ async function getWorkspaceTopInset(page: Page): Promise<number> {
 
 async function getCanvasDomRect(page: Page): Promise<CanvasDomRect | null> {
   return page.evaluate(async () => {
-    const { useReactFlow } = await import(
-      "/src/forks/xyflow/core/store/index.ts"
+    const { gpuFlowViewportStore } = await import(
+      "/src/gpuFlow/viewportStore.ts"
     );
-    const domNode = useReactFlow.getState().domNode;
+    const domNode = gpuFlowViewportStore.getState().domNode;
     if (!domNode) {
       return null;
     }
@@ -269,7 +269,7 @@ async function getFlowPositionFromScreenPoint(
 ): Promise<FlowPoint> {
   return page.evaluate(async (point) => {
     const { screenToFlowPosition } = await import(
-      "/src/forks/xyflow/core/hooks/useViewportHelper.ts"
+      "/src/gpuFlow/viewportActions.ts"
     );
     return screenToFlowPosition(point);
   }, screenPoint);

@@ -19,20 +19,8 @@ vi.mock("state/actions/stateMachineEdges", () => {
     toggleStateMachineEdgeSelection: vi.fn(),
   };
 });
-vi.mock("forks/xyflow/core/store", () => {
-  const state = { multiSelectionActive: false };
-  const useReactFlow = Object.assign(
-    vi.fn((selector?: (input: typeof state) => unknown) =>
-      selector ? selector(state) : state,
-    ),
-    {
-      getState: vi.fn(() => state),
-    },
-  );
-  return { useReactFlow };
-});
 
-import { HandlePosition } from "forks/xyflow/core/types";
+import { HandlePosition } from "gpuFlow/flowTypes";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import { toggleEdgeSelection } from "state/actions/edges";
 import { toggleStateMachineEdgeSelection } from "state/actions/stateMachineEdges";

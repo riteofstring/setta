@@ -1,4 +1,4 @@
-import type { Connection } from "forks/xyflow/core/types";
+import { HandlePosition, type Connection } from "gpuFlow/flowTypes";
 import {
   createEdge,
   deleteEdges,
@@ -43,6 +43,19 @@ const mockedRouteUpdateEdge = vi.mocked(updateEdge);
 const mockedRouteDeleteEdges = vi.mocked(deleteEdges);
 const mockedRouteReconnectEdge = vi.mocked(reconnectEdge);
 const mockedRouteSetEdges = vi.mocked(setEdges);
+
+function createOpenAPIDataResponse<TData>(data: TData): {
+  data: TData;
+  request: Request;
+  response: Response;
+} {
+  return {
+    data,
+    request: new Request("http://localhost"),
+    response: new Response(null, { status: 200 }),
+  };
+}
+
 const projectConfigId = "project-1";
 const sourceSectionId = "source-section";
 const targetSectionId = "target-section";
@@ -97,7 +110,7 @@ function seedEdgeState(edges: Array<Edge>) {
         sectionId: sourceSectionId,
         portId: sourcePortId,
         type: "source",
-        side: "right",
+        side: HandlePosition.Right,
         x: 10,
         y: 10,
       },
@@ -105,7 +118,7 @@ function seedEdgeState(edges: Array<Edge>) {
         sectionId: targetSectionId,
         portId: targetPortId,
         type: "target",
-        side: "left",
+        side: HandlePosition.Left,
         x: 20,
         y: 20,
       },
@@ -125,31 +138,11 @@ describe("edges actions", () => {
     resetProjectStores();
     useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
-    mockedRouteCreateEdge.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteUpdateEdge.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteDeleteEdges.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteReconnectEdge.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
-    mockedRouteSetEdges.mockResolvedValue({
-      data: null,
-      status: 200,
-      hasResponse: true,
-    });
+    mockedRouteCreateEdge.mockResolvedValue(createOpenAPIDataResponse(null));
+    mockedRouteUpdateEdge.mockResolvedValue(createOpenAPIDataResponse(null));
+    mockedRouteDeleteEdges.mockResolvedValue(createOpenAPIDataResponse(null));
+    mockedRouteReconnectEdge.mockResolvedValue(createOpenAPIDataResponse(null));
+    mockedRouteSetEdges.mockResolvedValue(createOpenAPIDataResponse(null));
   });
   afterEach(() => {
     resetProjectStores();
@@ -159,14 +152,16 @@ describe("edges actions", () => {
     createEdgeFromConnection(createConnection());
     expect(mockedRouteCreateEdge).toHaveBeenCalledTimes(1);
     expect(mockedRouteCreateEdge).toHaveBeenCalledWith({
-      projectConfigId,
-      sourceSectionId,
-      sourceVariantId,
-      sourcePortId,
-      targetSectionId,
-      targetVariantId,
-      targetPortId,
-      type: "default",
+      body: {
+        projectConfigId,
+        sourceSectionId,
+        sourceVariantId,
+        sourcePortId,
+        targetSectionId,
+        targetVariantId,
+        targetPortId,
+        type: "default",
+      },
     });
   });
   it("posts reconnectEdge with the canonical connection payload", () => {
@@ -174,14 +169,16 @@ describe("edges actions", () => {
     reconnectEdgeFromConnection("edge-1", createConnection());
     expect(mockedRouteReconnectEdge).toHaveBeenCalledTimes(1);
     expect(mockedRouteReconnectEdge).toHaveBeenCalledWith({
-      projectConfigId,
-      edgeId: "edge-1",
-      sourceSectionId,
-      sourceVariantId,
-      sourcePortId,
-      targetSectionId,
-      targetVariantId,
-      targetPortId,
+      body: {
+        projectConfigId,
+        edgeId: "edge-1",
+        sourceSectionId,
+        sourceVariantId,
+        sourcePortId,
+        targetSectionId,
+        targetVariantId,
+        targetPortId,
+      },
     });
   });
   it("single-selects an edge and persists the full edge list", () => {
@@ -218,12 +215,14 @@ describe("edges actions", () => {
     expect(mockedRouteSetEdges).toHaveBeenCalledTimes(1);
     expect(mockedRouteSetEdges.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        frontendOpId: expect.any(String),
-        edges: expect.arrayContaining([
-          expect.objectContaining({ id: "edge-a", selected: true }),
-          expect.objectContaining({ id: "edge-b", selected: false }),
-        ]),
+        body: expect.objectContaining({
+          projectConfigId,
+          frontendOpId: expect.any(String),
+          edges: expect.arrayContaining([
+            expect.objectContaining({ id: "edge-a", selected: true }),
+            expect.objectContaining({ id: "edge-b", selected: false }),
+          ]),
+        }),
       }),
     );
   });
@@ -242,17 +241,19 @@ describe("edges actions", () => {
       },
     ]);
     toggleEdgeSelection("edge-a", true);
-    expect(useProjectState.getState().projectConfig.edges[0]?.selected).toBe(
+    expect(useProjectState.getState().projectConfig.edges?.[0]?.selected).toBe(
       true,
     );
     expect(mockedRouteUpdateEdge).toHaveBeenCalledTimes(1);
     expect(mockedRouteUpdateEdge.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        frontendOpId: expect.any(String),
-        edge: expect.objectContaining({
-          id: "edge-a",
-          selected: true,
+        body: expect.objectContaining({
+          projectConfigId,
+          frontendOpId: expect.any(String),
+          edge: expect.objectContaining({
+            id: "edge-a",
+            selected: true,
+          }),
         }),
       }),
     );
@@ -290,9 +291,11 @@ describe("edges actions", () => {
     expect(mockedRouteDeleteEdges).toHaveBeenCalledTimes(1);
     expect(mockedRouteDeleteEdges.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        projectConfigId,
-        frontendOpId: expect.any(String),
-        edgeIds: ["edge-a"],
+        body: expect.objectContaining({
+          projectConfigId,
+          frontendOpId: expect.any(String),
+          edgeIds: ["edge-a"],
+        }),
       }),
     );
   });
