@@ -409,8 +409,7 @@ test.describe.serial("chat attachments", () => {
     if (!initialAPIKeysSnapshot) {
       throw new Error("Missing managed API keys snapshot.");
     }
-    const providerServer =
-      await startManagedAnthropicAttachmentProviderServer();
+    const providerServer = await startManagedAnthropicAttachmentProviderServer();
     let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
     let createdEngineConfigId: string | null = null;
     const llmConfigId = `e2e-project-chat-anthropic-attachments-${Date.now()}`;
@@ -1536,7 +1535,7 @@ async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".canvas-flow__canvas");
+  await page.waitForSelector(".react-flow__pane");
   const projectConfigId = await getCurrentProjectConfigId(page, request);
   return {
     projectConfigId,

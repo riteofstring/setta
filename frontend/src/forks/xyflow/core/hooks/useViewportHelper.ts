@@ -1,9 +1,10 @@
+import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { useReactFlow } from "../store";
 import type { Viewport } from "../types";
-import { pointToRendererPoint } from "../utils/graph";
+import { getD3Transition, pointToRendererPoint } from "../utils/graph";
 
 type TransitionOptions = {
   duration?: number;
@@ -16,17 +17,18 @@ type ZoomOptions = TransitionOptions & {
 type ViewportTransform = Partial<Viewport>;
 
 export const zoomIn = _.throttle((options?: TransitionOptions) => {
-  const { transform } = useReactFlow.getState();
-  setViewport({ zoom: transform[2] * 1.2 }, options);
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom!.scaleBy(getD3Transition(d3Selection!, options?.duration), 1.2);
 }, 50);
 
 export const zoomOut = _.throttle((options?: TransitionOptions) => {
-  const { transform } = useReactFlow.getState();
-  setViewport({ zoom: transform[2] / 1.2 }, options);
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom!.scaleBy(getD3Transition(d3Selection!, options?.duration), 1 / 1.2);
 }, 50);
 
 function zoomTo(zoomLevel: number, options?: TransitionOptions) {
-  setViewport({ zoom: zoomLevel }, options);
+  const { d3Zoom, d3Selection } = useReactFlow.getState();
+  d3Zoom!.scaleTo(getD3Transition(d3Selection!, options?.duration), zoomLevel);
 }
 
 export function resetZoom() {
@@ -42,13 +44,18 @@ function setViewport(
   transform: ViewportTransform,
   options?: TransitionOptions,
 ) {
-  void options;
   const {
+    d3Zoom,
+    d3Selection,
     transform: [x, y, zoom],
   } = useReactFlow.getState();
-  useReactFlow.setState({
-    transform: [transform.x ?? x, transform.y ?? y, transform.zoom ?? zoom],
-  });
+  const nextTransform = zoomIdentity
+    .translate(transform.x ?? x, transform.y ?? y)
+    .scale(transform.zoom ?? zoom);
+  d3Zoom!.transform(
+    getD3Transition(d3Selection!, options?.duration),
+    nextTransform,
+  );
 }
 
 export function getViewport(): Viewport {
@@ -57,8 +64,7 @@ export function getViewport(): Viewport {
 }
 
 export function setCenter(x: number, y: number, options?: ZoomOptions) {
-  void options?.duration;
-  const { width, height } = useReactFlow.getState();
+  const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
   const { maxZoom } = useSettings.getState().gui;
   const { overviewTrueWidth } = useLocalStorage.getState();
 
@@ -66,10 +72,12 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const visibleCenterX = width / 2 + overviewTrueWidth;
   const centerX = visibleCenterX - x * nextZoom;
   const centerY = height / 2 - y * nextZoom;
+  const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
-  useReactFlow.setState({
-    transform: [centerX, centerY, nextZoom],
-  });
+  d3Zoom!.transform(
+    getD3Transition(d3Selection!, options?.duration),
+    transform,
+  );
 }
 
 export function screenToFlowPosition(position: Position, ignoreGrid = false) {

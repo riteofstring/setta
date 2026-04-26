@@ -1498,14 +1498,11 @@ function buildTopLevelSectionNode(
     position: { x: layout.x, y: layout.y },
     width: existingNode?.width ?? layout.w,
     height: existingNode?.height ?? layout.h,
-    zIndex: getTopLevelSectionLayoutZIndex(layout),
-    tempZIndex: getTopLevelSectionLayoutZIndex(layout),
+    zIndex: layout.zIndex,
+    tempZIndex: layout.zIndex,
     type: sectionImpl?.type,
     style: getSectionNodeStyle(sectionImpl, darkMode),
   };
-}
-function getTopLevelSectionLayoutZIndex(layout: TopLevelSectionLayout): number {
-  return Number.isFinite(layout.zIndex) ? layout.zIndex : 0;
 }
 export function createNodesMapFromProjectConfigChildren(
   p: ZustandProjectState,
@@ -1613,9 +1610,7 @@ export function getActiveViewModeConfig(state: SingleConfig) {
   }
   return viewMode;
 }
-function getActiveViewModeTopLevelSections(
-  projectState: SingleConfig,
-): TopLevelSectionLayoutMap {
+function getActiveViewModeTopLevelSections(projectState: SingleConfig) {
   const { activeViewModeId, topLevelSections, viewModes } =
     projectState.projectConfig;
   if (!activeViewModeId || !(activeViewModeId in viewModes)) {
@@ -1629,16 +1624,7 @@ function getActiveViewModeTopLevelSections(
   if (!topLevelSections || Object.keys(topLevelSections).length === 0) {
     return viewModeLayout;
   }
-  const mergedSections: TopLevelSectionLayoutMap = { ...topLevelSections };
-  for (const [sectionId, viewModeSectionLayout] of Object.entries(
-    viewModeLayout,
-  )) {
-    mergedSections[sectionId] = {
-      ...topLevelSections[sectionId],
-      ...viewModeSectionLayout,
-    };
-  }
-  return mergedSections;
+  return { ...topLevelSections, ...viewModeLayout };
 }
 function getSectionVisibilityForActiveViewMode(
   sectionId: string,
@@ -1787,7 +1773,7 @@ function buildTopLevelSectionLayout(
     : createDefaultTopLevelSectionLayout(node);
   nextLayout.x = node.position.x;
   nextLayout.y = node.position.y;
-  if (Number.isFinite(node.zIndex)) {
+  if (node.zIndex !== undefined) {
     nextLayout.zIndex = node.zIndex;
   }
   if (node.width !== undefined) {
@@ -1808,7 +1794,6 @@ const pendingViewportRef: {
   snapshot: null,
   hasQueuedSend: false,
 };
-let hasDeferredViewportPersistence = false;
 function applyViewportSnapshotToProjectState(
   state: ZustandProjectState,
   viewport: PendingViewportState,
@@ -1985,19 +1970,6 @@ function reconcilePendingViewport(nextPending: PendingOperation[]) {
   pendingViewportRef.snapshot = null;
   pendingViewportRef.hasQueuedSend = false;
 }
-function shouldSkipTopLevelLayoutDispatch(
-  topLevelSections: SingleConfig["projectConfig"]["topLevelSections"],
-  existingLayouts: SingleConfig["projectConfig"]["topLevelSections"],
-) {
-  const pendingSnapshotMatches =
-    pendingTopLevelLayoutRef.snapshot !== null &&
-    _.isEqual(pendingTopLevelLayoutRef.snapshot, topLevelSections);
-  return (
-    !pendingTopLevelLayoutRef.hasQueuedSend &&
-    (!pendingTopLevelLayoutRef.opId || pendingSnapshotMatches) &&
-    _.isEqual(topLevelSections, existingLayouts)
-  );
-}
 export function debounced_route_set_top_level_section_layout() {
   const shareSession = useShareSession.getState();
   if (
@@ -2031,9 +2003,6 @@ export function debounced_route_set_top_level_section_layout() {
     existingLayouts,
   );
   clearCompletedPendingOpId(pendingTopLevelLayoutRef);
-  if (shouldSkipTopLevelLayoutDispatch(topLevelSections, existingLayouts)) {
-    return;
-  }
   pendingTopLevelLayoutRef.snapshot = topLevelSections;
   pendingTopLevelLayoutRef.hasQueuedSend = true;
   useProjectState.setState((state) => {
@@ -2374,21 +2343,11 @@ function shouldSkipViewportDispatch(
     currentProjectState.projectConfig.viewportInitialized ===
       (viewport !== null);
   return (
-    !pendingViewportRef.hasQueuedSend && snapshotUnchanged && currentMatches
+    !pendingViewportRef.hasQueuedSend &&
+    !pendingViewportRef.opId &&
+    snapshotUnchanged &&
+    currentMatches
   );
-}
-function isViewportInteractionActive() {
-  return (
-    useReactFlow.getState().viewportInteractionActive ||
-    useMisc.getState().isPanScrolling
-  );
-}
-function stageViewportDispatch(viewport: PendingViewportState) {
-  pendingViewportRef.snapshot = viewport;
-  pendingViewportRef.hasQueuedSend = true;
-  if (!pendingViewportRef.opId) {
-    pendingViewportRef.opId = addPendingOp(applyPendingViewport);
-  }
 }
 function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
   const projectConfigId = getCurrProjectConfigId();
@@ -2400,16 +2359,14 @@ function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
   if (shouldSkipViewportDispatch(viewport, currentProjectState)) {
     return;
   }
-  if (!immediate && isViewportInteractionActive()) {
-    sendViewportToBackend.cancel();
-    stageViewportDispatch(viewport);
-    hasDeferredViewportPersistence = true;
-    return;
-  }
-  stageViewportDispatch(viewport);
+  pendingViewportRef.snapshot = viewport;
+  pendingViewportRef.hasQueuedSend = true;
   useProjectState.setState((state) => {
     applyViewportSnapshotToProjectState(state, viewport);
   });
+  if (!pendingViewportRef.opId) {
+    pendingViewportRef.opId = addPendingOp(applyPendingViewport);
+  }
   sendViewportToBackend();
   if (immediate) {
     sendViewportToBackend.flush();
@@ -2429,18 +2386,4 @@ export const debouncedDispatchViewportUpdate = Object.assign(
 export function dispatchViewportUpdateImmediately() {
   debouncedDispatchViewportUpdate.cancel();
   dispatchViewportUpdate(getCurrProjectConfigViewport(), true);
-}
-export function flushDeferredViewportPersistence() {
-  if (!hasDeferredViewportPersistence || isViewportInteractionActive()) {
-    return;
-  }
-  hasDeferredViewportPersistence = false;
-  if (!pendingViewportRef.opId) {
-    dispatchViewportUpdate(getCurrProjectConfigViewport());
-    return;
-  }
-  useProjectState.setState((state) => {
-    applyViewportSnapshotToProjectState(state, pendingViewportRef.snapshot);
-  });
-  sendViewportToBackend();
 }

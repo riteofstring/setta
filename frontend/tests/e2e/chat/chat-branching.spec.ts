@@ -25,7 +25,7 @@ test.describe.serial("chat branching", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".canvas-flow__canvas");
+      await page.waitForSelector(".react-flow__pane");
 
       const backendOrigin =
         process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -66,9 +66,10 @@ test.describe.serial("chat branching", () => {
       await stopLatestProjectChat(page, projectContext.projectConfigId);
 
       await page.reload();
-      await page.waitForSelector(".canvas-flow__canvas");
-      const reloadedProjectChatSurface =
-        await getVisibleProjectChatSurface(page);
+      await page.waitForSelector(".react-flow__pane");
+      const reloadedProjectChatSurface = await getVisibleProjectChatSurface(
+        page,
+      );
       await enableThinkingIfAvailable(reloadedProjectChatSurface);
 
       await reloadedProjectChatSurface
@@ -82,8 +83,9 @@ test.describe.serial("chat branching", () => {
       await expect(historyEntry).toBeVisible();
       await historyEntry.click();
 
-      const chatInput =
-        reloadedProjectChatSurface.getByPlaceholder("Type a message...");
+      const chatInput = reloadedProjectChatSurface.getByPlaceholder(
+        "Type a message...",
+      );
       await expect(chatInput).toBeEnabled({ timeout: 20000 });
 
       const originalMessageId = await getMessageGroupId(
@@ -115,7 +117,9 @@ test.describe.serial("chat branching", () => {
       expect(editorLayout.paddingLeft).toBeGreaterThanOrEqual(36);
       expect(editorLayout.buttonRight).toBeLessThan(editorLayout.textStartX);
       await editor.fill("Edited message");
-      await reloadedOriginalGroup.getByRole("button", { name: "Save" }).click();
+      await reloadedOriginalGroup
+        .getByRole("button", { name: "Save" })
+        .click();
 
       const editedGroup = getMessageGroup(
         reloadedProjectChatSurface,
@@ -354,12 +358,13 @@ test.describe.serial("chat branching", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".canvas-flow__canvas");
+      await page.waitForSelector(".react-flow__pane");
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       await enableThinkingIfAvailable(projectChatSurface);
-      const windowInstanceId =
-        await getVisibleProjectChatWindowInstanceId(projectChatSurface);
+      const windowInstanceId = await getVisibleProjectChatWindowInstanceId(
+        projectChatSurface,
+      );
       await page.evaluate(
         async ({ chatId, instanceId, messages }) => {
           const { setProjectChatWindowChatId } = await import(
@@ -453,7 +458,9 @@ function getMessageGroup(container: Locator, text: string): Locator {
 }
 
 function getMessageGroupById(container: Locator, messageId: string): Locator {
-  return container.locator(`div.group[data-message-id="${messageId}"]`).first();
+  return container
+    .locator(`div.group[data-message-id="${messageId}"]`)
+    .first();
 }
 
 async function enableThinkingIfAvailable(container: Locator): Promise<void> {

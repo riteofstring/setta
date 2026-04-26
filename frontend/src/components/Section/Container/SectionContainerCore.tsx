@@ -1,3 +1,4 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -74,7 +75,7 @@ function getSectionContainerSnapshot(
     getEmbeddedAttachedTerminalParentIdForTerminalSection(state, sectionId) !==
       null && !impl.isMinimized;
   return {
-    sectionTypeName: impl.type as SectionType,
+    sectionTypeName: impl.type,
     isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
     positionAndSizeLocked: impl.positionAndSizeLocked,
     textBlockMetaControlStyle:
@@ -140,7 +141,7 @@ function getSectionStyleThemeOrNull({
 
 function resolveSectionStyleVars(
   sectionStyleTheme: ReturnType<typeof deriveSectionStyleTheme> | null,
-): React.CSSProperties | undefined {
+) {
   if (!sectionStyleTheme) {
     return undefined;
   }
@@ -155,7 +156,23 @@ function resolveSectionStyleVars(
     "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
     "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
     "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
-  } as React.CSSProperties;
+  } satisfies React.CSSProperties;
+}
+
+function getSectionShellStyle(
+  sectionStyleVars: React.CSSProperties | undefined,
+  viewportInteractionActive: boolean,
+) {
+  if (!viewportInteractionActive) {
+    return sectionStyleVars;
+  }
+  return {
+    ...sectionStyleVars,
+    willChange: "transform",
+    transform: "translateZ(0)",
+    backfaceVisibility: "hidden",
+    isolation: "isolate",
+  } satisfies React.CSSProperties;
 }
 
 function getSectionEdgeHandleMode({
@@ -250,6 +267,9 @@ function _SectionContainerCore({
     useMetaControlStyle,
   });
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
   const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
@@ -265,6 +285,10 @@ function _SectionContainerCore({
     aiHighlightClassName,
     scopeHighlightClassName,
   });
+  const sectionShellStyle = getSectionShellStyle(
+    sectionStyleVars,
+    viewportInteractionActive,
+  );
   const edgeHandleMode = getSectionEdgeHandleMode({
     hideAgenticEdgeHandles,
     isAttachedTerminalChild,
@@ -279,7 +303,7 @@ function _SectionContainerCore({
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
-      style={sectionStyleVars}
+      style={sectionShellStyle}
     >
       <SectionEdgeHandles isUserView={isUserView} mode={edgeHandleMode} />
       <MinimizedDataEdgeHandles sectionId={sectionId} />

@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HANDLE_CLASS_NAME } from "./classes";
 import {
   getClosestHandle,
   isValidHandle,
@@ -37,7 +36,7 @@ function appendHandleElement({
   extraClasses?: string[];
 }) {
   const element = document.createElement("div");
-  element.className = [HANDLE_CLASS_NAME, type, ...extraClasses].join(" ");
+  element.className = ["react-flow__handle", type, ...extraClasses].join(" ");
   element.setAttribute("data-id", `${sectionId}-${handleId}-${type}`);
   element.setAttribute("data-nodeid", sectionId);
 

@@ -20,7 +20,7 @@ function UserSelection() {
 
   return (
     <div
-      className="canvas-flow__selection canvas-flow__container"
+      className="react-flow__selection react-flow__container"
       style={{
         width: userSelectionRect.width,
         height: userSelectionRect.height,

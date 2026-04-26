@@ -55,7 +55,6 @@ import {
 } from "utils/codegenTargets";
 import { CodeLanguage } from "utils/codeLanguage";
 import {
-  CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -686,13 +685,13 @@ export function useCodeAreaHeight({ sectionId }) {
   });
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   const { maxHeight: sectionMaxHeight } = useSectionMinMaxDims(sectionId);
-  const wrapperRef = useRef<HTMLElement | null>(null);
-  const editorRef = useRef<EditorView | null>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const wrapperRef = useRef(null);
+  const editorRef = useRef(null);
+  const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const [didFirstRender, setDidFirstRender] = useState(false);
-  const handleCreateEditor = useCallback((view: EditorView) => {
+  const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;
     const resizeObserver = new ResizeObserver(([entry]) => {
       if (!didFirstRender) {
@@ -717,7 +716,7 @@ export function useCodeAreaHeight({ sectionId }) {
         entry.target.scrollHeight > entry.target.clientHeight ? "nowheel" : "",
       );
     });
-    resizeObserver.observe(view.scrollDOM);
+    resizeObserver.observe(editorRef.current.scrollDOM);
     resizeObserverRef.current = resizeObserver;
   }, []);
   useEffect(() => {
@@ -751,28 +750,6 @@ export function useCodeAreaHeight({ sectionId }) {
       editorRef.current.requestMeasure();
     }
   }, [readyToBeVisible]);
-  useEffect(() => {
-    const handleCanvasViewportChange = () => {
-      const editor = editorRef.current;
-      if (!editor) {
-        return;
-      }
-      if (!editor.hasFocus && !editor.dom.contains(document.activeElement)) {
-        return;
-      }
-      editor.requestMeasure();
-    };
-    window.addEventListener(
-      CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
-      handleCanvasViewportChange,
-    );
-    return () => {
-      window.removeEventListener(
-        CANVAS_FLOW_VIEWPORT_CHANGE_EVENT,
-        handleCanvasViewportChange,
-      );
-    };
-  }, []);
   const isAutoHeight = height === "auto";
   const maxHeight =
     resizeEvent === "start"
@@ -782,8 +759,8 @@ export function useCodeAreaHeight({ sectionId }) {
         : `${height - 30}px`;
   const overflow =
     resizeEvent === "start" || isAutoHeight ? "overflow-y-auto" : "";
-  const editorScrollTop = editorRef.current?.scrollDOM.scrollTop ?? 0;
-  const wrapperScrollTop = wrapperRef.current?.scrollTop ?? 0;
+  const editorScrollTop = editorRef.current?.scrollDOM.scrollTop;
+  const wrapperScrollTop = wrapperRef.current?.scrollTop;
   useEffect(() => {
     if (wrapperRef.current && resizeEvent === "start") {
       wrapperRef.current.scrollTop = editorScrollTop;

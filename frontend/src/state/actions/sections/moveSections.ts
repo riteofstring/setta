@@ -16,7 +16,7 @@ import {
   setCurrEffectiveSectionImplValue,
   setSectionChildren,
 } from "../sectionInfos";
-export type MoveSectionsInput = {
+type MoveSectionsInput = {
   sectionIds: string[];
   newParentId: string | null;
   newIndex: number | null;

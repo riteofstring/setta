@@ -26,7 +26,6 @@ type LatestProjectStateResponse = {
 };
 
 type ImplType = "Group" | "ListRoot" | "Code";
-const CANVAS_SELECTOR = ".canvas-flow__canvas";
 
 test("group section children can move via UI drag-and-drop", async ({
   page,
@@ -195,22 +194,22 @@ async function dragSectionToPane(
   const source = page
     .locator(`section[data-section-id="${sectionId}"]`)
     .first();
-  const canvas = page.locator(CANVAS_SELECTOR).first();
+  const pane = page.locator(".react-flow__pane").first();
 
   await expect(source).toBeVisible();
-  await expect(canvas).toBeVisible();
+  await expect(pane).toBeVisible();
 
   await dragWithRetries(
     page,
     async (attempt) => {
-      const canvasBox = await canvas.boundingBox();
-      if (!canvasBox) {
-        throw new Error("Missing CanvasFlow canvas box for detaching drag.");
+      const paneBox = await pane.boundingBox();
+      if (!paneBox) {
+        throw new Error("Missing pane box for detaching drag.");
       }
 
       await performMovingFreeDrag(page, source, {
-        x: canvasBox.x + canvasBox.width - 100 - attempt * 12,
-        y: canvasBox.y + 80 + attempt * 16,
+        x: paneBox.x + paneBox.width - 100 - attempt * 12,
+        y: paneBox.y + 80 + attempt * 16,
       });
     },
     isDone,
@@ -294,7 +293,7 @@ async function performMovingFreeDrag(
 }
 
 async function focusPaneForDnd(page: Page): Promise<void> {
-  await page.click(CANVAS_SELECTOR, {
+  await page.click(".react-flow__pane", {
     position: { x: 8, y: 8 },
     force: true,
     timeout: 10000,

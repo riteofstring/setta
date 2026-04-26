@@ -87,7 +87,7 @@ test.describe.serial("agentic context mode", () => {
         "reference_only",
       );
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".canvas-flow__canvas");
+      await page.waitForSelector(".react-flow__pane");
 
       const chatNode = page.locator(
         `.react-flow__node[data-id="${chatSectionId}"]`,
@@ -121,7 +121,7 @@ test.describe.serial("agentic context mode", () => {
       );
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".canvas-flow__canvas");
+      await page.waitForSelector(".react-flow__pane");
 
       const chatNodeAfter = page.locator(
         `.react-flow__node[data-id="${chatSectionId}"]`,

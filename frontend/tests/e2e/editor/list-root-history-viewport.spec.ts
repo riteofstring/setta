@@ -207,7 +207,7 @@ test("list-root history redoes the restored section on the first step and reload
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
     await expect(listNode).toBeVisible();
 
     const viewportAfterReload = await getViewport(page);

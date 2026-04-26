@@ -1,12 +1,18 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
+import { zoomIdentity } from "d3-zoom";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
+  getD3Transition,
   getSectionRect,
   getViewportForBounds,
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { autoLayoutTopLevelSections } from "openapi/http";
-import { useNodeInternals, useShareSession } from "state/definitions";
+import {
+  useNodeInternals,
+  useSettings,
+  useShareSession,
+} from "state/definitions";
 import { applyActiveSectionChange } from "../activeSectionController";
 import {
   debounced_route_set_top_level_section_layout,
@@ -38,9 +44,6 @@ function shouldNormalizeZIndices(
   }
   let maxZIndex = -1;
   for (const node of nodeInternals.values()) {
-    if (!Number.isFinite(node.zIndex) || !Number.isFinite(node.tempZIndex)) {
-      return true;
-    }
     maxZIndex = Math.max(maxZIndex, node.zIndex);
   }
   return maxZIndex > nodeInternals.size * 4;
@@ -54,9 +57,7 @@ function normalizeNodeZIndices(
   const excludingInputIds = Array.from(nodeInternals.values()).filter(
     (x) => !sectionIds.includes(x.id),
   );
-  excludingInputIds.sort(
-    (a, b) => getNodeZIndexForOrdering(a) - getNodeZIndexForOrdering(b),
-  );
+  excludingInputIds.sort((a, b) => a.zIndex - b.zIndex);
   const newValues = _.cloneDeep(nodeInternals);
   for (let i = 0; i < excludingInputIds.length; i++) {
     const curr = newValues.get(excludingInputIds[i].id);
@@ -81,7 +82,7 @@ function raiseNodeZIndices(
 ) {
   let maxZIndex = -1;
   for (const node of nodeInternals.values()) {
-    maxZIndex = Math.max(maxZIndex, getNodeZIndexForOrdering(node));
+    maxZIndex = Math.max(maxZIndex, node.zIndex);
   }
   let nextZIndex = maxZIndex;
   let changed = false;
@@ -104,9 +105,6 @@ function raiseNodeZIndices(
   }
   return changed ? newValues : nodeInternals;
 }
-function getNodeZIndexForOrdering(node: { zIndex: number }) {
-  return Number.isFinite(node.zIndex) ? node.zIndex : -1;
-}
 export function goToSection(sectionId: string) {
   const rfStore = useReactFlow.getState();
   const rect = getSectionRect(sectionId);
@@ -119,23 +117,21 @@ export function goToSection(sectionId: string) {
     width: sectionWidth,
     height: sectionHeight,
   } = rect;
-  const { x, y, zoom } = getViewportForBounds({
-    bounds: {
-      x: sectionX,
-      y: sectionY,
-      width: sectionWidth,
-      height: sectionHeight,
-    },
-    height: rfStore.height,
-    keepCurrZoomIfPossible: true,
-    maxZoom: 1,
-    minZoom: 0,
-    padding: 0.1,
-    width: rfStore.width,
-  });
-  useReactFlow.setState({
-    transform: [x, y, zoom],
-  });
+  const { x, y, zoom } = getViewportForBounds(
+    { x: sectionX, y: sectionY, width: sectionWidth, height: sectionHeight },
+    rfStore.width,
+    rfStore.height,
+    0,
+    1,
+    0.1,
+    true,
+  );
+  const duration = useSettings.getState().gui.transitionDuration;
+  const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
+  rfStore.d3Zoom.transform(
+    getD3Transition(rfStore.d3Selection, duration),
+    nextTransform,
+  );
   applyActiveSectionChange({ interaction: "go-to", sectionId });
 }
 export function autoLayout() {

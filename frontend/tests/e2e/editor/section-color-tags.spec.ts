@@ -228,7 +228,7 @@ test.describe.serial("section color tags", () => {
         .toBe("#3b82f6");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".canvas-flow__canvas");
+      await page.waitForSelector(".react-flow__pane");
 
       const nodeAfter = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,

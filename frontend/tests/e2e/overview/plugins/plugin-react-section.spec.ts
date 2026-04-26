@@ -31,7 +31,7 @@ test("frontend react fixture registers a React-rendered section kind", async ({
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
@@ -122,7 +122,7 @@ test("plugin runtime failures replace stale section renderer output with runtime
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
@@ -172,7 +172,7 @@ test("plugin runtime failures replace stale section renderer output with runtime
       });
     });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(
       page.getByText("Plugin Runtime Error", { exact: true }),

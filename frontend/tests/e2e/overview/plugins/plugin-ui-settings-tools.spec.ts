@@ -135,7 +135,7 @@ test("plugin UI settings tools mutate and reveal plugin settings", async ({
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     const pluginPaneTab = page.locator(PLUGIN_PANE_TAB_SELECTOR);
     await expect(pluginPaneTab).toBeVisible({ timeout: 30000 });
@@ -231,7 +231,7 @@ test("plugin reveal_ui_setting succeeds when plugin tab starts closed", async ({
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     const pluginPaneTab = page.locator(PLUGIN_PANE_TAB_SELECTOR);
     await expect(pluginPaneTab).toBeVisible({ timeout: 30000 });
@@ -312,7 +312,7 @@ test("plugin reveal_ui_setting respects durationMs when plugin runtime loads aft
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     const revealResult = await callMcpTool<RevealUISettingResult>(
       page,
@@ -368,14 +368,14 @@ test("plugin UI settings tools return plugin_unavailable when plugin is disabled
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     await postBackend(page, "/plugins/disable", {
       pluginId: PLUGIN_ID,
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     await expect(page.locator(PLUGIN_PANE_TAB_SELECTOR)).toHaveCount(0);
 
@@ -447,7 +447,7 @@ test("plugin reveal_ui_setting surfaces plugin handler failure details", async (
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     const pluginPaneTab = page.locator(PLUGIN_PANE_TAB_SELECTOR);
     await expect(pluginPaneTab).toBeVisible({ timeout: 30000 });
@@ -535,7 +535,7 @@ test("plugin reveal_ui_setting rejects non-boolean plugin handler results", asyn
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     const pluginPaneTab = page.locator(PLUGIN_PANE_TAB_SELECTOR);
     await expect(pluginPaneTab).toBeVisible({ timeout: 30000 });

@@ -170,7 +170,7 @@ param lists.
   the local `useParamDndChildren` map and moved with `pastHalfway` +
   `computeNewIndex` heuristics.
 - **Reparent (indent):** Drag horizontally to the right. When the horizontal
-  offset crosses the param trigger threshold (30px \* zoom), collisions report
+  offset crosses the param trigger threshold (30px * zoom), collisions report
   `triggerDistCondition` and `resolveParamDragParent` sets the new parent to the
   hovered param. Without crossing the threshold, the drop stays within the
   hovered param's parent.
@@ -188,10 +188,8 @@ param lists.
 
 ## Viewport and zoom
 
-- `adapter/zoom.ts` scales transforms by the CanvasFlow zoom factor stored in
-  the shared graph store.
-- `CanvasFlowInteractions` disables pan/zoom while dragging (`isSorting` or
-  `isMovingFree`).
+- `adapter/zoom.ts` scales transforms by the ReactFlow zoom factor.
+- `ZoomPane` disables pan/zoom while dragging (`isSorting` or `isMovingFree`).
 
 ## Other usage
 

@@ -195,7 +195,6 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
       });
       expect(downloadBinary).toHaveBeenCalledWith({
         path: { contentId: "content-1" },
-        parseAs: "blob",
       });
       expect(
         host.querySelector(

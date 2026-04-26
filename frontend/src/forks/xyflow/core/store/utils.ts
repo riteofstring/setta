@@ -1,8 +1,14 @@
+import { zoomIdentity } from "d3-zoom";
+
 import { getNodes } from "state/actions/nodeInternals";
 import { useSettings } from "state/definitions";
 import { useReactFlow } from ".";
 import type { FitViewOptions, ReactFlowState } from "../types";
-import { getNodesBounds, getViewportForBounds } from "../utils/graph";
+import {
+  getD3Transition,
+  getNodesBounds,
+  getViewportForBounds,
+} from "../utils/graph";
 
 type InternalFitViewOptions = {
   initial?: boolean;
@@ -11,6 +17,8 @@ type InternalFitViewOptions = {
 type FitViewRuntime = {
   width: number;
   height: number;
+  d3Zoom: NonNullable<ReactFlowState["d3Zoom"]>;
+  d3Selection: NonNullable<ReactFlowState["d3Selection"]>;
 };
 
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
@@ -19,13 +27,23 @@ function getFitViewRuntime(
   state: ReactFlowState,
   initial: boolean,
 ): FitViewRuntime | null {
-  const { width, height, fitViewOnInitDone, fitViewOnInit } = state;
+  const {
+    width,
+    height,
+    d3Zoom,
+    d3Selection,
+    fitViewOnInitDone,
+    fitViewOnInit,
+  } = state;
 
+  if (!d3Zoom || !d3Selection) {
+    return null;
+  }
   if (initial && (!fitViewOnInit || fitViewOnInitDone)) {
     return null;
   }
 
-  return { width, height };
+  return { width, height, d3Zoom, d3Selection };
 }
 
 function resolveFitViewZoomLimits(options: InternalFitViewOptions) {
@@ -56,11 +74,23 @@ function areNodesReadyForFitView(nodes: ReturnType<typeof getNodes>) {
 }
 
 function applyFitViewTransform(
+  runtime: FitViewRuntime,
   viewport: ReturnType<typeof getViewportForBounds>,
+  duration?: number,
 ) {
-  useReactFlow.setState({
-    transform: [viewport.x, viewport.y, viewport.zoom],
-  });
+  const nextTransform = zoomIdentity
+    .translate(viewport.x, viewport.y)
+    .scale(viewport.zoom);
+
+  if (typeof duration === "number" && duration > 0) {
+    runtime.d3Zoom.transform(
+      getD3Transition(runtime.d3Selection, duration),
+      nextTransform,
+    );
+    return;
+  }
+
+  runtime.d3Zoom.transform(runtime.d3Selection, nextTransform);
 }
 
 export function fitView(options: InternalFitViewOptions = {}) {
@@ -75,16 +105,16 @@ export function fitView(options: InternalFitViewOptions = {}) {
   }
 
   const zoomLimits = resolveFitViewZoomLimits(options);
-  const viewport = getViewportForBounds({
-    bounds: getNodesBounds(nodes),
-    height: runtime.height,
-    maxZoom: zoomLimits.maxZoom,
-    minZoom: zoomLimits.minZoom,
-    padding: options.padding ?? DEFAULT_FIT_VIEW_PADDING,
-    width: runtime.width,
-  });
+  const viewport = getViewportForBounds(
+    getNodesBounds(nodes),
+    runtime.width,
+    runtime.height,
+    zoomLimits.minZoom,
+    zoomLimits.maxZoom,
+    options.padding ?? DEFAULT_FIT_VIEW_PADDING,
+  );
 
-  applyFitViewTransform(viewport);
+  applyFitViewTransform(runtime, viewport, options.duration);
   return true;
 }
 

@@ -18,7 +18,7 @@ test("project ai chat overview pane renders the chat surface while the dock mana
 
   try {
     await page.reload();
-    await page.waitForSelector(".canvas-flow__canvas");
+    await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
     await expect(

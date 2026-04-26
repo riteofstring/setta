@@ -10,7 +10,8 @@ today and what those visuals mean.
 - Visual: thin gray line.
 - Meaning: standard `ProjectConfig.edges` dataflow/codegen wiring.
 - Source of truth:
-  - `frontend/src/canvasflow/canvasFlowEdges.ts`
+  - `frontend/src/forks/xyflow/core/components/Edges/BaseEdge.tsx`
+  - `frontend/src/forks/xyflow/core/styles/style.css`
 
 These standard section/param wiring edges are distinct from both agentic edges
 and workflow edges.
@@ -20,7 +21,8 @@ and workflow edges.
 - Visual: dashed blue line.
 - Meaning: `ProjectConfig.agenticEdges` chat-scope/context links.
 - Source of truth:
-  - `frontend/src/canvasflow/canvasFlowEdges.ts`
+  - `frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx`
+  - `frontend/src/forks/xyflow/core/styles/style.css`
 
 Agentic edges currently have three semantic kinds:
 
@@ -35,7 +37,8 @@ Those three kinds all use the same dashed blue family styling.
 - Visual: solid amber line.
 - Meaning: `ProjectConfig.stateMachineEdges` workflow/state-machine control-flow.
 - Source of truth:
-  - `frontend/src/canvasflow/canvasFlowEdges.ts`
+  - `frontend/src/forks/xyflow/core/container/StateMachineEdgeRenderer.tsx`
+  - `frontend/src/forks/xyflow/core/styles/style.css`
 
 Workflow edges share the same styling for details like `send_prompt`,
 `reset_thread`, or `signal` filters. The visual only answers the high-level

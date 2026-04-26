@@ -289,7 +289,7 @@ function getCurrentTopLevelSectionId(
   if (!activeElement) {
     return null;
   }
-  const sectionNode = activeElement.closest(".canvas-flow__node");
+  const sectionNode = activeElement.closest(".react-flow__node");
   if (!(sectionNode instanceof HTMLElement)) {
     return null;
   }
