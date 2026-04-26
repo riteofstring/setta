@@ -29,6 +29,12 @@ const DEFAULT_ISOLATION_VARIANTS = [
 ] as const;
 const CANVAS_FLOW_PERF_VARIANTS = [
   ...DEFAULT_ISOLATION_VARIANTS,
+  "node-chrome-hidden",
+  "node-controls-hidden",
+  "node-controls-plain",
+  "node-effects-off",
+  "node-shell-only",
+  "node-text-only",
   "snapshot-cache",
   "world-transform-nodes",
 ] as const;
@@ -632,11 +638,36 @@ async function setCanvasFlowPerfVariant(
       "snapshot-cache": "snapshot-cache",
       "world-transform-nodes": "world-transform-nodes",
     };
+    const nodeVariantByIsolationVariant: Record<string, string | undefined> = {
+      default: undefined,
+      "minimap-off": undefined,
+      "no-edges": undefined,
+      "node-chrome-hidden": "node-chrome-hidden",
+      "node-controls-hidden": "node-controls-hidden",
+      "node-controls-plain": "node-controls-plain",
+      "node-effects-off": "node-effects-off",
+      "node-shell-only": "node-shell-only",
+      "node-text-only": "node-text-only",
+      "rect-nodes": undefined,
+      "resize-observer-off": undefined,
+      "skip-transform": undefined,
+      "snapshot-cache": undefined,
+      "world-transform-nodes": undefined,
+    };
     const paintVariant = paintVariantByIsolationVariant[nextVariant];
     if (paintVariant) {
       windowRef.__settaCanvasFlowPerfVariant = paintVariant;
     } else {
       delete windowRef.__settaCanvasFlowPerfVariant;
+    }
+    const nodeVariant = nodeVariantByIsolationVariant[nextVariant];
+    const canvasFlowRoot = document.querySelector<HTMLElement>(".canvas-flow");
+    if (canvasFlowRoot) {
+      if (nodeVariant) {
+        canvasFlowRoot.dataset.nodePerfVariant = nodeVariant;
+      } else {
+        delete canvasFlowRoot.dataset.nodePerfVariant;
+      }
     }
     windowRef.__settaCanvasFlowPerfDisableResizeObserver =
       nextVariant === "resize-observer-off";
@@ -1287,6 +1318,7 @@ function renderMatrixReport(
     options.datasetDescription,
     "- Scripting, style, layout, task, and heap numbers come from Chrome `Performance.getMetrics` deltas around each gesture.",
     "- Paint and composite numbers are summed from a short CDP trace around each gesture. These trace buckets are diagnostic event sums, not mutually exclusive frame budget totals.",
+    "- Node content variants are CSS-only diagnostics layered on the same mounted nodes; they progressively hide or simplify node internals without changing the CanvasFlow draw path.",
     "- Raw JSON artifact, ignored by git: `" + options.artifactPath + "`.",
     "",
     "## Before",
