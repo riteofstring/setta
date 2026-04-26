@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -35,57 +34,6 @@ func TestResolvePluginBackendLaunchIncludesPluginRootOnPythonPath(t *testing.T) 
 	entries := filepath.SplitList(pythonPathEnv)
 	if len(entries) == 0 || entries[0] != pluginRoot {
 		t.Fatalf("expected plugin root %q to lead PYTHONPATH, got %#v", pluginRoot, entries)
-	}
-	if len(entries) != 1 {
-		t.Fatalf("expected only plugin root in PYTHONPATH, got %#v", entries)
-	}
-}
-
-func TestResolvePluginBackendLaunchForInstalledPythonPluginUsesOnlyPackageOwnedRoots(
-	t *testing.T,
-) {
-	pythonPath, _ := preparePluginLanguageServerFixture(t)
-	t.Setenv("SETTA_PYTHON", pythonPath)
-	t.Setenv("PYTHONPATH", "")
-
-	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	pluginRoot := writePythonBackendImportFixturePlugin(
-		t,
-		sitePackages,
-		"setta-python-backend-installed",
-	)
-	vendoredSitePackages := filepath.Join(pluginRoot, pythonBackendSitePackagesDirName)
-	if err := os.MkdirAll(vendoredSitePackages, 0o755); err != nil {
-		t.Fatalf("mkdir vendored site-packages: %v", err)
-	}
-	if err := os.WriteFile(
-		filepath.Join(vendoredSitePackages, "vendored_helper.py"),
-		[]byte("VALUE = 1\n"),
-		0o644,
-	); err != nil {
-		t.Fatalf("write vendored helper: %v", err)
-	}
-	if err := os.MkdirAll(
-		filepath.Join(sitePackages, "setta_python_backend_installed-0.1.0.dist-info"),
-		0o755,
-	); err != nil {
-		t.Fatalf("mkdir plugin dist-info: %v", err)
-	}
-
-	launch, err := ResolvePluginBackendLaunch(pluginRoot, PluginManifest{
-		ID: "setta-python-backend-installed",
-		Backend: &PluginBackendManifest{
-			Entrypoint: "backend/main.py",
-		},
-	}, t.TempDir())
-	if err != nil {
-		t.Fatalf("resolve python backend launch for installed plugin: %v", err)
-	}
-
-	entries := filepath.SplitList(launch.Environment["PYTHONPATH"])
-	want := []string{pluginRoot, vendoredSitePackages, sitePackages}
-	if !reflect.DeepEqual(entries, want) {
-		t.Fatalf("unexpected installed-plugin PYTHONPATH entries: got %#v want %#v", entries, want)
 	}
 }
 

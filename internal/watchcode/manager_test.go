@@ -36,6 +36,7 @@ func TestManagerSyncConfigsBuildsSnapshotsAndMatchesInputs(t *testing.T) {
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Files:   []string{"scripts/watch.py"},
 			Folders: []FolderInput{{Path: "pkg", Recursive: false}},
 		},
@@ -49,6 +50,7 @@ func TestManagerSyncConfigsBuildsSnapshotsAndMatchesInputs(t *testing.T) {
 		t.Fatalf("expected project snapshot, got %#v", snapshots)
 	}
 	expectedSnapshot := ConfigSnapshot{
+		Enabled:      true,
 		Files:        []string{watchFile},
 		Folders:      []FolderInput{{Path: pkgDir, Recursive: false}},
 		IgnoredRoots: []string{},
@@ -88,6 +90,7 @@ func TestManagerSyncConfigsUpgradesRecursiveFolders(t *testing.T) {
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "pkg", Recursive: false}},
 		},
 	}); err != nil {
@@ -103,6 +106,7 @@ func TestManagerSyncConfigsUpgradesRecursiveFolders(t *testing.T) {
 
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "pkg", Recursive: true}},
 		},
 	}); err != nil {
@@ -144,6 +148,7 @@ func TestManagerSyncConfigsDropsStaleScheduledState(t *testing.T) {
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "current", Recursive: false}},
 		},
 	}); err != nil {
@@ -156,6 +161,7 @@ func TestManagerSyncConfigsDropsStaleScheduledState(t *testing.T) {
 
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "other", Recursive: false}},
 		},
 	}); err != nil {
@@ -193,7 +199,12 @@ func TestManagerHandleFileEventSchedulesScanForMatchingPythonFiles(t *testing.T)
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
-			Files: []string{"pkg/watch.py"},
+			Enabled: true,
+			Files:   []string{"pkg/watch.py"},
+		},
+		"project-disabled": {
+			Enabled: false,
+			Files:   []string{"pkg/watch.py"},
 		},
 	}); err != nil {
 		t.Fatalf("sync configs: %v", err)
@@ -242,6 +253,7 @@ func TestManagerHandleFileEventIgnoresNonPythonAndIgnoredPaths(t *testing.T) {
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: ".", Recursive: true}},
 		},
 	}); err != nil {
@@ -303,6 +315,7 @@ func TestManagerHandleFileEventIgnoresEachDocumentedDefaultDirAndKeepsUserRuntim
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: ".", Recursive: true}},
 		},
 	}); err != nil {
@@ -363,6 +376,7 @@ func TestManagerHandleFileEventIgnoresConfiguredRootsByResolvedPath(t *testing.T
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled:      true,
 			Folders:      []FolderInput{{Path: ".", Recursive: true}},
 			IgnoredRoots: []string{stateRoot, configuredRuntimeRoot},
 		},
@@ -418,6 +432,7 @@ func TestManagerHandleFileEventSchedulesDeleteForTrackedDeletes(t *testing.T) {
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "pkg", Recursive: false}},
 		},
 	}); err != nil {
@@ -468,6 +483,7 @@ func TestManagerHandleFileEventSchedulesMoveScanForTrackedDestination(t *testing
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "tracked", Recursive: false}},
 		},
 	}); err != nil {
@@ -524,6 +540,7 @@ func TestManagerHandleFileEventSchedulesSourceDeleteWhenMoveLeavesTrackedInputs(
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "tracked", Recursive: false}},
 		},
 	}); err != nil {
@@ -573,9 +590,11 @@ func TestManagerHandleFileEventSplitsMoveAcrossConfigs(t *testing.T) {
 	}
 	if err := manager.SyncConfigs(map[string]ConfigInputs{
 		"project-alpha": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "source", Recursive: false}},
 		},
 		"project-beta": {
+			Enabled: true,
 			Folders: []FolderInput{{Path: "dest", Recursive: false}},
 		},
 	}); err != nil {

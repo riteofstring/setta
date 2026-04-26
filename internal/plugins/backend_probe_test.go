@@ -6,9 +6,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	backendruntime "setta/internal/appsubsystem/backendruntime"
-	"setta/internal/watchcodecontracts"
 )
 
 func TestNormalizeBackendProbeResponseRejectsInvalidRoutePaths(t *testing.T) {
@@ -218,133 +215,6 @@ func TestNormalizeBackendProbeResponseSortsNormalizedRegistrations(t *testing.T)
 	}
 }
 
-func TestNormalizeBackendProbeResponseValidatesAppSubsystemBackendContractVersion(
-	t *testing.T,
-) {
-	t.Parallel()
-
-	pluginRoot := t.TempDir()
-	normalized, err := normalizeBackendProbeResponse(
-		pluginRoot,
-		"setta-fixture-backend",
-		backendProbeResponse{
-			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
-				ContractVersion: backendruntime.AppSubsystemBackendContractVersion,
-				ListenerEndpoints: []PluginRegisteredListenerEndpoint{
-					{Name: "z-endpoint"},
-					{Name: "a-endpoint"},
-				},
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("normalize app subsystem backend registration: %v", err)
-	}
-	if normalized.AppSubsystemBackend == nil || normalized.AppSubsystemBackend.ContractVersion != backendruntime.AppSubsystemBackendContractVersion {
-		t.Fatalf("expected normalized app subsystem backend registration, got %#v", normalized.AppSubsystemBackend)
-	}
-	if got := []string{
-		normalized.AppSubsystemBackend.ListenerEndpoints[0].Name,
-		normalized.AppSubsystemBackend.ListenerEndpoints[1].Name,
-	}; !slices.Equal(got, []string{"a-endpoint", "z-endpoint"}) {
-		t.Fatalf("expected app subsystem listener endpoints sorted by name, got %#v", got)
-	}
-
-	_, err = normalizeBackendProbeResponse(
-		pluginRoot,
-		"setta-fixture-backend",
-		backendProbeResponse{
-			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
-				ContractVersion: backendruntime.AppSubsystemBackendContractVersion + 1,
-			},
-		},
-	)
-	if err == nil {
-		t.Fatal("expected unsupported app subsystem backend contract version to fail")
-	}
-	if !strings.Contains(err.Error(), "appSubsystemBackend: unsupported contract version") {
-		t.Fatalf("expected app subsystem backend version error, got %v", err)
-	}
-}
-
-func TestNormalizeBackendProbeResponseValidatesWatchCodeBackendRegistration(
-	t *testing.T,
-) {
-	t.Parallel()
-
-	pluginRoot := t.TempDir()
-	normalized, err := normalizeBackendProbeResponse(
-		pluginRoot,
-		"setta-fixture-backend",
-		backendProbeResponse{
-			WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
-				ContractVersion:        watchcodecontracts.BackendContractVersion,
-				DataSchemaVersion:      watchcodecontracts.BackendDataSchemaVersion,
-				Languages:              []string{" Python "},
-				RequiresLanguageServer: true,
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("normalize watch code backend registration: %v", err)
-	}
-	if normalized.WatchCodeBackend == nil {
-		t.Fatal("expected normalized watch code backend registration")
-	}
-	if !slices.Equal(normalized.WatchCodeBackend.Languages, []string{"python"}) {
-		t.Fatalf("expected normalized watch code languages, got %#v", normalized.WatchCodeBackend.Languages)
-	}
-	if !normalized.WatchCodeBackend.RequiresLanguageServer {
-		t.Fatalf("expected language server requirement to survive normalization, got %#v", normalized.WatchCodeBackend)
-	}
-
-	_, err = normalizeBackendProbeResponse(
-		pluginRoot,
-		"setta-fixture-backend",
-		backendProbeResponse{
-			WatchCodeBackend: &backendProbeWatchCodeBackendRegistration{
-				ContractVersion:   watchcodecontracts.BackendContractVersion + 1,
-				DataSchemaVersion: watchcodecontracts.BackendDataSchemaVersion,
-				Languages:         []string{"python"},
-			},
-		},
-	)
-	if err == nil {
-		t.Fatal("expected unsupported watch code backend contract version to fail")
-	}
-	if !strings.Contains(err.Error(), "watchCodeBackend: unsupported contract version") {
-		t.Fatalf("expected watch code backend contract version error, got %v", err)
-	}
-}
-
-func TestNormalizeBackendProbeResponseRejectsDuplicateGenericAndAppSubsystemListenerEndpoint(
-	t *testing.T,
-) {
-	t.Parallel()
-
-	_, err := normalizeBackendProbeResponse(
-		t.TempDir(),
-		"setta-fixture-backend",
-		backendProbeResponse{
-			ListenerEndpoints: []PluginRegisteredListenerEndpoint{
-				{Name: "appsubsystem_get_app_definition"},
-			},
-			AppSubsystemBackend: &backendProbeAppSubsystemBackendRegistration{
-				ContractVersion: backendruntime.AppSubsystemBackendContractVersion,
-				ListenerEndpoints: []PluginRegisteredListenerEndpoint{
-					{Name: "appsubsystem_get_app_definition"},
-				},
-			},
-		},
-	)
-	if err == nil {
-		t.Fatal("expected duplicate generic/app-subsystem listener endpoint to fail")
-	}
-	if !strings.Contains(err.Error(), "published through both generic listenerEndpoints and appSubsystemBackend.listenerEndpoints") {
-		t.Fatalf("expected duplicate listener endpoint error, got %v", err)
-	}
-}
-
 func TestNormalizeBackendLanguageServerRegistrationResolvesPluginRelativeCommand(t *testing.T) {
 	// Plugin language-server commands should resolve relative filesystem paths against the plugin root.
 	pluginRoot := t.TempDir()
@@ -421,25 +291,6 @@ func TestNormalizeBackendLanguageServerRegistrationPreservesCustomSettingsKey(t 
 	}
 	if normalized.SettingsKey == nil || *normalized.SettingsKey != "fixtureDslLanguageServer" {
 		t.Fatalf("expected custom settings key to be preserved, got %#v", normalized.SettingsKey)
-	}
-}
-
-func TestNormalizeBackendLanguageServerRegistrationPreservesRuntimeSearchPathsKey(t *testing.T) {
-	pluginRoot := t.TempDir()
-	runtimeSearchPathsKey := " fixtureDslLanguageServer.analysis.extraPaths "
-
-	normalized, err := normalizeBackendLanguageServerRegistration(pluginRoot, "setta-fixture-backend", PluginRegisteredLanguageServer{
-		Name:                  "Fixture DSL",
-		Language:              "FixtureDSL",
-		Command:               "python3",
-		Args:                  []string{"--stdio"},
-		RuntimeSearchPathsKey: &runtimeSearchPathsKey,
-	})
-	if err != nil {
-		t.Fatalf("normalize backend language server registration: %v", err)
-	}
-	if normalized.RuntimeSearchPathsKey == nil || *normalized.RuntimeSearchPathsKey != "fixtureDslLanguageServer.analysis.extraPaths" {
-		t.Fatalf("expected runtime search paths key to be preserved, got %#v", normalized.RuntimeSearchPathsKey)
 	}
 }
 
@@ -723,26 +574,6 @@ func TestNormalizeBackendUISettingRegistrationDefaultWritable(t *testing.T) {
 	rawSchema["type"] = "string"
 	if registration.ValueSchema["type"] != "boolean" {
 		t.Fatalf("expected cloned value schema, got %#v", registration.ValueSchema)
-	}
-}
-
-func TestNormalizeBackendUISettingRegistrationAllowsPaneLessBackendSetting(t *testing.T) {
-	t.Parallel()
-
-	registration, err := normalizeBackendUISettingRegistration("plugin.test", map[string]any{
-		"id":             "setting-id",
-		"title":          "Setting Title",
-		"description":    "Description",
-		"revealKey":      "reveal.key",
-		"valueSchema":    map[string]any{"type": "boolean"},
-		"readHandlerId":  "read-handler",
-		"writeHandlerId": "write-handler",
-	})
-	if err != nil {
-		t.Fatalf("normalize pane-less backend ui setting registration: %v", err)
-	}
-	if registration.PaneID != "" {
-		t.Fatalf("expected pane-less backend setting, got pane id %q", registration.PaneID)
 	}
 }
 

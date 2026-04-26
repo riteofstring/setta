@@ -1,4 +1,3 @@
-import { getErrorDetail, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
@@ -10,6 +9,7 @@ import {
 } from "state/actions/stateMachineEdges";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   SectionTypeEnum,
   StateMachineUIConfig,

@@ -5,18 +5,28 @@ import type {
   ZoomBehavior,
 } from "d3";
 
+import { Position } from "utils/generatedTypes";
 import type {
   ConnectingHandle,
   ConnectionMode,
   ConnectionStatus,
-  CoordinateExtent,
-  FitViewOptions,
-  Rect,
-  Transform,
-} from "gpuFlow/flowTypes";
-import { Position } from "utils/generatedTypes";
+} from "./edges";
+import type { Node } from "./nodes";
+import type { CoordinateExtent, Rect, Transform } from "./utils";
 
-export type { FitViewOptions, Viewport } from "gpuFlow/flowTypes";
+export type FitViewOptions = {
+  padding?: number;
+  minZoom?: number;
+  maxZoom?: number;
+  duration?: number;
+  nodes?: (Partial<Node> & { id: Node["id"] })[];
+};
+
+export type Viewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
 
 export type ReactFlowStore = {
   width: number;
@@ -72,6 +82,14 @@ type ReactFlowActions = {
 };
 
 export type ReactFlowState = ReactFlowStore & ReactFlowActions;
+
+export type PanelPosition =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
 
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 

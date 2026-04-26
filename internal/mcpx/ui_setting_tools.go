@@ -488,31 +488,15 @@ func resolveScopedUISettingRegistry(
 	}
 
 	registry, err := uisettings.NewScopedRegistry(uisettings.ScopedRegistryOptions{
-		Runtime:                  projectState,
-		WorkspaceRoot:            workspaceRoot,
-		PluginService:            server.pluginMutations,
-		UnavailableSettings:      buildUnavailableUISettingProviders(server),
-		ProjectAISettings:        buildProjectAISettingProviders(server),
-		ContributedEntryBuilders: buildScopedUISettingEntryBuilders(server),
+		Runtime:           projectState,
+		WorkspaceRoot:     workspaceRoot,
+		PluginService:     server.pluginMutations,
+		ProjectAISettings: buildProjectAISettingProviders(server),
 	})
 	if err != nil {
 		return "", nil, newToolError("internal_error", "UI setting registry is unavailable: %s", err.Error())
 	}
 	return projectConfigID, registry, nil
-}
-
-func buildScopedUISettingEntryBuilders(server *Server) []uisettings.RuntimeEntryBuilder {
-	if server == nil || len(server.contributedUISettingBuilders) == 0 {
-		return nil
-	}
-	return append([]uisettings.RuntimeEntryBuilder(nil), server.contributedUISettingBuilders...)
-}
-
-func buildUnavailableUISettingProviders(server *Server) []uisettings.UnavailableSettingProvider {
-	if server == nil || len(server.unavailableUISettings) == 0 {
-		return nil
-	}
-	return append([]uisettings.UnavailableSettingProvider(nil), server.unavailableUISettings...)
 }
 
 func buildProjectAISettingProviders(server *Server) uisettings.ProjectAISettingProviders {

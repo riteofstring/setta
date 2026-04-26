@@ -94,7 +94,7 @@ canonical `project_config_id_required` error when it is missing:
 - Helper: `backend/setta/logging/tasks.py::spawn_background_task`
   - Attaches a canonical “task context” (`task`, plus optional ids) and runs the task
     under that context.
-  - Preserves contextvars across task boundaries so logs from the task contain
+  - Preserves contextvars across task boundaries so logs from the task still contain
     request/websocket/project identifiers when provided.
 
 ## Redaction
@@ -143,7 +143,7 @@ It:
   exception to propagate to the task and be detectable via awaiting or
   `task.exception()`.
 
-Python listener/share helpers use `re_raise=True` selectively for
+Python listener/share helpers still use `re_raise=True` selectively for
 must-succeed background tasks and use the default (swallow) for many long-lived
 or optional loops.
 

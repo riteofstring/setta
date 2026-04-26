@@ -4,7 +4,12 @@
   "title": "Setta Plugin Manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "id", "name", "version"],
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "version"
+  ],
   "properties": {
     "schemaVersion": {
       "type": "integer",
@@ -42,18 +47,7 @@
       "required": ["entrypoint"],
       "properties": {
         "entrypoint": { "type": "string", "minLength": 1 },
-        "style": { "type": "string", "minLength": 1 },
-        "build": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["packageManager"],
-          "properties": {
-            "packageManager": {
-              "type": "string",
-              "enum": ["pnpm"]
-            }
-          }
-        }
+        "style": { "type": "string", "minLength": 1 }
       }
     },
     "content": {
@@ -69,29 +63,6 @@
       "type": "string",
       "minLength": 1
     },
-    "featureCapabilities": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "appSubsystem": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "appAuthoringUi": { "type": "boolean" },
-            "appPreviewUi": { "type": "boolean" },
-            "appGenerationChatModes": { "type": "boolean" },
-            "appDeploymentRuntime": { "type": "boolean" }
-          }
-        },
-        "watchCode": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "canvasControlsUi": { "type": "boolean" }
-          }
-        }
-      }
-    },
     "capabilities": {
       "type": "array",
       "items": {
@@ -99,24 +70,12 @@
         "enum": [
           "registerSectionKinds",
           "registerPane",
-          "registerSettingRevealHandler",
           "registerCommand",
           "registerTopNavBarItem",
-          "registerCanvasControl",
           "registerContextMenu",
           "readProjectState",
           "subscribeProjectState",
           "emitListenerEvents",
-          "registerMcpTools",
-          "registerLanguageServer",
-          "registerExternalAgentAdapter",
-          "registerCodegenTarget",
-          "registerRouter",
-          "registerListenerEndpoint",
-          "registerStaticDir",
-          "registerAppSubsystemBackend",
-          "registerWatchCodeBackend",
-          "registerUISettings",
           "writeWorkspacePlugins"
         ]
       },

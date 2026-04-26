@@ -1,8 +1,8 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import {
   saveAsNewProjectConfig as saveAsNewProjectConfigRequest,
   saveProject as saveProjectRequest,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useProjectState } from "state/definitions";
 import { NotificationTypeEnum } from "utils/generatedTypes";
 import { flushQueuedArtifacts } from "../artifacts";

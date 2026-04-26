@@ -22,7 +22,7 @@ func TestResolveMCPRuntimeDisplayServersMergesSharedServerMetadata(t *testing.T)
 				Endpoint:        " http://127.0.0.1:8000/mcp ",
 				State:           mcpx.RuntimeStateConnected,
 				LastConnectedAt: &lastConnectedAt,
-				ToolCount:       74,
+				ToolCount:       79,
 			},
 		},
 		[]mcpx.ServerRuntimeStatus{
@@ -48,7 +48,7 @@ func TestResolveMCPRuntimeDisplayServersMergesSharedServerMetadata(t *testing.T)
 	if resolved[0].State != mcpx.RuntimeStateError {
 		t.Fatalf("expected external state precedence, got %#v", resolved[0].State)
 	}
-	if resolved[0].ToolCount != 74 {
+	if resolved[0].ToolCount != 79 {
 		t.Fatalf("expected setta tool count fallback, got %#v", resolved[0].ToolCount)
 	}
 	if resolved[0].ConsecutiveFailures != 2 {
@@ -63,7 +63,7 @@ func TestResolveMCPRuntimeDisplayServersMergesSharedServerMetadata(t *testing.T)
 	if resolved[0].LastError == nil || *resolved[0].LastError != "upstream timeout" {
 		t.Fatalf("expected trimmed external error, got %#v", resolved[0].LastError)
 	}
-	if resolved[0].QuickInfo != "Error: upstream timeout | 74 tools" {
+	if resolved[0].QuickInfo != "Error: upstream timeout | 79 tools" {
 		t.Fatalf("unexpected quick info %#v", resolved[0].QuickInfo)
 	}
 }

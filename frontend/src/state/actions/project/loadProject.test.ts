@@ -13,11 +13,14 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
+import {
+  OverviewTabNameEnum,
+  PAGE_LOAD_TYPES,
+  pathRelativeToProject,
+} from "utils/constants";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
-  OverviewTabUIConfig,
   createLSPDiagnosticsPayload,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
@@ -76,14 +79,9 @@ vi.mock("openapi/http", async () => {
   };
 });
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: (promise: Promise<unknown>) => callOpenAPIMock(promise),
+}));
 
 vi.mock("../serverMode", () => ({
   initializeServerMode: () => initializeServerModeMock(),
@@ -321,7 +319,7 @@ describe("useCreateAndGoToProjectConfig", () => {
         },
       });
       expect(useLocalStorage.getState().overviewTab).toBe(
-        OverviewTabUIConfig.names.ProjectAIChat,
+        OverviewTabNameEnum.ProjectAIChat,
       );
       expect(navigateMock).toHaveBeenCalledWith(
         pathRelativeToProject("Created Project"),

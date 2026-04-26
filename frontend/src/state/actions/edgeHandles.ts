@@ -1,19 +1,15 @@
-import type { HandlePosition, HandleType } from "gpuFlow/flowTypes";
-import { screenToFlowPosition } from "gpuFlow/viewportActions";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import type { HandlePosition, HandleType } from "forks/xyflow/core/types";
 import type { EdgeHandleRecord } from "state/definitions";
 import { useEdgeHandleRegistry } from "state/definitions";
-import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 
-type EdgeHandlePosition = NonNullable<
-  ReturnType<typeof useEdgeHandleRegistry.getState>["positions"][string]
->;
-
-type EdgeHandlePositionUpdate = {
-  key: string;
-  record: EdgeHandleRecord;
-  x: number;
-  y: number;
-};
+export function makeEdgeHandleKey(
+  sectionId: string,
+  portId: string,
+  type: HandleType,
+) {
+  return `${sectionId}:${portId}:${type}`;
+}
 
 function getHandleCenter(element: HTMLElement) {
   const rect = element.getBoundingClientRect();
@@ -40,34 +36,29 @@ export function registerEdgeHandlesWithSharedElement({
     return;
   }
   const center = getHandleCenter(element);
-  const { x, y } = screenToFlowPosition(center);
-  const current = useEdgeHandleRegistry.getState();
-  const nextHandles = { ...current.handles };
-  const nextPositions = { ...current.positions };
-  for (const portId of portIds) {
-    const key = makeEdgeHandleKey(sectionId, portId, type);
-    nextHandles[key] = {
-      sectionId,
-      portId,
-      type,
-      side,
-      element,
-    };
-    const prev = nextPositions[key];
-    if (!prev || prev.x !== x || prev.y !== y || prev.side !== side) {
-      nextPositions[key] = {
+  const { x, y } = screenToFlowPosition(center, true);
+  useEdgeHandleRegistry.setState((state) => {
+    for (const portId of portIds) {
+      const key = makeEdgeHandleKey(sectionId, portId, type);
+      state.handles[key] = {
         sectionId,
         portId,
         type,
         side,
-        x,
-        y,
+        element,
       };
+      const prev = state.positions[key];
+      if (!prev || prev.x !== x || prev.y !== y || prev.side !== side) {
+        state.positions[key] = {
+          sectionId,
+          portId,
+          type,
+          side,
+          x,
+          y,
+        };
+      }
     }
-  }
-  useEdgeHandleRegistry.setState({
-    handles: nextHandles,
-    positions: nextPositions,
   });
 }
 
@@ -76,35 +67,29 @@ function setHandlePosition(key: string, record: EdgeHandleRecord) {
     return false;
   }
   const center = getHandleCenter(record.element);
-  const { x, y } = screenToFlowPosition(center);
-  const current = useEdgeHandleRegistry.getState();
-  const prev = current.positions[key];
-  if (prev && prev.x === x && prev.y === y && prev.side === record.side) {
-    return false;
-  }
-  useEdgeHandleRegistry.setState({
-    positions: {
-      ...current.positions,
-      [key]: {
+  const { x, y } = screenToFlowPosition(center, true);
+  let updated = false;
+  useEdgeHandleRegistry.setState((state) => {
+    const prev = state.positions[key];
+    if (!prev || prev.x !== x || prev.y !== y || prev.side !== record.side) {
+      state.positions[key] = {
         sectionId: record.sectionId,
         portId: record.portId,
         type: record.type,
         side: record.side,
         x,
         y,
-      },
-    },
+      };
+      updated = true;
+    }
   });
-  return true;
+  return updated;
 }
 
 export function registerEdgeHandle(record: EdgeHandleRecord) {
   const key = makeEdgeHandleKey(record.sectionId, record.portId, record.type);
-  useEdgeHandleRegistry.setState({
-    handles: {
-      ...useEdgeHandleRegistry.getState().handles,
-      [key]: record,
-    },
+  useEdgeHandleRegistry.setState((state) => {
+    state.handles[key] = record;
   });
   setHandlePosition(key, record);
   return key;
@@ -116,17 +101,11 @@ export function unregisterEdgeHandle(
   type: HandleType,
 ) {
   const key = makeEdgeHandleKey(sectionId, portId, type);
-  const current = useEdgeHandleRegistry.getState();
-  if (!current.handles[key]) {
-    return;
-  }
-  const nextHandles = { ...current.handles };
-  const nextPositions = { ...current.positions };
-  delete nextHandles[key];
-  delete nextPositions[key];
-  useEdgeHandleRegistry.setState({
-    handles: nextHandles,
-    positions: nextPositions,
+  useEdgeHandleRegistry.setState((state) => {
+    if (state.handles[key]) {
+      delete state.handles[key];
+      delete state.positions[key];
+    }
   });
 }
 
@@ -149,20 +128,18 @@ function updateEdgeHandlePositionsForSections(sectionIds: string[]) {
   if (sectionIds.length === 0) {
     return;
   }
-  const updates = collectEdgeHandlePositionUpdates(sectionIds);
-  applyEdgeHandlePositionUpdates(updates);
-}
-
-function collectEdgeHandlePositionUpdates(
-  sectionIds: string[],
-): EdgeHandlePositionUpdate[] {
   const sectionIdSet = new Set(sectionIds);
-  const handles = useEdgeHandleRegistry.getState().handles;
+  const { handles } = useEdgeHandleRegistry.getState();
   const flowPositionsByElement = new Map<
     HTMLElement,
     { x: number; y: number }
   >();
-  const updates: EdgeHandlePositionUpdate[] = [];
+  const updates: Array<{
+    key: string;
+    record: EdgeHandleRecord;
+    x: number;
+    y: number;
+  }> = [];
 
   for (const [key, record] of Object.entries(handles)) {
     if (!sectionIdSet.has(record.sectionId)) {
@@ -172,10 +149,12 @@ function collectEdgeHandlePositionUpdates(
     if (!element) {
       continue;
     }
-    const flowPosition = getCachedHandleFlowPosition(
-      element,
-      flowPositionsByElement,
-    );
+    let flowPosition = flowPositionsByElement.get(element);
+    if (!flowPosition) {
+      const center = getHandleCenter(element);
+      flowPosition = screenToFlowPosition(center, true);
+      flowPositionsByElement.set(element, flowPosition);
+    }
     updates.push({
       key,
       record,
@@ -184,62 +163,30 @@ function collectEdgeHandlePositionUpdates(
     });
   }
 
-  return updates;
-}
-
-function getCachedHandleFlowPosition(
-  element: HTMLElement,
-  flowPositionsByElement: Map<HTMLElement, { x: number; y: number }>,
-) {
-  const cached = flowPositionsByElement.get(element);
-  if (cached) {
-    return cached;
-  }
-  const center = getHandleCenter(element);
-  const flowPosition = screenToFlowPosition(center);
-  flowPositionsByElement.set(element, flowPosition);
-  return flowPosition;
-}
-
-function applyEdgeHandlePositionUpdates(updates: EdgeHandlePositionUpdate[]) {
   if (updates.length === 0) {
     return;
   }
 
-  const current = useEdgeHandleRegistry.getState();
-  let nextPositions: Record<string, EdgeHandlePosition> | null = null;
-  for (const entry of updates) {
-    const prev = current.positions[entry.key];
-    if (!hasEdgeHandlePositionChanged(prev, entry)) {
-      continue;
+  useEdgeHandleRegistry.setState((state) => {
+    for (const entry of updates) {
+      const prev = state.positions[entry.key];
+      if (
+        !prev ||
+        prev.x !== entry.x ||
+        prev.y !== entry.y ||
+        prev.side !== entry.record.side
+      ) {
+        state.positions[entry.key] = {
+          sectionId: entry.record.sectionId,
+          portId: entry.record.portId,
+          type: entry.record.type,
+          side: entry.record.side,
+          x: entry.x,
+          y: entry.y,
+        };
+      }
     }
-    nextPositions ??= { ...current.positions };
-    nextPositions[entry.key] = {
-      sectionId: entry.record.sectionId,
-      portId: entry.record.portId,
-      type: entry.record.type,
-      side: entry.record.side,
-      x: entry.x,
-      y: entry.y,
-    };
-  }
-  if (nextPositions) {
-    useEdgeHandleRegistry.setState({
-      positions: nextPositions,
-    });
-  }
-}
-
-function hasEdgeHandlePositionChanged(
-  prev: EdgeHandlePosition | undefined,
-  entry: EdgeHandlePositionUpdate,
-) {
-  return (
-    !prev ||
-    prev.x !== entry.x ||
-    prev.y !== entry.y ||
-    prev.side !== entry.record.side
-  );
+  });
 }
 
 let pendingHandleUpdateFrame: number | null = null;

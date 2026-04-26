@@ -1,4 +1,4 @@
-import { HandlePosition, type HandleType } from "gpuFlow/flowTypes";
+import { HandlePosition, type HandleType } from "forks/xyflow/core/types";
 import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
 import {

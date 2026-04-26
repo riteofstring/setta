@@ -74,7 +74,7 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `reference/param-sweeps.md` – how to run parameter sweeps via the Python runner API.
 - `reference/section-colors.md` – section `tagColor`/`styleColor` model, routes, UI behavior, and guardrails.
 - `reference/section-sizing-and-ux.md` – default section sizes, sizing rules, and resize UX.
-- `reference/watch-code.md` – plugin-backed Watch Code provider, state, and sync behavior.
+- `reference/watch-code.md` – watch-mode notes for code sections.
 - `skill-catalog/README.md` – catalog location for Setta-maintained skill docs and runtime-root notes.
 
 ## Notes

@@ -134,7 +134,6 @@ func RegisterAttachmentRoutes(router chi.Router, deps AttachmentRouteDependencie
 			withOpenAPITags("Attachment"),
 			withOpenAPISummary("Build a signed download URL for a single chat attachment."),
 			withOpenAPIModeRequirement("not-launcher"),
-			withOpenAPIAppSubsystemFrontendSDK(),
 		)
 		registerOpenAPIPost[GetAttachmentDownloadURLsRequest, []AttachmentDownloadURLEntry](
 			router.With(guard),
@@ -156,7 +155,6 @@ func RegisterAttachmentRoutes(router chi.Router, deps AttachmentRouteDependencie
 		withOpenAPITags("Attachment"),
 		withOpenAPISummary("Build a signed download URL for a single chat attachment."),
 		withOpenAPIModeRequirement("not-launcher"),
-		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	registerOpenAPIPost[GetAttachmentDownloadURLsRequest, []AttachmentDownloadURLEntry](
 		router.With(guard),

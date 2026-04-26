@@ -23,17 +23,11 @@ vi.mock("openapi/http", () => ({
   uploadBinary: attachmentManagerMocks.uploadBinaryMock,
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: function <T>(promise: Promise<T>) {
-      return promise;
-    },
-    getAttachmentPolicy: attachmentManagerMocks.getAttachmentPolicyMock,
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: function <T>(promise: Promise<T>) {
+    return promise;
+  },
+}));
 
 vi.mock("state/actions/modal", () => ({
   openDropzoneFilePickerModal: vi.fn(),
@@ -55,6 +49,16 @@ vi.mock("state/hooks/share", () => ({
     canEditParams: true,
   }),
 }));
+
+vi.mock("utils/attachmentPolicy", async () => {
+  const actual = await vi.importActual<typeof import("utils/attachmentPolicy")>(
+    "utils/attachmentPolicy",
+  );
+  return {
+    ...actual,
+    getAttachmentPolicy: attachmentManagerMocks.getAttachmentPolicyMock,
+  };
+});
 
 type AttachmentManagerHarnessState = ReturnType<
   typeof useChatAttachmentManager

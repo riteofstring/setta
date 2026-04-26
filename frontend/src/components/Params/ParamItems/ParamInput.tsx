@@ -1,7 +1,6 @@
-import type { DropzoneStatelessAttachment } from "@setta/app-subsystem-frontend-sdk";
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { getPasswordParamValue, setParamEnteredValue } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -17,6 +16,8 @@ import {
 } from "state/actions/websocketReceive";
 import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
+import type { DropzoneStatelessAttachment } from "utils/dropzone";
+import { res200 } from "utils/endpointUtils";
 import {
   BaseChildlessCodeObjImplUnion,
   BinaryDependencyValue,

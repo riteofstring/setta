@@ -11,7 +11,6 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { resetProjectStores } from "state/utils";
 import {
   createCore,
@@ -20,6 +19,7 @@ import {
   type Edge,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { makeEdgeHandleKey } from "./edgeHandles";
 import {
   createEdgeFromConnection,
   deleteSelectedEdges,

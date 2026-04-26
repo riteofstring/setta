@@ -1,6 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Dialog from "@radix-ui/react-dialog";
-import { formatBytes } from "@setta/app-subsystem-frontend-sdk";
 import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
 import {
   CodeBlock,
@@ -69,6 +68,7 @@ import {
   isImageAttachment,
   isTextAttachment,
 } from "utils/attachmentPreview";
+import { formatBytes } from "utils/attachments";
 import { C } from "utils/c";
 import {
   type AskUserQuestionPayload,

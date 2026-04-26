@@ -11,8 +11,6 @@ Principles:
 
 Current fixtures:
 
-- `app-subsystem-unknown-id/`: unknown-id app-subsystem frontend fixture used
-  to prove provider loading stays plugin-id-agnostic.
 - `backend/`: backend-only plugin shell with a minimal Go entrypoint.
 - `backend-mcp-tools/`: Go-backed backend plugin that exposes stdio MCP tools.
 - `frontend/`: frontend-only plugin with generated ESM/CSS and section/pane/command registration.
@@ -39,8 +37,8 @@ Target fixture catalog (coverage baseline):
 
 Current count:
 
-- 23 fixture directories are currently present under `tests/fixtures/plugins/`.
-- 17 are standalone plugin roots (`setta.plugin.json` at fixture root).
+- 22 fixture directories are currently present under `tests/fixtures/plugins/`.
+- 16 are standalone plugin roots (`setta.plugin.json` at fixture root).
 - 1 (`metadata-mismatch-layout`) is an intentional multi-root archive fixture.
 
 Each fixture should include:
@@ -49,8 +47,7 @@ Each fixture should include:
 - minimal implementation required to exercise its feature
 - a short `README.md` describing purpose, capabilities, and expected behavior
 
-Each fixture is intentionally minimal but valid for `setta plugins validate`
-unless it is an explicit failure fixture for deterministic error paths.
+Each fixture is intentionally minimal but valid for `setta plugins validate` unless it is an explicit failure fixture used to test deterministic error paths.
 
 Build fixture frontend assets:
 

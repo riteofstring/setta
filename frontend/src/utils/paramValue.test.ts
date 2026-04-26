@@ -1,7 +1,9 @@
-import { shouldShowPasswordReveal } from "@setta/app-subsystem-frontend-sdk";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { shouldEmitRealtimeValue } from "./paramValue";
+import {
+  shouldEmitRealtimeValue,
+  shouldShowPasswordReveal,
+} from "./paramValue";
 
 describe("shouldEmitRealtimeValue", () => {
   it("returns false when the value is unchanged", () => {

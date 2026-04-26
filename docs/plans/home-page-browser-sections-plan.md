@@ -14,10 +14,9 @@
 ## Non-goals
 - Changing how project metadata is loaded (`loadAllProjectMetadata`) or backend project storage.
 - Changing the thumbnail “look” (node color, mask, sizing) unless required for parity.
-- Keeping a second implementation path for the current home page thumbnail code
-  after replacement.
+- Introducing backwards compatibility (we can delete old home page thumbnail code once replaced).
 
-## Implementation Context
+## Current Implementation (Feb 2026)
 - Home page projects grid + SVG thumbnail:
   - `frontend/src/components/Pages/Home/HomePage.tsx`
   - “Thumbnail” is `PreviewImg` which builds nodes from `ProjectConfig.topLevelSections` and renders `MinimapSvg`.
@@ -42,7 +41,7 @@ Create a dedicated component that renders the current minimap SVG, so it can be 
     - Use `useMemo` for node list + bounds math
     - Consider `React.memo` if the props are stable
 
-This preserves SVG thumbnail views while allowing the home page to switch to Browser-style layout.
+This preserves the “SVG thumbnail views we still have” while allowing the home page to switch to Browser-style layout.
 
 ### 2) Extract reusable “Browser view” UI primitives from `BrowserArea.tsx`
 The Browser section already has the UI patterns we want (view selector + icon grid + carousel). Today they’re embedded in `BrowserArea.tsx` and coupled to `FolderContentItem`.
@@ -90,7 +89,7 @@ View modes:
   - Use `BrowserAreaViewModeEnum` values for consistency (`list`, `thumbnail`, `carousel`)
   - Persist to localStorage (optional but recommended for UX parity with Browser section)
 
-Rendering requirements:
+Rendering requirements (parity with current behavior):
 - Icon view (thumbnail grid):
   - Each project tile uses `ProjectMinimapThumbnail` (SVG) as the thumbnail content.
   - Keep the existing `project.previewImgColor` background behavior from `HomePage.tsx`.
@@ -122,7 +121,7 @@ Navigation + selection semantics:
 
 ## Implementation Phases
 ### Phase A: Extraction (no home page behavior change yet)
-1. Add `ProjectMinimapThumbnail.tsx` and swap `HomePage.tsx` to use it in the existing grid.
+1. Add `ProjectMinimapThumbnail.tsx` and swap `HomePage.tsx` to use it (still the existing grid).
 2. Extract Browser primitives out of `BrowserArea.tsx` into `components/BrowserViews/*`.
 3. Update `BrowserArea.tsx` to use the extracted primitives (no behavior change).
 
@@ -130,12 +129,12 @@ Navigation + selection semantics:
 1. Add `ProjectBrowser.tsx` implementing list/icon/carousel.
 2. Add `useHomePageProjectBrowserViewMode` store + optional persistence.
 3. Update `frontend/src/components/Pages/Home/HomePage.tsx` to render `ProjectBrowser` instead of the current grid card implementation.
-4. Delete unused components inside `HomePage.tsx` (`ProjectItem`, `PreviewImg`, etc.), keeping only high-level orchestration.
+4. Delete now-dead components inside `HomePage.tsx` (old `ProjectItem`, `PreviewImg`, etc.), keeping only high-level orchestration.
 
 ### Phase C: Polish + parity checks
-- Verify SVG thumbnails match the current appearance in icon view.
+- Verify SVG thumbnails match the old appearance in icon view.
 - Ensure carousel thumbnail strip uses SVG thumbnails (no regressions to icon placeholders).
-- Ensure selection mode + share mode behaviors match home behavior.
+- Ensure selection mode + share mode behaviors still match current home behavior.
 - Confirm layout works for small screens (thumbnail grid wrapping, carousel sizing).
 
 ## Testing Plan
@@ -160,7 +159,7 @@ Navigation + selection semantics:
   - Share mode coverage can be a follow-up if not already exercised elsewhere.
 
 ## Verification Checklist (when implementing)
-- CDP visual check: confirm icon + carousel thumbnails are SVG minimaps and match the current home cards.
+- CDP visual check: confirm icon + carousel thumbnails are SVG minimaps and match the old home cards.
 - Performance: with a large number of projects, confirm view switching does not cause large layout thrash or excessive re-rendering.
 
 ## Risks / Notes
@@ -168,6 +167,6 @@ Navigation + selection semantics:
 - Ensure we don’t accidentally depend on `setta_files` for tests (E2E should create configs via UI, not by relying on existing local state).
 
 ## Open Questions
-- Default home page view mode: should it start in `thumbnail` or `list`?
+- Default home page view mode: should it start in `thumbnail` (current behavior) or `list` (Browser default)?
 - Should the view mode persist across reloads (localStorage), or reset each session?
 - Should list view include thumbnails, or be text-only for maximum performance?

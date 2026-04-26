@@ -3,7 +3,7 @@
 Setta has three runtime modes. IDE mode is the full interactive editor. Share
 mode serves a read-only deployment snapshot with per-viewer sessions and policy
 gates. App mode serves an app deployment snapshot (AppSpec + theme + assets)
-through an active app-subsystem provider with the same session + policy model.
+with the same session + policy model.
 
 Share mode and app mode are both "deployment modes": auth is disabled and
 stateful routes require a `shareSessionId`.
@@ -11,9 +11,7 @@ stateful routes require a `shareSessionId`.
 ## Quick comparison
 - IDE mode: full editing, LSP, settings + project management, auth-protected, writes to `setta_files`.
 - Share mode: deployment snapshot, per-viewer session state in memory, policy gating, no auth, deployment session required.
-- App mode: app deployment snapshot (provider-scoped JSON-render AppSpec plus
-  packaged app-subsystem provider), per-viewer session state in memory, policy
-  gating, no auth, deployment session required.
+- App mode: app deployment snapshot (JSON-render AppSpec), per-viewer session state in memory, policy gating, no auth, deployment session required.
 
 ## IDE mode (default)
 - Started with `setta` (CLI group default).
@@ -35,17 +33,10 @@ stateful routes require a `shareSessionId`.
 ## App mode (app deployment server)
 - Started with `setta app ...` (no `--reload`).
 - Requires an app deployment root containing `manifest.json` + `project.json` + `policy.json`.
-- Requires exactly one active app-subsystem provider with app deployment runtime
-  support. Published app deployments package that provider under
-  `.setta_plugins/<provider-id>/` plus `plugins_state.json`; `setta app`
-  refuses to start if the provider is missing, disabled, invalid, conflicting,
-  or lacks `appDeploymentRuntime`.
 - No AuthMiddleware; all stateful routes require a share session id.
 - `ShareRuntimeState` loads the deployment snapshot and creates per-session copies.
-- The frontend renders the app from the published AppSpec referenced by the
-  provider's app definition metadata in
-  `pluginData["<provider-id>"].appSpecPath` (copied under
-  `plugins/<provider-id>/app_specs/` when publishing).
+- The frontend renders the app from the published AppSpec referenced by
+  `appDefinition.appSpecPath` (copied under `app_specs/` when publishing).
 - LSP, project CRUD, code edits, file creation, and settings writes are blocked.
 - The frontend connects over `/share/frontend`; CLI websockets are disabled.
 
@@ -53,20 +44,13 @@ stateful routes require a `shareSessionId`.
 - Default location: `setta_files/deployments/<deploymentName>/vN/`.
 - Files:
   - `manifest.json` (deploymentName, deploymentVersion, deploymentType, defaultProjectConfigId, optional listener config).
-  - `project.json` (project snapshot; app deployments include provider-scoped
-    app definition metadata under `pluginData`).
+  - `project.json` (project snapshot; app deployments include `appDefinition`).
   - `policy.json` (deployment policy flags).
-  - `plugins_state.json` for app deployments with a packaged provider.
 - Folders:
   - `artifacts/`, `json_sources/`, `code/`.
-  - `plugins/<provider-id>/app_specs/` for app deployments (AppSpec JSON
-    referenced by `pluginData["<provider-id>"].appSpecPath`).
-  - `.setta_plugins/<provider-id>/` for the packaged app-subsystem provider in
-    app deployments.
+  - `app_specs/` for app deployments (AppSpec JSON referenced by `appDefinition.appSpecPath`).
   - Optional `listener/app.py` if you publish a listener entrypoint.
-- Publishing a deployment copies referenced artifacts/code/json sources into
-  the deployment root, rewrites project state paths to be deployment-relative,
-  and, for app deployments, packages the active provider plugin.
+- Publishing a deployment copies referenced artifacts/code/json sources into the deployment root and rewrites project state paths to be deployment-relative.
 
 ## Deployment runtime root
 - If the deployment is under `.../deployments/<deploymentName>/<version>/`, runtime data is stored in `.../deployment_runtime/<deploymentName>/<version>/`.
@@ -95,7 +79,7 @@ stateful routes require a `shareSessionId`.
 - Per-session state is an in-memory copy of the deployment snapshot; updates are scoped to a session and never written back to `project.json`.
 - Artifact updates are cached in memory and broadcast only to the active share session; filesystem access is restricted to `artifacts/`, `json_sources/`, and `code/` under the deployment root.
 - Runs always use snapshot files under `deployment_runtime/.../share_runs/<shareSessionId>/...`; terminal input is disabled in deployment mode.
-- If `runSnapshotMode=ephemeral`, a cleanup loop deletes aged run outputs (30 minute TTL). `always` keeps run outputs.
+- If `runSnapshotMode=ephemeral`, a cleanup loop deletes old run outputs (30 minute TTL). `always` keeps run outputs.
 - LLM is only available when `allowLLM=true`; deployment mode uses `ShareChatManager` with an in-memory chat store and no MCP tools.
 - If `manifest.json` defines a listener entrypoint and it is enabled, the Go backend starts a Python listener process per share session; listener emits are gated by `allowParamChanges`.
 

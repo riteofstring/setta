@@ -1076,6 +1076,14 @@ func guessMimeType(path string, fallback string) string {
 	return "application/octet-stream"
 }
 
+func canonicalizeJSONObject(raw []byte) (json.RawMessage, error) {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, err
+	}
+	return canonicalizeJSONObjectValue(value)
+}
+
 func canonicalizeArtifactJSONObject(artifactType ArtifactType, raw []byte) (json.RawMessage, error) {
 	var value any
 	if err := json.Unmarshal(raw, &value); err != nil {

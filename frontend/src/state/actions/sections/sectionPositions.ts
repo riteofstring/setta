@@ -1,4 +1,3 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { zoomIdentity } from "d3-zoom";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
@@ -8,6 +7,7 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { autoLayoutTopLevelSections } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useNodeInternals,
   useSettings,

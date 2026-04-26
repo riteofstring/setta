@@ -93,7 +93,7 @@ preview/editor surface.
 - Filtering only includes nodes that have already been loaded. Expand folders first if
   you want their children to participate in filtering.
 - Dev-facing dotfiles are shown by default (`.env`, `.gitignore`, etc.).
-- Internal roots and ignore-pattern matches are hidden by the backend
+- Internal roots and ignore-pattern matches are still hidden by the backend
   (`.git`, `.venv`, `node_modules`, `setta_files`, and similar configured
   ignores).
 - Rows show a spinner while loading and a small error marker when a folder fails to

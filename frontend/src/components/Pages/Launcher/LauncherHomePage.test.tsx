@@ -37,16 +37,11 @@ vi.mock("openapi/http", () => ({
   removeLauncherRecentWorkspace: removeLauncherRecentWorkspaceMock,
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: async function <T>(request: Promise<T>) {
-      return request;
-    },
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: async function <T>(request: Promise<T>) {
+    return request;
+  },
+}));
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;

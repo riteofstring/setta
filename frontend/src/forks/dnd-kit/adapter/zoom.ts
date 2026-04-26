@@ -1,8 +1,8 @@
-import { getZoom } from "gpuFlow/viewportActions";
+import { useReactFlow } from "forks/xyflow/core/store";
 import type { Transform } from "./types";
 
 function getZoomScale(): number {
-  return getZoom();
+  return useReactFlow.getState().transform[2];
 }
 
 export function applyZoomToTransform(

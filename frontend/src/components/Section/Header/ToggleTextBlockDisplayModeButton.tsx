@@ -1,7 +1,7 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { setTextBlockDisplayMode } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { HiOutlineDocumentText, HiOutlinePencil } from "react-icons/hi";
 import {
   dispatchOptimisticProjectStateUpdate,

@@ -1,9 +1,3 @@
-import {
-  callOpenAPI,
-  createNewId,
-  getErrorDetail,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
 import { FileBrowserFilter } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import {
@@ -21,6 +15,7 @@ import {
   type FilebrowserFolderContentItem as FolderContentItem,
   type FilebrowserListFolderResponse as ListFolderResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import {
@@ -40,6 +35,7 @@ import { useLocalPendingValue } from "state/hooks/utils";
 import { isAbsoluteBrowserPath } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   filterFileBrowserFolderItems,
   parseFileBrowserFilterText,
@@ -60,6 +56,7 @@ import {
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 import { ViewSelector, ViewSwitch } from "./BrowserAreaView";
 import {

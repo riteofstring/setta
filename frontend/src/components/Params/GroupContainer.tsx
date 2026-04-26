@@ -1,6 +1,6 @@
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
-import { HandlePosition } from "gpuFlow/flowTypes";
-import { Handle } from "gpuFlow/Handle";
+import { Handle } from "forks/xyflow/core/components/Handle";
+import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
 import React, {
   useCallback,

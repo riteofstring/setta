@@ -1,15 +1,7 @@
 import cc from "classcat";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { type HTMLAttributes, type ReactNode } from "react";
-import type { ReactFlowState } from "../types";
-
-type PanelPosition =
-  | "top-left"
-  | "top-center"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-center"
-  | "bottom-right";
+import type { PanelPosition, ReactFlowState } from "../types";
 
 type PanelProps = HTMLAttributes<HTMLDivElement> & {
   position: PanelPosition;

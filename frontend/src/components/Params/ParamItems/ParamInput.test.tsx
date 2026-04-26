@@ -106,14 +106,9 @@ vi.mock("openapi/http", () => ({
   setParamEnteredValue: mocks.setParamEnteredValueMock,
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: mocks.callOpenAPIMock,
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: mocks.callOpenAPIMock,
+}));
 
 vi.mock("state/actions/sectionInfos", () => ({
   dispatchOptimisticProjectStateUpdate:

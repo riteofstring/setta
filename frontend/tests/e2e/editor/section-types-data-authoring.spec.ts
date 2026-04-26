@@ -122,7 +122,7 @@ async function createChildSectionsViaIncrementerFromFrontend(
       createChildSectionsViaIncrementer,
       getLatestProjectState,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { callOpenAPI } = await import("/src/openapi/http/result");
     const { getCurrProjectConfigId, processProjectStateUpdateFromBackend } =
       await import("/src/state/actions/sectionInfos");
 

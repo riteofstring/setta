@@ -3,11 +3,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
+import { OverviewTabNameEnum } from "utils/constants";
 import {
   createLanguageServerSelectionStatus,
   LanguageServerSelectionSeverityEnum,
   LanguageServerSelectionStatusKindEnum,
-  OverviewTabUIConfig,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LanguageServerStatusBanner } from "./LanguageServerStatusBanner";
@@ -180,7 +180,7 @@ describe("LanguageServerStatusBanner", () => {
       });
 
       expect(onOverviewTabClickMock).toHaveBeenCalledWith(
-        OverviewTabUIConfig.names.Plugins,
+        OverviewTabNameEnum.Plugins,
       );
     } finally {
       await act(async () => {

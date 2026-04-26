@@ -1,4 +1,4 @@
-import type { Connection } from "gpuFlow/flowTypes";
+import type { Connection } from "forks/xyflow/core/types";
 
 type WorkflowDebugPayload = Record<string, unknown> | null | undefined;
 

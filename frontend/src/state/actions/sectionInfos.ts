@@ -1,21 +1,7 @@
-import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
-import {
-  callOpenAPI,
-  clearEffectiveImplCache,
-  createNewId,
-  getCurrentEffectiveCodeObjImplIfPresent,
-  getCurrentEffectiveSectionImpl,
-  getCurrentEffectiveSectionImplIfPresent,
-  getCurrentSectionVariantId,
-  getEffectiveImpl,
-  getSectionCodeObjVariantId,
-  getParamDisplayNameIfPresent as getSharedParamDisplayNameIfPresent,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import type { Node } from "gpuFlow/flowTypes";
+import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
   deleteSections,
@@ -27,6 +13,7 @@ import {
   unselectAllParams as unselectAllParamsRequest,
   type GetLatestProjectStateResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { unstable_batchedUpdates } from "react-dom";
 import {
   markRenameBroadcastsReady,
@@ -55,6 +42,8 @@ import {
   ZustandProjectState,
   type ToolArgumentPreviewProjectState,
 } from "state/definitions";
+import type { ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   AllProjectMetadata,
   BaseCodeObjImplUnion,
@@ -63,6 +52,7 @@ import {
   Core,
   IFrameSectionImpl,
   isBaseChildlessCodeObjImpl,
+  isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
@@ -72,11 +62,16 @@ import {
   Variant,
   Viewport,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
 import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";
 import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
 import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
+const effectiveImplCacheByImpl = new WeakMap<
+  object,
+  WeakMap<object, WeakMap<object, unknown>>
+>();
 // Keep this in sync with internal/projectstate/unshared_defaults.go so optimistic
 // frontend writes follow the same ownership routing as the Go owner.
 const DEFAULT_UNSHARED_PROJECT_FIELDS = new Set([
@@ -93,6 +88,32 @@ type ImplUpdateArgs<T extends object> = {
   [K in keyof T]?: GeneratedImplUpdateValue<T[K]>;
 };
 type MutableGeneratedImpl = BaseSectionImplUnion | BaseCodeObjImplUnion;
+function getEffectiveImpl<T extends object>(
+  impl: T,
+  core: Core,
+  variant: Variant,
+): T {
+  const sharedModifier = core.sharedModifier;
+  const variantModifier = variant.modifier;
+  let cacheBySharedModifier = effectiveImplCacheByImpl.get(impl);
+  if (!cacheBySharedModifier) {
+    cacheBySharedModifier = new WeakMap<object, WeakMap<object, unknown>>();
+    effectiveImplCacheByImpl.set(impl, cacheBySharedModifier);
+  }
+  let cacheByVariantModifier = cacheBySharedModifier.get(sharedModifier);
+  if (!cacheByVariantModifier) {
+    cacheByVariantModifier = new WeakMap<object, unknown>();
+    cacheBySharedModifier.set(sharedModifier, cacheByVariantModifier);
+  }
+  const cached = cacheByVariantModifier.get(variantModifier);
+  if (cached) {
+    return cached as T;
+  }
+  const effective = _.cloneDeep(impl);
+  Object.assign(effective, { ...sharedModifier, ...variantModifier });
+  cacheByVariantModifier.set(variantModifier, effective);
+  return effective;
+}
 function getEffectiveSectionImplIfPresent(
   projectState: SingleConfig,
   sectionId: string,
@@ -534,6 +555,22 @@ function getEffectiveCodeObjImplIfPresent(
     codeObjId,
   );
 }
+function getSectionCodeObjVariantId(
+  sectionImpl: BaseSectionImplUnion,
+  codeObjId: string,
+): string | null {
+  if (isBaseSectionWithParamsImpl(sectionImpl)) {
+    return sectionImpl.codeObjVariantMap[codeObjId] ?? null;
+  }
+  if (
+    sectionImpl.type !== SectionTypeEnum.MetaControl ||
+    !sectionImpl.metaControlParamId ||
+    sectionImpl.metaControlParamId !== codeObjId
+  ) {
+    return null;
+  }
+  return sectionImpl.codeObjVariantMap[codeObjId] ?? null;
+}
 function getEffectiveCodeObjImplForVariantId(
   projectState: Pick<
     ZustandProjectState,
@@ -561,7 +598,14 @@ export function getCurrSectionVariantId(
   sectionId: string,
   preview = false,
 ) {
-  return getCurrentSectionVariantId(p, sectionId, preview);
+  const variantId = preview
+    ? p.previewSectionVariantMap[sectionId] ??
+      p.projectConfig.sectionVariantMap[sectionId]
+    : p.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    throw new Error();
+  }
+  return variantId;
 }
 export function getCurrSectionVariant(
   p: ZustandProjectState,
@@ -576,14 +620,36 @@ export function getCurrEffectiveSectionImpl(
   sectionId: string,
   preview = false,
 ) {
-  return getCurrentEffectiveSectionImpl(p, sectionId, preview);
+  const variant = getCurrSectionVariant(p, sectionId, preview);
+  const baseImpl = getSectionImpl(p, variant.impl);
+  const core = getSectionCore(p, sectionId);
+  return getEffectiveImpl(baseImpl, core, variant);
 }
 export function getCurrEffectiveSectionImplIfPresent(
   p: ZustandProjectState,
   sectionId: string,
   preview = false,
 ): BaseSectionImplUnion | null {
-  return getCurrentEffectiveSectionImplIfPresent(p, sectionId, preview);
+  const variantId = preview
+    ? p.previewSectionVariantMap[sectionId] ??
+      p.projectConfig.sectionVariantMap[sectionId]
+    : p.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    return null;
+  }
+  const variant = p.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const baseImpl = p.sectionImpls[variant.impl];
+  if (!baseImpl) {
+    return null;
+  }
+  const core = p.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+  return getEffectiveImpl(baseImpl, core, variant);
 }
 export function getCurrEffectiveSectionImplWithTypeGuard<T>(
   p: ZustandProjectState,
@@ -733,12 +799,18 @@ export function getCurrEffectiveCodeObjImplIfPresent(
   codeObjId: string,
   preview = false,
 ) {
-  return getCurrentEffectiveCodeObjImplIfPresent(
+  const variant = getCurrCodeObjVariantIfPresent(
     p,
     sectionId,
     codeObjId,
     preview,
   );
+  if (!variant) {
+    return null;
+  }
+  const baseImpl = getCodeObjImpl(p, variant.impl);
+  const core = getCodeObjCore(p, codeObjId);
+  return getEffectiveImpl(baseImpl, core, variant);
 }
 export function getCurrEffectiveCodeObjImplWithTypeGuardIfPresent<T>(
   p: ZustandProjectState,
@@ -825,7 +897,7 @@ function setEffectiveImplValue<T extends MutableGeneratedImpl>(
       variant.modifier[key] = nextValue;
     }
   }
-  clearEffectiveImplCache(impl);
+  effectiveImplCacheByImpl.delete(impl);
   return getEffectiveImpl(impl, core, variant);
 }
 export function setCurrEffectiveSectionImplValue<
@@ -917,7 +989,26 @@ export function getParamDisplayNameIfPresent(
   sectionId: string,
   codeObjId: string,
 ): string | null {
-  return getSharedParamDisplayNameIfPresent(state, sectionId, codeObjId);
+  const codeObj = state.codeObjs[codeObjId];
+  if (!codeObj) {
+    return null;
+  }
+  if (!state.projectConfig.showParamDisplayNames) {
+    return codeObj.name;
+  }
+  const impl = getCurrEffectiveCodeObjImplIfPresent(
+    state,
+    sectionId,
+    codeObjId,
+  );
+  if (impl && isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
+    return codeObj.name;
+  }
+  const trimmedDisplayName = codeObj.displayName.trim();
+  if (trimmedDisplayName.length > 0) {
+    return codeObj.displayName;
+  }
+  return codeObj.name;
 }
 export function getCodeObjImpl(p: ZustandProjectState, implId: string) {
   const impl = p.codeObjImpls[implId];
@@ -1123,7 +1214,6 @@ function getComparableProjectState(
     codeObjImpls: state.codeObjImpls,
     codeObjVariants: state.codeObjVariants,
     artifactGroups: state.artifactGroups,
-    pluginData: state.pluginData,
     projectConfig: state.projectConfig,
     singletonSections: state.singletonSections,
     parentSectionMap: state.parentSectionMap,

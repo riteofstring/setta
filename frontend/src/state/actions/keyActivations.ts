@@ -28,7 +28,7 @@ import {
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { onFitViewHandler } from "forks/xyflow/core/store/utils";
-import { zoomToMouseLocation } from "gpuFlow/mouseLocation";
+import { zoomToMouseLocation } from "forks/xyflow/core/utils/mouseLocation";
 import _ from "lodash";
 import {
   activateParamSelect,

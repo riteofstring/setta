@@ -1,8 +1,3 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { blobToImageObj } from "components/Section/Layouts/DrawArea/binaryConversion";
 import _ from "lodash";
 import {
@@ -12,6 +7,7 @@ import {
   loadCachedDrawAreaLayerItemTransform as loadCachedDrawAreaLayerItemTransformApi,
   loadCachedImageArtifacts,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
@@ -25,6 +21,7 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import { bumpRemoteRevisions } from "state/utils/revisions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   ArtifactTypeEnum,
   type ChartDataArtifact,

@@ -1,11 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-  resolveServerModeCapabilities,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import {
   createWorkspaceLaunchIntent,
@@ -14,11 +7,18 @@ import {
   type HttpapiLaunchRequest as LaunchRequest,
   type HttpapiSettaHomeInfoResponse as SettaHomeInfoResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { useServerMode } from "state/definitions";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
+import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
   normalizeSettaFilesLocation,
   type SettaFilesLocation,
