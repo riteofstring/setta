@@ -1,6 +1,7 @@
 package projectstate
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -269,11 +270,16 @@ func TestDocumentCloneProjectCopiesProjectScopedPluginData(t *testing.T) {
 	}
 	expected := testWatchCodeLifecycleProjectData()
 	mustSetTestWatchCodePluginProjectData(t, &document, sourceProjectID, expected)
+	expectedOpaquePluginData := seedOpaqueLifecyclePluginData(&document)
+	document.PluginData["plugin.example"] = lifecycleProjectScopedPluginPayload(sourceProjectID, "project-other")
 
 	clonedProjectID, _, err := document.CloneProject(sourceProjectID, "Cloned Project")
 	if err != nil {
 		t.Fatalf("CloneProject returned error: %v", err)
 	}
+	assertOpaqueLifecyclePluginDataPreserved(t, document, expectedOpaquePluginData)
+	assertProjectScopedPluginPayload(t, document, "plugin.example", clonedProjectID, map[string]any{"value": float64(1)})
+	assertProjectScopedPluginPayload(t, document, "plugin.example", "project-other", map[string]any{"value": float64(2), "keep": []any{"stable"}})
 
 	clonedData := mustReadTestWatchCodePluginProjectData(t, document, clonedProjectID)
 	if !reflect.DeepEqual(clonedData, expected.Normalized()) {
@@ -604,11 +610,16 @@ func TestDocumentSaveAsNewProjectConfigCopiesProjectScopedPluginData(t *testing.
 	document.Projects["project-alpha"] = testSaveAsNewProjectConfigSourceProject()
 	expected := testWatchCodeLifecycleProjectData()
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", expected)
+	expectedOpaquePluginData := seedOpaqueLifecyclePluginData(&document)
+	document.PluginData["plugin.example"] = lifecycleProjectScopedPluginPayload("project-alpha", "project-other")
 
 	clonedProjectID, _, err := document.SaveAsNewProjectConfig("project-alpha", "Copied Alpha", false)
 	if err != nil {
 		t.Fatalf("SaveAsNewProjectConfig returned error: %v", err)
 	}
+	assertOpaqueLifecyclePluginDataPreserved(t, document, expectedOpaquePluginData)
+	assertProjectScopedPluginPayload(t, document, "plugin.example", clonedProjectID, map[string]any{"value": float64(1)})
+	assertProjectScopedPluginPayload(t, document, "plugin.example", "project-other", map[string]any{"value": float64(2), "keep": []any{"stable"}})
 
 	clonedData := mustReadTestWatchCodePluginProjectData(t, document, clonedProjectID)
 	if !reflect.DeepEqual(clonedData, expected.Normalized()) {
@@ -768,6 +779,7 @@ func TestDocumentDeleteProjectsRemovesProjectScopedPluginData(t *testing.T) {
 	betaWatchCodeData := testWatchCodeLifecycleProjectData()
 	betaWatchCodeData.Files = []string{"pkg/beta.py"}
 	mustSetTestWatchCodePluginProjectData(t, &document, "project-beta", betaWatchCodeData)
+	expectedOpaquePluginData := seedOpaqueLifecyclePluginData(&document)
 	document.PluginData["plugin.example"] = RawJSON(`{"schemaVersion":1,"projects":{"project-alpha":{"value":1},"project-beta":{"value":2,"keep":["stable"]}},"global":{"keep":true}}`)
 	expectedGenericBeta := mustProjectScopedPluginPayloadRaw(t, document, "plugin.example", "project-beta")
 
@@ -778,6 +790,7 @@ func TestDocumentDeleteProjectsRemovesProjectScopedPluginData(t *testing.T) {
 	if len(deletedIDs) != 1 || deletedIDs[0] != "project-alpha" {
 		t.Fatalf("unexpected deleted ids %#v", deletedIDs)
 	}
+	assertOpaqueLifecyclePluginDataPreserved(t, document, expectedOpaquePluginData)
 	if _, exists, err := document.WatchCodePluginProjectData(testWatchCodeProviderPluginID, "project-alpha"); err != nil || exists {
 		t.Fatalf("expected deleted watch-code project data to be absent, exists=%v err=%v", exists, err)
 	}
@@ -832,6 +845,61 @@ func testWatchCodeLifecycleProjectData() WatchCodePluginProjectData {
 			"pkg/run.py": {"run"},
 		},
 	}.Normalized()
+}
+
+func seedOpaqueLifecyclePluginData(document *Document) map[string]RawJSON {
+	if document.PluginData == nil {
+		document.PluginData = map[string]RawJSON{}
+	}
+	expected := map[string]RawJSON{
+		"plugin.scalar": RawJSON(`"global"`),
+		"plugin.array":  RawJSON(`[1,2]`),
+	}
+	for pluginID, payload := range expected {
+		document.PluginData[pluginID] = payload
+	}
+	return expected
+}
+
+func lifecycleProjectScopedPluginPayload(sourceProjectID string, siblingProjectID string) RawJSON {
+	return mustMarshalProjectObject(map[string]any{
+		"schemaVersion": 1,
+		"projects": map[string]any{
+			sourceProjectID: map[string]any{"value": 1},
+			siblingProjectID: map[string]any{
+				"value": 2,
+				"keep":  []any{"stable"},
+			},
+		},
+		"global": map[string]any{"keep": true},
+	})
+}
+
+func assertOpaqueLifecyclePluginDataPreserved(t *testing.T, document Document, expected map[string]RawJSON) {
+	t.Helper()
+	for pluginID, expectedPayload := range expected {
+		if got := document.PluginData[pluginID]; string(got) != string(expectedPayload) {
+			t.Fatalf("expected opaque plugin payload %q to remain %s, got %s", pluginID, expectedPayload, got)
+		}
+	}
+}
+
+func assertProjectScopedPluginPayload(
+	t *testing.T,
+	document Document,
+	pluginID string,
+	projectID string,
+	expected map[string]any,
+) {
+	t.Helper()
+	got := mustProjectScopedPluginPayloadRaw(t, document, pluginID, projectID)
+	var decoded map[string]any
+	if err := json.Unmarshal(got, &decoded); err != nil {
+		t.Fatalf("decode plugin payload %q for project %q: %v", pluginID, projectID, err)
+	}
+	if !reflect.DeepEqual(decoded, expected) {
+		t.Fatalf("expected plugin payload %q for project %q %#v, got %#v", pluginID, projectID, expected, decoded)
+	}
 }
 
 func mustProjectScopedPluginPayloadRaw(t *testing.T, document Document, pluginID string, projectID string) RawJSON {

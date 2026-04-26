@@ -9,10 +9,10 @@
 - Still unverified: Browser/CDP flow not run; no rendered UI behavior changed.
 
 ### Project-Scoped Plugin Data Lifecycle
-- Invariant: Generic project-scoped plugin payloads under `Document.PluginData[pluginID].projects[projectID]` must follow project lifecycle operations: clone and save-as copy the source project's payload to the new project ID, while delete removes deleted project IDs without dropping sibling project payloads or non-project plugin data.
-- Last finding commit: 31c328225e75ea04f37a505962cec54a109915b1
-- Proof tests: `TestDocumentCloneProjectCopiesProjectScopedPluginData`; `TestDocumentSaveAsNewProjectConfigCopiesProjectScopedPluginData`; `TestDocumentDeleteProjectsRemovesProjectScopedPluginData`
-- Still unverified: Only generic projectstate unit paths were exercised; no browser flow uses the lifecycle directly in this iteration.
+- Invariant: Generic project-scoped plugin payloads under `Document.PluginData[pluginID].projects[projectID]` must follow project lifecycle operations: clone and save-as copy the source project's payload to the new project ID, while delete removes deleted project IDs without dropping sibling project payloads, non-project fields, or opaque non-project plugin data. Project view projection must use the same Go-owned envelope parser and must ignore payload roots that are not project-scoped.
+- Last finding commit: 9768435332fe357b6bb4e80248569984f930946c
+- Proof tests: `TestDocumentCloneProjectCopiesProjectScopedPluginData`; `TestDocumentSaveAsNewProjectConfigCopiesProjectScopedPluginData`; `TestDocumentDeleteProjectsRemovesProjectScopedPluginData`; `TestSingleConfigByProjectIDIncludesGenericProjectPluginData`; `TestSingleConfigByProjectIDRejectsMalformedProjectPluginData`
+- Still unverified: Only generic projectstate and projectview unit paths were exercised; no browser flow uses the lifecycle directly in this iteration.
 
 ### Generic Plugin UI Settings
 - Invariant: Backend-registered plugin UI settings are capability-gated by `registerUISettings` and may reveal through pane-less plugin handlers when no plugin pane can exist; schema-defined plugin settings remain pane-backed and require `registerPane`.
@@ -51,10 +51,10 @@
 - Still unverified: Browser/CDP visual verification and Playwright were not run; the changed behavior is contract/type and reveal-dispatch behavior.
 
 ### Extracted Watch Code Surface Contracts
-- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, and `plugin::<provider>::*` settings; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, dead branch-added helper APIs, and generated local-core command constants stay deleted.
-- Last finding commit: a1ab5007a9537bfee64932cabb4cf2adf085040e
-- Proof tests: `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; `tests/start/test_packaged_distribution.py`; `./scripts/go.sh test ./internal/projectstate`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, `WatchCodePluginSettingID`, `mustWatchCodePluginSettingID`, and Watch Code local-core commands.
-- Still unverified: Updated Playwright spec was not rerun in this iteration because no rendered UI behavior changed.
+- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, and `plugin::<provider>::*` settings; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, dead branch-added helper APIs, and generated local-core command constants stay deleted. Watch Code backend route suffixes, backend UI-setting IDs, handler IDs, and shared route errors have one Go-owned contract that drives host matching and generated Python probe constants.
+- Last finding commit: 9768435332fe357b6bb4e80248569984f930946c
+- Proof tests: `TestWatchCodeBackendContractDrivesRouteAndUISettingMatching`; `TestBuildIncludesGoOwnedWatchCodeBackendContract`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`; `tests/start/test_packaged_distribution.py -k first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain`; `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, `WatchCodePluginSettingID`, `mustWatchCodePluginSettingID`, and Watch Code local-core commands.
+- Still unverified: Updated Playwright spec and browser/CDP visual verification were not run in this iteration because no rendered UI behavior changed.
 
 ### UI Settings Core Registry API
 - Invariant: Core UI-setting registry construction should expose only behavior it actually supports; empty option structs and `WithOptions` constructors must not be retained as speculative future plumbing.
@@ -215,3 +215,31 @@ Residual risks / verification gaps:
 - Browser/CDP visual verification and Playwright were not run because no rendered UI behavior changed.
 - No full generated diagnostics or callable callback E2E was run; provider-change behavior is covered by rematerialization restart tests.
 - `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.
+
+## 2026-04-26 02:11:01 PDT
+
+Fixes applied:
+- Centralized generic project-scoped plugin-data envelope parsing in `projectstate`, made lifecycle copy/delete skip opaque scalar and array plugin data, and routed `projectview` projection through the same owner.
+- Added a Go-owned Watch Code backend contract for route suffixes, UI-setting IDs, handler IDs, and shared route errors, then generated Python constants from that contract for the first-party plugin backend probe.
+- Kept Watch Code extraction behavior intact: no old core routes, settings, host APIs, or compatibility aliases were restored.
+
+Tests added or upgraded:
+- Extended project lifecycle tests for clone, save-as, and delete to preserve scalar/array opaque plugin payloads while copying/removing only real project-scoped payloads.
+- Extended `SingleConfigByProjectID` coverage to skip scalar/array plugin data and keep malformed `projects` envelopes failing through the shared parser.
+- Added Watch Code contract coverage for Go host route/UI-setting matching, Python shared-constants generation, source plugin backend probe output, and packaged plugin backend execution.
+
+Verification run:
+- `./scripts/go.sh test ./internal/projectstate -run 'TestDocument(CloneProjectCopiesProjectScopedPluginData|SaveAsNewProjectConfigCopiesProjectScopedPluginData|DeleteProjectsRemovesProjectScopedPluginData)'`
+- `./scripts/go.sh test ./internal/projectview -run 'TestSingleConfigByProjectID(IncludesGenericProjectPluginData|RejectsMalformedProjectPluginData)'`
+- `./scripts/go.sh test ./internal/app -run TestWatchCodeBackendContractDrivesRouteAndUISettingMatching`
+- `./scripts/go.sh test ./internal/pythonsharedconstants -run TestBuildIncludesGoOwnedWatchCodeBackendContract`
+- `source activate.sh && pytest tests/plugin_runtime/test_watch_code_plugin_backend.py -q`
+- `source activate.sh && pytest tests/start/test_packaged_distribution.py -k first_party_watch_code_plugin_backend_runs_without_developer_go_toolchain -q`
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `git diff --check`
+
+Residual risks / verification gaps:
+- Browser/CDP visual verification and Playwright were not run because no rendered UI behavior changed.
+- `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.
+- An extra broad `./scripts/go.sh test ./internal/projectstate ./internal/projectview ./internal/app ./internal/pythonsharedconstants ./internal/watchcodecontracts` run passed the non-app packages but failed in `internal/app` with existing environment/config-dependent failures, including missing vendored app-subsystem SDK build output, missing packaged Go binary, and unknown transcription LLM config.

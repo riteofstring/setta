@@ -18,6 +18,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdklocalcore"
 	"setta/internal/realtime"
+	"setta/internal/watchcodecontracts"
 	"setta/internal/workspacelaunch"
 )
 
@@ -140,6 +141,30 @@ func Build() (GeneratedConstants, error) {
 			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE",
 			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
 		},
+		{Name: "WATCH_CODE_BACKEND_CONTRACT_VERSION", PythonExpr: strconv.Itoa(watchcodecontracts.BackendContractVersion)},
+		{Name: "WATCH_CODE_BACKEND_DATA_SCHEMA_VERSION", PythonExpr: strconv.Itoa(watchcodecontracts.BackendDataSchemaVersion)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_BASE_PATH", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendRouteBasePath)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendRouteSuffixEnabled)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_SUFFIXES", PythonExpr: pythonStringTupleExpr(watchcodecontracts.BackendRouteSuffixes())},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendLocalSettingIDEnabled)},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendLocalSettingIDFolders)},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_FILES", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendLocalSettingIDFiles)},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_IDS", PythonExpr: pythonStringTupleExpr(watchcodecontracts.BackendLocalSettingIDs())},
+		{
+			Name: "WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID",
+			PythonExpr: "MappingProxyType(" + pythonStringDictExpr(
+				watchcodecontracts.BackendReadHandlerByLocalSettingID(),
+			) + ")",
+		},
+		{
+			Name: "WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID",
+			PythonExpr: "MappingProxyType(" + pythonStringDictExpr(
+				watchcodecontracts.BackendWriteHandlerByLocalSettingID(),
+			) + ")",
+		},
+		{Name: "WATCH_CODE_BACKEND_ERROR_METHOD_NOT_ALLOWED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorMethodNotAllowed)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_NOT_FOUND", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorNotFound)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorProviderRequired)},
 		{
 			Name:       "DEPLOYMENT_LISTENER_READY_SENTINEL",
 			PythonExpr: pythonStringLiteral(deployments.DeploymentListenerReadySentinel),

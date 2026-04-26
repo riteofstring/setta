@@ -322,6 +322,8 @@ func TestSingleConfigByProjectIDIncludesGenericProjectPluginData(t *testing.T) {
 		"plugin.global": mustRawJSON(t, map[string]any{
 			"routes": []any{"/not-project-scoped"},
 		}),
+		"plugin.scalar": projectstate.RawJSON(`"global"`),
+		"plugin.array":  projectstate.RawJSON(`[1,2]`),
 	}
 
 	view, err := SingleConfigByProjectID(document, "project-alpha")
@@ -346,6 +348,12 @@ func TestSingleConfigByProjectIDIncludesGenericProjectPluginData(t *testing.T) {
 	}
 	if _, ok := view.PluginData["plugin.global"]; ok {
 		t.Fatalf("did not expect non-project-scoped plugin data in project view, got %#v", view.PluginData)
+	}
+	if _, ok := view.PluginData["plugin.scalar"]; ok {
+		t.Fatalf("did not expect scalar plugin data in project view, got %#v", view.PluginData)
+	}
+	if _, ok := view.PluginData["plugin.array"]; ok {
+		t.Fatalf("did not expect array plugin data in project view, got %#v", view.PluginData)
 	}
 }
 

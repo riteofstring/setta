@@ -7,6 +7,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from setta.types.generated import go_shared_constants as C
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_MAIN = PROJECT_ROOT / "plugins" / "setta-watch-code" / "backend" / "main.py"
@@ -51,19 +53,36 @@ def test_watch_code_backend_probe_declares_routes_and_ui_settings() -> None:
 
     assert payload["schemaVersion"] == 1
     assert payload["watchCodeBackend"] == {
-        "contractVersion": 1,
-        "dataSchemaVersion": 1,
+        "contractVersion": C.WATCH_CODE_BACKEND_CONTRACT_VERSION,
+        "dataSchemaVersion": C.WATCH_CODE_BACKEND_DATA_SCHEMA_VERSION,
         "languages": ["python"],
         "requiresLanguageServer": True,
     }
     assert payload["routes"] == [
-        {"path": f"/plugins/{PLUGIN_ID}/watch-code/enabled", "methods": ["POST"]},
-        {"path": f"/plugins/{PLUGIN_ID}/watch-code/inputs", "methods": ["POST"]},
+        {
+            "path": (
+                f"/plugins/{PLUGIN_ID}{C.WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/"
+                f"{suffix}"
+            ),
+            "methods": ["POST"],
+        }
+        for suffix in C.WATCH_CODE_BACKEND_ROUTE_SUFFIXES
     ]
     assert {setting["id"] for setting in payload["uiSettings"]} == {
-        "enabled",
-        "folders",
-        "files",
+        C.WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED,
+        C.WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS,
+        C.WATCH_CODE_BACKEND_LOCAL_SETTING_FILES,
+    }
+    handlers_by_setting = {
+        setting["id"]: (setting["readHandlerId"], setting["writeHandlerId"])
+        for setting in payload["uiSettings"]
+    }
+    assert handlers_by_setting == {
+        setting_id: (
+            C.WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID[setting_id],
+            C.WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID[setting_id],
+        )
+        for setting_id in C.WATCH_CODE_BACKEND_LOCAL_SETTING_IDS
     }
 
 
@@ -76,7 +95,10 @@ def test_watch_code_backend_runtime_fails_closed_without_go_host() -> None:
             "http": {
                 "context": _runtime_context(),
                 "method": "POST",
-                "path": f"/plugins/{PLUGIN_ID}/watch-code/enabled",
+                "path": (
+                    f"/plugins/{PLUGIN_ID}{C.WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/"
+                    f"{C.WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED}"
+                ),
                 "bodyBase64": _body(
                     {
                         "projectConfigId": "project-alpha",
@@ -90,7 +112,7 @@ def test_watch_code_backend_runtime_fails_closed_without_go_host() -> None:
     )
     assert enabled_response["http"]["statusCode"] == 409
     assert _decode_http_body(enabled_response)["error"] == {
-        "code": "watch_code_provider_required",
+        "code": C.WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED,
         "message": "Watch Code mutations are handled by the active Setta Go host.",
     }
 
@@ -100,7 +122,9 @@ def test_watch_code_backend_runtime_fails_closed_without_go_host() -> None:
             "uiSetting": {
                 "context": _runtime_context(),
                 "operation": "read",
-                "handlerId": "read_files",
+                "handlerId": C.WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID[
+                    C.WATCH_CODE_BACKEND_LOCAL_SETTING_FILES
+                ],
                 "projectConfigId": "project-alpha",
             },
         },
@@ -108,7 +132,7 @@ def test_watch_code_backend_runtime_fails_closed_without_go_host() -> None:
     )
     assert ui_setting_response["uiSetting"] == {
         "error": {
-            "code": "watch_code_provider_required",
+            "code": C.WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED,
             "message": "Watch Code mutations are handled by the active Setta Go host.",
         }
     }
@@ -123,7 +147,10 @@ def test_watch_code_backend_returns_structured_http_route_errors() -> None:
             "http": {
                 "context": _runtime_context(),
                 "method": "GET",
-                "path": f"/plugins/{PLUGIN_ID}/watch-code/enabled",
+                "path": (
+                    f"/plugins/{PLUGIN_ID}{C.WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/"
+                    f"{C.WATCH_CODE_BACKEND_ROUTE_SUFFIX_ENABLED}"
+                ),
                 "bodyBase64": _body({}),
             },
         },
@@ -131,7 +158,7 @@ def test_watch_code_backend_returns_structured_http_route_errors() -> None:
     )
     assert wrong_method_response["http"]["statusCode"] == 405
     assert _decode_http_body(wrong_method_response)["error"]["code"] == (
-        "method_not_allowed"
+        C.WATCH_CODE_BACKEND_ERROR_METHOD_NOT_ALLOWED
     )
 
     missing_route_response = backend._handle_runtime_request(
@@ -140,11 +167,13 @@ def test_watch_code_backend_returns_structured_http_route_errors() -> None:
             "http": {
                 "context": _runtime_context(),
                 "method": "POST",
-                "path": f"/plugins/{PLUGIN_ID}/watch-code/missing",
+                "path": f"/plugins/{PLUGIN_ID}{C.WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/missing",
                 "bodyBase64": _body({}),
             },
         },
         plugin_id=PLUGIN_ID,
     )
     assert missing_route_response["http"]["statusCode"] == 404
-    assert _decode_http_body(missing_route_response)["error"]["code"] == "not_found"
+    assert _decode_http_body(missing_route_response)["error"]["code"] == (
+        C.WATCH_CODE_BACKEND_ERROR_NOT_FOUND
+    )

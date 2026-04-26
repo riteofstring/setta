@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"setta/internal/plugins"
+	"setta/internal/watchcodecontracts"
 )
 
 func filterUnavailableWatchCodeBackendUISettings(
@@ -31,7 +32,7 @@ func watchCodeBackendUISettingCandidate(
 	handlerID string,
 ) bool {
 	return watchCodeProviderCandidate(snapshot, pluginID) &&
-		watchCodeBackendUISettingHandlerID(handlerID)
+		watchcodecontracts.IsBackendUISettingHandlerID(handlerID)
 }
 
 func watchCodeBackendUISettingAccessError(
@@ -80,42 +81,11 @@ func watchCodeProviderCandidate(snapshot plugins.DiscoverySnapshot, pluginID str
 }
 
 func watchCodeBackendUISettingRegistration(registration plugins.PluginRegisteredUISetting) bool {
-	if watchCodeBackendLocalSettingID(registration.LocalSettingID) ||
-		watchCodeBackendUISettingHandlerID(registration.ReadHandlerID) {
+	if watchcodecontracts.IsBackendLocalSettingID(registration.LocalSettingID) ||
+		watchcodecontracts.IsBackendUISettingHandlerID(registration.ReadHandlerID) {
 		return true
 	}
-	return registration.WriteHandlerID != nil && watchCodeBackendUISettingHandlerID(*registration.WriteHandlerID)
-}
-
-func watchCodeBackendLocalSettingID(localSettingID string) bool {
-	switch strings.TrimSpace(localSettingID) {
-	case "enabled", "folders", "files":
-		return true
-	default:
-		return false
-	}
-}
-
-func watchCodeBackendReadHandlerID(handlerID string) bool {
-	switch strings.TrimSpace(handlerID) {
-	case "read_enabled", "read_folders", "read_files":
-		return true
-	default:
-		return false
-	}
-}
-
-func watchCodeBackendWriteHandlerID(handlerID string) bool {
-	switch strings.TrimSpace(handlerID) {
-	case "write_enabled", "write_folders", "write_files":
-		return true
-	default:
-		return false
-	}
-}
-
-func watchCodeBackendUISettingHandlerID(handlerID string) bool {
-	return watchCodeBackendReadHandlerID(handlerID) || watchCodeBackendWriteHandlerID(handlerID)
+	return registration.WriteHandlerID != nil && watchcodecontracts.IsBackendUISettingHandlerID(*registration.WriteHandlerID)
 }
 
 func stringSliceContainsTrimmed(values []string, expected string) bool {

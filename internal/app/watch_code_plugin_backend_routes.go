@@ -13,16 +13,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
-)
-
-const (
-	watchCodeBackendErrorInvalidJSON             = "invalid_json"
-	watchCodeBackendErrorInvalidRequest          = "invalid_request"
-	watchCodeBackendErrorInternal                = "internal_error"
-	watchCodeBackendErrorProjectConfigIDRequired = "project_config_id_required"
-	watchCodeBackendErrorProjectConfigNotFound   = "project_config_not_found"
-	watchCodeBackendErrorInvalidWatchCodeInput   = "invalid_watch_code_input"
-	watchCodeBackendErrorProviderRequired        = "watch_code_provider_required"
+	"setta/internal/watchcodecontracts"
 )
 
 type watchCodeBackendRouteHost struct {
@@ -63,25 +54,25 @@ func (h watchCodeBackendRouteHost) intercept(
 	ctx context.Context,
 	request plugins.BackendHTTPRequest,
 ) (plugins.BackendHTTPResponse, bool, error) {
-	pluginID, route, ok := parseWatchCodeBackendRoutePath(request.Path)
+	pluginID, route, ok := watchcodecontracts.ParseBackendRoutePath(request.Path)
 	if !ok {
 		return plugins.BackendHTTPResponse{}, false, nil
 	}
 	if strings.ToUpper(strings.TrimSpace(request.Method)) != http.MethodPost {
-		return watchCodeBackendErrorResponse(http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed.", nil), true, nil
+		return watchCodeBackendErrorResponse(http.StatusMethodNotAllowed, watchcodecontracts.BackendErrorMethodNotAllowed, "Method not allowed.", nil), true, nil
 	}
 	providerPluginID, providerActive := h.activeProviderPluginID()
 	if h.projectState == nil || !providerActive || providerPluginID != pluginID {
-		return watchCodeBackendErrorResponse(http.StatusConflict, watchCodeBackendErrorProviderRequired, projectstate.ErrWatchCodeProviderPluginIDRequired.Error(), nil), true, nil
+		return watchCodeBackendErrorResponse(http.StatusConflict, watchcodecontracts.BackendErrorProviderRequired, projectstate.ErrWatchCodeProviderPluginIDRequired.Error(), nil), true, nil
 	}
 	if h.workspaceRoot == "" {
-		return watchCodeBackendErrorResponse(http.StatusInternalServerError, watchCodeBackendErrorInternal, "workspace root is required", nil), true, nil
+		return watchCodeBackendErrorResponse(http.StatusInternalServerError, watchcodecontracts.BackendErrorInternal, "workspace root is required", nil), true, nil
 	}
 
 	switch route {
-	case "enabled":
+	case watchcodecontracts.BackendRouteSuffixEnabled:
 		return h.handleSetEnabled(ctx, request.Context.ShareSessionID, providerPluginID, request.Body)
-	case "inputs":
+	case watchcodecontracts.BackendRouteSuffixInputs:
 		return h.handleSetInputs(ctx, request.Context.ShareSessionID, providerPluginID, request.Body)
 	default:
 		return plugins.BackendHTTPResponse{}, false, nil
@@ -95,17 +86,24 @@ func (h *watchCodeBackendRouteHost) readUISettingValue(
 	if !ok || strings.TrimSpace(options.PluginID) != providerPluginID {
 		return nil, false, nil
 	}
-	projectData, handled, err := h.watchCodeProjectDataForUISetting(providerPluginID, options.ProjectConfigID, options.HandlerID, "read_")
-	if err != nil || !handled {
-		return nil, handled, err
+	handlerID := strings.TrimSpace(options.HandlerID)
+	if !watchcodecontracts.IsBackendReadHandlerID(handlerID) {
+		return nil, false, nil
 	}
-	switch strings.TrimSpace(options.HandlerID) {
-	case "read_enabled":
+	if h == nil || h.projectState == nil || h.workspaceRoot == "" {
+		return nil, true, projectstate.ErrRuntimeClosed
+	}
+	projectData, _, err := h.projectState.Snapshot().Document.WatchCodePluginProjectData(providerPluginID, options.ProjectConfigID)
+	if err != nil {
+		return nil, true, err
+	}
+	switch handlerID {
+	case watchcodecontracts.BackendReadHandlerIDEnabled:
 		return projectData.Enabled, true, nil
-	case "read_folders":
+	case watchcodecontracts.BackendReadHandlerIDFolders:
 		value, err := watchCodeUISettingJSONValue(projectData.Folders)
 		return value, true, err
-	case "read_files":
+	case watchcodecontracts.BackendReadHandlerIDFiles:
 		return projectData.Files, true, nil
 	default:
 		return nil, false, nil
@@ -121,7 +119,7 @@ func (h *watchCodeBackendRouteHost) writeUISettingValue(
 		return false, nil
 	}
 	handlerID := strings.TrimSpace(options.HandlerID)
-	if !isWatchCodeUISettingHandler(handlerID, "write_") {
+	if !watchcodecontracts.IsBackendWriteHandlerID(handlerID) {
 		return false, nil
 	}
 	if h == nil || h.projectState == nil || h.workspaceRoot == "" {
@@ -137,21 +135,21 @@ func (h *watchCodeBackendRouteHost) writeWatchCodeUISettingValue(
 	handlerID string,
 ) (bool, error) {
 	switch handlerID {
-	case "write_enabled":
+	case watchcodecontracts.BackendWriteHandlerIDEnabled:
 		enabled, ok := options.Value.(bool)
 		if !ok {
 			return true, errors.New("enabled must be a boolean")
 		}
 		_, err := h.projectState.SetWatchCodeEnabled(ctx, providerPluginID, options.ProjectConfigID, enabled, h.workspaceRoot)
 		return true, err
-	case "write_folders":
+	case watchcodecontracts.BackendWriteHandlerIDFolders:
 		folders, err := decodeWatchCodeUISettingValue[[]projectstate.WatchCodeFolder](options.Value)
 		if err != nil {
 			return true, err
 		}
 		_, err = h.projectState.SetWatchCodeFolders(ctx, providerPluginID, options.ProjectConfigID, folders, h.workspaceRoot)
 		return true, err
-	case "write_files":
+	case watchcodecontracts.BackendWriteHandlerIDFiles:
 		files, err := decodeWatchCodeUISettingValue[[]string](options.Value)
 		if err != nil {
 			return true, err
@@ -161,30 +159,6 @@ func (h *watchCodeBackendRouteHost) writeWatchCodeUISettingValue(
 	default:
 		return false, nil
 	}
-}
-
-func (h *watchCodeBackendRouteHost) watchCodeProjectDataForUISetting(
-	providerPluginID string,
-	projectID string,
-	handlerID string,
-	prefix string,
-) (projectstate.WatchCodePluginProjectData, bool, error) {
-	if h == nil || h.projectState == nil || h.workspaceRoot == "" {
-		return projectstate.WatchCodePluginProjectData{}, true, projectstate.ErrRuntimeClosed
-	}
-	handlerID = strings.TrimSpace(handlerID)
-	if !isWatchCodeUISettingHandler(handlerID, prefix) {
-		return projectstate.WatchCodePluginProjectData{}, false, nil
-	}
-	projectData, _, err := h.projectState.Snapshot().Document.WatchCodePluginProjectData(providerPluginID, projectID)
-	if err != nil {
-		return projectstate.WatchCodePluginProjectData{}, true, err
-	}
-	return projectData, true, nil
-}
-
-func isWatchCodeUISettingHandler(handlerID string, prefix string) bool {
-	return handlerID == prefix+"enabled" || handlerID == prefix+"folders" || handlerID == prefix+"files"
 }
 
 func (h *watchCodeBackendRouteHost) activeProviderPluginID() (string, bool) {
@@ -202,18 +176,18 @@ func (h watchCodeBackendRouteHost) handleSetEnabled(
 ) (plugins.BackendHTTPResponse, bool, error) {
 	payload, response, ok := decodeWatchCodeBackendRequest[watchCodeBackendSetEnabledPayload](
 		body,
-		watchCodeBackendErrorInvalidRequest,
+		watchcodecontracts.BackendErrorInvalidRequest,
 		"Invalid Watch Code enabled request.",
 	)
 	if !ok {
 		return response, true, nil
 	}
-	projectID, response, ok := requiredWatchCodeBackendPayloadString(payload.ProjectConfigID, watchCodeBackendErrorProjectConfigIDRequired, "Project config id is required.")
+	projectID, response, ok := requiredWatchCodeBackendPayloadString(payload.ProjectConfigID, watchcodecontracts.BackendErrorProjectConfigIDRequired, "Project config id is required.")
 	if !ok {
 		return response, true, nil
 	}
 	if payload.Enabled == nil {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "enabled must be a boolean.", nil), true, nil
+		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidRequest, "enabled must be a boolean.", nil), true, nil
 	}
 	frontendOpID := optionalWatchCodeBackendPayloadString(payload.FrontendOpID)
 
@@ -241,21 +215,21 @@ func (h watchCodeBackendRouteHost) handleSetInputs(
 ) (plugins.BackendHTTPResponse, bool, error) {
 	payload, response, ok := decodeWatchCodeBackendRequest[watchCodeBackendSetInputsPayload](
 		body,
-		watchCodeBackendErrorInvalidWatchCodeInput,
+		watchcodecontracts.BackendErrorInvalidWatchCodeInput,
 		"Invalid Watch Code input.",
 	)
 	if !ok {
 		return response, true, nil
 	}
-	projectID, response, ok := requiredWatchCodeBackendPayloadString(payload.ProjectConfigID, watchCodeBackendErrorProjectConfigIDRequired, "Project config id is required.")
+	projectID, response, ok := requiredWatchCodeBackendPayloadString(payload.ProjectConfigID, watchcodecontracts.BackendErrorProjectConfigIDRequired, "Project config id is required.")
 	if !ok {
 		return response, true, nil
 	}
 	if payload.WatchCodeFolders == nil {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "watchCodeFolders must be an array of objects.", nil), true, nil
+		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidRequest, "watchCodeFolders must be an array of objects.", nil), true, nil
 	}
 	if payload.WatchCodeFiles == nil {
-		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "watchCodeFiles must be an array of strings.", nil), true, nil
+		return watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidRequest, "watchCodeFiles must be an array of strings.", nil), true, nil
 	}
 	frontendOpID := optionalWatchCodeBackendPayloadString(payload.FrontendOpID)
 
@@ -305,21 +279,6 @@ func (h watchCodeBackendRouteHost) broadcastProjectState(
 	return err
 }
 
-func parseWatchCodeBackendRoutePath(path string) (string, string, bool) {
-	rest, ok := strings.CutPrefix(strings.TrimSpace(path), "/plugins/")
-	if !ok {
-		return "", "", false
-	}
-	pluginID, suffix, ok := strings.Cut(rest, "/watch-code/")
-	if !ok || strings.TrimSpace(pluginID) == "" {
-		return "", "", false
-	}
-	if suffix != "enabled" && suffix != "inputs" {
-		return "", "", false
-	}
-	return pluginID, suffix, true
-}
-
 func decodeWatchCodeBackendRequest[T any](
 	body []byte,
 	decodeErrorCode string,
@@ -331,7 +290,7 @@ func decodeWatchCodeBackendRequest[T any](
 		trimmed = []byte("{}")
 	}
 	if !bytes.HasPrefix(trimmed, []byte("{")) {
-		return payload, watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidRequest, "JSON payload must be an object.", nil), false
+		return payload, watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidRequest, "JSON payload must be an object.", nil), false
 	}
 	decoder := json.NewDecoder(bytes.NewReader(trimmed))
 	decoder.DisallowUnknownFields()
@@ -339,7 +298,7 @@ func decodeWatchCodeBackendRequest[T any](
 		code := decodeErrorCode
 		message := decodeErrorMessage
 		if isWatchCodeBackendJSONSyntaxError(err) {
-			code = watchCodeBackendErrorInvalidJSON
+			code = watchcodecontracts.BackendErrorInvalidJSON
 			message = "Invalid JSON payload."
 		} else if message == "" {
 			message = err.Error()
@@ -350,7 +309,7 @@ func decodeWatchCodeBackendRequest[T any](
 	}
 	var trailing struct{}
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return payload, watchCodeBackendErrorResponse(http.StatusBadRequest, watchCodeBackendErrorInvalidJSON, "Invalid JSON payload.", nil), false
+		return payload, watchCodeBackendErrorResponse(http.StatusBadRequest, watchcodecontracts.BackendErrorInvalidJSON, "Invalid JSON payload.", nil), false
 	}
 	return payload, plugins.BackendHTTPResponse{}, true
 }
@@ -442,19 +401,19 @@ func watchCodeBackendMutationError(err error) (string, string, int) {
 	case err == nil:
 		return "", "", http.StatusOK
 	case errors.Is(err, projectstate.ErrWatchCodeProviderPluginIDRequired):
-		return watchCodeBackendErrorProviderRequired, err.Error(), http.StatusConflict
+		return watchcodecontracts.BackendErrorProviderRequired, err.Error(), http.StatusConflict
 	case errors.Is(err, projectstate.ErrProjectIDRequired):
-		return watchCodeBackendErrorProjectConfigIDRequired, "Project config id is required.", http.StatusBadRequest
+		return watchcodecontracts.BackendErrorProjectConfigIDRequired, "Project config id is required.", http.StatusBadRequest
 	case errors.Is(err, projectstate.ErrProjectNotFound):
-		return watchCodeBackendErrorProjectConfigNotFound, "Project config not found.", http.StatusNotFound
+		return watchcodecontracts.BackendErrorProjectConfigNotFound, "Project config not found.", http.StatusNotFound
 	case errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired),
 		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid):
-		return watchCodeBackendErrorInvalidWatchCodeInput, err.Error(), http.StatusBadRequest
+		return watchcodecontracts.BackendErrorInvalidWatchCodeInput, err.Error(), http.StatusBadRequest
 	case errors.Is(err, projectstate.ErrRuntimeClosed),
 		errors.Is(err, projectstate.ErrPersistedStoreUnsupported):
-		return watchCodeBackendErrorInternal, err.Error(), http.StatusInternalServerError
+		return watchcodecontracts.BackendErrorInternal, err.Error(), http.StatusInternalServerError
 	default:
-		return watchCodeBackendErrorInternal, err.Error(), http.StatusInternalServerError
+		return watchcodecontracts.BackendErrorInternal, err.Error(), http.StatusInternalServerError
 	}
 }
 

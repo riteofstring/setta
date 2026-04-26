@@ -8,12 +8,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from setta.types.generated import go_shared_constants as C
+
 BACKEND_PROBE_ARG = "--setta-plugin-backend-probe"
 BACKEND_RUNTIME_ARG = "--setta-plugin-backend-runtime"
 
-ERROR_METHOD_NOT_ALLOWED = "method_not_allowed"
-ERROR_NOT_FOUND = "not_found"
-ERROR_WATCH_CODE_PROVIDER_REQUIRED = "watch_code_provider_required"
 GO_HOST_REQUIRED_MESSAGE = (
     "Watch Code mutations are handled by the active Setta Go host."
 )
@@ -40,61 +39,74 @@ def _write_json(payload: dict[str, Any]) -> None:
 
 
 def _route(plugin_id: str, suffix: str) -> str:
-    return f"/plugins/{plugin_id}/watch-code/{suffix}"
+    return f"/plugins/{plugin_id}{C.WATCH_CODE_BACKEND_ROUTE_BASE_PATH}/{suffix}"
+
+
+def _with_ui_setting_handlers(setting: dict[str, Any]) -> dict[str, Any]:
+    setting_id = str(setting["id"])
+    return {
+        **setting,
+        "readHandlerId": C.WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID[
+            setting_id
+        ],
+        "writeHandlerId": C.WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID[
+            setting_id
+        ],
+    }
 
 
 def _ui_settings() -> list[dict[str, Any]]:
     return [
-        {
-            "id": "enabled",
-            "title": "Watch Code Enabled",
-            "description": "Enable or disable Watch Code for the project.",
-            "synonyms": ["watch code", "watch mode", "watch toggle"],
-            "paneId": "left",
-            "revealKey": "watch-code-settings",
-            "mutability": "writable",
-            "valueSchema": {"type": "boolean"},
-            "readHandlerId": "read_enabled",
-            "writeHandlerId": "write_enabled",
-        },
-        {
-            "id": "folders",
-            "title": "Watch Code Folders",
-            "description": "List of folders watched by Watch Code.",
-            "synonyms": ["watch folders", "watch code folders"],
-            "paneId": "left",
-            "revealKey": "watch-code-settings",
-            "mutability": "writable",
-            "valueSchema": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "path": {"type": "string"},
-                        "recursive": {"type": "boolean"},
+        _with_ui_setting_handlers(
+            {
+                "id": C.WATCH_CODE_BACKEND_LOCAL_SETTING_ENABLED,
+                "title": "Watch Code Enabled",
+                "description": "Enable or disable Watch Code for the project.",
+                "synonyms": ["watch code", "watch mode", "watch toggle"],
+                "paneId": "left",
+                "revealKey": "watch-code-settings",
+                "mutability": "writable",
+                "valueSchema": {"type": "boolean"},
+            }
+        ),
+        _with_ui_setting_handlers(
+            {
+                "id": C.WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS,
+                "title": "Watch Code Folders",
+                "description": "List of folders watched by Watch Code.",
+                "synonyms": ["watch folders", "watch code folders"],
+                "paneId": "left",
+                "revealKey": "watch-code-settings",
+                "mutability": "writable",
+                "valueSchema": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "recursive": {"type": "boolean"},
+                        },
+                        "required": ["path"],
+                        "additionalProperties": False,
                     },
-                    "required": ["path"],
-                    "additionalProperties": False,
                 },
-            },
-            "readHandlerId": "read_folders",
-            "writeHandlerId": "write_folders",
-        },
-        {
-            "id": "files",
-            "title": "Watch Code Files",
-            "description": "List of explicit files watched by Watch Code.",
-            "synonyms": ["watch files", "watch code files"],
-            "paneId": "left",
-            "revealKey": "watch-code-settings",
-            "mutability": "writable",
-            "valueSchema": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
-            "readHandlerId": "read_files",
-            "writeHandlerId": "write_files",
-        },
+            }
+        ),
+        _with_ui_setting_handlers(
+            {
+                "id": C.WATCH_CODE_BACKEND_LOCAL_SETTING_FILES,
+                "title": "Watch Code Files",
+                "description": "List of explicit files watched by Watch Code.",
+                "synonyms": ["watch files", "watch code files"],
+                "paneId": "left",
+                "revealKey": "watch-code-settings",
+                "mutability": "writable",
+                "valueSchema": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+            }
+        ),
     ]
 
 
@@ -103,14 +115,14 @@ def _probe_payload() -> dict[str, Any]:
     return {
         "schemaVersion": 1,
         "watchCodeBackend": {
-            "contractVersion": 1,
-            "dataSchemaVersion": 1,
+            "contractVersion": C.WATCH_CODE_BACKEND_CONTRACT_VERSION,
+            "dataSchemaVersion": C.WATCH_CODE_BACKEND_DATA_SCHEMA_VERSION,
             "languages": ["python"],
             "requiresLanguageServer": True,
         },
         "routes": [
-            {"path": _route(plugin_id, "enabled"), "methods": ["POST"]},
-            {"path": _route(plugin_id, "inputs"), "methods": ["POST"]},
+            {"path": _route(plugin_id, suffix), "methods": ["POST"]}
+            for suffix in C.WATCH_CODE_BACKEND_ROUTE_SUFFIXES
         ],
         "uiSettings": _ui_settings(),
     }
@@ -173,23 +185,22 @@ def _handle_http_request(
     if method != "POST":
         return _http_error_response(
             405,
-            ERROR_METHOD_NOT_ALLOWED,
+            C.WATCH_CODE_BACKEND_ERROR_METHOD_NOT_ALLOWED,
             "Method not allowed.",
         )
 
     path = str(request.get("path", "")).strip()
     if path not in {
-        _route(plugin_id, "enabled"),
-        _route(plugin_id, "inputs"),
+        _route(plugin_id, suffix) for suffix in C.WATCH_CODE_BACKEND_ROUTE_SUFFIXES
     }:
         return _http_error_response(
             404,
-            ERROR_NOT_FOUND,
+            C.WATCH_CODE_BACKEND_ERROR_NOT_FOUND,
             "Route not found.",
         )
     return _http_error_response(
         409,
-        ERROR_WATCH_CODE_PROVIDER_REQUIRED,
+        C.WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED,
         GO_HOST_REQUIRED_MESSAGE,
     )
 
@@ -202,7 +213,7 @@ def _handle_ui_setting_request(
     _ = plugin_id
     return {
         "error": _error_payload(
-            ERROR_WATCH_CODE_PROVIDER_REQUIRED,
+            C.WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED,
             GO_HOST_REQUIRED_MESSAGE,
         )
     }

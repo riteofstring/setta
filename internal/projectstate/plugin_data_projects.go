@@ -65,6 +65,37 @@ func cloneDocumentPluginData(pluginData map[string]RawJSON) map[string]RawJSON {
 	return cloned
 }
 
+func ProjectScopedPluginDataForProject(pluginData map[string]RawJSON, projectID string) (map[string]RawJSON, error) {
+	trimmedProjectID := strings.TrimSpace(projectID)
+	if trimmedProjectID == "" {
+		return nil, ErrProjectIDRequired
+	}
+
+	result := map[string]RawJSON{}
+	for pluginID, payload := range pluginData {
+		fields, ok, err := decodeProjectScopedPluginPayload(pluginID, payload)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		projects, ok, err := decodeProjectScopedPluginPayloadProjects(pluginID, fields)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		projectPayload, ok := projects[trimmedProjectID]
+		if !ok {
+			continue
+		}
+		result[pluginID] = cloneRawJSON(projectPayload)
+	}
+	return result, nil
+}
+
 func copyProjectScopedPluginPayload(pluginID string, payload RawJSON, sourceProjectID string, targetProjectID string) (RawJSON, bool, error) {
 	return rewriteProjectScopedPluginPayload(pluginID, payload, func(projects map[string]RawJSON) bool {
 		sourcePayload, ok := projects[sourceProjectID]
@@ -117,11 +148,14 @@ func rewriteProjectScopedPluginPayload(
 }
 
 func decodeProjectScopedPluginPayload(pluginID string, payload RawJSON) (map[string]RawJSON, bool, error) {
-	normalized, err := normalizeRawJSONObject(payload, "pluginData."+pluginID)
+	normalized, err := normalizeRawJSON(payload, "pluginData."+pluginID)
 	if err != nil {
 		return nil, false, err
 	}
 	if len(normalized) == 0 {
+		return nil, false, nil
+	}
+	if !rawJSONIsObject(normalized) {
 		return nil, false, nil
 	}
 	var fields map[string]RawJSON
@@ -133,16 +167,23 @@ func decodeProjectScopedPluginPayload(pluginID string, payload RawJSON) (map[str
 
 func decodeProjectScopedPluginPayloadProjects(pluginID string, fields map[string]RawJSON) (map[string]RawJSON, bool, error) {
 	projectsPayload, ok := fields["projects"]
-	if !ok || len(projectsPayload) == 0 {
+	if !ok {
 		return nil, false, nil
 	}
-	normalized, err := normalizeRawJSONObject(projectsPayload, "pluginData."+pluginID+".projects")
+	field := "pluginData." + pluginID + ".projects"
+	normalized, err := normalizeRawJSON(projectsPayload, field)
 	if err != nil {
 		return nil, false, err
+	}
+	if len(normalized) == 0 || !rawJSONIsObject(normalized) {
+		return nil, false, fmt.Errorf("%s must be a JSON object", field)
 	}
 	var projects map[string]RawJSON
 	if err := json.Unmarshal(normalized, &projects); err != nil {
 		return nil, false, fmt.Errorf("decode pluginData.%s.projects: %w", pluginID, err)
+	}
+	if projects == nil {
+		return nil, false, fmt.Errorf("%s must be a JSON object", field)
 	}
 	return projects, true, nil
 }
@@ -153,4 +194,15 @@ func marshalProjectScopedPluginRawObject(fields map[string]RawJSON, field string
 		return nil, fmt.Errorf("encode %s: %w", field, err)
 	}
 	return normalizeRawJSONObject(encoded, field)
+}
+
+func rawJSONIsObject(raw RawJSON) bool {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return false
+	}
+	if _, ok := value.(map[string]any); !ok {
+		return false
+	}
+	return true
 }
