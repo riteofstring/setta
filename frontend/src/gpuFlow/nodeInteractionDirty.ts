@@ -28,8 +28,7 @@ type GpuNodeInteractionDirtyControllerOptions = {
   readonly deferPassiveDirty?: (() => boolean) | undefined;
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly getFrame: () => number;
-  readonly interactiveFeedbackDurationMs?: number | undefined;
-  readonly now?: (() => number) | undefined;
+  readonly activeSettleDelayMs?: number | undefined;
   readonly onStateChange?:
     | ((state: GpuNodeInteractionState) => void)
     | undefined;
@@ -54,7 +53,7 @@ type NodeInteractionStatePatch = {
 };
 
 const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
-const DEFAULT_INTERACTIVE_FEEDBACK_DURATION_MS = 240;
+const DEFAULT_ACTIVE_SETTLE_DELAY_MS = 240;
 const INTERACTIVE_TARGET_SELECTOR = [
   "button",
   "input",
@@ -75,11 +74,10 @@ const INTERACTIVE_TARGET_SELECTOR = [
 ].join(",");
 
 export function createGpuNodeInteractionDirtyController({
+  activeSettleDelayMs = DEFAULT_ACTIVE_SETTLE_DELAY_MS,
   deferPassiveDirty,
   elementByNodeId,
   getFrame,
-  interactiveFeedbackDurationMs = DEFAULT_INTERACTIVE_FEEDBACK_DURATION_MS,
-  now = () => performance.now(),
   onStateChange,
   requestFrame,
   textureManager,
@@ -87,8 +85,7 @@ export function createGpuNodeInteractionDirtyController({
   let activeNodeId: string | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
-  let interactiveFeedbackReason: DirtyNodeReason = "input";
-  let interactiveFeedbackUntilMs = 0;
+  let activeSettleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 
   function setState(next: NodeInteractionStatePatch) {
     const previousActiveNodeId = activeNodeId;
@@ -134,7 +131,7 @@ export function createGpuNodeInteractionDirtyController({
   function beginInteractiveNode(nodeId: string, reason: DirtyNodeReason) {
     const manager = textureManager();
     manager?.setNodeTexturePriority(nodeId, "interactive");
-    extendInteractiveFeedback(reason);
+    clearActiveSettleTimer();
     setState({
       activeNodeId: nodeId,
       releaseAfterUploadNodeId: null,
@@ -151,7 +148,6 @@ export function createGpuNodeInteractionDirtyController({
     if (!pointerInteractionNodeId) {
       return;
     }
-    extendInteractiveFeedback("pointer");
     markDirty({
       nodeId: pointerInteractionNodeId,
       priority: "interactive",
@@ -225,36 +221,30 @@ export function createGpuNodeInteractionDirtyController({
       return;
     }
     const nodeId = activeNodeId;
-    extendInteractiveFeedback(reason);
     markDirty({ nodeId, priority: "interactive", reason });
     setState({ releaseAfterUploadNodeId: nodeId });
+    scheduleActiveSettleFrame(nodeId);
   }
 
-  function extendInteractiveFeedback(reason: DirtyNodeReason) {
-    if (interactiveFeedbackDurationMs <= 0) {
-      interactiveFeedbackUntilMs = 0;
+  function scheduleActiveSettleFrame(nodeId: string) {
+    clearActiveSettleTimer();
+    if (activeSettleDelayMs <= 0) {
       return;
     }
-    interactiveFeedbackReason = reason;
-    interactiveFeedbackUntilMs = Math.max(
-      interactiveFeedbackUntilMs,
-      now() + interactiveFeedbackDurationMs,
-    );
+    activeSettleTimer = globalThis.setTimeout(() => {
+      activeSettleTimer = null;
+      if (activeNodeId === nodeId && releaseAfterUploadNodeId === nodeId) {
+        requestFrame("texture-upload");
+      }
+    }, activeSettleDelayMs);
   }
 
-  function isInteractiveFeedbackActive() {
-    return Boolean(activeNodeId && now() < interactiveFeedbackUntilMs);
-  }
-
-  function requestInteractiveFeedbackFrame() {
-    if (!activeNodeId) {
-      return false;
+  function clearActiveSettleTimer() {
+    if (activeSettleTimer === null) {
+      return;
     }
-    return markDirty({
-      nodeId: activeNodeId,
-      priority: "interactive",
-      reason: interactiveFeedbackReason,
-    });
+    globalThis.clearTimeout(activeSettleTimer);
+    activeSettleTimer = null;
   }
 
   return {
@@ -353,7 +343,10 @@ export function createGpuNodeInteractionDirtyController({
         listenerOptions,
       );
 
-      return () => abortController.abort();
+      return () => {
+        abortController.abort();
+        clearActiveSettleTimer();
+      };
     },
     clearNode(nodeId) {
       const nextActiveNodeId = activeNodeId === nodeId ? null : activeNodeId;
@@ -362,8 +355,8 @@ export function createGpuNodeInteractionDirtyController({
       if (pointerInteractionNodeId === nodeId) {
         pointerInteractionNodeId = null;
       }
-      if (activeNodeId === nodeId) {
-        interactiveFeedbackUntilMs = 0;
+      if (activeNodeId === nodeId || releaseAfterUploadNodeId === nodeId) {
+        clearActiveSettleTimer();
       }
       setState({
         activeNodeId: nextActiveNodeId,
@@ -379,16 +372,14 @@ export function createGpuNodeInteractionDirtyController({
       const activeUploaded = result.uploadedNodeIds.includes(activeNodeId);
       const activeStillDirty =
         result.remainingDirtyNodeIds.includes(activeNodeId);
-      const feedbackActive = isInteractiveFeedbackActive();
       if (activeStillDirty && result.budgetExhausted) {
-        if (feedbackActive) {
-          requestInteractiveFeedbackFrame();
-        }
         return;
       }
 
-      if (feedbackActive) {
-        requestInteractiveFeedbackFrame();
+      if (
+        releaseAfterUploadNodeId === activeNodeId &&
+        activeSettleTimer !== null
+      ) {
         return;
       }
 
@@ -398,6 +389,7 @@ export function createGpuNodeInteractionDirtyController({
 
       const manager = textureManager();
       if (releaseAfterUploadNodeId === activeNodeId) {
+        clearActiveSettleTimer();
         manager?.setNodeTexturePriority(activeNodeId, "visible");
         setState({
           activeNodeId: null,
@@ -415,7 +407,7 @@ export function createGpuNodeInteractionDirtyController({
       }
       if (
         releaseAfterUploadNodeId === activeNodeId &&
-        !isInteractiveFeedbackActive()
+        activeSettleTimer === null
       ) {
         return null;
       }
