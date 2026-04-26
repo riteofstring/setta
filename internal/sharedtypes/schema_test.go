@@ -77,10 +77,10 @@ func TestBuildSchemaDocumentIncludesAuthoritativeWebsocketMessageTypeEnumValues(
 		enumValues[text] = struct{}{}
 	}
 	for _, want := range []string{
-		string(realtime.WebsocketMessageTypeFrontendIdentity),
-		string(realtime.WebsocketMessageTypeNotification),
-		string(realtime.WebsocketMessageTypeAllConnections),
-		string(realtime.WebsocketMessageTypeLLMStreamingResponse),
+		string(realtime.MessageTypeFrontendIdentity),
+		string(realtime.MessageTypeNotification),
+		string(realtime.MessageTypeAllConnections),
+		string(realtime.MessageTypeLLMStreamingResponse),
 		string(realtime.WebsocketMessageTypeBackendLogEvent),
 	} {
 		if _, ok := enumValues[want]; !ok {
