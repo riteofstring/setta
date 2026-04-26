@@ -13,6 +13,21 @@ The target architecture is:
 
 This plan replaces the current active-node texture-upload feedback loop with a live DOM interaction layer.
 
+## Current Status
+
+As of 2026-04-29, this plan is partially executed and should not be run as a purely linear plan from Phase 1.
+
+- Strategy A1, CSS-promoting a canvas layoutsubtree child so it visually paints above the canvas, is provisionally ruled out by local Chromium probes. Hit testing worked; visual compositing did not.
+- Strategy A2, same-instance active DOM teleport, has an initial prototype. It temporarily moves the existing React-owned node DOM into an outside overlay while active, restores it under the canvas before capture, and defers uploads while the node is teleported.
+- Strategy B, duplicate live overlay render, remains a fallback only if A2 fails for important components such as CodeMirror, terminal, or other stateful section types.
+
+A1 is still worth external/browser-model review because it would be the cleaner architecture if possible. Do not re-open A1 based on hit testing alone. Re-open it only with a minimal repro showing the same canvas-child DOM element both:
+
+1. visibly composites above the canvas as normal DOM during interaction, and
+2. remains eligible for the intended WebGPU/html-in-canvas capture path without a restore/repaint step.
+
+If new browser flags, Chrome channels, origin trials, or API usage patterns make that repro pass, update this plan before changing the implementation direction.
+
 ## Why The Current Patch Is Not Enough
 
 The current WebGPU node path captures a whole node element into a texture:
@@ -90,6 +105,11 @@ For the active node:
 
 ## Phase 1: Baseline And Probes
 
+Status: partially complete. See:
+
+- `perf/reports/frontend/2026-04-29_strategy-a-investigation.md`
+- `perf/reports/frontend/2026-04-29_strategy-a2-active-teleport-prototype.md`
+
 Record a baseline before implementation and store it in `perf/reports/frontend/`.
 
 Required baseline actions on Settings -> All Settings:
@@ -125,25 +145,30 @@ Required probes:
    - terminal node
    - chat node
 
-Do not start implementation until these results are recorded. They determine whether the active layer can reuse the source DOM or must duplicate it.
+Do not start broad follow-up implementation until any missing results are recorded. Existing A2 prototype work may continue, but any decision to abandon A2 or return to A1 must be backed by a new report in `perf/reports/frontend/`.
 
 ## Phase 2: Active DOM Layer Architecture
 
-Add a new active DOM layer outside the WebGPU canvas:
+Status: implemented differently for the current A2 path.
 
-- `frontend/src/gpuFlow/GpuActiveNodeDomLayer.tsx`
+The original Phase 2 described a duplicate-render active DOM layer. The current preferred architecture is same-instance teleport: the existing node DOM is moved into an active overlay while the user interacts, then restored before final capture. Do not introduce a second React-owned node tree unless Strategy B becomes necessary.
+
+For A2, keep an active teleport layer outside the WebGPU canvas:
+
 - mounted as a sibling of `GpuSurface`, above the canvas and below global popovers
 - `position: absolute; inset: 0; pointer-events: none`
-- one child for the active node with `pointer-events: auto`
+- one teleported active node with `pointer-events: auto`
+- lifecycle support for preserving focus and selection across the move
+- upload deferral while the active node is outside the canvas layout subtree
+- restore-before-capture ordering on settle
 
-The layer receives:
+The layer needs:
 
 - `activeNodeId`
 - active node layout
 - current GPU viewport
-- active target descriptor, if known
-- node renderer
-- lifecycle callbacks
+- current canvas/source DOM node for that node id
+- lifecycle callbacks for teleported, restored, and paint-ready states
 
 The active node element uses the same screen transform as the GPU quad:
 
@@ -162,7 +187,11 @@ While active, `GpuNodeLayer` should mark that node as live-DOM-active. The GPU r
 
 Prefer skipping the active quad once the live layer confirms mount. That avoids double-render artifacts during switch transitions.
 
+If Strategy B becomes necessary, this same layer may become a separate active `SectionContainer` renderer. That fallback must first pass the component safety audit because duplicate mounting can create duplicate subscriptions, editors, terminals, observers, and local state.
+
 ## Phase 3: Choose Promotion Strategy
+
+Status: A2 is the current implementation path. A1 remains under external review; B remains fallback.
 
 Use the Phase 1 probe results to choose one strategy.
 
@@ -205,7 +234,7 @@ Current investigation result:
 
 ### Strategy A2: Same-Instance Active DOM Teleport
 
-Prototype this before Strategy B.
+This is the current implementation path. Harden it before Strategy B.
 
 Approach:
 
@@ -234,11 +263,11 @@ Risks:
 
 Required prototype checks:
 
-- Switch first-click handoff while teleported.
-- Text input focus/caret while teleported.
-- Input-driven React rerender while teleported.
-- Reattach-before-final-capture ordering.
-- No `copyElementImageToTexture` calls for the active node while teleported.
+- Switch first-click handoff while teleported. Initial check passed; keep regression coverage.
+- Text input focus/caret while teleported. Initial check passed; keep regression coverage.
+- Input-driven React rerender while teleported. Still needs broader component coverage.
+- Reattach-before-final-capture ordering. Initial check passed for basic settings nodes; keep regression coverage.
+- No `copyElementImageToTexture` calls for the active node while teleported. Initial check passed; keep regression coverage.
 - CodeMirror and terminal behavior before enabling broadly.
 
 ### Strategy B: Separate Live Overlay Render
@@ -330,7 +359,7 @@ Use `html-in-canvas/plugins/html-cloth.mjs` `_refreshTexture()` as a reference f
 
 ## Phase 6: Component Safety Audit
 
-Before enabling Strategy B broadly, audit these component families:
+Before enabling A2 broadly for all node types, audit these component families:
 
 - Param inputs
 - Switch inputs
@@ -343,12 +372,13 @@ Before enabling Strategy B broadly, audit these component families:
 
 For each, decide:
 
-- safe to duplicate for active overlay
-- must use existing DOM promotion
+- safe to teleport with existing DOM
+- safe to duplicate only if Strategy B is needed
+- would become simpler if A1 is proven by a browser repro
 - needs a dedicated active presentation mode
 - should stay texture-only temporarily
 
-Document any duplication exception near the implementation. Do not add silent compatibility shims.
+Document any teleport or duplication exception near the implementation. Do not add silent compatibility shims.
 
 ## Phase 7: Tests
 
@@ -359,6 +389,9 @@ Unit tests:
 - active node GPU quad is skipped while live DOM is mounted
 - texture upload is deferred during active interaction
 - final texture upload happens before live DOM unmount
+- teleported node is restored before final capture
+- upload attempts are deferred while a node is outside the canvas layout subtree
+- focus and selection survive teleport for text inputs
 - interaction controller resolves and stores active target descriptors
 - first-click handoff routes switch/button interaction to live DOM
 - slider pointer capture continues after pointerdown
@@ -414,10 +447,9 @@ After live DOM active interaction is verified:
 
 ## Open Questions
 
-- Can a canvas layoutsubtree child be visually promoted above the canvas on the local Chromium build?
+- Can a canvas layoutsubtree child be visually promoted above the canvas on any current Chromium build or flag set while remaining capture-eligible?
 - Can WebGPU `copyElementImageToTexture` capture outside-canvas DOM elements?
-- Can same-instance active DOM teleport survive React updates, focus, selection, CodeMirror, and terminal behavior without duplicate mounting?
-- Can the active node upload path be cleanly suppressed while a source node is temporarily outside the canvas?
+- Can same-instance active DOM teleport survive large React updates, CodeMirror, and terminal behavior without duplicate mounting?
 - Which Setta section types are unsafe to duplicate?
 - Do CodeMirror and terminal need dedicated active presentation wrappers?
 - Should active DOM be node-level always, or control-level for simple params?
