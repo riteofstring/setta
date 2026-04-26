@@ -303,9 +303,21 @@ export function useCanvasFlowInteractions({
       if (event.target !== event.currentTarget) {
         return;
       }
+      const edgeHit = getEdgeHitForEvent({
+        canvas: event.currentTarget,
+        edges: edgesRef.current,
+        event,
+        viewport: viewportRef.current,
+      });
+      if (edgeHit && !edgeHit.endpoint) {
+        event.preventDefault();
+        toggleCanvasFlowEdgeSelection(edgeHit.edge);
+        schedulePaint();
+        return;
+      }
       onBackgroundClick(event, viewportRef.current, { forceDurableSync: true });
     },
-    [viewportRef],
+    [edgesRef, schedulePaint, viewportRef],
   );
 
   const onContextMenu = useCallback(
