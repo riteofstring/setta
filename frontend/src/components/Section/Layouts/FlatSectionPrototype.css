@@ -6759,7 +6759,7 @@
   }
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 28rem) {
   .flat-section-prototype-gallery {
     flex-direction: row;
   }

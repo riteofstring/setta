@@ -205,6 +205,8 @@ describe("FlatSectionPrototype", () => {
     expect(flatSectionPrototypeCss).toContain(
       "@container (max-width: 12.5rem)",
     );
+    expect(flatSectionPrototypeCss).toContain("@media (min-width: 28rem)");
+    expect(flatSectionPrototypeCss).not.toContain("@media (min-width: 1280px)");
     expect(flatSectionPrototypeCss).toContain("--flat-divider");
     expect(flatSectionPrototypeCss).toContain("--flat-chrome-bg");
     expect(flatSectionPrototypeCss).toContain("font-weight: 700;");
