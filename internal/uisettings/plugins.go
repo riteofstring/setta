@@ -211,7 +211,7 @@ func appendPluginRuntimeEntriesForPlugin(
 		appendSchemaDefinedPluginEntries(entries, metadata, pluginService, pluginID, sources)
 	}
 	if hasRegisterUISettings {
-		appendBackendRegisteredPluginEntries(entries, metadata, pluginService, pluginID, sources)
+		appendBackendRegisteredPluginEntries(entries, metadata, pluginService, pluginID, sources, hasRegisterPane)
 	}
 	return nil
 }
@@ -330,6 +330,7 @@ func appendBackendRegisteredPluginEntries(
 	pluginService PluginRuntimeService,
 	pluginID string,
 	sources pluginContributionSources,
+	hasRegisterPane bool,
 ) {
 	for _, registration := range sources.validBackendRegistrations {
 		if pluginSettingDuplicatedAcrossSources(sources.contributionCount, registration.LocalSettingID) {
@@ -337,7 +338,7 @@ func appendBackendRegisteredPluginEntries(
 			continue
 		}
 		recordKnownPluginSettingID(metadata, pluginID, registration.LocalSettingID)
-		*entries = append(*entries, buildPluginBackendRuntimeEntry(pluginService, registration))
+		*entries = append(*entries, buildPluginBackendRuntimeEntry(pluginService, registration, hasRegisterPane))
 	}
 }
 
@@ -403,6 +404,7 @@ func buildPluginRuntimeEntry(pluginService PluginRuntimeService, pluginID string
 		definition.RevealKey,
 		definition.Mutability,
 		definition.ValueSchema,
+		true,
 	)
 	entry := RuntimeEntry{
 		Metadata:  metadata,
@@ -414,7 +416,7 @@ func buildPluginRuntimeEntry(pluginService PluginRuntimeService, pluginID string
 	return entry
 }
 
-func buildPluginBackendRuntimeEntry(pluginService PluginRuntimeService, registration plugins.PluginRegisteredUISetting) RuntimeEntry {
+func buildPluginBackendRuntimeEntry(pluginService PluginRuntimeService, registration plugins.PluginRegisteredUISetting, includePaneMetadata bool) RuntimeEntry {
 	settingID := buildPluginSettingID(registration.PluginID, registration.LocalSettingID)
 	valueSchema := parsePluginRegisteredValueSchema(registration)
 	metadata := buildPluginEntryMetadata(
@@ -427,6 +429,7 @@ func buildPluginBackendRuntimeEntry(pluginService PluginRuntimeService, registra
 		registration.RevealKey,
 		Mutability(registration.Mutability),
 		valueSchema,
+		includePaneMetadata,
 	)
 	entry := RuntimeEntry{
 		Metadata:  metadata,
@@ -449,18 +452,22 @@ func buildPluginEntryMetadata(
 	revealKey string,
 	mutability Mutability,
 	valueSchema ValueSchema,
+	includePaneMetadata bool,
 ) Entry {
+	location := Location{
+		Side:     SideLeft,
+		PluginID: pluginID,
+	}
+	if includePaneMetadata && strings.TrimSpace(paneID) != "" {
+		location.OverviewTabKey = buildPluginPaneOverviewTabKey(pluginID, paneID)
+		location.PaneID = paneID
+	}
 	return Entry{
 		SettingID:   buildPluginSettingID(pluginID, localSettingID),
 		Title:       title,
 		Synonyms:    append([]string(nil), synonyms...),
 		Description: description,
-		Location: Location{
-			Side:           SideLeft,
-			OverviewTabKey: buildPluginPaneOverviewTabKey(pluginID, paneID),
-			PluginID:       pluginID,
-			PaneID:         paneID,
-		},
+		Location:    location,
 		Highlight: Highlight{
 			Strategy:        HighlightStrategyPluginHandler,
 			PluginRevealKey: revealKey,

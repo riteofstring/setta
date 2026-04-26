@@ -12,10 +12,13 @@ import {
   getCurrentSectionVariantId,
   getParamDisplayNameIfPresent,
   isAppSubsystemFrontendRegistration,
+  isSettaPluginCanvasControlPlacement,
+  isSettaPluginHost,
   NO_PAN_CLASS_NAME,
   registerAppSubsystemPlugin,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  SettaPluginCanvasControlPlacementEnum,
   shouldShowPasswordReveal,
   type DropzoneStatelessAttachment,
 } from "@setta/app-subsystem-frontend-sdk";
@@ -43,6 +46,34 @@ describe("appSubsystemFrontendSdk", () => {
 
     expect(host.pluginId).toBe("acme.plugin");
     expect(registerAppSubsystem).toHaveBeenCalledWith(registration);
+  });
+
+  it("exports the generic plugin frontend host contract", () => {
+    const host = {
+      apiVersion: 1,
+      pluginId: "acme.plugin",
+      serverMode: "ide",
+      effectiveCapabilities: ["registerCanvasControl"],
+      registerCanvasControl: () => undefined,
+      registerSettingRevealHandler: () => undefined,
+      getProjectContext: () => ({
+        projectConfigId: "project-alpha",
+        serverMode: "ide",
+      }),
+      subscribeProjectContext: () => () => undefined,
+      readProjectState: () => null,
+      subscribeProjectState: () => () => undefined,
+      fetchBackendRoute: async () => new Response(null, { status: 200 }),
+    };
+
+    expect(isSettaPluginHost(host)).toBe(true);
+    expect(isSettaPluginHost({ apiVersion: 1 })).toBe(false);
+    expect(
+      isSettaPluginCanvasControlPlacement(
+        SettaPluginCanvasControlPlacementEnum.Project,
+      ),
+    ).toBe(true);
+    expect(isSettaPluginCanvasControlPlacement("header")).toBe(false);
   });
 
   it("rejects hosts that do not expose the app subsystem registration capability", () => {

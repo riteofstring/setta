@@ -1,4 +1,10 @@
 import {
+  isSettaPluginCanvasControlPlacement,
+  SettaPluginCanvasControlPlacementEnum,
+  type SettaPluginCanvasControlDefinition,
+  type SettaPluginCanvasControlPlacement,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   PluginListResponse,
   PluginRuntimeStateEnum,
   type PluginBlockedCapability,
@@ -49,48 +55,18 @@ export type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
-export const PluginCanvasControlPlacementEnum = {
-  Project: "project",
-  Viewport: "viewport",
-  Utility: "utility",
-} as const;
+export const PluginCanvasControlPlacementEnum =
+  SettaPluginCanvasControlPlacementEnum;
 
-type PluginCanvasControlPlacement =
-  (typeof PluginCanvasControlPlacementEnum)[keyof typeof PluginCanvasControlPlacementEnum];
+type PluginCanvasControlPlacement = SettaPluginCanvasControlPlacement;
 
 export function isPluginCanvasControlPlacement(
   value: string,
 ): value is PluginCanvasControlPlacement {
-  return (
-    value === PluginCanvasControlPlacementEnum.Project ||
-    value === PluginCanvasControlPlacementEnum.Viewport ||
-    value === PluginCanvasControlPlacementEnum.Utility
-  );
+  return isSettaPluginCanvasControlPlacement(value);
 }
 
-type PluginCanvasControlProps = {
-  pluginId: string;
-  controlId: string;
-  label: string;
-  placement: PluginCanvasControlPlacement;
-  serverMode: PluginServerMode;
-  effectiveCapabilities: string[];
-};
-
-type PluginCanvasControlRenderer = {
-  mount: (el: HTMLElement, props: PluginCanvasControlProps) => void;
-  update?: (el: HTMLElement, props: PluginCanvasControlProps) => void;
-  unmount?: (el: HTMLElement) => void;
-};
-
-export type PluginCanvasControlDefinition = {
-  id: string;
-  label: string;
-  description?: string;
-  placement?: PluginCanvasControlPlacement;
-  order?: number;
-  renderer: PluginCanvasControlRenderer;
-};
+export type PluginCanvasControlDefinition = SettaPluginCanvasControlDefinition;
 
 export type RegisteredPluginCanvasControl = PluginCanvasControlDefinition & {
   pluginId: string;

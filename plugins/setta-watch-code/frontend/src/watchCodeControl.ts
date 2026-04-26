@@ -1,3 +1,10 @@
+import type {
+  SettaPluginCanvasControlProps,
+  SettaPluginCanvasControlRenderer,
+  SettaPluginHost,
+  SettaPluginSettingRevealHandlerContext,
+} from "@setta/app-subsystem-frontend-sdk";
+
 export type WatchCodeFolder = {
   path: string;
   recursive: boolean;
@@ -10,68 +17,7 @@ type WatchCodeProjectData = {
   files: string[];
 };
 
-type ProjectContext = {
-  projectConfigId: string;
-  serverMode: string;
-};
-
-type CanvasControlProps = {
-  pluginId: string;
-  controlId: string;
-  label: string;
-  placement: "project" | "viewport" | "utility";
-  serverMode: string;
-  effectiveCapabilities: string[];
-};
-
-type CanvasControlRenderer = {
-  mount: (el: HTMLElement, props: CanvasControlProps) => void;
-  update?: (el: HTMLElement, props: CanvasControlProps) => void;
-  unmount?: (el: HTMLElement) => void;
-};
-
-type CanvasControlDefinition = {
-  id: string;
-  label: string;
-  description?: string;
-  placement?: "project" | "viewport" | "utility";
-  order?: number;
-  renderer: CanvasControlRenderer;
-};
-
-type RevealHandlerContext = {
-  settingId: string;
-  paneId: string | null;
-  durationMs: number;
-  abortSignal: AbortSignal;
-};
-
-type ProjectStateSelector =
-  | { kind: "projectConfig" }
-  | { kind: "pluginData"; pluginId: string };
-
-export type WatchCodePluginHost = {
-  apiVersion: number;
-  pluginId: string;
-  serverMode: string;
-  effectiveCapabilities: string[];
-  registerCanvasControl: (definition: CanvasControlDefinition) => void;
-  registerSettingRevealHandler: (
-    revealKey: string,
-    handler: (context: RevealHandlerContext) => boolean | Promise<boolean>,
-  ) => void;
-  getProjectContext: () => ProjectContext;
-  subscribeProjectContext: (
-    listener: (context: ProjectContext) => void,
-  ) => () => void;
-  readProjectState: (selector: ProjectStateSelector) => unknown;
-  subscribeProjectState: (
-    selector: ProjectStateSelector,
-    listener: (nextValue: unknown, prevValue: unknown | null) => void,
-    options?: { fireImmediately?: boolean; throttleMs?: number },
-  ) => () => void;
-  fetchBackendRoute: (path: string, init?: RequestInit) => Promise<Response>;
-};
+export type WatchCodePluginHost = SettaPluginHost;
 
 const NULL_PROJECT_CONFIG_ID = "null";
 const PORTAL_MIN_WIDTH_PX = 280;
@@ -87,8 +33,10 @@ const EMPTY_WATCH_CODE_PROJECT_DATA: WatchCodeProjectData = {
 };
 
 export function createWatchCodeControl(host: WatchCodePluginHost): {
-  renderer: CanvasControlRenderer;
-  revealSetting: (context: RevealHandlerContext) => Promise<boolean>;
+  renderer: SettaPluginCanvasControlRenderer;
+  revealSetting: (
+    context: SettaPluginSettingRevealHandlerContext,
+  ) => Promise<boolean>;
 } {
   const controller = new WatchCodeControlController(host);
   return {
@@ -119,7 +67,7 @@ class WatchCodeControlController {
     this.host = host;
   }
 
-  mount(el: HTMLElement, props: CanvasControlProps): void {
+  mount(el: HTMLElement, props: SettaPluginCanvasControlProps): void {
     this.ensureProjectSubscription();
     const button = document.createElement("button");
     button.type = "button";
@@ -140,7 +88,7 @@ class WatchCodeControlController {
     this.renderControlButton(button);
   }
 
-  update(el: HTMLElement, props: CanvasControlProps): void {
+  update(el: HTMLElement, props: SettaPluginCanvasControlProps): void {
     const button = this.mounts.get(el);
     if (!button) {
       return;
@@ -165,7 +113,9 @@ class WatchCodeControlController {
     }
   }
 
-  async revealSetting(context: RevealHandlerContext): Promise<boolean> {
+  async revealSetting(
+    context: SettaPluginSettingRevealHandlerContext,
+  ): Promise<boolean> {
     if (context.abortSignal.aborted) {
       return false;
     }

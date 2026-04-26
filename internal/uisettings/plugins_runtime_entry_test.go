@@ -111,7 +111,7 @@ func newBackendRegisteredRuntimeEntry(service PluginRuntimeService) RuntimeEntry
 		},
 		ReadHandlerID:  "read-enabled",
 		WriteHandlerID: &writeHandlerID,
-	})
+	}, true)
 }
 
 func newBackendUISettingsOnlyRuntimeResponse() plugins.PluginRuntimeResponse {
@@ -230,6 +230,21 @@ func TestNewScopedRegistryIncludesBackendRegisteredSettingWithRegisterUISettings
 	}
 	if entry.Metadata.Title != "Backend Enabled" {
 		t.Fatalf("expected backend title, got %#v", entry.Metadata.Title)
+	}
+	if entry.Metadata.Location.PluginID != "plugin-a" {
+		t.Fatalf("expected plugin location plugin-a, got %#v", entry.Metadata.Location)
+	}
+	if entry.Metadata.Location.PaneID != "" {
+		t.Fatalf("expected backend-only setting to be pane-less, got pane %q", entry.Metadata.Location.PaneID)
+	}
+	if entry.Metadata.Location.OverviewTabKey != "" {
+		t.Fatalf("expected backend-only setting to omit overview tab, got %q", entry.Metadata.Location.OverviewTabKey)
+	}
+	if entry.Metadata.Highlight.Strategy != HighlightStrategyPluginHandler {
+		t.Fatalf("expected plugin handler highlight, got %q", entry.Metadata.Highlight.Strategy)
+	}
+	if entry.Metadata.Highlight.PluginRevealKey != "enabled" {
+		t.Fatalf("expected reveal key enabled, got %q", entry.Metadata.Highlight.PluginRevealKey)
 	}
 	value, err := registry.ReadValue(context.Background(), "project-alpha", settingID)
 	if err != nil {
@@ -446,7 +461,7 @@ func TestBuildPluginBackendRuntimeEntryReturnsBackendNormalizedValue(t *testing.
 		},
 		ReadHandlerID:  "read-files",
 		WriteHandlerID: &writeHandlerID,
-	})
+	}, true)
 
 	result, err := entry.WriteValue(context.Background(), "project-1", []any{"pkg/./file.py"}, nil)
 	if err != nil {

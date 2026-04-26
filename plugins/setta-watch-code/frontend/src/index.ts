@@ -1,10 +1,11 @@
 import "./styles.css";
+import type { SettaPluginHost } from "@setta/app-subsystem-frontend-sdk";
 import {
   createWatchCodeControl,
   type WatchCodePluginHost,
 } from "./watchCodeControl";
 
-export const apiVersion = 1;
+export const apiVersion = 1 satisfies SettaPluginHost["apiVersion"];
 
 const requiredCapabilities = [
   "registerCanvasControl",
@@ -15,14 +16,21 @@ const requiredCapabilities = [
 ];
 
 export function register(host: unknown): void {
-  const watchCodeHost = normalizeWatchCodePluginHost(host);
-  if (!watchCodeHost) {
+  if (!host || typeof host !== "object") {
     return;
   }
-  if (!hasRequiredCapabilities(watchCodeHost.effectiveCapabilities)) {
+  const candidate = host as Partial<WatchCodePluginHost>;
+  if (
+    candidate.apiVersion !== apiVersion ||
+    !Array.isArray(candidate.effectiveCapabilities)
+  ) {
+    return;
+  }
+  if (!hasRequiredCapabilities(candidate.effectiveCapabilities)) {
     return;
   }
 
+  const watchCodeHost = host as WatchCodePluginHost;
   const control = createWatchCodeControl(watchCodeHost);
   watchCodeHost.registerCanvasControl({
     id: "watch-code",
@@ -41,29 +49,4 @@ export function register(host: unknown): void {
 function hasRequiredCapabilities(effectiveCapabilities: string[]): boolean {
   const effective = new Set(effectiveCapabilities);
   return requiredCapabilities.every((capability) => effective.has(capability));
-}
-
-function normalizeWatchCodePluginHost(
-  host: unknown,
-): WatchCodePluginHost | null {
-  if (!host || typeof host !== "object") {
-    return null;
-  }
-  const candidate = host as Partial<WatchCodePluginHost>;
-  if (
-    candidate.apiVersion !== apiVersion ||
-    typeof candidate.pluginId !== "string" ||
-    typeof candidate.serverMode !== "string" ||
-    !Array.isArray(candidate.effectiveCapabilities) ||
-    typeof candidate.registerCanvasControl !== "function" ||
-    typeof candidate.registerSettingRevealHandler !== "function" ||
-    typeof candidate.getProjectContext !== "function" ||
-    typeof candidate.subscribeProjectContext !== "function" ||
-    typeof candidate.readProjectState !== "function" ||
-    typeof candidate.subscribeProjectState !== "function" ||
-    typeof candidate.fetchBackendRoute !== "function"
-  ) {
-    return null;
-  }
-  return candidate as WatchCodePluginHost;
 }

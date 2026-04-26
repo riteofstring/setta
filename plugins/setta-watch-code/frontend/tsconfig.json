@@ -2,6 +2,12 @@
   "compilerOptions": {
     "module": "ESNext",
     "target": "ES2020",
+    "baseUrl": ".",
+    "paths": {
+      "@setta/app-subsystem-frontend-sdk": [
+        "../../../frontend/plugin-sdk/app-subsystem/types/index.d.ts"
+      ]
+    },
     "lib": ["dom", "dom.iterable", "esnext"],
     "types": ["node"],
     "skipLibCheck": true,

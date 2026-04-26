@@ -33,7 +33,7 @@ function buildHost(overrides: Partial<WatchCodePluginHost> = {}) {
     | ((nextValue: unknown, prevValue: unknown | null) => void)
     | null = null;
   let projectContextListener:
-    | ((context: { projectConfigId: string; serverMode: string }) => void)
+    | Parameters<WatchCodePluginHost["subscribeProjectContext"]>[0]
     | null = null;
   const registeredControls: RegisteredCanvasControl[] = [];
   const revealHandlers = new Map<string, RevealHandler>();

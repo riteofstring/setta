@@ -8,6 +8,12 @@
 - Proof tests: `TestAppWatchCodePluginRouteMutatesLiveRuntimeAndPreservesDataAcrossSave`; `TestAppWatchCodePluginRouteRejectsUnsupportedFolderPropertiesWithoutMutation`; `TestAppIDEMCPToolCallRouteWritesActiveWatchCodeUISettingThroughLiveRuntime`; `TestAppIDEMCPToolCallRouteRejectsUnsupportedWatchCodeFolderPropertiesWithoutMutation`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsForPendingRestartProvider`; `TestAppIDEMCPToolCallRouteHidesWatchCodeUISettingsDuringProviderConflict`; `tests/plugin_runtime/test_watch_code_plugin_backend.py`
 - Still unverified: Browser/CDP flow not run; no rendered UI behavior changed.
 
+### Generic Plugin UI Settings
+- Invariant: Backend-registered plugin UI settings are capability-gated by `registerUISettings` and may reveal through pane-less plugin handlers when no plugin pane can exist; schema-defined plugin settings remain pane-backed and require `registerPane`.
+- Last finding commit: a1ab5007a9537bfee64932cabb4cf2adf085040e
+- Proof tests: `TestNewScopedRegistryIncludesBackendRegisteredSettingWithRegisterUISettingsOnly`; `TestRevealServiceDispatchesBackendOnlyPluginSettingAsPaneLessTarget`; `TestNewScopedRegistryOmitsSchemaDefinedSettingWithoutRegisterPane`; `frontend/src/plugins/runtime.test.ts`
+- Still unverified: Browser/CDP visual verification and Playwright were not run; no rendered layout or style flow changed.
+
 ### Watch Code Provider Registry
 - Invariant: When an active Watch Code provider exists, project mutations that can change callable membership must update the provider's pluginData registry in the same document revision; providerless project paths must not recreate core Watch Code fields.
 - Last finding commit: 0317ff3f3ff9a601f43097511f5a85e0b32337c0
@@ -21,15 +27,21 @@
 - Still unverified: No new dedicated shutdown-count test was added in this iteration.
 
 ### Generic Plugin Canvas Controls
-- Invariant: Canvas-control ordering has one shared comparator for placement, order, label, plugin ID, and control ID so registration-time and runtime-store sorting cannot drift; feature-provider frontends that are pending restart, conflicting, disabled, invalid, or non-selected must not run registration side effects for controls or setting reveal handlers.
-- Last finding commit: a1f566beb5a4e34b2675bdbbe4f8a2a9132914d6
-- Proof tests: `frontend/src/plugins/runtime.test.ts`
+- Invariant: Canvas-control placement definitions and ordering have one shared SDK/runtime owner for placement, order, label, plugin ID, and control ID so standalone plugins, registration-time validation, and runtime-store sorting cannot drift; feature-provider frontends that are pending restart, conflicting, disabled, invalid, or non-selected must not run registration side effects for controls or setting reveal handlers.
+- Last finding commit: a1ab5007a9537bfee64932cabb4cf2adf085040e
+- Proof tests: `frontend/src/plugins/runtime.test.ts`; `frontend/src/plugins/appSubsystemSdk.test.ts`; `frontend/src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`
 - Still unverified: Browser/CDP visual check not run; registration gating is covered by runtime unit tests.
 
+### Plugin Frontend Host Contracts
+- Invariant: Generic plugin frontend host, canvas-control, setting-reveal, and project-state selector contracts have one app-subsystem SDK-owned exported surface; the core runtime and standalone plugins import that surface, while plugins keep only plugin-specific capability gating.
+- Last finding commit: a1ab5007a9537bfee64932cabb4cf2adf085040e
+- Proof tests: `frontend/src/plugins/appSubsystemSdk.test.ts`; `frontend/src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`; `frontend/src/plugins/runtime.test.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; app-subsystem SDK and Watch Code frontend typechecks.
+- Still unverified: Browser/CDP visual verification and Playwright were not run; the changed behavior is contract/type and reveal-dispatch behavior.
+
 ### Extracted Watch Code Surface Contracts
-- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, and `plugin::<provider>::*` settings; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, and generated local-core command constants stay deleted.
-- Last finding commit: a1f566beb5a4e34b2675bdbbe4f8a2a9132914d6
-- Proof tests: `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; `tests/start/test_packaged_distribution.py`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, and Watch Code local-core commands.
+- Invariant: After Watch Code extraction, docs and tests target plugin-owned routes, DOM IDs, and `plugin::<provider>::*` settings; stale core route names, core selectors, compatibility aliases, superseded CAS-shaped Watch Code mutation shims, duplicate Python/local-core Watch Code mutation backends, dead branch-added helper APIs, and generated local-core command constants stay deleted.
+- Last finding commit: a1ab5007a9537bfee64932cabb4cf2adf085040e
+- Proof tests: `frontend/tests/e2e/overview/layout/watch-code-pane.spec.ts`; `plugins/setta-watch-code/frontend/tests/register.test.ts`; `TestScopedRegistryDoesNotExposeCoreWatchCodeSettings`; `tests/plugin_runtime/test_local_core.py`; `tests/start/test_packaged_distribution.py`; `./scripts/go.sh test ./internal/projectstate`; Go build coverage after deleting `CompareAndSetWatchCode*`, `Project.SetWatchCode*`, `WatchCodePluginSettingID`, `mustWatchCodePluginSettingID`, and Watch Code local-core commands.
 - Still unverified: Updated Playwright spec was not rerun in this iteration because no rendered UI behavior changed.
 
 ### UI Settings Core Registry API
@@ -131,6 +143,36 @@ Verification run:
 
 Residual risks / verification gaps:
 - Browser/CDP visual verification was not run; no rendered layout or style flow changed, and affected provider-registration behavior is covered by runtime tests.
+- Playwright was not run in this iteration.
+- Full repo test suites beyond `./check_quality.sh` and the focused regression suite above were not run.
+- `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.
+
+## 2026-04-26 00:04:50 PDT
+
+Fixes applied:
+- Emitted `registerUISettings`-only backend plugin UI settings as pane-less plugin-handler reveal targets when the plugin has no effective `registerPane`.
+- Moved the generic plugin frontend host, canvas-control, setting-reveal, and project-state selector contract into the app-subsystem frontend SDK, then updated the core runtime and Watch Code frontend to use that source.
+- Synced the JSON Render app-subsystem plugin's vendored SDK declaration file with the source SDK contract.
+- Removed unused branch-added Watch Code plugin setting ID helpers.
+
+Tests added or upgraded:
+- Added UI-settings registry and reveal-service regression tests for backend-only plugin settings with preserved plugin reveal keys and no pane/tab target.
+- Extended app-subsystem SDK and plugin build-boundary coverage for the generic plugin frontend host contract.
+- Updated Watch Code frontend tests and standalone typecheck coverage to consume the SDK-owned host type.
+
+Verification run:
+- `pnpm -C frontend gcf`
+- `./check_quality.sh`
+- `git diff --check`
+- `./scripts/go.sh test ./internal/uisettings ./internal/projectstate`
+- `pnpm -C frontend exec vitest run src/plugins/appSubsystemSdk.test.ts src/plugins/runtime.test.ts src/plugins/appSubsystemBuildBoundaryGuardrails.test.ts`
+- `pnpm --dir frontend/plugin-sdk/app-subsystem run typecheck`
+- `pnpm --dir plugins/setta-watch-code/frontend run typecheck`
+- `pnpm --dir plugins/setta-watch-code/frontend run test`
+- `pnpm --dir plugins/setta-watch-code/frontend run build`
+
+Residual risks / verification gaps:
+- Browser/CDP visual verification was not run because no rendered layout or style behavior changed; affected reveal payload and plugin registration behavior are covered by Go/frontend tests.
 - Playwright was not run in this iteration.
 - Full repo test suites beyond `./check_quality.sh` and the focused regression suite above were not run.
 - `pnpm -C frontend gcf` emitted existing generated Python Ruff TC002/TC003 type-checking import diagnostics but completed successfully.

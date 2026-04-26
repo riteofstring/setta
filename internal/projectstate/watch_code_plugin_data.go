@@ -81,18 +81,6 @@ func (data WatchCodePluginData) Normalized() WatchCodePluginData {
 	return normalized
 }
 
-func WatchCodePluginSettingID(providerPluginID string, localID string) (string, error) {
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return "", err
-	}
-	trimmedLocalID := strings.TrimSpace(localID)
-	if trimmedLocalID == "" {
-		return "", fmt.Errorf("watch code setting local id is required")
-	}
-	return "plugin::" + pluginID + "::" + trimmedLocalID, nil
-}
-
 func (d Document) WatchCodePluginProjectData(providerPluginID string, projectID string) (WatchCodePluginProjectData, bool, error) {
 	data, ok, err := d.decodeWatchCodePluginData(providerPluginID)
 	if err != nil || !ok {
@@ -229,12 +217,4 @@ func normalizeWatchCodeProviderPluginID(providerPluginID string) (string, error)
 		return "", ErrWatchCodeProviderPluginIDRequired
 	}
 	return pluginID, nil
-}
-
-func mustWatchCodePluginSettingID(providerPluginID string, localID string) string {
-	settingID, err := WatchCodePluginSettingID(providerPluginID, localID)
-	if err != nil {
-		panic(err)
-	}
-	return settingID
 }

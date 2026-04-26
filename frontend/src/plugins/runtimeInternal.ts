@@ -1,7 +1,11 @@
 import {
   isAppSubsystemFrontendRegistration,
+  SETTA_PLUGIN_FRONTEND_HOST_API_VERSION,
   type AppSubsystemFrontendRegistration,
   type RegisteredAppSubsystemFrontendRegistration,
+  type SettaPluginProjectStateSelector,
+  type SettaPluginSettingRevealHandler,
+  type SettaPluginHost as SharedSettaPluginHost,
 } from "@setta/app-subsystem-frontend-sdk";
 import throttle from "lodash/throttle";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
@@ -42,7 +46,7 @@ import {
 } from "./runtimeShared";
 import { buildPluginAssetUrl } from "./transport";
 
-const PLUGIN_FRONTEND_API_VERSION = 1;
+const PLUGIN_FRONTEND_API_VERSION = SETTA_PLUGIN_FRONTEND_HOST_API_VERSION;
 
 const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
@@ -84,16 +88,7 @@ export type RegisteredPluginSectionKind = PluginSectionKindDefinition & {
   pluginId: string;
 };
 
-type PluginSettingRevealHandlerContext = {
-  settingId: string;
-  paneId: string | null;
-  durationMs: number;
-  abortSignal: AbortSignal;
-};
-
-type PluginSettingRevealHandler = (
-  context: PluginSettingRevealHandlerContext,
-) => boolean | Promise<boolean>;
+type PluginSettingRevealHandler = SettaPluginSettingRevealHandler;
 
 type PluginCommandDefinition = {
   id: string;
@@ -123,23 +118,7 @@ export type PluginFrontendError = {
   message: string;
 };
 
-type PluginProjectContext = {
-  projectConfigId: string;
-  serverMode: PluginServerMode;
-};
-
-type PluginProjectStateSelector =
-  | { kind: "projectConfig" }
-  | { kind: "pluginData"; pluginId: string }
-  | { kind: "activeSectionIds" }
-  | { kind: "section"; sectionId: string }
-  | { kind: "sections"; sectionIds: string[] }
-  | { kind: "singletonSections" };
-
-type PluginProjectStateSubscriptionOptions = {
-  fireImmediately?: boolean;
-  throttleMs?: number;
-};
+type PluginProjectStateSelector = SettaPluginProjectStateSelector;
 
 type PluginRealtimeDependencyEvent = {
   dependencyKey: BaseDependencyKeyUnion;
@@ -152,36 +131,16 @@ type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
-type SettaPluginHost = {
-  apiVersion: number;
-  pluginId: string;
-  serverMode: PluginServerMode;
-  effectiveCapabilities: string[];
+type SettaPluginHost = SharedSettaPluginHost & {
   createStore: <TState extends object>(
     initializer: StateCreator<TState, [], []>,
   ) => StoreApi<TState>;
   registerAppSubsystem: (definition: AppSubsystemFrontendRegistration) => void;
   registerSectionKind: (definition: PluginSectionKindDefinition) => void;
   registerPane: (definition: PluginPaneDefinition) => void;
-  registerSettingRevealHandler: (
-    revealKey: string,
-    handler: PluginSettingRevealHandler,
-  ) => void;
   registerCommand: (definition: PluginCommandDefinition) => void;
   registerTopNavBarItem: (definition: PluginTopNavBarItemDefinition) => void;
-  registerCanvasControl: (definition: PluginCanvasControlDefinition) => void;
   registerContextMenu: (_definition: Record<string, unknown>) => void;
-  getProjectContext: () => PluginProjectContext;
-  subscribeProjectContext: (
-    listener: (context: PluginProjectContext) => void,
-  ) => () => void;
-  readProjectState: (selector: PluginProjectStateSelector) => unknown;
-  subscribeProjectState: (
-    selector: PluginProjectStateSelector,
-    listener: (nextValue: unknown, prevValue: unknown | null) => void,
-    options?: PluginProjectStateSubscriptionOptions,
-  ) => () => void;
-  fetchBackendRoute: (path: string, init?: RequestInit) => Promise<Response>;
   emitRealtimeDependencyEvent: (event: PluginRealtimeDependencyEvent) => void;
   emitSectionRealtimeValue: (
     sectionId: string,
