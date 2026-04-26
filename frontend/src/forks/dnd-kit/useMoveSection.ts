@@ -3,8 +3,8 @@ import {
   getDndSectionId,
   useDndState,
 } from "forks/dnd-kit/dndState";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { screenToFlowPosition } from "gpuFlow/viewportActions";
 import { useRef } from "react";
 import {
   getSectionChildren,
@@ -16,7 +16,12 @@ import {
   isDescendantOfSectionSelection,
 } from "state/actions/sections/sectionSelection";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useProjectState } from "state/definitions";
+import {
+  useLocalStorage,
+  useProjectState,
+  useSettings,
+} from "state/definitions";
+import type { Position } from "utils/generatedTypes";
 import type { DragEndEvent } from "./adapter";
 import { useDndChildren } from "./dndChildren";
 import { getSortingOverState } from "./sortingOverState";
@@ -73,7 +78,7 @@ function onFreeMoveEnd({
         : null,
     sharedParentId,
     topLevelSections: state.projectConfig.topLevelSections,
-    toFlowPosition: screenToFlowPosition,
+    toFlowPosition: screenToDndFlowPosition,
   });
   if (!plan) {
     manualDndChildrenReset();
@@ -214,5 +219,12 @@ function scheduleSelectionBoundsUpdate() {
   }
   requestAnimationFrame(() => {
     useReactFlow.getState().setNodesSelection(activeIds.length, true);
+  });
+}
+
+function screenToDndFlowPosition(position: Position): Position {
+  return screenToFlowPosition(position, {
+    snapGrid: useSettings.getState().gui.snapGrid,
+    snapToGrid: useLocalStorage.getState().snapToGrid,
   });
 }

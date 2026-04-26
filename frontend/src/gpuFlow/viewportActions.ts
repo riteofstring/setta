@@ -22,6 +22,12 @@ type GpuViewportActionOptions = {
   readonly store?: GpuFlowViewportStoreApi | undefined;
 };
 
+type GpuScreenToFlowActionOptions = GpuViewportActionOptions & {
+  readonly ignoreDomNode?: boolean | undefined;
+  readonly snapGrid?: readonly [number, number] | undefined;
+  readonly snapToGrid?: boolean | undefined;
+};
+
 type SetGpuViewportOptions = GpuViewportActionOptions & {
   readonly duration?: number | undefined;
 };
@@ -148,15 +154,19 @@ function fitGpuViewport(options: GpuFitViewOptions): boolean {
 
 function screenToGpuFlowPosition(
   point: GpuPoint,
-  options: GpuViewportActionOptions & {
-    readonly ignoreDomNode?: boolean | undefined;
-  } = {},
+  options: GpuScreenToFlowActionOptions = {},
 ): GpuPoint {
   const store = resolveViewportStore(options.store);
   const relativePoint = options.ignoreDomNode
     ? point
     : getGpuViewportStorePointRelativeToDomNode(point, store);
-  return screenPointToFlowPosition(relativePoint, store.getState().transform);
+  const flowPoint = screenPointToFlowPosition(
+    relativePoint,
+    store.getState().transform,
+  );
+  return options.snapToGrid
+    ? snapGpuFlowPosition(flowPoint, options.snapGrid)
+    : flowPoint;
 }
 
 function flowToGpuScreenPosition(
@@ -228,5 +238,27 @@ function assertNoViewportTransition(duration: number | undefined) {
 function assertFiniteNumber(name: string, value: number) {
   if (!Number.isFinite(value)) {
     throw new Error(`${name} must be a finite number.`);
+  }
+}
+
+function snapGpuFlowPosition(
+  point: GpuPoint,
+  snapGrid: readonly [number, number] | undefined,
+): GpuPoint {
+  if (!snapGrid) {
+    throw new Error("GPU flow snap grid is required when snapToGrid is true.");
+  }
+  const [xGrid, yGrid] = snapGrid;
+  assertFinitePositive("snap grid x", xGrid);
+  assertFinitePositive("snap grid y", yGrid);
+  return {
+    x: xGrid * Math.round(point.x / xGrid),
+    y: yGrid * Math.round(point.y / yGrid),
+  };
+}
+
+function assertFinitePositive(name: string, value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${name} must be a finite positive number.`);
   }
 }

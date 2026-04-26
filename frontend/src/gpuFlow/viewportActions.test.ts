@@ -125,6 +125,25 @@ describe("gpu viewport actions", () => {
     });
   });
 
+  it("snaps screen points to a caller-provided flow grid when requested", () => {
+    const store = createGpuFlowViewportStore({
+      transform: [5, 10, 2],
+    });
+
+    expect(
+      screenToFlowPosition(
+        { x: 63, y: 91 },
+        { ignoreDomNode: true, snapGrid: [10, 25], snapToGrid: true, store },
+      ),
+    ).toEqual({ x: 30, y: 50 });
+    expect(() =>
+      screenToFlowPosition(
+        { x: 63, y: 91 },
+        { ignoreDomNode: true, snapToGrid: true, store },
+      ),
+    ).toThrow("GPU flow snap grid is required");
+  });
+
   it("keeps map position updates explicit and rejects unimplemented transitions", () => {
     const store = createGpuFlowViewportStore({
       transform: [10, 20, 1],
