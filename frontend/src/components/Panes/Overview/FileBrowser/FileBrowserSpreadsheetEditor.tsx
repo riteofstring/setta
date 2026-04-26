@@ -883,6 +883,7 @@ function SpreadsheetGlideGridView({
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag h-full overflow-hidden bg-setta-50/80 [scrollbar-gutter:stable] dark:bg-setta-950/80`}
+      data-gpu-flow-control="spreadsheet-glide-grid"
       data-testid="spreadsheet-glide-grid"
     >
       <div
@@ -976,6 +977,7 @@ function SpreadsheetDomGridView({
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag h-full overflow-x-auto overflow-y-hidden bg-setta-50/80 [scrollbar-gutter:stable] dark:bg-setta-950/80`}
+      data-gpu-flow-control="spreadsheet-dom-grid"
       data-testid="spreadsheet-grid-scroll"
     >
       <div className="min-h-full" style={{ minWidth: listWidth }}>

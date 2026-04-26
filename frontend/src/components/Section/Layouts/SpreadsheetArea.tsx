@@ -215,6 +215,7 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
           ? "border border-blue-400/70 bg-blue-50/30 dark:border-blue-500/60 dark:bg-blue-950/20"
           : ""
       }`}
+      data-gpu-flow-control={`spreadsheet:${sectionId}`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}

@@ -35,6 +35,7 @@ function _IframeArea({ sectionId }: { sectionId: string }) {
   return !code || validateIframeCode(code) ? null : (
     <div
       className="section-main mb-2 mt-1.5 overflow-clip rounded-md"
+      data-gpu-flow-control={`iframe:${sectionId}`}
       ref={containerRef}
     >
       <div dangerouslySetInnerHTML={{ __html: code }} />

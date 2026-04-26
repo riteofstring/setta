@@ -21,10 +21,18 @@ type TeleportedNode = {
 };
 
 type FocusSnapshot = {
+  readonly domSelection?: DomSelectionSnapshot | null | undefined;
   readonly element: HTMLElement;
   readonly selectionDirection?: "backward" | "forward" | "none" | undefined;
   readonly selectionEnd?: number | null | undefined;
   readonly selectionStart?: number | null | undefined;
+};
+
+type DomSelectionSnapshot = {
+  readonly anchorNode: Node;
+  readonly anchorOffset: number;
+  readonly focusNode: Node;
+  readonly focusOffset: number;
 };
 
 const TELEPORTED_NODE_CLASS = "setta-gpu-flow__node--teleported";
@@ -218,7 +226,10 @@ function captureFocusSnapshot(root: HTMLElement): FocusSnapshot | null {
       selectionStart: activeElement.selectionStart,
     };
   }
-  return { element: activeElement };
+  return {
+    domSelection: captureDomSelectionSnapshot(root),
+    element: activeElement,
+  };
 }
 
 function restoreFocusSnapshot(snapshot: FocusSnapshot | null) {
@@ -234,6 +245,10 @@ function restoreFocusSnapshot(snapshot: FocusSnapshot | null) {
       snapshot.element instanceof HTMLTextAreaElement
     )
   ) {
+    restoreDomSelectionSnapshot(
+      snapshot.element.ownerDocument,
+      snapshot.domSelection,
+    );
     return;
   }
   snapshot.element.setSelectionRange(
@@ -241,4 +256,53 @@ function restoreFocusSnapshot(snapshot: FocusSnapshot | null) {
     snapshot.selectionEnd,
     snapshot.selectionDirection,
   );
+  return;
+}
+
+function captureDomSelectionSnapshot(
+  root: HTMLElement,
+): DomSelectionSnapshot | null {
+  const selection = root.ownerDocument.getSelection();
+  if (
+    !selection ||
+    !selection.anchorNode ||
+    !selection.focusNode ||
+    !rootContainsNode(root, selection.anchorNode) ||
+    !rootContainsNode(root, selection.focusNode)
+  ) {
+    return null;
+  }
+  return {
+    anchorNode: selection.anchorNode,
+    anchorOffset: selection.anchorOffset,
+    focusNode: selection.focusNode,
+    focusOffset: selection.focusOffset,
+  };
+}
+
+function restoreDomSelectionSnapshot(
+  ownerDocument: Document,
+  snapshot: DomSelectionSnapshot | null | undefined,
+) {
+  if (
+    !snapshot ||
+    !snapshot.anchorNode.isConnected ||
+    !snapshot.focusNode.isConnected
+  ) {
+    return;
+  }
+  const selection = ownerDocument.getSelection();
+  if (!selection) {
+    return;
+  }
+  selection.setBaseAndExtent(
+    snapshot.anchorNode,
+    snapshot.anchorOffset,
+    snapshot.focusNode,
+    snapshot.focusOffset,
+  );
+}
+
+function rootContainsNode(root: HTMLElement, node: Node): boolean {
+  return root === node || root.contains(node);
 }

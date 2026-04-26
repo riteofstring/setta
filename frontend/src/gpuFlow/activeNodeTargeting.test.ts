@@ -84,6 +84,131 @@ describe("gpu active node pointer targeting", () => {
         : null,
     ).toBe(structural);
   });
+
+  it("resolves audited component-family active surfaces without visible text selectors", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const editor = document.createElement("article");
+    const terminal = document.createElement("div");
+    const spreadsheet = document.createElement("div");
+    const iframe = document.createElement("iframe");
+    editor.setAttribute("data-section-main-editor", "");
+    terminal.dataset.gpuFlowControl = "terminal:node-a";
+    spreadsheet.dataset.gpuFlowControl = "spreadsheet:node-a";
+    iframe.title = "Rendered preview";
+    nodeElement.append(editor, terminal, spreadsheet, iframe);
+    setRect(surface, 0, 0, 600, 400);
+    setRect(editor, 20, 20, 120, 60);
+    setRect(terminal, 160, 20, 120, 60);
+    setRect(spreadsheet, 300, 20, 120, 60);
+    setRect(iframe, 440, 20, 120, 60);
+
+    expect(
+      resolveTargetValue({
+        clientX: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [0],
+      role: null,
+      tagName: "article",
+    });
+    expect(
+      resolveTargetValue({
+        clientX: 180,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "div",
+      value: "terminal:node-a",
+    });
+    expect(
+      resolveTargetValue({
+        clientX: 320,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "div",
+      value: "spreadsheet:node-a",
+    });
+    expect(
+      resolveTargetValue({
+        clientX: 460,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [3],
+      role: null,
+      tagName: "iframe",
+    });
+  });
+
+  it("resolves browser image and media preview surfaces as active controls", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const image = document.createElement("img");
+    const audio = document.createElement("audio");
+    const video = document.createElement("video");
+    image.dataset.gpuFlowControl = "browser-image-preview";
+    audio.controls = true;
+    video.controls = true;
+    nodeElement.append(image, audio, video);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(image, 20, 20, 80, 60);
+    setRect(audio, 120, 20, 80, 60);
+    setRect(video, 220, 20, 80, 60);
+
+    expect(
+      resolveTargetValue({
+        clientX: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "img",
+      value: "browser-image-preview",
+    });
+    expect(
+      resolveTargetValue({
+        clientX: 140,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [1],
+      role: null,
+      tagName: "audio",
+    });
+    expect(
+      resolveTargetValue({
+        clientX: 240,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [2],
+      role: null,
+      tagName: "video",
+    });
+  });
 });
 
 function createNodeElement(nodeId: string): HTMLElement {
@@ -130,4 +255,23 @@ function setRect(
       y: top,
       toJSON: () => ({}),
     }) as DOMRect;
+}
+
+function resolveTargetValue({
+  clientX,
+  elementByNodeId,
+  surface,
+}: {
+  readonly clientX: number;
+  readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
+  readonly surface: HTMLElement;
+}) {
+  return resolveGpuNodePointerHandoffTarget({
+    clientX,
+    clientY: 40,
+    elementByNodeId,
+    nodes: [node("node-a", 0, 0, 600, 200, 1)],
+    surfaceElement: surface,
+    viewport: [0, 0, 1],
+  })?.descriptor;
 }

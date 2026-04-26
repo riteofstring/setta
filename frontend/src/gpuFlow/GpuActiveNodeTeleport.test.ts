@@ -125,6 +125,39 @@ describe("GpuActiveNodeTeleport", () => {
     expect(input.selectionStart).toBe(3);
     expect(input.selectionEnd).toBe(8);
   });
+
+  it("preserves focused contenteditable selection while moving the node", () => {
+    const canvas = document.createElement("canvas");
+    const node = document.createElement("div");
+    const editor = document.createElement("div");
+    const text = document.createTextNode("return strategy");
+    const layer = document.createElement("div");
+    editor.contentEditable = "true";
+    editor.tabIndex = 0;
+    editor.append(text);
+    node.append(editor);
+    canvas.append(node);
+    document.body.append(canvas, layer);
+    const controller = createGpuActiveNodeTeleportController(layer);
+
+    editor.focus();
+    setDocumentSelection(text, 7, text, 15);
+    controller.sync(snapshot(node, "node-a"));
+
+    expect(document.activeElement).toBe(editor);
+    expect(document.getSelection()?.anchorNode).toBe(text);
+    expect(document.getSelection()?.anchorOffset).toBe(7);
+    expect(document.getSelection()?.focusNode).toBe(text);
+    expect(document.getSelection()?.focusOffset).toBe(15);
+
+    controller.sync(null);
+
+    expect(document.activeElement).toBe(editor);
+    expect(document.getSelection()?.anchorNode).toBe(text);
+    expect(document.getSelection()?.anchorOffset).toBe(7);
+    expect(document.getSelection()?.focusNode).toBe(text);
+    expect(document.getSelection()?.focusOffset).toBe(15);
+  });
 });
 
 function snapshot(
@@ -142,4 +175,17 @@ function snapshot(
     zIndex: 2,
     zoom: 1.5,
   };
+}
+
+function setDocumentSelection(
+  anchorNode: Node,
+  anchorOffset: number,
+  focusNode: Node,
+  focusOffset: number,
+) {
+  const selection = document.getSelection();
+  if (!selection) {
+    throw new Error("Expected document selection support.");
+  }
+  selection.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
 }

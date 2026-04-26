@@ -28,6 +28,7 @@ function _ImageArea({ sectionId }: { sectionId: string }) {
   return (
     <figure
       className={`section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1 ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
+      data-gpu-flow-control={`image:${sectionId}`}
       // {...getRootProps()}
     >
       {!!decodedImage && <ImageAreaCore imageSrc={decodedImage.src} />}
@@ -43,6 +44,7 @@ function ImageAreaCore({ imageSrc }: { imageSrc: string }) {
       <img
         src={imageSrc}
         className="h-auto max-h-full w-full self-center object-contain"
+        data-gpu-flow-control="image-preview"
       />
     )
   );
