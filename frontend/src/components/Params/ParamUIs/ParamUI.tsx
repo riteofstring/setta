@@ -37,6 +37,7 @@ import {
   TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
+  type CodeObjType,
 } from "utils/generatedTypes";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
@@ -49,6 +50,10 @@ import {
 } from "./ConfiguredParamInputs";
 import { DropdownInputConfigForParam } from "./DropdownInput";
 import { DropzoneInput, DropzoneInputConfigForParam } from "./DropzoneInput";
+import {
+  SPECIALIZED_PARAM_RENDERER_FAMILIES,
+  TEXT_LIKE_PARAM_TYPES,
+} from "./paramUIRendererMetadata";
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
@@ -70,7 +75,7 @@ type ParamUIProps = {
 };
 
 type ParamUIState = {
-  codeObjType: CodeObjTypeEnum;
+  codeObjType: CodeObjType;
   passwordHasSecret: boolean;
   configLanguage: string;
   defaultVal: string;
@@ -100,6 +105,11 @@ type ParamUIRenderContext = ParamUIProps & {
   waitingForResult: boolean;
 };
 type ParamUIRenderer = (context: ParamUIRenderContext) => JSX.Element | null;
+export {
+  getSectionParamUIRendererFamily,
+  getSectionParamUIRendererTypes,
+  type SectionParamUIRendererFamily,
+} from "./paramUIRendererMetadata";
 
 function createBaseParamUIState({
   codeObjType,
@@ -198,11 +208,9 @@ function useParamUIState(
   }, _.isEqual);
 }
 
-function isTextLikeParamType(codeObjType: CodeObjTypeEnum): boolean {
-  return (
-    codeObjType === CodeObjTypeEnum.CodeParam ||
-    codeObjType === CodeObjTypeEnum.TextParam ||
-    codeObjType === CodeObjTypeEnum.TextAreaParam
+function isTextLikeParamType(codeObjType: CodeObjType): boolean {
+  return (TEXT_LIKE_PARAM_TYPES as readonly CodeObjType[]).includes(
+    codeObjType,
   );
 }
 
@@ -484,7 +492,7 @@ function renderDropzoneParam({
 }
 
 const SPECIALIZED_PARAM_RENDERERS: Partial<
-  Record<CodeObjTypeEnum, ParamUIRenderer>
+  Record<CodeObjType, ParamUIRenderer>
 > = {
   [CodeObjTypeEnum.SliderParam]: renderSliderParam,
   [CodeObjTypeEnum.RotaryParam]: renderRotaryParam,
@@ -493,7 +501,10 @@ const SPECIALIZED_PARAM_RENDERERS: Partial<
   [CodeObjTypeEnum.DropdownParam]: renderDropdownParam,
   [CodeObjTypeEnum.PasswordParam]: renderPasswordParam,
   [CodeObjTypeEnum.DropzoneParam]: renderDropzoneParam,
-};
+} satisfies Record<
+  keyof typeof SPECIALIZED_PARAM_RENDERER_FAMILIES,
+  ParamUIRenderer
+>;
 
 function renderSpecializedParam(context: ParamUIRenderContext) {
   const renderParam =

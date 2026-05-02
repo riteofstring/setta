@@ -52,6 +52,8 @@ import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
+export { getGpuFlowSectionAreaRendererTypes } from "./sectionAreaRendererMetadata";
+
 type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -276,7 +278,7 @@ function SectionContainerChrome({
   );
 }
 
-const SECTION_AREA_RENDERERS = {
+export const SECTION_AREA_RENDERERS = {
   [SectionTypeEnum.Callable]: ({ sectionId, bgColor, isMinimized }) => (
     <CallableArea
       sectionId={sectionId}
