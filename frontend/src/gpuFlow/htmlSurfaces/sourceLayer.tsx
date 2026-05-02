@@ -2,7 +2,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 
@@ -20,7 +19,6 @@ export type HtmlSurfaceSourceElementConfig<TSource> = {
   readonly host: HTMLElement;
   readonly source: TSource;
   readonly sourceId: string;
-  readonly visibility: CSSProperties["visibility"] | undefined;
 };
 
 export type HtmlSurfaceSourceLayerProps<TSource> = {
@@ -35,7 +33,6 @@ export type HtmlSurfaceSourceLayerProps<TSource> = {
   readonly renderSource: (source: TSource) => ReactNode;
   readonly sourceClassName?: string | undefined;
   readonly sources: readonly TSource[];
-  readonly sourceVisibility?: CSSProperties["visibility"] | undefined;
 };
 
 type HtmlSurfaceSourceChildProps<TSource> = Omit<
@@ -54,7 +51,6 @@ export function HtmlSurfaceSourceLayer<TSource>({
   renderSource,
   sourceClassName = HTML_SURFACE_SOURCE_CLASS_NAME,
   sources,
-  sourceVisibility,
 }: HtmlSurfaceSourceLayerProps<TSource>) {
   return (
     <>
@@ -70,7 +66,6 @@ export function HtmlSurfaceSourceLayer<TSource>({
             source={source}
             sourceClassName={sourceClassName}
             sourceId={sourceId}
-            sourceVisibility={sourceVisibility}
           />
         );
       })}
@@ -86,7 +81,6 @@ function HtmlSurfaceSourceChild<TSource>({
   source,
   sourceClassName = HTML_SURFACE_SOURCE_CLASS_NAME,
   sourceId,
-  sourceVisibility,
 }: HtmlSurfaceSourceChildProps<TSource>) {
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -121,14 +115,12 @@ function HtmlSurfaceSourceChild<TSource>({
       host: hostElement,
       preservedClassNames,
       sourceId,
-      visibility: sourceVisibility,
     });
     configureSourceElement?.({
       className: sourceClassName,
       host: hostElement,
       source,
       sourceId,
-      visibility: sourceVisibility,
     });
   }, [
     configureSourceElement,
@@ -136,7 +128,6 @@ function HtmlSurfaceSourceChild<TSource>({
     source,
     sourceClassName,
     sourceId,
-    sourceVisibility,
     preservedClassNames,
   ]);
 
@@ -176,13 +167,11 @@ export function configureHtmlSurfaceSourceElement({
   host,
   preservedClassNames,
   sourceId,
-  visibility,
 }: {
   readonly className?: string | undefined;
   readonly host: HTMLElement;
   readonly preservedClassNames?: readonly string[] | undefined;
   readonly sourceId: string;
-  readonly visibility: CSSProperties["visibility"] | undefined;
 }) {
   host.className = mergeHtmlSurfaceSourceClassName(
     className,
@@ -192,7 +181,7 @@ export function configureHtmlSurfaceSourceElement({
   host.dataset.gpuFlowHtmlSource = "true";
   host.setAttribute(HTML_SURFACE_SOURCE_ID_ATTRIBUTE, sourceId);
   setHtmlSurfaceSourceBaseStyle(host);
-  host.style.visibility = visibility ?? "";
+  clearHtmlSurfaceSourceVisibility(host);
 }
 
 export function mergeHtmlSurfaceSourceClassName(
@@ -219,6 +208,12 @@ export function setHtmlSurfaceSourceBaseStyle(element: HTMLElement) {
   setStyleValue(element, "position", "absolute");
   setStyleValue(element, "top", "0px");
   setStyleValue(element, "transformOrigin", "0 0");
+}
+
+function clearHtmlSurfaceSourceVisibility(element: HTMLElement) {
+  if (element.style.visibility) {
+    element.style.removeProperty("visibility");
+  }
 }
 
 function setStyleValue(

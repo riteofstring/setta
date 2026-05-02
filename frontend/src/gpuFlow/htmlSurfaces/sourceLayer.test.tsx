@@ -3,7 +3,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { evaluateHtmlSurfaceSourcePolicy } from "./apiProbes";
 import {
   HTML_SURFACE_SOURCE_CLASS_NAME,
   HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
@@ -16,6 +17,10 @@ type TestSource = {
 };
 
 describe("HtmlSurfaceSourceLayer", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("mounts source hosts as direct canvas children with capture-ready metadata", () => {
     const canvas = document.createElement("canvas");
     document.body.append(canvas);
@@ -43,6 +48,9 @@ describe("HtmlSurfaceSourceLayer", () => {
 
     const sourceElement = elements.get("source-a");
     expect(sourceElement).toBeInstanceOf(HTMLElement);
+    if (!sourceElement) {
+      throw new Error("Expected source host to mount.");
+    }
     expect(sourceElement?.parentElement).toBe(canvas);
     expect(sourceElement?.dataset.gpuFlowHtmlSource).toBe("true");
     expect(sourceElement?.getAttribute(HTML_SURFACE_SOURCE_ID_ATTRIBUTE)).toBe(
@@ -57,6 +65,7 @@ describe("HtmlSurfaceSourceLayer", () => {
     expect(sourceElement?.style.position).toBe("absolute");
     expect(sourceElement?.style.top).toBe("0px");
     expect(sourceElement?.style.transformOrigin).toBe("0 0");
+    expect(sourceElement?.style.visibility).toBe("");
     expect(
       canvas.querySelector(
         `[data-gpu-flow-html-source-anchor="true"][${HTML_SURFACE_SOURCE_ID_ATTRIBUTE}="source-a"]`,
@@ -65,6 +74,10 @@ describe("HtmlSurfaceSourceLayer", () => {
     expect(sourceElement?.querySelector("button")?.textContent).toBe(
       "Source A",
     );
+    mockSourceBox(sourceElement);
+    expect(
+      evaluateHtmlSurfaceSourcePolicy(canvas, sourceElement).ok,
+    ).toBe(true);
 
     act(() => root.unmount());
     expect(elements.has("source-a")).toBe(false);
@@ -118,7 +131,7 @@ describe("HtmlSurfaceSourceLayer", () => {
     canvas.remove();
   });
 
-  it("runs owner-specific source configuration without losing source metadata", () => {
+  it("runs owner-specific source configuration without hiding the source host", () => {
     const canvas = document.createElement("canvas");
     document.body.append(canvas);
     const root = createRoot(canvas);
@@ -141,7 +154,6 @@ describe("HtmlSurfaceSourceLayer", () => {
           }}
           renderSource={(source: TestSource) => <span>{source.label}</span>}
           sourceClassName={`${HTML_SURFACE_SOURCE_CLASS_NAME} custom-source`}
-          sourceVisibility="hidden"
           sources={[{ id: "source-a", label: "A" }]}
         />,
       );
@@ -154,10 +166,32 @@ describe("HtmlSurfaceSourceLayer", () => {
     expect(sourceElement?.getAttribute(HTML_SURFACE_SOURCE_ID_ATTRIBUTE)).toBe(
       "source-a",
     );
-    expect(sourceElement?.style.visibility).toBe("hidden");
+    expect(sourceElement?.style.visibility).toBe("");
     expect(sourceElement?.style.zIndex).toBe("12");
 
     act(() => root.unmount());
     canvas.remove();
   });
 });
+
+function mockSourceBox(sourceElement: HTMLElement | undefined) {
+  if (!sourceElement) {
+    throw new Error("Expected source element to exist.");
+  }
+  const rect = {
+    bottom: 60,
+    height: 60,
+    left: 0,
+    right: 100,
+    width: 100,
+  };
+  vi.spyOn(sourceElement, "getBoundingClientRect").mockReturnValue({
+    ...rect,
+    x: rect.left,
+    y: rect.bottom - rect.height,
+    toJSON: () => rect,
+  } as DOMRect);
+  vi.spyOn(sourceElement, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
+}

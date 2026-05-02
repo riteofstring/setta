@@ -174,9 +174,6 @@ export function GpuProjectSurface() {
   const isConnecting = useGpuFlowViewportStore(
     (state) => state.connectionStartHandle !== null,
   );
-  const readyToBeVisible = useGpuFlowViewportStore(
-    (state) => !state.fitViewOnInit || state.fitViewOnInitDone,
-  );
   const edgeScene = useProjectGpuEdgeScene({
     showAgenticEdges,
     showDataEdges,
@@ -236,7 +233,6 @@ export function GpuProjectSurface() {
         isFollowTransitioning={isFollowTransitioning}
         nodeElementChange={nodeElementChange}
         nodeLayouts={nodeLayouts}
-        readyToBeVisible={readyToBeVisible}
         readyToRender={readyToRender}
         settings={settings}
       />
@@ -253,7 +249,6 @@ export function ProjectGpuFlowLayer({
   isFollowTransitioning,
   nodeElementChange,
   nodeLayouts,
-  readyToBeVisible,
   readyToRender,
   settings,
 }: {
@@ -267,7 +262,6 @@ export function ProjectGpuFlowLayer({
     element: HTMLElement | null,
   ) => void;
   readonly nodeLayouts: readonly GpuNodeLayout[];
-  readonly readyToBeVisible: boolean;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
@@ -339,7 +333,6 @@ export function ProjectGpuFlowLayer({
       edgeScene={edgeScene}
       grid={gridInput}
       nodeDrag={nodeDragOptions}
-      nodeVisibility={readyToBeVisible ? "visible" : "hidden"}
       nodes={nodeLayouts}
       onNodeElementChange={nodeElementChange}
       onResize={handleProjectFlowResize}

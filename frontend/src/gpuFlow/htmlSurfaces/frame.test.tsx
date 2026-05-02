@@ -8,6 +8,7 @@ import {
   buildHtmlSurfaceVisuals,
   buildTexturedGpuNodeQuads,
   collectVisibleGpuNodeQuads,
+  configureGpuNodeHostElement,
   createGpuNodeDomTransformSyncCache,
   markHtmlSurfaceFramePaintDirty,
   renderHtmlSurfaceFrame,
@@ -15,6 +16,7 @@ import {
   syncGpuNodeDomTransformsFromQuads,
   type GpuNodeLayout,
 } from "./frame";
+import { evaluateHtmlSurfaceSourcePolicy } from "./apiProbes";
 import type { RenderHtmlSurfacesInput } from "./renderer";
 import type {
   HtmlSurfaceTextureRecord,
@@ -24,6 +26,7 @@ import { HtmlSurfaceTextureManager } from "./textures";
 
 describe("HTML surface frame helpers", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -157,6 +160,35 @@ describe("HTML surface frame helpers", () => {
         },
       ],
     });
+  });
+
+  it("configures node source hosts without hidden-source styles", () => {
+    const canvas = document.createElement("canvas");
+    const host = document.createElement("div");
+    host.style.visibility = "hidden";
+    canvas.append(host);
+    document.body.append(canvas);
+    mockElementBox(host, {
+      bottom: 60,
+      height: 60,
+      left: 0,
+      right: 120,
+      width: 120,
+    });
+
+    configureGpuNodeHostElement({
+      className: "setta-gpu-flow__html-source setta-gpu-flow__node",
+      host,
+      node: node("source-a", 0, 0, 120, 60, 0),
+    });
+
+    expect(host.style.visibility).toBe("");
+    expect(evaluateHtmlSurfaceSourcePolicy(canvas, host)).toEqual({
+      issues: [],
+      ok: true,
+    });
+
+    canvas.remove();
   });
 
   it("synchronizes stable source geometry without viewport placement", () => {
@@ -951,6 +983,21 @@ function node(
     y,
     zIndex,
   };
+}
+
+function mockElementBox(
+  element: HTMLElement,
+  rect: Pick<DOMRect, "bottom" | "height" | "left" | "right" | "width">,
+) {
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue({
+    ...rect,
+    x: rect.left,
+    y: rect.bottom - rect.height,
+    toJSON: () => rect,
+  } as DOMRect);
+  vi.spyOn(element, "getClientRects").mockReturnValue({
+    length: 1,
+  } as DOMRectList);
 }
 
 function toVisibleQuad(layout: GpuNodeLayout) {

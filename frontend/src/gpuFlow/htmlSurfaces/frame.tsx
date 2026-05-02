@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
@@ -87,7 +87,6 @@ export type GpuTexturedNodeQuad = GpuVisibleNodeQuad & {
 
 export type HtmlSurfaceNodeLayerProps = {
   readonly className?: string | undefined;
-  readonly nodeVisibility?: CSSProperties["visibility"] | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly onNodeElementChange?:
     | ((nodeId: string, element: HTMLElement | null) => void)
@@ -254,7 +253,6 @@ export const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
 
 export function HtmlSurfaceNodeLayer({
   className = DEFAULT_NODE_CLASS_NAME,
-  nodeVisibility,
   nodes,
   onNodeElementChange,
   renderNode,
@@ -268,7 +266,6 @@ export function HtmlSurfaceNodeLayer({
       renderSource={renderNode}
       sourceClassName={`${HTML_SURFACE_SOURCE_CLASS_NAME} ${className}`}
       sources={nodes}
-      sourceVisibility={nodeVisibility}
     />
   );
 }
@@ -281,13 +278,11 @@ export function configureGpuNodeSourceElement({
   className,
   host,
   source,
-  visibility,
 }: HtmlSurfaceSourceElementConfig<GpuNodeLayout>) {
   configureGpuNodeHostElement({
     className,
     host,
     node: source,
-    visibility,
   });
 }
 
@@ -295,12 +290,10 @@ export function configureGpuNodeHostElement({
   className,
   host,
   node,
-  visibility,
 }: {
   readonly className: string;
   readonly host: HTMLElement;
   readonly node: GpuNodeLayout;
-  readonly visibility: CSSProperties["visibility"] | undefined;
 }) {
   host.className = mergeGpuNodeHostClassName(className, host.classList);
   host.dataset.gpuFlowNode = "true";
@@ -309,7 +302,9 @@ export function configureGpuNodeHostElement({
   setGpuNodeBaseStyle(host);
   setStyleValue(host, "height", node.height === null ? "" : `${node.height}px`);
   setStyleValue(host, "width", node.width === null ? "" : `${node.width}px`);
-  host.style.visibility = visibility ?? "";
+  if (host.style.visibility) {
+    host.style.removeProperty("visibility");
+  }
   const zIndex = resolveGpuNodeCssZIndex(node);
   host.style.zIndex = zIndex === undefined ? "" : String(zIndex);
 }

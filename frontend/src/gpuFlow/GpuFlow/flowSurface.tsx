@@ -40,7 +40,6 @@ import {
   type GpuNodeDomTransformSyncCache,
   type GpuNodeLayout,
   type GpuNodeUploadBudget,
-  type HtmlSurfaceNodeLayerProps,
   type RenderHtmlSurfaceFrameResult,
 } from "../htmlSurfaces/frame";
 
@@ -140,7 +139,6 @@ export type GpuFlowProps = Pick<
   onNodeElementChange?:
     | ((nodeId: string, element: HTMLElement | null) => void)
     | undefined;
-  nodeVisibility?: HtmlSurfaceNodeLayerProps["nodeVisibility"];
   nodes?: readonly GpuNodeLayout[] | undefined;
   nodeDrag?:
     | false
@@ -217,7 +215,6 @@ export function GpuFlow({
   nodeClassName,
   nodeTextureMemoryBudgetBytes,
   nodeDrag,
-  nodeVisibility,
   nodes,
   onFrame,
   onNodeElementChange,
@@ -655,7 +652,6 @@ export function GpuFlow({
   );
   const nodeLayerElement = renderGpuFlowNodeLayerElement({
     nodeClassName,
-    nodeVisibility,
     nodes,
     onNodeElementChange: handleNodeElementChange,
     renderNode,
@@ -767,13 +763,11 @@ export function validateGpuFlowEdgeInput({
 
 export function renderGpuFlowNodeLayerElement({
   nodeClassName,
-  nodeVisibility,
   nodes,
   onNodeElementChange,
   renderNode,
 }: {
   readonly nodeClassName: string | undefined;
-  readonly nodeVisibility: HtmlSurfaceNodeLayerProps["nodeVisibility"];
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly onNodeElementChange: (
     nodeId: string,
@@ -792,7 +786,6 @@ export function renderGpuFlowNodeLayerElement({
   return (
     <HtmlSurfaceNodeLayer
       className={nodeClassName}
-      nodeVisibility={nodeVisibility}
       nodes={nodes}
       onNodeElementChange={onNodeElementChange}
       renderNode={renderNode}
