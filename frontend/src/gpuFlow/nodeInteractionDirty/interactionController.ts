@@ -7,6 +7,8 @@ import {
 
 import type { DirtyNodeReason, NodeTexturePriority } from "../dirtyTracking";
 
+import { createHtmlSurfaceAnimationCaptureLeaseController } from "../htmlSurfaces/animationLease";
+
 import {
   getGpuFlowNodeDirtyEventDetail,
   GPU_FLOW_NODE_DIRTY_EVENT,
@@ -46,11 +48,14 @@ import {
 } from "./pointerHandoff";
 
 export function createGpuNodeInteractionDirtyController({
+  cancelAnimationFrame,
   deferPassiveDirty,
   elementByNodeId,
   getFrame,
+  now,
   onStateChange,
   projectPointerInteraction,
+  requestAnimationFrame,
   requestFrame,
   resolvePointerHandoffTarget,
   resolveWheelHandoffTarget,
@@ -67,6 +72,15 @@ export function createGpuNodeInteractionDirtyController({
   let hoverInteractionNodeId: string | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
+  const animationCaptureLeases =
+    createHtmlSurfaceAnimationCaptureLeaseController({
+      ...(cancelAnimationFrame ? { cancelAnimationFrame } : {}),
+      getSourceElement: (nodeId) => elementByNodeId().get(nodeId) ?? null,
+      markDirty: ({ reason, surfaceId }) =>
+        markAnimationCaptureDirty(surfaceId, reason),
+      ...(now ? { now } : {}),
+      ...(requestAnimationFrame ? { requestAnimationFrame } : {}),
+    });
 
   function setState(next: NodeInteractionStatePatch) {
     const previousActiveNodeId = activeNodeId;
@@ -117,6 +131,19 @@ export function createGpuNodeInteractionDirtyController({
       releaseAfterUploadNodeId: null,
     });
     markDirty({ nodeId, priority: "interactive", reason });
+  }
+
+  function markAnimationCaptureDirty(
+    nodeId: string,
+    reason: DirtyNodeReason,
+  ): boolean {
+    const manager = textureManager();
+    manager?.setSurfaceTexturePriority(nodeId, "interactive");
+    setState({
+      activeNodeId: nodeId,
+      releaseAfterUploadNodeId: null,
+    });
+    return markDirty({ nodeId, priority: "interactive", reason });
   }
 
   function beginPointerInteraction(nodeId: string) {
@@ -428,6 +455,7 @@ export function createGpuNodeInteractionDirtyController({
   function markCustomDirtyEvent(
     eventTarget: EventTarget | null,
     detail: {
+      readonly animated?: boolean | undefined;
       readonly priority?: NodeTexturePriority | undefined;
       readonly reason?: DirtyNodeReason | undefined;
     },
@@ -439,6 +467,10 @@ export function createGpuNodeInteractionDirtyController({
 
     const explicitPriority = normalizeDirtyEventPriority(detail.priority);
     const reason = detail.reason ?? "content";
+    if (detail.animated) {
+      beginAnimationCaptureLease(nodeId, eventTarget, reason);
+      return;
+    }
     const priority = resolveCustomDirtyEventPriority({
       activeNodeId,
       eventTarget,
@@ -453,6 +485,29 @@ export function createGpuNodeInteractionDirtyController({
       return;
     }
     markDirty({ nodeId, priority, reason });
+  }
+
+  function beginAnimationCaptureLease(
+    nodeId: string,
+    eventTarget: EventTarget | null,
+    reason: DirtyNodeReason = "animation",
+  ) {
+    animationCaptureLeases.begin({
+      reason,
+      surfaceId: nodeId,
+      target: toElement(eventTarget),
+    });
+  }
+
+  function settleAnimationCaptureLease(eventTarget: EventTarget | null) {
+    const nodeId = findGpuNodeIdForEventTarget(eventTarget, elementByNodeId());
+    if (!nodeId) {
+      return;
+    }
+    animationCaptureLeases.settle({
+      surfaceId: nodeId,
+      target: toElement(eventTarget),
+    });
   }
 
   function handleFocusOut(event: FocusEvent) {
@@ -504,6 +559,65 @@ export function createGpuNodeInteractionDirtyController({
             markCustomDirtyEvent(event.target, detail);
           }
         },
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "transitionrun",
+        (event) => {
+          const nodeId = findGpuNodeIdForEventTarget(
+            event.target,
+            elementByNodeId(),
+          );
+          if (nodeId) {
+            beginAnimationCaptureLease(nodeId, event.target);
+          }
+        },
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "transitionstart",
+        (event) => {
+          const nodeId = findGpuNodeIdForEventTarget(
+            event.target,
+            elementByNodeId(),
+          );
+          if (nodeId) {
+            beginAnimationCaptureLease(nodeId, event.target);
+          }
+        },
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "animationstart",
+        (event) => {
+          const nodeId = findGpuNodeIdForEventTarget(
+            event.target,
+            elementByNodeId(),
+          );
+          if (nodeId) {
+            beginAnimationCaptureLease(nodeId, event.target);
+          }
+        },
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "transitionend",
+        (event) => settleAnimationCaptureLease(event.target),
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "transitioncancel",
+        (event) => settleAnimationCaptureLease(event.target),
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "animationend",
+        (event) => settleAnimationCaptureLease(event.target),
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "animationcancel",
+        (event) => settleAnimationCaptureLease(event.target),
         listenerOptions,
       );
       canvas.addEventListener(
@@ -594,6 +708,7 @@ export function createGpuNodeInteractionDirtyController({
       return () => {
         abortController.abort();
         clearTrustedPointerHandoffClickSuppression();
+        animationCaptureLeases.destroy();
       };
     },
     clearNode(nodeId) {
@@ -609,6 +724,7 @@ export function createGpuNodeInteractionDirtyController({
       if (focusedPersistentNodeId === nodeId) {
         focusedPersistentNodeId = null;
       }
+      animationCaptureLeases.cancel(nodeId);
       clearPendingPointerHandoffForNode(nodeId);
       setState({
         activeNodeId: nextActiveNodeId,
@@ -671,6 +787,7 @@ export function createGpuNodeInteractionDirtyController({
     return Boolean(
       pointerInteractionNodeId ||
         hoverInteractionNodeId ||
+        animationCaptureLeases.hasActiveLease(nodeId) ||
         hasPersistentFocusForNode(nodeId),
     );
   }

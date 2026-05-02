@@ -216,6 +216,36 @@
   background: rgb(21 128 61);
 }
 
+.setta-gpu-flow__warped-mesh-card .setta-gpu-flow__warped-mesh-switch {
+  position: relative;
+  width: 56px;
+  justify-self: start;
+  padding: 0;
+  background: rgb(100 116 139);
+}
+
+.setta-gpu-flow__warped-mesh-card
+  .setta-gpu-flow__warped-mesh-switch[data-checked="true"] {
+  background: rgb(20 184 166);
+}
+
+.setta-gpu-flow__warped-mesh-switch-thumb {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 2px 5px rgb(15 23 42 / 0.25);
+  transition: transform 180ms ease;
+}
+
+.setta-gpu-flow__warped-mesh-switch[data-checked="true"]
+  .setta-gpu-flow__warped-mesh-switch-thumb {
+  transform: translateX(20px);
+}
+
 .setta-gpu-flow__warped-mesh-card input[type="text"] {
   grid-column: span 2;
   height: 36px;

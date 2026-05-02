@@ -24,16 +24,21 @@ export type GpuNodeInteractionDirtyController = {
 };
 
 export type GpuNodeInteractionDirtyControllerOptions = {
+  readonly cancelAnimationFrame?: ((frameId: number) => void) | undefined;
   readonly deferPassiveDirty?: (() => boolean) | undefined;
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly getFrame: () => number;
   readonly onStateChange?:
     | ((state: GpuNodeInteractionState) => void)
     | undefined;
+  readonly now?: (() => number) | undefined;
   readonly projectPointerInteraction?:
     | ((nodeId: string, event: PointerEvent) => void)
     | undefined;
   readonly requestFrame: (reason: GpuFrameReason) => void;
+  readonly requestAnimationFrame?:
+    | ((callback: FrameRequestCallback) => number)
+    | undefined;
   readonly resolvePointerHandoffTarget?:
     | ((event: PointerEvent) => GpuNodePointerHandoffTarget | null)
     | undefined;

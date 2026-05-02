@@ -14,6 +14,10 @@ import { GpuSurface, type GpuSurfaceHandle } from "../GpuSurface";
 import type { HtmlInCanvasPaintEvent } from "../htmlInCanvasTypes";
 import type { GpuViewportInput } from "../viewportMath";
 import {
+  createHtmlSurfaceAnimationCaptureLeaseController,
+  type HtmlSurfaceAnimationCaptureLeaseController,
+} from "./animationLease";
+import {
   createHtmlSurfaceHitSceneFromVisualScene,
   resolveHtmlSurfaceHitAtClientPoint,
   type HtmlSurfaceHitProjection,
@@ -89,6 +93,7 @@ type HtmlSurfaceWarpedMeshFixtureSourceState = {
   readonly hovered: boolean;
   readonly sliderValue: number;
   readonly textValue: string;
+  readonly toggleEnabled: boolean;
 };
 
 const WARPED_MESH_FIXTURE_SOURCE: HtmlSurfaceWarpedMeshFixtureSource = {
@@ -103,6 +108,7 @@ const INITIAL_FIXTURE_SOURCE_STATE: HtmlSurfaceWarpedMeshFixtureSourceState = {
   hovered: false,
   sliderValue: 42,
   textValue: "interactive gpu surface",
+  toggleEnabled: false,
 };
 
 export function HtmlSurfaceWarpedMeshFixture({
@@ -118,6 +124,8 @@ export function HtmlSurfaceWarpedMeshFixture({
   const dirtyMarksRef = useRef(0);
   const frameRef = useRef(0);
   const lastHitRef = useRef<HtmlSurfaceHitProjection | null>(null);
+  const animationCaptureLeaseRef =
+    useRef<HtmlSurfaceAnimationCaptureLeaseController | null>(null);
   const paintEventsRef = useRef(0);
   const pointerProjectionsRef = useRef(0);
   const projectorRef = useRef<HtmlSurfaceInteractionProjector>(
@@ -159,7 +167,6 @@ export function HtmlSurfaceWarpedMeshFixture({
         reason,
         surfaceId: HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
       });
-      surfaceRef.current?.requestPaint();
       surfaceRef.current?.requestFrame("texture-upload");
       emitMetrics();
     },
@@ -169,6 +176,19 @@ export function HtmlSurfaceWarpedMeshFixture({
   const renderSource = useCallback(
     () => (
       <HtmlSurfaceWarpedMeshFixtureSourceView
+        onAnimationSettle={(target) => {
+          animationCaptureLeaseRef.current?.settle({
+            surfaceId: HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
+            target,
+          });
+        }}
+        onAnimationStart={(target) => {
+          animationCaptureLeaseRef.current?.begin({
+            reason: "animation",
+            surfaceId: HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
+            target,
+          });
+        }}
         onDirty={markDirty}
         setSourceState={setSourceState}
         state={sourceState}
@@ -309,6 +329,30 @@ export function HtmlSurfaceWarpedMeshFixture({
   );
 
   const sources = useMemo(() => [WARPED_MESH_FIXTURE_SOURCE], []);
+
+  useEffect(() => {
+    const animationCaptureLease =
+      createHtmlSurfaceAnimationCaptureLeaseController({
+        getSourceElement: (surfaceId) =>
+          surfaceId === HTML_SURFACE_WARPED_MESH_FIXTURE_ID
+            ? sourceElementRef.current
+            : null,
+        markDirty: ({ reason, surfaceId }) => {
+          if (surfaceId !== HTML_SURFACE_WARPED_MESH_FIXTURE_ID) {
+            return false;
+          }
+          markDirty(reason);
+          return true;
+        },
+      });
+    animationCaptureLeaseRef.current = animationCaptureLease;
+    return () => {
+      animationCaptureLease.destroy();
+      if (animationCaptureLeaseRef.current === animationCaptureLease) {
+        animationCaptureLeaseRef.current = null;
+      }
+    };
+  }, [markDirty]);
 
   useEffect(() => {
     return () => {
@@ -473,10 +517,14 @@ export function resolveHtmlSurfaceWarpedMeshFixtureHit({
 }
 
 function HtmlSurfaceWarpedMeshFixtureSourceView({
+  onAnimationSettle,
+  onAnimationStart,
   onDirty,
   setSourceState,
   state,
 }: {
+  readonly onAnimationSettle: (target: Element) => void;
+  readonly onAnimationStart: (target: Element) => void;
   readonly onDirty: (reason: DirtyNodeReason) => void;
   readonly setSourceState: (
     updater: (
@@ -497,12 +545,30 @@ function HtmlSurfaceWarpedMeshFixtureSourceView({
     },
     [onDirty, setSourceState],
   );
+  const handleAnimationStart = useCallback(
+    (event: { readonly target: EventTarget | null }) => {
+      if (event.target instanceof Element) {
+        onAnimationStart(event.target);
+      }
+    },
+    [onAnimationStart],
+  );
+  const handleAnimationSettle = useCallback(
+    (event: { readonly target: EventTarget | null }) => {
+      if (event.target instanceof Element) {
+        onAnimationSettle(event.target);
+      }
+    },
+    [onAnimationSettle],
+  );
 
   return (
     <div
       className="setta-gpu-flow__warped-mesh-card"
       data-gpu-flow-control="warped-mesh-card"
       data-hovered={state.hovered ? "true" : "false"}
+      onAnimationEnd={handleAnimationSettle}
+      onAnimationStart={handleAnimationStart}
       onBlur={() =>
         setStateAndDirty((current) => ({ ...current, focused: false }), "focus")
       }
@@ -521,6 +587,10 @@ function HtmlSurfaceWarpedMeshFixtureSourceView({
           "pointer",
         )
       }
+      onTransitionCancel={handleAnimationSettle}
+      onTransitionEnd={handleAnimationSettle}
+      onTransitionRun={handleAnimationStart}
+      onTransitionStart={handleAnimationStart}
     >
       <button
         aria-pressed={state.buttonPressed}
@@ -537,6 +607,26 @@ function HtmlSurfaceWarpedMeshFixtureSourceView({
         type="button"
       >
         {state.buttonPressed ? "On" : "Off"}
+      </button>
+      <button
+        aria-checked={state.toggleEnabled}
+        aria-label="Warped mesh animated switch"
+        className="setta-gpu-flow__warped-mesh-switch"
+        data-checked={state.toggleEnabled ? "true" : "false"}
+        data-gpu-flow-control="warped-mesh-switch"
+        onClick={() =>
+          setStateAndDirty(
+            (current) => ({
+              ...current,
+              toggleEnabled: !current.toggleEnabled,
+            }),
+            "input",
+          )
+        }
+        role="switch"
+        type="button"
+      >
+        <span className="setta-gpu-flow__warped-mesh-switch-thumb" />
       </button>
       <input
         aria-label="Warped mesh text"

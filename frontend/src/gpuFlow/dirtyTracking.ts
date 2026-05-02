@@ -1,6 +1,7 @@
 export type NodeTexturePriority = "interactive" | "visible" | "prefetch";
 
 export type DirtyNodeReason =
+  | "animation"
   | "content"
   | "dimension"
   | "first-visible"

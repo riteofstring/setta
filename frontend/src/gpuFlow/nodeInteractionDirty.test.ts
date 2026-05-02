@@ -848,6 +848,127 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
+  it("captures transition frames for an animated source before releasing it", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const switchThumb = document.createElement("span");
+    switchThumb.dataset.gpuFlowControl = "animated-switch-thumb";
+    nodeElement.append(switchThumb);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const clock = createAnimationClock();
+    let frame = 0;
+    const controller = createGpuNodeInteractionDirtyController({
+      cancelAnimationFrame: clock.cancelAnimationFrame,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => {
+        frame += 1;
+        return frame;
+      },
+      now: clock.now,
+      requestAnimationFrame: clock.requestAnimationFrame,
+      requestFrame,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    switchThumb.dispatchEvent(new Event("transitionstart", { bubbles: true }));
+    clock.flushNextFrame();
+    switchThumb.dispatchEvent(new Event("transitionend", { bubbles: true }));
+    clock.flushNextFrame();
+
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(textureManager.setSurfaceTexturePriority).toHaveBeenLastCalledWith(
+      "node-a",
+      "interactive",
+    );
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(4);
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenNthCalledWith(1, {
+      content: true,
+      frame: 1,
+      surfaceId: "node-a",
+      priority: "interactive",
+      reason: "animation",
+    });
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenNthCalledWith(4, {
+      content: true,
+      frame: 4,
+      surfaceId: "node-a",
+      priority: "interactive",
+      reason: "animation",
+    });
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(textureManager.setSurfaceTexturePriority).toHaveBeenLastCalledWith(
+      "node-a",
+      "visible",
+    );
+
+    detach();
+  });
+
+  it("starts animation capture from source-owned animated dirty events", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const editor = document.createElement("div");
+    editor.className = "cm-editor";
+    nodeElement.append(editor);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const clock = createAnimationClock();
+    let frame = 0;
+    const controller = createGpuNodeInteractionDirtyController({
+      cancelAnimationFrame: clock.cancelAnimationFrame,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => {
+        frame += 1;
+        return frame;
+      },
+      now: clock.now,
+      requestAnimationFrame: clock.requestAnimationFrame,
+      requestFrame: vi.fn(),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    dispatchGpuFlowNodeDirtyEvent(editor, {
+      animated: true,
+      priority: "visible",
+      reason: "input",
+    });
+    clock.flushNextFrame();
+
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(textureManager.setSurfaceTexturePriority).toHaveBeenCalledWith(
+      "node-a",
+      "interactive",
+    );
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenNthCalledWith(1, {
+      content: true,
+      frame: 1,
+      surfaceId: "node-a",
+      priority: "interactive",
+      reason: "input",
+    });
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenNthCalledWith(2, {
+      content: true,
+      frame: 2,
+      surfaceId: "node-a",
+      priority: "interactive",
+      reason: "input",
+    });
+
+    detach();
+  });
+
   it("does not reopen a released interactive node for visible custom dirty events", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -900,6 +1021,33 @@ function createInteractionTextureManager() {
   return {
     markSurfaceTextureDirty: vi.fn(),
     setSurfaceTexturePriority: vi.fn(),
+  };
+}
+
+function createAnimationClock() {
+  let nowMs = 0;
+  let nextFrameId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  return {
+    cancelAnimationFrame: vi.fn((frameId: number) => {
+      callbacks.delete(frameId);
+    }),
+    flushNextFrame() {
+      const [frameId, callback] = callbacks.entries().next().value ?? [];
+      if (!frameId || !callback) {
+        throw new Error("Expected a pending animation frame.");
+      }
+      callbacks.delete(frameId);
+      nowMs += 16;
+      callback(nowMs);
+    },
+    now: () => nowMs,
+    requestAnimationFrame: vi.fn((callback: FrameRequestCallback) => {
+      const frameId = nextFrameId;
+      nextFrameId += 1;
+      callbacks.set(frameId, callback);
+      return frameId;
+    }),
   };
 }
 
