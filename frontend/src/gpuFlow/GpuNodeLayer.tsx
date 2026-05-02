@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import type { NodeTexturePriority } from "./dirtyTracking";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type {
+  GpuEdgePaletteInput,
   GpuGridInput,
   RenderNodeTextureQuadsInput,
   RenderNodeTextureQuadsResult,
@@ -118,6 +119,7 @@ type RenderGpuNodeLayerFrameInput = {
     | readonly string[]
     | undefined;
   readonly deferResolutionUpdates?: boolean | undefined;
+  readonly edgePalette?: GpuEdgePaletteInput | undefined;
   readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly forceVisibleNodeIds?:
@@ -306,6 +308,7 @@ export function renderGpuNodeLayerFrame({
   clearColor,
   deferUploadNodeIds,
   deferResolutionUpdates,
+  edgePalette,
   edges,
   elementByNodeId,
   forceVisibleNodeIds,
@@ -368,6 +371,7 @@ export function renderGpuNodeLayerFrame({
   const renderResult = renderer.render({
     canvasSize,
     clearColor,
+    ...(edgePalette === undefined ? {} : { edgePalette }),
     ...(edges === undefined ? {} : { edges }),
     ...(grid === undefined ? {} : { grid }),
     quads: renderableTexturedQuads,

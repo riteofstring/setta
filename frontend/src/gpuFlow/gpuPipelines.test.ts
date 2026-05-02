@@ -8,6 +8,7 @@ import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
 import type { NodeQuadRenderRuntime } from "./gpuPipelines";
 import {
   buildNodeQuadVertexData,
+  encodeGpuEdgePaletteUniform,
   encodeGpuGridUniform,
   encodeNodeQuadCameraUniform,
   GpuNodeQuadRenderer,
@@ -72,6 +73,20 @@ describe("gpu node quad pipeline", () => {
         variant: BackgroundVariantEnum.lines,
       }),
     ).toThrow("Setta GPU grid requires a hex color");
+  });
+
+  it("encodes the GPU edge palette from project wire colors", () => {
+    const encoded = Array.from(
+      encodeGpuEdgePaletteUniform({ color: "#41506ccc" }),
+    );
+
+    expect(encoded[0]).toBeCloseTo(65 / 255);
+    expect(encoded[1]).toBeCloseTo(80 / 255);
+    expect(encoded[2]).toBeCloseTo(108 / 255);
+    expect(encoded[3]).toBeCloseTo(204 / 255);
+    expect(() => encodeGpuEdgePaletteUniform({ color: "wire-blue" })).toThrow(
+      "Setta GPU edge palette requires a hex color",
+    );
   });
 
   it("draws cached node textures with one camera uniform update and per-node texture bindings", () => {
@@ -283,11 +298,15 @@ describe("gpu node quad pipeline", () => {
       gpu.buffers,
       "setta-gpu-node-quad-camera-uniform",
     );
+    const edgePaletteBuffer = getBufferByLabel(
+      gpu.buffers,
+      "setta-gpu-edge-palette-uniform",
+    );
     const edgeBuffer = getBufferByLabel(
       gpu.buffers,
       "setta-gpu-edge-line-vertices",
     );
-    expect(gpu.device.queue.writeBuffer).toHaveBeenCalledTimes(3);
+    expect(gpu.device.queue.writeBuffer).toHaveBeenCalledTimes(4);
     expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
       1,
       cameraBuffer,
@@ -296,13 +315,85 @@ describe("gpu node quad pipeline", () => {
     );
     expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
       2,
-      edgeBuffer,
+      edgePaletteBuffer,
       0,
       expect.any(Float32Array),
     );
     expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
       3,
+      edgeBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      4,
       cameraBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+  });
+
+  it("updates the edge palette without rewriting unchanged edge geometry", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const edges = [edge("edge-a", 0, 0, 100, 0)];
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edgePalette: { color: "#41506c" },
+      edges,
+      quads: [],
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edgePalette: { color: "#bac2d3" },
+      edges,
+      quads: [],
+      viewport: [0, 0, 1],
+    });
+
+    const cameraBuffer = getBufferByLabel(
+      gpu.buffers,
+      "setta-gpu-node-quad-camera-uniform",
+    );
+    const edgePaletteBuffer = getBufferByLabel(
+      gpu.buffers,
+      "setta-gpu-edge-palette-uniform",
+    );
+    const edgeBuffer = getBufferByLabel(
+      gpu.buffers,
+      "setta-gpu-edge-line-vertices",
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenCalledTimes(5);
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      1,
+      cameraBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      2,
+      edgePaletteBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      3,
+      edgeBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      4,
+      cameraBuffer,
+      0,
+      expect.any(Float32Array),
+    );
+    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
+      5,
+      edgePaletteBuffer,
       0,
       expect.any(Float32Array),
     );

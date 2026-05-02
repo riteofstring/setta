@@ -24,9 +24,14 @@ export type GpuGridInput = {
   readonly variant: GpuGridVariant;
 };
 
+export type GpuEdgePaletteInput = {
+  readonly color: string;
+};
+
 export type RenderNodeTextureQuadsInput = {
   readonly canvasSize: Pick<GpuCanvasSize, "cssHeight" | "cssWidth">;
   readonly clearColor?: GPUColorDict | undefined;
+  readonly edgePalette?: GpuEdgePaletteInput | undefined;
   readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
   readonly grid?: GpuGridInput | undefined;
   readonly quads: readonly GpuTexturedNodeQuad[];
@@ -41,6 +46,7 @@ export type RenderNodeTextureQuadsResult = {
 };
 
 type EdgeDrawResources = {
+  readonly bindGroup: GPUBindGroup;
   readonly pipeline: GPURenderPipeline;
   readonly vertexBuffer: GPUBuffer;
 };
@@ -56,6 +62,7 @@ type GridDrawResources = {
 };
 
 const CAMERA_UNIFORM_BYTES = 32;
+const EDGE_PALETTE_UNIFORM_BYTES = 16;
 const GRID_UNIFORM_BYTES = 32;
 const FLOATS_PER_VERTEX = 4;
 const VERTICES_PER_QUAD = 6;
@@ -64,6 +71,7 @@ const EDGE_VERTEX_BYTES =
 const NODE_QUAD_VERTEX_BYTES =
   Float32Array.BYTES_PER_ELEMENT * FLOATS_PER_VERTEX;
 const DEFAULT_CLEAR_COLOR: GPUColorDict = { a: 0, b: 0, g: 0, r: 0 };
+const DEFAULT_EDGE_PALETTE_INPUT: GpuEdgePaletteInput = { color: "#545e70c7" };
 const EMPTY_EDGE_BUFFER_INPUTS: readonly GpuEdgeBufferInput[] = [];
 
 export class GpuNodeQuadRenderer {
@@ -75,6 +83,9 @@ export class GpuNodeQuadRenderer {
     readonly bufferData: GpuEdgeLineListBufferData;
     readonly edges: readonly GpuEdgeBufferInput[];
   } | null = null;
+  private edgePaletteBindGroup: GPUBindGroup | null = null;
+  private edgePaletteBindGroupLayout: GPUBindGroupLayout | null = null;
+  private edgePaletteBuffer: GPUBuffer | null = null;
   private edgePipeline: GPURenderPipeline | null = null;
   private edgeVertexBuffer: GPUBuffer | null = null;
   private edgeVertexBufferByteCapacity = 0;
@@ -84,6 +95,7 @@ export class GpuNodeQuadRenderer {
   private gridPipeline: GPURenderPipeline | null = null;
   private nodePipeline: GPURenderPipeline | null = null;
   private uploadedEdgeBufferData: GpuEdgeLineListBufferData | null = null;
+  private uploadedEdgePaletteUniform: Float32Array | null = null;
   private uploadedGridUniform: Float32Array | null = null;
   private textureBindGroupLayout: GPUBindGroupLayout | null = null;
   private readonly textureBindGroups = new Map<
@@ -102,12 +114,18 @@ export class GpuNodeQuadRenderer {
   }
 
   destroy() {
-    this.cameraBuffer?.destroy?.();
-    this.edgeVertexBuffer?.destroy?.();
-    this.gridBuffer?.destroy?.();
-    this.vertexBuffer?.destroy?.();
+    destroyGpuBuffers([
+      this.cameraBuffer,
+      this.edgePaletteBuffer,
+      this.edgeVertexBuffer,
+      this.gridBuffer,
+      this.vertexBuffer,
+    ]);
     this.cameraBuffer = null;
     this.edgeBufferCache = null;
+    this.edgePaletteBindGroup = null;
+    this.edgePaletteBindGroupLayout = null;
+    this.edgePaletteBuffer = null;
     this.edgePipeline = null;
     this.edgeVertexBuffer = null;
     this.edgeVertexBufferByteCapacity = 0;
@@ -122,6 +140,7 @@ export class GpuNodeQuadRenderer {
     this.cameraBindGroupLayout = null;
     this.textureBindGroups.clear();
     this.uploadedEdgeBufferData = null;
+    this.uploadedEdgePaletteUniform = null;
     this.uploadedGridUniform = null;
     this.vertexBufferByteCapacity = 0;
   }
@@ -129,6 +148,7 @@ export class GpuNodeQuadRenderer {
   render({
     canvasSize,
     clearColor = DEFAULT_CLEAR_COLOR,
+    edgePalette = DEFAULT_EDGE_PALETTE_INPUT,
     edges = EMPTY_EDGE_BUFFER_INPUTS,
     grid,
     quads,
@@ -149,6 +169,7 @@ export class GpuNodeQuadRenderer {
       cameraUniform,
       edgeBufferData,
       edgeDraw,
+      edgePalette,
       grid,
       gridDraw,
       nodeDraw,
@@ -307,6 +328,53 @@ export class GpuNodeQuadRenderer {
     return this.gridBindGroupLayout;
   }
 
+  private ensureEdgePaletteBindGroup(): GPUBindGroup {
+    if (this.edgePaletteBindGroup) {
+      return this.edgePaletteBindGroup;
+    }
+    const device = this.runtime.device;
+    const edgePaletteBindGroupLayout = this.ensureEdgePaletteBindGroupLayout();
+    this.edgePaletteBuffer = device.createBuffer({
+      label: "setta-gpu-edge-palette-uniform",
+      size: EDGE_PALETTE_UNIFORM_BYTES,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+    });
+    this.edgePaletteBindGroup = device.createBindGroup({
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: this.edgePaletteBuffer,
+          },
+        },
+      ],
+      label: "setta-gpu-edge-palette-bind-group",
+      layout: edgePaletteBindGroupLayout,
+    });
+    return this.edgePaletteBindGroup;
+  }
+
+  private ensureEdgePaletteBindGroupLayout(): GPUBindGroupLayout {
+    if (this.edgePaletteBindGroupLayout) {
+      return this.edgePaletteBindGroupLayout;
+    }
+    this.edgePaletteBindGroupLayout = this.runtime.device.createBindGroupLayout(
+      {
+        entries: [
+          {
+            binding: 0,
+            buffer: {
+              type: "uniform",
+            },
+            visibility: GPUShaderStage.FRAGMENT,
+          },
+        ],
+        label: "setta-gpu-edge-palette-bind-group-layout",
+      },
+    );
+    return this.edgePaletteBindGroupLayout;
+  }
+
   private ensureGridPipeline(): GPURenderPipeline {
     if (this.gridPipeline) {
       return this.gridPipeline;
@@ -441,6 +509,7 @@ export class GpuNodeQuadRenderer {
       return null;
     }
     return {
+      bindGroup: this.ensureEdgePaletteBindGroup(),
       pipeline: this.ensureEdgePipeline(),
       vertexBuffer: this.ensureEdgeVertexBuffer(
         edgeBufferData.vertexData.byteLength,
@@ -454,6 +523,7 @@ export class GpuNodeQuadRenderer {
     }
     const device = this.runtime.device;
     const cameraBindGroupLayout = this.ensureCameraBindGroupLayout();
+    const edgePaletteBindGroupLayout = this.ensureEdgePaletteBindGroupLayout();
     const shaderModule = device.createShaderModule({
       code: EDGE_LINE_SHADER,
       label: "setta-gpu-edge-line-shader",
@@ -482,7 +552,7 @@ export class GpuNodeQuadRenderer {
       },
       label: "setta-gpu-edge-line-pipeline",
       layout: device.createPipelineLayout({
-        bindGroupLayouts: [cameraBindGroupLayout],
+        bindGroupLayouts: [cameraBindGroupLayout, edgePaletteBindGroupLayout],
         label: "setta-gpu-edge-line-pipeline-layout",
       }),
       primitive: {
@@ -576,6 +646,7 @@ export class GpuNodeQuadRenderer {
     cameraUniform,
     edgeBufferData,
     edgeDraw,
+    edgePalette,
     grid,
     gridDraw,
     nodeDraw,
@@ -584,6 +655,7 @@ export class GpuNodeQuadRenderer {
     readonly cameraUniform: Float32Array;
     readonly edgeBufferData: GpuEdgeLineListBufferData;
     readonly edgeDraw: EdgeDrawResources | null;
+    readonly edgePalette: GpuEdgePaletteInput;
     readonly grid: GpuGridInput | undefined;
     readonly gridDraw: GridDrawResources | null;
     readonly nodeDraw: NodeDrawResources | null;
@@ -595,6 +667,7 @@ export class GpuNodeQuadRenderer {
       cameraUniform,
     );
     this.writeGridBuffer(gridDraw, grid);
+    this.writeEdgePaletteBuffer(edgeDraw, edgePalette);
     this.writeEdgeBuffer(edgeDraw, edgeBufferData);
     this.writeNodeBuffer(nodeDraw, vertexData);
   }
@@ -612,6 +685,27 @@ export class GpuNodeQuadRenderer {
     }
     this.runtime.device.queue.writeBuffer(this.getGridBuffer(), 0, gridUniform);
     this.uploadedGridUniform = gridUniform;
+  }
+
+  private writeEdgePaletteBuffer(
+    edgeDraw: EdgeDrawResources | null,
+    edgePalette: GpuEdgePaletteInput,
+  ) {
+    if (!edgeDraw) {
+      return;
+    }
+    const edgePaletteUniform = encodeGpuEdgePaletteUniform(edgePalette);
+    if (
+      areFloat32ArraysEqual(this.uploadedEdgePaletteUniform, edgePaletteUniform)
+    ) {
+      return;
+    }
+    this.runtime.device.queue.writeBuffer(
+      this.getEdgePaletteBuffer(),
+      0,
+      edgePaletteUniform,
+    );
+    this.uploadedEdgePaletteUniform = edgePaletteUniform;
   }
 
   private writeEdgeBuffer(
@@ -664,6 +758,7 @@ export class GpuNodeQuadRenderer {
     }
     pass.setPipeline(edgeDraw.pipeline);
     pass.setBindGroup(0, cameraBindGroup);
+    pass.setBindGroup(1, edgeDraw.bindGroup);
     pass.setVertexBuffer(0, edgeDraw.vertexBuffer);
     pass.draw(edgeBufferData.vertexCount, 1, 0, 0);
   }
@@ -736,6 +831,22 @@ export class GpuNodeQuadRenderer {
       throw new Error("Setta GPU grid rendering failed to create grid buffer.");
     }
     return gridBuffer;
+  }
+
+  private getEdgePaletteBuffer(): GPUBuffer {
+    const edgePaletteBuffer = this.edgePaletteBuffer;
+    if (!edgePaletteBuffer) {
+      throw new Error(
+        "Setta GPU edge rendering failed to create edge palette buffer.",
+      );
+    }
+    return edgePaletteBuffer;
+  }
+}
+
+function destroyGpuBuffers(buffers: readonly (GPUBuffer | null)[]) {
+  for (const buffer of buffers) {
+    buffer?.destroy?.();
   }
 }
 
@@ -844,20 +955,44 @@ export function encodeGpuGridUniform(grid: GpuGridInput): Float32Array {
   ]);
 }
 
+export function encodeGpuEdgePaletteUniform(
+  palette: GpuEdgePaletteInput,
+): Float32Array {
+  const [red, green, blue, alpha] = parseGpuEdgeColor(palette.color);
+  return new Float32Array([red, green, blue, alpha]);
+}
+
 export function parseGpuGridColor(
   color: string,
+): readonly [number, number, number, number] {
+  return parseGpuHexColor(color, "grid");
+}
+
+export function parseGpuEdgeColor(
+  color: string,
+): readonly [number, number, number, number] {
+  return parseGpuHexColor(color, "edge palette");
+}
+
+function parseGpuHexColor(
+  color: string,
+  subject: string,
 ): readonly [number, number, number, number] {
   const trimmed = color.trim();
   const match = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(trimmed);
   if (!match) {
     throw new Error(
-      `Setta GPU grid requires a hex color, got ${JSON.stringify(color)}.`,
+      `Setta GPU ${subject} requires a hex color, got ${JSON.stringify(
+        color,
+      )}.`,
     );
   }
   const hex = match[1];
   if (!hex) {
     throw new Error(
-      `Setta GPU grid requires a hex color, got ${JSON.stringify(color)}.`,
+      `Setta GPU ${subject} requires a hex color, got ${JSON.stringify(
+        color,
+      )}.`,
     );
   }
   if (hex.length === 3 || hex.length === 4) {
@@ -1039,6 +1174,12 @@ struct Camera {
 
 @group(0) @binding(0) var<uniform> camera: Camera;
 
+struct EdgePalette {
+  base: vec4<f32>,
+};
+
+@group(1) @binding(0) var<uniform> edgePalette: EdgePalette;
+
 struct VertexInput {
   @location(0) flowPosition: vec2<f32>,
   @location(1) edgeMeta: vec2<f32>,
@@ -1076,6 +1217,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
   if (input.flags >= 1.0) {
     return vec4<f32>(0.15, 0.39, 0.92, 0.95);
   }
-  return vec4<f32>(0.33, 0.37, 0.44, 0.78);
+  return edgePalette.base;
 }
 `;

@@ -269,6 +269,7 @@ function ProjectGpuFlowLayer({
         onEdgeClick: selectEdge,
         onEdgeContextMenu: selectEdge,
       }}
+      edgePalette={getProjectGpuEdgePaletteInput({ darkMode, settings })}
       edgeScene={edgeScene}
       grid={getProjectGpuGridInput({ darkMode, settings })}
       nodeDrag={getProjectNodeDragOptions({
@@ -340,6 +341,18 @@ function getProjectGpuGridInput({
     patternSize: settings.gridPatternSize,
     snapGrid: settings.snapGrid,
     variant: settings.gridPattern,
+  };
+}
+
+function getProjectGpuEdgePaletteInput({
+  darkMode,
+  settings,
+}: {
+  readonly darkMode: boolean;
+  readonly settings: ProjectGpuSurfaceSettings;
+}) {
+  return {
+    color: resolveProjectWireColor({ darkMode, settings }),
   };
 }
 

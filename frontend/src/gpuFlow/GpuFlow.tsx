@@ -29,7 +29,11 @@ import {
   type GpuNodeUploadBudget,
   type RenderGpuNodeLayerFrameResult,
 } from "./GpuNodeLayer";
-import { GpuNodeQuadRenderer, type GpuGridInput } from "./gpuPipelines";
+import {
+  GpuNodeQuadRenderer,
+  type GpuEdgePaletteInput,
+  type GpuGridInput,
+} from "./gpuPipelines";
 import { measureGpuCanvasClientSize, type GpuCanvasSize } from "./gpuRenderer";
 import {
   GpuSurface,
@@ -81,6 +85,7 @@ type GpuFlowProps = Pick<
         "element" | "getScene" | "store"
       >
     | undefined;
+  edgePalette?: GpuEdgePaletteInput | undefined;
   edgeScene?: GpuEdgeScene | undefined;
   edges?: readonly GpuEdgeBufferInput[] | undefined;
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
@@ -130,6 +135,7 @@ type GpuFlowCallbacks = Pick<
 
 type GpuFlowNodeLayerState = {
   readonly edgeScene: GpuEdgeScene | undefined;
+  readonly edgePalette: GpuEdgePaletteInput | undefined;
   readonly edges: readonly GpuEdgeBufferInput[] | undefined;
   readonly forceVisibleNodeIds:
     | ReadonlySet<string>
@@ -155,6 +161,7 @@ export function GpuFlow({
   className = "setta-gpu-flow",
   deviceOptions,
   edgeInteraction,
+  edgePalette,
   edgeScene,
   edges,
   forceVisibleNodeIds,
@@ -213,6 +220,7 @@ export function GpuFlow({
   });
   const nodeLayerRef = useRef<GpuFlowNodeLayerState>({
     edgeScene,
+    edgePalette,
     edges: drawEdges,
     forceVisibleNodeIds,
     grid,
@@ -283,6 +291,7 @@ export function GpuFlow({
     const nextEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
     nodeLayerRef.current = {
       edgeScene,
+      edgePalette,
       edges: nextEdges,
       forceVisibleNodeIds,
       grid,
@@ -302,6 +311,7 @@ export function GpuFlow({
     surfaceRef.current?.requestFrame("viewport");
   }, [
     edgeInteraction,
+    edgePalette,
     edgeScene,
     edges,
     forceVisibleNodeIds,
@@ -781,6 +791,7 @@ function renderGpuFlowNodeLayerFrame({
     deferUploadNodeIds: activeNodeTeleportFrameSync.deferUploadNodeIds,
     deferResolutionUpdates,
     edges: layer.edges,
+    edgePalette: layer.edgePalette,
     elementByNodeId: nodeElementByIdRef.current,
     forceVisibleNodeIds: layer.forceVisibleNodeIds,
     frame,

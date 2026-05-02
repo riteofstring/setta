@@ -446,6 +446,31 @@ describe("GpuNodeLayer helpers", () => {
     expect(result.edgeVertexCount).toBe(2);
   });
 
+  it("passes GPU edge palette settings into the scene renderer", () => {
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+    const edgePalette = { color: "#41506c" };
+
+    renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      edgePalette,
+      elementByNodeId: new Map(),
+      frame: 1,
+      nodes: [],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(renderer.render).toHaveBeenCalledWith({
+      canvasSize: canvasSize(),
+      clearColor: undefined,
+      edgePalette,
+      quads: [],
+      viewport: [0, 0, 1],
+    });
+  });
+
   it("renders edge-only frames without registering node textures", () => {
     const manager = createFrameTextureManager();
     const renderer = createFrameRenderer();
