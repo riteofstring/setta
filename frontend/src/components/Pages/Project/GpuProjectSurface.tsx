@@ -17,10 +17,15 @@ import {
 } from "gpuFlow/selectionBounds";
 import {
   cancelViewportTransition,
+  panGpuViewport,
   screenToFlowPosition,
 } from "gpuFlow/viewportActions";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import {
+  getGpuViewportStorePointRelativeToDomNode,
+  gpuFlowViewportStore,
+} from "gpuFlow/viewportStore";
+import { getGpuNodeDragAutoPanDelta } from "gpuFlow/interactions/nodeDrag";
 import _ from "lodash";
 import {
   useCallback,
@@ -95,7 +100,8 @@ import {
 } from "./gpuProjectInteractionGuards";
 import {
   buildProjectSelectionKeyboardNudgePlan,
-  snapProjectNodePosition,
+  moveProjectSelectionDragItems,
+  snapProjectSelectionDragItems,
 } from "./gpuProjectSelectionMovement";
 
 type ProjectSurfaceDimensions = {
@@ -108,6 +114,7 @@ type ProjectSelectionDragState = {
   readonly selectedNodeIds: readonly string[];
   items: NodeDragItem[];
   lastFlowPoint: { x: number; y: number };
+  lastScreenPoint: { x: number; y: number };
 };
 
 type ProjectGpuNodeDragItem = {
@@ -680,6 +687,7 @@ function GpuProjectNodesSelectionOverlay({
     activeIds.length > 0 ? activeIds[activeIds.length - 1] ?? null : null;
   const hasSelectionBounds = bounds !== null;
   const rectRef = useRef<HTMLDivElement | null>(null);
+  const autoPanFrameRef = useRef<number | null>(null);
   const dragStateRef = useRef<ProjectSelectionDragState | null>(null);
 
   useEffect(() => {
@@ -709,6 +717,74 @@ function GpuProjectNodesSelectionOverlay({
       rectRef.current?.focus({ preventScroll: true });
     }
   }, [hasSelectionBounds, primarySelectionId]);
+
+  useEffect(() => {
+    if ((!hasSelectionBounds || !primarySelectionId) && dragStateRef.current) {
+      finishProjectSelectionDrag(dragStateRef, autoPanFrameRef);
+    }
+  }, [hasSelectionBounds, primarySelectionId]);
+
+  useEffect(() => {
+    return () => {
+      if (dragStateRef.current) {
+        finishProjectSelectionDrag(dragStateRef, autoPanFrameRef);
+        return;
+      }
+      cancelProjectSelectionAutoPan(autoPanFrameRef);
+    };
+  }, []);
+
+  const updateSelectionDragFromScreenPoint = (screenPoint: {
+    readonly x: number;
+    readonly y: number;
+  }): boolean => {
+    const dragState = dragStateRef.current;
+    if (!dragState) {
+      return false;
+    }
+    const nextFlowPoint = screenToFlowPosition(screenPoint);
+    const result = moveProjectSelectionDragItems({
+      items: dragState.items,
+      lastFlowPoint: dragState.lastFlowPoint,
+      nextFlowPoint,
+    });
+    dragState.lastFlowPoint = nextFlowPoint;
+    if (!result.changed) {
+      return false;
+    }
+    dragState.items = result.items;
+    updateNodePositions(dragState.items);
+    updateProjectSelectionBoundsAfterMovedNodes({
+      delta: result.delta,
+      movedNodeIds: dragState.items.map((item) => item.id),
+    });
+    return true;
+  };
+
+  const runSelectionDragAutoPan = () => {
+    autoPanFrameRef.current = null;
+    const dragState = dragStateRef.current;
+    if (!dragState) {
+      return;
+    }
+    const viewportState = gpuFlowViewportStore.getState();
+    const autoPanDelta = getGpuNodeDragAutoPanDelta({
+      point: getGpuViewportStorePointRelativeToDomNode(
+        dragState.lastScreenPoint,
+      ),
+      viewportSize: {
+        height: viewportState.height,
+        width: viewportState.width,
+      },
+    });
+    if (
+      (autoPanDelta.x !== 0 || autoPanDelta.y !== 0) &&
+      panGpuViewport(autoPanDelta)
+    ) {
+      updateSelectionDragFromScreenPoint(dragState.lastScreenPoint);
+    }
+    startProjectSelectionAutoPan(autoPanFrameRef, runSelectionDragAutoPan);
+  };
 
   if (!bounds || !primarySelectionId) {
     return null;
@@ -777,10 +853,15 @@ function GpuProjectNodesSelectionOverlay({
         x: event.clientX,
         y: event.clientY,
       }),
+      lastScreenPoint: {
+        x: event.clientX,
+        y: event.clientY,
+      },
       pointerId: event.pointerId,
       selectedNodeIds: selectedNodes.map((node) => node.id),
     };
     event.currentTarget.setPointerCapture(event.pointerId);
+    startProjectSelectionAutoPan(autoPanFrameRef, runSelectionDragAutoPan);
   };
 
   const handleSelectionDragPointerMove = (
@@ -792,30 +873,11 @@ function GpuProjectNodesSelectionOverlay({
     }
     event.preventDefault();
     event.stopPropagation();
-    const nextFlowPoint = screenToFlowPosition({
+    dragState.lastScreenPoint = {
       x: event.clientX,
       y: event.clientY,
-    });
-    const delta = {
-      x: nextFlowPoint.x - dragState.lastFlowPoint.x,
-      y: nextFlowPoint.y - dragState.lastFlowPoint.y,
     };
-    if (delta.x === 0 && delta.y === 0) {
-      return;
-    }
-    dragState.lastFlowPoint = nextFlowPoint;
-    dragState.items = dragState.items.map((item) => ({
-      ...item,
-      position: {
-        x: item.position.x + delta.x,
-        y: item.position.y + delta.y,
-      },
-    }));
-    updateNodePositions(dragState.items);
-    updateProjectSelectionBoundsAfterMovedNodes({
-      delta,
-      movedNodeIds: dragState.items.map((item) => item.id),
-    });
+    updateSelectionDragFromScreenPoint(dragState.lastScreenPoint);
   };
 
   const handleSelectionDragPointerUp = (
@@ -830,13 +892,16 @@ function GpuProjectNodesSelectionOverlay({
     event.currentTarget.releasePointerCapture(event.pointerId);
     if (snapToGrid) {
       const snapGrid = useSettings.getState().gui.snapGrid;
-      dragState.items = dragState.items.map((item) => ({
-        ...item,
-        position: snapProjectNodePosition(item.position, snapGrid),
-      }));
-      updateNodePositions(dragState.items);
+      const snapResult = snapProjectSelectionDragItems({
+        items: dragState.items,
+        snapGrid,
+      });
+      dragState.items = snapResult.items;
+      if (snapResult.changed) {
+        updateNodePositions(dragState.items);
+      }
     }
-    finishProjectSelectionDrag(dragStateRef);
+    finishProjectSelectionDrag(dragStateRef, autoPanFrameRef);
   };
 
   const handleSelectionDragPointerCancel = (
@@ -849,7 +914,7 @@ function GpuProjectNodesSelectionOverlay({
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.releasePointerCapture(event.pointerId);
-    finishProjectSelectionDrag(dragStateRef);
+    finishProjectSelectionDrag(dragStateRef, autoPanFrameRef);
   };
 
   return (
@@ -886,18 +951,57 @@ function GpuProjectNodesSelectionOverlay({
 
 function finishProjectSelectionDrag(
   dragStateRef: RefObject<ProjectSelectionDragState | null>,
+  autoPanFrameRef: RefObject<number | null>,
 ) {
+  cancelProjectSelectionAutoPan(autoPanFrameRef);
   const dragState = dragStateRef.current;
   dragStateRef.current = null;
+  if (!dragState) {
+    return;
+  }
   useMisc.setState({ mouseDownDraggingSection: false });
   gpuFlowViewportStore
     .getState()
     .setViewportInteractionFlags({ nodeDragging: false });
-  if (!dragState) {
-    return;
-  }
   setZIndices([...dragState.selectedNodeIds], true);
   updateActiveNodesSelectionBounds();
+}
+
+function startProjectSelectionAutoPan(
+  autoPanFrameRef: RefObject<number | null>,
+  callback: FrameRequestCallback,
+) {
+  if (autoPanFrameRef.current !== null) {
+    return;
+  }
+  autoPanFrameRef.current = requestProjectSelectionAutoPanFrame(callback);
+}
+
+function cancelProjectSelectionAutoPan(
+  autoPanFrameRef: RefObject<number | null>,
+) {
+  if (autoPanFrameRef.current === null) {
+    return;
+  }
+  cancelProjectSelectionAutoPanFrame(autoPanFrameRef.current);
+  autoPanFrameRef.current = null;
+}
+
+function requestProjectSelectionAutoPanFrame(
+  callback: FrameRequestCallback,
+): number {
+  if (typeof requestAnimationFrame === "function") {
+    return requestAnimationFrame(callback);
+  }
+  return setTimeout(() => callback(Date.now()), 16) as unknown as number;
+}
+
+function cancelProjectSelectionAutoPanFrame(frameId: number) {
+  if (typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(frameId);
+    return;
+  }
+  clearTimeout(frameId);
 }
 
 function handleProjectNodeDragStart(change: ProjectGpuNodeDragChange) {

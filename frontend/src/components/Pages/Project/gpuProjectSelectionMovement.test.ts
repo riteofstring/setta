@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProjectSelectionKeyboardNudgePlan,
+  moveProjectSelectionDragItems,
+  snapProjectSelectionDragItems,
   snapProjectNodePosition,
 } from "./gpuProjectSelectionMovement";
 
@@ -96,6 +98,93 @@ describe("gpu project selection movement", () => {
     expect(snapProjectNodePosition({ x: 23, y: 58 }, [16, 12])).toEqual({
       x: 16,
       y: 60,
+    });
+  });
+
+  it("moves selection drag items by the flow-space pointer delta", () => {
+    expect(
+      moveProjectSelectionDragItems({
+        items: [
+          {
+            distance: { x: 2, y: 3 },
+            height: 40,
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 80,
+          },
+          {
+            distance: { x: 4, y: 5 },
+            height: null,
+            id: "section-b",
+            position: { x: -5, y: 30 },
+            width: null,
+          },
+        ],
+        lastFlowPoint: { x: 100, y: 200 },
+        nextFlowPoint: { x: 112, y: 194 },
+      }),
+    ).toEqual({
+      changed: true,
+      delta: { x: 12, y: -6 },
+      items: [
+        {
+          distance: { x: 2, y: 3 },
+          height: 40,
+          id: "section-a",
+          position: { x: 22, y: 14 },
+          width: 80,
+        },
+        {
+          distance: { x: 4, y: 5 },
+          height: null,
+          id: "section-b",
+          position: { x: 7, y: 24 },
+          width: null,
+        },
+      ],
+    });
+  });
+
+  it("snaps selection drag items only at drag stop", () => {
+    expect(
+      snapProjectSelectionDragItems({
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 40,
+            id: "section-a",
+            position: { x: 23, y: 58 },
+            width: 80,
+          },
+          {
+            distance: { x: 0, y: 0 },
+            height: 20,
+            id: "section-b",
+            position: { x: 32, y: 24 },
+            width: 30,
+          },
+        ],
+        snapGrid: [16, 12],
+      }),
+    ).toEqual({
+      changed: true,
+      delta: { x: -7, y: 2 },
+      items: [
+        {
+          distance: { x: 0, y: 0 },
+          height: 40,
+          id: "section-a",
+          position: { x: 16, y: 60 },
+          width: 80,
+        },
+        {
+          distance: { x: 0, y: 0 },
+          height: 20,
+          id: "section-b",
+          position: { x: 32, y: 24 },
+          width: 30,
+        },
+      ],
     });
   });
 });
