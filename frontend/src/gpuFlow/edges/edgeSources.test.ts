@@ -12,6 +12,7 @@ import {
   buildGpuDataEdgeEntries,
   buildGpuEdgeScene,
   buildGpuWorkflowEdgeEntries,
+  buildGpuWorkflowEdgeLabels,
   hitTestGpuEdgeScene,
   type GpuEdgeHandlePosition,
   type GpuEdgeNodeFrame,
@@ -235,6 +236,56 @@ describe("edgeSources", () => {
     });
   });
 
+  it("derives workflow source-activation labels from edge owner metadata", () => {
+    const nodes = new Map<string, GpuEdgeNodeFrame>([
+      ["source", { height: 120, width: 200, x: 100, y: 80 }],
+      ["target", { height: 120, width: 200, x: 460, y: 80 }],
+    ]);
+
+    const labels = buildGpuWorkflowEdgeLabels({
+      edges: [
+        createWorkflowEdge({
+          id: "workflow-threshold",
+          sourceActivationCountCondition: {
+            operator: "gte",
+            value: 3,
+          },
+          sourceSectionId: "source",
+          targetSectionId: "target",
+          zIndex: 8,
+        }),
+        createWorkflowEdge({
+          id: "workflow-no-condition",
+          sourceActivationCountCondition: null,
+        }),
+        createWorkflowEdge({
+          hidden: true,
+          id: "workflow-hidden",
+          sourceActivationCountCondition: {
+            operator: "gte",
+            value: 1,
+          },
+        }),
+      ],
+      nodes,
+      topLevelSections: {},
+    });
+
+    expect(labels).toEqual([
+      {
+        edgeId: "workflow-threshold",
+        height: 20,
+        id: "workflow-source-activation:workflow-threshold",
+        kind: "workflow-source-activation",
+        text: "src count >= 3",
+        width: 96,
+        x: 380,
+        y: 140,
+        zIndex: 8,
+      },
+    ]);
+  });
+
   it("derives active connection line geometry from the registered start handle", () => {
     const handlePositions = createHandlePositions([
       {
@@ -328,6 +379,7 @@ describe("edgeSources", () => {
       "data:edge-hit",
       "connection:active",
     ]);
+    expect(scene.labels).toEqual([]);
     expect(scene.hitTestEdges.map((entry) => entry.edgeId)).toEqual([
       "data:edge-hit",
     ]);

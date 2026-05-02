@@ -12,12 +12,13 @@ import {
   resolveGpuNodeWheelHandoffTarget,
 } from "./activeNodeTargeting";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
-import type { GpuEdgeScene } from "./edges/edgeSources";
+import type { GpuEdgeScene, GpuEdgeSceneLabel } from "./edges/edgeSources";
 import { resolveGpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
 import {
   createGpuActiveNodeTeleportController,
   type GpuActiveNodeTeleportController,
 } from "./GpuActiveNodeTeleport";
+import { GpuEdgeLabelLayer } from "./GpuEdgeLabels";
 import type { GpuFlowRuntime } from "./gpuDevice";
 import "./gpuFlow.css";
 import {
@@ -154,6 +155,7 @@ type GpuActiveNodeTeleportFrameSync = {
 };
 
 const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
+const EMPTY_EDGE_LABELS: readonly GpuEdgeSceneLabel[] = [];
 const EMPTY_NODE_IDS: readonly string[] = [];
 
 export function GpuFlow({
@@ -194,6 +196,9 @@ export function GpuFlow({
     useState<GpuUserSelectionRect | null>(() =>
       getVisibleGpuUserSelectionRect(viewportStore.getState()),
     );
+  const [edgeLabelViewport, setEdgeLabelViewport] = useState<GpuViewportInput>(
+    () => viewportStore.getState().transform,
+  );
   const activeNodeTeleportRef = useRef<GpuActiveNodeTeleportController | null>(
     null,
   );
@@ -275,6 +280,7 @@ export function GpuFlow({
           ...nodeLayerRef.current,
           viewport: state.transform,
         };
+        setEdgeLabelViewport(state.transform);
         surfaceRef.current?.requestFrame("viewport");
       }
       if (
@@ -579,6 +585,12 @@ export function GpuFlow({
   const userSelectionElement = (
     <GpuUserSelectionOverlay rect={userSelectionRect} />
   );
+  const edgeLabelElement = (
+    <GpuEdgeLabelLayer
+      labels={edgeScene?.labels ?? EMPTY_EDGE_LABELS}
+      viewport={edgeLabelViewport}
+    />
+  );
 
   return (
     <div
@@ -600,6 +612,7 @@ export function GpuFlow({
         {children}
       </GpuSurface>
       {userSelectionElement}
+      {edgeLabelElement}
       {activeNodeTeleportLayer}
     </div>
   );

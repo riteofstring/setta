@@ -302,6 +302,7 @@ function createEdgeScene(): GpuEdgeScene {
     edges: [entry],
     entries: [entry],
     hitTestEdges: [entry],
+    labels: [],
   };
 }
 

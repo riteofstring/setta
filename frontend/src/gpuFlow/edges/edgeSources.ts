@@ -1,6 +1,7 @@
 import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import {
   AgenticEdgeKindEnum,
+  StateMachineUIConfig,
   type AgenticEdge,
   type Edge,
   type SingleConfig,
@@ -68,10 +69,23 @@ export type GpuEdgeSceneEntry = GpuEdgeBufferInput &
     readonly sourceEdgeId: string;
   };
 
+export type GpuEdgeSceneLabel = {
+  readonly edgeId: string;
+  readonly height: number;
+  readonly id: string;
+  readonly kind: "workflow-source-activation";
+  readonly text: string;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+  readonly zIndex?: number | undefined;
+};
+
 export type GpuEdgeScene = {
   readonly edges: readonly GpuEdgeBufferInput[];
   readonly entries: readonly GpuEdgeSceneEntry[];
   readonly hitTestEdges: readonly GpuEdgeSceneEntry[];
+  readonly labels: readonly GpuEdgeSceneLabel[];
 };
 
 export type GpuEdgeSceneHitTestResult = GpuEdgeHitTestResult & {
@@ -123,6 +137,16 @@ type BuildGpuEdgeSceneInput = {
 type NodeAnchorSide = "left" | "right";
 
 const CONNECTION_LINE_EDGE_ID = "connection:active";
+const WORKFLOW_SOURCE_ACTIVATION_LABEL_HEIGHT = 20;
+const WORKFLOW_SOURCE_ACTIVATION_LABEL_MIN_WIDTH = 80;
+const WORKFLOW_SOURCE_ACTIVATION_LABEL_TEXT_WIDTH = 6;
+const WORKFLOW_SOURCE_ACTIVATION_LABEL_X_PADDING = 12;
+const sourceActivationCountOperatorLabelByValue = new Map(
+  StateMachineUIConfig.sourceActivationCountOperatorOptions.map((option) => [
+    option.value,
+    option.label,
+  ]),
+);
 
 export function buildGpuEdgeScene({
   agenticEdges,
@@ -136,6 +160,11 @@ export function buildGpuEdgeScene({
   topLevelSections = {},
   workflowEdges,
 }: BuildGpuEdgeSceneInput): GpuEdgeScene {
+  const workflowEdgeInput = {
+    edges: workflowEdges ?? [],
+    nodes,
+    topLevelSections,
+  };
   const entries = [
     ...buildGpuDataEdgeEntries({
       edges: dataEdges ?? [],
@@ -149,11 +178,7 @@ export function buildGpuEdgeScene({
       scopeViolationEdges,
       topLevelSections,
     }),
-    ...buildGpuWorkflowEdgeEntries({
-      edges: workflowEdges ?? [],
-      nodes,
-      topLevelSections,
-    }),
+    ...buildGpuWorkflowEdgeEntries(workflowEdgeInput),
     ...buildGpuConnectionLineEntries({
       connectionLine,
       handlePositions,
@@ -163,6 +188,7 @@ export function buildGpuEdgeScene({
     edges: entries,
     entries,
     hitTestEdges: entries.filter((entry) => entry.selectable),
+    labels: buildGpuWorkflowEdgeLabels(workflowEdgeInput),
   };
 }
 
@@ -307,10 +333,8 @@ export function buildGpuWorkflowEdgeEntries({
       );
     }
 
-    const geometry = buildNodeAnchorEdgeGeometry({
-      edgeId: getGpuSceneEdgeId("workflow", edge.id),
-      sourceSectionId: edge.sourceSectionId,
-      targetSectionId: edge.targetSectionId,
+    const geometry = buildWorkflowMainEdgeGeometry({
+      edge,
       nodes,
       topLevelSections,
     });
@@ -330,6 +354,43 @@ export function buildGpuWorkflowEdgeEntries({
     );
   }
   return entries;
+}
+
+export function buildGpuWorkflowEdgeLabels({
+  edges,
+  nodes,
+  topLevelSections,
+}: GpuWorkflowEdgeEntriesInput): GpuEdgeSceneLabel[] {
+  const labels: GpuEdgeSceneLabel[] = [];
+  for (const edge of edges) {
+    if (edge.hidden) {
+      continue;
+    }
+    const text = getWorkflowSourceActivationCountLabel(edge);
+    if (!text) {
+      continue;
+    }
+    const geometry = buildWorkflowMainEdgeGeometry({
+      edge,
+      nodes,
+      topLevelSections,
+    });
+    if (!geometry) {
+      continue;
+    }
+    labels.push({
+      edgeId: edge.id,
+      height: WORKFLOW_SOURCE_ACTIVATION_LABEL_HEIGHT,
+      id: `workflow-source-activation:${edge.id}`,
+      kind: "workflow-source-activation",
+      text,
+      width: getWorkflowSourceActivationLabelWidth(text),
+      x: geometry.label.x,
+      y: geometry.label.y,
+      zIndex: edge.zIndex,
+    });
+  }
+  return labels;
 }
 
 export function buildGpuConnectionLineEntries({
@@ -534,6 +595,45 @@ function buildWorkflowPromptLinkGeometry({
     target,
     targetSide,
   });
+}
+
+function buildWorkflowMainEdgeGeometry({
+  edge,
+  nodes,
+  topLevelSections,
+}: {
+  readonly edge: WorkflowEdge;
+  readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
+  readonly topLevelSections: TopLevelSections;
+}): GpuEdgeGeometry | null {
+  return buildNodeAnchorEdgeGeometry({
+    edgeId: getGpuSceneEdgeId("workflow", edge.id),
+    sourceSectionId: edge.sourceSectionId,
+    targetSectionId: edge.targetSectionId,
+    nodes,
+    topLevelSections,
+  });
+}
+
+function getWorkflowSourceActivationCountLabel(
+  edge: WorkflowEdge,
+): string | null {
+  const condition = edge.sourceActivationCountCondition;
+  if (!condition) {
+    return null;
+  }
+  const operatorLabel =
+    sourceActivationCountOperatorLabelByValue.get(condition.operator) ??
+    condition.operator;
+  return `src count ${operatorLabel} ${condition.value}`;
+}
+
+function getWorkflowSourceActivationLabelWidth(text: string): number {
+  return Math.max(
+    WORKFLOW_SOURCE_ACTIVATION_LABEL_MIN_WIDTH,
+    text.length * WORKFLOW_SOURCE_ACTIVATION_LABEL_TEXT_WIDTH +
+      WORKFLOW_SOURCE_ACTIVATION_LABEL_X_PADDING,
+  );
 }
 
 function resolveNodeFrame(

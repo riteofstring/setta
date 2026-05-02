@@ -93,6 +93,10 @@ describe("gpuProjectEdgeScene", () => {
           stateMachineEdges: [
             createWorkflowEdge({
               id: "workflow-edge",
+              sourceActivationCountCondition: {
+                operator: "gte",
+                value: 3,
+              },
               sourceSectionId: "source",
               targetSectionId: "target",
             }),
@@ -130,6 +134,13 @@ describe("gpuProjectEdgeScene", () => {
       "data:data-edge",
       "agentic:agentic-edge",
       "workflow:workflow-edge",
+    ]);
+    expect(scene.labels).toEqual([
+      expect.objectContaining({
+        edgeId: "workflow-edge",
+        kind: "workflow-source-activation",
+        text: "src count >= 3",
+      }),
     ]);
   });
 
