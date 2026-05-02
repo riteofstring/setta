@@ -182,7 +182,7 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-codex-canvas-pan-zoom-loop.sh`
   - Dedicated plan loop for `docs/plans/canvas-pan-zoom-html-in-canvas-plan.md`.
   - Uses the generic plan-loop engine with Canvas 2D html-in-canvas instructions, `CANVAS_PAN_ZOOM_PLAN_COMPLETE`, and `canvas-pan-zoom:` commits.
-- `./scripts/run-codex-webgpu-pan-zoom-loop.sh`
+- `./scripts/run-codex-html-in-canvas-interactive-gpu-surfaces-loop.sh`
   - Dedicated plan loop for `docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md`.
   - Uses the generic plan-loop engine with interactive HTML GPU surface instructions, `HTML_IN_CANVAS_INTERACTIVE_GPU_SURFACES_PLAN_COMPLETE`, and `html-gpu-surfaces:` commits.
 - `./scripts/run-codex-test-fix-loop.sh`
