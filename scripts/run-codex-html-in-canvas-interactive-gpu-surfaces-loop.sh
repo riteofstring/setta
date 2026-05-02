@@ -117,6 +117,13 @@ Browser verification:
   `scripts/resolve-chrome-for-testing-149.sh`; do not use Playwright's bundled Chromium or local
   Chrome 147/148 for tiled html-in-canvas verification because those builds lack
   the scaled `copyElementImageToTexture(source, sx, sy, sw, sh, width, height, destination)` overload.
+- On macOS, every Chrome/Chromium launch must include `--use-mock-keychain`.
+  The repo helpers already add it. If you write a direct Playwright fallback
+  with `chromium.launch`, include it explicitly in `args` alongside the
+  html-in-canvas/WebGPU flags, for example:
+  `...(process.platform === "darwin" ? ["--use-mock-keychain"] : [])`.
+  Do not run ad hoc headed Playwright/Chromium probes without this flag, because
+  Chromium may otherwise request access to the user's Keychain credentials.
 - Use ./aireset.sh only when the iteration needs a clean disposable state, with the same full flag set:
   `CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu --enable-webgpu-developer-features" ./aireset.sh`
 - Use Chrome DevTools MCP for visible or performance-sensitive work. If CDP cannot run, record the concrete blocker.

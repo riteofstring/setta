@@ -90,6 +90,11 @@ The repo Playwright helper uses the same Chrome for Testing 149+ browser as the
 CDP helper, not Playwright's bundled Chromium. `PLAYWRIGHT_BROWSERS_PATH` only
 matters when running raw Playwright commands outside the repo helper.
 
+On macOS, raw Playwright snippets that call `chromium.launch` directly must pass
+`--use-mock-keychain` in `args`. The repo helpers already add this flag, but
+direct headed Chromium launches can otherwise ask for access to the user's
+Keychain credentials.
+
 ## Playwright recording (manual repro capture)
 
 Use the recorder helper when you want a saved Playwright codegen output while
