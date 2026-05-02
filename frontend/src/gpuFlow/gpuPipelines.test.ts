@@ -7,6 +7,7 @@ import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
 import type { HtmlSurfaceRenderRuntime } from "./gpuPipelines";
 import {
   buildFlatSurfaceVertexData,
+  buildMeshSurfaceVertexCache,
   encodeGpuEdgePaletteUniform,
   encodeGpuGridUniform,
   parseGpuGridColor,
@@ -19,6 +20,7 @@ import type { HtmlSurfaceTextureRecord } from "./htmlSurfaces/textures";
 import {
   createHtmlSurfaceVisualScene,
   type HtmlSurfaceFlatVisual,
+  type HtmlSurfaceMeshVisual,
 } from "./htmlSurfaces/visualScene";
 
 describe("html surface renderer", () => {
@@ -46,6 +48,28 @@ describe("html surface renderer", () => {
     ).toEqual([
       10, 15, 0, 0, 40, 15, 1, 0, 10, 35, 0, 1, 10, 35, 0, 1, 40, 15, 1, 0, 40,
       35, 1, 1,
+    ]);
+  });
+
+  it("builds indexed mesh vertices with per-surface draw ranges", () => {
+    const mesh = meshSurface("mesh-a", [
+      { u: 0, v: 0, x: 0, y: 0 },
+      { u: 1, v: 0, x: 10, y: 0 },
+      { u: 0, v: 1, x: 0, y: 20 },
+    ]);
+
+    const cache = buildMeshSurfaceVertexCache([mesh]);
+
+    expect(Array.from(cache.vertexData)).toEqual([
+      0, 0, 0, 0, 10, 0, 1, 0, 0, 20, 0, 1,
+    ]);
+    expect(Array.from(cache.indexData)).toEqual([0, 1, 2]);
+    expect(cache.ranges).toEqual([
+      {
+        firstVertex: 0,
+        surfaceId: "mesh-a",
+        vertexCount: 3,
+      },
     ]);
   });
 
@@ -176,6 +200,44 @@ describe("html surface renderer", () => {
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 6, 0);
     expect(gpu.pass.end).toHaveBeenCalledTimes(1);
     expect(gpu.device.queue.submit).toHaveBeenCalledWith([gpu.commandBuffer]);
+  });
+
+  it("draws warped mesh surfaces with indexed geometry after the flat pass", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+    const flat = flatSurface("node-a", 0, 0, 100, 50);
+    const mesh = meshSurface("mesh-a", [
+      { u: 0, v: 0, x: 0, y: 0 },
+      { u: 1, v: 0, x: 120, y: 12 },
+      { u: 0, v: 1, x: -12, y: 80 },
+      { u: 1, v: 1, x: 120, y: 90 },
+    ]);
+
+    const result = renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: createHtmlSurfaceVisualScene({
+        flatSurfaces: [flat],
+        meshSurfaces: [mesh],
+      }),
+      viewport: [10, 20, 1.25],
+    });
+
+    expect(result).toEqual({
+      drawnEdgeIds: [],
+      drawnSurfaceIds: ["node-a", "mesh-a"],
+      edgeVertexCount: 0,
+      vertexCount: 12,
+    });
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-flat-vertices",
+      "setta-html-surface-mesh-vertices",
+    ]);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(1, gpu.pipelines[0]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 6, 1, 0, 0);
+    expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(2, gpu.pipelines[1]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 0, 0);
   });
 
   it("draws the procedural grid before GPU edges and surface textures", () => {
@@ -658,6 +720,25 @@ function flatSurface(
     width,
     x,
     y,
+    zIndex: 0,
+  };
+}
+
+function meshSurface(
+  surfaceId: string,
+  vertices: HtmlSurfaceMeshVisual["vertices"],
+  texture = textureRecord(surfaceId),
+): HtmlSurfaceMeshVisual {
+  return {
+    bounds: { height: 90, width: 132, x: -12, y: 0 },
+    indices: new Uint32Array([0, 1, 2, 2, 1, 3]).slice(
+      0,
+      vertices.length === 3 ? 3 : 6,
+    ),
+    kind: "mesh",
+    surfaceId,
+    texture,
+    vertices,
     zIndex: 0,
   };
 }

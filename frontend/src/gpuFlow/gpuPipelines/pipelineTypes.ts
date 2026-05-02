@@ -56,6 +56,11 @@ export type FlatSurfaceDrawResources = {
   readonly vertexBuffer: GPUBuffer;
 };
 
+export type MeshSurfaceDrawResources = {
+  readonly pipeline: GPURenderPipeline;
+  readonly vertexBuffer: GPUBuffer;
+};
+
 export type CachedFlatSurfaceGeometry = {
   readonly height: number;
   readonly surfaceId: string;
@@ -68,6 +73,32 @@ export type CachedFlatSurfaceGeometry = {
 export type FlatSurfaceVertexCache = {
   readonly geometry: readonly CachedFlatSurfaceGeometry[];
   readonly vertexData: Float32Array;
+};
+
+export type CachedMeshSurfaceGeometry = {
+  readonly indices: readonly number[];
+  readonly surfaceId: string;
+  readonly vertices: readonly {
+    readonly u: number;
+    readonly v: number;
+    readonly x: number;
+    readonly y: number;
+  }[];
+  readonly zIndex: number;
+};
+
+export type MeshSurfaceDrawRange = {
+  readonly firstVertex: number;
+  readonly surfaceId: string;
+  readonly vertexCount: number;
+};
+
+export type MeshSurfaceVertexCache = {
+  readonly geometry: readonly CachedMeshSurfaceGeometry[];
+  readonly indexData: Uint32Array;
+  readonly ranges: readonly MeshSurfaceDrawRange[];
+  readonly vertexData: Float32Array;
+  readonly vertexCount: number;
 };
 
 export type GridDrawResources = {

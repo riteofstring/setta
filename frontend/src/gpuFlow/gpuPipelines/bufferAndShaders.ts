@@ -2,15 +2,21 @@ import { BackgroundVariantEnum } from "utils/generatedTypes";
 
 import { parseGpuHexColor } from "../gpuColors";
 
-import type { HtmlSurfaceFlatVisual } from "../htmlSurfaces/visualScene";
+import type {
+  HtmlSurfaceFlatVisual,
+  HtmlSurfaceMeshVisual,
+} from "../htmlSurfaces/visualScene";
 
 import {
   CachedFlatSurfaceGeometry,
+  CachedMeshSurfaceGeometry,
   FLOATS_PER_VERTEX,
   FlatSurfaceVertexCache,
   GpuEdgePaletteInput,
   GpuGridInput,
   GpuGridVariant,
+  MeshSurfaceDrawRange,
+  MeshSurfaceVertexCache,
   VERTICES_PER_QUAD,
 } from "./pipelineTypes";
 
@@ -69,6 +75,54 @@ export function buildFlatSurfaceVertexData(
   return data;
 }
 
+export function buildMeshSurfaceVertexCache(
+  surfaces: readonly HtmlSurfaceMeshVisual[],
+): MeshSurfaceVertexCache {
+  const indexCount = surfaces.reduce(
+    (count, surface) => count + surface.indices.length,
+    0,
+  );
+  const vertexData = new Float32Array(indexCount * FLOATS_PER_VERTEX);
+  const indexData = new Uint32Array(indexCount);
+  const ranges: MeshSurfaceDrawRange[] = [];
+  let vertexCount = 0;
+  let vertexDataOffset = 0;
+  let indexOffset = 0;
+
+  for (const surface of surfaces) {
+    const firstVertex = vertexCount;
+    for (const index of surface.indices) {
+      const vertex = surface.vertices[index];
+      if (!vertex) {
+        throw new Error(
+          `Setta HTML surface mesh "${surface.surfaceId}" references missing vertex ${index}.`,
+        );
+      }
+      vertexDataOffset = writeFlatSurfaceVertex(
+        vertexData,
+        vertexDataOffset,
+        vertex,
+      );
+      indexData[indexOffset] = index;
+      indexOffset += 1;
+      vertexCount += 1;
+    }
+    ranges.push({
+      firstVertex,
+      surfaceId: surface.surfaceId,
+      vertexCount: surface.indices.length,
+    });
+  }
+
+  return {
+    geometry: captureMeshSurfaceGeometry(surfaces),
+    indexData,
+    ranges,
+    vertexCount,
+    vertexData,
+  };
+}
+
 export function isFlatSurfaceVertexCacheValid(
   cache: FlatSurfaceVertexCache | null,
   surfaces: readonly HtmlSurfaceFlatVisual[],
@@ -90,6 +144,27 @@ export function isFlatSurfaceVertexCacheValid(
   return true;
 }
 
+export function isMeshSurfaceVertexCacheValid(
+  cache: MeshSurfaceVertexCache | null,
+  surfaces: readonly HtmlSurfaceMeshVisual[],
+): cache is MeshSurfaceVertexCache {
+  if (!cache || cache.geometry.length !== surfaces.length) {
+    return false;
+  }
+  for (let index = 0; index < surfaces.length; index += 1) {
+    const cached = cache.geometry[index];
+    const surface = surfaces[index];
+    if (
+      !cached ||
+      !surface ||
+      !isCachedMeshSurfaceGeometryEqual(cached, surface)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function isCachedFlatSurfaceGeometryEqual(
   cached: CachedFlatSurfaceGeometry,
   surface: HtmlSurfaceFlatVisual,
@@ -104,6 +179,66 @@ export function isCachedFlatSurfaceGeometryEqual(
   );
 }
 
+export function isCachedMeshSurfaceGeometryEqual(
+  cached: CachedMeshSurfaceGeometry,
+  surface: HtmlSurfaceMeshVisual,
+): boolean {
+  if (
+    cached.surfaceId !== surface.surfaceId ||
+    cached.zIndex !== surface.zIndex ||
+    cached.vertices.length !== surface.vertices.length ||
+    cached.indices.length !== surface.indices.length
+  ) {
+    return false;
+  }
+  return (
+    areCachedMeshVerticesEqual(cached, surface) &&
+    areCachedMeshIndicesEqual(cached, surface)
+  );
+}
+
+function areCachedMeshVerticesEqual(
+  cached: CachedMeshSurfaceGeometry,
+  surface: HtmlSurfaceMeshVisual,
+): boolean {
+  for (let index = 0; index < cached.vertices.length; index += 1) {
+    const cachedVertex = cached.vertices[index];
+    const vertex = surface.vertices[index];
+    if (
+      !cachedVertex ||
+      !vertex ||
+      !areMeshVerticesEqual(cachedVertex, vertex)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areCachedMeshIndicesEqual(
+  cached: CachedMeshSurfaceGeometry,
+  surface: HtmlSurfaceMeshVisual,
+): boolean {
+  for (let index = 0; index < cached.indices.length; index += 1) {
+    if (cached.indices[index] !== surface.indices[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areMeshVerticesEqual(
+  left: CachedMeshSurfaceGeometry["vertices"][number],
+  right: HtmlSurfaceMeshVisual["vertices"][number],
+): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.u === right.u &&
+    left.v === right.v
+  );
+}
+
 export function captureFlatSurfaceGeometry(
   surfaces: readonly HtmlSurfaceFlatVisual[],
 ): readonly CachedFlatSurfaceGeometry[] {
@@ -113,6 +248,22 @@ export function captureFlatSurfaceGeometry(
     width: surface.width,
     x: surface.x,
     y: surface.y,
+    zIndex: surface.zIndex,
+  }));
+}
+
+export function captureMeshSurfaceGeometry(
+  surfaces: readonly HtmlSurfaceMeshVisual[],
+): readonly CachedMeshSurfaceGeometry[] {
+  return surfaces.map((surface) => ({
+    indices: Array.from(surface.indices),
+    surfaceId: surface.surfaceId,
+    vertices: surface.vertices.map((vertex) => ({
+      u: vertex.u,
+      v: vertex.v,
+      x: vertex.x,
+      y: vertex.y,
+    })),
     zIndex: surface.zIndex,
   }));
 }
