@@ -281,6 +281,93 @@ describe("gpu node quad pipeline", () => {
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 3, 1, 0, 0);
   });
 
+  it("keeps node quad vertices stable on viewport-only redraws", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const quads = [
+      texturedQuad("node-a", 0, 0, 100, 50),
+      texturedQuad("node-b", 200, 100, 80, 40),
+    ];
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      quads,
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      quads,
+      viewport: [50, -25, 1.5],
+    });
+
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-gpu-node-quad-camera-uniform",
+      "setta-gpu-node-quad-vertices",
+      "setta-gpu-node-quad-camera-uniform",
+    ]);
+  });
+
+  it("rewrites node quad vertices once when node geometry changes", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const firstQuads = [texturedQuad("node-a", 0, 0, 100, 50)];
+    const movedQuads = [texturedQuad("node-a", 24, 12, 100, 50)];
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      quads: firstQuads,
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      quads: movedQuads,
+      viewport: [0, 0, 1],
+    });
+
+    const nodeVertexWrites = gpu.device.queue.writeBuffer.mock.calls.filter(
+      ([buffer]) => getBufferLabel(buffer) === "setta-gpu-node-quad-vertices",
+    );
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-gpu-node-quad-camera-uniform",
+      "setta-gpu-node-quad-vertices",
+      "setta-gpu-node-quad-vertices",
+    ]);
+    expect(nodeVertexWrites).toHaveLength(2);
+    expect(Array.from(nodeVertexWrites[1]?.[2] ?? [])).toEqual(
+      Array.from(buildNodeQuadVertexData(movedQuads)),
+    );
+  });
+
+  it("skips duplicate camera uniform writes when the viewport is unchanged", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const edges = [edge("edge-a", 0, 0, 100, 0)];
+    const quads = [texturedQuad("node-a", 0, 0, 100, 50)];
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edges,
+      quads,
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edges,
+      quads,
+      viewport: [0, 0, 1],
+    });
+
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-gpu-node-quad-camera-uniform",
+      "setta-gpu-edge-palette-uniform",
+      "setta-gpu-edge-line-vertices",
+      "setta-gpu-node-quad-vertices",
+    ]);
+  });
+
   it("reuses texture bind groups until a node texture view or sampler changes", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
@@ -424,7 +511,7 @@ describe("gpu node quad pipeline", () => {
       gpu.buffers,
       "setta-gpu-edge-line-vertices",
     );
-    expect(gpu.device.queue.writeBuffer).toHaveBeenCalledTimes(5);
+    expect(gpu.device.queue.writeBuffer).toHaveBeenCalledTimes(4);
     expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
       1,
       cameraBuffer,
@@ -445,16 +532,16 @@ describe("gpu node quad pipeline", () => {
     );
     expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
       4,
-      cameraBuffer,
-      0,
-      expect.any(Float32Array),
-    );
-    expect(gpu.device.queue.writeBuffer).toHaveBeenNthCalledWith(
-      5,
       edgePaletteBuffer,
       0,
       expect.any(Float32Array),
     );
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-gpu-node-quad-camera-uniform",
+      "setta-gpu-edge-palette-uniform",
+      "setta-gpu-edge-line-vertices",
+      "setta-gpu-edge-palette-uniform",
+    ]);
   });
 });
 
@@ -576,7 +663,9 @@ function textureRecord(nodeId: string): NodeTextureRecord {
 }
 
 function getBufferByLabel(buffers: readonly GPUBuffer[], label: string) {
-  const buffer = buffers.find((candidate) => getBufferLabel(candidate) === label);
+  const buffer = buffers.find(
+    (candidate) => getBufferLabel(candidate) === label,
+  );
   if (!buffer) {
     throw new Error(`Expected GPU buffer ${label}.`);
   }
@@ -586,6 +675,12 @@ function getBufferByLabel(buffers: readonly GPUBuffer[], label: string) {
 function getBufferLabel(buffer: GPUBuffer): string | undefined {
   return (buffer as GPUBuffer & { descriptor?: GPUBufferDescriptor }).descriptor
     ?.label;
+}
+
+function writeBufferLabels(gpu: ReturnType<typeof createGpuRenderMock>) {
+  return gpu.device.queue.writeBuffer.mock.calls.map(([buffer]) =>
+    getBufferLabel(buffer),
+  );
 }
 
 function edge(

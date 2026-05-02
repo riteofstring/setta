@@ -57,6 +57,20 @@ type NodeDrawResources = {
   readonly vertexBuffer: GPUBuffer;
 };
 
+type CachedNodeQuadGeometry = {
+  readonly height: number;
+  readonly nodeId: string;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+  readonly zIndex: number;
+};
+
+type NodeQuadVertexCache = {
+  readonly geometry: readonly CachedNodeQuadGeometry[];
+  readonly vertexData: Float32Array;
+};
+
 type GridDrawResources = {
   readonly bindGroup: GPUBindGroup;
   readonly pipeline: GPURenderPipeline;
@@ -95,9 +109,12 @@ export class GpuNodeQuadRenderer {
   private gridBuffer: GPUBuffer | null = null;
   private gridPipeline: GPURenderPipeline | null = null;
   private nodePipeline: GPURenderPipeline | null = null;
+  private nodeVertexCache: NodeQuadVertexCache | null = null;
+  private uploadedCameraUniform: Float32Array | null = null;
   private uploadedEdgeBufferData: GpuEdgeLineListBufferData | null = null;
   private uploadedEdgePaletteUniform: Float32Array | null = null;
   private uploadedGridUniform: Float32Array | null = null;
+  private uploadedNodeVertexCache: NodeQuadVertexCache | null = null;
   private textureBindGroupLayout: GPUBindGroupLayout | null = null;
   private readonly textureBindGroups = new Map<
     string,
@@ -137,12 +154,15 @@ export class GpuNodeQuadRenderer {
     this.vertexBuffer = null;
     this.cameraBindGroup = null;
     this.nodePipeline = null;
+    this.nodeVertexCache = null;
     this.textureBindGroupLayout = null;
     this.cameraBindGroupLayout = null;
     this.textureBindGroups.clear();
+    this.uploadedCameraUniform = null;
     this.uploadedEdgeBufferData = null;
     this.uploadedEdgePaletteUniform = null;
     this.uploadedGridUniform = null;
+    this.uploadedNodeVertexCache = null;
     this.vertexBufferByteCapacity = 0;
   }
 
@@ -164,8 +184,7 @@ export class GpuNodeQuadRenderer {
       canvasWidth: canvasSize.cssWidth,
       viewport,
     });
-    const vertexData = buildNodeQuadVertexData(quads);
-    const nodeDraw = this.prepareNodeDraw(quads, vertexData);
+    const nodeDraw = this.prepareNodeDraw(quads);
     this.writeSceneBuffers({
       cameraUniform,
       edgeBufferData,
@@ -174,7 +193,7 @@ export class GpuNodeQuadRenderer {
       grid,
       gridDraw,
       nodeDraw,
-      vertexData,
+      quads,
     });
 
     const commandEncoder = this.runtime.device.createCommandEncoder({
@@ -621,19 +640,21 @@ export class GpuNodeQuadRenderer {
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX,
     });
     this.vertexBufferByteCapacity = size;
+    this.uploadedNodeVertexCache = null;
     return this.vertexBuffer;
   }
 
   private prepareNodeDraw(
     quads: readonly GpuTexturedNodeQuad[],
-    vertexData: Float32Array,
   ): NodeDrawResources | null {
     if (quads.length === 0) {
       return null;
     }
+    const byteLength =
+      quads.length * VERTICES_PER_QUAD * NODE_QUAD_VERTEX_BYTES;
     return {
       pipeline: this.ensureNodePipeline(),
-      vertexBuffer: this.ensureNodeVertexBuffer(vertexData.byteLength),
+      vertexBuffer: this.ensureNodeVertexBuffer(byteLength),
     };
   }
 
@@ -656,7 +677,7 @@ export class GpuNodeQuadRenderer {
     grid,
     gridDraw,
     nodeDraw,
-    vertexData,
+    quads,
   }: {
     readonly cameraUniform: Float32Array;
     readonly edgeBufferData: GpuEdgeLineListBufferData;
@@ -665,17 +686,25 @@ export class GpuNodeQuadRenderer {
     readonly grid: GpuGridInput | undefined;
     readonly gridDraw: GridDrawResources | null;
     readonly nodeDraw: NodeDrawResources | null;
-    readonly vertexData: Float32Array;
+    readonly quads: readonly GpuTexturedNodeQuad[];
   }) {
+    this.writeCameraBuffer(cameraUniform);
+    this.writeGridBuffer(gridDraw, grid);
+    this.writeEdgePaletteBuffer(edgeDraw, edgePalette);
+    this.writeEdgeBuffer(edgeDraw, edgeBufferData);
+    this.writeNodeBuffer(nodeDraw, quads);
+  }
+
+  private writeCameraBuffer(cameraUniform: Float32Array) {
+    if (areFloat32ArraysEqual(this.uploadedCameraUniform, cameraUniform)) {
+      return;
+    }
     this.runtime.device.queue.writeBuffer(
       this.getCameraBuffer(),
       0,
       cameraUniform,
     );
-    this.writeGridBuffer(gridDraw, grid);
-    this.writeEdgePaletteBuffer(edgeDraw, edgePalette);
-    this.writeEdgeBuffer(edgeDraw, edgeBufferData);
-    this.writeNodeBuffer(nodeDraw, vertexData);
+    this.uploadedCameraUniform = cameraUniform;
   }
 
   private writeGridBuffer(
@@ -731,12 +760,36 @@ export class GpuNodeQuadRenderer {
 
   private writeNodeBuffer(
     nodeDraw: NodeDrawResources | null,
-    vertexData: Float32Array,
+    quads: readonly GpuTexturedNodeQuad[],
   ) {
     if (!nodeDraw) {
+      this.uploadedNodeVertexCache = null;
       return;
     }
-    this.runtime.device.queue.writeBuffer(nodeDraw.vertexBuffer, 0, vertexData);
+    const vertexCache = this.resolveNodeVertexCache(quads);
+    if (this.uploadedNodeVertexCache === vertexCache) {
+      return;
+    }
+    this.runtime.device.queue.writeBuffer(
+      nodeDraw.vertexBuffer,
+      0,
+      vertexCache.vertexData,
+    );
+    this.uploadedNodeVertexCache = vertexCache;
+  }
+
+  private resolveNodeVertexCache(
+    quads: readonly GpuTexturedNodeQuad[],
+  ): NodeQuadVertexCache {
+    if (isNodeQuadVertexCacheValid(this.nodeVertexCache, quads)) {
+      return this.nodeVertexCache;
+    }
+    const vertexCache = {
+      geometry: captureNodeQuadGeometry(quads),
+      vertexData: buildNodeQuadVertexData(quads),
+    };
+    this.nodeVertexCache = vertexCache;
+    return vertexCache;
   }
 
   private drawGrid(
@@ -926,6 +979,50 @@ export function buildNodeQuadVertexData(
     });
   }
   return data;
+}
+
+function isNodeQuadVertexCacheValid(
+  cache: NodeQuadVertexCache | null,
+  quads: readonly GpuTexturedNodeQuad[],
+): cache is NodeQuadVertexCache {
+  if (!cache || cache.geometry.length !== quads.length) {
+    return false;
+  }
+  for (let index = 0; index < quads.length; index += 1) {
+    const cached = cache.geometry[index];
+    const quad = quads[index];
+    if (!cached || !isCachedNodeQuadGeometryEqual(cached, quad)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isCachedNodeQuadGeometryEqual(
+  cached: CachedNodeQuadGeometry,
+  quad: GpuTexturedNodeQuad,
+): boolean {
+  return (
+    cached.nodeId === quad.nodeId &&
+    cached.x === quad.x &&
+    cached.y === quad.y &&
+    cached.width === quad.width &&
+    cached.height === quad.height &&
+    cached.zIndex === quad.zIndex
+  );
+}
+
+function captureNodeQuadGeometry(
+  quads: readonly GpuTexturedNodeQuad[],
+): readonly CachedNodeQuadGeometry[] {
+  return quads.map((quad) => ({
+    height: quad.height,
+    nodeId: quad.nodeId,
+    width: quad.width,
+    x: quad.x,
+    y: quad.y,
+    zIndex: quad.zIndex,
+  }));
 }
 
 type NodeQuadVertex = {
