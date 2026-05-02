@@ -28,6 +28,9 @@ type GpuSelectionChange = {
 export type GpuSelectionControllerOptions = {
   readonly element: HTMLElement;
   readonly getNodes: () => readonly GpuNodeLayout[];
+  readonly isBackgroundTarget?:
+    | ((target: EventTarget, element: HTMLElement) => boolean)
+    | undefined;
   readonly isSelecting?: boolean | (() => boolean) | undefined;
   readonly minDragDistancePx?: number | undefined;
   readonly mode?: GpuSelectionMode | undefined;
@@ -109,6 +112,9 @@ class GpuSelectionController {
   private activeSelection: ActiveGpuSelection | null = null;
   private readonly element: HTMLElement;
   private readonly getNodes: () => readonly GpuNodeLayout[];
+  private readonly isBackgroundTarget:
+    | ((target: EventTarget, element: HTMLElement) => boolean)
+    | undefined;
   private readonly isSelecting: boolean | (() => boolean) | undefined;
   private readonly minDragDistancePx: number;
   private readonly mode: GpuSelectionMode;
@@ -120,6 +126,7 @@ class GpuSelectionController {
   constructor(options: GpuSelectionControllerOptions) {
     this.element = options.element;
     this.getNodes = options.getNodes;
+    this.isBackgroundTarget = options.isBackgroundTarget;
     this.isSelecting = options.isSelecting;
     this.minDragDistancePx =
       options.minDragDistancePx ?? DEFAULT_MIN_DRAG_DISTANCE_PX;
@@ -257,7 +264,7 @@ class GpuSelectionController {
     if (!this.isSelectionEnabled()) {
       return false;
     }
-    if (!isGpuFlowBackgroundSelectionTarget(event, this.element)) {
+    if (!this.isSelectionBackgroundTarget(event.target)) {
       return false;
     }
     return !isEventTargetWrappedWithClass(event, NO_PAN_CLASS_NAME);
@@ -271,6 +278,16 @@ class GpuSelectionController {
       return this.isSelecting;
     }
     return this.store.getState().selectionKeyPressed;
+  }
+
+  private isSelectionBackgroundTarget(target: EventTarget | null): boolean {
+    if (!target) {
+      return false;
+    }
+    if (this.isBackgroundTarget) {
+      return this.isBackgroundTarget(target, this.element);
+    }
+    return isGpuFlowBackgroundSelectionTarget(target, this.element);
   }
 
   private cancelSelection() {
@@ -382,10 +399,9 @@ function getEventPointRelativeToElement(
 }
 
 function isGpuFlowBackgroundSelectionTarget(
-  event: Event,
+  target: EventTarget,
   element: HTMLElement,
 ): boolean {
-  const target = event.target;
   if (!(target instanceof Element)) {
     return false;
   }

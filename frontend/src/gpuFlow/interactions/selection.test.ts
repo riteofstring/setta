@@ -202,6 +202,43 @@ describe("GPU selection controller", () => {
     });
     detach();
   });
+
+  it("uses the supplied background target predicate before starting selection", () => {
+    const element = createSurfaceElement();
+    const surface = document.createElement("canvas");
+    surface.dataset.gpuFlowSurface = "true";
+    const control = document.createElement("button");
+    surface.append(control);
+    element.append(surface);
+    const store = createGpuFlowViewportStore();
+    store.getState().setSelectionKeyPressed(true);
+    const detach = attachGpuSelectionController({
+      element,
+      getNodes: () => [node("a", 0, 0, 50, 50)],
+      isBackgroundTarget: (target) => target === surface,
+      store,
+    });
+
+    dispatchPointer(control, "pointerdown", {
+      button: 0,
+      clientX: 1,
+      clientY: 1,
+      pointerId: 1,
+    });
+    expect(store.getState().userSelectionRect).toBeNull();
+
+    dispatchPointer(surface, "pointerdown", {
+      button: 0,
+      clientX: 2,
+      clientY: 3,
+      pointerId: 2,
+    });
+    expect(store.getState().userSelectionRect).toMatchObject({
+      startX: 2,
+      startY: 3,
+    });
+    detach();
+  });
 });
 
 function node(

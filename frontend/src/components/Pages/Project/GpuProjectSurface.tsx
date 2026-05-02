@@ -302,6 +302,7 @@ function ProjectGpuFlowLayer({
       })}
       renderNode={renderProjectGpuNode}
       selection={{
+        isBackgroundTarget: (target) => isProjectPaneBackgroundTarget(target),
         isSelecting: () =>
           gpuFlowViewportStore.getState().selectionKeyPressed &&
           !isProjectGpuSelectionDisabled({ dndMode }),
