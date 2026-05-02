@@ -1,11 +1,12 @@
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import type { GpuNodeLayout } from "./GpuNodeLayer";
-import { resolveGpuNodeZIndex } from "./nodeZIndex";
 import {
-  flowToScreenPosition,
-  normalizeGpuViewport,
-  type GpuViewportInput,
-} from "./viewportMath";
+  createHtmlSurfaceHitScene,
+  resolveHtmlSurfaceHitAtClientPoint,
+  type HtmlSurfaceFlatHitSurface,
+} from "./htmlSurfaces/hitScene";
+import { resolveGpuNodeZIndex } from "./nodeZIndex";
+import { type GpuViewportInput } from "./viewportMath";
 
 type GpuNodeTargetDescriptor =
   | {
@@ -458,75 +459,60 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
   readonly surfaceX: number;
   readonly surfaceY: number;
 } | null {
-  const surfaceRect = surfaceElement.getBoundingClientRect();
-  const screenX = clientX - surfaceRect.left;
-  const screenY = clientY - surfaceRect.top;
-  const normalizedViewport = normalizeGpuViewport(viewport);
-  let match: (GpuNodeLayout & { readonly sourceIndex: number }) | null = null;
-
+  const nodeById = new Map<string, GpuNodeLayout>();
+  const flatSurfaces: HtmlSurfaceFlatHitSurface[] = [];
   nodes.forEach((node, sourceIndex) => {
-    if (
-      !gpuNodeContainsScreenPoint(node, screenX, screenY, normalizedViewport)
-    ) {
-      return;
-    }
-    if (!match || compareGpuNodeStacking(node, sourceIndex, match) > 0) {
-      match = { ...node, sourceIndex };
+    nodeById.set(node.nodeId, node);
+    const surface = toFlatNodeHitSurface(node, sourceIndex);
+    if (surface) {
+      flatSurfaces.push(surface);
     }
   });
-
-  if (!match) {
+  const hit = resolveHtmlSurfaceHitAtClientPoint({
+    clientX,
+    clientY,
+    scene: createHtmlSurfaceHitScene({ flatSurfaces }),
+    surfaceElement,
+    viewport,
+  });
+  if (!hit) {
     return null;
   }
-  const screenPosition = flowToScreenPosition(
-    { x: match.x, y: match.y },
-    normalizedViewport,
-  );
+  const node = nodeById.get(hit.surfaceId);
+  if (!node) {
+    return null;
+  }
   return {
-    localX: (screenX - screenPosition.x) / normalizedViewport.zoom,
-    localY: (screenY - screenPosition.y) / normalizedViewport.zoom,
-    node: match,
-    surfaceX: screenX,
-    surfaceY: screenY,
+    localX: hit.localX,
+    localY: hit.localY,
+    node,
+    surfaceX: hit.surfaceX,
+    surfaceY: hit.surfaceY,
   };
 }
 
-function gpuNodeContainsScreenPoint(
+function toFlatNodeHitSurface(
   node: GpuNodeLayout,
-  screenX: number,
-  screenY: number,
-  viewport: ReturnType<typeof normalizeGpuViewport>,
-): boolean {
+  sourceIndex: number,
+): HtmlSurfaceFlatHitSurface | null {
   if (
     node.width === null ||
     node.height === null ||
     node.width <= 0 ||
     node.height <= 0
   ) {
-    return false;
+    return null;
   }
-  const screenPosition = flowToScreenPosition(
-    { x: node.x, y: node.y },
-    viewport,
-  );
-  const width = node.width * viewport.zoom;
-  const height = node.height * viewport.zoom;
-  return (
-    screenX >= screenPosition.x &&
-    screenX < screenPosition.x + width &&
-    screenY >= screenPosition.y &&
-    screenY < screenPosition.y + height
-  );
-}
-
-function compareGpuNodeStacking(
-  node: GpuNodeLayout,
-  sourceIndex: number,
-  current: GpuNodeLayout & { readonly sourceIndex: number },
-): number {
-  const zIndex = resolveGpuNodeZIndex(node);
-  const currentZIndex = resolveGpuNodeZIndex(current);
-  return zIndex - currentZIndex || sourceIndex - current.sourceIndex;
+  return {
+    height: node.height,
+    kind: "flat",
+    stackOrder: sourceIndex,
+    surfaceId: node.nodeId,
+    width: node.width,
+    x: node.x,
+    y: node.y,
+    zIndex: resolveGpuNodeZIndex(node),
+  };
 }
 
 function getInteractiveTargetCandidates(root: HTMLElement): HTMLElement[] {
