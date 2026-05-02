@@ -873,6 +873,7 @@ export type EdgeHandleRecord = {
   type: HandleType;
   side: HandlePosition;
   element: HTMLElement | null;
+  isConnectableEnd?: boolean;
 };
 
 type EdgeHandlePosition = {

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { useEdgeHandleRegistry } from "state/definitions";
+import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConnectionMode } from "../flowTypes";
 import {
@@ -60,6 +62,7 @@ function mockElementsFromPoint(elements: Element[]) {
 describe("isValidHandle", () => {
   afterEach(() => {
     document.body.innerHTML = "";
+    useEdgeHandleRegistry.setState({ handles: {}, positions: {} });
     mockElementsFromPoint([]);
   });
 
@@ -103,11 +106,110 @@ describe("isValidHandle", () => {
     expect(result.isValid).toBe(true);
     expect(isValidConnection).toHaveBeenCalledWith(result.connection);
   });
+
+  it("validates owner-registered shared handles without per-port DOM data attributes", () => {
+    const sharedDot = document.createElement("div");
+    sharedDot.className = "react-flow__handle arg-edge-handle";
+    document.body.appendChild(sharedDot);
+    useEdgeHandleRegistry.setState({
+      handles: {
+        [makeEdgeHandleKey("section-b", "input-port", "target")]: {
+          element: sharedDot,
+          isConnectableEnd: true,
+          portId: "input-port",
+          sectionId: "section-b",
+          side: "left",
+          type: "target",
+        },
+      },
+      positions: {},
+    });
+    const isValidConnection = vi.fn(() => true);
+
+    const result = isValidHandle({
+      handle: {
+        sectionId: "section-b",
+        portId: "input-port",
+        type: "target",
+      },
+      connectionMode: ConnectionMode.Strict,
+      from: {
+        sectionId: "section-a",
+        handleId: "output-port",
+        type: "source",
+      },
+      isValidConnection,
+      doc: document,
+    });
+
+    expect(result.handleDomNode).toBe(sharedDot);
+    expect(result.connection).toEqual({
+      source: "section-a",
+      sourceHandle: "output-port",
+      target: "section-b",
+      targetHandle: "input-port",
+    });
+    expect(result.endHandle).toEqual({
+      sectionId: "section-b",
+      handleId: "input-port",
+      type: "target",
+    });
+    expect(result.isValid).toBe(true);
+    expect(isValidConnection).toHaveBeenCalledWith(result.connection);
+  });
+
+  it("rejects owner-registered shared handles that are not connectable endpoints", () => {
+    const sharedDot = document.createElement("div");
+    sharedDot.className = "react-flow__handle arg-edge-handle";
+    document.body.appendChild(sharedDot);
+    useEdgeHandleRegistry.setState({
+      handles: {
+        [makeEdgeHandleKey("section-b", "input-port", "target")]: {
+          element: sharedDot,
+          isConnectableEnd: false,
+          portId: "input-port",
+          sectionId: "section-b",
+          side: "left",
+          type: "target",
+        },
+      },
+      positions: {},
+    });
+    const isValidConnection = vi.fn(() => true);
+
+    const result = isValidHandle({
+      handle: {
+        sectionId: "section-b",
+        portId: "input-port",
+        type: "target",
+      },
+      connectionMode: ConnectionMode.Strict,
+      from: {
+        sectionId: "section-a",
+        handleId: "output-port",
+        type: "source",
+      },
+      isValidConnection,
+      doc: document,
+    });
+
+    expect(result.handleDomNode).toBe(sharedDot);
+    expect(result.connection).toEqual({
+      source: "section-a",
+      sourceHandle: "output-port",
+      target: "section-b",
+      targetHandle: "input-port",
+    });
+    expect(result.endHandle).toBeNull();
+    expect(result.isValid).toBe(false);
+    expect(isValidConnection).not.toHaveBeenCalled();
+  });
 });
 
 describe("getClosestHandle", () => {
   afterEach(() => {
     document.body.innerHTML = "";
+    useEdgeHandleRegistry.setState({ handles: {}, positions: {} });
     mockElementsFromPoint([]);
   });
 

@@ -83,6 +83,7 @@ function HandleComponent({
       type,
       side: position,
       element: handleRef.current,
+      isConnectableEnd: isConnectable && isConnectableEnd,
     });
     updateEdgeHandlePosition(key);
     const element = handleRef.current;
@@ -97,7 +98,7 @@ function HandleComponent({
       observer.disconnect();
       unregisterEdgeHandle(nodeId, handleId, type);
     };
-  }, [nodeId, handleId, type, position]);
+  }, [nodeId, handleId, type, position, isConnectable, isConnectableEnd]);
 
   const onConnectExtended = (params: Connection) => {
     onConnect?.(params);

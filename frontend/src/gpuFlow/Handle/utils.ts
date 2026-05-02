@@ -1,3 +1,5 @@
+import { useEdgeHandleRegistry } from "state/definitions";
+import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import type { Connection, ConnectionMode, HandleType } from "../flowTypes";
 
 export type ConnectionHandle = {
@@ -49,6 +51,14 @@ type HandleValidationArgs = {
   from: ConnectionStart;
   isValidConnection: ValidConnectionFunc;
   doc: Document | ShadowRoot;
+};
+
+type ResolvedHandleTarget = {
+  handleDomNode: Element | null;
+  handleId: string | null;
+  handleSectionId: string | null;
+  handleType: HandleType | null;
+  isConnectableEnd: boolean;
 };
 
 type AllowHandleFunc =
@@ -137,6 +147,59 @@ function getHandleSelector(handle: HandleRef): string {
   return `.react-flow__handle[data-id="${handle.sectionId}-${handle.portId}-${handle.type}"]`;
 }
 
+function resolveHandleTarget({
+  doc,
+  handle,
+}: {
+  doc: Document | ShadowRoot;
+  handle: HandleRef;
+}): ResolvedHandleTarget {
+  const handleToCheck = doc.querySelector(getHandleSelector(handle));
+  if (handleToCheck) {
+    return {
+      handleDomNode: handleToCheck,
+      handleId: handleToCheck.getAttribute("data-handleid"),
+      handleSectionId: handleToCheck.getAttribute("data-nodeid"),
+      handleType: getHandleType(undefined, handleToCheck),
+      isConnectableEnd:
+        handleToCheck.classList.contains("connectable") &&
+        handleToCheck.classList.contains("connectableend"),
+    };
+  }
+
+  const registeredHandle = getRegisteredHandle(handle);
+  const registeredElement = registeredHandle?.element;
+  if (
+    !registeredHandle ||
+    !registeredElement ||
+    !doc.contains(registeredElement)
+  ) {
+    return {
+      handleDomNode: null,
+      handleId: null,
+      handleSectionId: null,
+      handleType: null,
+      isConnectableEnd: false,
+    };
+  }
+
+  return {
+    handleDomNode: registeredElement,
+    handleId: registeredHandle.portId,
+    handleSectionId: registeredHandle.sectionId,
+    handleType: registeredHandle.type,
+    isConnectableEnd: registeredHandle.isConnectableEnd ?? true,
+  };
+}
+
+function getRegisteredHandle(handle: HandleRef) {
+  if (!handle.portId || !handle.type) {
+    return null;
+  }
+  const key = makeEdgeHandleKey(handle.sectionId, handle.portId, handle.type);
+  return useEdgeHandleRegistry.getState().handles[key] ?? null;
+}
+
 function buildConnection(
   from: ConnectionStart,
   handleSectionId: string | null,
@@ -186,19 +249,18 @@ export function isValidHandle({
   isValidConnection,
   doc,
 }: HandleValidationArgs) {
-  const handleToCheck = doc.querySelector(getHandleSelector(handle));
-  const result = getDefaultResult(handleToCheck);
+  const resolvedHandle = resolveHandleTarget({ doc, handle });
+  const result = getDefaultResult(resolvedHandle.handleDomNode);
 
-  if (!handleToCheck) {
+  if (!resolvedHandle.handleDomNode) {
     return result;
   }
 
-  const handleType = getHandleType(undefined, handleToCheck);
-  const handleSectionId = handleToCheck.getAttribute("data-nodeid");
-  const handleId = handleToCheck.getAttribute("data-handleid");
-  const isConnectable =
-    handleToCheck.classList.contains("connectable") &&
-    handleToCheck.classList.contains("connectableend");
+  const { handleId, handleSectionId, handleType } = resolvedHandle;
+  if (!handleSectionId || !handleType) {
+    return result;
+  }
+
   const connection = buildConnection(from, handleSectionId, handleId);
   result.connection = connection;
 
@@ -209,7 +271,7 @@ export function isValidHandle({
       handleSectionId,
       handleId,
       handleType,
-      isConnectable,
+      isConnectable: resolvedHandle.isConnectableEnd,
     })
   ) {
     return result;

@@ -29,12 +29,14 @@ export function registerEdgeHandlesWithSharedElement({
   type,
   side,
   element,
+  isConnectableEnd = true,
 }: {
   sectionId: string;
   portIds: string[];
   type: HandleType;
   side: HandlePosition;
   element: HTMLElement;
+  isConnectableEnd?: boolean;
 }) {
   if (portIds.length === 0) {
     return;
@@ -52,6 +54,7 @@ export function registerEdgeHandlesWithSharedElement({
       type,
       side,
       element,
+      isConnectableEnd,
     };
     const prev = nextPositions[key];
     if (!prev || prev.x !== x || prev.y !== y || prev.side !== side) {
