@@ -1,4 +1,4 @@
-import { OverviewTabNameEnum } from "utils/constants";
+import { OverviewTabUIConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginArea } from "./PluginArea";
 type ElementNode = {
@@ -42,6 +42,12 @@ const usePluginRuntimeStoreMock = vi.fn(
     }) => unknown,
   ) =>
     selector({
+      pluginListById: {
+        "setta-fixture-plugin": {
+          effectiveCapabilities: [],
+        },
+      },
+      serverMode: "ide",
       status: runtimeStatus,
       statusMessage: runtimeStatusMessage,
     }),
@@ -62,6 +68,10 @@ vi.mock("react", async () => {
   return {
     ...actual,
     useMemo: <T,>(factory: () => T) => factory(),
+    useEffect: (effect: () => void | (() => void)) => {
+      effect();
+    },
+    useRef: <T,>(initial: T) => ({ current: initial }),
     useState: <T,>(initial: T | (() => T)) => {
       let value =
         typeof initial === "function" ? (initial as () => T)() : initial;
@@ -176,6 +186,32 @@ function renderFallbackCard(
   }
   return fallbackElement;
 }
+function renderCurrentPluginBranch(
+  sectionId = "section-1",
+  isUserView = false,
+): ElementNode {
+  const root = PluginArea({ sectionId, isUserView });
+  if (!isElementNode(root)) {
+    throw new Error("Expected PluginArea to return a React element.");
+  }
+  if (typeof root.type !== "function") {
+    throw new Error("Expected plugin branch to return function component.");
+  }
+  const branchElement = (
+    root.type as (props: Record<string, unknown>) => unknown
+  )(root.props as Record<string, unknown>);
+  if (!isElementNode(branchElement)) {
+    throw new Error("Expected plugin branch to render a React element.");
+  }
+  return branchElement;
+}
+function expectGpuFlowPluginSurface(element: ElementNode, sectionId: string) {
+  expect(element.props.className).toEqual(expect.stringContaining("nodrag"));
+  expect(element.props.className).toEqual(expect.stringContaining("nopan"));
+  expect(element.props.className).toEqual(expect.stringContaining("nowheel"));
+  expect(element.props["data-gpu-flow-control"]).toBe(`plugin:${sectionId}`);
+  expect(element.props["data-gpu-flow-interactive"]).toBe("true");
+}
 function buildClickEvent() {
   return {
     preventDefault: vi.fn(),
@@ -191,9 +227,8 @@ describe("PluginArea fallback actions", () => {
     runtimeStatusMessage = null;
     currentProjectConfigId = "project-config-1";
     routeGetLatestProjectStateMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: { projectState: "latest" },
+      response: { status: 200 } as Response,
     });
     pluginImpl = {
       pluginId: "setta-fixture-plugin",
@@ -232,6 +267,7 @@ describe("PluginArea fallback actions", () => {
   it("opens Plugins tab from fallback action", async () => {
     // Open action should set overview state to the Plugins tab.
     const fallbackCard = renderFallbackCard("section-open");
+    expectGpuFlowPluginSurface(fallbackCard, "section-open");
     const openPluginsButton = findButtonByLabel(fallbackCard, "Open Plugins");
     const event = buildClickEvent();
     await (
@@ -240,7 +276,7 @@ describe("PluginArea fallback actions", () => {
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
     expect(event.stopPropagation).toHaveBeenCalledTimes(1);
     expect(onOverviewTabClickMock).toHaveBeenCalledWith(
-      OverviewTabNameEnum.Plugins,
+      OverviewTabUIConfig.names.Plugins,
     );
   });
   it("shows section-kind-missing fallback wording", () => {
@@ -255,6 +291,7 @@ describe("PluginArea fallback actions", () => {
     // Bootstrap rendering should stay in loading state until runtime reports loaded.
     runtimeStatus = "loading";
     const fallbackCard = renderFallbackCard("section-loading");
+    expectGpuFlowPluginSurface(fallbackCard, "section-loading");
     expect(collectText(fallbackCard)).toContain("Loading Plugin Section");
     expect(collectText(fallbackCard)).toContain(
       "Waiting for plugin runtime initialization.",
@@ -268,6 +305,7 @@ describe("PluginArea fallback actions", () => {
     runtimeStatus = "error";
     runtimeStatusMessage = "Failed to fetch plugins runtime: status 503.";
     const fallbackCard = renderFallbackCard("section-runtime-error");
+    expectGpuFlowPluginSurface(fallbackCard, "section-runtime-error");
     expect(collectText(fallbackCard)).toContain("Plugin Runtime Error");
     expect(collectText(fallbackCard)).toContain(
       "Failed to fetch plugins runtime: status 503.",
@@ -287,6 +325,7 @@ describe("PluginArea fallback actions", () => {
       },
     };
     const fallbackCard = renderFallbackCard("section-runtime-error-stale");
+    expectGpuFlowPluginSurface(fallbackCard, "section-runtime-error-stale");
     expect(collectText(fallbackCard)).toContain("Plugin Runtime Error");
     expect(collectText(fallbackCard)).toContain(
       "Failed to fetch plugins runtime: status 500.",
@@ -335,9 +374,8 @@ describe("PluginArea fallback actions", () => {
   it("deletes section and shows success notification", async () => {
     // Successful delete should call backend delete endpoint with exact section payload.
     routeDeleteSectionsMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
       data: null,
+      response: { status: 200 } as Response,
     });
     const fallbackCard = renderFallbackCard("section-delete");
     const deleteButton = findButtonByLabel(fallbackCard, "Delete Section");
@@ -346,11 +384,15 @@ describe("PluginArea fallback actions", () => {
       event,
     );
     expect(routeDeleteSectionsMock).toHaveBeenCalledWith({
-      projectConfigId: "project-config-1",
-      sectionIds: ["section-delete"],
+      body: {
+        projectConfigId: "project-config-1",
+        sectionIds: ["section-delete"],
+      },
     });
     expect(routeGetLatestProjectStateMock).toHaveBeenCalledWith({
-      projectConfigId: "project-config-1",
+      body: {
+        projectConfigId: "project-config-1",
+      },
     });
     expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith({
       projectState: "latest",
@@ -363,9 +405,8 @@ describe("PluginArea fallback actions", () => {
   it("reports delete failure when backend request is not 200", async () => {
     // Non-200 delete responses should surface error notification and avoid success messaging.
     routeDeleteSectionsMock.mockResolvedValue({
-      status: 500,
-      hasResponse: true,
       data: null,
+      response: { status: 500 } as Response,
     });
     const fallbackCard = renderFallbackCard("section-delete-fail");
     const deleteButton = findButtonByLabel(fallbackCard, "Delete Section");
@@ -392,5 +433,21 @@ describe("PluginArea fallback actions", () => {
     expect(() =>
       findButtonByLabel(fallbackCard, "Delete Section"),
     ).toThrowError();
+  });
+  it("marks mounted plugin renderer hosts as GPU flow native interaction surfaces", () => {
+    pluginSectionKind = {
+      pluginId: "setta-fixture-plugin",
+      kind: "fixture-kind",
+      title: "Fixture Kind",
+      renderer: {
+        mount: () => undefined,
+      },
+    };
+    const rendererHost = renderCurrentPluginBranch("section-renderer");
+    expectGpuFlowPluginSurface(rendererHost, "section-renderer");
+    expect(rendererHost.props["data-setta-plugin-root"]).toBe(
+      "setta-fixture-plugin",
+    );
+    expect(rendererHost.props["data-setta-plugin-kind"]).toBe("fixture-kind");
   });
 });

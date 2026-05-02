@@ -134,9 +134,11 @@ func (c *Catalog) List(ctx context.Context, deploymentType Type) ([]Metadata, er
 	if c == nil {
 		return nil, ErrCatalogRequired
 	}
-	if err := validateDeploymentType(deploymentType); err != nil {
+	normalizedType, err := normalizeDeploymentType(deploymentType)
+	if err != nil {
 		return nil, err
 	}
+	deploymentType = normalizedType
 
 	entries, err := os.ReadDir(c.root)
 	if err != nil {
@@ -178,9 +180,11 @@ func (c *Catalog) ListVersions(ctx context.Context, deploymentName string, deplo
 	if c == nil {
 		return nil, ErrCatalogRequired
 	}
-	if err := validateDeploymentType(deploymentType); err != nil {
+	normalizedType, err := normalizeDeploymentType(deploymentType)
+	if err != nil {
 		return nil, err
 	}
+	deploymentType = normalizedType
 
 	normalizedName, err := NormalizeDeploymentName(deploymentName)
 	if err != nil {
@@ -218,9 +222,11 @@ func (c *Catalog) Latest(ctx context.Context, deploymentName string, deploymentT
 	if c == nil {
 		return Metadata{}, ErrCatalogRequired
 	}
-	if err := validateDeploymentType(deploymentType); err != nil {
+	normalizedType, err := normalizeDeploymentType(deploymentType)
+	if err != nil {
 		return Metadata{}, err
 	}
+	deploymentType = normalizedType
 
 	normalizedName, err := NormalizeDeploymentName(deploymentName)
 	if err != nil {
@@ -294,17 +300,6 @@ func parseDeploymentVersion(value string) (int, bool) {
 	return number, true
 }
 
-func validateDeploymentType(deploymentType Type) error {
-	switch deploymentType {
-	case TypeShare, TypeApp:
-		return nil
-	case "":
-		return ErrDeploymentTypeRequired
-	default:
-		return fmt.Errorf("%w: %q", ErrUnsupportedDeploymentType, deploymentType)
-	}
-}
-
 func loadDeploymentMetadata(ctx context.Context, deploymentRoot string, deploymentType Type) (Metadata, bool, error) {
 	manifest, ok, err := loadManifestOptional(deploymentRoot)
 	if err != nil {
@@ -361,7 +356,6 @@ func isSkippableManifestError(err error) bool {
 	return errors.Is(err, ErrManifestVersionRequired) ||
 		errors.Is(err, ErrDeploymentNameRequired) ||
 		errors.Is(err, ErrDeploymentTypeRequired) ||
-		errors.Is(err, ErrUnsupportedDeploymentType) ||
 		errors.Is(err, ErrDefaultProjectIDRequired) ||
 		errors.Is(err, ErrDeploymentVersionRequired) ||
 		errors.Is(err, ErrListenerEntrypointRequired) ||

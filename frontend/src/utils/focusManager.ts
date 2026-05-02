@@ -1,4 +1,4 @@
-import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
+import { movePaneToIncludeElement } from "gpuFlow/flowGeometry";
 import { useEffect, type RefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {

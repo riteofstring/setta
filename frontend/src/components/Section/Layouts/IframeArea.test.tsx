@@ -78,6 +78,11 @@ describe("IframeArea", () => {
     const markup = renderToStaticMarkup(<IframeArea sectionId={sectionId} />);
 
     expect(markup).toContain("section-main");
+    expect(markup).toContain("nodrag");
+    expect(markup).toContain("nopan");
+    expect(markup).toContain("nowheel");
+    expect(markup).toContain('data-gpu-flow-control="iframe:iframe-section"');
+    expect(markup).toContain('data-gpu-flow-interactive="true"');
     expect(markup).toContain("https://example.com/embed");
     expect(markup).toContain("title='demo'");
   });

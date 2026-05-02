@@ -7,10 +7,10 @@ Implement robust slash-command ingestion and execution routing for external-agen
 
 This plan turns command discovery into a first-class capability (instead of passive run-metadata scraping) and keeps command execution deterministic per agent.
 
-## Current State (Setta)
-- Setta already has local composer slash commands (`/new`, `/resume`, `/model`, `/permissions`, `/search`, `/help`) in `frontend/src/components/Chat/chatComposerControls.ts`.
-- External-agent native command metadata is currently best-effort and mostly sourced from Go-owned external-agent run/runtime metadata in `internal/externalagents` and shown in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
-- The active Go Codex executor path still treats native slash-command enumeration as unsupported in app-server mode (`internal/externalagents/codex_executor.go`).
+## Implementation Context
+- Setta has local composer slash commands (`/new`, `/resume`, `/model`, `/permissions`, `/search`, `/help`) in `frontend/src/components/Chat/chatComposerControls.ts`.
+- External-agent native command metadata is best-effort and mostly sourced from Go-owned external-agent run/runtime metadata in `internal/externalagents` and shown in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx`.
+- The active Go Codex executor path treats native slash-command enumeration as unsupported in app-server mode (`internal/externalagents/codex_executor.go`).
 - There is no dedicated backend API for command ingestion by selected engine/config.
 
 ## Scope
@@ -23,7 +23,7 @@ This plan turns command discovery into a first-class capability (instead of pass
 ## Non-Goals
 1. Replacing Setta local slash commands.
 2. Adding heuristic keyword fallbacks when official command surfaces are unavailable.
-3. Backward-compat behavior shims for deprecated command systems.
+3. Adapter shims for unsupported command systems.
 
 ## Architecture
 
@@ -102,7 +102,7 @@ Plan:
    - `skills/list` -> `$skill` canonical invocations (plus optional slash alias policy for UI only)
    - `app/list` -> connector mentions
 3. Include static built-in CLI command table as curated `origin=builtin` entries, version-stamped in code with update policy.
-4. Optionally ingest deprecated custom prompts from `~/.codex/prompts/*.md` as `/prompts:<name>` (`origin=custom_file`).
+4. Optionally ingest custom prompts from `~/.codex/prompts/*.md` as `/prompts:<name>` (`origin=custom_file`).
 
 Execution mapping:
 - `exec.kind = jsonrpc` for app-server-integrated commands/items.

@@ -379,6 +379,7 @@ func seedAppPluginFixture(t *testing.T, workspaceRoot string, fixtureName string
 	if err := copyAppPluginFixtureDir(sourceRoot, targetRoot); err != nil {
 		t.Fatalf("copy plugin fixture: %v", err)
 	}
+	materializeAppRuntimeManagedPluginFrontendAssets(t, targetRoot)
 }
 
 func appPluginFixtureRepoRoot(t *testing.T) string {

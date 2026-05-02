@@ -1,3 +1,4 @@
+import { buildTextBlockTypographyScale } from "@setta/app-subsystem-frontend-sdk";
 import { MarkdownEditorInSection } from "components/Panes/UiEditor/MarkdownEditor/MarkdownEditor";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
@@ -14,17 +15,22 @@ import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { getTextBlockText } from "state/hooks/sectionVariants";
 import type { CodeLanguage } from "utils/codeLanguage";
-import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+} from "utils/constants";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
-import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 
 const INLINE_CODE_CLASS_NAME =
   "rounded-sm bg-setta-200/70 px-1 py-[1px] font-mono text-[0.92em] text-setta-800 dark:bg-setta-700 dark:text-setta-100";
+const TEXT_BLOCK_GPU_CONTROL_PREFIX = "text-block";
 
 type MarkdownCodeLanguage = {
   language: CodeLanguage | null;
@@ -136,7 +142,12 @@ function _Markdown({ sectionId }) {
 
   const { ref, isScrollable } = useIsScrollable();
 
-  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-main -mt-1  nodrag ${isScrollable ? "nowheel" : ""} -mr-[13px] pr-4 mb-3 ml-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
+  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-main -mt-1 ${isScrollable ? NO_WHEEL_CLASS_NAME : ""} -mr-[13px] pr-4 mb-3 ml-1 cursor-auto select-text overflow-y-scroll [&_.prose]:p-0`;
+  const gpuFlowProps = {
+    "data-gpu-flow-control": `${TEXT_BLOCK_GPU_CONTROL_PREFIX}:render:${sectionId}`,
+    "data-gpu-flow-interactive": "true",
+    ...(isScrollable ? { "data-gpu-flow-wheel-target": "true" } : {}),
+  } as const;
   const proseContrastClassName = metaControlStyle
     ? "prose-headings:text-setta-750 dark:prose-headings:text-setta-150 prose-p:text-setta-850 dark:prose-p:text-setta-50"
     : "prose-headings:text-setta-400";
@@ -147,7 +158,12 @@ function _Markdown({ sectionId }) {
   // the classes "prose-code:before:hidden prose-code:after:hidden" are needed to prevent backticks from appearing
   // https://github.com/tailwindlabs/tailwindcss-typography/issues/18#issuecomment-1280797041
   return format === TextBlockFormatEnum.Markdown ? (
-    <div ref={ref} className={wrapperClassName} style={markdownTypographyStyle}>
+    <div
+      ref={ref}
+      className={wrapperClassName}
+      style={markdownTypographyStyle}
+      {...gpuFlowProps}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
@@ -165,6 +181,7 @@ function _Markdown({ sectionId }) {
       ref={ref}
       className={`${wrapperClassName} overflow-x-clip text-wrap break-words ${preTextClassName}`}
       style={{ fontSize: `${typography.bodyPx}px` }}
+      {...gpuFlowProps}
     >
       {text}
     </pre>

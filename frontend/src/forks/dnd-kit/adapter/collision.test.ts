@@ -1,6 +1,6 @@
 import { CollisionPriority, CollisionType } from "@dnd-kit/abstract";
 import { useDndState } from "forks/dnd-kit/dndState";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createCollisionTracker } from "./collision";
@@ -89,7 +89,7 @@ describe("collision tracker", () => {
   beforeEach(() => {
     resetProjectStores();
     useDndState.setState({ draggingIds: [] });
-    useReactFlow.setState({ transform: [0, 0, 1] });
+    gpuFlowViewportStore.getState().setTransform({ x: 0, y: 0, zoom: 1 });
   });
 
   it("keeps param row collisions alive via vertical overlap when horizontal overlap is gone", () => {

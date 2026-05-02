@@ -164,10 +164,6 @@ func cloneProjectConfig(config ProjectConfig) ProjectConfig {
 	cloned.Viewport = cloneSummaryViewport(config.Viewport)
 	cloned.ViewModes = cloneSummaryViewModes(config.ViewModes)
 	cloned.CodegenTargets = cloneSummaryProjectCodegenTargets(config.CodegenTargets)
-	cloned.WatchCodeFolders = cloneSummaryWatchCodeFolders(config.WatchCodeFolders)
-	cloned.WatchCodeFiles = append([]string(nil), config.WatchCodeFiles...)
-	cloned.WatchCodeRegistry = cloneSummaryWatchCodeRegistry(config.WatchCodeRegistry)
-	cloned.WatchCodeBaselineByPath = cloneSummaryStringSliceMap(config.WatchCodeBaselineByPath)
 	cloned.EntryCodeBlockID = cloneSummaryStringPointer(config.EntryCodeBlockID)
 	cloned.SectionPathSlugsByID = cloneSummaryStringMap(config.SectionPathSlugsByID)
 	cloned.SectionIDsByPathSlug = cloneSummaryStringSliceMap(config.SectionIDsByPathSlug)
@@ -208,26 +204,6 @@ func cloneSummaryProjectCodegenTargets(values []ProjectCodegenTarget) []ProjectC
 	cloned := make([]ProjectCodegenTarget, len(values))
 	for index, value := range values {
 		cloned[index] = append(ProjectCodegenTarget(nil), value...)
-	}
-	return cloned
-}
-
-func cloneSummaryWatchCodeFolders(values []projectstate.WatchCodeFolder) []projectstate.WatchCodeFolder {
-	if values == nil {
-		return nil
-	}
-	cloned := make([]projectstate.WatchCodeFolder, len(values))
-	copy(cloned, values)
-	return cloned
-}
-
-func cloneSummaryWatchCodeRegistry(values map[string]projectstate.WatchCodeRegistryEntry) map[string]projectstate.WatchCodeRegistryEntry {
-	if values == nil {
-		return map[string]projectstate.WatchCodeRegistryEntry{}
-	}
-	cloned := make(map[string]projectstate.WatchCodeRegistryEntry, len(values))
-	for key, value := range values {
-		cloned[key] = value
 	}
 	return cloned
 }

@@ -1,6 +1,7 @@
 package projectstate
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -256,6 +257,40 @@ func TestDocumentCloneProjectCreatesIndependentCopy(t *testing.T) {
 	}
 	if sourceAfterMutation.ViewModes[sourceAfterMutation.ActiveViewModeID].Name != sourceViewModeName {
 		t.Fatalf("expected source project to remain unchanged, got %#v", sourceAfterMutation.ViewModes)
+	}
+}
+
+func TestDocumentCloneProjectCopiesProjectScopedPluginData(t *testing.T) {
+	t.Parallel()
+
+	document := NewDocument()
+	sourceProjectID, _, err := document.CreateProject("bg-blue-500/60 dark:bg-blue-600/30")
+	if err != nil {
+		t.Fatalf("CreateProject returned error: %v", err)
+	}
+	expected := testWatchCodeLifecycleProjectData()
+	mustSetTestWatchCodePluginProjectData(t, &document, sourceProjectID, expected)
+	expectedOpaquePluginData := seedOpaqueLifecyclePluginData(&document)
+	document.PluginData["plugin.example"] = lifecycleProjectScopedPluginPayload(sourceProjectID, "project-other")
+
+	clonedProjectID, _, err := document.CloneProject(sourceProjectID, "Cloned Project")
+	if err != nil {
+		t.Fatalf("CloneProject returned error: %v", err)
+	}
+	assertOpaqueLifecyclePluginDataPreserved(t, document, expectedOpaquePluginData)
+	assertProjectScopedPluginPayload(t, document, "plugin.example", clonedProjectID, map[string]any{"value": float64(1)})
+	assertProjectScopedPluginPayload(t, document, "plugin.example", "project-other", map[string]any{"value": float64(2), "keep": []any{"stable"}})
+
+	clonedData := mustReadTestWatchCodePluginProjectData(t, document, clonedProjectID)
+	if !reflect.DeepEqual(clonedData, expected.Normalized()) {
+		t.Fatalf("expected cloned plugin data %#v, got %#v", expected.Normalized(), clonedData)
+	}
+
+	clonedData.Files = append(clonedData.Files, "pkg/clone_only.py")
+	mustSetTestWatchCodePluginProjectData(t, &document, clonedProjectID, clonedData)
+	sourceData := mustReadTestWatchCodePluginProjectData(t, document, sourceProjectID)
+	if !reflect.DeepEqual(sourceData, expected.Normalized()) {
+		t.Fatalf("expected source plugin data to remain unchanged, got %#v", sourceData)
 	}
 }
 
@@ -567,6 +602,38 @@ func TestDocumentSaveAsNewProjectConfigWithoutRefsCopiesLiveWindowingAndClearsCh
 	}
 }
 
+func TestDocumentSaveAsNewProjectConfigCopiesProjectScopedPluginData(t *testing.T) {
+	t.Parallel()
+
+	document := NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects["project-alpha"] = testSaveAsNewProjectConfigSourceProject()
+	expected := testWatchCodeLifecycleProjectData()
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", expected)
+	expectedOpaquePluginData := seedOpaqueLifecyclePluginData(&document)
+	document.PluginData["plugin.example"] = lifecycleProjectScopedPluginPayload("project-alpha", "project-other")
+
+	clonedProjectID, _, err := document.SaveAsNewProjectConfig("project-alpha", "Copied Alpha", false)
+	if err != nil {
+		t.Fatalf("SaveAsNewProjectConfig returned error: %v", err)
+	}
+	assertOpaqueLifecyclePluginDataPreserved(t, document, expectedOpaquePluginData)
+	assertProjectScopedPluginPayload(t, document, "plugin.example", clonedProjectID, map[string]any{"value": float64(1)})
+	assertProjectScopedPluginPayload(t, document, "plugin.example", "project-other", map[string]any{"value": float64(2), "keep": []any{"stable"}})
+
+	clonedData := mustReadTestWatchCodePluginProjectData(t, document, clonedProjectID)
+	if !reflect.DeepEqual(clonedData, expected.Normalized()) {
+		t.Fatalf("expected copied plugin data %#v, got %#v", expected.Normalized(), clonedData)
+	}
+
+	clonedData.Folders = append(clonedData.Folders, WatchCodeFolder{Path: "pkg/copied", Recursive: true})
+	mustSetTestWatchCodePluginProjectData(t, &document, clonedProjectID, clonedData)
+	sourceData := mustReadTestWatchCodePluginProjectData(t, document, "project-alpha")
+	if !reflect.DeepEqual(sourceData, expected.Normalized()) {
+		t.Fatalf("expected source plugin data to remain unchanged, got %#v", sourceData)
+	}
+}
+
 // Save As should clear copied password secret state even though the cloned
 // project intentionally keeps project-scoped section and window ids stable.
 func TestDocumentSaveAsNewProjectConfigClearsCopiedPasswordSecrets(t *testing.T) {
@@ -701,6 +768,44 @@ func TestDocumentDeleteProjectsReconcilesDefaultProject(t *testing.T) {
 	}
 }
 
+func TestDocumentDeleteProjectsRemovesProjectScopedPluginData(t *testing.T) {
+	t.Parallel()
+
+	document := NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects["project-alpha"] = Project{ID: "project-alpha", Name: "Alpha"}
+	document.Projects["project-beta"] = Project{ID: "project-beta", Name: "Beta"}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-alpha", testWatchCodeLifecycleProjectData())
+	betaWatchCodeData := testWatchCodeLifecycleProjectData()
+	betaWatchCodeData.Files = []string{"pkg/beta.py"}
+	mustSetTestWatchCodePluginProjectData(t, &document, "project-beta", betaWatchCodeData)
+	expectedOpaquePluginData := seedOpaqueLifecyclePluginData(&document)
+	document.PluginData["plugin.example"] = RawJSON(`{"schemaVersion":1,"projects":{"project-alpha":{"value":1},"project-beta":{"value":2,"keep":["stable"]}},"global":{"keep":true}}`)
+	expectedGenericBeta := mustProjectScopedPluginPayloadRaw(t, document, "plugin.example", "project-beta")
+
+	deletedIDs, err := document.DeleteProjects([]string{"project-alpha"})
+	if err != nil {
+		t.Fatalf("DeleteProjects returned error: %v", err)
+	}
+	if len(deletedIDs) != 1 || deletedIDs[0] != "project-alpha" {
+		t.Fatalf("unexpected deleted ids %#v", deletedIDs)
+	}
+	assertOpaqueLifecyclePluginDataPreserved(t, document, expectedOpaquePluginData)
+	if _, exists, err := document.WatchCodePluginProjectData(testWatchCodeProviderPluginID, "project-alpha"); err != nil || exists {
+		t.Fatalf("expected deleted watch-code project data to be absent, exists=%v err=%v", exists, err)
+	}
+	remainingWatchCodeData := mustReadTestWatchCodePluginProjectData(t, document, "project-beta")
+	if !reflect.DeepEqual(remainingWatchCodeData, betaWatchCodeData.Normalized()) {
+		t.Fatalf("expected remaining watch-code data %#v, got %#v", betaWatchCodeData.Normalized(), remainingWatchCodeData)
+	}
+	if got := mustProjectScopedPluginPayloadRaw(t, document, "plugin.example", "project-beta"); string(got) != string(expectedGenericBeta) {
+		t.Fatalf("expected remaining generic project payload %s, got %s", expectedGenericBeta, got)
+	}
+	if got := mustProjectScopedPluginPayloadRaw(t, document, "plugin.example", "project-alpha"); len(got) != 0 {
+		t.Fatalf("expected deleted generic project payload to be absent, got %s", got)
+	}
+}
+
 func assertCodeObjectSharedHasSecret(t *testing.T, project Project, codeObjID string, expected bool) {
 	t.Helper()
 
@@ -716,6 +821,103 @@ func assertCodeObjectSharedHasSecret(t *testing.T, project Project, codeObjID st
 	if !ok || got != expected {
 		t.Fatalf("expected shared modifier hasSecret %t for %q, got %#v", expected, codeObjID, modifier["hasSecret"])
 	}
+}
+
+func testWatchCodeLifecycleProjectData() WatchCodePluginProjectData {
+	return WatchCodePluginProjectData{
+		Folders: []WatchCodeFolder{
+			{Path: "pkg", Recursive: true},
+		},
+		Files: []string{"scripts/check.py"},
+		Registry: map[string]WatchCodeRegistryEntry{
+			"callable": {
+				CallableName:  "run",
+				Kind:          WatchCodeCallableKindFunction,
+				SignatureHash: "sig",
+				BodyHash:      "body",
+				SourcePath:    "pkg/run.py",
+				SectionIDs:    []string{"section-alpha"},
+				SectionsCount: 1,
+			},
+		},
+		BaselineByPath: map[string][]string{
+			"pkg/run.py": {"run"},
+		},
+	}.Normalized()
+}
+
+func seedOpaqueLifecyclePluginData(document *Document) map[string]RawJSON {
+	if document.PluginData == nil {
+		document.PluginData = map[string]RawJSON{}
+	}
+	expected := map[string]RawJSON{
+		"plugin.scalar": RawJSON(`"global"`),
+		"plugin.array":  RawJSON(`[1,2]`),
+	}
+	for pluginID, payload := range expected {
+		document.PluginData[pluginID] = payload
+	}
+	return expected
+}
+
+func lifecycleProjectScopedPluginPayload(sourceProjectID string, siblingProjectID string) RawJSON {
+	return mustMarshalProjectObject(map[string]any{
+		"schemaVersion": 1,
+		"projects": map[string]any{
+			sourceProjectID: map[string]any{"value": 1},
+			siblingProjectID: map[string]any{
+				"value": 2,
+				"keep":  []any{"stable"},
+			},
+		},
+		"global": map[string]any{"keep": true},
+	})
+}
+
+func assertOpaqueLifecyclePluginDataPreserved(t *testing.T, document Document, expected map[string]RawJSON) {
+	t.Helper()
+	for pluginID, expectedPayload := range expected {
+		if got := document.PluginData[pluginID]; string(got) != string(expectedPayload) {
+			t.Fatalf("expected opaque plugin payload %q to remain %s, got %s", pluginID, expectedPayload, got)
+		}
+	}
+}
+
+func assertProjectScopedPluginPayload(
+	t *testing.T,
+	document Document,
+	pluginID string,
+	projectID string,
+	expected map[string]any,
+) {
+	t.Helper()
+	got := mustProjectScopedPluginPayloadRaw(t, document, pluginID, projectID)
+	var decoded map[string]any
+	if err := json.Unmarshal(got, &decoded); err != nil {
+		t.Fatalf("decode plugin payload %q for project %q: %v", pluginID, projectID, err)
+	}
+	if !reflect.DeepEqual(decoded, expected) {
+		t.Fatalf("expected plugin payload %q for project %q %#v, got %#v", pluginID, projectID, expected, decoded)
+	}
+}
+
+func mustProjectScopedPluginPayloadRaw(t *testing.T, document Document, pluginID string, projectID string) RawJSON {
+	t.Helper()
+	fields, ok, err := decodeProjectScopedPluginPayload(pluginID, document.PluginData[pluginID])
+	if err != nil {
+		t.Fatalf("decode plugin payload %q: %v", pluginID, err)
+	}
+	if !ok {
+		return nil
+	}
+	projects, ok, err := decodeProjectScopedPluginPayloadProjects(pluginID, fields)
+	if err != nil {
+		t.Fatalf("decode plugin projects %q: %v", pluginID, err)
+	}
+	if !ok {
+		return nil
+	}
+	return cloneRawJSON(projects[projectID])
 }
 
 func assertCodeObjectVariantHasSecret(t *testing.T, project Project, variantID string, expected bool) {

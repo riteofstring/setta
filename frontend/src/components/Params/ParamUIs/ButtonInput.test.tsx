@@ -18,9 +18,14 @@ vi.mock("openapi/http", () => ({
   updateParamImplConfig: vi.fn(),
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: vi.fn(),
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: vi.fn(),
+  };
+});
 
 vi.mock("state/actions/sectionInfos", () => ({
   dispatchOptimisticProjectStateUpdate: vi.fn(),
@@ -79,9 +84,24 @@ vi.mock("utils/generatedTypes", async () => {
   };
 });
 
-import { ButtonInputConfigForParam } from "./ButtonInput";
+import { ButtonInput, ButtonInputConfigForParam } from "./ButtonInput";
 
 describe("ButtonInputConfigForParam", () => {
+  it("marks action button surfaces as GPU flow interactive nodrag regions", () => {
+    const markup = renderToStaticMarkup(
+      <ButtonInput
+        label="Run"
+        onClick={() => undefined}
+        wrapperClassName="fixture-wrapper"
+        buttonClassName="fixture-button"
+      />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-interactive="true"');
+    expect(markup).toContain("nodrag nopan fixture-wrapper");
+    expect(markup).toContain("nodrag nopan fixture-button");
+  });
+
   it("renders button mode and method options from the generated Go-owned config", () => {
     const markup = renderToStaticMarkup(
       <ButtonInputConfigForParam sectionId="section-1" paramInfoId="param-1" />,

@@ -31,10 +31,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileWritesMissingPythonSelection(t 
 		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
 	}
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
-	}
+	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if !ok || selection == nil || *selection != "setta-basedpyright" {
 		t.Fatalf("expected python defaults selection, got ok=%v selection=%#v", ok, selection)
 	}
@@ -75,10 +72,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfilePreservesExplicitNullSelection(
 		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
 	}
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
-	}
+	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if !ok || selection != nil {
 		t.Fatalf("expected explicit null python selection to remain, got ok=%v selection=%#v", ok, selection)
 	}
@@ -109,10 +103,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileSelectsAvailableLinkedPlugin(t 
 		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
 	}
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
-	}
+	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if !ok || selection == nil || *selection != "setta-basedpyright" {
 		t.Fatalf("expected linked plugin python defaults selection, got ok=%v selection=%#v", ok, selection)
 	}
@@ -149,10 +140,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileSelectsUsableLowerPrecedenceDup
 		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
 	}
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
-	}
+	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if !ok || selection == nil || *selection != "setta-basedpyright" {
 		t.Fatalf("expected python defaults selection from usable lower-precedence duplicate, got ok=%v selection=%#v", ok, selection)
 	}
@@ -181,10 +169,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileSelectsUsableLowerPrecedenceDup
 		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
 	}
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
-	}
+	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if !ok || selection == nil || *selection != "setta-basedpyright" {
 		t.Fatalf("expected python defaults selection from active lower-precedence duplicate, got ok=%v selection=%#v", ok, selection)
 	}
@@ -207,10 +192,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t
 		t.Fatalf("second bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
 	}
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
-	}
+	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if ok || selection != nil {
 		t.Fatalf("expected python selection to stay missing after first-open bootstrap, got ok=%v selection=%#v", ok, selection)
 	}
@@ -234,10 +216,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileRepairsInvalidMarker(t *testing
 		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
 	}
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
-	}
+	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if !ok || selection == nil || *selection != "setta-basedpyright" {
 		t.Fatalf("expected repaired python defaults selection, got ok=%v selection=%#v", ok, selection)
 	}
@@ -270,10 +249,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileIgnoresIrreparableMarkerWriteFa
 		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
 	}
 
-	selection, ok, err := settingsstate.LanguageServerSelectionForLanguage(settingsRuntime.Snapshot().Document, "python")
-	if err != nil {
-		t.Fatalf("LanguageServerSelectionForLanguage returned error: %v", err)
-	}
+	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if !ok || selection == nil || *selection != "setta-basedpyright" {
 		t.Fatalf("expected python defaults selection despite irreparable marker, got ok=%v selection=%#v", ok, selection)
 	}
@@ -291,6 +267,17 @@ func newDefaultsProfileSettingsRuntime(t *testing.T) *settingsstate.Runtime {
 		t.Fatalf("open settings runtime: %v", err)
 	}
 	return runtime
+}
+
+func defaultsProfileLanguageServerSelection(t *testing.T, document settingsstate.Document, language string) (*string, bool) {
+	t.Helper()
+
+	selectedByLanguage, err := settingsstate.LanguageServerSelectedByLanguage(document)
+	if err != nil {
+		t.Fatalf("LanguageServerSelectedByLanguage returned error: %v", err)
+	}
+	selection, ok := selectedByLanguage[language]
+	return selection, ok
 }
 
 func newDefaultsProfilePluginService(t *testing.T, searchPaths []string) *plugins.Service {

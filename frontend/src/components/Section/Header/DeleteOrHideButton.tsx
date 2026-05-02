@@ -1,6 +1,6 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { deleteSections, toggleSectionVisibility } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import {

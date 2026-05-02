@@ -1,3 +1,5 @@
+import type { ResponseDataAndStatus } from "@setta/app-subsystem-frontend-sdk";
+import { callOpenAPI, createNewId } from "@setta/app-subsystem-frontend-sdk";
 import {
   ChatInput,
   type ChatSlashCommand,
@@ -37,7 +39,6 @@ import {
   BrailleSpinner,
 } from "components/Utils/BrailleSpinner";
 import { setChatSectionChatId, setChatSectionState } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingChatDetails,
@@ -75,7 +76,6 @@ import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   AgenticEdgeKindEnum,
   ChatDictationMode,
@@ -92,7 +92,6 @@ import {
   SectionTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
 import {
   buildManagedZeroScopeBannerSessionKey,

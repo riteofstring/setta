@@ -1,3 +1,5 @@
+import type { DropzoneStatelessAttachment } from "@setta/app-subsystem-frontend-sdk";
+import { shouldShowPasswordReveal } from "@setta/app-subsystem-frontend-sdk";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
@@ -9,11 +11,11 @@ import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { focusOnSection } from "utils/focusManager";
 import {
   CodeObjTypeEnum,
@@ -36,8 +38,8 @@ import {
   TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
+  type CodeObjType,
 } from "utils/generatedTypes";
-import { shouldShowPasswordReveal } from "utils/paramValue";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
@@ -49,6 +51,10 @@ import {
 } from "./ConfiguredParamInputs";
 import { DropdownInputConfigForParam } from "./DropdownInput";
 import { DropzoneInput, DropzoneInputConfigForParam } from "./DropzoneInput";
+import {
+  SPECIALIZED_PARAM_RENDERER_FAMILIES,
+  TEXT_LIKE_PARAM_TYPES,
+} from "./paramUIRendererMetadata";
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
@@ -70,7 +76,7 @@ type ParamUIProps = {
 };
 
 type ParamUIState = {
-  codeObjType: CodeObjTypeEnum;
+  codeObjType: CodeObjType;
   passwordHasSecret: boolean;
   configLanguage: string;
   defaultVal: string;
@@ -100,7 +106,6 @@ type ParamUIRenderContext = ParamUIProps & {
   waitingForResult: boolean;
 };
 type ParamUIRenderer = (context: ParamUIRenderContext) => JSX.Element | null;
-
 function createBaseParamUIState({
   codeObjType,
   defaultVal,
@@ -198,11 +203,9 @@ function useParamUIState(
   }, _.isEqual);
 }
 
-function isTextLikeParamType(codeObjType: CodeObjTypeEnum): boolean {
-  return (
-    codeObjType === CodeObjTypeEnum.CodeParam ||
-    codeObjType === CodeObjTypeEnum.TextParam ||
-    codeObjType === CodeObjTypeEnum.TextAreaParam
+function isTextLikeParamType(codeObjType: CodeObjType): boolean {
+  return (TEXT_LIKE_PARAM_TYPES as readonly CodeObjType[]).includes(
+    codeObjType,
   );
 }
 
@@ -484,7 +487,7 @@ function renderDropzoneParam({
 }
 
 const SPECIALIZED_PARAM_RENDERERS: Partial<
-  Record<CodeObjTypeEnum, ParamUIRenderer>
+  Record<CodeObjType, ParamUIRenderer>
 > = {
   [CodeObjTypeEnum.SliderParam]: renderSliderParam,
   [CodeObjTypeEnum.RotaryParam]: renderRotaryParam,
@@ -493,7 +496,10 @@ const SPECIALIZED_PARAM_RENDERERS: Partial<
   [CodeObjTypeEnum.DropdownParam]: renderDropdownParam,
   [CodeObjTypeEnum.PasswordParam]: renderPasswordParam,
   [CodeObjTypeEnum.DropzoneParam]: renderDropzoneParam,
-};
+} satisfies Record<
+  keyof typeof SPECIALIZED_PARAM_RENDERER_FAMILIES,
+  ParamUIRenderer
+>;
 
 function renderSpecializedParam(context: ParamUIRenderContext) {
   const renderParam =
@@ -767,7 +773,7 @@ function SliderParamConfigured({
       onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
-      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
+      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`}
       sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
       sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
       sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
@@ -875,7 +881,7 @@ function ColorPickerParamConfigured({
       value={value}
       onChange={onChange}
       onEscape={onEscape}
-      wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
+      wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
       isDisabled={isDisabled}
     />
@@ -895,7 +901,7 @@ function DropdownParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
+      outerDivClasses={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex justify-self-start self-center [&_search]:my-auto`}
       isDisabled={isDisabled}
     />
   );
@@ -913,9 +919,9 @@ function PasswordParamConfigured({
   placeholder,
 }) {
   const revealDisabled = isDisabled || isRevealing || !onReveal;
-  const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
-  const wrapperClassName = "section-value flex min-w-0 items-center gap-2";
+  const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+  const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex min-w-0 items-center gap-2`;
   return (
     <>
       <div className={wrapperClassName}>

@@ -143,8 +143,8 @@ func translateToolErrorToTemporary(err error, store *TemporaryIDStore) error {
 	if err == nil || store == nil {
 		return err
 	}
-	typed, ok := err.(*toolError)
-	if !ok || len(typed.data) == 0 {
+	var typed *toolError
+	if ok := asToolError(err, &typed); !ok || len(typed.data) == 0 {
 		return err
 	}
 
@@ -451,10 +451,6 @@ func translateProjectConfigToTemporary(config projectview.ProjectConfig, store *
 	cloned.RunCapabilities, err = translateProjectRunCapabilitiesToTemporary(config.RunCapabilities, store)
 	collector.capture(err)
 	cloned.CodegenTargets = cloneProjectCodegenTargets(config.CodegenTargets)
-	cloned.WatchCodeFolders = cloneWatchCodeFolders(config.WatchCodeFolders)
-	cloned.WatchCodeFiles = append([]string(nil), config.WatchCodeFiles...)
-	cloned.WatchCodeRegistry = cloneWatchCodeRegistry(config.WatchCodeRegistry)
-	cloned.WatchCodeBaselineByPath = cloneStringSliceMap(config.WatchCodeBaselineByPath)
 	cloned.EntryCodeBlockID, err = translateOptionalStringPointerToTemporary(config.EntryCodeBlockID, store)
 	collector.capture(err)
 	cloned.SectionPathSlugsByID, err = translateStringMapKeysToTemporaryStringValues(config.SectionPathSlugsByID, store)

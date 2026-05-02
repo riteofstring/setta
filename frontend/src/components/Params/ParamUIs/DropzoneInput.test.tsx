@@ -1,5 +1,9 @@
 /* @vitest-environment jsdom */
 
+import {
+  parseDropzoneValue,
+  serializeDropzoneValue,
+} from "@setta/app-subsystem-frontend-sdk";
 import { updateArtifacts, uploadBinary } from "openapi/http";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -7,7 +11,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
-import { parseDropzoneValue, serializeDropzoneValue } from "utils/dropzone";
 import { ArtifactTypeEnum, createContentRef } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DropzoneInput } from "./DropzoneInput";
@@ -22,11 +25,16 @@ vi.mock("openapi/http", () => ({
   uploadBinary: uploadBinaryMock,
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: function <T>(promise: Promise<T>) {
+      return promise;
+    },
+  };
+});
 
 type RenderedDropzoneInput = {
   host: HTMLDivElement;
@@ -87,6 +95,16 @@ describe("DropzoneInput attachment display", () => {
     );
 
     expect(markup).toContain("1 KB");
+  });
+
+  it("marks the drop target as an explicit GPU flow interactive nodrag region", () => {
+    const markup = renderToStaticMarkup(
+      <DropzoneInput value="" onChange={() => undefined} />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-control="dropzone"');
+    expect(markup).toContain('data-gpu-flow-interactive="true"');
+    expect(markup).toContain("nodrag nopan section-value");
   });
 
   it("rejects invalid stored file metadata when parsing saved values", () => {

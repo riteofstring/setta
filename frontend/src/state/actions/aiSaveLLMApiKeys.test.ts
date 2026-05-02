@@ -26,22 +26,27 @@ vi.mock("openapi/http", async () => {
   };
 });
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: async function <TData, TError>(
-    promise: Promise<{
-      data?: TData;
-      error?: TError;
-      response: Response;
-    }>,
-  ) {
-    const result = await promise;
-    return {
-      data: (result.data ?? result.error) as TData | undefined,
-      status: result.response.status,
-      hasResponse: true,
-    };
-  },
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: async function <TData, TError>(
+      promise: Promise<{
+        data?: TData;
+        error?: TError;
+        response: Response;
+      }>,
+    ) {
+      const result = await promise;
+      return {
+        data: (result.data ?? result.error) as TData | undefined,
+        status: result.response.status,
+        hasResponse: true,
+      };
+    },
+  };
+});
 
 const mockedGetLLMApiKeys = vi.mocked(getLlmApiKeys);
 const mockedSetLLMApiKeys = vi.mocked(setLlmApiKeys);

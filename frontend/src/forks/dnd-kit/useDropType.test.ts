@@ -17,7 +17,11 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getBehaviorDropType, getOverId } from "./useDropType";
+import {
+  getBehaviorDropType,
+  getDndParentSectionChildCount,
+  getOverId,
+} from "./useDropType";
 
 type SectionSpec = {
   id: string;
@@ -395,6 +399,33 @@ describe("getBehaviorDropType", () => {
     expect(getBehaviorDropType("parent", "child")).toBe(
       BehaviorDropTypeEnum.INVALID,
     );
+  });
+});
+
+describe("getDndParentSectionChildCount", () => {
+  beforeEach(() => {
+    resetProjectStores();
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("returns null instead of throwing for childless hover candidates", () => {
+    // Validates moving-free hover can mark non-parent collisions invalid without crashing.
+    seedProjectState({
+      sections: [
+        { id: "list-root", type: SectionTypeEnum.ListRoot, children: [] },
+        { id: "text-like", type: SectionTypeEnum.Chat },
+      ],
+    });
+
+    expect(
+      getDndParentSectionChildCount(useProjectState.getState(), "list-root"),
+    ).toBe(0);
+    expect(
+      getDndParentSectionChildCount(useProjectState.getState(), "text-like"),
+    ).toBeNull();
   });
 });
 

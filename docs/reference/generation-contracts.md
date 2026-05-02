@@ -27,6 +27,12 @@ re-created as handwritten mirrors.
 - Frontend non-HTTP bindings in `internal/frontendbindings` are largely driven
   by the shared schema and semantic sidecar, plus a small fixed set of extra
   declarations such as `JSONValue`.
+- The app-subsystem frontend SDK under `frontend/plugin-sdk/app-subsystem/`
+  is generated from the host-owned frontend artifacts by
+  `frontend/generation/sync_app_subsystem_sdk_generated_inputs.sh`. That sync
+  prunes shared sidecar entries and HTTP OpenAPI operations by Go-owned
+  frontend-SDK scope metadata instead of maintaining a separate TypeScript
+  inventory.
 - Python shared types in `internal/pythonsharedtypes` are derived from the
   shared semantic sidecar and Go-owned default metadata.
 - The listener endpoint Python client in `internal/listenerendpoints` is
@@ -34,8 +40,24 @@ re-created as handwritten mirrors.
 - Some generated Python surfaces intentionally start from explicit Go-owned
   inventories rather than broad discovery. The main examples are
   `internal/pythonsdkcontracts/contracts.go` and
-  `internal/pythonsharedconstants/generator.go`. Those are still authoritative
+  `internal/pythonsharedconstants/generator.go`. Those are authoritative
   because the inventory lives in Go rather than being restated in Python.
+
+## Source Control For Generated Artifacts
+
+- Do not check first-party `dist/` or `build/` output into git when it is
+  reproducible from tracked source and build inputs. Those artifacts may be
+  materialized during local builds, package builds, source distributions, or
+  wheel/install flows.
+- Treat `.d.ts` files by ownership rather than extension. Track declaration
+  files when they are handwritten source declarations or intentional public
+  SDK/package contracts. Do not track declaration files that are ordinary
+  reproducible compiler output unless the repo explicitly treats that generated
+  declaration surface as a checked-in contract.
+- For the app-subsystem frontend SDK, `types/index.d.ts` is the tracked package
+  type contract, including the vendored plugin copy guarded by tests. The
+  matching `dist/index.js` output is generated from the SDK source and should
+  remain untracked.
 
 ## Preferred Direction
 
@@ -49,6 +71,10 @@ re-created as handwritten mirrors.
 - When a surface cannot be discovered generically, prefer an explicit
   Go-authored contract or metadata definition over restating that shape in
   Python or TypeScript.
+- When a plugin-facing frontend SDK needs a subset of host contracts, mark the
+  Go-owned type/value/route with frontend-SDK scope metadata and let the SDK
+  sync/prune step derive the package inputs. Do not hand-copy OpenAPI
+  operations, sidecar entries, or generated TypeScript declarations into the SDK.
 
 ## What Does Not Count As Real Generation
 
@@ -56,7 +82,7 @@ re-created as handwritten mirrors.
   generator.
 - Enumerating downstream Python or TypeScript fields, defaults, or shapes one
   by one, even when wrapped in helper functions or small templates.
-- Per-type create builders or helper-wrapped field lists that still restate the
+- Per-type create builders or helper-wrapped field lists that restate the
   downstream object shape manually.
 
 ## Handling Exceptions
@@ -72,7 +98,7 @@ re-created as handwritten mirrors.
 - Do not rely on hand-maintained allowlists of type or endpoint names when the
   generator can discover the relevant structures from Go packages or metadata.
 - Rendering generated output with templates or small builders is fine when the
-  emitted structure still comes from authoritative Go-owned inputs.
+  emitted structure comes from authoritative Go-owned inputs.
 - Avoid large static Python or TypeScript source blobs inside generation code.
   The problem is hand-authored downstream structure embedded in the generator,
   not the act of rendering text.

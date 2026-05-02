@@ -1,5 +1,5 @@
 import { ModalInfoType } from "components/Modals/types";
-import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type { HandlePosition, HandleType, Node } from "gpuFlow/flowTypes";
 import type {
   HttpapiExternalAgentPreflightStatus,
   HttpapiLlmapiKeysSnapshot,
@@ -21,7 +21,6 @@ import {
   OverviewNotificationsPaneTab,
   OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
-  OverviewTabNameEnum,
   ProjectSearchMode,
   ProjectSearchModeEnum,
   UIEditorTabLocalStorage,
@@ -37,7 +36,6 @@ import {
   AgentRun,
   AllConfigs,
   AllProjectMetadata,
-  AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   ChatDictationModeEnum,
@@ -51,6 +49,7 @@ import {
   ListenerCoverageSnapshot,
   LLMConfig,
   LSPDiagnostic,
+  OverviewTabUIConfig,
   Policy,
   RenameRefactorBroadcastContent,
   SettingsState,
@@ -172,6 +171,7 @@ export const useProjectState = withProjectState(
           codeObjImpls: {},
           codeObjVariants: {},
           artifactGroups: {},
+          pluginData: {},
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},
@@ -181,34 +181,6 @@ export const useProjectState = withProjectState(
         })),
       ),
     ),
-  ),
-);
-
-type AppDefinitionState = {
-  appDefinition: AppDefinition | null;
-  appSpec: unknown | null;
-};
-
-export const useAppDefinition = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppDefinitionState>(() => ({
-      appDefinition: null,
-      appSpec: null,
-    })),
-  ),
-);
-
-type AppConfigState = ZustandProjectState;
-
-type AppConfigsState = {
-  configs: Record<string, AppConfigState>;
-};
-
-export const useAppConfigs = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppConfigsState>(() => ({
-      configs: {},
-    })),
   ),
 );
 
@@ -247,31 +219,6 @@ export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
   modeResolved: false,
   modeError: null,
 }));
-
-type AppPreviewState = {
-  isPreviewEnabled: boolean;
-  previewConfigId: string | null;
-  // Draft-only overrides used for live preview while editing App Config.
-  // `undefined` means "no override"; `null` means "explicitly cleared".
-  previewSpecOverride?: unknown | null;
-  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
-  aiPreviewSpecOverride?: unknown | null;
-  previewThemeOverride?: unknown | null;
-  previewAssetsOverride?: unknown[] | null;
-};
-
-export const useAppPreview = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppPreviewState>(() => ({
-      isPreviewEnabled: false,
-      previewConfigId: null,
-      previewSpecOverride: undefined,
-      aiPreviewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    })),
-  ),
-);
 
 export const useAllProjectMetadata = createWithEqualityFn(
   withResetFn<AllProjectMetadata>(() => ({
@@ -821,9 +768,6 @@ function normalizePersistedLocalStorageState(
       merged.overviewNotificationsPaneTab,
       defaults.overviewNotificationsPaneTab,
     );
-  // Keep transient visibility session-local even though the store itself is
-  // persisted for durable preferences.
-  merged.watchCodePortalOpen = false;
   merged.customProjectChatSlashCommandsByProjectConfigId =
     normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       merged.customProjectChatSlashCommandsByProjectConfigId,
@@ -929,6 +873,7 @@ export type EdgeHandleRecord = {
   type: HandleType;
   side: HandlePosition;
   element: HTMLElement | null;
+  isConnectableEnd?: boolean;
 };
 
 type EdgeHandlePosition = {
@@ -1342,7 +1287,6 @@ type ZustandLocalStorage = {
   overviewTrueWidth: number;
   overviewTab: OverviewTabKey;
   overviewNotificationsPaneTab: OverviewNotificationsPaneTab;
-  watchCodePortalOpen: boolean;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -1413,10 +1357,9 @@ export const useLocalStorage = createWithEqualityFn(
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
-      overviewTab: OverviewTabNameEnum.Overview,
+      overviewTab: OverviewTabUIConfig.names.Overview,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.Notifications,
-      watchCodePortalOpen: false,
       gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
       gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
       gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,

@@ -70,6 +70,7 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 		withOpenAPISummary("Upload a binary payload to the runtime content store."),
 		withOpenAPIModeRequirement("full-ide"),
 		withOpenAPIRequestContentType("multipart/form-data"),
+		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	if deps.ModePolicy.IsDeployment() {
 		if deps.ShareSessions == nil && !documentOnly {
@@ -91,6 +92,7 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 			withOpenAPIModeRequirement("not-launcher"),
 			withOpenAPIPathParams[BinaryDownloadRequest](),
 			withOpenAPIResponseContentType("application/octet-stream"),
+			withOpenAPIAppSubsystemFrontendSDK(),
 		)
 		return nil
 	}
@@ -104,6 +106,7 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 		withOpenAPIModeRequirement("not-launcher"),
 		withOpenAPIPathParams[BinaryDownloadRequest](),
 		withOpenAPIResponseContentType("application/octet-stream"),
+		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	return nil
 }

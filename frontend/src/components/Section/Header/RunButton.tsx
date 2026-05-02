@@ -1,9 +1,9 @@
+import { canSectionRun } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { RiPlayMiniFill } from "react-icons/ri";
 import { runCodeBlock } from "state/actions/runOrImportCode";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { canSectionRun } from "utils/runCapabilities";
 
 export function RunButton({ sectionId }: { sectionId: string }) {
   const { canRun } = useShareCapabilities();

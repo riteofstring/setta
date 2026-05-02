@@ -32,6 +32,7 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `reference/dev-vs-built.md` – differences between dev and built runtime setups.
 - `reference/emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
 - `reference/frontend-performance-profiling.md` – workflow for profiling and fixing UI performance issues.
+- `reference/webgpu-pan-zoom-html-in-canvas.md` – current WebGPU/html-in-canvas project canvas architecture.
 - `reference/json_source_vs_artifact_autosave.md` – why JSON data waits for autosave but artifacts are written right away.
 - `reference/listener-flows.md` – updated control flow for meta controls, listeners, LSP sync, and disk writes.
 - `reference/logging-and-error-handling.md` – how backend logs are structured, how errors are handled, and how failures reach the UI.
@@ -74,7 +75,7 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `reference/param-sweeps.md` – how to run parameter sweeps via the Python runner API.
 - `reference/section-colors.md` – section `tagColor`/`styleColor` model, routes, UI behavior, and guardrails.
 - `reference/section-sizing-and-ux.md` – default section sizes, sizing rules, and resize UX.
-- `reference/watch-code.md` – watch-mode notes for code sections.
+- `reference/watch-code.md` – plugin-backed Watch Code provider, state, and sync behavior.
 - `skill-catalog/README.md` – catalog location for Setta-maintained skill docs and runtime-root notes.
 
 ## Notes

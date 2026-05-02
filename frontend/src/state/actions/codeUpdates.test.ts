@@ -50,13 +50,17 @@ const sectionVariant: Variant = {
   modifier: {},
   isFrozen: false,
 };
+function openAPIResult(data: unknown, status = 200) {
+  return {
+    data,
+    response: { status },
+  };
+}
 function setupCodeSection({
-  watchCodeEnabled,
   hasPythonCodegen,
   codeLanguage,
   codeFileBinding,
 }: {
-  watchCodeEnabled: boolean;
   hasPythonCodegen: boolean;
   codeLanguage: CodeLanguageEnum;
   codeFileBinding: Record<string, unknown> | null;
@@ -64,7 +68,6 @@ function setupCodeSection({
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
       id: "project-1",
-      watchCodeEnabled,
       codegenTargets: hasPythonCodegen
         ? [createProjectCodegenPythonTarget()]
         : [],
@@ -104,16 +107,8 @@ describe("queueCodeUpdate", () => {
     resetProjectStores();
     vi.clearAllMocks();
     vi.useFakeTimers();
-    vi.mocked(setGenCodePrefix).mockResolvedValue({
-      status: 200,
-      data: null,
-      hasResponse: true,
-    });
-    vi.mocked(setGenCodeSuffix).mockResolvedValue({
-      status: 200,
-      data: null,
-      hasResponse: true,
-    });
+    vi.mocked(setGenCodePrefix).mockResolvedValue(openAPIResult(null) as never);
+    vi.mocked(setGenCodeSuffix).mockResolvedValue(openAPIResult(null) as never);
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -124,7 +119,6 @@ describe("queueCodeUpdate", () => {
       "./sectionInfos"
     );
     setupCodeSection({
-      watchCodeEnabled: true,
       hasPythonCodegen: true,
       codeLanguage: CodeLanguageEnum.python,
       codeFileBinding: {
@@ -134,18 +128,16 @@ describe("queueCodeUpdate", () => {
         autoBinding: false,
       },
     });
-    vi.mocked(setCode).mockResolvedValue({
-      status: 200,
-      data: null,
-      hasResponse: true,
-    });
+    vi.mocked(setCode).mockResolvedValue(openAPIResult(null) as never);
     queueCodeUpdate(sectionId, "print('latest')");
     await flushPendingCodeUpdate(sectionId);
     expect(setCode).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
-      code: "print('latest')",
-      frontendOpId: expect.any(String),
+      body: {
+        projectConfigId: "project-1",
+        sectionId,
+        code: "print('latest')",
+        frontendOpId: expect.any(String),
+      },
     });
     expect(getLatestProjectState).not.toHaveBeenCalled();
     expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();
@@ -155,23 +147,20 @@ describe("queueCodeUpdate", () => {
       "./sectionInfos"
     );
     setupCodeSection({
-      watchCodeEnabled: true,
       hasPythonCodegen: true,
       codeLanguage: CodeLanguageEnum.python,
       codeFileBinding: null,
     });
-    vi.mocked(setCode).mockResolvedValue({
-      status: 200,
-      data: null,
-      hasResponse: true,
-    });
+    vi.mocked(setCode).mockResolvedValue(openAPIResult(null) as never);
     queueCodeUpdate(sectionId, "print('latest')");
     await flushPendingCodeUpdate(sectionId);
     expect(setCode).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      sectionId,
-      code: "print('latest')",
-      frontendOpId: expect.any(String),
+      body: {
+        projectConfigId: "project-1",
+        sectionId,
+        code: "print('latest')",
+        frontendOpId: expect.any(String),
+      },
     });
     expect(getLatestProjectState).not.toHaveBeenCalled();
     expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();

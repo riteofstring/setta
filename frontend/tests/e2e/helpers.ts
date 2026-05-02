@@ -728,7 +728,7 @@ export async function setChatSectionState(
       getLatestProjectState,
       setChatSectionState: setChatSectionStateRequest,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     const {
       getCurrProjectConfigId,
       processProjectStateUpdateFromBackend,
@@ -901,11 +901,12 @@ export async function applyProjectMutationsFromFrontend(
   },
 ): Promise<Array<unknown | null>> {
   return await page.evaluate(async (input) => {
-    const { res200 } = await import("/src/utils/endpointUtils");
+    const { callOpenAPI, res200 } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const { processProjectStateUpdateFromBackend, getCurrProjectConfigId } =
       await import("/src/state/actions/sectionInfos");
     const openAPI = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/src/openapi/http/result");
     const { getLatestProjectState } = openAPI;
 
     if (getCurrProjectConfigId() !== input.projectConfigId) {
@@ -1422,7 +1423,7 @@ export async function setChatSectionChatId(
       getLatestProjectState,
       setChatSectionChatId: setChatSectionChatIdRequest,
     } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     const {
       getCurrProjectConfigId,
       processProjectStateUpdateFromBackend,
@@ -1636,7 +1637,7 @@ async function refreshProjectStateFromBackend(
   // Prefer browser-side frontend actions or pre-navigation seeding instead.
   await page.evaluate(async (targetProjectConfigId) => {
     const { getLatestProjectState } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/src/openapi/http/result");
+    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
     const { processProjectStateUpdateFromBackend } = await import(
       "/src/state/actions/sectionInfos.ts"
     );

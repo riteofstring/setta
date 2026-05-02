@@ -6,9 +6,10 @@ import {
   createJsonArtifactId,
   createPngArtifactId,
   createRandomName,
-} from "./idNameCreation";
+} from "@setta/app-subsystem-frontend-sdk";
 
 export type ObjectValues<T> = T[keyof T];
+type CreateOptions<T> = T extends object ? Partial<T> : T;
 
 type GeneratedMutableValue =
   | null
@@ -35,7 +36,7 @@ function cloneGeneratedValue<T>(value: T): T {
 }
 
 function mergeGeneratedOptions<T extends object>(
-  defaults: T,
+  defaults: Record<string, GeneratedMutableValue | undefined>,
   options: Partial<T> = {},
 ): T {
   return {
@@ -52,11 +53,11 @@ export type {{ .Name }} = {
 {{- end }}
 };
 {{- if .CreateBody }}
-export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
+export function create{{ .Name }}(options: CreateOptions<{{ .Name }}> = {} as CreateOptions<{{ .Name }}>): {{ .Name }} {
 {{ .CreateBody }}
 }
 {{- else }}
-export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
+export function create{{ .Name }}(options: CreateOptions<{{ .Name }}> = {} as CreateOptions<{{ .Name }}>): {{ .Name }} {
   return options as {{ .Name }};
 }
 {{- end }}
@@ -79,7 +80,7 @@ export type {{ .Name }} = {{ .Alias }};
 export function {{ .Name }}(
   x: {{ .GuardInputType }},
 ): x is {{ .GuardReturnType }} {
-  return {{ .GuardSetName }}.has(x.type);
+  return {{ .GuardSetName }}.has(x.type as {{ .GuardSetType }});
 }
 {{ else if eq .Kind "function" }}
 {{ if .Exported }}export {{ end }}function {{ .Name }}(

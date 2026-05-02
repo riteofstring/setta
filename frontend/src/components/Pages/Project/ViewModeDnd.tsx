@@ -270,6 +270,3 @@ function isSameOrder(left: Array<string>, right: Array<string>): boolean {
   }
   return true;
 }
-
-export const ViewModeSortableProvider = SortableListProvider;
-export const useViewModeSortableItem = useSortableListItem;

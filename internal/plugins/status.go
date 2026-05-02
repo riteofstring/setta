@@ -101,11 +101,13 @@ type PluginStatusEntry struct {
 }
 
 type PluginStatusResponse struct {
-	SchemaVersion            int                             `json:"schemaVersion"`
-	ServerMode               config.Mode                     `json:"serverMode"`
-	RestartCapability        PluginRestartCapability         `json:"restartCapability"`
-	Plugins                  []PluginStatusEntry             `json:"plugins"`
-	LanguageServerSelections []LanguageServerSelectionStatus `json:"languageServerSelections"`
+	SchemaVersion            int                                  `json:"schemaVersion"`
+	ServerMode               config.Mode                          `json:"serverMode"`
+	RestartCapability        PluginRestartCapability              `json:"restartCapability"`
+	AppSubsystemSelection    *PluginAppSubsystemProviderSelection `json:"appSubsystemSelection,omitempty"`
+	WatchCodeSelection       *PluginWatchCodeProviderSelection    `json:"watchCodeSelection,omitempty"`
+	Plugins                  []PluginStatusEntry                  `json:"plugins"`
+	LanguageServerSelections []LanguageServerSelectionStatus      `json:"languageServerSelections"`
 }
 
 type RestartRequiredResponse struct {
@@ -246,6 +248,8 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability PluginRes
 		SchemaVersion:            pluginStatusSchemaVersion,
 		ServerMode:               snapshot.ServerMode,
 		RestartCapability:        capability,
+		AppSubsystemSelection:    appSubsystemProviderSelectionPointer(AppSubsystemProviderSelectionFromSnapshot(snapshot)),
+		WatchCodeSelection:       watchCodeProviderSelectionPointer(WatchCodeProviderSelectionFromSnapshot(snapshot)),
 		Plugins:                  entries,
 		LanguageServerSelections: []LanguageServerSelectionStatus{},
 	}
@@ -331,12 +335,13 @@ func cloneRegisteredLanguageServersOrEmpty(values []PluginRegisteredLanguageServ
 	cloned := make([]PluginRegisteredLanguageServer, 0, len(values))
 	for _, value := range values {
 		cloned = append(cloned, PluginRegisteredLanguageServer{
-			PluginID:    value.PluginID,
-			Name:        value.Name,
-			Language:    value.Language,
-			Command:     value.Command,
-			Args:        append([]string{}, value.Args...),
-			SettingsKey: cloneOptionalString(value.SettingsKey),
+			PluginID:              value.PluginID,
+			Name:                  value.Name,
+			Language:              value.Language,
+			Command:               value.Command,
+			Args:                  append([]string{}, value.Args...),
+			SettingsKey:           cloneOptionalString(value.SettingsKey),
+			RuntimeSearchPathsKey: cloneOptionalString(value.RuntimeSearchPathsKey),
 		})
 	}
 	return cloned

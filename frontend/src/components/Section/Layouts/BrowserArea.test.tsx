@@ -41,11 +41,16 @@ vi.mock("openapi/http", async () => {
   };
 });
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: function <T>(promise: Promise<T>) {
+      return promise;
+    },
+  };
+});
 
 vi.mock("components/Utils/CodeMirror/InlineCodeMirrorInput", async () => {
   const React = await import("react");
@@ -241,6 +246,20 @@ describe("BrowserArea list view", () => {
     expect(markup).toContain("Date modified");
     expect(markup).toContain("CodeMirror-FileBrowserFilter");
     expect(markup).toContain(`CodeMirror-${sectionId}-browser-path`);
+  });
+
+  it("marks the browser surface as a GPU flow interactive nodrag region", () => {
+    setBrowserSectionState(BrowserAreaViewModeEnum.list);
+    const markup = renderToStaticMarkup(<BrowserArea sectionId={sectionId} />);
+    const surfaceTag = markup.match(
+      /<div[^>]*data-gpu-flow-control="browser:section-1"[^>]*>/,
+    )?.[0];
+
+    expect(surfaceTag).toBeDefined();
+    expect(surfaceTag).toContain('data-gpu-flow-interactive="true"');
+    expect(surfaceTag).toContain("nodrag");
+    expect(surfaceTag).toContain("nopan");
+    expect(surfaceTag).toContain("nowheel");
   });
 
   it("does not render the explorer pane in thumbnail view", () => {

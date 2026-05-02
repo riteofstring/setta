@@ -2,7 +2,7 @@
 
 ## Source Of Truth
 
-- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package and SDK surface rather than a second backend runtime with `backend/setta/api/` kept thin, `plugins/` as first-party Setta plugin packages and plugin-owned config/probe surfaces, and `frontend/` as the React/Vite UI with app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
+- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package and SDK surface with `backend/setta/api/` kept thin, `plugins/` as first-party Setta plugin packages and plugin-owned config/probe surfaces, and `frontend/` as the React/Vite UI with app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
 - Go owns canonical behavior, validation, derived metadata, shared contracts, endpoint shapes, and correctness-sensitive local runtime behavior unless the developer explicitly says otherwise.
 - Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with explicit justification.
 - Any duplicated non-trivial Python or TypeScript logic must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
@@ -52,7 +52,6 @@
 - Prefer backend-initiated websocket updates over polling when the backend already knows when state changes.
 - Treat frontend performance verification as first-class. Prefer automated guardrails, and use chrome-devtools profiling when deeper analysis is needed.
 - UI changes require chrome-devtools visual verification when relevant.
-- Never start `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself.
 - Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
 
 ## Code Shape & Safety
@@ -63,6 +62,6 @@
 - If a robust solution is not possible, say so explicitly and present the real tradeoffs.
 - Prefer failing loudly and specifically over silent fallbacks, fake estimates, brittle keyword heuristics, or broad catch-all handling. Do not implement heuristic fallbacks without explicit approval.
 - Prefer provider or runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields over heuristics.
-- Preserve intended behavior for supported workflows during refactors. Do not add backward-compatibility shims unless the developer explicitly asks for them.
+- Never add backward-compatibility shims, legacy support paths, migrations, transitional adapters, dual-read/write paths, old-field aliases, silent compatibility fallbacks, or compatibility layers unless the developer explicitly asks for that exact compatibility work.
 - If behavior is unclear, stop and ask.
 - For performance-relevant refactors, baseline first, re-measure after, and record before/after results in `perf/` as append-only reports.

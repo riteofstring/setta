@@ -96,13 +96,19 @@ type watchCodeWarningTracker struct {
 	active      map[watchCodeWarningKey]struct{}
 	idGenerator func() string
 	timeNow     func() time.Time
+	providerID  func() (string, bool)
 }
 
-func newWatchCodeWarningTracker() *watchCodeWarningTracker {
+func newWatchCodeWarningTracker(providerID ...func() (string, bool)) *watchCodeWarningTracker {
+	var activeProvider func() (string, bool)
+	if len(providerID) > 0 {
+		activeProvider = providerID[0]
+	}
 	return &watchCodeWarningTracker{
 		active:      map[watchCodeWarningKey]struct{}{},
 		idGenerator: newWatchCodeNotificationID,
 		timeNow:     time.Now,
+		providerID:  activeProvider,
 	}
 }
 
@@ -133,8 +139,8 @@ func (t *watchCodeWarningTracker) ConsumeNotifications(
 
 	t.reconcileDocumentLocked(document)
 
-	project, ok := document.Projects[trimmedProjectID]
-	if !ok {
+	projectData, ok, err := t.watchCodeProjectData(document, trimmedProjectID)
+	if err != nil || !ok {
 		return nil
 	}
 
@@ -151,7 +157,7 @@ func (t *watchCodeWarningTracker) ConsumeNotifications(
 		if trimmedCallableName == "" {
 			continue
 		}
-		entry, ok := watchCodeCallableEntry(project, trimmedCallableName)
+		entry, ok := watchCodeCallableEntry(projectData, trimmedCallableName)
 		if !ok {
 			t.deleteProjectCallableLocked(trimmedProjectID, trimmedCallableName)
 			continue
@@ -188,12 +194,12 @@ func (t *watchCodeWarningTracker) ConsumeNotifications(
 
 func (t *watchCodeWarningTracker) reconcileDocumentLocked(document projectstate.Document) {
 	for key := range t.active {
-		project, ok := document.Projects[key.projectID]
-		if !ok {
+		projectData, ok, err := t.watchCodeProjectData(document, key.projectID)
+		if err != nil || !ok {
 			delete(t.active, key)
 			continue
 		}
-		entry, ok := watchCodeCallableEntry(project, key.callableName)
+		entry, ok := watchCodeCallableEntry(projectData, key.callableName)
 		if !ok || strings.TrimSpace(entry.SourcePath) != key.sourcePath {
 			delete(t.active, key)
 		}
@@ -208,12 +214,33 @@ func (t *watchCodeWarningTracker) deleteProjectCallableLocked(projectID string, 
 	}
 }
 
-func watchCodeCallableEntry(project projectstate.Project, callableName string) (projectstate.WatchCodeRegistryEntry, bool) {
+func (t *watchCodeWarningTracker) watchCodeProjectData(
+	document projectstate.Document,
+	projectID string,
+) (projectstate.WatchCodePluginProjectData, bool, error) {
+	if t == nil || t.providerID == nil {
+		return projectstate.EmptyWatchCodePluginProjectData(), false, nil
+	}
+	providerPluginID, ok := t.providerID()
+	if !ok {
+		return projectstate.EmptyWatchCodePluginProjectData(), false, nil
+	}
+	projectData, exists, err := document.WatchCodePluginProjectData(providerPluginID, projectID)
+	if err != nil || !exists {
+		return projectstate.EmptyWatchCodePluginProjectData(), exists, err
+	}
+	return projectData, true, nil
+}
+
+func watchCodeCallableEntry(
+	projectData projectstate.WatchCodePluginProjectData,
+	callableName string,
+) (projectstate.WatchCodeRegistryEntry, bool) {
 	targetName := strings.TrimSpace(callableName)
 	if targetName == "" {
 		return projectstate.WatchCodeRegistryEntry{}, false
 	}
-	for _, entry := range project.WatchCodeRegistry {
+	for _, entry := range projectData.Registry {
 		if strings.TrimSpace(entry.CallableName) == targetName {
 			return entry, true
 		}

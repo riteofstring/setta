@@ -44,6 +44,16 @@ type ResizeDelta = {
   height: number;
 };
 
+type ManualSizeUpdate = {
+  width?: number;
+  height?: number;
+};
+
+type SingleClickSizeResolver = (input: {
+  manualSize: ManualSizeUpdate;
+  aspectRatio: boolean;
+}) => ManualSizeUpdate;
+
 export function getResizeHandleClickState({
   state,
   direction,
@@ -76,6 +86,57 @@ function parseCurrPx(x) {
 function maybeAutoPx(autoDim, pxDim, sizeMode) {
   return sizeMode !== SIZE_MODE.manual_only ? autoDim : pxDim;
 }
+
+function canPersistManualSize(sizeMode: string): boolean {
+  return sizeMode !== SIZE_MODE.auto_only;
+}
+
+function manualSizeUpdate({ width, height }: ManualSizeUpdate) {
+  const nextSize: ManualSizeUpdate = {};
+  if (width !== undefined) {
+    nextSize.width = width;
+  }
+  if (height !== undefined) {
+    nextSize.height = height;
+  }
+  return nextSize;
+}
+
+function getRightManualSizeUpdate({
+  manualSize,
+  aspectRatio,
+}: {
+  manualSize: ManualSizeUpdate;
+  aspectRatio: boolean;
+}) {
+  const { width, height } = manualSize;
+  if (width === undefined) {
+    return {};
+  }
+  return aspectRatio ? manualSizeUpdate({ width, height }) : { width };
+}
+
+function getBottomManualSizeUpdate({
+  manualSize,
+  aspectRatio,
+}: {
+  manualSize: ManualSizeUpdate;
+  aspectRatio: boolean;
+}) {
+  const { width, height } = manualSize;
+  if (height === undefined) {
+    return {};
+  }
+  return aspectRatio ? manualSizeUpdate({ width, height }) : { height };
+}
+
+const SINGLE_CLICK_SIZE_RESOLVERS: Partial<
+  Record<ResizeHandleDirection, SingleClickSizeResolver>
+> = {
+  bottomRight: ({ manualSize }) => manualSizeUpdate(manualSize),
+  right: getRightManualSizeUpdate,
+  bottom: getBottomManualSizeUpdate,
+};
 
 function getDoubleClickSize({
   direction,
@@ -129,24 +190,13 @@ function getSingleClickSize({
   // it seems like once width is resized, auto does nothing
   const pxWidth = parseCurrPx(ref.style.width);
   const pxHeight = parseCurrPx(ref.style.height);
-
-  if (direction === "bottomRight") {
-    return {
-      width: pxWidth,
-      height: pxHeight,
-    };
-  }
-  if (direction === "right" && sizeMode.width) {
-    // if aspectRatio is specified, we want to update both width and height
-    return aspectRatio
-      ? { width: pxWidth, height: pxHeight }
-      : { width: pxWidth };
-  }
-  if (direction === "bottom" && sizeMode.height) {
-    // if aspectRatio is specified, we want to update both width and height
-    return aspectRatio
-      ? { width: pxWidth, height: pxHeight }
-      : { height: pxHeight };
+  const manualSize = manualSizeUpdate({
+    width: canPersistManualSize(sizeMode.width) ? pxWidth : undefined,
+    height: canPersistManualSize(sizeMode.height) ? pxHeight : undefined,
+  });
+  const resolveSize = SINGLE_CLICK_SIZE_RESOLVERS[direction];
+  if (resolveSize) {
+    return resolveSize({ manualSize, aspectRatio });
   }
   return {};
 }

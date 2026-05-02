@@ -1,8 +1,8 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import type { OnSelectedItemChangeFnType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { updateParamImplConfig } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -13,10 +13,18 @@ import {
   DropdownConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   type DropdownParamCodeObjImpl,
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
+
+function joinGpuControlClassNames(...classNames: Array<string | undefined>) {
+  return [NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, ...classNames]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function DropdownInputConfigForParam({
   sectionId,
   paramInfoId,
@@ -168,7 +176,7 @@ export function DropdownInput({
   ];
   return (
     <IdNameCombobox
-      outerDivClasses={outerDivClasses}
+      outerDivClasses={joinGpuControlClassNames(outerDivClasses)}
       allItems={allItems}
       value={value ? value : null}
       onSelectedItemChange={onChange}

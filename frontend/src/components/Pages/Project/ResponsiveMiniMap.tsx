@@ -1,7 +1,6 @@
-import { setCenter } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { MiniMap } from "forks/xyflow/minimap";
-import "forks/xyflow/minimap/style.css";
+import GpuMiniMap from "gpuFlow/GpuMiniMap";
+import { getZoom, setCenter } from "gpuFlow/viewportActions";
+import type { CSSProperties } from "react";
 import { useLocalStorage } from "state/definitions";
 
 type ResponsiveMiniMapPlacement = {
@@ -42,9 +41,10 @@ export function ResponsiveMiniMap() {
   });
 
   return (
-    <MiniMap
+    <GpuMiniMap
       nodeStrokeColor={(n) => {
-        if (n.style?.background) return n.style.background;
+        const background = getStringBackground(n.style);
+        if (background) return background;
         if (n.type === "input") return "#0041d0";
         if (n.type === "output") return "#ff0072";
         if (n.type === "default") return "#1a192b";
@@ -52,7 +52,8 @@ export function ResponsiveMiniMap() {
         return "#e2e8f0";
       }}
       nodeColor={(n) => {
-        if (n.style?.background) return n.style.background;
+        const background = getStringBackground(n.style);
+        if (background) return background;
 
         if (darkMode) {
           return "#2D384D";
@@ -69,9 +70,13 @@ export function ResponsiveMiniMap() {
       }
       maskStrokeWidth={2}
       pannable
-      onClick={(e, { x, y }) => {
-        setCenter(x, y, { zoom: useReactFlow.getState().transform[2] });
+      onClick={(_event, { x, y }) => {
+        setCenter(x, y, { overviewWidth, zoom: getZoom() });
       }}
     />
   );
+}
+
+function getStringBackground(style: CSSProperties | undefined): string | null {
+  return typeof style?.background === "string" ? style.background : null;
 }

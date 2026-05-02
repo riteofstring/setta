@@ -1,15 +1,12 @@
+import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { setActiveViewMode } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { sortViewModes } from "utils/viewModeOrdering";
-import {
-  useViewModeSortableItem,
-  ViewModeSortableProvider,
-} from "./ViewModeDnd";
+import { SortableListProvider, useSortableListItem } from "./ViewModeDnd";
 const TAB_LABEL_FALLBACK = "Untitled View";
 export function ViewModeTabs() {
   const {
@@ -94,7 +91,7 @@ export function ViewModeTabs() {
       data-testid="view-mode-tabs-bar"
       className="relative z-[18] col-start-1 col-end-2 row-start-3 row-end-4 flex h-9 min-h-9 items-end border-t border-setta-200/75 bg-white dark:border-setta-850 dark:bg-setta-925"
     >
-      <ViewModeSortableProvider
+      <SortableListProvider
         id="view-mode-tabs-sortable"
         items={tabModes.map((mode) => mode.id)}
         direction="horizontal"
@@ -119,7 +116,7 @@ export function ViewModeTabs() {
             );
           })}
         </div>
-      </ViewModeSortableProvider>
+      </SortableListProvider>
     </div>
   );
 }
@@ -138,11 +135,7 @@ function ViewModeTabButton({
   sortableEnabled: boolean;
   onSelect: (modeId: string) => void;
 }) {
-  const sortable = useViewModeSortableItem(
-    modeId,
-    !sortableEnabled,
-    "horizontal",
-  );
+  const sortable = useSortableListItem(modeId, !sortableEnabled, "horizontal");
   const label = modeName ? modeName : TAB_LABEL_FALLBACK;
   let tabClasses =
     "box-border flex h-[30px] min-w-[96px] max-w-[240px] flex-[0_1_200px] select-none items-center gap-2 rounded-t-md border border-solid border-b-0 px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500";

@@ -5,6 +5,7 @@ import {
   PointerSensor,
 } from "@dnd-kit/dom";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { callOpenAPI, createNewId } from "@setta/app-subsystem-frontend-sdk";
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import {
   DragDropProvider,
@@ -21,9 +22,8 @@ import {
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { getZoom } from "gpuFlow/viewportActions";
 import { setTaskBoardSectionState } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   Fragment,
   useCallback,
@@ -67,7 +67,6 @@ import {
   TaskBoardViewMode,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import {
   applyTaskBoardMutation,
   buildTaskBoardLanes,
@@ -100,6 +99,10 @@ const TASK_DND_PREFIX = "task-board-task:";
 const COLUMN_DND_PREFIX = "task-board-column:";
 const TASK_BOARD_LIST_DROP_ID = "task-board-list-drop";
 const TASK_BOARD_NO_DRAG_CLASS_NAME = "task-board-no-drag";
+const TASK_BOARD_GPU_CONTROL_PREFIX = "task-board";
+const TASK_BOARD_GPU_SURFACE_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+const TASK_BOARD_GPU_CONTROL_CLASS_NAME = `${TASK_BOARD_GPU_SURFACE_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME}`;
+const TASK_BOARD_GPU_SCROLL_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
 const TASK_BOARD_KANBAN_COLUMN_DEFAULT_WIDTH = 240;
 const TASK_BOARD_KANBAN_COLUMN_MIN_WIDTH = 180;
 type TaskDueMode = "date" | "date_time";
@@ -117,6 +120,18 @@ type TaskBoardDndSource = {
   element?: Element | null;
   handle?: Element | null;
 };
+function getTaskBoardGpuControlProps(controlId: string) {
+  return {
+    "data-gpu-flow-control": `${TASK_BOARD_GPU_CONTROL_PREFIX}:${controlId}`,
+    "data-gpu-flow-interactive": "true",
+  } as const;
+}
+function getTaskBoardControlClassName(baseClassName: string): string {
+  return `${TASK_BOARD_GPU_CONTROL_CLASS_NAME} ${baseClassName}`;
+}
+function getTaskBoardScrollClassName(baseClassName: string): string {
+  return `${TASK_BOARD_GPU_SCROLL_CLASS_NAME} ${baseClassName}`;
+}
 function eventTargetsNoDragElement(event: Event): boolean {
   const target = event.target;
   if (!(target instanceof Element)) {
@@ -957,7 +972,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
           cancelAnimationFrame(kanbanResizeAnimationFrameRef.current);
         }
         kanbanResizeAnimationFrameRef.current = requestAnimationFrame(() => {
-          const zoom = useReactFlow.getState().transform[2];
+          const zoom = getZoom();
           const scale = zoom === 0 ? 1 : zoom;
           const deltaX = (moveEvent.clientX - startX) / scale;
           const nextWidth = Math.max(
@@ -1275,22 +1290,31 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
   return (
     <div
       className={`section-main section-main-full-w flex h-full min-w-[320px] flex-col gap-2 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
+      {...getTaskBoardGpuControlProps(`${sectionId}:surface`)}
     >
-      <div className="mx-1 mt-2 flex shrink-0 flex-wrap items-center gap-2">
+      <div
+        className="mx-1 mt-2 flex shrink-0 flex-wrap items-center gap-2"
+        {...getTaskBoardGpuControlProps(`${sectionId}:toolbar`)}
+      >
         {TaskBoardUIConfig.viewModeOptions.map((option) => (
           <button
             key={option.value}
             type="button"
+            {...getTaskBoardGpuControlProps(
+              `${sectionId}:view-mode:${option.value}`,
+            )}
             data-testid={
               option.value === TaskBoardViewModeEnum.task_list
                 ? "task-board-view-task-list"
                 : "task-board-view-kanban"
             }
-            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
-              normalizedState.viewMode === option.value
-                ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-200"
-                : "border-setta-300 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            }`}
+            className={getTaskBoardControlClassName(
+              `inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs ${
+                normalizedState.viewMode === option.value
+                  ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-200"
+                  : "border-setta-300 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              }`,
+            )}
             onClick={() => setViewMode(option.value)}
             disabled={isDisabled}
             aria-label={`${option.label} view`}
@@ -1304,6 +1328,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
           </button>
         ))}
         <input
+          {...getTaskBoardGpuControlProps(`${sectionId}:new-task-title`)}
           value={newTaskTitle}
           onChange={(event) => setNewTaskTitle(event.target.value)}
           onKeyDown={(event) => {
@@ -1314,13 +1339,18 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
           }}
           disabled={isDisabled}
           placeholder="Add task title"
-          className="min-w-0 flex-1 rounded-md border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+          className={getTaskBoardControlClassName(
+            "min-w-0 flex-1 rounded-md border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200",
+          )}
         />
         {normalizedState.viewMode === TaskBoardViewModeEnum.task_list ? (
           <button
             type="button"
+            {...getTaskBoardGpuControlProps(`${sectionId}:add-task`)}
             data-testid="task-board-add-task"
-            className="inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+            className={getTaskBoardControlClassName(
+              "inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800",
+            )}
             onClick={() => addTask()}
             disabled={isDisabled}
           >
@@ -1330,8 +1360,11 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         ) : null}
         <button
           type="button"
+          {...getTaskBoardGpuControlProps(`${sectionId}:add-column`)}
           data-testid="task-board-add-column"
-          className="inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+          className={getTaskBoardControlClassName(
+            "inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800",
+          )}
           onClick={addColumn}
           disabled={isDisabled}
         >
@@ -1351,7 +1384,12 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       >
         <DragOperationShapeSync enabled />
         {normalizedState.viewMode === TaskBoardViewModeEnum.task_list ? (
-          <div className="min-h-0 flex-1 overflow-auto p-1">
+          <div
+            className={getTaskBoardScrollClassName(
+              "min-h-0 flex-1 overflow-auto p-1",
+            )}
+            {...getTaskBoardGpuControlProps(`${sectionId}:task-list-scroll`)}
+          >
             <div
               className="grid grid-cols-[24px_minmax(0,1fr)_132px] items-center gap-2 border-b border-setta-200 bg-setta-50/80 px-1.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-400"
               data-testid="task-board-task-list-header"
@@ -1388,7 +1426,12 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
             ) : null}
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto p-1">
+          <div
+            className={getTaskBoardScrollClassName(
+              "min-h-0 flex-1 overflow-auto p-1",
+            )}
+            {...getTaskBoardGpuControlProps(`${sectionId}:kanban-scroll`)}
+          >
             <div
               ref={kanbanColumnsContainerRef}
               className="flex h-full min-w-fit items-stretch"
@@ -1450,7 +1493,14 @@ function TaskBoardListDropZone({
   return (
     <div
       ref={setNodeRef}
-      className={`${isOver ? "bg-blue-50/40 dark:bg-blue-950/30" : ""}`}
+      className={getTaskBoardScrollClassName(
+        `${isOver ? "bg-blue-50/40 dark:bg-blue-950/30" : ""}`,
+      )}
+      {...getTaskBoardGpuControlProps(
+        fallbackColumnId !== null
+          ? `list-drop-zone:${fallbackColumnId}`
+          : "list-drop-zone",
+      )}
     >
       {children}
     </div>
@@ -1463,7 +1513,7 @@ function getTaskBoardTaskSurfaceClassName(
   isDraggingByDnd: boolean,
   isOver: boolean,
 ): string {
-  return `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${baseClassName} ${isDragging || isDraggingByDnd ? "opacity-60" : ""} ${
+  return `${TASK_BOARD_GPU_SURFACE_CLASS_NAME} ${baseClassName} ${isDragging || isDraggingByDnd ? "opacity-60" : ""} ${
     isOver && !isDraggingByDnd ? "ring-1 ring-blue-400 dark:ring-blue-500" : ""
   }`;
 }
@@ -1472,7 +1522,7 @@ function getTaskBoardDragHandleClassName(
   baseClassName: string,
   isDisabled: boolean,
 ): string {
-  return `${NO_DRAG_CLASS_NAME} ${baseClassName} ${
+  return `${TASK_BOARD_GPU_SURFACE_CLASS_NAME} ${baseClassName} ${
     isDisabled
       ? "cursor-default opacity-50"
       : "cursor-grab active:cursor-grabbing"
@@ -1512,13 +1562,16 @@ function TaskBoardTaskDescriptionToggleButton({
   return (
     <button
       type="button"
+      {...getTaskBoardGpuControlProps(`task:${task.id}:description-toggle`)}
       data-testid={`task-board-task-description-toggle-${task.id}`}
       aria-label={
         isDescriptionVisible
           ? "Remove task description"
           : "Add task description"
       }
-      className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800`}
+      className={getTaskBoardControlClassName(
+        "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800",
+      )}
       disabled={isDisabled}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
@@ -1552,9 +1605,12 @@ function TaskBoardTaskRemoveButton({
   return (
     <button
       type="button"
+      {...getTaskBoardGpuControlProps(`task:${taskId}:remove`)}
       data-testid={`task-board-task-remove-${taskId}`}
       aria-label="Remove task"
-      className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-red-300 text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950/30`}
+      className={getTaskBoardControlClassName(
+        "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-red-300 text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950/30",
+      )}
       disabled={isDisabled}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
@@ -1580,6 +1636,7 @@ function TaskBoardTaskDescriptionInput({
 }) {
   return (
     <textarea
+      {...getTaskBoardGpuControlProps(`task:${task.id}:description`)}
       key={`${task.id}-${task.description}`}
       data-testid={`task-board-task-description-input-${task.id}`}
       defaultValue={task.description}
@@ -1677,6 +1734,7 @@ function TaskBoardTaskListRow({
     <div
       ref={setNodeRef}
       style={dndStyle}
+      {...getTaskBoardGpuControlProps(`task:${task.id}:list-row`)}
       className={getTaskBoardTaskSurfaceClassName(
         "mx-0.5 my-0.5 grid grid-cols-[24px_minmax(0,1fr)_132px] items-center gap-2 rounded-md border border-setta-100 bg-white/95 py-0.5 pl-0.5 pr-1.5 dark:border-setta-800 dark:bg-setta-900/60",
         isDragging,
@@ -1690,6 +1748,7 @@ function TaskBoardTaskListRow({
         <button
           type="button"
           ref={setActivatorNodeRef}
+          {...getTaskBoardGpuControlProps(`task:${task.id}:drag-handle`)}
           className={getTaskBoardDragHandleClassName(
             "inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-400 transition focus-visible:border-blue-400 focus-visible:outline-none dark:text-setta-500",
             isDisabled,
@@ -1707,6 +1766,7 @@ function TaskBoardTaskListRow({
         <div className="flex items-center gap-1.5">
           <input
             type="checkbox"
+            {...getTaskBoardGpuControlProps(`task:${task.id}:done`)}
             checked={task.completed}
             onChange={(event) => {
               applyTaskCompletionUpdate(
@@ -1719,10 +1779,13 @@ function TaskBoardTaskListRow({
             disabled={isDisabled}
             aria-label="Mark task done"
             data-testid="task-board-task-list-done-checkbox"
-            className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} h-4 w-4 shrink-0 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 disabled:opacity-50`}
+            className={getTaskBoardControlClassName(
+              "h-4 w-4 shrink-0 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 disabled:opacity-50",
+            )}
           />
           <input
             type="text"
+            {...getTaskBoardGpuControlProps(`task:${task.id}:title`)}
             key={`${task.id}-${task.title}`}
             defaultValue={task.title}
             onBlur={(event) => {
@@ -1732,7 +1795,9 @@ function TaskBoardTaskListRow({
               }
             }}
             disabled={isDisabled}
-            className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100`}
+            className={getTaskBoardControlClassName(
+              "w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100",
+            )}
           />
           <TaskScheduleMenu
             task={task}
@@ -1759,12 +1824,15 @@ function TaskBoardTaskListRow({
             task={task}
             isDisabled={isDisabled}
             updateTask={updateTask}
-            className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} mt-1 min-h-[44px] w-full resize-y rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100`}
+            className={getTaskBoardControlClassName(
+              "mt-1 min-h-[44px] w-full resize-y rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100",
+            )}
           />
         ) : null}
       </div>
       <div>
         <select
+          {...getTaskBoardGpuControlProps(`task:${task.id}:column`)}
           value={toTaskBoardColumnId(task, fallbackColumnId) ?? ""}
           onChange={(event) => {
             const nextColumnId = event.target.value;
@@ -1776,7 +1844,9 @@ function TaskBoardTaskListRow({
             });
           }}
           disabled={isDisabled}
-          className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100`}
+          className={getTaskBoardControlClassName(
+            "w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100",
+          )}
         >
           {columns.map((column) => (
             <option key={column.id} value={column.id}>
@@ -1797,7 +1867,10 @@ function TaskBoardKanbanColumnResizeHandle({
 }) {
   return (
     <div
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} relative z-20 flex w-3 shrink-0 items-stretch justify-center`}
+      className={getTaskBoardControlClassName(
+        "relative z-20 flex w-3 shrink-0 items-stretch justify-center",
+      )}
+      {...getTaskBoardGpuControlProps(`kanban-resize:${dividerIndex}`)}
       data-testid={`task-board-kanban-resize-handle-${dividerIndex}`}
     >
       <div className="absolute inset-y-0 left-1/2 -translate-x-1/2">
@@ -1836,14 +1909,16 @@ function TaskBoardKanbanLane({
   return (
     <article
       ref={setNodeRef}
-      className={`flex h-full shrink-0 flex-col rounded-md border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/30 ${isOver ? "ring-1 ring-blue-400 dark:ring-blue-500" : ""}`}
+      className={`${TASK_BOARD_GPU_SURFACE_CLASS_NAME} flex h-full shrink-0 flex-col rounded-md border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/30 ${isOver ? "ring-1 ring-blue-400 dark:ring-blue-500" : ""}`}
       style={{ width: `${columnWidth}px` }}
+      {...getTaskBoardGpuControlProps(`column:${lane.column.id}:lane`)}
       data-task-board-column-id={lane.column.id}
     >
       <header className="border-b border-setta-200 px-2 py-2 dark:border-setta-800">
         <div className="flex items-center gap-2">
           <input
             type="color"
+            {...getTaskBoardGpuControlProps(`column:${lane.column.id}:color`)}
             value={lane.column.color}
             onChange={(event) =>
               updateColumn(lane.column.id, {
@@ -1851,10 +1926,13 @@ function TaskBoardKanbanLane({
               })
             }
             disabled={isDisabled}
-            className="h-6 w-8 cursor-pointer rounded border border-setta-200 bg-transparent p-0 disabled:opacity-50 dark:border-setta-700"
+            className={getTaskBoardControlClassName(
+              "h-6 w-8 cursor-pointer rounded border border-setta-200 bg-transparent p-0 disabled:opacity-50 dark:border-setta-700",
+            )}
             aria-label="Column color"
           />
           <input
+            {...getTaskBoardGpuControlProps(`column:${lane.column.id}:name`)}
             key={`${lane.column.id}-${lane.column.name}`}
             defaultValue={lane.column.name}
             onBlur={(event) => {
@@ -1864,7 +1942,9 @@ function TaskBoardKanbanLane({
               }
             }}
             disabled={isDisabled}
-            className="min-w-0 flex-1 rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+            className={getTaskBoardControlClassName(
+              "min-w-0 flex-1 rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100",
+            )}
           />
         </div>
       </header>
@@ -1874,7 +1954,12 @@ function TaskBoardKanbanLane({
         strategy={verticalListSortingStrategy}
         forceSorting
       >
-        <div className="flex min-h-[140px] flex-1 flex-col gap-2 overflow-auto px-2 py-2">
+        <div
+          className={getTaskBoardScrollClassName(
+            "flex min-h-[140px] flex-1 flex-col gap-2 overflow-auto px-2 py-2",
+          )}
+          {...getTaskBoardGpuControlProps(`column:${lane.column.id}:tasks`)}
+        >
           {lane.tasks.map((task) => (
             <TaskBoardKanbanTaskCard
               key={task.id}
@@ -1902,8 +1987,11 @@ function TaskBoardKanbanLane({
       <div className="border-t border-setta-200 p-2 dark:border-setta-800">
         <button
           type="button"
+          {...getTaskBoardGpuControlProps(`column:${lane.column.id}:add-task`)}
           data-testid={`task-board-kanban-add-task-${lane.column.id}`}
-          className="inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+          className={getTaskBoardControlClassName(
+            "inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-xs text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800",
+          )}
           onClick={() => addTask(lane.column.id)}
           disabled={isDisabled}
         >
@@ -1973,6 +2061,7 @@ function TaskBoardKanbanTaskCard({
     <div
       ref={setNodeRef}
       style={dndStyle}
+      {...getTaskBoardGpuControlProps(`task:${task.id}:kanban-card`)}
       className={getTaskBoardTaskSurfaceClassName(
         "rounded-md border border-setta-200 bg-white py-2 pl-0.5 pr-2 dark:border-setta-700 dark:bg-setta-900",
         isDragging,
@@ -1988,6 +2077,7 @@ function TaskBoardKanbanTaskCard({
         <button
           type="button"
           ref={setActivatorNodeRef}
+          {...getTaskBoardGpuControlProps(`task:${task.id}:drag-handle`)}
           className={getTaskBoardDragHandleClassName(
             "-ml-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-transparent text-setta-400 transition focus-visible:border-blue-400 focus-visible:outline-none dark:text-setta-500",
             isDisabled,
@@ -2002,6 +2092,7 @@ function TaskBoardKanbanTaskCard({
         </button>
         <input
           type="text"
+          {...getTaskBoardGpuControlProps(`task:${task.id}:title`)}
           key={`${task.id}-${task.title}`}
           defaultValue={task.title}
           onBlur={(event) => {
@@ -2011,7 +2102,9 @@ function TaskBoardKanbanTaskCard({
             }
           }}
           disabled={isDisabled}
-          className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} min-w-0 flex-1 rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100`}
+          className={getTaskBoardControlClassName(
+            "min-w-0 flex-1 rounded border border-setta-200 bg-white px-2 py-1 text-xs font-semibold text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100",
+          )}
         />
         <TaskScheduleMenu
           task={task}
@@ -2038,7 +2131,9 @@ function TaskBoardKanbanTaskCard({
           task={task}
           isDisabled={isDisabled}
           updateTask={updateTask}
-          className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} mb-1.5 min-h-[52px] w-full resize-y rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100`}
+          className={getTaskBoardControlClassName(
+            "mb-1.5 min-h-[52px] w-full resize-y rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100",
+          )}
         />
       ) : null}
       <TaskBoardTaskCardScheduleSummary
@@ -2066,9 +2161,12 @@ function TaskScheduleMenu({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
+          {...getTaskBoardGpuControlProps(`task:${task.id}:schedule-menu`)}
           data-testid={`task-board-task-schedule-menu-${task.id}`}
           aria-label="Task schedule settings"
-          className={`nodrag nopan ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800`}
+          className={getTaskBoardControlClassName(
+            "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800",
+          )}
           disabled={isDisabled}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
@@ -2078,10 +2176,11 @@ function TaskScheduleMenu({
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
+          {...getTaskBoardGpuControlProps(`task:${task.id}:schedule-content`)}
           data-testid={`task-board-task-schedule-content-${task.id}`}
           align="end"
           sideOffset={6}
-          className={`z-30 flex w-[280px] flex-col gap-2 rounded-md border border-setta-200 bg-white p-2 shadow-xl dark:border-setta-700 dark:bg-setta-900 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+          className={`${TASK_BOARD_GPU_CONTROL_CLASS_NAME} z-30 flex w-[280px] flex-col gap-2 rounded-md border border-setta-200 bg-white p-2 shadow-xl dark:border-setta-700 dark:bg-setta-900`}
           onPointerDown={(event) => event.stopPropagation()}
         >
           <div className="space-y-1">
@@ -2136,6 +2235,7 @@ function TaskDueInput({
   return (
     <div className="flex min-w-0 items-center gap-1">
       <select
+        {...getTaskBoardGpuControlProps(`task:${task.id}:due-mode`)}
         data-testid={`task-board-task-due-mode-${task.id}`}
         value={dueMode}
         onChange={(event) => {
@@ -2153,12 +2253,15 @@ function TaskDueInput({
           onChange(dateValue);
         }}
         disabled={isDisabled}
-        className="w-[88px] shrink-0 rounded border border-setta-200 bg-white px-1 py-1 text-[10px] text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+        className={getTaskBoardControlClassName(
+          "w-[88px] shrink-0 rounded border border-setta-200 bg-white px-1 py-1 text-[10px] text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200",
+        )}
       >
         <option value="date">Date</option>
         <option value="date_time">Date+Time</option>
       </select>
       <input
+        {...getTaskBoardGpuControlProps(`task:${task.id}:due-value`)}
         data-testid={`task-board-task-due-value-${task.id}`}
         type={dueMode === "date_time" ? "datetime-local" : "date"}
         value={dueMode === "date_time" ? dateTimeValue : dateValue}
@@ -2170,7 +2273,9 @@ function TaskDueInput({
           onChange(normalizeDateToIso(event.target.value, "iso"));
         }}
         disabled={isDisabled}
-        className="w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+        className={getTaskBoardControlClassName(
+          "w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100",
+        )}
       />
     </div>
   );
@@ -2231,13 +2336,16 @@ function TaskRecurrenceInput({
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">
       <select
+        {...getTaskBoardGpuControlProps(`task:${task.id}:recurrence-mode`)}
         data-testid={`task-board-task-recurrence-mode-${task.id}`}
         value={recurrenceMode}
         onChange={(event) =>
           setRecurrenceMode(event.target.value as TaskBoardTaskRecurrence)
         }
         disabled={isDisabled}
-        className="w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+        className={getTaskBoardControlClassName(
+          "w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100",
+        )}
       >
         {TaskBoardUIConfig.recurrenceOptions.map((option) => (
           <option key={option.value} value={option.value}>
@@ -2283,6 +2391,7 @@ function TaskRecurrenceInput({
       {recurrenceMode === TaskBoardTaskRecurrenceEnum.specified_years ? (
         <input
           type="text"
+          {...getTaskBoardGpuControlProps(`task:${task.id}:recurrence-years`)}
           data-testid={`task-board-task-recurrence-years-${task.id}`}
           value={recurrenceYearsDraft}
           onChange={(event) => {
@@ -2300,7 +2409,9 @@ function TaskRecurrenceInput({
           }}
           disabled={isDisabled}
           placeholder="2026, 2027"
-          className="w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+          className={getTaskBoardControlClassName(
+            "w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100",
+          )}
         />
       ) : null}
     </div>
@@ -2324,19 +2435,28 @@ function TaskRecurrenceChipSelector<T extends string>({
 }) {
   const selected = new Set(values);
   return (
-    <div data-testid={testId} className="flex flex-wrap gap-1">
+    <div
+      data-testid={testId}
+      className={getTaskBoardControlClassName("flex flex-wrap gap-1")}
+      {...getTaskBoardGpuControlProps(`recurrence-chip-list:${testId}`)}
+    >
       {options.map((option) => {
         const isSelected = selected.has(option.value);
         return (
           <button
             key={option.value}
             type="button"
+            {...getTaskBoardGpuControlProps(
+              `recurrence-chip:${testId}:${option.value}`,
+            )}
             disabled={disabled}
-            className={`nodrag nopan rounded border px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
-              isSelected
-                ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-200"
-                : "border-setta-300 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            } disabled:opacity-50`}
+            className={getTaskBoardControlClassName(
+              `rounded border px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+                isSelected
+                  ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-200"
+                  : "border-setta-300 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              } disabled:opacity-50`,
+            )}
             onClick={() => {
               if (selected.has(option.value)) {
                 onChange(values.filter((value) => value !== option.value));

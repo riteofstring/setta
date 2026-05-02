@@ -1,9 +1,18 @@
-import { useReactFlow } from "forks/xyflow/core/store";
-import { fitView } from "forks/xyflow/core/store/utils";
-import { Node, NodeDragItem } from "forks/xyflow/core/types";
-import { getDimensions } from "forks/xyflow/core/utils";
-import _ from "lodash";
+import { getElementDimensions } from "gpuFlow/domDimensions";
+import type { FitViewOptions, Node, NodeDragItem } from "gpuFlow/flowTypes";
 import {
+  getGpuNodesBounds,
+  isMeasuredGpuNodeBoundsInput,
+} from "gpuFlow/nodeBounds";
+import { finishInitialFitView, fitView } from "gpuFlow/viewportActions";
+import {
+  gpuFlowViewportStore,
+  type GpuFlowViewportStore,
+} from "gpuFlow/viewportStore";
+import _ from "lodash";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
+import {
+  useLocalStorage,
   useMisc,
   useNodeInternals,
   useProjectState,
@@ -51,48 +60,53 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   }
 
   const newNodes = getNewNodes();
-  applyNodeDimensionUpdates(newNodes, updates);
+  const changedNodeIds = applyNodeDimensionUpdates(newNodes, updates);
   useNodeInternals.setState({ x: newNodes });
+  scheduleEdgeHandlePositionUpdatesForDimensionUpdates(changedNodeIds);
+  updateSelectionBoundsForDimensionUpdates(newNodes, changedNodeIds);
   debounced_route_set_top_level_section_layout();
   maybeCompleteInitialFitView();
 }
 
 function hasViewportNode() {
-  return !!useReactFlow
-    .getState()
-    .domNode?.querySelector(".react-flow__viewport");
+  return gpuFlowViewportStore.getState().domNode !== null;
 }
 
 function applyNodeDimensionUpdates(
   newNodes: NodesById,
   updates: NodeDimensionsUpdate,
-) {
+): string[] {
+  const changedNodeIds: string[] = [];
   for (const update of updates) {
-    applyNodeDimensionUpdate(newNodes, update);
+    if (applyNodeDimensionUpdate(newNodes, update)) {
+      changedNodeIds.push(update.id);
+    }
   }
+  return changedNodeIds;
 }
 
 function applyNodeDimensionUpdate(
   newNodes: NodesById,
   update: NodeDimensionsUpdate[number],
-) {
+): boolean {
   const node = newNodes.get(update.id);
   if (!node) {
-    return;
+    return false;
   }
-  const dimensions = getDimensions(update.nodeElement);
+  const dimensions = getElementDimensions(update.nodeElement);
   if (!shouldUpdateNodeDimensions(node, dimensions, update.forceUpdate)) {
-    return;
+    return false;
   }
   newNodes.set(node.id, {
     ...node,
     ...dimensions,
   });
+  return true;
 }
 
 function shouldUpdateNodeDimensions(
   node: Node,
-  dimensions: ReturnType<typeof getDimensions>,
+  dimensions: ReturnType<typeof getElementDimensions>,
   forceUpdate: boolean,
 ) {
   return !!(
@@ -104,23 +118,102 @@ function shouldUpdateNodeDimensions(
   );
 }
 
+function scheduleEdgeHandlePositionUpdatesForDimensionUpdates(
+  changedNodeIds: readonly string[],
+) {
+  if (changedNodeIds.length === 0) {
+    return;
+  }
+  const projectState = useProjectState.getState();
+  const sectionIds = new Set<string>();
+  for (const nodeId of changedNodeIds) {
+    for (const descendantId of getSectionDescendants(nodeId, projectState)) {
+      sectionIds.add(descendantId);
+    }
+  }
+  scheduleEdgeHandlePositionUpdate(Array.from(sectionIds));
+}
+
+function updateSelectionBoundsForDimensionUpdates(
+  nodesById: NodesById,
+  changedNodeIds: readonly string[],
+) {
+  const viewportState = gpuFlowViewportStore.getState();
+  if (!viewportState.nodesSelectionBounds || changedNodeIds.length === 0) {
+    return;
+  }
+  const changedNodeIdSet = new Set(changedNodeIds);
+  const activeSectionIds = getActiveSectionUIIds();
+  if (!activeSectionIds.some((sectionId) => changedNodeIdSet.has(sectionId))) {
+    return;
+  }
+  const selectedNodes = activeSectionIds
+    .map((sectionId) => nodesById.get(sectionId))
+    .filter((node): node is Node => node !== undefined);
+  viewportState.setNodesSelectionBounds(getGpuNodesBounds(selectedNodes));
+}
+
 function maybeCompleteInitialFitView() {
-  const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions } =
-    useReactFlow.getState();
-  const miscState = useMisc.getState();
-  // don't do fitView until all code areas are done rendering
-  if (miscState.numInitializedCodeAreas !== miscState.numDisplayedCodeAreas) {
+  const fitViewState = gpuFlowViewportStore.getState();
+  if (!shouldAttemptInitialFitView(fitViewState)) {
     return;
   }
-  if (!fitViewOnInit || fitViewOnInitDone) {
+  const nodes = getMeasuredFitViewTargetNodes(
+    fitViewState.fitViewOnInitOptions,
+  );
+  if (!nodes) {
     return;
   }
-  useReactFlow.setState({
-    fitViewOnInitDone: fitView({
-      initial: true,
-      ...fitViewOnInitOptions,
-    }),
+  const completed = fitView({
+    bounds: getGpuNodesBounds(nodes),
+    duration: fitViewState.fitViewOnInitOptions?.duration,
+    initial: true,
+    maxZoom: fitViewState.fitViewOnInitOptions?.maxZoom,
+    minZoom: fitViewState.fitViewOnInitOptions?.minZoom,
+    overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+    padding: fitViewState.fitViewOnInitOptions?.padding,
   });
+  if (completed) {
+    finishInitialFitView();
+  }
+}
+
+function shouldAttemptInitialFitView(
+  state: Pick<GpuFlowViewportStore, "fitViewOnInit" | "fitViewOnInitDone">,
+): boolean {
+  return (
+    state.fitViewOnInit &&
+    !state.fitViewOnInitDone &&
+    areCodeAreasReadyForInitialFitView()
+  );
+}
+
+function areCodeAreasReadyForInitialFitView(): boolean {
+  const miscState = useMisc.getState();
+  return miscState.numInitializedCodeAreas === miscState.numDisplayedCodeAreas;
+}
+
+function getMeasuredFitViewTargetNodes(options: FitViewOptions | undefined) {
+  const nodes = getNodes();
+  const targetNodes = filterFitViewTargetNodes(nodes, options);
+  if (
+    targetNodes.length === 0 ||
+    !targetNodes.every((node) => isMeasuredGpuNodeBoundsInput(node))
+  ) {
+    return null;
+  }
+  return targetNodes;
+}
+
+function filterFitViewTargetNodes(
+  nodes: Array<Node>,
+  options: FitViewOptions | undefined,
+) {
+  if (!options?.nodes?.length) {
+    return nodes;
+  }
+  const targetNodeIds = new Set(options.nodes.map((node) => node.id));
+  return nodes.filter((node) => targetNodeIds.has(node.id));
 }
 
 export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {

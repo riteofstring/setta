@@ -1,10 +1,15 @@
 import {
+  callOpenAPI,
+  res200,
+  resolveRunRequest,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import {
   getLatestProjectState,
   interruptTerminalProcesses,
   runCode,
   type GetLatestProjectStateResponse,
 } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useLocalStorage,
   useProjectState,
@@ -13,9 +18,7 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { ContentRef, SectionTypeEnum } from "utils/generatedTypes";
-import { resolveRunRequest } from "utils/runCapabilities";
 import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";

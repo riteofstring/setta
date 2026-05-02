@@ -23,11 +23,16 @@ vi.mock("openapi/http", () => ({
   updateLauncher: launcherMocks.updateLauncherMock,
 }));
 
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: async function <T>(request: Promise<T>) {
-    return request;
-  },
-}));
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: async function <T>(request: Promise<T>) {
+      return request;
+    },
+  };
+});
 
 type RenderedSection = {
   host: HTMLDivElement;

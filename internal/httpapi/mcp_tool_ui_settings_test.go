@@ -3,10 +3,12 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,6 +16,8 @@ import (
 	"setta/internal/config"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
+	"setta/internal/plugins"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/uisettings"
 )
@@ -29,21 +33,171 @@ func (s *routeRevealService) Reveal(_ context.Context, input uisettings.RevealIn
 	return s.result, s.err
 }
 
+func newUISettingsRouteTestServer(t *testing.T, projectRuntime *projectstate.Runtime, options mcpx.ServerOptions) *mcpx.Server {
+	t.Helper()
+
+	if projectRuntime != nil && options.PluginMutations == nil {
+		workspaceRoot := strings.TrimSpace(options.WorkspaceRoot)
+		if workspaceRoot == "" {
+			workspaceRoot = t.TempDir()
+			options.WorkspaceRoot = workspaceRoot
+		}
+		options.PluginMutations = &routeWatchCodeBackendUISettingPluginMutationProvider{
+			runtime:       projectRuntime,
+			workspaceRoot: workspaceRoot,
+			pluginID:      "setta-fixture-watch-code-provider",
+		}
+	}
+	server, err := mcpx.NewServer(options)
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+	return server
+}
+
+type routeWatchCodeBackendUISettingPluginMutationProvider struct {
+	runtime       *projectstate.Runtime
+	workspaceRoot string
+	pluginID      string
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Runtime(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
+	capabilities := []string{"registerUISettings"}
+	return plugins.PluginRuntimeResponse{
+		List: plugins.PluginListResponse{
+			Plugins: []plugins.PluginListEntry{
+				{
+					PluginID:              p.pluginID,
+					Name:                  "Watch Code Backend UI Settings",
+					EffectiveCapabilities: capabilities,
+				},
+			},
+		},
+		Status: plugins.PluginStatusResponse{
+			Plugins: []plugins.PluginStatusEntry{
+				{
+					PluginID:              p.pluginID,
+					State:                 plugins.PluginRuntimeStateActive,
+					EffectiveCapabilities: capabilities,
+				},
+			},
+		},
+	}, nil
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Rescan() (plugins.DiscoverySnapshot, error) {
+	return plugins.DiscoverySnapshot{}, nil
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Install(context.Context, plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
+	return plugins.PluginInstallResponse{}, fmt.Errorf("plugin install is unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Uninstall(context.Context, plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
+	return plugins.PluginUninstallResponse{}, fmt.Errorf("plugin uninstall is unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Update(context.Context, plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
+	return plugins.PluginUpdateResponse{}, fmt.Errorf("plugin update is unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) Rollback(context.Context, plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
+	return plugins.PluginRollbackResponse{}, fmt.Errorf("plugin rollback is unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) WriteConfig(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
+	return plugins.PluginConfigWriteResponse{}, fmt.Errorf("plugin config writes are unavailable in this test provider")
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
+	if strings.TrimSpace(pluginID) != p.pluginID {
+		return nil, fmt.Errorf("plugin %q is not active", pluginID)
+	}
+	writeHandlerID := "write_files"
+	return []plugins.PluginRegisteredUISetting{
+		{
+			PluginID:       p.pluginID,
+			LocalSettingID: "files",
+			Title:          "Watch Code Files",
+			Description:    "List of explicit files watched by Watch Code.",
+			Synonyms:       []string{"watch files", "watch code files"},
+			PaneID:         "left",
+			RevealKey:      "watch-code-settings",
+			Mutability:     string(uisettings.MutabilityWritable),
+			ValueSchema: map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+			},
+			ReadHandlerID:  "read_files",
+			WriteHandlerID: &writeHandlerID,
+		},
+	}, nil
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) ReadBackendUISettingValue(_ context.Context, options plugins.BackendUISettingReadOptions) (any, error) {
+	if strings.TrimSpace(options.PluginID) != p.pluginID {
+		return nil, fmt.Errorf("plugin %q is not active", options.PluginID)
+	}
+	if strings.TrimSpace(options.HandlerID) != "read_files" {
+		return nil, fmt.Errorf("unsupported watch code read handler %q", options.HandlerID)
+	}
+	document := p.runtime.Snapshot().Document
+	project, err := document.ProjectByID(options.ProjectConfigID)
+	if err != nil {
+		return nil, err
+	}
+	projectData, _, err := document.WatchCodePluginProjectData(p.pluginID, project.ID)
+	if err != nil {
+		return nil, err
+	}
+	return append([]string{}, projectData.Files...), nil
+}
+
+func (p *routeWatchCodeBackendUISettingPluginMutationProvider) WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error {
+	if strings.TrimSpace(options.PluginID) != p.pluginID {
+		return fmt.Errorf("plugin %q is not active", options.PluginID)
+	}
+	if strings.TrimSpace(options.HandlerID) != "write_files" {
+		return fmt.Errorf("unsupported watch code write handler %q", options.HandlerID)
+	}
+	files, err := decodeRouteWatchCodeStringSlice(options.Value)
+	if err != nil {
+		return err
+	}
+	_, err = p.runtime.SetWatchCodeFiles(
+		ctx,
+		p.pluginID,
+		options.ProjectConfigID,
+		files,
+		p.workspaceRoot,
+	)
+	return err
+}
+
+func decodeRouteWatchCodeStringSlice(value any) ([]string, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	if err := json.Unmarshal(raw, &files); err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
 func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	t.Parallel()
 
 	workspaceRoot := t.TempDir()
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -64,7 +218,7 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 
 	searchResponse := postMCPToolRoute(t, handler, `{
 		"tool":"search_ui_settings",
-		"arguments":{"projectConfigId":"project-alpha","query":"watch toggle","limit":3,"sourceFilter":"core"},
+		"arguments":{"projectConfigId":"project-alpha","query":"watch files","limit":3,"sourceFilter":"plugin"},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if searchResponse.Code != http.StatusOK {
@@ -76,13 +230,16 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 	}
 	searchResult := mustStructuredMapForRoute(t, searchPayload.StructuredContent)
 	searchResults := mustStructuredListForRoute(t, searchResult["results"])
-	if len(searchResults) == 0 || mustStructuredMapForRoute(t, searchResults[0])["settingId"] != "core.watch_code.enabled" {
-		t.Fatalf("expected ranked core watch-code result, got %#v", searchResults)
+	if len(searchResults) == 0 || mustStructuredMapForRoute(t, searchResults[0])["settingId"] != "plugin::setta-fixture-watch-code-provider::files" {
+		t.Fatalf("expected ranked plugin watch-code result, got %#v", searchResults)
+	}
+	if mustStructuredMapForRoute(t, searchResults[0])["source"] != "plugin" {
+		t.Fatalf("expected plugin-sourced watch-code result, got %#v", searchResults[0])
 	}
 
 	getResponse := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"projectConfigId":"project-alpha","settingId":"core.app.spec_path"},
+		"arguments":{"projectConfigId":"project-alpha","settingId":"core.project.name"},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if getResponse.Code != http.StatusOK {
@@ -93,8 +250,8 @@ func TestMCPToolCallRouteSupportsUISettingSearchReadWrite(t *testing.T) {
 		t.Fatalf("expected get_ui_setting_value success, got %#v", getPayload.StructuredContent)
 	}
 	getResult := mustStructuredMapForRoute(t, getPayload.StructuredContent)
-	if getResult["value"] != "app_specs/app.json" {
-		t.Fatalf("expected default app spec path, got %#v", getResult["value"])
+	if getResult["value"] != "Alpha" {
+		t.Fatalf("expected project name Alpha, got %#v", getResult["value"])
 	}
 
 	setResponse := postMCPToolRoute(t, handler, `{
@@ -130,15 +287,12 @@ func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T)
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -168,7 +322,7 @@ func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T)
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"set_ui_setting_value",
-		"arguments":{"projectConfigId":"project-alpha","settingId":"core.watch_code.enabled","value":true},
+		"arguments":{"projectConfigId":"project-alpha","settingId":"plugin::setta-fixture-watch-code-provider::files","value":["pkg/route.py"]},
 		"agenticContext":{"projectConfigId":"project-alpha","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {
@@ -192,8 +346,9 @@ func TestMCPToolCallRouteBroadcastsProjectStateAfterUISettingWrite(t *testing.T)
 	if update.ProjectState.ProjectConfig.ID != "project-alpha" {
 		t.Fatalf("expected project-alpha project update, got %q", update.ProjectState.ProjectConfig.ID)
 	}
-	if !update.ProjectState.ProjectConfig.WatchCodeEnabled {
-		t.Fatal("expected broadcast project state to include watchCodeEnabled=true")
+	watchCodeData := mustHTTPWatchCodeProjectData(t, update.ProjectState.PluginData, "setta-fixture-watch-code-provider", "project-alpha")
+	if !reflect.DeepEqual(watchCodeData.Files, []string{"pkg/route.py"}) {
+		t.Fatalf("expected broadcast project state to include watch code files, got %#v", watchCodeData)
 	}
 }
 
@@ -203,15 +358,12 @@ func TestMCPToolCallRouteUISettingReadRejectsShareScopeWithoutProjectContext(t *
 	workspaceRoot := t.TempDir()
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -232,7 +384,7 @@ func TestMCPToolCallRouteUISettingReadRejectsShareScopeWithoutProjectContext(t *
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"settingId":"core.app.spec_path"},
+		"arguments":{"settingId":"core.project.name"},
 		"agenticContext":{"shareSessionId":"share-session-1","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {
@@ -265,16 +417,13 @@ func TestMCPToolCallRouteUISettingReadWriteAcceptsTemporaryIDs(t *testing.T) {
 		"chat-section":  "13",
 	})
 
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      workspaceRoot,
 		ProjectState:       projectRuntime,
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:     diagnostics,
 		TemporaryIDMapPath: temporaryIDMapPath,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -348,16 +497,13 @@ func TestMCPToolCallRouteSupportsRevealUISetting(t *testing.T) {
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:    workspaceRoot,
 		ProjectState:     projectRuntime,
 		SectionNames:     routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:   diagnostics,
 		UISettingReveals: revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -421,16 +567,13 @@ func TestMCPToolCallRouteRevealUISettingTrimsFrontendAffinityToken(t *testing.T)
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:    workspaceRoot,
 		ProjectState:     projectRuntime,
 		SectionNames:     routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:   diagnostics,
 		UISettingReveals: revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -485,16 +628,13 @@ func TestMCPToolCallRouteRevealUISettingIgnoresBlankFrontendAffinityToken(t *tes
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:    workspaceRoot,
 		ProjectState:     projectRuntime,
 		SectionNames:     routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:   diagnostics,
 		UISettingReveals: revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -537,15 +677,12 @@ func TestMCPToolCallRouteGetUISettingRejectsProjectArgumentMismatch(t *testing.T
 	workspaceRoot := t.TempDir()
 	projectRuntime := openMCPToolRouteProjectRuntime(t)
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:  workspaceRoot,
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -566,7 +703,7 @@ func TestMCPToolCallRouteGetUISettingRejectsProjectArgumentMismatch(t *testing.T
 
 	response := postMCPToolRoute(t, handler, `{
 		"tool":"get_ui_setting_value",
-		"arguments":{"projectConfigId":"project-beta","settingId":"core.watch_code.enabled"},
+		"arguments":{"projectConfigId":"project-beta","settingId":"plugin::setta-fixture-watch-code-provider::files"},
 		"agenticContext":{"projectConfigId":"project-alpha","chatId":"chat-1","sectionId":"chat-section","allowUnscoped":true}
 	}`)
 	if response.Code != http.StatusOK {
@@ -611,16 +748,13 @@ func TestMCPToolCallRouteSetUISettingValueRevealAfterSetPreservesWriteResult(t *
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:    workspaceRoot,
 		ProjectState:     projectRuntime,
 		SectionNames:     routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics:   diagnostics,
 		UISettingReveals: revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -707,7 +841,7 @@ func TestMCPToolCallRouteRevealUISettingAcceptsTemporaryIDs(t *testing.T) {
 			},
 		},
 	}
-	server, err := mcpx.NewServer(mcpx.ServerOptions{
+	server := newUISettingsRouteTestServer(t, projectRuntime, mcpx.ServerOptions{
 		WorkspaceRoot:      workspaceRoot,
 		ProjectState:       projectRuntime,
 		SectionNames:       routeSectionNameService{runtime: projectRuntime},
@@ -715,9 +849,6 @@ func TestMCPToolCallRouteRevealUISettingAcceptsTemporaryIDs(t *testing.T) {
 		TemporaryIDMapPath: temporaryIDMapPath,
 		UISettingReveals:   revealService,
 	})
-	if err != nil {
-		t.Fatalf("new mcp server: %v", err)
-	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),

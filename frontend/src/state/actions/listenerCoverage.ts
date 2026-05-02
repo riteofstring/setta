@@ -1,11 +1,14 @@
+import {
+  callOpenAPI,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
 import { getListenerCoverage } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   NULL_PROJECT_CONFIG_ID,
   useListenerCoverage,
   type ListenerCoverageRecord,
 } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   BaseDependencyKeyUnion,
   DependencyKeyTypeEnum,

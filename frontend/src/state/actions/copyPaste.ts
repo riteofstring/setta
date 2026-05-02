@@ -1,9 +1,12 @@
-import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
+import {
+  callOpenAPI,
+  res200,
+  type ResponseDataAndStatus,
+} from "@setta/app-subsystem-frontend-sdk";
+import { getActiveSectionsBounds } from "gpuFlow/flowGeometry";
 import { pasteSections, prepareSectionsForCopy } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useShareSession } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   ClipboardDataTypeEnum,
   NotificationTypeEnum,
@@ -24,7 +27,9 @@ export async function copy() {
           projectConfigId: getCurrProjectConfigId(),
           sectionIds: activeSectionIds,
         },
-      } as Parameters<typeof prepareSectionsForCopy>[0]),
+      } as Parameters<typeof prepareSectionsForCopy>[0]) as Parameters<
+        typeof callOpenAPI
+      >[0],
     )) as PrepareSectionsForCopyRouteResponse;
     if (res200(res)) {
       await navigator.clipboard.writeText(JSON.stringify(res.data));
@@ -54,7 +59,9 @@ export async function paste({ asRef = false }) {
             position: getPasteLocation(),
             asRef,
           },
-        } as Parameters<typeof pasteSections>[0]),
+        } as unknown as Parameters<typeof pasteSections>[0]) as Parameters<
+          typeof callOpenAPI
+        >[0],
       )) as PasteSectionsRouteResponse;
       return response;
     }

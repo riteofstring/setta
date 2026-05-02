@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	backendruntime "setta/internal/appsubsystem/backendruntime"
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -17,6 +18,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/pythonsdklocalcore"
 	"setta/internal/realtime"
+	"setta/internal/watchcodecontracts"
 	"setta/internal/workspacelaunch"
 )
 
@@ -73,11 +75,123 @@ func Build() (GeneratedConstants, error) {
 		{Name: "SETTA_TOOL_DOUBLE_PREFIX", PythonExpr: pythonStringLiteral(mcpx.DefaultServerDoubleTool)},
 		{Name: "ASK_USER_QUESTION_TOOL_ALIAS", PythonExpr: pythonStringLiteral(mcpx.AskUserQuestionAlias)},
 		{Name: "ASK_USER_QUESTION_TOOL_NAME", PythonExpr: pythonStringLiteral(mcpx.AskUserQuestionToolName)},
+		{Name: "APP_SUBSYSTEM_BACKEND_CONTRACT_VERSION", PythonExpr: strconv.Itoa(backendruntime.AppSubsystemBackendContractVersion)},
+		{
+			Name: "APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_NAMES",
+			PythonExpr: pythonStringTupleExpr(
+				backendruntime.RequiredListenerEndpointNames(),
+			),
+		},
+		{
+			Name: "APP_SUBSYSTEM_BACKEND_LISTENER_ENDPOINT_TO_LOCAL_CORE_COMMAND",
+			PythonExpr: "MappingProxyType(" + pythonStringDictExpr(
+				appSubsystemBackendListenerEndpointCommandMap(),
+			) + ")",
+		},
 		{Name: "LOCAL_CORE_PROTOCOL_VERSION", PythonExpr: strconv.Itoa(pythonsdklocalcore.ProtocolVersion)},
 		{
 			Name:       "LOCAL_CORE_COMMAND_RENDER_REALTIME_DEPENDENCY_VALUES",
 			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandListenerRenderRealtimeDependencyValues),
 		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_GET_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandGetAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_SPEC_PATH",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppSpecPath),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_GET_EFFECTIVE_APP_THEME_MODE",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandGetEffectiveAppThemeMode),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_VALIDATE_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandValidateAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_SET_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandSetAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_STREAM_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandStreamAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_UPDATE_APP_DEFINITION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandUpdateAppDefinition),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_CATALOG_ID",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionCatalogID),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_VERSION",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionSpecVersion),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_SPEC_PATH",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionSpecPath),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_COMPARE_AND_SET_APP_DEFINITION_THEME_MODE",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandCompareAndSetAppDefinitionThemeMode),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_GET_PROJECT_DATA",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeGetProjectData),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_SET_INPUTS",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetInputs),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_SET_FOLDERS",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetFolders),
+		},
+		{
+			Name:       "LOCAL_CORE_COMMAND_WATCH_CODE_SET_FILES",
+			PythonExpr: pythonStringLiteral(pythonsdklocalcore.CommandWatchCodeSetFiles),
+		},
+		{Name: "WATCH_CODE_BACKEND_CONTRACT_VERSION", PythonExpr: strconv.Itoa(watchcodecontracts.BackendContractVersion)},
+		{Name: "WATCH_CODE_BACKEND_DATA_SCHEMA_VERSION", PythonExpr: strconv.Itoa(watchcodecontracts.BackendDataSchemaVersion)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_BASE_PATH", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendRouteBasePath)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_SUFFIX_INPUTS", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendRouteSuffixInputs)},
+		{Name: "WATCH_CODE_BACKEND_ROUTE_SUFFIXES", PythonExpr: pythonStringTupleExpr(watchcodecontracts.BackendRouteSuffixes())},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_FOLDERS", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendLocalSettingIDFolders)},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_FILES", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendLocalSettingIDFiles)},
+		{Name: "WATCH_CODE_BACKEND_LOCAL_SETTING_IDS", PythonExpr: pythonStringTupleExpr(watchcodecontracts.BackendLocalSettingIDs())},
+		{
+			Name: "WATCH_CODE_BACKEND_READ_HANDLER_BY_LOCAL_SETTING_ID",
+			PythonExpr: "MappingProxyType(" + pythonStringDictExpr(
+				watchcodecontracts.BackendReadHandlerByLocalSettingID(),
+			) + ")",
+		},
+		{
+			Name: "WATCH_CODE_BACKEND_WRITE_HANDLER_BY_LOCAL_SETTING_ID",
+			PythonExpr: "MappingProxyType(" + pythonStringDictExpr(
+				watchcodecontracts.BackendWriteHandlerByLocalSettingID(),
+			) + ")",
+		},
+		{
+			Name: "WATCH_CODE_BACKEND_ERROR_HTTP_STATUS_BY_CODE",
+			PythonExpr: "MappingProxyType(" + pythonStringIntDictExpr(
+				watchcodecontracts.BackendErrorHTTPStatusByCode(),
+			) + ")",
+		},
+		{Name: "WATCH_CODE_BACKEND_ERROR_INVALID_JSON", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInvalidJSON)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_INVALID_REQUEST", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInvalidRequest)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_INTERNAL", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInternal)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_METHOD_NOT_ALLOWED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorMethodNotAllowed)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_NOT_FOUND", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorNotFound)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_ID_REQUIRED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorProjectConfigIDRequired)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_PROJECT_CONFIG_NOT_FOUND", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorProjectConfigNotFound)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_INVALID_WATCH_CODE_INPUT", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorInvalidWatchCodeInput)},
+		{Name: "WATCH_CODE_BACKEND_ERROR_PROVIDER_REQUIRED", PythonExpr: pythonStringLiteral(watchcodecontracts.BackendErrorProviderRequired)},
 		{
 			Name:       "DEPLOYMENT_LISTENER_READY_SENTINEL",
 			PythonExpr: pythonStringLiteral(deployments.DeploymentListenerReadySentinel),
@@ -87,6 +201,8 @@ func Build() (GeneratedConstants, error) {
 	var builder strings.Builder
 	builder.WriteString("# Code generated by ./scripts/go.sh run ./cmd/setta-gen-python-shared-constants -out backend/setta/types/generated/go_shared_constants.py; DO NOT EDIT.\n")
 	builder.WriteString("\n")
+	builder.WriteString("from types import MappingProxyType\n")
+	builder.WriteString("\n")
 	for _, spec := range specs {
 		builder.WriteString(spec.Name)
 		builder.WriteString(" = ")
@@ -95,6 +211,15 @@ func Build() (GeneratedConstants, error) {
 	}
 
 	return GeneratedConstants{PythonModule: builder.String()}, nil
+}
+
+func appSubsystemBackendListenerEndpointCommandMap() map[string]string {
+	pairs := pythonsdklocalcore.AppSubsystemBackendListenerEndpointCommands()
+	result := make(map[string]string, len(pairs))
+	for _, pair := range pairs {
+		result[pair.ListenerEndpointName] = pair.LocalCoreCommandName
+	}
+	return result
 }
 
 func pythonStringLiteral(value string) string {
@@ -161,6 +286,18 @@ func pythonStringDictExpr(values map[string]string) string {
 	parts := make([]string, 0, len(keys))
 	for _, key := range keys {
 		parts = append(parts, fmt.Sprintf("%s: %s", pythonStringLiteral(key), pythonStringLiteral(values[key])))
+	}
+	return fmt.Sprintf("{%s}", strings.Join(parts, ", "))
+}
+
+func pythonStringIntDictExpr(values map[string]int) string {
+	if len(values) == 0 {
+		return "{}"
+	}
+	keys := slices.Sorted(maps.Keys(values))
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s: %d", pythonStringLiteral(key), values[key]))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(parts, ", "))
 }
