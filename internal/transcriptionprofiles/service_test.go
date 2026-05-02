@@ -2,6 +2,7 @@ package transcriptionprofiles
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"setta/internal/llmconfig"
@@ -142,7 +143,7 @@ func TestServiceCreateAllowsWhisperRealtimeTransport(t *testing.T) {
 	}
 }
 
-func TestServiceSeedDefaultProfilesSkipsUnavailableDefaultLLMConfig(t *testing.T) {
+func TestServiceSeedDefaultProfilesRejectsUnavailableDefaultLLMConfig(t *testing.T) {
 	t.Parallel()
 
 	store := newTranscriptionProfileTestStore(t)
@@ -160,15 +161,15 @@ func TestServiceSeedDefaultProfilesSkipsUnavailableDefaultLLMConfig(t *testing.T
 		t.Fatalf("new service: %v", err)
 	}
 
-	if err := service.SeedDefaultProfilesIfMissing(); err != nil {
-		t.Fatalf("seed default profiles: %v", err)
+	err = service.SeedDefaultProfilesIfMissing()
+	if !errors.Is(err, ErrInvalidTranscriptionLLMConfig) {
+		t.Fatalf("expected invalid transcription llm config error, got %v", err)
 	}
-	profiles, err := store.List()
-	if err != nil {
-		t.Fatalf("list profiles: %v", err)
+	if err.Error() != "Transcription profile references unknown transcription LLM config 'openai-whisper-1'." {
+		t.Fatalf("unexpected error message %q", err.Error())
 	}
-	if len(profiles) != 0 {
-		t.Fatalf("expected unavailable default profile to be skipped, got %#v", profiles)
+	if _, statErr := os.Stat(store.Path()); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected failed seed to leave profiles file missing, got %v", statErr)
 	}
 }
 

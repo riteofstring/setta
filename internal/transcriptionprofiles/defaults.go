@@ -23,9 +23,6 @@ func (s *Service) SeedDefaultProfilesIfMissing() error {
 	for _, profile := range defaultProfiles() {
 		normalized, err := s.prepareForSave(profile)
 		if err != nil {
-			if errors.Is(err, ErrInvalidTranscriptionLLMConfig) || errors.Is(err, ErrRealtimeTranscriptionUnavailable) {
-				continue
-			}
 			return err
 		}
 		profiles = append(profiles, normalized)
