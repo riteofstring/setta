@@ -336,6 +336,7 @@ function configureGpuNodeHostElement({
   host.dataset.gpuFlowNode = "true";
   host.dataset.id = node.nodeId;
   host.setAttribute("data-testid", `rf__node-${node.nodeId}`);
+  setGpuNodeBaseStyle(host);
   host.style.visibility = visibility ?? "";
   const zIndex = resolveGpuNodeCssZIndex(node);
   host.style.zIndex = zIndex === undefined ? "" : String(zIndex);

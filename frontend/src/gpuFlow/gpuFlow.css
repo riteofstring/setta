@@ -17,6 +17,7 @@
 
 .setta-gpu-flow__node {
   box-sizing: border-box;
+  contain: paint;
   transform-origin: 0 0;
   user-select: none;
 }

@@ -257,6 +257,10 @@ describe("GpuNodeLayer helpers", () => {
     expect(nodeHost).toBeInstanceOf(HTMLElement);
     expect(nodeHost?.parentElement).toBe(canvas);
     expect(nodeHost?.dataset.gpuFlowNode).toBe("true");
+    expect(nodeHost?.style.left).toBe("0px");
+    expect(nodeHost?.style.position).toBe("absolute");
+    expect(nodeHost?.style.top).toBe("0px");
+    expect(nodeHost?.style.transformOrigin).toBe("0 0");
     expect(
       canvas.querySelector(
         '[data-gpu-flow-node-anchor="true"][data-id="node-a"]',
