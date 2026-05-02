@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "../edges/edgeGeometry";
 import type { GpuEdgeScene, GpuEdgeSceneEntry } from "../edges/edgeSources";
@@ -113,6 +114,101 @@ describe("GPU edge interaction controller", () => {
     });
 
     expect(onEdgePointerDown).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it.each([
+    ["nopan", NO_PAN_CLASS_NAME],
+    ["nodrag", NO_DRAG_CLASS_NAME],
+  ])(
+    "ignores %s targets even when the pointer is over edge geometry",
+    (_label, className) => {
+      const { element } = createGpuFlowSurface();
+      const target = document.createElement("div");
+      target.className = className;
+      target.dataset.gpuFlowSurface = "true";
+      element.append(target);
+      const store = createGpuFlowViewportStore();
+      store.getState().setDomNode(element);
+      const onEdgePointerDown = vi.fn();
+      const detach = attachGpuEdgeInteractionController({
+        element,
+        getScene: () => createEdgeScene(),
+        onEdgePointerDown,
+        store,
+      });
+
+      dispatchPointer(target, "pointerdown", {
+        button: 0,
+        clientX: 150,
+        clientY: 70,
+        pointerId: 1,
+      });
+
+      expect(onEdgePointerDown).not.toHaveBeenCalled();
+      detach();
+    },
+  );
+
+  it("respects the disabled predicate before hit-testing edge pointer starts", () => {
+    const { element, surface } = createGpuFlowSurface();
+    const store = createGpuFlowViewportStore();
+    store.getState().setDomNode(element);
+    const onBackgroundPointerDown = vi.fn();
+    const onEdgePointerDown = vi.fn();
+    element.addEventListener("pointerdown", onBackgroundPointerDown);
+    const detach = attachGpuEdgeInteractionController({
+      disabled: () => true,
+      element,
+      getScene: () => createEdgeScene(),
+      onEdgePointerDown,
+      store,
+    });
+
+    const prevented = !dispatchPointer(surface, "pointerdown", {
+      button: 0,
+      clientX: 150,
+      clientY: 70,
+      pointerId: 1,
+    });
+
+    expect(prevented).toBe(false);
+    expect(onBackgroundPointerDown).toHaveBeenCalledTimes(1);
+    expect(onEdgePointerDown).not.toHaveBeenCalled();
+    detach();
+  });
+
+  it("re-checks the disabled predicate before dispatching an edge click", () => {
+    const { element, surface } = createGpuFlowSurface();
+    const store = createGpuFlowViewportStore();
+    store.getState().setDomNode(element);
+    let disabled = false;
+    const onEdgeClick = vi.fn();
+    const detach = attachGpuEdgeInteractionController({
+      disabled: () => disabled,
+      element,
+      getScene: () => createEdgeScene(),
+      onEdgeClick,
+      store,
+    });
+
+    const downPrevented = !dispatchPointer(surface, "pointerdown", {
+      button: 0,
+      clientX: 150,
+      clientY: 70,
+      pointerId: 1,
+    });
+    disabled = true;
+    const upPrevented = !dispatchPointer(surface, "pointerup", {
+      button: 0,
+      clientX: 150,
+      clientY: 70,
+      pointerId: 1,
+    });
+
+    expect(downPrevented).toBe(true);
+    expect(upPrevented).toBe(true);
+    expect(onEdgeClick).not.toHaveBeenCalled();
     detach();
   });
 

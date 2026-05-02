@@ -1,3 +1,4 @@
+import { useDndState } from "forks/dnd-kit/dndState";
 import { GpuFlow } from "gpuFlow/GpuFlow";
 import {
   attachGpuEdgeInteractionController,
@@ -16,6 +17,7 @@ import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,
 } from "./gpuProjectEdgeScene";
+import { isProjectGpuEdgeInteractionDisabled } from "./gpuProjectInteractionGuards";
 
 type GpuProjectEdgeLayerProps = {
   readonly showAgenticEdges: boolean;
@@ -70,6 +72,21 @@ export function GpuProjectEdgeLayer({
     return attachGpuEdgeInteractionController({
       element: pane,
       getScene: () => sceneRef.current,
+      disabled: () => {
+        const dndState = useDndState.getState();
+        const viewportState = gpuFlowViewportStore.getState();
+        return isProjectGpuEdgeInteractionDisabled({
+          connectionActive: viewportState.connectionStartHandle !== null,
+          dndMode: {
+            isMovingFree: dndState.isMovingFree,
+            isSorting: dndState.isSorting,
+          },
+          isDndActive: dndState.activeId !== null,
+          isFollowTransitioning: false,
+          userSelectionActive: viewportState.userSelectionActive,
+          viewportInteractionActive: viewportState.viewportInteractionActive,
+        });
+      },
       onEdgeClick: (event) => {
         selectEdgeRef.current(event);
       },

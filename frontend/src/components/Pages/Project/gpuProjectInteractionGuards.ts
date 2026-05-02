@@ -34,6 +34,33 @@ export function isProjectGpuViewportGestureDisabled({
   return isFollowTransitioning || isProjectGpuDndModeActive(dndMode);
 }
 
+export type ProjectGpuEdgeInteractionGuardInput = {
+  readonly connectionActive: boolean;
+  readonly dndMode: ProjectGpuDndMode;
+  readonly isDndActive: boolean;
+  readonly isFollowTransitioning: boolean;
+  readonly userSelectionActive: boolean;
+  readonly viewportInteractionActive: boolean;
+};
+
+export function isProjectGpuEdgeInteractionDisabled({
+  connectionActive,
+  dndMode,
+  isDndActive,
+  isFollowTransitioning,
+  userSelectionActive,
+  viewportInteractionActive,
+}: ProjectGpuEdgeInteractionGuardInput): boolean {
+  return (
+    connectionActive ||
+    isDndActive ||
+    isFollowTransitioning ||
+    userSelectionActive ||
+    viewportInteractionActive ||
+    isProjectGpuDndModeActive(dndMode)
+  );
+}
+
 export type ProjectGpuSelectionGuardInput = {
   readonly dndMode: ProjectGpuDndMode;
 };

@@ -1,3 +1,4 @@
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import type {
   GpuEdgeScene,
   GpuEdgeSceneHitTestResult,
@@ -36,6 +37,7 @@ type GpuEdgeInteractionHoverEvent = {
 };
 
 export type GpuEdgeInteractionControllerOptions = {
+  readonly disabled?: boolean | (() => boolean) | undefined;
   readonly element: HTMLElement;
   readonly getScene: () => GpuEdgeScene | null | undefined;
   readonly onEdgeClick?:
@@ -105,6 +107,7 @@ export function hitTestGpuEdgeInteraction({
 class GpuEdgeInteractionController {
   private activePointer: ActiveEdgePointer | null = null;
   private hoveredSceneEdgeId: string | null = null;
+  private readonly disabled: boolean | (() => boolean) | undefined;
   private readonly element: HTMLElement;
   private readonly getScene: () => GpuEdgeScene | null | undefined;
   private readonly onEdgeClick:
@@ -124,6 +127,7 @@ class GpuEdgeInteractionController {
   private readonly store: GpuFlowViewportStoreApi;
 
   constructor(options: GpuEdgeInteractionControllerOptions) {
+    this.disabled = options.disabled;
     this.element = options.element;
     this.getScene = options.getScene;
     this.onEdgeClick = options.onEdgeClick;
@@ -193,6 +197,10 @@ class GpuEdgeInteractionController {
     const activePointer = this.activePointer;
     if (activePointer && activePointer.pointerId === event.pointerId) {
       preventGpuEdgeEvent(event);
+      if (isEdgeInteractionDisabled(this.disabled)) {
+        this.element.releasePointerCapture?.(event.pointerId);
+        this.activePointer = null;
+      }
       return;
     }
     const hit = this.hitTestEvent(event);
@@ -212,6 +220,9 @@ class GpuEdgeInteractionController {
     preventGpuEdgeEvent(event);
     this.element.releasePointerCapture?.(event.pointerId);
     this.activePointer = null;
+    if (isEdgeInteractionDisabled(this.disabled)) {
+      return;
+    }
     if (!isPointerClickDistance(activePointer, event)) {
       return;
     }
@@ -246,6 +257,9 @@ class GpuEdgeInteractionController {
   };
 
   private hitTestEvent(event: MouseEvent): GpuEdgeInteractionHit | null {
+    if (isEdgeInteractionDisabled(this.disabled)) {
+      return null;
+    }
     if (!isGpuFlowEdgeInteractionTarget(event, this.element)) {
       return null;
     }
@@ -297,10 +311,22 @@ function isGpuFlowEdgeInteractionTarget(
   if (target.closest(".react-flow__node") !== null) {
     return false;
   }
+  if (
+    target.closest(`.${NO_PAN_CLASS_NAME}`) !== null ||
+    target.closest(`.${NO_DRAG_CLASS_NAME}`) !== null
+  ) {
+    return false;
+  }
   return (
     target === element ||
     target.closest("[data-gpu-flow-surface='true']") !== null
   );
+}
+
+function isEdgeInteractionDisabled(
+  disabled: boolean | (() => boolean) | undefined,
+): boolean {
+  return typeof disabled === "function" ? disabled() : Boolean(disabled);
 }
 
 function getEventPointRelativeToStoreDomNode(

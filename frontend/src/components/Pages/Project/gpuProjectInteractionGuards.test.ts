@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
   isProjectGpuSelectionBoxDragDisabled,
   isProjectGpuSelectionDisabled,
@@ -63,6 +64,52 @@ describe("gpu project interaction guards", () => {
       isProjectGpuViewportGestureDisabled({
         dndMode: { isMovingFree: false, isSorting: false },
         isFollowTransitioning: false,
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    ["AI follow transition", false, false, false, true, false, false, false],
+    ["dnd sorting mode", true, false, false, false, false, false, false],
+    ["dnd moving-free mode", false, true, false, false, false, false, false],
+    ["active dnd drag", false, false, true, false, false, false, false],
+    ["viewport interaction", false, false, false, false, true, false, false],
+    ["user selection", false, false, false, false, false, true, false],
+    ["active connection", false, false, false, false, false, false, true],
+  ])(
+    "disables GPU edge interaction during %s",
+    (
+      _label,
+      isSorting,
+      isMovingFree,
+      isDndActive,
+      isFollowTransitioning,
+      viewportInteractionActive,
+      userSelectionActive,
+      connectionActive,
+    ) => {
+      expect(
+        isProjectGpuEdgeInteractionDisabled({
+          connectionActive,
+          dndMode: { isMovingFree, isSorting },
+          isDndActive,
+          isFollowTransitioning,
+          userSelectionActive,
+          viewportInteractionActive,
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it("allows GPU edge interaction in normal mode", () => {
+    expect(
+      isProjectGpuEdgeInteractionDisabled({
+        connectionActive: false,
+        dndMode: { isMovingFree: false, isSorting: false },
+        isDndActive: false,
+        isFollowTransitioning: false,
+        userSelectionActive: false,
+        viewportInteractionActive: false,
       }),
     ).toBe(false);
   });

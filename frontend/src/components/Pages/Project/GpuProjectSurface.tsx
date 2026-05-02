@@ -77,6 +77,7 @@ import {
   useProjectGpuEdgeScene,
 } from "./gpuProjectEdgeScene";
 import {
+  isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
   isProjectGpuSelectionBoxDragDisabled,
   isProjectGpuSelectionDisabled,
@@ -265,10 +266,10 @@ function ProjectGpuFlowLayer({
   return (
     <GpuFlow
       className="setta-gpu-flow react-flow__pane"
-      edgeInteraction={{
-        onEdgeClick: selectEdge,
-        onEdgeContextMenu: selectEdge,
-      }}
+      edgeInteraction={getProjectEdgeInteractionOptions({
+        isFollowTransitioning,
+        selectEdge,
+      })}
       edgePalette={getProjectGpuEdgePaletteInput({ darkMode, settings })}
       edgeScene={edgeScene}
       grid={getProjectGpuGridInput({ darkMode, settings })}
@@ -320,6 +321,36 @@ function useProjectGpuEdgeSelection(canEditStructure: boolean) {
     },
     [canEditStructure],
   );
+}
+
+function getProjectEdgeInteractionOptions({
+  isFollowTransitioning,
+  selectEdge,
+}: {
+  readonly isFollowTransitioning: boolean;
+  readonly selectEdge: (
+    event: Pick<GpuEdgeInteractionEvent, "edgeId" | "family">,
+  ) => void;
+}) {
+  return {
+    disabled: () => {
+      const dndState = useDndState.getState();
+      const viewportState = gpuFlowViewportStore.getState();
+      return isProjectGpuEdgeInteractionDisabled({
+        connectionActive: viewportState.connectionStartHandle !== null,
+        dndMode: {
+          isMovingFree: dndState.isMovingFree,
+          isSorting: dndState.isSorting,
+        },
+        isDndActive: dndState.activeId !== null,
+        isFollowTransitioning,
+        userSelectionActive: viewportState.userSelectionActive,
+        viewportInteractionActive: viewportState.viewportInteractionActive,
+      });
+    },
+    onEdgeClick: selectEdge,
+    onEdgeContextMenu: selectEdge,
+  };
 }
 
 function renderProjectGpuNode(node: GpuNodeLayout) {
