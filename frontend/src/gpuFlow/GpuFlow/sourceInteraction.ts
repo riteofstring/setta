@@ -23,6 +23,11 @@ import {
   type GpuViewportInput,
 } from "../viewportMath";
 
+type ResolvedGpuFlowNodeSourceProjection = Pick<
+  GpuNodeSourceProjection,
+  "localX" | "localY" | "surfaceX" | "surfaceY"
+>;
+
 export function projectGpuFlowNodeSourceForPointerEvent({
   effectProjectors,
   event,
@@ -54,6 +59,53 @@ export function projectGpuFlowNodeSourceForPointerEvent({
   if (!isProjectableGpuFlowNode(node) || !sourceElement) {
     return;
   }
+  const projection = resolveGpuFlowNodeSourceProjectionForPointerEvent({
+    event,
+    ...(effectProjectors ? { effectProjectors } : {}),
+    node,
+    nodeId,
+    nodes,
+    surfaceElement,
+    viewport,
+    visualScene,
+  });
+  if (!projection) {
+    return;
+  }
+  projector.alignSourceToClientPoint({
+    localX: projection.localX,
+    localY: projection.localY,
+    sourceElement,
+    sourceId: nodeId,
+    surfaceX: projection.surfaceX,
+    surfaceY: projection.surfaceY,
+  });
+}
+
+function resolveGpuFlowNodeSourceProjectionForPointerEvent({
+  effectProjectors,
+  event,
+  node,
+  nodeId,
+  nodes,
+  surfaceElement,
+  viewport,
+  visualScene,
+}: {
+  readonly effectProjectors?:
+    | ReadonlyMap<string, HtmlSurfaceEffectHitProjector>
+    | undefined;
+  readonly event: PointerEvent;
+  readonly node: GpuNodeLayout & {
+    readonly height: number;
+    readonly width: number;
+  };
+  readonly nodeId: string;
+  readonly nodes: readonly GpuNodeLayout[];
+  readonly surfaceElement: HTMLElement;
+  readonly viewport: GpuViewportInput;
+  readonly visualScene?: HtmlSurfaceVisualScene | undefined;
+}): ResolvedGpuFlowNodeSourceProjection | null {
   const surfaceRect = surfaceElement.getBoundingClientRect();
   const surfaceX = event.clientX - surfaceRect.left;
   const surfaceY = event.clientY - surfaceRect.top;
@@ -66,23 +118,47 @@ export function projectGpuFlowNodeSourceForPointerEvent({
     viewport,
     visualScene,
   });
+  if (visualProjection && visualProjection.node.nodeId !== nodeId) {
+    return;
+  }
+  if (!visualProjection && hasVisualSceneSurfaceForNode(visualScene, nodeId)) {
+    return;
+  }
   const projection =
-    visualProjection?.node.nodeId === nodeId
-      ? visualProjection
-      : resolveFlatGpuNodeSourceProjection({
-          node,
-          surfaceX,
-          surfaceY,
-          viewport,
-        });
-  projector.alignSourceToClientPoint({
+    visualProjection ??
+    resolveFlatGpuNodeSourceProjection({
+      node,
+      surfaceX,
+      surfaceY,
+      viewport,
+    });
+  return {
     localX: projection.localX,
     localY: projection.localY,
-    sourceElement,
-    sourceId: nodeId,
     surfaceX,
     surfaceY,
-  });
+  };
+}
+
+function hasVisualSceneSurfaceForNode(
+  visualScene: HtmlSurfaceVisualScene | undefined,
+  nodeId: string,
+): boolean {
+  return Boolean(
+    visualScene &&
+      (visualScene.flatSurfaces.some(
+        (surface) => surface.surfaceId === nodeId,
+      ) ||
+        visualScene.tiledFlatSurfaces.some(
+          (surface) => surface.surfaceId === nodeId,
+        ) ||
+        visualScene.meshSurfaces.some(
+          (surface) => surface.surfaceId === nodeId,
+        ) ||
+        visualScene.effectSurfaces.some(
+          (surface) => surface.surfaceId === nodeId,
+        )),
+  );
 }
 
 export function clearGpuFlowNodeElement({

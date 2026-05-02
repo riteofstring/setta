@@ -66,6 +66,130 @@ describe("GPU flow source interaction projection", () => {
     expect(projection?.localX).toBeCloseTo(50);
     expect(projection?.localY).toBeCloseTo(20);
   });
+
+  it("does not fall back to flat projection when the active visual scene surface is missed", () => {
+    const surface = document.createElement("div");
+    const source = document.createElement("div");
+    const alignSourceToClientPoint = vi.fn();
+    setRect(surface, 0, 0, 600, 400);
+
+    projectGpuFlowNodeSourceForPointerEvent({
+      event: new MouseEvent("pointermove", {
+        clientX: 50,
+        clientY: 20,
+      }) as PointerEvent,
+      nodeElementById: new Map([["node-a", source]]),
+      nodeId: "node-a",
+      nodes: [node("node-a", 0, 0, 100, 100, 1)],
+      projector: {
+        alignSourceToClientPoint,
+        clearSource: vi.fn(),
+        destroy: vi.fn(),
+        getProjectedSourceId: vi.fn(() => null),
+      } satisfies HtmlSurfaceInteractionProjector,
+      surfaceElement: surface,
+      viewport: [0, 0, 1],
+      visualScene: createHtmlSurfaceVisualScene({
+        meshSurfaces: [
+          {
+            bounds: { height: 100, width: 100, x: 200, y: 0 },
+            indices: new Uint32Array([0, 1, 2, 1, 3, 2]),
+            kind: "mesh",
+            surfaceId: "node-a",
+            texture: textureRecord("node-a", 100, 100),
+            vertices: [
+              { u: 0, v: 0, x: 200, y: 0 },
+              { u: 1, v: 0, x: 300, y: 0 },
+              { u: 0, v: 1, x: 200, y: 100 },
+              { u: 1, v: 1, x: 300, y: 100 },
+            ],
+            zIndex: 1,
+          },
+        ],
+      }),
+    });
+
+    expect(alignSourceToClientPoint).not.toHaveBeenCalled();
+  });
+
+  it("keeps flat fallback only for active nodes missing from the visual scene", () => {
+    const surface = document.createElement("div");
+    const source = document.createElement("div");
+    const alignSourceToClientPoint = vi.fn();
+    setRect(surface, 0, 0, 600, 400);
+
+    projectGpuFlowNodeSourceForPointerEvent({
+      event: new MouseEvent("pointermove", {
+        clientX: 50,
+        clientY: 20,
+      }) as PointerEvent,
+      nodeElementById: new Map([["node-a", source]]),
+      nodeId: "node-a",
+      nodes: [node("node-a", 0, 0, 100, 100, 1)],
+      projector: {
+        alignSourceToClientPoint,
+        clearSource: vi.fn(),
+        destroy: vi.fn(),
+        getProjectedSourceId: vi.fn(() => null),
+      } satisfies HtmlSurfaceInteractionProjector,
+      surfaceElement: surface,
+      viewport: [0, 0, 1],
+      visualScene: createHtmlSurfaceVisualScene(),
+    });
+
+    expect(alignSourceToClientPoint).toHaveBeenCalledTimes(1);
+    expect(alignSourceToClientPoint.mock.calls[0]?.[0]).toMatchObject({
+      localX: 50,
+      localY: 20,
+      sourceElement: source,
+      sourceId: "node-a",
+      surfaceX: 50,
+      surfaceY: 20,
+    });
+  });
+
+  it("fails loudly for effect-backed active sources without a hit projector", () => {
+    const surface = document.createElement("div");
+    const source = document.createElement("div");
+    const alignSourceToClientPoint = vi.fn();
+    setRect(surface, 0, 0, 600, 400);
+
+    expect(() =>
+      projectGpuFlowNodeSourceForPointerEvent({
+        event: new MouseEvent("pointermove", {
+          clientX: 50,
+          clientY: 20,
+        }) as PointerEvent,
+        nodeElementById: new Map([["node-a", source]]),
+        nodeId: "node-a",
+        nodes: [node("node-a", 0, 0, 100, 100, 1)],
+        projector: {
+          alignSourceToClientPoint,
+          clearSource: vi.fn(),
+          destroy: vi.fn(),
+          getProjectedSourceId: vi.fn(() => null),
+        } satisfies HtmlSurfaceInteractionProjector,
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+        visualScene: createHtmlSurfaceVisualScene({
+          effectSurfaces: [
+            {
+              bounds: { height: 100, width: 100, x: 0, y: 0 },
+              effectId: "setta-ripple",
+              kind: "effect",
+              projectorId: "missing-projector",
+              surfaceId: "node-a",
+              texture: textureRecord("node-a", 100, 100),
+              zIndex: 1,
+            },
+          ],
+        }),
+      }),
+    ).toThrow(
+      'HTML surface effect "setta-ripple" cannot be hit-tested without projector "missing-projector".',
+    );
+    expect(alignSourceToClientPoint).not.toHaveBeenCalled();
+  });
 });
 
 function node(
