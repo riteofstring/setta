@@ -58,8 +58,14 @@ export {
 } from "./sectionInfos/codeObjectsAndLayout";
 
 export {
-  debounced_route_set_top_level_section_layout,
+  applyProjectParamUpdate,
+  getNextPendingOperations,
+  receiveProjectParamUpdate,
+} from "./sectionInfos/projectParamUpdates";
+
+export {
   debouncedDispatchViewportUpdate,
+  debounced_route_set_top_level_section_layout,
   dispatchOptimisticProjectStateUpdate,
   dispatchOptimisticProjectStateUpdateWithResult,
   dispatchViewportUpdateImmediately,

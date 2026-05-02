@@ -1142,6 +1142,7 @@ function createFrameTextureManager() {
         });
         return {
           budgetExhausted: false,
+          diagnostics: [],
           remainingDirtySurfaceIds: [],
           skippedSurfaceIds: [],
           skippedUploadBytes: 0,

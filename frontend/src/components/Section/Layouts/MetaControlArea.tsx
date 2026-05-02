@@ -9,6 +9,12 @@ import _ from "lodash";
 import { setParamEnteredValue } from "openapi/http";
 import React from "react";
 import {
+  createChromeReproPerfTimer,
+  nowChromeReproPerformanceMs,
+  postChromeReproPerfEvent,
+  roundChromeReproMs,
+} from "state/actions/chromeRepro";
+import {
   dispatchOptimisticProjectStateUpdate,
   getCurrCodeObjVariantIfPresent,
   getCurrEffectiveCodeObjImplIfPresent,
@@ -519,7 +525,19 @@ function applyMetaControlValueChange({
     return;
   }
   const valueStr = _.toString(nextValue);
+  const timer = createChromeReproPerfTimer("meta-control-value-change", {
+    codeObjType,
+    controlParamId,
+    hasCodeObjVariantId: codeObjVariantId !== null,
+    hasSectionVariantId: sectionVariantId !== null,
+    sectionId,
+    skipBackendUpdate: options?.skipBackendUpdate === true,
+    valueLength: valueStr.length,
+    valueType: typeof nextValue,
+  });
   setPendingValue(valueStr);
+  timer.mark("set-pending-value");
+  let realtimeEmitted = false;
   if (
     shouldEmitRealtimeValue({
       previousValue: currentValue,
@@ -528,8 +546,14 @@ function applyMetaControlValueChange({
     })
   ) {
     sendRealtimeSectionLiteral(sectionId, valueStr);
+    realtimeEmitted = true;
   }
+  timer.mark("realtime-literal");
   if (options?.skipBackendUpdate) {
+    timer.finish({
+      backendUpdateQueued: false,
+      realtimeEmitted,
+    });
     return;
   }
   sendMetaControlBackendUpdate({
@@ -539,6 +563,11 @@ function applyMetaControlValueChange({
     codeObjVariantId,
     codeObjType,
     value: valueStr,
+  });
+  timer.mark("queue-backend-update");
+  timer.finish({
+    backendUpdateQueued: true,
+    realtimeEmitted,
   });
 }
 
@@ -661,8 +690,18 @@ const debouncedSetParamEnteredValue = _.debounce(
     codeObjVariantId: string,
     value: string,
   ) => {
+    const timer = createChromeReproPerfTimer("set-param-entered-value", {
+      codeObjVariantId,
+      paramInfoId,
+      sectionId,
+      sectionVariantId,
+      valueLength: value.length,
+    });
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
+        const applyStartedAt = timer.active
+          ? nowChromeReproPerformanceMs()
+          : null;
         setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
           paramInfoId,
@@ -671,9 +710,35 @@ const debouncedSetParamEnteredValue = _.debounce(
             value,
           },
         );
+        if (applyStartedAt !== null) {
+          postChromeReproPerfEvent("set-param-optimistic-apply", {
+            codeObjVariantId,
+            durationMs: roundChromeReproMs(
+              nowChromeReproPerformanceMs() - applyStartedAt,
+            ),
+            paramInfoId,
+            sectionId,
+            sectionVariantId,
+            valueLength: value.length,
+          });
+        }
       },
-      send: (frontendOpId) =>
-        callOpenAPI(
+      send: (frontendOpId) => {
+        timer.mark("optimistic-dispatch");
+        const requestStartedAt = timer.active
+          ? nowChromeReproPerformanceMs()
+          : null;
+        if (requestStartedAt !== null) {
+          postChromeReproPerfEvent("set-param-request-start", {
+            codeObjVariantId,
+            frontendOpId,
+            paramInfoId,
+            sectionId,
+            sectionVariantId,
+            valueLength: value.length,
+          });
+        }
+        const request = callOpenAPI(
           setParamEnteredValue({
             body: {
               projectConfigId: getCurrProjectConfigId(),
@@ -684,8 +749,58 @@ const debouncedSetParamEnteredValue = _.debounce(
               frontendOpId,
             },
           } as Parameters<typeof setParamEnteredValue>[0]),
-        ),
+        );
+        void Promise.resolve(request).then(
+          (response) => {
+            if (requestStartedAt === null) {
+              return;
+            }
+            postChromeReproPerfEvent("set-param-request-finish", {
+              codeObjVariantId,
+              durationMs: roundChromeReproMs(
+                nowChromeReproPerformanceMs() - requestStartedAt,
+              ),
+              frontendOpId,
+              hasResponse:
+                typeof response === "object" &&
+                response !== null &&
+                "hasResponse" in response
+                  ? response.hasResponse
+                  : null,
+              paramInfoId,
+              sectionId,
+              sectionVariantId,
+              status:
+                typeof response === "object" &&
+                response !== null &&
+                "status" in response
+                  ? response.status
+                  : null,
+              valueLength: value.length,
+            });
+          },
+          (error) => {
+            if (requestStartedAt === null) {
+              return;
+            }
+            postChromeReproPerfEvent("set-param-request-finish", {
+              codeObjVariantId,
+              durationMs: roundChromeReproMs(
+                nowChromeReproPerformanceMs() - requestStartedAt,
+              ),
+              error: error instanceof Error ? error.message : String(error),
+              frontendOpId,
+              paramInfoId,
+              sectionId,
+              sectionVariantId,
+              valueLength: value.length,
+            });
+          },
+        );
+        return request;
+      },
     });
+    timer.finish();
   },
   50,
 );

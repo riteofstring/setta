@@ -11070,6 +11070,130 @@
         "title": "ProjectConfigMetadata",
         "type": "object"
       },
+      "ProjectParamUpdateContent": {
+        "additionalProperties": false,
+        "properties": {
+          "codeObj": {
+            "$ref": "#/components/schemas/Core"
+          },
+          "codeObjImpl": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/BaseCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CodeCallableCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CodeParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TextParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DateParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TimeParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ButtonParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SliderParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RotaryParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwitchParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ColorPickerParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DropdownParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PasswordParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TextAreaParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DropzoneParamCodeObjImpl"
+                  },
+                  {
+                    "$ref": "#/components/schemas/NestedParamCodeObjImpl"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "codeObjVariant": {
+            "$ref": "#/components/schemas/Variant"
+          },
+          "completedOpIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "paramInfoId": {
+            "type": "string"
+          },
+          "pendingOpIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "projectConfigId": {
+            "type": "string"
+          },
+          "sectionId": {
+            "type": "string"
+          },
+          "sectionVariantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectConfigId",
+          "sectionId",
+          "sectionVariantId",
+          "paramInfoId",
+          "codeObj",
+          "codeObjVariant",
+          "codeObjImpl",
+          "completedOpIds",
+          "pendingOpIds"
+        ],
+        "title": "ProjectParamUpdateContent",
+        "type": "object"
+      },
+      "ProjectParamUpdateMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/ProjectParamUpdateContent"
+          },
+          "id": {
+            "type": ["null", "string"]
+          },
+          "messageType": {
+            "$ref": "#/components/schemas/WebsocketMessageType"
+          }
+        },
+        "required": ["id", "messageType", "content"],
+        "title": "ProjectParamUpdateMessage",
+        "type": "object"
+      },
       "ProjectPluginData": {
         "additionalProperties": {
           "anyOf": [
@@ -18223,6 +18347,7 @@
           "PromptTemplatesUpdated",
           "TranscriptionProfilesUpdated",
           "UpdateFrontendProjectState",
+          "UpdateFrontendProjectParam",
           "UpdateSettings",
           "UpdatePluginRuntime",
           "ReturnRenameRefactorResults",

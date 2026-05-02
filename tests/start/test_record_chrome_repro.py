@@ -236,7 +236,19 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
                 "sequenceNumber": 4,
                 "event": {"type": "app-state", "kind": "lsp-diagnostics"},
             },
-            {"sequenceNumber": 5, "event": {"type": "click"}},
+            {
+                "sequenceNumber": 5,
+                "event": {"type": "performance-frame-gap", "gapMs": 48},
+            },
+            {
+                "sequenceNumber": 6,
+                "event": {"type": "app-state", "kind": "gpu-flow-frame"},
+            },
+            {
+                "sequenceNumber": 7,
+                "event": {"type": "app-state", "kind": "perf-websocket-message"},
+            },
+            {"sequenceNumber": 8, "event": {"type": "click"}},
         ]
         for payload in payloads:
             request = urllib.request.Request(
@@ -261,18 +273,21 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
         artifact_dir / "transport_details.ndjson"
     ).read_text(encoding="utf-8").splitlines()
     app_state_lines = (artifact_dir / "app_state.ndjson").read_text(encoding="utf-8").splitlines()
+    performance_lines = (artifact_dir / "performance.ndjson").read_text(encoding="utf-8").splitlines()
 
     assert session_payload["eventCountsByType"] == {
-        "app-state": 1,
+        "app-state": 3,
         "click": 1,
         "console": 1,
         "network-response": 1,
+        "performance-frame-gap": 1,
         "websocket-message": 1,
     }
     assert session_payload["consoleEventsFile"].endswith("console.ndjson")
     assert session_payload["transportEventsFile"].endswith("transport.ndjson")
     assert session_payload["transportDetailsFile"].endswith("transport_details.ndjson")
     assert session_payload["appStateEventsFile"].endswith("app_state.ndjson")
+    assert session_payload["performanceEventsFile"].endswith("performance.ndjson")
     assert [json.loads(line)["event"]["type"] for line in console_lines] == ["console"]
     assert [json.loads(line)["event"]["type"] for line in transport_lines] == [
         "network-response",
@@ -280,7 +295,14 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
     ]
     assert transport_detail_lines == []
     assert [json.loads(line)["event"]["type"] for line in app_state_lines] == [
-        "app-state"
+        "app-state",
+        "app-state",
+        "app-state",
+    ]
+    assert [json.loads(line)["event"]["type"] for line in performance_lines] == [
+        "performance-frame-gap",
+        "app-state",
+        "app-state",
     ]
 
 
@@ -1218,6 +1240,7 @@ PY
     assert helper_payload["launcherFile"] == latest_payload["launcherFile"]
     assert helper_payload["chromeLog"].endswith("/logs/chrome.log")
     assert helper_payload["transportDetailsFile"].endswith("/transport_details.ndjson")
+    assert helper_payload["performanceEventsFile"].endswith("/performance.ndjson")
     assert helper_payload["llmArtifactsDir"].endswith("/llm_engine_artifacts")
     assert helper_payload["llmArtifactsManifest"].endswith(
         "/llm_engine_artifacts/manifest.json"
@@ -1321,6 +1344,7 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
         "consoleEventsFile": str(older_dir / "console.ndjson"),
         "transportEventsFile": str(older_dir / "transport.ndjson"),
         "appStateEventsFile": str(older_dir / "app_state.ndjson"),
+        "performanceEventsFile": str(older_dir / "performance.ndjson"),
         "createdAt": "2026-03-30T15:14:18Z",
         "finalizedAt": "2026-03-30T15:14:30Z",
         "stopReason": "signal",
@@ -1332,6 +1356,7 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
         "consoleEventsFile": str(newer_dir / "console.ndjson"),
         "transportEventsFile": str(newer_dir / "transport.ndjson"),
         "appStateEventsFile": str(newer_dir / "app_state.ndjson"),
+        "performanceEventsFile": str(newer_dir / "performance.ndjson"),
         "createdAt": "2026-03-30T15:14:19Z",
         "finalizedAt": "2026-03-30T15:14:31Z",
         "stopReason": "signal",
@@ -1367,6 +1392,7 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
     assert payload["eventCount"] == 7
     assert payload["bootstrapUrl"] == "http://127.0.0.1:1234/__setta__/bootstrap"
     assert payload["transportDetailsFile"].endswith("/transport_details.ndjson")
+    assert payload["performanceEventsFile"].endswith("/performance.ndjson")
     assert payload["llmArtifactsDir"].endswith("/llm_engine_artifacts")
     assert payload["llmArtifactsManifest"].endswith(
         "/llm_engine_artifacts/manifest.json"

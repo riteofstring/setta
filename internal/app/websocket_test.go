@@ -3937,7 +3937,7 @@ func TestAppCallableAutoRefetchBroadcastsProjectStateUpdate(t *testing.T) {
 	}
 }
 
-func TestAppSetParamEnteredValueRouteBroadcastsProjectStateUpdate(t *testing.T) {
+func TestAppSetParamEnteredValueRouteBroadcastsProjectParamUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
@@ -3990,23 +3990,34 @@ func TestAppSetParamEnteredValueRouteBroadcastsProjectStateUpdate(t *testing.T) 
 		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
 	}
 
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
-	var content realtime.ProjectStateUpdateContent
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectParam, 4)
+	var content realtime.ProjectParamUpdateContent
 	if err := json.Unmarshal(envelope.Content, &content); err != nil {
-		t.Fatalf("decode project state update content: %v", err)
+		t.Fatalf("decode project param update content: %v", err)
 	}
-	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
-		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	if content.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha param update, got %q", content.ProjectConfigID)
+	}
+	if content.SectionID != "allowed-params-section" {
+		t.Fatalf("expected allowed-params-section update, got %q", content.SectionID)
+	}
+	if content.ParamInfoID != "allowed-param" {
+		t.Fatalf("expected allowed-param update, got %q", content.ParamInfoID)
 	}
 	if !containsAppString(content.CompletedOpIDs, "set-param-op") {
 		t.Fatalf("expected completed set-param-op in websocket update, got %#v", content.CompletedOpIDs)
 	}
 
-	paramImplID := content.ProjectState.CodeObjVariants["allowed-param-variant"].Impl
+	if content.CodeObj.ID != "allowed-param" {
+		t.Fatalf("expected code object allowed-param, got %#v", content.CodeObj)
+	}
+	if content.CodeObjVariant.ID != "allowed-param-variant" {
+		t.Fatalf("expected code object variant allowed-param-variant, got %#v", content.CodeObjVariant)
+	}
 	var payload struct {
 		Value string `json:"value"`
 	}
-	if err := json.Unmarshal(content.ProjectState.CodeObjImpls[paramImplID], &payload); err != nil {
+	if err := json.Unmarshal(content.CodeObjImpl, &payload); err != nil {
 		t.Fatalf("decode param impl payload: %v", err)
 	}
 	if payload.Value != "99" {

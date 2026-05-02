@@ -3953,6 +3953,10 @@ export function createProjectConfigMetadata(
   return options as ProjectConfigMetadata;
 }
 
+export type ProjectParamUpdateContent = gt.ProjectParamUpdateContent;
+
+export type ProjectParamUpdateMessage = gt.ProjectParamUpdateMessage;
+
 export type ProjectPluginData = gt.ProjectPluginData;
 
 export type ProjectRunCapabilities = gt.ProjectRunCapabilities;
@@ -8687,6 +8691,7 @@ export const WebsocketMessageTypeEnum = {
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
   TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  UpdateFrontendProjectParam: "UpdateFrontendProjectParam",
   UpdateSettings: "UpdateSettings",
   UpdatePluginRuntime: "UpdatePluginRuntime",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",

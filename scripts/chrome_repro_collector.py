@@ -16,6 +16,8 @@ HEALTH_PATH = "/health"
 EVENT_PATH = "/event"
 APP_STATE_EVENT_TYPE = "app-state"
 CONSOLE_EVENT_TYPES = frozenset({"console", "page-error", "unhandledrejection"})
+PERFORMANCE_APP_STATE_KIND_PREFIXES = ("gpu-flow-", "perf-")
+PERFORMANCE_EVENT_PREFIX = "performance-"
 TRANSPORT_EVENT_PREFIXES = ("network-", "websocket-")
 TRANSPORT_DETAIL_KEYS = (
     "detailText",
@@ -65,11 +67,13 @@ class RecorderState:
         self.transport_file = self.artifact_dir / "transport.ndjson"
         self.transport_details_file = self.artifact_dir / "transport_details.ndjson"
         self.app_state_file = self.artifact_dir / "app_state.ndjson"
+        self.performance_file = self.artifact_dir / "performance.ndjson"
         self.events_file.write_text("", encoding="utf-8")
         self.console_file.write_text("", encoding="utf-8")
         self.transport_file.write_text("", encoding="utf-8")
         self.transport_details_file.write_text("", encoding="utf-8")
         self.app_state_file.write_text("", encoding="utf-8")
+        self.performance_file.write_text("", encoding="utf-8")
 
     def append_event(self, payload: dict) -> None:
         with self.lock:
@@ -95,13 +99,15 @@ class RecorderState:
         writes = [(self.events_file, normalized_payload)]
         writes.extend(
             (path, normalized_payload)
-            for path in self._extra_event_artifact_paths(event_type)
+            for path in self._extra_event_artifact_paths(event_type, normalized_payload)
         )
         if transport_detail is not None and is_transport_event(event_type):
             writes.append((self.transport_details_file, transport_detail))
         return writes
 
-    def _extra_event_artifact_paths(self, event_type: str | None) -> list[Path]:
+    def _extra_event_artifact_paths(
+        self, event_type: str | None, normalized_payload: dict
+    ) -> list[Path]:
         if event_type is None:
             return []
 
@@ -112,6 +118,8 @@ class RecorderState:
             paths.append(self.transport_file)
         if event_type == APP_STATE_EVENT_TYPE:
             paths.append(self.app_state_file)
+        if is_performance_event(event_type, normalized_payload):
+            paths.append(self.performance_file)
         return paths
 
     def write_session_files(self, stop_reason: str) -> None:
@@ -127,6 +135,7 @@ class RecorderState:
                 "transportEventsFile": str(self.transport_file),
                 "transportDetailsFile": str(self.transport_details_file),
                 "appStateEventsFile": str(self.app_state_file),
+                "performanceEventsFile": str(self.performance_file),
                 "eventCountsByType": dict(sorted(self.event_counts_by_type.items())),
                 "stopReason": stop_reason,
                 "events": self.events,
@@ -142,6 +151,7 @@ class RecorderState:
                 "transportEventsFile": str(self.transport_file),
                 "transportDetailsFile": str(self.transport_details_file),
                 "appStateEventsFile": str(self.app_state_file),
+                "performanceEventsFile": str(self.performance_file),
                 "eventCountsByType": payload["eventCountsByType"],
                 "recordingFile": str(self.recording_file),
                 "stopReason": stop_reason,
@@ -212,6 +222,20 @@ def is_console_event(event_type: str | None) -> bool:
 
 def is_transport_event(event_type: str | None) -> bool:
     return bool(event_type) and event_type.startswith(TRANSPORT_EVENT_PREFIXES)
+
+
+def is_performance_event(event_type: str | None, payload: dict) -> bool:
+    if bool(event_type) and event_type.startswith(PERFORMANCE_EVENT_PREFIX):
+        return True
+    if event_type != APP_STATE_EVENT_TYPE:
+        return False
+    event = payload.get("event")
+    if not isinstance(event, dict):
+        return False
+    kind = event.get("kind")
+    return isinstance(kind, str) and kind.startswith(
+        PERFORMANCE_APP_STATE_KIND_PREFIXES
+    )
 
 
 def read_json_object_request(

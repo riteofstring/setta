@@ -75,6 +75,8 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "./projectStateCore";
 
+import { createProjectStateUpdateChromeReproTimer } from "./projectStateChromeReproPerf";
+
 import {
   getCurrProjectConfigId,
   reconcilePendingTopLevelLayout,
@@ -338,7 +340,9 @@ export function processProjectStateUpdateFromBackend(
   x: GetLatestProjectStateResponse,
 ) {
   const projectConfigId = getCurrProjectConfigId();
+  const timer = createProjectStateUpdateChromeReproTimer(x);
   if (x.projectState.projectConfig.id !== projectConfigId) {
+    timer.finish({ ignored: true, reason: "project-config-mismatch" });
     return;
   }
   const currentState = useProjectState.getState();
@@ -371,6 +375,7 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
+  timer.mark("reconcile-pending-ops");
   const nextActiveSectionUIState = getReconciledActiveSectionUIStateFromBackend(
     x.projectState.projectConfig.activeIds,
     x.completedOpIds,
@@ -378,10 +383,13 @@ export function processProjectStateUpdateFromBackend(
     Object.keys(x.projectState.sections),
   );
   const sanitizedProjectState = getComparableProjectState(x.projectState);
+  const comparableCurrentState = getComparableProjectState(currentState);
+  timer.mark("build-comparable-project-state");
   const projectStateChanged = !_.isEqual(
-    getComparableProjectState(currentState),
+    comparableCurrentState,
     sanitizedProjectState,
   );
+  timer.mark("compare-project-state");
   if (!projectStateChanged) {
     unstable_batchedUpdates(() => {
       usePendingOperations.setState({ pending: nextPending });
@@ -392,6 +400,7 @@ export function processProjectStateUpdateFromBackend(
     markRenameBroadcastsReady(completedIds);
     maybeOpenNextRenamePrompt();
     clearToolArgumentPreviewForProjectState(projectConfigId, currentState);
+    timer.finish({ changed: false });
     return;
   }
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
@@ -420,6 +429,7 @@ export function processProjectStateUpdateFromBackend(
       });
     },
   );
+  timer.mark("publish-project-stores");
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }
@@ -429,6 +439,11 @@ export function processProjectStateUpdateFromBackend(
     projectConfigId,
     useProjectState.getState(),
   );
+  timer.finish({
+    changed: true,
+    nextNodeCount: nextNodesMap.size,
+    shouldRequestFitView,
+  });
 }
 
 export function applyViewportFromProjectState(

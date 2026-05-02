@@ -13,6 +13,8 @@ import {
   resolveGpuNodeWheelHandoffTarget,
 } from "../activeNodeTargeting";
 
+import { postGpuFlowFrameChromeReproEvent } from "../chromeReproPerf";
+
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
 import type {
@@ -45,7 +47,7 @@ import {
 
 import { type GpuEdgePaletteInput, type GpuGridInput } from "../gpuPipelines";
 
-import { type GpuCanvasSize } from "../gpuRenderer";
+import { type GpuCanvasSize, type GpuFrameReason } from "../gpuRenderer";
 
 import {
   GpuSurface,
@@ -633,6 +635,7 @@ export function GpuFlow({
         deferResolutionUpdates:
           event.reasons.includes("viewport") ||
           viewportStore.getState().viewportInteractionActive,
+        frameReasons: event.reasons,
         frameRef,
         nodeElementByIdRef,
         nodeDomTransformSyncCacheRef,
@@ -797,6 +800,7 @@ export function renderGpuFlowNodeLayerFrame({
   callbacksRef,
   canvasSizeRef,
   deferResolutionUpdates,
+  frameReasons,
   frameRef,
   nodeElementByIdRef,
   nodeDomTransformSyncCacheRef,
@@ -813,6 +817,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
   readonly deferResolutionUpdates: boolean;
+  readonly frameReasons: readonly GpuFrameReason[];
   readonly frameRef: MutableRefObject<number>;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
@@ -840,6 +845,7 @@ export function renderGpuFlowNodeLayerFrame({
 
   const frame = nextFrame(frameRef);
   const nodeInteraction = nodeInteractionRef.current;
+  const renderStartedAt = performance.now();
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: nodeInteraction?.getActiveNodeId(),
     canvasSize,
@@ -858,6 +864,15 @@ export function renderGpuFlowNodeLayerFrame({
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
+  });
+  postGpuFlowFrameChromeReproEvent({
+    deferResolutionUpdates,
+    frame,
+    frameReasons,
+    layerResult,
+    renderDurationMs: performance.now() - renderStartedAt,
+    viewport: layer.viewport,
+    viewportFrame,
   });
   if (viewportFrame) {
     for (const nodeId of layerResult.domTransformUpdatedNodeIds) {

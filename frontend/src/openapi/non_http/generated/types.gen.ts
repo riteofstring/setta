@@ -4630,6 +4630,47 @@ export type ProjectConfigMetadata = {
 };
 
 /**
+ * ProjectParamUpdateContent
+ */
+export type ProjectParamUpdateContent = {
+  codeObj: Core;
+  codeObjImpl:
+    | BaseCodeObjImpl
+    | CodeCallableCodeObjImpl
+    | CodeParamCodeObjImpl
+    | TextParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | TimeParamCodeObjImpl
+    | ButtonParamCodeObjImpl
+    | SliderParamCodeObjImpl
+    | RotaryParamCodeObjImpl
+    | SwitchParamCodeObjImpl
+    | ColorPickerParamCodeObjImpl
+    | DropdownParamCodeObjImpl
+    | PasswordParamCodeObjImpl
+    | TextAreaParamCodeObjImpl
+    | DropzoneParamCodeObjImpl
+    | NestedParamCodeObjImpl
+    | null;
+  codeObjVariant: Variant;
+  completedOpIds: null | Array<string>;
+  paramInfoId: string;
+  pendingOpIds: null | Array<string>;
+  projectConfigId: string;
+  sectionId: string;
+  sectionVariantId: string;
+};
+
+/**
+ * ProjectParamUpdateMessage
+ */
+export type ProjectParamUpdateMessage = {
+  content: ProjectParamUpdateContent;
+  id: null | string;
+  messageType: WebsocketMessageType;
+};
+
+/**
  * ProjectPluginData
  */
 export type ProjectPluginData = {
@@ -7544,6 +7585,7 @@ export type WebsocketMessageType =
   | "PromptTemplatesUpdated"
   | "TranscriptionProfilesUpdated"
   | "UpdateFrontendProjectState"
+  | "UpdateFrontendProjectParam"
   | "UpdateSettings"
   | "UpdatePluginRuntime"
   | "ReturnRenameRefactorResults"

@@ -12,6 +12,8 @@ import { processNameValidationErrors } from "state/actions/nameValidation";
 
 import { addNotificationFromWebsocketMsg } from "state/actions/notifications";
 
+import { createChromeReproPerfTimer } from "state/actions/chromeRepro";
+
 import { setWebsocketConnections } from "state/actions/websocketConnectionList";
 
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
@@ -50,6 +52,7 @@ import { handleRenameRefactorBroadcast } from "../renameRefactors";
 
 import {
   getCurrProjectConfigId,
+  receiveProjectParamUpdate,
   updateAllProjectMetadata,
 } from "../sectionInfos";
 
@@ -71,7 +74,6 @@ import {
   PromptTemplatesUpdatedContent,
   TranscriptionProfilesUpdatedContent,
   WebsocketMessageHandler,
-  createWebsocketMessageHandler,
   receiveFrontendProjectState,
   wss,
   wssReady,
@@ -83,6 +85,14 @@ import {
   isSocketGenerationCurrent,
   sendMessageForGeneration,
 } from "./realtimeBinaryUpload";
+
+export function createWebsocketMessageHandler<T>(
+  handler: (content: T, socketGeneration: number) => void,
+): WebsocketMessageHandler {
+  return (content, socketGeneration) => {
+    handler(content as T, socketGeneration);
+  };
+}
 
 export const websocketMessageHandlers = {
   [WebsocketMessageTypeEnum.FrontendIdentity]:
@@ -130,6 +140,12 @@ export const websocketMessageHandlers = {
   [WebsocketMessageTypeEnum.UpdateFrontendProjectState]:
     createWebsocketMessageHandler((content) => {
       receiveFrontendProjectState(content);
+    }),
+  [WebsocketMessageTypeEnum.UpdateFrontendProjectParam]:
+    createWebsocketMessageHandler<
+      Parameters<typeof receiveProjectParamUpdate>[0]
+    >((content) => {
+      receiveProjectParamUpdate(content);
     }),
   [WebsocketMessageTypeEnum.UpdateSettings]: createWebsocketMessageHandler<
     Parameters<typeof updateSettings>[0]
@@ -224,8 +240,143 @@ export const websocketMessageHandlers = {
 } satisfies Record<WebsocketMessageType, WebsocketMessageHandler>;
 
 export function receiveMessage(message: string, socketGeneration: number) {
+  const timer = createChromeReproPerfTimer("websocket-message", {
+    rawTextLength: message.length,
+    socketGeneration,
+  });
   const m = JSON.parse(message) as FrontendWebsocketEnvelope;
+  timer.mark("json-parse");
   websocketMessageHandlers[m.messageType](m.content, socketGeneration);
+  timer.mark("handler");
+  timer.finish({
+    messageType: m.messageType,
+    ...summarizeWebsocketPerfContent(m.messageType, m.content),
+  });
+}
+
+function summarizeWebsocketPerfContent(
+  messageType: WebsocketMessageType,
+  content: unknown,
+): Record<string, unknown> {
+  if (messageType === WebsocketMessageTypeEnum.UpdateFrontendProjectState) {
+    return summarizeFrontendProjectStateUpdate(content);
+  }
+  if (messageType === WebsocketMessageTypeEnum.UpdateFrontendProjectParam) {
+    return summarizeFrontendProjectParamUpdate(content);
+  }
+  if (messageType === WebsocketMessageTypeEnum.UpdateSettings) {
+    return summarizeSettingsUpdate(content);
+  }
+  return {};
+}
+
+function summarizeFrontendProjectStateUpdate(
+  content: unknown,
+): Record<string, unknown> {
+  if (!isRecord(content)) {
+    return { contentKind: typeof content };
+  }
+  const projectState = getRecordField(content, "projectState");
+  if (projectState === null) {
+    return { contentKind: "missing-project-state" };
+  }
+  const projectConfig = getRecordField(projectState, "projectConfig");
+  const projectChatWindowing = getRecordField(
+    projectState,
+    "projectChatWindowing",
+  );
+  const chatWindowInstances = getRecordField(
+    projectChatWindowing,
+    "instancesById",
+  );
+  return {
+    activeViewModeId: getStringField(projectConfig, "activeViewModeId"),
+    activeSectionCount: countArrayField(projectConfig, "activeIds"),
+    codeObjCount: countRecordKeys(projectState.codeObjs),
+    codeObjImplCount: countRecordKeys(projectState.codeObjImpls),
+    codeObjVariantCount: countRecordKeys(projectState.codeObjVariants),
+    completedOpCount: countArrayItems(content.completedOpIds),
+    pendingOpCount: countArrayItems(content.pendingOpIds),
+    projectChatWindowCount: countRecordKeys(chatWindowInstances),
+    sectionCount: countRecordKeys(projectState.sections),
+    sectionImplCount: countRecordKeys(projectState.sectionImpls),
+    sectionVariantCount: countRecordKeys(projectState.sectionVariants),
+    shownParamVariantCount: countRecordKeys(projectState.shownParamIds),
+    topLevelSectionCount: countRecordKeys(
+      getRecordField(projectConfig, "topLevelSections"),
+    ),
+    viewModeCount: countRecordKeys(getRecordField(projectConfig, "viewModes")),
+    windowSpaceCount: countRecordKeys(
+      getRecordField(projectConfig, "windowSpaces"),
+    ),
+  };
+}
+
+function summarizeFrontendProjectParamUpdate(
+  content: unknown,
+): Record<string, unknown> {
+  if (!isRecord(content)) {
+    return { contentKind: typeof content };
+  }
+  const codeObjImpl = content.codeObjImpl;
+  return {
+    codeObjImplJsonLength:
+      codeObjImpl === undefined ? 0 : JSON.stringify(codeObjImpl).length,
+    completedOpCount: countArrayItems(content.completedOpIds),
+    paramInfoId: content.paramInfoId,
+    pendingOpCount: countArrayItems(content.pendingOpIds),
+    projectConfigId: content.projectConfigId,
+    sectionId: content.sectionId,
+  };
+}
+
+function summarizeSettingsUpdate(content: unknown): Record<string, unknown> {
+  if (!isRecord(content)) {
+    return { contentKind: typeof content };
+  }
+  return {
+    settingsGroupCount: Object.keys(content).length,
+  };
+}
+
+function countRecordKeys(value: unknown): number | null {
+  return isRecord(value) ? Object.keys(value).length : null;
+}
+
+function getRecordField(
+  source: Record<string, unknown> | null,
+  key: string,
+): Record<string, unknown> | null {
+  if (source === null) {
+    return null;
+  }
+  const value = source[key];
+  return isRecord(value) ? value : null;
+}
+
+function getStringField(
+  source: Record<string, unknown> | null,
+  key: string,
+): string | null {
+  if (source === null) {
+    return null;
+  }
+  const value = source[key];
+  return typeof value === "string" ? value : null;
+}
+
+function countArrayField(
+  source: Record<string, unknown> | null,
+  key: string,
+): number | null {
+  if (source === null) {
+    return null;
+  }
+  return countArrayItems(source[key]);
+}
+
+function countArrayItems(value: unknown): number | null {
+  return Array.isArray(value) ? value.length : null;
 }
 
 export function enqueueUISettingRevealMessage(
