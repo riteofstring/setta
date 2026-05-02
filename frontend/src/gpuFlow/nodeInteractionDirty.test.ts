@@ -214,84 +214,6 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
-  it("forwards pointer handoff target rects to tiled texture dirty ownership", async () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const switchButton = document.createElement("button");
-    switchButton.dataset.gpuFlowControl = "enabled";
-    nodeElement.append(switchButton);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    setRect(nodeElement, 100, 200, 320, 240);
-    setRect(switchButton, 140, 260, 36, 20);
-    const descriptor = createGpuNodeTargetDescriptor(nodeElement, switchButton);
-    if (!descriptor) {
-      throw new Error("Expected a handoff target descriptor");
-    }
-    const textureManager = createInteractionTextureManager();
-    let frame = 0;
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => {
-        frame += 1;
-        return frame;
-      },
-      requestFrame: vi.fn(),
-      resolvePointerHandoffTarget: () => ({
-        descriptor,
-        nodeId: "node-a",
-      }),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    canvas.dispatchEvent(
-      createPointerEvent("pointerdown", {
-        clientX: 145,
-        clientY: 265,
-        pointerId: 13,
-      }),
-    );
-    document.dispatchEvent(
-      createPointerEvent("pointerup", {
-        clientX: 145,
-        clientY: 265,
-        pointerId: 13,
-      }),
-    );
-    await Promise.resolve();
-
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenNthCalledWith(1, {
-      content: true,
-      frame: 1,
-      priority: "interactive",
-      reason: "pointer",
-      sourceRect: {
-        height: 20,
-        width: 36,
-        x: 40,
-        y: 60,
-      },
-      surfaceId: "node-a",
-    });
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenNthCalledWith(2, {
-      content: true,
-      frame: 2,
-      priority: "interactive",
-      reason: "pointer",
-      sourceRect: {
-        height: 20,
-        width: 36,
-        x: 40,
-        y: 60,
-      },
-      surfaceId: "node-a",
-    });
-
-    detach();
-    canvas.remove();
-  });
-
   it("activates resize handles on hover without broad control hover handoff", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -989,47 +911,6 @@ describe("gpu node interaction dirty tracking", () => {
       "node-a",
       "visible",
     );
-
-    detach();
-  });
-
-  it("forwards animation target rects to tiled texture dirty ownership", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const switchThumb = document.createElement("span");
-    switchThumb.dataset.gpuFlowControl = "animated-switch-thumb";
-    nodeElement.append(switchThumb);
-    canvas.append(nodeElement);
-    setRect(nodeElement, 100, 200, 320, 240);
-    setRect(switchThumb, 140, 260, 36, 20);
-    const textureManager = createInteractionTextureManager();
-    let frame = 0;
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => {
-        frame += 1;
-        return frame;
-      },
-      requestFrame: vi.fn(),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas);
-
-    switchThumb.dispatchEvent(new Event("transitionstart", { bubbles: true }));
-
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
-      content: true,
-      frame: 1,
-      priority: "interactive",
-      reason: "animation",
-      sourceRect: {
-        height: 20,
-        width: 36,
-        x: 40,
-        y: 60,
-      },
-      surfaceId: "node-a",
-    });
 
     detach();
   });

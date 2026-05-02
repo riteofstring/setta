@@ -4,8 +4,6 @@ import type { DirtyNodeReason, NodeTexturePriority } from "../dirtyTracking";
 
 import type { GpuFrameReason } from "../gpuRenderer";
 
-import type { HtmlSurfaceDirtyRect } from "../htmlSurfaces/textureDirtyTiles";
-
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 
 export type GpuNodeInteractionFrameResult = {
@@ -65,7 +63,6 @@ export type MarkInteractionDirtyInput = {
   readonly priority: NodeTexturePriority;
   readonly reason: DirtyNodeReason;
   readonly scheduleFrame?: boolean | undefined;
-  readonly sourceRect?: HtmlSurfaceDirtyRect | undefined;
 };
 
 export type NodeInteractionStatePatch = {

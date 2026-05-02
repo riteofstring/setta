@@ -38,7 +38,6 @@ import {
   type HtmlSurfaceTextureManager,
   type HtmlSurfaceTextureRecord,
 } from "./textures";
-import type { HtmlSurfaceDirtyRect } from "./textureDirtyTiles";
 import {
   createHtmlSurfaceVisualScene,
   type FlowRect,
@@ -160,10 +159,7 @@ export function HtmlSurfaceWarpedMeshFixture({
   const markDirty = useCallback(
     (
       reason: DirtyNodeReason,
-      options: {
-        readonly scheduleFrame?: boolean | undefined;
-        readonly sourceRect?: HtmlSurfaceDirtyRect | undefined;
-      } = {},
+      options: { readonly scheduleFrame?: boolean | undefined } = {},
     ) => {
       dirtyMarksRef.current += 1;
       const frame = nextFixtureFrame(frameRef);
@@ -172,7 +168,6 @@ export function HtmlSurfaceWarpedMeshFixture({
         frame,
         priority: "interactive",
         reason,
-        ...(options.sourceRect ? { sourceRect: options.sourceRect } : {}),
         surfaceId: HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
       });
       if (options.scheduleFrame !== false) {
@@ -347,11 +342,11 @@ export function HtmlSurfaceWarpedMeshFixture({
           surfaceId === HTML_SURFACE_WARPED_MESH_FIXTURE_ID
             ? sourceElementRef.current
             : null,
-        markDirty: ({ reason, sourceRect, surfaceId }) => {
+        markDirty: ({ reason, surfaceId }) => {
           if (surfaceId !== HTML_SURFACE_WARPED_MESH_FIXTURE_ID) {
             return false;
           }
-          markDirty(reason, { scheduleFrame: false, sourceRect });
+          markDirty(reason, { scheduleFrame: false });
           return true;
         },
       });
