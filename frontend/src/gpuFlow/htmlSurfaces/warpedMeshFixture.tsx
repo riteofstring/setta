@@ -33,12 +33,13 @@ import {
   HtmlSurfaceSourceLayer,
   type HtmlSurfaceSourceElementConfig,
 } from "./sourceLayer";
+import type { HtmlSurfaceDirtyRect } from "./textureDirtyTiles";
 import {
   createHtmlSurfaceTextureManager,
   type HtmlSurfaceTextureManager,
   type HtmlSurfaceTextureRecord,
 } from "./textures";
-import type { HtmlSurfaceDirtyRect } from "./textureDirtyTiles";
+import { DEFAULT_HTML_SURFACE_TEXTURE_UPLOAD_BUDGET_BYTES } from "./textureTiles";
 import {
   createHtmlSurfaceVisualScene,
   type FlowRect,
@@ -433,6 +434,7 @@ function renderWarpedMeshFixtureFrame({
   });
   const uploadResult = textureManager.uploadDirtySurfaceTextures({
     frame,
+    maxBytes: DEFAULT_HTML_SURFACE_TEXTURE_UPLOAD_BUDGET_BYTES,
     maxDurationMs: 4,
     maxUploads: 2,
   });

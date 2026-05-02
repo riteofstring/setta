@@ -67,6 +67,8 @@ import {
 
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
+import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
@@ -145,11 +147,6 @@ export const PROJECT_SURFACE_STYLE: CSSProperties = {
   userSelect: "none",
   width: "100%",
 };
-
-export const PROJECT_GPU_NODE_UPLOAD_BUDGET = {
-  maxDurationMs: 4,
-  maxUploads: 2,
-} as const;
 
 export const SELECTION_ARROW_KEY_DIFFS: Record<
   string,

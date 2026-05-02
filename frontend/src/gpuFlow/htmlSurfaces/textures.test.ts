@@ -872,6 +872,45 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a tiled surface upload within the byte budget", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    manager.registerSurfaceTexture({
+      cssHeight: 128,
+      cssWidth: 256,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "settings-like",
+      zoom: 1,
+    });
+
+    const result = manager.uploadDirtySurfaceTextures({
+      frame: 2,
+      maxBytes: 128 * 128 * 4,
+      maxUploads: 2,
+    });
+
+    expect(result).toMatchObject({
+      budgetExhausted: true,
+      remainingDirtySurfaceIds: ["settings-like"],
+      skippedUploadBytes: 128 * 128 * 4,
+      uploadedBytes: 128 * 128 * 4,
+    });
+    expect(manager.getDirtySurfaces()).toMatchObject([
+      {
+        dirtyTileIds: ["settings-like:1:0"],
+        surfaceId: "settings-like",
+      },
+    ]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+  });
+
   it("records texture dimension clamps on the surface texture record", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

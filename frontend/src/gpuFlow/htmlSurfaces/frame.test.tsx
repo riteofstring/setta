@@ -4,6 +4,7 @@ import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "../edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
+import { evaluateHtmlSurfaceSourcePolicy } from "./apiProbes";
 import {
   buildHtmlSurfaceVisuals,
   buildTexturedGpuNodeQuads,
@@ -16,7 +17,6 @@ import {
   syncGpuNodeDomTransformsFromQuads,
   type GpuNodeLayout,
 } from "./frame";
-import { evaluateHtmlSurfaceSourcePolicy } from "./apiProbes";
 import type { RenderHtmlSurfacesInput } from "./renderer";
 import type {
   HtmlSurfaceTextureRecord,
@@ -538,6 +538,34 @@ describe("HTML surface frame helpers", () => {
     );
     expect(result.drawnNodeIds).toEqual(["passive", "active"]);
     expect(result.visibleNodeIds).toEqual(["passive", "active"]);
+  });
+
+  it("forwards upload byte budgets to the texture manager", () => {
+    const visible = document.createElement("div");
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    renderHtmlSurfaceFrame({
+      canvasSize: canvasSize(),
+      elementByNodeId: new Map([["visible", visible]]),
+      frame: 1,
+      nodes: [node("visible", 10, 20, 100, 50, 0)],
+      renderer,
+      textureManager: manager,
+      uploadBudget: {
+        maxBytes: 1_048_576,
+        maxDurationMs: 4,
+        maxUploads: 2,
+      },
+      viewport: [0, 0, 1],
+    });
+
+    expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
+      frame: 1,
+      maxBytes: 1_048_576,
+      maxDurationMs: 4,
+      maxUploads: 2,
+    });
   });
 
   it("reports texture eviction and memory summaries from the manager", () => {

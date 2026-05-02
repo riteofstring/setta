@@ -64,6 +64,10 @@ export type HtmlSurfaceTextureUploadResult = {
 };
 
 export const DEFAULT_HTML_SURFACE_TEXTURE_TILE_DIMENSION_PX = 2048;
+export const DEFAULT_HTML_SURFACE_TEXTURE_UPLOAD_BUDGET_BYTES =
+  DEFAULT_HTML_SURFACE_TEXTURE_TILE_DIMENSION_PX *
+  DEFAULT_HTML_SURFACE_TEXTURE_TILE_DIMENSION_PX *
+  4;
 
 export function createSurfaceTextureLayoutResources({
   createTextureResources,
