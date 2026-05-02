@@ -1,3 +1,5 @@
+import { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
+
 export type HtmlSurfaceInteractionProjectionInput = {
   readonly localX: number;
   readonly localY: number;
@@ -21,8 +23,7 @@ export type HtmlSurfaceInteractionProjector = {
   getProjectedSourceId(): string | null;
 };
 
-export const HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE =
-  "data-gpu-flow-projected-interaction";
+export { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
 
 export const HTML_SURFACE_PASSIVE_TRANSFORM = "translate(0px, 0px) scale(1)";
 

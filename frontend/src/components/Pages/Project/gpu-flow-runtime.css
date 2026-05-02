@@ -1,5 +1,22 @@
 @import "./gpu-flow-runtime-base.css";
 
+/* Passive HTML capture sources are rendered by WebGPU; only the projected
+   interactive source may participate in native hit testing. */
+.setta-gpu-flow__html-source:not([data-gpu-flow-interactive="true"]):not(
+    [data-gpu-flow-projected-interaction="true"]
+  )
+  *,
+.setta-gpu-flow__html-source:not([data-gpu-flow-interactive="true"]):not(
+    [data-gpu-flow-projected-interaction="true"]
+  )
+  *::before,
+.setta-gpu-flow__html-source:not([data-gpu-flow-interactive="true"]):not(
+    [data-gpu-flow-projected-interaction="true"]
+  )
+  *::after {
+  pointer-events: none !important;
+}
+
 /* Keep these selectors in sync with gpuFlow/gpuFlowDomClasses.ts. */
 .setta-gpu-flow__nodes-selection-rect {
   background: rgba(0, 89, 220, 0.08);

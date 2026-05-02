@@ -1,18 +1,17 @@
-import {
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { createPortal } from "react-dom";
 
-export const HTML_SURFACE_SOURCE_CLASS_NAME = "setta-gpu-flow__html-source";
+import {
+  HTML_SURFACE_SOURCE_CLASS_NAME,
+  HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
+} from "./sourceDom";
 
-export const HTML_SURFACE_SOURCE_SELECTOR =
-  '[data-gpu-flow-html-source="true"]';
-
-export const HTML_SURFACE_SOURCE_ID_ATTRIBUTE = "data-gpu-flow-source-id";
+export {
+  HTML_SURFACE_SOURCE_CLASS_NAME,
+  HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
+  HTML_SURFACE_SOURCE_SELECTOR,
+} from "./sourceDom";
 
 export type HtmlSurfaceSourceElementConfig<TSource> = {
   readonly className: string;

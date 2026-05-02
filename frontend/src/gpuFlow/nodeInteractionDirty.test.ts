@@ -385,6 +385,95 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
+  it("ignores native resize handles from passive capture sources", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    nodeElement.classList.add("setta-gpu-flow__html-source");
+    nodeElement.dataset.gpuFlowHtmlSource = "true";
+    nodeElement.dataset.gpuFlowInteractive = "false";
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className =
+      "section-resize-handle section-resize-handle-bottom-right";
+    nodeElement.append(resizeHandle);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const resolvePointerHandoffTarget = vi.fn(() => null);
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame,
+      resolvePointerHandoffTarget,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    resizeHandle.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 25,
+        clientY: 35,
+        pointerId: 17,
+      }),
+    );
+
+    expect(resolvePointerHandoffTarget).toHaveBeenCalledTimes(1);
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+
+    detach();
+    canvas.remove();
+  });
+
+  it("allows native resize handles from projected capture sources", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    nodeElement.classList.add("setta-gpu-flow__html-source");
+    nodeElement.dataset.gpuFlowHtmlSource = "true";
+    nodeElement.dataset.gpuFlowInteractive = "false";
+    nodeElement.setAttribute("data-gpu-flow-projected-interaction", "true");
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className =
+      "section-resize-handle section-resize-handle-bottom-right";
+    nodeElement.append(resizeHandle);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const resolvePointerHandoffTarget = vi.fn(() => null);
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame,
+      resolvePointerHandoffTarget,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    resizeHandle.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 25,
+        clientY: 35,
+        pointerId: 18,
+      }),
+    );
+
+    expect(resolvePointerHandoffTarget).not.toHaveBeenCalled();
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 1,
+      priority: "interactive",
+      reason: "pointer",
+      surfaceId: "node-a",
+    });
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+
+    detach();
+    canvas.remove();
+  });
+
   it("replays mousedown for controls that activate on mouse capture", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -922,6 +1011,44 @@ describe("gpu node interaction dirty tracking", () => {
       priority: "interactive",
       reason: "selection",
     });
+
+    detach();
+  });
+
+  it("keeps custom dirty events from passive capture sources", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    nodeElement.classList.add("setta-gpu-flow__html-source");
+    nodeElement.dataset.gpuFlowHtmlSource = "true";
+    nodeElement.dataset.gpuFlowInteractive = "false";
+    const editor = document.createElement("div");
+    editor.className = "cm-editor";
+    nodeElement.append(editor);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 24,
+      requestFrame,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    dispatchGpuFlowNodeDirtyEvent(editor, {
+      priority: "visible",
+      reason: "input",
+    });
+
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 24,
+      priority: "visible",
+      reason: "input",
+      surfaceId: "node-a",
+    });
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
 
     detach();
   });
