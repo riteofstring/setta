@@ -21,6 +21,7 @@ import type {
 import {
   createHtmlSurfaceVisualScene,
   type HtmlSurfaceFlatVisual,
+  type HtmlSurfaceTiledFlatVisual,
 } from "./visualScene";
 
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
@@ -395,15 +396,14 @@ export function renderHtmlSurfaceFrame({
   const uploadedTexturedQuads = textureResult.texturedQuads.filter(
     (quad) => quad.texture.lastUploadFrame >= 0,
   );
+  const visualSurfaces = buildHtmlSurfaceVisuals(uploadedTexturedQuads);
   const renderResult = renderer.render({
     canvasSize,
     clearColor,
     ...(edgePalette === undefined ? {} : { edgePalette }),
     ...(edges === undefined ? {} : { edges }),
     ...(grid === undefined ? {} : { grid }),
-    scene: createHtmlSurfaceVisualScene({
-      flatSurfaces: uploadedTexturedQuads.map(toFlatHtmlSurfaceVisual),
-    }),
+    scene: createHtmlSurfaceVisualScene(visualSurfaces),
     viewport,
   });
   const evictionResult = textureManager.evictSurfaceTextures({
@@ -610,6 +610,39 @@ export function toFlatHtmlSurfaceVisual(
     x: quad.x,
     y: quad.y,
     zIndex: quad.zIndex,
+  };
+}
+
+export function buildHtmlSurfaceVisuals(
+  quads: readonly GpuTexturedNodeQuad[],
+): {
+  readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+  readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
+} {
+  const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
+  const tiledFlatSurfaces: HtmlSurfaceTiledFlatVisual[] = [];
+  for (const quad of quads) {
+    if (quad.texture.textureLayout?.kind === "tiled") {
+      tiledFlatSurfaces.push({
+        kind: "tiled-flat",
+        rect: {
+          height: quad.height,
+          width: quad.width,
+          x: quad.x,
+          y: quad.y,
+        },
+        surfaceId: quad.nodeId,
+        texture: quad.texture,
+        tiles: quad.texture.tiles,
+        zIndex: quad.zIndex,
+      });
+      continue;
+    }
+    flatSurfaces.push(toFlatHtmlSurfaceVisual(quad));
+  }
+  return {
+    flatSurfaces,
+    tiledFlatSurfaces,
   };
 }
 

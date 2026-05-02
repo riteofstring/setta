@@ -125,7 +125,7 @@ export function buildMeshSurfaceVertexCache(
 
 export function isFlatSurfaceVertexCacheValid(
   cache: FlatSurfaceVertexCache | null,
-  surfaces: readonly HtmlSurfaceFlatVisual[],
+  surfaces: readonly CachedFlatSurfaceGeometry[],
 ): cache is FlatSurfaceVertexCache {
   if (!cache || cache.geometry.length !== surfaces.length) {
     return false;
@@ -167,7 +167,7 @@ export function isMeshSurfaceVertexCacheValid(
 
 export function isCachedFlatSurfaceGeometryEqual(
   cached: CachedFlatSurfaceGeometry,
-  surface: HtmlSurfaceFlatVisual,
+  surface: CachedFlatSurfaceGeometry,
 ): boolean {
   return (
     cached.surfaceId === surface.surfaceId &&
@@ -240,7 +240,7 @@ function areMeshVerticesEqual(
 }
 
 export function captureFlatSurfaceGeometry(
-  surfaces: readonly HtmlSurfaceFlatVisual[],
+  surfaces: readonly CachedFlatSurfaceGeometry[],
 ): readonly CachedFlatSurfaceGeometry[] {
   return surfaces.map((surface) => ({
     height: surface.height,

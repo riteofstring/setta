@@ -28,9 +28,6 @@ import {
 } from "../gpuPipelines/pipelineTypes";
 
 import {
-  EDGE_LINE_SHADER,
-  FLAT_SURFACE_SHADER,
-  GRID_SHADER,
   alignToFourBytes,
   areFloat32ArraysEqual,
   buildFlatSurfaceVertexData,
@@ -41,6 +38,16 @@ import {
 } from "../gpuPipelines/bufferAndShaders";
 
 import { HtmlSurfaceMeshPass } from "./rendererMesh";
+import {
+  createHtmlSurfaceEdgePipeline,
+  createHtmlSurfaceFlatPipeline,
+  createHtmlSurfaceGridPipeline,
+} from "./rendererPipelineFactories";
+import {
+  HtmlSurfaceTiledFlatPass,
+  createTiledFlatSurfaceDrawTiles,
+  type TiledFlatSurfaceDrawTile,
+} from "./rendererTiledFlat";
 
 import type {
   HtmlSurfaceFlatVisual,
@@ -94,6 +101,7 @@ export class HtmlSurfaceRenderer {
       readonly textureView: GPUTextureView;
     }
   >();
+  private tiledFlatSurfacePass: HtmlSurfaceTiledFlatPass | null = null;
   private vertexBuffer: GPUBuffer | null = null;
   private vertexBufferByteCapacity = 0;
 
@@ -110,6 +118,7 @@ export class HtmlSurfaceRenderer {
       this.vertexBuffer,
     ]);
     this.meshSurfacePass?.destroy();
+    this.tiledFlatSurfacePass?.destroy();
     this.cameraBuffer = null;
     this.edgeBufferCache = null;
     this.edgePaletteBindGroup = null;
@@ -123,6 +132,7 @@ export class HtmlSurfaceRenderer {
     this.gridBuffer = null;
     this.gridPipeline = null;
     this.meshSurfacePass = null;
+    this.tiledFlatSurfacePass = null;
     this.vertexBuffer = null;
     this.cameraBindGroup = null;
     this.flatSurfacePipeline = null;
@@ -149,6 +159,9 @@ export class HtmlSurfaceRenderer {
   }: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult {
     assertUnsupportedSurfaceBucketsEmpty(scene);
     const flatSurfaces = scene.flatSurfaces;
+    const tiledFlatSurfaceTiles = createTiledFlatSurfaceDrawTiles(
+      scene.tiledFlatSurfaces,
+    );
     const meshSurfaces = scene.meshSurfaces;
     const edgeBufferData = this.resolveEdgeBufferData(edges);
     const gridDraw = this.prepareGridDraw(grid);
@@ -160,6 +173,9 @@ export class HtmlSurfaceRenderer {
       viewport,
     });
     const flatSurfaceDraw = this.prepareFlatSurfaceDraw(flatSurfaces);
+    const tiledFlatSurfaceDraw = this.prepareTiledFlatSurfaceDraw(
+      tiledFlatSurfaceTiles,
+    );
     const meshSurfaceDraw = this.prepareMeshSurfaceDraw(meshSurfaces);
     this.writeSceneBuffers({
       cameraUniform,
@@ -172,6 +188,8 @@ export class HtmlSurfaceRenderer {
       flatSurfaces,
       meshSurfaceDraw,
       meshSurfaces,
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
     });
 
     const commandEncoder = this.runtime.device.createCommandEncoder({
@@ -195,6 +213,12 @@ export class HtmlSurfaceRenderer {
     this.drawGrid(pass, cameraBindGroup, gridDraw);
     this.drawEdges(pass, cameraBindGroup, edgeDraw, edgeBufferData);
     this.drawFlatSurfaces(pass, cameraBindGroup, flatSurfaceDraw, flatSurfaces);
+    this.drawTiledFlatSurfaces(
+      pass,
+      cameraBindGroup,
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    );
     this.drawMeshSurfaces(pass, cameraBindGroup, meshSurfaceDraw, meshSurfaces);
     pass.end();
 
@@ -208,10 +232,14 @@ export class HtmlSurfaceRenderer {
       drawnEdgeIds: edgeBufferData.ranges.map((range) => range.edgeId),
       drawnSurfaceIds: [
         ...flatSurfaces.map((surface) => surface.surfaceId),
+        ...scene.tiledFlatSurfaces.map((surface) => surface.surfaceId),
         ...meshSurfaces.map((surface) => surface.surfaceId),
       ],
       edgeVertexCount: edgeBufferData.vertexCount,
-      vertexCount: flatSurfaces.length * VERTICES_PER_QUAD + meshVertexCount,
+      vertexCount:
+        (flatSurfaces.length + tiledFlatSurfaceTiles.length) *
+          VERTICES_PER_QUAD +
+        meshVertexCount,
     };
   }
 
@@ -300,6 +328,18 @@ export class HtmlSurfaceRenderer {
       runtime: this.runtime,
     });
     return this.meshSurfacePass;
+  }
+
+  private ensureTiledFlatSurfacePass(): HtmlSurfaceTiledFlatPass {
+    if (this.tiledFlatSurfacePass) {
+      return this.tiledFlatSurfacePass;
+    }
+    this.tiledFlatSurfacePass = new HtmlSurfaceTiledFlatPass({
+      getFlatSurfacePipeline: () => this.ensureFlatSurfacePipeline(),
+      getTextureBindGroup: (tile) => this.getTextureBindGroup(tile),
+      runtime: this.runtime,
+    });
+    return this.tiledFlatSurfacePass;
   }
 
   private ensureGridBindGroup(): GPUBindGroup {
@@ -398,47 +438,10 @@ export class HtmlSurfaceRenderer {
     if (this.gridPipeline) {
       return this.gridPipeline;
     }
-    const device = this.runtime.device;
-    const cameraBindGroupLayout = this.ensureCameraBindGroupLayout();
-    const gridBindGroupLayout = this.ensureGridBindGroupLayout();
-    const shaderModule = device.createShaderModule({
-      code: GRID_SHADER,
-      label: "setta-gpu-grid-shader",
-    });
-    this.gridPipeline = device.createRenderPipeline({
-      fragment: {
-        entryPoint: "fs_main",
-        module: shaderModule,
-        targets: [
-          {
-            blend: {
-              alpha: {
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-                srcFactor: "one",
-              },
-              color: {
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-                srcFactor: "src-alpha",
-              },
-            },
-            format: this.runtime.format,
-          },
-        ],
-      },
-      label: "setta-gpu-grid-pipeline",
-      layout: device.createPipelineLayout({
-        bindGroupLayouts: [cameraBindGroupLayout, gridBindGroupLayout],
-        label: "setta-gpu-grid-pipeline-layout",
-      }),
-      primitive: {
-        topology: "triangle-list",
-      },
-      vertex: {
-        entryPoint: "vs_main",
-        module: shaderModule,
-      },
+    this.gridPipeline = createHtmlSurfaceGridPipeline({
+      cameraBindGroupLayout: this.ensureCameraBindGroupLayout(),
+      gridBindGroupLayout: this.ensureGridBindGroupLayout(),
+      runtime: this.runtime,
     });
     return this.gridPipeline;
   }
@@ -447,64 +450,10 @@ export class HtmlSurfaceRenderer {
     if (this.flatSurfacePipeline) {
       return this.flatSurfacePipeline;
     }
-    const device = this.runtime.device;
-    const cameraBindGroupLayout = this.ensureCameraBindGroupLayout();
-    const textureBindGroupLayout = this.ensureTextureBindGroupLayout();
-    const shaderModule = device.createShaderModule({
-      code: FLAT_SURFACE_SHADER,
-      label: "setta-html-surface-flat-shader",
-    });
-    this.flatSurfacePipeline = device.createRenderPipeline({
-      fragment: {
-        entryPoint: "fs_main",
-        module: shaderModule,
-        targets: [
-          {
-            blend: {
-              alpha: {
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-                srcFactor: "one",
-              },
-              color: {
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-                srcFactor: "src-alpha",
-              },
-            },
-            format: this.runtime.format,
-          },
-        ],
-      },
-      label: "setta-html-surface-flat-pipeline",
-      layout: device.createPipelineLayout({
-        bindGroupLayouts: [cameraBindGroupLayout, textureBindGroupLayout],
-        label: "setta-html-surface-flat-pipeline-layout",
-      }),
-      primitive: {
-        topology: "triangle-list",
-      },
-      vertex: {
-        buffers: [
-          {
-            arrayStride: FLAT_SURFACE_VERTEX_BYTES,
-            attributes: [
-              {
-                format: "float32x2",
-                offset: 0,
-                shaderLocation: 0,
-              },
-              {
-                format: "float32x2",
-                offset: Float32Array.BYTES_PER_ELEMENT * 2,
-                shaderLocation: 1,
-              },
-            ],
-          },
-        ],
-        entryPoint: "vs_main",
-        module: shaderModule,
-      },
+    this.flatSurfacePipeline = createHtmlSurfaceFlatPipeline({
+      cameraBindGroupLayout: this.ensureCameraBindGroupLayout(),
+      runtime: this.runtime,
+      textureBindGroupLayout: this.ensureTextureBindGroupLayout(),
     });
     return this.flatSurfacePipeline;
   }
@@ -540,69 +489,10 @@ export class HtmlSurfaceRenderer {
     if (this.edgePipeline) {
       return this.edgePipeline;
     }
-    const device = this.runtime.device;
-    const cameraBindGroupLayout = this.ensureCameraBindGroupLayout();
-    const edgePaletteBindGroupLayout = this.ensureEdgePaletteBindGroupLayout();
-    const shaderModule = device.createShaderModule({
-      code: EDGE_LINE_SHADER,
-      label: "setta-gpu-edge-line-shader",
-    });
-    this.edgePipeline = device.createRenderPipeline({
-      fragment: {
-        entryPoint: "fs_main",
-        module: shaderModule,
-        targets: [
-          {
-            blend: {
-              alpha: {
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-                srcFactor: "one",
-              },
-              color: {
-                dstFactor: "one-minus-src-alpha",
-                operation: "add",
-                srcFactor: "src-alpha",
-              },
-            },
-            format: this.runtime.format,
-          },
-        ],
-      },
-      label: "setta-gpu-edge-line-pipeline",
-      layout: device.createPipelineLayout({
-        bindGroupLayouts: [cameraBindGroupLayout, edgePaletteBindGroupLayout],
-        label: "setta-gpu-edge-line-pipeline-layout",
-      }),
-      primitive: {
-        topology: "line-list",
-      },
-      vertex: {
-        buffers: [
-          {
-            arrayStride: EDGE_VERTEX_BYTES,
-            attributes: [
-              {
-                format: "float32x2",
-                offset: 0,
-                shaderLocation: 0,
-              },
-              {
-                format: "float32x2",
-                offset: Float32Array.BYTES_PER_ELEMENT * 2,
-                shaderLocation: 1,
-              },
-              {
-                format: "float32x4",
-                offset: Float32Array.BYTES_PER_ELEMENT * 4,
-                shaderLocation: 2,
-              },
-            ],
-          },
-        ],
-        entryPoint: "vs_main",
-        module: shaderModule,
-      },
+    this.edgePipeline = createHtmlSurfaceEdgePipeline({
+      cameraBindGroupLayout: this.ensureCameraBindGroupLayout(),
+      edgePaletteBindGroupLayout: this.ensureEdgePaletteBindGroupLayout(),
+      runtime: this.runtime,
     });
     return this.edgePipeline;
   }
@@ -660,6 +550,12 @@ export class HtmlSurfaceRenderer {
     };
   }
 
+  private prepareTiledFlatSurfaceDraw(
+    tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
+  ): FlatSurfaceDrawResources | null {
+    return this.ensureTiledFlatSurfacePass().prepare(tiledFlatSurfaceTiles);
+  }
+
   private prepareMeshSurfaceDraw(
     meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"],
   ): PreparedMeshSurfaceDraw | null {
@@ -695,6 +591,8 @@ export class HtmlSurfaceRenderer {
     flatSurfaces,
     meshSurfaceDraw,
     meshSurfaces,
+    tiledFlatSurfaceDraw,
+    tiledFlatSurfaceTiles,
   }: {
     readonly cameraUniform: Float32Array;
     readonly edgeBufferData: GpuEdgeLineListBufferData;
@@ -706,12 +604,18 @@ export class HtmlSurfaceRenderer {
     readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
     readonly meshSurfaceDraw: PreparedMeshSurfaceDraw | null;
     readonly meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"];
+    readonly tiledFlatSurfaceDraw: FlatSurfaceDrawResources | null;
+    readonly tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[];
   }) {
     this.writeCameraBuffer(cameraUniform);
     this.writeGridBuffer(gridDraw, grid);
     this.writeEdgePaletteBuffer(edgeDraw, edgePalette);
     this.writeEdgeBuffer(edgeDraw, edgeBufferData);
     this.writeFlatSurfaceBuffer(flatSurfaceDraw, flatSurfaces);
+    this.writeTiledFlatSurfaceBuffer(
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    );
     meshSurfaceDraw?.pass.write(meshSurfaceDraw.draw, meshSurfaces);
   }
 
@@ -798,6 +702,16 @@ export class HtmlSurfaceRenderer {
     this.uploadedFlatSurfaceVertexCache = vertexCache;
   }
 
+  private writeTiledFlatSurfaceBuffer(
+    tiledFlatSurfaceDraw: FlatSurfaceDrawResources | null,
+    tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
+  ) {
+    this.ensureTiledFlatSurfacePass().write(
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    );
+  }
+
   private resolveFlatSurfaceVertexCache(
     flatSurfaces: readonly HtmlSurfaceFlatVisual[],
   ): FlatSurfaceVertexCache {
@@ -862,6 +776,20 @@ export class HtmlSurfaceRenderer {
     });
   }
 
+  private drawTiledFlatSurfaces(
+    pass: GPURenderPassEncoder,
+    cameraBindGroup: GPUBindGroup,
+    tiledFlatSurfaceDraw: FlatSurfaceDrawResources | null,
+    tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
+  ) {
+    this.ensureTiledFlatSurfacePass().draw({
+      cameraBindGroup,
+      pass,
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    });
+  }
+
   private drawMeshSurfaces(
     pass: GPURenderPassEncoder,
     cameraBindGroup: GPUBindGroup,
@@ -886,9 +814,13 @@ export class HtmlSurfaceRenderer {
     return meshSurfaceDraw?.pass.getVertexCount(meshSurfaces) ?? 0;
   }
 
-  private getTextureBindGroup(
-    surface: Pick<HtmlSurfaceFlatVisual, "surfaceId" | "texture">,
-  ): GPUBindGroup {
+  private getTextureBindGroup(surface: {
+    readonly surfaceId: string;
+    readonly texture: Pick<
+      HtmlSurfaceFlatVisual["texture"],
+      "sampler" | "textureView"
+    >;
+  }): GPUBindGroup {
     const cached = this.textureBindGroups.get(surface.surfaceId);
     if (
       cached &&
@@ -985,11 +917,6 @@ export function encodeHtmlSurfaceCameraUniform({
 }
 
 function assertUnsupportedSurfaceBucketsEmpty(scene: HtmlSurfaceVisualScene) {
-  if (scene.tiledFlatSurfaces.length > 0) {
-    throw new Error(
-      "Setta HTML surface renderer received tiled flat surfaces before the tiled pass is installed.",
-    );
-  }
   if (scene.effectSurfaces.length > 0) {
     throw new Error(
       "Setta HTML surface renderer received effect surfaces before the effect pass is installed.",

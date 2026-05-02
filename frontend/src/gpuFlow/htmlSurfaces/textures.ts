@@ -15,6 +15,13 @@ import {
   type TextureResolution,
   type TextureResolutionSnapshot,
 } from "../textureResolution";
+import {
+  createSurfaceTextureLayoutResources,
+  normalizeTextureTileDimension,
+  uploadHtmlSurfaceTextureRecord,
+  type HtmlSurfaceTextureResources,
+  type SurfaceTextureLayoutResources,
+} from "./textureTiles";
 
 export type HtmlSurfaceTexturePriority = NodeTexturePriority;
 
@@ -44,10 +51,19 @@ export type HtmlSurfaceTextureTileRecord = {
   readonly v1: number;
 };
 
-export type HtmlSurfaceTextureLayout = {
-  readonly kind: "single";
-  readonly tileCount: 1;
-};
+export type HtmlSurfaceTextureLayout =
+  | {
+      readonly kind: "single";
+      readonly tileCount: 1;
+    }
+  | {
+      readonly columns: number;
+      readonly kind: "tiled";
+      readonly maxTilePixelHeight: number;
+      readonly maxTilePixelWidth: number;
+      readonly rows: number;
+      readonly tileCount: number;
+    };
 
 export type HtmlSurfaceTextureRecord = {
   readonly clampedByMaxTexture: boolean;
@@ -162,6 +178,7 @@ type HtmlSurfaceTextureEvictionResult = {
 type HtmlSurfaceTextureManagerOptions = {
   readonly canvas?: HtmlInCanvasCanvas | undefined;
   readonly format?: GPUTextureFormat | undefined;
+  readonly maxTextureTileDimension2D?: number | undefined;
   readonly maxTextureBytes?: number | undefined;
   readonly maxTextureDimension2D?: number | undefined;
   readonly textureUsage?: GPUTextureUsageFlags | undefined;
@@ -175,11 +192,6 @@ type HtmlSurfaceTextureEntry = Mutable<HtmlSurfaceTextureRecord> & {
   element: Element;
   pendingResolution: TextureResolution | null;
 };
-
-type TextureResources = Pick<
-  HtmlSurfaceTextureEntry,
-  "sampler" | "texture" | "textureView"
->;
 
 type DirtyHtmlSurfaceUploadOutcome =
   | HtmlSurfaceTextureRecord
@@ -197,6 +209,7 @@ export class HtmlSurfaceTextureManager {
   private readonly format: GPUTextureFormat;
   private readonly maxTextureBytes: number;
   private readonly maxTextureDimension2D: number;
+  private readonly maxTextureTileDimension2D: number;
   private readonly records = new Map<string, HtmlSurfaceTextureEntry>();
   private readonly textureUsage: GPUTextureUsageFlags;
 
@@ -210,6 +223,10 @@ export class HtmlSurfaceTextureManager {
     this.maxTextureBytes = normalizeTextureBudgetBytes(options.maxTextureBytes);
     this.maxTextureDimension2D =
       options.maxTextureDimension2D ?? device.limits.maxTextureDimension2D;
+    this.maxTextureTileDimension2D = normalizeTextureTileDimension({
+      maxTextureDimension2D: this.maxTextureDimension2D,
+      maxTextureTileDimension2D: options.maxTextureTileDimension2D,
+    });
     this.textureUsage = options.textureUsage ?? getHtmlSurfaceTextureUsage();
   }
 
@@ -313,25 +330,17 @@ export class HtmlSurfaceTextureManager {
     input: RegisterHtmlSurfaceTextureInput,
     resolution: TextureResolution,
   ): HtmlSurfaceTextureRecord {
-    const resources = this.createTextureResources(input.surfaceId, resolution);
-    const textureBytes = estimateTextureMemoryBytes({
-      format: this.format,
-      pixelHeight: resolution.pixelHeight,
-      pixelWidth: resolution.pixelWidth,
-    });
-    const tiles = [
-      createSingleSurfaceTextureTile({
+    const layoutResources = this.createTextureLayoutResources(
+      input.surfaceId,
+      resolution,
+      {
         dirtyContent: true,
         dirtyResolution: true,
         lastUploadFrame: -1,
-        resolution,
-        resources,
-        surfaceId: input.surfaceId,
-        textureBytes,
-      }),
-    ];
+      },
+    );
     const record: HtmlSurfaceTextureEntry = {
-      ...resources,
+      ...layoutResources.primaryResources,
       clampedByMaxTexture: resolution.clampedByMaxTexture,
       cssHeight: resolution.cssHeight,
       cssWidth: resolution.cssWidth,
@@ -348,9 +357,9 @@ export class HtmlSurfaceTextureManager {
       requestedScale: resolution.requestedScale,
       resolutionScale: resolution.resolutionScale,
       surfaceId: input.surfaceId,
-      textureBytes,
-      textureLayout: { kind: "single", tileCount: 1 },
-      tiles,
+      textureBytes: layoutResources.textureBytes,
+      textureLayout: layoutResources.textureLayout,
+      tiles: layoutResources.tiles,
       zoomBucket: resolution.zoomBucket,
     };
     this.records.set(input.surfaceId, record);
@@ -615,14 +624,17 @@ export class HtmlSurfaceTextureManager {
 
   private createTextureResources(
     surfaceId: string,
-    resolution: TextureResolution,
-  ): TextureResources {
+    {
+      pixelHeight,
+      pixelWidth,
+    }: Pick<TextureResolution, "pixelHeight" | "pixelWidth">,
+  ): HtmlSurfaceTextureResources {
     const texture = this.device.createTexture({
       format: this.format,
       label: `setta-html-surface-${surfaceId}`,
       size: {
-        height: resolution.pixelHeight,
-        width: resolution.pixelWidth,
+        height: pixelHeight,
+        width: pixelWidth,
       },
       usage: this.textureUsage,
     });
@@ -638,6 +650,24 @@ export class HtmlSurfaceTextureManager {
     return { sampler, texture, textureView };
   }
 
+  private createTextureLayoutResources(
+    surfaceId: string,
+    resolution: TextureResolution,
+    dirtyState: Pick<
+      HtmlSurfaceTextureTileRecord,
+      "dirtyContent" | "dirtyResolution" | "lastUploadFrame"
+    >,
+  ): SurfaceTextureLayoutResources {
+    return createSurfaceTextureLayoutResources({
+      createTextureResources: this.createTextureResources.bind(this),
+      dirtyState,
+      format: this.format,
+      maxTextureTileDimension2D: this.maxTextureTileDimension2D,
+      resolution,
+      surfaceId,
+    });
+  }
+
   private uploadRecord(record: HtmlSurfaceTextureEntry, frame: number) {
     if (record.pendingResolution) {
       this.applyPendingResolution(record);
@@ -648,14 +678,7 @@ export class HtmlSurfaceTextureManager {
         "Setta GPU flow requires GPUQueue.copyElementImageToTexture for HTML surface texture upload.",
       );
     }
-    queue.copyElementImageToTexture(
-      record.element,
-      record.pixelWidth,
-      record.pixelHeight,
-      {
-        texture: record.texture,
-      },
-    );
+    uploadHtmlSurfaceTextureRecord(queue, record);
     record.dirtyContent = false;
     record.dirtyResolution = false;
     record.lastUploadFrame = frame;
@@ -674,15 +697,18 @@ export class HtmlSurfaceTextureManager {
     }
 
     const previousTiles = record.tiles;
-    const resources = this.createTextureResources(record.surfaceId, resolution);
-    const textureBytes = estimateTextureMemoryBytes({
-      format: this.format,
-      pixelHeight: resolution.pixelHeight,
-      pixelWidth: resolution.pixelWidth,
-    });
-    record.texture = resources.texture;
-    record.textureView = resources.textureView;
-    record.sampler = resources.sampler;
+    const layoutResources = this.createTextureLayoutResources(
+      record.surfaceId,
+      resolution,
+      {
+        dirtyContent: true,
+        dirtyResolution: true,
+        lastUploadFrame: -1,
+      },
+    );
+    record.texture = layoutResources.primaryResources.texture;
+    record.textureView = layoutResources.primaryResources.textureView;
+    record.sampler = layoutResources.primaryResources.sampler;
     record.clampedByMaxTexture = resolution.clampedByMaxTexture;
     record.maxTextureDimension2D = resolution.maxTextureDimension2D;
     record.pendingResolution = null;
@@ -690,19 +716,9 @@ export class HtmlSurfaceTextureManager {
     record.pixelWidth = resolution.pixelWidth;
     record.requestedScale = resolution.requestedScale;
     record.resolutionScale = resolution.resolutionScale;
-    record.textureBytes = textureBytes;
-    record.textureLayout = { kind: "single", tileCount: 1 };
-    record.tiles = [
-      createSingleSurfaceTextureTile({
-        dirtyContent: true,
-        dirtyResolution: true,
-        lastUploadFrame: -1,
-        resolution,
-        resources,
-        surfaceId: record.surfaceId,
-        textureBytes,
-      }),
-    ];
+    record.textureBytes = layoutResources.textureBytes;
+    record.textureLayout = layoutResources.textureLayout;
+    record.tiles = layoutResources.tiles;
     record.zoomBucket = resolution.zoomBucket;
     destroyTextureTiles(previousTiles);
   }
@@ -755,44 +771,6 @@ export function createHtmlSurfaceTextureManager(
     canvas: runtime.canvas,
     maxTextureDimension2D: runtime.maxTextureDimension2D,
   });
-}
-
-function createSingleSurfaceTextureTile({
-  dirtyContent,
-  dirtyResolution,
-  lastUploadFrame,
-  resolution,
-  resources,
-  surfaceId,
-  textureBytes,
-}: {
-  readonly dirtyContent: boolean;
-  readonly dirtyResolution: boolean;
-  readonly lastUploadFrame: number;
-  readonly resolution: TextureResolution;
-  readonly resources: TextureResources;
-  readonly surfaceId: string;
-  readonly textureBytes: number;
-}): HtmlSurfaceTextureTileRecord {
-  return {
-    ...resources,
-    cssHeight: resolution.cssHeight,
-    cssWidth: resolution.cssWidth,
-    cssX: 0,
-    cssY: 0,
-    dirtyContent,
-    dirtyResolution,
-    lastUploadFrame,
-    pixelHeight: resolution.pixelHeight,
-    pixelWidth: resolution.pixelWidth,
-    surfaceId,
-    textureBytes,
-    tileId: `${surfaceId}:0:0`,
-    u0: 0,
-    u1: 1,
-    v0: 0,
-    v1: 1,
-  };
 }
 
 function destroyTextureRecord(record: HtmlSurfaceTextureRecord) {
@@ -848,32 +826,6 @@ function normalizeTextureBudgetBytes(budgetBytes: number | undefined): number {
     );
   }
   return resolvedBudgetBytes;
-}
-
-function estimateTextureMemoryBytes({
-  format,
-  pixelHeight,
-  pixelWidth,
-}: {
-  readonly format: GPUTextureFormat;
-  readonly pixelHeight: number;
-  readonly pixelWidth: number;
-}): number {
-  return pixelWidth * pixelHeight * bytesPerPixel(format);
-}
-
-function bytesPerPixel(format: GPUTextureFormat): number {
-  switch (format) {
-    case "bgra8unorm":
-    case "bgra8unorm-srgb":
-    case "rgba8unorm":
-    case "rgba8unorm-srgb":
-      return 4;
-    default:
-      throw new Error(
-        `Setta GPU flow HTML surface texture memory accounting does not support ${format}.`,
-      );
-  }
 }
 
 function compareEvictableSurfaceTextureRecords(

@@ -88,6 +88,77 @@ describe("HtmlSurfaceTextureManager", () => {
     });
   });
 
+  it("tiles oversized surfaces and uploads each source subrect into its own texture", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "large-node",
+      zoom: 1,
+    });
+    const result = manager.uploadDirtySurfaceTextures({ frame: 2 });
+
+    expect(record.textureLayout).toEqual({
+      columns: 3,
+      kind: "tiled",
+      maxTilePixelHeight: 128,
+      maxTilePixelWidth: 128,
+      rows: 2,
+      tileCount: 6,
+    });
+    expect(record.textureBytes).toBe(300 * 200 * 4);
+    expect(record.tiles.map((tile) => tile.tileId)).toEqual([
+      "large-node:0:0",
+      "large-node:1:0",
+      "large-node:2:0",
+      "large-node:0:1",
+      "large-node:1:1",
+      "large-node:2:1",
+    ]);
+    expect(record.tiles.map((tile) => [tile.cssX, tile.cssY])).toEqual([
+      [0, 0],
+      [128, 0],
+      [256, 0],
+      [0, 128],
+      [128, 128],
+      [256, 128],
+    ]);
+    expect(gpu.createTexture).toHaveBeenCalledTimes(6);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(6);
+    expect(gpu.copyElementImageToTexture).toHaveBeenNthCalledWith(
+      1,
+      element,
+      0,
+      0,
+      128,
+      128,
+      { texture: record.tiles[0]?.texture },
+    );
+    expect(gpu.copyElementImageToTexture).toHaveBeenNthCalledWith(
+      6,
+      element,
+      256,
+      128,
+      44,
+      72,
+      { texture: record.tiles[5]?.texture },
+    );
+    expect(result).toMatchObject({
+      skippedUploadBytes: 0,
+      uploadedBytes: 300 * 200 * 4,
+    });
+    expect(record.tiles.every((tile) => tile.lastUploadFrame === 2)).toBe(true);
+  });
+
   it("keeps the old texture until a resolution upgrade is uploaded", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

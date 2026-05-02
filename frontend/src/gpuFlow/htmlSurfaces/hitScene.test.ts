@@ -92,6 +92,38 @@ describe("html surface hit scene", () => {
     });
   });
 
+  it("maps tiled flat surfaces as one logical source for hit projection", () => {
+    const hit = resolveHtmlSurfaceHitAtSurfacePoint({
+      scene: createHtmlSurfaceHitScene({
+        tiledFlatSurfaces: [
+          {
+            kind: "tiled-flat",
+            rect: { height: 100, width: 200, x: 10, y: 20 },
+            sourceHeight: 100,
+            sourceWidth: 200,
+            surfaceId: "large-node",
+            zIndex: 1,
+          },
+        ],
+      }),
+      surfaceX: 160,
+      surfaceY: 70,
+      viewport: [0, 0, 1],
+    });
+
+    expect(hit).toEqual({
+      kind: "tiled-flat",
+      localX: 150,
+      localY: 50,
+      surfaceId: "large-node",
+      surfaceX: 160,
+      surfaceY: 70,
+      u: 0.75,
+      v: 0.5,
+      zIndex: 1,
+    });
+  });
+
   it("uses explicit effect projectors and fails loudly when one is missing", () => {
     const projector = vi.fn<HtmlSurfaceEffectHitProjector>(() => ({
       localX: 7,

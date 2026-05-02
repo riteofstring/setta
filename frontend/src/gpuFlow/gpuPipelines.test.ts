@@ -21,6 +21,7 @@ import {
   createHtmlSurfaceVisualScene,
   type HtmlSurfaceFlatVisual,
   type HtmlSurfaceMeshVisual,
+  type HtmlSurfaceTiledFlatVisual,
 } from "./htmlSurfaces/visualScene";
 
 describe("html surface renderer", () => {
@@ -238,6 +239,37 @@ describe("html surface renderer", () => {
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 6, 1, 0, 0);
     expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(2, gpu.pipelines[1]);
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 0, 0);
+  });
+
+  it("draws tiled flat surfaces as one cached quad per texture tile", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+    const tiled = tiledFlatSurface("large-node");
+
+    const result = renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: createHtmlSurfaceVisualScene({
+        tiledFlatSurfaces: [tiled],
+      }),
+      viewport: [10, 20, 1.25],
+    });
+
+    expect(result).toEqual({
+      drawnEdgeIds: [],
+      drawnSurfaceIds: ["large-node"],
+      edgeVertexCount: 0,
+      vertexCount: 12,
+    });
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-tiled-flat-vertices",
+    ]);
+    expect(gpu.pass.setPipeline).toHaveBeenCalledWith(gpu.pipelines[0]);
+    expect(gpu.pass.setVertexBuffer).toHaveBeenCalledWith(0, gpu.buffers[1]);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 6, 1, 0, 0);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 6, 0);
+    expect(gpu.device.createBindGroup).toHaveBeenCalledTimes(3);
   });
 
   it("draws the procedural grid before GPU edges and surface textures", () => {
@@ -739,6 +771,62 @@ function meshSurface(
     surfaceId,
     texture,
     vertices,
+    zIndex: 0,
+  };
+}
+
+function tiledFlatSurface(surfaceId: string): HtmlSurfaceTiledFlatVisual {
+  const firstTileTexture = textureRecord(`${surfaceId}:0:0`);
+  const secondTileTexture = textureRecord(`${surfaceId}:1:0`);
+  return {
+    kind: "tiled-flat",
+    rect: { height: 100, width: 200, x: 20, y: 30 },
+    surfaceId,
+    texture: textureRecord(surfaceId),
+    tiles: [
+      {
+        cssHeight: 100,
+        cssWidth: 128,
+        cssX: 0,
+        cssY: 0,
+        dirtyContent: false,
+        dirtyResolution: false,
+        lastUploadFrame: 1,
+        pixelHeight: 100,
+        pixelWidth: 128,
+        sampler: firstTileTexture.sampler,
+        surfaceId,
+        texture: firstTileTexture.texture,
+        textureBytes: 51_200,
+        textureView: firstTileTexture.textureView,
+        tileId: `${surfaceId}:0:0`,
+        u0: 0,
+        u1: 0.64,
+        v0: 0,
+        v1: 1,
+      },
+      {
+        cssHeight: 100,
+        cssWidth: 72,
+        cssX: 128,
+        cssY: 0,
+        dirtyContent: false,
+        dirtyResolution: false,
+        lastUploadFrame: 1,
+        pixelHeight: 100,
+        pixelWidth: 72,
+        sampler: secondTileTexture.sampler,
+        surfaceId,
+        texture: secondTileTexture.texture,
+        textureBytes: 28_800,
+        textureView: secondTileTexture.textureView,
+        tileId: `${surfaceId}:1:0`,
+        u0: 0.64,
+        u1: 1,
+        v0: 0,
+        v1: 1,
+      },
+    ],
     zIndex: 0,
   };
 }

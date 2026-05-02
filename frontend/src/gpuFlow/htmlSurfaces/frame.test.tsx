@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "../edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import {
+  buildHtmlSurfaceVisuals,
   buildTexturedGpuNodeQuads,
   collectVisibleGpuNodeQuads,
   createGpuNodeDomTransformSyncCache,
@@ -73,6 +74,89 @@ describe("HTML surface frame helpers", () => {
       },
     ]);
     expect(result.missingTextureNodeIds).toEqual(["node-b"]);
+  });
+
+  it("routes tiled texture records into the tiled-flat visual bucket", () => {
+    const texture = textureRecord("large-node", {
+      textureLayout: {
+        columns: 2,
+        kind: "tiled",
+        maxTilePixelHeight: 128,
+        maxTilePixelWidth: 128,
+        rows: 1,
+        tileCount: 2,
+      },
+      tiles: [
+        {
+          cssHeight: 100,
+          cssWidth: 128,
+          cssX: 0,
+          cssY: 0,
+          dirtyContent: false,
+          dirtyResolution: false,
+          lastUploadFrame: 1,
+          pixelHeight: 100,
+          pixelWidth: 128,
+          sampler: {},
+          surfaceId: "large-node",
+          texture: {} as GPUTexture,
+          textureBytes: 51_200,
+          textureView: {},
+          tileId: "large-node:0:0",
+          u0: 0,
+          u1: 0.5,
+          v0: 0,
+          v1: 1,
+        },
+        {
+          cssHeight: 100,
+          cssWidth: 72,
+          cssX: 128,
+          cssY: 0,
+          dirtyContent: false,
+          dirtyResolution: false,
+          lastUploadFrame: 1,
+          pixelHeight: 100,
+          pixelWidth: 72,
+          sampler: {},
+          surfaceId: "large-node",
+          texture: {} as GPUTexture,
+          textureBytes: 28_800,
+          textureView: {},
+          tileId: "large-node:1:0",
+          u0: 0.5,
+          u1: 1,
+          v0: 0,
+          v1: 1,
+        },
+      ],
+    });
+
+    expect(
+      buildHtmlSurfaceVisuals([
+        {
+          height: 100,
+          nodeId: "large-node",
+          texture,
+          width: 200,
+          x: 10,
+          y: 20,
+          zIndex: 3,
+        },
+      ]),
+    ).toEqual({
+      flatSurfaces: [],
+      tiledFlatSurfaces: [
+        {
+          kind: "tiled-flat",
+          rect: { height: 100, width: 200, x: 10, y: 20 },
+          surfaceId: "large-node",
+          texture,
+          tiles: texture.tiles,
+          zIndex: 3,
+        },
+      ],
+    });
   });
 
   it("synchronizes stable source geometry without viewport placement", () => {
@@ -906,14 +990,20 @@ class ThrowOnMapIteration<K, V> extends Map<K, V> {
   }
 }
 
-function textureRecord(nodeId: string): HtmlSurfaceTextureRecord {
+function textureRecord(
+  nodeId: string,
+  overrides: Partial<HtmlSurfaceTextureRecord> = {},
+): HtmlSurfaceTextureRecord {
   return {
     lastUploadFrame: 0,
     sampler: {},
     surfaceId: nodeId,
     texture: {},
     textureBytes: 0,
+    textureLayout: { kind: "single", tileCount: 1 },
     textureView: {},
+    tiles: [],
+    ...overrides,
   } as HtmlSurfaceTextureRecord;
 }
 
