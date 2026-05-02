@@ -264,7 +264,11 @@ func (r *Runtime) PluginDistributions(ctx context.Context, searchPaths []string)
 }
 
 func encodePluginDistributionSearchPaths(searchPaths []string) ([]byte, error) {
-	encodedSearchPaths, err := json.Marshal(trimNonEmptyStrings(searchPaths))
+	trimmedSearchPaths := trimNonEmptyStrings(searchPaths)
+	if len(trimmedSearchPaths) == 0 {
+		return []byte("null"), nil
+	}
+	encodedSearchPaths, err := json.Marshal(trimmedSearchPaths)
 	if err != nil {
 		return nil, fmt.Errorf("pythonenv: encode plugin distribution search paths: %w", err)
 	}
