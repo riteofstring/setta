@@ -4,6 +4,7 @@ import {
   clampGpuZoom,
   flowToScreenPosition as flowPointToScreenPosition,
   getGpuViewportForBounds,
+  gpuViewportToTuple,
   normalizeGpuViewport,
   panGpuViewportBy,
   screenToFlowPosition as screenPointToFlowPosition,
@@ -51,17 +52,37 @@ type GpuFitViewOptions = SetGpuViewportOptions & {
   readonly padding?: number | undefined;
 };
 
+type GpuViewportTransition = {
+  readonly durationMs: number;
+  readonly from: GpuViewport;
+  frameId: number | null;
+  lastApplied: ReturnType<typeof gpuViewportToTuple>;
+  startTimeMs: number | null;
+  readonly store: GpuFlowViewportStoreApi;
+  readonly to: GpuViewport;
+  unsubscribe: (() => void) | null;
+};
+
+const MAX_GPU_VIEWPORT_TRANSITION_DURATION_MS = 1200;
+const activeGpuViewportTransitions = new WeakMap<
+  GpuFlowViewportStoreApi,
+  GpuViewportTransition
+>();
+
 function setGpuViewport(
   viewport: Partial<GpuViewport>,
   options: SetGpuViewportOptions = {},
 ): boolean {
-  assertNoViewportTransition(options.duration);
   const store = resolveViewportStore(options.store);
   const current = normalizeGpuViewport(store.getState().transform);
-  return store.getState().setTransform({
-    x: viewport.x ?? current.x,
-    y: viewport.y ?? current.y,
-    zoom: viewport.zoom ?? current.zoom,
+  return applyGpuViewport({
+    options,
+    store,
+    viewport: {
+      x: viewport.x ?? current.x,
+      y: viewport.y ?? current.y,
+      zoom: viewport.zoom ?? current.zoom,
+    },
   });
 }
 
@@ -69,47 +90,50 @@ export function panGpuViewport(
   delta: GpuPoint,
   options: SetGpuViewportOptions = {},
 ): boolean {
-  assertNoViewportTransition(options.duration);
   const store = resolveViewportStore(options.store);
-  return store
-    .getState()
-    .setTransform(panGpuViewportBy(store.getState().transform, delta));
+  return applyGpuViewport({
+    options,
+    store,
+    viewport: panGpuViewportBy(store.getState().transform, delta),
+  });
 }
 
 export function zoomGpuViewportAt(
   zoom: number,
   options: GpuZoomActionOptions = {},
 ): boolean {
-  assertNoViewportTransition(options.duration);
   const store = resolveViewportStore(options.store);
   const state = store.getState();
-  return state.setTransform(
-    zoomGpuViewportAtScreenPoint({
+  return applyGpuViewport({
+    options,
+    store,
+    viewport: zoomGpuViewportAtScreenPoint({
       maxZoom: state.maxZoom,
       minZoom: state.minZoom,
       point: options.point ?? getViewportCenterPoint(state.width, state.height),
       viewport: state.transform,
       zoom,
     }),
-  );
+  });
 }
 
 export function zoomGpuViewportByFactor(
   factor: number,
   options: GpuZoomActionOptions = {},
 ): boolean {
-  assertNoViewportTransition(options.duration);
   const store = resolveViewportStore(options.store);
   const state = store.getState();
-  return state.setTransform(
-    zoomGpuViewportBy({
+  return applyGpuViewport({
+    options,
+    store,
+    viewport: zoomGpuViewportBy({
       factor,
       maxZoom: state.maxZoom,
       minZoom: state.minZoom,
       point: options.point ?? getViewportCenterPoint(state.width, state.height),
       viewport: state.transform,
     }),
-  );
+  });
 }
 
 function zoomGpuViewportTo(
@@ -124,22 +148,22 @@ function setGpuViewportCenter(
   y: number,
   options: GpuSetCenterOptions = {},
 ): boolean {
-  assertNoViewportTransition(options.duration);
   const store = resolveViewportStore(options.store);
   const state = store.getState();
   const zoom = clampGpuZoom(options.zoom ?? state.maxZoom, state);
-  return state.setTransform(
-    centerGpuViewportOnPoint({
+  return applyGpuViewport({
+    options,
+    store,
+    viewport: centerGpuViewportOnPoint({
       canvasHeight: state.height,
       canvasWidth: state.width,
       point: { x, y },
       zoom,
     }),
-  );
+  });
 }
 
 function fitGpuViewport(options: GpuFitViewOptions): boolean {
-  assertNoViewportTransition(options.duration);
   const store = resolveViewportStore(options.store);
   const state = store.getState();
   const minZoom = options.minZoom ?? state.minZoom;
@@ -147,8 +171,10 @@ function fitGpuViewport(options: GpuFitViewOptions): boolean {
   const maxZoom = options.initial
     ? Math.min(maxZoomInput, state.defaultZoom)
     : maxZoomInput;
-  return state.setTransform(
-    getGpuViewportForBounds(options.bounds, {
+  return applyGpuViewport({
+    options,
+    store,
+    viewport: getGpuViewportForBounds(options.bounds, {
       canvasHeight: state.height,
       canvasWidth: state.width,
       keepCurrentZoomIfPossible: options.keepCurrentZoomIfPossible,
@@ -158,7 +184,7 @@ function fitGpuViewport(options: GpuFitViewOptions): boolean {
       padding: options.padding,
       viewport: state.transform,
     }),
-  );
+  });
 }
 
 function screenToGpuFlowPosition(
@@ -244,6 +270,14 @@ function updateGpuMapPosition(
   return panGpuViewport({ x: widthDiff, y: 0 }, options);
 }
 
+function cancelGpuViewportTransition(
+  options: GpuViewportActionOptions = {},
+): boolean {
+  return cancelGpuViewportTransitionForStore(
+    resolveViewportStore(options.store),
+  );
+}
+
 export const setViewport = setGpuViewport;
 export const panBy = panGpuViewport;
 export const zoomAtScreenPoint = zoomGpuViewportAt;
@@ -260,6 +294,7 @@ export const finishInitialFitView = finishGpuInitialFitView;
 export const setInitialFitViewDone = setGpuInitialFitViewDone;
 export const resetZoom = resetGpuZoom;
 export const updateMapPosition = updateGpuMapPosition;
+export const cancelViewportTransition = cancelGpuViewportTransition;
 
 function resolveViewportStore(
   store: GpuFlowViewportStoreApi | undefined,
@@ -274,11 +309,223 @@ function getViewportCenterPoint(width: number, height: number): GpuPoint {
   };
 }
 
-function assertNoViewportTransition(duration: number | undefined) {
-  if (duration !== undefined && duration !== 0) {
-    throw new Error(
-      "GPU flow viewport transitions are not implemented; use explicit frame-driven actions.",
-    );
+function applyGpuViewport({
+  options,
+  store,
+  viewport,
+}: {
+  readonly options: SetGpuViewportOptions;
+  readonly store: GpuFlowViewportStoreApi;
+  readonly viewport: GpuViewport;
+}): boolean {
+  const durationMs = normalizeGpuViewportTransitionDuration(options.duration);
+  if (durationMs === 0) {
+    cancelGpuViewportTransitionForStore(store);
+    return store.getState().setTransform(viewport);
+  }
+  return startGpuViewportTransition({
+    durationMs,
+    store,
+    viewport,
+  });
+}
+
+function startGpuViewportTransition({
+  durationMs,
+  store,
+  viewport,
+}: {
+  readonly durationMs: number;
+  readonly store: GpuFlowViewportStoreApi;
+  readonly viewport: GpuViewport;
+}): boolean {
+  const from = normalizeGpuViewport(store.getState().transform);
+  const to = normalizeGpuViewport(viewport);
+  cancelGpuViewportTransitionForStore(store);
+  if (areGpuViewportsEqual(from, to)) {
+    return false;
+  }
+
+  const transition: GpuViewportTransition = {
+    durationMs,
+    frameId: null,
+    from,
+    lastApplied: gpuViewportToTuple(from),
+    startTimeMs: null,
+    store,
+    to,
+    unsubscribe: null,
+  };
+  activeGpuViewportTransitions.set(store, transition);
+  store.getState().setViewportInteractionFlags({ viewportAnimating: true });
+  transition.unsubscribe = store.subscribe((state, previousState) => {
+    if (activeGpuViewportTransitions.get(store) !== transition) {
+      return;
+    }
+    if (isGpuViewportTransitionCanceledByInteraction(state, previousState)) {
+      cancelGpuViewportTransitionForStore(store);
+      return;
+    }
+    if (
+      state.transform !== previousState.transform &&
+      !areGpuViewportTuplesEqual(state.transform, transition.lastApplied)
+    ) {
+      cancelGpuViewportTransitionForStore(store);
+    }
+  });
+  scheduleGpuViewportTransitionFrame(transition);
+  return true;
+}
+
+function scheduleGpuViewportTransitionFrame(transition: GpuViewportTransition) {
+  transition.frameId = requestGpuViewportAnimationFrame((timestampMs) => {
+    runGpuViewportTransitionFrame(transition, timestampMs);
+  });
+}
+
+function runGpuViewportTransitionFrame(
+  transition: GpuViewportTransition,
+  timestampMs: number,
+) {
+  if (activeGpuViewportTransitions.get(transition.store) !== transition) {
+    return;
+  }
+  if (transition.startTimeMs === null) {
+    transition.startTimeMs = timestampMs;
+  }
+  const elapsedMs = Math.max(0, timestampMs - transition.startTimeMs);
+  const progress = Math.min(1, elapsedMs / transition.durationMs);
+  if (progress >= 1) {
+    finishGpuViewportTransition(transition);
+    return;
+  }
+
+  const nextViewport = interpolateGpuViewport(
+    transition.from,
+    transition.to,
+    easeGpuViewportTransition(progress),
+  );
+  transition.lastApplied = gpuViewportToTuple(nextViewport);
+  transition.store.getState().setTransform(transition.lastApplied);
+  scheduleGpuViewportTransitionFrame(transition);
+}
+
+function finishGpuViewportTransition(transition: GpuViewportTransition) {
+  if (activeGpuViewportTransitions.get(transition.store) !== transition) {
+    return;
+  }
+  activeGpuViewportTransitions.delete(transition.store);
+  transition.frameId = null;
+  transition.unsubscribe?.();
+  transition.unsubscribe = null;
+  transition.store
+    .getState()
+    .setViewportInteractionFlags({ viewportAnimating: false });
+  transition.lastApplied = gpuViewportToTuple(transition.to);
+  transition.store.getState().setTransform(transition.lastApplied);
+}
+
+function cancelGpuViewportTransitionForStore(
+  store: GpuFlowViewportStoreApi,
+): boolean {
+  const transition = activeGpuViewportTransitions.get(store);
+  if (!transition) {
+    return false;
+  }
+  activeGpuViewportTransitions.delete(store);
+  if (transition.frameId !== null) {
+    cancelGpuViewportAnimationFrame(transition.frameId);
+    transition.frameId = null;
+  }
+  transition.unsubscribe?.();
+  transition.unsubscribe = null;
+  store.getState().setViewportInteractionFlags({ viewportAnimating: false });
+  return true;
+}
+
+function normalizeGpuViewportTransitionDuration(
+  duration: number | undefined,
+): number {
+  if (duration === undefined) {
+    return 0;
+  }
+  assertFiniteNonNegative("viewport transition duration", duration);
+  return Math.min(duration, MAX_GPU_VIEWPORT_TRANSITION_DURATION_MS);
+}
+
+function interpolateGpuViewport(
+  from: GpuViewport,
+  to: GpuViewport,
+  progress: number,
+): GpuViewport {
+  return {
+    x: interpolateNumber(from.x, to.x, progress),
+    y: interpolateNumber(from.y, to.y, progress),
+    zoom: interpolateNumber(from.zoom, to.zoom, progress),
+  };
+}
+
+function interpolateNumber(from: number, to: number, progress: number): number {
+  return from + (to - from) * progress;
+}
+
+function easeGpuViewportTransition(progress: number): number {
+  return progress < 0.5
+    ? 4 * progress * progress * progress
+    : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+}
+
+function isGpuViewportTransitionCanceledByInteraction(
+  state: ReturnType<GpuFlowViewportStoreApi["getState"]>,
+  previousState: ReturnType<GpuFlowViewportStoreApi["getState"]>,
+): boolean {
+  return (
+    didBecomeActive(state.nodeDragging, previousState.nodeDragging) ||
+    didBecomeActive(state.nodeResizing, previousState.nodeResizing) ||
+    didBecomeActive(state.panScrolling, previousState.panScrolling) ||
+    didBecomeActive(state.paneDragging, previousState.paneDragging) ||
+    didBecomeActive(state.pointerPanning, previousState.pointerPanning) ||
+    didBecomeActive(state.wheelZooming, previousState.wheelZooming) ||
+    (state.userSelectionRect !== null &&
+      previousState.userSelectionRect === null)
+  );
+}
+
+function didBecomeActive(current: boolean, previous: boolean): boolean {
+  return current && !previous;
+}
+
+function areGpuViewportsEqual(left: GpuViewport, right: GpuViewport): boolean {
+  return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
+}
+
+function areGpuViewportTuplesEqual(
+  left: ReturnType<typeof gpuViewportToTuple>,
+  right: ReturnType<typeof gpuViewportToTuple>,
+): boolean {
+  return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
+}
+
+function requestGpuViewportAnimationFrame(
+  callback: FrameRequestCallback,
+): number {
+  if (typeof requestAnimationFrame === "function") {
+    return requestAnimationFrame(callback);
+  }
+  return setTimeout(() => callback(Date.now()), 16) as unknown as number;
+}
+
+function cancelGpuViewportAnimationFrame(frameId: number) {
+  if (typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(frameId);
+    return;
+  }
+  clearTimeout(frameId);
+}
+
+function assertFiniteNonNegative(name: string, value: number) {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${name} must be a finite non-negative number.`);
   }
 }
 

@@ -47,6 +47,7 @@ type GpuViewportInteractionFlags = {
   readonly panScrolling?: boolean | undefined;
   readonly paneDragging?: boolean | undefined;
   readonly pointerPanning?: boolean | undefined;
+  readonly viewportAnimating?: boolean | undefined;
   readonly wheelZooming?: boolean | undefined;
 };
 
@@ -77,6 +78,7 @@ type GpuFlowViewportStoreState = {
   readonly pointerPanning: boolean;
   readonly selectionKeyPressed: boolean;
   readonly transform: GpuViewportTuple;
+  readonly viewportAnimating: boolean;
   readonly viewportInteractionActive: boolean;
   readonly wheelZooming: boolean;
   readonly width: number;
@@ -168,6 +170,7 @@ const DEFAULT_GPU_VIEWPORT_STORE_STATE = {
   transform: [0, 0, 1] as GpuViewportTuple,
   userSelectionActive: false,
   userSelectionRect: null,
+  viewportAnimating: false,
   viewportInteractionActive: false,
   wheelZooming: false,
   width: 0,
@@ -636,6 +639,7 @@ function resolveGpuViewportInteractionState(
   | "panScrolling"
   | "paneDragging"
   | "pointerPanning"
+  | "viewportAnimating"
   | "viewportInteractionActive"
   | "wheelZooming"
   | "nodeDragging"
@@ -646,12 +650,14 @@ function resolveGpuViewportInteractionState(
   const panScrolling = flags.panScrolling ?? state.panScrolling;
   const paneDragging = flags.paneDragging ?? state.paneDragging;
   const pointerPanning = flags.pointerPanning ?? state.pointerPanning;
+  const viewportAnimating = flags.viewportAnimating ?? state.viewportAnimating;
   const wheelZooming = flags.wheelZooming ?? state.wheelZooming;
   const viewportInteractionActive = isGpuViewportInteractionActive([
     nodeDragging,
     nodeResizing,
     panScrolling,
     pointerPanning,
+    viewportAnimating,
     wheelZooming,
   ]);
   return {
@@ -660,6 +666,7 @@ function resolveGpuViewportInteractionState(
     panScrolling,
     paneDragging,
     pointerPanning,
+    viewportAnimating,
     viewportInteractionActive,
     wheelZooming,
   };
@@ -675,6 +682,7 @@ function areGpuViewportInteractionStatesEqual(
     | "panScrolling"
     | "paneDragging"
     | "pointerPanning"
+    | "viewportAnimating"
     | "viewportInteractionActive"
     | "wheelZooming"
     | "nodeDragging"
@@ -685,6 +693,7 @@ function areGpuViewportInteractionStatesEqual(
     | "panScrolling"
     | "paneDragging"
     | "pointerPanning"
+    | "viewportAnimating"
     | "viewportInteractionActive"
     | "wheelZooming"
     | "nodeDragging"
@@ -697,6 +706,7 @@ function areGpuViewportInteractionStatesEqual(
     left.panScrolling === right.panScrolling &&
     left.paneDragging === right.paneDragging &&
     left.pointerPanning === right.pointerPanning &&
+    left.viewportAnimating === right.viewportAnimating &&
     left.viewportInteractionActive === right.viewportInteractionActive &&
     left.wheelZooming === right.wheelZooming
   );

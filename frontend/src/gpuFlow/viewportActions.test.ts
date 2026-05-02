@@ -1,7 +1,8 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  cancelViewportTransition,
   fitView,
   flowToScreenPosition,
   getViewport,
@@ -21,6 +22,11 @@ import {
 import { createGpuFlowViewportStore } from "./viewportStore";
 
 describe("gpu viewport actions", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it("pans the Setta viewport transform in screen pixels", () => {
     const store = createGpuFlowViewportStore({
       transform: [10, 20, 2],
@@ -185,15 +191,121 @@ describe("gpu viewport actions", () => {
     ).toThrow("GPU flow snap grid is required");
   });
 
-  it("keeps map position updates explicit and rejects unimplemented transitions", () => {
+  it("keeps map position updates explicit", () => {
     const store = createGpuFlowViewportStore({
       transform: [10, 20, 1],
     });
 
     expect(updateMapPosition(12, { store })).toBe(true);
     expect(store.getState().transform).toEqual([22, 20, 1]);
-    expect(() => setViewport({ x: 1 }, { duration: 100, store })).toThrow(
-      "GPU flow viewport transitions are not implemented",
+  });
+
+  it("animates duration-based viewport changes through the store owner", () => {
+    const animation = installAnimationFrameController();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+
+    expect(
+      setViewport({ x: 100, y: 60, zoom: 2 }, { duration: 100, store }),
+    ).toBe(true);
+    expect(store.getState().viewportAnimating).toBe(true);
+    expect(store.getState().viewportInteractionActive).toBe(true);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+
+    animation.flushNextFrame(0);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+
+    animation.flushNextFrame(50);
+    expect(store.getState().transform).toEqual([50, 30, 1.5]);
+    expect(store.getState().viewportAnimating).toBe(true);
+
+    animation.flushNextFrame(100);
+    expect(store.getState().transform).toEqual([100, 60, 2]);
+    expect(store.getState().viewportAnimating).toBe(false);
+    expect(store.getState().viewportInteractionActive).toBe(false);
+  });
+
+  it("cancels an animated viewport transition when an immediate viewport action takes ownership", () => {
+    const animation = installAnimationFrameController();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+
+    expect(setViewport({ x: 100 }, { duration: 100, store })).toBe(true);
+
+    expect(panBy({ x: 5, y: 6 }, { store })).toBe(true);
+
+    expect(store.getState().transform).toEqual([5, 6, 1]);
+    expect(store.getState().viewportAnimating).toBe(false);
+    expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(animation.pendingFrameCount()).toBe(0);
+  });
+
+  it("cancels an animated viewport transition when a direct interaction starts", () => {
+    const animation = installAnimationFrameController();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+
+    expect(zoomTo(2, { duration: 100, store })).toBe(true);
+
+    store.getState().setViewportInteractionFlags({ nodeDragging: true });
+
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+    expect(store.getState().viewportAnimating).toBe(false);
+    expect(store.getState().viewportInteractionActive).toBe(true);
+    expect(animation.pendingFrameCount()).toBe(0);
+
+    store.getState().setViewportInteractionFlags({ nodeDragging: false });
+  });
+
+  it("allows callers to explicitly cancel an animated viewport transition", () => {
+    const animation = installAnimationFrameController();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+
+    expect(resetZoom({ duration: 100, store })).toBe(false);
+    expect(setViewport({ zoom: 2 }, { duration: 100, store })).toBe(true);
+    expect(cancelViewportTransition({ store })).toBe(true);
+    expect(cancelViewportTransition({ store })).toBe(false);
+    expect(store.getState().viewportAnimating).toBe(false);
+    expect(animation.pendingFrameCount()).toBe(0);
+  });
+
+  it("rejects invalid viewport transition durations loudly", () => {
+    const store = createGpuFlowViewportStore();
+
+    expect(() => setViewport({ x: 1 }, { duration: -1, store })).toThrow(
+      "viewport transition duration must be a finite non-negative number",
     );
   });
 });
+
+function installAnimationFrameController() {
+  let nextFrameId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    const frameId = nextFrameId;
+    nextFrameId += 1;
+    callbacks.set(frameId, callback);
+    return frameId;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (frameId: number) => {
+    callbacks.delete(frameId);
+  });
+  return {
+    flushNextFrame(timestampMs: number) {
+      const [frameId, callback] = callbacks.entries().next().value ?? [];
+      if (!frameId || !callback) {
+        throw new Error("No animation frame is pending.");
+      }
+      callbacks.delete(frameId);
+      callback(timestampMs);
+    },
+    pendingFrameCount() {
+      return callbacks.size;
+    },
+  };
+}

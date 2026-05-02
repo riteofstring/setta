@@ -15,7 +15,10 @@ import {
   shiftNodesSelectionBounds,
   updateActiveNodesSelectionBounds,
 } from "gpuFlow/selectionBounds";
-import { screenToFlowPosition } from "gpuFlow/viewportActions";
+import {
+  cancelViewportTransition,
+  screenToFlowPosition,
+} from "gpuFlow/viewportActions";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import _ from "lodash";
@@ -264,6 +267,7 @@ function ProjectGpuFlowLayer({
 }) {
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
   const dndMode = useDndMode();
+  useProjectGpuDndViewportTransitionCancel(dndMode);
   if (!readyToRender) {
     return null;
   }
@@ -315,6 +319,14 @@ function ProjectGpuFlowLayer({
       />
     </GpuFlow>
   );
+}
+
+function useProjectGpuDndViewportTransitionCancel(dndMode: ProjectGpuDndMode) {
+  useEffect(() => {
+    if (dndMode.isMovingFree || dndMode.isSorting) {
+      cancelViewportTransition();
+    }
+  }, [dndMode.isMovingFree, dndMode.isSorting]);
 }
 
 function useProjectGpuEdgeSelection(canEditStructure: boolean) {
@@ -735,6 +747,9 @@ function GpuProjectNodesSelectionOverlay({
     rectRef.current?.focus({ preventScroll: true });
     raiseTempZIndex(selectedNodes);
     useMisc.setState({ mouseDownDraggingSection: true });
+    gpuFlowViewportStore
+      .getState()
+      .setViewportInteractionFlags({ nodeDragging: true });
     dragStateRef.current = {
       items: selectedNodes.map((node) => ({
         distance: { x: 0, y: 0 },
@@ -860,6 +875,9 @@ function finishProjectSelectionDrag(
   const dragState = dragStateRef.current;
   dragStateRef.current = null;
   useMisc.setState({ mouseDownDraggingSection: false });
+  gpuFlowViewportStore
+    .getState()
+    .setViewportInteractionFlags({ nodeDragging: false });
   if (!dragState) {
     return;
   }
