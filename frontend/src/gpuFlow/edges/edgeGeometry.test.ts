@@ -80,7 +80,7 @@ describe("GPU edge geometry", () => {
     ]);
   });
 
-  it("hit-tests the closest selectable edge in flow coordinates", () => {
+  it("hit-tests the topmost selectable edge in flow coordinates", () => {
     const lower = buildGpuEdgeGeometry({
       edgeId: "lower",
       source: { x: 0, y: 0 },
@@ -89,33 +89,39 @@ describe("GPU edge geometry", () => {
     });
     const upper = buildGpuEdgeGeometry({
       edgeId: "upper",
-      source: { x: 0, y: 0 },
-      target: { x: 100, y: 0 },
+      source: { x: 0, y: 4 },
+      target: { x: 100, y: 4 },
       type: "straight",
     });
 
     expect(
       getDistanceToGpuEdgeGeometry({
         geometry: lower,
-        point: { x: 25, y: 4 },
+        point: { x: 25, y: 1 },
       }),
-    ).toBe(4);
+    ).toBe(1);
+    expect(
+      getDistanceToGpuEdgeGeometry({
+        geometry: upper,
+        point: { x: 25, y: 1 },
+      }),
+    ).toBe(3);
     expect(
       hitTestGpuEdges({
         edges: [
           { edgeId: "lower", geometry: lower, zIndex: 1 },
           { edgeId: "upper", geometry: upper, zIndex: 2 },
         ],
-        point: { x: 25, y: 4 },
+        point: { x: 25, y: 1 },
         tolerance: 5,
       }),
-    ).toEqual({ distance: 4, edgeId: "upper", zIndex: 2 });
+    ).toEqual({ distance: 3, edgeId: "upper", zIndex: 2 });
     expect(
       hitTestGpuEdges({
         edges: [
           { edgeId: "lower", geometry: lower, selectable: false, zIndex: 1 },
         ],
-        point: { x: 25, y: 4 },
+        point: { x: 25, y: 1 },
         tolerance: 5,
       }),
     ).toBeNull();

@@ -502,11 +502,11 @@ function compareEdgeHitCandidate(
   left: GpuEdgeHitTestResult,
   right: GpuEdgeHitTestResult,
 ): number {
-  if (left.distance !== right.distance) {
-    return left.distance - right.distance;
-  }
   if (left.zIndex !== right.zIndex) {
     return right.zIndex - left.zIndex;
+  }
+  if (left.distance !== right.distance) {
+    return left.distance - right.distance;
   }
   return left.edgeId.localeCompare(right.edgeId);
 }
