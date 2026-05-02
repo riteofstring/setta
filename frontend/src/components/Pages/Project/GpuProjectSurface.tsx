@@ -38,6 +38,10 @@ import {
   openSelectionContextMenu,
 } from "state/actions/contextMenus";
 import {
+  isValidDataEdgeConnection,
+  reconnectEdgeFromConnection,
+} from "state/actions/edges";
+import {
   getNodeUpdateInformation,
   getNodes,
   raiseTempZIndex,
@@ -271,6 +275,9 @@ function ProjectGpuFlowLayer({
         selectEdge,
       })}
       edgePalette={getProjectGpuEdgePaletteInput({ darkMode, settings })}
+      edgeReconnect={getProjectEdgeReconnectOptions({
+        isFollowTransitioning,
+      })}
       edgeScene={edgeScene}
       grid={getProjectGpuGridInput({ darkMode, settings })}
       nodeDrag={getProjectNodeDragOptions({
@@ -350,6 +357,32 @@ function getProjectEdgeInteractionOptions({
     },
     onEdgeClick: selectEdge,
     onEdgeContextMenu: selectEdge,
+  };
+}
+
+function getProjectEdgeReconnectOptions({
+  isFollowTransitioning,
+}: {
+  readonly isFollowTransitioning: boolean;
+}) {
+  return {
+    disabled: () => {
+      const dndState = useDndState.getState();
+      const viewportState = gpuFlowViewportStore.getState();
+      return isProjectGpuEdgeInteractionDisabled({
+        connectionActive: viewportState.connectionStartHandle !== null,
+        dndMode: {
+          isMovingFree: dndState.isMovingFree,
+          isSorting: dndState.isSorting,
+        },
+        isDndActive: dndState.activeId !== null,
+        isFollowTransitioning,
+        userSelectionActive: viewportState.userSelectionActive,
+        viewportInteractionActive: viewportState.viewportInteractionActive,
+      });
+    },
+    isValidConnection: isValidDataEdgeConnection,
+    onReconnect: reconnectEdgeFromConnection,
   };
 }
 

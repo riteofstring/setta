@@ -95,5 +95,6 @@ function createEdgeScene(): GpuEdgeScene {
     entries: [entry],
     hitTestEdges: [entry],
     labels: [],
+    reconnectAnchors: [],
   };
 }

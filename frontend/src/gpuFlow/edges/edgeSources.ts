@@ -81,11 +81,28 @@ export type GpuEdgeSceneLabel = {
   readonly zIndex?: number | undefined;
 };
 
+export type GpuEdgeReconnectEndpoint = "source" | "target";
+
+export type GpuEdgeReconnectAnchor = {
+  readonly edgeId: string;
+  readonly endpoint: GpuEdgeReconnectEndpoint;
+  readonly fixedHandleId: string;
+  readonly fixedHandleType: "source" | "target";
+  readonly fixedIsTarget: boolean;
+  readonly fixedSectionId: string;
+  readonly id: string;
+  readonly radius: number;
+  readonly x: number;
+  readonly y: number;
+  readonly zIndex?: number | undefined;
+};
+
 export type GpuEdgeScene = {
   readonly edges: readonly GpuEdgeBufferInput[];
   readonly entries: readonly GpuEdgeSceneEntry[];
   readonly hitTestEdges: readonly GpuEdgeSceneEntry[];
   readonly labels: readonly GpuEdgeSceneLabel[];
+  readonly reconnectAnchors: readonly GpuEdgeReconnectAnchor[];
 };
 
 export type GpuEdgeSceneHitTestResult = GpuEdgeHitTestResult & {
@@ -103,6 +120,11 @@ type GpuDataEdgeEntriesInput = {
 
 type GpuDataEdgeGeometryInput = Omit<GpuDataEdgeEntriesInput, "edges"> & {
   readonly edge: Edge;
+};
+
+type GpuDataEdgeEndpoints = {
+  readonly source: GpuEdgeHandlePosition;
+  readonly target: GpuEdgeHandlePosition;
 };
 
 type GpuAgenticEdgeEntriesInput = {
@@ -145,6 +167,7 @@ const DATA_EDGE_LABEL_HEIGHT = 18;
 const DATA_EDGE_LABEL_MIN_WIDTH = 32;
 const DATA_EDGE_LABEL_TEXT_WIDTH = 6.5;
 const DATA_EDGE_LABEL_X_PADDING = 14;
+const DATA_EDGE_RECONNECT_RADIUS = 12;
 const WORKFLOW_SOURCE_ACTIVATION_LABEL_HEIGHT = 20;
 const WORKFLOW_SOURCE_ACTIVATION_LABEL_MIN_WIDTH = 80;
 const WORKFLOW_SOURCE_ACTIVATION_LABEL_TEXT_WIDTH = 6;
@@ -201,6 +224,7 @@ export function buildGpuEdgeScene({
       ...buildGpuDataEdgeLabels(dataEdgeInput),
       ...buildGpuWorkflowEdgeLabels(workflowEdgeInput),
     ],
+    reconnectAnchors: buildGpuDataEdgeReconnectAnchors(dataEdgeInput),
   };
 }
 
@@ -265,6 +289,39 @@ export function buildGpuDataEdgeLabels({
     });
   }
   return labels;
+}
+
+export function buildGpuDataEdgeReconnectAnchors({
+  edges,
+  handlePositions,
+  sectionVariantMap,
+}: GpuDataEdgeEntriesInput): GpuEdgeReconnectAnchor[] {
+  const anchors: GpuEdgeReconnectAnchor[] = [];
+  for (const edge of edges) {
+    const endpoints = resolveGpuDataEdgeEndpoints({
+      edge,
+      handlePositions,
+      sectionVariantMap,
+    });
+    if (!endpoints) {
+      continue;
+    }
+    anchors.push(
+      createGpuDataEdgeReconnectAnchor({
+        edge,
+        endpoint: "source",
+        fixedHandle: endpoints.target,
+        position: endpoints.source,
+      }),
+      createGpuDataEdgeReconnectAnchor({
+        edge,
+        endpoint: "target",
+        fixedHandle: endpoints.source,
+        position: endpoints.target,
+      }),
+    );
+  }
+  return anchors;
 }
 
 export function buildGpuAgenticEdgeEntries({
@@ -552,6 +609,30 @@ function resolveGpuDataEdgeGeometry({
   handlePositions,
   sectionVariantMap,
 }: GpuDataEdgeGeometryInput): GpuEdgeGeometry | null {
+  const endpoints = resolveGpuDataEdgeEndpoints({
+    edge,
+    handlePositions,
+    sectionVariantMap,
+  });
+  if (!endpoints) {
+    return null;
+  }
+  const { source, target } = endpoints;
+  return buildGpuEdgeGeometry({
+    edgeId: getGpuSceneEdgeId("data", edge.id),
+    source,
+    sourceSide: source.side,
+    target,
+    targetSide: target.side,
+    type: edge.type,
+  });
+}
+
+function resolveGpuDataEdgeEndpoints({
+  edge,
+  handlePositions,
+  sectionVariantMap,
+}: GpuDataEdgeGeometryInput): GpuDataEdgeEndpoints | null {
   if (
     edge.hidden ||
     sectionVariantMap[edge.sourceSectionId] !== edge.sourceVariantId ||
@@ -570,14 +651,7 @@ function resolveGpuDataEdgeGeometry({
   if (!source || !target) {
     return null;
   }
-  return buildGpuEdgeGeometry({
-    edgeId: getGpuSceneEdgeId("data", edge.id),
-    source,
-    sourceSide: source.side,
-    target,
-    targetSide: target.side,
-    type: edge.type,
-  });
+  return { source, target };
 }
 
 function getDataEdgeLabelWidth(text: string): number {
@@ -585,6 +659,63 @@ function getDataEdgeLabelWidth(text: string): number {
     DATA_EDGE_LABEL_MIN_WIDTH,
     text.length * DATA_EDGE_LABEL_TEXT_WIDTH + DATA_EDGE_LABEL_X_PADDING,
   );
+}
+
+function createGpuDataEdgeReconnectAnchor({
+  edge,
+  endpoint,
+  fixedHandle,
+  position,
+}: {
+  readonly edge: Edge;
+  readonly endpoint: GpuEdgeReconnectEndpoint;
+  readonly fixedHandle: GpuEdgeHandlePosition;
+  readonly position: GpuEdgeHandlePosition;
+}): GpuEdgeReconnectAnchor {
+  const center = shiftGpuEdgeReconnectAnchorCenter({
+    radius: DATA_EDGE_RECONNECT_RADIUS,
+    side: position.side,
+    x: position.x,
+    y: position.y,
+  });
+  return {
+    edgeId: edge.id,
+    endpoint,
+    fixedHandleId: fixedHandle.portId,
+    fixedHandleType: fixedHandle.type,
+    fixedIsTarget: fixedHandle.type === "target",
+    fixedSectionId: fixedHandle.sectionId,
+    id: `data-edge-reconnect:${edge.id}:${endpoint}`,
+    radius: DATA_EDGE_RECONNECT_RADIUS,
+    x: center.x,
+    y: center.y,
+    zIndex: edge.zIndex,
+  };
+}
+
+function shiftGpuEdgeReconnectAnchorCenter({
+  radius,
+  side,
+  x,
+  y,
+}: {
+  readonly radius: number;
+  readonly side: string;
+  readonly x: number;
+  readonly y: number;
+}): GpuPoint {
+  switch (side) {
+    case "left":
+      return { x: x - radius, y };
+    case "right":
+      return { x: x + radius, y };
+    case "top":
+      return { x, y: y - radius };
+    case "bottom":
+      return { x, y: y + radius };
+    default:
+      throw new Error(`Unsupported GPU reconnect anchor side "${side}".`);
+  }
 }
 
 function buildNodeAnchorEdgeGeometry({

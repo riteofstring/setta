@@ -12,13 +12,21 @@ import {
   resolveGpuNodeWheelHandoffTarget,
 } from "./activeNodeTargeting";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
-import type { GpuEdgeScene, GpuEdgeSceneLabel } from "./edges/edgeSources";
+import type {
+  GpuEdgeReconnectAnchor,
+  GpuEdgeScene,
+  GpuEdgeSceneLabel,
+} from "./edges/edgeSources";
 import { resolveGpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
 import {
   createGpuActiveNodeTeleportController,
   type GpuActiveNodeTeleportController,
 } from "./GpuActiveNodeTeleport";
 import { GpuEdgeLabelLayer } from "./GpuEdgeLabels";
+import {
+  GpuEdgeReconnectAnchorLayer,
+  type GpuEdgeReconnectOptions,
+} from "./GpuEdgeReconnectAnchors";
 import type { GpuFlowRuntime } from "./gpuDevice";
 import "./gpuFlow.css";
 import {
@@ -87,6 +95,7 @@ type GpuFlowProps = Pick<
       >
     | undefined;
   edgePalette?: GpuEdgePaletteInput | undefined;
+  edgeReconnect?: false | GpuEdgeReconnectOptions | undefined;
   edgeScene?: GpuEdgeScene | undefined;
   edges?: readonly GpuEdgeBufferInput[] | undefined;
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
@@ -156,6 +165,7 @@ type GpuActiveNodeTeleportFrameSync = {
 
 const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
 const EMPTY_EDGE_LABELS: readonly GpuEdgeSceneLabel[] = [];
+const EMPTY_EDGE_RECONNECT_ANCHORS: readonly GpuEdgeReconnectAnchor[] = [];
 const EMPTY_NODE_IDS: readonly string[] = [];
 
 export function GpuFlow({
@@ -164,6 +174,7 @@ export function GpuFlow({
   deviceOptions,
   edgeInteraction,
   edgePalette,
+  edgeReconnect,
   edgeScene,
   edges,
   forceVisibleNodeIds,
@@ -591,6 +602,13 @@ export function GpuFlow({
       viewport={edgeLabelViewport}
     />
   );
+  const edgeReconnectElement = edgeReconnect ? (
+    <GpuEdgeReconnectAnchorLayer
+      anchors={edgeScene?.reconnectAnchors ?? EMPTY_EDGE_RECONNECT_ANCHORS}
+      options={edgeReconnect}
+      viewport={edgeLabelViewport}
+    />
+  ) : null;
 
   return (
     <div
@@ -613,6 +631,7 @@ export function GpuFlow({
       </GpuSurface>
       {userSelectionElement}
       {edgeLabelElement}
+      {edgeReconnectElement}
       {activeNodeTeleportLayer}
     </div>
   );

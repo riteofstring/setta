@@ -11,6 +11,7 @@ import {
   buildGpuConnectionLineEntries,
   buildGpuDataEdgeLabels,
   buildGpuDataEdgeEntries,
+  buildGpuDataEdgeReconnectAnchors,
   buildGpuEdgeScene,
   buildGpuWorkflowEdgeEntries,
   buildGpuWorkflowEdgeLabels,
@@ -150,6 +151,80 @@ describe("edgeSources", () => {
         x: 200,
         y: 50,
         zIndex: 4,
+      },
+    ]);
+  });
+
+  it("derives data edge reconnect anchors from active edge endpoints", () => {
+    const handlePositions = createHandlePositions([
+      {
+        portId: "out",
+        sectionId: "source",
+        side: "right",
+        type: "source",
+        x: 100,
+        y: 50,
+      },
+      {
+        portId: "in",
+        sectionId: "target",
+        side: "left",
+        type: "target",
+        x: 300,
+        y: 50,
+      },
+    ]);
+
+    const anchors = buildGpuDataEdgeReconnectAnchors({
+      edges: [
+        createDataEdge({
+          id: "edge-reconnect",
+          sourcePortId: "out",
+          sourceSectionId: "source",
+          sourceVariantId: "source-variant",
+          targetPortId: "in",
+          targetSectionId: "target",
+          targetVariantId: "target-variant",
+          zIndex: 6,
+        }),
+        createDataEdge({
+          id: "edge-inactive",
+          sourceVariantId: "old-source-variant",
+        }),
+      ],
+      handlePositions,
+      sectionVariantMap: {
+        source: "source-variant",
+        target: "target-variant",
+      },
+    });
+
+    expect(anchors).toEqual([
+      {
+        edgeId: "edge-reconnect",
+        endpoint: "source",
+        fixedHandleId: "in",
+        fixedHandleType: "target",
+        fixedIsTarget: true,
+        fixedSectionId: "target",
+        id: "data-edge-reconnect:edge-reconnect:source",
+        radius: 12,
+        x: 112,
+        y: 50,
+        zIndex: 6,
+      },
+      {
+        edgeId: "edge-reconnect",
+        endpoint: "target",
+        fixedHandleId: "out",
+        fixedHandleType: "source",
+        fixedIsTarget: false,
+        fixedSectionId: "source",
+        id: "data-edge-reconnect:edge-reconnect:target",
+        radius: 12,
+        x: 288,
+        y: 50,
+        zIndex: 6,
       },
     ]);
   });
@@ -454,6 +529,10 @@ describe("edgeSources", () => {
         x: 200,
         y: 50,
       }),
+    ]);
+    expect(scene.reconnectAnchors.map((anchor) => anchor.id)).toEqual([
+      "data-edge-reconnect:edge-hit:source",
+      "data-edge-reconnect:edge-hit:target",
     ]);
     expect(scene.hitTestEdges.map((entry) => entry.edgeId)).toEqual([
       "data:edge-hit",
