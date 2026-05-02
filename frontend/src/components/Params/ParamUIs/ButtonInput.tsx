@@ -8,6 +8,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import type {
   ButtonActionMode,
@@ -20,6 +21,13 @@ import {
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
 import { formatSettaApiBody, SETTA_API_PRESETS } from "utils/settaApiPresets";
+
+function joinGpuControlClassNames(...classNames: Array<string | undefined>) {
+  return [NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, ...classNames]
+    .filter(Boolean)
+    .join(" ");
+}
+
 const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";
 const LABEL_CLASS_NAME =
@@ -376,10 +384,11 @@ export function ButtonInput({
   buttonClassName?: string;
 }) {
   return (
-    <div className={wrapperClassName}>
+    <div className={joinGpuControlClassNames(wrapperClassName)}>
       <button
         type="button"
-        className={buttonClassName}
+        className={joinGpuControlClassNames(buttonClassName)}
+        data-gpu-flow-interactive="true"
         onClick={onClick}
         disabled={isDisabled}
       >
