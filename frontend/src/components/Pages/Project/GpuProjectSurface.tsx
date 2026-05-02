@@ -5,6 +5,10 @@ import {
   setSelectionDragHandle,
   setSelectionDragPrimaryId,
 } from "forks/dnd-kit/selectionDragHandle";
+import {
+  cancelGpuAnimationFrame,
+  requestGpuAnimationFrame,
+} from "gpuFlow/animationFrame";
 import type { NodeDragItem } from "gpuFlow/flowTypes";
 import { GpuFlow } from "gpuFlow/GpuFlow";
 import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
@@ -983,7 +987,7 @@ function startProjectSelectionAutoPan(
   if (autoPanFrameRef.current !== null) {
     return;
   }
-  autoPanFrameRef.current = requestProjectSelectionAutoPanFrame(callback);
+  autoPanFrameRef.current = requestGpuAnimationFrame(callback);
 }
 
 function cancelProjectSelectionAutoPan(
@@ -992,25 +996,8 @@ function cancelProjectSelectionAutoPan(
   if (autoPanFrameRef.current === null) {
     return;
   }
-  cancelProjectSelectionAutoPanFrame(autoPanFrameRef.current);
+  cancelGpuAnimationFrame(autoPanFrameRef.current);
   autoPanFrameRef.current = null;
-}
-
-function requestProjectSelectionAutoPanFrame(
-  callback: FrameRequestCallback,
-): number {
-  if (typeof requestAnimationFrame === "function") {
-    return requestAnimationFrame(callback);
-  }
-  return setTimeout(() => callback(Date.now()), 16) as unknown as number;
-}
-
-function cancelProjectSelectionAutoPanFrame(frameId: number) {
-  if (typeof cancelAnimationFrame === "function") {
-    cancelAnimationFrame(frameId);
-    return;
-  }
-  clearTimeout(frameId);
 }
 
 function handleProjectNodeDragStart(change: ProjectGpuNodeDragChange) {

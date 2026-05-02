@@ -1,4 +1,8 @@
 import { useEffect, type CSSProperties, type RefObject } from "react";
+import {
+  cancelGpuAnimationFrame,
+  requestGpuAnimationFrame,
+} from "./animationFrame";
 import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
 import type { GpuFlowViewportStoreApi } from "./viewportStore";
 
@@ -23,7 +27,7 @@ export function useGpuEdgeViewportLayerSync({
       if (frameId !== null) {
         return;
       }
-      frameId = requestGpuEdgeViewportLayerFrame(apply);
+      frameId = requestGpuAnimationFrame(apply);
     };
 
     apply();
@@ -36,7 +40,7 @@ export function useGpuEdgeViewportLayerSync({
     return () => {
       unsubscribe();
       if (frameId !== null) {
-        cancelGpuEdgeViewportLayerFrame(frameId);
+        cancelGpuAnimationFrame(frameId);
       }
     };
   }, [layerRef, viewportStore]);
@@ -66,21 +70,4 @@ function applyGpuEdgeViewportLayerTransform(
 function getGpuEdgeViewportLayerTransform(viewport: GpuViewportInput): string {
   const normalized = normalizeGpuViewport(viewport);
   return `translate(${normalized.x}px, ${normalized.y}px) scale(${normalized.zoom})`;
-}
-
-function requestGpuEdgeViewportLayerFrame(
-  callback: FrameRequestCallback,
-): number {
-  if (typeof window.requestAnimationFrame === "function") {
-    return window.requestAnimationFrame(callback);
-  }
-  return window.setTimeout(() => callback(performance.now()), 16);
-}
-
-function cancelGpuEdgeViewportLayerFrame(frameId: number) {
-  if (typeof window.cancelAnimationFrame === "function") {
-    window.cancelAnimationFrame(frameId);
-    return;
-  }
-  window.clearTimeout(frameId);
 }

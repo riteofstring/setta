@@ -22,6 +22,10 @@ import {
 } from "state/definitions";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import {
+  cancelGpuAnimationFrame,
+  requestGpuAnimationFrame,
+} from "./animationFrame";
+import {
   areMiniMapNodesRenderableInputsEqual,
   getMiniMapMaskPath,
   getMiniMapViewBox,
@@ -537,7 +541,7 @@ function useGpuMiniMapViewportSync({
       if (frameRef.current !== null) {
         return;
       }
-      frameRef.current = requestMiniMapFrame(apply);
+      frameRef.current = requestGpuAnimationFrame(apply);
     };
 
     apply();
@@ -552,7 +556,7 @@ function useGpuMiniMapViewportSync({
     return () => {
       unsubscribe();
       if (frameRef.current !== null) {
-        cancelMiniMapFrame(frameRef.current);
+        cancelGpuAnimationFrame(frameRef.current);
         frameRef.current = null;
       }
     };
@@ -637,21 +641,6 @@ function applyGpuMiniMapViewportSnapshot({
   if (mask && mask.getAttribute("d") !== snapshot.maskPath) {
     mask.setAttribute("d", snapshot.maskPath);
   }
-}
-
-function requestMiniMapFrame(callback: FrameRequestCallback): number {
-  if (typeof window.requestAnimationFrame === "function") {
-    return window.requestAnimationFrame(callback);
-  }
-  return window.setTimeout(() => callback(performance.now()), 16);
-}
-
-function cancelMiniMapFrame(frameId: number) {
-  if (typeof window.cancelAnimationFrame === "function") {
-    window.cancelAnimationFrame(frameId);
-    return;
-  }
-  window.clearTimeout(frameId);
 }
 
 function areGpuViewportMiniMapStatesEqual(

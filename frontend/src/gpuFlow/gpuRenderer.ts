@@ -1,3 +1,7 @@
+import {
+  cancelGpuAnimationFrame,
+  requestGpuAnimationFrame,
+} from "./animationFrame";
 import { GpuFlowSupportError } from "./gpuDevice";
 
 export type GpuFrameReason =
@@ -44,9 +48,9 @@ export function createGpuFrameScheduler(
   options: GpuFrameSchedulerOptions,
 ): GpuFrameScheduler {
   const requestAnimationFrame =
-    options.requestAnimationFrame ?? getRequiredRequestAnimationFrame();
+    options.requestAnimationFrame ?? requestGpuAnimationFrame;
   const cancelAnimationFrame =
-    options.cancelAnimationFrame ?? getRequiredCancelAnimationFrame();
+    options.cancelAnimationFrame ?? cancelGpuAnimationFrame;
   const pendingReasons = new Set<GpuFrameReason>();
   let frameHandle: number | null = null;
   let destroyed = false;
@@ -188,18 +192,4 @@ function firstResizeObserverSize(
 
 function getDevicePixelRatio(): number {
   return Math.max(1, globalThis.devicePixelRatio || 1);
-}
-
-function getRequiredRequestAnimationFrame() {
-  if (typeof globalThis.requestAnimationFrame !== "function") {
-    throw new Error("Setta GPU flow requires requestAnimationFrame.");
-  }
-  return globalThis.requestAnimationFrame.bind(globalThis);
-}
-
-function getRequiredCancelAnimationFrame() {
-  if (typeof globalThis.cancelAnimationFrame !== "function") {
-    throw new Error("Setta GPU flow requires cancelAnimationFrame.");
-  }
-  return globalThis.cancelAnimationFrame.bind(globalThis);
 }

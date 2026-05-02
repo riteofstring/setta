@@ -1,3 +1,7 @@
+import {
+  cancelGpuAnimationFrame,
+  requestGpuAnimationFrame,
+} from "./animationFrame";
 import type { FitViewOptions } from "./flowTypes";
 import {
   centerGpuViewportOnPoint,
@@ -409,7 +413,7 @@ function startGpuViewportTransition({
 }
 
 function scheduleGpuViewportTransitionFrame(transition: GpuViewportTransition) {
-  transition.frameId = requestGpuViewportAnimationFrame((timestampMs) => {
+  transition.frameId = requestGpuAnimationFrame((timestampMs) => {
     runGpuViewportTransitionFrame(transition, timestampMs);
   });
 }
@@ -465,7 +469,7 @@ function cancelGpuViewportTransitionForStore(
   }
   activeGpuViewportTransitions.delete(store);
   if (transition.frameId !== null) {
-    cancelGpuViewportAnimationFrame(transition.frameId);
+    cancelGpuAnimationFrame(transition.frameId);
     transition.frameId = null;
   }
   transition.unsubscribe?.();
@@ -535,23 +539,6 @@ function areGpuViewportTuplesEqual(
   right: ReturnType<typeof gpuViewportToTuple>,
 ): boolean {
   return left[0] === right[0] && left[1] === right[1] && left[2] === right[2];
-}
-
-function requestGpuViewportAnimationFrame(
-  callback: FrameRequestCallback,
-): number {
-  if (typeof requestAnimationFrame === "function") {
-    return requestAnimationFrame(callback);
-  }
-  return setTimeout(() => callback(Date.now()), 16) as unknown as number;
-}
-
-function cancelGpuViewportAnimationFrame(frameId: number) {
-  if (typeof cancelAnimationFrame === "function") {
-    cancelAnimationFrame(frameId);
-    return;
-  }
-  clearTimeout(frameId);
 }
 
 function assertFiniteNonNegative(name: string, value: number) {
