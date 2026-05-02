@@ -108,6 +108,7 @@ const zoomOutViewportShortcut = _.throttle(
   () => zoomBy(1 / VIEWPORT_ZOOM_STEP_FACTOR),
   VIEWPORT_ZOOM_THROTTLE_MS,
 );
+let pendingFitViewShortcutInitializationCleanup: (() => void) | null = null;
 
 function resetKeysPressed() {
   keysPressed = new Set();
@@ -145,18 +146,47 @@ export function fitGpuViewportShortcut(): boolean {
   }
   const fitted = fitView({
     bounds: getGpuNodesBounds(nodes),
+    duration: useSettings.getState().gui.transitionDuration,
     padding: DEFAULT_FIT_VIEW_PADDING,
   });
   if (fitted) {
-    gpuFlowViewportStore
-      .getState()
-      .setFitViewInitializationState({ fitViewOnInit: true });
+    markGpuFitViewShortcutInitializationAfterSettle();
   }
   return fitted;
 }
 
 function resetGpuViewportZoom() {
   resetZoom();
+}
+
+function markGpuFitViewShortcutInitializationAfterSettle() {
+  pendingFitViewShortcutInitializationCleanup?.();
+  pendingFitViewShortcutInitializationCleanup = null;
+
+  if (!gpuFlowViewportStore.getState().viewportAnimating) {
+    markGpuFitViewShortcutInitialized();
+    return;
+  }
+
+  const unsubscribe = gpuFlowViewportStore.subscribe(
+    (state, previousState) => {
+      if (state.viewportAnimating || !previousState.viewportAnimating) {
+        return;
+      }
+      pendingFitViewShortcutInitializationCleanup = null;
+      unsubscribe();
+      markGpuFitViewShortcutInitialized();
+    },
+  );
+  pendingFitViewShortcutInitializationCleanup = unsubscribe;
+}
+
+function markGpuFitViewShortcutInitialized() {
+  gpuFlowViewportStore.getState().setFitViewInitializationState({
+    fitViewOnInit: true,
+    fitViewOnInitDone: true,
+    fitViewOnInitOptions: undefined,
+  });
 }
 
 function attachEventListenerAndReturnCleanup(attachTo, eventName, action) {

@@ -239,6 +239,9 @@ function ViewportControls(props: {
   snapToGrid: boolean;
   viewportStore: GpuFlowViewportStoreApi;
 }) {
+  const transitionDuration = useSettings(
+    (state) => state.gui.transitionDuration,
+  );
   const onFitView = useCallback(() => {
     const nodes = getNodes().filter(isMeasuredGpuNodeBoundsInput);
     if (nodes.length === 0) {
@@ -246,11 +249,12 @@ function ViewportControls(props: {
     }
     fitView({
       bounds: getGpuNodesBounds(nodes),
+      duration: transitionDuration,
       overviewWidth: useLocalStorage.getState().overviewTrueWidth,
       padding: DEFAULT_FIT_VIEW_PADDING,
       store: props.viewportStore,
     });
-  }, [props.viewportStore]);
+  }, [props.viewportStore, transitionDuration]);
 
   return (
     <>

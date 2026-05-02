@@ -69,7 +69,7 @@ describe("gpu viewport actions", () => {
 
     expect(setCenter(25, 40, { store, zoom: 2 })).toBe(true);
     expect(store.getState().transform).toEqual([200, 70, 2]);
-    expect(resetZoom({ store })).toBe(true);
+    expect(resetZoom({ duration: 0, store })).toBe(true);
     expect(store.getState().transform[2]).toBe(0.75);
   });
 
@@ -196,8 +196,47 @@ describe("gpu viewport actions", () => {
       transform: [10, 20, 1],
     });
 
-    expect(updateMapPosition(12, { store })).toBe(true);
+    expect(updateMapPosition(12, { duration: 0, store })).toBe(true);
     expect(store.getState().transform).toEqual([22, 20, 1]);
+  });
+
+  it("animates reset zoom by default through the viewport owner", () => {
+    const animation = installAnimationFrameController();
+    const store = createGpuFlowViewportStore({
+      defaultZoom: 1,
+      height: 100,
+      transform: [0, 0, 2],
+      width: 200,
+    });
+
+    expect(resetZoom({ store })).toBe(true);
+
+    expect(store.getState().viewportAnimating).toBe(true);
+    expect(store.getState().transform).toEqual([0, 0, 2]);
+
+    animation.flushNextFrame(0);
+    animation.flushNextFrame(100);
+
+    expect(store.getState().transform).toEqual([50, 25, 1]);
+    expect(store.getState().viewportAnimating).toBe(false);
+  });
+
+  it("animates map position shifts by default through the viewport owner", () => {
+    const animation = installAnimationFrameController();
+    const store = createGpuFlowViewportStore({
+      transform: [10, 20, 1],
+    });
+
+    expect(updateMapPosition(12, { store })).toBe(true);
+
+    expect(store.getState().viewportAnimating).toBe(true);
+    expect(store.getState().transform).toEqual([10, 20, 1]);
+
+    animation.flushNextFrame(0);
+    animation.flushNextFrame(100);
+
+    expect(store.getState().transform).toEqual([22, 20, 1]);
+    expect(store.getState().viewportAnimating).toBe(false);
   });
 
   it("animates duration-based viewport changes through the store owner", () => {

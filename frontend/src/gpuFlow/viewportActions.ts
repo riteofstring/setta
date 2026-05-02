@@ -64,6 +64,8 @@ type GpuViewportTransition = {
 };
 
 const MAX_GPU_VIEWPORT_TRANSITION_DURATION_MS = 1200;
+const DEFAULT_GPU_RESET_ZOOM_TRANSITION_DURATION_MS = 100;
+const DEFAULT_GPU_MAP_POSITION_TRANSITION_DURATION_MS = 100;
 const activeGpuViewportTransitions = new WeakMap<
   GpuFlowViewportStoreApi,
   GpuViewportTransition
@@ -259,7 +261,10 @@ function getGpuZoom(options: GpuViewportActionOptions = {}): number {
 
 function resetGpuZoom(options: SetGpuViewportOptions = {}): boolean {
   const store = resolveViewportStore(options.store);
-  return zoomGpuViewportAt(store.getState().defaultZoom, options);
+  return zoomGpuViewportAt(store.getState().defaultZoom, {
+    ...options,
+    duration: options.duration ?? DEFAULT_GPU_RESET_ZOOM_TRANSITION_DURATION_MS,
+  });
 }
 
 function updateGpuMapPosition(
@@ -267,7 +272,14 @@ function updateGpuMapPosition(
   options: SetGpuViewportOptions = {},
 ): boolean {
   assertFiniteNumber("map width difference", widthDiff);
-  return panGpuViewport({ x: widthDiff, y: 0 }, options);
+  return panGpuViewport(
+    { x: widthDiff, y: 0 },
+    {
+      ...options,
+      duration:
+        options.duration ?? DEFAULT_GPU_MAP_POSITION_TRANSITION_DURATION_MS,
+    },
+  );
 }
 
 function cancelGpuViewportTransition(

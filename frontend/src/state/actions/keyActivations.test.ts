@@ -1,6 +1,6 @@
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
-import { useNodeInternals } from "state/definitions";
-import { beforeEach, describe, expect, it } from "vitest";
+import { useNodeInternals, useSettings } from "state/definitions";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fitGpuViewportShortcut,
   getIgnoreWhenInInputField,
@@ -11,6 +11,9 @@ import {
 
 describe("key activation shortcut policy", () => {
   beforeEach(() => {
+    useSettings.setState((state) => ({
+      gui: { ...state.gui, transitionDuration: 0 },
+    }));
     useNodeInternals.setState({ x: new Map() });
     gpuFlowViewportStore.getState().setViewportSize({
       height: 300,
@@ -33,6 +36,10 @@ describe("key activation shortcut policy", () => {
       fitViewOnInitOptions: undefined,
     });
     gpuFlowViewportStore.getState().resetUserSelection();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("does not prevent default copy or paste shortcuts", () => {
@@ -122,6 +129,46 @@ describe("key activation shortcut policy", () => {
     expect(y).toBeCloseTo(-20.455, 3);
     expect(zoom).toBeCloseTo(2.273, 3);
     expect(gpuFlowViewportStore.getState().fitViewOnInit).toBe(true);
+    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
+  });
+
+  it("animates the GPU fit-view shortcut with the configured transition duration", () => {
+    const animation = installAnimationFrameController();
+    useSettings.setState((state) => ({
+      gui: { ...state.gui, transitionDuration: 120 },
+    }));
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            height: 100,
+            id: "section-a",
+            position: { x: 50, y: 25 },
+            tempZIndex: 0,
+            width: 200,
+            zIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(fitGpuViewportShortcut()).toBe(true);
+
+    expect(gpuFlowViewportStore.getState().transform).toEqual([0, 0, 1]);
+    expect(gpuFlowViewportStore.getState().viewportAnimating).toBe(true);
+    expect(gpuFlowViewportStore.getState().fitViewOnInit).toBe(false);
+
+    animation.flushNextFrame(0);
+    animation.flushNextFrame(120);
+
+    const [x, y, zoom] = gpuFlowViewportStore.getState().transform;
+    expect(x).toBeCloseTo(-90.909, 3);
+    expect(y).toBeCloseTo(-20.455, 3);
+    expect(zoom).toBeCloseTo(2.273, 3);
+    expect(gpuFlowViewportStore.getState().viewportAnimating).toBe(false);
+    expect(gpuFlowViewportStore.getState().fitViewOnInit).toBe(true);
+    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("does not run the GPU fit-view shortcut while auto-fit is already active", () => {
@@ -133,3 +180,27 @@ describe("key activation shortcut policy", () => {
     expect(gpuFlowViewportStore.getState().transform).toEqual([0, 0, 1]);
   });
 });
+
+function installAnimationFrameController() {
+  let nextFrameId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    const frameId = nextFrameId;
+    nextFrameId += 1;
+    callbacks.set(frameId, callback);
+    return frameId;
+  });
+  vi.stubGlobal("cancelAnimationFrame", (frameId: number) => {
+    callbacks.delete(frameId);
+  });
+  return {
+    flushNextFrame(timestampMs: number) {
+      const [frameId, callback] = callbacks.entries().next().value ?? [];
+      if (!frameId || !callback) {
+        throw new Error("No animation frame is pending.");
+      }
+      callbacks.delete(frameId);
+      callback(timestampMs);
+    },
+  };
+}
