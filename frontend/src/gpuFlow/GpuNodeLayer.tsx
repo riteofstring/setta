@@ -109,10 +109,12 @@ type SyncGpuNodeDomTransformsFromQuadsInput = {
 
 type GpuNodeDomTransformState = {
   readonly element: HTMLElement;
+  readonly height: string;
   readonly interactive: "false" | "true";
   readonly pointerEvents: "all" | "none";
   readonly transform: string;
   readonly visible: "false" | "true";
+  readonly width: string;
 };
 
 export type GpuNodeDomTransformSyncCache = {
@@ -848,9 +850,11 @@ export function syncGpuNodeDomTransforms({
         normalizedViewport,
       );
       applyVisibleNodeDomTransform(element, {
+        height: node.height ?? 0,
         interactive: activeIds.has(node.nodeId),
         screenX: screenPosition.x,
         screenY: screenPosition.y,
+        width: node.width ?? 0,
         zoom: normalizedViewport.zoom,
       });
       updatedNodeIds.push(node.nodeId);
@@ -871,14 +875,18 @@ export function syncGpuNodeDomTransforms({
 function applyVisibleNodeDomTransform(
   element: HTMLElement,
   {
+    height,
     interactive,
     screenX,
     screenY,
+    width,
     zoom,
   }: {
+    readonly height: number;
     readonly interactive?: boolean | undefined;
     readonly screenX: number;
     readonly screenY: number;
+    readonly width: number;
     readonly zoom: number;
   },
 ) {
@@ -886,9 +894,11 @@ function applyVisibleNodeDomTransform(
     element,
     createVisibleNodeDomTransformState({
       element,
+      height,
       interactive,
       screenX,
       screenY,
+      width,
       zoom,
     }),
   );
@@ -896,23 +906,29 @@ function applyVisibleNodeDomTransform(
 
 function createVisibleNodeDomTransformState({
   element,
+  height,
   interactive,
   screenX,
   screenY,
+  width,
   zoom,
 }: {
   readonly element: HTMLElement;
+  readonly height: number;
   readonly interactive?: boolean | undefined;
   readonly screenX: number;
   readonly screenY: number;
+  readonly width: number;
   readonly zoom: number;
 }): GpuNodeDomTransformState {
   return {
     element,
+    height: `${height}px`,
     interactive: interactive ? "true" : "false",
     pointerEvents: "all",
     transform: `translate(${screenX}px, ${screenY}px) scale(${zoom})`,
     visible: "true",
+    width: `${width}px`,
   };
 }
 
@@ -933,9 +949,11 @@ function createVisibleNodeDomTransformStateForQuad({
   );
   return createVisibleNodeDomTransformState({
     element,
+    height: quad.height,
     interactive: activeIds.has(quad.nodeId),
     screenX: screenPosition.x,
     screenY: screenPosition.y,
+    width: quad.width,
     zoom: normalizedViewport.zoom,
   });
 }
@@ -945,8 +963,10 @@ function applyNodeDomTransformState(
   state: GpuNodeDomTransformState,
 ) {
   setGpuNodeBaseStyle(element);
+  setStyleValue(element, "height", state.height);
   setStyleValue(element, "transform", state.transform);
   setStyleValue(element, "pointerEvents", state.pointerEvents);
+  setStyleValue(element, "width", state.width);
   setDatasetValue(element, "gpuFlowVisible", state.visible);
   setDatasetValue(element, "gpuFlowInteractive", state.interactive);
   setClassPresence(
@@ -982,10 +1002,12 @@ function createCulledNodeDomTransformState({
 }): GpuNodeDomTransformState {
   return {
     element,
+    height: "",
     interactive: "false",
     pointerEvents: "none",
     transform: `translate(${offscreenX}px, ${offscreenY}px) scale(1)`,
     visible: "false",
+    width: "",
   };
 }
 
@@ -998,20 +1020,24 @@ function isCachedNodeDomTransformState(
   return Boolean(
     previous &&
       previous.element === next.element &&
+      previous.height === next.height &&
       previous.interactive === next.interactive &&
       previous.pointerEvents === next.pointerEvents &&
       previous.transform === next.transform &&
-      previous.visible === next.visible,
+      previous.visible === next.visible &&
+      previous.width === next.width,
   );
 }
 
 type GpuNodeStyleKey =
+  | "height"
   | "left"
   | "pointerEvents"
   | "position"
   | "top"
   | "transform"
-  | "transformOrigin";
+  | "transformOrigin"
+  | "width";
 
 function setGpuNodeBaseStyle(element: HTMLElement) {
   setStyleValue(element, "position", "absolute");

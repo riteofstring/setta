@@ -102,9 +102,11 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(visible.style.position).toBe("absolute");
+    expect(visible.style.height).toBe("50px");
     expect(visible.style.transformOrigin).toBe("0 0");
     expect(visible.style.transform).toBe("translate(20px, 20px) scale(1.5)");
     expect(visible.style.pointerEvents).toBe("all");
+    expect(visible.style.width).toBe("100px");
     expect(visible.dataset.gpuFlowInteractive).toBe("true");
     expect(
       visible.classList.contains("setta-gpu-flow__node--interactive"),
@@ -112,7 +114,9 @@ describe("GpuNodeLayer helpers", () => {
     expect(culled.style.transform).toBe(
       "translate(-100000px, -100000px) scale(1)",
     );
+    expect(culled.style.height).toBe("");
     expect(culled.style.pointerEvents).toBe("none");
+    expect(culled.style.width).toBe("");
     expect(culled.dataset.gpuFlowInteractive).toBe("false");
   });
 
@@ -160,9 +164,11 @@ describe("GpuNodeLayer helpers", () => {
     expect(elements.get("node-10")?.style.transform).toBe(
       "translate(405px, 0px) scale(2)",
     );
+    expect(elements.get("node-10")?.style.width).toBe("10px");
     expect(elements.get("node-12")?.style.transform).toBe(
       "translate(-100000px, -100000px) scale(1)",
     );
+    expect(elements.get("node-12")?.style.width).toBe("");
     expect(elements.get("node-999")?.style.transform).toBe("");
   });
 
@@ -190,6 +196,35 @@ describe("GpuNodeLayer helpers", () => {
     expect(result.parkedNodeIds).toEqual([]);
     expect(result.skippedNodeIds).toEqual(["node-a"]);
     expect(element.style.transform).toBe("translate(10px, 20px) scale(1)");
+    expect(element.style.height).toBe("10px");
+    expect(element.style.width).toBe("10px");
+  });
+
+  it("rewrites DOM hit-target dimensions when node geometry changes", () => {
+    const element = document.createElement("div");
+    const cache = createGpuNodeDomTransformSyncCache();
+
+    syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: new Map([["node-a", element]]),
+      visibleQuads: [
+        { height: 10, nodeId: "node-a", width: 20, x: 10, y: 20, zIndex: 0 },
+      ],
+      viewport: [0, 0, 1],
+    });
+    const result = syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: new Map([["node-a", element]]),
+      visibleQuads: [
+        { height: 12, nodeId: "node-a", width: 24, x: 10, y: 20, zIndex: 0 },
+      ],
+      viewport: [0, 0, 1],
+    });
+
+    expect(result.updatedNodeIds).toEqual(["node-a"]);
+    expect(result.skippedNodeIds).toEqual([]);
+    expect(element.style.height).toBe("12px");
+    expect(element.style.width).toBe("24px");
   });
 
   it("retains protected previous-visible nodes instead of parking them", () => {

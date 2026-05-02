@@ -95,6 +95,56 @@ export type GpuFlowVisualParitySnapshot = {
   readonly uploadState: GpuFlowVisualParityUploadState | null;
 };
 
+export type GpuFlowVisualParityScreenshotRegionOptions = {
+  readonly insetCssPx?:
+    | number
+    | {
+        readonly bottom?: number | undefined;
+        readonly left?: number | undefined;
+        readonly right?: number | undefined;
+        readonly top?: number | undefined;
+      }
+    | undefined;
+  readonly maxHeightCssPx?: number | undefined;
+  readonly maxWidthCssPx?: number | undefined;
+  readonly minHeightCssPx?: number | undefined;
+  readonly minWidthCssPx?: number | undefined;
+  readonly regionId?: string | undefined;
+};
+
+export type GpuFlowVisualParityScreenshotRegion = {
+  readonly byteLength: number;
+  readonly clip: GpuFlowVisualParityRectInput;
+  readonly nodeId: string;
+  readonly path: string | null;
+  readonly phase: GpuFlowVisualParityPhase;
+  readonly regionId: string;
+  readonly sourceRect: GpuFlowVisualParityRect;
+};
+
+export type GpuFlowVisualParityRgbaRegion = {
+  readonly data: ArrayLike<number>;
+  readonly height: number;
+  readonly width: number;
+};
+
+export type GpuFlowVisualParityPixelDiffOptions = {
+  readonly changedPixelChannelThreshold?: number | undefined;
+  readonly maxChangedPixelRatio?: number | undefined;
+  readonly maxChannelDelta?: number | undefined;
+};
+
+export type GpuFlowVisualParityPixelDiffSummary = {
+  readonly changedPixelCount: number;
+  readonly changedPixelRatio: number;
+  readonly height: number;
+  readonly maxChannelDelta: number;
+  readonly meanAbsoluteChannelDelta: number;
+  readonly pixelCount: number;
+  readonly withinTolerance: boolean;
+  readonly width: number;
+};
+
 export type GpuFlowVisualParitySnapshotDelta = {
   readonly candidatePhase: GpuFlowVisualParityPhase;
   readonly maxRectDeltaCssPx: number;
@@ -135,6 +185,12 @@ type GpuFlowVisualParityElementCaptureInput = {
 
 type GpuFlowVisualParityPageCaptureInput =
   GpuFlowVisualParityElementCaptureInput;
+
+type CaptureGpuFlowVisualParityScreenshotRegionInput =
+  GpuFlowVisualParityPageCaptureInput & {
+    readonly path?: string | undefined;
+    readonly region?: GpuFlowVisualParityScreenshotRegionOptions | undefined;
+  };
 
 type CompareGpuFlowVisualParitySnapshotsOptions = {
   readonly ignoredStyleProperties?:
@@ -251,6 +307,31 @@ export async function captureGpuFlowVisualParitySnapshot(
   );
 }
 
+export async function captureGpuFlowVisualParityScreenshotRegion(
+  page: Page,
+  input: CaptureGpuFlowVisualParityScreenshotRegionInput,
+): Promise<GpuFlowVisualParityScreenshotRegion> {
+  const snapshot = await captureGpuFlowVisualParitySnapshot(page, input);
+  const region = resolveGpuFlowVisualParityStableScreenshotRegion(
+    snapshot.rect,
+    input.region,
+  );
+  const screenshot = await page.screenshot({
+    clip: region.clip,
+    ...(input.path ? { path: input.path } : {}),
+  });
+
+  return {
+    byteLength: screenshot.byteLength,
+    clip: region.clip,
+    nodeId: snapshot.nodeId,
+    path: input.path ?? null,
+    phase: snapshot.phase,
+    regionId: region.regionId,
+    sourceRect: snapshot.rect,
+  };
+}
+
 export function createGpuFlowVisualParityProbeInitScript(): string {
   return [
     `const GPU_FLOW_VISUAL_PARITY_STYLE_PROPERTIES = ${JSON.stringify(
@@ -324,6 +405,87 @@ export function compareGpuFlowVisualParitySnapshots(
       maxSnappedRectDeltaCssPx <= snappedRectToleranceCssPx &&
       styleMismatches.length === 0 &&
       scrollOffsetMismatches.length === 0,
+  };
+}
+
+export function resolveGpuFlowVisualParityStableScreenshotRegion(
+  rect: GpuFlowVisualParityRectInput,
+  options: GpuFlowVisualParityScreenshotRegionOptions = {},
+): Pick<GpuFlowVisualParityScreenshotRegion, "clip" | "regionId"> {
+  const insets = normalizeScreenshotRegionInsets(options.insetCssPx ?? 8);
+  const availableWidth = rect.width - insets.left - insets.right;
+  const availableHeight = rect.height - insets.top - insets.bottom;
+  if (availableWidth <= 0 || availableHeight <= 0) {
+    throw new Error("GPU flow visual parity screenshot region has no area.");
+  }
+
+  const width = resolveScreenshotRegionDimension({
+    available: availableWidth,
+    axis: "width",
+    max: options.maxWidthCssPx,
+    min: options.minWidthCssPx,
+  });
+  const height = resolveScreenshotRegionDimension({
+    available: availableHeight,
+    axis: "height",
+    max: options.maxHeightCssPx,
+    min: options.minHeightCssPx,
+  });
+  return {
+    clip: {
+      height,
+      width,
+      x: rect.x + insets.left + (availableWidth - width) / 2,
+      y: rect.y + insets.top + (availableHeight - height) / 2,
+    },
+    regionId: options.regionId ?? "stable-center",
+  };
+}
+
+export function compareGpuFlowVisualParityPixelRegions(
+  reference: GpuFlowVisualParityRgbaRegion,
+  candidate: GpuFlowVisualParityRgbaRegion,
+  options: GpuFlowVisualParityPixelDiffOptions = {},
+): GpuFlowVisualParityPixelDiffSummary {
+  validatePixelRegionPair(reference, candidate);
+  const changedPixelChannelThreshold =
+    options.changedPixelChannelThreshold ?? 0;
+  const maxAllowedChannelDelta = options.maxChannelDelta ?? 0;
+  const maxChangedPixelRatio = options.maxChangedPixelRatio ?? 0;
+  const pixelCount = reference.width * reference.height;
+  let changedPixelCount = 0;
+  let maxChannelDelta = 0;
+  let totalChannelDelta = 0;
+
+  for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex += 1) {
+    const offset = pixelIndex * 4;
+    let maxPixelDelta = 0;
+    for (let channel = 0; channel < 4; channel += 1) {
+      const channelDelta = Math.abs(
+        candidate.data[offset + channel] - reference.data[offset + channel],
+      );
+      totalChannelDelta += channelDelta;
+      maxChannelDelta = Math.max(maxChannelDelta, channelDelta);
+      maxPixelDelta = Math.max(maxPixelDelta, channelDelta);
+    }
+    if (maxPixelDelta > changedPixelChannelThreshold) {
+      changedPixelCount += 1;
+    }
+  }
+
+  const changedPixelRatio = pixelCount === 0 ? 0 : changedPixelCount / pixelCount;
+  return {
+    changedPixelCount,
+    changedPixelRatio,
+    height: reference.height,
+    maxChannelDelta,
+    meanAbsoluteChannelDelta:
+      pixelCount === 0 ? 0 : totalChannelDelta / (pixelCount * 4),
+    pixelCount,
+    width: reference.width,
+    withinTolerance:
+      maxChannelDelta <= maxAllowedChannelDelta &&
+      changedPixelRatio <= maxChangedPixelRatio,
   };
 }
 
@@ -408,6 +570,75 @@ function compareScrollOffsetSnapshots(
 
 function scrollOffsetPathKey(path: readonly number[]): string {
   return path.join(".");
+}
+
+function normalizeScreenshotRegionInsets(
+  inset:
+    | number
+    | {
+        readonly bottom?: number | undefined;
+        readonly left?: number | undefined;
+        readonly right?: number | undefined;
+        readonly top?: number | undefined;
+      },
+): { readonly bottom: number; readonly left: number; readonly right: number; readonly top: number } {
+  if (typeof inset === "number") {
+    return {
+      bottom: inset,
+      left: inset,
+      right: inset,
+      top: inset,
+    };
+  }
+  return {
+    bottom: inset.bottom ?? 0,
+    left: inset.left ?? 0,
+    right: inset.right ?? 0,
+    top: inset.top ?? 0,
+  };
+}
+
+function resolveScreenshotRegionDimension({
+  available,
+  axis,
+  max,
+  min,
+}: {
+  readonly available: number;
+  readonly axis: "height" | "width";
+  readonly max: number | undefined;
+  readonly min: number | undefined;
+}): number {
+  const dimension = Math.min(available, max ?? available);
+  if (min !== undefined && dimension < min) {
+    throw new Error(
+      `GPU flow visual parity screenshot ${axis} ${dimension} is below minimum ${min}.`,
+    );
+  }
+  return dimension;
+}
+
+function validatePixelRegionPair(
+  reference: GpuFlowVisualParityRgbaRegion,
+  candidate: GpuFlowVisualParityRgbaRegion,
+) {
+  if (
+    reference.width !== candidate.width ||
+    reference.height !== candidate.height
+  ) {
+    throw new Error(
+      "GPU flow visual parity pixel regions must have matching dimensions.",
+    );
+  }
+  const expectedLength = reference.width * reference.height * 4;
+  if (
+    reference.data.length !== expectedLength ||
+    candidate.data.length !== expectedLength
+  ) {
+    throw new Error(
+      "GPU flow visual parity pixel region data length does not match dimensions.",
+    );
+  }
 }
 
 function installGpuFlowVisualParityProbeInPage() {

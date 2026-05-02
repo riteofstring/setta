@@ -3,9 +3,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   captureGpuFlowVisualParitySnapshotForElement,
+  compareGpuFlowVisualParityPixelRegions,
   compareGpuFlowVisualParitySnapshots,
   createGpuFlowVisualParityProbeInitScript,
   GPU_FLOW_VISUAL_PARITY_PROBE_KEY,
+  resolveGpuFlowVisualParityStableScreenshotRegion,
   summarizeGpuFlowActivationVisualParity,
   type GpuFlowVisualParitySnapshot,
 } from "./gpuFlowVisualParityProbe";
@@ -207,6 +209,94 @@ describe("GPU flow visual parity probe helpers", () => {
 
     expect(captured.style.position).toBe("absolute");
     expect(captured.style.transform).toBe("translate(12px, 18px) scale(1)");
+  });
+
+  it("resolves a stable centered screenshot region inside a node rect", () => {
+    const region = resolveGpuFlowVisualParityStableScreenshotRegion(
+      {
+        height: 128,
+        width: 240,
+        x: 32,
+        y: 48,
+      },
+      {
+        insetCssPx: {
+          bottom: 12,
+          left: 16,
+          right: 20,
+          top: 8,
+        },
+        maxHeightCssPx: 72,
+        maxWidthCssPx: 120,
+        minHeightCssPx: 60,
+        minWidthCssPx: 100,
+        regionId: "control-chrome",
+      },
+    );
+
+    expect(region).toEqual({
+      clip: {
+        height: 72,
+        width: 120,
+        x: 90,
+        y: 74,
+      },
+      regionId: "control-chrome",
+    });
+  });
+
+  it("fails loudly when a screenshot region cannot meet its minimum size", () => {
+    expect(() =>
+      resolveGpuFlowVisualParityStableScreenshotRegion(
+        {
+          height: 40,
+          width: 80,
+          x: 0,
+          y: 0,
+        },
+        {
+          insetCssPx: 16,
+          minHeightCssPx: 16,
+          minWidthCssPx: 64,
+        },
+      ),
+    ).toThrow(
+      "GPU flow visual parity screenshot width 48 is below minimum 64.",
+    );
+  });
+
+  it("compares stable RGBA pixel regions with meaningful diff metrics", () => {
+    const reference = {
+      data: new Uint8ClampedArray([
+        10, 20, 30, 255, 40, 50, 60, 255, 70, 80, 90, 255, 100, 110, 120, 255,
+      ]),
+      height: 2,
+      width: 2,
+    };
+    const candidate = {
+      data: new Uint8ClampedArray([
+        10, 20, 30, 255, 44, 55, 66, 255, 70, 80, 90, 255, 100, 110, 123, 255,
+      ]),
+      height: 2,
+      width: 2,
+    };
+
+    expect(
+      compareGpuFlowVisualParityPixelRegions(reference, candidate, {
+        changedPixelChannelThreshold: 3,
+        maxChangedPixelRatio: 0.25,
+        maxChannelDelta: 6,
+      }),
+    ).toEqual({
+      changedPixelCount: 1,
+      changedPixelRatio: 0.25,
+      height: 2,
+      maxChannelDelta: 6,
+      meanAbsoluteChannelDelta: 1.125,
+      pixelCount: 4,
+      width: 2,
+      withinTolerance: true,
+    });
   });
 
   it("injects a self-contained browser probe that captures a GPU node by id", () => {
