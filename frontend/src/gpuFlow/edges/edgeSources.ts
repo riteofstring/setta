@@ -7,6 +7,7 @@ import {
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
 import type { ConnectionStatus } from "../flowTypes";
+import { parseGpuHexColor, type GpuRgbaColor } from "../gpuColors";
 import type { GpuPoint } from "../viewportMath";
 import {
   buildGpuEdgeGeometry,
@@ -202,6 +203,7 @@ export function buildGpuDataEdgeEntries({
           targetSide: target.side,
           type: edge.type,
         }),
+        color: resolveGpuEdgeStyleStrokeColor(edge.style, "data edge"),
         selectable: true,
         selected: edge.selected,
         zIndex: edge.zIndex,
@@ -241,6 +243,7 @@ export function buildGpuAgenticEdgeEntries({
         edgeId: edge.id,
         family: "agentic",
         geometry,
+        color: resolveGpuEdgeStyleStrokeColor(edge.style, "agentic edge"),
         selectable: true,
         selected: edge.selected,
         zIndex: edge.zIndex,
@@ -319,6 +322,7 @@ export function buildGpuWorkflowEdgeEntries({
         edgeId: edge.id,
         family: "workflow",
         geometry,
+        color: resolveGpuEdgeStyleStrokeColor(edge.style, "workflow edge"),
         selectable: true,
         selected: edge.selected,
         zIndex: edge.zIndex,
@@ -399,6 +403,7 @@ export function hitTestGpuEdgeScene({
 
 function createGpuEdgeSceneEntry({
   active,
+  color,
   connectionStatus,
   edgeId,
   family,
@@ -408,6 +413,7 @@ function createGpuEdgeSceneEntry({
   zIndex,
 }: {
   readonly active?: boolean | undefined;
+  readonly color?: GpuRgbaColor | undefined;
   readonly connectionStatus?: ConnectionStatus | null | undefined;
   readonly edgeId: string;
   readonly family: GpuEdgeFamily;
@@ -418,6 +424,7 @@ function createGpuEdgeSceneEntry({
 }): GpuEdgeSceneEntry {
   return {
     active,
+    color,
     connectionStatus,
     edgeId: geometry.edgeId,
     family,
@@ -427,6 +434,28 @@ function createGpuEdgeSceneEntry({
     sourceEdgeId: edgeId,
     zIndex,
   };
+}
+
+function resolveGpuEdgeStyleStrokeColor(
+  style: unknown,
+  subject: string,
+): GpuRgbaColor | undefined {
+  if (style === null || style === undefined) {
+    return undefined;
+  }
+  if (typeof style !== "object" || Array.isArray(style)) {
+    throw new Error(`Setta GPU ${subject} style must be an object.`);
+  }
+  const stroke = (style as { readonly stroke?: unknown }).stroke;
+  if (stroke === null || stroke === undefined || stroke === "") {
+    return undefined;
+  }
+  if (typeof stroke !== "string") {
+    throw new Error(
+      `Setta GPU ${subject} style.stroke must be a hex color string.`,
+    );
+  }
+  return parseGpuHexColor(stroke, `${subject} style.stroke`);
 }
 
 function buildNodeAnchorEdgeGeometry({

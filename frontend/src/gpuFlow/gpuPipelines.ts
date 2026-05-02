@@ -5,6 +5,7 @@ import {
   type GpuEdgeBufferInput,
   type GpuEdgeLineListBufferData,
 } from "./edges/edgeGpuBuffers";
+import { parseGpuHexColor } from "./gpuColors";
 import type { GpuFlowRuntime } from "./gpuDevice";
 import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
 import type { GpuCanvasSize } from "./gpuRenderer";
@@ -573,6 +574,11 @@ export class GpuNodeQuadRenderer {
                 offset: Float32Array.BYTES_PER_ELEMENT * 2,
                 shaderLocation: 1,
               },
+              {
+                format: "float32x4",
+                offset: Float32Array.BYTES_PER_ELEMENT * 4,
+                shaderLocation: 2,
+              },
             ],
           },
         ],
@@ -974,49 +980,6 @@ export function parseGpuEdgeColor(
   return parseGpuHexColor(color, "edge palette");
 }
 
-function parseGpuHexColor(
-  color: string,
-  subject: string,
-): readonly [number, number, number, number] {
-  const trimmed = color.trim();
-  const match = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(trimmed);
-  if (!match) {
-    throw new Error(
-      `Setta GPU ${subject} requires a hex color, got ${JSON.stringify(
-        color,
-      )}.`,
-    );
-  }
-  const hex = match[1];
-  if (!hex) {
-    throw new Error(
-      `Setta GPU ${subject} requires a hex color, got ${JSON.stringify(
-        color,
-      )}.`,
-    );
-  }
-  if (hex.length === 3 || hex.length === 4) {
-    const red = parseHexNibblePair(hex.charAt(0));
-    const green = parseHexNibblePair(hex.charAt(1));
-    const blue = parseHexNibblePair(hex.charAt(2));
-    const alpha = hex.length === 4 ? parseHexNibblePair(hex.charAt(3)) : 255;
-    return [red / 255, green / 255, blue / 255, alpha / 255];
-  }
-  const red = parseHexByte(hex.slice(0, 2));
-  const green = parseHexByte(hex.slice(2, 4));
-  const blue = parseHexByte(hex.slice(4, 6));
-  const alpha = hex.length === 8 ? parseHexByte(hex.slice(6, 8)) : 255;
-  return [red / 255, green / 255, blue / 255, alpha / 255];
-}
-
-function parseHexByte(value: string): number {
-  return Number.parseInt(value, 16);
-}
-
-function parseHexNibblePair(value: string): number {
-  return parseHexByte(value + value);
-}
-
 function requirePositiveFiniteGpuGridValue(
   value: number,
   field: string,
@@ -1183,11 +1146,13 @@ struct EdgePalette {
 struct VertexInput {
   @location(0) flowPosition: vec2<f32>,
   @location(1) edgeMeta: vec2<f32>,
+  @location(2) edgeColor: vec4<f32>,
 };
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) flags: f32,
+  @location(1) edgeColor: vec4<f32>,
 };
 
 @vertex
@@ -1200,22 +1165,27 @@ fn vs_main(input: VertexInput) -> VertexOutput {
   var output: VertexOutput;
   output.position = vec4<f32>(clip, 0.0, 1.0);
   output.flags = input.edgeMeta.y;
+  output.edgeColor = input.edgeColor;
   return output;
 }
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-  if (input.flags >= 8.0) {
+  let flags = u32(input.flags);
+  if ((flags & 8u) != 0u) {
     return vec4<f32>(0.92, 0.18, 0.18, 0.95);
   }
-  if (input.flags >= 4.0) {
+  if ((flags & 4u) != 0u) {
     return vec4<f32>(0.12, 0.62, 0.32, 0.95);
   }
-  if (input.flags >= 2.0) {
+  if ((flags & 2u) != 0u) {
     return vec4<f32>(0.92, 0.35, 0.05, 0.95);
   }
-  if (input.flags >= 1.0) {
+  if ((flags & 1u) != 0u) {
     return vec4<f32>(0.15, 0.39, 0.92, 0.95);
+  }
+  if ((flags & 16u) != 0u) {
+    return input.edgeColor;
   }
   return edgePalette.base;
 }

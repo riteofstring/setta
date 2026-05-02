@@ -47,6 +47,7 @@ describe("edgeSources", () => {
           sourcePortId: "out",
           sourceSectionId: "source",
           sourceVariantId: "source-variant",
+          style: { stroke: "#112233cc" },
           targetPortId: "in",
           targetSectionId: "target",
           targetVariantId: "target-variant",
@@ -73,6 +74,7 @@ describe("edgeSources", () => {
     expect(entries[0]).toMatchObject({
       edgeId: "data:edge-a",
       family: "data",
+      color: [17 / 255, 34 / 255, 51 / 255, 204 / 255],
       selectable: true,
       selected: true,
       sourceEdgeId: "edge-a",
@@ -107,6 +109,7 @@ describe("edgeSources", () => {
           kind: AgenticEdgeKindEnum.chat_chat,
           selected: true,
           sourceSectionId: "chat-b",
+          style: { stroke: "#00ff00" },
           targetSectionId: "chat-a",
           zIndex: 3,
         }),
@@ -140,6 +143,7 @@ describe("edgeSources", () => {
     ]);
     expect(entries[0]).toMatchObject({
       active: true,
+      color: [0, 1, 0, 1],
       edgeId: "agentic:edge-chat-chat",
       selectable: true,
       selected: true,
@@ -176,6 +180,7 @@ describe("edgeSources", () => {
           id: "workflow-a",
           selected: true,
           sourceSectionId: "source",
+          style: { stroke: "#abcdef" },
           targetAction: {
             agentProfileId: null,
             engineConfigId: null,
@@ -211,6 +216,7 @@ describe("edgeSources", () => {
       sourceEdgeId: "workflow-a",
       zIndex: 8,
     });
+    expect(entries[0]?.color).toBeUndefined();
     expect(entries[0]?.geometry).toMatchObject({
       source: { x: 340, y: 330 },
       sourceSide: "right",
@@ -219,6 +225,7 @@ describe("edgeSources", () => {
     });
     expect(entries[1]).toMatchObject({
       edgeId: "workflow:workflow-a",
+      color: [171 / 255, 205 / 255, 239 / 255, 1],
       selectable: true,
       selected: true,
     });
@@ -337,6 +344,43 @@ describe("edgeSources", () => {
         sourceEdgeId: "edge-hit",
       },
     });
+  });
+
+  it("fails loudly when an edge style stroke is not a hex color", () => {
+    const handlePositions = createHandlePositions([
+      {
+        portId: "out",
+        sectionId: "source",
+        side: "right",
+        type: "source",
+        x: 100,
+        y: 50,
+      },
+      {
+        portId: "in",
+        sectionId: "target",
+        side: "left",
+        type: "target",
+        x: 300,
+        y: 50,
+      },
+    ]);
+
+    expect(() =>
+      buildGpuDataEdgeEntries({
+        edges: [
+          createDataEdge({
+            id: "edge-styled",
+            style: { stroke: "red" },
+          }),
+        ],
+        handlePositions,
+        sectionVariantMap: {
+          source: "source-variant",
+          target: "target-variant",
+        },
+      }),
+    ).toThrow("Setta GPU data edge style.stroke requires a hex color");
   });
 });
 

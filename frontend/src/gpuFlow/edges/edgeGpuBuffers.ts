@@ -1,9 +1,11 @@
 import type { ConnectionStatus } from "../flowTypes";
+import type { GpuRgbaColor } from "../gpuColors";
 import type { GpuPoint } from "../viewportMath";
 import { sampleGpuEdgeGeometry, type GpuEdgeGeometry } from "./edgeGeometry";
 
 export type GpuEdgeBufferInput = {
   readonly active?: boolean | undefined;
+  readonly color?: GpuRgbaColor | undefined;
   readonly connectionStatus?: ConnectionStatus | null | undefined;
   readonly edgeId: string;
   readonly geometry: GpuEdgeGeometry;
@@ -23,11 +25,12 @@ export type GpuEdgeLineListBufferData = {
   readonly vertexData: Float32Array;
 };
 
-export const GPU_EDGE_VERTEX_FLOATS = 4;
+export const GPU_EDGE_VERTEX_FLOATS = 8;
 export const GPU_EDGE_SELECTED_FLAG = 1;
 export const GPU_EDGE_ACTIVE_FLAG = 2;
 export const GPU_EDGE_CONNECTION_VALID_FLAG = 4;
 export const GPU_EDGE_CONNECTION_INVALID_FLAG = 8;
+export const GPU_EDGE_CUSTOM_COLOR_FLAG = 16;
 
 export function buildGpuEdgeLineListBufferData({
   bezierSegments,
@@ -43,8 +46,9 @@ export function buildGpuEdgeLineListBufferData({
   for (const [edgeIndex, edge] of sortedEdges.entries()) {
     const vertexOffset = vertices.length / GPU_EDGE_VERTEX_FLOATS;
     const flags = getGpuEdgeBufferFlags(edge);
+    const color = edge.color ?? DEFAULT_GPU_EDGE_VERTEX_COLOR;
     const points = sampleGpuEdgeGeometry(edge.geometry, { bezierSegments });
-    appendLineListVertices(vertices, points, edgeIndex, flags);
+    appendLineListVertices(vertices, points, edgeIndex, flags, color);
     const vertexCount = vertices.length / GPU_EDGE_VERTEX_FLOATS - vertexOffset;
     if (vertexCount === 0) {
       continue;
@@ -68,6 +72,7 @@ function appendLineListVertices(
   points: readonly GpuPoint[],
   edgeIndex: number,
   flags: number,
+  color: GpuRgbaColor,
 ) {
   for (let index = 0; index < points.length - 1; index += 1) {
     const source = points[index];
@@ -75,8 +80,8 @@ function appendLineListVertices(
     if (!source || !target) {
       continue;
     }
-    appendEdgeVertex(vertices, source, edgeIndex, flags);
-    appendEdgeVertex(vertices, target, edgeIndex, flags);
+    appendEdgeVertex(vertices, source, edgeIndex, flags, color);
+    appendEdgeVertex(vertices, target, edgeIndex, flags, color);
   }
 }
 
@@ -85,12 +90,16 @@ function appendEdgeVertex(
   point: GpuPoint,
   edgeIndex: number,
   flags: number,
+  color: GpuRgbaColor,
 ) {
-  vertices.push(point.x, point.y, edgeIndex, flags);
+  vertices.push(point.x, point.y, edgeIndex, flags, ...color);
 }
 
 function getGpuEdgeBufferFlags(
-  edge: Pick<GpuEdgeBufferInput, "active" | "connectionStatus" | "selected">,
+  edge: Pick<
+    GpuEdgeBufferInput,
+    "active" | "color" | "connectionStatus" | "selected"
+  >,
 ) {
   let flags = 0;
   if (edge.selected) {
@@ -104,6 +113,9 @@ function getGpuEdgeBufferFlags(
   } else if (edge.connectionStatus === "invalid") {
     flags |= GPU_EDGE_CONNECTION_INVALID_FLAG;
   }
+  if (edge.color) {
+    flags |= GPU_EDGE_CUSTOM_COLOR_FLAG;
+  }
   return flags;
 }
 
@@ -113,3 +125,5 @@ function compareGpuEdgeBufferInputs(
 ): number {
   return (left.zIndex ?? 0) - (right.zIndex ?? 0);
 }
+
+const DEFAULT_GPU_EDGE_VERTEX_COLOR: GpuRgbaColor = [0, 0, 0, 0];
