@@ -70,6 +70,61 @@ def test_deadcode_configured_roots_default_and_override() -> None:
     ) == ["backend/setta", "plugins"]
 
 
+def test_deadcode_generated_globs_are_shared_with_quality_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    module = _load_aggregate_reports_module()
+    monkeypatch.setattr(module, "ROOT_DIR", tmp_path)
+    (tmp_path / "quality.paths.yaml").write_text(
+        "\n".join(
+            [
+                "schema_version: 1",
+                "python:",
+                "  generated_globs:",
+                "    - shared/python/**",
+                "frontend:",
+                "  generated_globs:",
+                "    - shared/frontend/**",
+                "go:",
+                "  generated_globs:",
+                "    - shared/go/**",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert module.resolve_generated_globs(
+        "python", {"generated_globs": ["deadcode/python/**"]}, []
+    ) == ["shared/python/**", "deadcode/python/**"]
+    assert module.resolve_generated_globs(
+        "frontend", {"generated_globs": ["deadcode/frontend/**"]}, []
+    ) == ["shared/frontend/**", "deadcode/frontend/**"]
+    assert module.resolve_generated_globs(
+        "go", {"generated_globs": ["deadcode/go/**"]}, ["**/*_gen.go"]
+    ) == ["**/*_gen.go", "shared/go/**", "deadcode/go/**"]
+
+
+def test_python_reachability_includes_configured_script_roots() -> None:
+    module = _load_aggregate_reports_module()
+
+    findings = module.python_reports.normalize_python_vulture_findings(
+        output=(
+            "scripts/deadcode/aggregate_reports.py:10: "
+            "unused function 'helper' (90% confidence)"
+        ),
+        coverage_files={},
+        generated_globs=[],
+        public_modules=[],
+        analyzed_roots=["backend/setta", "scripts"],
+    )
+
+    assert len(findings) == 1
+    assert findings[0]["path"] == "scripts/deadcode/aggregate_reports.py"
+    assert findings[0]["symbol"] == "helper"
+
+
 def test_relative_path_supports_external_output_directories(
     tmp_path: Path,
     monkeypatch,

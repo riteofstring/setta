@@ -1,5 +1,8 @@
 schema_version: 1
 
+# Generated-file exclusions are shared from quality.paths.yaml. Use per-language
+# generated_globs here only for deadcode-specific extras.
+
 go:
   deadcode_version: v0.44.0
   staticcheck_version: 2025.1.1
@@ -9,8 +12,6 @@ go:
     - goos: env
       goarch: env
       tags: []
-  generated_globs:
-    - "**/*_gen.go"
 
 python:
   lint_roots:
@@ -18,13 +19,12 @@ python:
     - backend/scripts
     - scripts
     - plugins
+  reachability_roots:
+    - backend/setta
+    - scripts
   public_modules:
     - backend/setta/api/__init__.py
     - backend/setta/llm/chat_toolkit/__init__.py
-  generated_globs:
-    - backend/setta/types/generated/**
-    - backend/setta/sdk_contracts/generated.py
-    - backend/setta/api/listener_endpoint_client.py
   vulture_min_confidence: 80
 
 frontend:
@@ -37,10 +37,3 @@ frontend:
     - frontend/plugin-sdk/app-subsystem
     - plugins/setta-json-render-app-gen/frontend
     - plugins/setta-watch-code/frontend
-  generated_globs:
-    - frontend/src/openapi/**/generated/**
-    - frontend/src/utils/generatedTypes.ts
-    - frontend/plugin-sdk/app-subsystem/src/generatedTypes.ts
-    - frontend/plugin-sdk/app-subsystem/src/generated/**
-    - frontend/plugin-sdk/app-subsystem/src/openapi/**/generated/**
-    - plugins/*/frontend/src/generated/**

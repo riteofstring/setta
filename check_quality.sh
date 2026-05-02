@@ -6,6 +6,7 @@ usage() {
 Usage: ./check_quality.sh [--staged | --git-changes | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
 
 Runs maintainability-oriented quality checks for supported production source, with an emphasis on cyclomatic complexity.
+Also enforces file-length limits configured in quality.paths.yaml.
 
 Modes:
   --git-changes      Check tracked files changed from HEAD plus untracked files (default).
@@ -197,6 +198,11 @@ if [[ ${#python_files[@]} -gt 0 ]]; then
     ruff check "${python_files[@]}"
     ruff check --select C901 --output-format=concise --config "lint.mccabe.max-complexity = $(quality_effective_exceeds_threshold "${python_max}")" "${python_files[@]}"
   ) || status=1
+fi
+
+if [[ ${#python_files[@]} -gt 0 || ${#frontend_eslint_files[@]} -gt 0 || ${#go_files[@]} -gt 0 ]]; then
+  echo "File length checks..."
+  python ./scripts/quality/check_file_lengths.py --paths-file "${selected_files_path}" || status=1
 fi
 
 if [[ ${#frontend_eslint_files[@]} -gt 0 ]]; then

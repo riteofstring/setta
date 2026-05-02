@@ -17,10 +17,17 @@ SCHEMA_VERSION = 1
 CATEGORIES = (
     "python",
     "frontend-eslint",
+    "frontend-file-length",
     "frontend-boundary",
     "frontend-guardrail",
     "go",
 )
+FRONTEND_CATEGORY_SECTIONS = {
+    "frontend-eslint": "eslint",
+    "frontend-file-length": "file_length",
+    "frontend-boundary": "boundary",
+    "frontend-guardrail": "guardrail",
+}
 
 
 def main() -> int:
@@ -113,7 +120,7 @@ def is_category_candidate(config: dict[str, Any], category: str, path: str) -> b
         return matches_language_section(path, mapping(config, "go"))
     if category.startswith("frontend-"):
         frontend = mapping(config, "frontend")
-        section_name = category.removeprefix("frontend-")
+        section_name = FRONTEND_CATEGORY_SECTIONS[category]
         section = mapping(frontend, section_name)
         extra_excludes = (
             string_list(frontend, "generated_globs")

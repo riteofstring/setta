@@ -11,6 +11,8 @@ python:
     - "backend/setta/sdk_contracts/constants.py"
     - "backend/setta/sdk_contracts/generated.py"
     - "backend/setta/api/listener_endpoint_client.py"
+  file_length:
+    max_lines: 1000
 
 frontend:
   generated_globs:
@@ -38,6 +40,21 @@ frontend:
       - "**/*.stories.*"
       - "**/*.d.ts"
     exclude_generated: true
+  file_length:
+    include_globs:
+      - "frontend/src/**"
+      - "frontend/plugin-sdk/app-subsystem/src/**"
+      - "plugins/*/frontend/src/**"
+    extensions:
+      - ".ts"
+      - ".tsx"
+    exclude_globs:
+      - "**/*.test.*"
+      - "**/*.spec.*"
+      - "**/*.stories.*"
+      - "**/*.d.ts"
+    exclude_generated: true
+    max_lines: 1000
   boundary:
     include_globs:
       - "frontend/src/**"
@@ -73,3 +90,5 @@ go:
     - "**/*_test.go"
   generated_globs:
     - "**/*_gen.go"
+  file_length:
+    max_lines: 1200
