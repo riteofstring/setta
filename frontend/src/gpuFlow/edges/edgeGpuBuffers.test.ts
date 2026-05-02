@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildGpuEdgeGeometry } from "./edgeGeometry";
 import {
   GPU_EDGE_ACTIVE_FLAG,
+  GPU_EDGE_CONNECTION_INVALID_FLAG,
+  GPU_EDGE_CONNECTION_VALID_FLAG,
   GPU_EDGE_SELECTED_FLAG,
   buildGpuEdgeLineListBufferData,
 } from "./edgeGpuBuffers";
@@ -71,6 +73,51 @@ describe("GPU edge buffer data", () => {
       100,
       1,
       GPU_EDGE_ACTIVE_FLAG,
+    ]);
+  });
+
+  it("encodes connection preview validity separately from active state", () => {
+    const line = buildGpuEdgeGeometry({
+      edgeId: "preview",
+      source: { x: 0, y: 0 },
+      target: { x: 100, y: 0 },
+      type: "straight",
+    });
+
+    const result = buildGpuEdgeLineListBufferData({
+      edges: [
+        {
+          active: true,
+          connectionStatus: "valid",
+          edgeId: "valid-preview",
+          geometry: line,
+        },
+        {
+          active: true,
+          connectionStatus: "invalid",
+          edgeId: "invalid-preview",
+          geometry: line,
+        },
+      ],
+    });
+
+    expect(Array.from(result.vertexData)).toEqual([
+      0,
+      0,
+      0,
+      GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_CONNECTION_VALID_FLAG,
+      100,
+      0,
+      0,
+      GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_CONNECTION_VALID_FLAG,
+      0,
+      0,
+      1,
+      GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_CONNECTION_INVALID_FLAG,
+      100,
+      0,
+      1,
+      GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_CONNECTION_INVALID_FLAG,
     ]);
   });
 });

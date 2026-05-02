@@ -67,6 +67,7 @@ describe("gpuProjectEdgeScene", () => {
             sectionId: "source",
             type: "source",
           },
+          connectionStatus: "valid",
           transform: [10, 20, 2],
         },
         projectConfig: createProjectConfig({
@@ -120,6 +121,11 @@ describe("gpuProjectEdgeScene", () => {
       scene.entries.find((entry) => entry.family === "connection")?.geometry
         .target,
     ).toEqual({ x: 220, y: 100 });
+    expect(
+      scene.entries.find((entry) => entry.family === "connection"),
+    ).toMatchObject({
+      connectionStatus: "valid",
+    });
     expect(scene.hitTestEdges.map((entry) => entry.edgeId)).toEqual([
       "data:data-edge",
       "agentic:agentic-edge",
@@ -137,6 +143,7 @@ describe("gpuProjectEdgeScene", () => {
             sectionId: "source",
             type: "source",
           },
+          connectionStatus: "invalid",
           transform: [0, 0, 1],
         },
         projectConfig: createProjectConfig({
@@ -176,6 +183,7 @@ describe("gpuProjectEdgeScene", () => {
             sectionId: "source",
             type: "source",
           },
+          connectionStatus: null,
           transform: [0, 0, 1],
         },
         showAgenticEdges: false,
@@ -264,6 +272,7 @@ describe("gpuProjectEdgeScene", () => {
         sectionId: "source",
         type: "source",
       },
+      connectionStatus: "invalid",
     });
     const activeState = selectProjectGpuConnectionState(store.getState());
 
@@ -275,6 +284,32 @@ describe("gpuProjectEdgeScene", () => {
     expect(selectProjectGpuConnectionState(store.getState()).transform).toEqual(
       [100, 80, 2],
     );
+    expect(
+      selectProjectGpuConnectionState(store.getState()).connectionStatus,
+    ).toBe("invalid");
+  });
+
+  it("tracks connection status changes while a connection preview is active", () => {
+    const store = createGpuFlowViewportStore();
+    store.getState().setConnectionState({
+      connectionPosition: { x: 450, y: 220 },
+      connectionStartHandle: {
+        handleId: "out",
+        sectionId: "source",
+        type: "source",
+      },
+      connectionStatus: "invalid",
+    });
+    const invalidState = selectProjectGpuConnectionState(store.getState());
+
+    store.getState().setConnectionState({ connectionStatus: "valid" });
+
+    expect(selectProjectGpuConnectionState(store.getState())).not.toBe(
+      invalidState,
+    );
+    expect(
+      selectProjectGpuConnectionState(store.getState()).connectionStatus,
+    ).toBe("valid");
   });
 });
 
@@ -285,6 +320,7 @@ function createBuildInput(
     connectionState: {
       connectionPosition: { x: 0, y: 0 },
       connectionStartHandle: null,
+      connectionStatus: null,
       transform: [0, 0, 1],
     },
     handlePositions: {

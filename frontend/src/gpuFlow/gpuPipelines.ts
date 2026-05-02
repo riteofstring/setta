@@ -1064,6 +1064,12 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+  if (input.flags >= 8.0) {
+    return vec4<f32>(0.92, 0.18, 0.18, 0.95);
+  }
+  if (input.flags >= 4.0) {
+    return vec4<f32>(0.12, 0.62, 0.32, 0.95);
+  }
   if (input.flags >= 2.0) {
     return vec4<f32>(0.92, 0.35, 0.05, 0.95);
   }

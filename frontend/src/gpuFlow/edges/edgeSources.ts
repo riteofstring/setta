@@ -6,6 +6,7 @@ import {
   type SingleConfig,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
+import type { ConnectionStatus } from "../flowTypes";
 import type { GpuPoint } from "../viewportMath";
 import {
   buildGpuEdgeGeometry,
@@ -56,6 +57,7 @@ export type GpuConnectionLineSource = {
       }
     | null
     | undefined;
+  readonly status?: ConnectionStatus | null | undefined;
 };
 
 export type GpuEdgeSceneEntry = GpuEdgeBufferInput &
@@ -357,6 +359,7 @@ export function buildGpuConnectionLineEntries({
   return [
     createGpuEdgeSceneEntry({
       active: true,
+      connectionStatus: connectionLine.status,
       edgeId: "active",
       family: "connection",
       geometry,
@@ -396,6 +399,7 @@ export function hitTestGpuEdgeScene({
 
 function createGpuEdgeSceneEntry({
   active,
+  connectionStatus,
   edgeId,
   family,
   geometry,
@@ -404,6 +408,7 @@ function createGpuEdgeSceneEntry({
   zIndex,
 }: {
   readonly active?: boolean | undefined;
+  readonly connectionStatus?: ConnectionStatus | null | undefined;
   readonly edgeId: string;
   readonly family: GpuEdgeFamily;
   readonly geometry: GpuEdgeGeometry;
@@ -413,6 +418,7 @@ function createGpuEdgeSceneEntry({
 }): GpuEdgeSceneEntry {
   return {
     active,
+    connectionStatus,
     edgeId: geometry.edgeId,
     family,
     geometry,

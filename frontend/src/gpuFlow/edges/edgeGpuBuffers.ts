@@ -1,8 +1,10 @@
+import type { ConnectionStatus } from "../flowTypes";
 import type { GpuPoint } from "../viewportMath";
 import { sampleGpuEdgeGeometry, type GpuEdgeGeometry } from "./edgeGeometry";
 
 export type GpuEdgeBufferInput = {
   readonly active?: boolean | undefined;
+  readonly connectionStatus?: ConnectionStatus | null | undefined;
   readonly edgeId: string;
   readonly geometry: GpuEdgeGeometry;
   readonly selected?: boolean | undefined;
@@ -24,6 +26,8 @@ export type GpuEdgeLineListBufferData = {
 export const GPU_EDGE_VERTEX_FLOATS = 4;
 export const GPU_EDGE_SELECTED_FLAG = 1;
 export const GPU_EDGE_ACTIVE_FLAG = 2;
+export const GPU_EDGE_CONNECTION_VALID_FLAG = 4;
+export const GPU_EDGE_CONNECTION_INVALID_FLAG = 8;
 
 export function buildGpuEdgeLineListBufferData({
   bezierSegments,
@@ -86,7 +90,7 @@ function appendEdgeVertex(
 }
 
 function getGpuEdgeBufferFlags(
-  edge: Pick<GpuEdgeBufferInput, "active" | "selected">,
+  edge: Pick<GpuEdgeBufferInput, "active" | "connectionStatus" | "selected">,
 ) {
   let flags = 0;
   if (edge.selected) {
@@ -94,6 +98,11 @@ function getGpuEdgeBufferFlags(
   }
   if (edge.active) {
     flags |= GPU_EDGE_ACTIVE_FLAG;
+  }
+  if (edge.connectionStatus === "valid") {
+    flags |= GPU_EDGE_CONNECTION_VALID_FLAG;
+  } else if (edge.connectionStatus === "invalid") {
+    flags |= GPU_EDGE_CONNECTION_INVALID_FLAG;
   }
   return flags;
 }

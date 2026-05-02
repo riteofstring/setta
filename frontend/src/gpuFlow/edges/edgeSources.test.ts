@@ -248,6 +248,7 @@ describe("edgeSources", () => {
           sectionId: "source",
           type: "source",
         },
+        status: "valid",
       },
       handlePositions,
     });
@@ -255,6 +256,7 @@ describe("edgeSources", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
       active: true,
+      connectionStatus: "valid",
       edgeId: "connection:active",
       family: "connection",
       selectable: false,

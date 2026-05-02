@@ -38,7 +38,10 @@ type EdgeHandlePositions = ReturnType<
 type NodeInternals = ReturnType<typeof useNodeInternals.getState>["x"];
 type ProjectGpuConnectionState = Pick<
   GpuFlowViewportStore,
-  "connectionPosition" | "connectionStartHandle" | "transform"
+  | "connectionPosition"
+  | "connectionStartHandle"
+  | "connectionStatus"
+  | "transform"
 >;
 
 type ProjectGpuEdgeVisibility = {
@@ -70,6 +73,7 @@ const AGENTIC_HANDLE_PREFIX = "agentic-edge-";
 const INACTIVE_PROJECT_GPU_CONNECTION_STATE: ProjectGpuConnectionState = {
   connectionPosition: { x: 0, y: 0 },
   connectionStartHandle: null,
+  connectionStatus: null,
   transform: [0, 0, 1],
 };
 
@@ -243,6 +247,7 @@ export function selectProjectGpuConnectionState(
   return {
     connectionPosition: state.connectionPosition,
     connectionStartHandle: state.connectionStartHandle,
+    connectionStatus: state.connectionStatus,
     transform: state.transform,
   };
 }
@@ -273,6 +278,7 @@ function resolveProjectGpuConnectionLine({
       connectionState.transform,
     ),
     startHandle,
+    status: connectionState.connectionStatus,
   };
 }
 
