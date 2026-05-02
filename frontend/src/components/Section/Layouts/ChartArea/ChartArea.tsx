@@ -13,12 +13,19 @@ import {
   ChartTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+} from "utils/constants";
 import { canvasToBlob } from "../DrawArea/binaryConversion";
 import { getLineChartConfig, updateLineChartWithNewData } from "./LineChart";
 import {
   getScatterChartConfig,
   updateScatterChartWithNewData,
 } from "./ScatterChart";
+
+const CHART_GPU_CONTROL_PREFIX = "chart";
 
 function _ChartArea({ sectionId }: { sectionId: string }) {
   // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
@@ -31,7 +38,9 @@ function _ChartArea({ sectionId }: { sectionId: string }) {
 
   return (
     <figure
-      className={`section-w-full section-row-main single-cell-container flex h-auto w-full max-w-full items-center justify-items-center overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
+      className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-w-full section-row-main single-cell-container flex h-auto w-full max-w-full items-center justify-items-center overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
+      data-gpu-flow-control={`${CHART_GPU_CONTROL_PREFIX}:${sectionId}`}
+      data-gpu-flow-interactive="true"
       // {...getRootProps()}
     >
       <ChartAreaCore sectionId={sectionId} />
@@ -104,7 +113,14 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
     chart.update();
   }, [data, size, datasetHidden, darkMode, chartSettings]);
 
-  return <canvas ref={canvasRef} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
+      data-gpu-flow-control={`${CHART_GPU_CONTROL_PREFIX}:canvas:${sectionId}`}
+      data-gpu-flow-interactive="true"
+    />
+  );
 }
 
 const ChartAreaCore = React.memo(_ChartAreaCore);
