@@ -72,6 +72,10 @@ type PendingPointerHandoffClick = {
   readonly target: HTMLElement;
 };
 
+type ActiveNodeReleaseOptions = {
+  readonly settleLiveDom?: boolean | undefined;
+};
+
 const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
 const GPU_FLOW_TELEPORTED_NODE_SELECTOR = '[data-gpu-flow-teleport="active"]';
 const GPU_FLOW_MOUSE_ACTIVATION_SELECTOR =
@@ -472,14 +476,23 @@ export function createGpuNodeInteractionDirtyController({
       interactiveTarget,
       nodeId,
     });
+    if (kind === "scroll" && activeNodeId === nodeId) {
+      const keepLiveForFocus = hasPersistentFocusForNode(nodeId);
+      if (keepLiveForFocus) {
+        clearActiveSettleTimer();
+        setState({ releaseAfterUploadNodeId: null });
+      }
+      markDirty({ nodeId, priority: "interactive", reason: "scroll" });
+      if (!keepLiveForFocus) {
+        releaseActiveNodeAfterUpload(nodeId, { settleLiveDom: false });
+      }
+      return;
+    }
     if (shouldBeginEventTargetInteraction({ interactiveTarget, priority })) {
       beginInteractiveNode(nodeId, dirtyReasonForKind(kind));
       return;
     }
     markDirty({ nodeId, priority, reason: dirtyReasonForKind(kind) });
-    if (kind === "scroll" && activeNodeId === nodeId) {
-      scheduleActiveNodeRelease(nodeId);
-    }
   }
 
   function markCustomDirtyEvent(
@@ -512,20 +525,47 @@ export function createGpuNodeInteractionDirtyController({
     markDirty({ nodeId, priority, reason });
   }
 
-  function releaseActiveNode(reason: DirtyNodeReason) {
+  function handleFocusOut(event: FocusEvent) {
+    const nodeId = findGpuNodeIdForEventTarget(event.target, elementByNodeId());
+    if (nodeId && isNodePersistentFocusTarget(nodeId, event.relatedTarget)) {
+      return;
+    }
+    if (nodeId && nodeId === focusedPersistentNodeId) {
+      focusedPersistentNodeId = null;
+    }
+    if (nodeId && nodeId === activeNodeId) {
+      releaseActiveNode("focus", { settleLiveDom: false });
+    }
+  }
+
+  function releaseActiveNode(
+    reason: DirtyNodeReason,
+    options: ActiveNodeReleaseOptions = {},
+  ) {
     if (!activeNodeId) {
       return;
     }
     const nodeId = activeNodeId;
     markDirty({ nodeId, priority: "interactive", reason });
-    scheduleActiveNodeRelease(nodeId);
+    releaseActiveNodeAfterUpload(nodeId, options);
   }
 
   function scheduleActiveNodeRelease(nodeId: string) {
+    releaseActiveNodeAfterUpload(nodeId, { settleLiveDom: true });
+  }
+
+  function releaseActiveNodeAfterUpload(
+    nodeId: string,
+    { settleLiveDom = true }: ActiveNodeReleaseOptions = {},
+  ) {
     if (activeNodeId !== nodeId) {
       return;
     }
     setState({ releaseAfterUploadNodeId: nodeId });
+    if (!settleLiveDom) {
+      clearActiveSettleTimer();
+      return;
+    }
     scheduleActiveSettleFrame(nodeId);
   }
 
@@ -600,24 +640,39 @@ export function createGpuNodeInteractionDirtyController({
         (event) => markEventTargetDirty(event.target, "focus"),
         listenerOptions,
       );
-      canvas.addEventListener(
+      canvas.addEventListener("focusout", handleFocusOut, listenerOptions);
+      ownerDocument.addEventListener(
+        "scroll",
+        (event) => {
+          if (shouldHandleTeleportedEventOutsideElement(event.target, canvas)) {
+            markEventTargetDirty(event.target, "scroll");
+          }
+        },
+        listenerOptions,
+      );
+      ownerDocument.addEventListener(
+        "wheel",
+        (event) => {
+          if (shouldHandleTeleportedEventOutsideElement(event.target, canvas)) {
+            handOffWheelEvent(event);
+          }
+        },
+        listenerOptions,
+      );
+      ownerDocument.addEventListener(
+        "focusin",
+        (event) => {
+          if (shouldHandleTeleportedEventOutsideElement(event.target, canvas)) {
+            markEventTargetDirty(event.target, "focus");
+          }
+        },
+        listenerOptions,
+      );
+      ownerDocument.addEventListener(
         "focusout",
         (event) => {
-          const nodeId = findGpuNodeIdForEventTarget(
-            event.target,
-            elementByNodeId(),
-          );
-          if (
-            nodeId &&
-            isNodePersistentFocusTarget(nodeId, event.relatedTarget)
-          ) {
-            return;
-          }
-          if (nodeId && nodeId === focusedPersistentNodeId) {
-            focusedPersistentNodeId = null;
-          }
-          if (nodeId && nodeId === activeNodeId) {
-            releaseActiveNode("focus");
+          if (shouldHandleTeleportedEventOutsideElement(event.target, canvas)) {
+            handleFocusOut(event);
           }
         },
         listenerOptions,
@@ -712,22 +767,9 @@ export function createGpuNodeInteractionDirtyController({
         setState({ releaseAfterUploadNodeId: null });
         return;
       }
+      requestActiveReleaseWhenUnowned();
 
-      const activeUploaded = result.uploadedNodeIds.includes(activeNodeId);
-      const activeStillDirty =
-        result.remainingDirtyNodeIds.includes(activeNodeId);
-      if (activeStillDirty && result.budgetExhausted) {
-        return;
-      }
-
-      if (
-        releaseAfterUploadNodeId === activeNodeId &&
-        activeSettleTimer !== null
-      ) {
-        return;
-      }
-
-      if (!activeUploaded) {
+      if (shouldDeferActiveReleaseCompletion(result)) {
         return;
       }
 
@@ -749,6 +791,9 @@ export function createGpuNodeInteractionDirtyController({
       if (!activeNodeId) {
         return null;
       }
+      if (!releaseAfterUploadNodeId && !hasLiveActiveNodeOwner(activeNodeId)) {
+        return null;
+      }
       if (
         releaseAfterUploadNodeId === activeNodeId &&
         activeSettleTimer === null
@@ -758,6 +803,47 @@ export function createGpuNodeInteractionDirtyController({
       return activeNodeId;
     },
   };
+
+  function requestActiveReleaseWhenUnowned() {
+    if (!activeNodeId || releaseAfterUploadNodeId) {
+      return;
+    }
+    if (hasLiveActiveNodeOwner(activeNodeId)) {
+      return;
+    }
+    clearActiveSettleTimer();
+    setState({ releaseAfterUploadNodeId: activeNodeId });
+    requestFrame("texture-upload");
+  }
+
+  function shouldDeferActiveReleaseCompletion(
+    result: GpuNodeInteractionFrameResult,
+  ): boolean {
+    if (!activeNodeId) {
+      return true;
+    }
+    if (
+      result.budgetExhausted &&
+      result.remainingDirtyNodeIds.includes(activeNodeId)
+    ) {
+      return true;
+    }
+    if (
+      releaseAfterUploadNodeId === activeNodeId &&
+      activeSettleTimer !== null
+    ) {
+      return true;
+    }
+    return !result.uploadedNodeIds.includes(activeNodeId);
+  }
+
+  function hasLiveActiveNodeOwner(nodeId: string): boolean {
+    return Boolean(
+      pointerInteractionNodeId ||
+        hoverInteractionNodeId ||
+        hasPersistentFocusForNode(nodeId),
+    );
+  }
 
   function hasPersistentFocusForNode(nodeId: string): boolean {
     const activeElement = getNodeOwnerDocumentActiveElement(nodeId);
@@ -793,14 +879,35 @@ export function findGpuNodeIdForEventTarget(
 ): string | null {
   const element = toElement(target);
   const nodeElement = element?.closest<HTMLElement>(GPU_FLOW_NODE_SELECTOR);
-  const nodeId = nodeElement?.getAttribute("data-id");
-  if (nodeId && elementByNodeId.get(nodeId) === nodeElement) {
-    return nodeId;
+  const directNodeId = findDirectGpuNodeId(nodeElement, elementByNodeId);
+  if (directNodeId) {
+    return directNodeId;
   }
 
   if (!element) {
     return null;
   }
+  return findContainingGpuNodeId(element, elementByNodeId);
+}
+
+function findDirectGpuNodeId(
+  nodeElement: HTMLElement | null | undefined,
+  elementByNodeId: ReadonlyMap<string, HTMLElement>,
+): string | null {
+  const nodeId = nodeElement?.getAttribute("data-id");
+  if (!nodeId || !nodeElement) {
+    return null;
+  }
+  if (elementByNodeId.get(nodeId) === nodeElement) {
+    return nodeId;
+  }
+  return isActiveTeleportedGpuNodeElement(nodeElement) ? nodeId : null;
+}
+
+function findContainingGpuNodeId(
+  element: Element,
+  elementByNodeId: ReadonlyMap<string, HTMLElement>,
+): string | null {
   for (const [candidateNodeId, candidateElement] of elementByNodeId) {
     if (candidateElement === element || candidateElement.contains(element)) {
       return candidateNodeId;
@@ -809,9 +916,25 @@ export function findGpuNodeIdForEventTarget(
   return null;
 }
 
+function isActiveTeleportedGpuNodeElement(nodeElement: HTMLElement): boolean {
+  return nodeElement.getAttribute("data-gpu-flow-teleport") === "active";
+}
+
 function isGpuNodeTeleportedEventTarget(target: EventTarget | Node | null) {
   const element = toElement(target);
   return Boolean(element?.closest(GPU_FLOW_TELEPORTED_NODE_SELECTOR));
+}
+
+function shouldHandleTeleportedEventOutsideElement(
+  target: EventTarget | Node | null,
+  attachedElement: HTMLElement,
+): boolean {
+  const element = toElement(target);
+  return Boolean(
+    element &&
+      !attachedElement.contains(element) &&
+      isGpuNodeTeleportedEventTarget(element),
+  );
 }
 
 function isGpuNodePersistentFocusEventTarget(

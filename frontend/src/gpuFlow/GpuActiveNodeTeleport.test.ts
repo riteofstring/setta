@@ -125,7 +125,7 @@ describe("GpuActiveNodeTeleport", () => {
     expect(layer.childElementCount).toBe(0);
   });
 
-  it("preserves scroll offsets on settling clones", () => {
+  it("preserves scroll offsets while moving nodes and on settling clones", () => {
     const canvas = document.createElement("canvas");
     const node = document.createElement("div");
     const scroller = document.createElement("div");
@@ -143,6 +143,11 @@ describe("GpuActiveNodeTeleport", () => {
     const controller = createGpuActiveNodeTeleportController(layer);
 
     controller.sync(snapshot(node, "node-a"));
+
+    expect(scroller.scrollLeft).toBe(12);
+    expect(scroller.scrollTop).toBe(96);
+    expect(nestedScroller.scrollTop).toBe(24);
+
     controller.sync(null);
 
     const cloneScroller = layer.querySelector<HTMLElement>(".scroller");

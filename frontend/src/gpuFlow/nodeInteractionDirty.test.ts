@@ -25,6 +25,15 @@ describe("gpu node interaction dirty tracking", () => {
     expect(isGpuNodeInteractiveEventTarget(input)).toBe(true);
   });
 
+  it("resolves active teleported node events from stable owner metadata", () => {
+    const nodeElement = createNodeElement("node-a");
+    const input = document.createElement("input");
+    nodeElement.dataset.gpuFlowTeleport = "active";
+    nodeElement.append(input);
+
+    expect(findGpuNodeIdForEventTarget(input, new Map())).toBe("node-a");
+  });
+
   it("marks input changes with interactive priority and requests texture work", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -578,7 +587,7 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
-  it("keeps focused text controls live after pointer release until blur", () => {
+  it("keeps focused text controls live after pointer release and restores on blur", () => {
     vi.useFakeTimers();
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -611,7 +620,50 @@ describe("gpu node interaction dirty tracking", () => {
     expect(controller.getLiveNodeId()).toBe("node-a");
 
     input.blur();
+    expect(controller.getLiveNodeId()).toBeNull();
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+    expect(controller.getActiveNodeId()).toBeNull();
+
+    detach();
+    canvas.remove();
+  });
+
+  it("does not let active scroll events cancel a focused control blur release", () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    const activeLayer = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const textarea = document.createElement("textarea");
+    nodeElement.append(textarea);
+    canvas.append(nodeElement);
+    document.body.append(canvas, activeLayer);
+    const textureManager = createInteractionTextureManager();
+    const controller = createGpuNodeInteractionDirtyController({
+      activeSettleDelayMs: 50,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame: vi.fn(),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    textarea.focus();
+    textarea.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    document.dispatchEvent(new Event("pointerup", { bubbles: true }));
+    nodeElement.dataset.gpuFlowTeleport = "active";
+    activeLayer.append(nodeElement);
+    textarea.focus();
+    textarea.dispatchEvent(new Event("scroll", { bubbles: true }));
+    vi.advanceTimersByTime(50);
+
     expect(controller.getLiveNodeId()).toBe("node-a");
+
+    textarea.blur();
+    textarea.dispatchEvent(new Event("scroll", { bubbles: true }));
     vi.advanceTimersByTime(50);
 
     expect(controller.getLiveNodeId()).toBeNull();
@@ -624,6 +676,41 @@ describe("gpu node interaction dirty tracking", () => {
 
     detach();
     canvas.remove();
+    activeLayer.remove();
+  });
+
+  it("does not keep live DOM once no pointer or focus owner remains", () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const slider = document.createElement("input");
+    slider.type = "range";
+    nodeElement.append(slider);
+    canvas.append(nodeElement);
+    const textureManager = createInteractionTextureManager();
+    const controller = createGpuNodeInteractionDirtyController({
+      activeSettleDelayMs: 50,
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame: vi.fn(),
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas);
+
+    slider.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    expect(controller.getLiveNodeId()).toBeNull();
+
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(controller.getLiveNodeId()).toBeNull();
+
+    detach();
   });
 
   it("does not re-dirty an active control during the settle delay", () => {
