@@ -107,9 +107,9 @@ export async function submitPromptTemplateSlashCommand(args: {
   hasRetainedImageAttachmentForImageMode: boolean;
   message: string;
   missingPromptFeedback: string;
-  options?: ChatSubmitOptions;
+  options?: ChatSubmitOptions | undefined;
   parsed: ChatSlashCommand;
-  requireOptions?: boolean;
+  requireOptions?: boolean | undefined;
   setSlashFeedback: (value: string) => void;
   submitRemotely: SubmitRemotelyHandler;
   submittedAttachments: ChatFileAttachment[];
@@ -202,9 +202,14 @@ export async function executeRegisteredSlashCommand(args: {
   clearInput: () => void;
   hasRetainedImageAttachmentForImageMode: boolean;
   message: string;
-  onSlashCommand?: (
-    command: ChatSlashCommand,
-  ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
+  onSlashCommand?:
+    | ((
+        command: ChatSlashCommand,
+      ) =>
+        | Promise<ChatSlashCommandResult | void>
+        | ChatSlashCommandResult
+        | void)
+    | undefined;
   parsed: ChatSlashCommand;
   resetEscClearedDraft: () => void;
   setSlashFeedback: (value: string) => void;
@@ -289,7 +294,10 @@ export function resolveRefreshedSlashCommandRequest(args: {
   if (!refreshedRequest.parsed) {
     return null;
   }
-  return refreshedRequest;
+  return {
+    parsed: refreshedRequest.parsed,
+    commandAvailable: refreshedRequest.commandAvailable,
+  };
 }
 
 export async function handleUnknownSlashCommand(args: {
@@ -302,10 +310,12 @@ export async function handleUnknownSlashCommand(args: {
     commandAvailable: boolean;
   }) => Promise<SlashCommandExecutionOutcome>;
   message: string;
-  onUnknownSlashCommand?: (
-    message: string,
-    attachments: ChatFileAttachment[],
-  ) => Promise<ChatSlashCommandResult> | ChatSlashCommandResult;
+  onUnknownSlashCommand?:
+    | ((
+        message: string,
+        attachments: ChatFileAttachment[],
+      ) => Promise<ChatSlashCommandResult> | ChatSlashCommandResult)
+    | undefined;
   resetEscClearedDraft: () => void;
   setSlashFeedback: (value: string) => void;
   submittedAttachments: ChatFileAttachment[];

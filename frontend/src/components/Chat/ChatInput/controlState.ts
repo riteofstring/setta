@@ -6,15 +6,19 @@ import {
   type ChatExecutionControls,
 } from "../chatInputHelpers";
 import { isDictationAvailable } from "../dictation";
+import {
+  type ChatRuntimeActivityEntry,
+  type ProviderDictationTranscriptionResult,
+} from "./shared";
 
 export function resolveChatInputControlState(args: {
   disabled: boolean;
   internalValue: string;
-  onChange?: (value: string) => void;
-  recognizedSlashCommands?: ChatSlashCommandDefinition[];
+  onChange?: ((value: string) => void) | undefined;
+  recognizedSlashCommands?: ChatSlashCommandDefinition[] | undefined;
   slashCommands: ChatSlashCommandDefinition[];
   submitDisabled: boolean;
-  value?: string;
+  value?: string | undefined;
   isUploading: boolean;
 }): {
   inputValue: string;
@@ -49,9 +53,9 @@ export function resolveDictationCapabilityState(args: {
   dictationSupported: boolean;
   isDisabled: boolean;
   mediaRecorderSupported: boolean;
-  onProviderDictationTranscribe?: (
-    audioBlob: Blob,
-  ) => Promise<ProviderDictationTranscriptionResult>;
+  onProviderDictationTranscribe?:
+    | ((audioBlob: Blob) => Promise<ProviderDictationTranscriptionResult>)
+    | undefined;
   providerDictationLikelySupported: boolean;
 }): {
   canAutoUseProviderDictation: boolean;
@@ -110,7 +114,7 @@ export function resolveDictationCapabilityState(args: {
 
 export function resolveExecutionControlState(args: {
   executionControlVisibility: ChatExecutionControlVisibility;
-  executionControls?: ChatExecutionControls;
+  executionControls?: ChatExecutionControls | undefined;
 }): {
   showExecutionControls: boolean;
   showPermissionControl: boolean;

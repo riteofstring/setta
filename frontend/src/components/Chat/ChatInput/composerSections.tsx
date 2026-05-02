@@ -353,7 +353,7 @@ export function ChatComposerMetaSection(props: {
   contextLabelPrefixFull: string;
   contextRemainingValue: string | null;
   contextTooltipHandlers: FloatingBoxHandlers | null;
-  executionControls?: ChatExecutionControls;
+  executionControls?: ChatExecutionControls | undefined;
   handleContextBadgeToggle: () => void;
   isDisabled: boolean;
   permissionModeIconClassName: string;
@@ -797,7 +797,7 @@ export function ChatSlashSuggestionsPortal(props: {
   return createPortal(
     <div
       className="fixed z-40 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900"
-      style={slashSuggestionsPortalStyle}
+      style={slashSuggestionsPortalStyle ?? undefined}
     >
       {slashSuggestionsList}
     </div>,

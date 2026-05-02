@@ -53,9 +53,9 @@ export function canStartProviderDictation(args: {
     failureClass: DictationProviderFailureClass;
     allowBrowserFallback: boolean;
   }) => boolean;
-  onProviderDictationTranscribe?: (
-    audioBlob: Blob,
-  ) => Promise<ProviderDictationTranscriptionResult>;
+  onProviderDictationTranscribe?:
+    | ((audioBlob: Blob) => Promise<ProviderDictationTranscriptionResult>)
+    | undefined;
   setDictationFeedback: (value: string | null) => void;
   setDictationState: (value: DictationState) => void;
 }): boolean {

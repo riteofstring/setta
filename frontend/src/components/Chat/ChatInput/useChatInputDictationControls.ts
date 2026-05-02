@@ -32,9 +32,9 @@ type UseChatInputDictationControlsInput = {
   dictationState: DictationState;
   inputValueRef: MutableRefObject<string>;
   isDisabled: boolean;
-  onProviderDictationTranscribe?: (
-    audioBlob: Blob,
-  ) => Promise<ProviderDictationTranscriptionResult>;
+  onProviderDictationTranscribe?:
+    | ((audioBlob: Blob) => Promise<ProviderDictationTranscriptionResult>)
+    | undefined;
   setDictationFeedback: (value: string | null) => void;
   setDictationState: (value: DictationState) => void;
   setInputValue: (nextValue: string) => void;
@@ -251,15 +251,17 @@ export function useChatInputDictationControls({
 
   const startProviderDictation = useCallback(
     async (allowBrowserFallback: boolean) => {
+      const providerTranscriber = onProviderDictationTranscribe;
       if (
         !canStartProviderDictation({
           allowBrowserFallback,
           canProviderDictate,
           maybeFallbackForProviderFailure,
-          onProviderDictationTranscribe,
+          onProviderDictationTranscribe: providerTranscriber,
           setDictationFeedback,
           setDictationState,
-        })
+        }) ||
+        !providerTranscriber
       ) {
         return;
       }
@@ -313,7 +315,7 @@ export function useChatInputDictationControls({
             dictationSourceRef,
             insertTranscript,
             maybeFallbackForProviderFailure,
-            onProviderDictationTranscribe,
+            onProviderDictationTranscribe: providerTranscriber,
             providerChunksRef,
             providerRecorderRef,
             providerStreamRef,

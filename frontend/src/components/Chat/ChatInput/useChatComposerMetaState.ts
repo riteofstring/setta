@@ -29,18 +29,18 @@ import {
 export function useChatComposerMetaState(args: {
   attachmentInputDisabled: boolean;
   contextUsageIsEstimated: boolean;
-  contextUsedTokens?: number | null;
-  contextWindowTokens?: number | null;
+  contextUsedTokens?: number | null | undefined;
+  contextWindowTokens?: number | null | undefined;
   dictationEnabledByProvider: boolean;
   dictationMode: ChatDictationMode;
   dictationState: DictationState;
   executionControlVisibility: ChatExecutionControlVisibility;
-  executionControls?: ChatExecutionControls;
+  executionControls?: ChatExecutionControls | undefined;
   isDisabled: boolean;
   isSubmitDisabled: boolean;
-  onProviderDictationTranscribe?: (
-    audioBlob: Blob,
-  ) => Promise<ProviderDictationTranscriptionResult>;
+  onProviderDictationTranscribe?:
+    | ((audioBlob: Blob) => Promise<ProviderDictationTranscriptionResult>)
+    | undefined;
   providerDictationLikelySupported: boolean;
   runtimeActivityCounts: ChatRuntimeActivityCounts;
   runtimeActivityDetails: ChatRuntimeActivityDetails;

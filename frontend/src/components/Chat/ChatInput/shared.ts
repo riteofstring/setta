@@ -98,7 +98,7 @@ export type {
   ChatSlashCommandResult,
   ChatSubmitDispatchResult,
   ChatSubmitOptions,
-} from "./chatInputHelpers";
+} from "../chatInputHelpers";
 
 export type ChatInputProps = {
   placeholderText: string | undefined;
@@ -147,10 +147,10 @@ export type EscClearedComposerDraft = {
 };
 
 export type SubmitRemotelyHandler = (args: {
-  draftToRestore?: EscClearedComposerDraft;
+  draftToRestore?: EscClearedComposerDraft | undefined;
   message: string;
   submittedAttachments: ChatFileAttachment[];
-  options?: ChatSubmitOptions;
+  options?: ChatSubmitOptions | undefined;
   fallbackFailureResult: Exclude<ChatSubmitDispatchResult, "submitted">;
 }) => Promise<ChatSubmitDispatchResult>;
 

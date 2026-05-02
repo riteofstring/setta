@@ -21,6 +21,7 @@ import {
   handleChatInputFormKeyDown,
   handleChatInputKeyDown,
   resolveSelectedQueuedDraftId,
+  submitChatInputMessage,
 } from "./ChatInput/keyboardHandlers";
 import {
   type ChatInputProps,
@@ -28,6 +29,7 @@ import {
   resolveChatInputProps,
 } from "./ChatInput/shared";
 import {
+  executeRegisteredSlashCommand,
   handleUnknownSlashCommand,
   submitNativeSlashCommand,
   submitPromptTemplateSlashCommand,
@@ -288,10 +290,10 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
       options,
       fallbackFailureResult,
     }: {
-      draftToRestore?: EscClearedComposerDraft;
+      draftToRestore?: EscClearedComposerDraft | undefined;
       message: string;
       submittedAttachments: ChatFileAttachment[];
-      options?: ChatSubmitOptions;
+      options?: ChatSubmitOptions | undefined;
       fallbackFailureResult: Exclude<ChatSubmitDispatchResult, "submitted">;
     }): Promise<ChatSubmitDispatchResult> => {
       const submissionDraft: EscClearedComposerDraft = draftToRestore ?? {

@@ -65,7 +65,7 @@ export function ChatInputFormLayout({
   handleDragOver: (event: DragEvent<HTMLDivElement>) => void;
   handleDrop: (event: DragEvent<HTMLDivElement>) => void;
   handleFormKeyDown: (event: KeyboardEvent<HTMLFormElement>) => void;
-  handleRemoveAttachment: (attachmentId: string) => void;
+  handleRemoveAttachment: (attachment: ChatFileAttachment) => void;
   handleSubmit: (event: FormEvent<HTMLFormElement>) => void;
   isUploading: boolean;
   queuedDrafts: QueuedChatDraft[];

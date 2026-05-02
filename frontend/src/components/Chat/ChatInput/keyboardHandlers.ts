@@ -1,4 +1,4 @@
-import { KeyboardEvent, type MutableRefObject } from "react";
+import { KeyboardEvent, type RefObject } from "react";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import { type ChatSlashCommandDefinition } from "../chatComposerControls";
 import {
@@ -10,9 +10,10 @@ import {
   isStopEscapeKey,
   resolveEscapeComposerAction,
 } from "../chatInputHelpers";
+import { type SubmitRemotelyHandler } from "./shared";
 
 export function focusComposerTextareaAtEnd(
-  textareaRef: MutableRefObject<HTMLTextAreaElement | null>,
+  textareaRef: RefObject<HTMLTextAreaElement | null>,
   value: string,
 ): void {
   requestAnimationFrame(() => {
@@ -93,10 +94,10 @@ export function handleEscapeComposerKeyDown(args: {
   clearComposerByEscape: () => boolean;
   event: KeyboardEvent<HTMLTextAreaElement>;
   inputValue: string;
-  onStop?: () => Promise<void> | void;
+  onStop?: (() => Promise<void> | void) | undefined;
   restoreDraftFromSubmittedHistorySelection: () => void;
   selectedSubmittedMessageIndex: number | null;
-  stopRequestedForCurrentResponseRef: MutableRefObject<boolean>;
+  stopRequestedForCurrentResponseRef: RefObject<boolean>;
   waitingForResponse: boolean;
 }): boolean {
   const {
@@ -293,9 +294,9 @@ export function applySubmittedHistorySelectionFromKey(args: {
     value: number | null | ((current: number | null) => number | null),
   ) => void;
   setSlashFeedback: (value: string | null) => void;
-  submittedHistoryDraftBeforeSelectionRef: MutableRefObject<string | null>;
+  submittedHistoryDraftBeforeSelectionRef: RefObject<string | null>;
   submittedMessageHistoryEntries: string[];
-  textareaRef: MutableRefObject<HTMLTextAreaElement | null>;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
 }): boolean {
   const {
     event,
@@ -348,9 +349,9 @@ export function handleSubmittedHistoryKeyDown(args: {
   ) => void;
   setSlashFeedback: (value: string | null) => void;
   shouldShowSlashSuggestions: boolean;
-  submittedHistoryDraftBeforeSelectionRef: MutableRefObject<string | null>;
+  submittedHistoryDraftBeforeSelectionRef: RefObject<string | null>;
   submittedMessageHistoryEntries: string[];
-  textareaRef: MutableRefObject<HTMLTextAreaElement | null>;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
 }): boolean {
   const {
     event,
@@ -422,7 +423,7 @@ export function handleChatInputKeyDown(args: {
   event: KeyboardEvent<HTMLTextAreaElement>;
   inputValue: string;
   isSubmitDisabled: boolean;
-  onStop?: () => Promise<void> | void;
+  onStop?: (() => Promise<void> | void) | undefined;
   queuedDrafts: QueuedChatDraft[];
   restoreDraftFromSubmittedHistorySelection: () => void;
   restoreEscClearedComposerDraft: () => boolean;
@@ -440,10 +441,10 @@ export function handleChatInputKeyDown(args: {
   setSlashFeedback: (value: string | null) => void;
   shouldShowSlashSuggestions: boolean;
   slashSuggestions: ChatSlashCommandDefinition[];
-  stopRequestedForCurrentResponseRef: MutableRefObject<boolean>;
-  submittedHistoryDraftBeforeSelectionRef: MutableRefObject<string | null>;
+  stopRequestedForCurrentResponseRef: RefObject<boolean>;
+  submittedHistoryDraftBeforeSelectionRef: RefObject<string | null>;
   submittedMessageHistoryEntries: string[];
-  textareaRef: MutableRefObject<HTMLTextAreaElement | null>;
+  textareaRef: RefObject<HTMLTextAreaElement | null>;
   waitingForResponse: boolean;
 }): void {
   const {
@@ -547,8 +548,8 @@ export function handleChatInputKeyDown(args: {
 
 export function handleChatInputFormKeyDown(args: {
   event: KeyboardEvent<HTMLFormElement>;
-  onStop?: () => Promise<void> | void;
-  stopRequestedForCurrentResponseRef: MutableRefObject<boolean>;
+  onStop?: (() => Promise<void> | void) | undefined;
+  stopRequestedForCurrentResponseRef: RefObject<boolean>;
   waitingForResponse: boolean;
 }): void {
   const {
@@ -608,7 +609,7 @@ export async function submitChatInputMessage(args: {
     feedback: string;
   }) => boolean;
   isSubmitDisabled: boolean;
-  onStop?: () => Promise<void> | void;
+  onStop?: (() => Promise<void> | void) | undefined;
   runSlashCommand: (
     message: string,
     submittedAttachments: ChatFileAttachment[],
