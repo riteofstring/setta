@@ -118,6 +118,34 @@ describe("section dnd sensor ownership", () => {
     ).toBe(false);
   });
 
+  it("allows dnd when an inner root wrapper carries nodrag for GPU drag blocking", () => {
+    // Mirrors the live GPU DOM: dnd-kit owns the sortable wrapper while the section root wrapper owns nodrag.
+    const source = sectionSource({ isTopLevel: false });
+    const gpuDragBlocker = document.createElement("div");
+    gpuDragBlocker.className = "nodrag";
+    const section = document.createElement("section");
+    section.dataset.sectionId = String(source.id);
+    const title = document.createElement("p");
+    section.append(title);
+    gpuDragBlocker.append(section);
+    source.element!.append(gpuDragBlocker);
+
+    expect(
+      shouldPreventSectionDndActivation(
+        eventFromElement(title),
+        source,
+        SORTING,
+      ),
+    ).toBe(false);
+    expect(
+      shouldPreventSectionDndActivation(
+        eventFromElement(title),
+        source,
+        MOVING_FREE,
+      ),
+    ).toBe(false);
+  });
+
   it("rejects non-section sources so param dnd stays isolated", () => {
     // Validates section sensors never claim nested param drags, even while section dnd modes are active.
     const source = dndSource({ type: "param", isTopLevel: false });

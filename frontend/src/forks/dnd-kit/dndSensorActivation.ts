@@ -38,7 +38,27 @@ export function eventTargetsNoDragElement(
     return false;
   }
   const noDragElement = target.closest(`.${NO_DRAG_CLASS_NAME}`);
-  return Boolean(noDragElement && noDragElement !== source.element);
+  return Boolean(
+    noDragElement && !isSourceOwnedNoDragElement(noDragElement, source),
+  );
+}
+
+function isSourceOwnedNoDragElement(
+  noDragElement: Element,
+  source: DndSource,
+): boolean {
+  if (noDragElement === source.element || noDragElement === source.handle) {
+    return true;
+  }
+
+  const sourceSectionId = String(source.id);
+  if (noDragElement.getAttribute("data-section-id") === sourceSectionId) {
+    return true;
+  }
+
+  return Array.from(noDragElement.querySelectorAll("[data-section-id]")).some(
+    (element) => element.getAttribute("data-section-id") === sourceSectionId,
+  );
 }
 
 export function getSectionDndActivatorElements(source: DndSource) {

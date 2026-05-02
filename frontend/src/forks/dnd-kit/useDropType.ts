@@ -15,6 +15,7 @@ import { BehaviorDropTypeEnum } from "forks/dnd-kit/dropTypes";
 import { getZoom } from "gpuFlow/viewportActions";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
+  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
   getCurrSectionVariant,
   getSectionChildren,
   getSectionIsHorizontalOrientation,
@@ -38,7 +39,10 @@ import {
   useSectionRefs,
   useShareSession,
 } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  isBaseParentSectionImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -72,6 +76,7 @@ type ParentMoveContext = {
   newParentId: string;
   overId: string | number | null;
   overIdKey: string | null;
+  newParentAcceptsChildren: boolean;
   newParentChildren: string[];
   newParentNumChildren: number;
   pastHalfway: boolean;
@@ -642,6 +647,10 @@ function resolveParentMoveContext({
 }: ParentMoveArgs): ParentMoveContext {
   const overId = getOverId(over, collisions);
   const newParentChildren = dndChildrenState.x[newParentId] ?? [];
+  const newParentChildCount = getDndParentSectionChildCount(
+    useProjectState.getState(),
+    newParentId,
+  );
   return {
     activeId,
     dndSectionId,
@@ -649,14 +658,24 @@ function resolveParentMoveContext({
     newParentId,
     overId,
     overIdKey: normalizeOverId(overId),
+    newParentAcceptsChildren: newParentChildCount !== null,
     newParentChildren,
-    newParentNumChildren: getSectionChildren(
-      useProjectState.getState(),
-      newParentId,
-    ).length,
+    newParentNumChildren: newParentChildCount ?? 0,
     pastHalfway: getOverCollisionPastHalfway(overId, collisions) ?? false,
     tempInNewParent: newParentChildren.includes(dndSectionId),
   };
+}
+
+export function getDndParentSectionChildCount(
+  state: ReturnType<typeof useProjectState.getState>,
+  sectionId: string,
+): number | null {
+  const parentImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+    state,
+    sectionId,
+    isBaseParentSectionImpl,
+  );
+  return parentImpl?.children.length ?? null;
 }
 
 function shouldRejectParentExitHover({
@@ -675,9 +694,19 @@ function shouldRejectParentExitHover({
 function allowParentDrop({
   activeId,
   dndSectionId,
+  newParentAcceptsChildren,
   newParentId,
   overId,
 }: ParentMoveContext) {
+  if (!newParentAcceptsChildren) {
+    removeDndChild(dndSectionId);
+    useDndState.setState({
+      behaviorDropType: BehaviorDropTypeEnum.INVALID,
+      overId,
+    });
+    return false;
+  }
+
   const behaviorDropType = getBehaviorDropType(activeId, newParentId);
   if (behaviorDropType !== BehaviorDropTypeEnum.INVALID) {
     return true;
