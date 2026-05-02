@@ -250,10 +250,7 @@ FINALIZE_PROMPT = (
     "- Update `cumulative_review.md`.\n"
     "- Remove the top-level `review*.md` files.\n"
     "- Make sure any earlier `./aireset.sh` session is stopped.\n"
-    "- Commit all remaining changes except `review*.md`.\n"
-    "- Use a commit message that describes the actual changes being committed in "
-    "this iteration. Do not use a workflow-only message about "
-    "review/finalization/metadata.\n\n"
+    "- Commit all remaining changes except `review*.md`.\n\n"
     "`cumulative_review.md` format:\n"
     "- If the file is empty, start with:\n"
     "  - `# Cumulative Review`\n"
@@ -330,10 +327,6 @@ def _runner_script() -> Path:
     return repo_root() / "scripts" / "run-codex-branch-review-loop.sh"
 
 
-def _standalone_wrapper_script() -> Path:
-    return repo_root() / "scripts" / "run-codex-app-subsystem-standalone-branch-review-loop.sh"
-
-
 def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -> None:
     result = subprocess.run(
         ["bash", str(_runner_script()), "--help"],
@@ -346,17 +339,6 @@ def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -
     assert "start three separate Codex review sessions in parallel" in result.stdout
     assert "A clean stop may leave only top-level `review1.md`, `review2.md`, and" in result.stdout
     assert "--root-dir PATH" in result.stdout
-    assert "--extra-prompt TEXT" in result.stdout
-    assert "--extra-prompt-file PATH" in result.stdout
-
-
-def test_app_subsystem_standalone_branch_review_wrapper_passes_custom_prompt_file() -> None:
-    wrapper = _standalone_wrapper_script().read_text(encoding="utf-8")
-
-    assert 'PROMPT_FILE="${SCRIPT_DIR}/prompts/app-subsystem-standalone-plugin-review.md"' in wrapper
-    assert 'exec "${SCRIPT_DIR}/run-codex-branch-review-loop.sh" \\' in wrapper
-    assert '--extra-prompt-file "${PROMPT_FILE}"' in wrapper
-    assert '"$@"' in wrapper
 
 
 def test_branch_review_loop_appends_extra_prompt_file(

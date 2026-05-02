@@ -1,7 +1,7 @@
 import * as Slider from "@radix-ui/react-slider";
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -13,7 +13,6 @@ import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   type SliderParamCodeObjImpl,
   CodeObjTypeEnum,
@@ -167,7 +166,7 @@ export function SliderInput({
   textInputClassName?: string;
 }) {
   return (
-    <div className={joinControlClassNames(wrapperDivClass)}>
+    <div className={wrapperDivClass}>
       <SliderOnly
         value={value}
         onChange={onChange}
@@ -230,8 +229,7 @@ function SliderTextField({
   }, [value]);
   return (
     <input
-      className={joinControlClassNames(className)}
-      data-gpu-flow-interactive="true"
+      className={className}
       value={tempValue}
       onChange={localOnChange}
       onBlur={onBlur}
@@ -272,8 +270,7 @@ function SliderOnly({
   const valueNum = isNaN(asNum) ? min : clamp(_.toNumber(value), min, max);
   return (
     <Slider.Root
-      className={joinControlClassNames(sliderRootClassName)}
-      data-gpu-flow-interactive="true"
+      className={sliderRootClassName}
       value={[valueNum]}
       min={min}
       max={max}
@@ -290,16 +287,10 @@ function SliderOnly({
         }
       }}
     >
-      <Slider.Track className={joinControlClassNames(sliderTrackClassName)}>
+      <Slider.Track className={sliderTrackClassName}>
         <Slider.Range className={sliderRangeClassName} />
       </Slider.Track>
-      <Slider.Thumb className={joinControlClassNames(sliderThumbClassName)} />
+      <Slider.Thumb className={sliderThumbClassName} />
     </Slider.Root>
   );
-}
-
-function joinControlClassNames(className: string | undefined): string {
-  return [NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, className]
-    .filter(Boolean)
-    .join(" ");
 }

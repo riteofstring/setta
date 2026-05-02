@@ -9,12 +9,6 @@ import {
 } from "@glideapps/glide-data-grid";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
-  callOpenAPI,
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   downloadBinary,
   getFileBrowserFileContent,
   getFileBrowserFileStat,
@@ -23,6 +17,7 @@ import {
   type FilebrowserFileStatResponse,
   type FilebrowserWriteFileContentResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import type {
   Dispatch,
   MutableRefObject,
@@ -42,6 +37,11 @@ import { List, useListRef } from "react-window";
 import { useLocalStorage } from "state/definitions";
 import { uploadBinaryPayload } from "utils/binaryUpload";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import type { SpreadsheetGridDensity } from "utils/generatedTypes";
 import {
   getSpreadsheetColumnLabel,
@@ -883,7 +883,6 @@ function SpreadsheetGlideGridView({
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag h-full overflow-hidden bg-setta-50/80 [scrollbar-gutter:stable] dark:bg-setta-950/80`}
-      data-gpu-flow-control="spreadsheet-glide-grid"
       data-testid="spreadsheet-glide-grid"
     >
       <div
@@ -977,7 +976,6 @@ function SpreadsheetDomGridView({
   return (
     <div
       className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag h-full overflow-x-auto overflow-y-hidden bg-setta-50/80 [scrollbar-gutter:stable] dark:bg-setta-950/80`}
-      data-gpu-flow-control="spreadsheet-dom-grid"
       data-testid="spreadsheet-grid-scroll"
     >
       <div className="min-h-full" style={{ minWidth: listWidth }}>

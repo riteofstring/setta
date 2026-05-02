@@ -1,8 +1,8 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { useParamDuplicateIndex } from "components/Params/ParamDuplicateIndexContext";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import { setCodeObjDisplayName, setCodeObjName } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useCallback,
   useEffect,

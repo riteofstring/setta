@@ -1,9 +1,9 @@
 /* @vitest-environment jsdom */
 
-import type { Node } from "gpuFlow/flowTypes";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useReactFlow } from "forks/xyflow/core/store";
+import initialState from "forks/xyflow/core/store/initialState";
+import type { Node } from "forks/xyflow/core/types";
 import {
-  useActiveSectionUI,
   useLocalStorage,
   useMisc,
   useNodeInternals,
@@ -13,15 +13,11 @@ import {
 import { resetProjectStores } from "state/utils";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./nodeInternals";
-import {
-  debounced_route_set_top_level_section_layout,
-  getSectionDescendants,
-} from "./sectionInfos";
+import { debounced_route_set_top_level_section_layout } from "./sectionInfos";
 
 vi.mock("./edgeHandles", () => ({
   scheduleEdgeHandlePositionUpdate: vi.fn(),
@@ -53,23 +49,26 @@ function createViewportDomNode() {
   return domNode;
 }
 
-function setupGpuViewportStore() {
-  gpuFlowViewportStore.getState().setDomNode(createViewportDomNode());
-  gpuFlowViewportStore.getState().setViewportSize({
-    height: 600,
+function setupFitViewState(overrides: Partial<typeof initialState> = {}) {
+  const transform = vi.fn();
+  const d3Selection = { id: "selection" } as unknown as NonNullable<
+    typeof initialState.d3Selection
+  >;
+  const d3Zoom = { transform } as unknown as NonNullable<
+    typeof initialState.d3Zoom
+  >;
+
+  useReactFlow.setState({
+    ...initialState,
+    domNode: createViewportDomNode(),
     width: 800,
+    height: 600,
+    d3Selection,
+    d3Zoom,
+    ...overrides,
   });
-  gpuFlowViewportStore.getState().setZoomBounds({
-    defaultZoom: 1,
-    maxZoom: 4,
-    minZoom: 0.1,
-  });
-  gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-  gpuFlowViewportStore.getState().setFitViewInitializationState({
-    fitViewOnInit: false,
-    fitViewOnInitDone: false,
-    fitViewOnInitOptions: undefined,
-  });
+
+  return { transform };
 }
 
 function createMeasuredElement({
@@ -97,21 +96,20 @@ function createMeasuredElement({
 describe("nodeInternals", () => {
   beforeEach(() => {
     resetProjectStores();
-    vi.mocked(getSectionDescendants).mockImplementation((sectionId) => [
-      sectionId,
-    ]);
     useSettings.setState(createSettingsState());
     useLocalStorage.setState({ overviewTrueWidth: 0, uiEditorTrueWidth: 0 });
-    setupGpuViewportStore();
+    useReactFlow.setState({
+      ...initialState,
+      domNode: createViewportDomNode(),
+      fitViewOnInit: false,
+      fitViewOnInitDone: false,
+    });
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     resetProjectStores();
-    const domNode = gpuFlowViewportStore.getState().domNode;
-    if (domNode) {
-      gpuFlowViewportStore.getState().clearDomNode(domNode);
-    }
+    useReactFlow.setState({ ...initialState });
   });
 
   it("updates measured dimensions and defers fitView until code areas finish rendering", () => {
@@ -146,91 +144,11 @@ describe("nodeInternals", () => {
     expect(debounced_route_set_top_level_section_layout).toHaveBeenCalledTimes(
       1,
     );
-    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(false);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
   });
 
-  it("schedules edge handle refreshes for resized section descendants", () => {
-    vi.mocked(getSectionDescendants).mockImplementation((sectionId) =>
-      sectionId === "section-1" ? ["section-1", "child-1"] : [sectionId],
-    );
-    useNodeInternals.setState({
-      x: new Map([
-        ["section-1", createNode({ id: "section-1", width: 200, height: 100 })],
-      ]),
-    });
-
-    updateNodeDimensions([
-      {
-        id: "section-1",
-        nodeElement: createMeasuredElement({
-          id: "section-1",
-          width: 240,
-          height: 120,
-        }),
-        forceUpdate: false,
-      },
-    ]);
-
-    expect(scheduleEdgeHandlePositionUpdate).toHaveBeenCalledWith([
-      "section-1",
-      "child-1",
-    ]);
-  });
-
-  it("refreshes existing selected-node bounds when a selected node resizes", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-1",
-          createNode({
-            id: "section-1",
-            height: 50,
-            position: { x: 10, y: 20 },
-            width: 100,
-          }),
-        ],
-        [
-          "section-2",
-          createNode({
-            id: "section-2",
-            height: 40,
-            position: { x: 200, y: 40 },
-            width: 30,
-          }),
-        ],
-      ]),
-    });
-    useActiveSectionUI.setState({ activeIds: ["section-1", "section-2"] });
-    gpuFlowViewportStore.getState().setNodesSelectionBounds({
-      height: 60,
-      width: 220,
-      x: 10,
-      y: 20,
-    });
-
-    updateNodeDimensions([
-      {
-        id: "section-1",
-        nodeElement: createMeasuredElement({
-          id: "section-1",
-          width: 160,
-          height: 80,
-        }),
-        forceUpdate: false,
-      },
-    ]);
-
-    expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
-      height: 80,
-      width: 220,
-      x: 10,
-      y: 20,
-    });
-  });
-
-  it("marks initial fitView complete once measurements are ready and centers into the visible pane", () => {
-    useLocalStorage.setState({ overviewTrueWidth: 120 });
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+  it("marks initial fitView complete once measurements are ready", () => {
+    const { transform } = setupFitViewState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
       fitViewOnInitOptions: { maxZoom: 1.5 },
@@ -257,8 +175,8 @@ describe("nodeInternals", () => {
       },
     ]);
 
-    expect(gpuFlowViewportStore.getState().transform).toEqual([430, 240, 1]);
-    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
+    expect(transform).toHaveBeenCalledTimes(1);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("collects stored refs for explicit node refresh requests", () => {

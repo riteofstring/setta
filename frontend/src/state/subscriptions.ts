@@ -1,5 +1,5 @@
 import { updateDndChildren } from "forks/dnd-kit/dndChildren";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   useDecodedImages,
@@ -46,18 +46,15 @@ export function subscribe() {
     });
   });
 
-  gpuFlowViewportStore.subscribe(
-    gpuViewportSubscriptionFn,
+  useReactFlow.subscribe(
+    reactFlowTransformSubscriptionFn,
     (newState, prevState) => {
       const autoFitTransition =
         newState.fitViewOnInitDone &&
         (newState.fitViewOnInit || prevState.fitViewOnInit);
       if (autoFitTransition) {
         if (newState.fitViewOnInit) {
-          gpuFlowViewportStore.getState().setFitViewInitializationState({
-            fitViewOnInit: false,
-            fitViewOnInitOptions: undefined,
-          });
+          useReactFlow.setState({ fitViewOnInit: false });
         } else {
           // Auto-fit chooses an authoritative camera for the current
           // document, so persist it immediately instead of waiting on the
@@ -127,7 +124,7 @@ export function subscribe() {
   );
 }
 
-function gpuViewportSubscriptionFn(state) {
+function reactFlowTransformSubscriptionFn(state) {
   return {
     transform: state.transform,
     fitViewOnInit: state.fitViewOnInit,

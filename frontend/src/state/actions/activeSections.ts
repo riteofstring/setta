@@ -1,10 +1,6 @@
-import {
-  callOpenAPI,
-  createNewId,
-  res200,
-} from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { setActiveIds } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   clearScheduledActiveSectionBackendSync,
   disableActiveSectionUIBackendHydration,
@@ -22,7 +18,9 @@ import {
   useProjectState,
   useServerMode,
 } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,

@@ -1,6 +1,6 @@
 # Prompt Sections
 
-Prompt sections support two source modes:
+Prompt sections now support two source modes:
 
 - local section-owned prompt text
 - linked prompt template ids stored in the project-wide prompt-template store
@@ -51,7 +51,7 @@ path prefers the saved prompt template when one exists.
 
 ## Broken-link behavior
 
-If a linked prompt template id does not exist:
+If a linked prompt template id no longer exists:
 
 - The canvas editor stays read-only.
 - The UI shows a broken-link message instead of silently falling back to stale
@@ -66,11 +66,12 @@ Current limitation:
 
 ## Codegen and workflow resolution
 
-Prompt sections matter in two runtime paths:
+Prompt sections matter in two runtime paths introduced or changed by this
+branch:
 
 - Dependency-graph/codegen export resolves the live linked template text when a
   DB handle is available, so codegen follows the saved prompt template instead
-  of a cached section snapshot.
+  of an old cached snapshot.
 - Workflow `send_prompt` edges that target a Prompt section resolve that Prompt
   section through the same source-of-truth pathway, so a Prompt section linked
   to a saved prompt template dispatches the current template text at runtime.
@@ -79,7 +80,7 @@ Both paths fail loudly when the linked template is missing.
 
 ## Template deletion behavior
 
-Prompt-template deletion has two different outcomes depending on where the
+Prompt-template deletion now has two different outcomes depending on where the
 template is referenced:
 
 - Workflow edges that reference a saved prompt template block deletion with a

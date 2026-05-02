@@ -1,5 +1,5 @@
-import { AppSubsystemChatUIConfig } from "@setta/app-subsystem-frontend-sdk";
 import { describe, expect, it, vi } from "vitest";
+import { buildAppGenerationSlashCommandDefinitions } from "./appGenerationSlashCommands";
 import {
   buildChatSlashCommands,
   buildCustomPromptSlashCommandDefinitions,
@@ -14,22 +14,8 @@ import {
   type ManagedChatExecutionSettings,
 } from "./chatComposerControls";
 
-const APP_SUBSYSTEM_IMAGE_REQUIRED_MODES = new Set(
-  AppSubsystemChatUIConfig.customSlashCommandModeOptions
-    .filter((option) => option.requiresImageAttachment)
-    .map((option) => option.value),
-);
 const APP_GENERATION_SLASH_COMMANDS =
-  AppSubsystemChatUIConfig.slashCommands.map((entry) => ({
-    command: entry.command,
-    action: entry.action,
-    summary: entry.summary,
-    promptTemplate: entry.promptTemplate,
-    appGenerationMode: entry.appGenerationMode,
-    requiresImageAttachment: APP_SUBSYSTEM_IMAGE_REQUIRED_MODES.has(
-      entry.appGenerationMode,
-    ),
-  }));
+  buildAppGenerationSlashCommandDefinitions();
 
 describe("chatComposerControls", () => {
   it("parses slash commands with args", () => {
@@ -144,7 +130,7 @@ describe("chatComposerControls", () => {
       model: false,
       permissions: false,
       search: false,
-      appGenerationCommands: APP_GENERATION_SLASH_COMMANDS,
+      appGenerationModes: true,
     });
 
     expect(commands.map((entry) => entry.command)).toEqual([
@@ -155,20 +141,11 @@ describe("chatComposerControls", () => {
     ]);
     expect(commands.slice(2, 6)).toEqual(
       APP_GENERATION_SLASH_COMMANDS.map(
-        ({
+        ({ command, action, summary, promptTemplate }) => ({
           command,
           action,
           summary,
           promptTemplate,
-          appGenerationMode,
-          requiresImageAttachment,
-        }) => ({
-          command,
-          action,
-          summary,
-          promptTemplate,
-          appGenerationMode,
-          requiresImageAttachment,
         }),
       ),
     );
@@ -196,7 +173,6 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Summarize regressions.",
         appGenerationMode: null,
-        requiresImageAttachment: false,
       },
     ]);
 
@@ -238,7 +214,6 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Build from the project design system.",
         appGenerationMode: "json_render",
-        requiresImageAttachment: false,
       },
     ]);
 
@@ -268,7 +243,7 @@ describe("chatComposerControls", () => {
         model: false,
         permissions: false,
         search: false,
-        appGenerationCommands: APP_GENERATION_SLASH_COMMANDS,
+        appGenerationModes: true,
       }),
     );
 
@@ -299,7 +274,6 @@ describe("chatComposerControls", () => {
         summary: "Run a saved custom prompt.",
         promptTemplate: "Keep this prompt.",
         appGenerationMode: null,
-        requiresImageAttachment: false,
       },
     ]);
   });
@@ -585,14 +559,13 @@ describe("chatComposerControls", () => {
       model: false,
       permissions: true,
       search: true,
-      appGenerationCommands: APP_GENERATION_SLASH_COMMANDS,
+      appGenerationModes: true,
     });
 
     const appModeResult = await executeManagedChatSlashCommand({
       command: {
         action: "app_mcp_server",
         args: [],
-        appGenerationMode: "mcp_server",
         promptTemplate: APP_GENERATION_SLASH_COMMANDS[3]?.promptTemplate,
       },
       slashCommands,

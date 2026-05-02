@@ -1,10 +1,10 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import {
   appendDrawAreaLayerItem,
   setChartAreaDataPath,
   setImageAreaImagePath,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { queueTransformsForSave } from "state/actions/artifacts";
 import { openDropzoneFilePickerModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";

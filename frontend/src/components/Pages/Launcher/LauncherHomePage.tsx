@@ -1,9 +1,3 @@
-import {
-  callOpenAPI,
-  res200,
-  resolveServerModeCapabilities,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import {
   getLauncherFilesystemRoots,
@@ -17,9 +11,12 @@ import {
   type ListLauncherDirectoryResponse,
   type OpenLauncherWorkspaceResponse,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerMode } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
+import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 type LauncherListDirectoryRequest = NonNullable<
   Parameters<typeof listLauncherDirectory>[0]
 >["body"];

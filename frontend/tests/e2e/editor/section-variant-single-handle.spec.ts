@@ -28,9 +28,8 @@ async function createSectionVariantFromFrontend(
         createNewSectionVariant,
         getLatestProjectState,
       } = await import("/src/openapi/http");
-      const { callOpenAPI, res200 } = await import(
-        "/tests/e2e/browserAppSubsystemSdk.ts"
-      );
+      const { callOpenAPI } = await import("/src/openapi/http/result");
+      const { res200 } = await import("/src/utils/endpointUtils");
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );
@@ -87,9 +86,8 @@ async function setSectionVariantFromFrontend(
         getLatestProjectState,
         setSectionVariant,
       } = await import("/src/openapi/http");
-      const { callOpenAPI, res200 } = await import(
-        "/tests/e2e/browserAppSubsystemSdk.ts"
-      );
+      const { callOpenAPI } = await import("/src/openapi/http/result");
+      const { res200 } = await import("/src/utils/endpointUtils");
       const { processProjectStateUpdateFromBackend } = await import(
         "/src/state/actions/sectionInfos"
       );

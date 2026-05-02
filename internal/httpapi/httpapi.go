@@ -26,7 +26,8 @@ import (
 	"setta/internal/pythonsdkcontracts"
 )
 
-const RouteAPIPrefix = "/api"
+const apiPrefix = "/api"
+const RouteAPIPrefix = apiPrefix
 const RouteSDKRuntimeHandshake = "/sdkRuntimeHandshake"
 
 type InfoService interface {
@@ -101,7 +102,6 @@ func registerCoreRuntimeOpenAPIRoutes(router chi.Router, info InfoService) {
 		},
 		withOpenAPITags("Runtime"),
 		withOpenAPISummary("Get the current backend server mode."),
-		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	registerOpenAPIGet[RuntimeInfo](
 		router,
@@ -143,11 +143,11 @@ func registerBootstrapRoutes(router chi.Router, deps Dependencies) {
 	if !handlerAuthEnabled(deps.Auth) {
 		return
 	}
-	router.Get(RouteBootstrapPage+"/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, RouteBootstrapPage, http.StatusTemporaryRedirect)
+	router.Get(bootstrapPagePath+"/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, bootstrapPagePath, http.StatusTemporaryRedirect)
 	})
-	router.Get(RouteBootstrapPage, bootstrapPageHandler())
-	router.Post(RouteBootstrapConsume, bootstrapConsumeHandler(deps.Auth, deps.TrustedOrigins))
+	router.Get(bootstrapPagePath, bootstrapPageHandler())
+	router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth, deps.TrustedOrigins))
 }
 
 func registerAuthenticatedRootRoutes(openAPIRouter chi.Router, deps Dependencies) {
@@ -165,7 +165,7 @@ func registerAuthenticatedRootRoutes(openAPIRouter chi.Router, deps Dependencies
 }
 
 func registerAPIRoutes(openAPIRouter chi.Router, openAPIDocument *huma.OpenAPI, deps Dependencies) {
-	openAPIRouter.Route(RouteAPIPrefix, func(r chi.Router) {
+	openAPIRouter.Route(apiPrefix, func(r chi.Router) {
 		if handlerAuthEnabled(deps.Auth) {
 			r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
 		}
@@ -398,7 +398,7 @@ func authMiddleware(authService *auth.Service, trustedOrigins *frontendorigins.S
 			if ok {
 				requestInfo, err := authService.ValidateAuthCookie(cookieValue, now)
 				if err == nil {
-					if strings.HasPrefix(r.URL.Path, RouteAPIPrefix) && authService.ShouldRefreshAuthCookie(requestInfo, now) {
+					if strings.HasPrefix(r.URL.Path, apiPrefix) && authService.ShouldRefreshAuthCookie(requestInfo, now) {
 						requestInfo, err = mintAndAttachSessionAuthCookie(w, r, authService, trustedOrigins, requestInfo.SessionID, now)
 						if err != nil {
 							writeAuthMiddlewareError(w, r, err)
@@ -459,7 +459,7 @@ func writeUnauthorizedAuthResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 func requiresJSONUnauthorizedAuthResponse(path string) bool {
-	if strings.HasPrefix(path, RouteAPIPrefix) {
+	if strings.HasPrefix(path, apiPrefix) {
 		return true
 	}
 	return path == RouteMCPToolCall
@@ -616,10 +616,6 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	}
 }
 
-func WriteJSON(w http.ResponseWriter, status int, payload any) {
-	writeJSON(w, status, payload)
-}
-
 func writeError(w http.ResponseWriter, r *http.Request, status int, code string, message string) {
 	writeJSON(w, status, errorResponse{
 		Error: errorDetail{
@@ -630,16 +626,8 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 	})
 }
 
-func WriteError(w http.ResponseWriter, r *http.Request, status int, code string, message string) {
-	writeError(w, r, status, code, message)
-}
-
 func writeDetail(w http.ResponseWriter, status int, detail any) {
 	writeJSON(w, status, map[string]any{"detail": detail})
-}
-
-func WriteDetail(w http.ResponseWriter, status int, detail any) {
-	writeDetail(w, status, detail)
 }
 
 func writeValidationError(w http.ResponseWriter, status int, message string) {
@@ -648,10 +636,6 @@ func writeValidationError(w http.ResponseWriter, status int, message string) {
 		Message:    message,
 		Data:       nil,
 	})
-}
-
-func WriteValidationError(w http.ResponseWriter, status int, message string) {
-	writeValidationError(w, status, message)
 }
 
 type rawJSONBodyContextKey struct{}
@@ -679,10 +663,6 @@ func decodeJSONBody[T any](r *http.Request) (T, error) {
 		return payload, err
 	}
 	return payload, nil
-}
-
-func DecodeJSONBody[T any](r *http.Request) (T, error) {
-	return decodeJSONBody[T](r)
 }
 
 func rawJSONBodyFromRequest(r *http.Request) []byte {

@@ -7,7 +7,6 @@ import (
 	agenticsummarycache "setta/internal/agenticsummarycache"
 	agentprofiles "setta/internal/agentprofiles"
 	agentruns "setta/internal/agentruns"
-	appdefinition "setta/internal/appsubsystem/appdefinition"
 	artifacts "setta/internal/artifacts"
 	detachedruns "setta/internal/detachedruns"
 	externalagentconfigs "setta/internal/externalagentconfigs"
@@ -44,15 +43,6 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(plugins.PluginUninstallResponse{}),
 		reflect.TypeOf(plugins.PluginUpdateResponse{}),
 		reflect.TypeOf(plugins.PluginRollbackResponse{}),
-		reflect.TypeOf(plugins.PluginAppSubsystemProviderSelectionStatusKind("")),
-		reflect.TypeOf(plugins.PluginAppSubsystemProviderSelection{}),
-		reflect.TypeOf(plugins.PluginAppSubsystemCapabilities{}),
-		reflect.TypeOf(plugins.PluginWatchCodeProviderSelectionStatusKind("")),
-		reflect.TypeOf(plugins.PluginWatchCodeProviderSelection{}),
-		reflect.TypeOf(plugins.PluginWatchCodeLanguageServerDependencyStatusKind("")),
-		reflect.TypeOf(plugins.PluginWatchCodeLanguageServerDependencyStatus{}),
-		reflect.TypeOf(plugins.PluginWatchCodeCapabilities{}),
-		reflect.TypeOf(plugins.PluginFeatureCapabilities{}),
 		reflect.TypeOf(plugins.PluginFrontendDescriptor{}),
 		reflect.TypeOf(plugins.PluginContentDescriptor{}),
 		reflect.TypeOf(plugins.PluginConfigDescriptor{}),
@@ -88,11 +78,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(plugins.PluginRegisteredListenerEndpoint{}),
 		reflect.TypeOf(plugins.PluginBackendManifest{}),
 		reflect.TypeOf(plugins.PluginFrontendManifest{}),
-		reflect.TypeOf(plugins.PluginFrontendBuildManifest{}),
 		reflect.TypeOf(plugins.PluginContentManifest{}),
-		reflect.TypeOf(plugins.PluginAppSubsystemFeatureManifest{}),
-		reflect.TypeOf(plugins.PluginWatchCodeFeatureManifest{}),
-		reflect.TypeOf(plugins.PluginFeatureCapabilitiesManifest{}),
 		reflect.TypeOf(plugins.PluginManifest{}),
 		reflect.TypeOf(plugins.PluginsStateFile{}),
 		reflect.TypeOf(plugins.PluginsGlobalStateFile{}),
@@ -133,6 +119,9 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(llmconfig.ManagedAPIKeysWriteStatus("")),
 		reflect.TypeOf(llmconfig.ManagedAPIKeysSnapshot{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
+		reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
 		reflect.TypeOf(projectstate.BrowserAreaViewMode("")),
 		reflect.TypeOf(projectstate.BrowserSearchScope("")),
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
@@ -257,6 +246,8 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.CodeObject{}),
 		reflect.TypeOf(projectstate.CodeObjectVariant{}),
 		reflect.TypeOf(projectstate.CodeObjectImpl{}),
+		reflect.TypeOf(projectstate.AppRoute{}),
+		reflect.TypeOf(projectstate.AppDefinition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticPosition{}),
 		reflect.TypeOf(projectstate.LSPDiagnosticRange{}),
 		reflect.TypeOf(projectstate.LSPDiagnostic{}),
@@ -379,10 +370,10 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(projectview.ProjectChatAgenticEdgeContextModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatDictationModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatPermissionModeOption{}),
+		reflect.TypeOf(projectview.ProjectChatAppGenerationModeOption{}),
 		reflect.TypeOf(projectview.ProjectChatUIConfigValue{}),
 		reflect.TypeOf(projectview.SingleConfig{}),
 		reflect.TypeOf(projectview.ProjectConfig{}),
-		reflect.TypeOf(projectview.ProjectPluginData(nil)),
 		reflect.TypeOf(projectview.ProjectRunCapabilities{}),
 		reflect.TypeOf(projectview.SectionCapabilities{}),
 		reflect.TypeOf(projectview.Core{}),
@@ -574,14 +565,5 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(transcriptionprofiles.Profile{}),
 		reflect.TypeOf(lspcompletion.CodeMirrorCompletion{}),
 		reflect.TypeOf(projectshell.AllProjectMetadata{}),
-		reflect.TypeOf(appdefinition.AppRoute{}),
-		reflect.TypeOf(appdefinition.AppDefinition{}),
-		reflect.TypeOf(appdefinition.ReadResult{}),
-		reflect.TypeOf(appdefinition.ValidationIssue{}),
-		reflect.TypeOf(appdefinition.Capabilities{}),
-		reflect.TypeOf(appdefinition.ValidationResult{}),
-		reflect.TypeOf(appdefinition.MutationResult{}),
-		reflect.TypeOf(appdefinition.CompareAndSetStringResult{}),
-		reflect.TypeOf(appdefinition.CompareAndSetMutationResult{}),
 	}
 }

@@ -1,12 +1,13 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { textFieldCompletion } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
@@ -38,11 +39,6 @@ export function TextInputCodeMirror({
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
-  const gpuFlowControl = getTextInputCodeMirrorGpuFlowControl({
-    isKeyName,
-    paramInfoId,
-    sectionId,
-  });
   function localOnBlur() {
     // hack to prevent codemirror from
     // blocking other inputs on blur
@@ -89,7 +85,6 @@ export function TextInputCodeMirror({
           theme={theme}
           placeholder={defaultVal}
           language={language}
-          gpuFlowControl={gpuFlowControl}
         />
       )}
       {activationEvent && (
@@ -115,25 +110,11 @@ export function TextInputCodeMirror({
           isKeyName={isKeyName}
           tooltipParentDivId={tooltipParentDivId}
           completionsFn={completionsFn}
-          gpuFlowControl={gpuFlowControl}
         />
       )}
     </>
   );
 }
-
-function getTextInputCodeMirrorGpuFlowControl({
-  isKeyName,
-  paramInfoId,
-  sectionId,
-}: {
-  isKeyName: boolean;
-  paramInfoId: string | null | undefined;
-  sectionId: string;
-}) {
-  return `codemirror:${sectionId}:${paramInfoId ?? ""}${isKeyName ? ":key" : ":value"}`;
-}
-
 function resolveTooltipParentDivId(
   tooltipParentDivId: string | null | undefined,
 ): string | null {
@@ -164,7 +145,6 @@ function CoreCodeMirror({
   isKeyName,
   completionsFn,
   tooltipParentDivId,
-  gpuFlowControl,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -200,9 +180,6 @@ function CoreCodeMirror({
   return (
     <CodeMirror
       id={divId}
-      data-gpu-flow-activation="mousedown"
-      data-gpu-flow-control={gpuFlowControl}
-      data-gpu-flow-interactive="true"
       className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}

@@ -1,4 +1,3 @@
-import { createNewId } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
 import { ChatBranchInfo } from "state/definitions";
 import {
@@ -6,6 +5,7 @@ import {
   ChatSectionBranch,
   ChatSectionState,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   buildChatBranchIndexFromInfos,
   type ChatBranchIndex,

@@ -1,4 +1,4 @@
-import { HandlePosition, type HandleType } from "gpuFlow/flowTypes";
+import { HandlePosition, type HandleType } from "forks/xyflow/core/types";
 import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
 import {
@@ -7,19 +7,13 @@ import {
 } from "state/actions/edgeHandles";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 
-const MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
-
 export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
-  const { canEditStructure } = useShareCapabilities();
   const { isMinimized, inputPortIds, outputPortIds } = useProjectState(
     (state) => {
       const impl = getCurrEffectiveSectionImpl(state, sectionId);
@@ -61,7 +55,6 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
         type: "target",
         side: HandlePosition.Left,
         element: leftEl,
-        isConnectableEnd: canEditStructure,
       });
       for (const portId of inputPortIds) {
         registered.push({ portId, type: "target" });
@@ -75,7 +68,6 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
         type: "source",
         side: HandlePosition.Right,
         element: rightEl,
-        isConnectableEnd: canEditStructure,
       });
       for (const portId of outputPortIds) {
         registered.push({ portId, type: "source" });
@@ -87,7 +79,7 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
         unregisterEdgeHandle(sectionId, entry.portId, entry.type);
       }
     };
-  }, [canEditStructure, inputPortIds, isMinimized, outputPortIds, sectionId]);
+  }, [inputPortIds, isMinimized, outputPortIds, sectionId]);
 
   if (!isMinimized) {
     return null;
@@ -104,14 +96,14 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
       {hasInputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
+          className={`react-flow__handle react-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
           ref={leftDotRef}
         />
       )}
       {hasOutputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
+          className={`react-flow__handle react-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
           ref={rightDotRef}
         />
       )}

@@ -21,6 +21,16 @@ import {
 import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 const routeSetProjectChatWindowingStateMock = vi.fn();
 const routeSetProjectChatWindowChatIdMock = vi.fn();
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: {
+    getState: () => ({
+      transform: [0, 0, 1],
+      d3Zoom: null,
+      d3Selection: null,
+      domNode: null,
+    }),
+  },
+}));
 vi.mock("openapi/http", () => ({
   setProjectChatWindowingState: (...args: unknown[]) =>
     routeSetProjectChatWindowingStateMock(...args),

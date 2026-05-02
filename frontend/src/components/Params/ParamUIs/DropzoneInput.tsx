@@ -1,20 +1,4 @@
 import {
-  callOpenAPI,
-  createDropzoneFileArtifactId,
-  createDropzoneTextAttachmentId,
-  createNewId,
-  formatBytes,
-  getAttachmentPolicy,
-  getErrorDetail,
-  isAttachmentMimeAllowed,
-  parseDropzoneValue,
-  res200,
-  serializeDropzoneValue,
-  type DropzoneStatelessAttachment,
-  type DropzoneStoredAttachment,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import {
   deleteArtifacts,
   importFilesToArtifacts,
   setParamEnteredValue,
@@ -22,6 +6,7 @@ import {
   updateParamImplConfig,
   uploadBinary,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   useRef,
   useState,
@@ -47,10 +32,24 @@ import {
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "utils/constants";
+  getAttachmentPolicy,
+  isAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
+import { formatBytes } from "utils/attachments";
+import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import {
+  createDropzoneFileArtifactId,
+  createDropzoneTextAttachmentId,
+  parseDropzoneValue,
+  serializeDropzoneValue,
+  type DropzoneStatelessAttachment,
+  type DropzoneStoredAttachment,
+} from "utils/dropzone";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   ArtifactTypeEnum,
   CodeObjTypeEnum,
@@ -60,6 +59,7 @@ import {
   NotificationTypeEnum,
   type ContentRef,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
 type DropzoneInputTheme = {
   wrapperBaseClassName?: string;
@@ -399,7 +399,7 @@ function resolveDropzoneWrapperClassName(
         DEFAULT_DROPZONE_DRAG_ACTIVE_CLASS_NAME,
       )
     : "";
-  return `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value ${baseClassName} ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`.trim();
+  return `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value ${baseClassName} ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`.trim();
 }
 function resolveDropzoneClassNames(
   theme: DropzoneInputTheme | undefined,
@@ -1354,7 +1354,6 @@ function DropzoneInputConfig({
 type DropzoneInputViewProps = {
   fileInputRef: RefObject<HTMLInputElement | null>;
   classNames: DropzoneClassNames;
-  gpuFlowControlId: string;
   uiHandlers: DropzoneUiHandlers;
   isDisabled: boolean;
   isUploading: boolean;
@@ -1452,14 +1451,9 @@ function useDropzoneInputController({
     isDisabled,
     className,
   );
-  const gpuFlowControlId =
-    sectionId && paramInfoId
-      ? `dropzone:${sectionId}:${paramInfoId}`
-      : "dropzone";
   return {
     fileInputRef,
     classNames,
-    gpuFlowControlId,
     uiHandlers,
     isDisabled,
     isUploading,
@@ -1473,7 +1467,6 @@ function useDropzoneInputController({
 function DropzoneInputView({
   fileInputRef,
   classNames,
-  gpuFlowControlId,
   uiHandlers,
   isDisabled,
   isUploading,
@@ -1495,8 +1488,6 @@ function DropzoneInputView({
       />
       <div
         className={classNames.wrapper}
-        data-gpu-flow-control={gpuFlowControlId}
-        data-gpu-flow-interactive="true"
         onDrop={uiHandlers.handleDrop}
         onDragOver={uiHandlers.handleDragOver}
         onDragEnter={uiHandlers.handleDragEnter}

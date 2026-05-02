@@ -1,4 +1,3 @@
-import type { DropzoneStatelessAttachment } from "@setta/app-subsystem-frontend-sdk";
 import {
   ConfiguredButtonInput,
   ConfiguredColorPickerInput,
@@ -20,6 +19,7 @@ import {
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
+import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStart,
@@ -40,10 +40,7 @@ import {
   TimeDisplayFormat,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
-import {
-  META_CONTROL_DIRECT_VALUE_RENDERER_FAMILIES,
-  META_CONTROL_TEXT_INPUT_CODE_OBJ_TYPES,
-} from "./metaControlRendererMetadata";
+
 type MetaControlCodeObjType =
   | CodeObjTypeEnum.ButtonParam
   | CodeObjTypeEnum.CodeParam
@@ -217,10 +214,7 @@ const DIRECT_VALUE_CONTROL_RENDERERS: Record<
       onStatelessDrop={props.onDropzoneStateless}
     />
   ),
-} satisfies Record<
-  keyof typeof META_CONTROL_DIRECT_VALUE_RENDERER_FAMILIES,
-  DirectValueControlRenderer
->;
+};
 
 export function MetaControlContent(props: MetaControlContentProps) {
   if (props.codeObjType === CodeObjTypeEnum.ButtonParam) {
@@ -258,7 +252,8 @@ function renderValueMetaControl(props: MetaControlContentValueProps) {
 function isMetaControlTextInputCodeObjType(
   codeObjType: MetaControlContentValueProps["codeObjType"],
 ): codeObjType is MetaControlTextInputCodeObjType {
-  return (META_CONTROL_TEXT_INPUT_CODE_OBJ_TYPES as readonly string[]).includes(
+  return Object.prototype.hasOwnProperty.call(
+    TEXT_INPUT_CONTROL_CONFIG,
     codeObjType,
   );
 }

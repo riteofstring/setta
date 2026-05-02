@@ -1,5 +1,5 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { ChangeEvent, useEffect, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -9,7 +9,6 @@ import {
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import type {
   ButtonActionMode,
   ButtonParamCodeObjImpl,
@@ -21,13 +20,6 @@ import {
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
 import { formatSettaApiBody, SETTA_API_PRESETS } from "utils/settaApiPresets";
-
-function joinGpuControlClassNames(...classNames: Array<string | undefined>) {
-  return [NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, ...classNames]
-    .filter(Boolean)
-    .join(" ");
-}
-
 const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";
 const LABEL_CLASS_NAME =
@@ -384,11 +376,10 @@ export function ButtonInput({
   buttonClassName?: string;
 }) {
   return (
-    <div className={joinGpuControlClassNames(wrapperClassName)}>
+    <div className={wrapperClassName}>
       <button
         type="button"
-        className={joinGpuControlClassNames(buttonClassName)}
-        data-gpu-flow-interactive="true"
+        className={buttonClassName}
         onClick={onClick}
         disabled={isDisabled}
       >

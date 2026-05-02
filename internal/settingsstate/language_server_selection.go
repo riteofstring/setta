@@ -22,6 +22,23 @@ func LanguageServerSelectedByLanguage(document Document) (map[string]*string, er
 	return normalizeLanguageServerSelections(selectedByLanguageBranch)
 }
 
+func LanguageServerSelectionForLanguage(document Document, language string) (*string, bool, error) {
+	selectedByLanguage, err := LanguageServerSelectedByLanguage(document)
+	if err != nil {
+		return nil, false, err
+	}
+
+	normalizedLanguage := normalizeLanguageServerSelectionLanguage(language)
+	if normalizedLanguage == "" {
+		return nil, false, fmt.Errorf("%w: language id is required", ErrSettingsValueInvalid)
+	}
+	selection, ok := selectedByLanguage[normalizedLanguage]
+	if !ok {
+		return nil, false, nil
+	}
+	return cloneLanguageServerSelection(selection), true, nil
+}
+
 func BootstrapLanguageServerSelections(document Document, selectedByLanguage map[string]string) (Document, bool, error) {
 	normalized, err := document.Normalized()
 	if err != nil {
@@ -170,4 +187,12 @@ func normalizeLanguageServerSelectionLanguage(language string) string {
 
 func stringPointer(value string) *string {
 	return &value
+}
+
+func cloneLanguageServerSelection(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }

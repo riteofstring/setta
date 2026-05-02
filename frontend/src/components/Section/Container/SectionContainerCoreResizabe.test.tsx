@@ -10,9 +10,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AreaSwitch,
-  SECTION_AREA_RENDERERS,
   SectionContainerCoreResizable,
-  getGpuFlowSectionAreaRendererTypes,
 } from "./SectionContainerCoreResizabe";
 
 type MockProjectState = {
@@ -191,12 +189,6 @@ describe("SectionContainerCoreResizable", () => {
       },
       projectChatWindowing: createProjectChatWindowingState(),
     };
-  });
-
-  it("keeps GPU section renderer metadata aligned with the render map", () => {
-    expect(Object.keys(SECTION_AREA_RENDERERS).sort()).toEqual(
-      [...getGpuFlowSectionAreaRendererTypes()].sort(),
-    );
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {

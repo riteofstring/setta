@@ -1,5 +1,4 @@
 /* @vitest-environment jsdom */
-import { clampTextBlockMasterFontSize } from "@setta/app-subsystem-frontend-sdk";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
@@ -14,6 +13,7 @@ import {
   SectionTypeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
+import { clampTextBlockMasterFontSize } from "utils/textBlockTypography";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TextBlockSettings } from "./TextBlockSettings";
 const routeDocstringToMarkdownMock = vi.fn();

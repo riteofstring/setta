@@ -1,11 +1,11 @@
+import { changeParamImpl, updateParamImplConfig } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  callOpenAPI,
   getErrorDetail,
   res200,
   type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
-import { changeParamImpl, updateParamImplConfig } from "openapi/http";
-import { addTemporaryNotification } from "state/actions/notifications";
+} from "utils/endpointUtils";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,

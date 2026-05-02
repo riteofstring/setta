@@ -14,7 +14,7 @@ Notes:
 - Project-state `undo` / `redo` replay the current share-session overlay history
   without a dedicated policy flag. They are not blocked by
   `allowParamChanges` / `allowVariantChanges` / `allowLayoutChanges` /
-  `allowLLM`, though the underlying mutations that create history entries
+  `allowLLM`, though the underlying mutations that create history entries still
   obey their usual policy gates.
 - `runSnapshotMode=never` is rejected for deployments.
 - Git features are always disabled in deployment mode: the Overview Git tab is
@@ -69,7 +69,7 @@ App deployments default to:
 - Viewport/layout UI: set viewport, section color chrome/tag, show param display names, section param filter, hide params toggles, text block display mode/format, column widths and browser view modes (`Route.SET_VIEWPORT`, `Route.SET_SECTION_TAG_COLOR`, `Route.SET_SECTION_STYLE_COLOR`, `Route.SET_SHOW_PARAM_DISPLAY_NAMES`, `Route.SET_SECTION_PARAM_FILTER`, `Route.SET_CALLABLE_HIDE_PARAMS`, `Route.SET_SECTION_HIDE_UNPINNED_PARAMS`, `Route.SET_TEXT_BLOCK_DISPLAY_MODE`, `Route.SET_TEXT_BLOCK_FORMAT`, `Route.SET_SECTION_COLUMN_WIDTH`, `Route.SET_BROWSER_COLUMN_WIDTHS`, `Route.SET_BROWSER_AREA_VIEW_MODE`, `Route.SET_BROWSER_HIDE_COLUMN`).
 - Project-chat window layout persistence and window-space CRUD (`Route.SET_PROJECT_CHAT_WINDOWING_STATE`, `Route.CREATE_WINDOW_SPACE`, `Route.SET_WINDOW_SPACE_NAME`, `Route.SET_WINDOW_SPACE_SORT_ORDER`, `Route.DELETE_WINDOW_SPACE`).
 - Example: viewer drags/resizes sections or changes browser panel widths -> allowed only if `allowLayoutChanges` is true.
-- Note: existing project-chat windows may update transient local focus or reopen state client-side so already-visible windows remain usable, but those layout changes are not persisted when `allowLayoutChanges` is false.
+- Note: existing project-chat windows may still update transient local focus or reopen state client-side so already-visible windows remain usable, but those layout changes are not persisted when `allowLayoutChanges` is false.
 
 **allowRun** (runs + terminals)
 - Code execution: run code (`Route.RUN_CODE`).

@@ -31,22 +31,19 @@ const mockSectionImpl = vi.hoisted(() => ({
   showRowNumbers: true,
 }));
 
-vi.mock("gpuFlow/viewportHooks", () => ({
-  useGpuFlowZoom: () => 1,
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: (
+    selector: (state: { transform: [number, number, number] }) => unknown,
+  ) => selector({ transform: [0, 0, 1] }),
 }));
 
 vi.mock("openapi/http", () => ({
   setSpreadsheetFilePath: mocks.setSpreadsheetFilePath,
 }));
 
-vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
-  return {
-    ...actual,
-    callOpenAPI: mocks.callOpenAPI,
-  };
-});
+vi.mock("openapi/http/result", () => ({
+  callOpenAPI: mocks.callOpenAPI,
+}));
 
 vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: mocks.addTemporaryNotification,
@@ -132,10 +129,8 @@ describe("SpreadsheetArea", () => {
 
   function getDropZone(): HTMLDivElement {
     const zone = host.querySelector(".section-main") as HTMLDivElement | null;
-    if (!zone) {
-      throw new Error("Expected spreadsheet drop zone to be rendered.");
-    }
-    return zone;
+    expect(zone).not.toBeNull();
+    return zone!;
   }
 
   function createDropEvent(type: string, file: File | null): Event {

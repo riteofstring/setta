@@ -1,4 +1,3 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import {
   SortableListProvider,
   useSortableListItem,
@@ -13,6 +12,7 @@ import {
   toggleVariantFrozen,
   toggleVariantJsonSource,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useState } from "react";
 import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText, FiPlus } from "react-icons/fi";

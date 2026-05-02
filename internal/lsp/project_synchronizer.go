@@ -21,7 +21,6 @@ type ProjectSynchronizerOptions struct {
 	RuntimeRoot                 string
 	Service                     documentSyncer
 	Diagnostics                 *projectstate.LSPDiagnosticsRegistry
-	WatchCodeProviderPluginID   func() (string, bool)
 	OnCallableSymbolsResolved   func(context.Context, string, []string)
 	OnCallableSignatureMismatch func(context.Context, string, []string)
 	Logger                      *slog.Logger
@@ -39,7 +38,6 @@ type ProjectSynchronizer struct {
 	runtimeRoot                 string
 	service                     documentSyncer
 	diagnostics                 *projectstate.LSPDiagnosticsRegistry
-	watchCodeProviderPluginID   func() (string, bool)
 	onCallableSymbolsResolved   func(context.Context, string, []string)
 	onCallableSignatureMismatch func(context.Context, string, []string)
 	generatedCallableStateMu    sync.Mutex
@@ -69,7 +67,6 @@ func NewProjectSynchronizer(options ProjectSynchronizerOptions) (*ProjectSynchro
 		runtimeRoot:                 options.RuntimeRoot,
 		service:                     options.Service,
 		diagnostics:                 options.Diagnostics,
-		watchCodeProviderPluginID:   options.WatchCodeProviderPluginID,
 		onCallableSymbolsResolved:   options.OnCallableSymbolsResolved,
 		onCallableSignatureMismatch: options.OnCallableSignatureMismatch,
 		generatedCallableState:      map[string]generatedCallableDiagnosticsState{},
@@ -139,11 +136,7 @@ func (s *ProjectSynchronizer) TypeCheckProject(ctx context.Context, document pro
 		}
 		return err
 	}
-	watchCodeData, err := s.watchCodeProjectData(document, project.ID)
-	if err != nil {
-		return err
-	}
-	documents, err := s.buildProjectDocuments(project, watchCodeData)
+	documents, err := s.buildProjectDocuments(project)
 	if err != nil {
 		return err
 	}
@@ -240,11 +233,7 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 
 	for _, projectID := range projectIDs {
 		project := document.Projects[projectID]
-		watchCodeData, err := s.watchCodeProjectData(document, project.ID)
-		if err != nil {
-			return nil, err
-		}
-		projectDocuments, err := s.buildProjectDocuments(project, watchCodeData)
+		projectDocuments, err := s.buildProjectDocuments(project)
 		if err != nil {
 			return nil, err
 		}
@@ -256,28 +245,7 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 	return documents, nil
 }
 
-func (s *ProjectSynchronizer) watchCodeProjectData(
-	document projectstate.Document,
-	projectID string,
-) (projectstate.WatchCodePluginProjectData, error) {
-	if s == nil || s.watchCodeProviderPluginID == nil {
-		return projectstate.EmptyWatchCodePluginProjectData(), nil
-	}
-	providerPluginID, ok := s.watchCodeProviderPluginID()
-	if !ok {
-		return projectstate.EmptyWatchCodePluginProjectData(), nil
-	}
-	projectData, _, err := document.WatchCodePluginProjectData(providerPluginID, projectID)
-	if err != nil {
-		return projectstate.WatchCodePluginProjectData{}, err
-	}
-	return projectData, nil
-}
-
-func (s *ProjectSynchronizer) buildProjectDocuments(
-	project projectstate.Project,
-	watchCodeData projectstate.WatchCodePluginProjectData,
-) (map[string]SyncedDocument, error) {
+func (s *ProjectSynchronizer) buildProjectDocuments(project projectstate.Project) (map[string]SyncedDocument, error) {
 	documents := map[string]SyncedDocument{}
 
 	activeSectionFiles, err := project.ActiveCodeSectionFiles()
@@ -305,7 +273,7 @@ func (s *ProjectSynchronizer) buildProjectDocuments(
 		}
 	}
 
-	generatedDocuments, err := s.generatedPythonDocuments(project, watchCodeData)
+	generatedDocuments, err := s.generatedPythonDocuments(project)
 	if err != nil {
 		return nil, err
 	}
@@ -363,10 +331,7 @@ func (s *ProjectSynchronizer) codeSectionDiagnosticsCallback(
 	}
 }
 
-func (s *ProjectSynchronizer) generatedPythonDocuments(
-	project projectstate.Project,
-	watchCodeData projectstate.WatchCodePluginProjectData,
-) (map[string]SyncedDocument, error) {
+func (s *ProjectSynchronizer) generatedPythonDocuments(project projectstate.Project) (map[string]SyncedDocument, error) {
 	if !project.HasPythonCodegenTarget() {
 		return map[string]SyncedDocument{}, nil
 	}
@@ -375,7 +340,7 @@ func (s *ProjectSynchronizer) generatedPythonDocuments(
 	if err != nil {
 		return nil, err
 	}
-	mapper, err := s.generatedDiagnosticsMapper(project, watchCodeData)
+	mapper, err := s.generatedDiagnosticsMapper(project)
 	if err != nil {
 		return nil, err
 	}
@@ -476,10 +441,7 @@ func normalizeDiagnosticCode(value any) any {
 	}
 }
 
-func (s *ProjectSynchronizer) generatedDiagnosticsMapper(
-	project projectstate.Project,
-	watchCodeData projectstate.WatchCodePluginProjectData,
-) (*codegen.PythonGeneratedDiagnosticsMapper, error) {
+func (s *ProjectSynchronizer) generatedDiagnosticsMapper(project projectstate.Project) (*codegen.PythonGeneratedDiagnosticsMapper, error) {
 	if s == nil || s.diagnostics == nil {
 		return nil, nil
 	}
@@ -488,8 +450,7 @@ func (s *ProjectSynchronizer) generatedDiagnosticsMapper(
 		return nil, err
 	}
 	mapper, ok, err := codegen.NewPythonGeneratedDiagnosticsMapper(project, codegen.PythonGeneratedDiagnosticsMapperOptions{
-		PasswordSecrets:   passwordSecrets,
-		WatchCodeRegistry: watchCodeData.Registry,
+		PasswordSecrets: passwordSecrets,
 	})
 	if err != nil {
 		return nil, err

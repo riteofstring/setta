@@ -1,5 +1,4 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { formatBytes } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   type CSSProperties,
@@ -29,11 +28,7 @@ import {
   IoStop,
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
+import { formatBytes } from "utils/attachments";
 import {
   type ChatDictationMode,
   ChatFileAttachment,
@@ -69,7 +64,6 @@ import {
   resolveChatSubmitDispatchResult,
   resolveCustomPromptSlashCommandSubmission,
   resolveEscapeComposerAction,
-  resolveQueuedDraftReplaySlashCommand,
   resolveSlashCommandRequest,
   resolveSlashCommandSubmitOptions,
   shouldAutoReplayQueuedDraft,
@@ -113,7 +107,6 @@ const DEFAULT_EXECUTION_CONTROL_VISIBILITY: ChatExecutionControlVisibility = {
   search: true,
 };
 const DEFAULT_SUBMITTED_MESSAGE_HISTORY: string[] = [];
-const CHAT_COMPOSER_GPU_FLOW_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
 
 function normalizeNonNegativeCount(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -3244,11 +3237,7 @@ function ChatComposerFieldSection(props: {
     waitingForResponse,
   } = props;
   return (
-    <div
-      className={`${CHAT_COMPOSER_GPU_FLOW_CLASS_NAME} group relative my-1 w-full`}
-      data-gpu-flow-control="chat-composer-field"
-      data-gpu-flow-interactive="true"
-    >
+    <div className="group relative my-1 w-full">
       <input
         ref={fileInputRef}
         type="file"
@@ -3911,29 +3900,23 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
 
   const replayQueuedDraft = useCallback(
     async (draft: QueuedChatDraft): Promise<SlashCommandExecutionOutcome> => {
-      const replaySnapshot = draft.replaySnapshot;
-      if (replaySnapshot.kind === "plain_message") {
+      if (draft.replaySnapshot.kind === "plain_message") {
         return submitMessage(draft.message, draft.attachments);
       }
-      const resolvedReplayCommand = resolveQueuedDraftReplaySlashCommand({
-        message: draft.message,
-        replaySnapshot,
-        slashCommands,
-        recognizedSlashCommands: slashCommandRecognitionSet,
-      });
+      const commandAvailable =
+        draft.replaySnapshot.availabilityPolicy === "fixed"
+          ? true
+          : slashCommands.some(
+              (entry) => entry.command === draft.replaySnapshot.command.command,
+            );
       return executeResolvedSlashCommand({
         message: draft.message,
         submittedAttachments: draft.attachments,
-        parsed: resolvedReplayCommand.parsed,
-        commandAvailable: resolvedReplayCommand.commandAvailable,
+        parsed: draft.replaySnapshot.command,
+        commandAvailable,
       });
     },
-    [
-      executeResolvedSlashCommand,
-      slashCommandRecognitionSet,
-      slashCommands,
-      submitMessage,
-    ],
+    [executeResolvedSlashCommand, slashCommands, submitMessage],
   );
 
   const nextQueuedDraft = queuedDrafts[0] ?? null;
@@ -3989,9 +3972,7 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
       );
       setSelectedQueuedDraftId(draftToSend.id);
       if (outcome === "failed") {
-        setSlashFeedback(
-          (current) => current ?? "Queued message failed. Edit it and retry.",
-        );
+        setSlashFeedback("Queued message failed. Edit it and retry.");
       }
     })();
   }, [
@@ -4093,7 +4074,8 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
   }, [isSubmitDisabled, waitingForResponse]);
 
   const textAreaClassName = useMemo(() => {
-    const base = `${CHAT_COMPOSER_GPU_FLOW_CLASS_NAME} max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700`;
+    const base =
+      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";
@@ -4598,9 +4580,7 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
     <form
       onSubmit={handleSubmit}
       onKeyDown={handleFormKeyDown}
-      className={`${CHAT_COMPOSER_GPU_FLOW_CLASS_NAME} flex justify-center`}
-      data-gpu-flow-control="chat-composer"
-      data-gpu-flow-interactive="true"
+      className="flex justify-center"
     >
       <div className="flex w-full gap-1">
         <div

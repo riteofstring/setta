@@ -17,6 +17,7 @@ var (
 	ErrManifestVersionRequired     = errors.New("deployment manifest version is required")
 	ErrDeploymentNameRequired      = errors.New("deployment name is required")
 	ErrDeploymentTypeRequired      = errors.New("deployment type is required")
+	ErrUnsupportedDeploymentType   = errors.New("unsupported deployment type")
 	ErrDefaultProjectIDRequired    = errors.New("deployment default project id is required")
 	ErrDeploymentVersionRequired   = errors.New("deployment version is required")
 	ErrListenerEntrypointRequired  = errors.New("deployment listener entrypoint is required")
@@ -110,17 +111,19 @@ func (m Manifest) Normalized() (Manifest, error) {
 	normalized.DeploymentName = strings.TrimSpace(normalized.DeploymentName)
 	normalized.DefaultProjectID = strings.TrimSpace(normalized.DefaultProjectID)
 	normalized.DeploymentVersion = strings.TrimSpace(normalized.DeploymentVersion)
-	deploymentType, err := normalizeDeploymentType(normalized.DeploymentType)
-	if err != nil {
-		return Manifest{}, err
-	}
-	normalized.DeploymentType = deploymentType
 
 	if normalized.Version < 1 {
 		return Manifest{}, ErrManifestVersionRequired
 	}
 	if normalized.DeploymentName == "" {
 		return Manifest{}, ErrDeploymentNameRequired
+	}
+	switch normalized.DeploymentType {
+	case TypeShare, TypeApp:
+	case "":
+		return Manifest{}, ErrDeploymentTypeRequired
+	default:
+		return Manifest{}, fmt.Errorf("%w: %q", ErrUnsupportedDeploymentType, normalized.DeploymentType)
 	}
 	if normalized.DefaultProjectID == "" {
 		return Manifest{}, ErrDefaultProjectIDRequired
@@ -136,14 +139,6 @@ func (m Manifest) Normalized() (Manifest, error) {
 		if normalized.Listener.Entrypoint == "" {
 			return Manifest{}, ErrListenerEntrypointRequired
 		}
-	}
-	return normalized, nil
-}
-
-func normalizeDeploymentType(deploymentType Type) (Type, error) {
-	normalized := Type(strings.TrimSpace(string(deploymentType)))
-	if normalized == "" {
-		return "", ErrDeploymentTypeRequired
 	}
 	return normalized, nil
 }

@@ -34,10 +34,9 @@ type semanticDefaultEntry struct {
 }
 
 type semanticExportedValueEntry struct {
-	Name            string          `json:"name"`
-	DeclarationName string          `json:"declarationName,omitempty"`
-	Type            string          `json:"type"`
-	Value           json.RawMessage `json:"value"`
+	Name  string          `json:"name"`
+	Type  string          `json:"type"`
+	Value json.RawMessage `json:"value"`
 }
 
 type semanticDiscriminatedFamily struct {
@@ -150,8 +149,8 @@ func semanticCreateFunctionDeclaration(
 		"  return options as "+typeName+";",
 		TypeProperty{
 			Name:         "options",
-			TypeExpr:     "CreateOptions<" + typeName + ">",
-			DefaultValue: "{} as CreateOptions<" + typeName + ">",
+			TypeExpr:     "Partial<" + typeName + ">",
+			DefaultValue: "{}",
 		},
 	), nil
 }
@@ -213,10 +212,6 @@ func semanticExportedValueDeclarations() ([]TypeDeclaration, error) {
 		if name == "" {
 			return nil, fmt.Errorf("frontend semantic sidecar export has empty name")
 		}
-		declarationName := strings.TrimSpace(export.DeclarationName)
-		if declarationName == "" {
-			declarationName = name
-		}
 		typeName := strings.TrimSpace(export.Type)
 		if typeName == "" {
 			return nil, fmt.Errorf("frontend semantic sidecar export %s is missing type", name)
@@ -225,31 +220,13 @@ func semanticExportedValueDeclarations() ([]TypeDeclaration, error) {
 		if err != nil {
 			return nil, fmt.Errorf("frontend semantic sidecar export %s: %w", name, err)
 		}
-		valueExpr := renderTSLiteralValue(value, "")
-		if semanticExportedValueCanUseConstAssertion(value) {
-			valueExpr += " as const"
-		}
 		declarations = append(declarations, constDeclaration(
-			declarationName,
+			name,
 			true,
-			valueExpr+" satisfies gt."+typeName,
+			renderTSLiteralValue(value, "")+" satisfies gt."+typeName,
 		))
 	}
 	return declarations, nil
-}
-
-func semanticExportedValueCanUseConstAssertion(value any) bool {
-	switch typed := value.(type) {
-	case []any:
-		return false
-	case map[string]any:
-		for _, entry := range typed {
-			if !semanticExportedValueCanUseConstAssertion(entry) {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func semanticDefaultLiteralForType(
@@ -431,13 +408,7 @@ func semanticTraitDeclarations(
 	declarations = append(
 		declarations,
 		setDeclaration(traitSetName, info.enumType, memberValues...),
-		typeGuardDeclaration(
-			"is"+traitTypeName,
-			info.baseType+"Union",
-			returnType,
-			traitSetName,
-			info.enumType,
-		),
+		typeGuardDeclaration("is"+traitTypeName, info.baseType+"Union", returnType, traitSetName),
 	)
 	return declarations, nil
 }

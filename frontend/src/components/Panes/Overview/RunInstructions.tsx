@@ -1,9 +1,9 @@
 import * as Switch from "@radix-ui/react-switch";
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { getStateMachineNodePresentation } from "components/Section/Layouts/stateMachineNodePresentation";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { setProjectConfigCodegenTargets } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import React from "react";
 import { RiLoopRightFill, RiPlayMiniFill } from "react-icons/ri";
 import {
@@ -43,6 +43,7 @@ import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
+import { res200 } from "utils/endpointUtils";
 import {
   createCodeObjValuePolicy,
   createProjectCodegenPythonTarget,

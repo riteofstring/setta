@@ -1,4 +1,7 @@
-import { screenToFlowPosition, setCenter } from "gpuFlow/viewportActions";
+import {
+  screenToFlowPosition,
+  setCenter,
+} from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
@@ -9,7 +12,6 @@ import {
 } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
-  useLocalStorage,
   useProjectSearch,
   useProjectState,
   useSettings,
@@ -135,10 +137,7 @@ function goToSearchResult(
       y: _y + height / 2,
     });
     const zoom = useSettings.getState().gui.defaultZoomLevel;
-    setCenter(x, y, {
-      overviewWidth: useLocalStorage.getState().overviewTrueWidth,
-      zoom,
-    });
+    setCenter(x, y, { zoom });
   };
 
   if (shouldDelay) {

@@ -1,5 +1,4 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
-import type { Connection } from "gpuFlow/flowTypes";
+import type { Connection } from "forks/xyflow/core/types";
 import {
   createEdge,
   deleteEdges,
@@ -7,12 +6,13 @@ import {
   setEdges,
   updateEdge,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
+import { makeEdgeHandleKey } from "state/actions/edgeHandles";
 import {
   useEdgeHandleRegistry,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { AGENTIC_EDGE_HANDLE_IDS } from "./agenticEdges";
 import {
   dispatchOptimisticProjectStateUpdate,

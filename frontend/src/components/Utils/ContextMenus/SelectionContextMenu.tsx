@@ -1,6 +1,5 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { Item } from "components/Utils/atoms/dropdown/item";
-import { clearNodesSelectionBounds } from "gpuFlow/selectionBounds";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   deleteSections,
@@ -8,6 +7,7 @@ import {
   togglePositionLocks,
   toggleSectionVisibility,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
@@ -74,7 +74,7 @@ function SelectionContextMenuOpen({
     }, _.isEqual);
   const closeContextMenu = () => {
     closeAllContextMenus();
-    clearNodesSelectionBounds();
+    useReactFlow.setState({ nodesSelectionDims: null });
   };
   function onClickCreate() {
     if (!canEditStructure) {

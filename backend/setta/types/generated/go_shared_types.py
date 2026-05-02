@@ -1232,6 +1232,8 @@ class Route(StrEnum):
     SET_VIEWPORT = "/setViewport"
     SET_VIEW_MODE_NAME = "/setViewModeName"
     SET_VIEW_MODE_SORT_ORDER = "/setViewModeSortOrder"
+    SET_WATCH_CODE_ENABLED = "/setWatchCodeEnabled"
+    SET_WATCH_CODE_INPUTS = "/setWatchCodeInputs"
     SET_WINDOW_SPACE_NAME = "/setWindowSpaceName"
     SET_WINDOW_SPACE_SORT_ORDER = "/setWindowSpaceSortOrder"
     SHARE_DEPLOYMENTS = "/share/deployments"
@@ -1809,6 +1811,33 @@ class Viewport(BaseModel):
     zoom: float = 1.0
 
 
+class WatchCodeCallableKind(StrEnum):
+    function = "function"
+    async_function = "async_function"
+    class_init = "class_init"
+
+
+class WatchCodeFolder(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    path: str
+    recursive: bool
+
+
+class WatchCodeRegistryEntry(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    callableName: str
+    kind: WatchCodeCallableKind
+    signatureHash: str
+    bodyHash: str
+    sourcePath: str
+    sectionIds: list[str] | None = None
+    sectionsCount: int
+
+
 class WindowSpaceSurfaceKind(StrEnum):
     project_chat = "project_chat"
     section = "section"
@@ -2229,9 +2258,6 @@ class MessageStopEvent(BaseModel):
     )
     type: Literal["message_stop"]
     message_id: str
-
-
-type ProjectPluginData = dict[str, RawMessage | None]
 
 
 class RawArtifact(BaseModel):
@@ -2689,6 +2715,11 @@ class ProjectConfig(BaseModel):
             )
         )
     )
+    watchCodeEnabled: bool = False
+    watchCodeFolders: list[WatchCodeFolder] = Field(default_factory=list)
+    watchCodeFiles: list[str] = Field(default_factory=list)
+    watchCodeRegistry: dict[str, WatchCodeRegistryEntry] = Field(default_factory=dict)
+    watchCodeBaselineByPath: dict[str, list[str] | None] = Field(default_factory=dict)
     entryCodeBlockId: ID | None = None
     sectionPathSlugsById: dict[ID, str] = Field(default_factory=dict)
     sectionIdsByPathSlug: dict[str, list[ID]] = Field(default_factory=dict)

@@ -1,8 +1,8 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { Handle } from "gpuFlow/Handle";
-import { useNodeId } from "gpuFlow/NodeIdContext";
-import { HandlePosition } from "gpuFlow/flowTypes";
-import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import { Handle } from "forks/xyflow/core/components/Handle";
+import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { HandlePosition } from "forks/xyflow/core/types";
 import {
   createSharedChatEdgeFromConnection,
   getChatSharedEdgeModeLabel,
@@ -12,8 +12,6 @@ import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
@@ -22,8 +20,6 @@ type SharedChatConnectionVisibility = {
   hasIncoming: boolean;
   hasOutgoing: boolean;
 };
-
-const SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
 type SectionConnectionEdge = {
   sourceSectionId: string;
@@ -47,13 +43,13 @@ function getSharedChatConnectionVisibility(
     hasIncoming: false,
     hasOutgoing: false,
   };
-  for (const edge of state.projectConfig.agenticEdges ?? []) {
+  for (const edge of state.projectConfig.agenticEdges) {
     mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
     if (visibility.hasIncoming && visibility.hasOutgoing) {
       return visibility;
     }
   }
-  for (const edge of state.projectConfig.stateMachineEdges ?? []) {
+  for (const edge of state.projectConfig.stateMachineEdges) {
     mergeSharedChatConnectionVisibility(visibility, edge, sectionId);
     if (visibility.hasIncoming && visibility.hasOutgoing) {
       return visibility;
@@ -65,7 +61,7 @@ function getSharedChatConnectionVisibility(
 export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
-  const isSelectingEdge = useGpuFlowViewportStore(
+  const isSelectingEdge = useReactFlow(
     (state) => state.connectionStartHandle !== null,
   );
   const chatSharedEdgeMode = useLocalStorage(
@@ -96,7 +92,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
     <>
       <div
         aria-hidden="true"
-        className={`${SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--left`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--left`}
       />
       <Handle
         id={SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart}
@@ -132,7 +128,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
       />
       <div
         aria-hidden="true"
-        className={`${SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--right`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--right`}
       />
       <Handle
         id={SHARED_CHAT_EDGE_HANDLE_IDS.source}

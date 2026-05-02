@@ -1,11 +1,7 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { useDndMode } from "forks/dnd-kit/dndState";
-import {
-  gpuFlowViewportStore,
-  type GpuFlowViewportStoreApi,
-} from "gpuFlow/viewportStore";
 import _ from "lodash";
 import { setSectionSizes } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -31,7 +27,6 @@ import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
@@ -46,7 +41,7 @@ import {
   SIZE_MODE,
 } from "./utils";
 const AUTO_CLAMP_TOLERANCE = 2;
-const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
 const DEFAULT_HANDLE_CLASSES = {
   right: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-right`,
   bottom: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-bottom`,
@@ -78,8 +73,10 @@ const META_CONTROL_HANDLE_STYLES = {
   },
   bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
 };
-const DEFAULT_HANDLE_WRAPPER_CLASS_NAME = `absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} [&>div]:z-20`;
-const ATTACHED_TERMINAL_HANDLE_WRAPPER_CLASS_NAME = `absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} [&>div]:z-30`;
+const DEFAULT_HANDLE_WRAPPER_CLASS_NAME =
+  "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20";
+const ATTACHED_TERMINAL_HANDLE_WRAPPER_CLASS_NAME =
+  "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-30";
 const META_CONTROL_HANDLE_BASE_CLASS_NAME =
   "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
 const ACTIVE_META_CONTROL_HANDLE_CLASS_NAME =
@@ -96,27 +93,6 @@ const RESIZE_HANDLE_CLASS_NAMES = [
   ["section-resize-handle-bottom", "bottom"],
   ["section-resize-handle-right", "right"],
 ] as const satisfies ReadonlyArray<readonly [string, ResizeHandleDirection]>;
-
-type GpuNodeResizeInteractionRef = {
-  current: boolean;
-};
-
-export function setGpuNodeResizeInteractionActive(
-  active: boolean,
-  activeRef?: GpuNodeResizeInteractionRef | undefined,
-  options: {
-    readonly store?: GpuFlowViewportStoreApi | undefined;
-  } = {},
-) {
-  if (activeRef) {
-    if (activeRef.current === active) {
-      return;
-    }
-    activeRef.current = active;
-  }
-  const store = options.store ?? gpuFlowViewportStore;
-  store.getState().setViewportInteractionFlags({ nodeResizing: active });
-}
 
 export function CustomResizable({
   sectionId,
@@ -193,7 +169,6 @@ function CustomResizableCore({
   const resizeStartedRef = useRef(false);
   const autoSizePromotedRef = useRef(false);
   const resizeAttemptedRef = useRef(false);
-  const gpuNodeResizeActiveRef = useRef(false);
   const resizeClickRef = useRef<{
     lastTimestampMs: number | null;
     lastDirection: ResizeHandleDirection | null;
@@ -205,14 +180,6 @@ function CustomResizableCore({
     resizeAttemptedRef,
     doubleClickPendingRef,
   };
-  useEffect(() => {
-    return () => {
-      setGpuNodeResizeInteractionActive(false, gpuNodeResizeActiveRef);
-    };
-  }, []);
-  function setResizeInteractionActive(active: boolean) {
-    setGpuNodeResizeInteractionActive(active, gpuNodeResizeActiveRef);
-  }
   function maybePromoteAutoSize(direction, ref) {
     if (
       !autoSizePromotedRef.current &&
@@ -245,7 +212,6 @@ function CustomResizableCore({
     startResizeEvent(direction);
   }
   function onResizeStart() {
-    setResizeInteractionActive(true);
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
     resizeAttemptedRef.current = false;
@@ -291,7 +257,7 @@ function CustomResizableCore({
         resizeAttempted,
       })
     ) {
-      finishResizeStopForSection({ shouldEmitResizeEnd });
+      finishResizeStop({ sectionId, shouldEmitResizeEnd, resizeStateRefs });
       return;
     }
     const changedSize = resolveResizeStopSize({
@@ -308,15 +274,7 @@ function CustomResizableCore({
       aspectRatio,
     });
     persistSectionSizeChange(sectionId, clampedSize);
-    finishResizeStopForSection({ shouldEmitResizeEnd });
-  }
-  function finishResizeStopForSection({
-    shouldEmitResizeEnd,
-  }: {
-    shouldEmitResizeEnd: boolean;
-  }) {
     finishResizeStop({ sectionId, shouldEmitResizeEnd, resizeStateRefs });
-    setResizeInteractionActive(false);
   }
   useEffect(() => {
     const nextSize = getAutoClampSize({
@@ -345,13 +303,9 @@ function CustomResizableCore({
     canEditLayout,
     positionAndSizeLocked,
   ]);
-  const { heightResizable, widthResizable } = getResizeAxisAvailability({
-    maxHeight,
-    maxWidth,
-    minHeight,
-    minWidth,
-    sizeMode,
-  });
+  const heightResizable =
+    minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only;
+  const widthResizable = sizeMode.width !== SIZE_MODE.auto_only;
   const snapGrid = useSettings((x) => x.gui.snapGrid);
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   return (
@@ -380,7 +334,8 @@ function CustomResizableCore({
       aspectRatio={aspectRatio}
       aspectRatioExtraHeight={aspectRatioExtraHeight}
       aspectRatioExtraWidth={aspectRatioExtraWidth}
-      snapGrid={resolveResizableGrid({ snapGrid, snapToGrid })}
+      snapGrid={snapGrid}
+      snapToGrid={snapToGrid}
     >
       {children}
     </CustomResizableSuperCore>
@@ -412,6 +367,7 @@ function CustomResizableSuperCore({
   aspectRatioExtraHeight,
   aspectRatioExtraWidth,
   snapGrid,
+  snapToGrid,
   children,
 }) {
   const { isSorting } = useDndMode();
@@ -507,7 +463,7 @@ function CustomResizableSuperCore({
       className={inputClasses}
       handleStyles={handleStyles}
       handleClasses={handleClasses}
-      grid={snapGrid}
+      grid={snapToGrid ? snapGrid : null}
     >
       {children}
     </ResizableWithScale>
@@ -790,27 +746,7 @@ function getAutoClampSize({
     minWidth,
   });
 }
-export function getResizeAxisAvailability({
-  maxHeight,
-  maxWidth,
-  minHeight,
-  minWidth,
-  sizeMode,
-}: {
-  maxHeight: number;
-  maxWidth: number;
-  minHeight: number;
-  minWidth: number;
-  sizeMode: { width: string; height: string };
-}) {
-  return {
-    heightResizable:
-      minHeight !== maxHeight && sizeMode.height !== SIZE_MODE.auto_only,
-    widthResizable:
-      minWidth !== maxWidth && sizeMode.width !== SIZE_MODE.auto_only,
-  };
-}
-export function getResizableEnable({
+function getResizableEnable({
   disablePointerEvents,
   positionAndSizeLocked,
   heightResizable,
@@ -835,26 +771,6 @@ export function getResizableEnable({
     bottomLeft: false,
   };
 }
-export function resolveResizableGrid({
-  snapGrid,
-  snapToGrid,
-}: {
-  snapGrid: readonly [number, number];
-  snapToGrid: boolean;
-}): readonly [number, number] | undefined {
-  if (!snapToGrid) {
-    return undefined;
-  }
-  const [xGrid, yGrid] = snapGrid;
-  assertFinitePositiveResizeGridValue("snap grid x", xGrid);
-  assertFinitePositiveResizeGridValue("snap grid y", yGrid);
-  return snapGrid;
-}
-function assertFinitePositiveResizeGridValue(name: string, value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${name} must be a finite positive number.`);
-  }
-}
 function getMetaControlHandleClass(
   direction: keyof typeof META_CONTROL_HANDLE_CURSOR_CLASSES,
   activeResizeHandle: string | null,
@@ -869,7 +785,7 @@ function getMetaControlHandleClass(
     .filter(Boolean)
     .join(" ");
 }
-export function getResizableHandleConfig({
+function getResizableHandleConfig({
   isMetaControl,
   isAttachedTerminalChild,
   activeResizeHandle,

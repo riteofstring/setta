@@ -13,9 +13,7 @@ func TestBuildToolPayloadsMatchesServerList(t *testing.T) {
 
 	workspaceRoot := t.TempDir()
 	projectRuntime := openScopedTestProjectRuntime(t)
-	_, clientSession := newScopedTestServerSessionWithOptions(t, workspaceRoot, projectRuntime, ServerOptions{
-		SkipDefaultAppSubsystemTools: true,
-	})
+	_, clientSession := newScopedTestServerSession(t, workspaceRoot, projectRuntime)
 	defer clientSession.Close()
 
 	liveResult, err := clientSession.ListTools(context.Background(), nil)

@@ -1,4 +1,3 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import {
@@ -9,6 +8,7 @@ import {
   setSectionParamFilter,
   setSectionPinnedParams,
 } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

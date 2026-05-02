@@ -1,8 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { deleteProjectConfigs } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { BiErrorCircle } from "react-icons/bi";
 import { closeModal, useModalData } from "state/actions/modal";
+import { res200 } from "utils/endpointUtils";
 import { ModalTypeEnum } from "../types";
 export function DeleteProjectWarningModal() {
   const { selectedProjectsIdName } = useModalData(

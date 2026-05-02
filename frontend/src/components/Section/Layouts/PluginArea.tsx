@@ -1,6 +1,6 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import { onOverviewTabClick } from "components/Panes/paneFns";
 import { deleteSections, getLatestProjectState } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import {
   usePluginRuntimeStore,
   usePluginSectionFallbackReason,
@@ -21,12 +21,9 @@ import {
   processProjectStateUpdateFromBackend,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
-import { OverviewTabUIConfig, SectionTypeEnum } from "utils/generatedTypes";
+import { OverviewTabNameEnum } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import { SectionTypeEnum } from "utils/generatedTypes";
 type PluginAreaProps = {
   sectionId: string;
   isUserView: boolean;
@@ -40,12 +37,6 @@ type PluginSectionRendererHostProps = {
   pluginSectionKind: RegisteredPluginSectionKind;
 };
 const EMPTY_PLUGIN_CAPABILITIES: readonly string[] = [];
-const PLUGIN_SECTION_GPU_FLOW_SURFACE_CLASSES = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
-
-function getPluginSectionGpuFlowControl(sectionId: string): string {
-  return `plugin:${sectionId}`;
-}
-
 export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
   const pluginImpl = useProjectState(
     (state) => getPluginSectionImplForRender(state, sectionId),
@@ -60,7 +51,6 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
   if (runtimeStatus === "error") {
     return (
       <PluginSectionRuntimeErrorCard
-        sectionId={sectionId}
         pluginId={pluginId}
         kind={kind}
         runtimeStatusMessage={runtimeStatusMessage}
@@ -80,13 +70,7 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
     );
   }
   if (runtimeStatus === "idle" || runtimeStatus === "loading") {
-    return (
-      <PluginSectionLoadingCard
-        sectionId={sectionId}
-        pluginId={pluginId}
-        kind={kind}
-      />
-    );
+    return <PluginSectionLoadingCard pluginId={pluginId} kind={kind} />;
   }
   return (
     <PluginSectionFallbackCard
@@ -202,9 +186,7 @@ function PluginSectionRendererHost({
   }, [pluginSectionKind, sectionProps]);
   return (
     <section
-      className={`section-main-full-w section-main relative h-full min-h-0 overflow-hidden ${PLUGIN_SECTION_GPU_FLOW_SURFACE_CLASSES}`}
-      data-gpu-flow-control={getPluginSectionGpuFlowControl(sectionId)}
-      data-gpu-flow-interactive="true"
+      className="section-main-full-w section-main relative h-full min-h-0 overflow-hidden"
       data-setta-plugin-root={pluginId}
       data-setta-plugin-kind={kind}
     >
@@ -221,27 +203,20 @@ type PluginSectionFallbackCardProps = {
   isUserView: boolean;
 };
 type PluginSectionLoadingCardProps = {
-  sectionId: string;
   pluginId: string;
   kind: string;
 };
 type PluginSectionRuntimeErrorCardProps = {
-  sectionId: string;
   pluginId: string;
   kind: string;
   runtimeStatusMessage: string | null;
 };
 function PluginSectionLoadingCard({
-  sectionId,
   pluginId,
   kind,
 }: PluginSectionLoadingCardProps) {
   return (
-    <section
-      className={`section-main-full-w flex h-full min-h-0 items-center justify-center p-3 ${PLUGIN_SECTION_GPU_FLOW_SURFACE_CLASSES}`}
-      data-gpu-flow-control={getPluginSectionGpuFlowControl(sectionId)}
-      data-gpu-flow-interactive="true"
-    >
+    <section className="section-main-full-w flex h-full min-h-0 items-center justify-center p-3">
       <div className="w-full max-w-[520px] rounded-md border border-setta-200 bg-white/90 p-3 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-200">
         <header className="mb-2 flex items-start justify-between gap-2">
           <div>
@@ -271,7 +246,6 @@ function PluginSectionLoadingCard({
   );
 }
 function PluginSectionRuntimeErrorCard({
-  sectionId,
   pluginId,
   kind,
   runtimeStatusMessage,
@@ -281,11 +255,7 @@ function PluginSectionRuntimeErrorCard({
       ? runtimeStatusMessage
       : "Plugin runtime failed to initialize.";
   return (
-    <section
-      className={`section-main-full-w flex h-full min-h-0 items-center justify-center p-3 ${PLUGIN_SECTION_GPU_FLOW_SURFACE_CLASSES}`}
-      data-gpu-flow-control={getPluginSectionGpuFlowControl(sectionId)}
-      data-gpu-flow-interactive="true"
-    >
+    <section className="section-main-full-w flex h-full min-h-0 items-center justify-center p-3">
       <div className="w-full max-w-[520px] rounded-md border border-red-300 bg-red-50/80 p-3 text-xs text-red-800 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-200">
         <header className="mb-2 flex items-start justify-between gap-2">
           <div>
@@ -314,9 +284,7 @@ function PluginSectionRuntimeErrorCard({
           <button
             type="button"
             className="rounded border border-red-400 bg-white px-2 py-1 text-[11px] font-medium text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60"
-            onClick={() =>
-              onOverviewTabClick(OverviewTabUIConfig.names.Plugins)
-            }
+            onClick={() => onOverviewTabClick(OverviewTabNameEnum.Plugins)}
           >
             Open Plugins
           </button>
@@ -394,14 +362,10 @@ function PluginSectionFallbackCard({
   async function onOpenPlugins(event: ReactMouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
-    onOverviewTabClick(OverviewTabUIConfig.names.Plugins);
+    onOverviewTabClick(OverviewTabNameEnum.Plugins);
   }
   return (
-    <section
-      className={`section-main-full-w flex h-full min-h-0 items-center justify-center p-3 ${PLUGIN_SECTION_GPU_FLOW_SURFACE_CLASSES}`}
-      data-gpu-flow-control={getPluginSectionGpuFlowControl(sectionId)}
-      data-gpu-flow-interactive="true"
-    >
+    <section className="section-main-full-w flex h-full min-h-0 items-center justify-center p-3">
       <div className="w-full max-w-[520px] rounded-md border border-dashed border-setta-300 bg-setta-50/80 p-3 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-900/70 dark:text-setta-200">
         <header className="mb-2 flex items-start justify-between gap-2">
           <div>

@@ -1,11 +1,8 @@
-import {
-  callOpenAPI,
-  res200,
-  type ResponseDataAndStatus,
-} from "@setta/app-subsystem-frontend-sdk";
 import { forceRefreshListener } from "openapi/http";
+import { callOpenAPI } from "openapi/http/result";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { getCurrProjectConfigId } from "./sectionInfos";
 type ForceRefreshListenerRouteResponse = ResponseDataAndStatus<null>;
 export async function triggerListenerForceRefresh(): Promise<boolean> {

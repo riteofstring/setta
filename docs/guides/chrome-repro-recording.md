@@ -64,8 +64,6 @@ The recorder also writes a stable pointer under the recording root:
 The recorder captures more than raw clicks and inputs:
 
 - browser console output and uncaught runtime failures
-- drag pointer movement, recorded as `pointermove` only while one or more mouse
-  buttons are pressed
 - fetch/XHR/websocket activity from the page
 - full websocket/request payload details in the transport sidecar when previews are truncated
 - app-published frontend debug snapshots when Setta emits them during state updates
@@ -96,11 +94,3 @@ Pass `SETTA_CHROME_REPRO_SKIP_DEV_START=1` when you want to attach to an already
 running local Setta instance, and `SETTA_CHROME_REPRO_BOOTSTRAP_URL=<url>` to
 skip bootstrap URL discovery. Use `SETTA_CHROME_REPRO_LOG_LEVEL=<level>` to override
 the default debug backend logging for the repro session.
-
-Pass `CHROME_EXTRA_ARGS` when the repro requires experimental browser features.
-For the GPU html-in-canvas renderer, use:
-
-`CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu" ./scripts/record-chrome-repro.sh`
-
-On macOS the recorder launches its dedicated browser profile with
-`--use-mock-keychain` so Chromium does not ask for access to Keychain items.

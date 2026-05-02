@@ -86,44 +86,6 @@ func (d *Document) SetCallable(
 	return response, nil
 }
 
-func (d *Document) SetCallableForWatchCodeProvider(
-	ctx context.Context,
-	providerPluginID string,
-	projectID string,
-	sectionID string,
-	callableName string,
-	refetchParams bool,
-	resolver CallableSignatureResolver,
-) (SetCallableResponse, error) {
-	if d == nil {
-		return SetCallableResponse{}, ErrProjectNotFound
-	}
-	pluginID, err := normalizeWatchCodeProviderPluginID(providerPluginID)
-	if err != nil {
-		return SetCallableResponse{}, err
-	}
-
-	project, err := d.ProjectByID(projectID)
-	if err != nil {
-		return SetCallableResponse{}, err
-	}
-	data, existed, err := d.decodeWatchCodePluginData(pluginID)
-	if err != nil {
-		return SetCallableResponse{}, err
-	}
-	projectData, _ := data.projectData(project.ID)
-	response, err := project.setCallable(ctx, &projectData, sectionID, callableName, refetchParams, resolver)
-	if err != nil {
-		return SetCallableResponse{}, err
-	}
-	d.Projects[project.ID] = project
-	data = data.withProjectData(project.ID, projectData, existed)
-	if err := d.setWatchCodePluginData(pluginID, data, existed); err != nil {
-		return SetCallableResponse{}, err
-	}
-	return response, nil
-}
-
 func (d *Document) SetCallableName(projectID string, sectionID string, callableName string) error {
 	project, err := d.ProjectByID(projectID)
 	if err != nil {
@@ -151,19 +113,7 @@ func (r *Runtime) SetCallable(
 	var response SetCallableResponse
 	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		var mutationErr error
-		if providerPluginID, ok := r.activeWatchCodeProviderPluginID(); ok {
-			response, mutationErr = document.SetCallableForWatchCodeProvider(
-				ctx,
-				providerPluginID,
-				projectID,
-				sectionID,
-				callableName,
-				refetchParams,
-				resolver,
-			)
-		} else {
-			response, mutationErr = document.SetCallable(ctx, projectID, sectionID, callableName, refetchParams, resolver)
-		}
+		response, mutationErr = document.SetCallable(ctx, projectID, sectionID, callableName, refetchParams, resolver)
 		if mutationErr != nil {
 			return document, mutationErr
 		}
@@ -176,15 +126,6 @@ func (r *Runtime) SetCallable(
 		return Snapshot{}, SetCallableResponse{}, err
 	}
 	return snapshot, response, nil
-}
-
-func (r *Runtime) activeWatchCodeProviderPluginID() (string, bool) {
-	if r == nil || r.watchCodeProviderPluginID == nil {
-		return "", false
-	}
-	pluginID, ok := r.watchCodeProviderPluginID()
-	pluginID = strings.TrimSpace(pluginID)
-	return pluginID, ok && pluginID != ""
 }
 
 func (r *Runtime) SetCallableName(ctx context.Context, projectID string, sectionID string, callableName string) (Snapshot, error) {
@@ -203,17 +144,6 @@ func (p *Project) SetCallable(
 	refetchParams bool,
 	resolver CallableSignatureResolver,
 ) (SetCallableResponse, error) {
-	return p.setCallable(ctx, nil, sectionID, callableName, refetchParams, resolver)
-}
-
-func (p *Project) setCallable(
-	ctx context.Context,
-	watchCodeProjectData *WatchCodePluginProjectData,
-	sectionID string,
-	callableName string,
-	refetchParams bool,
-	resolver CallableSignatureResolver,
-) (SetCallableResponse, error) {
 	if p == nil {
 		return SetCallableResponse{}, ErrProjectNotFound
 	}
@@ -222,14 +152,13 @@ func (p *Project) setCallable(
 	if err != nil {
 		return SetCallableResponse{}, err
 	}
-	if response, handled, err := p.handleSetCallableShortCircuit(watchCodeProjectData, request, refetchParams); handled {
+	if response, handled, err := p.handleSetCallableShortCircuit(request, refetchParams); handled {
 		return response, err
 	}
-	return p.setCallableFromResolvedSignature(ctx, watchCodeProjectData, resolver, request)
+	return p.setCallableFromResolvedSignature(ctx, resolver, request)
 }
 
 func (p *Project) handleSetCallableShortCircuit(
-	watchCodeProjectData *WatchCodePluginProjectData,
 	request setCallableRequest,
 	refetchParams bool,
 ) (SetCallableResponse, bool, error) {
@@ -238,11 +167,11 @@ func (p *Project) handleSetCallableShortCircuit(
 		return response, true, err
 	}
 	if request.callableName == "" {
-		response, err := p.clearCallableSelection(watchCodeProjectData, request.sectionID)
+		response, err := p.clearCallableSelection(request.sectionID)
 		return response, true, err
 	}
 	if request.shouldReusePreviousSelection(refetchParams) {
-		response, err := p.commitCallableSelection(watchCodeProjectData, request.sectionID, request.prevSelectedID, SignatureHelpStatusSkipped)
+		response, err := p.commitCallableSelection(request.sectionID, request.prevSelectedID, SignatureHelpStatusSkipped)
 		return response, true, err
 	}
 	return SetCallableResponse{}, false, nil
@@ -250,7 +179,6 @@ func (p *Project) handleSetCallableShortCircuit(
 
 func (p *Project) setCallableFromResolvedSignature(
 	ctx context.Context,
-	watchCodeProjectData *WatchCodePluginProjectData,
 	resolver CallableSignatureResolver,
 	request setCallableRequest,
 ) (SetCallableResponse, error) {
@@ -271,11 +199,10 @@ func (p *Project) setCallableFromResolvedSignature(
 	if err != nil {
 		return SetCallableResponse{}, err
 	}
-	return p.finalizeResolvedCallableSelection(watchCodeProjectData, request.sectionID, callableID, created, signatureResult)
+	return p.finalizeResolvedCallableSelection(request.sectionID, callableID, created, signatureResult)
 }
 
 func (p *Project) finalizeResolvedCallableSelection(
-	watchCodeProjectData *WatchCodePluginProjectData,
 	sectionID string,
 	callableID string,
 	created bool,
@@ -286,7 +213,7 @@ func (p *Project) finalizeResolvedCallableSelection(
 			return SetCallableResponse{}, err
 		}
 	}
-	return p.commitCallableSelection(watchCodeProjectData, sectionID, callableID, signatureResult.Status)
+	return p.commitCallableSelection(sectionID, callableID, signatureResult.Status)
 }
 
 type setCallableRequest struct {
@@ -322,21 +249,17 @@ func (r setCallableRequest) shouldReusePreviousSelection(refetchParams bool) boo
 	return !refetchParams && r.prevSelectedID != ""
 }
 
-func (p *Project) clearCallableSelection(
-	watchCodeProjectData *WatchCodePluginProjectData,
-	sectionID string,
-) (SetCallableResponse, error) {
+func (p *Project) clearCallableSelection(sectionID string) (SetCallableResponse, error) {
 	if err := p.setCurrentSectionField(sectionID, "callable", nil); err != nil {
 		return SetCallableResponse{}, err
 	}
-	if err := p.syncWatchCodeRegistrySectionMembership(watchCodeProjectData, sectionID); err != nil {
+	if err := p.syncWatchCodeRegistrySectionMembership(sectionID); err != nil {
 		return SetCallableResponse{}, err
 	}
 	return p.buildSetCallableResponse(sectionID, "", SignatureHelpStatusSkipped)
 }
 
 func (p *Project) commitCallableSelection(
-	watchCodeProjectData *WatchCodePluginProjectData,
 	sectionID string,
 	callableID string,
 	status SignatureHelpStatus,
@@ -344,7 +267,7 @@ func (p *Project) commitCallableSelection(
 	if err := p.setCurrentSectionField(sectionID, "callable", callableID); err != nil {
 		return SetCallableResponse{}, err
 	}
-	if err := p.syncWatchCodeRegistrySectionMembership(watchCodeProjectData, sectionID); err != nil {
+	if err := p.syncWatchCodeRegistrySectionMembership(sectionID); err != nil {
 		return SetCallableResponse{}, err
 	}
 	return p.buildSetCallableResponse(sectionID, callableID, status)

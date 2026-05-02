@@ -129,7 +129,6 @@ func RegisterProjectShellRoutes(router chi.Router, deps ProjectShellRouteDepende
 		withOpenAPITags("Projects"),
 		withOpenAPISummary("Load a single project config by name."),
 		withOpenAPIModeRequirement("ide"),
-		withOpenAPIAppSubsystemFrontendSDK(),
 	)
 	registerOpenAPIPost[ManualSaveRequest, openAPIJSONNull](
 		ideRouter,

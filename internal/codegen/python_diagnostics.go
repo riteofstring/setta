@@ -18,8 +18,7 @@ type PythonGeneratedDiagnostic struct {
 }
 
 type PythonGeneratedDiagnosticsMapperOptions struct {
-	PasswordSecrets   map[string]string
-	WatchCodeRegistry map[string]projectstate.WatchCodeRegistryEntry
+	PasswordSecrets map[string]string
 }
 
 type PythonGeneratedDiagnosticsMapper struct {
@@ -108,8 +107,8 @@ func NewPythonGeneratedDiagnosticsMapper(
 		graph:                 graph,
 		renderer:              renderer,
 		ignoredTypeErrorsByID: collectIgnoredTypeErrorsBySection(project, exported),
-		watchCodeModulePaths:  collectWatchCodeModulePaths(options.WatchCodeRegistry),
-		requiredParamsByID:    collectWatchCodeRequiredParamsBySection(options.WatchCodeRegistry, graph),
+		watchCodeModulePaths:  collectWatchCodeModulePaths(project),
+		requiredParamsByID:    collectWatchCodeRequiredParamsBySection(project, graph),
 	}, true, nil
 }
 
@@ -610,13 +609,13 @@ func isUndefinedSymbolDiagnostic(diagnostic PythonGeneratedDiagnostic) bool {
 	return false
 }
 
-func collectWatchCodeModulePaths(registry map[string]projectstate.WatchCodeRegistryEntry) map[string]struct{} {
-	if len(registry) == 0 {
+func collectWatchCodeModulePaths(project projectstate.Project) map[string]struct{} {
+	if len(project.WatchCodeRegistry) == 0 {
 		return map[string]struct{}{}
 	}
 
-	output := make(map[string]struct{}, len(registry))
-	for identity := range registry {
+	output := make(map[string]struct{}, len(project.WatchCodeRegistry))
+	for identity := range project.WatchCodeRegistry {
 		modulePath := watchCodeModulePathFromIdentity(identity)
 		if modulePath == "" {
 			continue
@@ -627,14 +626,14 @@ func collectWatchCodeModulePaths(registry map[string]projectstate.WatchCodeRegis
 }
 
 func collectWatchCodeRequiredParamsBySection(
-	registry map[string]projectstate.WatchCodeRegistryEntry,
+	project projectstate.Project,
 	graph *PythonDependencyGraph,
 ) map[string][]pythonRequiredParam {
-	if graph == nil || len(registry) == 0 {
+	if graph == nil || len(project.WatchCodeRegistry) == 0 {
 		return map[string][]pythonRequiredParam{}
 	}
 
-	watchCodeSectionIDs := collectWatchCodeSectionIDs(registry)
+	watchCodeSectionIDs := collectWatchCodeSectionIDs(project)
 	if len(watchCodeSectionIDs) == 0 {
 		return map[string][]pythonRequiredParam{}
 	}
@@ -666,9 +665,9 @@ func (m *PythonGeneratedDiagnosticsMapper) applyRequiredParamFallback(
 	}
 }
 
-func collectWatchCodeSectionIDs(registry map[string]projectstate.WatchCodeRegistryEntry) map[string]struct{} {
+func collectWatchCodeSectionIDs(project projectstate.Project) map[string]struct{} {
 	watchCodeSectionIDs := map[string]struct{}{}
-	for _, entry := range registry {
+	for _, entry := range project.WatchCodeRegistry {
 		for _, sectionID := range entry.SectionIDs {
 			trimmedSectionID := strings.TrimSpace(sectionID)
 			if trimmedSectionID == "" {

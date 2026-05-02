@@ -1,4 +1,3 @@
-import { createNewId } from "@setta/app-subsystem-frontend-sdk";
 import {
   CustomRunAction,
   CustomRunItem,
@@ -6,6 +5,7 @@ import {
   useProjectState,
   useRunControl,
 } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
 import { triggerListenerForceRefresh } from "./listeners";
 import { runCodeBlock } from "./runOrImportCode";
 

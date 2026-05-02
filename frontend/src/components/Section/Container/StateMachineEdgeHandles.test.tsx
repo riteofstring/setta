@@ -1,9 +1,8 @@
-import { NodeIdContext } from "gpuFlow/NodeIdContext";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   SectionTypeEnum,
   createChatSectionImpl,
@@ -42,8 +41,7 @@ function syncStoreInitialState(store: {
 
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState
->["projectConfig"]["stateMachineEdges"];
-type WorkflowEdgeItem = NonNullable<WorkflowEdge>[number];
+>["projectConfig"]["stateMachineEdges"][number];
 
 function seedWorkflowSection({
   sectionId,
@@ -54,7 +52,7 @@ function seedWorkflowSection({
   sectionId: string;
   variantId: string;
   impl: BaseSectionImplUnion;
-  edges?: WorkflowEdgeItem[];
+  edges?: WorkflowEdge[];
 }): void {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -97,7 +95,7 @@ function seedWorkflowSectionWithoutImpl({
   sectionId: string;
   variantId: string;
   implId: string;
-  edges?: WorkflowEdgeItem[];
+  edges?: WorkflowEdge[];
 }): void {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -134,21 +132,29 @@ function renderEdgeHandles(
   isUserView: boolean = false,
 ): string {
   return renderToStaticMarkup(
-    <NodeIdContext.Provider value={sectionId}>
+    <NodeIdProvider value={sectionId}>
       <StateMachineEdgeHandles isUserView={isUserView} />
-    </NodeIdContext.Provider>,
+    </NodeIdProvider>,
   );
 }
 
 describe("StateMachineEdgeHandles", () => {
   beforeEach(() => {
     resetProjectStores();
-    gpuFlowViewportStore.getState().cancelConnection();
+    useReactFlow.setState({
+      connectionStartHandle: null,
+      connectionEndHandle: null,
+      connectionStatus: null,
+    });
   });
 
   afterEach(() => {
     resetProjectStores();
-    gpuFlowViewportStore.getState().cancelConnection();
+    useReactFlow.setState({
+      connectionStartHandle: null,
+      connectionEndHandle: null,
+      connectionStatus: null,
+    });
   });
 
   it("renders only a source handle on workflow start nodes", () => {
@@ -254,11 +260,6 @@ describe("StateMachineEdgeHandles", () => {
     );
     expect(markup).toContain("agentic-handle--connected");
     expect(markup).toContain("workflow-handle-scope--chat");
-    expect(markup).toMatch(
-      new RegExp(
-        `class="[^"]*${NO_DRAG_CLASS_NAME}[^"]*${NO_PAN_CLASS_NAME}[^"]*workflow-handle-safe-zone`,
-      ),
-    );
   });
 
   it("suppresses workflow handles in user view", () => {
