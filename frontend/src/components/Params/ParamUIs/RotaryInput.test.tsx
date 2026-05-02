@@ -53,6 +53,8 @@ describe("RotaryInput theme overrides", () => {
       <RotaryInput value={0} min={0} max={10} step={1} />,
     );
 
+    expect(markup).toContain('data-gpu-flow-interactive="true"');
+    expect(markup).toContain("nodrag nopan");
     expect(markup).toContain("bg-blue-500");
   });
 

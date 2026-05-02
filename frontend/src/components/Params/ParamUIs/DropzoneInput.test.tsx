@@ -97,6 +97,16 @@ describe("DropzoneInput attachment display", () => {
     expect(markup).toContain("1 KB");
   });
 
+  it("marks the drop target as an explicit GPU flow interactive nodrag region", () => {
+    const markup = renderToStaticMarkup(
+      <DropzoneInput value="" onChange={() => undefined} />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-control="dropzone"');
+    expect(markup).toContain('data-gpu-flow-interactive="true"');
+    expect(markup).toContain("nodrag nopan section-value");
+  });
+
   it("rejects invalid stored file metadata when parsing saved values", () => {
     expect(
       parseDropzoneValue(

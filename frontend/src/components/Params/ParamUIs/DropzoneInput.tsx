@@ -46,7 +46,11 @@ import {
   DropzoneConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+} from "utils/constants";
 import {
   ArtifactTypeEnum,
   CodeObjTypeEnum,
@@ -395,7 +399,7 @@ function resolveDropzoneWrapperClassName(
         DEFAULT_DROPZONE_DRAG_ACTIVE_CLASS_NAME,
       )
     : "";
-  return `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value ${baseClassName} ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`.trim();
+  return `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value ${baseClassName} ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`.trim();
 }
 function resolveDropzoneClassNames(
   theme: DropzoneInputTheme | undefined,
@@ -1350,6 +1354,7 @@ function DropzoneInputConfig({
 type DropzoneInputViewProps = {
   fileInputRef: RefObject<HTMLInputElement | null>;
   classNames: DropzoneClassNames;
+  gpuFlowControlId: string;
   uiHandlers: DropzoneUiHandlers;
   isDisabled: boolean;
   isUploading: boolean;
@@ -1447,9 +1452,14 @@ function useDropzoneInputController({
     isDisabled,
     className,
   );
+  const gpuFlowControlId =
+    sectionId && paramInfoId
+      ? `dropzone:${sectionId}:${paramInfoId}`
+      : "dropzone";
   return {
     fileInputRef,
     classNames,
+    gpuFlowControlId,
     uiHandlers,
     isDisabled,
     isUploading,
@@ -1463,6 +1473,7 @@ function useDropzoneInputController({
 function DropzoneInputView({
   fileInputRef,
   classNames,
+  gpuFlowControlId,
   uiHandlers,
   isDisabled,
   isUploading,
@@ -1484,6 +1495,8 @@ function DropzoneInputView({
       />
       <div
         className={classNames.wrapper}
+        data-gpu-flow-control={gpuFlowControlId}
+        data-gpu-flow-interactive="true"
         onDrop={uiHandlers.handleDrop}
         onDragOver={uiHandlers.handleDragOver}
         onDragEnter={uiHandlers.handleDragEnter}

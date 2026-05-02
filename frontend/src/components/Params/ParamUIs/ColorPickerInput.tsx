@@ -17,6 +17,7 @@ import {
   type ColorPickerParamCodeObjImpl,
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { tryParseJSON } from "utils/utils";
 export function ColorPickerInputConfigForParam({
   sectionId,
@@ -397,7 +398,8 @@ function ColorPicker({
                 onChange(nextColor);
               }
             }}
-            className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${resolvedTheme.inputBorderClassName}`}
+            className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${resolvedTheme.inputBorderClassName}`}
+            data-gpu-flow-interactive="true"
             disabled={isDisabled}
             onKeyDown={(e) => {
               if (e.code === "Escape") {
@@ -460,7 +462,8 @@ function ColorPickerFromColorChoices({
       trigger={
         <button
           type="button"
-          className={colorPickerChoicesClasses}
+          className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${colorPickerChoicesClasses}`}
+          data-gpu-flow-interactive="true"
           disabled={isDisabled}
           aria-expanded={isOpen}
           aria-haspopup="listbox"

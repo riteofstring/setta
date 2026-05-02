@@ -11,6 +11,7 @@ import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -778,7 +779,7 @@ function SliderParamConfigured({
       onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
-      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
+      wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`}
       sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
       sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
       sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
@@ -886,7 +887,7 @@ function ColorPickerParamConfigured({
       value={value}
       onChange={onChange}
       onEscape={onEscape}
-      wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
+      wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
       isDisabled={isDisabled}
     />
@@ -906,7 +907,7 @@ function DropdownParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
+      outerDivClasses={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex justify-self-start self-center [&_search]:my-auto`}
       isDisabled={isDisabled}
     />
   );
@@ -924,9 +925,9 @@ function PasswordParamConfigured({
   placeholder,
 }) {
   const revealDisabled = isDisabled || isRevealing || !onReveal;
-  const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
-  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
-  const wrapperClassName = "section-value flex min-w-0 items-center gap-2";
+  const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+  const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+  const wrapperClassName = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value flex min-w-0 items-center gap-2`;
   return (
     <>
       <div className={wrapperClassName}>

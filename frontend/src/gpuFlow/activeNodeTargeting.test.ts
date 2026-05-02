@@ -242,6 +242,48 @@ describe("gpu active node pointer targeting", () => {
     });
   });
 
+  it("resolves explicit param control surfaces that own first pointer interaction", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const sliderTrack = document.createElement("span");
+    const dropzone = document.createElement("div");
+    sliderTrack.dataset.gpuFlowInteractive = "true";
+    sliderTrack.className = "nodrag nopan";
+    dropzone.dataset.gpuFlowControl = "dropzone:node-a:param-a";
+    dropzone.dataset.gpuFlowInteractive = "true";
+    dropzone.className = "nodrag nopan";
+    nodeElement.append(sliderTrack, dropzone);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(sliderTrack, 20, 20, 120, 24);
+    setRect(dropzone, 160, 20, 120, 60);
+
+    expect(
+      resolveTargetValue({
+        clientX: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [0],
+      role: null,
+      tagName: "span",
+    });
+    expect(
+      resolveTargetValue({
+        clientX: 180,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        surface,
+      }),
+    ).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "div",
+      value: "dropzone:node-a:param-a",
+    });
+  });
+
   it("treats editable descendants as active controls", () => {
     const surface = document.createElement("div");
     const nodeElement = createNodeElement("node-a");

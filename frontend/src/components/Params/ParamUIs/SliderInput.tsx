@@ -17,6 +17,7 @@ import {
   type SliderParamCodeObjImpl,
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { clamp } from "utils/utils";
 export function SliderInputConfigForParam({
   sectionId,
@@ -166,7 +167,7 @@ export function SliderInput({
   textInputClassName?: string;
 }) {
   return (
-    <div className={wrapperDivClass}>
+    <div className={joinControlClassNames(wrapperDivClass)}>
       <SliderOnly
         value={value}
         onChange={onChange}
@@ -229,7 +230,8 @@ function SliderTextField({
   }, [value]);
   return (
     <input
-      className={className}
+      className={joinControlClassNames(className)}
+      data-gpu-flow-interactive="true"
       value={tempValue}
       onChange={localOnChange}
       onBlur={onBlur}
@@ -270,7 +272,8 @@ function SliderOnly({
   const valueNum = isNaN(asNum) ? min : clamp(_.toNumber(value), min, max);
   return (
     <Slider.Root
-      className={sliderRootClassName}
+      className={joinControlClassNames(sliderRootClassName)}
+      data-gpu-flow-interactive="true"
       value={[valueNum]}
       min={min}
       max={max}
@@ -287,10 +290,18 @@ function SliderOnly({
         }
       }}
     >
-      <Slider.Track className={sliderTrackClassName}>
+      <Slider.Track className={joinControlClassNames(sliderTrackClassName)}>
         <Slider.Range className={sliderRangeClassName} />
       </Slider.Track>
-      <Slider.Thumb className={sliderThumbClassName} />
+      <Slider.Thumb className={joinControlClassNames(sliderThumbClassName)} />
     </Slider.Root>
   );
+}
+
+function joinControlClassNames(
+  className: string | undefined,
+): string {
+  return [NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, className]
+    .filter(Boolean)
+    .join(" ");
 }

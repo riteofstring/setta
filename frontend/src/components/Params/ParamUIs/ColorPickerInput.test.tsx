@@ -55,6 +55,9 @@ describe("ColorPickerInput", () => {
       'button[aria-haspopup="listbox"]',
     ) as HTMLButtonElement | null;
     expect(trigger).not.toBeNull();
+    expect(trigger?.dataset.gpuFlowInteractive).toBe("true");
+    expect(trigger?.classList.contains("nodrag")).toBe(true);
+    expect(trigger?.classList.contains("nopan")).toBe(true);
 
     await act(async () => {
       trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -72,5 +75,24 @@ describe("ColorPickerInput", () => {
     expect(onChange).toHaveBeenCalledWith("#3b82f6");
     expect(onCommit).toHaveBeenCalledWith("#3b82f6");
     expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  it("marks the native color input as an explicit GPU flow control", async () => {
+    await act(async () => {
+      root.render(
+        <ColorPickerInput
+          colorChoices={[]}
+          value="#ef4444"
+          onChange={() => undefined}
+          wrapperClassName="h-8 w-36"
+          colorPickerChoicesClasses="flex h-8 w-36 items-center rounded-lg"
+        />,
+      );
+    });
+
+    const input = host.querySelector('input[type="color"]');
+    expect(input?.getAttribute("data-gpu-flow-interactive")).toBe("true");
+    expect(input?.classList.contains("nodrag")).toBe(true);
+    expect(input?.classList.contains("nopan")).toBe(true);
   });
 });
