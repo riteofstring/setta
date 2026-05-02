@@ -100,6 +100,8 @@ export function uploadHtmlSurfaceTextureRecord(
       tile.cssY,
       tile.cssWidth,
       tile.cssHeight,
+      tile.pixelWidth,
+      tile.pixelHeight,
       {
         texture: tile.texture,
       },

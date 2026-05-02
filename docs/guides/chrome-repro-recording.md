@@ -20,7 +20,7 @@ Run:
 Behavior:
 
 - starts Setta with the normal dev-state defaults
-- prefers Playwright's bundled Chrome for Testing when available
+- resolves the shared Chrome for Testing 149+ browser used by Setta's browser helpers
 - launches a dedicated browser profile with a local recording extension
 - runs the backend at debug log level for the repro session
 - captures browser events into `${TMPDIR:-/tmp}/setta-chrome-recordings/<repo>/recording-<timestamp>/`

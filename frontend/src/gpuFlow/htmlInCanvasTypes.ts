@@ -44,6 +44,16 @@ export type CopyElementImageToTexture = {
     sourceHeight: GPUIntegerCoordinate,
     destination: GPUImageCopyTextureTagged,
   ): void;
+  (
+    source: Element,
+    sourceX: GPUIntegerCoordinate,
+    sourceY: GPUIntegerCoordinate,
+    sourceWidth: GPUIntegerCoordinate,
+    sourceHeight: GPUIntegerCoordinate,
+    width: GPUIntegerCoordinate,
+    height: GPUIntegerCoordinate,
+    destination: GPUImageCopyTextureTagged,
+  ): void;
 };
 
 export type GpuQueueWithElementUpload = GPUQueue & {

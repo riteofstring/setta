@@ -85,6 +85,10 @@ Browser verification:
 - This dedicated loop owns its app/browser sessions. Before browser verification, run ./kill.sh to stop any lingering ai.sh or aireset.sh session. Run ./kill.sh again before the final response.
 - For html-in-canvas/WebGPU checks, use the full required Chrome flag set. Prefer ./ai.sh:
   `CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu --enable-webgpu-developer-features" ./ai.sh`
+  Browser helpers and Playwright must use the shared Chrome for Testing 149+ binary resolved by
+  `scripts/resolve-chrome-for-testing-149.sh`; do not use Playwright's bundled Chromium or local
+  Chrome 147/148 for tiled html-in-canvas verification because those builds lack
+  the scaled `copyElementImageToTexture(source, sx, sy, sw, sh, width, height, destination)` overload.
 - Use ./aireset.sh only when the iteration needs a clean disposable state, with the same full flag set:
   `CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu --enable-webgpu-developer-features" ./aireset.sh`
 - Use Chrome DevTools MCP for visible or performance-sensitive work. If CDP cannot run, record the concrete blocker.

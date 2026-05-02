@@ -92,6 +92,7 @@ def build_record_chrome_sandbox(tmp_path: Path) -> tuple[Path, Path, Path, Path]
     for relative_path in [
         Path("scripts/latest-chrome-recording.sh"),
         Path("scripts/record-chrome-repro.sh"),
+        Path("scripts/resolve-chrome-for-testing-149.sh"),
         Path("scripts/chrome_repro_collector.py"),
         Path("scripts/chrome_repro_collect_llm_artifacts.py"),
         Path("scripts/lib/setta_cli_command.sh"),
@@ -949,11 +950,18 @@ prefs_path.write_text(json.dumps(payload), encoding="utf-8")
 PY
 """,
     )
+    write_stub_executable(
+        sandbox_root / "scripts" / "resolve-chrome-for-testing-149.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "{stub_dir / "chrome"}"
+""",
+    )
 
     server, thread, bootstrap_base_url = start_ok_server()
     try:
         env = script_env(stub_dir, home_dir)
-        env["CHROME_BIN"] = str(stub_dir / "chrome")
+        env.pop("CHROME_BIN", None)
         env["SETTA_CHROME_REPRO_SKIP_DEV_START"] = "1"
         env["SETTA_CHROME_REPRO_BOOTSTRAP_URL"] = (
             f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token"

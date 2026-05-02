@@ -141,6 +141,8 @@ describe("HtmlSurfaceTextureManager", () => {
       0,
       128,
       128,
+      128,
+      128,
       { texture: record.tiles[0]?.texture },
     );
     expect(gpu.copyElementImageToTexture).toHaveBeenNthCalledWith(
@@ -150,6 +152,8 @@ describe("HtmlSurfaceTextureManager", () => {
       128,
       44,
       72,
+      44,
+      72,
       { texture: record.tiles[5]?.texture },
     );
     expect(result).toMatchObject({
@@ -157,6 +161,68 @@ describe("HtmlSurfaceTextureManager", () => {
       uploadedBytes: 300 * 200 * 4,
     });
     expect(record.tiles.every((tile) => tile.lastUploadFrame === 2)).toBe(true);
+  });
+
+  it("tiles default high-zoom surfaces with scaled source subrect uploads", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureDimension2D: 4096,
+    });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 256,
+      cssWidth: 512,
+      devicePixelRatio: 2,
+      element,
+      frame: 1,
+      surfaceId: "zoomed-node",
+      zoom: 4,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+
+    expect(record).toMatchObject({
+      clampedByMaxTexture: false,
+      pixelHeight: 2048,
+      pixelWidth: 4096,
+      resolutionScale: 8,
+      textureLayout: {
+        columns: 2,
+        kind: "tiled",
+        maxTilePixelHeight: 2048,
+        maxTilePixelWidth: 2048,
+        rows: 1,
+        tileCount: 2,
+      },
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
+    expect(gpu.copyElementImageToTexture).toHaveBeenNthCalledWith(
+      1,
+      element,
+      0,
+      0,
+      256,
+      256,
+      2048,
+      2048,
+      {
+        texture: record.tiles[0]?.texture,
+      },
+    );
+    expect(gpu.copyElementImageToTexture).toHaveBeenNthCalledWith(
+      2,
+      element,
+      256,
+      0,
+      256,
+      256,
+      2048,
+      2048,
+      {
+        texture: record.tiles[1]?.texture,
+      },
+    );
   });
 
   it("keeps the old texture until a resolution upgrade is uploaded", () => {

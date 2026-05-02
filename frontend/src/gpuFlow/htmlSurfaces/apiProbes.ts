@@ -667,13 +667,25 @@ async function probeSourceSubrectUpload(
     subrectQueue.copyElementImageToTexture?.(fixture.source, 0, 0, 16, 16, {
       texture,
     });
+    subrectQueue.copyElementImageToTexture?.(
+      fixture.source,
+      0,
+      0,
+      16,
+      16,
+      16,
+      16,
+      {
+        texture,
+      },
+    );
     return pass("source-subrect-upload", "required", {
-      details: "Source-subrect overload is callable.",
+      details: "Source-subrect and scaled source-subrect overloads are callable.",
     });
   } catch (error) {
     return fail("source-subrect-upload", "required", {
       details:
-        "Source-subrect overload failed; tiling work must choose full-tile recapture or source-owned tiles.",
+        "Scaled source-subrect overload failed; use Chrome for Testing 149+ for tiled GPU HTML surfaces.",
       error: stringifyError(error),
     });
   } finally {

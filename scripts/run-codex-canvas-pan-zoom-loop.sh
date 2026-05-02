@@ -75,7 +75,7 @@ Implementation priorities:
 
 Browser verification:
 - Use the plan's relevant example references under /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos.
-- For local browser verification, use a Chromium build with the html-in-canvas flag enabled, for example:
+- For local browser verification, use the shared Chrome for Testing 149+ browser with the html-in-canvas flag enabled, for example:
   CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement" ./ai.sh
 - If the local browser cannot expose the native API, record that blocker and keep moving on testable owner code.
 

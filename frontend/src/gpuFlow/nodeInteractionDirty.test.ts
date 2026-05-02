@@ -898,7 +898,7 @@ describe("gpu node interaction dirty tracking", () => {
       priority: "interactive",
       reason: "animation",
     });
-    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(requestFrame).not.toHaveBeenCalled();
 
     controller.completeFrame({
       budgetExhausted: false,
@@ -925,6 +925,7 @@ describe("gpu node interaction dirty tracking", () => {
     const textureManager = createInteractionTextureManager();
     const clock = createAnimationClock();
     let frame = 0;
+    const requestFrame = vi.fn();
     const controller = createGpuNodeInteractionDirtyController({
       cancelAnimationFrame: clock.cancelAnimationFrame,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
@@ -934,7 +935,7 @@ describe("gpu node interaction dirty tracking", () => {
       },
       now: clock.now,
       requestAnimationFrame: clock.requestAnimationFrame,
-      requestFrame: vi.fn(),
+      requestFrame,
       textureManager: () => textureManager,
     });
     const detach = controller.attach(canvas);
@@ -965,6 +966,7 @@ describe("gpu node interaction dirty tracking", () => {
       priority: "interactive",
       reason: "input",
     });
+    expect(requestFrame).not.toHaveBeenCalled();
 
     detach();
   });

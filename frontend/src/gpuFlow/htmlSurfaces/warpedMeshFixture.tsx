@@ -157,7 +157,10 @@ export function HtmlSurfaceWarpedMeshFixture({
   }, [onMetrics]);
 
   const markDirty = useCallback(
-    (reason: DirtyNodeReason) => {
+    (
+      reason: DirtyNodeReason,
+      options: { readonly scheduleFrame?: boolean | undefined } = {},
+    ) => {
       dirtyMarksRef.current += 1;
       const frame = nextFixtureFrame(frameRef);
       textureManagerRef.current?.markSurfaceTextureDirty({
@@ -167,7 +170,9 @@ export function HtmlSurfaceWarpedMeshFixture({
         reason,
         surfaceId: HTML_SURFACE_WARPED_MESH_FIXTURE_ID,
       });
-      surfaceRef.current?.requestFrame("texture-upload");
+      if (options.scheduleFrame !== false) {
+        surfaceRef.current?.requestFrame("texture-upload");
+      }
       emitMetrics();
     },
     [emitMetrics],
@@ -341,7 +346,7 @@ export function HtmlSurfaceWarpedMeshFixture({
           if (surfaceId !== HTML_SURFACE_WARPED_MESH_FIXTURE_ID) {
             return false;
           }
-          markDirty(reason);
+          markDirty(reason, { scheduleFrame: false });
           return true;
         },
       });

@@ -103,6 +103,7 @@ export function createGpuNodeInteractionDirtyController({
     nodeId,
     priority,
     reason,
+    scheduleFrame = true,
   }: MarkInteractionDirtyInput): boolean {
     const manager = textureManager();
     if (!manager) {
@@ -119,7 +120,9 @@ export function createGpuNodeInteractionDirtyController({
       ...(deferRequestPaint ? { requestPaint: false } : {}),
       surfaceId: nodeId,
     });
-    requestFrame("texture-upload");
+    if (scheduleFrame) {
+      requestFrame("texture-upload");
+    }
     return true;
   }
 
@@ -143,7 +146,12 @@ export function createGpuNodeInteractionDirtyController({
       activeNodeId: nodeId,
       releaseAfterUploadNodeId: null,
     });
-    return markDirty({ nodeId, priority: "interactive", reason });
+    return markDirty({
+      nodeId,
+      priority: "interactive",
+      reason,
+      scheduleFrame: false,
+    });
   }
 
   function beginPointerInteraction(nodeId: string) {

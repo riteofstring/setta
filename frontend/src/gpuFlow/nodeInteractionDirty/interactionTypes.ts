@@ -62,6 +62,7 @@ export type MarkInteractionDirtyInput = {
   readonly nodeId: string;
   readonly priority: NodeTexturePriority;
   readonly reason: DirtyNodeReason;
+  readonly scheduleFrame?: boolean | undefined;
 };
 
 export type NodeInteractionStatePatch = {
