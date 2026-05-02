@@ -26,6 +26,11 @@ type GpuEdgeBufferSegmentRange = {
   readonly vertexOffset: number;
 };
 
+type GpuEdgeLinePattern = {
+  readonly dashLength: number;
+  readonly gapLength: number;
+};
+
 export type GpuEdgeLineListBufferData = {
   readonly ranges: readonly GpuEdgeBufferSegmentRange[];
   readonly vertexCount: number;
@@ -43,6 +48,20 @@ export const GPU_EDGE_AGENTIC_MISSING_FLAG = 64;
 export const GPU_EDGE_WORKFLOW_FLAG = 128;
 export const GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG = 256;
 
+const GPU_EDGE_AGENTIC_DASH_PATTERN: GpuEdgeLinePattern = {
+  dashLength: 7,
+  gapLength: 5,
+};
+const GPU_EDGE_AGENTIC_MISSING_DASH_PATTERN: GpuEdgeLinePattern = {
+  dashLength: 8,
+  gapLength: 5,
+};
+const GPU_EDGE_WORKFLOW_PROMPT_LINK_DASH_PATTERN: GpuEdgeLinePattern = {
+  dashLength: 7,
+  gapLength: 5,
+};
+const MIN_GPU_EDGE_PATTERN_STEP = 0.0001;
+
 export function buildGpuEdgeLineListBufferData({
   bezierSegments,
   edges,
@@ -59,7 +78,14 @@ export function buildGpuEdgeLineListBufferData({
     const flags = getGpuEdgeBufferFlags(edge);
     const color = edge.color ?? DEFAULT_GPU_EDGE_VERTEX_COLOR;
     const points = sampleGpuEdgeGeometry(edge.geometry, { bezierSegments });
-    appendLineListVertices(vertices, points, edgeIndex, flags, color);
+    appendLineListVertices({
+      color,
+      edgeIndex,
+      flags,
+      pattern: resolveGpuEdgeLinePattern(edge.visualFamily),
+      points,
+      vertices,
+    });
     const vertexCount = vertices.length / GPU_EDGE_VERTEX_FLOATS - vertexOffset;
     if (vertexCount === 0) {
       continue;
@@ -79,12 +105,20 @@ export function buildGpuEdgeLineListBufferData({
 }
 
 function appendLineListVertices(
-  vertices: number[],
-  points: readonly GpuPoint[],
-  edgeIndex: number,
-  flags: number,
-  color: GpuRgbaColor,
+  input: {
+    readonly color: GpuRgbaColor;
+    readonly edgeIndex: number;
+    readonly flags: number;
+    readonly pattern: GpuEdgeLinePattern | undefined;
+    readonly points: readonly GpuPoint[];
+    readonly vertices: number[];
+  },
 ) {
+  const { color, edgeIndex, flags, pattern, points, vertices } = input;
+  if (pattern) {
+    appendPatternedLineListVertices({ ...input, pattern });
+    return;
+  }
   for (let index = 0; index < points.length - 1; index += 1) {
     const source = points[index];
     const target = points[index + 1];
@@ -96,6 +130,72 @@ function appendLineListVertices(
   }
 }
 
+function appendPatternedLineListVertices({
+  color,
+  edgeIndex,
+  flags,
+  pattern,
+  points,
+  vertices,
+}: {
+  readonly color: GpuRgbaColor;
+  readonly edgeIndex: number;
+  readonly flags: number;
+  readonly pattern: GpuEdgeLinePattern;
+  readonly points: readonly GpuPoint[];
+  readonly vertices: number[];
+}) {
+  const period = pattern.dashLength + pattern.gapLength;
+  let patternOffset = 0;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const source = points[index];
+    const target = points[index + 1];
+    if (!source || !target) {
+      continue;
+    }
+    const segmentLength = Math.hypot(target.x - source.x, target.y - source.y);
+    if (segmentLength <= MIN_GPU_EDGE_PATTERN_STEP) {
+      continue;
+    }
+    let segmentOffset = 0;
+    while (segmentOffset < segmentLength) {
+      const phase = patternOffset % period;
+      const isDash = phase < pattern.dashLength;
+      const phaseEnd = isDash ? pattern.dashLength : period;
+      const remainingPhaseLength = phaseEnd - phase;
+      const step = Math.min(
+        segmentLength - segmentOffset,
+        remainingPhaseLength,
+      );
+      if (step <= MIN_GPU_EDGE_PATTERN_STEP) {
+        break;
+      }
+      if (isDash) {
+        appendEdgeVertex(
+          vertices,
+          interpolateGpuEdgePoint(source, target, segmentOffset / segmentLength),
+          edgeIndex,
+          flags,
+          color,
+        );
+        appendEdgeVertex(
+          vertices,
+          interpolateGpuEdgePoint(
+            source,
+            target,
+            (segmentOffset + step) / segmentLength,
+          ),
+          edgeIndex,
+          flags,
+          color,
+        );
+      }
+      segmentOffset += step;
+      patternOffset = (patternOffset + step) % period;
+    }
+  }
+}
+
 function appendEdgeVertex(
   vertices: number[],
   point: GpuPoint,
@@ -104,6 +204,17 @@ function appendEdgeVertex(
   color: GpuRgbaColor,
 ) {
   vertices.push(point.x, point.y, edgeIndex, flags, ...color);
+}
+
+function interpolateGpuEdgePoint(
+  source: GpuPoint,
+  target: GpuPoint,
+  t: number,
+): GpuPoint {
+  return {
+    x: source.x + (target.x - source.x) * t,
+    y: source.y + (target.y - source.y) * t,
+  };
 }
 
 function getGpuEdgeBufferFlags(
@@ -128,6 +239,22 @@ function getGpuEdgeBufferFlags(
     flags |= GPU_EDGE_CUSTOM_COLOR_FLAG;
   }
   return flags | getGpuEdgeVisualFamilyFlag(edge.visualFamily);
+}
+
+function resolveGpuEdgeLinePattern(
+  visualFamily: GpuEdgeVisualFamily | undefined,
+): GpuEdgeLinePattern | undefined {
+  switch (visualFamily) {
+    case "agentic":
+      return GPU_EDGE_AGENTIC_DASH_PATTERN;
+    case "agentic-missing":
+      return GPU_EDGE_AGENTIC_MISSING_DASH_PATTERN;
+    case "workflow-prompt-link":
+      return GPU_EDGE_WORKFLOW_PROMPT_LINK_DASH_PATTERN;
+    case "workflow":
+    case undefined:
+      return undefined;
+  }
 }
 
 function getGpuEdgeVisualFamilyFlag(

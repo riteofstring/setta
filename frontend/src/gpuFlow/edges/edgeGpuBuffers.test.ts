@@ -145,7 +145,7 @@ describe("GPU edge buffer data", () => {
     const line = buildGpuEdgeGeometry({
       edgeId: "family",
       source: { x: 0, y: 0 },
-      target: { x: 100, y: 0 },
+      target: { x: 26, y: 0 },
       type: "straight",
     });
 
@@ -178,13 +178,29 @@ describe("GPU edge buffer data", () => {
 
     expect(Array.from(result.vertexData)).toEqual([
       ...edgeVertex(0, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
-      ...edgeVertex(100, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
+      ...edgeVertex(7, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
+      ...edgeVertex(12, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
+      ...edgeVertex(19, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
+      ...edgeVertex(24, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
+      ...edgeVertex(26, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
       ...edgeVertex(0, 0, 1, GPU_EDGE_AGENTIC_MISSING_FLAG),
-      ...edgeVertex(100, 0, 1, GPU_EDGE_AGENTIC_MISSING_FLAG),
+      ...edgeVertex(8, 0, 1, GPU_EDGE_AGENTIC_MISSING_FLAG),
+      ...edgeVertex(13, 0, 1, GPU_EDGE_AGENTIC_MISSING_FLAG),
+      ...edgeVertex(21, 0, 1, GPU_EDGE_AGENTIC_MISSING_FLAG),
       ...edgeVertex(0, 0, 2, GPU_EDGE_SELECTED_FLAG | GPU_EDGE_WORKFLOW_FLAG),
-      ...edgeVertex(100, 0, 2, GPU_EDGE_SELECTED_FLAG | GPU_EDGE_WORKFLOW_FLAG),
+      ...edgeVertex(26, 0, 2, GPU_EDGE_SELECTED_FLAG | GPU_EDGE_WORKFLOW_FLAG),
       ...edgeVertex(0, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
-      ...edgeVertex(100, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
+      ...edgeVertex(7, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
+      ...edgeVertex(12, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
+      ...edgeVertex(19, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
+      ...edgeVertex(24, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
+      ...edgeVertex(26, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
+    ]);
+    expect(result.ranges).toEqual([
+      { edgeId: "agentic", vertexCount: 6, vertexOffset: 0 },
+      { edgeId: "agentic-missing", vertexCount: 4, vertexOffset: 6 },
+      { edgeId: "workflow", vertexCount: 2, vertexOffset: 10 },
+      { edgeId: "workflow-prompt-link", vertexCount: 6, vertexOffset: 12 },
     ]);
   });
 });
