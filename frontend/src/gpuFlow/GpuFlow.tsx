@@ -30,9 +30,13 @@ import {
 } from "./GpuEdgeReconnectAnchors";
 import "./gpuFlow.css";
 import {
+  clearGpuNodeDomTransformSyncCache,
+  clearGpuNodeDomTransformSyncCacheNode,
+  createGpuNodeDomTransformSyncCache,
   GpuNodeLayer,
   markGpuNodeLayerPaintDirty,
   renderGpuNodeLayerFrame,
+  type GpuNodeDomTransformSyncCache,
   type GpuNodeLayerProps,
   type GpuNodeLayout,
   type GpuNodeUploadBudget,
@@ -218,6 +222,9 @@ export function GpuFlow({
     null,
   );
   const nodeQuadRendererRef = useRef<GpuNodeQuadRenderer | null>(null);
+  const nodeDomTransformSyncCacheRef = useRef<GpuNodeDomTransformSyncCache>(
+    createGpuNodeDomTransformSyncCache(),
+  );
   const pendingActiveNodePaintRef = useRef<Set<string>>(new Set());
   const settlingActiveNodeIdsRef = useRef<Set<string>>(new Set());
   const settlingActiveNodeClearIdsRef = useRef<Set<string>>(new Set());
@@ -315,6 +322,7 @@ export function GpuFlow({
     };
     if (!nodes && !nextEdges && !grid) {
       visibleNodeIdsRef.current = new Set();
+      clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       pendingActiveNodePaintRef.current.clear();
       settlingActiveNodeIdsRef.current.clear();
       settlingActiveNodeClearIdsRef.current.clear();
@@ -412,6 +420,7 @@ export function GpuFlow({
   useEffect(() => {
     return () => {
       activeNodeTeleportRef.current?.destroy();
+      clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       destroyNodeInteractionResources(
         nodeInteractionRef,
         nodeInteractionCleanupRef,
@@ -423,6 +432,10 @@ export function GpuFlow({
   const handleNodeElementChange = useCallback(
     (nodeId: string, element: HTMLElement | null) => {
       callbacksRef.current.onNodeElementChange?.(nodeId, element);
+      clearGpuNodeDomTransformSyncCacheNode(
+        nodeDomTransformSyncCacheRef.current,
+        nodeId,
+      );
       if (!element) {
         nodeElementByIdRef.current.delete(nodeId);
         nodeInteractionRef.current?.clearNode(nodeId);
@@ -444,6 +457,7 @@ export function GpuFlow({
 
   const handleReady = useCallback<NonNullable<GpuSurfaceProps["onReady"]>>(
     (runtime) => {
+      clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
       if (nodeLayerRef.current.nodes) {
         textureManagerRef.current = createNodeTextureManager(runtime);
@@ -564,6 +578,7 @@ export function GpuFlow({
         frameRef,
         activeNodeTeleportRef,
         nodeElementByIdRef,
+        nodeDomTransformSyncCacheRef,
         nodeInteractionRef,
         nodeLayerRef,
         nodeQuadRendererRef,
@@ -761,6 +776,7 @@ function renderGpuFlowNodeLayerFrame({
   deferResolutionUpdates,
   frameRef,
   nodeElementByIdRef,
+  nodeDomTransformSyncCacheRef,
   nodeInteractionRef,
   nodeLayerRef,
   nodeQuadRendererRef,
@@ -777,6 +793,7 @@ function renderGpuFlowNodeLayerFrame({
   readonly deferResolutionUpdates: boolean;
   readonly frameRef: MutableRefObject<number>;
   readonly activeNodeTeleportRef: MutableRefObject<GpuActiveNodeTeleportController | null>;
+  readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
@@ -818,6 +835,7 @@ function renderGpuFlowNodeLayerFrame({
     canvasSize,
     deferUploadNodeIds: activeNodeTeleportFrameSync.deferUploadNodeIds,
     deferResolutionUpdates,
+    domTransformCache: nodeDomTransformSyncCacheRef.current,
     edges: layer.edges,
     edgePalette: layer.edgePalette,
     elementByNodeId: nodeElementByIdRef.current,

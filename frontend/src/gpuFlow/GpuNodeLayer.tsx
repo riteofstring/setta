@@ -93,6 +93,39 @@ type SyncGpuNodeDomTransformsInput = {
   readonly viewport: GpuViewportInput;
 };
 
+type SyncGpuNodeDomTransformsFromQuadsInput = {
+  readonly activeNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
+  readonly cache: GpuNodeDomTransformSyncCache;
+  readonly elementByNodeId:
+    | ReadonlyMap<string, HTMLElement>
+    | ((nodeId: string) => HTMLElement | null | undefined);
+  readonly offscreenX?: number | undefined;
+  readonly offscreenY?: number | undefined;
+  readonly retainNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
+  readonly visibleQuads: readonly GpuVisibleNodeQuad[];
+  readonly viewport: GpuViewportInput;
+};
+
+type GpuNodeDomTransformState = {
+  readonly element: HTMLElement;
+  readonly interactive: "false" | "true";
+  readonly pointerEvents: "all" | "none";
+  readonly transform: string;
+  readonly visible: "false" | "true";
+};
+
+export type GpuNodeDomTransformSyncCache = {
+  readonly previousVisibleNodeIds: Set<string>;
+  readonly stateByNodeId: Map<string, GpuNodeDomTransformState>;
+};
+
+type GpuNodeDomTransformSyncResult = {
+  readonly parkedNodeIds: readonly string[];
+  readonly skippedNodeIds: readonly string[];
+  readonly updatedNodeIds: readonly string[];
+  readonly visibleNodeIds: readonly string[];
+};
+
 export type GpuNodeUploadBudget = Pick<
   UploadDirtyNodeTexturesOptions,
   "maxDurationMs" | "maxUploads" | "now"
@@ -135,6 +168,7 @@ type RenderGpuNodeLayerFrameInput = {
     | ReadonlySet<string>
     | readonly string[]
     | undefined;
+  readonly domTransformCache?: GpuNodeDomTransformSyncCache | undefined;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget?: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
@@ -308,6 +342,7 @@ export function renderGpuNodeLayerFrame({
   clearColor,
   deferUploadNodeIds,
   deferResolutionUpdates,
+  domTransformCache,
   edgePalette,
   edges,
   elementByNodeId,
@@ -325,23 +360,38 @@ export function renderGpuNodeLayerFrame({
   const activeNodeIds = normalizeNodeIdSet(
     activeNodeId ? [activeNodeId] : undefined,
   );
+  const retainedNodeIds = mergeNodeIdSets(
+    mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds),
+    mergeNodeIdSets(deferUploadNodeIds, suppressNodeIds),
+  );
   const visibleQuads = collectVisibleGpuNodeQuads({
     canvasHeight: canvasSize.cssHeight,
     canvasWidth: canvasSize.cssWidth,
-    forceVisibleNodeIds: mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds),
+    forceVisibleNodeIds: retainedNodeIds,
     marginCssPx,
     nodes,
     viewport,
   });
   const visibleNodeIds = new Set(visibleQuads.map((quad) => quad.nodeId));
 
-  syncGpuNodeDomTransforms({
-    activeNodeIds,
-    elementByNodeId,
-    nodes,
-    visibleNodeIds,
-    viewport,
-  });
+  if (domTransformCache) {
+    syncGpuNodeDomTransformsFromQuads({
+      activeNodeIds,
+      cache: domTransformCache,
+      elementByNodeId,
+      retainNodeIds: retainedNodeIds,
+      visibleQuads,
+      viewport,
+    });
+  } else {
+    syncGpuNodeDomTransforms({
+      activeNodeIds,
+      elementByNodeId,
+      nodes,
+      visibleNodeIds,
+      viewport,
+    });
+  }
 
   const missingElementNodeIds = registerVisibleGpuNodeTextures({
     activeNodeIds,
@@ -575,6 +625,169 @@ export function buildTexturedGpuNodeQuads(
   return { missingTextureNodeIds, texturedQuads };
 }
 
+export function createGpuNodeDomTransformSyncCache(): GpuNodeDomTransformSyncCache {
+  return {
+    previousVisibleNodeIds: new Set(),
+    stateByNodeId: new Map(),
+  };
+}
+
+export function clearGpuNodeDomTransformSyncCache(
+  cache: GpuNodeDomTransformSyncCache,
+) {
+  cache.previousVisibleNodeIds.clear();
+  cache.stateByNodeId.clear();
+}
+
+export function clearGpuNodeDomTransformSyncCacheNode(
+  cache: GpuNodeDomTransformSyncCache,
+  nodeId: string,
+) {
+  cache.previousVisibleNodeIds.delete(nodeId);
+  cache.stateByNodeId.delete(nodeId);
+}
+
+export function syncGpuNodeDomTransformsFromQuads({
+  activeNodeIds,
+  cache,
+  elementByNodeId,
+  offscreenX = DEFAULT_OFFSCREEN_POSITION,
+  offscreenY = DEFAULT_OFFSCREEN_POSITION,
+  retainNodeIds,
+  visibleQuads,
+  viewport,
+}: SyncGpuNodeDomTransformsFromQuadsInput): GpuNodeDomTransformSyncResult {
+  const normalizedViewport = normalizeGpuViewport(viewport);
+  const activeIds = normalizeNodeIdSet(activeNodeIds);
+  const retainedIds = normalizeNodeIdSet(
+    mergeNodeIdSets(activeIds, retainNodeIds),
+  );
+  const visibleResult = syncVisibleGpuNodeDomTransforms({
+    activeIds,
+    cache,
+    elementByNodeId,
+    normalizedViewport,
+    visibleQuads,
+  });
+  const parkResult = parkExitedGpuNodeDomTransforms({
+    cache,
+    elementByNodeId,
+    offscreenX,
+    offscreenY,
+    retainedIds,
+    visibleNodeIds: visibleResult.visibleNodeIds,
+  });
+
+  cache.previousVisibleNodeIds.clear();
+  for (const nodeId of visibleResult.visibleNodeIds) {
+    cache.previousVisibleNodeIds.add(nodeId);
+  }
+
+  return {
+    parkedNodeIds: parkResult.parkedNodeIds,
+    skippedNodeIds: [
+      ...visibleResult.skippedNodeIds,
+      ...parkResult.skippedNodeIds,
+    ],
+    updatedNodeIds: visibleResult.updatedNodeIds,
+    visibleNodeIds: [...visibleResult.visibleNodeIds],
+  };
+}
+
+function syncVisibleGpuNodeDomTransforms({
+  activeIds,
+  cache,
+  elementByNodeId,
+  normalizedViewport,
+  visibleQuads,
+}: {
+  readonly activeIds: ReadonlySet<string>;
+  readonly cache: GpuNodeDomTransformSyncCache;
+  readonly elementByNodeId:
+    | ReadonlyMap<string, HTMLElement>
+    | ((nodeId: string) => HTMLElement | null | undefined);
+  readonly normalizedViewport: ReturnType<typeof normalizeGpuViewport>;
+  readonly visibleQuads: readonly GpuVisibleNodeQuad[];
+}) {
+  const visibleNodeIds = new Set<string>();
+  const skippedNodeIds: string[] = [];
+  const updatedNodeIds: string[] = [];
+
+  for (const quad of visibleQuads) {
+    visibleNodeIds.add(quad.nodeId);
+    const element = resolveElement(elementByNodeId, quad.nodeId);
+    if (!element) {
+      cache.stateByNodeId.delete(quad.nodeId);
+      continue;
+    }
+    const state = createVisibleNodeDomTransformStateForQuad({
+      activeIds,
+      element,
+      normalizedViewport,
+      quad,
+    });
+    if (isCachedNodeDomTransformState(cache, quad.nodeId, state)) {
+      skippedNodeIds.push(quad.nodeId);
+      continue;
+    }
+    applyNodeDomTransformState(element, state);
+    cache.stateByNodeId.set(quad.nodeId, state);
+    updatedNodeIds.push(quad.nodeId);
+  }
+
+  return { skippedNodeIds, updatedNodeIds, visibleNodeIds };
+}
+
+function parkExitedGpuNodeDomTransforms({
+  cache,
+  elementByNodeId,
+  offscreenX,
+  offscreenY,
+  retainedIds,
+  visibleNodeIds,
+}: {
+  readonly cache: GpuNodeDomTransformSyncCache;
+  readonly elementByNodeId:
+    | ReadonlyMap<string, HTMLElement>
+    | ((nodeId: string) => HTMLElement | null | undefined);
+  readonly offscreenX: number;
+  readonly offscreenY: number;
+  readonly retainedIds: ReadonlySet<string>;
+  readonly visibleNodeIds: Set<string>;
+}) {
+  const parkedNodeIds: string[] = [];
+  const skippedNodeIds: string[] = [];
+
+  for (const nodeId of cache.previousVisibleNodeIds) {
+    if (visibleNodeIds.has(nodeId)) {
+      continue;
+    }
+    if (retainedIds.has(nodeId)) {
+      visibleNodeIds.add(nodeId);
+      continue;
+    }
+    const element = resolveElement(elementByNodeId, nodeId);
+    if (!element) {
+      cache.stateByNodeId.delete(nodeId);
+      continue;
+    }
+    const state = createCulledNodeDomTransformState({
+      element,
+      offscreenX,
+      offscreenY,
+    });
+    if (isCachedNodeDomTransformState(cache, nodeId, state)) {
+      skippedNodeIds.push(nodeId);
+      continue;
+    }
+    applyNodeDomTransformState(element, state);
+    cache.stateByNodeId.set(nodeId, state);
+    parkedNodeIds.push(nodeId);
+  }
+
+  return { parkedNodeIds, skippedNodeIds };
+}
+
 export function syncGpuNodeDomTransforms({
   activeNodeIds,
   elementByNodeId,
@@ -624,23 +837,77 @@ function applyVisibleNodeDomTransform(
     readonly zoom: number;
   },
 ) {
+  applyNodeDomTransformState(
+    element,
+    createVisibleNodeDomTransformState({
+      element,
+      interactive,
+      screenX,
+      screenY,
+      zoom,
+    }),
+  );
+}
+
+function createVisibleNodeDomTransformState({
+  element,
+  interactive,
+  screenX,
+  screenY,
+  zoom,
+}: {
+  readonly element: HTMLElement;
+  readonly interactive?: boolean | undefined;
+  readonly screenX: number;
+  readonly screenY: number;
+  readonly zoom: number;
+}): GpuNodeDomTransformState {
+  return {
+    element,
+    interactive: interactive ? "true" : "false",
+    pointerEvents: "all",
+    transform: `translate(${screenX}px, ${screenY}px) scale(${zoom})`,
+    visible: "true",
+  };
+}
+
+function createVisibleNodeDomTransformStateForQuad({
+  activeIds,
+  element,
+  normalizedViewport,
+  quad,
+}: {
+  readonly activeIds: ReadonlySet<string>;
+  readonly element: HTMLElement;
+  readonly normalizedViewport: ReturnType<typeof normalizeGpuViewport>;
+  readonly quad: GpuVisibleNodeQuad;
+}): GpuNodeDomTransformState {
+  const screenPosition = flowToScreenPosition(
+    { x: quad.x, y: quad.y },
+    normalizedViewport,
+  );
+  return createVisibleNodeDomTransformState({
+    element,
+    interactive: activeIds.has(quad.nodeId),
+    screenX: screenPosition.x,
+    screenY: screenPosition.y,
+    zoom: normalizedViewport.zoom,
+  });
+}
+
+function applyNodeDomTransformState(
+  element: HTMLElement,
+  state: GpuNodeDomTransformState,
+) {
   setGpuNodeBaseStyle(element);
-  setStyleValue(
-    element,
-    "transform",
-    `translate(${screenX}px, ${screenY}px) scale(${zoom})`,
-  );
-  setStyleValue(element, "pointerEvents", "all");
-  setDatasetValue(element, "gpuFlowVisible", "true");
-  setDatasetValue(
-    element,
-    "gpuFlowInteractive",
-    interactive ? "true" : "false",
-  );
+  setStyleValue(element, "transform", state.transform);
+  setStyleValue(element, "pointerEvents", state.pointerEvents);
+  setDatasetValue(element, "gpuFlowVisible", state.visible);
+  setDatasetValue(element, "gpuFlowInteractive", state.interactive);
   setClassPresence(
     element,
     GPU_FLOW_NODE_INTERACTIVE_CLASS,
-    Boolean(interactive),
+    state.interactive === "true",
   );
 }
 
@@ -649,16 +916,48 @@ function applyCulledNodeDomTransform(
   offscreenX = DEFAULT_OFFSCREEN_POSITION,
   offscreenY = DEFAULT_OFFSCREEN_POSITION,
 ) {
-  setGpuNodeBaseStyle(element);
-  setStyleValue(
+  applyNodeDomTransformState(
     element,
-    "transform",
-    `translate(${offscreenX}px, ${offscreenY}px) scale(1)`,
+    createCulledNodeDomTransformState({
+      element,
+      offscreenX,
+      offscreenY,
+    }),
   );
-  setStyleValue(element, "pointerEvents", "none");
-  setDatasetValue(element, "gpuFlowVisible", "false");
-  setDatasetValue(element, "gpuFlowInteractive", "false");
-  setClassPresence(element, GPU_FLOW_NODE_INTERACTIVE_CLASS, false);
+}
+
+function createCulledNodeDomTransformState({
+  element,
+  offscreenX = DEFAULT_OFFSCREEN_POSITION,
+  offscreenY = DEFAULT_OFFSCREEN_POSITION,
+}: {
+  readonly element: HTMLElement;
+  readonly offscreenX?: number | undefined;
+  readonly offscreenY?: number | undefined;
+}): GpuNodeDomTransformState {
+  return {
+    element,
+    interactive: "false",
+    pointerEvents: "none",
+    transform: `translate(${offscreenX}px, ${offscreenY}px) scale(1)`,
+    visible: "false",
+  };
+}
+
+function isCachedNodeDomTransformState(
+  cache: GpuNodeDomTransformSyncCache,
+  nodeId: string,
+  next: GpuNodeDomTransformState,
+): boolean {
+  const previous = cache.stateByNodeId.get(nodeId);
+  return Boolean(
+    previous &&
+      previous.element === next.element &&
+      previous.interactive === next.interactive &&
+      previous.pointerEvents === next.pointerEvents &&
+      previous.transform === next.transform &&
+      previous.visible === next.visible,
+  );
 }
 
 type GpuNodeStyleKey =

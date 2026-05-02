@@ -12,10 +12,12 @@ import { createGpuActiveNodeTeleportController } from "./GpuActiveNodeTeleport";
 import {
   buildTexturedGpuNodeQuads,
   collectVisibleGpuNodeQuads,
+  createGpuNodeDomTransformSyncCache,
   GpuNodeLayer,
   markGpuNodeLayerPaintDirty,
   renderGpuNodeLayerFrame,
   syncGpuNodeDomTransforms,
+  syncGpuNodeDomTransformsFromQuads,
   type GpuNodeLayout,
   type GpuTexturedNodeQuad,
 } from "./GpuNodeLayer";
@@ -112,6 +114,109 @@ describe("GpuNodeLayer helpers", () => {
     );
     expect(culled.style.pointerEvents).toBe("none");
     expect(culled.dataset.gpuFlowInteractive).toBe("false");
+  });
+
+  it("syncs DOM hit targets from visible and previous-visible diffs", () => {
+    const elements = new Map<string, HTMLElement>();
+    const nodes = Array.from({ length: 1_000 }, (_, index) => {
+      const nodeId = `node-${index}`;
+      elements.set(nodeId, document.createElement("div"));
+      return node(nodeId, index * 20, 0, 10, 10, 0);
+    });
+    const cache = createGpuNodeDomTransformSyncCache();
+    const resolvedNodeIds: string[] = [];
+    const resolveElement = (nodeId: string) => {
+      resolvedNodeIds.push(nodeId);
+      return elements.get(nodeId);
+    };
+
+    syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: resolveElement,
+      visibleQuads: nodes.slice(10, 13).map(toVisibleQuad),
+      viewport: [0, 0, 1],
+    });
+    resolvedNodeIds.length = 0;
+
+    const result = syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: resolveElement,
+      visibleQuads: [
+        toVisibleQuad(nodes[10] as GpuNodeLayout),
+        toVisibleQuad(nodes[11] as GpuNodeLayout),
+        toVisibleQuad(nodes[500] as GpuNodeLayout),
+      ],
+      viewport: [5, 0, 2],
+    });
+
+    expect(resolvedNodeIds).toEqual([
+      "node-10",
+      "node-11",
+      "node-500",
+      "node-12",
+    ]);
+    expect(result.updatedNodeIds).toEqual(["node-10", "node-11", "node-500"]);
+    expect(result.parkedNodeIds).toEqual(["node-12"]);
+    expect(elements.get("node-10")?.style.transform).toBe(
+      "translate(405px, 0px) scale(2)",
+    );
+    expect(elements.get("node-12")?.style.transform).toBe(
+      "translate(-100000px, -100000px) scale(1)",
+    );
+    expect(elements.get("node-999")?.style.transform).toBe("");
+  });
+
+  it("does not rewrite unchanged DOM hit-target transforms", () => {
+    const element = document.createElement("div");
+    const cache = createGpuNodeDomTransformSyncCache();
+    const visibleQuads = [
+      { height: 10, nodeId: "node-a", width: 10, x: 10, y: 20, zIndex: 0 },
+    ];
+
+    syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: new Map([["node-a", element]]),
+      visibleQuads,
+      viewport: [0, 0, 1],
+    });
+    const result = syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: new Map([["node-a", element]]),
+      visibleQuads,
+      viewport: [0, 0, 1],
+    });
+
+    expect(result.updatedNodeIds).toEqual([]);
+    expect(result.parkedNodeIds).toEqual([]);
+    expect(result.skippedNodeIds).toEqual(["node-a"]);
+    expect(element.style.transform).toBe("translate(10px, 20px) scale(1)");
+  });
+
+  it("retains protected previous-visible nodes instead of parking them", () => {
+    const element = document.createElement("div");
+    const cache = createGpuNodeDomTransformSyncCache();
+
+    syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: new Map([["active", element]]),
+      visibleQuads: [
+        { height: 10, nodeId: "active", width: 10, x: 10, y: 20, zIndex: 0 },
+      ],
+      viewport: [0, 0, 1],
+    });
+    const result = syncGpuNodeDomTransformsFromQuads({
+      activeNodeIds: ["active"],
+      cache,
+      elementByNodeId: new Map([["active", element]]),
+      retainNodeIds: ["active"],
+      visibleQuads: [],
+      viewport: [100, 100, 1],
+    });
+
+    expect(result.parkedNodeIds).toEqual([]);
+    expect(result.visibleNodeIds).toEqual(["active"]);
+    expect(element.style.transform).toBe("translate(10px, 20px) scale(1)");
+    expect(element.style.pointerEvents).toBe("all");
   });
 
   it("keeps React reconciliation stable while a node host is teleported", () => {
@@ -377,6 +482,38 @@ describe("GpuNodeLayer helpers", () => {
     expect(result.visibleNodeIds).toEqual(["passive", "active"]);
   });
 
+  it("keeps deferred and suppressed restored nodes in the visible sync set", () => {
+    const settling = document.createElement("div");
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    const result = renderGpuNodeLayerFrame({
+      canvasSize: canvasSize(),
+      deferUploadNodeIds: ["settling"],
+      elementByNodeId: new Map([["settling", settling]]),
+      frame: 1,
+      marginCssPx: 0,
+      nodes: [node("settling", 10_000, 10_000, 100, 50, 0)],
+      renderer,
+      suppressNodeIds: ["settling"],
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(result.visibleNodeIds).toEqual(["settling"]);
+    expect(manager.registerNodeTexture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        element: settling,
+        nodeId: "settling",
+      }),
+    );
+    expect(renderer.render).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quads: [],
+      }),
+    );
+  });
+
   it("redraws viewport-only movement from cached textures without another element upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
@@ -608,6 +745,20 @@ function node(
     x,
     y,
     zIndex,
+  };
+}
+
+function toVisibleQuad(layout: GpuNodeLayout) {
+  if (layout.width === null || layout.height === null) {
+    throw new Error("Expected a renderable node layout.");
+  }
+  return {
+    height: layout.height,
+    nodeId: layout.nodeId,
+    width: layout.width,
+    x: layout.x,
+    y: layout.y,
+    zIndex: layout.zIndex ?? 0,
   };
 }
 
