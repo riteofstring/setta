@@ -241,6 +241,58 @@ describe("GPU edge interaction controller", () => {
     detach();
   });
 
+  it("lets contextmenu own non-primary edge selection without also clicking", () => {
+    const { element, surface } = createGpuFlowSurface();
+    const store = createGpuFlowViewportStore();
+    store.getState().setDomNode(element);
+    const onBackgroundPointerDown = vi.fn();
+    const onEdgeClick = vi.fn();
+    const onEdgeContextMenu = vi.fn();
+    const onEdgePointerDown = vi.fn();
+    element.addEventListener("pointerdown", onBackgroundPointerDown);
+    const detach = attachGpuEdgeInteractionController({
+      element,
+      getScene: () => createEdgeScene(),
+      onEdgeClick,
+      onEdgeContextMenu,
+      onEdgePointerDown,
+      store,
+    });
+
+    const downNotPrevented = dispatchPointer(surface, "pointerdown", {
+      button: 2,
+      clientX: 150,
+      clientY: 70,
+      pointerId: 1,
+    });
+    dispatchPointer(surface, "pointerup", {
+      button: 2,
+      clientX: 150,
+      clientY: 70,
+      pointerId: 1,
+    });
+    const contextPrevented = !dispatchMouse(surface, "contextmenu", {
+      button: 2,
+      clientX: 150,
+      clientY: 70,
+    });
+
+    expect(downNotPrevented).toBe(true);
+    expect(contextPrevented).toBe(true);
+    expect(onBackgroundPointerDown).not.toHaveBeenCalled();
+    expect(onEdgePointerDown).not.toHaveBeenCalled();
+    expect(onEdgeClick).not.toHaveBeenCalled();
+    expect(onEdgeContextMenu).toHaveBeenCalledTimes(1);
+    expect(onEdgeContextMenu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        edgeId: "edge-a",
+        family: "data",
+        sceneEdgeId: "data:edge-a",
+      }),
+    );
+    detach();
+  });
+
   it("emits hover changes and clears hover on pointer leave", () => {
     const { element, surface } = createGpuFlowSurface();
     const store = createGpuFlowViewportStore();

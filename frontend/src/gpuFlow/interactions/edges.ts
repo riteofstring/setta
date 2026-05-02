@@ -181,6 +181,10 @@ class GpuEdgeInteractionController {
     if (!hit) {
       return;
     }
+    if (event.button !== 0) {
+      stopGpuEdgeEventPropagation(event);
+      return;
+    }
     preventGpuEdgeEvent(event);
     this.activePointer = {
       edgeId: hit.sceneEdgeId,
@@ -362,6 +366,10 @@ function resolveFlowTolerance(
 
 function preventGpuEdgeEvent(event: Event) {
   event.preventDefault();
+  stopGpuEdgeEventPropagation(event);
+}
+
+function stopGpuEdgeEventPropagation(event: Event) {
   event.stopImmediatePropagation();
 }
 
