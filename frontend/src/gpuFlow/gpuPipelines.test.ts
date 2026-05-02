@@ -464,6 +464,106 @@ describe("html surface renderer", () => {
     ]);
   });
 
+  it("keeps tiled flat surface vertices stable on viewport-only redraws", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+    const tiled = tiledFlatSurface("large-node");
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: createHtmlSurfaceVisualScene({
+        tiledFlatSurfaces: [tiled],
+      }),
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: createHtmlSurfaceVisualScene({
+        tiledFlatSurfaces: [tiled],
+      }),
+      viewport: [50, -25, 1.5],
+    });
+
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-tiled-flat-vertices",
+      "setta-html-surface-camera-uniform",
+    ]);
+  });
+
+  it("rewrites flat surface vertices when the visible surface set changes", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+    const firstQuads = [flatSurface("node-a", 0, 0, 100, 50)];
+    const expandedQuads = [
+      flatSurface("node-a", 0, 0, 100, 50),
+      flatSurface("node-b", 140, 0, 100, 50),
+    ];
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: surfaceScene(firstQuads),
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: surfaceScene(expandedQuads),
+      viewport: [0, 0, 1],
+    });
+
+    const vertexWrites = gpu.device.queue.writeBuffer.mock.calls.filter(
+      ([buffer]) =>
+        getBufferLabel(buffer) === "setta-html-surface-flat-vertices",
+    );
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-flat-vertices",
+      "setta-html-surface-flat-vertices",
+    ]);
+    expect(vertexWrites).toHaveLength(2);
+    expect(Array.from(vertexWrites[1]?.[2] ?? [])).toEqual(
+      Array.from(buildFlatSurfaceVertexData(expandedQuads)),
+    );
+  });
+
+  it("rewrites tiled flat vertices when tile layout changes", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+    const firstTiled = tiledFlatSurface("large-node");
+    const movedTiled = tiledFlatSurface("large-node", {
+      rect: { height: 100, width: 200, x: 48, y: 30 },
+    });
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: createHtmlSurfaceVisualScene({
+        tiledFlatSurfaces: [firstTiled],
+      }),
+      viewport: [0, 0, 1],
+    });
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: createHtmlSurfaceVisualScene({
+        tiledFlatSurfaces: [movedTiled],
+      }),
+      viewport: [0, 0, 1],
+    });
+
+    const vertexWrites = gpu.device.queue.writeBuffer.mock.calls.filter(
+      ([buffer]) =>
+        getBufferLabel(buffer) === "setta-html-surface-tiled-flat-vertices",
+    );
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-tiled-flat-vertices",
+      "setta-html-surface-tiled-flat-vertices",
+    ]);
+    expect(vertexWrites).toHaveLength(2);
+  });
+
   it("rewrites flat surface vertices once when node geometry changes", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
@@ -832,12 +932,15 @@ function meshSurface(
   };
 }
 
-function tiledFlatSurface(surfaceId: string): HtmlSurfaceTiledFlatVisual {
+function tiledFlatSurface(
+  surfaceId: string,
+  overrides: Partial<Pick<HtmlSurfaceTiledFlatVisual, "rect">> = {},
+): HtmlSurfaceTiledFlatVisual {
   const firstTileTexture = textureRecord(`${surfaceId}:0:0`);
   const secondTileTexture = textureRecord(`${surfaceId}:1:0`);
   return {
     kind: "tiled-flat",
-    rect: { height: 100, width: 200, x: 20, y: 30 },
+    rect: overrides.rect ?? { height: 100, width: 200, x: 20, y: 30 },
     surfaceId,
     texture: textureRecord(surfaceId),
     tiles: [

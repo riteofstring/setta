@@ -190,6 +190,17 @@ Pan and zoom must remain a pure GPU viewport update:
 6. Do not force React renders.
 7. Do not rewrite every node's DOM transform.
 
+The strict camera-uniform-only path applies when the renderable visual scene is
+unchanged. If a pan/zoom gesture crosses a culling boundary and changes the
+visible flat or tiled-flat draw set, bounded vertex-buffer rewrites for that
+draw geometry are allowed. Those writes must be measured separately from the
+pure viewport counters, must not trigger HTML capture, texture upload,
+`requestPaint`, React renders, or source DOM transform writes, and must remain
+small enough that the end-to-end pan/zoom performance gate still passes. This is
+the accepted tradeoff for retaining CPU-side flow-space culling instead of
+drawing every uploaded surface or adding shader-side culling for the default
+flat graph path.
+
 Passive source DOM can keep a stable capture position with `pointer-events:
 none`. Only the currently targeted interaction source is moved for hit testing.
 That keeps DOM writes O(1) per pointer event and O(0) for wheel/pinch pan/zoom
@@ -219,8 +230,8 @@ Replace the current active-node stack with these modules:
   - Adds mesh/effect passes for non-affine surfaces.
   - Draws all visible output from cached textures.
 - `frontend/src/gpuFlow/htmlSurfaces/hitScene.ts`
-  - Owns hit testing and projection from screen point to `{ nodeId, u, v,
-    localX, localY }`.
+  - Owns hit testing and projection from screen point to exact node id, UV, and
+    local source coordinates.
   - Uses exact CPU inverse math for flat surfaces.
   - Uses mesh raycast against the same vertices used for rendering for cloth or
     curved surfaces.
@@ -469,7 +480,8 @@ Keep the default Setta graph path optimized:
 
 - flat surfaces are culled in flow space
 - camera uniform handles pan/zoom
-- node geometry buffers are updated only when node layout changes
+- node geometry buffers are updated only when node layout, texture tile layout,
+  or the culled visible draw set changes
 - texture bind groups update only when texture records change
 - edge and grid rendering remain GPU-owned
 
@@ -583,6 +595,9 @@ Required performance invariants:
 - Both isolated and end-to-end pure pan/zoom must perform zero texture uploads.
 - Both isolated and end-to-end pure pan/zoom must perform zero per-node DOM
   transform writes.
+- Active pan/zoom visible-set changes may rewrite flat or tiled-flat vertex
+  buffers only for the changed draw geometry; reports must include call and byte
+  counts separately from texture-upload and source-mutation counters.
 - Pointer move over a surface may write at most one source transform.
 - Active interaction uploads must stay within the configured frame budget.
 - Active HTML transition and animation recaptures must stay within the same

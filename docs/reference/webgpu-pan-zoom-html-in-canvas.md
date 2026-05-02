@@ -270,6 +270,14 @@ clip space. Fragment shaders sample the uploaded full texture or tile texture.
 Mesh and shader-effect passes use the same texture records with specialized
 vertices, indices, effect uniforms, and hit projector contracts.
 
+Viewport-only redraws of an unchanged visual scene write only the camera
+uniform. When pan/zoom crosses a culling boundary, the active draw set can
+change; the renderer may then rewrite the flat or tiled-flat vertex buffer for
+the changed draw geometry. That bounded geometry write is separate from the
+HTML-surface invariants: it must not request paint, upload textures, rewrite
+source DOM transforms, or force React renders, and pan/zoom reports must keep
+the vertex-write calls and bytes visible as their own counters.
+
 Edges are generated as CPU-side line-list buffer data from the current edge
 scene and are drawn through a WebGPU line pipeline. Grid rendering uses a full
 screen triangle and computes the grid pattern in the fragment shader from the
