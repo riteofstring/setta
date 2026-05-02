@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Coroutine, Iterable, Mapping, Sequence
 from urllib.parse import urlencode
 
 import requests
@@ -33,6 +33,7 @@ from setta.types.generated.go_shared_types import (
     ListenerRouterEndpointResultMessage,
     Route,
 )
+from setta.types.id import ID
 from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
 from setta.websockets.binary_frames import decode_binary_frame
@@ -51,14 +52,59 @@ from .listener_models import (
 )
 
 if TYPE_CHECKING:
+    from setta.local_core_client import LocalCoreClient
+
     from .hot_reload import ListenerHotReloader
     from .listener_models import ListenerCallbackBuilder, ListenerRuntimeState
-    from setta.types.id import ID
 
 logger = logging.getLogger("setta.api.listener")
 
 
 class ListenerConnectionMixin:
+    if TYPE_CHECKING:
+        _auth_headers: dict[str, str] | None
+        _auto_session_metadata: SessionMetadata | None
+        _auto_session_secret: bytes | None
+        _expected_ack_callback_ids: set[str]
+        _explicit_host: bool
+        _explicit_port: bool
+        _host: str
+        _is_registered: bool
+        _last_realtime_sequence: int | None
+        _local_core_client: LocalCoreClient | None
+        _logging_configured: bool
+        _pending_router_endpoint_calls: dict[str, asyncio.Future[Any]]
+        _pending_router_endpoint_force_refreshes: dict[str, asyncio.Future[None]]
+        _port: int
+        _project_config_id: ID | None
+        _project_name: str | None
+        _reconnect_delay: float
+        _registration_pending: bool
+        _runtime_compatibility_verified: bool
+        _runtime_state: ListenerRuntimeState | None
+        _set_binary_base_url: bool
+        _share_session_id: str | None
+        _socket_id: str
+        _stop_event: asyncio.Event
+        _websocket: websockets.ClientConnection | None
+
+        async def _handle_dependency_event(
+            self,
+            content: ListenerDependencyEventContent,
+        ) -> None: ...
+
+        async def _handle_force_refresh(
+            self,
+            content: ListenerForceRefreshEvent,
+        ) -> None: ...
+
+        async def _handle_realtime_event(
+            self,
+            content: ListenerRealtimeEventContent,
+        ) -> None: ...
+
+        async def _send_bootstrap_init(self) -> None: ...
+
     def _maybe_autoconnect_to_latest_local_session(self) -> None:
         if not self._should_autoconnect_to_latest_local_session():
             return
@@ -391,7 +437,7 @@ class ListenerConnectionMixin:
         if settle_delay is not None:
             raise ValueError("settle_delay is only meaningful with hot_reload=True")
 
-    def _run_listener_main(self, task: Awaitable[None]) -> None:
+    def _run_listener_main(self, task: Coroutine[Any, Any, None]) -> None:
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         try:
@@ -579,7 +625,7 @@ class ListenerConnectionMixin:
         logger.debug(
             "Listener %s received %s message",
             self._log_identifier,
-            message.messageType,
+            getattr(message, "messageType", type(message)),
         )
         return message
 
@@ -745,9 +791,9 @@ class ListenerConnectionMixin:
             accepted_count,
         )
 
-    def _sync_register_ack_project_id(self, received_project_id: "ID") -> None:
+    def _sync_register_ack_project_id(self, received_project_id: str) -> None:
         if self._project_config_id is None:
-            self._project_config_id = received_project_id
+            self._project_config_id = ID(received_project_id)
             return
         if received_project_id != self._project_config_id:
             logger.warning(

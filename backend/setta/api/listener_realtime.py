@@ -38,15 +38,64 @@ from .listener_models import (
 )
 
 if TYPE_CHECKING:
+    import asyncio
+
     from setta.sdk_contracts.generated import ListenerForceRefreshEvent
     from setta.types.protocol import BaseDependencyKeyUnion
 
     from .listener_models import ListenerCallbackContext
+    from .scheduling import ListenerCallbackScheduler
 
 logger = logging.getLogger("setta.api.listener")
 
 
 class ListenerRealtimeMixin:
+    if TYPE_CHECKING:
+        _callbacks: dict[str, ListenerCallbackSpec]
+        _dependency_cache: dict[str, Any]
+        _latest_dependency_catalog: ListenerDependencyCatalog | None
+        _latest_dependency_metadata: ListenerDependencyMetadata | None
+        _latest_dependency_snapshot_values: ListenerRenderedDependencyValues | None
+        _local_core_client: LocalCoreClient | None
+        _log_identifier: str
+        _pending_router_endpoint_force_refreshes: dict[str, asyncio.Future[None]]
+        _project_config_id: str | None
+        _refresh_callback_semaphore: asyncio.Semaphore
+        _runtime_state: ListenerRuntimeState | None
+        _scheduler: ListenerCallbackScheduler
+
+        def _build_callback_context(
+            self,
+            spec: ListenerCallbackSpec,
+            changed: dict[str, Any],
+            events: list[DependencyEvent] | None = None,
+        ) -> ListenerCallbackContext: ...
+
+        def _build_callback_state(
+            self,
+            runtime_state: ListenerRuntimeState,
+        ) -> Any: ...
+
+        def _evaluate_expression(
+            self,
+            *,
+            dependency: str,
+            expression: str | None,
+        ) -> Any: ...
+
+        def _get_last_realtime_sequence(self) -> int | None: ...
+        def _refresh_callback_dependency_metadata(
+            self,
+            dependency_metadata: ListenerDependencyMetadata,
+        ) -> None: ...
+        def _reset_realtime_sequence(self) -> None: ...
+        async def _send_listener_register(self) -> None: ...
+        def _set_last_realtime_sequence(self, sequence: int) -> None: ...
+        def _validate_sequence_session_id(
+            self,
+            share_session_id: str | None,
+        ) -> str | None: ...
+
     async def _refresh_from_snapshot(
         self,
         snapshot: ListenerSnapshot,

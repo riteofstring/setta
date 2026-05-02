@@ -6,6 +6,7 @@ from typing import (
     Any,
     Awaitable,
     Callable,
+    cast,
     Literal,
     Sequence,
     TYPE_CHECKING,
@@ -50,6 +51,7 @@ from setta.types.generated.go_shared_types import (
     SectionType,
 )
 from setta.types.generated.go_shared_constants import LOOPBACK_HOSTS
+from setta.types.id import ID
 from setta.types.protocol import (
     BaseDependencyKeyUnion,
     SectionDependencyKey,
@@ -60,7 +62,6 @@ from setta.types.protocol import (
 if TYPE_CHECKING:
     from setta.api.listener_endpoint_client import RouterEndpointAPI
     from setta.api.listener import SettaListener
-    from setta.types.id import ID
 
 logger = logging.getLogger("setta.api.listener")
 _MISSING = object()
@@ -96,11 +97,17 @@ def _contract_literal_string_values(
 (
     _LISTENER_ACK_STATUS_ACCEPTED,
     _LISTENER_ACK_STATUS_REJECTED,
-) = _contract_literal_string_values(SDKListenerRegisterAckStatus, "status")
+) = cast(
+    'tuple[Literal["accepted"], Literal["rejected"]]',
+    _contract_literal_string_values(SDKListenerRegisterAckStatus, "status"),
+)
 (
     _LISTENER_SNAPSHOT_REFRESH_KIND_BOOTSTRAP,
     _LISTENER_SNAPSHOT_REFRESH_KIND_FORCE_REFRESH,
-) = _contract_literal_string_values(ListenerForceRefreshEvent, "refreshKind")
+) = cast(
+    'tuple[Literal["bootstrap"], Literal["force_refresh"]]',
+    _contract_literal_string_values(ListenerForceRefreshEvent, "refreshKind"),
+)
 
 _GENERATED_LISTENER_MESSAGE_MODELS: dict[str, type[BaseModel]] = {
     ListenerMessageType.ListenerError.value: ListenerErrorMessage,
@@ -309,7 +316,11 @@ class ListenerDependencyMetadata:
                         if entry.codeObjType is None
                         else CodeObjType(entry.codeObjType)
                     ),
-                    controlCodeObjId=entry.controlCodeObjId,
+                    controlCodeObjId=(
+                        None
+                        if entry.controlCodeObjId is None
+                        else ID(entry.controlCodeObjId)
+                    ),
                     controlCodeObjType=(
                         None
                         if entry.controlCodeObjType is None

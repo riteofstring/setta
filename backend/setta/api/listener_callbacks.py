@@ -4,7 +4,15 @@ import asyncio
 import json
 import logging
 from ast import literal_eval
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Iterable,
+    Mapping,
+    Sequence,
+    cast,
+)
 from uuid import uuid4
 
 from pydantic import BaseModel, ValidationError
@@ -22,6 +30,7 @@ from setta.types.artifact import BaseArtifactTypeAdapter, BaseArtifactUnion
 from setta.types.generated.go_shared_types import (
     ListenerDependencyMode,
     ListenerFrontendEmitMessage,
+    ListenerInitContent,
     ListenerInitMessage,
     ListenerMessageType,
     ListenerRouterEndpointCallContent,
@@ -50,10 +59,69 @@ from .listener_models import (
     _ListenerCallbackStateView,
 )
 
+if TYPE_CHECKING:
+    import websockets
+
+    from setta.sdk_contracts.generated import (
+        ListenerDependencyCatalog,
+        ListenerRenderedDependencyValues,
+    )
+    from setta.types.id import ID
+
+    from .listener import SettaListener
+    from .scheduling import ListenerCallbackScheduler
+
 logger = logging.getLogger("setta.api.listener")
 
 
 class ListenerCallbackMixin:
+    if TYPE_CHECKING:
+        _callback_lock: asyncio.Lock
+        _callbacks: dict[str, ListenerCallbackSpec]
+        _dependency_cache: dict[str, Any]
+        _expected_ack_callback_ids: set[str]
+        _frontend_affinity_token: str | None
+        _is_registered: bool
+        _latest_dependency_catalog: ListenerDependencyCatalog | None
+        _latest_dependency_metadata: ListenerDependencyMetadata | None
+        _latest_dependency_snapshot_values: ListenerRenderedDependencyValues | None
+        _log_identifier: str
+        _pending_router_endpoint_calls: dict[str, asyncio.Future[Any]]
+        _pending_router_endpoint_force_refreshes: dict[str, asyncio.Future[None]]
+        _project_config_id: ID | None
+        _project_name: str | None
+        _registration_pending: bool
+        _router_endpoint_api: RouterEndpointAPI | None
+        _runtime_state: ListenerRuntimeState | None
+        _scheduler: ListenerCallbackScheduler
+        _send_lock: asyncio.Lock
+        _use_temporary_ids: bool
+        _websocket: websockets.ClientConnection | None
+
+        def _build_dependency_cache_from_snapshot_values(
+            self,
+            dependency_values: ListenerRenderedDependencyValues | None,
+            dependency_metadata: ListenerDependencyMetadata,
+        ) -> tuple[dict[str, Any], set[BaseDependencyKeyUnion]]: ...
+
+        def _build_refresh_changed_dependencies(
+            self,
+            dependencies: Sequence[str],
+            updated_cache: dict[str, Any],
+            previous_cache: dict[str, Any] | None,
+        ) -> tuple[dict[str, Any], bool]: ...
+
+        async def _invoke_callback(
+            self,
+            spec: ListenerCallbackSpec,
+            state: Any,
+            ctx: ListenerCallbackContext,
+        ) -> None: ...
+
+        def _require_outbound_project_id(self, *, action: str) -> ID: ...
+        def _require_project_id(self) -> ID: ...
+        def _require_runtime_state(self, *, action: str) -> ListenerRuntimeState: ...
+
     def listen(
         self,
         *,
@@ -132,7 +200,7 @@ class ListenerCallbackMixin:
             previous_expected_ids = set(self._expected_ack_callback_ids)
             try:
                 self.clear_callbacks()
-                builder(self)
+                builder(cast("SettaListener", self))
                 self._is_registered = False
                 self._registration_pending = False
                 self._expected_ack_callback_ids = set()
@@ -234,11 +302,11 @@ class ListenerCallbackMixin:
             )
         message = ListenerInitMessage(
             messageType=ListenerMessageType.ListenerInit,
-            content={
-                "projectConfigId": self._project_config_id,
-                "projectName": self._project_name,
-                "useTemporaryIds": self._use_temporary_ids,
-            },
+            content=ListenerInitContent(
+                projectConfigId=self._project_config_id or "",
+                projectName=self._project_name or "",
+                useTemporaryIds=self._use_temporary_ids,
+            ),
         )
         payload = message.model_dump_json()
         logger.debug("Listener %s sending bootstrap init", self._log_identifier)
@@ -264,7 +332,7 @@ class ListenerCallbackMixin:
         for spec in self._callbacks.values():
             callbacks[spec.callback_id] = ListenerRegisterCallbackSpec(
                 dependencies=list(spec.structured_dependencies),
-                dependencyMode=spec.dependency_mode,
+                dependencyMode=spec.dependency_mode.value,
                 debounceMs=spec.debounce_ms,
                 throttleMs=spec.throttle_ms,
                 runOnRefresh=spec.run_on_refresh,
@@ -324,7 +392,7 @@ class ListenerCallbackMixin:
             messageType=ListenerMessageType.ListenerFrontendEmit,
             content=ListenerFrontendEmitRequest(
                 projectConfigId=project_config_id,
-                dependencyValues=dependency_values,
+                dependencyValues=dict(dependency_values),
                 artifactUpdates=list(artifact_updates),
             ).model_dump(mode="python"),
         )
@@ -359,14 +427,14 @@ class ListenerCallbackMixin:
 
     def _serialize_router_endpoint_payload(
         self,
-        payload: BaseModel | dict[str, object] | None = None,
+        payload: object | None = None,
     ) -> dict[str, object]:
         if payload is None:
             return {}
         if isinstance(payload, BaseModel):
             return payload.model_dump()
         if isinstance(payload, dict):
-            return dict(payload)
+            return {str(key): value for key, value in payload.items()}
         raise ValueError("router endpoint payload must be a dict or pydantic model")
 
     def _start_router_endpoint_call(
@@ -386,8 +454,8 @@ class ListenerCallbackMixin:
     async def _call_router_endpoint(
         self,
         endpoint_name: str,
-        payload: BaseModel | dict[str, object] | None = None,
-    ) -> Any:
+        payload: object | None = None,
+    ) -> object:
         project_config_id = self._require_outbound_project_id(
             action="calling router endpoints"
         )
