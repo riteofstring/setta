@@ -8,8 +8,8 @@ import {
 } from "state/actions/sectionInfos";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import type {
   ButtonActionMode,
   ButtonParamCodeObjImpl,

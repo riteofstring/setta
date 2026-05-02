@@ -9,9 +9,9 @@ import {
 } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
+  useLocalStorage,
   useProjectSearch,
   useProjectState,
-  useLocalStorage,
   useSettings,
   ZustandProjectSearch,
   ZustandProjectState,

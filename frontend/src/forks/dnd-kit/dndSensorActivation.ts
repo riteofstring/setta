@@ -29,10 +29,7 @@ function getIsTopLevel(source: DndSource): boolean {
   return Boolean(source.data?.current?.isTopLevel);
 }
 
-export function eventTargetsNoDragElement(
-  event: Event,
-  source: DndSource,
-): boolean {
+function eventTargetsNoDragElement(event: Event, source: DndSource): boolean {
   const target = event.target;
   if (!(target instanceof Element)) {
     return false;

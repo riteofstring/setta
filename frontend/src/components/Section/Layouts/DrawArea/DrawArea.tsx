@@ -19,6 +19,11 @@ import {
 } from "state/hooks/artifacts";
 import { removeRevisionEntries } from "state/utils/revisions";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "utils/constants";
+import {
   ArtifactTypeEnum,
   BrushStroke,
   BrushStrokeArtifact,
@@ -27,11 +32,6 @@ import {
   DrawAreaModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
 import { serializeLayerStackToBlob } from "./binaryConversion";
 import {
   drawAllLayers,

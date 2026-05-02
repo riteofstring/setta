@@ -7,17 +7,17 @@ import { useLocalStorage, useProjectState } from "state/definitions";
 import { useLoadedChartData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+} from "utils/constants";
+import {
   BaseChartSettingsUnion,
   ChartDataArtifact,
   ChartType,
   ChartTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "utils/constants";
 import { canvasToBlob } from "../DrawArea/binaryConversion";
 import { getLineChartConfig, updateLineChartWithNewData } from "./LineChart";
 import {

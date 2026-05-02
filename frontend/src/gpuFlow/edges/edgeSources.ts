@@ -18,10 +18,7 @@ import {
   type GpuEdgeHitTestResult,
   type GpuEdgeSide,
 } from "./edgeGeometry";
-import type {
-  GpuEdgeBufferInput,
-  GpuEdgeVisualFamily,
-} from "./edgeGpuBuffers";
+import type { GpuEdgeBufferInput, GpuEdgeVisualFamily } from "./edgeGpuBuffers";
 
 export type GpuEdgeFamily =
   | "agentic"
@@ -84,7 +81,7 @@ export type GpuEdgeSceneLabel = {
   readonly zIndex?: number | undefined;
 };
 
-export type GpuEdgeReconnectEndpoint = "source" | "target";
+type GpuEdgeReconnectEndpoint = "source" | "target";
 
 export type GpuEdgeReconnectAnchor = {
   readonly edgeId: string;

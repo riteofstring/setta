@@ -7,7 +7,7 @@ import {
   type GpuViewportInput,
 } from "./viewportMath";
 
-export type GpuNodeTargetDescriptor =
+type GpuNodeTargetDescriptor =
   | {
       readonly attribute: string;
       readonly kind: "stable-attribute";
@@ -27,7 +27,7 @@ export type GpuNodePointerHandoffTarget = {
   readonly nodeId: string;
 };
 
-export type ResolveGpuNodePointerHandoffTargetInput = {
+type ResolveGpuNodePointerHandoffTargetInput = {
   readonly clientX: number;
   readonly clientY: number;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
@@ -144,19 +144,22 @@ export function resolveGpuNodeWheelHandoffTarget({
   if (!nodeElement) {
     return null;
   }
-  const target = findWheelTargetAtClientPoint({
-    clientX,
-    clientY,
-    root: nodeElement,
-  }) ?? findScrollableTargetAtClientPoint({
-    clientX,
-    clientY,
-    root: nodeElement,
-  }) ?? findNearestScrollableWheelTarget({
-    clientX,
-    clientY,
-    root: nodeElement,
-  });
+  const target =
+    findWheelTargetAtClientPoint({
+      clientX,
+      clientY,
+      root: nodeElement,
+    }) ??
+    findScrollableTargetAtClientPoint({
+      clientX,
+      clientY,
+      root: nodeElement,
+    }) ??
+    findNearestScrollableWheelTarget({
+      clientX,
+      clientY,
+      root: nodeElement,
+    });
   if (!target) {
     return null;
   }
@@ -277,7 +280,7 @@ export function createGpuNodeTargetDescriptor(
   };
 }
 
-export function findInteractiveTargetAtClientPoint({
+function findInteractiveTargetAtClientPoint({
   clientX,
   clientY,
   root,

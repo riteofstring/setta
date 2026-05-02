@@ -39,10 +39,7 @@ import {
   useSectionRefs,
   useShareSession,
 } from "state/definitions";
-import {
-  isBaseParentSectionImpl,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { isBaseParentSectionImpl, SectionTypeEnum } from "utils/generatedTypes";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";

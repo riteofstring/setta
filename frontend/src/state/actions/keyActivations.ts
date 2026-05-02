@@ -183,16 +183,14 @@ function markGpuFitViewShortcutInitializationAfterSettle() {
     return;
   }
 
-  const unsubscribe = gpuFlowViewportStore.subscribe(
-    (state, previousState) => {
-      if (state.viewportAnimating || !previousState.viewportAnimating) {
-        return;
-      }
-      pendingFitViewShortcutInitializationCleanup = null;
-      unsubscribe();
-      markGpuFitViewShortcutInitialized();
-    },
-  );
+  const unsubscribe = gpuFlowViewportStore.subscribe((state, previousState) => {
+    if (state.viewportAnimating || !previousState.viewportAnimating) {
+      return;
+    }
+    pendingFitViewShortcutInitializationCleanup = null;
+    unsubscribe();
+    markGpuFitViewShortcutInitialized();
+  });
   pendingFitViewShortcutInitializationCleanup = unsubscribe;
 }
 

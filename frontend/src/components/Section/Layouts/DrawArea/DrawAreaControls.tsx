@@ -20,6 +20,11 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "utils/constants";
+import {
   DrawAreaBrushShape,
   DrawAreaBrushShapeEnum,
   DrawAreaMode,
@@ -27,11 +32,6 @@ import {
   SectionTypeEnum,
   createDrawAreaLayer,
 } from "utils/generatedTypes";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
 
 export function DrawAreaControls({
   sectionId,

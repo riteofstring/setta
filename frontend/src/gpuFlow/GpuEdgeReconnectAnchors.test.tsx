@@ -20,6 +20,7 @@ import {
   GpuEdgeReconnectAnchorLayer,
 } from "./GpuEdgeReconnectAnchors";
 import type { GpuEdgeReconnectAnchor } from "./edges/edgeSources";
+import { createGpuFlowViewportStore } from "./viewportStore";
 
 describe("GpuEdgeReconnectAnchorLayer", () => {
   let root: Root | null = null;
@@ -53,11 +54,12 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
   });
 
   it("renders nodrag and nopan edge updater anchors", () => {
+    const store = createGpuFlowViewportStore({ transform: [10, -20, 2] });
     const markup = renderToStaticMarkup(
       <GpuEdgeReconnectAnchorLayer
         anchors={[sourceAnchor()]}
         options={{ onReconnect: vi.fn() }}
-        viewport={[10, -20, 2]}
+        viewportStore={store}
       />,
     );
 
@@ -83,7 +85,7 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
         <GpuEdgeReconnectAnchorLayer
           anchors={[sourceAnchor()]}
           options={{ isValidConnection, onReconnect }}
-          viewport={[0, 0, 1]}
+          viewportStore={createGpuFlowViewportStore({ transform: [0, 0, 1] })}
         />,
       );
     });
@@ -123,6 +125,85 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
     call.onConnect(connection);
 
     expect(onReconnect).toHaveBeenCalledWith("edge-a", connection);
+  });
+
+  it("updates viewport transforms without rerendering reconnect anchors", async () => {
+    const store = createGpuFlowViewportStore({ transform: [0, 0, 1] });
+    const frameCallbacks: FrameRequestCallback[] = [];
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const originalCancelAnimationFrame = window.cancelAnimationFrame;
+    let renderCount = 0;
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      value: (callback: FrameRequestCallback) => {
+        frameCallbacks.push(callback);
+        return frameCallbacks.length;
+      },
+    });
+    Object.defineProperty(window, "cancelAnimationFrame", {
+      configurable: true,
+      value: () => undefined,
+    });
+    root = createRoot(container!);
+
+    function Harness() {
+      renderCount += 1;
+      return (
+        <GpuEdgeReconnectAnchorLayer
+          anchors={[sourceAnchor()]}
+          options={{ onReconnect: vi.fn() }}
+          viewportStore={store}
+        />
+      );
+    }
+
+    try {
+      await act(async () => {
+        root?.render(<Harness />);
+      });
+      const layer = container!.querySelector<HTMLElement>(
+        '[data-gpu-flow-edge-reconnect-layer="true"]',
+      );
+      const anchor = container!.querySelector<HTMLElement>(
+        '[data-gpu-flow-edge-reconnect-anchor="true"]',
+      );
+      expect(layer?.style.transform).toBe("translate(0px, 0px) scale(1)");
+      expect(anchor).not.toBeNull();
+
+      act(() => {
+        store.getState().setTransform([-30, 45, 0.75]);
+      });
+
+      expect(renderCount).toBe(1);
+      expect(
+        container!.querySelector(
+          '[data-gpu-flow-edge-reconnect-anchor="true"]',
+        ),
+      ).toBe(anchor);
+
+      await act(async () => {
+        for (const callback of frameCallbacks.splice(0)) {
+          callback(performance.now());
+        }
+      });
+
+      expect(renderCount).toBe(1);
+      expect(layer?.style.transform).toBe("translate(-30px, 45px) scale(0.75)");
+      expect(
+        container!.querySelector(
+          '[data-gpu-flow-edge-reconnect-anchor="true"]',
+        ),
+      ).toBe(anchor);
+    } finally {
+      Object.defineProperty(window, "requestAnimationFrame", {
+        configurable: true,
+        value: originalRequestAnimationFrame,
+      });
+      Object.defineProperty(window, "cancelAnimationFrame", {
+        configurable: true,
+        value: originalCancelAnimationFrame,
+      });
+    }
   });
 });
 

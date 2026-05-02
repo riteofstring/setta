@@ -1,9 +1,9 @@
 /* @vitest-environment jsdom */
 
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { act, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResizableWithScale } from "./ResizableWithScale";
 
@@ -81,7 +81,9 @@ describe("ResizableWithScale", () => {
 });
 
 function dispatchResizeStart(rootHost: HTMLElement) {
-  const target = rootHost.querySelector<HTMLElement>('[data-testid="resizable"]');
+  const target = rootHost.querySelector<HTMLElement>(
+    '[data-testid="resizable"]',
+  );
   if (!target) {
     throw new Error("Expected mocked resizable root to be rendered.");
   }

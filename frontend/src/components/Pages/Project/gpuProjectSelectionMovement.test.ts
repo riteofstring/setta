@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectSelectionKeyboardNudgePlan,
   moveProjectSelectionDragItems,
-  snapProjectSelectionDragItems,
   snapProjectNodePosition,
+  snapProjectSelectionDragItems,
 } from "./gpuProjectSelectionMovement";
 
 describe("gpu project selection movement", () => {

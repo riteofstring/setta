@@ -13,11 +13,11 @@ import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   type ColorPickerParamCodeObjImpl,
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { tryParseJSON } from "utils/utils";
 export function ColorPickerInputConfigForParam({
   sectionId,

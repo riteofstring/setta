@@ -1,22 +1,47 @@
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import type { GpuEdgeSceneLabel } from "./edges/edgeSources";
-import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
+import {
+  getGpuEdgeViewportLayerStyle,
+  useGpuEdgeViewportLayerSync,
+} from "./GpuEdgeViewportLayer";
+import type { GpuViewportInput } from "./viewportMath";
+import {
+  gpuFlowViewportStore,
+  type GpuFlowViewportStoreApi,
+} from "./viewportStore";
 
 export function GpuEdgeLabelLayer({
   labels,
-  viewport,
+  viewportStore = gpuFlowViewportStore,
 }: {
   readonly labels: readonly GpuEdgeSceneLabel[];
-  readonly viewport: GpuViewportInput;
+  readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
 }) {
   if (labels.length === 0) {
     return null;
   }
-  const layerStyle = getGpuEdgeLabelLayerStyle(viewport);
+  return (
+    <GpuEdgeLabelViewportLayer labels={labels} viewportStore={viewportStore} />
+  );
+}
+
+function GpuEdgeLabelViewportLayer({
+  labels,
+  viewportStore,
+}: {
+  readonly labels: readonly GpuEdgeSceneLabel[];
+  readonly viewportStore: GpuFlowViewportStoreApi;
+}) {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  useGpuEdgeViewportLayerSync({ layerRef, viewportStore });
+  const layerStyle = getGpuEdgeLabelLayerStyle(
+    viewportStore.getState().transform,
+  );
   return (
     <div
       className="setta-gpu-flow__edge-label-layer"
       data-gpu-flow-edge-label-layer="true"
+      ref={layerRef}
       style={layerStyle}
     >
       {labels.map((label) => (
@@ -37,15 +62,10 @@ export function GpuEdgeLabelLayer({
 export function getGpuEdgeLabelLayerStyle(
   viewport: GpuViewportInput,
 ): CSSProperties {
-  const normalized = normalizeGpuViewport(viewport);
-  return {
-    transform: `translate(${normalized.x}px, ${normalized.y}px) scale(${normalized.zoom})`,
-  };
+  return getGpuEdgeViewportLayerStyle(viewport);
 }
 
-export function getGpuEdgeLabelStyle(
-  label: GpuEdgeSceneLabel,
-): CSSProperties {
+export function getGpuEdgeLabelStyle(label: GpuEdgeSceneLabel): CSSProperties {
   return {
     height: label.height,
     transform: `translate(${label.x - label.width / 2}px, ${label.y - label.height / 2}px)`,

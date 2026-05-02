@@ -1,14 +1,19 @@
-import type {
-  CSSProperties,
-  MouseEvent as ReactMouseEvent,
-  TouchEvent as ReactTouchEvent,
+import {
+  useRef,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent as ReactTouchEvent,
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
+import type { GpuEdgeReconnectAnchor } from "./edges/edgeSources";
 import type { Connection } from "./flowTypes";
+import {
+  getGpuEdgeViewportLayerStyle,
+  useGpuEdgeViewportLayerSync,
+} from "./GpuEdgeViewportLayer";
 import { handlePointerDown } from "./Handle/handler";
 import type { ValidConnectionFunc } from "./Handle/utils";
-import type { GpuEdgeReconnectAnchor } from "./edges/edgeSources";
-import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
+import type { GpuViewportInput } from "./viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
@@ -30,26 +35,50 @@ const alwaysValidConnection: ValidConnectionFunc = () => true;
 export function GpuEdgeReconnectAnchorLayer({
   anchors,
   options,
-  viewport,
+  viewportStore = gpuFlowViewportStore,
 }: {
   readonly anchors: readonly GpuEdgeReconnectAnchor[];
   readonly options: GpuEdgeReconnectOptions;
-  readonly viewport: GpuViewportInput;
+  readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
 }) {
   if (anchors.length === 0) {
     return null;
   }
   return (
+    <GpuEdgeReconnectAnchorViewportLayer
+      anchors={anchors}
+      options={options}
+      viewportStore={viewportStore}
+    />
+  );
+}
+
+function GpuEdgeReconnectAnchorViewportLayer({
+  anchors,
+  options,
+  viewportStore,
+}: {
+  readonly anchors: readonly GpuEdgeReconnectAnchor[];
+  readonly options: GpuEdgeReconnectOptions;
+  readonly viewportStore: GpuFlowViewportStoreApi;
+}) {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  useGpuEdgeViewportLayerSync({ layerRef, viewportStore });
+  return (
     <div
       className="setta-gpu-flow__edge-reconnect-layer"
       data-gpu-flow-edge-reconnect-layer="true"
-      style={getGpuEdgeReconnectAnchorLayerStyle(viewport)}
+      ref={layerRef}
+      style={getGpuEdgeReconnectAnchorLayerStyle(
+        viewportStore.getState().transform,
+      )}
     >
       {anchors.map((anchor) => (
         <GpuEdgeReconnectAnchorElement
           anchor={anchor}
           key={anchor.id}
           options={options}
+          viewportStore={viewportStore}
         />
       ))}
     </div>
@@ -59,10 +88,7 @@ export function GpuEdgeReconnectAnchorLayer({
 export function getGpuEdgeReconnectAnchorLayerStyle(
   viewport: GpuViewportInput,
 ): CSSProperties {
-  const normalized = normalizeGpuViewport(viewport);
-  return {
-    transform: `translate(${normalized.x}px, ${normalized.y}px) scale(${normalized.zoom})`,
-  };
+  return getGpuEdgeViewportLayerStyle(viewport);
 }
 
 export function getGpuEdgeReconnectAnchorStyle(
@@ -79,9 +105,11 @@ export function getGpuEdgeReconnectAnchorStyle(
 function GpuEdgeReconnectAnchorElement({
   anchor,
   options,
+  viewportStore,
 }: {
   readonly anchor: GpuEdgeReconnectAnchor;
   readonly options: GpuEdgeReconnectOptions;
+  readonly viewportStore: GpuFlowViewportStoreApi;
 }) {
   const onPointerStart = (event: EdgeReconnectPointerEvent) => {
     if (isGpuEdgeReconnectDisabled(options.disabled)) {
@@ -99,13 +127,12 @@ function GpuEdgeReconnectAnchorElement({
       event,
       handleId: anchor.fixedHandleId,
       isTarget: anchor.fixedIsTarget,
-      isValidConnection:
-        options.isValidConnection ?? alwaysValidConnection,
+      isValidConnection: options.isValidConnection ?? alwaysValidConnection,
       nodeId: anchor.fixedSectionId,
       onConnect: (connection) => {
         options.onReconnect(anchor.edgeId, connection);
       },
-      store: options.store ?? gpuFlowViewportStore,
+      store: options.store ?? viewportStore,
     });
   };
 

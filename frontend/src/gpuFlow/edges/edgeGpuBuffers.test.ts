@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildGpuEdgeGeometry } from "./edgeGeometry";
 import {
+  GPU_EDGE_ACTIVE_FLAG,
   GPU_EDGE_AGENTIC_FLAG,
   GPU_EDGE_AGENTIC_MISSING_FLAG,
-  GPU_EDGE_ACTIVE_FLAG,
   GPU_EDGE_CONNECTION_INVALID_FLAG,
   GPU_EDGE_CONNECTION_VALID_FLAG,
   GPU_EDGE_CUSTOM_COLOR_FLAG,

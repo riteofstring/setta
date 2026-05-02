@@ -3,8 +3,8 @@
 import type { Node } from "gpuFlow/flowTypes";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import {
-  useLocalStorage,
   useActiveSectionUI,
+  useLocalStorage,
   useMisc,
   useNodeInternals,
   useSectionRefs,
@@ -13,11 +13,11 @@ import {
 import { resetProjectStores } from "state/utils";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "./nodeInternals";
-import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import {
   debounced_route_set_top_level_section_layout,
   getSectionDescendants,
@@ -155,10 +155,7 @@ describe("nodeInternals", () => {
     );
     useNodeInternals.setState({
       x: new Map([
-        [
-          "section-1",
-          createNode({ id: "section-1", width: 200, height: 100 }),
-        ],
+        ["section-1", createNode({ id: "section-1", width: 200, height: 100 })],
       ]),
     });
 

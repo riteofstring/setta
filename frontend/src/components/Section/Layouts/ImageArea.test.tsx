@@ -7,10 +7,7 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-} from "utils/constants";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   SectionTypeEnum,
   createCore,
@@ -141,9 +138,7 @@ describe("ImageArea GPU flow ownership", () => {
     container.innerHTML = markup;
 
     expectGpuGuardedElement(
-      container.querySelector(
-        `[data-gpu-flow-control="image:${sectionId}"]`,
-      ),
+      container.querySelector(`[data-gpu-flow-control="image:${sectionId}"]`),
     );
     expectGpuGuardedElement(
       container.querySelector(

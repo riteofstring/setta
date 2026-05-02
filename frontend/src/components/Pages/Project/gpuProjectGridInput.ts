@@ -1,6 +1,6 @@
 import type { GpuGridInput } from "gpuFlow/gpuPipelines";
 
-export type ProjectGpuGridSettings = {
+type ProjectGpuGridSettings = {
   readonly gridColor: string;
   readonly gridColorDarkMode: string;
   readonly gridPattern: GpuGridInput["variant"];

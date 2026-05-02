@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildGpuAgenticEdgeEntries,
   buildGpuConnectionLineEntries,
-  buildGpuDataEdgeLabels,
   buildGpuDataEdgeEntries,
+  buildGpuDataEdgeLabels,
   buildGpuDataEdgeReconnectAnchors,
   buildGpuEdgeScene,
   buildGpuWorkflowEdgeEntries,

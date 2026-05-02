@@ -206,9 +206,7 @@ describe("TaskBoardArea GPU flow ownership", () => {
   });
 
   it("marks task-list controls as stable GPU handoff targets without blocking task dnd handles", async () => {
-    const rendered = await renderTaskBoardArea(
-      TaskBoardViewModeEnum.task_list,
-    );
+    const rendered = await renderTaskBoardArea(TaskBoardViewModeEnum.task_list);
 
     try {
       expectGpuControl(getGpuControl(rendered.host, `${sectionId}:surface`));
@@ -222,8 +220,10 @@ describe("TaskBoardArea GPU flow ownership", () => {
         getGpuControl(rendered.host, `${sectionId}:add-column`),
       );
       expect(
-        getGpuControl(rendered.host, `${sectionId}:task-list-scroll`).classList
-          .contains("nowheel"),
+        getGpuControl(
+          rendered.host,
+          `${sectionId}:task-list-scroll`,
+        ).classList.contains("nowheel"),
       ).toBe(true);
 
       expectDndOwnedSurface(
@@ -263,8 +263,10 @@ describe("TaskBoardArea GPU flow ownership", () => {
 
     try {
       expect(
-        getGpuControl(rendered.host, `${sectionId}:kanban-scroll`).classList
-          .contains("nowheel"),
+        getGpuControl(
+          rendered.host,
+          `${sectionId}:kanban-scroll`,
+        ).classList.contains("nowheel"),
       ).toBe(true);
       expectDndOwnedSurface(
         getGpuControl(rendered.host, `column:${todoColumnId}:lane`),
@@ -276,8 +278,10 @@ describe("TaskBoardArea GPU flow ownership", () => {
         getGpuControl(rendered.host, `column:${todoColumnId}:name`),
       );
       expect(
-        getGpuControl(rendered.host, `column:${todoColumnId}:tasks`).classList
-          .contains("nowheel"),
+        getGpuControl(
+          rendered.host,
+          `column:${todoColumnId}:tasks`,
+        ).classList.contains("nowheel"),
       ).toBe(true);
       expectTaskBoardControl(
         getGpuControl(rendered.host, `column:${todoColumnId}:add-task`),

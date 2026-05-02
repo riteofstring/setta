@@ -17,7 +17,7 @@ export const TEXT_LIKE_PARAM_TYPES = [
   CodeObjTypeEnum.TextAreaParam,
 ] as const satisfies readonly CodeObjType[];
 
-export const DATE_TIME_PARAM_TYPES = [
+const DATE_TIME_PARAM_TYPES = [
   CodeObjTypeEnum.DateParam,
   CodeObjTypeEnum.TimeParam,
 ] as const satisfies readonly CodeObjType[];

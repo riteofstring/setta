@@ -8,7 +8,7 @@ export type GpuActiveNodeTeleportController = {
   sync(snapshot: GpuActiveNodeSnapshot | null): GpuActiveNodeTeleportSyncResult;
 };
 
-export type GpuActiveNodeTeleportSyncResult = {
+type GpuActiveNodeTeleportSyncResult = {
   readonly restoredNodeId: string | null;
   readonly teleportedNodeId: string | null;
 };

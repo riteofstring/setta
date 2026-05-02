@@ -251,7 +251,9 @@ describe("BrowserArea list view", () => {
   it("marks the browser surface as a GPU flow interactive nodrag region", () => {
     setBrowserSectionState(BrowserAreaViewModeEnum.list);
     const markup = renderToStaticMarkup(<BrowserArea sectionId={sectionId} />);
-    const surfaceTag = markup.match(/<div[^>]*data-gpu-flow-control="browser:section-1"[^>]*>/)?.[0];
+    const surfaceTag = markup.match(
+      /<div[^>]*data-gpu-flow-control="browser:section-1"[^>]*>/,
+    )?.[0];
 
     expect(surfaceTag).toBeDefined();
     expect(surfaceTag).toContain('data-gpu-flow-interactive="true"');

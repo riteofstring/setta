@@ -44,12 +44,6 @@ import {
   META_CONTROL_DIRECT_VALUE_RENDERER_FAMILIES,
   META_CONTROL_TEXT_INPUT_CODE_OBJ_TYPES,
 } from "./metaControlRendererMetadata";
-export {
-  getMetaControlContentCodeObjTypes,
-  getMetaControlContentRenderFamily,
-  type MetaControlRendererFamily,
-} from "./metaControlRendererMetadata";
-
 type MetaControlCodeObjType =
   | CodeObjTypeEnum.ButtonParam
   | CodeObjTypeEnum.CodeParam

@@ -104,16 +104,14 @@ export function buildGpuEdgeLineListBufferData({
   };
 }
 
-function appendLineListVertices(
-  input: {
-    readonly color: GpuRgbaColor;
-    readonly edgeIndex: number;
-    readonly flags: number;
-    readonly pattern: GpuEdgeLinePattern | undefined;
-    readonly points: readonly GpuPoint[];
-    readonly vertices: number[];
-  },
-) {
+function appendLineListVertices(input: {
+  readonly color: GpuRgbaColor;
+  readonly edgeIndex: number;
+  readonly flags: number;
+  readonly pattern: GpuEdgeLinePattern | undefined;
+  readonly points: readonly GpuPoint[];
+  readonly vertices: number[];
+}) {
   const { color, edgeIndex, flags, pattern, points, vertices } = input;
   if (pattern) {
     appendPatternedLineListVertices({ ...input, pattern });
@@ -173,7 +171,11 @@ function appendPatternedLineListVertices({
       if (isDash) {
         appendEdgeVertex(
           vertices,
-          interpolateGpuEdgePoint(source, target, segmentOffset / segmentLength),
+          interpolateGpuEdgePoint(
+            source,
+            target,
+            segmentOffset / segmentLength,
+          ),
           edgeIndex,
           flags,
           color,

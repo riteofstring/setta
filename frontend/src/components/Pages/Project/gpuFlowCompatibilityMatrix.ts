@@ -17,7 +17,7 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 
-export type GpuFlowSectionCompatibilityExpectation = {
+type GpuFlowSectionCompatibilityExpectation = {
   display: string;
   nativeInteractions: readonly string[];
   canvasInteractions: readonly string[];
@@ -30,7 +30,7 @@ export type GpuFlowSectionCompatibilityEntry =
     sectionType: SectionType;
   };
 
-export type GpuFlowParamCompatibilityExpectation = {
+type GpuFlowParamCompatibilityExpectation = {
   display: string;
   firstInteraction: string;
   surfaces: readonly string[];

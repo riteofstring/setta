@@ -1,16 +1,16 @@
+import { getZoom, setCenter } from "gpuFlow/viewportActions";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getZoom, setCenter } from "gpuFlow/viewportActions";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
 let mockMinimapSide: "left" | "right" = "left";
 let mockOverviewWidth = 0;
 let mockUiEditorWidth = 0;
 let mockZoom = 1;
-let mockMiniMapClick:
-  | { readonly position: { readonly x: number; readonly y: number } }
-  | null = null;
+let mockMiniMapClick: {
+  readonly position: { readonly x: number; readonly y: number };
+} | null = null;
 
 vi.mock("gpuFlow/viewportActions", () => ({
   getZoom: vi.fn(() => mockZoom),

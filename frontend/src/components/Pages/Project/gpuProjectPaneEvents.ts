@@ -15,9 +15,7 @@ import { NotificationTypeEnum } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { isProjectPaneBackgroundTarget } from "./gpuProjectInteractionGuards";
 
-export function handleProjectPaneClick(
-  event: ReactMouseEvent<HTMLDivElement>,
-) {
+export function handleProjectPaneClick(event: ReactMouseEvent<HTMLDivElement>) {
   if (!isProjectPaneBackgroundTarget(event.target)) {
     return;
   }

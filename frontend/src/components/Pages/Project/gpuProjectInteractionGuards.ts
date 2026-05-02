@@ -37,7 +37,7 @@ const PROJECT_GPU_PANE_NON_BACKGROUND_SELECTORS = [
   `.${NO_WHEEL_CLASS_NAME}`,
 ] as const;
 
-export type ProjectGpuNodeDragGuardInput = {
+type ProjectGpuNodeDragGuardInput = {
   readonly dndMode: ProjectGpuDndMode;
   readonly isFollowTransitioning: boolean;
   readonly panActivationKeyPressed: boolean;
@@ -56,7 +56,7 @@ export function isProjectGpuNodeDragDisabled({
   );
 }
 
-export type ProjectGpuViewportGestureGuardInput = {
+type ProjectGpuViewportGestureGuardInput = {
   readonly dndMode: ProjectGpuDndMode;
 };
 
@@ -66,7 +66,7 @@ export function isProjectGpuViewportGestureDisabled({
   return isProjectGpuDndModeActive(dndMode);
 }
 
-export type ProjectGpuEdgeInteractionGuardInput = {
+type ProjectGpuEdgeInteractionGuardInput = {
   readonly connectionActive: boolean;
   readonly dndMode: ProjectGpuDndMode;
   readonly isDndActive: boolean;
@@ -93,7 +93,7 @@ export function isProjectGpuEdgeInteractionDisabled({
   );
 }
 
-export type ProjectGpuSelectionGuardInput = {
+type ProjectGpuSelectionGuardInput = {
   readonly dndMode: ProjectGpuDndMode;
 };
 
@@ -109,7 +109,7 @@ export function isProjectGpuSelectionBoxDragDisabled({
   return isProjectGpuDndModeActive(dndMode);
 }
 
-export type ProjectGpuSelectionBoundsShiftInput = {
+type ProjectGpuSelectionBoundsShiftInput = {
   readonly activeSelectedNodeIds: readonly string[];
   readonly movedNodeIds: readonly string[];
 };

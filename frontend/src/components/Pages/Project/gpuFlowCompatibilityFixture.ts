@@ -8,10 +8,10 @@ import {
 
 export const GPU_FLOW_COMPATIBILITY_ZOOM_LEVELS = [0.5, 1, 2] as const;
 
-export type GpuFlowCompatibilityZoomLevel =
+type GpuFlowCompatibilityZoomLevel =
   (typeof GPU_FLOW_COMPATIBILITY_ZOOM_LEVELS)[number];
 
-export type GpuFlowSectionCompatibilityFixture = {
+type GpuFlowSectionCompatibilityFixture = {
   readonly canvasInteractions: readonly string[];
   readonly display: string;
   readonly fixtureId: string;
@@ -20,7 +20,7 @@ export type GpuFlowSectionCompatibilityFixture = {
   readonly zoomLevels: readonly GpuFlowCompatibilityZoomLevel[];
 };
 
-export type GpuFlowParamCompatibilityFixture = {
+type GpuFlowParamCompatibilityFixture = {
   readonly codeObjType: CodeObjType;
   readonly fixtureId: string;
   readonly firstInteraction: string;
@@ -29,7 +29,7 @@ export type GpuFlowParamCompatibilityFixture = {
   readonly surfaces: readonly string[];
 };
 
-export type GpuFlowCompatibilityVerificationScenario = {
+type GpuFlowCompatibilityVerificationScenario = {
   readonly canvasInteractions: readonly string[];
   readonly nativeInteractions: readonly string[];
   readonly paramFixtureIds: readonly string[];
@@ -39,19 +39,17 @@ export type GpuFlowCompatibilityVerificationScenario = {
   readonly zoomLevels: readonly GpuFlowCompatibilityZoomLevel[];
 };
 
-export type GpuFlowCompatibilityFixturePlan = {
+type GpuFlowCompatibilityFixturePlan = {
   readonly paramFixtures: readonly GpuFlowParamCompatibilityFixture[];
   readonly sectionFixtures: readonly GpuFlowSectionCompatibilityFixture[];
   readonly verificationScenarios: readonly GpuFlowCompatibilityVerificationScenario[];
 };
 
 export function getGpuFlowCompatibilityFixturePlan(): GpuFlowCompatibilityFixturePlan {
-  const sectionFixtures = getGpuFlowSectionCompatibilityMatrix().map(
-    createSectionFixture,
-  );
-  const paramFixtures = getGpuFlowParamCompatibilityMatrix().map(
-    createParamFixture,
-  );
+  const sectionFixtures =
+    getGpuFlowSectionCompatibilityMatrix().map(createSectionFixture);
+  const paramFixtures =
+    getGpuFlowParamCompatibilityMatrix().map(createParamFixture);
 
   return {
     paramFixtures,

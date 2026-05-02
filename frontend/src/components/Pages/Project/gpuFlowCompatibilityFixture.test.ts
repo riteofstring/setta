@@ -18,9 +18,9 @@ describe("gpuFlowCompatibilityFixture", () => {
   it("builds one representative section fixture per generated section type", () => {
     const plan = getGpuFlowCompatibilityFixturePlan();
 
-    expect(sorted(plan.sectionFixtures.map((fixture) => fixture.sectionType))).toEqual(
-      sorted(Object.values(SectionTypeEnum) as SectionType[]),
-    );
+    expect(
+      sorted(plan.sectionFixtures.map((fixture) => fixture.sectionType)),
+    ).toEqual(sorted(Object.values(SectionTypeEnum) as SectionType[]));
     expect(
       new Set(plan.sectionFixtures.map((fixture) => fixture.fixtureId)).size,
     ).toBe(plan.sectionFixtures.length);
@@ -44,9 +44,9 @@ describe("gpuFlowCompatibilityFixture", () => {
   it("builds one representative param fixture per generated code object type", () => {
     const plan = getGpuFlowCompatibilityFixturePlan();
 
-    expect(sorted(plan.paramFixtures.map((fixture) => fixture.codeObjType))).toEqual(
-      sorted(Object.values(CodeObjTypeEnum) as CodeObjType[]),
-    );
+    expect(
+      sorted(plan.paramFixtures.map((fixture) => fixture.codeObjType)),
+    ).toEqual(sorted(Object.values(CodeObjTypeEnum) as CodeObjType[]));
     expect(
       new Set(plan.paramFixtures.map((fixture) => fixture.fixtureId)).size,
     ).toBe(plan.paramFixtures.length);
@@ -106,9 +106,10 @@ describe("gpuFlowCompatibilityFixture", () => {
     }
 
     for (const surface of allParamSurfaces) {
-      const scenario = plan.verificationScenarios.find((candidate) =>
-        candidate.paramSurfaces.length === 1 &&
-        candidate.paramSurfaces.includes(surface),
+      const scenario = plan.verificationScenarios.find(
+        (candidate) =>
+          candidate.paramSurfaces.length === 1 &&
+          candidate.paramSurfaces.includes(surface),
       );
       expect(sorted(scenario?.paramFixtureIds ?? [])).toEqual(
         sorted(
@@ -128,7 +129,11 @@ describe("gpuFlowCompatibilityFixture", () => {
       ]),
     );
 
-    expectNativeInteraction(fixturesByType, SectionTypeEnum.Code, "code editing");
+    expectNativeInteraction(
+      fixturesByType,
+      SectionTypeEnum.Code,
+      "code editing",
+    );
     expectNativeInteraction(
       fixturesByType,
       SectionTypeEnum.GenPythonCode,
@@ -160,7 +165,11 @@ describe("gpuFlowCompatibilityFixture", () => {
       SectionTypeEnum.Spreadsheet,
       "spreadsheet editing",
     );
-    expectNativeInteraction(fixturesByType, SectionTypeEnum.Draw, "pointer drawing");
+    expectNativeInteraction(
+      fixturesByType,
+      SectionTypeEnum.Draw,
+      "pointer drawing",
+    );
     expectNativeInteraction(
       fixturesByType,
       SectionTypeEnum.TaskBoard,
@@ -171,11 +180,31 @@ describe("gpuFlowCompatibilityFixture", () => {
       SectionTypeEnum.MetaControl,
       "control first interaction",
     );
-    expectNativeInteraction(fixturesByType, SectionTypeEnum.Image, "media controls");
-    expectNativeInteraction(fixturesByType, SectionTypeEnum.Chart, "chart controls");
-    expectNativeInteraction(fixturesByType, SectionTypeEnum.Social, "social controls");
-    expectNativeInteraction(fixturesByType, SectionTypeEnum.TextBlock, "text editing");
-    expectNativeInteraction(fixturesByType, SectionTypeEnum.Prompt, "text editing");
+    expectNativeInteraction(
+      fixturesByType,
+      SectionTypeEnum.Image,
+      "media controls",
+    );
+    expectNativeInteraction(
+      fixturesByType,
+      SectionTypeEnum.Chart,
+      "chart controls",
+    );
+    expectNativeInteraction(
+      fixturesByType,
+      SectionTypeEnum.Social,
+      "social controls",
+    );
+    expectNativeInteraction(
+      fixturesByType,
+      SectionTypeEnum.TextBlock,
+      "text editing",
+    );
+    expectNativeInteraction(
+      fixturesByType,
+      SectionTypeEnum.Prompt,
+      "text editing",
+    );
   });
 
   it("keeps the high-risk param interaction families represented in the fixture plan", () => {
@@ -186,9 +215,21 @@ describe("gpuFlowCompatibilityFixture", () => {
       ]),
     );
 
-    expectParamSurface(fixturesByType, CodeObjTypeEnum.CodeParam, "meta-control");
-    expectParamSurface(fixturesByType, CodeObjTypeEnum.TextParam, "section-param-ui");
-    expectParamSurface(fixturesByType, CodeObjTypeEnum.TextAreaParam, "meta-control");
+    expectParamSurface(
+      fixturesByType,
+      CodeObjTypeEnum.CodeParam,
+      "meta-control",
+    );
+    expectParamSurface(
+      fixturesByType,
+      CodeObjTypeEnum.TextParam,
+      "section-param-ui",
+    );
+    expectParamSurface(
+      fixturesByType,
+      CodeObjTypeEnum.TextAreaParam,
+      "meta-control",
+    );
     expectParamSurface(fixturesByType, CodeObjTypeEnum.DateParam, "ui-config");
     expectParamSurface(fixturesByType, CodeObjTypeEnum.TimeParam, "ui-config");
     expectParamSurface(
@@ -201,7 +242,11 @@ describe("gpuFlowCompatibilityFixture", () => {
       CodeObjTypeEnum.RotaryParam,
       "configured-control",
     );
-    expectParamSurface(fixturesByType, CodeObjTypeEnum.SwitchParam, "meta-control");
+    expectParamSurface(
+      fixturesByType,
+      CodeObjTypeEnum.SwitchParam,
+      "meta-control",
+    );
     expectParamSurface(
       fixturesByType,
       CodeObjTypeEnum.ColorPickerParam,
@@ -212,15 +257,34 @@ describe("gpuFlowCompatibilityFixture", () => {
       CodeObjTypeEnum.DropdownParam,
       "configured-control",
     );
-    expectParamSurface(fixturesByType, CodeObjTypeEnum.PasswordParam, "meta-control");
-    expectParamSurface(fixturesByType, CodeObjTypeEnum.DropzoneParam, "ui-config");
-    expectParamSurface(fixturesByType, CodeObjTypeEnum.ButtonParam, "meta-control");
-    expectParamSurface(fixturesByType, CodeObjTypeEnum.NestedParam, "param-dnd");
+    expectParamSurface(
+      fixturesByType,
+      CodeObjTypeEnum.PasswordParam,
+      "meta-control",
+    );
+    expectParamSurface(
+      fixturesByType,
+      CodeObjTypeEnum.DropzoneParam,
+      "ui-config",
+    );
+    expectParamSurface(
+      fixturesByType,
+      CodeObjTypeEnum.ButtonParam,
+      "meta-control",
+    );
+    expectParamSurface(
+      fixturesByType,
+      CodeObjTypeEnum.NestedParam,
+      "param-dnd",
+    );
   });
 });
 
 function expectNativeInteraction(
-  fixturesByType: ReadonlyMap<SectionType, { nativeInteractions: readonly string[] }>,
+  fixturesByType: ReadonlyMap<
+    SectionType,
+    { nativeInteractions: readonly string[] }
+  >,
   sectionType: SectionType,
   nativeInteraction: string,
 ) {

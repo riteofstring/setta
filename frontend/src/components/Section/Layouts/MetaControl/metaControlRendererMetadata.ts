@@ -18,7 +18,7 @@ export const META_CONTROL_TEXT_INPUT_CODE_OBJ_TYPES = [
   CodeObjTypeEnum.TextAreaParam,
 ] as const satisfies readonly CodeObjType[];
 
-export const META_CONTROL_DATE_TIME_CODE_OBJ_TYPES = [
+const META_CONTROL_DATE_TIME_CODE_OBJ_TYPES = [
   CodeObjTypeEnum.DateParam,
   CodeObjTypeEnum.TimeParam,
 ] as const satisfies readonly CodeObjType[];

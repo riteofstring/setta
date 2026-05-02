@@ -30,15 +30,15 @@ import {
 } from "react-icons/io5";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  type ChatDictationMode,
-  ChatFileAttachment,
-  ProjectChatUIConfig,
-} from "utils/generatedTypes";
-import {
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
 } from "utils/constants";
+import {
+  type ChatDictationMode,
+  ChatFileAttachment,
+  ProjectChatUIConfig,
+} from "utils/generatedTypes";
 import {
   CHAT_SLASH_COMMANDS,
   type ChatPermissionModeValue,
@@ -4093,8 +4093,7 @@ export const ChatInput = memo(function ChatInput(props: ChatInputProps) {
   }, [isSubmitDisabled, waitingForResponse]);
 
   const textAreaClassName = useMemo(() => {
-    const base =
-      `${CHAT_COMPOSER_GPU_FLOW_CLASS_NAME} max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700`;
+    const base = `${CHAT_COMPOSER_GPU_FLOW_CLASS_NAME} max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700`;
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";

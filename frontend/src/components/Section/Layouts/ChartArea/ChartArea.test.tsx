@@ -3,10 +3,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { useChartData, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-} from "utils/constants";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   ChartTypeEnum,
   createChartDataArtifact,

@@ -91,10 +91,7 @@ function canPersistManualSize(sizeMode: string): boolean {
   return sizeMode !== SIZE_MODE.auto_only;
 }
 
-function manualSizeUpdate({
-  width,
-  height,
-}: ManualSizeUpdate) {
+function manualSizeUpdate({ width, height }: ManualSizeUpdate) {
   const nextSize: ManualSizeUpdate = {};
   if (width !== undefined) {
     nextSize.width = width;
@@ -136,8 +133,7 @@ function getBottomManualSizeUpdate({
 const SINGLE_CLICK_SIZE_RESOLVERS: Partial<
   Record<ResizeHandleDirection, SingleClickSizeResolver>
 > = {
-  bottomRight: ({ manualSize }) =>
-    manualSizeUpdate(manualSize),
+  bottomRight: ({ manualSize }) => manualSizeUpdate(manualSize),
   right: getRightManualSizeUpdate,
   bottom: getBottomManualSizeUpdate,
 };

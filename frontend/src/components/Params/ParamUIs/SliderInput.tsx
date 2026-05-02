@@ -13,11 +13,11 @@ import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   type SliderParamCodeObjImpl,
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { clamp } from "utils/utils";
 export function SliderInputConfigForParam({
   sectionId,
@@ -298,9 +298,7 @@ function SliderOnly({
   );
 }
 
-function joinControlClassNames(
-  className: string | undefined,
-): string {
+function joinControlClassNames(className: string | undefined): string {
   return [NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME, className]
     .filter(Boolean)
     .join(" ");

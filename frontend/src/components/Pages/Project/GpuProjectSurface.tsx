@@ -78,6 +78,7 @@ import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,
 } from "./gpuProjectEdgeScene";
+import { getProjectGpuGridInput } from "./gpuProjectGridInput";
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
@@ -94,7 +95,6 @@ import {
   handleProjectPaneDragOver,
   handleProjectPaneDrop,
 } from "./gpuProjectPaneEvents";
-import { getProjectGpuGridInput } from "./gpuProjectGridInput";
 import {
   buildProjectSelectionKeyboardNudgePlan,
   moveProjectSelectionDragItems,

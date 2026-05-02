@@ -1071,7 +1071,7 @@ export function parseGpuGridColor(
   return parseGpuHexColor(color, "grid");
 }
 
-export function parseGpuEdgeColor(
+function parseGpuEdgeColor(
   color: string,
 ): readonly [number, number, number, number] {
   return parseGpuHexColor(color, "edge palette");

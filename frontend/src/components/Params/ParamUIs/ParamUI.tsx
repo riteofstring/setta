@@ -106,12 +106,6 @@ type ParamUIRenderContext = ParamUIProps & {
   waitingForResult: boolean;
 };
 type ParamUIRenderer = (context: ParamUIRenderContext) => JSX.Element | null;
-export {
-  getSectionParamUIRendererFamily,
-  getSectionParamUIRendererTypes,
-  type SectionParamUIRendererFamily,
-} from "./paramUIRendererMetadata";
-
 function createBaseParamUIState({
   codeObjType,
   defaultVal,

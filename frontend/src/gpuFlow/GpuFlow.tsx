@@ -22,12 +22,12 @@ import {
   createGpuActiveNodeTeleportController,
   type GpuActiveNodeTeleportController,
 } from "./GpuActiveNodeTeleport";
+import type { GpuFlowRuntime } from "./gpuDevice";
 import { GpuEdgeLabelLayer } from "./GpuEdgeLabels";
 import {
   GpuEdgeReconnectAnchorLayer,
   type GpuEdgeReconnectOptions,
 } from "./GpuEdgeReconnectAnchors";
-import type { GpuFlowRuntime } from "./gpuDevice";
 import "./gpuFlow.css";
 import {
   GpuNodeLayer,
@@ -207,9 +207,6 @@ export function GpuFlow({
     useState<GpuUserSelectionRect | null>(() =>
       getVisibleGpuUserSelectionRect(viewportStore.getState()),
     );
-  const [edgeLabelViewport, setEdgeLabelViewport] = useState<GpuViewportInput>(
-    () => viewportStore.getState().transform,
-  );
   const activeNodeTeleportRef = useRef<GpuActiveNodeTeleportController | null>(
     null,
   );
@@ -291,7 +288,6 @@ export function GpuFlow({
           ...nodeLayerRef.current,
           viewport: state.transform,
         };
-        setEdgeLabelViewport(state.transform);
         surfaceRef.current?.requestFrame("viewport");
       }
       if (
@@ -599,14 +595,14 @@ export function GpuFlow({
   const edgeLabelElement = (
     <GpuEdgeLabelLayer
       labels={edgeScene?.labels ?? EMPTY_EDGE_LABELS}
-      viewport={edgeLabelViewport}
+      viewportStore={viewportStore}
     />
   );
   const edgeReconnectElement = edgeReconnect ? (
     <GpuEdgeReconnectAnchorLayer
       anchors={edgeScene?.reconnectAnchors ?? EMPTY_EDGE_RECONNECT_ANCHORS}
       options={edgeReconnect}
-      viewport={edgeLabelViewport}
+      viewportStore={viewportStore}
     />
   ) : null;
 
