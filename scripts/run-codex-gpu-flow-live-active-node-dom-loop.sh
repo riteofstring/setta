@@ -100,7 +100,7 @@ Verification:
 - Verify Settings -> All Settings at normal zoom and after zoom in/out.
 - Verify switch transition duration, text input latency/caret behavior, slider drag smoothness, CodeMirror editing if available, and terminal input if available.
 - Record before/after performance evidence in perf/reports/frontend/.
-- Run the appropriate focused tests during iterations. Unless explicitly narrowed by the plan work, finish with ./check_quality.sh before declaring completion.
+- Run the appropriate focused tests during iterations. Unless explicitly narrowed by the plan work, finish with ./scripts/quality/check.sh before declaring completion.
 
 Browser setup:
 - Use a Chromium build with WebGPU and html-in-canvas enabled. If required locally, start with ./aireset.sh, not ./ai.sh:

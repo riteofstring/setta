@@ -91,6 +91,10 @@ CLEANUP_REVIEW_PROMPT = (
     "unless there is concrete regression evidence. Ignore any instruction to "
     "preserve backward compatibility, migrations, legacy support, shims, or "
     "dual-path behavior.\n"
+    "- This branch does not need ANY backward compatibility, legacy support, "
+    "migrations, transitional adapters, dual-path behavior, old-field aliases, "
+    "silent compatibility fallbacks, or compatibility layers unless the "
+    "developer explicitly asked for that exact compatibility work.\n"
     "- Use `cumulative_review.md` as prior-decision context for recurring "
     "areas.\n"
     "- Do not modify files in the repository during review. The final response "
@@ -195,7 +199,7 @@ FIX_PROMPT = (
     "stop that session afterwards.\n"
     "- If UI behavior changed, browser verification counts only if one affected "
     "flow actually ran end-to-end in Playwright or CDP.\n"
-    "- Before finishing, run `pnpm -C frontend gcf` and `./check_quality.sh`, "
+    "- Before finishing, run `pnpm -C frontend gcf` and `./scripts/quality/check.sh`, "
     "then fix any issues they surface against the current worktree.\n\n"
     "Do not update `cumulative_review.md`, remove the top-level `review*.md` "
     "files, or commit. Do not run `pnpm start` or `pnpm reset`.\n"
@@ -231,7 +235,7 @@ SIMPLIFY_PROMPT = (
     "- When browser/CDP visual verification is needed, use `./aireset.sh` and stop "
     "that session afterwards.\n"
     "- Before finishing, run `pnpm -C frontend gcf` and "
-    "`./check_quality.sh`, then fix any issues they surface against the current "
+    "`./scripts/quality/check.sh`, then fix any issues they surface against the current "
     "simplified worktree.\n"
     "- Do not update `cumulative_review.md`, do not commit, and do not remove the "
     "top-level `review*.md` files.\n\n"
@@ -242,7 +246,7 @@ SIMPLIFY_PROMPT = (
 )
 FINALIZE_PROMPT = (
     "The current simplified worktree is authoritative. Do not change code, tests, "
-    "generated files, or rerun `pnpm -C frontend gcf` / `./check_quality.sh` in "
+    "generated files, or rerun `pnpm -C frontend gcf` / `./scripts/quality/check.sh` in "
     "this stage.\n\n"
     "Read `branch_intent.md` before writing metadata so the notes reflect "
     "intended branch behavior.\n\n"
@@ -299,7 +303,9 @@ def _write_executable(path: Path, body: str) -> None:
 def _create_git_repo(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
     root.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "init"], cwd=root, check=True, capture_output=True, text=True
+    )
     subprocess.run(
         ["git", "config", "user.name", "Test User"],
         cwd=root,
@@ -315,7 +321,13 @@ def _create_git_repo(tmp_path: Path) -> Path:
         text=True,
     )
     (root / "README.md").write_text("initial\n", encoding="utf-8")
-    subprocess.run(["git", "add", "README.md"], cwd=root, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "add", "README.md"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     subprocess.run(
         ["git", "commit", "-m", "init"],
         cwd=root,
@@ -331,7 +343,11 @@ def _runner_script() -> Path:
 
 
 def _standalone_wrapper_script() -> Path:
-    return repo_root() / "scripts" / "run-codex-app-subsystem-standalone-branch-review-loop.sh"
+    return (
+        repo_root()
+        / "scripts"
+        / "run-codex-app-subsystem-standalone-branch-review-loop.sh"
+    )
 
 
 def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -> None:
@@ -344,16 +360,24 @@ def test_branch_review_loop_help_mentions_parallel_reviews_and_stop_behavior() -
 
     assert result.returncode == 0, result.stderr
     assert "start three separate Codex review sessions in parallel" in result.stdout
-    assert "A clean stop may leave only top-level `review1.md`, `review2.md`, and" in result.stdout
+    assert (
+        "A clean stop may leave only top-level `review1.md`, `review2.md`, and"
+        in result.stdout
+    )
     assert "--root-dir PATH" in result.stdout
     assert "--extra-prompt TEXT" in result.stdout
     assert "--extra-prompt-file PATH" in result.stdout
 
 
-def test_app_subsystem_standalone_branch_review_wrapper_passes_custom_prompt_file() -> None:
+def test_app_subsystem_standalone_branch_review_wrapper_passes_custom_prompt_file() -> (
+    None
+):
     wrapper = _standalone_wrapper_script().read_text(encoding="utf-8")
 
-    assert 'PROMPT_FILE="${SCRIPT_DIR}/prompts/app-subsystem-standalone-plugin-review.md"' in wrapper
+    assert (
+        'PROMPT_FILE="${SCRIPT_DIR}/prompts/app-subsystem-standalone-plugin-review.md"'
+        in wrapper
+    )
     assert 'exec "${SCRIPT_DIR}/run-codex-branch-review-loop.sh" \\' in wrapper
     assert '--extra-prompt-file "${PROMPT_FILE}"' in wrapper
     assert '"$@"' in wrapper
@@ -445,8 +469,10 @@ EOR
     assert calls.count("Additional Instructions") == 4
     assert calls.count("Extra branch invariant.") == 4
     assert (
-        output_dir / "state" / "review-correctness-prompt.md"
-    ).read_text(encoding="utf-8").endswith("Extra branch invariant.\n\n")
+        (output_dir / "state" / "review-correctness-prompt.md")
+        .read_text(encoding="utf-8")
+        .endswith("Extra branch invariant.\n\n")
+    )
 
 
 def test_branch_review_loop_stops_after_clean_consolidation(
@@ -539,31 +565,51 @@ exit 2
     )
 
     assert result.returncode == 0, result.stderr
-    assert (repo_dir / "review1.md").read_text(encoding="utf-8").strip() == "No actionable findings."
-    assert (repo_dir / "review2.md").read_text(encoding="utf-8").strip() == "No actionable findings."
-    assert (repo_dir / "review3.md").read_text(encoding="utf-8").strip() == "No actionable findings."
-    assert (output_dir / "run-001" / "status.txt").read_text(encoding="utf-8").strip() == "stopped:no-findings"
-    assert (
-        output_dir / "state" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
-    status_lines = subprocess.run(
-        ["git", "status", "--short"],
-        cwd=repo_dir,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip().splitlines()
+    assert (repo_dir / "review1.md").read_text(
+        encoding="utf-8"
+    ).strip() == "No actionable findings."
+    assert (repo_dir / "review2.md").read_text(
+        encoding="utf-8"
+    ).strip() == "No actionable findings."
+    assert (repo_dir / "review3.md").read_text(
+        encoding="utf-8"
+    ).strip() == "No actionable findings."
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
+    assert (output_dir / "state" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
+    status_lines = (
+        subprocess.run(
+            ["git", "status", "--short"],
+            cwd=repo_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        .stdout.strip()
+        .splitlines()
+    )
     assert sorted(status_lines) == ["?? review1.md", "?? review2.md", "?? review3.md"]
-    assert (
-        output_dir / "state" / "review-correctness-prompt.md"
-    ).read_text(encoding="utf-8") == CORRECTNESS_REVIEW_PROMPT
-    assert (
-        output_dir / "state" / "review-cleanup-prompt.md"
-    ).read_text(encoding="utf-8") == CLEANUP_REVIEW_PROMPT
-    assert (output_dir / "state" / "consolidate-prompt.md").read_text(encoding="utf-8") == CONSOLIDATE_PROMPT
-    assert (output_dir / "state" / "fix-prompt.md").read_text(encoding="utf-8") == FIX_PROMPT
-    assert (output_dir / "state" / "simplify-prompt.md").read_text(encoding="utf-8") == SIMPLIFY_PROMPT
-    assert (output_dir / "state" / "finalize-prompt.md").read_text(encoding="utf-8") == FINALIZE_PROMPT
+    assert (output_dir / "state" / "review-correctness-prompt.md").read_text(
+        encoding="utf-8"
+    ) == CORRECTNESS_REVIEW_PROMPT
+    assert (output_dir / "state" / "review-cleanup-prompt.md").read_text(
+        encoding="utf-8"
+    ) == CLEANUP_REVIEW_PROMPT
+    assert (output_dir / "state" / "consolidate-prompt.md").read_text(
+        encoding="utf-8"
+    ) == CONSOLIDATE_PROMPT
+    assert (output_dir / "state" / "fix-prompt.md").read_text(
+        encoding="utf-8"
+    ) == FIX_PROMPT
+    assert (output_dir / "state" / "simplify-prompt.md").read_text(
+        encoding="utf-8"
+    ) == SIMPLIFY_PROMPT
+    assert (output_dir / "state" / "finalize-prompt.md").read_text(
+        encoding="utf-8"
+    ) == FINALIZE_PROMPT
     assert not (output_dir / "run-001" / "simplify-prompt.md").exists()
     assert not (output_dir / "state" / "last-observed-head.txt").exists()
     assert not (output_dir / "run-001" / "review1.exit").exists()
@@ -571,9 +617,12 @@ exit 2
     assert "`Lens: correctness/invariants`" not in calls
     assert "`Lens: dead-code/shims/simplification`" not in calls
     assert calls.count("Write only the review findings.") == 3
-    assert calls.count(
-        "Do not include headings, preambles, conclusions, or any note about writing/saving the file."
-    ) == 3
+    assert (
+        calls.count(
+            "Do not include headings, preambles, conclusions, or any note about writing/saving the file."
+        )
+        == 3
+    )
     assert calls.count("call:exec ") == 4
     assert "call:exec resume" not in calls
     assert "review-worktree-1" in calls
@@ -688,17 +737,26 @@ exit 2
     )
 
     assert result.returncode == 0, result.stderr
-    assert (
-        output_dir / "run-001" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
-    assert (
-        output_dir / "state" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
-    assert (repo_dir / "review1.md").read_text(encoding="utf-8").strip() == "No actionable findings."
-    assert (repo_dir / "review2.md").read_text(encoding="utf-8").strip() == "Wrote the findings to review1.md."
-    assert (repo_dir / "review3.md").read_text(encoding="utf-8").strip() == "No actionable findings."
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
+    assert (output_dir / "state" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
+    assert (repo_dir / "review1.md").read_text(
+        encoding="utf-8"
+    ).strip() == "No actionable findings."
+    assert (repo_dir / "review2.md").read_text(
+        encoding="utf-8"
+    ).strip() == "Wrote the findings to review1.md."
+    assert (repo_dir / "review3.md").read_text(
+        encoding="utf-8"
+    ).strip() == "No actionable findings."
     loop_log = (output_dir / "loop.log").read_text(encoding="utf-8")
-    assert "Review output must start with `Cluster:` or exactly `No actionable findings.`" not in loop_log
+    assert (
+        "Review output must start with `Cluster:` or exactly `No actionable findings.`"
+        not in loop_log
+    )
     calls = calls_file.read_text(encoding="utf-8")
     assert "review-worktree-2" in calls
     assert calls.count("call:exec ") == 4
@@ -830,10 +888,15 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     readme_text = (repo_dir / "README.md").read_text(encoding="utf-8")
     assert "simplified branch issues" in readme_text
     assert "temporary layered logic" not in readme_text
-    assert (output_dir / "run-001" / "status.txt").read_text(encoding="utf-8").strip() == "success"
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "success"
     assert (
-        output_dir / "state" / "status.txt"
-    ).read_text(encoding="utf-8").strip().startswith("advanced:")
+        (output_dir / "state" / "status.txt")
+        .read_text(encoding="utf-8")
+        .strip()
+        .startswith("advanced:")
+    )
     status = subprocess.run(
         ["git", "status", "--short"],
         cwd=repo_dir,
@@ -849,11 +912,19 @@ printf 'finalized and committed\\n' > "${{response_file}}"
         capture_output=True,
         text=True,
     )
-    assert head_subject.stdout.strip() == "codex-branch-review: apply consolidated fixes"
-    assert (output_dir / "state" / "simplify-prompt.md").read_text(encoding="utf-8") == SIMPLIFY_PROMPT
-    run_simplify_prompt = (output_dir / "run-001" / "simplify-prompt.md").read_text(encoding="utf-8")
+    assert (
+        head_subject.stdout.strip() == "codex-branch-review: apply consolidated fixes"
+    )
+    assert (output_dir / "state" / "simplify-prompt.md").read_text(
+        encoding="utf-8"
+    ) == SIMPLIFY_PROMPT
+    run_simplify_prompt = (output_dir / "run-001" / "simplify-prompt.md").read_text(
+        encoding="utf-8"
+    )
     assert "Consolidated findings:" in run_simplify_prompt
-    assert str(output_dir / "run-001" / "consolidated-findings.md") in run_simplify_prompt
+    assert (
+        str(output_dir / "run-001" / "consolidated-findings.md") in run_simplify_prompt
+    )
     assert str(output_dir / "run-001" / "fix-response.txt") in run_simplify_prompt
     assert not (output_dir / "state" / "last-observed-head.txt").exists()
     assert not (output_dir / "run-001" / "review1.exit").exists()
@@ -952,8 +1023,12 @@ printf 'No actionable findings.\\n' > "${{response_file}}"
     )
 
     assert result.returncode == 0, result.stderr
-    assert (output_dir / "run-001" / "status.txt").read_text(encoding="utf-8").strip() == "failure:fix"
-    assert (output_dir / "state" / "status.txt").read_text(encoding="utf-8").strip() == "retrying:failure:fix"
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "failure:fix"
+    assert (output_dir / "state" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "retrying:failure:fix"
     assert (repo_dir / "review1.md").exists() is False
     assert (repo_dir / "review2.md").exists() is False
     assert (repo_dir / "review3.md").exists() is False
@@ -994,7 +1069,13 @@ set -euo pipefail
 printf 'stop\\n' >> "{kill_log_file}"
 """,
     )
-    subprocess.run(["git", "add", "kill.sh"], cwd=repo_dir, check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "add", "kill.sh"],
+        cwd=repo_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     subprocess.run(
         ["git", "commit", "-m", "add kill helper"],
         cwd=repo_dir,
@@ -1133,12 +1214,12 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     )
 
     assert result.returncode == 0, result.stderr
-    assert (
-        output_dir / "run-001" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "success"
-    assert (
-        output_dir / "run-002" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "success"
+    assert (output_dir / "run-002" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
     assert kill_log_file.read_text(encoding="utf-8").splitlines() == ["stop"]
     assert (repo_dir / "review1.md").exists()
     assert (repo_dir / "review2.md").exists()
@@ -1243,12 +1324,12 @@ EOR
 
     assert result.returncode == 0, result.stderr
     assert "recognized consolidated status sentinel" in result.stderr
-    assert (
-        output_dir / "run-001" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
-    assert (
-        output_dir / "state" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
+    assert (output_dir / "state" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
     assert (repo_dir / "review1.md").exists()
     assert (repo_dir / "review2.md").exists()
     assert (repo_dir / "review3.md").exists()
@@ -1386,11 +1467,18 @@ printf 'finalized and committed after repair\\n' > "${{response_file}}"
     assert not (repo_dir / "review2.md").exists()
     assert not (repo_dir / "review3.md").exists()
     assert (repo_dir / "cumulative_review.md").exists()
-    assert (repo_dir / "README.md").read_text(encoding="utf-8") == "initial\nsimplified branch issues\n"
-    assert (output_dir / "run-001" / "status.txt").read_text(encoding="utf-8").strip() == "success"
+    assert (repo_dir / "README.md").read_text(
+        encoding="utf-8"
+    ) == "initial\nsimplified branch issues\n"
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "success"
     assert (
-        output_dir / "state" / "status.txt"
-    ).read_text(encoding="utf-8").strip().startswith("advanced:")
+        (output_dir / "state" / "status.txt")
+        .read_text(encoding="utf-8")
+        .strip()
+        .startswith("advanced:")
+    )
     status = subprocess.run(
         ["git", "status", "--short"],
         cwd=repo_dir,
@@ -1406,7 +1494,9 @@ printf 'finalized and committed after repair\\n' > "${{response_file}}"
         capture_output=True,
         text=True,
     )
-    assert head_subject.stdout.strip() == "codex-branch-review: apply consolidated fixes"
+    assert (
+        head_subject.stdout.strip() == "codex-branch-review: apply consolidated fixes"
+    )
     calls = calls_file.read_text(encoding="utf-8")
     assert "did not create a commit" in calls
     assert calls.count("call:exec ") == 8
@@ -1556,19 +1646,21 @@ exit 0
     )
 
     assert result.returncode == 0, result.stderr
-    assert (
-        output_dir / "run-001" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "success"
-    assert (
-        output_dir / "run-002" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
-    assert (
-        output_dir / "state" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "success"
+    assert (output_dir / "run-002" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
+    assert (output_dir / "state" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
     assert (repo_dir / "README.md").read_text(encoding="utf-8") == (
         "initial\nfixed branch issues\ntemporary layered logic\neven more temporary layered logic\n"
     )
-    assert (repo_dir / "internal-note.txt").read_text(encoding="utf-8") == "split helper state\n"
+    assert (repo_dir / "internal-note.txt").read_text(
+        encoding="utf-8"
+    ) == "split helper state\n"
     assert (repo_dir / "review1.md").exists()
     assert (repo_dir / "review2.md").exists()
     assert (repo_dir / "review3.md").exists()
@@ -1720,15 +1812,15 @@ printf 'finalized and committed\\n' > "${{response_file}}"
     )
 
     assert result.returncode == 0, result.stderr
-    assert (
-        output_dir / "run-001" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "failure:finalize-modified-code"
-    assert (
-        output_dir / "run-002" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
-    assert (
-        output_dir / "state" / "status.txt"
-    ).read_text(encoding="utf-8").strip() == "stopped:no-findings"
+    assert (output_dir / "run-001" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "failure:finalize-modified-code"
+    assert (output_dir / "run-002" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
+    assert (output_dir / "state" / "status.txt").read_text(
+        encoding="utf-8"
+    ).strip() == "stopped:no-findings"
     assert (repo_dir / "README.md").read_text(encoding="utf-8") == "initial\n"
     assert (repo_dir / "review1.md").exists()
     assert (repo_dir / "review2.md").exists()

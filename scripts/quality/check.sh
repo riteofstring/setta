@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./check_quality.sh [--staged | --git-changes | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
+Usage: ./scripts/quality/check.sh [--staged | --git-changes | --all | --files <path>...] [--python-max N] [--frontend-max N] [--go-max N]
 
 Runs maintainability-oriented quality checks for supported production source, with an emphasis on cyclomatic complexity.
 Also enforces file-length limits configured in quality.paths.yaml.
@@ -22,10 +22,10 @@ Thresholds:
 EOF
 }
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
 mode="git-changes"
-# shellcheck source=scripts/lib/quality_paths.sh
+# shellcheck source=../lib/quality_paths.sh
 . "${repo_root}/scripts/lib/quality_paths.sh"
 
 python_max="$(quality_default_python_complexity_threshold)"

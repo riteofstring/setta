@@ -53,6 +53,11 @@ def main() -> int:
         "--paths-file",
         help="Read candidate paths from this file instead of --source.",
     )
+    parser.add_argument(
+        "--no-fail",
+        action="store_true",
+        help="Print over-limit files but exit successfully when reporting.",
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config).resolve(strict=False)
@@ -70,7 +75,7 @@ def main() -> int:
                 **failure
             )
         )
-    return 1
+    return 0 if args.no_fail else 1
 
 
 def read_candidate_paths(paths_file: str | None, source: str) -> list[str]:

@@ -527,7 +527,7 @@ Required quality checks:
 
 - focused Vitest suites for changed owners
 - focused Playwright or CDP scenarios for visible interaction work
-- `./check_quality.sh` unless a concrete environment blocker is documented
+- `./scripts/quality/check.sh` unless a concrete environment blocker is documented
 
 Final report must include:
 
@@ -600,5 +600,5 @@ The plan is complete when:
   contracts rather than implementation restatements
 - dead compatibility code and stale shims found by the audit are removed or
   documented as intentional contracts
-- CDP visual verification and `./check_quality.sh` are recorded, or concrete
+- CDP visual verification and `./scripts/quality/check.sh` are recorded, or concrete
   blockers are documented

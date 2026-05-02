@@ -37,12 +37,18 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     quality_scripts_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    script_dst = sandbox_root / "check_quality.sh"
+    script_dst = sandbox_root / "scripts/quality/check.sh"
     script_dst.write_text(
-        (root / "check_quality.sh").read_text(encoding="utf-8"),
+        (root / "scripts/quality/check.sh").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     script_dst.chmod(0o755)
+    report_file_lengths_dst = sandbox_root / "scripts/quality/report_file_lengths.sh"
+    report_file_lengths_dst.write_text(
+        (root / "scripts/quality/report_file_lengths.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    report_file_lengths_dst.chmod(0o755)
     (scripts_dir / "lib").mkdir(parents=True, exist_ok=True)
     quality_paths_dst = scripts_dir / "lib" / "quality_paths.sh"
     quality_paths_dst.write_text(
@@ -196,7 +202,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "frontend/plugin-sdk/app-subsystem/src/index.ts",
             "frontend/src/app.ts",
@@ -279,7 +285,7 @@ def test_check_quality_runs_standalone_guardrail_suite_for_manifest_and_config_f
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "frontend/plugin-sdk/app-subsystem/package.json",
             "frontend/plugin-sdk/app-subsystem/vite.config.mjs",
@@ -320,7 +326,7 @@ def test_check_quality_includes_plugin_boundary_tests_and_sdk_types(
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "plugins/demo/frontend/tests/pluginBoundaryFixture.test.ts",
             "frontend/plugin-sdk/app-subsystem/types/index.d.ts",
@@ -366,7 +372,7 @@ def test_check_quality_excludes_generated_outputs(tmp_path: Path) -> None:
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "backend/setta/sdk_contracts/constants.py",
             "plugins/demo/frontend/src/generated/contract.ts",
@@ -416,7 +422,7 @@ def test_check_quality_fails_long_non_generated_source_files(
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "plugins/demo/backend/long.py",
             "plugins/demo/backend/long.go",
@@ -439,3 +445,41 @@ def test_check_quality_fails_long_non_generated_source_files(
         in result.stdout
     )
     assert "largeContract.ts" not in result.stdout
+
+
+def test_report_file_lengths_reports_all_tracked_violations_without_failing(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = _build_check_quality_sandbox(tmp_path)
+    long_typescript = sandbox_root / "frontend" / "src" / "LongComponent.tsx"
+    long_typescript.write_text("export const value = 1;\n" * 1001, encoding="utf-8")
+
+    subprocess.run(
+        ["git", "init"],
+        cwd=sandbox_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "add", "."],
+        cwd=sandbox_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "scripts/quality/report_file_lengths.sh")],
+        cwd=sandbox_root,
+        env=_script_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert (
+        "TypeScript frontend/src/LongComponent.tsx: 1001 lines (max 1000)"
+        in result.stdout
+    )

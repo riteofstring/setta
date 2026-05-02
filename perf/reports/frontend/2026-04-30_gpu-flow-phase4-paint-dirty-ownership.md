@@ -33,7 +33,7 @@ Passed:
 ```bash
 pnpm -C frontend exec vitest run src/gpuFlow/GpuNodeLayer.test.tsx src/gpuFlow/GpuFlow.activeNodePaint.test.ts --environment jsdom
 ./gcf.sh
-./check_quality.sh
+./scripts/quality/check.sh
 ```
 
 Test coverage added:

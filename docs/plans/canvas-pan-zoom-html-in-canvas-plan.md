@@ -697,7 +697,7 @@ For implementation work, expected verification is:
 
 - `pnpm -C frontend exec vitest run <changed test paths>`
 - broader targeted frontend tests around canvas-flow, dnd-kit, sections, edge handles, minimap, and controls
-- `./check_quality.sh` before finishing unless the scope is explicitly narrowed
+- `./scripts/quality/check.sh` before finishing unless the scope is explicitly narrowed
 
 Run browser/CDP visual and performance verification for the final UI change. A docs-only plan does not need CDP verification.
 

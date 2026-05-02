@@ -43,4 +43,4 @@ All runs ended with:
 - `pnpm -C frontend exec vitest run src/gpuFlow/nodeInteractionDirty.test.ts src/gpuFlow/GpuActiveNodeTeleport.test.ts tests/e2e/gpuFlowVisualParityProbe.test.ts --environment jsdom`
 - CDP production fixture at zoom `0.5`, `1`, and `2`
 - `./gcf.sh`
-- `./check_quality.sh`
+- `./scripts/quality/check.sh`

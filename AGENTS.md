@@ -36,7 +36,7 @@
 - Format Go with `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>`.
 - Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh` for Python/package pytest, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
 - When changing runtime behavior, add Go tests beside the backend owner. When changing Python SDK or package boundaries, add focused pytest coverage under `tests/`.
-- Unless the developer explicitly narrows verification scope, run `./check_quality.sh` before committing. Its default scope is the current git changes; use `--staged` only when you intentionally want to verify exactly what is staged.
+- Unless the developer explicitly narrows verification scope, run `./scripts/quality/check.sh` before committing. Its default scope is the current git changes; use `--staged` only when you intentionally want to verify exactly what is staged.
 - Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly. Any skip must be narrow and justified.
 - A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
 - Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.

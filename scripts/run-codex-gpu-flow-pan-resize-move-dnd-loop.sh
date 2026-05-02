@@ -119,7 +119,7 @@ Verification:
   process that the iteration started. If the iteration started `./ai.sh` or `./aireset.sh`, stop that
   session with `./kill.sh` before the final response and before leaving the worktree for the outer loop.
   Do not stop an app/browser session that was already running and merely reused; note that it was reused.
-- Finish with ./check_quality.sh unless a concrete environment blocker is recorded. Record visual,
+- Finish with ./scripts/quality/check.sh unless a concrete environment blocker is recorded. Record visual,
   performance, or browser-API blockers in the locations called out by the plan.
 
 Completion:

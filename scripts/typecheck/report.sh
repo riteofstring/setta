@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./check_types.sh [--go] [--python] [--frontend]
+Usage: ./scripts/typecheck/report.sh [--go] [--python] [--frontend]
 
 Run full-repo type checks across Go, Python, and frontend TypeScript packages.
 
@@ -17,7 +17,7 @@ If no language flags are provided, all checks run.
 EOF
 }
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 run_go=1
 run_python=1
 run_frontend=1

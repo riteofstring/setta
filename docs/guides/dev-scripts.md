@@ -2,9 +2,10 @@
 
 This guide lists dev scripts from highest-level entry points down to the lowest-level helpers.
 
-## Layer 1: Top-level wrappers (repo root)
+## Layer 1: Day-to-day entry points
 
-Use these first for day-to-day work.
+Use these first for day-to-day work. Root wrappers stay at the repo root; optional
+quality, type, and dead-code scripts live under `scripts/`.
 
 - `./start.sh`
   - Starts the full dev stack (Vite + backend) using worktree-aware ports.
@@ -52,7 +53,7 @@ Use these first for day-to-day work.
   - Flags: `--all` (enables opt-in live-provider integration tests).
 - `./format_code.sh`
   - Formats Python via Ruff (requires env activation; see notes below).
-- `./check_quality.sh`
+- `./scripts/quality/check.sh`
   - Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
   - Defaults to the current git changes relative to `HEAD` plus untracked files so it works before staging or committing.
   - Use `--staged` when you intentionally want to verify only the staged set.
@@ -60,17 +61,30 @@ Use these first for day-to-day work.
   - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files, failing at complexity `>= 10` (`max-depth` `4`, `max-params` `5` apply separately).
   - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files, failing at complexity `>= 12`.
   - Supports `--all`, `--git-changes`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
-- `./check_types.sh`
+- `./scripts/typecheck/report.sh`
   - Runs full-repo type checks across Go, Python, and frontend TypeScript packages.
   - Go: compile-only `go test -run '^$' -count=1 ./...` through the pinned repo Go toolchain.
   - Python: `ty check` across all tracked repo Python files after env activation.
   - Frontend: `pnpm -C frontend typecheck`, the app-subsystem SDK typecheck, and each first-party `plugins/*/frontend` package typecheck.
   - Supports `--go`, `--python`, and `--frontend` to limit the run to selected language groups.
-- `./report_quality_hotspots.sh`
+- `./scripts/typecheck/check.sh`
+  - Runs changed-scope type checks for pre-commit use.
+  - Defaults to the current git changes relative to `HEAD` plus untracked files.
+  - Go checks changed Go packages, Python checks changed Python files, and frontend checks changed frontend package roots.
+  - Supports `--git-changes`, `--staged`, `--files <path>...`, and `--go` / `--python` / `--frontend`.
+- `./scripts/quality/report_complexity.sh`
   - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.
-  - Defaults to the top `20` hotspots per language section and uses the same default threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
+  - Defaults to the top `20` hotspots per language section and uses the same default threshold floor as `./scripts/quality/check.sh`: Python `10`, frontend `10`, Go `12`.
   - Supports `--top`, `--python-min`, `--frontend-min`, and `--go-min` to narrow the report.
   - Intended for cleanup planning and hotspot discovery, not commit gating.
+- `./scripts/quality/report_file_lengths.sh`
+  - Reports all tracked non-generated source files that exceed the configured file-length limits.
+  - Uses the same generated-file and path filters as `./scripts/quality/check.sh`.
+  - Intended for backlog discovery and cleanup planning, not commit gating.
+- `./scripts/deadcode/report.sh`
+  - Generates the full dead-code candidate report under `reports/deadcode/`.
+  - Uses `deadcode.overrides.yaml` for dead-code-specific roots and `quality.paths.yaml` for shared generated-file exclusions.
+  - Language-specific report wrappers live next to it under `scripts/deadcode/`.
 - `./build.sh`
   - Builds the production frontend, stages built assets, and packages the backend through the shared packaged-distribution helper.
 - `./build_and_upload.sh`
@@ -179,10 +193,10 @@ These are used by the top-level wrappers or for advanced workflows.
   - Starts a fresh Codex session every iteration, defaults to yolo mode, and stops only after Codex emits an explicit clean-stop sentinel.
   - Enforces that every non-stop iteration leaves a clean worktree and advances `HEAD`, so the loop fails fast if Codex forgets to commit after running `./gcf.sh`.
 - `./scripts/run-codex-authority-sequenced-loop.sh`
-  - Specialized Codex loop that works in three strict phases: remove unjustified Go/Python/TypeScript duplication, then replace unjustified polling with websocket pushes, then run `./report_quality_hotspots.sh` and fix actionable hotspots.
+  - Specialized Codex loop that works in three strict phases: remove unjustified Go/Python/TypeScript duplication, then replace unjustified polling with websocket pushes, then run `./scripts/quality/report_complexity.sh` and fix actionable hotspots.
   - Defaults to `gpt-5.5`, `xhigh`, and yolo mode.
-  - Phase 3 runs `./report_quality_hotspots.sh` with the same threshold floor as `./check_quality.sh`: Python `10`, frontend `10`, Go `12`.
-  - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./check_quality.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
+  - Phase 3 runs `./scripts/quality/report_complexity.sh` with the same threshold floor as `./scripts/quality/check.sh`: Python `10`, frontend `10`, Go `12`.
+  - Seeds a phase checklist plus persistent duplication/polling/hotspot audit notes, requires `./gcf.sh` and `./scripts/quality/check.sh` before every non-stop commit, and forces Phase 3 to escalate from contained hotspot slices into broader same-file backlog-burn refactors before it is allowed to stop on plateau.
   - Runs with a 30-minute transcript inactivity watchdog by default and retries cleanly after a timed-out iteration instead of hanging forever.
   - Tells Codex to avoid browser/CDP workflows unless a frontend runtime change genuinely requires an agent-started or developer-started browser session.
 - `./scripts/run-codex-deadcode-authority-loop.sh`
@@ -191,13 +205,13 @@ These are used by the top-level wrappers or for advanced workflows.
   - Requires each non-stop iteration to leave a clean worktree and either advance `HEAD` or advance the phase checklist.
 - `./scripts/run-codex-severe-typecheck-loop.sh`
   - Specialized Codex loop for fixing only actionable runtime bugs that are surfaced by type errors instead of broad repo type backlog cleanup.
-  - Starts a fresh Codex session every iteration, seeds a single-phase runtime-bug checklist plus audit, and uses saved `./check_types.sh --frontend` and `./check_types.sh --python` outputs to build a filtered `runtime-break-shortlist.md` rather than handing Codex the full raw checker dump.
+  - Starts a fresh Codex session every iteration, seeds a single-phase runtime-bug checklist plus audit, and uses saved `./scripts/typecheck/report.sh --frontend` and `./scripts/typecheck/report.sh --python` outputs to build a filtered `runtime-break-shortlist.md` rather than handing Codex the full raw checker dump.
   - The shortlist is tiered, and the loop is told to stay on `Tier 1` until it is fixed or explicitly disproven in the audit.
   - Forces Codex to record concrete production evidence plus a one-sentence supported-flow runtime failure before editing code, and deprioritizes `tsc`-only import/export churn, helper-generic noise, request-nullability cleanup, and test-only typing unless they are proven to break a supported flow after a successful build.
-  - Requires `./gcf.sh` and `./check_quality.sh` before every non-stop commit, reruns the relevant language type checks for touched code, and stops once a fresh audit finds no remaining actionable runtime bugs under the loop rubric.
+  - Requires `./gcf.sh` and `./scripts/quality/check.sh` before every non-stop commit, reruns the relevant language type checks for touched code, and stops once a fresh audit finds no remaining actionable runtime bugs under the loop rubric.
 - `./scripts/run-codex-frontendbindings-rebuild-loop.sh`
   - Specialized Codex loop for rebuilding `internal/frontendbindings` from scratch to match the main-branch two-converter shape.
-  - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
+  - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./scripts/quality/check.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
 
 ## Layer 3: Frontend `pnpm` scripts (from `frontend/`)
 

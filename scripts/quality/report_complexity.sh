@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./report_quality_hotspots.sh [--top N] [--python-min N] [--frontend-min N] [--go-min N]
+Usage: ./scripts/quality/report_complexity.sh [--top N] [--python-min N] [--frontend-min N] [--go-min N]
 
 Report the highest-complexity code hotspots across supported production source.
 
@@ -16,14 +16,14 @@ Options:
 
 Notes:
   - Scores are per-tool and are not directly comparable across languages.
-  - The report mirrors the same tracked-file, test, and generated-file exclusions used by ./check_quality.sh --all.
+  - The report mirrors the same tracked-file, test, and generated-file exclusions used by ./scripts/quality/check.sh --all.
 EOF
 }
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly GO_CYCLO_VERSION="v0.6.0"
 top_n="20"
-# shellcheck source=scripts/lib/quality_paths.sh
+# shellcheck source=../lib/quality_paths.sh
 . "${repo_root}/scripts/lib/quality_paths.sh"
 
 python_min="$(quality_default_python_complexity_threshold)"

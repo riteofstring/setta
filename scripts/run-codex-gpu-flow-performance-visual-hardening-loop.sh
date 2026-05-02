@@ -119,7 +119,7 @@ Browser and performance verification:
 
 Quality and completion:
 - Run focused verification for each implementation slice.
-- Run ./check_quality.sh before declaring completion unless a concrete environment blocker is documented.
+- Run ./scripts/quality/check.sh before declaring completion unless a concrete environment blocker is documented.
 - If a fresh audit shows all phases complete, required reports and browser evidence are recorded, and the worktree is clean, emit GPU_FLOW_PERFORMANCE_VISUAL_HARDENING_PLAN_COMPLETE.
 EOF
 
