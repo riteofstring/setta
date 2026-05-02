@@ -290,6 +290,7 @@ describe("edgeSources", () => {
       selectable: true,
       selected: true,
       sourceEdgeId: "edge-chat-chat",
+      visualFamily: "agentic",
       zIndex: 3,
     });
     expect(entries[0]?.geometry).toMatchObject({
@@ -300,9 +301,9 @@ describe("edgeSources", () => {
       targetSide: "left",
     });
     expect(entries[1]).toMatchObject({
-      active: true,
       edgeId: "agentic-missing:missing:chat_section:chat-a:context",
       selectable: false,
+      visualFamily: "agentic-missing",
     });
     expect(entries[1]?.geometry).toMatchObject({
       source: { x: 230, y: 90 },
@@ -356,6 +357,7 @@ describe("edgeSources", () => {
       edgeId: "workflow-prompt-link:workflow-a",
       selectable: false,
       sourceEdgeId: "workflow-a",
+      visualFamily: "workflow-prompt-link",
       zIndex: 8,
     });
     expect(entries[0]?.color).toBeUndefined();
@@ -370,6 +372,7 @@ describe("edgeSources", () => {
       color: [171 / 255, 205 / 255, 239 / 255, 1],
       selectable: true,
       selected: true,
+      visualFamily: "workflow",
     });
     expect(entries[1]?.geometry).toMatchObject({
       source: { x: 300, y: 140 },

@@ -121,6 +121,7 @@ describe("gpuProjectEdgeScene", () => {
     ).toMatchObject({
       active: true,
       sourceEdgeId: "agentic-edge",
+      visualFamily: "agentic",
     });
     expect(
       scene.entries.find((entry) => entry.family === "connection")?.geometry
@@ -130,6 +131,12 @@ describe("gpuProjectEdgeScene", () => {
       scene.entries.find((entry) => entry.family === "connection"),
     ).toMatchObject({
       connectionStatus: "valid",
+    });
+    expect(
+      scene.entries.find((entry) => entry.family === "workflow"),
+    ).toMatchObject({
+      sourceEdgeId: "workflow-edge",
+      visualFamily: "workflow",
     });
     expect(scene.hitTestEdges.map((entry) => entry.edgeId)).toEqual([
       "data:data-edge",

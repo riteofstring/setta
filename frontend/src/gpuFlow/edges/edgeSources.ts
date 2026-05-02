@@ -18,7 +18,10 @@ import {
   type GpuEdgeHitTestResult,
   type GpuEdgeSide,
 } from "./edgeGeometry";
-import type { GpuEdgeBufferInput } from "./edgeGpuBuffers";
+import type {
+  GpuEdgeBufferInput,
+  GpuEdgeVisualFamily,
+} from "./edgeGpuBuffers";
 
 export type GpuEdgeFamily =
   | "agentic"
@@ -357,6 +360,7 @@ export function buildGpuAgenticEdgeEntries({
         color: resolveGpuEdgeStyleStrokeColor(edge.style, "agentic edge"),
         selectable: true,
         selected: edge.selected,
+        visualFamily: "agentic",
         zIndex: edge.zIndex,
       }),
     );
@@ -380,11 +384,11 @@ export function buildGpuAgenticEdgeEntries({
     }
     entries.push(
       createGpuEdgeSceneEntry({
-        active: true,
         edgeId: sourceEdgeId,
         family: "agentic-missing",
         geometry,
         selectable: false,
+        visualFamily: "agentic-missing",
       }),
     );
   }
@@ -413,6 +417,7 @@ export function buildGpuWorkflowEdgeEntries({
           family: "workflow-prompt-link",
           geometry: promptLinkGeometry,
           selectable: false,
+          visualFamily: "workflow-prompt-link",
           zIndex: edge.zIndex,
         }),
       );
@@ -434,6 +439,7 @@ export function buildGpuWorkflowEdgeEntries({
         color: resolveGpuEdgeStyleStrokeColor(edge.style, "workflow edge"),
         selectable: true,
         selected: edge.selected,
+        visualFamily: "workflow",
         zIndex: edge.zIndex,
       }),
     );
@@ -556,6 +562,7 @@ function createGpuEdgeSceneEntry({
   geometry,
   selectable,
   selected,
+  visualFamily,
   zIndex,
 }: {
   readonly active?: boolean | undefined;
@@ -566,6 +573,7 @@ function createGpuEdgeSceneEntry({
   readonly geometry: GpuEdgeGeometry;
   readonly selectable: boolean;
   readonly selected?: boolean | undefined;
+  readonly visualFamily?: GpuEdgeVisualFamily | undefined;
   readonly zIndex?: number | undefined;
 }): GpuEdgeSceneEntry {
   return {
@@ -578,6 +586,7 @@ function createGpuEdgeSceneEntry({
     selectable,
     selected,
     sourceEdgeId: edgeId,
+    visualFamily,
     zIndex,
   };
 }

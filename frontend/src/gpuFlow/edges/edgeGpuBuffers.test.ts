@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { buildGpuEdgeGeometry } from "./edgeGeometry";
 import {
+  GPU_EDGE_AGENTIC_FLAG,
+  GPU_EDGE_AGENTIC_MISSING_FLAG,
   GPU_EDGE_ACTIVE_FLAG,
   GPU_EDGE_CONNECTION_INVALID_FLAG,
   GPU_EDGE_CONNECTION_VALID_FLAG,
   GPU_EDGE_CUSTOM_COLOR_FLAG,
   GPU_EDGE_SELECTED_FLAG,
+  GPU_EDGE_WORKFLOW_FLAG,
+  GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG,
   buildGpuEdgeLineListBufferData,
 } from "./edgeGpuBuffers";
 
@@ -134,6 +138,53 @@ describe("GPU edge buffer data", () => {
         1,
         GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_CONNECTION_INVALID_FLAG,
       ),
+    ]);
+  });
+
+  it("encodes edge family visual styles separately from interaction state", () => {
+    const line = buildGpuEdgeGeometry({
+      edgeId: "family",
+      source: { x: 0, y: 0 },
+      target: { x: 100, y: 0 },
+      type: "straight",
+    });
+
+    const result = buildGpuEdgeLineListBufferData({
+      edges: [
+        {
+          active: true,
+          edgeId: "agentic",
+          geometry: line,
+          visualFamily: "agentic",
+        },
+        {
+          edgeId: "agentic-missing",
+          geometry: line,
+          visualFamily: "agentic-missing",
+        },
+        {
+          edgeId: "workflow",
+          geometry: line,
+          selected: true,
+          visualFamily: "workflow",
+        },
+        {
+          edgeId: "workflow-prompt-link",
+          geometry: line,
+          visualFamily: "workflow-prompt-link",
+        },
+      ],
+    });
+
+    expect(Array.from(result.vertexData)).toEqual([
+      ...edgeVertex(0, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
+      ...edgeVertex(100, 0, 0, GPU_EDGE_ACTIVE_FLAG | GPU_EDGE_AGENTIC_FLAG),
+      ...edgeVertex(0, 0, 1, GPU_EDGE_AGENTIC_MISSING_FLAG),
+      ...edgeVertex(100, 0, 1, GPU_EDGE_AGENTIC_MISSING_FLAG),
+      ...edgeVertex(0, 0, 2, GPU_EDGE_SELECTED_FLAG | GPU_EDGE_WORKFLOW_FLAG),
+      ...edgeVertex(100, 0, 2, GPU_EDGE_SELECTED_FLAG | GPU_EDGE_WORKFLOW_FLAG),
+      ...edgeVertex(0, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
+      ...edgeVertex(100, 0, 3, GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG),
     ]);
   });
 });

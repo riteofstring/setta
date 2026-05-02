@@ -1178,14 +1178,32 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
   if ((flags & 4u) != 0u) {
     return vec4<f32>(0.12, 0.62, 0.32, 0.95);
   }
-  if ((flags & 2u) != 0u) {
+  if ((flags & 64u) != 0u) {
+    return vec4<f32>(0.94, 0.27, 0.27, 0.95);
+  }
+  if (((flags & 1u) != 0u) && ((flags & 128u) != 0u)) {
     return vec4<f32>(0.92, 0.35, 0.05, 0.95);
   }
   if ((flags & 1u) != 0u) {
     return vec4<f32>(0.15, 0.39, 0.92, 0.95);
   }
+  if (((flags & 2u) != 0u) && ((flags & 32u) != 0u)) {
+    return vec4<f32>(0.15, 0.39, 0.92, 0.95);
+  }
+  if ((flags & 2u) != 0u) {
+    return vec4<f32>(0.92, 0.35, 0.05, 0.95);
+  }
   if ((flags & 16u) != 0u) {
     return input.edgeColor;
+  }
+  if ((flags & 256u) != 0u) {
+    return vec4<f32>(0.22, 0.74, 0.97, 0.9);
+  }
+  if ((flags & 128u) != 0u) {
+    return vec4<f32>(0.96, 0.62, 0.04, 0.95);
+  }
+  if ((flags & 32u) != 0u) {
+    return vec4<f32>(0.38, 0.65, 0.98, 0.95);
   }
   return edgePalette.base;
 }

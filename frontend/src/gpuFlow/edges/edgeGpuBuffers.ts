@@ -10,8 +10,15 @@ export type GpuEdgeBufferInput = {
   readonly edgeId: string;
   readonly geometry: GpuEdgeGeometry;
   readonly selected?: boolean | undefined;
+  readonly visualFamily?: GpuEdgeVisualFamily | undefined;
   readonly zIndex?: number | undefined;
 };
+
+export type GpuEdgeVisualFamily =
+  | "agentic"
+  | "agentic-missing"
+  | "workflow"
+  | "workflow-prompt-link";
 
 type GpuEdgeBufferSegmentRange = {
   readonly edgeId: string;
@@ -31,6 +38,10 @@ export const GPU_EDGE_ACTIVE_FLAG = 2;
 export const GPU_EDGE_CONNECTION_VALID_FLAG = 4;
 export const GPU_EDGE_CONNECTION_INVALID_FLAG = 8;
 export const GPU_EDGE_CUSTOM_COLOR_FLAG = 16;
+export const GPU_EDGE_AGENTIC_FLAG = 32;
+export const GPU_EDGE_AGENTIC_MISSING_FLAG = 64;
+export const GPU_EDGE_WORKFLOW_FLAG = 128;
+export const GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG = 256;
 
 export function buildGpuEdgeLineListBufferData({
   bezierSegments,
@@ -98,7 +109,7 @@ function appendEdgeVertex(
 function getGpuEdgeBufferFlags(
   edge: Pick<
     GpuEdgeBufferInput,
-    "active" | "color" | "connectionStatus" | "selected"
+    "active" | "color" | "connectionStatus" | "selected" | "visualFamily"
   >,
 ) {
   let flags = 0;
@@ -116,7 +127,24 @@ function getGpuEdgeBufferFlags(
   if (edge.color) {
     flags |= GPU_EDGE_CUSTOM_COLOR_FLAG;
   }
-  return flags;
+  return flags | getGpuEdgeVisualFamilyFlag(edge.visualFamily);
+}
+
+function getGpuEdgeVisualFamilyFlag(
+  visualFamily: GpuEdgeVisualFamily | undefined,
+): number {
+  switch (visualFamily) {
+    case "agentic":
+      return GPU_EDGE_AGENTIC_FLAG;
+    case "agentic-missing":
+      return GPU_EDGE_AGENTIC_MISSING_FLAG;
+    case "workflow":
+      return GPU_EDGE_WORKFLOW_FLAG;
+    case "workflow-prompt-link":
+      return GPU_EDGE_WORKFLOW_PROMPT_LINK_FLAG;
+    case undefined:
+      return 0;
+  }
 }
 
 function compareGpuEdgeBufferInputs(
