@@ -149,6 +149,7 @@ describe("HTML surface frame helpers", () => {
       ]),
     ).toEqual({
       flatSurfaces: [],
+      meshSurfaces: [],
       tiledFlatSurfaces: [
         {
           kind: "tiled-flat",
@@ -160,6 +161,44 @@ describe("HTML surface frame helpers", () => {
         },
       ],
     });
+  });
+
+  it("routes single texture records into animated cloth mesh visuals", () => {
+    const texture = textureRecord("node-a");
+    const result = buildHtmlSurfaceVisuals(
+      [
+        {
+          height: 80,
+          nodeId: "node-a",
+          texture,
+          width: 120,
+          x: 10,
+          y: 20,
+          zIndex: 2,
+        },
+      ],
+      { timeMs: 250 },
+    );
+
+    expect(result.flatSurfaces).toEqual([]);
+    expect(result.meshSurfaces).toHaveLength(1);
+    expect(result.meshSurfaces[0]).toMatchObject({
+      kind: "mesh",
+      surfaceId: "node-a",
+      texture,
+      zIndex: 2,
+    });
+    expect(result.meshSurfaces[0]?.vertices.length).toBeGreaterThan(4);
+    expect(result.meshSurfaces[0]?.indices.length).toBeGreaterThan(6);
+    expect(
+      result.meshSurfaces[0]?.vertices.some((vertex) => {
+        const flatX = 10 + vertex.u * 120;
+        const flatY = 20 + vertex.v * 80;
+        return (
+          Math.abs(vertex.x - flatX) > 0.5 || Math.abs(vertex.y - flatY) > 0.5
+        );
+      }),
+    ).toBe(true);
   });
 
   it("configures node source hosts without hidden-source styles", () => {
@@ -429,9 +468,9 @@ describe("HTML surface frame helpers", () => {
       canvasSize: canvasSize(),
       clearColor: undefined,
       scene: expect.objectContaining({
-        flatSurfaces: [
+        meshSurfaces: [
           expect.objectContaining({
-            kind: "flat",
+            kind: "mesh",
             surfaceId: "visible",
             texture: expect.objectContaining({
               lastUploadFrame: 1,
@@ -525,7 +564,7 @@ describe("HTML surface frame helpers", () => {
     expect(renderer.render).toHaveBeenCalledWith(
       expect.objectContaining({
         scene: expect.objectContaining({
-          flatSurfaces: [
+          meshSurfaces: [
             expect.objectContaining({
               surfaceId: "passive",
             }),
@@ -695,7 +734,7 @@ describe("HTML surface frame helpers", () => {
     expect(renderer.render).toHaveBeenCalledTimes(2);
     expect(renderer.render.mock.calls[1]?.[0]).toMatchObject({
       scene: expect.objectContaining({
-        flatSurfaces: [
+        meshSurfaces: [
           expect.objectContaining({
             surfaceId: "node-a",
             texture: expect.objectContaining({
@@ -706,6 +745,39 @@ describe("HTML surface frame helpers", () => {
       }),
       viewport: [25, -15, 1],
     });
+  });
+
+  it("uses the animation timestamp for cloth mesh deformation", () => {
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+    const element = document.createElement("div");
+    const elements = new Map([["node-a", element]]);
+    const nodes = [node("node-a", 10, 20, 120, 80, 0)];
+
+    const firstFrame = renderHtmlSurfaceFrame({
+      animationTimeMs: 0,
+      canvasSize: canvasSize(),
+      elementByNodeId: elements,
+      frame: 8,
+      nodes,
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+    const secondFrame = renderHtmlSurfaceFrame({
+      animationTimeMs: 1_000,
+      canvasSize: canvasSize(),
+      elementByNodeId: elements,
+      frame: 8,
+      nodes,
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(firstFrame.visualScene.meshSurfaces[0]?.vertices).not.toEqual(
+      secondFrame.visualScene.meshSurfaces[0]?.vertices,
+    );
   });
 
   it("passes renderable GPU edges into the scene renderer", () => {
@@ -1170,9 +1242,22 @@ function createFrameRenderer() {
   return {
     render: vi.fn(({ edges, scene }: RenderHtmlSurfacesInput) => ({
       drawnEdgeIds: edges?.map((edge) => edge.edgeId) ?? [],
-      drawnSurfaceIds: scene.flatSurfaces.map((surface) => surface.surfaceId),
+      drawnSurfaceIds: [
+        ...scene.flatSurfaces,
+        ...scene.tiledFlatSurfaces,
+        ...scene.meshSurfaces,
+        ...scene.effectSurfaces,
+      ].map((surface) => surface.surfaceId),
       edgeVertexCount: (edges?.length ?? 0) * 2,
-      vertexCount: scene.flatSurfaces.length * 6,
+      vertexCount:
+        (scene.flatSurfaces.length +
+          scene.tiledFlatSurfaces.length +
+          scene.effectSurfaces.length) *
+          6 +
+        scene.meshSurfaces.reduce(
+          (count, surface) => count + surface.indices.length,
+          0,
+        ),
     })),
   };
 }

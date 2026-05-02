@@ -106,6 +106,7 @@ import {
   destroyNodeInteractionResources,
   destroyNodeLayerResources,
   nextFrame,
+  requestGpuNodeClothAnimationFrame,
   requestRemainingTextureUploadFrame,
   resolveRenderableGpuFlowLayerFrameInput,
   syncGpuFlowNodeInteractionState,
@@ -636,6 +637,7 @@ export function GpuFlow({
     (runtime, event) => {
       renderGpuFlowNodeLayerFrame({
         callbacksRef,
+        animationTimeMs: event.timestamp,
         canvasSizeRef,
         deferResolutionUpdates:
           event.reasons.includes("viewport") ||
@@ -802,6 +804,7 @@ export function renderGpuFlowNodeLayerElement({
 }
 
 export function renderGpuFlowNodeLayerFrame({
+  animationTimeMs,
   callbacksRef,
   canvasSizeRef,
   deferResolutionUpdates,
@@ -819,6 +822,7 @@ export function renderGpuFlowNodeLayerFrame({
   visibleNodeIdsRef,
   viewportFrame,
 }: {
+  readonly animationTimeMs?: number | undefined;
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
   readonly deferResolutionUpdates: boolean;
@@ -853,6 +857,7 @@ export function renderGpuFlowNodeLayerFrame({
   const renderStartedAt = performance.now();
   const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: nodeInteraction?.getActiveNodeId(),
+    animationTimeMs,
     canvasSize,
     deferResolutionUpdates,
     domTransformCache: nodeDomTransformSyncCacheRef.current,
@@ -895,6 +900,7 @@ export function renderGpuFlowNodeLayerFrame({
   completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
   requestRemainingTextureUploadFrame(surfaceRef, layerResult);
+  requestGpuNodeClothAnimationFrame(surfaceRef, layerResult);
 }
 
 export function hasRenderableGpuFlowLayer(

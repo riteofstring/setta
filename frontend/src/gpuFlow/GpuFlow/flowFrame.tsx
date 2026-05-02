@@ -163,6 +163,15 @@ export function requestRemainingTextureUploadFrame(
   }
 }
 
+export function requestGpuNodeClothAnimationFrame(
+  surfaceRef: MutableRefObject<GpuSurfaceHandle | null>,
+  layerResult: RenderHtmlSurfaceFrameResult,
+) {
+  if (layerResult.drawnNodeIds.length > 0) {
+    surfaceRef.current?.requestFrame("manual");
+  }
+}
+
 export function nextFrame(frameRef: MutableRefObject<number>): number {
   frameRef.current += 1;
   return frameRef.current;
