@@ -81,6 +81,34 @@ Known incomplete prior run:
 - The end-to-end pan/zoom report must include the same upload/requestPaint/source-mutation/GPU-write/frame counters as the isolated hot-path report, plus event-handler duration, long tasks, dropped or coalesced frames, store updates, and visual smoothness notes. A two-node smoke route is not enough to satisfy the pan/zoom gate.
 - If one of these items is intentionally narrowed or deferred, update docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md to make that scope change explicit before considering completion.
 
+Completion blockers:
+- Before reworking already-landed pieces, audit the latest checked-in code and reports:
+  `perf/reports/frontend/2026-05-02_html-gpu-surfaces-completion-verification.md`,
+  `perf/reports/frontend/2026-05-02_html-gpu-dense-panzoom-cdp.md`,
+  `perf/reports/frontend/2026-05-02_html-gpu-controls-cdp.md`,
+  `perf/reports/frontend/2026-05-02_html-gpu-animation-paint-aligned-after.md`,
+  `perf/reports/frontend/2026-05-02_html-gpu-warped-mesh-fixture.md`, and
+  `perf/reports/frontend/2026-05-02_html-gpu-settings-zoom-tiling-artifact-after.md`.
+- Do not redo tiled rendering, shader-effect rendering, warped mesh fixture
+  interaction, animated switch recapture, CodeMirror/terminal/combobox
+  interaction, or dense large-graph pan/zoom evidence unless the audit finds
+  regressions.
+- Resolve these gaps before completion:
+  - separate active pan/zoom gesture-window counters from deferred post-gesture
+    resolution upgrades, so the "pure pan/zoom zero uploads/requestPaint" gate
+    is measured unambiguously;
+  - promote or verify generic `HtmlSurfaceVisualScene` hit projection in the
+    production interaction path, because current project node targeting may still
+    be flat-node-layout based while mesh/effect projection is mainly fixture-backed;
+  - add or explicitly justify tile-level dirty/upload ownership for large
+    interactive surfaces instead of whole tiled-surface uploads on every content
+    dirty mark;
+  - profile and improve real Settings-node animated switch recapture, because
+    the latest report showed a 78.70 ms sampled frame even though the warped
+    fixture path was clean;
+  - update stale docs that still describe `GpuNodeLayer`, `NodeTextureManager`,
+    `GpuNodeQuadRenderer`, or active-node teleport as current architecture.
+
 Browser verification:
 - This dedicated loop owns its app/browser sessions. Before browser verification, run ./kill.sh to stop any lingering ai.sh or aireset.sh session. Run ./kill.sh again before the final response.
 - For html-in-canvas/WebGPU checks, use the full required Chrome flag set. Prefer ./ai.sh:
