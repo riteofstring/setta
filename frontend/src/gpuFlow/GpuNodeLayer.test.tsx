@@ -575,6 +575,31 @@ describe("GpuNodeLayer helpers", () => {
     });
   });
 
+  it("passes the configured texture memory budget to frame eviction", () => {
+    const visible = document.createElement("div");
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    renderGpuNodeLayerFrame({
+      activeNodeId: "visible",
+      canvasSize: canvasSize(),
+      elementByNodeId: new Map([["visible", visible]]),
+      frame: 1,
+      nodes: [node("visible", 10, 20, 100, 50, 0)],
+      nodeTextureMemoryBudgetBytes: 1_048_576,
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(manager.evictNodeTextures).toHaveBeenCalledWith({
+      budgetBytes: 1_048_576,
+      protectedNodeIds: expect.any(Set),
+      reason: "node-layer-frame",
+      visibleNodeIds: expect.any(Set),
+    });
+  });
+
   it("redraws viewport-only movement from cached textures without another element upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

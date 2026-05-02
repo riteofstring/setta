@@ -106,6 +106,7 @@ type GpuFlowProps = Pick<
   grid?: GpuGridInput | undefined;
   marginCssPx?: number | undefined;
   nodeClassName?: string | undefined;
+  nodeTextureMemoryBudgetBytes?: number | undefined;
   onNodeElementChange?:
     | ((nodeId: string, element: HTMLElement | null) => void)
     | undefined;
@@ -158,6 +159,7 @@ type GpuFlowNodeLayerState = {
   readonly grid: GpuGridInput | undefined;
   readonly marginCssPx: number | undefined;
   readonly nodes: readonly GpuNodeLayout[] | undefined;
+  readonly nodeTextureMemoryBudgetBytes: number | undefined;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
 };
@@ -185,6 +187,7 @@ export function GpuFlow({
   grid,
   marginCssPx,
   nodeClassName,
+  nodeTextureMemoryBudgetBytes,
   nodeDrag,
   nodeVisibility,
   nodes,
@@ -246,6 +249,7 @@ export function GpuFlow({
     grid,
     marginCssPx,
     nodes,
+    nodeTextureMemoryBudgetBytes,
     uploadBudget,
     viewport: viewport ?? viewportStore.getState().transform,
   });
@@ -317,6 +321,7 @@ export function GpuFlow({
       grid,
       marginCssPx,
       nodes,
+      nodeTextureMemoryBudgetBytes,
       uploadBudget,
       viewport: viewportStore.getState().transform,
     };
@@ -339,6 +344,7 @@ export function GpuFlow({
     grid,
     marginCssPx,
     nodes,
+    nodeTextureMemoryBudgetBytes,
     uploadBudget,
     viewportStore,
   ]);
@@ -844,6 +850,7 @@ function renderGpuFlowNodeLayerFrame({
     grid: layer.grid,
     marginCssPx: layer.marginCssPx,
     nodes,
+    nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
     renderer: resources.nodeQuadRenderer,
     suppressNodeIds: activeNodeTeleportFrameSync.suppressNodeIds,
     textureManager: resources.textureManager,

@@ -165,6 +165,7 @@ type RenderGpuNodeLayerFrameInput = {
   readonly grid?: GpuGridInput | undefined;
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
+  readonly nodeTextureMemoryBudgetBytes?: number | undefined;
   readonly renderer: GpuNodeQuadRenderTarget;
   readonly suppressNodeIds?:
     | ReadonlySet<string>
@@ -359,6 +360,7 @@ export function renderGpuNodeLayerFrame({
   grid,
   marginCssPx,
   nodes,
+  nodeTextureMemoryBudgetBytes,
   renderer,
   suppressNodeIds,
   textureManager,
@@ -436,6 +438,9 @@ export function renderGpuNodeLayerFrame({
     viewport,
   });
   const evictionResult = textureManager.evictNodeTextures({
+    ...(nodeTextureMemoryBudgetBytes === undefined
+      ? {}
+      : { budgetBytes: nodeTextureMemoryBudgetBytes }),
     protectedNodeIds: retainedNodeIds,
     reason: "node-layer-frame",
     visibleNodeIds,
