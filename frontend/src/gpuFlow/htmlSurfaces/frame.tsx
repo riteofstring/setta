@@ -509,22 +509,26 @@ export function markHtmlSurfaceFramePaintDirty({
   ignoreDirectNodeIds,
   textureManager,
 }: MarkHtmlSurfaceFramePaintDirtyInput): string[] {
-  const { dirtySurfaceIds } = resolveHtmlSurfacePaintInvalidation({
-    changedElements,
-    sourceElementBySurfaceId: elementByNodeId,
-    sourceIdAttribute: HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
-    sourceSelector: GPU_FLOW_NODE_SOURCE_SELECTOR,
-    surfaceSelector: GPU_FLOW_SURFACE_SELECTOR,
-    transformOnlySourceIds: ignoreDirectNodeIds,
-  });
+  const { dirtySurfaceIds, dirtySurfaceInvalidations } =
+    resolveHtmlSurfacePaintInvalidation({
+      changedElements,
+      sourceElementBySurfaceId: elementByNodeId,
+      sourceIdAttribute: HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
+      sourceSelector: GPU_FLOW_NODE_SOURCE_SELECTOR,
+      surfaceSelector: GPU_FLOW_SURFACE_SELECTOR,
+      transformOnlySourceIds: ignoreDirectNodeIds,
+    });
 
-  for (const nodeId of dirtySurfaceIds) {
+  for (const invalidation of dirtySurfaceInvalidations) {
     textureManager.markSurfaceTextureDirty({
       content: true,
       frame,
       reason: "paint",
       requestPaint: false,
-      surfaceId: nodeId,
+      ...(invalidation.sourceRect
+        ? { sourceRect: invalidation.sourceRect }
+        : {}),
+      surfaceId: invalidation.surfaceId,
     });
   }
 

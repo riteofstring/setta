@@ -163,6 +163,139 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(record.tiles.every((tile) => tile.lastUploadFrame === 2)).toBe(true);
   });
 
+  it("marks and uploads only tiled source rect owners after the initial upload", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "large-node",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+
+    manager.markSurfaceTextureDirty({
+      content: true,
+      frame: 3,
+      reason: "paint",
+      sourceRect: {
+        height: 20,
+        width: 20,
+        x: 130,
+        y: 16,
+      },
+      surfaceId: "large-node",
+    });
+
+    expect(manager.getDirtySurfaces()).toMatchObject([
+      {
+        dirtyTileBytes: 128 * 128 * 4,
+        dirtyTileIds: ["large-node:1:0"],
+        surfaceId: "large-node",
+      },
+    ]);
+
+    const result = manager.uploadDirtySurfaceTextures({ frame: 4 });
+
+    expect(result).toMatchObject({
+      remainingDirtySurfaceIds: [],
+      skippedUploadBytes: 0,
+      uploadedBytes: 128 * 128 * 4,
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(7);
+    expect(gpu.copyElementImageToTexture).toHaveBeenLastCalledWith(
+      element,
+      128,
+      0,
+      128,
+      128,
+      128,
+      128,
+      { texture: record.tiles[1]?.texture },
+    );
+    expect(record.tiles[1]).toMatchObject({
+      dirtyContent: false,
+      lastUploadFrame: 4,
+    });
+    expect(
+      record.tiles
+        .filter((tile) => tile.tileId !== "large-node:1:0")
+        .every((tile) => tile.lastUploadFrame === 2),
+    ).toBe(true);
+  });
+
+  it("spends tiled full-surface dirtiness under the upload budget one tile at a time", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "large-node",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+    manager.markSurfaceTextureDirty({
+      content: true,
+      frame: 3,
+      reason: "paint",
+      surfaceId: "large-node",
+    });
+
+    const partial = manager.uploadDirtySurfaceTextures({
+      frame: 4,
+      maxUploads: 2,
+    });
+
+    expect(partial.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "large-node",
+    ]);
+    expect(partial).toMatchObject({
+      budgetExhausted: true,
+      remainingDirtySurfaceIds: ["large-node"],
+      skippedUploadBytes: record.textureBytes - 2 * 128 * 128 * 4,
+      uploadedBytes: 2 * 128 * 128 * 4,
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(8);
+    expect(record.tiles.slice(0, 2)).toMatchObject([
+      {
+        dirtyContent: false,
+        lastUploadFrame: 4,
+      },
+      {
+        dirtyContent: false,
+        lastUploadFrame: 4,
+      },
+    ]);
+    expect(record.tiles.slice(2).every((tile) => tile.dirtyContent)).toBe(true);
+
+    const remaining = manager.uploadDirtySurfaceTextures({ frame: 5 });
+
+    expect(remaining).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtySurfaceIds: [],
+      skippedUploadBytes: 0,
+      uploadedBytes: record.textureBytes - 2 * 128 * 128 * 4,
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(12);
+    expect(record.tiles.every((tile) => !tile.dirtyContent)).toBe(true);
+  });
+
   it("tiles default high-zoom surfaces with scaled source subrect uploads", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

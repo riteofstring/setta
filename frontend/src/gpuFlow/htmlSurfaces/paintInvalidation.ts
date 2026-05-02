@@ -11,13 +11,27 @@ export type HtmlSurfacePaintInvalidationInput = {
 };
 
 export type HtmlSurfacePaintInvalidationResult = {
+  readonly dirtySurfaceInvalidations: readonly HtmlSurfacePaintSourceInvalidation[];
   readonly dirtySurfaceIds: readonly string[];
   readonly transformOnlyPaintSurfaceIds: readonly string[];
+};
+
+export type HtmlSurfacePaintSourceInvalidation = {
+  readonly sourceRect?: HtmlSurfacePaintSourceRect | undefined;
+  readonly surfaceId: string;
+};
+
+export type HtmlSurfacePaintSourceRect = {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
 };
 
 type ChangedSourceResolution =
   | {
       readonly kind: "content";
+      readonly sourceRect?: HtmlSurfacePaintSourceRect | undefined;
       readonly surfaceId: string;
     }
   | {
@@ -33,12 +47,14 @@ export function resolveHtmlSurfacePaintInvalidation({
   surfaceSelector,
   transformOnlySourceIds,
 }: HtmlSurfacePaintInvalidationInput): HtmlSurfacePaintInvalidationResult {
+  const dirtySurfaceInvalidations: HtmlSurfacePaintSourceInvalidation[] = [];
   const dirtySurfaceIds = new Set<string>();
   const transformOnlyPaintSurfaceIds = new Set<string>();
   const transformOnlyIds = normalizeSurfaceIdSet(transformOnlySourceIds);
 
   if (!changedElements) {
     return {
+      dirtySurfaceInvalidations: [],
       dirtySurfaceIds: [],
       transformOnlyPaintSurfaceIds: [],
     };
@@ -60,10 +76,15 @@ export function resolveHtmlSurfacePaintInvalidation({
       transformOnlyPaintSurfaceIds.add(resolution.surfaceId);
       continue;
     }
+    dirtySurfaceInvalidations.push({
+      ...(resolution.sourceRect ? { sourceRect: resolution.sourceRect } : {}),
+      surfaceId: resolution.surfaceId,
+    });
     dirtySurfaceIds.add(resolution.surfaceId);
   }
 
   return {
+    dirtySurfaceInvalidations,
     dirtySurfaceIds: [...dirtySurfaceIds],
     transformOnlyPaintSurfaceIds: [...transformOnlyPaintSurfaceIds],
   };
@@ -103,6 +124,10 @@ function resolveChangedSource({
     }
     return {
       kind: "content",
+      sourceRect: resolveChangedElementSourceRect({
+        changedElement,
+        sourceElement: nearestSourceElement,
+      }),
       surfaceId: nearestSourceId,
     };
   }
@@ -120,6 +145,75 @@ function resolveChangedSource({
         surfaceId: containedSourceId,
       }
     : null;
+}
+
+function resolveChangedElementSourceRect({
+  changedElement,
+  sourceElement,
+}: {
+  readonly changedElement: Element;
+  readonly sourceElement: HTMLElement;
+}): HtmlSurfacePaintSourceRect | undefined {
+  if (changedElement === sourceElement) {
+    return undefined;
+  }
+
+  const changedRect = changedElement.getBoundingClientRect();
+  const sourceRect = sourceElement.getBoundingClientRect();
+  if (!hasFiniteSourceRectInputs(changedRect, sourceRect)) {
+    return undefined;
+  }
+
+  const left = Math.max(0, changedRect.left - sourceRect.left);
+  const top = Math.max(0, changedRect.top - sourceRect.top);
+  const right = resolveChangedRectEnd({
+    axisSize: sourceRect.width,
+    changedEnd: changedRect.right,
+    sourceStart: sourceRect.left,
+  });
+  const bottom = resolveChangedRectEnd({
+    axisSize: sourceRect.height,
+    changedEnd: changedRect.bottom,
+    sourceStart: sourceRect.top,
+  });
+  const width = right - left;
+  const height = bottom - top;
+  if (width <= 0 || height <= 0) {
+    return undefined;
+  }
+  return {
+    height,
+    width,
+    x: left,
+    y: top,
+  };
+}
+
+function hasFiniteSourceRectInputs(
+  changedRect: DOMRect,
+  sourceRect: DOMRect,
+): boolean {
+  return [
+    changedRect.left,
+    changedRect.top,
+    changedRect.right,
+    changedRect.bottom,
+    sourceRect.left,
+    sourceRect.top,
+  ].every(Number.isFinite);
+}
+
+function resolveChangedRectEnd({
+  axisSize,
+  changedEnd,
+  sourceStart,
+}: {
+  readonly axisSize: number;
+  readonly changedEnd: number;
+  readonly sourceStart: number;
+}): number {
+  const relativeEnd = changedEnd - sourceStart;
+  return axisSize > 0 ? Math.min(axisSize, relativeEnd) : relativeEnd;
 }
 
 function findSingleContainedSourceId({

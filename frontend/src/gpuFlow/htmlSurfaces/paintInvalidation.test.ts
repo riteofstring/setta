@@ -21,6 +21,7 @@ describe("HTML surface paint invalidation", () => {
     });
 
     expect(result).toEqual({
+      dirtySurfaceInvalidations: [],
       dirtySurfaceIds: [],
       transformOnlyPaintSurfaceIds: ["surface-a"],
     });
@@ -40,6 +41,7 @@ describe("HTML surface paint invalidation", () => {
     });
 
     expect(result).toEqual({
+      dirtySurfaceInvalidations: [{ surfaceId: "surface-a" }],
       dirtySurfaceIds: ["surface-a"],
       transformOnlyPaintSurfaceIds: ["surface-a"],
     });
@@ -63,7 +65,55 @@ describe("HTML surface paint invalidation", () => {
     });
 
     expect(result.dirtySurfaceIds).toEqual(["surface-a"]);
+    expect(result.dirtySurfaceInvalidations).toEqual([
+      { surfaceId: "surface-a" },
+    ]);
     expect(sources.iterationCount).toBe(0);
+  });
+
+  it("routes descendant paint invalidations to source-relative dirty rects", () => {
+    const source = createSource("surface-a");
+    const button = document.createElement("button");
+    source.append(button);
+    setElementRect(source, {
+      bottom: 220,
+      height: 200,
+      left: 10,
+      right: 310,
+      top: 20,
+      width: 300,
+    });
+    setElementRect(button, {
+      bottom: 72,
+      height: 32,
+      left: 138,
+      right: 202,
+      top: 40,
+      width: 64,
+    });
+
+    const result = resolveHtmlSurfacePaintInvalidation({
+      changedElements: [button],
+      sourceElementBySurfaceId: new Map([["surface-a", source]]),
+      sourceIdAttribute: SOURCE_ID_ATTRIBUTE,
+      sourceSelector: SOURCE_SELECTOR,
+    });
+
+    expect(result).toEqual({
+      dirtySurfaceInvalidations: [
+        {
+          sourceRect: {
+            height: 32,
+            width: 64,
+            x: 128,
+            y: 20,
+          },
+          surfaceId: "surface-a",
+        },
+      ],
+      dirtySurfaceIds: ["surface-a"],
+      transformOnlyPaintSurfaceIds: [],
+    });
   });
 
   it("accepts an enclosing changed subtree only when it contains one source", () => {
@@ -112,6 +162,7 @@ describe("HTML surface paint invalidation", () => {
     });
 
     expect(result).toEqual({
+      dirtySurfaceInvalidations: [],
       dirtySurfaceIds: [],
       transformOnlyPaintSurfaceIds: [],
     });
@@ -123,6 +174,19 @@ function createSource(surfaceId: string): HTMLElement {
   element.dataset.htmlSurfaceSource = "true";
   element.dataset.surfaceId = surfaceId;
   return element;
+}
+
+function setElementRect(
+  element: Element,
+  rect: Pick<DOMRect, "bottom" | "height" | "left" | "right" | "top" | "width">,
+) {
+  element.getBoundingClientRect = () =>
+    ({
+      ...rect,
+      x: rect.left,
+      y: rect.top,
+      toJSON: () => rect,
+    }) as DOMRect;
 }
 
 class ThrowOnMapIteration<K, V> extends Map<K, V> {

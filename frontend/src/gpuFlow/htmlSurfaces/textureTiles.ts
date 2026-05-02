@@ -35,9 +35,32 @@ type CreateSurfaceTextureLayoutResourcesInput = {
 
 type UploadHtmlSurfaceTextureRecordInput = Pick<
   HtmlSurfaceTextureRecord,
-  "pixelHeight" | "pixelWidth" | "texture" | "textureLayout" | "tiles"
+  | "dirtyContent"
+  | "dirtyResolution"
+  | "pixelHeight"
+  | "pixelWidth"
+  | "texture"
+  | "textureLayout"
+  | "tiles"
 > & {
   readonly element: Element;
+};
+
+export type HtmlSurfaceTextureUploadBudget = {
+  readonly maxBytes: number;
+  readonly maxDurationMs: number;
+  readonly maxUploads: number;
+  readonly now: () => number;
+  readonly startedAt: number;
+  readonly uploadedBytes: number;
+  readonly uploadedTextureCount: number;
+};
+
+export type HtmlSurfaceTextureUploadResult = {
+  readonly complete: boolean;
+  readonly uploadedBytes: number;
+  readonly uploadedTextureCount: number;
+  readonly uploadedTileIds: readonly string[];
 };
 
 export const DEFAULT_HTML_SURFACE_TEXTURE_TILE_DIMENSION_PX = 2048;
@@ -80,33 +103,59 @@ export function createSurfaceTextureLayoutResources({
 export function uploadHtmlSurfaceTextureRecord(
   queue: GpuQueueWithElementUpload,
   record: UploadHtmlSurfaceTextureRecordInput,
-) {
-  if (record.textureLayout.kind === "single") {
-    queue.copyElementImageToTexture?.(
-      record.element,
-      record.pixelWidth,
-      record.pixelHeight,
-      {
-        texture: record.texture,
-      },
-    );
-    return;
+  budget?: HtmlSurfaceTextureUploadBudget | undefined,
+): HtmlSurfaceTextureUploadResult {
+  const dirtyTiles = dirtyTextureTiles(record);
+  let uploadedBytes = 0;
+  let uploadedTextureCount = 0;
+  const uploadedTileIds: string[] = [];
+
+  for (const tile of dirtyTiles) {
+    if (
+      shouldStopTextureUpload({
+        budget,
+        uploadedBytes,
+        uploadedTextureCount,
+      })
+    ) {
+      break;
+    }
+
+    if (record.textureLayout.kind === "single") {
+      queue.copyElementImageToTexture?.(
+        record.element,
+        record.pixelWidth,
+        record.pixelHeight,
+        {
+          texture: record.texture,
+        },
+      );
+    } else {
+      queue.copyElementImageToTexture?.(
+        record.element,
+        tile.cssX,
+        tile.cssY,
+        tile.cssWidth,
+        tile.cssHeight,
+        tile.pixelWidth,
+        tile.pixelHeight,
+        {
+          texture: tile.texture,
+        },
+      );
+    }
+
+    uploadedBytes += tile.textureBytes;
+    uploadedTextureCount += 1;
+    uploadedTileIds.push(tile.tileId);
   }
 
-  for (const tile of record.tiles) {
-    queue.copyElementImageToTexture?.(
-      record.element,
-      tile.cssX,
-      tile.cssY,
-      tile.cssWidth,
-      tile.cssHeight,
-      tile.pixelWidth,
-      tile.pixelHeight,
-      {
-        texture: tile.texture,
-      },
-    );
-  }
+  return {
+    complete: uploadedTileIds.length === dirtyTiles.length,
+    uploadedBytes,
+    uploadedTextureCount,
+    uploadedTileIds,
+  };
 }
 
 export function normalizeTextureTileDimension({
@@ -342,6 +391,52 @@ function createSurfaceTextureTile({
     v0,
     v1,
   };
+}
+
+function dirtyTextureTiles({
+  dirtyContent,
+  dirtyResolution,
+  tiles,
+}: Pick<
+  UploadHtmlSurfaceTextureRecordInput,
+  "dirtyContent" | "dirtyResolution" | "tiles"
+>): readonly HtmlSurfaceTextureTileRecord[] {
+  if (!dirtyContent && !dirtyResolution) {
+    return [];
+  }
+  const dirtyTiles = tiles.filter(
+    (tile) => tile.dirtyContent || tile.dirtyResolution,
+  );
+  return dirtyTiles.length > 0 ? dirtyTiles : tiles;
+}
+
+function shouldStopTextureUpload({
+  budget,
+  uploadedBytes,
+  uploadedTextureCount,
+}: {
+  readonly budget: HtmlSurfaceTextureUploadBudget | undefined;
+  readonly uploadedBytes: number;
+  readonly uploadedTextureCount: number;
+}): boolean {
+  if (!budget) {
+    return false;
+  }
+  const totalUploadedTextureCount =
+    budget.uploadedTextureCount + uploadedTextureCount;
+  if (totalUploadedTextureCount >= budget.maxUploads) {
+    return true;
+  }
+  if (
+    totalUploadedTextureCount > 0 &&
+    budget.uploadedBytes + uploadedBytes >= budget.maxBytes
+  ) {
+    return true;
+  }
+  return (
+    totalUploadedTextureCount > 0 &&
+    budget.now() - budget.startedAt >= budget.maxDurationMs
+  );
 }
 
 function estimateTextureMemoryBytes({
