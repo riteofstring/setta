@@ -331,24 +331,18 @@ runtime:
 The renderer intentionally keeps old high-level project behaviors while
 replacing the viewport implementation underneath them.
 
-## Active Node DOM Teleport
+## Interactive HTML GPU Surfaces
 
-The active interaction architecture is described in
-`docs/plans/gpu-flow-live-active-node-dom-plan.md`.
+The active interaction direction is described in
+`docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md`.
 
-That plan addresses the main remaining interaction problem: textures are
-snapshots, so repeatedly uploading a whole node texture is not the right way to
-make switches, text inputs, CodeMirror, terminals, sliders, and CSS transitions
-feel native during active manipulation.
+That plan replaces active DOM teleport with projection-based interaction. The
+source DOM remains a direct layout-subtree canvas child for capture, hit
+testing, focus, and accessibility, while the GPU-rendered texture remains the
+visible output for both passive and active nodes.
 
-Setta uses same-instance active DOM teleport: temporarily move the existing
-React-owned node DOM into the active teleport layer while the user interacts,
-defer uploads while it is outside the canvas layout subtree, restore it under
-the canvas, request one paint, upload the final snapshot, and return the node to
-the passive WebGPU texture path.
-
-The shared active-node positioning data lives in `GpuActiveNodeSnapshot`.
-`GpuActiveNodeTeleport` owns the imperative DOM move, focus/selection
-preservation, presentation transform, and restore behavior. Do not mirror the
-active node with duplicate DOM unless a component owner requires a dedicated
-active presentation path for a documented teleport failure.
+Pointer interaction is resolved by mapping the rendered surface hit back to
+source HTML coordinates, aligning the source for browser hit testing, and
+uploading dirty textures only when content or resolution changes. Pure pan/zoom
+must not request paint, upload textures, force React renders, or rewrite
+per-node DOM transforms.

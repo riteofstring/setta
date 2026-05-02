@@ -5,13 +5,13 @@ usage() {
   cat <<'EOF'
 Usage: ./scripts/run-codex-webgpu-pan-zoom-loop.sh [run-codex-plan-loop options] [-- <extra codex exec args>]
 
-Run the dedicated Codex loop for docs/plans/webgpu-html-texture-pan-zoom-plan.md.
+Run the dedicated Codex loop for docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md.
 
 This wrapper uses scripts/run-codex-plan-loop.sh with:
-- Plan: docs/plans/webgpu-html-texture-pan-zoom-plan.md
-- Completion sentinel: WEBGPU_HTML_TEXTURE_PAN_ZOOM_PLAN_COMPLETE
-- Loop name: webgpu-html-texture-pan-zoom
-- Commit prefix: webgpu-pan-zoom:
+- Plan: docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md
+- Completion sentinel: HTML_IN_CANVAS_INTERACTIVE_GPU_SURFACES_PLAN_COMPLETE
+- Loop name: html-in-canvas-interactive-gpu-surfaces
+- Commit prefix: html-gpu-surfaces:
 
 All generic run-codex-plan-loop options are accepted, except this wrapper owns
 the plan, sentinel, name, and commit prefix settings.
@@ -54,23 +54,24 @@ cleanup() {
 trap cleanup EXIT
 
 cat > "${extra_prompt_file}" <<'EOF'
-Dedicated WebGPU HTML Texture Pan/Zoom Loop Instructions
+Dedicated Interactive HTML GPU Surfaces Loop Instructions
 
-This loop is specifically for docs/plans/webgpu-html-texture-pan-zoom-plan.md.
+This loop is specifically for docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md.
 
 Primary target:
-- Build the highest-performance renderer described in the WebGPU plan.
-- Keep Setta section/node bodies as real interactive HTML through <canvas layoutsubtree>.
-- Capture visible dirty nodes into GPU textures only when content changes or texture resolution must improve.
-- During pan and zoom, update camera uniforms and draw cached textures. Do not recapture node HTML on viewport-only movement.
-- Do not implement the Canvas 2D plan in this loop except as a temporary probe if the WebGPU plan explicitly calls for validating API behavior.
+- Replace the active-node DOM teleport/snapshot model with always-GPU-rendered HTML surfaces.
+- Keep Setta section/node bodies as real layout-subtree HTML sources for capture, hit testing, focus, and accessibility.
+- Capture dirty surfaces into GPU textures only when content changes or texture resolution must improve.
+- During pan and zoom, update camera uniforms and draw cached textures. Do not request paint, recapture HTML, force React renders, or rewrite per-node DOM transforms.
+- Support projection-based interaction for flat and non-affine surfaces, including a cloth-style fixture with interactive controls.
 
 Implementation priorities:
-- Start with the WebGPU/html-in-canvas upload probe and record exact local browser API support.
-- If WebGPU element upload is unavailable but WebGL2 texElementImage2D is available, pause at a clean decision point and document the evidence. Do not silently ship a fallback renderer.
-- Prioritize crisp texture resolution buckets, max texture limits, dirty-node upload scheduling, and active DOM teleport for real-time interactive updates.
-- Sliders, text inputs, CodeMirror, terminals, scrollable node contents, and edge handles must remain native HTML interactions.
-- Use same-instance active DOM teleport for the node currently being manipulated. Do not rely on repeated full-node texture uploads for live control feedback.
+- Start with the API probes in the plan and record exact local browser API support.
+- If required native APIs are unavailable, fail loudly and document the blocker. Do not silently ship a fallback renderer.
+- Keep the default flat graph path optimized before adding mesh/effect passes.
+- Implement source DOM placement, surface/tile texture management, hit projection, and interaction routing as one architecture.
+- Sliders, text inputs, CodeMirror, terminals, scrollable node contents, shared comboboxes, and edge handles must remain usable through the GPU-rendered surface.
+- Delete active DOM teleport and settling-clone behavior rather than preserving it behind a flag.
 - Do not add compatibility layers, dual renderers, old XYFlow preservation paths, or polyfills.
 
 Browser verification:
@@ -80,13 +81,13 @@ Browser verification:
 - If the local browser cannot expose the native API, record that blocker and keep moving on testable owner code.
 
 Completion:
-- Emit WEBGPU_HTML_TEXTURE_PAN_ZOOM_PLAN_COMPLETE only when the WebGPU texture plan is complete and a fresh audit finds no remaining actionable work.
+- Emit HTML_IN_CANVAS_INTERACTIVE_GPU_SURFACES_PLAN_COMPLETE only when the interactive HTML GPU surfaces plan is complete, performance reports and CDP visual verification are checked in where required, and a fresh audit finds no remaining actionable work.
 EOF
 
 "${SCRIPT_DIR}/run-codex-plan-loop.sh" \
-  --plan "docs/plans/webgpu-html-texture-pan-zoom-plan.md" \
-  --sentinel "WEBGPU_HTML_TEXTURE_PAN_ZOOM_PLAN_COMPLETE" \
-  --name "webgpu-html-texture-pan-zoom" \
-  --commit-prefix "webgpu-pan-zoom:" \
+  --plan "docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md" \
+  --sentinel "HTML_IN_CANVAS_INTERACTIVE_GPU_SURFACES_PLAN_COMPLETE" \
+  --name "html-in-canvas-interactive-gpu-surfaces" \
+  --commit-prefix "html-gpu-surfaces:" \
   --extra-prompt-file "${extra_prompt_file}" \
   "$@"
