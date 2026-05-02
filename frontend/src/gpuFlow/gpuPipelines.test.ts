@@ -4,27 +4,32 @@ import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
-import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
-import type { NodeQuadRenderRuntime } from "./gpuPipelines";
+import type { HtmlSurfaceRenderRuntime } from "./gpuPipelines";
 import {
-  buildNodeQuadVertexData,
+  buildFlatSurfaceVertexData,
   encodeGpuEdgePaletteUniform,
   encodeGpuGridUniform,
-  encodeNodeQuadCameraUniform,
-  GpuNodeQuadRenderer,
   parseGpuGridColor,
 } from "./gpuPipelines";
+import {
+  encodeHtmlSurfaceCameraUniform,
+  HtmlSurfaceRenderer,
+} from "./htmlSurfaces/renderer";
 import type { HtmlSurfaceTextureRecord } from "./htmlSurfaces/textures";
+import {
+  createHtmlSurfaceVisualScene,
+  type HtmlSurfaceFlatVisual,
+} from "./htmlSurfaces/visualScene";
 
-describe("gpu node quad pipeline", () => {
+describe("html surface renderer", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("encodes the camera uniform for the node quad shader", () => {
+  it("encodes the camera uniform for the flat surface shader", () => {
     expect(
       Array.from(
-        encodeNodeQuadCameraUniform({
+        encodeHtmlSurfaceCameraUniform({
           canvasHeight: 600,
           canvasWidth: 800,
           viewport: [10, 20, 2],
@@ -33,10 +38,10 @@ describe("gpu node quad pipeline", () => {
     ).toEqual([10, 20, 2, 0, 800, 600, 0, 0]);
   });
 
-  it("builds two triangles per node quad in flow coordinates", () => {
+  it("builds two triangles per flat surface in flow coordinates", () => {
     expect(
       Array.from(
-        buildNodeQuadVertexData([{ height: 20, width: 30, x: 10, y: 15 }]),
+        buildFlatSurfaceVertexData([{ height: 20, width: 30, x: 10, y: 15 }]),
       ),
     ).toEqual([
       10, 15, 0, 0, 40, 15, 1, 0, 10, 35, 0, 1, 10, 35, 0, 1, 40, 15, 1, 0, 40,
@@ -124,24 +129,24 @@ describe("gpu node quad pipeline", () => {
     );
   });
 
-  it("draws cached node textures with one camera uniform update and per-node texture bindings", () => {
+  it("draws cached surface textures with one camera uniform update and per-surface texture bindings", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
     const quads = [
-      texturedQuad("node-a", 0, 0, 100, 50),
-      texturedQuad("node-b", 200, 100, 80, 40),
+      flatSurface("node-a", 0, 0, 100, 50),
+      flatSurface("node-b", 200, 100, 80, 40),
     ];
 
     const result = renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
-      quads,
+      scene: surfaceScene(quads),
       viewport: [10, 20, 1.25],
     });
 
     expect(result).toEqual({
       drawnEdgeIds: [],
-      drawnNodeIds: ["node-a", "node-b"],
+      drawnSurfaceIds: ["node-a", "node-b"],
       edgeVertexCount: 0,
       vertexCount: 12,
     });
@@ -158,7 +163,7 @@ describe("gpu node quad pipeline", () => {
       throw new Error("expected vertex buffer write");
     }
     expect(Array.from(vertexWrite[2])).toEqual(
-      Array.from(buildNodeQuadVertexData(quads)),
+      Array.from(buildFlatSurfaceVertexData(quads)),
     );
     expect(gpu.pass.setPipeline).toHaveBeenCalledWith(gpu.pipelines[0]);
     expect(gpu.pass.setBindGroup).toHaveBeenNthCalledWith(
@@ -173,10 +178,10 @@ describe("gpu node quad pipeline", () => {
     expect(gpu.device.queue.submit).toHaveBeenCalledWith([gpu.commandBuffer]);
   });
 
-  it("draws the procedural grid before GPU edges and node textures", () => {
+  it("draws the procedural grid before GPU edges and surface textures", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
 
     const result = renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
@@ -187,13 +192,13 @@ describe("gpu node quad pipeline", () => {
         snapGrid: [25, 25],
         variant: BackgroundVariantEnum.lines,
       },
-      quads: [texturedQuad("node-a", 0, 0, 100, 50)],
+      scene: surfaceScene([flatSurface("node-a", 0, 0, 100, 50)]),
       viewport: [10, 20, 1.25],
     });
 
     expect(result).toEqual({
       drawnEdgeIds: ["edge-a"],
-      drawnNodeIds: ["node-a"],
+      drawnSurfaceIds: ["node-a"],
       edgeVertexCount: 2,
       vertexCount: 6,
     });
@@ -209,12 +214,12 @@ describe("gpu node quad pipeline", () => {
   it("skips grid resources and draw calls when no grid input is supplied", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
 
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       edges: [edge("edge-a", 0, 0, 100, 0)],
-      quads: [texturedQuad("node-a", 0, 0, 100, 50)],
+      scene: surfaceScene([flatSurface("node-a", 0, 0, 100, 50)]),
       viewport: [10, 20, 1.25],
     });
 
@@ -232,7 +237,7 @@ describe("gpu node quad pipeline", () => {
   it("keeps grid settings uniform stable on viewport-only redraws", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
     const grid = {
       color: "#afbacf",
       patternSize: 2,
@@ -243,19 +248,19 @@ describe("gpu node quad pipeline", () => {
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       grid,
-      quads: [],
+      scene: surfaceScene([]),
       viewport: [0, 0, 1],
     });
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       grid,
-      quads: [],
+      scene: surfaceScene([]),
       viewport: [50, -25, 1.5],
     });
 
     const cameraBuffer = getBufferByLabel(
       gpu.buffers,
-      "setta-gpu-node-quad-camera-uniform",
+      "setta-html-surface-camera-uniform",
     );
     const gridBuffer = getBufferByLabel(gpu.buffers, "setta-gpu-grid-uniform");
     expect(gpu.device.queue.writeBuffer).toHaveBeenCalledTimes(3);
@@ -281,135 +286,138 @@ describe("gpu node quad pipeline", () => {
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 3, 1, 0, 0);
   });
 
-  it("keeps node quad vertices stable on viewport-only redraws", () => {
+  it("keeps flat surface vertices stable on viewport-only redraws", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
     const quads = [
-      texturedQuad("node-a", 0, 0, 100, 50),
-      texturedQuad("node-b", 200, 100, 80, 40),
+      flatSurface("node-a", 0, 0, 100, 50),
+      flatSurface("node-b", 200, 100, 80, 40),
     ];
 
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
-      quads,
+      scene: surfaceScene(quads),
       viewport: [0, 0, 1],
     });
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
-      quads,
+      scene: surfaceScene(quads),
       viewport: [50, -25, 1.5],
     });
 
     expect(writeBufferLabels(gpu)).toEqual([
-      "setta-gpu-node-quad-camera-uniform",
-      "setta-gpu-node-quad-vertices",
-      "setta-gpu-node-quad-camera-uniform",
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-flat-vertices",
+      "setta-html-surface-camera-uniform",
     ]);
   });
 
-  it("rewrites node quad vertices once when node geometry changes", () => {
+  it("rewrites flat surface vertices once when node geometry changes", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
-    const firstQuads = [texturedQuad("node-a", 0, 0, 100, 50)];
-    const movedQuads = [texturedQuad("node-a", 24, 12, 100, 50)];
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+    const firstQuads = [flatSurface("node-a", 0, 0, 100, 50)];
+    const movedQuads = [flatSurface("node-a", 24, 12, 100, 50)];
 
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
-      quads: firstQuads,
+      scene: surfaceScene(firstQuads),
       viewport: [0, 0, 1],
     });
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
-      quads: movedQuads,
+      scene: surfaceScene(movedQuads),
       viewport: [0, 0, 1],
     });
 
     const nodeVertexWrites = gpu.device.queue.writeBuffer.mock.calls.filter(
-      ([buffer]) => getBufferLabel(buffer) === "setta-gpu-node-quad-vertices",
+      ([buffer]) =>
+        getBufferLabel(buffer) === "setta-html-surface-flat-vertices",
     );
     expect(writeBufferLabels(gpu)).toEqual([
-      "setta-gpu-node-quad-camera-uniform",
-      "setta-gpu-node-quad-vertices",
-      "setta-gpu-node-quad-vertices",
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-flat-vertices",
+      "setta-html-surface-flat-vertices",
     ]);
     expect(nodeVertexWrites).toHaveLength(2);
     expect(Array.from(nodeVertexWrites[1]?.[2] ?? [])).toEqual(
-      Array.from(buildNodeQuadVertexData(movedQuads)),
+      Array.from(buildFlatSurfaceVertexData(movedQuads)),
     );
   });
 
   it("skips duplicate camera uniform writes when the viewport is unchanged", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
     const edges = [edge("edge-a", 0, 0, 100, 0)];
-    const quads = [texturedQuad("node-a", 0, 0, 100, 50)];
+    const quads = [flatSurface("node-a", 0, 0, 100, 50)];
 
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       edges,
-      quads,
+      scene: surfaceScene(quads),
       viewport: [0, 0, 1],
     });
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       edges,
-      quads,
+      scene: surfaceScene(quads),
       viewport: [0, 0, 1],
     });
 
     expect(writeBufferLabels(gpu)).toEqual([
-      "setta-gpu-node-quad-camera-uniform",
+      "setta-html-surface-camera-uniform",
       "setta-gpu-edge-palette-uniform",
       "setta-gpu-edge-line-vertices",
-      "setta-gpu-node-quad-vertices",
+      "setta-html-surface-flat-vertices",
     ]);
   });
 
-  it("reuses texture bind groups until a node texture view or sampler changes", () => {
+  it("reuses texture bind groups until a surface texture view or sampler changes", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
     const firstTexture = textureRecord("node-a");
     const secondTexture = textureRecord("node-a");
 
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
-      quads: [texturedQuad("node-a", 0, 0, 100, 50, firstTexture)],
+      scene: surfaceScene([flatSurface("node-a", 0, 0, 100, 50, firstTexture)]),
       viewport: [0, 0, 1],
     });
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
-      quads: [texturedQuad("node-a", 0, 0, 100, 50, firstTexture)],
+      scene: surfaceScene([flatSurface("node-a", 0, 0, 100, 50, firstTexture)]),
       viewport: [0, 0, 1],
     });
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
-      quads: [texturedQuad("node-a", 0, 0, 100, 50, secondTexture)],
+      scene: surfaceScene([
+        flatSurface("node-a", 0, 0, 100, 50, secondTexture),
+      ]),
       viewport: [0, 0, 1],
     });
 
     expect(gpu.device.createBindGroup).toHaveBeenCalledTimes(3);
   });
 
-  it("draws GPU edge line lists before node textures in the same pass", () => {
+  it("draws GPU edge line lists before surface textures in the same pass", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
     const edges = [edge("edge-a", 0, 0, 100, 0, true)];
 
     const result = renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       edges,
-      quads: [texturedQuad("node-a", 0, 0, 100, 50)],
+      scene: surfaceScene([flatSurface("node-a", 0, 0, 100, 50)]),
       viewport: [10, 20, 1.25],
     });
 
     expect(result).toEqual({
       drawnEdgeIds: ["edge-a"],
-      drawnNodeIds: ["node-a"],
+      drawnSurfaceIds: ["node-a"],
       edgeVertexCount: 2,
       vertexCount: 6,
     });
@@ -423,25 +431,25 @@ describe("gpu node quad pipeline", () => {
   it("keeps edge GPU buffers stable on viewport-only redraws", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
     const edges = [edge("edge-a", 0, 0, 100, 0)];
 
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       edges,
-      quads: [],
+      scene: surfaceScene([]),
       viewport: [0, 0, 1],
     });
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       edges,
-      quads: [],
+      scene: surfaceScene([]),
       viewport: [50, -25, 1.5],
     });
 
     const cameraBuffer = getBufferByLabel(
       gpu.buffers,
-      "setta-gpu-node-quad-camera-uniform",
+      "setta-html-surface-camera-uniform",
     );
     const edgePaletteBuffer = getBufferByLabel(
       gpu.buffers,
@@ -481,27 +489,27 @@ describe("gpu node quad pipeline", () => {
   it("updates the edge palette without rewriting unchanged edge geometry", () => {
     installGpuConstants();
     const gpu = createGpuRenderMock();
-    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
     const edges = [edge("edge-a", 0, 0, 100, 0)];
 
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       edgePalette: { color: "#41506c" },
       edges,
-      quads: [],
+      scene: surfaceScene([]),
       viewport: [0, 0, 1],
     });
     renderer.render({
       canvasSize: { cssHeight: 600, cssWidth: 800 },
       edgePalette: { color: "#bac2d3" },
       edges,
-      quads: [],
+      scene: surfaceScene([]),
       viewport: [0, 0, 1],
     });
 
     const cameraBuffer = getBufferByLabel(
       gpu.buffers,
-      "setta-gpu-node-quad-camera-uniform",
+      "setta-html-surface-camera-uniform",
     );
     const edgePaletteBuffer = getBufferByLabel(
       gpu.buffers,
@@ -537,7 +545,7 @@ describe("gpu node quad pipeline", () => {
       expect.any(Float32Array),
     );
     expect(writeBufferLabels(gpu)).toEqual([
-      "setta-gpu-node-quad-camera-uniform",
+      "setta-html-surface-camera-uniform",
       "setta-gpu-edge-palette-uniform",
       "setta-gpu-edge-line-vertices",
       "setta-gpu-edge-palette-uniform",
@@ -614,7 +622,7 @@ function createGpuRenderMock() {
       writeBuffer: ReturnType<typeof vi.fn>;
     };
   };
-  const runtime: NodeQuadRenderRuntime = {
+  const runtime: HtmlSurfaceRenderRuntime = {
     context: {
       configure: vi.fn(),
       getCurrentTexture: vi.fn(() => currentTexture as unknown as GPUTexture),
@@ -634,17 +642,18 @@ function createGpuRenderMock() {
   };
 }
 
-function texturedQuad(
-  nodeId: string,
+function flatSurface(
+  surfaceId: string,
   x: number,
   y: number,
   width: number,
   height: number,
-  texture = textureRecord(nodeId),
-): GpuTexturedNodeQuad {
+  texture = textureRecord(surfaceId),
+): HtmlSurfaceFlatVisual {
   return {
     height,
-    nodeId,
+    kind: "flat",
+    surfaceId,
     texture,
     width,
     x,
@@ -653,10 +662,14 @@ function texturedQuad(
   };
 }
 
-function textureRecord(nodeId: string): HtmlSurfaceTextureRecord {
+function surfaceScene(flatSurfaces: readonly HtmlSurfaceFlatVisual[]) {
+  return createHtmlSurfaceVisualScene({ flatSurfaces });
+}
+
+function textureRecord(surfaceId: string): HtmlSurfaceTextureRecord {
   return {
     sampler: {},
-    surfaceId: nodeId,
+    surfaceId,
     texture: {},
     textureBytes: 0,
     textureView: {},

@@ -1,18 +1,13 @@
 export type {
   GpuEdgePaletteInput,
   GpuGridInput,
-  NodeQuadRenderRuntime,
-  RenderNodeTextureQuadsInput,
-  RenderNodeTextureQuadsResult,
+  HtmlSurfaceRenderRuntime,
+  RenderHtmlSurfaceSceneBaseInput,
+  RenderHtmlSurfaceSceneResult,
 } from "./gpuPipelines/pipelineTypes";
 
 export {
-  encodeNodeQuadCameraUniform,
-  GpuNodeQuadRenderer,
-} from "./gpuPipelines/nodeQuadRenderer";
-
-export {
-  buildNodeQuadVertexData,
+  buildFlatSurfaceVertexData,
   encodeGpuEdgePaletteUniform,
   encodeGpuGridUniform,
   parseGpuGridColor,

@@ -19,9 +19,8 @@ import {
   syncGpuNodeDomTransforms,
   syncGpuNodeDomTransformsFromQuads,
   type GpuNodeLayout,
-  type GpuTexturedNodeQuad,
 } from "./GpuNodeLayer";
-import type { RenderNodeTextureQuadsInput } from "./gpuPipelines";
+import type { RenderHtmlSurfacesInput } from "./htmlSurfaces/renderer";
 import type {
   HtmlSurfaceTextureRecord,
   UploadDirtyHtmlSurfaceTexturesOptions,
@@ -422,14 +421,17 @@ describe("GpuNodeLayer helpers", () => {
     expect(renderer.render).toHaveBeenCalledWith({
       canvasSize: canvasSize(),
       clearColor: undefined,
-      quads: [
-        expect.objectContaining({
-          nodeId: "visible",
-          texture: expect.objectContaining({
-            lastUploadFrame: 1,
+      scene: expect.objectContaining({
+        flatSurfaces: [
+          expect.objectContaining({
+            kind: "flat",
+            surfaceId: "visible",
+            texture: expect.objectContaining({
+              lastUploadFrame: 1,
+            }),
           }),
-        }),
-      ],
+        ],
+      }),
       viewport: [5, -10, 1.5],
     });
     expect(result).toMatchObject({
@@ -539,11 +541,13 @@ describe("GpuNodeLayer helpers", () => {
     });
     expect(renderer.render).toHaveBeenCalledWith(
       expect.objectContaining({
-        quads: [
-          expect.objectContaining({
-            nodeId: "passive",
-          }),
-        ],
+        scene: expect.objectContaining({
+          flatSurfaces: [
+            expect.objectContaining({
+              surfaceId: "passive",
+            }),
+          ],
+        }),
       }),
     );
     expect(result.drawnNodeIds).toEqual(["passive"]);
@@ -577,7 +581,9 @@ describe("GpuNodeLayer helpers", () => {
     );
     expect(renderer.render).toHaveBeenCalledWith(
       expect.objectContaining({
-        quads: [],
+        scene: expect.objectContaining({
+          flatSurfaces: [],
+        }),
       }),
     );
   });
@@ -708,14 +714,16 @@ describe("GpuNodeLayer helpers", () => {
     expect(element.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(renderer.render).toHaveBeenCalledTimes(2);
     expect(renderer.render.mock.calls[1]?.[0]).toMatchObject({
-      quads: [
-        expect.objectContaining({
-          nodeId: "node-a",
-          texture: expect.objectContaining({
-            lastUploadFrame: 1,
+      scene: expect.objectContaining({
+        flatSurfaces: [
+          expect.objectContaining({
+            surfaceId: "node-a",
+            texture: expect.objectContaining({
+              lastUploadFrame: 1,
+            }),
           }),
-        }),
-      ],
+        ],
+      }),
       viewport: [25, -15, 1],
     });
   });
@@ -766,7 +774,9 @@ describe("GpuNodeLayer helpers", () => {
       canvasSize: canvasSize(),
       clearColor: undefined,
       edgePalette,
-      quads: [],
+      scene: expect.objectContaining({
+        flatSurfaces: [],
+      }),
       viewport: [0, 0, 1],
     });
   });
@@ -795,7 +805,9 @@ describe("GpuNodeLayer helpers", () => {
       canvasSize: canvasSize(),
       clearColor: undefined,
       edges: [edgeInput],
-      quads: [],
+      scene: expect.objectContaining({
+        flatSurfaces: [],
+      }),
       viewport: [0, 0, 1],
     });
     expect(result).toMatchObject({
@@ -831,7 +843,9 @@ describe("GpuNodeLayer helpers", () => {
       canvasSize: canvasSize(),
       clearColor: undefined,
       grid,
-      quads: [],
+      scene: expect.objectContaining({
+        flatSurfaces: [],
+      }),
       viewport: [0, 0, 1],
     });
   });
@@ -1169,13 +1183,11 @@ const EMPTY_TEXTURE_MEMORY_SNAPSHOT = {
 
 function createFrameRenderer() {
   return {
-    render: vi.fn(({ edges, quads }: RenderNodeTextureQuadsInput) => ({
+    render: vi.fn(({ edges, scene }: RenderHtmlSurfacesInput) => ({
       drawnEdgeIds: edges?.map((edge) => edge.edgeId) ?? [],
-      drawnNodeIds: (quads as readonly GpuTexturedNodeQuad[]).map(
-        (quad) => quad.nodeId,
-      ),
+      drawnSurfaceIds: scene.flatSurfaces.map((surface) => surface.surfaceId),
       edgeVertexCount: (edges?.length ?? 0) * 2,
-      vertexCount: quads.length * 6,
+      vertexCount: scene.flatSurfaces.length * 6,
     })),
   };
 }

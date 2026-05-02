@@ -4,8 +4,6 @@ import {
   type GpuEdgeLineListBufferData,
 } from "../edges/edgeGpuBuffers";
 
-import type { GpuTexturedNodeQuad } from "../GpuNodeLayer";
-
 import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 
 import {
@@ -16,34 +14,45 @@ import {
   EDGE_VERTEX_BYTES,
   EMPTY_EDGE_BUFFER_INPUTS,
   EdgeDrawResources,
+  FLAT_SURFACE_VERTEX_BYTES,
+  FlatSurfaceDrawResources,
+  FlatSurfaceVertexCache,
   GRID_UNIFORM_BYTES,
   GpuEdgePaletteInput,
   GpuGridInput,
   GridDrawResources,
-  NODE_QUAD_VERTEX_BYTES,
-  NodeDrawResources,
-  NodeQuadRenderRuntime,
-  NodeQuadVertexCache,
-  RenderNodeTextureQuadsInput,
-  RenderNodeTextureQuadsResult,
+  HtmlSurfaceRenderRuntime,
+  RenderHtmlSurfaceSceneBaseInput,
+  RenderHtmlSurfaceSceneResult,
   VERTICES_PER_QUAD,
-} from "./pipelineTypes";
+} from "../gpuPipelines/pipelineTypes";
 
 import {
   EDGE_LINE_SHADER,
+  FLAT_SURFACE_SHADER,
   GRID_SHADER,
-  NODE_QUAD_SHADER,
   alignToFourBytes,
   areFloat32ArraysEqual,
-  buildNodeQuadVertexData,
-  captureNodeQuadGeometry,
+  buildFlatSurfaceVertexData,
+  captureFlatSurfaceGeometry,
   encodeGpuEdgePaletteUniform,
   encodeGpuGridUniform,
-  isNodeQuadVertexCacheValid,
-} from "./bufferAndShaders";
+  isFlatSurfaceVertexCacheValid,
+} from "../gpuPipelines/bufferAndShaders";
 
-export class GpuNodeQuadRenderer {
-  private readonly runtime: NodeQuadRenderRuntime;
+import type {
+  HtmlSurfaceFlatVisual,
+  HtmlSurfaceVisualScene,
+} from "./visualScene";
+
+export type RenderHtmlSurfacesInput = RenderHtmlSurfaceSceneBaseInput & {
+  readonly scene: HtmlSurfaceVisualScene;
+};
+
+export type RenderHtmlSurfacesResult = RenderHtmlSurfaceSceneResult;
+
+export class HtmlSurfaceRenderer {
+  private readonly runtime: HtmlSurfaceRenderRuntime;
   private cameraBindGroup: GPUBindGroup | null = null;
   private cameraBindGroupLayout: GPUBindGroupLayout | null = null;
   private cameraBuffer: GPUBuffer | null = null;
@@ -61,13 +70,13 @@ export class GpuNodeQuadRenderer {
   private gridBindGroupLayout: GPUBindGroupLayout | null = null;
   private gridBuffer: GPUBuffer | null = null;
   private gridPipeline: GPURenderPipeline | null = null;
-  private nodePipeline: GPURenderPipeline | null = null;
-  private nodeVertexCache: NodeQuadVertexCache | null = null;
+  private flatSurfacePipeline: GPURenderPipeline | null = null;
+  private flatSurfaceVertexCache: FlatSurfaceVertexCache | null = null;
   private uploadedCameraUniform: Float32Array | null = null;
   private uploadedEdgeBufferData: GpuEdgeLineListBufferData | null = null;
   private uploadedEdgePaletteUniform: Float32Array | null = null;
   private uploadedGridUniform: Float32Array | null = null;
-  private uploadedNodeVertexCache: NodeQuadVertexCache | null = null;
+  private uploadedFlatSurfaceVertexCache: FlatSurfaceVertexCache | null = null;
   private textureBindGroupLayout: GPUBindGroupLayout | null = null;
   private readonly textureBindGroups = new Map<
     string,
@@ -80,7 +89,7 @@ export class GpuNodeQuadRenderer {
   private vertexBuffer: GPUBuffer | null = null;
   private vertexBufferByteCapacity = 0;
 
-  constructor(runtime: NodeQuadRenderRuntime) {
+  constructor(runtime: HtmlSurfaceRenderRuntime) {
     this.runtime = runtime;
   }
 
@@ -106,8 +115,8 @@ export class GpuNodeQuadRenderer {
     this.gridPipeline = null;
     this.vertexBuffer = null;
     this.cameraBindGroup = null;
-    this.nodePipeline = null;
-    this.nodeVertexCache = null;
+    this.flatSurfacePipeline = null;
+    this.flatSurfaceVertexCache = null;
     this.textureBindGroupLayout = null;
     this.cameraBindGroupLayout = null;
     this.textureBindGroups.clear();
@@ -115,7 +124,7 @@ export class GpuNodeQuadRenderer {
     this.uploadedEdgeBufferData = null;
     this.uploadedEdgePaletteUniform = null;
     this.uploadedGridUniform = null;
-    this.uploadedNodeVertexCache = null;
+    this.uploadedFlatSurfaceVertexCache = null;
     this.vertexBufferByteCapacity = 0;
   }
 
@@ -125,19 +134,21 @@ export class GpuNodeQuadRenderer {
     edgePalette = DEFAULT_EDGE_PALETTE_INPUT,
     edges = EMPTY_EDGE_BUFFER_INPUTS,
     grid,
-    quads,
+    scene,
     viewport,
-  }: RenderNodeTextureQuadsInput): RenderNodeTextureQuadsResult {
+  }: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult {
+    assertUnsupportedSurfaceBucketsEmpty(scene);
+    const flatSurfaces = scene.flatSurfaces;
     const edgeBufferData = this.resolveEdgeBufferData(edges);
     const gridDraw = this.prepareGridDraw(grid);
     const edgeDraw = this.prepareEdgeDraw(edgeBufferData);
     const cameraBindGroup = this.ensureCameraBindGroup();
-    const cameraUniform = encodeNodeQuadCameraUniform({
+    const cameraUniform = encodeHtmlSurfaceCameraUniform({
       canvasHeight: canvasSize.cssHeight,
       canvasWidth: canvasSize.cssWidth,
       viewport,
     });
-    const nodeDraw = this.prepareNodeDraw(quads);
+    const flatSurfaceDraw = this.prepareFlatSurfaceDraw(flatSurfaces);
     this.writeSceneBuffers({
       cameraUniform,
       edgeBufferData,
@@ -145,12 +156,12 @@ export class GpuNodeQuadRenderer {
       edgePalette,
       grid,
       gridDraw,
-      nodeDraw,
-      quads,
+      flatSurfaceDraw,
+      flatSurfaces,
     });
 
     const commandEncoder = this.runtime.device.createCommandEncoder({
-      label: "setta-gpu-node-quad-encoder",
+      label: "setta-html-surface-renderer-encoder",
     });
     const currentTexture = this.runtime.context.getCurrentTexture();
     const pass = commandEncoder.beginRenderPass({
@@ -160,25 +171,25 @@ export class GpuNodeQuadRenderer {
           loadOp: "clear",
           storeOp: "store",
           view: currentTexture.createView({
-            label: "setta-gpu-node-quad-current-texture-view",
+            label: "setta-html-surface-current-texture-view",
           }),
         },
       ],
-      label: "setta-gpu-node-quad-pass",
+      label: "setta-html-surface-render-pass",
     });
 
     this.drawGrid(pass, cameraBindGroup, gridDraw);
     this.drawEdges(pass, cameraBindGroup, edgeDraw, edgeBufferData);
-    this.drawNodes(pass, cameraBindGroup, nodeDraw, quads);
+    this.drawFlatSurfaces(pass, cameraBindGroup, flatSurfaceDraw, flatSurfaces);
     pass.end();
 
     this.runtime.device.queue.submit([commandEncoder.finish()]);
 
     return {
       drawnEdgeIds: edgeBufferData.ranges.map((range) => range.edgeId),
-      drawnNodeIds: quads.map((quad) => quad.nodeId),
+      drawnSurfaceIds: flatSurfaces.map((surface) => surface.surfaceId),
       edgeVertexCount: edgeBufferData.vertexCount,
-      vertexCount: quads.length * VERTICES_PER_QUAD,
+      vertexCount: flatSurfaces.length * VERTICES_PER_QUAD,
     };
   }
 
@@ -189,7 +200,7 @@ export class GpuNodeQuadRenderer {
     const cameraBindGroupLayout = this.ensureCameraBindGroupLayout();
     const device = this.runtime.device;
     this.cameraBuffer = device.createBuffer({
-      label: "setta-gpu-node-quad-camera-uniform",
+      label: "setta-html-surface-camera-uniform",
       size: CAMERA_UNIFORM_BYTES,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
     });
@@ -202,7 +213,7 @@ export class GpuNodeQuadRenderer {
           },
         },
       ],
-      label: "setta-gpu-node-quad-camera-bind-group",
+      label: "setta-html-surface-camera-bind-group",
       layout: cameraBindGroupLayout,
     });
     return this.cameraBindGroup;
@@ -223,7 +234,7 @@ export class GpuNodeQuadRenderer {
           visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
         },
       ],
-      label: "setta-gpu-node-quad-camera-bind-group-layout",
+      label: "setta-html-surface-camera-bind-group-layout",
     });
     return this.cameraBindGroupLayout;
   }
@@ -251,7 +262,7 @@ export class GpuNodeQuadRenderer {
           visibility: GPUShaderStage.FRAGMENT,
         },
       ],
-      label: "setta-gpu-node-quad-texture-bind-group-layout",
+      label: "setta-html-surface-texture-bind-group-layout",
     });
     return this.textureBindGroupLayout;
   }
@@ -397,18 +408,18 @@ export class GpuNodeQuadRenderer {
     return this.gridPipeline;
   }
 
-  private ensureNodePipeline(): GPURenderPipeline {
-    if (this.nodePipeline) {
-      return this.nodePipeline;
+  private ensureFlatSurfacePipeline(): GPURenderPipeline {
+    if (this.flatSurfacePipeline) {
+      return this.flatSurfacePipeline;
     }
     const device = this.runtime.device;
     const cameraBindGroupLayout = this.ensureCameraBindGroupLayout();
     const textureBindGroupLayout = this.ensureTextureBindGroupLayout();
     const shaderModule = device.createShaderModule({
-      code: NODE_QUAD_SHADER,
-      label: "setta-gpu-node-quad-shader",
+      code: FLAT_SURFACE_SHADER,
+      label: "setta-html-surface-flat-shader",
     });
-    this.nodePipeline = device.createRenderPipeline({
+    this.flatSurfacePipeline = device.createRenderPipeline({
       fragment: {
         entryPoint: "fs_main",
         module: shaderModule,
@@ -430,10 +441,10 @@ export class GpuNodeQuadRenderer {
           },
         ],
       },
-      label: "setta-gpu-node-quad-pipeline",
+      label: "setta-html-surface-flat-pipeline",
       layout: device.createPipelineLayout({
         bindGroupLayouts: [cameraBindGroupLayout, textureBindGroupLayout],
-        label: "setta-gpu-node-quad-pipeline-layout",
+        label: "setta-html-surface-flat-pipeline-layout",
       }),
       primitive: {
         topology: "triangle-list",
@@ -441,7 +452,7 @@ export class GpuNodeQuadRenderer {
       vertex: {
         buffers: [
           {
-            arrayStride: NODE_QUAD_VERTEX_BYTES,
+            arrayStride: FLAT_SURFACE_VERTEX_BYTES,
             attributes: [
               {
                 format: "float32x2",
@@ -460,7 +471,7 @@ export class GpuNodeQuadRenderer {
         module: shaderModule,
       },
     });
-    return this.nodePipeline;
+    return this.flatSurfacePipeline;
   }
 
   private prepareGridDraw(
@@ -581,33 +592,36 @@ export class GpuNodeQuadRenderer {
     return this.edgeVertexBuffer;
   }
 
-  private ensureNodeVertexBuffer(byteLength: number): GPUBuffer {
+  private ensureFlatSurfaceVertexBuffer(byteLength: number): GPUBuffer {
     if (this.vertexBuffer && this.vertexBufferByteCapacity >= byteLength) {
       return this.vertexBuffer;
     }
     this.vertexBuffer?.destroy?.();
-    const size = Math.max(NODE_QUAD_VERTEX_BYTES, alignToFourBytes(byteLength));
+    const size = Math.max(
+      FLAT_SURFACE_VERTEX_BYTES,
+      alignToFourBytes(byteLength),
+    );
     this.vertexBuffer = this.runtime.device.createBuffer({
-      label: "setta-gpu-node-quad-vertices",
+      label: "setta-html-surface-flat-vertices",
       size,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.VERTEX,
     });
     this.vertexBufferByteCapacity = size;
-    this.uploadedNodeVertexCache = null;
+    this.uploadedFlatSurfaceVertexCache = null;
     return this.vertexBuffer;
   }
 
-  private prepareNodeDraw(
-    quads: readonly GpuTexturedNodeQuad[],
-  ): NodeDrawResources | null {
-    if (quads.length === 0) {
+  private prepareFlatSurfaceDraw(
+    flatSurfaces: readonly HtmlSurfaceFlatVisual[],
+  ): FlatSurfaceDrawResources | null {
+    if (flatSurfaces.length === 0) {
       return null;
     }
     const byteLength =
-      quads.length * VERTICES_PER_QUAD * NODE_QUAD_VERTEX_BYTES;
+      flatSurfaces.length * VERTICES_PER_QUAD * FLAT_SURFACE_VERTEX_BYTES;
     return {
-      pipeline: this.ensureNodePipeline(),
-      vertexBuffer: this.ensureNodeVertexBuffer(byteLength),
+      pipeline: this.ensureFlatSurfacePipeline(),
+      vertexBuffer: this.ensureFlatSurfaceVertexBuffer(byteLength),
     };
   }
 
@@ -629,8 +643,8 @@ export class GpuNodeQuadRenderer {
     edgePalette,
     grid,
     gridDraw,
-    nodeDraw,
-    quads,
+    flatSurfaceDraw,
+    flatSurfaces,
   }: {
     readonly cameraUniform: Float32Array;
     readonly edgeBufferData: GpuEdgeLineListBufferData;
@@ -638,14 +652,14 @@ export class GpuNodeQuadRenderer {
     readonly edgePalette: GpuEdgePaletteInput;
     readonly grid: GpuGridInput | undefined;
     readonly gridDraw: GridDrawResources | null;
-    readonly nodeDraw: NodeDrawResources | null;
-    readonly quads: readonly GpuTexturedNodeQuad[];
+    readonly flatSurfaceDraw: FlatSurfaceDrawResources | null;
+    readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   }) {
     this.writeCameraBuffer(cameraUniform);
     this.writeGridBuffer(gridDraw, grid);
     this.writeEdgePaletteBuffer(edgeDraw, edgePalette);
     this.writeEdgeBuffer(edgeDraw, edgeBufferData);
-    this.writeNodeBuffer(nodeDraw, quads);
+    this.writeFlatSurfaceBuffer(flatSurfaceDraw, flatSurfaces);
   }
 
   private writeCameraBuffer(cameraUniform: Float32Array) {
@@ -711,37 +725,39 @@ export class GpuNodeQuadRenderer {
     this.uploadedEdgeBufferData = edgeBufferData;
   }
 
-  private writeNodeBuffer(
-    nodeDraw: NodeDrawResources | null,
-    quads: readonly GpuTexturedNodeQuad[],
+  private writeFlatSurfaceBuffer(
+    flatSurfaceDraw: FlatSurfaceDrawResources | null,
+    flatSurfaces: readonly HtmlSurfaceFlatVisual[],
   ) {
-    if (!nodeDraw) {
-      this.uploadedNodeVertexCache = null;
+    if (!flatSurfaceDraw) {
+      this.uploadedFlatSurfaceVertexCache = null;
       return;
     }
-    const vertexCache = this.resolveNodeVertexCache(quads);
-    if (this.uploadedNodeVertexCache === vertexCache) {
+    const vertexCache = this.resolveFlatSurfaceVertexCache(flatSurfaces);
+    if (this.uploadedFlatSurfaceVertexCache === vertexCache) {
       return;
     }
     this.runtime.device.queue.writeBuffer(
-      nodeDraw.vertexBuffer,
+      flatSurfaceDraw.vertexBuffer,
       0,
       vertexCache.vertexData,
     );
-    this.uploadedNodeVertexCache = vertexCache;
+    this.uploadedFlatSurfaceVertexCache = vertexCache;
   }
 
-  private resolveNodeVertexCache(
-    quads: readonly GpuTexturedNodeQuad[],
-  ): NodeQuadVertexCache {
-    if (isNodeQuadVertexCacheValid(this.nodeVertexCache, quads)) {
-      return this.nodeVertexCache;
+  private resolveFlatSurfaceVertexCache(
+    flatSurfaces: readonly HtmlSurfaceFlatVisual[],
+  ): FlatSurfaceVertexCache {
+    if (
+      isFlatSurfaceVertexCacheValid(this.flatSurfaceVertexCache, flatSurfaces)
+    ) {
+      return this.flatSurfaceVertexCache;
     }
     const vertexCache = {
-      geometry: captureNodeQuadGeometry(quads),
-      vertexData: buildNodeQuadVertexData(quads),
+      geometry: captureFlatSurfaceGeometry(flatSurfaces),
+      vertexData: buildFlatSurfaceVertexData(flatSurfaces),
     };
-    this.nodeVertexCache = vertexCache;
+    this.flatSurfaceVertexCache = vertexCache;
     return vertexCache;
   }
 
@@ -775,30 +791,30 @@ export class GpuNodeQuadRenderer {
     pass.draw(edgeBufferData.vertexCount, 1, 0, 0);
   }
 
-  private drawNodes(
+  private drawFlatSurfaces(
     pass: GPURenderPassEncoder,
     cameraBindGroup: GPUBindGroup,
-    nodeDraw: NodeDrawResources | null,
-    quads: readonly GpuTexturedNodeQuad[],
+    flatSurfaceDraw: FlatSurfaceDrawResources | null,
+    flatSurfaces: readonly HtmlSurfaceFlatVisual[],
   ) {
-    if (!nodeDraw) {
+    if (!flatSurfaceDraw) {
       return;
     }
-    pass.setPipeline(nodeDraw.pipeline);
+    pass.setPipeline(flatSurfaceDraw.pipeline);
     pass.setBindGroup(0, cameraBindGroup);
-    pass.setVertexBuffer(0, nodeDraw.vertexBuffer);
-    quads.forEach((quad, index) => {
-      pass.setBindGroup(1, this.getTextureBindGroup(quad));
+    pass.setVertexBuffer(0, flatSurfaceDraw.vertexBuffer);
+    flatSurfaces.forEach((surface, index) => {
+      pass.setBindGroup(1, this.getTextureBindGroup(surface));
       pass.draw(VERTICES_PER_QUAD, 1, index * VERTICES_PER_QUAD, 0);
     });
   }
 
-  private getTextureBindGroup(quad: GpuTexturedNodeQuad): GPUBindGroup {
-    const cached = this.textureBindGroups.get(quad.nodeId);
+  private getTextureBindGroup(surface: HtmlSurfaceFlatVisual): GPUBindGroup {
+    const cached = this.textureBindGroups.get(surface.surfaceId);
     if (
       cached &&
-      cached.textureView === quad.texture.textureView &&
-      cached.sampler === quad.texture.sampler
+      cached.textureView === surface.texture.textureView &&
+      cached.sampler === surface.texture.sampler
     ) {
       return cached.bindGroup;
     }
@@ -809,20 +825,20 @@ export class GpuNodeQuadRenderer {
       entries: [
         {
           binding: 0,
-          resource: quad.texture.sampler,
+          resource: surface.texture.sampler,
         },
         {
           binding: 1,
-          resource: quad.texture.textureView,
+          resource: surface.texture.textureView,
         },
       ],
-      label: `setta-gpu-node-quad-texture-bind-group-${quad.nodeId}`,
+      label: `setta-html-surface-texture-bind-group-${surface.surfaceId}`,
       layout: textureBindGroupLayout,
     });
-    this.textureBindGroups.set(quad.nodeId, {
+    this.textureBindGroups.set(surface.surfaceId, {
       bindGroup,
-      sampler: quad.texture.sampler,
-      textureView: quad.texture.textureView,
+      sampler: surface.texture.sampler,
+      textureView: surface.texture.textureView,
     });
     return bindGroup;
   }
@@ -831,7 +847,7 @@ export class GpuNodeQuadRenderer {
     const cameraBuffer = this.cameraBuffer;
     if (!cameraBuffer) {
       throw new Error(
-        "Setta GPU node rendering failed to create camera buffer.",
+        "Setta HTML surface rendering failed to create camera buffer.",
       );
     }
     return cameraBuffer;
@@ -862,7 +878,7 @@ export function destroyGpuBuffers(buffers: readonly (GPUBuffer | null)[]) {
   }
 }
 
-export function encodeNodeQuadCameraUniform({
+export function encodeHtmlSurfaceCameraUniform({
   canvasHeight,
   canvasWidth,
   viewport,
@@ -873,7 +889,9 @@ export function encodeNodeQuadCameraUniform({
 }): Float32Array {
   const normalizedViewport = normalizeGpuViewport(viewport);
   if (canvasWidth <= 0 || canvasHeight <= 0) {
-    throw new Error("Setta GPU node rendering requires positive canvas size.");
+    throw new Error(
+      "Setta HTML surface rendering requires positive canvas size.",
+    );
   }
   return new Float32Array([
     normalizedViewport.x,
@@ -885,4 +903,22 @@ export function encodeNodeQuadCameraUniform({
     0,
     0,
   ]);
+}
+
+function assertUnsupportedSurfaceBucketsEmpty(scene: HtmlSurfaceVisualScene) {
+  if (scene.tiledFlatSurfaces.length > 0) {
+    throw new Error(
+      "Setta HTML surface renderer received tiled flat surfaces before the tiled pass is installed.",
+    );
+  }
+  if (scene.meshSurfaces.length > 0) {
+    throw new Error(
+      "Setta HTML surface renderer received mesh surfaces before the mesh pass is installed.",
+    );
+  }
+  if (scene.effectSurfaces.length > 0) {
+    throw new Error(
+      "Setta HTML surface renderer received effect surfaces before the effect pass is installed.",
+    );
+  }
 }

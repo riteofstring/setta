@@ -49,11 +49,7 @@ import {
   type RenderGpuNodeLayerFrameResult,
 } from "../GpuNodeLayer";
 
-import {
-  GpuNodeQuadRenderer,
-  type GpuEdgePaletteInput,
-  type GpuGridInput,
-} from "../gpuPipelines";
+import { type GpuEdgePaletteInput, type GpuGridInput } from "../gpuPipelines";
 
 import { type GpuCanvasSize } from "../gpuRenderer";
 
@@ -64,6 +60,8 @@ import {
 } from "../GpuSurface";
 
 import { createHtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
+
+import { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 
 import {
   attachGpuEdgeInteractionController,
@@ -269,7 +267,7 @@ export function GpuFlow({
   const nodeInteractionRef = useRef<GpuNodeInteractionDirtyController | null>(
     null,
   );
-  const nodeQuadRendererRef = useRef<GpuNodeQuadRenderer | null>(null);
+  const htmlSurfaceRendererRef = useRef<HtmlSurfaceRenderer | null>(null);
   const nodeDomTransformSyncCacheRef = useRef<GpuNodeDomTransformSyncCache>(
     createGpuNodeDomTransformSyncCache(),
   );
@@ -380,7 +378,7 @@ export function GpuFlow({
       transformOnlyPaintNodeIdsRef.current.clear();
       sourceInteractionProjector.destroy();
       activeNodeTeleportRef.current?.destroy();
-      destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
+      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef);
     }
     surfaceRef.current?.requestFrame("viewport");
   }, [
@@ -480,7 +478,7 @@ export function GpuFlow({
         nodeInteractionRef,
         nodeInteractionCleanupRef,
       );
-      destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
+      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef);
     };
   }, []);
 
@@ -517,10 +515,10 @@ export function GpuFlow({
   const handleReady = useCallback<NonNullable<GpuSurfaceProps["onReady"]>>(
     (runtime) => {
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
-      destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
+      destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef);
       if (nodeLayerRef.current.nodes) {
         textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
-        nodeQuadRendererRef.current = new GpuNodeQuadRenderer(runtime);
+        htmlSurfaceRendererRef.current = new HtmlSurfaceRenderer(runtime);
       }
       destroyNodeInteractionResources(
         nodeInteractionRef,
@@ -679,7 +677,7 @@ export function GpuFlow({
         nodeDomTransformSyncCacheRef,
         nodeInteractionRef,
         nodeLayerRef,
-        nodeQuadRendererRef,
+        htmlSurfaceRendererRef,
         pendingActiveNodePaintRef,
         runtime,
         settlingActiveNodeClearIdsRef,
@@ -879,7 +877,7 @@ export function renderGpuFlowNodeLayerFrame({
   nodeDomTransformSyncCacheRef,
   nodeInteractionRef,
   nodeLayerRef,
-  nodeQuadRendererRef,
+  htmlSurfaceRendererRef,
   pendingActiveNodePaintRef,
   runtime,
   settlingActiveNodeClearIdsRef,
@@ -899,7 +897,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
-  readonly nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>;
+  readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly pendingActiveNodePaintRef: MutableRefObject<Set<string>>;
   readonly runtime: GpuFlowRuntime;
   readonly settlingActiveNodeClearIdsRef: MutableRefObject<Set<string>>;
@@ -913,7 +911,7 @@ export function renderGpuFlowNodeLayerFrame({
   const frameInput = resolveRenderableGpuFlowLayerFrameInput({
     canvasSizeRef,
     nodeLayerRef,
-    nodeQuadRendererRef,
+    htmlSurfaceRendererRef,
     runtime,
     textureManagerRef,
   });
@@ -949,7 +947,7 @@ export function renderGpuFlowNodeLayerFrame({
     marginCssPx: layer.marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
-    renderer: resources.nodeQuadRenderer,
+    renderer: resources.htmlSurfaceRenderer,
     suppressNodeIds: activeNodeTeleportFrameSync.suppressNodeIds,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,

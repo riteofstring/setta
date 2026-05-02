@@ -2,14 +2,14 @@ import type { CSSProperties, ReactNode } from "react";
 
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
-import type {
-  GpuEdgePaletteInput,
-  GpuGridInput,
-  RenderNodeTextureQuadsInput,
-  RenderNodeTextureQuadsResult,
-} from "../gpuPipelines";
+import type { GpuEdgePaletteInput, GpuGridInput } from "../gpuPipelines";
 
 import type { GpuCanvasSize } from "../gpuRenderer";
+
+import type {
+  RenderHtmlSurfacesInput,
+  RenderHtmlSurfacesResult,
+} from "../htmlSurfaces/renderer";
 
 import type {
   HtmlSurfaceTextureManager,
@@ -17,6 +17,11 @@ import type {
   HtmlSurfaceTextureRecord,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "../htmlSurfaces/textures";
+
+import {
+  createHtmlSurfaceVisualScene,
+  type HtmlSurfaceFlatVisual,
+} from "../htmlSurfaces/visualScene";
 
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
@@ -163,8 +168,8 @@ export type GpuNodeTextureController = Pick<
   | "uploadDirtySurfaceTextures"
 >;
 
-export type GpuNodeQuadRenderTarget = {
-  render(input: RenderNodeTextureQuadsInput): RenderNodeTextureQuadsResult;
+export type GpuNodeSurfaceRenderTarget = {
+  render(input: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult;
 };
 
 export type RenderGpuNodeLayerFrameInput = {
@@ -188,7 +193,7 @@ export type RenderGpuNodeLayerFrameInput = {
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly nodeTextureMemoryBudgetBytes?: number | undefined;
-  readonly renderer: GpuNodeQuadRenderTarget;
+  readonly renderer: GpuNodeSurfaceRenderTarget;
   readonly suppressNodeIds?:
     | ReadonlySet<string>
     | readonly string[]
@@ -415,7 +420,9 @@ export function renderGpuNodeLayerFrame({
     ...(edgePalette === undefined ? {} : { edgePalette }),
     ...(edges === undefined ? {} : { edges }),
     ...(grid === undefined ? {} : { grid }),
-    quads: renderableTexturedQuads,
+    scene: createHtmlSurfaceVisualScene({
+      flatSurfaces: renderableTexturedQuads.map(toFlatHtmlSurfaceVisual),
+    }),
     viewport,
   });
   const evictionResult = textureManager.evictSurfaceTextures({
@@ -433,7 +440,7 @@ export function renderGpuNodeLayerFrame({
     domTransformParkedNodeIds: domTransformResult.parkedNodeIds,
     domTransformUpdatedNodeIds: domTransformResult.updatedNodeIds,
     drawnEdgeIds: renderResult.drawnEdgeIds,
-    drawnNodeIds: renderResult.drawnNodeIds,
+    drawnNodeIds: renderResult.drawnSurfaceIds,
     edgeVertexCount: renderResult.edgeVertexCount,
     evictedTextureBytes: evictionResult.evictedBytes,
     evictedTextureNodeIds: evictionResult.evictedSurfaceIds,
@@ -625,6 +632,21 @@ export function buildTexturedGpuNodeQuads(
   }
 
   return { missingTextureNodeIds, texturedQuads };
+}
+
+export function toFlatHtmlSurfaceVisual(
+  quad: GpuTexturedNodeQuad,
+): HtmlSurfaceFlatVisual {
+  return {
+    height: quad.height,
+    kind: "flat",
+    surfaceId: quad.nodeId,
+    texture: quad.texture,
+    width: quad.width,
+    x: quad.x,
+    y: quad.y,
+    zIndex: quad.zIndex,
+  };
 }
 
 export function createGpuNodeDomTransformSyncCache(): GpuNodeDomTransformSyncCache {

@@ -11,7 +11,7 @@ import {
   type RenderGpuNodeLayerFrameResult,
 } from "../GpuNodeLayer";
 
-import { GpuNodeQuadRenderer } from "../gpuPipelines";
+import { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 
 import { measureGpuCanvasClientSize, type GpuCanvasSize } from "../gpuRenderer";
 
@@ -39,13 +39,13 @@ import {
 export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
   nodeLayerRef,
-  nodeQuadRendererRef,
+  htmlSurfaceRendererRef,
   runtime,
   textureManagerRef,
 }: {
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
-  readonly nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>;
+  readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }): {
@@ -53,7 +53,7 @@ export function resolveRenderableGpuFlowLayerFrameInput({
   readonly layer: GpuFlowNodeLayerState;
   readonly nodes: readonly GpuNodeLayout[];
   readonly resources: {
-    readonly nodeQuadRenderer: GpuNodeQuadRenderer;
+    readonly htmlSurfaceRenderer: HtmlSurfaceRenderer;
     readonly textureManager: HtmlSurfaceTextureManager;
   };
 } | null {
@@ -71,7 +71,7 @@ export function resolveRenderableGpuFlowLayerFrameInput({
     layer,
     nodes: layer.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
     resources: ensureNodeLayerResources({
-      nodeQuadRendererRef,
+      htmlSurfaceRendererRef,
       runtime,
       textureManagerRef,
     }),
@@ -290,35 +290,35 @@ export function mergeActiveNodeIds(
 }
 
 export function ensureNodeLayerResources({
-  nodeQuadRendererRef,
+  htmlSurfaceRendererRef,
   runtime,
   textureManagerRef,
 }: {
-  readonly nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>;
+  readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly runtime: GpuFlowRuntime;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }) {
   if (!textureManagerRef.current) {
     textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
   }
-  if (!nodeQuadRendererRef.current) {
-    nodeQuadRendererRef.current = new GpuNodeQuadRenderer(runtime);
+  if (!htmlSurfaceRendererRef.current) {
+    htmlSurfaceRendererRef.current = new HtmlSurfaceRenderer(runtime);
   }
 
   return {
-    nodeQuadRenderer: nodeQuadRendererRef.current,
+    htmlSurfaceRenderer: htmlSurfaceRendererRef.current,
     textureManager: textureManagerRef.current,
   };
 }
 
 export function destroyNodeLayerResources(
   textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>,
-  nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>,
+  htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>,
 ) {
   textureManagerRef.current?.destroy();
   textureManagerRef.current = null;
-  nodeQuadRendererRef.current?.destroy();
-  nodeQuadRendererRef.current = null;
+  htmlSurfaceRendererRef.current?.destroy();
+  htmlSurfaceRendererRef.current = null;
 }
 
 export function destroyNodeInteractionResources(
