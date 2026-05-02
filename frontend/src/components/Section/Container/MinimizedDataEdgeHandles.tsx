@@ -8,10 +8,14 @@ import {
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+
+const MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
 export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
   const { isMinimized, inputPortIds, outputPortIds } = useProjectState(
@@ -96,14 +100,14 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
       {hasInputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
+          className={`react-flow__handle react-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
           ref={leftDotRef}
         />
       )}
       {hasOutputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
+          className={`react-flow__handle react-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
           ref={rightDotRef}
         />
       )}

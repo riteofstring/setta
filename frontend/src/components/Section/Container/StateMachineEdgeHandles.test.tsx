@@ -3,6 +3,7 @@ import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   SectionTypeEnum,
   createChatSectionImpl,
@@ -253,6 +254,11 @@ describe("StateMachineEdgeHandles", () => {
     );
     expect(markup).toContain("agentic-handle--connected");
     expect(markup).toContain("workflow-handle-scope--chat");
+    expect(markup).toMatch(
+      new RegExp(
+        `class="[^"]*${NO_DRAG_CLASS_NAME}[^"]*${NO_PAN_CLASS_NAME}[^"]*workflow-handle-safe-zone`,
+      ),
+    );
   });
 
   it("suppresses workflow handles in user view", () => {

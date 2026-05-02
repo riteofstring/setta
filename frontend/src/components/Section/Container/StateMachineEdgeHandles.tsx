@@ -11,6 +11,8 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
@@ -184,6 +186,8 @@ function getSafeZoneClassName(
   return [
     SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
     SETTA_PREVENT_SECTION_ACTIVE_CSS,
+    NO_DRAG_CLASS_NAME,
+    NO_PAN_CLASS_NAME,
     "agentic-handle-metrics",
     "workflow-handle-metrics",
     scopeClassName,

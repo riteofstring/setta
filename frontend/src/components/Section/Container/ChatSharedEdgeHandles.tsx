@@ -12,6 +12,8 @@ import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
@@ -20,6 +22,8 @@ type SharedChatConnectionVisibility = {
   hasIncoming: boolean;
   hasOutgoing: boolean;
 };
+
+const SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
 type SectionConnectionEdge = {
   sourceSectionId: string;
@@ -92,7 +96,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
     <>
       <div
         aria-hidden="true"
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--left`}
+        className={`${SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--left`}
       />
       <Handle
         id={SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart}
@@ -128,7 +132,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
       />
       <div
         aria-hidden="true"
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--right`}
+        className={`${SHARED_CHAT_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--right`}
       />
       <Handle
         id={SHARED_CHAT_EDGE_HANDLE_IDS.source}

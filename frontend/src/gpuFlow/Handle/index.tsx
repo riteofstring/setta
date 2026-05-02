@@ -9,6 +9,7 @@ import {
   unregisterEdgeHandle,
   updateEdgeHandlePosition,
 } from "state/actions/edgeHandles";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { useNodeId } from "../NodeIdContext";
 import type { Connection, HandleProps } from "../flowTypes";
 import { gpuFlowViewportStore } from "../viewportStore";
@@ -125,7 +126,8 @@ function HandleComponent({
   const classes = [
     "react-flow__handle",
     `react-flow__handle-${position}`,
-    "nodrag",
+    NO_DRAG_CLASS_NAME,
+    NO_PAN_CLASS_NAME,
     className,
     type,
     isConnectable ? "connectable connectionindicator" : null,

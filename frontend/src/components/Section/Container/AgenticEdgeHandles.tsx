@@ -12,9 +12,13 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
+
+const EDGE_HANDLE_SAFE_ZONE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
 export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
@@ -54,7 +58,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
     <>
       <div
         aria-hidden="true"
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--left`}
+        className={`${EDGE_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--left`}
       />
       <Handle
         id={AGENTIC_EDGE_HANDLE_IDS.reverseStart}
@@ -89,7 +93,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
       />
       <div
         aria-hidden="true"
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--right`}
+        className={`${EDGE_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--right`}
       />
       <Handle
         id={AGENTIC_EDGE_HANDLE_IDS.source}
