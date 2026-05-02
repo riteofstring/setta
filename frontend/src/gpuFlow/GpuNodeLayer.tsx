@@ -18,6 +18,7 @@ import type {
 import type { GpuCanvasSize } from "./gpuRenderer";
 import type {
   NodeTextureManager,
+  NodeTextureMemorySnapshot,
   NodeTextureRecord,
   UploadDirtyNodeTexturesOptions,
 } from "./nodeTextures";
@@ -134,6 +135,7 @@ export type GpuNodeUploadBudget = Pick<
 type GpuNodeTextureController = Pick<
   NodeTextureManager,
   | "getNodeTexture"
+  | "evictNodeTextures"
   | "markNodeTextureDirty"
   | "registerNodeTexture"
   | "uploadDirtyNodeTextures"
@@ -180,10 +182,14 @@ export type RenderGpuNodeLayerFrameResult = {
   readonly drawnEdgeIds: readonly string[];
   readonly drawnNodeIds: readonly string[];
   readonly edgeVertexCount: number;
+  readonly evictedTextureBytes: number;
+  readonly evictedTextureNodeIds: readonly string[];
   readonly missingElementNodeIds: readonly string[];
   readonly missingTextureNodeIds: readonly string[];
   readonly remainingDirtyNodeIds: readonly string[];
   readonly skippedNodeIds: readonly string[];
+  readonly textureMemory: NodeTextureMemorySnapshot;
+  readonly textureMemoryBeforeEviction: NodeTextureMemorySnapshot;
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeIds: readonly string[];
 };
@@ -429,6 +435,11 @@ export function renderGpuNodeLayerFrame({
     quads: renderableTexturedQuads,
     viewport,
   });
+  const evictionResult = textureManager.evictNodeTextures({
+    protectedNodeIds: retainedNodeIds,
+    reason: "node-layer-frame",
+    visibleNodeIds,
+  });
 
   return {
     activeNodeId: activeNodeId ?? null,
@@ -436,10 +447,14 @@ export function renderGpuNodeLayerFrame({
     drawnEdgeIds: renderResult.drawnEdgeIds,
     drawnNodeIds: renderResult.drawnNodeIds,
     edgeVertexCount: renderResult.edgeVertexCount,
+    evictedTextureBytes: evictionResult.evictedBytes,
+    evictedTextureNodeIds: evictionResult.evictedNodeIds,
     missingElementNodeIds,
     missingTextureNodeIds: textureResult.missingTextureNodeIds,
     remainingDirtyNodeIds: uploadResult.remainingDirtyNodeIds,
     skippedNodeIds: uploadResult.skippedNodeIds,
+    textureMemory: evictionResult.memory,
+    textureMemoryBeforeEviction: evictionResult.memoryBefore,
     uploadedNodeIds: uploadResult.uploaded.map((record) => record.nodeId),
     visibleNodeIds: [...visibleNodeIds],
   };

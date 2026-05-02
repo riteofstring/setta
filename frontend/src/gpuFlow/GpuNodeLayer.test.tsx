@@ -514,6 +514,67 @@ describe("GpuNodeLayer helpers", () => {
     );
   });
 
+  it("reports texture eviction and memory summaries from the manager", () => {
+    const visible = document.createElement("div");
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+    manager.evictNodeTextures.mockReturnValueOnce({
+      budgetBytes: 800,
+      evictedBytes: 400,
+      evictedNodeIds: ["offscreen"],
+      memory: {
+        allocatedBytes: 800,
+        largestTextureBytes: 400,
+        textureCount: 2,
+        visibleBytes: 400,
+        visibleTextureCount: 1,
+      },
+      memoryBefore: {
+        allocatedBytes: 1_200,
+        largestTextureBytes: 400,
+        textureCount: 3,
+        visibleBytes: 400,
+        visibleTextureCount: 1,
+      },
+      overBudgetBytes: 0,
+      protectedNodeIds: ["visible"],
+      reason: "node-layer-frame",
+    });
+
+    const result = renderGpuNodeLayerFrame({
+      activeNodeId: "visible",
+      canvasSize: canvasSize(),
+      elementByNodeId: new Map([["visible", visible]]),
+      frame: 1,
+      nodes: [node("visible", 10, 20, 100, 50, 0)],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(manager.evictNodeTextures).toHaveBeenCalledWith({
+      protectedNodeIds: expect.any(Set),
+      reason: "node-layer-frame",
+      visibleNodeIds: expect.any(Set),
+    });
+    const evictionInput = manager.evictNodeTextures.mock.calls[0]?.[0];
+    expect([...(evictionInput?.visibleNodeIds ?? [])]).toEqual(["visible"]);
+    expect([...(evictionInput?.protectedNodeIds ?? [])]).toEqual(["visible"]);
+    expect(result).toMatchObject({
+      evictedTextureBytes: 400,
+      evictedTextureNodeIds: ["offscreen"],
+      textureMemory: {
+        allocatedBytes: 800,
+        textureCount: 2,
+        visibleBytes: 400,
+      },
+      textureMemoryBeforeEviction: {
+        allocatedBytes: 1_200,
+        textureCount: 3,
+      },
+    });
+  });
+
   it("redraws viewport-only movement from cached textures without another element upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
@@ -884,6 +945,16 @@ function canvasSize() {
 function createFrameTextureManager() {
   const records = new Map<string, NodeTextureRecord>();
   const manager = {
+    evictNodeTextures: vi.fn(() => ({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      evictedBytes: 0,
+      evictedNodeIds: [],
+      memory: EMPTY_TEXTURE_MEMORY_SNAPSHOT,
+      memoryBefore: EMPTY_TEXTURE_MEMORY_SNAPSHOT,
+      overBudgetBytes: 0,
+      protectedNodeIds: [],
+      reason: "node-layer-frame",
+    })),
     getNodeTexture: vi.fn((nodeId: string) => records.get(nodeId)),
     markNodeTextureDirty: vi.fn(),
     registerNodeTexture: vi.fn(({ nodeId }: { readonly nodeId: string }) => {
@@ -913,6 +984,14 @@ function createFrameTextureManager() {
   };
   return manager;
 }
+
+const EMPTY_TEXTURE_MEMORY_SNAPSHOT = {
+  allocatedBytes: 0,
+  largestTextureBytes: 0,
+  textureCount: 0,
+  visibleBytes: 0,
+  visibleTextureCount: 0,
+};
 
 function createFrameRenderer() {
   return {

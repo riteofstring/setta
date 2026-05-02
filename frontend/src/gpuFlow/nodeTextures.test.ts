@@ -56,10 +56,12 @@ describe("NodeTextureManager", () => {
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 2,
+      lastVisibleFrame: 1,
       pixelHeight: 100,
       pixelWidth: 200,
       priority: "visible",
       resolutionScale: 2,
+      textureBytes: 80_000,
     });
   });
 
@@ -104,6 +106,7 @@ describe("NodeTextureManager", () => {
       pixelHeight: 150,
       pixelWidth: 300,
       resolutionScale: 3,
+      textureBytes: 180_000,
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenLastCalledWith(
       element,
@@ -376,8 +379,114 @@ describe("NodeTextureManager", () => {
       pixelWidth: 1024,
       requestedScale: 8,
       resolutionScale: 1.024,
+      textureBytes: 2_097_152,
       zoomBucket: 4,
     });
+  });
+
+  it("reports allocated and visible texture memory from texture dimensions", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new NodeTextureManager(gpu.device);
+
+    registerNode(manager, "small", "visible", {
+      cssHeight: 10,
+      cssWidth: 10,
+      devicePixelRatio: 1,
+    });
+    registerNode(manager, "large", "visible", {
+      cssHeight: 20,
+      cssWidth: 30,
+      devicePixelRatio: 2,
+    });
+
+    expect(
+      manager.getTextureMemorySnapshot({ visibleNodeIds: ["large"] }),
+    ).toEqual({
+      allocatedBytes: 10 * 10 * 4 + 60 * 40 * 4,
+      largestTextureBytes: 60 * 40 * 4,
+      textureCount: 2,
+      visibleBytes: 60 * 40 * 4,
+      visibleTextureCount: 1,
+    });
+  });
+
+  it("evicts offscreen textures by least recent visible frame", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new NodeTextureManager(gpu.device, {
+      maxTextureBytes: 800,
+    });
+
+    registerNode(manager, "recent", "visible", { frame: 1 });
+    registerNode(manager, "oldest", "visible", { frame: 2 });
+    registerNode(manager, "recent", "visible", { frame: 3 });
+    registerNode(manager, "newest", "visible", { frame: 4 });
+
+    const result = manager.evictNodeTextures();
+
+    expect(result).toMatchObject({
+      budgetBytes: 800,
+      evictedBytes: 400,
+      evictedNodeIds: ["oldest"],
+      overBudgetBytes: 0,
+      reason: "memory-budget",
+    });
+    expect(result.memoryBefore).toMatchObject({
+      allocatedBytes: 1_200,
+      textureCount: 3,
+    });
+    expect(result.memory).toMatchObject({
+      allocatedBytes: 800,
+      textureCount: 2,
+    });
+    expect(manager.getNodeTexture("oldest")).toBeUndefined();
+    expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it("protects visible, explicit, interactive, and dirty-interactive records while evicting", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new NodeTextureManager(gpu.device, {
+      maxTextureBytes: 400,
+    });
+
+    registerNode(manager, "visible", "visible", { frame: 1 });
+    registerNode(manager, "explicit", "visible", { frame: 2 });
+    registerNode(manager, "interactive", "interactive", { frame: 3 });
+    registerNode(manager, "dirty-interactive", "visible", { frame: 4 });
+    registerNode(manager, "candidate", "visible", { frame: 5 });
+    manager.markNodeTextureDirty({
+      content: true,
+      nodeId: "dirty-interactive",
+      priority: "interactive",
+      reason: "input",
+    });
+
+    const result = manager.evictNodeTextures({
+      protectedNodeIds: ["explicit"],
+      visibleNodeIds: ["visible"],
+    });
+
+    expect(result.evictedNodeIds).toEqual(["candidate"]);
+    expect(result.memory).toMatchObject({
+      allocatedBytes: 1_600,
+      textureCount: 4,
+      visibleBytes: 400,
+      visibleTextureCount: 1,
+    });
+    expect(result.overBudgetBytes).toBe(1_200);
+    expect(result.protectedNodeIds).toEqual([
+      "dirty-interactive",
+      "explicit",
+      "interactive",
+      "visible",
+    ]);
+    expect(manager.getNodeTexture("candidate")).toBeUndefined();
+    expect(manager.getNodeTexture("visible")).toBeDefined();
+    expect(manager.getNodeTexture("explicit")).toBeDefined();
+    expect(manager.getNodeTexture("interactive")).toBeDefined();
+    expect(manager.getNodeTexture("dirty-interactive")).toBeDefined();
   });
 
   it("destroys individual and retained node textures", () => {
@@ -453,14 +562,22 @@ function registerNode(
   manager: NodeTextureManager,
   nodeId: string,
   priority: "interactive" | "visible" | "prefetch",
+  overrides: Partial<{
+    readonly cssHeight: number;
+    readonly cssWidth: number;
+    readonly devicePixelRatio: number;
+    readonly frame: number;
+    readonly zoom: number;
+  }> = {},
 ) {
   manager.registerNodeTexture({
-    cssHeight: 20,
-    cssWidth: 40,
-    devicePixelRatio: 1,
+    cssHeight: overrides.cssHeight ?? 10,
+    cssWidth: overrides.cssWidth ?? 10,
+    devicePixelRatio: overrides.devicePixelRatio ?? 1,
     element: document.createElement("div"),
+    ...(overrides.frame === undefined ? {} : { frame: overrides.frame }),
     nodeId,
     priority,
-    zoom: 1,
+    zoom: overrides.zoom ?? 1,
   });
 }

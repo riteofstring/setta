@@ -23,6 +23,7 @@ export type NodeTextureRecord = {
   readonly dirtyContent: boolean;
   readonly dirtyResolution: boolean;
   readonly lastUploadFrame: number;
+  readonly lastVisibleFrame: number;
   readonly maxTextureDimension2D: number;
   readonly nodeId: string;
   readonly pixelHeight: number;
@@ -31,6 +32,7 @@ export type NodeTextureRecord = {
   readonly requestedScale: number;
   readonly resolutionScale: number;
   readonly sampler: GPUSampler;
+  readonly textureBytes: number;
   readonly texture: GPUTexture;
   readonly textureView: GPUTextureView;
   readonly zoomBucket: number;
@@ -83,9 +85,39 @@ type UploadDirtyNodeTexturesResult = {
   readonly uploaded: readonly NodeTextureRecord[];
 };
 
+export type NodeTextureMemorySnapshot = {
+  readonly allocatedBytes: number;
+  readonly largestTextureBytes: number;
+  readonly textureCount: number;
+  readonly visibleBytes: number;
+  readonly visibleTextureCount: number;
+};
+
+type EvictNodeTexturesOptions = {
+  readonly budgetBytes?: number | undefined;
+  readonly protectedNodeIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly reason?: string | undefined;
+  readonly visibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
+};
+
+type NodeTextureEvictionResult = {
+  readonly budgetBytes: number;
+  readonly evictedBytes: number;
+  readonly evictedNodeIds: readonly string[];
+  readonly memory: NodeTextureMemorySnapshot;
+  readonly memoryBefore: NodeTextureMemorySnapshot;
+  readonly overBudgetBytes: number;
+  readonly protectedNodeIds: readonly string[];
+  readonly reason: string;
+};
+
 type NodeTextureManagerOptions = {
   readonly canvas?: HtmlInCanvasCanvas | undefined;
   readonly format?: GPUTextureFormat | undefined;
+  readonly maxTextureBytes?: number | undefined;
   readonly maxTextureDimension2D?: number | undefined;
   readonly textureUsage?: GPUTextureUsageFlags | undefined;
 };
@@ -111,12 +143,14 @@ type DirtyNodeUploadOutcome =
   | "paint-unavailable";
 
 const DEFAULT_NODE_TEXTURE_FORMAT = "rgba8unorm";
+const DEFAULT_NODE_TEXTURE_MEMORY_BUDGET_BYTES = 384 * 1024 * 1024;
 
 export class NodeTextureManager {
   private readonly canvas: HtmlInCanvasCanvas | null;
   private readonly device: GPUDevice;
   private readonly dirtyQueue = new DirtyNodeQueue();
   private readonly format: GPUTextureFormat;
+  private readonly maxTextureBytes: number;
   private readonly maxTextureDimension2D: number;
   private readonly records = new Map<string, NodeTextureEntry>();
   private readonly textureUsage: GPUTextureUsageFlags;
@@ -125,6 +159,7 @@ export class NodeTextureManager {
     this.canvas = options.canvas ?? null;
     this.device = device;
     this.format = options.format ?? DEFAULT_NODE_TEXTURE_FORMAT;
+    this.maxTextureBytes = normalizeTextureBudgetBytes(options.maxTextureBytes);
     this.maxTextureDimension2D =
       options.maxTextureDimension2D ?? device.limits.maxTextureDimension2D;
     this.textureUsage = options.textureUsage ?? getNodeTextureUsage();
@@ -154,6 +189,36 @@ export class NodeTextureManager {
 
   getNodeTexture(nodeId: string): NodeTextureRecord | undefined {
     return this.records.get(nodeId);
+  }
+
+  getTextureMemorySnapshot({
+    visibleNodeIds,
+  }: Pick<
+    EvictNodeTexturesOptions,
+    "visibleNodeIds"
+  > = {}): NodeTextureMemorySnapshot {
+    const visibleIds = normalizeNodeIdSet(visibleNodeIds);
+    let allocatedBytes = 0;
+    let largestTextureBytes = 0;
+    let visibleBytes = 0;
+    let visibleTextureCount = 0;
+
+    for (const record of this.records.values()) {
+      allocatedBytes += record.textureBytes;
+      largestTextureBytes = Math.max(largestTextureBytes, record.textureBytes);
+      if (visibleIds.has(record.nodeId)) {
+        visibleBytes += record.textureBytes;
+        visibleTextureCount += 1;
+      }
+    }
+
+    return {
+      allocatedBytes,
+      largestTextureBytes,
+      textureCount: this.records.size,
+      visibleBytes,
+      visibleTextureCount,
+    };
   }
 
   markNodeTextureDirty(input: MarkNodeTextureDirtyInput) {
@@ -188,39 +253,61 @@ export class NodeTextureManager {
     });
     const existing = this.records.get(input.nodeId);
     if (!existing) {
-      const resources = this.createTextureResources(input.nodeId, resolution);
-      const record: NodeTextureEntry = {
-        ...resources,
-        clampedByMaxTexture: resolution.clampedByMaxTexture,
-        cssHeight: resolution.cssHeight,
-        cssWidth: resolution.cssWidth,
-        dirtyContent: true,
-        dirtyResolution: true,
-        element: input.element,
-        lastUploadFrame: -1,
-        maxTextureDimension2D: resolution.maxTextureDimension2D,
-        nodeId: input.nodeId,
-        pendingResolution: null,
-        pixelHeight: resolution.pixelHeight,
-        pixelWidth: resolution.pixelWidth,
-        priority: input.priority ?? "visible",
-        requestedScale: resolution.requestedScale,
-        resolutionScale: resolution.resolutionScale,
-        zoomBucket: resolution.zoomBucket,
-      };
-      this.records.set(input.nodeId, record);
-      this.markNodeTextureDirty({
-        content: true,
-        frame: input.frame,
-        nodeId: input.nodeId,
-        priority: record.priority,
-        reason: "first-visible",
-        resolution: true,
-      });
-      return record;
+      return this.registerNewNodeTexture(input, resolution);
     }
 
+    return this.updateRegisteredNodeTexture(existing, input, resolution);
+  }
+
+  private registerNewNodeTexture(
+    input: RegisterNodeTextureInput,
+    resolution: TextureResolution,
+  ): NodeTextureRecord {
+    const resources = this.createTextureResources(input.nodeId, resolution);
+    const record: NodeTextureEntry = {
+      ...resources,
+      clampedByMaxTexture: resolution.clampedByMaxTexture,
+      cssHeight: resolution.cssHeight,
+      cssWidth: resolution.cssWidth,
+      dirtyContent: true,
+      dirtyResolution: true,
+      element: input.element,
+      lastUploadFrame: -1,
+      lastVisibleFrame: input.frame ?? 0,
+      maxTextureDimension2D: resolution.maxTextureDimension2D,
+      nodeId: input.nodeId,
+      pendingResolution: null,
+      pixelHeight: resolution.pixelHeight,
+      pixelWidth: resolution.pixelWidth,
+      priority: input.priority ?? "visible",
+      requestedScale: resolution.requestedScale,
+      resolutionScale: resolution.resolutionScale,
+      textureBytes: estimateTextureMemoryBytes({
+        format: this.format,
+        pixelHeight: resolution.pixelHeight,
+        pixelWidth: resolution.pixelWidth,
+      }),
+      zoomBucket: resolution.zoomBucket,
+    };
+    this.records.set(input.nodeId, record);
+    this.markNodeTextureDirty({
+      content: true,
+      frame: input.frame,
+      nodeId: input.nodeId,
+      priority: record.priority,
+      reason: "first-visible",
+      resolution: true,
+    });
+    return record;
+  }
+
+  private updateRegisteredNodeTexture(
+    existing: NodeTextureEntry,
+    input: RegisterNodeTextureInput,
+    resolution: TextureResolution,
+  ): NodeTextureRecord {
     existing.element = input.element;
+    existing.lastVisibleFrame = input.frame ?? existing.lastVisibleFrame;
     existing.priority = input.priority ?? existing.priority;
 
     const dimensionChanged =
@@ -255,6 +342,52 @@ export class NodeTextureManager {
     }
 
     return existing;
+  }
+
+  evictNodeTextures({
+    budgetBytes = this.maxTextureBytes,
+    protectedNodeIds,
+    reason = "memory-budget",
+    visibleNodeIds,
+  }: EvictNodeTexturesOptions = {}): NodeTextureEvictionResult {
+    const visibleIds = normalizeNodeIdSet(visibleNodeIds);
+    const resolvedBudgetBytes = normalizeTextureBudgetBytes(budgetBytes);
+    const protectedIds = this.resolveProtectedTextureNodeIds({
+      protectedNodeIds,
+      visibleNodeIds: visibleIds,
+    });
+    const memoryBefore = this.getTextureMemorySnapshot({
+      visibleNodeIds: visibleIds,
+    });
+    let allocatedBytes = memoryBefore.allocatedBytes;
+    const evictedNodeIds: string[] = [];
+    let evictedBytes = 0;
+
+    if (allocatedBytes > resolvedBudgetBytes) {
+      for (const record of this.evictableRecords(protectedIds)) {
+        if (allocatedBytes <= resolvedBudgetBytes) {
+          break;
+        }
+        evictedNodeIds.push(record.nodeId);
+        evictedBytes += record.textureBytes;
+        allocatedBytes -= record.textureBytes;
+        this.destroyNodeTexture(record.nodeId);
+      }
+    }
+
+    const memory = this.getTextureMemorySnapshot({
+      visibleNodeIds: visibleIds,
+    });
+    return {
+      budgetBytes: resolvedBudgetBytes,
+      evictedBytes,
+      evictedNodeIds,
+      memory,
+      memoryBefore,
+      overBudgetBytes: Math.max(0, memory.allocatedBytes - resolvedBudgetBytes),
+      protectedNodeIds: [...protectedIds].sort(compareNodeIds),
+      reason,
+    };
   }
 
   setNodeTexturePriority(nodeId: string, priority: NodeTexturePriority) {
@@ -458,8 +591,48 @@ export class NodeTextureManager {
     record.pixelWidth = resolution.pixelWidth;
     record.requestedScale = resolution.requestedScale;
     record.resolutionScale = resolution.resolutionScale;
+    record.textureBytes = estimateTextureMemoryBytes({
+      format: this.format,
+      pixelHeight: resolution.pixelHeight,
+      pixelWidth: resolution.pixelWidth,
+    });
     record.zoomBucket = resolution.zoomBucket;
     previousTexture.destroy?.();
+  }
+
+  private resolveProtectedTextureNodeIds({
+    protectedNodeIds,
+    visibleNodeIds,
+  }: {
+    readonly protectedNodeIds:
+      | ReadonlySet<string>
+      | readonly string[]
+      | undefined;
+    readonly visibleNodeIds: ReadonlySet<string>;
+  }): Set<string> {
+    const protectedIds = new Set([
+      ...visibleNodeIds,
+      ...normalizeNodeIdSet(protectedNodeIds),
+    ]);
+    for (const record of this.records.values()) {
+      if (record.priority === "interactive") {
+        protectedIds.add(record.nodeId);
+      }
+    }
+    for (const dirtyNode of this.dirtyQueue.orderedDirtyNodes()) {
+      if (dirtyNode.priority === "interactive") {
+        protectedIds.add(dirtyNode.nodeId);
+      }
+    }
+    return protectedIds;
+  }
+
+  private evictableRecords(
+    protectedNodeIds: ReadonlySet<string>,
+  ): NodeTextureEntry[] {
+    return [...this.records.values()]
+      .filter((record) => !protectedNodeIds.has(record.nodeId))
+      .sort(compareEvictableTextureRecords);
   }
 }
 
@@ -483,6 +656,58 @@ function getNodeTextureUsage(): GPUTextureUsageFlags {
     throw new Error("Setta GPU flow requires GPUTextureUsage constants.");
   }
   return usage.TEXTURE_BINDING | usage.COPY_DST | usage.RENDER_ATTACHMENT;
+}
+
+function normalizeTextureBudgetBytes(budgetBytes: number | undefined): number {
+  const resolvedBudgetBytes =
+    budgetBytes ?? DEFAULT_NODE_TEXTURE_MEMORY_BUDGET_BYTES;
+  if (Number.isNaN(resolvedBudgetBytes) || resolvedBudgetBytes <= 0) {
+    throw new Error(
+      "Setta GPU flow node texture memory budget must be greater than zero bytes.",
+    );
+  }
+  return resolvedBudgetBytes;
+}
+
+function estimateTextureMemoryBytes({
+  format,
+  pixelHeight,
+  pixelWidth,
+}: {
+  readonly format: GPUTextureFormat;
+  readonly pixelHeight: number;
+  readonly pixelWidth: number;
+}): number {
+  return pixelWidth * pixelHeight * bytesPerPixel(format);
+}
+
+function bytesPerPixel(format: GPUTextureFormat): number {
+  switch (format) {
+    case "bgra8unorm":
+    case "bgra8unorm-srgb":
+    case "rgba8unorm":
+    case "rgba8unorm-srgb":
+      return 4;
+    default:
+      throw new Error(
+        `Setta GPU flow node texture memory accounting does not support ${format}.`,
+      );
+  }
+}
+
+function compareEvictableTextureRecords(
+  left: NodeTextureEntry,
+  right: NodeTextureEntry,
+): number {
+  return (
+    left.lastVisibleFrame - right.lastVisibleFrame ||
+    left.lastUploadFrame - right.lastUploadFrame ||
+    compareNodeIds(left.nodeId, right.nodeId)
+  );
+}
+
+function compareNodeIds(left: string, right: string): number {
+  return left.localeCompare(right);
 }
 
 function isMissingElementPaintRecordError(error: unknown): boolean {

@@ -30,10 +30,16 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly drawnEdgeCount: number;
   readonly drawnNodeCount: number;
   readonly edgeVertexCount: number;
+  readonly evictedTextureBytes: number;
+  readonly evictedTextureNodeIds: readonly string[];
   readonly missingElementNodeCount: number;
   readonly missingTextureNodeCount: number;
   readonly remainingDirtyNodeCount: number;
   readonly skippedNodeCount: number;
+  readonly textureAllocatedBytes: number;
+  readonly textureCount: number;
+  readonly textureLargestBytes: number;
+  readonly textureVisibleBytes: number;
   readonly timestampMs: number;
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeCount: number;
@@ -166,6 +172,8 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
     getGpuBufferLabel.toString(),
     getWriteBufferByteLength.toString(),
     toNodeLayerFrameSummary.toString(),
+    objectValue.toString(),
+    numberValue.toString(),
     arrayLength.toString(),
     stringArray.toString(),
     `(${installGpuFlowPerformanceProbeInPage.toString()})();`,
@@ -473,6 +481,7 @@ function toNodeLayerFrameSummary(
     result && typeof result === "object"
       ? (result as Record<string, unknown>)
       : {};
+  const textureMemory = objectValue(value.textureMemory);
   return {
     activeNodeId:
       typeof value.activeNodeId === "string" ? value.activeNodeId : null,
@@ -481,14 +490,30 @@ function toNodeLayerFrameSummary(
     drawnNodeCount: arrayLength(value.drawnNodeIds),
     edgeVertexCount:
       typeof value.edgeVertexCount === "number" ? value.edgeVertexCount : 0,
+    evictedTextureBytes: numberValue(value.evictedTextureBytes),
+    evictedTextureNodeIds: stringArray(value.evictedTextureNodeIds),
     missingElementNodeCount: arrayLength(value.missingElementNodeIds),
     missingTextureNodeCount: arrayLength(value.missingTextureNodeIds),
     remainingDirtyNodeCount: arrayLength(value.remainingDirtyNodeIds),
     skippedNodeCount: arrayLength(value.skippedNodeIds),
+    textureAllocatedBytes: numberValue(textureMemory.allocatedBytes),
+    textureCount: numberValue(textureMemory.textureCount),
+    textureLargestBytes: numberValue(textureMemory.largestTextureBytes),
+    textureVisibleBytes: numberValue(textureMemory.visibleBytes),
     timestampMs: performance.now(),
     uploadedNodeIds: stringArray(value.uploadedNodeIds),
     visibleNodeCount: arrayLength(value.visibleNodeIds),
   };
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === "number" ? value : 0;
 }
 
 function arrayLength(value: unknown): number {
