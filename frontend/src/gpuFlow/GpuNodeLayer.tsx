@@ -197,6 +197,8 @@ type MarkGpuNodeLayerPaintDirtyInput = {
 
 const DEFAULT_OFFSCREEN_POSITION = -100_000;
 const DEFAULT_NODE_CLASS_NAME = "setta-gpu-flow__node react-flow__node";
+const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
+const GPU_FLOW_SURFACE_SELECTOR = '[data-gpu-flow-surface="true"]';
 const GPU_FLOW_NODE_INTERACTIVE_CLASS = "setta-gpu-flow__node--interactive";
 const PRESERVED_GPU_NODE_STATE_CLASSES = [
   GPU_FLOW_NODE_INTERACTIVE_CLASS,
@@ -1043,15 +1045,54 @@ function findNodeIdForChangedElement(
   changedElement: Element,
   elementByNodeId: ReadonlyMap<string, HTMLElement>,
 ): string | null {
-  for (const [nodeId, nodeElement] of elementByNodeId) {
-    if (
-      nodeElement.contains(changedElement) &&
-      nodeElement !== changedElement
-    ) {
-      return nodeId;
-    }
+  return (
+    findClosestChangedElementNodeId(changedElement, elementByNodeId) ??
+    findSingleContainedChangedElementNodeId(changedElement, elementByNodeId)
+  );
+}
+
+function findClosestChangedElementNodeId(
+  changedElement: Element,
+  elementByNodeId: ReadonlyMap<string, HTMLElement>,
+): string | null {
+  const nearestNodeElement = changedElement.closest<HTMLElement>(
+    GPU_FLOW_NODE_SELECTOR,
+  );
+  const nearestNodeId = nearestNodeElement?.getAttribute("data-id");
+  if (
+    nearestNodeId &&
+    elementByNodeId.get(nearestNodeId) === nearestNodeElement
+  ) {
+    return nearestNodeId;
   }
   return null;
+}
+
+function findSingleContainedChangedElementNodeId(
+  changedElement: Element,
+  elementByNodeId: ReadonlyMap<string, HTMLElement>,
+): string | null {
+  if (changedElement.matches(GPU_FLOW_SURFACE_SELECTOR)) {
+    return null;
+  }
+
+  // html-in-canvas can report an enclosing changed subtree instead of the
+  // exact node. Accept that fallback only when the subtree contains exactly one
+  // registered GPU node, so a canvas/surface paint cannot dirty every node.
+  let containedNodeId: string | null = null;
+  for (const nodeElement of changedElement.querySelectorAll<HTMLElement>(
+    GPU_FLOW_NODE_SELECTOR,
+  )) {
+    const nodeId = nodeElement.getAttribute("data-id");
+    if (!nodeId || elementByNodeId.get(nodeId) !== nodeElement) {
+      continue;
+    }
+    if (containedNodeId && containedNodeId !== nodeId) {
+      return null;
+    }
+    containedNodeId = nodeId;
+  }
+  return containedNodeId;
 }
 
 function resolveElement(

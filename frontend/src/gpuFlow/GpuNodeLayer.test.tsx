@@ -671,22 +671,31 @@ describe("GpuNodeLayer helpers", () => {
     });
   });
 
-  it("marks changed paint descendants dirty without requesting another paint", () => {
-    const nodeElement = document.createElement("div");
+  it("marks changed paint descendants dirty from GPU node ancestry without iterating mounted nodes", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
     const input = document.createElement("input");
     nodeElement.append(input);
+    const elementByNodeId = new ThrowOnMapIteration<string, HTMLElement>();
+    elementByNodeId.set("node-a", nodeElement);
+    for (let index = 0; index < 2_500; index += 1) {
+      elementByNodeId.set(
+        `other-${index}`,
+        createGpuPaintNodeElement(`other-${index}`),
+      );
+    }
     const manager = {
       markNodeTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
       changedElements: [input],
-      elementByNodeId: new Map([["node-a", nodeElement]]),
+      elementByNodeId,
       frame: 7,
       textureManager: manager,
     });
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
+    expect(elementByNodeId.iterationCount).toBe(0);
     expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 7,
@@ -696,8 +705,56 @@ describe("GpuNodeLayer helpers", () => {
     });
   });
 
+  it("marks a changed GPU node wrapper dirty", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    const manager = {
+      markNodeTextureDirty: vi.fn(),
+    };
+
+    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+      changedElements: [nodeElement],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 8,
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual(["node-a"]);
+    expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 8,
+      nodeId: "node-a",
+      reason: "paint",
+      requestPaint: false,
+    });
+  });
+
+  it("uses the narrow ancestor fallback only for a single registered node subtree", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    const wrapper = document.createElement("div");
+    wrapper.append(nodeElement);
+    const manager = {
+      markNodeTextureDirty: vi.fn(),
+    };
+
+    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+      changedElements: [wrapper],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 9,
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual(["node-a"]);
+    expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 9,
+      nodeId: "node-a",
+      reason: "paint",
+      requestPaint: false,
+    });
+  });
+
   it("does not dirty visible nodes when a paint event omits changed elements", () => {
-    const nodeElement = document.createElement("div");
+    const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
       markNodeTextureDirty: vi.fn(),
     };
@@ -712,16 +769,20 @@ describe("GpuNodeLayer helpers", () => {
     expect(manager.markNodeTextureDirty).not.toHaveBeenCalled();
   });
 
-  it("ignores paint changes on the GPU node wrapper itself", () => {
-    const nodeElement = document.createElement("div");
+  it("ignores unrelated and canvas-level paint changes", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    const canvas = document.createElement("canvas");
+    const unrelated = document.createElement("div");
+    canvas.dataset.gpuFlowSurface = "true";
+    canvas.append(nodeElement);
     const manager = {
       markNodeTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
-      changedElements: [nodeElement],
+      changedElements: [unrelated, canvas],
       elementByNodeId: new Map([["node-a", nodeElement]]),
-      frame: 9,
+      frame: 10,
       textureManager: manager,
     });
 
@@ -777,6 +838,27 @@ function activeSnapshot(
     zIndex: 2,
     zoom: 1,
   };
+}
+
+function createGpuPaintNodeElement(nodeId: string): HTMLElement {
+  const element = document.createElement("div");
+  element.dataset.gpuFlowNode = "true";
+  element.dataset.id = nodeId;
+  return element;
+}
+
+class ThrowOnMapIteration<K, V> extends Map<K, V> {
+  iterationCount = 0;
+
+  override [Symbol.iterator](): IterableIterator<[K, V]> {
+    this.iterationCount += 1;
+    throw new Error("Paint owner resolution must not iterate mounted nodes.");
+  }
+
+  override entries(): IterableIterator<[K, V]> {
+    this.iterationCount += 1;
+    throw new Error("Paint owner resolution must not iterate mounted nodes.");
+  }
 }
 
 function textureRecord(nodeId: string): NodeTextureRecord {

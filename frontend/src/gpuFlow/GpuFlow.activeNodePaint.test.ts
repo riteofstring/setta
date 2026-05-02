@@ -52,6 +52,17 @@ describe("GpuFlow active node paint settling", () => {
         pendingPaintNodeIds: new Set(["node-a", "node-b"]),
       }),
     ).toEqual(["node-a", "node-b"]);
+
+    expect(
+      resolveGpuActiveNodePaintedIds({
+        changedElements: [nodeB],
+        elementByNodeId: new Map([
+          ["node-a", nodeA],
+          ["node-b", nodeB],
+        ]),
+        pendingPaintNodeIds: new Set(["node-a", "node-b"]),
+      }),
+    ).toEqual(["node-b"]);
   });
 
   it("treats unspecified changed elements as a full active-node paint", () => {
