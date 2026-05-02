@@ -296,6 +296,67 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(record.tiles.every((tile) => !tile.dirtyContent)).toBe(true);
   });
 
+  it("spends tiled first-visible uploads under the upload budget before exposing the record", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 200,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "large-node",
+      zoom: 1,
+    });
+
+    const partial = manager.uploadDirtySurfaceTextures({
+      frame: 2,
+      maxUploads: 2,
+    });
+
+    expect(partial).toMatchObject({
+      budgetExhausted: true,
+      remainingDirtySurfaceIds: ["large-node"],
+      skippedUploadBytes: record.textureBytes - 2 * 128 * 128 * 4,
+      uploadedBytes: 2 * 128 * 128 * 4,
+    });
+    expect(record.lastUploadFrame).toBe(-1);
+    expect(record.tiles.slice(0, 2)).toMatchObject([
+      {
+        dirtyResolution: false,
+        lastUploadFrame: 2,
+      },
+      {
+        dirtyResolution: false,
+        lastUploadFrame: 2,
+      },
+    ]);
+    expect(record.tiles.slice(2).every((tile) => tile.dirtyResolution)).toBe(
+      true,
+    );
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
+
+    const complete = manager.uploadDirtySurfaceTextures({
+      frame: 3,
+      maxUploads: 4,
+    });
+
+    expect(complete).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtySurfaceIds: [],
+      skippedUploadBytes: 0,
+      uploadedBytes: record.textureBytes - 2 * 128 * 128 * 4,
+    });
+    expect(record.lastUploadFrame).toBe(3);
+    expect(record.tiles.every((tile) => !tile.dirtyResolution)).toBe(true);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(6);
+  });
+
   it("tiles default high-zoom surfaces with scaled source subrect uploads", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
@@ -510,6 +571,135 @@ describe("HtmlSurfaceTextureManager", () => {
       "node-a",
     ]);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps passive first-visible uploads out of active viewport frames", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const canvas = createHtmlInCanvasCanvas();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, { canvas });
+    const element = document.createElement("div");
+
+    manager.registerSurfaceTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      deferResolution: true,
+      devicePixelRatio: 2,
+      element,
+      frame: 1,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+
+    expect(canvas.requestPaint).not.toHaveBeenCalled();
+
+    const deferred = manager.uploadDirtySurfaceTextures({
+      deferPassiveUploads: true,
+      frame: 2,
+    });
+
+    expect(deferred).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtySurfaceIds: ["node-a"],
+      uploaded: [],
+    });
+    expect(gpu.copyElementImageToTexture).not.toHaveBeenCalled();
+
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 3 });
+    expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "node-a",
+    ]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+  });
+
+  it("stages tiled resolution upgrades under budget before replacing the old texture", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 100,
+      cssWidth: 100,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+    const oldTexture = gpu.textures[0];
+
+    manager.registerSurfaceTexture({
+      cssHeight: 100,
+      cssWidth: 100,
+      devicePixelRatio: 1,
+      element,
+      frame: 3,
+      surfaceId: "node-a",
+      zoom: 2,
+    });
+
+    const partial = manager.uploadDirtySurfaceTextures({
+      frame: 4,
+      maxUploads: 2,
+    });
+
+    expect(partial).toMatchObject({
+      budgetExhausted: true,
+      remainingDirtySurfaceIds: ["node-a"],
+      skippedUploadBytes: 128 * 72 * 4 + 72 * 72 * 4,
+      uploadedBytes: 128 * 128 * 4 + 72 * 128 * 4,
+    });
+    expect(record.texture).toBe(oldTexture);
+    expect(record.pixelWidth).toBe(100);
+    expect(oldTexture?.destroy).not.toHaveBeenCalled();
+    expect(manager.getDirtySurfaces()).toMatchObject([
+      {
+        dirtyTileIds: ["node-a:0:1", "node-a:1:1"],
+        surfaceId: "node-a",
+      },
+    ]);
+    expect(
+      manager.getMemorySnapshot({ visibleSurfaceIds: ["node-a"] }),
+    ).toEqual({
+      allocatedBytes: 100 * 100 * 4 + 200 * 200 * 4,
+      largestTextureBytes: 200 * 200 * 4,
+      textureCount: 2,
+      visibleBytes: 100 * 100 * 4 + 200 * 200 * 4,
+      visibleTextureCount: 2,
+    });
+
+    const complete = manager.uploadDirtySurfaceTextures({
+      frame: 5,
+      maxUploads: 2,
+    });
+
+    expect(complete).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtySurfaceIds: [],
+      skippedUploadBytes: 0,
+      uploadedBytes: 128 * 72 * 4 + 72 * 72 * 4,
+    });
+    expect(record.texture).not.toBe(oldTexture);
+    expect(oldTexture?.destroy).toHaveBeenCalledTimes(1);
+    expect(record).toMatchObject({
+      dirtyContent: false,
+      dirtyResolution: false,
+      lastUploadFrame: 5,
+      pixelHeight: 200,
+      pixelWidth: 200,
+      resolutionScale: 2,
+      textureLayout: {
+        columns: 2,
+        kind: "tiled",
+        rows: 2,
+        tileCount: 4,
+      },
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(5);
   });
 
   it("defers existing passive content uploads during active viewport frames", () => {

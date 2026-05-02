@@ -79,13 +79,19 @@ export function shouldDeferDirtySurfaceUpload(
   if (dirtySurface.nodeId && deferSurfaceIds?.has(dirtySurface.nodeId)) {
     return true;
   }
-  if (!record || record.lastUploadFrame < 0) {
-    return false;
-  }
   if (dirtySurface.priority === "interactive") {
     return false;
   }
-  return deferPassiveUploads || deferResolutionOnly;
+  if (!record) {
+    return false;
+  }
+  if (deferPassiveUploads) {
+    return true;
+  }
+  if (record.lastUploadFrame < 0) {
+    return false;
+  }
+  return deferResolutionOnly;
 }
 
 export function normalizeSurfaceIdSet(
