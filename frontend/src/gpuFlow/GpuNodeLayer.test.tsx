@@ -94,7 +94,7 @@ describe("GpuNodeLayer helpers", () => {
       activeNodeIds: ["visible"],
       elementByNodeId: elements,
       nodes: [
-        node("visible", 10, 20, 100, 50, 0),
+        node("visible", 10, 20, 100, 50, 5),
         node("culled", 30, 40, 100, 50, 0),
       ],
       visibleNodeIds: new Set(["visible"]),
@@ -107,6 +107,7 @@ describe("GpuNodeLayer helpers", () => {
     expect(visible.style.transform).toBe("translate(20px, 20px) scale(1.5)");
     expect(visible.style.pointerEvents).toBe("all");
     expect(visible.style.width).toBe("100px");
+    expect(visible.style.zIndex).toBe("5");
     expect(visible.dataset.gpuFlowInteractive).toBe("true");
     expect(
       visible.classList.contains("setta-gpu-flow__node--interactive"),
@@ -117,6 +118,7 @@ describe("GpuNodeLayer helpers", () => {
     expect(culled.style.height).toBe("");
     expect(culled.style.pointerEvents).toBe("none");
     expect(culled.style.width).toBe("");
+    expect(culled.style.zIndex).toBe("");
     expect(culled.dataset.gpuFlowInteractive).toBe("false");
   });
 
@@ -198,6 +200,34 @@ describe("GpuNodeLayer helpers", () => {
     expect(element.style.transform).toBe("translate(10px, 20px) scale(1)");
     expect(element.style.height).toBe("10px");
     expect(element.style.width).toBe("10px");
+    expect(element.style.zIndex).toBe("0");
+  });
+
+  it("rewrites DOM hit-target z-index when node stacking changes", () => {
+    const element = document.createElement("div");
+    const cache = createGpuNodeDomTransformSyncCache();
+
+    syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: new Map([["node-a", element]]),
+      visibleQuads: [
+        { height: 10, nodeId: "node-a", width: 20, x: 10, y: 20, zIndex: 2 },
+      ],
+      viewport: [0, 0, 1],
+    });
+    const result = syncGpuNodeDomTransformsFromQuads({
+      cache,
+      elementByNodeId: new Map([["node-a", element]]),
+      visibleQuads: [
+        { height: 10, nodeId: "node-a", width: 20, x: 10, y: 20, zIndex: 7 },
+      ],
+      viewport: [0, 0, 1],
+    });
+
+    expect(result.updatedNodeIds).toEqual(["node-a"]);
+    expect(result.skippedNodeIds).toEqual([]);
+    expect(element.style.transform).toBe("translate(10px, 20px) scale(1)");
+    expect(element.style.zIndex).toBe("7");
   });
 
   it("rewrites DOM hit-target dimensions when node geometry changes", () => {

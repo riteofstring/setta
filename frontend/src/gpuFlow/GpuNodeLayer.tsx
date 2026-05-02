@@ -115,6 +115,7 @@ type GpuNodeDomTransformState = {
   readonly transform: string;
   readonly visible: "false" | "true";
   readonly width: string;
+  readonly zIndex: string;
 };
 
 export type GpuNodeDomTransformSyncCache = {
@@ -855,6 +856,7 @@ export function syncGpuNodeDomTransforms({
         screenX: screenPosition.x,
         screenY: screenPosition.y,
         width: node.width ?? 0,
+        zIndex: resolveGpuNodeZIndex(node),
         zoom: normalizedViewport.zoom,
       });
       updatedNodeIds.push(node.nodeId);
@@ -880,6 +882,7 @@ function applyVisibleNodeDomTransform(
     screenX,
     screenY,
     width,
+    zIndex,
     zoom,
   }: {
     readonly height: number;
@@ -887,6 +890,7 @@ function applyVisibleNodeDomTransform(
     readonly screenX: number;
     readonly screenY: number;
     readonly width: number;
+    readonly zIndex: number;
     readonly zoom: number;
   },
 ) {
@@ -899,6 +903,7 @@ function applyVisibleNodeDomTransform(
       screenX,
       screenY,
       width,
+      zIndex,
       zoom,
     }),
   );
@@ -911,6 +916,7 @@ function createVisibleNodeDomTransformState({
   screenX,
   screenY,
   width,
+  zIndex,
   zoom,
 }: {
   readonly element: HTMLElement;
@@ -919,6 +925,7 @@ function createVisibleNodeDomTransformState({
   readonly screenX: number;
   readonly screenY: number;
   readonly width: number;
+  readonly zIndex: number;
   readonly zoom: number;
 }): GpuNodeDomTransformState {
   return {
@@ -929,6 +936,7 @@ function createVisibleNodeDomTransformState({
     transform: `translate(${screenX}px, ${screenY}px) scale(${zoom})`,
     visible: "true",
     width: `${width}px`,
+    zIndex: String(zIndex),
   };
 }
 
@@ -954,6 +962,7 @@ function createVisibleNodeDomTransformStateForQuad({
     screenX: screenPosition.x,
     screenY: screenPosition.y,
     width: quad.width,
+    zIndex: quad.zIndex,
     zoom: normalizedViewport.zoom,
   });
 }
@@ -967,6 +976,7 @@ function applyNodeDomTransformState(
   setStyleValue(element, "transform", state.transform);
   setStyleValue(element, "pointerEvents", state.pointerEvents);
   setStyleValue(element, "width", state.width);
+  setStyleValue(element, "zIndex", state.zIndex);
   setDatasetValue(element, "gpuFlowVisible", state.visible);
   setDatasetValue(element, "gpuFlowInteractive", state.interactive);
   setClassPresence(
@@ -1008,6 +1018,7 @@ function createCulledNodeDomTransformState({
     transform: `translate(${offscreenX}px, ${offscreenY}px) scale(1)`,
     visible: "false",
     width: "",
+    zIndex: "",
   };
 }
 
@@ -1025,7 +1036,8 @@ function isCachedNodeDomTransformState(
       previous.pointerEvents === next.pointerEvents &&
       previous.transform === next.transform &&
       previous.visible === next.visible &&
-      previous.width === next.width,
+      previous.width === next.width &&
+      previous.zIndex === next.zIndex,
   );
 }
 
@@ -1037,7 +1049,8 @@ type GpuNodeStyleKey =
   | "top"
   | "transform"
   | "transformOrigin"
-  | "width";
+  | "width"
+  | "zIndex";
 
 function setGpuNodeBaseStyle(element: HTMLElement) {
   setStyleValue(element, "position", "absolute");
