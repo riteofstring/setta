@@ -93,6 +93,10 @@ import {
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
   type ProjectGpuDndMode,
 } from "./gpuProjectInteractionGuards";
+import {
+  buildProjectSelectionKeyboardNudgePlan,
+  snapProjectNodePosition,
+} from "./gpuProjectSelectionMovement";
 
 type ProjectSurfaceDimensions = {
   readonly height: number;
@@ -674,6 +678,7 @@ function GpuProjectNodesSelectionOverlay({
   const activeIds = useActiveSectionUI((state) => state.activeIds, _.isEqual);
   const primarySelectionId =
     activeIds.length > 0 ? activeIds[activeIds.length - 1] ?? null : null;
+  const hasSelectionBounds = bounds !== null;
   const rectRef = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef<ProjectSelectionDragState | null>(null);
 
@@ -699,6 +704,12 @@ function GpuProjectNodesSelectionOverlay({
     };
   }, [isMovingFree, bounds]);
 
+  useEffect(() => {
+    if (hasSelectionBounds && primarySelectionId) {
+      rectRef.current?.focus({ preventScroll: true });
+    }
+  }, [hasSelectionBounds, primarySelectionId]);
+
   if (!bounds || !primarySelectionId) {
     return null;
   }
@@ -716,6 +727,8 @@ function GpuProjectNodesSelectionOverlay({
     if (!diff) {
       return;
     }
+    event.preventDefault();
+    event.stopPropagation();
     updateSelectedNodePositionsFromKeyboard({
       isShiftPressed: event.shiftKey,
       x: diff.x,
@@ -1072,37 +1085,22 @@ function updateSelectedNodePositionsFromKeyboard({
   const selectedNodes = getNodes().filter(
     (node) => activeSectionIds.includes(node.id) && canDragProjectNode(node.id),
   );
-  if (selectedNodes.length === 0) {
+  const nudgePlan = buildProjectSelectionKeyboardNudgePlan({
+    direction: { x, y },
+    isShiftPressed,
+    selectedNodes,
+    snapGrid,
+    snapToGrid,
+  });
+  if (!nudgePlan) {
     return;
   }
-  const xVelocity = snapToGrid ? snapGrid[0] : 5;
-  const yVelocity = snapToGrid ? snapGrid[1] : 5;
-  const factor = isShiftPressed ? 4 : 1;
-  const positionDiff = {
-    x: x * xVelocity * factor,
-    y: y * yVelocity * factor,
-  };
-  const nodeUpdates = selectedNodes.map((node) => {
-    const nextPosition = {
-      x: node.position.x + positionDiff.x,
-      y: node.position.y + positionDiff.y,
-    };
-    return {
-      distance: { x: 0, y: 0 },
-      height: node.height,
-      id: node.id,
-      position: snapToGrid
-        ? snapProjectNodePosition(nextPosition, snapGrid)
-        : nextPosition,
-      width: node.width,
-    };
-  });
-  updateNodePositions(nodeUpdates);
+  updateNodePositions(nudgePlan.items);
   if (nodesSelectionBounds) {
     updateProjectSelectionBoundsAfterMovedNodes({
-      delta: positionDiff,
-      forceRefresh: snapToGrid,
-      movedNodeIds: nodeUpdates.map((item) => item.id),
+      delta: nudgePlan.delta,
+      forceRefresh: nudgePlan.forceRefreshBounds,
+      movedNodeIds: nudgePlan.items.map((item) => item.id),
     });
   }
 }
@@ -1142,16 +1140,6 @@ function toNodeDragItems(
     position: item.position,
     width: item.width,
   }));
-}
-
-function snapProjectNodePosition(
-  position: { readonly x: number; readonly y: number },
-  snapGrid: readonly [number, number],
-) {
-  return {
-    x: snapGrid[0] * Math.round(position.x / snapGrid[0]),
-    y: snapGrid[1] * Math.round(position.y / snapGrid[1]),
-  };
 }
 
 function canDragProjectNode(nodeId: string): boolean {
