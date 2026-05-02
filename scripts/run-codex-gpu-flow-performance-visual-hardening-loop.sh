@@ -109,12 +109,13 @@ Testing standards:
 
 Browser and performance verification:
 - Use Chrome DevTools MCP for visible or performance-sensitive work.
-- For html-in-canvas/WebGPU-sensitive checks, start or reuse a local session with:
+- This dedicated loop owns its app/browser sessions. This instruction intentionally overrides the generic plan-loop guidance about preserving pre-existing developer-started sessions for `ai.sh` and `aireset.sh`. Before starting browser verification, stop any lingering Setta app/browser session from `ai.sh` or `aireset.sh` with `./kill.sh`, even if it appears to have been started before the current iteration.
+- After cleanup, start a fresh local session for the iteration. For html-in-canvas/WebGPU-sensitive checks, use:
   `CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu --enable-webgpu-developer-features" ./ai.sh`
   Use the same environment with `./aireset.sh` only when a clean disposable state is needed.
 - Instrument browser probes with page-injected wrappers around `GPUQueue.prototype.copyElementImageToTexture`, `GPUQueue.prototype.writeBuffer`, long tasks, and animation frames where useful. Keep instrumentation out of production paths unless it is a general-purpose debug surface justified by the plan.
 - Record each visible or performance-sensitive iteration response as `CDP visual check: done (...)`, including scenario, zoom level, upload/write counts where measured, and which `ai.sh`/`aireset.sh` command was used. If CDP cannot run, record the concrete blocker.
-- Stop every app, browser, MCP helper, watcher, recorder, or dev server started by the iteration before the final response. Do not stop a pre-existing developer session that was only reused; record that it was reused.
+- Before the final response, run `./kill.sh` again to stop the app/browser session used by this loop iteration, plus any lingering `ai.sh` or `aireset.sh` descendants it finds. Also stop every MCP helper, watcher, recorder, or dev server started by the iteration.
 
 Quality and completion:
 - Run focused verification for each implementation slice.

@@ -555,8 +555,12 @@ Use these browser flags for WebGPU/html-in-canvas checks:
 CHROME_EXTRA_ARGS="--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu --enable-webgpu-developer-features" ./ai.sh
 ```
 
-Use `./aireset.sh` with the same environment only when a clean disposable app
-state is required.
+For the dedicated loop, browser checks should own their session lifecycle:
+this intentionally overrides generic plan-loop guidance about preserving
+pre-existing developer-started sessions for `ai.sh` and `aireset.sh`. Run
+`./kill.sh` before starting `./ai.sh` or `./aireset.sh`, then run `./kill.sh`
+again before the iteration finishes. Use `./aireset.sh` with the same
+environment only when a clean disposable app state is required.
 
 ## Completion Sentinel
 
