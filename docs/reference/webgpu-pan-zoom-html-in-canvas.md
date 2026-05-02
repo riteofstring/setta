@@ -1,44 +1,66 @@
-# WebGPU Pan/Zoom HTML-in-Canvas Architecture
+# WebGPU HTML Surface Project Canvas Architecture
 
-This document explains the current Setta project-canvas renderer. The renderer
-keeps section nodes as real browser DOM for native interaction, but moves the
-high-frequency visual viewport to WebGPU so pan and zoom do not repaint a large
-transformed DOM/SVG tree.
+This document explains the current Setta project-canvas renderer. Section nodes
+remain real browser DOM for content, focus, hit testing, and accessibility, but
+the visible project surface is composed by WebGPU from cached HTML textures.
+Interaction projects the source DOM under the browser pointer; it does not make
+the source DOM the visible rendering path.
 
 The main implementation lives in `frontend/src/gpuFlow/` and is integrated into
 the project page by `frontend/src/components/Pages/Project/GpuProjectSurface.tsx`.
 
 ## High-Level Model
 
-The renderer has two synchronized presentations of the same section nodes:
+Each rendered section node is represented as an HTML GPU surface:
 
-- a real DOM node tree, mounted as direct children of a
-  `<canvas layoutsubtree>` so browser hit testing, focus, inputs, and
-  accessibility can still target real `SectionContainer` elements
-- a WebGPU scene that draws cached textures of those DOM nodes, plus the grid,
-  edges, connection line, and passive node visuals
+- `HtmlSurfaceSource`: the React-owned DOM host mounted as a direct child of the
+  `<canvas layoutsubtree>`.
+- `HtmlSurfaceTexture`: one full-surface texture or a tiled texture layout
+  uploaded from the source when content, size, style, animation cadence, or
+  resolution changes.
+- `HtmlSurfaceVisual`: draw metadata that maps the texture into the WebGPU
+  scene as a flat quad, tiled flat surface, mesh surface, or shader-effect
+  surface.
 
-The DOM tree is authoritative for section content and interaction. The WebGPU
-scene is authoritative for visual pan/zoom composition.
+The source DOM is authoritative for node content and native browser behavior.
+The WebGPU scene is authoritative for visible composition, including passive and
+active nodes.
 
 The hot path for viewport movement is:
 
 1. Input updates the viewport tuple `[x, y, zoom]`.
 2. `GpuSurface` schedules one animation frame.
-3. `GpuNodeLayer` updates visible node hit-test transforms.
-4. `GpuNodeQuadRenderer` writes the camera uniform and redraws grid, edges, and
-   already-uploaded node textures.
-5. Passive texture resolution and passive uploads are deferred while the
-   viewport interaction is active.
+3. `renderHtmlSurfaceFrame()` builds the visible surface set from node layout,
+   the viewport, and cached texture records.
+4. `HtmlSurfaceRenderer.render()` writes camera uniforms and redraws grid,
+   edges, and already-uploaded surfaces.
+5. Passive texture resolution upgrades and passive uploads are deferred while
+   the viewport interaction is active.
 
-Panning and zooming should not require recapturing node HTML or rerendering the
-React node tree.
+Pure panning and zooming must not call `requestPaint()`, call
+`GPUQueue.copyElementImageToTexture()`, force React renders, or rewrite every
+source transform.
 
 ## Runtime Shape
 
-`GpuProjectSurface` is the app integration layer. It reads project state,
-builds `GpuNodeLayout` records from `useNodeInternals`, builds a GPU edge scene,
-resolves grid and pan/zoom settings, and renders `GpuFlow`.
+`GpuProjectSurface` reads project state, builds `GpuNodeLayout` records from
+measured node internals, builds a GPU edge scene, resolves grid and pan/zoom
+settings, and renders `GpuFlow`.
+
+`GpuFlow` owns the project-canvas runtime:
+
+- `GpuSurface` creates and sizes the `layoutsubtree` WebGPU canvas, listens for
+  `paint` events, and coalesces frame requests.
+- `HtmlSurfaceNodeLayer` adapts project node layouts into
+  `HtmlSurfaceSourceLayer` source hosts.
+- `HtmlSurfaceTextureManager` owns full and tiled surface texture records,
+  upload prioritization, byte accounting, and memory eviction.
+- `HtmlSurfaceVisualScene` groups surfaces into flat, tiled flat, mesh, and
+  effect buckets.
+- `HtmlSurfaceRenderer` draws grid, edges, flat surfaces, tiled surfaces, mesh
+  surfaces, and shader-effect surfaces from cached textures.
+- `HtmlSurfaceHitScene` and `HtmlSurfaceInteractionProjector` map pointer and
+  wheel events back into source-local coordinates for native interaction.
 
 The DOM shape is:
 
@@ -46,19 +68,27 @@ The DOM shape is:
 <div className="setta-gpu-flow-root setta-light dark:setta-dark">
   <GpuFlow className="setta-gpu-flow__pane">
     <canvas className="setta-gpu-flow__canvas" layoutsubtree="">
-      <GpuNodeLayer>
-        <div className="setta-gpu-flow__node">
-          <SectionContainer sectionId={node.nodeId} isTopLevel={true} />
-        </div>
-      </GpuNodeLayer>
+      <span data-gpu-flow-html-source-anchor="true" />
+      <div
+        className="setta-gpu-flow__html-source setta-gpu-flow__node"
+        data-gpu-flow-html-source="true"
+        data-gpu-flow-source-id={nodeId}
+      >
+        <SectionContainer sectionId={nodeId} isTopLevel={true} />
+      </div>
       <div id="setta-codemirror-tooltips" />
       <div id="setta-popover-portals" />
     </canvas>
     <div className="setta-gpu-flow__selection-layer" />
-    <div className="setta-gpu-flow__active-node-teleport-layer" />
+    <GpuEdgeLabelLayer />
+    <GpuEdgeReconnectAnchorLayer />
   </GpuFlow>
 </div>
 ```
+
+`HtmlSurfaceSourceLayer` uses hidden anchors only as React insertion points. The
+actual source hosts are inserted beside those anchors and remain direct canvas
+children so Chromium can paint and upload them as HTML texture sources.
 
 ## Browser Capability Contract
 
@@ -75,15 +105,17 @@ loudly if the development browser does not expose the required native APIs:
 - `GPUQueue.copyElementImageToTexture`
 - `ResizeObserver`
 
-There is no fallback renderer in this path. The WebGPU/html-in-canvas APIs are
-part of the architecture, not optional acceleration.
+`frontend/src/gpuFlow/htmlSurfaces/apiProbes.ts` covers more detailed
+html-in-canvas behavior such as direct-child requirements, changed-element
+granularity, transform handling, source-subrect upload support, and animation
+capture behavior. There is no fallback renderer in this path.
 
 ## Coordinate System
 
-The renderer preserves the previous project-canvas viewport contract:
+The renderer preserves the project-canvas viewport contract:
 
 - flow coordinates are project/node coordinates
-- screen coordinates are CSS pixels inside the GPU flow container
+- surface coordinates are CSS pixels inside the GPU flow container
 - viewport state is `[x, y, zoom]`
 
 `frontend/src/gpuFlow/viewportMath.ts` owns the conversion:
@@ -95,22 +127,34 @@ flowX = (screenX - viewport.x) / viewport.zoom;
 flowY = (screenY - viewport.y) / viewport.zoom;
 ```
 
-The same transform feeds both the WebGPU camera uniform and the DOM hit-test
-layer. Visible DOM nodes get:
+The WebGPU camera uniform receives the same viewport tuple. Source DOM hosts
+use stable capture geometry:
 
 ```ts
-transform: translate(screenX, screenY) scale(zoom);
+position: absolute;
+left: 0;
+top: 0;
+transform: translate(0px, 0px) scale(1);
 transform-origin: 0 0;
+pointer-events: none;
+contain: layout paint style;
 ```
 
-Culled nodes remain mounted but are parked offscreen with
-`pointer-events: none`. This prevents an old DOM hit-test rectangle from staying
-active after a node leaves the visible area.
+During pointer or wheel handoff, the interaction projector aligns only the
+targeted source so the hit source-local coordinate sits under the browser
+pointer:
+
+```ts
+transform: translate(surfaceX - localX, surfaceY - localY);
+pointer-events: auto;
+```
+
+When the interaction ends, the source returns to the stable passive transform.
 
 ## Viewport Store And Actions
 
 `frontend/src/gpuFlow/viewportStore.ts` is a zustand vanilla store that replaces
-the old shared React Flow viewport store contract. It holds:
+the old React Flow viewport contract. It holds:
 
 - `transform`, `width`, `height`, `minZoom`, `maxZoom`, and `defaultZoom`
 - input state such as pan, zoom, selection, and move activation keys
@@ -145,28 +189,32 @@ Frame reasons are tracked as:
 - `viewport`
 
 Multiple reasons can coalesce into one frame. A viewport-store transform change
-requests a `viewport` frame. A paint event marks changed node DOM as dirty and
-requests a `paint` frame. Remaining dirty texture work requests follow-up
-`texture-upload` frames until the upload budget is no longer exhausted.
+requests a `viewport` frame. A paint event resolves changed source elements to
+owning surfaces or tiles and requests a `paint` frame. Remaining dirty texture
+work requests follow-up `texture-upload` frames until the upload budget is no
+longer exhausted.
 
-## Node Texture Lifecycle
+## Texture Lifecycle
 
-`frontend/src/gpuFlow/nodeTextures.ts` owns DOM-to-GPU texture records. Each
-visible node can have a `NodeTextureRecord` with:
+`frontend/src/gpuFlow/htmlSurfaces/textures.ts` owns DOM-to-GPU texture
+records. Each surface record includes:
 
-- node id
+- surface id
 - CSS size
 - texture pixel size
 - requested and actual resolution scale
 - zoom bucket
+- full or tiled texture layout
+- tile records with source rect, UV range, dirty flags, upload frame, and byte
+  size
 - max-texture clamp status
 - dirty content and dirty resolution flags
 - upload priority
-- WebGPU texture, texture view, and sampler
+- WebGPU texture, texture view, and sampler resources
 
-Visible nodes are registered from `GpuNodeLayer` each frame. The texture
-resolution policy in `frontend/src/gpuFlow/textureResolution.ts` chooses the
-smallest zoom bucket at least as large as the current zoom:
+Visible surfaces are registered from `renderHtmlSurfaceFrame()` each frame. The
+texture resolution policy in `frontend/src/gpuFlow/textureResolution.ts` chooses
+the smallest zoom bucket at least as large as the current zoom:
 
 ```ts
 [0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
@@ -187,19 +235,26 @@ The project surface currently passes this upload budget:
 { maxUploads: 2, maxDurationMs: 4 }
 ```
 
-`NodeTextureManager.uploadRecord()` requires
-`GPUQueue.copyElementImageToTexture`. It copies the current DOM element snapshot
-into the node texture and records the frame number. The sampler uses linear
-filtering and clamp-to-edge addressing.
+`HtmlSurfaceTextureManager.uploadDirtySurfaceTextures()` requires
+`GPUQueue.copyElementImageToTexture`. Large surfaces are split into tiles by
+`frontend/src/gpuFlow/htmlSurfaces/textureTiles.ts`, and dirty source rects are
+resolved to owning tiles by
+`frontend/src/gpuFlow/htmlSurfaces/textureDirtyTiles.ts`. Upload reporting
+tracks uploaded bytes, skipped bytes, remaining dirty surfaces, and exhausted
+budget state.
 
 ## WebGPU Scene Rendering
 
-`frontend/src/gpuFlow/gpuPipelines.ts` owns the render pipelines. A single
-`GpuNodeQuadRenderer.render()` call draws the current frame in this order:
+`frontend/src/gpuFlow/htmlSurfaces/renderer.ts` owns the current renderer. A
+single `HtmlSurfaceRenderer.render()` call draws the current frame in this
+order:
 
 1. grid
 2. edges and connection lines
-3. node texture quads
+3. flat HTML surfaces
+4. tiled flat HTML surfaces
+5. mesh HTML surfaces
+6. shader-effect HTML surfaces
 
 The camera uniform stores:
 
@@ -209,9 +264,11 @@ The camera uniform stores:
 - canvas CSS width
 - canvas CSS height
 
-Node quads are built in flow coordinates. The node vertex shader converts each
-flow position to screen coordinates with the viewport and then to clip space.
-The fragment shader samples that node's uploaded texture.
+Flat and tiled surfaces are built in flow coordinates. The vertex shaders
+convert each flow position to screen coordinates with the viewport and then to
+clip space. Fragment shaders sample the uploaded full texture or tile texture.
+Mesh and shader-effect passes use the same texture records with specialized
+vertices, indices, effect uniforms, and hit projector contracts.
 
 Edges are generated as CPU-side line-list buffer data from the current edge
 scene and are drawn through a WebGPU line pipeline. Grid rendering uses a full
@@ -220,21 +277,21 @@ camera and grid settings.
 
 ## Visibility And Z Order
 
-`GpuNodeLayer.collectVisibleGpuNodeQuads()` computes a visible flow rectangle
-from the canvas size, viewport, and a default 128 CSS-pixel margin. Nodes with
-concrete width and height are included when their rect intersects that visible
-area or when their id is forced visible.
+`collectVisibleGpuNodeQuads()` computes a visible flow rectangle from the canvas
+size, viewport, and a default 128 CSS-pixel margin. Nodes with concrete width
+and height are included when their rect intersects that visible area or when
+their id is forced visible.
 
-Visible quads are sorted by `zIndex` and then source order. The same visibility
-set drives:
+Visible surfaces are sorted by `zIndex` and then source order. The same
+visibility set drives:
 
 - texture registration and upload eligibility
-- WebGPU quad draw order
-- DOM transform updates for native hit testing
-- offscreen parking for culled DOM nodes
+- visual scene draw order
+- stable source host size, z-index, and passive pointer state
+- texture memory protection during eviction
 
-Top-level node DOM remains mounted even when culled. Culling currently affects
-presentation and interaction, not React mount lifecycle.
+Top-level node DOM remains mounted even when culled. Culling affects
+presentation and interaction eligibility, not React mount lifecycle.
 
 ## Project Edge Scene
 
@@ -286,9 +343,9 @@ store.
 
 ## DOM Interaction And Dirty Tracking
 
-The DOM node tree remains the interaction source. To keep textures current,
+The DOM source tree remains the interaction source. To keep textures current,
 `frontend/src/gpuFlow/nodeInteractionDirty.ts` listens at capture phase for
-events that imply a node snapshot is stale:
+events that imply a surface texture is stale:
 
 - custom GPU-flow dirty events
 - `beforeinput`, `input`, and `change`
@@ -296,20 +353,30 @@ events that imply a node snapshot is stale:
 - `focusin` and `focusout`
 - pointer interaction on interactive targets
 - document `selectionchange`
+- CSS transition and animation lifecycle events
 
 Interactive targets include native form controls, contenteditable elements,
-ARIA text/slider/spinbutton roles, CodeMirror content, and xterm surfaces.
+ARIA text/slider/spinbutton roles, CodeMirror content, xterm surfaces, and
+shared combobox controls.
 
-When an interactive target is used, the node is promoted to interactive
-priority and tracked as the active node. The active node is moved into the
-active-node teleport layer so the browser handles live pointer, keyboard,
-focus, caret, selection, CSS transition, editor, and terminal behavior as normal
-DOM.
+Pointer and wheel targeting follows the rendered visual scene:
 
-While a node is teleported out of the canvas layout subtree, uploads for that
-node are deferred. When the interaction settles, the node is restored under the
-canvas, the canvas requests a paint, one final texture snapshot is uploaded, and
-the node priority returns to visible.
+1. `HtmlSurfaceHitScene` maps the client point through the current flat,
+   tiled-flat, mesh, or effect visual.
+2. Flat and tiled-flat surfaces use exact inverse viewport math.
+3. Mesh surfaces raycast CPU triangles and interpolate UVs.
+4. Shader-effect surfaces must provide an explicit projector id; an effect
+   without a projector is not interactive.
+5. `HtmlSurfaceInteractionProjector` aligns the source host so the projected
+   local coordinate sits under the browser pointer.
+6. Browser hit testing resolves the native target, with narrow synthetic
+   handoff only when pre-alignment cannot deliver the original event.
+
+Dirty marks carry source-relative rect hints where the event target provides a
+specific owning area. Large tiled surfaces use those hints to dirty and upload
+only the affected tiles. Source-owned finite CSS transitions and animations are
+tracked as bounded animation leases; they request capture frames for the owning
+surface or tile until the animation has settled.
 
 ## Current Project Integration
 
@@ -319,8 +386,8 @@ runtime:
 - renders each node as `SectionContainer`
 - observes node element resizes and writes node dimensions through
   `updateNodeDimensions`
-- mirrors GUI settings for zoom bounds, grid style, pan behavior, zoom behavior,
-  selection mode, and snap grid
+- mirrors GUI settings for zoom bounds, grid style, pan behavior, zoom
+  behavior, selection mode, and snap grid
 - builds edge scenes for data, agentic, workflow, missing, and connection edges
 - keeps CodeMirror tooltips and Setta popover portals inside the canvas element
 - renders the selected-nodes rectangle as a sibling overlay using the same
@@ -331,18 +398,19 @@ runtime:
 The renderer intentionally keeps old high-level project behaviors while
 replacing the viewport implementation underneath them.
 
-## Interactive HTML GPU Surfaces
+## Performance Evidence
 
-The active interaction direction is described in
-`docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md`.
+HTML GPU surface performance reports live under `perf/reports/frontend/`.
+Current completion evidence includes:
 
-That plan replaces active DOM teleport with projection-based interaction. The
-source DOM remains a direct layout-subtree canvas child for capture, hit
-testing, focus, and accessibility, while the GPU-rendered texture remains the
-visible output for both passive and active nodes.
+- `2026-05-02_html-gpu-dense-panzoom-cdp.md`
+- `2026-05-02_html-gpu-controls-cdp.md`
+- `2026-05-02_html-gpu-animation-paint-aligned-after.md`
+- `2026-05-02_html-gpu-warped-mesh-fixture.md`
+- `2026-05-02_html-gpu-settings-zoom-tiling-artifact-after.md`
+- `2026-05-02_html-gpu-settings-switch-targeted-after.md`
 
-Pointer interaction is resolved by mapping the rendered surface hit back to
-source HTML coordinates, aligning the source for browser hit testing, and
-uploading dirty textures only when content or resolution changes. Pure pan/zoom
-must not request paint, upload textures, force React renders, or rewrite
-per-node DOM transforms.
+Historical reports from earlier renderer phases may describe superseded
+implementations. Use this reference and the active plan in
+`docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md` for the current
+architecture.
