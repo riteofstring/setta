@@ -10,6 +10,7 @@ import { GpuFlow } from "gpuFlow/GpuFlow";
 import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
 import type { GpuGridInput } from "gpuFlow/gpuPipelines";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
+import { getGpuNodeDragAutoPanDelta } from "gpuFlow/interactions/nodeDrag";
 import {
   clearNodesSelectionBounds,
   shiftNodesSelectionBounds,
@@ -25,7 +26,6 @@ import {
   getGpuViewportStorePointRelativeToDomNode,
   gpuFlowViewportStore,
 } from "gpuFlow/viewportStore";
-import { getGpuNodeDragAutoPanDelta } from "gpuFlow/interactions/nodeDrag";
 import _ from "lodash";
 import {
   useCallback,
@@ -91,10 +91,10 @@ import {
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
-  isProjectPaneBackgroundTarget,
   isProjectGpuSelectionBoxDragDisabled,
   isProjectGpuSelectionDisabled,
   isProjectGpuViewportGestureDisabled,
+  isProjectPaneBackgroundTarget,
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
   type ProjectGpuDndMode,
 } from "./gpuProjectInteractionGuards";
@@ -308,7 +308,6 @@ function ProjectGpuFlowLayer({
       panZoom={getProjectPanZoomOptions({
         dndMode,
         flowInteractionKeys,
-        isFollowTransitioning,
         settings,
       })}
       renderNode={renderProjectGpuNode}
@@ -508,17 +507,14 @@ function getProjectNodeDragOptions({
 function getProjectPanZoomOptions({
   dndMode,
   flowInteractionKeys,
-  isFollowTransitioning,
   settings,
 }: {
   readonly dndMode: ProjectGpuDndMode;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
-  readonly isFollowTransitioning: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   const interactionEnabled = !isProjectGpuViewportGestureDisabled({
     dndMode,
-    isFollowTransitioning,
   });
   return {
     panActivationKeyPressed:

@@ -58,14 +58,12 @@ export function isProjectGpuNodeDragDisabled({
 
 export type ProjectGpuViewportGestureGuardInput = {
   readonly dndMode: ProjectGpuDndMode;
-  readonly isFollowTransitioning: boolean;
 };
 
 export function isProjectGpuViewportGestureDisabled({
   dndMode,
-  isFollowTransitioning,
 }: ProjectGpuViewportGestureGuardInput): boolean {
-  return isFollowTransitioning || isProjectGpuDndModeActive(dndMode);
+  return isProjectGpuDndModeActive(dndMode);
 }
 
 export type ProjectGpuEdgeInteractionGuardInput = {

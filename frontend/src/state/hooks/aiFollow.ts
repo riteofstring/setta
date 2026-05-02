@@ -20,6 +20,7 @@ import {
 import { shallow } from "zustand/shallow";
 
 const TOOL_RESULT_FOLLOW_GROUP_WINDOW_MS = 300;
+const AI_FOLLOW_VIEWPORT_TRANSITION_DURATION_MS = 500;
 
 function collectAIFollowTopLevelIds(
   toolArgumentSectionIds: Array<string>,
@@ -106,6 +107,7 @@ export function useAIFollowViewport(): void {
   const [groupedToolResultSectionIds, setGroupedToolResultSectionIds] =
     useState<string[]>([]);
   const toolResultGroupTimeout = useRef<number | null>(null);
+  const followTransitionId = useRef(0);
   const toolResultSectionIdsKey = toolResultSectionIds.join("|");
 
   useEffect(() => {
@@ -184,10 +186,47 @@ export function useAIFollowViewport(): void {
       viewport: viewportState.transform,
     });
 
-    setViewport({ x, y, zoom });
+    const transitionId = followTransitionId.current + 1;
+    followTransitionId.current = transitionId;
     useAIFollow.setState((state) => {
-      state.isFollowTransitioning = false;
+      state.isFollowTransitioning = true;
     });
+    const clearTransitionLock = () => {
+      if (followTransitionId.current !== transitionId) {
+        return;
+      }
+      useAIFollow.setState((state) => {
+        state.isFollowTransitioning = false;
+      });
+    };
+    const unsubscribe = gpuFlowViewportStore.subscribe(
+      (state, previousState) => {
+        if (followTransitionId.current !== transitionId) {
+          unsubscribe();
+          return;
+        }
+        if (!state.viewportAnimating && previousState.viewportAnimating) {
+          unsubscribe();
+          clearTransitionLock();
+        }
+      },
+    );
+    const transitionStarted = setViewport(
+      { x, y, zoom },
+      { duration: AI_FOLLOW_VIEWPORT_TRANSITION_DURATION_MS },
+    );
+    if (
+      !transitionStarted ||
+      !gpuFlowViewportStore.getState().viewportAnimating
+    ) {
+      unsubscribe();
+      clearTransitionLock();
+      return;
+    }
+    return () => {
+      unsubscribe();
+      clearTransitionLock();
+    };
   }, [height, mode, projectConfigId, sectionIdsKey, width]);
 }
 

@@ -8,6 +8,7 @@ import { autoLayoutTopLevelSections } from "openapi/http";
 import {
   useLocalStorage,
   useNodeInternals,
+  useSettings,
   useShareSession,
 } from "state/definitions";
 import { applyActiveSectionChange } from "../activeSectionController";
@@ -129,7 +130,10 @@ export function goToSection(sectionId: string) {
       viewport: viewportState.transform,
     },
   );
-  setViewport({ x, y, zoom });
+  setViewport(
+    { x, y, zoom },
+    { duration: useSettings.getState().gui.transitionDuration },
+  );
   applyActiveSectionChange({ interaction: "go-to", sectionId });
 }
 export function autoLayout() {

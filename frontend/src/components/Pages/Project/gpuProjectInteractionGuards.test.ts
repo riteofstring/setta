@@ -1,6 +1,5 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it } from "vitest";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_DRAG_CLASS_NAME,
@@ -8,6 +7,7 @@ import {
   NO_WHEEL_CLASS_NAME,
   SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
+import { describe, expect, it } from "vitest";
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
@@ -54,26 +54,31 @@ describe("gpu project interaction guards", () => {
   });
 
   it.each([
-    ["AI follow transition", false, false, true],
-    ["dnd sorting mode", true, false, false],
-    ["dnd moving-free mode", false, true, false],
+    ["dnd sorting mode", true, false],
+    ["dnd moving-free mode", false, true],
   ])(
     "disables GPU viewport gestures during %s",
-    (_label, isSorting, isMovingFree, isFollowTransitioning) => {
+    (_label, isSorting, isMovingFree) => {
       expect(
         isProjectGpuViewportGestureDisabled({
           dndMode: { isMovingFree, isSorting },
-          isFollowTransitioning,
         }),
       ).toBe(true);
     },
   );
 
+  it("allows GPU viewport gestures during AI follow transitions so user input can cancel the animation", () => {
+    expect(
+      isProjectGpuViewportGestureDisabled({
+        dndMode: { isMovingFree: false, isSorting: false },
+      }),
+    ).toBe(false);
+  });
+
   it("allows GPU viewport gestures in normal mode", () => {
     expect(
       isProjectGpuViewportGestureDisabled({
         dndMode: { isMovingFree: false, isSorting: false },
-        isFollowTransitioning: false,
       }),
     ).toBe(false);
   });
