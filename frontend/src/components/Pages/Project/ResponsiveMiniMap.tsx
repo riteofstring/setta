@@ -1,5 +1,5 @@
 import GpuMiniMap from "gpuFlow/GpuMiniMap";
-import { setCenter } from "gpuFlow/viewportActions";
+import { getZoom, setCenter } from "gpuFlow/viewportActions";
 import type { CSSProperties } from "react";
 import { useLocalStorage } from "state/definitions";
 
@@ -71,7 +71,7 @@ export function ResponsiveMiniMap() {
       maskStrokeWidth={2}
       pannable
       onClick={(_event, { x, y }) => {
-        setCenter(x, y);
+        setCenter(x, y, { zoom: getZoom() });
       }}
     />
   );
