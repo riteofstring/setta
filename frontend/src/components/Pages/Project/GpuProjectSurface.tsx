@@ -12,7 +12,6 @@ import type { GpuGridInput } from "gpuFlow/gpuPipelines";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import { getGpuNodeDragAutoPanDelta } from "gpuFlow/interactions/nodeDrag";
 import {
-  clearNodesSelectionBounds,
   shiftNodesSelectionBounds,
   updateActiveNodesSelectionBounds,
 } from "gpuFlow/selectionBounds";
@@ -34,17 +33,13 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent,
-  type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setActiveSectionIds } from "state/actions/activeSections";
-import {
-  openPaneContextMenu,
-  openSelectionContextMenu,
-} from "state/actions/contextMenus";
+import { openSelectionContextMenu } from "state/actions/contextMenus";
 import {
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
@@ -56,9 +51,7 @@ import {
   updateNodeDimensions,
   updateNodePositions,
 } from "state/actions/nodeInternals";
-import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import {
   getActiveSectionUIIds,
@@ -79,10 +72,7 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
-import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { useTabScope } from "utils/focusManager";
-import { NotificationTypeEnum } from "utils/generatedTypes";
-import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { AgenticScopeHighlightsUpdater } from "./AgenticScopeHighlightsUpdater";
 import {
   selectProjectGpuEdge,
@@ -98,6 +88,12 @@ import {
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
   type ProjectGpuDndMode,
 } from "./gpuProjectInteractionGuards";
+import {
+  handleProjectPaneClick,
+  handleProjectPaneContextMenu,
+  handleProjectPaneDragOver,
+  handleProjectPaneDrop,
+} from "./gpuProjectPaneEvents";
 import {
   buildProjectSelectionKeyboardNudgePlan,
   moveProjectSelectionDragItems,
@@ -1068,104 +1064,6 @@ function handleProjectSelectionChange(change: ProjectGpuSelectionChange) {
       });
     }
   }
-}
-
-function handleProjectPaneClick(event: ReactMouseEvent<HTMLDivElement>) {
-  if (!isProjectPaneBackgroundTarget(event.target)) {
-    return;
-  }
-  if (useMisc.getState().mouseDownDrawArea) {
-    useMisc.setState({ mouseDownDrawArea: false });
-    return;
-  }
-  if (gpuFlowViewportStore.getState().userSelectionActive) {
-    return;
-  }
-  applyActiveSectionChange({ interaction: "pane-click" });
-  useMisc.setState({
-    lastPaneClickLocation: screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    }),
-  });
-  clearNodesSelectionBounds();
-}
-
-function handleProjectPaneContextMenu(panOnDrag: boolean | readonly number[]) {
-  return (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (!isProjectPaneBackgroundTarget(event.target)) {
-      return;
-    }
-    if (Array.isArray(panOnDrag) && panOnDrag.includes(2)) {
-      event.preventDefault();
-      return;
-    }
-    openPaneContextMenu(event);
-  };
-}
-
-function handleProjectPaneDragOver(event: ReactDragEvent<HTMLDivElement>) {
-  if (!isProjectPaneBackgroundTarget(event.target)) {
-    return;
-  }
-  const payload = getFileBrowserDragPayload(event.dataTransfer);
-  const hasNativeFiles = event.dataTransfer.files.length > 0;
-  if ((!payload || payload.type !== "file") && !hasNativeFiles) {
-    return;
-  }
-  event.preventDefault();
-  event.dataTransfer.dropEffect = "copy";
-}
-
-function handleProjectPaneDrop(event: ReactDragEvent<HTMLDivElement>) {
-  if (!isProjectPaneBackgroundTarget(event.target)) {
-    return;
-  }
-  const position = screenToFlowPosition({
-    x: event.clientX,
-    y: event.clientY,
-  });
-  const payload = getFileBrowserDragPayload(event.dataTransfer);
-  const openFileForDrop = async (filePath: string, fileName: string) => {
-    const result = await openFileAsSectionForDrop({
-      fileName,
-      filePath,
-      focusOnSection: false,
-      position,
-    });
-    if (result.status === "unsupported_binary") {
-      addTemporaryNotification(
-        "Binary files cannot be auto-opened as sections from drag-and-drop.",
-        NotificationTypeEnum.warning,
-      );
-      return;
-    }
-    if (result.status === "failed") {
-      addTemporaryNotification(
-        "Failed to create a section from the dropped file.",
-        NotificationTypeEnum.error,
-      );
-    }
-  };
-  if (payload && payload.type === "file") {
-    event.preventDefault();
-    void openFileForDrop(payload.fullPath, payload.name);
-    return;
-  }
-  const nativeFile = event.dataTransfer.files.item(0);
-  if (!nativeFile) {
-    return;
-  }
-  event.preventDefault();
-  const openNativeFileDrop = async () => {
-    const importResult = await importNativeFileToWorkspace(nativeFile);
-    if (importResult.status !== "ok") {
-      addTemporaryNotification(importResult.error, NotificationTypeEnum.error);
-      return;
-    }
-    await openFileForDrop(importResult.filePath, importResult.fileName);
-  };
-  void openNativeFileDrop();
 }
 
 function updateSelectedNodePositionsFromKeyboard({
