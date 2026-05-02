@@ -16,9 +16,14 @@ import {
   encodeHtmlSurfaceCameraUniform,
   HtmlSurfaceRenderer,
 } from "./htmlSurfaces/renderer";
+import {
+  HTML_SURFACE_RIPPLE_EFFECT_ID,
+  HTML_SURFACE_RIPPLE_PROJECTOR_ID,
+} from "./htmlSurfaces/shaderEffects";
 import type { HtmlSurfaceTextureRecord } from "./htmlSurfaces/textures";
 import {
   createHtmlSurfaceVisualScene,
+  type HtmlSurfaceEffectVisual,
   type HtmlSurfaceFlatVisual,
   type HtmlSurfaceMeshVisual,
   type HtmlSurfaceTiledFlatVisual,
@@ -270,6 +275,58 @@ describe("html surface renderer", () => {
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 6, 1, 0, 0);
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 6, 0);
     expect(gpu.device.createBindGroup).toHaveBeenCalledTimes(3);
+  });
+
+  it("draws shader-effect surfaces with an explicit supported projector", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+    const effect = effectSurface("effect-a");
+
+    const result = renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      scene: createHtmlSurfaceVisualScene({
+        effectSurfaces: [effect],
+      }),
+      viewport: [10, 20, 1.25],
+    });
+
+    expect(result).toEqual({
+      drawnEdgeIds: [],
+      drawnSurfaceIds: ["effect-a"],
+      edgeVertexCount: 0,
+      vertexCount: 6,
+    });
+    expect(writeBufferLabels(gpu)).toEqual([
+      "setta-html-surface-camera-uniform",
+      "setta-html-surface-effect-vertices",
+    ]);
+    expect(gpu.device.createRenderPipeline).toHaveBeenCalledTimes(1);
+    expect(gpu.pass.setPipeline).toHaveBeenCalledWith(gpu.pipelines[0]);
+    expect(gpu.pass.setVertexBuffer).toHaveBeenCalledWith(0, gpu.buffers[1]);
+    expect(gpu.pass.draw).toHaveBeenCalledWith(6, 1, 0, 0);
+  });
+
+  it("rejects shader-effect surfaces without their declared projector", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new HtmlSurfaceRenderer(gpu.runtime);
+
+    expect(() =>
+      renderer.render({
+        canvasSize: { cssHeight: 600, cssWidth: 800 },
+        scene: createHtmlSurfaceVisualScene({
+          effectSurfaces: [
+            effectSurface("effect-a", {
+              projectorId: "missing-projector",
+            }),
+          ],
+        }),
+        viewport: [10, 20, 1.25],
+      }),
+    ).toThrow(
+      'Setta HTML surface shader effect "setta-ripple" requires projector "setta-ripple-projector", received "missing-projector".',
+    );
   });
 
   it("draws the procedural grid before GPU edges and surface textures", () => {
@@ -827,6 +884,21 @@ function tiledFlatSurface(surfaceId: string): HtmlSurfaceTiledFlatVisual {
         v1: 1,
       },
     ],
+    zIndex: 0,
+  };
+}
+
+function effectSurface(
+  surfaceId: string,
+  overrides: Partial<Pick<HtmlSurfaceEffectVisual, "projectorId">> = {},
+): HtmlSurfaceEffectVisual {
+  return {
+    bounds: { height: 80, width: 120, x: 24, y: 16 },
+    effectId: HTML_SURFACE_RIPPLE_EFFECT_ID,
+    kind: "effect",
+    projectorId: overrides.projectorId ?? HTML_SURFACE_RIPPLE_PROJECTOR_ID,
+    surfaceId,
+    texture: textureRecord(surfaceId),
     zIndex: 0,
   };
 }

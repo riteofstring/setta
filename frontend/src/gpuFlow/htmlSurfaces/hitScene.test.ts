@@ -7,6 +7,12 @@ import {
   resolveHtmlSurfaceHitAtSurfacePoint,
   type HtmlSurfaceEffectHitProjector,
 } from "./hitScene";
+import {
+  HTML_SURFACE_RIPPLE_EFFECT_ID,
+  HTML_SURFACE_RIPPLE_PROJECTOR_ID,
+  createHtmlSurfaceShaderEffectProjectors,
+  projectHtmlSurfaceShaderEffectUv,
+} from "./shaderEffects";
 
 describe("html surface hit scene", () => {
   it("maps a client point to the topmost flat surface local coordinates", () => {
@@ -186,6 +192,44 @@ describe("html surface hit scene", () => {
     ).toThrow(
       'HTML surface effect "ripple" cannot be hit-tested without projector "ripple-projector".',
     );
+  });
+
+  it("projects built-in shader-effect hits with the renderer UV function", () => {
+    const expectedUv = projectHtmlSurfaceShaderEffectUv({
+      effectId: HTML_SURFACE_RIPPLE_EFFECT_ID,
+      u: 0.25,
+      v: 0.3,
+    });
+
+    const hit = resolveHtmlSurfaceHitAtSurfacePoint({
+      effectProjectors: createHtmlSurfaceShaderEffectProjectors(),
+      scene: createHtmlSurfaceHitScene({
+        effectSurfaces: [
+          {
+            bounds: { height: 100, width: 200, x: 10, y: 20 },
+            effectId: HTML_SURFACE_RIPPLE_EFFECT_ID,
+            kind: "effect",
+            projectorId: HTML_SURFACE_RIPPLE_PROJECTOR_ID,
+            sourceHeight: 100,
+            sourceWidth: 200,
+            surfaceId: "effect",
+            zIndex: 1,
+          },
+        ],
+      }),
+      surfaceX: 60,
+      surfaceY: 50,
+      viewport: [0, 0, 1],
+    });
+
+    expect(hit).toMatchObject({
+      kind: "effect",
+      localX: expectedUv.u * 200,
+      localY: expectedUv.v * 100,
+      surfaceId: "effect",
+      u: expectedUv.u,
+      v: expectedUv.v,
+    });
   });
 
   it("does not require a lower effect projector when a higher surface is hit", () => {
