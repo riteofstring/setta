@@ -13,19 +13,26 @@ describe("zoom adapter utilities", () => {
     expect(transformToString(null)).toBe("");
   });
 
-  it("normalizes translation by current GPU viewport zoom", () => {
-    // Validates drag translation stays in flow-space regardless of viewport zoom.
-    gpuFlowViewportStore.getState().setTransform([0, 0, 2]);
+  it.each([
+    [0.5, 40, 20],
+    [1, 20, 10],
+    [2, 10, 5],
+  ])(
+    "normalizes sortable translation by GPU viewport zoom %s",
+    (zoom, expectedX, expectedY) => {
+      // Validates drag translation stays in flow-space regardless of viewport zoom.
+      gpuFlowViewportStore.getState().setTransform([0, 0, zoom]);
 
-    expect(
-      applyZoomToTransform({ x: 20, y: 10, scaleX: 1, scaleY: 1 }),
-    ).toEqual({
-      x: 10,
-      y: 5,
-      scaleX: 1,
-      scaleY: 1,
-    });
-  });
+      expect(
+        applyZoomToTransform({ x: 20, y: 10, scaleX: 1, scaleY: 1 }),
+      ).toEqual({
+        x: expectedX,
+        y: expectedY,
+        scaleX: 1,
+        scaleY: 1,
+      });
+    },
+  );
 
   it("renders transform strings with and without scale", () => {
     // Validates CSS transform serialization for sortable elements.
