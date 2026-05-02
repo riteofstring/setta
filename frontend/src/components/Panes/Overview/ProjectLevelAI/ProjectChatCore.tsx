@@ -1,11 +1,6 @@
-import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import {
-  CHAT_STARTER_PROMPTS,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
-  type ChatPermissionModeValue,
-  type ChatStarterPrompt,
-  type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
@@ -20,26 +15,10 @@ import {
   resolveEffectiveThinking,
   supportsThinkingExecutionControl,
 } from "components/Chat/engineUtils";
-import { getFileBrowserRoot } from "openapi/http";
-import {
-  useAppSubsystemFrontendStatus,
-  useAppSubsystemSlashCommands,
-  useAppSubsystemSupportedAppGenerationModes,
-} from "plugins/appSubsystem";
-import {
-  Dispatch,
-  memo,
-  SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
-  getDefaultChatDetails,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
@@ -57,28 +36,31 @@ import {
   type ProjectChatCustomSlashCommand,
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
-import {
-  getDefaultChatAppGenerationDetails,
-  resolveChatAppGenerationContextFromMessageState,
-} from "state/utils/chatAppGeneration";
+import { resolveChatAppGenerationContextFromMessageState } from "state/utils/chatAppGeneration";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
 import {
   AgentRun,
   ChatFileAttachment,
   ChatRoleEnum,
-  EngineConfig,
   EngineTypeEnum,
   NotificationTypeEnum,
-  type ChatDictationMode,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import { useProjectChatHydrationRetry } from "./ProjectChatCore/hydration";
+import { useProjectChatSearchEmptyMatchCountReset } from "./ProjectChatCore/searchEmptyState";
+import { useProjectChatSlashCommandSets } from "./ProjectChatCore/slashCommandSets";
+import { useProjectChatStarterPrompts } from "./ProjectChatCore/starterPrompts";
+import { type ProjectChatCoreProps } from "./ProjectChatCore/types";
 import {
-  buildProjectChatHydrationCacheKey,
+  EmptyChatState,
+  selectProjectChatCoreState,
+  useHasPythonInWorkspaceRoot,
+  useWorkspaceRootIdentity,
+} from "./ProjectChatCore/workspaceState";
+import {
   buildProjectChatSubmitReadinessKey,
   buildProjectChatSubmittedMessageHistory,
-  clearProjectChatHydrationCacheEntriesForChat,
-  CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK,
   extractUserPromptText,
   filterProjectConversationMessagesBySearch,
   findBranchSourceUserMessage,
@@ -87,264 +69,21 @@ import {
   getMessageAttachments,
   getProjectChatBlockedReasonMessage,
   hasRetainedImageAttachmentFromImageModeThread,
-  hydrateProjectChatFromRuntime,
   NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK,
-  resolveProjectChatComposerExecutableNativeSlashCommandTokens,
-  resolveProjectChatComposerNativeSlashCommandTokens,
-  resolveProjectChatComposerSlashCommandSets,
   resolveProjectChatContextTelemetry,
-  resolveProjectChatHydrationRetryDecision,
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRedoTarget,
   resolveProjectChatRuntimeActivityDetails,
-  resolveProjectChatRuntimeNativeSlashCommandTokens,
   resolveProjectChatSubmitAppGeneration,
   resolveProjectChatSubmitPreflightResult,
-  shouldSkipProjectChatHydration,
   toSortedProjectHistoryEntries,
-  touchProjectChatHydrationRetryEntry,
-  trimProjectChatHydrationCache,
-  type ProjectChatBlockedErrorCode,
-  type ProjectChatHydrationRetryEntry,
 } from "./projectChatCoreUtils";
-import {
-  resolveProjectChatRunTypeForEngine,
-  type ProjectChatHydrationAuthority,
-} from "./projectChatHydrationAuthority";
+import { resolveProjectChatRunTypeForEngine } from "./projectChatHydrationAuthority";
 import {
   isAgentRunsAuthorityReady,
   type AgentRunsAuthorityState,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
-import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
-import {
-  loadWorkspacePythonSignal,
-  type WorkspacePythonSignalCache,
-} from "./workspacePythonSignals";
-
-const hasPythonInWorkspaceRootCache: WorkspacePythonSignalCache = new Map();
-const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
-const DEFAULT_CHAT_APP_GENERATION_DETAILS =
-  getDefaultChatAppGenerationDetails();
-
-type ChatExecutionSettings = ManagedChatExecutionSettings;
-type AIStoreState = ReturnType<typeof useAIStore.getState>;
-
-// eslint-disable-next-line complexity
-function selectProjectChatCoreState(
-  state: AIStoreState,
-  surfaceId: string,
-  chatId: string | null | undefined,
-) {
-  const pendingDetails = state.pendingChatDetailsBySurfaceId[surfaceId] ?? null;
-  const appGenerationDetails =
-    chatId === null || (typeof chatId !== "string" && pendingDetails !== null)
-      ? state.pendingChatAppGenerationDetailsBySurfaceId[surfaceId] ??
-        DEFAULT_CHAT_APP_GENERATION_DETAILS
-      : typeof chatId === "string"
-        ? state.chatAppGenerationDetailsByChatId[chatId] ??
-          DEFAULT_CHAT_APP_GENERATION_DETAILS
-        : DEFAULT_CHAT_APP_GENERATION_DETAILS;
-  const shouldUsePendingDraftDetails =
-    chatId === null || (typeof chatId !== "string" && pendingDetails !== null);
-  if (shouldUsePendingDraftDetails) {
-    return {
-      ...(pendingDetails ?? getDefaultChatDetails()),
-      ...appGenerationDetails,
-      usingPendingDraftDetails: pendingDetails !== null,
-    };
-  }
-  if (typeof chatId !== "string") {
-    return {
-      ...getDefaultChatDetails(),
-      ...appGenerationDetails,
-      usingPendingDraftDetails: false,
-    };
-  }
-  return {
-    ...(state.chatDetails[chatId] ?? getDefaultChatDetails()),
-    ...appGenerationDetails,
-    usingPendingDraftDetails: false,
-  };
-}
-
-function useWorkspaceRootIdentity(
-  enabled: boolean,
-  projectConfigId: string,
-): string | null {
-  const [workspaceRootIdentity, setWorkspaceRootIdentity] = useState<
-    string | null
-  >(null);
-
-  useEffect(() => {
-    if (!enabled) {
-      setWorkspaceRootIdentity(null);
-      return;
-    }
-    setWorkspaceRootIdentity(null);
-    let cancelled = false;
-    void (async () => {
-      const rootResponse = await callOpenAPI(getFileBrowserRoot());
-      if (cancelled || !res200(rootResponse) || !rootResponse.data) {
-        return;
-      }
-      const rootPath = rootResponse.data.rootPath.trim();
-      setWorkspaceRootIdentity(rootPath || null);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, projectConfigId]);
-
-  return workspaceRootIdentity;
-}
-
-function useHasPythonInWorkspaceRoot(
-  enabled: boolean,
-  workspaceRootIdentity: string | null,
-): boolean {
-  const [hasPython, setHasPython] = useState(false);
-  const [revalidationTick, setRevalidationTick] = useState(0);
-  const previousRootRef = useRef<string | null>(null);
-  const inFlightRootScanRef = useRef<Promise<void> | null>(null);
-  const pendingRootIdentityRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (workspaceRootIdentity === previousRootRef.current) {
-      return;
-    }
-    previousRootRef.current = workspaceRootIdentity;
-    setHasPython(false);
-  }, [workspaceRootIdentity]);
-
-  useEffect(() => {
-    if (!enabled || !workspaceRootIdentity) {
-      return;
-    }
-    let intervalId: number | null = null;
-
-    const clearRevalidationInterval = () => {
-      if (intervalId === null) {
-        return;
-      }
-      window.clearInterval(intervalId);
-      intervalId = null;
-    };
-
-    const startRevalidationInterval = () => {
-      clearRevalidationInterval();
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      // This stays as visible-page polling because the backend does not keep a
-      // websocket-backed watcher for arbitrary workspace-root Python presence.
-      // Revalidation is intentionally scoped to the active page instead of
-      // pretending there is an authoritative push source for this filesystem probe.
-      intervalId = window.setInterval(() => {
-        setRevalidationTick((current) => current + 1);
-      }, WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        clearRevalidationInterval();
-        return;
-      }
-      setRevalidationTick((current) => current + 1);
-      startRevalidationInterval();
-    };
-
-    startRevalidationInterval();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      clearRevalidationInterval();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [enabled, workspaceRootIdentity]);
-
-  useEffect(() => {
-    if (!enabled || !workspaceRootIdentity) {
-      pendingRootIdentityRef.current = null;
-      setHasPython(false);
-      return;
-    }
-    if (inFlightRootScanRef.current !== null) {
-      pendingRootIdentityRef.current = workspaceRootIdentity;
-      return;
-    }
-    let cancelled = false;
-    const scannedRootIdentity = workspaceRootIdentity;
-
-    const load = async () => {
-      const rootPath = scannedRootIdentity;
-      pendingRootIdentityRef.current = null;
-      const hasPythonSignals = await loadWorkspacePythonSignal({
-        cache: hasPythonInWorkspaceRootCache,
-        rootPath,
-        revalidate: revalidationTick !== 0,
-      });
-      if (cancelled) {
-        return;
-      }
-      if (hasPythonSignals === null) {
-        if (!cancelled) {
-          setHasPython(false);
-        }
-        return;
-      }
-      setHasPython(hasPythonSignals);
-    };
-
-    const loadPromise = load().finally(() => {
-      if (inFlightRootScanRef.current === loadPromise) {
-        inFlightRootScanRef.current = null;
-      }
-      const pendingRootIdentity = pendingRootIdentityRef.current;
-      if (pendingRootIdentity && pendingRootIdentity !== scannedRootIdentity) {
-        setRevalidationTick((current) => current + 1);
-      }
-    });
-    inFlightRootScanRef.current = loadPromise;
-    void loadPromise;
-    return () => {
-      cancelled = true;
-      pendingRootIdentityRef.current = null;
-    };
-  }, [enabled, revalidationTick, workspaceRootIdentity]);
-
-  return hasPython;
-}
-
-function EmptyChatState({
-  starterPrompts,
-  disabled,
-  onStarterPrompt,
-}: {
-  starterPrompts: ChatStarterPrompt[];
-  disabled: boolean;
-  onStarterPrompt: (prompt: string) => void;
-}) {
-  const starterButtonClassName =
-    "cursor-pointer rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
-      {starterPrompts.map((starterPrompt) => (
-        <button
-          key={starterPrompt.id}
-          type="button"
-          className={starterButtonClassName}
-          onClick={() => onStarterPrompt(starterPrompt.prompt)}
-          disabled={disabled}
-        >
-          {starterPrompt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // eslint-disable-next-line complexity
 export const ProjectChatCore = memo(function ProjectChatCore({
   surfaceId,
@@ -378,46 +117,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   onThinkingChange,
   onPermissionModeChange,
   onBlockedErrorCodeChange,
-}: {
-  surfaceId: string;
-  chatId: string | null | undefined;
-  draftMessage: string;
-  setDraftMessage: Dispatch<SetStateAction<string>>;
-  placeholderText: string;
-  conversationFilterText: string;
-  requiresNewThreadContinuation?: boolean;
-  newThreadContinuationRequiredReason?: string | null;
-  newThreadSeedChatId?: string | null;
-  activeConversationSearchMatchIndex?: number | null;
-  hydrationAuthority: ProjectChatHydrationAuthority;
-  hydrationMetadataRevision: string;
-  thinking: boolean;
-  engineConfigId: string | null;
-  engineConfig: EngineConfig | null;
-  engineType: EngineTypeEnum | null;
-  hasLLMConfig: boolean;
-  externalEngineAvailable: boolean;
-  noLLMConfigsAvailable: boolean;
-  transcriptionProfileId: string | null;
-  dictationMode: ChatDictationMode;
-  providerDictationAvailable: boolean;
-  providerDictationLikelySupported: boolean;
-  setChatId: Dispatch<SetStateAction<string | null | undefined>>;
-  onConversationSearchMatchCountChange?: (count: number) => void;
-  onStartNewChat?: () => void;
-  onDraftThreadStart?: () => void;
-  onDraftThreadSettled?: (
-    nextChatId: string | null,
-    succeeded: boolean,
-  ) => void;
-  onThinkingChange?: (nextThinking: boolean) => void;
-  onPermissionModeChange?: (
-    nextPermissionMode: ChatPermissionModeValue,
-  ) => void;
-  onBlockedErrorCodeChange?: (
-    errorCode: ProjectChatBlockedErrorCode | null,
-  ) => void;
-}) {
+}: ProjectChatCoreProps) {
   const {
     messages,
     toolCallArguments,
@@ -452,8 +152,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
-  const [hydrationBlockedErrorCode, setHydrationBlockedErrorCode] =
-    useState<ProjectChatBlockedErrorCode | null>(null);
   const [executionSettings, setExecutionSettings] =
     useState<ChatExecutionSettings>(() => ({
       permissionMode: getDefaultProjectChatPermissionMode(engineType),
@@ -516,6 +214,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     requestedThinking: thinking,
   });
   const hydrationRunType = hydrationAuthority.hydrationRunType;
+  const hydrationBlockedErrorCode = useProjectChatHydrationRetry({
+    chatId,
+    hydrationAuthority,
+    hydrationMetadataRevision,
+    hydrationRunType,
+    projectConfigId,
+    waitingForResponse,
+  });
   const { contextWindowTokens, contextUsedTokens, contextUsageIsEstimated } =
     useMemo(
       () => resolveProjectChatContextTelemetry(contextUsage),
@@ -575,78 +281,22 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
-  const runtimeAgentNativeSlashCommandTokens = useMemo(() => {
-    return resolveProjectChatRuntimeNativeSlashCommandTokens({
-      runs: agentRuns,
+  const { slashCommands, recognizedSlashCommands } =
+    useProjectChatSlashCommandSets({
+      agentRuns,
       projectConfigId,
       engineConfigId,
       engineType,
-    });
-  }, [agentRuns, engineConfigId, engineType, projectConfigId]);
-  const agentRunsAuthorityState = useAIStore(
-    (state) => state.agentRunsAuthorityState,
-  );
-  const customCommandsExecutable =
-    !isExternalEngine || isAgentRunsAuthorityReady(agentRunsAuthorityState);
-  const appGenerationSlashCommands = useAppSubsystemSlashCommands();
-  const supportedAppGenerationModes =
-    useAppSubsystemSupportedAppGenerationModes();
-  const appSubsystemFrontendStatus = useAppSubsystemFrontendStatus();
-  const { slashCommands, recognizedSlashCommands } = useMemo(() => {
-    const discoveredAgentNativeSlashCommands =
-      resolveProjectChatComposerNativeSlashCommandTokens({
-        runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,
-        agentRunsAuthorityState,
-      });
-    const executableAgentNativeSlashCommands =
-      resolveProjectChatComposerExecutableNativeSlashCommandTokens({
-        runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,
-        agentRunsAuthorityState,
-      });
-    return resolveProjectChatComposerSlashCommandSets({
+      agentRunsAuthorityState,
       customProjectChatSlashCommands,
       appGenerationSlashCommands,
-      discoveredAgentNativeSlashCommands,
-      executableAgentNativeSlashCommands,
       customCommandsExecutable,
-      customCommandUnavailableFeedback: customCommandsExecutable
-        ? null
-        : CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK,
       showPermissionExecutionControl,
       showSearchExecutionControl,
     });
-  }, [
-    agentRunsAuthorityState,
-    customCommandsExecutable,
-    customProjectChatSlashCommands,
-    appGenerationSlashCommands,
-    runtimeAgentNativeSlashCommandTokens,
-    showPermissionExecutionControl,
-    showSearchExecutionControl,
-  ]);
   const lastChatIdRef = useRef<string | null>(null);
-  const hydrationStatusByKeyRef = useRef<
-    Record<string, ProjectChatHydrationRetryEntry>
-  >({});
-  const createProjectStarterPrompt = useMemo(
-    () => buildCreateProjectStarterPrompt(hasPythonInWorkspaceRoot),
-    [hasPythonInWorkspaceRoot],
-  );
-  const visibleStarterPrompts = useMemo(
-    () =>
-      CHAT_STARTER_PROMPTS.filter(
-        (starterPrompt) =>
-          !starterPrompt.requiresPython || hasPythonInWorkspaceRoot,
-      ).map((starterPrompt) => {
-        if (starterPrompt.id !== "create-project") {
-          return starterPrompt;
-        }
-        return {
-          ...starterPrompt,
-          prompt: createProjectStarterPrompt,
-        };
-      }),
-    [createProjectStarterPrompt, hasPythonInWorkspaceRoot],
+  const visibleStarterPrompts = useProjectChatStarterPrompts(
+    hasPythonInWorkspaceRoot,
   );
   useEffect(() => {
     if (!agentRunsInitialLoadComplete) {
@@ -661,182 +311,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, [chatId]);
 
   useEffect(() => {
-    setHydrationBlockedErrorCode(null);
-  }, [chatId, hydrationMetadataRevision, hydrationRunType, projectConfigId]);
-
-  const clearHydrationRetryTimer = useCallback((cacheKey: string) => {
-    const state = hydrationStatusByKeyRef.current[cacheKey];
-    if (!state || state.timerId === null) {
-      return;
-    }
-    globalThis.clearTimeout(state.timerId);
-    state.timerId = null;
-    if (state.status === "retry_scheduled") {
-      state.status = "failed";
-    }
-    touchProjectChatHydrationRetryEntry(state);
-  }, []);
-
-  const clearAllHydrationRetryTimers = useCallback(() => {
-    for (const cacheKey of Object.keys(hydrationStatusByKeyRef.current)) {
-      clearHydrationRetryTimer(cacheKey);
-    }
-  }, [clearHydrationRetryTimer]);
-
-  useEffect(() => {
-    return () => {
-      clearAllHydrationRetryTimers();
-    };
-  }, [clearAllHydrationRetryTimers]);
-
-  useEffect(() => {
     if (!pendingPrompt) {
       return;
     }
     setDraftMessage((current) => (current.trim() ? current : pendingPrompt));
     useAIStore.setState({ pendingProjectChatPrompt: null });
   }, [pendingPrompt]);
-
-  // eslint-disable-next-line complexity
-  useEffect(() => {
-    if (typeof chatId !== "string") {
-      return;
-    }
-    if (hydrationAuthority.status !== "ready") {
-      return;
-    }
-    if (hydrationRunType === null) {
-      return;
-    }
-    const cacheKey = buildProjectChatHydrationCacheKey({
-      projectConfigId,
-      chatId,
-      hydrationRunType,
-      hydrationMetadataRevision,
-    });
-    if (!cacheKey) {
-      return;
-    }
-    const staleCacheKeys = clearProjectChatHydrationCacheEntriesForChat({
-      cache: hydrationStatusByKeyRef.current,
-      projectConfigId,
-      chatId,
-      keepCacheKey: cacheKey,
-    });
-    for (const staleCacheKey of staleCacheKeys) {
-      clearHydrationRetryTimer(staleCacheKey);
-      delete hydrationStatusByKeyRef.current[staleCacheKey];
-    }
-    const retryState = hydrationStatusByKeyRef.current[cacheKey];
-    if (retryState) {
-      touchProjectChatHydrationRetryEntry(retryState);
-    }
-    if (
-      shouldSkipProjectChatHydration(
-        retryState
-          ? {
-              status: retryState.status,
-              hasLiveRetryTimer: retryState.timerId !== null,
-            }
-          : null,
-      )
-    ) {
-      return;
-    }
-    if (retryState && retryState.status === "retry_scheduled") {
-      retryState.status = "failed";
-    }
-    let cancelled = false;
-    const hydrateChat = async () => {
-      const state =
-        hydrationStatusByKeyRef.current[cacheKey] ??
-        (hydrationStatusByKeyRef.current[cacheKey] = {
-          status: "failed",
-          timerId: null,
-          attempt: 0,
-          lastTouchedAt: Date.now(),
-        });
-      touchProjectChatHydrationRetryEntry(state);
-      state.status = "in_flight";
-      const hydrationOutcome = await hydrateProjectChatFromRuntime({
-        chatId,
-        projectConfigId,
-        hydrationRunType,
-      });
-      if (cancelled) {
-        return;
-      }
-      const retryDecision = resolveProjectChatHydrationRetryDecision({
-        outcomeType: hydrationOutcome.outcome,
-        attempt: state.attempt,
-      });
-      if (retryDecision.type === "success") {
-        setHydrationBlockedErrorCode(null);
-        state.status = "succeeded";
-        touchProjectChatHydrationRetryEntry(state);
-        clearHydrationRetryTimer(cacheKey);
-        trimProjectChatHydrationCache({
-          cache: hydrationStatusByKeyRef.current,
-        });
-        return;
-      }
-      if (retryDecision.type === "terminal_failure") {
-        setHydrationBlockedErrorCode(hydrationOutcome.errorCode);
-        clearHydrationRetryTimer(cacheKey);
-        state.status = "terminal_failure";
-        touchProjectChatHydrationRetryEntry(state);
-        trimProjectChatHydrationCache({
-          cache: hydrationStatusByKeyRef.current,
-        });
-        return;
-      }
-      setHydrationBlockedErrorCode(null);
-      clearHydrationRetryTimer(cacheKey);
-      state.attempt = retryDecision.nextAttempt;
-      if (retryDecision.type === "transient_exhausted") {
-        state.status = "failed";
-        touchProjectChatHydrationRetryEntry(state);
-        trimProjectChatHydrationCache({
-          cache: hydrationStatusByKeyRef.current,
-        });
-        return;
-      }
-      state.status = "retry_scheduled";
-      touchProjectChatHydrationRetryEntry(state);
-      state.timerId = globalThis.setTimeout(() => {
-        if (cancelled) {
-          return;
-        }
-        const retryStateForKey = hydrationStatusByKeyRef.current[cacheKey];
-        if (!retryStateForKey) {
-          return;
-        }
-        retryStateForKey.timerId = null;
-        retryStateForKey.status = "failed";
-        touchProjectChatHydrationRetryEntry(retryStateForKey);
-        void hydrateChat();
-      }, retryDecision.delayMs);
-    };
-    void hydrateChat();
-    return () => {
-      cancelled = true;
-      clearHydrationRetryTimer(cacheKey);
-      const state = hydrationStatusByKeyRef.current[cacheKey];
-      if (state?.status === "in_flight") {
-        state.status = "failed";
-        touchProjectChatHydrationRetryEntry(state);
-      }
-    };
-  }, [
-    chatId,
-    clearHydrationRetryTimer,
-    hydrationAuthority.status,
-    hydrationAuthority.blockedErrorCode,
-    hydrationMetadataRevision,
-    hydrationRunType,
-    projectConfigId,
-    waitingForResponse,
-  ]);
 
   const handleNewChatStart = useCallback(() => {
     if (chatId === null) {
@@ -1413,16 +893,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     !hasVisibleConversationMatches &&
     !waitingForResponse;
 
-  useEffect(() => {
-    if (!showEmptyState && !showConversationSearchEmptyState) {
-      return;
-    }
-    onConversationSearchMatchCountChange?.(0);
-  }, [
+  useProjectChatSearchEmptyMatchCountReset({
     onConversationSearchMatchCountChange,
     showConversationSearchEmptyState,
     showEmptyState,
-  ]);
+  });
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
