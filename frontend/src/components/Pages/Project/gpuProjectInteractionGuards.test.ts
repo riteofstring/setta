@@ -1,10 +1,20 @@
+/* @vitest-environment jsdom */
+
 import { describe, expect, it } from "vitest";
+import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+  SETTA_POPOVER_PORTAL_PARENT_ID,
+} from "utils/constants";
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
   isProjectGpuSelectionBoxDragDisabled,
   isProjectGpuSelectionDisabled,
   isProjectGpuViewportGestureDisabled,
+  isProjectPaneBackgroundTarget,
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
 } from "./gpuProjectInteractionGuards";
 
@@ -184,4 +194,88 @@ describe("gpu project interaction guards", () => {
       }),
     ).toBe(false);
   });
+
+  it("accepts GPU pane and canvas surfaces as pane background targets", () => {
+    const { gpuFlow, root, surface } = createProjectPaneFixture();
+
+    expect(isProjectPaneBackgroundTarget(root)).toBe(true);
+    expect(isProjectPaneBackgroundTarget(gpuFlow)).toBe(true);
+    expect(isProjectPaneBackgroundTarget(surface)).toBe(true);
+  });
+
+  it("rejects non-surface children of the project root", () => {
+    const { root } = createProjectPaneFixture();
+    const target = document.createElement("button");
+    root.append(target);
+
+    expect(isProjectPaneBackgroundTarget(target)).toBe(false);
+  });
+
+  it.each([
+    ["GPU node", "setta-gpu-flow__node"],
+    ["legacy node", "react-flow__node"],
+    ["selection box", "react-flow__nodesselection-rect"],
+    ["marquee selection", "react-flow__selection"],
+    ["edge handle", "react-flow__handle"],
+    ["edge reconnect handle", "react-flow__edgeupdater"],
+    ["GPU edge reconnect anchor", "setta-gpu-flow__edge-reconnect-anchor"],
+    ["resize handle", "section-resize-handle"],
+    ["nodrag target", NO_DRAG_CLASS_NAME],
+    ["nopan target", NO_PAN_CLASS_NAME],
+    ["nowheel target", NO_WHEEL_CLASS_NAME],
+  ])("rejects %s as a pane background target", (_label, className) => {
+    const { surface } = createProjectPaneFixture();
+    const target = appendNestedTarget(surface, { className });
+
+    expect(isProjectPaneBackgroundTarget(target)).toBe(false);
+  });
+
+  it.each([
+    ["CodeMirror tooltip portal", CODEMIRROR_TOOLTIP_PARENT_ID],
+    ["popover portal", SETTA_POPOVER_PORTAL_PARENT_ID],
+  ])("rejects %s content as a pane background target", (_label, id) => {
+    const { surface } = createProjectPaneFixture();
+    const target = appendNestedTarget(surface, { id });
+
+    expect(isProjectPaneBackgroundTarget(target)).toBe(false);
+  });
+
+  it("rejects non-element event targets", () => {
+    expect(isProjectPaneBackgroundTarget(document.createTextNode("text"))).toBe(
+      false,
+    );
+  });
 });
+
+function createProjectPaneFixture() {
+  const root = document.createElement("div");
+  root.className = "react-flow";
+  const gpuFlow = document.createElement("div");
+  gpuFlow.className = "setta-gpu-flow react-flow__pane";
+  const surface = document.createElement("canvas");
+  surface.dataset.gpuFlowSurface = "true";
+  gpuFlow.append(surface);
+  root.append(gpuFlow);
+  document.body.append(root);
+  return { gpuFlow, root, surface };
+}
+
+function appendNestedTarget(
+  parent: Element,
+  options: {
+    readonly className?: string | undefined;
+    readonly id?: string | undefined;
+  },
+) {
+  const wrapper = document.createElement("div");
+  if (options.className) {
+    wrapper.className = options.className;
+  }
+  if (options.id) {
+    wrapper.id = options.id;
+  }
+  const target = document.createElement("button");
+  wrapper.append(target);
+  parent.append(wrapper);
+  return target;
+}

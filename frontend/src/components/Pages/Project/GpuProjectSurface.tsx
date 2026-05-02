@@ -86,6 +86,7 @@ import {
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
+  isProjectPaneBackgroundTarget,
   isProjectGpuSelectionBoxDragDisabled,
   isProjectGpuSelectionDisabled,
   isProjectGpuViewportGestureDisabled,
@@ -1155,25 +1156,6 @@ function snapProjectNodePosition(
 function canDragProjectNode(nodeId: string): boolean {
   return !getCurrEffectiveSectionImpl(useProjectState.getState(), nodeId)
     .positionAndSizeLocked;
-}
-
-function isProjectPaneBackgroundTarget(target: EventTarget): boolean {
-  if (!(target instanceof Element)) {
-    return false;
-  }
-  if (
-    target.closest(".setta-gpu-flow__node") ||
-    target.closest(".react-flow__node") ||
-    target.closest(".react-flow__nodesselection-rect")
-  ) {
-    return false;
-  }
-  return Boolean(
-    target.closest("[data-gpu-flow-surface='true']") ||
-      target.closest(".setta-gpu-flow") ||
-      target.classList.contains("react-flow") ||
-      target.classList.contains("react-flow__pane"),
-  );
 }
 
 function eventTargetsNoDragElement(event: Event): boolean {

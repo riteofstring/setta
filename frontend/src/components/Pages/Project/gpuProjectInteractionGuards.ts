@@ -1,7 +1,41 @@
+import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+  SETTA_POPOVER_PORTAL_PARENT_ID,
+} from "utils/constants";
+
 export type ProjectGpuDndMode = {
   readonly isMovingFree: boolean;
   readonly isSorting: boolean;
 };
+
+const PROJECT_GPU_PANE_BACKGROUND_ANCESTOR_SELECTORS = [
+  "[data-gpu-flow-surface='true']",
+  ".setta-gpu-flow",
+] as const;
+
+const PROJECT_GPU_PANE_BACKGROUND_TARGET_SELECTORS = [
+  ".react-flow",
+  ".react-flow__pane",
+] as const;
+
+const PROJECT_GPU_PANE_NON_BACKGROUND_SELECTORS = [
+  ".setta-gpu-flow__node",
+  ".react-flow__node",
+  ".react-flow__nodesselection-rect",
+  ".react-flow__selection",
+  ".react-flow__handle",
+  ".react-flow__edgeupdater",
+  ".setta-gpu-flow__edge-reconnect-anchor",
+  ".section-resize-handle",
+  `#${CODEMIRROR_TOOLTIP_PARENT_ID}`,
+  `#${SETTA_POPOVER_PORTAL_PARENT_ID}`,
+  `.${NO_DRAG_CLASS_NAME}`,
+  `.${NO_PAN_CLASS_NAME}`,
+  `.${NO_WHEEL_CLASS_NAME}`,
+] as const;
 
 export type ProjectGpuNodeDragGuardInput = {
   readonly dndMode: ProjectGpuDndMode;
@@ -96,6 +130,44 @@ export function shouldShiftProjectGpuSelectionBoundsForNodeMove({
   return activeSelectedNodeIds.every((nodeId) => movedIds.has(nodeId));
 }
 
+export function isProjectPaneBackgroundTarget(target: EventTarget): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (
+    closestMatchesAnyProjectPaneSelector(
+      target,
+      PROJECT_GPU_PANE_NON_BACKGROUND_SELECTORS,
+    )
+  ) {
+    return false;
+  }
+  return (
+    targetMatchesAnyProjectPaneSelector(
+      target,
+      PROJECT_GPU_PANE_BACKGROUND_TARGET_SELECTORS,
+    ) ||
+    closestMatchesAnyProjectPaneSelector(
+      target,
+      PROJECT_GPU_PANE_BACKGROUND_ANCESTOR_SELECTORS,
+    )
+  );
+}
+
 function isProjectGpuDndModeActive(dndMode: ProjectGpuDndMode): boolean {
   return dndMode.isSorting || dndMode.isMovingFree;
+}
+
+function closestMatchesAnyProjectPaneSelector(
+  target: Element,
+  selectors: readonly string[],
+): boolean {
+  return selectors.some((selector) => target.closest(selector) !== null);
+}
+
+function targetMatchesAnyProjectPaneSelector(
+  target: Element,
+  selectors: readonly string[],
+): boolean {
+  return selectors.some((selector) => target.matches(selector));
 }
