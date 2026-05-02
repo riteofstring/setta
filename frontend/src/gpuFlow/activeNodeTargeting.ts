@@ -120,6 +120,18 @@ export function resolveGpuNodePointerHandoffTarget({
   if (!nodeElement) {
     return null;
   }
+  const target = findInteractiveTargetAtLocalPoint({
+    localX: hit.localX,
+    localY: hit.localY,
+    root: nodeElement,
+  });
+  if (!target) {
+    return null;
+  }
+  const descriptor = createGpuNodeTargetDescriptor(nodeElement, target);
+  if (!descriptor) {
+    return null;
+  }
   projectSourceForHitTesting?.({
     clientX,
     clientY,
@@ -131,18 +143,6 @@ export function resolveGpuNodePointerHandoffTarget({
     surfaceX: hit.surfaceX,
     surfaceY: hit.surfaceY,
   });
-  const target = findInteractiveTargetAtClientPoint({
-    clientX,
-    clientY,
-    root: nodeElement,
-  });
-  if (!target) {
-    return null;
-  }
-  const descriptor = createGpuNodeTargetDescriptor(nodeElement, target);
-  if (!descriptor) {
-    return null;
-  }
   return {
     descriptor,
     nodeId: hit.node.nodeId,
@@ -173,6 +173,29 @@ export function resolveGpuNodeWheelHandoffTarget({
   if (!nodeElement) {
     return null;
   }
+  const target =
+    findWheelTargetAtLocalPoint({
+      localX: hit.localX,
+      localY: hit.localY,
+      root: nodeElement,
+    }) ??
+    findScrollableTargetAtLocalPoint({
+      localX: hit.localX,
+      localY: hit.localY,
+      root: nodeElement,
+    }) ??
+    findNearestScrollableWheelTargetAtLocalPoint({
+      localX: hit.localX,
+      localY: hit.localY,
+      root: nodeElement,
+    });
+  if (!target) {
+    return null;
+  }
+  const descriptor = createGpuNodeTargetDescriptor(nodeElement, target);
+  if (!descriptor) {
+    return null;
+  }
   projectSourceForHitTesting?.({
     clientX,
     clientY,
@@ -184,29 +207,6 @@ export function resolveGpuNodeWheelHandoffTarget({
     surfaceX: hit.surfaceX,
     surfaceY: hit.surfaceY,
   });
-  const target =
-    findWheelTargetAtClientPoint({
-      clientX,
-      clientY,
-      root: nodeElement,
-    }) ??
-    findScrollableTargetAtClientPoint({
-      clientX,
-      clientY,
-      root: nodeElement,
-    }) ??
-    findNearestScrollableWheelTarget({
-      clientX,
-      clientY,
-      root: nodeElement,
-    });
-  if (!target) {
-    return null;
-  }
-  const descriptor = createGpuNodeTargetDescriptor(nodeElement, target);
-  if (!descriptor) {
-    return null;
-  }
   return {
     descriptor,
     nodeId: hit.node.nodeId,
@@ -320,19 +320,19 @@ export function createGpuNodeTargetDescriptor(
   };
 }
 
-function findInteractiveTargetAtClientPoint({
-  clientX,
-  clientY,
+function findInteractiveTargetAtLocalPoint({
+  localX,
+  localY,
   root,
 }: {
-  readonly clientX: number;
-  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
   readonly root: HTMLElement;
 }): HTMLElement | null {
   const candidates = getInteractiveTargetCandidates(root);
   let match: HTMLElement | null = null;
   for (const candidate of candidates) {
-    if (!elementContainsClientPoint(candidate, clientX, clientY)) {
+    if (!elementContainsLocalPoint(candidate, root, localX, localY)) {
       continue;
     }
     if (
@@ -346,19 +346,20 @@ function findInteractiveTargetAtClientPoint({
   return match;
 }
 
-function findWheelTargetAtClientPoint({
-  clientX,
-  clientY,
+function findWheelTargetAtLocalPoint({
+  localX,
+  localY,
   root,
 }: {
-  readonly clientX: number;
-  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
   readonly root: HTMLElement;
 }): HTMLElement | null {
   const explicitTarget = findSmallestContainingElement(
     getNativeWheelTargetCandidates(root),
-    clientX,
-    clientY,
+    root,
+    localX,
+    localY,
   );
   if (!explicitTarget) {
     return null;
@@ -366,34 +367,36 @@ function findWheelTargetAtClientPoint({
   return (
     findSmallestContainingElement(
       getScrollableDescendantCandidates(explicitTarget),
-      clientX,
-      clientY,
+      root,
+      localX,
+      localY,
     ) ?? explicitTarget
   );
 }
 
-function findNearestScrollableWheelTarget({
-  clientX,
-  clientY,
+function findNearestScrollableWheelTargetAtLocalPoint({
+  localX,
+  localY,
   root,
 }: {
-  readonly clientX: number;
-  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
   readonly root: HTMLElement;
 }): HTMLElement | null {
   let match: HTMLElement | null = null;
   let matchDistance = Number.POSITIVE_INFINITY;
   for (const candidate of getNativeWheelTargetCandidates(root)) {
     const scrollTarget =
-      findNearestScrollableDescendant(candidate, clientX, clientY) ??
+      findNearestScrollableDescendant(candidate, root, localX, localY) ??
       (isScrollableElement(candidate) ? candidate : null);
     if (!scrollTarget) {
       continue;
     }
     const distance = getDistanceSquaredToElementRect(
       scrollTarget,
-      clientX,
-      clientY,
+      root,
+      localX,
+      localY,
     );
     if (distance < matchDistance) {
       match = scrollTarget;
@@ -403,34 +406,37 @@ function findNearestScrollableWheelTarget({
   return match;
 }
 
-function findScrollableTargetAtClientPoint({
-  clientX,
-  clientY,
+function findScrollableTargetAtLocalPoint({
+  localX,
+  localY,
   root,
 }: {
-  readonly clientX: number;
-  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
   readonly root: HTMLElement;
 }): HTMLElement | null {
   return findSmallestContainingElement(
     getScrollableDescendantCandidates(root),
-    clientX,
-    clientY,
+    root,
+    localX,
+    localY,
   );
 }
 
 function findNearestScrollableDescendant(
   root: HTMLElement,
-  clientX: number,
-  clientY: number,
+  sourceRoot: HTMLElement,
+  localX: number,
+  localY: number,
 ): HTMLElement | null {
   let match: HTMLElement | null = null;
   let matchDistance = Number.POSITIVE_INFINITY;
   for (const candidate of getScrollableDescendantCandidates(root)) {
     const distance = getDistanceSquaredToElementRect(
       candidate,
-      clientX,
-      clientY,
+      sourceRoot,
+      localX,
+      localY,
     );
     if (distance < matchDistance) {
       match = candidate;
@@ -611,12 +617,13 @@ function isScrollableOverflowValue(value: string | undefined): boolean {
 
 function findSmallestContainingElement(
   candidates: readonly HTMLElement[],
-  clientX: number,
-  clientY: number,
+  root: HTMLElement,
+  localX: number,
+  localY: number,
 ): HTMLElement | null {
   let match: HTMLElement | null = null;
   for (const candidate of candidates) {
-    if (!elementContainsClientPoint(candidate, clientX, clientY)) {
+    if (!elementContainsLocalPoint(candidate, root, localX, localY)) {
       continue;
     }
     if (
@@ -632,39 +639,56 @@ function findSmallestContainingElement(
 
 function getDistanceSquaredToElementRect(
   element: HTMLElement,
-  clientX: number,
-  clientY: number,
+  root: HTMLElement,
+  localX: number,
+  localY: number,
 ): number {
-  const rect = element.getBoundingClientRect();
+  const rect = getElementLocalRect(element, root);
   const dx =
-    clientX < rect.left
-      ? rect.left - clientX
-      : clientX > rect.right
-        ? clientX - rect.right
+    localX < rect.left
+      ? rect.left - localX
+      : localX > rect.right
+        ? localX - rect.right
         : 0;
   const dy =
-    clientY < rect.top
-      ? rect.top - clientY
-      : clientY > rect.bottom
-        ? clientY - rect.bottom
+    localY < rect.top
+      ? rect.top - localY
+      : localY > rect.bottom
+        ? localY - rect.bottom
         : 0;
   return dx * dx + dy * dy;
 }
 
-function elementContainsClientPoint(
+function elementContainsLocalPoint(
   element: HTMLElement,
-  clientX: number,
-  clientY: number,
+  root: HTMLElement,
+  localX: number,
+  localY: number,
 ): boolean {
-  const rect = element.getBoundingClientRect();
+  const rect = getElementLocalRect(element, root);
   return (
     rect.width > 0 &&
     rect.height > 0 &&
-    clientX >= rect.left &&
-    clientX < rect.right &&
-    clientY >= rect.top &&
-    clientY < rect.bottom
+    localX >= rect.left &&
+    localX < rect.right &&
+    localY >= rect.top &&
+    localY < rect.bottom
   );
+}
+
+function getElementLocalRect(element: HTMLElement, root: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  const rootRect = root.getBoundingClientRect();
+  const left = rect.left - rootRect.left;
+  const top = rect.top - rootRect.top;
+  return {
+    bottom: top + rect.height,
+    height: rect.height,
+    left,
+    right: left + rect.width,
+    top,
+    width: rect.width,
+  };
 }
 
 function getElementRectArea(element: HTMLElement): number {

@@ -24,8 +24,8 @@ describe("gpu active node pointer targeting", () => {
     lowerNode.append(lowerButton);
     upperNode.append(upperButton);
     setRect(surface, 100, 50, 500, 400);
-    setRect(lowerButton, 130, 90, 40, 20);
-    setRect(upperButton, 130, 90, 40, 20);
+    setRect(lowerButton, 20, 20, 40, 20);
+    setRect(upperButton, 20, 20, 40, 20);
 
     const target = resolveGpuNodePointerHandoffTarget({
       clientX: 135,
@@ -60,6 +60,8 @@ describe("gpu active node pointer targeting", () => {
     button.dataset.gpuFlowControl = "node-action";
     nodeElement.append(button);
     setRect(surface, 100, 50, 500, 400);
+    setRect(button, 12, 0, 20, 12);
+    const projections: unknown[] = [];
 
     const target = resolveGpuNodePointerHandoffTarget({
       clientX: 170,
@@ -67,6 +69,7 @@ describe("gpu active node pointer targeting", () => {
       elementByNodeId: new Map([["node-a", nodeElement]]),
       nodes: [node("node-a", 10, 20, 100, 60, 1)],
       projectSourceForHitTesting: (projection) => {
+        projections.push(projection);
         expect(projection).toMatchObject({
           localX: 15,
           localY: 5,
@@ -75,7 +78,6 @@ describe("gpu active node pointer targeting", () => {
           surfaceX: 70,
           surfaceY: 60,
         });
-        setRect(button, projection.clientX - 4, projection.clientY - 4, 20, 12);
       },
       surfaceElement: surface,
       viewport: [20, 10, 2],
@@ -90,6 +92,32 @@ describe("gpu active node pointer targeting", () => {
       },
       nodeId: "node-a",
     });
+    expect(projections).toHaveLength(1);
+  });
+
+  it("does not project source DOM when a pointer hit has no interactive target", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const label = document.createElement("div");
+    nodeElement.append(label);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(label, 20, 20, 80, 32);
+    const projections: unknown[] = [];
+
+    expect(
+      resolveGpuNodePointerHandoffTarget({
+        clientX: 40,
+        clientY: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        projectSourceForHitTesting: (projection) => {
+          projections.push(projection);
+        },
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      }),
+    ).toBeNull();
+    expect(projections).toEqual([]);
   });
 
   it("describes controls by stable attributes or DOM path without visible text", () => {
@@ -519,6 +547,31 @@ describe("gpu active node pointer targeting", () => {
         viewport: [0, 0, 1],
       }),
     ).toBeNull();
+  });
+
+  it("does not project source DOM when a wheel hit has no wheel target", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const label = document.createElement("div");
+    nodeElement.append(label);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(label, 20, 20, 80, 32);
+    const projections: unknown[] = [];
+
+    expect(
+      resolveGpuNodeWheelHandoffTarget({
+        clientX: 40,
+        clientY: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        projectSourceForHitTesting: (projection) => {
+          projections.push(projection);
+        },
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      }),
+    ).toBeNull();
+    expect(projections).toEqual([]);
   });
 });
 
