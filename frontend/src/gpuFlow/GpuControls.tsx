@@ -242,6 +242,7 @@ function ViewportControls(props: {
   const transitionDuration = useSettings(
     (state) => state.gui.transitionDuration,
   );
+  const overviewWidth = useLocalStorage((state) => state.overviewTrueWidth);
   const onFitView = useCallback(() => {
     const nodes = getNodes().filter(isMeasuredGpuNodeBoundsInput);
     if (nodes.length === 0) {
@@ -250,16 +251,21 @@ function ViewportControls(props: {
     fitView({
       bounds: getGpuNodesBounds(nodes),
       duration: transitionDuration,
-      overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+      overviewWidth,
       padding: DEFAULT_FIT_VIEW_PADDING,
       store: props.viewportStore,
     });
-  }, [props.viewportStore, transitionDuration]);
+  }, [overviewWidth, props.viewportStore, transitionDuration]);
 
   return (
     <>
       <button
-        onClick={() => zoomBy(ZOOM_STEP_FACTOR, { store: props.viewportStore })}
+        onClick={() =>
+          zoomBy(ZOOM_STEP_FACTOR, {
+            overviewWidth,
+            store: props.viewportStore,
+          })
+        }
         className={`react-flow__controls-zoomin ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom in"
         disabled={props.maxZoomReached}
@@ -269,7 +275,10 @@ function ViewportControls(props: {
       </button>
       <button
         onClick={() =>
-          zoomBy(1 / ZOOM_STEP_FACTOR, { store: props.viewportStore })
+          zoomBy(1 / ZOOM_STEP_FACTOR, {
+            overviewWidth,
+            store: props.viewportStore,
+          })
         }
         className={`react-flow__controls-zoomout ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom out"
@@ -301,7 +310,7 @@ function ViewportControls(props: {
       </button>
       <button
         className={`react-flow__controls-button ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
-        onClick={() => resetZoom({ store: props.viewportStore })}
+        onClick={() => resetZoom({ overviewWidth, store: props.viewportStore })}
         aria-label="reset zoom"
         {...getFloatingBoxHandlers({ content: "Reset zoom" })}
       >

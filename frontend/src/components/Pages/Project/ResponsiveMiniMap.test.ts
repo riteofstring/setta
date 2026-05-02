@@ -91,12 +91,16 @@ describe("ResponsiveMiniMap", () => {
   });
 
   it("recenters minimap clicks without changing the current GPU zoom", () => {
+    mockOverviewWidth = 320;
     mockZoom = 0.75;
     mockMiniMapClick = { position: { x: 120, y: 240 } };
 
     renderToStaticMarkup(createElement(ResponsiveMiniMap));
 
     expect(getZoom).toHaveBeenCalledTimes(1);
-    expect(setCenter).toHaveBeenCalledWith(120, 240, { zoom: 0.75 });
+    expect(setCenter).toHaveBeenCalledWith(120, 240, {
+      overviewWidth: 320,
+      zoom: 0.75,
+    });
   });
 });

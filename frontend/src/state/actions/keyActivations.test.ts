@@ -1,5 +1,9 @@
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
-import { useNodeInternals, useSettings } from "state/definitions";
+import {
+  useLocalStorage,
+  useNodeInternals,
+  useSettings,
+} from "state/definitions";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   fitGpuViewportShortcut,
@@ -36,6 +40,10 @@ describe("key activation shortcut policy", () => {
       fitViewOnInitOptions: undefined,
     });
     gpuFlowViewportStore.getState().resetUserSelection();
+    useLocalStorage.setState({
+      overviewTrueWidth: 0,
+      uiEditorTrueWidth: 0,
+    });
   });
 
   afterEach(() => {
@@ -130,6 +138,32 @@ describe("key activation shortcut policy", () => {
     expect(zoom).toBeCloseTo(2.273, 3);
     expect(gpuFlowViewportStore.getState().fitViewOnInit).toBe(true);
     expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
+  });
+
+  it("fits shortcut nodes into the visible pane when the overview is open", () => {
+    useLocalStorage.setState({ overviewTrueWidth: 120 });
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            height: 100,
+            id: "section-a",
+            position: { x: 50, y: 25 },
+            tempZIndex: 0,
+            width: 200,
+            zIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(fitGpuViewportShortcut()).toBe(true);
+
+    const [x, y, zoom] = gpuFlowViewportStore.getState().transform;
+    expect(x).toBeCloseTo(29.091, 3);
+    expect(y).toBeCloseTo(-20.455, 3);
+    expect(zoom).toBeCloseTo(2.273, 3);
   });
 
   it("animates the GPU fit-view shortcut with the configured transition duration", () => {

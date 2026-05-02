@@ -73,6 +73,26 @@ describe("gpu viewport math", () => {
     });
   });
 
+  it("centers fit bounds into the visible pane offset", () => {
+    expect(
+      getGpuViewportForBounds(
+        { height: 50, width: 100, x: 10, y: 20 },
+        {
+          canvasHeight: 200,
+          canvasWidth: 400,
+          maxZoom: 4,
+          minZoom: 0.25,
+          overviewWidth: 120,
+          padding: 0,
+        },
+      ),
+    ).toEqual({
+      x: 80,
+      y: -80,
+      zoom: 4,
+    });
+  });
+
   it("resolves fit bounds without depending on d3", () => {
     expect(
       getGpuViewportForBounds(

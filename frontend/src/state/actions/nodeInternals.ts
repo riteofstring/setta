@@ -12,6 +12,7 @@ import {
 import _ from "lodash";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
+  useLocalStorage,
   useMisc,
   useNodeInternals,
   useProjectState,
@@ -169,6 +170,7 @@ function maybeCompleteInitialFitView() {
     initial: true,
     maxZoom: fitViewState.fitViewOnInitOptions?.maxZoom,
     minZoom: fitViewState.fitViewOnInitOptions?.minZoom,
+    overviewWidth: useLocalStorage.getState().overviewTrueWidth,
     padding: fitViewState.fitViewOnInitOptions?.padding,
   });
   if (completed) {

@@ -35,10 +35,12 @@ type SetGpuViewportOptions = GpuViewportActionOptions & {
 };
 
 type GpuZoomActionOptions = SetGpuViewportOptions & {
+  readonly overviewWidth?: number | undefined;
   readonly point?: GpuPoint | undefined;
 };
 
 type GpuSetCenterOptions = SetGpuViewportOptions & {
+  readonly overviewWidth?: number | undefined;
   readonly zoom?: number | undefined;
 };
 
@@ -112,7 +114,11 @@ export function zoomGpuViewportAt(
     viewport: zoomGpuViewportAtScreenPoint({
       maxZoom: state.maxZoom,
       minZoom: state.minZoom,
-      point: options.point ?? getViewportCenterPoint(state.width, state.height),
+      point:
+        options.point ??
+        getViewportCenterPoint(state.width, state.height, {
+          overviewWidth: options.overviewWidth,
+        }),
       viewport: state.transform,
       zoom,
     }),
@@ -132,7 +138,11 @@ export function zoomGpuViewportByFactor(
       factor,
       maxZoom: state.maxZoom,
       minZoom: state.minZoom,
-      point: options.point ?? getViewportCenterPoint(state.width, state.height),
+      point:
+        options.point ??
+        getViewportCenterPoint(state.width, state.height, {
+          overviewWidth: options.overviewWidth,
+        }),
       viewport: state.transform,
     }),
   });
@@ -159,6 +169,7 @@ function setGpuViewportCenter(
     viewport: centerGpuViewportOnPoint({
       canvasHeight: state.height,
       canvasWidth: state.width,
+      overviewWidth: options.overviewWidth,
       point: { x, y },
       zoom,
     }),
@@ -259,7 +270,7 @@ function getGpuZoom(options: GpuViewportActionOptions = {}): number {
   return getGpuViewport(options).zoom;
 }
 
-function resetGpuZoom(options: SetGpuViewportOptions = {}): boolean {
+function resetGpuZoom(options: GpuZoomActionOptions = {}): boolean {
   const store = resolveViewportStore(options.store);
   return zoomGpuViewportAt(store.getState().defaultZoom, {
     ...options,
@@ -314,9 +325,17 @@ function resolveViewportStore(
   return store ?? gpuFlowViewportStore;
 }
 
-function getViewportCenterPoint(width: number, height: number): GpuPoint {
+function getViewportCenterPoint(
+  width: number,
+  height: number,
+  {
+    overviewWidth = 0,
+  }: {
+    readonly overviewWidth?: number | undefined;
+  } = {},
+): GpuPoint {
   return {
-    x: width / 2,
+    x: width / 2 + overviewWidth,
     y: height / 2,
   };
 }

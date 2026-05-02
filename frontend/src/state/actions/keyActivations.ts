@@ -41,7 +41,11 @@ import {
 } from "state/actions/params/moveParams";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useProjectState, useSettings } from "state/definitions";
+import {
+  useLocalStorage,
+  useProjectState,
+  useSettings,
+} from "state/definitions";
 import {
   focusAdjacentTopLevelSection,
   focusScope,
@@ -101,11 +105,17 @@ const VIEWPORT_ZOOM_STEP_FACTOR = 1.2;
 const VIEWPORT_ZOOM_THROTTLE_MS = 50;
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
 const zoomInViewportShortcut = _.throttle(
-  () => zoomBy(VIEWPORT_ZOOM_STEP_FACTOR),
+  () =>
+    zoomBy(VIEWPORT_ZOOM_STEP_FACTOR, {
+      overviewWidth: getProjectOverviewWidth(),
+    }),
   VIEWPORT_ZOOM_THROTTLE_MS,
 );
 const zoomOutViewportShortcut = _.throttle(
-  () => zoomBy(1 / VIEWPORT_ZOOM_STEP_FACTOR),
+  () =>
+    zoomBy(1 / VIEWPORT_ZOOM_STEP_FACTOR, {
+      overviewWidth: getProjectOverviewWidth(),
+    }),
   VIEWPORT_ZOOM_THROTTLE_MS,
 );
 let pendingFitViewShortcutInitializationCleanup: (() => void) | null = null;
@@ -147,6 +157,7 @@ export function fitGpuViewportShortcut(): boolean {
   const fitted = fitView({
     bounds: getGpuNodesBounds(nodes),
     duration: useSettings.getState().gui.transitionDuration,
+    overviewWidth: getProjectOverviewWidth(),
     padding: DEFAULT_FIT_VIEW_PADDING,
   });
   if (fitted) {
@@ -156,7 +167,11 @@ export function fitGpuViewportShortcut(): boolean {
 }
 
 function resetGpuViewportZoom() {
-  resetZoom();
+  resetZoom({ overviewWidth: getProjectOverviewWidth() });
+}
+
+function getProjectOverviewWidth(): number {
+  return useLocalStorage.getState().overviewTrueWidth;
 }
 
 function markGpuFitViewShortcutInitializationAfterSettle() {

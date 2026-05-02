@@ -73,6 +73,29 @@ describe("gpu viewport actions", () => {
     expect(store.getState().transform[2]).toBe(0.75);
   });
 
+  it("centers default viewport actions in the visible project pane when the overview is open", () => {
+    const store = createGpuFlowViewportStore({
+      defaultZoom: 1,
+      height: 300,
+      maxZoom: 4,
+      minZoom: 0.25,
+      transform: [0, 0, 1],
+      width: 500,
+    });
+
+    expect(setCenter(25, 40, { overviewWidth: 120, store, zoom: 2 })).toBe(
+      true,
+    );
+    expect(store.getState().transform).toEqual([320, 70, 2]);
+
+    store.getState().setTransform([0, 0, 1]);
+    expect(zoomBy(2, { overviewWidth: 120, store })).toBe(true);
+    expect(store.getState().transform).toEqual([-370, -150, 2]);
+
+    expect(resetZoom({ duration: 0, overviewWidth: 120, store })).toBe(true);
+    expect(store.getState().transform).toEqual([0, 0, 1]);
+  });
+
   it("exposes direct zoom aliases and viewport readers", () => {
     const store = createGpuFlowViewportStore({
       maxZoom: 4,

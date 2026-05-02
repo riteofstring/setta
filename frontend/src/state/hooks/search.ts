@@ -11,6 +11,7 @@ import { getAllVisibleParamsInSection } from "state/actions/sections/sectionCont
 import {
   useProjectSearch,
   useProjectState,
+  useLocalStorage,
   useSettings,
   ZustandProjectSearch,
   ZustandProjectState,
@@ -134,7 +135,10 @@ function goToSearchResult(
       y: _y + height / 2,
     });
     const zoom = useSettings.getState().gui.defaultZoomLevel;
-    setCenter(x, y, { zoom });
+    setCenter(x, y, {
+      overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+      zoom,
+    });
   };
 
   if (shouldDelay) {

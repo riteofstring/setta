@@ -71,7 +71,7 @@ export function ResponsiveMiniMap() {
       maskStrokeWidth={2}
       pannable
       onClick={(_event, { x, y }) => {
-        setCenter(x, y, { zoom: getZoom() });
+        setCenter(x, y, { overviewWidth, zoom: getZoom() });
       }}
     />
   );

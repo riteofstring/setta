@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useSettings } from "state/definitions";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { screenToFlowPosition, setCenter } from "./viewportActions";
 import type { GpuPoint } from "./viewportMath";
 import type { GpuFlowViewportStoreApi } from "./viewportStore";
@@ -35,5 +35,9 @@ export function zoomToMouseLocation(
     store: options.store,
   });
   const zoom = useSettings.getState().gui.defaultZoomLevel;
-  return setCenter(x, y, { store: options.store, zoom });
+  return setCenter(x, y, {
+    overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+    store: options.store,
+    zoom,
+  });
 }

@@ -152,21 +152,24 @@ export function zoomGpuViewportBy({
 export function centerGpuViewportOnPoint({
   canvasHeight,
   canvasWidth,
+  overviewWidth = 0,
   point,
   zoom,
 }: {
   readonly canvasHeight: number;
   readonly canvasWidth: number;
+  readonly overviewWidth?: number | undefined;
   readonly point: GpuPoint;
   readonly zoom: number;
 }): GpuViewport {
   assertFiniteNonNegative("canvas width", canvasWidth);
   assertFiniteNonNegative("canvas height", canvasHeight);
+  assertFiniteNonNegative("overview width", overviewWidth);
   assertFiniteNumber("center point x", point.x);
   assertFiniteNumber("center point y", point.y);
   assertFinitePositive("center zoom", zoom);
   return {
-    x: canvasWidth / 2 - point.x * zoom,
+    x: canvasWidth / 2 + overviewWidth - point.x * zoom,
     y: canvasHeight / 2 - point.y * zoom,
     zoom,
   };

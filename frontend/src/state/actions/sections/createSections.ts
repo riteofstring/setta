@@ -139,7 +139,10 @@ function centerViewportOnCreatedSection(
   if (!panTo) {
     return;
   }
-  setCenter(panTo.x, panTo.y, { zoom: getZoom() });
+  setCenter(panTo.x, panTo.y, {
+    overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+    zoom: getZoom(),
+  });
 }
 function handleCreatedTopLevelSection(
   sectionId: string,

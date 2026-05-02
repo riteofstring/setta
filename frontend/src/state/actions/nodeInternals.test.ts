@@ -231,7 +231,8 @@ describe("nodeInternals", () => {
     });
   });
 
-  it("marks initial fitView complete once measurements are ready", () => {
+  it("marks initial fitView complete once measurements are ready and centers into the visible pane", () => {
+    useLocalStorage.setState({ overviewTrueWidth: 120 });
     gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
@@ -259,7 +260,7 @@ describe("nodeInternals", () => {
       },
     ]);
 
-    expect(gpuFlowViewportStore.getState().transform).toEqual([310, 240, 1]);
+    expect(gpuFlowViewportStore.getState().transform).toEqual([430, 240, 1]);
     expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
   });
 
