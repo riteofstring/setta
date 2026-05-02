@@ -11,6 +11,9 @@ export type GpuFlowInteractionLatencyStartEvent =
   | "beforeinput"
   | "change"
   | "click"
+  | "dragenter"
+  | "dragover"
+  | "drop"
   | "input"
   | "keydown"
   | "pointerdown";

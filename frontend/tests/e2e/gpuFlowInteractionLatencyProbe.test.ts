@@ -64,6 +64,50 @@ describe("GPU flow interaction latency probe helpers", () => {
     expect(sample.latencyMs).toBeGreaterThanOrEqual(0);
   });
 
+  it("captures dropzone drag/drop response timing from drag events", async () => {
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      (callback: FrameRequestCallback): number => {
+        window.setTimeout(() => callback(performance.now()), 0);
+        return 1;
+      },
+    );
+    window.eval(createGpuFlowInteractionLatencyProbeInitScript());
+    const dropzone = document.createElement("div");
+    dropzone.id = "dropzone";
+    dropzone.dataset.dropState = "idle";
+    document.body.append(dropzone);
+    const api = requireInstalledProbeApi();
+    const input = {
+      response: {
+        expectedValue: "ready",
+        kind: "attribute",
+        name: "data-drop-state",
+      },
+      sampleId: "dropzone-latency",
+      startEvents: ["dragenter", "drop"],
+      targetSelector: "#dropzone",
+      timeoutMs: 250,
+    } satisfies BeginGpuFlowInteractionLatencySampleInput;
+    const sampleId = api.begin(input);
+    dropzone.addEventListener("dragenter", () => {
+      dropzone.dataset.dropState = "ready";
+    });
+
+    dropzone.dispatchEvent(new Event("dragenter", { bubbles: true }));
+    const sample = await api.wait(sampleId, 500);
+
+    expect(sample).toMatchObject({
+      endResponseValue: "ready",
+      id: "dropzone-latency",
+      responseSelector: null,
+      startEventType: "dragenter",
+      startResponseValue: "idle",
+      targetSelector: "#dropzone",
+    });
+    expect(sample.latencyMs).toBeGreaterThanOrEqual(0);
+  });
+
   it("summarizes upload, buffer, and long-task counts for the interaction window", () => {
     const sample: GpuFlowInteractionLatencySample = {
       endResponseValue: "typed",
