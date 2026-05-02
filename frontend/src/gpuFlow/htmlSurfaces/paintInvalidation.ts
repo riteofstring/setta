@@ -1,3 +1,10 @@
+import {
+  resolveElementSourceRect,
+  type HtmlSurfaceSourceRect,
+} from "./sourceRects";
+
+import { resolveHtmlSurfaceDirectPaintSourceRectHint } from "./paintSourceRectHints";
+
 export type HtmlSurfacePaintInvalidationInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly sourceElementBySurfaceId: ReadonlyMap<string, HTMLElement>;
@@ -21,12 +28,7 @@ export type HtmlSurfacePaintSourceInvalidation = {
   readonly surfaceId: string;
 };
 
-export type HtmlSurfacePaintSourceRect = {
-  readonly height: number;
-  readonly width: number;
-  readonly x: number;
-  readonly y: number;
-};
+export type HtmlSurfacePaintSourceRect = HtmlSurfaceSourceRect;
 
 type ChangedSourceResolution =
   | {
@@ -155,65 +157,12 @@ function resolveChangedElementSourceRect({
   readonly sourceElement: HTMLElement;
 }): HtmlSurfacePaintSourceRect | undefined {
   if (changedElement === sourceElement) {
-    return undefined;
+    return resolveHtmlSurfaceDirectPaintSourceRectHint(sourceElement);
   }
-
-  const changedRect = changedElement.getBoundingClientRect();
-  const sourceRect = sourceElement.getBoundingClientRect();
-  if (!hasFiniteSourceRectInputs(changedRect, sourceRect)) {
-    return undefined;
-  }
-
-  const left = Math.max(0, changedRect.left - sourceRect.left);
-  const top = Math.max(0, changedRect.top - sourceRect.top);
-  const right = resolveChangedRectEnd({
-    axisSize: sourceRect.width,
-    changedEnd: changedRect.right,
-    sourceStart: sourceRect.left,
+  return resolveElementSourceRect({
+    sourceElement,
+    target: changedElement,
   });
-  const bottom = resolveChangedRectEnd({
-    axisSize: sourceRect.height,
-    changedEnd: changedRect.bottom,
-    sourceStart: sourceRect.top,
-  });
-  const width = right - left;
-  const height = bottom - top;
-  if (width <= 0 || height <= 0) {
-    return undefined;
-  }
-  return {
-    height,
-    width,
-    x: left,
-    y: top,
-  };
-}
-
-function hasFiniteSourceRectInputs(
-  changedRect: DOMRect,
-  sourceRect: DOMRect,
-): boolean {
-  return [
-    changedRect.left,
-    changedRect.top,
-    changedRect.right,
-    changedRect.bottom,
-    sourceRect.left,
-    sourceRect.top,
-  ].every(Number.isFinite);
-}
-
-function resolveChangedRectEnd({
-  axisSize,
-  changedEnd,
-  sourceStart,
-}: {
-  readonly axisSize: number;
-  readonly changedEnd: number;
-  readonly sourceStart: number;
-}): number {
-  const relativeEnd = changedEnd - sourceStart;
-  return axisSize > 0 ? Math.min(axisSize, relativeEnd) : relativeEnd;
 }
 
 function findSingleContainedSourceId({

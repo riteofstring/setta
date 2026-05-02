@@ -3,6 +3,10 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveHtmlSurfacePaintInvalidation } from "./paintInvalidation";
+import {
+  releaseHtmlSurfaceActivePaintSourceRectHint,
+  setHtmlSurfaceActivePaintSourceRectHint,
+} from "./paintSourceRectHints";
 
 const SOURCE_SELECTOR = '[data-html-surface-source="true"]';
 const SOURCE_ID_ATTRIBUTE = "data-surface-id";
@@ -114,6 +118,63 @@ describe("HTML surface paint invalidation", () => {
       dirtySurfaceIds: ["surface-a"],
       transformOnlyPaintSurfaceIds: [],
     });
+  });
+
+  it("routes direct source paints through active animation source rect hints", () => {
+    const source = createSource("surface-a");
+    const sourceRect = {
+      height: 20,
+      width: 48,
+      x: 280,
+      y: 186,
+    };
+
+    setHtmlSurfaceActivePaintSourceRectHint(source, sourceRect);
+
+    expect(
+      resolveHtmlSurfacePaintInvalidation({
+        changedElements: [source],
+        sourceElementBySurfaceId: new Map([["surface-a", source]]),
+        sourceIdAttribute: SOURCE_ID_ATTRIBUTE,
+        sourceSelector: SOURCE_SELECTOR,
+      }),
+    ).toEqual({
+      dirtySurfaceInvalidations: [
+        {
+          sourceRect,
+          surfaceId: "surface-a",
+        },
+      ],
+      dirtySurfaceIds: ["surface-a"],
+      transformOnlyPaintSurfaceIds: [],
+    });
+
+    releaseHtmlSurfaceActivePaintSourceRectHint(source);
+
+    for (let index = 0; index < 8; index += 1) {
+      expect(
+        resolveHtmlSurfacePaintInvalidation({
+          changedElements: [source],
+          sourceElementBySurfaceId: new Map([["surface-a", source]]),
+          sourceIdAttribute: SOURCE_ID_ATTRIBUTE,
+          sourceSelector: SOURCE_SELECTOR,
+        }).dirtySurfaceInvalidations,
+      ).toEqual([
+        {
+          sourceRect,
+          surfaceId: "surface-a",
+        },
+      ]);
+    }
+
+    expect(
+      resolveHtmlSurfacePaintInvalidation({
+        changedElements: [source],
+        sourceElementBySurfaceId: new Map([["surface-a", source]]),
+        sourceIdAttribute: SOURCE_ID_ATTRIBUTE,
+        sourceSelector: SOURCE_SELECTOR,
+      }).dirtySurfaceInvalidations,
+    ).toEqual([{ surfaceId: "surface-a" }]);
   });
 
   it("accepts an enclosing changed subtree only when it contains one source", () => {

@@ -1,5 +1,18 @@
 import type { DirtyNodeReason } from "../dirtyTracking";
 
+import {
+  resolveElementSourceRect,
+  unionHtmlSurfaceSourceRects,
+  type HtmlSurfaceSourceRect,
+} from "./sourceRects";
+
+import {
+  releaseHtmlSurfaceActivePaintSourceRectHint,
+  setHtmlSurfaceActivePaintSourceRectHint,
+} from "./paintSourceRectHints";
+
+export type HtmlSurfaceAnimationSourceRect = HtmlSurfaceSourceRect;
+
 export type HtmlSurfaceAnimationCaptureLeaseController = {
   begin(input: BeginHtmlSurfaceAnimationCaptureLeaseInput): void;
   cancel(surfaceId: string): void;
@@ -24,6 +37,7 @@ export type HtmlSurfaceAnimationCaptureLeaseOptions = {
   readonly getSourceElement: (surfaceId: string) => Element | null;
   readonly markDirty: (input: {
     readonly reason: DirtyNodeReason;
+    readonly sourceRect?: HtmlSurfaceAnimationSourceRect | undefined;
     readonly surfaceId: string;
   }) => boolean;
   readonly maxDurationMs?: number | undefined;
@@ -44,6 +58,8 @@ type HtmlSurfaceAnimationCaptureLease = {
   target: Element | null;
   fallbackEndAt: number;
   frameCount: number;
+  previousSourceRect: HtmlSurfaceAnimationSourceRect | null;
+  sourceElement: Element | null;
   settlingFrames: number;
 };
 
@@ -85,10 +101,20 @@ export function createHtmlSurfaceAnimationCaptureLeaseController({
 
   const dirtyAnimationSurface = (
     lease: HtmlSurfaceAnimationCaptureLease,
+    sourceElement: Element | null,
   ): boolean => {
     lease.frameCount += 1;
+    const sourceRect = resolveAnimationLeaseDirtySourceRect(
+      lease,
+      sourceElement,
+    );
+    lease.sourceElement = sourceElement;
+    if (sourceElement && sourceRect) {
+      setHtmlSurfaceActivePaintSourceRectHint(sourceElement, sourceRect);
+    }
     return markDirty({
       reason: lease.reason,
+      ...(sourceRect ? { sourceRect } : {}),
       surfaceId: lease.surfaceId,
     });
   };
@@ -97,6 +123,7 @@ export function createHtmlSurfaceAnimationCaptureLeaseController({
     const currentTime = now();
     for (const lease of [...leases.values()]) {
       if (!captureAnimationLeaseFrame(lease, currentTime)) {
+        releaseAnimationLeasePaintHint(lease);
         leases.delete(lease.surfaceId);
       }
     }
@@ -124,7 +151,7 @@ export function createHtmlSurfaceAnimationCaptureLeaseController({
     ) {
       return false;
     }
-    if (!dirtyAnimationSurface(lease)) {
+    if (!dirtyAnimationSurface(lease, sourceElement)) {
       return false;
     }
     return keepAnimationLeaseAfterCapture(lease, hasRunningDomAnimation);
@@ -133,7 +160,8 @@ export function createHtmlSurfaceAnimationCaptureLeaseController({
   return {
     begin({ reason = "animation", surfaceId, target }) {
       const currentTime = now();
-      const resolvedTarget = target ?? getSourceElement(surfaceId);
+      const sourceElement = getSourceElement(surfaceId);
+      const resolvedTarget = target ?? sourceElement;
       const fallbackDurationMs = clampDurationMs(
         resolveSourceAnimationDurationMs(resolvedTarget),
         maxDurationMs,
@@ -144,8 +172,10 @@ export function createHtmlSurfaceAnimationCaptureLeaseController({
         frameCount: 0,
         maxDurationMs,
         maxFrames,
+        previousSourceRect: null,
         reason,
         settlingFrames: 0,
+        sourceElement: sourceElement ?? null,
         startedAt: currentTime,
         surfaceId,
         target: null,
@@ -154,21 +184,29 @@ export function createHtmlSurfaceAnimationCaptureLeaseController({
       lease.fallbackEndAt =
         currentTime +
         Math.max(fallbackDurationMs, SETTLED_ANIMATION_CAPTURE_WINDOW_MS);
+      lease.previousSourceRect = null;
       lease.settlingFrames = 0;
       leases.set(surfaceId, lease);
-      if (dirtyAnimationSurface(lease)) {
+      if (dirtyAnimationSurface(lease, sourceElement)) {
         schedule();
       } else {
         leases.delete(surfaceId);
       }
     },
     cancel(surfaceId) {
-      leases.delete(surfaceId);
+      const lease = leases.get(surfaceId);
+      if (lease) {
+        releaseAnimationLeasePaintHint(lease);
+        leases.delete(surfaceId);
+      }
       if (leases.size === 0) {
         stopFrame();
       }
     },
     destroy() {
+      for (const lease of leases.values()) {
+        releaseAnimationLeasePaintHint(lease);
+      }
       leases.clear();
       stopFrame();
     },
@@ -186,13 +224,47 @@ export function createHtmlSurfaceAnimationCaptureLeaseController({
         now() + SETTLED_ANIMATION_CAPTURE_WINDOW_MS,
       );
       lease.settlingFrames = Math.max(lease.settlingFrames, settledFrameCount);
-      if (dirtyAnimationSurface(lease)) {
+      if (dirtyAnimationSurface(lease, getSourceElement(surfaceId))) {
         schedule();
       } else {
+        releaseAnimationLeasePaintHint(lease);
         leases.delete(surfaceId);
       }
     },
   };
+}
+
+function releaseAnimationLeasePaintHint(
+  lease: HtmlSurfaceAnimationCaptureLease,
+) {
+  if (lease.sourceElement) {
+    releaseHtmlSurfaceActivePaintSourceRectHint(lease.sourceElement);
+  }
+}
+
+function resolveAnimationLeaseDirtySourceRect(
+  lease: HtmlSurfaceAnimationCaptureLease,
+  sourceElement: Element | null,
+): HtmlSurfaceAnimationSourceRect | undefined {
+  const currentSourceRect = resolveAnimatedTargetSourceRect({
+    sourceElement,
+    target: lease.target,
+  });
+  const dirtySourceRect = currentSourceRect
+    ? unionHtmlSurfaceSourceRects(lease.previousSourceRect, currentSourceRect)
+    : undefined;
+  lease.previousSourceRect = currentSourceRect ?? null;
+  return dirtySourceRect;
+}
+
+function resolveAnimatedTargetSourceRect({
+  sourceElement,
+  target,
+}: {
+  readonly sourceElement: Element | null;
+  readonly target: Element | null;
+}): HtmlSurfaceAnimationSourceRect | undefined {
+  return resolveElementSourceRect({ sourceElement, target });
 }
 
 function hasRunningSourceAnimation(source: Element): boolean {
