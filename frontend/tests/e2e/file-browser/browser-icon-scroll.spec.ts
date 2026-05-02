@@ -58,7 +58,7 @@ test("icon view scrolls with trackpad wheel (does not get eaten by canvas pan)",
       }
 
       const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 

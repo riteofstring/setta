@@ -24,10 +24,9 @@ async function createSectionVariantFromFrontend(
       projectConfigId: targetProjectConfigId,
       sectionId: targetSectionId,
     }) => {
-      const {
-        createNewSectionVariant,
-        getLatestProjectState,
-      } = await import("/src/openapi/http");
+      const { createNewSectionVariant, getLatestProjectState } = await import(
+        "/src/openapi/http"
+      );
       const { callOpenAPI, res200 } = await import(
         "/tests/e2e/browserAppSubsystemSdk.ts"
       );
@@ -83,10 +82,9 @@ async function setSectionVariantFromFrontend(
       sectionId: targetSectionId,
       variantId: targetVariantId,
     }) => {
-      const {
-        getLatestProjectState,
-        setSectionVariant,
-      } = await import("/src/openapi/http");
+      const { getLatestProjectState, setSectionVariant } = await import(
+        "/src/openapi/http"
+      );
       const { callOpenAPI, res200 } = await import(
         "/tests/e2e/browserAppSubsystemSdk.ts"
       );
@@ -135,7 +133,7 @@ async function getFirstParamInfoId(
 ): Promise<string> {
   const firstParam = page
     .locator(
-      `.react-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
     )
     .first();
   await expect(firstParam).toBeVisible({ timeout: 20000 });
@@ -233,7 +231,9 @@ test.describe.serial("section variants single-item handle", () => {
         "__pw_single_variant_handle__",
       );
 
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -283,7 +283,9 @@ test.describe.serial("section variants single-item handle", () => {
         "__pw_named_variant__",
       );
 
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -336,7 +338,9 @@ test.describe.serial("section variants single-item handle", () => {
         projectContext.projectConfigId,
       );
 
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -390,7 +394,9 @@ test.describe.serial("section variants single-item handle", () => {
         projectContext.projectConfigId,
       );
 
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -458,7 +464,9 @@ test.describe.serial("section variants single-item handle", () => {
         page,
         projectContext.projectConfigId,
       );
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 

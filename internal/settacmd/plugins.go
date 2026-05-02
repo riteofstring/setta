@@ -1100,6 +1100,7 @@ func resolvePluginsService(global globalFlags, envLookup func(string) (string, b
 	if err != nil {
 		return nil, err
 	}
+	packageManagerSearchPaths := pythonenv.PluginDistributionSearchPathsFromEnvLookup(envLookup)
 
 	candidateProvider := plugins.NewProductionCandidateProvider(plugins.ProductionCandidateProviderOptions{
 		PackageManagerRuntime: pythonRuntime,
@@ -1107,13 +1108,14 @@ func resolvePluginsService(global globalFlags, envLookup func(string) (string, b
 	})
 
 	return plugins.NewService(plugins.ServiceOptions{
-		WorkspaceRoot:         commandCfg.Paths.WorkspaceRoot,
-		SettaFilesRoot:        commandCfg.Paths.SettaFilesRoot,
-		SettaHome:             commandCfg.Paths.SettaHome,
-		ServerMode:            commandCfg.Server.Mode,
-		RestartCommand:        "setta",
-		CandidateProvider:     candidateProvider,
-		PackageManagerRuntime: pythonRuntime,
+		WorkspaceRoot:             commandCfg.Paths.WorkspaceRoot,
+		SettaFilesRoot:            commandCfg.Paths.SettaFilesRoot,
+		SettaHome:                 commandCfg.Paths.SettaHome,
+		ServerMode:                commandCfg.Server.Mode,
+		RestartCommand:            "setta",
+		CandidateProvider:         candidateProvider,
+		PackageManagerRuntime:     pythonRuntime,
+		PackageManagerSearchPaths: packageManagerSearchPaths,
 	})
 }
 

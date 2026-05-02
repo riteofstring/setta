@@ -63,7 +63,7 @@ describe("GpuMiniMap helpers", () => {
 
     expect(markup).toContain('data-minimap-node-id="section-a"');
     expect(markup).toContain('fill="#d6dee8"');
-    expect(markup).toContain("react-flow__minimap-mask");
+    expect(markup).toContain("setta-gpu-flow__minimap-mask");
   });
 
   it("syncs active node classes onto rendered minimap nodes", () => {
@@ -131,7 +131,7 @@ describe("GpuMiniMap helpers", () => {
         root.render(<Harness />);
       });
       const svg = host.querySelector("svg");
-      const mask = host.querySelector(".react-flow__minimap-mask");
+      const mask = host.querySelector(".setta-gpu-flow__minimap-mask");
       const initialViewBox = svg?.getAttribute("viewBox");
       const initialMaskPath = mask?.getAttribute("d");
 

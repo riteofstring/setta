@@ -73,7 +73,7 @@ func TestMCPRuntimeStatusRouteReturnsCurrentStatuses(t *testing.T) {
 					{
 						ServerID:            "setta",
 						Source:              "setta_mcp",
-						Transport:           mcpx.TransportSSE,
+						Transport:           mcpx.TransportStreamableHTTP,
 						Endpoint:            "http://127.0.0.1:8000/mcp",
 						State:               mcpx.RuntimeStateConnected,
 						LastAttemptAt:       &now,
@@ -455,7 +455,7 @@ func TestMCPRuntimeStatusRouteResolvedServersKeepSettaMetadataWhenExternalStatus
 					{
 						ServerID:  "setta",
 						Source:    "setta_mcp",
-						Transport: mcpx.TransportSSE,
+						Transport: mcpx.TransportStreamableHTTP,
 						Endpoint:  "http://127.0.0.1:8000/mcp",
 						State:     mcpx.RuntimeStateConnected,
 						ToolCount: 79,
@@ -489,8 +489,8 @@ func TestMCPRuntimeStatusRouteResolvedServersKeepSettaMetadataWhenExternalStatus
 	if payload.ResolvedServers[0].ServerID != "setta" {
 		t.Fatalf("unexpected resolved server %#v", payload.ResolvedServers[0])
 	}
-	if payload.ResolvedServers[0].Transport != mcpx.TransportSSE {
-		t.Fatalf("expected resolved transport sse, got %#v", payload.ResolvedServers[0])
+	if payload.ResolvedServers[0].Transport != mcpx.TransportStreamableHTTP {
+		t.Fatalf("expected resolved transport streamable_http, got %#v", payload.ResolvedServers[0])
 	}
 	if payload.ResolvedServers[0].Endpoint != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected resolved endpoint from setta runtime, got %#v", payload.ResolvedServers[0])

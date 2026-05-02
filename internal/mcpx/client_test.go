@@ -212,7 +212,7 @@ func TestClientBuildHTTPHeadersMergesProviderAndConfig(t *testing.T) {
 	}
 
 	headers, err := client.buildHTTPHeaders(DefaultServerID, ServerConfig{
-		Transport:   TransportSSE,
+		Transport:   TransportStreamableHTTP,
 		URL:         "http://127.0.0.1:8000/mcp",
 		HTTPHeaders: map[string]string{"Authorization": "Bearer token"},
 	})
@@ -279,7 +279,7 @@ func TestClientStartConnectsAndCloseMarksDisabled(t *testing.T) {
 	client, err := NewClient(ClientOptions{
 		Servers: map[string]ServerConfig{
 			DefaultServerID: {
-				Transport: TransportSSE,
+				Transport: TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:8000/mcp",
 			},
 		},
@@ -355,7 +355,7 @@ func TestClientInitialRuntimeStatusesIncludeConfiguredServers(t *testing.T) {
 	client, err := NewClient(ClientOptions{
 		Servers: map[string]ServerConfig{
 			DefaultServerID: {
-				Transport: TransportSSE,
+				Transport: TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:8000/mcp",
 			},
 			"local_stdio": {

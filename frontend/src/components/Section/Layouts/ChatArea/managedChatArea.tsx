@@ -66,8 +66,6 @@ import {
 
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 
-import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
-
 import { addPersistentNotification } from "state/actions/notifications";
 
 import {
@@ -336,22 +334,16 @@ export function ManagedChatArea({
     engineConfig: selectedEngineConfig,
     requestedThinking: thinking,
   });
-  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    const runType = resolveManagedChatRunType(engineType);
-    if (!runType) {
-      return null;
-    }
-    return {
-      runType,
-      engineConfigId: effectiveEngineConfigId ?? null,
-    };
-  }, [effectiveEngineConfigId, engineType]);
+  const managedChatRunType = useMemo(
+    () => resolveManagedChatRunType(engineType),
+    [engineType],
+  );
   const managedChatRunRefreshKey = useAIStore((state) =>
     getManagedChatRunRefreshKey({
       agentRuns: state.agentRuns,
       sectionId,
       chatId,
-      runType: historyCompatibility?.runType ?? null,
+      runType: managedChatRunType,
     }),
   );
   const selectedLLMConfigId = useMemo(() => {
@@ -735,7 +727,6 @@ export function ManagedChatArea({
       useAIStore.getState().agentRuns,
       projectConfigId,
       sectionId,
-      historyCompatibility,
     ).find((entry) => entry.chatId !== chatId);
     if (!latestEntry) {
       return false;
@@ -743,14 +734,7 @@ export function ManagedChatArea({
     setChatId(latestEntry.chatId);
     setShowHistory(false);
     return true;
-  }, [
-    chatId,
-    historyCompatibility,
-    projectConfigId,
-    sectionId,
-    setChatId,
-    canUseManagedChat,
-  ]);
+  }, [chatId, projectConfigId, sectionId, setChatId, canUseManagedChat]);
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
       if (
@@ -911,7 +895,6 @@ export function ManagedChatArea({
             projectConfigId={projectConfigId}
             sectionId={sectionId}
             activeChatId={chatId}
-            historyCompatibility={historyCompatibility}
             onSelect={handleSelectHistoryChat}
           />
         </div>

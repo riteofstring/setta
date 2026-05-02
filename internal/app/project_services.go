@@ -204,6 +204,7 @@ func initializeWorkspacePluginServices(
 		logger.Warn("python package inspection runtime unavailable", "error", err)
 	}
 	services.pythonPackages = pythonPackages
+	packageManagerSearchPaths := pythonenv.PluginDistributionSearchPathsFromEnvLookup(os.LookupEnv)
 
 	pluginStore, err := plugins.NewStore(plugins.StoreOptions{
 		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
@@ -215,9 +216,10 @@ func initializeWorkspacePluginServices(
 	}
 	services.pluginDiscovery, err = plugins.NewDiscoveryService(
 		plugins.DiscoveryServiceOptions{
-			Store:                 pluginStore,
-			ServerMode:            cfg.Server.Mode,
-			PackageManagerRuntime: services.pythonPackages,
+			Store:                     pluginStore,
+			ServerMode:                cfg.Server.Mode,
+			PackageManagerRuntime:     services.pythonPackages,
+			PackageManagerSearchPaths: packageManagerSearchPaths,
 		},
 	)
 	if err != nil {
@@ -236,7 +238,8 @@ func initializeWorkspacePluginServices(
 				SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
 			},
 		),
-		PackageManagerRuntime: services.pythonPackages,
+		PackageManagerRuntime:     services.pythonPackages,
+		PackageManagerSearchPaths: packageManagerSearchPaths,
 	})
 	if err != nil {
 		return err

@@ -30,7 +30,7 @@ import {
 
 export function getEventSectionNode(event: KeyboardEvent) {
   const target = event.target instanceof HTMLElement ? event.target : null;
-  return target?.closest(".react-flow__node");
+  return target?.closest(".setta-gpu-flow__node");
 }
 
 export function getDocumentActiveElement() {

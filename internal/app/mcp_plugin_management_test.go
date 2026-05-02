@@ -18,7 +18,7 @@ import (
 	"setta/internal/observability"
 )
 
-func TestAppIDEMCPServerSupportsPluginManagementToolsOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsPluginManagementToolsOverAuthenticatedStreamableHTTP(t *testing.T) {
 	sourceSpec := configureAppLocalPyPIFixture(t, "backend", "setta-fixture-backend", "0.1.0")
 
 	cfg := testConfig(t)
@@ -41,7 +41,7 @@ func TestAppIDEMCPServerSupportsPluginManagementToolsOverAuthenticatedSSE(t *tes
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -285,7 +285,7 @@ func TestAppIDEMCPPluginInstallRefreshesBackendMCPTools(t *testing.T) {
 	defer server.Close()
 
 	sessionClient := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := sessionClient.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := sessionClient.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)

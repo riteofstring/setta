@@ -23,6 +23,12 @@ import {
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
+declare global {
+  interface Window {
+    settaGpuFlowZoom?: number;
+  }
+}
+
 export function subscribe() {
   useProjectState.subscribe(
     getDisplayedSectionIdToChildren,
@@ -69,7 +75,7 @@ export function subscribe() {
       }
 
       // used by forked xterm to make text appear correctly
-      window.reactFlowZoom = newState.transform[2];
+      window.settaGpuFlowZoom = newState.transform[2];
     },
     { equalityFn: _.isEqual },
   );

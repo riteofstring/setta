@@ -8,7 +8,7 @@ import {
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const HOME_URL = new URL("/home", BASE_URL).toString();
 const PROJECT_URL = resolveProjectUrl();
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".setta-gpu-flow__pane";
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -72,11 +72,11 @@ test("run attaches a terminal and reuses it", async ({ page }) => {
 
     expect(secondTerminalId).toBe(firstTerminalId);
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${firstTerminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${firstTerminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${firstTerminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${firstTerminalId}"]`,
     );
     await expect(terminalNode).toHaveCount(0);
   } finally {
@@ -95,7 +95,9 @@ test("code header terminal button creates an attached terminal without running",
 
   try {
     const sectionId = await createCodeSection(page);
-    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeNode = page.locator(
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+    );
     const codeSection = codeNode.locator(
       `section[data-section-id="${sectionId}"]`,
     );
@@ -118,7 +120,7 @@ test("code header terminal button creates an attached terminal without running",
       `[data-attached-terminal-section-id="${terminalId}"]`,
     );
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalId}"]`,
     );
     const attachedTerminalSection = codeNode.locator(
       `section[data-section-id="${terminalId}"]`,
@@ -152,10 +154,10 @@ test("embedded terminal keeps code editor visible", async ({ page }) => {
     );
 
     const codeEditor = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] article[data-section-main-editor]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"] article[data-section-main-editor]`,
     );
     const terminalContainer = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
 
     await expect(codeEditor).toBeVisible();
@@ -209,7 +211,7 @@ test("terminal startup stays clean while preserving input readiness", async ({
   }
 });
 
-test("terminal text selection stays aligned at react flow zoom", async ({
+test("terminal text selection stays aligned at GPU flow zoom", async ({
   page,
 }) => {
   test.setTimeout(90000);
@@ -266,7 +268,7 @@ test("terminal text selection stays aligned at react flow zoom", async ({
     expect(marker).toContain(normalizedZoom1);
 
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalId}"]`,
     );
     await expect(terminalNode).toBeVisible();
     const boxAtZoom1 = await terminalNode.boundingBox();
@@ -280,7 +282,7 @@ test("terminal text selection stays aligned at react flow zoom", async ({
     await zoomOutButton.click();
     await page.waitForTimeout(150);
 
-    const zoomOut = await page.evaluate(() => window.reactFlowZoom ?? 1);
+    const zoomOut = await page.evaluate(() => window.settaGpuFlowZoom ?? 1);
     expect(zoomOut).toBeLessThan(0.8);
     const boxAfterZoomOut = await terminalNode.boundingBox();
     if (!boxAfterZoomOut) {
@@ -307,7 +309,7 @@ test("terminal text selection stays aligned at react flow zoom", async ({
     await zoomInButton.click();
     await page.waitForTimeout(150);
 
-    const zoomIn = await page.evaluate(() => window.reactFlowZoom ?? 1);
+    const zoomIn = await page.evaluate(() => window.settaGpuFlowZoom ?? 1);
     expect(zoomIn).toBeGreaterThan(1.1);
     const boxAfterZoomIn = await terminalNode.boundingBox();
     if (!boxAfterZoomIn) {
@@ -348,7 +350,9 @@ test("attached terminal renders without header and resizes independently", async
       sectionId,
     );
 
-    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeNode = page.locator(
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+    );
     const codeEditor = codeNode.locator(`article[data-section-main-editor]`);
     const terminalHost = codeNode.locator(
       `[data-attached-terminal-section-id="${terminalId}"]`,
@@ -435,7 +439,7 @@ test("embedded terminal code editor scrolls when content overflows", async ({
     await setCodeForSection(page, sectionId, longCode);
 
     const scroller = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] .cm-scroller`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"] .cm-scroller`,
     );
     await expect(scroller).toBeVisible();
 
@@ -477,7 +481,9 @@ test("embedded terminal group renders a single outline + agentic handles and tog
       sectionId,
     );
 
-    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeNode = page.locator(
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+    );
     const joinedGroup = codeNode.locator("[data-joined-code-terminal-group]");
     await expect(joinedGroup).toBeVisible();
 
@@ -494,13 +500,13 @@ test("embedded terminal group renders a single outline + agentic handles and tog
     await expect(terminalSection).toHaveClass(/rounded-t-none/);
 
     const targetHandle = codeNode.locator(
-      `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+      `.setta-gpu-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
     );
     const sourceHandle = codeNode.locator(
-      `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+      `.setta-gpu-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
     );
     const reverseStartHandle = codeNode.locator(
-      `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-reverse-start"][data-reverse-start="true"]`,
+      `.setta-gpu-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-reverse-start"][data-reverse-start="true"]`,
     );
     await expect(targetHandle).toHaveCount(1);
     await expect(sourceHandle).toHaveCount(1);
@@ -571,7 +577,9 @@ test("resizing embedded terminal width also resizes the code section", async ({
       sectionId,
     );
 
-    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeNode = page.locator(
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+    );
     const codeSection = codeNode.locator(
       `section[data-section-id="${sectionId}"]`,
     );
@@ -650,7 +658,9 @@ test("embedded terminal trash deletes the attached terminal", async ({
       sectionId,
     );
 
-    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeNode = page.locator(
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+    );
     const codeSection = codeNode.locator(
       `section[data-section-id="${sectionId}"]`,
     );
@@ -762,10 +772,10 @@ test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
     const terminalSectionId = await createTerminalSection(page);
 
     const codeNode = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"]`,
     );
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalSectionId}"]`,
     );
 
     await expect(codeNode).toBeVisible();
@@ -799,11 +809,11 @@ test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
       })
       .toBe(false);
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await expect(
-      page.locator(`.react-flow__node[data-id="${terminalSectionId}"]`),
+      page.locator(`.setta-gpu-flow__node[data-id="${terminalSectionId}"]`),
     ).toHaveCount(0);
   } finally {
     await deleteProjectConfigById(page, projectConfigId);
@@ -822,10 +832,10 @@ test("attach then detach round trip", async ({ page }) => {
     const terminalSectionId = await createTerminalSection(page);
 
     const codeNode = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"]`,
     );
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalSectionId}"]`,
     );
 
     await expect(codeNode).toBeVisible();
@@ -853,7 +863,7 @@ test("attach then detach round trip", async ({ page }) => {
       .toBe(false);
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
 
@@ -913,15 +923,17 @@ test("embedded terminal can detach via frontend move action", async ({
     });
 
     const terminalHost = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(terminalHost).toBeVisible();
     await expect(
       terminalHost.locator("xpath=ancestor::section[1]"),
     ).toBeVisible();
 
-    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-    const pane = page.locator(".react-flow__pane");
+    const codeNode = page.locator(
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+    );
+    const pane = page.locator(".setta-gpu-flow__pane");
     const paneBox = await pane.boundingBox();
     const codeBox = await codeNode.boundingBox();
     if (!paneBox || !codeBox) {
@@ -993,7 +1005,7 @@ test("embedded terminal can detach via frontend move action", async ({
       .toBe(true);
 
     const detachedTerminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalId}"]`,
     );
     await expect(detachedTerminalNode).toBeVisible();
     await expect(
@@ -1044,11 +1056,11 @@ test("detaching a narrow attached terminal does not append extra output", async 
     );
     expect(attachedId).toBe(terminalId);
     await expect(
-      page.locator(`.react-flow__node[data-id="${terminalId}"]`),
+      page.locator(`.setta-gpu-flow__node[data-id="${terminalId}"]`),
     ).toHaveCount(0, { timeout: 20000 });
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
@@ -1094,7 +1106,7 @@ test("detaching a narrow attached terminal does not append extra output", async 
     expect(beforeLongLineCount).toBeGreaterThan(0);
 
     const codeBox = await page
-      .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${codeSectionId}"]`)
       .boundingBox();
 
     if (!codeBox) {
@@ -1115,7 +1127,7 @@ test("detaching a narrow attached terminal does not append extra output", async 
     });
 
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalId}"]`,
     );
     await expect(terminalNode).toBeVisible();
 
@@ -1161,7 +1173,7 @@ test("detached terminal accepts input", async ({ page }) => {
     expect(attachedId).toBe(terminalId);
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
@@ -1173,7 +1185,7 @@ test("detached terminal accepts input", async ({ page }) => {
     });
 
     const codeBox = await page
-      .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${codeSectionId}"]`)
       .boundingBox();
     if (!codeBox) {
       throw new Error("Missing bounding boxes for drag.");
@@ -1193,7 +1205,7 @@ test("detached terminal accepts input", async ({ page }) => {
     });
 
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalId}"]`,
     );
     await expect(terminalNode).toBeVisible();
     await expect(
@@ -1240,7 +1252,7 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
     expect(attachedId).toBe(terminalId);
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
@@ -1432,7 +1444,7 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     expect(attachedId).toBe(terminalId);
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
@@ -1623,7 +1635,7 @@ test("attached terminal text reflows when width increases", async ({
     );
     expect(attachedId).toBe(terminalId);
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
 
@@ -1943,7 +1955,7 @@ test("attaching a narrow terminal to a wider code section expands terminal cols"
     );
     expect(attachedId).toBe(terminalId);
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
 
@@ -1979,7 +1991,7 @@ test("terminal created as attached reflows while attached and after detach", asy
   try {
     const codeSectionId = await createCodeSection(page);
     const codeNode = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"]`,
     );
     const toggleButton = codeNode.locator("[data-attached-terminal-toggle]");
     await expect(toggleButton).toHaveCount(1);
@@ -1991,7 +2003,7 @@ test("terminal created as attached reflows while attached and after detach", asy
       codeSectionId,
     );
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
@@ -2095,7 +2107,7 @@ test("terminal created as attached reflows while attached and after detach", asy
       },
     });
     const detachedTerminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalId}"]`,
     );
     await expect(detachedTerminalNode).toBeVisible();
     await expect(
@@ -2207,7 +2219,7 @@ test("terminal resize messages are throttled during drag detach", async ({
     expect(attachedId).toBe(terminalId);
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
@@ -2266,10 +2278,10 @@ test("terminal resize messages are throttled during drag detach", async ({
     const releaseMovingFreeMode = await activateMovingFreeDragMode(page);
     altPressed = true;
 
-    const pane = page.locator(".react-flow__pane");
+    const pane = page.locator(".setta-gpu-flow__pane");
     const paneBox = await pane.boundingBox();
     const codeBox = await page
-      .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${codeSectionId}"]`)
       .boundingBox();
 
     if (!paneBox || !codeBox) {
@@ -2368,7 +2380,9 @@ async function setSectionSize(
       const { dispatchOptimisticProjectStateUpdate, getCurrProjectConfigId } =
         await import("/src/state/actions/sectionInfos");
       const { setSectionSizes } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+      const { callOpenAPI } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const { setSelfParentSiblingChildrenWidths } = await import(
         "/src/state/actions/sections/sectionSizes"
       );
@@ -2420,7 +2434,7 @@ async function getTerminalRowsSnapshot(
       document.querySelectorAll(`[data-attached-terminal-section-id="${id}"]`),
     );
     const detached = document.querySelector(
-      `.react-flow__node[data-id="${id}"]`,
+      `.setta-gpu-flow__node[data-id="${id}"]`,
     );
     if (detached) {
       candidates.push(detached);
@@ -2432,7 +2446,7 @@ async function getTerminalRowsSnapshot(
         `[data-attached-terminal-section-id="${id}"]`,
       );
       const activeDetached = active.closest(
-        `.react-flow__node[data-id="${id}"]`,
+        `.setta-gpu-flow__node[data-id="${id}"]`,
       );
       const activeContainer = activeEmbedded ?? activeDetached;
       const activeRows = collectRows(activeContainer);
@@ -2544,7 +2558,7 @@ async function focusTerminalAndType(
   text: string,
 ): Promise<void> {
   const detachedTerminalNode = page.locator(
-    `.react-flow__node[data-id="${terminalId}"]`,
+    `.setta-gpu-flow__node[data-id="${terminalId}"]`,
   );
   const embeddedTerminalHost = page.locator(
     `[data-attached-terminal-section-id="${terminalId}"]`,
@@ -2981,7 +2995,7 @@ async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
 }
 
 async function focusPaneForDnd(page: Page): Promise<void> {
-  await page.click(".react-flow__pane", {
+  await page.click(".setta-gpu-flow__pane", {
     position: { x: 8, y: 8 },
     force: true,
   });
@@ -3031,7 +3045,7 @@ async function resetViewport(page: Page): Promise<void> {
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
     });
-    window.reactFlowZoom = 1;
+    window.settaGpuFlowZoom = 1;
   });
 }
 
@@ -3157,7 +3171,7 @@ async function getTerminalMarkerCharCenter({
       );
       const container =
         embedded ??
-        document.querySelector(`.react-flow__node[data-id="${id}"]`);
+        document.querySelector(`.setta-gpu-flow__node[data-id="${id}"]`);
       if (!container) {
         throw new Error(`Missing terminal container for ${id}.`);
       }
@@ -3220,7 +3234,8 @@ async function copyTerminalSelection(
       `[data-attached-terminal-section-id="${id}"]`,
     );
     const container =
-      embedded ?? document.querySelector(`.react-flow__node[data-id="${id}"]`);
+      embedded ??
+      document.querySelector(`.setta-gpu-flow__node[data-id="${id}"]`);
     if (!container) {
       throw new Error(`Missing terminal container for ${id}.`);
     }
@@ -3257,7 +3272,7 @@ async function expectDetachedTerminalHeaderLayout(
     .poll(async () => {
       return await page.evaluate((id) => {
         const node = document.querySelector(
-          `.react-flow__node[data-id="${id}"]`,
+          `.setta-gpu-flow__node[data-id="${id}"]`,
         );
         if (!node) {
           return "missing-node";
@@ -3300,11 +3315,11 @@ async function isTerminalDetachedInDom(
 ): Promise<boolean> {
   const embeddedCount = await page
     .locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     )
     .count();
   const terminalNodeCount = await page
-    .locator(`.react-flow__node[data-id="${terminalId}"]`)
+    .locator(`.setta-gpu-flow__node[data-id="${terminalId}"]`)
     .count();
   return embeddedCount === 0 && terminalNodeCount > 0;
 }

@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useEdgeHandleRegistry } from "state/definitions";
+import {
+  type EdgeHandlePosition,
+  type EdgeHandleRecord,
+  useEdgeHandleRegistry,
+} from "state/definitions";
 import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HandlePosition } from "../flowTypes";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { handlePointerDown } from "./handler";
 
@@ -103,11 +108,11 @@ describe("GPU edge handle connection lifecycle", () => {
       }),
     );
     expect(
-      targetHandle.classList.contains("react-flow__handle-connecting"),
+      targetHandle.classList.contains("setta-gpu-flow__handle-connecting"),
     ).toBe(true);
-    expect(targetHandle.classList.contains("react-flow__handle-valid")).toBe(
-      true,
-    );
+    expect(
+      targetHandle.classList.contains("setta-gpu-flow__handle-valid"),
+    ).toBe(true);
     expect(store.getState().connectionStatus).toBe("valid");
 
     const cancelEvent = new Event("pointercancel", {
@@ -118,11 +123,11 @@ describe("GPU edge handle connection lifecycle", () => {
 
     expect(cancelNotPrevented).toBe(false);
     expect(
-      targetHandle.classList.contains("react-flow__handle-connecting"),
+      targetHandle.classList.contains("setta-gpu-flow__handle-connecting"),
     ).toBe(false);
-    expect(targetHandle.classList.contains("react-flow__handle-valid")).toBe(
-      false,
-    );
+    expect(
+      targetHandle.classList.contains("setta-gpu-flow__handle-valid"),
+    ).toBe(false);
     expect(store.getState().connectionStartHandle).toBeNull();
     expect(store.getState().connectionStatus).toBeNull();
     expect(onConnect).not.toHaveBeenCalled();
@@ -205,7 +210,7 @@ function createHandleElement({
 }): HTMLElement {
   const element = document.createElement("div");
   element.className = [
-    "react-flow__handle",
+    "setta-gpu-flow__handle",
     type,
     "connectable",
     "connectableend",
@@ -223,20 +228,20 @@ function registerTargetHandle(targetHandle: HTMLElement) {
         element: targetHandle,
         portId: "in",
         sectionId: "target",
-        side: "left",
+        side: HandlePosition.Left,
         type: "target",
       },
-    },
+    } satisfies Record<string, EdgeHandleRecord>,
     positions: {
       [makeEdgeHandleKey("target", "in", "target")]: {
         portId: "in",
         sectionId: "target",
-        side: "left",
+        side: HandlePosition.Left,
         type: "target",
         x: 100,
         y: 50,
       },
-    },
+    } satisfies Record<string, EdgeHandlePosition>,
   });
 }
 

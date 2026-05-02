@@ -25,6 +25,7 @@ import {
   cancelGpuAnimationFrame,
   requestGpuAnimationFrame,
 } from "./animationFrame";
+import { GPU_FLOW_CLASS_NAMES } from "./gpuFlowDomClasses";
 import {
   areMiniMapNodesRenderableInputsEqual,
   getMiniMapMaskPath,
@@ -40,7 +41,6 @@ import {
   getGpuNodesBounds,
   isMeasuredGpuNodeBoundsInput,
 } from "./nodeBounds";
-import { REACT_FLOW_COMPAT_CLASS_NAMES } from "./reactFlowCompatibility";
 import { setCenter } from "./viewportActions";
 import {
   getVisibleFlowRect,
@@ -235,8 +235,8 @@ function GpuMiniMap(props: GpuMiniMapProps) {
     <div
       style={style}
       className={cc([
-        REACT_FLOW_COMPAT_CLASS_NAMES.panel,
-        REACT_FLOW_COMPAT_CLASS_NAMES.minimap,
+        GPU_FLOW_CLASS_NAMES.panel,
+        GPU_FLOW_CLASS_NAMES.minimap,
         getMiniMapPositionClassNames(position),
         className,
       ])}

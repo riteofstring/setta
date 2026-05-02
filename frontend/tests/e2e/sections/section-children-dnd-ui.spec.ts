@@ -194,7 +194,7 @@ async function dragSectionToPane(
   const source = page
     .locator(`section[data-section-id="${sectionId}"]`)
     .first();
-  const pane = page.locator(".react-flow__pane").first();
+  const pane = page.locator(".setta-gpu-flow__pane").first();
 
   await expect(source).toBeVisible();
   await expect(pane).toBeVisible();
@@ -293,7 +293,7 @@ async function performMovingFreeDrag(
 }
 
 async function focusPaneForDnd(page: Page): Promise<void> {
-  await page.click(".react-flow__pane", {
+  await page.click(".setta-gpu-flow__pane", {
     position: { x: 8, y: 8 },
     force: true,
     timeout: 10000,

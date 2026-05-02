@@ -172,8 +172,8 @@ func TestClaudeExecutorGeneratesTempMCPConfigWhenMissing(t *testing.T) {
 	if statuses[0].ServerID != mcpx.DefaultServerID {
 		t.Fatalf("expected generated MCP status for %q, got %#v", mcpx.DefaultServerID, statuses)
 	}
-	if statuses[0].Transport != mcpx.TransportSSE {
-		t.Fatalf("expected generated MCP transport sse, got %#v", statuses[0])
+	if statuses[0].Transport != mcpx.TransportStreamableHTTP {
+		t.Fatalf("expected generated MCP transport streamable_http, got %#v", statuses[0])
 	}
 	if statuses[0].Endpoint != fixture.executor.settaServerURL {
 		t.Fatalf("expected generated MCP endpoint %q, got %#v", fixture.executor.settaServerURL, statuses[0])
@@ -560,8 +560,8 @@ func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
 	if got := statuses[1].ServerID; got != mcpx.DefaultServerID {
 		t.Fatalf("unexpected generated claude status server id %q", got)
 	}
-	if statuses[1].Transport != mcpx.TransportSSE {
-		t.Fatalf("expected generated claude status transport sse, got %#v", statuses[1])
+	if statuses[1].Transport != mcpx.TransportStreamableHTTP {
+		t.Fatalf("expected generated claude status transport streamable_http, got %#v", statuses[1])
 	}
 	if statuses[1].Endpoint != fixture.executor.settaServerURL {
 		t.Fatalf("expected generated claude status endpoint %q, got %#v", fixture.executor.settaServerURL, statuses[1])
@@ -2321,8 +2321,8 @@ func runClaudeFixtureProcess(scenario string) error {
 		if !ok {
 			return fmt.Errorf("expected generated setta mcp server entry, got %#v", rawServers)
 		}
-		if got := strings.TrimSpace(stringValue(settaServer["type"])); got != "sse" {
-			return fmt.Errorf("expected generated setta transport sse, got %#v", settaServer)
+		if got := strings.TrimSpace(stringValue(settaServer["type"])); got != "streamable_http" {
+			return fmt.Errorf("expected generated setta transport streamable_http, got %#v", settaServer)
 		}
 		if got := strings.TrimSpace(stringValue(settaServer["url"])); got != "http://127.0.0.1:8000/mcp" {
 			return fmt.Errorf("expected generated setta url, got %#v", settaServer)

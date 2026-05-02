@@ -19,12 +19,18 @@ func (s *Service) SeedDefaultProfilesIfMissing() error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("stat transcription profiles: %w", err)
 	}
+	profiles := make([]Profile, 0, len(defaultProfiles()))
 	for _, profile := range defaultProfiles() {
-		if _, err := s.Create(profile); err != nil {
+		normalized, err := s.prepareForSave(profile)
+		if err != nil {
+			if errors.Is(err, ErrInvalidTranscriptionLLMConfig) || errors.Is(err, ErrRealtimeTranscriptionUnavailable) {
+				continue
+			}
 			return err
 		}
+		profiles = append(profiles, normalized)
 	}
-	return nil
+	return s.profiles.Write(profiles)
 }
 
 func defaultProfiles() []Profile {

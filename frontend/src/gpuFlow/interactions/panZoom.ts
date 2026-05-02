@@ -2,8 +2,8 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
+import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 import type { GpuFrameReason } from "../gpuRenderer";
-import { REACT_FLOW_COMPAT_CLASS_NAMES } from "../reactFlowCompatibility";
 import {
   panGpuViewport,
   zoomGpuViewportAt,
@@ -531,7 +531,7 @@ function isPrimaryButtonNodeEvent(event: PointerEvent): boolean {
   }
   return (
     isEventTargetWrappedWithClass(event, "setta-gpu-flow__node") ||
-    isEventTargetWrappedWithClass(event, REACT_FLOW_COMPAT_CLASS_NAMES.node)
+    isEventTargetWrappedWithClass(event, GPU_FLOW_CLASS_NAMES.node)
   );
 }
 

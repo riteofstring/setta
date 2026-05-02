@@ -53,10 +53,10 @@ test("ui-only selection drag grouping includes the full selected set in browser 
       .toEqual([firstSectionId, secondSectionId]);
 
     const firstNode = page
-      .locator(`.react-flow__node[data-id="${firstSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${firstSectionId}"]`)
       .first();
     const secondNode = page
-      .locator(`.react-flow__node[data-id="${secondSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${secondSectionId}"]`)
       .first();
 
     await expect(firstNode).toBeVisible();

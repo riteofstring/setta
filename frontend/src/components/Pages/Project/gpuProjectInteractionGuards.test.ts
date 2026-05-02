@@ -218,11 +218,11 @@ describe("gpu project interaction guards", () => {
 
   it.each([
     ["GPU node", "setta-gpu-flow__node"],
-    ["ReactFlow-compatible node contract", "react-flow__node"],
-    ["selection box", "react-flow__nodesselection-rect"],
-    ["marquee selection", "react-flow__selection"],
-    ["edge handle", "react-flow__handle"],
-    ["edge reconnect handle", "react-flow__edgeupdater"],
+    ["GPU flow node contract", "setta-gpu-flow__node"],
+    ["selection box", "setta-gpu-flow__nodes-selection-rect"],
+    ["marquee selection", "setta-gpu-flow__selection"],
+    ["edge handle", "setta-gpu-flow__handle"],
+    ["edge reconnect handle", "setta-gpu-flow__edge-updater"],
     ["GPU edge reconnect anchor", "setta-gpu-flow__edge-reconnect-anchor"],
     ["resize handle", "section-resize-handle"],
     ["nodrag target", NO_DRAG_CLASS_NAME],
@@ -254,9 +254,9 @@ describe("gpu project interaction guards", () => {
 
 function createProjectPaneFixture() {
   const root = document.createElement("div");
-  root.className = "react-flow";
+  root.className = "setta-gpu-flow-root";
   const gpuFlow = document.createElement("div");
-  gpuFlow.className = "setta-gpu-flow react-flow__pane";
+  gpuFlow.className = "setta-gpu-flow setta-gpu-flow__pane";
   const surface = document.createElement("canvas");
   surface.dataset.gpuFlowSurface = "true";
   gpuFlow.append(surface);

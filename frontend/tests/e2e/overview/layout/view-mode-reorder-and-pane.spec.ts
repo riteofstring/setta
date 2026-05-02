@@ -7,7 +7,7 @@ import {
   seedLocalStorage,
 } from "../../helpers";
 
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".setta-gpu-flow__pane";
 const OVERVIEW_VIEW_MODE_ROW_SELECTOR =
   '[data-testid="overview-view-mode-row"], [data-testid="overview-view-mode-edit-row"]';
 const OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR =

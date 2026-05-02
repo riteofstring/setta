@@ -31,9 +31,11 @@ export {
 } from "./definitions/storesCore";
 
 export type {
+  APIKeys,
   BackendLogEventsFilter,
   CustomRunAction,
   CustomRunItem,
+  EdgeHandlePosition,
   EdgeHandleRecord,
   ListenerCoverageRecord,
   PendingOperation,
@@ -45,9 +47,9 @@ export type {
 } from "./definitions/storesCore";
 
 export {
-  useAgenticScopeHighlights,
   useAIFollow,
   useAIStore,
+  useAgenticScopeHighlights,
   useBrushStrokes,
   useChartData,
   useDecodedImages,

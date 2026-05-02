@@ -180,9 +180,6 @@ func initializeIDEAgentStoresAndConfigs(
 	if err := services.externalConfigService.SeedDefaultConfigsIfMissing(); err != nil {
 		return err
 	}
-	if err := services.externalConfigService.ReconcileManagedCanonicalConfigs(); err != nil {
-		return err
-	}
 	externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
 		WorkspaceRoot:          cfg.Paths.WorkspaceRoot,
 		ManagedAPIKeysLockRoot: cfg.Paths.RuntimeRoot,

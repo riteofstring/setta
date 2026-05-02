@@ -233,7 +233,7 @@ describe("focusManager", () => {
     document.body.appendChild(canvasScope);
 
     const sectionOne = document.createElement("div");
-    sectionOne.className = "react-flow__node";
+    sectionOne.className = "setta-gpu-flow__node";
     sectionOne.setAttribute("data-id", "section-1");
     const sourceButton = document.createElement("button");
     sourceButton.type = "button";
@@ -241,7 +241,7 @@ describe("focusManager", () => {
     sectionOne.appendChild(sourceButton);
 
     const sectionTwo = document.createElement("div");
-    sectionTwo.className = "react-flow__node";
+    sectionTwo.className = "setta-gpu-flow__node";
     sectionTwo.setAttribute("data-id", "section-2");
     const targetButton = document.createElement("button");
     targetButton.type = "button";

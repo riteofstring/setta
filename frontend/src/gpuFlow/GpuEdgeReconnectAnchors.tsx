@@ -11,12 +11,12 @@ import {
   getGpuEdgeViewportLayerStyle,
   useGpuEdgeViewportLayerSync,
 } from "./GpuEdgeViewportLayer";
+import {
+  getGpuFlowEdgeUpdaterEndpointClass,
+  GPU_FLOW_CLASS_NAMES,
+} from "./gpuFlowDomClasses";
 import { handlePointerDown } from "./Handle/handler";
 import type { ValidConnectionFunc } from "./Handle/utils";
-import {
-  getReactFlowCompatibleEdgeUpdaterEndpointClass,
-  REACT_FLOW_COMPAT_CLASS_NAMES,
-} from "./reactFlowCompatibility";
 import type { GpuViewportInput } from "./viewportMath";
 import {
   gpuFlowViewportStore,
@@ -145,8 +145,8 @@ function GpuEdgeReconnectAnchorElement({
       aria-hidden="true"
       className={[
         "setta-gpu-flow__edge-reconnect-anchor",
-        REACT_FLOW_COMPAT_CLASS_NAMES.edgeUpdater,
-        getReactFlowCompatibleEdgeUpdaterEndpointClass(anchor.endpoint),
+        GPU_FLOW_CLASS_NAMES.edgeUpdater,
+        getGpuFlowEdgeUpdaterEndpointClass(anchor.endpoint),
         NO_DRAG_CLASS_NAME,
         NO_PAN_CLASS_NAME,
       ].join(" ")}

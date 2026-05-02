@@ -68,32 +68,9 @@ func (s *Server) HasProjectStateMutationBroadcast() bool {
 }
 
 func newHTTPHandler(server *sdkmcp.Server) http.Handler {
-	sseHandler := sdkmcp.NewSSEHandler(func(*http.Request) *sdkmcp.Server {
+	return sdkmcp.NewStreamableHTTPHandler(func(*http.Request) *sdkmcp.Server {
 		return server
 	}, nil)
-	streamableHandler := sdkmcp.NewStreamableHTTPHandler(func(*http.Request) *sdkmcp.Server {
-		return server
-	}, nil)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if shouldUseLegacySSEHandler(r) {
-			sseHandler.ServeHTTP(w, r)
-			return
-		}
-		streamableHandler.ServeHTTP(w, r)
-	})
-}
-
-func shouldUseLegacySSEHandler(r *http.Request) bool {
-	if r == nil {
-		return false
-	}
-	if strings.TrimSpace(r.Header.Get("Mcp-Session-Id")) != "" {
-		return false
-	}
-	if strings.TrimSpace(r.URL.Query().Get("sessionid")) != "" {
-		return true
-	}
-	return r.Method == http.MethodGet
 }
 
 func (s *Server) Registry() *tools.Registry {

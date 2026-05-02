@@ -7,8 +7,8 @@ import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
 import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
 import { useEdgeHandleRegistry, useLocalStorage } from "state/definitions";
 import type { Connection, HandleType } from "../flowTypes";
+import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 import { getGpuNodeDragAutoPanDelta } from "../interactions/nodeDrag";
-import { REACT_FLOW_COMPAT_CLASS_NAMES } from "../reactFlowCompatibility";
 import { panGpuViewport } from "../viewportActions";
 import {
   flowToScreenPosition,
@@ -209,11 +209,11 @@ export function handlePointerDown({
     prevActiveHandle = nextHandleDomNode;
     nextHandleDomNode.classList.add(
       "connecting",
-      REACT_FLOW_COMPAT_CLASS_NAMES.handleConnecting,
+      GPU_FLOW_CLASS_NAMES.handleConnecting,
     );
     nextHandleDomNode.classList.toggle("valid", nextIsValid);
     nextHandleDomNode.classList.toggle(
-      REACT_FLOW_COMPAT_CLASS_NAMES.handleValid,
+      GPU_FLOW_CLASS_NAMES.handleValid,
       nextIsValid,
     );
   };
@@ -318,7 +318,7 @@ export function handlePointerDown({
     doc.removeEventListener("touchcancel", onConnectionCancel as EventListener);
 
     doc.removeEventListener("pointercancel", onConnectionCancel, true);
-    doc.removeEventListener("keydown", onKeyDown, true);
+    doc.removeEventListener("keydown", onKeyDown as EventListener, true);
   }
 
   function onConnectionCancel(event: Event) {
@@ -364,7 +364,7 @@ export function handlePointerDown({
   doc.addEventListener("touchcancel", onConnectionCancel as EventListener);
 
   doc.addEventListener("pointercancel", onConnectionCancel, true);
-  doc.addEventListener("keydown", onKeyDown, true);
+  doc.addEventListener("keydown", onKeyDown as EventListener, true);
 }
 
 function getEventPosition(

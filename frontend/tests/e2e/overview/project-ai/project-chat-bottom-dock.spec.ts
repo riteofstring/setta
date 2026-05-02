@@ -183,7 +183,7 @@ async function getFloatingWindowMetrics(
 ): Promise<FloatingWindowMetrics> {
   return floatingWindow.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    const pane = document.querySelector(".react-flow__pane");
+    const pane = document.querySelector(".setta-gpu-flow__pane");
     const workspaceTopInset =
       pane instanceof HTMLElement ? pane.getBoundingClientRect().top : 0;
     const viewModeTabs = document.querySelector(
@@ -219,7 +219,7 @@ async function getFloatingWindowMetrics(
 
 async function getWorkspaceTopInset(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const pane = document.querySelector(".react-flow__pane");
+    const pane = document.querySelector(".setta-gpu-flow__pane");
     if (pane instanceof HTMLElement) {
       const topInset = pane.getBoundingClientRect().top;
       if (Number.isFinite(topInset) && topInset > 0) {
@@ -381,7 +381,7 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const strip = page.getByTestId("project-chat-bottom-dock-strip");
@@ -660,7 +660,7 @@ test("the Project AI manager reopens minimized windows", async ({ page }) => {
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const dockPanel = page
       .getByTestId("project-chat-bottom-dock-window-panel")
@@ -720,7 +720,7 @@ test("project chat bottom dock narrows into a single visible window and collapse
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const createButton = page.getByTestId("project-chat-bottom-dock-create");
@@ -828,7 +828,7 @@ test("project chat canvas visibility toggle hides and restores overlay windows",
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     await page.getByTestId("project-chat-window-maximize").last().click();
@@ -870,7 +870,7 @@ test("project chat keyboard shortcuts toggle canvas and control focused windows"
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const isMac = await page.evaluate(() =>
@@ -927,7 +927,7 @@ test("project chat keyboard shortcuts snap the focused floating window to direct
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const isMac = await page.evaluate(() =>
@@ -989,7 +989,7 @@ test("project chat snap shortcuts open floating windows directly into quarter pr
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
     const { sectionId } = await createTextBlockSection(
       page,
@@ -1061,7 +1061,7 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const isMac = await page.evaluate(() =>
@@ -1299,7 +1299,7 @@ test("project chat floating windows show inline threads and chat together when r
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -1344,7 +1344,9 @@ test("project chat floating windows show inline threads and chat together when r
     );
     await expect(inlineThreadsPanel).toBeVisible();
     await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-    await expect(floatingWindow.getByTestId("chat-input-textarea")).toBeVisible();
+    await expect(
+      floatingWindow.getByTestId("chat-input-textarea"),
+    ).toBeVisible();
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
@@ -1361,7 +1363,7 @@ test("project chat floating windows keep conversation search inline until narrow
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -1439,7 +1441,7 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -1567,7 +1569,7 @@ test("project chat floating drag shows snap ghost zones and snaps to quarter/hal
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -1682,7 +1684,7 @@ test("project chat dragging a snapped window restores its previous floating size
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -1755,7 +1757,7 @@ test("project chat dragging a snapped window with no prior floating bounds falls
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const created = await page.evaluate(async () => {
@@ -1764,7 +1766,7 @@ test("project chat dragging a snapped window with no prior floating bounds falls
         import("/src/utils/generatedTypes.ts"),
         import("/src/components/ChatWindowing/projectChatSnapLayout.ts"),
       ]);
-      const pane = document.querySelector(".react-flow__pane");
+      const pane = document.querySelector(".setta-gpu-flow__pane");
       const workspaceTopInsetPx =
         pane instanceof HTMLElement ? pane.getBoundingClientRect().top : 40;
       const viewModeTabs = document.querySelector(
@@ -1876,7 +1878,7 @@ test("project chat snapped quad layout keeps snap mode while shared split handle
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const snapTargets = [
@@ -1894,7 +1896,7 @@ test("project chat snapped quad layout keeps snap mode while shared split handle
             import("/src/utils/generatedTypes.ts"),
             import("/src/components/ChatWindowing/projectChatSnapLayout.ts"),
           ]);
-        const pane = document.querySelector(".react-flow__pane");
+        const pane = document.querySelector(".setta-gpu-flow__pane");
         const viewModeTabs = document.querySelector(
           '[data-testid="view-mode-tabs-bar"]',
         );
@@ -1997,7 +1999,7 @@ test("project chat move-to-canvas anchors new canvas chats to the visible source
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await expect
       .poll(() =>
         page.getByTestId("project-chat-window-show-in-canvas").count(),
@@ -2021,7 +2023,7 @@ test("project chat move-to-canvas anchors new canvas chats to the visible source
 
     const canvasRect = await getCanvasDomRect(page);
     if (!canvasRect) {
-      throw new Error("Expected react-flow canvas bounds.");
+      throw new Error("Expected GPU flow canvas bounds.");
     }
 
     const insideCursorPoint = {
@@ -2094,7 +2096,7 @@ test("project chat move-to-canvas failure leaves the source window as the only l
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const dockedWindow = await ensureDockedWindow(page);
@@ -2169,7 +2171,7 @@ test("project chat windows reopen canvas-bound sections as centered floating win
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const dockedWindow = await ensureDockedWindow(page);
@@ -2309,7 +2311,9 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     await page.evaluate(
       async ({ projectConfigId, sectionId: targetSectionId }) => {
         const { deleteSections } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+        const { callOpenAPI } = await import(
+          "/tests/e2e/browserAppSubsystemSdk.ts"
+        );
         await callOpenAPI(
           deleteSections({
             body: {
@@ -2325,7 +2329,7 @@ test("project chat windows reopen canvas-bound sections as centered floating win
       },
     );
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
     await expect(reopenedFloatingWindow).toHaveCount(0);
     await expect(plainDockedWindow).toBeVisible();
@@ -2338,7 +2342,9 @@ test("project chat windows reopen canvas-bound sections as centered floating win
       const { createViewMode, toggleViewModeTab } = await import(
         "/src/openapi/http"
       );
-      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+      const { callOpenAPI } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const response = await callOpenAPI(
         createViewMode({
           body: {
@@ -2366,7 +2372,9 @@ test("project chat windows reopen canvas-bound sections as centered floating win
     await page.evaluate(
       async ({ projectConfigId, activeViewModeId }) => {
         const { setActiveViewMode } = await import("/src/openapi/http");
-        const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+        const { callOpenAPI } = await import(
+          "/tests/e2e/browserAppSubsystemSdk.ts"
+        );
         await callOpenAPI(
           setActiveViewMode({
             body: {
@@ -2396,7 +2404,7 @@ test("section pop-out opens above existing floating windows by default", async (
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
     const { sectionId } = await createTextBlockSection(
       page,
@@ -2459,7 +2467,7 @@ test("minimized docked section windows keep their section icon in the tray", asy
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
     const { sectionId } = await createTextBlockSection(
       page,
@@ -2515,7 +2523,7 @@ test("minimized floating section windows keep their canvas placeholder", async (
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
     const { sectionId } = await createTextBlockSection(
       page,
@@ -2574,7 +2582,7 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await expect
       .poll(() =>
         page.getByTestId("project-chat-window-show-in-canvas").count(),
@@ -2598,7 +2606,7 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
 
     const canvasRect = await getCanvasDomRect(page);
     if (!canvasRect) {
-      throw new Error("Expected react-flow canvas bounds.");
+      throw new Error("Expected GPU flow canvas bounds.");
     }
     const viewportSize = page.viewportSize();
     if (!viewportSize) {
@@ -2627,7 +2635,7 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
       };
     }
     if (!outsideCursorPoint) {
-      throw new Error("Unable to find a point outside the react-flow canvas.");
+      throw new Error("Unable to find a point outside the GPU flow canvas.");
     }
     await page.evaluate(async (cursorPoint) => {
       const { useMisc } = await import("/src/state/definitions.ts");
@@ -2691,7 +2699,8 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
       `[id="${secondBinding.sectionId}-CustomResizable"]`,
     );
     await expect(canvasResizableSurface).toBeVisible();
-    const canvasResizableSurfaceBox = await canvasResizableSurface.boundingBox();
+    const canvasResizableSurfaceBox =
+      await canvasResizableSurface.boundingBox();
     if (!canvasResizableSurfaceBox) {
       throw new Error("Expected visible canvas section surface bounds.");
     }
@@ -2721,14 +2730,10 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
     );
     expect(
       canvasResizableSurfaceBox.x + canvasResizableSurfaceBox.width,
-    ).toBeLessThanOrEqual(
-      canvasRect.right + canvasEdgeTolerancePx,
-    );
+    ).toBeLessThanOrEqual(canvasRect.right + canvasEdgeTolerancePx);
     expect(
       canvasResizableSurfaceBox.y + canvasResizableSurfaceBox.height,
-    ).toBeLessThanOrEqual(
-      canvasRect.bottom + canvasEdgeTolerancePx,
-    );
+    ).toBeLessThanOrEqual(canvasRect.bottom + canvasEdgeTolerancePx);
     expect(
       Math.abs(canvasResizableSurfaceBox.width - sourceWindowBox.width),
     ).toBeLessThanOrEqual(4);
@@ -2750,7 +2755,7 @@ test("project chat undock from canvas-section to floating keeps a visual canvas 
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await expect
       .poll(() =>
         page.getByTestId("project-chat-window-show-in-canvas").count(),

@@ -9,7 +9,7 @@ import {
   type ChatRuntimeActivityDetails,
   type ChatSubmitDispatchResult,
   type ChatSubmitOptions,
-} from "components/Chat/ChatInput";
+} from "components/Chat/ChatInput/shared";
 
 import {
   resolveAuthoritativeContextTelemetry,
@@ -27,13 +27,10 @@ import {
 
 import {
   buildChatHistoryEntries,
-  type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
 
 import { type ProjectChatCustomSlashCommand } from "state/definitions";
-
-import { parseAppGenerationMode } from "state/types/appGenerationMode";
 
 import { type ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 
@@ -45,6 +42,8 @@ import {
   ChatFileAttachment,
   ChatRoleEnum,
   EngineTypeEnum,
+  type AssistantChatMessage,
+  type EngineConfig,
   type ToolCall,
 } from "utils/generatedTypes";
 
@@ -65,9 +64,6 @@ export const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
 export const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
   "Native slash commands are unavailable until agent metadata reloads.";
 
-export const HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE =
-  "This turn used app generation. Enable an app subsystem provider with app-generation chat-mode support to edit or replay it.";
-
 export type ProjectChatBlockedErrorCode =
   | ChatHydrationErrorCode
   | ProjectChatThreadBlockedErrorCode;
@@ -77,7 +73,7 @@ export type ProjectChatHistoryEntry = ReturnType<
 >[number];
 
 export function getDefaultProjectChatPermissionMode(
-  engineType: EngineTypeEnum | null,
+  engineType: EngineConfig["engineType"] | null,
 ): ChatPermissionModeValue {
   if (engineType === EngineTypeEnum.external_agent) {
     return "config_toml_custom";
@@ -106,36 +102,7 @@ export function getProjectChatBlockedReasonMessage(
   if (errorCode === "engine_type_mismatch") {
     return "This thread's saved engine type no longer matches its provenance. You can continue chatting with the currently selected engine.";
   }
-  if (errorCode === "llm_config_missing") {
-    return "This thread's saved LLM config is unavailable. You can continue chatting after choosing any valid model.";
-  }
   return "This thread hit a terminal hydration error. You can still continue chatting from the current state.";
-}
-
-export function getHistoricalAppGenerationEditReplayBlockedReason({
-  mode,
-  replaySupported,
-  modeRegistryResolved,
-  supportedAppGenerationModes,
-}: {
-  mode: string | null | undefined;
-  replaySupported: boolean;
-  modeRegistryResolved: boolean;
-  supportedAppGenerationModes: string[];
-}): string | null {
-  const normalizedMode = parseAppGenerationMode(mode);
-  if (normalizedMode == null) {
-    return null;
-  }
-  if (!replaySupported) {
-    return HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
-  }
-  if (!modeRegistryResolved) {
-    return null;
-  }
-  return supportedAppGenerationModes.includes(normalizedMode)
-    ? null
-    : HISTORICAL_APP_GENERATION_PLUGIN_REQUIRED_MESSAGE;
 }
 
 export function buildProjectChatHydrationCacheKey({
@@ -211,7 +178,7 @@ export function resolveProjectChatRuntimeNativeSlashCommandTokens({
   runs: AgentRun[];
   projectConfigId: string;
   engineConfigId: string | null;
-  engineType: EngineTypeEnum | null;
+  engineType: EngineConfig["engineType"] | null;
 }): string[] {
   if (
     engineType !== EngineTypeEnum.external_agent ||
@@ -510,7 +477,7 @@ export function resolveProjectChatSubmitAppGeneration({
   options,
 }: {
   activeAppGeneration: ChatAppGenerationContext | null;
-  options?: ChatSubmitOptions;
+  options?: ChatSubmitOptions | undefined;
 }): ChatAppGenerationContext | null {
   if (
     !options ||
@@ -656,6 +623,9 @@ export function trimProjectChatHydrationCache({
       break;
     }
     const cacheKey = removableEntries[index];
+    if (cacheKey === undefined) {
+      continue;
+    }
     if (cache[cacheKey] === undefined) {
       continue;
     }
@@ -716,11 +686,11 @@ export function resolveToolRuntimeCategory(
 
 export function resolveStreamingAssistantMessage(
   messages: Array<BaseChatMessageUnion>,
-): Extract<BaseChatMessageUnion, { role: ChatRoleEnum.assistant }> | null {
+): AssistantChatMessage | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message?.role === ChatRoleEnum.assistant) {
-      return message;
+      return message as AssistantChatMessage;
     }
   }
   return null;
@@ -755,8 +725,11 @@ export function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
   entry: ProjectChatRuntimeActivityEntry;
 } | null {
   const normalizedToolName = normalizeToolName(toolCall.function?.name ?? "");
+  if (!normalizedToolName) {
+    return null;
+  }
   const category = resolveToolRuntimeCategory(normalizedToolName);
-  if (!category || !normalizedToolName) {
+  if (!category) {
     return null;
   }
   return {
@@ -841,12 +814,10 @@ export function resolveProjectChatProviderDictationTranscribeEnabled({
 export function toSortedProjectHistoryEntries(
   runs: Array<AgentRun>,
   projectConfigId: string,
-  compatibility: ChatHistoryCompatibility | null,
 ): Array<ProjectChatHistoryEntry> {
   return buildChatHistoryEntries(runs, {
     projectConfigId,
     unscopedOnly: true,
-    compatibility,
   }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
 }
 

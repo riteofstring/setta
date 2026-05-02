@@ -1,5 +1,5 @@
 import { ChatRunType } from "state/actions/chatHistory";
-import { EngineConfig, EngineTypeEnum } from "utils/generatedTypes";
+import { type EngineConfig, EngineTypeEnum } from "utils/generatedTypes";
 
 type SelectedScopedChatProvenance =
   | {
@@ -31,9 +31,9 @@ export type ProjectChatThreadBlockedErrorCode =
   | "engine_config_missing"
   | "engine_type_mismatch";
 
-type ProjectChatThreadCompatibilityResult =
+type ProjectChatThreadValidationResult =
   | {
-      status: "compatible";
+      status: "valid";
     }
   | {
       status: "unknown";
@@ -63,7 +63,7 @@ type SelectedChatRequirement =
     }
   | {
       status: "resolved";
-      compatibility: ProjectChatThreadCompatibilityResult;
+      result: ProjectChatThreadValidationResult;
     };
 
 function isSelectedChatRunTypeCompatibleWithEngineType({
@@ -71,7 +71,7 @@ function isSelectedChatRunTypeCompatibleWithEngineType({
   engineType,
 }: {
   runType: ChatRunType;
-  engineType: EngineTypeEnum;
+  engineType: EngineConfig["engineType"];
 }): boolean {
   if (runType === "llm_chat") {
     return engineType === EngineTypeEnum.setta_llm;
@@ -82,10 +82,10 @@ function isSelectedChatRunTypeCompatibleWithEngineType({
   return false;
 }
 
-function resolveCompatibilityFromAuthoritativeState(
+function resolveValidationFromAuthoritativeState(
   authoritative: boolean,
   errorCode: ProjectChatThreadBlockedErrorCode,
-): ProjectChatThreadCompatibilityResult {
+): ProjectChatThreadValidationResult {
   return authoritative
     ? {
         status: "warning",
@@ -106,7 +106,7 @@ function resolveSelectedChatRequirement({
   if (selectedScopedChatProvenance.status !== "ready") {
     return {
       status: "resolved",
-      compatibility: resolveCompatibilityFromAuthoritativeState(
+      result: resolveValidationFromAuthoritativeState(
         chatProvenanceAuthoritative,
         "chat_provenance_missing",
       ),
@@ -116,7 +116,7 @@ function resolveSelectedChatRequirement({
   if (!provenance.engineConfigId) {
     return {
       status: "resolved",
-      compatibility: resolveCompatibilityFromAuthoritativeState(
+      result: resolveValidationFromAuthoritativeState(
         chatProvenanceAuthoritative,
         "chat_provenance_missing",
       ),
@@ -135,22 +135,22 @@ function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
   chatProvenanceAuthoritative,
   engineConfigById,
   engineConfigsAuthoritative,
-}: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadCompatibilityResult {
+}: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput): ProjectChatThreadValidationResult {
   const resolvedChatId = chatId?.trim() ?? "";
   if (!resolvedChatId) {
-    return { status: "compatible" };
+    return { status: "valid" };
   }
   const selectedChatRequirement = resolveSelectedChatRequirement({
     selectedScopedChatProvenance,
     chatProvenanceAuthoritative,
   });
   if (selectedChatRequirement.status !== "ready") {
-    return selectedChatRequirement.compatibility;
+    return selectedChatRequirement.result;
   }
   const { provenance, requiredEngineConfigId } = selectedChatRequirement;
   const requiredEngine = engineConfigById.get(requiredEngineConfigId);
   if (!requiredEngine) {
-    return resolveCompatibilityFromAuthoritativeState(
+    return resolveValidationFromAuthoritativeState(
       engineConfigsAuthoritative,
       "engine_config_missing",
     );
@@ -166,11 +166,11 @@ function resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
       errorCode: "engine_type_mismatch",
     };
   }
-  return { status: "compatible" };
+  return { status: "valid" };
 }
 
 export function resolveProjectChatRunTypeForEngine(
-  engineType: EngineTypeEnum | null,
+  engineType: EngineConfig["engineType"] | null,
 ): ChatRunType | null {
   if (engineType === EngineTypeEnum.external_agent) {
     return "external_agent";
@@ -189,7 +189,7 @@ export function resolveProjectChatHydrationAuthority({
   engineConfigsAuthoritative,
   engineType,
 }: ResolveProjectChatThreadBlockedErrorCodeForSelectedChatInput & {
-  engineType: EngineTypeEnum | null;
+  engineType: EngineConfig["engineType"] | null;
 }): ProjectChatHydrationAuthority {
   const resolvedChatId = chatId?.trim() ?? "";
   if (!resolvedChatId) {
@@ -199,35 +199,33 @@ export function resolveProjectChatHydrationAuthority({
       blockedErrorCode: null,
     };
   }
-  const compatibility = resolveProjectChatThreadBlockedErrorCodeForSelectedChat(
-    {
-      chatId: resolvedChatId,
-      selectedScopedChatProvenance,
-      chatProvenanceAuthoritative,
-      engineConfigById,
-      engineConfigsAuthoritative,
-    },
-  );
-  if (compatibility.status === "unknown") {
+  const validation = resolveProjectChatThreadBlockedErrorCodeForSelectedChat({
+    chatId: resolvedChatId,
+    selectedScopedChatProvenance,
+    chatProvenanceAuthoritative,
+    engineConfigById,
+    engineConfigsAuthoritative,
+  });
+  if (validation.status === "unknown") {
     return {
       status: "unknown",
       hydrationRunType: null,
       blockedErrorCode: null,
     };
   }
-  if (compatibility.status === "warning") {
+  if (validation.status === "warning") {
     return {
       status: "ready",
       hydrationRunType:
         selectedScopedChatProvenance.status === "ready"
           ? selectedScopedChatProvenance.provenance.runType
           : null,
-      blockedErrorCode: compatibility.errorCode,
+      blockedErrorCode: validation.errorCode,
     };
   }
   if (selectedScopedChatProvenance.status !== "ready") {
     throw new Error(
-      "Expected ready chat provenance when compatibility status is 'compatible'.",
+      "Expected ready chat provenance when selected chat validation is valid.",
     );
   }
   return {

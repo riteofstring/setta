@@ -1,7 +1,7 @@
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
+import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
 import type { GpuNodeLayout } from "../GpuNodeLayer";
 import type { GpuFrameReason } from "../gpuRenderer";
-import { REACT_FLOW_COMPAT_SELECTORS } from "../reactFlowCompatibility";
 import { panGpuViewport } from "../viewportActions";
 import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
 import {
@@ -619,9 +619,7 @@ function getEventNodeElement(event: Event): HTMLElement | null {
   if (!(target instanceof Element)) {
     return null;
   }
-  const element = target.closest<HTMLElement>(
-    `.setta-gpu-flow__node, ${REACT_FLOW_COMPAT_SELECTORS.node}`,
-  );
+  const element = target.closest<HTMLElement>(GPU_FLOW_SELECTORS.node);
   if (!element || element.dataset.gpuFlowNode === "false") {
     return null;
   }

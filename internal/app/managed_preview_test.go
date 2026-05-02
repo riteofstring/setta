@@ -98,7 +98,7 @@ func TestAppStreamsManagedToolArgumentPreviewOverFrontendWebsocket(t *testing.T)
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "sse",
+				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},

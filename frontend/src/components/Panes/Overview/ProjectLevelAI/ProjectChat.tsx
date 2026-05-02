@@ -411,7 +411,6 @@ function ProjectChatSurface({
     newThreadContinuationRequiredReason,
     placeholderText,
     projectHistoryRunType,
-    historyCompatibility,
     handleEngineChange,
     handleLLMConfigChange,
     handlePinDefaultModel,
@@ -451,9 +450,8 @@ function ProjectChatSurface({
       buildChatHistoryEntries(agentRuns, {
         projectConfigId,
         unscopedOnly: true,
-        compatibility: historyCompatibility,
       }),
-    [agentRuns, historyCompatibility, projectConfigId],
+    [agentRuns, projectConfigId],
   );
   const chatHistoryEntriesById = useMemo(() => {
     const entriesById = new Map<string, (typeof chatHistoryEntries)[number]>();

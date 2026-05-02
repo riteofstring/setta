@@ -48,7 +48,7 @@ function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
 function createViewportDomNode() {
   const domNode = document.createElement("div");
   const viewport = document.createElement("div");
-  viewport.className = "react-flow__viewport";
+  viewport.className = "setta-gpu-flow__canvas";
   domNode.appendChild(viewport);
   return domNode;
 }

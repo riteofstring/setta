@@ -1,20 +1,25 @@
 import {
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
+  type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
+import { ChatInput } from "components/Chat/ChatInput";
 import {
-  ChatInput,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
   type ChatSubmitOptions,
-} from "components/Chat/ChatInput";
-import { resolveSlashCommandRequest } from "components/Chat/chatInputHelpers";
+} from "components/Chat/ChatInput/shared";
+import {
+  resolveSlashCommandRequest,
+  type ChatExecutionControls,
+} from "components/Chat/chatInputHelpers";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   resolveEffectiveThinking,
   supportsThinkingExecutionControl,
 } from "components/Chat/engineUtils";
+import { useAppSubsystemSlashCommands } from "plugins/appSubsystem";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingChatDetails,
@@ -27,8 +32,6 @@ import {
   transcribeChatAudioWithProfile,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
-import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
-import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
   useLocalStorage,
@@ -44,7 +47,6 @@ import {
   ChatFileAttachment,
   ChatRoleEnum,
   EngineTypeEnum,
-  NotificationTypeEnum,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { useProjectChatHydrationRetry } from "./ProjectChatCore/hydration";
@@ -61,24 +63,27 @@ import {
 import {
   buildProjectChatSubmitReadinessKey,
   buildProjectChatSubmittedMessageHistory,
+  CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK,
   extractUserPromptText,
   filterProjectConversationMessagesBySearch,
   findBranchSourceUserMessage,
   getDefaultProjectChatPermissionMode,
-  getHistoricalAppGenerationEditReplayBlockedReason,
   getMessageAttachments,
   getProjectChatBlockedReasonMessage,
   hasRetainedImageAttachmentFromImageModeThread,
   NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK,
+  resolveProjectChatComposerExecutableNativeSlashCommandTokens,
+  resolveProjectChatComposerNativeSlashCommandTokens,
+  resolveProjectChatComposerSlashCommandSets,
   resolveProjectChatContextTelemetry,
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRedoTarget,
   resolveProjectChatRuntimeActivityDetails,
+  resolveProjectChatRuntimeNativeSlashCommandTokens,
   resolveProjectChatSubmitAppGeneration,
   resolveProjectChatSubmitPreflightResult,
   toSortedProjectHistoryEntries,
 } from "./projectChatCoreUtils";
-import { resolveProjectChatRunTypeForEngine } from "./projectChatHydrationAuthority";
 import {
   isAgentRunsAuthorityReady,
   type AgentRunsAuthorityState,
@@ -143,6 +148,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, [branchIndex, chatId, messages]);
   const pendingPrompt = useAIStore((state) => state.pendingProjectChatPrompt);
   const agentRuns = useAIStore((state) => state.agentRuns);
+  const agentRunsAuthorityState = useAIStore(
+    (state) => state.agentRunsAuthorityState,
+  );
   const agentRunsInitialLoadComplete = useAIStore(
     (state) => state.agentRunsInitialLoadComplete,
   );
@@ -153,7 +161,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
   const [executionSettings, setExecutionSettings] =
-    useState<ChatExecutionSettings>(() => ({
+    useState<ManagedChatExecutionSettings>(() => ({
       permissionMode: getDefaultProjectChatPermissionMode(engineType),
       searchEnabled: true,
     }));
@@ -189,6 +197,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         projectConfigId,
       ),
   );
+  const appGenerationSlashCommands = useAppSubsystemSlashCommands();
   const submittedMessageHistory = useMemo(
     () =>
       buildProjectChatSubmittedMessageHistory({
@@ -207,6 +216,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const customCommandsExecutable =
+    !isExternalEngine || isAgentRunsAuthorityReady(agentRunsAuthorityState);
   const showThinkingExecutionControl =
     supportsThinkingExecutionControl(engineConfig);
   const effectiveThinking = resolveEffectiveThinking({
@@ -227,16 +238,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       () => resolveProjectChatContextTelemetry(contextUsage),
       [contextUsage],
     );
-  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    const runType = resolveProjectChatRunTypeForEngine(engineType);
-    if (!runType) {
-      return null;
-    }
-    return {
-      runType,
-      engineConfigId: engineConfigId ?? null,
-    };
-  }, [engineConfigId, engineType]);
   useEffect(() => {
     if (!isExternalEngine) {
       setExecutionSettings((current) => {
@@ -361,14 +362,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const latestEntry = toSortedProjectHistoryEntries(
       useAIStore.getState().agentRuns,
       projectConfigId,
-      historyCompatibility,
     ).find((entry) => entry.chatId !== currentChatId);
     if (!latestEntry) {
       return false;
     }
     setChatId(latestEntry.chatId);
     return true;
-  }, [chatId, historyCompatibility, projectConfigId, setChatId]);
+  }, [chatId, projectConfigId, setChatId]);
 
   const resolveRefreshedSlashCommandSets = useCallback(
     (refreshedState: {
@@ -493,37 +493,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     ],
   );
 
-  const historicalAppGenerationRegistryPending =
-    appSubsystemFrontendStatus === "idle" ||
-    appSubsystemFrontendStatus === "loading";
-  const getHistoricalAppGenerationBlockedReason = useCallback(
-    (mode: string | null | undefined): string | null =>
-      getHistoricalAppGenerationEditReplayBlockedReason({
-        mode,
-        replaySupported:
-          appGenerationSlashCommands.length > 0 ||
-          historicalAppGenerationRegistryPending,
-        modeRegistryResolved: !historicalAppGenerationRegistryPending,
-        supportedAppGenerationModes,
-      }),
-    [
-      appGenerationSlashCommands.length,
-      historicalAppGenerationRegistryPending,
-      supportedAppGenerationModes,
-    ],
-  );
-  const notifyHistoricalAppGenerationBlocked = useCallback(
-    (mode: string | null | undefined): boolean => {
-      const blockedReason = getHistoricalAppGenerationBlockedReason(mode);
-      if (!blockedReason) {
-        return false;
-      }
-      addTemporaryNotification(blockedReason, NotificationTypeEnum.warning);
-      return true;
-    },
-    [getHistoricalAppGenerationBlockedReason],
-  );
-
   const submitProjectChatMessage = useCallback(
     async ({
       attachments,
@@ -538,6 +507,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         typeof resolveProjectChatSubmitAppGeneration
       >;
     }) => {
+      if (!engineConfigId) {
+        return "retry_later";
+      }
       if (isFirstDraftSubmit) {
         handleNewChatStart();
       }
@@ -609,9 +581,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         activeAppGeneration,
         options,
       });
-      if (notifyHistoricalAppGenerationBlocked(resolvedAppGeneration?.mode)) {
-        return "retry_later";
-      }
       return submitProjectChatMessage({
         attachments,
         isFirstDraftSubmit,
@@ -624,7 +593,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       engineConfigId,
       externalEngineAvailable,
       hasLLMConfig,
-      notifyHistoricalAppGenerationBlocked,
       requiresNewThreadContinuation,
       activeAppGeneration,
       submitProjectChatMessage,
@@ -650,13 +618,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      if (
-        notifyHistoricalAppGenerationBlocked(
-          appGenerationByMessageId[messageId]?.mode,
-        )
-      ) {
         return false;
       }
       const nextChatId = await submitEditedMessage({
@@ -691,7 +652,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       appGenerationByMessageId,
       messages,
-      notifyHistoricalAppGenerationBlocked,
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
@@ -733,13 +693,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       if (!sourceUserMessage) {
         return false;
       }
-      if (
-        notifyHistoricalAppGenerationBlocked(
-          appGenerationByMessageId[sourceUserMessage.id]?.mode,
-        )
-      ) {
-        return false;
-      }
       const sourceText = extractUserPromptText(sourceUserMessage) ?? "";
       const sourceAttachments = getMessageAttachments(sourceUserMessage);
       const nextChatId = await submitEditedMessage({
@@ -777,7 +730,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       appGenerationByMessageId,
       messages,
-      notifyHistoricalAppGenerationBlocked,
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
@@ -857,27 +809,27 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       ),
     [appGenerationByMessageId, messages],
   );
-  const executionControls = useMemo(
-    () => ({
+  const executionControls = useMemo<ChatExecutionControls>(() => {
+    const controls: ChatExecutionControls = {
       thinkingEnabled: effectiveThinking,
-      onThinkingEnabledChange: showThinkingExecutionControl
-        ? onThinkingChange
-        : undefined,
       permissionMode: executionSettings.permissionMode,
       searchEnabled: executionSettings.searchEnabled,
       onPermissionModeChange: executionControlHandlers.onPermissionModeChange,
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
-    }),
-    [
-      effectiveThinking,
-      onThinkingChange,
-      showThinkingExecutionControl,
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
-      executionControlHandlers.onPermissionModeChange,
-      executionControlHandlers.onSearchEnabledChange,
-    ],
-  );
+    };
+    if (showThinkingExecutionControl && onThinkingChange) {
+      controls.onThinkingEnabledChange = onThinkingChange;
+    }
+    return controls;
+  }, [
+    effectiveThinking,
+    onThinkingChange,
+    showThinkingExecutionControl,
+    executionSettings.permissionMode,
+    executionSettings.searchEnabled,
+    executionControlHandlers.onPermissionModeChange,
+    executionControlHandlers.onSearchEnabledChange,
+  ]);
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
       if (!transcriptionProfileId) {
@@ -894,7 +846,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     !waitingForResponse;
 
   useProjectChatSearchEmptyMatchCountReset({
-    onConversationSearchMatchCountChange,
+    ...(onConversationSearchMatchCountChange
+      ? { onConversationSearchMatchCountChange }
+      : {}),
     showConversationSearchEmptyState,
     showEmptyState,
   });
@@ -942,14 +896,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           activeSearchMatchIndex={activeConversationSearchMatchIndex}
           conversationSearchTerms={normalizedConversationSearchTerms}
           editDisabledReason={editDisabledReason}
-          onConversationSearchMatchCountChange={
-            onConversationSearchMatchCountChange
-          }
           onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}
           onBranchSwitch={handleBranchSwitch}
           branchInfoByMessage={branchInfoByMessage}
           contentClassName={chatWidthShellClassName}
+          {...(onConversationSearchMatchCountChange
+            ? { onConversationSearchMatchCountChange }
+            : {})}
         />
       )}
       <div className={chatWidthShellClassName} data-chat-width-shell="true">
@@ -984,13 +938,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
           runtimeActivityDetails={runtimeActivityDetails}
-          onProviderDictationTranscribe={
-            !resolveProjectChatProviderDictationTranscribeEnabled({
-              providerDictationAvailable,
-            })
-              ? undefined
-              : handleProviderDictationTranscribe
-          }
+          {...(resolveProjectChatProviderDictationTranscribeEnabled({
+            providerDictationAvailable,
+          })
+            ? {
+                onProviderDictationTranscribe:
+                  handleProviderDictationTranscribe,
+              }
+            : {})}
         />
       </div>
     </div>

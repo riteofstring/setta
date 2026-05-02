@@ -28,7 +28,7 @@ test("IDE terminals connect through the Go websocket route", async ({
 
     expect(terminalId).toBeTruthy();
     await expect(
-      page.locator(`.react-flow__node[data-id="${terminalId}"]`),
+      page.locator(`.setta-gpu-flow__node[data-id="${terminalId}"]`),
     ).toBeVisible();
 
     await expect
@@ -84,7 +84,9 @@ test("deployment terminals still use the Go websocket route shape", async ({
 
     const latestProjectState = await page.evaluate(async (projectConfigId) => {
       const { getLatestProjectState } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+      const { callOpenAPI } = await import(
+        "/tests/e2e/browserAppSubsystemSdk.ts"
+      );
       const response = await callOpenAPI(
         getLatestProjectState({
           body: {
@@ -164,7 +166,7 @@ test("deployment terminals still use the Go websocket route shape", async ({
       .toBe("share-session-e2e");
 
     await expect(
-      page.locator(`.react-flow__node[data-id="${terminalId}"]`),
+      page.locator(`.setta-gpu-flow__node[data-id="${terminalId}"]`),
     ).toBeVisible();
 
     await expect

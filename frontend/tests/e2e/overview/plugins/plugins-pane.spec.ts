@@ -80,7 +80,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
   const backendPluginCard = page
     .locator("article")
     .filter({
@@ -103,7 +103,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
   const frontendPluginCard = page
     .locator("article")
     .filter({
@@ -241,7 +241,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
   await expect(
@@ -518,7 +518,7 @@ test("plugins pane shows package-manager guidance and disables managed write act
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const pluginCard = page
     .locator("article")
@@ -605,7 +605,7 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const backendPluginCard = page
     .locator("article")
@@ -767,7 +767,7 @@ test("plugins pane lifecycle actions call update rollback and uninstall endpoint
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const pluginCard = page
     .locator("article")
@@ -981,7 +981,7 @@ test("plugins pane keeps unrelated plugin actions enabled while one action is in
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const pluginACard = page
       .locator("article")
@@ -1053,7 +1053,7 @@ test("plugins pane update and rollback actions work against real backend endpoin
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const pluginCard = page
       .locator("article")
@@ -1112,7 +1112,7 @@ test("plugins pane lifecycle actions work against real backend endpoints", async
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const pluginCard = page
     .locator("article")
@@ -1138,7 +1138,7 @@ test("plugins pane lifecycle actions work against real backend endpoints", async
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const reenabledPluginCard = page
     .locator("article")
@@ -1187,7 +1187,7 @@ test("plugins pane supports scope shadowing and scope-specific uninstall", async
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const workspaceCard = page
       .locator("article")
@@ -1289,7 +1289,7 @@ test("plugins pane updates frontend asset digest query after relink", async ({
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const firstRuntimeResponse = await page.request.get(
       `${BACKEND_ORIGIN}/api/plugins/runtime`,
@@ -1324,7 +1324,7 @@ test("plugins pane updates frontend asset digest query after relink", async ({
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const secondRuntimeResponse = await page.request.get(
       `${BACKEND_ORIGIN}/api/plugins/runtime`,
@@ -1383,7 +1383,7 @@ test("plugins pane supports live programmatic restart action", async ({
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const runtimeSection = page
       .locator("section")
@@ -1480,7 +1480,7 @@ test("plugins pane shows restart rejection and request-failure messaging", async
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const restartButton = page.getByRole("button", {
     name: "Restart Setta",
@@ -1605,7 +1605,7 @@ test("plugins pane lifecycle action failures surface structured endpoint errors"
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const pluginCard = page
     .locator("article")
@@ -1667,7 +1667,7 @@ test("opening plugins tab does not trigger redundant plugin runtime refresh", as
   await setOverviewTab(page, "Overview");
   const projectContext = await openIsolatedProject(page);
   try {
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await expect.poll(() => pluginRuntimeRequestCount).toBeGreaterThan(0);
 
     const runtimeCountBeforePluginsTab = pluginRuntimeRequestCount;
@@ -1783,7 +1783,7 @@ test("plugins pane remains interactive with a large plugin catalog", async ({
 
   const startMs = Date.now();
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
   await expect(
     page.getByRole("heading", {
       name: `Active Plugins (${pluginCount})`,

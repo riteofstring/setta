@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 
-import { useEdgeHandleRegistry } from "state/definitions";
+import {
+  useEdgeHandleRegistry,
+  type EdgeHandleRecord,
+} from "state/definitions";
 import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ConnectionMode } from "../flowTypes";
+import { ConnectionMode, HandlePosition } from "../flowTypes";
 import {
   getClosestHandle,
   isValidHandle,
@@ -39,7 +42,9 @@ function appendHandleElement({
   extraClasses?: string[];
 }) {
   const element = document.createElement("div");
-  element.className = ["react-flow__handle", type, ...extraClasses].join(" ");
+  element.className = ["setta-gpu-flow__handle", type, ...extraClasses].join(
+    " ",
+  );
   element.setAttribute("data-id", `${sectionId}-${handleId}-${type}`);
   element.setAttribute("data-nodeid", sectionId);
 
@@ -109,7 +114,7 @@ describe("isValidHandle", () => {
 
   it("validates owner-registered shared handles without per-port DOM data attributes", () => {
     const sharedDot = document.createElement("div");
-    sharedDot.className = "react-flow__handle arg-edge-handle";
+    sharedDot.className = "setta-gpu-flow__handle arg-edge-handle";
     document.body.appendChild(sharedDot);
     useEdgeHandleRegistry.setState({
       handles: {
@@ -118,10 +123,10 @@ describe("isValidHandle", () => {
           isConnectableEnd: true,
           portId: "input-port",
           sectionId: "section-b",
-          side: "left",
+          side: HandlePosition.Left,
           type: "target",
         },
-      },
+      } satisfies Record<string, EdgeHandleRecord>,
       positions: {},
     });
     const isValidConnection = vi.fn(() => true);
@@ -160,7 +165,7 @@ describe("isValidHandle", () => {
 
   it("rejects owner-registered shared handles that are not connectable endpoints", () => {
     const sharedDot = document.createElement("div");
-    sharedDot.className = "react-flow__handle arg-edge-handle";
+    sharedDot.className = "setta-gpu-flow__handle arg-edge-handle";
     document.body.appendChild(sharedDot);
     useEdgeHandleRegistry.setState({
       handles: {
@@ -169,10 +174,10 @@ describe("isValidHandle", () => {
           isConnectableEnd: false,
           portId: "input-port",
           sectionId: "section-b",
-          side: "left",
+          side: HandlePosition.Left,
           type: "target",
         },
-      },
+      } satisfies Record<string, EdgeHandleRecord>,
       positions: {},
     });
     const isValidConnection = vi.fn(() => true);

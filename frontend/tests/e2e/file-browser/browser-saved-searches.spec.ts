@@ -166,7 +166,7 @@ test("browser can save a search and re-apply it from the Filters column", async 
 
     try {
       const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 

@@ -17511,7 +17511,7 @@
         "type": "object"
       },
       "Transport": {
-        "enum": ["sse", "streamable_http", "stdio"],
+        "enum": ["streamable_http", "stdio"],
         "title": "Transport",
         "type": "string"
       },

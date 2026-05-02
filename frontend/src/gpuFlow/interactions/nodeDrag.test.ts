@@ -455,7 +455,7 @@ function createFlowElement(): HTMLElement {
 
 function createNodeElement(nodeId: string): HTMLElement {
   const nodeElement = document.createElement("div");
-  nodeElement.className = "setta-gpu-flow__node react-flow__node";
+  nodeElement.className = "setta-gpu-flow__node setta-gpu-flow__node";
   nodeElement.dataset.gpuFlowNode = "true";
   nodeElement.dataset.id = nodeId;
   return nodeElement;

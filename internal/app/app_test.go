@@ -2022,7 +2022,7 @@ func TestAppManagedChatOmitsCompletionStatusToolWhenGuardDisabled(t *testing.T) 
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "sse",
+				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},
@@ -5795,7 +5795,7 @@ func TestAppServesManagedChatToolCallThroughInternalMCPClient(t *testing.T) {
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "sse",
+				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},
@@ -6058,7 +6058,7 @@ func TestAppServesManagedChatAnthropicToolCallThroughInternalMCPClient(t *testin
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "sse",
+				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},
@@ -6339,7 +6339,7 @@ func TestAppServesManagedChatGeminiToolCallThroughInternalMCPClient(t *testing.T
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "sse",
+				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},
@@ -6537,6 +6537,8 @@ func TestAppServesAppGenSkillRoutes(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	installAppRepoPlugin(t, cfg, firstpartyplugin.AppSubsystemPluginID)
+	writeEnabledAppPluginState(t, cfg, firstpartyplugin.AppSubsystemPluginID)
 
 	fakeHome := filepath.Join(filepath.Dir(cfg.Paths.WorkspaceRoot), "home")
 	if err := os.MkdirAll(fakeHome, 0o755); err != nil {

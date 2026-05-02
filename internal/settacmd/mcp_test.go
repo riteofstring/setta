@@ -470,7 +470,7 @@ func newAuthenticatedBridgeCommandTestServer(
 		}, struct{}{}, nil
 	})
 
-	sseHandler := sdkmcp.NewSSEHandler(func(*http.Request) *sdkmcp.Server {
+	streamableHandler := sdkmcp.NewStreamableHTTPHandler(func(*http.Request) *sdkmcp.Server {
 		return server
 	}, nil)
 
@@ -480,7 +480,7 @@ func newAuthenticatedBridgeCommandTestServer(
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		sseHandler.ServeHTTP(w, r)
+		streamableHandler.ServeHTTP(w, r)
 	}))
 	if bootstrapHandler != nil {
 		mux.HandleFunc("/__setta__/bootstrap/consume", bootstrapHandler)

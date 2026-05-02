@@ -5081,7 +5081,7 @@ func TestAppListenerWebsocketRunsScriptableChatMCPTools(t *testing.T) {
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: llmconfig.TransportSSE,
+				Transport: llmconfig.TransportStreamableHTTP,
 				URL:       serverURL + "/mcp",
 			},
 		},

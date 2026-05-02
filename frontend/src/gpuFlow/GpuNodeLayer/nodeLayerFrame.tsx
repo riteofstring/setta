@@ -29,7 +29,7 @@ import type {
 
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
-import { REACT_FLOW_COMPAT_CLASS_NAMES } from "../reactFlowCompatibility";
+import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 
 import {
   flowToScreenPosition,
@@ -234,7 +234,7 @@ export type MarkGpuNodeLayerPaintDirtyInput = {
 
 export const DEFAULT_OFFSCREEN_POSITION = -100_000;
 
-export const DEFAULT_NODE_CLASS_NAME = `setta-gpu-flow__node ${REACT_FLOW_COMPAT_CLASS_NAMES.node}`;
+export const DEFAULT_NODE_CLASS_NAME = GPU_FLOW_CLASS_NAMES.node;
 
 export const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
 

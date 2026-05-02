@@ -42,8 +42,6 @@ import {
   ensureChatBranchState,
 } from "state/actions/chatBranches";
 
-import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
-
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -897,13 +895,11 @@ export function ManagedChatHistoryPanel({
   projectConfigId,
   sectionId,
   activeChatId,
-  historyCompatibility,
   onSelect,
 }: {
   projectConfigId: string;
   sectionId: string;
   activeChatId: string | null;
-  historyCompatibility: ChatHistoryCompatibility | null;
   onSelect: (chatId: string) => void;
 }) {
   const { agentRuns, agentRunsInitialLoadComplete, agentRunsLoadError } =
@@ -916,14 +912,8 @@ export function ManagedChatHistoryPanel({
       shallow,
     );
   const sectionHistoryEntries = useMemo(
-    () =>
-      toSortedHistoryEntries(
-        agentRuns,
-        projectConfigId,
-        sectionId,
-        historyCompatibility,
-      ),
-    [agentRuns, historyCompatibility, projectConfigId, sectionId],
+    () => toSortedHistoryEntries(agentRuns, projectConfigId, sectionId),
+    [agentRuns, projectConfigId, sectionId],
   );
   useEffect(() => {
     if (!agentRunsInitialLoadComplete) {

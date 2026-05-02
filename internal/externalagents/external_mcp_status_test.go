@@ -410,7 +410,7 @@ func TestRuntimeExternalRuntimeStatusesFallsBackToLatestEngineRunWithoutChatID(t
 		{
 			ServerID:  "setta",
 			Source:    externalMCPStatusSource,
-			Transport: mcpx.TransportSSE,
+			Transport: mcpx.TransportStreamableHTTP,
 			Endpoint:  "http://127.0.0.1:8019/mcp",
 			State:     mcpx.RuntimeStateConnected,
 			ToolCount: 3,

@@ -1,4 +1,4 @@
-import { REACT_FLOW_COMPAT_SELECTORS } from "gpuFlow/reactFlowCompatibility";
+import { GPU_FLOW_SELECTORS } from "gpuFlow/gpuFlowDomClasses";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_DRAG_CLASS_NAME,
@@ -18,17 +18,17 @@ const PROJECT_GPU_PANE_BACKGROUND_ANCESTOR_SELECTORS = [
 ] as const;
 
 const PROJECT_GPU_PANE_BACKGROUND_TARGET_SELECTORS = [
-  REACT_FLOW_COMPAT_SELECTORS.root,
-  REACT_FLOW_COMPAT_SELECTORS.pane,
+  GPU_FLOW_SELECTORS.root,
+  GPU_FLOW_SELECTORS.pane,
 ] as const;
 
 const PROJECT_GPU_PANE_NON_BACKGROUND_SELECTORS = [
   ".setta-gpu-flow__node",
-  REACT_FLOW_COMPAT_SELECTORS.node,
-  REACT_FLOW_COMPAT_SELECTORS.nodesSelectionRect,
-  REACT_FLOW_COMPAT_SELECTORS.selection,
-  REACT_FLOW_COMPAT_SELECTORS.handle,
-  REACT_FLOW_COMPAT_SELECTORS.edgeUpdater,
+  GPU_FLOW_SELECTORS.node,
+  GPU_FLOW_SELECTORS.nodesSelectionRect,
+  GPU_FLOW_SELECTORS.selection,
+  GPU_FLOW_SELECTORS.handle,
+  GPU_FLOW_SELECTORS.edgeUpdater,
   ".setta-gpu-flow__edge-reconnect-anchor",
   ".section-resize-handle",
   `#${CODEMIRROR_TOOLTIP_PARENT_ID}`,

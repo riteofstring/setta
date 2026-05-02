@@ -10,7 +10,7 @@ import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
 
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 
-import { REACT_FLOW_COMPAT_CLASS_NAMES } from "gpuFlow/reactFlowCompatibility";
+import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
 import { cancelViewportTransition } from "gpuFlow/viewportActions";
 
@@ -205,7 +205,7 @@ export function GpuProjectSurface() {
 
   return (
     <div
-      className={`${REACT_FLOW_COMPAT_CLASS_NAMES.root} setta-light dark:setta-dark`}
+      className={`${GPU_FLOW_CLASS_NAMES.root} setta-light dark:setta-dark`}
       {...getProjectSurfaceDataAttributes({
         isConnecting,
         showAgenticEdges,
@@ -332,7 +332,7 @@ export function ProjectGpuFlowLayer({
   }
   return (
     <GpuFlow
-      className={`setta-gpu-flow ${REACT_FLOW_COMPAT_CLASS_NAMES.pane}`}
+      className={`setta-gpu-flow ${GPU_FLOW_CLASS_NAMES.pane}`}
       edgeInteraction={edgeInteractionOptions}
       edgePalette={edgePaletteInput}
       edgeReconnect={edgeReconnectOptions}

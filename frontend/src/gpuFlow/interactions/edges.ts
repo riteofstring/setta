@@ -4,8 +4,9 @@ import type {
   GpuEdgeSceneHitTestResult,
 } from "../edges/edgeSources";
 import { hitTestGpuEdgeScene, type GpuEdgeFamily } from "../edges/edgeSources";
-import { REACT_FLOW_COMPAT_SELECTORS } from "../reactFlowCompatibility";
+import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
 import {
+  normalizeGpuViewport,
   screenToFlowPosition,
   type GpuPoint,
   type GpuViewportInput,
@@ -313,7 +314,7 @@ function isGpuFlowEdgeInteractionTarget(
   if (target.closest(".setta-gpu-flow__node") !== null) {
     return false;
   }
-  if (target.closest(REACT_FLOW_COMPAT_SELECTORS.node) !== null) {
+  if (target.closest(GPU_FLOW_SELECTORS.node) !== null) {
     return false;
   }
   if (
@@ -361,7 +362,7 @@ function resolveFlowTolerance(
       "GPU edge hit tolerance must be a finite non-negative number.",
     );
   }
-  const zoom = Array.isArray(viewport) ? viewport[2] : viewport.zoom;
+  const zoom = normalizeGpuViewport(viewport).zoom;
   return screenTolerancePx / zoom;
 }
 

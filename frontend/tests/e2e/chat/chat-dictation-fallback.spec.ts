@@ -61,7 +61,9 @@ async function setProjectChatTranscriptionProfile(
   profileLabel: string,
 ) {
   await page.evaluate(async () => {
-    const { loadTranscriptionProfiles } = await import("/src/state/actions/ai.ts");
+    const { loadTranscriptionProfiles } = await import(
+      "/src/state/actions/ai.ts"
+    );
     await loadTranscriptionProfiles(true);
   });
   const projectChatSurface = await getVisibleProjectChatSurface(page);
@@ -86,10 +88,10 @@ async function setProjectChatTranscriptionProfile(
             return false;
           }
           return (
-            state.transcriptionProfiles.find(
+            (state.transcriptionProfiles.find(
               (profile) => profile.id === selectedProfileId,
-            )?.name ?? null
-          ) === expectedProfileLabel;
+            )?.name ?? null) === expectedProfileLabel
+          );
         });
       }, profileLabel);
     })
@@ -164,7 +166,7 @@ test("project chat falls back to browser dictation when provider capture fails i
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await getVisibleProjectChatSurface(page);
     const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
@@ -418,7 +420,7 @@ test("project chat external engine still uses provider transcription in provider
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     const projectChatSurface = await getVisibleProjectChatSurface(page);
 
     await setProjectChatEngine(page, "Codex");
@@ -670,7 +672,7 @@ test("chat section falls back to browser dictation when provider transcription s
     });
 
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const section = findSectionByName(page, sectionName);
     await expect(section).toBeVisible();
@@ -787,7 +789,7 @@ test("project chat keeps browser fallback dictation active until the user stops"
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await getVisibleProjectChatSurface(page);
     const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
@@ -895,7 +897,7 @@ test("project chat browser-only dictation mode skips provider capture", async ({
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     await setProjectChatMicrophoneSource(page, "Always browser / OS");
 
@@ -991,7 +993,7 @@ test("project chat releases provider mic stream when recorder start fails", asyn
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const backendOrigin =
       process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -1148,14 +1150,16 @@ test("project chat shows controlled feedback when browser dictation start throws
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await getVisibleProjectChatSurface(page);
     const micButton = projectChatSurface.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();
     await micButton.click();
 
-    await expect(projectChatSurface.getByText("Dictation failed.")).toBeVisible();
+    await expect(
+      projectChatSurface.getByText("Dictation failed."),
+    ).toBeVisible();
     await expect(
       projectChatSurface.getByRole("button", { name: "Stop Mic" }),
     ).toHaveCount(0);
@@ -1262,7 +1266,7 @@ test("chat section stops browser dictation when composer becomes disabled", asyn
     });
 
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const section = findSectionByName(page, sectionName);
     await expect(section).toBeVisible();

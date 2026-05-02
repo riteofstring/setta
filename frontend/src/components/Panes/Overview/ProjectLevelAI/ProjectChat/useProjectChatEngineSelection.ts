@@ -25,7 +25,7 @@ import {
   type SetStateAction,
 } from "react";
 import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
-import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
+import { type ChatRunType } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import {
   useAIStore,
@@ -303,7 +303,7 @@ export function useProjectChatEngineSelection({
     hasLLMConfig,
     noLLMConfigsAvailable: noConfigsAvailable,
   });
-  const projectHistoryRunType = useMemo(() => {
+  const projectHistoryRunType = useMemo<ChatRunType | null>(() => {
     if (engineType === EngineTypeEnum.external_agent) {
       return "external_agent";
     }
@@ -312,15 +312,6 @@ export function useProjectChatEngineSelection({
     }
     return null;
   }, [engineType]);
-  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    if (!projectHistoryRunType) {
-      return null;
-    }
-    return {
-      runType: projectHistoryRunType,
-      engineConfigId: effectiveEngineId,
-    };
-  }, [effectiveEngineId, projectHistoryRunType]);
   const availableEngineConfigIds = useMemo(
     () => new Set(engineConfigs.map((config) => config.id)),
     [engineConfigs],
@@ -545,7 +536,6 @@ export function useProjectChatEngineSelection({
     newThreadContinuationRequiredReason,
     placeholderText,
     projectHistoryRunType,
-    historyCompatibility,
     handleEngineChange,
     handleLLMConfigChange,
     handlePinDefaultModel,

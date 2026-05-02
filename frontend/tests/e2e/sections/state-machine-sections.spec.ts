@@ -9,8 +9,8 @@ import {
   openIsolatedProject,
   openOverviewMoreDestination,
   postBackend,
-  setSectionNameFromFrontend,
   seedLocalStorage,
+  setSectionNameFromFrontend,
 } from "../helpers";
 
 const BACKEND_ORIGIN =
@@ -454,12 +454,12 @@ test.describe.serial("state machine sections", () => {
       await expect(chatSourceHandle).toBeVisible();
       await expect(
         page.locator(
-          `.react-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]:not([data-reverse-start])`,
+          `.setta-gpu-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]:not([data-reverse-start])`,
         ),
       ).toHaveCount(1);
       await expect(
         page.locator(
-          `.react-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="right"]`,
+          `.setta-gpu-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="right"]`,
         ),
       ).toHaveCount(1);
       await endNode.hover();
@@ -577,10 +577,7 @@ test.describe.serial("state machine sections", () => {
         "workflow-edge--signal",
       );
 
-      await selectStateMachineEdge(
-        page,
-        chatToEndEdge.id,
-      );
+      await selectStateMachineEdge(page, chatToEndEdge.id);
       const inspector = page.getByTestId("workflow-edge-inspector");
       await expect(inspector).toBeVisible();
       await selectComboboxOption(
@@ -626,10 +623,7 @@ test.describe.serial("state machine sections", () => {
         chatToEndEdgeStyleBefore.strokeDasharray,
       );
 
-      await selectStateMachineEdge(
-        page,
-        gateToChatEdge.id,
-      );
+      await selectStateMachineEdge(page, gateToChatEdge.id);
       await expect(inspector).toBeVisible();
       await expect(page.locator("#workflow-edge-target-action")).toBeVisible();
       await selectComboboxOption(
@@ -1018,10 +1012,7 @@ test.describe.serial("state machine sections", () => {
         throw new Error("Missing start-to-chat workflow edge.");
       }
 
-      await selectStateMachineEdge(
-        page,
-        startToChatEdgeId,
-      );
+      await selectStateMachineEdge(page, startToChatEdgeId);
       const inspector = page.getByTestId("workflow-edge-inspector");
       await expect(inspector).toBeVisible();
 
@@ -1171,10 +1162,7 @@ test.describe.serial("state machine sections", () => {
         throw new Error("Missing gate-to-end workflow edge.");
       }
 
-      await selectStateMachineEdge(
-        page,
-        gateToEndEdgeId,
-      );
+      await selectStateMachineEdge(page, gateToEndEdgeId);
       const inspector = page.getByTestId("workflow-edge-inspector");
       await expect(inspector).toBeVisible();
 
@@ -2403,7 +2391,7 @@ async function readWorkflowEdgeStyle(
   edgeId: string,
 ): Promise<{ className: string; strokeDasharray: string }> {
   const path = page.locator(
-    `[data-edgeid="${edgeId}"] .react-flow__state-machine-edge-path`,
+    `[data-edgeid="${edgeId}"] .setta-gpu-flow__state-machine-edge-path`,
   );
   await expect(path).toBeVisible();
   return path.evaluate((element) => {
@@ -2456,7 +2444,9 @@ async function selectStateMachineEdge(
       async () =>
         await page.evaluate(
           async ({ workflowEdgeId }) => {
-            const { useProjectState } = await import("/src/state/definitions.ts");
+            const { useProjectState } = await import(
+              "/src/state/definitions.ts"
+            );
             return useProjectState
               .getState()
               .projectConfig.stateMachineEdges.some(

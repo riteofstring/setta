@@ -12,7 +12,7 @@ const BACKEND_ORIGIN =
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL = resolveProjectUrl();
 const HOME_URL = new URL("/home", BASE_URL).toString();
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".setta-gpu-flow__pane";
 const FORMAT_SHORTCUT = "Alt+Shift+F";
 const REQUEST_TIMEOUT_MS = 5000;
 
@@ -397,7 +397,7 @@ function findSectionByName(page: Page, name: string): Locator {
 }
 
 function findSectionById(page: Page, sectionId: string): Locator {
-  return page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+  return page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
 }
 
 function getProjectConfigName(pageUrl: string, baseUrl: string): string {
@@ -564,7 +564,7 @@ async function setViewportTransform(
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
     });
-    window.reactFlowZoom = zoom;
+    window.settaGpuFlowZoom = zoom;
   }, transform);
 }
 

@@ -842,7 +842,7 @@ func newServiceFixture(t *testing.T) serviceFixture {
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: llmconfig.TransportSSE,
+				Transport: llmconfig.TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:9999/mcp",
 			},
 		},

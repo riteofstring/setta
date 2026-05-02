@@ -178,7 +178,7 @@ test("carousel thumbnail strip is vertically resizable", async ({ page }) => {
 
     try {
       const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 

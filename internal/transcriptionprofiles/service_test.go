@@ -142,6 +142,66 @@ func TestServiceCreateAllowsWhisperRealtimeTransport(t *testing.T) {
 	}
 }
 
+func TestServiceSeedDefaultProfilesSkipsUnavailableDefaultLLMConfig(t *testing.T) {
+	t.Parallel()
+
+	store := newTranscriptionProfileTestStore(t)
+	service, err := NewService(ServiceOptions{
+		Profiles: store,
+		LLM: newTranscriptionProfileTestRuntime(t, map[string]llmconfig.Config{
+			"project-only-config": {
+				ID:       "project-only-config",
+				Model:    "claude-3-5-sonnet-latest",
+				Provider: "anthropic",
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.SeedDefaultProfilesIfMissing(); err != nil {
+		t.Fatalf("seed default profiles: %v", err)
+	}
+	profiles, err := store.List()
+	if err != nil {
+		t.Fatalf("list profiles: %v", err)
+	}
+	if len(profiles) != 0 {
+		t.Fatalf("expected unavailable default profile to be skipped, got %#v", profiles)
+	}
+}
+
+func TestServiceSeedDefaultProfilesWritesAvailableDefaultLLMConfig(t *testing.T) {
+	t.Parallel()
+
+	store := newTranscriptionProfileTestStore(t)
+	service, err := NewService(ServiceOptions{
+		Profiles: store,
+		LLM: newTranscriptionProfileTestRuntime(t, map[string]llmconfig.Config{
+			"openai-whisper-1": {
+				ID:       "openai-whisper-1",
+				Model:    "whisper-1",
+				Provider: "openai",
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.SeedDefaultProfilesIfMissing(); err != nil {
+		t.Fatalf("seed default profiles: %v", err)
+	}
+	profiles, err := store.List()
+	if err != nil {
+		t.Fatalf("list profiles: %v", err)
+	}
+	if len(profiles) != 1 || profiles[0].ID != "transcription-openai-whisper-1" {
+		t.Fatalf("expected available default profile, got %#v", profiles)
+	}
+}
+
 func TestServiceUpdateHydratesAndPersistsProfile(t *testing.T) {
 	t.Parallel()
 

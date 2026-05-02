@@ -13,9 +13,9 @@ import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { useNodeId } from "../NodeIdContext";
 import type { Connection, HandleProps } from "../flowTypes";
 import {
-  getReactFlowCompatibleHandlePositionClass,
-  REACT_FLOW_COMPAT_CLASS_NAMES,
-} from "../reactFlowCompatibility";
+  getGpuFlowHandlePositionClass,
+  GPU_FLOW_CLASS_NAMES,
+} from "../gpuFlowDomClasses";
 import { gpuFlowViewportStore } from "../viewportStore";
 import { handlePointerDown } from "./handler";
 
@@ -129,8 +129,8 @@ function HandleComponent({
   };
 
   const classes = [
-    REACT_FLOW_COMPAT_CLASS_NAMES.handle,
-    getReactFlowCompatibleHandlePositionClass(position),
+    GPU_FLOW_CLASS_NAMES.handle,
+    getGpuFlowHandlePositionClass(position),
     NO_DRAG_CLASS_NAME,
     NO_PAN_CLASS_NAME,
     className,

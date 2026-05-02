@@ -101,7 +101,7 @@ function _DndWatcherAndContainer({
     };
   }, [isTopLevel, trueDragListeners]);
 
-  // Don't want the react-flow node (which contains this child)
+  // Don't want the GPU flow node (which contains this child)
   // to move when sorting
   const className = isSorting || isMovingFree ? "nodrag" : "";
   const fullStyle = {

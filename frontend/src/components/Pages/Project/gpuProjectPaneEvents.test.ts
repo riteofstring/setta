@@ -116,7 +116,7 @@ describe("GPU project pane event handlers", () => {
 
     mocks.openPaneContextMenu.mockClear();
     const ignored = createMouseEvent(
-      appendNestedTarget(surface, "react-flow__handle"),
+      appendNestedTarget(surface, "setta-gpu-flow__handle"),
       { clientX: 40, clientY: 50 },
     );
     handleProjectPaneContextMenu(false)(ignored);
@@ -238,9 +238,9 @@ describe("GPU project pane event handlers", () => {
 
 function createProjectPaneFixture() {
   const root = document.createElement("div");
-  root.className = "react-flow";
+  root.className = "setta-gpu-flow-root";
   const gpuFlow = document.createElement("div");
-  gpuFlow.className = "setta-gpu-flow react-flow__pane";
+  gpuFlow.className = "setta-gpu-flow setta-gpu-flow__pane";
   const surface = document.createElement("canvas");
   surface.dataset.gpuFlowSurface = "true";
   gpuFlow.append(surface);

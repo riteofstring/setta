@@ -1,10 +1,10 @@
 import { useDndState } from "forks/dnd-kit/dndState";
 import { GpuFlow } from "gpuFlow/GpuFlow";
+import { GPU_FLOW_SELECTORS } from "gpuFlow/gpuFlowDomClasses";
 import {
   attachGpuEdgeInteractionController,
   type GpuEdgeInteractionEvent,
 } from "gpuFlow/interactions/edges";
-import { REACT_FLOW_COMPAT_SELECTORS } from "gpuFlow/reactFlowCompatibility";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import {
   createGpuFlowViewportStore,
@@ -66,7 +66,7 @@ export function GpuProjectEdgeLayer({
 
   useEffect(() => {
     const host = hostRef.current;
-    const pane = host?.closest(REACT_FLOW_COMPAT_SELECTORS.pane);
+    const pane = host?.closest(GPU_FLOW_SELECTORS.pane);
     if (!(pane instanceof HTMLElement)) {
       return;
     }

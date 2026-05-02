@@ -5189,7 +5189,7 @@ func TestMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	statusClient, err := mcpx.NewClient(mcpx.ClientOptions{
 		Servers: map[string]mcpx.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: mcpx.TransportSSE,
+				Transport: mcpx.TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:8000/mcp",
 			},
 		},

@@ -1,7 +1,7 @@
-import { type ChatSlashCommand } from "components/Chat/ChatInput";
+import { type ChatSlashCommandDefinition } from "components/Chat/chatComposerControls";
 import { useMemo } from "react";
 import { type ProjectChatCustomSlashCommand } from "state/definitions";
-import { type AgentRun, type EngineTypeEnum } from "utils/generatedTypes";
+import { type AgentRun, type EngineConfig } from "utils/generatedTypes";
 import {
   CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK,
   resolveProjectChatComposerExecutableNativeSlashCommandTokens,
@@ -15,10 +15,10 @@ type UseProjectChatSlashCommandSetsArgs = {
   agentRuns: AgentRun[];
   projectConfigId: string;
   engineConfigId: string | null;
-  engineType: EngineTypeEnum | null;
+  engineType: EngineConfig["engineType"] | null;
   agentRunsAuthorityState: AgentRunsAuthorityState;
   customProjectChatSlashCommands: ProjectChatCustomSlashCommand[];
-  appGenerationSlashCommands: ChatSlashCommand[];
+  appGenerationSlashCommands: ChatSlashCommandDefinition[];
   customCommandsExecutable: boolean;
   showPermissionExecutionControl: boolean;
   showSearchExecutionControl: boolean;

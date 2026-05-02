@@ -11,8 +11,8 @@ import {
   applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   clearProjectChatWindows,
-  createTopLevelSectionFromFrontend,
   createTextBlockSection,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
@@ -118,11 +118,11 @@ async function createChildSectionsViaIncrementerFromFrontend(
   },
 ): Promise<void> {
   await page.evaluate(async (input) => {
-    const {
-      createChildSectionsViaIncrementer,
-      getLatestProjectState,
-    } = await import("/src/openapi/http");
-    const { callOpenAPI } = await import("/tests/e2e/browserAppSubsystemSdk.ts");
+    const { createChildSectionsViaIncrementer, getLatestProjectState } =
+      await import("/src/openapi/http");
+    const { callOpenAPI } = await import(
+      "/tests/e2e/browserAppSubsystemSdk.ts"
+    );
     const { getCurrProjectConfigId, processProjectStateUpdateFromBackend } =
       await import("/src/state/actions/sectionInfos");
 
@@ -215,7 +215,7 @@ async function dragPointerSurfaceToTarget(
 
 async function getViewportScale(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const viewport = document.querySelector(".react-flow__viewport");
+    const viewport = document.querySelector(".setta-gpu-flow__canvas");
     if (!viewport) {
       return 1;
     }
@@ -470,7 +470,9 @@ test.describe.serial("section types data authoring", () => {
         ],
       });
 
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -577,7 +579,9 @@ test.describe.serial("section types data authoring", () => {
         projectContext.projectConfigId,
         "ListRoot",
       );
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -648,7 +652,9 @@ test.describe.serial("section types data authoring", () => {
         projectContext.projectConfigId,
         "ListRoot",
       );
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -706,9 +712,9 @@ test.describe.serial("section types data authoring", () => {
       ).toBe(true);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
       const reloadedNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(reloadedNode).toBeVisible();
       await reloadedNode.click();
@@ -793,13 +799,13 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const taskBoardNode = page.locator(
-        `.react-flow__node[data-id="${taskBoardSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${taskBoardSectionId}"]`,
       );
       const spreadsheetNode = page.locator(
-        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.react-flow__node[data-id="${browserSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
       );
 
       await expect(taskBoardNode).toBeVisible();
@@ -1287,10 +1293,10 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const spreadsheetNode = page.locator(
-        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.react-flow__node[data-id="${browserSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
       );
       await expect(spreadsheetNode).toBeVisible();
       await expect(browserNode).toBeVisible();
@@ -1396,10 +1402,10 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const spreadsheetNode = page.locator(
-        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.react-flow__node[data-id="${browserSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
       );
       await expect(spreadsheetNode).toBeVisible();
       await expect(browserNode).toBeVisible();
@@ -1598,7 +1604,7 @@ test.describe.serial("section types data authoring", () => {
       await fs.writeFile(xlsxPath, xlsxBytes);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
 
       const listPane = page.getByTestId("file-browser-list-pane");
       const previewPane = page.getByTestId("file-browser-preview-pane");

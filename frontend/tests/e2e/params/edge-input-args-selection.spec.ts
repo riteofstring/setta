@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   addKwargFromFrontend,
-  createTopLevelSectionFromFrontend,
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getViewportBoundsForPlacement,
   openIsolatedProject,
@@ -62,9 +62,7 @@ async function addSingleKwargAndReturnId(
 }
 
 test.describe.serial("edge input args", () => {
-  test("edge connector dots have hover/active colors", async ({
-    page,
-  }) => {
+  test("edge connector dots have hover/active colors", async ({ page }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
 
@@ -85,7 +83,7 @@ test.describe.serial("edge input args", () => {
 
       const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
       const handle = page.locator(
-        `.react-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${paramId}"]`,
+        `.setta-gpu-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${paramId}"]`,
       );
       await expect(handle).toBeVisible();
 
@@ -151,7 +149,7 @@ test.describe.serial("edge input args", () => {
 
       // Connector dot should be larger + sit half outside the node edge.
       const handle = page.locator(
-        `.react-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${paramId}"]`,
+        `.setta-gpu-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${paramId}"]`,
       );
       await expect(handle).toBeVisible();
       const nodeBox = await sectionNode.boundingBox();

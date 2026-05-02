@@ -131,6 +131,24 @@ func TestResolveRepoLocalVirtualEnvInterpreterSearchesParentDirectories(t *testi
 	}
 }
 
+func TestPluginDistributionSearchPathsFromEnvLookupParsesPythonPath(t *testing.T) {
+	t.Parallel()
+
+	first := filepath.Join(t.TempDir(), "site-one")
+	second := filepath.Join(t.TempDir(), "site-two")
+	raw := " " + first + " " + string(os.PathListSeparator) + " " + string(os.PathListSeparator) + " " + second + " "
+	paths := PluginDistributionSearchPathsFromEnvLookup(func(key string) (string, bool) {
+		if key == "PYTHONPATH" {
+			return raw, true
+		}
+		return "", false
+	})
+
+	if len(paths) != 2 || paths[0] != first || paths[1] != second {
+		t.Fatalf("expected trimmed pythonpath entries, got %#v", paths)
+	}
+}
+
 func TestRuntimeInstalledPackagesReturnsSortedNameVersions(t *testing.T) {
 	t.Parallel()
 

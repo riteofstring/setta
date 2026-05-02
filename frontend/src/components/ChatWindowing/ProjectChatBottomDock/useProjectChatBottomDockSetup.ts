@@ -233,7 +233,7 @@ export function useProjectChatBottomDockSetup() {
       setViewportHeightPx((current) =>
         current === window.innerHeight ? current : window.innerHeight,
       );
-      const pane = document.querySelector(".react-flow__pane");
+      const pane = document.querySelector(".setta-gpu-flow__pane");
       if (!(pane instanceof HTMLElement)) {
         return;
       }

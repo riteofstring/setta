@@ -43,11 +43,11 @@ resolves grid and pan/zoom settings, and renders `GpuFlow`.
 The DOM shape is:
 
 ```tsx
-<div className="react-flow setta-light dark:setta-dark">
-  <GpuFlow className="setta-gpu-flow react-flow__pane">
+<div className="setta-gpu-flow-root setta-light dark:setta-dark">
+  <GpuFlow className="setta-gpu-flow__pane">
     <canvas className="setta-gpu-flow__canvas" layoutsubtree="">
       <GpuNodeLayer>
-        <div className="setta-gpu-flow__node react-flow__node">
+        <div className="setta-gpu-flow__node">
           <SectionContainer sectionId={node.nodeId} isTopLevel={true} />
         </div>
       </GpuNodeLayer>
@@ -59,10 +59,6 @@ The DOM shape is:
   </GpuFlow>
 </div>
 ```
-
-The `react-flow` class names and `rf__node-*` test ids are still emitted where
-other UI code expects them, but the renderer is Setta-owned GPU flow code rather
-than the XYFlow viewport renderer.
 
 ## Browser Capability Contract
 

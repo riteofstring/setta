@@ -38,8 +38,8 @@ import {
 import { getNodes } from "state/actions/nodeInternals";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
+import { GPU_FLOW_CLASS_NAMES } from "./gpuFlowDomClasses";
 import { getGpuNodesBounds, isMeasuredGpuNodeBoundsInput } from "./nodeBounds";
-import { REACT_FLOW_COMPAT_CLASS_NAMES } from "./reactFlowCompatibility";
 import { fitView, resetZoom, zoomBy } from "./viewportActions";
 import {
   gpuFlowViewportStore,
@@ -267,7 +267,7 @@ function ViewportControls(props: {
             store: props.viewportStore,
           })
         }
-        className={`${REACT_FLOW_COMPAT_CLASS_NAMES.controlsZoomIn} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
+        className={`${GPU_FLOW_CLASS_NAMES.controlsZoomIn} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom in"
         disabled={props.maxZoomReached}
         {...getFloatingBoxHandlers({ content: "Zoom in" })}
@@ -281,7 +281,7 @@ function ViewportControls(props: {
             store: props.viewportStore,
           })
         }
-        className={`${REACT_FLOW_COMPAT_CLASS_NAMES.controlsZoomOut} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
+        className={`${GPU_FLOW_CLASS_NAMES.controlsZoomOut} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         aria-label="zoom out"
         disabled={props.minZoomReached}
         {...getFloatingBoxHandlers({ content: "Zoom out" })}
@@ -289,7 +289,7 @@ function ViewportControls(props: {
         <FaMinus size={15} />
       </button>
       <button
-        className={`${REACT_FLOW_COMPAT_CLASS_NAMES.controlsFitView} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
+        className={`${GPU_FLOW_CLASS_NAMES.controlsFitView} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         onClick={onFitView}
         aria-label="fit view"
         {...getFloatingBoxHandlers({ content: "Fit view" })}
@@ -310,7 +310,7 @@ function ViewportControls(props: {
         <TbGridDots size={15} />
       </button>
       <button
-        className={`${REACT_FLOW_COMPAT_CLASS_NAMES.controlsButton} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
+        className={`${GPU_FLOW_CLASS_NAMES.controlsButton} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         onClick={() => resetZoom({ overviewWidth, store: props.viewportStore })}
         aria-label="reset zoom"
         {...getFloatingBoxHandlers({ content: "Reset zoom" })}

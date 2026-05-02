@@ -27,7 +27,7 @@ import (
 
 const firstPartyWatchCodePluginID = "setta-watch-code"
 
-func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -49,7 +49,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -140,7 +140,7 @@ func TestAppIDEMCPServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE(t *
 		t.Fatalf("project by id after set_ui_setting_value: %v", err)
 	}
 	if !project.ShowParamDisplayNames {
-		t.Fatal("expected authenticated SSE write to persist showParamDisplayNames")
+		t.Fatal("expected authenticated streamable HTTP write to persist showParamDisplayNames")
 	}
 }
 
@@ -456,7 +456,7 @@ func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppProviderEnabled(t *tes
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -527,7 +527,7 @@ func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppPackageManagerProvider
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -569,7 +569,7 @@ func TestAppIDEMCPServerExposesAppUISettingsWhenUnknownAppPackageManagerProvider
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -595,7 +595,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticat
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -659,7 +659,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticat
 		t.Fatalf("project by id after temp-id set_ui_setting_value: %v", err)
 	}
 	if !project.ShowParamDisplayNames {
-		t.Fatal("expected temporary-id authenticated SSE write to persist showParamDisplayNames")
+		t.Fatal("expected temporary-id authenticated streamable HTTP write to persist showParamDisplayNames")
 	}
 }
 
@@ -851,7 +851,7 @@ func TestAppIDEMCPToolCallRouteUISettingReadWriteAcceptsTemporaryIDs(t *testing.
 	}
 }
 
-func TestAppIDEMCPServerSupportsRevealUISettingOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsRevealUISettingOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
@@ -879,7 +879,7 @@ func TestAppIDEMCPServerSupportsRevealUISettingOverAuthenticatedSSE(t *testing.T
 	}()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)

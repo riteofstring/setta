@@ -69,7 +69,7 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
     );
     expect(markup).toContain('data-edgeid="edge-a"');
     expect(markup).toContain('data-edge-endpoint="source"');
-    expect(markup).toContain("react-flow__edgeupdater-source");
+    expect(markup).toContain("setta-gpu-flow__edge-updater-source");
     expect(markup).toContain(NO_DRAG_CLASS_NAME);
     expect(markup).toContain(NO_PAN_CLASS_NAME);
     expect(markup).toContain("translate(10px, -20px) scale(2)");

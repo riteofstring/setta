@@ -23,7 +23,7 @@ async function setViewportTransform(
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
     });
-    window.reactFlowZoom = zoom;
+    window.settaGpuFlowZoom = zoom;
   }, transform);
 }
 
@@ -65,12 +65,11 @@ test("stale backend project sync does not clobber a newer local viewport", async
       throw new Error("Expected callable section to be created.");
     }
 
-    const staleState =
-      await postBackend<ProjectStateBackendUpdate>(
-        page,
-        "/getLatestProjectState",
-        { projectConfigId: projectContext.projectConfigId },
-      );
+    const staleState = await postBackend<ProjectStateBackendUpdate>(
+      page,
+      "/getLatestProjectState",
+      { projectConfigId: projectContext.projectConfigId },
+    );
     if (!staleState) {
       throw new Error("Missing latest project state payload.");
     }

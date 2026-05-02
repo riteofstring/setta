@@ -16,7 +16,7 @@ import type { NodeDragItem } from "gpuFlow/flowTypes";
 
 import { getGpuNodeDragAutoPanDelta } from "gpuFlow/interactions/nodeDrag";
 
-import { REACT_FLOW_COMPAT_CLASS_NAMES } from "gpuFlow/reactFlowCompatibility";
+import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
 import {
   shiftNodesSelectionBounds,
@@ -346,14 +346,14 @@ export function GpuProjectNodesSelectionOverlay({
   return (
     <div
       className={cc([
-        REACT_FLOW_COMPAT_CLASS_NAMES.nodesSelection,
-        REACT_FLOW_COMPAT_CLASS_NAMES.container,
+        GPU_FLOW_CLASS_NAMES.nodesSelection,
+        GPU_FLOW_CLASS_NAMES.container,
         NO_PAN_CLASS_NAME,
       ])}
       style={{ transform: transformString }}
     >
       <div
-        className={REACT_FLOW_COMPAT_CLASS_NAMES.nodesSelectionRect}
+        className={GPU_FLOW_CLASS_NAMES.nodesSelectionRect}
         data-id={primarySelectionId}
         onContextMenu={handleContextMenu}
         onKeyDown={handleKeyDown}

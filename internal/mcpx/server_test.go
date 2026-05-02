@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -7990,39 +7989,6 @@ func TestServerSetCodeObjectNameTranslatesTemporaryIDs(t *testing.T) {
 	}
 }
 
-func TestServerHandlerServesSSETransport(t *testing.T) {
-	t.Parallel()
-
-	workspaceRoot := t.TempDir()
-	server, err := NewServer(ServerOptions{WorkspaceRoot: workspaceRoot})
-	if err != nil {
-		t.Fatalf("new server: %v", err)
-	}
-
-	httpServer := httptest.NewServer(server.Handler())
-	defer httpServer.Close()
-
-	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
-		Endpoint: httpServer.URL,
-	}, nil)
-	if err != nil {
-		t.Fatalf("connect sse client: %v", err)
-	}
-	defer session.Close()
-
-	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
-		Name:      "list_mcp_tools",
-		Arguments: map[string]any{},
-	})
-	if err != nil {
-		t.Fatalf("call list_mcp_tools over sse: %v", err)
-	}
-	if result.IsError {
-		t.Fatalf("expected success result, got error %#v", result.StructuredContent)
-	}
-}
-
 func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 	t.Helper()
 
@@ -9415,7 +9381,7 @@ func TestServerGetMCPServerRuntimeStatusReturnsClientStatuses(t *testing.T) {
 	statusClient, err := NewClient(ClientOptions{
 		Servers: map[string]ServerConfig{
 			DefaultServerID: {
-				Transport: TransportSSE,
+				Transport: TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:8000/mcp",
 			},
 		},

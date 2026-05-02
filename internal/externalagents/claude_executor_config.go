@@ -69,7 +69,7 @@ func (e *ClaudeExecutor) ensureClaudeMCPConfig(request *StartRequest) (string, e
 	}
 	configPath := filepath.Join(configDir, claudeMCPConfigName)
 	serverEntry := map[string]any{
-		"type": "sse",
+		"type": "streamable_http",
 		"url":  e.settaServerURL,
 	}
 	headers, err := e.buildClaudeMCPHeaders(*request)

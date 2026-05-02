@@ -1,8 +1,7 @@
 @import "./gpu-flow-runtime-base.css";
 
-/* react-flow__* selectors here are the documented GPU flow compatibility
-   contract from gpuFlow/reactFlowCompatibility.ts. */
-.react-flow__nodesselection-rect {
+/* Keep these selectors in sync with gpuFlow/gpuFlowDomClasses.ts. */
+.setta-gpu-flow__nodes-selection-rect {
   background: rgba(0, 89, 220, 0.08);
   border: 1px dotted rgba(0, 89, 220, 0.8);
 
@@ -12,7 +11,7 @@
   }
 }
 
-.react-flow__handle {
+.setta-gpu-flow__handle {
   width: 6px;
   height: 6px;
   background: hsl(219, 25%, 34%);
@@ -20,22 +19,23 @@
   border-radius: 999px;
 }
 
-.react-flow[data-show-agentic-edges="false"]
-  .react-flow__handle.agentic-handle:not(.workflow-handle):not(
+.setta-gpu-flow-root[data-show-agentic-edges="false"]
+  .setta-gpu-flow__handle.agentic-handle:not(.workflow-handle):not(
     .chat-shared-handle
   ),
-.react-flow[data-show-agentic-edges="false"]
+.setta-gpu-flow-root[data-show-agentic-edges="false"]
   .agentic-handle-safe-zone:not(.workflow-handle-safe-zone):not(
     .chat-shared-handle-safe-zone
   ) {
   display: none !important;
 }
 
-.react-flow[data-show-arg-edges="false"] .react-flow__handle.arg-edge-handle {
+.setta-gpu-flow-root[data-show-arg-edges="false"]
+  .setta-gpu-flow__handle.arg-edge-handle {
   display: none !important;
 }
 
-.react-flow__handle.arg-edge-handle {
+.setta-gpu-flow__handle.arg-edge-handle {
   /* These are slightly larger than the default (8px incl. border), and centered
      on the node edge (half inside, half outside). */
   box-sizing: border-box;
@@ -49,32 +49,32 @@
     box-shadow 80ms ease-out;
 }
 
-.agentic-handle-scope--themed .react-flow__handle.arg-edge-handle {
+.agentic-handle-scope--themed .setta-gpu-flow__handle.arg-edge-handle {
   background-color: var(--setta-section-style-arg-handle);
   border-color: var(--setta-section-style-arg-handle);
 }
 
-.react-flow__handle.arg-edge-handle.arg-edge-handle--selecting {
+.setta-gpu-flow__handle.arg-edge-handle.arg-edge-handle--selecting {
   pointer-events: all;
   cursor: pointer;
 }
 
-.react-flow__handle.arg-edge-handle.react-flow__handle-left {
+.setta-gpu-flow__handle.arg-edge-handle.setta-gpu-flow__handle-left {
   left: -6px;
 }
 
-.react-flow__handle.arg-edge-handle.react-flow__handle-right {
+.setta-gpu-flow__handle.arg-edge-handle.setta-gpu-flow__handle-right {
   right: -6px;
 }
 
 /* When a section is minimized, we render a single dot per side and route all
    data-edge ports to its position. */
-.react-flow__handle.arg-edge-handle.arg-edge-handle--minimized.react-flow__handle-left,
-.react-flow__handle.arg-edge-handle.arg-edge-handle--minimized.react-flow__handle-right {
+.setta-gpu-flow__handle.arg-edge-handle.arg-edge-handle--minimized.setta-gpu-flow__handle-left,
+.setta-gpu-flow__handle.arg-edge-handle.arg-edge-handle--minimized.setta-gpu-flow__handle-right {
   top: var(--agentic-handle-top, 50%);
 }
 
-html.dark .react-flow__handle {
+html.dark .setta-gpu-flow__handle {
   background: hsl(219, 25%, 77%);
   border-color: hsl(220, 25%, 11%);
 }
@@ -146,29 +146,29 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
   --agentic-handle-top: 32%;
 }
 
-.react-flow__handle.arg-edge-handle:hover {
+.setta-gpu-flow__handle.arg-edge-handle:hover {
   /* blue-500 */
   background-color: #3b82f6;
   border-color: #3b82f6;
 }
 
-.agentic-handle-scope--themed .react-flow__handle.arg-edge-handle:hover {
+.agentic-handle-scope--themed .setta-gpu-flow__handle.arg-edge-handle:hover {
   background-color: var(--setta-section-style-arg-handle-hover);
   border-color: var(--setta-section-style-arg-handle-hover);
 }
 
-.react-flow__handle.arg-edge-handle:active {
+.setta-gpu-flow__handle.arg-edge-handle:active {
   /* cyan-300 */
   background-color: #67e8f9;
   border-color: #67e8f9;
 }
 
-.agentic-handle-scope--themed .react-flow__handle.arg-edge-handle:active {
+.agentic-handle-scope--themed .setta-gpu-flow__handle.arg-edge-handle:active {
   background-color: var(--setta-section-style-arg-handle-active);
   border-color: var(--setta-section-style-arg-handle-active);
 }
 
-.react-flow__handle.agentic-handle {
+.setta-gpu-flow__handle.agentic-handle {
   --agentic-handle-inner-size: calc(
     var(--agentic-handle-size) - (2 * var(--agentic-handle-ring-width))
   );
@@ -191,10 +191,11 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
     visibility 0s linear var(--agentic-handle-fade-out-duration);
 }
 
-.react-flow[data-connecting="true"] .react-flow__handle.agentic-handle,
-.react-flow__handle.agentic-handle.agentic-handle--always-visible,
-.react-flow__handle.agentic-handle.agentic-handle--selecting,
-.react-flow__handle.agentic-handle.agentic-handle--connected {
+.setta-gpu-flow-root[data-connecting="true"]
+  .setta-gpu-flow__handle.agentic-handle,
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--always-visible,
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--selecting,
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--connected {
   opacity: 1;
   visibility: visible;
   pointer-events: all;
@@ -202,9 +203,9 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
   animation: none;
 }
 
-.react-flow__node:hover .react-flow__handle.agentic-handle,
-.agentic-handle-safe-zone:hover + .react-flow__handle.agentic-handle,
-.react-flow__handle.agentic-handle:hover {
+.setta-gpu-flow__node:hover .setta-gpu-flow__handle.agentic-handle,
+.agentic-handle-safe-zone:hover + .setta-gpu-flow__handle.agentic-handle,
+.setta-gpu-flow__handle.agentic-handle:hover {
   opacity: 1;
   visibility: visible;
   pointer-events: all;
@@ -214,67 +215,72 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
   animation: none;
 }
 
-.react-flow__node:hover .react-flow__handle.agentic-handle:not(.connectable),
-.react-flow[data-connecting="true"]
-  .react-flow__handle.agentic-handle:not(.connectable),
-.react-flow__handle.agentic-handle.agentic-handle--always-visible:not(
+.setta-gpu-flow__node:hover
+  .setta-gpu-flow__handle.agentic-handle:not(.connectable),
+.setta-gpu-flow-root[data-connecting="true"]
+  .setta-gpu-flow__handle.agentic-handle:not(.connectable),
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--always-visible:not(
     .connectable
   ),
 .agentic-handle-safe-zone:hover
-  + .react-flow__handle.agentic-handle:not(.connectable),
-.react-flow__handle.agentic-handle.agentic-handle--selecting:not(.connectable),
-.react-flow__handle.agentic-handle:hover:not(.connectable),
-.react-flow__handle.agentic-handle.agentic-handle--connected:not(.connectable) {
+  + .setta-gpu-flow__handle.agentic-handle:not(.connectable),
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--selecting:not(
+    .connectable
+  ),
+.setta-gpu-flow__handle.agentic-handle:hover:not(.connectable),
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--connected:not(
+    .connectable
+  ) {
   opacity: 0.45;
   pointer-events: none;
 }
 
-.react-flow__handle.agentic-handle.agentic-handle--target {
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--target {
   --agentic-handle-render-size: var(--agentic-handle-inner-size);
 
   background: transparent;
   border-color: var(--agentic-handle-accent);
 }
 
-.react-flow__handle.agentic-handle.agentic-handle--source {
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--source {
   --agentic-handle-render-size: var(--agentic-handle-inner-size);
 
   background: var(--agentic-handle-accent);
   border-width: 0;
 }
 
-.react-flow__handle.agentic-handle.agentic-handle--reverse-start {
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start {
   z-index: 161;
   background: transparent;
   border-width: 0;
 }
 
-.react-flow__node:hover
-  .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.setta-gpu-flow__node:hover
+  .setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start,
 .agentic-handle-safe-zone:hover
-  + .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
-.react-flow__handle.agentic-handle.agentic-handle--reverse-start:hover,
-.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--always-visible,
-.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--connected,
-.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--selecting {
+  + .setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start:hover,
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--always-visible,
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--connected,
+.setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--selecting {
   opacity: 0;
 }
 
-.react-flow[data-connecting="true"]
-  .react-flow__handle.agentic-handle.agentic-handle--reverse-start {
+.setta-gpu-flow-root[data-connecting="true"]
+  .setta-gpu-flow__handle.agentic-handle.agentic-handle--reverse-start {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
 
-.react-flow__handle.agentic-handle.react-flow__handle-left {
+.setta-gpu-flow__handle.agentic-handle.setta-gpu-flow__handle-left {
   left: calc(
     -1 * (var(--agentic-handle-render-size) + var(--agentic-handle-gap))
   );
   top: var(--agentic-handle-top, 50%);
 }
 
-.react-flow__handle.agentic-handle.react-flow__handle-right {
+.setta-gpu-flow__handle.agentic-handle.setta-gpu-flow__handle-right {
   right: calc(
     -1 * (var(--agentic-handle-render-size) + var(--agentic-handle-gap))
   );

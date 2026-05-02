@@ -104,14 +104,14 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
       {hasInputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
+          className={`setta-gpu-flow__handle setta-gpu-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
           ref={leftDotRef}
         />
       )}
       {hasOutputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
+          className={`setta-gpu-flow__handle setta-gpu-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
           ref={rightDotRef}
         />
       )}
