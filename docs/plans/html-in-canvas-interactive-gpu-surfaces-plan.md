@@ -60,6 +60,23 @@ local reference root. The highest-signal examples are:
   - Key sections: `_createSourceElement`, `_wireInteractions`,
     `_drawVideoFrame`, `_uploadTexture`, `_refreshTexture`, `_handlePointer`,
     `_updateSliderFromClient`.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/random-stuff/apps/curved-markup/src/App/index.tsx`
+  - A compact proof for curved interactive markup. It injects a
+    `texElementImage2D`-backed texture into Three.js, maps a layout-subtree DOM
+    child onto a curved subdivided plane, raycasts to UV, then translates the
+    real DOM source so native text selection, links, buttons, range input, and
+    select focus hit the same source pixel that is visually under the pointer.
+  - This is the clearest reference for the target Setta interaction projector:
+    the visual can be non-affine while the source DOM stays real and native.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/hot-tips/html-in-canvas/demos/wicg/ripple-buttons.html`
+  - Uses `drawElementImage` to capture styled buttons, applies the returned
+    transform back to the source element, copies the result into an intermediate
+    source canvas, and redraws it through a triangle mesh for pointer-driven
+    ripple distortion.
+  - Treat the mesh/distortion technique as relevant, but do not copy its
+    every-frame `requestPaint` pattern into Setta pan/zoom. Setta must animate
+    effect uniforms or mesh vertices without recapturing HTML unless content
+    actually changed.
 - `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts`
   - Uses `canvas.requestPaint`, `canvas.onpaint`, and
     `GPUQueue.copyElementImageToTexture` to use HTML as a WebGPU texture source
@@ -74,6 +91,32 @@ local reference root. The highest-signal examples are:
   - Documents the important browser behavior: source element CSS transforms
     affect hit testing but are ignored by texture capture, so the same DOM can be
     positioned for interaction without changing the uploaded bitmap.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev/src/content/demos/3d-room-live-content/demo.html`
+  - Shows multi-surface HTML textures in a Three.js room and documents hard
+    browser constraints: layout-subtree sources must remain laid out and painted,
+    `display: none`, `visibility: hidden`, `opacity: 0`, `left: -9999px`, and
+    `clip-path` can produce blank/no cached paint records, and a 1x1 clipped
+    in-viewport staging container is a reliable hiding pattern when staging is
+    unavoidable.
+  - Also shows UV-to-form interaction for a 3D surface, including cases where
+    `elementFromPoint` is unusable because the staged source is clipped, so the
+    projector must be able to map UV/local coordinates to stable interactive
+    descendants directly.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev/src/content/demos/css-to-shader/demo.html`
+  - Demonstrates a live DOM source rendered through a WebGL shader while the DOM
+    remains the native interaction target. It reinforces the split Setta needs:
+    shader/effect uniforms can change every frame, but HTML recapture should be
+    tied to content, size, and style invalidation.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev/src/content/demos/elastic-bulge/demo.html`
+  - Minimal WebGL2 `texElementImage2D` displacement shader over a
+    layout-subtree element. Use it to compare direct element-to-GL upload
+    behavior against Setta's WebGPU `copyElementImageToTexture` path.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev/src/content/demos/multi-element-composition/demo.html`
+  - Uses one layout-subtree canvas with multiple children, draw-order-controlled
+    z stacking, returned transforms applied back to each source element,
+    `paint.changedElements`, and direct manipulation of draggable child state.
+    This is the best local reference for multiple Setta node sources sharing one
+    canvas and for dirtying only the surfaces whose child DOM changed.
 - `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-official/README.md`
   - Source for API constraints: captured elements must be direct canvas
     children, must generate boxes, CSS transforms are ignored for drawing, and
@@ -96,6 +139,20 @@ questions:
     invalidation around interactive HTML.
 - `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-demo/demos/water-drop/README.md`
   - Compact effect demo pointer for water-drop-style shader treatment over HTML.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/hot-tips/html-in-canvas/demos/wicg/tearable-cloth-buttons.html`
+  - Additional button-specific 2D mesh, tear, shatter, and hover-effect patterns
+    driven from real DOM button sources.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/hot-tips/html-in-canvas/demos/wicg/sphere-html-three.html`
+  - Raw-HTML version of the Three.js sphere mapping and UV-to-source transform
+    pattern.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/hot-tips/html-in-canvas/demos/wicg/sphere-html-three-ripple.html`
+  - Variant that keeps the HTML texture source and drives a GPU ripple effect
+    over the sphere from pointer-derived UVs.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev/src/content/demos/offscreen-canvas-worker/demo.html`
+  - Documents the proposed `captureElementImage`/worker shape and current
+    Chromium gaps: `captureElementImage` is not implemented there, and
+    `createImageBitmap(layoutsubtreeCanvas)` can crash, so worker offload must
+    be probe-gated rather than assumed.
 
 ## Target Architecture
 
@@ -187,6 +244,13 @@ because `copyElementImageToTexture` requires it. Do not hide sources with
 `display: none`, `visibility: hidden`, or `opacity: 0`; those can affect capture.
 The source is already not visually composited by the canvas.
 
+Do not park capture sources far offscreen with `left: -9999px` or hide them with
+`clip-path`. The `3d-room-live-content` demo shows Chromium can skip painting
+those sources, leaving no cached paint record. If a non-Setta staging canvas is
+ever required for a fixture or probe, keep it in the viewport with real
+dimensions and clip it through a tiny visible wrapper; production Setta node
+sources should remain direct children of the main layout-subtree canvas.
+
 Base source style:
 
 ```css
@@ -255,6 +319,13 @@ If Chromium exposes source-subrect `copyElementImageToTexture`, use it for dirty
 tiles. If it does not, fail the tile-subrect probe loudly and choose between full
 tile recapture or smaller source-owned tiles. Do not add heuristic dirty-region
 guessing.
+
+Avoid framework texture abstractions that do not understand layout-subtree paint
+invalidation. The `3d-room-live-content` demo found Three.js `CanvasTexture`
+stalled when handed a `<canvas layoutsubtree>` directly and needed an
+intermediate regular canvas. Setta's production path should prefer direct
+`GPUQueue.copyElementImageToTexture` from the source element or an explicitly
+probe-backed mirror path only where a fixture/library makes that unavoidable.
 
 ## Interaction Projection
 
@@ -350,10 +421,20 @@ the exact Chromium behavior this plan depends on:
 - CSS transforms affect hit testing.
 - Transform-only source movement does not fire `paint`.
 - Overlapping passive source children with `pointer-events: none` still capture.
+- Sources hidden with `display: none`, `visibility: hidden`, `opacity: 0`,
+  `left: -9999px`, or `clip-path` fail loudly if they lose cached paint records.
 - Source-subrect uploads work, or fail loudly.
 - `getElementTransform` exists and returns usable affine transforms.
 - `paint.changedElements` granularity is usable for per-node and per-tile dirty
   marking.
+- `drawElementImage` returned transforms keep source hit boxes aligned for
+  affine multi-element composition.
+- Direct layout-subtree canvas use with any library texture abstraction chosen
+  for tests or fixtures does not stall; otherwise use direct element upload or a
+  probe-backed mirror.
+- `captureElementImage` and worker transfer behavior is documented as available
+  or unavailable in the current Chromium; do not depend on it for the initial
+  replacement unless the probe proves it usable.
 
 Check the probe output into `perf/reports/frontend/` if it includes timing
 numbers. Keep functional probe assertions in frontend tests.
@@ -373,9 +454,11 @@ Because no compatibility is required, implement in this order:
 7. Add hit scene and interaction projector.
 8. Delete active node teleport, settling clones, and texture/DOM switching.
 9. Port project surface wiring to the new modules.
-10. Add a Setta-local complex-surface fixture based on the `html-cloth.mjs`
-    interaction model: warped mesh, slider, button, text input, hover state, and
-    live texture refresh.
+10. Add a Setta-local complex-surface fixture based on `html-cloth.mjs`,
+    `curved-markup`, and the WICG ripple/cloth button demos: warped mesh or
+    curved surface, shader-driven visual deformation, slider, button, text
+    input, hover state, selection/focus, and live texture refresh only when DOM
+    content actually changes.
 11. Run focused unit, integration, and browser performance verification.
 
 Do not keep the old teleport behavior behind a flag. If the new branch breaks
