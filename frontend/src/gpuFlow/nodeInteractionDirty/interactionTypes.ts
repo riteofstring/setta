@@ -25,6 +25,10 @@ export type GpuNodeInteractionDirtyController = {
   getActiveNodeId(): string | null;
 };
 
+export type GpuNodePointerHandoffResolveOptions = {
+  readonly projectSource?: boolean | undefined;
+};
+
 export type GpuNodeInteractionDirtyControllerOptions = {
   readonly cancelAnimationFrame?: ((frameId: number) => void) | undefined;
   readonly deferPassiveDirty?: (() => boolean) | undefined;
@@ -42,7 +46,10 @@ export type GpuNodeInteractionDirtyControllerOptions = {
     | ((callback: FrameRequestCallback) => number)
     | undefined;
   readonly resolvePointerHandoffTarget?:
-    | ((event: PointerEvent) => GpuNodePointerHandoffTarget | null)
+    | ((
+        event: PointerEvent,
+        options?: GpuNodePointerHandoffResolveOptions | undefined,
+      ) => GpuNodePointerHandoffTarget | null)
     | undefined;
   readonly resolveWheelHandoffTarget?:
     | ((event: WheelEvent) => GpuNodePointerHandoffTarget | null)

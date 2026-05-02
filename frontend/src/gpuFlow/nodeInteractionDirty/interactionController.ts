@@ -423,7 +423,10 @@ export function createGpuNodeInteractionDirtyController({
     }
   }
 
-  function updateResizeHandleHoverInteraction(event: PointerEvent) {
+  function updateResizeHandleHoverInteraction(
+    event: PointerEvent,
+    resolvedHandoffTarget?: GpuNodePointerHandoffTarget | null | undefined,
+  ) {
     if (dispatchingPointerHandoff || pointerInteractionNodeId) {
       return;
     }
@@ -432,15 +435,116 @@ export function createGpuNodeInteractionDirtyController({
       return;
     }
 
-    const handoffTarget = resolvePointerHandoffTarget?.(event);
+    const handoffTarget =
+      resolvedHandoffTarget === undefined
+        ? resolvePointerHandoffTarget?.(event, { projectSource: false })
+        : resolvedHandoffTarget;
     if (
       handoffTarget &&
       tryBeginResizeHandleHoverFromHandoffTarget(handoffTarget)
     ) {
+      resolvePointerHandoffTarget?.(event, { projectSource: true });
       return;
     }
 
     releaseResizeHandleHoverInteraction();
+  }
+
+  function updatePointerHoverCursor(
+    event: PointerEvent,
+    surfaceElement: HTMLElement,
+    setHoverCursor: (cursor: string | null) => void,
+  ): GpuNodePointerHandoffTarget | null | undefined {
+    if (!shouldUsePointerHoverCursor(event, surfaceElement)) {
+      setHoverCursor(null);
+      return undefined;
+    }
+
+    const handoffTarget = resolvePointerHandoffTarget?.(event, {
+      projectSource: false,
+    }) ?? null;
+    const target = resolvePointerHoverCursorTarget(event, handoffTarget);
+    setHoverCursor(resolvePointerHoverCursorValue(target));
+    return handoffTarget;
+  }
+
+  function resolvePointerHoverCursorTarget(
+    event: PointerEvent,
+    handoffTarget: GpuNodePointerHandoffTarget | null | undefined,
+  ): HTMLElement | null {
+    const directTarget = resolveDirectPointerHoverCursorTarget(event.target);
+    if (directTarget) {
+      return directTarget;
+    }
+    if (!handoffTarget) {
+      return null;
+    }
+    const nodeElement = elementByNodeId().get(handoffTarget.nodeId) ?? null;
+    return nodeElement
+      ? resolveGpuNodeTargetDescriptor(nodeElement, handoffTarget.descriptor)
+      : null;
+  }
+
+  function resolveDirectPointerHoverCursorTarget(
+    target: EventTarget | null,
+  ): HTMLElement | null {
+    if (isPassiveHtmlSurfaceSourceEventTarget(target)) {
+      return null;
+    }
+    if (!isGpuNodeInteractiveEventTarget(target)) {
+      return null;
+    }
+    return toElement(target);
+  }
+
+  function resolvePointerHoverCursorValue(
+    target: HTMLElement | null,
+  ): string | null {
+    if (!target) {
+      return null;
+    }
+    const cursor = target.ownerDocument.defaultView?.getComputedStyle(target)
+      .cursor;
+    if (cursor && cursor !== "auto") {
+      return cursor;
+    }
+    return isNativeTextCursorTarget(target) ? "text" : null;
+  }
+
+  function shouldUsePointerHoverCursor(
+    event: PointerEvent,
+    surfaceElement: HTMLElement,
+  ): boolean {
+    if (event.buttons !== 0) {
+      return false;
+    }
+    const target = toElement(event.target);
+    return Boolean(target && surfaceElement.contains(target));
+  }
+
+  function isNativeTextCursorTarget(target: HTMLElement): boolean {
+    if (target instanceof HTMLTextAreaElement) {
+      return true;
+    }
+    if (target instanceof HTMLInputElement) {
+      return isTextLikeInputType(target.type);
+    }
+    return target.isContentEditable;
+  }
+
+  function isTextLikeInputType(type: string): boolean {
+    return ![
+      "button",
+      "checkbox",
+      "color",
+      "file",
+      "hidden",
+      "image",
+      "radio",
+      "range",
+      "reset",
+      "submit",
+    ].includes(type);
   }
 
   function tryBeginResizeHandleHoverFromEventTarget(
@@ -667,6 +771,13 @@ export function createGpuNodeInteractionDirtyController({
   return {
     attach(canvas, ownerDocument = canvas.ownerDocument) {
       const abortController = new AbortController();
+      const originalCursor = canvas.style.cursor;
+      const setHoverCursor = (cursor: string | null) => {
+        const nextCursor = cursor ?? originalCursor;
+        if (canvas.style.cursor !== nextCursor) {
+          canvas.style.cursor = nextCursor;
+        }
+      };
       const listenerOptions = {
         capture: true,
         signal: abortController.signal,
@@ -803,8 +914,18 @@ export function createGpuNodeInteractionDirtyController({
         "pointermove",
         (event) => {
           markPointerInteractionDirty(event);
-          updateResizeHandleHoverInteraction(event);
+          const handoffTarget = updatePointerHoverCursor(
+            event,
+            canvas,
+            setHoverCursor,
+          );
+          updateResizeHandleHoverInteraction(event, handoffTarget);
         },
+        listenerOptions,
+      );
+      canvas.addEventListener(
+        "pointerleave",
+        () => setHoverCursor(null),
         listenerOptions,
       );
       ownerDocument.addEventListener(
@@ -835,6 +956,7 @@ export function createGpuNodeInteractionDirtyController({
 
       return () => {
         abortController.abort();
+        canvas.style.cursor = originalCursor;
         clearTrustedPointerHandoffClickSuppression();
         animationCaptureLeases.destroy();
       };

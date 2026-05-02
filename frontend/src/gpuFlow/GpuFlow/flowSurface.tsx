@@ -532,24 +532,29 @@ export function GpuFlow({
         requestFrame: (reason) => {
           surfaceRef.current?.requestFrame(reason);
         },
-        resolvePointerHandoffTarget: (event) => {
+        resolvePointerHandoffTarget: (event, options) => {
           const surfaceElement = containerRef.current ?? runtime.canvas;
+          const shouldProjectSource = options?.projectSource ?? true;
           return resolveGpuNodePointerHandoffTarget({
             clientX: event.clientX,
             clientY: event.clientY,
             effectProjectors: htmlSurfaceEffectProjectors,
             elementByNodeId: nodeElementByIdRef.current,
             nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
-            projectSourceForHitTesting: (projection) => {
-              sourceInteractionProjector.alignSourceToClientPoint({
-                localX: projection.localX,
-                localY: projection.localY,
-                sourceElement: projection.sourceElement,
-                sourceId: projection.nodeId,
-                surfaceX: projection.surfaceX,
-                surfaceY: projection.surfaceY,
-              });
-            },
+            ...(shouldProjectSource
+              ? {
+                  projectSourceForHitTesting: (projection) => {
+                    sourceInteractionProjector.alignSourceToClientPoint({
+                      localX: projection.localX,
+                      localY: projection.localY,
+                      sourceElement: projection.sourceElement,
+                      sourceId: projection.nodeId,
+                      surfaceX: projection.surfaceX,
+                      surfaceY: projection.surfaceY,
+                    });
+                  },
+                }
+              : {}),
             surfaceElement,
             viewport: nodeLayerRef.current.viewport,
             visualScene: nodeLayerRef.current.visualScene,

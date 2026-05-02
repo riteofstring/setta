@@ -374,12 +374,98 @@ describe("gpu node interaction dirty tracking", () => {
     );
 
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
+    expect(
+      resolvePointerHandoffTarget.mock.calls.map(([, options]) => options),
+    ).toEqual([
+      { projectSource: false },
+      { projectSource: true },
+      { projectSource: false },
+      { projectSource: true },
+      { projectSource: false },
+    ]);
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],
       uploadedNodeIds: ["node-a"],
     });
     expect(controller.getActiveNodeId()).toBeNull();
+
+    detach();
+    canvas.remove();
+  });
+
+  it("mirrors virtual handoff target cursors without projecting hover sources", () => {
+    const canvas = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const button = document.createElement("button");
+    const input = document.createElement("input");
+    button.style.cursor = "pointer";
+    nodeElement.append(button, input);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    const buttonDescriptor = createGpuNodeTargetDescriptor(
+      nodeElement,
+      button,
+    );
+    const inputDescriptor = createGpuNodeTargetDescriptor(nodeElement, input);
+    if (!buttonDescriptor || !inputDescriptor) {
+      throw new Error("Expected handoff target descriptors");
+    }
+    const textureManager = createInteractionTextureManager();
+    const resolvePointerHandoffTarget = vi.fn(() => ({
+      descriptor: buttonDescriptor,
+      nodeId: "node-a",
+    }));
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame: vi.fn(),
+      resolvePointerHandoffTarget,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    canvas.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 80,
+        clientY: 80,
+        pointerId: 3,
+      }),
+    );
+    expect(canvas.style.cursor).toBe("pointer");
+
+    resolvePointerHandoffTarget.mockReturnValue({
+      descriptor: inputDescriptor,
+      nodeId: "node-a",
+    });
+    canvas.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 90,
+        clientY: 90,
+        pointerId: 3,
+      }),
+    );
+    expect(canvas.style.cursor).toBe("text");
+
+    resolvePointerHandoffTarget.mockReturnValue(null);
+    canvas.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 100,
+        clientY: 100,
+        pointerId: 3,
+      }),
+    );
+    expect(canvas.style.cursor).toBe("");
+    expect(
+      resolvePointerHandoffTarget.mock.calls.map(([, options]) => options),
+    ).toEqual([
+      { projectSource: false },
+      { projectSource: false },
+      { projectSource: false },
+    ]);
 
     detach();
     canvas.remove();
