@@ -163,6 +163,91 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(record.tiles.every((tile) => tile.lastUploadFrame === 2)).toBe(true);
   });
 
+  it("uploads single-texture dirty source rects into the existing texture origin", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      frame: 1,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+    gpu.copyElementImageToTexture.mockClear();
+
+    manager.markSurfaceTextureDirty({
+      content: true,
+      frame: 3,
+      reason: "animation",
+      sourceRect: {
+        height: 10,
+        width: 20,
+        x: 10,
+        y: 5,
+      },
+      surfaceId: "node-a",
+    });
+
+    expect(manager.getDirtySurfaces()).toMatchObject([
+      {
+        dirtyTileBytes: 40 * 20 * 4,
+        dirtyTileIds: ["node-a:0:0"],
+        surfaceId: "node-a",
+      },
+    ]);
+
+    const result = manager.uploadDirtySurfaceTextures({ frame: 4 });
+
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+    expect(gpu.copyElementImageToTexture).toHaveBeenLastCalledWith(
+      element,
+      10,
+      5,
+      20,
+      10,
+      40,
+      20,
+      {
+        origin: {
+          x: 20,
+          y: 10,
+        },
+        texture: record.texture,
+      },
+    );
+    expect(result).toMatchObject({
+      diagnostics: [
+        expect.objectContaining({
+          dirtySourceRect: {
+            height: 10,
+            width: 20,
+            x: 10,
+            y: 5,
+          },
+          dirtyTileBytes: 40 * 20 * 4,
+          dirtyTileCount: 1,
+          reasons: ["animation"],
+          surfaceId: "node-a",
+          uploadedBytes: 40 * 20 * 4,
+        }),
+      ],
+      remainingDirtySurfaceIds: [],
+      skippedUploadBytes: 0,
+      uploadedBytes: 40 * 20 * 4,
+    });
+    expect(record).toMatchObject({
+      dirtyContent: false,
+      dirtyResolution: false,
+      lastUploadFrame: 4,
+    });
+  });
+
   it("marks and uploads only tiled source rect owners after the initial upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
@@ -206,6 +291,21 @@ describe("HtmlSurfaceTextureManager", () => {
     const result = manager.uploadDirtySurfaceTextures({ frame: 4 });
 
     expect(result).toMatchObject({
+      diagnostics: [
+        expect.objectContaining({
+          dirtySourceRect: {
+            height: 20,
+            width: 20,
+            x: 130,
+            y: 16,
+          },
+          dirtyTileBytes: 128 * 128 * 4,
+          dirtyTileCount: 1,
+          reasons: ["paint"],
+          surfaceId: "large-node",
+          uploadedBytes: 128 * 128 * 4,
+        }),
+      ],
       remainingDirtySurfaceIds: [],
       skippedUploadBytes: 0,
       uploadedBytes: 128 * 128 * 4,

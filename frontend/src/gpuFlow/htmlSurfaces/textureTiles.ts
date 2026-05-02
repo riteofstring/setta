@@ -5,6 +5,10 @@ import type {
   HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureTileRecord,
 } from "./textures";
+import {
+  resolveTextureSourceRectUploadRegion,
+  type HtmlSurfaceTextureSourceRect,
+} from "./textureSourceRectUpload";
 
 export type HtmlSurfaceTextureResources = Pick<
   HtmlSurfaceTextureRecord,
@@ -35,8 +39,11 @@ type CreateSurfaceTextureLayoutResourcesInput = {
 
 type UploadHtmlSurfaceTextureRecordInput = Pick<
   HtmlSurfaceTextureRecord,
+  | "cssHeight"
+  | "cssWidth"
   | "dirtyContent"
   | "dirtyResolution"
+  | "lastUploadFrame"
   | "pixelHeight"
   | "pixelWidth"
   | "texture"
@@ -108,6 +115,7 @@ export function uploadHtmlSurfaceTextureRecord(
   queue: GpuQueueWithElementUpload,
   record: UploadHtmlSurfaceTextureRecordInput,
   budget?: HtmlSurfaceTextureUploadBudget | undefined,
+  dirtySourceRect?: HtmlSurfaceTextureSourceRect | undefined,
 ): HtmlSurfaceTextureUploadResult {
   const dirtyTiles = dirtyTextureTiles(record);
   let uploadedBytes = 0;
@@ -125,7 +133,32 @@ export function uploadHtmlSurfaceTextureRecord(
       break;
     }
 
-    if (record.textureLayout.kind === "single") {
+    if (
+      record.textureLayout.kind === "single" &&
+      canUploadSingleTextureSourceRect(record, dirtySourceRect)
+    ) {
+      const region = resolveTextureSourceRectUploadRegion(
+        record,
+        dirtySourceRect,
+      );
+      queue.copyElementImageToTexture?.(
+        record.element,
+        region.sourceX,
+        region.sourceY,
+        region.sourceWidth,
+        region.sourceHeight,
+        region.pixelWidth,
+        region.pixelHeight,
+        {
+          origin: {
+            x: region.destinationX,
+            y: region.destinationY,
+          },
+          texture: record.texture,
+        },
+      );
+      uploadedBytes += region.byteLength;
+    } else if (record.textureLayout.kind === "single") {
       queue.copyElementImageToTexture?.(
         record.element,
         record.pixelWidth,
@@ -134,6 +167,7 @@ export function uploadHtmlSurfaceTextureRecord(
           texture: record.texture,
         },
       );
+      uploadedBytes += tile.textureBytes;
     } else {
       queue.copyElementImageToTexture?.(
         record.element,
@@ -147,9 +181,9 @@ export function uploadHtmlSurfaceTextureRecord(
           texture: tile.texture,
         },
       );
+      uploadedBytes += tile.textureBytes;
     }
 
-    uploadedBytes += tile.textureBytes;
     uploadedTextureCount += 1;
     uploadedTileIds.push(tile.tileId);
   }
@@ -160,6 +194,19 @@ export function uploadHtmlSurfaceTextureRecord(
     uploadedTextureCount,
     uploadedTileIds,
   };
+}
+
+function canUploadSingleTextureSourceRect(
+  record: UploadHtmlSurfaceTextureRecordInput,
+  dirtySourceRect: HtmlSurfaceTextureSourceRect | undefined,
+): dirtySourceRect is HtmlSurfaceTextureSourceRect {
+  return (
+    dirtySourceRect !== undefined &&
+    record.textureLayout.kind === "single" &&
+    record.dirtyContent &&
+    !record.dirtyResolution &&
+    record.lastUploadFrame >= 0
+  );
 }
 
 export function normalizeTextureTileDimension({

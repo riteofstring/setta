@@ -22,6 +22,8 @@ export type PendingHtmlSurfaceTextureRecord = Mutable<
   Pick<
     HtmlSurfaceTextureRecord,
     | "clampedByMaxTexture"
+    | "cssHeight"
+    | "cssWidth"
     | "dirtyContent"
     | "dirtyResolution"
     | "lastUploadFrame"
@@ -45,6 +47,8 @@ export type PendingResolutionTextureEntry = Mutable<
   Pick<
     HtmlSurfaceTextureRecord,
     | "clampedByMaxTexture"
+    | "cssHeight"
+    | "cssWidth"
     | "dirtyContent"
     | "dirtyResolution"
     | "lastUploadFrame"
@@ -204,6 +208,8 @@ function ensurePendingResolutionRecord({
   const pendingRecord: PendingHtmlSurfaceTextureRecord = {
     ...layoutResources.primaryResources,
     clampedByMaxTexture: resolution.clampedByMaxTexture,
+    cssHeight: resolution.cssHeight,
+    cssWidth: resolution.cssWidth,
     dirtyContent: true,
     dirtyResolution: true,
     lastUploadFrame: -1,
@@ -269,6 +275,8 @@ function commitPendingResolutionRecord({
   record.textureView = pendingRecord.textureView;
   record.sampler = pendingRecord.sampler;
   record.clampedByMaxTexture = pendingRecord.clampedByMaxTexture;
+  record.cssHeight = pendingRecord.cssHeight;
+  record.cssWidth = pendingRecord.cssWidth;
   record.dirtyContent = false;
   record.dirtyResolution = false;
   record.lastUploadFrame = frame;

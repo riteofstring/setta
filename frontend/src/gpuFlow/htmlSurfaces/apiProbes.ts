@@ -659,7 +659,7 @@ function probeHiddenSourceCapturePolicy(
 async function probeSourceSubrectUpload(
   fixture: ProbeFixture,
 ): Promise<HtmlSurfaceApiProbeResult> {
-  const texture = fixture.createTexture(16, 16);
+  const texture = fixture.createTexture(32, 32);
   const subrectQueue = fixture.queue as GpuQueueWithElementUpload & {
     copyElementImageToTexture?: (...args: unknown[]) => void;
   };
@@ -676,11 +676,13 @@ async function probeSourceSubrectUpload(
       16,
       16,
       {
+        origin: { x: 8, y: 8 },
         texture,
       },
     );
     return pass("source-subrect-upload", "required", {
-      details: "Source-subrect and scaled source-subrect overloads are callable.",
+      details:
+        "Source-subrect and scaled source-subrect destination-origin overloads are callable.",
     });
   } catch (error) {
     return fail("source-subrect-upload", "required", {

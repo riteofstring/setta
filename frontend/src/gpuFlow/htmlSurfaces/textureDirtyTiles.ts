@@ -3,13 +3,12 @@ import type {
   HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureTileRecord,
 } from "./textures";
+import {
+  resolveTextureSourceRectUploadRegion,
+  type HtmlSurfaceTextureSourceRect,
+} from "./textureSourceRectUpload";
 
-export type HtmlSurfaceDirtyRect = {
-  readonly height: number;
-  readonly width: number;
-  readonly x: number;
-  readonly y: number;
-};
+export type HtmlSurfaceDirtyRect = HtmlSurfaceTextureSourceRect;
 
 type MutableTextureDirtyRecord = {
   dirtyContent: boolean;
@@ -48,6 +47,7 @@ export function markTextureRecordDirty(
 
 export function estimateDirtyTextureUploadBytes(
   record: DirtyTextureRecord | undefined,
+  sourceRect?: HtmlSurfaceDirtyRect | undefined,
 ): number {
   if (!record) {
     return 0;
@@ -58,20 +58,22 @@ export function estimateDirtyTextureUploadBytes(
       ? record.textureBytes
       : 0;
   }
-  return dirtyTiles.reduce((bytes, tile) => bytes + tile.textureBytes, 0);
+  return estimateDirtyTextureTileBytes(record, dirtyTiles, sourceRect);
 }
 
 export function dirtyTextureTileSummary(
   record: DirtyTextureRecord | undefined,
+  sourceRect?: HtmlSurfaceDirtyRect | undefined,
 ): {
   readonly dirtyTileBytes: number;
   readonly dirtyTileIds: readonly string[];
 } {
   const dirtyTiles = dirtyTextureTiles(record);
   return {
-    dirtyTileBytes: dirtyTiles.reduce(
-      (bytes, tile) => bytes + tile.textureBytes,
-      0,
+    dirtyTileBytes: estimateDirtyTextureTileBytes(
+      record,
+      dirtyTiles,
+      sourceRect,
     ),
     dirtyTileIds: dirtyTiles.map((tile) => tile.tileId),
   };
@@ -91,8 +93,58 @@ export function dirtyTextureTiles(
 
 type DirtyTextureRecord = Pick<
   HtmlSurfaceTextureRecord,
-  "dirtyContent" | "dirtyResolution" | "textureBytes" | "tiles"
->;
+  | "dirtyContent"
+  | "dirtyResolution"
+  | "lastUploadFrame"
+  | "textureBytes"
+  | "textureLayout"
+  | "tiles"
+> &
+  Partial<
+    Pick<
+      HtmlSurfaceTextureRecord,
+      "cssHeight" | "cssWidth" | "pixelHeight" | "pixelWidth"
+    >
+  >;
+
+function estimateDirtyTextureTileBytes(
+  record: DirtyTextureRecord | undefined,
+  dirtyTiles: readonly HtmlSurfaceTextureTileRecord[],
+  sourceRect: HtmlSurfaceDirtyRect | undefined,
+): number {
+  if (dirtyTiles.length === 0) {
+    return 0;
+  }
+  if (
+    record &&
+    sourceRect &&
+    record.textureLayout.kind === "single" &&
+    record.dirtyContent &&
+    !record.dirtyResolution &&
+    record.lastUploadFrame >= 0 &&
+    hasTextureSourceRectUploadDimensions(record)
+  ) {
+    return resolveTextureSourceRectUploadRegion(record, sourceRect).byteLength;
+  }
+  return dirtyTiles.reduce((bytes, tile) => bytes + tile.textureBytes, 0);
+}
+
+function hasTextureSourceRectUploadDimensions(
+  record: DirtyTextureRecord,
+): record is DirtyTextureRecord &
+  Required<
+    Pick<
+      HtmlSurfaceTextureRecord,
+      "cssHeight" | "cssWidth" | "pixelHeight" | "pixelWidth"
+    >
+  > {
+  return (
+    record.cssHeight !== undefined &&
+    record.cssWidth !== undefined &&
+    record.pixelHeight !== undefined &&
+    record.pixelWidth !== undefined
+  );
+}
 
 function resolveDirtyTextureTileIds(
   record: Pick<MutableTextureDirtyRecord, "textureLayout" | "tiles">,
