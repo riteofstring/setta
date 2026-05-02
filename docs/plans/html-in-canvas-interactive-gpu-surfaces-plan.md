@@ -49,11 +49,10 @@ against interaction instead of sharing the same source.
 
 ## Reference Lessons
 
-Use the examples in
-`/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` as
-implementation references:
+Use `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` as the
+local reference root. The highest-signal examples are:
 
-- `html-in-canvas/plugins/html-cloth.mjs`
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas/plugins/html-cloth.mjs`
   - Keeps a real HTML source element, uploads it with `texElementImage2D`,
     raycasts the rendered mesh to UV, maps UV back to source HTML coordinates,
     forwards interaction, and refreshes the texture without switching to a
@@ -61,24 +60,42 @@ implementation references:
   - Key sections: `_createSourceElement`, `_wireInteractions`,
     `_drawVideoFrame`, `_uploadTexture`, `_refreshTexture`, `_handlePointer`,
     `_updateSliderFromClient`.
-- `html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts`
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts`
   - Uses `canvas.requestPaint`, `canvas.onpaint`, and
     `GPUQueue.copyElementImageToTexture` to use HTML as a WebGPU texture source
     inside a shader-rendered scene.
-- `three-html-render/src/raycastInteractionManager.ts`
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/three-html-render/src/raycastInteractionManager.ts`
   - Shows the core interaction trick for non-flat surfaces: raycast to UV, move
     the real source element so the texture pixel under the pointer is also under
     the browser pointer, then let native DOM hit testing identify the target.
-- `three-html-render/src/interactionManager.ts`
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/three-html-render/src/interactionManager.ts`
   - Shows matrix-based alignment for affine/3D planar surfaces.
-- `html-in-canvas-room/extension/entrypoints/content.ts`
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-room/extension/entrypoints/content.ts`
   - Documents the important browser behavior: source element CSS transforms
     affect hit testing but are ignored by texture capture, so the same DOM can be
     positioned for interaction without changing the uploaded bitmap.
-- `html-in-canvas-official/README.md`
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-official/README.md`
   - Source for API constraints: captured elements must be direct canvas
     children, must generate boxes, CSS transforms are ignored for drawing, and
     `paint.changedElements` is the authoritative dirty signal.
+
+Secondary references in the same root are useful for specific implementation
+questions:
+
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/three-html-render/src/htmlTexture.ts`
+  - Texture lifecycle, paint-event recapture, and retaining the original source
+    element for interaction managers.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/three-html-render/src/threeHTMLRenderer.ts`
+  - Assigning HTML-derived textures to scene objects and requesting repaint for
+    animated HTML sources.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-cracks/src/main.js`
+  - WebGPU-style HTML texture upload and shader/effect rendering over captured
+    HTML.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/compiz-web/src/transitions/TransitionEngine.ts`
+  - WebGL2 `texElementImage2D` upload, shader transitions, and texture
+    invalidation around interactive HTML.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-demo/demos/water-drop/README.md`
+  - Compact effect demo pointer for water-drop-style shader treatment over HTML.
 
 ## Target Architecture
 
