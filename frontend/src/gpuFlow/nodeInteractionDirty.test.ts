@@ -25,13 +25,12 @@ describe("gpu node interaction dirty tracking", () => {
     expect(isGpuNodeInteractiveEventTarget(input)).toBe(true);
   });
 
-  it("resolves active teleported node events from stable owner metadata", () => {
+  it("does not resolve unregistered node wrappers by stale metadata", () => {
     const nodeElement = createNodeElement("node-a");
     const input = document.createElement("input");
-    nodeElement.dataset.gpuFlowTeleport = "active";
     nodeElement.append(input);
 
-    expect(findGpuNodeIdForEventTarget(input, new Map())).toBe("node-a");
+    expect(findGpuNodeIdForEventTarget(input, new Map())).toBeNull();
   });
 
   it("marks input changes with interactive priority and requests texture work", () => {
@@ -78,7 +77,7 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
-  it("hands off a canvas-origin pointerdown to the activated live control", async () => {
+  it("hands off a canvas-origin pointerdown to the projected source control", async () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const switchButton = document.createElement("button");
@@ -93,12 +92,11 @@ describe("gpu node interaction dirty tracking", () => {
     }
     const textureManager = createInteractionTextureManager();
     const requestFrame = vi.fn();
-    const activatePointerHandoffNode = vi.fn(() => nodeElement);
     const pointerDowns: boolean[] = [];
     const mouseDowns: boolean[] = [];
     const clicks: boolean[] = [];
     switchButton.addEventListener("pointerdown", () => {
-      pointerDowns.push(activatePointerHandoffNode.mock.calls.length > 0);
+      pointerDowns.push(true);
     });
     switchButton.addEventListener("mousedown", () => {
       mouseDowns.push(true);
@@ -108,7 +106,6 @@ describe("gpu node interaction dirty tracking", () => {
     });
     let frame = 0;
     const controller = createGpuNodeInteractionDirtyController({
-      activatePointerHandoffNode,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => {
         frame += 1;
@@ -131,7 +128,6 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.dispatchEvent(pointerDown);
 
     expect(pointerDown.defaultPrevented).toBe(true);
-    expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
     expect(pointerDowns).toEqual([true]);
     expect(mouseDowns).toEqual([]);
     expect(controller.getActiveNodeId()).toBe("node-a");
@@ -173,14 +169,12 @@ describe("gpu node interaction dirty tracking", () => {
     }
     const textureManager = createInteractionTextureManager();
     const requestFrame = vi.fn();
-    const activatePointerHandoffNode = vi.fn(() => nodeElement);
     const clicks: boolean[] = [];
     switchButton.addEventListener("click", () => {
       clicks.push(true);
     });
     let frame = 0;
     const controller = createGpuNodeInteractionDirtyController({
-      activatePointerHandoffNode,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => {
         frame += 1;
@@ -203,7 +197,6 @@ describe("gpu node interaction dirty tracking", () => {
     nodeElement.dispatchEvent(pointerDown);
 
     expect(pointerDown.defaultPrevented).toBe(true);
-    expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
     expect(controller.getActiveNodeId()).toBe("node-a");
 
     document.dispatchEvent(
@@ -222,7 +215,6 @@ describe("gpu node interaction dirty tracking", () => {
   });
 
   it("activates resize handles on hover without broad control hover handoff", () => {
-    vi.useFakeTimers();
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const resizeHandle = document.createElement("div");
@@ -238,15 +230,12 @@ describe("gpu node interaction dirty tracking", () => {
     }
     const textureManager = createInteractionTextureManager();
     const requestFrame = vi.fn();
-    const activatePointerHandoffNode = vi.fn(() => nodeElement);
     const resolvePointerHandoffTarget = vi.fn(() => ({
       descriptor,
       nodeId: "node-a",
     }));
     let frame = 0;
     const controller = createGpuNodeInteractionDirtyController({
-      activatePointerHandoffNode,
-      activeSettleDelayMs: 50,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => {
         frame += 1;
@@ -267,9 +256,7 @@ describe("gpu node interaction dirty tracking", () => {
       }),
     );
 
-    expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(controller.getLiveNodeId()).toBe("node-a");
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 1,
@@ -286,7 +273,6 @@ describe("gpu node interaction dirty tracking", () => {
         pointerId: 3,
       }),
     );
-    expect(activatePointerHandoffNode).toHaveBeenCalledTimes(1);
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
 
     const button = document.createElement("button");
@@ -310,9 +296,6 @@ describe("gpu node interaction dirty tracking", () => {
     );
 
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
-    expect(controller.getLiveNodeId()).toBe("node-a");
-    vi.advanceTimersByTime(50);
-    expect(controller.getLiveNodeId()).toBeNull();
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],
@@ -339,7 +322,6 @@ describe("gpu node interaction dirty tracking", () => {
       throw new Error("Expected a handoff target descriptor");
     }
     const textureManager = createInteractionTextureManager();
-    const activatePointerHandoffNode = vi.fn(() => nodeElement);
     const mouseDowns: Array<{
       readonly clientX: number;
       readonly clientY: number;
@@ -351,7 +333,6 @@ describe("gpu node interaction dirty tracking", () => {
       });
     });
     const controller = createGpuNodeInteractionDirtyController({
-      activatePointerHandoffNode,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 1,
       requestFrame: vi.fn(),
@@ -383,7 +364,6 @@ describe("gpu node interaction dirty tracking", () => {
   });
 
   it("hands off a first wheel event to a passive native scroll region", () => {
-    vi.useFakeTimers();
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const scroller = document.createElement("div");
@@ -405,11 +385,8 @@ describe("gpu node interaction dirty tracking", () => {
     }
     const textureManager = createInteractionTextureManager();
     const requestFrame = vi.fn();
-    const activatePointerHandoffNode = vi.fn(() => nodeElement);
     let frame = 0;
     const controller = createGpuNodeInteractionDirtyController({
-      activatePointerHandoffNode,
-      activeSettleDelayMs: 50,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => {
         frame += 1;
@@ -434,10 +411,8 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.dispatchEvent(wheel);
 
     expect(wheel.defaultPrevented).toBe(true);
-    expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
     expect(scroller.scrollTop).toBe(80);
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(controller.getLiveNodeId()).toBe("node-a");
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 1,
@@ -445,22 +420,6 @@ describe("gpu node interaction dirty tracking", () => {
       priority: "interactive",
       reason: "scroll",
     });
-
-    nodeElement.dataset.gpuFlowTeleport = "active";
-    const activeWheel = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      clientX: 25,
-      clientY: 35,
-      deltaY: 40,
-    });
-    scroller.dispatchEvent(activeWheel);
-
-    expect(activeWheel.defaultPrevented).toBe(true);
-    expect(scroller.scrollTop).toBe(120);
-
-    vi.advanceTimersByTime(50);
-    expect(controller.getLiveNodeId()).toBeNull();
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],
@@ -531,8 +490,7 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
-  it("keeps an interactive node live until its upload catches up", () => {
-    vi.useFakeTimers();
+  it("keeps an interactive node active until its upload catches up", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const slider = document.createElement("input");
@@ -544,7 +502,6 @@ describe("gpu node interaction dirty tracking", () => {
       readonly activeNodeId: string | null;
     }> = [];
     const controller = createGpuNodeInteractionDirtyController({
-      activeSettleDelayMs: 100,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 1,
       onStateChange: (state) => states.push(state),
@@ -561,17 +518,13 @@ describe("gpu node interaction dirty tracking", () => {
       uploadedNodeIds: [],
     });
 
-    expect(controller.getLiveNodeId()).toBe("node-a");
+    expect(controller.getActiveNodeId()).toBe("node-a");
     expect(states.at(-1)).toEqual({
       activeNodeId: "node-a",
     });
 
     document.dispatchEvent(new Event("pointerup", { bubbles: true }));
-    expect(controller.getLiveNodeId()).toBe("node-a");
-    vi.advanceTimersByTime(99);
-    expect(controller.getLiveNodeId()).toBe("node-a");
-    vi.advanceTimersByTime(1);
-    expect(controller.getLiveNodeId()).toBeNull();
+    expect(controller.getActiveNodeId()).toBe("node-a");
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],
@@ -587,8 +540,7 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
-  it("keeps focused text controls live after pointer release and restores on blur", () => {
-    vi.useFakeTimers();
+  it("keeps focused text controls active after pointer release and restores on blur", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const input = document.createElement("input");
@@ -598,7 +550,6 @@ describe("gpu node interaction dirty tracking", () => {
     document.body.append(canvas);
     const textureManager = createInteractionTextureManager();
     const controller = createGpuNodeInteractionDirtyController({
-      activeSettleDelayMs: 50,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 1,
       requestFrame: vi.fn(),
@@ -612,15 +563,11 @@ describe("gpu node interaction dirty tracking", () => {
 
     expect(document.activeElement).toBe(input);
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(controller.getLiveNodeId()).toBe("node-a");
-
-    vi.advanceTimersByTime(500);
 
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(controller.getLiveNodeId()).toBe("node-a");
 
     input.blur();
-    expect(controller.getLiveNodeId()).toBeNull();
+    expect(controller.getActiveNodeId()).toBe("node-a");
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],
@@ -633,17 +580,14 @@ describe("gpu node interaction dirty tracking", () => {
   });
 
   it("does not let active scroll events cancel a focused control blur release", () => {
-    vi.useFakeTimers();
     const canvas = document.createElement("canvas");
-    const activeLayer = document.createElement("div");
     const nodeElement = createNodeElement("node-a");
     const textarea = document.createElement("textarea");
     nodeElement.append(textarea);
     canvas.append(nodeElement);
-    document.body.append(canvas, activeLayer);
+    document.body.append(canvas);
     const textureManager = createInteractionTextureManager();
     const controller = createGpuNodeInteractionDirtyController({
-      activeSettleDelayMs: 50,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 1,
       requestFrame: vi.fn(),
@@ -654,19 +598,14 @@ describe("gpu node interaction dirty tracking", () => {
     textarea.focus();
     textarea.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     document.dispatchEvent(new Event("pointerup", { bubbles: true }));
-    nodeElement.dataset.gpuFlowTeleport = "active";
-    activeLayer.append(nodeElement);
-    textarea.focus();
     textarea.dispatchEvent(new Event("scroll", { bubbles: true }));
-    vi.advanceTimersByTime(50);
 
-    expect(controller.getLiveNodeId()).toBe("node-a");
+    expect(controller.getActiveNodeId()).toBe("node-a");
 
     textarea.blur();
     textarea.dispatchEvent(new Event("scroll", { bubbles: true }));
-    vi.advanceTimersByTime(50);
 
-    expect(controller.getLiveNodeId()).toBeNull();
+    expect(controller.getActiveNodeId()).toBe("node-a");
     controller.completeFrame({
       budgetExhausted: false,
       remainingDirtyNodeIds: [],
@@ -676,11 +615,9 @@ describe("gpu node interaction dirty tracking", () => {
 
     detach();
     canvas.remove();
-    activeLayer.remove();
   });
 
-  it("does not keep live DOM once no pointer or focus owner remains", () => {
-    vi.useFakeTimers();
+  it("releases an input-only interaction once no pointer or focus owner remains", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const slider = document.createElement("input");
@@ -689,7 +626,6 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.append(nodeElement);
     const textureManager = createInteractionTextureManager();
     const controller = createGpuNodeInteractionDirtyController({
-      activeSettleDelayMs: 50,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 1,
       requestFrame: vi.fn(),
@@ -699,7 +635,6 @@ describe("gpu node interaction dirty tracking", () => {
 
     slider.dispatchEvent(new Event("input", { bubbles: true }));
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(controller.getLiveNodeId()).toBeNull();
 
     controller.completeFrame({
       budgetExhausted: false,
@@ -708,13 +643,11 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     expect(controller.getActiveNodeId()).toBeNull();
-    expect(controller.getLiveNodeId()).toBeNull();
 
     detach();
   });
 
-  it("does not re-dirty an active control during the settle delay", () => {
-    vi.useFakeTimers();
+  it("does not re-dirty an active pointer control during upload completion", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const switchInput = document.createElement("button");
@@ -725,7 +658,6 @@ describe("gpu node interaction dirty tracking", () => {
     const requestFrame = vi.fn();
     let frame = 0;
     const controller = createGpuNodeInteractionDirtyController({
-      activeSettleDelayMs: 50,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => {
         frame += 1;
@@ -757,8 +689,7 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
-  it("requests one frame when active settle expires without marking dirty again", () => {
-    vi.useFakeTimers();
+  it("keeps a released pointer interaction active until an upload frame includes it", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
     const switchInput = document.createElement("button");
@@ -769,7 +700,6 @@ describe("gpu node interaction dirty tracking", () => {
     const requestFrame = vi.fn();
     let frame = 0;
     const controller = createGpuNodeInteractionDirtyController({
-      activeSettleDelayMs: 50,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => {
         frame += 1;
@@ -782,7 +712,7 @@ describe("gpu node interaction dirty tracking", () => {
 
     switchInput.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     document.dispatchEvent(new Event("pointerup", { bubbles: true }));
-    expect(controller.getLiveNodeId()).toBe("node-a");
+    expect(controller.getActiveNodeId()).toBe("node-a");
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
     expect(requestFrame).toHaveBeenCalledTimes(2);
 
@@ -792,13 +722,13 @@ describe("gpu node interaction dirty tracking", () => {
       uploadedNodeIds: [],
     });
     expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
-
-    vi.advanceTimersByTime(50);
-
-    expect(controller.getLiveNodeId()).toBeNull();
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
-    expect(requestFrame).toHaveBeenCalledTimes(3);
-    expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
+    expect(controller.getActiveNodeId()).toBe("node-a");
+    controller.completeFrame({
+      budgetExhausted: false,
+      remainingDirtyNodeIds: [],
+      uploadedNodeIds: ["node-a"],
+    });
+    expect(controller.getActiveNodeId()).toBeNull();
 
     detach();
   });
@@ -927,7 +857,6 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.append(nodeElement);
     const textureManager = createInteractionTextureManager();
     const controller = createGpuNodeInteractionDirtyController({
-      activeSettleDelayMs: 0,
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 33,
       requestFrame: vi.fn(),

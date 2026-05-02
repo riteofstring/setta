@@ -122,22 +122,6 @@
   box-shadow: inset 0 0 0 1px rgb(245 158 11 / 0.45);
 }
 
-.setta-gpu-flow__active-node-teleport-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.setta-gpu-flow__node--teleported {
-  pointer-events: auto;
-}
-
-.setta-gpu-flow__node--settling-clone {
-  pointer-events: none;
-}
-
 .setta-gpu-flow__node [data-section-active="true"] {
   outline-width: 0 !important;
   box-shadow: inset 0 0 0 2px var(--setta-section-style-outline, rgb(37 99 235)) !important;

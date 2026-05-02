@@ -21,17 +21,12 @@ export type GpuNodeInteractionDirtyController = {
   clearNode(nodeId: string): void;
   completeFrame(result: GpuNodeInteractionFrameResult): void;
   getActiveNodeId(): string | null;
-  getLiveNodeId(): string | null;
 };
 
 export type GpuNodeInteractionDirtyControllerOptions = {
-  readonly activatePointerHandoffNode?:
-    | ((nodeId: string) => HTMLElement | null)
-    | undefined;
   readonly deferPassiveDirty?: (() => boolean) | undefined;
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly getFrame: () => number;
-  readonly activeSettleDelayMs?: number | undefined;
   readonly onStateChange?:
     | ((state: GpuNodeInteractionState) => void)
     | undefined;
@@ -74,14 +69,7 @@ export type PendingPointerHandoffClick = {
   readonly target: HTMLElement;
 };
 
-export type ActiveNodeReleaseOptions = {
-  readonly settleLiveDom?: boolean | undefined;
-};
-
 export const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
-
-export const GPU_FLOW_TELEPORTED_NODE_SELECTOR =
-  '[data-gpu-flow-teleport="active"]';
 
 export const GPU_FLOW_MOUSE_ACTIVATION_SELECTOR =
   '[data-gpu-flow-activation="mousedown"]';
@@ -100,8 +88,6 @@ export const GPU_FLOW_PERSISTENT_FOCUS_SELECTOR = [
   ".xterm",
   ".xterm-screen",
 ].join(",");
-
-export const DEFAULT_ACTIVE_SETTLE_DELAY_MS = 240;
 
 export const TRUSTED_POINTER_HANDOFF_CLICK_SUPPRESSION_MS = 120;
 

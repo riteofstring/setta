@@ -13,12 +13,9 @@ import {
 } from "../nodeDirtyEvents";
 
 import {
-  ActiveNodeReleaseOptions,
-  DEFAULT_ACTIVE_SETTLE_DELAY_MS,
   DirtyEventKind,
   GPU_FLOW_NODE_SELECTOR,
   GPU_FLOW_PERSISTENT_FOCUS_SELECTOR,
-  GPU_FLOW_TELEPORTED_NODE_SELECTOR,
   GpuNodeInteractionDirtyController,
   GpuNodeInteractionDirtyControllerOptions,
   GpuNodeInteractionFrameResult,
@@ -49,8 +46,6 @@ import {
 } from "./pointerHandoff";
 
 export function createGpuNodeInteractionDirtyController({
-  activatePointerHandoffNode,
-  activeSettleDelayMs = DEFAULT_ACTIVE_SETTLE_DELAY_MS,
   deferPassiveDirty,
   elementByNodeId,
   getFrame,
@@ -72,7 +67,6 @@ export function createGpuNodeInteractionDirtyController({
   let hoverInteractionNodeId: string | null = null;
   let pointerInteractionNodeId: string | null = null;
   let releaseAfterUploadNodeId: string | null = null;
-  let activeSettleTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
 
   function setState(next: NodeInteractionStatePatch) {
     const previousActiveNodeId = activeNodeId;
@@ -118,7 +112,6 @@ export function createGpuNodeInteractionDirtyController({
   function beginInteractiveNode(nodeId: string, reason: DirtyNodeReason) {
     const manager = textureManager();
     manager?.setSurfaceTexturePriority(nodeId, "interactive");
-    clearActiveSettleTimer();
     setState({
       activeNodeId: nodeId,
       releaseAfterUploadNodeId: null,
@@ -163,10 +156,7 @@ export function createGpuNodeInteractionDirtyController({
     if (!handoffTarget) {
       return false;
     }
-    const liveNodeElement =
-      activatePointerHandoffNode?.(handoffTarget.nodeId) ??
-      elementByNodeId().get(handoffTarget.nodeId) ??
-      null;
+    const liveNodeElement = elementByNodeId().get(handoffTarget.nodeId) ?? null;
     const liveTarget = liveNodeElement
       ? resolveGpuNodeTargetDescriptor(
           liveNodeElement,
@@ -199,10 +189,7 @@ export function createGpuNodeInteractionDirtyController({
     if (!handoffTarget) {
       return false;
     }
-    const liveNodeElement =
-      activatePointerHandoffNode?.(handoffTarget.nodeId) ??
-      elementByNodeId().get(handoffTarget.nodeId) ??
-      null;
+    const liveNodeElement = elementByNodeId().get(handoffTarget.nodeId) ?? null;
     const liveTarget = liveNodeElement
       ? resolveGpuNodeTargetDescriptor(
           liveNodeElement,
@@ -368,15 +355,12 @@ export function createGpuNodeInteractionDirtyController({
   function tryBeginResizeHandleHoverFromEventTarget(
     target: EventTarget | null,
   ): boolean {
-    const teleportedNodeId = findGpuNodeIdForEventTarget(
-      target,
-      elementByNodeId(),
-    );
-    if (!teleportedNodeId || !isGpuNodeResizeHandleEventTarget(target)) {
+    const nodeId = findGpuNodeIdForEventTarget(target, elementByNodeId());
+    if (!nodeId || !isGpuNodeResizeHandleEventTarget(target)) {
       return false;
     }
 
-    activateResizeHandleHoverNode(teleportedNodeId);
+    activateResizeHandleHoverNode(nodeId);
     return true;
   }
 
@@ -402,9 +386,6 @@ export function createGpuNodeInteractionDirtyController({
   }
 
   function activateResizeHandleHoverNode(nodeId: string) {
-    if (hoverInteractionNodeId !== nodeId || activeNodeId !== nodeId) {
-      activatePointerHandoffNode?.(nodeId);
-    }
     beginResizeHandleHoverInteraction(nodeId);
   }
 
@@ -429,12 +410,11 @@ export function createGpuNodeInteractionDirtyController({
     if (kind === "scroll" && activeNodeId === nodeId) {
       const keepLiveForFocus = hasPersistentFocusForNode(nodeId);
       if (keepLiveForFocus) {
-        clearActiveSettleTimer();
         setState({ releaseAfterUploadNodeId: null });
       }
       markDirty({ nodeId, priority: "interactive", reason: "scroll" });
       if (!keepLiveForFocus) {
-        releaseActiveNodeAfterUpload(nodeId, { settleLiveDom: false });
+        releaseActiveNodeAfterUpload(nodeId);
       }
       return;
     }
@@ -484,60 +464,28 @@ export function createGpuNodeInteractionDirtyController({
       focusedPersistentNodeId = null;
     }
     if (nodeId && nodeId === activeNodeId) {
-      releaseActiveNode("focus", { settleLiveDom: false });
+      releaseActiveNode("focus");
     }
   }
 
-  function releaseActiveNode(
-    reason: DirtyNodeReason,
-    options: ActiveNodeReleaseOptions = {},
-  ) {
+  function releaseActiveNode(reason: DirtyNodeReason) {
     if (!activeNodeId) {
       return;
     }
     const nodeId = activeNodeId;
     markDirty({ nodeId, priority: "interactive", reason });
-    releaseActiveNodeAfterUpload(nodeId, options);
+    releaseActiveNodeAfterUpload(nodeId);
   }
 
   function scheduleActiveNodeRelease(nodeId: string) {
-    releaseActiveNodeAfterUpload(nodeId, { settleLiveDom: true });
+    releaseActiveNodeAfterUpload(nodeId);
   }
 
-  function releaseActiveNodeAfterUpload(
-    nodeId: string,
-    { settleLiveDom = true }: ActiveNodeReleaseOptions = {},
-  ) {
+  function releaseActiveNodeAfterUpload(nodeId: string) {
     if (activeNodeId !== nodeId) {
       return;
     }
     setState({ releaseAfterUploadNodeId: nodeId });
-    if (!settleLiveDom) {
-      clearActiveSettleTimer();
-      return;
-    }
-    scheduleActiveSettleFrame(nodeId);
-  }
-
-  function scheduleActiveSettleFrame(nodeId: string) {
-    clearActiveSettleTimer();
-    if (activeSettleDelayMs <= 0) {
-      return;
-    }
-    activeSettleTimer = globalThis.setTimeout(() => {
-      activeSettleTimer = null;
-      if (activeNodeId === nodeId && releaseAfterUploadNodeId === nodeId) {
-        requestFrame("texture-upload");
-      }
-    }, activeSettleDelayMs);
-  }
-
-  function clearActiveSettleTimer() {
-    if (activeSettleTimer === null) {
-      return;
-    }
-    globalThis.clearTimeout(activeSettleTimer);
-    activeSettleTimer = null;
   }
 
   return {
@@ -591,62 +539,21 @@ export function createGpuNodeInteractionDirtyController({
         listenerOptions,
       );
       canvas.addEventListener("focusout", handleFocusOut, listenerOptions);
-      ownerDocument.addEventListener(
-        "scroll",
-        (event) => {
-          if (shouldHandleTeleportedEventOutsideElement(event.target, canvas)) {
-            markEventTargetDirty(event.target, "scroll");
-          }
-        },
-        listenerOptions,
-      );
-      ownerDocument.addEventListener(
-        "wheel",
-        (event) => {
-          if (shouldHandleTeleportedEventOutsideElement(event.target, canvas)) {
-            handOffWheelEvent(event);
-          }
-        },
-        listenerOptions,
-      );
-      ownerDocument.addEventListener(
-        "focusin",
-        (event) => {
-          if (shouldHandleTeleportedEventOutsideElement(event.target, canvas)) {
-            markEventTargetDirty(event.target, "focus");
-          }
-        },
-        listenerOptions,
-      );
-      ownerDocument.addEventListener(
-        "focusout",
-        (event) => {
-          if (shouldHandleTeleportedEventOutsideElement(event.target, canvas)) {
-            handleFocusOut(event);
-          }
-        },
-        listenerOptions,
-      );
       canvas.addEventListener(
         "pointerdown",
         (event) => {
           if (dispatchingPointerHandoff) {
             return;
           }
-          if (
-            !isGpuNodeTeleportedEventTarget(event.target) &&
-            handOffPointerEvent(event)
-          ) {
-            return;
-          }
           const nodeId = findGpuNodeIdForEventTarget(
             event.target,
             elementByNodeId(),
           );
-          if (!nodeId || !isGpuNodeInteractiveEventTarget(event.target)) {
+          if (nodeId && isGpuNodeInteractiveEventTarget(event.target)) {
+            beginPointerInteraction(nodeId);
             return;
           }
-          beginPointerInteraction(nodeId);
+          handOffPointerEvent(event);
         },
         listenerOptions,
       );
@@ -686,7 +593,6 @@ export function createGpuNodeInteractionDirtyController({
 
       return () => {
         abortController.abort();
-        clearActiveSettleTimer();
         clearTrustedPointerHandoffClickSuppression();
       };
     },
@@ -704,9 +610,6 @@ export function createGpuNodeInteractionDirtyController({
         focusedPersistentNodeId = null;
       }
       clearPendingPointerHandoffForNode(nodeId);
-      if (activeNodeId === nodeId || releaseAfterUploadNodeId === nodeId) {
-        clearActiveSettleTimer();
-      }
       setState({
         activeNodeId: nextActiveNodeId,
         releaseAfterUploadNodeId: nextReleaseNodeId,
@@ -725,7 +628,6 @@ export function createGpuNodeInteractionDirtyController({
 
       const manager = textureManager();
       if (releaseAfterUploadNodeId === activeNodeId) {
-        clearActiveSettleTimer();
         manager?.setSurfaceTexturePriority(activeNodeId, "visible");
         setState({
           activeNodeId: null,
@@ -737,21 +639,6 @@ export function createGpuNodeInteractionDirtyController({
     getActiveNodeId() {
       return activeNodeId;
     },
-    getLiveNodeId() {
-      if (!activeNodeId) {
-        return null;
-      }
-      if (!releaseAfterUploadNodeId && !hasLiveActiveNodeOwner(activeNodeId)) {
-        return null;
-      }
-      if (
-        releaseAfterUploadNodeId === activeNodeId &&
-        activeSettleTimer === null
-      ) {
-        return null;
-      }
-      return activeNodeId;
-    },
   };
 
   function requestActiveReleaseWhenUnowned() {
@@ -761,7 +648,6 @@ export function createGpuNodeInteractionDirtyController({
     if (hasLiveActiveNodeOwner(activeNodeId)) {
       return;
     }
-    clearActiveSettleTimer();
     setState({ releaseAfterUploadNodeId: activeNodeId });
     requestFrame("texture-upload");
   }
@@ -775,12 +661,6 @@ export function createGpuNodeInteractionDirtyController({
     if (
       result.budgetExhausted &&
       result.remainingDirtyNodeIds.includes(activeNodeId)
-    ) {
-      return true;
-    }
-    if (
-      releaseAfterUploadNodeId === activeNodeId &&
-      activeSettleTimer !== null
     ) {
       return true;
     }
@@ -851,7 +731,7 @@ export function findDirectGpuNodeId(
   if (elementByNodeId.get(nodeId) === nodeElement) {
     return nodeId;
   }
-  return isActiveTeleportedGpuNodeElement(nodeElement) ? nodeId : null;
+  return null;
 }
 
 export function findContainingGpuNodeId(
@@ -864,31 +744,6 @@ export function findContainingGpuNodeId(
     }
   }
   return null;
-}
-
-export function isActiveTeleportedGpuNodeElement(
-  nodeElement: HTMLElement,
-): boolean {
-  return nodeElement.getAttribute("data-gpu-flow-teleport") === "active";
-}
-
-export function isGpuNodeTeleportedEventTarget(
-  target: EventTarget | Node | null,
-) {
-  const element = toElement(target);
-  return Boolean(element?.closest(GPU_FLOW_TELEPORTED_NODE_SELECTOR));
-}
-
-export function shouldHandleTeleportedEventOutsideElement(
-  target: EventTarget | Node | null,
-  attachedElement: HTMLElement,
-): boolean {
-  const element = toElement(target);
-  return Boolean(
-    element &&
-      !attachedElement.contains(element) &&
-      isGpuNodeTeleportedEventTarget(element),
-  );
 }
 
 export function isGpuNodePersistentFocusEventTarget(

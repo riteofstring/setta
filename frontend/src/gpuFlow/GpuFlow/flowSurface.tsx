@@ -21,11 +21,6 @@ import type {
   GpuEdgeSceneLabel,
 } from "../edges/edgeSources";
 
-import {
-  createGpuActiveNodeTeleportController,
-  type GpuActiveNodeTeleportController,
-} from "../GpuActiveNodeTeleport";
-
 import type { GpuFlowRuntime } from "../gpuDevice";
 
 import { GpuEdgeLabelLayer } from "../GpuEdgeLabels";
@@ -102,16 +97,12 @@ import {
 } from "../viewportStore";
 
 import {
-  activateGpuFlowPointerHandoffNode,
-  completeGpuActiveNodeSettlingClones,
   completeGpuNodeInteractionFrame,
   destroyNodeInteractionResources,
   destroyNodeLayerResources,
   nextFrame,
   requestRemainingTextureUploadFrame,
-  resolveGpuActiveNodePaintedIds,
   resolveRenderableGpuFlowLayerFrameInput,
-  syncGpuFlowActiveNodeTeleportForFrame,
   syncGpuFlowNodeInteractionState,
 } from "./flowFrame";
 
@@ -199,19 +190,12 @@ export type GpuFlowNodeLayerState = {
   readonly viewport: GpuViewportInput;
 };
 
-export type GpuActiveNodeTeleportFrameSync = {
-  readonly deferUploadNodeIds: readonly string[] | undefined;
-  readonly suppressNodeIds: readonly string[] | undefined;
-};
-
 export const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
 
 export const EMPTY_EDGE_LABELS: readonly GpuEdgeSceneLabel[] = [];
 
 export const EMPTY_EDGE_RECONNECT_ANCHORS: readonly GpuEdgeReconnectAnchor[] =
   [];
-
-export const EMPTY_NODE_IDS: readonly string[] = [];
 
 export function GpuFlow({
   children,
@@ -253,9 +237,6 @@ export function GpuFlow({
     useState<GpuUserSelectionRect | null>(() =>
       getVisibleGpuUserSelectionRect(viewportStore.getState()),
     );
-  const activeNodeTeleportRef = useRef<GpuActiveNodeTeleportController | null>(
-    null,
-  );
   const [sourceInteractionProjector] = useState(() =>
     createHtmlSurfaceInteractionProjector(),
   );
@@ -271,9 +252,6 @@ export function GpuFlow({
   const nodeDomTransformSyncCacheRef = useRef<GpuNodeDomTransformSyncCache>(
     createGpuNodeDomTransformSyncCache(),
   );
-  const pendingActiveNodePaintRef = useRef<Set<string>>(new Set());
-  const settlingActiveNodeIdsRef = useRef<Set<string>>(new Set());
-  const settlingActiveNodeClearIdsRef = useRef<Set<string>>(new Set());
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
@@ -372,12 +350,8 @@ export function GpuFlow({
     if (!nodes && !nextEdges && !grid) {
       visibleNodeIdsRef.current = new Set();
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
-      pendingActiveNodePaintRef.current.clear();
-      settlingActiveNodeIdsRef.current.clear();
-      settlingActiveNodeClearIdsRef.current.clear();
       transformOnlyPaintNodeIdsRef.current.clear();
       sourceInteractionProjector.destroy();
-      activeNodeTeleportRef.current?.destroy();
       destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef);
     }
     surfaceRef.current?.requestFrame("viewport");
@@ -471,7 +445,6 @@ export function GpuFlow({
 
   useEffect(() => {
     return () => {
-      activeNodeTeleportRef.current?.destroy();
       sourceInteractionProjector.destroy();
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       destroyNodeInteractionResources(
@@ -491,13 +464,9 @@ export function GpuFlow({
       );
       if (!element) {
         clearGpuFlowNodeElement({
-          activeNodeTeleportRef,
           nodeElementByIdRef,
           nodeId,
           nodeInteractionRef,
-          pendingActiveNodePaintRef,
-          settlingActiveNodeClearIdsRef,
-          settlingActiveNodeIdsRef,
           sourceInteractionProjector,
           textureManagerRef,
           transformOnlyPaintNodeIdsRef,
@@ -525,17 +494,6 @@ export function GpuFlow({
         nodeInteractionCleanupRef,
       );
       const nodeInteraction = createGpuNodeInteractionDirtyController({
-        activatePointerHandoffNode: (nodeId) =>
-          activateGpuFlowPointerHandoffNode({
-            activeNodeTeleportRef,
-            frameRef,
-            nodeElementByIdRef,
-            nodeLayerRef,
-            nodeId,
-            pendingActiveNodePaintRef,
-            settlingActiveNodeIdsRef,
-            surfaceRef,
-          }),
         deferPassiveDirty: () =>
           viewportStore.getState().viewportInteractionActive,
         elementByNodeId: () => nodeElementByIdRef.current,
@@ -648,13 +606,6 @@ export function GpuFlow({
           textureManager,
         });
       }
-      for (const nodeId of resolveGpuActiveNodePaintedIds({
-        changedElements: event.changedElements,
-        elementByNodeId: nodeElementByIdRef.current,
-        pendingPaintNodeIds: pendingActiveNodePaintRef.current,
-      })) {
-        pendingActiveNodePaintRef.current.delete(nodeId);
-      }
       callbacksRef.current.onPaint?.(runtime, event);
       if (event.changedElements?.length) {
         transformOnlyPaintNodeIdsRef.current.clear();
@@ -672,16 +623,12 @@ export function GpuFlow({
           event.reasons.includes("viewport") ||
           viewportStore.getState().viewportInteractionActive,
         frameRef,
-        activeNodeTeleportRef,
         nodeElementByIdRef,
         nodeDomTransformSyncCacheRef,
         nodeInteractionRef,
         nodeLayerRef,
         htmlSurfaceRendererRef,
-        pendingActiveNodePaintRef,
         runtime,
-        settlingActiveNodeClearIdsRef,
-        settlingActiveNodeIdsRef,
         surfaceRef,
         textureManagerRef,
         transformOnlyPaintNodeIdsRef,
@@ -699,9 +646,6 @@ export function GpuFlow({
     onNodeElementChange: handleNodeElementChange,
     renderNode,
   });
-  const activeNodeTeleportLayer = (
-    <GpuActiveNodeTeleportLayer controllerRef={activeNodeTeleportRef} />
-  );
   const userSelectionElement = (
     <GpuUserSelectionOverlay rect={userSelectionRect} />
   );
@@ -741,32 +685,7 @@ export function GpuFlow({
       {userSelectionElement}
       {edgeLabelElement}
       {edgeReconnectElement}
-      {activeNodeTeleportLayer}
     </div>
-  );
-}
-
-export function GpuActiveNodeTeleportLayer({
-  controllerRef,
-}: {
-  readonly controllerRef: MutableRefObject<GpuActiveNodeTeleportController | null>;
-}) {
-  const setLayerElement = useCallback(
-    (element: HTMLDivElement | null) => {
-      controllerRef.current?.destroy();
-      controllerRef.current = element
-        ? createGpuActiveNodeTeleportController(element)
-        : null;
-    },
-    [controllerRef],
-  );
-
-  return (
-    <div
-      className="setta-gpu-flow__active-node-teleport-layer"
-      data-gpu-flow-active-node-teleport-layer="true"
-      ref={setLayerElement}
-    />
   );
 }
 
@@ -868,7 +787,6 @@ export function renderGpuFlowNodeLayerElement({
 }
 
 export function renderGpuFlowNodeLayerFrame({
-  activeNodeTeleportRef,
   callbacksRef,
   canvasSizeRef,
   deferResolutionUpdates,
@@ -878,10 +796,7 @@ export function renderGpuFlowNodeLayerFrame({
   nodeInteractionRef,
   nodeLayerRef,
   htmlSurfaceRendererRef,
-  pendingActiveNodePaintRef,
   runtime,
-  settlingActiveNodeClearIdsRef,
-  settlingActiveNodeIdsRef,
   surfaceRef,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
@@ -892,16 +807,12 @@ export function renderGpuFlowNodeLayerFrame({
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
   readonly deferResolutionUpdates: boolean;
   readonly frameRef: MutableRefObject<number>;
-  readonly activeNodeTeleportRef: MutableRefObject<GpuActiveNodeTeleportController | null>;
   readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
-  readonly pendingActiveNodePaintRef: MutableRefObject<Set<string>>;
   readonly runtime: GpuFlowRuntime;
-  readonly settlingActiveNodeClearIdsRef: MutableRefObject<Set<string>>;
-  readonly settlingActiveNodeIdsRef: MutableRefObject<Set<string>>;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
@@ -922,20 +833,9 @@ export function renderGpuFlowNodeLayerFrame({
 
   const frame = nextFrame(frameRef);
   const nodeInteraction = nodeInteractionRef.current;
-  const activeNodeTeleportFrameSync = syncGpuFlowActiveNodeTeleportForFrame({
-    activeNodeTeleportRef,
-    elementByNodeId: nodeElementByIdRef.current,
-    frame,
-    layer,
-    liveNodeId: nodeInteraction?.getLiveNodeId() ?? null,
-    pendingActiveNodePaintRef,
-    settlingActiveNodeIdsRef,
-    runtime,
-  });
   const layerResult = renderGpuNodeLayerFrame({
     activeNodeId: nodeInteraction?.getActiveNodeId(),
     canvasSize,
-    deferUploadNodeIds: activeNodeTeleportFrameSync.deferUploadNodeIds,
     deferResolutionUpdates,
     domTransformCache: nodeDomTransformSyncCacheRef.current,
     edges: layer.edges,
@@ -948,7 +848,6 @@ export function renderGpuFlowNodeLayerFrame({
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
     renderer: resources.htmlSurfaceRenderer,
-    suppressNodeIds: activeNodeTeleportFrameSync.suppressNodeIds,
     textureManager: resources.textureManager,
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
@@ -962,13 +861,6 @@ export function renderGpuFlowNodeLayerFrame({
     }
   }
   visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
-  completeGpuActiveNodeSettlingClones({
-    activeNodeTeleportRef,
-    layerResult,
-    settlingActiveNodeClearIdsRef,
-    settlingActiveNodeIdsRef,
-    surfaceRef,
-  });
   completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
   requestRemainingTextureUploadFrame(surfaceRef, layerResult);

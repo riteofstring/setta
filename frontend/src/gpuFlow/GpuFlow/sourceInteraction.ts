@@ -1,7 +1,5 @@
 import type { MutableRefObject } from "react";
 
-import type { GpuActiveNodeTeleportController } from "../GpuActiveNodeTeleport";
-
 import type { GpuNodeLayout } from "../GpuNodeLayer";
 
 import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
@@ -60,36 +58,23 @@ export function projectGpuFlowNodeSourceForPointerEvent({
 }
 
 export function clearGpuFlowNodeElement({
-  activeNodeTeleportRef,
   nodeElementByIdRef,
   nodeId,
   nodeInteractionRef,
-  pendingActiveNodePaintRef,
-  settlingActiveNodeClearIdsRef,
-  settlingActiveNodeIdsRef,
   sourceInteractionProjector,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
 }: {
-  readonly activeNodeTeleportRef: MutableRefObject<GpuActiveNodeTeleportController | null>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeId: string;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
-  readonly pendingActiveNodePaintRef: MutableRefObject<Set<string>>;
-  readonly settlingActiveNodeClearIdsRef: MutableRefObject<Set<string>>;
-  readonly settlingActiveNodeIdsRef: MutableRefObject<Set<string>>;
   readonly sourceInteractionProjector: HtmlSurfaceInteractionProjector;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
 }) {
   nodeElementByIdRef.current.delete(nodeId);
   nodeInteractionRef.current?.clearNode(nodeId);
-  activeNodeTeleportRef.current?.clearNode(nodeId);
-  activeNodeTeleportRef.current?.clearSettlingClone(nodeId);
   sourceInteractionProjector.clearSource(nodeId);
-  pendingActiveNodePaintRef.current.delete(nodeId);
-  settlingActiveNodeIdsRef.current.delete(nodeId);
-  settlingActiveNodeClearIdsRef.current.delete(nodeId);
   transformOnlyPaintNodeIdsRef.current.delete(nodeId);
   textureManagerRef.current?.destroySurfaceTexture(nodeId);
 }

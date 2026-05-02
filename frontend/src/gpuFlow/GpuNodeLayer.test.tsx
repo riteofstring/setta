@@ -1,19 +1,13 @@
 /* @vitest-environment jsdom */
 
-import { act } from "react";
-import { createRoot } from "react-dom/client";
-import "testUtils/reactRefreshPreamble";
 import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
 import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
-import type { GpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
-import { createGpuActiveNodeTeleportController } from "./GpuActiveNodeTeleport";
 import {
   buildTexturedGpuNodeQuads,
   collectVisibleGpuNodeQuads,
   createGpuNodeDomTransformSyncCache,
-  GpuNodeLayer,
   markGpuNodeLayerPaintDirty,
   renderGpuNodeLayerFrame,
   syncGpuNodeDomTransforms,
@@ -276,109 +270,6 @@ describe("GpuNodeLayer helpers", () => {
     expect(element.style.pointerEvents).toBe("auto");
   });
 
-  it("keeps React reconciliation stable while a node host is teleported", () => {
-    const canvas = document.createElement("canvas");
-    const teleportLayer = document.createElement("div");
-    document.body.append(canvas, teleportLayer);
-    const root = createRoot(canvas);
-    const elements = new Map<string, HTMLElement>();
-    const onNodeElementChange = (
-      nodeId: string,
-      element: HTMLElement | null,
-    ) => {
-      if (element) {
-        elements.set(nodeId, element);
-        return;
-      }
-      elements.delete(nodeId);
-    };
-
-    act(() => {
-      root.render(
-        <GpuNodeLayer
-          nodes={[
-            node("node-a", 10, 20, 100, 50, 1),
-            node("node-b", 40, 50, 100, 50, 2),
-          ]}
-          onNodeElementChange={onNodeElementChange}
-          renderNode={(renderedNode) => (
-            <span data-testid={`content-${renderedNode.nodeId}`}>
-              {renderedNode.nodeId}
-            </span>
-          )}
-        />,
-      );
-    });
-
-    const nodeHost = elements.get("node-a");
-    expect(nodeHost).toBeInstanceOf(HTMLElement);
-    expect(nodeHost?.parentElement).toBe(canvas);
-    expect(nodeHost?.dataset.gpuFlowHtmlSource).toBe("true");
-    expect(nodeHost?.getAttribute("data-gpu-flow-source-id")).toBe("node-a");
-    expect(nodeHost?.dataset.gpuFlowNode).toBe("true");
-    expect(nodeHost?.style.height).toBe("50px");
-    expect(nodeHost?.style.left).toBe("0px");
-    expect(nodeHost?.style.position).toBe("absolute");
-    expect(nodeHost?.style.top).toBe("0px");
-    expect(nodeHost?.style.transformOrigin).toBe("0 0");
-    expect(nodeHost?.style.width).toBe("100px");
-    expect(
-      canvas.querySelector(
-        '[data-gpu-flow-html-source-anchor="true"][data-gpu-flow-source-id="node-a"]',
-      ),
-    ).not.toBeNull();
-
-    const teleport = createGpuActiveNodeTeleportController(teleportLayer);
-    teleport.sync(activeSnapshot(nodeHost as HTMLElement, "node-a"));
-    expect(nodeHost?.parentElement).toBe(teleportLayer);
-
-    act(() => {
-      root.render(
-        <GpuNodeLayer
-          nodes={[
-            node("node-a", 20, 30, 100, 50, 4),
-            node("node-b", 40, 50, 100, 50, 2),
-          ]}
-          onNodeElementChange={onNodeElementChange}
-          renderNode={(renderedNode) => (
-            <span data-testid={`content-${renderedNode.nodeId}`}>
-              {renderedNode.nodeId}
-            </span>
-          )}
-        />,
-      );
-    });
-    expect(nodeHost?.parentElement).toBe(teleportLayer);
-    expect(
-      nodeHost?.classList.contains("setta-gpu-flow__node--teleported"),
-    ).toBe(true);
-
-    expect(() => {
-      act(() => {
-        root.render(
-          <GpuNodeLayer
-            nodes={[
-              node("node-b", 40, 50, 100, 50, 2),
-              node("node-c", 70, 80, 100, 50, 3),
-            ]}
-            onNodeElementChange={onNodeElementChange}
-            renderNode={(renderedNode) => (
-              <span data-testid={`content-${renderedNode.nodeId}`}>
-                {renderedNode.nodeId}
-              </span>
-            )}
-          />,
-        );
-      });
-    }).not.toThrow();
-    expect(elements.has("node-a")).toBe(false);
-
-    act(() => root.unmount());
-    teleport.destroy();
-    canvas.remove();
-    teleportLayer.remove();
-  });
-
   it("registers visible DOM nodes, uploads dirty textures, and renders uploaded quads", () => {
     const visible = document.createElement("div");
     const culled = document.createElement("div");
@@ -481,30 +372,7 @@ describe("GpuNodeLayer helpers", () => {
     });
   });
 
-  it("passes explicitly deferred upload nodes to the texture manager", () => {
-    const visible = document.createElement("div");
-    const elements = new Map([["visible", visible]]);
-    const manager = createFrameTextureManager();
-    const renderer = createFrameRenderer();
-
-    renderGpuNodeLayerFrame({
-      canvasSize: canvasSize(),
-      deferUploadNodeIds: ["visible"],
-      elementByNodeId: elements,
-      frame: 1,
-      nodes: [node("visible", 10, 20, 100, 50, 0)],
-      renderer,
-      textureManager: manager,
-      viewport: [0, 0, 1],
-    });
-
-    expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
-      deferSurfaceIds: ["visible"],
-      frame: 1,
-    });
-  });
-
-  it("suppresses live active node quads while preserving texture bookkeeping", () => {
+  it("keeps active node GPU quads rendered during interaction", () => {
     const active = document.createElement("div");
     const passive = document.createElement("div");
     const elements = new Map([
@@ -515,8 +383,8 @@ describe("GpuNodeLayer helpers", () => {
     const renderer = createFrameRenderer();
 
     const result = renderGpuNodeLayerFrame({
+      activeNodeId: "active",
       canvasSize: canvasSize(),
-      deferUploadNodeIds: ["active"],
       elementByNodeId: elements,
       frame: 1,
       nodes: [
@@ -524,7 +392,6 @@ describe("GpuNodeLayer helpers", () => {
         node("passive", 40, 60, 100, 50, 1),
       ],
       renderer,
-      suppressNodeIds: ["active"],
       textureManager: manager,
       viewport: [0, 0, 1],
     });
@@ -532,11 +399,11 @@ describe("GpuNodeLayer helpers", () => {
     expect(manager.registerSurfaceTexture).toHaveBeenCalledWith(
       expect.objectContaining({
         element: active,
+        priority: "interactive",
         surfaceId: "active",
       }),
     );
     expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
-      deferSurfaceIds: ["active"],
       frame: 1,
     });
     expect(renderer.render).toHaveBeenCalledWith(
@@ -546,46 +413,15 @@ describe("GpuNodeLayer helpers", () => {
             expect.objectContaining({
               surfaceId: "passive",
             }),
+            expect.objectContaining({
+              surfaceId: "active",
+            }),
           ],
         }),
       }),
     );
-    expect(result.drawnNodeIds).toEqual(["passive"]);
+    expect(result.drawnNodeIds).toEqual(["passive", "active"]);
     expect(result.visibleNodeIds).toEqual(["passive", "active"]);
-  });
-
-  it("keeps deferred and suppressed restored nodes in the visible sync set", () => {
-    const settling = document.createElement("div");
-    const manager = createFrameTextureManager();
-    const renderer = createFrameRenderer();
-
-    const result = renderGpuNodeLayerFrame({
-      canvasSize: canvasSize(),
-      deferUploadNodeIds: ["settling"],
-      elementByNodeId: new Map([["settling", settling]]),
-      frame: 1,
-      marginCssPx: 0,
-      nodes: [node("settling", 10_000, 10_000, 100, 50, 0)],
-      renderer,
-      suppressNodeIds: ["settling"],
-      textureManager: manager,
-      viewport: [0, 0, 1],
-    });
-
-    expect(result.visibleNodeIds).toEqual(["settling"]);
-    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith(
-      expect.objectContaining({
-        element: settling,
-        surfaceId: "settling",
-      }),
-    );
-    expect(renderer.render).toHaveBeenCalledWith(
-      expect.objectContaining({
-        scene: expect.objectContaining({
-          flatSurfaces: [],
-        }),
-      }),
-    );
   });
 
   it("reports texture eviction and memory summaries from the manager", () => {
@@ -1044,23 +880,6 @@ function toVisibleQuad(layout: GpuNodeLayout) {
     x: layout.x,
     y: layout.y,
     zIndex: layout.zIndex ?? 0,
-  };
-}
-
-function activeSnapshot(
-  sourceElement: HTMLElement,
-  nodeId: string,
-): GpuActiveNodeSnapshot {
-  return {
-    frame: 1,
-    height: 50,
-    nodeId,
-    screenX: 10,
-    screenY: 20,
-    sourceElement,
-    width: 100,
-    zIndex: 2,
-    zoom: 1,
   };
 }
 

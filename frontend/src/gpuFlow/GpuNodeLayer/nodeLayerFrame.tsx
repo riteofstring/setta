@@ -176,10 +176,6 @@ export type RenderGpuNodeLayerFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
-  readonly deferUploadNodeIds?:
-    | ReadonlySet<string>
-    | readonly string[]
-    | undefined;
   readonly deferResolutionUpdates?: boolean | undefined;
   readonly edgePalette?: GpuEdgePaletteInput | undefined;
   readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
@@ -194,10 +190,6 @@ export type RenderGpuNodeLayerFrameInput = {
   readonly nodes: readonly GpuNodeLayout[];
   readonly nodeTextureMemoryBudgetBytes?: number | undefined;
   readonly renderer: GpuNodeSurfaceRenderTarget;
-  readonly suppressNodeIds?:
-    | ReadonlySet<string>
-    | readonly string[]
-    | undefined;
   readonly domTransformCache?: GpuNodeDomTransformSyncCache | undefined;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget?: GpuNodeUploadBudget | undefined;
@@ -248,7 +240,6 @@ export const GPU_FLOW_NODE_INTERACTIVE_CLASS =
 
 export const PRESERVED_GPU_NODE_STATE_CLASSES = [
   GPU_FLOW_NODE_INTERACTIVE_CLASS,
-  "setta-gpu-flow__node--teleported",
 ] as const;
 
 export const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
@@ -337,7 +328,6 @@ export function renderGpuNodeLayerFrame({
   activeNodeId,
   canvasSize,
   clearColor,
-  deferUploadNodeIds,
   deferResolutionUpdates,
   domTransformCache,
   edgePalette,
@@ -350,7 +340,6 @@ export function renderGpuNodeLayerFrame({
   nodes,
   nodeTextureMemoryBudgetBytes,
   renderer,
-  suppressNodeIds,
   textureManager,
   uploadBudget,
   viewport,
@@ -358,10 +347,7 @@ export function renderGpuNodeLayerFrame({
   const activeNodeIds = normalizeNodeIdSet(
     activeNodeId ? [activeNodeId] : undefined,
   );
-  const retainedNodeIds = mergeNodeIdSets(
-    mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds),
-    mergeNodeIdSets(deferUploadNodeIds, suppressNodeIds),
-  );
+  const retainedNodeIds = mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds);
   const visibleQuads = collectVisibleGpuNodeQuads({
     canvasHeight: canvasSize.cssHeight,
     canvasWidth: canvasSize.cssWidth,
@@ -400,7 +386,6 @@ export function renderGpuNodeLayerFrame({
     viewport,
   });
   const uploadResult = uploadGpuNodeTextures({
-    deferUploadNodeIds,
     deferResolutionUpdates,
     frame,
     textureManager,
@@ -410,10 +395,6 @@ export function renderGpuNodeLayerFrame({
   const uploadedTexturedQuads = textureResult.texturedQuads.filter(
     (quad) => quad.texture.lastUploadFrame >= 0,
   );
-  const renderableTexturedQuads = suppressGpuNodeQuads(
-    uploadedTexturedQuads,
-    suppressNodeIds,
-  );
   const renderResult = renderer.render({
     canvasSize,
     clearColor,
@@ -421,7 +402,7 @@ export function renderGpuNodeLayerFrame({
     ...(edges === undefined ? {} : { edges }),
     ...(grid === undefined ? {} : { grid }),
     scene: createHtmlSurfaceVisualScene({
-      flatSurfaces: renderableTexturedQuads.map(toFlatHtmlSurfaceVisual),
+      flatSurfaces: uploadedTexturedQuads.map(toFlatHtmlSurfaceVisual),
     }),
     viewport,
   });
@@ -453,17 +434,6 @@ export function renderGpuNodeLayerFrame({
     uploadedNodeIds: uploadResult.uploaded.map((record) => record.surfaceId),
     visibleNodeIds: [...visibleNodeIds],
   };
-}
-
-export function suppressGpuNodeQuads(
-  quads: readonly GpuTexturedNodeQuad[],
-  suppressNodeIds: ReadonlySet<string> | readonly string[] | undefined,
-): readonly GpuTexturedNodeQuad[] {
-  const suppressedIds = normalizeNodeIdSet(suppressNodeIds);
-  if (suppressedIds.size === 0) {
-    return quads;
-  }
-  return quads.filter((quad) => !suppressedIds.has(quad.nodeId));
 }
 
 export function registerVisibleGpuNodeTextures({
@@ -511,23 +481,17 @@ export function registerVisibleGpuNodeTextures({
 }
 
 export function uploadGpuNodeTextures({
-  deferUploadNodeIds,
   deferResolutionUpdates,
   frame,
   textureManager,
   uploadBudget,
 }: {
-  readonly deferUploadNodeIds:
-    | ReadonlySet<string>
-    | readonly string[]
-    | undefined;
   readonly deferResolutionUpdates: boolean | undefined;
   readonly frame: number;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
 }) {
   return textureManager.uploadDirtySurfaceTextures({
-    ...(deferUploadNodeIds ? { deferSurfaceIds: deferUploadNodeIds } : {}),
     frame,
     ...(deferResolutionUpdates ? { deferPassiveUploads: true } : {}),
     ...uploadBudget,
