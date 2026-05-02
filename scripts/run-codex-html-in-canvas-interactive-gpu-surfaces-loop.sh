@@ -94,9 +94,25 @@ Completion blockers:
   interaction, or dense large-graph pan/zoom evidence unless the audit finds
   regressions.
 - Resolve these gaps before completion:
+  - remove production source-host hiding such as `nodeVisibility="hidden"` /
+    `sourceVisibility="hidden"` / `visibility: hidden` on html-in-canvas
+    source hosts. Source hosts must remain capture-ready direct canvas
+    children with real boxes; hide only GPU output or defer display work in a
+    way that does not violate the source policy. Add focused tests and browser
+    evidence that production source hosts pass `evaluateHtmlSurfaceSourcePolicy`.
+  - close first-visible and resolution-upgrade upload-budget bypasses. New
+    first-visible surfaces, tiled surfaces, and resolution-dirty uploads must
+    obey explicit count/duration/byte budgets or be deliberately excluded from
+    active viewport gesture windows with measured evidence. Do not let a zoom or
+    newly visible large surface flush all tiles unbudgeted during pan/zoom.
   - separate active pan/zoom gesture-window counters from deferred post-gesture
     resolution upgrades, so the "pure pan/zoom zero uploads/requestPaint" gate
     is measured unambiguously;
+  - decide and document whether pan/zoom is allowed to rewrite flat/tiled
+    vertex buffers when the visible set changes. If the plan's strict
+    camera-uniform-only hot path remains the target, eliminate those vertex
+    writes during active pan/zoom; otherwise update the plan with the measured
+    bounded behavior and tradeoff before completion.
   - promote or verify generic `HtmlSurfaceVisualScene` hit projection in the
     production interaction path, because current project node targeting may still
     be flat-node-layout based while mesh/effect projection is mainly fixture-backed;

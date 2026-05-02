@@ -254,6 +254,14 @@ because `copyElementImageToTexture` requires it. Do not hide sources with
 `display: none`, `visibility: hidden`, or `opacity: 0`; those can affect capture.
 The source is already not visually composited by the canvas.
 
+Treat the `3d-room-live-content` demo and
+`three-html-render/src/threeHTMLRenderer.ts` as the canonical source-visibility
+evidence. Native capture needs the source to remain visible enough for Chromium
+to record paint; this is a correctness requirement, not a cosmetic detail. A
+production source host that uses `nodeVisibility="hidden"`,
+`sourceVisibility="hidden"`, `visibility: hidden`, `opacity: 0`, offscreen
+parking, or clipping must fail the source-policy gate.
+
 Do not park capture sources far offscreen with `left: -9999px` or hide them with
 `clip-path`. The `3d-room-live-content` demo shows Chromium can skip painting
 those sources, leaving no cached paint record. If a non-Setta staging canvas is
@@ -300,6 +308,14 @@ Dirty sources:
 - Theme/style changes that affect rendered output.
 - Resolution bucket changes after zoom settles.
 - Active animated sources that explicitly request a frame.
+
+Treat `html-in-canvas-dot-dev/src/content/demos/multi-element-composition/demo.html`
+as the canonical dirty-ownership example. When `paint.changedElements` is
+available, map each changed element to the owning Setta surface or tile and dirty
+only that owner. Do not widen a browser-reported child change into all visible
+sources or all surfaces sharing the canvas. If a probe shows `changedElements`
+is not usable, rely on explicit Setta source-owned dirty events and fail the
+probe loudly instead of guessing dirty regions from DOM selectors or text.
 
 Upload priority:
 
@@ -380,6 +396,15 @@ the DOM texture content itself changed.
 ## Interaction Projection
 
 Interaction is a projection problem, not a rendering-mode switch.
+
+Treat `random-stuff/apps/curved-markup/src/App/index.tsx` and
+`three-html-render/src/raycastInteractionManager.ts` as the canonical production
+interaction model, not merely fixture inspiration. The source DOM may be
+temporarily transformed so the source pixel under the pointer is also under the
+browser pointer, but the visible surface remains the GPU-rendered texture. This
+is not the old DOM teleport overlay path, and it must flow through the generic
+`HtmlSurfaceVisualScene`/hit-projector contract for flat, mesh, and effect
+surfaces.
 
 Pointer flow:
 
