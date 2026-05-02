@@ -6,7 +6,7 @@ import type { NodeDragItem } from "gpuFlow/flowTypes";
 
 import { GpuFlow } from "gpuFlow/GpuFlow";
 
-import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
+import type { GpuNodeLayout } from "gpuFlow/htmlSurfaces/frame";
 
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 

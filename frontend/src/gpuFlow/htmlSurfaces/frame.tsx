@@ -9,25 +9,25 @@ import type { GpuCanvasSize } from "../gpuRenderer";
 import type {
   RenderHtmlSurfacesInput,
   RenderHtmlSurfacesResult,
-} from "../htmlSurfaces/renderer";
+} from "./renderer";
 
 import type {
   HtmlSurfaceTextureManager,
   HtmlSurfaceTextureMemorySnapshot,
   HtmlSurfaceTextureRecord,
   UploadDirtyHtmlSurfaceTexturesOptions,
-} from "../htmlSurfaces/textures";
+} from "./textures";
 
 import {
   createHtmlSurfaceVisualScene,
   type HtmlSurfaceFlatVisual,
-} from "../htmlSurfaces/visualScene";
+} from "./visualScene";
 
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 
-import { resolveHtmlSurfacePaintInvalidation } from "../htmlSurfaces/paintInvalidation";
+import { resolveHtmlSurfacePaintInvalidation } from "./paintInvalidation";
 
 import {
   HTML_SURFACE_SOURCE_CLASS_NAME,
@@ -35,7 +35,7 @@ import {
   HTML_SURFACE_SOURCE_SELECTOR,
   HtmlSurfaceSourceLayer,
   type HtmlSurfaceSourceElementConfig,
-} from "../htmlSurfaces/sourceLayer";
+} from "./sourceLayer";
 
 import {
   getVisibleFlowRect,
@@ -58,7 +58,7 @@ import {
   setStyleValue,
   toNodeQuad,
   toRect,
-} from "./nodeDomTransforms";
+} from "./sourceTransforms";
 
 export type GpuNodeLayout = {
   readonly height: number | null;
@@ -83,7 +83,7 @@ export type GpuTexturedNodeQuad = GpuVisibleNodeQuad & {
   readonly texture: HtmlSurfaceTextureRecord;
 };
 
-export type GpuNodeLayerProps = {
+export type HtmlSurfaceNodeLayerProps = {
   readonly className?: string | undefined;
   readonly nodeVisibility?: CSSProperties["visibility"] | undefined;
   readonly nodes: readonly GpuNodeLayout[];
@@ -172,7 +172,7 @@ export type GpuNodeSurfaceRenderTarget = {
   render(input: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult;
 };
 
-export type RenderGpuNodeLayerFrameInput = {
+export type RenderHtmlSurfaceFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
@@ -196,7 +196,7 @@ export type RenderGpuNodeLayerFrameInput = {
   readonly viewport: GpuViewportInput;
 };
 
-export type RenderGpuNodeLayerFrameResult = {
+export type RenderHtmlSurfaceFrameResult = {
   readonly activeNodeId: string | null;
   readonly budgetExhausted: boolean;
   readonly domTransformParkedNodeIds: readonly string[];
@@ -216,7 +216,7 @@ export type RenderGpuNodeLayerFrameResult = {
   readonly visibleNodeIds: readonly string[];
 };
 
-export type MarkGpuNodeLayerPaintDirtyInput = {
+export type MarkHtmlSurfaceFramePaintDirtyInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly frame: number;
@@ -249,13 +249,13 @@ export const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
   visibleNodeIds: [],
 };
 
-export function GpuNodeLayer({
+export function HtmlSurfaceNodeLayer({
   className = DEFAULT_NODE_CLASS_NAME,
   nodeVisibility,
   nodes,
   onNodeElementChange,
   renderNode,
-}: GpuNodeLayerProps) {
+}: HtmlSurfaceNodeLayerProps) {
   return (
     <HtmlSurfaceSourceLayer
       configureSourceElement={configureGpuNodeSourceElement}
@@ -324,7 +324,7 @@ export function mergeGpuNodeHostClassName(
   return [...classes].join(" ");
 }
 
-export function renderGpuNodeLayerFrame({
+export function renderHtmlSurfaceFrame({
   activeNodeId,
   canvasSize,
   clearColor,
@@ -343,7 +343,7 @@ export function renderGpuNodeLayerFrame({
   textureManager,
   uploadBudget,
   viewport,
-}: RenderGpuNodeLayerFrameInput): RenderGpuNodeLayerFrameResult {
+}: RenderHtmlSurfaceFrameInput): RenderHtmlSurfaceFrameResult {
   const activeNodeIds = normalizeNodeIdSet(
     activeNodeId ? [activeNodeId] : undefined,
   );
@@ -411,7 +411,7 @@ export function renderGpuNodeLayerFrame({
       ? {}
       : { budgetBytes: nodeTextureMemoryBudgetBytes }),
     protectedSurfaceIds: retainedNodeIds,
-    reason: "node-layer-frame",
+    reason: "html-surface-frame",
     visibleSurfaceIds: visibleNodeIds,
   });
 
@@ -498,13 +498,13 @@ export function uploadGpuNodeTextures({
   });
 }
 
-export function markGpuNodeLayerPaintDirty({
+export function markHtmlSurfaceFramePaintDirty({
   changedElements,
   elementByNodeId,
   frame,
   ignoreDirectNodeIds,
   textureManager,
-}: MarkGpuNodeLayerPaintDirtyInput): string[] {
+}: MarkHtmlSurfaceFramePaintDirtyInput): string[] {
   const { dirtySurfaceIds } = resolveHtmlSurfacePaintInvalidation({
     changedElements,
     sourceElementBySurfaceId: elementByNodeId,

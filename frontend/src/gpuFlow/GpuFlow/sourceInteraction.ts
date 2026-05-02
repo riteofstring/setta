@@ -1,6 +1,6 @@
 import type { MutableRefObject } from "react";
 
-import type { GpuNodeLayout } from "../GpuNodeLayer";
+import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 
 import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
 

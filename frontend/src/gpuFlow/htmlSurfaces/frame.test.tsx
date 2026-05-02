@@ -2,26 +2,26 @@
 
 import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildGpuEdgeGeometry } from "./edges/edgeGeometry";
-import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
+import { buildGpuEdgeGeometry } from "../edges/edgeGeometry";
+import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import {
   buildTexturedGpuNodeQuads,
   collectVisibleGpuNodeQuads,
   createGpuNodeDomTransformSyncCache,
-  markGpuNodeLayerPaintDirty,
-  renderGpuNodeLayerFrame,
+  markHtmlSurfaceFramePaintDirty,
+  renderHtmlSurfaceFrame,
   syncGpuNodeDomTransforms,
   syncGpuNodeDomTransformsFromQuads,
   type GpuNodeLayout,
-} from "./GpuNodeLayer";
-import type { RenderHtmlSurfacesInput } from "./htmlSurfaces/renderer";
+} from "./frame";
+import type { RenderHtmlSurfacesInput } from "./renderer";
 import type {
   HtmlSurfaceTextureRecord,
   UploadDirtyHtmlSurfaceTexturesOptions,
-} from "./htmlSurfaces/textures";
-import { HtmlSurfaceTextureManager } from "./htmlSurfaces/textures";
+} from "./textures";
+import { HtmlSurfaceTextureManager } from "./textures";
 
-describe("GpuNodeLayer helpers", () => {
+describe("HTML surface frame helpers", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -280,7 +280,7 @@ describe("GpuNodeLayer helpers", () => {
     const manager = createFrameTextureManager();
     const renderer = createFrameRenderer();
 
-    const result = renderGpuNodeLayerFrame({
+    const result = renderHtmlSurfaceFrame({
       canvasSize: canvasSize(),
       activeNodeId: "visible",
       elementByNodeId: elements,
@@ -344,7 +344,7 @@ describe("GpuNodeLayer helpers", () => {
     const manager = createFrameTextureManager();
     const renderer = createFrameRenderer();
 
-    renderGpuNodeLayerFrame({
+    renderHtmlSurfaceFrame({
       canvasSize: canvasSize(),
       deferResolutionUpdates: true,
       elementByNodeId: elements,
@@ -382,7 +382,7 @@ describe("GpuNodeLayer helpers", () => {
     const manager = createFrameTextureManager();
     const renderer = createFrameRenderer();
 
-    const result = renderGpuNodeLayerFrame({
+    const result = renderHtmlSurfaceFrame({
       activeNodeId: "active",
       canvasSize: canvasSize(),
       elementByNodeId: elements,
@@ -448,10 +448,10 @@ describe("GpuNodeLayer helpers", () => {
       },
       overBudgetBytes: 0,
       protectedSurfaceIds: ["visible"],
-      reason: "node-layer-frame",
+      reason: "html-surface-frame",
     });
 
-    const result = renderGpuNodeLayerFrame({
+    const result = renderHtmlSurfaceFrame({
       activeNodeId: "visible",
       canvasSize: canvasSize(),
       elementByNodeId: new Map([["visible", visible]]),
@@ -464,7 +464,7 @@ describe("GpuNodeLayer helpers", () => {
 
     expect(manager.evictSurfaceTextures).toHaveBeenCalledWith({
       protectedSurfaceIds: expect.any(Set),
-      reason: "node-layer-frame",
+      reason: "html-surface-frame",
       visibleSurfaceIds: expect.any(Set),
     });
     const evictionInput = manager.evictSurfaceTextures.mock.calls[0]?.[0];
@@ -492,7 +492,7 @@ describe("GpuNodeLayer helpers", () => {
     const manager = createFrameTextureManager();
     const renderer = createFrameRenderer();
 
-    renderGpuNodeLayerFrame({
+    renderHtmlSurfaceFrame({
       activeNodeId: "visible",
       canvasSize: canvasSize(),
       elementByNodeId: new Map([["visible", visible]]),
@@ -507,7 +507,7 @@ describe("GpuNodeLayer helpers", () => {
     expect(manager.evictSurfaceTextures).toHaveBeenCalledWith({
       budgetBytes: 1_048_576,
       protectedSurfaceIds: expect.any(Set),
-      reason: "node-layer-frame",
+      reason: "html-surface-frame",
       visibleSurfaceIds: expect.any(Set),
     });
   });
@@ -522,7 +522,7 @@ describe("GpuNodeLayer helpers", () => {
     const nodes = [node("node-a", 10, 20, 100, 50, 0)];
     const domTransformCache = createGpuNodeDomTransformSyncCache();
 
-    const firstFrame = renderGpuNodeLayerFrame({
+    const firstFrame = renderHtmlSurfaceFrame({
       canvasSize: canvasSize(),
       domTransformCache,
       elementByNodeId: elements,
@@ -532,7 +532,7 @@ describe("GpuNodeLayer helpers", () => {
       textureManager: manager,
       viewport: [0, 0, 1],
     });
-    const secondFrame = renderGpuNodeLayerFrame({
+    const secondFrame = renderHtmlSurfaceFrame({
       canvasSize: canvasSize(),
       domTransformCache,
       elementByNodeId: elements,
@@ -570,7 +570,7 @@ describe("GpuNodeLayer helpers", () => {
     const renderer = createFrameRenderer();
     const edgeInput = edge("edge-a", 0, 0, 100, 0);
 
-    const result = renderGpuNodeLayerFrame({
+    const result = renderHtmlSurfaceFrame({
       canvasSize: canvasSize(),
       edges: [edgeInput],
       elementByNodeId: new Map([["node-a", element]]),
@@ -595,7 +595,7 @@ describe("GpuNodeLayer helpers", () => {
     const renderer = createFrameRenderer();
     const edgePalette = { color: "#41506c" };
 
-    renderGpuNodeLayerFrame({
+    renderHtmlSurfaceFrame({
       canvasSize: canvasSize(),
       edgePalette,
       elementByNodeId: new Map(),
@@ -622,7 +622,7 @@ describe("GpuNodeLayer helpers", () => {
     const renderer = createFrameRenderer();
     const edgeInput = edge("edge-a", 0, 0, 100, 0);
 
-    const result = renderGpuNodeLayerFrame({
+    const result = renderHtmlSurfaceFrame({
       canvasSize: canvasSize(),
       edges: [edgeInput],
       elementByNodeId: new Map(),
@@ -664,7 +664,7 @@ describe("GpuNodeLayer helpers", () => {
       variant: BackgroundVariantEnum.dots,
     } as const;
 
-    renderGpuNodeLayerFrame({
+    renderHtmlSurfaceFrame({
       canvasSize: canvasSize(),
       elementByNodeId: new Map(),
       frame: 1,
@@ -702,7 +702,7 @@ describe("GpuNodeLayer helpers", () => {
       markSurfaceTextureDirty: vi.fn(),
     };
 
-    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
       changedElements: [input],
       elementByNodeId,
       frame: 7,
@@ -726,7 +726,7 @@ describe("GpuNodeLayer helpers", () => {
       markSurfaceTextureDirty: vi.fn(),
     };
 
-    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
       changedElements: [nodeElement],
       elementByNodeId: new Map([["node-a", nodeElement]]),
       frame: 8,
@@ -751,7 +751,7 @@ describe("GpuNodeLayer helpers", () => {
       markSurfaceTextureDirty: vi.fn(),
     };
 
-    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
       changedElements: [nodeElement, child],
       elementByNodeId: new Map([["node-a", nodeElement]]),
       frame: 9,
@@ -776,7 +776,7 @@ describe("GpuNodeLayer helpers", () => {
       markSurfaceTextureDirty: vi.fn(),
     };
 
-    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
       changedElements: [nodeElement],
       elementByNodeId: new Map([["node-a", nodeElement]]),
       frame: 9,
@@ -796,7 +796,7 @@ describe("GpuNodeLayer helpers", () => {
       markSurfaceTextureDirty: vi.fn(),
     };
 
-    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
       changedElements: [wrapper],
       elementByNodeId: new Map([["node-a", nodeElement]]),
       frame: 9,
@@ -819,7 +819,7 @@ describe("GpuNodeLayer helpers", () => {
       markSurfaceTextureDirty: vi.fn(),
     };
 
-    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
       elementByNodeId: new Map([["node-a", nodeElement]]),
       frame: 8,
       textureManager: manager,
@@ -839,7 +839,7 @@ describe("GpuNodeLayer helpers", () => {
       markSurfaceTextureDirty: vi.fn(),
     };
 
-    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
       changedElements: [unrelated, canvas],
       elementByNodeId: new Map([["node-a", nodeElement]]),
       frame: 10,
@@ -952,7 +952,7 @@ function createFrameTextureManager() {
         memoryBefore: EMPTY_TEXTURE_MEMORY_SNAPSHOT,
         overBudgetBytes: 0,
         protectedSurfaceIds: [] as string[],
-        reason: "node-layer-frame",
+        reason: "html-surface-frame",
       };
     }),
     getSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),

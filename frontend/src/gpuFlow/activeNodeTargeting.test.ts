@@ -1,7 +1,6 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it } from "vitest";
-import type { GpuNodeLayout } from "./GpuNodeLayer";
 import {
   createGpuNodeTargetDescriptor,
   isGpuNodeInteractiveEventTarget,
@@ -9,6 +8,7 @@ import {
   resolveGpuNodeTargetDescriptor,
   resolveGpuNodeWheelHandoffTarget,
 } from "./activeNodeTargeting";
+import type { GpuNodeLayout } from "./htmlSurfaces/frame";
 
 describe("gpu active node pointer targeting", () => {
   it("resolves the topmost node control at a canvas client point", () => {

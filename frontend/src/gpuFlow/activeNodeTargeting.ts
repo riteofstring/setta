@@ -1,5 +1,5 @@
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
-import type { GpuNodeLayout } from "./GpuNodeLayer";
+import type { GpuNodeLayout } from "./htmlSurfaces/frame";
 import {
   createHtmlSurfaceHitScene,
   resolveHtmlSurfaceHitAtClientPoint,

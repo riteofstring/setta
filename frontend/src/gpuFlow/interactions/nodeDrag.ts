@@ -1,7 +1,7 @@
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
-import type { GpuNodeLayout } from "../GpuNodeLayer";
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import { panGpuViewport } from "../viewportActions";
 import { screenToFlowPosition, type GpuPoint } from "../viewportMath";
 import {

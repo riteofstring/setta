@@ -2,7 +2,7 @@
 
 import { SelectionModeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { GpuNodeLayout } from "../GpuNodeLayer";
+import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuSelectionController,

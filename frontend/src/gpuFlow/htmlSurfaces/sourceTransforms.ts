@@ -1,18 +1,18 @@
 import type { NodeTexturePriority } from "../dirtyTracking";
 
-import { HTML_SURFACE_PASSIVE_TRANSFORM } from "../htmlSurfaces/interactionProjector";
+import { HTML_SURFACE_PASSIVE_TRANSFORM } from "./interactionProjector";
 
 import { resolveGpuNodeZIndex } from "../nodeZIndex";
 
 import type { GpuRect } from "../viewportMath";
 
-import {
-  GPU_FLOW_NODE_INTERACTIVE_CLASS,
+import type {
   GpuNodeDomTransformState,
   GpuNodeDomTransformSyncCache,
   GpuNodeLayout,
   GpuVisibleNodeQuad,
-} from "./nodeLayerFrame";
+} from "./frame";
+import { GPU_FLOW_NODE_INTERACTIVE_CLASS } from "./frame";
 
 export function applyVisibleNodeDomTransform(
   element: HTMLElement,

@@ -4,8 +4,8 @@ import type { GpuFlowRuntime } from "../gpuDevice";
 
 import {
   type GpuNodeLayout,
-  type RenderGpuNodeLayerFrameResult,
-} from "../GpuNodeLayer";
+  type RenderHtmlSurfaceFrameResult,
+} from "../htmlSurfaces/frame";
 
 import { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 
@@ -149,14 +149,14 @@ function setGpuFlowNodeInteractionElementState(
 
 export function completeGpuNodeInteractionFrame(
   nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
-  layerResult: RenderGpuNodeLayerFrameResult,
+  layerResult: RenderHtmlSurfaceFrameResult,
 ) {
   nodeInteractionRef.current?.completeFrame(layerResult);
 }
 
 export function requestRemainingTextureUploadFrame(
   surfaceRef: MutableRefObject<GpuSurfaceHandle | null>,
-  layerResult: RenderGpuNodeLayerFrameResult,
+  layerResult: RenderHtmlSurfaceFrameResult,
 ) {
   if (layerResult.budgetExhausted) {
     surfaceRef.current?.requestFrame("texture-upload");

@@ -1,7 +1,7 @@
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { SelectionModeEnum } from "utils/generatedTypes";
-import type { GpuNodeLayout } from "../GpuNodeLayer";
 import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
+import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import {
   rectsIntersect,
   screenToFlowPosition,

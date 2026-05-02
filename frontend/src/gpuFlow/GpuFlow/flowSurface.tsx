@@ -34,15 +34,15 @@ import {
   clearGpuNodeDomTransformSyncCache,
   clearGpuNodeDomTransformSyncCacheNode,
   createGpuNodeDomTransformSyncCache,
-  GpuNodeLayer,
-  markGpuNodeLayerPaintDirty,
-  renderGpuNodeLayerFrame,
+  HtmlSurfaceNodeLayer,
+  markHtmlSurfaceFramePaintDirty,
+  renderHtmlSurfaceFrame,
   type GpuNodeDomTransformSyncCache,
-  type GpuNodeLayerProps,
   type GpuNodeLayout,
   type GpuNodeUploadBudget,
-  type RenderGpuNodeLayerFrameResult,
-} from "../GpuNodeLayer";
+  type HtmlSurfaceNodeLayerProps,
+  type RenderHtmlSurfaceFrameResult,
+} from "../htmlSurfaces/frame";
 
 import { type GpuEdgePaletteInput, type GpuGridInput } from "../gpuPipelines";
 
@@ -136,7 +136,7 @@ export type GpuFlowProps = Pick<
   onNodeElementChange?:
     | ((nodeId: string, element: HTMLElement | null) => void)
     | undefined;
-  nodeVisibility?: GpuNodeLayerProps["nodeVisibility"];
+  nodeVisibility?: HtmlSurfaceNodeLayerProps["nodeVisibility"];
   nodes?: readonly GpuNodeLayout[] | undefined;
   nodeDrag?:
     | false
@@ -146,7 +146,7 @@ export type GpuFlowProps = Pick<
       >
     | undefined;
   onNodeLayerFrame?:
-    | ((result: RenderGpuNodeLayerFrameResult) => void)
+    | ((result: RenderHtmlSurfaceFrameResult) => void)
     | undefined;
   panZoom?:
     | false
@@ -598,7 +598,7 @@ export function GpuFlow({
     (runtime, event) => {
       const textureManager = textureManagerRef.current;
       if (textureManager) {
-        markGpuNodeLayerPaintDirty({
+        markHtmlSurfaceFramePaintDirty({
           changedElements: event.changedElements,
           elementByNodeId: nodeElementByIdRef.current,
           frame: nextFrame(frameRef),
@@ -759,7 +759,7 @@ export function renderGpuFlowNodeLayerElement({
   renderNode,
 }: {
   readonly nodeClassName: string | undefined;
-  readonly nodeVisibility: GpuNodeLayerProps["nodeVisibility"];
+  readonly nodeVisibility: HtmlSurfaceNodeLayerProps["nodeVisibility"];
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly onNodeElementChange: (
     nodeId: string,
@@ -776,7 +776,7 @@ export function renderGpuFlowNodeLayerElement({
     );
   }
   return (
-    <GpuNodeLayer
+    <HtmlSurfaceNodeLayer
       className={nodeClassName}
       nodeVisibility={nodeVisibility}
       nodes={nodes}
@@ -833,7 +833,7 @@ export function renderGpuFlowNodeLayerFrame({
 
   const frame = nextFrame(frameRef);
   const nodeInteraction = nodeInteractionRef.current;
-  const layerResult = renderGpuNodeLayerFrame({
+  const layerResult = renderHtmlSurfaceFrame({
     activeNodeId: nodeInteraction?.getActiveNodeId(),
     canvasSize,
     deferResolutionUpdates,
