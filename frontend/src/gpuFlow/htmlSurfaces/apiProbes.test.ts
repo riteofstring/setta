@@ -58,6 +58,20 @@ describe("HTML surface API probe summaries", () => {
 
     expect(() => assertHtmlSurfaceApiProbesPassed(summary)).not.toThrow();
   });
+
+  it("treats transform-only paint behavior as documented after routing", () => {
+    const summary = summarizeHtmlSurfaceApiProbeResults([
+      {
+        details: "Transform-only source movement fired paint.",
+        name: "transform-only-paint-invalidation",
+        requirement: "documented",
+        status: "pass",
+      },
+    ]);
+
+    expect(summary.failedRequiredProbes).toEqual([]);
+    expect(() => assertHtmlSurfaceApiProbesPassed(summary)).not.toThrow();
+  });
 });
 
 describe("HTML surface source policy", () => {

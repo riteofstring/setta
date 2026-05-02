@@ -31,6 +31,8 @@ import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 
+import { resolveHtmlSurfacePaintInvalidation } from "../htmlSurfaces/paintInvalidation";
+
 import {
   flowToScreenPosition,
   getVisibleFlowRect,
@@ -45,7 +47,6 @@ import {
   applyVisibleNodeDomTransform,
   createCulledNodeDomTransformState,
   createVisibleNodeDomTransformStateForQuad,
-  findNodeIdForChangedElement,
   isCachedNodeDomTransformState,
   mergeNodeIdSets,
   normalizeNodeIdSet,
@@ -600,22 +601,16 @@ export function markGpuNodeLayerPaintDirty({
   ignoreDirectNodeIds,
   textureManager,
 }: MarkGpuNodeLayerPaintDirtyInput): string[] {
-  const dirtyNodeIds = new Set<string>();
-  const ignoredDirectIds = normalizeNodeIdSet(ignoreDirectNodeIds);
-  if (changedElements) {
-    for (const changedElement of changedElements) {
-      const nodeId = findNodeIdForChangedElement(
-        changedElement,
-        elementByNodeId,
-        ignoredDirectIds,
-      );
-      if (nodeId) {
-        dirtyNodeIds.add(nodeId);
-      }
-    }
-  }
+  const { dirtySurfaceIds } = resolveHtmlSurfacePaintInvalidation({
+    changedElements,
+    sourceElementBySurfaceId: elementByNodeId,
+    sourceIdAttribute: "data-id",
+    sourceSelector: GPU_FLOW_NODE_SELECTOR,
+    surfaceSelector: GPU_FLOW_SURFACE_SELECTOR,
+    transformOnlySourceIds: ignoreDirectNodeIds,
+  });
 
-  for (const nodeId of dirtyNodeIds) {
+  for (const nodeId of dirtySurfaceIds) {
     textureManager.markNodeTextureDirty({
       content: true,
       frame,
@@ -625,7 +620,7 @@ export function markGpuNodeLayerPaintDirty({
     });
   }
 
-  return [...dirtyNodeIds];
+  return [...dirtySurfaceIds];
 }
 
 export function collectVisibleGpuNodeQuads({

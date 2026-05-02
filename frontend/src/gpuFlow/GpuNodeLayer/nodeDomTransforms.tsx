@@ -11,8 +11,6 @@ import {
 import {
   DEFAULT_OFFSCREEN_POSITION,
   GPU_FLOW_NODE_INTERACTIVE_CLASS,
-  GPU_FLOW_NODE_SELECTOR,
-  GPU_FLOW_SURFACE_SELECTOR,
   GpuNodeDomTransformState,
   GpuNodeDomTransformSyncCache,
   GpuNodeLayout,
@@ -266,72 +264,6 @@ export function normalizeNodeIdSet(
     return nodeIds;
   }
   return new Set(nodeIds);
-}
-
-export function findNodeIdForChangedElement(
-  changedElement: Element,
-  elementByNodeId: ReadonlyMap<string, HTMLElement>,
-  ignoreDirectNodeIds: ReadonlySet<string>,
-): string | null {
-  return (
-    findClosestChangedElementNodeId(
-      changedElement,
-      elementByNodeId,
-      ignoreDirectNodeIds,
-    ) ??
-    findSingleContainedChangedElementNodeId(changedElement, elementByNodeId)
-  );
-}
-
-export function findClosestChangedElementNodeId(
-  changedElement: Element,
-  elementByNodeId: ReadonlyMap<string, HTMLElement>,
-  ignoreDirectNodeIds: ReadonlySet<string>,
-): string | null {
-  const nearestNodeElement = changedElement.closest<HTMLElement>(
-    GPU_FLOW_NODE_SELECTOR,
-  );
-  const nearestNodeId = nearestNodeElement?.getAttribute("data-id");
-  if (
-    nearestNodeId &&
-    elementByNodeId.get(nearestNodeId) === nearestNodeElement
-  ) {
-    if (
-      changedElement === nearestNodeElement &&
-      ignoreDirectNodeIds.has(nearestNodeId)
-    ) {
-      return null;
-    }
-    return nearestNodeId;
-  }
-  return null;
-}
-
-export function findSingleContainedChangedElementNodeId(
-  changedElement: Element,
-  elementByNodeId: ReadonlyMap<string, HTMLElement>,
-): string | null {
-  if (changedElement.matches(GPU_FLOW_SURFACE_SELECTOR)) {
-    return null;
-  }
-
-  // html-in-canvas can report an enclosing changed subtree instead of the
-  // exact node. Accept that fallback only when the subtree contains exactly one
-  // registered GPU node, so a canvas/surface paint cannot dirty every node.
-  let containedNodeId: string | null = null;
-  for (const nodeElement of changedElement.querySelectorAll<HTMLElement>(
-    GPU_FLOW_NODE_SELECTOR,
-  )) {
-    const nodeId = nodeElement.getAttribute("data-id");
-    if (!nodeId || elementByNodeId.get(nodeId) !== nodeElement) {
-      continue;
-    }
-    if (containedNodeId && containedNodeId !== nodeId) {
-      return null;
-    }
-    containedNodeId = nodeId;
-  }
-  return containedNodeId;
 }
 
 export function resolveElement(
