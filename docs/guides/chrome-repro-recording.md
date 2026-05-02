@@ -64,6 +64,8 @@ The recorder also writes a stable pointer under the recording root:
 The recorder captures more than raw clicks and inputs:
 
 - browser console output and uncaught runtime failures
+- drag pointer movement, recorded as `pointermove` only while one or more mouse
+  buttons are pressed
 - fetch/XHR/websocket activity from the page
 - full websocket/request payload details in the transport sidecar when previews are truncated
 - app-published frontend debug snapshots when Setta emits them during state updates

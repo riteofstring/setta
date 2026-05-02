@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { GpuNodeLayout } from "./GpuNodeLayer";
 import {
   createGpuNodeTargetDescriptor,
+  isGpuNodeInteractiveEventTarget,
   resolveGpuNodePointerHandoffTarget,
   resolveGpuNodeTargetDescriptor,
   resolveGpuNodeWheelHandoffTarget,
@@ -281,6 +282,51 @@ describe("gpu active node pointer targeting", () => {
       kind: "stable-attribute",
       tagName: "div",
       value: "dropzone:node-a:param-a",
+    });
+  });
+
+  it("ignores dnd-kit draggable wrappers while preserving nested controls", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const draggableWrapper = document.createElement("div");
+    const title = document.createElement("p");
+    const button = document.createElement("button");
+    draggableWrapper.setAttribute("role", "button");
+    draggableWrapper.setAttribute("aria-roledescription", "draggable");
+    button.dataset.gpuFlowControl = "node-action";
+    draggableWrapper.append(title, button);
+    nodeElement.append(draggableWrapper);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(draggableWrapper, 20, 20, 200, 120);
+    setRect(title, 30, 30, 120, 20);
+    setRect(button, 30, 70, 80, 24);
+
+    expect(isGpuNodeInteractiveEventTarget(title)).toBe(false);
+    expect(isGpuNodeInteractiveEventTarget(button)).toBe(true);
+    expect(
+      resolveGpuNodePointerHandoffTarget({
+        clientX: 40,
+        clientY: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      }),
+    ).toBeNull();
+    expect(
+      resolveGpuNodePointerHandoffTarget({
+        clientX: 40,
+        clientY: 80,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      })?.descriptor,
+    ).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "button",
+      value: "node-action",
     });
   });
 

@@ -28,6 +28,7 @@ import _ from "lodash";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -275,6 +276,59 @@ function ProjectGpuFlowLayer({
 }) {
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
   const dndMode = useDndMode();
+  const edgeInteractionOptions = useMemo(
+    () =>
+      getProjectEdgeInteractionOptions({
+        isFollowTransitioning,
+        selectEdge,
+      }),
+    [isFollowTransitioning, selectEdge],
+  );
+  const edgePaletteInput = useMemo(
+    () => getProjectGpuEdgePaletteInput({ darkMode, settings }),
+    [darkMode, settings],
+  );
+  const edgeReconnectOptions = useMemo(
+    () =>
+      getProjectEdgeReconnectOptions({
+        isFollowTransitioning,
+      }),
+    [isFollowTransitioning],
+  );
+  const gridInput = useMemo(
+    () => getProjectGpuGridInput({ darkMode, settings }),
+    [darkMode, settings],
+  );
+  const nodeDragOptions = useMemo(
+    () =>
+      getProjectNodeDragOptions({
+        flowInteractionKeys,
+        isFollowTransitioning,
+        settings,
+      }),
+    [flowInteractionKeys, isFollowTransitioning, settings],
+  );
+  const panZoomOptions = useMemo(
+    () =>
+      getProjectPanZoomOptions({
+        dndMode,
+        flowInteractionKeys,
+        settings,
+      }),
+    [dndMode, flowInteractionKeys, settings],
+  );
+  const selectionOptions = useMemo(
+    () => ({
+      isBackgroundTarget: (target: EventTarget) =>
+        isProjectPaneBackgroundTarget(target),
+      isSelecting: () =>
+        gpuFlowViewportStore.getState().selectionKeyPressed &&
+        !isProjectGpuSelectionDisabled({ dndMode }),
+      mode: settings.selectionMode,
+      onSelectionChange: handleProjectSelectionChange,
+    }),
+    [dndMode, settings.selectionMode],
+  );
   useProjectGpuDndViewportTransitionCancel(dndMode);
   if (!readyToRender) {
     return null;
@@ -282,39 +336,19 @@ function ProjectGpuFlowLayer({
   return (
     <GpuFlow
       className="setta-gpu-flow react-flow__pane"
-      edgeInteraction={getProjectEdgeInteractionOptions({
-        isFollowTransitioning,
-        selectEdge,
-      })}
-      edgePalette={getProjectGpuEdgePaletteInput({ darkMode, settings })}
-      edgeReconnect={getProjectEdgeReconnectOptions({
-        isFollowTransitioning,
-      })}
+      edgeInteraction={edgeInteractionOptions}
+      edgePalette={edgePaletteInput}
+      edgeReconnect={edgeReconnectOptions}
       edgeScene={edgeScene}
-      grid={getProjectGpuGridInput({ darkMode, settings })}
-      nodeDrag={getProjectNodeDragOptions({
-        flowInteractionKeys,
-        isFollowTransitioning,
-        settings,
-      })}
+      grid={gridInput}
+      nodeDrag={nodeDragOptions}
       nodeVisibility={readyToBeVisible ? "visible" : "hidden"}
       nodes={nodeLayouts}
       onNodeElementChange={nodeElementChange}
       onResize={handleProjectFlowResize}
-      panZoom={getProjectPanZoomOptions({
-        dndMode,
-        flowInteractionKeys,
-        settings,
-      })}
+      panZoom={panZoomOptions}
       renderNode={renderProjectGpuNode}
-      selection={{
-        isBackgroundTarget: (target) => isProjectPaneBackgroundTarget(target),
-        isSelecting: () =>
-          gpuFlowViewportStore.getState().selectionKeyPressed &&
-          !isProjectGpuSelectionDisabled({ dndMode }),
-        mode: settings.selectionMode,
-        onSelectionChange: handleProjectSelectionChange,
-      }}
+      selection={selectionOptions}
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
     >
       <div

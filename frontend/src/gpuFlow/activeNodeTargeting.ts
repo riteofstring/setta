@@ -230,7 +230,7 @@ export function isGpuNodeInteractiveEventTarget(
   target: EventTarget | Node | null,
 ): boolean {
   const element = toElement(target);
-  return Boolean(element?.closest(INTERACTIVE_TARGET_SELECTOR));
+  return Boolean(element && findClosestGpuNodeInteractiveElement(element));
 }
 
 export function isGpuNodeResizeHandleEventTarget(
@@ -470,15 +470,48 @@ function compareGpuNodeStacking(
 
 function getInteractiveTargetCandidates(root: HTMLElement): HTMLElement[] {
   const candidates: HTMLElement[] = [];
-  if (root.matches(INTERACTIVE_TARGET_SELECTOR)) {
+  if (isGpuNodeInteractiveElement(root)) {
     candidates.push(root);
   }
   for (const candidate of root.querySelectorAll<HTMLElement>(
     INTERACTIVE_TARGET_SELECTOR,
   )) {
-    candidates.push(candidate);
+    if (isGpuNodeInteractiveElement(candidate)) {
+      candidates.push(candidate);
+    }
   }
   return candidates;
+}
+
+function findClosestGpuNodeInteractiveElement(
+  element: Element,
+): HTMLElement | null {
+  let current: Element | null = element;
+  while (current) {
+    const candidate = current.closest<HTMLElement>(INTERACTIVE_TARGET_SELECTOR);
+    if (!candidate) {
+      return null;
+    }
+    if (isGpuNodeInteractiveElement(candidate)) {
+      return candidate;
+    }
+    current = candidate.parentElement;
+  }
+  return null;
+}
+
+function isGpuNodeInteractiveElement(element: HTMLElement): boolean {
+  return (
+    element.matches(INTERACTIVE_TARGET_SELECTOR) &&
+    !isDndKitDraggableRoleWrapper(element)
+  );
+}
+
+function isDndKitDraggableRoleWrapper(element: HTMLElement): boolean {
+  return (
+    element.getAttribute("role") === "button" &&
+    element.getAttribute("aria-roledescription") === "draggable"
+  );
 }
 
 function getNativeWheelTargetCandidates(root: HTMLElement): HTMLElement[] {

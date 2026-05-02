@@ -174,6 +174,19 @@ function getWheelPoint(event) {
   };
 }
 
+function getPointerPoint(event) {
+  return {
+    clientX: event.clientX,
+    clientY: event.clientY,
+    pageX: event.pageX,
+    pageY: event.pageY,
+    screenX: event.screenX,
+    screenY: event.screenY,
+    movementX: event.movementX,
+    movementY: event.movementY,
+  };
+}
+
 function sendEvent(payload) {
   try {
     chrome.runtime.sendMessage({ type: "record-event", event: payload }, () => {
@@ -311,6 +324,49 @@ document.addEventListener(
     recordPointerLikeEvent("dblclick", event);
   },
   true,
+);
+
+document.addEventListener(
+  "pointermove",
+  (event) => {
+    if (!event.isTrusted || event.buttons === 0) {
+      return;
+    }
+    const element = getElementTarget(event.target);
+    if (!element) {
+      return;
+    }
+    const target = getTargetDescriptor(element);
+    const pointerPoint = getPointerPoint(event);
+    const pointElement = document.elementFromPoint(event.clientX, event.clientY);
+    const pointTarget =
+      pointElement instanceof Element ? getTargetDescriptor(pointElement) : null;
+    sendEventAfterCurrentEvent(() => ({
+      type: "pointermove",
+      timestampMs: nowTimestampMs(),
+      ...pointerPoint,
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      isPrimary: event.isPrimary,
+      button: event.button,
+      buttons: event.buttons,
+      width: event.width,
+      height: event.height,
+      pressure: event.pressure,
+      tangentialPressure: event.tangentialPressure,
+      tiltX: event.tiltX,
+      tiltY: event.tiltY,
+      twist: event.twist,
+      altKey: event.altKey,
+      ctrlKey: event.ctrlKey,
+      metaKey: event.metaKey,
+      shiftKey: event.shiftKey,
+      defaultPrevented: event.defaultPrevented,
+      target,
+      pointTarget,
+    }));
+  },
+  { capture: true, passive: true },
 );
 
 document.addEventListener(
