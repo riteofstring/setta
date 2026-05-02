@@ -165,4 +165,141 @@ describe("GpuMiniMap helpers", () => {
       });
     }
   });
+
+  it("marks the viewport interaction active during pannable minimap drag", async () => {
+    const store = createGpuFlowViewportStore({
+      height: 600,
+      transform: [0, 0, 1],
+      width: 800,
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    try {
+      await act(async () => {
+        root.render(<GpuMiniMap pannable viewportStore={store} />);
+      });
+      const svg = getRenderedMiniMapSvg(host);
+
+      await act(async () => {
+        dispatchPointerEvent(svg, "pointerdown", {
+          button: 0,
+          clientX: 20,
+          clientY: 30,
+          pointerId: 7,
+        });
+      });
+
+      expect(store.getState().pointerPanning).toBe(true);
+      expect(store.getState().viewportInteractionActive).toBe(true);
+
+      await act(async () => {
+        dispatchPointerEvent(svg, "pointermove", {
+          button: 0,
+          clientX: 30,
+          clientY: 45,
+          pointerId: 7,
+        });
+      });
+
+      expect(store.getState().transform).toEqual([-40, -60, 1]);
+
+      await act(async () => {
+        dispatchPointerEvent(svg, "pointerup", {
+          button: 0,
+          clientX: 30,
+          clientY: 45,
+          pointerId: 7,
+        });
+      });
+
+      expect(store.getState().pointerPanning).toBe(false);
+      expect(store.getState().viewportInteractionActive).toBe(false);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
+  it("clears minimap drag ownership when the component unmounts mid-drag", async () => {
+    const store = createGpuFlowViewportStore({
+      height: 600,
+      transform: [0, 0, 1],
+      width: 800,
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    try {
+      await act(async () => {
+        root.render(<GpuMiniMap pannable viewportStore={store} />);
+      });
+
+      await act(async () => {
+        dispatchPointerEvent(getRenderedMiniMapSvg(host), "pointerdown", {
+          button: 0,
+          clientX: 20,
+          clientY: 30,
+          pointerId: 7,
+        });
+      });
+
+      expect(store.getState().viewportInteractionActive).toBe(true);
+
+      await act(async () => {
+        root.unmount();
+      });
+
+      expect(store.getState().pointerPanning).toBe(false);
+      expect(store.getState().viewportInteractionActive).toBe(false);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
 });
+
+function getRenderedMiniMapSvg(host: HTMLElement): SVGSVGElement {
+  const svg = host.querySelector("svg");
+  if (!(svg instanceof SVGSVGElement)) {
+    throw new Error("Expected rendered minimap SVG.");
+  }
+  return svg;
+}
+
+function dispatchPointerEvent(
+  target: Element,
+  type: string,
+  init: PointerEventInit,
+) {
+  target.dispatchEvent(createPointerEvent(type, init));
+}
+
+function createPointerEvent(
+  type: string,
+  init: PointerEventInit,
+): PointerEvent {
+  if (typeof PointerEvent === "function") {
+    return new PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+  }
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  }) as PointerEvent;
+  Object.defineProperty(event, "pointerId", {
+    configurable: true,
+    value: init.pointerId ?? 1,
+  });
+  return event;
+}

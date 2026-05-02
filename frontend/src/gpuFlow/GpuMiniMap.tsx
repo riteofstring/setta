@@ -352,9 +352,12 @@ function useGpuMiniMapInteractions({
         lastClientY: event.clientY,
         pointerId: event.pointerId,
       };
+      viewportStore
+        .getState()
+        .setViewportInteractionFlags({ pointerPanning: true });
       event.currentTarget.setPointerCapture?.(event.pointerId);
     };
-  }, [pannable]);
+  }, [pannable, viewportStore]);
 
   const onPointerMove = useMemo(() => {
     if (!pannable) {
@@ -398,8 +401,23 @@ function useGpuMiniMapInteractions({
       }
       event.currentTarget.releasePointerCapture?.(event.pointerId);
       dragStateRef.current = null;
+      viewportStore
+        .getState()
+        .setViewportInteractionFlags({ pointerPanning: false });
     };
-  }, [pannable]);
+  }, [pannable, viewportStore]);
+
+  useEffect(() => {
+    return () => {
+      if (!dragStateRef.current) {
+        return;
+      }
+      dragStateRef.current = null;
+      viewportStore
+        .getState()
+        .setViewportInteractionFlags({ pointerPanning: false });
+    };
+  }, [pannable, viewportStore]);
 
   return {
     endPointerInteraction,
