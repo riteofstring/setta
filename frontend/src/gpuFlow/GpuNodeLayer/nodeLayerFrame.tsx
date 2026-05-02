@@ -12,11 +12,11 @@ import type {
 import type { GpuCanvasSize } from "../gpuRenderer";
 
 import type {
-  NodeTextureManager,
-  NodeTextureMemorySnapshot,
-  NodeTextureRecord,
-  UploadDirtyNodeTexturesOptions,
-} from "../nodeTextures";
+  HtmlSurfaceTextureManager,
+  HtmlSurfaceTextureMemorySnapshot,
+  HtmlSurfaceTextureRecord,
+  UploadDirtyHtmlSurfaceTexturesOptions,
+} from "../htmlSurfaces/textures";
 
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
@@ -75,7 +75,7 @@ export type GpuVisibleNodeQuad = {
 };
 
 export type GpuTexturedNodeQuad = GpuVisibleNodeQuad & {
-  readonly texture: NodeTextureRecord;
+  readonly texture: HtmlSurfaceTextureRecord;
 };
 
 export type GpuNodeLayerProps = {
@@ -150,17 +150,17 @@ export type GpuNodeDomTransformSyncResult = {
 };
 
 export type GpuNodeUploadBudget = Pick<
-  UploadDirtyNodeTexturesOptions,
-  "maxDurationMs" | "maxUploads" | "now"
+  UploadDirtyHtmlSurfaceTexturesOptions,
+  "maxBytes" | "maxDurationMs" | "maxUploads" | "now"
 >;
 
 export type GpuNodeTextureController = Pick<
-  NodeTextureManager,
-  | "getNodeTexture"
-  | "evictNodeTextures"
-  | "markNodeTextureDirty"
-  | "registerNodeTexture"
-  | "uploadDirtyNodeTextures"
+  HtmlSurfaceTextureManager,
+  | "getSurfaceTexture"
+  | "evictSurfaceTextures"
+  | "markSurfaceTextureDirty"
+  | "registerSurfaceTexture"
+  | "uploadDirtySurfaceTextures"
 >;
 
 export type GpuNodeQuadRenderTarget = {
@@ -213,8 +213,8 @@ export type RenderGpuNodeLayerFrameResult = {
   readonly missingTextureNodeIds: readonly string[];
   readonly remainingDirtyNodeIds: readonly string[];
   readonly skippedNodeIds: readonly string[];
-  readonly textureMemory: NodeTextureMemorySnapshot;
-  readonly textureMemoryBeforeEviction: NodeTextureMemorySnapshot;
+  readonly textureMemory: HtmlSurfaceTextureMemorySnapshot;
+  readonly textureMemoryBeforeEviction: HtmlSurfaceTextureMemorySnapshot;
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeIds: readonly string[];
 };
@@ -224,7 +224,10 @@ export type MarkGpuNodeLayerPaintDirtyInput = {
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly frame: number;
   readonly ignoreDirectNodeIds?: ReadonlySet<string> | readonly string[];
-  readonly textureManager: Pick<NodeTextureManager, "markNodeTextureDirty">;
+  readonly textureManager: Pick<
+    HtmlSurfaceTextureManager,
+    "markSurfaceTextureDirty"
+  >;
 };
 
 export const DEFAULT_NODE_CLASS_NAME = GPU_FLOW_CLASS_NAMES.node;
@@ -415,13 +418,13 @@ export function renderGpuNodeLayerFrame({
     quads: renderableTexturedQuads,
     viewport,
   });
-  const evictionResult = textureManager.evictNodeTextures({
+  const evictionResult = textureManager.evictSurfaceTextures({
     ...(nodeTextureMemoryBudgetBytes === undefined
       ? {}
       : { budgetBytes: nodeTextureMemoryBudgetBytes }),
-    protectedNodeIds: retainedNodeIds,
+    protectedSurfaceIds: retainedNodeIds,
     reason: "node-layer-frame",
-    visibleNodeIds,
+    visibleSurfaceIds: visibleNodeIds,
   });
 
   return {
@@ -433,14 +436,14 @@ export function renderGpuNodeLayerFrame({
     drawnNodeIds: renderResult.drawnNodeIds,
     edgeVertexCount: renderResult.edgeVertexCount,
     evictedTextureBytes: evictionResult.evictedBytes,
-    evictedTextureNodeIds: evictionResult.evictedNodeIds,
+    evictedTextureNodeIds: evictionResult.evictedSurfaceIds,
     missingElementNodeIds,
     missingTextureNodeIds: textureResult.missingTextureNodeIds,
-    remainingDirtyNodeIds: uploadResult.remainingDirtyNodeIds,
-    skippedNodeIds: uploadResult.skippedNodeIds,
+    remainingDirtyNodeIds: uploadResult.remainingDirtySurfaceIds,
+    skippedNodeIds: uploadResult.skippedSurfaceIds,
     textureMemory: evictionResult.memory,
     textureMemoryBeforeEviction: evictionResult.memoryBefore,
-    uploadedNodeIds: uploadResult.uploaded.map((record) => record.nodeId),
+    uploadedNodeIds: uploadResult.uploaded.map((record) => record.surfaceId),
     visibleNodeIds: [...visibleNodeIds],
   };
 }
@@ -483,7 +486,7 @@ export function registerVisibleGpuNodeTextures({
       missingElementNodeIds.push(quad.nodeId);
       continue;
     }
-    textureManager.registerNodeTexture({
+    textureManager.registerSurfaceTexture({
       cssHeight: quad.height,
       cssWidth: quad.width,
       ...(deferResolutionUpdates && !activeNodeIds.has(quad.nodeId)
@@ -492,8 +495,8 @@ export function registerVisibleGpuNodeTextures({
       devicePixelRatio,
       element,
       frame,
-      nodeId: quad.nodeId,
       priority: resolveVisibleNodeTexturePriority(quad.nodeId, activeNodeIds),
+      surfaceId: quad.nodeId,
       zoom,
     });
   }
@@ -516,8 +519,8 @@ export function uploadGpuNodeTextures({
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
 }) {
-  return textureManager.uploadDirtyNodeTextures({
-    ...(deferUploadNodeIds ? { deferNodeIds: deferUploadNodeIds } : {}),
+  return textureManager.uploadDirtySurfaceTextures({
+    ...(deferUploadNodeIds ? { deferSurfaceIds: deferUploadNodeIds } : {}),
     frame,
     ...(deferResolutionUpdates ? { deferPassiveUploads: true } : {}),
     ...uploadBudget,
@@ -541,12 +544,12 @@ export function markGpuNodeLayerPaintDirty({
   });
 
   for (const nodeId of dirtySurfaceIds) {
-    textureManager.markNodeTextureDirty({
+    textureManager.markSurfaceTextureDirty({
       content: true,
       frame,
-      nodeId,
       reason: "paint",
       requestPaint: false,
+      surfaceId: nodeId,
     });
   }
 
@@ -602,13 +605,13 @@ export function collectVisibleGpuNodeQuads({
 export function buildTexturedGpuNodeQuads(
   quads: readonly GpuVisibleNodeQuad[],
   textureSource:
-    | Pick<NodeTextureManager, "getNodeTexture">
-    | ((nodeId: string) => NodeTextureRecord | undefined),
+    | Pick<HtmlSurfaceTextureManager, "getSurfaceTexture">
+    | ((nodeId: string) => HtmlSurfaceTextureRecord | undefined),
 ): BuildTexturedGpuNodeQuadsResult {
   const getTexture =
     typeof textureSource === "function"
       ? textureSource
-      : textureSource.getNodeTexture.bind(textureSource);
+      : textureSource.getSurfaceTexture.bind(textureSource);
   const texturedQuads: GpuTexturedNodeQuad[] = [];
   const missingTextureNodeIds: string[] = [];
 

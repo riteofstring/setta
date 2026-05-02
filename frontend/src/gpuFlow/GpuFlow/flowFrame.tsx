@@ -23,9 +23,9 @@ import {
 } from "../nodeInteractionDirty";
 
 import {
-  createNodeTextureManager,
-  type NodeTextureManager,
-} from "../nodeTextures";
+  createHtmlSurfaceTextureManager,
+  type HtmlSurfaceTextureManager,
+} from "../htmlSurfaces/textures";
 
 import {
   EMPTY_GPU_NODE_LAYOUTS,
@@ -47,14 +47,14 @@ export function resolveRenderableGpuFlowLayerFrameInput({
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>;
   readonly runtime: GpuFlowRuntime;
-  readonly textureManagerRef: MutableRefObject<NodeTextureManager | null>;
+  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }): {
   readonly canvasSize: GpuCanvasSize;
   readonly layer: GpuFlowNodeLayerState;
   readonly nodes: readonly GpuNodeLayout[];
   readonly resources: {
     readonly nodeQuadRenderer: GpuNodeQuadRenderer;
-    readonly textureManager: NodeTextureManager;
+    readonly textureManager: HtmlSurfaceTextureManager;
   };
 } | null {
   const layer = nodeLayerRef.current;
@@ -296,10 +296,10 @@ export function ensureNodeLayerResources({
 }: {
   readonly nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>;
   readonly runtime: GpuFlowRuntime;
-  readonly textureManagerRef: MutableRefObject<NodeTextureManager | null>;
+  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }) {
   if (!textureManagerRef.current) {
-    textureManagerRef.current = createNodeTextureManager(runtime);
+    textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
   }
   if (!nodeQuadRendererRef.current) {
     nodeQuadRendererRef.current = new GpuNodeQuadRenderer(runtime);
@@ -312,7 +312,7 @@ export function ensureNodeLayerResources({
 }
 
 export function destroyNodeLayerResources(
-  textureManagerRef: MutableRefObject<NodeTextureManager | null>,
+  textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>,
   nodeQuadRendererRef: MutableRefObject<GpuNodeQuadRenderer | null>,
 ) {
   textureManagerRef.current?.destroy();

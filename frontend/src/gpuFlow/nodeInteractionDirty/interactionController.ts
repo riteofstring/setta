@@ -103,13 +103,13 @@ export function createGpuNodeInteractionDirtyController({
 
     const deferRequestPaint =
       priority !== "interactive" && Boolean(deferPassiveDirty?.());
-    manager.markNodeTextureDirty({
+    manager.markSurfaceTextureDirty({
       content: true,
       frame: getFrame(),
-      nodeId,
       priority,
       reason,
       ...(deferRequestPaint ? { requestPaint: false } : {}),
+      surfaceId: nodeId,
     });
     requestFrame("texture-upload");
     return true;
@@ -117,7 +117,7 @@ export function createGpuNodeInteractionDirtyController({
 
   function beginInteractiveNode(nodeId: string, reason: DirtyNodeReason) {
     const manager = textureManager();
-    manager?.setNodeTexturePriority(nodeId, "interactive");
+    manager?.setSurfaceTexturePriority(nodeId, "interactive");
     clearActiveSettleTimer();
     setState({
       activeNodeId: nodeId,
@@ -726,7 +726,7 @@ export function createGpuNodeInteractionDirtyController({
       const manager = textureManager();
       if (releaseAfterUploadNodeId === activeNodeId) {
         clearActiveSettleTimer();
-        manager?.setNodeTexturePriority(activeNodeId, "visible");
+        manager?.setSurfaceTexturePriority(activeNodeId, "visible");
         setState({
           activeNodeId: null,
           releaseAfterUploadNodeId: null,

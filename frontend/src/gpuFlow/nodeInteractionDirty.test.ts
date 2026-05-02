@@ -59,14 +59,14 @@ describe("gpu node interaction dirty tracking", () => {
     input.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(textureManager.setNodeTexturePriority).toHaveBeenCalledWith(
+    expect(textureManager.setSurfaceTexturePriority).toHaveBeenCalledWith(
       "node-a",
       "interactive",
     );
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 1,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "interactive",
       reason: "input",
     });
@@ -135,10 +135,10 @@ describe("gpu node interaction dirty tracking", () => {
     expect(pointerDowns).toEqual([true]);
     expect(mouseDowns).toEqual([]);
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 1,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "interactive",
       reason: "pointer",
     });
@@ -270,10 +270,10 @@ describe("gpu node interaction dirty tracking", () => {
     expect(activatePointerHandoffNode).toHaveBeenCalledWith("node-a");
     expect(controller.getActiveNodeId()).toBe("node-a");
     expect(controller.getLiveNodeId()).toBe("node-a");
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 1,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "interactive",
       reason: "pointer",
     });
@@ -287,7 +287,7 @@ describe("gpu node interaction dirty tracking", () => {
       }),
     );
     expect(activatePointerHandoffNode).toHaveBeenCalledTimes(1);
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(1);
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
 
     const button = document.createElement("button");
     button.dataset.gpuFlowControl = "regular-control";
@@ -309,7 +309,7 @@ describe("gpu node interaction dirty tracking", () => {
       }),
     );
 
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(2);
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
     expect(controller.getLiveNodeId()).toBe("node-a");
     vi.advanceTimersByTime(50);
     expect(controller.getLiveNodeId()).toBeNull();
@@ -438,10 +438,10 @@ describe("gpu node interaction dirty tracking", () => {
     expect(scroller.scrollTop).toBe(80);
     expect(controller.getActiveNodeId()).toBe("node-a");
     expect(controller.getLiveNodeId()).toBe("node-a");
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 1,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "interactive",
       reason: "scroll",
     });
@@ -490,10 +490,10 @@ describe("gpu node interaction dirty tracking", () => {
     scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
 
     expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 9,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "visible",
       reason: "scroll",
     });
@@ -519,10 +519,10 @@ describe("gpu node interaction dirty tracking", () => {
 
     scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
 
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 10,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "visible",
       reason: "scroll",
       requestPaint: false,
@@ -579,7 +579,7 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.setNodeTexturePriority).toHaveBeenLastCalledWith(
+    expect(textureManager.setSurfaceTexturePriority).toHaveBeenLastCalledWith(
       "node-a",
       "visible",
     );
@@ -743,16 +743,16 @@ describe("gpu node interaction dirty tracking", () => {
       uploadedNodeIds: ["node-a"],
     });
 
-    expect(textureManager.markNodeTextureDirty).toHaveBeenLastCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenLastCalledWith({
       content: true,
       frame: 1,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "interactive",
       reason: "pointer",
     });
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(1);
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
 
     detach();
   });
@@ -783,7 +783,7 @@ describe("gpu node interaction dirty tracking", () => {
     switchInput.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     document.dispatchEvent(new Event("pointerup", { bubbles: true }));
     expect(controller.getLiveNodeId()).toBe("node-a");
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(2);
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
     expect(requestFrame).toHaveBeenCalledTimes(2);
 
     controller.completeFrame({
@@ -791,12 +791,12 @@ describe("gpu node interaction dirty tracking", () => {
       remainingDirtyNodeIds: ["node-a"],
       uploadedNodeIds: [],
     });
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(2);
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
 
     vi.advanceTimersByTime(50);
 
     expect(controller.getLiveNodeId()).toBeNull();
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(2);
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(2);
     expect(requestFrame).toHaveBeenCalledTimes(3);
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
 
@@ -822,11 +822,11 @@ describe("gpu node interaction dirty tracking", () => {
     document.dispatchEvent(new Event("pointermove", { bubbles: true }));
 
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledTimes(1);
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 4,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "interactive",
       reason: "focus",
     });
@@ -853,10 +853,10 @@ describe("gpu node interaction dirty tracking", () => {
     input.focus();
     document.dispatchEvent(new Event("selectionchange"));
 
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 12,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "interactive",
       reason: "selection",
     });
@@ -888,10 +888,10 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 21,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "visible",
       reason: "input",
     });
@@ -903,14 +903,14 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(textureManager.setNodeTexturePriority).toHaveBeenCalledWith(
+    expect(textureManager.setSurfaceTexturePriority).toHaveBeenCalledWith(
       "node-a",
       "interactive",
     );
-    expect(textureManager.markNodeTextureDirty).toHaveBeenLastCalledWith({
+    expect(textureManager.markSurfaceTextureDirty).toHaveBeenLastCalledWith({
       content: true,
       frame: 21,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       priority: "interactive",
       reason: "selection",
     });
@@ -951,7 +951,7 @@ describe("gpu node interaction dirty tracking", () => {
     });
 
     expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.setNodeTexturePriority).toHaveBeenLastCalledWith(
+    expect(textureManager.setSurfaceTexturePriority).toHaveBeenLastCalledWith(
       "node-a",
       "visible",
     );
@@ -969,8 +969,8 @@ function createNodeElement(nodeId: string): HTMLElement {
 
 function createInteractionTextureManager() {
   return {
-    markNodeTextureDirty: vi.fn(),
-    setNodeTexturePriority: vi.fn(),
+    markSurfaceTextureDirty: vi.fn(),
+    setSurfaceTexturePriority: vi.fn(),
   };
 }
 

@@ -23,10 +23,10 @@ import {
 } from "./GpuNodeLayer";
 import type { RenderNodeTextureQuadsInput } from "./gpuPipelines";
 import type {
-  NodeTextureRecord,
-  UploadDirtyNodeTexturesOptions,
-} from "./nodeTextures";
-import { NodeTextureManager } from "./nodeTextures";
+  HtmlSurfaceTextureRecord,
+  UploadDirtyHtmlSurfaceTexturesOptions,
+} from "./htmlSurfaces/textures";
+import { HtmlSurfaceTextureManager } from "./htmlSurfaces/textures";
 
 describe("GpuNodeLayer helpers", () => {
   afterEach(() => {
@@ -405,18 +405,20 @@ describe("GpuNodeLayer helpers", () => {
       viewport: [5, -10, 1.5],
     });
 
-    expect(manager.registerNodeTexture).toHaveBeenCalledTimes(1);
-    expect(manager.registerNodeTexture).toHaveBeenCalledWith({
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledTimes(1);
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element: visible,
       frame: 1,
-      nodeId: "visible",
       priority: "interactive",
+      surfaceId: "visible",
       zoom: 1.5,
     });
-    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({ frame: 1 });
+    expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
+      frame: 1,
+    });
     expect(renderer.render).toHaveBeenCalledWith({
       canvasSize: canvasSize(),
       clearColor: undefined,
@@ -460,18 +462,18 @@ describe("GpuNodeLayer helpers", () => {
       viewport: [0, 0, 1.5],
     });
 
-    expect(manager.registerNodeTexture).toHaveBeenCalledWith({
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith({
       cssHeight: 50,
       cssWidth: 100,
       deferResolution: true,
       devicePixelRatio: 2,
       element: visible,
       frame: 1,
-      nodeId: "visible",
       priority: "visible",
+      surfaceId: "visible",
       zoom: 1.5,
     });
-    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({
+    expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
       deferPassiveUploads: true,
       frame: 1,
     });
@@ -494,8 +496,8 @@ describe("GpuNodeLayer helpers", () => {
       viewport: [0, 0, 1],
     });
 
-    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({
-      deferNodeIds: ["visible"],
+    expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
+      deferSurfaceIds: ["visible"],
       frame: 1,
     });
   });
@@ -525,14 +527,14 @@ describe("GpuNodeLayer helpers", () => {
       viewport: [0, 0, 1],
     });
 
-    expect(manager.registerNodeTexture).toHaveBeenCalledWith(
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith(
       expect.objectContaining({
         element: active,
-        nodeId: "active",
+        surfaceId: "active",
       }),
     );
-    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({
-      deferNodeIds: ["active"],
+    expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
+      deferSurfaceIds: ["active"],
       frame: 1,
     });
     expect(renderer.render).toHaveBeenCalledWith(
@@ -567,10 +569,10 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(result.visibleNodeIds).toEqual(["settling"]);
-    expect(manager.registerNodeTexture).toHaveBeenCalledWith(
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith(
       expect.objectContaining({
         element: settling,
-        nodeId: "settling",
+        surfaceId: "settling",
       }),
     );
     expect(renderer.render).toHaveBeenCalledWith(
@@ -584,10 +586,10 @@ describe("GpuNodeLayer helpers", () => {
     const visible = document.createElement("div");
     const manager = createFrameTextureManager();
     const renderer = createFrameRenderer();
-    manager.evictNodeTextures.mockReturnValueOnce({
+    manager.evictSurfaceTextures.mockReturnValueOnce({
       budgetBytes: 800,
       evictedBytes: 400,
-      evictedNodeIds: ["offscreen"],
+      evictedSurfaceIds: ["offscreen"],
       memory: {
         allocatedBytes: 800,
         largestTextureBytes: 400,
@@ -603,7 +605,7 @@ describe("GpuNodeLayer helpers", () => {
         visibleTextureCount: 1,
       },
       overBudgetBytes: 0,
-      protectedNodeIds: ["visible"],
+      protectedSurfaceIds: ["visible"],
       reason: "node-layer-frame",
     });
 
@@ -618,14 +620,16 @@ describe("GpuNodeLayer helpers", () => {
       viewport: [0, 0, 1],
     });
 
-    expect(manager.evictNodeTextures).toHaveBeenCalledWith({
-      protectedNodeIds: expect.any(Set),
+    expect(manager.evictSurfaceTextures).toHaveBeenCalledWith({
+      protectedSurfaceIds: expect.any(Set),
       reason: "node-layer-frame",
-      visibleNodeIds: expect.any(Set),
+      visibleSurfaceIds: expect.any(Set),
     });
-    const evictionInput = manager.evictNodeTextures.mock.calls[0]?.[0];
-    expect([...(evictionInput?.visibleNodeIds ?? [])]).toEqual(["visible"]);
-    expect([...(evictionInput?.protectedNodeIds ?? [])]).toEqual(["visible"]);
+    const evictionInput = manager.evictSurfaceTextures.mock.calls[0]?.[0];
+    expect([...(evictionInput?.visibleSurfaceIds ?? [])]).toEqual(["visible"]);
+    expect([...(evictionInput?.protectedSurfaceIds ?? [])]).toEqual([
+      "visible",
+    ]);
     expect(result).toMatchObject({
       evictedTextureBytes: 400,
       evictedTextureNodeIds: ["offscreen"],
@@ -658,18 +662,18 @@ describe("GpuNodeLayer helpers", () => {
       viewport: [0, 0, 1],
     });
 
-    expect(manager.evictNodeTextures).toHaveBeenCalledWith({
+    expect(manager.evictSurfaceTextures).toHaveBeenCalledWith({
       budgetBytes: 1_048_576,
-      protectedNodeIds: expect.any(Set),
+      protectedSurfaceIds: expect.any(Set),
       reason: "node-layer-frame",
-      visibleNodeIds: expect.any(Set),
+      visibleSurfaceIds: expect.any(Set),
     });
   });
 
   it("redraws viewport-only movement from cached textures without another element upload", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
     const renderer = createFrameRenderer();
     const element = document.createElement("div");
     const elements = new Map([["node-a", element]]);
@@ -783,8 +787,10 @@ describe("GpuNodeLayer helpers", () => {
       viewport: [0, 0, 1],
     });
 
-    expect(manager.registerNodeTexture).not.toHaveBeenCalled();
-    expect(manager.uploadDirtyNodeTextures).toHaveBeenCalledWith({ frame: 1 });
+    expect(manager.registerSurfaceTexture).not.toHaveBeenCalled();
+    expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
+      frame: 1,
+    });
     expect(renderer.render).toHaveBeenCalledWith({
       canvasSize: canvasSize(),
       clearColor: undefined,
@@ -843,7 +849,7 @@ describe("GpuNodeLayer helpers", () => {
       );
     }
     const manager = {
-      markNodeTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
@@ -855,19 +861,19 @@ describe("GpuNodeLayer helpers", () => {
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
     expect(elementByNodeId.iterationCount).toBe(0);
-    expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 7,
-      nodeId: "node-a",
       reason: "paint",
       requestPaint: false,
+      surfaceId: "node-a",
     });
   });
 
   it("marks a changed GPU node wrapper dirty", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
-      markNodeTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
@@ -878,12 +884,12 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
-    expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 8,
-      nodeId: "node-a",
       reason: "paint",
       requestPaint: false,
+      surfaceId: "node-a",
     });
   });
 
@@ -892,7 +898,7 @@ describe("GpuNodeLayer helpers", () => {
     const child = document.createElement("input");
     nodeElement.append(child);
     const manager = {
-      markNodeTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
@@ -904,20 +910,20 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
-    expect(manager.markNodeTextureDirty).toHaveBeenCalledTimes(1);
-    expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(manager.markSurfaceTextureDirty).toHaveBeenCalledTimes(1);
+    expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 9,
-      nodeId: "node-a",
       reason: "paint",
       requestPaint: false,
+      surfaceId: "node-a",
     });
   });
 
   it("does not dirty transform-only node-wrapper paints", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
-      markNodeTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
@@ -929,7 +935,7 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual([]);
-    expect(manager.markNodeTextureDirty).not.toHaveBeenCalled();
+    expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
   });
 
   it("uses the narrow ancestor fallback only for a single registered node subtree", () => {
@@ -937,7 +943,7 @@ describe("GpuNodeLayer helpers", () => {
     const wrapper = document.createElement("div");
     wrapper.append(nodeElement);
     const manager = {
-      markNodeTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
@@ -948,19 +954,19 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual(["node-a"]);
-    expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
+    expect(manager.markSurfaceTextureDirty).toHaveBeenCalledWith({
       content: true,
       frame: 9,
-      nodeId: "node-a",
       reason: "paint",
       requestPaint: false,
+      surfaceId: "node-a",
     });
   });
 
   it("does not dirty visible nodes when a paint event omits changed elements", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const manager = {
-      markNodeTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
@@ -970,7 +976,7 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual([]);
-    expect(manager.markNodeTextureDirty).not.toHaveBeenCalled();
+    expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
   });
 
   it("ignores unrelated and canvas-level paint changes", () => {
@@ -980,7 +986,7 @@ describe("GpuNodeLayer helpers", () => {
     canvas.dataset.gpuFlowSurface = "true";
     canvas.append(nodeElement);
     const manager = {
-      markNodeTextureDirty: vi.fn(),
+      markSurfaceTextureDirty: vi.fn(),
     };
 
     const dirtyNodeIds = markGpuNodeLayerPaintDirty({
@@ -991,7 +997,7 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(dirtyNodeIds).toEqual([]);
-    expect(manager.markNodeTextureDirty).not.toHaveBeenCalled();
+    expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
   });
 });
 
@@ -1056,25 +1062,26 @@ function createGpuPaintNodeElement(nodeId: string): HTMLElement {
 class ThrowOnMapIteration<K, V> extends Map<K, V> {
   iterationCount = 0;
 
-  override [Symbol.iterator](): IterableIterator<[K, V]> {
+  override [Symbol.iterator](): MapIterator<[K, V]> {
     this.iterationCount += 1;
     throw new Error("Paint owner resolution must not iterate mounted nodes.");
   }
 
-  override entries(): IterableIterator<[K, V]> {
+  override entries(): MapIterator<[K, V]> {
     this.iterationCount += 1;
     throw new Error("Paint owner resolution must not iterate mounted nodes.");
   }
 }
 
-function textureRecord(nodeId: string): NodeTextureRecord {
+function textureRecord(nodeId: string): HtmlSurfaceTextureRecord {
   return {
     lastUploadFrame: 0,
-    nodeId,
     sampler: {},
+    surfaceId: nodeId,
     texture: {},
+    textureBytes: 0,
     textureView: {},
-  } as NodeTextureRecord;
+  } as HtmlSurfaceTextureRecord;
 }
 
 function canvasSize() {
@@ -1088,41 +1095,63 @@ function canvasSize() {
 }
 
 function createFrameTextureManager() {
-  const records = new Map<string, NodeTextureRecord>();
+  const records = new Map<string, HtmlSurfaceTextureRecord>();
+  type EvictSurfaceTexturesInput = {
+    readonly budgetBytes?: number | undefined;
+    readonly protectedSurfaceIds?:
+      | ReadonlySet<string>
+      | readonly string[]
+      | undefined;
+    readonly reason?: string | undefined;
+    readonly visibleSurfaceIds?:
+      | ReadonlySet<string>
+      | readonly string[]
+      | undefined;
+  };
   const manager = {
-    evictNodeTextures: vi.fn(() => ({
-      budgetBytes: Number.POSITIVE_INFINITY,
-      evictedBytes: 0,
-      evictedNodeIds: [],
-      memory: EMPTY_TEXTURE_MEMORY_SNAPSHOT,
-      memoryBefore: EMPTY_TEXTURE_MEMORY_SNAPSHOT,
-      overBudgetBytes: 0,
-      protectedNodeIds: [],
-      reason: "node-layer-frame",
-    })),
-    getNodeTexture: vi.fn((nodeId: string) => records.get(nodeId)),
-    markNodeTextureDirty: vi.fn(),
-    registerNodeTexture: vi.fn(({ nodeId }: { readonly nodeId: string }) => {
-      const record = textureRecord(nodeId) as NodeTextureRecord & {
-        lastUploadFrame: number;
+    evictSurfaceTextures: vi.fn((input?: EvictSurfaceTexturesInput) => {
+      void input;
+      return {
+        budgetBytes: Number.POSITIVE_INFINITY,
+        evictedBytes: 0,
+        evictedSurfaceIds: [] as string[],
+        memory: EMPTY_TEXTURE_MEMORY_SNAPSHOT,
+        memoryBefore: EMPTY_TEXTURE_MEMORY_SNAPSHOT,
+        overBudgetBytes: 0,
+        protectedSurfaceIds: [] as string[],
+        reason: "node-layer-frame",
       };
-      record.lastUploadFrame = -1;
-      records.set(nodeId, record);
-      return record;
     }),
-    uploadDirtyNodeTextures: vi.fn(
-      ({ frame }: UploadDirtyNodeTexturesOptions) => {
+    getSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
+    markSurfaceTextureDirty: vi.fn(),
+    registerSurfaceTexture: vi.fn(
+      ({ surfaceId }: { readonly surfaceId: string }) => {
+        const record = textureRecord(surfaceId) as HtmlSurfaceTextureRecord & {
+          lastUploadFrame: number;
+        };
+        record.lastUploadFrame = -1;
+        records.set(surfaceId, record);
+        return record;
+      },
+    ),
+    uploadDirtySurfaceTextures: vi.fn(
+      ({ frame }: UploadDirtyHtmlSurfaceTexturesOptions) => {
         const uploaded = Array.from(records.values()) as Array<
-          NodeTextureRecord & { lastUploadFrame: number }
+          HtmlSurfaceTextureRecord & { lastUploadFrame: number }
         >;
         uploaded.forEach((record) => {
           record.lastUploadFrame = frame;
         });
         return {
           budgetExhausted: false,
-          remainingDirtyNodeIds: [],
-          skippedNodeIds: [],
+          remainingDirtySurfaceIds: [],
+          skippedSurfaceIds: [],
+          skippedUploadBytes: 0,
           uploaded,
+          uploadedBytes: uploaded.reduce(
+            (bytes, record) => bytes + record.textureBytes,
+            0,
+          ),
         };
       },
     ),

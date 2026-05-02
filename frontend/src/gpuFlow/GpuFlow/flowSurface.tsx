@@ -91,9 +91,9 @@ import {
 } from "../nodeInteractionDirty";
 
 import {
-  createNodeTextureManager,
-  type NodeTextureManager,
-} from "../nodeTextures";
+  createHtmlSurfaceTextureManager,
+  type HtmlSurfaceTextureManager,
+} from "../htmlSurfaces/textures";
 
 import type { GpuViewportInput } from "../viewportMath";
 
@@ -276,7 +276,7 @@ export function GpuFlow({
   const pendingActiveNodePaintRef = useRef<Set<string>>(new Set());
   const settlingActiveNodeIdsRef = useRef<Set<string>>(new Set());
   const settlingActiveNodeClearIdsRef = useRef<Set<string>>(new Set());
-  const textureManagerRef = useRef<NodeTextureManager | null>(null);
+  const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   const callbacksRef = useRef<GpuFlowCallbacks>({
@@ -519,7 +519,7 @@ export function GpuFlow({
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
       if (nodeLayerRef.current.nodes) {
-        textureManagerRef.current = createNodeTextureManager(runtime);
+        textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
         nodeQuadRendererRef.current = new GpuNodeQuadRenderer(runtime);
       }
       destroyNodeInteractionResources(
@@ -905,7 +905,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly settlingActiveNodeClearIdsRef: MutableRefObject<Set<string>>;
   readonly settlingActiveNodeIdsRef: MutableRefObject<Set<string>>;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
-  readonly textureManagerRef: MutableRefObject<NodeTextureManager | null>;
+  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
   readonly viewportFrame: boolean;

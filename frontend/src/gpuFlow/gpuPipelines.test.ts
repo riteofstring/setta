@@ -14,7 +14,7 @@ import {
   GpuNodeQuadRenderer,
   parseGpuGridColor,
 } from "./gpuPipelines";
-import type { NodeTextureRecord } from "./nodeTextures";
+import type { HtmlSurfaceTextureRecord } from "./htmlSurfaces/textures";
 
 describe("gpu node quad pipeline", () => {
   afterEach(() => {
@@ -653,13 +653,14 @@ function texturedQuad(
   };
 }
 
-function textureRecord(nodeId: string): NodeTextureRecord {
+function textureRecord(nodeId: string): HtmlSurfaceTextureRecord {
   return {
-    nodeId,
     sampler: {},
+    surfaceId: nodeId,
     texture: {},
+    textureBytes: 0,
     textureView: {},
-  } as NodeTextureRecord;
+  } as HtmlSurfaceTextureRecord;
 }
 
 function getBufferByLabel(buffers: readonly GPUBuffer[], label: string) {

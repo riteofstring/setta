@@ -8,7 +8,7 @@ import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactio
 
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 
-import type { NodeTextureManager } from "../nodeTextures";
+import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 
 import {
   flowToScreenPosition,
@@ -79,7 +79,7 @@ export function clearGpuFlowNodeElement({
   readonly settlingActiveNodeClearIdsRef: MutableRefObject<Set<string>>;
   readonly settlingActiveNodeIdsRef: MutableRefObject<Set<string>>;
   readonly sourceInteractionProjector: HtmlSurfaceInteractionProjector;
-  readonly textureManagerRef: MutableRefObject<NodeTextureManager | null>;
+  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
 }) {
   nodeElementByIdRef.current.delete(nodeId);
@@ -91,7 +91,7 @@ export function clearGpuFlowNodeElement({
   settlingActiveNodeIdsRef.current.delete(nodeId);
   settlingActiveNodeClearIdsRef.current.delete(nodeId);
   transformOnlyPaintNodeIdsRef.current.delete(nodeId);
-  textureManagerRef.current?.destroyNodeTexture(nodeId);
+  textureManagerRef.current?.destroySurfaceTexture(nodeId);
 }
 
 function isProjectableGpuFlowNode(

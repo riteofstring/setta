@@ -4,7 +4,7 @@ import type { DirtyNodeReason, NodeTexturePriority } from "../dirtyTracking";
 
 import type { GpuFrameReason } from "../gpuRenderer";
 
-import type { NodeTextureManager } from "../nodeTextures";
+import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 
 export type GpuNodeInteractionFrameResult = {
   readonly budgetExhausted: boolean;
@@ -46,8 +46,8 @@ export type GpuNodeInteractionDirtyControllerOptions = {
     | ((event: WheelEvent) => GpuNodePointerHandoffTarget | null)
     | undefined;
   readonly textureManager: () => Pick<
-    NodeTextureManager,
-    "markNodeTextureDirty" | "setNodeTexturePriority"
+    HtmlSurfaceTextureManager,
+    "markSurfaceTextureDirty" | "setSurfaceTexturePriority"
   > | null;
 };
 

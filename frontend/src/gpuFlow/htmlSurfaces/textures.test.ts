@@ -1,10 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HtmlInCanvasCanvas } from "./htmlInCanvasTypes";
-import { NodeTextureManager } from "./nodeTextures";
+import type { HtmlInCanvasCanvas } from "../htmlInCanvasTypes";
+import { HtmlSurfaceTextureManager } from "./textures";
 
-describe("NodeTextureManager", () => {
+describe("HtmlSurfaceTextureManager", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -13,24 +13,24 @@ describe("NodeTextureManager", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const canvas = createHtmlInCanvasCanvas();
-    const manager = new NodeTextureManager(gpu.device, { canvas });
+    const manager = new HtmlSurfaceTextureManager(gpu.device, { canvas });
     const element = document.createElement("div");
 
-    const record = manager.registerNodeTexture({
+    const record = manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element,
       frame: 1,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1,
     });
-    const result = manager.uploadDirtyNodeTextures({ frame: 2 });
+    const result = manager.uploadDirtySurfaceTextures({ frame: 2 });
 
     expect(canvas.requestPaint).toHaveBeenCalledTimes(1);
     expect(gpu.createTexture).toHaveBeenCalledWith({
       format: "rgba8unorm",
-      label: "setta-gpu-node-node-a",
+      label: "setta-html-surface-node-a",
       size: {
         height: 100,
         width: 200,
@@ -51,7 +51,13 @@ describe("NodeTextureManager", () => {
         texture: record.texture,
       },
     );
-    expect(result.uploaded.map((node) => node.nodeId)).toEqual(["node-a"]);
+    expect(result.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "node-a",
+    ]);
+    expect(result).toMatchObject({
+      skippedUploadBytes: 0,
+      uploadedBytes: 80_000,
+    });
     expect(record).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
@@ -62,40 +68,57 @@ describe("NodeTextureManager", () => {
       priority: "visible",
       resolutionScale: 2,
       textureBytes: 80_000,
+      textureLayout: { kind: "single", tileCount: 1 },
+      tiles: [
+        {
+          cssHeight: 50,
+          cssWidth: 100,
+          cssX: 0,
+          cssY: 0,
+          lastUploadFrame: 2,
+          surfaceId: "node-a",
+          textureBytes: 80_000,
+          tileId: "node-a:0:0",
+          u0: 0,
+          u1: 1,
+          v0: 0,
+          v1: 1,
+        },
+      ],
     });
   });
 
   it("keeps the old texture until a resolution upgrade is uploaded", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
 
-    const record = manager.registerNodeTexture({
+    const record = manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1,
     });
-    manager.uploadDirtyNodeTextures({ frame: 1 });
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
     const oldTexture = gpu.textures[0];
 
-    manager.registerNodeTexture({
+    manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element,
       frame: 2,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1.4,
     });
 
     expect(record.pixelWidth).toBe(200);
     expect(oldTexture?.destroy).not.toHaveBeenCalled();
 
-    manager.uploadDirtyNodeTextures({ frame: 3 });
+    manager.uploadDirtySurfaceTextures({ frame: 3 });
 
     expect(gpu.createTexture).toHaveBeenCalledTimes(2);
     expect(oldTexture?.destroy).toHaveBeenCalledTimes(1);
@@ -121,52 +144,52 @@ describe("NodeTextureManager", () => {
   it("defers zoom resolution upgrades while viewport interaction is active", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
 
-    const record = manager.registerNodeTexture({
+    const record = manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1,
     });
-    manager.uploadDirtyNodeTextures({ frame: 1 });
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
 
-    manager.registerNodeTexture({
+    manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       deferResolution: true,
       devicePixelRatio: 2,
       element,
       frame: 2,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1.4,
     });
 
-    expect(manager.getDirtyNodes()).toEqual([]);
+    expect(manager.getDirtySurfaces()).toEqual([]);
     expect(record.pixelWidth).toBe(200);
     expect(gpu.createTexture).toHaveBeenCalledTimes(1);
 
-    manager.registerNodeTexture({
+    manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element,
       frame: 3,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1.4,
     });
-    expect(manager.getDirtyNodes()).toMatchObject([
+    expect(manager.getDirtySurfaces()).toMatchObject([
       {
         dirtyContent: false,
         dirtyResolution: true,
-        nodeId: "node-a",
+        surfaceId: "node-a",
       },
     ]);
 
-    manager.uploadDirtyNodeTextures({ frame: 4 });
+    manager.uploadDirtySurfaceTextures({ frame: 4 });
     expect(record).toMatchObject({
       lastUploadFrame: 4,
       pixelHeight: 150,
@@ -178,81 +201,85 @@ describe("NodeTextureManager", () => {
   it("keeps queued resolution-only uploads out of active viewport frames", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
     const element = document.createElement("div");
 
-    manager.registerNodeTexture({
+    manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1,
     });
-    manager.uploadDirtyNodeTextures({ frame: 1 });
-    manager.registerNodeTexture({
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
+    manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element,
       frame: 2,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1.4,
     });
 
-    const deferred = manager.uploadDirtyNodeTextures({
+    const deferred = manager.uploadDirtySurfaceTextures({
       deferResolutionOnly: true,
       frame: 3,
     });
 
     expect(deferred).toMatchObject({
       budgetExhausted: false,
-      remainingDirtyNodeIds: ["node-a"],
+      remainingDirtySurfaceIds: ["node-a"],
       uploaded: [],
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
 
-    const uploaded = manager.uploadDirtyNodeTextures({ frame: 4 });
-    expect(uploaded.uploaded.map((node) => node.nodeId)).toEqual(["node-a"]);
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 4 });
+    expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "node-a",
+    ]);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 
   it("defers existing passive content uploads during active viewport frames", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
 
     registerNode(manager, "node-a", "visible");
-    manager.uploadDirtyNodeTextures({ frame: 1 });
-    manager.markNodeTextureDirty({
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
+    manager.markSurfaceTextureDirty({
       content: true,
       frame: 2,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       reason: "paint",
     });
 
-    const deferred = manager.uploadDirtyNodeTextures({
+    const deferred = manager.uploadDirtySurfaceTextures({
       deferPassiveUploads: true,
       frame: 3,
     });
 
     expect(deferred).toMatchObject({
       budgetExhausted: false,
-      remainingDirtyNodeIds: ["node-a"],
+      remainingDirtySurfaceIds: ["node-a"],
       uploaded: [],
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
 
-    const uploaded = manager.uploadDirtyNodeTextures({ frame: 4 });
-    expect(uploaded.uploaded.map((node) => node.nodeId)).toEqual(["node-a"]);
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 4 });
+    expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "node-a",
+    ]);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps dirty nodes queued when Chromium has not cached a paint record yet", () => {
+  it("keeps dirty surfaces queued when Chromium has not cached a paint record yet", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const canvas = createHtmlInCanvasCanvas();
-    const manager = new NodeTextureManager(gpu.device, { canvas });
+    const manager = new HtmlSurfaceTextureManager(gpu.device, { canvas });
     const element = document.createElement("div");
     gpu.copyElementImageToTexture.mockImplementationOnce(() => {
       throw new DOMException(
@@ -261,33 +288,35 @@ describe("NodeTextureManager", () => {
       );
     });
 
-    manager.registerNodeTexture({
+    manager.registerSurfaceTexture({
       cssHeight: 50,
       cssWidth: 100,
       devicePixelRatio: 2,
       element,
       frame: 1,
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 1,
     });
-    const deferred = manager.uploadDirtyNodeTextures({ frame: 2 });
+    const deferred = manager.uploadDirtySurfaceTextures({ frame: 2 });
 
     expect(deferred).toMatchObject({
       budgetExhausted: false,
-      remainingDirtyNodeIds: ["node-a"],
+      remainingDirtySurfaceIds: ["node-a"],
       uploaded: [],
     });
     expect(canvas.requestPaint).toHaveBeenCalledTimes(2);
-    expect(manager.getNodeTexture("node-a")).toMatchObject({
+    expect(manager.getSurfaceTexture("node-a")).toMatchObject({
       dirtyContent: true,
       dirtyResolution: true,
       lastUploadFrame: -1,
     });
 
-    const uploaded = manager.uploadDirtyNodeTextures({ frame: 3 });
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 3 });
 
-    expect(uploaded.uploaded.map((node) => node.nodeId)).toEqual(["node-a"]);
-    expect(manager.getNodeTexture("node-a")).toMatchObject({
+    expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "node-a",
+    ]);
+    expect(manager.getSurfaceTexture("node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 3,
@@ -297,78 +326,105 @@ describe("NodeTextureManager", () => {
   it("defers explicit nodes without reporting exhausted upload budget", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
 
     registerNode(manager, "live", "interactive");
     registerNode(manager, "visible", "visible");
-    manager.uploadDirtyNodeTextures({ frame: 1 });
-    manager.markNodeTextureDirty({
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
+    manager.markSurfaceTextureDirty({
       content: true,
       frame: 2,
-      nodeId: "live",
+      surfaceId: "live",
       priority: "interactive",
       reason: "input",
     });
-    manager.markNodeTextureDirty({
+    manager.markSurfaceTextureDirty({
       content: true,
       frame: 2,
-      nodeId: "visible",
+      surfaceId: "visible",
       priority: "visible",
       reason: "paint",
     });
 
-    const deferred = manager.uploadDirtyNodeTextures({
-      deferNodeIds: ["live"],
+    const deferred = manager.uploadDirtySurfaceTextures({
+      deferSurfaceIds: ["live"],
       frame: 3,
     });
 
     expect(deferred).toMatchObject({
       budgetExhausted: false,
-      remainingDirtyNodeIds: ["live"],
+      remainingDirtySurfaceIds: ["live"],
     });
-    expect(deferred.uploaded.map((node) => node.nodeId)).toEqual(["visible"]);
+    expect(deferred.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "visible",
+    ]);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(3);
 
-    const uploaded = manager.uploadDirtyNodeTextures({ frame: 4 });
-    expect(uploaded.uploaded.map((node) => node.nodeId)).toEqual(["live"]);
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 4 });
+    expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "live",
+    ]);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(4);
   });
 
-  it("uploads dirty nodes by interactive priority within the upload budget", () => {
+  it("uploads dirty surfaces by interactive priority within the upload budget", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
 
     registerNode(manager, "prefetch", "prefetch");
     registerNode(manager, "visible", "visible");
     registerNode(manager, "interactive", "interactive");
 
-    const result = manager.uploadDirtyNodeTextures({
+    const result = manager.uploadDirtySurfaceTextures({
       frame: 4,
       maxUploads: 2,
     });
 
-    expect(result.uploaded.map((node) => node.nodeId)).toEqual([
+    expect(result.uploaded.map((surface) => surface.surfaceId)).toEqual([
       "interactive",
       "visible",
     ]);
-    expect(result.remainingDirtyNodeIds).toEqual(["prefetch"]);
+    expect(result.remainingDirtySurfaceIds).toEqual(["prefetch"]);
     expect(result.budgetExhausted).toBe(true);
   });
 
-  it("records texture dimension clamps on the node texture record", () => {
+  it("reports upload and skipped bytes when the byte budget leaves dirty surfaces queued", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device, {
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+
+    registerNode(manager, "first", "visible");
+    registerNode(manager, "second", "visible");
+
+    const result = manager.uploadDirtySurfaceTextures({
+      frame: 4,
+      maxBytes: 400,
+    });
+
+    expect(result.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "first",
+    ]);
+    expect(result.remainingDirtySurfaceIds).toEqual(["second"]);
+    expect(result.uploadedBytes).toBe(400);
+    expect(result.skippedUploadBytes).toBe(400);
+    expect(result.budgetExhausted).toBe(true);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+  });
+
+  it("records texture dimension clamps on the surface texture record", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureDimension2D: 1024,
     });
 
-    const record = manager.registerNodeTexture({
+    const record = manager.registerSurfaceTexture({
       cssHeight: 500,
       cssWidth: 1000,
       devicePixelRatio: 2,
       element: document.createElement("div"),
-      nodeId: "node-a",
+      surfaceId: "node-a",
       zoom: 4,
     });
 
@@ -387,7 +443,7 @@ describe("NodeTextureManager", () => {
   it("reports allocated and visible texture memory from texture dimensions", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
 
     registerNode(manager, "small", "visible", {
       cssHeight: 10,
@@ -400,21 +456,21 @@ describe("NodeTextureManager", () => {
       devicePixelRatio: 2,
     });
 
-    expect(
-      manager.getTextureMemorySnapshot({ visibleNodeIds: ["large"] }),
-    ).toEqual({
-      allocatedBytes: 10 * 10 * 4 + 60 * 40 * 4,
-      largestTextureBytes: 60 * 40 * 4,
-      textureCount: 2,
-      visibleBytes: 60 * 40 * 4,
-      visibleTextureCount: 1,
-    });
+    expect(manager.getMemorySnapshot({ visibleSurfaceIds: ["large"] })).toEqual(
+      {
+        allocatedBytes: 10 * 10 * 4 + 60 * 40 * 4,
+        largestTextureBytes: 60 * 40 * 4,
+        textureCount: 2,
+        visibleBytes: 60 * 40 * 4,
+        visibleTextureCount: 1,
+      },
+    );
   });
 
   it("evicts offscreen textures by least recent visible frame", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device, {
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureBytes: 800,
     });
 
@@ -423,12 +479,12 @@ describe("NodeTextureManager", () => {
     registerNode(manager, "recent", "visible", { frame: 3 });
     registerNode(manager, "newest", "visible", { frame: 4 });
 
-    const result = manager.evictNodeTextures();
+    const result = manager.evictSurfaceTextures();
 
     expect(result).toMatchObject({
       budgetBytes: 800,
       evictedBytes: 400,
-      evictedNodeIds: ["oldest"],
+      evictedSurfaceIds: ["oldest"],
       overBudgetBytes: 0,
       reason: "memory-budget",
     });
@@ -440,14 +496,14 @@ describe("NodeTextureManager", () => {
       allocatedBytes: 800,
       textureCount: 2,
     });
-    expect(manager.getNodeTexture("oldest")).toBeUndefined();
+    expect(manager.getSurfaceTexture("oldest")).toBeUndefined();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
   });
 
   it("protects visible, explicit, interactive, and dirty-interactive records while evicting", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device, {
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
       maxTextureBytes: 400,
     });
 
@@ -456,19 +512,19 @@ describe("NodeTextureManager", () => {
     registerNode(manager, "interactive", "interactive", { frame: 3 });
     registerNode(manager, "dirty-interactive", "visible", { frame: 4 });
     registerNode(manager, "candidate", "visible", { frame: 5 });
-    manager.markNodeTextureDirty({
+    manager.markSurfaceTextureDirty({
       content: true,
-      nodeId: "dirty-interactive",
+      surfaceId: "dirty-interactive",
       priority: "interactive",
       reason: "input",
     });
 
-    const result = manager.evictNodeTextures({
-      protectedNodeIds: ["explicit"],
-      visibleNodeIds: ["visible"],
+    const result = manager.evictSurfaceTextures({
+      protectedSurfaceIds: ["explicit"],
+      visibleSurfaceIds: ["visible"],
     });
 
-    expect(result.evictedNodeIds).toEqual(["candidate"]);
+    expect(result.evictedSurfaceIds).toEqual(["candidate"]);
     expect(result.memory).toMatchObject({
       allocatedBytes: 1_600,
       textureCount: 4,
@@ -476,34 +532,34 @@ describe("NodeTextureManager", () => {
       visibleTextureCount: 1,
     });
     expect(result.overBudgetBytes).toBe(1_200);
-    expect(result.protectedNodeIds).toEqual([
+    expect(result.protectedSurfaceIds).toEqual([
       "dirty-interactive",
       "explicit",
       "interactive",
       "visible",
     ]);
-    expect(manager.getNodeTexture("candidate")).toBeUndefined();
-    expect(manager.getNodeTexture("visible")).toBeDefined();
-    expect(manager.getNodeTexture("explicit")).toBeDefined();
-    expect(manager.getNodeTexture("interactive")).toBeDefined();
-    expect(manager.getNodeTexture("dirty-interactive")).toBeDefined();
+    expect(manager.getSurfaceTexture("candidate")).toBeUndefined();
+    expect(manager.getSurfaceTexture("visible")).toBeDefined();
+    expect(manager.getSurfaceTexture("explicit")).toBeDefined();
+    expect(manager.getSurfaceTexture("interactive")).toBeDefined();
+    expect(manager.getSurfaceTexture("dirty-interactive")).toBeDefined();
   });
 
-  it("destroys individual and retained node textures", () => {
+  it("destroys individual and retained surface textures", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
-    const manager = new NodeTextureManager(gpu.device);
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
 
     registerNode(manager, "node-a", "visible");
     registerNode(manager, "node-b", "visible");
 
-    manager.destroyNodeTexture("node-a");
+    manager.destroySurfaceTexture("node-a");
     expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
-    expect(manager.getNodeTexture("node-a")).toBeUndefined();
+    expect(manager.getSurfaceTexture("node-a")).toBeUndefined();
 
     manager.destroy();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
-    expect(manager.getDirtyNodes()).toEqual([]);
+    expect(manager.getDirtySurfaces()).toEqual([]);
   });
 });
 
@@ -559,8 +615,8 @@ function installTextureUsage() {
 }
 
 function registerNode(
-  manager: NodeTextureManager,
-  nodeId: string,
+  manager: HtmlSurfaceTextureManager,
+  surfaceId: string,
   priority: "interactive" | "visible" | "prefetch",
   overrides: Partial<{
     readonly cssHeight: number;
@@ -570,14 +626,14 @@ function registerNode(
     readonly zoom: number;
   }> = {},
 ) {
-  manager.registerNodeTexture({
+  manager.registerSurfaceTexture({
     cssHeight: overrides.cssHeight ?? 10,
     cssWidth: overrides.cssWidth ?? 10,
     devicePixelRatio: overrides.devicePixelRatio ?? 1,
     element: document.createElement("div"),
     ...(overrides.frame === undefined ? {} : { frame: overrides.frame }),
-    nodeId,
     priority,
+    surfaceId,
     zoom: overrides.zoom ?? 1,
   });
 }
