@@ -44,6 +44,12 @@ export function isProjectGpuSelectionDisabled({
   return isProjectGpuDndModeActive(dndMode);
 }
 
+export function isProjectGpuSelectionBoxDragDisabled({
+  dndMode,
+}: ProjectGpuSelectionGuardInput): boolean {
+  return isProjectGpuDndModeActive(dndMode);
+}
+
 export type ProjectGpuSelectionBoundsShiftInput = {
   readonly activeSelectedNodeIds: readonly string[];
   readonly movedNodeIds: readonly string[];

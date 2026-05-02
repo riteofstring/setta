@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isProjectGpuNodeDragDisabled,
+  isProjectGpuSelectionBoxDragDisabled,
   isProjectGpuSelectionDisabled,
   isProjectGpuViewportGestureDisabled,
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
@@ -83,6 +84,28 @@ describe("gpu project interaction guards", () => {
   it("allows GPU marquee selection in normal mode", () => {
     expect(
       isProjectGpuSelectionDisabled({
+        dndMode: { isMovingFree: false, isSorting: false },
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    ["dnd sorting mode", true, false],
+    ["dnd moving-free mode", false, true],
+  ])(
+    "disables direct selection-box movement during %s",
+    (_label, isSorting, isMovingFree) => {
+      expect(
+        isProjectGpuSelectionBoxDragDisabled({
+          dndMode: { isMovingFree, isSorting },
+        }),
+      ).toBe(true);
+    },
+  );
+
+  it("allows direct selection-box movement in normal mode", () => {
+    expect(
+      isProjectGpuSelectionBoxDragDisabled({
         dndMode: { isMovingFree: false, isSorting: false },
       }),
     ).toBe(false);

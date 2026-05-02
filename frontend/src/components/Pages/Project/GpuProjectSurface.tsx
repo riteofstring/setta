@@ -78,10 +78,11 @@ import {
 } from "./gpuProjectEdgeScene";
 import {
   isProjectGpuNodeDragDisabled,
+  isProjectGpuSelectionBoxDragDisabled,
   isProjectGpuSelectionDisabled,
   isProjectGpuViewportGestureDisabled,
-  type ProjectGpuDndMode,
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
+  type ProjectGpuDndMode,
 } from "./gpuProjectInteractionGuards";
 
 type ProjectSurfaceDimensions = {
@@ -632,7 +633,13 @@ function GpuProjectNodesSelectionOverlay({
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || eventTargetsNoDragElement(event.nativeEvent)) {
+    if (
+      event.button !== 0 ||
+      isProjectGpuSelectionBoxDragDisabled({
+        dndMode: { isMovingFree, isSorting },
+      }) ||
+      eventTargetsNoDragElement(event.nativeEvent)
+    ) {
       return;
     }
     const selectedNodeIds = getActiveSectionUIIds();
