@@ -232,6 +232,7 @@ export function GpuFlow({
   const settlingActiveNodeIdsRef = useRef<Set<string>>(new Set());
   const settlingActiveNodeClearIdsRef = useRef<Set<string>>(new Set());
   const textureManagerRef = useRef<NodeTextureManager | null>(null);
+  const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   const callbacksRef = useRef<GpuFlowCallbacks>({
     onFrame,
@@ -331,6 +332,7 @@ export function GpuFlow({
       pendingActiveNodePaintRef.current.clear();
       settlingActiveNodeIdsRef.current.clear();
       settlingActiveNodeClearIdsRef.current.clear();
+      transformOnlyPaintNodeIdsRef.current.clear();
       activeNodeTeleportRef.current?.destroy();
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
     }
@@ -450,6 +452,7 @@ export function GpuFlow({
         pendingActiveNodePaintRef.current.delete(nodeId);
         settlingActiveNodeIdsRef.current.delete(nodeId);
         settlingActiveNodeClearIdsRef.current.delete(nodeId);
+        transformOnlyPaintNodeIdsRef.current.delete(nodeId);
         textureManagerRef.current?.destroyNodeTexture(nodeId);
         return;
       }
@@ -558,6 +561,7 @@ export function GpuFlow({
           changedElements: event.changedElements,
           elementByNodeId: nodeElementByIdRef.current,
           frame: nextFrame(frameRef),
+          ignoreDirectNodeIds: transformOnlyPaintNodeIdsRef.current,
           textureManager,
         });
       }
@@ -569,6 +573,9 @@ export function GpuFlow({
         pendingActiveNodePaintRef.current.delete(nodeId);
       }
       callbacksRef.current.onPaint?.(runtime, event);
+      if (event.changedElements?.length) {
+        transformOnlyPaintNodeIdsRef.current.clear();
+      }
     },
     [],
   );
@@ -594,7 +601,9 @@ export function GpuFlow({
         settlingActiveNodeIdsRef,
         surfaceRef,
         textureManagerRef,
+        transformOnlyPaintNodeIdsRef,
         visibleNodeIdsRef,
+        viewportFrame: event.reasons.includes("viewport"),
       });
       callbacksRef.current.onFrame?.(runtime, event);
     },
@@ -792,7 +801,9 @@ function renderGpuFlowNodeLayerFrame({
   settlingActiveNodeIdsRef,
   surfaceRef,
   textureManagerRef,
+  transformOnlyPaintNodeIdsRef,
   visibleNodeIdsRef,
+  viewportFrame,
 }: {
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
@@ -810,7 +821,9 @@ function renderGpuFlowNodeLayerFrame({
   readonly settlingActiveNodeIdsRef: MutableRefObject<Set<string>>;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<NodeTextureManager | null>;
+  readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
+  readonly viewportFrame: boolean;
 }) {
   const frameInput = resolveRenderableGpuFlowLayerFrameInput({
     canvasSizeRef,
@@ -857,6 +870,14 @@ function renderGpuFlowNodeLayerFrame({
     uploadBudget: layer.uploadBudget,
     viewport: layer.viewport,
   });
+  if (viewportFrame) {
+    for (const nodeId of layerResult.domTransformUpdatedNodeIds) {
+      transformOnlyPaintNodeIdsRef.current.add(nodeId);
+    }
+    for (const nodeId of layerResult.domTransformParkedNodeIds) {
+      transformOnlyPaintNodeIdsRef.current.add(nodeId);
+    }
+  }
   visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
   completeGpuActiveNodeSettlingClones({
     activeNodeTeleportRef,

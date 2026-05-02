@@ -180,6 +180,8 @@ type RenderGpuNodeLayerFrameInput = {
 export type RenderGpuNodeLayerFrameResult = {
   readonly activeNodeId: string | null;
   readonly budgetExhausted: boolean;
+  readonly domTransformParkedNodeIds: readonly string[];
+  readonly domTransformUpdatedNodeIds: readonly string[];
   readonly drawnEdgeIds: readonly string[];
   readonly drawnNodeIds: readonly string[];
   readonly edgeVertexCount: number;
@@ -199,6 +201,7 @@ type MarkGpuNodeLayerPaintDirtyInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly frame: number;
+  readonly ignoreDirectNodeIds?: ReadonlySet<string> | readonly string[];
   readonly textureManager: Pick<NodeTextureManager, "markNodeTextureDirty">;
 };
 
@@ -211,6 +214,12 @@ const PRESERVED_GPU_NODE_STATE_CLASSES = [
   GPU_FLOW_NODE_INTERACTIVE_CLASS,
   "setta-gpu-flow__node--teleported",
 ] as const;
+const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
+  parkedNodeIds: [],
+  skippedNodeIds: [],
+  updatedNodeIds: [],
+  visibleNodeIds: [],
+};
 
 export function GpuNodeLayer({
   className = DEFAULT_NODE_CLASS_NAME,
@@ -384,24 +393,22 @@ export function renderGpuNodeLayerFrame({
   });
   const visibleNodeIds = new Set(visibleQuads.map((quad) => quad.nodeId));
 
-  if (domTransformCache) {
-    syncGpuNodeDomTransformsFromQuads({
-      activeNodeIds,
-      cache: domTransformCache,
-      elementByNodeId,
-      retainNodeIds: retainedNodeIds,
-      visibleQuads,
-      viewport,
-    });
-  } else {
-    syncGpuNodeDomTransforms({
-      activeNodeIds,
-      elementByNodeId,
-      nodes,
-      visibleNodeIds,
-      viewport,
-    });
-  }
+  const domTransformResult = domTransformCache
+    ? syncGpuNodeDomTransformsFromQuads({
+        activeNodeIds,
+        cache: domTransformCache,
+        elementByNodeId,
+        retainNodeIds: retainedNodeIds,
+        visibleQuads,
+        viewport,
+      })
+    : syncGpuNodeDomTransforms({
+        activeNodeIds,
+        elementByNodeId,
+        nodes,
+        visibleNodeIds,
+        viewport,
+      });
 
   const missingElementNodeIds = registerVisibleGpuNodeTextures({
     activeNodeIds,
@@ -449,6 +456,8 @@ export function renderGpuNodeLayerFrame({
   return {
     activeNodeId: activeNodeId ?? null,
     budgetExhausted: uploadResult.budgetExhausted,
+    domTransformParkedNodeIds: domTransformResult.parkedNodeIds,
+    domTransformUpdatedNodeIds: domTransformResult.updatedNodeIds,
     drawnEdgeIds: renderResult.drawnEdgeIds,
     drawnNodeIds: renderResult.drawnNodeIds,
     edgeVertexCount: renderResult.edgeVertexCount,
@@ -548,14 +557,17 @@ export function markGpuNodeLayerPaintDirty({
   changedElements,
   elementByNodeId,
   frame,
+  ignoreDirectNodeIds,
   textureManager,
 }: MarkGpuNodeLayerPaintDirtyInput): string[] {
   const dirtyNodeIds = new Set<string>();
+  const ignoredDirectIds = normalizeNodeIdSet(ignoreDirectNodeIds);
   if (changedElements) {
     for (const changedElement of changedElements) {
       const nodeId = findNodeIdForChangedElement(
         changedElement,
         elementByNodeId,
+        ignoredDirectIds,
       );
       if (nodeId) {
         dirtyNodeIds.add(nodeId);
@@ -818,9 +830,11 @@ export function syncGpuNodeDomTransforms({
   offscreenY = DEFAULT_OFFSCREEN_POSITION,
   visibleNodeIds,
   viewport,
-}: SyncGpuNodeDomTransformsInput) {
+}: SyncGpuNodeDomTransformsInput): GpuNodeDomTransformSyncResult {
   const normalizedViewport = normalizeGpuViewport(viewport);
   const activeIds = normalizeNodeIdSet(activeNodeIds);
+  const parkedNodeIds: string[] = [];
+  const updatedNodeIds: string[] = [];
   for (const node of nodes) {
     const element = resolveElement(elementByNodeId, node.nodeId);
     if (!element) {
@@ -838,11 +852,19 @@ export function syncGpuNodeDomTransforms({
         screenY: screenPosition.y,
         zoom: normalizedViewport.zoom,
       });
+      updatedNodeIds.push(node.nodeId);
       continue;
     }
 
     applyCulledNodeDomTransform(element, offscreenX, offscreenY);
+    parkedNodeIds.push(node.nodeId);
   }
+  return {
+    parkedNodeIds,
+    skippedNodeIds: EMPTY_DOM_TRANSFORM_SYNC_RESULT.skippedNodeIds,
+    updatedNodeIds,
+    visibleNodeIds: [...visibleNodeIds],
+  };
 }
 
 function applyVisibleNodeDomTransform(
@@ -1064,9 +1086,14 @@ function normalizeNodeIdSet(
 function findNodeIdForChangedElement(
   changedElement: Element,
   elementByNodeId: ReadonlyMap<string, HTMLElement>,
+  ignoreDirectNodeIds: ReadonlySet<string>,
 ): string | null {
   return (
-    findClosestChangedElementNodeId(changedElement, elementByNodeId) ??
+    findClosestChangedElementNodeId(
+      changedElement,
+      elementByNodeId,
+      ignoreDirectNodeIds,
+    ) ??
     findSingleContainedChangedElementNodeId(changedElement, elementByNodeId)
   );
 }
@@ -1074,6 +1101,7 @@ function findNodeIdForChangedElement(
 function findClosestChangedElementNodeId(
   changedElement: Element,
   elementByNodeId: ReadonlyMap<string, HTMLElement>,
+  ignoreDirectNodeIds: ReadonlySet<string>,
 ): string | null {
   const nearestNodeElement = changedElement.closest<HTMLElement>(
     GPU_FLOW_NODE_SELECTOR,
@@ -1083,6 +1111,12 @@ function findClosestChangedElementNodeId(
     nearestNodeId &&
     elementByNodeId.get(nearestNodeId) === nearestNodeElement
   ) {
+    if (
+      changedElement === nearestNodeElement &&
+      ignoreDirectNodeIds.has(nearestNodeId)
+    ) {
+      return null;
+    }
     return nearestNodeId;
   }
   return null;

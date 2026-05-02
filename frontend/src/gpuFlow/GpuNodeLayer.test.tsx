@@ -814,6 +814,51 @@ describe("GpuNodeLayer helpers", () => {
     });
   });
 
+  it("ignores direct node-wrapper paints caused by viewport transform sync", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    const child = document.createElement("input");
+    nodeElement.append(child);
+    const manager = {
+      markNodeTextureDirty: vi.fn(),
+    };
+
+    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+      changedElements: [nodeElement, child],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 9,
+      ignoreDirectNodeIds: new Set(["node-a"]),
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual(["node-a"]);
+    expect(manager.markNodeTextureDirty).toHaveBeenCalledTimes(1);
+    expect(manager.markNodeTextureDirty).toHaveBeenCalledWith({
+      content: true,
+      frame: 9,
+      nodeId: "node-a",
+      reason: "paint",
+      requestPaint: false,
+    });
+  });
+
+  it("does not dirty transform-only node-wrapper paints", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    const manager = {
+      markNodeTextureDirty: vi.fn(),
+    };
+
+    const dirtyNodeIds = markGpuNodeLayerPaintDirty({
+      changedElements: [nodeElement],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 9,
+      ignoreDirectNodeIds: ["node-a"],
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markNodeTextureDirty).not.toHaveBeenCalled();
+  });
+
   it("uses the narrow ancestor fallback only for a single registered node subtree", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const wrapper = document.createElement("div");
