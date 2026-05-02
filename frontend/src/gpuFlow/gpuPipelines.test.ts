@@ -59,11 +59,27 @@ describe("gpu node quad pipeline", () => {
     expect(encoded[2]).toBeCloseTo(207 / 255);
     expect(encoded[3]).toBeCloseTo(128 / 255);
     expect(encoded.slice(4)).toEqual([25, 50, 2, 1]);
+    expect(
+      Array.from(
+        encodeGpuGridUniform({
+          color: "#afbacf",
+          patternSize: 3,
+          snapGrid: [16, 32],
+          variant: BackgroundVariantEnum.lines,
+        }),
+      ).slice(4),
+    ).toEqual([16, 32, 3, 0]);
     expect(parseGpuGridColor("#abc")).toEqual([
       170 / 255,
       187 / 255,
       204 / 255,
       1,
+    ]);
+    expect(parseGpuGridColor("#abcd")).toEqual([
+      170 / 255,
+      187 / 255,
+      204 / 255,
+      221 / 255,
     ]);
     expect(() =>
       encodeGpuGridUniform({
@@ -73,6 +89,25 @@ describe("gpu node quad pipeline", () => {
         variant: BackgroundVariantEnum.lines,
       }),
     ).toThrow("Setta GPU grid requires a hex color");
+  });
+
+  it("fails loudly when procedural grid spacing values are invalid", () => {
+    expect(() =>
+      encodeGpuGridUniform({
+        color: "#afbacf",
+        patternSize: 2,
+        snapGrid: [0, 25],
+        variant: BackgroundVariantEnum.dots,
+      }),
+    ).toThrow("Setta GPU grid requires a positive finite snapGrid[0]");
+    expect(() =>
+      encodeGpuGridUniform({
+        color: "#afbacf",
+        patternSize: Number.NaN,
+        snapGrid: [25, 25],
+        variant: BackgroundVariantEnum.lines,
+      }),
+    ).toThrow("Setta GPU grid requires a positive finite patternSize");
   });
 
   it("encodes the GPU edge palette from project wire colors", () => {
@@ -169,6 +204,29 @@ describe("gpu node quad pipeline", () => {
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 2, 1, 0, 0);
     expect(gpu.pass.setPipeline).toHaveBeenNthCalledWith(3, gpu.pipelines[2]);
     expect(gpu.pass.draw).toHaveBeenNthCalledWith(3, 6, 1, 0, 0);
+  });
+
+  it("skips grid resources and draw calls when no grid input is supplied", () => {
+    installGpuConstants();
+    const gpu = createGpuRenderMock();
+    const renderer = new GpuNodeQuadRenderer(gpu.runtime);
+
+    renderer.render({
+      canvasSize: { cssHeight: 600, cssWidth: 800 },
+      edges: [edge("edge-a", 0, 0, 100, 0)],
+      quads: [texturedQuad("node-a", 0, 0, 100, 50)],
+      viewport: [10, 20, 1.25],
+    });
+
+    expect(
+      gpu.buffers.some(
+        (buffer) => getBufferLabel(buffer) === "setta-gpu-grid-uniform",
+      ),
+    ).toBe(false);
+    expect(gpu.device.createRenderPipeline).toHaveBeenCalledTimes(2);
+    expect(gpu.pass.draw).toHaveBeenCalledTimes(2);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(1, 2, 1, 0, 0);
+    expect(gpu.pass.draw).toHaveBeenNthCalledWith(2, 6, 1, 0, 0);
   });
 
   it("keeps grid settings uniform stable on viewport-only redraws", () => {
@@ -518,15 +576,16 @@ function textureRecord(nodeId: string): NodeTextureRecord {
 }
 
 function getBufferByLabel(buffers: readonly GPUBuffer[], label: string) {
-  const buffer = buffers.find(
-    (candidate) =>
-      (candidate as GPUBuffer & { descriptor?: GPUBufferDescriptor }).descriptor
-        ?.label === label,
-  );
+  const buffer = buffers.find((candidate) => getBufferLabel(candidate) === label);
   if (!buffer) {
     throw new Error(`Expected GPU buffer ${label}.`);
   }
   return buffer;
+}
+
+function getBufferLabel(buffer: GPUBuffer): string | undefined {
+  return (buffer as GPUBuffer & { descriptor?: GPUBufferDescriptor }).descriptor
+    ?.label;
 }
 
 function edge(

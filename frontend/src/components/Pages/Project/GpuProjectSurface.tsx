@@ -8,7 +8,6 @@ import {
 import type { NodeDragItem } from "gpuFlow/flowTypes";
 import { GpuFlow } from "gpuFlow/GpuFlow";
 import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
-import type { GpuGridInput } from "gpuFlow/gpuPipelines";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import { getGpuNodeDragAutoPanDelta } from "gpuFlow/interactions/nodeDrag";
 import {
@@ -94,6 +93,7 @@ import {
   handleProjectPaneDragOver,
   handleProjectPaneDrop,
 } from "./gpuProjectPaneEvents";
+import { getProjectGpuGridInput } from "./gpuProjectGridInput";
 import {
   buildProjectSelectionKeyboardNudgePlan,
   moveProjectSelectionDragItems,
@@ -408,24 +408,6 @@ function getProjectEdgeReconnectOptions({
 
 function renderProjectGpuNode(node: GpuNodeLayout) {
   return <SectionContainer sectionId={node.nodeId} isTopLevel={true} />;
-}
-
-function getProjectGpuGridInput({
-  darkMode,
-  settings,
-}: {
-  readonly darkMode: boolean;
-  readonly settings: ProjectGpuSurfaceSettings;
-}): GpuGridInput | undefined {
-  if (!settings.showGridLines) {
-    return undefined;
-  }
-  return {
-    color: darkMode ? settings.gridColorDarkMode : settings.gridColor,
-    patternSize: settings.gridPatternSize,
-    snapGrid: settings.snapGrid,
-    variant: settings.gridPattern,
-  };
 }
 
 function getProjectGpuEdgePaletteInput({
