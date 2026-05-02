@@ -7,6 +7,7 @@ import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { getCurrEffectiveCodeObjImplIfPresent } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
@@ -16,6 +17,7 @@ export { PARAM_CONTAINER_STRUCTURAL_CODE_OBJ_TYPES } from "./paramContainerMetad
 
 const NESTED_CHILD_ROWS_CLASS_NAME =
   "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
+const GPU_FLOW_PARAM_ROW_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
 type ParamCoreLike = {
   displayName: string;
@@ -266,8 +268,10 @@ function ParamRowArticle({
   return (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={articleClassName}
+      className={`${GPU_FLOW_PARAM_ROW_CLASS_NAME} ${articleClassName}`}
       style={articleStyle}
+      data-gpu-flow-control={`param-row:${sectionId}:${paramInfoId}`}
+      data-gpu-flow-interactive="true"
       data-param-row="true"
       {...(floatingBoxHandlers as React.HTMLAttributes<HTMLElement>)}
       onMouseDownCapture={onMouseDown}
