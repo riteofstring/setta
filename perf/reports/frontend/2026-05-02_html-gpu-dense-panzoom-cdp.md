@@ -133,3 +133,71 @@ rerun.
 CDP visual check: done (`./ai.sh`, `/settings` with production `GpuFlow`
 large-graph fixture, final zoom 1.567, 40 passive uploads, 117 WebGPU writes,
 0 source transform writes).
+
+## Separated Gesture Window Follow-Up
+
+The initial end-to-end table above mixed the active gesture burst with passive
+post-gesture resolution recapture. A follow-up run separated those windows so
+the pure pan/zoom gate is directly measurable.
+
+CDP was attempted first, but this loop's DevTools bridge stopped resolving
+`requestAnimationFrame` and timer waits even on `about:blank` while the page
+reported `document.visibilityState === "visible"`. The browser renderer itself
+was usable through the required shared Chrome for Testing 149+ binary, so the
+separated counter run used Playwright with the same html-in-canvas/WebGPU flags
+plus background-throttling disables. This is a CDP bridge blocker, not a
+renderer-support blocker.
+
+Artifact:
+`perf/artifacts/frontend/html-gpu-dense-panzoom-separated-windows-2026-05-02.json`.
+
+Screenshot:
+`perf/reports/frontend/2026-05-02_html-gpu-dense-panzoom-separated-windows.png`.
+
+Fixture shape was unchanged: 1,000 nodes, 1,427 visible edges, representative
+node content, production `GpuFlow`, and the checked-in large-graph fixture. The
+active gesture burst stayed within the warmed resident viewport so new
+first-visible node uploads were not counted as pan/zoom work.
+
+| Window | Texture uploads | `requestPaint` | Source mutations / transform writes | Store updates / transform / flag | Long tasks |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Active gestures | 0 | 0 | 0 / 0 | 86 / 81 / 5 | 0 |
+| Deferred resolution recapture | 32 passive | 272 | 0 / 0 | 1 / 0 / 1 | 0 |
+| Combined active + deferred | 32 passive | 272 | 0 / 0 | 87 / 81 / 6 | 0 |
+
+Active gesture frame and handler counters:
+
+| Metric | Value |
+| --- | ---: |
+| Duration | 707.7 ms |
+| RAF frames / intervals | 166 / 165 |
+| Avg / p95 / worst frame interval | 4.24 / 8.60 / 10.30 ms |
+| Intervals over 16.7 ms / 33.3 ms | 0 / 0 |
+| Event dispatch avg / p95 / worst duration | 0.39 / 0.60 / 4.90 ms |
+| WebGPU writes | 98 |
+| Camera uniform writes | 81 calls / 2,592 bytes |
+| Flat vertex writes | 17 calls / 94,944 bytes |
+| Drawn nodes / edges at active-window end | 32 / 1,427 |
+
+Deferred resolution frame counters:
+
+| Metric | Value |
+| --- | ---: |
+| Duration | 550.5 ms |
+| RAF frames / intervals | 41 / 41 |
+| Avg / p95 / worst frame interval | 13.42 / 9.60 / 158.30 ms |
+| Intervals over 16.7 ms / 33.3 ms | 2 / 2 |
+| WebGPU writes | 0 |
+| Drawn nodes / edges at settled end | 32 / 1,427 |
+
+The separated active gesture window satisfies the pure pan/zoom invariant:
+zero texture uploads, zero `requestPaint`, and zero source transform writes
+while real wheel, trackpad-equivalent, pointer-pan, and ctrl-wheel zoom events
+flow through the production surface. The passive uploads and requestPaint calls
+are isolated to the post-gesture resolution upgrade window.
+
+CDP visual check: not run for the separated follow-up (DevTools bridge
+RAF/timer waits timed out); Playwright visual check done with shared Chrome for
+Testing 149+ on the production `GpuFlow` large-graph fixture, final zoom 1.741,
+0 active-window uploads/requestPaint/source transform writes, 32 deferred
+passive uploads.
