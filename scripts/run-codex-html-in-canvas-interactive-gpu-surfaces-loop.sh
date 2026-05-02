@@ -67,6 +67,15 @@ Loop discipline:
 - For performance-relevant work, baseline first and store before/after evidence in perf/reports/frontend/.
 - Run focused verification for each implementation slice, and run ./scripts/quality/check.sh before declaring completion unless a concrete blocker is documented.
 
+Known incomplete prior run:
+- Previous completion was overclaimed. Treat existing html-gpu-surfaces commits and checked-in final reports as partial evidence, not completion.
+- Do not emit HTML_IN_CANVAS_INTERACTIVE_GPU_SURFACES_PLAN_COMPLETE until all of these are implemented or explicitly documented as impossible with plan updates:
+  - tiled texture layout plus tiled-flat renderer pass for large surfaces;
+  - shader-effect render pass with explicit hit projector support;
+  - browser verification for CodeMirror edit, terminal input, and shared combobox/dropdown through the GPU-rendered surface;
+  - updated perf/CDP reports covering the completed gaps.
+- If one of these items is intentionally narrowed or deferred, update docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md to make that scope change explicit before considering completion.
+
 Browser verification:
 - This dedicated loop owns its app/browser sessions. Before browser verification, run ./kill.sh to stop any lingering ai.sh or aireset.sh session. Run ./kill.sh again before the final response.
 - For html-in-canvas/WebGPU checks, use the full required Chrome flag set. Prefer ./ai.sh:
