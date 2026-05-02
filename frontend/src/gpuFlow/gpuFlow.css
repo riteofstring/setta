@@ -60,17 +60,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
-  background: color-mix(in srgb, canvas 88%, rgb(217 119 6) 12%);
-  color: rgb(120 53 15);
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
+}
+
+.setta-gpu-flow__edge-label--data-edge-label {
+  border-radius: 4px;
+  background: color-mix(in srgb, canvas 88%, rgb(71 85 105) 12%);
+  color: rgb(51 65 85);
+  box-shadow: inset 0 0 0 1px rgb(100 116 139 / 0.32);
+}
+
+.setta-gpu-flow__edge-label--workflow-source-activation {
+  border-radius: 999px;
+  background: color-mix(in srgb, canvas 88%, rgb(217 119 6) 12%);
+  color: rgb(120 53 15);
   box-shadow: inset 0 0 0 1px rgb(217 119 6 / 0.35);
 }
 
-.dark .setta-gpu-flow__edge-label {
+.dark .setta-gpu-flow__edge-label--data-edge-label {
+  background: color-mix(in srgb, rgb(17 24 39) 82%, rgb(148 163 184) 18%);
+  color: rgb(226 232 240);
+  box-shadow: inset 0 0 0 1px rgb(148 163 184 / 0.35);
+}
+
+.dark .setta-gpu-flow__edge-label--workflow-source-activation {
   background: color-mix(in srgb, rgb(17 24 39) 82%, rgb(245 158 11) 18%);
   color: rgb(253 230 138);
   box-shadow: inset 0 0 0 1px rgb(245 158 11 / 0.45);

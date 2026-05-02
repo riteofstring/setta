@@ -73,7 +73,7 @@ export type GpuEdgeSceneLabel = {
   readonly edgeId: string;
   readonly height: number;
   readonly id: string;
-  readonly kind: "workflow-source-activation";
+  readonly kind: "data-edge-label" | "workflow-source-activation";
   readonly text: string;
   readonly width: number;
   readonly x: number;
@@ -99,6 +99,10 @@ type GpuDataEdgeEntriesInput = {
   readonly edges: readonly Edge[];
   readonly handlePositions: Readonly<Record<string, GpuEdgeHandlePosition>>;
   readonly sectionVariantMap: Readonly<Record<string, string>>;
+};
+
+type GpuDataEdgeGeometryInput = Omit<GpuDataEdgeEntriesInput, "edges"> & {
+  readonly edge: Edge;
 };
 
 type GpuAgenticEdgeEntriesInput = {
@@ -137,6 +141,10 @@ type BuildGpuEdgeSceneInput = {
 type NodeAnchorSide = "left" | "right";
 
 const CONNECTION_LINE_EDGE_ID = "connection:active";
+const DATA_EDGE_LABEL_HEIGHT = 18;
+const DATA_EDGE_LABEL_MIN_WIDTH = 32;
+const DATA_EDGE_LABEL_TEXT_WIDTH = 6.5;
+const DATA_EDGE_LABEL_X_PADDING = 14;
 const WORKFLOW_SOURCE_ACTIVATION_LABEL_HEIGHT = 20;
 const WORKFLOW_SOURCE_ACTIVATION_LABEL_MIN_WIDTH = 80;
 const WORKFLOW_SOURCE_ACTIVATION_LABEL_TEXT_WIDTH = 6;
@@ -160,17 +168,18 @@ export function buildGpuEdgeScene({
   topLevelSections = {},
   workflowEdges,
 }: BuildGpuEdgeSceneInput): GpuEdgeScene {
+  const dataEdgeInput = {
+    edges: dataEdges ?? [],
+    handlePositions,
+    sectionVariantMap,
+  };
   const workflowEdgeInput = {
     edges: workflowEdges ?? [],
     nodes,
     topLevelSections,
   };
   const entries = [
-    ...buildGpuDataEdgeEntries({
-      edges: dataEdges ?? [],
-      handlePositions,
-      sectionVariantMap,
-    }),
+    ...buildGpuDataEdgeEntries(dataEdgeInput),
     ...buildGpuAgenticEdgeEntries({
       edges: agenticEdges ?? [],
       nodes,
@@ -188,7 +197,10 @@ export function buildGpuEdgeScene({
     edges: entries,
     entries,
     hitTestEdges: entries.filter((entry) => entry.selectable),
-    labels: buildGpuWorkflowEdgeLabels(workflowEdgeInput),
+    labels: [
+      ...buildGpuDataEdgeLabels(dataEdgeInput),
+      ...buildGpuWorkflowEdgeLabels(workflowEdgeInput),
+    ],
   };
 }
 
@@ -199,36 +211,19 @@ export function buildGpuDataEdgeEntries({
 }: GpuDataEdgeEntriesInput): GpuEdgeSceneEntry[] {
   const entries: GpuEdgeSceneEntry[] = [];
   for (const edge of edges) {
-    if (
-      edge.hidden ||
-      sectionVariantMap[edge.sourceSectionId] !== edge.sourceVariantId ||
-      sectionVariantMap[edge.targetSectionId] !== edge.targetVariantId
-    ) {
-      continue;
-    }
-    const source =
-      handlePositions[
-        makeEdgeHandleKey(edge.sourceSectionId, edge.sourcePortId, "source")
-      ];
-    const target =
-      handlePositions[
-        makeEdgeHandleKey(edge.targetSectionId, edge.targetPortId, "target")
-      ];
-    if (!source || !target) {
+    const geometry = resolveGpuDataEdgeGeometry({
+      edge,
+      handlePositions,
+      sectionVariantMap,
+    });
+    if (!geometry) {
       continue;
     }
     entries.push(
       createGpuEdgeSceneEntry({
         edgeId: edge.id,
         family: "data",
-        geometry: buildGpuEdgeGeometry({
-          edgeId: getGpuSceneEdgeId("data", edge.id),
-          source,
-          sourceSide: source.side,
-          target,
-          targetSide: target.side,
-          type: edge.type,
-        }),
+        geometry,
         color: resolveGpuEdgeStyleStrokeColor(edge.style, "data edge"),
         selectable: true,
         selected: edge.selected,
@@ -237,6 +232,39 @@ export function buildGpuDataEdgeEntries({
     );
   }
   return entries;
+}
+
+export function buildGpuDataEdgeLabels({
+  edges,
+  handlePositions,
+  sectionVariantMap,
+}: GpuDataEdgeEntriesInput): GpuEdgeSceneLabel[] {
+  const labels: GpuEdgeSceneLabel[] = [];
+  for (const edge of edges) {
+    if (!edge.label) {
+      continue;
+    }
+    const geometry = resolveGpuDataEdgeGeometry({
+      edge,
+      handlePositions,
+      sectionVariantMap,
+    });
+    if (!geometry) {
+      continue;
+    }
+    labels.push({
+      edgeId: edge.id,
+      height: DATA_EDGE_LABEL_HEIGHT,
+      id: `data-edge-label:${edge.id}`,
+      kind: "data-edge-label",
+      text: edge.label,
+      width: getDataEdgeLabelWidth(edge.label),
+      x: geometry.label.x,
+      y: geometry.label.y,
+      zIndex: edge.zIndex,
+    });
+  }
+  return labels;
 }
 
 export function buildGpuAgenticEdgeEntries({
@@ -517,6 +545,46 @@ function resolveGpuEdgeStyleStrokeColor(
     );
   }
   return parseGpuHexColor(stroke, `${subject} style.stroke`);
+}
+
+function resolveGpuDataEdgeGeometry({
+  edge,
+  handlePositions,
+  sectionVariantMap,
+}: GpuDataEdgeGeometryInput): GpuEdgeGeometry | null {
+  if (
+    edge.hidden ||
+    sectionVariantMap[edge.sourceSectionId] !== edge.sourceVariantId ||
+    sectionVariantMap[edge.targetSectionId] !== edge.targetVariantId
+  ) {
+    return null;
+  }
+  const source =
+    handlePositions[
+      makeEdgeHandleKey(edge.sourceSectionId, edge.sourcePortId, "source")
+    ];
+  const target =
+    handlePositions[
+      makeEdgeHandleKey(edge.targetSectionId, edge.targetPortId, "target")
+    ];
+  if (!source || !target) {
+    return null;
+  }
+  return buildGpuEdgeGeometry({
+    edgeId: getGpuSceneEdgeId("data", edge.id),
+    source,
+    sourceSide: source.side,
+    target,
+    targetSide: target.side,
+    type: edge.type,
+  });
+}
+
+function getDataEdgeLabelWidth(text: string): number {
+  return Math.max(
+    DATA_EDGE_LABEL_MIN_WIDTH,
+    text.length * DATA_EDGE_LABEL_TEXT_WIDTH + DATA_EDGE_LABEL_X_PADDING,
+  );
 }
 
 function buildNodeAnchorEdgeGeometry({

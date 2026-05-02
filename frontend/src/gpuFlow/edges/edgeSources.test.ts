@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildGpuAgenticEdgeEntries,
   buildGpuConnectionLineEntries,
+  buildGpuDataEdgeLabels,
   buildGpuDataEdgeEntries,
   buildGpuEdgeScene,
   buildGpuWorkflowEdgeEntries,
@@ -86,6 +87,71 @@ describe("edgeSources", () => {
       source: { x: 140, y: 80 },
       target: { x: 260, y: 80 },
     });
+  });
+
+  it("derives data edge labels from active edge metadata and geometry", () => {
+    const handlePositions = createHandlePositions([
+      {
+        portId: "out",
+        sectionId: "source",
+        side: "right",
+        type: "source",
+        x: 100,
+        y: 50,
+      },
+      {
+        portId: "in",
+        sectionId: "target",
+        side: "left",
+        type: "target",
+        x: 300,
+        y: 50,
+      },
+    ]);
+
+    const labels = buildGpuDataEdgeLabels({
+      edges: [
+        createDataEdge({
+          id: "edge-labeled",
+          label: "count",
+          sourcePortId: "out",
+          sourceSectionId: "source",
+          sourceVariantId: "source-variant",
+          targetPortId: "in",
+          targetSectionId: "target",
+          targetVariantId: "target-variant",
+          zIndex: 4,
+        }),
+        createDataEdge({
+          id: "edge-unlabeled",
+          label: null,
+        }),
+        createDataEdge({
+          id: "edge-inactive",
+          label: "hidden by variant",
+          sourceVariantId: "old-source-variant",
+        }),
+      ],
+      handlePositions,
+      sectionVariantMap: {
+        source: "source-variant",
+        target: "target-variant",
+      },
+    });
+
+    expect(labels).toEqual([
+      {
+        edgeId: "edge-labeled",
+        height: 18,
+        id: "data-edge-label:edge-labeled",
+        kind: "data-edge-label",
+        text: "count",
+        width: 46.5,
+        x: 200,
+        y: 50,
+        zIndex: 4,
+      },
+    ]);
   });
 
   it("derives agentic and shared-chat edges from node frames with missing-edge dedupe", () => {
@@ -359,6 +425,7 @@ describe("edgeSources", () => {
       dataEdges: [
         createDataEdge({
           id: "edge-hit",
+          label: "value",
           sourcePortId: "out",
           sourceSectionId: "source",
           sourceVariantId: "source-variant",
@@ -379,7 +446,15 @@ describe("edgeSources", () => {
       "data:edge-hit",
       "connection:active",
     ]);
-    expect(scene.labels).toEqual([]);
+    expect(scene.labels).toEqual([
+      expect.objectContaining({
+        edgeId: "edge-hit",
+        kind: "data-edge-label",
+        text: "value",
+        x: 200,
+        y: 50,
+      }),
+    ]);
     expect(scene.hitTestEdges.map((entry) => entry.edgeId)).toEqual([
       "data:edge-hit",
     ]);

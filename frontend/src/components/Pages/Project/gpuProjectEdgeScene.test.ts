@@ -82,6 +82,7 @@ describe("gpuProjectEdgeScene", () => {
           edges: [
             createDataEdge({
               id: "data-edge",
+              label: "arg",
               sourcePortId: "out",
               targetPortId: "in",
             }),
@@ -136,6 +137,11 @@ describe("gpuProjectEdgeScene", () => {
       "workflow:workflow-edge",
     ]);
     expect(scene.labels).toEqual([
+      expect.objectContaining({
+        edgeId: "data-edge",
+        kind: "data-edge-label",
+        text: "arg",
+      }),
       expect.objectContaining({
         edgeId: "workflow-edge",
         kind: "workflow-source-activation",
