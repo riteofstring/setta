@@ -76,6 +76,7 @@ export function handlePointerDown({
   let connection: Connection | null = null;
   let isValid = false;
   let handleDomNode: Element | null = null;
+  let connectionGestureCleanedUp = false;
 
   const handlePositions = Object.values(
     useEdgeHandleRegistry.getState().positions,
@@ -291,6 +292,44 @@ export function handlePointerDown({
     });
   }
 
+  function cleanupConnectionGesture() {
+    if (connectionGestureCleanedUp) {
+      return;
+    }
+    connectionGestureCleanedUp = true;
+
+    resetRecentHandle(prevActiveHandle);
+    store.getState().cancelConnection();
+    cancelAnimationFrame(autoPanId);
+    autoPanStarted = false;
+    isValid = false;
+    connection = null;
+    handleDomNode = null;
+
+    doc.removeEventListener("mousemove", onPointerMove as EventListener);
+    doc.removeEventListener("mouseup", onPointerUp as EventListener);
+
+    doc.removeEventListener("touchmove", onPointerMove as EventListener);
+    doc.removeEventListener("touchend", onPointerUp as EventListener);
+    doc.removeEventListener("touchcancel", onConnectionCancel as EventListener);
+
+    doc.removeEventListener("pointercancel", onConnectionCancel, true);
+    doc.removeEventListener("keydown", onKeyDown, true);
+  }
+
+  function onConnectionCancel(event: Event) {
+    event.preventDefault();
+    event.stopPropagation();
+    cleanupConnectionGesture();
+  }
+
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key !== "Escape") {
+      return;
+    }
+    onConnectionCancel(event);
+  }
+
   function onPointerUp(event: NativeHandlePointerEvent) {
     const {
       closestHandle: resolvedClosestHandle,
@@ -310,19 +349,7 @@ export function handlePointerDown({
       onReconnectEnd?.(event);
     }
 
-    resetRecentHandle(prevActiveHandle);
-    store.getState().cancelConnection();
-    cancelAnimationFrame(autoPanId);
-    autoPanStarted = false;
-    isValid = false;
-    connection = null;
-    handleDomNode = null;
-
-    doc.removeEventListener("mousemove", onPointerMove as EventListener);
-    doc.removeEventListener("mouseup", onPointerUp as EventListener);
-
-    doc.removeEventListener("touchmove", onPointerMove as EventListener);
-    doc.removeEventListener("touchend", onPointerUp as EventListener);
+    cleanupConnectionGesture();
   }
 
   doc.addEventListener("mousemove", onPointerMove as EventListener);
@@ -330,6 +357,10 @@ export function handlePointerDown({
 
   doc.addEventListener("touchmove", onPointerMove as EventListener);
   doc.addEventListener("touchend", onPointerUp as EventListener);
+  doc.addEventListener("touchcancel", onConnectionCancel as EventListener);
+
+  doc.addEventListener("pointercancel", onConnectionCancel, true);
+  doc.addEventListener("keydown", onKeyDown, true);
 }
 
 function getEventPosition(
