@@ -1,6 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { getCurrIFrameSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "utils/constants";
 
 function _IframeArea({ sectionId }: { sectionId: string }) {
   const code = useProjectState(
@@ -34,8 +39,9 @@ function _IframeArea({ sectionId }: { sectionId: string }) {
 
   return !code || validateIframeCode(code) ? null : (
     <div
-      className="section-main mb-2 mt-1.5 overflow-clip rounded-md"
+      className={`section-main mb-2 mt-1.5 overflow-clip rounded-md ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
       data-gpu-flow-control={`iframe:${sectionId}`}
+      data-gpu-flow-interactive="true"
       ref={containerRef}
     >
       <div dangerouslySetInnerHTML={{ __html: code }} />
