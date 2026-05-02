@@ -6,6 +6,15 @@ import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactio
 
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 
+import {
+  resolveTopmostGpuNodeHitAtClientPoint,
+  type GpuNodeSourceProjection,
+} from "../activeNodeTargeting";
+
+import type { HtmlSurfaceEffectHitProjector } from "../htmlSurfaces/hitScene";
+
+import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
+
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 
 import {
@@ -15,6 +24,7 @@ import {
 } from "../viewportMath";
 
 export function projectGpuFlowNodeSourceForPointerEvent({
+  effectProjectors,
   event,
   nodeElementById,
   nodeId,
@@ -22,7 +32,11 @@ export function projectGpuFlowNodeSourceForPointerEvent({
   projector,
   surfaceElement,
   viewport,
+  visualScene,
 }: {
+  readonly effectProjectors?:
+    | ReadonlyMap<string, HtmlSurfaceEffectHitProjector>
+    | undefined;
   readonly event: PointerEvent;
   readonly nodeElementById: ReadonlyMap<string, HTMLElement>;
   readonly nodeId: string;
@@ -30,6 +44,7 @@ export function projectGpuFlowNodeSourceForPointerEvent({
   readonly projector: HtmlSurfaceInteractionProjector | null;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
+  readonly visualScene?: HtmlSurfaceVisualScene | undefined;
 }) {
   if (!projector) {
     return;
@@ -42,14 +57,27 @@ export function projectGpuFlowNodeSourceForPointerEvent({
   const surfaceRect = surfaceElement.getBoundingClientRect();
   const surfaceX = event.clientX - surfaceRect.left;
   const surfaceY = event.clientY - surfaceRect.top;
-  const normalizedViewport = normalizeGpuViewport(viewport);
-  const nodeScreenPosition = flowToScreenPosition(
-    { x: node.x, y: node.y },
-    normalizedViewport,
-  );
+  const visualProjection = resolveTopmostGpuNodeHitAtClientPoint({
+    clientX: event.clientX,
+    clientY: event.clientY,
+    ...(effectProjectors ? { effectProjectors } : {}),
+    nodes,
+    surfaceElement,
+    viewport,
+    visualScene,
+  });
+  const projection =
+    visualProjection?.node.nodeId === nodeId
+      ? visualProjection
+      : resolveFlatGpuNodeSourceProjection({
+          node,
+          surfaceX,
+          surfaceY,
+          viewport,
+        });
   projector.alignSourceToClientPoint({
-    localX: (surfaceX - nodeScreenPosition.x) / normalizedViewport.zoom,
-    localY: (surfaceY - nodeScreenPosition.y) / normalizedViewport.zoom,
+    localX: projection.localX,
+    localY: projection.localY,
     sourceElement,
     sourceId: nodeId,
     surfaceX,
@@ -92,4 +120,29 @@ function isProjectableGpuFlowNode(
       node.width > 0 &&
       node.height > 0,
   );
+}
+
+function resolveFlatGpuNodeSourceProjection({
+  node,
+  surfaceX,
+  surfaceY,
+  viewport,
+}: {
+  readonly node: GpuNodeLayout & {
+    readonly height: number;
+    readonly width: number;
+  };
+  readonly surfaceX: number;
+  readonly surfaceY: number;
+  readonly viewport: GpuViewportInput;
+}): Pick<GpuNodeSourceProjection, "localX" | "localY"> {
+  const normalizedViewport = normalizeGpuViewport(viewport);
+  const nodeScreenPosition = flowToScreenPosition(
+    { x: node.x, y: node.y },
+    normalizedViewport,
+  );
+  return {
+    localX: (surfaceX - nodeScreenPosition.x) / normalizedViewport.zoom,
+    localY: (surfaceY - nodeScreenPosition.y) / normalizedViewport.zoom,
+  };
 }

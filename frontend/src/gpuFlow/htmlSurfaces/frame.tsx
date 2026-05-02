@@ -22,6 +22,7 @@ import {
   createHtmlSurfaceVisualScene,
   type HtmlSurfaceFlatVisual,
   type HtmlSurfaceTiledFlatVisual,
+  type HtmlSurfaceVisualScene,
 } from "./visualScene";
 
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
@@ -215,6 +216,7 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly textureMemoryBeforeEviction: HtmlSurfaceTextureMemorySnapshot;
   readonly uploadedNodeIds: readonly string[];
   readonly visibleNodeIds: readonly string[];
+  readonly visualScene: HtmlSurfaceVisualScene;
 };
 
 export type MarkHtmlSurfaceFramePaintDirtyInput = {
@@ -397,13 +399,14 @@ export function renderHtmlSurfaceFrame({
     (quad) => quad.texture.lastUploadFrame >= 0,
   );
   const visualSurfaces = buildHtmlSurfaceVisuals(uploadedTexturedQuads);
+  const visualScene = createHtmlSurfaceVisualScene(visualSurfaces);
   const renderResult = renderer.render({
     canvasSize,
     clearColor,
     ...(edgePalette === undefined ? {} : { edgePalette }),
     ...(edges === undefined ? {} : { edges }),
     ...(grid === undefined ? {} : { grid }),
-    scene: createHtmlSurfaceVisualScene(visualSurfaces),
+    scene: visualScene,
     viewport,
   });
   const evictionResult = textureManager.evictSurfaceTextures({
@@ -433,6 +436,7 @@ export function renderHtmlSurfaceFrame({
     textureMemoryBeforeEviction: evictionResult.memoryBefore,
     uploadedNodeIds: uploadResult.uploaded.map((record) => record.surfaceId),
     visibleNodeIds: [...visibleNodeIds],
+    visualScene,
   };
 }
 

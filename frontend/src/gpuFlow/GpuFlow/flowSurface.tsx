@@ -58,6 +58,10 @@ import { createHtmlSurfaceInteractionProjector } from "../htmlSurfaces/interacti
 
 import { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 
+import { createHtmlSurfaceShaderEffectProjectors } from "../htmlSurfaces/shaderEffects";
+
+import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
+
 import {
   attachGpuEdgeInteractionController,
   type GpuEdgeInteractionControllerOptions,
@@ -188,6 +192,7 @@ export type GpuFlowNodeLayerState = {
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
+  readonly visualScene?: HtmlSurfaceVisualScene | undefined;
 };
 
 export const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
@@ -239,6 +244,9 @@ export function GpuFlow({
     );
   const [sourceInteractionProjector] = useState(() =>
     createHtmlSurfaceInteractionProjector(),
+  );
+  const [htmlSurfaceEffectProjectors] = useState(() =>
+    createHtmlSurfaceShaderEffectProjectors(),
   );
   const activeInteractionNodeIdRef = useRef<string | null>(null);
   const canvasSizeRef = useRef<GpuCanvasSize | null>(null);
@@ -511,6 +519,7 @@ export function GpuFlow({
         },
         projectPointerInteraction: (nodeId, event) => {
           projectGpuFlowNodeSourceForPointerEvent({
+            effectProjectors: htmlSurfaceEffectProjectors,
             event,
             nodeElementById: nodeElementByIdRef.current,
             nodeId,
@@ -518,6 +527,7 @@ export function GpuFlow({
             projector: sourceInteractionProjector,
             surfaceElement: containerRef.current ?? runtime.canvas,
             viewport: nodeLayerRef.current.viewport,
+            visualScene: nodeLayerRef.current.visualScene,
           });
         },
         requestFrame: (reason) => {
@@ -528,6 +538,7 @@ export function GpuFlow({
           return resolveGpuNodePointerHandoffTarget({
             clientX: event.clientX,
             clientY: event.clientY,
+            effectProjectors: htmlSurfaceEffectProjectors,
             elementByNodeId: nodeElementByIdRef.current,
             nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
             projectSourceForHitTesting: (projection) => {
@@ -542,6 +553,7 @@ export function GpuFlow({
             },
             surfaceElement,
             viewport: nodeLayerRef.current.viewport,
+            visualScene: nodeLayerRef.current.visualScene,
           });
         },
         resolveWheelHandoffTarget: (event) => {
@@ -555,6 +567,7 @@ export function GpuFlow({
           return resolveGpuNodeWheelHandoffTarget({
             clientX: event.clientX,
             clientY: event.clientY,
+            effectProjectors: htmlSurfaceEffectProjectors,
             elementByNodeId: nodeElementByIdRef.current,
             nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
             projectSourceForHitTesting: (projection) => {
@@ -569,6 +582,7 @@ export function GpuFlow({
             },
             surfaceElement,
             viewport: nodeLayerRef.current.viewport,
+            visualScene: nodeLayerRef.current.visualScene,
           });
         },
         textureManager: () => textureManagerRef.current,
@@ -579,7 +593,7 @@ export function GpuFlow({
       );
       callbacksRef.current.onReady?.(runtime);
     },
-    [viewportStore],
+    [htmlSurfaceEffectProjectors, viewportStore],
   );
 
   const handleResize = useCallback<NonNullable<GpuSurfaceProps["onResize"]>>(
@@ -860,6 +874,10 @@ export function renderGpuFlowNodeLayerFrame({
       transformOnlyPaintNodeIdsRef.current.add(nodeId);
     }
   }
+  nodeLayerRef.current = {
+    ...nodeLayerRef.current,
+    visualScene: layerResult.visualScene,
+  };
   visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
   completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
   callbacksRef.current.onNodeLayerFrame?.(layerResult);
