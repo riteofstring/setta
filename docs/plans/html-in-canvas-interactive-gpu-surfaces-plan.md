@@ -107,6 +107,11 @@ local reference root. The highest-signal examples are:
     remains the native interaction target. It reinforces the split Setta needs:
     shader/effect uniforms can change every frame, but HTML recapture should be
     tied to content, size, and style invalidation.
+  - It also shows interaction-triggered CSS animations and transitions such as
+    click ripples, hover transitions, clocks, and animated visual content. Those
+    require explicit capture-frame scheduling while the source animation is
+    active; GPU-only shader time uniforms should animate independently without
+    forcing DOM recapture.
 - `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev/src/content/demos/elastic-bulge/demo.html`
   - Minimal WebGL2 `texElementImage2D` displacement shader over a
     layout-subtree element. Use it to compare direct element-to-GL upload
@@ -202,6 +207,8 @@ Replace the current active-node stack with these modules:
   - Evolves `NodeTextureManager` into a surface texture/tile manager.
   - Supports full-surface textures, tiled large surfaces, dirty subrect uploads
     where Chromium exposes the required overload, and memory-budget eviction.
+  - Tracks dirty bytes and active animation leases so transition/animation
+    recapture is bounded to the affected surface or tile.
 - `frontend/src/gpuFlow/htmlSurfaces/visualScene.ts`
   - Converts project nodes, edges, and effect metadata into a draw scene.
   - Stores flat surfaces, tiled surfaces, mesh surfaces, and effect surfaces in
@@ -228,6 +235,9 @@ Replace the current active-node stack with these modules:
 - `frontend/src/gpuFlow/htmlSurfaces/frame.ts`
   - Coordinates paint events, dirty surfaces, upload budgets, rendering, and
     interaction state.
+  - Owns the frame scheduler bridge for animated HTML sources: interaction
+    events and animation lifecycle events may request capture frames for a
+    specific surface, while viewport-only frames remain upload-free.
 
 Delete the old active overlay files instead of preserving them:
 
@@ -327,6 +337,46 @@ intermediate regular canvas. Setta's production path should prefer direct
 `GPUQueue.copyElementImageToTexture` from the source element or an explicitly
 probe-backed mirror path only where a fixture/library makes that unavoidable.
 
+## HTML Transition And Animation Policy
+
+HTML interactions must preserve source-owned visual motion through the
+GPU-rendered surface. A toggle knob sliding to its checked position, hover and
+focus transitions, text caret blink, progress indicators, and finite CSS
+animations triggered by click or keyboard input must not jump straight to a
+final texture or disappear while the DOM source is hidden behind the GPU path.
+
+Treat animated HTML as a texture invalidation problem with a bounded active
+animation lease:
+
+1. When an interaction changes visual state or receives `transitionrun`,
+   `transitionstart`, `animationstart`, or a source-owned dirty event with an
+   animation flag, mark that surface or tile as `interactive` and
+   `animated`.
+2. Request a paint and upload the first animation frame immediately under the
+   interactive upload budget.
+3. Continue scheduling capture frames only for the animated surface or tile while
+   the lease is active. Use `paint.changedElements` when the browser reports it,
+   but do not assume CSS animations will produce useful paint events without a
+   requested paint.
+4. End the lease after `transitionend`, `transitioncancel`, `animationend`, or
+   `animationcancel` plus one settled paint frame, and verify with
+   `element.getAnimations({ subtree: true })` where available. If browser events
+   are missing, derive a bounded fallback duration from computed
+   `transition-*` and `animation-*` timing on the affected target subtree.
+5. Enforce per-surface frame, byte, and duration budgets so one animated source
+   cannot starve other interactive uploads. If a surface cannot stay inside the
+   budget, fail visibly or degrade that source explicitly instead of silently
+   dropping animation frames forever.
+
+Finite source animations may recapture HTML at animation cadence; passive
+viewport pan/zoom still must not request paint, upload textures, or rewrite
+per-node transforms. Infinite or long-running source animations such as a
+terminal cursor, text caret, media preview, clock, or plugin-owned activity must
+opt into an explicit source-owned animation cadence and may be rate-limited when
+the surface is not focused or visible. Shader-only and mesh-only effects should
+animate by updating uniforms or vertices and should not recapture HTML unless
+the DOM texture content itself changed.
+
 ## Interaction Projection
 
 Interaction is a projection problem, not a rendering-mode switch.
@@ -344,7 +394,8 @@ Pointer flow:
 8. Otherwise perform a narrow handoff to the resolved target and keep pointer
    capture state in the interaction projector.
 9. Mark the source or tile dirty only if the interaction changed content or
-   visual state.
+   visual state, and start an animation lease if the changed state begins a CSS
+   transition, CSS animation, caret blink, or source-owned animation cadence.
 
 For flat nodes, this is simple inverse viewport math. For cloth/mesh nodes, the
 hit scene must raycast triangles and interpolate UVs. For shader-only effects,
@@ -427,6 +478,10 @@ the exact Chromium behavior this plan depends on:
 - `getElementTransform` exists and returns usable affine transforms.
 - `paint.changedElements` granularity is usable for per-node and per-tile dirty
   marking.
+- Interaction-triggered CSS transitions and animations can be captured across
+  multiple requested paint/upload frames, and their lifecycle events or
+  `getAnimations({ subtree: true })` state are usable to stop the animation
+  lease after the final visual frame.
 - `drawElementImage` returned transforms keep source hit boxes aligned for
   affine multi-element composition.
 - Direct layout-subtree canvas use with any library texture abstraction chosen
@@ -457,8 +512,9 @@ Because no compatibility is required, implement in this order:
 10. Add a Setta-local complex-surface fixture based on `html-cloth.mjs`,
     `curved-markup`, and the WICG ripple/cloth button demos: warped mesh or
     curved surface, shader-driven visual deformation, slider, button, text
-    input, hover state, selection/focus, and live texture refresh only when DOM
-    content actually changes.
+    input, animated toggle/switch transition, hover state, selection/focus, and
+    live texture refresh only when DOM content or source-owned animation frames
+    actually change.
 11. Run focused unit, integration, and browser performance verification.
 
 Do not keep the old teleport behavior behind a flag. If the new branch breaks
@@ -466,7 +522,26 @@ while the replacement is in progress, that is acceptable.
 
 ## Performance Baseline And Gates
 
-Record baseline before deleting the old path:
+Record baseline before deleting the old path. Each pan/zoom baseline and final
+measurement must include both the isolated renderer hot path and the full
+input-driven browser workflow:
+
+- Isolated hot path: update the viewport store directly, then measure frame
+  scheduling, renderer work, GPU writes, texture uploads, `requestPaint`, source
+  style mutations, and RAF frame intervals. This proves viewport-state changes
+  are rendered without HTML recapture.
+- End-to-end user workflow: drive real wheel, trackpad-equivalent, pointer-pan,
+  and zoom gestures through the browser against the production surface, then
+  measure the same counters plus event-handler duration, long tasks, dropped or
+  coalesced frames, store updates, and visual smoothness. This proves the input
+  controller, event routing, store subscriptions, frame scheduler, and renderer
+  work together under actual user interaction.
+- Large-project coverage: run the end-to-end pan/zoom workflow over a dense
+  Settings -> All Settings-style project or checked-in large-graph fixture with
+  visible edges and representative node content. A two-node smoke route is not
+  enough to satisfy the pan/zoom performance gate.
+
+Scenarios:
 
 - Settings -> All Settings pan at normal zoom.
 - Settings -> All Settings zoom in/out.
@@ -478,12 +553,16 @@ Record baseline before deleting the old path:
 
 Required performance invariants:
 
-- Pan/zoom average and p95 frame time must be no worse than the baseline by more
-  than 5%.
-- Pan/zoom must perform zero texture uploads.
-- Pan/zoom must perform zero per-node DOM transform writes.
+- Both isolated and end-to-end pan/zoom average and p95 frame time must be no
+  worse than the corresponding baseline by more than 5%.
+- Both isolated and end-to-end pure pan/zoom must perform zero texture uploads.
+- Both isolated and end-to-end pure pan/zoom must perform zero per-node DOM
+  transform writes.
 - Pointer move over a surface may write at most one source transform.
 - Active interaction uploads must stay within the configured frame budget.
+- Active HTML transition and animation recaptures must stay within the same
+  configured count, duration, and byte budgets, and must stop after the source
+  animation lease ends.
 - Texture memory must stay within the existing node texture budget unless a
   checked-in report justifies changing it.
 - Complex mesh/effect surfaces must not slow the default flat graph path when no
@@ -506,12 +585,16 @@ Unit tests:
 - interaction alignment positions the source pixel under the pointer
 - pointer capture keeps drag events routed to the resolved source target
 - dirty uploads obey upload count, duration, byte, and priority budgets
+- active animation leases schedule bounded recapture frames, mark only the
+  owning surface/tile dirty, and stop after transition/animation completion
 - active interaction no longer suppresses GPU quads or creates settling clones
 
 Browser tests:
 
 - pan and zoom large projects at baseline performance
 - button hover/click shows through GPU texture without DOM overlay switching
+- animated toggle/switch movement remains visible through the GPU texture from
+  the first frame to the final settled state
 - text input caret and typing update through texture refresh
 - slider drag remains responsive while rendered through a warped surface
 - CodeMirror edit remains usable
@@ -549,6 +632,10 @@ The architecture is complete when:
   per-node DOM transform sync.
 - Buttons, sliders, text inputs, CodeMirror, terminal, and shared comboboxes
   remain interactive through the GPU-rendered surface.
+- Interaction-triggered HTML transitions and animations, including toggle or
+  switch movement, hover/focus transitions, caret blink, and finite CSS
+  animations, remain visible through the GPU-rendered surface while staying
+  within explicit animation recapture budgets.
 - A cloth-style non-affine HTML surface supports interactive controls while
   staying visually warped.
 - Dirty uploads are bounded by count, duration, and bytes.

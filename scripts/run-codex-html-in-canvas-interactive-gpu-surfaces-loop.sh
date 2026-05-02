@@ -72,8 +72,13 @@ Known incomplete prior run:
 - Do not emit HTML_IN_CANVAS_INTERACTIVE_GPU_SURFACES_PLAN_COMPLETE until all of these are implemented or explicitly documented as impossible with plan updates:
   - tiled texture layout plus tiled-flat renderer pass for large surfaces;
   - shader-effect render pass with explicit hit projector support;
+  - interaction-triggered HTML transitions/animations, including an animated toggle or switch, visible through GPU texture recapture without DOM overlay switching;
   - browser verification for CodeMirror edit, terminal input, and shared combobox/dropdown through the GPU-rendered surface;
   - updated perf/CDP reports covering the completed gaps.
+- Pan/zoom performance is not complete if it only measures direct viewport store updates. Required evidence must include both:
+  - isolated renderer hot-path measurement from direct viewport store updates;
+  - end-to-end browser workflow measurement that drives real wheel, trackpad-equivalent, pointer-pan, and zoom gestures through the production surface over a dense Settings -> All Settings-style project or checked-in large-graph fixture with visible edges and representative node content.
+- The end-to-end pan/zoom report must include the same upload/requestPaint/source-mutation/GPU-write/frame counters as the isolated hot-path report, plus event-handler duration, long tasks, dropped or coalesced frames, store updates, and visual smoothness notes. A two-node smoke route is not enough to satisfy the pan/zoom gate.
 - If one of these items is intentionally narrowed or deferred, update docs/plans/html-in-canvas-interactive-gpu-surfaces-plan.md to make that scope change explicit before considering completion.
 
 Browser verification:
