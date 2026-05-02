@@ -1,3 +1,5 @@
+/* react-flow__* selectors here are the documented GPU flow compatibility
+   contract from gpuFlow/reactFlowCompatibility.ts. */
 .react-flow__pane {
   z-index: auto;
 }

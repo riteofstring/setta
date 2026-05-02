@@ -10,6 +10,7 @@ import { GpuFlow } from "gpuFlow/GpuFlow";
 import type { GpuNodeLayout } from "gpuFlow/GpuNodeLayer";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import { getGpuNodeDragAutoPanDelta } from "gpuFlow/interactions/nodeDrag";
+import { REACT_FLOW_COMPAT_CLASS_NAMES } from "gpuFlow/reactFlowCompatibility";
 import {
   shiftNodesSelectionBounds,
   updateActiveNodesSelectionBounds,
@@ -208,7 +209,7 @@ export function GpuProjectSurface() {
 
   return (
     <div
-      className="react-flow setta-light dark:setta-dark"
+      className={`${REACT_FLOW_COMPAT_CLASS_NAMES.root} setta-light dark:setta-dark`}
       {...getProjectSurfaceDataAttributes({
         isConnecting,
         showAgenticEdges,
@@ -335,7 +336,7 @@ function ProjectGpuFlowLayer({
   }
   return (
     <GpuFlow
-      className="setta-gpu-flow react-flow__pane"
+      className={`setta-gpu-flow ${REACT_FLOW_COMPAT_CLASS_NAMES.pane}`}
       edgeInteraction={edgeInteractionOptions}
       edgePalette={edgePaletteInput}
       edgeReconnect={edgeReconnectOptions}
@@ -928,14 +929,14 @@ function GpuProjectNodesSelectionOverlay({
   return (
     <div
       className={cc([
-        "react-flow__nodesselection",
-        "react-flow__container",
+        REACT_FLOW_COMPAT_CLASS_NAMES.nodesSelection,
+        REACT_FLOW_COMPAT_CLASS_NAMES.container,
         NO_PAN_CLASS_NAME,
       ])}
       style={{ transform: transformString }}
     >
       <div
-        className="react-flow__nodesselection-rect"
+        className={REACT_FLOW_COMPAT_CLASS_NAMES.nodesSelectionRect}
         data-id={primarySelectionId}
         onContextMenu={handleContextMenu}
         onKeyDown={handleKeyDown}

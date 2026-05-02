@@ -23,6 +23,7 @@ import type {
   UploadDirtyNodeTexturesOptions,
 } from "./nodeTextures";
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "./nodeZIndex";
+import { REACT_FLOW_COMPAT_CLASS_NAMES } from "./reactFlowCompatibility";
 import {
   flowToScreenPosition,
   getVisibleFlowRect,
@@ -209,7 +210,7 @@ type MarkGpuNodeLayerPaintDirtyInput = {
 };
 
 const DEFAULT_OFFSCREEN_POSITION = -100_000;
-const DEFAULT_NODE_CLASS_NAME = "setta-gpu-flow__node react-flow__node";
+const DEFAULT_NODE_CLASS_NAME = `setta-gpu-flow__node ${REACT_FLOW_COMPAT_CLASS_NAMES.node}`;
 const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
 const GPU_FLOW_SURFACE_SELECTOR = '[data-gpu-flow-surface="true"]';
 const GPU_FLOW_NODE_INTERACTIVE_CLASS = "setta-gpu-flow__node--interactive";

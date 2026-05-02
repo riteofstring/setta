@@ -4,6 +4,7 @@ import {
   attachGpuEdgeInteractionController,
   type GpuEdgeInteractionEvent,
 } from "gpuFlow/interactions/edges";
+import { REACT_FLOW_COMPAT_SELECTORS } from "gpuFlow/reactFlowCompatibility";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import {
   createGpuFlowViewportStore,
@@ -65,7 +66,7 @@ export function GpuProjectEdgeLayer({
 
   useEffect(() => {
     const host = hostRef.current;
-    const pane = host?.closest(".react-flow__pane");
+    const pane = host?.closest(REACT_FLOW_COMPAT_SELECTORS.pane);
     if (!(pane instanceof HTMLElement)) {
       return;
     }

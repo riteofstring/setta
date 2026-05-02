@@ -4,6 +4,7 @@ import type {
   GpuEdgeSceneHitTestResult,
 } from "../edges/edgeSources";
 import { hitTestGpuEdgeScene, type GpuEdgeFamily } from "../edges/edgeSources";
+import { REACT_FLOW_COMPAT_SELECTORS } from "../reactFlowCompatibility";
 import {
   screenToFlowPosition,
   type GpuPoint,
@@ -312,7 +313,7 @@ function isGpuFlowEdgeInteractionTarget(
   if (target.closest(".setta-gpu-flow__node") !== null) {
     return false;
   }
-  if (target.closest(".react-flow__node") !== null) {
+  if (target.closest(REACT_FLOW_COMPAT_SELECTORS.node) !== null) {
     return false;
   }
   if (

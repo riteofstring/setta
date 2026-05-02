@@ -8,6 +8,7 @@ import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
 import { useEdgeHandleRegistry, useLocalStorage } from "state/definitions";
 import type { Connection, HandleType } from "../flowTypes";
 import { getGpuNodeDragAutoPanDelta } from "../interactions/nodeDrag";
+import { REACT_FLOW_COMPAT_CLASS_NAMES } from "../reactFlowCompatibility";
 import { panGpuViewport } from "../viewportActions";
 import {
   flowToScreenPosition,
@@ -208,10 +209,13 @@ export function handlePointerDown({
     prevActiveHandle = nextHandleDomNode;
     nextHandleDomNode.classList.add(
       "connecting",
-      "react-flow__handle-connecting",
+      REACT_FLOW_COMPAT_CLASS_NAMES.handleConnecting,
     );
     nextHandleDomNode.classList.toggle("valid", nextIsValid);
-    nextHandleDomNode.classList.toggle("react-flow__handle-valid", nextIsValid);
+    nextHandleDomNode.classList.toggle(
+      REACT_FLOW_COMPAT_CLASS_NAMES.handleValid,
+      nextIsValid,
+    );
   };
 
   const resolvePointerUpState = (

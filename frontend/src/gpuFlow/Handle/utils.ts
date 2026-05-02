@@ -1,6 +1,10 @@
 import { useEdgeHandleRegistry } from "state/definitions";
 import { makeEdgeHandleKey } from "state/edgeHandleKeys";
 import type { Connection, ConnectionMode, HandleType } from "../flowTypes";
+import {
+  REACT_FLOW_COMPAT_CLASS_NAMES,
+  REACT_FLOW_COMPAT_SELECTORS,
+} from "../reactFlowCompatibility";
 
 export type ConnectionHandle = {
   sectionId: string;
@@ -116,8 +120,8 @@ export function resetRecentHandle(handleDomNode: Element | null): void {
   handleDomNode?.classList.remove(
     "valid",
     "connecting",
-    "react-flow__handle-valid",
-    "react-flow__handle-connecting",
+    REACT_FLOW_COMPAT_CLASS_NAMES.handleValid,
+    REACT_FLOW_COMPAT_CLASS_NAMES.handleConnecting,
   );
 }
 
@@ -144,7 +148,7 @@ function getDefaultResult(handleDomNode: Element | null = null): Result {
 }
 
 function getHandleSelector(handle: HandleRef): string {
-  return `.react-flow__handle[data-id="${handle.sectionId}-${handle.portId}-${handle.type}"]`;
+  return `${REACT_FLOW_COMPAT_SELECTORS.handle}[data-id="${handle.sectionId}-${handle.portId}-${handle.type}"]`;
 }
 
 function resolveHandleTarget({
@@ -322,7 +326,7 @@ function getHandleBelowPointer({
   const eventPos = getPointerPosition(event);
   return doc
     .elementsFromPoint(eventPos.x, eventPos.y)
-    .find((el) => el.classList.contains("react-flow__handle"));
+    .find((el) => el.classList.contains(REACT_FLOW_COMPAT_CLASS_NAMES.handle));
 }
 
 function resolveHandleBelowPointer(

@@ -1,6 +1,7 @@
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { SelectionModeEnum } from "utils/generatedTypes";
 import type { GpuNodeLayout } from "../GpuNodeLayer";
+import { REACT_FLOW_COMPAT_SELECTORS } from "../reactFlowCompatibility";
 import {
   rectsIntersect,
   screenToFlowPosition,
@@ -410,7 +411,7 @@ function isGpuFlowBackgroundSelectionTarget(
   }
   return (
     target.closest(".setta-gpu-flow__node") === null &&
-    target.closest(".react-flow__node") === null &&
+    target.closest(REACT_FLOW_COMPAT_SELECTORS.node) === null &&
     target.closest("[data-gpu-flow-surface='true']") !== null
   );
 }

@@ -1,3 +1,5 @@
+/* GPU flow intentionally preserves these react-flow__* classes as DOM and CSS
+   compatibility contracts. Keep this CSS in sync with gpuFlow/reactFlowCompatibility.ts. */
 .react-flow__container {
   position: absolute;
   width: 100%;

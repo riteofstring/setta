@@ -218,7 +218,7 @@ describe("gpu project interaction guards", () => {
 
   it.each([
     ["GPU node", "setta-gpu-flow__node"],
-    ["legacy node", "react-flow__node"],
+    ["ReactFlow-compatible node contract", "react-flow__node"],
     ["selection box", "react-flow__nodesselection-rect"],
     ["marquee selection", "react-flow__selection"],
     ["edge handle", "react-flow__handle"],

@@ -11,6 +11,7 @@ import {
   isMeasuredGpuNodeBoundsInput,
   type GpuNodeBoundsInput,
 } from "./nodeBounds";
+import { REACT_FLOW_COMPAT_CLASS_NAMES } from "./reactFlowCompatibility";
 import type { GpuRect } from "./viewportMath";
 
 export type GpuMiniMapNode = GpuNodeBoundsInput & {
@@ -250,7 +251,7 @@ export function MinimapSvg({
         shapeRendering={shapeRendering}
       />
       <path
-        className="react-flow__minimap-mask"
+        className={REACT_FLOW_COMPAT_CLASS_NAMES.minimapMask}
         d={getMiniMapMaskPath({ height, offset, viewBB, width, x, y })}
         fill={maskColor}
         fillRule="evenodd"
@@ -336,7 +337,7 @@ function GpuMiniMapNodeRect({
 
   return (
     <rect
-      className={cc(["react-flow__minimap-node", className])}
+      className={cc([REACT_FLOW_COMPAT_CLASS_NAMES.minimapNode, className])}
       data-minimap-node-id={dataMinimapNodeId}
       x={x}
       y={y}
