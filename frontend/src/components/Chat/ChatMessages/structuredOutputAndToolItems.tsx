@@ -25,16 +25,16 @@ import {
   type StructuredOutputPayload,
   resolveStructuredOutputFallbackPayload,
   resolveStructuredOutputPayload,
-} from "./chatStructuredOutput";
+} from "../chatStructuredOutput";
 
 import {
   ChatTimestamp,
   resolveActivityTimestampMs,
   resolveDurationLabel,
   useRunElapsedDuration,
-} from "./chatTiming";
+} from "../chatTiming";
 
-import { useTypewriterEffect } from "./useTypewriterEffect";
+import { useTypewriterEffect } from "../useTypewriterEffect";
 
 import {
   ACTIVITY_ACCORDION_CONTENT_CLASS,

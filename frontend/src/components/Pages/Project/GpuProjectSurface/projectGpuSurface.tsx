@@ -58,14 +58,14 @@ import {
 
 import { useTabScope } from "utils/focusManager";
 
-import { AgenticScopeHighlightsUpdater } from "./AgenticScopeHighlightsUpdater";
+import { AgenticScopeHighlightsUpdater } from "../AgenticScopeHighlightsUpdater";
 
 import {
   selectProjectGpuEdge,
   useProjectGpuEdgeScene,
-} from "./gpuProjectEdgeScene";
+} from "../gpuProjectEdgeScene";
 
-import { getProjectGpuGridInput } from "./gpuProjectGridInput";
+import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import {
   isProjectGpuEdgeInteractionDisabled,
@@ -74,14 +74,14 @@ import {
   isProjectGpuViewportGestureDisabled,
   isProjectPaneBackgroundTarget,
   type ProjectGpuDndMode,
-} from "./gpuProjectInteractionGuards";
+} from "../gpuProjectInteractionGuards";
 
 import {
   handleProjectPaneClick,
   handleProjectPaneContextMenu,
   handleProjectPaneDragOver,
   handleProjectPaneDrop,
-} from "./gpuProjectPaneEvents";
+} from "../gpuProjectPaneEvents";
 
 import {
   GpuProjectNodesSelectionOverlay,

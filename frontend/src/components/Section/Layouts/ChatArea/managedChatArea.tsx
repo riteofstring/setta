@@ -108,7 +108,7 @@ import {
   resolveManagedChatRunType,
   shouldExitManagedChatHistory,
   toSortedHistoryEntries,
-} from "./chatAreaUtils";
+} from "../chatAreaUtils";
 
 import {
   ChatSectionChatId,

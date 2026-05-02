@@ -77,13 +77,13 @@ import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   isProjectGpuSelectionBoxDragDisabled,
   shouldShiftProjectGpuSelectionBoundsForNodeMove,
-} from "./gpuProjectInteractionGuards";
+} from "../gpuProjectInteractionGuards";
 
 import {
   buildProjectSelectionKeyboardNudgePlan,
   moveProjectSelectionDragItems,
   snapProjectSelectionDragItems,
-} from "./gpuProjectSelectionMovement";
+} from "../gpuProjectSelectionMovement";
 
 import {
   ProjectGpuNodeDragChange,

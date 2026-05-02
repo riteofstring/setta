@@ -4,9 +4,9 @@ import {
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
 
-import type { GpuPoint } from "../viewportMath";
+import type { GpuPoint } from "../../viewportMath";
 
-import { type GpuEdgeSide } from "./edgeGeometry";
+import { type GpuEdgeSide } from "../edgeGeometry";
 
 import {
   GpuEdgeFamily,

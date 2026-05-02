@@ -28,16 +28,16 @@ import {
   ToolNameNormalizationConfig,
 } from "utils/generatedTypes";
 
-import { ApprovalCard } from "./ApprovalCard";
+import { ApprovalCard } from "../ApprovalCard";
 
-import { QuestionCard } from "./QuestionCard";
+import { QuestionCard } from "../QuestionCard";
 
 import {
   resolveStructuredOutputFallbackPayload,
   resolveStructuredOutputPayload,
-} from "./chatStructuredOutput";
+} from "../chatStructuredOutput";
 
-import { parseIsoTimestampMs } from "./chatTiming";
+import { parseIsoTimestampMs } from "../chatTiming";
 
 import {
   ASSISTANT_ERROR_MARKDOWN_CLASS,

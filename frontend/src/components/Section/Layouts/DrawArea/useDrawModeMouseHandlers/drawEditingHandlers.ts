@@ -16,7 +16,7 @@ import {
   drawStroke,
   getActiveLayerAndCanvas,
   setGlobalArtifactTransformsAndDrawAllLayers,
-} from "./canvasUtils";
+} from "../canvasUtils";
 
 import {
   detectHit,
@@ -30,7 +30,7 @@ import {
   incrementResizeHandleCorners,
   preventExactZero,
   setResizeHandleCorners,
-} from "./mouseHandlerUtils";
+} from "../mouseHandlerUtils";
 
 import {
   CanvasPointXY,
@@ -39,7 +39,7 @@ import {
   ResizeHandle,
   ResizeHandleCorners,
   TempCanvasesType,
-} from "./types";
+} from "../types";
 
 import {
   BRUSH_RESIZE_HANDLE_CONFIGS,

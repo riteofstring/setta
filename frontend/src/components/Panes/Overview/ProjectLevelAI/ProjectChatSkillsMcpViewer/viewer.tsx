@@ -47,9 +47,9 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
-} from "./projectChatSkillsMcpViewerUtils";
+} from "../projectChatSkillsMcpViewerUtils";
 
-import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
+import { selectCustomProjectChatSlashCommands } from "../projectChatSlashCommandSelectors";
 
 import {
   DEFAULT_SKILLS_LIST_HEIGHT_PCT,

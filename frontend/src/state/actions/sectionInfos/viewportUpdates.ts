@@ -43,7 +43,7 @@ import {
   Viewport,
 } from "utils/generatedTypes";
 
-import { applyActiveSectionChange } from "./activeSectionController";
+import { applyActiveSectionChange } from "../activeSectionController";
 
 import {
   getCurrEffectiveSectionImpl,

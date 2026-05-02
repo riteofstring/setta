@@ -23,7 +23,7 @@ import { type SkillEntry } from "utils/generatedTypes";
 import {
   type McpRuntimeServerStatus,
   resolveMcpServerStatus,
-} from "./projectChatSkillsMcpViewerUtils";
+} from "../projectChatSkillsMcpViewerUtils";
 
 import {
   CodeMirrorExtensions,
@@ -41,7 +41,6 @@ import {
   SkillMarkdownViewMode,
   SkillStatusBySkillId,
   SkillStatusEntry,
-  SlashCommandsByEngineEntry,
   applyCachedSkillContentViewState,
   applyLoadedSkillContentViewState,
   applySkillContentLoadErrorViewState,
@@ -142,25 +141,6 @@ export function resolveProjectChatViewerLoadingState(args: {
       !allLLMConfigsInitialLoadComplete || mcpRuntimeStatusLoading,
     showSkillsLoadingState: skillsLoading && skillsCount === 0,
   };
-}
-
-export function resolveNextSelectedSlashEngineId(args: {
-  selectedSlashEngineId: string | null;
-  slashCommandsByEngine: SlashCommandsByEngineEntry[];
-}): string | null {
-  const { selectedSlashEngineId, slashCommandsByEngine } = args;
-  if (slashCommandsByEngine.length === 0) {
-    return null;
-  }
-  if (
-    selectedSlashEngineId &&
-    slashCommandsByEngine.some(
-      (entry) => entry.engineId === selectedSlashEngineId,
-    )
-  ) {
-    return selectedSlashEngineId;
-  }
-  return slashCommandsByEngine[0]?.engineId ?? null;
 }
 
 export function runSkillsRefreshEffect(args: {

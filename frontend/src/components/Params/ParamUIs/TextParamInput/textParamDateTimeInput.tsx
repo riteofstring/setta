@@ -15,7 +15,7 @@ import {
   normalizeTimeTo24Hour,
 } from "utils/textParamDateTime";
 
-import type { ParamValueChange } from "./ConfiguredParamInputs";
+import type { ParamValueChange } from "../ConfiguredParamInputs";
 
 import {
   DateCalendarInput,

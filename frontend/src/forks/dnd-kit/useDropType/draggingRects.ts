@@ -26,7 +26,7 @@ import {
 
 import { SectionTypeEnum } from "utils/generatedTypes";
 
-import type { DragOverEvent, DragStartEvent } from "./adapter";
+import type { DragOverEvent, DragStartEvent } from "../adapter";
 
 import { lastPastHalfwayByOverId } from "./dropTypeResolution";
 

@@ -3,15 +3,15 @@ import { BackgroundVariantEnum, type ObjectValues } from "utils/generatedTypes";
 import {
   GPU_EDGE_VERTEX_FLOATS,
   type GpuEdgeBufferInput,
-} from "./edges/edgeGpuBuffers";
+} from "../edges/edgeGpuBuffers";
 
-import type { GpuFlowRuntime } from "./gpuDevice";
+import type { GpuFlowRuntime } from "../gpuDevice";
 
-import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
+import type { GpuTexturedNodeQuad } from "../GpuNodeLayer";
 
-import type { GpuCanvasSize } from "./gpuRenderer";
+import type { GpuCanvasSize } from "../gpuRenderer";
 
-import { type GpuViewportInput } from "./viewportMath";
+import { type GpuViewportInput } from "../viewportMath";
 
 export type NodeQuadRenderRuntime = Pick<
   GpuFlowRuntime,

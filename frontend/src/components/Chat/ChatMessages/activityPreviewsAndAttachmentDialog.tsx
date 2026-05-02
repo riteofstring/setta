@@ -33,7 +33,7 @@ import {
   ToolChatMessage,
 } from "utils/generatedTypes";
 
-import { type AttachmentUrlEntry } from "./useChatMessageAttachmentUrls";
+import { type AttachmentUrlEntry } from "../useChatMessageAttachmentUrls";
 
 import {
   ActivityPreviewData,

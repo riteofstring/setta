@@ -18,18 +18,18 @@ import { normalizeToolName, resolveToolCallArguments } from "utils/claudeTools";
 
 import { ChatRoleEnum, ToolCall, ToolChatMessage } from "utils/generatedTypes";
 
-import { getConversationSearchRehypePlugins } from "./chatSearchHighlight";
+import { getConversationSearchRehypePlugins } from "../chatSearchHighlight";
 
 import {
   resolveStreamingThinkingHeadline,
   resolveThinkingSummaryMeta,
-} from "./chatThinkingSummary";
+} from "../chatThinkingSummary";
 
-import { resolveMessageCreatedAtMs } from "./chatTiming";
+import { resolveMessageCreatedAtMs } from "../chatTiming";
 
-import { splitStreamingMarkdownText } from "./streamingMarkdown";
+import { splitStreamingMarkdownText } from "../streamingMarkdown";
 
-import { useTypewriterEffect } from "./useTypewriterEffect";
+import { useTypewriterEffect } from "../useTypewriterEffect";
 
 import {
   ACTION_TOOL_NAMES,

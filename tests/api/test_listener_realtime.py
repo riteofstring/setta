@@ -372,6 +372,7 @@ class TestSettaListenerRealtimeIntegration:
                         "contentId": "listener-image",
                         "byteLength": 3,
                         "mimeType": "image/png",
+                        "sha256": "listener-image-sha256",
                     },
                 }
             ]
@@ -1903,6 +1904,7 @@ class TestSettaListenerBinaryParsing:
             contentId="binary-1",
             byteLength=3,
             mimeType="image/png",
+            sha256="binary-1-sha256",
         )
         delta_one = ListenerRealtimeDelta(
             dependency=dependency_one,
@@ -1939,6 +1941,7 @@ class TestSettaListenerBinaryParsing:
             contentId="binary-2",
             byteLength=5,
             mimeType="application/octet-stream",
+            sha256="binary-2-sha256",
         )
         event_one = DependencyEvent(
             dependencyKey=dependency_one,

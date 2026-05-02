@@ -29,7 +29,7 @@ import {
   PluginScopeEnum,
 } from "utils/generatedTypes";
 
-import { buildPluginListEntryCardKey } from "./PluginsPane.helpers";
+import { buildPluginListEntryCardKey } from "../PluginsPane.helpers";
 
 import { PluginListEntryCard } from "./pluginConfigEditor";
 

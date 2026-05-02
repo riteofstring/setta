@@ -22,7 +22,7 @@ import { parseFileBrowserFilterText } from "utils/fileBrowserFilter";
 
 import { BrowserAreaViewModeEnum } from "utils/generatedTypes";
 
-import { ViewSelector, ViewSwitch } from "./BrowserAreaView";
+import { ViewSelector, ViewSwitch } from "../BrowserAreaView";
 
 import {
   BrowserAreaItemsColumnProps,

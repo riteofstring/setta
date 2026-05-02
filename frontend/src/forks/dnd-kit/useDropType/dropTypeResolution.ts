@@ -35,11 +35,11 @@ import { useProjectState } from "state/definitions";
 
 import { isBaseParentSectionImpl, SectionTypeEnum } from "utils/generatedTypes";
 
-import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
+import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "../adapter";
 
-import { computeNewIndex } from "./adapter";
+import { computeNewIndex } from "../adapter";
 
-import { resetSortingOverState } from "./sortingOverState";
+import { resetSortingOverState } from "../sortingOverState";
 
 import {
   getOverCollisionPastHalfway,

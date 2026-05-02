@@ -11,15 +11,15 @@ import _ from "lodash";
 
 import { useLocalStorage, useSettings } from "state/definitions";
 
-import { deleteSelectedAgenticEdges } from "./agenticEdges";
+import { deleteSelectedAgenticEdges } from "../agenticEdges";
 
-import { deleteSelectedEdges } from "./edges";
+import { deleteSelectedEdges } from "../edges";
 
-import { getNodes } from "./nodeInternals";
+import { getNodes } from "../nodeInternals";
 
-import { deleteAllActiveSections } from "./sectionInfos";
+import { deleteAllActiveSections } from "../sectionInfos";
 
-import { deleteSelectedStateMachineEdges } from "./stateMachineEdges";
+import { deleteSelectedStateMachineEdges } from "../stateMachineEdges";
 
 export function deleteEdgesOrSections() {
   const deletedEdges = deleteSelectedEdges();

@@ -45,7 +45,7 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
-import { resolveParamPlaceholderMovePlan } from "./paramDndMonitorUtils";
+import { resolveParamPlaceholderMovePlan } from "../paramDndMonitorUtils";
 
 import {
   CollisionDroppableData,

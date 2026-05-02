@@ -11,29 +11,29 @@ import {
 import {
   resolveGpuNodePointerHandoffTarget,
   resolveGpuNodeWheelHandoffTarget,
-} from "./activeNodeTargeting";
+} from "../activeNodeTargeting";
 
-import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
+import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
 import type {
   GpuEdgeReconnectAnchor,
   GpuEdgeScene,
   GpuEdgeSceneLabel,
-} from "./edges/edgeSources";
+} from "../edges/edgeSources";
 
 import {
   createGpuActiveNodeTeleportController,
   type GpuActiveNodeTeleportController,
-} from "./GpuActiveNodeTeleport";
+} from "../GpuActiveNodeTeleport";
 
-import type { GpuFlowRuntime } from "./gpuDevice";
+import type { GpuFlowRuntime } from "../gpuDevice";
 
-import { GpuEdgeLabelLayer } from "./GpuEdgeLabels";
+import { GpuEdgeLabelLayer } from "../GpuEdgeLabels";
 
 import {
   GpuEdgeReconnectAnchorLayer,
   type GpuEdgeReconnectOptions,
-} from "./GpuEdgeReconnectAnchors";
+} from "../GpuEdgeReconnectAnchors";
 
 import {
   clearGpuNodeDomTransformSyncCache,
@@ -47,59 +47,59 @@ import {
   type GpuNodeLayout,
   type GpuNodeUploadBudget,
   type RenderGpuNodeLayerFrameResult,
-} from "./GpuNodeLayer";
+} from "../GpuNodeLayer";
 
 import {
   GpuNodeQuadRenderer,
   type GpuEdgePaletteInput,
   type GpuGridInput,
-} from "./gpuPipelines";
+} from "../gpuPipelines";
 
-import { type GpuCanvasSize } from "./gpuRenderer";
+import { type GpuCanvasSize } from "../gpuRenderer";
 
 import {
   GpuSurface,
   type GpuSurfaceHandle,
   type GpuSurfaceProps,
-} from "./GpuSurface";
+} from "../GpuSurface";
 
 import {
   attachGpuEdgeInteractionController,
   type GpuEdgeInteractionControllerOptions,
-} from "./interactions/edges";
+} from "../interactions/edges";
 
 import {
   attachGpuNodeDragController,
   type GpuNodeDragControllerOptions,
-} from "./interactions/nodeDrag";
+} from "../interactions/nodeDrag";
 
 import {
   attachGpuPanZoomController,
   type GpuPanZoomControllerOptions,
-} from "./interactions/panZoom";
+} from "../interactions/panZoom";
 
 import {
   attachGpuSelectionController,
   type GpuSelectionControllerOptions,
-} from "./interactions/selection";
+} from "../interactions/selection";
 
 import {
   createGpuNodeInteractionDirtyController,
   type GpuNodeInteractionDirtyController,
-} from "./nodeInteractionDirty";
+} from "../nodeInteractionDirty";
 
 import {
   createNodeTextureManager,
   type NodeTextureManager,
-} from "./nodeTextures";
+} from "../nodeTextures";
 
-import type { GpuViewportInput } from "./viewportMath";
+import type { GpuViewportInput } from "../viewportMath";
 
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
   type GpuUserSelectionRect,
-} from "./viewportStore";
+} from "../viewportStore";
 
 import {
   activateGpuFlowPointerHandoffNode,

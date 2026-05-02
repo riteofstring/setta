@@ -4,7 +4,7 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 
 import { CustomRunItem } from "state/definitions";
 
-import { type RunInstructionsStateMachineControl } from "./runInstructionsStateMachineControls";
+import { type RunInstructionsStateMachineControl } from "../runInstructionsStateMachineControls";
 
 import {
   AddCodeBlockRow,

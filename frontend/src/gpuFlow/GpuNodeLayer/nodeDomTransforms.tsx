@@ -1,12 +1,12 @@
-import type { NodeTexturePriority } from "./dirtyTracking";
+import type { NodeTexturePriority } from "../dirtyTracking";
 
-import { resolveGpuNodeZIndex } from "./nodeZIndex";
+import { resolveGpuNodeZIndex } from "../nodeZIndex";
 
 import {
   flowToScreenPosition,
   normalizeGpuViewport,
   type GpuRect,
-} from "./viewportMath";
+} from "../viewportMath";
 
 import {
   DEFAULT_OFFSCREEN_POSITION,

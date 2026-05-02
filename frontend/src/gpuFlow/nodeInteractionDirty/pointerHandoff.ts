@@ -1,6 +1,6 @@
-import { isGpuNodeInteractiveEventTarget } from "./activeNodeTargeting";
+import { isGpuNodeInteractiveEventTarget } from "../activeNodeTargeting";
 
-import type { DirtyNodeReason, NodeTexturePriority } from "./dirtyTracking";
+import type { DirtyNodeReason, NodeTexturePriority } from "../dirtyTracking";
 
 import {
   DirtyEventKind,

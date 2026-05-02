@@ -32,9 +32,9 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
-import { resolveEdgeStripHeight } from "./edgeStripUtils";
+import { resolveEdgeStripHeight } from "../edgeStripUtils";
 
-import { ParamDndList } from "./ParamDndList";
+import { ParamDndList } from "../ParamDndList";
 
 import {
   EdgeInputPortRow,

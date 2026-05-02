@@ -6,7 +6,7 @@ import {
   type PluginCanvasControlDefinition,
   type PluginFrontendErrorCode,
   type RegisteredPluginCanvasControl,
-} from "./runtimeShared";
+} from "../runtimeShared";
 
 import {
   PluginFrontendError,

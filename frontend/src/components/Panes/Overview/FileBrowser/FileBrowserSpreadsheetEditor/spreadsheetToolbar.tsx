@@ -51,12 +51,12 @@ import {
 import {
   SPREADSHEET_FILTER_INPUT_CLASS_NAME,
   type SpreadsheetDensityMetrics,
-} from "./fileBrowserSpreadsheetGrid";
+} from "../fileBrowserSpreadsheetGrid";
 
 import {
   shouldClearSpreadsheetDirtyAfterSave,
   type SpreadsheetSortState,
-} from "./fileBrowserSpreadsheetState";
+} from "../fileBrowserSpreadsheetState";
 
 export const SPREADSHEET_AUTO_RELOAD_INTERVAL_MS = 2000;
 

@@ -29,13 +29,13 @@ import {
   ToolResultEvent,
 } from "utils/generatedTypes";
 
-import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
+import { getRunInputString, getRunLastUpdatedMs } from "../agentRunUtils";
 
-import { extractAgenticScopeViolation } from "./agenticScopeViolation";
+import { extractAgenticScopeViolation } from "../agenticScopeViolation";
 
-import { resolveSectionIdForChatId } from "./chatSectionStreaming";
+import { resolveSectionIdForChatId } from "../chatSectionStreaming";
 
-import { shouldIgnoreResponsePlaceholderChunk } from "./chatStreamState";
+import { shouldIgnoreResponsePlaceholderChunk } from "../chatStreamState";
 
 import { scopeViolationToastTimeouts } from "./apiKeysAndHealth";
 

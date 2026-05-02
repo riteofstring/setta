@@ -5,7 +5,7 @@ import type { PluginBlockedCapability } from "utils/generatedTypes";
 import {
   buildInstallTrustSummaryMessage,
   getPluginActionErrorDetail,
-} from "./PluginsPane.helpers";
+} from "../PluginsPane.helpers";
 
 import {
   PluginActionStatus,

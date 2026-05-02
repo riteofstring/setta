@@ -59,7 +59,7 @@ import {
   type ProjectConfigMetadata,
 } from "utils/generatedTypes";
 
-import { LoadingSpinner } from "../LoadingSpinner";
+import { LoadingSpinner } from "../../LoadingSpinner";
 
 import {
   HomeFileBrowserColumn,

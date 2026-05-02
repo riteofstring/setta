@@ -83,7 +83,7 @@ import {
   shouldPersistInitializedChatState,
   toSortedHistoryEntries,
   type ChatSectionHistoryEntry,
-} from "./chatAreaUtils";
+} from "../chatAreaUtils";
 
 import { ManagedChatArea } from "./managedChatArea";
 

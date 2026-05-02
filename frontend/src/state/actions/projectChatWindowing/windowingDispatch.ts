@@ -24,14 +24,14 @@ import {
 import {
   clearTrackedGitPaneGraphWindowIfMatches,
   getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject,
-} from "./projectChatWindowingEphemeral";
+} from "../projectChatWindowingEphemeral";
 
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
-} from "./sectionInfos";
+} from "../sectionInfos";
 
-import { createTopLevelSectionWithResult } from "./sections/createSections";
+import { createTopLevelSectionWithResult } from "../sections/createSections";
 
 import {
   CreateProjectChatWindowInstanceOptions,

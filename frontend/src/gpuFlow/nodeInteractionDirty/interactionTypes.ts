@@ -1,10 +1,10 @@
-import { type GpuNodePointerHandoffTarget } from "./activeNodeTargeting";
+import { type GpuNodePointerHandoffTarget } from "../activeNodeTargeting";
 
-import type { DirtyNodeReason, NodeTexturePriority } from "./dirtyTracking";
+import type { DirtyNodeReason, NodeTexturePriority } from "../dirtyTracking";
 
-import type { GpuFrameReason } from "./gpuRenderer";
+import type { GpuFrameReason } from "../gpuRenderer";
 
-import type { NodeTextureManager } from "./nodeTextures";
+import type { NodeTextureManager } from "../nodeTextures";
 
 export type GpuNodeInteractionFrameResult = {
   readonly budgetExhausted: boolean;

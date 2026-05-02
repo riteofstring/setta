@@ -45,7 +45,7 @@ import {
   parseRecurrenceYears,
   sortRecurringMonths,
   sortRecurringWeekdays,
-} from "./taskBoardRecurrence";
+} from "../taskBoardRecurrence";
 
 import {
   TASK_BOARD_GPU_CONTROL_CLASS_NAME,

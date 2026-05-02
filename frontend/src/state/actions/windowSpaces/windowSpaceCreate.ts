@@ -37,9 +37,9 @@ import {
   type WindowSpaceState,
 } from "utils/generatedTypes";
 
-import { addTemporaryNotification } from "./notifications";
+import { addTemporaryNotification } from "../notifications";
 
-import { isProjectChatGitGraphEmbeddedPaneVisible } from "./projectChatWindowingEphemeral";
+import { isProjectChatGitGraphEmbeddedPaneVisible } from "../projectChatWindowingEphemeral";
 
 import {
   CreateWindowSpaceRouteResponse,

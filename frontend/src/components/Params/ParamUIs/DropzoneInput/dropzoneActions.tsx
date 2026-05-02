@@ -35,7 +35,7 @@ import {
   type ContentRef,
 } from "utils/generatedTypes";
 
-import type { ParamValueChange } from "./ConfiguredParamInputs";
+import type { ParamValueChange } from "../ConfiguredParamInputs";
 
 import { commitStatefulValueUpdate } from "./dropzoneInput";
 

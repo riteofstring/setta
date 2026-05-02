@@ -8,7 +8,7 @@ import { FiPlus, FiRefreshCw } from "react-icons/fi";
 
 import { type AppGenerationMode } from "state/types/appGenerationMode";
 
-import { type AgentNativeSlashCommandsEntry } from "./projectChatSkillsMcpViewerUtils";
+import { type AgentNativeSlashCommandsEntry } from "../projectChatSkillsMcpViewerUtils";
 
 import {
   CodeMirrorExtensions,

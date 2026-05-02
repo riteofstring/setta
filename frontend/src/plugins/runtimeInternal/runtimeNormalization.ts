@@ -27,9 +27,9 @@ import {
   type PluginServerMode,
   type RegisteredPluginCanvasControl,
   type RegisteredPluginPane,
-} from "./runtimeShared";
+} from "../runtimeShared";
 
-import { buildPluginAssetUrl } from "./transport";
+import { buildPluginAssetUrl } from "../transport";
 
 import { registerPluginModule } from "./backendRoutesAndCommands";
 

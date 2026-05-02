@@ -59,9 +59,9 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
-} from "./paramAreaMeasurements";
+} from "../paramAreaMeasurements";
 
-import { attachParamAreaObservers } from "./paramAreaObservers";
+import { attachParamAreaObservers } from "../paramAreaObservers";
 
 import {
   EdgesStrip,

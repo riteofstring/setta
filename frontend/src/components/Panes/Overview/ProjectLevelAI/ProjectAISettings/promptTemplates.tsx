@@ -19,7 +19,7 @@ import {
   MANAGER_LIST_CLASS_NAME,
   SELECT_CLASS_NAME,
   TEXTAREA_CLASS_NAME,
-} from "./projectAISettingsShared";
+} from "../projectAISettingsShared";
 
 import {
   AgentProfileDraft,

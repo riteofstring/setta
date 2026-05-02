@@ -72,29 +72,29 @@ import {
   type ViewMode,
 } from "utils/generatedTypes";
 
-import { RunInstructionsAccordion } from "./RunInstructionsAccordion";
+import { RunInstructionsAccordion } from "../RunInstructionsAccordion";
 
 import {
   normalizeRunInstructionsAccordionOpenValues,
   RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES,
   type RunInstructionsAccordionItemValue,
-} from "./runInstructionsAccordionState";
+} from "../runInstructionsAccordionState";
 
 import {
   RunInstructionsCodegenPolicy,
   type RunInstructionsCodegenPolicyStyles,
   type RunInstructionsCodeObjOption,
   type RunInstructionsSectionOption,
-} from "./RunInstructionsCodegenPolicy";
+} from "../RunInstructionsCodegenPolicy";
 
-import { getRunInstructionsCodeObjOptions } from "./runInstructionsCodeObjOptions";
+import { getRunInstructionsCodeObjOptions } from "../runInstructionsCodeObjOptions";
 
-import { isRunnableSectionForCustomRun } from "./runInstructionsRunnableCodeBlocks";
+import { isRunnableSectionForCustomRun } from "../runInstructionsRunnableCodeBlocks";
 
 import {
   collectRunInstructionsStateMachineControls,
   type RunInstructionsStateMachineControl,
-} from "./runInstructionsStateMachineControls";
+} from "../runInstructionsStateMachineControls";
 
 import {
   AddFromCodeBlocksContent,

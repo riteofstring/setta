@@ -14,9 +14,9 @@ import {
 import {
   ChatMessageTimestampFooter,
   resolveMessageCreatedAtMs,
-} from "./chatTiming";
+} from "../chatTiming";
 
-import { type AttachmentUrlEntry } from "./useChatMessageAttachmentUrls";
+import { type AttachmentUrlEntry } from "../useChatMessageAttachmentUrls";
 
 import {
   ActivityMessageContext,

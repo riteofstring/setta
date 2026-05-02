@@ -11,7 +11,7 @@ import type {
   RegisteredPluginCommand,
   RegisteredPluginSectionKind,
   RegisteredPluginTopNavBarItem,
-} from "./runtimeInternal";
+} from "../runtimeInternal";
 
 import {
   comparePluginCanvasControls,
@@ -20,7 +20,7 @@ import {
   type PluginSectionFallbackReason,
   type RegisteredPluginCanvasControl,
   type RegisteredPluginPane,
-} from "./runtimeShared";
+} from "../runtimeShared";
 
 import {
   PluginPaneTabEntry,

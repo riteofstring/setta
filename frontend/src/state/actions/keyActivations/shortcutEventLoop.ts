@@ -46,38 +46,38 @@ import { isMacOs } from "utils/utils";
 import {
   selectAll,
   setTopLevelNonGroupSectionsAsActive,
-} from "./activeSections";
+} from "../activeSections";
 
-import { copy, paste } from "./copyPaste";
+import { copy, paste } from "../copyPaste";
 
-import { formatActiveCodeSection } from "./formatCode";
+import { formatActiveCodeSection } from "../formatCode";
 
-import { restartLanguageServer } from "./lsp";
+import { restartLanguageServer } from "../lsp";
 
 import {
   openFileMenuLoadProjectConfigModal,
   openFileMenuSaveProjectConfigAsModal,
-} from "./modal";
+} from "../modal";
 
-import { saveProject } from "./project/saveProject";
+import { saveProject } from "../project/saveProject";
 
-import { runEntryCodeBlock } from "./runOrImportCode";
+import { runEntryCodeBlock } from "../runOrImportCode";
 
-import { groupActiveSections, ungroupActiveGroups } from "./sectionInfos";
+import { groupActiveSections, ungroupActiveGroups } from "../sectionInfos";
 
 import {
   addCallableSectionInEmptySpace,
   addGroupInEmptySpace,
   addTerminalInEmptySpace,
-} from "./sections/createSections";
+} from "../sections/createSections";
 
 import {
   focusOnAdvancedSearch,
   focusOnCommandPalette,
   focusOnSearch,
-} from "./sections/sectionParamFilter";
+} from "../sections/sectionParamFilter";
 
-import { redoProjectState, undoProjectState } from "./undo";
+import { redoProjectState, undoProjectState } from "../undo";
 
 import {
   addKeyPressed,

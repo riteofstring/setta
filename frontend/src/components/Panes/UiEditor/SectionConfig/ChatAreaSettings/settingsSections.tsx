@@ -22,7 +22,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
-import { type SectionOption } from "./chatAreaLinkedChatTargets";
+import { type SectionOption } from "../chatAreaLinkedChatTargets";
 
 export type ChatAreaSettingsProps = {
   sectionId: string;

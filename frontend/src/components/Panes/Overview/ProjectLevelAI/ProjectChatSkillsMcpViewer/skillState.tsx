@@ -26,7 +26,7 @@ import {
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   isAgentRunsAuthorityReady,
-} from "./projectChatSkillsMcpViewerUtils";
+} from "../projectChatSkillsMcpViewerUtils";
 
 export type PathGroupHeaderProps = {
   title: string;
@@ -678,6 +678,25 @@ export function resolveSelectedSlashEngine(args: {
     slashCommandsByEngine[0] ??
     null
   );
+}
+
+export function resolveNextSelectedSlashEngineId(args: {
+  selectedSlashEngineId: string | null;
+  slashCommandsByEngine: SlashCommandsByEngineEntry[];
+}): string | null {
+  const { selectedSlashEngineId, slashCommandsByEngine } = args;
+  if (slashCommandsByEngine.length === 0) {
+    return null;
+  }
+  if (
+    selectedSlashEngineId &&
+    slashCommandsByEngine.some(
+      (entry) => entry.engineId === selectedSlashEngineId,
+    )
+  ) {
+    return selectedSlashEngineId;
+  }
+  return slashCommandsByEngine[0]?.engineId ?? null;
 }
 
 export function resolveSelectedAgentNativeSlashCommands(args: {

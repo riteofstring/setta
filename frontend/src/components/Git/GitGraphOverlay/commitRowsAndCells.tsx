@@ -21,7 +21,7 @@ import { useGitStore } from "state/git";
 import {
   summarizeDecorationChips,
   type DecorationChip,
-} from "./gitGraphOverlayUtils";
+} from "../gitGraphOverlayUtils";
 
 import {
   COMMIT_GRID_TEMPLATE_COLUMNS,

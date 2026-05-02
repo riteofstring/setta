@@ -56,7 +56,7 @@ import {
   buildBusyPluginIdSet,
   buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
-} from "./PluginsPane.helpers";
+} from "../PluginsPane.helpers";
 
 import {
   ActivePluginsSection,

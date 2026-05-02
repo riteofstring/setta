@@ -67,7 +67,7 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
-import { isParamOverlayVisible } from "./paramDndMonitorUtils";
+import { isParamOverlayVisible } from "../paramDndMonitorUtils";
 
 import {
   ParamDragOverInput,

@@ -48,7 +48,7 @@ import {
   type ToolCall,
 } from "utils/generatedTypes";
 
-import { type ProjectChatThreadBlockedErrorCode } from "./projectChatHydrationAuthority";
+import { type ProjectChatThreadBlockedErrorCode } from "../projectChatHydrationAuthority";
 
 import {
   buildReservedSlashCommandTokens,
@@ -57,7 +57,7 @@ import {
   reconcileCustomSlashCommands,
   resolveAgentNativeSlashCommandsByEngineId,
   type AgentRunsAuthorityState,
-} from "./projectChatSkillsMcpViewerUtils";
+} from "../projectChatSkillsMcpViewerUtils";
 
 export const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
   "Custom slash commands are unavailable until native command authority is loaded for this project.";

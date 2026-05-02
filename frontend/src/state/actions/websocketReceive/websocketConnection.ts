@@ -68,21 +68,21 @@ import {
   receiveExternalAgentConfigsUpdate,
   receivePromptTemplatesUpdate,
   receiveTranscriptionProfilesUpdate,
-} from "./ai";
+} from "../ai";
 
-import { requestAIFollowSnapshot } from "./aiFollow";
+import { requestAIFollowSnapshot } from "../aiFollow";
 
-import { fetchListenerCoverageSnapshot } from "./listenerCoverage";
+import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 
 import {
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,
-} from "./sectionInfos";
+} from "../sectionInfos";
 
 import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
-} from "./share";
+} from "../share";
 
 import { receiveMessage } from "./websocketMessageHandlers";
 

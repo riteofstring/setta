@@ -22,9 +22,9 @@ import {
 
 import React from "react";
 
-import { useAppSubsystemFrontendHost } from "../../appSubsystemFrontendHostContext";
+import { useAppSubsystemFrontendHost } from "../../../appSubsystemFrontendHostContext";
 
-import { useAppConfigs } from "../../appSubsystemProjectState";
+import { useAppConfigs } from "../../../appSubsystemProjectState";
 
 import { DropzoneInput } from "./dropzoneInput";
 

@@ -28,7 +28,7 @@ import {
   isBaseParentSectionImpl,
 } from "utils/generatedTypes";
 
-import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";
+import { resolveHydratedToolCallArguments } from "../chatHydrationOverlays";
 
 import {
   getActiveViewModeTopLevelSections,

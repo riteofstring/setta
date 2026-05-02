@@ -18,7 +18,7 @@ import {
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 
-import { getFloatingBoxHandlers } from "./FloatingBox";
+import { getFloatingBoxHandlers } from "../FloatingBox";
 
 export type MediaCarouselItem<T = unknown> = {
   id: string;

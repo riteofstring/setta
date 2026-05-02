@@ -34,11 +34,11 @@ import remarkGfm from "remark-gfm";
 import {
   getConversationSearchRehypePlugins,
   renderConversationSearchHighlightedText,
-} from "./chatSearchHighlight";
+} from "../chatSearchHighlight";
 
-import { useScrambledLabel } from "./chatThinkingSummary";
+import { useScrambledLabel } from "../chatThinkingSummary";
 
-import { resolveDurationLabel, useRunElapsedDuration } from "./chatTiming";
+import { resolveDurationLabel, useRunElapsedDuration } from "../chatTiming";
 
 import {
   ACTIVITY_COUNT_BADGE_CLASS,

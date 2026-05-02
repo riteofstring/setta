@@ -35,17 +35,17 @@ import {
   ToolChatMessage,
 } from "utils/generatedTypes";
 
-import { renderConversationSearchHighlightedText } from "./chatSearchHighlight";
+import { renderConversationSearchHighlightedText } from "../chatSearchHighlight";
 
 import {
   type AnimatedStreamingCharacter,
   reconcileAnimatedStreamingCharacters,
-} from "./streamingMarkdown";
+} from "../streamingMarkdown";
 
 import {
   type AttachmentUrlEntry,
   isAttachmentUrlStale,
-} from "./useChatMessageAttachmentUrls";
+} from "../useChatMessageAttachmentUrls";
 
 import {
   PDF_PREVIEW_MAX_BYTES,

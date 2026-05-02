@@ -12,7 +12,7 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 
-import { SectionTitle } from "./SectionTitle";
+import { SectionTitle } from "../SectionTitle";
 
 import {
   TitleStyleOptions,

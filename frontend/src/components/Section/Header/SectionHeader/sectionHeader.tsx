@@ -42,25 +42,25 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 
-import { Incrementer } from "../SectionParts/Incrementer";
+import { Incrementer } from "../../SectionParts/Incrementer";
 
-import { AttachedTerminalControls } from "./AttachedTerminalControls";
+import { AttachedTerminalControls } from "../AttachedTerminalControls";
 
-import { DeleteOrHideButton } from "./DeleteOrHideButton";
+import { DeleteOrHideButton } from "../DeleteOrHideButton";
 
-import { LockPositionButton } from "./LockPositionButton";
+import { LockPositionButton } from "../LockPositionButton";
 
-import MenuButton from "./MenuButton/MenuButton";
+import MenuButton from "../MenuButton/MenuButton";
 
-import { MinimizeButton } from "./MinimizeButton";
+import { MinimizeButton } from "../MinimizeButton";
 
-import { RunButton } from "./RunButton";
+import { RunButton } from "../RunButton";
 
-import { SectionTitle } from "./SectionTitle";
+import { SectionTitle } from "../SectionTitle";
 
-import { ToggleEntryCodeBlockButton } from "./ToggleEntryCodeBlockButton";
+import { ToggleEntryCodeBlockButton } from "../ToggleEntryCodeBlockButton";
 
-import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeButton";
+import { ToggleTextBlockDisplayModeButton } from "../ToggleTextBlockDisplayModeButton";
 
 import { TextBlockCardTitle, getTitleStyles } from "./textBlockTitle";
 

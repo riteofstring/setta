@@ -44,7 +44,7 @@ import {
   type WindowSpaceState,
 } from "utils/generatedTypes";
 
-import { isProjectChatGitGraphEmbeddedPaneVisible } from "./projectChatWindowingEphemeral";
+import { isProjectChatGitGraphEmbeddedPaneVisible } from "../projectChatWindowingEphemeral";
 
 export type AuthoringFloatingViewport = {
   viewportWidthPx: number;

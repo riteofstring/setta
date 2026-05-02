@@ -27,9 +27,9 @@ import {
   createCurrentAddressUpdateMessage,
 } from "utils/generatedTypes";
 
-import { dependencyKeyCovered } from "./listenerCoverage";
+import { dependencyKeyCovered } from "../listenerCoverage";
 
-import { getCurrProjectConfigId } from "./sectionInfos";
+import { getCurrProjectConfigId } from "../sectionInfos";
 
 import {
   BinaryUploadRouteResponse,

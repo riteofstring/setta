@@ -53,18 +53,18 @@ import {
   createMessageTextContent,
 } from "utils/generatedTypes";
 
-import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
+import { getRunInputString, getRunLastUpdatedMs } from "../agentRunUtils";
 
-import { buildEditedMessageHistory } from "./chatBranches";
+import { buildEditedMessageHistory } from "../chatBranches";
 
-import { applyHydratedChatDetailsToStore } from "./chatDetailsAuthority";
+import { applyHydratedChatDetailsToStore } from "../chatDetailsAuthority";
 
 import {
   applyHydratedChatDetailsToSectionState,
   persistChatSectionState,
-} from "./chatSectionAuthority";
+} from "../chatSectionAuthority";
 
-import { applyChatSectionStreamDelta } from "./chatSectionStreaming";
+import { applyChatSectionStreamDelta } from "../chatSectionStreaming";
 
 import {
   ChatExecutionSettings,

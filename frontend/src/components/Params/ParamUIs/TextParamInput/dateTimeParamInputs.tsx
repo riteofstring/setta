@@ -55,9 +55,9 @@ import {
   splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
 
-import type { ParamValueChange } from "./ConfiguredParamInputs";
+import type { ParamValueChange } from "../ConfiguredParamInputs";
 
-import { SwitchInput } from "./SwitchInput";
+import { SwitchInput } from "../SwitchInput";
 
 export const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";

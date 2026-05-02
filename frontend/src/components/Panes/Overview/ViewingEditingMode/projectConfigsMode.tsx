@@ -41,9 +41,9 @@ import { ViewMode } from "utils/generatedTypes";
 
 import { sortViewModes } from "utils/viewModeOrdering";
 
-import { ProjectConfigs } from "./ProjectConfigs";
+import { ProjectConfigs } from "../ProjectConfigs";
 
-import { WindowSpacesPane } from "./WindowSpacesPane";
+import { WindowSpacesPane } from "../WindowSpacesPane";
 
 import { ViewModeEditingRowContent } from "./viewModeRows";
 

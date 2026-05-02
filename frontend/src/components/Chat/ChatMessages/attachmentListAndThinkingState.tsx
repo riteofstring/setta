@@ -32,23 +32,23 @@ import { ChatFileAttachment, ChatRoleEnum } from "utils/generatedTypes";
 import {
   getConversationSearchRehypePlugins,
   renderConversationSearchHighlightedText,
-} from "./chatSearchHighlight";
+} from "../chatSearchHighlight";
 
 import {
   resolveCollapsedThinkingActivityLabel,
   resolveThinkingSummaryHeadline,
-} from "./chatThinkingSummary";
+} from "../chatThinkingSummary";
 
 import {
   ChatTimestamp,
   resolveDurationLabel,
   useRunElapsedDuration,
-} from "./chatTiming";
+} from "../chatTiming";
 
 import {
   type AttachmentUrlEntry,
   isAttachmentUrlStale,
-} from "./useChatMessageAttachmentUrls";
+} from "../useChatMessageAttachmentUrls";
 
 import {
   ACTIVITY_ACCORDION_CONTENT_CLASS,

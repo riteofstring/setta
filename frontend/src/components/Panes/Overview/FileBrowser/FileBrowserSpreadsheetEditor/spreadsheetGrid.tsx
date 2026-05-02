@@ -33,14 +33,14 @@ import {
 import {
   SpreadsheetRow,
   type SpreadsheetDensityMetrics,
-} from "./fileBrowserSpreadsheetGrid";
+} from "../fileBrowserSpreadsheetGrid";
 
 import {
   applySpreadsheetCellUpdates,
   isSpreadsheetLoadRequestStale,
   shouldAnnounceSpreadsheetAutoReload,
   type SpreadsheetSortState,
-} from "./fileBrowserSpreadsheetState";
+} from "../fileBrowserSpreadsheetState";
 
 import {
   FileBrowserFileStatRouteResponse,

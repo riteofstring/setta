@@ -16,11 +16,11 @@ import {
   ToolChatMessage,
 } from "utils/generatedTypes";
 
-import { ChatMessageEditor } from "./ChatMessageEditor";
+import { ChatMessageEditor } from "../ChatMessageEditor";
 
-import { ChatMessageTimestampFooter } from "./chatTiming";
+import { ChatMessageTimestampFooter } from "../chatTiming";
 
-import { type AttachmentUrlEntry } from "./useChatMessageAttachmentUrls";
+import { type AttachmentUrlEntry } from "../useChatMessageAttachmentUrls";
 
 import {
   ActivityPreviewData,

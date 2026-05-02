@@ -9,27 +9,27 @@ import {
 
 import { createPortal } from "react-dom";
 
-import type { GpuEdgeBufferInput } from "./edges/edgeGpuBuffers";
+import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
 import type {
   GpuEdgePaletteInput,
   GpuGridInput,
   RenderNodeTextureQuadsInput,
   RenderNodeTextureQuadsResult,
-} from "./gpuPipelines";
+} from "../gpuPipelines";
 
-import type { GpuCanvasSize } from "./gpuRenderer";
+import type { GpuCanvasSize } from "../gpuRenderer";
 
 import type {
   NodeTextureManager,
   NodeTextureMemorySnapshot,
   NodeTextureRecord,
   UploadDirtyNodeTexturesOptions,
-} from "./nodeTextures";
+} from "../nodeTextures";
 
-import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "./nodeZIndex";
+import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
-import { REACT_FLOW_COMPAT_CLASS_NAMES } from "./reactFlowCompatibility";
+import { REACT_FLOW_COMPAT_CLASS_NAMES } from "../reactFlowCompatibility";
 
 import {
   flowToScreenPosition,
@@ -37,7 +37,7 @@ import {
   normalizeGpuViewport,
   rectsIntersect,
   type GpuViewportInput,
-} from "./viewportMath";
+} from "../viewportMath";
 
 import {
   applyCulledNodeDomTransform,

@@ -54,7 +54,7 @@ import { immer } from "zustand/middleware/immer";
 
 import { createWithEqualityFn } from "zustand/traditional";
 
-import { withProjectState, withResetFn } from "./utils";
+import { withProjectState, withResetFn } from "../utils";
 
 import {
   ColorModePreference,

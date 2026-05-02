@@ -13,7 +13,7 @@ import { buildPluginPaneOverviewTabName } from "utils/constants";
 
 import type { PluginListEntry } from "utils/generatedTypes";
 
-import { onOverviewTabClick } from "../../paneFns";
+import { onOverviewTabClick } from "../../../paneFns";
 
 import {
   buildPluginSourceIdentityToken,
@@ -23,7 +23,7 @@ import {
   parsePluginConfigDraft,
   resolvePluginConfigFieldPresentation,
   type PluginConfigFieldDefinition,
-} from "./PluginsPane.helpers";
+} from "../PluginsPane.helpers";
 
 import {
   DEFAULT_PLUGIN_SERVER_MODE,

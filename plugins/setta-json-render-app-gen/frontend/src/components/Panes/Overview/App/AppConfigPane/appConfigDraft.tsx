@@ -12,16 +12,16 @@ import {
 import {
   PaneAccordion,
   type PaneAccordionItem,
-} from "../../../ui/PaneAccordion";
+} from "../../../../ui/PaneAccordion";
 
-import { useAppPreview } from "../../../../appSubsystemProjectState";
+import { useAppPreview } from "../../../../../appSubsystemProjectState";
 
-import { useAppDefinition } from "../../../../appSubsystemDefinitionState";
+import { useAppDefinition } from "../../../../../appSubsystemDefinitionState";
 
 import {
   useAppSubsystemFrontendHost,
   useAppSubsystemProjectContext,
-} from "../../../../appSubsystemFrontendHostContext";
+} from "../../../../../appSubsystemFrontendHostContext";
 
 import {
   useCallback,
@@ -32,9 +32,9 @@ import {
   type RefObject,
 } from "react";
 
-import { type AppDefinition } from "../../../../appSubsystemContracts";
+import { type AppDefinition } from "../../../../../appSubsystemContracts";
 
-import { getRegisteredAppSubsystemPluginId } from "../../../../appSubsystemPluginHost";
+import { getRegisteredAppSubsystemPluginId } from "../../../../../appSubsystemPluginHost";
 
 import {
   parseDraftAppAssets,
@@ -43,7 +43,7 @@ import {
   parseDraftAppTheme,
   type AppThemeMode,
   type AppSpecDraftPayload,
-} from "./appDraftPreview";
+} from "../appDraftPreview";
 
 import { AppConfigPane } from "./appConfigPane";
 

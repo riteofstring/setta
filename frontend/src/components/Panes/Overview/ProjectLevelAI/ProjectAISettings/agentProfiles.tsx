@@ -44,15 +44,15 @@ import {
 
 import { shallow } from "zustand/shallow";
 
-import { ExternalAgentConfigsManager } from "./ProjectAISettingsExternalAgentConfigsManager";
+import { ExternalAgentConfigsManager } from "../ProjectAISettingsExternalAgentConfigsManager";
 
-import { TranscriptionProfilesManager } from "./ProjectAISettingsTranscriptionProfilesManager";
+import { TranscriptionProfilesManager } from "../ProjectAISettingsTranscriptionProfilesManager";
 
 import {
   PROJECT_AI_SETTINGS_ACCORDION_DEFAULT_OPEN_VALUES,
   type ProjectAISettingsAccordionItemValue,
   normalizeProjectAISettingsAccordionOpenValues,
-} from "./projectAISettingsAccordionState";
+} from "../projectAISettingsAccordionState";
 
 import {
   Field,
@@ -62,9 +62,9 @@ import {
   TEXTAREA_CLASS_NAME,
   normalizeOptionalText,
   parseListInput,
-} from "./projectAISettingsShared";
+} from "../projectAISettingsShared";
 
-import { useHydrateAgenticState } from "./useHydrateAgenticState";
+import { useHydrateAgenticState } from "../useHydrateAgenticState";
 
 import {
   PromptTemplatesManager,

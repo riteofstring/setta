@@ -60,18 +60,18 @@ import remarkMath from "remark-math";
 import {
   useAppSubsystemFrontendHost,
   useAppSubsystemServerModeState,
-} from "../../appSubsystemFrontendHostContext";
+} from "../../../appSubsystemFrontendHostContext";
 
 import {
   useAppConfigs,
   type AppConfigState,
-} from "../../appSubsystemProjectState";
+} from "../../../appSubsystemProjectState";
 
-import { useDecodedAppImageById } from "../../appSubsystemImageArtifacts";
+import { useDecodedAppImageById } from "../../../appSubsystemImageArtifacts";
 
-import { useLocalPendingValue } from "../../appSubsystemPendingValue";
+import { useLocalPendingValue } from "../../../appSubsystemPendingValue";
 
-import { ensureAppProjectConfigLoaded } from "../../state/actions/app";
+import { ensureAppProjectConfigLoaded } from "../../../state/actions/app";
 
 import {
   resolveActionBinding,
@@ -79,18 +79,18 @@ import {
   resolveImageOutputBinding,
   resolveParamBinding,
   resolveTextOutputBinding,
-} from "./appBindings";
+} from "../appBindings";
 
-import type { AppThemeHeadingSizes } from "./appTheme";
+import type { AppThemeHeadingSizes } from "../appTheme";
 
 import {
   AppConfigScopeContext,
   useAppActionState,
   useAppConfigScope,
   useAppRuntime,
-} from "./appContext";
+} from "../appContext";
 
-import { resolveResponsiveValue, useAppBreakpoint } from "./appResponsive";
+import { resolveResponsiveValue, useAppBreakpoint } from "../appResponsive";
 
 import {
   CodeBlock,
@@ -102,9 +102,9 @@ import {
   SliderInput,
   TextInputCodeMirror,
   TextParamDateTimeInput,
-} from "../ui/AppRuntimeControls";
+} from "../../ui/AppRuntimeControls";
 
-import { SwitchInput } from "../ui/SwitchInput";
+import { SwitchInput } from "../../ui/SwitchInput";
 
 import {
   ALIGN_CLASS,

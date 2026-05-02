@@ -58,9 +58,9 @@ import {
 
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 
-import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
+import { recordAuthoritativeProjectChatWindowingState } from "../projectChatWindowingAuthoritative";
 
-import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
+import { reconcileProjectChatWindowingEphemeralState } from "../projectChatWindowingEphemeral";
 
 import {
   getCurrEffectiveSectionImpl,

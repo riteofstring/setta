@@ -34,7 +34,7 @@ import {
   type DecorationChipSummary,
   type GitGraphColumnBoundary,
   type GitGraphColumnWidths,
-} from "./gitGraphOverlayUtils";
+} from "../gitGraphOverlayUtils";
 
 import {
   COMMIT_GRID_TEMPLATE_COLUMNS,

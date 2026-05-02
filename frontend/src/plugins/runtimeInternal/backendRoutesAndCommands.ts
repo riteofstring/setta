@@ -31,7 +31,7 @@ import {
   isPluginPaneIconName,
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
-} from "./paneIcons";
+} from "../paneIcons";
 
 import {
   comparePluginCanvasControls,
@@ -40,7 +40,7 @@ import {
   type PluginPaneDefinition,
   type PluginServerMode,
   type RegisteredPluginPane,
-} from "./runtimeShared";
+} from "../runtimeShared";
 
 import {
   backendRouteCapability,

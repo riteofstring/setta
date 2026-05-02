@@ -28,7 +28,7 @@ import {
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
   type SpreadsheetDensityMetrics,
-} from "./fileBrowserSpreadsheetGrid";
+} from "../fileBrowserSpreadsheetGrid";
 
 import {
   applySpreadsheetCellUpdates,
@@ -36,7 +36,7 @@ import {
   getFilteredSortedSpreadsheetRowIndexes,
   shouldIgnoreSpreadsheetSaveResult,
   type SpreadsheetSortState,
-} from "./fileBrowserSpreadsheetState";
+} from "../fileBrowserSpreadsheetState";
 
 import {
   SpreadsheetDesktopToolbar,

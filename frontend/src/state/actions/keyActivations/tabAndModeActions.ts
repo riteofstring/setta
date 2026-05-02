@@ -17,9 +17,9 @@ import { handleTabNavigation } from "utils/focusManager";
 
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 
-import { clearActiveSectionIds } from "./activeSections";
+import { clearActiveSectionIds } from "../activeSections";
 
-import { unselectAllParams } from "./sectionInfos";
+import { unselectAllParams } from "../sectionInfos";
 
 import {
   TabParamAction,

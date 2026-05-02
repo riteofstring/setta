@@ -1,8 +1,8 @@
 import { BackgroundVariantEnum } from "utils/generatedTypes";
 
-import { parseGpuHexColor } from "./gpuColors";
+import { parseGpuHexColor } from "../gpuColors";
 
-import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
+import type { GpuTexturedNodeQuad } from "../GpuNodeLayer";
 
 import {
   CachedNodeQuadGeometry,

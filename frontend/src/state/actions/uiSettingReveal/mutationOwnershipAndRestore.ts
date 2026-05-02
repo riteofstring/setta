@@ -15,7 +15,7 @@ import {
 import {
   restoreBackendAuthoritativeActiveSectionIds,
   setActiveSectionIds,
-} from "./activeSections";
+} from "../activeSections";
 
 import {
   FIND_TARGET_INTERVAL_MS,

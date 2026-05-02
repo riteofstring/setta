@@ -34,7 +34,7 @@ import {
 import {
   resolveTrackedGitPaneGraphWindowInstanceId,
   setTrackedGitPaneGraphWindowInstanceId,
-} from "./projectChatWindowingEphemeral";
+} from "../projectChatWindowingEphemeral";
 
 import {
   PendingProjectChatWindowingMutation,

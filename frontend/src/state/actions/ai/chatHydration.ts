@@ -37,12 +37,12 @@ import {
   RunStatusEnum,
 } from "utils/generatedTypes";
 
-import { applyHydratedChatDetailsToStore } from "./chatDetailsAuthority";
+import { applyHydratedChatDetailsToStore } from "../chatDetailsAuthority";
 
 import {
   applyHydratedChatDetailsToSectionState,
   persistChatSectionState,
-} from "./chatSectionAuthority";
+} from "../chatSectionAuthority";
 
 import {
   AIStateSnapshot,

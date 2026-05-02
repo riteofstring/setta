@@ -2,11 +2,11 @@ import {
   buildGpuEdgeLineListBufferData,
   type GpuEdgeBufferInput,
   type GpuEdgeLineListBufferData,
-} from "./edges/edgeGpuBuffers";
+} from "../edges/edgeGpuBuffers";
 
-import type { GpuTexturedNodeQuad } from "./GpuNodeLayer";
+import type { GpuTexturedNodeQuad } from "../GpuNodeLayer";
 
-import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
+import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 
 import {
   CAMERA_UNIFORM_BYTES,

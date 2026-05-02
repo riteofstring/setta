@@ -7,11 +7,11 @@ import {
   type SingleConfig,
 } from "utils/generatedTypes";
 
-import type { ConnectionStatus } from "../flowTypes";
+import type { ConnectionStatus } from "../../flowTypes";
 
-import { parseGpuHexColor, type GpuRgbaColor } from "../gpuColors";
+import { parseGpuHexColor, type GpuRgbaColor } from "../../gpuColors";
 
-import type { GpuPoint } from "../viewportMath";
+import type { GpuPoint } from "../../viewportMath";
 
 import {
   buildGpuEdgeGeometry,
@@ -19,9 +19,9 @@ import {
   type GpuEdgeGeometry,
   type GpuEdgeHitTestInput,
   type GpuEdgeHitTestResult,
-} from "./edgeGeometry";
+} from "../edgeGeometry";
 
-import type { GpuEdgeBufferInput, GpuEdgeVisualFamily } from "./edgeGpuBuffers";
+import type { GpuEdgeBufferInput, GpuEdgeVisualFamily } from "../edgeGpuBuffers";
 
 import {
   getAgenticEdgeKey,

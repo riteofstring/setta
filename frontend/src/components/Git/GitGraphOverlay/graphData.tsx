@@ -44,7 +44,7 @@ import {
   type GitGraphColumnBoundary,
   type GitGraphColumnWidthPatch,
   type GitGraphColumnWidths,
-} from "./gitGraphOverlayUtils";
+} from "../gitGraphOverlayUtils";
 
 import { GitCommitRowDataProps } from "./overlayStateAndHistory";
 

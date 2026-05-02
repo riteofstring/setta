@@ -71,7 +71,7 @@ import {
   type FileUrlEntry,
   type GetFolderContentsRouteResponse,
   type OpenableBrowserItem,
-} from "./browserAreaShared";
+} from "../browserAreaShared";
 
 import {
   FileUrlRequestOptions,

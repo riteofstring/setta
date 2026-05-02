@@ -70,7 +70,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
-import { filterExecutableLinkedChatTargets } from "./chatAreaLinkedChatTargets";
+import { filterExecutableLinkedChatTargets } from "../chatAreaLinkedChatTargets";
 
 import {
   AgenticScopeBlock,

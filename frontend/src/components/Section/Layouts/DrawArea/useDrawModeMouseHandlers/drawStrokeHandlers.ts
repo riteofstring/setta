@@ -33,11 +33,11 @@ import {
   getXY,
   startNewEraserStroke,
   startNewStroke,
-} from "./canvasUtils";
+} from "../canvasUtils";
 
-import { filterEraserPath } from "./eraserIntersection";
+import { filterEraserPath } from "../eraserIntersection";
 
-import { getBrushStrokesBounds, getImageBounds } from "./mouseHandlerUtils";
+import { getBrushStrokesBounds, getImageBounds } from "../mouseHandlerUtils";
 
 import {
   CanvasPointXY,
@@ -46,7 +46,7 @@ import {
   ResizeHandle,
   ResizeHandleCorners,
   TempCanvasesType,
-} from "./types";
+} from "../types";
 
 import {
   editingOnMouseDown,

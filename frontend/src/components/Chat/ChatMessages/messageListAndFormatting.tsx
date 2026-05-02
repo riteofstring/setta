@@ -19,7 +19,7 @@ import {
   ToolChatMessage,
 } from "utils/generatedTypes";
 
-import { useChatMessageAttachmentUrls } from "./useChatMessageAttachmentUrls";
+import { useChatMessageAttachmentUrls } from "../useChatMessageAttachmentUrls";
 
 import {
   ChatMessageListProps,

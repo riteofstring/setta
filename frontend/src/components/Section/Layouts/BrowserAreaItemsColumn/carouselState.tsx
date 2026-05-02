@@ -44,7 +44,7 @@ import {
   type GetFileBrowserDownloadURLsRouteResponse,
   type GetFileBrowserRootRouteResponse,
   type GetFolderContentsRouteResponse,
-} from "./browserAreaShared";
+} from "../browserAreaShared";
 
 export type BrowserAreaItemsColumnProps = {
   sectionId: string;

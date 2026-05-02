@@ -23,9 +23,9 @@ import {
   beginAppSubsystemFrontendRegistrationLoad,
   resetAppSubsystemFrontendRuntimeState,
   syncAppSubsystemFrontendRegistration,
-} from "./appSubsystem";
+} from "../appSubsystem";
 
-import { type PluginPaneIconName } from "./paneIcons";
+import { type PluginPaneIconName } from "../paneIcons";
 
 import type {
   PluginFrontendError,
@@ -33,7 +33,7 @@ import type {
   RegisteredPluginCommand,
   RegisteredPluginSectionKind,
   RegisteredPluginTopNavBarItem,
-} from "./runtimeInternal";
+} from "../runtimeInternal";
 
 import {
   clearPluginRuntimeSideEffects,
@@ -47,13 +47,13 @@ import {
   runWithConcurrencyLimit,
   setPluginFrontendSignature,
   shouldLoadPluginFrontendForFeatureSelection,
-} from "./runtimeInternal";
+} from "../runtimeInternal";
 
 import {
   type PluginServerMode,
   type RegisteredPluginCanvasControl,
   type RegisteredPluginPane,
-} from "./runtimeShared";
+} from "../runtimeShared";
 
 import {
   buildPluginRequestErrorMessage,

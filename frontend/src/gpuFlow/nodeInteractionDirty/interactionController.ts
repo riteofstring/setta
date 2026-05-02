@@ -3,14 +3,14 @@ import {
   isGpuNodeResizeHandleEventTarget,
   resolveGpuNodeTargetDescriptor,
   type GpuNodePointerHandoffTarget,
-} from "./activeNodeTargeting";
+} from "../activeNodeTargeting";
 
-import type { DirtyNodeReason, NodeTexturePriority } from "./dirtyTracking";
+import type { DirtyNodeReason, NodeTexturePriority } from "../dirtyTracking";
 
 import {
   getGpuFlowNodeDirtyEventDetail,
   GPU_FLOW_NODE_DIRTY_EVENT,
-} from "./nodeDirtyEvents";
+} from "../nodeDirtyEvents";
 
 import {
   ActiveNodeReleaseOptions,

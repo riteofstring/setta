@@ -35,31 +35,31 @@ import {
   receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
   receiveTranscriptionProfilesUpdate,
-} from "./ai";
+} from "../ai";
 
 import {
   receiveAIFollowToolArgumentsUpdate,
   receiveAIFollowToolResultUpdate,
-} from "./aiFollow";
+} from "../aiFollow";
 
-import { updateArtifacts } from "./artifacts";
+import { updateArtifacts } from "../artifacts";
 
-import { applyListenerCoverageSnapshot } from "./listenerCoverage";
+import { applyListenerCoverageSnapshot } from "../listenerCoverage";
 
-import { handleRenameRefactorBroadcast } from "./renameRefactors";
+import { handleRenameRefactorBroadcast } from "../renameRefactors";
 
 import {
   getCurrProjectConfigId,
   updateAllProjectMetadata,
-} from "./sectionInfos";
+} from "../sectionInfos";
 
-import { updateSettings } from "./settings";
+import { updateSettings } from "../settings";
 
 import {
   parseUISettingRevealContent,
   receiveUISettingReveal,
   type UISettingRevealExecutionContext,
-} from "./uiSettingReveal";
+} from "../uiSettingReveal";
 
 import {
   AgentProfilesUpdatedContent,

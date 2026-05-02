@@ -1,31 +1,31 @@
 import { type MutableRefObject } from "react";
 
-import { resolveGpuActiveNodeSnapshot } from "./GpuActiveNodeSnapshot";
+import { resolveGpuActiveNodeSnapshot } from "../GpuActiveNodeSnapshot";
 
-import { type GpuActiveNodeTeleportController } from "./GpuActiveNodeTeleport";
+import { type GpuActiveNodeTeleportController } from "../GpuActiveNodeTeleport";
 
-import type { GpuFlowRuntime } from "./gpuDevice";
+import type { GpuFlowRuntime } from "../gpuDevice";
 
 import {
   type GpuNodeLayout,
   type RenderGpuNodeLayerFrameResult,
-} from "./GpuNodeLayer";
+} from "../GpuNodeLayer";
 
-import { GpuNodeQuadRenderer } from "./gpuPipelines";
+import { GpuNodeQuadRenderer } from "../gpuPipelines";
 
-import { measureGpuCanvasClientSize, type GpuCanvasSize } from "./gpuRenderer";
+import { measureGpuCanvasClientSize, type GpuCanvasSize } from "../gpuRenderer";
 
-import { type GpuSurfaceHandle } from "./GpuSurface";
+import { type GpuSurfaceHandle } from "../GpuSurface";
 
 import {
   type GpuNodeInteractionDirtyController,
   type GpuNodeInteractionState,
-} from "./nodeInteractionDirty";
+} from "../nodeInteractionDirty";
 
 import {
   createNodeTextureManager,
   type NodeTextureManager,
-} from "./nodeTextures";
+} from "../nodeTextures";
 
 import {
   EMPTY_GPU_NODE_LAYOUTS,

@@ -46,7 +46,7 @@ import {
   createToolCallPlaceholder,
   resolveFinalizedAssistantMessageUpdate,
   updateMessageById,
-} from "./chatStreamState";
+} from "../chatStreamState";
 
 import {
   getDefaultChatDetails,

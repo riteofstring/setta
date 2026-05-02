@@ -26,12 +26,12 @@ import {
 import {
   getAuthoritativeProjectChatWindowingState,
   recordAuthoritativeProjectChatWindowingState,
-} from "./projectChatWindowingAuthoritative";
+} from "../projectChatWindowingAuthoritative";
 
 import {
   reconcileProjectChatWindowingEphemeralState,
   replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject,
-} from "./projectChatWindowingEphemeral";
+} from "../projectChatWindowingEphemeral";
 
 import {
   CHAT_WINDOW_BOUNDS_FIELDS,
