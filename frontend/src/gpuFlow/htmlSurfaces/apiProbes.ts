@@ -27,7 +27,9 @@ export type HtmlSurfaceApiProbeRequirement = "documented" | "required";
 export type HtmlSurfaceApiProbeResult = {
   readonly details?: string | undefined;
   readonly error?: string | undefined;
-  readonly metrics?: Readonly<Record<string, boolean | number | string>>;
+  readonly metrics?:
+    | Readonly<Record<string, boolean | number | string>>
+    | undefined;
   readonly name: HtmlSurfaceApiProbeName;
   readonly requirement: HtmlSurfaceApiProbeRequirement;
   readonly status: HtmlSurfaceApiProbeStatus;
@@ -411,9 +413,12 @@ async function probeCopyElementImageToTextureOverloads(
     });
   }
   const texture = fixture.createTexture(96, 48);
+  const upload = method.bind(fixture.queue) as NonNullable<
+    GpuQueueWithElementUpload["copyElementImageToTexture"]
+  >;
   try {
-    method.call(fixture.queue, fixture.source, 96, 48, { texture });
-    method.call(fixture.queue, fixture.source, { texture });
+    upload(fixture.source, 96, 48, { texture });
+    upload(fixture.source, { texture });
     return pass("copy-element-image-to-texture-overloads", "required", {
       details: "Base destination and destination-size overloads are callable.",
       metrics: {
@@ -918,7 +923,7 @@ function textureUploadUsage(): GPUTextureUsageFlags {
 }
 
 function isCapturedPixel(data: Uint8ClampedArray): boolean {
-  return data[3] > 200;
+  return (data[3] ?? 0) > 200;
 }
 
 function pass(
@@ -937,13 +942,16 @@ function pass(
 function fail(
   name: HtmlSurfaceApiProbeName,
   requirement: HtmlSurfaceApiProbeRequirement,
-  result: Omit<MutableProbeResult, "name" | "requirement"> = {},
+  result: Omit<MutableProbeResult, "name" | "requirement" | "status"> & {
+    readonly status?: HtmlSurfaceApiProbeStatus | undefined;
+  } = {},
 ): HtmlSurfaceApiProbeResult {
+  const { status, ...rest } = result;
   return {
-    ...result,
+    ...rest,
     name,
     requirement,
-    status: result.status ?? "fail",
+    status: status ?? "fail",
   };
 }
 

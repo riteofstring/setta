@@ -128,12 +128,12 @@ function createSource(surfaceId: string): HTMLElement {
 class ThrowOnMapIteration<K, V> extends Map<K, V> {
   iterationCount = 0;
 
-  override [Symbol.iterator](): IterableIterator<[K, V]> {
+  override [Symbol.iterator](): MapIterator<[K, V]> {
     this.iterationCount += 1;
     throw new Error("Paint owner resolution must not iterate source maps.");
   }
 
-  override entries(): IterableIterator<[K, V]> {
+  override entries(): MapIterator<[K, V]> {
     this.iterationCount += 1;
     throw new Error("Paint owner resolution must not iterate source maps.");
   }

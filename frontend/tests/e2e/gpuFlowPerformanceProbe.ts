@@ -430,8 +430,7 @@ function recordCopyElementImageToTextureCall(
     index: state.queueCalls.length,
     method: "copyElementImageToTexture",
     sourceInteractive: sourceNode
-      ? sourceNode.getAttribute("data-gpu-flow-interactive") === "true" ||
-        sourceNode.classList.contains("setta-gpu-flow__node--teleported")
+      ? sourceNode.getAttribute("data-gpu-flow-interactive") === "true"
       : undefined,
     sourceNodeId: sourceNode?.getAttribute("data-id") ?? undefined,
     timestampMs: performance.now(),
