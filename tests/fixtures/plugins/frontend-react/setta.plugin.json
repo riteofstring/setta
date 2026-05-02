@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "setta-fixture-frontend-react",
+  "name": "Setta Fixture Frontend React",
+  "version": "0.1.0",
+  "settaVersionRange": ">=0.0.0",
+  "enabledByDefault": true,
+  "frontend": {
+    "entrypoint": "frontend/dist/index.js",
+    "style": "frontend/dist/index.css"
+  },
+  "capabilities": ["registerSectionKinds"]
+}
