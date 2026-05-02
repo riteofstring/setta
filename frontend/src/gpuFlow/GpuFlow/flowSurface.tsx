@@ -63,6 +63,8 @@ import {
   type GpuSurfaceProps,
 } from "../GpuSurface";
 
+import { createHtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
+
 import {
   attachGpuEdgeInteractionController,
   type GpuEdgeInteractionControllerOptions,
@@ -114,6 +116,11 @@ import {
   syncGpuFlowActiveNodeTeleportForFrame,
   syncGpuFlowNodeInteractionState,
 } from "./flowFrame";
+
+import {
+  clearGpuFlowNodeElement,
+  projectGpuFlowNodeSourceForPointerEvent,
+} from "./sourceInteraction";
 
 export type GpuFlowProps = Pick<
   GpuSurfaceProps,
@@ -251,6 +258,10 @@ export function GpuFlow({
   const activeNodeTeleportRef = useRef<GpuActiveNodeTeleportController | null>(
     null,
   );
+  const [sourceInteractionProjector] = useState(() =>
+    createHtmlSurfaceInteractionProjector(),
+  );
+  const activeInteractionNodeIdRef = useRef<string | null>(null);
   const canvasSizeRef = useRef<GpuCanvasSize | null>(null);
   const frameRef = useRef(0);
   const nodeElementByIdRef = useRef(new Map<string, HTMLElement>());
@@ -367,6 +378,7 @@ export function GpuFlow({
       settlingActiveNodeIdsRef.current.clear();
       settlingActiveNodeClearIdsRef.current.clear();
       transformOnlyPaintNodeIdsRef.current.clear();
+      sourceInteractionProjector.destroy();
       activeNodeTeleportRef.current?.destroy();
       destroyNodeLayerResources(textureManagerRef, nodeQuadRendererRef);
     }
@@ -462,6 +474,7 @@ export function GpuFlow({
   useEffect(() => {
     return () => {
       activeNodeTeleportRef.current?.destroy();
+      sourceInteractionProjector.destroy();
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       destroyNodeInteractionResources(
         nodeInteractionRef,
@@ -479,15 +492,18 @@ export function GpuFlow({
         nodeId,
       );
       if (!element) {
-        nodeElementByIdRef.current.delete(nodeId);
-        nodeInteractionRef.current?.clearNode(nodeId);
-        activeNodeTeleportRef.current?.clearNode(nodeId);
-        activeNodeTeleportRef.current?.clearSettlingClone(nodeId);
-        pendingActiveNodePaintRef.current.delete(nodeId);
-        settlingActiveNodeIdsRef.current.delete(nodeId);
-        settlingActiveNodeClearIdsRef.current.delete(nodeId);
-        transformOnlyPaintNodeIdsRef.current.delete(nodeId);
-        textureManagerRef.current?.destroyNodeTexture(nodeId);
+        clearGpuFlowNodeElement({
+          activeNodeTeleportRef,
+          nodeElementByIdRef,
+          nodeId,
+          nodeInteractionRef,
+          pendingActiveNodePaintRef,
+          settlingActiveNodeClearIdsRef,
+          settlingActiveNodeIdsRef,
+          sourceInteractionProjector,
+          textureManagerRef,
+          transformOnlyPaintNodeIdsRef,
+        });
         return;
       }
 
@@ -529,9 +545,24 @@ export function GpuFlow({
         onStateChange: (state) => {
           syncGpuFlowNodeInteractionState({
             nodeElementByIdRef,
+            previousActiveNodeIdRef: activeInteractionNodeIdRef,
             state,
           });
+          if (!state.activeNodeId) {
+            sourceInteractionProjector.clearSource();
+          }
           surfaceRef.current?.requestFrame("texture-upload");
+        },
+        projectPointerInteraction: (nodeId, event) => {
+          projectGpuFlowNodeSourceForPointerEvent({
+            event,
+            nodeElementById: nodeElementByIdRef.current,
+            nodeId,
+            nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
+            projector: sourceInteractionProjector,
+            surfaceElement: containerRef.current ?? runtime.canvas,
+            viewport: nodeLayerRef.current.viewport,
+          });
         },
         requestFrame: (reason) => {
           surfaceRef.current?.requestFrame(reason);
@@ -543,6 +574,16 @@ export function GpuFlow({
             clientY: event.clientY,
             elementByNodeId: nodeElementByIdRef.current,
             nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
+            projectSourceForHitTesting: (projection) => {
+              sourceInteractionProjector.alignSourceToClientPoint({
+                localX: projection.localX,
+                localY: projection.localY,
+                sourceElement: projection.sourceElement,
+                sourceId: projection.nodeId,
+                surfaceX: projection.surfaceX,
+                surfaceY: projection.surfaceY,
+              });
+            },
             surfaceElement,
             viewport: nodeLayerRef.current.viewport,
           });
@@ -560,6 +601,16 @@ export function GpuFlow({
             clientY: event.clientY,
             elementByNodeId: nodeElementByIdRef.current,
             nodes: nodeLayerRef.current.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
+            projectSourceForHitTesting: (projection) => {
+              sourceInteractionProjector.alignSourceToClientPoint({
+                localX: projection.localX,
+                localY: projection.localY,
+                sourceElement: projection.sourceElement,
+                sourceId: projection.nodeId,
+                surfaceX: projection.surfaceX,
+                surfaceY: projection.surfaceY,
+              });
+            },
             surfaceElement,
             viewport: nodeLayerRef.current.viewport,
           });

@@ -1,15 +1,12 @@
 import type { NodeTexturePriority } from "../dirtyTracking";
 
+import { HTML_SURFACE_PASSIVE_TRANSFORM } from "../htmlSurfaces/interactionProjector";
+
 import { resolveGpuNodeZIndex } from "../nodeZIndex";
 
-import {
-  flowToScreenPosition,
-  normalizeGpuViewport,
-  type GpuRect,
-} from "../viewportMath";
+import type { GpuRect } from "../viewportMath";
 
 import {
-  DEFAULT_OFFSCREEN_POSITION,
   GPU_FLOW_NODE_INTERACTIVE_CLASS,
   GpuNodeDomTransformState,
   GpuNodeDomTransformSyncCache,
@@ -22,19 +19,13 @@ export function applyVisibleNodeDomTransform(
   {
     height,
     interactive,
-    screenX,
-    screenY,
     width,
     zIndex,
-    zoom,
   }: {
     readonly height: number;
     readonly interactive?: boolean | undefined;
-    readonly screenX: number;
-    readonly screenY: number;
     readonly width: number;
     readonly zIndex: number;
-    readonly zoom: number;
   },
 ) {
   applyNodeDomTransformState(
@@ -43,11 +34,8 @@ export function applyVisibleNodeDomTransform(
       element,
       height,
       interactive,
-      screenX,
-      screenY,
       width,
       zIndex,
-      zoom,
     }),
   );
 }
@@ -56,27 +44,21 @@ export function createVisibleNodeDomTransformState({
   element,
   height,
   interactive,
-  screenX,
-  screenY,
   width,
   zIndex,
-  zoom,
 }: {
   readonly element: HTMLElement;
   readonly height: number;
   readonly interactive?: boolean | undefined;
-  readonly screenX: number;
-  readonly screenY: number;
   readonly width: number;
   readonly zIndex: number;
-  readonly zoom: number;
 }): GpuNodeDomTransformState {
   return {
     element,
     height: `${height}px`,
     interactive: interactive ? "true" : "false",
-    pointerEvents: "all",
-    transform: `translate(${screenX}px, ${screenY}px) scale(${zoom})`,
+    pointerEvents: interactive ? "auto" : "none",
+    transform: resolveStableGpuNodeSourceTransform(element, interactive),
     visible: "true",
     width: `${width}px`,
     zIndex: String(zIndex),
@@ -86,27 +68,18 @@ export function createVisibleNodeDomTransformState({
 export function createVisibleNodeDomTransformStateForQuad({
   activeIds,
   element,
-  normalizedViewport,
   quad,
 }: {
   readonly activeIds: ReadonlySet<string>;
   readonly element: HTMLElement;
-  readonly normalizedViewport: ReturnType<typeof normalizeGpuViewport>;
   readonly quad: GpuVisibleNodeQuad;
 }): GpuNodeDomTransformState {
-  const screenPosition = flowToScreenPosition(
-    { x: quad.x, y: quad.y },
-    normalizedViewport,
-  );
   return createVisibleNodeDomTransformState({
     element,
     height: quad.height,
     interactive: activeIds.has(quad.nodeId),
-    screenX: screenPosition.x,
-    screenY: screenPosition.y,
     width: quad.width,
     zIndex: quad.zIndex,
-    zoom: normalizedViewport.zoom,
   });
 }
 
@@ -129,36 +102,26 @@ export function applyNodeDomTransformState(
   );
 }
 
-export function applyCulledNodeDomTransform(
-  element: HTMLElement,
-  offscreenX = DEFAULT_OFFSCREEN_POSITION,
-  offscreenY = DEFAULT_OFFSCREEN_POSITION,
-) {
+export function applyCulledNodeDomTransform(element: HTMLElement) {
   applyNodeDomTransformState(
     element,
     createCulledNodeDomTransformState({
       element,
-      offscreenX,
-      offscreenY,
     }),
   );
 }
 
 export function createCulledNodeDomTransformState({
   element,
-  offscreenX = DEFAULT_OFFSCREEN_POSITION,
-  offscreenY = DEFAULT_OFFSCREEN_POSITION,
 }: {
   readonly element: HTMLElement;
-  readonly offscreenX?: number | undefined;
-  readonly offscreenY?: number | undefined;
 }): GpuNodeDomTransformState {
   return {
     element,
     height: "",
     interactive: "false",
     pointerEvents: "none",
-    transform: `translate(${offscreenX}px, ${offscreenY}px) scale(1)`,
+    transform: STABLE_GPU_NODE_SOURCE_TRANSFORM,
     visible: "false",
     width: "",
     zIndex: "",
@@ -195,11 +158,22 @@ export type GpuNodeStyleKey =
   | "width"
   | "zIndex";
 
+export const STABLE_GPU_NODE_SOURCE_TRANSFORM = HTML_SURFACE_PASSIVE_TRANSFORM;
+
 export function setGpuNodeBaseStyle(element: HTMLElement) {
   setStyleValue(element, "position", "absolute");
   setStyleValue(element, "left", "0px");
   setStyleValue(element, "top", "0px");
   setStyleValue(element, "transformOrigin", "0 0");
+}
+
+export function resolveStableGpuNodeSourceTransform(
+  element: HTMLElement,
+  interactive: boolean | undefined,
+): string {
+  return interactive && element.style.transform
+    ? element.style.transform
+    : STABLE_GPU_NODE_SOURCE_TRANSFORM;
 }
 
 export function setStyleValue(

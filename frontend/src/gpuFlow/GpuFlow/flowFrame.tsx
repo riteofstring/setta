@@ -332,16 +332,36 @@ export function destroyNodeInteractionResources(
 
 export function syncGpuFlowNodeInteractionState({
   nodeElementByIdRef,
+  previousActiveNodeIdRef,
   state,
 }: {
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly previousActiveNodeIdRef: MutableRefObject<string | null>;
   readonly state: GpuNodeInteractionState;
 }) {
-  for (const [nodeId, element] of nodeElementByIdRef.current) {
-    const interactive = state.activeNodeId === nodeId;
-    element.dataset.gpuFlowInteractive = interactive ? "true" : "false";
-    element.classList.toggle("setta-gpu-flow__node--interactive", interactive);
+  const previousActiveNodeId = previousActiveNodeIdRef.current;
+  if (previousActiveNodeId && previousActiveNodeId !== state.activeNodeId) {
+    const previousElement =
+      nodeElementByIdRef.current.get(previousActiveNodeId);
+    if (previousElement) {
+      setGpuFlowNodeInteractionElementState(previousElement, false);
+    }
   }
+  if (state.activeNodeId) {
+    const activeElement = nodeElementByIdRef.current.get(state.activeNodeId);
+    if (activeElement) {
+      setGpuFlowNodeInteractionElementState(activeElement, true);
+    }
+  }
+  previousActiveNodeIdRef.current = state.activeNodeId;
+}
+
+function setGpuFlowNodeInteractionElementState(
+  element: HTMLElement,
+  interactive: boolean,
+) {
+  element.dataset.gpuFlowInteractive = interactive ? "true" : "false";
+  element.classList.toggle("setta-gpu-flow__node--interactive", interactive);
 }
 
 export function completeGpuNodeInteractionFrame(

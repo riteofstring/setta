@@ -53,6 +53,45 @@ describe("gpu active node pointer targeting", () => {
     });
   });
 
+  it("projects a stable source under the pointer before resolving a flat target", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const button = document.createElement("button");
+    button.dataset.gpuFlowControl = "node-action";
+    nodeElement.append(button);
+    setRect(surface, 100, 50, 500, 400);
+
+    const target = resolveGpuNodePointerHandoffTarget({
+      clientX: 170,
+      clientY: 110,
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      nodes: [node("node-a", 10, 20, 100, 60, 1)],
+      projectSourceForHitTesting: (projection) => {
+        expect(projection).toMatchObject({
+          localX: 15,
+          localY: 5,
+          nodeId: "node-a",
+          sourceElement: nodeElement,
+          surfaceX: 70,
+          surfaceY: 60,
+        });
+        setRect(button, projection.clientX - 4, projection.clientY - 4, 20, 12);
+      },
+      surfaceElement: surface,
+      viewport: [20, 10, 2],
+    });
+
+    expect(target).toEqual({
+      descriptor: {
+        attribute: "data-gpu-flow-control",
+        kind: "stable-attribute",
+        tagName: "button",
+        value: "node-action",
+      },
+      nodeId: "node-a",
+    });
+  });
+
   it("describes controls by stable attributes or DOM path without visible text", () => {
     const nodeElement = createNodeElement("node-a");
     const stable = document.createElement("button");

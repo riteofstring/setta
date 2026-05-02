@@ -82,7 +82,7 @@ describe("GpuNodeLayer helpers", () => {
     expect(result.missingTextureNodeIds).toEqual(["node-b"]);
   });
 
-  it("synchronizes visible DOM hit targets and parks culled nodes offscreen", () => {
+  it("synchronizes stable source geometry without viewport placement", () => {
     const visible = document.createElement("div");
     const culled = document.createElement("div");
     const elements = new Map([
@@ -104,17 +104,15 @@ describe("GpuNodeLayer helpers", () => {
     expect(visible.style.position).toBe("absolute");
     expect(visible.style.height).toBe("50px");
     expect(visible.style.transformOrigin).toBe("0 0");
-    expect(visible.style.transform).toBe("translate(20px, 20px) scale(1.5)");
-    expect(visible.style.pointerEvents).toBe("all");
+    expect(visible.style.transform).toBe("translate(0px, 0px) scale(1)");
+    expect(visible.style.pointerEvents).toBe("auto");
     expect(visible.style.width).toBe("100px");
     expect(visible.style.zIndex).toBe("5");
     expect(visible.dataset.gpuFlowInteractive).toBe("true");
     expect(
       visible.classList.contains("setta-gpu-flow__node--interactive"),
     ).toBe(true);
-    expect(culled.style.transform).toBe(
-      "translate(-100000px, -100000px) scale(1)",
-    );
+    expect(culled.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(culled.style.height).toBe("");
     expect(culled.style.pointerEvents).toBe("none");
     expect(culled.style.width).toBe("");
@@ -122,7 +120,7 @@ describe("GpuNodeLayer helpers", () => {
     expect(culled.dataset.gpuFlowInteractive).toBe("false");
   });
 
-  it("syncs DOM hit targets from visible and previous-visible diffs", () => {
+  it("syncs stable source geometry from visible and previous-visible diffs", () => {
     const elements = new Map<string, HTMLElement>();
     const nodes = Array.from({ length: 1_000 }, (_, index) => {
       const nodeId = `node-${index}`;
@@ -155,22 +153,17 @@ describe("GpuNodeLayer helpers", () => {
       viewport: [5, 0, 2],
     });
 
-    expect(resolvedNodeIds).toEqual([
-      "node-10",
-      "node-11",
-      "node-500",
-      "node-12",
-    ]);
-    expect(result.updatedNodeIds).toEqual(["node-10", "node-11", "node-500"]);
-    expect(result.parkedNodeIds).toEqual(["node-12"]);
+    expect(resolvedNodeIds).toEqual(["node-10", "node-11", "node-500"]);
+    expect(result.updatedNodeIds).toEqual(["node-500"]);
+    expect(result.parkedNodeIds).toEqual([]);
     expect(elements.get("node-10")?.style.transform).toBe(
-      "translate(405px, 0px) scale(2)",
+      "translate(0px, 0px) scale(1)",
     );
     expect(elements.get("node-10")?.style.width).toBe("10px");
     expect(elements.get("node-12")?.style.transform).toBe(
-      "translate(-100000px, -100000px) scale(1)",
+      "translate(0px, 0px) scale(1)",
     );
-    expect(elements.get("node-12")?.style.width).toBe("");
+    expect(elements.get("node-12")?.style.width).toBe("10px");
     expect(elements.get("node-999")?.style.transform).toBe("");
   });
 
@@ -197,7 +190,7 @@ describe("GpuNodeLayer helpers", () => {
     expect(result.updatedNodeIds).toEqual([]);
     expect(result.parkedNodeIds).toEqual([]);
     expect(result.skippedNodeIds).toEqual(["node-a"]);
-    expect(element.style.transform).toBe("translate(10px, 20px) scale(1)");
+    expect(element.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(element.style.height).toBe("10px");
     expect(element.style.width).toBe("10px");
     expect(element.style.zIndex).toBe("0");
@@ -226,7 +219,7 @@ describe("GpuNodeLayer helpers", () => {
 
     expect(result.updatedNodeIds).toEqual(["node-a"]);
     expect(result.skippedNodeIds).toEqual([]);
-    expect(element.style.transform).toBe("translate(10px, 20px) scale(1)");
+    expect(element.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(element.style.zIndex).toBe("7");
   });
 
@@ -280,8 +273,8 @@ describe("GpuNodeLayer helpers", () => {
 
     expect(result.parkedNodeIds).toEqual([]);
     expect(result.visibleNodeIds).toEqual(["active"]);
-    expect(element.style.transform).toBe("translate(10px, 20px) scale(1)");
-    expect(element.style.pointerEvents).toBe("all");
+    expect(element.style.transform).toBe("translate(0px, 0px) scale(1)");
+    expect(element.style.pointerEvents).toBe("auto");
   });
 
   it("keeps React reconciliation stable while a node host is teleported", () => {
@@ -324,10 +317,12 @@ describe("GpuNodeLayer helpers", () => {
     expect(nodeHost?.dataset.gpuFlowHtmlSource).toBe("true");
     expect(nodeHost?.getAttribute("data-gpu-flow-source-id")).toBe("node-a");
     expect(nodeHost?.dataset.gpuFlowNode).toBe("true");
+    expect(nodeHost?.style.height).toBe("50px");
     expect(nodeHost?.style.left).toBe("0px");
     expect(nodeHost?.style.position).toBe("absolute");
     expect(nodeHost?.style.top).toBe("0px");
     expect(nodeHost?.style.transformOrigin).toBe("0 0");
+    expect(nodeHost?.style.width).toBe("100px");
     expect(
       canvas.querySelector(
         '[data-gpu-flow-html-source-anchor="true"][data-gpu-flow-source-id="node-a"]',
@@ -444,7 +439,7 @@ describe("GpuNodeLayer helpers", () => {
       uploadedNodeIds: ["visible"],
       visibleNodeIds: ["visible"],
     });
-    expect(visible.style.transform).toBe("translate(20px, 20px) scale(1.5)");
+    expect(visible.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(culled.style.pointerEvents).toBe("none");
   });
 
@@ -679,9 +674,11 @@ describe("GpuNodeLayer helpers", () => {
     const element = document.createElement("div");
     const elements = new Map([["node-a", element]]);
     const nodes = [node("node-a", 10, 20, 100, 50, 0)];
+    const domTransformCache = createGpuNodeDomTransformSyncCache();
 
-    renderGpuNodeLayerFrame({
+    const firstFrame = renderGpuNodeLayerFrame({
       canvasSize: canvasSize(),
+      domTransformCache,
       elementByNodeId: elements,
       frame: 1,
       nodes,
@@ -689,8 +686,9 @@ describe("GpuNodeLayer helpers", () => {
       textureManager: manager,
       viewport: [0, 0, 1],
     });
-    renderGpuNodeLayerFrame({
+    const secondFrame = renderGpuNodeLayerFrame({
       canvasSize: canvasSize(),
+      domTransformCache,
       elementByNodeId: elements,
       frame: 2,
       nodes,
@@ -700,6 +698,10 @@ describe("GpuNodeLayer helpers", () => {
     });
 
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+    expect(firstFrame.domTransformUpdatedNodeIds).toEqual(["node-a"]);
+    expect(secondFrame.domTransformUpdatedNodeIds).toEqual([]);
+    expect(secondFrame.domTransformParkedNodeIds).toEqual([]);
+    expect(element.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(renderer.render).toHaveBeenCalledTimes(2);
     expect(renderer.render.mock.calls[1]?.[0]).toMatchObject({
       quads: [

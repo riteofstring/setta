@@ -35,6 +35,9 @@ export type GpuNodeInteractionDirtyControllerOptions = {
   readonly onStateChange?:
     | ((state: GpuNodeInteractionState) => void)
     | undefined;
+  readonly projectPointerInteraction?:
+    | ((nodeId: string, event: PointerEvent) => void)
+    | undefined;
   readonly requestFrame: (reason: GpuFrameReason) => void;
   readonly resolvePointerHandoffTarget?:
     | ((event: PointerEvent) => GpuNodePointerHandoffTarget | null)

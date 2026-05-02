@@ -55,6 +55,7 @@ export function createGpuNodeInteractionDirtyController({
   elementByNodeId,
   getFrame,
   onStateChange,
+  projectPointerInteraction,
   requestFrame,
   resolvePointerHandoffTarget,
   resolveWheelHandoffTarget,
@@ -228,10 +229,11 @@ export function createGpuNodeInteractionDirtyController({
     suppressNextTrustedPointerHandoffClick(target);
   }
 
-  function markPointerInteractionDirty() {
+  function markPointerInteractionDirty(event: PointerEvent) {
     if (!pointerInteractionNodeId) {
       return;
     }
+    projectPointerInteraction?.(pointerInteractionNodeId, event);
     markDirty({
       nodeId: pointerInteractionNodeId,
       priority: "interactive",
@@ -651,7 +653,7 @@ export function createGpuNodeInteractionDirtyController({
       ownerDocument.addEventListener(
         "pointermove",
         (event) => {
-          markPointerInteractionDirty();
+          markPointerInteractionDirty(event);
           updateResizeHandleHoverInteraction(event);
         },
         listenerOptions,

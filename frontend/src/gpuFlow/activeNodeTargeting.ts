@@ -27,11 +27,26 @@ export type GpuNodePointerHandoffTarget = {
   readonly nodeId: string;
 };
 
+export type GpuNodeSourceProjection = {
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly localX: number;
+  readonly localY: number;
+  readonly node: GpuNodeLayout;
+  readonly nodeId: string;
+  readonly sourceElement: HTMLElement;
+  readonly surfaceX: number;
+  readonly surfaceY: number;
+};
+
 type ResolveGpuNodePointerHandoffTargetInput = {
   readonly clientX: number;
   readonly clientY: number;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly nodes: readonly GpuNodeLayout[];
+  readonly projectSourceForHitTesting?:
+    | ((projection: GpuNodeSourceProjection) => void)
+    | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
 };
@@ -85,24 +100,36 @@ export function resolveGpuNodePointerHandoffTarget({
   clientY,
   elementByNodeId,
   nodes,
+  projectSourceForHitTesting,
   surfaceElement,
   viewport,
 }: ResolveGpuNodePointerHandoffTargetInput): GpuNodePointerHandoffTarget | null {
-  const node = findTopmostGpuNodeAtClientPoint({
+  const hit = resolveTopmostGpuNodeHitAtClientPoint({
     clientX,
     clientY,
     nodes,
     surfaceElement,
     viewport,
   });
-  if (!node) {
+  if (!hit) {
     return null;
   }
 
-  const nodeElement = elementByNodeId.get(node.nodeId);
+  const nodeElement = elementByNodeId.get(hit.node.nodeId);
   if (!nodeElement) {
     return null;
   }
+  projectSourceForHitTesting?.({
+    clientX,
+    clientY,
+    localX: hit.localX,
+    localY: hit.localY,
+    node: hit.node,
+    nodeId: hit.node.nodeId,
+    sourceElement: nodeElement,
+    surfaceX: hit.surfaceX,
+    surfaceY: hit.surfaceY,
+  });
   const target = findInteractiveTargetAtClientPoint({
     clientX,
     clientY,
@@ -117,7 +144,7 @@ export function resolveGpuNodePointerHandoffTarget({
   }
   return {
     descriptor,
-    nodeId: node.nodeId,
+    nodeId: hit.node.nodeId,
   };
 }
 
@@ -126,24 +153,36 @@ export function resolveGpuNodeWheelHandoffTarget({
   clientY,
   elementByNodeId,
   nodes,
+  projectSourceForHitTesting,
   surfaceElement,
   viewport,
 }: ResolveGpuNodePointerHandoffTargetInput): GpuNodePointerHandoffTarget | null {
-  const node = findTopmostGpuNodeAtClientPoint({
+  const hit = resolveTopmostGpuNodeHitAtClientPoint({
     clientX,
     clientY,
     nodes,
     surfaceElement,
     viewport,
   });
-  if (!node) {
+  if (!hit) {
     return null;
   }
 
-  const nodeElement = elementByNodeId.get(node.nodeId);
+  const nodeElement = elementByNodeId.get(hit.node.nodeId);
   if (!nodeElement) {
     return null;
   }
+  projectSourceForHitTesting?.({
+    clientX,
+    clientY,
+    localX: hit.localX,
+    localY: hit.localY,
+    node: hit.node,
+    nodeId: hit.node.nodeId,
+    sourceElement: nodeElement,
+    surfaceX: hit.surfaceX,
+    surfaceY: hit.surfaceY,
+  });
   const target =
     findWheelTargetAtClientPoint({
       clientX,
@@ -169,7 +208,7 @@ export function resolveGpuNodeWheelHandoffTarget({
   }
   return {
     descriptor,
-    nodeId: node.nodeId,
+    nodeId: hit.node.nodeId,
   };
 }
 
@@ -400,7 +439,7 @@ function findNearestScrollableDescendant(
   return match;
 }
 
-function findTopmostGpuNodeAtClientPoint({
+export function resolveTopmostGpuNodeHitAtClientPoint({
   clientX,
   clientY,
   nodes,
@@ -412,7 +451,13 @@ function findTopmostGpuNodeAtClientPoint({
   readonly nodes: readonly GpuNodeLayout[];
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
-}): GpuNodeLayout | null {
+}): {
+  readonly localX: number;
+  readonly localY: number;
+  readonly node: GpuNodeLayout;
+  readonly surfaceX: number;
+  readonly surfaceY: number;
+} | null {
   const surfaceRect = surfaceElement.getBoundingClientRect();
   const screenX = clientX - surfaceRect.left;
   const screenY = clientY - surfaceRect.top;
@@ -430,7 +475,20 @@ function findTopmostGpuNodeAtClientPoint({
     }
   });
 
-  return match;
+  if (!match) {
+    return null;
+  }
+  const screenPosition = flowToScreenPosition(
+    { x: match.x, y: match.y },
+    normalizedViewport,
+  );
+  return {
+    localX: (screenX - screenPosition.x) / normalizedViewport.zoom,
+    localY: (screenY - screenPosition.y) / normalizedViewport.zoom,
+    node: match,
+    surfaceX: screenX,
+    surfaceY: screenY,
+  };
 }
 
 function gpuNodeContainsScreenPoint(
