@@ -22,6 +22,15 @@
   user-select: none;
 }
 
+.setta-gpu-flow__html-source {
+  contain: layout paint style;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform-origin: 0 0;
+}
+
 .setta-gpu-flow__node--interactive {
   pointer-events: auto;
 }

@@ -1,13 +1,4 @@
-import {
-  memo,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
-
-import { createPortal } from "react-dom";
+import type { CSSProperties, ReactNode } from "react";
 
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
@@ -32,6 +23,14 @@ import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 
 import { resolveHtmlSurfacePaintInvalidation } from "../htmlSurfaces/paintInvalidation";
+
+import {
+  HTML_SURFACE_SOURCE_CLASS_NAME,
+  HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
+  HTML_SURFACE_SOURCE_SELECTOR,
+  HtmlSurfaceSourceLayer,
+  type HtmlSurfaceSourceElementConfig,
+} from "../htmlSurfaces/sourceLayer";
 
 import {
   flowToScreenPosition,
@@ -241,6 +240,8 @@ export const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
 
 export const GPU_FLOW_SURFACE_SELECTOR = '[data-gpu-flow-surface="true"]';
 
+export const GPU_FLOW_NODE_SOURCE_SELECTOR = HTML_SURFACE_SOURCE_SELECTOR;
+
 export const GPU_FLOW_NODE_INTERACTIVE_CLASS =
   "setta-gpu-flow__node--interactive";
 
@@ -264,101 +265,35 @@ export function GpuNodeLayer({
   renderNode,
 }: GpuNodeLayerProps) {
   return (
-    <>
-      {nodes.map((node) => (
-        <GpuNodeChild
-          className={className}
-          key={node.nodeId}
-          node={node}
-          onNodeElementChange={onNodeElementChange}
-          renderNode={renderNode}
-          visibility={nodeVisibility}
-        />
-      ))}
-    </>
+    <HtmlSurfaceSourceLayer
+      configureSourceElement={configureGpuNodeSourceElement}
+      getSourceId={getGpuNodeSurfaceSourceId}
+      onSourceElementChange={onNodeElementChange}
+      preservedClassNames={PRESERVED_GPU_NODE_STATE_CLASSES}
+      renderSource={renderNode}
+      sourceClassName={`${HTML_SURFACE_SOURCE_CLASS_NAME} ${className}`}
+      sources={nodes}
+      sourceVisibility={nodeVisibility}
+    />
   );
 }
 
-export const GpuNodeChild = memo(function GpuNodeChild({
+export function getGpuNodeSurfaceSourceId(node: GpuNodeLayout): string {
+  return node.nodeId;
+}
+
+export function configureGpuNodeSourceElement({
   className,
-  node,
-  onNodeElementChange,
-  renderNode,
+  host,
+  source,
   visibility,
-}: {
-  readonly className: string;
-  readonly node: GpuNodeLayout;
-  readonly onNodeElementChange:
-    | ((nodeId: string, element: HTMLElement | null) => void)
-    | undefined;
-  readonly renderNode: (node: GpuNodeLayout) => ReactNode;
-  readonly visibility: CSSProperties["visibility"] | undefined;
-}) {
-  const anchorRef = useRef<HTMLSpanElement | null>(null);
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
-
-  useLayoutEffect(() => {
-    const anchor = anchorRef.current;
-    if (!anchor) {
-      return;
-    }
-    const host =
-      hostRef.current ?? createGpuNodeHostElement(anchor.ownerDocument);
-    hostRef.current = host;
-    insertGpuNodeHostAfterAnchor(anchor, host);
-    setHostElement(host);
-    onNodeElementChange?.(node.nodeId, host);
-    return () => {
-      onNodeElementChange?.(node.nodeId, null);
-      host.remove();
-      if (hostRef.current === host) {
-        hostRef.current = null;
-      }
-    };
-  }, [node.nodeId, onNodeElementChange]);
-
-  useLayoutEffect(() => {
-    if (!hostElement) {
-      return;
-    }
-    configureGpuNodeHostElement({
-      className,
-      host: hostElement,
-      node,
-      visibility,
-    });
-  }, [className, hostElement, node, visibility]);
-
-  return (
-    <>
-      <span
-        aria-hidden="true"
-        data-gpu-flow-node-anchor="true"
-        data-id={node.nodeId}
-        ref={anchorRef}
-        style={{ display: "none" }}
-      />
-      {hostElement ? createPortal(renderNode(node), hostElement) : null}
-    </>
-  );
-});
-
-export function createGpuNodeHostElement(
-  ownerDocument: Document,
-): HTMLDivElement {
-  return ownerDocument.createElement("div");
-}
-
-export function insertGpuNodeHostAfterAnchor(
-  anchor: HTMLElement,
-  host: HTMLElement,
-) {
-  const parent = anchor.parentNode;
-  if (!parent || host.parentNode === parent) {
-    return;
-  }
-  parent.insertBefore(host, anchor.nextSibling);
+}: HtmlSurfaceSourceElementConfig<GpuNodeLayout>) {
+  configureGpuNodeHostElement({
+    className,
+    host,
+    node: source,
+    visibility,
+  });
 }
 
 export function configureGpuNodeHostElement({
@@ -604,8 +539,8 @@ export function markGpuNodeLayerPaintDirty({
   const { dirtySurfaceIds } = resolveHtmlSurfacePaintInvalidation({
     changedElements,
     sourceElementBySurfaceId: elementByNodeId,
-    sourceIdAttribute: "data-id",
-    sourceSelector: GPU_FLOW_NODE_SELECTOR,
+    sourceIdAttribute: HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
+    sourceSelector: GPU_FLOW_NODE_SOURCE_SELECTOR,
     surfaceSelector: GPU_FLOW_SURFACE_SELECTOR,
     transformOnlySourceIds: ignoreDirectNodeIds,
   });

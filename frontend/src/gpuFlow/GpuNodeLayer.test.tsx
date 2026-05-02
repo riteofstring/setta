@@ -321,6 +321,8 @@ describe("GpuNodeLayer helpers", () => {
     const nodeHost = elements.get("node-a");
     expect(nodeHost).toBeInstanceOf(HTMLElement);
     expect(nodeHost?.parentElement).toBe(canvas);
+    expect(nodeHost?.dataset.gpuFlowHtmlSource).toBe("true");
+    expect(nodeHost?.getAttribute("data-gpu-flow-source-id")).toBe("node-a");
     expect(nodeHost?.dataset.gpuFlowNode).toBe("true");
     expect(nodeHost?.style.left).toBe("0px");
     expect(nodeHost?.style.position).toBe("absolute");
@@ -328,7 +330,7 @@ describe("GpuNodeLayer helpers", () => {
     expect(nodeHost?.style.transformOrigin).toBe("0 0");
     expect(
       canvas.querySelector(
-        '[data-gpu-flow-node-anchor="true"][data-id="node-a"]',
+        '[data-gpu-flow-html-source-anchor="true"][data-gpu-flow-source-id="node-a"]',
       ),
     ).not.toBeNull();
 
@@ -1042,6 +1044,8 @@ function activeSnapshot(
 
 function createGpuPaintNodeElement(nodeId: string): HTMLElement {
   const element = document.createElement("div");
+  element.dataset.gpuFlowHtmlSource = "true";
+  element.setAttribute("data-gpu-flow-source-id", nodeId);
   element.dataset.gpuFlowNode = "true";
   element.dataset.id = nodeId;
   return element;
