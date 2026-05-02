@@ -70,7 +70,9 @@ export function getSafeLocalStorageAdapter(
         overlay.set(key, value);
         try {
           storage.setItem(key, value);
-        } catch {}
+        } catch {
+          // Keep the in-memory overlay usable when browser persistence is blocked.
+        }
       },
       removeItem: (key) => {
         overlay.set(key, null);
