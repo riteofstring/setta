@@ -228,6 +228,61 @@ describe("GpuMiniMap helpers", () => {
     }
   });
 
+  it("applies explicit visual and selection props to layout-store nodes", async () => {
+    const viewportStore = createGpuFlowViewportStore({
+      height: 600,
+      transform: [0, 0, 1],
+      width: 800,
+    });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 40,
+          nodeId: "section-a",
+          width: 80,
+          x: 10,
+          y: 20,
+        },
+      ],
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+
+    try {
+      await act(async () => {
+        root.render(
+          <GpuMiniMap
+            layoutStore={layoutStore}
+            nodeColor={(node) =>
+              typeof node.style?.background === "string"
+                ? node.style.background
+                : "#000000"
+            }
+            nodeVisuals={[
+              {
+                id: "section-a",
+                style: { background: "rgb(1, 2, 3)" },
+                type: "custom",
+              },
+            ]}
+            selectedNodeIds={["section-a"]}
+            viewportStore={viewportStore}
+          />,
+        );
+      });
+
+      const node = host.querySelector('[data-minimap-node-id="section-a"]');
+      expect(node?.getAttribute("fill")).toBe("rgb(1, 2, 3)");
+      expect(node?.classList.contains("selected")).toBe(true);
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
+  });
+
   it("marks the viewport interaction active during pannable minimap drag", async () => {
     const store = createGpuFlowViewportStore({
       height: 600,

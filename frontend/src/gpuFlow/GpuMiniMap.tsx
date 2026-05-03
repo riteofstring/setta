@@ -10,15 +10,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import {
-  useActiveSectionUI,
-  useLocalStorage,
-  useProjectState,
-  useTemporaryMiscState,
-  type ZustandProjectState,
-} from "state/definitions";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import {
   cancelGpuAnimationFrame,
   requestGpuAnimationFrame,
@@ -61,7 +52,6 @@ const DEFAULT_MASK_COLOR = "rgb(240, 240, 240, 0.6)";
 const DEFAULT_MASK_STROKE_COLOR = "none";
 const DEFAULT_MASK_STROKE_WIDTH = 1;
 const DEFAULT_POSITION = "bottom-right";
-const SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX = "section-style-preview-color-";
 const DEFAULT_GPU_MINI_MAP_PROPS = {
   inversePan: false,
   maskColor: DEFAULT_MASK_COLOR,
@@ -107,8 +97,10 @@ type GpuMiniMapProps = Omit<GpuMiniMapNodesProps, "onClick"> & {
   readonly onNodeClick?:
     | ((event: ReactMouseEvent, node: GpuMiniMapNode) => void)
     | undefined;
+  readonly nodeVisuals?: readonly GpuMiniMapNodeVisual[] | undefined;
   readonly pannable?: boolean | undefined;
   readonly position?: GpuMiniMapPosition | undefined;
+  readonly selectedNodeIds?: readonly string[] | undefined;
   readonly style?: CSSProperties | undefined;
   readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
 };
@@ -157,12 +149,10 @@ type GpuMiniMapViewportSyncInput = {
   readonly viewportStore: GpuFlowViewportStoreApi;
 };
 
-type MiniMapPreviewStyleColors = Record<string, string | null>;
-
-type MiniMapNodeVisual = {
-  readonly background: string | null;
+export type GpuMiniMapNodeVisual = {
   readonly id: string;
-  readonly type: string | null | undefined;
+  readonly style?: CSSProperties | undefined;
+  readonly type?: string | null | undefined;
 };
 
 type GpuMiniMapInteractionOptions = {
@@ -189,18 +179,20 @@ function GpuMiniMap(props: GpuMiniMapProps) {
     nodeComponent,
     nodeStrokeColor,
     nodeStrokeWidth,
+    nodeVisuals,
     offsetScale,
     onClick,
     onNodeClick,
     pannable,
     position,
+    selectedNodeIds,
     shapeRendering,
     style,
     viewportStore,
   } = resolveGpuMiniMapProps(props);
   const svgRef = useRef<SVGSVGElement>(null);
   const maskRef = useRef<SVGPathElement>(null);
-  const nodes = useGpuMiniMapNodes(layoutStore);
+  const nodes = useGpuMiniMapNodes(layoutStore, nodeVisuals);
   const nodesById = useMemo(() => getGpuMiniMapNodesById(nodes), [nodes]);
   const getNodeById = useCallback(
     (nodeId: string) => getMiniMapNodeOrThrow(nodesById, nodeId),
@@ -279,7 +271,12 @@ function GpuMiniMap(props: GpuMiniMapProps) {
         onSvgNodeClick={interactions.onSvgNodeClick}
         shapeRendering={shapeRendering}
       />
-      <GpuMiniMapSelectionSync svgRef={svgRef} />
+      {selectedNodeIds === undefined ? null : (
+        <GpuMiniMapSelectionSync
+          selectedNodeIds={selectedNodeIds}
+          svgRef={svgRef}
+        />
+      )}
     </div>
   );
 }
@@ -443,31 +440,23 @@ function useGpuMiniMapInteractions({
 }
 
 function GpuMiniMapSelectionSync({
+  selectedNodeIds,
   svgRef,
 }: {
+  selectedNodeIds: readonly string[];
   svgRef?: RefObject<SVGSVGElement | null> | undefined;
 }) {
   useEffect(() => {
-    const applySelection = (activeIds: readonly string[]) => {
-      syncSelectedMiniMapNodes(svgRef?.current, activeIds);
+    const applySelection = () => {
+      syncSelectedMiniMapNodes(svgRef?.current, selectedNodeIds);
     };
 
-    applySelection(useActiveSectionUI.getState().activeIds);
-
-    const unsubscribe = useActiveSectionUI.subscribe(
-      (state) => state.activeIds,
-      (activeIds) => {
-        applySelection(activeIds);
-      },
-      {
-        equalityFn: areStringArraysEqual,
-      },
-    );
+    applySelection();
 
     let observer: MutationObserver | null = null;
     if (svgRef?.current && typeof MutationObserver !== "undefined") {
       observer = new MutationObserver(() => {
-        applySelection(useActiveSectionUI.getState().activeIds);
+        applySelection();
       });
       observer.observe(svgRef.current, {
         attributeFilter: ["class", "data-minimap-node-id"],
@@ -478,18 +467,17 @@ function GpuMiniMapSelectionSync({
     }
 
     return () => {
-      unsubscribe();
       observer?.disconnect();
     };
-  }, [svgRef]);
+  }, [selectedNodeIds, svgRef]);
 
   return null;
 }
 
 function useGpuMiniMapNodes(
   layoutStore: GpuFlowLayoutStoreApi | undefined,
+  nodeVisuals: readonly GpuMiniMapNodeVisual[] | undefined,
 ): readonly GpuMiniMapNode[] {
-  const darkMode = useLocalStorage((state) => state.darkMode);
   const layoutNodes =
     useGpuFlowLayoutStoreNodes(layoutStore) ?? EMPTY_GPU_FLOW_LAYOUT_NODES;
   const nodes = useMemo(
@@ -498,14 +486,6 @@ function useGpuMiniMapNodes(
         .map(getGpuMiniMapNodeFromLayoutNode)
         .filter(isMeasuredGpuNodeBoundsInput),
     [layoutNodes],
-  );
-  const previewStyleColors = useTemporaryMiscState(
-    getMiniMapPreviewStyleColors,
-    areMiniMapPreviewStyleColorsEqual,
-  );
-  const nodeVisuals = useProjectState(
-    (state) => getMiniMapNodeVisuals(state, darkMode, previewStyleColors),
-    areMiniMapNodeVisualsEqual,
   );
   return useMemo(
     () => mergeMiniMapNodesWithVisuals(nodes, nodeVisuals),
@@ -685,137 +665,13 @@ function areGpuViewportMiniMapStatesEqual(
   );
 }
 
-function getMiniMapPreviewStyleColors(
-  state: Record<string, unknown>,
-): MiniMapPreviewStyleColors {
-  const previewColors: MiniMapPreviewStyleColors = {};
-  for (const [key, value] of Object.entries(state)) {
-    if (!key.startsWith(SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX)) {
-      continue;
-    }
-    const sectionId = key.slice(SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX.length);
-    previewColors[sectionId] = typeof value === "string" ? value : null;
-  }
-  return previewColors;
-}
-
-function areMiniMapPreviewStyleColorsEqual(
-  left: MiniMapPreviewStyleColors,
-  right: MiniMapPreviewStyleColors,
-) {
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-  for (const key of leftKeys) {
-    if (left[key] !== right[key]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function getMiniMapNodeVisuals(
-  state: ZustandProjectState,
-  darkMode: boolean,
-  previewStyleColors: MiniMapPreviewStyleColors,
-): MiniMapNodeVisual[] {
-  const visuals: MiniMapNodeVisual[] = [];
-  for (const [sectionId, variantId] of Object.entries(
-    state.projectConfig.sectionVariantMap,
-  )) {
-    const visual = resolveMiniMapNodeVisual(
-      state,
-      sectionId,
-      variantId,
-      darkMode,
-      previewStyleColors,
-    );
-    if (visual) {
-      visuals.push(visual);
-    }
-  }
-  visuals.sort((left, right) => left.id.localeCompare(right.id));
-  return visuals;
-}
-
-function resolveMiniMapNodeVisual(
-  state: ZustandProjectState,
-  sectionId: string,
-  variantId: string,
-  darkMode: boolean,
-  previewStyleColors: MiniMapPreviewStyleColors,
-): MiniMapNodeVisual | null {
-  if ((state.parentSectionMap[sectionId] ?? null) !== null) {
-    return null;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (
-    !variant ||
-    !state.sections[sectionId] ||
-    !state.sectionImpls[variant.impl]
-  ) {
-    return null;
-  }
-  const effectiveImpl = getCurrEffectiveSectionImpl(state, sectionId);
-  return {
-    id: sectionId,
-    type: effectiveImpl.type,
-    background: resolveMiniMapNodeBackground(
-      previewStyleColors[sectionId] === undefined
-        ? effectiveImpl.styleColor
-        : previewStyleColors[sectionId],
-      darkMode,
-    ),
-  };
-}
-
-function resolveMiniMapNodeBackground(
-  styleColor: string | null | undefined,
-  darkMode: boolean,
-) {
-  if (styleColor === null || styleColor === undefined) {
-    return null;
-  }
-  const normalizedStyleColor = styleColor.trim();
-  if (normalizedStyleColor === "") {
-    return null;
-  }
-  return deriveSectionStyleTheme(normalizedStyleColor, darkMode)?.bg ?? null;
-}
-
-function areMiniMapNodeVisualsEqual(
-  left: readonly MiniMapNodeVisual[],
-  right: readonly MiniMapNodeVisual[],
-) {
-  if (left === right) {
-    return true;
-  }
-  if (left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    const leftNode = left[index];
-    const rightNode = right[index];
-    if (!leftNode || !rightNode) {
-      return false;
-    }
-    if (
-      leftNode.id !== rightNode.id ||
-      leftNode.type !== rightNode.type ||
-      leftNode.background !== rightNode.background
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
-
 function mergeMiniMapNodesWithVisuals(
   nodes: readonly GpuMiniMapNode[],
-  nodeVisuals: readonly MiniMapNodeVisual[],
+  nodeVisuals: readonly GpuMiniMapNodeVisual[] | undefined,
 ): readonly GpuMiniMapNode[] {
+  if (!nodeVisuals || nodeVisuals.length === 0) {
+    return nodes;
+  }
   const visualsById = new Map(
     nodeVisuals.map((nodeVisual) => [nodeVisual.id, nodeVisual]),
   );
@@ -828,20 +684,18 @@ function mergeMiniMapNodesWithVisuals(
       return node;
     }
 
-    const nextStyle =
-      nodeVisual.background !== null
-        ? { ...(node.style ?? {}), background: nodeVisual.background }
-        : undefined;
+    const nextType =
+      nodeVisual.type === undefined ? node.type : nodeVisual.type;
     if (
-      node.type === nodeVisual.type &&
-      areNodeStylesEqual(node.style, nextStyle)
+      node.type === nextType &&
+      areNodeStylesEqual(node.style, nodeVisual.style)
     ) {
       return node;
     }
     return {
       ...node,
-      style: nextStyle,
-      type: nodeVisual.type,
+      style: nodeVisual.style,
+      type: nextType,
     };
   });
 }
@@ -920,21 +774,6 @@ function areNodeStylesEqual(
     if (
       left[key as keyof CSSProperties] !== right[key as keyof CSSProperties]
     ) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function areStringArraysEqual(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) {
       return false;
     }
   }
