@@ -113,7 +113,11 @@ vi.mock("./ConfiguredParamInputs", () => ({
       />
     );
   },
-  ConfiguredRotaryInput: (props: { isDisabled: boolean }) => {
+  ConfiguredRotaryInput: (props: {
+    isDisabled: boolean;
+    onChange: (value: number) => void;
+    onCommit?: (value: number) => void;
+  }) => {
     mocks.rotaryProps(props);
     return (
       <div
@@ -122,7 +126,11 @@ vi.mock("./ConfiguredParamInputs", () => ({
       />
     );
   },
-  ConfiguredSliderInput: (props: { isDisabled: boolean }) => {
+  ConfiguredSliderInput: (props: {
+    isDisabled: boolean;
+    onChange: (value: number) => void;
+    onCommit?: (value: number) => void;
+  }) => {
     mocks.sliderProps(props);
     return (
       <div
@@ -429,6 +437,66 @@ describe("ParamUI", () => {
         "Drop files here",
       );
       expect(dropzoneInput?.getAttribute("data-disabled")).toBe("false");
+    } finally {
+      await cleanupRenderedParamUI(rendered);
+    }
+  });
+
+  it("keeps slider live updates out of the backend commit path", async () => {
+    const onChange = vi.fn();
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.SliderParam,
+      defaultVal: "0",
+    };
+
+    const rendered = await renderParamUI({ onChange, value: "1" });
+
+    try {
+      const sliderProps = mocks.sliderProps.mock.calls[0]?.[0] as
+        | {
+            onChange: (value: number) => void;
+            onCommit?: (value: number) => void;
+          }
+        | undefined;
+      expect(sliderProps).toBeDefined();
+
+      sliderProps?.onChange(4);
+      sliderProps?.onCommit?.(6);
+
+      expect(onChange.mock.calls).toEqual([
+        [4, { skipBackendUpdate: true }],
+        [6],
+      ]);
+    } finally {
+      await cleanupRenderedParamUI(rendered);
+    }
+  });
+
+  it("keeps rotary live updates out of the backend commit path", async () => {
+    const onChange = vi.fn();
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.RotaryParam,
+      defaultVal: "0",
+    };
+
+    const rendered = await renderParamUI({ onChange, value: "1" });
+
+    try {
+      const rotaryProps = mocks.rotaryProps.mock.calls[0]?.[0] as
+        | {
+            onChange: (value: number) => void;
+            onCommit?: (value: number) => void;
+          }
+        | undefined;
+      expect(rotaryProps).toBeDefined();
+
+      rotaryProps?.onChange(2);
+      rotaryProps?.onCommit?.(8);
+
+      expect(onChange.mock.calls).toEqual([
+        [2, { skipBackendUpdate: true }],
+        [8],
+      ]);
     } finally {
       await cleanupRenderedParamUI(rendered);
     }

@@ -336,7 +336,8 @@ function renderSliderParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={onChange}
+      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
+      onCommit={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -356,7 +357,8 @@ function renderRotaryParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={onChange}
+      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
+      onCommit={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -753,6 +755,7 @@ function SliderParamConfigured({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
 }) {
@@ -762,6 +765,7 @@ function SliderParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       isDisabled={isDisabled}
       wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`}
@@ -780,6 +784,7 @@ function RotaryParamConfigured({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
 }: {
@@ -787,6 +792,7 @@ function RotaryParamConfigured({
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
+  onCommit?: ParamValueChange;
   onEscape: () => void;
   isDisabled: boolean;
 }) {
@@ -796,6 +802,7 @@ function RotaryParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />

@@ -121,6 +121,87 @@ describe("RotaryInput theme overrides", () => {
     }
   });
 
+  it("commits keyboard changes after applying the live value", async () => {
+    const onChange = vi.fn();
+    const onCommit = vi.fn();
+    const rendered = await renderRotaryInput({ onChange, onCommit });
+
+    try {
+      await act(async () => {
+        rendered.button.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            cancelable: true,
+            key: "ArrowUp",
+          }),
+        );
+      });
+
+      expect(onChange).toHaveBeenCalledWith(4);
+      expect(onCommit).toHaveBeenCalledWith(4);
+    } finally {
+      await unmountRotaryInput(rendered);
+    }
+  });
+
+  it("keeps pointer drag changes live until pointer release commits", async () => {
+    const onChange = vi.fn();
+    const onCommit = vi.fn();
+    const rendered = await renderRotaryInput({ onChange, onCommit });
+
+    try {
+      vi.spyOn(rendered.button, "getBoundingClientRect").mockReturnValue({
+        bottom: 100,
+        height: 100,
+        left: 0,
+        right: 100,
+        toJSON: () => ({}),
+        top: 0,
+        width: 100,
+        x: 0,
+        y: 0,
+      });
+      Object.defineProperty(rendered.button, "setPointerCapture", {
+        configurable: true,
+        value: vi.fn(),
+      });
+      Object.defineProperty(rendered.button, "releasePointerCapture", {
+        configurable: true,
+        value: vi.fn(),
+      });
+
+      await act(async () => {
+        dispatchSyntheticPointerEvent(rendered.button, "pointerdown", {
+          clientX: 100,
+          clientY: 50,
+          pointerId: 1,
+        });
+      });
+      await act(async () => {
+        dispatchSyntheticPointerEvent(rendered.button, "pointermove", {
+          clientX: 50,
+          clientY: 0,
+          pointerId: 1,
+        });
+      });
+
+      expect(onChange.mock.calls).toEqual([[6], [2]]);
+      expect(onCommit).not.toHaveBeenCalled();
+
+      await act(async () => {
+        dispatchSyntheticPointerEvent(rendered.button, "pointerup", {
+          clientX: 50,
+          clientY: 0,
+          pointerId: 1,
+        });
+      });
+
+      expect(onCommit.mock.calls).toEqual([[2]]);
+    } finally {
+      await unmountRotaryInput(rendered);
+    }
+  });
+
   it("still delegates Escape to onEscape when disabled", async () => {
     const onChange = vi.fn();
     const onEscape = vi.fn();
@@ -148,3 +229,29 @@ describe("RotaryInput theme overrides", () => {
     }
   });
 });
+
+function dispatchSyntheticPointerEvent(
+  target: EventTarget,
+  type: string,
+  {
+    clientX,
+    clientY,
+    pointerId,
+  }: {
+    clientX: number;
+    clientY: number;
+    pointerId: number;
+  },
+) {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX,
+    clientY,
+  });
+  Object.defineProperty(event, "pointerId", {
+    configurable: true,
+    value: pointerId,
+  });
+  target.dispatchEvent(event);
+}
