@@ -5,8 +5,10 @@ export type ProjectGpuParamListKey = "pinned" | "unpinned";
 
 export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 24;
 export const PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX = 12;
+export const PROJECT_GPU_PARAM_CONTENT_NESTED_BLOCK_START_GAP_PX = 4;
 export const PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX = 12;
 export const PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX = 9;
+export const PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX = 4;
 
 const PROJECT_GPU_PARAM_CONTENT_TOP_INSET_PX = 5;
 export const PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX = 18;
@@ -69,12 +71,14 @@ export function getProjectGpuParamContentMetrics({
   edgeOutputPortCount,
   headerHeight,
   kwargsControlsHeight,
+  pinnedRowVerticalGapHeight = 0,
   pinnedRowCount,
 }: {
   readonly edgeInputPortCount: number;
   readonly edgeOutputPortCount: number;
   readonly headerHeight: number;
   readonly kwargsControlsHeight: number;
+  readonly pinnedRowVerticalGapHeight?: number | undefined;
   readonly pinnedRowCount: number;
 }) {
   const edgesHeight = resolveEdgeStripHeight({
@@ -84,8 +88,13 @@ export function getProjectGpuParamContentMetrics({
   const paramsFixedHeight = resolveProjectGpuParamFixedContentHeight({
     edgeInputPortCount,
     edgeOutputPortCount,
+    pinnedRowVerticalGapHeight,
     pinnedRowCount,
   });
+  const unpinnedTopGap =
+    pinnedRowCount > 0
+      ? PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX
+      : 0;
   return {
     contentTop:
       headerHeight +
@@ -93,16 +102,19 @@ export function getProjectGpuParamContentMetrics({
       PROJECT_GPU_PARAM_CONTENT_TOP_INSET_PX,
     edgesHeight,
     paramsFixedHeight,
+    unpinnedTopGap,
   };
 }
 
 export function resolveProjectGpuParamFixedContentHeight({
   edgeInputPortCount,
   edgeOutputPortCount,
+  pinnedRowVerticalGapHeight = 0,
   pinnedRowCount,
 }: {
   readonly edgeInputPortCount: number;
   readonly edgeOutputPortCount: number;
+  readonly pinnedRowVerticalGapHeight?: number | undefined;
   readonly pinnedRowCount: number;
 }): number {
   const edgeStripHeight = resolveEdgeStripHeight({
@@ -110,7 +122,8 @@ export function resolveProjectGpuParamFixedContentHeight({
     outputPortCount: edgeOutputPortCount,
   });
   const pinnedContentHeight =
-    Math.max(0, pinnedRowCount) * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
+    Math.max(0, pinnedRowCount) * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX +
+    Math.max(0, pinnedRowVerticalGapHeight);
   return edgeStripHeight + pinnedContentHeight;
 }
 
@@ -132,9 +145,13 @@ export function resolveProjectGpuParamAutoContentHeight({
     outputPortCount: edgeOutputPortCount,
   });
   const rowCount = Math.max(0, pinnedRowCount) + Math.max(0, unpinnedRowCount);
+  const unpinnedTopGap =
+    pinnedRowCount > 0 && unpinnedRowCount > 0
+      ? PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX
+      : 0;
   const retainedRowHeight =
     rowCount > 0 || edgeStripHeight > 0 || !reserveEmptyContentHeight
-      ? rowCount * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX
+      ? rowCount * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX + unpinnedTopGap
       : PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
   return edgeStripHeight + retainedRowHeight;
 }
@@ -151,7 +168,10 @@ export function getProjectGpuParamListLocalY({
   if (listKey === "pinned") {
     return metrics.contentTop + metrics.edgesHeight;
   }
-  return Math.max(nextLocalY, metrics.contentTop + metrics.paramsFixedHeight);
+  return (
+    Math.max(nextLocalY, metrics.contentTop + metrics.paramsFixedHeight) +
+    metrics.unpinnedTopGap
+  );
 }
 
 export function getProjectGpuParamListSurfaceHeight({

@@ -63,6 +63,7 @@ import {
 import {
   PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX,
   PROJECT_GPU_PARAM_CONTENT_NESTED_GUTTER_PX,
+  PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX,
 } from "./projectGpuParamContentLayout";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
 import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
@@ -545,7 +546,8 @@ describe("project GPU layout adapter", () => {
     );
     expect(unpinnedSurface?.rect.y).toBe(
       (pinnedSurface?.rect.y ?? 0) +
-        (pinnedSurface?.retainedScene?.rowHeight ?? 0),
+        (pinnedSurface?.retainedScene?.rowHeight ?? 0) +
+        PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX,
     );
   });
 
@@ -1079,7 +1081,7 @@ describe("project GPU layout adapter", () => {
         name: "",
       }),
     );
-    projectState.codeObjs["blank-param"].name = "";
+    projectState.codeObjs["blank-param"]!.name = "";
     projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
       unpinned: {
         requiredParamIdsToPaths: {
@@ -2315,7 +2317,6 @@ describe("project GPU layout adapter", () => {
         actionMode: ButtonActionModeEnum.WEBSOCKET_LISTENER,
         coreNameEditable: true,
         coreNameType: ParamNameTypeEnum.TEXT,
-        defaultVal: "",
         description: "",
         id: "button-param-impl",
         isPreset: false,

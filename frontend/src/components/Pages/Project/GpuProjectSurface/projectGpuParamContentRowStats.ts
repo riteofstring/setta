@@ -8,7 +8,10 @@ import {
   getCurrShownParamIds,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
-import type { ProjectGpuParamListKey } from "./projectGpuParamContentLayout";
+import {
+  PROJECT_GPU_PARAM_CONTENT_NESTED_BLOCK_START_GAP_PX,
+  type ProjectGpuParamListKey,
+} from "./projectGpuParamContentLayout";
 import type { ProjectGpuParamContentSectionImpl } from "./projectGpuParamContentSection";
 
 export type ProjectGpuParamRetainedListRowStats = {
@@ -16,6 +19,7 @@ export type ProjectGpuParamRetainedListRowStats = {
   readonly hasNestedBlockBottomChrome: boolean;
   readonly maxNestedDepth: number;
   readonly rowCount: number;
+  readonly verticalGapHeight: number;
 };
 
 export function getProjectGpuShownParamRowsIfPresent({
@@ -79,25 +83,6 @@ export function normalizeProjectGpuShownParamRows({
   };
 }
 
-export function countProjectGpuParamRetainedListRows({
-  key,
-  projectState,
-  sectionId,
-  sectionImpl,
-}: {
-  readonly key: ProjectGpuParamListKey;
-  readonly projectState: ZustandProjectState;
-  readonly sectionId: string;
-  readonly sectionImpl: ProjectGpuParamContentSectionImpl;
-}): number {
-  return getProjectGpuParamRetainedListRowStats({
-    key,
-    projectState,
-    sectionId,
-    sectionImpl,
-  }).rowCount;
-}
-
 export function getProjectGpuParamRetainedListRowStats({
   key,
   projectState,
@@ -133,6 +118,7 @@ export function getProjectGpuParamRetainedListRowStats({
       getProjectGpuParamTreeHasMultiChildNestedBlock(tree),
     maxNestedDepth: Math.max(0, ...rows.map((row) => row.depth + 1)),
     rowCount,
+    verticalGapHeight: getProjectGpuParamRowsVerticalGapHeight(rows),
   };
 }
 
@@ -175,7 +161,40 @@ const EMPTY_PROJECT_GPU_PARAM_RETAINED_LIST_ROW_STATS = {
   hasNestedBlockBottomChrome: false,
   maxNestedDepth: 0,
   rowCount: 0,
+  verticalGapHeight: 0,
 } satisfies ProjectGpuParamRetainedListRowStats;
+
+export function getProjectGpuParamRowsVerticalGapHeight(
+  rows: readonly {
+    readonly depth: number;
+    readonly isParent: boolean;
+  }[],
+): number {
+  return rows.reduce(
+    (height, row, index) =>
+      height +
+      getProjectGpuParamRowVerticalGapBefore({
+        index,
+        row,
+      }),
+    0,
+  );
+}
+
+export function getProjectGpuParamRowVerticalGapBefore({
+  index,
+  row,
+}: {
+  readonly index: number;
+  readonly row: {
+    readonly depth: number;
+    readonly isParent: boolean;
+  };
+}): number {
+  return index > 0 && row.depth === 0 && row.isParent
+    ? PROJECT_GPU_PARAM_CONTENT_NESTED_BLOCK_START_GAP_PX
+    : 0;
+}
 
 function getProjectGpuParamRowsNeedNestedBlockBottomChrome(
   rows: readonly { readonly depth: number }[],

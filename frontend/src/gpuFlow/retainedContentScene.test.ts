@@ -169,6 +169,37 @@ describe("retained content scene", () => {
     ]);
   });
 
+  it("applies retained row vertical gaps to layout, culling, and content height", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("leaf"),
+        row("parent", { controlKind: "nested", verticalGapBefore: 4 }),
+        row("child", { depth: 1 }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 80, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.contentRect.height).toBe(76);
+    expect(
+      scene.rows.map((visibleRow) => [visibleRow.id, visibleRow.contentRect.y]),
+    ).toEqual([
+      ["leaf", 0],
+      ["parent", 28],
+      ["child", 52],
+    ]);
+    expect(
+      scene.drawCommands.find(
+        (command) => command.kind === "row-label" && command.rowId === "parent",
+      ),
+    ).toMatchObject({
+      rect: { y: 28 },
+    });
+  });
+
   it("emits retained row status badges and overlays from row metadata", () => {
     const scene = createGpuRetainedRowContentScene({
       controlWidth: 80,

@@ -5,6 +5,7 @@ import {
 import { resolveParamUIDisabled } from "components/Params/ParamUIs/paramUIDisabled";
 import {
   createGpuRetainedRowContentScene,
+  getGpuRetainedRowContentHeight,
   type GpuRetainedContentActivePopupInput,
   type GpuRetainedContentDragPreviewInput,
   type GpuRetainedContentHitRecord,
@@ -46,6 +47,7 @@ import {
   type ProjectGpuParamListKey,
 } from "./projectGpuParamContentLayout";
 import {
+  getProjectGpuParamRowVerticalGapBefore,
   getProjectGpuShownParamRowsIfPresent,
   normalizeProjectGpuShownParamRows,
 } from "./projectGpuParamContentRowStats";
@@ -122,7 +124,7 @@ type ProjectGpuRetainedParamInteractionState = {
   readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
   readonly activeParamDomIsland?: OptionalParamDomIsland;
   readonly hoveredParamTarget?: OptionalParamTarget;
-  readonly passwordRevealStates?: PasswordRevealStates;
+  readonly passwordRevealStates?: PasswordRevealStates | undefined;
   readonly retainedParamDragPreview?: OptionalParamDragPreview;
 };
 
@@ -167,7 +169,7 @@ export function createProjectGpuParamContentSurfaces({
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly editPolicy?: ProjectGpuParamEditPolicy | undefined;
   readonly hoveredParamTarget?: OptionalParamTarget;
-  readonly passwordRevealStates?: PasswordRevealStates;
+  readonly passwordRevealStates?: PasswordRevealStates | undefined;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedParamDragPreview?: OptionalParamDragPreview;
@@ -452,7 +454,7 @@ function createProjectGpuParamContentSurfacesForSection({
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly hoveredParamTarget?: OptionalParamTarget;
-  readonly passwordRevealStates?: PasswordRevealStates;
+  readonly passwordRevealStates?: PasswordRevealStates | undefined;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedParamDragPreview?: OptionalParamDragPreview;
@@ -600,7 +602,7 @@ function createProjectGpuParamRows({
           retainedInteractionState.retainedParamDragPreview.draggingParamIds,
         )
       : null;
-  return tree.flat.map((row) => {
+  return tree.flat.map((row, index) => {
     const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
       projectState,
       sectionId,
@@ -612,31 +614,38 @@ function createProjectGpuParamRows({
         `Missing GPU retained param row ${row.id} in section ${sectionId}.`,
       );
     }
-    return createProjectGpuParamRowInput({
-      activeParamCanvasControl:
-        retainedInteractionState.activeParamCanvasControl,
-      activeParamCanvasPopup: retainedInteractionState.activeParamCanvasPopup,
-      activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
-      codeObjImpl,
-      disabled: resolveProjectGpuRetainedParamRowDisabled({
-        codeObjType: codeObjImpl.type,
-        editPolicy,
-        sectionImpl,
-      }),
-      draggingParamIds,
-      edgeInputParamIds,
-      hoveredParamTarget: retainedInteractionState.hoveredParamTarget,
-      isDeploymentMode: editPolicy.isDeploymentMode,
-      passwordRevealStates: retainedInteractionState.passwordRevealStates,
-      projectSearch,
-      projectState,
-      paramDuplicateIndex,
+    const verticalGapBefore = getProjectGpuParamRowVerticalGapBefore({
+      index,
       row,
-      sectionId,
-      sectionParamTypeErrors,
-      selectedParamIds,
-      surfaceId,
     });
+    return {
+      ...createProjectGpuParamRowInput({
+        activeParamCanvasControl:
+          retainedInteractionState.activeParamCanvasControl,
+        activeParamCanvasPopup: retainedInteractionState.activeParamCanvasPopup,
+        activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
+        codeObjImpl,
+        disabled: resolveProjectGpuRetainedParamRowDisabled({
+          codeObjType: codeObjImpl.type,
+          editPolicy,
+          sectionImpl,
+        }),
+        draggingParamIds,
+        edgeInputParamIds,
+        hoveredParamTarget: retainedInteractionState.hoveredParamTarget,
+        isDeploymentMode: editPolicy.isDeploymentMode,
+        passwordRevealStates: retainedInteractionState.passwordRevealStates,
+        projectSearch,
+        projectState,
+        paramDuplicateIndex,
+        row,
+        sectionId,
+        sectionParamTypeErrors,
+        selectedParamIds,
+        surfaceId,
+      }),
+      ...(verticalGapBefore > 0 ? { verticalGapBefore } : {}),
+    };
   });
 }
 
@@ -689,6 +698,10 @@ function createProjectGpuParamListContentSurfaces({
       getProjectSectionSceneSearchHeight(sectionImpl),
     kwargsControlsHeight:
       getProjectSectionSceneKwargsControlsHeight(sectionImpl),
+    pinnedRowVerticalGapHeight: getProjectGpuParamListVerticalGapHeight(
+      listRows,
+      "pinned",
+    ),
     pinnedRowCount: getProjectGpuParamListRowCount(listRows, "pinned"),
   });
   const maxNestedDepth = getProjectGpuParamMaxNestedDepth(listRows);
@@ -700,8 +713,10 @@ function createProjectGpuParamListContentSurfaces({
       nextLocalY,
     });
     const remainingHeight = Math.max(0, section.bodyRect.height - listLocalY);
-    const contentHeight =
-      list.rows.length * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
+    const contentHeight = getGpuRetainedRowContentHeight({
+      rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
+      rows: list.rows,
+    });
     const height = getProjectGpuParamListSurfaceHeight({
       contentHeight,
       listKey: list.key,
@@ -825,6 +840,20 @@ function getProjectGpuParamListRowCount(
   key: ProjectGpuParamListKey,
 ): number {
   return listRows.find((list) => list.key === key)?.rows.length ?? 0;
+}
+
+function getProjectGpuParamListVerticalGapHeight(
+  listRows: readonly ProjectGpuParamListRows[],
+  key: ProjectGpuParamListKey,
+): number {
+  return (
+    listRows
+      .find((list) => list.key === key)
+      ?.rows.reduce(
+        (height, row) => height + (row.verticalGapBefore ?? 0),
+        0,
+      ) ?? 0
+  );
 }
 
 function getProjectGpuParamRetainedContentActivePopupInput({

@@ -187,6 +187,7 @@ export type GpuRetainedContentRowInput = {
   readonly ports?: readonly GpuRetainedContentRowPortInput[] | undefined;
   readonly state?: Partial<GpuRetainedContentRowState> | undefined;
   readonly status?: GpuRetainedContentRowStatus | null | undefined;
+  readonly verticalGapBefore?: number | undefined;
 };
 
 export type GpuRetainedContentRow = {
@@ -208,6 +209,12 @@ type GpuRetainedContentVisibleRowRange = {
   readonly endIndex: number;
   readonly rowCount: number;
   readonly startIndex: number;
+};
+
+type GpuRetainedContentRowMetric = {
+  readonly index: number;
+  readonly input: GpuRetainedContentRowInput;
+  readonly y: number;
 };
 
 export type GpuRetainedContentActivePopupInput = {
@@ -365,27 +372,35 @@ export function createGpuRetainedRowContentScene(
   const labelControlGap = input.labelControlGap ?? DEFAULT_LABEL_CONTROL_GAP;
   const portHitSize = input.portHitSize ?? DEFAULT_PORT_HIT_SIZE;
   const draggingRowIds = new Set(input.dragPreview?.draggingRowIds ?? []);
+  const rowMetrics = createGpuRetainedContentRowMetrics({
+    rowHeight: input.rowHeight,
+    rows: input.rows,
+  });
   const contentRect = {
-    height: input.rows.length * input.rowHeight,
+    height: getGpuRetainedRowContentHeight({
+      rowHeight: input.rowHeight,
+      rows: input.rows,
+    }),
     width: input.viewportRect.width,
     x: 0,
     y: 0,
   };
-  const visibleRange = resolveGpuRetainedContentVisibleRowRange({
-    overscanRows: input.overscanRows ?? DEFAULT_OVERSCAN_ROWS,
-    rowCount: input.rows.length,
+  const visibleRange = resolveGpuRetainedContentVisibleRowRangeFromMetrics({
+    rowMetrics,
     rowHeight: input.rowHeight,
+    overscanRows: input.overscanRows ?? DEFAULT_OVERSCAN_ROWS,
     scrollOffsetY: input.scrollOffset.y,
     viewportHeight: input.viewportRect.height,
   });
-  const visibleRows = input.rows
+  const visibleRows = rowMetrics
     .slice(visibleRange.startIndex, visibleRange.endIndex)
-    .map((row, offset) =>
+    .map((rowMetric) =>
       createGpuRetainedContentRow({
-        dragging: draggingRowIds.has(row.id),
-        index: visibleRange.startIndex + offset,
-        input: row,
+        dragging: draggingRowIds.has(rowMetric.input.id),
+        index: rowMetric.index,
+        input: rowMetric.input,
         rowHeight: input.rowHeight,
+        rowY: rowMetric.y,
         scrollOffset: input.scrollOffset,
         viewportRect: input.viewportRect,
       }),
@@ -431,6 +446,21 @@ export function createGpuRetainedRowContentScene(
   };
 }
 
+export function getGpuRetainedRowContentHeight({
+  rowHeight,
+  rows,
+}: {
+  readonly rowHeight: number;
+  readonly rows: readonly GpuRetainedContentRowInput[];
+}): number {
+  assertFinitePositive("retained content row height", rowHeight);
+  let height = 0;
+  for (const row of rows) {
+    height += getGpuRetainedContentRowVerticalGapBefore(row) + rowHeight;
+  }
+  return height;
+}
+
 export function resolveGpuRetainedContentVisibleRowRange({
   overscanRows,
   rowCount,
@@ -464,11 +494,136 @@ export function resolveGpuRetainedContentVisibleRowRange({
   return { endIndex, rowCount, startIndex };
 }
 
+function resolveGpuRetainedContentVisibleRowRangeFromMetrics({
+  overscanRows,
+  rowHeight,
+  rowMetrics,
+  scrollOffsetY,
+  viewportHeight,
+}: {
+  readonly overscanRows: number;
+  readonly rowHeight: number;
+  readonly rowMetrics: readonly GpuRetainedContentRowMetric[];
+  readonly scrollOffsetY: number;
+  readonly viewportHeight: number;
+}): GpuRetainedContentVisibleRowRange {
+  if (!rowMetrics.some((row) => row.input.verticalGapBefore)) {
+    return resolveGpuRetainedContentVisibleRowRange({
+      overscanRows,
+      rowCount: rowMetrics.length,
+      rowHeight,
+      scrollOffsetY,
+      viewportHeight,
+    });
+  }
+  assertFiniteNonNegative("retained row overscan", overscanRows);
+  assertFinitePositive("retained row height", rowHeight);
+  assertFiniteNonNegative("retained content scroll y", scrollOffsetY);
+  assertFiniteNonNegative("retained content viewport height", viewportHeight);
+  const overscanPx = Math.floor(overscanRows) * rowHeight;
+  const visibleTop = Math.max(0, scrollOffsetY - overscanPx);
+  const visibleBottom = scrollOffsetY + viewportHeight + overscanPx;
+  const startIndex = findFirstGpuRetainedContentRowEndingAfter({
+    rowHeight,
+    rowMetrics,
+    y: visibleTop,
+  });
+  const endIndex = findFirstGpuRetainedContentRowStartingAfter({
+    rowMetrics,
+    startIndex,
+    y: visibleBottom,
+  });
+  return {
+    endIndex,
+    rowCount: rowMetrics.length,
+    startIndex,
+  };
+}
+
+function createGpuRetainedContentRowMetrics({
+  rowHeight,
+  rows,
+}: {
+  readonly rowHeight: number;
+  readonly rows: readonly GpuRetainedContentRowInput[];
+}): readonly GpuRetainedContentRowMetric[] {
+  assertFinitePositive("retained content row height", rowHeight);
+  const metrics: GpuRetainedContentRowMetric[] = [];
+  let y = 0;
+  for (const [index, row] of rows.entries()) {
+    y += getGpuRetainedContentRowVerticalGapBefore(row);
+    metrics.push({ index, input: row, y });
+    y += rowHeight;
+  }
+  return metrics;
+}
+
+function getGpuRetainedContentRowVerticalGapBefore(
+  row: GpuRetainedContentRowInput,
+): number {
+  const gap = row.verticalGapBefore ?? 0;
+  assertFiniteNonNegative("retained content row vertical gap", gap);
+  return gap;
+}
+
+function findFirstGpuRetainedContentRowEndingAfter({
+  rowHeight,
+  rowMetrics,
+  y,
+}: {
+  readonly rowHeight: number;
+  readonly rowMetrics: readonly GpuRetainedContentRowMetric[];
+  readonly y: number;
+}): number {
+  let lower = 0;
+  let upper = rowMetrics.length;
+  while (lower < upper) {
+    const mid = Math.floor((lower + upper) / 2);
+    const rowMetric = rowMetrics[mid];
+    if (!rowMetric) {
+      throw new Error(`Missing retained row metric at index ${mid}.`);
+    }
+    if (rowMetric.y + rowHeight < y) {
+      lower = mid + 1;
+    } else {
+      upper = mid;
+    }
+  }
+  return lower;
+}
+
+function findFirstGpuRetainedContentRowStartingAfter({
+  rowMetrics,
+  startIndex,
+  y,
+}: {
+  readonly rowMetrics: readonly GpuRetainedContentRowMetric[];
+  readonly startIndex: number;
+  readonly y: number;
+}): number {
+  let lower = startIndex;
+  let upper = rowMetrics.length;
+  while (lower < upper) {
+    const mid = Math.floor((lower + upper) / 2);
+    const rowMetric = rowMetrics[mid];
+    if (!rowMetric) {
+      throw new Error(`Missing retained row metric at index ${mid}.`);
+    }
+    if (rowMetric.y <= y) {
+      lower = mid + 1;
+    } else {
+      upper = mid;
+    }
+  }
+  return lower;
+}
+
 function createGpuRetainedContentRow({
   dragging,
   index,
   input,
   rowHeight,
+  rowY,
   scrollOffset,
   viewportRect,
 }: {
@@ -476,6 +631,7 @@ function createGpuRetainedContentRow({
   readonly index: number;
   readonly input: GpuRetainedContentRowInput;
   readonly rowHeight: number;
+  readonly rowY: number;
   readonly scrollOffset: GpuPoint;
   readonly viewportRect: GpuRect;
 }): GpuRetainedContentRow {
@@ -483,7 +639,7 @@ function createGpuRetainedContentRow({
     height: rowHeight,
     width: viewportRect.width,
     x: 0,
-    y: index * rowHeight,
+    y: rowY,
   };
   const status = input.status ?? null;
   return {

@@ -2,9 +2,11 @@ import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import { describe, expect, it } from "vitest";
 import {
   PROJECT_GPU_PARAM_CONTENT_BASE_VERTICAL_CHROME_PX,
+  PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX,
   getProjectGpuParamContentControlWidth,
   getProjectGpuParamContentLabelColumnWidth,
   getProjectGpuParamContentMetrics,
+  getProjectGpuParamListLocalY,
   getProjectGpuParamListSurfaceHeight,
   resolveProjectGpuParamAutoContentHeight,
   resolveProjectGpuParamContentVerticalChromeHeight,
@@ -34,6 +36,9 @@ describe("project GPU param content layout", () => {
       }) +
         3 * 24,
     );
+    expect(metrics.unpinnedTopGap).toBe(
+      PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX,
+    );
   });
 
   it("sizes pinned surfaces from retained row content instead of measured height state", () => {
@@ -51,6 +56,35 @@ describe("project GPU param content layout", () => {
         remainingHeight: 48,
       }),
     ).toBe(48);
+  });
+
+  it("preserves the retained gap between pinned and unpinned param surfaces", () => {
+    const metrics = getProjectGpuParamContentMetrics({
+      edgeInputPortCount: 0,
+      edgeOutputPortCount: 0,
+      headerHeight: 7,
+      kwargsControlsHeight: 13,
+      pinnedRowCount: 2,
+    });
+    expect(
+      getProjectGpuParamListLocalY({
+        listKey: "unpinned",
+        metrics,
+        nextLocalY: metrics.contentTop + 2 * 24,
+      }),
+    ).toBe(
+      metrics.contentTop +
+        2 * 24 +
+        PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX,
+    );
+    expect(
+      resolveProjectGpuParamAutoContentHeight({
+        edgeInputPortCount: 0,
+        edgeOutputPortCount: 0,
+        pinnedRowCount: 2,
+        unpinnedRowCount: 3,
+      }),
+    ).toBe(5 * 24 + PROJECT_GPU_PARAM_CONTENT_UNPINNED_TOP_GAP_WITH_PINNED_PX);
   });
 
   it("reserves one retained row of content for empty visible param sections", () => {

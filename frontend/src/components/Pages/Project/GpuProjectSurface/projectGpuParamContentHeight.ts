@@ -5,10 +5,7 @@ import {
   resolveProjectGpuParamContentVerticalChromeHeight,
   resolveProjectGpuParamFixedContentHeight,
 } from "./projectGpuParamContentLayout";
-import {
-  countProjectGpuParamRetainedListRows,
-  getProjectGpuParamRetainedListRowStats,
-} from "./projectGpuParamContentRowStats";
+import { getProjectGpuParamRetainedListRowStats } from "./projectGpuParamContentRowStats";
 import {
   getProjectGpuParamContentEdgeStripPortCounts,
   isProjectGpuParamContentSectionImpl,
@@ -28,14 +25,16 @@ export function getProjectGpuParamFixedContentHeightForSection({
   }
   const edgeStripPortCounts =
     getProjectGpuParamContentEdgeStripPortCounts(sectionImpl);
+  const pinnedStats = getProjectGpuParamRetainedListRowStats({
+    key: "pinned",
+    projectState,
+    sectionId,
+    sectionImpl,
+  });
   return resolveProjectGpuParamFixedContentHeight({
     ...edgeStripPortCounts,
-    pinnedRowCount: countProjectGpuParamRetainedListRows({
-      key: "pinned",
-      projectState,
-      sectionId,
-      sectionImpl,
-    }),
+    pinnedRowCount: pinnedStats.rowCount,
+    pinnedRowVerticalGapHeight: pinnedStats.verticalGapHeight,
   });
 }
 
@@ -53,25 +52,27 @@ export function getProjectGpuParamAutoContentHeightForSection({
   }
   const edgeStripPortCounts =
     getProjectGpuParamContentEdgeStripPortCounts(sectionImpl);
+  const pinnedStats = getProjectGpuParamRetainedListRowStats({
+    key: "pinned",
+    projectState,
+    sectionId,
+    sectionImpl,
+  });
+  const unpinnedStats = sectionImpl.hideUnpinnedParams
+    ? null
+    : getProjectGpuParamRetainedListRowStats({
+        key: "unpinned",
+        projectState,
+        sectionId,
+        sectionImpl,
+      });
   return resolveProjectGpuParamAutoContentHeight({
     ...edgeStripPortCounts,
-    pinnedRowCount: countProjectGpuParamRetainedListRows({
-      key: "pinned",
-      projectState,
-      sectionId,
-      sectionImpl,
-    }),
-    unpinnedRowCount: sectionImpl.hideUnpinnedParams
-      ? 0
-      : countProjectGpuParamRetainedListRows({
-          key: "unpinned",
-          projectState,
-          sectionId,
-          sectionImpl,
-        }),
+    pinnedRowCount: pinnedStats.rowCount,
     reserveEmptyContentHeight:
       !sectionImpl.isMinimized &&
       !("hideParams" in sectionImpl && Boolean(sectionImpl.hideParams)),
+    unpinnedRowCount: unpinnedStats?.rowCount ?? 0,
   });
 }
 
