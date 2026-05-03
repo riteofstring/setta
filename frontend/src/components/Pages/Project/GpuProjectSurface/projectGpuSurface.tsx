@@ -99,6 +99,7 @@ import {
   type ProjectGpuRetainedPasswordRevealStateMap,
   type ProjectGpuRetainedPasswordRevealUpdate,
 } from "./projectGpuRetainedParamPasswordRevealState";
+import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
@@ -242,6 +243,7 @@ export function GpuProjectSurface() {
   const readyToRender = dimensions.height > 0 && dimensions.width > 0;
 
   useProjectViewportSettingsSync(settings);
+  useProjectGpuSearchReveal({ layoutAdapter, readyToRender, settings });
   useProjectGpuActiveParamCanvasPopupDismissal({
     activeParamCanvasPopup,
     onDismiss: dismissActiveParamCanvasPopup,
