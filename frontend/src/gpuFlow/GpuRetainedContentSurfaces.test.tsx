@@ -84,7 +84,7 @@ describe("GpuRetainedContentSurfaceLayer", () => {
     const host = document.createElement("div");
     const canvas = document.createElement("canvas");
     const context = createCanvasContextStub();
-    vi.spyOn(canvas, "getContext").mockReturnValue(context);
+    vi.spyOn(canvas, "getContext").mockReturnValue(context as never);
     canvas.setAttribute("data-gpu-flow-retained-content-canvas", "true");
     host.append(canvas);
 

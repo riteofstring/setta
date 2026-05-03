@@ -49,6 +49,21 @@ describe("retained content switch canvas", () => {
     ]);
     expect(ctx.moveTo).toHaveBeenNthCalledWith(2, 292, 9);
   });
+
+  it("draws the switch thumb at an interpolated animation position", () => {
+    const ctx = createCanvasContextRecorder();
+
+    drawGpuRetainedContentSwitchControl({
+      animationProgress: 0.5,
+      control: switchControl({ checked: true }),
+      ctx,
+      palette: getGpuRetainedContentCanvasPalette(true),
+      rect: { height: 24, width: 273, x: 270, y: 0 },
+      state: undefined,
+    });
+
+    expect(ctx.moveTo).toHaveBeenNthCalledWith(2, 301, 9);
+  });
 });
 
 function switchControl(

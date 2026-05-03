@@ -8,6 +8,7 @@ import {
 import {
   getGpuRetainedContentSurfaceLayouts,
   GpuRetainedContentSurfaceLayer,
+  type GpuRetainedContentSurfaceDrawEvent,
 } from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
@@ -16,6 +17,7 @@ import {
   type GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
+import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowScene } from "../scene";
 
 export function useGpuFlowRetainedContentSources({
@@ -23,6 +25,7 @@ export function useGpuFlowRetainedContentSources({
   nodeElementByIdRef,
   scene,
   surfaceRef,
+  switchAnimations,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
 }: {
@@ -30,6 +33,7 @@ export function useGpuFlowRetainedContentSources({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly scene: GpuFlowScene | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
 }): {
@@ -65,15 +69,19 @@ export function useGpuFlowRetainedContentSources({
     ],
   );
   const handleRetainedContentSurfaceDraw = useCallback(
-    (surfaceId: string) => {
+    (surfaceId: string, event: GpuRetainedContentSurfaceDrawEvent) => {
       textureManagerRef.current?.markSurfaceTextureDirty({
         content: true,
-        reason: "content",
+        priority: event.reason === "animation" ? "interactive" : "visible",
+        reason: event.reason,
         requestPaint: false,
+        ...(event.sourceRect ? { sourceRect: event.sourceRect } : {}),
         surfaceId,
       });
       surfaceRef.current?.requestPaint();
-      surfaceRef.current?.requestFrame("manual");
+      surfaceRef.current?.requestFrame(
+        event.reason === "animation" ? "texture-upload" : "manual",
+      );
     },
     [surfaceRef, textureManagerRef],
   );
@@ -84,6 +92,7 @@ export function useGpuFlowRetainedContentSources({
         onSurfaceDraw={handleRetainedContentSurfaceDraw}
         onSurfaceElementChange={handleRetainedContentElementChange}
         surfaces={scene?.contentSurfaces}
+        switchAnimations={switchAnimations}
       />
     ),
     retainedContentSurfaces,

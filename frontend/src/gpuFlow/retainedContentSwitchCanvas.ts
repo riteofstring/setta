@@ -21,12 +21,14 @@ const SWITCH_THUMB_INSET = 2;
 const SWITCH_ROW_TEXT_THUMB_INSET = 3;
 
 export function drawGpuRetainedContentSwitchControl({
+  animationProgress,
   control,
   ctx,
   palette,
   rect,
   state,
 }: {
+  readonly animationProgress?: number | undefined;
   readonly control: GpuRetainedContentSwitchControl;
   readonly ctx: CanvasRenderingContext2D;
   readonly palette: GpuRetainedContentCanvasPalette;
@@ -46,7 +48,10 @@ export function drawGpuRetainedContentSwitchControl({
   fillRoundRect(ctx, trackRect, trackRect.height / 2);
 
   const thumbRect = getGpuRetainedContentSwitchThumbRect({
-    checked: control.checked,
+    checkedProgress: normalizeGpuRetainedContentSwitchAnimationProgress(
+      animationProgress,
+      control.checked,
+    ),
     trackRect,
     thumbInset:
       palette.textLikeVisualStyle === "row-text"
@@ -104,11 +109,11 @@ function getGpuRetainedContentRowTextSwitchTrackRect(rect: GpuRect): GpuRect {
 }
 
 function getGpuRetainedContentSwitchThumbRect({
-  checked,
+  checkedProgress,
   thumbInset,
   trackRect,
 }: {
-  readonly checked: boolean;
+  readonly checkedProgress: number;
   readonly thumbInset: number;
   readonly trackRect: GpuRect;
 }): GpuRect {
@@ -117,9 +122,24 @@ function getGpuRetainedContentSwitchThumbRect({
   return {
     height: size,
     width: size,
-    x: trackRect.x + thumbInset + (checked ? travel : 0),
+    x: trackRect.x + thumbInset + travel * checkedProgress,
     y: trackRect.y + thumbInset,
   };
+}
+
+function normalizeGpuRetainedContentSwitchAnimationProgress(
+  animationProgress: number | undefined,
+  checked: boolean,
+): number {
+  if (animationProgress === undefined) {
+    return checked ? 1 : 0;
+  }
+  if (!Number.isFinite(animationProgress)) {
+    throw new Error(
+      "Retained content switch animation progress must be finite.",
+    );
+  }
+  return Math.min(1, Math.max(0, animationProgress));
 }
 
 function getGpuRetainedContentSwitchTrackColor({

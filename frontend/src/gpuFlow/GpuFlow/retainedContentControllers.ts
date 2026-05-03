@@ -35,6 +35,7 @@ import {
   type GpuRetainedContentScrollbarVisualState,
   type GpuRetainedContentScrollbarVisualTarget,
 } from "../retainedContentScrollbar";
+import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuContentSurface, GpuDomIsland, GpuFlowScene } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -94,6 +95,7 @@ type GpuFlowRetainedContentControllerOptions = {
   readonly retainedContentInteraction: GpuFlowRetainedContentInteractionOptions;
   readonly retainedContentKeyboard: GpuFlowRetainedContentKeyboardOptions;
   readonly retainedContentScroll: GpuFlowRetainedContentScrollOptions;
+  readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly scenePortConnection: GpuFlowScenePortConnectionOptions;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
@@ -113,6 +115,7 @@ export function useGpuFlowRetainedContentControllers({
   retainedContentInteraction,
   retainedContentKeyboard,
   retainedContentScroll,
+  retainedContentSwitchAnimations,
   scenePortConnection,
   surfaceRef,
   textureManagerRef,
@@ -155,9 +158,7 @@ export function useGpuFlowRetainedContentControllers({
       return;
     }
     const retainedContentScrollbarScroll =
-      retainedContentScroll && retainedContentScroll !== false
-        ? retainedContentScroll
-        : null;
+      retainedContentScroll === false ? null : retainedContentScroll ?? null;
     let retainedContentScrollbarVisualState: GpuRetainedContentScrollbarVisualState =
       {
         activeTarget: null,
@@ -179,6 +180,7 @@ export function useGpuFlowRetainedContentControllers({
         nodeElementByIdRef,
         nodeLayerRef,
         surfaceRef,
+        switchAnimations: retainedContentSwitchAnimations,
         textureManagerRef,
         visualState: retainedContentScrollbarVisualState,
       });
@@ -224,6 +226,7 @@ export function useGpuFlowRetainedContentControllers({
         result,
         scrollbarVisualState: retainedContentScrollbarVisualState,
         surfaceRef,
+        switchAnimations: retainedContentSwitchAnimations,
         textureManagerRef,
         viewportStore,
       });
@@ -379,6 +382,7 @@ export function useGpuFlowRetainedContentControllers({
     nodeLayerRef,
     retainedContentInteraction,
     retainedContentScroll,
+    retainedContentSwitchAnimations,
     nodeElementByIdRef,
     surfaceRef,
     textureManagerRef,
@@ -423,6 +427,7 @@ export function useGpuFlowRetainedContentControllers({
           nodeLayerRef,
           result,
           surfaceRef,
+          switchAnimations: retainedContentSwitchAnimations,
           textureManagerRef,
           viewportStore,
         });
@@ -437,6 +442,7 @@ export function useGpuFlowRetainedContentControllers({
     nodeLayerRef,
     nodeElementByIdRef,
     retainedContentScroll,
+    retainedContentSwitchAnimations,
     surfaceRef,
     textureManagerRef,
     viewportStore,
@@ -476,6 +482,7 @@ function applyGpuFlowRetainedContentScrollResult({
   result,
   scrollbarVisualState,
   surfaceRef,
+  switchAnimations,
   textureManagerRef,
   viewportStore,
 }: {
@@ -495,6 +502,7 @@ function applyGpuFlowRetainedContentScrollResult({
     | GpuRetainedContentScrollbarVisualState
     | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly viewportStore: GpuFlowViewportStoreApi;
 }) {
@@ -549,6 +557,7 @@ function applyGpuFlowRetainedContentScrollResult({
     nodeElementByIdRef,
     surfaceRef,
     surfaces: [...surfacesToRedraw.values()],
+    switchAnimations,
     textureManagerRef,
   });
 }
@@ -557,6 +566,7 @@ function applyGpuFlowRetainedContentScrollbarVisualState({
   nodeElementByIdRef,
   nodeLayerRef,
   surfaceRef,
+  switchAnimations,
   textureManagerRef,
   visualState,
 }: {
@@ -565,6 +575,7 @@ function applyGpuFlowRetainedContentScrollbarVisualState({
     readonly scene: GpuFlowScene | undefined;
   }>;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly visualState: GpuRetainedContentScrollbarVisualState;
 }) {
@@ -587,6 +598,7 @@ function applyGpuFlowRetainedContentScrollbarVisualState({
     nodeElementByIdRef,
     surfaceRef,
     surfaces: update.surfaces,
+    switchAnimations,
     textureManagerRef,
   });
 }
@@ -595,11 +607,13 @@ function redrawGpuFlowRetainedContentSurfaceSources({
   nodeElementByIdRef,
   surfaceRef,
   surfaces,
+  switchAnimations,
   textureManagerRef,
 }: {
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly surfaces: readonly GpuRetainedContentSurfaceWithScene[];
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }) {
   let redrawn = false;
@@ -610,6 +624,7 @@ function redrawGpuFlowRetainedContentSurfaceSources({
       !redrawGpuRetainedContentSourceElement({
         element: sourceElement,
         surface,
+        switchAnimations,
       })
     ) {
       continue;

@@ -1,5 +1,9 @@
 import { useLayoutEffect, useMemo, useRef, type CSSProperties } from "react";
 
+import {
+  cancelGpuAnimationFrame,
+  requestGpuAnimationFrame,
+} from "./animationFrame";
 import type { GpuHtmlSurfaceOverlayLayout } from "./htmlSurfaces/frame";
 import {
   HTML_SURFACE_SOURCE_CLASS_NAME,
@@ -19,14 +23,6 @@ import {
   drawGpuRetainedContentControlPopupBackground,
 } from "./retainedContentColorPickerCanvas";
 import {
-  getGpuRetainedContentRotaryIndicatorAngle,
-  getGpuRetainedContentRotaryKnobRect,
-  getGpuRetainedContentRotaryValueLabelRect,
-  getGpuRetainedContentSliderThumbRect,
-  getGpuRetainedContentSliderTrackRect,
-  getGpuRetainedContentSliderValueLabelRect,
-} from "./retainedContentControls";
-import {
   drawGpuRetainedContentDateCalendarCell,
   drawGpuRetainedContentDateCalendarHeader,
   drawGpuRetainedContentDateCalendarNavigation,
@@ -40,6 +36,10 @@ import {
 } from "./retainedContentDropdownCanvas";
 import { drawGpuRetainedContentDropzoneControl } from "./retainedContentDropzoneCanvas";
 import { drawGpuRetainedContentPasswordControl } from "./retainedContentPasswordCanvas";
+import {
+  drawGpuRetainedContentRotaryControl,
+  drawGpuRetainedContentSliderControl,
+} from "./retainedContentRangedCanvas";
 import {
   drawGpuRetainedContentLabel,
   drawGpuRetainedContentNestGuide,
@@ -56,6 +56,7 @@ import {
   drawGpuRetainedContentStatusBadge,
   drawGpuRetainedContentStatusOverlay,
 } from "./retainedContentStatusCanvas";
+import type { GpuRetainedContentSwitchAnimationStore } from "./retainedContentSwitchAnimation";
 import { drawGpuRetainedContentSwitchControl } from "./retainedContentSwitchCanvas";
 import { drawGpuRetainedContentTextLikeControl } from "./retainedContentTextLikeCanvas";
 import type { GpuContentSurface } from "./scene";
@@ -70,11 +71,21 @@ type GpuRetainedContentSourceSurface = GpuRetainedContentSurface & {
 };
 
 type GpuRetainedContentSurfaceLayerProps = {
-  readonly onSurfaceDraw?: ((surfaceId: string) => void) | undefined;
+  readonly onSurfaceDraw?:
+    | ((surfaceId: string, event: GpuRetainedContentSurfaceDrawEvent) => void)
+    | undefined;
   readonly onSurfaceElementChange?:
     | ((surfaceId: string, element: HTMLElement | null) => void)
     | undefined;
   readonly surfaces: readonly GpuContentSurface[] | undefined;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
+};
+
+export type GpuRetainedContentSurfaceDrawEvent = {
+  readonly reason: "animation" | "content";
+  readonly sourceRect?: GpuRect | undefined;
 };
 
 const GPU_RETAINED_CONTENT_SOURCE_CLASS_NAME =
@@ -89,6 +100,7 @@ export function GpuRetainedContentSurfaceLayer({
   onSurfaceDraw,
   onSurfaceElementChange,
   surfaces,
+  switchAnimations,
 }: GpuRetainedContentSurfaceLayerProps) {
   const retainedSurfaces = useMemo(
     () => getGpuRetainedContentSourceSurfaces(surfaces),
@@ -106,6 +118,7 @@ export function GpuRetainedContentSurfaceLayer({
         <GpuRetainedContentCanvas
           onSurfaceDraw={onSurfaceDraw}
           surface={surface}
+          switchAnimations={switchAnimations}
         />
       )}
       sourceClassName={`${HTML_SURFACE_SOURCE_CLASS_NAME} ${GPU_RETAINED_CONTENT_SOURCE_CLASS_NAME}`}
@@ -147,10 +160,16 @@ export function getGpuRetainedContentSourceStyle(
 
 export function redrawGpuRetainedContentSourceElement({
   element,
+  nowMs,
   surface,
+  switchAnimations,
 }: {
   readonly element: HTMLElement;
+  readonly nowMs?: number | undefined;
   readonly surface: GpuContentSurface;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
 }): boolean {
   if (!isGpuRetainedContentSurface(surface)) {
     return false;
@@ -169,11 +188,12 @@ export function redrawGpuRetainedContentSourceElement({
   if (!ctx) {
     return false;
   }
-  prepareGpuRetainedContentCanvas(canvas, sourceSurface);
-  drawGpuRetainedContentSurface(ctx, sourceSurface, {
-    palette: getGpuRetainedContentCanvasPalette(
-      isGpuRetainedContentCanvasDarkMode(canvas),
-    ),
+  drawGpuRetainedContentSourceCanvas({
+    canvas,
+    ctx,
+    nowMs,
+    sourceSurface,
+    switchAnimations,
   });
   return true;
 }
@@ -181,29 +201,88 @@ export function redrawGpuRetainedContentSourceElement({
 function GpuRetainedContentCanvas({
   onSurfaceDraw,
   surface,
+  switchAnimations,
 }: {
-  readonly onSurfaceDraw?: ((surfaceId: string) => void) | undefined;
-  readonly surface: GpuRetainedContentSurface;
+  readonly onSurfaceDraw?:
+    | ((surfaceId: string, event: GpuRetainedContentSurfaceDrawEvent) => void)
+    | undefined;
+  readonly surface: GpuRetainedContentSourceSurface;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   useLayoutEffect(() => {
+    return () => {
+      switchAnimations?.clearSurface(surface.id);
+    };
+  }, [surface.id, switchAnimations]);
+
+  useLayoutEffect(() => {
+    const cancelPendingAnimationFrame = () => {
+      const frameId = animationFrameRef.current;
+      if (frameId === null) {
+        return;
+      }
+      cancelGpuAnimationFrame(frameId);
+      animationFrameRef.current = null;
+    };
     const canvas = canvasRef.current;
     if (!canvas) {
+      cancelPendingAnimationFrame();
       return;
     }
     const ctx = canvas.getContext("2d");
     if (!ctx) {
+      cancelPendingAnimationFrame();
       return;
     }
-    prepareGpuRetainedContentCanvas(canvas, surface);
-    drawGpuRetainedContentSurface(ctx, surface, {
-      palette: getGpuRetainedContentCanvasPalette(
-        isGpuRetainedContentCanvasDarkMode(canvas),
-      ),
-    });
-    onSurfaceDraw?.(surface.id);
-  }, [onSurfaceDraw, surface]);
+    const sourceSurface = clipGpuRetainedContentSourceSurface(surface);
+    if (!sourceSurface) {
+      cancelPendingAnimationFrame();
+      return;
+    }
+    const drawSource = (
+      nowMs: number,
+      reason: GpuRetainedContentSurfaceDrawEvent["reason"],
+    ) => {
+      const sourceRect =
+        reason === "animation"
+          ? switchAnimations?.getActiveSurfaceSourceRect(sourceSurface)
+          : undefined;
+      drawGpuRetainedContentSourceCanvas({
+        canvas,
+        ctx,
+        nowMs,
+        sourceSurface,
+        switchAnimations,
+      });
+      onSurfaceDraw?.(sourceSurface.id, {
+        reason,
+        ...(sourceRect ? { sourceRect } : {}),
+      });
+    };
+    const scheduleAnimationFrame = () => {
+      if (!switchAnimations || animationFrameRef.current !== null) {
+        return;
+      }
+      animationFrameRef.current = requestGpuAnimationFrame((timestamp) => {
+        animationFrameRef.current = null;
+        drawSource(timestamp, "animation");
+        if (switchAnimations.hasActiveSurface(sourceSurface.id, timestamp)) {
+          scheduleAnimationFrame();
+        }
+      });
+    };
+
+    drawSource(getGpuRetainedContentSourceNowMs(), "content");
+    if (switchAnimations?.hasActiveSurface(sourceSurface.id)) {
+      scheduleAnimationFrame();
+    }
+    return cancelPendingAnimationFrame;
+  }, [onSurfaceDraw, surface, switchAnimations]);
 
   return (
     <canvas
@@ -219,7 +298,17 @@ function GpuRetainedContentCanvas({
 function drawGpuRetainedContentSurface(
   ctx: CanvasRenderingContext2D,
   surface: GpuRetainedContentSourceSurface,
-  { palette }: { readonly palette: GpuRetainedContentCanvasPalette },
+  {
+    nowMs,
+    palette,
+    switchAnimations,
+  }: {
+    readonly nowMs: number | undefined;
+    readonly palette: GpuRetainedContentCanvasPalette;
+    readonly switchAnimations?:
+      | GpuRetainedContentSwitchAnimationStore
+      | undefined;
+  },
 ) {
   const scene = surface.retainedScene;
   const width = Math.max(0, surface.rect.width);
@@ -239,8 +328,11 @@ function drawGpuRetainedContentSurface(
     drawGpuRetainedContentCommand({
       command,
       ctx,
+      nowMs,
       palette,
       rowState: rowStateById.get(command.rowId),
+      surfaceId: surface.id,
+      switchAnimations,
     });
   }
   drawGpuRetainedContentPortAnchors(ctx, scene);
@@ -250,13 +342,21 @@ function drawGpuRetainedContentSurface(
 function drawGpuRetainedContentCommand({
   command,
   ctx,
+  nowMs,
   palette,
   rowState,
+  surfaceId,
+  switchAnimations,
 }: {
   readonly command: GpuRetainedContentDrawCommand;
   readonly ctx: CanvasRenderingContext2D;
+  readonly nowMs: number | undefined;
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly rowState: GpuRetainedContentRowState | undefined;
+  readonly surfaceId: string;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
 }) {
   if (
     drawGpuRetainedContentRowCommand({
@@ -291,9 +391,13 @@ function drawGpuRetainedContentCommand({
       control: command.control,
       controlKind: command.controlKind,
       ctx,
+      nowMs,
       palette,
       rect: command.rect,
+      rowId: command.rowId,
       state: rowState,
+      surfaceId,
+      switchAnimations,
     });
     return;
   }
@@ -439,24 +543,38 @@ function drawGpuRetainedContentControl({
   control,
   controlKind,
   ctx,
+  nowMs,
   palette,
   rect,
+  rowId,
   state,
+  surfaceId,
+  switchAnimations,
 }: {
   readonly control: GpuRetainedContentControlDescriptor;
   readonly controlKind: string;
   readonly ctx: CanvasRenderingContext2D;
+  readonly nowMs: number | undefined;
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly rect: GpuRect;
+  readonly rowId: string;
   readonly state: GpuRetainedContentRowState | undefined;
+  readonly surfaceId: string;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
 }) {
   if (
     drawGpuRetainedContentInputControl({
       control,
       ctx,
+      nowMs,
       palette,
       rect,
+      rowId,
       state,
+      surfaceId,
+      switchAnimations,
     })
   ) {
     return;
@@ -483,15 +601,25 @@ function drawGpuRetainedContentControl({
 function drawGpuRetainedContentInputControl({
   control,
   ctx,
+  nowMs,
   palette,
   rect,
+  rowId,
   state,
+  surfaceId,
+  switchAnimations,
 }: {
   readonly control: GpuRetainedContentControlDescriptor;
   readonly ctx: CanvasRenderingContext2D;
+  readonly nowMs: number | undefined;
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly rect: GpuRect;
+  readonly rowId: string;
   readonly state: GpuRetainedContentRowState | undefined;
+  readonly surfaceId: string;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
 }): boolean {
   switch (control.kind) {
     case "text-like":
@@ -513,6 +641,12 @@ function drawGpuRetainedContentInputControl({
       return true;
     case "switch":
       drawGpuRetainedContentSwitchControl({
+        animationProgress: switchAnimations?.resolveProgress({
+          checked: control.checked,
+          ...(nowMs !== undefined ? { nowMs } : {}),
+          rowId,
+          surfaceId,
+        }),
         control,
         ctx,
         palette,
@@ -539,6 +673,42 @@ function drawGpuRetainedContentInputControl({
     default:
       return false;
   }
+}
+
+function drawGpuRetainedContentSourceCanvas({
+  canvas,
+  ctx,
+  nowMs,
+  sourceSurface,
+  switchAnimations,
+}: {
+  readonly canvas: HTMLCanvasElement;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly nowMs?: number | undefined;
+  readonly sourceSurface: GpuRetainedContentSourceSurface;
+  readonly switchAnimations?:
+    | GpuRetainedContentSwitchAnimationStore
+    | undefined;
+}) {
+  prepareGpuRetainedContentCanvas(canvas, sourceSurface);
+  switchAnimations?.syncSurface(sourceSurface, nowMs);
+  drawGpuRetainedContentSurface(ctx, sourceSurface, {
+    nowMs,
+    palette: getGpuRetainedContentCanvasPalette(
+      isGpuRetainedContentCanvasDarkMode(canvas),
+    ),
+    switchAnimations,
+  });
+}
+
+function getGpuRetainedContentSourceNowMs(): number {
+  if (
+    typeof globalThis.performance !== "undefined" &&
+    typeof globalThis.performance.now === "function"
+  ) {
+    return globalThis.performance.now();
+  }
+  return Date.now();
 }
 
 function drawGpuRetainedContentPickerControl({
@@ -628,125 +798,6 @@ function drawGpuRetainedContentGenericControl({
     outer.x + outer.width / 2,
     outer.y + outer.height / 2,
     Math.max(0, outer.width - 8),
-  );
-  ctx.textAlign = "start";
-}
-
-function drawGpuRetainedContentRotaryControl({
-  control,
-  ctx,
-  rect,
-  state,
-}: {
-  readonly control: Extract<
-    GpuRetainedContentControlDescriptor,
-    { kind: "rotary" }
-  >;
-  readonly ctx: CanvasRenderingContext2D;
-  readonly rect: GpuRect;
-  readonly state: GpuRetainedContentRowState | undefined;
-}) {
-  const disabled = state?.disabled ?? false;
-  const knobRect = getGpuRetainedContentRotaryKnobRect(rect);
-  const valueRect = getGpuRetainedContentRotaryValueLabelRect(rect);
-  const centerX = knobRect.x + knobRect.width / 2;
-  const centerY = knobRect.y + knobRect.height / 2;
-  const radius = Math.max(0, Math.min(knobRect.width, knobRect.height) / 2);
-
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-  ctx.fillStyle = disabled ? "#e2e8f0" : "#f8fafc";
-  ctx.fill();
-  ctx.strokeStyle = disabled ? "#cbd5e1" : "#94a3b8";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, Math.max(0, radius - 5), 0, Math.PI * 2);
-  ctx.fillStyle = disabled ? "#f1f5f9" : "#ffffff";
-  ctx.fill();
-
-  const indicatorAngle =
-    (getGpuRetainedContentRotaryIndicatorAngle(control) * Math.PI) / 180;
-  const indicatorInnerRadius = radius * 0.25;
-  const indicatorOuterRadius = radius * 0.72;
-  ctx.beginPath();
-  ctx.moveTo(
-    centerX + Math.cos(indicatorAngle) * indicatorInnerRadius,
-    centerY + Math.sin(indicatorAngle) * indicatorInnerRadius,
-  );
-  ctx.lineTo(
-    centerX + Math.cos(indicatorAngle) * indicatorOuterRadius,
-    centerY + Math.sin(indicatorAngle) * indicatorOuterRadius,
-  );
-  ctx.strokeStyle = disabled ? "#94a3b8" : "#2563eb";
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  ctx.stroke();
-  ctx.lineCap = "butt";
-
-  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = disabled ? "#64748b" : "#334155";
-  ctx.fillText(
-    control.displayValue,
-    valueRect.x + valueRect.width,
-    valueRect.y + valueRect.height / 2,
-    valueRect.width,
-  );
-  ctx.textAlign = "start";
-}
-
-function drawGpuRetainedContentSliderControl({
-  control,
-  ctx,
-  rect,
-  state,
-}: {
-  readonly control: Extract<
-    GpuRetainedContentControlDescriptor,
-    { kind: "slider" }
-  >;
-  readonly ctx: CanvasRenderingContext2D;
-  readonly rect: GpuRect;
-  readonly state: GpuRetainedContentRowState | undefined;
-}) {
-  const disabled = state?.disabled ?? false;
-  const trackRect = getGpuRetainedContentSliderTrackRect(rect);
-  const valueRect = getGpuRetainedContentSliderValueLabelRect(rect);
-
-  ctx.fillStyle = disabled ? "#e2e8f0" : "#cbd5e1";
-  fillRoundRect(ctx, trackRect, trackRect.height / 2);
-
-  const thumbRect = getGpuRetainedContentSliderThumbRect({
-    control,
-    trackRect,
-  });
-  const rangeRect = {
-    height: trackRect.height,
-    width: Math.max(0, thumbRect.x + thumbRect.width / 2 - trackRect.x),
-    x: trackRect.x,
-    y: trackRect.y,
-  };
-  ctx.fillStyle = disabled ? "#94a3b8" : "#2563eb";
-  fillRoundRect(ctx, rangeRect, rangeRect.height / 2);
-
-  ctx.fillStyle = disabled ? "#f1f5f9" : "#ffffff";
-  fillRoundRect(ctx, thumbRect, thumbRect.height / 2);
-  ctx.strokeStyle = disabled ? "#cbd5e1" : "#1d4ed8";
-  ctx.lineWidth = 1;
-  strokeRoundRect(ctx, thumbRect, thumbRect.height / 2);
-
-  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = disabled ? "#64748b" : "#334155";
-  ctx.fillText(
-    control.displayValue,
-    valueRect.x + valueRect.width,
-    valueRect.y + valueRect.height / 2,
-    valueRect.width,
   );
   ctx.textAlign = "start";
 }

@@ -106,6 +106,7 @@ import {
 
 import type { GpuViewportInput } from "../viewportMath";
 
+import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
@@ -355,6 +356,9 @@ export function GpuFlow({
     createGpuNodeDomTransformSyncCache(),
   );
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
+  const [retainedContentSwitchAnimations] = useState(() =>
+    createGpuRetainedContentSwitchAnimationStore(),
+  );
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   const {
@@ -370,9 +374,10 @@ export function GpuFlow({
     nodeDomTransformSyncCacheRef,
     nodeElementByIdRef,
     nodes,
-    primaryNodeId: selectionDrag ? selectionDrag.primaryNodeId : null,
+    primaryNodeId: getGpuFlowSelectionDragPrimaryNodeId(selectionDrag),
     scene,
     surfaceRef,
+    switchAnimations: retainedContentSwitchAnimations,
     textureManagerRef,
     transformOnlyPaintNodeIdsRef,
     viewportStore,
@@ -515,6 +520,7 @@ export function GpuFlow({
     retainedContentInteraction,
     retainedContentKeyboard,
     retainedContentScroll,
+    retainedContentSwitchAnimations,
     scenePortConnection,
     surfaceRef,
     textureManagerRef,
@@ -707,9 +713,10 @@ export function GpuFlow({
         nodeInteractionRef,
         nodeInteractionCleanupRef,
       );
+      retainedContentSwitchAnimations.clear();
       destroyNodeLayerResources(textureManagerRef, htmlSurfaceRendererRef);
     };
-  }, []);
+  }, [retainedContentSwitchAnimations]);
 
   const handleNodeElementChange = useCallback(
     (nodeId: string, element: HTMLElement | null) => {
@@ -978,4 +985,13 @@ export function GpuFlow({
       </GpuFlowSceneContext.Provider>
     </GpuFlowLayoutStoreContext.Provider>
   );
+}
+
+function getGpuFlowSelectionDragPrimaryNodeId(
+  selectionDrag: GpuFlowSelectionDragOptions,
+): string | null {
+  if (!selectionDrag) {
+    return null;
+  }
+  return selectionDrag.primaryNodeId ?? null;
 }

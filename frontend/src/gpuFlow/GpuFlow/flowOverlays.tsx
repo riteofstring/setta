@@ -8,6 +8,7 @@ import type {
 } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuFlowLayoutNode, GpuFlowLayoutStoreApi } from "../layoutStore";
+import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowScene } from "../scene";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
@@ -34,6 +35,7 @@ export function useGpuFlowOverlaySources({
   primaryNodeId,
   scene,
   surfaceRef,
+  switchAnimations,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
   viewportStore,
@@ -46,6 +48,7 @@ export function useGpuFlowOverlaySources({
   readonly primaryNodeId: string | null;
   readonly scene: GpuFlowScene | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
   readonly viewportStore: GpuFlowViewportStoreApi;
@@ -65,6 +68,7 @@ export function useGpuFlowOverlaySources({
       nodeElementByIdRef,
       scene,
       surfaceRef,
+      switchAnimations,
       textureManagerRef,
       transformOnlyPaintNodeIdsRef,
     });
