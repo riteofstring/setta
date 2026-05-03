@@ -55,7 +55,7 @@ describe("project GPU layout adapter", () => {
             children: ["child-a", "child-b"],
             id: "group-impl",
             isHorizontalOrientation: true,
-            size: { height: "auto", width: "auto" },
+            size: sectionSize({ height: "auto", width: "auto" }),
           }),
           parentId: null,
         },
@@ -63,7 +63,7 @@ describe("project GPU layout adapter", () => {
           id: "child-a",
           impl: createDictSectionImpl({
             id: "child-a-impl",
-            size: { height: 50, width: 100 },
+            size: sectionSize({ height: 50, width: 100 }),
           }),
           parentId: "group-a",
         },
@@ -71,7 +71,7 @@ describe("project GPU layout adapter", () => {
           id: "child-b",
           impl: createDictSectionImpl({
             id: "child-b-impl",
-            size: { height: 60, width: 120 },
+            size: sectionSize({ height: 60, width: 120 }),
           }),
           parentId: "group-a",
         },
@@ -98,6 +98,16 @@ describe("project GPU layout adapter", () => {
         ownerSectionId: "group-a",
         renderer: { kind: "dom-section", surfaceId: "group-a" },
       }),
+      expect.objectContaining({
+        id: "child-a",
+        ownerSectionId: "child-a",
+        renderer: { kind: "dom-section", surfaceId: "child-a" },
+      }),
+      expect.objectContaining({
+        id: "child-b",
+        ownerSectionId: "child-b",
+        renderer: { kind: "dom-section", surfaceId: "child-b" },
+      }),
     ]);
     expect(scene.domIslands).toEqual([]);
 
@@ -113,18 +123,29 @@ describe("project GPU layout adapter", () => {
       zIndex: 4,
     });
     expect(childA).toMatchObject({
-      contentRenderer: { kind: "scene-only" },
+      contentRenderer: { kind: "dom-section", surfaceId: "child-a" },
       layoutMode: "none",
       localRect: { height: 50, width: 100, x: 0, y: 0 },
       parentSectionId: "group-a",
       worldRect: { height: 50, width: 100, x: 10, y: 20 },
+      zIndex: 4,
     });
     expect(childB).toMatchObject({
-      contentRenderer: { kind: "scene-only" },
+      contentRenderer: { kind: "dom-section", surfaceId: "child-b" },
       localRect: { height: 60, width: 120, x: 108, y: 0 },
       parentSectionId: "group-a",
       worldRect: { height: 60, width: 120, x: 118, y: 20 },
+      zIndex: 4,
     });
+
+    const store = createGpuFlowLayoutStore();
+    syncProjectGpuLayoutStoreFromScene(store, scene);
+    expect(
+      store
+        .getState()
+        .getNodes()
+        .map((node) => node.nodeId),
+    ).toEqual(["group-a", "child-a", "child-b"]);
   });
 
   it("replaces the renderer layout store from scene-owned DOM surfaces", () => {
@@ -147,7 +168,7 @@ describe("project GPU layout adapter", () => {
             id: "current-section",
             impl: createGroupSectionImpl({
               id: "current-section-impl",
-              size: { height: "auto", width: "auto" },
+              size: sectionSize({ height: "auto", width: "auto" }),
             }),
             parentId: null,
           },
@@ -208,6 +229,15 @@ function projectNode(
     zIndex: 1,
     ...overrides,
   };
+}
+
+function sectionSize(size: {
+  readonly height: number | "auto";
+  readonly width: number | "auto";
+}): never {
+  // create*SectionImpl accepts the runtime section-size shape but its generated
+  // option type still exposes the Go wrapper representation.
+  return size as never;
 }
 
 function projectStateWithSections({

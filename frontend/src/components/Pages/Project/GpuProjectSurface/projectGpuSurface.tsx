@@ -13,6 +13,7 @@ import type { GpuNodeLayout } from "gpuFlow/htmlSurfaces/frame";
 
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
+import type { GpuFlowScene, GpuSectionSceneNode } from "gpuFlow/scene";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
@@ -249,6 +250,10 @@ function ProjectGpuFlowLayer({
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   const { layoutStore, nodeLayouts } = layoutAdapter;
+  const sceneSectionById = useMemo(
+    () => getProjectSceneSectionById(layoutAdapter.scene),
+    [layoutAdapter.scene],
+  );
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
   const dndMode = useDndMode();
   const activeNodeIds = useActiveSectionUI(
@@ -361,7 +366,7 @@ function ProjectGpuFlowLayer({
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}
       portals={portals}
-      renderNode={renderProjectGpuNode}
+      renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
       scene={layoutAdapter.scene}
       selection={selectionOptions}
       selectionDrag={selectionDragOptions}
@@ -480,8 +485,27 @@ function getProjectEdgeReconnectOptions({
   };
 }
 
-function renderProjectGpuNode(node: GpuNodeLayout) {
-  return <SectionContainer sectionId={node.nodeId} isTopLevel={true} />;
+function renderProjectGpuNode(
+  node: GpuNodeLayout,
+  sceneSectionById: ReadonlyMap<string, GpuSectionSceneNode>,
+) {
+  const sceneNode = sceneSectionById.get(node.nodeId);
+  if (!sceneNode) {
+    throw new Error(`Missing GPU project scene section ${node.nodeId}.`);
+  }
+  return (
+    <SectionContainer
+      sectionId={node.nodeId}
+      isTopLevel={sceneNode.parentSectionId === null}
+      renderNestedContent={false}
+    />
+  );
+}
+
+function getProjectSceneSectionById(
+  scene: GpuFlowScene,
+): ReadonlyMap<string, GpuSectionSceneNode> {
+  return new Map(scene.sections.map((section) => [section.sectionId, section]));
 }
 
 function getProjectGpuEdgePaletteInput({

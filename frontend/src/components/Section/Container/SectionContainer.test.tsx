@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionContainer } from "./SectionContainer";
 
@@ -13,7 +13,7 @@ type MockProjectState = {
 type MockSectionViewState = {
   visibility: boolean;
   isEditingViewMode: boolean;
-  sectionType: SectionTypeEnum;
+  sectionType: SectionType;
   isUserFacing: boolean;
   positionAndSizeLocked: boolean;
   isInOtherProjectConfigs: boolean;
@@ -77,7 +77,7 @@ vi.mock("state/actions/sectionInfos", () => ({
     visibility: mockSectionViewState.visibility,
     isEditingViewMode: mockSectionViewState.isEditingViewMode,
   }),
-  isBaseCodeSectionType: (sectionType: SectionTypeEnum) =>
+  isBaseCodeSectionType: (sectionType: SectionType) =>
     sectionType === SectionTypeEnum.Code ||
     sectionType === SectionTypeEnum.GenPythonCode ||
     sectionType === SectionTypeEnum.GenPythonMetadata,
@@ -213,6 +213,25 @@ describe("SectionContainer", () => {
     expect(markup).not.toContain('data-testid="mock-section-container-core"');
     expect(markup).toContain('data-is-group="true"');
     expect(markup).toContain('data-layout-variant="default"');
+  });
+
+  it("can render a section surface without parent-owned nested content", () => {
+    mockSectionViewState.embeddedTerminal = {
+      attachedTerminalId: "terminal-1",
+      isTerminalMinimized: false,
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainer
+        sectionId="section-1"
+        isTopLevel={false}
+        renderNestedContent={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-container-core"');
+    expect(markup).not.toContain("data-joined-code-terminal-group");
+    expect(markup).not.toContain('data-testid="mock-many-nested-sections"');
   });
 
   it("skips generated python sections when python codegen is unavailable", () => {

@@ -29,10 +29,12 @@ function _SectionContainer({
   sectionId,
   isTopLevel,
   dragListeners,
+  renderNestedContent = true,
 }: {
   sectionId: string;
   isTopLevel: boolean;
   dragListeners?: SectionDragListeners;
+  renderNestedContent?: boolean;
 }) {
   const {
     visibility,
@@ -123,13 +125,19 @@ function _SectionContainer({
           positionAndSizeLocked={positionAndSizeLocked}
           isJoinedGroupActive={isJoinedGroupActive}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
+          renderNestedContent={renderNestedContent}
         />
       </ContainerSwitch>
     </NodeIdContext.Provider>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
-  _.isEqual(p.dragListeners, n.dragListeners),
+export const SectionContainer = React.memo(
+  _SectionContainer,
+  (p, n) =>
+    p.sectionId === n.sectionId &&
+    p.isTopLevel === n.isTopLevel &&
+    (p.renderNestedContent ?? true) === (n.renderNestedContent ?? true) &&
+    _.isEqual(p.dragListeners, n.dragListeners),
 );
 
 function shouldHideSection({
@@ -158,6 +166,7 @@ function SectionContainerContent({
   positionAndSizeLocked,
   isJoinedGroupActive,
   isInOtherProjectConfigs,
+  renderNestedContent,
 }: {
   sectionId: string;
   isTopLevel: boolean;
@@ -168,8 +177,9 @@ function SectionContainerContent({
   positionAndSizeLocked: boolean;
   isJoinedGroupActive: boolean;
   isInOtherProjectConfigs: boolean;
+  renderNestedContent: boolean;
 }) {
-  if (!isGroup && isJoinedAttachedTerminalGroup) {
+  if (!isGroup && isJoinedAttachedTerminalGroup && renderNestedContent) {
     return (
       <JoinedCodeTerminalGroup
         sectionId={sectionId}
@@ -190,11 +200,13 @@ function SectionContainerContent({
         isGroup={isGroup}
         isUserView={isUserView}
       />
-      <SectionNestedContent
-        sectionId={sectionId}
-        isGroup={isGroup}
-        layoutVariant={isCode ? "tight" : "default"}
-      />
+      {renderNestedContent && (
+        <SectionNestedContent
+          sectionId={sectionId}
+          isGroup={isGroup}
+          layoutVariant={isCode ? "tight" : "default"}
+        />
+      )}
     </>
   );
 }

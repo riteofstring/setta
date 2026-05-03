@@ -43,6 +43,8 @@ import {
   ListRootViewModeEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
+  type GroupSectionImpl,
+  type ListRootSectionImpl,
 } from "utils/generatedTypes";
 
 export type ProjectGpuLayoutAdapter = {
@@ -246,7 +248,7 @@ function appendProjectChildSectionSceneNodes({
   readonly seenSectionIds: Set<string>;
 }) {
   let previousChildRect: GpuRect | null = null;
-  parentNode.childSectionIds.forEach((childSectionId, childIndex) => {
+  parentNode.childSectionIds.forEach((childSectionId) => {
     if (!shouldRenderProjectSceneSection(projectState, childSectionId)) {
       return;
     }
@@ -273,16 +275,16 @@ function appendProjectChildSectionSceneNodes({
         childSectionId,
         childImpl,
       ),
-      contentRenderer: { kind: "scene-only" },
+      contentRenderer: { kind: "dom-section", surfaceId: childSectionId },
       localRect,
       node: {
         height: localRect.height,
         nodeId: childSectionId,
-        tempZIndex: resolveProjectSectionZIndex(childIndex),
+        tempZIndex: parentNode.tempZIndex,
         width: localRect.width,
         x: worldRect.x,
         y: worldRect.y,
-        zIndex: resolveProjectSectionZIndex(childIndex),
+        zIndex: parentNode.zIndex,
       },
       parentSectionId: parentNode.sectionId,
       sectionImpl: childImpl,
@@ -390,7 +392,7 @@ function getRenderableProjectChildSectionIds(
   if (!isBaseParentSectionImpl(sectionImpl)) {
     return [];
   }
-  const childIds = sectionImpl.children.filter((childId) =>
+  const childIds = (sectionImpl.children ?? []).filter((childId) =>
     getCurrEffectiveSectionImplIfPresent(projectState, childId),
   );
   const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
@@ -419,7 +421,7 @@ function shouldRenderProjectSceneSection(
   if (!viewMode) {
     return true;
   }
-  const visibility = viewMode.visibilityBySectionId[sectionId];
+  const visibility = viewMode.visibilityBySectionId?.[sectionId];
   if (visibility === undefined) {
     return true;
   }
@@ -429,10 +431,10 @@ function shouldRenderProjectSceneSection(
 function getProjectSectionSceneLayoutMode(
   sectionImpl: BaseSectionImplUnion,
 ): GpuSectionSceneLayoutMode {
-  if (sectionImpl.type === SectionTypeEnum.Group) {
+  if (isProjectGroupSectionImpl(sectionImpl)) {
     return sectionImpl.isHorizontalOrientation ? "horizontal" : "vertical";
   }
-  if (sectionImpl.type === SectionTypeEnum.ListRoot) {
+  if (isProjectListRootSectionImpl(sectionImpl)) {
     return sectionImpl.viewMode === ListRootViewModeEnum.kanban
       ? "kanban"
       : "vertical";
@@ -441,6 +443,18 @@ function getProjectSectionSceneLayoutMode(
     return "vertical";
   }
   return "none";
+}
+
+function isProjectGroupSectionImpl(
+  sectionImpl: BaseSectionImplUnion,
+): sectionImpl is GroupSectionImpl {
+  return sectionImpl.type === SectionTypeEnum.Group;
+}
+
+function isProjectListRootSectionImpl(
+  sectionImpl: BaseSectionImplUnion,
+): sectionImpl is ListRootSectionImpl {
+  return sectionImpl.type === SectionTypeEnum.ListRoot;
 }
 
 function createProjectNestedSectionLocalRect({
@@ -547,10 +561,6 @@ function translateRect(rect: GpuRect, origin: GpuRect): GpuRect {
     x: origin.x + rect.x,
     y: origin.y + rect.y,
   };
-}
-
-function resolveProjectSectionZIndex(childIndex: number): number {
-  return childIndex;
 }
 
 function getProjectGpuSceneRevision(projectState: ZustandProjectState): number {
