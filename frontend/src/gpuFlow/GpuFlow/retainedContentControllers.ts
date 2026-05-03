@@ -1,4 +1,4 @@
-import { useEffect, type MutableRefObject } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 
 import { redrawGpuRetainedContentSourceElement } from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
@@ -10,6 +10,7 @@ import {
 import {
   attachGpuRetainedContentInteractionController,
   type GpuRetainedContentInteractionControllerOptions,
+  type GpuRetainedContentInteractionHit,
 } from "../interactions/retainedContentInteraction";
 import {
   attachGpuRetainedContentKeyboardController,
@@ -121,6 +122,13 @@ export function useGpuFlowRetainedContentControllers({
   textureManagerRef,
   viewportStore,
 }: GpuFlowRetainedContentControllerOptions) {
+  const retainedContentInteractionRef = useRef(retainedContentInteraction);
+  retainedContentInteractionRef.current = retainedContentInteraction;
+  const retainedContentScrollRef = useRef(retainedContentScroll);
+  retainedContentScrollRef.current = retainedContentScroll;
+  const retainedContentInteractionEnabled =
+    retainedContentInteraction !== false && Boolean(retainedContentInteraction);
+
   useEffect(() => {
     if (retainedContentConnection === false) {
       return;
@@ -150,15 +158,21 @@ export function useGpuFlowRetainedContentControllers({
   ]);
 
   useEffect(() => {
-    if (retainedContentInteraction === false) {
+    if (!retainedContentInteractionEnabled) {
       return;
     }
     const container = containerRef.current;
-    if (!container || !retainedContentInteraction) {
+    if (!container) {
       return;
     }
-    const retainedContentScrollbarScroll =
-      retainedContentScroll === false ? null : retainedContentScroll ?? null;
+    const getRetainedContentInteraction = () =>
+      retainedContentInteractionRef.current === false
+        ? null
+        : retainedContentInteractionRef.current ?? null;
+    const getRetainedContentScrollbarScroll = () =>
+      retainedContentScrollRef.current === false
+        ? null
+        : retainedContentScrollRef.current ?? null;
     let retainedContentScrollbarVisualState: GpuRetainedContentScrollbarVisualState =
       {
         activeTarget: null,
@@ -208,6 +222,8 @@ export function useGpuFlowRetainedContentControllers({
       >;
       readonly surfaceId: string | null;
     }) => {
+      const retainedContentScrollbarScroll =
+        getRetainedContentScrollbarScroll();
       if (!retainedContentScrollbarScroll || !result.surfaceId) {
         return;
       }
@@ -232,10 +248,16 @@ export function useGpuFlowRetainedContentControllers({
       });
     };
     return attachGpuRetainedContentInteractionController({
-      ...retainedContentInteraction,
+      disabled: () =>
+        isGpuFlowRetainedContentInteractionOptionsDisabled(
+          getRetainedContentInteraction(),
+        ),
       element: container,
       getScene: () => nodeLayerRef.current.scene,
       onHitClick: (event) => {
+        const retainedContentInteraction = getRetainedContentInteraction();
+        const retainedContentScrollbarScroll =
+          getRetainedContentScrollbarScroll();
         if (
           retainedContentScrollbarScroll &&
           isGpuRetainedContentScrollbarHit(event)
@@ -260,16 +282,18 @@ export function useGpuFlowRetainedContentControllers({
           });
           return;
         }
-        retainedContentInteraction.onHitClick?.(event);
+        retainedContentInteraction?.onHitClick?.(event);
       },
       onHitDragCancel: (event) => {
+        const retainedContentInteraction = getRetainedContentInteraction();
         if (isGpuRetainedContentScrollbarHit(event.activeHit)) {
           setRetainedContentScrollbarActiveTarget(null);
           return;
         }
-        retainedContentInteraction.onHitDragCancel?.(event);
+        retainedContentInteraction?.onHitDragCancel?.(event);
       },
       onHitDragEnd: (event) => {
+        const retainedContentInteraction = getRetainedContentInteraction();
         if (isGpuRetainedContentScrollbarHit(event.activeHit)) {
           setRetainedContentScrollbarVisualState({
             activeTarget: null,
@@ -279,15 +303,19 @@ export function useGpuFlowRetainedContentControllers({
           });
           return;
         }
-        retainedContentInteraction.onHitDragEnd?.(event);
+        retainedContentInteraction?.onHitDragEnd?.(event);
       },
       onHitDragFrame: (event) => {
+        const retainedContentInteraction = getRetainedContentInteraction();
         if (isGpuRetainedContentScrollbarHit(event.activeHit)) {
           return false;
         }
-        return retainedContentInteraction.onHitDragFrame?.(event);
+        return retainedContentInteraction?.onHitDragFrame?.(event);
       },
       onHitDragMove: (event) => {
+        const retainedContentInteraction = getRetainedContentInteraction();
+        const retainedContentScrollbarScroll =
+          getRetainedContentScrollbarScroll();
         if (
           retainedContentScrollbarScroll &&
           isGpuRetainedContentScrollbarThumbHit(event.activeHit)
@@ -310,18 +338,20 @@ export function useGpuFlowRetainedContentControllers({
           }
           return result.changed;
         }
-        return retainedContentInteraction.onHitDragMove?.(event);
+        return retainedContentInteraction?.onHitDragMove?.(event);
       },
       onHitDragStart: (event) => {
+        const retainedContentInteraction = getRetainedContentInteraction();
         if (isGpuRetainedContentScrollbarHit(event)) {
           setRetainedContentScrollbarActiveTarget(
             getGpuRetainedContentScrollbarVisualTarget(event),
           );
           return;
         }
-        retainedContentInteraction.onHitDragStart?.(event);
+        retainedContentInteraction?.onHitDragStart?.(event);
       },
       onHitPointerDown: (event) => {
+        const retainedContentInteraction = getRetainedContentInteraction();
         if (isGpuRetainedContentScrollbarHit(event)) {
           const target = getGpuRetainedContentScrollbarVisualTarget(event);
           setRetainedContentScrollbarVisualState({
@@ -331,13 +361,17 @@ export function useGpuFlowRetainedContentControllers({
           });
           return;
         }
-        retainedContentInteraction.onHitPointerDown?.(event);
+        retainedContentInteraction?.onHitPointerDown?.(event);
       },
       onHitPointerLeave: () => {
+        const retainedContentInteraction = getRetainedContentInteraction();
         setRetainedContentScrollbarHoveredTarget(null);
-        retainedContentInteraction.onHitPointerLeave?.();
+        retainedContentInteraction?.onHitPointerLeave?.();
       },
       onHitPointerMove: (event) => {
+        const retainedContentInteraction = getRetainedContentInteraction();
+        const retainedContentScrollbarScroll =
+          getRetainedContentScrollbarScroll();
         if (
           event.hit &&
           retainedContentScrollbarScroll &&
@@ -349,39 +383,42 @@ export function useGpuFlowRetainedContentControllers({
           return;
         }
         setRetainedContentScrollbarHoveredTarget(null);
-        retainedContentInteraction.onHitPointerMove?.(event);
+        retainedContentInteraction?.onHitPointerMove?.(event);
       },
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
       },
       shouldHandleDragMoveHit: (event) =>
-        (retainedContentScrollbarScroll &&
+        (getRetainedContentScrollbarScroll() &&
           isGpuRetainedContentScrollbarHit(event)) ||
-        (retainedContentInteraction.shouldHandleDragMoveHit?.(event) ??
-          retainedContentInteraction.shouldHandlePointerMoveHit?.(event) ??
-          retainedContentInteraction.shouldHandleHit?.(event) ??
-          true),
+        shouldHandleGpuFlowRetainedContentDragMoveHit(
+          getRetainedContentInteraction(),
+          event,
+        ),
       shouldHandleHit: (event) =>
-        (retainedContentScrollbarScroll &&
+        (getRetainedContentScrollbarScroll() &&
           isGpuRetainedContentScrollbarHit(event)) ||
-        (retainedContentInteraction.shouldHandleHit?.(event) ?? true),
+        shouldHandleGpuFlowRetainedContentHit(
+          getRetainedContentInteraction(),
+          event,
+        ),
       shouldHandlePointerMoveHit: (event) =>
-        (retainedContentScrollbarScroll &&
+        (getRetainedContentScrollbarScroll() &&
           isGpuRetainedContentScrollbarHit(event)) ||
-        (retainedContentInteraction.shouldHandlePointerMoveHit?.(event) ??
-          retainedContentInteraction.shouldHandleHit?.(event) ??
-          true),
+        shouldHandleGpuFlowRetainedContentPointerMoveHit(
+          getRetainedContentInteraction(),
+          event,
+        ),
       shouldStartDrag: (event) =>
-        (retainedContentScrollbarScroll &&
+        (getRetainedContentScrollbarScroll() &&
           isGpuRetainedContentScrollbarThumbHit(event)) ||
-        (retainedContentInteraction.shouldStartDrag?.(event) ?? false),
+        (getRetainedContentInteraction()?.shouldStartDrag?.(event) ?? false),
       store: viewportStore,
     });
   }, [
     containerRef,
     nodeLayerRef,
-    retainedContentInteraction,
-    retainedContentScroll,
+    retainedContentInteractionEnabled,
     retainedContentSwitchAnimations,
     nodeElementByIdRef,
     surfaceRef,
@@ -560,6 +597,41 @@ function applyGpuFlowRetainedContentScrollResult({
     switchAnimations,
     textureManagerRef,
   });
+}
+
+function isGpuFlowRetainedContentInteractionOptionsDisabled(
+  options: GpuFlowRetainedContentInteractionOptions | null,
+): boolean {
+  if (!options) {
+    return true;
+  }
+  const disabled = options.disabled;
+  return typeof disabled === "function" ? disabled() : Boolean(disabled);
+}
+
+function shouldHandleGpuFlowRetainedContentDragMoveHit(
+  options: GpuFlowRetainedContentInteractionOptions | null,
+  hit: GpuRetainedContentInteractionHit,
+): boolean {
+  const handled = options?.shouldHandleDragMoveHit?.(hit);
+  return (
+    handled ?? shouldHandleGpuFlowRetainedContentPointerMoveHit(options, hit)
+  );
+}
+
+function shouldHandleGpuFlowRetainedContentPointerMoveHit(
+  options: GpuFlowRetainedContentInteractionOptions | null,
+  hit: GpuRetainedContentInteractionHit,
+): boolean {
+  const handled = options?.shouldHandlePointerMoveHit?.(hit);
+  return handled ?? shouldHandleGpuFlowRetainedContentHit(options, hit);
+}
+
+function shouldHandleGpuFlowRetainedContentHit(
+  options: GpuFlowRetainedContentInteractionOptions | null,
+  hit: GpuRetainedContentInteractionHit,
+): boolean {
+  return options?.shouldHandleHit?.(hit) ?? true;
 }
 
 function applyGpuFlowRetainedContentScrollbarVisualState({

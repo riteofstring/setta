@@ -6,6 +6,7 @@ import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentDrawCommand,
 } from "./retainedContentScene";
+import { applyGpuRetainedContentScrollOffsetToScene } from "./retainedContentScroll";
 import {
   applyGpuRetainedContentScrollbarVisualStateToScene,
   createGpuRetainedContentScrollbarLayouts,
@@ -132,6 +133,29 @@ describe("retained content scrollbars", () => {
       "surface-a",
     ]);
     expect(getScrollbarCommands(clearUpdate!.scene)[0]?.state).toBeUndefined();
+  });
+
+  it("preserves retained row source metadata after scrollbar visual updates", () => {
+    const scene = sceneWithRetainedSurface();
+    const thumbHit = requiredHit(scene, { x: 154, y: 12 });
+    const stateUpdate = applyGpuRetainedContentScrollbarVisualStateToScene({
+      scene,
+      visualState: {
+        activeTarget: getGpuRetainedContentScrollbarVisualTarget(thumbHit),
+        hoveredTarget: null,
+      },
+    });
+
+    const scrollUpdate = applyGpuRetainedContentScrollOffsetToScene({
+      scene: stateUpdate!.scene,
+      scrollOffset: { x: 0, y: 56 },
+      surfaceId: "surface-a",
+    });
+
+    expect(scrollUpdate?.surface.retainedScene.scrollOffset).toEqual({
+      x: 0,
+      y: 56,
+    });
   });
 });
 

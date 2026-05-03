@@ -415,14 +415,14 @@ class GpuRetainedContentInteractionController {
     ) {
       return;
     }
-    const hit = this.hitTestEvent(event);
-    if (!isRetainedContentActivePointerHit(activePointer, hit)) {
-      return;
-    }
     this.suppressNextClick = {
       clientX: event.clientX,
       clientY: event.clientY,
     };
+    const hit = this.hitTestEvent(event);
+    if (!isRetainedContentActivePointerHit(activePointer, hit)) {
+      return;
+    }
     this.options.onHitClick?.({ ...hit, nativeEvent: event });
     this.options.requestFrame?.("manual");
   }

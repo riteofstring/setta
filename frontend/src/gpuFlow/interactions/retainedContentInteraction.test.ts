@@ -103,6 +103,50 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("suppresses the browser click when pointerup lands on a mounted native island", () => {
+    const element = createHostElement();
+    const domIsland = document.createElement("div");
+    domIsland.dataset.gpuFlowDomIsland = "true";
+    const domIslandInput = document.createElement("input");
+    domIsland.append(domIslandInput);
+    element.append(domIsland);
+    const onHitClick = vi.fn();
+    const onBackgroundClick = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick,
+      store: createGpuFlowViewportStore(),
+    });
+    element.addEventListener("click", onBackgroundClick);
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    domIslandInput.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    const click = createMouseEvent("click", {
+      clientX: 140,
+      clientY: 14,
+    });
+    element.dispatchEvent(click);
+
+    expect(onHitClick).not.toHaveBeenCalled();
+    expect(click.defaultPrevented).toBe(true);
+    expect(onBackgroundClick).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
   it("does not suppress a later DOM click at a different point", () => {
     const element = createHostElement();
     const onBackgroundClick = vi.fn();

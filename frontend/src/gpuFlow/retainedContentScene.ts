@@ -22,6 +22,10 @@ import {
   type GpuRetainedContentRowStatus,
 } from "./retainedContentRowStatus";
 import {
+  getGpuRetainedContentSceneSourceInput,
+  setGpuRetainedContentSceneSourceInput,
+} from "./retainedContentSceneSourceMetadata";
+import {
   createGpuRetainedContentScrollbarHitRecords,
   type GpuRetainedContentScrollbarDrawCommand,
 } from "./retainedContentScrollbar";
@@ -341,7 +345,7 @@ export type GpuRetainedContentDragPreviewInput = {
   readonly pointerLocal?: GpuPoint | null | undefined;
 };
 
-type CreateGpuRetainedRowContentSceneInput = {
+export type CreateGpuRetainedRowContentSceneInput = {
   readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
   readonly controlRightInset?: number | undefined;
   readonly controlWidth?: number | undefined;
@@ -369,30 +373,6 @@ const DEFAULT_LABEL_APPEARANCE: GpuRetainedContentLabelAppearance = {
 };
 const DEFAULT_OVERSCAN_ROWS = 2;
 const DEFAULT_PORT_HIT_SIZE = 12;
-const retainedContentSceneSourceInputs = new WeakMap<
-  GpuRetainedContentScene,
-  Required<
-    Pick<
-      CreateGpuRetainedRowContentSceneInput,
-      | "controlRightInset"
-      | "controlWidth"
-      | "indentWidth"
-      | "labelControlGap"
-      | "overscanRows"
-      | "portHitSize"
-    >
-  > &
-    Pick<
-      CreateGpuRetainedRowContentSceneInput,
-      | "activePopup"
-      | "dragPreview"
-      | "id"
-      | "ownerSectionId"
-      | "rowHeight"
-      | "rows"
-      | "viewportRect"
-    >
->();
 
 export function createGpuRetainedRowContentScene(
   input: CreateGpuRetainedRowContentSceneInput,
@@ -484,7 +464,7 @@ export function createGpuRetainedRowContentScene(
     visibleRange,
     viewportRect: input.viewportRect,
   };
-  retainedContentSceneSourceInputs.set(scene, {
+  setGpuRetainedContentSceneSourceInput(scene, {
     activePopup: input.activePopup,
     controlRightInset,
     controlWidth,
@@ -509,7 +489,7 @@ export function createGpuRetainedRowContentSceneWithScrollOffset({
   readonly scene: GpuRetainedContentScene;
   readonly scrollOffset: GpuPoint;
 }): GpuRetainedContentScene {
-  const sourceInput = retainedContentSceneSourceInputs.get(scene);
+  const sourceInput = getGpuRetainedContentSceneSourceInput(scene);
   if (!sourceInput) {
     throw new Error(
       "Cannot scroll retained content scene without retained row source metadata.",
