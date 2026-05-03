@@ -64,6 +64,82 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("suppresses the browser click that follows a retained content click", () => {
+    const element = createHostElement();
+    const onHitClick = vi.fn();
+    const onBackgroundClick = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick,
+      store: createGpuFlowViewportStore(),
+    });
+    element.addEventListener("click", onBackgroundClick);
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    const click = createMouseEvent("click", {
+      clientX: 140,
+      clientY: 14,
+    });
+    element.dispatchEvent(click);
+
+    expect(onHitClick).toHaveBeenCalledTimes(1);
+    expect(click.defaultPrevented).toBe(true);
+    expect(onBackgroundClick).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("does not suppress a later DOM click at a different point", () => {
+    const element = createHostElement();
+    const onBackgroundClick = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick: vi.fn(),
+      store: createGpuFlowViewportStore(),
+    });
+    element.addEventListener("click", onBackgroundClick);
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    const click = createMouseEvent("click", {
+      clientX: 220,
+      clientY: 70,
+    });
+    element.dispatchEvent(click);
+
+    expect(click.defaultPrevented).toBe(false);
+    expect(onBackgroundClick).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
+
   it("does not emit clicks from pointer drags", () => {
     const element = createHostElement();
     const onHitClick = vi.fn();
@@ -90,6 +166,52 @@ describe("GPU retained content interaction controller", () => {
     );
 
     expect(onHitClick).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("does not suppress later DOM clicks after a retained content drag", () => {
+    const element = createHostElement();
+    const onBackgroundClick = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitDragStart: vi.fn(),
+      shouldStartDrag: (hit) => hit.hit.kind === "row",
+      store: createGpuFlowViewportStore(),
+    });
+    element.addEventListener("click", onBackgroundClick);
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 116,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 1,
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createPointerEvent("pointerup", {
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+    const click = createMouseEvent("click", {
+      clientX: 116,
+      clientY: 42,
+    });
+    element.dispatchEvent(click);
+
+    expect(click.defaultPrevented).toBe(false);
+    expect(onBackgroundClick).toHaveBeenCalledTimes(1);
 
     cleanup();
   });
@@ -596,4 +718,19 @@ function createPointerEvent(
     pointerType: { value: "mouse" },
   });
   return event;
+}
+
+function createMouseEvent(
+  type: string,
+  init: {
+    readonly clientX: number;
+    readonly clientY: number;
+  },
+): MouseEvent {
+  return new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX: init.clientX,
+    clientY: init.clientY,
+  });
 }

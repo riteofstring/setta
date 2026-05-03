@@ -176,7 +176,7 @@ function getProjectGpuDomIslandFallbackActivationTargetForState({
     return getProjectGpuDomIslandFallbackEditorActivationTarget(root);
   }
   if (activation) {
-    return null;
+    return getProjectGpuDomIslandFallbackEditorActivationTarget(root);
   }
   return (
     getProjectGpuDomIslandExplicitActivationTarget(root) ??

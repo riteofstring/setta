@@ -638,6 +638,42 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
+  it("focuses mounted native text inputs when canvas hit testing hides the island", async () => {
+    mocks.paramInputRenderMode.current = "text-input";
+    const activationPoint = { x: 44, y: 11 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() => null);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
   it("focuses mounted native textareas when the activation point lands on island chrome", async () => {
     mocks.paramInputRenderMode.current = "textarea";
     const activationPoint = { x: 45, y: 12 };
@@ -1008,6 +1044,46 @@ describe("project GPU retained param DOM islands", () => {
     const elementFromPointSpy = vi.fn(() =>
       document.querySelector('[data-gpu-project-param-dom-island="true"]'),
     );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationMouseDown).toHaveBeenCalledTimes(1);
+      expect(mocks.paramInputActivationMouseDown).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientX: activationPoint.x,
+          clientY: activationPoint.y,
+        }),
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("replays retained canvas activation mousedown into CodeMirror shells when canvas hit testing hides the island", async () => {
+    mocks.paramInputRenderMode.current = "mousedown-activation";
+    const activationPoint = { x: 55, y: 19 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() => null);
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
       value: elementFromPointSpy,

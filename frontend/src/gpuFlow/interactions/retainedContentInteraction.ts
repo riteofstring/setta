@@ -107,6 +107,11 @@ type ActiveRetainedContentPointer = {
   readonly lastNativeEvent: PointerEvent;
 };
 
+type SuppressedRetainedContentClick = {
+  readonly clientX: number;
+  readonly clientY: number;
+};
+
 const MAX_RETAINED_CONTENT_CLICK_DRAG_DISTANCE_PX = 4;
 export const GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS = [
   '[data-gpu-flow-dom-island="true"]',
@@ -150,6 +155,7 @@ class GpuRetainedContentInteractionController {
   private activePointer: ActiveRetainedContentPointer | null = null;
   private dragAnimationFrame: number | null = null;
   private hoveredHitKey: string | null = null;
+  private suppressNextClick: SuppressedRetainedContentClick | null = null;
   private readonly element: HTMLElement;
   private readonly options: GpuRetainedContentInteractionControllerOptions;
   private readonly store: GpuFlowViewportStoreApi;
@@ -176,6 +182,9 @@ class GpuRetainedContentInteractionController {
     this.element.addEventListener("pointerleave", this.onPointerLeave, {
       capture: true,
     });
+    this.element.addEventListener("click", this.onClick, {
+      capture: true,
+    });
   }
 
   destroy() {
@@ -188,7 +197,9 @@ class GpuRetainedContentInteractionController {
       true,
     );
     this.element.removeEventListener("pointerleave", this.onPointerLeave, true);
+    this.element.removeEventListener("click", this.onClick, true);
     this.activePointer = null;
+    this.suppressNextClick = false;
     this.cancelDragFrameLoop();
     this.clearHover();
   }
@@ -274,6 +285,18 @@ class GpuRetainedContentInteractionController {
 
   private readonly onPointerLeave = () => {
     this.clearHover();
+  };
+
+  private readonly onClick = (event: MouseEvent) => {
+    const suppressedClick = this.suppressNextClick;
+    if (!suppressedClick) {
+      return;
+    }
+    this.suppressNextClick = null;
+    if (!isSuppressedRetainedContentClickEvent(suppressedClick, event)) {
+      return;
+    }
+    preventRetainedContentFollowUpClickEvent(event);
   };
 
   private hitTestEvent(
@@ -396,6 +419,10 @@ class GpuRetainedContentInteractionController {
     if (!isRetainedContentActivePointerHit(activePointer, hit)) {
       return;
     }
+    this.suppressNextClick = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+    };
     this.options.onHitClick?.({ ...hit, nativeEvent: event });
     this.options.requestFrame?.("manual");
   }
@@ -505,6 +532,19 @@ function isRetainedContentClickDistance(
   );
 }
 
+function isSuppressedRetainedContentClickEvent(
+  suppressedClick: SuppressedRetainedContentClick,
+  event: Pick<MouseEvent, "clientX" | "clientY">,
+): boolean {
+  return isRetainedContentClickDistance(
+    {
+      startClientX: suppressedClick.clientX,
+      startClientY: suppressedClick.clientY,
+    },
+    event,
+  );
+}
+
 function shouldStartRetainedContentDrag(
   options: GpuRetainedContentInteractionControllerOptions,
   activePointer: ActiveRetainedContentPointer,
@@ -563,6 +603,11 @@ export function isGpuRetainedContentNativeTarget(
 }
 
 function preventRetainedContentEvent(event: PointerEvent) {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}
+
+function preventRetainedContentFollowUpClickEvent(event: MouseEvent) {
   event.preventDefault();
   event.stopImmediatePropagation();
 }
