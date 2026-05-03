@@ -1,5 +1,7 @@
 /* @vitest-environment jsdom */
 
+import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { setActiveSectionUIIds } from "state/activeSectionUI";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -11,18 +13,21 @@ import { resetProjectStores } from "state/utils";
 import {
   createCodeSectionImpl,
   createCore,
+  createGroupSectionImpl,
   createProjectConfig,
   createSingleConfig,
   createVariant,
   type SingleConfig,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 
+import { getProjectGpuFlowScene } from "./projectGpuLayoutAdapter";
 import {
   canDragProjectNode,
+  handleProjectNodeDragCancel,
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
   handleProjectSelectionDragStart,
@@ -30,10 +35,34 @@ import {
   handleProjectSelectionKeyboardNudge,
 } from "./projectGpuSelectionAdapter";
 
+const callOpenAPIMock = vi.fn(() => ({
+  hasResponse: true,
+  status: 200,
+}));
+
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: (request: unknown) => callOpenAPIMock(request),
+  };
+});
+
+vi.mock("openapi/http", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("openapi/http")>();
+  return {
+    ...actual,
+    moveSections: vi.fn((request: unknown) => request),
+    setCodeSectionAttachedTerminal: vi.fn((request: unknown) => request),
+  };
+});
+
 describe("GPU project selection adapter", () => {
   beforeEach(() => {
     resetProjectStores();
     resetGpuViewportState();
+    callOpenAPIMock.mockClear();
   });
 
   afterEach(() => {
@@ -210,15 +239,166 @@ describe("GPU project selection adapter", () => {
       { id: "section-b", positionAndSizeLocked: true },
       { id: "section-c", parentId: "section-a" },
     ]);
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
 
     expect(canDragProjectNode("section-a")).toBe(true);
     expect(canDragProjectNode("section-b")).toBe(false);
     expect(canDragProjectNode("section-c")).toBe(false);
+    expect(canDragProjectNode("section-c", scene)).toBe(false);
+  });
+
+  it("allows renderer-owned nested scene children to commit same-parent reorder on drag stop", () => {
+    loadProjectStateForSections([
+      {
+        children: ["child-a", "child-b", "child-c"],
+        id: "parent",
+        kind: "group",
+      },
+      { id: "child-a", parentId: "parent" },
+      { id: "child-b", parentId: "parent" },
+      { id: "child-c", parentId: "parent" },
+    ]);
+    loadNodeInternals([node("parent", 0, 0, 260, 500, 0)]);
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+
+    expect(canDragProjectNode("child-a")).toBe(false);
+    expect(canDragProjectNode("child-a", scene)).toBe(true);
+
+    handleProjectNodeDragStart(layoutStore, {
+      delta: { x: 0, y: 0 },
+      items: [
+        {
+          distance: { x: 0, y: 0 },
+          height: 150,
+          nodeId: "child-a",
+          position: { x: 0, y: 0 },
+          width: 250,
+        },
+      ],
+    });
+    handleProjectNodeDragStop(
+      layoutStore,
+      {
+        delta: { x: 0, y: 360 },
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-a",
+            position: { x: 0, y: 360 },
+            width: 250,
+          },
+        ],
+      },
+      scene,
+    );
+
+    expect(getSectionImplChildren("parent")).toEqual([
+      "child-b",
+      "child-c",
+      "child-a",
+    ]);
+    expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
+    expect(useNodeInternals.getState().x.has("child-a")).toBe(false);
+    expect(callOpenAPIMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores scene layout without backend calls when nested drag does not reorder or is cancelled", () => {
+    loadProjectStateForSections([
+      { children: ["child-a", "child-b"], id: "parent", kind: "group" },
+      { id: "child-a", parentId: "parent" },
+      { id: "child-b", parentId: "parent" },
+    ]);
+    loadNodeInternals([node("parent", 0, 0, 260, 500, 0)]);
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+
+    layoutStore.getState().patchNodes(
+      [
+        {
+          nodeId: "child-a",
+          x: 0,
+          y: 12,
+        },
+      ],
+      { phase: "change", reason: "drag" },
+    );
+
+    handleProjectNodeDragStop(
+      layoutStore,
+      {
+        delta: { x: 0, y: 12 },
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-a",
+            position: { x: 0, y: 12 },
+            width: 250,
+          },
+        ],
+      },
+      scene,
+    );
+
+    expect(getSectionImplChildren("parent")).toEqual(["child-a", "child-b"]);
+    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(callOpenAPIMock).not.toHaveBeenCalled();
+
+    layoutStore.getState().patchNodes(
+      [
+        {
+          nodeId: "child-a",
+          x: 0,
+          y: 220,
+        },
+      ],
+      { phase: "change", reason: "drag" },
+    );
+    handleProjectNodeDragCancel(
+      layoutStore,
+      {
+        delta: { x: 0, y: 220 },
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-a",
+            position: { x: 0, y: 220 },
+            width: 250,
+          },
+        ],
+      },
+      scene,
+    );
+
+    expect(getSectionImplChildren("parent")).toEqual(["child-a", "child-b"]);
+    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(callOpenAPIMock).not.toHaveBeenCalled();
   });
 });
 
 type MovementSectionInput = {
+  readonly children?: readonly string[] | undefined;
   readonly id: string;
+  readonly kind?: "code" | "group" | undefined;
   readonly parentId?: string | null | undefined;
   readonly positionAndSizeLocked?: boolean | undefined;
 };
@@ -287,17 +467,28 @@ function loadProjectStateForSections(
         zIndex: index,
       };
     }
-    stateSections[section.id] = createCore({ id: section.id });
+    stateSections[section.id] = createCore({
+      defaultVariant: variantId,
+      id: section.id,
+      variants: [variantId],
+    });
     sectionVariants[variantId] = createVariant({
       id: variantId,
       impl: implId,
       name: variantId,
       nonPresetImpls: [implId],
     });
-    sectionImpls[implId] = createCodeSectionImpl({
-      id: implId,
-      positionAndSizeLocked: section.positionAndSizeLocked ?? false,
-    });
+    sectionImpls[implId] =
+      section.kind === "group"
+        ? createGroupSectionImpl({
+            children: [...(section.children ?? [])],
+            id: implId,
+            positionAndSizeLocked: section.positionAndSizeLocked ?? false,
+          })
+        : createCodeSectionImpl({
+            id: implId,
+            positionAndSizeLocked: section.positionAndSizeLocked ?? false,
+          });
   }
 
   useProjectState.setState(
@@ -313,6 +504,14 @@ function loadProjectStateForSections(
       sectionVariants,
     }),
   );
+}
+
+function getSectionImplChildren(sectionId: string): readonly string[] {
+  const impl = getCurrEffectiveSectionImpl(
+    useProjectState.getState(),
+    sectionId,
+  );
+  return impl && "children" in impl ? [...impl.children] : [];
 }
 
 function resetGpuViewportState() {

@@ -295,9 +295,16 @@ function ProjectGpuFlowLayer({
         flowInteractionKeys,
         isFollowTransitioning,
         layoutStore,
+        scene: layoutAdapter.scene,
         settings,
       }),
-    [flowInteractionKeys, isFollowTransitioning, layoutStore, settings],
+    [
+      flowInteractionKeys,
+      isFollowTransitioning,
+      layoutAdapter.scene,
+      layoutStore,
+      settings,
+    ],
   );
   const nodeResizeOptions = useProjectNodeResizeOptions({
     canEditLayout,
@@ -551,16 +558,18 @@ function getProjectNodeDragOptions({
   flowInteractionKeys,
   isFollowTransitioning,
   layoutStore,
+  scene,
   settings,
 }: {
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
   readonly layoutStore: GpuFlowLayoutStoreApi;
+  readonly scene: GpuFlowScene;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   return {
     autoPanOnNodeDrag: true,
-    canDragNode: canDragProjectNode,
+    canDragNode: (nodeId) => canDragProjectNode(nodeId, scene),
     disabled: () => {
       const dndState = useDndState.getState();
       return isProjectGpuNodeDragDisabled({
@@ -576,10 +585,11 @@ function getProjectNodeDragOptions({
     nodeDragThresholdPx: 1,
     onNodeDrag: (change) => handleProjectNodeDrag(layoutStore, change),
     onNodeDragCancel: (change) =>
-      handleProjectNodeDragCancel(layoutStore, change),
+      handleProjectNodeDragCancel(layoutStore, change, scene),
     onNodeDragStart: (change) =>
       handleProjectNodeDragStart(layoutStore, change),
-    onNodeDragStop: (change) => handleProjectNodeDragStop(layoutStore, change),
+    onNodeDragStop: (change) =>
+      handleProjectNodeDragStop(layoutStore, change, scene),
     snapGrid: settings.snapGrid,
     snapToGrid: () => useLocalStorage.getState().snapToGrid,
   };

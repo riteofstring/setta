@@ -8,6 +8,19 @@ import type {
 
 import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
 
+import {
+  getGpuFlowSceneDomSectionNodes,
+  type GpuFlowScene,
+  type GpuSectionSceneNode,
+} from "gpuFlow/scene";
+
+import {
+  isGpuSectionSceneOrderedChildLayout,
+  resolveGpuSectionSceneChildReorderPlan,
+} from "gpuFlow/sceneChildOrder";
+
+import type { GpuRect } from "gpuFlow/viewportMath";
+
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 
 import { setActiveSectionIds } from "state/actions/activeSections";
@@ -17,6 +30,8 @@ import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { updateNodePositions } from "state/actions/nodeInternals";
 
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+
+import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
 
 import { setZIndices } from "state/actions/sections/sectionPositions";
 
@@ -52,9 +67,13 @@ export function handleProjectNodeDrag(
 }
 
 export function handleProjectNodeDragStop(
-  _: GpuFlowLayoutStoreApi,
+  layoutStore: GpuFlowLayoutStoreApi,
   change: ProjectGpuNodeDragChange,
+  scene?: GpuFlowScene | undefined,
 ) {
+  if (commitProjectNestedNodeDragStop(layoutStore, change, scene)) {
+    return;
+  }
   updateNodePositions(toNodeDragItems(change.items));
   useMisc.setState({ mouseDownDraggingSection: false });
   setZIndices(
@@ -64,9 +83,13 @@ export function handleProjectNodeDragStop(
 }
 
 export function handleProjectNodeDragCancel(
-  _: GpuFlowLayoutStoreApi,
+  layoutStore: GpuFlowLayoutStoreApi,
   change: ProjectGpuNodeDragChange,
+  scene?: GpuFlowScene | undefined,
 ) {
+  if (restoreProjectNestedNodeDragCancel(layoutStore, change, scene)) {
+    return;
+  }
   updateNodePositions(toNodeDragItems(change.items));
   useMisc.setState({ mouseDownDraggingSection: false });
   setZIndices(
@@ -141,13 +164,136 @@ function toNodeDragItems(
   }));
 }
 
-export function canDragProjectNode(nodeId: string): boolean {
+export function canDragProjectNode(
+  nodeId: string,
+  scene?: GpuFlowScene | undefined,
+): boolean {
   const projectState = useProjectState.getState();
   const parentSectionId = projectState.parentSectionMap[nodeId] ?? null;
-  return (
-    parentSectionId === null &&
-    !getCurrEffectiveSectionImpl(projectState, nodeId).positionAndSizeLocked
+  if (getCurrEffectiveSectionImpl(projectState, nodeId).positionAndSizeLocked) {
+    return false;
+  }
+  if (parentSectionId === null) {
+    return true;
+  }
+  return scene ? canDragProjectSceneChildNode(nodeId, scene) : false;
+}
+
+function commitProjectNestedNodeDragStop(
+  layoutStore: GpuFlowLayoutStoreApi,
+  change: ProjectGpuNodeDragChange,
+  scene: GpuFlowScene | undefined,
+): boolean {
+  const nestedItems = getProjectNestedNodeDragItems(change, scene);
+  if (!scene || nestedItems.length === 0) {
+    return false;
+  }
+  const item = nestedItems.length === 1 ? nestedItems[0] : null;
+  if (!item) {
+    restoreProjectSceneLayoutStore(layoutStore, scene);
+    useMisc.setState({ mouseDownDraggingSection: false });
+    return true;
+  }
+  const plan = resolveGpuSectionSceneChildReorderPlan({
+    draggedRect: getProjectNodeDragItemRect(item),
+    scene,
+    sectionId: item.nodeId,
+  });
+  useMisc.setState({ mouseDownDraggingSection: false });
+  if (!plan) {
+    restoreProjectSceneLayoutStore(layoutStore, scene);
+    return true;
+  }
+  if (!plan.changed) {
+    restoreProjectSceneLayoutStore(layoutStore, scene);
+    return true;
+  }
+
+  moveSectionsWithBackend({
+    newIndex: plan.nextIndex,
+    newParentId: plan.parentSectionId,
+    positionsById: null,
+    sectionIds: [plan.childSectionId],
+  });
+  return true;
+}
+
+function restoreProjectNestedNodeDragCancel(
+  layoutStore: GpuFlowLayoutStoreApi,
+  change: ProjectGpuNodeDragChange,
+  scene: GpuFlowScene | undefined,
+): boolean {
+  const nestedItems = getProjectNestedNodeDragItems(change, scene);
+  if (!scene || nestedItems.length === 0) {
+    return false;
+  }
+  restoreProjectSceneLayoutStore(layoutStore, scene);
+  useMisc.setState({ mouseDownDraggingSection: false });
+  return true;
+}
+
+function canDragProjectSceneChildNode(
+  nodeId: string,
+  scene: GpuFlowScene,
+): boolean {
+  const sceneNode = getProjectSceneSectionNode(scene, nodeId);
+  if (!sceneNode || sceneNode.parentSectionId === null) {
+    return false;
+  }
+  const parentNode = getProjectSceneSectionNode(
+    scene,
+    sceneNode.parentSectionId,
   );
+  return parentNode
+    ? isGpuSectionSceneOrderedChildLayout(parentNode.layoutMode)
+    : false;
+}
+
+function isProjectSceneNestedNode(
+  nodeId: string,
+  scene: GpuFlowScene,
+): boolean {
+  const parentSectionId =
+    getProjectSceneSectionNode(scene, nodeId)?.parentSectionId ?? null;
+  return parentSectionId !== null;
+}
+
+function getProjectSceneSectionNode(
+  scene: GpuFlowScene,
+  nodeId: string,
+): GpuSectionSceneNode | null {
+  return scene.sections.find((section) => section.sectionId === nodeId) ?? null;
+}
+
+function getProjectNestedNodeDragItems(
+  change: ProjectGpuNodeDragChange,
+  scene: GpuFlowScene | undefined,
+): readonly ProjectGpuNodeDragItem[] {
+  if (!scene) {
+    return [];
+  }
+  return change.items.filter((item) =>
+    isProjectSceneNestedNode(item.nodeId, scene),
+  );
+}
+
+function getProjectNodeDragItemRect(item: ProjectGpuNodeDragItem): GpuRect {
+  return {
+    height: item.height ?? 0,
+    width: item.width ?? 0,
+    x: item.position.x,
+    y: item.position.y,
+  };
+}
+
+function restoreProjectSceneLayoutStore(
+  layoutStore: GpuFlowLayoutStoreApi,
+  scene: GpuFlowScene,
+) {
+  layoutStore.getState().replaceNodes(getGpuFlowSceneDomSectionNodes(scene), {
+    phase: "commit",
+    reason: "project-sync",
+  });
 }
 
 export function resolveProjectWireColor({
