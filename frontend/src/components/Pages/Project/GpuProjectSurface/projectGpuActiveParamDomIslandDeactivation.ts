@@ -1,8 +1,6 @@
-import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
-
 const PROJECT_GPU_ACTIVE_PARAM_DOM_ISLAND_PRESERVE_TARGET_SELECTOR = [
   '[data-gpu-flow-dom-island="true"]',
-  `#${PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID}`,
+  '[data-gpu-flow-retained-content-native="true"]',
 ].join(", ");
 
 export function shouldClearProjectGpuActiveParamDomIslandOnPointerDown(

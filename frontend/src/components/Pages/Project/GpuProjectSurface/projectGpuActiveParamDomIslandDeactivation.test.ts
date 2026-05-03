@@ -24,6 +24,7 @@ describe("project GPU active param DOM island deactivation", () => {
   it("keeps active editor tooltip portal pointer targets active", () => {
     const tooltipRoot = document.createElement("div");
     tooltipRoot.id = PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID;
+    tooltipRoot.dataset.gpuFlowRetainedContentNative = "true";
     const tooltipItem = document.createElement("button");
     tooltipRoot.append(tooltipItem);
 
@@ -32,15 +33,16 @@ describe("project GPU active param DOM island deactivation", () => {
     ).toBe(false);
   });
 
-  it("clears active retained param DOM islands for inert validation portal targets", () => {
+  it("keeps active retained param DOM islands for retained validation portal targets", () => {
     const validationRoot = document.createElement("div");
     validationRoot.id = PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID;
+    validationRoot.dataset.gpuFlowRetainedContentNative = "true";
     const validationBubble = document.createElement("div");
     validationRoot.append(validationBubble);
 
     expect(
       shouldClearProjectGpuActiveParamDomIslandOnPointerDown(validationBubble),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("clears active retained param DOM islands for old popover portal targets", () => {
