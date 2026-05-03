@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -21,6 +22,8 @@ import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
 import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
 
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
+
+import { getGpuFlowSceneDomSectionNodes, type GpuFlowScene } from "../scene";
 
 import {
   clearGpuNodeDomTransformSyncCache,
@@ -198,6 +201,7 @@ type GpuFlowProps = Pick<
     | Omit<GpuSelectionControllerOptions, "element" | "getNodes" | "store">
     | undefined;
   selectionDrag?: GpuFlowSelectionDragOptions;
+  scene?: GpuFlowScene | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
@@ -270,6 +274,7 @@ export function GpuFlow({
   renderNode,
   selection,
   selectionDrag,
+  scene,
   style,
   surfaceClassName,
   uploadBudget,
@@ -282,7 +287,12 @@ export function GpuFlow({
     edgeScene,
     edges,
   });
-  const nodes = useGpuFlowLayoutStoreNodes(layoutStore);
+  const storeNodes = useGpuFlowLayoutStoreNodes(layoutStore);
+  const sceneNodes = useMemo(
+    () => (scene ? getGpuFlowSceneDomSectionNodes(scene) : undefined),
+    [scene],
+  );
+  const nodes = sceneNodes ?? storeNodes;
   const drawEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);

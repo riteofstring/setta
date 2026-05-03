@@ -362,6 +362,7 @@ function ProjectGpuFlowLayer({
       panZoom={panZoomOptions}
       portals={portals}
       renderNode={renderProjectGpuNode}
+      scene={layoutAdapter.scene}
       selection={selectionOptions}
       selectionDrag={selectionDragOptions}
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
