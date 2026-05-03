@@ -3,6 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
+import { SETTA_POPOVER_PORTAL_PARENT_ID } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ColorPickerInput } from "./ColorPickerInput";
 
@@ -28,12 +29,16 @@ describe("ColorPickerInput", () => {
       root.unmount();
     });
     host.remove();
+    document.body.innerHTML = "";
     globalThis.ResizeObserver = originalResizeObserver;
   });
 
   it("opens color choices and commits the selected color", async () => {
     const onChange = vi.fn();
     const onCommit = vi.fn();
+    const portalRoot = document.createElement("div");
+    portalRoot.id = SETTA_POPOVER_PORTAL_PARENT_ID;
+    document.body.appendChild(portalRoot);
 
     await act(async () => {
       root.render(
@@ -64,9 +69,10 @@ describe("ColorPickerInput", () => {
     });
 
     const blueOption = Array.from(
-      document.querySelectorAll<HTMLElement>('[role="option"]'),
+      portalRoot.querySelectorAll<HTMLElement>('[role="option"]'),
     ).find((element) => element.textContent?.includes("Blue"));
     expect(blueOption).toBeTruthy();
+    expect(portalRoot.querySelector('[role="listbox"]')).not.toBeNull();
 
     await act(async () => {
       blueOption?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -74,7 +80,7 @@ describe("ColorPickerInput", () => {
 
     expect(onChange).toHaveBeenCalledWith("#3b82f6");
     expect(onCommit).toHaveBeenCalledWith("#3b82f6");
-    expect(document.querySelector('[role="listbox"]')).toBeNull();
+    expect(portalRoot.querySelector('[role="listbox"]')).toBeNull();
   });
 
   it("marks the native color input as an explicit GPU flow control", async () => {

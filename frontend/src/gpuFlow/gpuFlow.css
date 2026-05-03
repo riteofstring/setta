@@ -25,6 +25,10 @@
   overflow: visible;
 }
 
+.setta-gpu-flow__portal-root--viewport {
+  position: fixed;
+}
+
 .setta-gpu-flow__node {
   box-sizing: border-box;
   contain: paint;
