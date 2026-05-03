@@ -100,6 +100,18 @@ type ActiveRetainedContentPointer = {
 };
 
 const MAX_RETAINED_CONTENT_CLICK_DRAG_DISTANCE_PX = 4;
+export const GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS = [
+  GPU_FLOW_SELECTORS.portalRoot,
+  '[data-gpu-flow-dom-island="true"]',
+  '[data-gpu-flow-interactive="true"]',
+  '[data-gpu-flow-retained-content-native="true"]',
+  "button",
+  "input",
+  "select",
+  "textarea",
+  '[contenteditable=""]',
+  '[contenteditable="true"]',
+] as const;
 
 export function attachGpuRetainedContentInteractionController(
   options: GpuRetainedContentInteractionControllerOptions,
@@ -526,27 +538,20 @@ function getEventPointRelativeToElement(
 export function shouldPreserveGpuRetainedContentNativeTarget(
   event: Pick<PointerEvent, "target">,
 ): boolean {
-  const target = event.target;
+  return isGpuRetainedContentNativeTarget(event.target, [
+    `.${NO_PAN_CLASS_NAME}`,
+    ...GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
+  ]);
+}
+
+export function isGpuRetainedContentNativeTarget(
+  target: EventTarget | null,
+  selectors: readonly string[] = GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
+): boolean {
   if (!(target instanceof Element)) {
     return false;
   }
-  return Boolean(
-    target.closest(
-      [
-        `.${NO_PAN_CLASS_NAME}`,
-        GPU_FLOW_SELECTORS.portalRoot,
-        '[data-gpu-flow-dom-island="true"]',
-        '[data-gpu-flow-interactive="true"]',
-        '[data-gpu-flow-retained-content-native="true"]',
-        "button",
-        "input",
-        "select",
-        "textarea",
-        '[contenteditable=""]',
-        '[contenteditable="true"]',
-      ].join(", "),
-    ),
-  );
+  return Boolean(target.closest(selectors.join(", ")));
 }
 
 function preventRetainedContentEvent(event: PointerEvent) {

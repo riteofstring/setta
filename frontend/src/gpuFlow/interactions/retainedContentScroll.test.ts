@@ -45,36 +45,79 @@ describe("GPU retained content scroll controller", () => {
     cleanup();
   });
 
-  it("preserves native wheel targets inside active DOM islands", () => {
-    const element = document.createElement("div");
-    const input = document.createElement("input");
-    element.append(input);
-    document.body.append(element);
-    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
-    const cleanup = attachGpuRetainedContentScrollController({
-      element,
-      getScene: () => retainedContentScene(),
-      getScrollOffsets: () => scrollOffsets,
-      onScrollOffsetsChange: (nextOffsets) => {
-        scrollOffsets = nextOffsets;
-      },
-    });
+  it.each(preservedWheelTargetCases)(
+    "preserves wheel events from %s",
+    (_name, createTarget) => {
+      const element = document.createElement("div");
+      const { root, target } = createTarget();
+      element.append(root);
+      document.body.append(element);
+      let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+      const cleanup = attachGpuRetainedContentScrollController({
+        element,
+        getScene: () => retainedContentScene(),
+        getScrollOffsets: () => scrollOffsets,
+        onScrollOffsetsChange: (nextOffsets) => {
+          scrollOffsets = nextOffsets;
+        },
+      });
 
-    const event = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      clientX: 20,
-      clientY: 20,
-      deltaY: 36,
-    });
-    input.dispatchEvent(event);
+      const event = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        deltaY: 36,
+      });
+      target.dispatchEvent(event);
 
-    expect(event.defaultPrevented).toBe(false);
-    expect(scrollOffsets.size).toBe(0);
+      expect(event.defaultPrevented).toBe(false);
+      expect(scrollOffsets.size).toBe(0);
 
-    cleanup();
-  });
+      cleanup();
+    },
+  );
 });
+
+type PreservedWheelTargetFixture = {
+  readonly root: HTMLElement;
+  readonly target: HTMLElement;
+};
+
+const preservedWheelTargetCases: readonly [
+  string,
+  () => PreservedWheelTargetFixture,
+][] = [
+  [
+    "native input targets",
+    () => {
+      const input = document.createElement("input");
+      return { root: input, target: input };
+    },
+  ],
+  [
+    "explicit DOM island wrappers",
+    () => createMarkedWheelTarget("data-gpu-flow-dom-island"),
+  ],
+  [
+    "custom interactive controls",
+    () => createMarkedWheelTarget("data-gpu-flow-interactive"),
+  ],
+  [
+    "GpuFlow portal roots",
+    () => createMarkedWheelTarget("data-gpu-flow-portal-root"),
+  ],
+];
+
+function createMarkedWheelTarget(
+  attribute: string,
+): PreservedWheelTargetFixture {
+  const root = document.createElement("div");
+  root.setAttribute(attribute, "true");
+  const target = document.createElement("span");
+  root.append(target);
+  return { root, target };
+}
 
 function retainedContentScene(): GpuFlowScene {
   return {

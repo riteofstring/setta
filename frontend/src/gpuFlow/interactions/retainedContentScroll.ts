@@ -11,6 +11,10 @@ import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
+import {
+  GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
+  isGpuRetainedContentNativeTarget,
+} from "./retainedContentInteraction";
 
 export type GpuRetainedContentScrollControllerOptions = {
   readonly disabled?: ((event: WheelEvent) => boolean) | undefined;
@@ -102,21 +106,9 @@ function getWheelFlowPoint(
 }
 
 function shouldPreserveNativeWheelTarget(event: WheelEvent): boolean {
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    return false;
-  }
-  return Boolean(
-    target.closest(
-      [
-        `.${NO_WHEEL_CLASS_NAME}`,
-        '[data-gpu-flow-wheel-target="true"]',
-        "input",
-        "select",
-        "textarea",
-        '[contenteditable=""]',
-        '[contenteditable="true"]',
-      ].join(", "),
-    ),
-  );
+  return isGpuRetainedContentNativeTarget(event.target, [
+    `.${NO_WHEEL_CLASS_NAME}`,
+    '[data-gpu-flow-wheel-target="true"]',
+    ...GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
+  ]);
 }
