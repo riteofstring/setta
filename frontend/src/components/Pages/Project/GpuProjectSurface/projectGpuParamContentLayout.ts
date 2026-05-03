@@ -1,4 +1,5 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
+import { resolveParamColumnWidth } from "state/hooks/paramColumnWidthUtils";
 
 export type ProjectGpuParamListKey = "pinned" | "unpinned";
 
@@ -7,13 +8,41 @@ export const PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX = 12;
 export const PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX = 9;
 
 const PROJECT_GPU_PARAM_CONTENT_TOP_INSET_PX = 5;
-const PROJECT_GPU_PARAM_CONTENT_LABEL_COLUMN_WIDTH_PX = 65;
 
-export function getProjectGpuParamContentControlWidth(width: number): number {
+export function getProjectGpuParamContentLabelColumnWidth({
+  maxNestedDepth,
+  persistedColumnWidth,
+  width,
+}: {
+  readonly maxNestedDepth: number;
+  readonly persistedColumnWidth?: number | null | undefined;
+  readonly width: number;
+}): number {
+  return resolveParamColumnWidth({
+    containerWidth: width,
+    maxNestedDepth,
+    persistedColumnWidth,
+  });
+}
+
+export function getProjectGpuParamContentControlWidth({
+  maxNestedDepth,
+  persistedColumnWidth,
+  width,
+}: {
+  readonly maxNestedDepth: number;
+  readonly persistedColumnWidth?: number | null | undefined;
+  readonly width: number;
+}): number {
+  const labelColumnWidth = getProjectGpuParamContentLabelColumnWidth({
+    maxNestedDepth,
+    persistedColumnWidth,
+    width,
+  });
   return Math.max(
     0,
     width -
-      PROJECT_GPU_PARAM_CONTENT_LABEL_COLUMN_WIDTH_PX -
+      labelColumnWidth -
       PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX -
       PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX,
   );

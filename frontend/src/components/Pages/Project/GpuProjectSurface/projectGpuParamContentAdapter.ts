@@ -746,6 +746,7 @@ function createProjectGpuParamListContentSurfaces({
       getProjectSectionSceneKwargsControlsHeight(sectionImpl),
     pinnedRowCount: getProjectGpuParamListRowCount(listRows, "pinned"),
   });
+  const maxNestedDepth = getProjectGpuParamMaxNestedDepth(listRows);
   let nextLocalY = metrics.contentTop;
   for (const list of listRows) {
     const listLocalY = getProjectGpuParamListLocalY({
@@ -800,7 +801,11 @@ function createProjectGpuParamListContentSurfaces({
           surfaceId,
         }),
         controlRightInset: PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX,
-        controlWidth: getProjectGpuParamContentControlWidth(localRect.width),
+        controlWidth: getProjectGpuParamContentControlWidth({
+          maxNestedDepth,
+          persistedColumnWidth: sectionImpl.columnWidth,
+          width: localRect.width,
+        }),
         dragPreview: getProjectGpuParamRetainedContentDragPreviewInput({
           retainedParamDragPreview,
           surfaceId,
@@ -824,6 +829,15 @@ function createProjectGpuParamListContentSurfaces({
     });
   }
   return surfaces;
+}
+
+function getProjectGpuParamMaxNestedDepth(
+  listRows: readonly ProjectGpuParamListRows[],
+): number {
+  return Math.max(
+    1,
+    ...listRows.flatMap((list) => list.rows.map((row) => row.depth + 1)),
+  );
 }
 
 function getProjectGpuParamListRowCount(

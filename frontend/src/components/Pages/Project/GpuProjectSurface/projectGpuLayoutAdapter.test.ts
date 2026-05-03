@@ -1,4 +1,5 @@
 import { KWARGS_CONTROLS_SCENE_HEIGHT_PX } from "components/Section/SectionParts/kwargsControlsLayout";
+import { PARAM_NAME_EMPTY_DEFAULT_VALUE } from "components/Params/ParamItems/paramNameDefaults";
 import { PROJECT_SECTION_SEARCH_HEIGHT_PX } from "components/Section/SectionParts/sectionSearchLayout";
 import type { Node } from "gpuFlow/flowTypes";
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
@@ -740,6 +741,67 @@ describe("project GPU layout adapter", () => {
     expect(scene.domIslands).toEqual([]);
   });
 
+  it("uses the param name editor placeholder for blank retained kwarg labels", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "blank-param": "blank-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["blank-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "blank-param",
+      "blank-param-variant",
+      "blank-param-impl",
+      createCodeParamCodeObjImpl({
+        coreNameEditable: true,
+        id: "blank-param-impl",
+        name: "",
+      }),
+    );
+    projectState.codeObjs["blank-param"].name = "";
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "blank-param": ["blank-param"],
+        },
+        topLevelParamIds: ["blank-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      revision: 3,
+    });
+
+    expect(
+      scene.contentSurfaces
+        .find((surface) => surface.id === "dict-a:param-content:unpinned")
+        ?.retainedScene?.rows.map((row) => row.label),
+    ).toEqual([PARAM_NAME_EMPTY_DEFAULT_VALUE]);
+  });
+
   it("derives section-level data edge handles as section scene anchors", () => {
     const scene = getProjectGpuFlowScene(
       projectStateWithSections({
@@ -1123,14 +1185,14 @@ describe("project GPU layout adapter", () => {
           kind: "pointer",
         },
         clipOwnerId: "dict-a:param-content:unpinned",
-        contentRect: { height: 24, width: 176, x: 0, y: 0 },
+        contentRect: { height: 24, width: 128, x: 0, y: 0 },
         id: "param-control:dict-a:child-param",
         kind: "retained-content-control",
         ownerSectionId: "dict-a",
         rect: {
           height: 24,
-          width: 176,
-          x: 87,
+          width: 128,
+          x: 135,
           y: 71 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
         },
         source: {
@@ -2184,13 +2246,13 @@ describe("project GPU layout adapter", () => {
     expect(scene.domIslands).toEqual([
       {
         clipOwnerId: "dict-a:param-content:unpinned",
-        contentRect: { height: 24, width: 51, x: 0, y: 0 },
+        contentRect: { height: 24, width: 99, x: 0, y: 0 },
         id: "param-label:dict-a:child-param",
         kind: "retained-content-label",
         ownerSectionId: "dict-a",
         rect: {
           height: 24,
-          width: 51,
+          width: 99,
           x: 24,
           y: 71 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
         },
@@ -2406,10 +2468,10 @@ describe("project GPU layout adapter", () => {
     );
 
     expect(dropzoneIsland).toMatchObject({
-      contentRect: { height: 132, width: 276, x: 0, y: 0 },
+      contentRect: { height: 132, width: 240, x: 0, y: 0 },
       kind: "retained-content-control",
       ownerSectionId: "dict-a",
-      rect: { height: 132, width: 276 },
+      rect: { height: 132, width: 240 },
     });
     expect(
       dropzoneSurface?.retainedScene?.rows.find(
@@ -2523,10 +2585,10 @@ describe("project GPU layout adapter", () => {
     });
 
     expect(nativeScene.domIslands[0]).toMatchObject({
-      contentRect: { height: 24, width: 176, x: 0, y: 0 },
+      contentRect: { height: 24, width: 128, x: 0, y: 0 },
       kind: "retained-content-control",
       ownerSectionId: "dict-a",
-      rect: { height: 24, width: 176 },
+      rect: { height: 24, width: 128 },
     });
     expect(
       nativeScene.contentSurfaces

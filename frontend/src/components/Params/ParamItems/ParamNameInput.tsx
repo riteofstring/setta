@@ -38,6 +38,7 @@ import {
   type DictSectionImpl,
 } from "utils/generatedTypes";
 import { validateParamNameInput } from "utils/nameValidation";
+import { PARAM_NAME_EMPTY_DEFAULT_VALUE } from "./paramNameDefaults";
 type ParamNameInputProps = {
   border: string;
   bg: string;
@@ -740,7 +741,7 @@ function LoadedParamNameInput({
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         value={controller.inputValue}
-        defaultVal={"Add Key"}
+        defaultVal={PARAM_NAME_EMPTY_DEFAULT_VALUE}
         onChange={controller.onChange}
         onBlur={controller.onBlur}
         onEscape={controller.onEscape}

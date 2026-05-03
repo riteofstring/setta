@@ -1,6 +1,8 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import { describe, expect, it } from "vitest";
 import {
+  getProjectGpuParamContentControlWidth,
+  getProjectGpuParamContentLabelColumnWidth,
   getProjectGpuParamContentMetrics,
   getProjectGpuParamListSurfaceHeight,
 } from "./projectGpuParamContentLayout";
@@ -46,5 +48,27 @@ describe("project GPU param content layout", () => {
         remainingHeight: 48,
       }),
     ).toBe(48);
+  });
+
+  it("derives retained label/control columns from the param column-width contract", () => {
+    expect(
+      getProjectGpuParamContentLabelColumnWidth({
+        maxNestedDepth: 1,
+        width: 552,
+      }),
+    ).toBe(258);
+    expect(
+      getProjectGpuParamContentControlWidth({
+        maxNestedDepth: 1,
+        width: 552,
+      }),
+    ).toBe(273);
+    expect(
+      getProjectGpuParamContentControlWidth({
+        maxNestedDepth: 1,
+        persistedColumnWidth: 180,
+        width: 552,
+      }),
+    ).toBe(351);
   });
 });

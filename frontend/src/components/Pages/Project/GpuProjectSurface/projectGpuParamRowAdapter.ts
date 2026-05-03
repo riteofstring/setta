@@ -24,7 +24,6 @@ import type {
   GpuRetainedContentRowStatus,
 } from "gpuFlow/retainedContentScene";
 import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
-import { getParamDisplayNameIfPresent } from "state/actions/sectionInfos";
 import type {
   ZustandProjectSearch,
   ZustandProjectState,
@@ -71,6 +70,7 @@ import { toProjectGpuParamDisplayValue } from "./projectGpuParamDisplayValue";
 import { createProjectGpuPasswordControlDescriptor } from "./projectGpuParamPasswordRowDescriptor";
 import { createProjectGpuParamRowStatus } from "./projectGpuParamRowStatus";
 import { getProjectGpuParamRowStatusMessages } from "./projectGpuParamRowStatusMessages";
+import { resolveProjectGpuParamRowLabel } from "./projectGpuParamRowLabel";
 import { createProjectGpuTextLikeControlDescriptorIfSupported } from "./projectGpuParamTextLikeRowDescriptor";
 import {
   getProjectGpuDateCalendarVisibleMonth,
@@ -188,8 +188,12 @@ export function createProjectGpuParamRowInput({
     controlKind,
     depth: row.depth,
     id: row.id,
-    label:
-      getParamDisplayNameIfPresent(projectState, sectionId, row.id) ?? row.id,
+    label: resolveProjectGpuParamRowLabel({
+      codeObjImpl,
+      projectState,
+      rowId: row.id,
+      sectionId,
+    }),
     ports: edgeInputParamIds.has(row.id)
       ? [{ id: row.id, kind: "input", side: "left" }]
       : [],
