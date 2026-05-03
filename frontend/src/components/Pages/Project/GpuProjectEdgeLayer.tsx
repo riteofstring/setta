@@ -1,4 +1,3 @@
-import { useDndState } from "forks/dnd-kit/dndState";
 import { GpuFlow } from "gpuFlow/GpuFlow";
 import { GPU_FLOW_SELECTORS } from "gpuFlow/gpuFlowDomClasses";
 import {
@@ -77,15 +76,9 @@ export function GpuProjectEdgeLayer({
       element: pane,
       getScene: () => sceneRef.current,
       disabled: () => {
-        const dndState = useDndState.getState();
         const viewportState = gpuFlowViewportStore.getState();
         return isProjectGpuEdgeInteractionDisabled({
           connectionActive: viewportState.connectionStartHandle !== null,
-          dndMode: {
-            isMovingFree: dndState.isMovingFree,
-            isSorting: dndState.isSorting,
-          },
-          isDndActive: dndState.activeId !== null,
           isFollowTransitioning: false,
           userSelectionActive: viewportState.userSelectionActive,
           viewportInteractionActive: viewportState.viewportInteractionActive,

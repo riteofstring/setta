@@ -115,6 +115,11 @@ export const useTemporaryMiscState = withProjectState(
   createWithEqualityFn(subscribeWithSelector(withResetFn(() => ({})))),
 );
 
+type ScreenPoint = {
+  readonly x: number;
+  readonly y: number;
+};
+
 export const useProjectLoading = createWithEqualityFn(
   withResetFn(() => ({ projectIsLoading: false, projectIs404: false })),
 );
@@ -124,8 +129,8 @@ export const useMisc = withProjectState(
     subscribeWithSelector(
       withResetFn(() => ({
         isPanScrolling: false,
-        lastMouseDownLocation: null,
-        lastMouseUpLocation: null,
+        lastMouseDownLocation: null as ScreenPoint | null,
+        lastMouseUpLocation: null as ScreenPoint | null,
         mouseDownDrawArea: false,
         mouseDownDraggingSection: false,
         lastPaneClickLocation: { x: 0, y: 0 },

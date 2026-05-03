@@ -5,11 +5,6 @@ import {
   NO_WHEEL_CLASS_NAME,
 } from "utils/constants";
 
-export type ProjectGpuDndMode = {
-  readonly isMovingFree: boolean;
-  readonly isSorting: boolean;
-};
-
 const PROJECT_GPU_PANE_BACKGROUND_ANCESTOR_SELECTORS = [
   "[data-gpu-flow-surface='true']",
   ".setta-gpu-flow",
@@ -34,38 +29,19 @@ const PROJECT_GPU_PANE_NON_BACKGROUND_SELECTORS = [
 ] as const;
 
 type ProjectGpuNodeDragGuardInput = {
-  readonly dndMode: ProjectGpuDndMode;
   readonly isFollowTransitioning: boolean;
   readonly panActivationKeyPressed: boolean;
 };
 
 export function isProjectGpuNodeDragDisabled({
-  dndMode,
   isFollowTransitioning,
   panActivationKeyPressed,
 }: ProjectGpuNodeDragGuardInput): boolean {
-  return (
-    panActivationKeyPressed ||
-    isFollowTransitioning ||
-    dndMode.isSorting ||
-    dndMode.isMovingFree
-  );
-}
-
-type ProjectGpuViewportGestureGuardInput = {
-  readonly dndMode: ProjectGpuDndMode;
-};
-
-export function isProjectGpuViewportGestureDisabled({
-  dndMode,
-}: ProjectGpuViewportGestureGuardInput): boolean {
-  return isProjectGpuDndModeActive(dndMode);
+  return panActivationKeyPressed || isFollowTransitioning;
 }
 
 type ProjectGpuEdgeInteractionGuardInput = {
   readonly connectionActive: boolean;
-  readonly dndMode: ProjectGpuDndMode;
-  readonly isDndActive: boolean;
   readonly isFollowTransitioning: boolean;
   readonly userSelectionActive: boolean;
   readonly viewportInteractionActive: boolean;
@@ -73,36 +49,16 @@ type ProjectGpuEdgeInteractionGuardInput = {
 
 export function isProjectGpuEdgeInteractionDisabled({
   connectionActive,
-  dndMode,
-  isDndActive,
   isFollowTransitioning,
   userSelectionActive,
   viewportInteractionActive,
 }: ProjectGpuEdgeInteractionGuardInput): boolean {
   return (
     connectionActive ||
-    isDndActive ||
     isFollowTransitioning ||
     userSelectionActive ||
-    viewportInteractionActive ||
-    isProjectGpuDndModeActive(dndMode)
+    viewportInteractionActive
   );
-}
-
-type ProjectGpuSelectionGuardInput = {
-  readonly dndMode: ProjectGpuDndMode;
-};
-
-export function isProjectGpuSelectionDisabled({
-  dndMode,
-}: ProjectGpuSelectionGuardInput): boolean {
-  return isProjectGpuDndModeActive(dndMode);
-}
-
-export function isProjectGpuSelectionBoxDragDisabled({
-  dndMode,
-}: ProjectGpuSelectionGuardInput): boolean {
-  return isProjectGpuDndModeActive(dndMode);
 }
 
 type ProjectGpuSelectionBoundsShiftInput = {
@@ -146,10 +102,6 @@ export function isProjectPaneBackgroundTarget(target: EventTarget): boolean {
       PROJECT_GPU_PANE_BACKGROUND_ANCESTOR_SELECTORS,
     )
   );
-}
-
-function isProjectGpuDndModeActive(dndMode: ProjectGpuDndMode): boolean {
-  return dndMode.isSorting || dndMode.isMovingFree;
 }
 
 function closestMatchesAnyProjectPaneSelector(

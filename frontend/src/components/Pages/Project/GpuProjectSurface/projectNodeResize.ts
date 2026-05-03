@@ -1,4 +1,3 @@
-import { useDndState } from "forks/dnd-kit/dndState";
 import type {
   GpuNodeResizeChange,
   GpuNodeResizePolicy,
@@ -361,14 +360,11 @@ function isProjectGpuNodeResizeDisabled({
   flowInteractionKeys: ProjectFlowInteractionKeys;
   isFollowTransitioning: boolean;
 }): boolean {
-  const dndState = useDndState.getState();
   const viewportState = gpuFlowViewportStore.getState();
   return (
     flowInteractionKeys.panActivationKeyPressed ||
     flowInteractionKeys.zoomActivationKeyPressed ||
     isFollowTransitioning ||
-    dndState.isSorting ||
-    dndState.isMovingFree ||
     viewportState.moveSectionActivationKeyPressed ||
     (viewportState.selectionKeyPressed &&
       viewportState.userSelectionRect !== null) ||
