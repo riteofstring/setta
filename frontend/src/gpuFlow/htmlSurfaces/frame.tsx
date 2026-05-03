@@ -14,23 +14,17 @@ import type {
 import type {
   HtmlSurfaceTextureManager,
   HtmlSurfaceTextureMemorySnapshot,
-  HtmlSurfaceTextureRecord,
   HtmlSurfaceTextureUploadDiagnostic,
+  HtmlSurfaceTextureRecord,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
 import {
   createHtmlSurfaceVisualScene,
   type HtmlSurfaceFlatVisual,
-  type HtmlSurfaceMeshVisual,
   type HtmlSurfaceTiledFlatVisual,
   type HtmlSurfaceVisualScene,
 } from "./visualScene";
-
-import {
-  clothTimeMsFromFrame,
-  createHtmlSurfaceClothMeshVisual,
-} from "./clothMesh";
 
 import { resolveGpuNodeCssZIndex, resolveGpuNodeZIndex } from "../nodeZIndex";
 
@@ -182,7 +176,6 @@ export type GpuNodeSurfaceRenderTarget = {
 
 export type RenderHtmlSurfaceFrameInput = {
   readonly activeNodeId?: string | null | undefined;
-  readonly animationTimeMs?: number | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
   readonly deferResolutionUpdates?: boolean | undefined;
@@ -333,7 +326,6 @@ export function mergeGpuNodeHostClassName(
 
 export function renderHtmlSurfaceFrame({
   activeNodeId,
-  animationTimeMs,
   canvasSize,
   clearColor,
   deferResolutionUpdates,
@@ -403,9 +395,7 @@ export function renderHtmlSurfaceFrame({
   const uploadedTexturedQuads = textureResult.texturedQuads.filter(
     (quad) => quad.texture.lastUploadFrame >= 0,
   );
-  const visualSurfaces = buildHtmlSurfaceVisuals(uploadedTexturedQuads, {
-    timeMs: animationTimeMs ?? clothTimeMsFromFrame(frame),
-  });
+  const visualSurfaces = buildHtmlSurfaceVisuals(uploadedTexturedQuads);
   const visualScene = createHtmlSurfaceVisualScene(visualSurfaces);
   const renderResult = renderer.render({
     canvasSize,
@@ -631,14 +621,11 @@ export function toFlatHtmlSurfaceVisual(
 
 export function buildHtmlSurfaceVisuals(
   quads: readonly GpuTexturedNodeQuad[],
-  options: { readonly timeMs?: number | undefined } = {},
 ): {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-  readonly meshSurfaces: readonly HtmlSurfaceMeshVisual[];
   readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
 } {
   const flatSurfaces: HtmlSurfaceFlatVisual[] = [];
-  const meshSurfaces: HtmlSurfaceMeshVisual[] = [];
   const tiledFlatSurfaces: HtmlSurfaceTiledFlatVisual[] = [];
   for (const quad of quads) {
     if (quad.texture.textureLayout?.kind === "tiled") {
@@ -657,24 +644,10 @@ export function buildHtmlSurfaceVisuals(
       });
       continue;
     }
-    meshSurfaces.push(
-      createHtmlSurfaceClothMeshVisual({
-        rect: {
-          height: quad.height,
-          width: quad.width,
-          x: quad.x,
-          y: quad.y,
-        },
-        surfaceId: quad.nodeId,
-        texture: quad.texture,
-        timeMs: options.timeMs,
-        zIndex: quad.zIndex,
-      }),
-    );
+    flatSurfaces.push(toFlatHtmlSurfaceVisual(quad));
   }
   return {
     flatSurfaces,
-    meshSurfaces,
     tiledFlatSurfaces,
   };
 }
