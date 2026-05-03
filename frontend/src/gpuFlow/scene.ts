@@ -178,7 +178,7 @@ export function createGpuFlowContentSurfacesFromSections(
       ];
     }),
     ...contentSurfaces,
-  ]);
+  ]).filter(isGpuContentSurfaceInsideClip);
 }
 
 function isGpuSectionSceneNodeInsideClip(
@@ -188,6 +188,14 @@ function isGpuSectionSceneNodeInsideClip(
     isPositiveGpuRect(section.worldRect) &&
     isPositiveGpuRect(section.clipRect) &&
     rectsIntersect(section.worldRect, section.clipRect)
+  );
+}
+
+function isGpuContentSurfaceInsideClip(surface: GpuContentSurface): boolean {
+  return (
+    isPositiveGpuRect(surface.rect) &&
+    isPositiveGpuRect(surface.clipRect) &&
+    rectsIntersect(surface.rect, surface.clipRect)
   );
 }
 

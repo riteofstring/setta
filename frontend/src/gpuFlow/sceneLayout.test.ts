@@ -57,6 +57,11 @@ describe("GPU flow scene layout", () => {
     expect(
       getGpuFlowSceneDomSectionNodes(scene).map((section) => section.sectionId),
     ).toEqual(["parent", "child-a", "child-b"]);
+    expect(scene.contentSurfaces.map((surface) => surface.id)).toEqual([
+      "parent",
+      "child-a",
+      "child-b",
+    ]);
   });
 
   it("lays out horizontal and kanban child sections using parent spacing metadata", () => {
@@ -147,7 +152,7 @@ describe("GPU flow scene layout", () => {
     });
   });
 
-  it("preserves adapter-owned canvas content surfaces after section layout", () => {
+  it("preserves visible adapter-owned canvas content surfaces after section layout", () => {
     const scene = resolveGpuFlowSceneLayout({
       ...sceneWithSections([
         sectionNode({
@@ -164,6 +169,17 @@ describe("GPU flow scene layout", () => {
           renderer: {
             kind: "canvas-content",
             surfaceId: "section-a:param-content:unpinned",
+          },
+          zIndex: 1,
+        },
+        {
+          clipRect: rect(10, 120, 100, 0),
+          id: "section-a:param-content:pinned",
+          ownerSectionId: "section-a",
+          rect: rect(10, 120, 100, 40),
+          renderer: {
+            kind: "canvas-content",
+            surfaceId: "section-a:param-content:pinned",
           },
           zIndex: 1,
         },
