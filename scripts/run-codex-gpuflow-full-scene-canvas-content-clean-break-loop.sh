@@ -101,7 +101,8 @@ Loop-specific guardrails:
   text-input bounds/shells, and section chrome. Inactive CodeMirror-like text
   previews are renderer-aware canvas previews: do not attempt to pixel-match
   CodeMirror token spans or syntax colors until the control is activated and
-  the real DOM editor is mounted.
+  the real DOM editor is mounted. Do not add literal-value branches or tiny
+  syntax highlighters to inactive canvas previews for visual-fidelity parity.
 - Synthetic param-control fixtures are still required, but they are not enough
   to declare parity. When a visible renderer/control change needs broader
   coverage, expand `scripts/gpuflow-visual-fidelity-checkpoint.mjs` instead of

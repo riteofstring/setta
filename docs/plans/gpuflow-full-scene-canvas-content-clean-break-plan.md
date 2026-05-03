@@ -447,7 +447,9 @@ canvas preview must preserve the control's bounds, shell, readable typography,
 text content, whitespace/line breaks where relevant, clipping, and activation
 affordance, but it is not required to pixel-match CodeMirror token spans,
 syntax colors, or other CodeMirror CSS internals. Syntax-highlight fidelity is
-required only after activation, when the real DOM editor is mounted.
+required only after activation, when the real DOM editor is mounted. Inactive
+canvas previews should not branch on literal values or implement a tiny syntax
+highlighter to chase CodeMirror visual parity.
 
 ### Port And Edge Geometry
 
@@ -743,7 +745,8 @@ text previews. It masks only inactive preview glyph/token pixels collected from
 geometry, row spacing, label/control placement, section chrome, and active
 CodeMirror DOM. Do not try to satisfy this checkpoint by reimplementing
 CodeMirror syntax highlighting in canvas or by adding hardcoded token-color
-rules.
+rules. Inactive previews should use the retained text-control presentation and
+leave CodeMirror syntax fidelity to active DOM editors.
 
 The checkpoint compares:
 

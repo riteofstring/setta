@@ -86,8 +86,6 @@ const palette: GpuRetainedContentCanvasPalette = {
   surfaceBackground: "#surface",
   textLikeBackground: "#text-like",
   textLikeBorder: "#text-like-border",
-  textLikeCodeAtomText: "#text-like-code-atom",
-  textLikeCodeNumberText: "#text-like-code-number",
   textLikeDisabledBackground: "#text-like-disabled",
   textLikeDisabledText: "#text-like-disabled-text",
   textLikeFocusedBorder: "#text-like-focused",

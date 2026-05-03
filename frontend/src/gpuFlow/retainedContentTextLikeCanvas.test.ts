@@ -31,7 +31,7 @@ describe("retained content text-like canvas", () => {
     expect(ctx.fillText).toHaveBeenCalledWith("sample", 14, 17, 152);
   });
 
-  it("uses the retained CodeMirror literal color for primitive values", () => {
+  it("uses plain retained text color for inactive primitive values", () => {
     const ctx = createCanvasContextRecorder();
     const palette = getGpuRetainedContentCanvasPalette(true);
 
@@ -50,7 +50,7 @@ describe("retained content text-like canvas", () => {
       state: undefined,
     });
 
-    expect(ctx.fillStyle).toBe(palette.textLikeCodeAtomText);
+    expect(ctx.fillStyle).toBe(palette.textLikeText);
     expect(ctx.font).toContain("12px ui-monospace");
     expect(ctx.fillText).toHaveBeenCalledWith("false", 14, 17, 152);
   });

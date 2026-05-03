@@ -20,8 +20,6 @@ export type GpuRetainedContentCanvasPalette = {
   readonly textLikeBorder: string;
   readonly textLikeDisabledBackground: string;
   readonly textLikeDisabledText: string;
-  readonly textLikeCodeAtomText: string;
-  readonly textLikeCodeNumberText: string;
   readonly textLikeFocusedBorder: string;
   readonly textLikeSelectedBorder: string;
   readonly textLikeText: string;
@@ -48,8 +46,6 @@ const LIGHT_RETAINED_CONTENT_CANVAS_PALETTE: GpuRetainedContentCanvasPalette = {
   surfaceBackground: "#f8fafc",
   textLikeBackground: "#ffffff",
   textLikeBorder: "#cbd5e1",
-  textLikeCodeAtomText: "#e36209",
-  textLikeCodeNumberText: "#005cc5",
   textLikeDisabledBackground: "#f1f5f9",
   textLikeDisabledText: "#94a3b8",
   textLikeFocusedBorder: "#2563eb",
@@ -78,8 +74,6 @@ const DARK_RETAINED_CONTENT_CANVAS_PALETTE: GpuRetainedContentCanvasPalette = {
   surfaceBackground: "hsl(220, 25%, 8.5%)",
   textLikeBackground: "transparent",
   textLikeBorder: "rgba(71, 85, 105, 0.5)",
-  textLikeCodeAtomText: "#ffab70",
-  textLikeCodeNumberText: "#79c0ff",
   textLikeDisabledBackground: "transparent",
   textLikeDisabledText: "rgb(100, 116, 139)",
   textLikeFocusedBorder: "rgb(96, 165, 250)",
