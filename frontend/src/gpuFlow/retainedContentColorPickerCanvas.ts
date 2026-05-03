@@ -416,30 +416,19 @@ function drawGpuRetainedContentNativeColorGlyph({
   readonly outer: GpuRect;
   readonly strokeStyle: string;
 }) {
-  const centerX = outer.x + outer.width / 2;
-  const centerY = outer.y + outer.height / 2;
+  const centerX = outer.x + outer.width / 2 - 0.5;
+  const centerY = outer.y + outer.height / 2 + 0.5;
   ctx.save();
   ctx.translate(centerX, centerY);
   ctx.rotate(-Math.PI / 4);
-  ctx.scale(0.75, 0.75);
   ctx.strokeStyle = strokeStyle;
-  ctx.fillStyle = strokeStyle;
-  ctx.lineWidth = 2;
-  ctx.lineCap = "butt";
-  ctx.lineJoin = "round";
+  ctx.lineWidth = 1.35;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(-8, 0);
-  ctx.quadraticCurveTo(-8, -3, -5, -3);
-  ctx.lineTo(5, -3);
-  ctx.lineTo(5, 3);
-  ctx.lineTo(-5, 3);
-  ctx.quadraticCurveTo(-8, 3, -8, 0);
-  ctx.closePath();
+  ctx.moveTo(0, -5);
+  ctx.lineTo(0, 5);
   ctx.stroke();
-  ctx.fillRect(6, -5, 2, 10);
-  fillRoundRect(ctx, { height: 6, width: 8, x: 8, y: -3 }, 3);
   ctx.lineCap = "butt";
-  ctx.lineJoin = "miter";
   ctx.restore();
 }
 
