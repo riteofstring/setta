@@ -38,17 +38,19 @@ export function drawGpuRetainedContentDropdownControl({
 
 export function drawGpuRetainedContentDropdownPopupOption({
   ctx,
+  highlighted,
   option,
   rect,
   selected,
 }: {
   readonly ctx: CanvasRenderingContext2D;
+  readonly highlighted: boolean;
   readonly option: GpuRetainedContentDropdownChoice;
   readonly rect: GpuRect;
   readonly selected: boolean;
 }) {
-  if (selected) {
-    ctx.fillStyle = "#dbeafe";
+  if (selected || highlighted) {
+    ctx.fillStyle = selected ? "#dbeafe" : "#eff6ff";
     fillRoundRect(ctx, rect, 4);
   }
   ctx.font = RETAINED_CONTENT_CONTROL_FONT;

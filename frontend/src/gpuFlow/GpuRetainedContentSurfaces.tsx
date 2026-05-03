@@ -274,6 +274,7 @@ function drawGpuRetainedContentPopupCommand({
     if ("color" in command.option) {
       drawGpuRetainedContentColorPickerPopupOption({
         ctx,
+        highlighted: command.highlighted,
         option: command.option,
         rect: command.rect,
         selected: command.selected,
@@ -282,6 +283,7 @@ function drawGpuRetainedContentPopupCommand({
     }
     drawGpuRetainedContentDropdownPopupOption({
       ctx,
+      highlighted: command.highlighted,
       option: command.option,
       rect: command.rect,
       selected: command.selected,

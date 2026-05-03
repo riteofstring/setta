@@ -40,7 +40,7 @@ export function commitProjectGpuRetainedColorPickerPopupOption(
     return false;
   }
   const choice = getProjectGpuRetainedColorPickerChoice(event, row);
-  commitProjectGpuRetainedColorChoiceClick({
+  commitProjectGpuRetainedColorChoiceValue({
     nextColor: choice.color,
     paramInfoId: event.hit.ownerRowId,
     sectionId: event.ownerSectionId,
@@ -75,7 +75,7 @@ function getProjectGpuRetainedColorPickerChoice(
   return choice;
 }
 
-function commitProjectGpuRetainedColorChoiceClick({
+export function commitProjectGpuRetainedColorChoiceValue({
   nextColor,
   paramInfoId,
   sectionId,

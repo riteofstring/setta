@@ -179,6 +179,7 @@ type GpuRetainedContentVisibleRowRange = {
 };
 
 export type GpuRetainedContentActivePopupInput = {
+  readonly highlightedOptionIndex?: number | null | undefined;
   readonly kind: "color-picker" | "date-calendar" | "dropdown";
   readonly ownerRowId: string;
 };
@@ -232,6 +233,7 @@ export type GpuRetainedContentDrawCommand =
     }
   | {
       readonly kind: "control-popup-option";
+      readonly highlighted: boolean;
       readonly option: GpuRetainedContentPopupChoice;
       readonly optionIndex: number;
       readonly rect: GpuRect;
@@ -578,6 +580,7 @@ function createGpuRetainedContentDrawCommands({
     });
     for (const option of popup.options) {
       commands.push({
+        highlighted: option.highlighted,
         kind: "control-popup-option",
         option: option.choice,
         optionIndex: option.optionIndex,

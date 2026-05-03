@@ -17,6 +17,7 @@ type GpuRetainedContentPopupRow = GpuRetainedContentRow & {
 
 type GpuRetainedContentPopupMetrics = {
   readonly backgroundRect: GpuRect;
+  readonly highlightedIndex: number;
   readonly optionCount: number;
   readonly startIndex: number;
 };
@@ -25,6 +26,7 @@ type GpuRetainedContentActivePopupLayout = {
   readonly backgroundRect: GpuRect;
   readonly options: readonly {
     readonly choice: GpuRetainedContentPopupChoice;
+    readonly highlighted: boolean;
     readonly optionIndex: number;
     readonly rect: GpuRect;
     readonly selected: boolean;
@@ -55,6 +57,7 @@ export function createGpuRetainedContentActivePopupLayout({
   const metrics = createGpuRetainedContentPopupMetrics({
     choiceCount: row.control.choices.length,
     controlRect: controlRect(row),
+    highlightedIndex: activePopup?.highlightedOptionIndex,
     selectedIndex: row.control.selectedIndex,
     viewportRect,
   });
@@ -65,6 +68,7 @@ export function createGpuRetainedContentActivePopupLayout({
     backgroundRect: metrics.backgroundRect,
     options: createGpuRetainedContentPopupOptions({
       backgroundRect: metrics.backgroundRect,
+      highlightedIndex: metrics.highlightedIndex,
       optionCount: metrics.optionCount,
       row,
       startIndex: metrics.startIndex,
@@ -103,11 +107,13 @@ function isGpuRetainedContentPopupControl(
 function createGpuRetainedContentPopupMetrics({
   choiceCount,
   controlRect,
+  highlightedIndex,
   selectedIndex,
   viewportRect,
 }: {
   readonly choiceCount: number;
   readonly controlRect: GpuRect;
+  readonly highlightedIndex: number | null | undefined;
   readonly selectedIndex: number | null;
   readonly viewportRect: GpuRect;
 }): GpuRetainedContentPopupMetrics | null {
@@ -121,8 +127,13 @@ function createGpuRetainedContentPopupMetrics({
   }
   const height =
     optionCount * DEFAULT_POPUP_OPTION_HEIGHT + DEFAULT_POPUP_PADDING * 2;
+  const focusIndex = clampInteger(
+    highlightedIndex ?? selectedIndex ?? 0,
+    0,
+    Math.max(0, choiceCount - 1),
+  );
   const startIndex = clampInteger(
-    selectedIndex ?? 0,
+    focusIndex,
     0,
     Math.max(0, choiceCount - optionCount),
   );
@@ -133,6 +144,7 @@ function createGpuRetainedContentPopupMetrics({
       x: getGpuRetainedContentPopupX({ controlRect, viewportRect, width }),
       y: getGpuRetainedContentPopupY({ controlRect, height, viewportRect }),
     },
+    highlightedIndex: focusIndex,
     optionCount,
     startIndex,
   };
@@ -140,11 +152,13 @@ function createGpuRetainedContentPopupMetrics({
 
 function createGpuRetainedContentPopupOptions({
   backgroundRect,
+  highlightedIndex,
   optionCount,
   row,
   startIndex,
 }: {
   readonly backgroundRect: GpuRect;
+  readonly highlightedIndex: number;
   readonly optionCount: number;
   readonly row: GpuRetainedContentPopupRow;
   readonly startIndex: number;
@@ -155,6 +169,7 @@ function createGpuRetainedContentPopupOptions({
       const optionIndex = startIndex + offset;
       return {
         choice,
+        highlighted: highlightedIndex === optionIndex,
         optionIndex,
         rect: {
           height: DEFAULT_POPUP_OPTION_HEIGHT,

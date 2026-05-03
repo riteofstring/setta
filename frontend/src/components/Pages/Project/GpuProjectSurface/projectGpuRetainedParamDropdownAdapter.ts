@@ -43,7 +43,7 @@ export function commitProjectGpuRetainedDropdownPopupOption(
     return false;
   }
   const choice = getProjectGpuRetainedDropdownChoice(event, row);
-  commitProjectGpuRetainedDropdownChoiceClick({
+  commitProjectGpuRetainedDropdownChoiceValue({
     nextValue: choice.value,
     paramInfoId: event.hit.ownerRowId,
     sectionId: event.ownerSectionId,
@@ -78,7 +78,7 @@ function getProjectGpuRetainedDropdownChoice(
   return choice;
 }
 
-function commitProjectGpuRetainedDropdownChoiceClick({
+export function commitProjectGpuRetainedDropdownChoiceValue({
   nextValue,
   paramInfoId,
   sectionId,

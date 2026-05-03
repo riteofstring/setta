@@ -77,6 +77,7 @@ type ProjectGpuDateCalendarVisibleMonth = {
 
 export type ProjectGpuActiveParamCanvasPopup =
   | (ProjectGpuRetainedParamTarget & {
+      readonly highlightedOptionIndex?: number | null | undefined;
       readonly kind: "color-picker" | "dropdown";
     })
   | (ProjectGpuRetainedParamTarget & {
@@ -837,7 +838,15 @@ function getProjectGpuParamRetainedContentActivePopupInput({
   ) {
     return null;
   }
+  const choicePopupHighlightedOptionIndex =
+    activeParamCanvasPopup.kind === "color-picker" ||
+    activeParamCanvasPopup.kind === "dropdown"
+      ? activeParamCanvasPopup.highlightedOptionIndex
+      : undefined;
   return {
+    ...(choicePopupHighlightedOptionIndex === undefined
+      ? {}
+      : { highlightedOptionIndex: choicePopupHighlightedOptionIndex }),
     kind: activeParamCanvasPopup.kind,
     ownerRowId: activeParamCanvasPopup.paramInfoId,
   };

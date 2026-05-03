@@ -384,7 +384,11 @@ describe("retained content scene", () => {
 
   it("emits retained dropdown descriptors and popup option hits", () => {
     const scene = createGpuRetainedRowContentScene({
-      activePopup: { kind: "dropdown", ownerRowId: "dropdown-param" },
+      activePopup: {
+        highlightedOptionIndex: 0,
+        kind: "dropdown",
+        ownerRowId: "dropdown-param",
+      },
       id: "surface-a",
       ownerSectionId: "section-a",
       rowHeight: 24,
@@ -436,6 +440,15 @@ describe("retained content scene", () => {
           rowId: "dropdown-param",
         }),
         expect.objectContaining({
+          highlighted: true,
+          kind: "control-popup-option",
+          option: { label: "Small", value: "small" },
+          optionIndex: 0,
+          rowId: "dropdown-param",
+          selected: false,
+        }),
+        expect.objectContaining({
+          highlighted: false,
           kind: "control-popup-option",
           option: { label: "Large", value: "large" },
           optionIndex: 1,

@@ -64,6 +64,7 @@ import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
 import { useProjectGpuActiveParamCanvasPopupDismissal } from "./projectGpuActiveParamCanvasPopupDismissal";
+import { useProjectGpuActiveParamCanvasPopupKeyboard } from "./projectGpuActiveParamCanvasPopupKeyboard";
 import { shouldClearProjectGpuActiveParamDomIslandOnPointerDown } from "./projectGpuActiveParamDomIslandDeactivation";
 import { PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER } from "./projectGpuFramePerformance";
 import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
@@ -215,6 +216,12 @@ export function GpuProjectSurface() {
     activeParamCanvasPopup,
     onDismiss: dismissActiveParamCanvasPopup,
     rootRef,
+  });
+  useProjectGpuActiveParamCanvasPopupKeyboard({
+    activeParamCanvasPopup,
+    onActiveParamCanvasPopupChange: setActiveParamCanvasPopup,
+    rootRef,
+    scene: layoutAdapter.scene,
   });
   useTabScope({
     behavior: "canvas",
