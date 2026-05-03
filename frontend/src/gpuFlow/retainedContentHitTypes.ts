@@ -8,6 +8,7 @@ export type GpuRetainedContentHitRecord = {
     | "control"
     | "control-subpart"
     | "label"
+    | "popup-background"
     | "popup-date-cell"
     | "popup-date-navigation"
     | "popup-option"

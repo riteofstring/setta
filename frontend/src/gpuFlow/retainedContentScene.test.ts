@@ -367,6 +367,11 @@ describe("retained content scene", () => {
     expect(scene.hitRecords).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          id: "popup-background:color-param",
+          kind: "popup-background",
+          ownerRowId: "color-param",
+        }),
+        expect.objectContaining({
           id: "popup-option:color-param:1",
           kind: "popup-option",
           optionIndex: 1,
@@ -441,6 +446,11 @@ describe("retained content scene", () => {
     );
     expect(scene.hitRecords).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          id: "popup-background:dropdown-param",
+          kind: "popup-background",
+          ownerRowId: "dropdown-param",
+        }),
         expect.objectContaining({
           id: "popup-option:dropdown-param:1",
           kind: "popup-option",
@@ -721,6 +731,11 @@ describe("retained content scene", () => {
     );
     expect(scene.hitRecords).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          id: "popup-background:date-param",
+          kind: "popup-background",
+          ownerRowId: "date-param",
+        }),
         expect.objectContaining({
           cellIsoDate: "2026-05-04",
           id: "popup-date-cell:date-param:2026-05-04",

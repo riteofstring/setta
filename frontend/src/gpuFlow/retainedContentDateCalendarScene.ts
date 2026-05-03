@@ -94,6 +94,12 @@ export function createGpuRetainedContentDateCalendarHitRecords({
     return [];
   }
   return [
+    {
+      id: `popup-background:${popup.row.id}`,
+      kind: "popup-background",
+      ownerRowId: popup.row.id,
+      rect: popup.backgroundRect,
+    },
     ...popup.navigation.map((navigation) => ({
       id: `popup-date-navigation:${popup.row.id}:${navigation.direction}`,
       kind: "popup-date-navigation" as const,

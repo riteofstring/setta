@@ -1829,6 +1829,97 @@ describe("project GPU retained param DOM islands", () => {
     expect(mocks.setParamEnteredValueMock).not.toHaveBeenCalled();
   });
 
+  it("dismisses retained canvas popups on pointer miss without mounting a DOM island", () => {
+    const onActiveParamCanvasPopupChange = vi.fn();
+    const onActiveParamDomIslandChange = vi.fn();
+    const rows = [
+      {
+        control: {
+          choices: [
+            { label: "Small", value: "small" },
+            { label: "Large", value: "large" },
+          ],
+          defaultDisplayValue: "small",
+          displayValue: "small",
+          kind: "dropdown" as const,
+          rendererFamily: "dropdown",
+          commitPolicy: "immediate" as const,
+          selectedIndex: 0,
+        },
+        controlKind: "dropdown",
+        depth: 0,
+        id: "param-1",
+        label: "Param 1",
+      },
+    ];
+    const popupScene = createGpuRetainedRowContentScene({
+      activePopup: { kind: "dropdown", ownerRowId: "param-1" },
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows,
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 96, width: 180, x: 0, y: 0 },
+    });
+    const backgroundHit = popupScene.hitRecords.find(
+      (candidate) => candidate.kind === "popup-background",
+    );
+    if (!backgroundHit) {
+      throw new Error("Expected retained popup background hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamCanvasPopupChange,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const backgroundEvent = {
+      hit: backgroundHit,
+      localPoint: {
+        x: backgroundHit.rect.x + backgroundHit.rect.width / 2,
+        y: backgroundHit.rect.y + backgroundHit.rect.height / 2,
+      },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene: popupScene,
+      screenPoint: { x: 140, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    expect(options.shouldHandleHit?.(backgroundEvent)).toBe(true);
+    options.onHitClick(backgroundEvent);
+
+    expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        paramInfoId: "param-1",
+      }),
+    );
+    expect(onActiveParamCanvasPopupChange).not.toHaveBeenCalledWith(null);
+
+    options.onPointerDownMiss?.({
+      nativeEvent: new MouseEvent("pointerdown", {
+        clientX: 12,
+        clientY: 12,
+      }) as PointerEvent,
+      screenPoint: { x: 12, y: 12 },
+    });
+
+    expect(onActiveParamCanvasPopupChange).toHaveBeenCalledWith(null);
+  });
+
   it("deletes retained dropzone attachments from canvas without mounting a DOM island", async () => {
     seedDropzoneParamProjectState(
       JSON.stringify({

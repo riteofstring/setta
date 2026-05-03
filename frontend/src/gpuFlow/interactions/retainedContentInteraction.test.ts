@@ -247,6 +247,33 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("reports pointer misses without taking pointer ownership", () => {
+    const element = createHostElement();
+    const onPointerDownMiss = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onPointerDownMiss,
+      shouldHandleHit: (hit) => hit.hit.kind === "control",
+      store: createGpuFlowViewportStore(),
+    });
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 20,
+      clientY: 42,
+      pointerId: 1,
+    });
+    element.dispatchEvent(pointerDown);
+
+    expect(pointerDown.defaultPrevented).toBe(false);
+    expect(onPointerDownMiss).toHaveBeenCalledWith({
+      nativeEvent: pointerDown,
+      screenPoint: { x: 20, y: 42 },
+    });
+
+    cleanup();
+  });
+
   it("can expose hover hits separately from pointer ownership hits", () => {
     const element = createHostElement();
     const onHitPointerLeave = vi.fn();
@@ -325,10 +352,12 @@ describe("GPU retained content interaction controller", () => {
     portalRoot.append(portalOption);
     element.append(input, domIsland, interactiveControl, portalRoot);
     const onHitClick = vi.fn();
+    const onPointerDownMiss = vi.fn();
     const cleanup = attachGpuRetainedContentInteractionController({
       element,
       getScene: () => retainedContentScene(),
       onHitClick,
+      onPointerDownMiss,
       store: createGpuFlowViewportStore(),
     });
 
@@ -349,6 +378,7 @@ describe("GPU retained content interaction controller", () => {
       expect(pointerDown.defaultPrevented).toBe(false);
     }
     expect(onHitClick).not.toHaveBeenCalled();
+    expect(onPointerDownMiss).not.toHaveBeenCalled();
 
     cleanup();
   });

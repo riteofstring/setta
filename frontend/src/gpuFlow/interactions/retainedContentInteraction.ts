@@ -22,6 +22,13 @@ export type GpuRetainedContentInteractionEvent<
   readonly nativeEvent: NativeEvent;
 };
 
+type GpuRetainedContentPointerMissEvent<
+  NativeEvent extends PointerEvent = PointerEvent,
+> = {
+  readonly nativeEvent: NativeEvent;
+  readonly screenPoint: GpuPoint;
+};
+
 export type GpuRetainedContentDragEvent<
   NativeEvent extends PointerEvent = PointerEvent,
 > = {
@@ -71,6 +78,9 @@ export type GpuRetainedContentInteractionControllerOptions = {
         readonly hit: GpuRetainedContentInteractionHit | null;
         readonly nativeEvent: PointerEvent;
       }) => void)
+    | undefined;
+  readonly onPointerDownMiss?:
+    | ((event: GpuRetainedContentPointerMissEvent) => void)
     | undefined;
   readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
   readonly shouldHandleHit?:
@@ -194,8 +204,15 @@ class GpuRetainedContentInteractionController {
   }
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    if (this.shouldSkipPointerEvent(event)) {
+      return;
+    }
     const hit = this.hitTestEvent(event);
     if (!hit) {
+      this.options.onPointerDownMiss?.({
+        nativeEvent: event,
+        screenPoint: getEventPointRelativeToElement(event, this.element),
+      });
       return;
     }
     if (event.button !== 0) {
@@ -275,10 +292,7 @@ class GpuRetainedContentInteractionController {
       | ((hit: GpuRetainedContentInteractionHit) => boolean)
       | undefined = this.options.shouldHandleHit,
   ): GpuRetainedContentInteractionHit | null {
-    if (
-      isRetainedContentInteractionDisabled(this.options.disabled) ||
-      shouldPreserveGpuRetainedContentNativeTarget(event)
-    ) {
+    if (this.shouldSkipPointerEvent(event)) {
       return null;
     }
     const hit = hitTestGpuRetainedContentInteraction({
@@ -291,6 +305,13 @@ class GpuRetainedContentInteractionController {
       return null;
     }
     return hit;
+  }
+
+  private shouldSkipPointerEvent(event: Pick<PointerEvent, "target">): boolean {
+    return (
+      isRetainedContentInteractionDisabled(this.options.disabled) ||
+      shouldPreserveGpuRetainedContentNativeTarget(event)
+    );
   }
 
   private clearHover() {

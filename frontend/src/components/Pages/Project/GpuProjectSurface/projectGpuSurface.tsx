@@ -63,6 +63,7 @@ import {
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import { useProjectGpuActiveParamCanvasPopupDismissal } from "./projectGpuActiveParamCanvasPopupDismissal";
 import { shouldClearProjectGpuActiveParamDomIslandOnPointerDown } from "./projectGpuActiveParamDomIslandDeactivation";
 import { PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER } from "./projectGpuFramePerformance";
 import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
@@ -169,6 +170,9 @@ export function GpuProjectSurface() {
     useState<ProjectGpuActiveParamDomIsland | null>(null);
   const [activeParamCanvasPopup, setActiveParamCanvasPopup] =
     useState<ProjectGpuActiveParamCanvasPopup | null>(null);
+  const dismissActiveParamCanvasPopup = useCallback(() => {
+    setActiveParamCanvasPopup(null);
+  }, []);
   const [hoveredParamTarget, setHoveredParamTarget] =
     useState<ProjectGpuRetainedParamTarget | null>(null);
   const [retainedParamDragPreview, setRetainedParamDragPreview] =
@@ -207,6 +211,11 @@ export function GpuProjectSurface() {
   const readyToRender = dimensions.height > 0 && dimensions.width > 0;
 
   useProjectViewportSettingsSync(settings);
+  useProjectGpuActiveParamCanvasPopupDismissal({
+    activeParamCanvasPopup,
+    onDismiss: dismissActiveParamCanvasPopup,
+    rootRef,
+  });
   useTabScope({
     behavior: "canvas",
     order: 20,
@@ -234,7 +243,7 @@ export function GpuProjectSurface() {
       onClick={(event) => {
         if (isProjectPaneBackgroundTarget(event.target)) {
           setActiveParamDomIsland(null);
-          setActiveParamCanvasPopup(null);
+          dismissActiveParamCanvasPopup();
         }
         handleProjectPaneClick(event);
       }}

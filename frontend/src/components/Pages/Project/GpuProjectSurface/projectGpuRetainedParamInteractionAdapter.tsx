@@ -195,6 +195,9 @@ export function getProjectRetainedContentInteractionOptions({
       onHoveredParamTargetChange(
         event.hit ? toProjectGpuRetainedParamTarget(event.hit) : null,
       ),
+    onPointerDownMiss: () => {
+      handleActiveParamCanvasPopupChange(null);
+    },
     shouldHandleDragMoveHit: (event: GpuRetainedContentInteractionHit) =>
       event.hit.kind === "row" ||
       event.hit.kind === "label" ||
@@ -393,6 +396,10 @@ function handleProjectRetainedContentClick(
       onActiveParamDomIslandChange,
     })
   ) {
+    return;
+  }
+  if (event.hit.kind === "popup-background") {
+    onActiveParamDomIslandChange(null);
     return;
   }
   if (
@@ -727,6 +734,7 @@ function isProjectRetainedParamCanvasPopupHit(
   event: GpuRetainedContentInteractionHit,
 ): boolean {
   return (
+    event.hit.kind === "popup-background" ||
     isProjectGpuRetainedColorPickerPopupOptionHit(event) ||
     isProjectGpuRetainedDropdownPopupOptionHit(event) ||
     isProjectGpuRetainedDateCalendarPopupCellHit(event) ||

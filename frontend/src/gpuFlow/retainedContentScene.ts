@@ -827,6 +827,12 @@ function createGpuRetainedContentHitRecords({
     viewportRect,
   });
   if (popup) {
+    hitRecords.push({
+      id: `popup-background:${popup.row.id}`,
+      kind: "popup-background",
+      ownerRowId: popup.row.id,
+      rect: popup.backgroundRect,
+    });
     for (const option of popup.options) {
       hitRecords.push({
         id: `popup-option:${popup.row.id}:${option.optionIndex}`,
