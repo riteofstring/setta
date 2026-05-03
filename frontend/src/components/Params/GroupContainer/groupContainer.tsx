@@ -53,7 +53,9 @@ import {
 import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
+  type SectionSize,
   type SectionSizingPolicy,
+  type SectionType,
 } from "utils/generatedTypes";
 
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
@@ -187,14 +189,54 @@ export function filterShownParamIds(
   state: ProjectStateSnapshot,
   sectionId: string,
   isPinned: boolean,
-  edgeInputParams: Array<string>,
+  edgeInputParams: Array<string> | null | undefined,
 ): FilteredParamList {
   const shownParamIds = getCurrShownParamIds(state, sectionId, isPinned, true);
-  return filterEdgeInputs(
-    shownParamIds.requiredParamIdsToPaths,
+  const normalizedShownParamIds = normalizeShownParamIdList(
     shownParamIds.topLevelParamIds,
-    edgeInputParams,
+    sectionId,
   );
+  const normalizedRequiredParamIdsToPaths = normalizeRequiredParamIdsToPaths(
+    shownParamIds.requiredParamIdsToPaths,
+    sectionId,
+  );
+  return filterEdgeInputs(
+    normalizedRequiredParamIdsToPaths,
+    normalizedShownParamIds,
+    edgeInputParams ?? [],
+  );
+}
+
+function normalizeShownParamIdList(
+  paramIds: Array<string> | null | undefined,
+  sectionId: string,
+): Array<string> {
+  if (!Array.isArray(paramIds)) {
+    throw new Error(`Missing shown param ids for section ${sectionId}.`);
+  }
+  return paramIds;
+}
+
+function normalizeRequiredParamIdsToPaths(
+  requiredParamIdsToPaths:
+    | Record<string, Array<string> | null>
+    | null
+    | undefined,
+  sectionId: string,
+): Record<string, Array<string>> {
+  if (!requiredParamIdsToPaths) {
+    throw new Error(`Missing shown param paths for section ${sectionId}.`);
+  }
+  const normalized: Record<string, Array<string>> = {};
+  for (const [paramId, path] of Object.entries(requiredParamIdsToPaths)) {
+    if (!Array.isArray(path)) {
+      throw new Error(
+        `Missing shown param path for param ${paramId} in section ${sectionId}.`,
+      );
+    }
+    normalized[paramId] = path;
+  }
+  return normalized;
 }
 
 export function useHasSectionStyleTheme(
@@ -238,9 +280,10 @@ export function getEdgeInputPortLabel(
   requiredParamIdsToPaths: Record<string, Array<string>>,
 ) {
   const path = requiredParamIdsToPaths[paramId];
-  const rawLabel = path
-    ? paramNameFromPathArray(state, sectionId, path)
-    : getParamDisplayNameIfPresent(state, sectionId, paramId) ?? paramId;
+  const rawLabel =
+    (path
+      ? paramNameFromPathArray(state, sectionId, path)
+      : getParamDisplayNameIfPresent(state, sectionId, paramId)) ?? paramId;
   return rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
 }
 
@@ -280,12 +323,33 @@ export function selectEdgeStripState(
     sectionId,
     isBaseSectionWithParamsImpl,
   );
-  const pinned = getCurrShownParamIds(state, sectionId, true, true);
-  const unpinned = getCurrShownParamIds(state, sectionId, false, true);
+  const edgeInputParams = impl.edgeInputParams ?? [];
+  const pinnedShown = getCurrShownParamIds(state, sectionId, true, true);
+  const unpinnedShown = getCurrShownParamIds(state, sectionId, false, true);
+  const pinned = {
+    requiredParamIdsToPaths: normalizeRequiredParamIdsToPaths(
+      pinnedShown.requiredParamIdsToPaths,
+      sectionId,
+    ),
+    topLevelParamIds: normalizeShownParamIdList(
+      pinnedShown.topLevelParamIds,
+      sectionId,
+    ),
+  };
+  const unpinned = {
+    requiredParamIdsToPaths: normalizeRequiredParamIdsToPaths(
+      unpinnedShown.requiredParamIdsToPaths,
+      sectionId,
+    ),
+    topLevelParamIds: normalizeShownParamIdList(
+      unpinnedShown.topLevelParamIds,
+      sectionId,
+    ),
+  };
   const filteredPinned = filterEdgeInputs(
     pinned.requiredParamIdsToPaths,
     pinned.topLevelParamIds,
-    impl.edgeInputParams,
+    edgeInputParams,
   );
   const requiredParamIdsToPaths = {
     ...pinned.requiredParamIdsToPaths,
@@ -295,10 +359,10 @@ export function selectEdgeStripState(
     inputPorts: buildEdgeInputPorts(
       state,
       sectionId,
-      impl.edgeInputParams,
+      edgeInputParams,
       requiredParamIdsToPaths,
     ),
-    outputPorts: buildEdgeOutputPorts(impl.edgeOutputPorts),
+    outputPorts: buildEdgeOutputPorts(impl.edgeOutputPorts ?? []),
     shouldRoundBottom:
       filteredPinned.topLevelParamIds.length === 0 && impl.hideUnpinnedParams,
     positionAndSizeLocked: impl.positionAndSizeLocked,
@@ -561,11 +625,13 @@ export function selectUnpinnedParamsState(
 export function _ParamGroupContainer({
   sectionId,
   bgColor,
+  renderParamRows = true,
   sectionTypeName,
 }: {
   sectionId: string;
   bgColor: string;
-  sectionTypeName: SectionTypeEnum;
+  renderParamRows?: boolean;
+  sectionTypeName: SectionType;
 }) {
   const outerRef = useRef<HTMLDivElement | null>(null);
   const [maxNestedDepth, setMaxNestedDepth] = useState({
@@ -580,7 +646,7 @@ export function _ParamGroupContainer({
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
-    outerRef,
+    outerRef: outerRef as React.RefObject<HTMLDivElement>,
     maxNestedDepth: Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
   });
 
@@ -678,39 +744,45 @@ export function _ParamGroupContainer({
     setStoredParamAreaHeight(paramsFixedHeightKey, pendingHeight);
   }, [paramsFixedHeightKey, waitingForResult]);
 
-  return (
-    <ParamDndContext>
-      <div
-        className="section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"
-        ref={setOuterRef}
-      >
-        {waitingForResult && (
-          <div className="pointer-events-auto absolute inset-0 z-10 flex items-start justify-center bg-transparent pt-3">
-            <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
-          </div>
-        )}
-        <>
-          <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
-          <GetPinnedParams
-            sectionId={sectionId}
-            handleColumnResizeStart={handleColumnResizeStart}
-            setMaxNestedDepth={setMaxNestedDepth}
-            sectionTypeName={sectionTypeName}
-          />
-          <GetUnpinnedParams
-            sectionId={sectionId}
-            handleColumnResizeStart={handleColumnResizeStart}
-            setMaxNestedDepth={setMaxNestedDepth}
-          />
-        </>
-      </div>
-    </ParamDndContext>
+  const content = (
+    <div
+      className="section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"
+      ref={setOuterRef}
+    >
+      {waitingForResult && (
+        <div className="pointer-events-auto absolute inset-0 z-10 flex items-start justify-center bg-transparent pt-3">
+          <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
+        </div>
+      )}
+      <>
+        <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+        <GetPinnedParams
+          sectionId={sectionId}
+          handleColumnResizeStart={handleColumnResizeStart}
+          renderParamRows={renderParamRows}
+          setMaxNestedDepth={setMaxNestedDepth}
+          sectionTypeName={sectionTypeName}
+        />
+        <GetUnpinnedParams
+          sectionId={sectionId}
+          handleColumnResizeStart={handleColumnResizeStart}
+          renderParamRows={renderParamRows}
+          setMaxNestedDepth={setMaxNestedDepth}
+        />
+      </>
+    </div>
   );
+
+  if (!renderParamRows) {
+    return content;
+  }
+
+  return <ParamDndContext>{content}</ParamDndContext>;
 }
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-export function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
+export function getPinnedParamsBgClassName(sectionTypeName: SectionType) {
   if (sectionTypeName === SectionTypeEnum.Callable) {
     return "bg-white dark:bg-blue-950/30";
   }
@@ -721,6 +793,7 @@ export function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
 }
 
 export function useMeasuredParamAreaMinHeight({
+  enabled = true,
   sectionId,
   heightKey,
   paramIds,
@@ -728,12 +801,13 @@ export function useMeasuredParamAreaMinHeight({
   headerRef,
   rowsRef,
 }: {
+  enabled?: boolean;
   sectionId: string;
   heightKey: string;
   paramIds: Array<string>;
-  contentRef: React.RefObject<HTMLElement>;
-  headerRef?: React.RefObject<HTMLElement>;
-  rowsRef: React.RefObject<HTMLElement>;
+  contentRef: React.RefObject<HTMLElement | null>;
+  headerRef?: React.RefObject<HTMLElement | null>;
+  rowsRef: React.RefObject<HTMLElement | null>;
 }) {
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   const lastMeasuredHeightRef = useRef<number | null>(null);
@@ -747,7 +821,7 @@ export function useMeasuredParamAreaMinHeight({
       isBaseSectionWithParamsImpl,
     );
     return {
-      sectionWidth: impl.size?.width ?? null,
+      sectionWidth: getSectionWidthForParamAreaMeasure(impl.size?.width),
       columnWidth: impl.columnWidth,
     };
   }, _.isEqual);
@@ -758,6 +832,13 @@ export function useMeasuredParamAreaMinHeight({
   });
 
   useLayoutEffect(() => {
+    if (!enabled) {
+      lastMeasuredHeightRef.current = 0;
+      useTemporaryMiscState.setState({
+        [heightKey]: 0,
+      });
+      return;
+    }
     let frameId = 0;
     let cleanupObservers: (() => void) | null = null;
 
@@ -825,7 +906,7 @@ export function useMeasuredParamAreaMinHeight({
       }
       cleanupObservers?.();
     };
-  }, [heightKey, measureKey, resizeEvent]);
+  }, [enabled, heightKey, measureKey, resizeEvent]);
 
   useEffect(() => {
     return () => {
@@ -834,4 +915,16 @@ export function useMeasuredParamAreaMinHeight({
       });
     };
   }, [heightKey]);
+}
+
+function getSectionWidthForParamAreaMeasure(
+  width: unknown,
+): SectionSize["width"] | null {
+  if (width === null || width === undefined) {
+    return null;
+  }
+  if (typeof width === "number" || width === "auto") {
+    return width;
+  }
+  throw new Error("Invalid section width for param area measurement.");
 }

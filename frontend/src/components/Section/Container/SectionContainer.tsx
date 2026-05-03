@@ -25,19 +25,23 @@ import { getOutlineColor } from "./utils";
 
 type SectionDragListeners = React.HTMLAttributes<HTMLDivElement>;
 
+type SectionContainerProps = {
+  sectionId: string;
+  isTopLevel: boolean;
+  dragListeners?: SectionDragListeners;
+  renderNestedContent?: boolean;
+  renderParamRows?: boolean;
+  sceneSurface?: boolean;
+};
+
 function _SectionContainer({
   sectionId,
   isTopLevel,
   dragListeners,
   renderNestedContent = true,
+  renderParamRows,
   sceneSurface = false,
-}: {
-  sectionId: string;
-  isTopLevel: boolean;
-  dragListeners?: SectionDragListeners;
-  renderNestedContent?: boolean;
-  sceneSurface?: boolean;
-}) {
+}: SectionContainerProps) {
   const {
     visibility,
     isEditingViewMode,
@@ -93,6 +97,10 @@ function _SectionContainer({
     attachedTerminalId ?? "__no_active_terminal__",
   );
   const isJoinedGroupActive = isActiveSection || isAttachedTerminalActive;
+  const shouldRenderParamRows = getSectionContainerRenderParamRows(
+    renderParamRows,
+    sceneSurface,
+  );
 
   if (
     shouldHideSection({
@@ -129,6 +137,7 @@ function _SectionContainer({
           isJoinedGroupActive={isJoinedGroupActive}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           renderNestedContent={renderNestedContent}
+          renderParamRows={shouldRenderParamRows}
           sceneSurface={sceneSurface}
         />
       </ContainerSwitch>
@@ -137,13 +146,45 @@ function _SectionContainer({
 }
 export const SectionContainer = React.memo(
   _SectionContainer,
-  (p, n) =>
-    p.sectionId === n.sectionId &&
-    p.isTopLevel === n.isTopLevel &&
-    (p.renderNestedContent ?? true) === (n.renderNestedContent ?? true) &&
-    (p.sceneSurface ?? false) === (n.sceneSurface ?? false) &&
-    _.isEqual(p.dragListeners, n.dragListeners),
+  areSectionContainerPropsEqual,
 );
+
+function areSectionContainerPropsEqual(
+  prev: SectionContainerProps,
+  next: SectionContainerProps,
+): boolean {
+  return (
+    prev.sectionId === next.sectionId &&
+    prev.isTopLevel === next.isTopLevel &&
+    sectionContainerRenderOptionsEqual(prev, next) &&
+    _.isEqual(prev.dragListeners, next.dragListeners)
+  );
+}
+
+function sectionContainerRenderOptionsEqual(
+  prev: SectionContainerProps,
+  next: SectionContainerProps,
+): boolean {
+  return (
+    (prev.renderNestedContent ?? true) === (next.renderNestedContent ?? true) &&
+    getSectionContainerRenderParamRows(
+      prev.renderParamRows,
+      prev.sceneSurface,
+    ) ===
+      getSectionContainerRenderParamRows(
+        next.renderParamRows,
+        next.sceneSurface,
+      ) &&
+    (prev.sceneSurface ?? false) === (next.sceneSurface ?? false)
+  );
+}
+
+function getSectionContainerRenderParamRows(
+  renderParamRows: boolean | undefined,
+  sceneSurface: boolean | undefined,
+): boolean {
+  return renderParamRows ?? !(sceneSurface ?? false);
+}
 
 function shouldHideSection({
   isGenPython,
@@ -172,6 +213,7 @@ function SectionContainerContent({
   isJoinedGroupActive,
   isInOtherProjectConfigs,
   renderNestedContent,
+  renderParamRows,
   sceneSurface,
 }: {
   sectionId: string;
@@ -184,6 +226,7 @@ function SectionContainerContent({
   isJoinedGroupActive: boolean;
   isInOtherProjectConfigs: boolean;
   renderNestedContent: boolean;
+  renderParamRows: boolean;
   sceneSurface: boolean;
 }) {
   if (!isGroup && isJoinedAttachedTerminalGroup && renderNestedContent) {
@@ -195,6 +238,7 @@ function SectionContainerContent({
         positionAndSizeLocked={positionAndSizeLocked}
         isJoinedGroupActive={isJoinedGroupActive}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
+        renderParamRows={renderParamRows}
         sceneSurface={sceneSurface}
       />
     );
@@ -207,6 +251,7 @@ function SectionContainerContent({
         isTopLevel={isTopLevel}
         isGroup={isGroup}
         isUserView={isUserView}
+        renderParamRows={renderParamRows}
         sceneSurface={sceneSurface}
       />
       {renderNestedContent && (
@@ -227,6 +272,7 @@ function JoinedCodeTerminalGroup({
   positionAndSizeLocked,
   isJoinedGroupActive,
   isInOtherProjectConfigs,
+  renderParamRows,
   sceneSurface,
 }: {
   sectionId: string;
@@ -235,6 +281,7 @@ function JoinedCodeTerminalGroup({
   positionAndSizeLocked: boolean;
   isJoinedGroupActive: boolean;
   isInOtherProjectConfigs: boolean;
+  renderParamRows: boolean;
   sceneSurface: boolean;
 }) {
   return (
@@ -256,6 +303,7 @@ function JoinedCodeTerminalGroup({
         omitAgenticHandleScopeClass={true}
         joinedCorners="code-terminal-parent"
         fillSurface={sceneSurface || isTopLevel}
+        renderParamRows={renderParamRows}
         useGpuResizeFrame={sceneSurface || isTopLevel}
       />
       <div className="-mt-px">
@@ -274,12 +322,14 @@ function StandardSectionSurface({
   isTopLevel,
   isGroup,
   isUserView,
+  renderParamRows,
   sceneSurface,
 }: {
   sectionId: string;
   isTopLevel: boolean;
   isGroup: boolean;
   isUserView: boolean;
+  renderParamRows: boolean;
   sceneSurface: boolean;
 }) {
   if (isGroup) {
@@ -291,6 +341,7 @@ function StandardSectionSurface({
       isTopLevel={isTopLevel}
       isUserView={isUserView}
       fillSurface={sceneSurface || isTopLevel}
+      renderParamRows={renderParamRows}
       useGpuResizeFrame={sceneSurface || isTopLevel}
     />
   );

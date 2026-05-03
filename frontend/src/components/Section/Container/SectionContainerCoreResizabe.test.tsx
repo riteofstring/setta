@@ -139,7 +139,12 @@ vi.mock("../Layouts/ChartArea/ChartArea", () => ({
   ChartArea: () => <div data-testid="mock-chart-area" />,
 }));
 vi.mock("../Layouts/DictArea", () => ({
-  DictArea: () => <div data-testid="mock-dict-area" />,
+  DictArea: ({ renderParamRows = true }: { renderParamRows?: boolean }) => (
+    <div
+      data-testid="mock-dict-area"
+      data-render-param-rows={String(renderParamRows)}
+    />
+  ),
 }));
 vi.mock("../Layouts/DrawArea/DrawArea", () => ({
   DrawArea: () => <div data-testid="mock-draw-area" />,
@@ -203,6 +208,22 @@ describe("SectionContainerCoreResizable", () => {
     expect(Object.keys(SECTION_AREA_RENDERERS).sort()).toEqual(
       [...getGpuFlowSectionAreaRendererTypes()].sort(),
     );
+  });
+
+  it("passes retained row ownership into dict section areas", () => {
+    const markup = renderToStaticMarkup(
+      <AreaSwitch
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Dict}
+        bgColor="bg-setta-50"
+        isMinimized={false}
+        isUserView={false}
+        renderParamRows={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-dict-area"');
+    expect(markup).toContain('data-render-param-rows="false"');
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {

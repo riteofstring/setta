@@ -64,6 +64,7 @@ type SectionContainerCoreResizableProps = {
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
+  renderParamRows?: boolean;
   useGpuResizeFrame?: boolean;
 };
 
@@ -83,6 +84,7 @@ type AreaSwitchProps = {
   chatHost?: ChatWindowPlacement | "section_layout" | "standalone_page";
   chatModeOverride?: ChatWindowMode;
   projectChatId?: string | null;
+  renderParamRows?: boolean;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   projectChatSurfaceId?: string;
   onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
@@ -289,8 +291,12 @@ export const SECTION_AREA_RENDERERS = {
       isMinimized={isMinimized}
     />
   ),
-  [SectionTypeEnum.Dict]: ({ sectionId, bgColor }) => (
-    <DictArea sectionId={sectionId} bgColor={bgColor} />
+  [SectionTypeEnum.Dict]: ({ sectionId, bgColor, renderParamRows = true }) => (
+    <DictArea
+      sectionId={sectionId}
+      bgColor={bgColor}
+      renderParamRows={renderParamRows}
+    />
   ),
   [SectionTypeEnum.Image]: ({ sectionId }) => (
     <ImageArea sectionId={sectionId} />
@@ -387,6 +393,7 @@ function _SectionContainerCoreResizable({
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
+  renderParamRows = true,
   useGpuResizeFrame = isTopLevel,
 }: SectionContainerCoreResizableProps) {
   const {
@@ -445,6 +452,7 @@ function _SectionContainerCoreResizable({
         bgColor={bgColor}
         isMinimized={isMinimized}
         isUserView={isUserView}
+        renderParamRows={renderParamRows}
       />
     </>
   );
@@ -471,6 +479,7 @@ export function AreaSwitch({
   chatHost = "section_layout",
   chatModeOverride,
   projectChatId,
+  renderParamRows = true,
   setProjectChatId,
   projectChatSurfaceId,
   onProjectChatBlockedErrorCodeChange,
@@ -487,6 +496,7 @@ export function AreaSwitch({
     chatHost,
     ...(chatModeOverride !== undefined ? { chatModeOverride } : {}),
     ...(projectChatId !== undefined ? { projectChatId } : {}),
+    renderParamRows,
     ...(setProjectChatId !== undefined ? { setProjectChatId } : {}),
     ...(projectChatSurfaceId !== undefined ? { projectChatSurfaceId } : {}),
     ...(onProjectChatBlockedErrorCodeChange !== undefined
@@ -502,12 +512,14 @@ function CanvasSectionBody({
   bgColor,
   isMinimized,
   isUserView,
+  renderParamRows,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
+  renderParamRows: boolean;
 }) {
   const externalizedWindowId = useProjectState((state) => {
     if (sectionTypeName === SectionTypeEnum.Chat) {
@@ -541,6 +553,7 @@ function CanvasSectionBody({
       bgColor={bgColor}
       isMinimized={isMinimized}
       isUserView={isUserView}
+      renderParamRows={renderParamRows}
     />
   );
 }

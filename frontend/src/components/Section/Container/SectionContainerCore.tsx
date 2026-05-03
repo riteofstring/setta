@@ -36,6 +36,7 @@ type SectionContainerCoreProps = {
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
+  renderParamRows: boolean;
   useGpuResizeFrame?: boolean;
 };
 
@@ -229,6 +230,7 @@ function _SectionContainerCore({
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
+  renderParamRows,
   useGpuResizeFrame,
 }: SectionContainerCoreProps) {
   const {
@@ -338,6 +340,7 @@ function _SectionContainerCore({
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        renderParamRows={renderParamRows}
         useGpuResizeFrame={gpuResizeFrameEnabled}
       />
     </section>
@@ -345,13 +348,35 @@ function _SectionContainerCore({
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) =>
-    p.isUserView === n.isUserView &&
-    p.isTopLevel === n.isTopLevel &&
-    (p.fillSurface ?? p.isTopLevel) === (n.fillSurface ?? n.isTopLevel) &&
-    (p.useGpuResizeFrame ?? p.isTopLevel) ===
-      (n.useGpuResizeFrame ?? n.isTopLevel),
+  areSectionContainerCorePropsEqual,
 );
+
+function areSectionContainerCorePropsEqual(
+  prev: SectionContainerCoreProps,
+  next: SectionContainerCoreProps,
+): boolean {
+  return (
+    prev.isUserView === next.isUserView &&
+    prev.isTopLevel === next.isTopLevel &&
+    prev.renderParamRows === next.renderParamRows &&
+    sectionContainerCoreSurfaceOptionsEqual(prev, next)
+  );
+}
+
+function sectionContainerCoreSurfaceOptionsEqual(
+  prev: SectionContainerCoreProps,
+  next: SectionContainerCoreProps,
+): boolean {
+  return (
+    resolveOptionalSectionSurfaceFlag(prev.fillSurface, prev.isTopLevel) ===
+      resolveOptionalSectionSurfaceFlag(next.fillSurface, next.isTopLevel) &&
+    resolveOptionalSectionSurfaceFlag(
+      prev.useGpuResizeFrame,
+      prev.isTopLevel,
+    ) ===
+      resolveOptionalSectionSurfaceFlag(next.useGpuResizeFrame, next.isTopLevel)
+  );
+}
 
 function resolveOptionalSectionSurfaceFlag(
   value: boolean | undefined,

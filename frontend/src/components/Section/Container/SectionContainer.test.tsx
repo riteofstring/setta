@@ -144,6 +144,7 @@ vi.mock("./SectionContainerCore", () => ({
     omitAgenticHandleScopeClass = false,
     joinedCorners = "",
     fillSurface = false,
+    renderParamRows = true,
     useGpuResizeFrame = false,
   }: {
     sectionId: string;
@@ -153,6 +154,7 @@ vi.mock("./SectionContainerCore", () => ({
     omitAgenticHandleScopeClass?: boolean;
     joinedCorners?: string;
     fillSurface?: boolean;
+    renderParamRows?: boolean;
     useGpuResizeFrame?: boolean;
   }) => (
     <div
@@ -164,6 +166,7 @@ vi.mock("./SectionContainerCore", () => ({
       data-omit-agentic-handle-scope-class={String(omitAgenticHandleScopeClass)}
       data-joined-corners={joinedCorners}
       data-fill-surface={String(fillSurface)}
+      data-render-param-rows={String(renderParamRows)}
       data-use-gpu-resize-frame={String(useGpuResizeFrame)}
     />
   ),
@@ -263,6 +266,7 @@ describe("SectionContainer", () => {
 
     expect(markup).toContain('data-scene-surface="true"');
     expect(markup).toContain('data-fill-surface="true"');
+    expect(markup).toContain('data-render-param-rows="false"');
     expect(markup).toContain('data-use-gpu-resize-frame="true"');
     expect(markup).not.toContain('data-testid="mock-many-nested-sections"');
   });
@@ -278,6 +282,7 @@ describe("SectionContainer", () => {
 
     expect(markup).toContain('data-scene-surface="false"');
     expect(markup).toContain('data-fill-surface="true"');
+    expect(markup).toContain('data-render-param-rows="true"');
     expect(markup).toContain('data-use-gpu-resize-frame="true"');
   });
 

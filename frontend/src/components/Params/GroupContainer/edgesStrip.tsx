@@ -29,7 +29,7 @@ import {
 
 import {
   isBaseSectionWithParamsImpl,
-  SectionTypeEnum,
+  type SectionType,
 } from "utils/generatedTypes";
 
 import { resolveEdgeStripHeight } from "../edgeStripUtils";
@@ -225,8 +225,9 @@ export type MaxNestedDepth = {
 export type GetPinnedParamsProps = {
   sectionId: string;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  renderParamRows: boolean;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
-  sectionTypeName: SectionTypeEnum;
+  sectionTypeName: SectionType;
 };
 
 export type PinnedParamsAreaProps = {
@@ -235,23 +236,26 @@ export type PinnedParamsAreaProps = {
   requiredParamIdsToPaths: Record<string, Array<string>>;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   hasSectionStyleTheme: boolean;
+  renderParamRows: boolean;
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
-  sectionTypeName: SectionTypeEnum;
-  contentRef: React.RefObject<HTMLDivElement>;
-  headerRef: React.RefObject<HTMLElement>;
-  rowsRef: React.RefObject<HTMLDivElement>;
+  sectionTypeName: SectionType;
+  contentRef: React.RefObject<HTMLDivElement | null>;
+  headerRef: React.RefObject<HTMLElement | null>;
+  rowsRef: React.RefObject<HTMLDivElement | null>;
 };
 
 export type GetUnpinnedParamsProps = {
   sectionId: string;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  renderParamRows: boolean;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
 };
 
 export function GetPinnedParams({
   sectionId,
   handleColumnResizeStart,
+  renderParamRows,
   setMaxNestedDepth,
   sectionTypeName,
 }: GetPinnedParamsProps) {
@@ -293,6 +297,7 @@ export function GetPinnedParams({
   }, [maxNestedDepth]);
 
   useMeasuredParamAreaMinHeight({
+    enabled: renderParamRows,
     sectionId,
     heightKey,
     paramIds: topLevelParamIds,
@@ -309,6 +314,7 @@ export function GetPinnedParams({
         requiredParamIdsToPaths={requiredParamIdsToPaths}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        renderParamRows={renderParamRows}
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
@@ -326,6 +332,7 @@ export function PinnedParamsArea({
   requiredParamIdsToPaths,
   handleColumnResizeStart,
   hasSectionStyleTheme,
+  renderParamRows,
   shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
@@ -372,20 +379,22 @@ export function PinnedParamsArea({
           </p>
         </header>
 
-        <div
-          className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
-          ref={rowsRef}
-        >
-          <ParamDndList
-            sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={handleColumnResizeStart}
-            isTopLevel={true}
-            listKey="pinned"
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
+        {renderParamRows && (
+          <div
+            className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
+            ref={rowsRef}
+          >
+            <ParamDndList
+              sectionId={sectionId}
+              paramIds={topLevelParamIds}
+              requiredParamIdsToPaths={requiredParamIdsToPaths}
+              onResizeStart={handleColumnResizeStart}
+              isTopLevel={true}
+              listKey="pinned"
+              hasSectionStyleTheme={hasSectionStyleTheme}
+            />
+          </div>
+        )}
       </div>
     </section>
   );
@@ -394,6 +403,7 @@ export function PinnedParamsArea({
 export function GetUnpinnedParams({
   sectionId,
   handleColumnResizeStart,
+  renderParamRows,
   setMaxNestedDepth,
 }: GetUnpinnedParamsProps) {
   const {
@@ -439,6 +449,7 @@ export function GetUnpinnedParams({
   }, [maxNestedDepth]);
 
   useMeasuredParamAreaMinHeight({
+    enabled: renderParamRows,
     sectionId,
     heightKey,
     paramIds: hideUnpinnedParams ? [] : topLevelParamIds,
@@ -449,15 +460,17 @@ export function GetUnpinnedParams({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
-        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
-          isScrollable ? "nowheel" : ""
-        }`}
+        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip py-2 pr-1.5 ${
+          renderParamRows ? "overflow-y-scroll" : "overflow-hidden"
+        } ${renderParamRows && isScrollable ? "nowheel" : ""}`}
         ref={setContainerRef}
         style={
-          shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
+          shouldApplyMinHeight && renderParamRows
+            ? { minHeight: resolvedMinHeight }
+            : undefined
         }
       >
-        {!hideUnpinnedParams && (
+        {!hideUnpinnedParams && renderParamRows && (
           <ParamDndList
             sectionId={sectionId}
             paramIds={topLevelParamIds}
