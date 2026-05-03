@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type { GpuRetainedContentHitTarget } from "./retainedContentHitTest";
 import { hitTestGpuRetainedContentScene } from "./retainedContentHitTest";
-import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import {
+  createGpuRetainedRowContentScene,
+  type GpuRetainedContentDrawCommand,
+} from "./retainedContentScene";
+import {
+  applyGpuRetainedContentScrollbarVisualStateToScene,
   createGpuRetainedContentScrollbarLayouts,
+  getGpuRetainedContentScrollbarVisualTarget,
   resolveGpuRetainedContentScrollbarThumbDrag,
   resolveGpuRetainedContentScrollbarTrackClick,
 } from "./retainedContentScrollbar";
@@ -92,6 +97,42 @@ describe("retained content scrollbars", () => {
     expect(result.scrollOffsets.get("surface-a")?.x).toBe(0);
     expect(result.scrollOffsets.get("surface-a")?.y).toBeCloseTo(100, 3);
   });
+
+  it("applies hover and active visual state to retained scrollbar commands", () => {
+    const scene = sceneWithRetainedSurface();
+    const thumbHit = requiredHit(scene, { x: 154, y: 12 });
+    const trackHit = requiredHit(scene, { x: 154, y: 70 });
+
+    const stateUpdate = applyGpuRetainedContentScrollbarVisualStateToScene({
+      scene,
+      visualState: {
+        activeTarget: getGpuRetainedContentScrollbarVisualTarget(thumbHit),
+        hoveredTarget: getGpuRetainedContentScrollbarVisualTarget(trackHit),
+      },
+    });
+
+    expect(stateUpdate?.surfaces.map((surface) => surface.id)).toEqual([
+      "surface-a",
+    ]);
+    expect(getScrollbarCommands(scene)[0]?.state).toBeUndefined();
+    expect(getScrollbarCommands(stateUpdate!.scene)[0]?.state).toEqual({
+      activePart: "thumb",
+      hoveredPart: "track",
+    });
+
+    const clearUpdate = applyGpuRetainedContentScrollbarVisualStateToScene({
+      scene: stateUpdate!.scene,
+      visualState: {
+        activeTarget: null,
+        hoveredTarget: null,
+      },
+    });
+
+    expect(clearUpdate?.surfaces.map((surface) => surface.id)).toEqual([
+      "surface-a",
+    ]);
+    expect(getScrollbarCommands(clearUpdate!.scene)[0]?.state).toBeUndefined();
+  });
 });
 
 function sceneWithRetainedSurface(): GpuFlowScene {
@@ -146,4 +187,19 @@ function requiredHit(
     throw new Error(`Expected retained hit at ${point.x}, ${point.y}.`);
   }
   return hit;
+}
+
+function getScrollbarCommands(
+  scene: GpuFlowScene,
+): Extract<GpuRetainedContentDrawCommand, { kind: "scrollbar" }>[] {
+  return scene.contentSurfaces.flatMap((surface) =>
+    (surface.retainedScene?.drawCommands ?? []).filter(
+      (
+        command,
+      ): command is Extract<
+        GpuRetainedContentDrawCommand,
+        { kind: "scrollbar" }
+      > => command.kind === "scrollbar",
+    ),
+  );
 }

@@ -26,12 +26,16 @@ import {
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import { applyGpuRetainedContentScrollOffsetToScene } from "../retainedContentScroll";
 import {
+  applyGpuRetainedContentScrollbarVisualStateToScene,
+  getGpuRetainedContentScrollbarVisualTarget,
   isGpuRetainedContentScrollbarHit,
   isGpuRetainedContentScrollbarThumbHit,
   resolveGpuRetainedContentScrollbarThumbDrag,
   resolveGpuRetainedContentScrollbarTrackClick,
+  type GpuRetainedContentScrollbarVisualState,
+  type GpuRetainedContentScrollbarVisualTarget,
 } from "../retainedContentScrollbar";
-import type { GpuDomIsland, GpuFlowScene } from "../scene";
+import type { GpuContentSurface, GpuDomIsland, GpuFlowScene } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
@@ -96,6 +100,10 @@ type GpuFlowRetainedContentControllerOptions = {
   readonly viewportStore: GpuFlowViewportStoreApi;
 };
 
+type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
+  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+};
+
 export function useGpuFlowRetainedContentControllers({
   containerRef,
   layoutStore,
@@ -150,6 +158,47 @@ export function useGpuFlowRetainedContentControllers({
       retainedContentScroll && retainedContentScroll !== false
         ? retainedContentScroll
         : null;
+    let retainedContentScrollbarVisualState: GpuRetainedContentScrollbarVisualState =
+      {
+        activeTarget: null,
+        hoveredTarget: null,
+      };
+    const setRetainedContentScrollbarVisualState = (
+      nextState: GpuRetainedContentScrollbarVisualState,
+    ) => {
+      if (
+        areGpuFlowRetainedContentScrollbarVisualStatesEqual(
+          retainedContentScrollbarVisualState,
+          nextState,
+        )
+      ) {
+        return;
+      }
+      retainedContentScrollbarVisualState = nextState;
+      applyGpuFlowRetainedContentScrollbarVisualState({
+        nodeElementByIdRef,
+        nodeLayerRef,
+        surfaceRef,
+        textureManagerRef,
+        visualState: retainedContentScrollbarVisualState,
+      });
+    };
+    const setRetainedContentScrollbarActiveTarget = (
+      activeTarget: GpuRetainedContentScrollbarVisualTarget | null,
+    ) => {
+      setRetainedContentScrollbarVisualState({
+        ...retainedContentScrollbarVisualState,
+        activeTarget,
+      });
+    };
+    const setRetainedContentScrollbarHoveredTarget = (
+      hoveredTarget: GpuRetainedContentScrollbarVisualTarget | null,
+    ) => {
+      setRetainedContentScrollbarVisualState({
+        ...retainedContentScrollbarVisualState,
+        hoveredTarget,
+      });
+    };
     const commitRetainedContentScrollbarScrollResult = (result: {
       readonly scrollOffsets: ReadonlyMap<
         string,
@@ -173,6 +222,7 @@ export function useGpuFlowRetainedContentControllers({
         nodeElementByIdRef,
         nodeLayerRef,
         result,
+        scrollbarVisualState: retainedContentScrollbarVisualState,
         surfaceRef,
         textureManagerRef,
         viewportStore,
@@ -199,18 +249,31 @@ export function useGpuFlowRetainedContentControllers({
           if (result.changed) {
             commitRetainedContentScrollbarScrollResult(result);
           }
+          setRetainedContentScrollbarVisualState({
+            activeTarget: null,
+            hoveredTarget:
+              getGpuRetainedContentScrollbarVisualTarget(event) ??
+              retainedContentScrollbarVisualState.hoveredTarget,
+          });
           return;
         }
         retainedContentInteraction.onHitClick?.(event);
       },
       onHitDragCancel: (event) => {
         if (isGpuRetainedContentScrollbarHit(event.activeHit)) {
+          setRetainedContentScrollbarActiveTarget(null);
           return;
         }
         retainedContentInteraction.onHitDragCancel?.(event);
       },
       onHitDragEnd: (event) => {
         if (isGpuRetainedContentScrollbarHit(event.activeHit)) {
+          setRetainedContentScrollbarVisualState({
+            activeTarget: null,
+            hoveredTarget: getGpuRetainedContentScrollbarVisualTarget(
+              event.hit,
+            ),
+          });
           return;
         }
         retainedContentInteraction.onHitDragEnd?.(event);
@@ -226,6 +289,9 @@ export function useGpuFlowRetainedContentControllers({
           retainedContentScrollbarScroll &&
           isGpuRetainedContentScrollbarThumbHit(event.activeHit)
         ) {
+          setRetainedContentScrollbarActiveTarget(
+            getGpuRetainedContentScrollbarVisualTarget(event.activeHit),
+          );
           const scene = nodeLayerRef.current.scene;
           if (!scene) {
             return false;
@@ -245,15 +311,28 @@ export function useGpuFlowRetainedContentControllers({
       },
       onHitDragStart: (event) => {
         if (isGpuRetainedContentScrollbarHit(event)) {
+          setRetainedContentScrollbarActiveTarget(
+            getGpuRetainedContentScrollbarVisualTarget(event),
+          );
           return;
         }
         retainedContentInteraction.onHitDragStart?.(event);
       },
       onHitPointerDown: (event) => {
         if (isGpuRetainedContentScrollbarHit(event)) {
+          const target = getGpuRetainedContentScrollbarVisualTarget(event);
+          setRetainedContentScrollbarVisualState({
+            activeTarget: target,
+            hoveredTarget:
+              target ?? retainedContentScrollbarVisualState.hoveredTarget,
+          });
           return;
         }
         retainedContentInteraction.onHitPointerDown?.(event);
+      },
+      onHitPointerLeave: () => {
+        setRetainedContentScrollbarHoveredTarget(null);
+        retainedContentInteraction.onHitPointerLeave?.();
       },
       onHitPointerMove: (event) => {
         if (
@@ -261,8 +340,12 @@ export function useGpuFlowRetainedContentControllers({
           retainedContentScrollbarScroll &&
           isGpuRetainedContentScrollbarHit(event.hit)
         ) {
+          setRetainedContentScrollbarHoveredTarget(
+            getGpuRetainedContentScrollbarVisualTarget(event.hit),
+          );
           return;
         }
+        setRetainedContentScrollbarHoveredTarget(null);
         retainedContentInteraction.onHitPointerMove?.(event);
       },
       requestFrame: (reason) => {
@@ -391,6 +474,7 @@ function applyGpuFlowRetainedContentScrollResult({
   nodeElementByIdRef,
   nodeLayerRef,
   result,
+  scrollbarVisualState,
   surfaceRef,
   textureManagerRef,
   viewportStore,
@@ -407,6 +491,9 @@ function applyGpuFlowRetainedContentScrollResult({
     >;
     readonly surfaceId: string | null;
   };
+  readonly scrollbarVisualState?:
+    | GpuRetainedContentScrollbarVisualState
+    | undefined;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly viewportStore: GpuFlowViewportStoreApi;
@@ -428,31 +515,114 @@ function applyGpuFlowRetainedContentScrollResult({
   if (!update) {
     return;
   }
+  let nextScene = update.scene;
+  const surfacesToRedraw = new Map<
+    string,
+    GpuRetainedContentSurfaceWithScene
+  >();
+  surfacesToRedraw.set(update.surface.id, update.surface);
+  if (scrollbarVisualState) {
+    const scrollbarVisualUpdate =
+      applyGpuRetainedContentScrollbarVisualStateToScene({
+        scene: nextScene,
+        visualState: scrollbarVisualState,
+      });
+    if (scrollbarVisualUpdate) {
+      nextScene = scrollbarVisualUpdate.scene;
+      for (const surface of scrollbarVisualUpdate.surfaces) {
+        surfacesToRedraw.set(surface.id, surface);
+      }
+    }
+  }
   syncGpuFlowRetainedContentDomIslandElements({
     container: containerRef.current,
-    nextScene: update.scene,
+    nextScene,
     previousScene: scene,
     surfaceId,
     viewport: viewportStore.getState().transform,
   });
   nodeLayerRef.current = {
     ...nodeLayerRef.current,
+    scene: nextScene,
+  };
+  redrawGpuFlowRetainedContentSurfaceSources({
+    nodeElementByIdRef,
+    surfaceRef,
+    surfaces: [...surfacesToRedraw.values()],
+    textureManagerRef,
+  });
+}
+
+function applyGpuFlowRetainedContentScrollbarVisualState({
+  nodeElementByIdRef,
+  nodeLayerRef,
+  surfaceRef,
+  textureManagerRef,
+  visualState,
+}: {
+  readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly nodeLayerRef: MutableRefObject<{
+    readonly scene: GpuFlowScene | undefined;
+  }>;
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
+  readonly visualState: GpuRetainedContentScrollbarVisualState;
+}) {
+  const scene = nodeLayerRef.current.scene;
+  if (!scene) {
+    return;
+  }
+  const update = applyGpuRetainedContentScrollbarVisualStateToScene({
+    scene,
+    visualState,
+  });
+  if (!update) {
+    return;
+  }
+  nodeLayerRef.current = {
+    ...nodeLayerRef.current,
     scene: update.scene,
   };
-  const sourceElement = nodeElementByIdRef.current.get(surfaceId);
-  if (
-    sourceElement &&
-    redrawGpuRetainedContentSourceElement({
-      element: sourceElement,
-      surface: update.surface,
-    })
-  ) {
+  redrawGpuFlowRetainedContentSurfaceSources({
+    nodeElementByIdRef,
+    surfaceRef,
+    surfaces: update.surfaces,
+    textureManagerRef,
+  });
+}
+
+function redrawGpuFlowRetainedContentSurfaceSources({
+  nodeElementByIdRef,
+  surfaceRef,
+  surfaces,
+  textureManagerRef,
+}: {
+  readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+  readonly surfaces: readonly GpuRetainedContentSurfaceWithScene[];
+  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
+}) {
+  let redrawn = false;
+  for (const surface of surfaces) {
+    const sourceElement = nodeElementByIdRef.current.get(surface.id);
+    if (
+      !sourceElement ||
+      !redrawGpuRetainedContentSourceElement({
+        element: sourceElement,
+        surface,
+      })
+    ) {
+      continue;
+    }
+    redrawn = true;
     textureManagerRef.current?.markSurfaceTextureDirty({
       content: true,
       reason: "content",
       requestPaint: false,
-      surfaceId,
+      surfaceId: surface.id,
     });
+  }
+  if (redrawn) {
     surfaceRef.current?.requestPaint();
   }
 }
@@ -514,5 +684,32 @@ function isGpuFlowRetainedContentDomIslandForSurface(
   return (
     island.source.kind === "retained-content" &&
     island.source.surfaceId === surfaceId
+  );
+}
+
+function areGpuFlowRetainedContentScrollbarVisualStatesEqual(
+  left: GpuRetainedContentScrollbarVisualState,
+  right: GpuRetainedContentScrollbarVisualState,
+): boolean {
+  return (
+    areGpuFlowRetainedContentScrollbarVisualTargetsEqual(
+      left.activeTarget,
+      right.activeTarget,
+    ) &&
+    areGpuFlowRetainedContentScrollbarVisualTargetsEqual(
+      left.hoveredTarget,
+      right.hoveredTarget,
+    )
+  );
+}
+
+function areGpuFlowRetainedContentScrollbarVisualTargetsEqual(
+  left: GpuRetainedContentScrollbarVisualTarget | null,
+  right: GpuRetainedContentScrollbarVisualTarget | null,
+): boolean {
+  return (
+    left?.axis === right?.axis &&
+    left?.part === right?.part &&
+    left?.surfaceId === right?.surfaceId
   );
 }
