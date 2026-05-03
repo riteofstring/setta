@@ -60,6 +60,36 @@ export function buildParamDuplicateIndexIfPresent(
   return buildParamDuplicateIndexForSectionImpl(state, sectionId, sectionImpl);
 }
 
+export function getParamDuplicateNameError(
+  paramInfoId: string,
+  value: string,
+  duplicateIndex: ParamDuplicateIndex,
+): string | null {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+  if (!(paramInfoId in duplicateIndex.parentById)) {
+    return null;
+  }
+  const parentId = duplicateIndex.parentById[paramInfoId];
+  if (!parentId) {
+    return null;
+  }
+  const namesForParent = duplicateIndex.namesByParent[parentId];
+  if (!namesForParent) {
+    return null;
+  }
+  const matchingIds = namesForParent[normalized];
+  if (!matchingIds) {
+    return null;
+  }
+  if (matchingIds.length === 1 && matchingIds[0] === paramInfoId) {
+    return null;
+  }
+  return `Param name "${normalized}" already exists under this parent.`;
+}
+
 function buildParamDuplicateIndexForSectionImpl(
   state: ZustandProjectState,
   sectionId: string,

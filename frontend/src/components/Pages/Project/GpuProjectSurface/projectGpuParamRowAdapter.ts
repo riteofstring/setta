@@ -24,6 +24,7 @@ import type {
   GpuRetainedContentRowState,
   GpuRetainedContentRowStatus,
 } from "gpuFlow/retainedContentScene";
+import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import { getParamDisplayNameIfPresent } from "state/actions/sectionInfos";
 import type {
   ZustandProjectSearch,
@@ -68,6 +69,7 @@ import {
 import { createProjectGpuButtonControlDescriptor } from "./projectGpuParamButtonRowDescriptor";
 import { createProjectGpuColorPickerControlDescriptor } from "./projectGpuParamColorPickerRowDescriptor";
 import { createProjectGpuParamRowStatus } from "./projectGpuParamRowStatus";
+import { getProjectGpuParamRowStatusMessages } from "./projectGpuParamRowStatusMessages";
 import { createProjectGpuTextLikeControlDescriptorIfSupported } from "./projectGpuParamTextLikeRowDescriptor";
 import {
   getProjectGpuDateCalendarVisibleMonth,
@@ -102,6 +104,7 @@ export function createProjectGpuParamRowInput({
   edgeInputParamIds,
   hoveredParamTarget,
   isDeploymentMode,
+  paramDuplicateIndex,
   projectSearch,
   projectState,
   row,
@@ -137,6 +140,7 @@ export function createProjectGpuParamRowInput({
   readonly isDeploymentMode?: boolean | undefined;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly projectState: ZustandProjectState;
+  readonly paramDuplicateIndex: ParamDuplicateIndex;
   readonly row: ProjectGpuParamTreeRowLike;
   readonly sectionId: string;
   readonly sectionParamTypeErrors: Readonly<
@@ -156,7 +160,14 @@ export function createProjectGpuParamRowInput({
     sectionId,
     surfaceId,
   });
-  const status = createProjectGpuParamRowStatus(sectionParamTypeErrors[row.id]);
+  const status = createProjectGpuParamRowStatus(
+    getProjectGpuParamRowStatusMessages({
+      paramDuplicateIndex,
+      projectState,
+      rowId: row.id,
+      sectionParamTypeErrors,
+    }),
+  );
   return {
     control: createProjectGpuParamControlDescriptor({
       codeObjImpl,

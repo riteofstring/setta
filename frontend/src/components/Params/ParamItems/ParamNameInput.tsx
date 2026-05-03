@@ -13,7 +13,10 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
+import {
+  getParamDuplicateNameError,
+  type ParamDuplicateIndex,
+} from "state/actions/params/paramDuplicateIndex";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -104,36 +107,6 @@ const hiddenBubblePosition: BubblePosition = {
   left: 0,
   visible: false,
 };
-
-function getParamNameDuplicateError(
-  paramInfoId: string,
-  value: string,
-  duplicateIndex: ParamDuplicateIndex,
-): string | null {
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-  if (!(paramInfoId in duplicateIndex.parentById)) {
-    return null;
-  }
-  const parentId = duplicateIndex.parentById[paramInfoId];
-  if (!parentId) {
-    return null;
-  }
-  const namesForParent = duplicateIndex.namesByParent[parentId];
-  if (!namesForParent) {
-    return null;
-  }
-  const matchingIds = namesForParent[normalized];
-  if (!matchingIds) {
-    return null;
-  }
-  if (matchingIds.length === 1 && matchingIds[0] === paramInfoId) {
-    return null;
-  }
-  return `Param name "${normalized}" already exists under this parent.`;
-}
 
 function useParamNameState(
   sectionId: string,
@@ -249,7 +222,7 @@ function getParamNameDuplicateValidationError(
   if (useDisplayName || validationError) {
     return null;
   }
-  return getParamNameDuplicateError(paramInfoId, inputValue, duplicateIndex);
+  return getParamDuplicateNameError(paramInfoId, inputValue, duplicateIndex);
 }
 
 function getParamNameErrorMessages(
@@ -464,7 +437,7 @@ function hasBlockingParamNameError(
     return true;
   }
   return (
-    getParamNameDuplicateError(paramInfoId, value, duplicateIndex) !== null
+    getParamDuplicateNameError(paramInfoId, value, duplicateIndex) !== null
   );
 }
 

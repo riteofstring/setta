@@ -20,6 +20,7 @@ import type {
   GpuDomIsland,
   GpuSectionSceneNode,
 } from "gpuFlow/scene";
+import { buildParamDuplicateIndexIfPresent } from "state/actions/params/paramDuplicateIndex";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
@@ -637,6 +638,10 @@ function createProjectGpuParamRows({
   );
   const selectedParamIds = new Set(sectionImpl.selectedParams ?? []);
   const edgeInputParamIds = new Set(sectionImpl.edgeInputParams);
+  const paramDuplicateIndex = buildParamDuplicateIndexIfPresent(
+    projectState,
+    sectionId,
+  );
   const sectionParamTypeErrors = typeErrors?.[sectionId]?.params ?? {};
   const draggingParamIds =
     retainedInteractionState.retainedParamDragPreview?.sectionId ===
@@ -675,6 +680,7 @@ function createProjectGpuParamRows({
       isDeploymentMode: editPolicy.isDeploymentMode,
       projectSearch,
       projectState,
+      paramDuplicateIndex,
       row,
       sectionId,
       sectionParamTypeErrors,

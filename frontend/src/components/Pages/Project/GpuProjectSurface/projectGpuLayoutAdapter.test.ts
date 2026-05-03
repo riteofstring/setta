@@ -421,6 +421,120 @@ describe("project GPU layout adapter", () => {
     );
   });
 
+  it("emits retained duplicate-name status from the param duplicate index", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "duplicate-a": "duplicate-a-variant",
+              "duplicate-b": "duplicate-b-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["duplicate-a", "duplicate-b"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "duplicate-a",
+      "duplicate-a-variant",
+      "duplicate-a-impl",
+      createCodeParamCodeObjImpl({
+        coreNameEditable: true,
+        id: "duplicate-a-impl",
+        name: "first",
+      }),
+    );
+    addParamToProjectState(
+      projectState,
+      "duplicate-b",
+      "duplicate-b-variant",
+      "duplicate-b-impl",
+      createCodeParamCodeObjImpl({
+        coreNameEditable: true,
+        id: "duplicate-b-impl",
+        name: "second",
+      }),
+    );
+    projectState.codeObjs["duplicate-a"]!.name = "shared_name";
+    projectState.codeObjs["duplicate-b"]!.name = "shared_name";
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "duplicate-a": ["duplicate-a"],
+          "duplicate-b": ["duplicate-b"],
+        },
+        topLevelParamIds: ["duplicate-a", "duplicate-b"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      revision: 4,
+    });
+
+    const paramSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    const duplicateMessage =
+      'Param name "shared_name" already exists under this parent.';
+    expect(
+      paramSurface?.retainedScene?.rows.map((row) => ({
+        error: row.state.error,
+        id: row.id,
+        status: row.status,
+      })),
+    ).toEqual([
+      {
+        error: true,
+        id: "duplicate-a",
+        status: {
+          kind: "error",
+          messages: [duplicateMessage],
+          summary: duplicateMessage,
+        },
+      },
+      {
+        error: true,
+        id: "duplicate-b",
+        status: {
+          kind: "error",
+          messages: [duplicateMessage],
+          summary: duplicateMessage,
+        },
+      },
+    ]);
+    expect(paramSurface?.retainedScene?.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "row-status-badge",
+          rowId: "duplicate-a",
+        }),
+        expect.objectContaining({
+          kind: "row-status-badge",
+          rowId: "duplicate-b",
+        }),
+      ]),
+    );
+    expect(scene.domIslands).toEqual([]);
+  });
+
   it("derives section-level data edge handles as section scene anchors", () => {
     const scene = getProjectGpuFlowScene(
       projectStateWithSections({
