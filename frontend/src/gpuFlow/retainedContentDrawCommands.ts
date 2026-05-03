@@ -54,6 +54,7 @@ export function createGpuRetainedContentDrawCommands({
       indentWidth,
       labelControlGap,
       row,
+      rowInputs,
       viewportRect,
     });
     commands.push(...rowCommands.commands);
@@ -96,6 +97,7 @@ function createGpuRetainedContentRowDrawCommands({
   indentWidth,
   labelControlGap,
   row,
+  rowInputs,
   viewportRect,
 }: {
   readonly controlWidth: number;
@@ -103,6 +105,7 @@ function createGpuRetainedContentRowDrawCommands({
   readonly indentWidth: number;
   readonly labelControlGap: number;
   readonly row: GpuRetainedContentRow;
+  readonly rowInputs: readonly GpuRetainedContentRowInput[];
   readonly viewportRect: GpuRect;
 }): {
   readonly commands: readonly GpuRetainedContentDrawCommand[];
@@ -153,6 +156,11 @@ function createGpuRetainedContentRowDrawCommands({
         indentWidth,
         rowDepth: guideDepth,
         rowRect: row.projectedRect,
+        startsNestedBlock: startsGpuRetainedContentNestedGuideBlock({
+          guideDepth,
+          row,
+          rowInputs,
+        }),
       }),
       rowId: row.id,
     });
@@ -179,6 +187,22 @@ function createGpuRetainedContentRowDrawCommands({
     commands,
     statusOverlays: statusCommands.overlays,
   };
+}
+
+function startsGpuRetainedContentNestedGuideBlock({
+  guideDepth,
+  row,
+  rowInputs,
+}: {
+  readonly guideDepth: number;
+  readonly row: GpuRetainedContentRow;
+  readonly rowInputs: readonly GpuRetainedContentRowInput[];
+}): boolean {
+  if (row.index <= 0) {
+    return true;
+  }
+  const previousRowInput = rowInputs[row.index - 1];
+  return !previousRowInput || previousRowInput.depth < guideDepth;
 }
 
 function createGpuRetainedContentRowDividerRects({

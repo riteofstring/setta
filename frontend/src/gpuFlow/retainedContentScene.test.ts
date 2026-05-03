@@ -118,7 +118,7 @@ describe("retained content scene", () => {
       expect.objectContaining({
         depth: 1,
         kind: "nest-guide",
-        rect: { height: 24, width: 6, x: 15, y: 30 },
+        rect: { height: 18, width: 6, x: 15, y: 36 },
         rowId: "child",
       }),
       expect.objectContaining({
@@ -230,7 +230,7 @@ describe("retained content scene", () => {
     ).toEqual([
       {
         depth: 1,
-        rect: { height: 24, width: 6, x: 13, y: 24 },
+        rect: { height: 18, width: 6, x: 13, y: 30 },
         rowId: "group",
       },
       {
@@ -240,7 +240,7 @@ describe("retained content scene", () => {
       },
       {
         depth: 2,
-        rect: { height: 24, width: 6, x: 25, y: 48 },
+        rect: { height: 18, width: 6, x: 25, y: 54 },
         rowId: "leaf",
       },
     ]);

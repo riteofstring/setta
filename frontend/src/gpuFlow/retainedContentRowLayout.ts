@@ -4,6 +4,7 @@ export const GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT = 14;
 
 const GPU_RETAINED_CONTENT_NESTED_GUIDE_WIDTH_PX = 6;
 const GPU_RETAINED_CONTENT_NESTED_GUIDE_OFFSET_X_PX = 1;
+const GPU_RETAINED_CONTENT_NESTED_GUIDE_BLOCK_START_INSET_Y_PX = 6;
 
 export function createGpuRetainedContentLabelRect({
   controlRect,
@@ -82,20 +83,28 @@ export function createGpuRetainedContentRowControlRect({
 
 export function createGpuRetainedContentNestGuideRect({
   indentWidth,
+  startsNestedBlock,
   rowDepth,
   rowRect,
 }: {
   readonly indentWidth: number;
+  readonly startsNestedBlock?: boolean | undefined;
   readonly rowDepth: number;
   readonly rowRect: GpuRect;
 }): GpuRect {
+  const topInset = startsNestedBlock
+    ? Math.min(
+        rowRect.height,
+        GPU_RETAINED_CONTENT_NESTED_GUIDE_BLOCK_START_INSET_Y_PX,
+      )
+    : 0;
   return {
-    height: rowRect.height,
+    height: Math.max(0, rowRect.height - topInset),
     width: GPU_RETAINED_CONTENT_NESTED_GUIDE_WIDTH_PX,
     x:
       rowRect.x +
       Math.max(0, rowDepth) * Math.max(0, indentWidth) +
       GPU_RETAINED_CONTENT_NESTED_GUIDE_OFFSET_X_PX,
-    y: rowRect.y,
+    y: rowRect.y + topInset,
   };
 }
