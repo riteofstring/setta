@@ -48,6 +48,41 @@ describe("GPU retained content scroll controller", () => {
     cleanup();
   });
 
+  it("clamps negative horizontal wheel deltas before notifying scroll owners", () => {
+    const element = document.createElement("div");
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const requestFrame = vi.fn();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+      requestFrame,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaX: -1,
+      deltaY: 36,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
+    expect(requestFrame).toHaveBeenCalledWith("viewport");
+
+    cleanup();
+  });
+
   it.each(preservedWheelTargetCases)(
     "preserves wheel events from %s",
     (_name, createTarget) => {

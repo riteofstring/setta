@@ -185,8 +185,8 @@ export function clampGpuRetainedContentScrollOffset({
   readonly scrollOffset: GpuPoint;
   readonly viewportRect: Pick<GpuRect, "height" | "width">;
 }): GpuPoint {
-  assertFiniteNonNegative("retained content scroll x", scrollOffset.x);
-  assertFiniteNonNegative("retained content scroll y", scrollOffset.y);
+  assertFiniteNumber("retained content scroll x", scrollOffset.x);
+  assertFiniteNumber("retained content scroll y", scrollOffset.y);
   const maxOffset = getGpuRetainedContentMaxScrollOffset({
     contentRect,
     viewportRect,

@@ -57,6 +57,91 @@ describe("retained content scroll", () => {
         viewportRect: surface.retainedScene!.viewportRect,
       }),
     ).toEqual({ x: 0, y: 200 });
+    expect(
+      clampGpuRetainedContentScrollOffset({
+        contentRect: surface.retainedScene!.contentRect,
+        scrollOffset: { x: -12, y: -4 },
+        viewportRect: surface.retainedScene!.viewportRect,
+      }),
+    ).toEqual({ x: 0, y: 0 });
+    expect(() =>
+      clampGpuRetainedContentScrollOffset({
+        contentRect: surface.retainedScene!.contentRect,
+        scrollOffset: { x: Number.NaN, y: 0 },
+        viewportRect: surface.retainedScene!.viewportRect,
+      }),
+    ).toThrow("retained content scroll x must be a finite number.");
+  });
+
+  it("ignores wheel up at the top of a retained scroll surface", () => {
+    const offsets = new Map([["params", { x: 0, y: 0 }]]);
+    const result = resolveGpuRetainedContentWheelScroll({
+      event: wheel({ deltaY: -24 }),
+      point: { x: 20, y: 20 },
+      scene: sceneWithSurfaces([
+        retainedSurface({
+          id: "params",
+          rect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+      ]),
+      scrollOffsets: offsets,
+    });
+
+    expect(result.changed).toBe(false);
+    expect(result.scrollOffsets).toBe(offsets);
+  });
+
+  it("allows negative horizontal wheel deltas when no horizontal range exists", () => {
+    const result = resolveGpuRetainedContentWheelScroll({
+      event: wheel({ deltaX: -1, deltaY: 24 }),
+      point: { x: 20, y: 20 },
+      scene: sceneWithSurfaces([
+        retainedSurface({
+          id: "params",
+          rect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+      ]),
+      scrollOffsets: new Map(),
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.scrollOffsets.get("params")).toEqual({ x: 0, y: 24 });
+  });
+
+  it("clamps shift-wheel horizontal scroll to the retained content range", () => {
+    const result = resolveGpuRetainedContentWheelScroll({
+      event: wheel({ deltaY: 40, shiftKey: true }),
+      point: { x: 20, y: 20 },
+      scene: sceneWithSurfaces([
+        retainedSurface({
+          contentWidth: 260,
+          id: "params",
+          rect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+      ]),
+      scrollOffsets: new Map([["params", { x: 96, y: 0 }]]),
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.scrollOffsets.get("params")).toEqual({ x: 100, y: 0 });
+  });
+
+  it("leaves offsets unchanged when wheel input pushes past the bottom boundary", () => {
+    const offsets = new Map([["params", { x: 0, y: 200 }]]);
+    const result = resolveGpuRetainedContentWheelScroll({
+      event: wheel({ deltaY: 24 }),
+      point: { x: 20, y: 20 },
+      scene: sceneWithSurfaces([
+        retainedSurface({
+          id: "params",
+          rect: { height: 80, width: 160, x: 0, y: 0 },
+        }),
+      ]),
+      scrollOffsets: offsets,
+    });
+
+    expect(result.changed).toBe(false);
+    expect(result.scrollOffsets).toBe(offsets);
   });
 
   it("leaves offsets unchanged when no retained surface can scroll", () => {
@@ -130,10 +215,12 @@ function sceneWithSurfaces(
 }
 
 function retainedSurface({
+  contentWidth,
   id,
   rect,
   zIndex = 1,
 }: {
+  readonly contentWidth?: number | undefined;
   readonly id: string;
   readonly rect: {
     readonly height: number;
@@ -143,33 +230,43 @@ function retainedSurface({
   };
   readonly zIndex?: number | undefined;
 }): GpuContentSurface {
+  const retainedScene = createGpuRetainedRowContentScene({
+    id,
+    ownerSectionId: "section-a",
+    rowHeight: 28,
+    rows: Array.from({ length: 10 }, (_, index) => ({
+      control: {
+        defaultDisplayValue: "",
+        displayValue: `Value ${index}`,
+        editorKind: "text",
+        kind: "text-like",
+        rendererFamily: "text-like",
+        commitPolicy: "native-island",
+      },
+      controlKind: "text-like",
+      depth: 0,
+      id: `param-${index}`,
+      label: `Param ${index}`,
+    })),
+    scrollOffset: { x: 0, y: 0 },
+    viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+  });
   return {
     clipRect: rect,
     id,
     ownerSectionId: "section-a",
     rect,
     renderer: { kind: "canvas-content", surfaceId: id },
-    retainedScene: createGpuRetainedRowContentScene({
-      id,
-      ownerSectionId: "section-a",
-      rowHeight: 28,
-      rows: Array.from({ length: 10 }, (_, index) => ({
-        control: {
-          defaultDisplayValue: "",
-          displayValue: `Value ${index}`,
-          editorKind: "text",
-          kind: "text-like",
-          rendererFamily: "text-like",
-          commitPolicy: "native-island",
-        },
-        controlKind: "text-like",
-        depth: 0,
-        id: `param-${index}`,
-        label: `Param ${index}`,
-      })),
-      scrollOffset: { x: 0, y: 0 },
-      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
-    }),
+    retainedScene:
+      contentWidth === undefined
+        ? retainedScene
+        : {
+            ...retainedScene,
+            contentRect: {
+              ...retainedScene.contentRect,
+              width: contentWidth,
+            },
+          },
     zIndex,
   };
 }
