@@ -485,6 +485,7 @@ function createProjectGpuParamContentSurfacesForSection({
     measuredHeightsByKey,
     retainedParamDragPreview,
     section,
+    sectionImpl: dictSectionImpl,
   });
 }
 
@@ -720,6 +721,7 @@ function createProjectGpuParamListContentSurfaces({
   measuredHeightsByKey,
   retainedParamDragPreview,
   section,
+  sectionImpl,
 }: {
   readonly activeParamCanvasPopup?:
     | ProjectGpuActiveParamCanvasPopup
@@ -733,9 +735,13 @@ function createProjectGpuParamListContentSurfaces({
     | null
     | undefined;
   readonly section: GpuSectionSceneNode;
+  readonly sectionImpl: DictSectionImpl;
 }): readonly GpuContentSurface[] {
   const surfaces: GpuContentSurface[] = [];
+  const edgeStripPortCounts =
+    getProjectGpuParamContentEdgeStripPortCounts(sectionImpl);
   const metrics = getProjectGpuParamContentMetrics({
+    ...edgeStripPortCounts,
     measuredHeightsByKey,
     sectionId: section.sectionId,
   });
@@ -818,6 +824,18 @@ function createProjectGpuParamListContentSurfaces({
     });
   }
   return surfaces;
+}
+
+function getProjectGpuParamContentEdgeStripPortCounts(
+  sectionImpl: DictSectionImpl,
+): {
+  readonly edgeInputPortCount: number;
+  readonly edgeOutputPortCount: number;
+} {
+  return {
+    edgeInputPortCount: sectionImpl.edgeInputParams?.length ?? 0,
+    edgeOutputPortCount: sectionImpl.edgeOutputPorts?.length ?? 0,
+  };
 }
 
 function getProjectGpuParamRetainedContentActivePopupInput({

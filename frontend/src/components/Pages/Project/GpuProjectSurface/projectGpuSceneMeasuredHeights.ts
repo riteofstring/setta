@@ -6,7 +6,6 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import {
-  getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getPinnedParamsAreaHeightKey,
@@ -23,7 +22,6 @@ type ProjectGpuSceneMeasuredHeightKeyCreator = (sectionId: string) => string;
 
 const PROJECT_GPU_SCENE_MEASURED_HEIGHT_KEY_CREATORS: readonly ProjectGpuSceneMeasuredHeightKeyCreator[] =
   [
-    getEdgesStripHeightKey,
     getKwargsControlsHeightKey,
     getParamsFixedHeightKey,
     getPinnedParamsAreaHeightKey,

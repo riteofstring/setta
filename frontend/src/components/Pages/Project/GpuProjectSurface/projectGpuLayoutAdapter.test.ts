@@ -7,7 +7,6 @@ import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
 import type { ZustandProjectState } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
-  getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getPinnedParamsAreaHeightKey,
@@ -249,12 +248,10 @@ describe("project GPU layout adapter", () => {
     const searchKey = getSectionSearchHeightKey(sectionId);
     const kwargsKey = getKwargsControlsHeightKey(sectionId);
     const paramsFixedKey = getParamsFixedHeightKey(sectionId);
-    const edgesKey = getEdgesStripHeightKey(sectionId);
     const pinnedKey = getPinnedParamsAreaHeightKey(sectionId);
     const hiddenHeaderKey = getSectionHeaderHeightKey(hiddenSectionId);
 
     const measuredHeights = getProjectGpuSceneMeasuredHeights(projectState, {
-      [edgesKey]: 18,
       [hiddenHeaderKey]: 64,
       [getSectionHeaderHeightKey("other-section")]: 42,
       [getSectionStylePreviewColorKey(sectionId)]: "#ff0000",
@@ -269,7 +266,6 @@ describe("project GPU layout adapter", () => {
 
     expect(measuredHeights).not.toHaveProperty(hiddenHeaderKey);
     expect(measuredHeights).toEqual({
-      [edgesKey]: 18,
       [kwargsKey]: 0,
       [paramsFixedKey]: 36,
       [pinnedKey]: 0,

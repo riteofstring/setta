@@ -1,5 +1,5 @@
+import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import {
-  getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getPinnedParamsAreaHeightKey,
@@ -28,9 +28,13 @@ export function getProjectGpuParamContentControlWidth(width: number): number {
 }
 
 export function getProjectGpuParamContentMetrics({
+  edgeInputPortCount,
+  edgeOutputPortCount,
   measuredHeightsByKey,
   sectionId,
 }: {
+  readonly edgeInputPortCount: number;
+  readonly edgeOutputPortCount: number;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly sectionId: string;
 }) {
@@ -46,10 +50,10 @@ export function getProjectGpuParamContentMetrics({
     measuredHeightsByKey,
     getKwargsControlsHeightKey(sectionId),
   );
-  const edgesHeight = getProjectSceneMeasuredHeightFromRecord(
-    measuredHeightsByKey,
-    getEdgesStripHeightKey(sectionId),
-  );
+  const edgesHeight = resolveEdgeStripHeight({
+    inputPortCount: edgeInputPortCount,
+    outputPortCount: edgeOutputPortCount,
+  });
   const pinnedHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getPinnedParamsAreaHeightKey(sectionId),
