@@ -1,8 +1,12 @@
 import {
-  cancelGpuAnimationFrame,
-  requestGpuAnimationFrame,
-} from "gpuFlow/animationFrame";
-import type { GpuNodeLayout } from "gpuFlow/htmlSurfaces/frame";
+  createGpuFlowIntrinsicSizeController,
+  type GpuFlowIntrinsicSizeController,
+  type GpuFlowIntrinsicSizeControllerOptions,
+} from "gpuFlow/intrinsicSize";
+import type {
+  GpuFlowLayoutNode,
+  GpuFlowLayoutStoreApi,
+} from "gpuFlow/layoutStore";
 import { useCallback, useEffect, useRef } from "react";
 import { updateNodeDimensionsFromGpuIntrinsicSizes } from "state/actions/nodeInternals";
 import { getEffectiveSectionImplIfPresent } from "state/actions/sectionInfos/projectStateCore";
@@ -15,31 +19,27 @@ type ProjectNodeIntrinsicSize = {
   width?: number | undefined;
 };
 
-type ObservedProjectNode = {
-  element: HTMLElement;
-  mutationObserver: MutationObserver | null;
-};
-
-type ProjectNodeIntrinsicSizeController = {
-  disconnect(): void;
-  markNodesDirty(nodeIds: Iterable<string>): void;
-  setNodeElement(nodeId: string, element: HTMLElement | null): void;
-};
+type ProjectNodeIntrinsicSizeController = GpuFlowIntrinsicSizeController;
 
 type ProjectNodeIntrinsicSizeControllerOptions = {
   ResizeObserver?: typeof ResizeObserver | undefined;
-  cancelAnimationFrame?: typeof cancelGpuAnimationFrame | undefined;
-  requestAnimationFrame?: typeof requestGpuAnimationFrame | undefined;
+  cancelAnimationFrame?: GpuFlowIntrinsicSizeControllerOptions["cancelAnimationFrame"];
+  layoutStore: GpuFlowLayoutStoreApi;
+  MutationObserver?: typeof MutationObserver | undefined;
+  requestAnimationFrame?: GpuFlowIntrinsicSizeControllerOptions["requestAnimationFrame"];
 };
 
 export function useProjectNodeIntrinsicSizeObserver(
-  nodeLayouts: readonly GpuNodeLayout[],
+  layoutStore: GpuFlowLayoutStoreApi,
+  nodeLayouts: readonly GpuFlowLayoutNode[],
 ) {
   const controllerRef = useRef<ProjectNodeIntrinsicSizeController | null>(null);
   const getController = useCallback(() => {
-    controllerRef.current ??= createProjectNodeIntrinsicSizeController();
+    controllerRef.current ??= createProjectNodeIntrinsicSizeController({
+      layoutStore,
+    });
     return controllerRef.current;
-  }, []);
+  }, [layoutStore]);
 
   useEffect(() => {
     controllerRef.current?.markNodesDirty(
@@ -64,106 +64,22 @@ export function useProjectNodeIntrinsicSizeObserver(
 }
 
 export function createProjectNodeIntrinsicSizeController(
-  options: ProjectNodeIntrinsicSizeControllerOptions = {},
+  options: ProjectNodeIntrinsicSizeControllerOptions,
 ): ProjectNodeIntrinsicSizeController {
-  const ResizeObserverCtor = options.ResizeObserver ?? globalThis.ResizeObserver;
-  if (typeof ResizeObserverCtor !== "function") {
-    throw new Error("Setta GPU section auto sizing requires ResizeObserver.");
-  }
-  const requestAnimationFrameFn =
-    options.requestAnimationFrame ?? requestGpuAnimationFrame;
-  const cancelAnimationFrameFn =
-    options.cancelAnimationFrame ?? cancelGpuAnimationFrame;
-  const observedNodes = new Map<string, ObservedProjectNode>();
-  const elementNodeIds = new Map<HTMLElement, string>();
-  const dirtyNodeIds = new Set<string>();
-  let frameId: number | null = null;
-
-  const resizeObserver = new ResizeObserverCtor((entries) => {
-    for (const entry of entries) {
-      const nodeId = elementNodeIds.get(entry.target as HTMLElement);
-      if (nodeId) {
-        markNodeDirty(nodeId);
-      }
-    }
-  });
-
-  function markNodeDirty(nodeId: string) {
-    dirtyNodeIds.add(nodeId);
-    if (frameId !== null) {
-      return;
-    }
-    frameId = requestAnimationFrameFn(() => {
-      frameId = null;
-      flushDirtyNodes();
-    });
-  }
-
-  function flushDirtyNodes() {
-    const nodeIds = Array.from(dirtyNodeIds);
-    dirtyNodeIds.clear();
-    const updates: Array<ProjectNodeIntrinsicSize & { id: string }> = [];
-    for (const nodeId of nodeIds) {
-      const observed = observedNodes.get(nodeId);
-      if (!observed) {
-        continue;
-      }
-      const size = resolveProjectNodeIntrinsicSize(nodeId, observed.element);
-      if (size) {
-        updates.push({ id: nodeId, ...size });
-      }
-    }
-    if (updates.length > 0) {
-      updateNodeDimensionsFromGpuIntrinsicSizes(updates);
-    }
-  }
-
-  function disconnectNode(nodeId: string) {
-    const observed = observedNodes.get(nodeId);
-    if (!observed) {
-      return;
-    }
-    resizeObserver.unobserve(observed.element);
-    observed.mutationObserver?.disconnect();
-    elementNodeIds.delete(observed.element);
-    observedNodes.delete(nodeId);
-    dirtyNodeIds.delete(nodeId);
-  }
-
-  return {
-    disconnect() {
-      if (frameId !== null) {
-        cancelAnimationFrameFn(frameId);
-        frameId = null;
-      }
-      for (const nodeId of Array.from(observedNodes.keys())) {
-        disconnectNode(nodeId);
-      }
-      resizeObserver.disconnect();
-      dirtyNodeIds.clear();
-    },
-    markNodesDirty(nodeIds) {
-      for (const nodeId of nodeIds) {
-        if (observedNodes.has(nodeId)) {
-          markNodeDirty(nodeId);
-        }
-      }
-    },
-    setNodeElement(nodeId, element) {
-      disconnectNode(nodeId);
-      if (!element) {
-        return;
-      }
-      const mutationObserver = createIntrinsicSizeMutationObserver(
-        element,
-        () => markNodeDirty(nodeId),
+  return createGpuFlowIntrinsicSizeController({
+    ResizeObserver: options.ResizeObserver,
+    cancelAnimationFrame: options.cancelAnimationFrame,
+    layoutStore: options.layoutStore,
+    MutationObserver: options.MutationObserver,
+    onIntrinsicSizesApplied: ({ updates }) => {
+      updateNodeDimensionsFromGpuIntrinsicSizes(
+        updates.map(({ nodeId, ...size }) => ({ id: nodeId, ...size })),
       );
-      observedNodes.set(nodeId, { element, mutationObserver });
-      elementNodeIds.set(element, nodeId);
-      resizeObserver.observe(element);
-      markNodeDirty(nodeId);
     },
-  };
+    requestAnimationFrame: options.requestAnimationFrame,
+    resolveIntrinsicSize: ({ element, nodeId }) =>
+      resolveProjectNodeIntrinsicSize(nodeId, element),
+  });
 }
 
 export function resolveProjectNodeIntrinsicSize(
@@ -215,23 +131,6 @@ export function resolveProjectNodeIntrinsicSize(
     }
   }
   return Object.keys(nextSize).length > 0 ? nextSize : null;
-}
-
-function createIntrinsicSizeMutationObserver(
-  element: HTMLElement,
-  onMutation: () => void,
-): MutationObserver | null {
-  if (typeof globalThis.MutationObserver !== "function") {
-    return null;
-  }
-  const observer = new MutationObserver(onMutation);
-  observer.observe(element, {
-    attributes: true,
-    characterData: true,
-    childList: true,
-    subtree: true,
-  });
-  return observer;
 }
 
 export function measureIntrinsicElementHeight(

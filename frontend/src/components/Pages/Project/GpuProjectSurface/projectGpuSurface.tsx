@@ -306,8 +306,10 @@ export function ProjectGpuFlowLayer({
     flowInteractionKeys,
     isFollowTransitioning,
   });
-  const handleNodeElementChange =
-    useProjectNodeIntrinsicSizeObserver(nodeLayouts);
+  const handleNodeElementChange = useProjectNodeIntrinsicSizeObserver(
+    layoutStore,
+    nodeLayouts,
+  );
   const panZoomOptions = useMemo(
     () =>
       getProjectPanZoomOptions({
