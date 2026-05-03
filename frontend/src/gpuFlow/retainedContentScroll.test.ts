@@ -6,7 +6,7 @@ import {
   resolveGpuRetainedContentDragAutoScroll,
   resolveGpuRetainedContentWheelScroll,
 } from "./retainedContentScroll";
-import type { GpuContentSurface, GpuFlowScene } from "./scene";
+import type { GpuContentSurface, GpuDomIsland, GpuFlowScene } from "./scene";
 
 describe("retained content scroll", () => {
   it("scrolls the topmost retained content surface under the wheel point", () => {
@@ -186,6 +186,58 @@ describe("retained content scroll", () => {
     expect(update?.scene.contentSurfaces[1]).toBe(sibling);
   });
 
+  it("moves retained-content DOM islands with the affected surface scroll", () => {
+    const params = retainedSurface({
+      id: "params",
+      rect: { height: 80, width: 160, x: 10, y: 20 },
+    });
+    const hit = getControlHit(params, "param-2");
+    const island = domIslandForHit(params, hit);
+    const scene = sceneWithSurfaces([params], [island]);
+
+    const update = applyGpuRetainedContentScrollOffsetToScene({
+      scene,
+      scrollOffset: { x: 0, y: 28 },
+      surfaceId: "params",
+    });
+
+    const nextHit = getControlHit(update!.surface, "param-2");
+    expect(update?.scene.domIslands).toHaveLength(1);
+    expect(update?.scene.domIslands[0]).toMatchObject({
+      contentRect: {
+        height: island.contentRect.height,
+        width: island.contentRect.width,
+        x: 0,
+        y: 0,
+      },
+      rect: {
+        height: island.rect.height,
+        width: island.rect.width,
+        x: params.rect.x + nextHit.rect.x,
+        y: params.rect.y + nextHit.rect.y,
+      },
+    });
+  });
+
+  it("removes retained-content DOM islands when the active row leaves the clip", () => {
+    const params = retainedSurface({
+      id: "params",
+      rect: { height: 80, width: 160, x: 10, y: 20 },
+    });
+    const scene = sceneWithSurfaces(
+      [params],
+      [domIslandForHit(params, getControlHit(params, "param-0"))],
+    );
+
+    const update = applyGpuRetainedContentScrollOffsetToScene({
+      scene,
+      scrollOffset: { x: 0, y: 84 },
+      surfaceId: "params",
+    });
+
+    expect(update?.scene.domIslands).toEqual([]);
+  });
+
   it("autoscrolls a retained surface from a drag point near the viewport edge", () => {
     const offsets = new Map([["params", { x: 0, y: 24 }]]);
     const result = resolveGpuRetainedContentDragAutoScroll({
@@ -228,13 +280,60 @@ describe("retained content scroll", () => {
 
 function sceneWithSurfaces(
   contentSurfaces: readonly GpuContentSurface[],
+  domIslands: readonly GpuDomIsland[] = [],
 ): GpuFlowScene {
   return {
     contentSurfaces,
-    domIslands: [],
+    domIslands,
     edges: [],
     revision: 1,
     sections: [],
+  };
+}
+
+function getControlHit(surface: GpuContentSurface, rowId: string) {
+  const retainedScene = surface.retainedScene;
+  if (!retainedScene) {
+    throw new Error(`Missing retained scene for ${surface.id}.`);
+  }
+  const hit = retainedScene.hitRecords.find(
+    (candidate) =>
+      candidate.kind === "control" && candidate.ownerRowId === rowId,
+  );
+  if (!hit) {
+    throw new Error(`Missing control hit for ${rowId}.`);
+  }
+  return hit;
+}
+
+function domIslandForHit(
+  surface: GpuContentSurface,
+  hit: ReturnType<typeof getControlHit>,
+): GpuDomIsland {
+  return {
+    clipOwnerId: surface.id,
+    contentRect: {
+      height: hit.rect.height,
+      width: hit.rect.width,
+      x: 0,
+      y: 0,
+    },
+    id: `${hit.ownerRowId}-island`,
+    kind: "retained-content-control",
+    ownerSectionId: surface.ownerSectionId,
+    rect: {
+      height: hit.rect.height,
+      width: hit.rect.width,
+      x: surface.rect.x + hit.rect.x,
+      y: surface.rect.y + hit.rect.y,
+    },
+    source: {
+      hitRecordId: hit.id,
+      kind: "retained-content",
+      ownerRowId: hit.ownerRowId,
+      surfaceId: surface.id,
+    },
+    zIndex: surface.zIndex + 1,
   };
 }
 

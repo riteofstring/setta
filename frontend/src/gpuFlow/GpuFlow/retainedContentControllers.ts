@@ -25,8 +25,13 @@ import {
 } from "../interactions/scenePortConnection";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import { applyGpuRetainedContentScrollOffsetToScene } from "../retainedContentScroll";
-import type { GpuFlowScene } from "../scene";
+import type { GpuDomIsland, GpuFlowScene } from "../scene";
+import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+import {
+  hideGpuFlowDomIslandElement,
+  syncGpuFlowDomIslandElementStyle,
+} from "./domIslandLayer";
 
 export type GpuFlowRetainedContentConnectionOptions =
   | false
@@ -185,11 +190,13 @@ export function useGpuFlowRetainedContentControllers({
       onScrollOffsetsChange: (scrollOffsets, result) => {
         retainedContentScroll.onScrollOffsetsChange(scrollOffsets, result);
         applyGpuFlowRetainedContentScrollResult({
+          containerRef,
           nodeElementByIdRef,
           nodeLayerRef,
           result,
           surfaceRef,
           textureManagerRef,
+          viewportStore,
         });
       },
       requestFrame: (reason) => {
@@ -235,12 +242,15 @@ export function useGpuFlowRetainedContentControllers({
 }
 
 function applyGpuFlowRetainedContentScrollResult({
+  containerRef,
   nodeElementByIdRef,
   nodeLayerRef,
   result,
   surfaceRef,
   textureManagerRef,
+  viewportStore,
 }: {
+  readonly containerRef: MutableRefObject<HTMLDivElement | null>;
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeLayerRef: MutableRefObject<{
     readonly scene: GpuFlowScene | undefined;
@@ -254,6 +264,7 @@ function applyGpuFlowRetainedContentScrollResult({
   };
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
+  readonly viewportStore: GpuFlowViewportStoreApi;
 }) {
   const surfaceId = result.surfaceId;
   const scene = nodeLayerRef.current.scene;
@@ -272,6 +283,13 @@ function applyGpuFlowRetainedContentScrollResult({
   if (!update) {
     return;
   }
+  syncGpuFlowRetainedContentDomIslandElements({
+    container: containerRef.current,
+    nextScene: update.scene,
+    previousScene: scene,
+    surfaceId,
+    viewport: viewportStore.getState().transform,
+  });
   nodeLayerRef.current = {
     ...nodeLayerRef.current,
     scene: update.scene,
@@ -292,4 +310,64 @@ function applyGpuFlowRetainedContentScrollResult({
     });
     surfaceRef.current?.requestPaint();
   }
+}
+
+function syncGpuFlowRetainedContentDomIslandElements({
+  container,
+  nextScene,
+  previousScene,
+  surfaceId,
+  viewport,
+}: {
+  readonly container: HTMLElement | null;
+  readonly nextScene: GpuFlowScene;
+  readonly previousScene: GpuFlowScene;
+  readonly surfaceId: string;
+  readonly viewport: GpuViewportInput;
+}) {
+  if (!container) {
+    return;
+  }
+  const previousIslands = previousScene.domIslands.filter((island) =>
+    isGpuFlowRetainedContentDomIslandForSurface(island, surfaceId),
+  );
+  if (previousIslands.length === 0) {
+    return;
+  }
+  const nextIslandById = new Map(
+    nextScene.domIslands.map((island) => [island.id, island]),
+  );
+  const islandElements = [
+    ...container.querySelectorAll<HTMLElement>("[data-gpu-flow-dom-island-id]"),
+  ];
+  for (const previousIsland of previousIslands) {
+    const element = islandElements.find(
+      (candidate) =>
+        candidate.getAttribute("data-gpu-flow-dom-island-id") ===
+        previousIsland.id,
+    );
+    if (!element) {
+      continue;
+    }
+    const nextIsland = nextIslandById.get(previousIsland.id);
+    if (!nextIsland) {
+      hideGpuFlowDomIslandElement(element);
+      continue;
+    }
+    syncGpuFlowDomIslandElementStyle({
+      element,
+      island: nextIsland,
+      viewport,
+    });
+  }
+}
+
+function isGpuFlowRetainedContentDomIslandForSurface(
+  island: GpuDomIsland,
+  surfaceId: string,
+): boolean {
+  return (
+    island.source.kind === "retained-content" &&
+    island.source.surfaceId === surfaceId
+  );
 }

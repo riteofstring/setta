@@ -64,6 +64,32 @@ export function GpuFlowDomIslandLayer({
   );
 }
 
+export function syncGpuFlowDomIslandElementStyle({
+  element,
+  island,
+  viewport,
+}: {
+  readonly element: HTMLElement;
+  readonly island: GpuDomIsland;
+  readonly viewport: GpuViewportInput;
+}) {
+  const style = getGpuFlowDomIslandStyle(
+    island,
+    normalizeGpuViewport(viewport),
+  );
+  element.style.display = "";
+  element.style.height = `${style.height}px`;
+  element.style.left = `${style.left}px`;
+  element.style.top = `${style.top}px`;
+  element.style.transform = String(style.transform ?? "");
+  element.style.width = `${style.width}px`;
+  element.style.zIndex = String(style.zIndex ?? "");
+}
+
+export function hideGpuFlowDomIslandElement(element: HTMLElement) {
+  element.style.display = "none";
+}
+
 function getGpuFlowDomIslandStyle(
   island: GpuDomIsland,
   viewport: ReturnType<typeof normalizeGpuViewport>,
