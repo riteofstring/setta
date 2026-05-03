@@ -30,15 +30,15 @@ export function deleteEdgesOrSections() {
   }
 }
 
-let keysPressed = new Set();
+export let keysPressed = new Set();
 
-let keysPressedTimeStamps = new Map();
+export let keysPressedTimeStamps = new Map();
 
-const VIEWPORT_ZOOM_STEP_FACTOR = 1.2;
+export const VIEWPORT_ZOOM_STEP_FACTOR = 1.2;
 
-const VIEWPORT_ZOOM_THROTTLE_MS = 50;
+export const VIEWPORT_ZOOM_THROTTLE_MS = 50;
 
-const DEFAULT_FIT_VIEW_PADDING = 0.1;
+export const DEFAULT_FIT_VIEW_PADDING = 0.1;
 
 export const zoomInViewportShortcut = _.throttle(
   () =>
@@ -56,7 +56,8 @@ export const zoomOutViewportShortcut = _.throttle(
   VIEWPORT_ZOOM_THROTTLE_MS,
 );
 
-let pendingFitViewShortcutInitializationCleanup: (() => void) | null = null;
+export let pendingFitViewShortcutInitializationCleanup: (() => void) | null =
+  null;
 
 export function resetKeysPressed() {
   keysPressed = new Set();
@@ -108,11 +109,11 @@ export function resetGpuViewportZoom() {
   resetZoom({ overviewWidth: getProjectOverviewWidth() });
 }
 
-function getProjectOverviewWidth(): number {
+export function getProjectOverviewWidth(): number {
   return useLocalStorage.getState().overviewTrueWidth;
 }
 
-function markGpuFitViewShortcutInitializationAfterSettle() {
+export function markGpuFitViewShortcutInitializationAfterSettle() {
   pendingFitViewShortcutInitializationCleanup?.();
   pendingFitViewShortcutInitializationCleanup = null;
 
@@ -132,7 +133,7 @@ function markGpuFitViewShortcutInitializationAfterSettle() {
   pendingFitViewShortcutInitializationCleanup = unsubscribe;
 }
 
-function markGpuFitViewShortcutInitialized() {
+export function markGpuFitViewShortcutInitialized() {
   gpuFlowViewportStore.getState().setFitViewInitializationState({
     fitViewOnInit: true,
     fitViewOnInitDone: true,
@@ -161,7 +162,7 @@ export function attachKeyUpListener(action) {
   return attachEventListenerAndReturnCleanup(document, "keyup", action);
 }
 
-const specialEventKeyToEventCode = {
+export const specialEventKeyToEventCode = {
   ".": "Period",
   ",": "Comma",
   "/": "Slash",
@@ -191,7 +192,7 @@ export const modifierKeyCodes = new Set([
   "ShiftRight",
 ]);
 
-const namedEventKeyToCode = {
+export const namedEventKeyToCode = {
   " ": "Space",
   Shift: "ShiftLeft",
   Control: "ControlLeft",
@@ -199,7 +200,7 @@ const namedEventKeyToCode = {
   Meta: "MetaLeft",
 };
 
-type ParsedShortcut = {
+export type ParsedShortcut = {
   mod: boolean;
   ctrl: boolean;
   shift: boolean;
@@ -207,7 +208,7 @@ type ParsedShortcut = {
   keys: Set<string>;
 };
 
-type ShortcutPatternMode =
+export type ShortcutPatternMode =
   | "no-modifiers"
   | "shift-only"
   | "mod-only"
@@ -219,12 +220,12 @@ type ShortcutPatternMode =
   | "mod-or-ctrl"
   | "mod-or-ctrl-shift";
 
-type ShortcutPattern = {
+export type ShortcutPattern = {
   mode: ShortcutPatternMode;
   keys?: string[];
 };
 
-type ShortcutModifiers = Omit<ParsedShortcut, "keys">;
+export type ShortcutModifiers = Omit<ParsedShortcut, "keys">;
 
 export type TabShortcutInfo = { shift: boolean };
 
@@ -255,7 +256,7 @@ export function getNormalizedEventCode(event: KeyboardEvent): string | null {
   return getNormalizedAlphaNumericEventCode(key);
 }
 
-function getNormalizedAlphaNumericEventCode(key: string) {
+export function getNormalizedAlphaNumericEventCode(key: string) {
   if (/^[a-zA-Z]$/.test(key)) {
     return `Key${key.toUpperCase()}`;
   }
@@ -314,7 +315,7 @@ export function isTabLikeShortcut(shortcut) {
   return getTabShortcutInfo(shortcut) !== null;
 }
 
-function isParsedTabShortcut(parsedShortcut) {
+export function isParsedTabShortcut(parsedShortcut) {
   return (
     parsedShortcut.keys.size === 1 &&
     parsedShortcut.keys.has("Tab") &&
@@ -324,7 +325,7 @@ function isParsedTabShortcut(parsedShortcut) {
   );
 }
 
-function hasMatchingShortcutModifiers(
+export function hasMatchingShortcutModifiers(
   event: KeyboardEvent,
   parsedShortcut: ParsedShortcut,
   macOs: boolean,
@@ -352,11 +353,11 @@ export function isShortcutPressed(e, parsedShortcut, _isMacOs) {
   );
 }
 
-function keysMatch(keys, targetKeyList = []) {
+export function keysMatch(keys, targetKeyList = []) {
   return _.isEqual(keys, new Set(targetKeyList));
 }
 
-function matchesModifierState(
+export function matchesModifierState(
   parsedShortcut: ParsedShortcut,
   expected: ShortcutModifiers,
 ) {
@@ -368,7 +369,7 @@ function matchesModifierState(
   );
 }
 
-const shortcutModeMatchers: Record<
+export const shortcutModeMatchers: Record<
   ShortcutPatternMode,
   (parsedShortcut: ParsedShortcut) => boolean
 > = {
@@ -436,7 +437,7 @@ const shortcutModeMatchers: Record<
     !parsedShortcut.alt,
 };
 
-function matchesShortcutPattern(
+export function matchesShortcutPattern(
   parsedShortcut: ParsedShortcut,
   pattern: ShortcutPattern,
 ) {
@@ -449,7 +450,7 @@ function matchesShortcutPattern(
   return keysMatch(parsedShortcut.keys, pattern.keys);
 }
 
-function matchesAnyShortcutPattern(
+export function matchesAnyShortcutPattern(
   parsedShortcut: ParsedShortcut,
   patterns: ShortcutPattern[],
 ) {
@@ -458,18 +459,18 @@ function matchesAnyShortcutPattern(
   );
 }
 
-const preventDefaultAllowedShortcuts: ShortcutPattern[] = [
+export const preventDefaultAllowedShortcuts: ShortcutPattern[] = [
   { mode: "mod-or-ctrl", keys: ["KeyC"] },
   { mode: "mod-or-ctrl", keys: ["KeyV"] },
 ];
 
-const sharedInputFieldIgnoredShortcuts: ShortcutPattern[] = [
+export const sharedInputFieldIgnoredShortcuts: ShortcutPattern[] = [
   { mode: "no-modifiers" },
   { mode: "shift-only", keys: [] },
   { mode: "mod-only", keys: [] },
 ];
 
-const macosInputFieldIgnoredShortcuts: ShortcutPattern[] = [
+export const macosInputFieldIgnoredShortcuts: ShortcutPattern[] = [
   ...sharedInputFieldIgnoredShortcuts,
   { mode: "mod-only", keys: ["KeyC"] },
   { mode: "mod-only", keys: ["KeyV"] },
@@ -511,7 +512,7 @@ const macosInputFieldIgnoredShortcuts: ShortcutPattern[] = [
   { mode: "mod-only", keys: ["KeyI"] },
 ];
 
-const windowsInputFieldIgnoredShortcuts: ShortcutPattern[] = [
+export const windowsInputFieldIgnoredShortcuts: ShortcutPattern[] = [
   ...sharedInputFieldIgnoredShortcuts,
   { mode: "mod-or-ctrl", keys: ["KeyA"] },
   { mode: "mod-or-ctrl", keys: ["KeyC"] },

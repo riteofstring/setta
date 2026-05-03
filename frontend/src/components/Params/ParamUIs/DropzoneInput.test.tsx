@@ -104,7 +104,6 @@ describe("DropzoneInput attachment display", () => {
 
     expect(markup).toContain('data-gpu-flow-control="dropzone"');
     expect(markup).toContain('data-gpu-flow-interactive="true"');
-    expect(markup).toContain('data-gpu-flow-activation-target="true"');
     expect(markup).toContain("nodrag nopan section-value");
   });
 

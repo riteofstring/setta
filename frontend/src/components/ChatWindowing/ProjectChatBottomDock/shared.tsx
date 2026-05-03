@@ -138,7 +138,7 @@ export const FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
 export const FLOATING_WINDOW_MIN_WIDTH_PX = 380;
 export const FLOATING_WINDOW_MIN_HEIGHT_PX = 240;
 export const FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX = 32;
-const FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX = 120;
+export const FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX = 120;
 export const FLOATING_UNSNAP_DRAG_THRESHOLD_PX = 6;
 export const CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS = 115;
 export const CHAT_WINDOW_CLOSE_EXIT_DURATION_MS = 125;
@@ -147,7 +147,7 @@ export const SNAP_TOP_RIGHT_SHORTCUT = "Mod + Alt + Shift + W";
 export const SNAP_BOTTOM_LEFT_SHORTCUT = "Mod + Alt + Shift + A";
 export const SNAP_BOTTOM_RIGHT_SHORTCUT = "Mod + Alt + Shift + S";
 
-type ResizeHandleConfig = {
+export type ResizeHandleConfig = {
   direction: WindowResizeDirection;
   className: string;
   cursorClassName: string;
@@ -359,7 +359,7 @@ export function buildPillBaseClass(isActive: boolean): string {
   return "border-setta-300 bg-setta-100 text-setta-700 hover:bg-setta-200 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
 }
 
-function isVisibleCanvasWindow(pill: ResolvedWindowPill): boolean {
+export function isVisibleCanvasWindow(pill: ResolvedWindowPill): boolean {
   return (
     !pill.isClosed &&
     !pill.isMinimized &&
@@ -369,7 +369,7 @@ function isVisibleCanvasWindow(pill: ResolvedWindowPill): boolean {
   );
 }
 
-function resolveTopZIndexWindow(
+export function resolveTopZIndexWindow(
   pills: readonly ResolvedWindowPill[],
 ): ResolvedWindowPill | null {
   let activeWindow: ResolvedWindowPill | null = null;

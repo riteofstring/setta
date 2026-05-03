@@ -29,19 +29,20 @@ export const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 export const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
 export const UNKNOWN_SLASH_COMMAND_FEEDBACK =
   "Unknown or unavailable command. Use /help.";
-const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
+export const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
   activeBackgroundTerminals: 0,
   activeSubagents: 0,
 };
-const DEFAULT_RUNTIME_ACTIVITY_DETAILS: ChatRuntimeActivityDetails = {
+export const DEFAULT_RUNTIME_ACTIVITY_DETAILS: ChatRuntimeActivityDetails = {
   activeBackgroundTerminals: [],
   activeSubagents: [],
 };
-const DEFAULT_EXECUTION_CONTROL_VISIBILITY: ChatExecutionControlVisibility = {
-  permissionMode: true,
-  search: true,
-};
-const DEFAULT_SUBMITTED_MESSAGE_HISTORY: string[] = [];
+export const DEFAULT_EXECUTION_CONTROL_VISIBILITY: ChatExecutionControlVisibility =
+  {
+    permissionMode: true,
+    search: true,
+  };
+export const DEFAULT_SUBMITTED_MESSAGE_HISTORY: string[] = [];
 export const CHAT_COMPOSER_GPU_FLOW_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
 
 export function normalizeNonNegativeCount(
@@ -159,7 +160,7 @@ export type NormalizedSlashCommandResult = Exclude<
 >;
 export type FloatingBoxHandlers = ReturnType<typeof getFloatingBoxHandlers>;
 
-function resolveChatInputUIProps(props: ChatInputProps) {
+export function resolveChatInputUIProps(props: ChatInputProps) {
   return {
     disabled: props.disabled ?? false,
     submitDisabled: props.submitDisabled ?? false,
@@ -173,7 +174,7 @@ function resolveChatInputUIProps(props: ChatInputProps) {
   };
 }
 
-function resolveChatInputDictationProps(props: ChatInputProps) {
+export function resolveChatInputDictationProps(props: ChatInputProps) {
   return {
     dictationMode: props.dictationMode ?? "auto",
     dictationEnabledByProvider: props.dictationEnabledByProvider ?? true,
@@ -182,7 +183,7 @@ function resolveChatInputDictationProps(props: ChatInputProps) {
   };
 }
 
-function resolveChatInputContextProps(props: ChatInputProps) {
+export function resolveChatInputContextProps(props: ChatInputProps) {
   return {
     contextWindowTokens: props.contextWindowTokens ?? null,
     contextUsedTokens: props.contextUsedTokens ?? null,

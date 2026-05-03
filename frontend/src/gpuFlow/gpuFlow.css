@@ -25,10 +25,6 @@
   overflow: visible;
 }
 
-.setta-gpu-flow__portal-root--viewport {
-  position: fixed;
-}
-
 .setta-gpu-flow__node {
   box-sizing: border-box;
   contain: paint;
@@ -49,18 +45,39 @@
   pointer-events: auto;
 }
 
-.setta-gpu-flow:focus,
-.setta-gpu-flow:focus-visible {
-  outline: none;
+.setta-gpu-flow__selection-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.setta-gpu-flow__dom-island {
-  position: absolute;
+.setta-gpu-flow__selection {
   box-sizing: border-box;
-  min-width: 0;
-  overflow: hidden;
-  pointer-events: auto;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.75);
+  pointer-events: none;
+}
+
+.setta-gpu-flow__nodes-selection {
+  z-index: 3;
   transform-origin: left top;
+  pointer-events: none;
+}
+
+.setta-gpu-flow__nodes-selection-rect {
+  position: absolute;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.setta-gpu-flow__nodes-selection-rect:focus,
+.setta-gpu-flow__nodes-selection-rect:focus-visible {
+  outline: none;
 }
 
 .setta-gpu-flow__edge-label {

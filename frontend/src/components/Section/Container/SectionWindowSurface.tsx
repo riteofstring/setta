@@ -218,7 +218,6 @@ export function SectionWindowSurface({
               chatModeOverride={chatModeOverride}
               projectChatSurfaceId={projectChatSurfaceId}
               projectChatId={projectChatId}
-              syncDomPortGeometry
               setProjectChatId={setProjectChatId}
               onProjectChatBlockedErrorCodeChange={
                 onProjectChatBlockedErrorCodeChange

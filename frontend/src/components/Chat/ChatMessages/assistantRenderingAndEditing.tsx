@@ -56,7 +56,7 @@ import {
   useChatMessageActionBar,
 } from "./messageActionsAndStaticBodies";
 
-function renderAssistantActivitySection({
+export function renderAssistantActivitySection({
   message,
   actionBar,
   renderState,
@@ -123,7 +123,7 @@ function renderAssistantActivitySection({
   );
 }
 
-function renderAssistantBubble({
+export function renderAssistantBubble({
   message,
   attachments,
   attachmentUrlMap,
@@ -173,7 +173,7 @@ function renderAssistantBubble({
   );
 }
 
-function renderAssistantEmptyTimestamp({
+export function renderAssistantEmptyTimestamp({
   renderState,
   messageTimestampMs,
 }: {
@@ -186,7 +186,7 @@ function renderAssistantEmptyTimestamp({
   return <ChatMessageTimestampFooter timestampMs={messageTimestampMs} />;
 }
 
-function resolveAssistantTypingIndicatorVisible(
+export function resolveAssistantTypingIndicatorVisible(
   renderState: AssistantMessageRenderState,
 ): boolean {
   return (
@@ -196,7 +196,7 @@ function resolveAssistantTypingIndicatorVisible(
   );
 }
 
-function AssistantChatMessageBody({
+export function AssistantChatMessageBody({
   message,
   attachments,
   toolResultsById,
@@ -271,7 +271,7 @@ function AssistantChatMessageBody({
   );
 }
 
-type ResolvedChatMessageRenderProps = {
+export type ResolvedChatMessageRenderProps = {
   message: BaseChatMessageUnion;
   toolResultsById: Record<string, ToolChatMessage>;
   toolCallArguments: Record<string, string>;
@@ -302,7 +302,7 @@ type ResolvedChatMessageRenderProps = {
   messageTimestampMs: number | null;
 };
 
-function renderResolvedChatMessage({
+export function renderResolvedChatMessage({
   message,
   toolResultsById,
   toolCallArguments,
@@ -461,7 +461,7 @@ export function resolveQuestionAnswers(
   return null;
 }
 
-function isAssistantActivityOnlyMessage(
+export function isAssistantActivityOnlyMessage(
   message: BaseChatMessageUnion,
 ): message is AssistantChatMessage {
   if (message.role !== ChatRoleEnum.assistant) {
@@ -484,7 +484,9 @@ function isAssistantActivityOnlyMessage(
   return thinkingItems.length > 0 || toolCalls.length > 0;
 }
 
-function hasAssistantActivityContent(message: AssistantChatMessage): boolean {
+export function hasAssistantActivityContent(
+  message: AssistantChatMessage,
+): boolean {
   const { thinkingItems } = partitionAssistantContent(message.content);
   const toolCalls = message.tool_calls ?? [];
   return thinkingItems.length > 0 || toolCalls.length > 0;
@@ -509,7 +511,7 @@ export type ChatMessagesProps = {
   branchInfoByMessage?: Record<string, ChatMessageBranchInfo>;
 };
 
-type GroupedAssistantActivityData = {
+export type GroupedAssistantActivityData = {
   firstMessageId: string;
   nextIndex: number;
   groupedMessages: AssistantChatMessage[];
@@ -566,7 +568,7 @@ export type RenderableChatMessageProps = {
   setEditingBubbleWidthPx: Dispatch<SetStateAction<number | null>>;
 };
 
-function buildActivityMessageContext({
+export function buildActivityMessageContext({
   message,
   waitingForResponse,
   streamingMessageId,
@@ -584,7 +586,7 @@ function buildActivityMessageContext({
   };
 }
 
-function isAssistantMessageWithActivity(
+export function isAssistantMessageWithActivity(
   message: BaseChatMessageUnion | undefined,
 ): message is AssistantChatMessage {
   return (

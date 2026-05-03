@@ -19,7 +19,7 @@ export const GPU_PAN_ON_SCROLL_MODE = {
   vertical: "vertical",
 } as const;
 
-type GpuPanOnScrollMode =
+export type GpuPanOnScrollMode =
   (typeof GPU_PAN_ON_SCROLL_MODE)[keyof typeof GPU_PAN_ON_SCROLL_MODE];
 
 export type GpuPanZoomControllerOptions = {

@@ -35,7 +35,7 @@ import {
   stopEventPropagation,
 } from "./projectConfigsMode";
 
-async function submitViewModeNameChange({
+export async function submitViewModeNameChange({
   canEditStructure,
   mode,
   projectConfigId,

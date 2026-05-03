@@ -10,16 +10,10 @@ with a renderer-owned scene model:
   projection.
 - High-cardinality node contents, especially param dict/list rows, render
   through retained canvas/GPU primitives instead of persistent React DOM rows.
-- DOM remains only for sparse active islands that truly need browser-native
-  editing or OS integration: CodeMirror, focused text/textarea/IME inputs,
-  native file pickers and drop targets while active, native browser
-  color/date/time pickers when explicitly selected, media controls, and
-  temporary accessibility fallbacks.
-- Dropdown option lists, color choice menus, date calendar grids, switches,
-  sliders, rotary controls, buttons, validation/status bubbles, drag/drop
-  markers, resize handles, edge anchors, and selection affordances should be
-  retained canvas/GPU widgets, not DOM islands, unless a specific native-control
-  constraint is documented.
+- DOM remains only for active or inherently DOM-dependent islands such as
+  CodeMirror, focused text inputs, popovers, color pickers, file controls, and
+  accessibility-critical controls that cannot yet be represented by the canvas
+  renderer.
 - Go remains the source of truth for durable section/param contracts,
   validation, generated metadata, endpoint shapes, and correctness-sensitive
   behavior. The frontend renderer applies those generated contracts to live
@@ -100,55 +94,6 @@ Current files:
 This means a param dict with many params still pays DOM cost even though
 `GpuFlow` can efficiently compose the resulting texture.
 
-### Retained Param Controls Still Escalate To DOM
-
-Current files:
-
-- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuParamRowAdapter.ts`
-  already maps Go-owned `ParamUIRendererConfig` metadata into a retained
-  `controlKind`.
-- `frontend/src/gpuFlow/retainedContentScene.ts` emits generic
-  `row-control` draw commands and `control` hit records, but the control
-  payload is only a renderer-family string.
-- `frontend/src/gpuFlow/GpuRetainedContentSurfaces.tsx` draws placeholder
-  control pills rather than concrete switch, slider, dropdown, date, color, or
-  file-state visuals.
-- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuRetainedParamInteractionAdapter.tsx`
-  handles a retained control click by mounting a full `ParamInput` DOM island.
-- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuDomIslandActivation.ts`
-  then replays pointer, mouse, focus, and click events into the newly mounted
-  DOM target.
-- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuActiveParamDomIslandDeactivation.ts`
-  preserves generic popover, validation, and CodeMirror portal roots while an
-  active retained-param island is open.
-
-The current DOM controls explain the complexity:
-
-- `frontend/src/components/Params/ParamUIs/DropdownInput.tsx` uses
-  `IdNameCombobox`, which creates a portal list and repositions it on canvas
-  transforms.
-- `frontend/src/components/Params/ParamUIs/ColorPickerInput.tsx` uses a
-  `StandardPopover` portal for configured color choices and a native
-  `<input type="color">` when no choices are configured.
-- `frontend/src/components/Params/ParamUIs/TextParamInput/dateTimeParamInputs.tsx`
-  renders the date calendar as a DOM grid, with native time input when time is
-  included.
-- `frontend/src/components/Params/ParamUIs/SliderInput.tsx`,
-  `frontend/src/components/Params/ParamUIs/RotaryInput.tsx`, and
-  `frontend/src/components/Params/ParamUIs/SwitchInput.tsx` are DOM/Radix
-  controls, but their steady-state interaction is deterministic geometry and
-  value math.
-- `frontend/src/components/Params/ParamUIs/DropzoneInput/dropzoneInput.tsx`
-  requires native file picker, OS drag/drop, and server picker integration, but
-  the idle attachment list and drag-over display are renderer-owned visuals.
-- `frontend/src/components/Params/ParamItems/ParamNameInput.tsx` and text-like
-  values use `TextInputCodeMirror`; those should remain DOM only while focused.
-
-The simplification target is to keep the Go-owned renderer-family metadata, add
-specific retained control descriptors and hit records, and stop opening a full
-DOM `ParamInput` for controls that can be drawn and interacted with directly in
-canvas.
-
 ### Port Geometry Still Depends On DOM Measurement
 
 Current files:
@@ -201,11 +146,6 @@ Relevant examples:
 Design implications for Setta:
 
 - Keep direct canvas child source surfaces for the DOM islands that remain.
-- Use html-in-canvas only for those remaining DOM islands and source-local
-  accessibility surfaces. Do not use it as the default implementation for
-  dropdown lists, configured color choices, calendar grids, switches, sliders,
-  rotary controls, validation bubbles, or drag/drop affordances that can be
-  retained renderer primitives.
 - Split independently invalidated things into independent renderer surfaces
   instead of one giant parent source surface.
 - Do not hide or offscreen-stage source DOM in ways that suppress browser paint
@@ -321,113 +261,26 @@ Target behavior:
 - It virtualizes by scroll offset and viewport, drawing only visible rows plus
   a small buffer.
 - It emits port anchor metadata directly from row layout.
-- It mounts DOM islands only for explicit native editor/picker controls.
+- It mounts DOM islands only for active controls.
 
 The renderer must not duplicate non-trivial section/param business logic in
 TypeScript. If a helper, type guard, normalized union, or metadata surface is
 missing, extend the Go-owned/generated path first.
-
-### Canvas-First Param Control Boundary
-
-The retained row scene should carry concrete control descriptors instead of a
-single `controlKind` string. Each descriptor should include:
-
-- owner row id and renderer family from Go-owned `ParamUIRendererConfig`
-- current display value and default/fallback display value
-- disabled, frozen, selected, hovered, focused, error, and preview state
-- renderer-owned control rects and sub-hit regions
-- minimal generated config needed for drawing and interaction, such as
-  slider/rotary min/max/step, dropdown choices, color choices, date/time mode,
-  and dropzone attachment display metadata
-- commit policy: immediate, preview plus commit, or native island activation
-
-Move these controls to retained canvas/GPU by default:
-
-- `switch`: draw track/thumb; click, Space, and Enter toggle and commit through
-  the existing param update path.
-- `slider`: draw track/range/thumb and value text; pointer drag updates preview
-  with `skipBackendUpdate`, pointerup/cancel commits, keyboard arrows/Page/Home/
-  End use the same min/max/step math, and direct numeric typing mounts a small
-  text DOM island only while editing the number.
-- `rotary`: draw knob/tick/value; pointer angle, wheel, and keyboard math stay
-  in the renderer interaction controller, with preview during drag and commit on
-  release/cancel.
-- `dropdown`: draw the closed field and open option list as retained canvas
-  popup content. Arrow keys, Home/End, Enter, Escape, click selection, wheel
-  scrolling, and simple typeahead should be renderer-owned. Only mount a text
-  DOM island if a future dropdown mode requires freeform search text editing.
-- `color-picker` with configured `colorChoices`: draw the closed color preview
-  and open swatch/list popup as retained canvas content, then commit the chosen
-  color directly. The native `<input type="color">` remains a DOM island only
-  when no configured choices exist or native browser color UI is explicitly
-  required.
-- `date-time` calendar mode: draw month header, weekday labels, date cells,
-  selection/range state, Today state, Prev/Next controls, and summary text in
-  canvas. Native date/time/text inputs remain DOM islands only for explicit
-  input modes or direct typed time editing.
-- `password`: draw the closed value placeholder and reveal affordance in
-  canvas; the password text field and browser credential/editing behavior stay
-  DOM only while active.
-- `dropzone`: draw idle placeholder, attachment chips/list, upload/error state,
-  delete affordances, and drag-over state in canvas. Native file input, OS file
-  drop, and server-file modal activation remain DOM/native islands.
-- `button` and other simple command controls: add them to Go-owned
-  `ParamUIRendererConfig` before implementing canvas rendering, then draw the
-  button and route click/Space/Enter through the existing action.
-- Validation, status, search match, duplicate-name badges, drag previews,
-  insertion markers, and row selection affordances are retained canvas overlays.
-  CodeMirror lint/tooltips and active name-validation text editing remain DOM
-  only while the editor island is mounted.
-
-Do not spend more implementation work improving the generic retained-param
-portal/activation path for the controls above. Once a control family has a
-canvas descriptor and interaction controller, its retained hit records should
-route to canvas handlers instead of `onActiveParamDomIslandChange`,
-`GpuFlowDomIslandLayer`, `SETTA_POPOVER_PORTAL_PARENT_ID`, or replayed DOM
-activation events.
-
-Remaining DOM islands should use the html-in-canvas source-local path:
-
-- The source element is a direct child of the `layoutsubtree` canvas.
-- `requestPaint()` is used to obtain a fresh snapshot before upload.
-- WebGPU upload uses `GPUQueue.copyElementImageToTexture` or the existing
-  equivalent html-surface texture manager.
-- `changedElements` and dirty rects are scoped to the island, not the parent
-  param dict.
-- The source element stays laid out and painted; no `display:none`,
-  `visibility:hidden`, opacity-zero staging, or large offscreen positioning.
-- `GpuFlow` owns transform synchronization so hit testing and accessibility
-  match the composited texture.
 
 ### DOM Islands
 
 DOM islands are explicit renderer resources, not arbitrary descendants inside a
 large section component.
 
-Valid default DOM island examples:
+Examples:
 
 - focused CodeMirror editor
 - active text input or textarea
-- active direct numeric text field for a canvas slider or rotary value
-- active dropdown freeform search field, only if a future dropdown mode needs
-  true text editing instead of renderer-owned typeahead
-- native `<input type="color">` when configured color choices are absent or
-  native color UI is explicitly required
-- native date/time/text input when date/time input mode requires browser editing
-- file input, OS drop target, and server-file modal activation for dropzone
+- open combobox/dropdown/popover
+- color picker
+- file input/drop area
 - media preview requiring native controls
-- CodeMirror tooltip/lint UI tied to the mounted editor
 - temporary accessibility fallback where canvas semantics are not yet adequate
-
-Non-examples that should be canvas-owned:
-
-- dropdown option menus for configured choices
-- color choice popovers for configured choices
-- date calendar month grids
-- switches, sliders, rotary knobs, and simple command buttons
-- validation/status bubbles that are not tied to an active DOM editor
-- drag previews, insertion markers, selection bounds, resize handles, and edge
-  labels/anchors
 
 Each DOM island should have:
 
@@ -442,14 +295,7 @@ Each DOM island should have:
 - dirtying behavior tied to the island, not the whole section
 
 Inactive CodeMirror-like controls should render as canvas text/control
-primitives. Mount the real DOM editor only on focus/activation. The inactive
-canvas preview must preserve the control's bounds, shell, readable typography,
-text content, whitespace/line breaks where relevant, clipping, and activation
-affordance, but it is not required to pixel-match CodeMirror token spans,
-syntax colors, or other CodeMirror CSS internals. Syntax-highlight fidelity is
-required only after activation, when the real DOM editor is mounted. Inactive
-canvas previews should not branch on literal values or implement a tiny syntax
-highlighter to chase CodeMirror visual parity.
+primitives. Mount the real DOM editor only on focus/activation.
 
 ### Port And Edge Geometry
 
@@ -552,22 +398,11 @@ Acceptance:
 ### 6. Build The Param Canvas Renderer
 
 - Define a retained param content scene from generated/owner-defined metadata.
-- Replace the current `controlKind`-only retained rows with concrete control
-  descriptors sourced from Go-owned `ParamUIRendererConfig` and generated param
-  config/value surfaces.
-- Render rows, labels, nesting, closed-state controls, errors, hover,
-  selection, search matches, duplicate-name indicators, and drag state as
-  canvas/GPU primitives.
+- Render rows, labels, nesting, simple controls, errors, hover, selection, and
+  drag state as canvas/GPU primitives.
 - Virtualize visible rows by scroll offset.
-- Emit row, label, control, control-subpart, popup, popup-option, drag marker,
-  and port hit records from the same row layout.
-- Add project-adapter conversion from `ParamUI` state to retained descriptors:
-  text-like, date-time, slider, rotary, switch, color-picker, dropdown,
-  password, dropzone, and any future Go-owned renderer families.
-- Mount DOM islands only for focused CodeMirror/text/textarea/IME editing,
-  direct numeric typing, native color/date/time controls, file picker/drop
-  targets, server picker/modal activation, media controls, and temporary
-  accessibility fallbacks.
+- Emit hit-test records and port anchors from the same row layout.
+- Mount DOM islands for active CodeMirror/input/dropdown/color/file controls.
 - Delete the DOM row rendering hot path for dict params once parity is reached
   for the target branch.
 
@@ -575,60 +410,9 @@ Acceptance:
 
 - A large param dict scrolls without rendering all rows as DOM.
 - Param edge anchors come from retained layout metadata.
-- Closed and inactive states for dropdown, color picker, date calendar, switch,
-  slider, rotary, password, dropzone, and button-style controls are
-  canvas-rendered.
-- The retained scene has enough typed descriptor data that `GpuRetainedContentSurfaces`
-  no longer draws generic renderer-family placeholder pills for supported
-  controls.
-- Clicking a closed switch, slider, rotary, configured color picker, dropdown,
-  or calendar control does not mount a full `ParamInput` DOM island.
+- The inactive state of normal params is canvas-rendered.
 
-### 7. Move Param Popups And Simple Controls Into Canvas
-
-- Add retained canvas interaction controllers for switch, slider, rotary,
-  dropdown, configured color picker, calendar date/time picker, password reveal,
-  dropzone display/delete affordances, and button-style controls.
-- Route retained hits for these controls to canvas handlers instead of
-  `onActiveParamDomIslandChange`.
-- Preserve existing `ParamValueChange` semantics: slider/rotary/color preview
-  uses `skipBackendUpdate`, final pointerup/cancel/selection commits through the
-  same project update path, and immediate controls commit once per user action.
-- Render dropdown and configured color-picker popups as retained canvas popup
-  layers with renderer-owned z order, clipping, scrolling, highlighted option,
-  selected option, and outside-click/Escape dismissal.
-- Render date calendar popups as retained canvas popup layers with month
-  navigation, weekday headers, date cells, range/multi/single selection,
-  optional time summary, and typed time DOM island only when direct text editing
-  is required.
-- Render validation/status/search bubbles as retained canvas overlays unless
-  they are attached to a focused CodeMirror/text DOM island.
-- Keep native DOM activation only for `ParamNameInput`, text-like `ParamUI`,
-  direct numeric editing, native color/date/time inputs, file picker/dropzone
-  OS integration, server picker/modal activation, media controls, and temporary
-  accessibility fallbacks.
-- Delete retained-param coupling to generic popover portal preservation once
-  dropdown/color/date validation popups are canvas-owned.
-- Narrow `projectGpuDomIslandActivation.ts` so it replays activation only for
-  the remaining native editor/picker island families, not for role
-  `combobox`/`switch` or configured color/date popovers.
-
-Acceptance:
-
-- Dropdown choices, configured color choices, date calendar cells, switch,
-  slider, rotary, password reveal, and dropzone attachment/delete interactions
-  work from retained canvas hit records.
-- DOM island count remains zero while interacting with dropdown/configured
-  color/date/switch/slider/rotary controls in a large param dict, except for
-  explicitly activated text/native picker/file cases.
-- `SETTA_POPOVER_PORTAL_PARENT_ID` is not required for retained-param dropdown,
-  configured color picker, calendar, validation, or status UI.
-- Existing persisted value behavior matches current `ParamUI` behavior,
-  including preview-vs-commit behavior for slider, rotary, and color picker.
-- Frontend tests cover pointer, keyboard, wheel, Escape/outside dismissal, and
-  scroll clipping for the canvas-owned controls.
-
-### 8. Move Edge Labels, Reconnect Anchors, And Selection Overlays Into Scene
+### 7. Move Edge Labels, Reconnect Anchors, And Selection Overlays Into Scene
 
 - Render edge labels, reconnect anchors, selected bounds, insertion markers,
   drag previews, and resize affordances through `GpuFlow`.
@@ -641,16 +425,13 @@ Acceptance:
 - Edge visuals and interaction hit regions are built from one edge scene.
 - Selection and group drag use the same live layout store as section rendering.
 
-### 9. Delete Old DOM Measurement Paths
+### 8. Delete Old DOM Measurement Paths
 
 - Remove DOM handle registration as a steady-state source of port geometry.
 - Remove screen-space section rect fallback helpers from project focus/reveal
   paths after equivalent scene APIs exist.
 - Remove param area DOM measurements that computed row/container heights.
 - Remove nested-section DOM sort/resize stores.
-- Remove retained-param DOM activation, portal preservation, and
-  `getBoundingClientRect()` list-position code for controls that are now
-  canvas-owned.
 
 Acceptance:
 
@@ -658,8 +439,6 @@ Acceptance:
   steady-state canvas scene.
 - Remaining DOM measurement is limited to active DOM islands and intrinsic size
   measurement that is explicitly content-owned.
-- The remaining retained-param DOM island path is a small editor/picker/file
-  path, not the default path for controls and popups.
 
 ## Performance Verification
 
@@ -671,11 +450,6 @@ Create repeatable fixtures before implementing the renderer rewrite:
 - list root with hundreds of child sections
 - kanban-style horizontal child layout with many columns/cards
 - mixed CodeMirror-active and CodeMirror-inactive param states
-- mixed control-heavy param dict with dropdown, configured color picker, native
-  color picker, date calendar, date/time input, slider, rotary, switch,
-  password, and dropzone rows
-- active native islands for text editing, numeric typing, native color/date/time
-  picking, file picking, and dropzone OS drag/drop
 
 Measure before and after:
 
@@ -684,7 +458,6 @@ Measure before and after:
 - JS time per reorder/drag frame
 - React commits per interaction
 - DOM node count in the project surface
-- DOM island count during retained-param interactions
 - texture uploads per frame
 - uploaded texture bytes per frame
 - paint event changed-surface count
@@ -700,13 +473,6 @@ append-only artifacts.
 - Add focused frontend tests for scene generation from project state.
 - Add interaction tests for child section sort, resize, scroll, reveal, and
   param row activation.
-- Add retained-control tests for dropdown selection/typeahead, configured color
-  selection, date calendar navigation/selection, switch toggle, slider drag,
-  rotary pointer/wheel/keyboard, password reveal, and dropzone display/delete
-  affordances.
-- Add tests that assert canvas-owned retained controls do not mount
-  `GpuFlowDomIslandLayer` entries or viewport portal roots during normal
-  interaction.
 - Use Chrome DevTools performance profiling for the large fixtures.
 - Add debug overlays for scene rects, clip rects, scroll regions, port anchors,
   DOM islands, and dirty surfaces.
@@ -716,182 +482,6 @@ append-only artifacts.
 Do not add generator drift tests that only rerun generators and compare
 checked-in output.
 
-## Visual Fidelity Checkpoint Work
-
-Visual fidelity is part of this loop's implementation scope. The loop should
-not pause waiting for manual review of every screenshot blocker; it should use
-the checkpoint output as its work queue, fix real rendering/layout regressions,
-fix capture instability when the fixture is wrong, and rerun the checkpoint
-after each visible fix.
-
-Run the temporary baseline-vs-candidate checkpoint with:
-
-```bash
-node scripts/gpuflow-visual-fidelity-checkpoint.mjs
-```
-
-The checkpoint must use Chrome for Testing 149 from
-`scripts/resolve-chrome-for-testing-149.sh` for both the `ai.sh` browser and
-Playwright screenshot capture. Do not compare screenshots from Playwright's
-bundled Chromium.
-
-The current checkpoint artifact path is:
-
-`perf/visual-fidelity/2026-05-05-gpuflow-full-scene/`
-
-The checkpoint uses renderer-aware comparison for inactive CodeMirror-like
-text previews. It masks only inactive preview glyph/token pixels collected from
-`TextInputCodeMirror` dummy surfaces and still compares the surrounding field
-geometry, row spacing, label/control placement, section chrome, and active
-CodeMirror DOM. Do not try to satisfy this checkpoint by reimplementing
-CodeMirror syntax highlighting in canvas or by adding hardcoded token-color
-rules. Inactive previews should use the retained text-control presentation and
-leave CodeMirror syntax fidelity to active DOM editors.
-
-The checkpoint compares:
-
-- `baseline-primary`: `37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d`
-  from `go-rewrite-canvas-replace-xyflow-2-html-gpu-surfaces-plan`.
-- `candidate`: the current checkout running
-  `scripts/gpuflow-visual-fidelity-checkpoint.mjs`, with `HEAD` recorded when
-  the checkpoint starts. This intentionally covers uncommitted visible changes
-  before a loop iteration commits them.
-- optional `baseline-secondary`: `6b6036f456ad8a093cd3a364870d6ee1632b376b`
-  from `go-rewrite-canvas-replace-xyflow-2`, enabled with
-  `node scripts/gpuflow-visual-fidelity-checkpoint.mjs --include-secondary`.
-
-The script prepares and validates isolated baseline worktrees under
-`../setta-visual-fidelity-worktrees/` by default, or under
-`SETTA_VISUAL_FIDELITY_WORKTREE_ROOT` when that environment variable is set:
-
-- `gpuflow-baseline-primary`
-- `gpuflow-baseline-secondary`
-
-It does not require or use a separate candidate worktree. If a required
-baseline worktree is missing, the script creates it. If it exists at the wrong
-commit and is clean, the script switches it to the required detached commit. If
-it is dirty, the script fails loudly rather than overwriting local state. The
-script also links `.venv` and `frontend/node_modules` into prepared visual
-worktrees when those dependency directories are missing. The dependency source
-is `SETTA_VISUAL_FIDELITY_DEPENDENCY_ROOT` when set, otherwise the current
-checkout when it has dev dependencies, otherwise the primary Git worktree root.
-
-To check only baseline worktree and dependency preparation without launching the
-app or capturing screenshots, run:
-
-```bash
-node scripts/gpuflow-visual-fidelity-checkpoint.mjs --prepare-only
-```
-
-Current required fixtures:
-
-- project surface overview
-- closed retained param controls
-- dense param dict rows
-- callable edge/handle layout
-- selection/resize affordances
-- dropdown open popup
-- configured color picker open popup
-- date calendar open popup
-- active native text island
-- drag preview
-
-Each fixture must be captured at `1440x900`, `1024x768`, and `390x844`.
-
-Expanding checkpoint coverage:
-
-- Expand coverage in `scripts/gpuflow-visual-fidelity-checkpoint.mjs`; do not
-  add one-off screenshots outside the checkpoint when a visible renderer/control
-  state becomes part of the required loop evidence.
-- Keep the primary comparison against `baseline-primary`
-  (`37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d` from
-  `go-rewrite-canvas-replace-xyflow-2-html-gpu-surfaces-plan`) and the current
-  checkout as candidate. The same fixture setup and interaction sequence must
-  run against both runs.
-- Add representative project content through `controlSections` or
-  `createFixtureSections` using production project/param mutation paths. Avoid
-  candidate-only fixtures. If the primary baseline cannot create or display a
-  proposed fixture, choose the closest comparable baseline state or document why
-  the fixture is supplemental rather than required.
-- Add every required visual state to `fixtureDefinitions` with a stable fixture
-  id, description, and required selector that represents the owner being
-  compared.
-- Capture the new state from `captureViewportFixtures` for all required
-  viewports, using existing helpers such as `capturePane`, `captureSectionClip`,
-  `openSectionVisualState`, or a new deterministic helper when a state needs a
-  specific interaction.
-- For param UI work, expand fixtures around the visible states most likely to
-  drift: closed, open popup/menu, active native island, hover/focus/selection,
-  disabled/error, preview-drag, long-content/scrolling, and file drag-over or
-  attachment display states. Do not try to create an exhaustive Cartesian
-  product; add focused coverage when a control family or state moves ownership
-  to canvas.
-- For inactive CodeMirror-like text fields, visual coverage should verify the
-  preview contract: correct bounds, shell, placement, readable text, clipping,
-  and activation affordance. Token-level syntax styling is intentionally outside
-  the inactive canvas-preview target. Add focused scene/model tests when text
-  content or whitespace preservation needs stronger evidence than screenshots
-  can provide.
-- Rerun the checkpoint with Chrome for Testing 149 after adding coverage, commit
-  the updated artifact set or a newer timestamped artifact directory, and update
-  `review.md` with any accepted differences or remaining blockers.
-
-Loop visual-fidelity requirements:
-
-- Visible canvas-owned replacements require baseline-vs-candidate screenshots;
-  CDP smoke checks or "canvas exists" assertions are not enough.
-- Screenshot timeout, missing fixture capture, or mismatched screenshot
-  dimensions is a blocker for visible renderer/control changes unless a
-  documented equivalent capture method succeeds.
-- Page errors from `GpuFlow`, html-in-canvas, WebGPU texture upload, or retained
-  control interaction are blockers for visible renderer/control changes until
-  fixed or explicitly accepted in `review.md`.
-- Logic-only cleanup can proceed with focused unit/integration tests when it
-  does not change rendered output or interaction visuals.
-- Any visible renderer/control change must update this checkpoint artifact set
-  or create a newer timestamped artifact directory with the same fixture
-  coverage.
-- Do not loosen pixel thresholds, delete fixtures, add broad screenshot masks,
-  or mark a blocker as `accepted-difference` unless the diff has been inspected
-  and the reason is documented in `review.md`. The default renderer-aware mask
-  is limited to inactive CodeMirror preview glyph/token pixels; active
-  CodeMirror DOM and surrounding text-field layout remain strict visual
-  targets.
-- If a blocker is caused by nondeterministic capture, framing, waiting, or
-  fixture setup rather than product rendering, fix the checkpoint script or
-  fixture first and rerun it.
-- If a blocker is real visual drift, fix the renderer/layout/control behavior
-  before taking unrelated visual expansion work.
-- Do not emit
-  `GPUFLOW_FULL_SCENE_CANVAS_CONTENT_CLEAN_BREAK_PLAN_COMPLETE` while required
-  checkpoint fixtures have unexplained `blocking-regression`,
-  `capture-blocked`, or runtime page-error groups.
-
-Current checkpoint result:
-
-- The checkpoint used `Google Chrome for Testing 149.0.7827.2`.
-- `review.md` reports 30 primary comparisons: 21 pass, 9 blocking visual
-  regressions, 0 capture-blocked fixtures, and 0 runtime page-error groups.
-- Blocking visual regressions are `project-surface`, `param-controls-closed`,
-  `dense-param-dict`, `selection-resize`, and `callable-edge-handles` across
-  one or more desktop, compact-desktop, and narrow viewports.
-
-Current visual-fidelity work queue:
-
-1. Inspect and fix or classify `dense-param-dict` at desktop and
-   compact-desktop; these are the largest diffs (`0.2822` changed pixels,
-   `46.47` mean delta).
-2. Inspect and fix or classify `selection-resize` at desktop and
-   compact-desktop; verify selected-section frame, resize handles, and canvas
-   framing against baseline.
-3. Inspect and fix or classify `project-surface` and
-   `param-controls-closed` at desktop; these may share the same root framing or
-   layout drift.
-4. Inspect and fix or classify narrow viewport blockers for
-   `dense-param-dict`, `callable-edge-handles`, and `selection-resize`.
-5. Rerun `node scripts/gpuflow-visual-fidelity-checkpoint.mjs` after each
-   meaningful visible fix and update `review.md`.
-
 ## Final Target
 
 The final architecture should have these properties:
@@ -900,14 +490,8 @@ The final architecture should have these properties:
 - Child section layout is not React/CSS-owned.
 - Section resize is unified across top-level and nested sections.
 - High-cardinality param content is not persistent DOM.
-- Dropdowns, configured color pickers, date calendars, switches, sliders,
-  rotary controls, validation/status overlays, drag/drop markers, selection
-  affordances, resize handles, and edge affordances are retained canvas/GPU
-  widgets.
-- DOM islands are explicit, sparse, active editor/picker/file/accessibility
-  resources.
+- DOM islands are explicit, sparse, active resources.
 - Port and edge geometry comes from renderer layout metadata.
 - Browser html-in-canvas source surfaces are used where they are strongest:
-  native active editor/picker/file controls and accessibility surfaces, not bulk
-  row rendering and not renderer-owned param popups.
+  native active controls and accessibility surfaces, not bulk row rendering.
 - Old DOM render, sort, resize, scroll, and measurement owners are deleted.

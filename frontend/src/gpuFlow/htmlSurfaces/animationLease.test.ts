@@ -88,7 +88,8 @@ describe("HTML surface animation capture leases", () => {
     const clock = createAnimationClock();
     const controller = createHtmlSurfaceAnimationCaptureLeaseController({
       cancelAnimationFrame: clock.cancelAnimationFrame,
-      getSourceElement: (surfaceId) => (surfaceId === "node-a" ? source : null),
+      getSourceElement: (surfaceId) =>
+        surfaceId === "node-a" ? source : null,
       markDirty,
       now: clock.now,
       requestAnimationFrame: clock.requestAnimationFrame,

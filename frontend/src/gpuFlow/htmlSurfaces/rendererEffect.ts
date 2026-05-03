@@ -29,7 +29,7 @@ type EffectSurfaceDrawResources = {
   readonly vertexBuffer: GPUBuffer;
 };
 
-type HtmlSurfaceEffectPassOptions = {
+export type HtmlSurfaceEffectPassOptions = {
   readonly getCameraBindGroupLayout: () => GPUBindGroupLayout;
   readonly getTextureBindGroup: (
     surface: HtmlSurfaceEffectVisual,

@@ -118,9 +118,9 @@ import {
   onEscapeKey,
 } from "./tabAndModeActions";
 
-let aModShortcutWasPressed = false;
+export let aModShortcutWasPressed = false;
 
-function syncPressedKeysFromKeyDown(event: KeyboardEvent) {
+export function syncPressedKeysFromKeyDown(event: KeyboardEvent) {
   // keyup does not trigger on mac when cmd is held down, so stale keys need
   // pruning before the next keydown is processed.
   if (aModShortcutWasPressed) {
@@ -133,7 +133,7 @@ function syncPressedKeysFromKeyDown(event: KeyboardEvent) {
   }
 }
 
-function runShortcutKeyDownAction(
+export function runShortcutKeyDownAction(
   event: KeyboardEvent,
   shortcut,
   isMac,
@@ -159,7 +159,7 @@ function runShortcutKeyDownAction(
   return true;
 }
 
-function releaseShortcutIfNeeded(event: KeyboardEvent, shortcut) {
+export function releaseShortcutIfNeeded(event: KeyboardEvent, shortcut) {
   if (!shortcut.wasPressed || shortcut.keepKeyDownCondition?.(event)) {
     return;
   }
@@ -167,7 +167,11 @@ function releaseShortcutIfNeeded(event: KeyboardEvent, shortcut) {
   shortcut.wasPressed = false;
 }
 
-function handleShortcutKeyDownEvent(event: KeyboardEvent, shortcutInfo, isMac) {
+export function handleShortcutKeyDownEvent(
+  event: KeyboardEvent,
+  shortcutInfo,
+  isMac,
+) {
   syncPressedKeysFromKeyDown(event);
   const isInput = getIsInput(event);
   for (const shortcut of shortcutInfo) {
@@ -178,7 +182,7 @@ function handleShortcutKeyDownEvent(event: KeyboardEvent, shortcutInfo, isMac) {
   }
 }
 
-function keyUpLoop(e, shortcutInfo) {
+export function keyUpLoop(e, shortcutInfo) {
   for (const x of shortcutInfo) {
     if (x.wasPressed && !x.keepKeyDownCondition?.(e)) {
       x.wasPressed = false;
@@ -187,7 +191,7 @@ function keyUpLoop(e, shortcutInfo) {
   }
 }
 
-function addKeepKeyDownConditions(sInfo, _isMacOs) {
+export function addKeepKeyDownConditions(sInfo, _isMacOs) {
   // post processing that depends on parsed shortcuts
   sInfo.showTooltipShortcut.keepKeyDownCondition = (e) =>
     isShortcutPressed(e, sInfo.showTooltipShortcut.parsedShortcut, _isMacOs) ||
@@ -451,7 +455,7 @@ export function attachKeyEventListeners() {
 // and if metaKey is false, then call the keyup actions if necessary.
 // If the user doesn't move the mouse, then they'll probably press a key, in which case
 // the keyup action will be called in the keydown listener (since wasPressed is true).
-function specialModTabCase(shortcutInfo) {
+export function specialModTabCase(shortcutInfo) {
   const modShortcuts = shortcutInfo.filter((x) => x.parsedShortcut.mod);
   if (modShortcuts.length > 0) {
     const cleanup = attachEventListenerAndReturnCleanup(

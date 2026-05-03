@@ -22,7 +22,7 @@ export function findGpuNodeIdForEventTarget(
   return findContainingGpuNodeId(element, elementByNodeId);
 }
 
-function findDirectGpuNodeId(
+export function findDirectGpuNodeId(
   nodeElement: HTMLElement | null | undefined,
   elementByNodeId: ReadonlyMap<string, HTMLElement>,
 ): string | null {
@@ -36,7 +36,7 @@ function findDirectGpuNodeId(
   return null;
 }
 
-function findContainingGpuNodeId(
+export function findContainingGpuNodeId(
   element: Element,
   elementByNodeId: ReadonlyMap<string, HTMLElement>,
 ): string | null {

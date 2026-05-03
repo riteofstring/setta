@@ -6,7 +6,7 @@ import { getBoundsOfGpuRects } from "./nodeBounds";
 import { resolveGpuNodeZIndex } from "./nodeZIndex";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
-const GPU_FLOW_LAYOUT_DIRTY_FLAGS = [
+export const GPU_FLOW_LAYOUT_DIRTY_FLAGS = [
   "node-geometry",
   "edge-geometry",
   "selection-bounds",
@@ -15,11 +15,12 @@ const GPU_FLOW_LAYOUT_DIRTY_FLAGS = [
   "source-size",
 ] as const;
 
-type GpuFlowLayoutDirtyFlag = (typeof GPU_FLOW_LAYOUT_DIRTY_FLAGS)[number];
+export type GpuFlowLayoutDirtyFlag =
+  (typeof GPU_FLOW_LAYOUT_DIRTY_FLAGS)[number];
 
 export type GpuFlowLayoutChangePhase = "cancel" | "change" | "commit" | "start";
 
-type GpuFlowLayoutChangeReason =
+export type GpuFlowLayoutChangeReason =
   | "drag"
   | "intrinsic-size"
   | "keyboard"
@@ -33,22 +34,9 @@ export type GpuFlowLayoutInteractionFlags = {
   readonly selected?: boolean | undefined;
 };
 
-type GpuFlowLayoutTextureInvalidation = {
+export type GpuFlowLayoutTextureInvalidation = {
   readonly contentDirty?: boolean | undefined;
   readonly sizeDirty?: boolean | undefined;
-};
-
-export type GpuFlowLayoutDropMarker = {
-  readonly axis: "x" | "y";
-  readonly childNodeId: string;
-  readonly index: number;
-  readonly parentNodeId: string;
-  readonly rect: GpuRect;
-};
-
-type GpuFlowLayoutDragPreview = {
-  readonly draggedNodeIds: readonly string[];
-  readonly dropMarker: GpuFlowLayoutDropMarker | null;
 };
 
 export type GpuFlowLayoutNode = GpuNodeLayout & {
@@ -71,20 +59,19 @@ export type GpuFlowLayoutChange = {
   readonly reason: GpuFlowLayoutChangeReason;
 };
 
-type GpuFlowLayoutMutationOptions = {
+export type GpuFlowLayoutMutationOptions = {
   readonly dirty?: readonly GpuFlowLayoutDirtyFlag[] | undefined;
   readonly phase?: GpuFlowLayoutChangePhase | undefined;
   readonly reason?: GpuFlowLayoutChangeReason | undefined;
 };
 
-type GpuFlowLayoutHitTestOptions = {
+export type GpuFlowLayoutHitTestOptions = {
   readonly nodeIds?: readonly string[] | ReadonlySet<string> | undefined;
 };
 
 type GpuFlowLayoutStoreState = {
   readonly changedNodeIds: readonly string[];
   readonly dirty: readonly GpuFlowLayoutDirtyFlag[];
-  readonly dragPreview: GpuFlowLayoutDragPreview | null;
   readonly lastChange: GpuFlowLayoutChange | null;
   readonly nodeOrder: readonly string[];
   readonly nodesById: ReadonlyMap<string, GpuFlowLayoutNode>;
@@ -118,7 +105,6 @@ type GpuFlowLayoutStoreActions = {
     nodes: readonly GpuFlowLayoutNode[],
     options?: GpuFlowLayoutMutationOptions | undefined,
   ): GpuFlowLayoutChange;
-  setDragPreview(preview: GpuFlowLayoutDragPreview | null): void;
   upsertNodes(
     nodes: readonly GpuFlowLayoutNode[],
     options?: GpuFlowLayoutMutationOptions | undefined,
@@ -130,7 +116,7 @@ export type GpuFlowLayoutStore = GpuFlowLayoutStoreState &
 
 export type GpuFlowLayoutStoreApi = StoreApi<GpuFlowLayoutStore>;
 
-type CreateGpuFlowLayoutStoreOptions = {
+export type CreateGpuFlowLayoutStoreOptions = {
   readonly nodes?: readonly GpuFlowLayoutNode[] | undefined;
 };
 
@@ -156,7 +142,6 @@ export function createGpuFlowLayoutStore(
     subscribeWithSelector((set, get) => ({
       changedNodeIds: [],
       dirty: [],
-      dragPreview: null,
       lastChange: null,
       nodeOrder: initialNodes.nodeOrder,
       nodesById: initialNodes.nodesById,
@@ -284,14 +269,6 @@ export function createGpuFlowLayoutStore(
           set,
         });
       },
-      setDragPreview(preview) {
-        const nextPreview = normalizeGpuFlowLayoutDragPreview(preview);
-        set((state) =>
-          areGpuFlowLayoutDragPreviewsEqual(state.dragPreview, nextPreview)
-            ? state
-            : { dragPreview: nextPreview },
-        );
-      },
       upsertNodes(nodes, options) {
         if (nodes.length === 0) {
           return EMPTY_LAYOUT_CHANGE;
@@ -345,7 +322,7 @@ export function getGpuFlowLayoutNodeRect(
   };
 }
 
-function getGpuFlowLayoutNodesBounds(
+export function getGpuFlowLayoutNodesBounds(
   nodes: readonly GpuFlowLayoutNode[],
 ): GpuRect | null {
   let bounds: GpuRect | null = null;
@@ -359,7 +336,7 @@ function getGpuFlowLayoutNodesBounds(
   return bounds;
 }
 
-function sortGpuFlowLayoutNodesByZOrder(
+export function sortGpuFlowLayoutNodesByZOrder(
   nodes: readonly GpuFlowLayoutNode[],
 ): readonly GpuFlowLayoutNode[] {
   return [...nodes].sort((left, right) => {
@@ -619,49 +596,6 @@ function normalizeGpuFlowLayoutNode(
   };
 }
 
-function normalizeGpuFlowLayoutDragPreview(
-  preview: GpuFlowLayoutDragPreview | null,
-): GpuFlowLayoutDragPreview | null {
-  if (!preview) {
-    return null;
-  }
-  return {
-    draggedNodeIds: [...preview.draggedNodeIds],
-    dropMarker: normalizeGpuFlowLayoutDropMarker(preview.dropMarker),
-  };
-}
-
-function normalizeGpuFlowLayoutDropMarker(
-  marker: GpuFlowLayoutDropMarker | null,
-): GpuFlowLayoutDropMarker | null {
-  if (!marker) {
-    return null;
-  }
-  if (marker.childNodeId.length === 0) {
-    throw new Error("drop marker child node id is required.");
-  }
-  if (marker.parentNodeId.length === 0) {
-    throw new Error("drop marker parent node id is required.");
-  }
-  assertFiniteNonNegative("drop marker index", marker.index);
-  assertFiniteNumber("drop marker rect x", marker.rect.x);
-  assertFiniteNumber("drop marker rect y", marker.rect.y);
-  assertFiniteNonNegative("drop marker rect width", marker.rect.width);
-  assertFiniteNonNegative("drop marker rect height", marker.rect.height);
-  return {
-    axis: marker.axis,
-    childNodeId: marker.childNodeId,
-    index: marker.index,
-    parentNodeId: marker.parentNodeId,
-    rect: {
-      height: marker.rect.height,
-      width: marker.rect.width,
-      x: marker.rect.x,
-      y: marker.rect.y,
-    },
-  };
-}
-
 function getGpuFlowLayoutNodesInOrder(
   state: Pick<GpuFlowLayoutStoreState, "nodeOrder" | "nodesById">,
   nodeIds?: readonly string[] | undefined,
@@ -825,41 +759,6 @@ function getGpuFlowLayoutNodeScalarSignature(
     node.y,
     node.zIndex,
   ];
-}
-
-function areGpuFlowLayoutDragPreviewsEqual(
-  left: GpuFlowLayoutDragPreview | null,
-  right: GpuFlowLayoutDragPreview | null,
-): boolean {
-  if (!left && !right) {
-    return true;
-  }
-  if (!left || !right) {
-    return false;
-  }
-  return (
-    areStringArraysEqual(left.draggedNodeIds, right.draggedNodeIds) &&
-    areOptionalGpuFlowLayoutDropMarkersEqual(left.dropMarker, right.dropMarker)
-  );
-}
-
-function areOptionalGpuFlowLayoutDropMarkersEqual(
-  left: GpuFlowLayoutDropMarker | null,
-  right: GpuFlowLayoutDropMarker | null,
-): boolean {
-  if (!left && !right) {
-    return true;
-  }
-  if (!left || !right) {
-    return false;
-  }
-  return (
-    left.axis === right.axis &&
-    left.childNodeId === right.childNodeId &&
-    left.index === right.index &&
-    left.parentNodeId === right.parentNodeId &&
-    areOptionalGpuRectsEqual(left.rect, right.rect)
-  );
 }
 
 function areOptionalGpuFlowLayoutInteractionFlagsEqual(

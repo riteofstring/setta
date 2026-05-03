@@ -68,7 +68,7 @@ import {
   useSpreadsheetViewportSize,
 } from "./spreadsheetGrid";
 
-function useSpreadsheetOnDeleteSelection(args: {
+export function useSpreadsheetOnDeleteSelection(args: {
   displayedRowIndexes: number[];
   editVersionRef: MutableRefObject<number>;
   effectiveReadOnly: boolean;
@@ -127,7 +127,7 @@ function useSpreadsheetOnDeleteSelection(args: {
   );
 }
 
-function useSpreadsheetOnAddRow(args: {
+export function useSpreadsheetOnAddRow(args: {
   editVersionRef: MutableRefObject<number>;
   effectiveReadOnly: boolean;
   setIsDirty: (value: boolean) => void;
@@ -162,7 +162,7 @@ function useSpreadsheetOnAddRow(args: {
   }, [editVersionRef, effectiveReadOnly, setIsDirty, setSheet, setStatusText]);
 }
 
-function useSpreadsheetOnAddColumn(args: {
+export function useSpreadsheetOnAddColumn(args: {
   editVersionRef: MutableRefObject<number>;
   effectiveReadOnly: boolean;
   setIsDirty: (value: boolean) => void;
@@ -194,7 +194,7 @@ function useSpreadsheetOnAddColumn(args: {
   }, [editVersionRef, effectiveReadOnly, setIsDirty, setSheet, setStatusText]);
 }
 
-function useSpreadsheetOnSave(args: {
+export function useSpreadsheetOnSave(args: {
   editVersionRef: MutableRefObject<number>;
   isSaving: boolean;
   readOnly: boolean;
@@ -292,7 +292,7 @@ function useSpreadsheetOnSave(args: {
   ]);
 }
 
-function useSpreadsheetOnReload(args: {
+export function useSpreadsheetOnReload(args: {
   loadFile: (path: string) => Promise<boolean>;
   selectedPath: string | null;
 }): () => void {
@@ -305,7 +305,7 @@ function useSpreadsheetOnReload(args: {
   }, [loadFile, selectedPath]);
 }
 
-function useSpreadsheetDisplayedRowIndexes(args: {
+export function useSpreadsheetDisplayedRowIndexes(args: {
   filterQuery: string;
   sheet: SpreadsheetDraft | null;
   sortState: SpreadsheetSortState | null;
@@ -351,7 +351,7 @@ function useSpreadsheetDisplayedRowIndexes(args: {
   };
 }
 
-function useSpreadsheetSortHandlers(args: {
+export function useSpreadsheetSortHandlers(args: {
   setFilterQuery: (value: string) => void;
   setSortState: Dispatch<SetStateAction<SpreadsheetSortState | null>>;
 }): {
@@ -412,7 +412,7 @@ function useSpreadsheetSortHandlers(args: {
   };
 }
 
-function useSpreadsheetGlideColumns(args: {
+export function useSpreadsheetGlideColumns(args: {
   columnWidths: Record<number, number>;
   densityMetrics: SpreadsheetDensityMetrics;
   densityMultiplier: number;
@@ -443,7 +443,7 @@ function useSpreadsheetGlideColumns(args: {
   ]);
 }
 
-function useSpreadsheetGlideCellContent(args: {
+export function useSpreadsheetGlideCellContent(args: {
   displayedRowCount: number;
   displayedRowIndexes: number[];
   effectiveReadOnly: boolean;
@@ -484,7 +484,7 @@ function useSpreadsheetGlideCellContent(args: {
   );
 }
 
-function useSpreadsheetSelectedFileState(
+export function useSpreadsheetSelectedFileState(
   selectedFile: SpreadsheetSelectedFile | null,
 ): {
   selectedName: string;
@@ -499,7 +499,7 @@ function useSpreadsheetSelectedFileState(
   };
 }
 
-function useSpreadsheetGridLayout(args: {
+export function useSpreadsheetGridLayout(args: {
   density: SpreadsheetGridDensity;
   densityMetrics: SpreadsheetDensityMetrics;
   densityMultiplier: number;
@@ -553,7 +553,7 @@ function useSpreadsheetGridLayout(args: {
   };
 }
 
-function resolveSpreadsheetEmptyStateMessage(
+export function resolveSpreadsheetEmptyStateMessage(
   selectedPath: string | null,
 ): string | null {
   if (!selectedPath) {
@@ -565,7 +565,7 @@ function resolveSpreadsheetEmptyStateMessage(
   return null;
 }
 
-function SpreadsheetFooterMaybe(props: {
+export function SpreadsheetFooterMaybe(props: {
   displayedRowCount: number;
   selectionSummary: string;
   sheet: SpreadsheetDraft | null;

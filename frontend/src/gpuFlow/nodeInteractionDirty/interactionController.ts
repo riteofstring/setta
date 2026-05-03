@@ -46,11 +46,11 @@ import {
   toElement,
 } from "./pointerHandoff";
 
-import { updateGpuPointerHoverCursor } from "./hoverCursor";
 import {
   findGpuNodeIdForEventTarget,
   isGpuNodePersistentFocusEventTarget,
 } from "./nodeTargetLookup";
+import { updateGpuPointerHoverCursor } from "./hoverCursor";
 
 export function createGpuNodeInteractionDirtyController({
   cancelAnimationFrame,
@@ -63,7 +63,6 @@ export function createGpuNodeInteractionDirtyController({
   projectPointerInteraction,
   requestAnimationFrame,
   requestFrame,
-  resolveCanvasCursor,
   resolvePointerHandoffTarget,
   resolveWheelHandoffTarget,
   textureManager,
@@ -826,7 +825,6 @@ export function createGpuNodeInteractionDirtyController({
           const handoffTarget = updateGpuPointerHoverCursor({
             elementByNodeId,
             event,
-            resolveCanvasCursor,
             resolvePointerHandoffTarget,
             setHoverCursor,
             surfaceElement: canvas,

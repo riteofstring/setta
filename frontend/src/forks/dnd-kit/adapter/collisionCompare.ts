@@ -1,3 +1,4 @@
+import { useDndChildren } from "../dndChildren";
 import type { SettaCollision } from "./types";
 
 type CollisionSortableData = {
@@ -15,8 +16,6 @@ type SortableDistanceMetrics = {
   absDist: number;
   rawDist: number;
 };
-
-const EMPTY_CHILD_PARENT_MAP: ChildParentMap = {};
 
 function getCollisionSortableContainerId(
   collision: SettaCollision | null,
@@ -211,7 +210,7 @@ function pickBestCollision(
 
 export function resolveOverCollision(
   collisions: SettaCollision[] | null,
-  parentByChild: ChildParentMap = EMPTY_CHILD_PARENT_MAP,
+  parentByChild: ChildParentMap = useDndChildren.getState().y,
 ): SettaCollision | null {
   if (!collisions || collisions.length === 0) {
     return null;
@@ -234,7 +233,7 @@ export function resolveOverCollision(
 export function resolveOverCollisionId(
   collisions: SettaCollision[] | null,
   fallbackId: string | number | null,
-  parentByChild: ChildParentMap = EMPTY_CHILD_PARENT_MAP,
+  parentByChild: ChildParentMap = useDndChildren.getState().y,
 ): string | number | null {
   const resolvedCollision = resolveOverCollision(collisions, parentByChild);
   if (resolvedCollision) {
@@ -246,7 +245,7 @@ export function resolveOverCollisionId(
 
 export function promoteBestCollision(
   collisions: SettaCollision[] | null,
-  parentByChild: ChildParentMap = EMPTY_CHILD_PARENT_MAP,
+  parentByChild: ChildParentMap = useDndChildren.getState().y,
 ): SettaCollision[] {
   if (!collisions || collisions.length === 0) {
     return [];

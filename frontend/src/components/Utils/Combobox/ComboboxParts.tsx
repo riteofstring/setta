@@ -1,7 +1,5 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { StandardSearchRightBtn } from "../atoms/search/StandardSearchRightBtn";
@@ -132,7 +130,7 @@ export function ComboboxInput({
   inputThemeClassName = "",
   rightButtonThemeClassName = "",
   variant = "pill",
-}: ComboboxInputProps) {
+}) {
   const sizeKey = getComboboxSizeKey(small);
   const isPaneVariant = variant === "pane";
   const resolvedOuterClasses = joinClasses(
@@ -165,7 +163,7 @@ export function ComboboxInput({
             disabled: isDisabled,
           })}
           icon={toggleIcon}
-          {...(isPaneVariant ? { rounded: "rounded-md" } : {})}
+          rounded={isPaneVariant ? "rounded-md" : undefined}
           className={joinClasses(
             RIGHT_BUTTON_CLASS_BY_VARIANT[variant],
             rightButtonThemeClassName,
@@ -177,85 +175,36 @@ export function ComboboxInput({
   );
 }
 
-type ComboboxInputProps = {
-  readonly bg?: string | undefined;
-  readonly divId?: string | undefined;
-  readonly getInputProps: (options?: object, otherOptions?: object) => object;
-  readonly getToggleButtonProps: (options?: object) => object;
-  readonly inputOuterClasses?: string | undefined;
-  readonly inputRef: React.RefObject<HTMLInputElement | null>;
-  readonly inputThemeClassName?: string | undefined;
-  readonly isDisabled?: boolean | undefined;
-  readonly isOpen: boolean;
-  readonly onKeyDown: React.KeyboardEventHandler<HTMLInputElement>;
-  readonly placeholder?: string | undefined;
-  readonly rightButtonThemeClassName?: string | undefined;
-  readonly small: boolean;
-  readonly variant?: ComboboxVariant | undefined;
-};
-
 export function ComboboxList({
   isOpen,
   children,
   getMenuProps,
   inputRef,
   listThemeClassName = "",
-  portalContainerId,
-  repositionOnCanvasTransform = false,
 }: {
   isOpen: boolean;
   children: React.ReactNode;
-  getMenuProps: (options?: object, otherOptions?: object) => object;
+  getMenuProps: () => React.InputHTMLAttributes<HTMLInputElement>;
   inputRef: React.RefObject<HTMLInputElement | null>;
-  listThemeClassName?: string | undefined;
-  portalContainerId?: string | undefined;
-  repositionOnCanvasTransform?: boolean | undefined;
+  listThemeClassName?: string;
 }) {
   const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
   const display = isOpen ? "flex" : "hidden";
   const resolvedListThemeClassName = listThemeClassName
     ? ` ${listThemeClassName}`
     : "";
-  const updateListDims = useCallback(() => {
-    if (!inputRef.current) {
-      return;
-    }
-    const rect = inputRef.current.getBoundingClientRect();
-    const yMargin = -30;
-    setListDims({
-      x: rect.left,
-      y: rect.bottom + yMargin,
-      width: rect.width,
-    });
-  }, [inputRef]);
 
   useLayoutEffect(() => {
-    if (!isOpen) {
-      return;
+    if (isOpen && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      const yMargin = -30;
+      setListDims({
+        x: rect.left,
+        y: rect.bottom + yMargin,
+        width: rect.width,
+      });
     }
-    updateListDims();
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.addEventListener("scroll", updateListDims, true);
-    window.addEventListener("resize", updateListDims);
-    const unsubscribeViewportReposition = repositionOnCanvasTransform
-      ? subscribeToGpuViewportReposition(gpuFlowViewportStore, updateListDims)
-      : noop;
-    return () => {
-      unsubscribeViewportReposition();
-      window.removeEventListener("scroll", updateListDims, true);
-      window.removeEventListener("resize", updateListDims);
-    };
-  }, [isOpen, repositionOnCanvasTransform, updateListDims]);
-
-  if (typeof document === "undefined") {
-    return null;
-  }
-  const portalContainer =
-    portalContainerId === undefined
-      ? document.body
-      : document.getElementById(portalContainerId) ?? document.body;
+  }, [isOpen, inputRef]);
 
   return createPortal(
     <div
@@ -269,11 +218,9 @@ export function ComboboxList({
     >
       <div className="w-full overflow-y-scroll">{children}</div>
     </div>,
-    portalContainer,
+    document.body,
   );
 }
-
-function noop() {}
 
 function _ComboboxItem({
   getItemProps,

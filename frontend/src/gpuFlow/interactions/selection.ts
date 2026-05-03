@@ -16,7 +16,7 @@ import {
 export const GPU_SELECTION_MODE_FULL = "full";
 export const GPU_SELECTION_MODE_PARTIAL = "partial";
 
-type GpuSelectionMode =
+export type GpuSelectionMode =
   | typeof GPU_SELECTION_MODE_FULL
   | typeof GPU_SELECTION_MODE_PARTIAL;
 

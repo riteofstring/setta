@@ -47,53 +47,57 @@ import { WindowSpacesPane } from "../WindowSpacesPane";
 
 import { ViewModeEditingRowContent } from "./viewModeRows";
 
-const PROJECT_CONFIGS_MIN_HEIGHT = 140;
+export const PROJECT_CONFIGS_MIN_HEIGHT = 140;
 
-const VIEW_MODES_MIN_HEIGHT = 120;
+export const VIEW_MODES_MIN_HEIGHT = 120;
 
-const PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT = 12;
+export const PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT = 12;
 
-const OVERVIEW_ACTION_BUTTON_ENABLED_CLASSES =
+export const OVERVIEW_ACTION_BUTTON_ENABLED_CLASSES =
   "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50";
 
-const OVERVIEW_ACTION_BUTTON_DISABLED_CLASSES =
+export const OVERVIEW_ACTION_BUTTON_DISABLED_CLASSES =
   "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600";
 
-const PROJECT_CONFIG_ACTION_BUTTON_ENABLED_CLASSES =
+export const PROJECT_CONFIG_ACTION_BUTTON_ENABLED_CLASSES =
   "border-setta-200 text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800";
 
-const PROJECT_CONFIG_ACTION_BUTTON_DISABLED_CLASSES =
+export const PROJECT_CONFIG_ACTION_BUTTON_DISABLED_CLASSES =
   "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600";
 
-const VIEW_MODE_EDITING_ROW_BASE_CLASSES =
+export const VIEW_MODE_EDITING_ROW_BASE_CLASSES =
   "section-key-value group/viewmode box-border flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded border px-2 text-xs transition-colors";
 
-const VIEW_MODE_EDITING_ROW_ACTIVE_CLASSES =
+export const VIEW_MODE_EDITING_ROW_ACTIVE_CLASSES =
   "border-blue-500/70 bg-blue-500/10 text-blue-700 dark:text-blue-300";
 
-const VIEW_MODE_EDITING_ROW_INACTIVE_CLASSES =
+export const VIEW_MODE_EDITING_ROW_INACTIVE_CLASSES =
   "border-setta-200 text-setta-600 hover:border-setta-500/70 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500/70";
 
-const VIEW_MODE_INPUT_ACTIVE_CLASSES =
+export const VIEW_MODE_INPUT_ACTIVE_CLASSES =
   "flex-1 truncate bg-transparent text-blue-700 focus:text-blue-700 focus:outline-none focus:ring-0 dark:text-blue-300 dark:focus:text-blue-200";
 
-const VIEW_MODE_INPUT_INACTIVE_CLASSES =
+export const VIEW_MODE_INPUT_INACTIVE_CLASSES =
   "flex-1 truncate bg-transparent text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-100";
 
-const VIEW_MODE_INPUT_ERROR_CLASSES =
+export const VIEW_MODE_INPUT_ERROR_CLASSES =
   "text-red-700 focus:text-red-700 dark:text-red-300 dark:focus:text-red-200";
 
-const VIEW_MODE_TOGGLE_ENABLED_CLASSES = "text-blue-500 hover:text-blue-400";
+export const VIEW_MODE_TOGGLE_ENABLED_CLASSES =
+  "text-blue-500 hover:text-blue-400";
 
-const VIEW_MODE_TOGGLE_DISABLED_CLASSES = "text-setta-400 hover:text-setta-600";
+export const VIEW_MODE_TOGGLE_DISABLED_CLASSES =
+  "text-setta-400 hover:text-setta-600";
 
-type OpenAPIRequest = Parameters<typeof callOpenAPI>[0];
+export type OpenAPIRequest = Parameters<typeof callOpenAPI>[0];
 
-type ViewModeActions = ReturnType<typeof useViewModeActions>;
+export type ViewModeActions = ReturnType<typeof useViewModeActions>;
 
 export type ViewModeSortableItem = ReturnType<typeof useSortableListItem>;
 
-function joinClasses(...classes: Array<string | false | null | undefined>) {
+export function joinClasses(
+  ...classes: Array<string | false | null | undefined>
+) {
   return classes.filter(Boolean).join(" ");
 }
 
@@ -101,14 +105,17 @@ export function normalizeViewModeName(value: string) {
   return value.trim();
 }
 
-function sendOpenAPIRequest(enabled: boolean, request: OpenAPIRequest): void {
+export function sendOpenAPIRequest(
+  enabled: boolean,
+  request: OpenAPIRequest,
+): void {
   if (!enabled) {
     return;
   }
   void callOpenAPI(request);
 }
 
-function useObservedElementHeight(elementRef: {
+export function useObservedElementHeight(elementRef: {
   current: HTMLDivElement | null;
 }) {
   const [height, setHeight] = useState<number | null>(null);
@@ -135,11 +142,14 @@ function useObservedElementHeight(elementRef: {
   return height;
 }
 
-function clampProjectConfigsHeight(rawHeight: number, maxHeight: number) {
+export function clampProjectConfigsHeight(
+  rawHeight: number,
+  maxHeight: number,
+) {
   return Math.max(PROJECT_CONFIGS_MIN_HEIGHT, Math.min(rawHeight, maxHeight));
 }
 
-function useProjectConfigsPaneState(isViewModesCollapsed: boolean) {
+export function useProjectConfigsPaneState(isViewModesCollapsed: boolean) {
   const [isProjectConfigsCollapsed, setIsProjectConfigsCollapsed] =
     useState(false);
   const [projectConfigsHeight, setProjectConfigsHeight] = useState(280);
@@ -179,7 +189,7 @@ function useProjectConfigsPaneState(isViewModesCollapsed: boolean) {
   };
 }
 
-function isSameViewModeOrder(
+export function isSameViewModeOrder(
   viewModeList: Array<ViewMode>,
   nextOrderedIds: Array<string>,
 ) {
@@ -190,7 +200,7 @@ function isSameViewModeOrder(
   );
 }
 
-function useViewModeActions({
+export function useViewModeActions({
   projectConfigId,
   viewModeList,
   canEditVariants,
@@ -265,7 +275,7 @@ function useViewModeActions({
   };
 }
 
-function getEditModeButtonState(isEditingViewMode: boolean) {
+export function getEditModeButtonState(isEditingViewMode: boolean) {
   if (isEditingViewMode) {
     return {
       icon: <FiCheck size={16} />,
@@ -280,7 +290,7 @@ function getEditModeButtonState(isEditingViewMode: boolean) {
   };
 }
 
-function renderViewModeRow({
+export function renderViewModeRow({
   mode,
   isActive,
   isEditingViewMode,
@@ -330,7 +340,7 @@ function renderViewModeRow({
   );
 }
 
-function ViewModeToolbar({
+export function ViewModeToolbar({
   canEditStructure,
   isEditingViewMode,
   onCreateMode,
@@ -372,7 +382,7 @@ function ViewModeToolbar({
   );
 }
 
-function ViewModesPane({
+export function ViewModesPane({
   activeViewModeId,
   actions,
   canDeleteViewModes,
@@ -460,7 +470,7 @@ function ViewModesPane({
   );
 }
 
-function CreateProjectConfigButton({
+export function CreateProjectConfigButton({
   canEditStructure,
   onCreateProjectConfig,
 }: {
@@ -486,7 +496,7 @@ function CreateProjectConfigButton({
   );
 }
 
-function ProjectConfigsSectionHeader({
+export function ProjectConfigsSectionHeader({
   isCollapsed,
   canEditStructure,
   onCreateProjectConfig,
@@ -524,7 +534,7 @@ function ProjectConfigsSectionHeader({
   );
 }
 
-function ProjectConfigsPane({
+export function ProjectConfigsPane({
   canEditStructure,
   isCollapsed,
   isViewModesCollapsed,
@@ -707,7 +717,7 @@ export function ViewingEditingMode() {
   );
 }
 
-type ViewModeRowProps = {
+export type ViewModeRowProps = {
   mode: ViewMode;
   isActive: boolean;
   onSelect: (modeId: string) => void;
@@ -715,14 +725,14 @@ type ViewModeRowProps = {
   sortableEnabled: boolean;
 };
 
-function ViewModeRow({ sortableEnabled, ...props }: ViewModeRowProps) {
+export function ViewModeRow({ sortableEnabled, ...props }: ViewModeRowProps) {
   if (!sortableEnabled) {
     return <ViewModeRowContent {...props} sortable={null} />;
   }
   return <ViewModeRowSortable {...props} sortableEnabled />;
 }
 
-function ViewModeRowSortable({
+export function ViewModeRowSortable({
   mode,
   isActive,
   onSelect,
@@ -740,7 +750,7 @@ function ViewModeRowSortable({
   );
 }
 
-function ViewModeRowContent({
+export function ViewModeRowContent({
   mode,
   isActive,
   onSelect,
@@ -813,7 +823,7 @@ export type ViewModeEditingRowProps = {
   sortableEnabled: boolean;
 };
 
-function ViewModeEditingRow({
+export function ViewModeEditingRow({
   sortableEnabled,
   ...props
 }: ViewModeEditingRowProps) {
@@ -823,7 +833,7 @@ function ViewModeEditingRow({
   return <ViewModeEditingRowSortable {...props} sortableEnabled />;
 }
 
-function ViewModeEditingRowSortable({
+export function ViewModeEditingRowSortable({
   mode,
   isActive,
   isDeletable,

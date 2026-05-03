@@ -24,7 +24,7 @@ import {
 
 type TooltipHandlers = ReturnType<typeof getFloatingBoxHandlers>;
 
-type ProjectChatAuxTab = {
+export type ProjectChatAuxTab = {
   id: string;
   label: string;
   testId: string;

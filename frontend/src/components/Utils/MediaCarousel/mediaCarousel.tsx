@@ -23,7 +23,7 @@ import {
   useMediaCarouselSelectionState,
 } from "./carouselState";
 
-function useMediaCarouselNavigation<T>({
+export function useMediaCarouselNavigation<T>({
   handleSelect,
   items,
   selectedIndex,
@@ -81,7 +81,7 @@ function useMediaCarouselNavigation<T>({
   };
 }
 
-function useMediaCarouselThumbnailRowState({
+export function useMediaCarouselThumbnailRowState({
   hasSubLabel,
   resolvedThumbnailRowMinScale,
   showThumbnailLabels,

@@ -3,7 +3,7 @@ import type {
   HtmlSurfaceTextureRecord,
 } from "./textures";
 
-type HtmlSurfaceTextureMemoryRecord = Pick<
+export type HtmlSurfaceTextureMemoryRecord = Pick<
   HtmlSurfaceTextureRecord,
   "surfaceId" | "textureBytes"
 > & {

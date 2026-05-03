@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  clearGpuNodeTargetingCache,
   createGpuNodeTargetDescriptor,
   isGpuNodeInteractiveEventTarget,
   resolveGpuNodePointerHandoffTarget,
@@ -159,34 +160,6 @@ describe("gpu active node pointer targeting", () => {
     expect((projections[0] as { readonly localY: number }).localY).toBeCloseTo(
       20,
     );
-  });
-
-  it("does not synthesize flat pointer hits when scene-owned visuals are required", () => {
-    const surface = document.createElement("div");
-    const nodeElement = createNodeElement("node-a");
-    const button = document.createElement("button");
-    button.dataset.gpuFlowControl = "node-action";
-    nodeElement.append(button);
-    setRect(surface, 0, 0, 400, 200);
-    setRect(button, 20, 20, 80, 32);
-    const projections: unknown[] = [];
-
-    expect(
-      resolveGpuNodePointerHandoffTarget({
-        clientX: 40,
-        clientY: 40,
-        elementByNodeId: new Map([["node-a", nodeElement]]),
-        nodes: [node("node-a", 0, 0, 400, 200, 1)],
-        projectSourceForHitTesting: (projection) => {
-          projections.push(projection);
-        },
-        requireVisualSceneHitSurfaces: true,
-        surfaceElement: surface,
-        viewport: [0, 0, 1],
-        visualScene: createHtmlSurfaceVisualScene(),
-      }),
-    ).toBeNull();
-    expect(projections).toEqual([]);
   });
 
   it("does not project source DOM when a pointer hit has no interactive target", () => {
@@ -552,35 +525,6 @@ describe("gpu active node pointer targeting", () => {
     });
   });
 
-  it("does not synthesize flat wheel hits when scene-owned visuals are required", () => {
-    const surface = document.createElement("div");
-    const nodeElement = createNodeElement("node-a");
-    const scroller = document.createElement("div");
-    scroller.style.overflowY = "auto";
-    setScrollMetrics(scroller, {
-      clientHeight: 120,
-      clientWidth: 180,
-      scrollHeight: 360,
-      scrollWidth: 180,
-    });
-    nodeElement.append(scroller);
-    setRect(surface, 0, 0, 400, 200);
-    setRect(scroller, 24, 24, 180, 120);
-
-    expect(
-      resolveGpuNodeWheelHandoffTarget({
-        clientX: 40,
-        clientY: 40,
-        elementByNodeId: new Map([["node-a", nodeElement]]),
-        nodes: [node("node-a", 0, 0, 400, 200, 1)],
-        requireVisualSceneHitSurfaces: true,
-        surfaceElement: surface,
-        viewport: [0, 0, 1],
-        visualScene: createHtmlSurfaceVisualScene(),
-      }),
-    ).toBeNull();
-  });
-
   it("resolves scrollable overflow targets without a native wheel marker", () => {
     const surface = document.createElement("div");
     const nodeElement = createNodeElement("node-a");
@@ -696,6 +640,127 @@ describe("gpu active node pointer targeting", () => {
     ).toBeNull();
     expect(projections).toEqual([]);
   });
+
+  it("reuses active target candidates until source DOM changes", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    for (let index = 0; index < 20; index += 1) {
+      const input = document.createElement("input");
+      input.type = index % 2 === 0 ? "range" : "text";
+      nodeElement.append(input);
+    }
+    const button = document.createElement("button");
+    button.dataset.gpuFlowControl = "cached-target";
+    nodeElement.append(button);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(nodeElement, 0, 0, 400, 200);
+    setRect(button, 20, 20, 80, 32);
+    const calls: string[] = [];
+    recordQuerySelectorAll(nodeElement, calls);
+    const resolveTarget = () =>
+      resolveGpuNodePointerHandoffTarget({
+        clientX: 40,
+        clientY: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      })?.descriptor;
+
+    expect(resolveTarget()).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "button",
+      value: "cached-target",
+    });
+    expect(calls).toHaveLength(1);
+    expect(resolveTarget()).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "button",
+      value: "cached-target",
+    });
+    expect(calls).toHaveLength(1);
+
+    const smallerButton = document.createElement("button");
+    smallerButton.dataset.gpuFlowControl = "mutated-target";
+    setRect(smallerButton, 30, 30, 20, 12);
+    nodeElement.append(smallerButton);
+
+    expect(resolveTarget()).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "button",
+      value: "mutated-target",
+    });
+    expect(calls).toHaveLength(2);
+
+    clearGpuNodeTargetingCache(nodeElement);
+    expect(resolveTarget()).toEqual({
+      attribute: "data-gpu-flow-control",
+      kind: "stable-attribute",
+      tagName: "button",
+      value: "mutated-target",
+    });
+    expect(calls).toHaveLength(3);
+    clearGpuNodeTargetingCache(nodeElement);
+  });
+
+  it("reuses wheel target candidates and last scroll target", () => {
+    const surface = document.createElement("div");
+    const nodeElement = createNodeElement("node-a");
+    const wheelRegion = document.createElement("div");
+    const scroller = document.createElement("div");
+    wheelRegion.className = "nowheel";
+    scroller.style.overflowY = "auto";
+    setScrollMetrics(scroller, {
+      clientHeight: 120,
+      clientWidth: 180,
+      scrollHeight: 360,
+      scrollWidth: 180,
+    });
+    for (let index = 0; index < 20; index += 1) {
+      scroller.append(document.createElement("div"));
+    }
+    wheelRegion.append(scroller);
+    nodeElement.append(wheelRegion);
+    setRect(surface, 0, 0, 400, 200);
+    setRect(nodeElement, 0, 0, 400, 200);
+    setRect(wheelRegion, 20, 20, 200, 140);
+    setRect(scroller, 24, 24, 180, 120);
+    const calls: string[] = [];
+    recordQuerySelectorAll(nodeElement, calls);
+    recordQuerySelectorAll(wheelRegion, calls);
+    const resolveTarget = () =>
+      resolveGpuNodeWheelHandoffTarget({
+        clientX: 40,
+        clientY: 40,
+        elementByNodeId: new Map([["node-a", nodeElement]]),
+        nodes: [node("node-a", 0, 0, 400, 200, 1)],
+        surfaceElement: surface,
+        viewport: [0, 0, 1],
+      })?.descriptor;
+
+    expect(resolveTarget()).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [0, 0],
+      role: null,
+      tagName: "div",
+    });
+    expect(calls).toHaveLength(2);
+    expect(resolveTarget()).toEqual({
+      inputType: null,
+      kind: "dom-path",
+      path: [0, 0],
+      role: null,
+      tagName: "div",
+    });
+    expect(calls).toHaveLength(2);
+
+    clearGpuNodeTargetingCache(nodeElement);
+    clearGpuNodeTargetingCache(wheelRegion);
+  });
 });
 
 function createNodeElement(nodeId: string): HTMLElement {
@@ -759,6 +824,14 @@ function setScrollMetrics(
     scrollHeight: { configurable: true, value: metrics.scrollHeight },
     scrollWidth: { configurable: true, value: metrics.scrollWidth },
   });
+}
+
+function recordQuerySelectorAll(element: HTMLElement, calls: string[]) {
+  const querySelectorAll = element.querySelectorAll.bind(element);
+  element.querySelectorAll = ((selector: string) => {
+    calls.push(selector);
+    return querySelectorAll(selector);
+  }) as typeof element.querySelectorAll;
 }
 
 function textureRecord(

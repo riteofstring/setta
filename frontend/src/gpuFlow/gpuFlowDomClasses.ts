@@ -15,10 +15,13 @@ export const GPU_FLOW_CLASS_NAMES = {
   minimapNode: "setta-gpu-flow__minimap-node",
   node: "setta-gpu-flow__node",
   nodes: "setta-gpu-flow__nodes",
+  nodesSelection: "setta-gpu-flow__nodes-selection",
+  nodesSelectionRect: "setta-gpu-flow__nodes-selection-rect",
   pane: "setta-gpu-flow__pane",
   panel: "setta-gpu-flow__panel",
   portalRoot: "setta-gpu-flow__portal-root",
   root: "setta-gpu-flow-root",
+  selection: "setta-gpu-flow__selection",
   viewport: "setta-gpu-flow__canvas",
 } as const;
 
@@ -26,9 +29,11 @@ export const GPU_FLOW_SELECTORS = {
   canvas: `.${GPU_FLOW_CLASS_NAMES.canvas}`,
   handle: `.${GPU_FLOW_CLASS_NAMES.handle}`,
   node: `.${GPU_FLOW_CLASS_NAMES.node}`,
+  nodesSelectionRect: `.${GPU_FLOW_CLASS_NAMES.nodesSelectionRect}`,
   pane: `.${GPU_FLOW_CLASS_NAMES.pane}`,
   portalRoot: "[data-gpu-flow-portal-root='true']",
   root: `.${GPU_FLOW_CLASS_NAMES.root}`,
+  selection: `.${GPU_FLOW_CLASS_NAMES.selection}`,
 } as const;
 
 export function getGpuFlowHandlePositionClass(position: string): string {

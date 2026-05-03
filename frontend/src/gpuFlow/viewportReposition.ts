@@ -5,7 +5,6 @@ import {
 
 export function subscribeToGpuViewportReposition(
   store: GpuFlowViewportStoreApi = gpuFlowViewportStore,
-  onReposition: () => void = dispatchGpuViewportRepositionEvent,
 ): () => void {
   if (typeof window === "undefined") {
     return noop;
@@ -18,7 +17,8 @@ export function subscribeToGpuViewportReposition(
     }
     rafId = window.requestAnimationFrame(() => {
       rafId = null;
-      onReposition();
+      window.dispatchEvent(new Event("scroll"));
+      window.dispatchEvent(new Event("resize"));
     });
   };
 
@@ -38,11 +38,6 @@ export function subscribeToGpuViewportReposition(
       window.cancelAnimationFrame(rafId);
     }
   };
-}
-
-function dispatchGpuViewportRepositionEvent() {
-  window.dispatchEvent(new Event("scroll"));
-  window.dispatchEvent(new Event("resize"));
 }
 
 function noop() {}

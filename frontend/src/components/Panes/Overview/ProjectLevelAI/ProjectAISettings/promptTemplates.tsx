@@ -365,7 +365,9 @@ export function buildAgentProfileDraft(
   };
 }
 
-function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
+export function buildPromptTemplateDraft(
+  template: Template,
+): PromptTemplateDraft {
   return {
     name: template.name ?? "",
     description: template.description ?? "",
@@ -376,12 +378,12 @@ function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
   };
 }
 
-type JsonParseResult = {
+export type JsonParseResult = {
   value: Record<string, unknown>;
   error: string | null;
 };
 
-function parseJsonObject(value: string): JsonParseResult {
+export function parseJsonObject(value: string): JsonParseResult {
   if (!value.trim()) {
     return { value: {}, error: null };
   }

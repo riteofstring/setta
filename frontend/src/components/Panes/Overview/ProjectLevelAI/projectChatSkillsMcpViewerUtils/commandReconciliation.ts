@@ -117,7 +117,9 @@ export function collectAgentNativeSlashCommandTokensFromEntries(
   return discoveredTokens;
 }
 
-function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
+export function normalizeRuntimeServerState(
+  value: unknown,
+): McpRuntimeServerState {
   if (typeof value !== "string") {
     return "unknown";
   }
@@ -134,7 +136,7 @@ function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
   }
 }
 
-function normalizeRuntimeServerQuickInfo({
+export function normalizeRuntimeServerQuickInfo({
   state,
   quickInfo,
   issue,
@@ -159,7 +161,7 @@ function normalizeRuntimeServerQuickInfo({
   )}`;
 }
 
-function buildRuntimeServerQuickInfoDetails({
+export function buildRuntimeServerQuickInfoDetails({
   issue,
   missingEnvVar,
   registeredToolCount,
@@ -181,7 +183,7 @@ function buildRuntimeServerQuickInfoDetails({
   return details.join(" | ");
 }
 
-type RuntimeStatusInput = {
+export type RuntimeStatusInput = {
   serverId: string;
   state: unknown;
   quickInfo?: string | null;
@@ -190,7 +192,7 @@ type RuntimeStatusInput = {
   toolCount?: number;
 };
 
-function normalizeRegisteredToolCount(toolCount: unknown): number {
+export function normalizeRegisteredToolCount(toolCount: unknown): number {
   if (
     typeof toolCount !== "number" ||
     !Number.isFinite(toolCount) ||
@@ -201,7 +203,7 @@ function normalizeRegisteredToolCount(toolCount: unknown): number {
   return toolCount;
 }
 
-function buildRuntimeServerStatusEntry(
+export function buildRuntimeServerStatusEntry(
   runtimeStatus: RuntimeStatusInput,
 ): [string, McpRuntimeServerStatus] | null {
   const serverId = runtimeStatus.serverId.trim();
@@ -247,7 +249,7 @@ export function toRuntimeStatusByServerId(
   return statuses;
 }
 
-function resolvePendingMcpServerStatus({
+export function resolvePendingMcpServerStatus({
   endpoint,
   runtimeStatusLoading,
   runtimeStatusError,
@@ -286,7 +288,7 @@ function resolvePendingMcpServerStatus({
   return null;
 }
 
-function resolveRuntimeStatusColor(
+export function resolveRuntimeStatusColor(
   state: McpRuntimeServerState,
 ): McpServerStatusColor {
   if (state === "connected") {
@@ -334,7 +336,7 @@ export function resolveMcpServerStatus({
   };
 }
 
-function resolveEngineDisplayName(config: EngineConfig): string {
+export function resolveEngineDisplayName(config: EngineConfig): string {
   const explicitName = config.name.trim();
   if (explicitName) {
     return explicitName;
@@ -345,7 +347,7 @@ function resolveEngineDisplayName(config: EngineConfig): string {
   return "Setta LLM";
 }
 
-function buildAvailableConfigIds(
+export function buildAvailableConfigIds(
   allLLMConfigs: AllConfigs | null,
   apiKeys: APIKeys,
 ): Set<string> {
@@ -359,7 +361,7 @@ function buildAvailableConfigIds(
   return availableConfigIds;
 }
 
-function buildExternalAgentHealthByConfigId(
+export function buildExternalAgentHealthByConfigId(
   externalAgentHealth: ExternalAgentHealthStatus[],
 ): Map<string, ExternalAgentHealthStatus> {
   return new Map(
@@ -370,7 +372,7 @@ function buildExternalAgentHealthByConfigId(
   );
 }
 
-function resolveSlashCommandAvailability({
+export function resolveSlashCommandAvailability({
   engineConfig,
   defaultConfigId,
   availableConfigIds,
@@ -406,7 +408,7 @@ function resolveSlashCommandAvailability({
   };
 }
 
-function buildSlashCommandsForEngine({
+export function buildSlashCommandsForEngine({
   engineConfig,
   appGenerationSlashCommands,
   defaultConfigId,

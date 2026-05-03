@@ -83,7 +83,7 @@ export type SortedRuntimeViews = {
   sortedCanvasControls: RegisteredPluginCanvasControl[];
 };
 
-type PluginRuntimeStatus = "idle" | "loading" | "loaded" | "error";
+export type PluginRuntimeStatus = "idle" | "loading" | "loaded" | "error";
 
 export type PluginRuntimeStore = {
   status: PluginRuntimeStatus;
@@ -120,7 +120,7 @@ export type PluginRuntimeStore = {
   frontendErrorsByPluginId: Record<string, PluginFrontendError>;
 };
 
-const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
+export const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   status: "idle",
   statusMessage: null,
   schemaVersion: null,
@@ -148,7 +148,7 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   frontendErrorsByPluginId: {},
 };
 
-const pluginListEntryComparisonKeys = [
+export const pluginListEntryComparisonKeys = [
   "pluginId",
   "name",
   "version",
@@ -162,12 +162,12 @@ const pluginListEntryComparisonKeys = [
   "restartRequired",
 ] as const satisfies readonly (keyof PluginListEntry)[];
 
-const pluginFrontendComparisonKeys = [
+export const pluginFrontendComparisonKeys = [
   "entrypointUrl",
   "styleUrl",
 ] as const satisfies readonly (keyof PluginListEntry["frontend"])[];
 
-const pluginContentComparisonKeys = [
+export const pluginContentComparisonKeys = [
   "hasBlueprints",
   "hasProjectTemplates",
   "hasPrompts",
@@ -202,23 +202,23 @@ export const languageServerSelectionStatusComparisonKeys = [
   "restartRequired",
 ] as const satisfies readonly (keyof LanguageServerSelectionStatus)[];
 
-const effectiveCapabilityDigestByPluginListEntry = new WeakMap<
+export const effectiveCapabilityDigestByPluginListEntry = new WeakMap<
   PluginListEntry,
   string
 >();
 
-const effectiveCapabilityDigestByStatusEntry = new WeakMap<
+export const effectiveCapabilityDigestByStatusEntry = new WeakMap<
   PluginStatusEntry,
   string
 >();
 
-let pluginRuntimeLoadPromise: Promise<void> | null = null;
+export let pluginRuntimeLoadPromise: Promise<void> | null = null;
 
-let pluginRuntimeRefreshQueued = false;
+export let pluginRuntimeRefreshQueued = false;
 
-let queuedPluginRuntimeResponse: PluginRuntimeResponse | null = null;
+export let queuedPluginRuntimeResponse: PluginRuntimeResponse | null = null;
 
-const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
+export const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
 
 export const usePluginRuntimeStore = createWithEqualityFn<PluginRuntimeStore>(
   () => ({
@@ -267,7 +267,7 @@ export async function receivePluginRuntimeUpdate(
   return pluginRuntimeLoadPromise;
 }
 
-async function runQueuedPluginRuntimeRefreshes(): Promise<void> {
+export async function runQueuedPluginRuntimeRefreshes(): Promise<void> {
   while (queuedPluginRuntimeResponse !== null || pluginRuntimeRefreshQueued) {
     if (queuedPluginRuntimeResponse !== null) {
       const runtimeResponse = queuedPluginRuntimeResponse;
@@ -280,7 +280,7 @@ async function runQueuedPluginRuntimeRefreshes(): Promise<void> {
   }
 }
 
-async function loadPluginRuntime(): Promise<void> {
+export async function loadPluginRuntime(): Promise<void> {
   usePluginRuntimeStore.setState((state) => ({
     ...state,
     status: "loading",
@@ -300,7 +300,7 @@ async function loadPluginRuntime(): Promise<void> {
   await applyPluginRuntimeResponse(runtimeResponse.data);
 }
 
-async function applyPluginRuntimeResponse(
+export async function applyPluginRuntimeResponse(
   runtimeResponse: PluginRuntimeResponse,
 ): Promise<void> {
   const previousState = usePluginRuntimeStore.getState();
@@ -466,7 +466,7 @@ async function applyPluginRuntimeResponse(
   );
 }
 
-function setPluginRuntimeLoadError(message: string): void {
+export function setPluginRuntimeLoadError(message: string): void {
   clearPluginRuntimeSideEffects();
   resetAppSubsystemFrontendRuntimeState();
   usePluginRuntimeStore.setState((state) =>
@@ -477,7 +477,7 @@ function setPluginRuntimeLoadError(message: string): void {
   );
 }
 
-function buildClearedRuntimeState(
+export function buildClearedRuntimeState(
   state: PluginRuntimeStore,
   options: {
     status: PluginRuntimeStatus;
@@ -514,7 +514,7 @@ function buildClearedRuntimeState(
   };
 }
 
-function buildPluginFrontendRefreshSignature(
+export function buildPluginFrontendRefreshSignature(
   plugin: PluginListEntry,
   statusEntry: PluginStatusEntry | undefined,
 ): string {
@@ -528,7 +528,7 @@ function buildPluginFrontendRefreshSignature(
   return `${plugin.pluginId}\u0000${sourceDigest}\u0000${entrypointUrl}\u0000${styleUrl}\u0000${effectiveCapabilityDigest}`;
 }
 
-function buildSelectedAppSubsystemFrontendRefreshSignature(
+export function buildSelectedAppSubsystemFrontendRefreshSignature(
   appSubsystemCapabilities:
     | NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"]
     | null,
@@ -550,7 +550,7 @@ function buildSelectedAppSubsystemFrontendRefreshSignature(
   return buildPluginFrontendRefreshSignature(plugin, statusEntry);
 }
 
-function getFrontendEffectiveCapabilityDigest(
+export function getFrontendEffectiveCapabilityDigest(
   plugin: PluginListEntry,
   statusEntry: PluginStatusEntry | undefined,
 ): string {
@@ -575,7 +575,7 @@ function getFrontendEffectiveCapabilityDigest(
   return digest;
 }
 
-function buildEffectiveCapabilityDigest(
+export function buildEffectiveCapabilityDigest(
   effectiveCapabilities: string[],
 ): string {
   if (effectiveCapabilities.length === 0) {
@@ -585,7 +585,7 @@ function buildEffectiveCapabilityDigest(
   return sortedCapabilities.join("\u001f");
 }
 
-function mergeRegistryDelta(
+export function mergeRegistryDelta(
   target: PluginRegistryAccumulator,
   delta: PluginRegistryAccumulator,
 ): void {
@@ -603,7 +603,7 @@ function mergeRegistryDelta(
   appendRegistryEntriesByPluginId(target.canvasControls, delta.canvasControls);
 }
 
-function appendRegistryEntriesByPluginId<TEntry>(
+export function appendRegistryEntriesByPluginId<TEntry>(
   target: Record<string, TEntry[]>,
   delta: Record<string, TEntry[]>,
 ): void {
@@ -614,7 +614,7 @@ function appendRegistryEntriesByPluginId<TEntry>(
   }
 }
 
-function mergePluginRegistryFromState(
+export function mergePluginRegistryFromState(
   state: PluginRuntimeStore,
   pluginId: string,
   sectionKindKeysByPluginId: Record<string, string[]>,
@@ -652,7 +652,7 @@ function mergePluginRegistryFromState(
   }
 }
 
-function mapPluginListById(
+export function mapPluginListById(
   response: PluginListResponse,
   previousPluginListById: Record<string, PluginListEntry>,
 ): Record<string, PluginListEntry> {
@@ -692,7 +692,7 @@ export function hasSameFieldValues<TObject, TKey extends keyof TObject>(
   return true;
 }
 
-function hasMatchingPluginListEntryMetadata(
+export function hasMatchingPluginListEntryMetadata(
   plugin: PluginListEntry,
   previousEntry: PluginListEntry,
 ): boolean {
@@ -703,7 +703,7 @@ function hasMatchingPluginListEntryMetadata(
   );
 }
 
-function hasMatchingPluginFrontend(
+export function hasMatchingPluginFrontend(
   plugin: PluginListEntry,
   previousEntry: PluginListEntry,
 ): boolean {
@@ -714,7 +714,7 @@ function hasMatchingPluginFrontend(
   );
 }
 
-function hasMatchingPluginContent(
+export function hasMatchingPluginContent(
   plugin: PluginListEntry,
   previousEntry: PluginListEntry,
 ): boolean {
@@ -725,7 +725,7 @@ function hasMatchingPluginContent(
   );
 }
 
-function hasMatchingPluginConfig(
+export function hasMatchingPluginConfig(
   plugin: PluginListEntry,
   previousEntry: PluginListEntry,
 ): boolean {
@@ -748,7 +748,7 @@ function hasMatchingPluginConfig(
   );
 }
 
-function canReusePluginListEntry(
+export function canReusePluginListEntry(
   plugin: PluginListEntry,
   previousEntry: PluginListEntry,
   effectiveCapabilities: string[],
@@ -768,14 +768,16 @@ function canReusePluginListEntry(
   return hasMatchingPluginConfig(plugin, previousEntry);
 }
 
-function getPluginConfigSchemaDigest(entry: PluginListEntry): string | null {
+export function getPluginConfigSchemaDigest(
+  entry: PluginListEntry,
+): string | null {
   const configWithDigest = entry.config as {
     schemaJsonDigestSha256?: string | null;
   };
   return normalizeDigest(configWithDigest.schemaJsonDigestSha256);
 }
 
-function getPluginConfigCurrentConfigDigest(
+export function getPluginConfigCurrentConfigDigest(
   entry: PluginListEntry,
 ): string | null {
   const configWithDigest = entry.config as {
@@ -794,7 +796,7 @@ export function normalizeDigest(
   return normalized.length > 0 ? normalized : null;
 }
 
-function hasSameJsonValueWithDigest({
+export function hasSameJsonValueWithDigest({
   nextValue,
   previousValue,
   nextDigest,
@@ -811,7 +813,7 @@ function hasSameJsonValueWithDigest({
   return hasSameJsonValue(nextValue, previousValue);
 }
 
-function stableCapabilitiesReference(
+export function stableCapabilitiesReference(
   capabilities: string[],
   previousCapabilities: string[] | undefined,
 ): string[] {
@@ -829,7 +831,7 @@ function stableCapabilitiesReference(
   return previousCapabilities;
 }
 
-function getComparableJsonValueKind(
+export function getComparableJsonValueKind(
   left: unknown,
   right: unknown,
 ): "array" | "object" | null {
@@ -845,7 +847,7 @@ function getComparableJsonValueKind(
   return "object";
 }
 
-function hasSameJsonArray(left: unknown[], right: unknown[]): boolean {
+export function hasSameJsonArray(left: unknown[], right: unknown[]): boolean {
   if (left.length !== right.length) {
     return false;
   }
@@ -857,7 +859,7 @@ function hasSameJsonArray(left: unknown[], right: unknown[]): boolean {
   return true;
 }
 
-function hasSameJsonObject(
+export function hasSameJsonObject(
   left: Record<string, unknown>,
   right: Record<string, unknown>,
 ): boolean {

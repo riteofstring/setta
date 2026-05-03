@@ -62,13 +62,13 @@ export const HTML_SURFACE_WARPED_MESH_FIXTURE_RECT: FlowRect = {
   y: 48,
 };
 
-type HtmlSurfaceWarpedMeshFixtureSource = {
+export type HtmlSurfaceWarpedMeshFixtureSource = {
   readonly height: number;
   readonly surfaceId: string;
   readonly width: number;
 };
 
-type HtmlSurfaceWarpedMeshFixtureMetrics = {
+export type HtmlSurfaceWarpedMeshFixtureMetrics = {
   readonly dirtyMarks: number;
   readonly lastHit: HtmlSurfaceHitProjection | null;
   readonly paintEvents: number;
@@ -81,7 +81,7 @@ type HtmlSurfaceWarpedMeshFixtureMetrics = {
   readonly textureUploads: number;
 };
 
-type HtmlSurfaceWarpedMeshFixtureProps = {
+export type HtmlSurfaceWarpedMeshFixtureProps = {
   readonly className?: string | undefined;
   readonly onMetrics?:
     | ((metrics: HtmlSurfaceWarpedMeshFixtureMetrics) => void)

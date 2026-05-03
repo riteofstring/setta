@@ -53,9 +53,6 @@ export type GpuNodeDragControllerOptions = {
   readonly nodeDragThresholdPx?: number | undefined;
   readonly onNodeDrag?: ((change: GpuNodeDragChange) => void) | undefined;
   readonly onNodeDragCancel?: ((change: GpuNodeDragChange) => void) | undefined;
-  readonly onNodeDragFrame?:
-    | ((change: GpuNodeDragChange) => boolean | void)
-    | undefined;
   readonly onNodeDragStart?: ((change: GpuNodeDragChange) => void) | undefined;
   readonly onNodeDragStop?: ((change: GpuNodeDragChange) => void) | undefined;
   readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
@@ -251,7 +248,7 @@ class GpuNodeDragController {
   destroy() {
     this.element.removeEventListener("pointerdown", this.onPointerDown);
     this.removeDocumentListeners();
-    this.cancelDragFrameLoop();
+    this.cancelAutoPanLoop();
     this.cancelActiveDrag();
   }
 
@@ -420,7 +417,7 @@ class GpuNodeDragController {
     this.applyActiveDragLayoutChange(items, "start");
     this.options.onNodeDragStart?.(change);
     this.options.requestFrame?.("viewport");
-    this.startDragFrameLoop();
+    this.startAutoPanLoop();
   }
 
   private canStartPendingDrag(drag: PendingGpuNodeDrag): boolean {
@@ -509,7 +506,7 @@ class GpuNodeDragController {
   private clearActiveDrag() {
     this.activeDrag = null;
     this.clearPendingDrag();
-    this.cancelDragFrameLoop();
+    this.cancelAutoPanLoop();
     this.store.getState().setViewportInteractionFlags({ nodeDragging: false });
     this.options.requestFrame?.("texture-upload");
   }
@@ -565,10 +562,9 @@ class GpuNodeDragController {
     return screenToFlowPosition(point, this.store.getState().transform);
   }
 
-  private startDragFrameLoop() {
+  private startAutoPanLoop() {
     if (
-      (this.options.autoPanOnNodeDrag === false &&
-        !this.options.onNodeDragFrame) ||
+      this.options.autoPanOnNodeDrag === false ||
       this.autoPanAnimationFrame !== null
     ) {
       return;
@@ -582,47 +578,27 @@ class GpuNodeDragController {
     if (!activeDrag) {
       return;
     }
-    if (this.options.autoPanOnNodeDrag !== false) {
-      const delta = getGpuNodeDragAutoPanDelta({
-        insetsPx: this.options.autoPanInsetsPx,
-        marginPx: this.options.autoPanMarginPx,
-        maxSpeedPx: this.options.autoPanMaxSpeedPx,
-        point: activeDrag.lastScreenPoint,
-        viewportSize: {
-          height: this.store.getState().height,
-          width: this.store.getState().width,
-        },
-      });
-      if (
-        (delta.x !== 0 || delta.y !== 0) &&
-        panGpuViewport(delta, { store: this.store })
-      ) {
-        this.updateActiveDragFromScreenPoint(
-          activeDrag.lastScreenPoint,
-          "drag",
-        );
-        this.options.requestFrame?.("viewport");
-      }
-    }
-    if (this.emitActiveDragFrame(activeDrag)) {
+    const delta = getGpuNodeDragAutoPanDelta({
+      insetsPx: this.options.autoPanInsetsPx,
+      marginPx: this.options.autoPanMarginPx,
+      maxSpeedPx: this.options.autoPanMaxSpeedPx,
+      point: activeDrag.lastScreenPoint,
+      viewportSize: {
+        height: this.store.getState().height,
+        width: this.store.getState().width,
+      },
+    });
+    if (
+      (delta.x !== 0 || delta.y !== 0) &&
+      panGpuViewport(delta, { store: this.store })
+    ) {
+      this.updateActiveDragFromScreenPoint(activeDrag.lastScreenPoint, "drag");
       this.options.requestFrame?.("viewport");
     }
-    this.startDragFrameLoop();
+    this.startAutoPanLoop();
   };
 
-  private emitActiveDragFrame(activeDrag: ActiveGpuNodeDrag): boolean {
-    return (
-      this.options.onNodeDragFrame?.({
-        active: true,
-        delta: { x: 0, y: 0 },
-        items: activeDrag.items,
-        nodeId: activeDrag.nodeId,
-        phase: "drag",
-      }) === true
-    );
-  }
-
-  private cancelDragFrameLoop() {
+  private cancelAutoPanLoop() {
     if (this.autoPanAnimationFrame !== null) {
       cancelAnimationFrame(this.autoPanAnimationFrame);
       this.autoPanAnimationFrame = null;

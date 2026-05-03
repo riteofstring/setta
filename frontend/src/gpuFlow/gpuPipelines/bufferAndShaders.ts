@@ -163,7 +163,7 @@ export function isMeshSurfaceVertexCacheValid(
   return true;
 }
 
-function isCachedFlatSurfaceGeometryEqual(
+export function isCachedFlatSurfaceGeometryEqual(
   cached: CachedFlatSurfaceGeometry,
   surface: CachedFlatSurfaceGeometry,
 ): boolean {
@@ -177,7 +177,7 @@ function isCachedFlatSurfaceGeometryEqual(
   );
 }
 
-function isCachedMeshSurfaceGeometryEqual(
+export function isCachedMeshSurfaceGeometryEqual(
   cached: CachedMeshSurfaceGeometry,
   surface: HtmlSurfaceMeshVisual,
 ): boolean {
@@ -250,7 +250,7 @@ export function captureFlatSurfaceGeometry(
   }));
 }
 
-function captureMeshSurfaceGeometry(
+export function captureMeshSurfaceGeometry(
   surfaces: readonly HtmlSurfaceMeshVisual[],
 ): readonly CachedMeshSurfaceGeometry[] {
   return surfaces.map((surface) => ({
@@ -266,14 +266,14 @@ function captureMeshSurfaceGeometry(
   }));
 }
 
-type FlatSurfaceVertex = {
+export type FlatSurfaceVertex = {
   readonly u: number;
   readonly v: number;
   readonly x: number;
   readonly y: number;
 };
 
-function writeFlatSurfaceVertex(
+export function writeFlatSurfaceVertex(
   data: Float32Array,
   offset: number,
   vertex: FlatSurfaceVertex,
@@ -312,13 +312,13 @@ export function parseGpuGridColor(
   return parseGpuHexColor(color, "grid");
 }
 
-function parseGpuEdgeColor(
+export function parseGpuEdgeColor(
   color: string,
 ): readonly [number, number, number, number] {
   return parseGpuHexColor(color, "edge palette");
 }
 
-function requirePositiveFiniteGpuGridValue(
+export function requirePositiveFiniteGpuGridValue(
   value: number,
   field: string,
 ): number {
@@ -328,7 +328,7 @@ function requirePositiveFiniteGpuGridValue(
   return value;
 }
 
-function encodeGpuGridVariant(variant: GpuGridVariant): number {
+export function encodeGpuGridVariant(variant: GpuGridVariant): number {
   switch (variant) {
     case "lines":
       return 0;

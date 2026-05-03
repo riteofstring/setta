@@ -6,10 +6,10 @@ import plugins "setta/internal/plugins"
 
 var discoveredProviderCapabilities = []plugins.PluginAppSubsystemFeatureManifest{
 	{
-		AppAuthoringUI:         true,
-		AppPreviewUI:           true,
+		AppAuthoringUI: true,
+		AppPreviewUI: true,
 		AppGenerationChatModes: true,
-		AppDeploymentRuntime:   true,
+		AppDeploymentRuntime: true,
 	},
 }
 
