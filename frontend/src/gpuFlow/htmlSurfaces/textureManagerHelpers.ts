@@ -1,5 +1,13 @@
 import type { DirtyNodeMark, DirtyNodeState } from "../dirtyTracking";
-import type { HtmlSurfaceTextureRecord } from "./textures";
+import type { TextureResolutionSnapshot } from "../textureResolution";
+import {
+  dirtyTextureTileSummary,
+  type HtmlSurfaceDirtyRect,
+} from "./textureDirtyTiles";
+import type {
+  DirtyHtmlSurfaceTextureState,
+  HtmlSurfaceTextureRecord,
+} from "./textures";
 
 export function compareSurfaceIds(left: string, right: string): number {
   return left.localeCompare(right);
@@ -104,4 +112,96 @@ export function normalizeSurfaceIdSet(
     return surfaceIds;
   }
   return new Set(surfaceIds);
+}
+
+export function getHtmlSurfaceTextureUsage(): GPUTextureUsageFlags {
+  const usage = globalThis.GPUTextureUsage;
+  if (!usage) {
+    throw new Error("Setta GPU flow requires GPUTextureUsage constants.");
+  }
+  return usage.TEXTURE_BINDING | usage.COPY_DST | usage.RENDER_ATTACHMENT;
+}
+
+export function normalizeTextureBudgetBytes(
+  budgetBytes: number | undefined,
+  defaultBudgetBytes: number,
+): number {
+  const resolvedBudgetBytes = budgetBytes ?? defaultBudgetBytes;
+  if (Number.isNaN(resolvedBudgetBytes) || resolvedBudgetBytes <= 0) {
+    throw new Error(
+      "Setta GPU flow HTML surface texture memory budget must be greater than zero bytes.",
+    );
+  }
+  return resolvedBudgetBytes;
+}
+
+export function shouldDeferRegisteredSurfaceRerasterization({
+  deferRerasterization,
+  dimensionChanged,
+  lastUploadFrame,
+  pendingTextureRecord,
+  resolutionChanged,
+}: {
+  readonly deferRerasterization: boolean | undefined;
+  readonly dimensionChanged: boolean;
+  readonly lastUploadFrame: number;
+  readonly pendingTextureRecord: unknown;
+  readonly resolutionChanged: boolean;
+}): boolean {
+  return (
+    deferRerasterization === true &&
+    (dimensionChanged || resolutionChanged) &&
+    lastUploadFrame >= 0 &&
+    pendingTextureRecord === null
+  );
+}
+
+export function toDirtyHtmlSurfaceTextureState(
+  { nodeId, ...state }: DirtyNodeState,
+  record:
+    | (HtmlSurfaceTextureRecord & {
+        readonly pendingTextureRecord?: HtmlSurfaceTextureRecord | null;
+      })
+    | undefined,
+): DirtyHtmlSurfaceTextureState {
+  const dirtyTileSummary = dirtyTextureTileSummary(
+    record?.pendingTextureRecord ?? record,
+    state.sourceRect as HtmlSurfaceDirtyRect | undefined,
+  );
+  return {
+    ...state,
+    ...dirtyTileSummary,
+    surfaceId: nodeId,
+  };
+}
+
+export function compareSurfaceTextureRecordsForEviction(
+  left: Pick<
+    HtmlSurfaceTextureRecord,
+    "lastUploadFrame" | "lastVisibleFrame" | "surfaceId"
+  >,
+  right: Pick<
+    HtmlSurfaceTextureRecord,
+    "lastUploadFrame" | "lastVisibleFrame" | "surfaceId"
+  >,
+): number {
+  return (
+    left.lastVisibleFrame - right.lastVisibleFrame ||
+    left.lastUploadFrame - right.lastUploadFrame ||
+    compareSurfaceIds(left.surfaceId, right.surfaceId)
+  );
+}
+
+export function surfaceTextureResolutionSnapshot(
+  record: Pick<
+    HtmlSurfaceTextureRecord,
+    "pixelHeight" | "pixelWidth" | "resolutionScale" | "zoomBucket"
+  >,
+): TextureResolutionSnapshot {
+  return {
+    pixelHeight: record.pixelHeight,
+    pixelWidth: record.pixelWidth,
+    resolutionScale: record.resolutionScale,
+    zoomBucket: record.zoomBucket,
+  };
 }

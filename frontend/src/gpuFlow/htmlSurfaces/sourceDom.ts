@@ -8,6 +8,9 @@ export const HTML_SURFACE_SOURCE_ID_ATTRIBUTE = "data-gpu-flow-source-id";
 export const HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE =
   "data-gpu-flow-projected-interaction";
 
+export const HTML_SURFACE_PASSIVE_POINTER_DIRTY_ATTRIBUTE =
+  "data-gpu-flow-passive-pointer-dirty";
+
 export function isPassiveHtmlSurfaceSourceEventTarget(
   target: EventTarget | Node | null,
 ): boolean {
@@ -18,6 +21,17 @@ export function isPassiveHtmlSurfaceSourceEventTarget(
   return (
     sourceElement.getAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE) !==
     "true"
+  );
+}
+
+export function isPassiveHtmlSurfacePointerDirtyEventTarget(
+  target: EventTarget | Node | null,
+): boolean {
+  const element = toElement(target);
+  return Boolean(
+    element?.closest(
+      `[${HTML_SURFACE_PASSIVE_POINTER_DIRTY_ATTRIBUTE}='true']`,
+    ),
   );
 }
 

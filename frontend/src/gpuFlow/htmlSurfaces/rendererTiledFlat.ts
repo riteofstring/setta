@@ -164,17 +164,32 @@ export function createTiledFlatSurfaceDrawTiles(
 ): readonly TiledFlatSurfaceDrawTile[] {
   const tiles: TiledFlatSurfaceDrawTile[] = [];
   for (const surface of surfaces) {
+    const scaleX = resolveTiledFlatSurfaceScale(
+      surface.rect.width,
+      surface.texture.cssWidth,
+    );
+    const scaleY = resolveTiledFlatSurfaceScale(
+      surface.rect.height,
+      surface.texture.cssHeight,
+    );
     for (const tile of surface.tiles) {
       tiles.push({
-        height: tile.cssHeight,
+        height: tile.cssHeight * scaleY,
         surfaceId: tile.tileId,
         texture: tile,
-        width: tile.cssWidth,
-        x: surface.rect.x + tile.cssX,
-        y: surface.rect.y + tile.cssY,
+        width: tile.cssWidth * scaleX,
+        x: surface.rect.x + tile.cssX * scaleX,
+        y: surface.rect.y + tile.cssY * scaleY,
         zIndex: surface.zIndex,
       });
     }
   }
   return tiles;
+}
+
+function resolveTiledFlatSurfaceScale(
+  visualSize: number,
+  textureCssSize: number,
+): number {
+  return textureCssSize > 0 ? visualSize / textureCssSize : 1;
 }

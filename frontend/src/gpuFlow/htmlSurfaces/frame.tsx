@@ -187,6 +187,10 @@ type RenderHtmlSurfaceFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
+  readonly deferRerasterizationNodeIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   readonly deferResolutionUpdates?: boolean | undefined;
   readonly edgePalette?: GpuEdgePaletteInput | undefined;
   readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
@@ -205,6 +209,8 @@ type RenderHtmlSurfaceFrameInput = {
   readonly nodeTextureMemoryBudgetBytes?: number | undefined;
   readonly renderer: GpuNodeSurfaceRenderTarget;
   readonly domTransformCache?: GpuNodeDomTransformSyncCache | undefined;
+  readonly skipSourceDomTransformSync?: boolean | undefined;
+  readonly skipTextureUploads?: boolean | undefined;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget?: GpuNodeUploadBudget | undefined;
   readonly viewport: GpuViewportInput;
@@ -236,6 +242,7 @@ type MarkHtmlSurfaceFramePaintDirtyInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly frame: number;
+  readonly ignoreContentNodeIds?: ReadonlySet<string> | readonly string[];
   readonly ignoreDirectNodeIds?: ReadonlySet<string> | readonly string[];
   readonly textureManager: Pick<
     HtmlSurfaceTextureManager,
@@ -262,6 +269,16 @@ const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
   updatedNodeIds: [],
   visibleNodeIds: [],
 };
+
+const EMPTY_TEXTURE_UPLOAD_RESULT = {
+  budgetExhausted: false,
+  diagnostics: [],
+  remainingDirtySurfaceIds: [],
+  skippedSurfaceIds: [],
+  skippedUploadBytes: 0,
+  uploaded: [],
+  uploadedBytes: 0,
+} as const;
 
 export function HtmlSurfaceNodeLayer({
   className = DEFAULT_NODE_CLASS_NAME,
@@ -338,6 +355,7 @@ export function renderHtmlSurfaceFrame({
   activeNodeId,
   canvasSize,
   clearColor,
+  deferRerasterizationNodeIds,
   deferResolutionUpdates,
   domTransformCache,
   edgePalette,
@@ -352,11 +370,16 @@ export function renderHtmlSurfaceFrame({
   nodeTextureMemoryBudgetBytes,
   renderer,
   textureManager,
+  skipSourceDomTransformSync,
+  skipTextureUploads,
   uploadBudget,
   viewport,
 }: RenderHtmlSurfaceFrameInput): RenderHtmlSurfaceFrameResult {
   const activeNodeIds = normalizeNodeIdSet(
     activeNodeId ? [activeNodeId] : undefined,
+  );
+  const deferredRerasterizationNodeIds = normalizeNodeIdSet(
+    deferRerasterizationNodeIds,
   );
   const retainedNodeIds = mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds);
   const nodeSurfaceIds = new Set(nodes.map((node) => node.nodeId));
@@ -381,28 +404,31 @@ export function renderHtmlSurfaceFrame({
     visibleSurfaceQuads.map((quad) => quad.nodeId),
   );
 
-  const domTransformResult = domTransformCache
-    ? syncGpuNodeDomTransformsFromQuads({
-        activeNodeIds,
-        cache: domTransformCache,
-        elementByNodeId,
-        retainNodeIds: retainedNodeIds,
-        visibleQuads: visibleSurfaceQuads,
-        viewport,
-      })
-    : syncGpuNodeDomTransforms({
-        activeNodeIds,
-        elementByNodeId,
-        nodes: [
-          ...nodes,
-          ...toGpuHtmlSurfaceOverlayNodeLayouts(htmlSurfaceOverlays),
-        ],
-        visibleNodeIds: visibleSurfaceIds,
-        viewport,
-      });
+  const domTransformResult = skipSourceDomTransformSync
+    ? EMPTY_DOM_TRANSFORM_SYNC_RESULT
+    : domTransformCache
+      ? syncGpuNodeDomTransformsFromQuads({
+          activeNodeIds,
+          cache: domTransformCache,
+          elementByNodeId,
+          retainNodeIds: retainedNodeIds,
+          visibleQuads: visibleSurfaceQuads,
+          viewport,
+        })
+      : syncGpuNodeDomTransforms({
+          activeNodeIds,
+          elementByNodeId,
+          nodes: [
+            ...nodes,
+            ...toGpuHtmlSurfaceOverlayNodeLayouts(htmlSurfaceOverlays),
+          ],
+          visibleNodeIds: visibleSurfaceIds,
+          viewport,
+        });
 
   const missingElementNodeIds = registerVisibleGpuNodeTextures({
     activeNodeIds,
+    deferRerasterizationNodeIds: deferredRerasterizationNodeIds,
     deferResolutionUpdates,
     devicePixelRatio: canvasSize.devicePixelRatio,
     elementByNodeId,
@@ -414,6 +440,7 @@ export function renderHtmlSurfaceFrame({
   const uploadResult = uploadGpuNodeTextures({
     deferResolutionUpdates,
     frame,
+    skipTextureUploads,
     textureManager,
     uploadBudget,
   });
@@ -488,6 +515,7 @@ export function renderHtmlSurfaceFrame({
 
 function registerVisibleGpuNodeTextures({
   activeNodeIds,
+  deferRerasterizationNodeIds,
   deferResolutionUpdates,
   devicePixelRatio,
   elementByNodeId,
@@ -497,6 +525,7 @@ function registerVisibleGpuNodeTextures({
   viewport,
 }: {
   readonly activeNodeIds: ReadonlySet<string>;
+  readonly deferRerasterizationNodeIds: ReadonlySet<string>;
   readonly deferResolutionUpdates: boolean | undefined;
   readonly devicePixelRatio: number;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
@@ -516,6 +545,9 @@ function registerVisibleGpuNodeTextures({
     textureManager.registerSurfaceTexture({
       cssHeight: quad.height,
       cssWidth: quad.width,
+      ...(deferRerasterizationNodeIds.has(quad.nodeId)
+        ? { deferRerasterization: true }
+        : {}),
       ...(deferResolutionUpdates && !activeNodeIds.has(quad.nodeId)
         ? { deferResolution: true }
         : {}),
@@ -533,14 +565,19 @@ function registerVisibleGpuNodeTextures({
 function uploadGpuNodeTextures({
   deferResolutionUpdates,
   frame,
+  skipTextureUploads,
   textureManager,
   uploadBudget,
 }: {
   readonly deferResolutionUpdates: boolean | undefined;
   readonly frame: number;
+  readonly skipTextureUploads: boolean | undefined;
   readonly textureManager: GpuNodeTextureController;
   readonly uploadBudget: GpuNodeUploadBudget | undefined;
 }) {
+  if (skipTextureUploads) {
+    return EMPTY_TEXTURE_UPLOAD_RESULT;
+  }
   return textureManager.uploadDirtySurfaceTextures({
     frame,
     ...(deferResolutionUpdates ? { deferPassiveUploads: true } : {}),
@@ -552,6 +589,7 @@ export function markHtmlSurfaceFramePaintDirty({
   changedElements,
   elementByNodeId,
   frame,
+  ignoreContentNodeIds,
   ignoreDirectNodeIds,
   textureManager,
 }: MarkHtmlSurfaceFramePaintDirtyInput): string[] {
@@ -562,6 +600,7 @@ export function markHtmlSurfaceFramePaintDirty({
       sourceIdAttribute: HTML_SURFACE_SOURCE_ID_ATTRIBUTE,
       sourceSelector: GPU_FLOW_NODE_SOURCE_SELECTOR,
       surfaceSelector: GPU_FLOW_SURFACE_SELECTOR,
+      ignoredContentSourceIds: ignoreContentNodeIds,
       transformOnlySourceIds: ignoreDirectNodeIds,
     });
 

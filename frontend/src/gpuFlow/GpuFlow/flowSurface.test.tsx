@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
 import { createGpuFlowViewportStore } from "../viewportStore";
-import { GpuFlow } from "./flowSurface";
+import {
+  GpuFlow,
+  resolveGpuFlowIgnoredContentPaintNodeIds,
+} from "./flowSurface";
+import {
+  isGpuFlowPanZoomInteractionActive,
+  shouldSkipGpuFlowSourceDomTransformSync,
+} from "./flowPanZoomFramePolicy";
 
 describe("GpuFlow", () => {
   it("mounts source-local portals and edge labels inside the canvas source subtree and viewport portals outside it", () => {
@@ -73,6 +80,62 @@ describe("GpuFlow", () => {
     );
 
     expect(markup).toContain('data-gpu-flow-source-id="layout-node-a"');
+  });
+
+  it("uses active resize paint suppression before configured interaction suppression", () => {
+    const configured = new Set(["param-drag-section"]);
+
+    expect(
+      resolveGpuFlowIgnoredContentPaintNodeIds({
+        activeResizeNodeId: null,
+        configuredNodeIds: configured,
+        nodeResizing: false,
+      }),
+    ).toBe(configured);
+    expect(
+      resolveGpuFlowIgnoredContentPaintNodeIds({
+        activeResizeNodeId: "resize-section",
+        configuredNodeIds: configured,
+        nodeResizing: true,
+      }),
+    ).toEqual(["resize-section"]);
+  });
+
+  it("keeps viewport pan and zoom frames off the source DOM transform path", () => {
+    expect(
+      isGpuFlowPanZoomInteractionActive({
+        panActivationKeyPressed: false,
+        panScrolling: false,
+        pointerPanning: false,
+        wheelZooming: false,
+      }),
+    ).toBe(false);
+    expect(
+      isGpuFlowPanZoomInteractionActive({
+        panActivationKeyPressed: false,
+        panScrolling: false,
+        pointerPanning: true,
+        wheelZooming: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipGpuFlowSourceDomTransformSync({
+        panZoomInteractionActive: false,
+        viewportFrame: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipGpuFlowSourceDomTransformSync({
+        panZoomInteractionActive: true,
+        viewportFrame: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipGpuFlowSourceDomTransformSync({
+        panZoomInteractionActive: false,
+        viewportFrame: false,
+      }),
+    ).toBe(false);
   });
 });
 

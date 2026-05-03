@@ -1,6 +1,7 @@
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
+import { useParamDndState } from "forks/dnd-kit/paramDndState";
 
 import {
   setSelectionDragHandle,
@@ -15,6 +16,8 @@ import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
+
+import { dispatchGpuFlowNodeDirtyEvent } from "gpuFlow/nodeDirtyEvents";
 
 import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
 
@@ -47,7 +50,13 @@ import {
   useActiveSectionUI,
 } from "state/activeSectionUI";
 
-import { useAIFollow, useLocalStorage, useSettings } from "state/definitions";
+import {
+  useAIFollow,
+  useLocalStorage,
+  useProjectState,
+  useResizeEvent,
+  useSettings,
+} from "state/definitions";
 
 import { useShareCapabilities } from "state/hooks/share";
 
@@ -69,6 +78,10 @@ import {
   useProjectGpuLayoutAdapter,
   type ProjectGpuLayoutAdapter,
 } from "./projectGpuLayoutAdapter";
+import {
+  resolveProjectGpuNestedResizePaintSuppressionNodeIds,
+  selectActiveResizeSectionIds,
+} from "./projectGpuNestedResizePaintSuppression";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
@@ -221,6 +234,7 @@ export function GpuProjectSurface() {
         canEditLayout={canEditLayout}
         layoutAdapter={layoutAdapter}
         readyToRender={readyToRender}
+        surfaceRootRef={rootRef}
         settings={settings}
       />
     </div>
@@ -236,6 +250,7 @@ function ProjectGpuFlowLayer({
   isFollowTransitioning,
   layoutAdapter,
   readyToRender,
+  surfaceRootRef,
   settings,
 }: {
   readonly canEditStructure: boolean;
@@ -246,11 +261,19 @@ function ProjectGpuFlowLayer({
   readonly isFollowTransitioning: boolean;
   readonly layoutAdapter: ProjectGpuLayoutAdapter;
   readonly readyToRender: boolean;
+  readonly surfaceRootRef: RefObject<HTMLDivElement | null>;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   const { layoutStore, nodeLayouts } = layoutAdapter;
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
   const dndMode = useDndMode();
+  const paramDragSectionId = useParamDndState((state) =>
+    state.activeId && state.sectionId && !state.pendingReset
+      ? state.sectionId
+      : null,
+  );
+  const nestedResizePaintSuppressionNodeIds =
+    useProjectGpuNestedResizePaintSuppressionNodeIds();
   const activeNodeIds = useActiveSectionUI(
     (state) => state.activeIds,
     _.isEqual,
@@ -284,6 +307,13 @@ function ProjectGpuFlowLayer({
     () => getProjectGpuGridInput({ darkMode, settings }),
     [darkMode, settings],
   );
+  const ignoreContentPaintNodeIds = useMemo(() => {
+    const nodeIds = new Set(nestedResizePaintSuppressionNodeIds);
+    if (paramDragSectionId) {
+      nodeIds.add(paramDragSectionId);
+    }
+    return nodeIds.size > 0 ? [...nodeIds] : undefined;
+  }, [nestedResizePaintSuppressionNodeIds, paramDragSectionId]);
   const nodeDragOptions = useMemo(
     () =>
       getProjectNodeDragOptions({
@@ -341,6 +371,10 @@ function ProjectGpuFlowLayer({
     primarySelectionId,
     selectionDragElement,
   });
+  useProjectGpuNestedResizeEndDirtyDispatch({
+    nodeIds: nestedResizePaintSuppressionNodeIds,
+    surfaceRootRef,
+  });
   useProjectGpuDndViewportTransitionCancel(dndMode);
   if (!readyToRender) {
     return null;
@@ -354,6 +388,7 @@ function ProjectGpuFlowLayer({
       edgeScene={edgeScene}
       framePerformanceReporter={PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER}
       grid={gridInput}
+      ignoreContentPaintNodeIds={ignoreContentPaintNodeIds}
       layoutStore={layoutStore}
       nodeDrag={nodeDragOptions}
       nodeResize={nodeResizeOptions}
@@ -367,6 +402,74 @@ function ProjectGpuFlowLayer({
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
     />
   );
+}
+
+function useProjectGpuNestedResizePaintSuppressionNodeIds(): readonly string[] {
+  const activeResizeSectionIds = useResizeEvent(
+    (state) => selectActiveResizeSectionIds(state.resizeEvent),
+    _.isEqual,
+  );
+  return useProjectState(
+    (state) =>
+      resolveProjectGpuNestedResizePaintSuppressionNodeIds(
+        state,
+        activeResizeSectionIds,
+      ),
+    _.isEqual,
+  );
+}
+
+function useProjectGpuNestedResizeEndDirtyDispatch({
+  nodeIds,
+  surfaceRootRef,
+}: {
+  readonly nodeIds: readonly string[];
+  readonly surfaceRootRef: RefObject<HTMLDivElement | null>;
+}) {
+  const previousNodeIdsRef = useRef<readonly string[]>([]);
+  useEffect(() => {
+    const nextNodeIds = new Set(nodeIds);
+    const releasedNodeIds = previousNodeIdsRef.current.filter(
+      (nodeId) => !nextNodeIds.has(nodeId),
+    );
+    previousNodeIdsRef.current = nodeIds;
+    if (releasedNodeIds.length === 0) {
+      return;
+    }
+    const rootElement = surfaceRootRef.current;
+    if (!rootElement) {
+      return;
+    }
+    for (const nodeId of releasedNodeIds) {
+      const nodeElement = findGpuFlowNodeElement(rootElement, nodeId);
+      dispatchGpuFlowNodeDirtyEvent(nodeElement, {
+        priority: "interactive",
+        reason: "dimension",
+      });
+    }
+  }, [nodeIds, surfaceRootRef]);
+}
+
+function findGpuFlowNodeElement(
+  rootElement: ParentNode,
+  nodeId: string,
+): HTMLElement | null {
+  const candidate = rootElement.querySelector<HTMLElement>(
+    `.${GPU_FLOW_CLASS_NAMES.node}[data-id="${escapeAttributeSelectorValue(
+      nodeId,
+    )}"]`,
+  );
+  if (candidate?.dataset.id === nodeId) {
+    return candidate;
+  }
+  return null;
+}
+
+function escapeAttributeSelectorValue(value: string): string {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
 function useProjectGpuSelectionDragDndHandle({

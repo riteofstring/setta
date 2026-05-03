@@ -7,6 +7,10 @@ import { resolveHtmlSurfaceDirectPaintSourceRectHint } from "./paintSourceRectHi
 
 export type HtmlSurfacePaintInvalidationInput = {
   readonly changedElements?: readonly Element[] | undefined;
+  readonly ignoredContentSourceIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   readonly sourceElementBySurfaceId: ReadonlyMap<string, HTMLElement>;
   readonly sourceIdAttribute: string;
   readonly sourceSelector: string;
@@ -43,6 +47,7 @@ type ChangedSourceResolution =
 
 export function resolveHtmlSurfacePaintInvalidation({
   changedElements,
+  ignoredContentSourceIds,
   sourceElementBySurfaceId,
   sourceIdAttribute,
   sourceSelector,
@@ -52,6 +57,7 @@ export function resolveHtmlSurfacePaintInvalidation({
   const dirtySurfaceInvalidations: HtmlSurfacePaintSourceInvalidation[] = [];
   const dirtySurfaceIds = new Set<string>();
   const transformOnlyPaintSurfaceIds = new Set<string>();
+  const ignoredContentIds = normalizeSurfaceIdSet(ignoredContentSourceIds);
   const transformOnlyIds = normalizeSurfaceIdSet(transformOnlySourceIds);
 
   if (!changedElements) {
@@ -69,6 +75,7 @@ export function resolveHtmlSurfacePaintInvalidation({
       sourceIdAttribute,
       sourceSelector,
       surfaceSelector,
+      ignoredContentIds,
       transformOnlyIds,
     });
     if (!resolution) {
@@ -94,6 +101,7 @@ export function resolveHtmlSurfacePaintInvalidation({
 
 function resolveChangedSource({
   changedElement,
+  ignoredContentIds,
   sourceElementBySurfaceId,
   sourceIdAttribute,
   sourceSelector,
@@ -101,12 +109,50 @@ function resolveChangedSource({
   transformOnlyIds,
 }: {
   readonly changedElement: Element;
+  readonly ignoredContentIds: ReadonlySet<string>;
   readonly sourceElementBySurfaceId: ReadonlyMap<string, HTMLElement>;
   readonly sourceIdAttribute: string;
   readonly sourceSelector: string;
   readonly surfaceSelector: string | undefined;
   readonly transformOnlyIds: ReadonlySet<string>;
 }): ChangedSourceResolution | null {
+  const nearestResolution = resolveNearestChangedSource({
+    changedElement,
+    ignoredContentIds,
+    sourceElementBySurfaceId,
+    sourceIdAttribute,
+    sourceSelector,
+    transformOnlyIds,
+  });
+  if (nearestResolution !== undefined) {
+    return nearestResolution;
+  }
+
+  return resolveContainedChangedSource({
+    changedElement,
+    ignoredContentIds,
+    sourceElementBySurfaceId,
+    sourceIdAttribute,
+    sourceSelector,
+    surfaceSelector,
+  });
+}
+
+function resolveNearestChangedSource({
+  changedElement,
+  ignoredContentIds,
+  sourceElementBySurfaceId,
+  sourceIdAttribute,
+  sourceSelector,
+  transformOnlyIds,
+}: {
+  readonly changedElement: Element;
+  readonly ignoredContentIds: ReadonlySet<string>;
+  readonly sourceElementBySurfaceId: ReadonlyMap<string, HTMLElement>;
+  readonly sourceIdAttribute: string;
+  readonly sourceSelector: string;
+  readonly transformOnlyIds: ReadonlySet<string>;
+}): ChangedSourceResolution | null | undefined {
   const nearestSourceElement =
     changedElement.closest<HTMLElement>(sourceSelector);
   const nearestSourceId =
@@ -115,6 +161,9 @@ function resolveChangedSource({
     nearestSourceId &&
     sourceElementBySurfaceId.get(nearestSourceId) === nearestSourceElement
   ) {
+    if (ignoredContentIds.has(nearestSourceId)) {
+      return null;
+    }
     if (
       changedElement === nearestSourceElement &&
       transformOnlyIds.has(nearestSourceId)
@@ -133,7 +182,24 @@ function resolveChangedSource({
       surfaceId: nearestSourceId,
     };
   }
+  return undefined;
+}
 
+function resolveContainedChangedSource({
+  changedElement,
+  ignoredContentIds,
+  sourceElementBySurfaceId,
+  sourceIdAttribute,
+  sourceSelector,
+  surfaceSelector,
+}: {
+  readonly changedElement: Element;
+  readonly ignoredContentIds: ReadonlySet<string>;
+  readonly sourceElementBySurfaceId: ReadonlyMap<string, HTMLElement>;
+  readonly sourceIdAttribute: string;
+  readonly sourceSelector: string;
+  readonly surfaceSelector: string | undefined;
+}): ChangedSourceResolution | null {
   const containedSourceId = findSingleContainedSourceId({
     changedElement,
     sourceElementBySurfaceId,
@@ -142,10 +208,12 @@ function resolveChangedSource({
     surfaceSelector,
   });
   return containedSourceId
-    ? {
-        kind: "content",
-        surfaceId: containedSourceId,
-      }
+    ? ignoredContentIds.has(containedSourceId)
+      ? null
+      : {
+          kind: "content",
+          surfaceId: containedSourceId,
+        }
     : null;
 }
 

@@ -116,6 +116,14 @@ import {
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
 import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
+import {
+  resolveGpuFlowNodeDragTarget,
+  shouldBlockGpuFlowPointerPanForNodeDrag,
+} from "./flowNodeDragTarget";
+import {
+  isGpuFlowPanZoomInteractionActive,
+  shouldSkipGpuFlowSourceDomTransformSync,
+} from "./flowPanZoomFramePolicy";
 
 import {
   clearGpuFlowNodeElement,
@@ -159,6 +167,10 @@ type GpuFlowProps = Pick<
   framePerformanceReporter?: GpuFlowFramePerformanceReporter | undefined;
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   grid?: GpuGridInput | undefined;
+  ignoreContentPaintNodeIds?:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   layoutStore?: GpuFlowLayoutStoreApi | undefined;
   marginCssPx?: number | undefined;
   nodeClassName?: string | undefined;
@@ -228,6 +240,10 @@ export type GpuFlowNodeLayerState = {
     | readonly string[]
     | undefined;
   readonly grid: GpuGridInput | undefined;
+  readonly ignoreContentPaintNodeIds:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
   readonly edgeLabelSurfaces:
     | readonly GpuHtmlSurfaceOverlayLayout[]
     | undefined;
@@ -241,6 +257,24 @@ export type GpuFlowNodeLayerState = {
 
 export const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
 
+export function resolveGpuFlowIgnoredContentPaintNodeIds({
+  activeResizeNodeId,
+  configuredNodeIds,
+  nodeResizing,
+}: {
+  readonly activeResizeNodeId: string | null;
+  readonly configuredNodeIds:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly nodeResizing: boolean;
+}): ReadonlySet<string> | readonly string[] | undefined {
+  if (activeResizeNodeId && nodeResizing) {
+    return [activeResizeNodeId];
+  }
+  return configuredNodeIds;
+}
+
 export function GpuFlow({
   children,
   className = "setta-gpu-flow",
@@ -253,6 +287,7 @@ export function GpuFlow({
   framePerformanceReporter,
   forceVisibleNodeIds,
   grid,
+  ignoreContentPaintNodeIds,
   layoutStore,
   marginCssPx,
   nodeClassName,
@@ -337,6 +372,7 @@ export function GpuFlow({
     edgeLabelSurfaces,
     forceVisibleNodeIds,
     grid,
+    ignoreContentPaintNodeIds,
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
@@ -420,6 +456,7 @@ export function GpuFlow({
       edgeLabelSurfaces,
       forceVisibleNodeIds,
       grid,
+      ignoreContentPaintNodeIds,
       marginCssPx,
       nodes,
       nodeTextureMemoryBudgetBytes,
@@ -443,6 +480,7 @@ export function GpuFlow({
     edges,
     forceVisibleNodeIds,
     grid,
+    ignoreContentPaintNodeIds,
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
@@ -460,13 +498,21 @@ export function GpuFlow({
     }
     return attachGpuPanZoomController({
       ...panZoom,
+      canStartPointerPan: (event) =>
+        !shouldBlockGpuFlowPointerPanForNodeDrag({
+          event,
+          layoutStore,
+          nodeDrag,
+          surfaceElement: container,
+          viewport: nodeLayerRef.current.viewport,
+        }),
       element: container,
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
       },
       store: viewportStore,
     });
-  }, [panZoom, viewportStore]);
+  }, [layoutStore, nodeDrag, panZoom, viewportStore]);
 
   useEffect(() => {
     if (selection === false) {
@@ -502,6 +548,13 @@ export function GpuFlow({
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
       },
+      resolveDragTarget: (event) =>
+        resolveGpuFlowNodeDragTarget({
+          event,
+          layoutStore,
+          surfaceElement: container,
+          viewport: nodeLayerRef.current.viewport,
+        }),
       store: viewportStore,
     });
   }, [layoutStore, nodeDrag, viewportStore]);
@@ -535,6 +588,11 @@ export function GpuFlow({
       onNodeResizeStop: (change) => {
         nodeResize?.onNodeResizeStop?.(change);
         activeResizeNodeIdRef.current = null;
+        textureManagerRef.current?.markSurfaceTextureDirty({
+          content: true,
+          reason: "dimension",
+          surfaceId: change.nodeId,
+        });
       },
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
@@ -719,8 +777,15 @@ export function GpuFlow({
             visualScene: nodeLayerRef.current.visualScene,
           });
         },
+        shouldSkipDirtyEvent: () =>
+          isGpuFlowPanZoomInteractionActive(viewportStore.getState()),
+        shouldSkipPointerHandoff: () => {
+          const state = viewportStore.getState();
+          return state.panActivationKeyPressed || state.pointerPanning;
+        },
         resolveWheelHandoffTarget: (event) => {
           if (
+            viewportStore.getState().panActivationKeyPressed ||
             viewportStore.getState().zoomActivationKeyPressed ||
             event.ctrlKey
           ) {
@@ -774,11 +839,19 @@ export function GpuFlow({
   const handlePaint = useCallback<NonNullable<GpuSurfaceProps["onPaint"]>>(
     (runtime, event) => {
       const textureManager = textureManagerRef.current;
-      if (textureManager) {
+      const panZoomInteractionActive = isGpuFlowPanZoomInteractionActive(
+        viewportStore.getState(),
+      );
+      if (textureManager && !panZoomInteractionActive) {
         markHtmlSurfaceFramePaintDirty({
           changedElements: event.changedElements,
           elementByNodeId: nodeElementByIdRef.current,
           frame: nextFrame(frameRef),
+          ignoreContentNodeIds: resolveGpuFlowIgnoredContentPaintNodeIds({
+            activeResizeNodeId: activeResizeNodeIdRef.current,
+            configuredNodeIds: nodeLayerRef.current.ignoreContentPaintNodeIds,
+            nodeResizing: viewportStore.getState().nodeResizing,
+          }),
           ignoreDirectNodeIds: transformOnlyPaintNodeIdsRef.current,
           textureManager,
         });
@@ -793,12 +866,15 @@ export function GpuFlow({
 
   const handleFrame = useCallback<NonNullable<GpuSurfaceProps["onFrame"]>>(
     (runtime, event) => {
+      const viewportState = viewportStore.getState();
+      const panZoomInteractionActive =
+        isGpuFlowPanZoomInteractionActive(viewportState);
+      const viewportFrame = event.reasons.includes("viewport");
       renderGpuFlowNodeLayerFrame({
         callbacksRef,
         canvasSizeRef,
         deferResolutionUpdates:
-          event.reasons.includes("viewport") ||
-          viewportStore.getState().viewportInteractionActive,
+          viewportFrame || viewportState.viewportInteractionActive,
         frameReasons: event.reasons,
         frameRef,
         activeResizeNodeIdRef,
@@ -809,10 +885,15 @@ export function GpuFlow({
         htmlSurfaceRendererRef,
         runtime,
         surfaceRef,
+        skipSourceDomTransformSync: shouldSkipGpuFlowSourceDomTransformSync({
+          panZoomInteractionActive,
+          viewportFrame,
+        }),
+        skipTextureUploads: panZoomInteractionActive,
         textureManagerRef,
         transformOnlyPaintNodeIdsRef,
         visibleNodeIdsRef,
-        viewportFrame: event.reasons.includes("viewport"),
+        viewportFrame,
       });
       callbacksRef.current.onFrame?.(runtime, event);
     },

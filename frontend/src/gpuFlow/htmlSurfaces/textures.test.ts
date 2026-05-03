@@ -629,6 +629,119 @@ describe("HtmlSurfaceTextureManager", () => {
     });
   });
 
+  it("defers active resize rerasterization until resize completes", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const canvas = createHtmlInCanvasCanvas();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, { canvas });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 2,
+      element,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
+    gpu.copyElementImageToTexture.mockClear();
+    vi.mocked(canvas.requestPaint).mockClear();
+
+    manager.registerSurfaceTexture({
+      cssHeight: 80,
+      cssWidth: 140,
+      deferRerasterization: true,
+      devicePixelRatio: 2,
+      element,
+      frame: 2,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+
+    expect(record).toMatchObject({
+      cssHeight: 50,
+      cssWidth: 100,
+      pixelHeight: 100,
+      pixelWidth: 200,
+    });
+    expect(manager.getDirtySurfaces()).toEqual([]);
+    expect(canvas.requestPaint).not.toHaveBeenCalled();
+
+    manager.uploadDirtySurfaceTextures({ frame: 3 });
+    expect(gpu.copyElementImageToTexture).not.toHaveBeenCalled();
+
+    manager.registerSurfaceTexture({
+      cssHeight: 80,
+      cssWidth: 140,
+      devicePixelRatio: 2,
+      element,
+      frame: 4,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+
+    expect(record).toMatchObject({
+      cssHeight: 80,
+      cssWidth: 140,
+    });
+    expect(manager.getDirtySurfaces()).toMatchObject([
+      {
+        dirtyContent: true,
+        dirtyResolution: true,
+        surfaceId: "node-a",
+      },
+    ]);
+    expect(canvas.requestPaint).toHaveBeenCalledTimes(2);
+  });
+
+  it("defers active resize rerasterization for tiled textures", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const canvas = createHtmlInCanvasCanvas();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      canvas,
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    const record = manager.registerSurfaceTexture({
+      cssHeight: 100,
+      cssWidth: 300,
+      devicePixelRatio: 1,
+      element,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+    manager.uploadDirtySurfaceTextures({ frame: 3 });
+    gpu.copyElementImageToTexture.mockClear();
+    vi.mocked(canvas.requestPaint).mockClear();
+
+    manager.registerSurfaceTexture({
+      cssHeight: 120,
+      cssWidth: 360,
+      deferRerasterization: true,
+      devicePixelRatio: 1,
+      element,
+      frame: 4,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+
+    expect(record).toMatchObject({
+      cssHeight: 100,
+      cssWidth: 300,
+      textureLayout: expect.objectContaining({ kind: "tiled" }),
+    });
+    expect(manager.getDirtySurfaces()).toEqual([]);
+    expect(canvas.requestPaint).not.toHaveBeenCalled();
+
+    manager.uploadDirtySurfaceTextures({ frame: 5 });
+    expect(gpu.copyElementImageToTexture).not.toHaveBeenCalled();
+  });
+
   it("keeps queued resolution-only uploads out of active viewport frames", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

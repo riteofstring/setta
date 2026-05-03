@@ -450,6 +450,7 @@ function SortableRealParamSwitchRow({
       paramChildren={paramChildren}
       dndAttributes={omitRoleAttribute(attributes)}
       dndListeners={listeners}
+      dndPointerDirtyPassive={dndEnabled}
       dndRef={setNodeRef}
       dndStyle={dndStyle}
       dndClassName={isDragging ? "opacity-80" : ""}

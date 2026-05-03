@@ -46,6 +46,10 @@ export type GpuNodeInteractionDirtyControllerOptions = {
   readonly requestAnimationFrame?:
     | ((callback: FrameRequestCallback) => number)
     | undefined;
+  readonly shouldSkipPointerHandoff?:
+    | ((event: PointerEvent) => boolean)
+    | undefined;
+  readonly shouldSkipDirtyEvent?: ((event: Event) => boolean) | undefined;
   readonly resolvePointerHandoffTarget?:
     | ((
         event: PointerEvent,

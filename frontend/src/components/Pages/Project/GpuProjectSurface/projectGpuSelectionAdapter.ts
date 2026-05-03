@@ -16,6 +16,8 @@ import { openSelectionContextMenu } from "state/actions/contextMenus";
 
 import { updateNodePositions } from "state/actions/nodeInternals";
 
+import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos/viewportUpdates";
+
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 
 import { setZIndices } from "state/actions/sections/sectionPositions";
@@ -93,6 +95,7 @@ export function handleProjectSelectionKeyboardNudge(
   change: GpuSelectionKeyboardNudgeChange,
 ) {
   updateNodePositions(toNodeDragItems(change.items));
+  debounced_route_set_top_level_section_layout();
 }
 
 export function handleProjectSelectionContextMenu(

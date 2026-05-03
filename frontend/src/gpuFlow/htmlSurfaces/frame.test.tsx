@@ -19,6 +19,7 @@ import {
   type GpuNodeLayout,
 } from "./frame";
 import type { RenderHtmlSurfacesInput } from "./renderer";
+import { createTiledFlatSurfaceDrawTiles } from "./rendererTiledFlat";
 import { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
 import type {
   HtmlSurfaceTextureRecord,
@@ -109,6 +110,8 @@ describe("HTML surface frame helpers", () => {
 
   it("routes tiled texture records into the tiled-flat visual bucket", () => {
     const texture = textureRecord("large-node", {
+      cssHeight: 100,
+      cssWidth: 200,
       textureLayout: {
         columns: 2,
         kind: "tiled",
@@ -188,6 +191,93 @@ describe("HTML surface frame helpers", () => {
         },
       ],
     });
+  });
+
+  it("stretches tiled texture tiles across resized visual quads", () => {
+    const texture = textureRecord("large-node", {
+      cssHeight: 100,
+      cssWidth: 200,
+      textureLayout: {
+        columns: 2,
+        kind: "tiled",
+        maxTilePixelHeight: 128,
+        maxTilePixelWidth: 128,
+        rows: 1,
+        tileCount: 2,
+      },
+      tiles: [
+        {
+          cssHeight: 100,
+          cssWidth: 128,
+          cssX: 0,
+          cssY: 0,
+          dirtyContent: false,
+          dirtyResolution: false,
+          lastUploadFrame: 1,
+          pixelHeight: 100,
+          pixelWidth: 128,
+          sampler: {},
+          surfaceId: "large-node",
+          texture: {} as GPUTexture,
+          textureBytes: 51_200,
+          textureView: {},
+          tileId: "large-node:0:0",
+          u0: 0,
+          u1: 0.64,
+          v0: 0,
+          v1: 1,
+        },
+        {
+          cssHeight: 100,
+          cssWidth: 72,
+          cssX: 128,
+          cssY: 0,
+          dirtyContent: false,
+          dirtyResolution: false,
+          lastUploadFrame: 1,
+          pixelHeight: 100,
+          pixelWidth: 72,
+          sampler: {},
+          surfaceId: "large-node",
+          texture: {} as GPUTexture,
+          textureBytes: 28_800,
+          textureView: {},
+          tileId: "large-node:1:0",
+          u0: 0.64,
+          u1: 1,
+          v0: 0,
+          v1: 1,
+        },
+      ],
+    });
+
+    expect(
+      createTiledFlatSurfaceDrawTiles([
+        {
+          kind: "tiled-flat",
+          rect: { height: 150, width: 400, x: 10, y: 20 },
+          surfaceId: "large-node",
+          texture,
+          tiles: texture.tiles,
+          zIndex: 3,
+        },
+      ]),
+    ).toMatchObject([
+      {
+        height: 150,
+        surfaceId: "large-node:0:0",
+        width: 256,
+        x: 10,
+        y: 20,
+      },
+      {
+        height: 150,
+        surfaceId: "large-node:1:0",
+        width: 144,
+        x: 266,
+        y: 20,
+      },
+    ]);
   });
 
   it("configures node source hosts without hidden-source styles", () => {
@@ -611,6 +701,113 @@ describe("HTML surface frame helpers", () => {
     expect(manager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
       deferPassiveUploads: true,
       frame: 1,
+    });
+  });
+
+  it("skips source transform sync and texture uploads during active viewport pan/zoom frames", () => {
+    const previouslyVisible = document.createElement("div");
+    const newlyVisible = document.createElement("div");
+    const elements = new Map([
+      ["previously-visible", previouslyVisible],
+      ["newly-visible", newlyVisible],
+    ]);
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+    const cache = createGpuNodeDomTransformSyncCache();
+    const nodes = [
+      node("previously-visible", 0, 0, 100, 50, 0),
+      node("newly-visible", 1_000, 0, 100, 50, 0),
+    ];
+
+    renderHtmlSurfaceFrame({
+      canvasSize: canvasSize(),
+      domTransformCache: cache,
+      elementByNodeId: elements,
+      frame: 1,
+      marginCssPx: 0,
+      nodes,
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+    manager.registerSurfaceTexture.mockClear();
+    manager.uploadDirtySurfaceTextures.mockClear();
+
+    const result = renderHtmlSurfaceFrame({
+      canvasSize: canvasSize(),
+      deferResolutionUpdates: true,
+      domTransformCache: cache,
+      elementByNodeId: elements,
+      frame: 2,
+      marginCssPx: 0,
+      nodes,
+      renderer,
+      skipSourceDomTransformSync: true,
+      skipTextureUploads: true,
+      textureManager: manager,
+      viewport: [-1_000, 0, 1],
+    });
+
+    expect(newlyVisible.style.transform).toBe("");
+    expect(result.domTransformUpdatedNodeIds).toEqual([]);
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deferResolution: true,
+        element: newlyVisible,
+        surfaceId: "newly-visible",
+      }),
+    );
+    expect(manager.uploadDirtySurfaceTextures).not.toHaveBeenCalled();
+    expect(result.uploadedNodeIds).toEqual([]);
+  });
+
+  it("marks active resize nodes for deferred rerasterization", () => {
+    const active = document.createElement("div");
+    const passive = document.createElement("div");
+    const elements = new Map([
+      ["active", active],
+      ["passive", passive],
+    ]);
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    renderHtmlSurfaceFrame({
+      activeNodeId: "active",
+      canvasSize: canvasSize(),
+      deferRerasterizationNodeIds: ["active"],
+      deferResolutionUpdates: true,
+      elementByNodeId: elements,
+      frame: 1,
+      nodes: [
+        node("active", 10, 20, 100, 50, 2),
+        node("passive", 40, 60, 100, 50, 1),
+      ],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1.5],
+    });
+
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith({
+      cssHeight: 50,
+      cssWidth: 100,
+      deferRerasterization: true,
+      devicePixelRatio: 2,
+      element: active,
+      frame: 1,
+      priority: "interactive",
+      surfaceId: "active",
+      zoom: 1.5,
+    });
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith({
+      cssHeight: 50,
+      cssWidth: 100,
+      deferResolution: true,
+      devicePixelRatio: 2,
+      element: passive,
+      frame: 1,
+      priority: "visible",
+      surfaceId: "passive",
+      zoom: 1.5,
     });
   });
 
@@ -1051,6 +1248,26 @@ describe("HTML surface frame helpers", () => {
       elementByNodeId: new Map([["node-a", nodeElement]]),
       frame: 9,
       ignoreDirectNodeIds: ["node-a"],
+      textureManager: manager,
+    });
+
+    expect(dirtyNodeIds).toEqual([]);
+    expect(manager.markSurfaceTextureDirty).not.toHaveBeenCalled();
+  });
+
+  it("ignores resize-rerasterization paints anywhere in a deferred node subtree", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    const child = document.createElement("input");
+    nodeElement.append(child);
+    const manager = {
+      markSurfaceTextureDirty: vi.fn(),
+    };
+
+    const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
+      changedElements: [child],
+      elementByNodeId: new Map([["node-a", nodeElement]]),
+      frame: 9,
+      ignoreContentNodeIds: ["node-a"],
       textureManager: manager,
     });
 

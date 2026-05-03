@@ -8,13 +8,11 @@ import {
 import type { DirtyNodeReason, NodeTexturePriority } from "../dirtyTracking";
 
 import { createHtmlSurfaceAnimationCaptureLeaseController } from "../htmlSurfaces/animationLease";
-import { isPassiveHtmlSurfaceSourceEventTarget } from "../htmlSurfaces/sourceDom";
-import { resolveElementSourceRect } from "../htmlSurfaces/sourceRects";
-
 import {
-  getGpuFlowNodeDirtyEventDetail,
-  GPU_FLOW_NODE_DIRTY_EVENT,
-} from "../nodeDirtyEvents";
+  isPassiveHtmlSurfacePointerDirtyEventTarget,
+  isPassiveHtmlSurfaceSourceEventTarget,
+} from "../htmlSurfaces/sourceDom";
+import { resolveElementSourceRect } from "../htmlSurfaces/sourceRects";
 
 import {
   DirtyEventKind,
@@ -51,6 +49,7 @@ import {
   isGpuNodePersistentFocusEventTarget,
 } from "./nodeTargetLookup";
 import { updateGpuPointerHoverCursor } from "./hoverCursor";
+import { attachGpuNodeDirtyEventListeners } from "./dirtyEventListeners";
 
 export function createGpuNodeInteractionDirtyController({
   cancelAnimationFrame,
@@ -65,6 +64,8 @@ export function createGpuNodeInteractionDirtyController({
   requestFrame,
   resolvePointerHandoffTarget,
   resolveWheelHandoffTarget,
+  shouldSkipDirtyEvent,
+  shouldSkipPointerHandoff,
   textureManager,
 }: GpuNodeInteractionDirtyControllerOptions): GpuNodeInteractionDirtyController {
   let activeNodeId: string | null = null;
@@ -190,25 +191,6 @@ export function createGpuNodeInteractionDirtyController({
     );
   }
 
-  function beginResizeHandleHoverInteraction(
-    nodeId: string,
-    eventTarget?: EventTarget | null | undefined,
-  ) {
-    if (pointerInteractionNodeId) {
-      return;
-    }
-    if (hoverInteractionNodeId === nodeId && activeNodeId === nodeId) {
-      return;
-    }
-    hoverInteractionNodeId = nodeId;
-    hoverInteractionTarget = toElement(eventTarget ?? null);
-    beginInteractiveNode(
-      nodeId,
-      "pointer",
-      resolveEventTargetSourceRect(nodeId, hoverInteractionTarget),
-    );
-  }
-
   function releaseResizeHandleHoverInteraction() {
     if (!hoverInteractionNodeId) {
       return;
@@ -233,6 +215,9 @@ export function createGpuNodeInteractionDirtyController({
   function handOffPointerEvent(event: PointerEvent): boolean {
     const handoffTarget = resolvePointerHandoffTarget?.(event);
     if (!handoffTarget) {
+      return false;
+    }
+    if (resolveResizeHandleHandoffTarget(handoffTarget)) {
       return false;
     }
     const liveNodeElement = elementByNodeId().get(handoffTarget.nodeId) ?? null;
@@ -305,6 +290,9 @@ export function createGpuNodeInteractionDirtyController({
       return;
     }
     projectPointerInteraction?.(pointerInteractionNodeId, event);
+    if (isPassiveHtmlSurfacePointerDirtyEventTarget(pointerInteractionTarget)) {
+      return;
+    }
     markDirty({
       nodeId: pointerInteractionNodeId,
       priority: "interactive",
@@ -406,6 +394,10 @@ export function createGpuNodeInteractionDirtyController({
     clearTrustedPointerHandoffClickSuppression();
   }
 
+  function shouldSkipDirty(event: Event): boolean {
+    return shouldSkipDirtyEvent?.(event) === true;
+  }
+
   function clearPendingPointerHandoffForNode(nodeId: string) {
     const nodeElements = elementByNodeId();
     if (
@@ -488,6 +480,25 @@ export function createGpuNodeInteractionDirtyController({
       ? resolveGpuNodeTargetDescriptor(nodeElement, handoffTarget.descriptor)
       : null;
     return isGpuNodeResizeHandleEventTarget(liveTarget) ? liveTarget : null;
+  }
+
+  function beginResizeHandleHoverInteraction(
+    nodeId: string,
+    eventTarget?: EventTarget | null | undefined,
+  ) {
+    if (pointerInteractionNodeId) {
+      return;
+    }
+    if (hoverInteractionNodeId === nodeId && activeNodeId === nodeId) {
+      return;
+    }
+    hoverInteractionNodeId = nodeId;
+    hoverInteractionTarget = toElement(eventTarget ?? null);
+    beginInteractiveNode(
+      nodeId,
+      "pointer",
+      resolveEventTargetSourceRect(nodeId, hoverInteractionTarget),
+    );
   }
 
   function activateResizeHandleHoverNode(
@@ -691,95 +702,17 @@ export function createGpuNodeInteractionDirtyController({
         signal: abortController.signal,
       } satisfies AddEventListenerOptions;
 
-      canvas.addEventListener(
-        GPU_FLOW_NODE_DIRTY_EVENT,
-        (event) => {
-          const detail = getGpuFlowNodeDirtyEventDetail(event);
-          if (detail) {
-            markCustomDirtyEvent(event.target, detail);
-          }
-        },
+      attachGpuNodeDirtyEventListeners({
+        beginAnimationCaptureLease,
+        canvas,
+        elementByNodeId,
+        handleFocusOut,
         listenerOptions,
-      );
-      canvas.addEventListener(
-        "transitionrun",
-        (event) => {
-          const nodeId = findGpuNodeIdForEventTarget(
-            event.target,
-            elementByNodeId(),
-          );
-          if (nodeId) {
-            beginAnimationCaptureLease(nodeId, event.target);
-          }
-        },
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "transitionstart",
-        (event) => {
-          const nodeId = findGpuNodeIdForEventTarget(
-            event.target,
-            elementByNodeId(),
-          );
-          if (nodeId) {
-            beginAnimationCaptureLease(nodeId, event.target);
-          }
-        },
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "animationstart",
-        (event) => {
-          const nodeId = findGpuNodeIdForEventTarget(
-            event.target,
-            elementByNodeId(),
-          );
-          if (nodeId) {
-            beginAnimationCaptureLease(nodeId, event.target);
-          }
-        },
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "transitionend",
-        (event) => settleAnimationCaptureLease(event.target),
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "transitioncancel",
-        (event) => settleAnimationCaptureLease(event.target),
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "animationend",
-        (event) => settleAnimationCaptureLease(event.target),
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "animationcancel",
-        (event) => settleAnimationCaptureLease(event.target),
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "beforeinput",
-        (event) => markEventTargetDirty(event.target, "input"),
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "input",
-        (event) => markEventTargetDirty(event.target, "input"),
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "change",
-        (event) => markEventTargetDirty(event.target, "input"),
-        listenerOptions,
-      );
-      canvas.addEventListener(
-        "scroll",
-        (event) => markEventTargetDirty(event.target, "scroll"),
-        listenerOptions,
-      );
+        markCustomDirtyEvent,
+        markEventTargetDirty,
+        settleAnimationCaptureLease,
+        shouldSkipDirty,
+      });
       canvas.addEventListener(
         "wheel",
         (event) => {
@@ -788,15 +721,14 @@ export function createGpuNodeInteractionDirtyController({
         listenerOptions,
       );
       canvas.addEventListener(
-        "focusin",
-        (event) => markEventTargetDirty(event.target, "focus"),
-        listenerOptions,
-      );
-      canvas.addEventListener("focusout", handleFocusOut, listenerOptions);
-      canvas.addEventListener(
         "pointerdown",
         (event) => {
           if (dispatchingPointerHandoff) {
+            return;
+          }
+          if (shouldSkipPointerHandoff?.(event)) {
+            releaseResizeHandleHoverInteraction();
+            setHoverCursor(null);
             return;
           }
           const nodeId = findGpuNodeIdForEventTarget(
@@ -806,6 +738,9 @@ export function createGpuNodeInteractionDirtyController({
           const passiveSourceTarget = isPassiveHtmlSurfaceSourceEventTarget(
             event.target,
           );
+          if (nodeId && isGpuNodeResizeHandleEventTarget(event.target)) {
+            return;
+          }
           if (
             nodeId &&
             !passiveSourceTarget &&
@@ -822,6 +757,15 @@ export function createGpuNodeInteractionDirtyController({
         "pointermove",
         (event) => {
           markPointerInteractionDirty(event);
+          if (shouldSkipPointerHandoff?.(event)) {
+            releaseResizeHandleHoverInteraction();
+            setHoverCursor(null);
+            return;
+          }
+          if (event.buttons !== 0) {
+            setHoverCursor(null);
+            return;
+          }
           const handoffTarget = updateGpuPointerHoverCursor({
             elementByNodeId,
             event,
@@ -855,7 +799,10 @@ export function createGpuNodeInteractionDirtyController({
       );
       ownerDocument.addEventListener(
         "selectionchange",
-        () => {
+        (event) => {
+          if (shouldSkipDirty(event)) {
+            return;
+          }
           const selectionTarget =
             ownerDocument.getSelection()?.anchorNode ??
             ownerDocument.activeElement;

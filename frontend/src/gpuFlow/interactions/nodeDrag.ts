@@ -1,4 +1,5 @@
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
+import { isGpuNodeInteractiveEventTarget } from "../activeNodeTargeting";
 import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
@@ -33,6 +34,12 @@ type GpuNodeDragChange = {
   readonly phase: GpuNodeDragPhase;
 };
 
+export type GpuNodeDragTarget = {
+  readonly ignoreNoDragClass?: boolean | undefined;
+  readonly nodeId: string;
+  readonly targetElement?: HTMLElement | undefined;
+};
+
 type GpuNodeDragAutoPanInsets = {
   readonly bottom?: number | undefined;
   readonly left?: number | undefined;
@@ -56,6 +63,9 @@ export type GpuNodeDragControllerOptions = {
   readonly onNodeDragStart?: ((change: GpuNodeDragChange) => void) | undefined;
   readonly onNodeDragStop?: ((change: GpuNodeDragChange) => void) | undefined;
   readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
+  readonly resolveDragTarget?:
+    | ((event: PointerEvent) => GpuNodeDragTarget | null)
+    | undefined;
   readonly snapGrid?: readonly [number, number] | undefined;
   readonly snapToGrid?: boolean | (() => boolean) | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
@@ -73,7 +83,7 @@ type NormalizedGpuNodeDragAutoPanInput = {
 };
 
 type PendingGpuNodeDrag = {
-  readonly nodeElement: HTMLElement;
+  readonly captureElement: HTMLElement;
   readonly nodeId: string;
   readonly startFlowPoint: GpuPoint;
   readonly pointerId: number;
@@ -253,12 +263,8 @@ class GpuNodeDragController {
   }
 
   private readonly onPointerDown = (event: PointerEvent) => {
-    if (!this.shouldStartPointerDrag(event)) {
-      return;
-    }
-    const nodeElement = getEventNodeElement(event);
-    const nodeId = nodeElement?.dataset.id ?? null;
-    if (!nodeElement || !nodeId) {
+    const target = this.resolvePointerDragTarget(event);
+    if (!target) {
       return;
     }
 
@@ -267,14 +273,14 @@ class GpuNodeDragController {
       this.element,
     );
     this.pendingDrag = {
+      captureElement: target.targetElement ?? this.element,
       lastScreenPoint: startScreenPoint,
-      nodeElement,
-      nodeId,
+      nodeId: target.nodeId,
       pointerId: event.pointerId,
       startFlowPoint: this.screenPointToFlowPoint(startScreenPoint),
       startScreenPoint,
     };
-    nodeElement.setPointerCapture?.(event.pointerId);
+    this.pendingDrag.captureElement.setPointerCapture?.(event.pointerId);
     this.addDocumentListeners();
     if (
       (this.options.nodeDragThresholdPx ?? DEFAULT_NODE_DRAG_THRESHOLD_PX) <= 0
@@ -313,7 +319,7 @@ class GpuNodeDragController {
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    drag.nodeElement.releasePointerCapture?.(event.pointerId);
+    drag.captureElement.releasePointerCapture?.(event.pointerId);
     if (!this.activeDrag) {
       this.clearPendingDrag();
       return;
@@ -330,7 +336,7 @@ class GpuNodeDragController {
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    drag.nodeElement.releasePointerCapture?.(event.pointerId);
+    drag.captureElement.releasePointerCapture?.(event.pointerId);
     if (!this.activeDrag) {
       this.clearPendingDrag();
       return;
@@ -347,25 +353,29 @@ class GpuNodeDragController {
     this.clearActiveDrag();
   };
 
-  private shouldStartPointerDrag(event: PointerEvent): boolean {
+  private resolvePointerDragTarget(
+    event: PointerEvent,
+  ): GpuNodeDragTarget | null {
     if (isDragDisabled(this.options.disabled)) {
-      return false;
+      return null;
     }
     if (event.button !== 0) {
-      return false;
+      return null;
     }
-    const nodeElement = getEventNodeElement(event);
-    if (!nodeElement) {
-      return false;
+    const target = this.resolveDragTarget(event);
+    if (!target) {
+      return null;
     }
-    const nodeId = nodeElement.dataset.id;
-    if (nodeId && this.options.canDragNode?.(nodeId) === false) {
-      return false;
+    if (isGpuNodeDragTargetRejected(target, event, this.options.canDragNode)) {
+      return null;
     }
-    return !isEventTargetWrappedWithClass(
-      event,
-      NO_DRAG_CLASS_NAME,
-      nodeElement,
+    return target;
+  }
+
+  private resolveDragTarget(event: PointerEvent): GpuNodeDragTarget | null {
+    return (
+      this.options.resolveDragTarget?.(event) ??
+      resolveGpuNodeDragTargetFromEventTarget(event.target)
     );
   }
 
@@ -517,7 +527,7 @@ class GpuNodeDragController {
   }
 
   private abortPendingDrag(drag: PendingGpuNodeDrag) {
-    drag.nodeElement.releasePointerCapture?.(drag.pointerId);
+    drag.captureElement.releasePointerCapture?.(drag.pointerId);
     this.clearPendingDrag();
   }
 
@@ -691,8 +701,30 @@ function isDragDisabled(
   return typeof disabled === "function" ? disabled() : Boolean(disabled);
 }
 
-function getEventNodeElement(event: Event): HTMLElement | null {
-  const target = event.target;
+function isGpuNodeDragTargetRejected(
+  target: GpuNodeDragTarget,
+  event: Event,
+  canDragNode: ((nodeId: string) => boolean) | undefined,
+): boolean {
+  if (canDragNode?.(target.nodeId) === false) {
+    return true;
+  }
+  if (target.ignoreNoDragClass) {
+    return isGpuNodeInteractiveEventTarget(event.target);
+  }
+  return Boolean(
+    target.targetElement &&
+      isEventTargetWrappedWithClass(
+        event,
+        NO_DRAG_CLASS_NAME,
+        target.targetElement,
+      ),
+  );
+}
+
+export function resolveGpuNodeDragTargetFromEventTarget(
+  target: EventTarget | null,
+): GpuNodeDragTarget | null {
   if (!(target instanceof Element)) {
     return null;
   }
@@ -700,7 +732,8 @@ function getEventNodeElement(event: Event): HTMLElement | null {
   if (!element || element.dataset.gpuFlowNode === "false") {
     return null;
   }
-  return element;
+  const nodeId = element.dataset.id;
+  return nodeId ? { nodeId, targetElement: element } : null;
 }
 
 function getEventPointRelativeToElement(

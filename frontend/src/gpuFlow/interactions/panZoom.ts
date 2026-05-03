@@ -24,6 +24,9 @@ export type GpuPanOnScrollMode =
 
 export type GpuPanZoomControllerOptions = {
   readonly element: HTMLElement;
+  readonly canStartPointerPan?:
+    | ((event: PointerEvent) => boolean)
+    | undefined;
   readonly isMacOS?: boolean | undefined;
   readonly onPointerPanStart?: (() => void) | undefined;
   readonly panActivationKeyPressed?: boolean | undefined;
@@ -49,9 +52,13 @@ type ActivePointerPan = {
   readonly pointerId: number;
   lastClientX: number;
   lastClientY: number;
+  viewportChanged: boolean;
 };
 
 type ResolvedGpuPanZoomControllerOptions = {
+  readonly canStartPointerPan:
+    | ((event: PointerEvent) => boolean)
+    | undefined;
   readonly panActivationKeyPressed: boolean | undefined;
   readonly onPointerPanStart: (() => void) | undefined;
   readonly panOnDrag: boolean | readonly number[];
@@ -86,6 +93,8 @@ const DEFAULT_PAN_ZOOM_OPTIONS = {
   | "zoomOnPinch"
   | "zoomOnScroll"
 >;
+
+const PAN_ZOOM_SETTLE_TEXTURE_UPLOAD_DELAY_MS = 180;
 
 export function attachGpuPanZoomController(
   options: GpuPanZoomControllerOptions,
@@ -213,6 +222,7 @@ function resolveGpuPanZoomControllerOptions(
   options: GpuPanZoomControllerOptions,
 ): ResolvedGpuPanZoomControllerOptions {
   return {
+    canStartPointerPan: options.canStartPointerPan,
     onPointerPanStart: options.onPointerPanStart,
     panActivationKeyPressed: options.panActivationKeyPressed,
     panOnDrag: options.panOnDrag ?? DEFAULT_PAN_ZOOM_OPTIONS.panOnDrag,
@@ -239,6 +249,8 @@ class GpuPanZoomController {
   private readonly options: ResolvedGpuPanZoomControllerOptions;
   private panScrollTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly store: GpuFlowViewportStoreApi;
+  private textureUploadSettleTimeout: ReturnType<typeof setTimeout> | null =
+    null;
   private wheelZoomTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: GpuPanZoomControllerOptions) {
@@ -264,9 +276,10 @@ class GpuPanZoomController {
     this.element.removeEventListener("pointerup", this.onPointerEnd);
     this.element.removeEventListener("pointercancel", this.onPointerEnd);
     this.element.removeEventListener("dblclick", this.onDoubleClick);
-    this.endPointerPan();
+    this.completePointerPan({ requestSettleFrame: false });
     this.clearWheelZoomTimeout();
     this.clearPanScrollTimeout();
+    this.clearTextureUploadSettleTimeout();
   }
 
   private readonly onWheel = (event: WheelEvent) => {
@@ -313,10 +326,12 @@ class GpuPanZoomController {
     }
     event.preventDefault();
     this.options.onPointerPanStart?.();
+    this.clearTextureUploadSettleTimeout();
     this.activePan = {
       lastClientX: event.clientX,
       lastClientY: event.clientY,
       pointerId: event.pointerId,
+      viewportChanged: false,
     };
     this.store.getState().setViewportInteractionFlags({
       paneDragging: true,
@@ -341,6 +356,7 @@ class GpuPanZoomController {
       return;
     }
     if (panGpuViewport(delta, { store: this.store })) {
+      activePan.viewportChanged = true;
       this.requestViewportFrame();
     }
   };
@@ -408,32 +424,22 @@ class GpuPanZoomController {
     const panActivationKeyPressed = Boolean(
       this.options.panActivationKeyPressed,
     );
-    const panOnDrag = panActivationKeyPressed
-      ? DEFAULT_PAN_ZOOM_OPTIONS.panOnDrag
-      : this.options.panOnDrag;
-    if (!panOnDrag) {
-      return false;
-    }
-    if (hasBlockedPanModifier(event)) {
-      return false;
-    }
-    if (!isAllowedPanButton(event.button, panOnDrag)) {
-      return false;
-    }
-    if (this.store.getState().selectionKeyPressed) {
-      return false;
-    }
-    if (isEventTargetWrappedWithClass(event, NO_PAN_CLASS_NAME)) {
-      return false;
-    }
-    if (shouldBlockPrimaryNodePan(event, panActivationKeyPressed)) {
-      return false;
-    }
-    return true;
+    const panOnDrag = resolvePointerPanOnDrag(
+      this.options.panOnDrag,
+      panActivationKeyPressed,
+    );
+    return isGpuPointerPanGestureAllowed({
+      canStartPointerPan: this.options.canStartPointerPan,
+      event,
+      panActivationKeyPressed,
+      panOnDrag,
+      selectionKeyPressed: this.store.getState().selectionKeyPressed,
+    });
   }
 
   private startWheelZoomBurst() {
     this.clearWheelZoomTimeout();
+    this.clearTextureUploadSettleTimeout();
     this.store.getState().setViewportInteractionFlags({ wheelZooming: true });
   }
 
@@ -443,13 +449,14 @@ class GpuPanZoomController {
       this.store
         .getState()
         .setViewportInteractionFlags({ wheelZooming: false });
-      this.requestTextureUploadFrame();
+      this.scheduleTextureUploadSettleFrame();
       this.wheelZoomTimeout = null;
     }, 180);
   }
 
   private startPanScrollBurst() {
     this.clearPanScrollTimeout();
+    this.clearTextureUploadSettleTimeout();
     this.store.getState().setViewportInteractionFlags({ panScrolling: true });
   }
 
@@ -459,18 +466,32 @@ class GpuPanZoomController {
       this.store
         .getState()
         .setViewportInteractionFlags({ panScrolling: false });
-      this.requestTextureUploadFrame();
+      this.scheduleTextureUploadSettleFrame();
       this.panScrollTimeout = null;
     }, 150);
   }
 
   private endPointerPan() {
+    this.completePointerPan({ requestSettleFrame: true });
+  }
+
+  private completePointerPan({
+    requestSettleFrame,
+  }: {
+    readonly requestSettleFrame: boolean;
+  }) {
+    const activePan = this.activePan;
     this.activePan = null;
+    if (!activePan) {
+      return;
+    }
     this.store.getState().setViewportInteractionFlags({
       paneDragging: false,
       pointerPanning: false,
     });
-    this.requestTextureUploadFrame();
+    if (requestSettleFrame && activePan.viewportChanged) {
+      this.scheduleTextureUploadSettleFrame();
+    }
   }
 
   private clearWheelZoomTimeout() {
@@ -487,6 +508,21 @@ class GpuPanZoomController {
     }
   }
 
+  private scheduleTextureUploadSettleFrame() {
+    this.clearTextureUploadSettleTimeout();
+    this.textureUploadSettleTimeout = setTimeout(() => {
+      this.requestTextureUploadFrame();
+      this.textureUploadSettleTimeout = null;
+    }, PAN_ZOOM_SETTLE_TEXTURE_UPLOAD_DELAY_MS);
+  }
+
+  private clearTextureUploadSettleTimeout() {
+    if (this.textureUploadSettleTimeout !== null) {
+      clearTimeout(this.textureUploadSettleTimeout);
+      this.textureUploadSettleTimeout = null;
+    }
+  }
+
   private requestViewportFrame() {
     this.options.requestFrame?.("viewport");
   }
@@ -494,6 +530,54 @@ class GpuPanZoomController {
   private requestTextureUploadFrame() {
     this.options.requestFrame?.("texture-upload");
   }
+}
+
+function resolvePointerPanOnDrag(
+  panOnDrag: boolean | readonly number[],
+  panActivationKeyPressed: boolean,
+): boolean | readonly number[] {
+  return panActivationKeyPressed
+    ? DEFAULT_PAN_ZOOM_OPTIONS.panOnDrag
+    : panOnDrag;
+}
+
+function isGpuPointerPanGestureAllowed({
+  canStartPointerPan,
+  event,
+  panActivationKeyPressed,
+  panOnDrag,
+  selectionKeyPressed,
+}: {
+  readonly canStartPointerPan:
+    | ((event: PointerEvent) => boolean)
+    | undefined;
+  readonly event: PointerEvent;
+  readonly panActivationKeyPressed: boolean;
+  readonly panOnDrag: boolean | readonly number[];
+  readonly selectionKeyPressed: boolean;
+}): boolean {
+  if (!panOnDrag) {
+    return false;
+  }
+  if (hasBlockedPanModifier(event)) {
+    return false;
+  }
+  if (!isAllowedPanButton(event.button, panOnDrag)) {
+    return false;
+  }
+  if (selectionKeyPressed) {
+    return false;
+  }
+  if (isEventTargetWrappedWithClass(event, NO_PAN_CLASS_NAME)) {
+    return false;
+  }
+  if (shouldBlockPrimaryNodePan(event, panActivationKeyPressed)) {
+    return false;
+  }
+  if (canStartPointerPan?.(event) === false) {
+    return false;
+  }
+  return true;
 }
 
 function getGpuWheelZoomDelta(event: WheelEvent, factor = 1): number {
