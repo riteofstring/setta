@@ -11,6 +11,8 @@ const PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR = [
 ].join(",");
 const PROJECT_GPU_DOM_ISLAND_MOUSE_ACTIVATION_SELECTOR =
   '[data-gpu-flow-activation="mousedown"]';
+const PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR =
+  '[data-gpu-flow-activation-target="true"]';
 
 export function useProjectGpuDomIslandActivation<
   RootElement extends HTMLElement,
@@ -107,10 +109,34 @@ function getProjectGpuDomIslandActivationTarget(
   activation: GpuDomIsland["activation"] | undefined,
 ): HTMLElement | null {
   const pointedElement = getProjectGpuDomIslandPointedElement(root, activation);
+  const pointedExplicitTarget = getProjectGpuDomIslandClosestTarget(
+    root,
+    pointedElement,
+    PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR,
+  );
+  if (pointedExplicitTarget) {
+    return pointedExplicitTarget;
+  }
   const pointedTarget = getProjectGpuDomIslandClosestInteractiveTarget(
     root,
     pointedElement,
   );
+  if (pointedTarget && isProjectGpuDomIslandActivationTarget(pointedTarget)) {
+    return pointedTarget;
+  }
+  const descendantExplicitTarget =
+    pointedTarget?.querySelector<HTMLElement>(
+      PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR,
+    ) ?? null;
+  if (descendantExplicitTarget) {
+    return descendantExplicitTarget;
+  }
+  const fallbackExplicitTarget = root.querySelector<HTMLElement>(
+    PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR,
+  );
+  if (fallbackExplicitTarget) {
+    return fallbackExplicitTarget;
+  }
   if (pointedTarget) {
     return pointedTarget;
   }
@@ -142,7 +168,19 @@ function getProjectGpuDomIslandClosestInteractiveTarget(
   root: HTMLElement,
   element: Element | null,
 ): HTMLElement | null {
-  const target = element?.closest(PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR);
+  return getProjectGpuDomIslandClosestTarget(
+    root,
+    element,
+    PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR,
+  );
+}
+
+function getProjectGpuDomIslandClosestTarget(
+  root: HTMLElement,
+  element: Element | null,
+  selector: string,
+): HTMLElement | null {
+  const target = element?.closest(selector);
   if (
     target instanceof HTMLElement &&
     root.contains(target) &&
@@ -151,6 +189,14 @@ function getProjectGpuDomIslandClosestInteractiveTarget(
     return target;
   }
   return null;
+}
+
+function isProjectGpuDomIslandActivationTarget(target: HTMLElement): boolean {
+  return (
+    shouldMouseActivateProjectGpuDomIslandTarget(target) ||
+    shouldClickProjectGpuDomIslandActivationTarget(target) ||
+    target.tabIndex >= 0
+  );
 }
 
 function getProjectGpuDomIslandActivationKey(
@@ -194,6 +240,11 @@ function shouldMouseActivateProjectGpuDomIslandTarget(
 function shouldClickProjectGpuDomIslandActivationTarget(
   target: HTMLElement,
 ): boolean {
+  if (
+    target.matches(PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR)
+  ) {
+    return true;
+  }
   if (isClickActivatedProjectGpuDomIslandRole(target.getAttribute("role"))) {
     return true;
   }

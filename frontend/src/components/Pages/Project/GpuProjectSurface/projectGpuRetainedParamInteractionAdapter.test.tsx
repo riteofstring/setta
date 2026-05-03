@@ -56,7 +56,11 @@ const mocks = vi.hoisted(() => ({
   paramInputActivationClick: vi.fn(),
   paramInputActivationMouseDown: vi.fn(),
   paramInputRenderMode: {
-    current: "button" as "button" | "combobox-input" | "mousedown-activation",
+    current: "button" as
+      | "button"
+      | "combobox-input"
+      | "explicit-activation-target"
+      | "mousedown-activation",
   },
   paramInputProps: vi.fn(),
   paramNameInputProps: vi.fn(),
@@ -97,6 +101,18 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
           onClick={mocks.paramInputActivationClick}
           readOnly
         />
+      );
+    }
+    if (mocks.paramInputRenderMode.current === "explicit-activation-target") {
+      return (
+        <div data-gpu-flow-interactive="true" data-testid="param-input-wrapper">
+          <button
+            type="button"
+            data-gpu-flow-activation-target="true"
+            data-testid="param-input"
+            onClick={mocks.paramInputActivationClick}
+          />
+        </div>
       );
     }
     return (
@@ -300,6 +316,41 @@ describe("project GPU retained param DOM islands", () => {
     const originalElementFromPoint = document.elementFromPoint;
     const elementFromPointSpy = vi.fn(() =>
       document.querySelector('[data-testid="param-input"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("prefers explicit retained DOM island activation targets inside interactive wrappers", async () => {
+    mocks.paramInputRenderMode.current = "explicit-activation-target";
+    const activationPoint = { x: 48, y: 16 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-testid="param-input-wrapper"]'),
     );
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
