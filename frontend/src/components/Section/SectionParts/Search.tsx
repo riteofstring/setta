@@ -59,9 +59,11 @@ type SectionSearchInputState = {
 export function SectionSearch({
   sectionId,
   callable,
+  syncDomPortGeometry = true,
 }: {
   sectionId: string;
   callable: string | null;
+  syncDomPortGeometry?: boolean;
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -111,6 +113,7 @@ export function SectionSearch({
       } bg-white mx-[.125rem] py-1 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit`}
       isDisabled={variantIsFrozen || !lspEnabled}
       lspEnabled={lspEnabled}
+      syncDomPortGeometry={syncDomPortGeometry}
     />
   );
 }
@@ -119,6 +122,7 @@ function useSectionSearchMeasurements(
   searchRef: RefObject<HTMLElement | null>,
   sectionId: string,
   heightKey: string,
+  syncDomPortGeometry: boolean,
 ) {
   useLayoutEffect(() => {
     const node = searchRef.current;
@@ -161,7 +165,9 @@ function useSectionSearchMeasurements(
         return;
       }
       handleScope.style.setProperty("--agentic-handle-top", nextTopCss);
-      scheduleGpuFlowPortLocalRectUpdate([sectionId]);
+      if (syncDomPortGeometry) {
+        scheduleGpuFlowPortLocalRectUpdate([sectionId]);
+      }
     };
     const updateHeight = () => {
       const style = window.getComputedStyle(node);
@@ -197,10 +203,12 @@ function useSectionSearchMeasurements(
       useTemporaryMiscState.setState({ [heightKey]: 0 });
       if (handleScope instanceof HTMLElement) {
         handleScope.style.removeProperty("--agentic-handle-top");
-        scheduleGpuFlowPortLocalRectUpdate([sectionId]);
+        if (syncDomPortGeometry) {
+          scheduleGpuFlowPortLocalRectUpdate([sectionId]);
+        }
       }
     };
-  }, [heightKey, searchRef, sectionId]);
+  }, [heightKey, searchRef, sectionId, syncDomPortGeometry]);
 }
 
 function buildSectionSearchTooltipContent(
@@ -391,6 +399,7 @@ function SectionSearchCore({
   isDisabled,
   divId,
   lspEnabled,
+  syncDomPortGeometry,
 }: {
   sectionId: string;
   callable: string | null;
@@ -401,10 +410,16 @@ function SectionSearchCore({
   isDisabled: boolean;
   divId: string;
   lspEnabled: boolean;
+  syncDomPortGeometry: boolean;
 }) {
   const searchRef = useRef<HTMLElement | null>(null);
   const heightKey = getSectionSearchHeightKey(sectionId);
-  useSectionSearchMeasurements(searchRef, sectionId, heightKey);
+  useSectionSearchMeasurements(
+    searchRef,
+    sectionId,
+    heightKey,
+    syncDomPortGeometry,
+  );
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {
     name: baseCodeInfoName,

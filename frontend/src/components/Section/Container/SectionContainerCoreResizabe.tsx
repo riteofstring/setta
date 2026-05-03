@@ -63,6 +63,7 @@ type SectionContainerCoreResizableProps = {
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
   renderParamRows?: boolean;
+  scenePortGeometry?: boolean;
 };
 
 type SectionContainerResizableSnapshot = {
@@ -82,6 +83,7 @@ type AreaSwitchProps = {
   chatModeOverride?: ChatWindowMode;
   projectChatId?: string | null;
   renderParamRows?: boolean;
+  syncDomPortGeometry: boolean;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   projectChatSurfaceId?: string;
   onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
@@ -281,11 +283,17 @@ function SectionContainerChrome({
 }
 
 export const SECTION_AREA_RENDERERS = {
-  [SectionTypeEnum.Callable]: ({ sectionId, bgColor, isMinimized }) => (
+  [SectionTypeEnum.Callable]: ({
+    sectionId,
+    bgColor,
+    isMinimized,
+    syncDomPortGeometry,
+  }) => (
     <CallableArea
       sectionId={sectionId}
       bgColor={bgColor}
       isMinimized={isMinimized}
+      syncDomPortGeometry={syncDomPortGeometry}
     />
   ),
   [SectionTypeEnum.Dict]: ({ sectionId, bgColor, renderParamRows = true }) => (
@@ -390,6 +398,7 @@ function _SectionContainerCoreResizable({
   hasSectionStyleTheme,
   hideHeader = false,
   renderParamRows = true,
+  scenePortGeometry = false,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -448,6 +457,7 @@ function _SectionContainerCoreResizable({
         isMinimized={isMinimized}
         isUserView={isUserView}
         renderParamRows={renderParamRows}
+        syncDomPortGeometry={!scenePortGeometry}
       />
     </>
   );
@@ -471,6 +481,7 @@ export function AreaSwitch({
   chatModeOverride,
   projectChatId,
   renderParamRows = true,
+  syncDomPortGeometry,
   setProjectChatId,
   projectChatSurfaceId,
   onProjectChatBlockedErrorCodeChange,
@@ -488,6 +499,7 @@ export function AreaSwitch({
     ...(chatModeOverride !== undefined ? { chatModeOverride } : {}),
     ...(projectChatId !== undefined ? { projectChatId } : {}),
     renderParamRows,
+    syncDomPortGeometry,
     ...(setProjectChatId !== undefined ? { setProjectChatId } : {}),
     ...(projectChatSurfaceId !== undefined ? { projectChatSurfaceId } : {}),
     ...(onProjectChatBlockedErrorCodeChange !== undefined
@@ -504,6 +516,7 @@ function CanvasSectionBody({
   isMinimized,
   isUserView,
   renderParamRows,
+  syncDomPortGeometry,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -511,6 +524,7 @@ function CanvasSectionBody({
   isMinimized: boolean;
   isUserView: boolean;
   renderParamRows: boolean;
+  syncDomPortGeometry: boolean;
 }) {
   const externalizedWindowId = useProjectState((state) => {
     if (sectionTypeName === SectionTypeEnum.Chat) {
@@ -545,6 +559,7 @@ function CanvasSectionBody({
       isMinimized={isMinimized}
       isUserView={isUserView}
       renderParamRows={renderParamRows}
+      syncDomPortGeometry={syncDomPortGeometry}
     />
   );
 }

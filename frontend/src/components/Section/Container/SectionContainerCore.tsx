@@ -347,6 +347,7 @@ function _SectionContainerCore({
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
         renderParamRows={renderParamRows}
+        scenePortGeometry={scenePortGeometry === true}
       />
     </section>
   );
@@ -364,6 +365,7 @@ function areSectionContainerCorePropsEqual(
     prev.isUserView === next.isUserView &&
     prev.isTopLevel === next.isTopLevel &&
     prev.renderParamRows === next.renderParamRows &&
+    (prev.scenePortGeometry ?? false) === (next.scenePortGeometry ?? false) &&
     sectionContainerCoreSurfaceOptionsEqual(prev, next)
   );
 }

@@ -20,6 +20,13 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionSearch } from "./Search";
 
+const scheduleGpuFlowPortLocalRectUpdateMock = vi.hoisted(() => vi.fn());
+
+vi.mock("gpuFlow/ports/portGeometry", () => ({
+  scheduleGpuFlowPortLocalRectUpdate:
+    scheduleGpuFlowPortLocalRectUpdateMock,
+}));
+
 vi.mock("openapi/http", async () => {
   const actual = await import("openapi/http");
   return {
@@ -54,19 +61,56 @@ type RenderedSearch = {
   root: Root;
 };
 
+type RenderSectionSearchOptions = {
+  syncDomPortGeometry?: boolean;
+  withAgenticHandleScope?: boolean;
+};
+
 async function renderSectionSearch(
   sectionId: string,
   callable: string | null,
+  options: RenderSectionSearchOptions = {},
 ): Promise<RenderedSearch> {
   const host = document.createElement("div");
+  if (options.withAgenticHandleScope) {
+    host.className = "agentic-handle-scope";
+  }
   document.body.appendChild(host);
   const root = createRoot(host);
 
   await act(async () => {
-    root.render(<SectionSearch sectionId={sectionId} callable={callable} />);
+    root.render(
+      <SectionSearch
+        sectionId={sectionId}
+        callable={callable}
+        syncDomPortGeometry={options.syncDomPortGeometry}
+      />,
+    );
   });
 
   return { host, root };
+}
+
+function mockDomRect({
+  height,
+  top,
+  width,
+}: {
+  height: number;
+  top: number;
+  width: number;
+}): DOMRect {
+  return {
+    bottom: top + height,
+    height,
+    left: 0,
+    right: width,
+    top,
+    width,
+    x: 0,
+    y: top,
+    toJSON: () => ({}),
+  } as DOMRect;
 }
 
 describe("SectionSearch", () => {
@@ -84,6 +128,7 @@ describe("SectionSearch", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    scheduleGpuFlowPortLocalRectUpdateMock.mockReset();
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
     useShareSession.setState({
       isDeploymentMode: false,
@@ -237,6 +282,55 @@ describe("SectionSearch", () => {
       await act(async () => {
         root.unmount();
       });
+    }
+  });
+
+  it("keeps legacy DOM link handle geometry updates for non-scene search", async () => {
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue(mockDomRect({ height: 20, top: 0, width: 80 }));
+    const { host, root } = await renderSectionSearch(
+      sectionId,
+      currentCallableId,
+      { withAgenticHandleScope: true },
+    );
+
+    try {
+      expect(host.style.getPropertyValue("--agentic-handle-top")).toBe("10px");
+      expect(scheduleGpuFlowPortLocalRectUpdateMock).toHaveBeenCalledWith([
+        sectionId,
+      ]);
+      expect(rectSpy).toHaveBeenCalled();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rectSpy.mockRestore();
+    }
+  });
+
+  it("does not refresh legacy DOM port geometry for scene-owned search", async () => {
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue(mockDomRect({ height: 20, top: 0, width: 80 }));
+    const { host, root } = await renderSectionSearch(
+      sectionId,
+      currentCallableId,
+      {
+        syncDomPortGeometry: false,
+        withAgenticHandleScope: true,
+      },
+    );
+
+    try {
+      expect(host.style.getPropertyValue("--agentic-handle-top")).toBe("10px");
+      expect(scheduleGpuFlowPortLocalRectUpdateMock).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      expect(scheduleGpuFlowPortLocalRectUpdateMock).not.toHaveBeenCalled();
+      rectSpy.mockRestore();
     }
   });
 });
