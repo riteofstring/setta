@@ -28,7 +28,7 @@ export type HtmlInCanvas2DContext = CanvasRenderingContext2D & {
 
 // Chromium's html-in-canvas WebGPU upload API is experimental and is not in
 // TypeScript's DOM lib yet.
-export type CopyElementImageToTexture = {
+type CopyElementImageToTexture = {
   (source: Element, destination: GPUImageCopyTextureTagged): void;
   (
     source: Element,

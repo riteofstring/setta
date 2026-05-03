@@ -102,7 +102,7 @@ import {
   rollbackOptimisticUserMessage,
 } from "./appDefinitionsAndRollback";
 
-export function applyExternalChatHydrationSuccess({
+function applyExternalChatHydrationSuccess({
   chatId,
   projectConfigId,
   sectionId,
@@ -229,7 +229,7 @@ export async function getExternalAgentChat(
   return outcome.outcome === "success";
 }
 
-export type SubmitMessageOptions = {
+type SubmitMessageOptions = {
   messageId?: string;
   agentProfileId?: string | null;
   sectionId?: string | null;
@@ -239,7 +239,7 @@ export type SubmitMessageOptions = {
   appGeneration?: ChatAppGenerationContext | null;
 };
 
-export type PreparedSubmitMessage = {
+type PreparedSubmitMessage = {
   resolvedPendingSurfaceId: string | null;
   resolvedExecutionSettings: ChatExecutionSettings;
   appGeneration: ChatAppGenerationContext | null;
@@ -248,7 +248,7 @@ export type PreparedSubmitMessage = {
   nextAppGenerationDetails: ChatAppGenerationDetails;
 };
 
-export function buildSubmittedUserMessage(
+function buildSubmittedUserMessage(
   message: string,
   attachments: ChatFileAttachment[],
   messageId?: string,
@@ -267,7 +267,7 @@ export function buildSubmittedUserMessage(
   };
 }
 
-export function getTargetChatMessages(
+function getTargetChatMessages(
   chatId: string | null,
   resolvedPendingSurfaceId: string | null,
 ): BaseChatMessageUnion[] {
@@ -281,7 +281,7 @@ export function getTargetChatMessages(
   return [...(state.chatDetails[chatId]?.messages ?? [])];
 }
 
-export function prepareSubmitMessage(
+function prepareSubmitMessage(
   chatId: string | null,
   message: string,
   attachments: ChatFileAttachment[],
@@ -330,7 +330,7 @@ export function prepareSubmitMessage(
   };
 }
 
-export async function hydrateSubmittedChat(
+async function hydrateSubmittedChat(
   returnedChatId: string,
   isExternalEngine: boolean,
   projectConfigId: string,
@@ -347,7 +347,7 @@ export async function hydrateSubmittedChat(
   await getLLMChat(returnedChatId, sectionId ?? undefined);
 }
 
-export function resolveChatRequestFailureDetail(res: {
+function resolveChatRequestFailureDetail(res: {
   data: unknown;
   status: number | undefined;
 }): string {
@@ -359,7 +359,7 @@ export function resolveChatRequestFailureDetail(res: {
   );
 }
 
-export function rollbackSubmittedMessage(
+function rollbackSubmittedMessage(
   chatId: string | null,
   userMessageId: string,
   resolvedPendingSurfaceId: string | null,
@@ -677,7 +677,7 @@ export async function findLatestRunningExternalRunId(
   return runs[0]?.id ?? null;
 }
 
-export function isMatchingRunningExternalRun(
+function isMatchingRunningExternalRun(
   run: AgentRun,
   chatId: string,
   projectConfigId: string | null,

@@ -35,7 +35,7 @@ export type ProjectGpuRetainedParamDragSession = {
   readonly visibleChildrenByParent: Readonly<Record<string, readonly string[]>>;
 };
 
-export type ProjectGpuRetainedParamDropMove = {
+type ProjectGpuRetainedParamDropMove = {
   readonly newIndex: number;
   readonly newParentId: string;
   readonly paramIds: readonly string[];

@@ -7,7 +7,7 @@ import {
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 
-export const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+const HANDLE_BASE_CLASS_NAME = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
 const DEFAULT_HANDLE_CLASSES = {
   right: `${HANDLE_BASE_CLASS_NAME} section-resize-handle section-resize-handle-right`,
@@ -69,7 +69,7 @@ export type SectionResizeHandleDirection = Extract<
   "right" | "bottom" | "bottomRight"
 >;
 
-export type SectionResizeHandleConfig = {
+type SectionResizeHandleConfig = {
   handleClasses: Record<SectionResizeHandleDirection, string>;
   handleStyles: Partial<Record<SectionResizeHandleDirection, CSSProperties>>;
   handleWrapperClassName: string;

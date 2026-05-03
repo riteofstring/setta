@@ -53,7 +53,7 @@ import {
   withUpdatedWindow,
 } from "./instancesAndDocking";
 
-export function resolveProjectChatWindowDockFractionUpdate(
+function resolveProjectChatWindowDockFractionUpdate(
   current: ProjectChatWindowInstance,
   widthFraction: number,
   dockContainerWidthPx: number | null,
@@ -109,7 +109,7 @@ export function setProjectChatWindowPlacementInState(
   });
 }
 
-export function setProjectChatWindowModeInState(
+function setProjectChatWindowModeInState(
   state: ProjectChatWindowingState,
   instanceId: string,
   mode: ChatWindowMode,
@@ -281,7 +281,7 @@ export function setProjectChatWindowDockFractionsInState(
   };
 }
 
-export function resolveProjectChatWindowBoundsUpdate(
+function resolveProjectChatWindowBoundsUpdate(
   currentBounds: ChatWindowBounds,
   bounds: SetBoundsOptions,
 ): ChatWindowBounds | null {
@@ -436,7 +436,7 @@ export function setProjectChatWindowModeForSectionInState(
   return setProjectChatWindowModeInState(state, boundInstance.instanceId, mode);
 }
 
-export function resolveSectionWindowRevealBounds(
+function resolveSectionWindowRevealBounds(
   current: ProjectChatWindowInstance,
   previousPlacement: ChatWindowPlacement,
   nextPlacement: ChatWindowPlacement,
@@ -553,13 +553,13 @@ export type ProjectChatWindowingStoreOptions = {
   nextGitPaneVisibleInstanceIds?: Array<string> | undefined;
 };
 
-export type ProjectChatWindowingSend = (
+type ProjectChatWindowingSend = (
   projectConfigId: string,
   frontendOpId: string,
   nextProjectChatWindowing: ProjectChatWindowingState,
 ) => Promise<ProjectChatWindowingTrackedResponse>;
 
-export type ProjectChatWindowingMutationResult = {
+type ProjectChatWindowingMutationResult = {
   nextProjectChatWindowing: ProjectChatWindowingState;
   alwaysSend?: boolean;
   options?: ProjectChatWindowingStoreOptions;
@@ -577,26 +577,26 @@ export type PendingProjectChatWindowingMutation = {
   send: ProjectChatWindowingSend;
 };
 
-export type ProjectChatWindowingWriteResponse =
+type ProjectChatWindowingWriteResponse =
   ResponseDataAndStatus<ProjectChatWindowingState>;
 
-export type SyntheticProjectChatWindowingWriteResponse =
+type SyntheticProjectChatWindowingWriteResponse =
   ProjectChatWindowingWriteResponse & {
     data: ProjectChatWindowingState;
     hasResponse: true;
     status: 200;
   };
 
-export type ProjectChatWindowingTrackedResponse =
+type ProjectChatWindowingTrackedResponse =
   | ProjectChatWindowingWriteResponse
   | SyntheticProjectChatWindowingWriteResponse;
 
-export type ProjectChatWindowingSnapshotForMutation = {
+type ProjectChatWindowingSnapshotForMutation = {
   authoritativeWindowing: ProjectChatWindowingState;
   nextProjectChatWindowing: ProjectChatWindowingState;
 };
 
-export function getPendingProjectChatWindowingMutations(
+function getPendingProjectChatWindowingMutations(
   projectConfigId: string,
 ): Array<PendingProjectChatWindowingMutation> {
   return (
@@ -636,7 +636,7 @@ export function restoreProjectChatWindowingEphemeralState(
   );
 }
 
-export function enqueueProjectChatWindowingWrite<T extends Promise<unknown>>(
+function enqueueProjectChatWindowingWrite<T extends Promise<unknown>>(
   request: T,
 ): T {
   pendingProjectChatWindowingWrites.add(request);
@@ -659,7 +659,7 @@ export function primeAuthoritativeProjectChatWindowingState(
   );
 }
 
-export function addPendingProjectChatWindowingMutation(
+function addPendingProjectChatWindowingMutation(
   projectConfigId: string,
   pendingMutation: PendingProjectChatWindowingMutation,
 ): void {
@@ -669,7 +669,7 @@ export function addPendingProjectChatWindowingMutation(
   ]);
 }
 
-export function removePendingProjectChatWindowingMutation(
+function removePendingProjectChatWindowingMutation(
   projectConfigId: string,
   opId: string,
 ): void {
@@ -687,7 +687,7 @@ export function removePendingProjectChatWindowingMutation(
   );
 }
 
-export function buildProjectChatWindowingSnapshotForMutation(
+function buildProjectChatWindowingSnapshotForMutation(
   projectConfigId: string,
   opId: string,
 ): ProjectChatWindowingSnapshotForMutation | null {
@@ -718,7 +718,7 @@ export function buildProjectChatWindowingSnapshotForMutation(
   };
 }
 
-export function getPendingProjectChatWindowingMutationsAfter(
+function getPendingProjectChatWindowingMutationsAfter(
   projectConfigId: string,
   opId: string,
 ): Array<PendingProjectChatWindowingMutation> {
@@ -733,7 +733,7 @@ export function getPendingProjectChatWindowingMutationsAfter(
   return pendingMutations.slice(acknowledgedMutationIndex + 1);
 }
 
-export function publishAuthoritativeProjectChatWindowingState(
+function publishAuthoritativeProjectChatWindowingState(
   projectConfigId: string,
   acknowledgedOpId: string,
   authoritativeWindowing: ProjectChatWindowingState,
@@ -785,7 +785,7 @@ export function sendProjectChatWindowingSnapshot(
   );
 }
 
-export function buildSyntheticProjectChatWindowingWriteResponse(
+function buildSyntheticProjectChatWindowingWriteResponse(
   projectConfigId: string,
 ): SyntheticProjectChatWindowingWriteResponse {
   return {
@@ -797,7 +797,7 @@ export function buildSyntheticProjectChatWindowingWriteResponse(
   };
 }
 
-export function createProjectChatWindowingWriteBarrier(
+function createProjectChatWindowingWriteBarrier(
   request: Promise<unknown>,
 ): Promise<void> {
   return request

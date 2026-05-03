@@ -37,7 +37,7 @@ import {
 
 // Keep this in sync with internal/projectstate/unshared_defaults.go so optimistic
 // frontend writes follow the same ownership routing as the Go owner.
-export const DEFAULT_UNSHARED_PROJECT_FIELDS = new Set([
+const DEFAULT_UNSHARED_PROJECT_FIELDS = new Set([
   "callable",
   "codeObjVariantMap",
   "edgeInputParams",
@@ -47,13 +47,13 @@ export const DEFAULT_UNSHARED_PROJECT_FIELDS = new Set([
   "value",
 ]);
 
-export type GeneratedImplUpdateValue<T> = T | ((prev: T) => T);
+type GeneratedImplUpdateValue<T> = T | ((prev: T) => T);
 
-export type ImplUpdateArgs<T extends object> = {
+type ImplUpdateArgs<T extends object> = {
   [K in keyof T]?: GeneratedImplUpdateValue<T[K]>;
 };
 
-export type MutableGeneratedImpl = BaseSectionImplUnion | BaseCodeObjImplUnion;
+type MutableGeneratedImpl = BaseSectionImplUnion | BaseCodeObjImplUnion;
 
 export function getEffectiveSectionImplIfPresent(
   projectState: SingleConfig,
@@ -78,7 +78,7 @@ export function getEffectiveSectionImplIfPresent(
   return getEffectiveImpl(impl, core, variant);
 }
 
-export type ChatSectionImpl = Extract<
+type ChatSectionImpl = Extract<
   BaseSectionImplUnion,
   {
     type: SectionTypeEnum.Chat;
@@ -95,20 +95,20 @@ export type ManagedChatSectionAuthorityState = Pick<
   >;
 };
 
-export type SectionAuthoritySnapshot = {
+type SectionAuthoritySnapshot = {
   variant: Variant;
   impl: BaseSectionImplUnion;
   core: Core;
 };
 
-export type ResolvedChatSection = {
+type ResolvedChatSection = {
   variant: Variant;
   impl: ChatSectionImpl;
   core: Core;
   effective: ChatSectionImpl;
 };
 
-export function getSectionAuthoritySnapshotIfPresent(
+function getSectionAuthoritySnapshotIfPresent(
   state: ManagedChatSectionAuthorityState,
   sectionId: string,
 ): SectionAuthoritySnapshot | null {
@@ -131,7 +131,7 @@ export function getSectionAuthoritySnapshotIfPresent(
   return { variant, impl, core };
 }
 
-export function getEffectiveSectionOverrideValue(
+function getEffectiveSectionOverrideValue(
   snapshot: SectionAuthoritySnapshot,
   key: string,
 ): unknown {
@@ -149,7 +149,7 @@ export function getEffectiveSectionOverrideValue(
   return undefined;
 }
 
-export function resolveChatSectionForMerge(
+function resolveChatSectionForMerge(
   state: ManagedChatSectionAuthorityState,
   sectionId: string,
 ): ResolvedChatSection | null {
@@ -166,7 +166,7 @@ export function resolveChatSectionForMerge(
   };
 }
 
-export function getStreamingChatMergePatch(
+function getStreamingChatMergePatch(
   incomingChat: ChatSectionImpl,
   currentChat: ChatSectionImpl,
   isManagedSection: boolean,
@@ -219,7 +219,7 @@ export function getStreamingChatMergePatch(
   };
 }
 
-export function getStreamingChatInputText(
+function getStreamingChatInputText(
   incomingInputText: string,
   currentInputText: string,
   isManagedSection: boolean,
@@ -230,7 +230,7 @@ export function getStreamingChatInputText(
   return incomingInputText;
 }
 
-export function getStreamingChatWaitingForResponse(
+function getStreamingChatWaitingForResponse(
   incomingWaitingForResponse: boolean,
   currentWaitingForResponse: boolean,
   isManagedSection: boolean,
@@ -242,7 +242,7 @@ export function getStreamingChatWaitingForResponse(
   return incomingWaitingForResponse;
 }
 
-export function getStreamingChatToolCallArguments(
+function getStreamingChatToolCallArguments(
   incomingToolArgs: Record<string, string>,
   currentToolArgs: Record<string, string>,
   isManagedSection: boolean,
@@ -258,7 +258,7 @@ export function getStreamingChatToolCallArguments(
   });
 }
 
-export function shouldSkipStreamingChatMerge(
+function shouldSkipStreamingChatMerge(
   incomingState: {
     incomingInputText: string;
     incomingToolArgs: Record<string, string>;
@@ -323,37 +323,37 @@ export function isBaseCodeSectionType(sectionType: SectionType): boolean {
   );
 }
 
-export type BaseCodeSectionImpl = Extract<
+type BaseCodeSectionImpl = Extract<
   BaseSectionImplUnion,
   {
     attachedTerminalSectionId?: string | null;
   }
 >;
 
-export type TerminalSectionImpl = Extract<
+type TerminalSectionImpl = Extract<
   BaseSectionImplUnion,
   {
     type: SectionTypeEnum.Terminal;
   }
 >;
 
-export type EmbeddedAttachedTerminalInfo = {
+type EmbeddedAttachedTerminalInfo = {
   attachedTerminalId: string;
   isTerminalMinimized: boolean;
 };
 
-export type CodeSectionAttachment = {
+type CodeSectionAttachment = {
   attachedTerminalId: string;
   codeImpl: BaseCodeSectionImpl;
 };
 
-export function isBaseCodeSectionImpl(
+function isBaseCodeSectionImpl(
   impl: BaseSectionImplUnion,
 ): impl is BaseCodeSectionImpl {
   return isBaseCodeSectionType(impl.type);
 }
 
-export function getTerminalSectionImplIfPresent(
+function getTerminalSectionImplIfPresent(
   state: SingleConfig,
   terminalSectionId: string,
 ): TerminalSectionImpl | null {
@@ -367,7 +367,7 @@ export function getTerminalSectionImplIfPresent(
   return terminalImpl;
 }
 
-export function getCodeSectionAttachmentIfPresent(
+function getCodeSectionAttachmentIfPresent(
   state: ZustandProjectState,
   sectionId: string,
 ): CodeSectionAttachment | null {
@@ -385,7 +385,7 @@ export function getCodeSectionAttachmentIfPresent(
   };
 }
 
-export function isEmbeddedAttachedTerminalChild(
+function isEmbeddedAttachedTerminalChild(
   childIds: string[],
   attachedTerminalId: string,
 ): boolean {
@@ -393,7 +393,7 @@ export function isEmbeddedAttachedTerminalChild(
   return firstChildId === attachedTerminalId && childIds.length < 2;
 }
 
-export function getAttachedTerminalChildIds(
+function getAttachedTerminalChildIds(
   impl: BaseSectionImplUnion,
   attachedTerminalId: string,
   childIdsOverride?: string[],
@@ -525,7 +525,7 @@ export function getEffectiveCodeObjImplIfPresent(
   );
 }
 
-export function getEffectiveCodeObjImplForVariantId(
+function getEffectiveCodeObjImplForVariantId(
   projectState: Pick<
     ZustandProjectState,
     "codeObjImpls" | "codeObjVariants" | "codeObjs"
@@ -615,7 +615,7 @@ export function getCurrEffectiveSectionImplWithTypeGuardIfPresent<T>(
   return effective;
 }
 
-export function isIFrameSectionImpl(
+function isIFrameSectionImpl(
   impl: BaseSectionImplUnion,
 ): impl is IFrameSectionImpl {
   return impl.type === SectionTypeEnum.IFrame && "code" in impl;
@@ -686,7 +686,7 @@ export function getVariantBaseAndEffectiveSectionImpl(
   return { variant, baseImpl, impl };
 }
 
-export function getCurrCodeObjVariant(
+function getCurrCodeObjVariant(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
@@ -794,7 +794,7 @@ export function getCurrEffectiveCodeObjImplOfType<T extends CodeObjType>(
   >;
 }
 
-export function resolveGeneratedImplUpdateValue<T>(
+function resolveGeneratedImplUpdateValue<T>(
   value: GeneratedImplUpdateValue<T>,
   prev: T,
 ): T {
@@ -804,13 +804,13 @@ export function resolveGeneratedImplUpdateValue<T>(
   return value;
 }
 
-export function generatedImplFieldUsesDefaultUnsharedOwnership(
+function generatedImplFieldUsesDefaultUnsharedOwnership(
   fieldName: string,
 ): boolean {
   return DEFAULT_UNSHARED_PROJECT_FIELDS.has(fieldName);
 }
 
-export function setEffectiveImplValue<T extends MutableGeneratedImpl>(
+function setEffectiveImplValue<T extends MutableGeneratedImpl>(
   impl: T,
   core: Core,
   variant: Variant,

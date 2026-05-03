@@ -71,7 +71,7 @@ export function getGpuRetainedContentSurfaceLayouts(
   );
 }
 
-export function toGpuRetainedContentSurfaceLayout(
+function toGpuRetainedContentSurfaceLayout(
   surface: GpuRetainedContentSurface,
 ): GpuHtmlSurfaceOverlayLayout {
   return {
@@ -127,7 +127,7 @@ function GpuRetainedContentCanvas({
   );
 }
 
-export function drawGpuRetainedContentSurface(
+function drawGpuRetainedContentSurface(
   ctx: CanvasRenderingContext2D,
   surface: GpuRetainedContentSurface,
 ) {

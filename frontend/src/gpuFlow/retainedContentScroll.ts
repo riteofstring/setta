@@ -9,11 +9,9 @@ export type GpuRetainedContentScrollResult = {
   readonly surfaceId: string | null;
 };
 
-export type GpuRetainedContentWheelScrollResult =
-  GpuRetainedContentScrollResult;
+type GpuRetainedContentWheelScrollResult = GpuRetainedContentScrollResult;
 
-export type GpuRetainedContentDragAutoScrollResult =
-  GpuRetainedContentScrollResult;
+type GpuRetainedContentDragAutoScrollResult = GpuRetainedContentScrollResult;
 
 type GpuRetainedContentSurfaceWithScene = GpuContentSurface & {
   readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;

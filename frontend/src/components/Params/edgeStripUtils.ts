@@ -1,7 +1,7 @@
-export const EDGE_STRIP_BASE_HEIGHT = 48;
+const EDGE_STRIP_BASE_HEIGHT = 48;
 export const EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX = 1;
-export const EDGE_PORT_ROW_HEIGHT = 24;
-export const EDGE_PORT_ROW_GAP = 4;
+const EDGE_PORT_ROW_HEIGHT = 24;
+const EDGE_PORT_ROW_GAP = 4;
 
 function getEdgeStripEstimatedHeight(
   inputPortCount: number,

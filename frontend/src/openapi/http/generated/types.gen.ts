@@ -36,15 +36,15 @@ export type AgentrunsEngineConfig = {
   settaLlmConfigId?: string;
 };
 
-export type AgentrunsEngineConfigDefaults = {
+type AgentrunsEngineConfigDefaults = {
   thinking?: boolean;
 };
 
-export type AgentrunsEngineRuntimeSupport = {
+type AgentrunsEngineRuntimeSupport = {
   thinking: boolean;
 };
 
-export type AgentrunsRun = {
+type AgentrunsRun = {
   cost?: number;
   events: Array<AgentrunsRunEvent> | null;
   finishedAt?: string;
@@ -63,7 +63,7 @@ export type AgentrunsRun = {
   }> | null;
 };
 
-export type AgentrunsRunEvent = {
+type AgentrunsRunEvent = {
   id: string;
   payload?: {
     [key: string]: unknown;
@@ -72,20 +72,20 @@ export type AgentrunsRunEvent = {
   type: string;
 };
 
-export type AppgenskillsGetSkillsResponse = {
+type AppgenskillsGetSkillsResponse = {
   customSkillCreateRootActionable: boolean;
   customSkillCreateRootPath: string | null;
   skills: Array<AppgenskillsSkillEntry> | null;
 };
 
-export type AppgenskillsSkillContent = {
+type AppgenskillsSkillContent = {
   content: string;
   originalSizeBytes: number;
   skillId: string;
   truncated: boolean;
 };
 
-export type AppgenskillsSkillEntry = {
+type AppgenskillsSkillEntry = {
   description: string;
   editabilityReason: string | null;
   isEditable: boolean;
@@ -96,7 +96,7 @@ export type AppgenskillsSkillEntry = {
   skillId: string;
 };
 
-export type AppgenskillsUpsertCustomSkillResponse = {
+type AppgenskillsUpsertCustomSkillResponse = {
   created: boolean;
   rootPath: string;
   skill: AppgenskillsSkillEntry;
@@ -105,7 +105,7 @@ export type AppgenskillsUpsertCustomSkillResponse = {
   skillId: string;
 };
 
-export type AppsubsystemAppdefinitionAppDefinition = {
+type AppsubsystemAppdefinitionAppDefinition = {
   actions?: unknown;
   appSpecPath?: string;
   appSpecVersion?: string;
@@ -116,13 +116,13 @@ export type AppsubsystemAppdefinitionAppDefinition = {
   theme?: unknown;
 };
 
-export type AppsubsystemAppdefinitionAppRoute = {
+type AppsubsystemAppdefinitionAppRoute = {
   name?: string;
   path: string;
   rootKey?: string;
 };
 
-export type AppsubsystemAppdefinitionCapabilities = {
+type AppsubsystemAppdefinitionCapabilities = {
   appSpecVersion: string;
   catalogId: string;
   catalogVersion: string;
@@ -132,33 +132,33 @@ export type AppsubsystemAppdefinitionCapabilities = {
   themeSchemaVersion: string;
 };
 
-export type AppsubsystemAppdefinitionMutationResult = {
+type AppsubsystemAppdefinitionMutationResult = {
   appDefinition?: AppsubsystemAppdefinitionAppDefinition;
   appSpec: unknown;
 };
 
-export type AppsubsystemAppdefinitionReadResult = {
+type AppsubsystemAppdefinitionReadResult = {
   appDefinition?: AppsubsystemAppdefinitionAppDefinition;
   appSpec: unknown;
 };
 
-export type AppsubsystemAppdefinitionValidationIssue = {
+type AppsubsystemAppdefinitionValidationIssue = {
   elementKey?: string;
   elementType?: string;
   message: string;
 };
 
-export type AppsubsystemAppdefinitionValidationResult = {
+type AppsubsystemAppdefinitionValidationResult = {
   capabilities: AppsubsystemAppdefinitionCapabilities;
   errors: Array<AppsubsystemAppdefinitionValidationIssue> | null;
   warnings: Array<AppsubsystemAppdefinitionValidationIssue> | null;
 };
 
-export type AppsubsystemAppdefinitionhttpAppCatalogActionResponse = {
+type AppsubsystemAppdefinitionhttpAppCatalogActionResponse = {
   name: string;
 };
 
-export type AppsubsystemAppdefinitionhttpAppCatalogComponentResponse = {
+type AppsubsystemAppdefinitionhttpAppCatalogComponentResponse = {
   children: boolean;
   props?: {
     [key: string]: AppsubsystemAppdefinitionhttpAppCatalogPropResponse;
@@ -166,7 +166,7 @@ export type AppsubsystemAppdefinitionhttpAppCatalogComponentResponse = {
   type: string;
 };
 
-export type AppsubsystemAppdefinitionhttpAppCatalogPropResponse = {
+type AppsubsystemAppdefinitionhttpAppCatalogPropResponse = {
   default?: unknown;
   enum?: Array<unknown> | null;
   max?: number;
@@ -176,18 +176,18 @@ export type AppsubsystemAppdefinitionhttpAppCatalogPropResponse = {
   type: string;
 };
 
-export type AppsubsystemAppdefinitionhttpAppCatalogResponse = {
+type AppsubsystemAppdefinitionhttpAppCatalogResponse = {
   actions: Array<AppsubsystemAppdefinitionhttpAppCatalogActionResponse> | null;
   components: Array<AppsubsystemAppdefinitionhttpAppCatalogComponentResponse> | null;
   id: string;
   version: string;
 };
 
-export type AppsubsystemAppdefinitionhttpGetAppDefinitionRequest = {
+type AppsubsystemAppdefinitionhttpGetAppDefinitionRequest = {
   frontendOpId?: string;
 };
 
-export type AppsubsystemAppdefinitionhttpSetAppDefinitionRequest = {
+type AppsubsystemAppdefinitionhttpSetAppDefinitionRequest = {
   actions?: {
     [key: string]: unknown;
   };
@@ -206,7 +206,7 @@ export type AppsubsystemAppdefinitionhttpSetAppDefinitionRequest = {
   };
 };
 
-export type AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest = {
+type AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest = {
   actions?: {
     [key: string]: unknown;
   };
@@ -224,7 +224,7 @@ export type AppsubsystemAppdefinitionhttpValidateAppDefinitionRequest = {
   };
 };
 
-export type AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse = {
+type AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse = {
   appPolicy: DeploymentsPolicy;
   defaultProjectConfigId: string;
   deploymentName: string;
@@ -235,14 +235,14 @@ export type AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse = {
   shareSessionId: string;
 };
 
-export type AppsubsystemAppdeploymenthttpAppDeploymentStateResponse = {
+type AppsubsystemAppdeploymenthttpAppDeploymentStateResponse = {
   appDefinition: AppsubsystemAppdefinitionAppDefinition;
   appPolicy: DeploymentsPolicy;
   appSpec: unknown;
   projectState: ProjectviewSingleConfig;
 };
 
-export type AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest = {
+type AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest = {
   appPolicyOverrides: DeploymentsSharePolicyOverrides;
   deploymentName: string;
   listenerEnabled: boolean | null;
@@ -250,7 +250,7 @@ export type AppsubsystemAppdeploymenthttpPublishAppDeploymentRequest = {
   projectConfigId: string;
 };
 
-export type ArtifactsArtifactSaveResult = {
+type ArtifactsArtifactSaveResult = {
   backupPath?: string;
   id: string;
   message?: string;
@@ -258,7 +258,7 @@ export type ArtifactsArtifactSaveResult = {
   type: string;
 };
 
-export type ArtifactsChartDataArtifact = {
+type ArtifactsChartDataArtifact = {
   id: string;
   type: string;
   value: {
@@ -266,27 +266,27 @@ export type ArtifactsChartDataArtifact = {
   };
 };
 
-export type ArtifactsDeleteRequest = {
+type ArtifactsDeleteRequest = {
   artifacts: Array<ArtifactsDeleteRequestItem> | null;
 };
 
-export type ArtifactsDeleteRequestItem = {
+type ArtifactsDeleteRequestItem = {
   id: string;
   type: string;
 };
 
-export type ArtifactsImageArtifact = {
+type ArtifactsImageArtifact = {
   id: string;
   type: string;
   value: BinaryContentRef;
 };
 
-export type ArtifactsImportFilesRequest = {
+type ArtifactsImportFilesRequest = {
   paths: Array<string> | null;
   uploadScope: string;
 };
 
-export type ArtifactsImportFilesResponseItem = {
+type ArtifactsImportFilesResponseItem = {
   id: string;
   kind: string;
   mimeType: string;
@@ -294,35 +294,35 @@ export type ArtifactsImportFilesResponseItem = {
   size: number;
 };
 
-export type ArtifactsJsonArtifact = {
+type ArtifactsJsonArtifact = {
   id: string;
   type: string;
   value: unknown;
 };
 
-export type ArtifactsLoadCachedPathsRequest = {
+type ArtifactsLoadCachedPathsRequest = {
   paths: Array<string> | null;
 };
 
-export type ArtifactsRawArtifact = {
+type ArtifactsRawArtifact = {
   id: string;
   type: string;
   value: unknown;
 };
 
-export type BinaryContentRef = {
+type BinaryContentRef = {
   byteLength: number;
   contentId: string;
   mimeType?: string;
   sha256?: string;
 };
 
-export type DeploymentsListenerConfig = {
+type DeploymentsListenerConfig = {
   enabled: boolean;
   entrypoint: string;
 };
 
-export type DeploymentsManifest = {
+type DeploymentsManifest = {
   createdAt?: string;
   defaultProjectConfigId: string;
   deploymentName: string;
@@ -332,7 +332,7 @@ export type DeploymentsManifest = {
   version: number;
 };
 
-export type DeploymentsPolicy = {
+type DeploymentsPolicy = {
   allowExternalLinks: boolean;
   allowFileDownloads: boolean;
   allowLLM: boolean;
@@ -344,7 +344,7 @@ export type DeploymentsPolicy = {
   runSnapshotMode: string;
 };
 
-export type DeploymentsSharePolicyOverrides = {
+type DeploymentsSharePolicyOverrides = {
   allowExternalLinks?: boolean;
   allowFileDownloads?: boolean;
   allowLLM?: boolean;
@@ -356,7 +356,7 @@ export type DeploymentsSharePolicyOverrides = {
   runSnapshotMode?: string;
 };
 
-export type DetachedrunsRun = {
+type DetachedrunsRun = {
   command: string;
   createdAtMs: number;
   entrySectionId: string | null;
@@ -373,7 +373,7 @@ export type DetachedrunsRun = {
   };
 };
 
-export type ExternalagentconfigsClaudeSettingsManaged = {
+type ExternalagentconfigsClaudeSettingsManaged = {
   defaultMode?: string;
   mcp?: {
     [key: string]: unknown;
@@ -381,7 +381,7 @@ export type ExternalagentconfigsClaudeSettingsManaged = {
   permissions?: ExternalagentconfigsClaudeSettingsPermissions;
 };
 
-export type ExternalagentconfigsClaudeSettingsPermissions = {
+type ExternalagentconfigsClaudeSettingsPermissions = {
   allow: Array<string> | null;
   ask: Array<string> | null;
   deny: Array<string> | null;
@@ -409,12 +409,12 @@ export type ExternalagentconfigsConfig = {
   workingDirStrategy: string;
 };
 
-export type ExternalagentconfigsEnvVarStatus = {
+type ExternalagentconfigsEnvVarStatus = {
   missing: Array<string> | null;
   present: Array<string> | null;
 };
 
-export type ExternalagentconfigsSettingsManagedBlock = {
+type ExternalagentconfigsSettingsManagedBlock = {
   claude?: ExternalagentconfigsClaudeSettingsManaged;
   codex?: {
     [key: string]: unknown;
@@ -467,7 +467,7 @@ export type FilebrowserTransferResponse = {
   sourcePath: string;
 };
 
-export type FilebrowserWorkspacePythonSignalResponse = {
+type FilebrowserWorkspacePythonSignalResponse = {
   folderPath: string;
   hasPython: boolean;
 };
@@ -497,7 +497,7 @@ export type GitreadCommitChangedFile = {
   status: string;
 };
 
-export type GitreadCommitDetailsRequest = {
+type GitreadCommitDetailsRequest = {
   commitHash: string;
 };
 
@@ -517,7 +517,7 @@ export type GitreadCommitDetailsResponse = {
   subject: string;
 };
 
-export type GitreadCommitFileDiffRequest = {
+type GitreadCommitFileDiffRequest = {
   commitHash: string;
   oldPath: string | null;
   path: string;
@@ -555,7 +555,7 @@ export type GitreadGitWorktreeEntry = {
   prunableReason: string | null;
 };
 
-export type GitreadLogRequest = {
+type GitreadLogRequest = {
   allRefs: boolean;
   offset: number;
   pageSize: number;
@@ -573,7 +573,7 @@ export type GitreadLogResponse = {
   repoRoot: string;
 };
 
-export type GitreadRepoInfo = {
+type GitreadRepoInfo = {
   headBranch: string | null;
   headCommit: string | null;
   isGitRepo: boolean;
@@ -595,17 +595,17 @@ export type GitreadStatusResponse = {
   worktrees: Array<GitreadGitWorktreeEntry> | null;
 };
 
-export type HttpapiAcceptRenameRefactorRequest = {
+type HttpapiAcceptRenameRefactorRequest = {
   frontendOpId: string;
   projectConfigId: string;
 };
 
-export type HttpapiAddKwargRequest = {
+type HttpapiAddKwargRequest = {
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiAgentProfilePayload = {
+type HttpapiAgentProfilePayload = {
   description: string | null;
   enableBackgroundSummaryFill: boolean | null;
   enableLlmChatTitles: boolean | null;
@@ -617,7 +617,7 @@ export type HttpapiAgentProfilePayload = {
   toolAllowlist: Array<string> | null;
 };
 
-export type HttpapiAppendDrawAreaLayerItemRequest = {
+type HttpapiAppendDrawAreaLayerItemRequest = {
   element: ProjectstateDrawAreaLayerItem;
   frontendOpId?: string;
   layerIdx: number;
@@ -625,7 +625,7 @@ export type HttpapiAppendDrawAreaLayerItemRequest = {
   sectionId: string;
 };
 
-export type HttpapiAppendTranscriptionAudioRequest = {
+type HttpapiAppendTranscriptionAudioRequest = {
   audioPcm16Base64: string;
   channels: number;
   sampleRateHz: number;
@@ -642,13 +642,13 @@ export type HttpapiAuthRefreshStatusResponse = {
   authCookieRefreshWindowSeconds: number;
 };
 
-export type HttpapiAutoLayoutTopLevelSectionsRequest = {
+type HttpapiAutoLayoutTopLevelSectionsRequest = {
   frontendOpId?: string;
   margin: number | null;
   projectConfigId: string;
 };
 
-export type HttpapiBackendInitEvent = {
+type HttpapiBackendInitEvent = {
   message: string;
   timestamp: string;
 };
@@ -661,24 +661,24 @@ export type HttpapiBackendInitStatusResponse = {
   worktreeName: string | null;
 };
 
-export type HttpapiBinaryUploadFormRequest = {
+type HttpapiBinaryUploadFormRequest = {
   durable?: boolean;
   file: Blob | File;
 };
 
-export type HttpapiCancelRunRequest = {
+type HttpapiCancelRunRequest = {
   runId: string;
 };
 
-export type HttpapiCancelTranscriptionSessionRequest = {
+type HttpapiCancelTranscriptionSessionRequest = {
   sessionId: string;
 };
 
-export type HttpapiCancelTranscriptionSessionResponse = {
+type HttpapiCancelTranscriptionSessionResponse = {
   ok: boolean;
 };
 
-export type HttpapiChangeParamImplRequest = {
+type HttpapiChangeParamImplRequest = {
   frontendOpId?: string;
   paramInfoId: string;
   projectConfigId: string;
@@ -686,34 +686,34 @@ export type HttpapiChangeParamImplRequest = {
   selectedId: string;
 };
 
-export type HttpapiCheckIfFileExistsRequest = {
+type HttpapiCheckIfFileExistsRequest = {
   filepath: string;
 };
 
-export type HttpapiCheckWorkspaceInitializedRequest = {
+type HttpapiCheckWorkspaceInitializedRequest = {
   allowOutsideWorkspaceRoot?: boolean;
   folderPath: string;
 };
 
-export type HttpapiClearTextFieldCompletionRequest = {
+type HttpapiClearTextFieldCompletionRequest = {
   paramInfoId: string | null;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiCodeAreaCompletionRequest = {
+type HttpapiCodeAreaCompletionRequest = {
   fullText: string;
   position: number;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiCodeFileBindingUpdate = {
+type HttpapiCodeFileBindingUpdate = {
   access_mode: string;
   canonical_path: string;
 };
 
-export type HttpapiCreateAgentProfileRequest = {
+type HttpapiCreateAgentProfileRequest = {
   description: string | null;
   enableBackgroundSummaryFill: boolean | null;
   enableLlmChatTitles: boolean | null;
@@ -724,7 +724,7 @@ export type HttpapiCreateAgentProfileRequest = {
   toolAllowlist: Array<string> | null;
 };
 
-export type HttpapiCreateAgenticEdgeRequest = {
+type HttpapiCreateAgenticEdgeRequest = {
   contextMode: string | null;
   frontendOpId?: string;
   hidden: boolean;
@@ -737,7 +737,7 @@ export type HttpapiCreateAgenticEdgeRequest = {
   zIndex: number;
 };
 
-export type HttpapiCreateChildSectionsRequest = {
+type HttpapiCreateChildSectionsRequest = {
   frontendOpId?: string;
   implType: string;
   numChildren: number;
@@ -746,7 +746,7 @@ export type HttpapiCreateChildSectionsRequest = {
   startIdx: number | null;
 };
 
-export type HttpapiCreateChildSectionsViaIncrementerRequest = {
+type HttpapiCreateChildSectionsViaIncrementerRequest = {
   calledBy: string;
   frontendOpId?: string;
   implType: string;
@@ -754,7 +754,7 @@ export type HttpapiCreateChildSectionsViaIncrementerRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiCreateEdgeRequest = {
+type HttpapiCreateEdgeRequest = {
   animated: boolean;
   data: unknown;
   frontendOpId?: string;
@@ -772,7 +772,7 @@ export type HttpapiCreateEdgeRequest = {
   zIndex: number;
 };
 
-export type HttpapiCreateEngineConfigRequest = {
+type HttpapiCreateEngineConfigRequest = {
   defaults: AgentrunsEngineConfigDefaults;
   engineType: string | null;
   externalAgentConfigId: string | null;
@@ -780,7 +780,7 @@ export type HttpapiCreateEngineConfigRequest = {
   settaLlmConfigId: string | null;
 };
 
-export type HttpapiCreateExternalAgentConfigRequest = {
+type HttpapiCreateExternalAgentConfigRequest = {
   approvalPolicy: string | null;
   baseUrl: string | null;
   codexSkipGitRepoCheck: boolean | null;
@@ -801,21 +801,21 @@ export type HttpapiCreateExternalAgentConfigRequest = {
   workingDirStrategy: string | null;
 };
 
-export type HttpapiCreateFileRequest = {
+type HttpapiCreateFileRequest = {
   filepath: string;
 };
 
-export type HttpapiCreateNewSectionVariantRequest = {
+type HttpapiCreateNewSectionVariantRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiCreateProjectConfigRequest = {
+type HttpapiCreateProjectConfigRequest = {
   previewImgColor: string;
 };
 
-export type HttpapiCreatePromptTemplateRequest = {
+type HttpapiCreatePromptTemplateRequest = {
   description: string | null;
   format: string | null;
   inputSchema: {
@@ -828,7 +828,7 @@ export type HttpapiCreatePromptTemplateRequest = {
   template: string | null;
 };
 
-export type HttpapiCreateStateMachineEdgeRequest = {
+type HttpapiCreateStateMachineEdgeRequest = {
   frontendOpId?: string;
   hidden: boolean;
   id: string | null;
@@ -846,7 +846,7 @@ export type HttpapiCreateStateMachineEdgeRequest = {
   zIndex: number;
 };
 
-export type HttpapiCreateTopLevelSectionRequest = {
+type HttpapiCreateTopLevelSectionRequest = {
   controlCodeObjType: string | null;
   frontendOpId?: string;
   implOverrides: {
@@ -862,7 +862,7 @@ export type HttpapiCreateTopLevelSectionRequest = {
   viewportBounds: ProjectstateViewportBounds;
 };
 
-export type HttpapiCreateTranscriptionProfileRequest = {
+type HttpapiCreateTranscriptionProfileRequest = {
   chunkMs: number | null;
   language: string | null;
   name: string | null;
@@ -870,19 +870,19 @@ export type HttpapiCreateTranscriptionProfileRequest = {
   transportMode: string | null;
 };
 
-export type HttpapiCreateViewModeRequest = {
+type HttpapiCreateViewModeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiCreateWindowSpaceRequest = {
+type HttpapiCreateWindowSpaceRequest = {
   frontendOpId?: string;
   name?: string;
   projectConfigId: string;
   state: ProjectstateWindowSpaceState;
 };
 
-export type HttpapiCreateWorkspaceLaunchIntentRequest = {
+type HttpapiCreateWorkspaceLaunchIntentRequest = {
   launchRequest: HttpapiLaunchRequest;
   returnUrl: string;
 };
@@ -894,110 +894,110 @@ export type HttpapiCreateWorkspaceLaunchIntentResponse = {
   requestedAt: number | null;
 };
 
-export type HttpapiDeclineRenameRefactorRequest = {
+type HttpapiDeclineRenameRefactorRequest = {
   frontendOpId: string;
   projectConfigId: string;
 };
 
-export type HttpapiDeleteAgentProfileRequest = {
+type HttpapiDeleteAgentProfileRequest = {
   profileId: string;
 };
 
-export type HttpapiDeleteAgenticEdgesRequest = {
+type HttpapiDeleteAgenticEdgesRequest = {
   edgeIds: Array<string> | null;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiDeleteChildSectionsViaDecrementerRequest = {
+type HttpapiDeleteChildSectionsViaDecrementerRequest = {
   calledBy: string;
   frontendOpId?: string;
   numChildren: number;
   projectConfigId: string;
 };
 
-export type HttpapiDeleteEdgesRequest = {
+type HttpapiDeleteEdgesRequest = {
   edgeIds: Array<string> | null;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiDeleteEngineConfigRequest = {
+type HttpapiDeleteEngineConfigRequest = {
   configId: string;
 };
 
-export type HttpapiDeleteExternalAgentConfigRequest = {
+type HttpapiDeleteExternalAgentConfigRequest = {
   configId: string;
 };
 
-export type HttpapiDeleteJsonSourceFileAndVariantRequest = {
+type HttpapiDeleteJsonSourceFileAndVariantRequest = {
   filepath: string;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
 };
 
-export type HttpapiDeleteKwargRequest = {
+type HttpapiDeleteKwargRequest = {
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiDeleteNotificationRequest = {
+type HttpapiDeleteNotificationRequest = {
   notificationId: string;
 };
 
-export type HttpapiDeleteNotificationResponse = {
+type HttpapiDeleteNotificationResponse = {
   success: boolean;
 };
 
-export type HttpapiDeleteProjectConfigsRequest = {
+type HttpapiDeleteProjectConfigsRequest = {
   ids: Array<string> | null;
 };
 
-export type HttpapiDeletePromptTemplateRequest = {
+type HttpapiDeletePromptTemplateRequest = {
   templateId: string;
 };
 
-export type HttpapiDeleteSectionVariantOrAskRequest = {
+type HttpapiDeleteSectionVariantOrAskRequest = {
   projectConfigId: string;
   sectionId: string;
   variantId: string;
 };
 
-export type HttpapiDeleteSectionsRequest = {
+type HttpapiDeleteSectionsRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionIds: Array<string> | null;
 };
 
-export type HttpapiDeleteSelectedParamsRequest = {
+type HttpapiDeleteSelectedParamsRequest = {
   frontendOpId?: string;
   paramInfoIds: Array<string> | null;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiDeleteStateMachineEdgesRequest = {
+type HttpapiDeleteStateMachineEdgesRequest = {
   edgeIds: Array<string> | null;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiDeleteTerminalsRequest = {
+type HttpapiDeleteTerminalsRequest = {
   sectionIds: Array<string> | null;
 };
 
-export type HttpapiDeleteTranscriptionProfileRequest = {
+type HttpapiDeleteTranscriptionProfileRequest = {
   profileId: string | null;
 };
 
-export type HttpapiDeleteViewModeRequest = {
+type HttpapiDeleteViewModeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   viewModeId: string;
 };
 
-export type HttpapiDeleteWindowSpaceRequest = {
+type HttpapiDeleteWindowSpaceRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   windowSpaceId: string;
@@ -1013,17 +1013,17 @@ export type HttpapiDeploymentMetadataResponse = {
   policyPath: string;
 };
 
-export type HttpapiDocstringToMarkdownRequest = {
+type HttpapiDocstringToMarkdownRequest = {
   docstring: string;
 };
 
-export type HttpapiErrorDetail = {
+type HttpapiErrorDetail = {
   code: string;
   message: string;
   requestId?: string;
 };
 
-export type HttpapiErrorResponse = {
+type HttpapiErrorResponse = {
   error: HttpapiErrorDetail;
 };
 
@@ -1056,96 +1056,96 @@ export type HttpapiExternalAgentPreflightStatus = {
   workingDir: string | null;
 };
 
-export type HttpapiForceRefreshProjectRequest = {
+type HttpapiForceRefreshProjectRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiFormatCodeRequest = {
+type HttpapiFormatCodeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiGenCodePrefixCompletionRequest = {
+type HttpapiGenCodePrefixCompletionRequest = {
   fullText: string;
   position: number;
   projectConfigId: string;
 };
 
-export type HttpapiGenCodeSuffixCompletionRequest = {
+type HttpapiGenCodeSuffixCompletionRequest = {
   fullText: string;
   position: number;
   projectConfigId: string;
 };
 
-export type HttpapiGetAiFollowSnapshotRequest = {
+type HttpapiGetAiFollowSnapshotRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiGetAgentProfileRequest = {
+type HttpapiGetAgentProfileRequest = {
   profileId: string;
 };
 
-export type HttpapiGetAgentRunRequest = {
+type HttpapiGetAgentRunRequest = {
   runId: string;
 };
 
-export type HttpapiGetAgenticSummaryCacheStatusRequest = {
+type HttpapiGetAgenticSummaryCacheStatusRequest = {
   chatSectionId: string;
   projectConfigId: string;
 };
 
-export type HttpapiGetAppGenSkillContentRequest = {
+type HttpapiGetAppGenSkillContentRequest = {
   skillId: string;
 };
 
-export type HttpapiGetAttachmentDownloadUrlRequest = {
+type HttpapiGetAttachmentDownloadUrlRequest = {
   artifactId: string;
   projectConfigId: string | null;
 };
 
-export type HttpapiGetAttachmentDownloadUrlResponse = {
+type HttpapiGetAttachmentDownloadUrlResponse = {
   expiresAt: number;
   url: string;
 };
 
-export type HttpapiGetAttachmentDownloadUrlsRequest = {
+type HttpapiGetAttachmentDownloadUrlsRequest = {
   artifactIds: Array<string> | null;
   projectConfigId: string | null;
 };
 
-export type HttpapiGetChatSectionChatIdRequest = {
+type HttpapiGetChatSectionChatIdRequest = {
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiGetEngineConfigRequest = {
+type HttpapiGetEngineConfigRequest = {
   configId: string;
 };
 
-export type HttpapiGetExternalAgentChatRequest = {
+type HttpapiGetExternalAgentChatRequest = {
   chatId: string;
   projectConfigId: string | null;
 };
 
-export type HttpapiGetExternalAgentConfigRequest = {
+type HttpapiGetExternalAgentConfigRequest = {
   configId: string;
 };
 
-export type HttpapiGetFileBrowserDownloadUrlsRequest = {
+type HttpapiGetFileBrowserDownloadUrlsRequest = {
   paths: Array<string> | null;
 };
 
-export type HttpapiGetFileBrowserFileContentRequest = {
+type HttpapiGetFileBrowserFileContentRequest = {
   maxBytes?: number;
   path: string;
 };
 
-export type HttpapiGetFileBrowserFileStatRequest = {
+type HttpapiGetFileBrowserFileStatRequest = {
   path: string;
 };
 
-export type HttpapiGetFolderContentsRequest = {
+type HttpapiGetFolderContentsRequest = {
   allowOutsideWorkspaceRoot?: boolean;
   baseFolderPath?: string;
   folderPath: string;
@@ -1158,12 +1158,12 @@ export type HttpapiGetFolderContentsRequest = {
   missingFolderBehavior?: string;
 };
 
-export type HttpapiGetLlmChatRequest = {
+type HttpapiGetLlmChatRequest = {
   chatId: string;
   projectConfigId: string | null;
 };
 
-export type HttpapiGetLlmResponseRequest = {
+type HttpapiGetLlmResponseRequest = {
   agentProfileId: string | null;
   allowUnscoped: boolean;
   appGenerationByMessageId: {
@@ -1189,68 +1189,68 @@ export type HttpapiGetLlmResponseRequest = {
   thinking: boolean;
 };
 
-export type HttpapiGetLatestLspDiagnosticsRequest = {
+type HttpapiGetLatestLspDiagnosticsRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiGetLatestProjectStateRequest = {
+type HttpapiGetLatestProjectStateRequest = {
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiGetNotificationsRequest = {
+type HttpapiGetNotificationsRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiGetPasswordParamValueRequest = {
+type HttpapiGetPasswordParamValueRequest = {
   paramInfoId: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiGetPasswordParamValueResponse = {
+type HttpapiGetPasswordParamValueResponse = {
   value: string;
 };
 
-export type HttpapiGetPromptTemplateRequest = {
+type HttpapiGetPromptTemplateRequest = {
   templateId: string;
 };
 
-export type HttpapiGetRunStatusRequest = {
+type HttpapiGetRunStatusRequest = {
   runId: string;
 };
 
-export type HttpapiGetRunnerSummaryRequest = {
+type HttpapiGetRunnerSummaryRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiGetStateMachineRunRequest = {
+type HttpapiGetStateMachineRunRequest = {
   machineGroupId: string;
   projectConfigId: string;
 };
 
-export type HttpapiGetWorkspacePythonSignalRequest = {
+type HttpapiGetWorkspacePythonSignalRequest = {
   folderPath: string;
 };
 
-export type HttpapiGroupSectionsRequest = {
+type HttpapiGroupSectionsRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionIds: Array<string> | null;
 };
 
-export type HttpapiIndentParamsRequest = {
+type HttpapiIndentParamsRequest = {
   frontendOpId?: string;
   paramIds: Array<string> | null;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiInterruptTerminalProcessesRequest = {
+type HttpapiInterruptTerminalProcessesRequest = {
   projectId: string;
 };
 
-export type HttpapiInterruptTerminalProcessesResponse = {
+type HttpapiInterruptTerminalProcessesResponse = {
   interruptedSessionCount: number;
 };
 
@@ -1310,7 +1310,7 @@ export type HttpapiLaunchResponse = {
   workspaceRoot: string | null;
 };
 
-export type HttpapiLaunchSessionInfo = {
+type HttpapiLaunchSessionInfo = {
   host: string;
   id: string;
   pid: number;
@@ -1320,23 +1320,23 @@ export type HttpapiLaunchSessionInfo = {
   workspacePathCanonical: string;
 };
 
-export type HttpapiLauncherFilesystemRootsResponse = {
+type HttpapiLauncherFilesystemRootsResponse = {
   ok: boolean;
   roots: Array<string> | null;
 };
 
-export type HttpapiLauncherHomeErrorPayload = {
+type HttpapiLauncherHomeErrorPayload = {
   code: string;
   message: string;
 };
 
-export type HttpapiLauncherListDirectoryRequest = {
+type HttpapiLauncherListDirectoryRequest = {
   cursor: string | null;
   pageSize: number | null;
   path: string | null;
 };
 
-export type HttpapiLauncherListDirectoryResponse = {
+type HttpapiLauncherListDirectoryResponse = {
   currentPath: string | null;
   entries: Array<LauncherDirectoryEntry> | null;
   error: HttpapiLauncherHomeErrorPayload;
@@ -1347,7 +1347,7 @@ export type HttpapiLauncherListDirectoryResponse = {
   truncated: boolean;
 };
 
-export type HttpapiLauncherOpenWorkspaceRequest = {
+type HttpapiLauncherOpenWorkspaceRequest = {
   createIfMissing: boolean;
   profile: string | null;
   runtimeRoot: string | null;
@@ -1357,7 +1357,7 @@ export type HttpapiLauncherOpenWorkspaceRequest = {
   workspaceRoot: string;
 };
 
-export type HttpapiLauncherOpenWorkspaceResponse = {
+type HttpapiLauncherOpenWorkspaceResponse = {
   bootstrapUrlFragment: string | null;
   error: HttpapiLauncherHomeErrorPayload;
   ok: boolean;
@@ -1371,28 +1371,28 @@ export type HttpapiLauncherOpenWorkspaceResponse = {
   workspaceRoot: string | null;
 };
 
-export type HttpapiLauncherOperationErrorPayload = {
+type HttpapiLauncherOperationErrorPayload = {
   code: string;
   message: string;
 };
 
-export type HttpapiLauncherRecentWorkspaceRequest = {
+type HttpapiLauncherRecentWorkspaceRequest = {
   pinned: boolean | null;
   settaHome: string | null;
   workspaceRoot: string;
 };
 
-export type HttpapiLauncherRecentWorkspacesResponse = {
+type HttpapiLauncherRecentWorkspacesResponse = {
   error: HttpapiLauncherHomeErrorPayload;
   ok: boolean;
   workspaces: Array<LauncherRecentWorkspaceEntry> | null;
 };
 
-export type HttpapiLauncherRequestBase = {
+type HttpapiLauncherRequestBase = {
   settaHome: string | null;
 };
 
-export type HttpapiLauncherStatusResponse = {
+type HttpapiLauncherStatusResponse = {
   artifactOptions?: {
     [key: string]: string;
   };
@@ -1419,7 +1419,7 @@ export type HttpapiLauncherStatusResponse = {
   workspaceBehavior?: string;
 };
 
-export type HttpapiLauncherUpdateResponse = {
+type HttpapiLauncherUpdateResponse = {
   artifactOptions?: {
     [key: string]: string;
   };
@@ -1449,15 +1449,15 @@ export type HttpapiLauncherUpdateResponse = {
   workspaceBehavior?: string;
 };
 
-export type HttpapiListenerCoverageRequest = {
+type HttpapiListenerCoverageRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiLoadDeploymentProjectConfigRequest = {
+type HttpapiLoadDeploymentProjectConfigRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiMcpResolvedRuntimeServer = {
+type HttpapiMcpResolvedRuntimeServer = {
   consecutiveFailures: number;
   endpoint: string;
   lastAttemptAt: string | null;
@@ -1472,12 +1472,12 @@ export type HttpapiMcpResolvedRuntimeServer = {
   transport: string;
 };
 
-export type HttpapiMcpRuntimeStatusRequest = {
+type HttpapiMcpRuntimeStatusRequest = {
   chatId: string | null;
   engineConfigId: string | null;
 };
 
-export type HttpapiMcpRuntimeStatusResponse = {
+type HttpapiMcpRuntimeStatusResponse = {
   activeSettaFilesLocation: string;
   externalServers: Array<McpxServerRuntimeStatus> | null;
   llmConfigPath: string;
@@ -1485,24 +1485,24 @@ export type HttpapiMcpRuntimeStatusResponse = {
   servers: Array<McpxServerRuntimeStatus> | null;
 };
 
-export type HttpapiManualSaveRequest = {
+type HttpapiManualSaveRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiMoveParamGroupRequest = {
+type HttpapiMoveParamGroupRequest = {
   newIndex: number;
   newParentId: string;
   paramIds: Array<string> | null;
 };
 
-export type HttpapiMoveParamGroupsRequest = {
+type HttpapiMoveParamGroupsRequest = {
   frontendOpId?: string;
   moves: Array<HttpapiMoveParamGroupRequest> | null;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiMoveParamsRequest = {
+type HttpapiMoveParamsRequest = {
   frontendOpId?: string;
   newIndex: number;
   newParentId: string;
@@ -1511,7 +1511,7 @@ export type HttpapiMoveParamsRequest = {
   sectionId: string;
 };
 
-export type HttpapiMoveSectionsRequest = {
+type HttpapiMoveSectionsRequest = {
   frontendOpId?: string;
   newIndex: number | null;
   newParentId: string | null;
@@ -1522,38 +1522,38 @@ export type HttpapiMoveSectionsRequest = {
   sectionIds: Array<string> | null;
 };
 
-export type HttpapiOutputAccessorCompletionRequest = {
+type HttpapiOutputAccessorCompletionRequest = {
   fullText: string;
   position: number;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiPasteSectionsRequest = {
+type HttpapiPasteSectionsRequest = {
   asRef: boolean;
   data: ProjectstateClipboardProjectStateCoreWithSectionVariantMap;
   position: ProjectstatePosition;
   projectConfigId: string;
 };
 
-export type HttpapiPinLauncherRecentWorkspaceRequest = {
+type HttpapiPinLauncherRecentWorkspaceRequest = {
   pinned: boolean;
   settaHome: string | null;
   workspaceRoot: string;
 };
 
-export type HttpapiPluginConfigWriteRequest = {
+type HttpapiPluginConfigWriteRequest = {
   config: {
     [key: string]: unknown;
   };
   pluginId: string;
 };
 
-export type HttpapiPluginEnableDisableRequest = {
+type HttpapiPluginEnableDisableRequest = {
   pluginId: string;
 };
 
-export type HttpapiPluginInstallRequest = {
+type HttpapiPluginInstallRequest = {
   enable: boolean | null;
   force: boolean | null;
   installer: string | null;
@@ -1561,50 +1561,50 @@ export type HttpapiPluginInstallRequest = {
   sourceSpec: string;
 };
 
-export type HttpapiPluginLinkRequest = {
+type HttpapiPluginLinkRequest = {
   enable: boolean | null;
   force: boolean | null;
   localPluginRoot: string;
   scope: string | null;
 };
 
-export type HttpapiPluginLockApplyRequest = {
+type HttpapiPluginLockApplyRequest = {
   check: boolean;
 };
 
-export type HttpapiPluginRollbackRequest = {
+type HttpapiPluginRollbackRequest = {
   pluginId: string;
   scope: string | null;
 };
 
-export type HttpapiPluginUninstallRequest = {
+type HttpapiPluginUninstallRequest = {
   pluginId: string;
   scope: string | null;
 };
 
-export type HttpapiPluginUpdateRequest = {
+type HttpapiPluginUpdateRequest = {
   pluginId: string;
   scope: string | null;
   to: string | null;
 };
 
-export type HttpapiPluginsRescanResponse = {
+type HttpapiPluginsRescanResponse = {
   activePlugins: number;
   installedPlugins: number;
   schemaVersion: number;
   serverMode: string;
 };
 
-export type HttpapiPrepareSectionsForCopyRequest = {
+type HttpapiPrepareSectionsForCopyRequest = {
   projectConfigId: string;
   sectionIds: Array<string> | null;
 };
 
-export type HttpapiProjectConfigMutationResponse = {
+type HttpapiProjectConfigMutationResponse = {
   projectConfig: ProjectviewProjectConfig;
 };
 
-export type HttpapiProjectLoadRequest = {
+type HttpapiProjectLoadRequest = {
   projectConfigName: string;
 };
 
@@ -1614,7 +1614,7 @@ export type HttpapiProjectStateSingleConfigWithCompletedOpIds = {
   projectState: ProjectviewSingleConfig;
 };
 
-export type HttpapiPromptTemplatePayload = {
+type HttpapiPromptTemplatePayload = {
   description: string | null;
   format: string | null;
   id: string | null;
@@ -1636,7 +1636,7 @@ export type HttpapiPublishShareDeploymentRequest = {
   sharePolicyOverrides: DeploymentsSharePolicyOverrides;
 };
 
-export type HttpapiReconnectEdgeRequest = {
+type HttpapiReconnectEdgeRequest = {
   edgeId: string;
   frontendOpId?: string;
   projectConfigId: string;
@@ -1648,33 +1648,33 @@ export type HttpapiReconnectEdgeRequest = {
   targetVariantId: string;
 };
 
-export type HttpapiRedoRequest = {
+type HttpapiRedoRequest = {
   projectConfigId: string;
   steps: number;
 };
 
-export type HttpapiResetStateMachineRequest = {
+type HttpapiResetStateMachineRequest = {
   machineGroupId: string;
   projectConfigId: string;
 };
 
-export type HttpapiRespondExternalAgentApprovalRequest = {
+type HttpapiRespondExternalAgentApprovalRequest = {
   approvalId: string;
   approved: boolean;
 };
 
-export type HttpapiRespondExternalAgentQuestionRequest = {
+type HttpapiRespondExternalAgentQuestionRequest = {
   answers: {
     [key: string]: string;
   };
   toolCallId: string;
 };
 
-export type HttpapiRevealPathInOsFileExplorerRequest = {
+type HttpapiRevealPathInOsFileExplorerRequest = {
   path: string;
 };
 
-export type HttpapiRunCodeRequest = {
+type HttpapiRunCodeRequest = {
   cliId: string;
   drawSnapshotsBySectionId: {
     [key: string]: BinaryContentRef;
@@ -1691,7 +1691,7 @@ export type HttpapiRunCodeRequest = {
   terminalSectionId: string;
 };
 
-export type HttpapiRunDetachedRequest = {
+type HttpapiRunDetachedRequest = {
   entrySectionId: string;
   paramOverrides: {
     [key: string]: string;
@@ -1706,23 +1706,23 @@ export type HttpapiRunDetachedRequest = {
   };
 };
 
-export type HttpapiRuntimeAuth = {
+type HttpapiRuntimeAuth = {
   authCookieName?: string;
 };
 
-export type HttpapiRuntimeInfo = {
+type HttpapiRuntimeInfo = {
   auth: HttpapiRuntimeAuth;
   mode: string;
   paths: HttpapiRuntimePaths;
   policy: HttpapiRuntimePathPolicy;
 };
 
-export type HttpapiRuntimePathPolicy = {
+type HttpapiRuntimePathPolicy = {
   autoMode: string;
   globalSettaFilesBase: string;
 };
 
-export type HttpapiRuntimePaths = {
+type HttpapiRuntimePaths = {
   deploymentRoot?: string;
   profile?: string;
   profileLookupHome: string;
@@ -1733,23 +1733,23 @@ export type HttpapiRuntimePaths = {
   workspaceRoot: string;
 };
 
-export type HttpapiSaveAsNewProjectConfigRequest = {
+type HttpapiSaveAsNewProjectConfigRequest = {
   frontendOpId?: string;
   newConfigName: string;
   projectConfigId: string;
   withRefs: boolean;
 };
 
-export type HttpapiSaveSettingsRequest = {
+type HttpapiSaveSettingsRequest = {
   settings: unknown;
 };
 
-export type HttpapiSectionSizeRequest = {
+type HttpapiSectionSizeRequest = {
   height: HttpapiSectionSizeValueRequest;
   width: HttpapiSectionSizeValueRequest;
 };
 
-export type HttpapiSectionSizeValueRequest = {
+type HttpapiSectionSizeValueRequest = {
   Auto: boolean;
   Value: number;
 };
@@ -1758,32 +1758,32 @@ export type HttpapiServerModeResponse = {
   mode: "ide" | "share" | "app" | "launcher";
 };
 
-export type HttpapiSetActiveIdsRequest = {
+type HttpapiSetActiveIdsRequest = {
   activeIds: Array<string> | null;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetActiveViewModeRequest = {
+type HttpapiSetActiveViewModeRequest = {
   activeViewModeId: string;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetAgenticEdgesRequest = {
+type HttpapiSetAgenticEdgesRequest = {
   edges: Array<ProjectstateAgenticEdge> | null;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetBrowserAreaViewModeRequest = {
+type HttpapiSetBrowserAreaViewModeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   viewMode: string;
 };
 
-export type HttpapiSetBrowserColumnWidthsRequest = {
+type HttpapiSetBrowserColumnWidthsRequest = {
   columnWidth: number | null;
   frontendOpId?: string;
   projectConfigId: string;
@@ -1791,28 +1791,28 @@ export type HttpapiSetBrowserColumnWidthsRequest = {
   typesColumnWidth: number | null;
 };
 
-export type HttpapiSetBrowserHideColumnRequest = {
+type HttpapiSetBrowserHideColumnRequest = {
   frontendOpId?: string;
   hideColumn: boolean;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetBrowserSavedSearchesRequest = {
+type HttpapiSetBrowserSavedSearchesRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   savedSearches: Array<ProjectstateBrowserSavedSearch> | null;
   sectionId: string;
 };
 
-export type HttpapiSetCallableHideParamsRequest = {
+type HttpapiSetCallableHideParamsRequest = {
   frontendOpId?: string;
   hideParams: boolean;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetCallableRequest = {
+type HttpapiSetCallableRequest = {
   callableName: string;
   frontendOpId?: string;
   projectConfigId: string;
@@ -1820,14 +1820,14 @@ export type HttpapiSetCallableRequest = {
   sectionId: string;
 };
 
-export type HttpapiSetChartAreaDataPathRequest = {
+type HttpapiSetChartAreaDataPathRequest = {
   dataPath: string;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetChartSettingsRequest = {
+type HttpapiSetChartSettingsRequest = {
   changedSettings: Array<string> | null;
   chartSettings: ProjectstateChartSettingsUpdate;
   frontendOpId?: string;
@@ -1835,21 +1835,21 @@ export type HttpapiSetChartSettingsRequest = {
   sectionId: string;
 };
 
-export type HttpapiSetChartTypeRequest = {
+type HttpapiSetChartTypeRequest = {
   chartType: string;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetChatSectionChatIdRequest = {
+type HttpapiSetChatSectionChatIdRequest = {
   chatId: string | null;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetChatSectionSettingsRequest = {
+type HttpapiSetChatSectionSettingsRequest = {
   agentProfileId: string | null;
   dictationMode: string;
   engineConfigId: string | null;
@@ -1863,131 +1863,131 @@ export type HttpapiSetChatSectionSettingsRequest = {
   transcriptionProfileId: string | null;
 };
 
-export type HttpapiSetChatSectionStateRequest = {
+type HttpapiSetChatSectionStateRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   state: ProjectstateChatSectionState;
 };
 
-export type HttpapiSetCodeFileBindingRequest = {
+type HttpapiSetCodeFileBindingRequest = {
   binding: HttpapiCodeFileBindingUpdate;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetCodeObjDisplayNameRequest = {
+type HttpapiSetCodeObjDisplayNameRequest = {
   codeObjId: string;
   displayName: string;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetCodeObjNameRequest = {
+type HttpapiSetCodeObjNameRequest = {
   codeObjId: string;
   frontendOpId?: string;
   name: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetCodeRequest = {
+type HttpapiSetCodeRequest = {
   code: string;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetCodeSectionAttachedTerminalRequest = {
+type HttpapiSetCodeSectionAttachedTerminalRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   terminalSectionId: string | null;
 };
 
-export type HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest = {
+type HttpapiSetCodeSectionDiagnosticCodeSuppressionRequest = {
   code: unknown;
   projectConfigId: string;
   sectionId: string;
   suppress: boolean;
 };
 
-export type HttpapiSetCodeSectionDiagnosticsMuteRequest = {
+type HttpapiSetCodeSectionDiagnosticsMuteRequest = {
   mute: boolean;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetDefaultProjectConfigRequest = {
+type HttpapiSetDefaultProjectConfigRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiSetDefaultSectionVariantRequest = {
+type HttpapiSetDefaultSectionVariantRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
 };
 
-export type HttpapiSetEdgesRequest = {
+type HttpapiSetEdgesRequest = {
   edges: Array<ProjectstateEdge> | null;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetGenCodePrefixRequest = {
+type HttpapiSetGenCodePrefixRequest = {
   frontendOpId?: string;
   genCodePrefix: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetGenCodeSuffixRequest = {
+type HttpapiSetGenCodeSuffixRequest = {
   frontendOpId?: string;
   genCodeSuffix: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetGroupOverflowModeRequest = {
+type HttpapiSetGroupOverflowModeRequest = {
   frontendOpId?: string;
   overflowMode: boolean;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetImageAreaImagePathRequest = {
+type HttpapiSetImageAreaImagePathRequest = {
   frontendOpId?: string;
   imagePath: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetLlmapiKeysRequest = {
+type HttpapiSetLlmapiKeysRequest = {
   apiKeys: {
     [key: string]: string;
   };
   expectedRevision: number;
 };
 
-export type HttpapiSetLanguageServerSelectionRequest = {
+type HttpapiSetLanguageServerSelectionRequest = {
   language: string;
   pluginId: string | null;
 };
 
-export type HttpapiSetListRootViewModeRequest = {
+type HttpapiSetListRootViewModeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   viewMode: string;
 };
 
-export type HttpapiSetMetaControlShowSectionTitleRequest = {
+type HttpapiSetMetaControlShowSectionTitleRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   showSectionTitle: boolean;
 };
 
-export type HttpapiSetParamEnteredValueRequest = {
+type HttpapiSetParamEnteredValueRequest = {
   frontendOpId?: string;
   paramInfoId: string;
   projectConfigId: string;
@@ -1996,45 +1996,45 @@ export type HttpapiSetParamEnteredValueRequest = {
   value: string;
 };
 
-export type HttpapiSetParentDefaultChildSectionTypeRequest = {
+type HttpapiSetParentDefaultChildSectionTypeRequest = {
   defaultChildSectionType: string;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetProjectChatWindowChatIdRequest = {
+type HttpapiSetProjectChatWindowChatIdRequest = {
   chatId: string | null;
   frontendOpId?: string;
   instanceId: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetProjectChatWindowingStateRequest = {
+type HttpapiSetProjectChatWindowingStateRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   state: ProjectstateProjectChatWindowingState;
 };
 
-export type HttpapiSetProjectConfigCodegenTargetsRequest = {
+type HttpapiSetProjectConfigCodegenTargetsRequest = {
   codegenTargets: Array<unknown> | null;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetProjectConfigNameRequest = {
+type HttpapiSetProjectConfigNameRequest = {
   newName: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetPromptFormatRequest = {
+type HttpapiSetPromptFormatRequest = {
   format: string;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetPromptInputsRequest = {
+type HttpapiSetPromptInputsRequest = {
   frontendOpId?: string;
   inputs: {
     [key: string]: string;
@@ -2043,70 +2043,70 @@ export type HttpapiSetPromptInputsRequest = {
   sectionId: string;
 };
 
-export type HttpapiSetPromptTemplateLinkRequest = {
+type HttpapiSetPromptTemplateLinkRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   promptTemplateId?: string;
   sectionId: string;
 };
 
-export type HttpapiSetPromptTemplateRequest = {
+type HttpapiSetPromptTemplateRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   template: string;
 };
 
-export type HttpapiSetSectionColumnWidthRequest = {
+type HttpapiSetSectionColumnWidthRequest = {
   columnWidth: number | null;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetSectionEdgeInputsRequest = {
+type HttpapiSetSectionEdgeInputsRequest = {
   edgeInputParams: Array<string> | null;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetSectionEdgeOutputsRequest = {
+type HttpapiSetSectionEdgeOutputsRequest = {
   edgeOutputPorts: Array<ProjectstateEdgePort> | null;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetSectionHideUnpinnedParamsRequest = {
+type HttpapiSetSectionHideUnpinnedParamsRequest = {
   frontendOpId?: string;
   hideUnpinnedParams: boolean;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetSectionNameRequest = {
+type HttpapiSetSectionNameRequest = {
   frontendOpId?: string;
   name: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetSectionParamFilterRequest = {
+type HttpapiSetSectionParamFilterRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   value: string;
 };
 
-export type HttpapiSetSectionPinnedParamsRequest = {
+type HttpapiSetSectionPinnedParamsRequest = {
   frontendOpId?: string;
   pinnedParams: Array<string> | null;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetSectionSizesRequest = {
+type HttpapiSetSectionSizesRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionSizes: {
@@ -2114,55 +2114,55 @@ export type HttpapiSetSectionSizesRequest = {
   };
 };
 
-export type HttpapiSetSectionStyleColorRequest = {
+type HttpapiSetSectionStyleColorRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   styleColor: string | null;
 };
 
-export type HttpapiSetSectionTagColorRequest = {
+type HttpapiSetSectionTagColorRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   tagColor: string | null;
 };
 
-export type HttpapiSetSectionVariantNameRequest = {
+type HttpapiSetSectionVariantNameRequest = {
   frontendOpId?: string;
   name: string;
   projectConfigId: string;
   variantId: string;
 };
 
-export type HttpapiSetSectionVariantRequest = {
+type HttpapiSetSectionVariantRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
 };
 
-export type HttpapiSetSectionVariantSortOrderRequest = {
+type HttpapiSetSectionVariantSortOrderRequest = {
   frontendOpId?: string;
   orderedVariantIds: Array<string> | null;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetShowParamDisplayNamesRequest = {
+type HttpapiSetShowParamDisplayNamesRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   showParamDisplayNames: boolean;
 };
 
-export type HttpapiSetSocialUrlRequest = {
+type HttpapiSetSocialUrlRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   url: string;
 };
 
-export type HttpapiSetSpreadsheetFilePathRequest = {
+type HttpapiSetSpreadsheetFilePathRequest = {
   activeSheet: string | null;
   filePath: string;
   frontendOpId?: string;
@@ -2170,7 +2170,7 @@ export type HttpapiSetSpreadsheetFilePathRequest = {
   sectionId: string;
 };
 
-export type HttpapiSetSpreadsheetSectionSettingsRequest = {
+type HttpapiSetSpreadsheetSectionSettingsRequest = {
   autoReloadOnExternalChange: boolean;
   density: string;
   frontendOpId?: string;
@@ -2180,13 +2180,13 @@ export type HttpapiSetSpreadsheetSectionSettingsRequest = {
   showRowNumbers: boolean;
 };
 
-export type HttpapiSetStateMachineEdgesRequest = {
+type HttpapiSetStateMachineEdgesRequest = {
   edges: Array<ProjectstateStateMachineEdge> | null;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiSetStateMachineSectionSettingsRequest = {
+type HttpapiSetStateMachineSectionSettingsRequest = {
   frontendOpId?: string;
   gateType?: string;
   label: string;
@@ -2195,7 +2195,7 @@ export type HttpapiSetStateMachineSectionSettingsRequest = {
   sectionId: string;
 };
 
-export type HttpapiSetTaskBoardSectionStateRequest = {
+type HttpapiSetTaskBoardSectionStateRequest = {
   columns: Array<ProjectstateTaskBoardColumn> | null;
   frontendOpId?: string;
   projectConfigId: string;
@@ -2204,49 +2204,49 @@ export type HttpapiSetTaskBoardSectionStateRequest = {
   viewMode: string;
 };
 
-export type HttpapiSetTextBlockDisplayModeRequest = {
+type HttpapiSetTextBlockDisplayModeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   textDisplayMode: string;
 };
 
-export type HttpapiSetTextBlockFormatRequest = {
+type HttpapiSetTextBlockFormatRequest = {
   format: string;
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetTextBlockHeadingAsSectionNameRequest = {
+type HttpapiSetTextBlockHeadingAsSectionNameRequest = {
   frontendOpId?: string;
   headingAsSectionName: boolean;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetTextBlockMasterFontSizeRequest = {
+type HttpapiSetTextBlockMasterFontSizeRequest = {
   frontendOpId?: string;
   masterFontSizePx: number;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetTextBlockMetaControlStyleRequest = {
+type HttpapiSetTextBlockMetaControlStyleRequest = {
   frontendOpId?: string;
   metaControlStyle: boolean;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetTextBlockTextRequest = {
+type HttpapiSetTextBlockTextRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   text: string;
 };
 
-export type HttpapiSetTopLevelSectionLayoutRequest = {
+type HttpapiSetTopLevelSectionLayoutRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   topLevelSections: {
@@ -2254,14 +2254,14 @@ export type HttpapiSetTopLevelSectionLayoutRequest = {
   };
 };
 
-export type HttpapiSetTypeErrorIgnoreRequest = {
+type HttpapiSetTypeErrorIgnoreRequest = {
   ignoreTypeErrors: boolean;
   paramInfoId: string | null;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiSetVariantJsonSourceKeysRequest = {
+type HttpapiSetVariantJsonSourceKeysRequest = {
   frontendOpId?: string;
   jsonSourceKeys: Array<string> | null;
   projectConfigId: string;
@@ -2269,33 +2269,33 @@ export type HttpapiSetVariantJsonSourceKeysRequest = {
   variantId: string;
 };
 
-export type HttpapiSetViewModeNameRequest = {
+type HttpapiSetViewModeNameRequest = {
   frontendOpId?: string;
   name: string;
   projectConfigId: string;
   viewModeId: string;
 };
 
-export type HttpapiSetViewModeSortOrderRequest = {
+type HttpapiSetViewModeSortOrderRequest = {
   frontendOpId?: string;
   orderedViewModeIds: Array<string> | null;
   projectConfigId: string;
 };
 
-export type HttpapiSetViewportRequest = {
+type HttpapiSetViewportRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   viewport: ProjectstateViewport;
 };
 
-export type HttpapiSetWindowSpaceNameRequest = {
+type HttpapiSetWindowSpaceNameRequest = {
   frontendOpId?: string;
   name: string;
   projectConfigId: string;
   windowSpaceId: string;
 };
 
-export type HttpapiSetWindowSpaceSortOrderRequest = {
+type HttpapiSetWindowSpaceSortOrderRequest = {
   frontendOpId?: string;
   orderedWindowSpaceIds: Array<string> | null;
   projectConfigId: string;
@@ -2308,7 +2308,7 @@ export type HttpapiSettaHomeInfoResponse = {
   settaHome: string;
 };
 
-export type HttpapiSetupLauncherRequest = {
+type HttpapiSetupLauncherRequest = {
   artifactOptions?: {
     [key: string]: string;
   };
@@ -2320,7 +2320,7 @@ export type HttpapiSetupLauncherRequest = {
   workspaceBehavior?: string;
 };
 
-export type HttpapiShareDeploymentSessionResponse = {
+type HttpapiShareDeploymentSessionResponse = {
   defaultProjectConfigId: string;
   deploymentName: string;
   deploymentVersion: string;
@@ -2331,27 +2331,27 @@ export type HttpapiShareDeploymentSessionResponse = {
   shareSessionId: string;
 };
 
-export type HttpapiStartAgentRunRequest = {
+type HttpapiStartAgentRunRequest = {
   inputs: {
     [key: string]: unknown;
   };
   profileId: string;
 };
 
-export type HttpapiStartRunChainRequest = {
+type HttpapiStartRunChainRequest = {
   inputs: {
     [key: string]: unknown;
   };
   spec: RunchainsSpecInput;
 };
 
-export type HttpapiStartStateMachineRunRequest = {
+type HttpapiStartStateMachineRunRequest = {
   machineGroupId: string;
   projectConfigId: string;
   startSectionId?: string;
 };
 
-export type HttpapiStartTranscriptionSessionRequest = {
+type HttpapiStartTranscriptionSessionRequest = {
   language: string | null;
   transcriptionProfileId: string;
 };
@@ -2362,20 +2362,20 @@ export type HttpapiStartTranscriptionSessionResponse = {
   sessionId: string;
 };
 
-export type HttpapiStateMachineRunControlResponse = {
+type HttpapiStateMachineRunControlResponse = {
   alreadyStopped: boolean;
   stoppedRunId?: string;
 };
 
-export type HttpapiStopAgentRunRequest = {
+type HttpapiStopAgentRunRequest = {
   runId: string;
 };
 
-export type HttpapiStopExternalAgentRunRequest = {
+type HttpapiStopExternalAgentRunRequest = {
   runId: string;
 };
 
-export type HttpapiStopLlmChatRequest = {
+type HttpapiStopLlmChatRequest = {
   chatId: string;
 };
 
@@ -2385,20 +2385,20 @@ export type HttpapiStopLlmChatResponse = {
   stoppedRunId: string | null;
 };
 
-export type HttpapiStopRunChainRequest = {
+type HttpapiStopRunChainRequest = {
   runId: string;
 };
 
-export type HttpapiStopStateMachineRunRequest = {
+type HttpapiStopStateMachineRunRequest = {
   machineGroupId: string;
   projectConfigId: string;
 };
 
-export type HttpapiStopTranscriptionSessionRequest = {
+type HttpapiStopTranscriptionSessionRequest = {
   sessionId: string;
 };
 
-export type HttpapiTextFieldCompletionRequest = {
+type HttpapiTextFieldCompletionRequest = {
   fullText: string;
   paramInfoId: string | null;
   position: number;
@@ -2406,68 +2406,68 @@ export type HttpapiTextFieldCompletionRequest = {
   sectionId: string;
 };
 
-export type HttpapiToggleGroupOrientationRequest = {
+type HttpapiToggleGroupOrientationRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiToggleIsEditingViewModeRequest = {
+type HttpapiToggleIsEditingViewModeRequest = {
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiToggleMinimizedRequest = {
+type HttpapiToggleMinimizedRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiToggleParamSelectedRequest = {
+type HttpapiToggleParamSelectedRequest = {
   frontendOpId?: string;
   paramInfoId: string;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiTogglePositionLocksRequest = {
+type HttpapiTogglePositionLocksRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionIds: Array<string> | null;
 };
 
-export type HttpapiToggleSectionVisibilityRequest = {
+type HttpapiToggleSectionVisibilityRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionIds: Array<string> | null;
 };
 
-export type HttpapiToggleVariantFrozenRequest = {
+type HttpapiToggleVariantFrozenRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   variantId: string;
 };
 
-export type HttpapiToggleVariantJsonSourceRequest = {
+type HttpapiToggleVariantJsonSourceRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   sectionId: string;
   variantId: string;
 };
 
-export type HttpapiToggleViewModeTabRequest = {
+type HttpapiToggleViewModeTabRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   viewModeId: string;
 };
 
-export type HttpapiToggleViewModeUserFacingRequest = {
+type HttpapiToggleViewModeUserFacingRequest = {
   frontendOpId?: string;
   projectConfigId: string;
   viewModeId: string;
 };
 
-export type HttpapiTranscriptionProfilePayload = {
+type HttpapiTranscriptionProfilePayload = {
   chunkMs: number | null;
   id: string | null;
   language: string | null;
@@ -2477,62 +2477,62 @@ export type HttpapiTranscriptionProfilePayload = {
   transportMode: string | null;
 };
 
-export type HttpapiTransferFileBrowserEntryRequest = {
+type HttpapiTransferFileBrowserEntryRequest = {
   destinationFolderPath: string;
   operation: string;
   sourcePath: string;
 };
 
-export type HttpapiTypeCheckRequest = {
+type HttpapiTypeCheckRequest = {
   projectConfigId: string;
 };
 
-export type HttpapiUndoRequest = {
+type HttpapiUndoRequest = {
   projectConfigId: string;
   steps: number;
 };
 
-export type HttpapiUngroupGroupsRequest = {
+type HttpapiUngroupGroupsRequest = {
   frontendOpId?: string;
   groupIds: Array<string> | null;
   projectConfigId: string;
 };
 
-export type HttpapiUnindentParamsRequest = {
+type HttpapiUnindentParamsRequest = {
   frontendOpId?: string;
   paramIds: Array<string> | null;
   projectConfigId: string;
   sectionId: string;
 };
 
-export type HttpapiUnselectAllParamsRequest = {
+type HttpapiUnselectAllParamsRequest = {
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiUpdateAgentProfileRequest = {
+type HttpapiUpdateAgentProfileRequest = {
   profile: HttpapiAgentProfilePayload;
 };
 
-export type HttpapiUpdateAgenticEdgeRequest = {
+type HttpapiUpdateAgenticEdgeRequest = {
   edge: ProjectstateAgenticEdge;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiUpdateArtifactsRequest = {
+type HttpapiUpdateArtifactsRequest = {
   artifacts: Array<ArtifactsRawArtifact> | null;
   conflictStrategy?: string;
   uploadScope: string;
 };
 
-export type HttpapiUpdateEdgeRequest = {
+type HttpapiUpdateEdgeRequest = {
   edge: ProjectstateEdge;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiUpdateEngineConfigPayload = {
+type HttpapiUpdateEngineConfigPayload = {
   defaults: AgentrunsEngineConfigDefaults;
   engineType: string | null;
   externalAgentConfigId: string | null;
@@ -2542,20 +2542,20 @@ export type HttpapiUpdateEngineConfigPayload = {
   settaLlmConfigId: string | null;
 };
 
-export type HttpapiUpdateEngineConfigRequest = {
+type HttpapiUpdateEngineConfigRequest = {
   config: HttpapiUpdateEngineConfigPayload;
 };
 
-export type HttpapiUpdateExternalAgentConfigRequest = {
+type HttpapiUpdateExternalAgentConfigRequest = {
   config: ExternalagentconfigsConfig;
 };
 
-export type HttpapiUpdateLauncherRequest = {
+type HttpapiUpdateLauncherRequest = {
   packageSpec: string | null;
   settaHome: string | null;
 };
 
-export type HttpapiUpdateParamImplConfigRequest = {
+type HttpapiUpdateParamImplConfigRequest = {
   frontendOpId?: string;
   newConfig: {
     [key: string]: unknown;
@@ -2565,27 +2565,27 @@ export type HttpapiUpdateParamImplConfigRequest = {
   sectionId: string;
 };
 
-export type HttpapiUpdatePromptTemplateRequest = {
+type HttpapiUpdatePromptTemplateRequest = {
   template: HttpapiPromptTemplatePayload;
 };
 
-export type HttpapiUpdateStateMachineEdgeRequest = {
+type HttpapiUpdateStateMachineEdgeRequest = {
   edge: ProjectstateStateMachineEdge;
   frontendOpId?: string;
   projectConfigId: string;
 };
 
-export type HttpapiUpdateTranscriptionProfileRequest = {
+type HttpapiUpdateTranscriptionProfileRequest = {
   profile: HttpapiTranscriptionProfilePayload;
 };
 
-export type HttpapiUpsertAppGenCustomSkillRequest = {
+type HttpapiUpsertAppGenCustomSkillRequest = {
   content: string;
   relativePath: string | null;
   skillId: string | null;
 };
 
-export type HttpapiWindowSpaceMutationResponse = {
+type HttpapiWindowSpaceMutationResponse = {
   projectConfig: ProjectviewProjectConfig;
   windowSpaceId?: string;
 };
@@ -2595,20 +2595,20 @@ export type HttpapiWorkspaceLaunchErrorPayload = {
   message: string;
 };
 
-export type HttpapiWriteFileBrowserFileContentRequest = {
+type HttpapiWriteFileBrowserFileContentRequest = {
   contentId: string;
   expectedMtimeNs?: number;
   path: string;
 };
 
-export type LauncherDirectoryEntry = {
+type LauncherDirectoryEntry = {
   isDirectory: boolean;
   isSymlink: boolean;
   name: string;
   path: string;
 };
 
-export type LauncherRecentWorkspaceEntry = {
+type LauncherRecentWorkspaceEntry = {
   lastUsedAt: number;
   pinned: boolean;
   workspaceRoot: string;
@@ -2626,7 +2626,7 @@ export type LlmconfigAllConfigs = {
   };
 };
 
-export type LlmconfigConfig = {
+type LlmconfigConfig = {
   api_key_env?: string;
   base_url?: string;
   id: string;
@@ -2639,7 +2639,7 @@ export type LlmconfigConfig = {
   temporary?: boolean;
 };
 
-export type LlmconfigServerConfig = {
+type LlmconfigServerConfig = {
   args?: Array<string> | null;
   command?: string;
   cwd?: string;
@@ -2655,18 +2655,18 @@ export type LlmconfigServerConfig = {
   url?: string;
 };
 
-export type LspcompletionCodeMirrorCompletion = {
+type LspcompletionCodeMirrorCompletion = {
   label: string;
   type: string;
 };
 
-export type ManagedchatChatContextUsage = {
+type ManagedchatChatContextUsage = {
   contextUsedTokens: number | null;
   contextWindowTokens: number | null;
   estimated: boolean;
 };
 
-export type McpxServerRuntimeStatus = {
+type McpxServerRuntimeStatus = {
   consecutiveFailures: number;
   endpoint: string;
   lastAttemptAt: string | null;
@@ -2694,13 +2694,13 @@ export type NotificationsNotification = {
   type: string;
 };
 
-export type PluginsLanguageServerProviderOption = {
+type PluginsLanguageServerProviderOption = {
   available: boolean;
   name: string;
   pluginId: string;
 };
 
-export type PluginsLanguageServerSelectionStatus = {
+type PluginsLanguageServerSelectionStatus = {
   appliedPluginId: string | null;
   availableProviders: Array<PluginsLanguageServerProviderOption> | null;
   language: string;
@@ -2712,7 +2712,7 @@ export type PluginsLanguageServerSelectionStatus = {
   status: string;
 };
 
-export type PluginsPluginAppSubsystemCapabilities = {
+type PluginsPluginAppSubsystemCapabilities = {
   appAuthoringUi: boolean;
   appDeploymentRuntime: boolean;
   appGenerationChatModes: boolean;
@@ -2722,7 +2722,7 @@ export type PluginsPluginAppSubsystemCapabilities = {
   providerSelection?: PluginsPluginAppSubsystemProviderSelection;
 };
 
-export type PluginsPluginAppSubsystemProviderSelection = {
+type PluginsPluginAppSubsystemProviderSelection = {
   activePluginIds: Array<string> | null;
   conflictingPluginIds: Array<string> | null;
   disabledPluginIds: Array<string> | null;
@@ -2731,12 +2731,12 @@ export type PluginsPluginAppSubsystemProviderSelection = {
   status: string;
 };
 
-export type PluginsPluginBlockedCapability = {
+type PluginsPluginBlockedCapability = {
   capability: string;
   reason: string;
 };
 
-export type PluginsPluginConfigDescriptor = {
+type PluginsPluginConfigDescriptor = {
   currentConfig: {
     [key: string]: unknown;
   };
@@ -2748,11 +2748,11 @@ export type PluginsPluginConfigDescriptor = {
   schemaJsonDigestSha256: string | null;
 };
 
-export type PluginsPluginConfigValidationResult = {
+type PluginsPluginConfigValidationResult = {
   ok: boolean;
 };
 
-export type PluginsPluginConfigWriteResponse = {
+type PluginsPluginConfigWriteResponse = {
   config: {
     [key: string]: unknown;
   };
@@ -2760,34 +2760,34 @@ export type PluginsPluginConfigWriteResponse = {
   validation: PluginsPluginConfigValidationResult;
 };
 
-export type PluginsPluginContentDescriptor = {
+type PluginsPluginContentDescriptor = {
   hasBlueprints: boolean;
   hasProjectTemplates: boolean;
   hasPrompts: boolean;
 };
 
-export type PluginsPluginEnableDisableResponse = {
+type PluginsPluginEnableDisableResponse = {
   pluginId: string;
   restartRequired: boolean;
   state: string;
 };
 
-export type PluginsPluginErrorInfo = {
+type PluginsPluginErrorInfo = {
   code: string;
   message: string;
 };
 
-export type PluginsPluginFeatureCapabilities = {
+type PluginsPluginFeatureCapabilities = {
   appSubsystem: PluginsPluginAppSubsystemCapabilities;
   watchCode: PluginsPluginWatchCodeCapabilities;
 };
 
-export type PluginsPluginFrontendDescriptor = {
+type PluginsPluginFrontendDescriptor = {
   entrypointUrl: string | null;
   styleUrl: string | null;
 };
 
-export type PluginsPluginInstallResponse = {
+type PluginsPluginInstallResponse = {
   canonicalSourceKey: string;
   components: Array<string> | null;
   pluginId: string;
@@ -2803,7 +2803,7 @@ export type PluginsPluginInstallResponse = {
   version: string;
 };
 
-export type PluginsPluginListEntry = {
+type PluginsPluginListEntry = {
   canonicalSourceKey: string;
   components: Array<string> | null;
   config: PluginsPluginConfigDescriptor;
@@ -2822,30 +2822,30 @@ export type PluginsPluginListEntry = {
   version: string;
 };
 
-export type PluginsPluginListResponse = {
+type PluginsPluginListResponse = {
   plugins: Array<PluginsPluginListEntry> | null;
   restartCapability: PluginsPluginRestartCapability;
   schemaVersion: number;
   serverMode: string;
 };
 
-export type PluginsPluginLockApplyResponse = {
+type PluginsPluginLockApplyResponse = {
   applied: boolean;
   lockfilePath: string;
   plannedChanges: Array<string> | null;
 };
 
-export type PluginsPluginLockWriteResponse = {
+type PluginsPluginLockWriteResponse = {
   lockfilePath: string;
   pluginCount: number;
 };
 
-export type PluginsPluginRegisteredBackendRoute = {
+type PluginsPluginRegisteredBackendRoute = {
   methods: Array<string> | null;
   path: string;
 };
 
-export type PluginsPluginRegisteredCodegenTarget = {
+type PluginsPluginRegisteredCodegenTarget = {
   defaultFileName: string;
   language: string;
   name: string;
@@ -2853,7 +2853,7 @@ export type PluginsPluginRegisteredCodegenTarget = {
   targetId: string;
 };
 
-export type PluginsPluginRegisteredLanguageServer = {
+type PluginsPluginRegisteredLanguageServer = {
   args: Array<string> | null;
   command: string;
   language: string;
@@ -2863,43 +2863,43 @@ export type PluginsPluginRegisteredLanguageServer = {
   settingsKey?: string;
 };
 
-export type PluginsPluginRegisteredListenerEndpoint = {
+type PluginsPluginRegisteredListenerEndpoint = {
   name: string;
 };
 
-export type PluginsPluginRegisteredStaticDir = {
+type PluginsPluginRegisteredStaticDir = {
   dir: string;
   routePrefix: string;
 };
 
-export type PluginsPluginRestartCapability = {
+type PluginsPluginRestartCapability = {
   command: string | null;
   mode: string;
   reason: string | null;
 };
 
-export type PluginsPluginRestartResponse = {
+type PluginsPluginRestartResponse = {
   accepted: boolean;
   command: string | null;
   mode: string;
   reason: string | null;
 };
 
-export type PluginsPluginRollbackResponse = {
+type PluginsPluginRollbackResponse = {
   pluginId: string;
   restartRequired: boolean;
   restoredVersion: string;
   sourceDigestSha256: string | null;
 };
 
-export type PluginsPluginRuntimeResponse = {
+type PluginsPluginRuntimeResponse = {
   featureCapabilities?: PluginsPluginFeatureCapabilities;
   list: PluginsPluginListResponse;
   schemaVersion: number;
   status: PluginsPluginStatusResponse;
 };
 
-export type PluginsPluginStatusEntry = {
+type PluginsPluginStatusEntry = {
   appliedLanguageServerLanguages?: Array<string> | null;
   blockedCapabilities: Array<PluginsPluginBlockedCapability> | null;
   canonicalSourceKey: string;
@@ -2928,7 +2928,7 @@ export type PluginsPluginStatusEntry = {
   version: string;
 };
 
-export type PluginsPluginStatusResponse = {
+type PluginsPluginStatusResponse = {
   appSubsystemSelection?: PluginsPluginAppSubsystemProviderSelection;
   languageServerSelections: Array<PluginsLanguageServerSelectionStatus> | null;
   plugins: Array<PluginsPluginStatusEntry> | null;
@@ -2938,13 +2938,13 @@ export type PluginsPluginStatusResponse = {
   watchCodeSelection?: PluginsPluginWatchCodeProviderSelection;
 };
 
-export type PluginsPluginUninstallResponse = {
+type PluginsPluginUninstallResponse = {
   pluginId: string;
   removedFromScope: string;
   restartRequired: boolean;
 };
 
-export type PluginsPluginUpdateResponse = {
+type PluginsPluginUpdateResponse = {
   fromVersion: string;
   pluginId: string;
   restartRequired: boolean;
@@ -2952,7 +2952,7 @@ export type PluginsPluginUpdateResponse = {
   toVersion: string;
 };
 
-export type PluginsPluginWatchCodeCapabilities = {
+type PluginsPluginWatchCodeCapabilities = {
   canvasControlsUi: boolean;
   languageServerDependency?: PluginsPluginWatchCodeLanguageServerDependencyStatus;
   pluginEnabled: boolean;
@@ -2962,7 +2962,7 @@ export type PluginsPluginWatchCodeCapabilities = {
   requiresLanguageServer: boolean;
 };
 
-export type PluginsPluginWatchCodeLanguageServerDependencyStatus = {
+type PluginsPluginWatchCodeLanguageServerDependencyStatus = {
   appliedPluginId?: string;
   language: string;
   message: string;
@@ -2972,7 +2972,7 @@ export type PluginsPluginWatchCodeLanguageServerDependencyStatus = {
   status: string;
 };
 
-export type PluginsPluginWatchCodeProviderSelection = {
+type PluginsPluginWatchCodeProviderSelection = {
   activePluginIds: Array<string> | null;
   conflictingPluginIds: Array<string> | null;
   disabledPluginIds: Array<string> | null;
@@ -2982,12 +2982,12 @@ export type PluginsPluginWatchCodeProviderSelection = {
   status: string;
 };
 
-export type ProjectshellAllProjectMetadata = {
+type ProjectshellAllProjectMetadata = {
   defaultProjectConfigId: string | null;
   projectMetadata: Array<ProjectstateProjectConfigMetadata> | null;
 };
 
-export type ProjectstateAgenticEdge = {
+type ProjectstateAgenticEdge = {
   contextMode?: string;
   hidden?: boolean;
   id: string;
@@ -2999,7 +2999,7 @@ export type ProjectstateAgenticEdge = {
   zIndex?: number;
 };
 
-export type ProjectstateBrowserSavedSearch = {
+type ProjectstateBrowserSavedSearch = {
   color: string;
   id: string;
   name: string;
@@ -3009,7 +3009,7 @@ export type ProjectstateBrowserSavedSearch = {
   typeFilters: ProjectstateBrowserSavedSearchTypeFilters;
 };
 
-export type ProjectstateBrowserSavedSearchTypeFilters = {
+type ProjectstateBrowserSavedSearchTypeFilters = {
   audio: boolean;
   data: boolean;
   image: boolean;
@@ -3028,7 +3028,7 @@ export type ProjectstateChartSettingsUpdate = {
   yAxisLog?: boolean;
 };
 
-export type ProjectstateChatSectionBranch = {
+type ProjectstateChatSectionBranch = {
   branchFromMessageId: string | null;
   createdAt: number;
   messages: Array<{
@@ -3037,7 +3037,7 @@ export type ProjectstateChatSectionBranch = {
   parentBranchId: string | null;
 };
 
-export type ProjectstateChatSectionState = {
+type ProjectstateChatSectionState = {
   activeBranchId: string | null;
   branches: {
     [key: string]: ProjectstateChatSectionBranch;
@@ -3052,19 +3052,19 @@ export type ProjectstateChatSectionState = {
   waitingForResponse: boolean;
 };
 
-export type ProjectstateChatWindowBounds = {
+type ProjectstateChatWindowBounds = {
   height: number;
   width: number;
   x: number;
   y: number;
 };
 
-export type ProjectstateChatWindowDockMetrics = {
+type ProjectstateChatWindowDockMetrics = {
   preferredWidthPx?: number;
   widthFraction?: number;
 };
 
-export type ProjectstateClipboardProjectStateCore = {
+type ProjectstateClipboardProjectStateCore = {
   codeObjImpls?: {
     [key: string]: ProjectstateCodeObjectImpl;
   };
@@ -3085,20 +3085,20 @@ export type ProjectstateClipboardProjectStateCore = {
   };
 };
 
-export type ProjectstateClipboardProjectStateCoreWithSectionVariantMap = {
+type ProjectstateClipboardProjectStateCoreWithSectionVariantMap = {
   core: ProjectstateClipboardProjectStateCore;
   sectionVariantMap?: {
     [key: string]: string;
   };
 };
 
-export type ProjectstateCodeFileBinding = {
+type ProjectstateCodeFileBinding = {
   accessMode?: string;
   autoBinding?: boolean;
   path: string;
 };
 
-export type ProjectstateCodeObject = {
+type ProjectstateCodeObject = {
   defaultVariantId?: string;
   displayName?: string;
   id: string;
@@ -3108,13 +3108,13 @@ export type ProjectstateCodeObject = {
   variantIds?: Array<string> | null;
 };
 
-export type ProjectstateCodeObjectImpl = {
+type ProjectstateCodeObjectImpl = {
   id: string;
   payload?: unknown;
   type: string;
 };
 
-export type ProjectstateCodeObjectVariant = {
+type ProjectstateCodeObjectVariant = {
   id: string;
   implId: string;
   isFrozen?: boolean;
@@ -3123,42 +3123,42 @@ export type ProjectstateCodeObjectVariant = {
   nonPresetImplIds?: Array<string> | null;
 };
 
-export type ProjectstateCodeSectionImpl = {
+type ProjectstateCodeSectionImpl = {
   attachedTerminalSectionId?: string;
   binding?: ProjectstateCodeFileBinding;
   children?: Array<string> | null;
   language: string;
 };
 
-export type ProjectstateCreateChildSectionsResult = {
+type ProjectstateCreateChildSectionsResult = {
   sectionIds: Array<string> | null;
 };
 
-export type ProjectstateCreateNewSectionVariantResult = {
+type ProjectstateCreateNewSectionVariantResult = {
   variantId: string;
 };
 
-export type ProjectstateCreateTopLevelSectionResult = {
+type ProjectstateCreateTopLevelSectionResult = {
   metaControlParamId?: string;
   panTo?: ProjectstatePosition;
   sectionId: string;
 };
 
-export type ProjectstateDeleteSectionsResult = {
+type ProjectstateDeleteSectionsResult = {
   sectionIds: Array<string> | null;
 };
 
-export type ProjectstateDrawAreaLayerItem = {
+type ProjectstateDrawAreaLayerItem = {
   dataPath: string;
   transformId: string;
   type: string;
 };
 
-export type ProjectstateDrawSectionImpl = {
+type ProjectstateDrawSectionImpl = {
   renderedImagePath?: string;
 };
 
-export type ProjectstateEdge = {
+type ProjectstateEdge = {
   animated?: boolean;
   data?: unknown;
   hidden?: boolean;
@@ -3176,18 +3176,18 @@ export type ProjectstateEdge = {
   zIndex?: number;
 };
 
-export type ProjectstateEdgePort = {
+type ProjectstateEdgePort = {
   accessor: string;
   id: string;
 };
 
-export type ProjectstateFrontendCodeFileBinding = {
+type ProjectstateFrontendCodeFileBinding = {
   access_mode: string;
   autoBinding: boolean;
   canonical_path: string;
 };
 
-export type ProjectstateFrontendMetaControlSizingPolicyByType = {
+type ProjectstateFrontendMetaControlSizingPolicyByType = {
   ButtonParam: ProjectstateFrontendMetaControlSizingPolicyTypeEntry;
   CodeCallable: ProjectstateFrontendMetaControlSizingPolicyTypeEntry;
   CodeParam: ProjectstateFrontendMetaControlSizingPolicyTypeEntry;
@@ -3205,20 +3205,20 @@ export type ProjectstateFrontendMetaControlSizingPolicyByType = {
   TimeParam: ProjectstateFrontendMetaControlSizingPolicyTypeEntry;
 };
 
-export type ProjectstateFrontendMetaControlSizingPolicyTypeEntry = {
+type ProjectstateFrontendMetaControlSizingPolicyTypeEntry = {
   minHeight: number;
   minWidth: number;
   sizeModeHeight: string;
   sizeModeWidth: string;
 };
 
-export type ProjectstateFrontendSectionSizingPolicy = {
+type ProjectstateFrontendSectionSizingPolicy = {
   byType: ProjectstateFrontendSectionSizingPolicyByType;
   globals: ProjectstateFrontendSectionSizingPolicyGlobals;
   metaControlByType: ProjectstateFrontendMetaControlSizingPolicyByType;
 };
 
-export type ProjectstateFrontendSectionSizingPolicyByType = {
+type ProjectstateFrontendSectionSizingPolicyByType = {
   Browser: ProjectstateFrontendSectionSizingPolicyTypeEntry;
   Callable: ProjectstateFrontendSectionSizingPolicyCallableTypeEntry;
   Chart: ProjectstateFrontendSectionSizingPolicyTypeEntry;
@@ -3246,7 +3246,7 @@ export type ProjectstateFrontendSectionSizingPolicyByType = {
   TextBlock: ProjectstateFrontendSectionSizingPolicyTypeEntry;
 };
 
-export type ProjectstateFrontendSectionSizingPolicyCallableTypeEntry = {
+type ProjectstateFrontendSectionSizingPolicyCallableTypeEntry = {
   hideParamsMinHeight: number;
   hideSearchMinHeight: number;
   maxHeight: number;
@@ -3255,7 +3255,7 @@ export type ProjectstateFrontendSectionSizingPolicyCallableTypeEntry = {
   minWidth: number;
 };
 
-export type ProjectstateFrontendSectionSizingPolicyGlobals = {
+type ProjectstateFrontendSectionSizingPolicyGlobals = {
   autoMaxHeight: number;
   infiniteMaxHeight: number;
   infiniteMaxWidth: number;
@@ -3264,18 +3264,18 @@ export type ProjectstateFrontendSectionSizingPolicyGlobals = {
   unpinnedParamsAreaMinHeight: number;
 };
 
-export type ProjectstateFrontendSectionSizingPolicyTypeEntry = {
+type ProjectstateFrontendSectionSizingPolicyTypeEntry = {
   maxHeight: number;
   maxWidth: number;
   minHeight: number;
   minWidth: number;
 };
 
-export type ProjectstateGeneratedSectionImpl = {
+type ProjectstateGeneratedSectionImpl = {
   kind: string;
 };
 
-export type ProjectstateLspDiagnostic = {
+type ProjectstateLspDiagnostic = {
   code: unknown;
   message: string;
   range: ProjectstateLspDiagnosticRange;
@@ -3284,17 +3284,17 @@ export type ProjectstateLspDiagnostic = {
   uri: string | null;
 };
 
-export type ProjectstateLspDiagnosticPosition = {
+type ProjectstateLspDiagnosticPosition = {
   character: number;
   line: number;
 };
 
-export type ProjectstateLspDiagnosticRange = {
+type ProjectstateLspDiagnosticRange = {
   end: ProjectstateLspDiagnosticPosition;
   start: ProjectstateLspDiagnosticPosition;
 };
 
-export type ProjectstateLspDiagnosticsPayload = {
+type ProjectstateLspDiagnosticsPayload = {
   codeSections: {
     [key: string]: Array<ProjectstateLspDiagnostic> | null;
   };
@@ -3303,19 +3303,19 @@ export type ProjectstateLspDiagnosticsPayload = {
   unmappedGenCode: Array<ProjectstateLspDiagnostic> | null;
 };
 
-export type ProjectstateNormalizedFloatingWindowBounds = {
+type ProjectstateNormalizedFloatingWindowBounds = {
   height: number;
   width: number;
   x: number;
   y: number;
 };
 
-export type ProjectstatePosition = {
+type ProjectstatePosition = {
   x: number;
   y: number;
 };
 
-export type ProjectstateProjectChatWindowInstance = {
+type ProjectstateProjectChatWindowInstance = {
   bounds?: ProjectstateChatWindowBounds;
   chatId?: string;
   dockMetrics?: ProjectstateChatWindowDockMetrics;
@@ -3332,7 +3332,7 @@ export type ProjectstateProjectChatWindowInstance = {
   zIndex?: number;
 };
 
-export type ProjectstateProjectChatWindowingState = {
+type ProjectstateProjectChatWindowingState = {
   instancesById: {
     [key: string]: ProjectstateProjectChatWindowInstance;
   };
@@ -3340,7 +3340,7 @@ export type ProjectstateProjectChatWindowingState = {
   order: Array<string> | null;
 };
 
-export type ProjectstateProjectConfigDiagnostics = {
+type ProjectstateProjectConfigDiagnostics = {
   errors: {
     [key: string]: ProjectstateSectionTypeErrors;
   };
@@ -3348,12 +3348,12 @@ export type ProjectstateProjectConfigDiagnostics = {
   projectConfigId: string;
 };
 
-export type ProjectstateProjectConfigMetadata = {
+type ProjectstateProjectConfigMetadata = {
   id: string;
   name: string;
 };
 
-export type ProjectstateSection = {
+type ProjectstateSection = {
   defaultVariantId?: string;
   displayName?: string;
   id: string;
@@ -3364,7 +3364,7 @@ export type ProjectstateSection = {
   variantIds?: Array<string> | null;
 };
 
-export type ProjectstateSectionImpl = {
+type ProjectstateSectionImpl = {
   code?: ProjectstateCodeSectionImpl;
   draw?: ProjectstateDrawSectionImpl;
   generated?: ProjectstateGeneratedSectionImpl;
@@ -3374,14 +3374,14 @@ export type ProjectstateSectionImpl = {
   terminal?: ProjectstateTerminalSectionImpl;
 };
 
-export type ProjectstateSectionTypeErrors = {
+type ProjectstateSectionTypeErrors = {
   callable: Array<string> | null;
   params: {
     [key: string]: Array<string> | null;
   };
 };
 
-export type ProjectstateSectionVariant = {
+type ProjectstateSectionVariant = {
   id: string;
   implId: string;
   isFrozen?: boolean;
@@ -3390,23 +3390,23 @@ export type ProjectstateSectionVariant = {
   nonPresetImplIds?: Array<string> | null;
 };
 
-export type ProjectstateSectionsClipboardData = {
+type ProjectstateSectionsClipboardData = {
   data: ProjectstateClipboardProjectStateCoreWithSectionVariantMap;
   type: string;
 };
 
-export type ProjectstateSetCallableChildCodeObj = {
+type ProjectstateSetCallableChildCodeObj = {
   codeObjId: string;
   name: string;
 };
 
-export type ProjectstateSetCallableResponse = {
+type ProjectstateSetCallableResponse = {
   callableId?: string;
   childCodeObjs: Array<ProjectstateSetCallableChildCodeObj> | null;
   lspStatus: string;
 };
 
-export type ProjectstateStateMachineEdge = {
+type ProjectstateStateMachineEdge = {
   hidden?: boolean;
   id: string;
   machineGroupId: string;
@@ -3422,19 +3422,19 @@ export type ProjectstateStateMachineEdge = {
   zIndex?: number;
 };
 
-export type ProjectstateStateMachineSourceActivationCountCondition = {
+type ProjectstateStateMachineSourceActivationCountCondition = {
   operator: string;
   value: number;
 };
 
-export type ProjectstateStateMachineSourceFilter = {
+type ProjectstateStateMachineSourceFilter = {
   equals?: string;
   payloadField?: string;
   signalName?: string;
   type: string;
 };
 
-export type ProjectstateStateMachineTargetAction = {
+type ProjectstateStateMachineTargetAction = {
   agentProfileId?: string;
   engineConfigId?: string;
   inlinePrompt?: string;
@@ -3450,14 +3450,14 @@ export type ProjectstateStateMachineTargetAction = {
   type: string;
 };
 
-export type ProjectstateTaskBoardColumn = {
+type ProjectstateTaskBoardColumn = {
   color: string;
   id: string;
   name: string;
   sortIndex: number;
 };
 
-export type ProjectstateTaskBoardTask = {
+type ProjectstateTaskBoardTask = {
   columnId: string | null;
   completed: boolean;
   description: string;
@@ -3471,11 +3471,11 @@ export type ProjectstateTaskBoardTask = {
   title: string;
 };
 
-export type ProjectstateTerminalSectionImpl = {
+type ProjectstateTerminalSectionImpl = {
   sessionMode?: string;
 };
 
-export type ProjectstateTopLevelSectionLayout = {
+type ProjectstateTopLevelSectionLayout = {
   h?: number;
   w?: number;
   x: number;
@@ -3483,7 +3483,7 @@ export type ProjectstateTopLevelSectionLayout = {
   zIndex?: number;
 };
 
-export type ProjectstateViewMode = {
+type ProjectstateViewMode = {
   id: string;
   isTab?: boolean;
   isUserFacing?: boolean;
@@ -3499,20 +3499,20 @@ export type ProjectstateViewMode = {
   };
 };
 
-export type ProjectstateViewport = {
+type ProjectstateViewport = {
   x: number;
   y: number;
   zoom: number;
 };
 
-export type ProjectstateViewportBounds = {
+type ProjectstateViewportBounds = {
   h: number;
   w: number;
   x: number;
   y: number;
 };
 
-export type ProjectstateWindowSpaceConfig = {
+type ProjectstateWindowSpaceConfig = {
   id?: string;
   name?: string;
   order: Array<string> | null;
@@ -3522,14 +3522,14 @@ export type ProjectstateWindowSpaceConfig = {
   };
 };
 
-export type ProjectstateWindowSpaceState = {
+type ProjectstateWindowSpaceState = {
   order: Array<string> | null;
   windowsById: {
     [key: string]: ProjectstateWindowSpaceWindow;
   };
 };
 
-export type ProjectstateWindowSpaceWindow = {
+type ProjectstateWindowSpaceWindow = {
   chatId?: string;
   embeddedGitPaneVisible?: boolean;
   mode?: string;
@@ -3540,7 +3540,7 @@ export type ProjectstateWindowSpaceWindow = {
   zIndex?: number;
 };
 
-export type ProjectviewCore = {
+type ProjectviewCore = {
   defaultVariant: string | null;
   displayName: string;
   id: string;
@@ -3550,7 +3550,7 @@ export type ProjectviewCore = {
   variants: Array<string> | null;
 };
 
-export type ProjectviewProjectConfig = {
+type ProjectviewProjectConfig = {
   activeIds: Array<string> | null;
   activeViewModeId: string | null;
   agenticEdges: Array<ProjectstateAgenticEdge> | null;
@@ -3594,13 +3594,13 @@ export type ProjectviewProjectConfig = {
   };
 };
 
-export type ProjectviewProjectRunCapabilities = {
+type ProjectviewProjectRunCapabilities = {
   canRunFromMain: boolean;
   effectiveEntrySectionId: string | null;
   mainRunDisabledReason: string | null;
 };
 
-export type ProjectviewSectionCapabilities = {
+type ProjectviewSectionCapabilities = {
   canRun: boolean;
   canSelectAsEntryCodeBlock: boolean;
   entryCodeBlockValue: string | null;
@@ -3608,14 +3608,14 @@ export type ProjectviewSectionCapabilities = {
   runRequestSectionId: string | null;
 };
 
-export type ProjectviewShownParamIdDetails = {
+type ProjectviewShownParamIdDetails = {
   requiredParamIdsToPaths: {
     [key: string]: Array<string> | null;
   };
   topLevelParamIds: Array<string> | null;
 };
 
-export type ProjectviewShownParamIds = {
+type ProjectviewShownParamIds = {
   pinned: ProjectviewShownParamIdDetails;
   unpinned: ProjectviewShownParamIdDetails;
 };
@@ -3661,13 +3661,13 @@ export type ProjectviewSingleConfig = {
   singletonSections: ProjectviewSingletonSections;
 };
 
-export type ProjectviewSingletonSections = {
+type ProjectviewSingletonSections = {
   GenPythonCode: string | null;
   GenPythonMetadata: string | null;
   GlobalVariables: string | null;
 };
 
-export type ProjectviewVariant = {
+type ProjectviewVariant = {
   id: string;
   impl: string;
   isFrozen: boolean;
@@ -3690,13 +3690,13 @@ export type PrompttemplatesTemplate = {
   template: string;
 };
 
-export type PythonsdkcontractsRunnerSummaryParam = {
+type PythonsdkcontractsRunnerSummaryParam = {
   displayName?: string;
   id: string;
   name: string;
 };
 
-export type PythonsdkcontractsRunnerSummarySection = {
+type PythonsdkcontractsRunnerSummarySection = {
   displayName?: string;
   id: string;
   name: string;
@@ -3705,17 +3705,17 @@ export type PythonsdkcontractsRunnerSummarySection = {
   variants: Array<PythonsdkcontractsRunnerSummaryVariant> | null;
 };
 
-export type PythonsdkcontractsRunnerSummarySnapshot = {
+type PythonsdkcontractsRunnerSummarySnapshot = {
   projectConfigId: string;
   sections: Array<PythonsdkcontractsRunnerSummarySection> | null;
 };
 
-export type PythonsdkcontractsRunnerSummaryVariant = {
+type PythonsdkcontractsRunnerSummaryVariant = {
   id: string;
   name: string;
 };
 
-export type PythonsdkcontractsRunningBackendVersionHandshake = {
+type PythonsdkcontractsRunningBackendVersionHandshake = {
   coreVersion: string;
   sdkContractVersion: number;
   sdkVersion: string;
@@ -3729,26 +3729,26 @@ export type RealtimeAiFollowToolArgumentsUpdateContent = {
   projectConfigId: string;
 };
 
-export type RealtimeListenerCoverageDependency = {
+type RealtimeListenerCoverageDependency = {
   codeObjId?: string;
   sectionId: string;
   type: string;
 };
 
-export type RealtimeListenerCoverageSnapshot = {
+type RealtimeListenerCoverageSnapshot = {
   dependencies: Array<RealtimeListenerCoverageDependency> | null;
   hasRealtimeWildcard: boolean;
   projectConfigId: string;
 };
 
-export type RunchainsSpecInput = {
+type RunchainsSpecInput = {
   id: string;
   name: string;
   steps: Array<RunchainsStepInput> | null;
   stopOnFailure?: boolean;
 };
 
-export type RunchainsStepInput = {
+type RunchainsStepInput = {
   agentProfileId?: string;
   engineConfigId: string;
   id: string;
@@ -3763,12 +3763,12 @@ export type RunchainsStepInput = {
   prompt?: string;
 };
 
-export type SettingsstateFrontendColorPickerChoice = {
+type SettingsstateFrontendColorPickerChoice = {
   color: string;
   description: string;
 };
 
-export type SettingsstateFrontendSettingsBackend = {
+type SettingsstateFrontendSettingsBackend = {
   autoRefetchCallableParamsOnLspMismatch: boolean;
   autobackup: boolean;
   autobackupFreq: number;
@@ -3785,13 +3785,13 @@ export type SettingsstateFrontendSettingsBackend = {
   showDefaultConfigOnLoad: boolean;
 };
 
-export type SettingsstateFrontendSettingsChatWindowing = {
+type SettingsstateFrontendSettingsChatWindowing = {
   autoCreateInitialChat: boolean;
   restorePriorStateOnUnmaximize: boolean;
   shortcuts: SettingsstateFrontendSettingsChatWindowingShortcuts;
 };
 
-export type SettingsstateFrontendSettingsChatWindowingShortcuts = {
+type SettingsstateFrontendSettingsChatWindowingShortcuts = {
   canvasToggle: string;
   maximizeFocused: string;
   minimizeFocused: string;
@@ -3801,7 +3801,7 @@ export type SettingsstateFrontendSettingsChatWindowingShortcuts = {
   snapTop: string;
 };
 
-export type SettingsstateFrontendSettingsGui = {
+type SettingsstateFrontendSettingsGui = {
   defaultZoomLevel: number;
   gridColor: string;
   gridColorDarkMode: string;
@@ -3826,13 +3826,13 @@ export type SettingsstateFrontendSettingsGui = {
   zoomOnScroll: boolean;
 };
 
-export type SettingsstateFrontendSettingsLanguageServer = {
+type SettingsstateFrontendSettingsLanguageServer = {
   selectedByLanguage: {
     [key: string]: string | null;
   };
 };
 
-export type SettingsstateFrontendSettingsShortcuts = {
+type SettingsstateFrontendSettingsShortcuts = {
   advancedSearchShortcut: string;
   commandPaletteShortcut: string;
   copyShortcut: string;
@@ -3936,7 +3936,7 @@ export type AcceptRenameRefactorErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type AcceptRenameRefactorError =
+type AcceptRenameRefactorError =
   AcceptRenameRefactorErrors[keyof AcceptRenameRefactorErrors];
 
 export type AcceptRenameRefactorResponses = {
@@ -3946,7 +3946,7 @@ export type AcceptRenameRefactorResponses = {
   200: null;
 };
 
-export type AcceptRenameRefactorResponse =
+type AcceptRenameRefactorResponse =
   AcceptRenameRefactorResponses[keyof AcceptRenameRefactorResponses];
 
 export type AddKwargData = {
@@ -3963,7 +3963,7 @@ export type AddKwargErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type AddKwargError = AddKwargErrors[keyof AddKwargErrors];
+type AddKwargError = AddKwargErrors[keyof AddKwargErrors];
 
 export type AddKwargResponses = {
   /**
@@ -3972,7 +3972,7 @@ export type AddKwargResponses = {
   200: null;
 };
 
-export type AddKwargResponse = AddKwargResponses[keyof AddKwargResponses];
+type AddKwargResponse = AddKwargResponses[keyof AddKwargResponses];
 
 export type AddLauncherRecentWorkspaceData = {
   body: HttpapiLauncherRecentWorkspaceRequest;
@@ -3988,7 +3988,7 @@ export type AddLauncherRecentWorkspaceErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type AddLauncherRecentWorkspaceError =
+type AddLauncherRecentWorkspaceError =
   AddLauncherRecentWorkspaceErrors[keyof AddLauncherRecentWorkspaceErrors];
 
 export type AddLauncherRecentWorkspaceResponses = {
@@ -3998,7 +3998,7 @@ export type AddLauncherRecentWorkspaceResponses = {
   200: HttpapiLauncherRecentWorkspacesResponse;
 };
 
-export type AddLauncherRecentWorkspaceResponse =
+type AddLauncherRecentWorkspaceResponse =
   AddLauncherRecentWorkspaceResponses[keyof AddLauncherRecentWorkspaceResponses];
 
 export type ListAppDeploymentsData = {
@@ -4015,7 +4015,7 @@ export type ListAppDeploymentsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ListAppDeploymentsError =
+type ListAppDeploymentsError =
   ListAppDeploymentsErrors[keyof ListAppDeploymentsErrors];
 
 export type ListAppDeploymentsResponses = {
@@ -4025,7 +4025,7 @@ export type ListAppDeploymentsResponses = {
   200: Array<HttpapiDeploymentMetadataResponse> | null;
 };
 
-export type ListAppDeploymentsResponse =
+type ListAppDeploymentsResponse =
   ListAppDeploymentsResponses[keyof ListAppDeploymentsResponses];
 
 export type PublishAppDeploymentData = {
@@ -4042,7 +4042,7 @@ export type PublishAppDeploymentErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type PublishAppDeploymentError =
+type PublishAppDeploymentError =
   PublishAppDeploymentErrors[keyof PublishAppDeploymentErrors];
 
 export type PublishAppDeploymentResponses = {
@@ -4052,7 +4052,7 @@ export type PublishAppDeploymentResponses = {
   200: HttpapiDeploymentMetadataResponse;
 };
 
-export type PublishAppDeploymentResponse =
+type PublishAppDeploymentResponse =
   PublishAppDeploymentResponses[keyof PublishAppDeploymentResponses];
 
 export type GetAppDeploymentCurrentSessionData = {
@@ -4069,7 +4069,7 @@ export type GetAppDeploymentCurrentSessionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAppDeploymentCurrentSessionError =
+type GetAppDeploymentCurrentSessionError =
   GetAppDeploymentCurrentSessionErrors[keyof GetAppDeploymentCurrentSessionErrors];
 
 export type GetAppDeploymentCurrentSessionResponses = {
@@ -4079,7 +4079,7 @@ export type GetAppDeploymentCurrentSessionResponses = {
   200: AppsubsystemAppdeploymenthttpAppDeploymentSessionResponse;
 };
 
-export type GetAppDeploymentCurrentSessionResponse =
+type GetAppDeploymentCurrentSessionResponse =
   GetAppDeploymentCurrentSessionResponses[keyof GetAppDeploymentCurrentSessionResponses];
 
 export type GetAppDeploymentLatestData = {
@@ -4098,7 +4098,7 @@ export type GetAppDeploymentLatestErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAppDeploymentLatestError =
+type GetAppDeploymentLatestError =
   GetAppDeploymentLatestErrors[keyof GetAppDeploymentLatestErrors];
 
 export type GetAppDeploymentLatestResponses = {
@@ -4108,7 +4108,7 @@ export type GetAppDeploymentLatestResponses = {
   200: HttpapiDeploymentMetadataResponse;
 };
 
-export type GetAppDeploymentLatestResponse =
+type GetAppDeploymentLatestResponse =
   GetAppDeploymentLatestResponses[keyof GetAppDeploymentLatestResponses];
 
 export type ListAppDeploymentVersionsData = {
@@ -4127,7 +4127,7 @@ export type ListAppDeploymentVersionsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ListAppDeploymentVersionsError =
+type ListAppDeploymentVersionsError =
   ListAppDeploymentVersionsErrors[keyof ListAppDeploymentVersionsErrors];
 
 export type ListAppDeploymentVersionsResponses = {
@@ -4137,7 +4137,7 @@ export type ListAppDeploymentVersionsResponses = {
   200: Array<HttpapiDeploymentMetadataResponse> | null;
 };
 
-export type ListAppDeploymentVersionsResponse =
+type ListAppDeploymentVersionsResponse =
   ListAppDeploymentVersionsResponses[keyof ListAppDeploymentVersionsResponses];
 
 export type GetAppDeploymentProjectConfigData = {
@@ -4157,7 +4157,7 @@ export type GetAppDeploymentProjectConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAppDeploymentProjectConfigError =
+type GetAppDeploymentProjectConfigError =
   GetAppDeploymentProjectConfigErrors[keyof GetAppDeploymentProjectConfigErrors];
 
 export type GetAppDeploymentProjectConfigResponses = {
@@ -4167,7 +4167,7 @@ export type GetAppDeploymentProjectConfigResponses = {
   200: AppsubsystemAppdeploymenthttpAppDeploymentStateResponse;
 };
 
-export type GetAppDeploymentProjectConfigResponse =
+type GetAppDeploymentProjectConfigResponse =
   GetAppDeploymentProjectConfigResponses[keyof GetAppDeploymentProjectConfigResponses];
 
 export type GetAppDeploymentStateData = {
@@ -4187,7 +4187,7 @@ export type GetAppDeploymentStateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAppDeploymentStateError =
+type GetAppDeploymentStateError =
   GetAppDeploymentStateErrors[keyof GetAppDeploymentStateErrors];
 
 export type GetAppDeploymentStateResponses = {
@@ -4197,7 +4197,7 @@ export type GetAppDeploymentStateResponses = {
   200: AppsubsystemAppdeploymenthttpAppDeploymentStateResponse;
 };
 
-export type GetAppDeploymentStateResponse =
+type GetAppDeploymentStateResponse =
   GetAppDeploymentStateResponses[keyof GetAppDeploymentStateResponses];
 
 export type AppendDrawAreaLayerItemData = {
@@ -4214,7 +4214,7 @@ export type AppendDrawAreaLayerItemErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type AppendDrawAreaLayerItemError =
+type AppendDrawAreaLayerItemError =
   AppendDrawAreaLayerItemErrors[keyof AppendDrawAreaLayerItemErrors];
 
 export type AppendDrawAreaLayerItemResponses = {
@@ -4224,7 +4224,7 @@ export type AppendDrawAreaLayerItemResponses = {
   200: null;
 };
 
-export type AppendDrawAreaLayerItemResponse =
+type AppendDrawAreaLayerItemResponse =
   AppendDrawAreaLayerItemResponses[keyof AppendDrawAreaLayerItemResponses];
 
 export type AppendTranscriptionAudioData = {
@@ -4241,7 +4241,7 @@ export type AppendTranscriptionAudioErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type AppendTranscriptionAudioError =
+type AppendTranscriptionAudioError =
   AppendTranscriptionAudioErrors[keyof AppendTranscriptionAudioErrors];
 
 export type AppendTranscriptionAudioResponses = {
@@ -4251,7 +4251,7 @@ export type AppendTranscriptionAudioResponses = {
   200: TranscriptionsessionsDelta;
 };
 
-export type AppendTranscriptionAudioResponse =
+type AppendTranscriptionAudioResponse =
   AppendTranscriptionAudioResponses[keyof AppendTranscriptionAudioResponses];
 
 export type DownloadAttachmentData = {
@@ -4270,7 +4270,7 @@ export type DownloadAttachmentErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DownloadAttachmentError =
+type DownloadAttachmentError =
   DownloadAttachmentErrors[keyof DownloadAttachmentErrors];
 
 export type DownloadAttachmentResponses = {
@@ -4280,7 +4280,7 @@ export type DownloadAttachmentResponses = {
   200: Blob | File;
 };
 
-export type DownloadAttachmentResponse =
+type DownloadAttachmentResponse =
   DownloadAttachmentResponses[keyof DownloadAttachmentResponses];
 
 export type GetAuthRefreshStatusData = {
@@ -4297,7 +4297,7 @@ export type GetAuthRefreshStatusErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAuthRefreshStatusError =
+type GetAuthRefreshStatusError =
   GetAuthRefreshStatusErrors[keyof GetAuthRefreshStatusErrors];
 
 export type GetAuthRefreshStatusResponses = {
@@ -4307,7 +4307,7 @@ export type GetAuthRefreshStatusResponses = {
   200: HttpapiAuthRefreshStatusResponse;
 };
 
-export type GetAuthRefreshStatusResponse =
+type GetAuthRefreshStatusResponse =
   GetAuthRefreshStatusResponses[keyof GetAuthRefreshStatusResponses];
 
 export type AutoLayoutTopLevelSectionsData = {
@@ -4324,7 +4324,7 @@ export type AutoLayoutTopLevelSectionsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type AutoLayoutTopLevelSectionsError =
+type AutoLayoutTopLevelSectionsError =
   AutoLayoutTopLevelSectionsErrors[keyof AutoLayoutTopLevelSectionsErrors];
 
 export type AutoLayoutTopLevelSectionsResponses = {
@@ -4334,7 +4334,7 @@ export type AutoLayoutTopLevelSectionsResponses = {
   200: null;
 };
 
-export type AutoLayoutTopLevelSectionsResponse =
+type AutoLayoutTopLevelSectionsResponse =
   AutoLayoutTopLevelSectionsResponses[keyof AutoLayoutTopLevelSectionsResponses];
 
 export type GetBackendInitStatusData = {
@@ -4351,7 +4351,7 @@ export type GetBackendInitStatusErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetBackendInitStatusError =
+type GetBackendInitStatusError =
   GetBackendInitStatusErrors[keyof GetBackendInitStatusErrors];
 
 export type GetBackendInitStatusResponses = {
@@ -4361,7 +4361,7 @@ export type GetBackendInitStatusResponses = {
   200: HttpapiBackendInitStatusResponse;
 };
 
-export type GetBackendInitStatusResponse =
+type GetBackendInitStatusResponse =
   GetBackendInitStatusResponses[keyof GetBackendInitStatusResponses];
 
 export type UploadBinaryData = {
@@ -4378,7 +4378,7 @@ export type UploadBinaryErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UploadBinaryError = UploadBinaryErrors[keyof UploadBinaryErrors];
+type UploadBinaryError = UploadBinaryErrors[keyof UploadBinaryErrors];
 
 export type UploadBinaryResponses = {
   /**
@@ -4387,8 +4387,7 @@ export type UploadBinaryResponses = {
   200: BinaryContentRef;
 };
 
-export type UploadBinaryResponse =
-  UploadBinaryResponses[keyof UploadBinaryResponses];
+type UploadBinaryResponse = UploadBinaryResponses[keyof UploadBinaryResponses];
 
 export type DownloadBinaryData = {
   body?: never;
@@ -4406,8 +4405,7 @@ export type DownloadBinaryErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DownloadBinaryError =
-  DownloadBinaryErrors[keyof DownloadBinaryErrors];
+type DownloadBinaryError = DownloadBinaryErrors[keyof DownloadBinaryErrors];
 
 export type DownloadBinaryResponses = {
   /**
@@ -4416,7 +4414,7 @@ export type DownloadBinaryResponses = {
   200: Blob | File;
 };
 
-export type DownloadBinaryResponse =
+type DownloadBinaryResponse =
   DownloadBinaryResponses[keyof DownloadBinaryResponses];
 
 export type CancelRunData = {
@@ -4433,7 +4431,7 @@ export type CancelRunErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CancelRunError = CancelRunErrors[keyof CancelRunErrors];
+type CancelRunError = CancelRunErrors[keyof CancelRunErrors];
 
 export type CancelRunResponses = {
   /**
@@ -4442,7 +4440,7 @@ export type CancelRunResponses = {
   200: DetachedrunsRun;
 };
 
-export type CancelRunResponse = CancelRunResponses[keyof CancelRunResponses];
+type CancelRunResponse = CancelRunResponses[keyof CancelRunResponses];
 
 export type CancelTranscriptionSessionData = {
   body: HttpapiCancelTranscriptionSessionRequest;
@@ -4458,7 +4456,7 @@ export type CancelTranscriptionSessionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CancelTranscriptionSessionError =
+type CancelTranscriptionSessionError =
   CancelTranscriptionSessionErrors[keyof CancelTranscriptionSessionErrors];
 
 export type CancelTranscriptionSessionResponses = {
@@ -4468,7 +4466,7 @@ export type CancelTranscriptionSessionResponses = {
   200: HttpapiCancelTranscriptionSessionResponse;
 };
 
-export type CancelTranscriptionSessionResponse =
+type CancelTranscriptionSessionResponse =
   CancelTranscriptionSessionResponses[keyof CancelTranscriptionSessionResponses];
 
 export type ChangeParamImplData = {
@@ -4485,8 +4483,7 @@ export type ChangeParamImplErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ChangeParamImplError =
-  ChangeParamImplErrors[keyof ChangeParamImplErrors];
+type ChangeParamImplError = ChangeParamImplErrors[keyof ChangeParamImplErrors];
 
 export type ChangeParamImplResponses = {
   /**
@@ -4495,7 +4492,7 @@ export type ChangeParamImplResponses = {
   200: null;
 };
 
-export type ChangeParamImplResponse =
+type ChangeParamImplResponse =
   ChangeParamImplResponses[keyof ChangeParamImplResponses];
 
 export type CheckIfFileExistsData = {
@@ -4512,7 +4509,7 @@ export type CheckIfFileExistsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CheckIfFileExistsError =
+type CheckIfFileExistsError =
   CheckIfFileExistsErrors[keyof CheckIfFileExistsErrors];
 
 export type CheckIfFileExistsResponses = {
@@ -4522,7 +4519,7 @@ export type CheckIfFileExistsResponses = {
   200: boolean;
 };
 
-export type CheckIfFileExistsResponse =
+type CheckIfFileExistsResponse =
   CheckIfFileExistsResponses[keyof CheckIfFileExistsResponses];
 
 export type CheckWorkspaceInitializedData = {
@@ -4539,7 +4536,7 @@ export type CheckWorkspaceInitializedErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CheckWorkspaceInitializedError =
+type CheckWorkspaceInitializedError =
   CheckWorkspaceInitializedErrors[keyof CheckWorkspaceInitializedErrors];
 
 export type CheckWorkspaceInitializedResponses = {
@@ -4549,7 +4546,7 @@ export type CheckWorkspaceInitializedResponses = {
   200: boolean;
 };
 
-export type CheckWorkspaceInitializedResponse =
+type CheckWorkspaceInitializedResponse =
   CheckWorkspaceInitializedResponses[keyof CheckWorkspaceInitializedResponses];
 
 export type ClearTextFieldCompletionData = {
@@ -4566,7 +4563,7 @@ export type ClearTextFieldCompletionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ClearTextFieldCompletionError =
+type ClearTextFieldCompletionError =
   ClearTextFieldCompletionErrors[keyof ClearTextFieldCompletionErrors];
 
 export type ClearTextFieldCompletionResponses = {
@@ -4576,7 +4573,7 @@ export type ClearTextFieldCompletionResponses = {
   200: null;
 };
 
-export type ClearTextFieldCompletionResponse =
+type ClearTextFieldCompletionResponse =
   ClearTextFieldCompletionResponses[keyof ClearTextFieldCompletionResponses];
 
 export type CodeAreaCompletionData = {
@@ -4593,7 +4590,7 @@ export type CodeAreaCompletionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CodeAreaCompletionError =
+type CodeAreaCompletionError =
   CodeAreaCompletionErrors[keyof CodeAreaCompletionErrors];
 
 export type CodeAreaCompletionResponses = {
@@ -4603,7 +4600,7 @@ export type CodeAreaCompletionResponses = {
   200: Array<LspcompletionCodeMirrorCompletion> | null;
 };
 
-export type CodeAreaCompletionResponse =
+type CodeAreaCompletionResponse =
   CodeAreaCompletionResponses[keyof CodeAreaCompletionResponses];
 
 export type CreateAgentProfileData = {
@@ -4620,7 +4617,7 @@ export type CreateAgentProfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateAgentProfileError =
+type CreateAgentProfileError =
   CreateAgentProfileErrors[keyof CreateAgentProfileErrors];
 
 export type CreateAgentProfileResponses = {
@@ -4630,7 +4627,7 @@ export type CreateAgentProfileResponses = {
   200: AgentprofilesProfile;
 };
 
-export type CreateAgentProfileResponse =
+type CreateAgentProfileResponse =
   CreateAgentProfileResponses[keyof CreateAgentProfileResponses];
 
 export type CreateAgenticEdgeData = {
@@ -4647,7 +4644,7 @@ export type CreateAgenticEdgeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateAgenticEdgeError =
+type CreateAgenticEdgeError =
   CreateAgenticEdgeErrors[keyof CreateAgenticEdgeErrors];
 
 export type CreateAgenticEdgeResponses = {
@@ -4657,7 +4654,7 @@ export type CreateAgenticEdgeResponses = {
   200: null;
 };
 
-export type CreateAgenticEdgeResponse =
+type CreateAgenticEdgeResponse =
   CreateAgenticEdgeResponses[keyof CreateAgenticEdgeResponses];
 
 export type CreateChildSectionsData = {
@@ -4674,7 +4671,7 @@ export type CreateChildSectionsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateChildSectionsError =
+type CreateChildSectionsError =
   CreateChildSectionsErrors[keyof CreateChildSectionsErrors];
 
 export type CreateChildSectionsResponses = {
@@ -4684,7 +4681,7 @@ export type CreateChildSectionsResponses = {
   200: ProjectstateCreateChildSectionsResult;
 };
 
-export type CreateChildSectionsResponse =
+type CreateChildSectionsResponse =
   CreateChildSectionsResponses[keyof CreateChildSectionsResponses];
 
 export type CreateChildSectionsViaIncrementerData = {
@@ -4701,7 +4698,7 @@ export type CreateChildSectionsViaIncrementerErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateChildSectionsViaIncrementerError =
+type CreateChildSectionsViaIncrementerError =
   CreateChildSectionsViaIncrementerErrors[keyof CreateChildSectionsViaIncrementerErrors];
 
 export type CreateChildSectionsViaIncrementerResponses = {
@@ -4711,7 +4708,7 @@ export type CreateChildSectionsViaIncrementerResponses = {
   200: ProjectstateCreateChildSectionsResult;
 };
 
-export type CreateChildSectionsViaIncrementerResponse =
+type CreateChildSectionsViaIncrementerResponse =
   CreateChildSectionsViaIncrementerResponses[keyof CreateChildSectionsViaIncrementerResponses];
 
 export type CreateEdgeData = {
@@ -4728,7 +4725,7 @@ export type CreateEdgeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateEdgeError = CreateEdgeErrors[keyof CreateEdgeErrors];
+type CreateEdgeError = CreateEdgeErrors[keyof CreateEdgeErrors];
 
 export type CreateEdgeResponses = {
   /**
@@ -4737,7 +4734,7 @@ export type CreateEdgeResponses = {
   200: null;
 };
 
-export type CreateEdgeResponse = CreateEdgeResponses[keyof CreateEdgeResponses];
+type CreateEdgeResponse = CreateEdgeResponses[keyof CreateEdgeResponses];
 
 export type CreateEngineConfigData = {
   body: HttpapiCreateEngineConfigRequest;
@@ -4753,7 +4750,7 @@ export type CreateEngineConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateEngineConfigError =
+type CreateEngineConfigError =
   CreateEngineConfigErrors[keyof CreateEngineConfigErrors];
 
 export type CreateEngineConfigResponses = {
@@ -4763,7 +4760,7 @@ export type CreateEngineConfigResponses = {
   200: AgentrunsEngineConfig;
 };
 
-export type CreateEngineConfigResponse =
+type CreateEngineConfigResponse =
   CreateEngineConfigResponses[keyof CreateEngineConfigResponses];
 
 export type CreateExternalAgentConfigData = {
@@ -4780,7 +4777,7 @@ export type CreateExternalAgentConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateExternalAgentConfigError =
+type CreateExternalAgentConfigError =
   CreateExternalAgentConfigErrors[keyof CreateExternalAgentConfigErrors];
 
 export type CreateExternalAgentConfigResponses = {
@@ -4790,7 +4787,7 @@ export type CreateExternalAgentConfigResponses = {
   200: ExternalagentconfigsConfig;
 };
 
-export type CreateExternalAgentConfigResponse =
+type CreateExternalAgentConfigResponse =
   CreateExternalAgentConfigResponses[keyof CreateExternalAgentConfigResponses];
 
 export type CreateFileData = {
@@ -4807,7 +4804,7 @@ export type CreateFileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateFileError = CreateFileErrors[keyof CreateFileErrors];
+type CreateFileError = CreateFileErrors[keyof CreateFileErrors];
 
 export type CreateFileResponses = {
   /**
@@ -4816,7 +4813,7 @@ export type CreateFileResponses = {
   200: null;
 };
 
-export type CreateFileResponse = CreateFileResponses[keyof CreateFileResponses];
+type CreateFileResponse = CreateFileResponses[keyof CreateFileResponses];
 
 export type CreateNewSectionVariantData = {
   body: HttpapiCreateNewSectionVariantRequest;
@@ -4832,7 +4829,7 @@ export type CreateNewSectionVariantErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateNewSectionVariantError =
+type CreateNewSectionVariantError =
   CreateNewSectionVariantErrors[keyof CreateNewSectionVariantErrors];
 
 export type CreateNewSectionVariantResponses = {
@@ -4842,7 +4839,7 @@ export type CreateNewSectionVariantResponses = {
   200: ProjectstateCreateNewSectionVariantResult;
 };
 
-export type CreateNewSectionVariantResponse =
+type CreateNewSectionVariantResponse =
   CreateNewSectionVariantResponses[keyof CreateNewSectionVariantResponses];
 
 export type CreateProjectConfigData = {
@@ -4859,7 +4856,7 @@ export type CreateProjectConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateProjectConfigError =
+type CreateProjectConfigError =
   CreateProjectConfigErrors[keyof CreateProjectConfigErrors];
 
 export type CreateProjectConfigResponses = {
@@ -4869,7 +4866,7 @@ export type CreateProjectConfigResponses = {
   200: string;
 };
 
-export type CreateProjectConfigResponse =
+type CreateProjectConfigResponse =
   CreateProjectConfigResponses[keyof CreateProjectConfigResponses];
 
 export type CreatePromptTemplateData = {
@@ -4886,7 +4883,7 @@ export type CreatePromptTemplateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreatePromptTemplateError =
+type CreatePromptTemplateError =
   CreatePromptTemplateErrors[keyof CreatePromptTemplateErrors];
 
 export type CreatePromptTemplateResponses = {
@@ -4896,7 +4893,7 @@ export type CreatePromptTemplateResponses = {
   200: PrompttemplatesTemplate;
 };
 
-export type CreatePromptTemplateResponse =
+type CreatePromptTemplateResponse =
   CreatePromptTemplateResponses[keyof CreatePromptTemplateResponses];
 
 export type CreateStateMachineEdgeData = {
@@ -4913,7 +4910,7 @@ export type CreateStateMachineEdgeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateStateMachineEdgeError =
+type CreateStateMachineEdgeError =
   CreateStateMachineEdgeErrors[keyof CreateStateMachineEdgeErrors];
 
 export type CreateStateMachineEdgeResponses = {
@@ -4923,7 +4920,7 @@ export type CreateStateMachineEdgeResponses = {
   200: null;
 };
 
-export type CreateStateMachineEdgeResponse =
+type CreateStateMachineEdgeResponse =
   CreateStateMachineEdgeResponses[keyof CreateStateMachineEdgeResponses];
 
 export type CreateTopLevelSectionData = {
@@ -4940,7 +4937,7 @@ export type CreateTopLevelSectionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateTopLevelSectionError =
+type CreateTopLevelSectionError =
   CreateTopLevelSectionErrors[keyof CreateTopLevelSectionErrors];
 
 export type CreateTopLevelSectionResponses = {
@@ -4950,7 +4947,7 @@ export type CreateTopLevelSectionResponses = {
   200: ProjectstateCreateTopLevelSectionResult;
 };
 
-export type CreateTopLevelSectionResponse =
+type CreateTopLevelSectionResponse =
   CreateTopLevelSectionResponses[keyof CreateTopLevelSectionResponses];
 
 export type CreateTranscriptionProfileData = {
@@ -4967,7 +4964,7 @@ export type CreateTranscriptionProfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateTranscriptionProfileError =
+type CreateTranscriptionProfileError =
   CreateTranscriptionProfileErrors[keyof CreateTranscriptionProfileErrors];
 
 export type CreateTranscriptionProfileResponses = {
@@ -4977,7 +4974,7 @@ export type CreateTranscriptionProfileResponses = {
   200: TranscriptionprofilesProfile;
 };
 
-export type CreateTranscriptionProfileResponse =
+type CreateTranscriptionProfileResponse =
   CreateTranscriptionProfileResponses[keyof CreateTranscriptionProfileResponses];
 
 export type CreateViewModeData = {
@@ -4994,8 +4991,7 @@ export type CreateViewModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateViewModeError =
-  CreateViewModeErrors[keyof CreateViewModeErrors];
+type CreateViewModeError = CreateViewModeErrors[keyof CreateViewModeErrors];
 
 export type CreateViewModeResponses = {
   /**
@@ -5004,7 +5000,7 @@ export type CreateViewModeResponses = {
   200: string;
 };
 
-export type CreateViewModeResponse =
+type CreateViewModeResponse =
   CreateViewModeResponses[keyof CreateViewModeResponses];
 
 export type CreateWindowSpaceData = {
@@ -5021,7 +5017,7 @@ export type CreateWindowSpaceErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateWindowSpaceError =
+type CreateWindowSpaceError =
   CreateWindowSpaceErrors[keyof CreateWindowSpaceErrors];
 
 export type CreateWindowSpaceResponses = {
@@ -5031,7 +5027,7 @@ export type CreateWindowSpaceResponses = {
   200: HttpapiWindowSpaceMutationResponse;
 };
 
-export type CreateWindowSpaceResponse =
+type CreateWindowSpaceResponse =
   CreateWindowSpaceResponses[keyof CreateWindowSpaceResponses];
 
 export type CreateWorkspaceLaunchIntentData = {
@@ -5048,7 +5044,7 @@ export type CreateWorkspaceLaunchIntentErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type CreateWorkspaceLaunchIntentError =
+type CreateWorkspaceLaunchIntentError =
   CreateWorkspaceLaunchIntentErrors[keyof CreateWorkspaceLaunchIntentErrors];
 
 export type CreateWorkspaceLaunchIntentResponses = {
@@ -5058,7 +5054,7 @@ export type CreateWorkspaceLaunchIntentResponses = {
   200: HttpapiCreateWorkspaceLaunchIntentResponse;
 };
 
-export type CreateWorkspaceLaunchIntentResponse =
+type CreateWorkspaceLaunchIntentResponse =
   CreateWorkspaceLaunchIntentResponses[keyof CreateWorkspaceLaunchIntentResponses];
 
 export type DeclineRenameRefactorData = {
@@ -5075,7 +5071,7 @@ export type DeclineRenameRefactorErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeclineRenameRefactorError =
+type DeclineRenameRefactorError =
   DeclineRenameRefactorErrors[keyof DeclineRenameRefactorErrors];
 
 export type DeclineRenameRefactorResponses = {
@@ -5085,7 +5081,7 @@ export type DeclineRenameRefactorResponses = {
   200: null;
 };
 
-export type DeclineRenameRefactorResponse =
+type DeclineRenameRefactorResponse =
   DeclineRenameRefactorResponses[keyof DeclineRenameRefactorResponses];
 
 export type DeleteAgentProfileData = {
@@ -5102,7 +5098,7 @@ export type DeleteAgentProfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteAgentProfileError =
+type DeleteAgentProfileError =
   DeleteAgentProfileErrors[keyof DeleteAgentProfileErrors];
 
 export type DeleteAgentProfileResponses = {
@@ -5112,7 +5108,7 @@ export type DeleteAgentProfileResponses = {
   200: null;
 };
 
-export type DeleteAgentProfileResponse =
+type DeleteAgentProfileResponse =
   DeleteAgentProfileResponses[keyof DeleteAgentProfileResponses];
 
 export type DeleteAgenticEdgesData = {
@@ -5129,7 +5125,7 @@ export type DeleteAgenticEdgesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteAgenticEdgesError =
+type DeleteAgenticEdgesError =
   DeleteAgenticEdgesErrors[keyof DeleteAgenticEdgesErrors];
 
 export type DeleteAgenticEdgesResponses = {
@@ -5139,7 +5135,7 @@ export type DeleteAgenticEdgesResponses = {
   200: null;
 };
 
-export type DeleteAgenticEdgesResponse =
+type DeleteAgenticEdgesResponse =
   DeleteAgenticEdgesResponses[keyof DeleteAgenticEdgesResponses];
 
 export type DeleteArtifactsData = {
@@ -5156,8 +5152,7 @@ export type DeleteArtifactsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteArtifactsError =
-  DeleteArtifactsErrors[keyof DeleteArtifactsErrors];
+type DeleteArtifactsError = DeleteArtifactsErrors[keyof DeleteArtifactsErrors];
 
 export type DeleteArtifactsResponses = {
   /**
@@ -5166,7 +5161,7 @@ export type DeleteArtifactsResponses = {
   200: Array<string> | null;
 };
 
-export type DeleteArtifactsResponse =
+type DeleteArtifactsResponse =
   DeleteArtifactsResponses[keyof DeleteArtifactsResponses];
 
 export type DeleteChildSectionsViaDecrementerData = {
@@ -5183,7 +5178,7 @@ export type DeleteChildSectionsViaDecrementerErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteChildSectionsViaDecrementerError =
+type DeleteChildSectionsViaDecrementerError =
   DeleteChildSectionsViaDecrementerErrors[keyof DeleteChildSectionsViaDecrementerErrors];
 
 export type DeleteChildSectionsViaDecrementerResponses = {
@@ -5193,7 +5188,7 @@ export type DeleteChildSectionsViaDecrementerResponses = {
   200: ProjectstateDeleteSectionsResult;
 };
 
-export type DeleteChildSectionsViaDecrementerResponse =
+type DeleteChildSectionsViaDecrementerResponse =
   DeleteChildSectionsViaDecrementerResponses[keyof DeleteChildSectionsViaDecrementerResponses];
 
 export type DeleteEdgesData = {
@@ -5210,7 +5205,7 @@ export type DeleteEdgesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteEdgesError = DeleteEdgesErrors[keyof DeleteEdgesErrors];
+type DeleteEdgesError = DeleteEdgesErrors[keyof DeleteEdgesErrors];
 
 export type DeleteEdgesResponses = {
   /**
@@ -5219,8 +5214,7 @@ export type DeleteEdgesResponses = {
   200: null;
 };
 
-export type DeleteEdgesResponse =
-  DeleteEdgesResponses[keyof DeleteEdgesResponses];
+type DeleteEdgesResponse = DeleteEdgesResponses[keyof DeleteEdgesResponses];
 
 export type DeleteEngineConfigData = {
   body: HttpapiDeleteEngineConfigRequest;
@@ -5236,7 +5230,7 @@ export type DeleteEngineConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteEngineConfigError =
+type DeleteEngineConfigError =
   DeleteEngineConfigErrors[keyof DeleteEngineConfigErrors];
 
 export type DeleteEngineConfigResponses = {
@@ -5246,7 +5240,7 @@ export type DeleteEngineConfigResponses = {
   200: null;
 };
 
-export type DeleteEngineConfigResponse =
+type DeleteEngineConfigResponse =
   DeleteEngineConfigResponses[keyof DeleteEngineConfigResponses];
 
 export type DeleteExternalAgentConfigData = {
@@ -5263,7 +5257,7 @@ export type DeleteExternalAgentConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteExternalAgentConfigError =
+type DeleteExternalAgentConfigError =
   DeleteExternalAgentConfigErrors[keyof DeleteExternalAgentConfigErrors];
 
 export type DeleteExternalAgentConfigResponses = {
@@ -5273,7 +5267,7 @@ export type DeleteExternalAgentConfigResponses = {
   200: null;
 };
 
-export type DeleteExternalAgentConfigResponse =
+type DeleteExternalAgentConfigResponse =
   DeleteExternalAgentConfigResponses[keyof DeleteExternalAgentConfigResponses];
 
 export type DeleteJsonSourceFileAndVariantData = {
@@ -5290,7 +5284,7 @@ export type DeleteJsonSourceFileAndVariantErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteJsonSourceFileAndVariantError =
+type DeleteJsonSourceFileAndVariantError =
   DeleteJsonSourceFileAndVariantErrors[keyof DeleteJsonSourceFileAndVariantErrors];
 
 export type DeleteJsonSourceFileAndVariantResponses = {
@@ -5300,7 +5294,7 @@ export type DeleteJsonSourceFileAndVariantResponses = {
   200: null;
 };
 
-export type DeleteJsonSourceFileAndVariantResponse =
+type DeleteJsonSourceFileAndVariantResponse =
   DeleteJsonSourceFileAndVariantResponses[keyof DeleteJsonSourceFileAndVariantResponses];
 
 export type DeleteKwargData = {
@@ -5317,7 +5311,7 @@ export type DeleteKwargErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteKwargError = DeleteKwargErrors[keyof DeleteKwargErrors];
+type DeleteKwargError = DeleteKwargErrors[keyof DeleteKwargErrors];
 
 export type DeleteKwargResponses = {
   /**
@@ -5326,8 +5320,7 @@ export type DeleteKwargResponses = {
   200: null;
 };
 
-export type DeleteKwargResponse =
-  DeleteKwargResponses[keyof DeleteKwargResponses];
+type DeleteKwargResponse = DeleteKwargResponses[keyof DeleteKwargResponses];
 
 export type DeleteNotificationData = {
   body: HttpapiDeleteNotificationRequest;
@@ -5343,7 +5336,7 @@ export type DeleteNotificationErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteNotificationError =
+type DeleteNotificationError =
   DeleteNotificationErrors[keyof DeleteNotificationErrors];
 
 export type DeleteNotificationResponses = {
@@ -5353,7 +5346,7 @@ export type DeleteNotificationResponses = {
   200: HttpapiDeleteNotificationResponse;
 };
 
-export type DeleteNotificationResponse =
+type DeleteNotificationResponse =
   DeleteNotificationResponses[keyof DeleteNotificationResponses];
 
 export type DeleteProjectConfigsData = {
@@ -5370,7 +5363,7 @@ export type DeleteProjectConfigsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteProjectConfigsError =
+type DeleteProjectConfigsError =
   DeleteProjectConfigsErrors[keyof DeleteProjectConfigsErrors];
 
 export type DeleteProjectConfigsResponses = {
@@ -5380,7 +5373,7 @@ export type DeleteProjectConfigsResponses = {
   200: boolean;
 };
 
-export type DeleteProjectConfigsResponse =
+type DeleteProjectConfigsResponse =
   DeleteProjectConfigsResponses[keyof DeleteProjectConfigsResponses];
 
 export type DeletePromptTemplateData = {
@@ -5397,7 +5390,7 @@ export type DeletePromptTemplateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeletePromptTemplateError =
+type DeletePromptTemplateError =
   DeletePromptTemplateErrors[keyof DeletePromptTemplateErrors];
 
 export type DeletePromptTemplateResponses = {
@@ -5407,7 +5400,7 @@ export type DeletePromptTemplateResponses = {
   200: null;
 };
 
-export type DeletePromptTemplateResponse =
+type DeletePromptTemplateResponse =
   DeletePromptTemplateResponses[keyof DeletePromptTemplateResponses];
 
 export type DeleteSectionVariantOrAskData = {
@@ -5424,7 +5417,7 @@ export type DeleteSectionVariantOrAskErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteSectionVariantOrAskError =
+type DeleteSectionVariantOrAskError =
   DeleteSectionVariantOrAskErrors[keyof DeleteSectionVariantOrAskErrors];
 
 export type DeleteSectionVariantOrAskResponses = {
@@ -5434,7 +5427,7 @@ export type DeleteSectionVariantOrAskResponses = {
   200: string | null;
 };
 
-export type DeleteSectionVariantOrAskResponse =
+type DeleteSectionVariantOrAskResponse =
   DeleteSectionVariantOrAskResponses[keyof DeleteSectionVariantOrAskResponses];
 
 export type DeleteSectionsData = {
@@ -5451,8 +5444,7 @@ export type DeleteSectionsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteSectionsError =
-  DeleteSectionsErrors[keyof DeleteSectionsErrors];
+type DeleteSectionsError = DeleteSectionsErrors[keyof DeleteSectionsErrors];
 
 export type DeleteSectionsResponses = {
   /**
@@ -5461,7 +5453,7 @@ export type DeleteSectionsResponses = {
   200: null;
 };
 
-export type DeleteSectionsResponse =
+type DeleteSectionsResponse =
   DeleteSectionsResponses[keyof DeleteSectionsResponses];
 
 export type DeleteSelectedParamsData = {
@@ -5478,7 +5470,7 @@ export type DeleteSelectedParamsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteSelectedParamsError =
+type DeleteSelectedParamsError =
   DeleteSelectedParamsErrors[keyof DeleteSelectedParamsErrors];
 
 export type DeleteSelectedParamsResponses = {
@@ -5488,7 +5480,7 @@ export type DeleteSelectedParamsResponses = {
   200: null;
 };
 
-export type DeleteSelectedParamsResponse =
+type DeleteSelectedParamsResponse =
   DeleteSelectedParamsResponses[keyof DeleteSelectedParamsResponses];
 
 export type DeleteStateMachineEdgesData = {
@@ -5505,7 +5497,7 @@ export type DeleteStateMachineEdgesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteStateMachineEdgesError =
+type DeleteStateMachineEdgesError =
   DeleteStateMachineEdgesErrors[keyof DeleteStateMachineEdgesErrors];
 
 export type DeleteStateMachineEdgesResponses = {
@@ -5515,7 +5507,7 @@ export type DeleteStateMachineEdgesResponses = {
   200: null;
 };
 
-export type DeleteStateMachineEdgesResponse =
+type DeleteStateMachineEdgesResponse =
   DeleteStateMachineEdgesResponses[keyof DeleteStateMachineEdgesResponses];
 
 export type DeleteTerminalsData = {
@@ -5532,8 +5524,7 @@ export type DeleteTerminalsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteTerminalsError =
-  DeleteTerminalsErrors[keyof DeleteTerminalsErrors];
+type DeleteTerminalsError = DeleteTerminalsErrors[keyof DeleteTerminalsErrors];
 
 export type DeleteTerminalsResponses = {
   /**
@@ -5542,7 +5533,7 @@ export type DeleteTerminalsResponses = {
   200: null;
 };
 
-export type DeleteTerminalsResponse =
+type DeleteTerminalsResponse =
   DeleteTerminalsResponses[keyof DeleteTerminalsResponses];
 
 export type DeleteTranscriptionProfileData = {
@@ -5559,7 +5550,7 @@ export type DeleteTranscriptionProfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteTranscriptionProfileError =
+type DeleteTranscriptionProfileError =
   DeleteTranscriptionProfileErrors[keyof DeleteTranscriptionProfileErrors];
 
 export type DeleteTranscriptionProfileResponses = {
@@ -5569,7 +5560,7 @@ export type DeleteTranscriptionProfileResponses = {
   200: null;
 };
 
-export type DeleteTranscriptionProfileResponse =
+type DeleteTranscriptionProfileResponse =
   DeleteTranscriptionProfileResponses[keyof DeleteTranscriptionProfileResponses];
 
 export type DeleteViewModeData = {
@@ -5586,8 +5577,7 @@ export type DeleteViewModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteViewModeError =
-  DeleteViewModeErrors[keyof DeleteViewModeErrors];
+type DeleteViewModeError = DeleteViewModeErrors[keyof DeleteViewModeErrors];
 
 export type DeleteViewModeResponses = {
   /**
@@ -5596,7 +5586,7 @@ export type DeleteViewModeResponses = {
   200: HttpapiProjectConfigMutationResponse;
 };
 
-export type DeleteViewModeResponse =
+type DeleteViewModeResponse =
   DeleteViewModeResponses[keyof DeleteViewModeResponses];
 
 export type DeleteWindowSpaceData = {
@@ -5613,7 +5603,7 @@ export type DeleteWindowSpaceErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DeleteWindowSpaceError =
+type DeleteWindowSpaceError =
   DeleteWindowSpaceErrors[keyof DeleteWindowSpaceErrors];
 
 export type DeleteWindowSpaceResponses = {
@@ -5623,7 +5613,7 @@ export type DeleteWindowSpaceResponses = {
   200: HttpapiProjectConfigMutationResponse;
 };
 
-export type DeleteWindowSpaceResponse =
+type DeleteWindowSpaceResponse =
   DeleteWindowSpaceResponses[keyof DeleteWindowSpaceResponses];
 
 export type DocstringToMarkdownData = {
@@ -5640,7 +5630,7 @@ export type DocstringToMarkdownErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DocstringToMarkdownError =
+type DocstringToMarkdownError =
   DocstringToMarkdownErrors[keyof DocstringToMarkdownErrors];
 
 export type DocstringToMarkdownResponses = {
@@ -5650,7 +5640,7 @@ export type DocstringToMarkdownResponses = {
   200: string;
 };
 
-export type DocstringToMarkdownResponse =
+type DocstringToMarkdownResponse =
   DocstringToMarkdownResponses[keyof DocstringToMarkdownResponses];
 
 export type DownloadFileBrowserEntryData = {
@@ -5669,7 +5659,7 @@ export type DownloadFileBrowserEntryErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DownloadFileBrowserEntryError =
+type DownloadFileBrowserEntryError =
   DownloadFileBrowserEntryErrors[keyof DownloadFileBrowserEntryErrors];
 
 export type DownloadFileBrowserEntryResponses = {
@@ -5679,7 +5669,7 @@ export type DownloadFileBrowserEntryResponses = {
   200: Blob | File;
 };
 
-export type DownloadFileBrowserEntryResponse =
+type DownloadFileBrowserEntryResponse =
   DownloadFileBrowserEntryResponses[keyof DownloadFileBrowserEntryResponses];
 
 export type ForceRefreshListenerData = {
@@ -5696,7 +5686,7 @@ export type ForceRefreshListenerErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ForceRefreshListenerError =
+type ForceRefreshListenerError =
   ForceRefreshListenerErrors[keyof ForceRefreshListenerErrors];
 
 export type ForceRefreshListenerResponses = {
@@ -5706,7 +5696,7 @@ export type ForceRefreshListenerResponses = {
   200: null;
 };
 
-export type ForceRefreshListenerResponse =
+type ForceRefreshListenerResponse =
   ForceRefreshListenerResponses[keyof ForceRefreshListenerResponses];
 
 export type FormatCodeData = {
@@ -5723,7 +5713,7 @@ export type FormatCodeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type FormatCodeError = FormatCodeErrors[keyof FormatCodeErrors];
+type FormatCodeError = FormatCodeErrors[keyof FormatCodeErrors];
 
 export type FormatCodeResponses = {
   /**
@@ -5732,7 +5722,7 @@ export type FormatCodeResponses = {
   200: null;
 };
 
-export type FormatCodeResponse = FormatCodeResponses[keyof FormatCodeResponses];
+type FormatCodeResponse = FormatCodeResponses[keyof FormatCodeResponses];
 
 export type GenCodePrefixCompletionData = {
   body: HttpapiGenCodePrefixCompletionRequest;
@@ -5748,7 +5738,7 @@ export type GenCodePrefixCompletionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GenCodePrefixCompletionError =
+type GenCodePrefixCompletionError =
   GenCodePrefixCompletionErrors[keyof GenCodePrefixCompletionErrors];
 
 export type GenCodePrefixCompletionResponses = {
@@ -5758,7 +5748,7 @@ export type GenCodePrefixCompletionResponses = {
   200: Array<LspcompletionCodeMirrorCompletion> | null;
 };
 
-export type GenCodePrefixCompletionResponse =
+type GenCodePrefixCompletionResponse =
   GenCodePrefixCompletionResponses[keyof GenCodePrefixCompletionResponses];
 
 export type GenCodeSuffixCompletionData = {
@@ -5775,7 +5765,7 @@ export type GenCodeSuffixCompletionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GenCodeSuffixCompletionError =
+type GenCodeSuffixCompletionError =
   GenCodeSuffixCompletionErrors[keyof GenCodeSuffixCompletionErrors];
 
 export type GenCodeSuffixCompletionResponses = {
@@ -5785,7 +5775,7 @@ export type GenCodeSuffixCompletionResponses = {
   200: Array<LspcompletionCodeMirrorCompletion> | null;
 };
 
-export type GenCodeSuffixCompletionResponse =
+type GenCodeSuffixCompletionResponse =
   GenCodeSuffixCompletionResponses[keyof GenCodeSuffixCompletionResponses];
 
 export type GetAiFollowSnapshotData = {
@@ -5802,7 +5792,7 @@ export type GetAiFollowSnapshotErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAiFollowSnapshotError =
+type GetAiFollowSnapshotError =
   GetAiFollowSnapshotErrors[keyof GetAiFollowSnapshotErrors];
 
 export type GetAiFollowSnapshotResponses = {
@@ -5812,7 +5802,7 @@ export type GetAiFollowSnapshotResponses = {
   200: Array<RealtimeAiFollowToolArgumentsUpdateContent> | null;
 };
 
-export type GetAiFollowSnapshotResponse =
+type GetAiFollowSnapshotResponse =
   GetAiFollowSnapshotResponses[keyof GetAiFollowSnapshotResponses];
 
 export type GetAgentProfileData = {
@@ -5829,8 +5819,7 @@ export type GetAgentProfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAgentProfileError =
-  GetAgentProfileErrors[keyof GetAgentProfileErrors];
+type GetAgentProfileError = GetAgentProfileErrors[keyof GetAgentProfileErrors];
 
 export type GetAgentProfileResponses = {
   /**
@@ -5839,7 +5828,7 @@ export type GetAgentProfileResponses = {
   200: AgentprofilesProfile;
 };
 
-export type GetAgentProfileResponse =
+type GetAgentProfileResponse =
   GetAgentProfileResponses[keyof GetAgentProfileResponses];
 
 export type GetAgentProfilesData = {
@@ -5856,7 +5845,7 @@ export type GetAgentProfilesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAgentProfilesError =
+type GetAgentProfilesError =
   GetAgentProfilesErrors[keyof GetAgentProfilesErrors];
 
 export type GetAgentProfilesResponses = {
@@ -5866,7 +5855,7 @@ export type GetAgentProfilesResponses = {
   200: Array<AgentprofilesProfile> | null;
 };
 
-export type GetAgentProfilesResponse =
+type GetAgentProfilesResponse =
   GetAgentProfilesResponses[keyof GetAgentProfilesResponses];
 
 export type GetAgentRunData = {
@@ -5883,7 +5872,7 @@ export type GetAgentRunErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAgentRunError = GetAgentRunErrors[keyof GetAgentRunErrors];
+type GetAgentRunError = GetAgentRunErrors[keyof GetAgentRunErrors];
 
 export type GetAgentRunResponses = {
   /**
@@ -5892,8 +5881,7 @@ export type GetAgentRunResponses = {
   200: AgentrunsRun;
 };
 
-export type GetAgentRunResponse =
-  GetAgentRunResponses[keyof GetAgentRunResponses];
+type GetAgentRunResponse = GetAgentRunResponses[keyof GetAgentRunResponses];
 
 export type GetAgentRunsData = {
   body?: never;
@@ -5909,7 +5897,7 @@ export type GetAgentRunsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAgentRunsError = GetAgentRunsErrors[keyof GetAgentRunsErrors];
+type GetAgentRunsError = GetAgentRunsErrors[keyof GetAgentRunsErrors];
 
 export type GetAgentRunsResponses = {
   /**
@@ -5918,8 +5906,7 @@ export type GetAgentRunsResponses = {
   200: Array<AgentrunsRun> | null;
 };
 
-export type GetAgentRunsResponse =
-  GetAgentRunsResponses[keyof GetAgentRunsResponses];
+type GetAgentRunsResponse = GetAgentRunsResponses[keyof GetAgentRunsResponses];
 
 export type GetAgenticSummaryCacheStatusData = {
   body: HttpapiGetAgenticSummaryCacheStatusRequest;
@@ -5935,7 +5922,7 @@ export type GetAgenticSummaryCacheStatusErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAgenticSummaryCacheStatusError =
+type GetAgenticSummaryCacheStatusError =
   GetAgenticSummaryCacheStatusErrors[keyof GetAgenticSummaryCacheStatusErrors];
 
 export type GetAgenticSummaryCacheStatusResponses = {
@@ -5945,7 +5932,7 @@ export type GetAgenticSummaryCacheStatusResponses = {
   200: AgenticsummarycacheAgenticSummaryCacheStatus;
 };
 
-export type GetAgenticSummaryCacheStatusResponse =
+type GetAgenticSummaryCacheStatusResponse =
   GetAgenticSummaryCacheStatusResponses[keyof GetAgenticSummaryCacheStatusResponses];
 
 export type GetAppCatalogData = {
@@ -5962,7 +5949,7 @@ export type GetAppCatalogErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAppCatalogError = GetAppCatalogErrors[keyof GetAppCatalogErrors];
+type GetAppCatalogError = GetAppCatalogErrors[keyof GetAppCatalogErrors];
 
 export type GetAppCatalogResponses = {
   /**
@@ -5971,7 +5958,7 @@ export type GetAppCatalogResponses = {
   200: AppsubsystemAppdefinitionhttpAppCatalogResponse;
 };
 
-export type GetAppCatalogResponse =
+type GetAppCatalogResponse =
   GetAppCatalogResponses[keyof GetAppCatalogResponses];
 
 export type GetAppDefinitionData = {
@@ -5988,7 +5975,7 @@ export type GetAppDefinitionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAppDefinitionError =
+type GetAppDefinitionError =
   GetAppDefinitionErrors[keyof GetAppDefinitionErrors];
 
 export type GetAppDefinitionResponses = {
@@ -5998,7 +5985,7 @@ export type GetAppDefinitionResponses = {
   200: AppsubsystemAppdefinitionReadResult;
 };
 
-export type GetAppDefinitionResponse =
+type GetAppDefinitionResponse =
   GetAppDefinitionResponses[keyof GetAppDefinitionResponses];
 
 export type GetAppGenSkillContentData = {
@@ -6015,7 +6002,7 @@ export type GetAppGenSkillContentErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAppGenSkillContentError =
+type GetAppGenSkillContentError =
   GetAppGenSkillContentErrors[keyof GetAppGenSkillContentErrors];
 
 export type GetAppGenSkillContentResponses = {
@@ -6025,7 +6012,7 @@ export type GetAppGenSkillContentResponses = {
   200: AppgenskillsSkillContent;
 };
 
-export type GetAppGenSkillContentResponse =
+type GetAppGenSkillContentResponse =
   GetAppGenSkillContentResponses[keyof GetAppGenSkillContentResponses];
 
 export type GetAppGenSkillsData = {
@@ -6042,8 +6029,7 @@ export type GetAppGenSkillsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAppGenSkillsError =
-  GetAppGenSkillsErrors[keyof GetAppGenSkillsErrors];
+type GetAppGenSkillsError = GetAppGenSkillsErrors[keyof GetAppGenSkillsErrors];
 
 export type GetAppGenSkillsResponses = {
   /**
@@ -6052,7 +6038,7 @@ export type GetAppGenSkillsResponses = {
   200: AppgenskillsGetSkillsResponse;
 };
 
-export type GetAppGenSkillsResponse =
+type GetAppGenSkillsResponse =
   GetAppGenSkillsResponses[keyof GetAppGenSkillsResponses];
 
 export type GetAttachmentDownloadUrlData = {
@@ -6069,7 +6055,7 @@ export type GetAttachmentDownloadUrlErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAttachmentDownloadUrlError =
+type GetAttachmentDownloadUrlError =
   GetAttachmentDownloadUrlErrors[keyof GetAttachmentDownloadUrlErrors];
 
 export type GetAttachmentDownloadUrlResponses = {
@@ -6079,7 +6065,7 @@ export type GetAttachmentDownloadUrlResponses = {
   200: HttpapiGetAttachmentDownloadUrlResponse;
 };
 
-export type GetAttachmentDownloadUrlResponse =
+type GetAttachmentDownloadUrlResponse =
   GetAttachmentDownloadUrlResponses[keyof GetAttachmentDownloadUrlResponses];
 
 export type GetAttachmentDownloadUrlsData = {
@@ -6096,7 +6082,7 @@ export type GetAttachmentDownloadUrlsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetAttachmentDownloadUrlsError =
+type GetAttachmentDownloadUrlsError =
   GetAttachmentDownloadUrlsErrors[keyof GetAttachmentDownloadUrlsErrors];
 
 export type GetAttachmentDownloadUrlsResponses = {
@@ -6106,7 +6092,7 @@ export type GetAttachmentDownloadUrlsResponses = {
   200: Array<HttpapiAttachmentDownloadUrlEntry> | null;
 };
 
-export type GetAttachmentDownloadUrlsResponse =
+type GetAttachmentDownloadUrlsResponse =
   GetAttachmentDownloadUrlsResponses[keyof GetAttachmentDownloadUrlsResponses];
 
 export type GetChatSectionChatIdData = {
@@ -6123,7 +6109,7 @@ export type GetChatSectionChatIdErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetChatSectionChatIdError =
+type GetChatSectionChatIdError =
   GetChatSectionChatIdErrors[keyof GetChatSectionChatIdErrors];
 
 export type GetChatSectionChatIdResponses = {
@@ -6133,7 +6119,7 @@ export type GetChatSectionChatIdResponses = {
   200: string;
 };
 
-export type GetChatSectionChatIdResponse =
+type GetChatSectionChatIdResponse =
   GetChatSectionChatIdResponses[keyof GetChatSectionChatIdResponses];
 
 export type GetEngineConfigData = {
@@ -6150,8 +6136,7 @@ export type GetEngineConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetEngineConfigError =
-  GetEngineConfigErrors[keyof GetEngineConfigErrors];
+type GetEngineConfigError = GetEngineConfigErrors[keyof GetEngineConfigErrors];
 
 export type GetEngineConfigResponses = {
   /**
@@ -6160,7 +6145,7 @@ export type GetEngineConfigResponses = {
   200: AgentrunsEngineConfig;
 };
 
-export type GetEngineConfigResponse =
+type GetEngineConfigResponse =
   GetEngineConfigResponses[keyof GetEngineConfigResponses];
 
 export type GetEngineConfigsData = {
@@ -6177,7 +6162,7 @@ export type GetEngineConfigsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetEngineConfigsError =
+type GetEngineConfigsError =
   GetEngineConfigsErrors[keyof GetEngineConfigsErrors];
 
 export type GetEngineConfigsResponses = {
@@ -6187,7 +6172,7 @@ export type GetEngineConfigsResponses = {
   200: Array<AgentrunsEngineConfig> | null;
 };
 
-export type GetEngineConfigsResponse =
+type GetEngineConfigsResponse =
   GetEngineConfigsResponses[keyof GetEngineConfigsResponses];
 
 export type GetExternalAgentChatData = {
@@ -6204,7 +6189,7 @@ export type GetExternalAgentChatErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetExternalAgentChatError =
+type GetExternalAgentChatError =
   GetExternalAgentChatErrors[keyof GetExternalAgentChatErrors];
 
 export type GetExternalAgentChatResponses = {
@@ -6214,7 +6199,7 @@ export type GetExternalAgentChatResponses = {
   200: HttpapiExternalAgentChatResponse;
 };
 
-export type GetExternalAgentChatResponse =
+type GetExternalAgentChatResponse =
   GetExternalAgentChatResponses[keyof GetExternalAgentChatResponses];
 
 export type GetExternalAgentConfigData = {
@@ -6231,7 +6216,7 @@ export type GetExternalAgentConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetExternalAgentConfigError =
+type GetExternalAgentConfigError =
   GetExternalAgentConfigErrors[keyof GetExternalAgentConfigErrors];
 
 export type GetExternalAgentConfigResponses = {
@@ -6241,7 +6226,7 @@ export type GetExternalAgentConfigResponses = {
   200: ExternalagentconfigsConfig;
 };
 
-export type GetExternalAgentConfigResponse =
+type GetExternalAgentConfigResponse =
   GetExternalAgentConfigResponses[keyof GetExternalAgentConfigResponses];
 
 export type GetExternalAgentConfigsData = {
@@ -6258,7 +6243,7 @@ export type GetExternalAgentConfigsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetExternalAgentConfigsError =
+type GetExternalAgentConfigsError =
   GetExternalAgentConfigsErrors[keyof GetExternalAgentConfigsErrors];
 
 export type GetExternalAgentConfigsResponses = {
@@ -6268,7 +6253,7 @@ export type GetExternalAgentConfigsResponses = {
   200: Array<ExternalagentconfigsConfig> | null;
 };
 
-export type GetExternalAgentConfigsResponse =
+type GetExternalAgentConfigsResponse =
   GetExternalAgentConfigsResponses[keyof GetExternalAgentConfigsResponses];
 
 export type GetExternalAgentHealthData = {
@@ -6285,7 +6270,7 @@ export type GetExternalAgentHealthErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetExternalAgentHealthError =
+type GetExternalAgentHealthError =
   GetExternalAgentHealthErrors[keyof GetExternalAgentHealthErrors];
 
 export type GetExternalAgentHealthResponses = {
@@ -6295,7 +6280,7 @@ export type GetExternalAgentHealthResponses = {
   200: Array<HttpapiExternalAgentPreflightStatus> | null;
 };
 
-export type GetExternalAgentHealthResponse =
+type GetExternalAgentHealthResponse =
   GetExternalAgentHealthResponses[keyof GetExternalAgentHealthResponses];
 
 export type GetFileBrowserDownloadUrlsData = {
@@ -6312,7 +6297,7 @@ export type GetFileBrowserDownloadUrlsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetFileBrowserDownloadUrlsError =
+type GetFileBrowserDownloadUrlsError =
   GetFileBrowserDownloadUrlsErrors[keyof GetFileBrowserDownloadUrlsErrors];
 
 export type GetFileBrowserDownloadUrlsResponses = {
@@ -6322,7 +6307,7 @@ export type GetFileBrowserDownloadUrlsResponses = {
   200: Array<FilebrowserFileBrowserDownloadUrlEntry> | null;
 };
 
-export type GetFileBrowserDownloadUrlsResponse =
+type GetFileBrowserDownloadUrlsResponse =
   GetFileBrowserDownloadUrlsResponses[keyof GetFileBrowserDownloadUrlsResponses];
 
 export type GetFileBrowserFileContentData = {
@@ -6339,7 +6324,7 @@ export type GetFileBrowserFileContentErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetFileBrowserFileContentError =
+type GetFileBrowserFileContentError =
   GetFileBrowserFileContentErrors[keyof GetFileBrowserFileContentErrors];
 
 export type GetFileBrowserFileContentResponses = {
@@ -6349,7 +6334,7 @@ export type GetFileBrowserFileContentResponses = {
   200: FilebrowserFileContentResponse;
 };
 
-export type GetFileBrowserFileContentResponse =
+type GetFileBrowserFileContentResponse =
   GetFileBrowserFileContentResponses[keyof GetFileBrowserFileContentResponses];
 
 export type GetFileBrowserFileStatData = {
@@ -6366,7 +6351,7 @@ export type GetFileBrowserFileStatErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetFileBrowserFileStatError =
+type GetFileBrowserFileStatError =
   GetFileBrowserFileStatErrors[keyof GetFileBrowserFileStatErrors];
 
 export type GetFileBrowserFileStatResponses = {
@@ -6376,7 +6361,7 @@ export type GetFileBrowserFileStatResponses = {
   200: FilebrowserFileStatResponse;
 };
 
-export type GetFileBrowserFileStatResponse =
+type GetFileBrowserFileStatResponse =
   GetFileBrowserFileStatResponses[keyof GetFileBrowserFileStatResponses];
 
 export type GetFileBrowserRootData = {
@@ -6393,7 +6378,7 @@ export type GetFileBrowserRootErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetFileBrowserRootError =
+type GetFileBrowserRootError =
   GetFileBrowserRootErrors[keyof GetFileBrowserRootErrors];
 
 export type GetFileBrowserRootResponses = {
@@ -6403,7 +6388,7 @@ export type GetFileBrowserRootResponses = {
   200: FilebrowserRootResponse;
 };
 
-export type GetFileBrowserRootResponse =
+type GetFileBrowserRootResponse =
   GetFileBrowserRootResponses[keyof GetFileBrowserRootResponses];
 
 export type GetFolderContentsData = {
@@ -6420,7 +6405,7 @@ export type GetFolderContentsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetFolderContentsError =
+type GetFolderContentsError =
   GetFolderContentsErrors[keyof GetFolderContentsErrors];
 
 export type GetFolderContentsResponses = {
@@ -6430,7 +6415,7 @@ export type GetFolderContentsResponses = {
   200: FilebrowserListFolderResponse;
 };
 
-export type GetFolderContentsResponse =
+type GetFolderContentsResponse =
   GetFolderContentsResponses[keyof GetFolderContentsResponses];
 
 export type GetLlmChatData = {
@@ -6447,7 +6432,7 @@ export type GetLlmChatErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLlmChatError = GetLlmChatErrors[keyof GetLlmChatErrors];
+type GetLlmChatError = GetLlmChatErrors[keyof GetLlmChatErrors];
 
 export type GetLlmChatResponses = {
   /**
@@ -6456,7 +6441,7 @@ export type GetLlmChatResponses = {
   200: HttpapiLlmChatResponse;
 };
 
-export type GetLlmChatResponse = GetLlmChatResponses[keyof GetLlmChatResponses];
+type GetLlmChatResponse = GetLlmChatResponses[keyof GetLlmChatResponses];
 
 export type GetLlmResponseData = {
   body: HttpapiGetLlmResponseRequest;
@@ -6472,8 +6457,7 @@ export type GetLlmResponseErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLlmResponseError =
-  GetLlmResponseErrors[keyof GetLlmResponseErrors];
+type GetLlmResponseError = GetLlmResponseErrors[keyof GetLlmResponseErrors];
 
 export type GetLlmResponseResponses = {
   /**
@@ -6482,7 +6466,7 @@ export type GetLlmResponseResponses = {
   200: string;
 };
 
-export type GetLlmResponseResponse =
+type GetLlmResponseResponse =
   GetLlmResponseResponses[keyof GetLlmResponseResponses];
 
 export type GetLatestLspDiagnosticsData = {
@@ -6499,7 +6483,7 @@ export type GetLatestLspDiagnosticsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLatestLspDiagnosticsError =
+type GetLatestLspDiagnosticsError =
   GetLatestLspDiagnosticsErrors[keyof GetLatestLspDiagnosticsErrors];
 
 export type GetLatestLspDiagnosticsResponses = {
@@ -6509,7 +6493,7 @@ export type GetLatestLspDiagnosticsResponses = {
   200: ProjectstateLspDiagnosticsPayload;
 };
 
-export type GetLatestLspDiagnosticsResponse =
+type GetLatestLspDiagnosticsResponse =
   GetLatestLspDiagnosticsResponses[keyof GetLatestLspDiagnosticsResponses];
 
 export type GetLatestProjectStateData = {
@@ -6526,7 +6510,7 @@ export type GetLatestProjectStateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLatestProjectStateError =
+type GetLatestProjectStateError =
   GetLatestProjectStateErrors[keyof GetLatestProjectStateErrors];
 
 export type GetLatestProjectStateResponses = {
@@ -6553,7 +6537,7 @@ export type GetListenerCoverageErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetListenerCoverageError =
+type GetListenerCoverageError =
   GetListenerCoverageErrors[keyof GetListenerCoverageErrors];
 
 export type GetListenerCoverageResponses = {
@@ -6563,7 +6547,7 @@ export type GetListenerCoverageResponses = {
   200: RealtimeListenerCoverageSnapshot;
 };
 
-export type GetListenerCoverageResponse =
+type GetListenerCoverageResponse =
   GetListenerCoverageResponses[keyof GetListenerCoverageResponses];
 
 export type GetNotificationsData = {
@@ -6580,7 +6564,7 @@ export type GetNotificationsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetNotificationsError =
+type GetNotificationsError =
   GetNotificationsErrors[keyof GetNotificationsErrors];
 
 export type GetNotificationsResponses = {
@@ -6590,7 +6574,7 @@ export type GetNotificationsResponses = {
   200: Array<NotificationsNotification> | null;
 };
 
-export type GetNotificationsResponse =
+type GetNotificationsResponse =
   GetNotificationsResponses[keyof GetNotificationsResponses];
 
 export type GetPasswordParamValueData = {
@@ -6607,7 +6591,7 @@ export type GetPasswordParamValueErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetPasswordParamValueError =
+type GetPasswordParamValueError =
   GetPasswordParamValueErrors[keyof GetPasswordParamValueErrors];
 
 export type GetPasswordParamValueResponses = {
@@ -6617,7 +6601,7 @@ export type GetPasswordParamValueResponses = {
   200: HttpapiGetPasswordParamValueResponse;
 };
 
-export type GetPasswordParamValueResponse =
+type GetPasswordParamValueResponse =
   GetPasswordParamValueResponses[keyof GetPasswordParamValueResponses];
 
 export type GetPromptTemplateData = {
@@ -6634,7 +6618,7 @@ export type GetPromptTemplateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetPromptTemplateError =
+type GetPromptTemplateError =
   GetPromptTemplateErrors[keyof GetPromptTemplateErrors];
 
 export type GetPromptTemplateResponses = {
@@ -6644,7 +6628,7 @@ export type GetPromptTemplateResponses = {
   200: PrompttemplatesTemplate;
 };
 
-export type GetPromptTemplateResponse =
+type GetPromptTemplateResponse =
   GetPromptTemplateResponses[keyof GetPromptTemplateResponses];
 
 export type GetPromptTemplatesData = {
@@ -6661,7 +6645,7 @@ export type GetPromptTemplatesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetPromptTemplatesError =
+type GetPromptTemplatesError =
   GetPromptTemplatesErrors[keyof GetPromptTemplatesErrors];
 
 export type GetPromptTemplatesResponses = {
@@ -6671,7 +6655,7 @@ export type GetPromptTemplatesResponses = {
   200: Array<PrompttemplatesTemplate> | null;
 };
 
-export type GetPromptTemplatesResponse =
+type GetPromptTemplatesResponse =
   GetPromptTemplatesResponses[keyof GetPromptTemplatesResponses];
 
 export type GetRunStatusData = {
@@ -6688,7 +6672,7 @@ export type GetRunStatusErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetRunStatusError = GetRunStatusErrors[keyof GetRunStatusErrors];
+type GetRunStatusError = GetRunStatusErrors[keyof GetRunStatusErrors];
 
 export type GetRunStatusResponses = {
   /**
@@ -6697,8 +6681,7 @@ export type GetRunStatusResponses = {
   200: DetachedrunsRun;
 };
 
-export type GetRunStatusResponse =
-  GetRunStatusResponses[keyof GetRunStatusResponses];
+type GetRunStatusResponse = GetRunStatusResponses[keyof GetRunStatusResponses];
 
 export type GetRunnerSummaryData = {
   body: HttpapiGetRunnerSummaryRequest;
@@ -6714,7 +6697,7 @@ export type GetRunnerSummaryErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetRunnerSummaryError =
+type GetRunnerSummaryError =
   GetRunnerSummaryErrors[keyof GetRunnerSummaryErrors];
 
 export type GetRunnerSummaryResponses = {
@@ -6724,7 +6707,7 @@ export type GetRunnerSummaryResponses = {
   200: PythonsdkcontractsRunnerSummarySnapshot;
 };
 
-export type GetRunnerSummaryResponse =
+type GetRunnerSummaryResponse =
   GetRunnerSummaryResponses[keyof GetRunnerSummaryResponses];
 
 export type GetStateMachineRunData = {
@@ -6741,7 +6724,7 @@ export type GetStateMachineRunErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetStateMachineRunError =
+type GetStateMachineRunError =
   GetStateMachineRunErrors[keyof GetStateMachineRunErrors];
 
 export type GetStateMachineRunResponses = {
@@ -6751,7 +6734,7 @@ export type GetStateMachineRunResponses = {
   200: AgentrunsRun;
 };
 
-export type GetStateMachineRunResponse =
+type GetStateMachineRunResponse =
   GetStateMachineRunResponses[keyof GetStateMachineRunResponses];
 
 export type GetTranscriptionProfilesData = {
@@ -6768,7 +6751,7 @@ export type GetTranscriptionProfilesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetTranscriptionProfilesError =
+type GetTranscriptionProfilesError =
   GetTranscriptionProfilesErrors[keyof GetTranscriptionProfilesErrors];
 
 export type GetTranscriptionProfilesResponses = {
@@ -6778,7 +6761,7 @@ export type GetTranscriptionProfilesResponses = {
   200: Array<TranscriptionprofilesProfile> | null;
 };
 
-export type GetTranscriptionProfilesResponse =
+type GetTranscriptionProfilesResponse =
   GetTranscriptionProfilesResponses[keyof GetTranscriptionProfilesResponses];
 
 export type GetWorkspacePythonSignalData = {
@@ -6795,7 +6778,7 @@ export type GetWorkspacePythonSignalErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetWorkspacePythonSignalError =
+type GetWorkspacePythonSignalError =
   GetWorkspacePythonSignalErrors[keyof GetWorkspacePythonSignalErrors];
 
 export type GetWorkspacePythonSignalResponses = {
@@ -6805,7 +6788,7 @@ export type GetWorkspacePythonSignalResponses = {
   200: FilebrowserWorkspacePythonSignalResponse;
 };
 
-export type GetWorkspacePythonSignalResponse =
+type GetWorkspacePythonSignalResponse =
   GetWorkspacePythonSignalResponses[keyof GetWorkspacePythonSignalResponses];
 
 export type GetGitCommitDetailsData = {
@@ -6822,7 +6805,7 @@ export type GetGitCommitDetailsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetGitCommitDetailsError =
+type GetGitCommitDetailsError =
   GetGitCommitDetailsErrors[keyof GetGitCommitDetailsErrors];
 
 export type GetGitCommitDetailsResponses = {
@@ -6832,7 +6815,7 @@ export type GetGitCommitDetailsResponses = {
   200: GitreadCommitDetailsResponse;
 };
 
-export type GetGitCommitDetailsResponse =
+type GetGitCommitDetailsResponse =
   GetGitCommitDetailsResponses[keyof GetGitCommitDetailsResponses];
 
 export type GetGitCommitFileDiffData = {
@@ -6849,7 +6832,7 @@ export type GetGitCommitFileDiffErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetGitCommitFileDiffError =
+type GetGitCommitFileDiffError =
   GetGitCommitFileDiffErrors[keyof GetGitCommitFileDiffErrors];
 
 export type GetGitCommitFileDiffResponses = {
@@ -6859,7 +6842,7 @@ export type GetGitCommitFileDiffResponses = {
   200: GitreadCommitFileDiffResponse;
 };
 
-export type GetGitCommitFileDiffResponse =
+type GetGitCommitFileDiffResponse =
   GetGitCommitFileDiffResponses[keyof GetGitCommitFileDiffResponses];
 
 export type GetGitDiffData = {
@@ -6876,7 +6859,7 @@ export type GetGitDiffErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetGitDiffError = GetGitDiffErrors[keyof GetGitDiffErrors];
+type GetGitDiffError = GetGitDiffErrors[keyof GetGitDiffErrors];
 
 export type GetGitDiffResponses = {
   /**
@@ -6885,7 +6868,7 @@ export type GetGitDiffResponses = {
   200: GitreadDiffResponse;
 };
 
-export type GetGitDiffResponse = GetGitDiffResponses[keyof GetGitDiffResponses];
+type GetGitDiffResponse = GetGitDiffResponses[keyof GetGitDiffResponses];
 
 export type GetGitLogData = {
   body: GitreadLogRequest;
@@ -6901,7 +6884,7 @@ export type GetGitLogErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetGitLogError = GetGitLogErrors[keyof GetGitLogErrors];
+type GetGitLogError = GetGitLogErrors[keyof GetGitLogErrors];
 
 export type GetGitLogResponses = {
   /**
@@ -6910,7 +6893,7 @@ export type GetGitLogResponses = {
   200: GitreadLogResponse;
 };
 
-export type GetGitLogResponse = GetGitLogResponses[keyof GetGitLogResponses];
+type GetGitLogResponse = GetGitLogResponses[keyof GetGitLogResponses];
 
 export type GetGitStatusData = {
   body?: never;
@@ -6926,7 +6909,7 @@ export type GetGitStatusErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetGitStatusError = GetGitStatusErrors[keyof GetGitStatusErrors];
+type GetGitStatusError = GetGitStatusErrors[keyof GetGitStatusErrors];
 
 export type GetGitStatusResponses = {
   /**
@@ -6935,8 +6918,7 @@ export type GetGitStatusResponses = {
   200: GitreadStatusResponse;
 };
 
-export type GetGitStatusResponse =
-  GetGitStatusResponses[keyof GetGitStatusResponses];
+type GetGitStatusResponse = GetGitStatusResponses[keyof GetGitStatusResponses];
 
 export type GroupSectionsData = {
   body: HttpapiGroupSectionsRequest;
@@ -6952,7 +6934,7 @@ export type GroupSectionsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GroupSectionsError = GroupSectionsErrors[keyof GroupSectionsErrors];
+type GroupSectionsError = GroupSectionsErrors[keyof GroupSectionsErrors];
 
 export type GroupSectionsResponses = {
   /**
@@ -6961,7 +6943,7 @@ export type GroupSectionsResponses = {
   200: null;
 };
 
-export type GroupSectionsResponse =
+type GroupSectionsResponse =
   GroupSectionsResponses[keyof GroupSectionsResponses];
 
 export type ImportFilesToArtifactsData = {
@@ -6978,7 +6960,7 @@ export type ImportFilesToArtifactsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ImportFilesToArtifactsError =
+type ImportFilesToArtifactsError =
   ImportFilesToArtifactsErrors[keyof ImportFilesToArtifactsErrors];
 
 export type ImportFilesToArtifactsResponses = {
@@ -6988,7 +6970,7 @@ export type ImportFilesToArtifactsResponses = {
   200: Array<ArtifactsImportFilesResponseItem> | null;
 };
 
-export type ImportFilesToArtifactsResponse =
+type ImportFilesToArtifactsResponse =
   ImportFilesToArtifactsResponses[keyof ImportFilesToArtifactsResponses];
 
 export type IndentParamsData = {
@@ -7005,7 +6987,7 @@ export type IndentParamsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type IndentParamsError = IndentParamsErrors[keyof IndentParamsErrors];
+type IndentParamsError = IndentParamsErrors[keyof IndentParamsErrors];
 
 export type IndentParamsResponses = {
   /**
@@ -7014,8 +6996,7 @@ export type IndentParamsResponses = {
   200: null;
 };
 
-export type IndentParamsResponse =
-  IndentParamsResponses[keyof IndentParamsResponses];
+type IndentParamsResponse = IndentParamsResponses[keyof IndentParamsResponses];
 
 export type InterruptTerminalProcessesData = {
   body: HttpapiInterruptTerminalProcessesRequest;
@@ -7031,7 +7012,7 @@ export type InterruptTerminalProcessesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type InterruptTerminalProcessesError =
+type InterruptTerminalProcessesError =
   InterruptTerminalProcessesErrors[keyof InterruptTerminalProcessesErrors];
 
 export type InterruptTerminalProcessesResponses = {
@@ -7041,7 +7022,7 @@ export type InterruptTerminalProcessesResponses = {
   200: HttpapiInterruptTerminalProcessesResponse;
 };
 
-export type InterruptTerminalProcessesResponse =
+type InterruptTerminalProcessesResponse =
   InterruptTerminalProcessesResponses[keyof InterruptTerminalProcessesResponses];
 
 export type LaunchWorkspaceData = {
@@ -7058,8 +7039,7 @@ export type LaunchWorkspaceErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LaunchWorkspaceError =
-  LaunchWorkspaceErrors[keyof LaunchWorkspaceErrors];
+type LaunchWorkspaceError = LaunchWorkspaceErrors[keyof LaunchWorkspaceErrors];
 
 export type LaunchWorkspaceResponses = {
   /**
@@ -7068,7 +7048,7 @@ export type LaunchWorkspaceResponses = {
   200: HttpapiLaunchResponse;
 };
 
-export type LaunchWorkspaceResponse =
+type LaunchWorkspaceResponse =
   LaunchWorkspaceResponses[keyof LaunchWorkspaceResponses];
 
 export type GetLauncherFilesystemRootsData = {
@@ -7085,7 +7065,7 @@ export type GetLauncherFilesystemRootsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLauncherFilesystemRootsError =
+type GetLauncherFilesystemRootsError =
   GetLauncherFilesystemRootsErrors[keyof GetLauncherFilesystemRootsErrors];
 
 export type GetLauncherFilesystemRootsResponses = {
@@ -7114,7 +7094,7 @@ export type GetLauncherRecentWorkspacesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLauncherRecentWorkspacesError =
+type GetLauncherRecentWorkspacesError =
   GetLauncherRecentWorkspacesErrors[keyof GetLauncherRecentWorkspacesErrors];
 
 export type GetLauncherRecentWorkspacesResponses = {
@@ -7143,7 +7123,7 @@ export type GetLauncherStatusErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLauncherStatusError =
+type GetLauncherStatusError =
   GetLauncherStatusErrors[keyof GetLauncherStatusErrors];
 
 export type GetLauncherStatusResponses = {
@@ -7170,7 +7150,7 @@ export type ListLauncherDirectoryErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ListLauncherDirectoryError =
+type ListLauncherDirectoryError =
   ListLauncherDirectoryErrors[keyof ListLauncherDirectoryErrors];
 
 export type ListLauncherDirectoryResponses = {
@@ -7197,7 +7177,7 @@ export type GetLlmApiKeysErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLlmApiKeysError = GetLlmApiKeysErrors[keyof GetLlmApiKeysErrors];
+type GetLlmApiKeysError = GetLlmApiKeysErrors[keyof GetLlmApiKeysErrors];
 
 export type GetLlmApiKeysResponses = {
   /**
@@ -7206,7 +7186,7 @@ export type GetLlmApiKeysResponses = {
   200: HttpapiLlmapiKeysSnapshot;
 };
 
-export type GetLlmApiKeysResponse =
+type GetLlmApiKeysResponse =
   GetLlmApiKeysResponses[keyof GetLlmApiKeysResponses];
 
 export type SetLlmApiKeysData = {
@@ -7223,7 +7203,7 @@ export type SetLlmApiKeysErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetLlmApiKeysError = SetLlmApiKeysErrors[keyof SetLlmApiKeysErrors];
+type SetLlmApiKeysError = SetLlmApiKeysErrors[keyof SetLlmApiKeysErrors];
 
 export type SetLlmApiKeysResponses = {
   /**
@@ -7232,7 +7212,7 @@ export type SetLlmApiKeysResponses = {
   200: HttpapiLlmapiKeysSnapshot;
 };
 
-export type SetLlmApiKeysResponse =
+type SetLlmApiKeysResponse =
   SetLlmApiKeysResponses[keyof SetLlmApiKeysResponses];
 
 export type GetLlmConfigData = {
@@ -7249,7 +7229,7 @@ export type GetLlmConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetLlmConfigError = GetLlmConfigErrors[keyof GetLlmConfigErrors];
+type GetLlmConfigError = GetLlmConfigErrors[keyof GetLlmConfigErrors];
 
 export type GetLlmConfigResponses = {
   /**
@@ -7258,8 +7238,7 @@ export type GetLlmConfigResponses = {
   200: LlmconfigAllConfigs;
 };
 
-export type GetLlmConfigResponse =
-  GetLlmConfigResponses[keyof GetLlmConfigResponses];
+type GetLlmConfigResponse = GetLlmConfigResponses[keyof GetLlmConfigResponses];
 
 export type SetLlmConfigData = {
   body: LlmconfigAllConfigs;
@@ -7275,7 +7254,7 @@ export type SetLlmConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetLlmConfigError = SetLlmConfigErrors[keyof SetLlmConfigErrors];
+type SetLlmConfigError = SetLlmConfigErrors[keyof SetLlmConfigErrors];
 
 export type SetLlmConfigResponses = {
   /**
@@ -7284,8 +7263,7 @@ export type SetLlmConfigResponses = {
   200: LlmconfigAllConfigs;
 };
 
-export type SetLlmConfigResponse =
-  SetLlmConfigResponses[keyof SetLlmConfigResponses];
+type SetLlmConfigResponse = SetLlmConfigResponses[keyof SetLlmConfigResponses];
 
 export type LoadAllProjectMetadataData = {
   body?: never;
@@ -7301,7 +7279,7 @@ export type LoadAllProjectMetadataErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LoadAllProjectMetadataError =
+type LoadAllProjectMetadataError =
   LoadAllProjectMetadataErrors[keyof LoadAllProjectMetadataErrors];
 
 export type LoadAllProjectMetadataResponses = {
@@ -7311,7 +7289,7 @@ export type LoadAllProjectMetadataResponses = {
   200: ProjectshellAllProjectMetadata;
 };
 
-export type LoadAllProjectMetadataResponse =
+type LoadAllProjectMetadataResponse =
   LoadAllProjectMetadataResponses[keyof LoadAllProjectMetadataResponses];
 
 export type LoadCachedBrushStrokesData = {
@@ -7328,7 +7306,7 @@ export type LoadCachedBrushStrokesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LoadCachedBrushStrokesError =
+type LoadCachedBrushStrokesError =
   LoadCachedBrushStrokesErrors[keyof LoadCachedBrushStrokesErrors];
 
 export type LoadCachedBrushStrokesResponses = {
@@ -7338,7 +7316,7 @@ export type LoadCachedBrushStrokesResponses = {
   200: Array<ArtifactsJsonArtifact> | null;
 };
 
-export type LoadCachedBrushStrokesResponse =
+type LoadCachedBrushStrokesResponse =
   LoadCachedBrushStrokesResponses[keyof LoadCachedBrushStrokesResponses];
 
 export type LoadCachedChartDataData = {
@@ -7355,7 +7333,7 @@ export type LoadCachedChartDataErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LoadCachedChartDataError =
+type LoadCachedChartDataError =
   LoadCachedChartDataErrors[keyof LoadCachedChartDataErrors];
 
 export type LoadCachedChartDataResponses = {
@@ -7365,7 +7343,7 @@ export type LoadCachedChartDataResponses = {
   200: Array<ArtifactsChartDataArtifact> | null;
 };
 
-export type LoadCachedChartDataResponse =
+type LoadCachedChartDataResponse =
   LoadCachedChartDataResponses[keyof LoadCachedChartDataResponses];
 
 export type LoadCachedImageArtifactsData = {
@@ -7382,7 +7360,7 @@ export type LoadCachedImageArtifactsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LoadCachedImageArtifactsError =
+type LoadCachedImageArtifactsError =
   LoadCachedImageArtifactsErrors[keyof LoadCachedImageArtifactsErrors];
 
 export type LoadCachedImageArtifactsResponses = {
@@ -7392,7 +7370,7 @@ export type LoadCachedImageArtifactsResponses = {
   200: Array<ArtifactsImageArtifact> | null;
 };
 
-export type LoadCachedImageArtifactsResponse =
+type LoadCachedImageArtifactsResponse =
   LoadCachedImageArtifactsResponses[keyof LoadCachedImageArtifactsResponses];
 
 export type LoadCachedDrawAreaLayerItemTransformData = {
@@ -7409,7 +7387,7 @@ export type LoadCachedDrawAreaLayerItemTransformErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LoadCachedDrawAreaLayerItemTransformError =
+type LoadCachedDrawAreaLayerItemTransformError =
   LoadCachedDrawAreaLayerItemTransformErrors[keyof LoadCachedDrawAreaLayerItemTransformErrors];
 
 export type LoadCachedDrawAreaLayerItemTransformResponses = {
@@ -7419,7 +7397,7 @@ export type LoadCachedDrawAreaLayerItemTransformResponses = {
   200: Array<ArtifactsJsonArtifact> | null;
 };
 
-export type LoadCachedDrawAreaLayerItemTransformResponse =
+type LoadCachedDrawAreaLayerItemTransformResponse =
   LoadCachedDrawAreaLayerItemTransformResponses[keyof LoadCachedDrawAreaLayerItemTransformResponses];
 
 export type LoadProjectConfigData = {
@@ -7436,7 +7414,7 @@ export type LoadProjectConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LoadProjectConfigError =
+type LoadProjectConfigError =
   LoadProjectConfigErrors[keyof LoadProjectConfigErrors];
 
 export type LoadProjectConfigResponses = {
@@ -7446,7 +7424,7 @@ export type LoadProjectConfigResponses = {
   200: ProjectviewSingleConfig;
 };
 
-export type LoadProjectConfigResponse =
+type LoadProjectConfigResponse =
   LoadProjectConfigResponses[keyof LoadProjectConfigResponses];
 
 export type LoadSettingsData = {
@@ -7463,7 +7441,7 @@ export type LoadSettingsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LoadSettingsError = LoadSettingsErrors[keyof LoadSettingsErrors];
+type LoadSettingsError = LoadSettingsErrors[keyof LoadSettingsErrors];
 
 export type LoadSettingsResponses = {
   /**
@@ -7472,8 +7450,7 @@ export type LoadSettingsResponses = {
   200: SettingsstateFrontendSettingsState;
 };
 
-export type LoadSettingsResponse =
-  LoadSettingsResponses[keyof LoadSettingsResponses];
+type LoadSettingsResponse = LoadSettingsResponses[keyof LoadSettingsResponses];
 
 export type GetMcpServerRuntimeStatusData = {
   body: HttpapiMcpRuntimeStatusRequest;
@@ -7489,7 +7466,7 @@ export type GetMcpServerRuntimeStatusErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetMcpServerRuntimeStatusError =
+type GetMcpServerRuntimeStatusError =
   GetMcpServerRuntimeStatusErrors[keyof GetMcpServerRuntimeStatusErrors];
 
 export type GetMcpServerRuntimeStatusResponses = {
@@ -7499,7 +7476,7 @@ export type GetMcpServerRuntimeStatusResponses = {
   200: HttpapiMcpRuntimeStatusResponse;
 };
 
-export type GetMcpServerRuntimeStatusResponse =
+type GetMcpServerRuntimeStatusResponse =
   GetMcpServerRuntimeStatusResponses[keyof GetMcpServerRuntimeStatusResponses];
 
 export type MoveParamGroupsData = {
@@ -7516,8 +7493,7 @@ export type MoveParamGroupsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type MoveParamGroupsError =
-  MoveParamGroupsErrors[keyof MoveParamGroupsErrors];
+type MoveParamGroupsError = MoveParamGroupsErrors[keyof MoveParamGroupsErrors];
 
 export type MoveParamGroupsResponses = {
   /**
@@ -7526,7 +7502,7 @@ export type MoveParamGroupsResponses = {
   200: null;
 };
 
-export type MoveParamGroupsResponse =
+type MoveParamGroupsResponse =
   MoveParamGroupsResponses[keyof MoveParamGroupsResponses];
 
 export type MoveParamsData = {
@@ -7543,7 +7519,7 @@ export type MoveParamsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type MoveParamsError = MoveParamsErrors[keyof MoveParamsErrors];
+type MoveParamsError = MoveParamsErrors[keyof MoveParamsErrors];
 
 export type MoveParamsResponses = {
   /**
@@ -7552,7 +7528,7 @@ export type MoveParamsResponses = {
   200: null;
 };
 
-export type MoveParamsResponse = MoveParamsResponses[keyof MoveParamsResponses];
+type MoveParamsResponse = MoveParamsResponses[keyof MoveParamsResponses];
 
 export type MoveSectionsData = {
   body: HttpapiMoveSectionsRequest;
@@ -7568,7 +7544,7 @@ export type MoveSectionsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type MoveSectionsError = MoveSectionsErrors[keyof MoveSectionsErrors];
+type MoveSectionsError = MoveSectionsErrors[keyof MoveSectionsErrors];
 
 export type MoveSectionsResponses = {
   /**
@@ -7577,8 +7553,7 @@ export type MoveSectionsResponses = {
   200: null;
 };
 
-export type MoveSectionsResponse =
-  MoveSectionsResponses[keyof MoveSectionsResponses];
+type MoveSectionsResponse = MoveSectionsResponses[keyof MoveSectionsResponses];
 
 export type OpenLauncherWorkspaceData = {
   body: HttpapiLauncherOpenWorkspaceRequest;
@@ -7594,7 +7569,7 @@ export type OpenLauncherWorkspaceErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type OpenLauncherWorkspaceError =
+type OpenLauncherWorkspaceError =
   OpenLauncherWorkspaceErrors[keyof OpenLauncherWorkspaceErrors];
 
 export type OpenLauncherWorkspaceResponses = {
@@ -7621,7 +7596,7 @@ export type OutputAccessorCompletionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type OutputAccessorCompletionError =
+type OutputAccessorCompletionError =
   OutputAccessorCompletionErrors[keyof OutputAccessorCompletionErrors];
 
 export type OutputAccessorCompletionResponses = {
@@ -7631,7 +7606,7 @@ export type OutputAccessorCompletionResponses = {
   200: Array<LspcompletionCodeMirrorCompletion> | null;
 };
 
-export type OutputAccessorCompletionResponse =
+type OutputAccessorCompletionResponse =
   OutputAccessorCompletionResponses[keyof OutputAccessorCompletionResponses];
 
 export type PasteSectionsData = {
@@ -7648,7 +7623,7 @@ export type PasteSectionsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type PasteSectionsError = PasteSectionsErrors[keyof PasteSectionsErrors];
+type PasteSectionsError = PasteSectionsErrors[keyof PasteSectionsErrors];
 
 export type PasteSectionsResponses = {
   /**
@@ -7657,7 +7632,7 @@ export type PasteSectionsResponses = {
   200: null;
 };
 
-export type PasteSectionsResponse =
+type PasteSectionsResponse =
   PasteSectionsResponses[keyof PasteSectionsResponses];
 
 export type PinLauncherRecentWorkspaceData = {
@@ -7674,7 +7649,7 @@ export type PinLauncherRecentWorkspaceErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type PinLauncherRecentWorkspaceError =
+type PinLauncherRecentWorkspaceError =
   PinLauncherRecentWorkspaceErrors[keyof PinLauncherRecentWorkspaceErrors];
 
 export type PinLauncherRecentWorkspaceResponses = {
@@ -7684,7 +7659,7 @@ export type PinLauncherRecentWorkspaceResponses = {
   200: HttpapiLauncherRecentWorkspacesResponse;
 };
 
-export type PinLauncherRecentWorkspaceResponse =
+type PinLauncherRecentWorkspaceResponse =
   PinLauncherRecentWorkspaceResponses[keyof PinLauncherRecentWorkspaceResponses];
 
 export type WritePluginConfigData = {
@@ -7701,7 +7676,7 @@ export type WritePluginConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type WritePluginConfigError =
+type WritePluginConfigError =
   WritePluginConfigErrors[keyof WritePluginConfigErrors];
 
 export type WritePluginConfigResponses = {
@@ -7711,7 +7686,7 @@ export type WritePluginConfigResponses = {
   200: PluginsPluginConfigWriteResponse;
 };
 
-export type WritePluginConfigResponse =
+type WritePluginConfigResponse =
   WritePluginConfigResponses[keyof WritePluginConfigResponses];
 
 export type DisablePluginData = {
@@ -7728,7 +7703,7 @@ export type DisablePluginErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type DisablePluginError = DisablePluginErrors[keyof DisablePluginErrors];
+type DisablePluginError = DisablePluginErrors[keyof DisablePluginErrors];
 
 export type DisablePluginResponses = {
   /**
@@ -7737,7 +7712,7 @@ export type DisablePluginResponses = {
   200: PluginsPluginEnableDisableResponse;
 };
 
-export type DisablePluginResponse =
+type DisablePluginResponse =
   DisablePluginResponses[keyof DisablePluginResponses];
 
 export type EnablePluginData = {
@@ -7754,7 +7729,7 @@ export type EnablePluginErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type EnablePluginError = EnablePluginErrors[keyof EnablePluginErrors];
+type EnablePluginError = EnablePluginErrors[keyof EnablePluginErrors];
 
 export type EnablePluginResponses = {
   /**
@@ -7763,8 +7738,7 @@ export type EnablePluginResponses = {
   200: PluginsPluginEnableDisableResponse;
 };
 
-export type EnablePluginResponse =
-  EnablePluginResponses[keyof EnablePluginResponses];
+type EnablePluginResponse = EnablePluginResponses[keyof EnablePluginResponses];
 
 export type InstallPluginData = {
   body: HttpapiPluginInstallRequest;
@@ -7780,7 +7754,7 @@ export type InstallPluginErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type InstallPluginError = InstallPluginErrors[keyof InstallPluginErrors];
+type InstallPluginError = InstallPluginErrors[keyof InstallPluginErrors];
 
 export type InstallPluginResponses = {
   /**
@@ -7789,7 +7763,7 @@ export type InstallPluginResponses = {
   200: PluginsPluginInstallResponse;
 };
 
-export type InstallPluginResponse =
+type InstallPluginResponse =
   InstallPluginResponses[keyof InstallPluginResponses];
 
 export type LinkPluginData = {
@@ -7806,7 +7780,7 @@ export type LinkPluginErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type LinkPluginError = LinkPluginErrors[keyof LinkPluginErrors];
+type LinkPluginError = LinkPluginErrors[keyof LinkPluginErrors];
 
 export type LinkPluginResponses = {
   /**
@@ -7815,7 +7789,7 @@ export type LinkPluginResponses = {
   200: PluginsPluginInstallResponse;
 };
 
-export type LinkPluginResponse = LinkPluginResponses[keyof LinkPluginResponses];
+type LinkPluginResponse = LinkPluginResponses[keyof LinkPluginResponses];
 
 export type ApplyPluginLockfileData = {
   body: HttpapiPluginLockApplyRequest;
@@ -7831,7 +7805,7 @@ export type ApplyPluginLockfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ApplyPluginLockfileError =
+type ApplyPluginLockfileError =
   ApplyPluginLockfileErrors[keyof ApplyPluginLockfileErrors];
 
 export type ApplyPluginLockfileResponses = {
@@ -7841,7 +7815,7 @@ export type ApplyPluginLockfileResponses = {
   200: PluginsPluginLockApplyResponse;
 };
 
-export type ApplyPluginLockfileResponse =
+type ApplyPluginLockfileResponse =
   ApplyPluginLockfileResponses[keyof ApplyPluginLockfileResponses];
 
 export type WritePluginLockfileData = {
@@ -7858,7 +7832,7 @@ export type WritePluginLockfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type WritePluginLockfileError =
+type WritePluginLockfileError =
   WritePluginLockfileErrors[keyof WritePluginLockfileErrors];
 
 export type WritePluginLockfileResponses = {
@@ -7868,7 +7842,7 @@ export type WritePluginLockfileResponses = {
   200: PluginsPluginLockWriteResponse;
 };
 
-export type WritePluginLockfileResponse =
+type WritePluginLockfileResponse =
   WritePluginLockfileResponses[keyof WritePluginLockfileResponses];
 
 export type RescanPluginsData = {
@@ -7885,7 +7859,7 @@ export type RescanPluginsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RescanPluginsError = RescanPluginsErrors[keyof RescanPluginsErrors];
+type RescanPluginsError = RescanPluginsErrors[keyof RescanPluginsErrors];
 
 export type RescanPluginsResponses = {
   /**
@@ -7894,7 +7868,7 @@ export type RescanPluginsResponses = {
   200: HttpapiPluginsRescanResponse;
 };
 
-export type RescanPluginsResponse =
+type RescanPluginsResponse =
   RescanPluginsResponses[keyof RescanPluginsResponses];
 
 export type RestartPluginsData = {
@@ -7911,8 +7885,7 @@ export type RestartPluginsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RestartPluginsError =
-  RestartPluginsErrors[keyof RestartPluginsErrors];
+type RestartPluginsError = RestartPluginsErrors[keyof RestartPluginsErrors];
 
 export type RestartPluginsResponses = {
   /**
@@ -7921,7 +7894,7 @@ export type RestartPluginsResponses = {
   200: PluginsPluginRestartResponse;
 };
 
-export type RestartPluginsResponse =
+type RestartPluginsResponse =
   RestartPluginsResponses[keyof RestartPluginsResponses];
 
 export type RollbackPluginData = {
@@ -7938,8 +7911,7 @@ export type RollbackPluginErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RollbackPluginError =
-  RollbackPluginErrors[keyof RollbackPluginErrors];
+type RollbackPluginError = RollbackPluginErrors[keyof RollbackPluginErrors];
 
 export type RollbackPluginResponses = {
   /**
@@ -7948,7 +7920,7 @@ export type RollbackPluginResponses = {
   200: PluginsPluginRollbackResponse;
 };
 
-export type RollbackPluginResponse =
+type RollbackPluginResponse =
   RollbackPluginResponses[keyof RollbackPluginResponses];
 
 export type GetPluginsRuntimeData = {
@@ -7965,7 +7937,7 @@ export type GetPluginsRuntimeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetPluginsRuntimeError =
+type GetPluginsRuntimeError =
   GetPluginsRuntimeErrors[keyof GetPluginsRuntimeErrors];
 
 export type GetPluginsRuntimeResponses = {
@@ -7975,7 +7947,7 @@ export type GetPluginsRuntimeResponses = {
   200: PluginsPluginRuntimeResponse;
 };
 
-export type GetPluginsRuntimeResponse =
+type GetPluginsRuntimeResponse =
   GetPluginsRuntimeResponses[keyof GetPluginsRuntimeResponses];
 
 export type UninstallPluginData = {
@@ -7992,8 +7964,7 @@ export type UninstallPluginErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UninstallPluginError =
-  UninstallPluginErrors[keyof UninstallPluginErrors];
+type UninstallPluginError = UninstallPluginErrors[keyof UninstallPluginErrors];
 
 export type UninstallPluginResponses = {
   /**
@@ -8002,7 +7973,7 @@ export type UninstallPluginResponses = {
   200: PluginsPluginUninstallResponse;
 };
 
-export type UninstallPluginResponse =
+type UninstallPluginResponse =
   UninstallPluginResponses[keyof UninstallPluginResponses];
 
 export type UpdatePluginData = {
@@ -8019,7 +7990,7 @@ export type UpdatePluginErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdatePluginError = UpdatePluginErrors[keyof UpdatePluginErrors];
+type UpdatePluginError = UpdatePluginErrors[keyof UpdatePluginErrors];
 
 export type UpdatePluginResponses = {
   /**
@@ -8028,8 +7999,7 @@ export type UpdatePluginResponses = {
   200: PluginsPluginUpdateResponse;
 };
 
-export type UpdatePluginResponse =
-  UpdatePluginResponses[keyof UpdatePluginResponses];
+type UpdatePluginResponse = UpdatePluginResponses[keyof UpdatePluginResponses];
 
 export type PrepareSectionsForCopyData = {
   body: HttpapiPrepareSectionsForCopyRequest;
@@ -8045,7 +8015,7 @@ export type PrepareSectionsForCopyErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type PrepareSectionsForCopyError =
+type PrepareSectionsForCopyError =
   PrepareSectionsForCopyErrors[keyof PrepareSectionsForCopyErrors];
 
 export type PrepareSectionsForCopyResponses = {
@@ -8055,7 +8025,7 @@ export type PrepareSectionsForCopyResponses = {
   200: ProjectstateSectionsClipboardData;
 };
 
-export type PrepareSectionsForCopyResponse =
+type PrepareSectionsForCopyResponse =
   PrepareSectionsForCopyResponses[keyof PrepareSectionsForCopyResponses];
 
 export type ReconnectEdgeData = {
@@ -8072,7 +8042,7 @@ export type ReconnectEdgeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ReconnectEdgeError = ReconnectEdgeErrors[keyof ReconnectEdgeErrors];
+type ReconnectEdgeError = ReconnectEdgeErrors[keyof ReconnectEdgeErrors];
 
 export type ReconnectEdgeResponses = {
   /**
@@ -8081,7 +8051,7 @@ export type ReconnectEdgeResponses = {
   200: null;
 };
 
-export type ReconnectEdgeResponse =
+type ReconnectEdgeResponse =
   ReconnectEdgeResponses[keyof ReconnectEdgeResponses];
 
 export type RedoData = {
@@ -8098,7 +8068,7 @@ export type RedoErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RedoError = RedoErrors[keyof RedoErrors];
+type RedoError = RedoErrors[keyof RedoErrors];
 
 export type RedoResponses = {
   /**
@@ -8107,7 +8077,7 @@ export type RedoResponses = {
   200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
 };
 
-export type RedoResponse = RedoResponses[keyof RedoResponses];
+type RedoResponse = RedoResponses[keyof RedoResponses];
 
 export type RemoveLauncherData = {
   body: HttpapiLauncherRequestBase;
@@ -8123,8 +8093,7 @@ export type RemoveLauncherErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RemoveLauncherError =
-  RemoveLauncherErrors[keyof RemoveLauncherErrors];
+type RemoveLauncherError = RemoveLauncherErrors[keyof RemoveLauncherErrors];
 
 export type RemoveLauncherResponses = {
   /**
@@ -8133,7 +8102,7 @@ export type RemoveLauncherResponses = {
   200: HttpapiLauncherStatusResponse;
 };
 
-export type RemoveLauncherResponse =
+type RemoveLauncherResponse =
   RemoveLauncherResponses[keyof RemoveLauncherResponses];
 
 export type RemoveLauncherRecentWorkspaceData = {
@@ -8150,7 +8119,7 @@ export type RemoveLauncherRecentWorkspaceErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RemoveLauncherRecentWorkspaceError =
+type RemoveLauncherRecentWorkspaceError =
   RemoveLauncherRecentWorkspaceErrors[keyof RemoveLauncherRecentWorkspaceErrors];
 
 export type RemoveLauncherRecentWorkspaceResponses = {
@@ -8160,7 +8129,7 @@ export type RemoveLauncherRecentWorkspaceResponses = {
   200: HttpapiLauncherRecentWorkspacesResponse;
 };
 
-export type RemoveLauncherRecentWorkspaceResponse =
+type RemoveLauncherRecentWorkspaceResponse =
   RemoveLauncherRecentWorkspaceResponses[keyof RemoveLauncherRecentWorkspaceResponses];
 
 export type RepairLauncherData = {
@@ -8177,8 +8146,7 @@ export type RepairLauncherErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RepairLauncherError =
-  RepairLauncherErrors[keyof RepairLauncherErrors];
+type RepairLauncherError = RepairLauncherErrors[keyof RepairLauncherErrors];
 
 export type RepairLauncherResponses = {
   /**
@@ -8187,7 +8155,7 @@ export type RepairLauncherResponses = {
   200: HttpapiLauncherStatusResponse;
 };
 
-export type RepairLauncherResponse =
+type RepairLauncherResponse =
   RepairLauncherResponses[keyof RepairLauncherResponses];
 
 export type ResetStateMachineData = {
@@ -8204,7 +8172,7 @@ export type ResetStateMachineErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ResetStateMachineError =
+type ResetStateMachineError =
   ResetStateMachineErrors[keyof ResetStateMachineErrors];
 
 export type ResetStateMachineResponses = {
@@ -8214,7 +8182,7 @@ export type ResetStateMachineResponses = {
   200: HttpapiStateMachineRunControlResponse;
 };
 
-export type ResetStateMachineResponse =
+type ResetStateMachineResponse =
   ResetStateMachineResponses[keyof ResetStateMachineResponses];
 
 export type RespondExternalAgentApprovalData = {
@@ -8231,7 +8199,7 @@ export type RespondExternalAgentApprovalErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RespondExternalAgentApprovalError =
+type RespondExternalAgentApprovalError =
   RespondExternalAgentApprovalErrors[keyof RespondExternalAgentApprovalErrors];
 
 export type RespondExternalAgentApprovalResponses = {
@@ -8241,7 +8209,7 @@ export type RespondExternalAgentApprovalResponses = {
   200: null;
 };
 
-export type RespondExternalAgentApprovalResponse =
+type RespondExternalAgentApprovalResponse =
   RespondExternalAgentApprovalResponses[keyof RespondExternalAgentApprovalResponses];
 
 export type RespondExternalAgentQuestionData = {
@@ -8258,7 +8226,7 @@ export type RespondExternalAgentQuestionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RespondExternalAgentQuestionError =
+type RespondExternalAgentQuestionError =
   RespondExternalAgentQuestionErrors[keyof RespondExternalAgentQuestionErrors];
 
 export type RespondExternalAgentQuestionResponses = {
@@ -8268,7 +8236,7 @@ export type RespondExternalAgentQuestionResponses = {
   200: null;
 };
 
-export type RespondExternalAgentQuestionResponse =
+type RespondExternalAgentQuestionResponse =
   RespondExternalAgentQuestionResponses[keyof RespondExternalAgentQuestionResponses];
 
 export type RestartLanguageServerData = {
@@ -8285,7 +8253,7 @@ export type RestartLanguageServerErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RestartLanguageServerError =
+type RestartLanguageServerError =
   RestartLanguageServerErrors[keyof RestartLanguageServerErrors];
 
 export type RestartLanguageServerResponses = {
@@ -8295,7 +8263,7 @@ export type RestartLanguageServerResponses = {
   200: null;
 };
 
-export type RestartLanguageServerResponse =
+type RestartLanguageServerResponse =
   RestartLanguageServerResponses[keyof RestartLanguageServerResponses];
 
 export type RevealPathInOsFileExplorerData = {
@@ -8312,7 +8280,7 @@ export type RevealPathInOsFileExplorerErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RevealPathInOsFileExplorerError =
+type RevealPathInOsFileExplorerError =
   RevealPathInOsFileExplorerErrors[keyof RevealPathInOsFileExplorerErrors];
 
 export type RevealPathInOsFileExplorerResponses = {
@@ -8322,7 +8290,7 @@ export type RevealPathInOsFileExplorerResponses = {
   200: null;
 };
 
-export type RevealPathInOsFileExplorerResponse =
+type RevealPathInOsFileExplorerResponse =
   RevealPathInOsFileExplorerResponses[keyof RevealPathInOsFileExplorerResponses];
 
 export type RunCodeData = {
@@ -8339,7 +8307,7 @@ export type RunCodeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RunCodeError = RunCodeErrors[keyof RunCodeErrors];
+type RunCodeError = RunCodeErrors[keyof RunCodeErrors];
 
 export type RunCodeResponses = {
   /**
@@ -8348,7 +8316,7 @@ export type RunCodeResponses = {
   200: null;
 };
 
-export type RunCodeResponse = RunCodeResponses[keyof RunCodeResponses];
+type RunCodeResponse = RunCodeResponses[keyof RunCodeResponses];
 
 export type RunDetachedData = {
   body: HttpapiRunDetachedRequest;
@@ -8364,7 +8332,7 @@ export type RunDetachedErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type RunDetachedError = RunDetachedErrors[keyof RunDetachedErrors];
+type RunDetachedError = RunDetachedErrors[keyof RunDetachedErrors];
 
 export type RunDetachedResponses = {
   /**
@@ -8373,8 +8341,7 @@ export type RunDetachedResponses = {
   200: DetachedrunsRun;
 };
 
-export type RunDetachedResponse =
-  RunDetachedResponses[keyof RunDetachedResponses];
+type RunDetachedResponse = RunDetachedResponses[keyof RunDetachedResponses];
 
 export type GetRuntimeInfoData = {
   body?: never;
@@ -8390,8 +8357,7 @@ export type GetRuntimeInfoErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetRuntimeInfoError =
-  GetRuntimeInfoErrors[keyof GetRuntimeInfoErrors];
+type GetRuntimeInfoError = GetRuntimeInfoErrors[keyof GetRuntimeInfoErrors];
 
 export type GetRuntimeInfoResponses = {
   /**
@@ -8400,7 +8366,7 @@ export type GetRuntimeInfoResponses = {
   200: HttpapiRuntimeInfo;
 };
 
-export type GetRuntimeInfoResponse =
+type GetRuntimeInfoResponse =
   GetRuntimeInfoResponses[keyof GetRuntimeInfoResponses];
 
 export type SaveAsNewProjectConfigData = {
@@ -8417,7 +8383,7 @@ export type SaveAsNewProjectConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SaveAsNewProjectConfigError =
+type SaveAsNewProjectConfigError =
   SaveAsNewProjectConfigErrors[keyof SaveAsNewProjectConfigErrors];
 
 export type SaveAsNewProjectConfigResponses = {
@@ -8427,7 +8393,7 @@ export type SaveAsNewProjectConfigResponses = {
   200: null;
 };
 
-export type SaveAsNewProjectConfigResponse =
+type SaveAsNewProjectConfigResponse =
   SaveAsNewProjectConfigResponses[keyof SaveAsNewProjectConfigResponses];
 
 export type SaveProjectData = {
@@ -8444,7 +8410,7 @@ export type SaveProjectErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SaveProjectError = SaveProjectErrors[keyof SaveProjectErrors];
+type SaveProjectError = SaveProjectErrors[keyof SaveProjectErrors];
 
 export type SaveProjectResponses = {
   /**
@@ -8453,8 +8419,7 @@ export type SaveProjectResponses = {
   200: null;
 };
 
-export type SaveProjectResponse =
-  SaveProjectResponses[keyof SaveProjectResponses];
+type SaveProjectResponse = SaveProjectResponses[keyof SaveProjectResponses];
 
 export type SaveSettingsData = {
   body: HttpapiSaveSettingsRequest;
@@ -8470,7 +8435,7 @@ export type SaveSettingsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SaveSettingsError = SaveSettingsErrors[keyof SaveSettingsErrors];
+type SaveSettingsError = SaveSettingsErrors[keyof SaveSettingsErrors];
 
 export type SaveSettingsResponses = {
   /**
@@ -8479,8 +8444,7 @@ export type SaveSettingsResponses = {
   200: null;
 };
 
-export type SaveSettingsResponse =
-  SaveSettingsResponses[keyof SaveSettingsResponses];
+type SaveSettingsResponse = SaveSettingsResponses[keyof SaveSettingsResponses];
 
 export type SdkRuntimeHandshakeData = {
   body?: never;
@@ -8496,7 +8460,7 @@ export type SdkRuntimeHandshakeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SdkRuntimeHandshakeError =
+type SdkRuntimeHandshakeError =
   SdkRuntimeHandshakeErrors[keyof SdkRuntimeHandshakeErrors];
 
 export type SdkRuntimeHandshakeResponses = {
@@ -8506,7 +8470,7 @@ export type SdkRuntimeHandshakeResponses = {
   200: PythonsdkcontractsRunningBackendVersionHandshake;
 };
 
-export type SdkRuntimeHandshakeResponse =
+type SdkRuntimeHandshakeResponse =
   SdkRuntimeHandshakeResponses[keyof SdkRuntimeHandshakeResponses];
 
 export type GetServerModeData = {
@@ -8523,7 +8487,7 @@ export type GetServerModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetServerModeError = GetServerModeErrors[keyof GetServerModeErrors];
+type GetServerModeError = GetServerModeErrors[keyof GetServerModeErrors];
 
 export type GetServerModeResponses = {
   /**
@@ -8532,7 +8496,7 @@ export type GetServerModeResponses = {
   200: HttpapiServerModeResponse;
 };
 
-export type GetServerModeResponse =
+type GetServerModeResponse =
   GetServerModeResponses[keyof GetServerModeResponses];
 
 export type SetActiveIdsData = {
@@ -8549,7 +8513,7 @@ export type SetActiveIdsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetActiveIdsError = SetActiveIdsErrors[keyof SetActiveIdsErrors];
+type SetActiveIdsError = SetActiveIdsErrors[keyof SetActiveIdsErrors];
 
 export type SetActiveIdsResponses = {
   /**
@@ -8558,8 +8522,7 @@ export type SetActiveIdsResponses = {
   200: null;
 };
 
-export type SetActiveIdsResponse =
-  SetActiveIdsResponses[keyof SetActiveIdsResponses];
+type SetActiveIdsResponse = SetActiveIdsResponses[keyof SetActiveIdsResponses];
 
 export type SetActiveViewModeData = {
   body: HttpapiSetActiveViewModeRequest;
@@ -8575,7 +8538,7 @@ export type SetActiveViewModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetActiveViewModeError =
+type SetActiveViewModeError =
   SetActiveViewModeErrors[keyof SetActiveViewModeErrors];
 
 export type SetActiveViewModeResponses = {
@@ -8585,7 +8548,7 @@ export type SetActiveViewModeResponses = {
   200: null;
 };
 
-export type SetActiveViewModeResponse =
+type SetActiveViewModeResponse =
   SetActiveViewModeResponses[keyof SetActiveViewModeResponses];
 
 export type SetAgenticEdgesData = {
@@ -8602,8 +8565,7 @@ export type SetAgenticEdgesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetAgenticEdgesError =
-  SetAgenticEdgesErrors[keyof SetAgenticEdgesErrors];
+type SetAgenticEdgesError = SetAgenticEdgesErrors[keyof SetAgenticEdgesErrors];
 
 export type SetAgenticEdgesResponses = {
   /**
@@ -8612,7 +8574,7 @@ export type SetAgenticEdgesResponses = {
   200: null;
 };
 
-export type SetAgenticEdgesResponse =
+type SetAgenticEdgesResponse =
   SetAgenticEdgesResponses[keyof SetAgenticEdgesResponses];
 
 export type SetAppDefinitionData = {
@@ -8629,7 +8591,7 @@ export type SetAppDefinitionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetAppDefinitionError =
+type SetAppDefinitionError =
   SetAppDefinitionErrors[keyof SetAppDefinitionErrors];
 
 export type SetAppDefinitionResponses = {
@@ -8639,7 +8601,7 @@ export type SetAppDefinitionResponses = {
   200: AppsubsystemAppdefinitionMutationResult;
 };
 
-export type SetAppDefinitionResponse =
+type SetAppDefinitionResponse =
   SetAppDefinitionResponses[keyof SetAppDefinitionResponses];
 
 export type SetAsDefaultProjectData = {
@@ -8656,7 +8618,7 @@ export type SetAsDefaultProjectErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetAsDefaultProjectError =
+type SetAsDefaultProjectError =
   SetAsDefaultProjectErrors[keyof SetAsDefaultProjectErrors];
 
 export type SetAsDefaultProjectResponses = {
@@ -8666,7 +8628,7 @@ export type SetAsDefaultProjectResponses = {
   200: null;
 };
 
-export type SetAsDefaultProjectResponse =
+type SetAsDefaultProjectResponse =
   SetAsDefaultProjectResponses[keyof SetAsDefaultProjectResponses];
 
 export type SetBrowserAreaViewModeData = {
@@ -8683,7 +8645,7 @@ export type SetBrowserAreaViewModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetBrowserAreaViewModeError =
+type SetBrowserAreaViewModeError =
   SetBrowserAreaViewModeErrors[keyof SetBrowserAreaViewModeErrors];
 
 export type SetBrowserAreaViewModeResponses = {
@@ -8693,7 +8655,7 @@ export type SetBrowserAreaViewModeResponses = {
   200: null;
 };
 
-export type SetBrowserAreaViewModeResponse =
+type SetBrowserAreaViewModeResponse =
   SetBrowserAreaViewModeResponses[keyof SetBrowserAreaViewModeResponses];
 
 export type SetBrowserColumnWidthsData = {
@@ -8710,7 +8672,7 @@ export type SetBrowserColumnWidthsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetBrowserColumnWidthsError =
+type SetBrowserColumnWidthsError =
   SetBrowserColumnWidthsErrors[keyof SetBrowserColumnWidthsErrors];
 
 export type SetBrowserColumnWidthsResponses = {
@@ -8720,7 +8682,7 @@ export type SetBrowserColumnWidthsResponses = {
   200: null;
 };
 
-export type SetBrowserColumnWidthsResponse =
+type SetBrowserColumnWidthsResponse =
   SetBrowserColumnWidthsResponses[keyof SetBrowserColumnWidthsResponses];
 
 export type SetBrowserHideColumnData = {
@@ -8737,7 +8699,7 @@ export type SetBrowserHideColumnErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetBrowserHideColumnError =
+type SetBrowserHideColumnError =
   SetBrowserHideColumnErrors[keyof SetBrowserHideColumnErrors];
 
 export type SetBrowserHideColumnResponses = {
@@ -8747,7 +8709,7 @@ export type SetBrowserHideColumnResponses = {
   200: null;
 };
 
-export type SetBrowserHideColumnResponse =
+type SetBrowserHideColumnResponse =
   SetBrowserHideColumnResponses[keyof SetBrowserHideColumnResponses];
 
 export type SetBrowserSavedSearchesData = {
@@ -8764,7 +8726,7 @@ export type SetBrowserSavedSearchesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetBrowserSavedSearchesError =
+type SetBrowserSavedSearchesError =
   SetBrowserSavedSearchesErrors[keyof SetBrowserSavedSearchesErrors];
 
 export type SetBrowserSavedSearchesResponses = {
@@ -8774,7 +8736,7 @@ export type SetBrowserSavedSearchesResponses = {
   200: null;
 };
 
-export type SetBrowserSavedSearchesResponse =
+type SetBrowserSavedSearchesResponse =
   SetBrowserSavedSearchesResponses[keyof SetBrowserSavedSearchesResponses];
 
 export type SetCallableData = {
@@ -8791,7 +8753,7 @@ export type SetCallableErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCallableError = SetCallableErrors[keyof SetCallableErrors];
+type SetCallableError = SetCallableErrors[keyof SetCallableErrors];
 
 export type SetCallableResponses = {
   /**
@@ -8800,8 +8762,7 @@ export type SetCallableResponses = {
   200: ProjectstateSetCallableResponse;
 };
 
-export type SetCallableResponse =
-  SetCallableResponses[keyof SetCallableResponses];
+type SetCallableResponse = SetCallableResponses[keyof SetCallableResponses];
 
 export type SetCallableHideParamsData = {
   body: HttpapiSetCallableHideParamsRequest;
@@ -8817,7 +8778,7 @@ export type SetCallableHideParamsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCallableHideParamsError =
+type SetCallableHideParamsError =
   SetCallableHideParamsErrors[keyof SetCallableHideParamsErrors];
 
 export type SetCallableHideParamsResponses = {
@@ -8827,7 +8788,7 @@ export type SetCallableHideParamsResponses = {
   200: null;
 };
 
-export type SetCallableHideParamsResponse =
+type SetCallableHideParamsResponse =
   SetCallableHideParamsResponses[keyof SetCallableHideParamsResponses];
 
 export type SetChartAreaDataPathData = {
@@ -8844,7 +8805,7 @@ export type SetChartAreaDataPathErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetChartAreaDataPathError =
+type SetChartAreaDataPathError =
   SetChartAreaDataPathErrors[keyof SetChartAreaDataPathErrors];
 
 export type SetChartAreaDataPathResponses = {
@@ -8854,7 +8815,7 @@ export type SetChartAreaDataPathResponses = {
   200: null;
 };
 
-export type SetChartAreaDataPathResponse =
+type SetChartAreaDataPathResponse =
   SetChartAreaDataPathResponses[keyof SetChartAreaDataPathResponses];
 
 export type SetChartSettingsData = {
@@ -8871,7 +8832,7 @@ export type SetChartSettingsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetChartSettingsError =
+type SetChartSettingsError =
   SetChartSettingsErrors[keyof SetChartSettingsErrors];
 
 export type SetChartSettingsResponses = {
@@ -8881,7 +8842,7 @@ export type SetChartSettingsResponses = {
   200: null;
 };
 
-export type SetChartSettingsResponse =
+type SetChartSettingsResponse =
   SetChartSettingsResponses[keyof SetChartSettingsResponses];
 
 export type SetChartTypeData = {
@@ -8898,7 +8859,7 @@ export type SetChartTypeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetChartTypeError = SetChartTypeErrors[keyof SetChartTypeErrors];
+type SetChartTypeError = SetChartTypeErrors[keyof SetChartTypeErrors];
 
 export type SetChartTypeResponses = {
   /**
@@ -8907,8 +8868,7 @@ export type SetChartTypeResponses = {
   200: null;
 };
 
-export type SetChartTypeResponse =
-  SetChartTypeResponses[keyof SetChartTypeResponses];
+type SetChartTypeResponse = SetChartTypeResponses[keyof SetChartTypeResponses];
 
 export type SetChatSectionChatIdData = {
   body: HttpapiSetChatSectionChatIdRequest;
@@ -8924,7 +8884,7 @@ export type SetChatSectionChatIdErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetChatSectionChatIdError =
+type SetChatSectionChatIdError =
   SetChatSectionChatIdErrors[keyof SetChatSectionChatIdErrors];
 
 export type SetChatSectionChatIdResponses = {
@@ -8934,7 +8894,7 @@ export type SetChatSectionChatIdResponses = {
   200: null;
 };
 
-export type SetChatSectionChatIdResponse =
+type SetChatSectionChatIdResponse =
   SetChatSectionChatIdResponses[keyof SetChatSectionChatIdResponses];
 
 export type SetChatSectionSettingsData = {
@@ -8951,7 +8911,7 @@ export type SetChatSectionSettingsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetChatSectionSettingsError =
+type SetChatSectionSettingsError =
   SetChatSectionSettingsErrors[keyof SetChatSectionSettingsErrors];
 
 export type SetChatSectionSettingsResponses = {
@@ -8961,7 +8921,7 @@ export type SetChatSectionSettingsResponses = {
   200: null;
 };
 
-export type SetChatSectionSettingsResponse =
+type SetChatSectionSettingsResponse =
   SetChatSectionSettingsResponses[keyof SetChatSectionSettingsResponses];
 
 export type SetChatSectionStateData = {
@@ -8978,7 +8938,7 @@ export type SetChatSectionStateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetChatSectionStateError =
+type SetChatSectionStateError =
   SetChatSectionStateErrors[keyof SetChatSectionStateErrors];
 
 export type SetChatSectionStateResponses = {
@@ -8988,7 +8948,7 @@ export type SetChatSectionStateResponses = {
   200: null;
 };
 
-export type SetChatSectionStateResponse =
+type SetChatSectionStateResponse =
   SetChatSectionStateResponses[keyof SetChatSectionStateResponses];
 
 export type SetCodeData = {
@@ -9005,7 +8965,7 @@ export type SetCodeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCodeError = SetCodeErrors[keyof SetCodeErrors];
+type SetCodeError = SetCodeErrors[keyof SetCodeErrors];
 
 export type SetCodeResponses = {
   /**
@@ -9014,7 +8974,7 @@ export type SetCodeResponses = {
   200: null;
 };
 
-export type SetCodeResponse = SetCodeResponses[keyof SetCodeResponses];
+type SetCodeResponse = SetCodeResponses[keyof SetCodeResponses];
 
 export type SetCodeFileBindingData = {
   body: HttpapiSetCodeFileBindingRequest;
@@ -9030,7 +8990,7 @@ export type SetCodeFileBindingErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCodeFileBindingError =
+type SetCodeFileBindingError =
   SetCodeFileBindingErrors[keyof SetCodeFileBindingErrors];
 
 export type SetCodeFileBindingResponses = {
@@ -9040,7 +9000,7 @@ export type SetCodeFileBindingResponses = {
   200: null;
 };
 
-export type SetCodeFileBindingResponse =
+type SetCodeFileBindingResponse =
   SetCodeFileBindingResponses[keyof SetCodeFileBindingResponses];
 
 export type SetCodeObjDisplayNameData = {
@@ -9057,7 +9017,7 @@ export type SetCodeObjDisplayNameErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCodeObjDisplayNameError =
+type SetCodeObjDisplayNameError =
   SetCodeObjDisplayNameErrors[keyof SetCodeObjDisplayNameErrors];
 
 export type SetCodeObjDisplayNameResponses = {
@@ -9067,7 +9027,7 @@ export type SetCodeObjDisplayNameResponses = {
   200: null;
 };
 
-export type SetCodeObjDisplayNameResponse =
+type SetCodeObjDisplayNameResponse =
   SetCodeObjDisplayNameResponses[keyof SetCodeObjDisplayNameResponses];
 
 export type SetCodeObjNameData = {
@@ -9084,8 +9044,7 @@ export type SetCodeObjNameErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCodeObjNameError =
-  SetCodeObjNameErrors[keyof SetCodeObjNameErrors];
+type SetCodeObjNameError = SetCodeObjNameErrors[keyof SetCodeObjNameErrors];
 
 export type SetCodeObjNameResponses = {
   /**
@@ -9094,7 +9053,7 @@ export type SetCodeObjNameResponses = {
   200: null;
 };
 
-export type SetCodeObjNameResponse =
+type SetCodeObjNameResponse =
   SetCodeObjNameResponses[keyof SetCodeObjNameResponses];
 
 export type SetCodeSectionAttachedTerminalData = {
@@ -9111,7 +9070,7 @@ export type SetCodeSectionAttachedTerminalErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCodeSectionAttachedTerminalError =
+type SetCodeSectionAttachedTerminalError =
   SetCodeSectionAttachedTerminalErrors[keyof SetCodeSectionAttachedTerminalErrors];
 
 export type SetCodeSectionAttachedTerminalResponses = {
@@ -9121,7 +9080,7 @@ export type SetCodeSectionAttachedTerminalResponses = {
   200: null;
 };
 
-export type SetCodeSectionAttachedTerminalResponse =
+type SetCodeSectionAttachedTerminalResponse =
   SetCodeSectionAttachedTerminalResponses[keyof SetCodeSectionAttachedTerminalResponses];
 
 export type SetCodeSectionDiagnosticCodeSuppressionData = {
@@ -9138,7 +9097,7 @@ export type SetCodeSectionDiagnosticCodeSuppressionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCodeSectionDiagnosticCodeSuppressionError =
+type SetCodeSectionDiagnosticCodeSuppressionError =
   SetCodeSectionDiagnosticCodeSuppressionErrors[keyof SetCodeSectionDiagnosticCodeSuppressionErrors];
 
 export type SetCodeSectionDiagnosticCodeSuppressionResponses = {
@@ -9148,7 +9107,7 @@ export type SetCodeSectionDiagnosticCodeSuppressionResponses = {
   200: null;
 };
 
-export type SetCodeSectionDiagnosticCodeSuppressionResponse =
+type SetCodeSectionDiagnosticCodeSuppressionResponse =
   SetCodeSectionDiagnosticCodeSuppressionResponses[keyof SetCodeSectionDiagnosticCodeSuppressionResponses];
 
 export type SetCodeSectionDiagnosticsMuteData = {
@@ -9165,7 +9124,7 @@ export type SetCodeSectionDiagnosticsMuteErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetCodeSectionDiagnosticsMuteError =
+type SetCodeSectionDiagnosticsMuteError =
   SetCodeSectionDiagnosticsMuteErrors[keyof SetCodeSectionDiagnosticsMuteErrors];
 
 export type SetCodeSectionDiagnosticsMuteResponses = {
@@ -9175,7 +9134,7 @@ export type SetCodeSectionDiagnosticsMuteResponses = {
   200: null;
 };
 
-export type SetCodeSectionDiagnosticsMuteResponse =
+type SetCodeSectionDiagnosticsMuteResponse =
   SetCodeSectionDiagnosticsMuteResponses[keyof SetCodeSectionDiagnosticsMuteResponses];
 
 export type SetDefaultSectionVariantData = {
@@ -9192,7 +9151,7 @@ export type SetDefaultSectionVariantErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetDefaultSectionVariantError =
+type SetDefaultSectionVariantError =
   SetDefaultSectionVariantErrors[keyof SetDefaultSectionVariantErrors];
 
 export type SetDefaultSectionVariantResponses = {
@@ -9202,7 +9161,7 @@ export type SetDefaultSectionVariantResponses = {
   200: null;
 };
 
-export type SetDefaultSectionVariantResponse =
+type SetDefaultSectionVariantResponse =
   SetDefaultSectionVariantResponses[keyof SetDefaultSectionVariantResponses];
 
 export type SetEdgesData = {
@@ -9219,7 +9178,7 @@ export type SetEdgesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetEdgesError = SetEdgesErrors[keyof SetEdgesErrors];
+type SetEdgesError = SetEdgesErrors[keyof SetEdgesErrors];
 
 export type SetEdgesResponses = {
   /**
@@ -9228,7 +9187,7 @@ export type SetEdgesResponses = {
   200: null;
 };
 
-export type SetEdgesResponse = SetEdgesResponses[keyof SetEdgesResponses];
+type SetEdgesResponse = SetEdgesResponses[keyof SetEdgesResponses];
 
 export type SetGenCodePrefixData = {
   body: HttpapiSetGenCodePrefixRequest;
@@ -9244,7 +9203,7 @@ export type SetGenCodePrefixErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetGenCodePrefixError =
+type SetGenCodePrefixError =
   SetGenCodePrefixErrors[keyof SetGenCodePrefixErrors];
 
 export type SetGenCodePrefixResponses = {
@@ -9254,7 +9213,7 @@ export type SetGenCodePrefixResponses = {
   200: null;
 };
 
-export type SetGenCodePrefixResponse =
+type SetGenCodePrefixResponse =
   SetGenCodePrefixResponses[keyof SetGenCodePrefixResponses];
 
 export type SetGenCodeSuffixData = {
@@ -9271,7 +9230,7 @@ export type SetGenCodeSuffixErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetGenCodeSuffixError =
+type SetGenCodeSuffixError =
   SetGenCodeSuffixErrors[keyof SetGenCodeSuffixErrors];
 
 export type SetGenCodeSuffixResponses = {
@@ -9281,7 +9240,7 @@ export type SetGenCodeSuffixResponses = {
   200: null;
 };
 
-export type SetGenCodeSuffixResponse =
+type SetGenCodeSuffixResponse =
   SetGenCodeSuffixResponses[keyof SetGenCodeSuffixResponses];
 
 export type SetGroupOverflowModeData = {
@@ -9298,7 +9257,7 @@ export type SetGroupOverflowModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetGroupOverflowModeError =
+type SetGroupOverflowModeError =
   SetGroupOverflowModeErrors[keyof SetGroupOverflowModeErrors];
 
 export type SetGroupOverflowModeResponses = {
@@ -9308,7 +9267,7 @@ export type SetGroupOverflowModeResponses = {
   200: null;
 };
 
-export type SetGroupOverflowModeResponse =
+type SetGroupOverflowModeResponse =
   SetGroupOverflowModeResponses[keyof SetGroupOverflowModeResponses];
 
 export type SetImageAreaImagePathData = {
@@ -9325,7 +9284,7 @@ export type SetImageAreaImagePathErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetImageAreaImagePathError =
+type SetImageAreaImagePathError =
   SetImageAreaImagePathErrors[keyof SetImageAreaImagePathErrors];
 
 export type SetImageAreaImagePathResponses = {
@@ -9335,7 +9294,7 @@ export type SetImageAreaImagePathResponses = {
   200: null;
 };
 
-export type SetImageAreaImagePathResponse =
+type SetImageAreaImagePathResponse =
   SetImageAreaImagePathResponses[keyof SetImageAreaImagePathResponses];
 
 export type SetLanguageServerSelectionData = {
@@ -9352,7 +9311,7 @@ export type SetLanguageServerSelectionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetLanguageServerSelectionError =
+type SetLanguageServerSelectionError =
   SetLanguageServerSelectionErrors[keyof SetLanguageServerSelectionErrors];
 
 export type SetLanguageServerSelectionResponses = {
@@ -9362,7 +9321,7 @@ export type SetLanguageServerSelectionResponses = {
   200: null;
 };
 
-export type SetLanguageServerSelectionResponse =
+type SetLanguageServerSelectionResponse =
   SetLanguageServerSelectionResponses[keyof SetLanguageServerSelectionResponses];
 
 export type SetListRootViewModeData = {
@@ -9379,7 +9338,7 @@ export type SetListRootViewModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetListRootViewModeError =
+type SetListRootViewModeError =
   SetListRootViewModeErrors[keyof SetListRootViewModeErrors];
 
 export type SetListRootViewModeResponses = {
@@ -9389,7 +9348,7 @@ export type SetListRootViewModeResponses = {
   200: null;
 };
 
-export type SetListRootViewModeResponse =
+type SetListRootViewModeResponse =
   SetListRootViewModeResponses[keyof SetListRootViewModeResponses];
 
 export type SetMetaControlShowSectionTitleData = {
@@ -9406,7 +9365,7 @@ export type SetMetaControlShowSectionTitleErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetMetaControlShowSectionTitleError =
+type SetMetaControlShowSectionTitleError =
   SetMetaControlShowSectionTitleErrors[keyof SetMetaControlShowSectionTitleErrors];
 
 export type SetMetaControlShowSectionTitleResponses = {
@@ -9416,7 +9375,7 @@ export type SetMetaControlShowSectionTitleResponses = {
   200: null;
 };
 
-export type SetMetaControlShowSectionTitleResponse =
+type SetMetaControlShowSectionTitleResponse =
   SetMetaControlShowSectionTitleResponses[keyof SetMetaControlShowSectionTitleResponses];
 
 export type SetParamEnteredValueData = {
@@ -9433,7 +9392,7 @@ export type SetParamEnteredValueErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetParamEnteredValueError =
+type SetParamEnteredValueError =
   SetParamEnteredValueErrors[keyof SetParamEnteredValueErrors];
 
 export type SetParamEnteredValueResponses = {
@@ -9443,7 +9402,7 @@ export type SetParamEnteredValueResponses = {
   200: null;
 };
 
-export type SetParamEnteredValueResponse =
+type SetParamEnteredValueResponse =
   SetParamEnteredValueResponses[keyof SetParamEnteredValueResponses];
 
 export type SetParentDefaultChildSectionTypeData = {
@@ -9460,7 +9419,7 @@ export type SetParentDefaultChildSectionTypeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetParentDefaultChildSectionTypeError =
+type SetParentDefaultChildSectionTypeError =
   SetParentDefaultChildSectionTypeErrors[keyof SetParentDefaultChildSectionTypeErrors];
 
 export type SetParentDefaultChildSectionTypeResponses = {
@@ -9470,7 +9429,7 @@ export type SetParentDefaultChildSectionTypeResponses = {
   200: null;
 };
 
-export type SetParentDefaultChildSectionTypeResponse =
+type SetParentDefaultChildSectionTypeResponse =
   SetParentDefaultChildSectionTypeResponses[keyof SetParentDefaultChildSectionTypeResponses];
 
 export type SetProjectChatWindowChatIdData = {
@@ -9487,7 +9446,7 @@ export type SetProjectChatWindowChatIdErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetProjectChatWindowChatIdError =
+type SetProjectChatWindowChatIdError =
   SetProjectChatWindowChatIdErrors[keyof SetProjectChatWindowChatIdErrors];
 
 export type SetProjectChatWindowChatIdResponses = {
@@ -9497,7 +9456,7 @@ export type SetProjectChatWindowChatIdResponses = {
   200: ProjectstateProjectChatWindowingState;
 };
 
-export type SetProjectChatWindowChatIdResponse =
+type SetProjectChatWindowChatIdResponse =
   SetProjectChatWindowChatIdResponses[keyof SetProjectChatWindowChatIdResponses];
 
 export type SetProjectChatWindowingStateData = {
@@ -9514,7 +9473,7 @@ export type SetProjectChatWindowingStateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetProjectChatWindowingStateError =
+type SetProjectChatWindowingStateError =
   SetProjectChatWindowingStateErrors[keyof SetProjectChatWindowingStateErrors];
 
 export type SetProjectChatWindowingStateResponses = {
@@ -9524,7 +9483,7 @@ export type SetProjectChatWindowingStateResponses = {
   200: ProjectstateProjectChatWindowingState;
 };
 
-export type SetProjectChatWindowingStateResponse =
+type SetProjectChatWindowingStateResponse =
   SetProjectChatWindowingStateResponses[keyof SetProjectChatWindowingStateResponses];
 
 export type SetProjectConfigCodegenTargetsData = {
@@ -9541,7 +9500,7 @@ export type SetProjectConfigCodegenTargetsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetProjectConfigCodegenTargetsError =
+type SetProjectConfigCodegenTargetsError =
   SetProjectConfigCodegenTargetsErrors[keyof SetProjectConfigCodegenTargetsErrors];
 
 export type SetProjectConfigCodegenTargetsResponses = {
@@ -9551,7 +9510,7 @@ export type SetProjectConfigCodegenTargetsResponses = {
   200: ProjectviewSingleConfig;
 };
 
-export type SetProjectConfigCodegenTargetsResponse =
+type SetProjectConfigCodegenTargetsResponse =
   SetProjectConfigCodegenTargetsResponses[keyof SetProjectConfigCodegenTargetsResponses];
 
 export type SetProjectConfigNameData = {
@@ -9568,7 +9527,7 @@ export type SetProjectConfigNameErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetProjectConfigNameError =
+type SetProjectConfigNameError =
   SetProjectConfigNameErrors[keyof SetProjectConfigNameErrors];
 
 export type SetProjectConfigNameResponses = {
@@ -9578,7 +9537,7 @@ export type SetProjectConfigNameResponses = {
   200: null;
 };
 
-export type SetProjectConfigNameResponse =
+type SetProjectConfigNameResponse =
   SetProjectConfigNameResponses[keyof SetProjectConfigNameResponses];
 
 export type SetPromptFormatData = {
@@ -9595,8 +9554,7 @@ export type SetPromptFormatErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetPromptFormatError =
-  SetPromptFormatErrors[keyof SetPromptFormatErrors];
+type SetPromptFormatError = SetPromptFormatErrors[keyof SetPromptFormatErrors];
 
 export type SetPromptFormatResponses = {
   /**
@@ -9605,7 +9563,7 @@ export type SetPromptFormatResponses = {
   200: null;
 };
 
-export type SetPromptFormatResponse =
+type SetPromptFormatResponse =
   SetPromptFormatResponses[keyof SetPromptFormatResponses];
 
 export type SetPromptInputsData = {
@@ -9622,8 +9580,7 @@ export type SetPromptInputsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetPromptInputsError =
-  SetPromptInputsErrors[keyof SetPromptInputsErrors];
+type SetPromptInputsError = SetPromptInputsErrors[keyof SetPromptInputsErrors];
 
 export type SetPromptInputsResponses = {
   /**
@@ -9632,7 +9589,7 @@ export type SetPromptInputsResponses = {
   200: null;
 };
 
-export type SetPromptInputsResponse =
+type SetPromptInputsResponse =
   SetPromptInputsResponses[keyof SetPromptInputsResponses];
 
 export type SetPromptTemplateData = {
@@ -9649,7 +9606,7 @@ export type SetPromptTemplateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetPromptTemplateError =
+type SetPromptTemplateError =
   SetPromptTemplateErrors[keyof SetPromptTemplateErrors];
 
 export type SetPromptTemplateResponses = {
@@ -9659,7 +9616,7 @@ export type SetPromptTemplateResponses = {
   200: null;
 };
 
-export type SetPromptTemplateResponse =
+type SetPromptTemplateResponse =
   SetPromptTemplateResponses[keyof SetPromptTemplateResponses];
 
 export type SetPromptTemplateLinkData = {
@@ -9676,7 +9633,7 @@ export type SetPromptTemplateLinkErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetPromptTemplateLinkError =
+type SetPromptTemplateLinkError =
   SetPromptTemplateLinkErrors[keyof SetPromptTemplateLinkErrors];
 
 export type SetPromptTemplateLinkResponses = {
@@ -9686,7 +9643,7 @@ export type SetPromptTemplateLinkResponses = {
   200: null;
 };
 
-export type SetPromptTemplateLinkResponse =
+type SetPromptTemplateLinkResponse =
   SetPromptTemplateLinkResponses[keyof SetPromptTemplateLinkResponses];
 
 export type SetSectionColumnWidthData = {
@@ -9703,7 +9660,7 @@ export type SetSectionColumnWidthErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionColumnWidthError =
+type SetSectionColumnWidthError =
   SetSectionColumnWidthErrors[keyof SetSectionColumnWidthErrors];
 
 export type SetSectionColumnWidthResponses = {
@@ -9713,7 +9670,7 @@ export type SetSectionColumnWidthResponses = {
   200: null;
 };
 
-export type SetSectionColumnWidthResponse =
+type SetSectionColumnWidthResponse =
   SetSectionColumnWidthResponses[keyof SetSectionColumnWidthResponses];
 
 export type SetSectionEdgeInputsData = {
@@ -9730,7 +9687,7 @@ export type SetSectionEdgeInputsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionEdgeInputsError =
+type SetSectionEdgeInputsError =
   SetSectionEdgeInputsErrors[keyof SetSectionEdgeInputsErrors];
 
 export type SetSectionEdgeInputsResponses = {
@@ -9740,7 +9697,7 @@ export type SetSectionEdgeInputsResponses = {
   200: null;
 };
 
-export type SetSectionEdgeInputsResponse =
+type SetSectionEdgeInputsResponse =
   SetSectionEdgeInputsResponses[keyof SetSectionEdgeInputsResponses];
 
 export type SetSectionEdgeOutputsData = {
@@ -9757,7 +9714,7 @@ export type SetSectionEdgeOutputsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionEdgeOutputsError =
+type SetSectionEdgeOutputsError =
   SetSectionEdgeOutputsErrors[keyof SetSectionEdgeOutputsErrors];
 
 export type SetSectionEdgeOutputsResponses = {
@@ -9767,7 +9724,7 @@ export type SetSectionEdgeOutputsResponses = {
   200: null;
 };
 
-export type SetSectionEdgeOutputsResponse =
+type SetSectionEdgeOutputsResponse =
   SetSectionEdgeOutputsResponses[keyof SetSectionEdgeOutputsResponses];
 
 export type SetSectionHideUnpinnedParamsData = {
@@ -9784,7 +9741,7 @@ export type SetSectionHideUnpinnedParamsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionHideUnpinnedParamsError =
+type SetSectionHideUnpinnedParamsError =
   SetSectionHideUnpinnedParamsErrors[keyof SetSectionHideUnpinnedParamsErrors];
 
 export type SetSectionHideUnpinnedParamsResponses = {
@@ -9794,7 +9751,7 @@ export type SetSectionHideUnpinnedParamsResponses = {
   200: null;
 };
 
-export type SetSectionHideUnpinnedParamsResponse =
+type SetSectionHideUnpinnedParamsResponse =
   SetSectionHideUnpinnedParamsResponses[keyof SetSectionHideUnpinnedParamsResponses];
 
 export type SetSectionNameData = {
@@ -9811,8 +9768,7 @@ export type SetSectionNameErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionNameError =
-  SetSectionNameErrors[keyof SetSectionNameErrors];
+type SetSectionNameError = SetSectionNameErrors[keyof SetSectionNameErrors];
 
 export type SetSectionNameResponses = {
   /**
@@ -9821,7 +9777,7 @@ export type SetSectionNameResponses = {
   200: null;
 };
 
-export type SetSectionNameResponse =
+type SetSectionNameResponse =
   SetSectionNameResponses[keyof SetSectionNameResponses];
 
 export type SetSectionParamFilterData = {
@@ -9838,7 +9794,7 @@ export type SetSectionParamFilterErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionParamFilterError =
+type SetSectionParamFilterError =
   SetSectionParamFilterErrors[keyof SetSectionParamFilterErrors];
 
 export type SetSectionParamFilterResponses = {
@@ -9848,7 +9804,7 @@ export type SetSectionParamFilterResponses = {
   200: null;
 };
 
-export type SetSectionParamFilterResponse =
+type SetSectionParamFilterResponse =
   SetSectionParamFilterResponses[keyof SetSectionParamFilterResponses];
 
 export type SetSectionPinnedParamsData = {
@@ -9865,7 +9821,7 @@ export type SetSectionPinnedParamsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionPinnedParamsError =
+type SetSectionPinnedParamsError =
   SetSectionPinnedParamsErrors[keyof SetSectionPinnedParamsErrors];
 
 export type SetSectionPinnedParamsResponses = {
@@ -9875,7 +9831,7 @@ export type SetSectionPinnedParamsResponses = {
   200: null;
 };
 
-export type SetSectionPinnedParamsResponse =
+type SetSectionPinnedParamsResponse =
   SetSectionPinnedParamsResponses[keyof SetSectionPinnedParamsResponses];
 
 export type SetSectionSizesData = {
@@ -9892,8 +9848,7 @@ export type SetSectionSizesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionSizesError =
-  SetSectionSizesErrors[keyof SetSectionSizesErrors];
+type SetSectionSizesError = SetSectionSizesErrors[keyof SetSectionSizesErrors];
 
 export type SetSectionSizesResponses = {
   /**
@@ -9902,7 +9857,7 @@ export type SetSectionSizesResponses = {
   200: null;
 };
 
-export type SetSectionSizesResponse =
+type SetSectionSizesResponse =
   SetSectionSizesResponses[keyof SetSectionSizesResponses];
 
 export type SetSectionStyleColorData = {
@@ -9919,7 +9874,7 @@ export type SetSectionStyleColorErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionStyleColorError =
+type SetSectionStyleColorError =
   SetSectionStyleColorErrors[keyof SetSectionStyleColorErrors];
 
 export type SetSectionStyleColorResponses = {
@@ -9929,7 +9884,7 @@ export type SetSectionStyleColorResponses = {
   200: null;
 };
 
-export type SetSectionStyleColorResponse =
+type SetSectionStyleColorResponse =
   SetSectionStyleColorResponses[keyof SetSectionStyleColorResponses];
 
 export type SetSectionTagColorData = {
@@ -9946,7 +9901,7 @@ export type SetSectionTagColorErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionTagColorError =
+type SetSectionTagColorError =
   SetSectionTagColorErrors[keyof SetSectionTagColorErrors];
 
 export type SetSectionTagColorResponses = {
@@ -9956,7 +9911,7 @@ export type SetSectionTagColorResponses = {
   200: null;
 };
 
-export type SetSectionTagColorResponse =
+type SetSectionTagColorResponse =
   SetSectionTagColorResponses[keyof SetSectionTagColorResponses];
 
 export type SetSectionVariantData = {
@@ -9973,7 +9928,7 @@ export type SetSectionVariantErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionVariantError =
+type SetSectionVariantError =
   SetSectionVariantErrors[keyof SetSectionVariantErrors];
 
 export type SetSectionVariantResponses = {
@@ -9983,7 +9938,7 @@ export type SetSectionVariantResponses = {
   200: null;
 };
 
-export type SetSectionVariantResponse =
+type SetSectionVariantResponse =
   SetSectionVariantResponses[keyof SetSectionVariantResponses];
 
 export type SetSectionVariantNameData = {
@@ -10000,7 +9955,7 @@ export type SetSectionVariantNameErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionVariantNameError =
+type SetSectionVariantNameError =
   SetSectionVariantNameErrors[keyof SetSectionVariantNameErrors];
 
 export type SetSectionVariantNameResponses = {
@@ -10010,7 +9965,7 @@ export type SetSectionVariantNameResponses = {
   200: null;
 };
 
-export type SetSectionVariantNameResponse =
+type SetSectionVariantNameResponse =
   SetSectionVariantNameResponses[keyof SetSectionVariantNameResponses];
 
 export type SetSectionVariantSortOrderData = {
@@ -10027,7 +9982,7 @@ export type SetSectionVariantSortOrderErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSectionVariantSortOrderError =
+type SetSectionVariantSortOrderError =
   SetSectionVariantSortOrderErrors[keyof SetSectionVariantSortOrderErrors];
 
 export type SetSectionVariantSortOrderResponses = {
@@ -10037,7 +9992,7 @@ export type SetSectionVariantSortOrderResponses = {
   200: null;
 };
 
-export type SetSectionVariantSortOrderResponse =
+type SetSectionVariantSortOrderResponse =
   SetSectionVariantSortOrderResponses[keyof SetSectionVariantSortOrderResponses];
 
 export type SetShowParamDisplayNamesData = {
@@ -10054,7 +10009,7 @@ export type SetShowParamDisplayNamesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetShowParamDisplayNamesError =
+type SetShowParamDisplayNamesError =
   SetShowParamDisplayNamesErrors[keyof SetShowParamDisplayNamesErrors];
 
 export type SetShowParamDisplayNamesResponses = {
@@ -10064,7 +10019,7 @@ export type SetShowParamDisplayNamesResponses = {
   200: null;
 };
 
-export type SetShowParamDisplayNamesResponse =
+type SetShowParamDisplayNamesResponse =
   SetShowParamDisplayNamesResponses[keyof SetShowParamDisplayNamesResponses];
 
 export type SetSocialUrlData = {
@@ -10081,7 +10036,7 @@ export type SetSocialUrlErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSocialUrlError = SetSocialUrlErrors[keyof SetSocialUrlErrors];
+type SetSocialUrlError = SetSocialUrlErrors[keyof SetSocialUrlErrors];
 
 export type SetSocialUrlResponses = {
   /**
@@ -10090,8 +10045,7 @@ export type SetSocialUrlResponses = {
   200: null;
 };
 
-export type SetSocialUrlResponse =
-  SetSocialUrlResponses[keyof SetSocialUrlResponses];
+type SetSocialUrlResponse = SetSocialUrlResponses[keyof SetSocialUrlResponses];
 
 export type SetSpreadsheetFilePathData = {
   body: HttpapiSetSpreadsheetFilePathRequest;
@@ -10107,7 +10061,7 @@ export type SetSpreadsheetFilePathErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSpreadsheetFilePathError =
+type SetSpreadsheetFilePathError =
   SetSpreadsheetFilePathErrors[keyof SetSpreadsheetFilePathErrors];
 
 export type SetSpreadsheetFilePathResponses = {
@@ -10117,7 +10071,7 @@ export type SetSpreadsheetFilePathResponses = {
   200: null;
 };
 
-export type SetSpreadsheetFilePathResponse =
+type SetSpreadsheetFilePathResponse =
   SetSpreadsheetFilePathResponses[keyof SetSpreadsheetFilePathResponses];
 
 export type SetSpreadsheetSectionSettingsData = {
@@ -10134,7 +10088,7 @@ export type SetSpreadsheetSectionSettingsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetSpreadsheetSectionSettingsError =
+type SetSpreadsheetSectionSettingsError =
   SetSpreadsheetSectionSettingsErrors[keyof SetSpreadsheetSectionSettingsErrors];
 
 export type SetSpreadsheetSectionSettingsResponses = {
@@ -10144,7 +10098,7 @@ export type SetSpreadsheetSectionSettingsResponses = {
   200: null;
 };
 
-export type SetSpreadsheetSectionSettingsResponse =
+type SetSpreadsheetSectionSettingsResponse =
   SetSpreadsheetSectionSettingsResponses[keyof SetSpreadsheetSectionSettingsResponses];
 
 export type SetStateMachineEdgesData = {
@@ -10161,7 +10115,7 @@ export type SetStateMachineEdgesErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetStateMachineEdgesError =
+type SetStateMachineEdgesError =
   SetStateMachineEdgesErrors[keyof SetStateMachineEdgesErrors];
 
 export type SetStateMachineEdgesResponses = {
@@ -10171,7 +10125,7 @@ export type SetStateMachineEdgesResponses = {
   200: null;
 };
 
-export type SetStateMachineEdgesResponse =
+type SetStateMachineEdgesResponse =
   SetStateMachineEdgesResponses[keyof SetStateMachineEdgesResponses];
 
 export type SetStateMachineSectionSettingsData = {
@@ -10188,7 +10142,7 @@ export type SetStateMachineSectionSettingsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetStateMachineSectionSettingsError =
+type SetStateMachineSectionSettingsError =
   SetStateMachineSectionSettingsErrors[keyof SetStateMachineSectionSettingsErrors];
 
 export type SetStateMachineSectionSettingsResponses = {
@@ -10198,7 +10152,7 @@ export type SetStateMachineSectionSettingsResponses = {
   200: null;
 };
 
-export type SetStateMachineSectionSettingsResponse =
+type SetStateMachineSectionSettingsResponse =
   SetStateMachineSectionSettingsResponses[keyof SetStateMachineSectionSettingsResponses];
 
 export type SetTaskBoardSectionStateData = {
@@ -10215,7 +10169,7 @@ export type SetTaskBoardSectionStateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTaskBoardSectionStateError =
+type SetTaskBoardSectionStateError =
   SetTaskBoardSectionStateErrors[keyof SetTaskBoardSectionStateErrors];
 
 export type SetTaskBoardSectionStateResponses = {
@@ -10225,7 +10179,7 @@ export type SetTaskBoardSectionStateResponses = {
   200: null;
 };
 
-export type SetTaskBoardSectionStateResponse =
+type SetTaskBoardSectionStateResponse =
   SetTaskBoardSectionStateResponses[keyof SetTaskBoardSectionStateResponses];
 
 export type SetTextBlockDisplayModeData = {
@@ -10242,7 +10196,7 @@ export type SetTextBlockDisplayModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTextBlockDisplayModeError =
+type SetTextBlockDisplayModeError =
   SetTextBlockDisplayModeErrors[keyof SetTextBlockDisplayModeErrors];
 
 export type SetTextBlockDisplayModeResponses = {
@@ -10252,7 +10206,7 @@ export type SetTextBlockDisplayModeResponses = {
   200: null;
 };
 
-export type SetTextBlockDisplayModeResponse =
+type SetTextBlockDisplayModeResponse =
   SetTextBlockDisplayModeResponses[keyof SetTextBlockDisplayModeResponses];
 
 export type SetTextBlockFormatData = {
@@ -10269,7 +10223,7 @@ export type SetTextBlockFormatErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTextBlockFormatError =
+type SetTextBlockFormatError =
   SetTextBlockFormatErrors[keyof SetTextBlockFormatErrors];
 
 export type SetTextBlockFormatResponses = {
@@ -10279,7 +10233,7 @@ export type SetTextBlockFormatResponses = {
   200: null;
 };
 
-export type SetTextBlockFormatResponse =
+type SetTextBlockFormatResponse =
   SetTextBlockFormatResponses[keyof SetTextBlockFormatResponses];
 
 export type SetTextBlockHeadingAsSectionNameData = {
@@ -10296,7 +10250,7 @@ export type SetTextBlockHeadingAsSectionNameErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTextBlockHeadingAsSectionNameError =
+type SetTextBlockHeadingAsSectionNameError =
   SetTextBlockHeadingAsSectionNameErrors[keyof SetTextBlockHeadingAsSectionNameErrors];
 
 export type SetTextBlockHeadingAsSectionNameResponses = {
@@ -10306,7 +10260,7 @@ export type SetTextBlockHeadingAsSectionNameResponses = {
   200: null;
 };
 
-export type SetTextBlockHeadingAsSectionNameResponse =
+type SetTextBlockHeadingAsSectionNameResponse =
   SetTextBlockHeadingAsSectionNameResponses[keyof SetTextBlockHeadingAsSectionNameResponses];
 
 export type SetTextBlockMasterFontSizeData = {
@@ -10323,7 +10277,7 @@ export type SetTextBlockMasterFontSizeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTextBlockMasterFontSizeError =
+type SetTextBlockMasterFontSizeError =
   SetTextBlockMasterFontSizeErrors[keyof SetTextBlockMasterFontSizeErrors];
 
 export type SetTextBlockMasterFontSizeResponses = {
@@ -10333,7 +10287,7 @@ export type SetTextBlockMasterFontSizeResponses = {
   200: null;
 };
 
-export type SetTextBlockMasterFontSizeResponse =
+type SetTextBlockMasterFontSizeResponse =
   SetTextBlockMasterFontSizeResponses[keyof SetTextBlockMasterFontSizeResponses];
 
 export type SetTextBlockMetaControlStyleData = {
@@ -10350,7 +10304,7 @@ export type SetTextBlockMetaControlStyleErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTextBlockMetaControlStyleError =
+type SetTextBlockMetaControlStyleError =
   SetTextBlockMetaControlStyleErrors[keyof SetTextBlockMetaControlStyleErrors];
 
 export type SetTextBlockMetaControlStyleResponses = {
@@ -10360,7 +10314,7 @@ export type SetTextBlockMetaControlStyleResponses = {
   200: null;
 };
 
-export type SetTextBlockMetaControlStyleResponse =
+type SetTextBlockMetaControlStyleResponse =
   SetTextBlockMetaControlStyleResponses[keyof SetTextBlockMetaControlStyleResponses];
 
 export type SetTextBlockTextData = {
@@ -10377,7 +10331,7 @@ export type SetTextBlockTextErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTextBlockTextError =
+type SetTextBlockTextError =
   SetTextBlockTextErrors[keyof SetTextBlockTextErrors];
 
 export type SetTextBlockTextResponses = {
@@ -10387,7 +10341,7 @@ export type SetTextBlockTextResponses = {
   200: null;
 };
 
-export type SetTextBlockTextResponse =
+type SetTextBlockTextResponse =
   SetTextBlockTextResponses[keyof SetTextBlockTextResponses];
 
 export type SetTopLevelSectionLayoutData = {
@@ -10404,7 +10358,7 @@ export type SetTopLevelSectionLayoutErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTopLevelSectionLayoutError =
+type SetTopLevelSectionLayoutError =
   SetTopLevelSectionLayoutErrors[keyof SetTopLevelSectionLayoutErrors];
 
 export type SetTopLevelSectionLayoutResponses = {
@@ -10414,7 +10368,7 @@ export type SetTopLevelSectionLayoutResponses = {
   200: null;
 };
 
-export type SetTopLevelSectionLayoutResponse =
+type SetTopLevelSectionLayoutResponse =
   SetTopLevelSectionLayoutResponses[keyof SetTopLevelSectionLayoutResponses];
 
 export type SetTypeErrorIgnoreData = {
@@ -10431,7 +10385,7 @@ export type SetTypeErrorIgnoreErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetTypeErrorIgnoreError =
+type SetTypeErrorIgnoreError =
   SetTypeErrorIgnoreErrors[keyof SetTypeErrorIgnoreErrors];
 
 export type SetTypeErrorIgnoreResponses = {
@@ -10441,7 +10395,7 @@ export type SetTypeErrorIgnoreResponses = {
   200: null;
 };
 
-export type SetTypeErrorIgnoreResponse =
+type SetTypeErrorIgnoreResponse =
   SetTypeErrorIgnoreResponses[keyof SetTypeErrorIgnoreResponses];
 
 export type SetVariantJsonSourceKeysData = {
@@ -10458,7 +10412,7 @@ export type SetVariantJsonSourceKeysErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetVariantJsonSourceKeysError =
+type SetVariantJsonSourceKeysError =
   SetVariantJsonSourceKeysErrors[keyof SetVariantJsonSourceKeysErrors];
 
 export type SetVariantJsonSourceKeysResponses = {
@@ -10468,7 +10422,7 @@ export type SetVariantJsonSourceKeysResponses = {
   200: null;
 };
 
-export type SetVariantJsonSourceKeysResponse =
+type SetVariantJsonSourceKeysResponse =
   SetVariantJsonSourceKeysResponses[keyof SetVariantJsonSourceKeysResponses];
 
 export type SetViewModeNameData = {
@@ -10485,8 +10439,7 @@ export type SetViewModeNameErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetViewModeNameError =
-  SetViewModeNameErrors[keyof SetViewModeNameErrors];
+type SetViewModeNameError = SetViewModeNameErrors[keyof SetViewModeNameErrors];
 
 export type SetViewModeNameResponses = {
   /**
@@ -10495,7 +10448,7 @@ export type SetViewModeNameResponses = {
   200: null;
 };
 
-export type SetViewModeNameResponse =
+type SetViewModeNameResponse =
   SetViewModeNameResponses[keyof SetViewModeNameResponses];
 
 export type SetViewModeSortOrderData = {
@@ -10512,7 +10465,7 @@ export type SetViewModeSortOrderErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetViewModeSortOrderError =
+type SetViewModeSortOrderError =
   SetViewModeSortOrderErrors[keyof SetViewModeSortOrderErrors];
 
 export type SetViewModeSortOrderResponses = {
@@ -10522,7 +10475,7 @@ export type SetViewModeSortOrderResponses = {
   200: HttpapiProjectConfigMutationResponse;
 };
 
-export type SetViewModeSortOrderResponse =
+type SetViewModeSortOrderResponse =
   SetViewModeSortOrderResponses[keyof SetViewModeSortOrderResponses];
 
 export type SetViewportData = {
@@ -10539,7 +10492,7 @@ export type SetViewportErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetViewportError = SetViewportErrors[keyof SetViewportErrors];
+type SetViewportError = SetViewportErrors[keyof SetViewportErrors];
 
 export type SetViewportResponses = {
   /**
@@ -10548,8 +10501,7 @@ export type SetViewportResponses = {
   200: null;
 };
 
-export type SetViewportResponse =
-  SetViewportResponses[keyof SetViewportResponses];
+type SetViewportResponse = SetViewportResponses[keyof SetViewportResponses];
 
 export type SetWindowSpaceNameData = {
   body: HttpapiSetWindowSpaceNameRequest;
@@ -10565,7 +10517,7 @@ export type SetWindowSpaceNameErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetWindowSpaceNameError =
+type SetWindowSpaceNameError =
   SetWindowSpaceNameErrors[keyof SetWindowSpaceNameErrors];
 
 export type SetWindowSpaceNameResponses = {
@@ -10575,7 +10527,7 @@ export type SetWindowSpaceNameResponses = {
   200: HttpapiProjectConfigMutationResponse;
 };
 
-export type SetWindowSpaceNameResponse =
+type SetWindowSpaceNameResponse =
   SetWindowSpaceNameResponses[keyof SetWindowSpaceNameResponses];
 
 export type SetWindowSpaceSortOrderData = {
@@ -10592,7 +10544,7 @@ export type SetWindowSpaceSortOrderErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetWindowSpaceSortOrderError =
+type SetWindowSpaceSortOrderError =
   SetWindowSpaceSortOrderErrors[keyof SetWindowSpaceSortOrderErrors];
 
 export type SetWindowSpaceSortOrderResponses = {
@@ -10602,7 +10554,7 @@ export type SetWindowSpaceSortOrderResponses = {
   200: HttpapiProjectConfigMutationResponse;
 };
 
-export type SetWindowSpaceSortOrderResponse =
+type SetWindowSpaceSortOrderResponse =
   SetWindowSpaceSortOrderResponses[keyof SetWindowSpaceSortOrderResponses];
 
 export type GetSettaHomeInfoData = {
@@ -10619,7 +10571,7 @@ export type GetSettaHomeInfoErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetSettaHomeInfoError =
+type GetSettaHomeInfoError =
   GetSettaHomeInfoErrors[keyof GetSettaHomeInfoErrors];
 
 export type GetSettaHomeInfoResponses = {
@@ -10629,7 +10581,7 @@ export type GetSettaHomeInfoResponses = {
   200: HttpapiSettaHomeInfoResponse;
 };
 
-export type GetSettaHomeInfoResponse =
+type GetSettaHomeInfoResponse =
   GetSettaHomeInfoResponses[keyof GetSettaHomeInfoResponses];
 
 export type SetupLauncherData = {
@@ -10646,7 +10598,7 @@ export type SetupLauncherErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type SetupLauncherError = SetupLauncherErrors[keyof SetupLauncherErrors];
+type SetupLauncherError = SetupLauncherErrors[keyof SetupLauncherErrors];
 
 export type SetupLauncherResponses = {
   /**
@@ -10655,7 +10607,7 @@ export type SetupLauncherResponses = {
   200: HttpapiLauncherStatusResponse;
 };
 
-export type SetupLauncherResponse =
+type SetupLauncherResponse =
   SetupLauncherResponses[keyof SetupLauncherResponses];
 
 export type ListShareDeploymentsData = {
@@ -10672,7 +10624,7 @@ export type ListShareDeploymentsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ListShareDeploymentsError =
+type ListShareDeploymentsError =
   ListShareDeploymentsErrors[keyof ListShareDeploymentsErrors];
 
 export type ListShareDeploymentsResponses = {
@@ -10682,7 +10634,7 @@ export type ListShareDeploymentsResponses = {
   200: Array<HttpapiDeploymentMetadataResponse> | null;
 };
 
-export type ListShareDeploymentsResponse =
+type ListShareDeploymentsResponse =
   ListShareDeploymentsResponses[keyof ListShareDeploymentsResponses];
 
 export type PublishShareDeploymentData = {
@@ -10699,7 +10651,7 @@ export type PublishShareDeploymentErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type PublishShareDeploymentError =
+type PublishShareDeploymentError =
   PublishShareDeploymentErrors[keyof PublishShareDeploymentErrors];
 
 export type PublishShareDeploymentResponses = {
@@ -10709,7 +10661,7 @@ export type PublishShareDeploymentResponses = {
   200: HttpapiDeploymentMetadataResponse;
 };
 
-export type PublishShareDeploymentResponse =
+type PublishShareDeploymentResponse =
   PublishShareDeploymentResponses[keyof PublishShareDeploymentResponses];
 
 export type GetShareDeploymentCurrentSessionData = {
@@ -10726,7 +10678,7 @@ export type GetShareDeploymentCurrentSessionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetShareDeploymentCurrentSessionError =
+type GetShareDeploymentCurrentSessionError =
   GetShareDeploymentCurrentSessionErrors[keyof GetShareDeploymentCurrentSessionErrors];
 
 export type GetShareDeploymentCurrentSessionResponses = {
@@ -10736,7 +10688,7 @@ export type GetShareDeploymentCurrentSessionResponses = {
   200: HttpapiShareDeploymentSessionResponse;
 };
 
-export type GetShareDeploymentCurrentSessionResponse =
+type GetShareDeploymentCurrentSessionResponse =
   GetShareDeploymentCurrentSessionResponses[keyof GetShareDeploymentCurrentSessionResponses];
 
 export type GetShareDeploymentLatestData = {
@@ -10755,7 +10707,7 @@ export type GetShareDeploymentLatestErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetShareDeploymentLatestError =
+type GetShareDeploymentLatestError =
   GetShareDeploymentLatestErrors[keyof GetShareDeploymentLatestErrors];
 
 export type GetShareDeploymentLatestResponses = {
@@ -10765,7 +10717,7 @@ export type GetShareDeploymentLatestResponses = {
   200: HttpapiDeploymentMetadataResponse;
 };
 
-export type GetShareDeploymentLatestResponse =
+type GetShareDeploymentLatestResponse =
   GetShareDeploymentLatestResponses[keyof GetShareDeploymentLatestResponses];
 
 export type ListShareDeploymentVersionsData = {
@@ -10784,7 +10736,7 @@ export type ListShareDeploymentVersionsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ListShareDeploymentVersionsError =
+type ListShareDeploymentVersionsError =
   ListShareDeploymentVersionsErrors[keyof ListShareDeploymentVersionsErrors];
 
 export type ListShareDeploymentVersionsResponses = {
@@ -10794,7 +10746,7 @@ export type ListShareDeploymentVersionsResponses = {
   200: Array<HttpapiDeploymentMetadataResponse> | null;
 };
 
-export type ListShareDeploymentVersionsResponse =
+type ListShareDeploymentVersionsResponse =
   ListShareDeploymentVersionsResponses[keyof ListShareDeploymentVersionsResponses];
 
 export type GetShareDeploymentProjectConfigData = {
@@ -10814,7 +10766,7 @@ export type GetShareDeploymentProjectConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetShareDeploymentProjectConfigError =
+type GetShareDeploymentProjectConfigError =
   GetShareDeploymentProjectConfigErrors[keyof GetShareDeploymentProjectConfigErrors];
 
 export type GetShareDeploymentProjectConfigResponses = {
@@ -10824,7 +10776,7 @@ export type GetShareDeploymentProjectConfigResponses = {
   200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
 };
 
-export type GetShareDeploymentProjectConfigResponse =
+type GetShareDeploymentProjectConfigResponse =
   GetShareDeploymentProjectConfigResponses[keyof GetShareDeploymentProjectConfigResponses];
 
 export type GetShareDeploymentStateData = {
@@ -10844,7 +10796,7 @@ export type GetShareDeploymentStateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type GetShareDeploymentStateError =
+type GetShareDeploymentStateError =
   GetShareDeploymentStateErrors[keyof GetShareDeploymentStateErrors];
 
 export type GetShareDeploymentStateResponses = {
@@ -10854,7 +10806,7 @@ export type GetShareDeploymentStateResponses = {
   200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
 };
 
-export type GetShareDeploymentStateResponse =
+type GetShareDeploymentStateResponse =
   GetShareDeploymentStateResponses[keyof GetShareDeploymentStateResponses];
 
 export type StartAgentRunData = {
@@ -10871,7 +10823,7 @@ export type StartAgentRunErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StartAgentRunError = StartAgentRunErrors[keyof StartAgentRunErrors];
+type StartAgentRunError = StartAgentRunErrors[keyof StartAgentRunErrors];
 
 export type StartAgentRunResponses = {
   /**
@@ -10880,7 +10832,7 @@ export type StartAgentRunResponses = {
   200: AgentrunsRun;
 };
 
-export type StartAgentRunResponse =
+type StartAgentRunResponse =
   StartAgentRunResponses[keyof StartAgentRunResponses];
 
 export type StartRunChainData = {
@@ -10897,7 +10849,7 @@ export type StartRunChainErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StartRunChainError = StartRunChainErrors[keyof StartRunChainErrors];
+type StartRunChainError = StartRunChainErrors[keyof StartRunChainErrors];
 
 export type StartRunChainResponses = {
   /**
@@ -10906,7 +10858,7 @@ export type StartRunChainResponses = {
   200: AgentrunsRun;
 };
 
-export type StartRunChainResponse =
+type StartRunChainResponse =
   StartRunChainResponses[keyof StartRunChainResponses];
 
 export type StartStateMachineRunData = {
@@ -10923,7 +10875,7 @@ export type StartStateMachineRunErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StartStateMachineRunError =
+type StartStateMachineRunError =
   StartStateMachineRunErrors[keyof StartStateMachineRunErrors];
 
 export type StartStateMachineRunResponses = {
@@ -10933,7 +10885,7 @@ export type StartStateMachineRunResponses = {
   200: AgentrunsRun;
 };
 
-export type StartStateMachineRunResponse =
+type StartStateMachineRunResponse =
   StartStateMachineRunResponses[keyof StartStateMachineRunResponses];
 
 export type StartTranscriptionSessionData = {
@@ -10950,7 +10902,7 @@ export type StartTranscriptionSessionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StartTranscriptionSessionError =
+type StartTranscriptionSessionError =
   StartTranscriptionSessionErrors[keyof StartTranscriptionSessionErrors];
 
 export type StartTranscriptionSessionResponses = {
@@ -10960,7 +10912,7 @@ export type StartTranscriptionSessionResponses = {
   200: HttpapiStartTranscriptionSessionResponse;
 };
 
-export type StartTranscriptionSessionResponse =
+type StartTranscriptionSessionResponse =
   StartTranscriptionSessionResponses[keyof StartTranscriptionSessionResponses];
 
 export type StopAgentRunData = {
@@ -10977,7 +10929,7 @@ export type StopAgentRunErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StopAgentRunError = StopAgentRunErrors[keyof StopAgentRunErrors];
+type StopAgentRunError = StopAgentRunErrors[keyof StopAgentRunErrors];
 
 export type StopAgentRunResponses = {
   /**
@@ -10986,8 +10938,7 @@ export type StopAgentRunResponses = {
   200: AgentrunsRun;
 };
 
-export type StopAgentRunResponse =
-  StopAgentRunResponses[keyof StopAgentRunResponses];
+type StopAgentRunResponse = StopAgentRunResponses[keyof StopAgentRunResponses];
 
 export type StopExternalAgentRunData = {
   body: HttpapiStopExternalAgentRunRequest;
@@ -11003,7 +10954,7 @@ export type StopExternalAgentRunErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StopExternalAgentRunError =
+type StopExternalAgentRunError =
   StopExternalAgentRunErrors[keyof StopExternalAgentRunErrors];
 
 export type StopExternalAgentRunResponses = {
@@ -11013,7 +10964,7 @@ export type StopExternalAgentRunResponses = {
   200: AgentrunsRun;
 };
 
-export type StopExternalAgentRunResponse =
+type StopExternalAgentRunResponse =
   StopExternalAgentRunResponses[keyof StopExternalAgentRunResponses];
 
 export type StopLlmChatData = {
@@ -11030,7 +10981,7 @@ export type StopLlmChatErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StopLlmChatError = StopLlmChatErrors[keyof StopLlmChatErrors];
+type StopLlmChatError = StopLlmChatErrors[keyof StopLlmChatErrors];
 
 export type StopLlmChatResponses = {
   /**
@@ -11039,8 +10990,7 @@ export type StopLlmChatResponses = {
   200: HttpapiStopLlmChatResponse;
 };
 
-export type StopLlmChatResponse =
-  StopLlmChatResponses[keyof StopLlmChatResponses];
+type StopLlmChatResponse = StopLlmChatResponses[keyof StopLlmChatResponses];
 
 export type StopRunChainData = {
   body: HttpapiStopRunChainRequest;
@@ -11056,7 +11006,7 @@ export type StopRunChainErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StopRunChainError = StopRunChainErrors[keyof StopRunChainErrors];
+type StopRunChainError = StopRunChainErrors[keyof StopRunChainErrors];
 
 export type StopRunChainResponses = {
   /**
@@ -11065,8 +11015,7 @@ export type StopRunChainResponses = {
   200: AgentrunsRun;
 };
 
-export type StopRunChainResponse =
-  StopRunChainResponses[keyof StopRunChainResponses];
+type StopRunChainResponse = StopRunChainResponses[keyof StopRunChainResponses];
 
 export type StopStateMachineRunData = {
   body: HttpapiStopStateMachineRunRequest;
@@ -11082,7 +11031,7 @@ export type StopStateMachineRunErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StopStateMachineRunError =
+type StopStateMachineRunError =
   StopStateMachineRunErrors[keyof StopStateMachineRunErrors];
 
 export type StopStateMachineRunResponses = {
@@ -11092,7 +11041,7 @@ export type StopStateMachineRunResponses = {
   200: HttpapiStateMachineRunControlResponse;
 };
 
-export type StopStateMachineRunResponse =
+type StopStateMachineRunResponse =
   StopStateMachineRunResponses[keyof StopStateMachineRunResponses];
 
 export type StopTranscriptionSessionData = {
@@ -11109,7 +11058,7 @@ export type StopTranscriptionSessionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type StopTranscriptionSessionError =
+type StopTranscriptionSessionError =
   StopTranscriptionSessionErrors[keyof StopTranscriptionSessionErrors];
 
 export type StopTranscriptionSessionResponses = {
@@ -11119,7 +11068,7 @@ export type StopTranscriptionSessionResponses = {
   200: TranscriptionsessionsDelta;
 };
 
-export type StopTranscriptionSessionResponse =
+type StopTranscriptionSessionResponse =
   StopTranscriptionSessionResponses[keyof StopTranscriptionSessionResponses];
 
 export type TextFieldCompletionData = {
@@ -11136,7 +11085,7 @@ export type TextFieldCompletionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type TextFieldCompletionError =
+type TextFieldCompletionError =
   TextFieldCompletionErrors[keyof TextFieldCompletionErrors];
 
 export type TextFieldCompletionResponses = {
@@ -11146,7 +11095,7 @@ export type TextFieldCompletionResponses = {
   200: Array<LspcompletionCodeMirrorCompletion> | null;
 };
 
-export type TextFieldCompletionResponse =
+type TextFieldCompletionResponse =
   TextFieldCompletionResponses[keyof TextFieldCompletionResponses];
 
 export type ToggleGroupOrientationData = {
@@ -11163,7 +11112,7 @@ export type ToggleGroupOrientationErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleGroupOrientationError =
+type ToggleGroupOrientationError =
   ToggleGroupOrientationErrors[keyof ToggleGroupOrientationErrors];
 
 export type ToggleGroupOrientationResponses = {
@@ -11173,7 +11122,7 @@ export type ToggleGroupOrientationResponses = {
   200: null;
 };
 
-export type ToggleGroupOrientationResponse =
+type ToggleGroupOrientationResponse =
   ToggleGroupOrientationResponses[keyof ToggleGroupOrientationResponses];
 
 export type ToggleIsEditingViewModeData = {
@@ -11190,7 +11139,7 @@ export type ToggleIsEditingViewModeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleIsEditingViewModeError =
+type ToggleIsEditingViewModeError =
   ToggleIsEditingViewModeErrors[keyof ToggleIsEditingViewModeErrors];
 
 export type ToggleIsEditingViewModeResponses = {
@@ -11200,7 +11149,7 @@ export type ToggleIsEditingViewModeResponses = {
   200: null;
 };
 
-export type ToggleIsEditingViewModeResponse =
+type ToggleIsEditingViewModeResponse =
   ToggleIsEditingViewModeResponses[keyof ToggleIsEditingViewModeResponses];
 
 export type ToggleMinimizedData = {
@@ -11217,8 +11166,7 @@ export type ToggleMinimizedErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleMinimizedError =
-  ToggleMinimizedErrors[keyof ToggleMinimizedErrors];
+type ToggleMinimizedError = ToggleMinimizedErrors[keyof ToggleMinimizedErrors];
 
 export type ToggleMinimizedResponses = {
   /**
@@ -11227,7 +11175,7 @@ export type ToggleMinimizedResponses = {
   200: null;
 };
 
-export type ToggleMinimizedResponse =
+type ToggleMinimizedResponse =
   ToggleMinimizedResponses[keyof ToggleMinimizedResponses];
 
 export type ToggleParamSelectedData = {
@@ -11244,7 +11192,7 @@ export type ToggleParamSelectedErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleParamSelectedError =
+type ToggleParamSelectedError =
   ToggleParamSelectedErrors[keyof ToggleParamSelectedErrors];
 
 export type ToggleParamSelectedResponses = {
@@ -11254,7 +11202,7 @@ export type ToggleParamSelectedResponses = {
   200: null;
 };
 
-export type ToggleParamSelectedResponse =
+type ToggleParamSelectedResponse =
   ToggleParamSelectedResponses[keyof ToggleParamSelectedResponses];
 
 export type TogglePositionLocksData = {
@@ -11271,7 +11219,7 @@ export type TogglePositionLocksErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type TogglePositionLocksError =
+type TogglePositionLocksError =
   TogglePositionLocksErrors[keyof TogglePositionLocksErrors];
 
 export type TogglePositionLocksResponses = {
@@ -11281,7 +11229,7 @@ export type TogglePositionLocksResponses = {
   200: null;
 };
 
-export type TogglePositionLocksResponse =
+type TogglePositionLocksResponse =
   TogglePositionLocksResponses[keyof TogglePositionLocksResponses];
 
 export type ToggleSectionVisibilityData = {
@@ -11298,7 +11246,7 @@ export type ToggleSectionVisibilityErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleSectionVisibilityError =
+type ToggleSectionVisibilityError =
   ToggleSectionVisibilityErrors[keyof ToggleSectionVisibilityErrors];
 
 export type ToggleSectionVisibilityResponses = {
@@ -11308,7 +11256,7 @@ export type ToggleSectionVisibilityResponses = {
   200: null;
 };
 
-export type ToggleSectionVisibilityResponse =
+type ToggleSectionVisibilityResponse =
   ToggleSectionVisibilityResponses[keyof ToggleSectionVisibilityResponses];
 
 export type ToggleVariantFrozenData = {
@@ -11325,7 +11273,7 @@ export type ToggleVariantFrozenErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleVariantFrozenError =
+type ToggleVariantFrozenError =
   ToggleVariantFrozenErrors[keyof ToggleVariantFrozenErrors];
 
 export type ToggleVariantFrozenResponses = {
@@ -11335,7 +11283,7 @@ export type ToggleVariantFrozenResponses = {
   200: null;
 };
 
-export type ToggleVariantFrozenResponse =
+type ToggleVariantFrozenResponse =
   ToggleVariantFrozenResponses[keyof ToggleVariantFrozenResponses];
 
 export type ToggleVariantJsonSourceData = {
@@ -11352,7 +11300,7 @@ export type ToggleVariantJsonSourceErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleVariantJsonSourceError =
+type ToggleVariantJsonSourceError =
   ToggleVariantJsonSourceErrors[keyof ToggleVariantJsonSourceErrors];
 
 export type ToggleVariantJsonSourceResponses = {
@@ -11362,7 +11310,7 @@ export type ToggleVariantJsonSourceResponses = {
   200: null;
 };
 
-export type ToggleVariantJsonSourceResponse =
+type ToggleVariantJsonSourceResponse =
   ToggleVariantJsonSourceResponses[keyof ToggleVariantJsonSourceResponses];
 
 export type ToggleViewModeTabData = {
@@ -11379,7 +11327,7 @@ export type ToggleViewModeTabErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleViewModeTabError =
+type ToggleViewModeTabError =
   ToggleViewModeTabErrors[keyof ToggleViewModeTabErrors];
 
 export type ToggleViewModeTabResponses = {
@@ -11389,7 +11337,7 @@ export type ToggleViewModeTabResponses = {
   200: null;
 };
 
-export type ToggleViewModeTabResponse =
+type ToggleViewModeTabResponse =
   ToggleViewModeTabResponses[keyof ToggleViewModeTabResponses];
 
 export type ToggleViewModeUserFacingData = {
@@ -11406,7 +11354,7 @@ export type ToggleViewModeUserFacingErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ToggleViewModeUserFacingError =
+type ToggleViewModeUserFacingError =
   ToggleViewModeUserFacingErrors[keyof ToggleViewModeUserFacingErrors];
 
 export type ToggleViewModeUserFacingResponses = {
@@ -11416,7 +11364,7 @@ export type ToggleViewModeUserFacingResponses = {
   200: null;
 };
 
-export type ToggleViewModeUserFacingResponse =
+type ToggleViewModeUserFacingResponse =
   ToggleViewModeUserFacingResponses[keyof ToggleViewModeUserFacingResponses];
 
 export type TransferFileBrowserEntryData = {
@@ -11433,7 +11381,7 @@ export type TransferFileBrowserEntryErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type TransferFileBrowserEntryError =
+type TransferFileBrowserEntryError =
   TransferFileBrowserEntryErrors[keyof TransferFileBrowserEntryErrors];
 
 export type TransferFileBrowserEntryResponses = {
@@ -11443,7 +11391,7 @@ export type TransferFileBrowserEntryResponses = {
   200: FilebrowserTransferResponse;
 };
 
-export type TransferFileBrowserEntryResponse =
+type TransferFileBrowserEntryResponse =
   TransferFileBrowserEntryResponses[keyof TransferFileBrowserEntryResponses];
 
 export type TypeCheckData = {
@@ -11460,7 +11408,7 @@ export type TypeCheckErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type TypeCheckError = TypeCheckErrors[keyof TypeCheckErrors];
+type TypeCheckError = TypeCheckErrors[keyof TypeCheckErrors];
 
 export type TypeCheckResponses = {
   /**
@@ -11469,7 +11417,7 @@ export type TypeCheckResponses = {
   200: null;
 };
 
-export type TypeCheckResponse = TypeCheckResponses[keyof TypeCheckResponses];
+type TypeCheckResponse = TypeCheckResponses[keyof TypeCheckResponses];
 
 export type UndoData = {
   body: HttpapiUndoRequest;
@@ -11485,7 +11433,7 @@ export type UndoErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UndoError = UndoErrors[keyof UndoErrors];
+type UndoError = UndoErrors[keyof UndoErrors];
 
 export type UndoResponses = {
   /**
@@ -11494,7 +11442,7 @@ export type UndoResponses = {
   200: HttpapiProjectStateSingleConfigWithCompletedOpIds;
 };
 
-export type UndoResponse = UndoResponses[keyof UndoResponses];
+type UndoResponse = UndoResponses[keyof UndoResponses];
 
 export type UngroupGroupsData = {
   body: HttpapiUngroupGroupsRequest;
@@ -11510,7 +11458,7 @@ export type UngroupGroupsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UngroupGroupsError = UngroupGroupsErrors[keyof UngroupGroupsErrors];
+type UngroupGroupsError = UngroupGroupsErrors[keyof UngroupGroupsErrors];
 
 export type UngroupGroupsResponses = {
   /**
@@ -11519,7 +11467,7 @@ export type UngroupGroupsResponses = {
   200: null;
 };
 
-export type UngroupGroupsResponse =
+type UngroupGroupsResponse =
   UngroupGroupsResponses[keyof UngroupGroupsResponses];
 
 export type UnindentParamsData = {
@@ -11536,8 +11484,7 @@ export type UnindentParamsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UnindentParamsError =
-  UnindentParamsErrors[keyof UnindentParamsErrors];
+type UnindentParamsError = UnindentParamsErrors[keyof UnindentParamsErrors];
 
 export type UnindentParamsResponses = {
   /**
@@ -11546,7 +11493,7 @@ export type UnindentParamsResponses = {
   200: null;
 };
 
-export type UnindentParamsResponse =
+type UnindentParamsResponse =
   UnindentParamsResponses[keyof UnindentParamsResponses];
 
 export type UnselectAllParamsData = {
@@ -11563,7 +11510,7 @@ export type UnselectAllParamsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UnselectAllParamsError =
+type UnselectAllParamsError =
   UnselectAllParamsErrors[keyof UnselectAllParamsErrors];
 
 export type UnselectAllParamsResponses = {
@@ -11573,7 +11520,7 @@ export type UnselectAllParamsResponses = {
   200: null;
 };
 
-export type UnselectAllParamsResponse =
+type UnselectAllParamsResponse =
   UnselectAllParamsResponses[keyof UnselectAllParamsResponses];
 
 export type UpdateAgentProfileData = {
@@ -11590,7 +11537,7 @@ export type UpdateAgentProfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateAgentProfileError =
+type UpdateAgentProfileError =
   UpdateAgentProfileErrors[keyof UpdateAgentProfileErrors];
 
 export type UpdateAgentProfileResponses = {
@@ -11600,7 +11547,7 @@ export type UpdateAgentProfileResponses = {
   200: AgentprofilesProfile;
 };
 
-export type UpdateAgentProfileResponse =
+type UpdateAgentProfileResponse =
   UpdateAgentProfileResponses[keyof UpdateAgentProfileResponses];
 
 export type UpdateAgenticEdgeData = {
@@ -11617,7 +11564,7 @@ export type UpdateAgenticEdgeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateAgenticEdgeError =
+type UpdateAgenticEdgeError =
   UpdateAgenticEdgeErrors[keyof UpdateAgenticEdgeErrors];
 
 export type UpdateAgenticEdgeResponses = {
@@ -11627,7 +11574,7 @@ export type UpdateAgenticEdgeResponses = {
   200: null;
 };
 
-export type UpdateAgenticEdgeResponse =
+type UpdateAgenticEdgeResponse =
   UpdateAgenticEdgeResponses[keyof UpdateAgenticEdgeResponses];
 
 export type UpdateArtifactsData = {
@@ -11644,8 +11591,7 @@ export type UpdateArtifactsErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateArtifactsError =
-  UpdateArtifactsErrors[keyof UpdateArtifactsErrors];
+type UpdateArtifactsError = UpdateArtifactsErrors[keyof UpdateArtifactsErrors];
 
 export type UpdateArtifactsResponses = {
   /**
@@ -11654,7 +11600,7 @@ export type UpdateArtifactsResponses = {
   200: Array<ArtifactsArtifactSaveResult> | null;
 };
 
-export type UpdateArtifactsResponse =
+type UpdateArtifactsResponse =
   UpdateArtifactsResponses[keyof UpdateArtifactsResponses];
 
 export type UpdateEdgeData = {
@@ -11671,7 +11617,7 @@ export type UpdateEdgeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateEdgeError = UpdateEdgeErrors[keyof UpdateEdgeErrors];
+type UpdateEdgeError = UpdateEdgeErrors[keyof UpdateEdgeErrors];
 
 export type UpdateEdgeResponses = {
   /**
@@ -11680,7 +11626,7 @@ export type UpdateEdgeResponses = {
   200: null;
 };
 
-export type UpdateEdgeResponse = UpdateEdgeResponses[keyof UpdateEdgeResponses];
+type UpdateEdgeResponse = UpdateEdgeResponses[keyof UpdateEdgeResponses];
 
 export type UpdateEngineConfigData = {
   body: HttpapiUpdateEngineConfigRequest;
@@ -11696,7 +11642,7 @@ export type UpdateEngineConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateEngineConfigError =
+type UpdateEngineConfigError =
   UpdateEngineConfigErrors[keyof UpdateEngineConfigErrors];
 
 export type UpdateEngineConfigResponses = {
@@ -11706,7 +11652,7 @@ export type UpdateEngineConfigResponses = {
   200: AgentrunsEngineConfig;
 };
 
-export type UpdateEngineConfigResponse =
+type UpdateEngineConfigResponse =
   UpdateEngineConfigResponses[keyof UpdateEngineConfigResponses];
 
 export type UpdateExternalAgentConfigData = {
@@ -11723,7 +11669,7 @@ export type UpdateExternalAgentConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateExternalAgentConfigError =
+type UpdateExternalAgentConfigError =
   UpdateExternalAgentConfigErrors[keyof UpdateExternalAgentConfigErrors];
 
 export type UpdateExternalAgentConfigResponses = {
@@ -11733,7 +11679,7 @@ export type UpdateExternalAgentConfigResponses = {
   200: ExternalagentconfigsConfig;
 };
 
-export type UpdateExternalAgentConfigResponse =
+type UpdateExternalAgentConfigResponse =
   UpdateExternalAgentConfigResponses[keyof UpdateExternalAgentConfigResponses];
 
 export type UpdateLauncherData = {
@@ -11750,8 +11696,7 @@ export type UpdateLauncherErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateLauncherError =
-  UpdateLauncherErrors[keyof UpdateLauncherErrors];
+type UpdateLauncherError = UpdateLauncherErrors[keyof UpdateLauncherErrors];
 
 export type UpdateLauncherResponses = {
   /**
@@ -11760,7 +11705,7 @@ export type UpdateLauncherResponses = {
   200: HttpapiLauncherUpdateResponse;
 };
 
-export type UpdateLauncherResponse =
+type UpdateLauncherResponse =
   UpdateLauncherResponses[keyof UpdateLauncherResponses];
 
 export type UpdateParamImplConfigData = {
@@ -11777,7 +11722,7 @@ export type UpdateParamImplConfigErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateParamImplConfigError =
+type UpdateParamImplConfigError =
   UpdateParamImplConfigErrors[keyof UpdateParamImplConfigErrors];
 
 export type UpdateParamImplConfigResponses = {
@@ -11787,7 +11732,7 @@ export type UpdateParamImplConfigResponses = {
   200: null;
 };
 
-export type UpdateParamImplConfigResponse =
+type UpdateParamImplConfigResponse =
   UpdateParamImplConfigResponses[keyof UpdateParamImplConfigResponses];
 
 export type UpdatePromptTemplateData = {
@@ -11804,7 +11749,7 @@ export type UpdatePromptTemplateErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdatePromptTemplateError =
+type UpdatePromptTemplateError =
   UpdatePromptTemplateErrors[keyof UpdatePromptTemplateErrors];
 
 export type UpdatePromptTemplateResponses = {
@@ -11814,7 +11759,7 @@ export type UpdatePromptTemplateResponses = {
   200: PrompttemplatesTemplate;
 };
 
-export type UpdatePromptTemplateResponse =
+type UpdatePromptTemplateResponse =
   UpdatePromptTemplateResponses[keyof UpdatePromptTemplateResponses];
 
 export type UpdateStateMachineEdgeData = {
@@ -11831,7 +11776,7 @@ export type UpdateStateMachineEdgeErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateStateMachineEdgeError =
+type UpdateStateMachineEdgeError =
   UpdateStateMachineEdgeErrors[keyof UpdateStateMachineEdgeErrors];
 
 export type UpdateStateMachineEdgeResponses = {
@@ -11841,7 +11786,7 @@ export type UpdateStateMachineEdgeResponses = {
   200: null;
 };
 
-export type UpdateStateMachineEdgeResponse =
+type UpdateStateMachineEdgeResponse =
   UpdateStateMachineEdgeResponses[keyof UpdateStateMachineEdgeResponses];
 
 export type UpdateTranscriptionProfileData = {
@@ -11858,7 +11803,7 @@ export type UpdateTranscriptionProfileErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpdateTranscriptionProfileError =
+type UpdateTranscriptionProfileError =
   UpdateTranscriptionProfileErrors[keyof UpdateTranscriptionProfileErrors];
 
 export type UpdateTranscriptionProfileResponses = {
@@ -11868,7 +11813,7 @@ export type UpdateTranscriptionProfileResponses = {
   200: TranscriptionprofilesProfile;
 };
 
-export type UpdateTranscriptionProfileResponse =
+type UpdateTranscriptionProfileResponse =
   UpdateTranscriptionProfileResponses[keyof UpdateTranscriptionProfileResponses];
 
 export type UpsertAppGenCustomSkillData = {
@@ -11885,7 +11830,7 @@ export type UpsertAppGenCustomSkillErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type UpsertAppGenCustomSkillError =
+type UpsertAppGenCustomSkillError =
   UpsertAppGenCustomSkillErrors[keyof UpsertAppGenCustomSkillErrors];
 
 export type UpsertAppGenCustomSkillResponses = {
@@ -11895,7 +11840,7 @@ export type UpsertAppGenCustomSkillResponses = {
   200: AppgenskillsUpsertCustomSkillResponse;
 };
 
-export type UpsertAppGenCustomSkillResponse =
+type UpsertAppGenCustomSkillResponse =
   UpsertAppGenCustomSkillResponses[keyof UpsertAppGenCustomSkillResponses];
 
 export type ValidateAppDefinitionData = {
@@ -11912,7 +11857,7 @@ export type ValidateAppDefinitionErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type ValidateAppDefinitionError =
+type ValidateAppDefinitionError =
   ValidateAppDefinitionErrors[keyof ValidateAppDefinitionErrors];
 
 export type ValidateAppDefinitionResponses = {
@@ -11922,7 +11867,7 @@ export type ValidateAppDefinitionResponses = {
   200: AppsubsystemAppdefinitionValidationResult;
 };
 
-export type ValidateAppDefinitionResponse =
+type ValidateAppDefinitionResponse =
   ValidateAppDefinitionResponses[keyof ValidateAppDefinitionResponses];
 
 export type WriteFileBrowserFileContentData = {
@@ -11939,7 +11884,7 @@ export type WriteFileBrowserFileContentErrors = {
   default: HttpapiErrorResponse;
 };
 
-export type WriteFileBrowserFileContentError =
+type WriteFileBrowserFileContentError =
   WriteFileBrowserFileContentErrors[keyof WriteFileBrowserFileContentErrors];
 
 export type WriteFileBrowserFileContentResponses = {
@@ -11949,5 +11894,5 @@ export type WriteFileBrowserFileContentResponses = {
   200: FilebrowserWriteFileContentResponse;
 };
 
-export type WriteFileBrowserFileContentResponse =
+type WriteFileBrowserFileContentResponse =
   WriteFileBrowserFileContentResponses[keyof WriteFileBrowserFileContentResponses];

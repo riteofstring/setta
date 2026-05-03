@@ -65,7 +65,7 @@ export type GpuFlowScenePortConnectionOptions =
     >
   | undefined;
 
-export type GpuFlowRetainedContentControllerOptions = {
+type GpuFlowRetainedContentControllerOptions = {
   readonly containerRef: MutableRefObject<HTMLDivElement | null>;
   readonly layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   readonly nodeLayerRef: MutableRefObject<{

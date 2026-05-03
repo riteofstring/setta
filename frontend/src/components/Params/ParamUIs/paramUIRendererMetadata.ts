@@ -1,53 +1,26 @@
-import { CodeObjTypeEnum, type CodeObjType } from "utils/generatedTypes";
+import {
+  ParamUIRendererConfig,
+  type CodeObjType,
+  type ParamUIRendererFamily,
+} from "utils/generatedTypes";
 
-export type SectionParamUIRendererFamily =
-  | "text-like"
-  | "date-time"
-  | "slider"
-  | "rotary"
-  | "switch"
-  | "color-picker"
-  | "dropdown"
-  | "password"
-  | "dropzone";
+export type SectionParamUIRendererFamily = ParamUIRendererFamily;
 
-export const TEXT_LIKE_PARAM_TYPES = [
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TextAreaParam,
-] as const satisfies readonly CodeObjType[];
+export const TEXT_LIKE_PARAM_TYPES = ParamUIRendererConfig.textLikeParamTypes;
 
-const DATE_TIME_PARAM_TYPES = [
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-] as const satisfies readonly CodeObjType[];
+export const SPECIALIZED_PARAM_RENDERER_FAMILIES =
+  ParamUIRendererConfig.specializedRendererFamilies;
 
-export const SPECIALIZED_PARAM_RENDERER_FAMILIES = {
-  [CodeObjTypeEnum.SliderParam]: "slider",
-  [CodeObjTypeEnum.RotaryParam]: "rotary",
-  [CodeObjTypeEnum.SwitchParam]: "switch",
-  [CodeObjTypeEnum.ColorPickerParam]: "color-picker",
-  [CodeObjTypeEnum.DropdownParam]: "dropdown",
-  [CodeObjTypeEnum.PasswordParam]: "password",
-  [CodeObjTypeEnum.DropzoneParam]: "dropzone",
-} satisfies Partial<Record<CodeObjType, SectionParamUIRendererFamily>>;
+const PARAM_UI_RENDERER_FAMILIES_BY_TYPE: Partial<
+  Record<CodeObjType, SectionParamUIRendererFamily>
+> = ParamUIRendererConfig.rendererFamiliesByType;
 
 export function getSectionParamUIRendererTypes(): readonly CodeObjType[] {
-  return [
-    ...TEXT_LIKE_PARAM_TYPES,
-    ...DATE_TIME_PARAM_TYPES,
-    ...(Object.keys(SPECIALIZED_PARAM_RENDERER_FAMILIES) as CodeObjType[]),
-  ];
+  return ParamUIRendererConfig.rendererTypes;
 }
 
 export function getSectionParamUIRendererFamily(
   codeObjType: CodeObjType,
 ): SectionParamUIRendererFamily | null {
-  if ((TEXT_LIKE_PARAM_TYPES as readonly CodeObjType[]).includes(codeObjType)) {
-    return "text-like";
-  }
-  if ((DATE_TIME_PARAM_TYPES as readonly CodeObjType[]).includes(codeObjType)) {
-    return "date-time";
-  }
-  return SPECIALIZED_PARAM_RENDERER_FAMILIES[codeObjType] ?? null;
+  return PARAM_UI_RENDERER_FAMILIES_BY_TYPE[codeObjType] ?? null;
 }

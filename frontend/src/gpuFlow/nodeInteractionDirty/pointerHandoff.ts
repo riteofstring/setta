@@ -96,7 +96,7 @@ export function applyWheelScroll(
   );
 }
 
-export function getWheelScrollDelta(
+function getWheelScrollDelta(
   target: HTMLElement,
   event: Pick<WheelEvent, "deltaMode" | "deltaX" | "deltaY">,
 ): { readonly deltaX: number; readonly deltaY: number } {
@@ -118,7 +118,7 @@ export function getWheelScrollDelta(
   };
 }
 
-export function clampScrollOffset(value: number, maxValue: number): number {
+function clampScrollOffset(value: number, maxValue: number): number {
   if (!Number.isFinite(value)) {
     return 0;
   }
@@ -173,7 +173,7 @@ export function shouldSuppressTrustedPointerHandoffClick(
   );
 }
 
-export function isTrustedClickTargetForHandoffTarget(
+function isTrustedClickTargetForHandoffTarget(
   target: HTMLElement,
   rawEventTarget: EventTarget | null,
 ): boolean {
@@ -186,10 +186,7 @@ export function isTrustedClickTargetForHandoffTarget(
   );
 }
 
-export function isMouseEventInsideElement(
-  element: HTMLElement,
-  event: MouseEvent,
-) {
+function isMouseEventInsideElement(element: HTMLElement, event: MouseEvent) {
   const rect = element.getBoundingClientRect();
   return (
     rect.width > 0 &&
@@ -201,7 +198,7 @@ export function isMouseEventInsideElement(
   );
 }
 
-export function isTextFocusTarget(target: HTMLElement): boolean {
+function isTextFocusTarget(target: HTMLElement): boolean {
   return (
     target instanceof HTMLTextAreaElement ||
     (target instanceof HTMLInputElement && isTextInputType(target.type)) ||
@@ -224,7 +221,7 @@ export function isTextInputType(inputType: string): boolean {
   );
 }
 
-export function isClickHandoffTarget(target: HTMLElement): boolean {
+function isClickHandoffTarget(target: HTMLElement): boolean {
   if (target instanceof HTMLButtonElement) {
     return true;
   }

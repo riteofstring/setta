@@ -12,7 +12,7 @@ export const GPU_FLOW_SCENE_DIRTY_FLAGS = [
   "dom-islands",
 ] as const;
 
-export type GpuFlowSceneDirtyFlag = (typeof GPU_FLOW_SCENE_DIRTY_FLAGS)[number];
+type GpuFlowSceneDirtyFlag = (typeof GPU_FLOW_SCENE_DIRTY_FLAGS)[number];
 
 export type GpuSectionSceneLayoutMode =
   | "absolute"
@@ -21,7 +21,7 @@ export type GpuSectionSceneLayoutMode =
   | "none"
   | "vertical";
 
-export type GpuSectionSceneInteractionLayer = "chrome" | "content" | "overlay";
+type GpuSectionSceneInteractionLayer = "chrome" | "content" | "overlay";
 
 export type GpuSectionSceneResizePolicy = {
   readonly aspectRatio: boolean;
@@ -39,8 +39,8 @@ export type GpuSectionSceneChildLayout = {
   readonly gap: GpuPoint;
 };
 
-export type GpuPortAnchorHandleType = "source" | "target";
-export type GpuPortAnchorSide = "left" | "right";
+type GpuPortAnchorHandleType = "source" | "target";
+type GpuPortAnchorSide = "left" | "right";
 
 export type GpuPortAnchorDescriptor = {
   readonly connectionStartSemanticType?: GpuPortAnchorHandleType | undefined;
@@ -96,7 +96,7 @@ export type GpuContentSurface = {
   readonly zIndex: number;
 };
 
-export type GpuDomIslandSource =
+type GpuDomIslandSource =
   | {
       readonly kind: "retained-content";
       readonly hitRecordId: string;
@@ -107,7 +107,7 @@ export type GpuDomIslandSource =
       readonly kind: "custom";
     };
 
-export type GpuDomIslandActivation = {
+type GpuDomIslandActivation = {
   readonly kind: "pointer";
   readonly screenPoint: GpuPoint;
 };
@@ -127,7 +127,7 @@ export type GpuDomIsland = {
   readonly zIndex: number;
 };
 
-export type GpuEdgeSceneRecord = {
+type GpuEdgeSceneRecord = {
   readonly edgeId: string;
 };
 
@@ -181,7 +181,7 @@ export function createGpuFlowContentSurfacesFromSections(
   ]);
 }
 
-export function isGpuSectionSceneNodeInsideClip(
+function isGpuSectionSceneNodeInsideClip(
   section: GpuSectionSceneNode,
 ): boolean {
   return (

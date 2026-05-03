@@ -17,8 +17,7 @@ export type GpuNodeResizeTarget = {
 
 export const GPU_NODE_RESIZE_DIRECTION_ATTRIBUTE = "data-resize-direction";
 
-export const GPU_NODE_RESIZE_HANDLE_SELECTOR =
-  `[${GPU_NODE_RESIZE_DIRECTION_ATTRIBUTE}], .section-resize-handle`;
+export const GPU_NODE_RESIZE_HANDLE_SELECTOR = `[${GPU_NODE_RESIZE_DIRECTION_ATTRIBUTE}], .section-resize-handle`;
 
 const RESIZE_DIRECTION_BY_ATTRIBUTE_VALUE = new Map<
   string,

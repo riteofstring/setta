@@ -53,16 +53,13 @@ import {
   type HtmlSurfaceTextureUploadDiagnostic,
   type UploadDirtyHtmlSurfaceTexturesResult,
 } from "./textureUploadDiagnostics";
-
-export type HtmlSurfaceTexturePriority = NodeTexturePriority;
+type HtmlSurfaceTexturePriority = NodeTexturePriority;
 export type { HtmlSurfaceTextureUploadDiagnostic };
-
-export type DirtyHtmlSurfaceTextureState = Omit<DirtyNodeState, "nodeId"> & {
+type DirtyHtmlSurfaceTextureState = Omit<DirtyNodeState, "nodeId"> & {
   readonly dirtyTileBytes: number;
   readonly dirtyTileIds: readonly string[];
   readonly surfaceId: string;
 };
-
 export type HtmlSurfaceTextureTileRecord = {
   readonly cssHeight: number;
   readonly cssWidth: number;
@@ -84,7 +81,6 @@ export type HtmlSurfaceTextureTileRecord = {
   readonly v0: number;
   readonly v1: number;
 };
-
 export type HtmlSurfaceTextureLayout =
   | {
       readonly kind: "single";
@@ -98,7 +94,6 @@ export type HtmlSurfaceTextureLayout =
       readonly rows: number;
       readonly tileCount: number;
     };
-
 export type HtmlSurfaceTextureRecord = {
   readonly clampedByMaxTexture: boolean;
   readonly cssHeight: number;
@@ -122,7 +117,6 @@ export type HtmlSurfaceTextureRecord = {
   readonly tiles: readonly HtmlSurfaceTextureTileRecord[];
   readonly zoomBucket: number;
 };
-
 type RegisterHtmlSurfaceTextureInput = {
   readonly cssHeight: number;
   readonly cssWidth: number;
@@ -134,7 +128,6 @@ type RegisterHtmlSurfaceTextureInput = {
   readonly surfaceId: string;
   readonly zoom: number;
 };
-
 type MarkHtmlSurfaceTextureDirtyInput = Pick<
   DirtyNodeMark,
   "content" | "frame" | "priority" | "reason" | "resolution"
@@ -143,7 +136,6 @@ type MarkHtmlSurfaceTextureDirtyInput = Pick<
   readonly sourceRect?: HtmlSurfaceDirtyRect | undefined;
   readonly surfaceId: string;
 };
-
 export type UploadDirtyHtmlSurfaceTexturesOptions = {
   readonly deferPassiveUploads?: boolean | undefined;
   readonly deferResolutionOnly?: boolean | undefined;
@@ -157,7 +149,6 @@ export type UploadDirtyHtmlSurfaceTexturesOptions = {
   readonly maxUploads?: number | undefined;
   readonly now?: (() => number) | undefined;
 };
-
 type ResolvedUploadDirtyHtmlSurfaceTexturesOptions = {
   readonly deferPassiveUploads: boolean;
   readonly deferResolutionOnly: boolean;
@@ -168,7 +159,6 @@ type ResolvedUploadDirtyHtmlSurfaceTexturesOptions = {
   readonly maxUploads: number;
   readonly now: () => number;
 };
-
 export type HtmlSurfaceTextureMemorySnapshot = {
   readonly allocatedBytes: number;
   readonly largestTextureBytes: number;
@@ -176,7 +166,6 @@ export type HtmlSurfaceTextureMemorySnapshot = {
   readonly visibleBytes: number;
   readonly visibleTextureCount: number;
 };
-
 type EvictHtmlSurfaceTexturesOptions = {
   readonly budgetBytes?: number | undefined;
   readonly protectedSurfaceIds?:
@@ -189,7 +178,6 @@ type EvictHtmlSurfaceTexturesOptions = {
     | readonly string[]
     | undefined;
 };
-
 type HtmlSurfaceTextureEvictionResult = {
   readonly budgetBytes: number;
   readonly evictedBytes: number;
@@ -200,7 +188,6 @@ type HtmlSurfaceTextureEvictionResult = {
   readonly protectedSurfaceIds: readonly string[];
   readonly reason: string;
 };
-
 type HtmlSurfaceTextureManagerOptions = {
   readonly canvas?: HtmlInCanvasCanvas | undefined;
   readonly format?: GPUTextureFormat | undefined;
@@ -209,17 +196,14 @@ type HtmlSurfaceTextureManagerOptions = {
   readonly maxTextureDimension2D?: number | undefined;
   readonly textureUsage?: GPUTextureUsageFlags | undefined;
 };
-
 type Mutable<T> = {
   -readonly [Key in keyof T]: T[Key];
 };
-
 type HtmlSurfaceTextureEntry = Mutable<HtmlSurfaceTextureRecord> & {
   element: Element;
   pendingResolution: TextureResolution | null;
   pendingTextureRecord: PendingHtmlSurfaceTextureRecord | null;
 };
-
 const DEFAULT_HTML_SURFACE_TEXTURE_FORMAT = "rgba8unorm";
 const DEFAULT_HTML_SURFACE_TEXTURE_MEMORY_BUDGET_BYTES = 384 * 1024 * 1024;
 
@@ -250,7 +234,6 @@ export class HtmlSurfaceTextureManager {
     });
     this.textureUsage = options.textureUsage ?? getHtmlSurfaceTextureUsage();
   }
-
   destroy() {
     for (const record of this.records.values()) {
       destroyTextureRecord(record);
@@ -258,7 +241,6 @@ export class HtmlSurfaceTextureManager {
     this.records.clear();
     this.dirtyQueue.clearAll();
   }
-
   destroySurfaceTexture(surfaceId: string) {
     const record = this.records.get(surfaceId);
     if (!record) {
@@ -268,7 +250,6 @@ export class HtmlSurfaceTextureManager {
     this.records.delete(surfaceId);
     this.dirtyQueue.clear(surfaceId);
   }
-
   getDirtySurfaces(): DirtyHtmlSurfaceTextureState[] {
     return this.dirtyQueue
       .orderedDirtyNodes()
@@ -279,7 +260,6 @@ export class HtmlSurfaceTextureManager {
         ),
       );
   }
-
   getSurfaceTexture(surfaceId: string): HtmlSurfaceTextureRecord | undefined {
     return this.records.get(surfaceId);
   }

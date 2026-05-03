@@ -19,7 +19,7 @@ export type GpuRetainedContentNavigationTarget = {
   readonly surfaceId: string;
 };
 
-export type GpuRetainedContentResolvedNavigationTarget =
+type GpuRetainedContentResolvedNavigationTarget =
   GpuRetainedContentNavigationTarget & {
     readonly rowIndex: number;
   };

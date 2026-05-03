@@ -65,7 +65,7 @@ import {
   RunSnapshotMode,
 } from "./storesCore";
 
-export type ZustandLspDiagnostics = {
+type ZustandLspDiagnostics = {
   codeSections: Record<string, Array<LSPDiagnostic>>;
   unmappedGenCode: Array<LSPDiagnostic>;
 };
@@ -81,7 +81,7 @@ export const useLspDiagnostics = withProjectState(
   ),
 );
 
-export type ZustandNameValidationErrors = {
+type ZustandNameValidationErrors = {
   pendingByProjectId: Record<string, SettaProjectNameValidationErrors>;
   projectErrors: Array<string>;
   sectionErrors: Record<string, Array<string>>;
@@ -101,7 +101,7 @@ export const useNameValidationErrors = withProjectState(
   ),
 );
 
-export type ZustandWebsocketConnectionList = {
+type ZustandWebsocketConnectionList = {
   connections: Array<Connection>;
 };
 
@@ -171,7 +171,7 @@ export type ChatBranchInfo = {
   branchCreatedAt: number | null;
 };
 
-export type ZustandAIStore = {
+type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysRevision: number;
   apiKeysAuthoritative: boolean;
@@ -317,7 +317,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
   ),
 );
 
-export type AIFollowState = {
+type AIFollowState = {
   mode: AIFollowMode;
   isFollowTransitioning: boolean;
   toolArgumentsIdsByProjectConfigId: Record<
@@ -358,7 +358,7 @@ export type AgenticScopeViolationEdge = {
   kind: AgenticEdgeKindEnum;
 };
 
-export type AgenticScopeHighlightsState = {
+type AgenticScopeHighlightsState = {
   readSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
   writeSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
 };
@@ -388,7 +388,7 @@ export type ToolArgumentPreviewProjectState = {
   previewCallableNameBySectionId: Record<string, ToolArgumentPreviewEntry>;
 };
 
-export type ToolArgumentPreviewState = {
+type ToolArgumentPreviewState = {
   byProjectConfigId: Record<string, ToolArgumentPreviewProjectState>;
 };
 
@@ -406,7 +406,7 @@ export type ColorModePreference = "dark" | "light" | "auto";
 
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
 
-export type MiniMapSide = "left" | "right";
+type MiniMapSide = "left" | "right";
 
 export type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -626,7 +626,7 @@ export const useImages = createWithEqualityFn(
   ),
 );
 
-export type ZustandChartData = RevisionedArtifacts<ChartDataMapping>;
+type ZustandChartData = RevisionedArtifacts<ChartDataMapping>;
 
 export const useChartData = createWithEqualityFn(
   withResetFn<ZustandChartData>(() => ({
@@ -648,7 +648,7 @@ export const useDecodedImages = createWithEqualityFn(
   })),
 );
 
-export type ZustandBrushStrokes = RevisionedArtifacts<BrushStrokeMapping>;
+type ZustandBrushStrokes = RevisionedArtifacts<BrushStrokeMapping>;
 
 export const useBrushStrokes = createWithEqualityFn(
   withResetFn<ZustandBrushStrokes>(() => ({
@@ -658,7 +658,7 @@ export const useBrushStrokes = createWithEqualityFn(
   })),
 );
 
-export type ZustandDrawAreaLayerItemTransform = {
+type ZustandDrawAreaLayerItemTransform = {
   x: DrawAreaLayerItemTransformMapping;
   revisionById: Record<string, number>;
   localRevisionById: Record<string, Record<string, number>>;

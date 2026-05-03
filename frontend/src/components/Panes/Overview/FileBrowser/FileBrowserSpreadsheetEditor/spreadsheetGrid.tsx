@@ -55,7 +55,7 @@ import {
   resolveSpreadsheetRowCountSummary,
 } from "./spreadsheetToolbar";
 
-export function SpreadsheetGlideGridView({
+function SpreadsheetGlideGridView({
   densityMetrics,
   densityMultiplier,
   displayedRowCount,
@@ -138,7 +138,7 @@ export function SpreadsheetGlideGridView({
   );
 }
 
-export type SpreadsheetDomGridViewProps = {
+type SpreadsheetDomGridViewProps = {
   densityMetrics: SpreadsheetDensityMetrics;
   displayedRowCount: number;
   displayedRowIndexes: number[];
@@ -154,7 +154,7 @@ export type SpreadsheetDomGridViewProps = {
   viewportHeight: number;
 };
 
-export function SpreadsheetDomGridView({
+function SpreadsheetDomGridView({
   densityMetrics,
   displayedRowCount,
   displayedRowIndexes,
@@ -234,7 +234,7 @@ export function SpreadsheetDomGridView({
   );
 }
 
-export type SpreadsheetGridViewportProps = {
+type SpreadsheetGridViewportProps = {
   densityMetrics: SpreadsheetDensityMetrics;
   densityMultiplier: number;
   displayedRowCount: number;
@@ -358,7 +358,7 @@ export function SpreadsheetGridViewport({
   );
 }
 
-export type SpreadsheetFooterProps = {
+type SpreadsheetFooterProps = {
   displayedRowCount: number;
   selectionSummary: string;
   sheet: SpreadsheetDraft;
@@ -720,7 +720,7 @@ export function applySpreadsheetMutation(args: {
   }
 }
 
-export function resolveSpreadsheetEditedCells(args: {
+function resolveSpreadsheetEditedCells(args: {
   columnCount: number;
   displayedRowIndexes: number[];
   newValues: readonly {

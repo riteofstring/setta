@@ -63,7 +63,7 @@ export function useProjectNodeIntrinsicSizeObserver(
   );
 }
 
-export function createProjectNodeIntrinsicSizeController(
+function createProjectNodeIntrinsicSizeController(
   options: ProjectNodeIntrinsicSizeControllerOptions,
 ): ProjectNodeIntrinsicSizeController {
   return createGpuFlowIntrinsicSizeController({
@@ -82,7 +82,7 @@ export function createProjectNodeIntrinsicSizeController(
   });
 }
 
-export function resolveProjectNodeIntrinsicSize(
+function resolveProjectNodeIntrinsicSize(
   nodeId: string,
   element: HTMLElement,
 ): ProjectNodeIntrinsicSize | null {

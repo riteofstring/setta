@@ -6,7 +6,7 @@ import { getBoundsOfGpuRects } from "./nodeBounds";
 import { resolveGpuNodeZIndex } from "./nodeZIndex";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
-export const GPU_FLOW_LAYOUT_DIRTY_FLAGS = [
+const GPU_FLOW_LAYOUT_DIRTY_FLAGS = [
   "node-geometry",
   "edge-geometry",
   "selection-bounds",
@@ -15,12 +15,11 @@ export const GPU_FLOW_LAYOUT_DIRTY_FLAGS = [
   "source-size",
 ] as const;
 
-export type GpuFlowLayoutDirtyFlag =
-  (typeof GPU_FLOW_LAYOUT_DIRTY_FLAGS)[number];
+type GpuFlowLayoutDirtyFlag = (typeof GPU_FLOW_LAYOUT_DIRTY_FLAGS)[number];
 
 export type GpuFlowLayoutChangePhase = "cancel" | "change" | "commit" | "start";
 
-export type GpuFlowLayoutChangeReason =
+type GpuFlowLayoutChangeReason =
   | "drag"
   | "intrinsic-size"
   | "keyboard"
@@ -34,7 +33,7 @@ export type GpuFlowLayoutInteractionFlags = {
   readonly selected?: boolean | undefined;
 };
 
-export type GpuFlowLayoutTextureInvalidation = {
+type GpuFlowLayoutTextureInvalidation = {
   readonly contentDirty?: boolean | undefined;
   readonly sizeDirty?: boolean | undefined;
 };
@@ -47,7 +46,7 @@ export type GpuFlowLayoutDropMarker = {
   readonly rect: GpuRect;
 };
 
-export type GpuFlowLayoutDragPreview = {
+type GpuFlowLayoutDragPreview = {
   readonly draggedNodeIds: readonly string[];
   readonly dropMarker: GpuFlowLayoutDropMarker | null;
 };
@@ -72,13 +71,13 @@ export type GpuFlowLayoutChange = {
   readonly reason: GpuFlowLayoutChangeReason;
 };
 
-export type GpuFlowLayoutMutationOptions = {
+type GpuFlowLayoutMutationOptions = {
   readonly dirty?: readonly GpuFlowLayoutDirtyFlag[] | undefined;
   readonly phase?: GpuFlowLayoutChangePhase | undefined;
   readonly reason?: GpuFlowLayoutChangeReason | undefined;
 };
 
-export type GpuFlowLayoutHitTestOptions = {
+type GpuFlowLayoutHitTestOptions = {
   readonly nodeIds?: readonly string[] | ReadonlySet<string> | undefined;
 };
 
@@ -131,7 +130,7 @@ export type GpuFlowLayoutStore = GpuFlowLayoutStoreState &
 
 export type GpuFlowLayoutStoreApi = StoreApi<GpuFlowLayoutStore>;
 
-export type CreateGpuFlowLayoutStoreOptions = {
+type CreateGpuFlowLayoutStoreOptions = {
   readonly nodes?: readonly GpuFlowLayoutNode[] | undefined;
 };
 
@@ -346,7 +345,7 @@ export function getGpuFlowLayoutNodeRect(
   };
 }
 
-export function getGpuFlowLayoutNodesBounds(
+function getGpuFlowLayoutNodesBounds(
   nodes: readonly GpuFlowLayoutNode[],
 ): GpuRect | null {
   let bounds: GpuRect | null = null;
@@ -360,7 +359,7 @@ export function getGpuFlowLayoutNodesBounds(
   return bounds;
 }
 
-export function sortGpuFlowLayoutNodesByZOrder(
+function sortGpuFlowLayoutNodesByZOrder(
   nodes: readonly GpuFlowLayoutNode[],
 ): readonly GpuFlowLayoutNode[] {
   return [...nodes].sort((left, right) => {

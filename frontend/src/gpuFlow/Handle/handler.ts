@@ -43,9 +43,7 @@ import {
 
 type HandlePointerEvent = ReactMouseEvent | ReactTouchEvent;
 type NativeHandlePointerEvent = MouseEvent | PointerEvent | TouchEvent;
-export type GpuHandlePointerStartEvent =
-  | HandlePointerEvent
-  | NativeHandlePointerEvent;
+type GpuHandlePointerStartEvent = HandlePointerEvent | NativeHandlePointerEvent;
 
 export function handlePointerDown({
   event,

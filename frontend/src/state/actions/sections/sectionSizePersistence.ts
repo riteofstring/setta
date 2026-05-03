@@ -19,7 +19,7 @@ export function applyLocalSectionSizeChange(
   return updatedSectionSizes;
 }
 
-export function applySectionSizeChange(
+function applySectionSizeChange(
   sectionId: string,
   nextSize: Partial<SectionSize>,
   state: ZustandProjectState,

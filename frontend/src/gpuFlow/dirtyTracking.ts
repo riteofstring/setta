@@ -14,7 +14,7 @@ export type DirtyNodeReason =
   | "selection"
   | "theme";
 
-export type DirtyNodeSourceRect = {
+type DirtyNodeSourceRect = {
   readonly height: number;
   readonly width: number;
   readonly x: number;

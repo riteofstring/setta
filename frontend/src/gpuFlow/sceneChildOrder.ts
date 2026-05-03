@@ -7,7 +7,7 @@ import type {
 import { resolveGpuFlowSectionSceneLayout } from "./sceneLayout";
 import type { GpuRect } from "./viewportMath";
 
-export type GpuSectionSceneChildReorderPlan = {
+type GpuSectionSceneChildReorderPlan = {
   readonly changed: boolean;
   readonly childSectionId: string;
   readonly childSectionIds: readonly string[];
@@ -20,7 +20,7 @@ export type GpuSectionSceneChildReorderPlan = {
   readonly previousParentSectionId: string;
 };
 
-export type GpuSectionSceneChildMovePlan = GpuSectionSceneChildReorderPlan;
+type GpuSectionSceneChildMovePlan = GpuSectionSceneChildReorderPlan;
 
 const GPU_SECTION_CHILD_INSERTION_MARKER_INSET = 8;
 const GPU_SECTION_CHILD_INSERTION_MARKER_THICKNESS = 4;

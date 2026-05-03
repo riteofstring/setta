@@ -51,7 +51,7 @@ import { getSectionMinMaxDims } from "state/hooks/sectionSizes";
 import type { SectionSize } from "utils/generatedTypes";
 import type { ProjectFlowInteractionKeys } from "./projectGpuSurface";
 
-export type ProjectNodeResizeSession = {
+type ProjectNodeResizeSession = {
   autoSizePromoted: boolean;
   doubleClickPending: boolean;
   resizeAttempted: boolean;
@@ -64,7 +64,7 @@ export type ProjectNodeResizeSession = {
   };
 };
 
-export type ProjectNodeResizeOptions = {
+type ProjectNodeResizeOptions = {
   readonly disabled: () => boolean;
   readonly getResizePolicy: (
     input: GpuNodeResizePolicyInput,

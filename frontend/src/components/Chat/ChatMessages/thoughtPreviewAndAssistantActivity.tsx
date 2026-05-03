@@ -62,7 +62,7 @@ import {
   ToolCallSectionState,
 } from "./activityRowsAndBubbles";
 
-export const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
+const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
   text,
   animate,
 }: {
@@ -254,7 +254,7 @@ export const ActivityThoughtPreview = memo(function ActivityThoughtPreview({
   );
 });
 
-export type AssistantActivityDisplayState = {
+type AssistantActivityDisplayState = {
   displayLabel: string;
   showThoughtScroll: boolean;
   shouldAnimateThoughtScroll: boolean;
@@ -266,7 +266,7 @@ export type AssistantActivityDisplayState = {
   previewShellClassName: string;
 };
 
-export function normalizeAssistantActivityAccordionValue(
+function normalizeAssistantActivityAccordionValue(
   nextValue: string | undefined,
 ): string | undefined {
   return nextValue === ASSISTANT_ACTIVITY_DETAILS_VALUE
@@ -274,7 +274,7 @@ export function normalizeAssistantActivityAccordionValue(
     : undefined;
 }
 
-export function resolveAssistantActivityDurationClassName(
+function resolveAssistantActivityDurationClassName(
   sectionState: ToolCallSectionState,
 ): string {
   return sectionState === "stopped"
@@ -282,7 +282,7 @@ export function resolveAssistantActivityDurationClassName(
     : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
 }
 
-export function resolveAssistantActivityTitleLabel({
+function resolveAssistantActivityTitleLabel({
   preview,
   suppressSummaries,
   displayLabel,
@@ -297,7 +297,7 @@ export function resolveAssistantActivityTitleLabel({
   return preview.hasStreamingThought ? "Thinking" : "Reasoning";
 }
 
-export function resolveAssistantActivityPrimaryLabel({
+function resolveAssistantActivityPrimaryLabel({
   preview,
   itemCount,
   activityTitleLabel,
@@ -315,7 +315,7 @@ export function resolveAssistantActivityPrimaryLabel({
   return itemCount > 1 ? "Thoughts" : "Reasoning";
 }
 
-export function resolveAssistantThoughtPreviewDisplayState({
+function resolveAssistantThoughtPreviewDisplayState({
   preview,
   suppressThoughtScrollAnimation,
   isExpanded,
@@ -348,7 +348,7 @@ export function resolveAssistantThoughtPreviewDisplayState({
   };
 }
 
-export function resolveAssistantActivityDisplayState({
+function resolveAssistantActivityDisplayState({
   preview,
   itemCount,
   suppressThoughtScrollAnimation,
@@ -399,7 +399,7 @@ export function resolveAssistantActivityDisplayState({
   };
 }
 
-export function useAssistantActivityState({
+function useAssistantActivityState({
   defaultOpen,
   defaultChildrenOpen,
   thoughtActivityKey,
@@ -480,7 +480,7 @@ export function useAssistantActivityState({
   };
 }
 
-export function useAssistantActivityTriggerHandlers(
+function useAssistantActivityTriggerHandlers(
   setAccordionValue: Dispatch<SetStateAction<string | undefined>>,
 ) {
   const handleActivityTriggerClick = useCallback(
@@ -534,7 +534,7 @@ export function useAssistantActivityTriggerHandlers(
   };
 }
 
-export function AssistantActivityPreviewLabel({
+function AssistantActivityPreviewLabel({
   preview,
   activityTitleLabel,
   conversationSearchTerms,
@@ -579,7 +579,7 @@ export function AssistantActivityPreviewLabel({
   );
 }
 
-export function AssistantActivityHeader({
+function AssistantActivityHeader({
   preview,
   itemCount,
   sectionState,
@@ -698,7 +698,7 @@ export function AssistantActivityHeader({
   );
 }
 
-export function AssistantActivityThoughtPreviewShell({
+function AssistantActivityThoughtPreviewShell({
   showThoughtScroll,
   hideThoughtPreview,
   previewShellClassName,

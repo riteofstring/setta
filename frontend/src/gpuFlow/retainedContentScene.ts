@@ -11,7 +11,7 @@ export type GpuRetainedContentRowState = {
   readonly selected: boolean;
 };
 
-export type GpuRetainedContentRowPortInput = {
+type GpuRetainedContentRowPortInput = {
   readonly id: string;
   readonly kind: "input" | "output";
   readonly side: "left" | "right";
@@ -38,7 +38,7 @@ export type GpuRetainedContentRow = {
   readonly state: GpuRetainedContentRowState;
 };
 
-export type GpuRetainedContentVisibleRowRange = {
+type GpuRetainedContentVisibleRowRange = {
   readonly endIndex: number;
   readonly rowCount: number;
   readonly startIndex: number;
@@ -129,7 +129,7 @@ export type GpuRetainedContentDragPreviewInput = {
   readonly pointerLocal?: GpuPoint | null | undefined;
 };
 
-export type CreateGpuRetainedRowContentSceneInput = {
+type CreateGpuRetainedRowContentSceneInput = {
   readonly controlWidth?: number | undefined;
   readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
   readonly id: string;

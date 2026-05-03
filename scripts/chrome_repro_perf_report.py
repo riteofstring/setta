@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_TARGET_CSS_SUBSTRING = "leftSidePaneShiftsMap"
 DEFAULT_WINDOW_MS = 900.0
 NANOSECONDS_PER_MILLISECOND = 1_000_000

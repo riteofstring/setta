@@ -52,27 +52,27 @@ import {
 
 export let lastPastHalfwayByOverId: Record<string, boolean> = {};
 
-export let lastResolvedOverId: string | number | null = null;
+let lastResolvedOverId: string | number | null = null;
 
-export let lastResolvedPastHalfway: boolean | null = null;
+let lastResolvedPastHalfway: boolean | null = null;
 
-export let lastResolvedTriggerDistCondition: boolean | null = null;
+let lastResolvedTriggerDistCondition: boolean | null = null;
 
-export type DndStoreState = ReturnType<typeof useDndState.getState>;
+type DndStoreState = ReturnType<typeof useDndState.getState>;
 
-export type DndChildrenState = ReturnType<typeof useDndChildren.getState>;
+type DndChildrenState = ReturnType<typeof useDndChildren.getState>;
 
-export type Collisions = DragOverEvent["collisions"];
+type Collisions = DragOverEvent["collisions"];
 
-export type ResolvedOverSnapshot = {
+type ResolvedOverSnapshot = {
   overId: string | number | null;
   pastHalfway: boolean | null;
   triggerDistCondition: boolean;
 };
 
-export type LeftDistOutcome = "continue" | "handled" | "ignored";
+type LeftDistOutcome = "continue" | "handled" | "ignored";
 
-export type ParentMoveArgs = {
+type ParentMoveArgs = {
   activeId: string;
   over: DragOverEvent["over"];
   dndSectionId: string;
@@ -82,7 +82,7 @@ export type ParentMoveArgs = {
   collisions: Collisions;
 };
 
-export type ParentMoveContext = {
+type ParentMoveContext = {
   activeId: string;
   dndSectionId: string;
   oldParentId: string | null;
@@ -96,7 +96,7 @@ export type ParentMoveContext = {
   tempInNewParent: boolean;
 };
 
-export function getCollisionTriggerDistCondition(
+function getCollisionTriggerDistCondition(
   overId: string | number | null,
   collisions: DragOverEvent["collisions"] | null,
 ): boolean | null {
@@ -121,11 +121,11 @@ export function getCollisionTriggerDistCondition(
   return Boolean(fallback);
 }
 
-export function resetLastPastHalfwayByOverId() {
+function resetLastPastHalfwayByOverId() {
   lastPastHalfwayByOverId = {};
 }
 
-export function resetLastResolvedOverState() {
+function resetLastResolvedOverState() {
   lastResolvedOverId = null;
   lastResolvedPastHalfway = null;
   lastResolvedTriggerDistCondition = null;
@@ -165,7 +165,7 @@ export function useOnDragMove() {
   return () => {};
 }
 
-export function onDragMove({ active, collisions, over }: DragMoveEvent) {
+function onDragMove({ active, collisions, over }: DragMoveEvent) {
   const dndState = useDndState.getState();
   const update = resolveDragMoveUpdate({ collisions, over, dndState });
 
@@ -193,7 +193,7 @@ export function useOnDragOver() {
   return () => {};
 }
 
-export function onDragOver({
+function onDragOver({
   active,
   over,
   collisions,
@@ -262,7 +262,7 @@ export function onDragOver({
   });
 }
 
-export function maybeMoveToNewParent({
+function maybeMoveToNewParent({
   activeId,
   over,
   dndSectionId,
@@ -300,7 +300,7 @@ export function maybeMoveToNewParent({
   setNullBehavior(context.overId);
 }
 
-export function leftDistBehavior({
+function leftDistBehavior({
   activeId,
   over,
   dndChildrenState,
@@ -332,7 +332,7 @@ export function leftDistBehavior({
   return true;
 }
 
-export function resolveDragStartLayout(
+function resolveDragStartLayout(
   activeId: string,
   activeRect: DragStartEvent["activeRect"] | null,
 ) {
@@ -353,12 +353,12 @@ export function resolveDragStartLayout(
   };
 }
 
-export function resolveSafeZoom() {
+function resolveSafeZoom() {
   const zoom = getZoom();
   return zoom > 0 ? zoom : 1;
 }
 
-export function scheduleTempReplacement(
+function scheduleTempReplacement(
   activeId: string,
   draggingIds: string[],
   dndState: DndStoreState,
@@ -376,7 +376,7 @@ export function scheduleTempReplacement(
   });
 }
 
-export function shouldReplaceDndSectionsWithTemp(activeId: string) {
+function shouldReplaceDndSectionsWithTemp(activeId: string) {
   const latestState = useDndState.getState();
   return (
     (latestState.isMovingFree || latestState.isSorting) &&
@@ -384,7 +384,7 @@ export function shouldReplaceDndSectionsWithTemp(activeId: string) {
   );
 }
 
-export function resolveDragMoveUpdate({
+function resolveDragMoveUpdate({
   collisions,
   over,
   dndState,
@@ -403,7 +403,7 @@ export function resolveDragMoveUpdate({
   };
 }
 
-export function resolveDragMoveTarget(
+function resolveDragMoveTarget(
   collisions: DragMoveEvent["collisions"],
   over: DragMoveEvent["over"],
 ) {
@@ -419,7 +419,7 @@ export function resolveDragMoveTarget(
   };
 }
 
-export function resolveDragMoveChangeState(
+function resolveDragMoveChangeState(
   resolvedTarget: ReturnType<typeof resolveDragMoveTarget>,
   dndState: DndStoreState,
 ) {
@@ -447,7 +447,7 @@ export function resolveDragMoveChangeState(
   };
 }
 
-export function shouldUpdateDragMoveTrigger({
+function shouldUpdateDragMoveTrigger({
   currentOverId,
   overCandidateId,
   triggerDistChanged,
@@ -463,7 +463,7 @@ export function shouldUpdateDragMoveTrigger({
   );
 }
 
-export function shouldUpdatePastHalfwayChange({
+function shouldUpdatePastHalfwayChange({
   currentOverId,
   lastPastHalfway,
   pastHalfway,
@@ -482,7 +482,7 @@ export function shouldUpdatePastHalfwayChange({
   );
 }
 
-export function shouldRunDragOverFromMove(
+function shouldRunDragOverFromMove(
   update: ReturnType<typeof resolveDragMoveUpdate>,
 ) {
   return (
@@ -492,11 +492,11 @@ export function shouldRunDragOverFromMove(
   );
 }
 
-export function normalizeOverId(overId: string | number | null) {
+function normalizeOverId(overId: string | number | null) {
   return overId === null ? null : String(overId);
 }
 
-export function getCachedPastHalfway(overIdKey: string | null) {
+function getCachedPastHalfway(overIdKey: string | null) {
   if (
     overIdKey === null ||
     !Object.prototype.hasOwnProperty.call(lastPastHalfwayByOverId, overIdKey)
@@ -506,7 +506,7 @@ export function getCachedPastHalfway(overIdKey: string | null) {
   return lastPastHalfwayByOverId[overIdKey];
 }
 
-export function cachePastHalfway(
+function cachePastHalfway(
   overIdKey: string | null,
   pastHalfway: boolean | null,
 ) {
@@ -516,7 +516,7 @@ export function cachePastHalfway(
   lastPastHalfwayByOverId[overIdKey] = pastHalfway;
 }
 
-export function handleEmptyDragOverCollisions(
+function handleEmptyDragOverCollisions(
   collisions: Collisions,
   {
     dndState,
@@ -539,7 +539,7 @@ export function handleEmptyDragOverCollisions(
   return true;
 }
 
-export function isResolvedOverStateIdle(dndState: DndStoreState) {
+function isResolvedOverStateIdle(dndState: DndStoreState) {
   return (
     lastResolvedOverId === null &&
     lastResolvedPastHalfway === null &&
@@ -549,7 +549,7 @@ export function isResolvedOverStateIdle(dndState: DndStoreState) {
   );
 }
 
-export function resolveDragOverSnapshot(
+function resolveDragOverSnapshot(
   over: DragOverEvent["over"],
   collisions: Collisions,
   dndState: DndStoreState,
@@ -562,7 +562,7 @@ export function resolveDragOverSnapshot(
   };
 }
 
-export function updateResolvedOverState({
+function updateResolvedOverState({
   overId,
   pastHalfway,
   triggerDistCondition,
@@ -581,7 +581,7 @@ export function updateResolvedOverState({
   return true;
 }
 
-export function resolveLeftDistOutcome({
+function resolveLeftDistOutcome({
   activeId,
   over,
   dndChildrenState,
@@ -621,7 +621,7 @@ export function resolveLeftDistOutcome({
     : "continue";
 }
 
-export function shouldThrottleRecentOver(
+function shouldThrottleRecentOver(
   calledFromOnDragMove: boolean | undefined,
   overId: string | number | null,
   dndState: DndStoreState,
@@ -633,7 +633,7 @@ export function shouldThrottleRecentOver(
   );
 }
 
-export function handleNullOrSelfOver(
+function handleNullOrSelfOver(
   overId: string | number | null,
   dndSectionId: string,
 ) {
@@ -649,7 +649,7 @@ export function handleNullOrSelfOver(
   return true;
 }
 
-export function resolveParentMoveContext({
+function resolveParentMoveContext({
   activeId,
   over,
   dndSectionId,
@@ -691,7 +691,7 @@ export function getDndParentSectionChildCount(
   return parentImpl?.children.length ?? null;
 }
 
-export function shouldRejectParentExitHover({
+function shouldRejectParentExitHover({
   overIdKey,
   oldParentId,
   newParentId,
@@ -704,7 +704,7 @@ export function shouldRejectParentExitHover({
   );
 }
 
-export function allowParentDrop({
+function allowParentDrop({
   activeId,
   dndSectionId,
   newParentAcceptsChildren,
@@ -730,7 +730,7 @@ export function allowParentDrop({
   return false;
 }
 
-export function restoreOnlyChildToParent({
+function restoreOnlyChildToParent({
   activeId,
   oldParentId,
   newParentId,
@@ -747,7 +747,7 @@ export function restoreOnlyChildToParent({
   return true;
 }
 
-export function shouldSuppressContainerHover({
+function shouldSuppressContainerHover({
   overId,
   newParentId,
   newParentNumChildren,
@@ -761,7 +761,7 @@ export function shouldSuppressContainerHover({
   );
 }
 
-export function moveTempSectionToParent(context: ParentMoveContext) {
+function moveTempSectionToParent(context: ParentMoveContext) {
   const overIndex = context.newParentChildren.indexOf(context.overId);
   if (context.newParentId !== context.oldParentId) {
     addDndChild(
@@ -775,7 +775,7 @@ export function moveTempSectionToParent(context: ParentMoveContext) {
   maybeReorderWithinParent(context, overIndex);
 }
 
-export function resolveParentInsertionIndex(
+function resolveParentInsertionIndex(
   context: ParentMoveContext,
   overIndex: number,
 ) {
@@ -788,7 +788,7 @@ export function resolveParentInsertionIndex(
   return 0;
 }
 
-export function shouldInsertAtParentBoundary({
+function shouldInsertAtParentBoundary({
   overId,
   newParentId,
   newParentChildren,
@@ -800,7 +800,7 @@ export function shouldInsertAtParentBoundary({
   );
 }
 
-export function maybeReorderWithinParent(
+function maybeReorderWithinParent(
   {
     oldParentId,
     newParentId,
@@ -827,7 +827,7 @@ export function maybeReorderWithinParent(
   }
 }
 
-export function setNullBehavior(overId) {
+function setNullBehavior(overId) {
   const dndState = useDndState.getState();
   if (dndState.behaviorDropType === null && dndState.overId === overId) {
     return;
@@ -839,7 +839,7 @@ export function setNullBehavior(overId) {
   });
 }
 
-export function getTimeDiff(state: DndStoreState, sectionId: string | number) {
+function getTimeDiff(state: DndStoreState, sectionId: string | number) {
   return Date.now() - (state.times[sectionId] ?? 0);
 }
 
@@ -880,12 +880,12 @@ export function getBehaviorDropType(activeId: string, newParentId: string) {
   return null;
 }
 
-export function getSelectedDragIds(activeId: string) {
+function getSelectedDragIds(activeId: string) {
   const draggingIds = useDndState.getState().draggingIds;
   return draggingIds.length > 0 ? draggingIds : [String(activeId)];
 }
 
-export function hasInvalidParentConstraints(
+function hasInvalidParentConstraints(
   state: ReturnType<typeof useProjectState.getState>,
   newParentId: string,
   parentType: SectionTypeEnum,

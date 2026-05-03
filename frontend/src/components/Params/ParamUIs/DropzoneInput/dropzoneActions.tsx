@@ -39,7 +39,7 @@ import type { ParamValueChange } from "../ConfiguredParamInputs";
 
 import { commitStatefulValueUpdate } from "./dropzoneInput";
 
-export type DropzoneInputTheme = {
+type DropzoneInputTheme = {
   wrapperBaseClassName?: string;
   dragActiveClassName?: string;
   controlsRowClassName?: string;
@@ -94,7 +94,7 @@ export type DropzoneClassNames = {
   deleteButton: string;
 };
 
-export type DropzoneAttachmentPolicy = ReturnType<typeof getAttachmentPolicy>;
+type DropzoneAttachmentPolicy = ReturnType<typeof getAttachmentPolicy>;
 
 export type DropzoneCommitContext = {
   onChange?: ParamValueChange;
@@ -123,50 +123,48 @@ export type DropzoneActionContext = {
   >;
 };
 
-export type DropzoneFileReadResult = {
+type DropzoneFileReadResult = {
   file: File;
   buffer: ArrayBuffer;
   contentId: string;
 };
 
-export type DropzoneUploadedFile = {
+type DropzoneUploadedFile = {
   file: File;
   ref: FileArtifact["value"];
 };
 
-export const DROPZONE_STATEFUL_POLICY =
-  getAttachmentPolicy("dropzone_stateful");
+const DROPZONE_STATEFUL_POLICY = getAttachmentPolicy("dropzone_stateful");
 
-export const DROPZONE_STATELESS_POLICY =
-  getAttachmentPolicy("dropzone_stateless");
+const DROPZONE_STATELESS_POLICY = getAttachmentPolicy("dropzone_stateless");
 
-export const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
+const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
 
-export const DEFAULT_DROPZONE_WRAPPER_CLASS_NAME =
+const DEFAULT_DROPZONE_WRAPPER_CLASS_NAME =
   "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500";
 
-export const DEFAULT_DROPZONE_DRAG_ACTIVE_CLASS_NAME =
+const DEFAULT_DROPZONE_DRAG_ACTIVE_CLASS_NAME =
   "border-emerald-500 bg-emerald-200/80 text-emerald-900 ring-4 ring-emerald-400/60 shadow-[0_0_0_6px_rgba(16,185,129,0.15)] dark:border-emerald-300 dark:bg-emerald-500/30 dark:text-emerald-100 dark:ring-emerald-300/60 dark:shadow-[0_0_0_6px_rgba(16,185,129,0.25)]";
 
-export const DEFAULT_DROPZONE_CONTROLS_ROW_CLASS_NAME =
+const DEFAULT_DROPZONE_CONTROLS_ROW_CLASS_NAME =
   "flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-setta-400";
 
-export const DEFAULT_DROPZONE_CONTROL_BUTTON_CLASS_NAME =
+const DEFAULT_DROPZONE_CONTROL_BUTTON_CLASS_NAME =
   "rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-500 dark:hover:border-setta-600 dark:hover:text-setta-300";
 
-export const DEFAULT_DROPZONE_UPLOADING_TEXT_CLASS_NAME =
+const DEFAULT_DROPZONE_UPLOADING_TEXT_CLASS_NAME =
   "text-[10px] font-semibold uppercase tracking-widest text-setta-300";
 
-export const DEFAULT_DROPZONE_ATTACHMENTS_CONTAINER_CLASS_NAME =
+const DEFAULT_DROPZONE_ATTACHMENTS_CONTAINER_CLASS_NAME =
   "flex flex-col gap-2 rounded-lg border border-setta-200/70 bg-white/60 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-400";
 
-export const DEFAULT_DROPZONE_ATTACHMENT_SIZE_TEXT_CLASS_NAME =
+const DEFAULT_DROPZONE_ATTACHMENT_SIZE_TEXT_CLASS_NAME =
   "text-[10px] uppercase tracking-wide text-setta-400";
 
-export const DEFAULT_DROPZONE_DELETE_BUTTON_CLASS_NAME =
+const DEFAULT_DROPZONE_DELETE_BUTTON_CLASS_NAME =
   "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:bg-setta-100 hover:text-setta-600 dark:hover:bg-setta-850 dark:hover:text-setta-200";
 
-export type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 
 export function resolveDropzonePolicy(mode: DropzoneModeEnum) {
   if (mode === DropzoneModeEnum.STATELESS) {
@@ -175,7 +173,7 @@ export function resolveDropzonePolicy(mode: DropzoneModeEnum) {
   return DROPZONE_STATEFUL_POLICY;
 }
 
-export function notifyOversizedFiles(files: File[], limitLabel: string): void {
+function notifyOversizedFiles(files: File[], limitLabel: string): void {
   if (files.length === 0) {
     return;
   }
@@ -193,7 +191,7 @@ export function notifyOversizedFiles(files: File[], limitLabel: string): void {
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-export function notifyReadFailures(files: File[]): void {
+function notifyReadFailures(files: File[]): void {
   if (files.length === 0) {
     return;
   }
@@ -205,7 +203,7 @@ export function notifyReadFailures(files: File[]): void {
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-export function notifyUploadFailures(files: File[]): void {
+function notifyUploadFailures(files: File[]): void {
   if (files.length === 0) {
     return;
   }
@@ -217,10 +215,7 @@ export function notifyUploadFailures(files: File[]): void {
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-export function notifyStatelessPayloadLimit(
-  files: File[],
-  limitLabel: string,
-): void {
+function notifyStatelessPayloadLimit(files: File[], limitLabel: string): void {
   if (files.length === 0) {
     return;
   }
@@ -236,15 +231,12 @@ export function notifyStatelessPayloadLimit(
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-export function notifyStatelessTextPayloadLimit(limitLabel: string): void {
+function notifyStatelessTextPayloadLimit(limitLabel: string): void {
   const message = `Dropped text exceeds the ${limitLabel} total payload limit.`;
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-export function notifyDisallowedMime(
-  files: File[],
-  allowedLabel: string,
-): void {
+function notifyDisallowedMime(files: File[], allowedLabel: string): void {
   if (files.length === 0) {
     return;
   }
@@ -256,13 +248,13 @@ export function notifyDisallowedMime(
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-export function notifyInvalidStatefulValue(): void {
+function notifyInvalidStatefulValue(): void {
   const message =
     "Dropzone value is not valid JSON. Clear it before adding attachments.";
   addTemporaryNotification(message, NotificationTypeEnum.warning);
 }
 
-export function splitFilesBySize(
+function splitFilesBySize(
   files: File[],
   maxBytes: number,
 ): {
@@ -281,7 +273,7 @@ export function splitFilesBySize(
   return { accepted, rejected };
 }
 
-export function getUtf8ByteLength(value: string): number {
+function getUtf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
@@ -361,7 +353,7 @@ export function resolveDisplayAttachments(
   }));
 }
 
-export function appendLimitedStatelessAttachments(
+function appendLimitedStatelessAttachments(
   previous: DropzoneStatelessDisplayAttachment[],
   incoming: DropzoneStatelessDisplayAttachment[],
   limit: number,
@@ -370,7 +362,7 @@ export function appendLimitedStatelessAttachments(
   return next.length <= limit ? next : next.slice(-limit);
 }
 
-export function splitFilesByTotalBytes(
+function splitFilesByTotalBytes(
   files: File[],
   maxBytes: number,
 ): {
@@ -406,14 +398,14 @@ export function resolveDropzoneLabel(
   return `${attachments.length} attachment${suffix}`;
 }
 
-export function resolveThemedClassName(
+function resolveThemedClassName(
   value: string | undefined,
   fallback: string,
 ): string {
   return value ?? fallback;
 }
 
-export function resolveDropzoneWrapperClassName(
+function resolveDropzoneWrapperClassName(
   theme: DropzoneInputTheme | undefined,
   isDragActive: boolean,
   isDisabled: boolean,
@@ -510,7 +502,7 @@ export function limitItemsToRemainingSlots<T>(
   return remainingSlots === null ? items : items.slice(0, remainingSlots);
 }
 
-export function splitFilesByMimePolicy(
+function splitFilesByMimePolicy(
   files: File[],
   policy: DropzoneAttachmentPolicy,
 ): {
@@ -530,7 +522,7 @@ export function splitFilesByMimePolicy(
   return { accepted, rejected };
 }
 
-export function enforceStatelessPayloadLimit(
+function enforceStatelessPayloadLimit(
   files: File[],
   policy: DropzoneAttachmentPolicy,
 ): File[] {
@@ -546,7 +538,7 @@ export function enforceStatelessPayloadLimit(
   return accepted;
 }
 
-export function resolveAllowedLocalFiles(
+function resolveAllowedLocalFiles(
   files: File[],
   remainingSlots: number | null,
   policy: DropzoneAttachmentPolicy,
@@ -571,7 +563,7 @@ export function resolveAllowedLocalFiles(
   return enforceStatelessPayloadLimit(allowedFiles, policy);
 }
 
-export async function partitionSettledFileResults<T>(
+async function partitionSettledFileResults<T>(
   files: File[],
   loader: (file: File) => Promise<T>,
 ): Promise<{
@@ -598,7 +590,7 @@ export async function partitionSettledFileResults<T>(
   return { successful, failedFiles };
 }
 
-export async function readStatelessLocalFiles(files: File[]): Promise<{
+async function readStatelessLocalFiles(files: File[]): Promise<{
   successful: DropzoneFileReadResult[];
   failedFiles: File[];
 }> {
@@ -619,9 +611,7 @@ export async function readStatelessLocalFiles(files: File[]): Promise<{
   };
 }
 
-export function buildStatelessFileAttachments(
-  successful: DropzoneFileReadResult[],
-): {
+function buildStatelessFileAttachments(successful: DropzoneFileReadResult[]): {
   attachments: DropzoneStatelessAttachment[];
   displayAttachments: DropzoneStatelessDisplayAttachment[];
 } {
@@ -643,7 +633,7 @@ export function buildStatelessFileAttachments(
   };
 }
 
-export async function uploadLocalFilesToContentRefs(files: File[]): Promise<{
+async function uploadLocalFilesToContentRefs(files: File[]): Promise<{
   successfulUploads: DropzoneUploadedFile[];
   failedUploads: File[];
 }> {
@@ -673,7 +663,7 @@ export async function uploadLocalFilesToContentRefs(files: File[]): Promise<{
   };
 }
 
-export function buildStatefulUploadPayload(
+function buildStatefulUploadPayload(
   successfulUploads: DropzoneUploadedFile[],
   isDeploymentMode: boolean,
 ): {
@@ -702,7 +692,7 @@ export function buildStatefulUploadPayload(
   };
 }
 
-export async function persistStatelessLocalFiles(
+async function persistStatelessLocalFiles(
   context: DropzoneActionContext,
   allowedFiles: File[],
 ): Promise<void> {
@@ -726,7 +716,7 @@ export async function persistStatelessLocalFiles(
   context.onStatelessDrop?.(attachments);
 }
 
-export async function persistStatefulLocalFiles(
+async function persistStatefulLocalFiles(
   context: DropzoneActionContext,
   allowedFiles: File[],
 ): Promise<void> {
@@ -810,7 +800,7 @@ export async function handleLocalFilesAction(
   }
 }
 
-export function statelessTextFitsPayloadLimit(
+function statelessTextFitsPayloadLimit(
   text: string,
   policy: DropzoneAttachmentPolicy,
 ): boolean {
@@ -826,7 +816,7 @@ export function statelessTextFitsPayloadLimit(
   return false;
 }
 
-export function appendStatelessTextAttachment(
+function appendStatelessTextAttachment(
   text: string,
   statelessDisplayLimit: number,
   setStatelessAttachments: DropzoneActionContext["setStatelessAttachments"],

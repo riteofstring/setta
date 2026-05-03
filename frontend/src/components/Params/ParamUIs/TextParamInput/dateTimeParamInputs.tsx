@@ -59,22 +59,22 @@ import type { ParamValueChange } from "../ConfiguredParamInputs";
 
 import { SwitchInput } from "../SwitchInput";
 
-export const ROW_CLASS_NAME =
+const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";
 
-export const LABEL_CLASS_NAME =
+const LABEL_CLASS_NAME =
   "flex-1 font-sans text-xs font-semibold text-setta-600 dark:text-setta-400";
 
-export const SELECT_CLASS_NAME =
+const SELECT_CLASS_NAME =
   "nodrag font-code cursor-pointer border-0 border-b border-solid border-setta-300 bg-transparent text-xs focus:border-blue-400 focus:outline-none focus-visible:border-blue-400 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-700 dark:text-setta-300";
 
-export const TIME_DISPLAY_SCALE_MIN = 0.5;
+const TIME_DISPLAY_SCALE_MIN = 0.5;
 
-export const TIME_DISPLAY_SCALE_MAX = 3.0;
+const TIME_DISPLAY_SCALE_MAX = 3.0;
 
-export const TIME_DISPLAY_SCALE_STEP = 0.1;
+const TIME_DISPLAY_SCALE_STEP = 0.1;
 
-export function getWeekdayLabels(
+function getWeekdayLabels(
   weekStart: DateCalendarWeekStart,
 ): ReadonlyArray<string> {
   const labels = TextParamUIConfig.calendarWeekdayLabelsByWeekStart[weekStart];
@@ -84,7 +84,7 @@ export function getWeekdayLabels(
   return labels;
 }
 
-export function clampTimeDisplayScale(rawScale: number): number {
+function clampTimeDisplayScale(rawScale: number): number {
   if (!Number.isFinite(rawScale)) {
     return 1;
   }
@@ -94,9 +94,7 @@ export function clampTimeDisplayScale(rawScale: number): number {
   );
 }
 
-export function getTimeDisplayFontClassName(
-  timeDisplayFont: TimeDisplayFont,
-): string {
+function getTimeDisplayFontClassName(timeDisplayFont: TimeDisplayFont): string {
   if (timeDisplayFont === TimeDisplayFontEnum.system) {
     return "font-sans tabular-nums";
   }
@@ -106,9 +104,7 @@ export function getTimeDisplayFontClassName(
   return "font-mono tabular-nums";
 }
 
-export function collectCalendarSelectionCandidates(
-  parsed: unknown,
-): Array<string> {
+function collectCalendarSelectionCandidates(parsed: unknown): Array<string> {
   if (Array.isArray(parsed)) {
     return parsed.filter((item): item is string => typeof item === "string");
   }
@@ -118,9 +114,7 @@ export function collectCalendarSelectionCandidates(
   return [];
 }
 
-export function parseCalendarSelectionCandidates(
-  rawValue: string,
-): Array<string> {
+function parseCalendarSelectionCandidates(rawValue: string): Array<string> {
   const trimmed = rawValue.trim();
   if (trimmed === "") {
     return [];
@@ -132,7 +126,7 @@ export function parseCalendarSelectionCandidates(
   }
 }
 
-export function normalizeCalendarSelectionCandidate(
+function normalizeCalendarSelectionCandidate(
   candidate: string,
   includeTime: boolean,
 ): string {
@@ -142,7 +136,7 @@ export function normalizeCalendarSelectionCandidate(
   return normalizeDateToIso(dateCandidate, DateDisplayFormatEnum.iso);
 }
 
-export function parseCalendarSelectedDates(
+function parseCalendarSelectedDates(
   rawValue: string,
   selectionMode: DateSelectionMode,
   includeTime = false,
@@ -167,7 +161,7 @@ export function parseCalendarSelectedDates(
   );
 }
 
-export function serializeCalendarSelectedDates(
+function serializeCalendarSelectedDates(
   selectedDates: Array<string>,
   selectionMode: DateSelectionMode,
 ): string {
@@ -183,7 +177,7 @@ export function serializeCalendarSelectedDates(
   return JSON.stringify(sorted);
 }
 
-export function formatMonthTitle(year: number, monthIndex: number): string {
+function formatMonthTitle(year: number, monthIndex: number): string {
   return new Intl.DateTimeFormat(undefined, {
     month: "long",
     year: "numeric",
@@ -191,7 +185,7 @@ export function formatMonthTitle(year: number, monthIndex: number): string {
   }).format(new Date(Date.UTC(year, monthIndex, 1)));
 }
 
-export function resolveCalendarSummaryText({
+function resolveCalendarSummaryText({
   selectedDates,
   value,
   selectionMode,
@@ -221,7 +215,7 @@ export function resolveCalendarSummaryText({
   return selectedDates[0] ?? "No date selected";
 }
 
-export function resolveCalendarCellClassName({
+function resolveCalendarCellClassName({
   inCurrentMonth,
   isSelected,
   isToday,
@@ -240,7 +234,7 @@ export function resolveCalendarCellClassName({
   return `rounded px-1 py-1 text-xs font-medium ${inCurrentMonthClass} ${selectedClass} ${todayClass}`;
 }
 
-export function resolveCalendarDateSelectionValue({
+function resolveCalendarDateSelectionValue({
   cellIsoDate,
   isSelected,
   selectedDates,
@@ -267,7 +261,7 @@ export function resolveCalendarDateSelectionValue({
   return serializeCalendarSelectedDates([cellIsoDate], selectionMode);
 }
 
-export function CalendarDateButton({
+function CalendarDateButton({
   cell,
   isSelected,
   isToday,
@@ -790,7 +784,7 @@ export type TextParamDateTimeClasses = {
   border: string;
 };
 
-export type TextParamDateTimeDisplayOptions = {
+type TextParamDateTimeDisplayOptions = {
   fontClassName: string;
   scale: number;
   transparent: boolean;
@@ -877,7 +871,7 @@ export function resolveTextParamDateTimeDisplayOptions({
   };
 }
 
-export function formatDisplayOnlyTimeValue(
+function formatDisplayOnlyTimeValue(
   value: string,
   timeDisplayFormat: TimeDisplayFormat,
 ): string {

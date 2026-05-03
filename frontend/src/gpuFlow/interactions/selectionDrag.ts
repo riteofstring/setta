@@ -17,7 +17,7 @@ import {
 } from "../viewportStore";
 import { getGpuNodeDragAutoPanDelta } from "./nodeDrag";
 
-export type GpuSelectionDragPhase = "cancel" | "drag" | "start" | "stop";
+type GpuSelectionDragPhase = "cancel" | "drag" | "start" | "stop";
 
 export type GpuSelectionDragItem = {
   readonly height: number | null;
@@ -40,7 +40,7 @@ export type GpuSelectionKeyboardNudgeChange = {
   readonly selectedNodeIds: readonly string[];
 };
 
-export type GpuSelectionDragAutoPanInsets = {
+type GpuSelectionDragAutoPanInsets = {
   readonly bottom?: number | undefined;
   readonly left?: number | undefined;
   readonly right?: number | undefined;

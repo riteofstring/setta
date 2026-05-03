@@ -97,7 +97,7 @@ export function getSectionIsGlobalVariables(sectionId: string) {
   );
 }
 
-export type DragRect = {
+type DragRect = {
   top: number;
   left: number;
   right: number;
@@ -106,18 +106,18 @@ export type DragRect = {
   height: number;
 };
 
-export type PlaceholderSize = {
+type PlaceholderSize = {
   width: number;
   height: number;
 };
 
-export type PlaceholderSizeInput = {
+type PlaceholderSizeInput = {
   draggingIds: string[];
   rectsById: Record<string, DragRect> | null;
   zoom: number;
 };
 
-export type SectionOrientation = "horizontal" | "vertical";
+type SectionOrientation = "horizontal" | "vertical";
 
 export function resolveSectionPlaceholderSize({
   draggingIds,
@@ -143,7 +143,7 @@ export function resolveSectionPlaceholderSize({
   return scalePlaceholderSize(size, zoom);
 }
 
-export function resolvePlaceholderLayout(
+function resolvePlaceholderLayout(
   state: ReturnType<typeof useProjectState.getState>,
   draggingIds: string[],
 ) {
@@ -155,7 +155,7 @@ export function resolvePlaceholderLayout(
   };
 }
 
-export function resolvePlaceholderParentId(
+function resolvePlaceholderParentId(
   state: ReturnType<typeof useProjectState.getState>,
   draggingIds: string[],
 ) {
@@ -166,11 +166,11 @@ export function resolvePlaceholderParentId(
   );
 }
 
-export function buildChildIndexMap(children: string[]) {
+function buildChildIndexMap(children: string[]) {
   return new Map(children.map((childId, index) => [childId, index]));
 }
 
-export function scalePlaceholderSize(
+function scalePlaceholderSize(
   size: PlaceholderSize,
   zoom: number,
 ): PlaceholderSize | null {
@@ -185,9 +185,7 @@ export function scalePlaceholderSize(
   };
 }
 
-export function resolveParentOrientation(
-  parentId: string | null,
-): SectionOrientation {
+function resolveParentOrientation(parentId: string | null): SectionOrientation {
   if (!parentId) {
     return "vertical";
   }
@@ -197,7 +195,7 @@ export function resolveParentOrientation(
   return "vertical";
 }
 
-export function collectSectionRects({
+function collectSectionRects({
   activeId,
   activeRect,
   draggingIds,
@@ -235,7 +233,7 @@ export function collectSectionRects({
   return rectsById;
 }
 
-export function accumulateSectionSizes({
+function accumulateSectionSizes({
   draggingIds,
   rectsById,
   orientation,
@@ -280,7 +278,7 @@ export function accumulateSectionSizes({
   return { width, height };
 }
 
-export function resolveAdjacentGapTotal({
+function resolveAdjacentGapTotal({
   draggingIds,
   rectsById,
   orientation,
@@ -362,7 +360,7 @@ export function resolveSectionDragSelection(
   return buildSectionSelection(orderedIds, activeId, activeRect);
 }
 
-export function buildSectionSelection(
+function buildSectionSelection(
   draggingIds: string[],
   activeId: string,
   activeRect: DragStartEvent["activeRect"] | null,
@@ -383,7 +381,7 @@ export function buildSectionSelection(
   };
 }
 
-export function resolveDraggingRectsForSelection(
+function resolveDraggingRectsForSelection(
   rectsById: Record<string, DragRect> | null,
 ): Record<string, DragRect> | null {
   const dndState = useDndState.getState();

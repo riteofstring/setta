@@ -32,7 +32,7 @@ export type GpuScenePortConnectionStart = {
   readonly type: HandleType;
 };
 
-export type GpuScenePortConnectionHit = {
+type GpuScenePortConnectionHit = {
   readonly anchor: GpuPortAnchorDescriptor;
   readonly distance: number;
   readonly flowPoint: GpuPoint;

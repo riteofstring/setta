@@ -97,7 +97,7 @@ export function TextBlockCardTitle({
   );
 }
 
-export function hasMarkdownHeadingText(markdown: string) {
+function hasMarkdownHeadingText(markdown: string) {
   const match = markdown.match(/(^ {0,3}#{1,6}(?!#)\s*(\S.*)$)/m);
   if (!match) {
     return false;
@@ -130,23 +130,23 @@ export function getTitleStyles({
   };
 }
 
-export function getEditingTitleClassName(hasSectionStyleTheme: boolean) {
+function getEditingTitleClassName(hasSectionStyleTheme: boolean) {
   return hasSectionStyleTheme
     ? editingTitleBaseClassName
     : editingTitleDefaultClassName;
 }
 
-export function getFixedTitleClassName(hasSectionStyleTheme: boolean) {
+function getFixedTitleClassName(hasSectionStyleTheme: boolean) {
   return hasSectionStyleTheme
     ? fixedTitleBaseClassName
     : fixedTitleDefaultClassName;
 }
 
-export function isFixedTitleSection(sectionTypeName: SectionType) {
+function isFixedTitleSection(sectionTypeName: SectionType) {
   return fixedTitleSectionTypes.has(sectionTypeName);
 }
 
-export function getNotEditingStyle({
+function getNotEditingStyle({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
@@ -166,7 +166,7 @@ export function getNotEditingStyle({
     .join(" ");
 }
 
-export function getNotEditingTextColorClass({
+function getNotEditingTextColorClass({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
@@ -191,7 +191,7 @@ export function getNotEditingTextColorClass({
     : "text-blue-600 dark:text-blue-400";
 }
 
-export function getNotEditingFontClass(sectionTypeName: SectionType) {
+function getNotEditingFontClass(sectionTypeName: SectionType) {
   return isFixedTitleSection(sectionTypeName)
     ? "uppercase font-bold"
     : "font-bold";

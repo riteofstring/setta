@@ -5,7 +5,7 @@ import type { GpuFlowLayoutNode } from "../layoutStore";
 import { getGpuPortAnchorHandleType, type GpuFlowScene } from "../scene";
 import type { GpuPoint, GpuRect } from "../viewportMath";
 
-export type GpuFlowPortDescriptor = {
+type GpuFlowPortDescriptor = {
   readonly element?: HTMLElement | null | undefined;
   readonly isConnectableEnd?: boolean | undefined;
   readonly isConnectableStart?: boolean | undefined;
@@ -16,7 +16,7 @@ export type GpuFlowPortDescriptor = {
   readonly type: HandleType;
 };
 
-export type GpuFlowPortEndpoint = {
+type GpuFlowPortEndpoint = {
   readonly nodeId: string;
   readonly normal: GpuPoint;
   readonly portId: string;
@@ -26,27 +26,27 @@ export type GpuFlowPortEndpoint = {
   readonly y: number;
 };
 
-export type GpuFlowPortRegistryState = {
+type GpuFlowPortRegistryState = {
   readonly descriptors: Readonly<Record<string, GpuFlowPortDescriptor>>;
   readonly version: number;
 };
 
-export type GpuFlowPortRegistryActions = {
+type GpuFlowPortRegistryActions = {
   registerPort(descriptor: GpuFlowPortDescriptor): string;
   removePort(nodeId: string, portId: string, type: HandleType): void;
   reset(): void;
   updatePortLocalRect(key: string, localRect: GpuRect): void;
 };
 
-export type GpuFlowPortRegistry = GpuFlowPortRegistryState &
+type GpuFlowPortRegistry = GpuFlowPortRegistryState &
   GpuFlowPortRegistryActions;
 
-export type BuildGpuFlowPortEndpointsInput = {
+type BuildGpuFlowPortEndpointsInput = {
   readonly layoutNodes: readonly GpuFlowLayoutNode[];
   readonly ports: Readonly<Record<string, GpuFlowPortDescriptor>>;
 };
 
-export type RegisterGpuFlowPortsWithSharedElementInput = {
+type RegisterGpuFlowPortsWithSharedElementInput = {
   readonly element: HTMLElement;
   readonly isConnectableEnd?: boolean | undefined;
   readonly isConnectableStart?: boolean | undefined;
@@ -359,7 +359,7 @@ export function buildGpuFlowPortEndpoints({
   return endpoints;
 }
 
-export function getGpuFlowPortEndpoint(
+function getGpuFlowPortEndpoint(
   descriptor: GpuFlowPortDescriptor,
   node: Pick<GpuFlowLayoutNode, "nodeId" | "x" | "y">,
 ): GpuFlowPortEndpoint {

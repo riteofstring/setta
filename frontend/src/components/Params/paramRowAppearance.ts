@@ -1,4 +1,4 @@
-export function resolveParamSelectionClass(hasSectionStyleTheme: boolean) {
+function resolveParamSelectionClass(hasSectionStyleTheme: boolean) {
   const selectedBgClassName = hasSectionStyleTheme
     ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
     : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";

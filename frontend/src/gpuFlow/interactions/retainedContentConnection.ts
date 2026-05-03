@@ -20,18 +20,17 @@ import {
   type GpuRetainedContentInteractionHit,
 } from "./retainedContentInteraction";
 
-export type GpuRetainedContentConnectionStart = {
+type GpuRetainedContentConnectionStart = {
   readonly handleId: string;
   readonly ownerSectionId: string;
   readonly surfaceId: string;
   readonly type: HandleType;
 };
 
-export type GpuRetainedContentConnectionHit =
-  GpuRetainedContentInteractionHit & {
-    readonly anchor: GpuRetainedContentPortAnchor;
-    readonly start: GpuRetainedContentConnectionStart;
-  };
+type GpuRetainedContentConnectionHit = GpuRetainedContentInteractionHit & {
+  readonly anchor: GpuRetainedContentPortAnchor;
+  readonly start: GpuRetainedContentConnectionStart;
+};
 
 export type GpuRetainedContentConnectionOptions = {
   readonly autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;

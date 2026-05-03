@@ -5,7 +5,7 @@ import type {
   HtmlInCanvasPaintEvent,
 } from "../htmlInCanvasTypes";
 
-export type HtmlSurfaceApiProbeName =
+type HtmlSurfaceApiProbeName =
   | "core-html-in-canvas-apis"
   | "copy-element-image-to-texture-overloads"
   | "direct-canvas-child-upload"
@@ -20,9 +20,9 @@ export type HtmlSurfaceApiProbeName =
   | "draw-element-image-transform"
   | "capture-element-image-worker";
 
-export type HtmlSurfaceApiProbeStatus = "fail" | "pass" | "unsupported";
+type HtmlSurfaceApiProbeStatus = "fail" | "pass" | "unsupported";
 
-export type HtmlSurfaceApiProbeRequirement = "documented" | "required";
+type HtmlSurfaceApiProbeRequirement = "documented" | "required";
 
 export type HtmlSurfaceApiProbeResult = {
   readonly details?: string | undefined;
@@ -35,7 +35,7 @@ export type HtmlSurfaceApiProbeResult = {
   readonly status: HtmlSurfaceApiProbeStatus;
 };
 
-export type HtmlSurfaceApiProbeSummary = {
+type HtmlSurfaceApiProbeSummary = {
   readonly failedRequiredProbeNames: readonly HtmlSurfaceApiProbeName[];
   readonly failedRequiredProbes: readonly HtmlSurfaceApiProbeResult[];
   readonly passCount: number;
@@ -43,7 +43,7 @@ export type HtmlSurfaceApiProbeSummary = {
   readonly unsupportedRequiredProbeNames: readonly HtmlSurfaceApiProbeName[];
 };
 
-export type HtmlSurfaceSourcePolicyIssue =
+type HtmlSurfaceSourcePolicyIssue =
   | "not-direct-canvas-child"
   | "missing-layout-box"
   | "display-none"
@@ -52,7 +52,7 @@ export type HtmlSurfaceSourcePolicyIssue =
   | "parked-offscreen"
   | "clip-path-hidden";
 
-export type HtmlSurfaceSourcePolicyResult = {
+type HtmlSurfaceSourcePolicyResult = {
   readonly issues: readonly HtmlSurfaceSourcePolicyIssue[];
   readonly ok: boolean;
 };

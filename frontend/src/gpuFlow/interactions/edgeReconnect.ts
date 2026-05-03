@@ -33,14 +33,14 @@ export type GpuEdgeReconnectOptions = {
   readonly store?: GpuFlowViewportStoreApi | undefined;
 };
 
-export type GpuEdgeReconnectControllerOptions = GpuEdgeReconnectOptions & {
+type GpuEdgeReconnectControllerOptions = GpuEdgeReconnectOptions & {
   readonly element: HTMLElement;
   readonly getFlowScene?: (() => GpuFlowScene | null | undefined) | undefined;
   readonly getScene: () => GpuEdgeScene | null | undefined;
   readonly layoutStore: GpuFlowLayoutStoreApi;
 };
 
-export type GpuEdgeReconnectAnchorInteractionHit = {
+type GpuEdgeReconnectAnchorInteractionHit = {
   readonly anchor: GpuEdgeReconnectAnchor;
   readonly distance: number;
   readonly flowPoint: GpuPoint;
@@ -83,7 +83,7 @@ export function hitTestGpuEdgeReconnectAnchorInteraction({
   });
 }
 
-export function hitTestGpuEdgeReconnectAnchors({
+function hitTestGpuEdgeReconnectAnchors({
   anchors,
   flowPoint,
   screenPoint,

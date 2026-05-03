@@ -717,7 +717,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
   );
 }
 
-export function TaskBoardListDropZone({
+function TaskBoardListDropZone({
   children,
   fallbackColumnId,
 }: {

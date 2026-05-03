@@ -5,7 +5,7 @@ export type HtmlSurfaceTextureSourceRect = {
   readonly y: number;
 };
 
-export type TextureSourceRectUploadRecord = {
+type TextureSourceRectUploadRecord = {
   readonly cssHeight: number;
   readonly cssWidth: number;
   readonly pixelHeight: number;
@@ -13,7 +13,7 @@ export type TextureSourceRectUploadRecord = {
   readonly textureBytes: number;
 };
 
-export type TextureSourceRectUploadRegion = {
+type TextureSourceRectUploadRegion = {
   readonly byteLength: number;
   readonly destinationX: number;
   readonly destinationY: number;

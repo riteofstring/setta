@@ -71,31 +71,31 @@ import {
   GetUnpinnedParams,
 } from "./edgesStrip";
 
-export const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 
-export const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 
-export const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
+const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
 
-export type ProjectStateSnapshot = Parameters<typeof getCurrShownParamIds>[0];
+type ProjectStateSnapshot = Parameters<typeof getCurrShownParamIds>[0];
 
-export type VerticalSpacingKey =
+type VerticalSpacingKey =
   | "paddingTop"
   | "paddingBottom"
   | "marginTop"
   | "marginBottom";
 
-export type FilteredParamList = {
+type FilteredParamList = {
   requiredParamIdsToPaths: Record<string, Array<string>>;
   topLevelParamIds: Array<string>;
 };
 
-export type EdgePortView = {
+type EdgePortView = {
   id: string;
   label: string;
 };
 
-export type EdgeStripState = {
+type EdgeStripState = {
   inputPorts: Array<EdgePortView>;
   outputPorts: Array<EdgePortView>;
   shouldRoundBottom: boolean;
@@ -118,7 +118,7 @@ export type EdgeStripAppearance = {
   roundedBottomClassName: string;
 };
 
-export function getVerticalSpacing(
+function getVerticalSpacing(
   style: CSSStyleDeclaration,
   topKey: VerticalSpacingKey,
   bottomKey: VerticalSpacingKey,
@@ -129,7 +129,7 @@ export function getVerticalSpacing(
   );
 }
 
-export function measureFixedParamsHeight(
+function measureFixedParamsHeight(
   outer: HTMLElement,
   fixedElements: Array<HTMLElement>,
 ) {
@@ -149,16 +149,13 @@ export function measureFixedParamsHeight(
   return Math.round(totalHeight);
 }
 
-export function setStoredParamAreaHeight(
-  heightKey: string,
-  nextHeight: number,
-) {
+function setStoredParamAreaHeight(heightKey: string, nextHeight: number) {
   useTemporaryMiscState.setState({
     [heightKey]: nextHeight,
   });
 }
 
-export function commitMeasuredFixedHeight({
+function commitMeasuredFixedHeight({
   nextFixedHeight,
   heightKey,
   waitingForResult,
@@ -236,7 +233,7 @@ function normalizeRequiredParamIdsToPaths(
   return normalized;
 }
 
-export function getRoundedBottomClassName(
+function getRoundedBottomClassName(
   shouldRoundBottom: boolean,
   positionAndSizeLocked: boolean,
 ) {
@@ -246,7 +243,7 @@ export function getRoundedBottomClassName(
   return positionAndSizeLocked ? "rounded-b-sm" : "rounded-b-xl";
 }
 
-export function getEdgeInputPortLabel(
+function getEdgeInputPortLabel(
   state: ProjectStateSnapshot,
   sectionId: string,
   paramId: string,
@@ -260,7 +257,7 @@ export function getEdgeInputPortLabel(
   return rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
 }
 
-export function buildEdgeInputPorts(
+function buildEdgeInputPorts(
   state: ProjectStateSnapshot,
   sectionId: string,
   edgeInputParams: Array<string>,
@@ -277,7 +274,7 @@ export function buildEdgeInputPorts(
   }));
 }
 
-export function buildEdgeOutputPorts(
+function buildEdgeOutputPorts(
   edgeOutputPorts: Array<{ id: string; accessor: string }>,
 ): Array<EdgePortView> {
   return edgeOutputPorts.map((port) => ({
@@ -408,7 +405,7 @@ export function getEdgeStripAppearance({
   };
 }
 
-export function preventSelectingEdgeMouseDown(
+function preventSelectingEdgeMouseDown(
   event: React.MouseEvent<HTMLElement>,
   isSelectingParams: boolean,
 ) {
@@ -419,7 +416,7 @@ export function preventSelectingEdgeMouseDown(
   event.preventDefault();
 }
 
-export function toggleSelectedEdgeParam(
+function toggleSelectedEdgeParam(
   event: React.MouseEvent<HTMLElement>,
   isSelectingParams: boolean,
   sectionId: string,
@@ -432,7 +429,7 @@ export function toggleSelectedEdgeParam(
   toggleParamSelected(sectionId, paramId);
 }
 
-export type EdgeInputPortRowProps = {
+type EdgeInputPortRowProps = {
   port: EdgePortView;
   sectionId: string;
   selected: boolean;
@@ -579,7 +576,7 @@ export function shouldApplyUnpinnedAreaMinHeight({
   return !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
 }
 
-export type UnpinnedParamsState = {
+type UnpinnedParamsState = {
   hideUnpinnedParams: boolean;
   requiredParamIdsToPaths: Record<string, Array<string>>;
   topLevelParamIds: Array<string>;
@@ -619,7 +616,7 @@ export function selectUnpinnedParamsState(
   };
 }
 
-export function _ParamGroupContainer({
+function _ParamGroupContainer({
   sectionId,
   bgColor,
   renderParamRows = true,

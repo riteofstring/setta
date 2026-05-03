@@ -53,7 +53,7 @@ import {
   type ProjectGpuRetainedParamSearchState,
 } from "./projectGpuParamRowAdapter";
 
-export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
+const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
 
 export type ProjectGpuParamListKey = "pinned" | "unpinned";
 

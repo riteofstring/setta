@@ -119,7 +119,7 @@ export type ProjectGpuLayoutAdapter = {
   ) => void;
 };
 
-export type ProjectGpuSceneRevealSectionOptions = {
+type ProjectGpuSceneRevealSectionOptions = {
   readonly align?: GpuSectionSceneRevealRectAlignment | undefined;
   readonly marginPx?: number | undefined;
 };

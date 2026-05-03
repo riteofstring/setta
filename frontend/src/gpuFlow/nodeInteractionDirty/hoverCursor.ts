@@ -30,9 +30,10 @@ export function updateGpuPointerHoverCursor({
     return undefined;
   }
 
-  const handoffTarget = resolvePointerHandoffTarget?.(event, {
-    projectSource: false,
-  }) ?? null;
+  const handoffTarget =
+    resolvePointerHandoffTarget?.(event, {
+      projectSource: false,
+    }) ?? null;
   const target = resolvePointerHoverCursorTarget({
     elementByNodeId,
     event,
@@ -82,8 +83,8 @@ function resolvePointerHoverCursorValue(
   if (!target) {
     return null;
   }
-  const cursor = target.ownerDocument.defaultView?.getComputedStyle(target)
-    .cursor;
+  const cursor =
+    target.ownerDocument.defaultView?.getComputedStyle(target).cursor;
   if (cursor && cursor !== "auto") {
     return cursor;
   }

@@ -14,13 +14,13 @@ export type GpuSectionSceneScrollResult = {
   readonly scrollOffsets: GpuSectionSceneScrollOffsetMap;
 };
 
-export type GpuSectionSceneDragAutoScrollResult = GpuSectionSceneScrollResult;
+type GpuSectionSceneDragAutoScrollResult = GpuSectionSceneScrollResult;
 
-export type GpuSectionSceneWheelScrollResult = GpuSectionSceneScrollResult;
+type GpuSectionSceneWheelScrollResult = GpuSectionSceneScrollResult;
 
 export type GpuSectionSceneRevealRectResult = GpuSectionSceneScrollResult;
 
-export type GpuSectionSceneKeyboardScrollResult = GpuSectionSceneScrollResult;
+type GpuSectionSceneKeyboardScrollResult = GpuSectionSceneScrollResult;
 
 export type GpuSectionSceneRevealRectAlignment =
   | "center"

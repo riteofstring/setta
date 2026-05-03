@@ -223,12 +223,12 @@ export function EdgesStrip({
   );
 }
 
-export type MaxNestedDepth = {
+type MaxNestedDepth = {
   pinned: number;
   unpinned: number;
 };
 
-export type GetPinnedParamsProps = {
+type GetPinnedParamsProps = {
   sectionId: string;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   renderParamRows: boolean;
@@ -236,7 +236,7 @@ export type GetPinnedParamsProps = {
   sectionTypeName: SectionType;
 };
 
-export type PinnedParamsAreaProps = {
+type PinnedParamsAreaProps = {
   sectionId: string;
   topLevelParamIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
@@ -251,7 +251,7 @@ export type PinnedParamsAreaProps = {
   rowsRef: React.RefObject<HTMLDivElement | null>;
 };
 
-export type GetUnpinnedParamsProps = {
+type GetUnpinnedParamsProps = {
   sectionId: string;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   renderParamRows: boolean;
@@ -332,7 +332,7 @@ export function GetPinnedParams({
   );
 }
 
-export function PinnedParamsArea({
+function PinnedParamsArea({
   sectionId,
   topLevelParamIds,
   requiredParamIdsToPaths,
@@ -492,7 +492,7 @@ export function GetUnpinnedParams({
   );
 }
 
-export function getLongestListLength(obj: Record<string, Array<string>>) {
+function getLongestListLength(obj: Record<string, Array<string>>) {
   return Object.values(obj).reduce(
     (max, arr) => (arr.length > max ? arr.length : max),
     0,

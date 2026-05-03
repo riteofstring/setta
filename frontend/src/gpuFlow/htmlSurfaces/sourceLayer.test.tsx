@@ -75,9 +75,9 @@ describe("HtmlSurfaceSourceLayer", () => {
       "Source A",
     );
     mockSourceBox(sourceElement);
-    expect(
-      evaluateHtmlSurfaceSourcePolicy(canvas, sourceElement).ok,
-    ).toBe(true);
+    expect(evaluateHtmlSurfaceSourcePolicy(canvas, sourceElement).ok).toBe(
+      true,
+    );
 
     act(() => root.unmount());
     expect(elements.has("source-a")).toBe(false);

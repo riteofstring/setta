@@ -73,11 +73,7 @@ describe("GpuFlow Handle", () => {
       root.render(
         <div data-gpu-flow-node="true">
           <NodeIdContext.Provider value="section-a">
-            <Handle
-              id="port-a"
-              type="source"
-              position={HandlePosition.Right}
-            />
+            <Handle id="port-a" type="source" position={HandlePosition.Right} />
           </NodeIdContext.Provider>
         </div>,
       );

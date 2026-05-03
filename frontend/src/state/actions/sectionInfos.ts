@@ -59,7 +59,6 @@ export {
 } from "./sectionInfos/codeObjectsAndLayout";
 
 export {
-  applyProjectParamUpdate,
   getNextPendingOperations,
   receiveProjectParamUpdate,
 } from "./sectionInfos/projectParamUpdates";

@@ -87,7 +87,7 @@ import {
   validateTopNavBarItemDefinition,
 } from "./navAndRevealValidation";
 
-export function normalizePluginBackendRoutePath(
+function normalizePluginBackendRoutePath(
   pluginId: string,
   path: string,
 ): string {
@@ -122,7 +122,7 @@ export function normalizePluginBackendRoutePath(
   return `/plugins/${encodeURIComponent(pluginId)}${routePath}`;
 }
 
-export async function fetchPluginBackendRoute(
+async function fetchPluginBackendRoute(
   pluginId: string,
   path: string,
   init?: RequestInit,
@@ -709,7 +709,7 @@ export function registerPluginModule({
   return registryDelta;
 }
 
-export function ensureCapability(
+function ensureCapability(
   pluginId: string,
   effectiveCapabilitySet: Set<string>,
   requiredCapability: string,
@@ -765,7 +765,7 @@ export function validatePluginRenderer<
   return renderer;
 }
 
-export function validateAppSubsystemRegistration(
+function validateAppSubsystemRegistration(
   pluginId: string,
   definition: AppSubsystemFrontendRegistration,
 ): RegisteredAppSubsystemFrontendRegistration {
@@ -781,7 +781,7 @@ export function validateAppSubsystemRegistration(
   };
 }
 
-export function validateSectionKindDefinition(
+function validateSectionKindDefinition(
   pluginId: string,
   definition: PluginSectionKindDefinition,
 ): RegisteredPluginSectionKind {
@@ -823,7 +823,7 @@ export function validateSectionKindDefinition(
   return sectionKind;
 }
 
-export function validatePaneDefinition(
+function validatePaneDefinition(
   pluginId: string,
   definition: PluginPaneDefinition,
 ): RegisteredPluginPane {
@@ -874,7 +874,7 @@ export function validatePaneDefinition(
   return paneDefinition;
 }
 
-export function validateCommandDefinition(
+function validateCommandDefinition(
   pluginId: string,
   definition: PluginCommandDefinition,
 ): RegisteredPluginCommand {

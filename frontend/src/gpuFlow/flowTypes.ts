@@ -1,12 +1,12 @@
 import type { CSSProperties } from "react";
 import type { GpuFlowScene } from "./scene";
 
-export interface Dimensions {
+interface Dimensions {
   width: number;
   height: number;
 }
 
-export interface Position {
+interface Position {
   x: number;
   y: number;
 }

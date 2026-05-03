@@ -58,7 +58,7 @@ export type MediaCarouselProps<T = unknown> = {
   footer?: ReactNode;
 };
 
-export type ThumbnailRowLayout = {
+type ThumbnailRowLayout = {
   thumbnailSizePx: number;
   labelMode: "wrap" | "compact";
   rowHeightPx: number | null;
@@ -71,7 +71,7 @@ export type ThumbnailRowHeightOptions = {
   thumbnailSize: number;
 };
 
-export type MediaCarouselPreviewFrameProps = {
+type MediaCarouselPreviewFrameProps = {
   hasNavButtons: boolean;
   onNext: () => void;
   onPrev: () => void;
@@ -79,14 +79,14 @@ export type MediaCarouselPreviewFrameProps = {
   previewContent: ReactNode;
 };
 
-export type MediaCarouselNavButtonProps = {
+type MediaCarouselNavButtonProps = {
   ariaLabel: string;
   children: ReactNode;
   className: string;
   onClick: () => void;
 };
 
-export type MediaCarouselThumbnailButtonProps<T> = {
+type MediaCarouselThumbnailButtonProps<T> = {
   isSelected: boolean;
   item: MediaCarouselItem<T>;
   labelMode: ThumbnailRowLayout["labelMode"];
@@ -105,7 +105,7 @@ export type MediaCarouselThumbnailButtonProps<T> = {
   isThumbnailDraggable?: (item: MediaCarouselItem<T>) => boolean;
 };
 
-export type MediaCarouselThumbnailStripProps<T> = {
+type MediaCarouselThumbnailStripProps<T> = {
   isThumbnailDraggable?: (item: MediaCarouselItem<T>) => boolean;
   items: Array<MediaCarouselItem<T>>;
   labelMode: ThumbnailRowLayout["labelMode"];
@@ -136,7 +136,7 @@ export type MediaCarouselSelectionState<T> = {
   selectedItem: MediaCarouselItem<T> | null;
 };
 
-export type MediaCarouselSelectionSync = {
+type MediaCarouselSelectionSync = {
   nextInternalSelectedId?: string | null;
   nextSelectedIdToNotify?: string;
 };
@@ -149,7 +149,7 @@ export type MediaCarouselThumbnailRowState = {
   thumbnailRowMinHeightPx: number;
 };
 
-export type NormalizedMediaCarouselProps<T> = {
+type NormalizedMediaCarouselProps<T> = {
   containerClassName?: string;
   footer?: ReactNode;
   isThumbnailDraggable?: (item: MediaCarouselItem<T>) => boolean;
@@ -175,23 +175,23 @@ export type NormalizedMediaCarouselProps<T> = {
   thumbnailSize: number;
 };
 
-export const DEFAULT_THUMBNAIL_SIZE = 96;
+const DEFAULT_THUMBNAIL_SIZE = 96;
 
-export const DEFAULT_THUMBNAIL_ROW_MIN_SCALE = 0.5;
+const DEFAULT_THUMBNAIL_ROW_MIN_SCALE = 0.5;
 
-export const THUMBNAIL_ROW_PADDING_Y_PX = 8;
+const THUMBNAIL_ROW_PADDING_Y_PX = 8;
 
-export const THUMBNAIL_LABEL_GAP_PX = 4;
+const THUMBNAIL_LABEL_GAP_PX = 4;
 
-export const THUMBNAIL_LABEL_LINE_HEIGHT_PX = 16;
+const THUMBNAIL_LABEL_LINE_HEIGHT_PX = 16;
 
-export const THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX = 16;
+const THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX = 16;
 
-export const THUMBNAIL_LABEL_NORMAL_LINES = 1;
+const THUMBNAIL_LABEL_NORMAL_LINES = 1;
 
 export const THUMBNAIL_ROW_MIN_PREVIEW_HEIGHT_PX = 140;
 
-export const THUMBNAIL_ROW_COMPACT_LABEL_SCALE_THRESHOLD = 0.75;
+const THUMBNAIL_ROW_COMPACT_LABEL_SCALE_THRESHOLD = 0.75;
 
 export function getThumbnailRowHeights({
   hasSubLabel,
@@ -287,9 +287,7 @@ export function getThumbnailRowLayout({
   };
 }
 
-export function renderDefaultPreview<T>(
-  item: MediaCarouselItem<T> | null,
-): ReactNode {
+function renderDefaultPreview<T>(item: MediaCarouselItem<T> | null): ReactNode {
   if (!item) {
     return (
       <div className="flex flex-col items-center justify-center text-setta-400 dark:text-setta-600">
@@ -338,9 +336,7 @@ export function isTextEntryTarget(
   );
 }
 
-export function handleThumbnailStripWheel(
-  event: React.WheelEvent<HTMLElement>,
-): void {
+function handleThumbnailStripWheel(event: React.WheelEvent<HTMLElement>): void {
   const container = event.currentTarget;
   if (
     event.ctrlKey ||
@@ -399,7 +395,7 @@ export function getSelectedItemId<T>(
   return selectedItem?.id ?? null;
 }
 
-export function hasResolvedMediaCarouselSelection<T>(
+function hasResolvedMediaCarouselSelection<T>(
   items: Array<MediaCarouselItem<T>>,
   resolvedSelectedId: string | null,
 ) {
@@ -409,13 +405,11 @@ export function hasResolvedMediaCarouselSelection<T>(
   );
 }
 
-export function getPreferredMediaCarouselItem<T>(
-  items: Array<MediaCarouselItem<T>>,
-) {
+function getPreferredMediaCarouselItem<T>(items: Array<MediaCarouselItem<T>>) {
   return items.find((item) => item.imageUrl || item.thumbnailUrl) ?? items[0];
 }
 
-export function resolveMediaCarouselSelectionSync<T>({
+function resolveMediaCarouselSelectionSync<T>({
   hasExternalSelection,
   items,
   resolvedSelectedId,
@@ -445,7 +439,7 @@ export function resolveMediaCarouselSelectionSync<T>({
   };
 }
 
-export function MediaCarouselNavButton({
+function MediaCarouselNavButton({
   ariaLabel,
   children,
   className,
@@ -511,7 +505,7 @@ export function MediaCarouselPreviewFrame({
   );
 }
 
-export function MediaCarouselThumbnailResizeHandle({
+function MediaCarouselThumbnailResizeHandle({
   onPointerDown,
 }: {
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
@@ -542,7 +536,7 @@ export function MediaCarouselThumbnailResizeSlot({
   return <MediaCarouselThumbnailResizeHandle onPointerDown={onPointerDown} />;
 }
 
-export function splitFileLabel(label: string) {
+function splitFileLabel(label: string) {
   const dotIndex = label.lastIndexOf(".");
   if (dotIndex <= 0 || dotIndex >= label.length - 1) {
     return { fileExtension: null, fileStem: label };
@@ -553,7 +547,7 @@ export function splitFileLabel(label: string) {
   };
 }
 
-export function getThumbnailTooltipHandlers<T>(item: MediaCarouselItem<T>) {
+function getThumbnailTooltipHandlers<T>(item: MediaCarouselItem<T>) {
   const tooltipContent = item.tooltipContent?.trim() ?? "";
   if (tooltipContent.length === 0) {
     return null;
@@ -564,7 +558,7 @@ export function getThumbnailTooltipHandlers<T>(item: MediaCarouselItem<T>) {
   });
 }
 
-export function getThumbnailContainerClassName(
+function getThumbnailContainerClassName(
   isSelected: boolean,
   resolvedSelectedThumbnailClassName: string,
   resolvedThumbnailClassName: string,
@@ -579,7 +573,7 @@ export function getThumbnailContainerClassName(
     .join(" ");
 }
 
-export function getThumbnailDragState<T>(
+function getThumbnailDragState<T>(
   item: MediaCarouselItem<T>,
   isThumbnailDraggable: MediaCarouselThumbnailButtonProps<T>["isThumbnailDraggable"],
   onThumbnailDragStart: MediaCarouselThumbnailButtonProps<T>["onThumbnailDragStart"],
@@ -593,7 +587,7 @@ export function getThumbnailDragState<T>(
   return { isDraggable, onDragStart };
 }
 
-export function renderThumbnailFallback<T>(item: MediaCarouselItem<T>) {
+function renderThumbnailFallback<T>(item: MediaCarouselItem<T>) {
   if (item.thumbnailUrl) {
     return (
       <>
@@ -614,7 +608,7 @@ export function renderThumbnailFallback<T>(item: MediaCarouselItem<T>) {
   );
 }
 
-export function MediaCarouselThumbnailVisual<T>({
+function MediaCarouselThumbnailVisual<T>({
   item,
   renderThumbnail,
   renderThumbnailOverlay,
@@ -642,7 +636,7 @@ export function MediaCarouselThumbnailVisual<T>({
   );
 }
 
-export function MediaCarouselThumbnailLabels({
+function MediaCarouselThumbnailLabels({
   fileExtension,
   fileStem,
   labelMode,
@@ -678,7 +672,7 @@ export function MediaCarouselThumbnailLabels({
   );
 }
 
-export function MediaCarouselThumbnailButton<T>({
+function MediaCarouselThumbnailButton<T>({
   isSelected,
   item,
   labelMode,
