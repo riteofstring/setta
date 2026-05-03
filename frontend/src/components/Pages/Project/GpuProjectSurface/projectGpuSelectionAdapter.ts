@@ -21,8 +21,8 @@ import {
 import {
   isGpuSectionSceneOrderedChildLayout,
   resolveGpuSectionSceneChildMoveDropMarker,
-  resolveGpuSectionSceneChildMovePlan,
   resolveGpuSectionSceneChildMovePreviewSections,
+  resolveGpuSectionSceneChildMultiMovePlan,
 } from "gpuFlow/sceneChildOrder";
 
 import type { GpuRect } from "gpuFlow/viewportMath";
@@ -202,19 +202,7 @@ function commitProjectNestedNodeDragStop(
   if (!scene || nestedItems.length === 0) {
     return false;
   }
-  const item = nestedItems.length === 1 ? nestedItems[0] : null;
-  if (!item) {
-    restoreProjectSceneLayoutStore(layoutStore, scene);
-    useMisc.setState({ mouseDownDraggingSection: false });
-    return true;
-  }
-  const plan = resolveGpuSectionSceneChildMovePlan({
-    canDropInParent: (parent, child) =>
-      canDropProjectSceneChildInParent(parent.sectionId, child.sectionId),
-    draggedRect: getProjectNodeDragItemRect(item),
-    scene,
-    sectionId: item.nodeId,
-  });
+  const plan = resolveProjectNestedNodeDragMovePlan(change, scene, nestedItems);
   useMisc.setState({ mouseDownDraggingSection: false });
   if (!plan) {
     restoreProjectSceneLayoutStore(layoutStore, scene);
@@ -230,7 +218,7 @@ function commitProjectNestedNodeDragStop(
     newIndex: plan.nextIndex,
     newParentId: plan.parentSectionId,
     positionsById: null,
-    sectionIds: [plan.childSectionId],
+    sectionIds: [...plan.movedChildSectionIds],
   });
   return true;
 }
@@ -259,22 +247,7 @@ function previewProjectNestedNodeDrag(
     return false;
   }
   const draggedNodeIds = new Set(change.items.map((item) => item.nodeId));
-  const item = nestedItems.length === 1 ? nestedItems[0] : null;
-  if (!item) {
-    patchProjectNestedDragPreviewLayout(layoutStore, scene.sections, {
-      draggedNodeIds,
-      dropMarker: null,
-    });
-    return true;
-  }
-
-  const plan = resolveGpuSectionSceneChildMovePlan({
-    canDropInParent: (parent, child) =>
-      canDropProjectSceneChildInParent(parent.sectionId, child.sectionId),
-    draggedRect: getProjectNodeDragItemRect(item),
-    scene,
-    sectionId: item.nodeId,
-  });
+  const plan = resolveProjectNestedNodeDragMovePlan(change, scene, nestedItems);
   patchProjectNestedDragPreviewLayout(
     layoutStore,
     plan?.changed
@@ -440,6 +413,36 @@ function getProjectNestedNodeDragItems(
   }
   return change.items.filter((item) =>
     isProjectSceneNestedNode(item.nodeId, scene),
+  );
+}
+
+function resolveProjectNestedNodeDragMovePlan(
+  change: ProjectGpuNodeDragChange,
+  scene: GpuFlowScene,
+  nestedItems: readonly ProjectGpuNodeDragItem[],
+) {
+  const primaryItem = getProjectPrimaryNestedNodeDragItem(change, nestedItems);
+  if (!primaryItem) {
+    return null;
+  }
+  return resolveGpuSectionSceneChildMultiMovePlan({
+    canDropInParent: (parent, child) =>
+      canDropProjectSceneChildInParent(parent.sectionId, child.sectionId),
+    draggedRect: getProjectNodeDragItemRect(primaryItem),
+    primarySectionId: primaryItem.nodeId,
+    scene,
+    sectionIds: nestedItems.map((item) => item.nodeId),
+  });
+}
+
+function getProjectPrimaryNestedNodeDragItem(
+  change: ProjectGpuNodeDragChange,
+  nestedItems: readonly ProjectGpuNodeDragItem[],
+): ProjectGpuNodeDragItem | null {
+  return (
+    nestedItems.find((item) => item.nodeId === change.nodeId) ??
+    nestedItems[0] ??
+    null
   );
 }
 

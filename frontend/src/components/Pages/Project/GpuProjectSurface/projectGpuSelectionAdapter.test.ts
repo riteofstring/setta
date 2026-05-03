@@ -416,6 +416,96 @@ describe("GPU project selection adapter", () => {
     expect(callOpenAPIMock).not.toHaveBeenCalled();
   });
 
+  it("previews selected nested sibling displacement as a scene-owned block", () => {
+    loadProjectStateForSections([
+      {
+        children: ["child-a", "child-b", "child-c", "child-d"],
+        id: "parent",
+        kind: "group",
+        sectionHeight: 800,
+        sectionWidth: 260,
+        topLevelHeight: 800,
+        topLevelWidth: 260,
+      },
+      { id: "child-a", parentId: "parent" },
+      { id: "child-b", parentId: "parent" },
+      { id: "child-c", parentId: "parent" },
+      { id: "child-d", parentId: "parent" },
+    ]);
+    loadNodeInternals([node("parent", 0, 0, 260, 800, 0)]);
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+    layoutStore.getState().patchNodes(
+      [
+        { nodeId: "child-a", x: 0, y: 700 },
+        { nodeId: "child-b", x: 0, y: 858 },
+      ],
+      { phase: "change", reason: "drag" },
+    );
+
+    handleProjectNodeDrag(
+      layoutStore,
+      {
+        delta: { x: 0, y: 700 },
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-b",
+            position: { x: 0, y: 858 },
+            width: 250,
+          },
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-a",
+            position: { x: 0, y: 700 },
+            width: 250,
+          },
+        ],
+        nodeId: "child-a",
+      },
+      scene,
+    );
+
+    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
+      x: 0,
+      y: 700,
+    });
+    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
+      x: 0,
+      y: 858,
+    });
+    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(layoutStore.getState().getNode("child-d")).toMatchObject({
+      x: 0,
+      y: 158,
+    });
+    expect(layoutStore.getState().dragPreview).toMatchObject({
+      draggedNodeIds: ["child-b", "child-a"],
+      dropMarker: {
+        axis: "y",
+        childNodeId: "child-a",
+        index: 2,
+        parentNodeId: "parent",
+      },
+    });
+    expect(getSectionImplChildren("parent")).toEqual([
+      "child-a",
+      "child-b",
+      "child-c",
+      "child-d",
+    ]);
+    expect(callOpenAPIMock).not.toHaveBeenCalled();
+  });
+
   it("restores scene layout without backend calls when nested drag does not reorder or is cancelled", () => {
     loadProjectStateForSections([
       { children: ["child-a", "child-b"], id: "parent", kind: "group" },
@@ -542,6 +632,66 @@ describe("GPU project selection adapter", () => {
     expect(useProjectState.getState().parentSectionMap["child-a"]).toBe(
       "parent-b",
     );
+    expect(layoutStore.getState().dragPreview).toBeNull();
+    expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
+    expect(callOpenAPIMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("commits selected nested siblings from renderer-owned scene geometry on drag stop", () => {
+    loadProjectStateForSections([
+      {
+        children: ["child-a", "child-b", "child-c", "child-d"],
+        id: "parent",
+        kind: "group",
+        sectionHeight: 800,
+        sectionWidth: 260,
+        topLevelHeight: 800,
+        topLevelWidth: 260,
+      },
+      { id: "child-a", parentId: "parent" },
+      { id: "child-b", parentId: "parent" },
+      { id: "child-c", parentId: "parent" },
+      { id: "child-d", parentId: "parent" },
+    ]);
+    loadNodeInternals([node("parent", 0, 0, 260, 800, 0)]);
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+
+    handleProjectNodeDragStop(
+      layoutStore,
+      {
+        delta: { x: 0, y: 700 },
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-b",
+            position: { x: 0, y: 858 },
+            width: 250,
+          },
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-a",
+            position: { x: 0, y: 700 },
+            width: 250,
+          },
+        ],
+        nodeId: "child-a",
+      },
+      scene,
+    );
+
+    expect(getSectionImplChildren("parent")).toEqual([
+      "child-c",
+      "child-d",
+      "child-a",
+      "child-b",
+    ]);
     expect(layoutStore.getState().dragPreview).toBeNull();
     expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
     expect(callOpenAPIMock).toHaveBeenCalledTimes(1);

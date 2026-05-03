@@ -9,6 +9,7 @@ import {
   resolveGpuSectionSceneChildMoveDropMarker,
   resolveGpuSectionSceneChildMovePlan,
   resolveGpuSectionSceneChildMovePreviewSections,
+  resolveGpuSectionSceneChildMultiMovePlan,
   resolveGpuSectionSceneChildReorderPlan,
 } from "./sceneChildOrder";
 import type { GpuPoint, GpuRect } from "./viewportMath";
@@ -401,6 +402,170 @@ describe("GPU flow scene child order", () => {
       index: 1,
       parentNodeId: "parent",
       rect: { height: 104, width: 4, x: 48, y: 8 },
+    });
+  });
+
+  it("resolves selected sibling insertion as a stable scene-owned block", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a", "child-b", "child-c", "child-d"],
+        childLayoutGap: { x: 0, y: 10 },
+        id: "parent",
+        layoutMode: "vertical",
+        worldRect: rect(0, 0, 120, 320),
+      }),
+      sectionNode({
+        id: "child-a",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 0, 100, 40),
+      }),
+      sectionNode({
+        id: "child-b",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 50, 100, 40),
+      }),
+      sectionNode({
+        id: "child-c",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 100, 100, 40),
+      }),
+      sectionNode({
+        id: "child-d",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent",
+        worldRect: rect(0, 150, 100, 40),
+      }),
+    ]);
+    const plan = resolveGpuSectionSceneChildMultiMovePlan({
+      draggedRect: rect(0, 176, 100, 40),
+      primarySectionId: "child-a",
+      scene,
+      sectionIds: ["child-b", "child-a"],
+    });
+
+    expect(plan).toMatchObject({
+      changed: true,
+      childSectionId: "child-a",
+      childSectionIds: ["child-c", "child-d", "child-a", "child-b"],
+      movedChildSectionIds: ["child-a", "child-b"],
+      nextIndex: 2,
+      previousParentChildSectionIds: ["child-c", "child-d"],
+      previousIndex: 0,
+    });
+    if (!plan) {
+      throw new Error("Expected selected sibling scene move plan.");
+    }
+
+    const preview = resolveGpuSectionSceneChildMovePreviewSections({
+      plan,
+      scene,
+    });
+    expect(getSection(preview, "parent").childSectionIds).toEqual([
+      "child-c",
+      "child-d",
+      "child-a",
+      "child-b",
+    ]);
+    expect(getSection(preview, "child-c").worldRect).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(getSection(preview, "child-d").worldRect).toMatchObject({
+      x: 0,
+      y: 50,
+    });
+    expect(getSection(preview, "child-a").worldRect).toMatchObject({
+      x: 0,
+      y: 100,
+    });
+    expect(getSection(preview, "child-b").worldRect).toMatchObject({
+      x: 0,
+      y: 150,
+    });
+    expect(resolveGpuSectionSceneChildMoveDropMarker({ plan, scene })).toEqual({
+      axis: "y",
+      childNodeId: "child-a",
+      index: 2,
+      parentNodeId: "parent",
+      rect: { height: 4, width: 104, x: 8, y: 98 },
+    });
+  });
+
+  it("resolves selected sibling cross-parent insertion when all selected children share a parent", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a", "child-b"],
+        childLayoutGap: { x: 0, y: 10 },
+        id: "parent-a",
+        layoutMode: "vertical",
+        worldRect: rect(0, 0, 120, 220),
+      }),
+      sectionNode({
+        childIds: ["child-c"],
+        childLayoutGap: { x: 0, y: 10 },
+        id: "parent-b",
+        layoutMode: "vertical",
+        worldRect: rect(300, 0, 120, 220),
+      }),
+      sectionNode({
+        id: "child-a",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent-a",
+        worldRect: rect(0, 0, 100, 40),
+      }),
+      sectionNode({
+        id: "child-b",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent-a",
+        worldRect: rect(0, 50, 100, 40),
+      }),
+      sectionNode({
+        id: "child-c",
+        localRect: rect(0, 0, 100, 40),
+        parentId: "parent-b",
+        worldRect: rect(300, 0, 100, 40),
+      }),
+    ]);
+    const plan = resolveGpuSectionSceneChildMultiMovePlan({
+      draggedRect: rect(300, 80, 100, 40),
+      primarySectionId: "child-a",
+      scene,
+      sectionIds: ["child-a", "child-b"],
+    });
+
+    expect(plan).toMatchObject({
+      changed: true,
+      childSectionIds: ["child-c", "child-a", "child-b"],
+      movedChildSectionIds: ["child-a", "child-b"],
+      nextIndex: 1,
+      parentSectionId: "parent-b",
+      previousParentChildSectionIds: [],
+      previousParentSectionId: "parent-a",
+    });
+    if (!plan) {
+      throw new Error("Expected selected sibling reparent scene move plan.");
+    }
+    const preview = resolveGpuSectionSceneChildMovePreviewSections({
+      plan,
+      scene,
+    });
+
+    expect(getSection(preview, "parent-a").childSectionIds).toEqual([]);
+    expect(getSection(preview, "parent-b").childSectionIds).toEqual([
+      "child-c",
+      "child-a",
+      "child-b",
+    ]);
+    expect(getSection(preview, "child-a")).toMatchObject({
+      parentSectionId: "parent-b",
+      worldRect: { x: 300, y: 50 },
+    });
+    expect(getSection(preview, "child-b")).toMatchObject({
+      parentSectionId: "parent-b",
+      worldRect: { x: 300, y: 100 },
     });
   });
 

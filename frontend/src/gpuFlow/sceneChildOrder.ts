@@ -12,9 +12,11 @@ export type GpuSectionSceneChildReorderPlan = {
   readonly childSectionId: string;
   readonly childSectionIds: readonly string[];
   readonly layoutMode: GpuSectionSceneLayoutMode;
+  readonly movedChildSectionIds: readonly string[];
   readonly nextIndex: number;
   readonly parentSectionId: string;
   readonly previousIndex: number;
+  readonly previousParentChildSectionIds: readonly string[];
   readonly previousParentSectionId: string;
 };
 
@@ -35,6 +37,7 @@ export function resolveGpuSectionSceneChildMovePreviewSections({
     plan.previousParentSectionId,
   ]);
   const sectionById = getGpuSectionSceneNodeById(scene);
+  const movedChildSectionIds = new Set(plan.movedChildSectionIds);
   const baseLocalRectByParentId =
     getGpuSectionSceneChildPreviewBaseLocalRectByParentId({
       affectedParentIds,
@@ -42,7 +45,7 @@ export function resolveGpuSectionSceneChildMovePreviewSections({
     });
   const nextSections = scene.sections.map((section) => {
     let nextSection = section;
-    if (section.sectionId === plan.childSectionId) {
+    if (movedChildSectionIds.has(section.sectionId)) {
       nextSection = {
         ...section,
         parentSectionId: plan.parentSectionId,
@@ -55,9 +58,7 @@ export function resolveGpuSectionSceneChildMovePreviewSections({
     } else if (section.sectionId === plan.previousParentSectionId) {
       nextSection = {
         ...section,
-        childSectionIds: section.childSectionIds.filter(
-          (childSectionId) => childSectionId !== plan.childSectionId,
-        ),
+        childSectionIds: plan.previousParentChildSectionIds,
       };
     }
 
@@ -249,37 +250,66 @@ export function resolveGpuSectionSceneChildMovePlan({
   readonly scene: GpuFlowScene;
   readonly sectionId: string;
 }): GpuSectionSceneChildMovePlan | null {
+  return resolveGpuSectionSceneChildMultiMovePlan({
+    canDropInParent,
+    draggedRect,
+    primarySectionId: sectionId,
+    scene,
+    sectionIds: [sectionId],
+  });
+}
+
+export function resolveGpuSectionSceneChildMultiMovePlan({
+  canDropInParent,
+  draggedRect,
+  primarySectionId,
+  scene,
+  sectionIds,
+}: {
+  readonly canDropInParent?:
+    | ((parent: GpuSectionSceneNode, child: GpuSectionSceneNode) => boolean)
+    | undefined;
+  readonly draggedRect: GpuRect;
+  readonly primarySectionId: string;
+  readonly scene: GpuFlowScene;
+  readonly sectionIds: readonly string[];
+}): GpuSectionSceneChildMovePlan | null {
   const sectionById = getGpuSectionSceneNodeById(scene);
-  const section = sectionById.get(sectionId);
-  if (!section) {
+  const selection = resolveGpuSectionSceneChildMoveSelection({
+    primarySectionId,
+    sectionById,
+    sectionIds,
+  });
+  if (!selection) {
     return null;
   }
-  if (section.parentSectionId === null) {
-    return null;
-  }
-  const previousParent = getGpuSectionSceneParentNode(section, sectionById);
   const targetParent =
     resolveGpuSectionSceneChildDropParent({
       canDropInParent,
       draggedRect,
+      movedSections: selection.movedSections,
       scene,
-      section,
       sectionById,
-    }) ?? previousParent;
+    }) ?? selection.previousParent;
 
   if (
     !isGpuSectionSceneOrderedChildLayout(targetParent.layoutMode) ||
-    canDropInParent?.(targetParent, section) === false
+    !canDropGpuSectionSceneChildrenInParent({
+      canDropInParent,
+      children: selection.movedSections,
+      parent: targetParent,
+    })
   ) {
     return null;
   }
 
   return resolveOrderedGpuSectionSceneChildReorderPlan({
     draggedRect,
+    movedSectionIds: selection.movedSectionIds,
     parent: targetParent,
-    previousParent,
+    previousParent: selection.previousParent,
+    primarySectionId,
     sectionById,
-    sectionId,
   });
 }
 
@@ -306,10 +336,11 @@ export function resolveGpuSectionSceneChildReorderPlan({
   }
   return resolveOrderedGpuSectionSceneChildReorderPlan({
     draggedRect,
+    movedSectionIds: [sectionId],
     parent,
     previousParent: parent,
+    primarySectionId: sectionId,
     sectionById,
-    sectionId,
   });
 }
 
@@ -325,27 +356,35 @@ export function isGpuSectionSceneOrderedChildLayout(
 
 function resolveOrderedGpuSectionSceneChildReorderPlan({
   draggedRect,
+  movedSectionIds,
   parent,
   previousParent,
+  primarySectionId,
   sectionById,
-  sectionId,
 }: {
   readonly draggedRect: GpuRect;
+  readonly movedSectionIds: readonly string[];
   readonly parent: GpuSectionSceneNode;
   readonly previousParent: GpuSectionSceneNode;
+  readonly primarySectionId: string;
   readonly sectionById: ReadonlyMap<string, GpuSectionSceneNode>;
-  readonly sectionId: string;
 }): GpuSectionSceneChildReorderPlan {
-  const previousIndex = previousParent.childSectionIds.indexOf(sectionId);
+  const movedSectionIdSet = new Set(movedSectionIds);
+  const previousIndex = previousParent.childSectionIds.findIndex(
+    (childSectionId) => movedSectionIdSet.has(childSectionId),
+  );
   if (previousIndex < 0) {
     throw new Error(
-      `Section scene node ${sectionId} is parented to ${previousParent.sectionId} but is not listed in that parent's child order.`,
+      `Section scene node ${primarySectionId} is parented to ${previousParent.sectionId} but is not listed in that parent's child order.`,
     );
   }
 
   const childSectionIds = parent.childSectionIds.filter(
     (childSectionId) =>
-      childSectionId !== sectionId && sectionById.has(childSectionId),
+      !movedSectionIdSet.has(childSectionId) && sectionById.has(childSectionId),
+  );
+  const previousParentChildSectionIds = previousParent.childSectionIds.filter(
+    (childSectionId) => !movedSectionIdSet.has(childSectionId),
   );
   const axis = getGpuSectionSceneChildOrderAxis(parent.layoutMode);
   const draggedCenter = getGpuRectCenterOnAxis(draggedRect, axis);
@@ -358,19 +397,21 @@ function resolveOrderedGpuSectionSceneChildReorderPlan({
   const nextChildSectionIds = insertGpuSectionSceneChildId(
     childSectionIds,
     nextIndex,
-    sectionId,
+    movedSectionIds,
   );
 
   return {
     changed:
       previousParent.sectionId !== parent.sectionId ||
       !areStringArraysEqual(parent.childSectionIds, nextChildSectionIds),
-    childSectionId: sectionId,
+    childSectionId: primarySectionId,
     childSectionIds: nextChildSectionIds,
     layoutMode: parent.layoutMode,
+    movedChildSectionIds: movedSectionIds,
     nextIndex,
     parentSectionId: parent.sectionId,
     previousIndex,
+    previousParentChildSectionIds,
     previousParentSectionId: previousParent.sectionId,
   };
 }
@@ -378,16 +419,16 @@ function resolveOrderedGpuSectionSceneChildReorderPlan({
 function resolveGpuSectionSceneChildDropParent({
   canDropInParent,
   draggedRect,
+  movedSections,
   scene,
-  section,
   sectionById,
 }: {
   readonly canDropInParent?:
     | ((parent: GpuSectionSceneNode, child: GpuSectionSceneNode) => boolean)
     | undefined;
   readonly draggedRect: GpuRect;
+  readonly movedSections: readonly GpuSectionSceneNode[];
   readonly scene: GpuFlowScene;
-  readonly section: GpuSectionSceneNode;
   readonly sectionById: ReadonlyMap<string, GpuSectionSceneNode>;
 }): GpuSectionSceneNode | null {
   const dropPoint = getGpuRectCenter(draggedRect);
@@ -398,7 +439,7 @@ function resolveGpuSectionSceneChildDropParent({
         canDropInParent,
         candidate,
         dropPoint,
-        section,
+        movedSections,
         sectionById,
       }),
     )
@@ -421,7 +462,7 @@ function isGpuSectionSceneChildDropParentCandidate({
   canDropInParent,
   candidate,
   dropPoint,
-  section,
+  movedSections,
   sectionById,
 }: {
   readonly canDropInParent?:
@@ -429,19 +470,87 @@ function isGpuSectionSceneChildDropParentCandidate({
     | undefined;
   readonly candidate: GpuSectionSceneNode;
   readonly dropPoint: { readonly x: number; readonly y: number };
-  readonly section: GpuSectionSceneNode;
+  readonly movedSections: readonly GpuSectionSceneNode[];
   readonly sectionById: ReadonlyMap<string, GpuSectionSceneNode>;
 }): boolean {
   return (
     isGpuSectionSceneOrderedChildLayout(candidate.layoutMode) &&
-    canDropInParent?.(candidate, section) !== false &&
-    !isGpuSectionSceneSameOrDescendant({
-      candidateSectionId: candidate.sectionId,
-      sectionId: section.sectionId,
-      sectionById,
+    canDropGpuSectionSceneChildrenInParent({
+      canDropInParent,
+      children: movedSections,
+      parent: candidate,
     }) &&
+    movedSections.every(
+      (section) =>
+        !isGpuSectionSceneSameOrDescendant({
+          candidateSectionId: candidate.sectionId,
+          sectionId: section.sectionId,
+          sectionById,
+        }),
+    ) &&
     gpuRectContainsPoint(getGpuSectionSceneChildDropRect(candidate), dropPoint)
   );
+}
+
+function resolveGpuSectionSceneChildMoveSelection({
+  primarySectionId,
+  sectionById,
+  sectionIds,
+}: {
+  readonly primarySectionId: string;
+  readonly sectionById: ReadonlyMap<string, GpuSectionSceneNode>;
+  readonly sectionIds: readonly string[];
+}): {
+  readonly movedSectionIds: readonly string[];
+  readonly movedSections: readonly GpuSectionSceneNode[];
+  readonly previousParent: GpuSectionSceneNode;
+} | null {
+  const primarySection = sectionById.get(primarySectionId);
+  if (!primarySection || primarySection.parentSectionId === null) {
+    return null;
+  }
+  const previousParent = getGpuSectionSceneParentNode(
+    primarySection,
+    sectionById,
+  );
+  const requestedSectionIds = new Set([primarySectionId, ...sectionIds]);
+  for (const sectionId of requestedSectionIds) {
+    const section = sectionById.get(sectionId);
+    if (!section || section.parentSectionId !== previousParent.sectionId) {
+      return null;
+    }
+  }
+  const movedSectionIds = previousParent.childSectionIds.filter(
+    (childSectionId) => requestedSectionIds.has(childSectionId),
+  );
+  if (movedSectionIds.length === 0) {
+    return null;
+  }
+  return {
+    movedSectionIds,
+    movedSections: movedSectionIds.map((sectionId) => {
+      const section = sectionById.get(sectionId);
+      if (!section) {
+        throw new Error(`Missing section scene child ${sectionId}.`);
+      }
+      return section;
+    }),
+    previousParent,
+  };
+}
+
+function canDropGpuSectionSceneChildrenInParent({
+  canDropInParent,
+  children,
+  parent,
+}: {
+  readonly canDropInParent?:
+    | ((parent: GpuSectionSceneNode, child: GpuSectionSceneNode) => boolean)
+    | undefined;
+  readonly children: readonly GpuSectionSceneNode[];
+  readonly parent: GpuSectionSceneNode;
+}): boolean {
+  return children.every((child) => canDropInParent?.(parent, child) !== false);
 }
 
 function getGpuSectionSceneParentNode(
@@ -594,11 +703,11 @@ function getGpuSectionSceneNodeById(
 function insertGpuSectionSceneChildId(
   childSectionIds: readonly string[],
   index: number,
-  sectionId: string,
+  sectionIds: readonly string[],
 ): readonly string[] {
   return [
     ...childSectionIds.slice(0, index),
-    sectionId,
+    ...sectionIds,
     ...childSectionIds.slice(index),
   ];
 }

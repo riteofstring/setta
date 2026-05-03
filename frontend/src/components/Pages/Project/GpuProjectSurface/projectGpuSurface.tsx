@@ -123,6 +123,7 @@ export type ProjectGpuNodeDragItem = {
 export type ProjectGpuNodeDragChange = {
   readonly delta: { readonly x: number; readonly y: number };
   readonly items: readonly ProjectGpuNodeDragItem[];
+  readonly nodeId?: string | undefined;
 };
 
 export type ProjectGpuSelectionChange = {
