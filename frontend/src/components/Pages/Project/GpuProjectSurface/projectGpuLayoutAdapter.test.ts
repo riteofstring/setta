@@ -309,6 +309,42 @@ describe("project GPU layout adapter", () => {
       rowId: "child-param",
       surfaceId: "dict-a:param-content:unpinned",
     });
+
+    const dragPreviewScene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      retainedParamDragPreview: {
+        draggingParamIds: ["child-param"],
+        dropMarker: { edge: "before", rowId: "parent-param" },
+        pointerLocal: { x: 32, y: 44 },
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      revision: 3,
+    });
+    const dragPreviewSurface = dragPreviewScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    expect(
+      dragPreviewSurface?.retainedScene?.rows.map((row) => ({
+        dragging: row.state.dragging,
+        id: row.id,
+      })),
+    ).toEqual([
+      { dragging: false, id: "parent-param" },
+      { dragging: true, id: "child-param" },
+    ]);
+    expect(dragPreviewSurface?.retainedScene?.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "row-drop-marker",
+          rowId: "parent-param",
+        }),
+        expect.objectContaining({
+          kind: "row-drag-preview",
+          rowId: "child-param",
+        }),
+      ]),
+    );
   });
 
   it("derives active retained param controls as explicit DOM islands", () => {

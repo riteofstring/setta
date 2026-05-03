@@ -16,6 +16,7 @@ import {
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  createProjectGpuRetainedParamDragPreview,
   createProjectGpuRetainedParamDragSession,
   getProjectGpuParamListKeyFromSurfaceId,
   resolveProjectGpuRetainedParamDropMove,
@@ -63,7 +64,7 @@ describe("project GPU retained param drag adapter", () => {
     });
   });
 
-  it("keeps this retained slice to same-parent drops", () => {
+  it("resolves cross-parent retained row drops from tree metadata", () => {
     const projectState = projectStateWithParams({
       nestedChildrenByParent: { "parent-param": ["child-a", "child-b"] },
       rootChildren: ["parent-param", "other-param"],
@@ -82,11 +83,66 @@ describe("project GPU retained param drag adapter", () => {
     });
     expect(
       resolveProjectGpuRetainedParamDropMove({
-        event: retainedRowHit("other-param", { y: 104 }),
+        event: retainedRowHit("other-param", { y: 190 }),
+        projectState,
+        session: session!,
+      }),
+    ).toEqual({
+      newIndex: 2,
+      newParentId: "root-param",
+      paramIds: ["child-a"],
+      sectionId: "dict-a",
+    });
+  });
+
+  it("rejects retained drops into the moving param subtree", () => {
+    const projectState = projectStateWithParams({
+      nestedChildrenByParent: { "parent-param": ["child-a", "child-b"] },
+      rootChildren: ["parent-param", "other-param"],
+      selectedParams: ["parent-param"],
+    });
+    const session = createProjectGpuRetainedParamDragSession({
+      activeParamId: "parent-param",
+      projectState,
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+
+    expect(
+      resolveProjectGpuRetainedParamDropMove({
+        event: retainedRowHit("child-b", { y: 150 }),
         projectState,
         session: session!,
       }),
     ).toBeNull();
+  });
+
+  it("creates retained drag previews with row-target drop markers", () => {
+    const projectState = projectStateWithParams({
+      nestedChildrenByParent: { "parent-param": ["child-a", "child-b"] },
+      rootChildren: ["parent-param", "other-param"],
+      selectedParams: ["child-a"],
+    });
+    const session = createProjectGpuRetainedParamDragSession({
+      activeParamId: "child-a",
+      projectState,
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+
+    expect(
+      createProjectGpuRetainedParamDragPreview({
+        hit: retainedRowHit("other-param", { y: 180 }),
+        projectState,
+        session: session!,
+      }),
+    ).toEqual({
+      draggingParamIds: ["child-a"],
+      dropMarker: { edge: "before", rowId: "other-param" },
+      pointerLocal: { x: 20, y: 180 },
+      sectionId: "dict-a",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
   });
 });
 

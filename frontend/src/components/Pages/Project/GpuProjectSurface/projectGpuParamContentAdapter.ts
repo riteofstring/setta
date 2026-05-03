@@ -9,6 +9,7 @@ import {
 import type { GpuRetainedContentNavigationTarget } from "gpuFlow/retainedContentKeyboard";
 import {
   createGpuRetainedRowContentScene,
+  type GpuRetainedContentDragPreviewInput,
   type GpuRetainedContentRowInput,
 } from "gpuFlow/retainedContentScene";
 import {
@@ -46,6 +47,7 @@ import {
   type CodeObjType,
   type DictSectionImpl,
 } from "utils/generatedTypes";
+import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 
 export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
 
@@ -72,6 +74,10 @@ type ProjectGpuRetainedParamInteractionState = {
     | undefined;
   readonly hoveredParamTarget?:
     | ProjectGpuRetainedParamTarget
+    | null
+    | undefined;
+  readonly retainedParamDragPreview?:
+    | ProjectGpuRetainedParamDragPreview
     | null
     | undefined;
 };
@@ -146,6 +152,7 @@ export function createProjectGpuParamContentSurfaces({
   hoveredParamTarget,
   measuredHeightsByKey,
   projectState,
+  retainedParamDragPreview,
   sections,
 }: {
   readonly activeParamDomIsland?:
@@ -159,6 +166,10 @@ export function createProjectGpuParamContentSurfaces({
     | undefined;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
+  readonly retainedParamDragPreview?:
+    | ProjectGpuRetainedParamDragPreview
+    | null
+    | undefined;
   readonly sections: readonly GpuSectionSceneNode[];
 }): readonly GpuContentSurface[] {
   return sections.flatMap((section) =>
@@ -168,6 +179,7 @@ export function createProjectGpuParamContentSurfaces({
       hoveredParamTarget,
       measuredHeightsByKey,
       projectState,
+      retainedParamDragPreview,
       section,
     }),
   );
@@ -245,6 +257,7 @@ function createProjectGpuParamContentSurfacesForSection({
   hoveredParamTarget,
   measuredHeightsByKey,
   projectState,
+  retainedParamDragPreview,
   section,
 }: {
   readonly activeParamDomIsland?:
@@ -258,6 +271,10 @@ function createProjectGpuParamContentSurfacesForSection({
     | undefined;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
+  readonly retainedParamDragPreview?:
+    | ProjectGpuRetainedParamDragPreview
+    | null
+    | undefined;
   readonly section: GpuSectionSceneNode;
 }): readonly GpuContentSurface[] {
   const sectionImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
@@ -277,12 +294,14 @@ function createProjectGpuParamContentSurfacesForSection({
     retainedInteractionState: {
       activeParamDomIsland,
       hoveredParamTarget,
+      retainedParamDragPreview,
     },
   });
   return createProjectGpuParamListContentSurfaces({
     contentScrollOffsets,
     listRows,
     measuredHeightsByKey,
+    retainedParamDragPreview,
     section,
   });
 }
@@ -426,6 +445,14 @@ function createProjectGpuParamRows({
   );
   const selectedParamIds = new Set(sectionImpl.selectedParams ?? []);
   const edgeInputParamIds = new Set(sectionImpl.edgeInputParams);
+  const draggingParamIds =
+    retainedInteractionState.retainedParamDragPreview?.sectionId ===
+      sectionId &&
+    retainedInteractionState.retainedParamDragPreview.surfaceId === surfaceId
+      ? new Set(
+          retainedInteractionState.retainedParamDragPreview.draggingParamIds,
+        )
+      : null;
   return tree.flat.map((row) => {
     const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
       projectState,
@@ -454,6 +481,7 @@ function createProjectGpuParamRows({
         ? [{ id: row.id, kind: "input", side: "left" }]
         : [],
       state: {
+        dragging: draggingParamIds?.has(row.id) ?? false,
         focused: isProjectGpuRetainedParamTargetForRow(
           retainedInteractionState.activeParamDomIsland,
           {
@@ -511,11 +539,16 @@ function createProjectGpuParamListContentSurfaces({
   contentScrollOffsets,
   listRows,
   measuredHeightsByKey,
+  retainedParamDragPreview,
   section,
 }: {
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly listRows: readonly ProjectGpuParamListRows[];
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
+  readonly retainedParamDragPreview?:
+    | ProjectGpuRetainedParamDragPreview
+    | null
+    | undefined;
   readonly section: GpuSectionSceneNode;
 }): readonly GpuContentSurface[] {
   const surfaces: GpuContentSurface[] = [];
@@ -573,6 +606,10 @@ function createProjectGpuParamListContentSurfaces({
       ownerSectionId: section.sectionId,
       rect,
       retainedScene: createGpuRetainedRowContentScene({
+        dragPreview: getProjectGpuParamRetainedContentDragPreviewInput({
+          retainedParamDragPreview,
+          surfaceId,
+        }),
         id: surfaceId,
         ownerSectionId: section.sectionId,
         rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
@@ -591,6 +628,29 @@ function createProjectGpuParamListContentSurfaces({
     });
   }
   return surfaces;
+}
+
+function getProjectGpuParamRetainedContentDragPreviewInput({
+  retainedParamDragPreview,
+  surfaceId,
+}: {
+  readonly retainedParamDragPreview?:
+    | ProjectGpuRetainedParamDragPreview
+    | null
+    | undefined;
+  readonly surfaceId: string;
+}): GpuRetainedContentDragPreviewInput | null {
+  if (
+    !retainedParamDragPreview ||
+    retainedParamDragPreview.surfaceId !== surfaceId
+  ) {
+    return null;
+  }
+  return {
+    draggingRowIds: retainedParamDragPreview.draggingParamIds,
+    dropMarker: retainedParamDragPreview.dropMarker,
+    pointerLocal: retainedParamDragPreview.pointerLocal,
+  };
 }
 
 function getProjectGpuParamContentMetrics({

@@ -172,6 +172,19 @@ function drawGpuRetainedContentCommand({
     drawGpuRetainedContentNestGuide(ctx, command.rect);
     return;
   }
+  if (command.kind === "row-drop-marker") {
+    drawGpuRetainedContentDropMarker(ctx, command.rect);
+    return;
+  }
+  if (command.kind === "row-drag-preview") {
+    drawGpuRetainedContentDragPreview({
+      ctx,
+      rect: command.rect,
+      rowCount: command.rowCount,
+      text: command.text,
+    });
+    return;
+  }
   if (command.kind === "row-label") {
     drawGpuRetainedContentLabel({
       ctx,
@@ -289,6 +302,9 @@ function getGpuRetainedContentRowBackgroundColor(
   if (state.error) {
     return "#fef2f2";
   }
+  if (state.dragging) {
+    return "#e2e8f0";
+  }
   if (state.selected) {
     return "#dbeafe";
   }
@@ -299,6 +315,46 @@ function getGpuRetainedContentRowBackgroundColor(
     return "#eff6ff";
   }
   return "#f8fafc";
+}
+
+function drawGpuRetainedContentDropMarker(
+  ctx: CanvasRenderingContext2D,
+  rect: GpuRect,
+) {
+  ctx.fillStyle = "#2563eb";
+  fillRoundRect(ctx, rect, Math.min(2, rect.height / 2));
+}
+
+function drawGpuRetainedContentDragPreview({
+  ctx,
+  rect,
+  rowCount,
+  text,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly rect: GpuRect;
+  readonly rowCount: number;
+  readonly text: string;
+}) {
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#2563eb";
+  ctx.lineWidth = 1;
+  fillRoundRect(ctx, rect, 5);
+  strokeRoundRect(ctx, rect, 5);
+  ctx.globalAlpha = 1;
+  ctx.font = RETAINED_CONTENT_FONT;
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#0f172a";
+  const suffix = rowCount > 1 ? ` (${rowCount})` : "";
+  ctx.fillText(
+    `${text}${suffix}`,
+    rect.x + 8,
+    rect.y + rect.height / 2,
+    Math.max(0, rect.width - 16),
+  );
+  ctx.restore();
 }
 
 function configureGpuRetainedContentSourceElement({

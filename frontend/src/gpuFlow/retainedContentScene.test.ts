@@ -151,6 +151,50 @@ describe("retained content scene", () => {
     ]);
   });
 
+  it("emits retained drag state, drop markers, and preview commands", () => {
+    const scene = createGpuRetainedRowContentScene({
+      dragPreview: {
+        draggingRowIds: ["param-a", "param-b"],
+        dropMarker: { edge: "before", rowId: "param-c" },
+        pointerLocal: { x: 40, y: 54 },
+      },
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [row("param-a"), row("param-b"), row("param-c")],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 72, width: 220, x: 0, y: 0 },
+    });
+
+    expect(
+      scene.rows.map((visibleRow) => ({
+        dragging: visibleRow.state.dragging,
+        id: visibleRow.id,
+      })),
+    ).toEqual([
+      { dragging: true, id: "param-a" },
+      { dragging: true, id: "param-b" },
+      { dragging: false, id: "param-c" },
+    ]);
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        {
+          edge: "before",
+          kind: "row-drop-marker",
+          rect: { height: 2, width: 212, x: 4, y: 47 },
+          rowId: "param-c",
+        },
+        {
+          kind: "row-drag-preview",
+          rect: { height: 24, width: 204, x: 8, y: 42 },
+          rowCount: 2,
+          rowId: "param-a",
+          text: "param-a",
+        },
+      ]),
+    );
+  });
+
   it("fails loudly for invalid retained row metrics", () => {
     expect(() =>
       resolveGpuRetainedContentVisibleRowRange({

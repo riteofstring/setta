@@ -16,8 +16,10 @@ import type {
   ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
 import {
+  createProjectGpuRetainedParamDragPreview,
   createProjectGpuRetainedParamDragSession,
   resolveProjectGpuRetainedParamDropMove,
+  type ProjectGpuRetainedParamDragPreview,
   type ProjectGpuRetainedParamDragSession,
 } from "./projectGpuParamDragAdapter";
 
@@ -25,6 +27,7 @@ export function getProjectRetainedContentInteractionOptions({
   canEditStructure,
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
+  onRetainedParamDragPreviewChange,
   retainedParamDragSessionRef,
   zoomActivationKeyPressed,
 }: {
@@ -34,6 +37,9 @@ export function getProjectRetainedContentInteractionOptions({
   ) => void;
   readonly onHoveredParamTargetChange: (
     target: ProjectGpuRetainedParamTarget | null,
+  ) => void;
+  readonly onRetainedParamDragPreviewChange: (
+    preview: ProjectGpuRetainedParamDragPreview | null,
   ) => void;
   readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   readonly zoomActivationKeyPressed: boolean;
@@ -45,13 +51,23 @@ export function getProjectRetainedContentInteractionOptions({
     onHitDragCancel: (event: GpuRetainedContentDragCancelEvent) =>
       handleProjectRetainedContentDragCancel(
         event,
+        onRetainedParamDragPreviewChange,
         retainedParamDragSessionRef,
       ),
     onHitDragEnd: (event: GpuRetainedContentDragEvent) =>
-      handleProjectRetainedContentDragEnd(event, retainedParamDragSessionRef),
+      handleProjectRetainedContentDragEnd(event, {
+        onRetainedParamDragPreviewChange,
+        retainedParamDragSessionRef,
+      }),
+    onHitDragMove: (event: GpuRetainedContentDragEvent) =>
+      handleProjectRetainedContentDragMove(event, {
+        onRetainedParamDragPreviewChange,
+        retainedParamDragSessionRef,
+      }),
     onHitDragStart: (event: GpuRetainedContentInteractionEvent) =>
       handleProjectRetainedContentDragStart(event, {
         onActiveParamDomIslandChange,
+        onRetainedParamDragPreviewChange,
         retainedParamDragSessionRef,
       }),
     onHitPointerLeave: () => onHoveredParamTargetChange(null),
@@ -128,32 +144,78 @@ function handleProjectRetainedContentDragStart(
   event: GpuRetainedContentInteractionEvent,
   {
     onActiveParamDomIslandChange,
+    onRetainedParamDragPreviewChange,
     retainedParamDragSessionRef,
   }: {
     readonly onActiveParamDomIslandChange: (
       island: ProjectGpuActiveParamDomIsland | null,
     ) => void;
+    readonly onRetainedParamDragPreviewChange: (
+      preview: ProjectGpuRetainedParamDragPreview | null,
+    ) => void;
     readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   },
 ) {
-  retainedParamDragSessionRef.current =
-    createProjectGpuRetainedParamDragSession({
-      activeParamId: event.hit.ownerRowId,
-      projectState: useProjectState.getState(),
-      sectionId: event.ownerSectionId,
-      surfaceId: event.surfaceId,
-    });
-  if (retainedParamDragSessionRef.current) {
+  const projectState = useProjectState.getState();
+  const session = createProjectGpuRetainedParamDragSession({
+    activeParamId: event.hit.ownerRowId,
+    projectState,
+    sectionId: event.ownerSectionId,
+    surfaceId: event.surfaceId,
+  });
+  retainedParamDragSessionRef.current = session;
+  if (session) {
     onActiveParamDomIslandChange(null);
+    onRetainedParamDragPreviewChange(
+      createProjectGpuRetainedParamDragPreview({
+        hit: event,
+        projectState,
+        session,
+      }),
+    );
   }
+}
+
+function handleProjectRetainedContentDragMove(
+  event: GpuRetainedContentDragEvent,
+  {
+    onRetainedParamDragPreviewChange,
+    retainedParamDragSessionRef,
+  }: {
+    readonly onRetainedParamDragPreviewChange: (
+      preview: ProjectGpuRetainedParamDragPreview | null,
+    ) => void;
+    readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
+  },
+) {
+  const session = retainedParamDragSessionRef.current;
+  if (!session) {
+    return;
+  }
+  onRetainedParamDragPreviewChange(
+    createProjectGpuRetainedParamDragPreview({
+      hit: event.hit,
+      projectState: useProjectState.getState(),
+      session,
+    }),
+  );
 }
 
 function handleProjectRetainedContentDragEnd(
   event: GpuRetainedContentDragEvent,
-  retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>,
+  {
+    onRetainedParamDragPreviewChange,
+    retainedParamDragSessionRef,
+  }: {
+    readonly onRetainedParamDragPreviewChange: (
+      preview: ProjectGpuRetainedParamDragPreview | null,
+    ) => void;
+    readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
+  },
 ) {
   const session = retainedParamDragSessionRef.current;
   retainedParamDragSessionRef.current = null;
+  onRetainedParamDragPreviewChange(null);
   if (!session) {
     return;
   }
@@ -175,9 +237,13 @@ function handleProjectRetainedContentDragEnd(
 
 function handleProjectRetainedContentDragCancel(
   _event: GpuRetainedContentDragCancelEvent,
+  onRetainedParamDragPreviewChange: (
+    preview: ProjectGpuRetainedParamDragPreview | null,
+  ) => void,
   retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>,
 ) {
   retainedParamDragSessionRef.current = null;
+  onRetainedParamDragPreviewChange(null);
 }
 
 function shouldHandleProjectRetainedContentHit(

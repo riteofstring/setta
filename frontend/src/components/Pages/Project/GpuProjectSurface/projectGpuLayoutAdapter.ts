@@ -79,6 +79,7 @@ import {
   type ProjectGpuActiveParamDomIsland,
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
+import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 
 export type {
   ProjectGpuActiveParamDomIsland,
@@ -132,6 +133,7 @@ const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
 export function useProjectGpuLayoutAdapter({
   activeParamDomIsland,
   hoveredParamTarget,
+  retainedParamDragPreview,
 }: {
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
@@ -139,6 +141,10 @@ export function useProjectGpuLayoutAdapter({
     | undefined;
   readonly hoveredParamTarget?:
     | ProjectGpuRetainedParamTarget
+    | null
+    | undefined;
+  readonly retainedParamDragPreview?:
+    | ProjectGpuRetainedParamDragPreview
     | null
     | undefined;
 } = {}): ProjectGpuLayoutAdapter {
@@ -165,6 +171,7 @@ export function useProjectGpuLayoutAdapter({
         activeParamDomIsland,
         contentScrollOffsets,
         hoveredParamTarget,
+        retainedParamDragPreview,
         scrollOffsets: sceneScrollOffsets,
       }),
     [
@@ -174,6 +181,7 @@ export function useProjectGpuLayoutAdapter({
       hoveredParamTarget,
       measuredHeightsByKey,
       projectState,
+      retainedParamDragPreview,
       resizeEventBySectionId,
       sceneScrollOffsets,
       sizingPolicy,
@@ -303,6 +311,10 @@ export function getProjectGpuFlowScene(
       | ProjectGpuRetainedParamTarget
       | null
       | undefined;
+    readonly retainedParamDragPreview?:
+      | ProjectGpuRetainedParamDragPreview
+      | null
+      | undefined;
     readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
     readonly revision?: number | undefined;
     readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
@@ -394,6 +406,7 @@ export function getProjectGpuFlowScene(
     hoveredParamTarget: options.hoveredParamTarget,
     measuredHeightsByKey: resizePolicyContext.measuredHeightsByKey,
     projectState,
+    retainedParamDragPreview: options.retainedParamDragPreview,
     sections: layoutScene.sections,
   });
   return {

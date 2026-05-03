@@ -72,7 +72,10 @@ import {
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuParamContentAdapter";
-import type { ProjectGpuRetainedParamDragSession } from "./projectGpuParamDragAdapter";
+import type {
+  ProjectGpuRetainedParamDragPreview,
+  ProjectGpuRetainedParamDragSession,
+} from "./projectGpuParamDragAdapter";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import {
   getProjectRetainedContentInteractionOptions,
@@ -162,9 +165,12 @@ export function GpuProjectSurface() {
     useState<ProjectGpuActiveParamDomIsland | null>(null);
   const [hoveredParamTarget, setHoveredParamTarget] =
     useState<ProjectGpuRetainedParamTarget | null>(null);
+  const [retainedParamDragPreview, setRetainedParamDragPreview] =
+    useState<ProjectGpuRetainedParamDragPreview | null>(null);
   const layoutAdapter = useProjectGpuLayoutAdapter({
     activeParamDomIsland,
     hoveredParamTarget,
+    retainedParamDragPreview,
   });
   const settings = useProjectGpuSurfaceSettings();
   const showAgenticEdges = useLocalStorage((state) => state.showAgenticEdges);
@@ -241,6 +247,7 @@ export function GpuProjectSurface() {
         layoutAdapter={layoutAdapter}
         onActiveParamDomIslandChange={setActiveParamDomIsland}
         onHoveredParamTargetChange={setHoveredParamTarget}
+        onRetainedParamDragPreviewChange={setRetainedParamDragPreview}
         readyToRender={readyToRender}
         settings={settings}
       />
@@ -258,6 +265,7 @@ function ProjectGpuFlowLayer({
   layoutAdapter,
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
+  onRetainedParamDragPreviewChange,
   readyToRender,
   settings,
 }: {
@@ -273,6 +281,9 @@ function ProjectGpuFlowLayer({
   ) => void;
   readonly onHoveredParamTargetChange: (
     target: ProjectGpuRetainedParamTarget | null,
+  ) => void;
+  readonly onRetainedParamDragPreviewChange: (
+    preview: ProjectGpuRetainedParamDragPreview | null,
   ) => void;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
@@ -395,6 +406,7 @@ function ProjectGpuFlowLayer({
         canEditStructure,
         onActiveParamDomIslandChange,
         onHoveredParamTargetChange,
+        onRetainedParamDragPreviewChange,
         retainedParamDragSessionRef,
         zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
       }),
@@ -403,6 +415,7 @@ function ProjectGpuFlowLayer({
       flowInteractionKeys,
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange,
+      onRetainedParamDragPreviewChange,
       retainedParamDragSessionRef,
     ],
   );

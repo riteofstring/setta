@@ -2,6 +2,7 @@ import type { GpuPoint, GpuRect } from "./viewportMath";
 
 export type GpuRetainedContentRowState = {
   readonly disabled: boolean;
+  readonly dragging: boolean;
   readonly error: boolean;
   readonly focused: boolean;
   readonly hovered: boolean;
@@ -66,6 +67,19 @@ export type GpuRetainedContentDrawCommand =
       readonly kind: "nest-guide";
       readonly rect: GpuRect;
       readonly rowId: string;
+    }
+  | {
+      readonly edge: "after" | "before";
+      readonly kind: "row-drop-marker";
+      readonly rect: GpuRect;
+      readonly rowId: string;
+    }
+  | {
+      readonly kind: "row-drag-preview";
+      readonly rect: GpuRect;
+      readonly rowCount: number;
+      readonly rowId: string;
+      readonly text: string;
     };
 
 export type GpuRetainedContentHitRecord = {
@@ -99,8 +113,21 @@ export type GpuRetainedContentScene = {
   readonly viewportRect: GpuRect;
 };
 
+export type GpuRetainedContentDragPreviewInput = {
+  readonly draggingRowIds: readonly string[];
+  readonly dropMarker?:
+    | {
+        readonly edge: "after" | "before";
+        readonly rowId: string;
+      }
+    | null
+    | undefined;
+  readonly pointerLocal?: GpuPoint | null | undefined;
+};
+
 export type CreateGpuRetainedRowContentSceneInput = {
   readonly controlWidth?: number | undefined;
+  readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
   readonly id: string;
   readonly indentWidth?: number | undefined;
   readonly labelControlGap?: number | undefined;
@@ -127,6 +154,7 @@ export function createGpuRetainedRowContentScene(
   const indentWidth = input.indentWidth ?? DEFAULT_INDENT_WIDTH;
   const labelControlGap = input.labelControlGap ?? DEFAULT_LABEL_CONTROL_GAP;
   const portHitSize = input.portHitSize ?? DEFAULT_PORT_HIT_SIZE;
+  const draggingRowIds = new Set(input.dragPreview?.draggingRowIds ?? []);
   const contentRect = {
     height: input.rows.length * input.rowHeight,
     width: input.viewportRect.width,
@@ -144,6 +172,7 @@ export function createGpuRetainedRowContentScene(
     .slice(visibleRange.startIndex, visibleRange.endIndex)
     .map((row, offset) =>
       createGpuRetainedContentRow({
+        dragging: draggingRowIds.has(row.id),
         index: visibleRange.startIndex + offset,
         input: row,
         rowHeight: input.rowHeight,
@@ -156,9 +185,13 @@ export function createGpuRetainedRowContentScene(
     contentRect,
     drawCommands: createGpuRetainedContentDrawCommands({
       controlWidth,
+      dragPreview: input.dragPreview,
       indentWidth,
       labelControlGap,
+      rowHeight: input.rowHeight,
+      rowInputs: input.rows,
       rows: visibleRows,
+      viewportRect: input.viewportRect,
     }),
     hitRecords: createGpuRetainedContentHitRecords({
       controlWidth,
@@ -216,12 +249,14 @@ export function resolveGpuRetainedContentVisibleRowRange({
 }
 
 function createGpuRetainedContentRow({
+  dragging,
   index,
   input,
   rowHeight,
   scrollOffset,
   viewportRect,
 }: {
+  readonly dragging: boolean;
   readonly index: number;
   readonly input: GpuRetainedContentRowInput;
   readonly rowHeight: number;
@@ -249,6 +284,7 @@ function createGpuRetainedContentRow({
     },
     state: {
       disabled: Boolean(input.state?.disabled),
+      dragging: dragging || Boolean(input.state?.dragging),
       error: Boolean(input.state?.error),
       focused: Boolean(input.state?.focused),
       hovered: Boolean(input.state?.hovered),
@@ -259,14 +295,22 @@ function createGpuRetainedContentRow({
 
 function createGpuRetainedContentDrawCommands({
   controlWidth,
+  dragPreview,
   indentWidth,
   labelControlGap,
+  rowHeight,
+  rowInputs,
   rows,
+  viewportRect,
 }: {
   readonly controlWidth: number;
+  readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
   readonly indentWidth: number;
   readonly labelControlGap: number;
+  readonly rowHeight: number;
+  readonly rowInputs: readonly GpuRetainedContentRowInput[];
   readonly rows: readonly GpuRetainedContentRow[];
+  readonly viewportRect: GpuRect;
 }): GpuRetainedContentDrawCommand[] {
   const commands: GpuRetainedContentDrawCommand[] = [];
   for (const row of rows) {
@@ -315,7 +359,119 @@ function createGpuRetainedContentDrawCommands({
       });
     }
   }
+  const marker = createGpuRetainedContentDropMarkerCommand({
+    dragPreview,
+    rows,
+    viewportRect,
+  });
+  if (marker) {
+    commands.push(marker);
+  }
+  const preview = createGpuRetainedContentDragPreviewCommand({
+    dragPreview,
+    rowHeight,
+    rowInputs,
+    viewportRect,
+  });
+  if (preview) {
+    commands.push(preview);
+  }
   return commands;
+}
+
+function createGpuRetainedContentDropMarkerCommand({
+  dragPreview,
+  rows,
+  viewportRect,
+}: {
+  readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
+  readonly rows: readonly GpuRetainedContentRow[];
+  readonly viewportRect: GpuRect;
+}): GpuRetainedContentDrawCommand | null {
+  const marker = dragPreview?.dropMarker;
+  if (!marker) {
+    return null;
+  }
+  const row = rows.find((candidate) => candidate.id === marker.rowId);
+  if (!row) {
+    return null;
+  }
+  const markerHeight = 2;
+  const y =
+    marker.edge === "before"
+      ? row.projectedRect.y
+      : row.projectedRect.y + row.projectedRect.height;
+  if (
+    y < viewportRect.y - markerHeight ||
+    y > viewportRect.y + viewportRect.height + markerHeight
+  ) {
+    return null;
+  }
+  return {
+    edge: marker.edge,
+    kind: "row-drop-marker",
+    rect: {
+      height: markerHeight,
+      width: Math.max(0, viewportRect.width - 8),
+      x: viewportRect.x + 4,
+      y: y - markerHeight / 2,
+    },
+    rowId: row.id,
+  };
+}
+
+function createGpuRetainedContentDragPreviewCommand({
+  dragPreview,
+  rowHeight,
+  rowInputs,
+  viewportRect,
+}: {
+  readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
+  readonly rowHeight: number;
+  readonly rowInputs: readonly GpuRetainedContentRowInput[];
+  readonly viewportRect: GpuRect;
+}): GpuRetainedContentDrawCommand | null {
+  const firstDraggingRowId = dragPreview?.draggingRowIds[0];
+  const pointerLocal = dragPreview?.pointerLocal;
+  if (!firstDraggingRowId || !pointerLocal) {
+    return null;
+  }
+  const firstRow = rowInputs.find((row) => row.id === firstDraggingRowId);
+  if (!firstRow) {
+    return null;
+  }
+  const horizontalMargin = 8;
+  const previewWidth = Math.max(
+    0,
+    Math.min(220, viewportRect.width - horizontalMargin * 2),
+  );
+  if (previewWidth <= 0) {
+    return null;
+  }
+  const previewHeight = Math.min(rowHeight, viewportRect.height);
+  const x = clampNumber(
+    pointerLocal.x + horizontalMargin,
+    viewportRect.x + horizontalMargin,
+    viewportRect.x + viewportRect.width - previewWidth - horizontalMargin,
+  );
+  const y = clampNumber(
+    pointerLocal.y - previewHeight / 2,
+    viewportRect.y,
+    viewportRect.y + viewportRect.height - previewHeight,
+  );
+  const rowCount = dragPreview.draggingRowIds.length;
+  return {
+    kind: "row-drag-preview",
+    rect: {
+      height: previewHeight,
+      width: previewWidth,
+      x,
+      y,
+    },
+    rowCount,
+    rowId: firstRow.id,
+    text: firstRow.label,
+  };
 }
 
 function createGpuRetainedContentHitRecords({
@@ -432,6 +588,13 @@ function validateGpuRetainedRowContentSceneInput(
 }
 
 function clampInteger(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (max < min) {
+    return min;
+  }
   return Math.max(min, Math.min(max, value));
 }
 

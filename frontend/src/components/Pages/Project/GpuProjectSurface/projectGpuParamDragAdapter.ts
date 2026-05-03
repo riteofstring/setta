@@ -1,4 +1,5 @@
 import type { GpuRetainedContentInteractionHit } from "gpuFlow/interactions/retainedContentInteraction";
+import type { GpuPoint } from "gpuFlow/viewportMath";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   orderParamIdsByParent,
@@ -10,6 +11,7 @@ import {
   getParamRootId,
   getRootSelectedParamIds,
   getSharedParentId,
+  isDescendantOfSelection,
   resolveFullIndexForVisibleInsertion,
 } from "state/actions/params/paramTree";
 import {
@@ -37,6 +39,17 @@ export type ProjectGpuRetainedParamDropMove = {
   readonly newParentId: string;
   readonly paramIds: readonly string[];
   readonly sectionId: string;
+};
+
+export type ProjectGpuRetainedParamDragPreview = {
+  readonly draggingParamIds: readonly string[];
+  readonly dropMarker: {
+    readonly edge: "after" | "before";
+    readonly rowId: string;
+  } | null;
+  readonly pointerLocal: GpuPoint | null;
+  readonly sectionId: string;
+  readonly surfaceId: string;
 };
 
 const PROJECT_GPU_PARAM_CONTENT_SURFACE_SEPARATOR = ":param-content:";
@@ -109,6 +122,56 @@ export function resolveProjectGpuRetainedParamDropMove({
   readonly projectState: ZustandProjectState;
   readonly session: ProjectGpuRetainedParamDragSession;
 }): ProjectGpuRetainedParamDropMove | null {
+  return (
+    resolveProjectGpuRetainedParamResolvedDrop({
+      event,
+      projectState,
+      session,
+    })?.move ?? null
+  );
+}
+
+export function createProjectGpuRetainedParamDragPreview({
+  hit,
+  projectState,
+  session,
+}: {
+  readonly hit: GpuRetainedContentInteractionHit | null;
+  readonly projectState: ZustandProjectState;
+  readonly session: ProjectGpuRetainedParamDragSession;
+}): ProjectGpuRetainedParamDragPreview {
+  const resolvedDrop = resolveProjectGpuRetainedParamResolvedDrop({
+    event: hit,
+    projectState,
+    session,
+  });
+  return {
+    draggingParamIds: session.draggingParamIds,
+    dropMarker: resolvedDrop
+      ? {
+          edge: resolvedDrop.dropAfter ? "after" : "before",
+          rowId: resolvedDrop.target.overParamId,
+        }
+      : null,
+    pointerLocal: hit?.localPoint ?? null,
+    sectionId: session.sectionId,
+    surfaceId: session.surfaceId,
+  };
+}
+
+function resolveProjectGpuRetainedParamResolvedDrop({
+  event,
+  projectState,
+  session,
+}: {
+  readonly event: GpuRetainedContentInteractionHit | null;
+  readonly projectState: ZustandProjectState;
+  readonly session: ProjectGpuRetainedParamDragSession;
+}): {
+  readonly dropAfter: boolean;
+  readonly move: ProjectGpuRetainedParamDropMove;
+  readonly target: ProjectGpuRetainedParamDropTarget;
+} | null {
   const target = getProjectGpuRetainedParamDropTarget({ event, session });
   if (!target) {
     return null;
@@ -116,7 +179,11 @@ export function resolveProjectGpuRetainedParamDropMove({
   const { dropEvent, newParentId, overIndex, overParamId, visibleSiblings } =
     target;
   const draggingSet = new Set(session.draggingParamIds);
-  if (draggingSet.has(overParamId)) {
+  if (
+    draggingSet.has(overParamId) ||
+    isDescendantOfSelection(session.parentById, overParamId, draggingSet) ||
+    draggingSet.has(newParentId)
+  ) {
     return null;
   }
   const orderedParamIds = orderParamIdsByParent(
@@ -138,9 +205,10 @@ export function resolveProjectGpuRetainedParamDropMove({
     newParentId,
     sectionId: session.sectionId,
   });
+  const dropAfter = isProjectGpuRetainedParamDropAfter(dropEvent);
   const targetVisibleIndex = getProjectGpuRetainedParamDropVisibleIndex({
     draggingSet,
-    insertAfter: isProjectGpuRetainedParamDropAfter(dropEvent),
+    insertAfter: dropAfter,
     overIndex,
     visibleSiblings,
   });
@@ -163,12 +231,24 @@ export function resolveProjectGpuRetainedParamDropMove({
     return null;
   }
   return {
-    newIndex,
-    newParentId,
-    paramIds: orderedParamIds,
-    sectionId: session.sectionId,
+    dropAfter,
+    move: {
+      newIndex,
+      newParentId,
+      paramIds: orderedParamIds,
+      sectionId: session.sectionId,
+    },
+    target,
   };
 }
+
+type ProjectGpuRetainedParamDropTarget = {
+  readonly dropEvent: GpuRetainedContentInteractionHit;
+  readonly newParentId: string;
+  readonly overIndex: number;
+  readonly overParamId: string;
+  readonly visibleSiblings: string[];
+};
 
 function getProjectGpuRetainedParamDragSectionImpl({
   activeParamId,
@@ -233,19 +313,13 @@ function getProjectGpuRetainedParamDropTarget({
 }: {
   readonly event: GpuRetainedContentInteractionHit | null;
   readonly session: ProjectGpuRetainedParamDragSession;
-}): {
-  readonly dropEvent: GpuRetainedContentInteractionHit;
-  readonly newParentId: string;
-  readonly overIndex: number;
-  readonly overParamId: string;
-  readonly visibleSiblings: string[];
-} | null {
+}): ProjectGpuRetainedParamDropTarget | null {
   if (!isProjectGpuRetainedParamRowDropEvent(event, session)) {
     return null;
   }
   const overParamId = event.hit.ownerRowId;
   const newParentId = session.parentById[overParamId] ?? null;
-  if (!newParentId || newParentId !== session.oldParentId) {
+  if (!newParentId) {
     return null;
   }
   const visibleSiblings = [
