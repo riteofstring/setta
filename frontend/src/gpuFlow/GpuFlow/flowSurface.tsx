@@ -648,7 +648,7 @@ export function GpuFlow({
     viewportStore,
   ]);
 
-  useGpuFlowPortLocalRectSync(layoutStore);
+  useGpuFlowPortLocalRectSync(layoutStore, { enabled: scene === undefined });
 
   useEffect(() => {
     if (!edgeReconnect) {
