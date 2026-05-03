@@ -92,6 +92,18 @@ Loop-specific guardrails:
   `createFixtureSections`, register the state in `fixtureDefinitions`, capture
   it from `captureViewportFixtures` for all required viewports, and update
   `review.md` after rerunning the checkpoint.
+- Treat the real Settings project `All Settings` view as required visual
+  coverage, not a manual smoke test. The checkpoint must compare the full
+  Settings pane plus every top-level Settings section against the primary
+  baseline. Real section captures must catch typography, row spacing,
+  label/control geometry, dropdowns, color pickers, switches, sliders,
+  text inputs, and section chrome drift. A synthetic individual-control
+  fixture is not enough to declare parity.
+- The current known false pass was caused by fixtures that did not expose real
+  Settings long labels or section-level control styling. Do not mark the
+  visual-fidelity work complete until the `settings-all-settings-*` fixtures
+  pass against the primary baseline or every remaining difference is inspected
+  and documented as intentional.
 - Keep expanded required fixtures comparable against the primary baseline:
   `37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d` from
   `go-rewrite-canvas-replace-xyflow-2-html-gpu-surfaces-plan`. The candidate is
