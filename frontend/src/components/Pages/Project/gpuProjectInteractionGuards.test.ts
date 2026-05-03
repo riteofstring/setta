@@ -222,8 +222,6 @@ describe("gpu project interaction guards", () => {
     ["selection box", "setta-gpu-flow__nodes-selection-rect"],
     ["marquee selection", "setta-gpu-flow__selection"],
     ["edge handle", "setta-gpu-flow__handle"],
-    ["edge reconnect handle", "setta-gpu-flow__edge-updater"],
-    ["GPU edge reconnect anchor", "setta-gpu-flow__edge-reconnect-anchor"],
     ["resize handle", "section-resize-handle"],
     ["nodrag target", NO_DRAG_CLASS_NAME],
     ["nopan target", NO_PAN_CLASS_NAME],

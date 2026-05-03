@@ -28,8 +28,6 @@ const PROJECT_GPU_PANE_NON_BACKGROUND_SELECTORS = [
   GPU_FLOW_SELECTORS.nodesSelectionRect,
   GPU_FLOW_SELECTORS.selection,
   GPU_FLOW_SELECTORS.handle,
-  GPU_FLOW_SELECTORS.edgeUpdater,
-  ".setta-gpu-flow__edge-reconnect-anchor",
   ".section-resize-handle",
   `#${CODEMIRROR_TOOLTIP_PARENT_ID}`,
   `#${SETTA_POPOVER_PORTAL_PARENT_ID}`,

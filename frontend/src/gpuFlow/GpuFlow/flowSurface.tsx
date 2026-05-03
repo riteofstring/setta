@@ -23,8 +23,6 @@ import type { GpuFlowRuntime } from "../gpuDevice";
 
 import { GpuEdgeLabelLayer } from "../GpuEdgeLabels";
 
-import type { GpuEdgeReconnectOptions } from "../GpuEdgeReconnectAnchors";
-
 import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
 
 import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
@@ -66,6 +64,11 @@ import {
   attachGpuEdgeInteractionController,
   type GpuEdgeInteractionControllerOptions,
 } from "../interactions/edges";
+
+import {
+  attachGpuEdgeReconnectController,
+  type GpuEdgeReconnectOptions,
+} from "../interactions/edgeReconnect";
 
 import {
   attachGpuNodeDragController,
@@ -116,11 +119,15 @@ import {
 } from "./flowFrame";
 
 import {
+  resolveGpuFlowEdgeDrawInputs,
+  validateGpuFlowEdgeInput,
+} from "./edgeInput";
+
+import {
   clearGpuFlowNodeElement,
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 
-import { renderGpuFlowEdgeReconnectElement } from "./edgeReconnectElement";
 import { resolveGpuFlowNodeResizeTarget } from "./nodeResizeTarget";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import {
@@ -260,7 +267,12 @@ export function GpuFlow({
   viewport,
   viewportStore = gpuFlowViewportStore,
 }: GpuFlowProps) {
-  validateGpuFlowEdgeInput({ edgeInteraction, edgeScene, edges });
+  validateGpuFlowEdgeInput({
+    edgeInteraction,
+    edgeReconnect,
+    edgeScene,
+    edges,
+  });
   const nodes = useGpuFlowLayoutStoreNodes(layoutStore);
   const drawEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -372,7 +384,12 @@ export function GpuFlow({
   }, [viewportStore]);
 
   useEffect(() => {
-    validateGpuFlowEdgeInput({ edgeInteraction, edgeScene, edges });
+    validateGpuFlowEdgeInput({
+      edgeInteraction,
+      edgeReconnect,
+      edgeScene,
+      edges,
+    });
     const nextEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
     nodeLayerRef.current = {
       edgeScene,
@@ -396,6 +413,7 @@ export function GpuFlow({
     surfaceRef.current?.requestFrame("viewport");
   }, [
     edgeInteraction,
+    edgeReconnect,
     edgePalette,
     edgeScene,
     edges,
@@ -519,6 +537,29 @@ export function GpuFlow({
   ]);
 
   useGpuFlowPortLocalRectSync(layoutStore);
+
+  useEffect(() => {
+    if (!edgeReconnect) {
+      return;
+    }
+    if (!edgeScene) {
+      throw new Error("Setta GPU flow edge reconnect requires a GpuEdgeScene.");
+    }
+    if (!layoutStore) {
+      throw new Error("Setta GPU flow edge reconnect requires a layout store.");
+    }
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    return attachGpuEdgeReconnectController({
+      ...edgeReconnect,
+      element: container,
+      getScene: () => nodeLayerRef.current.edgeScene,
+      layoutStore,
+      store: edgeReconnect.store ?? viewportStore,
+    });
+  }, [edgeReconnect, edgeScene, layoutStore, viewportStore]);
 
   useEffect(() => {
     if (!edgeInteraction) {
@@ -775,12 +816,6 @@ export function GpuFlow({
       viewportStore={viewportStore}
     />
   );
-  const edgeReconnectElement = renderGpuFlowEdgeReconnectElement({
-    edgeReconnect,
-    edgeScene,
-    layoutStore,
-    viewportStore,
-  });
 
   return (
     <GpuFlowLayoutStoreContext.Provider value={layoutStore ?? null}>
@@ -805,40 +840,9 @@ export function GpuFlow({
         {userSelectionElement}
         {nodesSelectionElement}
         {edgeLabelElement}
-        {edgeReconnectElement}
       </div>
     </GpuFlowLayoutStoreContext.Provider>
   );
-}
-
-export function resolveGpuFlowEdgeDrawInputs({
-  edgeScene,
-  edges,
-}: {
-  readonly edgeScene?: GpuEdgeScene | undefined;
-  readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
-}): readonly GpuEdgeBufferInput[] | undefined {
-  if (edgeScene && edges) {
-    throw new Error(
-      "Setta GPU flow accepts either edgeScene or edges, not both.",
-    );
-  }
-  return edgeScene?.edges ?? edges;
-}
-
-export function validateGpuFlowEdgeInput({
-  edgeInteraction,
-  edgeScene,
-  edges,
-}: {
-  readonly edgeInteraction: GpuFlowProps["edgeInteraction"];
-  readonly edgeScene: GpuFlowProps["edgeScene"];
-  readonly edges: GpuFlowProps["edges"];
-}) {
-  resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
-  if (edgeInteraction && !edgeScene) {
-    throw new Error("Setta GPU flow edge interaction requires a GpuEdgeScene.");
-  }
 }
 
 export function renderGpuFlowNodeLayerElement({

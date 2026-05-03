@@ -1,3 +1,4 @@
 import "./gpuFlow.css";
 
-export { GpuFlow, resolveGpuFlowEdgeDrawInputs } from "./GpuFlow/flowSurface";
+export { resolveGpuFlowEdgeDrawInputs } from "./GpuFlow/edgeInput";
+export { GpuFlow } from "./GpuFlow/flowSurface";

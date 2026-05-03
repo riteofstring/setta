@@ -36,7 +36,10 @@ import {
 } from "./utils";
 
 type HandlePointerEvent = ReactMouseEvent | ReactTouchEvent;
-type NativeHandlePointerEvent = MouseEvent | TouchEvent;
+type NativeHandlePointerEvent = MouseEvent | PointerEvent | TouchEvent;
+export type GpuHandlePointerStartEvent =
+  | HandlePointerEvent
+  | NativeHandlePointerEvent;
 
 export function handlePointerDown({
   event,
@@ -50,7 +53,7 @@ export function handlePointerDown({
   edgeUpdaterType,
   onReconnectEnd,
 }: {
-  event: HandlePointerEvent;
+  event: GpuHandlePointerStartEvent;
   handleId: string | null;
   layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   nodeId: string;
@@ -62,6 +65,7 @@ export function handlePointerDown({
   onReconnectEnd?: (evt: MouseEvent | TouchEvent) => void;
 }): void {
   const doc = getHostForElement(event.target as HTMLElement);
+  const usePointerEvents = isNativePointerEvent(event);
   const { connectionMode, domNode, autoPanOnConnect, connectionRadius } =
     store.getState();
   let autoPanId = 0;
@@ -318,6 +322,10 @@ export function handlePointerDown({
     doc.removeEventListener("touchend", onPointerUp as EventListener);
     doc.removeEventListener("touchcancel", onConnectionCancel as EventListener);
 
+    if (usePointerEvents) {
+      doc.removeEventListener("pointermove", onPointerMove as EventListener);
+      doc.removeEventListener("pointerup", onPointerUp as EventListener);
+    }
     doc.removeEventListener("pointercancel", onConnectionCancel, true);
     doc.removeEventListener("keydown", onKeyDown as EventListener, true);
   }
@@ -364,6 +372,10 @@ export function handlePointerDown({
   doc.addEventListener("touchend", onPointerUp as EventListener);
   doc.addEventListener("touchcancel", onConnectionCancel as EventListener);
 
+  if (usePointerEvents) {
+    doc.addEventListener("pointermove", onPointerMove as EventListener);
+    doc.addEventListener("pointerup", onPointerUp as EventListener);
+  }
   doc.addEventListener("pointercancel", onConnectionCancel, true);
   doc.addEventListener("keydown", onKeyDown as EventListener, true);
 }
@@ -385,7 +397,7 @@ function getConnectionHandlePositions(
 }
 
 function getEventPosition(
-  event: HandlePointerEvent | NativeHandlePointerEvent,
+  event: GpuHandlePointerStartEvent,
   bounds?: DOMRect,
 ): GpuPoint {
   const point = getClientPoint(event);
@@ -395,9 +407,7 @@ function getEventPosition(
   };
 }
 
-function getClientPoint(
-  event: HandlePointerEvent | NativeHandlePointerEvent,
-): GpuPoint {
+function getClientPoint(event: GpuHandlePointerStartEvent): GpuPoint {
   if ("clientX" in event) {
     return {
       x: event.clientX,
@@ -413,4 +423,14 @@ function getClientPoint(
 
 function getHostForElement(element: HTMLElement): Document | ShadowRoot {
   return (element.getRootNode?.() as Document | ShadowRoot) || window.document;
+}
+
+function isNativePointerEvent(
+  event: GpuHandlePointerStartEvent,
+): event is PointerEvent {
+  return (
+    typeof PointerEvent !== "undefined" &&
+    event instanceof PointerEvent &&
+    event.type.startsWith("pointer")
+  );
 }
