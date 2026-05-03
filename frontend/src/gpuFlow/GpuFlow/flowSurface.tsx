@@ -88,11 +88,6 @@ import {
 } from "../interactions/sceneScroll";
 
 import {
-  attachGpuRetainedContentScrollController,
-  type GpuRetainedContentScrollControllerOptions,
-} from "../interactions/retainedContentScroll";
-
-import {
   attachGpuSelectionController,
   type GpuSelectionControllerOptions,
 } from "../interactions/selection";
@@ -130,6 +125,11 @@ import {
 import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
 
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
+import {
+  useGpuFlowRetainedContentControllers,
+  type GpuFlowRetainedContentInteractionOptions,
+  type GpuFlowRetainedContentScrollOptions,
+} from "./retainedContentControllers";
 import { useGpuFlowRetainedContentSources } from "./retainedContentSources";
 
 import {
@@ -222,13 +222,8 @@ type GpuFlowProps = Pick<
         "element" | "getScene" | "requestFrame" | "store"
       >
     | undefined;
-  retainedContentScroll?:
-    | false
-    | Omit<
-        GpuRetainedContentScrollControllerOptions,
-        "element" | "getScene" | "requestFrame" | "store"
-      >
-    | undefined;
+  retainedContentInteraction?: GpuFlowRetainedContentInteractionOptions;
+  retainedContentScroll?: GpuFlowRetainedContentScrollOptions;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
@@ -299,6 +294,7 @@ export function GpuFlow({
   onResize,
   panZoom,
   portals,
+  retainedContentInteraction,
   retainedContentScroll,
   renderNode,
   selection,
@@ -506,24 +502,14 @@ export function GpuFlow({
     viewportStore,
   ]);
 
-  useEffect(() => {
-    if (retainedContentScroll === false) {
-      return;
-    }
-    const container = containerRef.current;
-    if (!container || !retainedContentScroll) {
-      return;
-    }
-    return attachGpuRetainedContentScrollController({
-      ...retainedContentScroll,
-      element: container,
-      getScene: () => nodeLayerRef.current.scene,
-      requestFrame: (reason) => {
-        surfaceRef.current?.requestFrame(reason);
-      },
-      store: viewportStore,
-    });
-  }, [retainedContentScroll, viewportStore]);
+  useGpuFlowRetainedContentControllers({
+    containerRef,
+    nodeLayerRef,
+    retainedContentInteraction,
+    retainedContentScroll,
+    surfaceRef,
+    viewportStore,
+  });
 
   useEffect(() => {
     if (sceneScroll === false) {

@@ -5,6 +5,7 @@ import { GpuFlow } from "gpuFlow/GpuFlow";
 import type { GpuNodeLayout } from "gpuFlow/htmlSurfaces/frame";
 
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
+import type { GpuRetainedContentInteractionEvent } from "gpuFlow/interactions/retainedContentInteraction";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
 import type { GpuFlowScene, GpuSectionSceneNode } from "gpuFlow/scene";
 
@@ -33,13 +34,19 @@ import {
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
 } from "state/actions/edges";
+import { toggleParamSelected } from "state/actions/sectionInfos";
 
 import {
   getActiveSectionUIIds,
   useActiveSectionUI,
 } from "state/activeSectionUI";
 
-import { useAIFollow, useLocalStorage, useSettings } from "state/definitions";
+import {
+  useAIFollow,
+  useLocalStorage,
+  useMisc,
+  useSettings,
+} from "state/definitions";
 
 import { useShareCapabilities } from "state/hooks/share";
 
@@ -348,6 +355,13 @@ function ProjectGpuFlowLayer({
       }),
     [flowInteractionKeys, layoutAdapter],
   );
+  const retainedContentInteractionOptions = useMemo(
+    () =>
+      getProjectRetainedContentInteractionOptions({
+        flowInteractionKeys,
+      }),
+    [flowInteractionKeys],
+  );
   if (!readyToRender) {
     return null;
   }
@@ -368,6 +382,7 @@ function ProjectGpuFlowLayer({
       panZoom={panZoomOptions}
       portals={portals}
       renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
+      retainedContentInteraction={retainedContentInteractionOptions}
       retainedContentScroll={retainedContentScrollOptions}
       scene={layoutAdapter.scene}
       sceneScroll={sceneScrollOptions}
@@ -593,6 +608,28 @@ function getProjectRetainedContentScrollOptions({
     getScrollOffsets: () => layoutAdapter.contentScrollOffsets,
     onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
   };
+}
+
+function getProjectRetainedContentInteractionOptions({
+  flowInteractionKeys,
+}: {
+  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
+}) {
+  return {
+    disabled: () =>
+      flowInteractionKeys.zoomActivationKeyPressed ||
+      !useMisc.getState().isSelectingParams,
+    onHitClick: handleProjectRetainedContentClick,
+  };
+}
+
+function handleProjectRetainedContentClick(
+  event: GpuRetainedContentInteractionEvent,
+) {
+  if (!useMisc.getState().isSelectingParams) {
+    return;
+  }
+  toggleParamSelected(event.ownerSectionId, event.hit.ownerRowId);
 }
 
 function getProjectKeyboardScrollParentSectionId(
