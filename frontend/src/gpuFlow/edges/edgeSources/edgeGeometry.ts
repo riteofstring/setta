@@ -1,8 +1,4 @@
-import {
-  AgenticEdgeKindEnum,
-  type AgenticEdge,
-  type TopLevelSectionLayout,
-} from "utils/generatedTypes";
+import { AgenticEdgeKindEnum, type AgenticEdge } from "utils/generatedTypes";
 
 import type { GpuPoint } from "../../viewportMath";
 
@@ -14,67 +10,6 @@ import {
   NodeAnchorSide,
   WorkflowEdge,
 } from "./edgeScene";
-
-export function getNodeFrameWidth(
-  node: GpuEdgeNodeFrame | undefined,
-): number | null | undefined {
-  return node ? node.width : null;
-}
-
-export function getNodeFrameHeight(
-  node: GpuEdgeNodeFrame | undefined,
-): number | null | undefined {
-  return node ? node.height : null;
-}
-
-export function getFallbackFrameWidth(
-  fallback: TopLevelSectionLayout | undefined,
-): number | null | undefined {
-  return fallback ? fallback.w : null;
-}
-
-export function getFallbackFrameHeight(
-  fallback: TopLevelSectionLayout | undefined,
-): number | null | undefined {
-  return fallback ? fallback.h : null;
-}
-
-export function resolveNodeFrameX(
-  node: GpuEdgeNodeFrame | undefined,
-  fallback: TopLevelSectionLayout | undefined,
-): number {
-  if (node) {
-    return node.x;
-  }
-  return fallback ? fallback.x : 0;
-}
-
-export function resolveNodeFrameY(
-  node: GpuEdgeNodeFrame | undefined,
-  fallback: TopLevelSectionLayout | undefined,
-): number {
-  if (node) {
-    return node.y;
-  }
-  return fallback ? fallback.y : 0;
-}
-
-export function resolveNodeDimension(
-  primaryValue: number | null | undefined,
-  fallbackValue: TopLevelSectionLayout["w"],
-): number | null {
-  if (primaryValue !== null && primaryValue !== undefined && primaryValue > 0) {
-    return primaryValue;
-  }
-  if (
-    fallbackValue !== null &&
-    fallbackValue !== undefined &&
-    fallbackValue > 0
-  ) {
-    return fallbackValue;
-  }
-  return null;
-}
 
 export function resolveNodeAnchor(
   frame: GpuEdgeNodeFrame | null,

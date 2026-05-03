@@ -215,9 +215,13 @@ describe("project GPU node resize adapter", () => {
       createResizeChange({ phase: "resize", width: 502, height: 262 }),
     );
 
-    const liveNode = useNodeInternals.getState().x.get(sectionId);
-    expect(liveNode?.width).toBe(toTopLevelSectionOuterDimension(200));
-    expect(liveNode?.height).toBe(toTopLevelSectionOuterDimension(120));
+    const projectNodeBeforeStop = useNodeInternals.getState().x.get(sectionId);
+    expect(projectNodeBeforeStop?.width).toBe(
+      toTopLevelSectionOuterDimension(200),
+    );
+    expect(projectNodeBeforeStop?.height).toBe(
+      toTopLevelSectionOuterDimension(120),
+    );
     expect(setSectionSizes).not.toHaveBeenCalled();
 
     options.onNodeResizeStop(
@@ -305,7 +309,7 @@ describe("project GPU node resize adapter", () => {
     });
   });
 
-  it("restores live graph size on cancel and does not persist section size", () => {
+  it("keeps project graph size on cancel and does not persist section size", () => {
     const sessionRef = { current: createProjectNodeResizeSession() };
     const options = createProjectNodeResizeOptions({
       canEditLayout: true,

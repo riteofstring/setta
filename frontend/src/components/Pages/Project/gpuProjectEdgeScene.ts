@@ -167,7 +167,6 @@ export function buildProjectGpuEdgeScene({
       : undefined,
     scopeViolationEdges: showAgenticEdges ? scopeViolationEdges : [],
     sectionVariantMap: projectConfig.sectionVariantMap,
-    topLevelSections: projectConfig.topLevelSections,
     workflowEdges: projectConfig.stateMachineEdges ?? [],
   });
 }

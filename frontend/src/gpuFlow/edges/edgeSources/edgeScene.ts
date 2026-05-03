@@ -27,17 +27,10 @@ import type {
 
 import {
   getAgenticEdgeKey,
-  getFallbackFrameHeight,
-  getFallbackFrameWidth,
   getGpuSceneEdgeId,
-  getNodeFrameHeight,
-  getNodeFrameWidth,
   getOppositeGpuEdgeSide,
   getWorkflowPromptSectionId,
   resolveNodeAnchor,
-  resolveNodeDimension,
-  resolveNodeFrameX,
-  resolveNodeFrameY,
   resolveRelativeAnchorSides,
 } from "./edgeGeometry";
 
@@ -134,9 +127,6 @@ export type WorkflowEdge = NonNullable<
   SingleConfig["projectConfig"]["stateMachineEdges"]
 >[number];
 
-export type TopLevelSections =
-  SingleConfig["projectConfig"]["topLevelSections"];
-
 export type GpuDataEdgeEntriesInput = {
   readonly edges: readonly Edge[];
   readonly handlePositions: Readonly<Record<string, GpuEdgeHandlePosition>>;
@@ -162,13 +152,11 @@ export type GpuAgenticEdgeEntriesInput = {
   readonly scopeViolationEdges?:
     | readonly GpuAgenticMissingEdgeSource[]
     | undefined;
-  readonly topLevelSections: TopLevelSections;
 };
 
 export type GpuWorkflowEdgeEntriesInput = {
   readonly edges: readonly WorkflowEdge[];
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
-  readonly topLevelSections: TopLevelSections;
 };
 
 export type BuildGpuEdgeSceneInput = {
@@ -184,7 +172,6 @@ export type BuildGpuEdgeSceneInput = {
     | readonly GpuAgenticMissingEdgeSource[]
     | undefined;
   readonly sectionVariantMap?: Readonly<Record<string, string>> | undefined;
-  readonly topLevelSections?: TopLevelSections | undefined;
   readonly workflowEdges?: readonly WorkflowEdge[] | undefined;
 };
 
@@ -226,7 +213,6 @@ export function buildGpuEdgeScene({
   runningSourceSectionIds,
   scopeViolationEdges,
   sectionVariantMap = {},
-  topLevelSections = {},
   workflowEdges,
 }: BuildGpuEdgeSceneInput): GpuEdgeScene {
   const dataEdgeInput = {
@@ -237,7 +223,6 @@ export function buildGpuEdgeScene({
   const workflowEdgeInput = {
     edges: workflowEdges ?? [],
     nodes,
-    topLevelSections,
   };
   const entries = [
     ...buildGpuDataEdgeEntries(dataEdgeInput),
@@ -246,7 +231,6 @@ export function buildGpuEdgeScene({
       nodes,
       runningSourceSectionIds,
       scopeViolationEdges,
-      topLevelSections,
     }),
     ...buildGpuWorkflowEdgeEntries(workflowEdgeInput),
     ...buildGpuConnectionLineEntries({
@@ -367,7 +351,6 @@ export function buildGpuAgenticEdgeEntries({
   nodes,
   runningSourceSectionIds,
   scopeViolationEdges,
-  topLevelSections,
 }: GpuAgenticEdgeEntriesInput): GpuEdgeSceneEntry[] {
   const entries: GpuEdgeSceneEntry[] = [];
   const existingKeys = new Set<string>();
@@ -381,7 +364,6 @@ export function buildGpuAgenticEdgeEntries({
       sourceSectionId: edge.sourceSectionId,
       targetSectionId: edge.targetSectionId,
       nodes,
-      topLevelSections,
     });
     if (!geometry) {
       continue;
@@ -412,7 +394,6 @@ export function buildGpuAgenticEdgeEntries({
       sourceSectionId: missingEdge.sourceSectionId,
       targetSectionId: missingEdge.targetSectionId,
       nodes,
-      topLevelSections,
     });
     if (!geometry) {
       continue;
@@ -433,7 +414,6 @@ export function buildGpuAgenticEdgeEntries({
 export function buildGpuWorkflowEdgeEntries({
   edges,
   nodes,
-  topLevelSections,
 }: GpuWorkflowEdgeEntriesInput): GpuEdgeSceneEntry[] {
   const entries: GpuEdgeSceneEntry[] = [];
   for (const edge of edges) {
@@ -443,7 +423,6 @@ export function buildGpuWorkflowEdgeEntries({
     const promptLinkGeometry = buildWorkflowPromptLinkGeometry({
       edge,
       nodes,
-      topLevelSections,
     });
     if (promptLinkGeometry) {
       entries.push(
@@ -461,7 +440,6 @@ export function buildGpuWorkflowEdgeEntries({
     const geometry = buildWorkflowMainEdgeGeometry({
       edge,
       nodes,
-      topLevelSections,
     });
     if (!geometry) {
       continue;
@@ -485,7 +463,6 @@ export function buildGpuWorkflowEdgeEntries({
 export function buildGpuWorkflowEdgeLabels({
   edges,
   nodes,
-  topLevelSections,
 }: GpuWorkflowEdgeEntriesInput): GpuEdgeSceneLabel[] {
   const labels: GpuEdgeSceneLabel[] = [];
   for (const edge of edges) {
@@ -499,7 +476,6 @@ export function buildGpuWorkflowEdgeLabels({
     const geometry = buildWorkflowMainEdgeGeometry({
       edge,
       nodes,
-      topLevelSections,
     });
     if (!geometry) {
       continue;
@@ -767,24 +743,14 @@ export function buildNodeAnchorEdgeGeometry({
   nodes,
   sourceSectionId,
   targetSectionId,
-  topLevelSections,
 }: {
   readonly edgeId: string;
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
   readonly sourceSectionId: string;
   readonly targetSectionId: string;
-  readonly topLevelSections: TopLevelSections;
 }): GpuEdgeGeometry | null {
-  const sourceFrame = resolveNodeFrame(
-    sourceSectionId,
-    nodes,
-    topLevelSections,
-  );
-  const targetFrame = resolveNodeFrame(
-    targetSectionId,
-    nodes,
-    topLevelSections,
-  );
+  const sourceFrame = resolveNodeFrame(sourceSectionId, nodes);
+  const targetFrame = resolveNodeFrame(targetSectionId, nodes);
   const source = resolveNodeAnchor(sourceFrame, "right");
   const target = resolveNodeAnchor(targetFrame, "left");
   if (!source || !target) {
@@ -802,26 +768,16 @@ export function buildNodeAnchorEdgeGeometry({
 export function buildWorkflowPromptLinkGeometry({
   edge,
   nodes,
-  topLevelSections,
 }: {
   readonly edge: WorkflowEdge;
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
-  readonly topLevelSections: TopLevelSections;
 }): GpuEdgeGeometry | null {
   const promptSectionId = getWorkflowPromptSectionId(edge);
   if (!promptSectionId) {
     return null;
   }
-  const promptFrame = resolveNodeFrame(
-    promptSectionId,
-    nodes,
-    topLevelSections,
-  );
-  const targetFrame = resolveNodeFrame(
-    edge.targetSectionId,
-    nodes,
-    topLevelSections,
-  );
+  const promptFrame = resolveNodeFrame(promptSectionId, nodes);
+  const targetFrame = resolveNodeFrame(edge.targetSectionId, nodes);
   const { sourceSide, targetSide } = resolveRelativeAnchorSides(
     promptFrame,
     targetFrame,
@@ -843,18 +799,15 @@ export function buildWorkflowPromptLinkGeometry({
 export function buildWorkflowMainEdgeGeometry({
   edge,
   nodes,
-  topLevelSections,
 }: {
   readonly edge: WorkflowEdge;
   readonly nodes: ReadonlyMap<string, GpuEdgeNodeFrame>;
-  readonly topLevelSections: TopLevelSections;
 }): GpuEdgeGeometry | null {
   return buildNodeAnchorEdgeGeometry({
     edgeId: getGpuSceneEdgeId("workflow", edge.id),
     sourceSectionId: edge.sourceSectionId,
     targetSectionId: edge.targetSectionId,
     nodes,
-    topLevelSections,
   });
 }
 
@@ -882,25 +835,23 @@ export function getWorkflowSourceActivationLabelWidth(text: string): number {
 export function resolveNodeFrame(
   sectionId: string,
   nodes: ReadonlyMap<string, GpuEdgeNodeFrame>,
-  topLevelSections: TopLevelSections,
 ): GpuEdgeNodeFrame | null {
   const node = nodes.get(sectionId);
-  const fallback = topLevelSections[sectionId];
-  const width = resolveNodeDimension(
-    getNodeFrameWidth(node),
-    getFallbackFrameWidth(fallback),
-  );
-  const height = resolveNodeDimension(
-    getNodeFrameHeight(node),
-    getFallbackFrameHeight(fallback),
-  );
-  if (width === null || height === null) {
+  if (
+    !node ||
+    node.width === null ||
+    node.width === undefined ||
+    node.width <= 0 ||
+    node.height === null ||
+    node.height === undefined ||
+    node.height <= 0
+  ) {
     return null;
   }
   return {
-    height,
-    width,
-    x: resolveNodeFrameX(node, fallback),
-    y: resolveNodeFrameY(node, fallback),
+    height: node.height,
+    width: node.width,
+    x: node.x,
+    y: node.y,
   };
 }

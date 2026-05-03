@@ -1,7 +1,6 @@
 import {
   AgenticEdgeKindEnum,
   createAgenticEdge,
-  createTopLevelSectionLayout,
   type Edge,
   type SingleConfig,
 } from "utils/generatedTypes";
@@ -233,16 +232,8 @@ describe("edgeSources", () => {
     const nodes = new Map<string, GpuEdgeNodeFrame>([
       ["chat-a", { height: 100, width: 180, x: 50, y: 40 }],
       ["chat-b", { height: 100, width: 180, x: 360, y: 40 }],
-      ["context", { height: null, width: null, x: 360, y: 220 }],
+      ["context", { height: 120, width: 220, x: 360, y: 220 }],
     ]);
-    const topLevelSections = {
-      context: createTopLevelSectionLayout({
-        h: 120,
-        w: 220,
-        x: 360,
-        y: 220,
-      }),
-    };
 
     const entries = buildGpuAgenticEdgeEntries({
       edges: [
@@ -276,7 +267,6 @@ describe("edgeSources", () => {
           targetSectionId: "context",
         },
       ],
-      topLevelSections,
     });
 
     expect(entries.map((entry) => entry.family)).toEqual([
@@ -309,6 +299,25 @@ describe("edgeSources", () => {
       source: { x: 230, y: 90 },
       target: { x: 360, y: 280 },
     });
+  });
+
+  it("omits node-anchor edges whose endpoints are missing from renderer frames", () => {
+    const nodes = new Map<string, GpuEdgeNodeFrame>([
+      ["chat-a", { height: 100, width: 180, x: 50, y: 40 }],
+    ]);
+
+    expect(
+      buildGpuAgenticEdgeEntries({
+        edges: [
+          createAgenticEdge({
+            id: "missing-target",
+            sourceSectionId: "chat-a",
+            targetSectionId: "chat-b",
+          }),
+        ],
+        nodes,
+      }),
+    ).toEqual([]);
   });
 
   it("derives workflow main edges and prompt-link geometry", () => {
@@ -346,7 +355,6 @@ describe("edgeSources", () => {
         }),
       ],
       nodes,
-      topLevelSections: {},
     });
 
     expect(entries.map((entry) => entry.family)).toEqual([
@@ -412,7 +420,6 @@ describe("edgeSources", () => {
         }),
       ],
       nodes,
-      topLevelSections: {},
     });
 
     expect(labels).toEqual([
