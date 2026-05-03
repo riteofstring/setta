@@ -2,6 +2,10 @@ import { useEffect, type MutableRefObject } from "react";
 
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
+  attachGpuRetainedContentConnectionController,
+  type GpuRetainedContentConnectionControllerOptions,
+} from "../interactions/retainedContentConnection";
+import {
   attachGpuRetainedContentInteractionController,
   type GpuRetainedContentInteractionControllerOptions,
 } from "../interactions/retainedContentInteraction";
@@ -13,8 +17,17 @@ import {
   attachGpuRetainedContentScrollController,
   type GpuRetainedContentScrollControllerOptions,
 } from "../interactions/retainedContentScroll";
+import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuFlowScene } from "../scene";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+
+export type GpuFlowRetainedContentConnectionOptions =
+  | false
+  | Omit<
+      GpuRetainedContentConnectionControllerOptions,
+      "element" | "getScene" | "layoutStore" | "store"
+    >
+  | undefined;
 
 export type GpuFlowRetainedContentInteractionOptions =
   | false
@@ -42,9 +55,11 @@ export type GpuFlowRetainedContentKeyboardOptions =
 
 export type GpuFlowRetainedContentControllerOptions = {
   readonly containerRef: MutableRefObject<HTMLDivElement | null>;
+  readonly layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   readonly nodeLayerRef: MutableRefObject<{
     readonly scene: GpuFlowScene | undefined;
   }>;
+  readonly retainedContentConnection: GpuFlowRetainedContentConnectionOptions;
   readonly retainedContentInteraction: GpuFlowRetainedContentInteractionOptions;
   readonly retainedContentKeyboard: GpuFlowRetainedContentKeyboardOptions;
   readonly retainedContentScroll: GpuFlowRetainedContentScrollOptions;
@@ -54,13 +69,43 @@ export type GpuFlowRetainedContentControllerOptions = {
 
 export function useGpuFlowRetainedContentControllers({
   containerRef,
+  layoutStore,
   nodeLayerRef,
+  retainedContentConnection,
   retainedContentInteraction,
   retainedContentKeyboard,
   retainedContentScroll,
   surfaceRef,
   viewportStore,
 }: GpuFlowRetainedContentControllerOptions) {
+  useEffect(() => {
+    if (retainedContentConnection === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container || !retainedContentConnection) {
+      return;
+    }
+    if (!layoutStore) {
+      throw new Error(
+        "GpuFlow retained content connection requires a layout store.",
+      );
+    }
+    return attachGpuRetainedContentConnectionController({
+      ...retainedContentConnection,
+      element: container,
+      getScene: () => nodeLayerRef.current.scene,
+      layoutStore,
+      store: viewportStore,
+    });
+  }, [
+    containerRef,
+    layoutStore,
+    nodeLayerRef,
+    retainedContentConnection,
+    viewportStore,
+  ]);
+
   useEffect(() => {
     if (retainedContentInteraction === false) {
       return;

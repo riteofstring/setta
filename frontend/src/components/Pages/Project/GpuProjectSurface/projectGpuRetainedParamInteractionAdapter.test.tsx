@@ -3,6 +3,11 @@
 import type { GpuDomIsland } from "gpuFlow/scene";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import {
+  createEdgeFromConnection,
+  isValidDataEdgeConnection,
+} from "state/actions/edges";
+import { useMisc } from "state/definitions";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -36,7 +41,10 @@ vi.mock("gpuFlow/viewportReposition", () => ({
 }));
 
 import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
-import { renderProjectGpuDomIsland } from "./projectGpuRetainedParamInteractionAdapter";
+import {
+  getProjectRetainedContentConnectionOptions,
+  renderProjectGpuDomIsland,
+} from "./projectGpuRetainedParamInteractionAdapter";
 
 type RenderedIsland = {
   host: HTMLDivElement;
@@ -106,6 +114,60 @@ describe("project GPU retained param DOM islands", () => {
     expect(mocks.unsubscribeViewportRepositionMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("project GPU retained param connection options", () => {
+  afterEach(() => {
+    useMisc.setState({ isSelectingParams: false });
+  });
+
+  it("provides Setta data-edge policy for scene-owned retained ports", () => {
+    useMisc.setState({ isSelectingParams: false });
+    const options = getProjectRetainedContentConnectionOptions({
+      canEditStructure: true,
+      zoomActivationKeyPressed: false,
+    });
+    const start = {
+      handleId: "param-in",
+      ownerSectionId: "section-1",
+      surfaceId: "surface-1",
+      type: "target" as const,
+    };
+
+    expect(options.onConnect).toBe(createEdgeFromConnection);
+    expect(options.isValidConnection).toBe(isValidDataEdgeConnection);
+    expect(
+      options.isConnectionCandidateAllowed?.(
+        {
+          handleId: "other-output",
+          sectionId: "section-2",
+          type: "source",
+        },
+        start,
+      ),
+    ).toBe(true);
+    expect(
+      options.isConnectionCandidateAllowed?.(
+        {
+          handleId: "agentic-edge-source",
+          sectionId: "section-2",
+          type: "source",
+        },
+        start,
+      ),
+    ).toBe(false);
+    expect(resolveDisabledOption(options.disabled)).toBe(false);
+
+    useMisc.setState({ isSelectingParams: true });
+
+    expect(resolveDisabledOption(options.disabled)).toBe(true);
+  });
+});
+
+function resolveDisabledOption(
+  disabled: boolean | (() => boolean) | undefined,
+): boolean {
+  return typeof disabled === "function" ? disabled() : Boolean(disabled);
+}
 
 function retainedParamIsland(): GpuDomIsland {
   return {

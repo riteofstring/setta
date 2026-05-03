@@ -1,4 +1,5 @@
 import { ParamInput } from "components/Params/ParamItems/ParamInput";
+import type { GpuRetainedContentConnectionOptions } from "gpuFlow/interactions/retainedContentConnection";
 import type {
   GpuRetainedContentDragCancelEvent,
   GpuRetainedContentDragEvent,
@@ -14,9 +15,17 @@ import type { GpuPoint } from "gpuFlow/viewportMath";
 import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import {
+  createEdgeFromConnection,
+  isValidDataEdgeConnection,
+} from "state/actions/edges";
 import { moveParamsWithBackend } from "state/actions/params/moveParams";
 import { toggleParamSelected } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
+import {
+  getProjectGpuAutoPanInsetsPx,
+  getProjectGpuHandleConnectionProps,
+} from "./projectGpuHandleAdapter";
 import type {
   ProjectGpuActiveParamDomIsland,
   ProjectGpuRetainedParamTarget,
@@ -110,6 +119,28 @@ export function getProjectRetainedContentInteractionOptions({
       canEditStructure &&
       useMisc.getState().isSelectingParams &&
       event.hit.kind === "row",
+  };
+}
+
+export function getProjectRetainedContentConnectionOptions({
+  canEditStructure,
+  zoomActivationKeyPressed,
+}: {
+  readonly canEditStructure: boolean;
+  readonly zoomActivationKeyPressed: boolean;
+}): GpuRetainedContentConnectionOptions {
+  return {
+    autoPanInsetsPx: getProjectGpuAutoPanInsetsPx,
+    disabled: () =>
+      zoomActivationKeyPressed ||
+      !canEditStructure ||
+      useMisc.getState().isSelectingParams,
+    isConnectionCandidateAllowed: (candidate, start) =>
+      getProjectGpuHandleConnectionProps(
+        start.handleId,
+      ).isConnectionCandidateAllowed?.(candidate) ?? true,
+    isValidConnection: isValidDataEdgeConnection,
+    onConnect: createEdgeFromConnection,
   };
 }
 

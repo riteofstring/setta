@@ -78,6 +78,7 @@ import type {
 } from "./projectGpuParamDragAdapter";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import {
+  getProjectRetainedContentConnectionOptions,
   getProjectRetainedContentInteractionOptions,
   renderProjectGpuDomIsland,
 } from "./projectGpuRetainedParamInteractionAdapter";
@@ -425,6 +426,14 @@ function ProjectGpuFlowLayer({
       retainedParamDragSessionRef,
     ],
   );
+  const retainedContentConnectionOptions = useMemo(
+    () =>
+      getProjectRetainedContentConnectionOptions({
+        canEditStructure,
+        zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
+      }),
+    [canEditStructure, flowInteractionKeys.zoomActivationKeyPressed],
+  );
   const retainedContentKeyboardOptions = useMemo(
     () =>
       getProjectRetainedContentKeyboardOptions({
@@ -456,6 +465,7 @@ function ProjectGpuFlowLayer({
       portals={portals}
       renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
       renderDomIsland={renderProjectGpuDomIsland}
+      retainedContentConnection={retainedContentConnectionOptions}
       retainedContentInteraction={retainedContentInteractionOptions}
       retainedContentKeyboard={retainedContentKeyboardOptions}
       retainedContentScroll={retainedContentScrollOptions}

@@ -264,7 +264,7 @@ class GpuRetainedContentInteractionController {
   ): GpuRetainedContentInteractionHit | null {
     if (
       isRetainedContentInteractionDisabled(this.options.disabled) ||
-      shouldPreserveNativeTarget(event)
+      shouldPreserveGpuRetainedContentNativeTarget(event)
     ) {
       return null;
     }
@@ -522,7 +522,7 @@ function getEventPointRelativeToElement(
   };
 }
 
-function shouldPreserveNativeTarget(
+export function shouldPreserveGpuRetainedContentNativeTarget(
   event: Pick<PointerEvent, "target">,
 ): boolean {
   const target = event.target;

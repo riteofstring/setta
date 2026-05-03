@@ -133,6 +133,7 @@ import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
 import {
   useGpuFlowRetainedContentControllers,
+  type GpuFlowRetainedContentConnectionOptions,
   type GpuFlowRetainedContentInteractionOptions,
   type GpuFlowRetainedContentKeyboardOptions,
   type GpuFlowRetainedContentScrollOptions,
@@ -230,6 +231,7 @@ type GpuFlowProps = Pick<
       >
     | undefined;
   retainedContentInteraction?: GpuFlowRetainedContentInteractionOptions;
+  retainedContentConnection?: GpuFlowRetainedContentConnectionOptions;
   retainedContentKeyboard?: GpuFlowRetainedContentKeyboardOptions;
   retainedContentScroll?: GpuFlowRetainedContentScrollOptions;
   renderDomIsland?: GpuFlowDomIslandRenderer | undefined;
@@ -304,6 +306,7 @@ export function GpuFlow({
   panZoom,
   portals,
   retainedContentInteraction,
+  retainedContentConnection,
   retainedContentKeyboard,
   retainedContentScroll,
   renderDomIsland,
@@ -521,7 +524,9 @@ export function GpuFlow({
 
   useGpuFlowRetainedContentControllers({
     containerRef,
+    layoutStore,
     nodeLayerRef,
+    retainedContentConnection,
     retainedContentInteraction,
     retainedContentKeyboard,
     retainedContentScroll,
