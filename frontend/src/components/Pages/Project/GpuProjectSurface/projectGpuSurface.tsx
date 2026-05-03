@@ -340,6 +340,14 @@ function ProjectGpuFlowLayer({
       }),
     [flowInteractionKeys, layoutAdapter, primarySelectionId],
   );
+  const retainedContentScrollOptions = useMemo(
+    () =>
+      getProjectRetainedContentScrollOptions({
+        flowInteractionKeys,
+        layoutAdapter,
+      }),
+    [flowInteractionKeys, layoutAdapter],
+  );
   if (!readyToRender) {
     return null;
   }
@@ -360,6 +368,7 @@ function ProjectGpuFlowLayer({
       panZoom={panZoomOptions}
       portals={portals}
       renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
+      retainedContentScroll={retainedContentScrollOptions}
       scene={layoutAdapter.scene}
       sceneScroll={sceneScrollOptions}
       selection={selectionOptions}
@@ -569,6 +578,20 @@ function getProjectSceneScrollOptions({
       getProjectKeyboardScrollParentSectionId(scene, primarySelectionId),
     getScrollOffsets: () => layoutAdapter.sceneScrollOffsets,
     onScrollOffsetsChange: layoutAdapter.setSceneScrollOffsets,
+  };
+}
+
+function getProjectRetainedContentScrollOptions({
+  flowInteractionKeys,
+  layoutAdapter,
+}: {
+  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
+  readonly layoutAdapter: ProjectGpuLayoutAdapter;
+}) {
+  return {
+    disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    getScrollOffsets: () => layoutAdapter.contentScrollOffsets,
+    onScrollOffsetsChange: layoutAdapter.setContentScrollOffsets,
   };
 }
 

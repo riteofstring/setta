@@ -10,6 +10,10 @@ import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentRowInput,
 } from "gpuFlow/retainedContentScene";
+import {
+  clampGpuRetainedContentScrollOffset,
+  type GpuRetainedContentScrollOffsetMap,
+} from "gpuFlow/retainedContentScroll";
 import type { GpuContentSurface, GpuSectionSceneNode } from "gpuFlow/scene";
 import type { GpuRect } from "gpuFlow/viewportMath";
 import { buildParamTreeView } from "state/actions/params/paramTree";
@@ -21,6 +25,14 @@ import {
   getParamDisplayNameIfPresent,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
+import {
+  getEdgesStripHeightKey,
+  getKwargsControlsHeightKey,
+  getParamsFixedHeightKey,
+  getPinnedParamsAreaHeightKey,
+  getSectionHeaderHeightKey,
+  getSectionSearchHeightKey,
+} from "utils/constants";
 import {
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
@@ -39,14 +51,20 @@ type ProjectGpuParamListRows = {
 };
 
 export function createProjectGpuParamContentSurfaces({
+  contentScrollOffsets,
+  measuredHeightsByKey,
   projectState,
   sections,
 }: {
+  readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
   readonly sections: readonly GpuSectionSceneNode[];
 }): readonly GpuContentSurface[] {
   return sections.flatMap((section) =>
     createProjectGpuParamContentSurfacesForSection({
+      contentScrollOffsets,
+      measuredHeightsByKey,
       projectState,
       section,
     }),
@@ -54,9 +72,13 @@ export function createProjectGpuParamContentSurfaces({
 }
 
 function createProjectGpuParamContentSurfacesForSection({
+  contentScrollOffsets,
+  measuredHeightsByKey,
   projectState,
   section,
 }: {
+  readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
   readonly section: GpuSectionSceneNode;
 }): readonly GpuContentSurface[] {
@@ -76,7 +98,9 @@ function createProjectGpuParamContentSurfacesForSection({
     sectionImpl: dictSectionImpl,
   });
   return createProjectGpuParamListContentSurfaces({
+    contentScrollOffsets,
     listRows,
+    measuredHeightsByKey,
     section,
   });
 }
@@ -262,22 +286,37 @@ function getProjectGpuParamControlKind({
 }
 
 function createProjectGpuParamListContentSurfaces({
+  contentScrollOffsets,
   listRows,
+  measuredHeightsByKey,
   section,
 }: {
+  readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly listRows: readonly ProjectGpuParamListRows[];
+  readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly section: GpuSectionSceneNode;
 }): readonly GpuContentSurface[] {
   const surfaces: GpuContentSurface[] = [];
-  let nextLocalY = 0;
+  const metrics = getProjectGpuParamContentMetrics({
+    measuredHeightsByKey,
+    sectionId: section.sectionId,
+  });
+  let nextLocalY = metrics.contentTop;
   for (const list of listRows) {
-    const remainingHeight = Math.max(0, section.bodyRect.height - nextLocalY);
+    const listLocalY = getProjectGpuParamListLocalY({
+      listKey: list.key,
+      metrics,
+      nextLocalY,
+    });
+    const remainingHeight = Math.max(0, section.bodyRect.height - listLocalY);
     const contentHeight =
       list.rows.length * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
-    const height =
-      list.key === "pinned"
-        ? Math.min(remainingHeight, contentHeight)
-        : remainingHeight;
+    const height = getProjectGpuParamListSurfaceHeight({
+      contentHeight,
+      listKey: list.key,
+      metrics,
+      remainingHeight,
+    });
     if (height <= 0) {
       continue;
     }
@@ -285,13 +324,27 @@ function createProjectGpuParamListContentSurfaces({
       height,
       width: section.bodyRect.width,
       x: 0,
-      y: nextLocalY,
+      y: listLocalY,
     };
     const surfaceId = getProjectGpuParamContentSurfaceId(
       section.sectionId,
       list.key,
     );
     const rect = translateProjectGpuParamLocalRect(localRect, section.bodyRect);
+    const viewportRect = {
+      height: localRect.height,
+      width: localRect.width,
+      x: 0,
+      y: 0,
+    };
+    const scrollOffset = clampGpuRetainedContentScrollOffset({
+      contentRect: {
+        height: contentHeight,
+        width: localRect.width,
+      },
+      scrollOffset: contentScrollOffsets?.get(surfaceId) ?? { x: 0, y: 0 },
+      viewportRect,
+    });
     surfaces.push({
       clipRect: intersectProjectGpuParamRects(rect, section.clipRect),
       id: surfaceId,
@@ -302,20 +355,123 @@ function createProjectGpuParamListContentSurfaces({
         ownerSectionId: section.sectionId,
         rowHeight: PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
         rows: list.rows,
-        scrollOffset: { x: 0, y: 0 },
-        viewportRect: {
-          height: localRect.height,
-          width: localRect.width,
-          x: 0,
-          y: 0,
-        },
+        scrollOffset,
+        viewportRect,
       }),
       renderer: { kind: "canvas-content", surfaceId },
       zIndex: (section.zIndex ?? 0) + 1,
     });
-    nextLocalY += height;
+    nextLocalY = getProjectGpuParamNextLocalY({
+      height,
+      listKey: list.key,
+      listLocalY,
+      metrics,
+    });
   }
   return surfaces;
+}
+
+function getProjectGpuParamContentMetrics({
+  measuredHeightsByKey,
+  sectionId,
+}: {
+  readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
+  readonly sectionId: string;
+}) {
+  const headerHeight = getMeasuredHeight(
+    measuredHeightsByKey,
+    getSectionHeaderHeightKey(sectionId),
+  );
+  const searchHeight = getMeasuredHeight(
+    measuredHeightsByKey,
+    getSectionSearchHeightKey(sectionId),
+  );
+  const kwargsHeight = getMeasuredHeight(
+    measuredHeightsByKey,
+    getKwargsControlsHeightKey(sectionId),
+  );
+  const edgesHeight = getMeasuredHeight(
+    measuredHeightsByKey,
+    getEdgesStripHeightKey(sectionId),
+  );
+  const pinnedHeight = getMeasuredHeight(
+    measuredHeightsByKey,
+    getPinnedParamsAreaHeightKey(sectionId),
+  );
+  const paramsFixedHeight = getMeasuredHeight(
+    measuredHeightsByKey,
+    getParamsFixedHeightKey(sectionId),
+  );
+  return {
+    contentTop: headerHeight + searchHeight + kwargsHeight,
+    edgesHeight,
+    paramsFixedHeight,
+    pinnedHeight,
+  };
+}
+
+function getProjectGpuParamListLocalY({
+  listKey,
+  metrics,
+  nextLocalY,
+}: {
+  readonly listKey: ProjectGpuParamListKey;
+  readonly metrics: ReturnType<typeof getProjectGpuParamContentMetrics>;
+  readonly nextLocalY: number;
+}): number {
+  if (listKey === "pinned") {
+    return metrics.contentTop + metrics.edgesHeight;
+  }
+  return Math.max(nextLocalY, metrics.contentTop + metrics.paramsFixedHeight);
+}
+
+function getProjectGpuParamListSurfaceHeight({
+  contentHeight,
+  listKey,
+  metrics,
+  remainingHeight,
+}: {
+  readonly contentHeight: number;
+  readonly listKey: ProjectGpuParamListKey;
+  readonly metrics: ReturnType<typeof getProjectGpuParamContentMetrics>;
+  readonly remainingHeight: number;
+}): number {
+  if (listKey === "pinned") {
+    const pinnedHeight =
+      metrics.pinnedHeight > 0 ? metrics.pinnedHeight : contentHeight;
+    return Math.min(remainingHeight, pinnedHeight);
+  }
+  return remainingHeight;
+}
+
+function getProjectGpuParamNextLocalY({
+  height,
+  listKey,
+  listLocalY,
+  metrics,
+}: {
+  readonly height: number;
+  readonly listKey: ProjectGpuParamListKey;
+  readonly listLocalY: number;
+  readonly metrics: ReturnType<typeof getProjectGpuParamContentMetrics>;
+}): number {
+  if (listKey === "pinned" && metrics.paramsFixedHeight > 0) {
+    return Math.max(
+      listLocalY + height,
+      metrics.contentTop + metrics.paramsFixedHeight,
+    );
+  }
+  return listLocalY + height;
+}
+
+function getMeasuredHeight(
+  measuredHeightsByKey: Readonly<Record<string, unknown>> | undefined,
+  key: string,
+): number {
+  const value = measuredHeightsByKey?.[key];
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : 0;
 }
 
 function getProjectGpuParamContentSurfaceId(

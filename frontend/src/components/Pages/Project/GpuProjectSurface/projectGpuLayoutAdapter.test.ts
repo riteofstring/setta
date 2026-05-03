@@ -299,6 +299,78 @@ describe("project GPU layout adapter", () => {
     ]);
   });
 
+  it("applies renderer-owned retained content scroll offsets to dict param surfaces", () => {
+    const paramIds = Array.from({ length: 8 }, (_, index) => `param-${index}`);
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: Object.fromEntries([
+              ["root-param", "root-param-variant"],
+              ...paramIds.map((paramId) => [paramId, `${paramId}-variant`]),
+            ]),
+            id: "dict-a-impl",
+            size: sectionSize({ height: 60, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 60, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", paramIds),
+    );
+    for (const paramId of paramIds) {
+      addParamToProjectState(
+        projectState,
+        paramId,
+        `${paramId}-variant`,
+        `${paramId}-impl`,
+        createCodeParamCodeObjImpl({
+          id: `${paramId}-impl`,
+          name: paramId,
+        }),
+      );
+    }
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: Object.fromEntries(
+          paramIds.map((paramId) => [paramId, [paramId]]),
+        ),
+        topLevelParamIds: paramIds,
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      contentScrollOffsets: new Map([
+        ["dict-a:param-content:unpinned", { x: 0, y: 56 }],
+      ]),
+      darkMode: false,
+      revision: 3,
+    });
+
+    const paramSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(paramSurface?.retainedScene).toMatchObject({
+      scrollOffset: { x: 0, y: 56 },
+      visibleRange: { endIndex: 7, rowCount: 8, startIndex: 0 },
+    });
+    expect(paramSurface?.retainedScene?.rows[0]).toMatchObject({
+      id: "param-0",
+      projectedRect: { y: -56 },
+    });
+  });
+
   it("replaces the renderer layout store from scene-owned DOM surfaces", () => {
     const store = createGpuFlowLayoutStore({
       nodes: [

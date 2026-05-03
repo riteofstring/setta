@@ -29,7 +29,6 @@ import {
   clearGpuNodeDomTransformSyncCache,
   clearGpuNodeDomTransformSyncCacheNode,
   createGpuNodeDomTransformSyncCache,
-  HtmlSurfaceNodeLayer,
   markHtmlSurfaceFramePaintDirty,
   type GpuHtmlSurfaceOverlayLayout,
   type GpuNodeDomTransformSyncCache,
@@ -89,6 +88,11 @@ import {
 } from "../interactions/sceneScroll";
 
 import {
+  attachGpuRetainedContentScrollController,
+  type GpuRetainedContentScrollControllerOptions,
+} from "../interactions/retainedContentScroll";
+
+import {
   attachGpuSelectionController,
   type GpuSelectionControllerOptions,
 } from "../interactions/selection";
@@ -124,6 +128,9 @@ import {
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
 import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
+
+import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
+import { useGpuFlowRetainedContentSources } from "./retainedContentSources";
 
 import {
   clearGpuFlowNodeElement,
@@ -215,6 +222,13 @@ type GpuFlowProps = Pick<
         "element" | "getScene" | "requestFrame" | "store"
       >
     | undefined;
+  retainedContentScroll?:
+    | false
+    | Omit<
+        GpuRetainedContentScrollControllerOptions,
+        "element" | "getScene" | "requestFrame" | "store"
+      >
+    | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
@@ -285,6 +299,7 @@ export function GpuFlow({
   onResize,
   panZoom,
   portals,
+  retainedContentScroll,
   renderNode,
   selection,
   selectionDrag,
@@ -346,6 +361,19 @@ export function GpuFlow({
       textureManagerRef,
       transformOnlyPaintNodeIdsRef,
     });
+  const { retainedContentSourceElement, retainedContentSurfaces } =
+    useGpuFlowRetainedContentSources({
+      nodeDomTransformSyncCacheRef,
+      nodeElementByIdRef,
+      scene,
+      surfaceRef,
+      textureManagerRef,
+      transformOnlyPaintNodeIdsRef,
+    });
+  const htmlSurfaceOverlays = useMemo(
+    () => [...retainedContentSurfaces, ...edgeLabelSurfaces],
+    [edgeLabelSurfaces, retainedContentSurfaces],
+  );
   const callbacksRef = useRef<GpuFlowCallbacks>({
     onFrame,
     onNodeElementChange,
@@ -359,7 +387,7 @@ export function GpuFlow({
     edgeScene,
     edgePalette,
     edges: drawEdges,
-    edgeLabelSurfaces,
+    edgeLabelSurfaces: htmlSurfaceOverlays,
     forceVisibleNodeIds,
     grid,
     marginCssPx,
@@ -443,7 +471,7 @@ export function GpuFlow({
       edgeScene,
       edgePalette,
       edges: nextEdges,
-      edgeLabelSurfaces,
+      edgeLabelSurfaces: htmlSurfaceOverlays,
       forceVisibleNodeIds,
       grid,
       marginCssPx,
@@ -453,7 +481,7 @@ export function GpuFlow({
       uploadBudget,
       viewport: viewportStore.getState().transform,
     };
-    if (!nodes && !nextEdges && !grid && edgeLabelSurfaces.length === 0) {
+    if (!nodes && !nextEdges && !grid && htmlSurfaceOverlays.length === 0) {
       visibleNodeIdsRef.current = new Set();
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       transformOnlyPaintNodeIdsRef.current.clear();
@@ -466,10 +494,10 @@ export function GpuFlow({
     edgeReconnect,
     edgePalette,
     edgeScene,
-    edgeLabelSurfaces,
     edges,
     forceVisibleNodeIds,
     grid,
+    htmlSurfaceOverlays,
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
@@ -477,6 +505,25 @@ export function GpuFlow({
     uploadBudget,
     viewportStore,
   ]);
+
+  useEffect(() => {
+    if (retainedContentScroll === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container || !retainedContentScroll) {
+      return;
+    }
+    return attachGpuRetainedContentScrollController({
+      ...retainedContentScroll,
+      element: container,
+      getScene: () => nodeLayerRef.current.scene,
+      requestFrame: (reason) => {
+        surfaceRef.current?.requestFrame(reason);
+      },
+      store: viewportStore,
+    });
+  }, [retainedContentScroll, viewportStore]);
 
   useEffect(() => {
     if (sceneScroll === false) {
@@ -906,6 +953,7 @@ export function GpuFlow({
           ref={surfaceRef}
         >
           {nodeLayerElement}
+          {retainedContentSourceElement}
           {children}
           <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
           {edgeLabelSourceElement}
@@ -916,37 +964,5 @@ export function GpuFlow({
         {nodesSelectionElement}
       </div>
     </GpuFlowLayoutStoreContext.Provider>
-  );
-}
-
-function renderGpuFlowNodeLayerElement({
-  nodeClassName,
-  nodes,
-  onNodeElementChange,
-  renderNode,
-}: {
-  readonly nodeClassName: string | undefined;
-  readonly nodes: readonly GpuNodeLayout[] | undefined;
-  readonly onNodeElementChange: (
-    nodeId: string,
-    element: HTMLElement | null,
-  ) => void;
-  readonly renderNode: ((node: GpuNodeLayout) => ReactNode) | undefined;
-}) {
-  if (!nodes && !renderNode) {
-    return null;
-  }
-  if (!nodes || !renderNode) {
-    throw new Error(
-      "Setta GPU flow node rendering requires both nodes and renderNode.",
-    );
-  }
-  return (
-    <HtmlSurfaceNodeLayer
-      className={nodeClassName}
-      nodes={nodes}
-      onNodeElementChange={onNodeElementChange}
-      renderNode={renderNode}
-    />
   );
 }

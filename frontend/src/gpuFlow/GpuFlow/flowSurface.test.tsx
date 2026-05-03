@@ -2,7 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
-import type { GpuFlowScene, GpuSectionSceneNode } from "../scene";
+import { createGpuRetainedRowContentScene } from "../retainedContentScene";
+import type {
+  GpuContentSurface,
+  GpuFlowScene,
+  GpuSectionSceneNode,
+} from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
 
@@ -23,6 +28,7 @@ describe("GpuFlow", () => {
             id: "project-viewport-portal-root",
           },
         ]}
+        scene={sceneWithRetainedContentSurface()}
         viewportStore={createGpuFlowViewportStore({
           transform: [0, 0, 1],
         })}
@@ -37,6 +43,9 @@ describe("GpuFlow", () => {
     const edgeLabelSourceIndex = markup.indexOf(
       'data-gpu-flow-source-id="data-edge-label:edge-a"',
     );
+    const retainedContentSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="dict-a:param-content:unpinned"',
+    );
     const canvasCloseIndex = markup.indexOf("</canvas>");
 
     expect(canvasOpenIndex).toBeGreaterThan(-1);
@@ -44,6 +53,8 @@ describe("GpuFlow", () => {
     expect(sourcePortalIndex).toBeLessThan(canvasCloseIndex);
     expect(edgeLabelSourceIndex).toBeGreaterThan(canvasOpenIndex);
     expect(edgeLabelSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(retainedContentSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(retainedContentSourceIndex).toBeLessThan(canvasCloseIndex);
     expect(viewportPortalIndex).toBeGreaterThan(canvasCloseIndex);
     expect(markup).toContain('data-gpu-flow-portal-space="source-local"');
     expect(markup).toContain('data-gpu-flow-portal-space="viewport"');
@@ -164,6 +175,46 @@ function edgeSceneWithLabel(): GpuEdgeScene {
       },
     ],
     reconnectAnchors: [],
+  };
+}
+
+function sceneWithRetainedContentSurface(): GpuFlowScene {
+  return {
+    contentSurfaces: [retainedContentSurface()],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
+function retainedContentSurface(): GpuContentSurface {
+  const rect = { height: 120, width: 240, x: 10, y: 20 };
+  return {
+    clipRect: rect,
+    id: "dict-a:param-content:unpinned",
+    ownerSectionId: "dict-a",
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId: "dict-a:param-content:unpinned",
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      id: "dict-a:param-content:unpinned",
+      ownerSectionId: "dict-a",
+      rowHeight: 28,
+      rows: [
+        {
+          controlKind: "text-like",
+          depth: 0,
+          id: "param-a",
+          label: "Param A",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+    }),
+    zIndex: 2,
   };
 }
 
