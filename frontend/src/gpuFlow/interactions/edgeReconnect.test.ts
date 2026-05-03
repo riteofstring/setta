@@ -8,6 +8,7 @@ import type {
 } from "../edges/edgeSources";
 import type { Connection } from "../flowTypes";
 import { createGpuFlowLayoutStore } from "../layoutStore";
+import type { GpuFlowScene } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuEdgeReconnectController,
@@ -62,9 +63,11 @@ describe("GPU edge reconnect controller", () => {
     const onReconnect = vi.fn();
     const isValidConnection = vi.fn(() => true);
     const autoPanInsetsPx = () => ({ left: 24, right: 48 });
+    const flowScene = createFlowScene();
     const detach = attachGpuEdgeReconnectController({
       autoPanInsetsPx,
       element,
+      getFlowScene: () => flowScene,
       getScene: () => createEdgeScene(),
       isValidConnection,
       layoutStore,
@@ -91,6 +94,7 @@ describe("GPU edge reconnect controller", () => {
       store,
     });
     expect(call.autoPanInsetsPx).toBe(autoPanInsetsPx);
+    expect(call.getScene()).toBe(flowScene);
     expect(call.isValidConnection).toBe(isValidConnection);
 
     const connection: Connection = {
@@ -167,6 +171,16 @@ function createEdgeScene(): GpuEdgeScene {
     hitTestEdges: [],
     labels: [],
     reconnectAnchors: [sourceAnchor()],
+  };
+}
+
+function createFlowScene(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
   };
 }
 

@@ -677,6 +677,7 @@ export function GpuFlow({
     return attachGpuEdgeReconnectController({
       ...edgeReconnect,
       element: container,
+      getFlowScene: () => nodeLayerRef.current.scene,
       getScene: () => nodeLayerRef.current.edgeScene,
       layoutStore,
       store: edgeReconnect.store ?? viewportStore,
