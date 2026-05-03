@@ -372,6 +372,63 @@ describe("project GPU retained param DOM islands", () => {
     );
   });
 
+  it("does not activate retained DOM islands for disabled control rows", () => {
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 40,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          controlKind: "text-like",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+          state: {
+            disabled: true,
+          },
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const controlHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "control",
+    );
+    if (!controlHit) {
+      throw new Error("Expected retained control hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+
+    options.onHitClick({
+      hit: controlHit,
+      localPoint: { x: 120, y: 14 },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 120, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent);
+
+    expect(onActiveParamDomIslandChange).not.toHaveBeenCalled();
+  });
+
   it("mounts retained param name inputs against the viewport CodeMirror tooltip portal", async () => {
     const rendered = await renderIsland(retainedParamNameIsland());
 

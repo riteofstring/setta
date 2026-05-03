@@ -381,7 +381,7 @@ function isProjectGpuParamDomIslandHitActive({
   readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
   readonly hit: GpuRetainedContentHitRecord;
   readonly projectState: ZustandProjectState;
-  readonly row: Pick<GpuRetainedContentRow, "controlKind">;
+  readonly row: Pick<GpuRetainedContentRow, "controlKind" | "state">;
 }): boolean {
   if (hit.kind === "control") {
     return isProjectGpuRetainedParamControlDomIslandActive(row);
@@ -394,9 +394,11 @@ function isProjectGpuParamDomIslandHitActive({
 }
 
 function isProjectGpuRetainedParamControlDomIslandActive(
-  row: Pick<GpuRetainedContentRow, "controlKind">,
+  row: Pick<GpuRetainedContentRow, "controlKind" | "state">,
 ): boolean {
-  return Boolean(row.controlKind && row.controlKind !== "nested");
+  return Boolean(
+    !row.state.disabled && row.controlKind && row.controlKind !== "nested",
+  );
 }
 
 function isProjectGpuRetainedParamSurface(
@@ -668,6 +670,7 @@ function createProjectGpuParamRows({
     return createProjectGpuParamRowInput({
       activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
       codeObjImpl,
+      disabled: sectionImpl.isFrozen,
       draggingParamIds,
       edgeInputParamIds,
       hoveredParamTarget: retainedInteractionState.hoveredParamTarget,

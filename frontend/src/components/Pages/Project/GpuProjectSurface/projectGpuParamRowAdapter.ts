@@ -34,6 +34,7 @@ type ProjectGpuParamTreeRowLike = {
 export function createProjectGpuParamRowInput({
   activeParamDomIsland,
   codeObjImpl,
+  disabled,
   draggingParamIds,
   edgeInputParamIds,
   hoveredParamTarget,
@@ -50,6 +51,7 @@ export function createProjectGpuParamRowInput({
     | null
     | undefined;
   readonly codeObjImpl: { readonly type: string };
+  readonly disabled?: boolean | undefined;
   readonly draggingParamIds: ReadonlySet<string> | null;
   readonly edgeInputParamIds: ReadonlySet<string>;
   readonly hoveredParamTarget?:
@@ -81,6 +83,7 @@ export function createProjectGpuParamRowInput({
       : [],
     state: createProjectGpuParamRowState({
       activeParamDomIsland,
+      disabled,
       draggingParamIds,
       hoveredParamTarget,
       projectSearch,
@@ -95,6 +98,7 @@ export function createProjectGpuParamRowInput({
 
 function createProjectGpuParamRowState({
   activeParamDomIsland,
+  disabled,
   draggingParamIds,
   hoveredParamTarget,
   projectSearch,
@@ -108,6 +112,7 @@ function createProjectGpuParamRowState({
     | ProjectGpuRetainedParamTargetLike
     | null
     | undefined;
+  readonly disabled?: boolean | undefined;
   readonly draggingParamIds: ReadonlySet<string> | null;
   readonly hoveredParamTarget?:
     | ProjectGpuRetainedParamTargetLike
@@ -123,6 +128,7 @@ function createProjectGpuParamRowState({
   readonly surfaceId: string;
 }): Partial<GpuRetainedContentRowState> {
   return {
+    disabled: Boolean(disabled),
     dragging: draggingParamIds?.has(rowId) ?? false,
     error: (sectionParamTypeErrors[rowId]?.length ?? 0) > 0,
     focused: isProjectGpuRetainedParamTargetForRow(activeParamDomIsland, {

@@ -740,6 +740,78 @@ describe("project GPU layout adapter", () => {
     ]);
   });
 
+  it("marks frozen retained param controls disabled and keeps them canvas-owned", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "frozen-param": "frozen-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            isFrozen: true,
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["frozen-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "frozen-param",
+      "frozen-param-variant",
+      "frozen-param-impl",
+      createCodeParamCodeObjImpl({
+        id: "frozen-param-impl",
+        name: "frozen",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "frozen-param": ["frozen-param"],
+        },
+        topLevelParamIds: ["frozen-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:frozen-param",
+        paramInfoId: "frozen-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 4,
+    });
+
+    const paramSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    expect(paramSurface?.retainedScene?.rows[0]).toMatchObject({
+      controlKind: "text-like",
+      id: "frozen-param",
+      state: expect.objectContaining({
+        disabled: true,
+      }),
+    });
+    expect(scene.domIslands).toEqual([]);
+  });
+
   it("does not synthesize retained controls for params without a section-param UI owner", () => {
     const projectState = projectStateWithSections({
       sections: [

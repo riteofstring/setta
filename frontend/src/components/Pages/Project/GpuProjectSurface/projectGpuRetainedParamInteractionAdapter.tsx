@@ -567,7 +567,12 @@ function isProjectRetainedParamControlActivationHit(
   const row = event.retainedScene.rows.find(
     (candidate) => candidate.id === event.hit.ownerRowId,
   );
-  return Boolean(row?.controlKind && row.controlKind !== "nested");
+  return Boolean(
+    row &&
+      !row.state.disabled &&
+      row.controlKind &&
+      row.controlKind !== "nested",
+  );
 }
 
 function isProjectRetainedParamLabelActivationHit(
