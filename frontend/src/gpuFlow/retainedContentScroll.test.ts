@@ -154,6 +154,14 @@ function retainedSurface({
       ownerSectionId: "section-a",
       rowHeight: 28,
       rows: Array.from({ length: 10 }, (_, index) => ({
+        control: {
+          defaultDisplayValue: "",
+          displayValue: `Value ${index}`,
+          editorKind: "text",
+          kind: "text-like",
+          rendererFamily: "text-like",
+          commitPolicy: "native-island",
+        },
         controlKind: "text-like",
         depth: 0,
         id: `param-${index}`,

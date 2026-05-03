@@ -2,6 +2,7 @@ import {
   getGpuRetainedContentCanvasPalette,
   type GpuRetainedContentCanvasPalette,
 } from "./retainedContentCanvasTheme";
+import { GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT } from "./retainedContentRowLayout";
 import type {
   GpuRetainedContentColorChoice,
   GpuRetainedContentControlDescriptor,
@@ -386,7 +387,12 @@ export function getGpuRetainedContentColorPickerOuterRect(
   palette: GpuRetainedContentCanvasPalette,
 ): GpuRect {
   if (palette.textLikeVisualStyle === "row-text") {
-    return insetRectBySides(rect, 14, 2, 5);
+    return insetRectBySides(
+      rect,
+      GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT,
+      2,
+      5,
+    );
   }
   return insetRect(rect, 6, 5);
 }

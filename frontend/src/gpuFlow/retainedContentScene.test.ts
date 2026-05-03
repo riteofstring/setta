@@ -110,7 +110,7 @@ describe("retained content scene", () => {
         text: "parent",
       }),
       expect.objectContaining({
-        dividerRects: [{ height: 24, width: 80, x: 144, y: 30 }],
+        dividerRects: [{ height: 24, width: 66, x: 158, y: 30 }],
         kind: "row-background",
         rowId: "child",
         state: expect.objectContaining({ selected: true }),

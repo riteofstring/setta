@@ -2,6 +2,7 @@ import { createGpuRetainedContentDateCalendarDrawCommands } from "./retainedCont
 import { clampNumber } from "./retainedContentMath";
 import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
 import {
+  GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT,
   createGpuRetainedContentControlRect,
   createGpuRetainedContentLabelRect,
 } from "./retainedContentRowLayout";
@@ -188,8 +189,24 @@ function createGpuRetainedContentRowDividerRects({
     ...(shouldDrawGpuRetainedContentLabelDivider(labelAppearance)
       ? [labelRect]
       : []),
-    ...(controlRect ? [controlRect] : []),
+    ...(controlRect
+      ? [createGpuRetainedContentControlDividerRect(controlRect)]
+      : []),
   ].filter((rect) => rect.width > 0 && rect.height > 0);
+}
+
+function createGpuRetainedContentControlDividerRect(
+  controlRect: GpuRect,
+): GpuRect {
+  const inset = Math.min(
+    GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT,
+    controlRect.width,
+  );
+  return {
+    ...controlRect,
+    width: Math.max(0, controlRect.width - inset),
+    x: controlRect.x + inset,
+  };
 }
 
 function shouldDrawGpuRetainedContentLabelDivider(

@@ -25,13 +25,13 @@ describe("retained content row canvas", () => {
     expect(ctx.fillText).toHaveBeenCalledWith("Add Key", 17, 19, 70);
   });
 
-  it("draws default sans labels for display-name rows", () => {
+  it("draws semibold sans labels for display-name rows", () => {
     const ctx = canvasContext();
 
     drawGpuRetainedContentLabel({
       appearance: {
         fontFamily: "sans",
-        fontWeight: "normal",
+        fontWeight: "semibold",
         tone: "default",
       },
       ctx: ctx as unknown as CanvasRenderingContext2D,
@@ -41,7 +41,7 @@ describe("retained content row canvas", () => {
       text: "Display Label",
     });
 
-    expect(ctx.font).toContain("12px Inter");
+    expect(ctx.font).toContain("600 12px Inter");
     expect(ctx.fillStyle).toBe(palette.labelText);
     expect(ctx.fillText).toHaveBeenCalledWith("Display Label", 15, 13, 90);
   });

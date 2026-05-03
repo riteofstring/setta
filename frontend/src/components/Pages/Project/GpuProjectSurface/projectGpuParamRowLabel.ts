@@ -12,7 +12,7 @@ export type ProjectGpuParamRowLabel = {
 const PROJECT_GPU_PARAM_DISPLAY_LABEL_APPEARANCE: GpuRetainedContentLabelAppearance =
   {
     fontFamily: "sans",
-    fontWeight: "normal",
+    fontWeight: "semibold",
     tone: "default",
   };
 

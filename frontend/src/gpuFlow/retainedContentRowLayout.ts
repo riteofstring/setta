@@ -1,5 +1,7 @@
 import type { GpuRect } from "./viewportMath";
 
+export const GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT = 14;
+
 export function createGpuRetainedContentLabelRect({
   controlRect,
   labelControlGap,
