@@ -169,6 +169,19 @@ function resolveHandleTarget({
   doc: Document | ShadowRoot;
   handle: HandleRef;
 }): ResolvedHandleTarget {
+  return (
+    resolveExplicitHandleTarget(handle) ??
+    resolveDomOrRegisteredHandleTarget({ doc, handle })
+  );
+}
+
+function resolveDomOrRegisteredHandleTarget({
+  doc,
+  handle,
+}: {
+  doc: Document | ShadowRoot;
+  handle: HandleRef;
+}): ResolvedHandleTarget {
   const handleToCheck = doc.querySelector(getHandleSelector(handle));
   if (handleToCheck) {
     return {
@@ -213,6 +226,21 @@ function resolveHandleTarget({
     handleSectionId: registeredHandle.nodeId,
     handleType: registeredHandle.type,
     isConnectableEnd: registeredHandle.isConnectableEnd ?? true,
+  };
+}
+
+function resolveExplicitHandleTarget(
+  handle: HandleRef,
+): ResolvedHandleTarget | null {
+  if (handle.isConnectableEnd === undefined) {
+    return null;
+  }
+  return {
+    handleDomNode: null,
+    handleId: handle.portId,
+    handleSectionId: handle.sectionId,
+    handleType: handle.type,
+    isConnectableEnd: handle.isConnectableEnd,
   };
 }
 
@@ -463,10 +491,14 @@ function pickClosestHandle(
 }
 
 export function getClosestHandle(args: ClosestHandleArgs) {
-  return (
-    resolveHandleBelowPointer(args) ??
-    pickClosestHandle(collectClosestHandleMatches(args))
-  );
+  const pointerHit = shouldResolveHandleBelowPointer(args.handles)
+    ? resolveHandleBelowPointer(args)
+    : null;
+  return pointerHit ?? pickClosestHandle(collectClosestHandleMatches(args));
+}
+
+function shouldResolveHandleBelowPointer(handles: ConnectionHandle[]): boolean {
+  return !handles.every((handle) => handle.isConnectableEnd !== undefined);
 }
 
 function getPointerPosition(event: MouseEvent | TouchEvent) {

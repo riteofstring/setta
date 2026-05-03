@@ -372,6 +372,73 @@ describe("GPU edge handle connection lifecycle", () => {
     );
   });
 
+  it("uses scene-owned handles without DOM pointer probes when start type is supplied", () => {
+    const { container, sourceHandle, targetHandle } = createHandleFixture();
+    const store = createGpuFlowViewportStore();
+    const layoutStore = createHandleLayoutStore();
+    store.getState().setDomNode(container);
+    mockElementFromPoint(targetHandle);
+    mockElementsFromPoint([targetHandle]);
+    const onConnect = vi.fn();
+    const scene = sceneWithRetainedTargetHandle();
+
+    handlePointerDown({
+      edgeUpdaterType: "source",
+      event: createReactMouseEvent(sourceHandle, "mousedown", {
+        clientX: 110,
+        clientY: 60,
+      }),
+      getScene: () => scene,
+      handleId: "out",
+      isTarget: false,
+      isValidConnection: () => true,
+      layoutStore,
+      nodeId: "source",
+      onConnect,
+      store,
+    });
+
+    expect(document.elementFromPoint).not.toHaveBeenCalled();
+
+    document.dispatchEvent(
+      new MouseEvent("mousemove", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 200,
+        clientY: 114,
+      }),
+    );
+
+    expect(document.elementsFromPoint).not.toHaveBeenCalled();
+    expect(store.getState().connectionStatus).toBe("valid");
+    expect(store.getState().connectionEndHandle).toEqual({
+      handleId: "in",
+      sectionId: "target",
+      type: "target",
+    });
+
+    document.dispatchEvent(
+      new MouseEvent("mouseup", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 200,
+        clientY: 114,
+      }),
+    );
+
+    expect(onConnect).toHaveBeenCalledWith(
+      {
+        source: "source",
+        sourceHandle: "out",
+        target: "target",
+        targetHandle: "in",
+      },
+      {
+        scene,
+      },
+    );
+  });
+
   it("ignores registered DOM handles when a scene snapshot is supplied", () => {
     const { container, sourceHandle, targetHandle } = createHandleFixture();
     const store = createGpuFlowViewportStore();

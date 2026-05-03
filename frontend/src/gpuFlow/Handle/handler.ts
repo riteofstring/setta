@@ -87,7 +87,11 @@ export function handlePointerDown({
   let closestHandle: ConnectionHandle | null = null;
 
   const { x, y } = getEventPosition(event);
-  const clickedHandle = doc.elementFromPoint(x, y);
+  const clickedHandle = getClickedHandleForPointerStart({
+    doc,
+    edgeUpdaterType,
+    position: { x, y },
+  });
   const handleType = getHandleType(edgeUpdaterType, clickedHandle);
   const containerBounds = domNode?.getBoundingClientRect();
 
@@ -403,6 +407,21 @@ function getGpuHandleConnectionScene(
   getScene: (() => GpuFlowScene | null | undefined) | undefined,
 ): GpuFlowScene | null | undefined {
   return getScene ? getScene() : undefined;
+}
+
+function getClickedHandleForPointerStart({
+  doc,
+  edgeUpdaterType,
+  position,
+}: {
+  readonly doc: Document | ShadowRoot;
+  readonly edgeUpdaterType: HandleType | undefined;
+  readonly position: GpuPoint;
+}): Element | null {
+  if (edgeUpdaterType) {
+    return null;
+  }
+  return doc.elementFromPoint(position.x, position.y);
 }
 
 function getConnectionHandlePositions({
