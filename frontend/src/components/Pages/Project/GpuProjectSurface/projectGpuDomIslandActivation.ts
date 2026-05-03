@@ -13,6 +13,13 @@ const PROJECT_GPU_DOM_ISLAND_MOUSE_ACTIVATION_SELECTOR =
   '[data-gpu-flow-activation="mousedown"]';
 const PROJECT_GPU_DOM_ISLAND_EXPLICIT_ACTIVATION_TARGET_SELECTOR =
   '[data-gpu-flow-activation-target="true"]';
+const PROJECT_GPU_DOM_ISLAND_CANVAS_OWNED_ROLES = new Set([
+  "combobox",
+  "listbox",
+  "option",
+  "slider",
+  "switch",
+]);
 
 export function useProjectGpuDomIslandActivation<
   RootElement extends HTMLElement,
@@ -137,12 +144,7 @@ function getProjectGpuDomIslandActivationTarget(
   if (fallbackExplicitTarget) {
     return fallbackExplicitTarget;
   }
-  if (pointedTarget) {
-    return pointedTarget;
-  }
-  return root.querySelector<HTMLElement>(
-    PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR,
-  );
+  return getProjectGpuDomIslandFallbackActivationTarget(root);
 }
 
 function getProjectGpuDomIslandPointedElement(
@@ -195,8 +197,21 @@ function isProjectGpuDomIslandActivationTarget(target: HTMLElement): boolean {
   return (
     shouldMouseActivateProjectGpuDomIslandTarget(target) ||
     shouldClickProjectGpuDomIslandActivationTarget(target) ||
-    target.tabIndex >= 0
+    shouldFocusProjectGpuDomIslandActivationTarget(target)
   );
+}
+
+function getProjectGpuDomIslandFallbackActivationTarget(
+  root: HTMLElement,
+): HTMLElement | null {
+  for (const candidate of root.querySelectorAll<HTMLElement>(
+    PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR,
+  )) {
+    if (isProjectGpuDomIslandActivationTarget(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 function getProjectGpuDomIslandActivationKey(
@@ -258,6 +273,32 @@ function shouldClickProjectGpuDomIslandActivationTarget(
   return false;
 }
 
+function shouldFocusProjectGpuDomIslandActivationTarget(
+  target: HTMLElement,
+): boolean {
+  if (hasProjectGpuDomIslandCanvasOwnedRole(target)) {
+    return false;
+  }
+  if (target instanceof HTMLInputElement) {
+    return isNativeEditorProjectGpuDomIslandInputType(target.type);
+  }
+  return (
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLButtonElement ||
+    target.isContentEditable ||
+    target.getAttribute("role") === "button"
+  );
+}
+
+function hasProjectGpuDomIslandCanvasOwnedRole(target: HTMLElement): boolean {
+  const role = target.getAttribute("role");
+  return (
+    role !== null &&
+    PROJECT_GPU_DOM_ISLAND_CANVAS_OWNED_ROLES.has(role.toLowerCase())
+  );
+}
+
 function isNativePickerProjectGpuDomIslandInputType(type: string): boolean {
   return [
     "color",
@@ -267,5 +308,18 @@ function isNativePickerProjectGpuDomIslandInputType(type: string): boolean {
     "month",
     "time",
     "week",
+  ].includes(type);
+}
+
+function isNativeEditorProjectGpuDomIslandInputType(type: string): boolean {
+  return [
+    "",
+    "email",
+    "number",
+    "password",
+    "search",
+    "tel",
+    "text",
+    "url",
   ].includes(type);
 }
