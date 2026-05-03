@@ -109,7 +109,6 @@ import type { GpuViewportInput } from "../viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
-  type GpuUserSelectionRect,
 } from "../viewportStore";
 
 import {
@@ -159,10 +158,7 @@ import {
   useGpuFlowSelectionDragLayer,
   type GpuFlowSelectionDragOptions,
 } from "./selectionDragLayer";
-import {
-  getVisibleGpuUserSelectionRect,
-  GpuUserSelectionOverlay,
-} from "./selectionOverlay";
+import { useGpuFlowSelectionOverlaySources } from "./selectionOverlay";
 
 type GpuFlowProps = Pick<
   GpuSurfaceProps,
@@ -339,10 +335,6 @@ export function GpuFlow({
   const drawEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);
-  const [userSelectionRect, setUserSelectionRect] =
-    useState<GpuUserSelectionRect | null>(() =>
-      getVisibleGpuUserSelectionRect(viewportStore.getState()),
-    );
   const [sourceInteractionProjector] = useState(() =>
     createHtmlSurfaceInteractionProjector(),
   );
@@ -392,13 +384,29 @@ export function GpuFlow({
       textureManagerRef,
       transformOnlyPaintNodeIdsRef,
     });
+  const { selectionOverlaySourceElement, selectionOverlaySurfaces } =
+    useGpuFlowSelectionOverlaySources({
+      nodeDomTransformSyncCacheRef,
+      nodeElementByIdRef,
+      primaryNodeId: selectionDrag ? selectionDrag.primaryNodeId : null,
+      surfaceRef,
+      textureManagerRef,
+      transformOnlyPaintNodeIdsRef,
+      viewportStore,
+    });
   const htmlSurfaceOverlays = useMemo(
     () => [
       ...retainedContentSurfaces,
       ...edgeLabelSurfaces,
+      ...selectionOverlaySurfaces,
       ...nodeDragPreviewSurfaces,
     ],
-    [edgeLabelSurfaces, nodeDragPreviewSurfaces, retainedContentSurfaces],
+    [
+      edgeLabelSurfaces,
+      nodeDragPreviewSurfaces,
+      retainedContentSurfaces,
+      selectionOverlaySurfaces,
+    ],
   );
   const callbacksRef = useRef<GpuFlowCallbacks>({
     onFrame,
@@ -471,9 +479,6 @@ export function GpuFlow({
   }, [viewport, viewportStore]);
 
   useEffect(() => {
-    setUserSelectionRect(
-      getVisibleGpuUserSelectionRect(viewportStore.getState()),
-    );
     return viewportStore.subscribe((state, previousState) => {
       if (state.transform !== previousState.transform) {
         nodeLayerRef.current = {
@@ -481,12 +486,6 @@ export function GpuFlow({
           viewport: state.transform,
         };
         surfaceRef.current?.requestFrame("viewport");
-      }
-      if (
-        state.userSelectionActive !== previousState.userSelectionActive ||
-        state.userSelectionRect !== previousState.userSelectionRect
-      ) {
-        setUserSelectionRect(getVisibleGpuUserSelectionRect(state));
       }
     });
   }, [viewportStore]);
@@ -945,10 +944,7 @@ export function GpuFlow({
     onNodeElementChange: handleNodeElementChange,
     renderNode,
   });
-  const userSelectionElement = (
-    <GpuUserSelectionOverlay rect={userSelectionRect} />
-  );
-  const nodesSelectionElement = useGpuFlowSelectionDragLayer({
+  useGpuFlowSelectionDragLayer({
     containerRef,
     layoutStore,
     requestFrame: requestSurfaceFrame,
@@ -966,6 +962,7 @@ export function GpuFlow({
           data-tab-scope="canvas"
           ref={containerRef}
           style={style}
+          tabIndex={selectionDrag ? -1 : undefined}
         >
           <GpuSurface
             className={surfaceClassName}
@@ -981,6 +978,7 @@ export function GpuFlow({
             {children}
             <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
             {edgeLabelSourceElement}
+            {selectionOverlaySourceElement}
             {nodeDragPreviewSourceElement}
           </GpuSurface>
           <GpuFlowDomIslandLayer
@@ -989,8 +987,6 @@ export function GpuFlow({
             viewportStore={viewportStore}
           />
           <GpuFlowPortalLayer portals={portalGroups.viewport} />
-          {userSelectionElement}
-          {nodesSelectionElement}
         </div>
       </GpuFlowSceneContext.Provider>
     </GpuFlowLayoutStoreContext.Provider>

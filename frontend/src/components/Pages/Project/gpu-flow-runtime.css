@@ -11,17 +11,6 @@
   pointer-events: none !important;
 }
 
-/* Keep these selectors in sync with gpuFlow/gpuFlowDomClasses.ts. */
-.setta-gpu-flow__nodes-selection-rect {
-  background: rgba(0, 89, 220, 0.08);
-  border: 1px dotted rgba(0, 89, 220, 0.8);
-
-  &:focus,
-  &:focus-visible {
-    outline: none;
-  }
-}
-
 .setta-gpu-flow__handle {
   width: 6px;
   height: 6px;

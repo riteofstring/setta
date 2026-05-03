@@ -140,6 +140,57 @@ describe("GpuFlow", () => {
     expect(markup).not.toContain("translate(4px, 8px) scale(1.5)");
   });
 
+  it("renders selection affordances as retained canvas sources", () => {
+    const viewportStore = createGpuFlowViewportStore({
+      transform: [4, 8, 2],
+    });
+    viewportStore.getState().setUserSelection({
+      active: true,
+      rect: {
+        height: 60,
+        startX: 20,
+        startY: 30,
+        width: 100,
+        x: 20,
+        y: 30,
+      },
+    });
+    viewportStore.getState().setNodesSelectionBounds({
+      height: 80,
+      width: 120,
+      x: 10,
+      y: 20,
+    });
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        selectionDrag={{
+          primaryNodeId: "section-a",
+          selectedNodeIds: ["section-a"],
+        }}
+        viewportStore={viewportStore}
+      />,
+    );
+
+    const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
+    const userSelectionSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-user-selection"',
+    );
+    const nodesSelectionSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="gpu-nodes-selection"',
+    );
+    const canvasCloseIndex = markup.indexOf("</canvas>");
+
+    expect(userSelectionSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(userSelectionSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(nodesSelectionSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(nodesSelectionSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(markup).not.toContain("data-gpu-flow-selection-layer");
+    expect(markup).not.toContain("data-gpu-flow-selection=");
+    expect(markup).not.toContain("data-gpu-flow-nodes-selection-rect");
+    expect(markup).not.toContain("setta-gpu-flow__nodes-selection-rect");
+  });
+
   it("prefers subscribed layout store nodes over scene snapshot nodes", () => {
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [

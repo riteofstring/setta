@@ -18,8 +18,6 @@ const PROJECT_GPU_PANE_BACKGROUND_TARGET_SELECTORS = [
 const PROJECT_GPU_PANE_NON_BACKGROUND_SELECTORS = [
   ".setta-gpu-flow__node",
   GPU_FLOW_SELECTORS.node,
-  GPU_FLOW_SELECTORS.nodesSelectionRect,
-  GPU_FLOW_SELECTORS.selection,
   GPU_FLOW_SELECTORS.handle,
   GPU_FLOW_SELECTORS.portalRoot,
   ".section-resize-handle",

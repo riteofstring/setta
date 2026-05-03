@@ -120,8 +120,6 @@ describe("gpu project interaction guards", () => {
   it.each([
     ["GPU node", "setta-gpu-flow__node"],
     ["GPU flow node contract", "setta-gpu-flow__node"],
-    ["selection box", "setta-gpu-flow__nodes-selection-rect"],
-    ["marquee selection", "setta-gpu-flow__selection"],
     ["edge handle", "setta-gpu-flow__handle"],
     ["resize handle", "section-resize-handle"],
     ["nodrag target", NO_DRAG_CLASS_NAME],
