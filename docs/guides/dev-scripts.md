@@ -179,9 +179,10 @@ These are used by the top-level wrappers or for advanced workflows.
   - Use this for focused long-running feature work.
   - Requires `--plan`, `--sentinel`, and `--name`.
   - Pass extra plan-specific instructions with `--extra-prompt` or `--extra-prompt-file`.
-- `./scripts/run-codex-gpuflow-scene-ownership-architecture-loop.sh`
-  - Dedicated plan loop for `docs/plans/gpuflow-scene-ownership-architecture-plan.md`.
-  - Uses the generic plan-loop engine with GpuFlow scene ownership instructions, `GPUFLOW_SCENE_OWNERSHIP_ARCHITECTURE_PLAN_COMPLETE`, and `gpuflow-scene:` commits.
+- `./scripts/run-codex-gpuflow-full-scene-canvas-content-clean-break-loop.sh`
+  - Dedicated plan loop for `docs/plans/gpuflow-full-scene-canvas-content-clean-break-plan.md`.
+  - Uses the generic plan-loop engine with full-scene/canvas-content clean-break instructions, `GPUFLOW_FULL_SCENE_CANVAS_CONTENT_CLEAN_BREAK_PLAN_COMPLETE`, and `gpuflow-full-scene:` commits.
+  - The older `docs/plans/gpuflow-scene-ownership-architecture-plan.md` remains background context, but its dedicated wrapper was removed so new loop work starts from the full-scene plan.
 - `./scripts/run-codex-test-fix-loop.sh`
   - Codex loop for working through Go, Python, Vitest, and Playwright test failures in small chunks.
   - Stops only after external full-suite verification passes.

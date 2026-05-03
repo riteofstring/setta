@@ -1,5 +1,13 @@
 # GpuFlow Scene Ownership Architecture Plan
 
+## Superseded As Active Loop
+
+This plan remains useful background for the live-scene ownership direction, but
+it is no longer the active execution plan. Use
+`docs/plans/gpuflow-full-scene-canvas-content-clean-break-plan.md` for new loop
+work; that plan extends this one to nested section layout and high-cardinality
+canvas content rendering.
+
 ## Goal
 
 Move the remaining live project-canvas scene ownership into `GpuFlow`.
@@ -96,13 +104,15 @@ Long-term target:
 
 Current files:
 
-- `frontend/src/state/actions/edgeHandles.ts` registers handle elements,
-  measures them with `getBoundingClientRect()`, and converts screen coordinates
-  to flow coordinates.
-- `frontend/src/gpuFlow/Handle/index.tsx` registers DOM handles with the global
-  edge-handle registry and observes their size.
+- `frontend/src/gpuFlow/ports/portGeometry.ts` registers port descriptors,
+  measures source-local handle rects, and derives endpoint positions from live
+  layout.
+- `frontend/src/gpuFlow/Handle/index.tsx` registers DOM handles with the
+  `GpuFlow` port registry and observes their source-local size.
+- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter.ts`
+  supplies Setta-specific connection policy to generic `GpuFlow` handles.
 - `frontend/src/components/Pages/Project/gpuProjectEdgeScene.ts` builds the GPU
-  edge scene from `useNodeInternals` plus edge-handle positions.
+  edge scene from renderer layout plus registered port positions.
 
 Recommended move:
 
@@ -480,7 +490,8 @@ Exit criteria:
 - Replace screen-DOM handle measurement with source-local port descriptors.
 - Build edge endpoints from `GpuFlow` layout plus port descriptors.
 - Update edge-scene derivation to consume renderer-owned endpoints.
-- Remove top-level graph dependency on `state/actions/edgeHandles.ts`.
+- Remove remaining top-level graph dependency on project-state-owned edge
+  handle registries.
 
 Exit criteria:
 
@@ -563,7 +574,7 @@ Exit criteria:
 ### Phase 9: Remove Old Owners
 
 - Delete the project-level selected-node overlay once replaced.
-- Delete top-level graph use of `state/actions/edgeHandles.ts`.
+- Delete top-level graph use of project-state-owned edge handle registries.
 - Delete DOM viewport layers for labels and reconnect anchors.
 - Delete top-level graph DOM rect fallbacks.
 - Delete any now-unused tests, mocks, styles, and comments that describe the

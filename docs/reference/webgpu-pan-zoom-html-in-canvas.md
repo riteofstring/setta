@@ -427,5 +427,7 @@ Current completion evidence includes:
 
 Historical reports from earlier renderer phases may describe superseded
 implementations. Use this reference and the active plan in
-`docs/plans/gpuflow-scene-ownership-architecture-plan.md` for the current
-architecture.
+`docs/plans/gpuflow-full-scene-canvas-content-clean-break-plan.md` for the
+current architecture. The earlier
+`docs/plans/gpuflow-scene-ownership-architecture-plan.md` remains background
+context only.

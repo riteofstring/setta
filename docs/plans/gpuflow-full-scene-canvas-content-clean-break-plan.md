@@ -98,12 +98,14 @@ This means a param dict with many params still pays DOM cost even though
 
 Current files:
 
-- `frontend/src/state/actions/edgeHandles.ts` registers and measures DOM handle
-  elements.
+- `frontend/src/gpuFlow/ports/portGeometry.ts` registers port descriptors and
+  measures source-local handle rects.
 - `frontend/src/gpuFlow/Handle/index.tsx` registers handle DOM with the global
-  edge-handle registry.
+  port registry.
+- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter.ts`
+  supplies Setta-specific connection policy to generic `GpuFlow` handles.
 - `frontend/src/components/Pages/Project/gpuProjectEdgeScene.ts` builds edge
-  geometry from node internals and measured handle positions.
+  geometry from renderer layout and registered port positions.
 
 Once section and param contents render through retained scene data, port
 positions must be metadata produced by layout and content renderers, not
