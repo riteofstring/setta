@@ -30,7 +30,7 @@ export function useGpuFlowLayoutStoreNodes(
   return nodes;
 }
 
-export function getGpuFlowLayoutStoreNodes(
+function getGpuFlowLayoutStoreNodes(
   layoutStore: GpuFlowLayoutStoreApi | undefined,
 ): readonly GpuFlowLayoutNode[] | undefined {
   return layoutStore?.getState().getNodes();

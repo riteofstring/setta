@@ -2,13 +2,13 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GPU_FLOW_CLASS_NAMES } from "../gpuFlowDomClasses";
 import { createGpuFlowLayoutStore } from "../layoutStore";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuSelectionDragController,
   buildGpuSelectionKeyboardNudgePlan,
   getGpuSelectionDragItems,
+  hitTestGpuSelectionBounds,
   moveGpuSelectionDragItems,
   snapGpuSelectionDragItems,
   syncGpuSelectionBoundsFromLayoutStore,
@@ -164,7 +164,7 @@ describe("GPU selection drag controller", () => {
   });
 
   it("moves selected nodes through the selection bounds hit target and owns live layout state", () => {
-    const { element, rect } = createSelectionDragElements();
+    const { element, surface } = createSelectionDragElements();
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [
         node("a", 10, 20, 80, 40, 0),
@@ -176,6 +176,12 @@ describe("GPU selection drag controller", () => {
       height: 400,
       transform: [0, 0, 1],
       width: 600,
+    });
+    viewportStore.getState().setNodesSelectionBounds({
+      height: 130,
+      width: 150,
+      x: 10,
+      y: 20,
     });
     const onSelectionDragStart = vi.fn();
     const onSelectionDrag = vi.fn();
@@ -193,14 +199,15 @@ describe("GPU selection drag controller", () => {
       store: viewportStore,
     });
 
-    dispatchPointer(rect, "pointerdown", {
+    dispatchPointer(surface, "pointerdown", {
       button: 0,
       clientX: 25,
       clientY: 45,
       pointerId: 7,
     });
 
-    expect(rect.setPointerCapture).toHaveBeenCalledWith(7);
+    expect(element.focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(element.setPointerCapture).toHaveBeenCalledWith(7);
     expect(viewportStore.getState().nodeDragging).toBe(true);
     expect(layoutStore.getState().getNode("a")).toMatchObject({
       interactionFlags: { dragging: true },
@@ -223,7 +230,7 @@ describe("GPU selection drag controller", () => {
       selectedNodeIds: ["a", "b"],
     });
 
-    dispatchPointer(rect, "pointermove", {
+    dispatchPointer(surface, "pointermove", {
       button: 0,
       clientX: 45,
       clientY: 65,
@@ -255,14 +262,14 @@ describe("GPU selection drag controller", () => {
       selectedNodeIds: ["a", "b"],
     });
 
-    dispatchPointer(rect, "pointerup", {
+    dispatchPointer(surface, "pointerup", {
       button: 0,
       clientX: 45,
       clientY: 65,
       pointerId: 7,
     });
 
-    expect(rect.releasePointerCapture).toHaveBeenCalledWith(7);
+    expect(element.releasePointerCapture).toHaveBeenCalledWith(7);
     expect(viewportStore.getState().nodeDragging).toBe(false);
     expect(layoutStore.getState().getNode("a")).toMatchObject({
       tempZIndex: 0,
@@ -295,7 +302,7 @@ describe("GPU selection drag controller", () => {
   });
 
   it("uses selection drag auto-pan frames to pan the viewport and keep selected nodes under the pointer", () => {
-    const { element, rect } = createSelectionDragElements();
+    const { element, surface } = createSelectionDragElements();
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [node("a", 10, 20, 80, 40), node("b", 100, 120, 60, 30)],
     });
@@ -304,6 +311,12 @@ describe("GPU selection drag controller", () => {
       transform: [0, 0, 1],
       width: 600,
     });
+    viewportStore.getState().setNodesSelectionBounds({
+      height: 400,
+      width: 600,
+      x: 0,
+      y: 0,
+    });
     const detach = attachGpuSelectionDragController({
       element,
       layoutStore,
@@ -311,7 +324,7 @@ describe("GPU selection drag controller", () => {
       store: viewportStore,
     });
 
-    dispatchPointer(rect, "pointerdown", {
+    dispatchPointer(surface, "pointerdown", {
       button: 0,
       clientX: 600,
       clientY: 410,
@@ -335,11 +348,17 @@ describe("GPU selection drag controller", () => {
   });
 
   it("commits keyboard nudge through the layout store and recomputes selected bounds from layout", () => {
-    const { element, rect } = createSelectionDragElements();
+    const { element } = createSelectionDragElements();
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [node("a", 10, 20, 80, 40), node("b", 100, 120, 60, 30)],
     });
     const viewportStore = createGpuFlowViewportStore();
+    viewportStore.getState().setNodesSelectionBounds({
+      height: 130,
+      width: 150,
+      x: 10,
+      y: 20,
+    });
     const onSelectionKeyboardNudge = vi.fn();
     const detach = attachGpuSelectionDragController({
       canDragNode: (nodeId) => nodeId !== "b",
@@ -350,7 +369,7 @@ describe("GPU selection drag controller", () => {
       store: viewportStore,
     });
 
-    dispatchKeyboard(rect, "keydown", {
+    dispatchKeyboard(element, "keydown", {
       key: "ArrowRight",
       shiftKey: false,
     });
@@ -388,6 +407,61 @@ describe("GPU selection drag controller", () => {
     });
     detach();
   });
+
+  it("hit-tests selection bounds from renderer-owned flow geometry", () => {
+    expect(
+      hitTestGpuSelectionBounds({
+        bounds: { height: 60, width: 80, x: 10, y: 20 },
+        screenPoint: { x: 45, y: 55 },
+        viewport: [5, 10, 2],
+      }),
+    ).toBe(true);
+    expect(
+      hitTestGpuSelectionBounds({
+        bounds: { height: 60, width: 80, x: 10, y: 20 },
+        screenPoint: { x: 210, y: 55 },
+        viewport: [5, 10, 2],
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores pointer starts outside the renderer-owned selection bounds", () => {
+    const { element, surface } = createSelectionDragElements();
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 10, 20, 80, 40)],
+    });
+    const viewportStore = createGpuFlowViewportStore({
+      height: 400,
+      transform: [0, 0, 1],
+      width: 600,
+    });
+    viewportStore.getState().setNodesSelectionBounds({
+      height: 40,
+      width: 80,
+      x: 10,
+      y: 20,
+    });
+    const onSelectionDragStart = vi.fn();
+    const detach = attachGpuSelectionDragController({
+      element,
+      layoutStore,
+      onSelectionDragStart,
+      selectedNodeIds: ["a"],
+      store: viewportStore,
+    });
+
+    dispatchPointer(surface, "pointerdown", {
+      button: 0,
+      clientX: 240,
+      clientY: 220,
+      pointerId: 17,
+    });
+
+    expect(onSelectionDragStart).not.toHaveBeenCalled();
+    expect(element.setPointerCapture).not.toHaveBeenCalled();
+    expect(viewportStore.getState().nodeDragging).toBe(false);
+    detach();
+  });
 });
 
 type QueuedAnimationFrame = {
@@ -420,6 +494,7 @@ function node(
 
 function createSelectionDragElements() {
   const element = document.createElement("div");
+  element.tabIndex = -1;
   element.getBoundingClientRect = () =>
     ({
       bottom: 420,
@@ -431,13 +506,14 @@ function createSelectionDragElements() {
       x: 10,
       y: 20,
     }) as DOMRect;
-  const rect = document.createElement("div");
-  rect.className = GPU_FLOW_CLASS_NAMES.nodesSelectionRect;
-  rect.setPointerCapture = vi.fn();
-  rect.releasePointerCapture = vi.fn();
-  element.append(rect);
+  element.focus = vi.fn();
+  element.setPointerCapture = vi.fn();
+  element.releasePointerCapture = vi.fn();
+  const surface = document.createElement("canvas");
+  surface.dataset.gpuFlowSurface = "true";
+  element.append(surface);
   document.body.append(element);
-  return { element, rect };
+  return { element, surface };
 }
 
 function dispatchPointer(

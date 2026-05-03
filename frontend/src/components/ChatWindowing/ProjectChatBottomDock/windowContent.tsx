@@ -12,7 +12,7 @@ import {
   WindowResizeDirection,
 } from "./shared";
 
-export type ProjectChatWindowContentProps = {
+type ProjectChatWindowContentProps = {
   pill: ResolvedWindowPill;
   projectConfigId: string;
   host: ResolvedWindowPill["placement"];
@@ -51,7 +51,7 @@ export function ProjectChatWindowContent({
   );
 }
 
-export type DockedWindowResizeHandlesProps = {
+type DockedWindowResizeHandlesProps = {
   pill: ResolvedWindowPill;
   onPointerDown: (
     event: PointerEvent<HTMLDivElement>,
@@ -93,7 +93,7 @@ export function DockedWindowResizeHandles({
   ));
 }
 
-export type FloatingWindowResizeHandlesProps = {
+type FloatingWindowResizeHandlesProps = {
   pill: ResolvedWindowPill;
   onPointerDown: (
     event: PointerEvent<HTMLDivElement>,

@@ -64,7 +64,7 @@ import { ToggleTextBlockDisplayModeButton } from "../ToggleTextBlockDisplayModeB
 
 import { TextBlockCardTitle, getTitleStyles } from "./textBlockTitle";
 
-export type SectionHeaderProps = {
+type SectionHeaderProps = {
   sectionId: string;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
@@ -87,14 +87,14 @@ export type TitleStyleOptions = Pick<
   isActiveSection: boolean;
 };
 
-export type SectionHeaderFrameProps = {
+type SectionHeaderFrameProps = {
   headerRef: React.RefObject<HTMLElement | null>;
   headerProps?: SectionHeaderProps["headerProps"];
   hasSectionStyleTheme: boolean;
   children: React.ReactNode;
 };
 
-export type SectionHeaderLeadingProps = Pick<
+type SectionHeaderLeadingProps = Pick<
   SectionHeaderProps,
   | "sectionId"
   | "isInOtherProjectConfigs"
@@ -104,7 +104,7 @@ export type SectionHeaderLeadingProps = Pick<
   tagColor: string | null;
 };
 
-export type SectionHeaderTrailingProps = Pick<
+type SectionHeaderTrailingProps = Pick<
   SectionHeaderProps,
   | "sectionId"
   | "sectionTypeName"
@@ -117,7 +117,7 @@ export type SectionHeaderTrailingProps = Pick<
   projectConfigId: string;
 };
 
-export const sectionHeaderBaseClassName =
+const sectionHeaderBaseClassName =
   "section-title mx-2 flex flex-row items-center";
 
 export const editingTitleBaseClassName =
@@ -139,7 +139,7 @@ export const fixedTitleSectionTypes = new Set<SectionType>([
   SectionTypeEnum.GenPythonMetadata,
 ]);
 
-export function _SectionHeader({
+function _SectionHeader({
   sectionId,
   sectionTypeName,
   isInOtherProjectConfigs,
@@ -191,7 +191,7 @@ export function _SectionHeader({
 
 export const SectionHeader = React.memo(_SectionHeader);
 
-export function useSectionHeaderTagColor(sectionId: string) {
+function useSectionHeaderTagColor(sectionId: string) {
   return useProjectState((x) => {
     if (!x.sections[sectionId]) {
       return null;
@@ -200,7 +200,7 @@ export function useSectionHeaderTagColor(sectionId: string) {
   });
 }
 
-export function SectionHeaderFrame({
+function SectionHeaderFrame({
   headerRef,
   headerProps,
   hasSectionStyleTheme,
@@ -221,13 +221,13 @@ export function SectionHeaderFrame({
   );
 }
 
-export function getSectionHeaderClassName(className: string | undefined) {
+function getSectionHeaderClassName(className: string | undefined) {
   return className
     ? `${sectionHeaderBaseClassName} ${className}`
     : sectionHeaderBaseClassName;
 }
 
-export function getSectionHeaderStyle({
+function getSectionHeaderStyle({
   hasSectionStyleTheme,
   style,
 }: {
@@ -243,7 +243,7 @@ export function getSectionHeaderStyle({
   };
 }
 
-export function SectionHeaderLeading({
+function SectionHeaderLeading({
   sectionId,
   isInOtherProjectConfigs,
   sectionTypeName,
@@ -269,11 +269,7 @@ export function SectionHeaderLeading({
   );
 }
 
-export function SectionTagColorIndicator({
-  tagColor,
-}: {
-  tagColor: string | null;
-}) {
+function SectionTagColorIndicator({ tagColor }: { tagColor: string | null }) {
   if (!tagColor) {
     return null;
   }
@@ -287,7 +283,7 @@ export function SectionTagColorIndicator({
   );
 }
 
-export function SectionHeaderTrailing({
+function SectionHeaderTrailing({
   projectConfigId,
   sectionId,
   sectionTypeName,
@@ -326,7 +322,7 @@ export function SectionHeaderTrailing({
   );
 }
 
-export function useTrackMeasuredHeaderHeight({
+function useTrackMeasuredHeaderHeight({
   headerRef,
   heightKey,
   trackMeasuredHeight,
@@ -370,7 +366,7 @@ export function useTrackMeasuredHeaderHeight({
   }, [headerRef, heightKey, trackMeasuredHeight]);
 }
 
-export function SectionHeaderDiagnostics({
+function SectionHeaderDiagnostics({
   sectionId,
   sectionTypeName,
 }: {
@@ -401,7 +397,7 @@ export function SectionHeaderDiagnostics({
   );
 }
 
-export function CodeDiagnosticsControls({ sectionId }: { sectionId: string }) {
+function CodeDiagnosticsControls({ sectionId }: { sectionId: string }) {
   const {
     codeSectionDiagnostics,
     codeDiagnosticsLabel,
@@ -438,7 +434,7 @@ export function CodeDiagnosticsControls({ sectionId }: { sectionId: string }) {
   );
 }
 
-export function DiagnosticsMuteButton({
+function DiagnosticsMuteButton({
   sectionId,
   codeDiagnosticsMuted,
 }: {
@@ -467,7 +463,7 @@ export function DiagnosticsMuteButton({
   );
 }
 
-export function useCodeDiagnosticsState(sectionId: string) {
+function useCodeDiagnosticsState(sectionId: string) {
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
     return diagnostics ?? [];
@@ -506,7 +502,7 @@ export function useCodeDiagnosticsState(sectionId: string) {
   };
 }
 
-export function SectionTypeControls({
+function SectionTypeControls({
   sectionId,
   sectionTypeName,
   isRoot,
@@ -559,7 +555,7 @@ export function SectionTypeControls({
   );
 }
 
-export function ChatFollowButton({
+function ChatFollowButton({
   projectConfigId,
   sectionId,
   sectionTypeName,
@@ -612,7 +608,7 @@ export function ChatFollowButton({
   );
 }
 
-export function SectionContainerControls({
+function SectionContainerControls({
   sectionId,
   showSectionContainerControls,
   isUserView,
@@ -649,7 +645,7 @@ export function SectionContainerControls({
   );
 }
 
-export function getCodeDiagnosticsLabel({
+function getCodeDiagnosticsLabel({
   codeDiagnosticsMuted,
   diagnosticsCount,
   suppressedCodesCount,
@@ -670,7 +666,7 @@ export function getCodeDiagnosticsLabel({
   return "Diagnostics";
 }
 
-export function getInlineSuppressionHint(
+function getInlineSuppressionHint(
   language: CodeLanguageEnum | null | undefined,
 ) {
   if (language === CodeLanguageEnum.python) {
@@ -679,7 +675,7 @@ export function getInlineSuppressionHint(
   return null;
 }
 
-export function getFollowButtonClassName(isFollowSelected: boolean) {
+function getFollowButtonClassName(isFollowSelected: boolean) {
   const baseClassName =
     "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition focus-visible:ring-2";
   if (isFollowSelected) {
@@ -688,7 +684,7 @@ export function getFollowButtonClassName(isFollowSelected: boolean) {
   return `${baseClassName} text-setta-500 hover:bg-blue-100 hover:text-blue-600 dark:text-setta-500 dark:hover:bg-blue-950/60 dark:hover:text-blue-300`;
 }
 
-export function DiagnosticsPopover({
+function DiagnosticsPopover({
   diagnostics,
   label,
   title,
@@ -837,7 +833,7 @@ export function DiagnosticsPopover({
   );
 }
 
-export function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
+function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
   let hasError = false;
   let hasWarning = false;
   for (const diagnostic of diagnostics) {
@@ -858,7 +854,7 @@ export function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
   return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-600/40 dark:bg-slate-700/30 dark:text-slate-200";
 }
 
-export function getSeverityMeta(severity: number | null | undefined) {
+function getSeverityMeta(severity: number | null | undefined) {
   if (severity === 1) {
     return {
       label: "Error",
@@ -887,7 +883,7 @@ export function getSeverityMeta(severity: number | null | undefined) {
   };
 }
 
-export function MaybeCardTitle({
+function MaybeCardTitle({
   sectionId,
   isInOtherProjectConfigs,
   sectionTypeName,

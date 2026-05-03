@@ -35,7 +35,7 @@ export function resolveRelativeAnchorSides(
   return { sourceSide: "left", targetSide: "right" };
 }
 
-export function getNodeCenterX(frame: GpuEdgeNodeFrame | null): number | null {
+function getNodeCenterX(frame: GpuEdgeNodeFrame | null): number | null {
   if (!frame || !frame.width) {
     return null;
   }

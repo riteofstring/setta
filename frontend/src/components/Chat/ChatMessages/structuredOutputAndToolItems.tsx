@@ -65,18 +65,18 @@ import { ToolCallAccordionStatus } from "./thoughtPreviewAndAssistantActivity";
 
 import { ToolCallRunState } from "./activityRowsAndBubbles";
 
-export type ResizeListenerTarget = Pick<
+type ResizeListenerTarget = Pick<
   Window,
   "addEventListener" | "removeEventListener"
 >;
 
-export type StructuredOutputResizeEdge = "top" | "bottom";
+type StructuredOutputResizeEdge = "top" | "bottom";
 
-export function clampValue(value: number, min: number, max: number): number {
+function clampValue(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-export function attachStructuredOutputResizeListeners({
+function attachStructuredOutputResizeListeners({
   target,
   onMove,
   onUp,
@@ -95,7 +95,7 @@ export function attachStructuredOutputResizeListeners({
   };
 }
 
-export function findNearestVerticalScrollContainer(
+function findNearestVerticalScrollContainer(
   element: HTMLElement,
 ): HTMLElement | null {
   const messageListScrollContainer = element.closest<HTMLElement>(
@@ -119,7 +119,7 @@ export function findNearestVerticalScrollContainer(
   return null;
 }
 
-export function resolveTopDeltaPerScrollPixel({
+function resolveTopDeltaPerScrollPixel({
   scrollContainer,
   probeElement,
 }: {
@@ -144,7 +144,7 @@ export function resolveTopDeltaPerScrollPixel({
   return 0;
 }
 
-export const StructuredOutputViewport = memo(function StructuredOutputViewport({
+const StructuredOutputViewport = memo(function StructuredOutputViewport({
   owner,
   part,
   children,
@@ -317,7 +317,7 @@ export const StructuredOutputViewport = memo(function StructuredOutputViewport({
   );
 });
 
-export const StructuredOutputBlock = memo(function StructuredOutputBlock({
+const StructuredOutputBlock = memo(function StructuredOutputBlock({
   payload,
   owner,
   part,
@@ -411,7 +411,7 @@ export const StructuredOutputBlock = memo(function StructuredOutputBlock({
   );
 });
 
-export type ActivityToolLikeMeta = {
+type ActivityToolLikeMeta = {
   itemAttr: Record<string, string>;
   triggerAttr: Record<string, string>;
   railAttr: Record<string, string>;
@@ -421,7 +421,7 @@ export type ActivityToolLikeMeta = {
   stateLabel: string;
 };
 
-export function resolveActivityToolLikeMeta(
+function resolveActivityToolLikeMeta(
   rowKind: ActivityToolLikeRowKind,
 ): ActivityToolLikeMeta {
   if (rowKind === "action") {
@@ -468,15 +468,13 @@ export function resolveActivityToolLikeMeta(
   };
 }
 
-export function resolveActivityDurationClassName(
-  runState: ToolCallRunState,
-): string {
+function resolveActivityDurationClassName(runState: ToolCallRunState): string {
   return runState === "failed" || runState === "stopped"
     ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
     : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
 }
 
-export function useActivityToolLikeAccordionState({
+function useActivityToolLikeAccordionState({
   defaultOpen,
   expandAllSignal,
   collapseAllSignal,

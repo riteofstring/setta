@@ -365,9 +365,7 @@ export function buildAgentProfileDraft(
   };
 }
 
-export function buildPromptTemplateDraft(
-  template: Template,
-): PromptTemplateDraft {
+function buildPromptTemplateDraft(template: Template): PromptTemplateDraft {
   return {
     name: template.name ?? "",
     description: template.description ?? "",
@@ -378,12 +376,12 @@ export function buildPromptTemplateDraft(
   };
 }
 
-export type JsonParseResult = {
+type JsonParseResult = {
   value: Record<string, unknown>;
   error: string | null;
 };
 
-export function parseJsonObject(value: string): JsonParseResult {
+function parseJsonObject(value: string): JsonParseResult {
   if (!value.trim()) {
     return { value: {}, error: null };
   }

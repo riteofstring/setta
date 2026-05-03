@@ -67,11 +67,25 @@ export function useGpuFlowEdgeLabelSources({
       transformOnlyPaintNodeIdsRef,
     ],
   );
+  const handleEdgeLabelDraw = useCallback(
+    (surfaceId: string) => {
+      textureManagerRef.current?.markSurfaceTextureDirty({
+        content: true,
+        reason: "content",
+        requestPaint: false,
+        surfaceId,
+      });
+      surfaceRef.current?.requestPaint();
+      surfaceRef.current?.requestFrame("manual");
+    },
+    [surfaceRef, textureManagerRef],
+  );
 
   return {
     edgeLabelSourceElement: (
       <GpuEdgeLabelSurfaceLayer
         labels={edgeLabels}
+        onLabelDraw={handleEdgeLabelDraw}
         onLabelElementChange={handleEdgeLabelElementChange}
       />
     ),

@@ -5,7 +5,7 @@ import {
 
 import { resolveHtmlSurfaceDirectPaintSourceRectHint } from "./paintSourceRectHints";
 
-export type HtmlSurfacePaintInvalidationInput = {
+type HtmlSurfacePaintInvalidationInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly sourceElementBySurfaceId: ReadonlyMap<string, HTMLElement>;
   readonly sourceIdAttribute: string;
@@ -17,18 +17,18 @@ export type HtmlSurfacePaintInvalidationInput = {
     | undefined;
 };
 
-export type HtmlSurfacePaintInvalidationResult = {
+type HtmlSurfacePaintInvalidationResult = {
   readonly dirtySurfaceInvalidations: readonly HtmlSurfacePaintSourceInvalidation[];
   readonly dirtySurfaceIds: readonly string[];
   readonly transformOnlyPaintSurfaceIds: readonly string[];
 };
 
-export type HtmlSurfacePaintSourceInvalidation = {
+type HtmlSurfacePaintSourceInvalidation = {
   readonly sourceRect?: HtmlSurfacePaintSourceRect | undefined;
   readonly surfaceId: string;
 };
 
-export type HtmlSurfacePaintSourceRect = HtmlSurfaceSourceRect;
+type HtmlSurfacePaintSourceRect = HtmlSurfaceSourceRect;
 
 type ChangedSourceResolution =
   | {

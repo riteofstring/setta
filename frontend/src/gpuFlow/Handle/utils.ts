@@ -11,6 +11,7 @@ import {
 } from "../ports/portGeometry";
 
 export type ConnectionHandle = {
+  isConnectableEnd?: boolean | undefined;
   sectionId: string;
   portId: string | null;
   type: HandleType | null;
@@ -45,7 +46,10 @@ type Result = {
   } | null;
 };
 
-type HandleRef = Pick<ConnectionHandle, "sectionId" | "portId" | "type">;
+type HandleRef = Pick<
+  ConnectionHandle,
+  "isConnectableEnd" | "portId" | "sectionId" | "type"
+>;
 
 type ConnectionStart = {
   sectionId: string;
@@ -165,6 +169,19 @@ function resolveHandleTarget({
   doc: Document | ShadowRoot;
   handle: HandleRef;
 }): ResolvedHandleTarget {
+  return (
+    resolveExplicitHandleTarget(handle) ??
+    resolveDomOrRegisteredHandleTarget({ doc, handle })
+  );
+}
+
+function resolveDomOrRegisteredHandleTarget({
+  doc,
+  handle,
+}: {
+  doc: Document | ShadowRoot;
+  handle: HandleRef;
+}): ResolvedHandleTarget {
   const handleToCheck = doc.querySelector(getHandleSelector(handle));
   if (handleToCheck) {
     return {
@@ -185,6 +202,15 @@ function resolveHandleTarget({
     !registeredElement ||
     !doc.contains(registeredElement)
   ) {
+    if (handle.isConnectableEnd !== undefined) {
+      return {
+        handleDomNode: null,
+        handleId: handle.portId,
+        handleSectionId: handle.sectionId,
+        handleType: handle.type,
+        isConnectableEnd: handle.isConnectableEnd,
+      };
+    }
     return {
       handleDomNode: null,
       handleId: null,
@@ -200,6 +226,21 @@ function resolveHandleTarget({
     handleSectionId: registeredHandle.nodeId,
     handleType: registeredHandle.type,
     isConnectableEnd: registeredHandle.isConnectableEnd ?? true,
+  };
+}
+
+function resolveExplicitHandleTarget(
+  handle: HandleRef,
+): ResolvedHandleTarget | null {
+  if (handle.isConnectableEnd === undefined) {
+    return null;
+  }
+  return {
+    handleDomNode: null,
+    handleId: handle.portId,
+    handleSectionId: handle.sectionId,
+    handleType: handle.type,
+    isConnectableEnd: handle.isConnectableEnd,
   };
 }
 
@@ -265,10 +306,6 @@ export function isValidHandle({
 }: HandleValidationArgs) {
   const resolvedHandle = resolveHandleTarget({ doc, handle });
   const result = getDefaultResult(resolvedHandle.handleDomNode);
-
-  if (!resolvedHandle.handleDomNode) {
-    return result;
-  }
 
   const { handleId, handleSectionId, handleType } = resolvedHandle;
   if (!handleSectionId || !handleType) {
@@ -454,10 +491,14 @@ function pickClosestHandle(
 }
 
 export function getClosestHandle(args: ClosestHandleArgs) {
-  return (
-    resolveHandleBelowPointer(args) ??
-    pickClosestHandle(collectClosestHandleMatches(args))
-  );
+  const pointerHit = shouldResolveHandleBelowPointer(args.handles)
+    ? resolveHandleBelowPointer(args)
+    : null;
+  return pointerHit ?? pickClosestHandle(collectClosestHandleMatches(args));
+}
+
+function shouldResolveHandleBelowPointer(handles: ConnectionHandle[]): boolean {
+  return !handles.every((handle) => handle.isConnectableEnd !== undefined);
 }
 
 function getPointerPosition(event: MouseEvent | TouchEvent) {

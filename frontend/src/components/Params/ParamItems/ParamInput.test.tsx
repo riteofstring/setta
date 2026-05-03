@@ -31,6 +31,7 @@ type CapturedParamUIProps = {
     >,
   ) => void;
   onRevealPassword?: () => void;
+  tooltipParentDivId?: string | null;
 };
 
 const mocks = vi.hoisted(() => ({
@@ -279,6 +280,20 @@ describe("ParamInput", () => {
           value: "next value",
         },
       });
+    } finally {
+      await cleanupRenderedParamInput(rendered);
+    }
+  });
+
+  it("passes the CodeMirror tooltip parent override to ParamUI", async () => {
+    const rendered = await renderParamInput({
+      tooltipParentDivId: "retained-codemirror-tooltips",
+    });
+
+    try {
+      expect(requireParamUIProps().tooltipParentDivId).toBe(
+        "retained-codemirror-tooltips",
+      );
     } finally {
       await cleanupRenderedParamInput(rendered);
     }

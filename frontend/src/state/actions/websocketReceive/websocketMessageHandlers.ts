@@ -86,7 +86,7 @@ import {
   sendMessageForGeneration,
 } from "./realtimeBinaryUpload";
 
-export function createWebsocketMessageHandler<T>(
+function createWebsocketMessageHandler<T>(
   handler: (content: T, socketGeneration: number) => void,
 ): WebsocketMessageHandler {
   return (content, socketGeneration) => {
@@ -94,7 +94,7 @@ export function createWebsocketMessageHandler<T>(
   };
 }
 
-export const websocketMessageHandlers = {
+const websocketMessageHandlers = {
   [WebsocketMessageTypeEnum.FrontendIdentity]:
     createWebsocketMessageHandler<FrontendIdentityContent>(
       (content, socketGeneration) => {
@@ -379,13 +379,13 @@ function countArrayItems(value: unknown): number | null {
   return Array.isArray(value) ? value.length : null;
 }
 
-export function enqueueUISettingRevealMessage(
+function enqueueUISettingRevealMessage(
   message: PendingUISettingRevealMessage,
 ): void {
   void handleUISettingRevealMessage(message.content, message.socketGeneration);
 }
 
-export async function handleUISettingRevealMessage(
+async function handleUISettingRevealMessage(
   content: unknown,
   socketGeneration: number,
 ): Promise<void> {
@@ -451,7 +451,7 @@ export async function handleUISettingRevealMessage(
   });
 }
 
-export function sendUISettingRevealResult({
+function sendUISettingRevealResult({
   projectConfigId,
   requestId,
   statuses,
@@ -474,7 +474,7 @@ export function sendUISettingRevealResult({
   sendMessageForGeneration(revealResultMessage, socketGeneration);
 }
 
-export function resolveRevealProjectConfigId(
+function resolveRevealProjectConfigId(
   content: unknown,
   fallbackProjectConfigId: string,
 ): string {
@@ -496,7 +496,7 @@ export function resolveRevealProjectConfigId(
   return fallbackNormalizedId;
 }
 
-export function resolveRevealRequestId(content: unknown): string {
+function resolveRevealRequestId(content: unknown): string {
   if (isRecord(content)) {
     const candidateRequestId = content.requestId;
     if (
@@ -509,7 +509,7 @@ export function resolveRevealRequestId(content: unknown): string {
   return createNewId();
 }
 
-export function buildMalformedRevealStatuses(
+function buildMalformedRevealStatuses(
   content: unknown,
   errorMessage: string,
 ): UISettingRevealResultStatus[] {
@@ -522,7 +522,7 @@ export function buildMalformedRevealStatuses(
   }));
 }
 
-export function extractRevealSettingIds(content: unknown): string[] {
+function extractRevealSettingIds(content: unknown): string[] {
   if (!isRecord(content)) {
     return [];
   }
@@ -545,7 +545,7 @@ export function extractRevealSettingIds(content: unknown): string[] {
   return ids;
 }
 
-export function resolveAckContextMismatchStatuses({
+function resolveAckContextMismatchStatuses({
   content,
   executionContext,
 }: {

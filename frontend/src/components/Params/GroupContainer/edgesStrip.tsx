@@ -1,41 +1,23 @@
 import _ from "lodash";
 
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 
-import {
-  useMisc,
-  useProjectState,
-  useSettings,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { useMisc, useProjectState, useSettings } from "state/definitions";
 
 import { useIsScrollable } from "state/hooks/sectionSizes";
 
 import { useShareCapabilities } from "state/hooks/share";
 
 import {
-  getEdgesStripHeightKey,
-  getPinnedParamsAreaHeightKey,
-  getUnpinnedParamsAreaHeightKey,
-} from "utils/constants";
-
-import {
   isBaseSectionWithParamsImpl,
-  SectionTypeEnum,
+  type SectionType,
 } from "utils/generatedTypes";
-
-import { resolveEdgeStripHeight } from "../edgeStripUtils";
 
 import { ParamDndList } from "../ParamDndList";
 
+import { useHasSectionStyleTheme } from "../sectionStyleTheme";
 import {
   EdgeInputPortRow,
   EdgeOutputPortRow,
@@ -46,23 +28,21 @@ import {
   selectEdgeStripState,
   selectUnpinnedParamsState,
   shouldApplyUnpinnedAreaMinHeight,
-  useHasSectionStyleTheme,
-  useMeasuredParamAreaMinHeight,
 } from "./groupContainer";
 
 export function EdgesStrip({
   sectionId,
   bgColor,
+  renderInteractiveInputHandles = true,
+  renderInteractiveOutputHandles = true,
 }: {
   sectionId: string;
   bgColor: string;
+  renderInteractiveInputHandles?: boolean;
+  renderInteractiveOutputHandles?: boolean;
 }) {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const lastHeightRef = useRef(0);
-  const stripRef = useRef<HTMLElement | null>(null);
-  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
-  const heightKey = getEdgesStripHeightKey(sectionId);
   const {
     inputPorts,
     outputPorts,
@@ -87,77 +67,6 @@ export function EdgesStrip({
     positionAndSizeLocked,
   });
 
-  useLayoutEffect(() => {
-    if (!hasEdges) {
-      setMeasuredHeight(null);
-      return;
-    }
-    const element = stripRef.current;
-    if (!element) {
-      setMeasuredHeight(null);
-      return;
-    }
-    let frameId = 0;
-
-    const updateMeasuredHeight = () => {
-      const nextHeight = Math.ceil(element.scrollHeight);
-      setMeasuredHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    };
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredHeight);
-    };
-
-    const resizeObserver = new ResizeObserver(scheduleMeasure);
-    resizeObserver.observe(element);
-    scheduleMeasure();
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      resizeObserver.disconnect();
-    };
-  }, [hasEdges, inputPorts.length, outputPorts.length]);
-
-  useEffect(() => {
-    if (!hasEdges) {
-      if (lastHeightRef.current !== 0) {
-        lastHeightRef.current = 0;
-        useTemporaryMiscState.setState({ [heightKey]: 0 });
-      }
-      return;
-    }
-    const nextHeight = resolveEdgeStripHeight({
-      measuredHeight,
-      inputPortCount: inputPorts.length,
-      outputPortCount: outputPorts.length,
-    });
-    if (nextHeight === lastHeightRef.current) {
-      return;
-    }
-    lastHeightRef.current = nextHeight;
-    useTemporaryMiscState.setState({ [heightKey]: nextHeight });
-  }, [
-    hasEdges,
-    heightKey,
-    inputPorts.length,
-    measuredHeight,
-    outputPorts.length,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      if (lastHeightRef.current !== 0) {
-        lastHeightRef.current = 0;
-        useTemporaryMiscState.setState({ [heightKey]: 0 });
-      }
-    };
-  }, [heightKey]);
-
   if (!hasEdges) {
     return null;
   }
@@ -165,7 +74,6 @@ export function EdgesStrip({
   return (
     <section
       className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName}`}
-      ref={stripRef}
       data-params-fixed="true"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
@@ -185,6 +93,7 @@ export function EdgesStrip({
                 isSelectingParams={isSelectingParams}
                 canConnect={canConnect}
                 appearance={appearance}
+                renderInteractiveHandle={renderInteractiveInputHandles}
               />
             ))}
           </div>
@@ -208,6 +117,7 @@ export function EdgesStrip({
                 port={port}
                 canConnect={canConnect}
                 appearance={appearance}
+                renderInteractiveHandle={renderInteractiveOutputHandles}
               />
             ))}
           </div>
@@ -217,41 +127,42 @@ export function EdgesStrip({
   );
 }
 
-export type MaxNestedDepth = {
+type MaxNestedDepth = {
   pinned: number;
   unpinned: number;
 };
 
-export type GetPinnedParamsProps = {
+type GetPinnedParamsProps = {
   sectionId: string;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  renderParamRows: boolean;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
-  sectionTypeName: SectionTypeEnum;
+  sectionTypeName: SectionType;
 };
 
-export type PinnedParamsAreaProps = {
+type PinnedParamsAreaProps = {
   sectionId: string;
   topLevelParamIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   hasSectionStyleTheme: boolean;
+  renderParamRows: boolean;
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
-  sectionTypeName: SectionTypeEnum;
-  contentRef: React.RefObject<HTMLDivElement>;
-  headerRef: React.RefObject<HTMLElement>;
-  rowsRef: React.RefObject<HTMLDivElement>;
+  sectionTypeName: SectionType;
 };
 
-export type GetUnpinnedParamsProps = {
+type GetUnpinnedParamsProps = {
   sectionId: string;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  renderParamRows: boolean;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
 };
 
 export function GetPinnedParams({
   sectionId,
   handleColumnResizeStart,
+  renderParamRows,
   setMaxNestedDepth,
   sectionTypeName,
 }: GetPinnedParamsProps) {
@@ -283,23 +194,9 @@ export function GetPinnedParams({
   const hasSectionStyleTheme = useHasSectionStyleTheme(sectionId, styleColor);
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const headerRef = useRef<HTMLElement | null>(null);
-  const rowsRef = useRef<HTMLDivElement | null>(null);
-  const heightKey = getPinnedParamsAreaHeightKey(sectionId);
-
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
   }, [maxNestedDepth]);
-
-  useMeasuredParamAreaMinHeight({
-    sectionId,
-    heightKey,
-    paramIds: topLevelParamIds,
-    contentRef,
-    headerRef,
-    rowsRef,
-  });
 
   return (
     topLevelParamIds.length > 0 && (
@@ -309,29 +206,25 @@ export function GetPinnedParams({
         requiredParamIdsToPaths={requiredParamIdsToPaths}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        renderParamRows={renderParamRows}
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
-        contentRef={contentRef}
-        headerRef={headerRef}
-        rowsRef={rowsRef}
       />
     )
   );
 }
 
-export function PinnedParamsArea({
+function PinnedParamsArea({
   sectionId,
   topLevelParamIds,
   requiredParamIdsToPaths,
   handleColumnResizeStart,
   hasSectionStyleTheme,
+  renderParamRows,
   shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
-  contentRef,
-  headerRef,
-  rowsRef,
 }: PinnedParamsAreaProps) {
   const pinnedBgClassName = hasSectionStyleTheme
     ? "bg-[color:var(--setta-section-style-panel-bg)]"
@@ -357,11 +250,8 @@ export function PinnedParamsArea({
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
     >
-      <div
-        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
-        ref={contentRef}
-      >
-        <header className="flex w-full gap-1 px-2" ref={headerRef}>
+      <div className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2">
+        <header className="flex w-full gap-1 px-2">
           <i
             className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
           />
@@ -372,20 +262,19 @@ export function PinnedParamsArea({
           </p>
         </header>
 
-        <div
-          className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
-          ref={rowsRef}
-        >
-          <ParamDndList
-            sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
-            onResizeStart={handleColumnResizeStart}
-            isTopLevel={true}
-            listKey="pinned"
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        </div>
+        {renderParamRows && (
+          <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5">
+            <ParamDndList
+              sectionId={sectionId}
+              paramIds={topLevelParamIds}
+              requiredParamIdsToPaths={requiredParamIdsToPaths}
+              onResizeStart={handleColumnResizeStart}
+              isTopLevel={true}
+              listKey="pinned"
+              hasSectionStyleTheme={hasSectionStyleTheme}
+            />
+          </div>
+        )}
       </div>
     </section>
   );
@@ -394,6 +283,7 @@ export function PinnedParamsArea({
 export function GetUnpinnedParams({
   sectionId,
   handleColumnResizeStart,
+  renderParamRows,
   setMaxNestedDepth,
 }: GetUnpinnedParamsProps) {
   const {
@@ -411,7 +301,6 @@ export function GetUnpinnedParams({
 
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
-  const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const resolvedMinHeight = resolveUnpinnedParamsAreaMinHeight(
     sizingPolicy,
     hasPinnedParams,
@@ -438,26 +327,20 @@ export function GetUnpinnedParams({
     setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
   }, [maxNestedDepth]);
 
-  useMeasuredParamAreaMinHeight({
-    sectionId,
-    heightKey,
-    paramIds: hideUnpinnedParams ? [] : topLevelParamIds,
-    contentRef: containerRef,
-    rowsRef: containerRef,
-  });
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
-        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
-          isScrollable ? "nowheel" : ""
-        }`}
+        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip py-2 pr-1.5 ${
+          renderParamRows ? "overflow-y-scroll" : "overflow-hidden"
+        } ${renderParamRows && isScrollable ? "nowheel" : ""}`}
         ref={setContainerRef}
         style={
-          shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
+          shouldApplyMinHeight && renderParamRows
+            ? { minHeight: resolvedMinHeight }
+            : undefined
         }
       >
-        {!hideUnpinnedParams && (
+        {!hideUnpinnedParams && renderParamRows && (
           <ParamDndList
             sectionId={sectionId}
             paramIds={topLevelParamIds}
@@ -473,7 +356,7 @@ export function GetUnpinnedParams({
   );
 }
 
-export function getLongestListLength(obj: Record<string, Array<string>>) {
+function getLongestListLength(obj: Record<string, Array<string>>) {
   return Object.values(obj).reduce(
     (max, arr) => (arr.length > max ? arr.length : max),
     0,

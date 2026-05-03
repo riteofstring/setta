@@ -2,8 +2,6 @@ export type {
   GpuEdgePaletteInput,
   GpuGridInput,
   HtmlSurfaceRenderRuntime,
-  RenderHtmlSurfaceSceneBaseInput,
-  RenderHtmlSurfaceSceneResult,
 } from "./gpuPipelines/pipelineTypes";
 
 export {

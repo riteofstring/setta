@@ -39,7 +39,6 @@ import type {
 } from "utils/generatedTypes";
 import {
   BinaryDependencyValue,
-  ButtonActionModeEnum,
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
@@ -48,7 +47,6 @@ import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
-  HTTPRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
   TimeControlModeEnum,
@@ -57,16 +55,11 @@ import {
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
-import { sendButtonSettaRequest } from "./settaApiAction";
-type ButtonRequestConfig = Pick<
-  ButtonParamCodeObjImpl,
-  | "actionMode"
-  | "requestMethod"
-  | "requestUrl"
-  | "requestHeaderKey"
-  | "requestHeaderValue"
-  | "requestBody"
->;
+import {
+  buildButtonRequestConfig,
+  triggerButtonParamAction,
+  type ButtonRequestConfig,
+} from "./buttonParamAction";
 type ProjectStateSnapshot = Parameters<typeof getSectionCore>[0];
 type MetaControlSharedState = {
   sectionName: string;
@@ -197,19 +190,6 @@ function buildButtonMetaControlState(
     ...sharedState,
     codeObjType: CodeObjTypeEnum.ButtonParam,
     buttonConfig: buildButtonRequestConfig(buttonImpl),
-  };
-}
-
-function buildButtonRequestConfig(
-  buttonImpl: ButtonParamCodeObjImpl,
-): ButtonRequestConfig {
-  return {
-    actionMode: buttonImpl.actionMode,
-    requestMethod: buttonImpl.requestMethod,
-    requestUrl: buttonImpl.requestUrl,
-    requestHeaderKey: buttonImpl.requestHeaderKey,
-    requestHeaderValue: buttonImpl.requestHeaderValue,
-    requestBody: buttonImpl.requestBody,
   };
 }
 
@@ -370,44 +350,15 @@ function ButtonMetaControlContent({
       paramDisplayName={state.paramDisplayName}
       codeObjType={state.codeObjType}
       onAction={() =>
-        handleMetaControlButtonAction(
-          state.buttonConfig,
+        triggerButtonParamAction({
+          buttonConfig: state.buttonConfig,
           sectionId,
           controlParamId,
-        )
+        })
       }
       showSectionTitle={showSectionTitle}
     />
   );
-}
-
-function handleMetaControlButtonAction(
-  buttonConfig: ButtonRequestConfig,
-  sectionId: string,
-  controlParamId: string,
-) {
-  if (buttonConfig.actionMode === ButtonActionModeEnum.HTTP_REQUEST) {
-    sendButtonHttpRequest(buttonConfig);
-    return;
-  }
-  if (buttonConfig.actionMode === ButtonActionModeEnum.SETTA_API) {
-    sendButtonSettaRequest(buttonConfig);
-    return;
-  }
-  const payload: LiteralDependencyValue = {
-    payload: JSON.stringify({
-      actionMode: buttonConfig.actionMode,
-      controlParamId,
-    }),
-    type: DependencyValueTypeEnum.Literal,
-  };
-  sendRealtimeDependencyEvent({
-    dependencyKey: {
-      type: DependencyKeyTypeEnum.Section,
-      sectionId,
-    },
-    payload,
-  });
 }
 
 function ValueMetaControlContent({
@@ -829,30 +780,4 @@ function isButtonParamCodeObjImpl(
   impl: BaseCodeObjImplUnion,
 ): impl is ButtonParamCodeObjImpl {
   return impl.type === CodeObjTypeEnum.ButtonParam;
-}
-function sendButtonHttpRequest(config: ButtonRequestConfig) {
-  const requestUrl = config.requestUrl.trim();
-  if (requestUrl === "") {
-    return;
-  }
-  const method = config.requestMethod ?? HTTPRequestMethodEnum.POST;
-  const headerKey = config.requestHeaderKey.trim();
-  let headers: HeadersInit | undefined;
-  if (headerKey !== "") {
-    headers = { [headerKey]: config.requestHeaderValue };
-  }
-  const trimmedBody = config.requestBody.trim();
-  let body: string | undefined;
-  if (
-    trimmedBody !== "" &&
-    method !== HTTPRequestMethodEnum.GET &&
-    method !== HTTPRequestMethodEnum.HEAD
-  ) {
-    body = config.requestBody;
-  }
-  void fetch(requestUrl, {
-    method,
-    headers,
-    body,
-  });
 }

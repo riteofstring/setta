@@ -67,6 +67,7 @@ describe("isValidHandle", () => {
   afterEach(() => {
     document.body.innerHTML = "";
     useGpuFlowPortRegistry.getState().reset();
+    vi.restoreAllMocks();
     mockElementsFromPoint([]);
   });
 
@@ -200,12 +201,57 @@ describe("isValidHandle", () => {
     expect(result.isValid).toBe(false);
     expect(isValidConnection).not.toHaveBeenCalled();
   });
+
+  it("validates explicit scene handles without querying DOM handles", () => {
+    appendHandleElement({
+      sectionId: "section-b",
+      handleId: "input-port",
+      type: "target",
+      extraClasses: ["connectable", "connectableend"],
+    });
+    const querySelector = vi.spyOn(document, "querySelector");
+    const isValidConnection = vi.fn(() => true);
+
+    const result = isValidHandle({
+      handle: {
+        isConnectableEnd: true,
+        sectionId: "section-b",
+        portId: "input-port",
+        type: "target",
+      },
+      connectionMode: ConnectionMode.Strict,
+      from: {
+        sectionId: "section-a",
+        handleId: "output-port",
+        type: "source",
+      },
+      isValidConnection,
+      doc: document,
+    });
+
+    expect(querySelector).not.toHaveBeenCalled();
+    expect(result.handleDomNode).toBeNull();
+    expect(result.connection).toEqual({
+      source: "section-a",
+      sourceHandle: "output-port",
+      target: "section-b",
+      targetHandle: "input-port",
+    });
+    expect(result.endHandle).toEqual({
+      sectionId: "section-b",
+      handleId: "input-port",
+      type: "target",
+    });
+    expect(result.isValid).toBe(true);
+    expect(isValidConnection).toHaveBeenCalledWith(result.connection);
+  });
 });
 
 describe("getClosestHandle", () => {
   afterEach(() => {
     document.body.innerHTML = "";
     useGpuFlowPortRegistry.getState().reset();
+    vi.restoreAllMocks();
     mockElementsFromPoint([]);
   });
 
@@ -280,5 +326,41 @@ describe("getClosestHandle", () => {
 
     expect(result.handle).toEqual(handles[1]);
     expect(result.validHandleResult.isValid).toBe(true);
+  });
+
+  it("skips pointer DOM lookup for explicit scene handle candidates", () => {
+    const handleElement = appendHandleElement({
+      sectionId: "section-b",
+      handleId: "target-port",
+      type: "target",
+    });
+    mockElementsFromPoint([handleElement]);
+
+    const handles: ConnectionHandle[] = [
+      {
+        isConnectableEnd: true,
+        sectionId: "section-b",
+        portId: "target-port",
+        type: "target",
+        x: 40,
+        y: 40,
+      },
+    ];
+    const validator = vi.fn(() => createConnectionResult(true));
+
+    const result = getClosestHandle({
+      event: new MouseEvent("mousemove", { clientX: 10, clientY: 20 }),
+      doc: document,
+      pos: { x: 40, y: 40 },
+      connectionRadius: 1,
+      handles,
+      allowHandle: null,
+      validator,
+    });
+
+    expect(document.elementsFromPoint).not.toHaveBeenCalled();
+    expect(result.handle).toEqual(handles[0]);
+    expect(result.validHandleResult.isValid).toBe(true);
+    expect(validator).toHaveBeenCalledWith(handles[0]);
   });
 });

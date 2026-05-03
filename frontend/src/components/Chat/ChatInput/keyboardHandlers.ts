@@ -27,7 +27,7 @@ export function focusComposerTextareaAtEnd(
   });
 }
 
-export function dispatchComposerSubmitFromTextarea(
+function dispatchComposerSubmitFromTextarea(
   textarea: HTMLTextAreaElement,
 ): void {
   const formEvent = new Event("submit", {
@@ -37,7 +37,7 @@ export function dispatchComposerSubmitFromTextarea(
   textarea.form?.dispatchEvent(formEvent);
 }
 
-export function handleSlashSuggestionsKeyDown(args: {
+function handleSlashSuggestionsKeyDown(args: {
   activeSlashIndex: number;
   applySlashSuggestion: (index: number) => void;
   event: KeyboardEvent<HTMLTextAreaElement>;
@@ -89,7 +89,7 @@ export function handleSlashSuggestionsKeyDown(args: {
   return true;
 }
 
-export function handleEscapeComposerKeyDown(args: {
+function handleEscapeComposerKeyDown(args: {
   attachments: ChatFileAttachment[];
   clearComposerByEscape: () => boolean;
   event: KeyboardEvent<HTMLTextAreaElement>;
@@ -145,7 +145,7 @@ export function handleEscapeComposerKeyDown(args: {
   return true;
 }
 
-export function handleRestoreClearedDraftShortcut(args: {
+function handleRestoreClearedDraftShortcut(args: {
   attachments: ChatFileAttachment[];
   event: KeyboardEvent<HTMLTextAreaElement>;
   inputValue: string;
@@ -175,7 +175,7 @@ export function handleRestoreClearedDraftShortcut(args: {
   return true;
 }
 
-export function handleQueueDraftShortcut(args: {
+function handleQueueDraftShortcut(args: {
   attachments: ChatFileAttachment[];
   enqueueDraft: (args: {
     message: string;
@@ -216,7 +216,7 @@ export function handleQueueDraftShortcut(args: {
   return true;
 }
 
-export function handleQueuedDraftSelectionKeyDown(args: {
+function handleQueuedDraftSelectionKeyDown(args: {
   event: KeyboardEvent<HTMLTextAreaElement>;
   hasComposerDraft: boolean;
   queuedDrafts: QueuedChatDraft[];
@@ -262,7 +262,7 @@ export function handleQueuedDraftSelectionKeyDown(args: {
   return true;
 }
 
-export function canCycleSubmittedHistorySelection(args: {
+function canCycleSubmittedHistorySelection(args: {
   hasComposerDraft: boolean;
   queuedDrafts: QueuedChatDraft[];
   shouldShowSlashSuggestions: boolean;
@@ -284,7 +284,7 @@ export function canCycleSubmittedHistorySelection(args: {
   );
 }
 
-export function applySubmittedHistorySelectionFromKey(args: {
+function applySubmittedHistorySelectionFromKey(args: {
   event: KeyboardEvent<HTMLTextAreaElement>;
   inputValue: string;
   restoreDraftFromSubmittedHistorySelection: () => void;
@@ -336,7 +336,7 @@ export function applySubmittedHistorySelectionFromKey(args: {
   return true;
 }
 
-export function handleSubmittedHistoryKeyDown(args: {
+function handleSubmittedHistoryKeyDown(args: {
   event: KeyboardEvent<HTMLTextAreaElement>;
   hasComposerDraft: boolean;
   inputValue: string;
@@ -395,7 +395,7 @@ export function handleSubmittedHistoryKeyDown(args: {
   });
 }
 
-export function handleSubmitEnterKeyDown(args: {
+function handleSubmitEnterKeyDown(args: {
   event: KeyboardEvent<HTMLTextAreaElement>;
   isSubmitDisabled: boolean;
 }): boolean {

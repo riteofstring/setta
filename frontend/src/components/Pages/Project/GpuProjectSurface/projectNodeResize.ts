@@ -1,23 +1,30 @@
-import { useDndState } from "forks/dnd-kit/dndState";
 import type {
   GpuNodeResizeChange,
   GpuNodeResizePolicy,
   GpuNodeResizePolicyInput,
 } from "gpuFlow/interactions/nodeResize";
+import type {
+  GpuFlowLayoutChangePhase,
+  GpuFlowLayoutNode,
+  GpuFlowLayoutStoreApi,
+} from "gpuFlow/layoutStore";
+import {
+  getGpuFlowSceneDomSectionNodes,
+  type GpuFlowScene,
+  type GpuSectionSceneNode,
+  type GpuSectionSceneResizePolicy,
+} from "gpuFlow/scene";
+import { resolveGpuSectionSceneResizePreviewSections } from "gpuFlow/sceneResize";
 import { cancelViewportTransition } from "gpuFlow/viewportActions";
+import type { GpuRect } from "gpuFlow/viewportMath";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { useMemo, useRef, type MutableRefObject } from "react";
 import { updateNodeDimensionsFromGpuResize } from "state/actions/nodeInternals";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import {
-  toTopLevelSectionInnerDimension,
-  toTopLevelSectionOuterDimension,
-} from "state/actions/sectionInfos/topLevelSectionNode";
+import { toTopLevelSectionInnerDimension } from "state/actions/sectionInfos/topLevelSectionNode";
 import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos/viewportUpdates";
 import {
   clampChangedSize,
-  getResizableEnable,
-  getResizeAxisAvailability,
   getResizeHandleClickState,
   isResizeDoubleClick,
   resolveResizableGrid,
@@ -44,7 +51,7 @@ import { getSectionMinMaxDims } from "state/hooks/sectionSizes";
 import type { SectionSize } from "utils/generatedTypes";
 import type { ProjectFlowInteractionKeys } from "./projectGpuSurface";
 
-export type ProjectNodeResizeSession = {
+type ProjectNodeResizeSession = {
   autoSizePromoted: boolean;
   doubleClickPending: boolean;
   resizeAttempted: boolean;
@@ -57,7 +64,7 @@ export type ProjectNodeResizeSession = {
   };
 };
 
-export type ProjectNodeResizeOptions = {
+type ProjectNodeResizeOptions = {
   readonly disabled: () => boolean;
   readonly getResizePolicy: (
     input: GpuNodeResizePolicyInput,
@@ -72,6 +79,8 @@ type ProjectNodeResizeOptionsInput = {
   canEditLayout: boolean;
   flowInteractionKeys: ProjectFlowInteractionKeys;
   isFollowTransitioning: boolean;
+  layoutStore?: GpuFlowLayoutStoreApi | undefined;
+  scene?: GpuFlowScene | undefined;
 };
 
 const EMPTY_PROJECT_NODE_RESIZE_SESSION: ProjectNodeResizeSession = {
@@ -100,6 +109,8 @@ export function useProjectNodeResizeOptions({
   canEditLayout,
   flowInteractionKeys,
   isFollowTransitioning,
+  layoutStore,
+  scene,
 }: ProjectNodeResizeOptionsInput) {
   const sessionRef = useRef<ProjectNodeResizeSession>(
     createProjectNodeResizeSession(),
@@ -110,9 +121,17 @@ export function useProjectNodeResizeOptions({
         canEditLayout,
         flowInteractionKeys,
         isFollowTransitioning,
+        layoutStore,
+        scene,
         sessionRef,
       }),
-    [canEditLayout, flowInteractionKeys, isFollowTransitioning],
+    [
+      canEditLayout,
+      flowInteractionKeys,
+      isFollowTransitioning,
+      layoutStore,
+      scene,
+    ],
   );
 }
 
@@ -120,6 +139,8 @@ export function createProjectNodeResizeOptions({
   canEditLayout,
   flowInteractionKeys,
   isFollowTransitioning,
+  layoutStore,
+  scene,
   sessionRef,
 }: ProjectNodeResizeOptionsInput & {
   sessionRef: MutableRefObject<ProjectNodeResizeSession>;
@@ -132,19 +153,159 @@ export function createProjectNodeResizeOptions({
       }),
     getResizePolicy: (input: GpuNodeResizePolicyInput) =>
       getProjectNodeResizePolicy(input, { canEditLayout }),
-    onNodeResize: () => {
+    onNodeResize: (change: GpuNodeResizeChange) => {
       sessionRef.current.resizeAttempted = true;
       sessionRef.current.doubleClickPending = false;
+      patchProjectNodeResizeSceneLayout({
+        change,
+        layoutStore,
+        phase: "change",
+        scene,
+      });
     },
     onNodeResizeCancel: (change: GpuNodeResizeChange) => {
       cancelProjectNodeResize(change, sessionRef);
+      restoreProjectNodeResizeSceneLayout({
+        layoutStore,
+        phase: "cancel",
+        scene,
+      });
     },
     onNodeResizeStart: (change: GpuNodeResizeChange) => {
       startProjectNodeResize(change, sessionRef);
+      patchProjectNodeResizeSceneLayout({
+        change,
+        layoutStore,
+        phase: "start",
+        scene,
+      });
     },
     onNodeResizeStop: (change: GpuNodeResizeChange) => {
+      patchProjectNodeResizeSceneLayout({
+        change,
+        layoutStore,
+        phase: "commit",
+        scene,
+      });
       stopProjectNodeResize(change, sessionRef);
     },
+  };
+}
+
+function patchProjectNodeResizeSceneLayout({
+  change,
+  layoutStore,
+  phase,
+  scene,
+}: {
+  readonly change: GpuNodeResizeChange;
+  readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
+  readonly phase: GpuFlowLayoutChangePhase;
+  readonly scene?: GpuFlowScene | undefined;
+}): boolean {
+  if (!layoutStore || !scene) {
+    return false;
+  }
+  return replaceProjectNodeResizeSceneLayoutStore({
+    layoutStore,
+    phase,
+    sections: resolveGpuSectionSceneResizePreviewSections({
+      resizedWorldRect: getProjectNodeResizeChangeRect(change),
+      scene,
+      sectionId: change.nodeId,
+    }),
+  });
+}
+
+function restoreProjectNodeResizeSceneLayout({
+  layoutStore,
+  phase,
+  scene,
+}: {
+  readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
+  readonly phase: GpuFlowLayoutChangePhase;
+  readonly scene?: GpuFlowScene | undefined;
+}): boolean {
+  if (!layoutStore || !scene) {
+    return false;
+  }
+  return replaceProjectNodeResizeSceneLayoutStore({
+    layoutStore,
+    phase,
+    sections: scene.sections,
+  });
+}
+
+function replaceProjectNodeResizeSceneLayoutStore({
+  layoutStore,
+  phase,
+  sections,
+}: {
+  readonly layoutStore: GpuFlowLayoutStoreApi;
+  readonly phase: GpuFlowLayoutChangePhase;
+  readonly sections: readonly GpuSectionSceneNode[];
+}): boolean {
+  const state = layoutStore.getState();
+  const currentNodeById = new Map(
+    state.getNodes().map((node) => [node.nodeId, node]),
+  );
+  const nextNodes = getGpuFlowSceneDomSectionNodes({
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 0,
+    sections,
+  }).map((node) =>
+    preserveProjectNodeResizeLayoutNodeMetadata(
+      node,
+      currentNodeById.get(node.nodeId),
+    ),
+  );
+  state.replaceNodes(nextNodes, {
+    phase,
+    reason: "resize",
+  });
+  return true;
+}
+
+function preserveProjectNodeResizeLayoutNodeMetadata(
+  node: GpuFlowLayoutNode,
+  currentNode: GpuFlowLayoutNode | undefined,
+): GpuFlowLayoutNode {
+  if (!currentNode) {
+    return node;
+  }
+  return {
+    ...node,
+    ...(currentNode.interactionFlags !== undefined
+      ? { interactionFlags: currentNode.interactionFlags }
+      : {}),
+    ...(currentNode.sourceElement !== undefined
+      ? { sourceElement: currentNode.sourceElement }
+      : {}),
+    ...(currentNode.sourceLocalBounds !== undefined
+      ? { sourceLocalBounds: currentNode.sourceLocalBounds }
+      : {}),
+    ...(currentNode.textureInvalidation !== undefined
+      ? { textureInvalidation: currentNode.textureInvalidation }
+      : {}),
+  };
+}
+
+function getProjectNodeResizeChangeRect(change: GpuNodeResizeChange): GpuRect {
+  return {
+    height: getNumericProjectResizeDimension(
+      change.layout.height,
+      change.nodeId,
+      "height",
+    ),
+    width: getNumericProjectResizeDimension(
+      change.layout.width,
+      change.nodeId,
+      "width",
+    ),
+    x: change.layout.x,
+    y: change.layout.y,
   };
 }
 
@@ -155,27 +316,8 @@ export function getProjectNodeResizePolicy(
   if (!canEditLayout) {
     return false;
   }
-  const projectState = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(projectState, input.nodeId);
-  const dimensions = getSectionMinMaxDims(input.nodeId);
-  const { heightResizable, widthResizable } = getResizeAxisAvailability({
-    maxHeight: dimensions.maxHeight,
-    maxWidth: dimensions.maxWidth,
-    minHeight: dimensions.minHeight,
-    minWidth: dimensions.minWidth,
-    sizeMode: dimensions.sizeMode,
-  });
-  const enable = getResizableEnable({
-    disablePointerEvents: false,
-    positionAndSizeLocked: impl.positionAndSizeLocked,
-    heightResizable,
-    widthResizable,
-  });
-  if (!enable) {
-    return false;
-  }
-  const directions = getEnabledResizeDirections(enable);
-  if (!directions.includes(input.direction)) {
+  const scenePolicy = getProjectNodeSceneResizePolicy(input.node, input.nodeId);
+  if (scenePolicy.locked || !scenePolicy.directions.includes(input.direction)) {
     return false;
   }
   const snapGrid = resolveResizableGrid({
@@ -183,33 +325,32 @@ export function getProjectNodeResizePolicy(
     snapToGrid: useLocalStorage.getState().snapToGrid,
   });
   return {
-    aspectRatio: !impl.isMinimized && Boolean(impl.aspectRatio),
-    aspectRatioExtraHeight: impl.aspectRatioExtraHeight ?? 0,
-    aspectRatioExtraWidth: impl.aspectRatioExtraWidth ?? 0,
-    directions,
+    aspectRatio: scenePolicy.aspectRatio,
+    aspectRatioExtraHeight: scenePolicy.aspectRatioExtraHeight,
+    aspectRatioExtraWidth: scenePolicy.aspectRatioExtraWidth,
+    directions: scenePolicy.directions,
     enabled: true,
-    maxHeight: toTopLevelSectionOuterDimension(dimensions.maxHeight),
-    maxWidth: toTopLevelSectionOuterDimension(dimensions.maxWidth),
-    minHeight: toTopLevelSectionOuterDimension(dimensions.minHeight),
-    minWidth: toTopLevelSectionOuterDimension(dimensions.minWidth),
+    maxHeight: scenePolicy.maxHeight,
+    maxWidth: scenePolicy.maxWidth,
+    minHeight: scenePolicy.minHeight,
+    minWidth: scenePolicy.minWidth,
     ...(snapGrid ? { snapGrid, snapToGrid: true } : { snapToGrid: false }),
   };
 }
 
-function getEnabledResizeDirections(
-  enable: Exclude<ReturnType<typeof getResizableEnable>, false>,
-) {
-  const directions: Array<"right" | "bottom" | "bottomRight"> = [];
-  if (enable.right) {
-    directions.push("right");
+function getProjectNodeSceneResizePolicy(
+  node: GpuNodeResizePolicyInput["node"],
+  nodeId: string,
+): GpuSectionSceneResizePolicy {
+  const resizePolicy = (
+    node as Partial<Pick<GpuSectionSceneNode, "resizePolicy">>
+  ).resizePolicy;
+  if (!resizePolicy) {
+    throw new Error(
+      `GPU resize for project section ${nodeId} requires scene resize policy.`,
+    );
   }
-  if (enable.bottom) {
-    directions.push("bottom");
-  }
-  if (enable.bottomRight) {
-    directions.push("bottomRight");
-  }
-  return directions;
+  return resizePolicy;
 }
 
 function isProjectGpuNodeResizeDisabled({
@@ -219,14 +360,11 @@ function isProjectGpuNodeResizeDisabled({
   flowInteractionKeys: ProjectFlowInteractionKeys;
   isFollowTransitioning: boolean;
 }): boolean {
-  const dndState = useDndState.getState();
   const viewportState = gpuFlowViewportStore.getState();
   return (
     flowInteractionKeys.panActivationKeyPressed ||
     flowInteractionKeys.zoomActivationKeyPressed ||
     isFollowTransitioning ||
-    dndState.isSorting ||
-    dndState.isMovingFree ||
     viewportState.moveSectionActivationKeyPressed ||
     (viewportState.selectionKeyPressed &&
       viewportState.userSelectionRect !== null) ||
@@ -464,15 +602,33 @@ function getNumericProjectResizeSize(
   layout: Pick<GpuNodeResizeChange["layout"], "height" | "width">,
   sectionId: string,
 ): { height: number; width: number } {
-  if (typeof layout.height !== "number" || typeof layout.width !== "number") {
+  const height = getNumericProjectResizeDimension(
+    layout.height,
+    sectionId,
+    "height",
+  );
+  const width = getNumericProjectResizeDimension(
+    layout.width,
+    sectionId,
+    "width",
+  );
+  return {
+    height,
+    width,
+  };
+}
+
+function getNumericProjectResizeDimension(
+  value: number | null,
+  sectionId: string,
+  dimensionName: "height" | "width",
+): number {
+  if (typeof value !== "number") {
     throw new Error(
-      `GPU resize for section ${sectionId} requires numeric width and height.`,
+      `GPU resize for section ${sectionId} requires numeric ${dimensionName}.`,
     );
   }
-  return {
-    height: layout.height,
-    width: layout.width,
-  };
+  return value;
 }
 
 function toProjectSectionResizeSize({

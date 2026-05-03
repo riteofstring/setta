@@ -13,7 +13,11 @@ import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  SETTA_POPOVER_PORTAL_PARENT_ID,
+} from "utils/constants";
 import {
   type ColorPickerParamCodeObjImpl,
   CodeObjTypeEnum,
@@ -448,6 +452,7 @@ function ColorPickerFromColorChoices({
     <StandardPopover
       open={isOpen}
       onOpenChange={setIsOpen}
+      portalContainerId={SETTA_POPOVER_PORTAL_PARENT_ID}
       repositionOnCanvasTransform={true}
       contentClasses={theme.menuContentClassName}
       contentProps={{

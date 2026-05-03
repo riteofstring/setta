@@ -41,7 +41,7 @@ export function applyVisibleNodeDomTransform(
   );
 }
 
-export function createVisibleNodeDomTransformState({
+function createVisibleNodeDomTransformState({
   element,
   height,
   interactive,
@@ -113,7 +113,7 @@ export function applyCulledNodeDomTransform(element: HTMLElement) {
   );
 }
 
-export function createCulledNodeDomTransformState({
+function createCulledNodeDomTransformState({
   element,
 }: {
   readonly element: HTMLElement;
@@ -149,7 +149,7 @@ export function isCachedNodeDomTransformState(
   );
 }
 
-export type GpuNodeStyleKey =
+type GpuNodeStyleKey =
   | "height"
   | "left"
   | "pointerEvents"
@@ -160,7 +160,7 @@ export type GpuNodeStyleKey =
   | "width"
   | "zIndex";
 
-export const STABLE_GPU_NODE_SOURCE_TRANSFORM = HTML_SURFACE_PASSIVE_TRANSFORM;
+const STABLE_GPU_NODE_SOURCE_TRANSFORM = HTML_SURFACE_PASSIVE_TRANSFORM;
 
 export function setGpuNodeBaseStyle(element: HTMLElement) {
   setStyleValue(element, "position", "absolute");
@@ -169,7 +169,7 @@ export function setGpuNodeBaseStyle(element: HTMLElement) {
   setStyleValue(element, "transformOrigin", "0 0");
 }
 
-export function resolveStableGpuNodeSourceTransform(
+function resolveStableGpuNodeSourceTransform(
   element: HTMLElement,
   projected: boolean | undefined,
 ): string {
@@ -178,9 +178,7 @@ export function resolveStableGpuNodeSourceTransform(
     : STABLE_GPU_NODE_SOURCE_TRANSFORM;
 }
 
-export function isProjectedGpuNodeSourceInteraction(
-  element: HTMLElement,
-): boolean {
+function isProjectedGpuNodeSourceInteraction(element: HTMLElement): boolean {
   return (
     element.getAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE) ===
     "true"
@@ -197,7 +195,7 @@ export function setStyleValue(
   }
 }
 
-export function setDatasetValue(
+function setDatasetValue(
   element: HTMLElement,
   property: string,
   value: string,
@@ -207,7 +205,7 @@ export function setDatasetValue(
   }
 }
 
-export function setClassPresence(
+function setClassPresence(
   element: HTMLElement,
   className: string,
   enabled: boolean,

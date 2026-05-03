@@ -98,7 +98,7 @@ export function canStartProviderDictation(args: {
   return true;
 }
 
-export function stopProviderStreamTracks(stream: MediaStream | null): void {
+function stopProviderStreamTracks(stream: MediaStream | null): void {
   if (!stream) {
     return;
   }
@@ -107,7 +107,7 @@ export function stopProviderStreamTracks(stream: MediaStream | null): void {
   }
 }
 
-export function resolveProviderRecordingBlob(args: {
+function resolveProviderRecordingBlob(args: {
   chunks: BlobPart[];
   fallbackMimeType: string;
   recorder: MediaRecorder;
@@ -123,7 +123,7 @@ export function resolveProviderRecordingBlob(args: {
   return new Blob(chunks, { type: blobType });
 }
 
-export async function transcribeProviderRecording(args: {
+async function transcribeProviderRecording(args: {
   allowBrowserFallback: boolean;
   blob: Blob;
   insertTranscript: (transcript: string) => void;

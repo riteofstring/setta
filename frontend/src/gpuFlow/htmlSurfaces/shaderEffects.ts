@@ -34,7 +34,7 @@ const SHADER_EFFECT_SPECS: readonly HtmlSurfaceShaderEffectSpec[] = [
   },
 ];
 
-export function getHtmlSurfaceShaderEffectSpec(
+function getHtmlSurfaceShaderEffectSpec(
   effectId: string,
 ): HtmlSurfaceShaderEffectSpec {
   const spec = SHADER_EFFECT_SPECS.find(

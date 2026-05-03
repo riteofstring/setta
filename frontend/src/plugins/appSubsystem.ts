@@ -14,9 +14,9 @@ export {
 export type { AppSubsystemFrontendRegistrationsByPluginId } from "./appSubsystem/registrationValidation";
 
 export {
+  appSubsystemModeRequiresImageAttachment,
   applyAppDefinitionStructuredContentToStore,
   applyAppSpecPatchPreviewDeltaToStore,
-  appSubsystemModeRequiresImageAttachment,
   beginAppSubsystemFrontendRegistrationLoad,
   clearAllAppSpecPatchPreviewStreams,
   clearAppSpecPatchPreviewStream,

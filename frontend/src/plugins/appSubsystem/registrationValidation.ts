@@ -62,29 +62,29 @@ export const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE = "plain_chat";
 export const DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE_OPTIONS: AppSubsystemCustomSlashCommandModeOption[] =
   [{ id: DEFAULT_APP_SUBSYSTEM_CUSTOM_SLASH_COMMAND_MODE, name: "Plain chat" }];
 
-export const APP_SUBSYSTEM_CHAT_COMMAND_BY_ACTION = new Map(
+const APP_SUBSYSTEM_CHAT_COMMAND_BY_ACTION = new Map(
   AppSubsystemChatUIConfig.slashCommands.map((command) => [
     command.action,
     command,
   ]),
 );
 
-export const APP_SUBSYSTEM_CUSTOM_SLASH_MODE_BY_ID = new Map(
+const APP_SUBSYSTEM_CUSTOM_SLASH_MODE_BY_ID = new Map(
   AppSubsystemChatUIConfig.customSlashCommandModeOptions.map((option) => [
     option.value,
     option,
   ]),
 );
 
-export const APP_SUBSYSTEM_IMAGE_REQUIRED_MODE_IDS = new Set(
+const APP_SUBSYSTEM_IMAGE_REQUIRED_MODE_IDS = new Set(
   AppSubsystemChatUIConfig.customSlashCommandModeOptions
     .filter((option) => option.requiresImageAttachment)
     .map((option) => option.value),
 );
 
-export let appSubsystemPreviewEnabledUnsubscribe: (() => void) | null = null;
+let appSubsystemPreviewEnabledUnsubscribe: (() => void) | null = null;
 
-export type AppSubsystemPendingOperation =
+type AppSubsystemPendingOperation =
   | {
       kind: "applyAppDefinitionStructuredContent";
       structured: Record<string, unknown>;
@@ -101,7 +101,7 @@ export type AppSubsystemPendingOperation =
     }
   | { kind: "resetAppSessionState"; host: AppSubsystemFrontendHost };
 
-export const pendingAppSubsystemOperationsByQueueKey = new Map<
+const pendingAppSubsystemOperationsByQueueKey = new Map<
   string,
   AppSubsystemPendingOperation[]
 >();
@@ -155,7 +155,7 @@ export function hasFrontendSurfaceAvailability(
   );
 }
 
-export function appendSupportedAppGenerationMode(
+function appendSupportedAppGenerationMode(
   modes: string[],
   seenModes: Set<string>,
   rawMode: string | null | undefined,
@@ -204,7 +204,7 @@ export function collectSupportedAppGenerationModes(
     : modes;
 }
 
-export function quotedPluginIDs(pluginIDs: string[] | undefined): string {
+function quotedPluginIDs(pluginIDs: string[] | undefined): string {
   const normalized = (pluginIDs ?? [])
     .map((pluginID) => pluginID.trim())
     .filter((pluginID) => pluginID.length > 0)
@@ -215,7 +215,7 @@ export function quotedPluginIDs(pluginIDs: string[] | undefined): string {
   return normalized.map((pluginID) => `"${pluginID}"`).join(", ");
 }
 
-export function buildProviderListUnavailableMessage(
+function buildProviderListUnavailableMessage(
   reason: string,
   pluginIDs: string[] | undefined,
   suffix = ".",
@@ -223,7 +223,7 @@ export function buildProviderListUnavailableMessage(
   return `App mode is unavailable because ${reason}: ${quotedPluginIDs(pluginIDs)}${suffix}`;
 }
 
-export function buildSelectedProviderMissingDeploymentRuntimeMessage(
+function buildSelectedProviderMissingDeploymentRuntimeMessage(
   capabilities: AppSubsystemCapabilities | null,
 ): string {
   const pluginID = capabilities?.pluginId?.trim() || "";
@@ -300,7 +300,7 @@ export function clearPreviewEnabledSubscription(): void {
   appSubsystemPreviewEnabledUnsubscribe = null;
 }
 
-export function applyPreviewEnabledState(previewEnabled: boolean): void {
+function applyPreviewEnabledState(previewEnabled: boolean): void {
   useAppSubsystemFrontendStore.setState((state) =>
     state.previewEnabled === previewEnabled
       ? state
@@ -311,14 +311,14 @@ export function applyPreviewEnabledState(previewEnabled: boolean): void {
   );
 }
 
-export function formatAppSubsystemFrontendLoadError(error: unknown): string {
+function formatAppSubsystemFrontendLoadError(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
   return "Failed to resolve app subsystem frontend registration.";
 }
 
-export function bindPreviewEnabledRegistration(
+function bindPreviewEnabledRegistration(
   registration: AppSubsystemFrontendRegistration,
 ): boolean {
   const controller = registration.controller;
@@ -335,7 +335,7 @@ export function bindPreviewEnabledRegistration(
   return previewEnabled;
 }
 
-export const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
+const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
   applyAppDefinitionStructuredContent: (
     registration: AppSubsystemFrontendRegistration,
     operation: Extract<
@@ -396,7 +396,7 @@ export const APP_SUBSYSTEM_PENDING_OPERATION_APPLIERS = {
   },
 } as const;
 
-export function applyPendingAppSubsystemOperation(
+function applyPendingAppSubsystemOperation(
   registration: AppSubsystemFrontendRegistration,
   operation: AppSubsystemPendingOperation,
 ): void {
@@ -409,7 +409,7 @@ export function applyPendingAppSubsystemOperation(
   applyOperation(registration, operation);
 }
 
-export function flushPendingAppSubsystemOperations(
+function flushPendingAppSubsystemOperations(
   registration: AppSubsystemFrontendRegistration,
   queueKey: string,
 ): void {
@@ -449,7 +449,7 @@ export function setUnavailableAppSubsystemFrontendState(
   });
 }
 
-export function shouldResetProjectStateForFrontendLoad(
+function shouldResetProjectStateForFrontendLoad(
   capabilities: AppSubsystemCapabilities | null,
   capabilitySignature: string,
 ): boolean {
@@ -525,7 +525,7 @@ export function shouldReuseLoadedRegistration(
   return true;
 }
 
-export function requireCapabilityRegistration(
+function requireCapabilityRegistration(
   required: boolean | undefined,
   present: boolean,
   message: string,
@@ -535,13 +535,13 @@ export function requireCapabilityRegistration(
   }
 }
 
-export type AppSubsystemCapabilityRequirement = {
+type AppSubsystemCapabilityRequirement = {
   required: boolean | undefined;
   present: boolean;
   message: string;
 };
 
-export type AppSubsystemFrontendCapabilityFlag = keyof Pick<
+type AppSubsystemFrontendCapabilityFlag = keyof Pick<
   AppSubsystemCapabilities,
   | "appAuthoringUi"
   | "appPreviewUi"
@@ -549,26 +549,26 @@ export type AppSubsystemFrontendCapabilityFlag = keyof Pick<
   | "appDeploymentRuntime"
 >;
 
-export function getAppSubsystemCapabilityFlag(
+function getAppSubsystemCapabilityFlag(
   capabilities: AppSubsystemCapabilities | null,
   key: AppSubsystemFrontendCapabilityFlag,
 ): boolean | undefined {
   return capabilities?.[key];
 }
 
-export function hasAppSubsystemSlashCommands(
+function hasAppSubsystemSlashCommands(
   chat: AppSubsystemChatRegistration | undefined,
 ): boolean {
   return (chat?.slashCommands.length ?? 0) > 0;
 }
 
-export function hasAppSubsystemCustomSlashCommandModes(
+function hasAppSubsystemCustomSlashCommandModes(
   chat: AppSubsystemChatRegistration | undefined,
 ): boolean {
   return Boolean(chat?.customSlashCommandModes);
 }
 
-export function requireNonEmptyAppGenerationString(
+function requireNonEmptyAppGenerationString(
   value: string | null | undefined,
   message: string,
 ): string {
@@ -579,7 +579,7 @@ export function requireNonEmptyAppGenerationString(
   return normalized;
 }
 
-export function validateAppGenerationSlashCommandRegistration(
+function validateAppGenerationSlashCommandRegistration(
   command: AppSubsystemChatRegistration["slashCommands"][number],
 ): void {
   const action = requireNonEmptyAppGenerationString(
@@ -646,7 +646,7 @@ export function validateAppGenerationSlashCommandRegistration(
   }
 }
 
-export function validateAppGenerationCustomModeOption(
+function validateAppGenerationCustomModeOption(
   option: AppSubsystemCustomSlashCommandModeOption,
 ): void {
   const mode = requireNonEmptyAppGenerationString(
@@ -666,7 +666,7 @@ export function validateAppGenerationCustomModeOption(
   }
 }
 
-export function validateAppGenerationChatRegistration(
+function validateAppGenerationChatRegistration(
   chat: AppSubsystemChatRegistration | undefined,
 ): void {
   if (!chat) {
@@ -696,7 +696,7 @@ export function validateAppGenerationChatRegistration(
   }
 }
 
-export function validateFrontendRegistrationCapabilities(
+function validateFrontendRegistrationCapabilities(
   registration: AppSubsystemFrontendRegistration,
   capabilities: AppSubsystemCapabilities | null,
 ): void {
@@ -773,7 +773,7 @@ export function validateFrontendRegistrationCapabilities(
   }
 }
 
-export function buildMissingFrontendRegistrationMessage(
+function buildMissingFrontendRegistrationMessage(
   capabilities: AppSubsystemCapabilities | null,
 ): string {
   if (!capabilities?.pluginId) {
@@ -792,7 +792,7 @@ export function selectAppSubsystemFrontendRegistration(
   return registrationsByPluginId[capabilities.pluginId] ?? null;
 }
 
-export function requireAppSubsystemFrontendRegistration(
+function requireAppSubsystemFrontendRegistration(
   capabilities: AppSubsystemCapabilities | null,
   registration: RegisteredAppSubsystemFrontendRegistration | null,
 ): RegisteredAppSubsystemFrontendRegistration {

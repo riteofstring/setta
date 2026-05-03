@@ -32,7 +32,7 @@ vi.mock("state/hooks/sectionSizes", () => ({
 }));
 
 describe("SectionResizeFrame", () => {
-  it("positions the passive bottom-right resize handle at the section corner", () => {
+  it("leaves section resize handle geometry to GpuFlow", () => {
     const markup = renderToStaticMarkup(
       <SectionResizeFrame
         sectionId="settings-section__shortcuts"
@@ -46,10 +46,8 @@ describe("SectionResizeFrame", () => {
       </SectionResizeFrame>,
     );
 
-    expect(markup).toContain('data-section-resize-frame="gpu-passive"');
-    expect(markup).toContain('data-resize-direction="bottomRight"');
-    expect(markup).toContain("bottom:-8px");
-    expect(markup).toContain("pointer-events:auto");
-    expect(markup).toContain("right:-8px");
+    expect(markup).toContain('data-section-resize-frame="gpu-owned"');
+    expect(markup).not.toContain("section-resize-handle");
+    expect(markup).not.toContain("data-resize-direction");
   });
 });

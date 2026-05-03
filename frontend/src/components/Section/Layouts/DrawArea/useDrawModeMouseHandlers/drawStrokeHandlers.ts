@@ -56,7 +56,7 @@ import {
   resumeEraserStrokeOnMouseEnter,
 } from "./drawEditingHandlers";
 
-export type CanvasMouseHandler = React.MouseEventHandler<HTMLCanvasElement>;
+type CanvasMouseHandler = React.MouseEventHandler<HTMLCanvasElement>;
 
 export type DrawingMouseDownHandler = (
   e: React.MouseEvent<HTMLCanvasElement>,
@@ -64,7 +64,7 @@ export type DrawingMouseDownHandler = (
   offsetY?: number | null,
 ) => void;
 
-export type DrawModeMouseHandlersArgs = {
+type DrawModeMouseHandlersArgs = {
   layers: Array<DrawAreaLayer>;
   sectionId: string;
   strokeRef: React.RefObject<BrushStrokeArtifact | null>;
@@ -90,7 +90,7 @@ export type DrawModeMouseHandlersArgs = {
   flushRealtimeSnapshot: () => void;
 };
 
-export type DrawingMouseDownArgs = {
+type DrawingMouseDownArgs = {
   layers: Array<DrawAreaLayer>;
   strokeRef: React.RefObject<BrushStrokeArtifact | null>;
   eraserStrokeRef: React.RefObject<BrushStroke | null>;
@@ -106,7 +106,7 @@ export type DrawingMouseDownArgs = {
   notifyRealtimeDirty: () => void;
 };
 
-export type DrawingMouseMoveArgs = {
+type DrawingMouseMoveArgs = {
   layers: Array<DrawAreaLayer>;
   strokeRef: React.RefObject<BrushStrokeArtifact | null>;
   eraserStrokeRef: React.RefObject<BrushStroke | null>;
@@ -120,7 +120,7 @@ export type DrawingMouseMoveArgs = {
   notifyRealtimeDirty: () => void;
 };
 
-export type DrawingMouseUpArgs = {
+type DrawingMouseUpArgs = {
   sectionId: string;
   layers: Array<DrawAreaLayer>;
   eraserStrokeRef: React.RefObject<BrushStroke | null>;
@@ -176,7 +176,7 @@ export type ResizeBounds =
   | ReturnType<typeof getImageBounds>
   | ReturnType<typeof getBrushStrokesBounds>;
 
-export type BrushResizeHandleConfig = {
+type BrushResizeHandleConfig = {
   widthDirection: -1 | 1;
   heightDirection: -1 | 1;
   anchorX: "minX" | "maxX";
@@ -413,7 +413,7 @@ export function useDrawModeMouseHandlers({
   };
 }
 
-export function syncLocalTransformsForEditMode(
+function syncLocalTransformsForEditMode(
   activeLayer: DrawAreaLayer | undefined,
   localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>,
 ) {
@@ -459,7 +459,7 @@ export function syncLocalTransformsForEditMode(
   });
 }
 
-export function drawingOnMouseDown({
+function drawingOnMouseDown({
   layers,
   strokeRef,
   eraserStrokeRef,
@@ -504,7 +504,7 @@ export function drawingOnMouseDown({
   };
 }
 
-export function drawingOnMouseMove({
+function drawingOnMouseMove({
   layers,
   strokeRef,
   eraserStrokeRef,
@@ -549,7 +549,7 @@ export function drawingOnMouseMove({
   };
 }
 
-export function handleEraserMouseMove({
+function handleEraserMouseMove({
   canvasMode,
   eraserStrokeRef,
   point,
@@ -597,7 +597,7 @@ export function handleEraserMouseMove({
   return true;
 }
 
-export function handleDrawMouseMove({
+function handleDrawMouseMove({
   canvasMode,
   draftCanvasRef,
   strokeRef,
@@ -631,7 +631,7 @@ export function handleDrawMouseMove({
   notifyRealtimeDirty();
 }
 
-export function drawingOnMouseUp({
+function drawingOnMouseUp({
   sectionId,
   layers,
   eraserStrokeRef,
@@ -691,7 +691,7 @@ export function drawingOnMouseUp({
   };
 }
 
-export function finishEraserStroke({
+function finishEraserStroke({
   sectionId,
   layer,
   layerCanvas,
@@ -767,7 +767,7 @@ export function finishEraserStroke({
   return Array.from(touchedTransformIds);
 }
 
-export function getErasableBounds({
+function getErasableBounds({
   element,
   transform,
   images,
@@ -793,7 +793,7 @@ export function getErasableBounds({
   return undefined;
 }
 
-export function drawingOnMouseEnter({
+function drawingOnMouseEnter({
   canvasMode,
   draftCanvasRef,
   onMouseDown,
