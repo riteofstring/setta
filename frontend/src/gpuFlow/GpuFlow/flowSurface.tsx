@@ -32,6 +32,10 @@ import {
   type GpuEdgeReconnectOptions,
 } from "../GpuEdgeReconnectAnchors";
 
+import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
+
+import type { GpuFlowLayoutStoreApi } from "../layoutStore";
+
 import {
   clearGpuNodeDomTransformSyncCache,
   clearGpuNodeDomTransformSyncCacheNode,
@@ -142,13 +146,13 @@ export type GpuFlowProps = Pick<
   edges?: readonly GpuEdgeBufferInput[] | undefined;
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   grid?: GpuGridInput | undefined;
+  layoutStore?: GpuFlowLayoutStoreApi | undefined;
   marginCssPx?: number | undefined;
   nodeClassName?: string | undefined;
   nodeTextureMemoryBudgetBytes?: number | undefined;
   onNodeElementChange?:
     | ((nodeId: string, element: HTMLElement | null) => void)
     | undefined;
-  nodes?: readonly GpuNodeLayout[] | undefined;
   nodeDrag?:
     | false
     | Omit<
@@ -231,12 +235,12 @@ export function GpuFlow({
   edges,
   forceVisibleNodeIds,
   grid,
+  layoutStore,
   marginCssPx,
   nodeClassName,
   nodeTextureMemoryBudgetBytes,
   nodeDrag,
   nodeResize,
-  nodes,
   onFrame,
   onNodeElementChange,
   onNodeLayerFrame,
@@ -253,6 +257,7 @@ export function GpuFlow({
   viewportStore = gpuFlowViewportStore,
 }: GpuFlowProps) {
   validateGpuFlowEdgeInput({ edgeInteraction, edgeScene, edges });
+  const nodes = useGpuFlowLayoutStoreNodes(layoutStore);
   const drawEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);

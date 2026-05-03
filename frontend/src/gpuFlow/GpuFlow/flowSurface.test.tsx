@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
 import type { GpuEdgeScene } from "../edges/edgeSources";
+import { createGpuFlowLayoutStore } from "../layoutStore";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
-import { describe, expect, it } from "vitest";
 
 describe("GpuFlow", () => {
   it("mounts children inside the canvas source subtree before viewport overlays", () => {
@@ -28,6 +29,32 @@ describe("GpuFlow", () => {
     expect(portalIndex).toBeGreaterThan(canvasOpenIndex);
     expect(portalIndex).toBeLessThan(canvasCloseIndex);
     expect(edgeLabelLayerIndex).toBeGreaterThan(canvasCloseIndex);
+  });
+
+  it("renders node source anchors from the layout store", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 80,
+          nodeId: "layout-node-a",
+          width: 120,
+          x: 10,
+          y: 20,
+        },
+      ],
+    });
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        layoutStore={layoutStore}
+        renderNode={(node) => <div data-rendered-node={node.nodeId} />}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [0, 0, 1],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-source-id="layout-node-a"');
   });
 });
 

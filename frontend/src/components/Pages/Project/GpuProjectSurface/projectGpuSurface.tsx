@@ -37,12 +37,7 @@ import {
 
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 
-import {
-  useAIFollow,
-  useLocalStorage,
-  useNodeInternals,
-  useSettings,
-} from "state/definitions";
+import { useAIFollow, useLocalStorage, useSettings } from "state/definitions";
 
 import { useShareCapabilities } from "state/hooks/share";
 
@@ -58,6 +53,10 @@ import {
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import {
+  useProjectGpuLayoutAdapter,
+  type ProjectGpuLayoutAdapter,
+} from "./projectGpuLayoutAdapter";
 import { ProjectGpuPortalRoots } from "./projectGpuPortalRoots";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
@@ -154,7 +153,7 @@ export const SELECTION_ARROW_KEY_DIFFS: Record<
 export function GpuProjectSurface() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dimensions = useProjectSurfaceDimensions(rootRef);
-  const nodeLayouts = useProjectGpuNodeLayouts();
+  const layoutAdapter = useProjectGpuLayoutAdapter();
   const settings = useProjectGpuSurfaceSettings();
   const showAgenticEdges = useLocalStorage((state) => state.showAgenticEdges);
   const showDataEdges = useLocalStorage((state) => state.showArgEdges);
@@ -221,7 +220,7 @@ export function GpuProjectSurface() {
         flowInteractionKeys={flowInteractionKeys}
         isFollowTransitioning={isFollowTransitioning}
         canEditLayout={canEditLayout}
-        nodeLayouts={nodeLayouts}
+        layoutAdapter={layoutAdapter}
         readyToRender={readyToRender}
         settings={settings}
       />
@@ -237,7 +236,7 @@ export function ProjectGpuFlowLayer({
   edgeScene,
   flowInteractionKeys,
   isFollowTransitioning,
-  nodeLayouts,
+  layoutAdapter,
   readyToRender,
   settings,
 }: {
@@ -247,10 +246,11 @@ export function ProjectGpuFlowLayer({
   readonly edgeScene: ReturnType<typeof useProjectGpuEdgeScene>;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
-  readonly nodeLayouts: readonly GpuNodeLayout[];
+  readonly layoutAdapter: ProjectGpuLayoutAdapter;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
+  const { layoutStore, nodeLayouts } = layoutAdapter;
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
   const dndMode = useDndMode();
   const edgeInteractionOptions = useMemo(
@@ -325,9 +325,9 @@ export function ProjectGpuFlowLayer({
       edgeReconnect={edgeReconnectOptions}
       edgeScene={edgeScene}
       grid={gridInput}
+      layoutStore={layoutStore}
       nodeDrag={nodeDragOptions}
       nodeResize={nodeResizeOptions}
-      nodes={nodeLayouts}
       onNodeElementChange={handleNodeElementChange}
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}
@@ -527,22 +527,6 @@ export function getProjectPanZoomOptions({
 
 export function booleanDataAttribute(value: boolean): "true" | "false" {
   return value ? "true" : "false";
-}
-
-export function useProjectGpuNodeLayouts(): readonly GpuNodeLayout[] {
-  return useNodeInternals(
-    (state) =>
-      Array.from(state.x.values()).map((node) => ({
-        height: node.height,
-        nodeId: node.id,
-        tempZIndex: node.tempZIndex,
-        width: node.width,
-        x: node.position.x,
-        y: node.position.y,
-        zIndex: node.zIndex,
-      })),
-    _.isEqual,
-  );
 }
 
 export function useProjectGpuSurfaceSettings() {
