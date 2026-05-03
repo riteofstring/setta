@@ -28,9 +28,9 @@ import {
   handleProjectSelectionDragStart,
   handleProjectSelectionDragStop,
   handleProjectSelectionKeyboardNudge,
-} from "./nodeSelectionOverlay";
+} from "./projectGpuSelectionAdapter";
 
-describe("GPU project selection movement adapters", () => {
+describe("GPU project selection adapter", () => {
   beforeEach(() => {
     resetProjectStores();
     resetGpuViewportState();

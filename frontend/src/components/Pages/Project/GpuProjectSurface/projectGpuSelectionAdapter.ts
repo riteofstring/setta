@@ -129,7 +129,7 @@ export function handleProjectSelectionChange(
   }
 }
 
-export function toNodeDragItems(
+function toNodeDragItems(
   items: readonly (ProjectGpuNodeDragItem | GpuSelectionDragItem)[],
 ): NodeDragItem[] {
   return items.map((item) => ({

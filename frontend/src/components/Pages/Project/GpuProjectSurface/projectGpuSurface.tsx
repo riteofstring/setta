@@ -101,7 +101,7 @@ import {
   handleProjectSelectionDragStop,
   handleProjectSelectionKeyboardNudge,
   resolveProjectWireColor,
-} from "./nodeSelectionOverlay";
+} from "./projectGpuSelectionAdapter";
 
 type ProjectSurfaceDimensions = {
   readonly height: number;
