@@ -105,6 +105,11 @@ type SurfacePoint = {
   readonly y: number;
 };
 
+const sortedHitSurfaceEntriesByScene = new WeakMap<
+  HtmlSurfaceHitScene,
+  readonly HtmlSurfaceHitSurfaceEntry[]
+>();
+
 export function createHtmlSurfaceHitScene({
   effectSurfaces = [],
   flatSurfaces = [],
@@ -443,7 +448,11 @@ function resolveHitSurfaceEntry({
 function createSortedHitSurfaceEntries(
   scene: HtmlSurfaceHitScene,
 ): readonly HtmlSurfaceHitSurfaceEntry[] {
-  return [
+  const cached = sortedHitSurfaceEntriesByScene.get(scene);
+  if (cached) {
+    return cached;
+  }
+  const entries = [
     ...toHitSurfaceEntries(scene.flatSurfaces, 0),
     ...toHitSurfaceEntries(scene.tiledFlatSurfaces, scene.flatSurfaces.length),
     ...toHitSurfaceEntries(
@@ -457,6 +466,8 @@ function createSortedHitSurfaceEntries(
         scene.meshSurfaces.length,
     ),
   ].sort(compareHitSurfaceEntries);
+  sortedHitSurfaceEntriesByScene.set(scene, entries);
+  return entries;
 }
 
 function toHitSurfaceEntries<TSurface extends HtmlSurfaceHitSurface>(

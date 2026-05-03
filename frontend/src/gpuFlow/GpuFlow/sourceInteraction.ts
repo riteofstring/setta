@@ -7,6 +7,7 @@ import type { HtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactio
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 
 import {
+  clearGpuNodeTargetingCache,
   resolveTopmostGpuNodeHitAtClientPoint,
   type GpuNodeSourceProjection,
 } from "../activeNodeTargeting";
@@ -119,10 +120,10 @@ function resolveGpuFlowNodeSourceProjectionForPointerEvent({
     visualScene,
   });
   if (visualProjection && visualProjection.node.nodeId !== nodeId) {
-    return;
+    return null;
   }
   if (!visualProjection && hasVisualSceneSurfaceForNode(visualScene, nodeId)) {
-    return;
+    return null;
   }
   const projection =
     visualProjection ??
@@ -176,6 +177,10 @@ export function clearGpuFlowNodeElement({
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
 }) {
+  const nodeElement = nodeElementByIdRef.current.get(nodeId);
+  if (nodeElement) {
+    clearGpuNodeTargetingCache(nodeElement);
+  }
   nodeElementByIdRef.current.delete(nodeId);
   nodeInteractionRef.current?.clearNode(nodeId);
   sourceInteractionProjector.clearSource(nodeId);
