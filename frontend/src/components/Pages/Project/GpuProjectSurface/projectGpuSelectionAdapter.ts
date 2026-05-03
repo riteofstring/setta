@@ -6,11 +6,7 @@ import type {
   GpuSelectionKeyboardNudgeChange,
 } from "gpuFlow/interactions/selectionDrag";
 
-import type {
-  GpuFlowLayoutNode,
-  GpuFlowLayoutNodePatch,
-  GpuFlowLayoutStoreApi,
-} from "gpuFlow/layoutStore";
+import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
 
 import {
   getGpuFlowSceneDomSectionNodes,
@@ -277,72 +273,25 @@ function patchProjectNestedDragPreviewLayout(
     >;
   },
 ) {
-  layoutStore.getState().setDragPreview({
+  const state = layoutStore.getState();
+  state.setDragPreview({
     draggedNodeIds: [...draggedNodeIds],
     dropMarker,
   });
-  const targetById = new Map(
-    targetSections.map((section) => [section.sectionId, section]),
-  );
-  const patches = layoutStore
-    .getState()
+  const currentDraggedNodes = state
     .getNodes()
-    .flatMap((node) =>
-      getProjectNestedDragPreviewNodePatch({
-        draggedNodeIds,
-        node,
-        targetById,
-      }),
-    );
-  if (patches.length === 0) {
-    return;
-  }
-  layoutStore.getState().patchNodes(patches, {
+    .filter((node) => draggedNodeIds.has(node.nodeId));
+  const targetVisibleNodes = getGpuFlowSceneDomSectionNodes({
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 0,
+    sections: targetSections,
+  }).filter((node) => !draggedNodeIds.has(node.nodeId));
+  state.replaceNodes([...targetVisibleNodes, ...currentDraggedNodes], {
     phase: "change",
     reason: "drag",
   });
-}
-
-function getProjectNestedDragPreviewNodePatch({
-  draggedNodeIds,
-  node,
-  targetById,
-}: {
-  readonly draggedNodeIds: ReadonlySet<string>;
-  readonly node: GpuFlowLayoutNode;
-  readonly targetById: ReadonlyMap<string, GpuSectionSceneNode>;
-}): readonly GpuFlowLayoutNodePatch[] {
-  if (draggedNodeIds.has(node.nodeId)) {
-    return [];
-  }
-  const target = targetById.get(node.nodeId);
-  if (!target || target.parentSectionId === null) {
-    return [];
-  }
-  if (isProjectNestedDragPreviewNodeAligned(node, target)) {
-    return [];
-  }
-  return [
-    {
-      height: target.height,
-      nodeId: node.nodeId,
-      width: target.width,
-      x: target.x,
-      y: target.y,
-    },
-  ];
-}
-
-function isProjectNestedDragPreviewNodeAligned(
-  node: GpuFlowLayoutNode,
-  target: GpuSectionSceneNode,
-): boolean {
-  return (
-    node.x === target.x &&
-    node.y === target.y &&
-    node.width === target.width &&
-    node.height === target.height
-  );
 }
 
 function canDragProjectSceneChildNode(
