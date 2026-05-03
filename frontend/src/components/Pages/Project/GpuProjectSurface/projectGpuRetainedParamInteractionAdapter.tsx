@@ -47,7 +47,7 @@ import {
   isValidStateMachineEdgeConnection,
   isWorkflowHandleId,
 } from "state/actions/stateMachineEdges";
-import { useMisc, useProjectState } from "state/definitions";
+import { useMisc, useProjectState, useTypeErrors } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import {
   getProjectGpuAutoPanInsetsPx,
@@ -571,6 +571,9 @@ function ProjectGpuParamControlDomIsland({
   readonly sectionId: string;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const maybeErrorMessage = useTypeErrors(
+    (state) => state.errors[sectionId]?.params?.[paramInfoId]?.join("\n") ?? "",
+  );
 
   useEffect(() => {
     const frameId = requestAnimationFrame(() => {
@@ -609,6 +612,7 @@ function ProjectGpuParamControlDomIsland({
         }}
       >
         <ParamInput
+          maybeErrorMessage={maybeErrorMessage}
           sectionId={sectionId}
           paramInfoId={paramInfoId}
           tooltipParentDivId={PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID}

@@ -22,7 +22,7 @@ import {
   isValidStateMachineEdgeConnection,
   STATE_MACHINE_EDGE_HANDLE_IDS,
 } from "state/actions/stateMachineEdges";
-import { useMisc } from "state/definitions";
+import { useMisc, useTypeErrors } from "state/definitions";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("components/Params/ParamItems/ParamInput", () => ({
   ParamInput: (props: {
+    maybeErrorMessage?: string;
     paramInfoId: string;
     sectionId: string;
     tooltipParentDivId?: string | null;
@@ -123,10 +124,12 @@ describe("project GPU retained param DOM islands", () => {
     mocks.paramNameInputProps.mockClear();
     mocks.subscribeToGpuViewportRepositionMock.mockClear();
     mocks.unsubscribeViewportRepositionMock.mockClear();
+    useTypeErrors.setState({ errors: {}, userRequested: false });
     document.body.innerHTML = "";
   });
 
   afterEach(() => {
+    useTypeErrors.setState({ errors: {}, userRequested: false });
     vi.unstubAllGlobals();
     document.body.innerHTML = "";
   });
@@ -155,6 +158,34 @@ describe("project GPU retained param DOM islands", () => {
     }
 
     expect(mocks.unsubscribeViewportRepositionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes retained param type-error messages into active controls", async () => {
+    useTypeErrors.setState({
+      errors: {
+        "section-1": {
+          callable: [],
+          params: {
+            "param-1": ["Expected int.", "Received text."],
+          },
+        },
+      },
+      userRequested: false,
+    });
+
+    const rendered = await renderIsland(retainedParamIsland());
+
+    try {
+      expect(mocks.paramInputProps).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maybeErrorMessage: "Expected int.\nReceived text.",
+          paramInfoId: "param-1",
+          sectionId: "section-1",
+        }),
+      );
+    } finally {
+      await cleanupRenderedIsland(rendered);
+    }
   });
 
   it("mounts retained param name inputs against the viewport CodeMirror tooltip portal", async () => {
