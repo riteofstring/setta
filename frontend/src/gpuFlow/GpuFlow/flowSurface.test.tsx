@@ -230,6 +230,7 @@ function retainedContentSurface(): GpuContentSurface {
       rowHeight: 28,
       rows: [
         {
+          control: textLikeControlDescriptor(),
           controlKind: "text-like",
           depth: 0,
           id: "param-a",
@@ -240,6 +241,17 @@ function retainedContentSurface(): GpuContentSurface {
       viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
     }),
     zIndex: 2,
+  };
+}
+
+function textLikeControlDescriptor() {
+  return {
+    defaultDisplayValue: "",
+    displayValue: "",
+    editorKind: "text" as const,
+    kind: "text-like" as const,
+    rendererFamily: "text-like",
+    commitPolicy: "native-island" as const,
   };
 }
 
