@@ -40,6 +40,15 @@ describe("retained content scene", () => {
       "param-22",
       "param-23",
     ]);
+    expect(scene.rowOrder.slice(18, 25)).toEqual([
+      "param-18",
+      "param-19",
+      "param-20",
+      "param-21",
+      "param-22",
+      "param-23",
+      "param-24",
+    ]);
     expect(scene.rows[0]?.projectedRect).toEqual({
       height: 20,
       width: 240,

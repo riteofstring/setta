@@ -10,6 +10,7 @@ import type {
   GpuRetainedContentInteractionEvent,
   GpuRetainedContentInteractionHit,
 } from "gpuFlow/interactions/retainedContentInteraction";
+import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
 import type {
   GpuDomIsland,
@@ -43,6 +44,7 @@ import {
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
 } from "state/actions/edges";
+import { selectOnlyParam } from "state/actions/params/moveParams";
 import { toggleParamSelected } from "state/actions/sectionInfos";
 
 import {
@@ -54,6 +56,7 @@ import {
   useAIFollow,
   useLocalStorage,
   useMisc,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 
@@ -79,6 +82,7 @@ import {
   type ProjectGpuLayoutAdapter,
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
+import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuParamContentAdapter";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
@@ -402,6 +406,16 @@ function ProjectGpuFlowLayer({
       onHoveredParamTargetChange,
     ],
   );
+  const retainedContentKeyboardOptions = useMemo(
+    () =>
+      getProjectRetainedContentKeyboardOptions({
+        activeNodeIds,
+        canEditStructure,
+        flowInteractionKeys,
+        layoutAdapter,
+      }),
+    [activeNodeIds, canEditStructure, flowInteractionKeys, layoutAdapter],
+  );
   if (!readyToRender) {
     return null;
   }
@@ -424,6 +438,7 @@ function ProjectGpuFlowLayer({
       renderNode={(node) => renderProjectGpuNode(node, sceneSectionById)}
       renderDomIsland={renderProjectGpuDomIsland}
       retainedContentInteraction={retainedContentInteractionOptions}
+      retainedContentKeyboard={retainedContentKeyboardOptions}
       retainedContentScroll={retainedContentScrollOptions}
       scene={layoutAdapter.scene}
       sceneScroll={sceneScrollOptions}
@@ -678,6 +693,36 @@ function getProjectRetainedContentInteractionOptions({
     shouldHandlePointerMoveHit: () => true,
     shouldHandleHit: (event: GpuRetainedContentInteractionHit) =>
       shouldHandleProjectRetainedContentHit(event),
+  };
+}
+
+function getProjectRetainedContentKeyboardOptions({
+  activeNodeIds,
+  canEditStructure,
+  flowInteractionKeys,
+  layoutAdapter,
+}: {
+  readonly activeNodeIds: readonly string[];
+  readonly canEditStructure: boolean;
+  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
+  readonly layoutAdapter: ProjectGpuLayoutAdapter;
+}) {
+  return {
+    disabled: () =>
+      flowInteractionKeys.zoomActivationKeyPressed ||
+      !canEditStructure ||
+      !useMisc.getState().isSelectingParams,
+    getCurrentTarget: (scene: GpuFlowScene) =>
+      getProjectGpuRetainedParamNavigationTarget({
+        activeSectionIds: activeNodeIds,
+        projectState: useProjectState.getState(),
+        scene,
+      }),
+    getScrollOffsets: () => layoutAdapter.contentScrollOffsets,
+    onNavigation: (event: GpuRetainedContentKeyboardNavigationEvent) => {
+      layoutAdapter.setContentScrollOffsets(event.scrollOffsets);
+      selectOnlyParam(event.target.ownerSectionId, event.target.rowId);
+    },
   };
 }
 

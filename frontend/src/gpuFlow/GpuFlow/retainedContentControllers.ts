@@ -6,6 +6,10 @@ import {
   type GpuRetainedContentInteractionControllerOptions,
 } from "../interactions/retainedContentInteraction";
 import {
+  attachGpuRetainedContentKeyboardController,
+  type GpuRetainedContentKeyboardControllerOptions,
+} from "../interactions/retainedContentKeyboard";
+import {
   attachGpuRetainedContentScrollController,
   type GpuRetainedContentScrollControllerOptions,
 } from "../interactions/retainedContentScroll";
@@ -28,12 +32,21 @@ export type GpuFlowRetainedContentScrollOptions =
     >
   | undefined;
 
+export type GpuFlowRetainedContentKeyboardOptions =
+  | false
+  | Omit<
+      GpuRetainedContentKeyboardControllerOptions,
+      "element" | "getScene" | "requestFrame"
+    >
+  | undefined;
+
 export type GpuFlowRetainedContentControllerOptions = {
   readonly containerRef: MutableRefObject<HTMLDivElement | null>;
   readonly nodeLayerRef: MutableRefObject<{
     readonly scene: GpuFlowScene | undefined;
   }>;
   readonly retainedContentInteraction: GpuFlowRetainedContentInteractionOptions;
+  readonly retainedContentKeyboard: GpuFlowRetainedContentKeyboardOptions;
   readonly retainedContentScroll: GpuFlowRetainedContentScrollOptions;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly viewportStore: GpuFlowViewportStoreApi;
@@ -43,6 +56,7 @@ export function useGpuFlowRetainedContentControllers({
   containerRef,
   nodeLayerRef,
   retainedContentInteraction,
+  retainedContentKeyboard,
   retainedContentScroll,
   surfaceRef,
   viewportStore,
@@ -71,6 +85,24 @@ export function useGpuFlowRetainedContentControllers({
     surfaceRef,
     viewportStore,
   ]);
+
+  useEffect(() => {
+    if (retainedContentKeyboard === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container || !retainedContentKeyboard) {
+      return;
+    }
+    return attachGpuRetainedContentKeyboardController({
+      ...retainedContentKeyboard,
+      element: container,
+      getScene: () => nodeLayerRef.current.scene,
+      requestFrame: (reason) => {
+        surfaceRef.current?.requestFrame(reason);
+      },
+    });
+  }, [containerRef, nodeLayerRef, retainedContentKeyboard, surfaceRef]);
 
   useEffect(() => {
     if (retainedContentScroll === false) {

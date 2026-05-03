@@ -27,6 +27,7 @@ import {
   resolveProjectGpuSceneSectionReveal,
   syncProjectGpuLayoutStoreFromScene,
 } from "./projectGpuLayoutAdapter";
+import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuParamContentAdapter";
 
 describe("project GPU layout adapter", () => {
   it("maps project node internals into renderer layout nodes", () => {
@@ -297,6 +298,17 @@ describe("project GPU layout adapter", () => {
         ownerRowId: "child-param",
       }),
     ]);
+    expect(
+      getProjectGpuRetainedParamNavigationTarget({
+        activeSectionIds: ["dict-a"],
+        projectState,
+        scene,
+      }),
+    ).toEqual({
+      ownerSectionId: "dict-a",
+      rowId: "child-param",
+      surfaceId: "dict-a:param-content:unpinned",
+    });
   });
 
   it("derives active retained param controls as explicit DOM islands", () => {

@@ -6,6 +6,7 @@ import {
   resolveFilteredParamRows,
   type FilteredParamRows,
 } from "components/Params/paramListFiltering";
+import type { GpuRetainedContentNavigationTarget } from "gpuFlow/retainedContentKeyboard";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentRowInput,
@@ -17,6 +18,7 @@ import {
 import type {
   GpuContentSurface,
   GpuDomIsland,
+  GpuFlowScene,
   GpuSectionSceneNode,
 } from "gpuFlow/scene";
 import type { GpuRect } from "gpuFlow/viewportMath";
@@ -73,6 +75,70 @@ type ProjectGpuRetainedParamInteractionState = {
     | null
     | undefined;
 };
+
+export function getProjectGpuRetainedParamNavigationTarget({
+  activeSectionIds,
+  projectState,
+  scene,
+}: {
+  readonly activeSectionIds: readonly string[];
+  readonly projectState: ZustandProjectState;
+  readonly scene: GpuFlowScene;
+}): GpuRetainedContentNavigationTarget | null {
+  const activeSectionRank = new Map(
+    activeSectionIds.map((sectionId, index) => [sectionId, index]),
+  );
+  const surfaces = scene.contentSurfaces
+    .map((surface, index) => ({
+      activeRank:
+        activeSectionRank.get(surface.ownerSectionId) ??
+        Number.MAX_SAFE_INTEGER,
+      index,
+      surface,
+    }))
+    .filter(
+      (
+        item,
+      ): item is {
+        readonly activeRank: number;
+        readonly index: number;
+        readonly surface: GpuContentSurface & {
+          readonly retainedScene: NonNullable<
+            GpuContentSurface["retainedScene"]
+          >;
+        };
+      } => isProjectGpuRetainedParamSurface(item.surface),
+    )
+    .sort(
+      (left, right) =>
+        left.activeRank - right.activeRank ||
+        right.surface.zIndex - left.surface.zIndex ||
+        right.index - left.index,
+    );
+  for (const { surface } of surfaces) {
+    const sectionImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+      projectState,
+      surface.ownerSectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const selectedParams = sectionImpl?.selectedParams ?? [];
+    if (selectedParams.length === 0) {
+      continue;
+    }
+    const rowIds = new Set(surface.retainedScene.rowOrder);
+    for (const selectedParamId of [...selectedParams].reverse()) {
+      if (!rowIds.has(selectedParamId)) {
+        continue;
+      }
+      return {
+        ownerSectionId: surface.ownerSectionId,
+        rowId: selectedParamId,
+        surfaceId: surface.id,
+      };
+    }
+  }
+  return null;
+}
 
 export function createProjectGpuParamContentSurfaces({
   activeParamDomIsland,
@@ -161,6 +227,16 @@ export function createProjectGpuParamDomIslands({
       zIndex: surface.zIndex + 1,
     },
   ];
+}
+
+function isProjectGpuRetainedParamSurface(
+  surface: GpuContentSurface,
+): surface is GpuContentSurface & {
+  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+} {
+  return (
+    surface.renderer.kind === "canvas-content" && Boolean(surface.retainedScene)
+  );
 }
 
 function createProjectGpuParamContentSurfacesForSection({

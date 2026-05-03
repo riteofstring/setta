@@ -92,6 +92,7 @@ export type GpuRetainedContentScene = {
   readonly ownerSectionId: string;
   readonly portAnchors: readonly GpuRetainedContentPortAnchor[];
   readonly rowHeight: number;
+  readonly rowOrder: readonly string[];
   readonly rows: readonly GpuRetainedContentRow[];
   readonly scrollOffset: GpuPoint;
   readonly visibleRange: GpuRetainedContentVisibleRowRange;
@@ -173,6 +174,7 @@ export function createGpuRetainedRowContentScene(
       viewportRect: input.viewportRect,
     }),
     rowHeight: input.rowHeight,
+    rowOrder: input.rows.map((row) => row.id),
     rows: visibleRows,
     scrollOffset: input.scrollOffset,
     visibleRange,

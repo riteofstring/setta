@@ -132,6 +132,7 @@ import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
 import {
   useGpuFlowRetainedContentControllers,
   type GpuFlowRetainedContentInteractionOptions,
+  type GpuFlowRetainedContentKeyboardOptions,
   type GpuFlowRetainedContentScrollOptions,
 } from "./retainedContentControllers";
 import { useGpuFlowRetainedContentSources } from "./retainedContentSources";
@@ -227,6 +228,7 @@ type GpuFlowProps = Pick<
       >
     | undefined;
   retainedContentInteraction?: GpuFlowRetainedContentInteractionOptions;
+  retainedContentKeyboard?: GpuFlowRetainedContentKeyboardOptions;
   retainedContentScroll?: GpuFlowRetainedContentScrollOptions;
   renderDomIsland?: GpuFlowDomIslandRenderer | undefined;
   style?: CSSProperties | undefined;
@@ -300,6 +302,7 @@ export function GpuFlow({
   panZoom,
   portals,
   retainedContentInteraction,
+  retainedContentKeyboard,
   retainedContentScroll,
   renderDomIsland,
   renderNode,
@@ -512,6 +515,7 @@ export function GpuFlow({
     containerRef,
     nodeLayerRef,
     retainedContentInteraction,
+    retainedContentKeyboard,
     retainedContentScroll,
     surfaceRef,
     viewportStore,
