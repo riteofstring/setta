@@ -27,8 +27,6 @@ import {
 } from "gpuFlow/scene";
 import { resolveGpuFlowSceneLayout } from "gpuFlow/sceneLayout";
 import {
-  resolveGpuSectionSceneRevealRect,
-  type GpuSectionSceneRevealRectAlignment,
   type GpuSectionSceneRevealRectResult,
   type GpuSectionSceneScrollOffsetMap,
 } from "gpuFlow/sceneScroll";
@@ -59,6 +57,7 @@ import {
   useProjectState,
   useResizeEvent,
   useSettings,
+  useShareSession,
   useTemporaryMiscState,
   useTypeErrors,
   type ZustandProjectSearch,
@@ -66,6 +65,7 @@ import {
   type ZustandTypeErrors,
 } from "state/definitions";
 import { resolveSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
@@ -85,7 +85,9 @@ import { getProjectGpuLayoutNode } from "./projectGpuLayoutNodeAdapter";
 import {
   createProjectGpuParamContentSurfaces,
   createProjectGpuParamDomIslands,
+  DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
   type ProjectGpuActiveParamDomIsland,
+  type ProjectGpuParamEditPolicy,
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
@@ -94,6 +96,10 @@ import {
   getProjectSectionSceneResizeDirections,
   type ProjectGpuSceneResizePolicyContext,
 } from "./projectGpuSceneResizePolicy";
+import {
+  resolveProjectGpuSceneSectionReveal,
+  type ProjectGpuSceneRevealSectionOptions,
+} from "./projectGpuSceneReveal";
 import { getProjectGpuSceneRevision } from "./projectGpuSceneRevision";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
 
@@ -119,10 +125,6 @@ export type ProjectGpuLayoutAdapter = {
   ) => void;
 };
 
-type ProjectGpuSceneRevealSectionOptions = {
-  readonly align?: GpuSectionSceneRevealRectAlignment | undefined;
-  readonly marginPx?: number | undefined;
-};
 type ProjectSectionSceneAspectRatioFields = {
   readonly aspectRatio?: boolean | null | undefined;
   readonly aspectRatioExtraHeight?: number | null | undefined;
@@ -165,6 +167,8 @@ export function useProjectGpuLayoutAdapter({
   const resizeEventBySectionId = useResizeEvent((state) => state.resizeEvent);
   const measuredHeightsByKey = useTemporaryMiscState((state) => state);
   const typeErrors = useTypeErrors((state) => state.errors);
+  const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
+  const { canEditParams, canEditStructure } = useShareCapabilities();
   const projectSearchFocused = useProjectSearch((state) => state.focused);
   const projectSearchLookup = useProjectSearch((state) => state.lookup);
   const projectSearch = useMemo(
@@ -183,6 +187,11 @@ export function useProjectGpuLayoutAdapter({
         revision: getProjectGpuSceneRevision(projectState),
         activeParamDomIsland,
         contentScrollOffsets,
+        paramEditPolicy: {
+          canEditParams,
+          canEditStructure,
+          isDeploymentMode,
+        },
         hoveredParamTarget,
         projectSearch,
         retainedParamDragPreview,
@@ -191,9 +200,12 @@ export function useProjectGpuLayoutAdapter({
       }),
     [
       activeParamDomIsland,
+      canEditParams,
+      canEditStructure,
       contentScrollOffsets,
       darkMode,
       hoveredParamTarget,
+      isDeploymentMode,
       measuredHeightsByKey,
       projectSearch,
       projectState,
@@ -261,41 +273,6 @@ export function useProjectGpuLayoutAdapter({
   );
 }
 
-export function resolveProjectGpuSceneSectionReveal({
-  align,
-  marginPx,
-  scene,
-  scrollOffsets,
-  sectionId,
-}: ProjectGpuSceneRevealSectionOptions & {
-  readonly scene: GpuFlowScene;
-  readonly scrollOffsets: GpuSectionSceneScrollOffsetMap;
-  readonly sectionId: string;
-}): GpuSectionSceneRevealRectResult {
-  const section = getProjectGpuSceneSectionById(scene, sectionId);
-  return resolveGpuSectionSceneRevealRect({
-    align,
-    marginPx,
-    parentSectionId: section.parentSectionId,
-    rect: section.localRect,
-    scene,
-    scrollOffsets,
-  });
-}
-
-function getProjectGpuSceneSectionById(
-  scene: GpuFlowScene,
-  sectionId: string,
-): GpuSectionSceneNode {
-  const section = scene.sections.find(
-    (candidate) => candidate.sectionId === sectionId,
-  );
-  if (!section) {
-    throw new Error(`Missing project GPU scene section ${sectionId}.`);
-  }
-  return section;
-}
-
 export function useProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
   const layoutStore = getProjectGpuLayoutStore();
   return layoutStore;
@@ -331,6 +308,7 @@ export function getProjectGpuFlowScene(
     readonly projectSearch?:
       | Pick<ZustandProjectSearch, "focused" | "lookup">
       | undefined;
+    readonly paramEditPolicy?: ProjectGpuParamEditPolicy | undefined;
     readonly retainedParamDragPreview?:
       | ProjectGpuRetainedParamDragPreview
       | null
@@ -347,6 +325,8 @@ export function getProjectGpuFlowScene(
   const activeViewModeId = projectState.projectConfig.activeViewModeId;
   const resizePolicyContext =
     options.resizePolicyContext ?? getProjectGpuSceneResizePolicyContext();
+  const paramEditPolicy =
+    options.paramEditPolicy ?? DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY;
   const canFilterByView = Boolean(
     activeViewModeId && projectState.projectConfig.viewModes[activeViewModeId],
   );
@@ -424,6 +404,7 @@ export function getProjectGpuFlowScene(
   const paramContentSurfaces = createProjectGpuParamContentSurfaces({
     activeParamDomIsland: options.activeParamDomIsland,
     contentScrollOffsets: options.contentScrollOffsets,
+    editPolicy: paramEditPolicy,
     hoveredParamTarget: options.hoveredParamTarget,
     measuredHeightsByKey: resizePolicyContext.measuredHeightsByKey,
     projectState,
@@ -437,6 +418,7 @@ export function getProjectGpuFlowScene(
     domIslands: createProjectGpuParamDomIslands({
       activeParamDomIsland: options.activeParamDomIsland,
       contentSurfaces: paramContentSurfaces,
+      editPolicy: paramEditPolicy,
       projectState,
     }),
     contentSurfaces: createGpuFlowContentSurfacesFromSections(

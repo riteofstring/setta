@@ -125,7 +125,10 @@ export function getProjectRetainedContentInteractionOptions({
   return {
     disabled: () => zoomActivationKeyPressed,
     onHitClick: (event: GpuRetainedContentInteractionEvent) =>
-      handleProjectRetainedContentClick(event, onActiveParamDomIslandChange),
+      handleProjectRetainedContentClick(event, {
+        canEditStructure,
+        onActiveParamDomIslandChange,
+      }),
     onHitDragCancel: (event: GpuRetainedContentDragCancelEvent) =>
       handleProjectRetainedContentDragCancel(
         event,
@@ -167,7 +170,7 @@ export function getProjectRetainedContentInteractionOptions({
       event.hit.kind === "label" ||
       event.hit.kind === "control",
     shouldHandleHit: (event: GpuRetainedContentInteractionHit) =>
-      shouldHandleProjectRetainedContentHit(event),
+      shouldHandleProjectRetainedContentHit(event, { canEditStructure }),
     shouldHandlePointerMoveHit: () => true,
     shouldStartDrag: (event: GpuRetainedContentInteractionHit) =>
       canEditStructure &&
@@ -321,9 +324,15 @@ function toProjectGpuRetainedParamTarget(
 
 function handleProjectRetainedContentClick(
   event: GpuRetainedContentInteractionEvent,
-  onActiveParamDomIslandChange: (
-    island: ProjectGpuActiveParamDomIsland | null,
-  ) => void,
+  {
+    canEditStructure,
+    onActiveParamDomIslandChange,
+  }: {
+    readonly canEditStructure: boolean;
+    readonly onActiveParamDomIslandChange: (
+      island: ProjectGpuActiveParamDomIsland | null,
+    ) => void;
+  },
 ) {
   if (useMisc.getState().isSelectingParams) {
     toggleParamSelected(event.ownerSectionId, event.hit.ownerRowId);
@@ -331,7 +340,7 @@ function handleProjectRetainedContentClick(
   }
   if (
     !isProjectRetainedParamControlActivationHit(event) &&
-    !isProjectRetainedParamLabelActivationHit(event)
+    !isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
   ) {
     return;
   }
@@ -550,11 +559,12 @@ function handleProjectRetainedContentDragCancel(
 
 function shouldHandleProjectRetainedContentHit(
   event: GpuRetainedContentInteractionHit,
+  { canEditStructure }: { readonly canEditStructure: boolean },
 ): boolean {
   return (
     useMisc.getState().isSelectingParams ||
     isProjectRetainedParamControlActivationHit(event) ||
-    isProjectRetainedParamLabelActivationHit(event)
+    isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
   );
 }
 
@@ -577,8 +587,15 @@ function isProjectRetainedParamControlActivationHit(
 
 function isProjectRetainedParamLabelActivationHit(
   event: GpuRetainedContentInteractionHit,
+  { canEditStructure }: { readonly canEditStructure: boolean },
 ): boolean {
-  if (event.hit.kind !== "label") {
+  if (event.hit.kind !== "label" || !canEditStructure) {
+    return false;
+  }
+  const row = event.retainedScene.rows.find(
+    (candidate) => candidate.id === event.hit.ownerRowId,
+  );
+  if (!row || row.state.disabled) {
     return false;
   }
   const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(

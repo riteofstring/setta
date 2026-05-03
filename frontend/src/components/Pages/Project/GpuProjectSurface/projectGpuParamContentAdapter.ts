@@ -2,6 +2,7 @@ import {
   resolveFilteredParamRows,
   type FilteredParamRows,
 } from "components/Params/paramListFiltering";
+import { resolveParamUIDisabled } from "components/Params/ParamUIs/paramUIDisabled";
 import type { GpuRetainedContentNavigationTarget } from "gpuFlow/retainedContentKeyboard";
 import {
   createGpuRetainedRowContentScene,
@@ -37,6 +38,7 @@ import {
   getSectionSearchHeightKey,
 } from "utils/constants";
 import {
+  CodeObjTypeEnum,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
@@ -88,6 +90,12 @@ type ProjectGpuRetainedParamInteractionState = {
     | undefined;
 };
 
+export type ProjectGpuParamEditPolicy = {
+  readonly canEditParams: boolean;
+  readonly canEditStructure: boolean;
+  readonly isDeploymentMode: boolean;
+};
+
 type ProjectGpuRetainedParamSurface = GpuContentSurface & {
   readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
 };
@@ -95,6 +103,13 @@ type ProjectGpuRetainedParamSurface = GpuContentSurface & {
 type ProjectGpuParamDomIslandGeometry = ReturnType<
   typeof getProjectGpuParamDomIslandGeometry
 >;
+
+export const DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY: ProjectGpuParamEditPolicy =
+  {
+    canEditParams: true,
+    canEditStructure: true,
+    isDeploymentMode: false,
+  };
 
 export function getProjectGpuRetainedParamNavigationTarget({
   activeSectionIds,
@@ -163,6 +178,7 @@ export function getProjectGpuRetainedParamNavigationTarget({
 export function createProjectGpuParamContentSurfaces({
   activeParamDomIsland,
   contentScrollOffsets,
+  editPolicy = DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
   hoveredParamTarget,
   measuredHeightsByKey,
   projectState,
@@ -176,6 +192,7 @@ export function createProjectGpuParamContentSurfaces({
     | null
     | undefined;
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly editPolicy?: ProjectGpuParamEditPolicy | undefined;
   readonly hoveredParamTarget?:
     | ProjectGpuRetainedParamTarget
     | null
@@ -194,6 +211,7 @@ export function createProjectGpuParamContentSurfaces({
     createProjectGpuParamContentSurfacesForSection({
       activeParamDomIsland,
       contentScrollOffsets,
+      editPolicy,
       hoveredParamTarget,
       measuredHeightsByKey,
       projectState,
@@ -208,6 +226,7 @@ export function createProjectGpuParamContentSurfaces({
 export function createProjectGpuParamDomIslands({
   activeParamDomIsland,
   contentSurfaces,
+  editPolicy = DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
   projectState,
 }: {
   readonly activeParamDomIsland?:
@@ -215,6 +234,7 @@ export function createProjectGpuParamDomIslands({
     | null
     | undefined;
   readonly contentSurfaces: readonly GpuContentSurface[];
+  readonly editPolicy?: ProjectGpuParamEditPolicy | undefined;
   readonly projectState: ZustandProjectState;
 }): readonly GpuDomIsland[] {
   if (!activeParamDomIsland) {
@@ -223,6 +243,7 @@ export function createProjectGpuParamDomIslands({
   const resolved = resolveProjectGpuParamDomIsland({
     activeParamDomIsland,
     contentSurfaces,
+    editPolicy,
     projectState,
   });
   if (!resolved) {
@@ -254,10 +275,12 @@ export function createProjectGpuParamDomIslands({
 function resolveProjectGpuParamDomIsland({
   activeParamDomIsland,
   contentSurfaces,
+  editPolicy,
   projectState,
 }: {
   readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
   readonly contentSurfaces: readonly GpuContentSurface[];
+  readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly projectState: ZustandProjectState;
 }): {
   readonly geometry: NonNullable<ProjectGpuParamDomIslandGeometry>;
@@ -277,6 +300,7 @@ function resolveProjectGpuParamDomIsland({
   }
   return getProjectGpuParamDomIslandResolvedRecord({
     activeParamDomIsland,
+    editPolicy,
     hit,
     projectState,
     surface,
@@ -322,11 +346,13 @@ function getProjectGpuParamDomIslandHit({
 
 function getProjectGpuParamDomIslandResolvedRecord({
   activeParamDomIsland,
+  editPolicy,
   hit,
   projectState,
   surface,
 }: {
   readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
+  readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly hit: GpuRetainedContentHitRecord;
   readonly projectState: ZustandProjectState;
   readonly surface: ProjectGpuRetainedParamSurface;
@@ -344,6 +370,7 @@ function getProjectGpuParamDomIslandResolvedRecord({
     !isProjectGpuParamDomIslandHitActive({
       hit,
       activeParamDomIsland,
+      editPolicy,
       projectState,
       row,
     })
@@ -374,11 +401,13 @@ function getProjectGpuParamDomIslandResolvedRecord({
 
 function isProjectGpuParamDomIslandHitActive({
   activeParamDomIsland,
+  editPolicy,
   hit,
   projectState,
   row,
 }: {
   readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
+  readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly hit: GpuRetainedContentHitRecord;
   readonly projectState: ZustandProjectState;
   readonly row: Pick<GpuRetainedContentRow, "controlKind" | "state">;
@@ -386,11 +415,15 @@ function isProjectGpuParamDomIslandHitActive({
   if (hit.kind === "control") {
     return isProjectGpuRetainedParamControlDomIslandActive(row);
   }
-  return isProjectGpuRetainedParamLabelEditable({
-    paramInfoId: hit.ownerRowId,
-    projectState,
-    sectionId: activeParamDomIsland.sectionId,
-  });
+  return (
+    editPolicy.canEditStructure &&
+    !row.state.disabled &&
+    isProjectGpuRetainedParamLabelEditable({
+      paramInfoId: hit.ownerRowId,
+      projectState,
+      sectionId: activeParamDomIsland.sectionId,
+    })
+  );
 }
 
 function isProjectGpuRetainedParamControlDomIslandActive(
@@ -439,6 +472,7 @@ function hasProjectGpuCoreNameEditable(codeObjImpl: unknown): boolean {
 function createProjectGpuParamContentSurfacesForSection({
   activeParamDomIsland,
   contentScrollOffsets,
+  editPolicy,
   hoveredParamTarget,
   measuredHeightsByKey,
   projectState,
@@ -452,6 +486,7 @@ function createProjectGpuParamContentSurfacesForSection({
     | null
     | undefined;
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
+  readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly hoveredParamTarget?:
     | ProjectGpuRetainedParamTarget
     | null
@@ -481,6 +516,7 @@ function createProjectGpuParamContentSurfacesForSection({
     projectSearch,
     sectionId: section.sectionId,
     sectionImpl: dictSectionImpl,
+    editPolicy,
     typeErrors,
     retainedInteractionState: {
       activeParamDomIsland,
@@ -498,6 +534,7 @@ function createProjectGpuParamContentSurfacesForSection({
 }
 
 function createProjectGpuParamListRows({
+  editPolicy,
   projectState,
   projectSearch,
   retainedInteractionState,
@@ -506,6 +543,7 @@ function createProjectGpuParamListRows({
   typeErrors,
 }: {
   readonly projectState: ZustandProjectState;
+  readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
   readonly sectionId: string;
@@ -545,6 +583,7 @@ function createProjectGpuParamListRows({
         key,
         rows: createProjectGpuParamRows({
           filteredRows,
+          editPolicy,
           projectState,
           projectSearch,
           retainedInteractionState,
@@ -620,6 +659,7 @@ function normalizeProjectGpuShownParamRows({
 }
 
 function createProjectGpuParamRows({
+  editPolicy,
   filteredRows,
   projectState,
   projectSearch,
@@ -630,6 +670,7 @@ function createProjectGpuParamRows({
   typeErrors,
 }: {
   readonly filteredRows: FilteredParamRows;
+  readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
@@ -670,7 +711,11 @@ function createProjectGpuParamRows({
     return createProjectGpuParamRowInput({
       activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
       codeObjImpl,
-      disabled: sectionImpl.isFrozen,
+      disabled: resolveProjectGpuRetainedParamRowDisabled({
+        codeObjType: codeObjImpl.type,
+        editPolicy,
+        sectionImpl,
+      }),
       draggingParamIds,
       edgeInputParamIds,
       hoveredParamTarget: retainedInteractionState.hoveredParamTarget,
@@ -682,6 +727,24 @@ function createProjectGpuParamRows({
       selectedParamIds,
       surfaceId,
     });
+  });
+}
+
+function resolveProjectGpuRetainedParamRowDisabled({
+  codeObjType,
+  editPolicy,
+  sectionImpl,
+}: {
+  readonly codeObjType: string;
+  readonly editPolicy: ProjectGpuParamEditPolicy;
+  readonly sectionImpl: DictSectionImpl;
+}): boolean {
+  return resolveParamUIDisabled({
+    canEditParams: editPolicy.canEditParams,
+    disabledOrFrozen: sectionImpl.isFrozen,
+    isCodeParam: codeObjType === CodeObjTypeEnum.CodeParam,
+    isDeploymentMode: editPolicy.isDeploymentMode,
+    isSelectingParams: false,
   });
 }
 

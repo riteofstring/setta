@@ -51,6 +51,7 @@ import {
 } from "./ConfiguredParamInputs";
 import { DropdownInputConfigForParam } from "./DropdownInput";
 import { DropzoneInput, DropzoneInputConfigForParam } from "./DropzoneInput";
+import { resolveParamUIDisabled } from "./paramUIDisabled";
 import {
   SPECIALIZED_PARAM_RENDERER_FAMILIES,
   TEXT_LIKE_PARAM_TYPES,
@@ -207,27 +208,6 @@ function useParamUIState(
 function isTextLikeParamType(codeObjType: CodeObjType): boolean {
   return (TEXT_LIKE_PARAM_TYPES as readonly CodeObjType[]).includes(
     codeObjType,
-  );
-}
-
-function resolveParamUIDisabled({
-  isSelectingParams,
-  disabledOrFrozen,
-  canEditParams,
-  isDeploymentMode,
-  isCodeParam,
-}: {
-  isSelectingParams: boolean;
-  disabledOrFrozen: boolean;
-  canEditParams: boolean;
-  isDeploymentMode: boolean;
-  isCodeParam: boolean;
-}): boolean {
-  return (
-    isSelectingParams ||
-    disabledOrFrozen ||
-    !canEditParams ||
-    (isDeploymentMode && isCodeParam)
   );
 }
 

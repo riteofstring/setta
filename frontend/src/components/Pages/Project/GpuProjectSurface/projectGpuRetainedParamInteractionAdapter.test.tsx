@@ -429,6 +429,63 @@ describe("project GPU retained param DOM islands", () => {
     expect(onActiveParamDomIslandChange).not.toHaveBeenCalled();
   });
 
+  it("does not activate retained param name islands when structure edits are disabled", () => {
+    seedNestedParamNameProjectState();
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 40,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          controlKind: "text-like",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const labelHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "label",
+    );
+    if (!labelHit) {
+      throw new Error("Expected retained label hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: false,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const event = {
+      hit: labelHit,
+      localPoint: { x: 12, y: 14 },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 22,
+        clientY: 16,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 12, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    expect(options.shouldHandleHit?.(event)).toBe(false);
+    options.onHitClick(event);
+
+    expect(onActiveParamDomIslandChange).not.toHaveBeenCalled();
+  });
+
   it("mounts retained param name inputs against the viewport CodeMirror tooltip portal", async () => {
     const rendered = await renderIsland(retainedParamNameIsland());
 

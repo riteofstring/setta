@@ -36,7 +36,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   getProjectGpuFlowScene,
-  resolveProjectGpuSceneSectionReveal,
   syncProjectGpuLayoutStoreFromScene,
 } from "./projectGpuLayoutAdapter";
 import {
@@ -44,6 +43,7 @@ import {
   getProjectGpuLayoutNodesFromNodeInternals,
 } from "./projectGpuLayoutNodeAdapter";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuParamContentAdapter";
+import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
 
 describe("project GPU layout adapter", () => {
   it("maps project node internals into renderer layout nodes", () => {
@@ -810,6 +810,137 @@ describe("project GPU layout adapter", () => {
       }),
     });
     expect(scene.domIslands).toEqual([]);
+  });
+
+  it("applies retained param edit policy before mounting active islands", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "code-param": "code-param-variant",
+              "dropdown-param": "dropdown-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 160, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 160, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", [
+        "code-param",
+        "dropdown-param",
+      ]),
+    );
+    addParamToProjectState(
+      projectState,
+      "code-param",
+      "code-param-variant",
+      "code-param-impl",
+      createCodeParamCodeObjImpl({
+        id: "code-param-impl",
+        name: "code",
+      }),
+    );
+    addParamToProjectState(
+      projectState,
+      "dropdown-param",
+      "dropdown-param-variant",
+      "dropdown-param-impl",
+      createDropdownParamCodeObjImpl({
+        coreNameEditable: true,
+        id: "dropdown-param-impl",
+        name: "dropdown",
+        type: CodeObjTypeEnum.DropdownParam,
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "code-param": ["code-param"],
+          "dropdown-param": ["dropdown-param"],
+        },
+        topLevelParamIds: ["code-param", "dropdown-param"],
+      },
+    });
+
+    const deploymentEditPolicy = {
+      canEditParams: true,
+      canEditStructure: false,
+      isDeploymentMode: true,
+    };
+    const codeScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:code-param",
+        paramInfoId: "code-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      paramEditPolicy: deploymentEditPolicy,
+      revision: 5,
+    });
+    const codeSurface = codeScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(
+      codeSurface?.retainedScene?.rows.map((row) => ({
+        disabled: row.state.disabled,
+        id: row.id,
+      })),
+    ).toEqual([
+      { disabled: true, id: "code-param" },
+      { disabled: false, id: "dropdown-param" },
+    ]);
+    expect(codeScene.domIslands).toEqual([]);
+
+    const dropdownControlScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:dropdown-param",
+        paramInfoId: "dropdown-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      paramEditPolicy: deploymentEditPolicy,
+      revision: 6,
+    });
+
+    expect(dropdownControlScene.domIslands).toEqual([
+      expect.objectContaining({
+        kind: "retained-content-control",
+        source: expect.objectContaining({
+          ownerRowId: "dropdown-param",
+        }),
+      }),
+    ]);
+
+    const dropdownLabelScene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "label:dropdown-param",
+        paramInfoId: "dropdown-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      paramEditPolicy: deploymentEditPolicy,
+      revision: 7,
+    });
+
+    expect(dropdownLabelScene.domIslands).toEqual([]);
   });
 
   it("does not synthesize retained controls for params without a section-param UI owner", () => {
