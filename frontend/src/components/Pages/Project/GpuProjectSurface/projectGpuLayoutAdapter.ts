@@ -50,7 +50,6 @@ import {
   useResizeEvent,
   useSettings,
   useShareSession,
-  useTemporaryMiscState,
   useTypeErrors,
   type ZustandProjectSearch,
   type ZustandProjectState,
@@ -58,7 +57,6 @@ import {
 } from "state/definitions";
 import { resolveSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
-import { getKwargsControlsHeightKey } from "utils/constants";
 import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
@@ -82,12 +80,7 @@ import {
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 import type { ProjectGpuRetainedPasswordRevealStateMap } from "./projectGpuRetainedParamPasswordRevealState";
 import {
-  areProjectGpuSceneMeasuredHeightsEqual,
-  getProjectGpuSceneMeasuredHeights,
   getProjectGpuSceneResizePolicyContext,
-} from "./projectGpuSceneMeasuredHeights";
-import {
-  getProjectSceneMeasuredHeight,
   getProjectSectionSceneResizeDirections,
   type ProjectGpuSceneResizePolicyContext,
 } from "./projectGpuSceneResizePolicy";
@@ -102,6 +95,7 @@ import {
   shouldRenderProjectSceneSection,
 } from "./projectGpuSectionSceneTree";
 import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
+import { getProjectSectionSceneKwargsControlsHeight } from "./projectSectionSceneKwargsControlsLayout";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
 import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
@@ -178,10 +172,6 @@ export function useProjectGpuLayoutAdapter({
   const darkMode = useLocalStorage((state) => state.darkMode);
   const sizingPolicy = useSettings((state) => state.sectionSizingPolicy);
   const resizeEventBySectionId = useResizeEvent((state) => state.resizeEvent);
-  const measuredHeightsByKey = useTemporaryMiscState(
-    (state) => getProjectGpuSceneMeasuredHeights(projectState, state),
-    areProjectGpuSceneMeasuredHeightsEqual,
-  );
   const typeErrors = useTypeErrors((state) => state.errors);
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
   const { canEditParams, canEditStructure } = useShareCapabilities();
@@ -196,7 +186,6 @@ export function useProjectGpuLayoutAdapter({
       getProjectGpuFlowScene(projectState, {
         darkMode,
         resizePolicyContext: {
-          measuredHeightsByKey,
           resizeEventBySectionId,
           sizingPolicy,
         },
@@ -228,7 +217,6 @@ export function useProjectGpuLayoutAdapter({
       hoveredParamTarget,
       passwordRevealStates,
       isDeploymentMode,
-      measuredHeightsByKey,
       projectSearch,
       projectState,
       retainedParamDragPreview,
@@ -421,7 +409,6 @@ export function getProjectGpuFlowScene(
     contentScrollOffsets: options.contentScrollOffsets,
     editPolicy: paramEditPolicy,
     hoveredParamTarget: options.hoveredParamTarget,
-    measuredHeightsByKey: resizePolicyContext.measuredHeightsByKey,
     passwordRevealStates: options.passwordRevealStates,
     projectState,
     projectSearch: options.projectSearch,
@@ -591,7 +578,6 @@ function createProjectSectionSceneNode({
     parentSectionId,
     portAnchors: getProjectSectionScenePortAnchors({
       projectState,
-      resizePolicyContext,
       sectionId,
       sectionImpl,
       worldRect,
@@ -610,21 +596,17 @@ function createProjectSectionSceneNode({
 
 function getProjectSectionScenePortAnchors({
   projectState,
-  resizePolicyContext,
   sectionId,
   sectionImpl,
   worldRect,
 }: {
   readonly projectState: ZustandProjectState;
-  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
   readonly worldRect: GpuRect;
 }): readonly GpuPortAnchorDescriptor[] {
   return [
     ...getProjectSectionSceneDataPortAnchors({
-      resizePolicyContext,
-      sectionId,
       sectionImpl,
       worldRect,
     }),
@@ -638,13 +620,9 @@ function getProjectSectionScenePortAnchors({
 }
 
 function getProjectSectionSceneDataPortAnchors({
-  resizePolicyContext,
-  sectionId,
   sectionImpl,
   worldRect,
 }: {
-  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
-  readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
   readonly worldRect: GpuRect;
 }): readonly GpuPortAnchorDescriptor[] {
@@ -654,8 +632,6 @@ function getProjectSectionSceneDataPortAnchors({
 
   if (!sectionImpl.isMinimized) {
     return getProjectSectionSceneEdgeStripPortAnchors({
-      resizePolicyContext,
-      sectionId,
       sectionImpl,
       worldRect,
     });
@@ -680,13 +656,9 @@ function getProjectSectionSceneDataPortAnchors({
 }
 
 function getProjectSectionSceneEdgeStripPortAnchors({
-  resizePolicyContext,
-  sectionId,
   sectionImpl,
   worldRect,
 }: {
-  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
-  readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion & {
     readonly edgeInputParams?: readonly string[] | null;
     readonly edgeOutputPorts?: readonly { readonly id: string }[] | null;
@@ -694,8 +666,6 @@ function getProjectSectionSceneEdgeStripPortAnchors({
   readonly worldRect: GpuRect;
 }): readonly GpuPortAnchorDescriptor[] {
   const stripLocalY = getProjectSectionSceneEdgeStripLocalY({
-    resizePolicyContext,
-    sectionId,
     sectionImpl,
   });
   return [
@@ -720,21 +690,14 @@ function getProjectSectionSceneEdgeStripPortAnchors({
 }
 
 function getProjectSectionSceneEdgeStripLocalY({
-  resizePolicyContext,
-  sectionId,
   sectionImpl,
 }: {
-  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
-  readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
 }): number {
   return (
     getProjectSectionSceneHeaderHeight() +
     getProjectSectionSceneSearchHeight(sectionImpl) +
-    getProjectSceneMeasuredHeight(
-      resizePolicyContext,
-      getKwargsControlsHeightKey(sectionId),
-    )
+    getProjectSectionSceneKwargsControlsHeight(sectionImpl)
   );
 }
 
@@ -755,10 +718,8 @@ function getProjectSectionSceneResizePolicy({
     sizingPolicy: resizePolicyContext.sizingPolicy,
     resizeEvent: resizePolicyContext.resizeEventBySectionId[sectionId],
     measuredHeights: {
-      kwargsControlsHeight: getProjectSceneMeasuredHeight(
-        resizePolicyContext,
-        getKwargsControlsHeightKey(sectionId),
-      ),
+      kwargsControlsHeight:
+        getProjectSectionSceneKwargsControlsHeight(sectionImpl),
       paramsFixedHeight: getProjectSectionSceneParamsFixedHeight({
         projectState,
         sectionId,

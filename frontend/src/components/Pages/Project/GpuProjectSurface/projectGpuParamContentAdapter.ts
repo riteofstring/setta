@@ -65,6 +65,7 @@ import {
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 import type { ProjectGpuRetainedPasswordRevealStateMap as PasswordRevealStates } from "./projectGpuRetainedParamPasswordRevealState";
 import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
+import { getProjectSectionSceneKwargsControlsHeight } from "./projectSectionSceneKwargsControlsLayout";
 import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
 export type { ProjectGpuParamListKey } from "./projectGpuParamContentLayout";
@@ -149,7 +150,6 @@ export function createProjectGpuParamContentSurfaces({
   contentScrollOffsets,
   editPolicy = DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
   hoveredParamTarget,
-  measuredHeightsByKey,
   passwordRevealStates,
   projectState,
   projectSearch,
@@ -163,7 +163,6 @@ export function createProjectGpuParamContentSurfaces({
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly editPolicy?: ProjectGpuParamEditPolicy | undefined;
   readonly hoveredParamTarget?: OptionalParamTarget;
-  readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly passwordRevealStates?: PasswordRevealStates;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
@@ -179,7 +178,6 @@ export function createProjectGpuParamContentSurfaces({
       contentScrollOffsets,
       editPolicy,
       hoveredParamTarget,
-      measuredHeightsByKey,
       passwordRevealStates,
       projectState,
       projectSearch,
@@ -462,7 +460,6 @@ function createProjectGpuParamContentSurfacesForSection({
   contentScrollOffsets,
   editPolicy,
   hoveredParamTarget,
-  measuredHeightsByKey,
   passwordRevealStates,
   projectState,
   projectSearch,
@@ -476,7 +473,6 @@ function createProjectGpuParamContentSurfacesForSection({
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly hoveredParamTarget?: OptionalParamTarget;
-  readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly passwordRevealStates?: PasswordRevealStates;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
@@ -513,7 +509,6 @@ function createProjectGpuParamContentSurfacesForSection({
     activeParamCanvasPopup,
     contentScrollOffsets,
     listRows,
-    measuredHeightsByKey,
     retainedParamDragPreview,
     section,
     sectionImpl,
@@ -749,7 +744,6 @@ function createProjectGpuParamListContentSurfaces({
   activeParamCanvasPopup,
   contentScrollOffsets,
   listRows,
-  measuredHeightsByKey,
   retainedParamDragPreview,
   section,
   sectionImpl,
@@ -760,7 +754,6 @@ function createProjectGpuParamListContentSurfaces({
     | undefined;
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly listRows: readonly ProjectGpuParamListRows[];
-  readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly retainedParamDragPreview?:
     | ProjectGpuRetainedParamDragPreview
     | null
@@ -776,9 +769,9 @@ function createProjectGpuParamListContentSurfaces({
     headerHeight:
       getProjectSectionSceneHeaderHeight() +
       getProjectSectionSceneSearchHeight(sectionImpl),
-    measuredHeightsByKey,
+    kwargsControlsHeight:
+      getProjectSectionSceneKwargsControlsHeight(sectionImpl),
     pinnedRowCount: getProjectGpuParamListRowCount(listRows, "pinned"),
-    sectionId: section.sectionId,
   });
   let nextLocalY = metrics.contentTop;
   for (const list of listRows) {

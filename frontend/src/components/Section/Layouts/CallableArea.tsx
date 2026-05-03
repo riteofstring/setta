@@ -43,7 +43,10 @@ function _CallableArea({
       />
       {!hideParams && !isMinimized && (
         <>
-          <KwargsControls sectionId={sectionId} />
+          <KwargsControls
+            sectionId={sectionId}
+            trackMeasuredHeight={syncDomPortGeometry}
+          />
           <ParamGroupContainer
             sectionId={sectionId}
             bgColor={bgColor}

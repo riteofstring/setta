@@ -1,5 +1,4 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
-import { getKwargsControlsHeightKey } from "utils/constants";
 import { describe, expect, it } from "vitest";
 import {
   getProjectGpuParamContentMetrics,
@@ -8,17 +7,12 @@ import {
 
 describe("project GPU param content layout", () => {
   it("derives edge-strip spacing from scene metadata instead of measured height state", () => {
-    const sectionId = "section-a";
-
     const metrics = getProjectGpuParamContentMetrics({
       edgeInputPortCount: 2,
       edgeOutputPortCount: 1,
-      measuredHeightsByKey: {
-        [getKwargsControlsHeightKey(sectionId)]: 13,
-      },
       headerHeight: 7,
+      kwargsControlsHeight: 13,
       pinnedRowCount: 3,
-      sectionId,
     });
 
     expect(metrics.edgesHeight).toBe(

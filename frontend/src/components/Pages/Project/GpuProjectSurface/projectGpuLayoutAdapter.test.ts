@@ -1,3 +1,4 @@
+import { KWARGS_CONTROLS_SCENE_HEIGHT_PX } from "components/Section/SectionParts/kwargsControlsLayout";
 import { PROJECT_SECTION_SEARCH_HEIGHT_PX } from "components/Section/SectionParts/sectionSearchLayout";
 import type { Node } from "gpuFlow/flowTypes";
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
@@ -7,10 +8,6 @@ import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
 import type { ZustandProjectState } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
-import {
-  getKwargsControlsHeightKey,
-  getSectionStylePreviewColorKey,
-} from "utils/constants";
 import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
@@ -41,7 +38,6 @@ import {
   createSingleConfig,
   createStateMachineGateSectionImpl,
   createVariant,
-  createViewMode,
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type ColorPickerParamCodeObjImpl,
@@ -63,10 +59,6 @@ import {
   getProjectGpuLayoutNodesFromNodeInternals,
 } from "./projectGpuLayoutNodeAdapter";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
-import {
-  areProjectGpuSceneMeasuredHeightsEqual,
-  getProjectGpuSceneMeasuredHeights,
-} from "./projectGpuSceneMeasuredHeights";
 import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
 import { PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX } from "./projectSectionSceneHeaderLayout";
 
@@ -207,90 +199,6 @@ describe("project GPU layout adapter", () => {
     ).toEqual(["group-a", "child-a", "child-b"]);
   });
 
-  it("narrows scene measured heights to project-owned height keys", () => {
-    const projectState = projectStateWithSections({
-      sections: [
-        {
-          id: "dict-a",
-          impl: createDictSectionImpl({
-            id: "dict-a-impl",
-            size: sectionSize({ height: 120, width: 260 }),
-          }),
-          parentId: null,
-        },
-        {
-          id: "hidden-dict",
-          impl: createDictSectionImpl({
-            id: "hidden-dict-impl",
-            size: sectionSize({ height: 80, width: 180 }),
-          }),
-          parentId: null,
-        },
-        {
-          id: "callable-a",
-          impl: createCallableSectionImpl({
-            id: "callable-a-impl",
-            size: sectionSize({ height: 90, width: 220 }),
-          }),
-          parentId: null,
-        },
-      ],
-      topLevelSections: {
-        "callable-a": { h: 90, w: 220, x: 520, y: 20, zIndex: 4 },
-        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
-        "hidden-dict": { h: 80, w: 180, x: 300, y: 20, zIndex: 3 },
-      },
-    });
-    projectState.projectConfig.activeViewModeId = "view-a";
-    projectState.projectConfig.viewModes = {
-      "view-a": createViewMode({
-        id: "view-a",
-        name: "View A",
-        visibilityBySectionId: {
-          "callable-a": true,
-          "dict-a": true,
-          "hidden-dict": false,
-        },
-      }),
-    };
-    const sectionId = "dict-a";
-    const kwargsKey = getKwargsControlsHeightKey(sectionId);
-
-    const measuredHeights = getProjectGpuSceneMeasuredHeights(projectState, {
-      "section-header-height-hidden-dict": 64,
-      "section-header-height-other-section": 42,
-      [getSectionStylePreviewColorKey(sectionId)]: "#ff0000",
-      [kwargsKey]: Number.NaN,
-      "params-fixed-height-callable-a": 48,
-      "params-fixed-height-dict-a": 36,
-      unrelated: 99,
-    });
-
-    expect(measuredHeights).not.toHaveProperty("section-header-height-dict-a");
-    expect(measuredHeights).not.toHaveProperty(
-      "section-header-height-hidden-dict",
-    );
-    expect(measuredHeights).not.toHaveProperty("params-fixed-height-dict-a");
-    expect(measuredHeights).not.toHaveProperty(
-      "params-fixed-height-callable-a",
-    );
-    expect(measuredHeights).toEqual({
-      [kwargsKey]: 0,
-      [getKwargsControlsHeightKey("callable-a")]: 0,
-    });
-    expect(
-      areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
-        ...measuredHeights,
-      }),
-    ).toBe(true);
-    expect(
-      areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
-        ...measuredHeights,
-        [kwargsKey]: 25,
-      }),
-    ).toBe(false);
-  });
-
   it("derives retained dict param content surfaces from shown param metadata", () => {
     const projectState = projectStateWithSections({
       sections: [
@@ -307,14 +215,23 @@ describe("project GPU layout adapter", () => {
             id: "dict-a-impl",
             paramFilter: "child",
             selectedParams: ["child-param"],
-            size: sectionSize({ height: 120, width: 260 }),
+            size: sectionSize({
+              height: 120 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
+              width: 260,
+            }),
             topLevelParamId: "root-param",
           }),
           parentId: null,
         },
       ],
       topLevelSections: {
-        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+        "dict-a": {
+          h: 120 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
+          w: 260,
+          x: 10,
+          y: 20,
+          zIndex: 2,
+        },
       },
     });
     addParamToProjectState(
@@ -391,9 +308,19 @@ describe("project GPU layout adapter", () => {
       (surface) => surface.id === "dict-a:param-content:unpinned",
     );
     expect(paramSurface).toMatchObject({
-      clipRect: { height: 23, width: 262, x: 10, y: 119 },
+      clipRect: {
+        height: 23,
+        width: 262,
+        x: 10,
+        y: 119 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
+      },
       ownerSectionId: "dict-a",
-      rect: { height: 23, width: 262, x: 10, y: 119 },
+      rect: {
+        height: 23,
+        width: 262,
+        x: 10,
+        y: 119 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
+      },
       renderer: {
         kind: "canvas-content",
         surfaceId: "dict-a:param-content:unpinned",
@@ -607,6 +534,7 @@ describe("project GPU layout adapter", () => {
       20 +
         PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
         PROJECT_SECTION_SEARCH_HEIGHT_PX +
+        KWARGS_CONTROLS_SCENE_HEIGHT_PX +
         5,
     );
     expect(unpinnedSurface?.rect.y).toBe(
@@ -813,7 +741,10 @@ describe("project GPU layout adapter", () => {
           kind: "input",
           localPosition: {
             x: -1,
-            y: 60 + PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX,
+            y:
+              60 +
+              PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+              KWARGS_CONTROLS_SCENE_HEIGHT_PX,
           },
         },
         {
@@ -821,7 +752,10 @@ describe("project GPU layout adapter", () => {
           kind: "output",
           localPosition: {
             x: 123,
-            y: 60 + PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX,
+            y:
+              60 +
+              PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+              KWARGS_CONTROLS_SCENE_HEIGHT_PX,
           },
         },
         expect.objectContaining({
@@ -1110,7 +1044,12 @@ describe("project GPU layout adapter", () => {
         id: "param-control:dict-a:child-param",
         kind: "retained-content-control",
         ownerSectionId: "dict-a",
-        rect: { height: 24, width: 176, x: 87, y: 71 },
+        rect: {
+          height: 24,
+          width: 176,
+          x: 87,
+          y: 71 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
+        },
         source: {
           hitRecordId: "control:child-param",
           kind: "retained-content",
@@ -2166,7 +2105,12 @@ describe("project GPU layout adapter", () => {
         id: "param-label:dict-a:child-param",
         kind: "retained-content-label",
         ownerSectionId: "dict-a",
-        rect: { height: 24, width: 51, x: 24, y: 71 },
+        rect: {
+          height: 24,
+          width: 51,
+          x: 24,
+          y: 71 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
+        },
         source: {
           hitRecordId: "label:child-param",
           kind: "retained-content",
@@ -2627,7 +2571,7 @@ describe("project GPU layout adapter", () => {
 
     expect(paramSurface?.retainedScene).toMatchObject({
       scrollOffset: { x: 0, y: 56 },
-      visibleRange: { endIndex: 6, rowCount: 8, startIndex: 0 },
+      visibleRange: { endIndex: 5, rowCount: 8, startIndex: 0 },
     });
     expect(paramSurface?.retainedScene?.rows[0]).toMatchObject({
       id: "param-0",

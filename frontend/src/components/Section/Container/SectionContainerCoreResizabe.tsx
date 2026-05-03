@@ -290,11 +290,17 @@ export const SECTION_AREA_RENDERERS = {
       syncDomPortGeometry={syncDomPortGeometry}
     />
   ),
-  [SectionTypeEnum.Dict]: ({ sectionId, bgColor, renderParamRows = true }) => (
+  [SectionTypeEnum.Dict]: ({
+    sectionId,
+    bgColor,
+    renderParamRows = true,
+    syncDomPortGeometry,
+  }) => (
     <DictArea
       sectionId={sectionId}
       bgColor={bgColor}
       renderParamRows={renderParamRows}
+      trackMeasuredHeight={syncDomPortGeometry}
     />
   ),
   [SectionTypeEnum.Image]: ({ sectionId }) => (
@@ -320,11 +326,13 @@ export const SECTION_AREA_RENDERERS = {
     sectionId,
     bgColor,
     renderParamRows = true,
+    syncDomPortGeometry,
   }) => (
     <GlobalVariablesArea
       sectionId={sectionId}
       bgColor={bgColor}
       renderParamRows={renderParamRows}
+      trackMeasuredHeight={syncDomPortGeometry}
     />
   ),
   [SectionTypeEnum.Code]: ({ sectionId }) => <CodeArea sectionId={sectionId} />,

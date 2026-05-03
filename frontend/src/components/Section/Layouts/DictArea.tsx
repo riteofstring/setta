@@ -7,14 +7,19 @@ function _DictArea({
   sectionId,
   bgColor,
   renderParamRows = true,
+  trackMeasuredHeight = true,
 }: {
   sectionId: string;
   bgColor: string;
   renderParamRows?: boolean;
+  trackMeasuredHeight?: boolean;
 }) {
   return (
     <>
-      <KwargsControls sectionId={sectionId} />
+      <KwargsControls
+        sectionId={sectionId}
+        trackMeasuredHeight={trackMeasuredHeight}
+      />
       <ParamGroupContainer
         sectionId={sectionId}
         bgColor={bgColor}
