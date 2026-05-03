@@ -146,7 +146,6 @@ export function getProjectRetainedContentInteractionOptions({
     disabled: () => zoomActivationKeyPressed,
     onHitClick: (event: GpuRetainedContentInteractionEvent) =>
       handleProjectRetainedContentClick(event, {
-        canEditStructure,
         onActiveParamCanvasPopupChange,
         onActiveParamCanvasControlChange,
         onActiveParamDomIslandChange,
@@ -184,6 +183,13 @@ export function getProjectRetainedContentInteractionOptions({
         onActiveParamDomIslandChange,
         onRetainedParamDragPreviewChange,
         retainedParamDragSessionRef,
+      }),
+    onHitPointerDown: (event: GpuRetainedContentInteractionEvent) =>
+      handleProjectRetainedContentPointerDown(event, {
+        canEditStructure,
+        onActiveParamCanvasPopupChange,
+        onActiveParamCanvasControlChange,
+        onActiveParamDomIslandChange,
       }),
     onHitPointerLeave: () => onHoveredParamTargetChange(null),
     onHitPointerMove: (event: {
@@ -333,14 +339,12 @@ function toProjectGpuRetainedParamTarget(
 function handleProjectRetainedContentClick(
   event: GpuRetainedContentInteractionEvent,
   {
-    canEditStructure,
     onActiveParamCanvasPopupChange,
     onActiveParamCanvasControlChange,
     onActiveParamDomIslandChange,
     onPasswordRevealStateChange,
     passwordRevealStates,
   }: {
-    readonly canEditStructure: boolean;
     readonly onActiveParamCanvasPopupChange: ActiveParamPopupHandler;
     readonly onActiveParamCanvasControlChange: ActiveParamCanvasControlHandler;
     readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
@@ -354,9 +358,7 @@ function handleProjectRetainedContentClick(
   }
   if (
     !isProjectRetainedParamCanvasPopupHit(event) &&
-    !isProjectRetainedParamCanvasControlHit(event) &&
-    !isProjectRetainedParamControlActivationHit(event) &&
-    !isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
+    !isProjectRetainedParamCanvasControlHit(event)
   ) {
     return;
   }
@@ -388,6 +390,35 @@ function handleProjectRetainedContentClick(
     onActiveParamDomIslandChange(null);
     return;
   }
+}
+
+function handleProjectRetainedContentPointerDown(
+  event: GpuRetainedContentInteractionEvent,
+  {
+    canEditStructure,
+    onActiveParamCanvasPopupChange,
+    onActiveParamCanvasControlChange,
+    onActiveParamDomIslandChange,
+  }: {
+    readonly canEditStructure: boolean;
+    readonly onActiveParamCanvasPopupChange: ActiveParamPopupHandler;
+    readonly onActiveParamCanvasControlChange: ActiveParamCanvasControlHandler;
+    readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
+  },
+) {
+  if (useMisc.getState().isSelectingParams) {
+    return;
+  }
+  if (
+    !isProjectRetainedParamControlActivationHit(event) &&
+    !isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
+  ) {
+    return;
+  }
+  applyActiveSectionChange({
+    interaction: "input-focus",
+    sectionId: event.ownerSectionId,
+  });
   onActiveParamCanvasPopupChange(null);
   onActiveParamCanvasControlChange(null);
   flushSync(() => {

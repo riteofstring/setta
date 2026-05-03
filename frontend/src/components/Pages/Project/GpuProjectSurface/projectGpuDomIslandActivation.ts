@@ -117,6 +117,24 @@ function getProjectGpuDomIslandActivationTarget(
   activation: GpuDomIsland["activation"] | undefined,
 ): HTMLElement | null {
   const pointedElement = getProjectGpuDomIslandPointedElement(root, activation);
+  const pointedTarget = getProjectGpuDomIslandPointedActivationTarget(
+    root,
+    pointedElement,
+  );
+  if (pointedTarget !== undefined) {
+    return pointedTarget;
+  }
+  return getProjectGpuDomIslandFallbackActivationTargetForState({
+    activation,
+    pointedElement,
+    root,
+  });
+}
+
+function getProjectGpuDomIslandPointedActivationTarget(
+  root: HTMLElement,
+  pointedElement: Element | null,
+): HTMLElement | null | undefined {
   const pointedExplicitTarget = getProjectGpuDomIslandClosestTarget(
     root,
     pointedElement,
@@ -131,24 +149,39 @@ function getProjectGpuDomIslandActivationTarget(
     root,
     pointedElement,
   );
+  if (!pointedTarget) {
+    return undefined;
+  }
   if (pointedTarget && isProjectGpuDomIslandActivationTarget(pointedTarget)) {
     return pointedTarget;
   }
-  const descendantExplicitTarget = pointedTarget
-    ? getProjectGpuDomIslandExplicitActivationTarget(pointedTarget)
-    : null;
-  if (descendantExplicitTarget) {
-    return descendantExplicitTarget;
+  if (hasProjectGpuDomIslandCanvasOwnedRole(pointedTarget)) {
+    return null;
   }
-  if (!activation) {
-    const fallbackExplicitTarget =
-      getProjectGpuDomIslandExplicitActivationTarget(root);
-    if (fallbackExplicitTarget) {
-      return fallbackExplicitTarget;
-    }
-    return getProjectGpuDomIslandFallbackActivationTarget(root);
+  return (
+    getProjectGpuDomIslandExplicitActivationTarget(pointedTarget) ?? undefined
+  );
+}
+
+function getProjectGpuDomIslandFallbackActivationTargetForState({
+  activation,
+  pointedElement,
+  root,
+}: {
+  readonly activation: GpuDomIsland["activation"] | undefined;
+  readonly pointedElement: Element | null;
+  readonly root: HTMLElement;
+}): HTMLElement | null {
+  if (activation && pointedElement) {
+    return getProjectGpuDomIslandFallbackEditorActivationTarget(root);
   }
-  return null;
+  if (activation) {
+    return null;
+  }
+  return (
+    getProjectGpuDomIslandExplicitActivationTarget(root) ??
+    getProjectGpuDomIslandFallbackActivationTarget(root)
+  );
 }
 
 function getProjectGpuDomIslandPointedElement(
@@ -228,6 +261,23 @@ function getProjectGpuDomIslandFallbackActivationTarget(
     PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR,
   )) {
     if (isProjectGpuDomIslandActivationTarget(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function getProjectGpuDomIslandFallbackEditorActivationTarget(
+  root: HTMLElement,
+): HTMLElement | null {
+  for (const candidate of root.querySelectorAll<HTMLElement>(
+    PROJECT_GPU_DOM_ISLAND_INTERACTIVE_SELECTOR,
+  )) {
+    if (
+      !hasProjectGpuDomIslandCanvasOwnedRole(candidate) &&
+      (shouldMouseActivateProjectGpuDomIslandTarget(candidate) ||
+        shouldFocusProjectGpuDomIslandActivationTarget(candidate))
+    ) {
       return candidate;
     }
   }

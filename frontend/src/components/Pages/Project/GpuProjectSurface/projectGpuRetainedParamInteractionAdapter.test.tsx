@@ -104,10 +104,12 @@ const mocks = vi.hoisted(() => ({
       | "plain-button"
       | "pointer-activation"
       | "switch-role-button"
+      | "textarea"
       | "text-input"
       | "time-input",
   },
   paramInputProps: vi.fn(),
+  paramNameActivationMouseDown: vi.fn(),
   paramNameInputProps: vi.fn(),
   requestAnimationFrameMock: vi.fn(),
   cancelAnimationFrameMock: vi.fn(),
@@ -210,6 +212,16 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
         />
       );
     }
+    if (mocks.paramInputRenderMode.current === "textarea") {
+      return (
+        <textarea
+          data-gpu-flow-interactive="true"
+          data-testid="param-input"
+          data-tooltip-parent={props.tooltipParentDivId ?? ""}
+          onClick={mocks.paramInputActivationClick}
+        />
+      );
+    }
     if (mocks.paramInputRenderMode.current === "button-role-div") {
       return (
         <div
@@ -304,8 +316,12 @@ vi.mock("components/Params/ParamItems/ParamNameInput", () => ({
     mocks.paramNameInputProps(props);
     return (
       <div
+        data-gpu-flow-activation="mousedown"
+        data-gpu-flow-interactive="true"
         data-testid="param-name-input"
         data-tooltip-parent={props.tooltipParentDivId ?? ""}
+        onMouseDown={mocks.paramNameActivationMouseDown}
+        tabIndex={0}
       />
     );
   },
@@ -401,6 +417,7 @@ describe("project GPU retained param DOM islands", () => {
     mocks.paramInputActivationPointerDown.mockClear();
     mocks.paramInputActivationPointerUp.mockClear();
     mocks.paramInputRenderMode.current = "native-color-input";
+    mocks.paramNameActivationMouseDown.mockClear();
     mocks.paramNameInputProps.mockClear();
     mocks.requestAnimationFrameMock.mockClear();
     mocks.cancelAnimationFrameMock.mockClear();
@@ -551,6 +568,82 @@ describe("project GPU retained param DOM islands", () => {
     const originalElementFromPoint = document.elementFromPoint;
     const elementFromPointSpy = vi.fn(() =>
       document.querySelector('[data-testid="param-input"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("focuses mounted native text inputs when the activation point lands on island chrome", async () => {
+    mocks.paramInputRenderMode.current = "text-input";
+    const activationPoint = { x: 44, y: 11 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-gpu-project-param-dom-island="true"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(
+        rendered.host.querySelector('[data-testid="param-input"]'),
+      );
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("focuses mounted native textareas when the activation point lands on island chrome", async () => {
+    mocks.paramInputRenderMode.current = "textarea";
+    const activationPoint = { x: 45, y: 12 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-gpu-project-param-dom-island="true"]'),
     );
     Object.defineProperty(document, "elementFromPoint", {
       configurable: true,
@@ -908,6 +1001,48 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
+  it("replays retained canvas activation mousedown into CodeMirror shells when the point lands on island chrome", async () => {
+    mocks.paramInputRenderMode.current = "mousedown-activation";
+    const activationPoint = { x: 55, y: 19 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-gpu-project-param-dom-island="true"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationMouseDown).toHaveBeenCalledTimes(1);
+      expect(mocks.paramInputActivationMouseDown).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientX: activationPoint.x,
+          clientY: activationPoint.y,
+        }),
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
   it("does not activate pointer-marked legacy DOM controls", async () => {
     mocks.paramInputRenderMode.current = "pointer-activation";
     const activationPoint = { x: 58, y: 22 };
@@ -987,10 +1122,10 @@ describe("project GPU retained param DOM islands", () => {
       zoomActivationKeyPressed: false,
     });
 
-    options.onHitClick({
+    const event = {
       hit: controlHit,
       localPoint: { x: 120, y: 14 },
-      nativeEvent: new MouseEvent("pointerup", {
+      nativeEvent: new MouseEvent("pointerdown", {
         clientX: 220,
         clientY: 96,
       }) as PointerEvent,
@@ -998,7 +1133,9 @@ describe("project GPU retained param DOM islands", () => {
       retainedScene,
       screenPoint: { x: 120, y: 14 },
       surfaceId: "section-1:param-content:unpinned",
-    } satisfies GpuRetainedContentInteractionEvent);
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    options.onHitPointerDown?.(event);
 
     expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1008,6 +1145,79 @@ describe("project GPU retained param DOM islands", () => {
         },
       }),
     );
+    options.onHitClick({
+      ...event,
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+    });
+    expect(onActiveParamDomIslandChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("records retained param name DOM island activation from pointerdown", () => {
+    seedNestedParamNameProjectState();
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 40,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: textLikeControlDescriptor(""),
+          controlKind: "text-like",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const labelHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "label",
+    );
+    if (!labelHit) {
+      throw new Error("Expected retained label hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+
+    options.onHitPointerDown?.({
+      hit: labelHit,
+      localPoint: { x: 12, y: 14 },
+      nativeEvent: new MouseEvent("pointerdown", {
+        clientX: 32,
+        clientY: 18,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 12, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent);
+
+    expect(onActiveParamDomIslandChange).toHaveBeenCalledWith({
+      activation: {
+        clientPoint: { x: 32, y: 18 },
+        kind: "pointer",
+      },
+      hitRecordId: "label:param-1",
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+      surfaceId: "section-1:param-content:unpinned",
+    });
   });
 
   it("does not activate retained DOM islands for disabled control rows", () => {
@@ -3310,6 +3520,46 @@ describe("project GPU retained param DOM islands", () => {
     expect(mocks.unsubscribeViewportRepositionMock).toHaveBeenCalledTimes(1);
   });
 
+  it("replays retained param name activation mousedown when the point lands on island chrome", async () => {
+    const activationPoint = { x: 56, y: 20 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-gpu-project-param-name-dom-island="true"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamNameIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramNameActivationMouseDown).toHaveBeenCalledTimes(1);
+      expect(mocks.paramNameActivationMouseDown).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientX: activationPoint.x,
+          clientY: activationPoint.y,
+        }),
+      );
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
   it("passes nested row presentation state into retained param name inputs", async () => {
     seedNestedParamNameProjectState();
     useTypeErrors.setState({
@@ -3602,7 +3852,9 @@ function retainedParamIsland(
   };
 }
 
-function retainedParamNameIsland(): GpuDomIsland {
+function retainedParamNameIsland(
+  overrides: Partial<GpuDomIsland> = {},
+): GpuDomIsland {
   return {
     clipOwnerId: "section-1:param-content:unpinned",
     contentRect: { height: 28, width: 120, x: 0, y: 0 },
@@ -3617,6 +3869,7 @@ function retainedParamNameIsland(): GpuDomIsland {
       surfaceId: "section-1:param-content:unpinned",
     },
     zIndex: 3,
+    ...overrides,
   };
 }
 
