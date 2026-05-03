@@ -4,7 +4,10 @@ import { SETTA_POPOVER_PORTAL_PARENT_ID } from "utils/constants";
 import { describe, expect, it } from "vitest";
 
 import { shouldClearProjectGpuActiveParamDomIslandOnPointerDown } from "./projectGpuActiveParamDomIslandDeactivation";
-import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
+import {
+  PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
+  PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
+} from "./projectGpuPortalAdapter";
 
 describe("project GPU active param DOM island deactivation", () => {
   it("keeps active retained param DOM island pointer targets active", () => {
@@ -29,11 +32,19 @@ describe("project GPU active param DOM island deactivation", () => {
     const tooltipItem = document.createElement("button");
     tooltipRoot.append(tooltipItem);
 
+    const validationRoot = document.createElement("div");
+    validationRoot.id = PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID;
+    const validationBubble = document.createElement("div");
+    validationRoot.append(validationBubble);
+
     expect(
       shouldClearProjectGpuActiveParamDomIslandOnPointerDown(popoverOption),
     ).toBe(false);
     expect(
       shouldClearProjectGpuActiveParamDomIslandOnPointerDown(tooltipItem),
+    ).toBe(false);
+    expect(
+      shouldClearProjectGpuActiveParamDomIslandOnPointerDown(validationBubble),
     ).toBe(false);
   });
 
