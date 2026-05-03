@@ -15,7 +15,7 @@ import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { LockPositionButton } from "../Header/LockPositionButton";
 import MenuButton from "../Header/MenuButton/MenuButton";
 import { SectionTitle } from "../Header/SectionTitle";
-import { getOnSectionClick, getOutlineColor, useHasTempNested } from "./utils";
+import { getOnSectionClick, getOutlineColor } from "./utils";
 
 function _Container({
   isGroup,
@@ -77,21 +77,26 @@ function ContainerGroup({
   style,
   children,
 }) {
-  const hasNested = useHasTempNested(sectionId);
-  const { positionAndSizeLocked, isInOtherProjectConfigs, overflowMode, size } =
-    useProjectState((x) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        x,
-        sectionId,
-        SectionTypeEnum.Group,
-      );
-      return {
-        positionAndSizeLocked: impl.positionAndSizeLocked,
-        isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
-        overflowMode: impl.overflowMode ?? false,
-        size: impl.size,
-      };
-    }, shallow);
+  const {
+    hasNested,
+    positionAndSizeLocked,
+    isInOtherProjectConfigs,
+    overflowMode,
+    size,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Group,
+    );
+    return {
+      hasNested: impl.children.length > 0,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+      overflowMode: impl.overflowMode ?? false,
+      size: impl.size,
+    };
+  }, shallow);
   const isActiveSection = useIsSectionUIActive(sectionId);
 
   const disablePointerEvents = useShouldDisablePointerEvents();

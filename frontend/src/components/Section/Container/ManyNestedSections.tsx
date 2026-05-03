@@ -13,7 +13,10 @@ import {
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { SortableSectionContainer } from "./SortableSectionContainer";
-import { useHasTempNested } from "./utils";
+
+function useHasTempNested(sectionId: string) {
+  return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
+}
 
 export function MaybeManyNestedSections({
   sectionId,
