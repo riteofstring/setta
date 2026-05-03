@@ -41,6 +41,7 @@ import {
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { PROJECT_SECTION_SEARCH_HEIGHT_PX } from "./sectionSearchLayout";
 
 type SectionSearchInputState = {
   displayedCallableName: string;
@@ -125,6 +126,9 @@ function useSectionSearchMeasurements(
   syncDomPortGeometry: boolean,
 ) {
   useLayoutEffect(() => {
+    if (!syncDomPortGeometry) {
+      return;
+    }
     const node = searchRef.current;
     if (!node) {
       useTemporaryMiscState.setState({ [heightKey]: 0 });
@@ -505,6 +509,7 @@ function SectionSearchCore({
       className="section-search single-cell-container relative w-full"
       {...getFloatingBoxHandlers(...tooltipContentArray)}
       ref={searchRef}
+      style={{ height: PROJECT_SECTION_SEARCH_HEIGHT_PX }}
     >
       <TextInputCodeMirror
         dummyDivId={divId}

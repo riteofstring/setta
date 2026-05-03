@@ -62,7 +62,6 @@ import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
-  getSectionSearchHeightKey,
 } from "utils/constants";
 import {
   isBaseParentSectionImpl,
@@ -108,6 +107,7 @@ import {
   shouldRenderProjectSceneSection,
 } from "./projectGpuSectionSceneTree";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
+import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
 export type {
   ProjectGpuActiveParamCanvasPopup,
@@ -701,6 +701,7 @@ function getProjectSectionSceneEdgeStripPortAnchors({
   const stripLocalY = getProjectSectionSceneEdgeStripLocalY({
     resizePolicyContext,
     sectionId,
+    sectionImpl,
   });
   return [
     ...(sectionImpl.edgeInputParams ?? []).map((paramId, portIndex) => ({
@@ -726,19 +727,18 @@ function getProjectSectionSceneEdgeStripPortAnchors({
 function getProjectSectionSceneEdgeStripLocalY({
   resizePolicyContext,
   sectionId,
+  sectionImpl,
 }: {
   readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion;
 }): number {
   return (
     getProjectSceneMeasuredHeight(
       resizePolicyContext,
       getSectionHeaderHeightKey(sectionId),
     ) +
-    getProjectSceneMeasuredHeight(
-      resizePolicyContext,
-      getSectionSearchHeightKey(sectionId),
-    ) +
+    getProjectSectionSceneSearchHeight(sectionImpl) +
     getProjectSceneMeasuredHeight(
       resizePolicyContext,
       getKwargsControlsHeightKey(sectionId),
@@ -777,10 +777,7 @@ function getProjectSectionSceneResizePolicy({
         resizePolicyContext,
         getSectionHeaderHeightKey(sectionId),
       ),
-      sectionSearchHeight: getProjectSceneMeasuredHeight(
-        resizePolicyContext,
-        getSectionSearchHeightKey(sectionId),
-      ),
+      sectionSearchHeight: getProjectSectionSceneSearchHeight(sectionImpl),
     },
   });
   const { heightResizable, widthResizable } = getResizeAxisAvailability({

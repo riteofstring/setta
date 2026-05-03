@@ -5,10 +5,12 @@ import { createRoot, type Root } from "react-dom/client";
 import {
   useProjectState,
   useShareSession,
+  useTemporaryMiscState,
   type ZustandProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
+import { getSectionSearchHeightKey } from "utils/constants";
 import {
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
@@ -323,6 +325,9 @@ describe("SectionSearch", () => {
 
     try {
       expect(host.style.getPropertyValue("--agentic-handle-top")).toBe("");
+      expect(
+        useTemporaryMiscState.getState()[getSectionSearchHeightKey(sectionId)],
+      ).toBeUndefined();
       expect(rectSpy).not.toHaveBeenCalled();
       expect(scheduleGpuFlowPortLocalRectUpdateMock).not.toHaveBeenCalled();
     } finally {

@@ -2,7 +2,6 @@ import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import {
   getKwargsControlsHeightKey,
   getSectionHeaderHeightKey,
-  getSectionSearchHeightKey,
 } from "utils/constants";
 import { getProjectSceneMeasuredHeightFromRecord } from "./projectGpuSceneResizePolicy";
 
@@ -42,10 +41,6 @@ export function getProjectGpuParamContentMetrics({
     measuredHeightsByKey,
     getSectionHeaderHeightKey(sectionId),
   );
-  const searchHeight = getProjectSceneMeasuredHeightFromRecord(
-    measuredHeightsByKey,
-    getSectionSearchHeightKey(sectionId),
-  );
   const kwargsHeight = getProjectSceneMeasuredHeightFromRecord(
     measuredHeightsByKey,
     getKwargsControlsHeightKey(sectionId),
@@ -61,10 +56,7 @@ export function getProjectGpuParamContentMetrics({
   });
   return {
     contentTop:
-      headerHeight +
-      searchHeight +
-      kwargsHeight +
-      PROJECT_GPU_PARAM_CONTENT_TOP_INSET_PX,
+      headerHeight + kwargsHeight + PROJECT_GPU_PARAM_CONTENT_TOP_INSET_PX,
     edgesHeight,
     paramsFixedHeight,
   };

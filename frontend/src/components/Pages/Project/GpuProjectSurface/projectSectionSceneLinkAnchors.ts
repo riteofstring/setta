@@ -5,10 +5,7 @@ import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { getAttachedTerminalParentIdForTerminalSection } from "state/actions/sectionInfos";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
 import type { ZustandProjectState } from "state/definitions";
-import {
-  getSectionHeaderHeightKey,
-  getSectionSearchHeightKey,
-} from "utils/constants";
+import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   SectionTypeEnum,
   type BaseSectionImplUnion,
@@ -17,6 +14,7 @@ import {
   getProjectSceneMeasuredHeight,
   type ProjectGpuSceneResizePolicyContext,
 } from "./projectGpuSceneResizePolicy";
+import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
 const PROJECT_SECTION_LINK_HANDLE_OFFSET_X_PX = 19;
 
@@ -50,6 +48,7 @@ export function getProjectSectionSceneLinkPortAnchors({
   const y = getProjectSectionSceneLinkHandleLocalY({
     resizePolicyContext,
     sectionId,
+    sectionImpl,
     worldRect,
   });
   switch (mode) {
@@ -259,16 +258,15 @@ function isStateMachineLinkSectionType(
 function getProjectSectionSceneLinkHandleLocalY({
   resizePolicyContext,
   sectionId,
+  sectionImpl,
   worldRect,
 }: {
   readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
   readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion;
   readonly worldRect: GpuRect;
 }): number {
-  const searchHeight = getProjectSceneMeasuredHeight(
-    resizePolicyContext,
-    getSectionSearchHeightKey(sectionId),
-  );
+  const searchHeight = getProjectSectionSceneSearchHeight(sectionImpl);
   if (searchHeight > 0) {
     return (
       getProjectSceneMeasuredHeight(

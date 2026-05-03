@@ -1,3 +1,4 @@
+import { PROJECT_SECTION_SEARCH_HEIGHT_PX } from "components/Section/SectionParts/sectionSearchLayout";
 import type { Node } from "gpuFlow/flowTypes";
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { getGpuFlowSceneDomSectionNodes } from "gpuFlow/scene";
@@ -10,7 +11,6 @@ import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
-  getSectionSearchHeightKey,
   getSectionStylePreviewColorKey,
 } from "utils/constants";
 import {
@@ -257,7 +257,6 @@ describe("project GPU layout adapter", () => {
     const sectionId = "dict-a";
     const hiddenSectionId = "hidden-dict";
     const headerKey = getSectionHeaderHeightKey(sectionId);
-    const searchKey = getSectionSearchHeightKey(sectionId);
     const kwargsKey = getKwargsControlsHeightKey(sectionId);
     const paramsFixedKey = getParamsFixedHeightKey(sectionId);
     const callableParamsFixedKey = getParamsFixedHeightKey("callable-a");
@@ -271,7 +270,6 @@ describe("project GPU layout adapter", () => {
       [kwargsKey]: Number.NaN,
       [callableParamsFixedKey]: 48,
       [paramsFixedKey]: 36,
-      [searchKey]: 20,
       unrelated: 99,
     });
 
@@ -280,11 +278,9 @@ describe("project GPU layout adapter", () => {
     expect(measuredHeights).toEqual({
       [kwargsKey]: 0,
       [headerKey]: 24,
-      [searchKey]: 20,
       [getKwargsControlsHeightKey("callable-a")]: 0,
       [callableParamsFixedKey]: 48,
       [getSectionHeaderHeightKey("callable-a")]: 0,
-      [getSectionSearchHeightKey("callable-a")]: 0,
     });
     expect(
       areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
@@ -767,6 +763,14 @@ describe("project GPU layout adapter", () => {
             parentId: null,
           },
           {
+            id: "callable-a",
+            impl: createCallableSectionImpl({
+              id: "callable-a-impl",
+              size: sectionSize({ height: 100, width: 200 }),
+            }),
+            parentId: null,
+          },
+          {
             id: "chat-a",
             impl: createChatSectionImpl({
               id: "chat-a-impl",
@@ -787,9 +791,10 @@ describe("project GPU layout adapter", () => {
           },
         ],
         topLevelSections: {
-          "chat-a": { h: 100, w: 200, x: 240, y: 20, zIndex: 1 },
+          "callable-a": { h: 100, w: 200, x: 240, y: 20, zIndex: 1 },
+          "chat-a": { h: 100, w: 200, x: 470, y: 20, zIndex: 1 },
           "dict-a": { h: 100, w: 200, x: 10, y: 20, zIndex: 1 },
-          "gate-a": { h: 100, w: 200, x: 470, y: 20, zIndex: 1 },
+          "gate-a": { h: 100, w: 200, x: 700, y: 20, zIndex: 1 },
         },
       }),
       { darkMode: false },
@@ -817,6 +822,31 @@ describe("project GPU layout adapter", () => {
           id: AGENTIC_EDGE_HANDLE_IDS.source,
           kind: "output",
           localPosition: { x: 221, y: 51 },
+          side: "right",
+        }),
+      ]),
+    );
+    expect(
+      scene.sections.find((section) => section.sectionId === "callable-a")
+        ?.portAnchors,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.target,
+          kind: "input",
+          localPosition: {
+            x: -19,
+            y: PROJECT_SECTION_SEARCH_HEIGHT_PX / 2,
+          },
+          side: "left",
+        }),
+        expect.objectContaining({
+          id: AGENTIC_EDGE_HANDLE_IDS.source,
+          kind: "output",
+          localPosition: {
+            x: 221,
+            y: PROJECT_SECTION_SEARCH_HEIGHT_PX / 2,
+          },
           side: "right",
         }),
       ]),

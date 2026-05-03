@@ -2,7 +2,6 @@ import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import {
   getKwargsControlsHeightKey,
   getSectionHeaderHeightKey,
-  getSectionSearchHeightKey,
 } from "utils/constants";
 import { describe, expect, it } from "vitest";
 import {
@@ -20,7 +19,6 @@ describe("project GPU param content layout", () => {
       measuredHeightsByKey: {
         [getKwargsControlsHeightKey(sectionId)]: 13,
         [getSectionHeaderHeightKey(sectionId)]: 7,
-        [getSectionSearchHeightKey(sectionId)]: 11,
       },
       pinnedRowCount: 3,
       sectionId,
@@ -32,7 +30,7 @@ describe("project GPU param content layout", () => {
         outputPortCount: 1,
       }),
     );
-    expect(metrics.contentTop).toBe(7 + 11 + 13 + 5);
+    expect(metrics.contentTop).toBe(7 + 13 + 5);
     expect(metrics.paramsFixedHeight).toBe(
       resolveEdgeStripHeight({
         inputPortCount: 2,

@@ -10,7 +10,6 @@ import {
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
-  getSectionSearchHeightKey,
 } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
@@ -22,11 +21,7 @@ import { getProjectGpuSceneSectionIds } from "./projectGpuSectionSceneTree";
 type ProjectGpuSceneMeasuredHeightKeyCreator = (sectionId: string) => string;
 
 const PROJECT_GPU_SCENE_MEASURED_HEIGHT_KEY_CREATORS: readonly ProjectGpuSceneMeasuredHeightKeyCreator[] =
-  [
-    getKwargsControlsHeightKey,
-    getSectionHeaderHeightKey,
-    getSectionSearchHeightKey,
-  ];
+  [getKwargsControlsHeightKey, getSectionHeaderHeightKey];
 
 export function getProjectGpuSceneMeasuredHeights(
   projectState: ZustandProjectState,
