@@ -34,6 +34,32 @@ inside `settings-section__sectionSizingPolicy:param-content:unpinned`; the wheel
 scroll resolver returned `changed: true` with the next retained offset
 `{ x: 0, y: 120 }`.
 
+## Fresh Chrome Repro
+
+- Recording:
+  `/private/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T/setta-chrome-recordings/setta.go-rewrite-1814143074/recording-20260506-225108`
+- Recorder event count: `397`
+- Wheel events on `/settings`: `92`
+- Console levels in the bundle: `2 debug`, `2 info`, `2 warn`, `0 error`
+- React 19 `element.ref` errors in the bundle: `0`
+- Retained target resolved before input:
+  `settings-section__sectionSizingPolicy:param-content:unpinned`
+- First retained wheel segment:
+  - Window: `904ms`
+  - Frames: `27`
+  - Viewport stayed fixed at `y=-110`, confirming retained-content handling
+    rather than viewport pan.
+  - GPU frame duration average / p95 / max: `0.43ms / 0.7ms / 0.7ms`
+  - Upload diagnostics per frame: `1`
+  - Long tasks during retained wheel segment: `0`
+- After the retained surface reached its scroll boundary, later wheel events
+  fell through to viewport pan by design.
+
+This repro was CDP-driven with `Input.dispatchMouseEvent`, so the observed input
+cadence was about `33ms` per wheel event. It is useful as a fresh console and
+boundary-behavior artifact, but it does not replace the earlier scroll-FPS
+measurement.
+
 ## Verification
 
 Focused tests:
@@ -60,6 +86,7 @@ scroll or header/menubar files.
 
 The measured scroll-cadence results remain in
 `2026-05-06_gpuflow-retained-content-scroll-performance-after.md`; this follow-up
-only verifies that the prior React 19 menubar startup errors are gone. CDP
-synthetic `requestAnimationFrame` callbacks did not fire in this session, so
-this report does not supersede the earlier scroll FPS measurements.
+verifies that the prior React 19 menubar startup errors are gone and records a
+fresh Chrome repro bundle after the fix. CDP synthetic `requestAnimationFrame`
+callbacks did not fire in the MCP session, so this report does not supersede the
+earlier scroll FPS measurements.
