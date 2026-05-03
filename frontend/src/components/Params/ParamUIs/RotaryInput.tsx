@@ -163,6 +163,7 @@ export function RotaryInput({
       <button
         type="button"
         className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${knobStateClasses} relative h-10 w-10 touch-none select-none rounded-full bg-transparent p-0`}
+        data-gpu-flow-activation="pointer"
         data-gpu-flow-interactive="true"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

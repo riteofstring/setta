@@ -54,6 +54,7 @@ describe("RotaryInput theme overrides", () => {
     );
 
     expect(markup).toContain('data-gpu-flow-interactive="true"');
+    expect(markup).toContain('data-gpu-flow-activation="pointer"');
     expect(markup).toContain("nodrag nopan");
     expect(markup).toContain("bg-blue-500");
   });

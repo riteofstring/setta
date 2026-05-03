@@ -55,12 +55,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   paramInputActivationClick: vi.fn(),
   paramInputActivationMouseDown: vi.fn(),
+  paramInputActivationPointerDown: vi.fn(),
+  paramInputActivationPointerUp: vi.fn(),
   paramInputRenderMode: {
     current: "button" as
       | "button"
       | "combobox-input"
       | "explicit-activation-target"
-      | "mousedown-activation",
+      | "mousedown-activation"
+      | "pointer-activation",
   },
   paramInputProps: vi.fn(),
   paramNameInputProps: vi.fn(),
@@ -87,6 +90,19 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
           data-tooltip-parent={props.tooltipParentDivId ?? ""}
           onMouseDown={mocks.paramInputActivationMouseDown}
           tabIndex={0}
+        />
+      );
+    }
+    if (mocks.paramInputRenderMode.current === "pointer-activation") {
+      return (
+        <button
+          type="button"
+          data-gpu-flow-activation="pointer"
+          data-gpu-flow-interactive="true"
+          data-testid="param-input"
+          data-tooltip-parent={props.tooltipParentDivId ?? ""}
+          onPointerDown={mocks.paramInputActivationPointerDown}
+          onPointerUp={mocks.paramInputActivationPointerUp}
         />
       );
     }
@@ -205,6 +221,8 @@ describe("project GPU retained param DOM islands", () => {
     mocks.paramInputProps.mockClear();
     mocks.paramInputActivationClick.mockClear();
     mocks.paramInputActivationMouseDown.mockClear();
+    mocks.paramInputActivationPointerDown.mockClear();
+    mocks.paramInputActivationPointerUp.mockClear();
     mocks.paramInputRenderMode.current = "button";
     mocks.paramNameInputProps.mockClear();
     mocks.requestAnimationFrameMock.mockClear();
@@ -410,6 +428,57 @@ describe("project GPU retained param DOM islands", () => {
         expect.objectContaining({
           clientX: activationPoint.x,
           clientY: activationPoint.y,
+        }),
+      );
+      expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: originalElementFromPoint,
+      });
+      await cleanupRenderedIsland(rendered);
+    }
+  });
+
+  it("replays retained canvas activation pointer sequences into mounted pointer controls", async () => {
+    mocks.paramInputRenderMode.current = "pointer-activation";
+    const activationPoint = { x: 58, y: 22 };
+    const originalElementFromPoint = document.elementFromPoint;
+    const elementFromPointSpy = vi.fn(() =>
+      document.querySelector('[data-testid="param-input"]'),
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: elementFromPointSpy,
+    });
+    const rendered = await renderIsland(
+      retainedParamIsland({
+        activation: {
+          clientPoint: activationPoint,
+          kind: "pointer",
+        },
+      }),
+    );
+
+    try {
+      expect(elementFromPointSpy).toHaveBeenCalledWith(
+        activationPoint.x,
+        activationPoint.y,
+      );
+      expect(mocks.paramInputActivationPointerDown).toHaveBeenCalledTimes(1);
+      expect(mocks.paramInputActivationPointerDown).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientX: activationPoint.x,
+          clientY: activationPoint.y,
+          pointerId: 1,
+        }),
+      );
+      expect(mocks.paramInputActivationPointerUp).toHaveBeenCalledTimes(1);
+      expect(mocks.paramInputActivationPointerUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientX: activationPoint.x,
+          clientY: activationPoint.y,
+          pointerId: 1,
         }),
       );
       expect(mocks.paramInputActivationClick).not.toHaveBeenCalled();
