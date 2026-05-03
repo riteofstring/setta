@@ -36,6 +36,7 @@ import {
   type RefObject,
 } from "react";
 
+import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
@@ -609,6 +610,7 @@ function getProjectPanZoomOptions({
     panOnScroll: interactionEnabled && settings.panOnScroll,
     panOnScrollMode: settings.panOnScrollMode,
     panOnScrollSpeed: settings.panOnScrollSpeed,
+    onPointerPanStart: closeAllContextMenus,
     zoomActivationKeyPressed:
       interactionEnabled && flowInteractionKeys.zoomActivationKeyPressed,
     zoomOnDoubleClick: interactionEnabled && settings.zoomOnDoubleClick,

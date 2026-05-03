@@ -1,11 +1,11 @@
 /* @vitest-environment jsdom */
 
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
-import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuPanZoomController,
+  GPU_PAN_ON_SCROLL_MODE,
   resolveGpuPanOnScrollDelta,
   shouldHandleGpuWheelEvent,
 } from "./panZoom";
@@ -16,33 +16,33 @@ describe("GPU pan/zoom controller", () => {
     document.body.innerHTML = "";
   });
 
-  it("resolves pan-on-scroll deltas using generated pan mode values", () => {
+  it("resolves pan-on-scroll deltas using generic pan mode values", () => {
     expect(
       resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaMode: 1, deltaX: 2, deltaY: 3 }),
         isMacOS: true,
-        panOnScrollMode: PanOnScrollModeEnum.free,
+        panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.free,
       }),
     ).toEqual({ deltaX: 40, deltaY: 60 });
     expect(
       resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaX: 2, deltaY: 3 }),
         isMacOS: false,
-        panOnScrollMode: PanOnScrollModeEnum.horizontal,
+        panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.horizontal,
       }),
     ).toEqual({ deltaX: 2, deltaY: 0 });
     expect(
       resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaX: 2, deltaY: 3 }),
         isMacOS: false,
-        panOnScrollMode: PanOnScrollModeEnum.vertical,
+        panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.vertical,
       }),
     ).toEqual({ deltaX: 0, deltaY: 3 });
     expect(
       resolveGpuPanOnScrollDelta({
         event: wheelLike({ deltaX: 2, deltaY: 3, shiftKey: true }),
         isMacOS: false,
-        panOnScrollMode: PanOnScrollModeEnum.free,
+        panOnScrollMode: GPU_PAN_ON_SCROLL_MODE.free,
       }),
     ).toEqual({ deltaX: 3, deltaY: 0 });
   });
@@ -306,6 +306,45 @@ describe("GPU pan/zoom controller", () => {
     });
     expect(store.getState().paneDragging).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
+    detach();
+  });
+
+  it("notifies the project adapter when pointer panning starts", () => {
+    const element = createSurfaceElement();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    const onPointerPanStart = vi.fn();
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      onPointerPanStart,
+      requestFrame: vi.fn(),
+      store,
+    });
+
+    dispatchPointer(element, "pointerdown", {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+      pointerId: 1,
+    });
+    expect(onPointerPanStart).toHaveBeenCalledTimes(1);
+
+    dispatchPointer(element, "pointermove", {
+      button: 0,
+      clientX: 12,
+      clientY: 14,
+      pointerId: 1,
+    });
+    expect(onPointerPanStart).toHaveBeenCalledTimes(1);
+
+    dispatchPointer(element, "pointerup", {
+      button: 0,
+      clientX: 12,
+      clientY: 14,
+      pointerId: 1,
+    });
     detach();
   });
 
