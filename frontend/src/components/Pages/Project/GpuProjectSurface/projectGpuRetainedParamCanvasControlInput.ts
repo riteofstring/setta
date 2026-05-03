@@ -6,6 +6,7 @@ import {
 import {
   getGpuRetainedContentRangedControlKeyboardCommand,
   getGpuRetainedContentRangedControlWheelCommand,
+  isGpuRetainedContentButtonKeyboardCommit,
   isGpuRetainedContentSwitchKeyboardToggle,
 } from "gpuFlow/retainedContentControls";
 import type {
@@ -16,6 +17,7 @@ import type { GpuFlowScene } from "gpuFlow/scene";
 import { useEffect, type RefObject } from "react";
 
 import type { ProjectGpuRetainedParamTarget } from "./projectGpuLayoutAdapter";
+import { commitProjectGpuRetainedButtonParamClick } from "./projectGpuRetainedParamButtonAdapter";
 import { commitProjectGpuRetainedRangedParamCommandValue } from "./projectGpuRetainedParamRangedControlAdapter";
 import { commitProjectGpuRetainedSwitchParamClick } from "./projectGpuRetainedParamSwitchAdapter";
 
@@ -136,14 +138,11 @@ export function handleProjectGpuRetainedParamCanvasControlKeyDown({
     return false;
   }
   if (
-    context.control.kind === "switch" &&
-    isGpuRetainedContentSwitchKeyboardToggle(event)
+    commitProjectGpuRetainedImmediateControlKeyDown({
+      context,
+      event,
+    })
   ) {
-    commitProjectGpuRetainedSwitchParamClick({
-      checked: context.control.checked,
-      paramInfoId: context.paramInfoId,
-      sectionId: context.ownerSectionId,
-    });
     return true;
   }
   const command = getGpuRetainedContentRangedControlKeyboardCommand(event);
@@ -206,6 +205,37 @@ export function toProjectGpuRetainedCanvasControlTarget(
 ): ProjectGpuRetainedParamTarget | null {
   const context = getProjectGpuRetainedCanvasControlContextFromHit(event);
   return context ? toProjectGpuRetainedParamTarget(event) : null;
+}
+
+function commitProjectGpuRetainedImmediateControlKeyDown({
+  context,
+  event,
+}: {
+  readonly context: ProjectGpuRetainedCanvasControlContext;
+  readonly event: Pick<KeyboardEvent, "code" | "key">;
+}): boolean {
+  if (
+    context.control.kind === "switch" &&
+    isGpuRetainedContentSwitchKeyboardToggle(event)
+  ) {
+    commitProjectGpuRetainedSwitchParamClick({
+      checked: context.control.checked,
+      paramInfoId: context.paramInfoId,
+      sectionId: context.ownerSectionId,
+    });
+    return true;
+  }
+  if (
+    context.control.kind === "button" &&
+    isGpuRetainedContentButtonKeyboardCommit(event)
+  ) {
+    commitProjectGpuRetainedButtonParamClick({
+      paramInfoId: context.paramInfoId,
+      sectionId: context.ownerSectionId,
+    });
+    return true;
+  }
+  return false;
 }
 
 function getProjectGpuRetainedCanvasControlContextFromTarget({

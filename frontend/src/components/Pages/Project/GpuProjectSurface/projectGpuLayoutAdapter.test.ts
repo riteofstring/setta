@@ -7,12 +7,14 @@ import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
 import type { ZustandProjectState } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
+  ButtonActionModeEnum,
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateDisplayFormatEnum,
   DateSelectionModeEnum,
   DropzoneModeEnum,
+  HTTPRequestMethodEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
   TimeControlModeEnum,
@@ -1488,7 +1490,7 @@ describe("project GPU layout adapter", () => {
     });
   });
 
-  it("does not synthesize retained controls for params without a section-param UI owner", () => {
+  it("derives button params as canvas-owned retained controls", () => {
     const projectState = projectStateWithSections({
       sections: [
         {
@@ -1522,9 +1524,23 @@ describe("project GPU layout adapter", () => {
       "button-param-variant",
       "button-param-impl",
       createButtonParamCodeObjImpl({
+        actionMode: ButtonActionModeEnum.WEBSOCKET_LISTENER,
+        coreNameEditable: true,
+        coreNameType: ParamNameTypeEnum.TEXT,
+        defaultVal: "",
+        description: "",
         id: "button-param-impl",
+        isPreset: false,
+        label: "Run",
         name: "button",
+        passingStyle: ParameterPassingStyleEnum.DEFAULT,
+        requestBody: "",
+        requestHeaderKey: "",
+        requestHeaderValue: "",
+        requestMethod: HTTPRequestMethodEnum.POST,
+        requestUrl: "",
         type: CodeObjTypeEnum.ButtonParam,
+        typeAnnotation: "",
       }),
     );
     projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
@@ -1550,13 +1566,19 @@ describe("project GPU layout adapter", () => {
     const paramSurface = scene.contentSurfaces.find(
       (surface) => surface.id === "dict-a:param-content:unpinned",
     );
-    expect(paramSurface?.retainedScene?.rows).toEqual([
-      expect.objectContaining({
-        controlKind: null,
-        id: "button-param",
-      }),
-    ]);
-    expect(paramSurface?.retainedScene?.hitRecords).not.toEqual(
+    expect(paramSurface?.retainedScene?.rows[0]).toMatchObject({
+      control: {
+        defaultDisplayValue: "Run",
+        displayValue: "Run",
+        kind: "button",
+        label: "Run",
+        rendererFamily: "button",
+        commitPolicy: "immediate",
+      },
+      controlKind: "button",
+      id: "button-param",
+    });
+    expect(paramSurface?.retainedScene?.hitRecords).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "control:button-param",
@@ -1564,9 +1586,14 @@ describe("project GPU layout adapter", () => {
         }),
       ]),
     );
-    expect(paramSurface?.retainedScene?.drawCommands).not.toEqual(
+    expect(paramSurface?.retainedScene?.drawCommands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          control: expect.objectContaining({
+            kind: "button",
+            label: "Run",
+          }),
+          controlKind: "button",
           kind: "row-control",
           rowId: "button-param",
         }),

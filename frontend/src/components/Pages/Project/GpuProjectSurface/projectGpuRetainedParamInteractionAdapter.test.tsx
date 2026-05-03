@@ -45,17 +45,20 @@ import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
   ArtifactTypeEnum,
+  ButtonActionModeEnum,
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateDisplayFormatEnum,
   DateSelectionModeEnum,
   DropzoneModeEnum,
+  HTTPRequestMethodEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
   TimeControlModeEnum,
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
+  createButtonParamCodeObjImpl,
   createCodeParamCodeObjImpl,
   createCore,
   createDateParamCodeObjImpl,
@@ -934,6 +937,78 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
+  it("triggers retained button controls from canvas without mounting a DOM island", () => {
+    seedButtonParamProjectState();
+    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 80,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "Run",
+            displayValue: "Run",
+            kind: "button",
+            label: "Run",
+            rendererFamily: "button",
+            commitPolicy: "immediate",
+          },
+          controlKind: "button",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const controlHit = getRetainedControlHit(retainedScene);
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const event = {
+      hit: controlHit,
+      localPoint: { x: 140, y: 14 },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 140, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    expect(options.shouldHandleHit?.(event)).toBe(true);
+    options.onHitClick(event);
+
+    expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        paramInfoId: "param-1",
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith("/run-button", {
+      body: '{"ok":true}',
+      headers: { "X-Test": "yes" },
+      method: "POST",
+    });
+  });
+
   it("commits retained slider clicks from canvas without mounting a DOM island", async () => {
     seedSliderParamProjectState("0");
     vi.useFakeTimers();
@@ -1457,6 +1532,57 @@ describe("project GPU retained param DOM islands", () => {
       vi.runOnlyPendingTimers();
       vi.useRealTimers();
     }
+  });
+
+  it("triggers retained button controls from canvas keyboard without mounting a DOM island", () => {
+    seedButtonParamProjectState();
+    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 80,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "Run",
+            displayValue: "Run",
+            kind: "button",
+            label: "Run",
+            rendererFamily: "button",
+            commitPolicy: "immediate",
+          },
+          controlKind: "button",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const controlHit = getRetainedControlHit(retainedScene);
+
+    expect(
+      handleProjectGpuRetainedParamCanvasControlKeyDown({
+        activeParamCanvasControl: {
+          hitRecordId: controlHit.id,
+          paramInfoId: "param-1",
+          sectionId: "section-1",
+          surfaceId: "section-1:param-content:unpinned",
+        },
+        event: { code: "Enter", key: "Enter" },
+        scene: retainedContentTestScene(retainedScene),
+      }),
+    ).toBe(true);
+
+    expect(mocks.paramInputProps).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith("/run-button", {
+      body: '{"ok":true}',
+      headers: { "X-Test": "yes" },
+      method: "POST",
+    });
   });
 
   it("commits retained ranged control keyboard adjustments from canvas", async () => {
@@ -2823,6 +2949,117 @@ function seedSwitchParamProjectState(value: string) {
           type: CodeObjTypeEnum.SwitchParam,
           typeAnnotation: "",
           value,
+        }),
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: [],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
+}
+
+function seedButtonParamProjectState() {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [paramImplId]: createButtonParamCodeObjImpl({
+          actionMode: ButtonActionModeEnum.HTTP_REQUEST,
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          defaultVal: "",
+          description: "",
+          id: paramImplId,
+          isPreset: false,
+          label: "Run",
+          name: "param-1",
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          requestBody: '{"ok":true}',
+          requestHeaderKey: "X-Test",
+          requestHeaderValue: "yes",
+          requestMethod: HTTPRequestMethodEnum.POST,
+          requestUrl: "/run-button",
+          type: CodeObjTypeEnum.ButtonParam,
+          typeAnnotation: "",
         }),
         [rootImplId]: createNestedParamCodeObjImpl({
           children: ["param-1"],

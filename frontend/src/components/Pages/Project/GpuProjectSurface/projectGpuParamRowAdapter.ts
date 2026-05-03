@@ -46,6 +46,7 @@ import {
   TextParamUIConfig,
   TimeControlModeEnum,
   TimeDisplayFormatEnum,
+  type ButtonParamCodeObjImpl,
   type CodeObjType,
   type ColorPickerParamCodeObjImpl,
   type DateParamCodeObjImpl,
@@ -64,6 +65,7 @@ import {
   getLocalTodayIsoDate,
   splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
+import { createProjectGpuButtonControlDescriptor } from "./projectGpuParamButtonRowDescriptor";
 import {
   getProjectGpuDateCalendarVisibleMonth,
   validateProjectGpuDateCalendarVisibleMonth,
@@ -238,6 +240,12 @@ function createProjectGpuLeafParamControlDescriptor({
       rendererFamily: controlKind,
       commitPolicy: "immediate",
     };
+  }
+  if (codeObjImpl.type === CodeObjTypeEnum.ButtonParam) {
+    return createProjectGpuButtonControlDescriptor({
+      codeObjImpl: codeObjImpl as ButtonParamCodeObjImpl,
+      controlKind,
+    });
   }
   if (codeObjImpl.type === CodeObjTypeEnum.SliderParam) {
     return createProjectGpuRangedControlDescriptor({

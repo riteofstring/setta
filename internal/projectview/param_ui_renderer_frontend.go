@@ -15,6 +15,7 @@ var (
 		projectstate.FrontendCodeObjTypeTimeParam,
 	}
 	frontendSpecializedParamUIRendererFamilies = map[string]ParamUIRendererFamily{
+		string(projectstate.FrontendCodeObjTypeButtonParam):      ParamUIRendererFamilyButton,
 		string(projectstate.FrontendCodeObjTypeSliderParam):      ParamUIRendererFamilySlider,
 		string(projectstate.FrontendCodeObjTypeRotaryParam):      ParamUIRendererFamilyRotary,
 		string(projectstate.FrontendCodeObjTypeSwitchParam):      ParamUIRendererFamilySwitch,
@@ -30,6 +31,7 @@ type ParamUIRendererFamily string
 const (
 	ParamUIRendererFamilyTextLike    ParamUIRendererFamily = "text-like"
 	ParamUIRendererFamilyDateTime    ParamUIRendererFamily = "date-time"
+	ParamUIRendererFamilyButton      ParamUIRendererFamily = "button"
 	ParamUIRendererFamilySlider      ParamUIRendererFamily = "slider"
 	ParamUIRendererFamilyRotary      ParamUIRendererFamily = "rotary"
 	ParamUIRendererFamilySwitch      ParamUIRendererFamily = "switch"
@@ -62,6 +64,7 @@ func frontendParamUIRendererTypes() []projectstate.FrontendCodeObjType {
 	types = append(types, frontendParamUITextLikeTypes...)
 	types = append(types, frontendParamUIDateTimeTypes...)
 	types = append(types,
+		projectstate.FrontendCodeObjTypeButtonParam,
 		projectstate.FrontendCodeObjTypeSliderParam,
 		projectstate.FrontendCodeObjTypeRotaryParam,
 		projectstate.FrontendCodeObjTypeSwitchParam,

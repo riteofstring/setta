@@ -31,6 +31,7 @@ func TestFrontendValueParamUIRendererConfigUsesGoOwnedParamMetadata(t *testing.T
 		projectstate.FrontendCodeObjTypeTextAreaParam,
 		projectstate.FrontendCodeObjTypeDateParam,
 		projectstate.FrontendCodeObjTypeTimeParam,
+		projectstate.FrontendCodeObjTypeButtonParam,
 		projectstate.FrontendCodeObjTypeSliderParam,
 		projectstate.FrontendCodeObjTypeRotaryParam,
 		projectstate.FrontendCodeObjTypeSwitchParam,
@@ -48,6 +49,7 @@ func TestFrontendValueParamUIRendererConfigUsesGoOwnedParamMetadata(t *testing.T
 		"TextAreaParam":    ParamUIRendererFamilyTextLike,
 		"DateParam":        ParamUIRendererFamilyDateTime,
 		"TimeParam":        ParamUIRendererFamilyDateTime,
+		"ButtonParam":      ParamUIRendererFamilyButton,
 		"SliderParam":      ParamUIRendererFamilySlider,
 		"RotaryParam":      ParamUIRendererFamilyRotary,
 		"SwitchParam":      ParamUIRendererFamilySwitch,
@@ -61,6 +63,7 @@ func TestFrontendValueParamUIRendererConfigUsesGoOwnedParamMetadata(t *testing.T
 	}
 
 	expectedSpecializedFamilies := map[string]ParamUIRendererFamily{
+		"ButtonParam":      ParamUIRendererFamilyButton,
 		"SliderParam":      ParamUIRendererFamilySlider,
 		"RotaryParam":      ParamUIRendererFamilyRotary,
 		"SwitchParam":      ParamUIRendererFamilySwitch,

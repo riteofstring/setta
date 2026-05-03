@@ -6,6 +6,7 @@ import {
   HtmlSurfaceSourceLayer,
   type HtmlSurfaceSourceElementConfig,
 } from "./htmlSurfaces/sourceLayer";
+import { drawGpuRetainedContentButtonControl } from "./retainedContentButtonCanvas";
 import {
   drawGpuRetainedContentColorPickerControl,
   drawGpuRetainedContentColorPickerPopupOption,
@@ -405,7 +406,54 @@ function drawGpuRetainedContentControl({
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
+  if (
+    drawGpuRetainedContentInputControl({
+      control,
+      ctx,
+      rect,
+      state,
+    })
+  ) {
+    return;
+  }
+  if (
+    drawGpuRetainedContentPickerControl({
+      control,
+      ctx,
+      rect,
+      state,
+    })
+  ) {
+    return;
+  }
+  drawGpuRetainedContentGenericControl({
+    controlKind,
+    ctx,
+    rect,
+    state,
+  });
+}
+
+function drawGpuRetainedContentInputControl({
+  control,
+  ctx,
+  rect,
+  state,
+}: {
+  readonly control: GpuRetainedContentControlDescriptor;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly rect: GpuRect;
+  readonly state: GpuRetainedContentRowState | undefined;
+}): boolean {
   switch (control.kind) {
+    case "button":
+      drawGpuRetainedContentButtonControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return true;
     case "switch":
       drawGpuRetainedContentSwitchControl({
         control,
@@ -413,7 +461,7 @@ function drawGpuRetainedContentControl({
         rect,
         state,
       });
-      return;
+      return true;
     case "slider":
       drawGpuRetainedContentSliderControl({
         control,
@@ -421,7 +469,7 @@ function drawGpuRetainedContentControl({
         rect,
         state,
       });
-      return;
+      return true;
     case "rotary":
       drawGpuRetainedContentRotaryControl({
         control,
@@ -429,7 +477,24 @@ function drawGpuRetainedContentControl({
         rect,
         state,
       });
-      return;
+      return true;
+    default:
+      return false;
+  }
+}
+
+function drawGpuRetainedContentPickerControl({
+  control,
+  ctx,
+  rect,
+  state,
+}: {
+  readonly control: GpuRetainedContentControlDescriptor;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly rect: GpuRect;
+  readonly state: GpuRetainedContentRowState | undefined;
+}): boolean {
+  switch (control.kind) {
     case "color-picker":
       drawGpuRetainedContentColorPickerControl({
         control,
@@ -437,7 +502,7 @@ function drawGpuRetainedContentControl({
         rect,
         state,
       });
-      return;
+      return true;
     case "dropdown":
       drawGpuRetainedContentDropdownControl({
         control,
@@ -445,7 +510,7 @@ function drawGpuRetainedContentControl({
         rect,
         state,
       });
-      return;
+      return true;
     case "password":
       drawGpuRetainedContentPasswordControl({
         control,
@@ -453,7 +518,7 @@ function drawGpuRetainedContentControl({
         rect,
         state,
       });
-      return;
+      return true;
     case "dropzone":
       drawGpuRetainedContentDropzoneControl({
         control,
@@ -461,7 +526,7 @@ function drawGpuRetainedContentControl({
         rect,
         state,
       });
-      return;
+      return true;
     case "date-time":
       drawGpuRetainedContentDateTimeControl({
         control,
@@ -469,14 +534,9 @@ function drawGpuRetainedContentControl({
         rect,
         state,
       });
-      return;
+      return true;
     default:
-      drawGpuRetainedContentGenericControl({
-        controlKind,
-        ctx,
-        rect,
-        state,
-      });
+      return false;
   }
 }
 

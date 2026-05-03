@@ -2669,6 +2669,10 @@
           "value": "date-time"
         },
         {
+          "name": "button",
+          "value": "button"
+        },
+        {
           "name": "slider",
           "value": "slider"
         },
@@ -11736,6 +11740,7 @@
           "TimeParam"
         ],
         "rendererFamiliesByType": {
+          "ButtonParam": "button",
           "CodeParam": "text-like",
           "ColorPickerParam": "color-picker",
           "DateParam": "date-time",
@@ -11755,6 +11760,7 @@
           "TextAreaParam",
           "DateParam",
           "TimeParam",
+          "ButtonParam",
           "SliderParam",
           "RotaryParam",
           "SwitchParam",
@@ -11764,6 +11770,7 @@
           "DropzoneParam"
         ],
         "specializedRendererFamilies": {
+          "ButtonParam": "button",
           "ColorPickerParam": "color-picker",
           "DropdownParam": "dropdown",
           "DropzoneParam": "dropzone",

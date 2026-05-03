@@ -261,6 +261,12 @@ export function isGpuRetainedContentSwitchKeyboardToggle(
   return event.key === "Enter" || event.key === " " || event.code === "Space";
 }
 
+export function isGpuRetainedContentButtonKeyboardCommit(
+  event: Pick<KeyboardEvent, "code" | "key">,
+): boolean {
+  return isGpuRetainedContentSwitchKeyboardToggle(event);
+}
+
 export function snapGpuRetainedNumericControlValue({
   max,
   min,

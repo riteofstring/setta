@@ -3753,6 +3753,7 @@ export type ParamUIRendererConfigValue = {
 export type ParamUIRendererFamily =
   | "text-like"
   | "date-time"
+  | "button"
   | "slider"
   | "rotary"
   | "switch"

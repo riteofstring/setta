@@ -89,21 +89,16 @@ import {
   PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
 } from "./projectGpuPortalAdapter";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
+import { commitProjectGpuRetainedButtonParamClick } from "./projectGpuRetainedParamButtonAdapter";
 import { handleProjectRetainedContentCanvasCommitClick } from "./projectGpuRetainedParamCanvasCommitAdapter";
 import { toProjectGpuRetainedCanvasControlTarget } from "./projectGpuRetainedParamCanvasControlInput";
+import { getProjectGpuRetainedCanvasPopupTarget } from "./projectGpuRetainedParamCanvasPopupTarget";
+import { isProjectGpuRetainedColorPickerPopupOptionHit } from "./projectGpuRetainedParamColorPickerAdapter";
 import {
-  getProjectGpuRetainedColorPickerPopupTarget,
-  isProjectGpuRetainedColorPickerPopupOptionHit,
-} from "./projectGpuRetainedParamColorPickerAdapter";
-import {
-  getProjectGpuRetainedDateCalendarPopupTarget,
   isProjectGpuRetainedDateCalendarPopupCellHit,
   isProjectGpuRetainedDateCalendarPopupNavigationHit,
 } from "./projectGpuRetainedParamDateCalendarAdapter";
-import {
-  getProjectGpuRetainedDropdownPopupTarget,
-  isProjectGpuRetainedDropdownPopupOptionHit,
-} from "./projectGpuRetainedParamDropdownAdapter";
+import { isProjectGpuRetainedDropdownPopupOptionHit } from "./projectGpuRetainedParamDropdownAdapter";
 import { isProjectGpuRetainedDropzoneAttachmentDeleteHit } from "./projectGpuRetainedParamDropzoneAdapter";
 import {
   commitProjectGpuRetainedRangedControlClick,
@@ -466,6 +461,14 @@ function handleProjectRetainedContentCanvasControlClick(
     });
     return true;
   }
+  if (row.control.kind === "button") {
+    onActiveParamCanvasPopupChange(null);
+    commitProjectGpuRetainedButtonParamClick({
+      paramInfoId: event.hit.ownerRowId,
+      sectionId: event.ownerSectionId,
+    });
+    return true;
+  }
   if (commitProjectGpuRetainedRangedControlClick(event)) {
     onActiveParamCanvasPopupChange(null);
     return true;
@@ -476,16 +479,6 @@ function handleProjectRetainedContentCanvasControlClick(
     return true;
   }
   return false;
-}
-
-function getProjectGpuRetainedCanvasPopupTarget(
-  event: GpuRetainedContentInteractionEvent,
-): ProjectGpuActiveParamCanvasPopup | null {
-  return (
-    getProjectGpuRetainedColorPickerPopupTarget(event) ??
-    getProjectGpuRetainedDropdownPopupTarget(event) ??
-    getProjectGpuRetainedDateCalendarPopupTarget(event)
-  );
 }
 
 function handleProjectRetainedContentDragStart(

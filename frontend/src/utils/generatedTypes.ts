@@ -4969,6 +4969,7 @@ export const OverviewTabUIConfig = {
 export const ParamUIRendererConfig = {
   dateTimeParamTypes: ["DateParam", "TimeParam"],
   rendererFamiliesByType: {
+    ButtonParam: "button",
     CodeParam: "text-like",
     ColorPickerParam: "color-picker",
     DateParam: "date-time",
@@ -4988,6 +4989,7 @@ export const ParamUIRendererConfig = {
     "TextAreaParam",
     "DateParam",
     "TimeParam",
+    "ButtonParam",
     "SliderParam",
     "RotaryParam",
     "SwitchParam",
@@ -4997,6 +4999,7 @@ export const ParamUIRendererConfig = {
     "DropzoneParam",
   ],
   specializedRendererFamilies: {
+    ButtonParam: "button",
     ColorPickerParam: "color-picker",
     DropdownParam: "dropdown",
     DropzoneParam: "dropzone",

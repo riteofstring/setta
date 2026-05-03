@@ -246,6 +246,52 @@ describe("retained content scene", () => {
     );
   });
 
+  it("retains concrete button control descriptors for canvas handlers", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("button-param", {
+          control: {
+            defaultDisplayValue: "Run",
+            displayValue: "Run",
+            kind: "button",
+            label: "Run",
+            rendererFamily: "button",
+            commitPolicy: "immediate",
+          },
+          controlKind: "button",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 24, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.control).toEqual({
+      defaultDisplayValue: "Run",
+      displayValue: "Run",
+      kind: "button",
+      label: "Run",
+      rendererFamily: "button",
+      commitPolicy: "immediate",
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          control: expect.objectContaining({
+            kind: "button",
+            label: "Run",
+            commitPolicy: "immediate",
+          }),
+          controlKind: "button",
+          kind: "row-control",
+          rowId: "button-param",
+        }),
+      ]),
+    );
+  });
+
   it("retains concrete slider control descriptors for canvas handlers", () => {
     const scene = createGpuRetainedRowContentScene({
       id: "surface-a",

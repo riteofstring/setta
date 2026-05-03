@@ -9,6 +9,7 @@ import type {
   GpuRetainedContentDateTimeMode,
 } from "./retainedContentDateCalendarTypes";
 import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
+import { clampInteger, clampNumber } from "./retainedContentMath";
 import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
@@ -64,6 +65,14 @@ export type GpuRetainedContentControlDescriptor =
       readonly kind: "generic";
       readonly rendererFamily: string;
       readonly commitPolicy: GpuRetainedContentControlCommitPolicy;
+    }
+  | {
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "button";
+      readonly label: string;
+      readonly rendererFamily: string;
+      readonly commitPolicy: "immediate";
     }
   | {
       readonly checked: boolean;
@@ -970,17 +979,6 @@ function validateGpuRetainedRowContentSceneInput(
   );
   assertFiniteNonNegative("retained content scroll x", input.scrollOffset.x);
   assertFiniteNonNegative("retained content scroll y", input.scrollOffset.y);
-}
-
-function clampInteger(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  if (max < min) {
-    return min;
-  }
-  return Math.max(min, Math.min(max, value));
 }
 
 function assertFinitePositive(name: string, value: number) {

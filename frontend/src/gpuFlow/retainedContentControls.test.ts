@@ -4,6 +4,7 @@ import {
   getGpuRetainedContentRangedControlWheelCommand,
   getGpuRetainedContentRotaryKnobRect,
   getGpuRetainedContentSliderTrackRect,
+  isGpuRetainedContentButtonKeyboardCommit,
   isGpuRetainedContentSwitchKeyboardToggle,
   resolveGpuRetainedRangedControlCommandValue,
   resolveGpuRetainedRotaryValueFromPoint,
@@ -164,6 +165,24 @@ describe("retained content controls", () => {
     ).toBe(true);
     expect(
       isGpuRetainedContentSwitchKeyboardToggle({ code: "KeyA", key: "a" }),
+    ).toBe(false);
+  });
+
+  it("recognizes retained button keyboard commits", () => {
+    expect(
+      isGpuRetainedContentButtonKeyboardCommit({
+        code: "Space",
+        key: " ",
+      }),
+    ).toBe(true);
+    expect(
+      isGpuRetainedContentButtonKeyboardCommit({
+        code: "Enter",
+        key: "Enter",
+      }),
+    ).toBe(true);
+    expect(
+      isGpuRetainedContentButtonKeyboardCommit({ code: "KeyA", key: "a" }),
     ).toBe(false);
   });
 });
