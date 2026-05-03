@@ -612,7 +612,7 @@ describe("project GPU layout adapter", () => {
     const expectedHeight =
       PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
       KWARGS_CONTROLS_SCENE_HEIGHT_PX +
-      8 +
+      18 +
       3 * 24;
 
     expect(section?.worldRect).toMatchObject({

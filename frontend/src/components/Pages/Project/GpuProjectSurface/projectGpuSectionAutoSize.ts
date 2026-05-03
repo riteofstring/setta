@@ -5,7 +5,9 @@ import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderL
 import { getProjectSectionSceneKwargsControlsHeight } from "./projectSectionSceneKwargsControlsLayout";
 import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
-const PROJECT_SECTION_SCENE_GRID_GUTTER_HEIGHT_PX = 8;
+// Matches the old section grid gutters plus the retained-param container
+// vertical chrome. This remains scene-owned instead of measured from DOM.
+const PROJECT_SECTION_SCENE_PARAM_VERTICAL_CHROME_PX = 18;
 
 export function resolveProjectGpuSectionAutoHeight({
   projectState,
@@ -31,7 +33,7 @@ export function resolveProjectGpuSectionAutoHeight({
     getProjectSectionSceneHeaderHeight() +
     getProjectSectionSceneSearchHeight(sectionImpl) +
     getProjectSectionSceneKwargsControlsHeight(sectionImpl) +
-    PROJECT_SECTION_SCENE_GRID_GUTTER_HEIGHT_PX +
+    PROJECT_SECTION_SCENE_PARAM_VERTICAL_CHROME_PX +
     paramContentHeight
   );
 }
