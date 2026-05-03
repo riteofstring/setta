@@ -628,6 +628,80 @@ describe("project GPU layout adapter", () => {
     ).toBe(72);
   });
 
+  it("reserves blank retained content height for empty auto-height param sections", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: "auto", width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 80, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", []),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {},
+        topLevelParamIds: [],
+      },
+    });
+    const defaultSizingPolicy = createSettingsState().sectionSizingPolicy;
+    const sizingPolicy = {
+      ...defaultSizingPolicy,
+      byType: {
+        ...defaultSizingPolicy.byType,
+        Dict: {
+          ...defaultSizingPolicy.byType.Dict,
+          minHeight: 0,
+        },
+      },
+      globals: {
+        ...defaultSizingPolicy.globals,
+        unpinnedParamsAreaMinHeight: 0,
+      },
+    };
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      resizePolicyContext: {
+        resizeEventBySectionId: {},
+        sizingPolicy,
+      },
+      revision: 2,
+    });
+    const section = scene.sections.find(
+      (candidate) => candidate.sectionId === "dict-a",
+    );
+
+    expect(section?.worldRect.height).toBe(
+      PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+        KWARGS_CONTROLS_SCENE_HEIGHT_PX +
+        18 +
+        24,
+    );
+    expect(
+      scene.contentSurfaces.some(
+        (surface) => surface.id === "dict-a:param-content:unpinned",
+      ),
+    ).toBe(false);
+  });
+
   it("caps auto-height param section geometry to the section sizing policy", () => {
     const projectState = projectStateWithSections({
       sections: [

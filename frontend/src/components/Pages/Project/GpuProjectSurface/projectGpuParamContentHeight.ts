@@ -1,5 +1,6 @@
 import type { ZustandProjectState } from "state/definitions";
 import type { BaseSectionImplUnion } from "utils/generatedTypes";
+import { countProjectGpuParamRetainedListRows } from "./projectGpuParamContentAdapter";
 import {
   resolveProjectGpuParamAutoContentHeight,
   resolveProjectGpuParamFixedContentHeight,
@@ -8,7 +9,6 @@ import {
   getProjectGpuParamContentEdgeStripPortCounts,
   isProjectGpuParamContentSectionImpl,
 } from "./projectGpuParamContentSection";
-import { countProjectGpuParamRetainedListRows } from "./projectGpuParamContentAdapter";
 
 export function getProjectGpuParamFixedContentHeightForSection({
   projectState,
@@ -65,5 +65,8 @@ export function getProjectGpuParamAutoContentHeightForSection({
           sectionId,
           sectionImpl,
         }),
+    reserveEmptyContentHeight:
+      !sectionImpl.isMinimized &&
+      !("hideParams" in sectionImpl && Boolean(sectionImpl.hideParams)),
   });
 }

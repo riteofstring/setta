@@ -102,11 +102,13 @@ export function resolveProjectGpuParamAutoContentHeight({
   edgeInputPortCount,
   edgeOutputPortCount,
   pinnedRowCount,
+  reserveEmptyContentHeight = true,
   unpinnedRowCount,
 }: {
   readonly edgeInputPortCount: number;
   readonly edgeOutputPortCount: number;
   readonly pinnedRowCount: number;
+  readonly reserveEmptyContentHeight?: boolean | undefined;
   readonly unpinnedRowCount: number;
 }): number {
   const edgeStripHeight = resolveEdgeStripHeight({
@@ -114,7 +116,11 @@ export function resolveProjectGpuParamAutoContentHeight({
     outputPortCount: edgeOutputPortCount,
   });
   const rowCount = Math.max(0, pinnedRowCount) + Math.max(0, unpinnedRowCount);
-  return edgeStripHeight + rowCount * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
+  const retainedRowHeight =
+    rowCount > 0 || edgeStripHeight > 0 || !reserveEmptyContentHeight
+      ? rowCount * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX
+      : PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
+  return edgeStripHeight + retainedRowHeight;
 }
 
 export function getProjectGpuParamListLocalY({

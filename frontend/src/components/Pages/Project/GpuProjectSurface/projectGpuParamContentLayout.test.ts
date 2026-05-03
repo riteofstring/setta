@@ -5,6 +5,7 @@ import {
   getProjectGpuParamContentLabelColumnWidth,
   getProjectGpuParamContentMetrics,
   getProjectGpuParamListSurfaceHeight,
+  resolveProjectGpuParamAutoContentHeight,
 } from "./projectGpuParamContentLayout";
 
 describe("project GPU param content layout", () => {
@@ -48,6 +49,26 @@ describe("project GPU param content layout", () => {
         remainingHeight: 48,
       }),
     ).toBe(48);
+  });
+
+  it("reserves one retained row of content for empty visible param sections", () => {
+    expect(
+      resolveProjectGpuParamAutoContentHeight({
+        edgeInputPortCount: 0,
+        edgeOutputPortCount: 0,
+        pinnedRowCount: 0,
+        unpinnedRowCount: 0,
+      }),
+    ).toBe(24);
+    expect(
+      resolveProjectGpuParamAutoContentHeight({
+        edgeInputPortCount: 0,
+        edgeOutputPortCount: 0,
+        pinnedRowCount: 0,
+        reserveEmptyContentHeight: false,
+        unpinnedRowCount: 0,
+      }),
+    ).toBe(0);
   });
 
   it("derives retained label/control columns from the param column-width contract", () => {

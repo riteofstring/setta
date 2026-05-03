@@ -180,7 +180,7 @@ describe("projectNodeIntrinsicSize", () => {
       height:
         PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
         KWARGS_CONTROLS_SCENE_HEIGHT_PX +
-        8 +
+        18 +
         3 * 24,
     });
     expect(element.style.height).toBe("80px");
