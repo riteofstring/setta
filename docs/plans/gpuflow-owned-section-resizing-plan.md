@@ -10,10 +10,13 @@ The target outcome is one canonical live section size during a resize:
 The HTML surface must not mutate its own size first and then rely on DOM
 measurement to reconcile the graph.
 
-This plan assumes the GPU surface is the primary project surface. Do not add a
-legacy compatibility layer, dual resize owner, or silent fallback path. If an
-old non-GPU surface still needs `re-resizable`, keep that isolated from the
-GpuFlow path instead of preserving it as a shared top-level section primitive.
+This plan assumes the GPU surface is the primary project surface and that this
+is a clean break. Do not add a legacy compatibility layer, migration path, dual
+resize owner, transitional bridge, or silent fallback path. If a non-GPU project
+surface still renders top-level sections through the old resize wrapper,
+identify it during Phase 1 and convert or remove that path in the same
+implementation. `re-resizable` may remain only for unrelated non-section UI,
+not for top-level project section resizing.
 
 ## Why This Should Move To GpuFlow
 
@@ -229,10 +232,11 @@ New or changed modules:
 Likely removals after the GPU path is converted:
 
 - Remove `ResizableWithScale` from top-level project sections.
-- Remove `re-resizable` from the top-level GPU section resize path.
+- Remove `re-resizable` from every top-level project section resize path,
+  including any non-GPU surface found during Phase 1.
 - Remove `useProjectNodeResizeObserver` as the active resize owner. Keep a
-  narrower intrinsic auto-size observer only if a true auto-size production path
-  needs DOM measurement.
+  narrower intrinsic auto-size observer only for real content measurement; it
+  must not act as a manual resize compatibility path or fallback.
 
 ## Resize Data Model
 
@@ -478,13 +482,15 @@ Re-measure after:
   document why ResizeObserver is not sufficient for explicit GPU resizing.
 - Capture the current broken behavior from the latest Chrome recording in the
   plan notes or a small repro script if useful.
-- Confirm whether any non-GPU code path still needs `CustomResizable`.
+- Identify any non-GPU code path still using `CustomResizable` for top-level
+  project sections so that path can be converted or removed. Do not leave it as
+  a parallel section-resize owner.
 
 Exit criteria:
 
 - The expected resize policies are covered by tests.
-- The implementation scope for removing `re-resizable` from GPU sections is
-  clear.
+- The implementation scope for removing `re-resizable` from top-level project
+  section resizing is clear.
 
 ### Phase 2: Extract Setta Resize Policy
 
@@ -542,6 +548,8 @@ Exit criteria:
 - Keep visual handle markup, but remove `re-resizable` gesture ownership.
 - Ensure section roots fill the GpuFlow source host.
 - Remove `ResizableWithScale` from GPU section rendering.
+- Convert or remove any non-GPU top-level section resize path found during
+  Phase 1. Do not leave it as compatibility code.
 - Remove or narrow `useProjectNodeResizeObserver` so it is not the active manual
   resize owner.
 
@@ -553,7 +561,8 @@ Exit criteria:
 
 ### Phase 6: Cleanup And Dependency Removal
 
-- Delete unused `re-resizable` wrappers if no non-GPU path uses them.
+- Delete unused `re-resizable` wrappers if no unrelated non-section UI uses
+  them.
 - Remove resize-handle class behavior dependencies from GpuFlow once stable data
   attributes exist.
 - Update tests that mocked `re-resizable`.
@@ -561,7 +570,8 @@ Exit criteria:
 
 Exit criteria:
 
-- There is no top-level GPU section resize path that depends on
+- There is no top-level project section resize path, GPU or non-GPU, that
+  depends on
   `re-resizable`.
 - The only remaining ResizeObserver uses are intrinsic measurement or canvas
   backing-size observation.
@@ -605,15 +615,19 @@ Performance verification:
 
 - Adding left/top section resize handles.
 - Supporting resize ownership by both HTML and GpuFlow.
+- Keeping an old non-GPU section resize path as a compatibility route.
 - Rewriting section internals.
 - Replacing all intrinsic DOM measurement. Some content may still need measured
   auto-size behavior, but manual resize must not depend on it.
+- Adding migrations, transitional code, dual-read/write behavior, or old/new
+  resize semantics switches.
 - Adding compatibility shims for old generated shape or old resize semantics.
 
 ## Open Questions To Resolve During Phase 1
 
-- Does any non-GPU project surface still render top-level sections through
-  `CustomResizable`?
+- Which non-GPU project surfaces still render top-level sections through
+  `CustomResizable`, and what code must be converted or removed with the clean
+  break?
 - Which section types truly require aspect-ratio resizing today?
 - Which resize event consumers depend on start/end timing rather than final
   dimensions?

@@ -59,7 +59,8 @@ Dedicated GpuFlow-Owned Section Resizing Loop Instructions
 Plan-specific scope:
 - Execute docs/plans/gpuflow-owned-section-resizing-plan.md as written, following its phases and success criteria.
 - Make GpuFlow the owner of top-level GPU section resize gestures, live bounds, dirty scheduling, and graph geometry updates.
-- Do not preserve `re-resizable` as a GPU section resize owner. If a non-GPU surface still needs it, isolate and document that path.
+- Treat this as a clean break: no backward compatibility, migrations, transitional bridges, dual paths, old/new switches, or silent fallbacks.
+- Do not preserve `re-resizable` as a top-level project section resize owner on any GPU or non-GPU surface.
 - Use /Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos only as read-only reference material.
 
 Architecture guardrails:
