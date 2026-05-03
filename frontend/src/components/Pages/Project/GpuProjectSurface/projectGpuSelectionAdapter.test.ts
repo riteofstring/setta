@@ -393,6 +393,50 @@ describe("GPU project selection adapter", () => {
     });
     expect(callOpenAPIMock).not.toHaveBeenCalled();
   });
+
+  it("commits renderer-owned nested child reparenting from scene geometry on drag stop", () => {
+    loadProjectStateForSections([
+      { children: ["child-a"], id: "parent-a", kind: "group" },
+      { children: ["child-b"], id: "parent-b", kind: "group" },
+      { id: "child-a", parentId: "parent-a" },
+      { id: "child-b", parentId: "parent-b" },
+    ]);
+    loadNodeInternals([
+      node("parent-a", 0, 0, 260, 500, 0),
+      node("parent-b", 240, 120, 260, 500, 1),
+    ]);
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+
+    handleProjectNodeDragStop(
+      layoutStore,
+      {
+        delta: { x: 240, y: 170 },
+        items: [
+          {
+            distance: { x: 0, y: 0 },
+            height: 150,
+            nodeId: "child-a",
+            position: { x: 240, y: 170 },
+            width: 250,
+          },
+        ],
+      },
+      scene,
+    );
+
+    expect(getSectionImplChildren("parent-a")).toEqual([]);
+    expect(getSectionImplChildren("parent-b")).toEqual(["child-b", "child-a"]);
+    expect(useProjectState.getState().parentSectionMap["child-a"]).toBe(
+      "parent-b",
+    );
+    expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
+    expect(callOpenAPIMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 type MovementSectionInput = {

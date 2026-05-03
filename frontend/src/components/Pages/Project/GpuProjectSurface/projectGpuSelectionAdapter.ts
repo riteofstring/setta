@@ -16,7 +16,7 @@ import {
 
 import {
   isGpuSectionSceneOrderedChildLayout,
-  resolveGpuSectionSceneChildReorderPlan,
+  resolveGpuSectionSceneChildMovePlan,
 } from "gpuFlow/sceneChildOrder";
 
 import type { GpuRect } from "gpuFlow/viewportMath";
@@ -29,7 +29,11 @@ import { openSelectionContextMenu } from "state/actions/contextMenus";
 
 import { updateNodePositions } from "state/actions/nodeInternals";
 
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getSectionChildren,
+  isBaseCodeSectionType,
+} from "state/actions/sectionInfos";
 
 import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
 
@@ -38,6 +42,8 @@ import { setZIndices } from "state/actions/sections/sectionPositions";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 
 import { useLocalStorage, useMisc, useProjectState } from "state/definitions";
+
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 import type {
   ProjectGpuNodeDragChange,
@@ -194,7 +200,9 @@ function commitProjectNestedNodeDragStop(
     useMisc.setState({ mouseDownDraggingSection: false });
     return true;
   }
-  const plan = resolveGpuSectionSceneChildReorderPlan({
+  const plan = resolveGpuSectionSceneChildMovePlan({
+    canDropInParent: (parent, child) =>
+      canDropProjectSceneChildInParent(parent.sectionId, child.sectionId),
     draggedRect: getProjectNodeDragItemRect(item),
     scene,
     sectionId: item.nodeId,
@@ -245,8 +253,34 @@ function canDragProjectSceneChildNode(
     sceneNode.parentSectionId,
   );
   return parentNode
-    ? isGpuSectionSceneOrderedChildLayout(parentNode.layoutMode)
+    ? isGpuSectionSceneOrderedChildLayout(parentNode.layoutMode) &&
+        canDropProjectSceneChildInParent(parentNode.sectionId, nodeId)
     : false;
+}
+
+function canDropProjectSceneChildInParent(
+  parentSectionId: string,
+  childSectionId: string,
+): boolean {
+  // Keep Setta nesting policy in the project adapter; generic GpuFlow only receives scene geometry.
+  const projectState = useProjectState.getState();
+  const sectionImpl = getCurrEffectiveSectionImpl(
+    projectState,
+    parentSectionId,
+  );
+  const childImpl = getCurrEffectiveSectionImpl(projectState, childSectionId);
+  if (isBaseCodeSectionType(sectionImpl.type)) {
+    const children = getSectionChildren(projectState, parentSectionId);
+    return (
+      childImpl.type === SectionTypeEnum.Terminal &&
+      (children.length === 0 ||
+        (children.length === 1 && children[0] === childSectionId))
+    );
+  }
+  return (
+    sectionImpl.type === SectionTypeEnum.Group ||
+    sectionImpl.type === SectionTypeEnum.ListRoot
+  );
 }
 
 function isProjectSceneNestedNode(

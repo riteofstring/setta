@@ -5,7 +5,10 @@ import type {
   GpuSectionSceneLayoutMode,
   GpuSectionSceneNode,
 } from "./scene";
-import { resolveGpuSectionSceneChildReorderPlan } from "./sceneChildOrder";
+import {
+  resolveGpuSectionSceneChildMovePlan,
+  resolveGpuSectionSceneChildReorderPlan,
+} from "./sceneChildOrder";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
 describe("GPU flow scene child order", () => {
@@ -147,6 +150,123 @@ describe("GPU flow scene child order", () => {
         sectionId: "absolute-child",
       }),
     ).toBeNull();
+  });
+
+  it("resolves cross-parent child insertion from scene drop geometry", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a"],
+        id: "parent-a",
+        layoutMode: "vertical",
+        worldRect: rect(0, 0, 120, 220),
+      }),
+      sectionNode({
+        childIds: ["child-b"],
+        id: "parent-b",
+        layoutMode: "vertical",
+        worldRect: rect(300, 0, 120, 220),
+      }),
+      sectionNode({
+        id: "child-a",
+        parentId: "parent-a",
+        worldRect: rect(0, 0, 100, 40),
+      }),
+      sectionNode({
+        id: "child-b",
+        parentId: "parent-b",
+        worldRect: rect(300, 0, 100, 40),
+      }),
+    ]);
+
+    expect(
+      resolveGpuSectionSceneChildMovePlan({
+        draggedRect: rect(300, 80, 100, 40),
+        scene,
+        sectionId: "child-a",
+      }),
+    ).toMatchObject({
+      changed: true,
+      childSectionIds: ["child-b", "child-a"],
+      nextIndex: 1,
+      parentSectionId: "parent-b",
+      previousIndex: 0,
+      previousParentSectionId: "parent-a",
+    });
+  });
+
+  it("allows dropping into an empty ordered parent body", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a"],
+        id: "parent-a",
+        layoutMode: "vertical",
+        worldRect: rect(0, 0, 120, 220),
+      }),
+      sectionNode({
+        id: "parent-b",
+        layoutMode: "vertical",
+        worldRect: rect(300, 0, 120, 220),
+      }),
+      sectionNode({
+        id: "child-a",
+        parentId: "parent-a",
+        worldRect: rect(0, 0, 100, 40),
+      }),
+    ]);
+
+    expect(
+      resolveGpuSectionSceneChildMovePlan({
+        draggedRect: rect(300, 40, 100, 40),
+        scene,
+        sectionId: "child-a",
+      }),
+    ).toMatchObject({
+      changed: true,
+      childSectionIds: ["child-a"],
+      nextIndex: 0,
+      parentSectionId: "parent-b",
+      previousParentSectionId: "parent-a",
+    });
+  });
+
+  it("uses parent eligibility when resolving overlapping drop targets", () => {
+    const scene = sceneWithSections([
+      sectionNode({
+        childIds: ["child-a"],
+        id: "parent-a",
+        layoutMode: "vertical",
+        worldRect: rect(0, 0, 120, 220),
+      }),
+      sectionNode({
+        childIds: ["child-b"],
+        id: "parent-b",
+        layoutMode: "vertical",
+        worldRect: rect(300, 0, 160, 260),
+      }),
+      sectionNode({
+        id: "child-a",
+        parentId: "parent-a",
+        worldRect: rect(0, 0, 100, 40),
+      }),
+      sectionNode({
+        id: "child-b",
+        layoutMode: "vertical",
+        parentId: "parent-b",
+        worldRect: rect(300, 0, 140, 120),
+      }),
+    ]);
+
+    expect(
+      resolveGpuSectionSceneChildMovePlan({
+        canDropInParent: (parent) => parent.sectionId !== "child-b",
+        draggedRect: rect(310, 20, 100, 40),
+        scene,
+        sectionId: "child-a",
+      }),
+    ).toMatchObject({
+      parentSectionId: "parent-b",
+      previousParentSectionId: "parent-a",
+    });
   });
 });
 
