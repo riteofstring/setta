@@ -6,6 +6,11 @@ import {
   HtmlSurfaceSourceLayer,
   type HtmlSurfaceSourceElementConfig,
 } from "./htmlSurfaces/sourceLayer";
+import {
+  getGpuRetainedContentSliderThumbRect,
+  getGpuRetainedContentSliderTrackRect,
+  getGpuRetainedContentSliderValueLabelRect,
+} from "./retainedContentControls";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDrawCommand,
@@ -285,6 +290,15 @@ function drawGpuRetainedContentControl({
     });
     return;
   }
+  if (control.kind === "slider") {
+    drawGpuRetainedContentSliderControl({
+      control,
+      ctx,
+      rect,
+      state,
+    });
+    return;
+  }
   const outer = insetRect(rect, 6, 5);
   ctx.fillStyle = state?.disabled ? "#e2e8f0" : "#e0f2fe";
   ctx.strokeStyle = state?.selected ? "#2563eb" : "#bae6fd";
@@ -300,6 +314,59 @@ function drawGpuRetainedContentControl({
     outer.x + outer.width / 2,
     outer.y + outer.height / 2,
     Math.max(0, outer.width - 8),
+  );
+  ctx.textAlign = "start";
+}
+
+function drawGpuRetainedContentSliderControl({
+  control,
+  ctx,
+  rect,
+  state,
+}: {
+  readonly control: Extract<
+    GpuRetainedContentControlDescriptor,
+    { kind: "slider" }
+  >;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly rect: GpuRect;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  const disabled = state?.disabled ?? false;
+  const trackRect = getGpuRetainedContentSliderTrackRect(rect);
+  const valueRect = getGpuRetainedContentSliderValueLabelRect(rect);
+
+  ctx.fillStyle = disabled ? "#e2e8f0" : "#cbd5e1";
+  fillRoundRect(ctx, trackRect, trackRect.height / 2);
+
+  const thumbRect = getGpuRetainedContentSliderThumbRect({
+    control,
+    trackRect,
+  });
+  const rangeRect = {
+    height: trackRect.height,
+    width: Math.max(0, thumbRect.x + thumbRect.width / 2 - trackRect.x),
+    x: trackRect.x,
+    y: trackRect.y,
+  };
+  ctx.fillStyle = disabled ? "#94a3b8" : "#2563eb";
+  fillRoundRect(ctx, rangeRect, rangeRect.height / 2);
+
+  ctx.fillStyle = disabled ? "#f1f5f9" : "#ffffff";
+  fillRoundRect(ctx, thumbRect, thumbRect.height / 2);
+  ctx.strokeStyle = disabled ? "#cbd5e1" : "#1d4ed8";
+  ctx.lineWidth = 1;
+  strokeRoundRect(ctx, thumbRect, thumbRect.height / 2);
+
+  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = disabled ? "#64748b" : "#334155";
+  ctx.fillText(
+    control.displayValue,
+    valueRect.x + valueRect.width,
+    valueRect.y + valueRect.height / 2,
+    valueRect.width,
   );
   ctx.textAlign = "start";
 }

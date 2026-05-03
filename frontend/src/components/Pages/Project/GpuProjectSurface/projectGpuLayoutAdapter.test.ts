@@ -35,6 +35,7 @@ import {
   type BaseSectionImplUnion,
   type ColorPickerParamCodeObjImpl,
   type SingleConfig,
+  type SliderParamCodeObjImpl,
   type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
@@ -1058,6 +1059,86 @@ describe("project GPU layout adapter", () => {
     ]);
   });
 
+  it("keeps retained slider controls canvas-owned with concrete descriptors", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "root-param": "root-param-variant",
+              "slider-param": "slider-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["slider-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "slider-param",
+      "slider-param-variant",
+      "slider-param-impl",
+      createSliderParamImpl({
+        id: "slider-param-impl",
+        name: "slider",
+        value: "6",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "slider-param": ["slider-param"],
+        },
+        topLevelParamIds: ["slider-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:slider-param",
+        paramInfoId: "slider-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 10,
+    });
+    const sliderSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(sliderSurface?.retainedScene?.rows[0]).toMatchObject({
+      control: {
+        defaultDisplayValue: "0",
+        displayValue: "6",
+        kind: "slider",
+        rendererFamily: "slider",
+        commitPolicy: "preview-commit",
+        max: 10,
+        min: 0,
+        step: 1,
+        value: 6,
+      },
+      controlKind: "slider",
+      id: "slider-param",
+    });
+    expect(scene.domIslands).toEqual([]);
+  });
+
   it("does not synthesize retained controls for params without a section-param UI owner", () => {
     const projectState = projectStateWithSections({
       sections: [
@@ -1992,6 +2073,34 @@ function createTimeParamImpl({
     typeAnnotation: "",
     value: "12:30",
   } satisfies TimeParamCodeObjImpl;
+  return impl as BaseCodeObjImplUnion;
+}
+
+function createSliderParamImpl({
+  id,
+  name,
+  value,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+}): BaseCodeObjImplUnion {
+  const impl = {
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "0",
+    description: "",
+    id,
+    isPreset: false,
+    max: 10,
+    min: 0,
+    name,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    step: 1,
+    type: CodeObjTypeEnum.SliderParam,
+    typeAnnotation: "",
+    value,
+  } satisfies SliderParamCodeObjImpl;
   return impl as BaseCodeObjImplUnion;
 }
 

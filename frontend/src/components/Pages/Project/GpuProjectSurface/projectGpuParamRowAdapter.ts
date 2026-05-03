@@ -2,6 +2,10 @@ import {
   getSectionParamUIRendererFamily,
   type SectionParamUIRendererFamily,
 } from "components/Params/ParamUIs/paramUIRendererMetadata";
+import {
+  formatGpuRetainedNumericControlValue,
+  snapGpuRetainedNumericControlValue,
+} from "gpuFlow/retainedContentControls";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentRowInput,
@@ -13,7 +17,11 @@ import type {
   ZustandProjectState,
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
-import { CodeObjTypeEnum, type CodeObjType } from "utils/generatedTypes";
+import {
+  CodeObjTypeEnum,
+  type CodeObjType,
+  type SliderParamCodeObjImpl,
+} from "utils/generatedTypes";
 
 export type ProjectGpuRetainedParamSearchState = Pick<
   ZustandProjectSearch,
@@ -136,11 +144,76 @@ function createProjectGpuParamControlDescriptor({
       commitPolicy: "immediate",
     };
   }
+  if (codeObjImpl.type === CodeObjTypeEnum.SliderParam) {
+    const slider = codeObjImpl as SliderParamCodeObjImpl;
+    const min = assertProjectGpuFiniteNumber(slider.min, "slider min");
+    const max = assertProjectGpuFiniteNumber(slider.max, "slider max");
+    const step = assertProjectGpuFiniteNumber(slider.step, "slider step");
+    if (max < min) {
+      throw new Error(
+        `Invalid GPU retained slider config for ${slider.id}: max ${max} is less than min ${min}.`,
+      );
+    }
+    const value = toProjectGpuRetainedNumericControlValue({
+      max,
+      min,
+      step,
+      value: slider.value,
+    });
+    const defaultValue = toProjectGpuRetainedNumericControlValue({
+      max,
+      min,
+      step,
+      value: slider.defaultVal,
+    });
+    return {
+      defaultDisplayValue: formatGpuRetainedNumericControlValue({
+        step,
+        value: defaultValue,
+      }),
+      displayValue: formatGpuRetainedNumericControlValue({ step, value }),
+      kind: "slider",
+      rendererFamily: controlKind,
+      commitPolicy: "preview-commit",
+      max,
+      min,
+      step,
+      value,
+    };
+  }
   return null;
 }
 
 function toProjectGpuParamDisplayValue(value: unknown): string {
   return typeof value === "string" ? value : String(value ?? "");
+}
+
+function toProjectGpuRetainedNumericControlValue({
+  max,
+  min,
+  step,
+  value,
+}: {
+  readonly max: number;
+  readonly min: number;
+  readonly step: number;
+  readonly value: unknown;
+}): number {
+  const parsed =
+    typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+  return snapGpuRetainedNumericControlValue({
+    max,
+    min,
+    step,
+    value: Number.isFinite(parsed) ? parsed : min,
+  });
+}
+
+function assertProjectGpuFiniteNumber(value: unknown, label: string): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  throw new Error(`Invalid GPU retained ${label}: expected a finite number.`);
 }
 
 function isProjectGpuSwitchValueChecked(value: string): boolean {

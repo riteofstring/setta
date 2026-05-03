@@ -37,6 +37,17 @@ export type GpuRetainedContentControlDescriptor =
       readonly kind: "switch";
       readonly rendererFamily: string;
       readonly commitPolicy: "immediate";
+    }
+  | {
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "slider";
+      readonly rendererFamily: string;
+      readonly commitPolicy: "preview-commit";
+      readonly max: number;
+      readonly min: number;
+      readonly step: number;
+      readonly value: number;
     };
 
 export type GpuRetainedContentRowInput = {

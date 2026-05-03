@@ -246,6 +246,58 @@ describe("retained content scene", () => {
     );
   });
 
+  it("retains concrete slider control descriptors for canvas handlers", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("slider-param", {
+          control: {
+            defaultDisplayValue: "0",
+            displayValue: "6",
+            kind: "slider",
+            rendererFamily: "slider",
+            commitPolicy: "preview-commit",
+            max: 10,
+            min: 0,
+            step: 2,
+            value: 6,
+          },
+          controlKind: "slider",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 24, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.control).toEqual({
+      defaultDisplayValue: "0",
+      displayValue: "6",
+      kind: "slider",
+      rendererFamily: "slider",
+      commitPolicy: "preview-commit",
+      max: 10,
+      min: 0,
+      step: 2,
+      value: 6,
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          control: expect.objectContaining({
+            kind: "slider",
+            commitPolicy: "preview-commit",
+            value: 6,
+          }),
+          controlKind: "slider",
+          kind: "row-control",
+          rowId: "slider-param",
+        }),
+      ]),
+    );
+  });
+
   it("emits inset drop markers for retained inside-row drops", () => {
     const scene = createGpuRetainedRowContentScene({
       dragPreview: {

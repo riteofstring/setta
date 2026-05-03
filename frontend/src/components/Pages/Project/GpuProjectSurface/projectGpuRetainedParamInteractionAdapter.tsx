@@ -92,6 +92,12 @@ import {
   PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
 } from "./projectGpuPortalAdapter";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
+import {
+  commitProjectGpuRetainedSliderControlClick,
+  handleProjectGpuRetainedSliderControlDragEnd,
+  handleProjectGpuRetainedSliderControlDragMove,
+  isProjectGpuRetainedParamSliderControlHit,
+} from "./projectGpuRetainedParamSliderControlAdapter";
 
 type ProjectGpuRetainedContentScrollApi = {
   readonly getScene: () => GpuFlowScene;
@@ -140,6 +146,7 @@ export function getProjectRetainedContentInteractionOptions({
     onHitDragEnd: (event: GpuRetainedContentDragEvent) =>
       handleProjectRetainedContentDragEnd(event, {
         onRetainedParamDragPreviewChange,
+        retainedContentScroll,
         retainedParamDragSessionRef,
       }),
     onHitDragMove: (event: GpuRetainedContentDragEvent) =>
@@ -175,9 +182,10 @@ export function getProjectRetainedContentInteractionOptions({
       shouldHandleProjectRetainedContentHit(event, { canEditStructure }),
     shouldHandlePointerMoveHit: () => true,
     shouldStartDrag: (event: GpuRetainedContentInteractionHit) =>
-      canEditStructure &&
-      useMisc.getState().isSelectingParams &&
-      (event.hit.kind === "row" || event.hit.kind === "label"),
+      isProjectGpuRetainedParamSliderControlHit(event) ||
+      (canEditStructure &&
+        useMisc.getState().isSelectingParams &&
+        (event.hit.kind === "row" || event.hit.kind === "label")),
   };
 }
 
@@ -390,6 +398,9 @@ function handleProjectRetainedContentCanvasControlClick(
     });
     return true;
   }
+  if (commitProjectGpuRetainedSliderControlClick(event)) {
+    return true;
+  }
   return false;
 }
 
@@ -438,6 +449,15 @@ function handleProjectRetainedContentDragStart(
     readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   },
 ) {
+  if (isProjectGpuRetainedParamSliderControlHit(event)) {
+    applyActiveSectionChange({
+      interaction: "input-focus",
+      sectionId: event.ownerSectionId,
+    });
+    retainedParamDragSessionRef.current = null;
+    onActiveParamDomIslandChange(null);
+    return;
+  }
   const projectState = useProjectState.getState();
   const session = createProjectGpuRetainedParamDragSession({
     activeParamId: event.hit.ownerRowId,
@@ -472,6 +492,13 @@ function handleProjectRetainedContentDragMove(
     readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   },
 ): boolean {
+  if (
+    handleProjectGpuRetainedSliderControlDragMove(event, {
+      retainedContentScene: retainedContentScroll,
+    })
+  ) {
+    return false;
+  }
   const session = retainedParamDragSessionRef.current;
   if (!session) {
     return false;
@@ -549,14 +576,23 @@ function handleProjectRetainedContentDragEnd(
   event: GpuRetainedContentDragEvent,
   {
     onRetainedParamDragPreviewChange,
+    retainedContentScroll,
     retainedParamDragSessionRef,
   }: {
     readonly onRetainedParamDragPreviewChange: (
       preview: ProjectGpuRetainedParamDragPreview | null,
     ) => void;
+    readonly retainedContentScroll: ProjectGpuRetainedContentScrollApi;
     readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   },
 ) {
+  if (
+    handleProjectGpuRetainedSliderControlDragEnd(event, {
+      retainedContentScene: retainedContentScroll,
+    })
+  ) {
+    return;
+  }
   const session = retainedParamDragSessionRef.current;
   retainedParamDragSessionRef.current = null;
   onRetainedParamDragPreviewChange(null);
