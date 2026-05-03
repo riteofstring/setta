@@ -145,13 +145,13 @@ function createGpuRetainedContentRowDrawCommands({
       state: row.state,
     },
   ];
-  if (row.depth > 0) {
+  for (let guideDepth = 1; guideDepth <= row.depth; guideDepth += 1) {
     commands.push({
-      depth: row.depth,
+      depth: guideDepth,
       kind: "nest-guide",
       rect: createGpuRetainedContentNestGuideRect({
         indentWidth,
-        rowDepth: row.depth,
+        rowDepth: guideDepth,
         rowRect: row.projectedRect,
       }),
       rowId: row.id,

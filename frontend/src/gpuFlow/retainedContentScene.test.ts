@@ -200,6 +200,52 @@ describe("retained content scene", () => {
     });
   });
 
+  it("keeps ancestor nest guides active for deeply nested rows", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      indentWidth: 12,
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("root", { controlKind: "nested", depth: 0 }),
+        row("group", { controlKind: "nested", depth: 1 }),
+        row("leaf", { depth: 2 }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 72, width: 220, x: 0, y: 0 },
+    });
+
+    expect(
+      scene.drawCommands.flatMap((command) =>
+        command.kind === "nest-guide"
+          ? [
+              {
+                depth: command.depth,
+                rect: command.rect,
+                rowId: command.rowId,
+              },
+            ]
+          : [],
+      ),
+    ).toEqual([
+      {
+        depth: 1,
+        rect: { height: 24, width: 6, x: 13, y: 24 },
+        rowId: "group",
+      },
+      {
+        depth: 1,
+        rect: { height: 24, width: 6, x: 13, y: 48 },
+        rowId: "leaf",
+      },
+      {
+        depth: 2,
+        rect: { height: 24, width: 6, x: 25, y: 48 },
+        rowId: "leaf",
+      },
+    ]);
+  });
+
   it("emits retained row status badges and overlays from row metadata", () => {
     const scene = createGpuRetainedRowContentScene({
       controlWidth: 80,
