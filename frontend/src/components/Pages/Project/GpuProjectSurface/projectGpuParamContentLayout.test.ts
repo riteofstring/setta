@@ -1,14 +1,13 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import {
   getKwargsControlsHeightKey,
-  getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
 } from "utils/constants";
 import { describe, expect, it } from "vitest";
 import {
-  getProjectGpuParamListSurfaceHeight,
   getProjectGpuParamContentMetrics,
+  getProjectGpuParamListSurfaceHeight,
 } from "./projectGpuParamContentLayout";
 
 describe("project GPU param content layout", () => {
@@ -20,10 +19,10 @@ describe("project GPU param content layout", () => {
       edgeOutputPortCount: 1,
       measuredHeightsByKey: {
         [getKwargsControlsHeightKey(sectionId)]: 13,
-        [getParamsFixedHeightKey(sectionId)]: 19,
         [getSectionHeaderHeightKey(sectionId)]: 7,
         [getSectionSearchHeightKey(sectionId)]: 11,
       },
+      pinnedRowCount: 3,
       sectionId,
     });
 
@@ -34,7 +33,13 @@ describe("project GPU param content layout", () => {
       }),
     );
     expect(metrics.contentTop).toBe(7 + 11 + 13 + 5);
-    expect(metrics.paramsFixedHeight).toBe(19);
+    expect(metrics.paramsFixedHeight).toBe(
+      resolveEdgeStripHeight({
+        inputPortCount: 2,
+        outputPortCount: 1,
+      }) +
+        3 * 24,
+    );
   });
 
   it("sizes pinned surfaces from retained row content instead of measured height state", () => {

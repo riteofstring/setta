@@ -45,6 +45,7 @@ import {
   PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX,
   PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX,
   PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
+  resolveProjectGpuParamFixedContentHeight,
   type ProjectGpuParamListKey,
 } from "./projectGpuParamContentLayout";
 import {
@@ -230,6 +231,28 @@ export function createProjectGpuParamDomIslands({
       zIndex: surface.zIndex + 1,
     },
   ];
+}
+
+export function getProjectGpuParamFixedContentHeightForSection({
+  projectState,
+  sectionId,
+  sectionImpl,
+}: {
+  readonly projectState: ZustandProjectState;
+  readonly sectionId: string;
+  readonly sectionImpl: DictSectionImpl;
+}): number {
+  const edgeStripPortCounts =
+    getProjectGpuParamContentEdgeStripPortCounts(sectionImpl);
+  return resolveProjectGpuParamFixedContentHeight({
+    ...edgeStripPortCounts,
+    pinnedRowCount: countProjectGpuParamRetainedListRows({
+      key: "pinned",
+      projectState,
+      sectionId,
+      sectionImpl,
+    }),
+  });
 }
 
 function resolveProjectGpuParamDomIsland({
@@ -743,6 +766,7 @@ function createProjectGpuParamListContentSurfaces({
   const metrics = getProjectGpuParamContentMetrics({
     ...edgeStripPortCounts,
     measuredHeightsByKey,
+    pinnedRowCount: getProjectGpuParamListRowCount(listRows, "pinned"),
     sectionId: section.sectionId,
   });
   let nextLocalY = metrics.contentTop;
@@ -825,6 +849,13 @@ function createProjectGpuParamListContentSurfaces({
   return surfaces;
 }
 
+function getProjectGpuParamListRowCount(
+  listRows: readonly ProjectGpuParamListRows[],
+  key: ProjectGpuParamListKey,
+): number {
+  return listRows.find((list) => list.key === key)?.rows.length ?? 0;
+}
+
 function getProjectGpuParamContentEdgeStripPortCounts(
   sectionImpl: DictSectionImpl,
 ): {
@@ -835,6 +866,49 @@ function getProjectGpuParamContentEdgeStripPortCounts(
     edgeInputPortCount: sectionImpl.edgeInputParams?.length ?? 0,
     edgeOutputPortCount: sectionImpl.edgeOutputPorts?.length ?? 0,
   };
+}
+
+function countProjectGpuParamRetainedListRows({
+  key,
+  projectState,
+  sectionId,
+  sectionImpl,
+}: {
+  readonly key: ProjectGpuParamListKey;
+  readonly projectState: ZustandProjectState;
+  readonly sectionId: string;
+  readonly sectionImpl: DictSectionImpl;
+}): number {
+  const shown = getProjectGpuShownParamRowsIfPresent({
+    key,
+    projectState,
+    sectionId,
+    sectionImpl,
+  });
+  if (!shown) {
+    return 0;
+  }
+  const normalizedShown = normalizeProjectGpuShownParamRows({
+    key,
+    sectionId,
+    shown,
+  });
+  const filteredRows = resolveFilteredParamRows({
+    paramFilter: sectionImpl.paramFilter,
+    paramIds: normalizedShown.topLevelParamIds,
+    requiredParamIdsToPaths: normalizedShown.requiredParamIdsToPaths,
+    sectionId,
+    state: projectState,
+  });
+  if (filteredRows.paramIds.length === 0) {
+    return 0;
+  }
+  return buildParamTreeView(
+    projectState,
+    sectionId,
+    filteredRows.paramIds,
+    filteredRows.requiredParamIdsToPaths,
+  ).flat.length;
 }
 
 function getProjectGpuParamRetainedContentActivePopupInput({

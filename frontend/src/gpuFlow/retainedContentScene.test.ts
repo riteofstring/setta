@@ -86,9 +86,7 @@ describe("retained content scene", () => {
 
     expect(scene.drawCommands).toEqual([
       expect.objectContaining({
-        dividerRects: [
-          { height: 24, width: 220, x: 4, y: 6 },
-        ],
+        dividerRects: [{ height: 24, width: 220, x: 4, y: 6 }],
         kind: "row-background",
         rowId: "parent",
       }),

@@ -1,18 +1,10 @@
 import _ from "lodash";
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
 
-import {
-  useMisc,
-  useProjectState,
-  useSettings,
-} from "state/definitions";
+import { useMisc, useProjectState, useSettings } from "state/definitions";
 
 import { useIsScrollable } from "state/hooks/sectionSizes";
 
@@ -258,9 +250,7 @@ function PinnedParamsArea({
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
     >
-      <div
-        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
-      >
+      <div className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2">
         <header className="flex w-full gap-1 px-2">
           <i
             className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
@@ -273,9 +263,7 @@ function PinnedParamsArea({
         </header>
 
         {renderParamRows && (
-          <div
-            className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
-          >
+          <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5">
             <ParamDndList
               sectionId={sectionId}
               paramIds={topLevelParamIds}

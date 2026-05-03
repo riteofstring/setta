@@ -1,6 +1,6 @@
 # GpuFlow Visual Fidelity Checkpoint Review
 
-Generated: 2026-05-05T20:05:47.443Z
+Generated: 2026-05-05T21:27:45.548Z
 
 ## Summary
 
@@ -28,39 +28,39 @@ Generated: 2026-05-05T20:05:47.443Z
 
 | Fixture | Viewport | Status | Reason | Changed Pixels | Mean Delta |
 | --- | --- | --- | --- | ---: | ---: |
-| project-surface | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0036 | 0.23 |
-| param-controls-closed | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0036 | 0.23 |
+| project-surface | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0033 | 0.22 |
+| param-controls-closed | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0033 | 0.22 |
 | dense-param-dict | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0052 | 0.25 |
 | nested-param-tree | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0042 | 0.18 |
 | callable-edge-handles | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0000 | 0.00 |
-| selection-resize | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0035 | 0.23 |
-| dropdown-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0033 | 0.22 |
-| color-picker-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0032 | 0.22 |
-| date-calendar-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0027 | 0.19 |
-| native-text-island | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0027 | 0.19 |
-| drag-preview | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0032 | 0.22 |
-| project-surface | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0054 | 0.36 |
-| param-controls-closed | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0054 | 0.36 |
+| selection-resize | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0032 | 0.22 |
+| dropdown-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0031 | 0.21 |
+| color-picker-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0030 | 0.20 |
+| date-calendar-open | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0026 | 0.18 |
+| native-text-island | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0026 | 0.18 |
+| drag-preview | desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0030 | 0.20 |
+| project-surface | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0050 | 0.34 |
+| param-controls-closed | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0050 | 0.34 |
 | dense-param-dict | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0052 | 0.25 |
 | nested-param-tree | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0042 | 0.18 |
 | callable-edge-handles | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0000 | 0.00 |
-| selection-resize | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0056 | 0.37 |
-| dropdown-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0054 | 0.36 |
-| color-picker-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0054 | 0.36 |
-| date-calendar-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0045 | 0.31 |
-| native-text-island | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0045 | 0.31 |
-| drag-preview | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0054 | 0.36 |
-| project-surface | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0109 | 0.75 |
-| param-controls-closed | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0109 | 0.75 |
+| selection-resize | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0052 | 0.35 |
+| dropdown-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0050 | 0.34 |
+| color-picker-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0050 | 0.34 |
+| date-calendar-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0044 | 0.31 |
+| native-text-island | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0044 | 0.31 |
+| drag-preview | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance. | 0.0050 | 0.34 |
+| project-surface | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.73 |
+| param-controls-closed | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0105 | 0.73 |
 | dense-param-dict | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0025 | 0.11 |
 | nested-param-tree | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0015 | 0.07 |
 | callable-edge-handles | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0000 | 0.00 |
-| selection-resize | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0108 | 0.75 |
-| dropdown-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0108 | 0.75 |
-| color-picker-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0108 | 0.75 |
-| date-calendar-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0108 | 0.75 |
-| native-text-island | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0108 | 0.75 |
-| drag-preview | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0108 | 0.75 |
+| selection-resize | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0104 | 0.73 |
+| dropdown-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0104 | 0.73 |
+| color-picker-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0104 | 0.73 |
+| date-calendar-open | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0104 | 0.73 |
+| native-text-island | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0104 | 0.73 |
+| drag-preview | narrow | pass | Automated pixel diff is within checkpoint tolerance. | 0.0104 | 0.73 |
 
 ## Prioritized Visual-Fix List
 

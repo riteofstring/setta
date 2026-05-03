@@ -28,6 +28,7 @@ import {
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
   createButtonParamCodeObjImpl,
+  createCallableSectionImpl,
   createChatSectionImpl,
   createCodeParamCodeObjImpl,
   createCore,
@@ -226,8 +227,17 @@ describe("project GPU layout adapter", () => {
           }),
           parentId: null,
         },
+        {
+          id: "callable-a",
+          impl: createCallableSectionImpl({
+            id: "callable-a-impl",
+            size: sectionSize({ height: 90, width: 220 }),
+          }),
+          parentId: null,
+        },
       ],
       topLevelSections: {
+        "callable-a": { h: 90, w: 220, x: 520, y: 20, zIndex: 4 },
         "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
         "hidden-dict": { h: 80, w: 180, x: 300, y: 20, zIndex: 3 },
       },
@@ -237,7 +247,11 @@ describe("project GPU layout adapter", () => {
       "view-a": createViewMode({
         id: "view-a",
         name: "View A",
-        visibilityBySectionId: { "dict-a": true, "hidden-dict": false },
+        visibilityBySectionId: {
+          "callable-a": true,
+          "dict-a": true,
+          "hidden-dict": false,
+        },
       }),
     };
     const sectionId = "dict-a";
@@ -246,6 +260,7 @@ describe("project GPU layout adapter", () => {
     const searchKey = getSectionSearchHeightKey(sectionId);
     const kwargsKey = getKwargsControlsHeightKey(sectionId);
     const paramsFixedKey = getParamsFixedHeightKey(sectionId);
+    const callableParamsFixedKey = getParamsFixedHeightKey("callable-a");
     const hiddenHeaderKey = getSectionHeaderHeightKey(hiddenSectionId);
 
     const measuredHeights = getProjectGpuSceneMeasuredHeights(projectState, {
@@ -254,17 +269,22 @@ describe("project GPU layout adapter", () => {
       [getSectionStylePreviewColorKey(sectionId)]: "#ff0000",
       [headerKey]: 24,
       [kwargsKey]: Number.NaN,
+      [callableParamsFixedKey]: 48,
       [paramsFixedKey]: 36,
       [searchKey]: 20,
       unrelated: 99,
     });
 
     expect(measuredHeights).not.toHaveProperty(hiddenHeaderKey);
+    expect(measuredHeights).not.toHaveProperty(paramsFixedKey);
     expect(measuredHeights).toEqual({
       [kwargsKey]: 0,
-      [paramsFixedKey]: 36,
       [headerKey]: 24,
       [searchKey]: 20,
+      [getKwargsControlsHeightKey("callable-a")]: 0,
+      [callableParamsFixedKey]: 48,
+      [getSectionHeaderHeightKey("callable-a")]: 0,
+      [getSectionSearchHeightKey("callable-a")]: 0,
     });
     expect(
       areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
@@ -379,9 +399,9 @@ describe("project GPU layout adapter", () => {
       (surface) => surface.id === "dict-a:param-content:unpinned",
     );
     expect(paramSurface).toMatchObject({
-      clipRect: { height: 117, width: 262, x: 10, y: 25 },
+      clipRect: { height: 45, width: 262, x: 10, y: 97 },
       ownerSectionId: "dict-a",
-      rect: { height: 117, width: 262, x: 10, y: 25 },
+      rect: { height: 45, width: 262, x: 10, y: 97 },
       renderer: {
         kind: "canvas-content",
         surfaceId: "dict-a:param-content:unpinned",
@@ -392,7 +412,7 @@ describe("project GPU layout adapter", () => {
       contentRect: { height: 48, width: 262, x: 0, y: 0 },
       ownerSectionId: "dict-a",
       rowHeight: 24,
-      viewportRect: { height: 117, width: 262, x: 0, y: 0 },
+      viewportRect: { height: 45, width: 262, x: 0, y: 0 },
       visibleRange: { endIndex: 2, rowCount: 2, startIndex: 0 },
     });
     expect(

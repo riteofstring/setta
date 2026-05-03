@@ -23,8 +23,7 @@ import { SectionSearch } from "./Search";
 const scheduleGpuFlowPortLocalRectUpdateMock = vi.hoisted(() => vi.fn());
 
 vi.mock("gpuFlow/ports/portGeometry", () => ({
-  scheduleGpuFlowPortLocalRectUpdate:
-    scheduleGpuFlowPortLocalRectUpdateMock,
+  scheduleGpuFlowPortLocalRectUpdate: scheduleGpuFlowPortLocalRectUpdateMock,
 }));
 
 vi.mock("openapi/http", async () => {

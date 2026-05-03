@@ -644,6 +644,12 @@ function _ParamGroupContainer({
   }, [waitingForResult]);
 
   useLayoutEffect(() => {
+    if (!renderParamRows) {
+      lastFixedHeightRef.current = null;
+      pendingFixedHeightRef.current = null;
+      useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
+      return;
+    }
     const outer = outerRef.current;
     if (!outer) {
       lastFixedHeightRef.current = null;
@@ -691,7 +697,7 @@ function _ParamGroupContainer({
       pendingFixedHeightRef.current = null;
       useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
     };
-  }, [paramsFixedHeightKey]);
+  }, [paramsFixedHeightKey, renderParamRows]);
 
   useEffect(() => {
     if (waitingForResult) {

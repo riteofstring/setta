@@ -1,7 +1,6 @@
 import { resolveEdgeStripHeight } from "components/Params/edgeStripUtils";
 import {
   getKwargsControlsHeightKey,
-  getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
 } from "utils/constants";
@@ -30,11 +29,13 @@ export function getProjectGpuParamContentMetrics({
   edgeInputPortCount,
   edgeOutputPortCount,
   measuredHeightsByKey,
+  pinnedRowCount,
   sectionId,
 }: {
   readonly edgeInputPortCount: number;
   readonly edgeOutputPortCount: number;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
+  readonly pinnedRowCount: number;
   readonly sectionId: string;
 }) {
   const headerHeight = getProjectSceneMeasuredHeightFromRecord(
@@ -53,10 +54,11 @@ export function getProjectGpuParamContentMetrics({
     inputPortCount: edgeInputPortCount,
     outputPortCount: edgeOutputPortCount,
   });
-  const paramsFixedHeight = getProjectSceneMeasuredHeightFromRecord(
-    measuredHeightsByKey,
-    getParamsFixedHeightKey(sectionId),
-  );
+  const paramsFixedHeight = resolveProjectGpuParamFixedContentHeight({
+    edgeInputPortCount,
+    edgeOutputPortCount,
+    pinnedRowCount,
+  });
   return {
     contentTop:
       headerHeight +
@@ -66,6 +68,24 @@ export function getProjectGpuParamContentMetrics({
     edgesHeight,
     paramsFixedHeight,
   };
+}
+
+export function resolveProjectGpuParamFixedContentHeight({
+  edgeInputPortCount,
+  edgeOutputPortCount,
+  pinnedRowCount,
+}: {
+  readonly edgeInputPortCount: number;
+  readonly edgeOutputPortCount: number;
+  readonly pinnedRowCount: number;
+}): number {
+  const edgeStripHeight = resolveEdgeStripHeight({
+    inputPortCount: edgeInputPortCount,
+    outputPortCount: edgeOutputPortCount,
+  });
+  const pinnedContentHeight =
+    Math.max(0, pinnedRowCount) * PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX;
+  return edgeStripHeight + pinnedContentHeight;
 }
 
 export function getProjectGpuParamListLocalY({

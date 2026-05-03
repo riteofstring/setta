@@ -70,6 +70,7 @@ import {
   ListRootViewModeEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
+  type DictSectionImpl,
   type GroupSectionImpl,
   type ListRootSectionImpl,
 } from "utils/generatedTypes";
@@ -78,6 +79,7 @@ import {
   createProjectGpuParamContentSurfaces,
   createProjectGpuParamDomIslands,
   DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
+  getProjectGpuParamFixedContentHeightForSection,
   type ProjectGpuActiveParamCanvasPopup,
   type ProjectGpuActiveParamDomIsland,
   type ProjectGpuParamEditPolicy,
@@ -765,10 +767,12 @@ function getProjectSectionSceneResizePolicy({
         resizePolicyContext,
         getKwargsControlsHeightKey(sectionId),
       ),
-      paramsFixedHeight: getProjectSceneMeasuredHeight(
+      paramsFixedHeight: getProjectSectionSceneParamsFixedHeight({
+        projectState,
         resizePolicyContext,
-        getParamsFixedHeightKey(sectionId),
-      ),
+        sectionId,
+        sectionImpl,
+      }),
       sectionHeaderHeight: getProjectSceneMeasuredHeight(
         resizePolicyContext,
         getSectionHeaderHeightKey(sectionId),
@@ -806,6 +810,30 @@ function getProjectSectionSceneResizePolicy({
     minHeight: toTopLevelSectionOuterDimension(dimensions.minHeight),
     minWidth: toTopLevelSectionOuterDimension(dimensions.minWidth),
   };
+}
+
+function getProjectSectionSceneParamsFixedHeight({
+  projectState,
+  resizePolicyContext,
+  sectionId,
+  sectionImpl,
+}: {
+  readonly projectState: ZustandProjectState;
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
+  readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion;
+}): number {
+  if (sectionImpl.type === SectionTypeEnum.Dict) {
+    return getProjectGpuParamFixedContentHeightForSection({
+      projectState,
+      sectionId,
+      sectionImpl: sectionImpl as DictSectionImpl,
+    });
+  }
+  return getProjectSceneMeasuredHeight(
+    resizePolicyContext,
+    getParamsFixedHeightKey(sectionId),
+  );
 }
 
 function pushProjectSectionSceneNode({

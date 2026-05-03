@@ -67,7 +67,9 @@ function seedEdgeStripState(sectionId = "section-edge-strip") {
   return sectionId;
 }
 
-async function renderEdgesStrip(sectionId: string): Promise<RenderedEdgesStrip> {
+async function renderEdgesStrip(
+  sectionId: string,
+): Promise<RenderedEdgesStrip> {
   const { EdgesStrip } = await import("./edgesStrip");
   const host = document.createElement("div");
   document.body.append(host);

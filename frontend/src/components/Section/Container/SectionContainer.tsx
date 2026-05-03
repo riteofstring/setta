@@ -127,8 +127,7 @@ function sectionContainerRenderOptionsEqual(
       getSectionContainerRenderParamRows(
         next.renderParamRows,
         next.sceneSurface,
-      ) &&
-    (prev.sceneSurface ?? false) === (next.sceneSurface ?? false)
+      ) && (prev.sceneSurface ?? false) === (next.sceneSurface ?? false)
   );
 }
 

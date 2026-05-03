@@ -1,3 +1,4 @@
+import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import {
   useProjectState,
   useResizeEvent,
@@ -11,6 +12,7 @@ import {
   getSectionHeaderHeightKey,
   getSectionSearchHeightKey,
 } from "utils/constants";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   getProjectSceneMeasuredHeightFromRecord,
   type ProjectGpuSceneResizePolicyContext,
@@ -22,7 +24,6 @@ type ProjectGpuSceneMeasuredHeightKeyCreator = (sectionId: string) => string;
 const PROJECT_GPU_SCENE_MEASURED_HEIGHT_KEY_CREATORS: readonly ProjectGpuSceneMeasuredHeightKeyCreator[] =
   [
     getKwargsControlsHeightKey,
-    getParamsFixedHeightKey,
     getSectionHeaderHeightKey,
     getSectionSearchHeightKey,
   ];
@@ -33,7 +34,10 @@ export function getProjectGpuSceneMeasuredHeights(
 ): Readonly<Record<string, number>> {
   const sceneMeasuredHeights: Record<string, number> = {};
   for (const sectionId of getProjectGpuSceneSectionIds(projectState)) {
-    for (const getHeightKey of PROJECT_GPU_SCENE_MEASURED_HEIGHT_KEY_CREATORS) {
+    for (const getHeightKey of getProjectGpuSceneMeasuredHeightKeyCreators(
+      projectState,
+      sectionId,
+    )) {
       const heightKey = getHeightKey(sectionId);
       sceneMeasuredHeights[heightKey] = getProjectSceneMeasuredHeightFromRecord(
         measuredHeightsByKey,
@@ -42,6 +46,23 @@ export function getProjectGpuSceneMeasuredHeights(
     }
   }
   return sceneMeasuredHeights;
+}
+
+function getProjectGpuSceneMeasuredHeightKeyCreators(
+  projectState: ZustandProjectState,
+  sectionId: string,
+): readonly ProjectGpuSceneMeasuredHeightKeyCreator[] {
+  const sectionImpl = getCurrEffectiveSectionImplIfPresent(
+    projectState,
+    sectionId,
+  );
+  if (sectionImpl?.type === SectionTypeEnum.Dict) {
+    return PROJECT_GPU_SCENE_MEASURED_HEIGHT_KEY_CREATORS;
+  }
+  return [
+    ...PROJECT_GPU_SCENE_MEASURED_HEIGHT_KEY_CREATORS,
+    getParamsFixedHeightKey,
+  ];
 }
 
 export function areProjectGpuSceneMeasuredHeightsEqual(
