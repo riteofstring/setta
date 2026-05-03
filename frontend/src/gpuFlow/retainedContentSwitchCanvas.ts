@@ -45,7 +45,6 @@ export function drawGpuRetainedContentSwitchControl({
     trackRect,
   });
   ctx.fillStyle = getGpuRetainedContentSwitchThumbColor({
-    checked: control.checked,
     disabled,
     palette,
   });
@@ -110,11 +109,9 @@ function getGpuRetainedContentSwitchTrackColor({
 }
 
 function getGpuRetainedContentSwitchThumbColor({
-  checked,
   disabled,
   palette,
 }: {
-  readonly checked: boolean;
   readonly disabled: boolean;
   readonly palette: GpuRetainedContentCanvasPalette;
 }): string {
@@ -124,7 +121,7 @@ function getGpuRetainedContentSwitchThumbColor({
   if (disabled) {
     return "rgb(100, 116, 139)";
   }
-  return checked ? "hsl(220, 25%, 8.5%)" : "rgb(148, 163, 184)";
+  return "hsl(220, 25%, 8.5%)";
 }
 
 function insetRect(rect: GpuRect, x: number, y: number): GpuRect {

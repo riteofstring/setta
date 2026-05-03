@@ -28,6 +28,20 @@ describe("retained content switch canvas", () => {
     });
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
+
+  it("uses the dark row thumb color for unchecked Settings-style switches", () => {
+    const ctx = createCanvasContextRecorder();
+
+    drawGpuRetainedContentSwitchControl({
+      control: switchControl({ checked: false }),
+      ctx,
+      palette: getGpuRetainedContentCanvasPalette(true),
+      rect: { height: 24, width: 273, x: 270, y: 0 },
+      state: undefined,
+    });
+
+    expect(ctx.fillStyles).toEqual(["rgb(51, 65, 85)", "hsl(220, 25%, 8.5%)"]);
+  });
 });
 
 function switchControl(
@@ -46,14 +60,27 @@ function switchControl(
   };
 }
 
-function createCanvasContextRecorder(): CanvasRenderingContext2D {
-  return {
+function createCanvasContextRecorder(): CanvasRenderingContext2D & {
+  readonly fillStyles: readonly string[];
+} {
+  const fillStyles: string[] = [];
+  const ctx = {
     beginPath: vi.fn(),
     closePath: vi.fn(),
+    fillStyles,
     fill: vi.fn(),
     fillText: vi.fn(),
     lineTo: vi.fn(),
     moveTo: vi.fn(),
     quadraticCurveTo: vi.fn(),
-  } as unknown as CanvasRenderingContext2D;
+  };
+  Object.defineProperty(ctx, "fillStyle", {
+    get: () => fillStyles.at(-1) ?? "",
+    set: (value: string) => {
+      fillStyles.push(value);
+    },
+  });
+  return ctx as unknown as CanvasRenderingContext2D & {
+    readonly fillStyles: readonly string[];
+  };
 }
