@@ -1,6 +1,6 @@
 # GpuFlow Visual Fidelity Checkpoint Review
 
-Generated: 2026-05-06T17:47:42.552Z
+Generated: 2026-05-06T18:44:14.595Z
 
 ## Summary
 
@@ -8,18 +8,18 @@ Generated: 2026-05-06T17:47:42.552Z
 - Browser executable: /Users/kevin/Library/Caches/setta/chrome-for-testing/Canary/149.0.7827.2/mac-arm64/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
 - Compared: baseline-primary vs candidate
 - Fixtures compared: 174
-- Pass: 126
-- Blocking regression: 48
+- Pass: 127
+- Blocking regression: 47
 - Capture blocked: 0
 - Runtime page error groups: 0
 - Renderer-aware masked comparisons: 174
 
 ## Runtime Signals
 
-- baseline-primary: 174 captures, 0 page errors, 18 console warnings/errors.
+- baseline-primary: 174 captures, 0 page errors, 17 console warnings/errors.
   - console x12: Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release.
   - console x4: ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
-  - console x2: Failed to load resource: the server responded with a status of 404 (Not Found)
+  - console x1: Failed to load resource: the server responded with a status of 404 (Not Found)
 - candidate: 174 captures, 0 page errors, 18 console warnings/errors.
   - console x12: Accessing element.ref was removed in React 19. ref is now a regular prop. It will be removed from the JSX Element type in a future release.
   - console x4: ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
@@ -29,43 +29,43 @@ Generated: 2026-05-06T17:47:42.552Z
 
 | Fixture | Viewport | Status | Reason | Masked Pixels | Changed Pixels | Mean Delta |
 | --- | --- | --- | --- | ---: | ---: | ---: |
-| project-surface | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0041 | 0.26 |
-| param-controls-closed | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0041 | 0.26 |
+| project-surface | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0039 | 0.24 |
+| param-controls-closed | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0039 | 0.24 |
 | dense-param-dict | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0061 | 0.0055 | 0.11 |
 | nested-param-tree | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0098 | 0.0025 | 0.09 |
 | callable-edge-handles | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0061 | 0.0042 | 0.18 |
-| selection-resize | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0041 | 0.26 |
-| dropdown-open | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0036 | 0.24 |
-| color-picker-open | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0036 | 0.24 |
-| date-calendar-open | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0029 | 0.20 |
-| native-text-island | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0029 | 0.20 |
-| drag-preview | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0039 | 0.25 |
-| project-surface | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0056 | 0.37 |
-| param-controls-closed | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0056 | 0.37 |
+| selection-resize | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0039 | 0.24 |
+| dropdown-open | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0034 | 0.22 |
+| color-picker-open | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0034 | 0.22 |
+| date-calendar-open | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0027 | 0.19 |
+| native-text-island | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0027 | 0.19 |
+| drag-preview | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0309 | 0.0037 | 0.24 |
+| project-surface | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0052 | 0.35 |
+| param-controls-closed | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0052 | 0.35 |
 | dense-param-dict | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0061 | 0.0051 | 0.10 |
 | nested-param-tree | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0098 | 0.0024 | 0.08 |
 | callable-edge-handles | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0061 | 0.0042 | 0.18 |
-| selection-resize | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0057 | 0.38 |
-| dropdown-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0056 | 0.37 |
-| color-picker-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0056 | 0.37 |
-| date-calendar-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0048 | 0.33 |
-| native-text-island | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0048 | 0.33 |
-| drag-preview | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0065 | 0.42 |
-| project-surface | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0124 | 0.86 |
-| param-controls-closed | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0124 | 0.86 |
+| selection-resize | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0054 | 0.35 |
+| dropdown-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0052 | 0.35 |
+| color-picker-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0052 | 0.35 |
+| date-calendar-open | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0046 | 0.31 |
+| native-text-island | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0046 | 0.31 |
+| drag-preview | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0442 | 0.0061 | 0.40 |
+| project-surface | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0118 | 0.81 |
+| param-controls-closed | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0118 | 0.81 |
 | dense-param-dict | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0117 | 0.0000 | 0.00 |
 | nested-param-tree | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0188 | 0.0000 | 0.00 |
 | callable-edge-handles | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0117 | 0.0000 | 0.00 |
-| selection-resize | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0124 | 0.86 |
-| dropdown-open | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0124 | 0.86 |
-| color-picker-open | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0124 | 0.86 |
-| date-calendar-open | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0124 | 0.86 |
-| native-text-island | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0124 | 0.86 |
-| drag-preview | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0124 | 0.86 |
-| settings-all-settings-pane | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0755 | 0.0354 | 1.19 |
+| selection-resize | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0117 | 0.81 |
+| dropdown-open | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0117 | 0.81 |
+| color-picker-open | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0117 | 0.81 |
+| date-calendar-open | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0117 | 0.81 |
+| native-text-island | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0117 | 0.81 |
+| drag-preview | narrow | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1145 | 0.0117 | 0.81 |
+| settings-all-settings-pane | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks. | 0.0755 | 0.0353 | 1.19 |
 | settings-all-settings-section-settings-section-shortcuts | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0044 | 0.11 |
-| settings-all-settings-section-settings-section-gui | desktop | blocking-regression | Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0243 | 0.50 |
-| settings-all-settings-section-settings-section-backend | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0150 | 0.30 |
+| settings-all-settings-section-settings-section-gui | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0188 | 0.49 |
+| settings-all-settings-section-settings-section-backend | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0096 | 0.26 |
 | settings-all-settings-section-settings-section-chatwindowing | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2581 | 0.0061 | 0.45 |
 | settings-all-settings-section-settings-section-sectionsizingpolicy | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0144 | 0.90 |
 | settings-all-settings-section-settings-section-languageserver | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2304 | 0.0197 | 1.47 |
@@ -75,7 +75,7 @@ Generated: 2026-05-06T17:47:42.552Z
 | settings-all-settings-section-settings-section-chatsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0062 | 0.34 |
 | settings-all-settings-section-settings-section-codesectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0123 | 0.82 |
 | settings-all-settings-section-settings-section-dictsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0029 | 0.08 |
-| settings-all-settings-section-settings-section-drawsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0063 | 0.17 |
+| settings-all-settings-section-settings-section-drawsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0064 | 0.18 |
 | settings-all-settings-section-settings-section-genpythoncodesectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0056 | 0.24 |
 | settings-all-settings-section-settings-section-genpythonmetadatasectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0056 | 0.24 |
 | settings-all-settings-section-settings-section-globalvariablessectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0029 | 0.08 |
@@ -89,7 +89,7 @@ Generated: 2026-05-06T17:47:42.552Z
 | settings-all-settings-section-settings-section-socialsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2581 | 0.0042 | 0.21 |
 | settings-all-settings-section-settings-section-spreadsheetsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0051 | 0.22 |
 | settings-all-settings-section-settings-section-statemachineendsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2607 | 0.0054 | 0.25 |
-| settings-all-settings-section-settings-section-statemachinegatesectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0119 | 0.33 |
+| settings-all-settings-section-settings-section-statemachinegatesectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0088 | 0.32 |
 | settings-all-settings-section-settings-section-statemachinestartsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0055 | 0.25 |
 | settings-all-settings-section-settings-section-taskboardsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0056 | 0.24 |
 | settings-all-settings-section-settings-section-terminalsectiondefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2479 | 0.0054 | 0.24 |
@@ -111,8 +111,8 @@ Generated: 2026-05-06T17:47:42.552Z
 | settings-all-settings-section-settings-section-timeparamcodeobjdefault | desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2575 | 0.0021 | 0.07 |
 | settings-all-settings-pane | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.1157 | 0.0007 | 0.02 |
 | settings-all-settings-section-settings-section-shortcuts | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0038 | 0.10 |
-| settings-all-settings-section-settings-section-gui | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0162 | 0.36 |
-| settings-all-settings-section-settings-section-backend | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0097 | 0.22 |
+| settings-all-settings-section-settings-section-gui | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0130 | 0.35 |
+| settings-all-settings-section-settings-section-backend | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0061 | 0.19 |
 | settings-all-settings-section-settings-section-chatwindowing | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2581 | 0.0060 | 0.44 |
 | settings-all-settings-section-settings-section-sectionsizingpolicy | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0138 | 0.88 |
 | settings-all-settings-section-settings-section-languageserver | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2304 | 0.0195 | 1.47 |
@@ -136,7 +136,7 @@ Generated: 2026-05-06T17:47:42.552Z
 | settings-all-settings-section-settings-section-socialsectiondefault | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2581 | 0.0041 | 0.21 |
 | settings-all-settings-section-settings-section-spreadsheetsectiondefault | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0050 | 0.22 |
 | settings-all-settings-section-settings-section-statemachineendsectiondefault | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2607 | 0.0053 | 0.25 |
-| settings-all-settings-section-settings-section-statemachinegatesectiondefault | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0093 | 0.29 |
+| settings-all-settings-section-settings-section-statemachinegatesectiondefault | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0073 | 0.28 |
 | settings-all-settings-section-settings-section-statemachinestartsectiondefault | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0054 | 0.25 |
 | settings-all-settings-section-settings-section-taskboardsectiondefault | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2624 | 0.0055 | 0.24 |
 | settings-all-settings-section-settings-section-terminalsectiondefault | compact-desktop | pass | Automated pixel diff is within checkpoint tolerance after renderer-aware inactive-editor masks. | 0.2479 | 0.0054 | 0.24 |
@@ -207,7 +207,6 @@ Generated: 2026-05-06T17:47:42.552Z
 ## Prioritized Visual-Fix List
 
 - settings-all-settings-pane / desktop: blocking-regression - Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks.
-- settings-all-settings-section-settings-section-gui / desktop: blocking-regression - Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks.
 - settings-all-settings-pane / narrow: blocking-regression - Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks.
 - settings-all-settings-section-settings-section-shortcuts / narrow: blocking-regression - Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks.
 - settings-all-settings-section-settings-section-gui / narrow: blocking-regression - Automated pixel diff exceeds checkpoint tolerance after renderer-aware inactive-editor masks.

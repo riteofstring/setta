@@ -240,10 +240,10 @@ export function getGpuRetainedContentDropdownOuterRect(
 ): GpuRect {
   if (palette.textLikeVisualStyle === "row-text") {
     return {
-      height: Math.max(0, rect.height - 6),
+      height: Math.max(0, rect.height - 8),
       width: Math.max(0, rect.width - 18),
       x: rect.x + GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT + 2,
-      y: rect.y + 5,
+      y: rect.y + 6,
     };
   }
   return insetRect(rect, 6, 5);

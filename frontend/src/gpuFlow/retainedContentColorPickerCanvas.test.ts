@@ -23,8 +23,8 @@ describe("retained content color picker canvas", () => {
 
     expect(getGpuRetainedContentColorPickerOuterRect(rect, palette)).toEqual({
       height: 14,
-      width: 255,
-      x: 285,
+      width: 257,
+      x: 284,
       y: 7,
     });
     expect(ctx.fillStylesAtFill[0]).toBe("#ff0000");
@@ -55,7 +55,7 @@ describe("retained content color picker canvas", () => {
     });
 
     expect(ctx.fillStylesAtFill[0]).toBe("#afbacf");
-    expect(ctx.fillText).toHaveBeenCalledWith("Grid", 298, 14, 221);
+    expect(ctx.fillText).toHaveBeenCalledWith("Grid", 297, 14, 223);
   });
 });
 

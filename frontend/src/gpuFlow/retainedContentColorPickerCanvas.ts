@@ -467,8 +467,8 @@ export function getGpuRetainedContentColorPickerOuterRect(
   if (palette.textLikeVisualStyle === "row-text") {
     return {
       height: Math.max(0, rect.height - 10),
-      width: Math.max(0, rect.width - 18),
-      x: rect.x + GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT + 1,
+      width: Math.max(0, rect.width - 16),
+      x: rect.x + GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT,
       y: rect.y + 7,
     };
   }

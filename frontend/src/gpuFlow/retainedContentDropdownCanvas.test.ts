@@ -22,10 +22,10 @@ describe("retained content dropdown canvas", () => {
     });
 
     expect(getGpuRetainedContentDropdownOuterRect(rect, palette)).toEqual({
-      height: 18,
+      height: 16,
       width: 255,
       x: 286,
-      y: 5,
+      y: 6,
     });
     expect(ctx.fillStyleAssignments).toContain("#0b0e13");
     expect(ctx.fillStyleAssignments).not.toContain("#ffffff");
