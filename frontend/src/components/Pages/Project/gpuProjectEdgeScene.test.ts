@@ -335,6 +335,66 @@ describe("gpuProjectEdgeScene", () => {
       selectProjectGpuConnectionState(store.getState()).connectionStatus,
     ).toBe("valid");
   });
+
+  it("derives node-frame edge geometry from live layout-store nodes", () => {
+    const scene = buildProjectGpuEdgeScene(
+      createBuildInput({
+        layoutNodes: [
+          {
+            height: 80,
+            nodeId: "source",
+            width: 120,
+            x: 250,
+            y: 300,
+          },
+          {
+            height: 90,
+            nodeId: "target",
+            width: 160,
+            x: 600,
+            y: 315,
+          },
+        ],
+        projectConfig: createProjectConfig({
+          agenticEdges: [
+            createAgenticEdge({
+              id: "agentic-edge",
+              kind: AgenticEdgeKindEnum.chat_chat,
+              sourceSectionId: "source",
+              targetSectionId: "target",
+            }),
+          ],
+          sectionVariantMap: {
+            source: "source-variant",
+            target: "target-variant",
+          },
+          topLevelSections: {
+            source: createTopLevelSectionLayout({
+              h: 80,
+              w: 120,
+              x: 10,
+              y: 20,
+            }),
+            target: createTopLevelSectionLayout({
+              h: 90,
+              w: 160,
+              x: 30,
+              y: 40,
+            }),
+          },
+        }),
+      }),
+    );
+
+    expect(scene.entries).toHaveLength(1);
+    expect(scene.entries[0]).toMatchObject({
+      edgeId: "agentic:agentic-edge",
+      geometry: {
+        source: { x: 370, y: 340 },
+        target: { x: 600, y: 360 },
+      },
+    });
+  });
 });
 
 function createBuildInput(
@@ -373,30 +433,26 @@ function createBuildInput(
         y: 160,
       },
     },
-    nodeInternals: new Map([
-      [
-        "source",
-        {
-          height: 80,
-          id: "source",
-          position: { x: 100, y: 100 },
-          tempZIndex: 0,
-          width: 120,
-          zIndex: 0,
-        },
-      ],
-      [
-        "target",
-        {
-          height: 90,
-          id: "target",
-          position: { x: 420, y: 115 },
-          tempZIndex: 0,
-          width: 160,
-          zIndex: 0,
-        },
-      ],
-    ]),
+    layoutNodes: [
+      {
+        height: 80,
+        nodeId: "source",
+        tempZIndex: 0,
+        width: 120,
+        x: 100,
+        y: 100,
+        zIndex: 0,
+      },
+      {
+        height: 90,
+        nodeId: "target",
+        tempZIndex: 0,
+        width: 160,
+        x: 420,
+        y: 115,
+        zIndex: 0,
+      },
+    ],
     projectConfig: createProjectConfig({
       sectionVariantMap: {
         source: "source-variant",

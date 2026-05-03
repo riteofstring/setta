@@ -6,6 +6,7 @@ import {
   type GpuEdgeScene,
 } from "gpuFlow/edges/edgeSources";
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
+import type { GpuFlowLayoutNode } from "gpuFlow/layoutStore";
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 import { screenToFlowPosition } from "gpuFlow/viewportMath";
 import type { GpuFlowViewportStore } from "gpuFlow/viewportStore";
@@ -20,7 +21,6 @@ import {
 import {
   useAIFollow,
   useEdgeHandleRegistry,
-  useNodeInternals,
   useProjectState,
 } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -35,7 +35,6 @@ type TopLevelSections = ProjectConfig["topLevelSections"];
 type EdgeHandlePositions = ReturnType<
   typeof useEdgeHandleRegistry.getState
 >["positions"];
-type NodeInternals = ReturnType<typeof useNodeInternals.getState>["x"];
 type ProjectGpuConnectionState = Pick<
   GpuFlowViewportStore,
   | "connectionPosition"
@@ -52,13 +51,17 @@ type ProjectGpuEdgeVisibility = {
 export type BuildProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
   readonly connectionState: ProjectGpuConnectionState;
   readonly handlePositions: EdgeHandlePositions;
-  readonly nodeInternals: NodeInternals;
+  readonly layoutNodes: readonly GpuFlowLayoutNode[];
   readonly projectConfig: ProjectConfig;
   readonly scopeViolationEdges:
     | readonly GpuAgenticMissingEdgeSource[]
     | undefined;
   readonly sectionImpls: SectionImpls;
   readonly sectionVariants: SectionVariants;
+};
+
+type UseProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
+  readonly layoutNodes: readonly GpuFlowLayoutNode[];
 };
 
 type SelectProjectGpuEdgeInput = {
@@ -78,9 +81,10 @@ const INACTIVE_PROJECT_GPU_CONNECTION_STATE: ProjectGpuConnectionState = {
 };
 
 export function useProjectGpuEdgeScene({
+  layoutNodes,
   showAgenticEdges,
   showDataEdges,
-}: ProjectGpuEdgeVisibility): GpuEdgeScene {
+}: UseProjectGpuEdgeSceneInput): GpuEdgeScene {
   const { projectConfig, sectionImpls, sectionVariants } = useProjectState(
     (state) => ({
       projectConfig: state.projectConfig,
@@ -89,7 +93,6 @@ export function useProjectGpuEdgeScene({
     }),
     shallow,
   );
-  const nodeInternals = useNodeInternals((state) => state.x);
   const handlePositions = useEdgeHandleRegistry((state) => state.positions);
   const connectionState = useGpuFlowViewportStore(
     selectProjectGpuConnectionState,
@@ -104,7 +107,7 @@ export function useProjectGpuEdgeScene({
       buildProjectGpuEdgeScene({
         connectionState,
         handlePositions,
-        nodeInternals,
+        layoutNodes,
         projectConfig,
         scopeViolationEdges,
         sectionImpls,
@@ -115,7 +118,7 @@ export function useProjectGpuEdgeScene({
     [
       connectionState,
       handlePositions,
-      nodeInternals,
+      layoutNodes,
       projectConfig,
       scopeViolationEdges,
       sectionImpls,
@@ -129,7 +132,7 @@ export function useProjectGpuEdgeScene({
 export function buildProjectGpuEdgeScene({
   connectionState,
   handlePositions,
-  nodeInternals,
+  layoutNodes,
   projectConfig,
   scopeViolationEdges,
   sectionImpls,
@@ -146,7 +149,7 @@ export function buildProjectGpuEdgeScene({
     }),
     dataEdges: showDataEdges ? projectConfig.edges ?? [] : [],
     handlePositions,
-    nodes: buildGpuEdgeNodeFrames(nodeInternals),
+    nodes: buildGpuEdgeNodeFrames(layoutNodes),
     runningSourceSectionIds: showAgenticEdges
       ? getRunningAgenticSourceSectionIds({
           sectionImpls,
@@ -191,15 +194,15 @@ export function selectProjectGpuEdge({
 }
 
 function buildGpuEdgeNodeFrames(
-  nodeInternals: NodeInternals,
+  layoutNodes: readonly GpuFlowLayoutNode[],
 ): ReadonlyMap<string, GpuEdgeNodeFrame> {
   const frames = new Map<string, GpuEdgeNodeFrame>();
-  for (const [nodeId, node] of nodeInternals) {
-    frames.set(nodeId, {
+  for (const node of layoutNodes) {
+    frames.set(node.nodeId, {
       height: node.height,
       width: node.width,
-      x: node.position.x,
-      y: node.position.y,
+      x: node.x,
+      y: node.y,
     });
   }
   return frames;
