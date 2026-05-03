@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   paramInputProps: vi.fn(),
+  paramNameInputProps: vi.fn(),
   subscribeToGpuViewportRepositionMock: vi.fn(),
   unsubscribeViewportRepositionMock: vi.fn(),
 }));
@@ -27,6 +28,25 @@ vi.mock("components/Params/ParamItems/ParamInput", () => ({
     return (
       <div
         data-testid="param-input"
+        data-tooltip-parent={props.tooltipParentDivId ?? ""}
+      />
+    );
+  },
+}));
+
+vi.mock("components/Params/ParamItems/ParamNameInput", () => ({
+  ParamNameInput: (props: {
+    bg: string;
+    border: string;
+    hasChildren: boolean;
+    paramInfoId: string;
+    sectionId: string;
+    tooltipParentDivId?: string | null;
+  }) => {
+    mocks.paramNameInputProps(props);
+    return (
+      <div
+        data-testid="param-name-input"
         data-tooltip-parent={props.tooltipParentDivId ?? ""}
       />
     );
@@ -78,6 +98,7 @@ describe("project GPU retained param DOM islands", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     mocks.paramInputProps.mockClear();
+    mocks.paramNameInputProps.mockClear();
     mocks.subscribeToGpuViewportRepositionMock.mockClear();
     mocks.unsubscribeViewportRepositionMock.mockClear();
     document.body.innerHTML = "";
@@ -102,6 +123,35 @@ describe("project GPU retained param DOM islands", () => {
       expect(
         rendered.host
           .querySelector('[data-testid="param-input"]')
+          ?.getAttribute("data-tooltip-parent"),
+      ).toBe(PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID);
+      expect(mocks.subscribeToGpuViewportRepositionMock).toHaveBeenCalledTimes(
+        1,
+      );
+    } finally {
+      await cleanupRenderedIsland(rendered);
+    }
+
+    expect(mocks.unsubscribeViewportRepositionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("mounts retained param name inputs against the viewport CodeMirror tooltip portal", async () => {
+    const rendered = await renderIsland(retainedParamNameIsland());
+
+    try {
+      expect(mocks.paramNameInputProps).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bg: "",
+          border: "",
+          hasChildren: false,
+          paramInfoId: "param-1",
+          sectionId: "section-1",
+          tooltipParentDivId: PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
+        }),
+      );
+      expect(
+        rendered.host
+          .querySelector('[data-testid="param-name-input"]')
           ?.getAttribute("data-tooltip-parent"),
       ).toBe(PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID);
       expect(mocks.subscribeToGpuViewportRepositionMock).toHaveBeenCalledTimes(
@@ -179,6 +229,24 @@ function retainedParamIsland(): GpuDomIsland {
     rect: { height: 28, width: 160, x: 10, y: 20 },
     source: {
       hitRecordId: "control:param-1",
+      kind: "retained-content",
+      ownerRowId: "param-1",
+      surfaceId: "section-1:param-content:unpinned",
+    },
+    zIndex: 3,
+  };
+}
+
+function retainedParamNameIsland(): GpuDomIsland {
+  return {
+    clipOwnerId: "section-1:param-content:unpinned",
+    contentRect: { height: 28, width: 120, x: 0, y: 0 },
+    id: "param-label:section-1:param-1",
+    kind: "retained-content-label",
+    ownerSectionId: "section-1",
+    rect: { height: 28, width: 120, x: 10, y: 20 },
+    source: {
+      hitRecordId: "label:param-1",
       kind: "retained-content",
       ownerRowId: "param-1",
       surfaceId: "section-1:param-content:unpinned",

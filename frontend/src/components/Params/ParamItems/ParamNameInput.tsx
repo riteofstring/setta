@@ -42,6 +42,7 @@ type ParamNameInputProps = {
   paramInfoId: string;
   hasChildren: boolean;
   onMouseDown?: MouseEventHandler;
+  tooltipParentDivId?: string | null | undefined;
 };
 
 type ParamNameState = {
@@ -148,20 +149,29 @@ function useParamNameState(
     }
     const dictImpl =
       impl.type === SectionTypeEnum.Dict ? (impl as DictSectionImpl) : null;
-    const pythonCodegenEnabled = x.projectConfig.codegenTargets.some(
-      (target) => target.language === ProjectCodegenLanguageEnum.python,
+    const pythonCodegenEnabled = (x.projectConfig.codegenTargets ?? []).some(
+      (target) => target?.language === ProjectCodegenLanguageEnum.python,
     );
     return {
-      configLanguage: impl.configLanguage,
+      configLanguage: "configLanguage" in impl ? impl.configLanguage : null,
       isDictSection: dictImpl !== null,
       topLevelParamId: dictImpl?.topLevelParamId ?? null,
       displayName: codeObjCore.displayName,
       name: codeObjCore.name,
-      isKwarg: codeObjImpl.coreNameEditable,
+      isKwarg: hasCoreNameEditableCodeObjImpl(codeObjImpl),
       pythonCodegenEnabled,
       showParamDisplayNames: x.projectConfig.showParamDisplayNames,
     };
   }, _.isEqual);
+}
+
+function hasCoreNameEditableCodeObjImpl(codeObjImpl: unknown): boolean {
+  return (
+    typeof codeObjImpl === "object" &&
+    codeObjImpl !== null &&
+    "coreNameEditable" in codeObjImpl &&
+    codeObjImpl.coreNameEditable === true
+  );
 }
 
 function buildParamNameValidationOptions(
@@ -693,6 +703,7 @@ function LoadedParamNameInput({
   onMouseDown,
   paramInfoId,
   sectionId,
+  tooltipParentDivId,
 }: ParamNameInputProps & { controller: ParamNameController }) {
   const { dummyCodeClassName, realCodeClassName } = getParamNameInputClassNames(
     bg,
@@ -715,9 +726,11 @@ function LoadedParamNameInput({
         onChange={controller.onChange}
         onBlur={controller.onBlur}
         onEscape={controller.onEscape}
+        onTab={undefined}
         dummyDivId={controller.dummyDivId}
         singleLine={true}
         wrapLines={true}
+        keyComboActions={null}
         dummyCodeClassName={dummyCodeClassName}
         realCodeClassName={realCodeClassName}
         color="green"
@@ -726,7 +739,8 @@ function LoadedParamNameInput({
         isKeyName={true}
         isDisabled={controller.isDisabled}
         onMouseDown={onMouseDown}
-        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        tooltipParentDivId={tooltipParentDivId ?? CODEMIRROR_TOOLTIP_PARENT_ID}
+        completionsFn={undefined}
       />
       <span className={underlineClassName} />
       <ParamNameErrorBubble
@@ -778,7 +792,9 @@ const debouncedSetParamName = _.debounce((codeObjId: string, name: string) => {
             name: normalizedName,
             frontendOpId,
           },
-        } as Parameters<typeof setCodeObjName>[0]),
+        } as Parameters<typeof setCodeObjName>[0]) as Parameters<
+          typeof callOpenAPI
+        >[0],
       ),
   });
 }, 200);
@@ -805,7 +821,9 @@ const debouncedSetParamDisplayName = _.debounce(
               displayName: nextDisplayName,
               frontendOpId,
             },
-          } as Parameters<typeof setCodeObjDisplayName>[0]),
+          } as Parameters<typeof setCodeObjDisplayName>[0]) as Parameters<
+            typeof callOpenAPI
+          >[0],
         ),
     });
   },

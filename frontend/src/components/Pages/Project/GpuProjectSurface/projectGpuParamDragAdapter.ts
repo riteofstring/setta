@@ -332,7 +332,7 @@ function getProjectGpuRetainedParamDropTarget({
   if (emptyParentTarget) {
     return emptyParentTarget;
   }
-  if (event.hit.kind !== "row") {
+  if (event.hit.kind !== "row" && event.hit.kind !== "label") {
     return null;
   }
   return getProjectGpuRetainedParamRowDropTarget({

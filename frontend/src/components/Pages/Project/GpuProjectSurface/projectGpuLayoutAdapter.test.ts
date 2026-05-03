@@ -459,6 +459,105 @@ describe("project GPU layout adapter", () => {
     ]);
   });
 
+  it("derives editable retained param labels as explicit DOM islands", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "child-param": "child-param-variant",
+              "parent-param": "parent-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["parent-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "parent-param",
+      "parent-param-variant",
+      "parent-param-impl",
+      createNestedParamImpl("parent-param-impl", ["child-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "child-param",
+      "child-param-variant",
+      "child-param-impl",
+      createCodeParamCodeObjImpl({
+        coreNameEditable: true,
+        id: "child-param-impl",
+        name: "child",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "child-param": ["parent-param", "child-param"],
+          "parent-param": ["parent-param"],
+        },
+        topLevelParamIds: ["parent-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "label:child-param",
+        paramInfoId: "child-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 5,
+    });
+
+    const paramSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+    expect(
+      paramSurface?.retainedScene?.rows.map((row) => ({
+        focused: row.state.focused,
+        id: row.id,
+      })),
+    ).toEqual([
+      { focused: false, id: "parent-param" },
+      { focused: true, id: "child-param" },
+    ]);
+    expect(scene.domIslands).toEqual([
+      {
+        clipOwnerId: "dict-a:param-content:unpinned",
+        contentRect: { height: 28, width: 128, x: 0, y: 0 },
+        id: "param-label:dict-a:child-param",
+        kind: "retained-content-label",
+        ownerSectionId: "dict-a",
+        rect: { height: 28, width: 128, x: 24, y: 48 },
+        source: {
+          hitRecordId: "label:child-param",
+          kind: "retained-content",
+          ownerRowId: "child-param",
+          surfaceId: "dict-a:param-content:unpinned",
+        },
+        zIndex: 4,
+      },
+    ]);
+  });
+
   it("expands active retained param DOM islands without stretching popover triggers", () => {
     const projectState = projectStateWithSections({
       sections: [

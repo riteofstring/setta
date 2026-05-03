@@ -111,18 +111,18 @@ describe("GPU retained content interaction controller", () => {
     });
 
     const pointerDown = createPointerEvent("pointerdown", {
-      clientX: 20,
+      clientX: 116,
       clientY: 14,
       pointerId: 1,
     });
     const pointerMove = createPointerEvent("pointermove", {
       buttons: 1,
-      clientX: 20,
+      clientX: 116,
       clientY: 42,
       pointerId: 1,
     });
     const pointerUp = createPointerEvent("pointerup", {
-      clientX: 20,
+      clientX: 116,
       clientY: 70,
       pointerId: 1,
     });
@@ -148,7 +148,7 @@ describe("GPU retained content interaction controller", () => {
         activeHit: expect.objectContaining({
           hit: expect.objectContaining({ ownerRowId: "param-0" }),
         }),
-        flowPoint: { x: 20, y: 42 },
+        flowPoint: { x: 116, y: 42 },
         hit: expect.objectContaining({
           hit: expect.objectContaining({ ownerRowId: "param-1" }),
         }),
@@ -188,7 +188,7 @@ describe("GPU retained content interaction controller", () => {
 
     element.dispatchEvent(
       createPointerEvent("pointerdown", {
-        clientX: 20,
+        clientX: 116,
         clientY: 14,
         pointerId: 1,
       }),
@@ -196,7 +196,7 @@ describe("GPU retained content interaction controller", () => {
     element.dispatchEvent(
       createPointerEvent("pointermove", {
         buttons: 1,
-        clientX: 20,
+        clientX: 116,
         clientY: 76,
         pointerId: 1,
       }),
@@ -206,8 +206,8 @@ describe("GPU retained content interaction controller", () => {
     expect(onHitDragStart).toHaveBeenCalled();
     expect(onHitDragFrame).toHaveBeenCalledWith(
       expect.objectContaining({
-        flowPoint: { x: 20, y: 76 },
-        screenPoint: { x: 20, y: 76 },
+        flowPoint: { x: 116, y: 76 },
+        screenPoint: { x: 116, y: 76 },
       }),
     );
     expect(requestFrame).toHaveBeenCalledWith("manual");
@@ -228,7 +228,7 @@ describe("GPU retained content interaction controller", () => {
     });
 
     const pointerDown = createPointerEvent("pointerdown", {
-      clientX: 20,
+      clientX: 116,
       clientY: 42,
       pointerId: 1,
     });
@@ -270,7 +270,7 @@ describe("GPU retained content interaction controller", () => {
     element.dispatchEvent(
       createPointerEvent("pointermove", {
         buttons: 0,
-        clientX: 20,
+        clientX: 116,
         clientY: 42,
         pointerId: 1,
       }),
@@ -342,7 +342,7 @@ describe("GPU retained content interaction controller", () => {
     const hit = hitTestGpuRetainedContentInteraction({
       element,
       event: createPointerEvent("pointermove", {
-        clientX: 20,
+        clientX: 116,
         clientY: 42,
         pointerId: 1,
       }),
@@ -356,7 +356,7 @@ describe("GPU retained content interaction controller", () => {
         kind: "row",
         ownerRowId: "param-1",
       },
-      localPoint: { x: 20, y: 42 },
+      localPoint: { x: 116, y: 42 },
       surfaceId: "dict-a:param-content:unpinned",
     });
   });

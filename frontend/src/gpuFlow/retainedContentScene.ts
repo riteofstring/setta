@@ -86,7 +86,7 @@ export type GpuRetainedContentDrawCommand =
 
 export type GpuRetainedContentHitRecord = {
   readonly id: string;
-  readonly kind: "control" | "port" | "row";
+  readonly kind: "control" | "label" | "port" | "row";
   readonly ownerRowId: string;
   readonly rect: GpuRect;
 };
@@ -197,6 +197,8 @@ export function createGpuRetainedRowContentScene(
     }),
     hitRecords: createGpuRetainedContentHitRecords({
       controlWidth,
+      indentWidth,
+      labelControlGap,
       portHitSize,
       rows: visibleRows,
       viewportRect: input.viewportRect,
@@ -343,12 +345,12 @@ function createGpuRetainedContentDrawCommands({
     commands.push({
       depth: row.depth,
       kind: "row-label",
-      rect: {
-        height: row.projectedRect.height,
-        width: Math.max(0, controlRect.x - labelControlGap - labelX),
-        x: labelX,
-        y: row.projectedRect.y,
-      },
+      rect: createGpuRetainedContentLabelRect({
+        controlRect,
+        labelControlGap,
+        labelX,
+        rowRect: row.projectedRect,
+      }),
       rowId: row.id,
       text: row.label,
     });
@@ -531,11 +533,15 @@ function createGpuRetainedContentDragPreviewCommand({
 
 function createGpuRetainedContentHitRecords({
   controlWidth,
+  indentWidth,
+  labelControlGap,
   portHitSize,
   rows,
   viewportRect,
 }: {
   readonly controlWidth: number;
+  readonly indentWidth: number;
+  readonly labelControlGap: number;
   readonly portHitSize: number;
   readonly rows: readonly GpuRetainedContentRow[];
   readonly viewportRect: GpuRect;
@@ -547,6 +553,20 @@ function createGpuRetainedContentHitRecords({
       kind: "row",
       ownerRowId: row.id,
       rect: row.projectedRect,
+    });
+    hitRecords.push({
+      id: `label:${row.id}`,
+      kind: "label",
+      ownerRowId: row.id,
+      rect: createGpuRetainedContentLabelRect({
+        controlRect: createGpuRetainedContentControlRect({
+          controlWidth,
+          rowRect: row.projectedRect,
+        }),
+        labelControlGap,
+        labelX: row.projectedRect.x + row.depth * indentWidth,
+        rowRect: row.projectedRect,
+      }),
     });
     if (row.controlKind) {
       hitRecords.push({
@@ -608,6 +628,25 @@ function createGpuRetainedContentPortAnchors({
       };
     }),
   );
+}
+
+function createGpuRetainedContentLabelRect({
+  controlRect,
+  labelControlGap,
+  labelX,
+  rowRect,
+}: {
+  readonly controlRect: GpuRect;
+  readonly labelControlGap: number;
+  readonly labelX: number;
+  readonly rowRect: GpuRect;
+}): GpuRect {
+  return {
+    height: rowRect.height,
+    width: Math.max(0, controlRect.x - labelControlGap - labelX),
+    x: labelX,
+    y: rowRect.y,
+  };
 }
 
 function createGpuRetainedContentControlRect({

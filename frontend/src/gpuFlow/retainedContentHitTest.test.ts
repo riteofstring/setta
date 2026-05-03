@@ -58,7 +58,7 @@ describe("retained content hit testing", () => {
         scene,
       }),
     ).toMatchObject({
-      hit: { id: "row:param-0", ownerRowId: "param-0" },
+      hit: { id: "label:param-0", kind: "label", ownerRowId: "param-0" },
       localPoint: { x: 10, y: 12 },
       surfaceId: "params",
     });

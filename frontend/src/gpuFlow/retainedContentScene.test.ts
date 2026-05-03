@@ -128,6 +128,11 @@ describe("retained content scene", () => {
           rect: { height: 24, width: 220, x: 4, y: 30 },
         }),
         expect.objectContaining({
+          id: "label:child",
+          kind: "label",
+          rect: { height: 24, width: 122, x: 14, y: 30 },
+        }),
+        expect.objectContaining({
           id: "control:child",
           kind: "control",
           rect: { height: 24, width: 80, x: 144, y: 30 },

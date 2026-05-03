@@ -10,6 +10,7 @@ import type { GpuRetainedContentNavigationTarget } from "gpuFlow/retainedContent
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentDragPreviewInput,
+  type GpuRetainedContentHitRecord,
   type GpuRetainedContentRowInput,
 } from "gpuFlow/retainedContentScene";
 import {
@@ -85,6 +86,14 @@ type ProjectGpuRetainedParamInteractionState = {
     | null
     | undefined;
 };
+
+type ProjectGpuRetainedParamSurface = GpuContentSurface & {
+  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
+};
+
+type ProjectGpuParamDomIslandGeometry = ReturnType<
+  typeof getProjectGpuParamDomIslandGeometry
+>;
 
 export function getProjectGpuRetainedParamNavigationTarget({
   activeSectionIds,
@@ -204,47 +213,21 @@ export function createProjectGpuParamDomIslands({
   if (!activeParamDomIsland) {
     return [];
   }
-  const surface = contentSurfaces.find(
-    (candidate) => candidate.id === activeParamDomIsland.surfaceId,
-  );
-  if (
-    !surface?.retainedScene ||
-    surface.ownerSectionId !== activeParamDomIsland.sectionId
-  ) {
-    return [];
-  }
-  const hit = surface.retainedScene.hitRecords.find(
-    (candidate) =>
-      candidate.id === activeParamDomIsland.hitRecordId &&
-      candidate.kind === "control" &&
-      candidate.ownerRowId === activeParamDomIsland.paramInfoId,
-  );
-  if (!hit) {
-    return [];
-  }
-  const row = surface.retainedScene.rows.find(
-    (candidate) => candidate.id === hit.ownerRowId,
-  );
-  if (!row) {
-    return [];
-  }
-  const geometry = getProjectGpuParamDomIslandGeometry({
-    clipRect: surface.clipRect,
-    controlKind: row.controlKind,
-    controlRect: translateProjectGpuParamLocalRect(hit.rect, surface.rect),
-    paramInfoId: hit.ownerRowId,
+  const resolved = resolveProjectGpuParamDomIsland({
+    activeParamDomIsland,
+    contentSurfaces,
     projectState,
-    sectionId: activeParamDomIsland.sectionId,
   });
-  if (!geometry) {
+  if (!resolved) {
     return [];
   }
+  const { geometry, hit, kind, surface } = resolved;
   return [
     {
       clipOwnerId: surface.id,
       contentRect: geometry.contentRect,
       id: getProjectGpuParamDomIslandId(activeParamDomIsland),
-      kind: "retained-content-control",
+      kind,
       ownerSectionId: activeParamDomIsland.sectionId,
       rect: geometry.rect,
       source: {
@@ -258,13 +241,173 @@ export function createProjectGpuParamDomIslands({
   ];
 }
 
+function resolveProjectGpuParamDomIsland({
+  activeParamDomIsland,
+  contentSurfaces,
+  projectState,
+}: {
+  readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
+  readonly contentSurfaces: readonly GpuContentSurface[];
+  readonly projectState: ZustandProjectState;
+}): {
+  readonly geometry: NonNullable<ProjectGpuParamDomIslandGeometry>;
+  readonly hit: GpuRetainedContentHitRecord;
+  readonly kind: GpuDomIsland["kind"];
+  readonly surface: ProjectGpuRetainedParamSurface;
+} | null {
+  const surface = getProjectGpuParamDomIslandSurface({
+    activeParamDomIsland,
+    contentSurfaces,
+  });
+  const hit = surface
+    ? getProjectGpuParamDomIslandHit({ activeParamDomIsland, surface })
+    : null;
+  if (!surface || !hit) {
+    return null;
+  }
+  return getProjectGpuParamDomIslandResolvedRecord({
+    activeParamDomIsland,
+    hit,
+    projectState,
+    surface,
+  });
+}
+
+function getProjectGpuParamDomIslandSurface({
+  activeParamDomIsland,
+  contentSurfaces,
+}: {
+  readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
+  readonly contentSurfaces: readonly GpuContentSurface[];
+}): ProjectGpuRetainedParamSurface | null {
+  const surface = contentSurfaces.find(
+    (candidate) => candidate.id === activeParamDomIsland.surfaceId,
+  );
+  if (
+    !surface ||
+    !isProjectGpuRetainedParamSurface(surface) ||
+    surface.ownerSectionId !== activeParamDomIsland.sectionId
+  ) {
+    return null;
+  }
+  return surface;
+}
+
+function getProjectGpuParamDomIslandHit({
+  activeParamDomIsland,
+  surface,
+}: {
+  readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
+  readonly surface: ProjectGpuRetainedParamSurface;
+}): GpuRetainedContentHitRecord | null {
+  return (
+    surface.retainedScene.hitRecords.find(
+      (candidate) =>
+        candidate.id === activeParamDomIsland.hitRecordId &&
+        (candidate.kind === "control" || candidate.kind === "label") &&
+        candidate.ownerRowId === activeParamDomIsland.paramInfoId,
+    ) ?? null
+  );
+}
+
+function getProjectGpuParamDomIslandResolvedRecord({
+  activeParamDomIsland,
+  hit,
+  projectState,
+  surface,
+}: {
+  readonly activeParamDomIsland: ProjectGpuActiveParamDomIsland;
+  readonly hit: GpuRetainedContentHitRecord;
+  readonly projectState: ZustandProjectState;
+  readonly surface: ProjectGpuRetainedParamSurface;
+}): {
+  readonly geometry: NonNullable<ProjectGpuParamDomIslandGeometry>;
+  readonly hit: GpuRetainedContentHitRecord;
+  readonly kind: GpuDomIsland["kind"];
+  readonly surface: ProjectGpuRetainedParamSurface;
+} | null {
+  const row = surface.retainedScene.rows.find(
+    (candidate) => candidate.id === hit.ownerRowId,
+  );
+  if (
+    !row ||
+    !isProjectGpuParamDomIslandHitActive(
+      hit,
+      activeParamDomIsland,
+      projectState,
+    )
+  ) {
+    return null;
+  }
+  const geometry = getProjectGpuParamDomIslandGeometry({
+    clipRect: surface.clipRect,
+    controlKind: hit.kind === "control" ? row.controlKind : null,
+    controlRect: translateProjectGpuParamLocalRect(hit.rect, surface.rect),
+    paramInfoId: hit.ownerRowId,
+    projectState,
+    sectionId: activeParamDomIsland.sectionId,
+  });
+  if (!geometry) {
+    return null;
+  }
+  return {
+    geometry,
+    hit,
+    kind:
+      hit.kind === "label"
+        ? "retained-content-label"
+        : "retained-content-control",
+    surface,
+  };
+}
+
+function isProjectGpuParamDomIslandHitActive(
+  hit: GpuRetainedContentHitRecord,
+  activeParamDomIsland: ProjectGpuActiveParamDomIsland,
+  projectState: ZustandProjectState,
+): boolean {
+  return (
+    hit.kind === "control" ||
+    isProjectGpuRetainedParamLabelEditable({
+      paramInfoId: hit.ownerRowId,
+      projectState,
+      sectionId: activeParamDomIsland.sectionId,
+    })
+  );
+}
+
 function isProjectGpuRetainedParamSurface(
   surface: GpuContentSurface,
-): surface is GpuContentSurface & {
-  readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
-} {
+): surface is ProjectGpuRetainedParamSurface {
   return (
     surface.renderer.kind === "canvas-content" && Boolean(surface.retainedScene)
+  );
+}
+
+function isProjectGpuRetainedParamLabelEditable({
+  paramInfoId,
+  projectState,
+  sectionId,
+}: {
+  readonly paramInfoId: string;
+  readonly projectState: ZustandProjectState;
+  readonly sectionId: string;
+}): boolean {
+  const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    projectState,
+    sectionId,
+    paramInfoId,
+    isBaseParamCodeObjImpl,
+  );
+  return hasProjectGpuCoreNameEditable(codeObjImpl);
+}
+
+function hasProjectGpuCoreNameEditable(codeObjImpl: unknown): boolean {
+  return (
+    typeof codeObjImpl === "object" &&
+    codeObjImpl !== null &&
+    "coreNameEditable" in codeObjImpl &&
+    codeObjImpl.coreNameEditable === true
   );
 }
 
@@ -781,8 +924,14 @@ function getProjectGpuParamContentSurfaceId(
 }
 
 function getProjectGpuParamDomIslandId({
+  hitRecordId,
   paramInfoId,
   sectionId,
-}: Pick<ProjectGpuActiveParamDomIsland, "paramInfoId" | "sectionId">): string {
-  return `param-control:${sectionId}:${paramInfoId}`;
+}: Pick<
+  ProjectGpuActiveParamDomIsland,
+  "hitRecordId" | "paramInfoId" | "sectionId"
+>): string {
+  return hitRecordId.startsWith("label:")
+    ? `param-label:${sectionId}:${paramInfoId}`
+    : `param-control:${sectionId}:${paramInfoId}`;
 }

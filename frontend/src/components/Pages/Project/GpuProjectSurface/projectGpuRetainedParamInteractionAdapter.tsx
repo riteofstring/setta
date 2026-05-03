@@ -1,4 +1,6 @@
+import { ParamDuplicateIndexProvider } from "components/Params/ParamDuplicateIndexContext";
 import { ParamInput } from "components/Params/ParamItems/ParamInput";
+import { ParamNameInput } from "components/Params/ParamItems/ParamNameInput";
 import type { GpuRetainedContentConnectionOptions } from "gpuFlow/interactions/retainedContentConnection";
 import type {
   GpuRetainedContentDragCancelEvent,
@@ -20,8 +22,13 @@ import {
   isValidDataEdgeConnection,
 } from "state/actions/edges";
 import { moveParamsWithBackend } from "state/actions/params/moveParams";
-import { toggleParamSelected } from "state/actions/sectionInfos";
+import { buildParamDuplicateIndexIfPresent } from "state/actions/params/paramDuplicateIndex";
+import {
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
+  toggleParamSelected,
+} from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import {
   getProjectGpuAutoPanInsetsPx,
   getProjectGpuHandleConnectionProps,
@@ -111,14 +118,16 @@ export function getProjectRetainedContentInteractionOptions({
         event.hit ? toProjectGpuRetainedParamTarget(event.hit) : null,
       ),
     shouldHandleDragMoveHit: (event: GpuRetainedContentInteractionHit) =>
-      event.hit.kind === "row" || event.hit.kind === "control",
+      event.hit.kind === "row" ||
+      event.hit.kind === "label" ||
+      event.hit.kind === "control",
     shouldHandleHit: (event: GpuRetainedContentInteractionHit) =>
       shouldHandleProjectRetainedContentHit(event),
     shouldHandlePointerMoveHit: () => true,
     shouldStartDrag: (event: GpuRetainedContentInteractionHit) =>
       canEditStructure &&
       useMisc.getState().isSelectingParams &&
-      event.hit.kind === "row",
+      (event.hit.kind === "row" || event.hit.kind === "label"),
   };
 }
 
@@ -145,14 +154,23 @@ export function getProjectRetainedContentConnectionOptions({
 }
 
 export function renderProjectGpuDomIsland(island: GpuDomIsland) {
-  if (
-    island.kind !== "retained-content-control" ||
-    island.source.kind !== "retained-content"
-  ) {
+  if (island.source.kind !== "retained-content") {
+    return null;
+  }
+  if (island.kind === "retained-content-label") {
+    return (
+      <ProjectGpuParamNameDomIsland
+        contentRect={island.contentRect}
+        paramInfoId={island.source.ownerRowId}
+        sectionId={island.ownerSectionId}
+      />
+    );
+  }
+  if (island.kind !== "retained-content-control") {
     return null;
   }
   return (
-    <ProjectGpuParamDomIsland
+    <ProjectGpuParamControlDomIsland
       contentRect={island.contentRect}
       paramInfoId={island.source.ownerRowId}
       sectionId={island.ownerSectionId}
@@ -181,7 +199,10 @@ function handleProjectRetainedContentClick(
     toggleParamSelected(event.ownerSectionId, event.hit.ownerRowId);
     return;
   }
-  if (!isProjectRetainedParamControlActivationHit(event)) {
+  if (
+    !isProjectRetainedParamControlActivationHit(event) &&
+    !isProjectRetainedParamLabelActivationHit(event)
+  ) {
     return;
   }
   applyActiveSectionChange({
@@ -393,7 +414,8 @@ function shouldHandleProjectRetainedContentHit(
 ): boolean {
   return (
     useMisc.getState().isSelectingParams ||
-    isProjectRetainedParamControlActivationHit(event)
+    isProjectRetainedParamControlActivationHit(event) ||
+    isProjectRetainedParamLabelActivationHit(event)
   );
 }
 
@@ -409,7 +431,31 @@ function isProjectRetainedParamControlActivationHit(
   return Boolean(row?.controlKind && row.controlKind !== "nested");
 }
 
-function ProjectGpuParamDomIsland({
+function isProjectRetainedParamLabelActivationHit(
+  event: GpuRetainedContentInteractionHit,
+): boolean {
+  if (event.hit.kind !== "label") {
+    return false;
+  }
+  const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    useProjectState.getState(),
+    event.ownerSectionId,
+    event.hit.ownerRowId,
+    isBaseParamCodeObjImpl,
+  );
+  return hasProjectGpuCoreNameEditable(codeObjImpl);
+}
+
+function hasProjectGpuCoreNameEditable(codeObjImpl: unknown): boolean {
+  return (
+    typeof codeObjImpl === "object" &&
+    codeObjImpl !== null &&
+    "coreNameEditable" in codeObjImpl &&
+    codeObjImpl.coreNameEditable === true
+  );
+}
+
+function ProjectGpuParamControlDomIsland({
   contentRect,
   paramInfoId,
   sectionId,
@@ -461,6 +507,73 @@ function ProjectGpuParamDomIsland({
           paramInfoId={paramInfoId}
           tooltipParentDivId={PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID}
         />
+      </div>
+    </div>
+  );
+}
+
+function ProjectGpuParamNameDomIsland({
+  contentRect,
+  paramInfoId,
+  sectionId,
+}: {
+  readonly contentRect: GpuDomIsland["contentRect"];
+  readonly paramInfoId: string;
+  readonly sectionId: string;
+}) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const duplicateIndex = useProjectState((state) =>
+    buildParamDuplicateIndexIfPresent(state, sectionId),
+  );
+
+  useEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      const focusTarget = rootRef.current?.querySelector<HTMLElement>(
+        [
+          "[data-gpu-flow-interactive='true']",
+          "button",
+          "input",
+          "select",
+          "textarea",
+          "[tabindex]:not([tabindex='-1'])",
+        ].join(","),
+      );
+      focusTarget?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [paramInfoId, sectionId]);
+
+  useEffect(() => subscribeToGpuViewportReposition(), []);
+
+  return (
+    <div
+      className="relative h-full min-w-0 bg-white dark:bg-setta-900"
+      data-gpu-project-param-name-dom-island="true"
+      data-param-id={paramInfoId}
+      data-section-id={sectionId}
+      ref={rootRef}
+    >
+      <div
+        className="absolute grid min-w-0 px-1"
+        style={{
+          height: contentRect.height,
+          left: contentRect.x,
+          top: contentRect.y,
+          width: contentRect.width,
+        }}
+      >
+        <ParamDuplicateIndexProvider value={duplicateIndex}>
+          <ParamNameInput
+            bg=""
+            border=""
+            hasChildren={false}
+            paramInfoId={paramInfoId}
+            sectionId={sectionId}
+            tooltipParentDivId={
+              PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID
+            }
+          />
+        </ParamDuplicateIndexProvider>
       </div>
     </div>
   );
