@@ -19,6 +19,7 @@ import {
   getGpuRetainedContentSliderTrackRect,
   getGpuRetainedContentSliderValueLabelRect,
 } from "./retainedContentControls";
+import { drawGpuRetainedContentDateTimeControl } from "./retainedContentDateTimeCanvas";
 import {
   drawGpuRetainedContentDropdownControl,
   drawGpuRetainedContentDropdownPopupOption,
@@ -368,6 +369,14 @@ function drawGpuRetainedContentControl({
       return;
     case "dropzone":
       drawGpuRetainedContentDropzoneControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return;
+    case "date-time":
+      drawGpuRetainedContentDateTimeControl({
         control,
         ctx,
         rect,

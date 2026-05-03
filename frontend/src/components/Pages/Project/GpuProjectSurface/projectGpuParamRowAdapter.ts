@@ -27,16 +27,32 @@ import type {
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
+  parseCalendarSelectedDates,
+  resolveCalendarSummaryText,
+} from "utils/calendarSelection";
+import {
   CodeObjTypeEnum,
+  DateControlModeEnum,
+  DateSelectionModeEnum,
   DropzoneModeEnum,
+  TimeControlModeEnum,
+  TimeDisplayFormatEnum,
   type CodeObjType,
   type ColorPickerParamCodeObjImpl,
+  type DateParamCodeObjImpl,
   type DropdownParamCodeObjImpl,
   type DropzoneParamCodeObjImpl,
   type PasswordParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
+  type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
+import {
+  formatDateForDisplay,
+  formatDateTimeForDisplay,
+  formatTimeForDisplay,
+  splitIsoDateAndTimeParts,
+} from "utils/textParamDateTime";
 
 export type ProjectGpuRetainedParamSearchState = Pick<
   ZustandProjectSearch,
@@ -223,7 +239,169 @@ function createProjectGpuLeafParamControlDescriptor({
       controlKind,
     });
   }
-  return null;
+  return createProjectGpuDateTimeControlDescriptorIfSupported({
+    codeObjImpl,
+    controlKind,
+  });
+}
+
+function createProjectGpuDateTimeControlDescriptorIfSupported({
+  codeObjImpl,
+  controlKind,
+}: {
+  readonly codeObjImpl: {
+    readonly defaultVal?: unknown;
+    readonly type: string;
+    readonly value?: unknown;
+  };
+  readonly controlKind: string;
+}): GpuRetainedContentControlDescriptor | null {
+  if (
+    codeObjImpl.type !== CodeObjTypeEnum.DateParam &&
+    codeObjImpl.type !== CodeObjTypeEnum.TimeParam
+  ) {
+    return null;
+  }
+  return createProjectGpuDateTimeControlDescriptor({
+    codeObjImpl: codeObjImpl as DateParamCodeObjImpl | TimeParamCodeObjImpl,
+    controlKind,
+  });
+}
+
+function createProjectGpuDateTimeControlDescriptor({
+  codeObjImpl,
+  controlKind,
+}: {
+  readonly codeObjImpl: DateParamCodeObjImpl | TimeParamCodeObjImpl;
+  readonly controlKind: string;
+}): GpuRetainedContentControlDescriptor {
+  if (codeObjImpl.type === CodeObjTypeEnum.DateParam) {
+    return createProjectGpuDateControlDescriptor({
+      codeObjImpl,
+      controlKind,
+    });
+  }
+  return createProjectGpuTimeControlDescriptor({
+    codeObjImpl,
+    controlKind,
+  });
+}
+
+function createProjectGpuDateControlDescriptor({
+  codeObjImpl,
+  controlKind,
+}: {
+  readonly codeObjImpl: DateParamCodeObjImpl;
+  readonly controlKind: string;
+}): GpuRetainedContentControlDescriptor {
+  const displayValue = getProjectGpuDateControlDisplayValue(codeObjImpl);
+  return {
+    defaultDisplayValue: getProjectGpuDateControlDisplayValue({
+      ...codeObjImpl,
+      value: codeObjImpl.defaultVal,
+    }),
+    displayValue,
+    kind: "date-time",
+    label: getProjectGpuDateControlLabel(codeObjImpl),
+    mode: getProjectGpuDateControlMode(codeObjImpl),
+    rendererFamily: controlKind,
+    summaryText: getProjectGpuDateControlSummaryText(codeObjImpl),
+    commitPolicy: "native-island",
+  };
+}
+
+function createProjectGpuTimeControlDescriptor({
+  codeObjImpl,
+  controlKind,
+}: {
+  readonly codeObjImpl: TimeParamCodeObjImpl;
+  readonly controlKind: string;
+}): GpuRetainedContentControlDescriptor {
+  return {
+    defaultDisplayValue: getProjectGpuTimeControlDisplayValue({
+      ...codeObjImpl,
+      value: codeObjImpl.defaultVal,
+    }),
+    displayValue: getProjectGpuTimeControlDisplayValue(codeObjImpl),
+    kind: "date-time",
+    label:
+      codeObjImpl.timeControlMode === TimeControlModeEnum.display
+        ? "Display time"
+        : "Time input",
+    mode:
+      codeObjImpl.timeControlMode === TimeControlModeEnum.display
+        ? "time-display"
+        : "time-input",
+    rendererFamily: controlKind,
+    summaryText: null,
+    commitPolicy: "native-island",
+  };
+}
+
+function getProjectGpuDateControlDisplayValue(
+  codeObjImpl: DateParamCodeObjImpl,
+): string {
+  const value = toProjectGpuParamDisplayValue(codeObjImpl.value);
+  if (codeObjImpl.dateIncludesTime) {
+    return formatDateTimeForDisplay({
+      raw: value,
+      dateDisplayFormat: codeObjImpl.dateDisplayFormat,
+      timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+    });
+  }
+  return formatDateForDisplay(value, codeObjImpl.dateDisplayFormat);
+}
+
+function getProjectGpuTimeControlDisplayValue(
+  codeObjImpl: TimeParamCodeObjImpl,
+): string {
+  const value = toProjectGpuParamDisplayValue(codeObjImpl.value);
+  const formatted = formatTimeForDisplay(value, codeObjImpl.timeDisplayFormat);
+  return formatted.trim().length > 0 ? formatted : "--:--";
+}
+
+function getProjectGpuDateControlMode(
+  codeObjImpl: DateParamCodeObjImpl,
+): "date-calendar" | "date-input" | "date-time-input" {
+  if (codeObjImpl.dateControlMode === DateControlModeEnum.calendar) {
+    return "date-calendar";
+  }
+  return codeObjImpl.dateIncludesTime ? "date-time-input" : "date-input";
+}
+
+function getProjectGpuDateControlLabel(
+  codeObjImpl: DateParamCodeObjImpl,
+): string {
+  if (codeObjImpl.dateControlMode === DateControlModeEnum.calendar) {
+    return codeObjImpl.dateIncludesTime ? "Calendar + time" : "Calendar";
+  }
+  return codeObjImpl.dateIncludesTime ? "Date + time input" : "Date input";
+}
+
+function getProjectGpuDateControlSummaryText(
+  codeObjImpl: DateParamCodeObjImpl,
+): string | null {
+  if (codeObjImpl.dateControlMode !== DateControlModeEnum.calendar) {
+    return null;
+  }
+  const selectionMode = codeObjImpl.dateIncludesTime
+    ? DateSelectionModeEnum.single
+    : codeObjImpl.dateSelectionMode;
+  const value = toProjectGpuParamDisplayValue(codeObjImpl.value);
+  const selectedDates = parseCalendarSelectedDates(
+    value,
+    selectionMode,
+    codeObjImpl.dateIncludesTime,
+  );
+  return resolveCalendarSummaryText({
+    selectedDates,
+    value,
+    selectionMode,
+    includeTime: codeObjImpl.dateIncludesTime,
+    splitDateTime: splitIsoDateAndTimeParts(value),
+    dateDisplayFormat: codeObjImpl.dateDisplayFormat,
+    timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+  });
 }
 
 function createProjectGpuColorPickerControlDescriptor({

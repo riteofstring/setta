@@ -575,6 +575,56 @@ describe("retained content scene", () => {
     );
   });
 
+  it("retains concrete date/time descriptors for closed canvas displays", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("date-param", {
+          control: {
+            defaultDisplayValue: "",
+            displayValue: "May 4, 2026",
+            kind: "date-time",
+            label: "Calendar",
+            mode: "date-calendar",
+            rendererFamily: "date-time",
+            summaryText: "May 4, 2026",
+            commitPolicy: "native-island",
+          },
+          controlKind: "date-time",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 24, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.control).toEqual({
+      defaultDisplayValue: "",
+      displayValue: "May 4, 2026",
+      kind: "date-time",
+      label: "Calendar",
+      mode: "date-calendar",
+      rendererFamily: "date-time",
+      summaryText: "May 4, 2026",
+      commitPolicy: "native-island",
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          control: expect.objectContaining({
+            kind: "date-time",
+            mode: "date-calendar",
+            summaryText: "May 4, 2026",
+          }),
+          controlKind: "date-time",
+          kind: "row-control",
+          rowId: "date-param",
+        }),
+      ]),
+    );
+  });
+
   it("emits inset drop markers for retained inside-row drops", () => {
     const scene = createGpuRetainedRowContentScene({
       dragPreview: {

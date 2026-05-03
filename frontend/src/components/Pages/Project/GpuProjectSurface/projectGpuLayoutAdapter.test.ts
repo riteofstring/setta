@@ -36,6 +36,7 @@ import {
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type ColorPickerParamCodeObjImpl,
+  type DateParamCodeObjImpl,
   type PasswordParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SingleConfig,
@@ -1050,6 +1051,28 @@ describe("project GPU layout adapter", () => {
       { controlKind: "date-time", id: "time-display-param" },
       { controlKind: "date-time", id: "time-input-param" },
     ]);
+    expect(
+      displaySurface?.retainedScene?.rows.map((row) => row.control),
+    ).toEqual([
+      expect.objectContaining({
+        displayValue: "12:30",
+        kind: "date-time",
+        label: "Display time",
+        mode: "time-display",
+        rendererFamily: "date-time",
+        summaryText: null,
+        commitPolicy: "native-island",
+      }),
+      expect.objectContaining({
+        displayValue: "12:30",
+        kind: "date-time",
+        label: "Time input",
+        mode: "time-input",
+        rendererFamily: "date-time",
+        summaryText: null,
+        commitPolicy: "native-island",
+      }),
+    ]);
     expect(displayScene.domIslands).toEqual([]);
 
     const inputScene = getProjectGpuFlowScene(projectState, {
@@ -1068,6 +1091,93 @@ describe("project GPU layout adapter", () => {
         kind: "retained-content-control",
         source: expect.objectContaining({
           ownerRowId: "time-input-param",
+        }),
+      }),
+    ]);
+  });
+
+  it("renders retained date calendar closed state with concrete descriptors", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "date-param": "date-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["date-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "date-param",
+      "date-param-variant",
+      "date-param-impl",
+      createDateParamImpl({
+        dateControlMode: DateControlModeEnum.calendar,
+        dateSelectionMode: DateSelectionModeEnum.multiple,
+        id: "date-param-impl",
+        name: "date",
+        value: '["2026-05-04","2026-05-05"]',
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "date-param": ["date-param"],
+        },
+        topLevelParamIds: ["date-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:date-param",
+        paramInfoId: "date-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 10,
+    });
+    const dateSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(dateSurface?.retainedScene?.rows[0]).toMatchObject({
+      control: {
+        displayValue: '["2026-05-04","2026-05-05"]',
+        kind: "date-time",
+        label: "Calendar",
+        mode: "date-calendar",
+        rendererFamily: "date-time",
+        summaryText: "2 selected",
+        commitPolicy: "native-island",
+      },
+      controlKind: "date-time",
+      id: "date-param",
+    });
+    expect(scene.domIslands).toEqual([
+      expect.objectContaining({
+        kind: "retained-content-control",
+        source: expect.objectContaining({
+          ownerRowId: "date-param",
         }),
       }),
     ]);
@@ -2350,6 +2460,40 @@ function createTimeParamImpl({
     typeAnnotation: "",
     value: "12:30",
   } satisfies TimeParamCodeObjImpl;
+  return impl as BaseCodeObjImplUnion;
+}
+
+function createDateParamImpl({
+  dateControlMode,
+  dateSelectionMode = DateSelectionModeEnum.single,
+  id,
+  name,
+  value,
+}: {
+  readonly dateControlMode: DateParamCodeObjImpl["dateControlMode"];
+  readonly dateSelectionMode?: DateParamCodeObjImpl["dateSelectionMode"];
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+}): BaseCodeObjImplUnion {
+  const impl = {
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+    dateControlMode,
+    dateDisplayFormat: DateDisplayFormatEnum.iso,
+    dateIncludesTime: false,
+    dateSelectionMode,
+    defaultVal: "",
+    description: "",
+    id,
+    isPreset: false,
+    name,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    type: CodeObjTypeEnum.DateParam,
+    typeAnnotation: "",
+    value,
+  } satisfies DateParamCodeObjImpl;
   return impl as BaseCodeObjImplUnion;
 }
 

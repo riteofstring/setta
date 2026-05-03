@@ -39,6 +39,13 @@ export type GpuRetainedContentDropzoneAttachment = {
   readonly sizeLabel: string | null;
 };
 
+type GpuRetainedContentDateTimeMode =
+  | "date-calendar"
+  | "date-input"
+  | "date-time-input"
+  | "time-display"
+  | "time-input";
+
 export type GpuRetainedContentPopupChoice =
   | GpuRetainedContentColorChoice
   | GpuRetainedContentDropdownChoice;
@@ -121,6 +128,16 @@ export type GpuRetainedContentControlDescriptor =
       readonly placeholder: string;
       readonly remainingSlots: number | null;
       readonly rendererFamily: string;
+      readonly commitPolicy: "native-island";
+    }
+  | {
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "date-time";
+      readonly label: string;
+      readonly mode: GpuRetainedContentDateTimeMode;
+      readonly rendererFamily: string;
+      readonly summaryText: string | null;
       readonly commitPolicy: "native-island";
     };
 
