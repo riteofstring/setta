@@ -49,7 +49,7 @@ import {
 
 export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
 
-type ProjectGpuParamListKey = "pinned" | "unpinned";
+export type ProjectGpuParamListKey = "pinned" | "unpinned";
 
 export type ProjectGpuRetainedParamTarget = {
   readonly hitRecordId: string;

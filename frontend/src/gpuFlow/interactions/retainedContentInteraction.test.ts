@@ -89,6 +89,85 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("emits retained content drags from generated row hit records", () => {
+    const element = createHostElement();
+    const onHitClick = vi.fn();
+    const onHitDragStart = vi.fn();
+    const onHitDragMove = vi.fn();
+    const onHitDragEnd = vi.fn();
+    const requestFrame = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick,
+      onHitDragEnd,
+      onHitDragMove,
+      onHitDragStart,
+      requestFrame,
+      shouldHandleDragMoveHit: (hit) => hit.hit.kind === "row",
+      shouldStartDrag: (hit) => hit.hit.kind === "row",
+      store: createGpuFlowViewportStore(),
+    });
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 20,
+      clientY: 14,
+      pointerId: 1,
+    });
+    const pointerMove = createPointerEvent("pointermove", {
+      buttons: 1,
+      clientX: 20,
+      clientY: 42,
+      pointerId: 1,
+    });
+    const pointerUp = createPointerEvent("pointerup", {
+      clientX: 20,
+      clientY: 70,
+      pointerId: 1,
+    });
+
+    element.dispatchEvent(pointerDown);
+    element.dispatchEvent(pointerMove);
+    element.dispatchEvent(pointerUp);
+
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(pointerMove.defaultPrevented).toBe(true);
+    expect(pointerUp.defaultPrevented).toBe(true);
+    expect(onHitDragStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hit: expect.objectContaining({
+          id: "row:param-0",
+          kind: "row",
+          ownerRowId: "param-0",
+        }),
+      }),
+    );
+    expect(onHitDragMove).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activeHit: expect.objectContaining({
+          hit: expect.objectContaining({ ownerRowId: "param-0" }),
+        }),
+        hit: expect.objectContaining({
+          hit: expect.objectContaining({ ownerRowId: "param-1" }),
+        }),
+      }),
+    );
+    expect(onHitDragEnd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activeHit: expect.objectContaining({
+          hit: expect.objectContaining({ ownerRowId: "param-0" }),
+        }),
+        hit: expect.objectContaining({
+          hit: expect.objectContaining({ ownerRowId: "param-2" }),
+        }),
+      }),
+    );
+    expect(onHitClick).not.toHaveBeenCalled();
+    expect(requestFrame).toHaveBeenCalledWith("manual");
+
+    cleanup();
+  });
+
   it("lets callers gate which retained hits take pointer ownership", () => {
     const element = createHostElement();
     const onHitClick = vi.fn();

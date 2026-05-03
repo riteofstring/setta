@@ -1,4 +1,3 @@
-import { ParamInput } from "components/Params/ParamItems/ParamInput";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 
 import { GpuFlow } from "gpuFlow/GpuFlow";
@@ -6,17 +5,9 @@ import { GpuFlow } from "gpuFlow/GpuFlow";
 import type { GpuNodeLayout } from "gpuFlow/htmlSurfaces/frame";
 
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
-import type {
-  GpuRetainedContentInteractionEvent,
-  GpuRetainedContentInteractionHit,
-} from "gpuFlow/interactions/retainedContentInteraction";
 import type { GpuRetainedContentKeyboardNavigationEvent } from "gpuFlow/interactions/retainedContentKeyboard";
 import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
-import type {
-  GpuDomIsland,
-  GpuFlowScene,
-  GpuSectionSceneNode,
-} from "gpuFlow/scene";
+import type { GpuFlowScene, GpuSectionSceneNode } from "gpuFlow/scene";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
@@ -38,14 +29,12 @@ import {
   type RefObject,
 } from "react";
 
-import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import {
   isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
 } from "state/actions/edges";
 import { selectOnlyParam } from "state/actions/params/moveParams";
-import { toggleParamSelected } from "state/actions/sectionInfos";
 
 import {
   getActiveSectionUIIds,
@@ -83,7 +72,12 @@ import {
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuParamContentAdapter";
+import type { ProjectGpuRetainedParamDragSession } from "./projectGpuParamDragAdapter";
 import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
+import {
+  getProjectRetainedContentInteractionOptions,
+  renderProjectGpuDomIsland,
+} from "./projectGpuRetainedParamInteractionAdapter";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
@@ -284,6 +278,8 @@ function ProjectGpuFlowLayer({
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   const { layoutStore, nodeLayouts } = layoutAdapter;
+  const retainedParamDragSessionRef =
+    useRef<ProjectGpuRetainedParamDragSession | null>(null);
   const sceneSectionById = useMemo(
     () => getProjectSceneSectionById(layoutAdapter.scene),
     [layoutAdapter.scene],
@@ -396,14 +392,18 @@ function ProjectGpuFlowLayer({
   const retainedContentInteractionOptions = useMemo(
     () =>
       getProjectRetainedContentInteractionOptions({
-        flowInteractionKeys,
+        canEditStructure,
         onActiveParamDomIslandChange,
         onHoveredParamTargetChange,
+        retainedParamDragSessionRef,
+        zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
       }),
     [
+      canEditStructure,
       flowInteractionKeys,
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange,
+      retainedParamDragSessionRef,
     ],
   );
   const retainedContentKeyboardOptions = useMemo(
@@ -666,36 +666,6 @@ function getProjectRetainedContentScrollOptions({
   };
 }
 
-function getProjectRetainedContentInteractionOptions({
-  flowInteractionKeys,
-  onActiveParamDomIslandChange,
-  onHoveredParamTargetChange,
-}: {
-  readonly flowInteractionKeys: ProjectFlowInteractionKeys;
-  readonly onActiveParamDomIslandChange: (
-    island: ProjectGpuActiveParamDomIsland | null,
-  ) => void;
-  readonly onHoveredParamTargetChange: (
-    target: ProjectGpuRetainedParamTarget | null,
-  ) => void;
-}) {
-  return {
-    disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
-    onHitClick: (event: GpuRetainedContentInteractionEvent) =>
-      handleProjectRetainedContentClick(event, onActiveParamDomIslandChange),
-    onHitPointerLeave: () => onHoveredParamTargetChange(null),
-    onHitPointerMove: (event: {
-      readonly hit: GpuRetainedContentInteractionHit | null;
-    }) =>
-      onHoveredParamTargetChange(
-        event.hit ? toProjectGpuRetainedParamTarget(event.hit) : null,
-      ),
-    shouldHandlePointerMoveHit: () => true,
-    shouldHandleHit: (event: GpuRetainedContentInteractionHit) =>
-      shouldHandleProjectRetainedContentHit(event),
-  };
-}
-
 function getProjectRetainedContentKeyboardOptions({
   activeNodeIds,
   canEditStructure,
@@ -724,117 +694,6 @@ function getProjectRetainedContentKeyboardOptions({
       selectOnlyParam(event.target.ownerSectionId, event.target.rowId);
     },
   };
-}
-
-function toProjectGpuRetainedParamTarget(
-  event: GpuRetainedContentInteractionHit,
-): ProjectGpuRetainedParamTarget {
-  return {
-    hitRecordId: event.hit.id,
-    paramInfoId: event.hit.ownerRowId,
-    sectionId: event.ownerSectionId,
-    surfaceId: event.surfaceId,
-  };
-}
-
-function handleProjectRetainedContentClick(
-  event: GpuRetainedContentInteractionEvent,
-  onActiveParamDomIslandChange: (
-    island: ProjectGpuActiveParamDomIsland | null,
-  ) => void,
-) {
-  if (useMisc.getState().isSelectingParams) {
-    toggleParamSelected(event.ownerSectionId, event.hit.ownerRowId);
-    return;
-  }
-  if (!isProjectRetainedParamControlActivationHit(event)) {
-    return;
-  }
-  applyActiveSectionChange({
-    interaction: "input-focus",
-    sectionId: event.ownerSectionId,
-  });
-  onActiveParamDomIslandChange({
-    hitRecordId: event.hit.id,
-    paramInfoId: event.hit.ownerRowId,
-    sectionId: event.ownerSectionId,
-    surfaceId: event.surfaceId,
-  });
-}
-
-function shouldHandleProjectRetainedContentHit(
-  event: GpuRetainedContentInteractionHit,
-): boolean {
-  return (
-    useMisc.getState().isSelectingParams ||
-    isProjectRetainedParamControlActivationHit(event)
-  );
-}
-
-function isProjectRetainedParamControlActivationHit(
-  event: GpuRetainedContentInteractionHit,
-): boolean {
-  if (event.hit.kind !== "control") {
-    return false;
-  }
-  const row = event.retainedScene.rows.find(
-    (candidate) => candidate.id === event.hit.ownerRowId,
-  );
-  return Boolean(row?.controlKind && row.controlKind !== "nested");
-}
-
-function renderProjectGpuDomIsland(island: GpuDomIsland) {
-  if (
-    island.kind !== "retained-content-control" ||
-    island.source.kind !== "retained-content"
-  ) {
-    return null;
-  }
-  return (
-    <ProjectGpuParamDomIsland
-      paramInfoId={island.source.ownerRowId}
-      sectionId={island.ownerSectionId}
-    />
-  );
-}
-
-function ProjectGpuParamDomIsland({
-  paramInfoId,
-  sectionId,
-}: {
-  readonly paramInfoId: string;
-  readonly sectionId: string;
-}) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const frameId = requestAnimationFrame(() => {
-      const focusTarget = rootRef.current?.querySelector<HTMLElement>(
-        [
-          "[data-gpu-flow-interactive='true']",
-          "button",
-          "input",
-          "select",
-          "textarea",
-          "[tabindex]:not([tabindex='-1'])",
-        ].join(","),
-      );
-      focusTarget?.focus({ preventScroll: true });
-    });
-    return () => cancelAnimationFrame(frameId);
-  }, [paramInfoId, sectionId]);
-
-  return (
-    <div
-      className="grid h-full min-w-0 bg-white px-1 dark:bg-setta-900 [&_.section-value]:col-[1/-1] [&_.section-value]:row-[1/-1]"
-      data-gpu-project-param-dom-island="true"
-      data-param-id={paramInfoId}
-      data-section-id={sectionId}
-      ref={rootRef}
-    >
-      <ParamInput sectionId={sectionId} paramInfoId={paramInfoId} />
-    </div>
-  );
 }
 
 function getProjectKeyboardScrollParentSectionId(
