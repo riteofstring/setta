@@ -308,7 +308,6 @@ function JoinedCodeTerminalGroup({
         fillSurface={sceneSurface || isTopLevel}
         renderParamRows={renderParamRows}
         scenePortGeometry={sceneSurface}
-        useGpuResizeFrame={sceneSurface || isTopLevel}
       />
       <div className="-mt-px">
         <SectionNestedContent
@@ -347,7 +346,6 @@ function StandardSectionSurface({
       fillSurface={sceneSurface || isTopLevel}
       renderParamRows={renderParamRows}
       scenePortGeometry={sceneSurface}
-      useGpuResizeFrame={sceneSurface || isTopLevel}
     />
   );
 }

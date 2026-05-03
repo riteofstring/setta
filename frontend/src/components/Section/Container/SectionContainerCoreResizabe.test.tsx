@@ -57,12 +57,6 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   ),
 }));
 
-vi.mock("components/Utils/Resizable/CustomResizable", () => ({
-  CustomResizable: ({ children }: { children: ReactNode }) => (
-    <section data-testid="mock-custom-resizable">{children}</section>
-  ),
-}));
-
 vi.mock("./SectionResizeFrame", () => ({
   SectionResizeFrame: ({ children }: { children: ReactNode }) => (
     <section data-testid="mock-section-resize-frame">{children}</section>
@@ -248,7 +242,6 @@ describe("SectionContainerCoreResizable", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerCoreResizable
         sectionId="section-123"
-        isTopLevel={false}
         sectionTypeName={SectionTypeEnum.Code}
         isInOtherProjectConfigs={false}
         isUserView={false}
@@ -266,7 +259,6 @@ describe("SectionContainerCoreResizable", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerCoreResizable
         sectionId="section-123"
-        isTopLevel={true}
         sectionTypeName={SectionTypeEnum.Code}
         isInOtherProjectConfigs={false}
         isUserView={false}
@@ -276,25 +268,21 @@ describe("SectionContainerCoreResizable", () => {
     );
 
     expect(markup).toContain('data-testid="mock-section-resize-frame"');
-    expect(markup).not.toContain('data-testid="mock-custom-resizable"');
   });
 
-  it("uses passive resize handles for scene-owned nested GPU sections", () => {
+  it("uses passive resize handles for nested sections", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerCoreResizable
         sectionId="section-123"
-        isTopLevel={false}
         sectionTypeName={SectionTypeEnum.Code}
         isInOtherProjectConfigs={false}
         isUserView={false}
         positionAndSizeLocked={false}
         hasSectionStyleTheme={false}
-        useGpuResizeFrame
       />,
     );
 
     expect(markup).toContain('data-testid="mock-section-resize-frame"');
-    expect(markup).not.toContain('data-testid="mock-custom-resizable"');
   });
 
   it("routes workspace section windows through the section-owned surface id", () => {

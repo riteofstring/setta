@@ -1,6 +1,5 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
-import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import type { SetStateAction } from "react";
 import React from "react";
@@ -57,7 +56,6 @@ export { getGpuFlowSectionAreaRendererTypes } from "./sectionAreaRendererMetadat
 
 type SectionContainerCoreResizableProps = {
   sectionId: string;
-  isTopLevel: boolean;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
@@ -65,7 +63,6 @@ type SectionContainerCoreResizableProps = {
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
   renderParamRows?: boolean;
-  useGpuResizeFrame?: boolean;
 };
 
 type SectionContainerResizableSnapshot = {
@@ -386,7 +383,6 @@ export const SECTION_AREA_RENDERERS = {
 
 function _SectionContainerCoreResizable({
   sectionId,
-  isTopLevel,
   sectionTypeName,
   isInOtherProjectConfigs,
   isUserView,
@@ -394,7 +390,6 @@ function _SectionContainerCoreResizable({
   hasSectionStyleTheme,
   hideHeader = false,
   renderParamRows = true,
-  useGpuResizeFrame = isTopLevel,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -457,13 +452,9 @@ function _SectionContainerCoreResizable({
     </>
   );
 
-  if (useGpuResizeFrame) {
-    return (
-      <SectionResizeFrame {...resizeFrameProps}>{content}</SectionResizeFrame>
-    );
-  }
-
-  return <CustomResizable {...resizeFrameProps}>{content}</CustomResizable>;
+  return (
+    <SectionResizeFrame {...resizeFrameProps}>{content}</SectionResizeFrame>
+  );
 }
 
 export const SectionContainerCoreResizable = React.memo(

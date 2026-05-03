@@ -37,7 +37,6 @@ type SectionContainerCoreProps = {
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
   renderParamRows: boolean;
-  useGpuResizeFrame?: boolean;
   scenePortGeometry?: boolean;
 };
 
@@ -239,7 +238,6 @@ function _SectionContainerCore({
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
   renderParamRows,
-  useGpuResizeFrame,
   scenePortGeometry,
 }: SectionContainerCoreProps) {
   const {
@@ -299,10 +297,6 @@ function _SectionContainerCore({
     fillSurface,
     isTopLevel,
   );
-  const gpuResizeFrameEnabled = resolveOptionalSectionSurfaceFlag(
-    useGpuResizeFrame,
-    isTopLevel,
-  );
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
@@ -346,7 +340,6 @@ function _SectionContainerCore({
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
-        isTopLevel={isTopLevel}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
@@ -354,7 +347,6 @@ function _SectionContainerCore({
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
         renderParamRows={renderParamRows}
-        useGpuResizeFrame={gpuResizeFrameEnabled}
       />
     </section>
   );
@@ -382,12 +374,7 @@ function sectionContainerCoreSurfaceOptionsEqual(
 ): boolean {
   return (
     resolveOptionalSectionSurfaceFlag(prev.fillSurface, prev.isTopLevel) ===
-      resolveOptionalSectionSurfaceFlag(next.fillSurface, next.isTopLevel) &&
-    resolveOptionalSectionSurfaceFlag(
-      prev.useGpuResizeFrame,
-      prev.isTopLevel,
-    ) ===
-      resolveOptionalSectionSurfaceFlag(next.useGpuResizeFrame, next.isTopLevel)
+    resolveOptionalSectionSurfaceFlag(next.fillSurface, next.isTopLevel)
   );
 }
 

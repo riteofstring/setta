@@ -145,7 +145,6 @@ vi.mock("./SectionContainerCore", () => ({
     joinedCorners = "",
     fillSurface = false,
     renderParamRows = true,
-    useGpuResizeFrame = false,
   }: {
     sectionId: string;
     isUserView: boolean;
@@ -155,7 +154,6 @@ vi.mock("./SectionContainerCore", () => ({
     joinedCorners?: string;
     fillSurface?: boolean;
     renderParamRows?: boolean;
-    useGpuResizeFrame?: boolean;
   }) => (
     <div
       data-testid="mock-section-container-core"
@@ -167,7 +165,6 @@ vi.mock("./SectionContainerCore", () => ({
       data-joined-corners={joinedCorners}
       data-fill-surface={String(fillSurface)}
       data-render-param-rows={String(renderParamRows)}
-      data-use-gpu-resize-frame={String(useGpuResizeFrame)}
     />
   ),
 }));
@@ -267,7 +264,6 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-scene-surface="true"');
     expect(markup).toContain('data-fill-surface="true"');
     expect(markup).toContain('data-render-param-rows="false"');
-    expect(markup).toContain('data-use-gpu-resize-frame="true"');
     expect(markup).not.toContain('data-testid="mock-many-nested-sections"');
   });
 
@@ -283,7 +279,6 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-scene-surface="false"');
     expect(markup).toContain('data-fill-surface="true"');
     expect(markup).toContain('data-render-param-rows="true"');
-    expect(markup).toContain('data-use-gpu-resize-frame="true"');
   });
 
   it("skips generated python sections when python codegen is unavailable", () => {
