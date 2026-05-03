@@ -64,6 +64,7 @@ type SectionContainerCoreResizableProps = {
   positionAndSizeLocked: boolean;
   hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
+  useGpuResizeFrame?: boolean;
 };
 
 type SectionContainerResizableSnapshot = {
@@ -386,6 +387,7 @@ function _SectionContainerCoreResizable({
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
+  useGpuResizeFrame = isTopLevel,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -447,7 +449,7 @@ function _SectionContainerCoreResizable({
     </>
   );
 
-  if (isTopLevel) {
+  if (useGpuResizeFrame) {
     return (
       <SectionResizeFrame {...resizeFrameProps}>{content}</SectionResizeFrame>
     );

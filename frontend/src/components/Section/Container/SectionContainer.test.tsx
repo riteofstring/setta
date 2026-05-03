@@ -100,8 +100,19 @@ vi.mock("./AgenticEdgeHandles", () => ({
 }));
 
 vi.mock("./ContainerSwitch", () => ({
-  ContainerSwitch: ({ children }: { children: ReactNode }) => (
-    <div data-testid="mock-container-switch">{children}</div>
+  ContainerSwitch: ({
+    children,
+    sceneSurface = false,
+  }: {
+    children: ReactNode;
+    sceneSurface?: boolean;
+  }) => (
+    <div
+      data-testid="mock-container-switch"
+      data-scene-surface={String(sceneSurface)}
+    >
+      {children}
+    </div>
   ),
 }));
 
@@ -132,6 +143,8 @@ vi.mock("./SectionContainerCore", () => ({
     hideAgenticEdgeHandles = false,
     omitAgenticHandleScopeClass = false,
     joinedCorners = "",
+    fillSurface = false,
+    useGpuResizeFrame = false,
   }: {
     sectionId: string;
     isUserView: boolean;
@@ -139,6 +152,8 @@ vi.mock("./SectionContainerCore", () => ({
     hideAgenticEdgeHandles?: boolean;
     omitAgenticHandleScopeClass?: boolean;
     joinedCorners?: string;
+    fillSurface?: boolean;
+    useGpuResizeFrame?: boolean;
   }) => (
     <div
       data-testid="mock-section-container-core"
@@ -148,6 +163,8 @@ vi.mock("./SectionContainerCore", () => ({
       data-hide-agentic-edge-handles={String(hideAgenticEdgeHandles)}
       data-omit-agentic-handle-scope-class={String(omitAgenticHandleScopeClass)}
       data-joined-corners={joinedCorners}
+      data-fill-surface={String(fillSurface)}
+      data-use-gpu-resize-frame={String(useGpuResizeFrame)}
     />
   ),
 }));
@@ -232,6 +249,36 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-testid="mock-section-container-core"');
     expect(markup).not.toContain("data-joined-code-terminal-group");
     expect(markup).not.toContain('data-testid="mock-many-nested-sections"');
+  });
+
+  it("marks GPU scene surfaces as scene-owned without nested content ownership", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainer
+        sectionId="section-1"
+        isTopLevel={false}
+        renderNestedContent={false}
+        sceneSurface
+      />,
+    );
+
+    expect(markup).toContain('data-scene-surface="true"');
+    expect(markup).toContain('data-fill-surface="true"');
+    expect(markup).toContain('data-use-gpu-resize-frame="true"');
+    expect(markup).not.toContain('data-testid="mock-many-nested-sections"');
+  });
+
+  it("keeps top-level surfaces filled and GPU-resized without scene-owned mode", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainer
+        sectionId="section-1"
+        isTopLevel
+        renderNestedContent={false}
+      />,
+    );
+
+    expect(markup).toContain('data-scene-surface="false"');
+    expect(markup).toContain('data-fill-surface="true"');
+    expect(markup).toContain('data-use-gpu-resize-frame="true"');
   });
 
   it("skips generated python sections when python codegen is unavailable", () => {

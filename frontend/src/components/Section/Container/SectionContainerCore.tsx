@@ -31,10 +31,12 @@ type SectionContainerCoreProps = {
   sectionId: string;
   isTopLevel: boolean;
   isUserView: boolean;
+  fillSurface?: boolean;
   forceHideOutline?: boolean;
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
+  useGpuResizeFrame?: boolean;
 };
 
 type SectionContainerSnapshot = {
@@ -222,10 +224,12 @@ function _SectionContainerCore({
   sectionId,
   isTopLevel,
   isUserView,
+  fillSurface,
   forceHideOutline = false,
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
+  useGpuResizeFrame,
 }: SectionContainerCoreProps) {
   const {
     sectionTypeName,
@@ -280,6 +284,14 @@ function _SectionContainerCore({
     (state) => state.viewportInteractionActive,
   );
   const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
+  const surfaceFillsNode = resolveOptionalSectionSurfaceFlag(
+    fillSurface,
+    isTopLevel,
+  );
+  const gpuResizeFrameEnabled = resolveOptionalSectionSurfaceFlag(
+    useGpuResizeFrame,
+    isTopLevel,
+  );
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
@@ -293,7 +305,7 @@ function _SectionContainerCore({
     omitAgenticHandleScopeClass,
     aiHighlightClassName,
     scopeHighlightClassName,
-    ...getTopLevelSectionShellSizeClassName(isTopLevel),
+    ...getTopLevelSectionShellSizeClassName(surfaceFillsNode),
   });
   const sectionShellStyle = getSectionShellStyle(
     sectionStyleVars,
@@ -326,11 +338,24 @@ function _SectionContainerCore({
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        useGpuResizeFrame={gpuResizeFrameEnabled}
       />
     </section>
   );
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) => p.isUserView === n.isUserView && p.isTopLevel === n.isTopLevel,
+  (p, n) =>
+    p.isUserView === n.isUserView &&
+    p.isTopLevel === n.isTopLevel &&
+    (p.fillSurface ?? p.isTopLevel) === (n.fillSurface ?? n.isTopLevel) &&
+    (p.useGpuResizeFrame ?? p.isTopLevel) ===
+      (n.useGpuResizeFrame ?? n.isTopLevel),
 );
+
+function resolveOptionalSectionSurfaceFlag(
+  value: boolean | undefined,
+  fallback: boolean,
+): boolean {
+  return value ?? fallback;
+}

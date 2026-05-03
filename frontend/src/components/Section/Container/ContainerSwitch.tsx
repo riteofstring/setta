@@ -1,4 +1,7 @@
-import { DndSlotAndDndWatcher } from "./ContainerWrappers";
+import {
+  DndSlotAndDndWatcher,
+  GpuSceneSectionContainer,
+} from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 
 export function ContainerSwitch({
@@ -10,6 +13,7 @@ export function ContainerSwitch({
   visibility,
   isEditingViewMode,
   isUserView,
+  sceneSurface = false,
 }: {
   isGroup: boolean;
   sectionId: string;
@@ -19,7 +23,22 @@ export function ContainerSwitch({
   visibility: boolean;
   isEditingViewMode: boolean;
   isUserView: boolean;
+  sceneSurface?: boolean;
 }) {
+  if (sceneSurface) {
+    return (
+      <GpuSceneSectionContainer
+        isGroup={isGroup}
+        sectionId={sectionId}
+        visibility={visibility}
+        isEditingViewMode={isEditingViewMode}
+        isUserView={isUserView}
+      >
+        {children}
+      </GpuSceneSectionContainer>
+    );
+  }
+
   return isTopLevel ? (
     <TopLevelContainer
       isGroup={isGroup}

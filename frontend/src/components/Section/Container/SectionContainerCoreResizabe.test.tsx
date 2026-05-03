@@ -258,6 +258,24 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).not.toContain('data-testid="mock-custom-resizable"');
   });
 
+  it("uses passive resize handles for scene-owned nested GPU sections", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="section-123"
+        isTopLevel={false}
+        sectionTypeName={SectionTypeEnum.Code}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+        useGpuResizeFrame
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-resize-frame"');
+    expect(markup).not.toContain('data-testid="mock-custom-resizable"');
+  });
+
   it("routes workspace section windows through the section-owned surface id", () => {
     const markup = renderToStaticMarkup(
       <AreaSwitch

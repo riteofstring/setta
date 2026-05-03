@@ -55,6 +55,51 @@ export const DndSlotAndDndWatcher = React.memo(
     _.isEqual(p.dragListeners, n.dragListeners),
 );
 
+function _GpuSceneSectionContainer({
+  isGroup,
+  sectionId,
+  visibility,
+  isEditingViewMode,
+  isUserView,
+  children,
+}) {
+  const ancestorHasSameVisibility = useProjectState((x) =>
+    getAncestorSameVisibility(sectionId, x),
+  );
+  const style = maybeGetOpacityStyle(
+    false,
+    visibility,
+    isEditingViewMode,
+    ancestorHasSameVisibility,
+    false,
+  );
+
+  return (
+    <Container
+      isGroup={isGroup}
+      sectionId={sectionId}
+      isEditingViewMode={isEditingViewMode}
+      isUserView={isUserView}
+      className="h-full w-full"
+      style={style}
+      trueDragListeners={{}}
+    >
+      {children}
+    </Container>
+  );
+}
+
+export const GpuSceneSectionContainer = React.memo(
+  _GpuSceneSectionContainer,
+  (p, n) =>
+    p.isGroup === n.isGroup &&
+    p.sectionId === n.sectionId &&
+    p.children === n.children &&
+    p.visibility === n.visibility &&
+    p.isEditingViewMode === n.isEditingViewMode &&
+    p.isUserView === n.isUserView,
+);
+
 function _DndWatcherAndContainer({
   isGroup,
   sectionId,

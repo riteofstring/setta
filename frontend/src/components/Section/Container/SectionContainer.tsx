@@ -30,11 +30,13 @@ function _SectionContainer({
   isTopLevel,
   dragListeners,
   renderNestedContent = true,
+  sceneSurface = false,
 }: {
   sectionId: string;
   isTopLevel: boolean;
   dragListeners?: SectionDragListeners;
   renderNestedContent?: boolean;
+  sceneSurface?: boolean;
 }) {
   const {
     visibility,
@@ -113,6 +115,7 @@ function _SectionContainer({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
+        sceneSurface={sceneSurface}
         {...(dragListeners !== undefined ? { dragListeners } : {})}
       >
         <SectionContainerContent
@@ -126,6 +129,7 @@ function _SectionContainer({
           isJoinedGroupActive={isJoinedGroupActive}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           renderNestedContent={renderNestedContent}
+          sceneSurface={sceneSurface}
         />
       </ContainerSwitch>
     </NodeIdContext.Provider>
@@ -137,6 +141,7 @@ export const SectionContainer = React.memo(
     p.sectionId === n.sectionId &&
     p.isTopLevel === n.isTopLevel &&
     (p.renderNestedContent ?? true) === (n.renderNestedContent ?? true) &&
+    (p.sceneSurface ?? false) === (n.sceneSurface ?? false) &&
     _.isEqual(p.dragListeners, n.dragListeners),
 );
 
@@ -167,6 +172,7 @@ function SectionContainerContent({
   isJoinedGroupActive,
   isInOtherProjectConfigs,
   renderNestedContent,
+  sceneSurface,
 }: {
   sectionId: string;
   isTopLevel: boolean;
@@ -178,6 +184,7 @@ function SectionContainerContent({
   isJoinedGroupActive: boolean;
   isInOtherProjectConfigs: boolean;
   renderNestedContent: boolean;
+  sceneSurface: boolean;
 }) {
   if (!isGroup && isJoinedAttachedTerminalGroup && renderNestedContent) {
     return (
@@ -188,6 +195,7 @@ function SectionContainerContent({
         positionAndSizeLocked={positionAndSizeLocked}
         isJoinedGroupActive={isJoinedGroupActive}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
+        sceneSurface={sceneSurface}
       />
     );
   }
@@ -199,6 +207,7 @@ function SectionContainerContent({
         isTopLevel={isTopLevel}
         isGroup={isGroup}
         isUserView={isUserView}
+        sceneSurface={sceneSurface}
       />
       {renderNestedContent && (
         <SectionNestedContent
@@ -218,6 +227,7 @@ function JoinedCodeTerminalGroup({
   positionAndSizeLocked,
   isJoinedGroupActive,
   isInOtherProjectConfigs,
+  sceneSurface,
 }: {
   sectionId: string;
   isTopLevel: boolean;
@@ -225,6 +235,7 @@ function JoinedCodeTerminalGroup({
   positionAndSizeLocked: boolean;
   isJoinedGroupActive: boolean;
   isInOtherProjectConfigs: boolean;
+  sceneSurface: boolean;
 }) {
   return (
     <div
@@ -244,6 +255,8 @@ function JoinedCodeTerminalGroup({
         hideAgenticEdgeHandles={true}
         omitAgenticHandleScopeClass={true}
         joinedCorners="code-terminal-parent"
+        fillSurface={sceneSurface || isTopLevel}
+        useGpuResizeFrame={sceneSurface || isTopLevel}
       />
       <div className="-mt-px">
         <SectionNestedContent
@@ -261,11 +274,13 @@ function StandardSectionSurface({
   isTopLevel,
   isGroup,
   isUserView,
+  sceneSurface,
 }: {
   sectionId: string;
   isTopLevel: boolean;
   isGroup: boolean;
   isUserView: boolean;
+  sceneSurface: boolean;
 }) {
   if (isGroup) {
     return null;
@@ -275,6 +290,8 @@ function StandardSectionSurface({
       sectionId={sectionId}
       isTopLevel={isTopLevel}
       isUserView={isUserView}
+      fillSurface={sceneSurface || isTopLevel}
+      useGpuResizeFrame={sceneSurface || isTopLevel}
     />
   );
 }
