@@ -30,6 +30,8 @@ const browserFlags = [
 if (process.platform === "darwin") {
   browserFlags.push("--use-mock-keychain");
 }
+const chromeExecutablePath = resolveChromeExecutablePath();
+const chromeVersion = resolveChromeVersion(chromeExecutablePath);
 
 const runs = [
   {
@@ -235,7 +237,9 @@ const fixtureDefinitions = [
 
 const manifest = {
   artifactRoot,
+  browserExecutablePath: chromeExecutablePath,
   browserFlags,
+  browserVersion: chromeVersion,
   captureStartedAt: new Date().toISOString(),
   fixtureDefinitions,
   runs: [],
@@ -263,6 +267,52 @@ async function main() {
   );
   await writeReview();
   console.log(`GpuFlow visual fidelity artifacts: ${artifactRoot}`);
+}
+
+function resolveChromeExecutablePath() {
+  const result = spawnSync(
+    path.join(repoRoot, "scripts", "resolve-chrome-for-testing-149.sh"),
+    [],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: process.env,
+    },
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `Failed to resolve Chrome for Testing 149: ${result.stderr || result.stdout}`,
+    );
+  }
+  const executablePath = result.stdout.trim();
+  if (executablePath.length === 0) {
+    throw new Error("Chrome for Testing 149 resolver returned an empty path.");
+  }
+  return executablePath;
+}
+
+function resolveChromeVersion(executablePath) {
+  const result = spawnSync(executablePath, ["--version"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `Failed to inspect Chrome version at ${executablePath}: ${
+        result.stderr || result.stdout
+      }`,
+    );
+  }
+  return result.stdout.trim();
+}
+
+function launchCheckpointBrowser() {
+  return chromium.launch({
+    args: browserFlags,
+    executablePath: chromeExecutablePath,
+    headless: true,
+  });
 }
 
 function verifyWorktreeRef(run) {
@@ -326,10 +376,7 @@ async function captureRun(run) {
     await waitForHttp(`http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT}`, 120000);
     const bootstrapUrl = await resolveBootstrapUrl(run.worktree, env);
 
-    browser = await chromium.launch({
-      args: browserFlags,
-      headless: true,
-    });
+    browser = await launchCheckpointBrowser();
     const context = await browser.newContext({
       viewport: { height: 900, width: 1440 },
     });
@@ -388,6 +435,7 @@ async function captureRun(run) {
 function runEnvironment(run, runtimeDir) {
   return {
     ...process.env,
+    CHROME_BIN: chromeExecutablePath,
     CHROME_EXTRA_ARGS: browserFlags.join(" "),
     DEBUG_PORT: "9277",
     SETTA_DEV_FRONTEND_PORT: "3077",
@@ -930,7 +978,7 @@ async function comparePrimaryAndCandidate() {
       capture,
     ]),
   );
-  const browser = await chromium.launch({ args: browserFlags, headless: true });
+  const browser = await launchCheckpointBrowser();
   const page = await browser.newPage();
   try {
     for (const referenceCapture of baseline.captures) {
@@ -1118,6 +1166,8 @@ async function writeReview() {
   lines.push("");
   lines.push("## Summary");
   lines.push("");
+  lines.push(`- Browser: ${manifest.browserVersion}`);
+  lines.push(`- Browser executable: ${manifest.browserExecutablePath}`);
   lines.push(`- Compared: baseline-primary vs candidate`);
   lines.push(`- Fixtures compared: ${reviewRows.length}`);
   lines.push(`- Pass: ${reviewRows.filter((row) => row.status === "pass").length}`);

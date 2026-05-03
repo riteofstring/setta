@@ -719,6 +719,11 @@ run the temporary baseline-vs-candidate checkpoint:
 node scripts/gpuflow-visual-fidelity-checkpoint.mjs
 ```
 
+The checkpoint must use Chrome for Testing 149 from
+`scripts/resolve-chrome-for-testing-149.sh` for both the `ai.sh` browser and
+Playwright screenshot capture. Do not compare screenshots from Playwright's
+bundled Chromium.
+
 The current checkpoint artifact path is:
 
 `perf/visual-fidelity/2026-05-05-gpuflow-full-scene/`
@@ -773,14 +778,12 @@ Loop-resume requirements:
 
 Current checkpoint result:
 
-- `review.md` reports 30 primary comparisons: 28 pass, 2 blocking visual
-  regressions.
-- Blocking visual regressions are `dense-param-dict` and
-  `callable-edge-handles` at the `390x844` viewport.
-- Both baseline and candidate currently emit repeated
-  `GPUQueue.copyElementImageToTexture` html-in-canvas page errors from
-  `frontend/src/gpuFlow/htmlSurfaces/textureTiles.ts`; treat this as a runtime
-  blocker for more visible html-in-canvas work.
+- The checkpoint used `Google Chrome for Testing 149.0.7827.0`.
+- `review.md` reports 30 primary comparisons: 21 pass, 9 blocking visual
+  regressions, 0 capture-blocked fixtures, and 0 runtime page-error groups.
+- Blocking visual regressions are `project-surface`, `param-controls-closed`,
+  `dense-param-dict`, `selection-resize`, and `callable-edge-handles` across
+  one or more desktop, compact-desktop, and narrow viewports.
 
 ## Final Target
 

@@ -117,6 +117,9 @@ same fixture manifest against each worktree.
 Requirements:
 
 - Start each app with `./kill.sh` first, then `./ai.sh`.
+- Resolve Chrome with `scripts/resolve-chrome-for-testing-149.sh` and use that
+  same executable for both `ai.sh` (`CHROME_BIN`) and Playwright screenshot
+  capture. Do not use Playwright's bundled Chromium for this checkpoint.
 - For WebGPU/html-in-canvas runs, use:
 
 ```bash
