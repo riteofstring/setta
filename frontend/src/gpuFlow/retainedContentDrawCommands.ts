@@ -129,6 +129,7 @@ function createGpuRetainedContentRowDrawCommands({
     {
       dividerRects: createGpuRetainedContentRowDividerRects({
         controlRect,
+        labelAppearance: row.labelAppearance,
         labelRect,
       }),
       kind: "row-background",
@@ -176,14 +177,25 @@ function createGpuRetainedContentRowDrawCommands({
 
 function createGpuRetainedContentRowDividerRects({
   controlRect,
+  labelAppearance,
   labelRect,
 }: {
   readonly controlRect: GpuRect | null;
+  readonly labelAppearance: GpuRetainedContentRow["labelAppearance"];
   readonly labelRect: GpuRect;
 }): readonly GpuRect[] {
-  return [labelRect, ...(controlRect ? [controlRect] : [])].filter(
-    (rect) => rect.width > 0 && rect.height > 0,
-  );
+  return [
+    ...(shouldDrawGpuRetainedContentLabelDivider(labelAppearance)
+      ? [labelRect]
+      : []),
+    ...(controlRect ? [controlRect] : []),
+  ].filter((rect) => rect.width > 0 && rect.height > 0);
+}
+
+function shouldDrawGpuRetainedContentLabelDivider(
+  labelAppearance: GpuRetainedContentRow["labelAppearance"],
+): boolean {
+  return labelAppearance.fontFamily === "mono";
 }
 
 function createGpuRetainedContentRowStatusCommands({
