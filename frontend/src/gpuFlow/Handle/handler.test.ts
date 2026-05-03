@@ -295,12 +295,17 @@ describe("GPU edge handle connection lifecycle", () => {
       }),
     );
 
-    expect(onConnect).toHaveBeenCalledWith({
-      source: "source",
-      sourceHandle: "reverse-start",
-      target: "target",
-      targetHandle: "in",
-    });
+    expect(onConnect).toHaveBeenCalledWith(
+      {
+        source: "source",
+        sourceHandle: "reverse-start",
+        target: "target",
+        targetHandle: "in",
+      },
+      {
+        scene: undefined,
+      },
+    );
   });
 
   it("connects to scene-owned retained content handles without DOM descriptors", () => {
@@ -312,13 +317,14 @@ describe("GPU edge handle connection lifecycle", () => {
     mockElementFromPoint(sourceHandle);
     mockElementsFromPoint([]);
     const onConnect = vi.fn();
+    const scene = sceneWithRetainedTargetHandle();
 
     handlePointerDown({
       event: createReactMouseEvent(sourceHandle, "mousedown", {
         clientX: 110,
         clientY: 60,
       }),
-      getScene: () => sceneWithRetainedTargetHandle(),
+      getScene: () => scene,
       handleId: "out",
       isTarget: false,
       isValidConnection: () => true,
@@ -353,12 +359,17 @@ describe("GPU edge handle connection lifecycle", () => {
       }),
     );
 
-    expect(onConnect).toHaveBeenCalledWith({
-      source: "source",
-      sourceHandle: "out",
-      target: "target",
-      targetHandle: "in",
-    });
+    expect(onConnect).toHaveBeenCalledWith(
+      {
+        source: "source",
+        sourceHandle: "out",
+        target: "target",
+        targetHandle: "in",
+      },
+      {
+        scene,
+      },
+    );
   });
 });
 

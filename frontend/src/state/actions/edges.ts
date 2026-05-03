@@ -1,6 +1,9 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
-import type { Connection } from "gpuFlow/flowTypes";
-import { hasGpuFlowPortDescriptor } from "gpuFlow/ports/portGeometry";
+import type { Connection, GpuFlowConnectionContext } from "gpuFlow/flowTypes";
+import {
+  hasGpuFlowPortDescriptor,
+  hasGpuFlowScenePortDescriptor,
+} from "gpuFlow/ports/portGeometry";
 import {
   createEdge,
   deleteEdges,
@@ -32,6 +35,7 @@ type CompleteEdgeConnection = Connection & {
   sourceHandle: string;
   targetHandle: string;
 };
+type OpenAPIRequest = Parameters<typeof callOpenAPI>[0];
 
 const nonDataHandleIds = new Set<string>([
   AGENTIC_EDGE_HANDLE_IDS.source,
@@ -54,7 +58,7 @@ export function isValidDataEdgeConnection(connection: Connection): boolean {
 export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
-      const edges = state.projectConfig.edges;
+      const edges = state.projectConfig.edges ?? [];
       for (const edge of edges) {
         if (edge.id === edgeId) {
           edge.selected = multiSelect ? !edge.selected : true;
@@ -67,7 +71,7 @@ export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
       if (multiSelect) {
         const edge = useProjectState
           .getState()
-          .projectConfig.edges.find((candidate) => candidate.id === edgeId);
+          .projectConfig.edges?.find((candidate) => candidate.id === edgeId);
         if (!edge) {
           return;
         }
@@ -78,17 +82,17 @@ export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
               edge,
               frontendOpId,
             },
-          } as Parameters<typeof updateEdge>[0]),
+          } as Parameters<typeof updateEdge>[0]) as OpenAPIRequest,
         );
       }
       return callOpenAPI(
         setEdges({
           body: {
             projectConfigId: getCurrProjectConfigId(),
-            edges: useProjectState.getState().projectConfig.edges,
+            edges: useProjectState.getState().projectConfig.edges ?? [],
             frontendOpId,
           },
-        } as Parameters<typeof setEdges>[0]),
+        } as Parameters<typeof setEdges>[0]) as OpenAPIRequest,
       );
     },
   });
@@ -98,7 +102,7 @@ export function deleteSelectedEdges() {
     return false;
   }
   const state = useProjectState.getState();
-  const selectedIds = state.projectConfig.edges
+  const selectedIds = (state.projectConfig.edges ?? [])
     .filter((edge) => edge.selected)
     .map((edge) => edge.id);
   if (selectedIds.length === 0) {
@@ -106,7 +110,7 @@ export function deleteSelectedEdges() {
   }
   dispatchOptimisticProjectStateUpdate({
     apply: (draft) => {
-      draft.projectConfig.edges = draft.projectConfig.edges.filter(
+      draft.projectConfig.edges = (draft.projectConfig.edges ?? []).filter(
         (edge) => !selectedIds.includes(edge.id),
       );
     },
@@ -118,7 +122,7 @@ export function deleteSelectedEdges() {
             edgeIds: selectedIds,
             frontendOpId,
           },
-        } as Parameters<typeof deleteEdges>[0]),
+        } as Parameters<typeof deleteEdges>[0]) as OpenAPIRequest,
       ),
   });
   return true;
@@ -126,6 +130,7 @@ export function deleteSelectedEdges() {
 
 function resolveEdgeConnectionBody(
   connection: Connection,
+  context?: GpuFlowConnectionContext,
 ): EdgeConnectionBody | null {
   if (!hasCompleteEdgeConnection(connection)) {
     return null;
@@ -138,7 +143,7 @@ function resolveEdgeConnectionBody(
   if (!variantIds) {
     return null;
   }
-  if (!hasRegisteredEdgeConnection(connection)) {
+  if (!hasRegisteredEdgeConnection(connection, context)) {
     return null;
   }
   return {
@@ -179,14 +184,17 @@ function resolveEdgeConnectionVariantIds(
 
 function hasRegisteredEdgeConnection(
   connection: CompleteEdgeConnection,
+  context: GpuFlowConnectionContext | undefined,
 ): boolean {
   return (
-    hasGpuFlowPortDescriptor({
+    hasRegisteredOrSceneEdgeConnectionPort({
+      context,
       nodeId: connection.source,
       portId: connection.sourceHandle,
       type: "source",
     }) &&
-    hasGpuFlowPortDescriptor({
+    hasRegisteredOrSceneEdgeConnectionPort({
+      context,
       nodeId: connection.target,
       portId: connection.targetHandle,
       type: "target",
@@ -194,28 +202,58 @@ function hasRegisteredEdgeConnection(
   );
 }
 
-export function createEdgeFromConnection(connection: Connection) {
-  const body = resolveEdgeConnectionBody(connection);
+function hasRegisteredOrSceneEdgeConnectionPort({
+  context,
+  nodeId,
+  portId,
+  type,
+}: {
+  readonly context: GpuFlowConnectionContext | undefined;
+  readonly nodeId: string;
+  readonly portId: string;
+  readonly type: "source" | "target";
+}): boolean {
+  return (
+    hasGpuFlowPortDescriptor({
+      nodeId,
+      portId,
+      type,
+    }) ||
+    hasGpuFlowScenePortDescriptor({
+      nodeId,
+      portId,
+      scene: context?.scene,
+      type,
+    })
+  );
+}
+
+export function createEdgeFromConnection(
+  connection: Connection,
+  context?: GpuFlowConnectionContext,
+) {
+  const body = resolveEdgeConnectionBody(connection, context);
   if (!body) {
     return;
   }
   void callOpenAPI(
     createEdge({
       body: { ...body, type: "default" },
-    } as Parameters<typeof createEdge>[0]),
+    } as Parameters<typeof createEdge>[0]) as OpenAPIRequest,
   );
 }
 export function reconnectEdgeFromConnection(
   edgeId: string,
   connection: Connection,
+  context?: GpuFlowConnectionContext,
 ) {
-  const body = resolveEdgeConnectionBody(connection);
+  const body = resolveEdgeConnectionBody(connection, context);
   if (!body) {
     return;
   }
   void callOpenAPI(
     reconnectEdge({
       body: { ...body, edgeId },
-    } as Parameters<typeof reconnectEdge>[0]),
+    } as Parameters<typeof reconnectEdge>[0]) as OpenAPIRequest,
   );
 }

@@ -4,6 +4,8 @@ import {
   unregisterGpuFlowPortDescriptor,
   useGpuFlowPortRegistry,
 } from "gpuFlow/ports/portGeometry";
+import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
+import type { GpuFlowScene } from "gpuFlow/scene";
 import {
   createEdge,
   deleteEdges,
@@ -125,6 +127,44 @@ function createConnection(): Connection {
     targetHandle: targetPortId,
   };
 }
+function createSceneWithRetainedTargetPort(): GpuFlowScene {
+  const rect = { height: 40, width: 200, x: 100, y: 120 };
+  return {
+    contentSurfaces: [
+      {
+        clipRect: rect,
+        id: "target-section:param-content:unpinned",
+        ownerSectionId: targetSectionId,
+        rect,
+        renderer: {
+          kind: "canvas-content",
+          surfaceId: "target-section:param-content:unpinned",
+        },
+        retainedScene: createGpuRetainedRowContentScene({
+          id: "target-section:param-content:unpinned",
+          ownerSectionId: targetSectionId,
+          rowHeight: 28,
+          rows: [
+            {
+              controlKind: "text-like",
+              depth: 0,
+              id: targetPortId,
+              label: "Input",
+              ports: [{ id: targetPortId, kind: "input", side: "left" }],
+            },
+          ],
+          scrollOffset: { x: 0, y: 0 },
+          viewportRect: { height: rect.height, width: rect.width, x: 0, y: 0 },
+        }),
+        zIndex: 1,
+      },
+    ],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
 describe("edges actions", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -172,6 +212,30 @@ describe("edges actions", () => {
         targetVariantId,
         targetPortId,
       },
+    });
+  });
+  it("persists data-edge mutations when the target port is scene-owned", () => {
+    seedEdgeState([]);
+    unregisterGpuFlowPortDescriptor(targetSectionId, targetPortId, "target");
+    const context = { scene: createSceneWithRetainedTargetPort() };
+
+    createEdgeFromConnection(createConnection(), context);
+    reconnectEdgeFromConnection("edge-1", createConnection(), context);
+
+    expect(mockedRouteCreateEdge).toHaveBeenCalledTimes(1);
+    expect(mockedRouteReconnectEdge).toHaveBeenCalledTimes(1);
+    expect(mockedRouteCreateEdge.mock.calls[0]?.[0]).toEqual({
+      body: expect.objectContaining({
+        sourcePortId,
+        targetPortId,
+      }),
+    });
+    expect(mockedRouteReconnectEdge.mock.calls[0]?.[0]).toEqual({
+      body: expect.objectContaining({
+        edgeId: "edge-1",
+        sourcePortId,
+        targetPortId,
+      }),
     });
   });
   it("validates reconnect candidates as data-edge handle pairs", () => {

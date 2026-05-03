@@ -131,8 +131,11 @@ function HandleComponent({
     isConnectableEnd,
   ]);
 
-  const onConnectExtended = (params: Connection) => {
-    onConnect?.(params);
+  const onConnectExtended: NonNullable<HandleComponentProps["onConnect"]> = (
+    params: Connection,
+    context,
+  ) => {
+    onConnect?.(params, context);
   };
 
   const onPointerDown = (event: HandlePointerEvent) => {

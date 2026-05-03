@@ -103,9 +103,11 @@ describe("GPU edge reconnect controller", () => {
       target: "target",
       targetHandle: "in",
     };
-    call.onConnect(connection);
+    call.onConnect(connection, { scene: flowScene });
 
-    expect(onReconnect).toHaveBeenCalledWith("edge-a", connection);
+    expect(onReconnect).toHaveBeenCalledWith("edge-a", connection, {
+      scene: flowScene,
+    });
     detach();
   });
 

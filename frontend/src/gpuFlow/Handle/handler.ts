@@ -7,6 +7,7 @@ import type {
   Connection,
   GpuFlowAutoPanInsetsInput,
   GpuFlowAutoPanInsetsPx,
+  GpuFlowConnectionContext,
   HandleConnectionCandidateFilter,
   HandleType,
 } from "../flowTypes";
@@ -67,7 +68,10 @@ export function handlePointerDown({
   handleId: string | null;
   layoutStore: GpuFlowLayoutStoreApi | null | undefined;
   nodeId: string;
-  onConnect: (connection: Connection) => void;
+  onConnect: (
+    connection: Connection,
+    context?: GpuFlowConnectionContext,
+  ) => void;
   isTarget: boolean;
   store: GpuFlowViewportStoreApi;
   isConnectionCandidateAllowed?: HandleConnectionCandidateFilter | undefined;
@@ -105,9 +109,12 @@ export function handlePointerDown({
   let handleDomNode: Element | null = null;
   let connectionGestureCleanedUp = false;
 
+  const getConnectionContext = (): GpuFlowConnectionContext => ({
+    scene: getGpuHandleConnectionScene(getScene),
+  });
   const handlePositions = getConnectionHandlePositions({
     layoutStore,
-    scene: getGpuHandleConnectionScene(getScene),
+    scene: getConnectionContext().scene,
   });
 
   const handleLookup = getHandleLookup(
@@ -369,7 +376,7 @@ export function handlePointerDown({
       resolvedConnection &&
       resolvedIsValid
     ) {
-      onConnect?.(resolvedConnection);
+      onConnect?.(resolvedConnection, getConnectionContext());
     }
 
     if (edgeUpdaterType) {

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import type { GpuFlowScene } from "./scene";
 
 export interface Dimensions {
   width: number;
@@ -55,6 +56,10 @@ export type Connection = {
   targetHandle: string | null;
 };
 
+export type GpuFlowConnectionContext = {
+  readonly scene?: GpuFlowScene | null | undefined;
+};
+
 export type HandleConnectionCandidate = {
   sectionId: string;
   handleId: string | null;
@@ -101,7 +106,10 @@ export type HandleProps = {
   connectionStartSemanticType?: HandleType;
   isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection?: (connection: Connection) => boolean;
-  onConnect?: (connection: Connection) => void;
+  onConnect?: (
+    connection: Connection,
+    context?: GpuFlowConnectionContext,
+  ) => void;
   pointerUpSnapRadius?: number;
   autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
 };

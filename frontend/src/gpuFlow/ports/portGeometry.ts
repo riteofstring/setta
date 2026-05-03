@@ -2,6 +2,7 @@ import { createWithEqualityFn } from "zustand/traditional";
 
 import { HandlePosition, type HandleType } from "../flowTypes";
 import type { GpuFlowLayoutNode } from "../layoutStore";
+import type { GpuFlowScene } from "../scene";
 import type { GpuPoint, GpuRect } from "../viewportMath";
 
 export type GpuFlowPortDescriptor = {
@@ -178,6 +179,87 @@ export function hasGpuFlowPortDescriptor({
   return getGpuFlowPortDescriptor({ nodeId, portId, type }) !== null;
 }
 
+export function hasGpuFlowScenePortDescriptor({
+  nodeId,
+  portId,
+  scene,
+  type,
+}: {
+  readonly nodeId: string;
+  readonly portId: string;
+  readonly scene: GpuFlowScene | null | undefined;
+  readonly type: HandleType;
+}): boolean {
+  if (!scene) {
+    return false;
+  }
+  return (
+    hasGpuFlowSectionScenePortDescriptor({ nodeId, portId, scene, type }) ||
+    hasGpuFlowRetainedScenePortDescriptor({ nodeId, portId, scene, type })
+  );
+}
+
+function hasGpuFlowSectionScenePortDescriptor({
+  nodeId,
+  portId,
+  scene,
+  type,
+}: {
+  readonly nodeId: string;
+  readonly portId: string;
+  readonly scene: GpuFlowScene;
+  readonly type: HandleType;
+}): boolean {
+  return scene.sections.some(
+    (section) =>
+      section.sectionId === nodeId &&
+      section.portAnchors.some(
+        (anchor) =>
+          anchor.id === portId &&
+          getGpuFlowScenePortHandleType(anchor.kind) === type,
+      ),
+  );
+}
+
+function hasGpuFlowRetainedScenePortDescriptor({
+  nodeId,
+  portId,
+  scene,
+  type,
+}: {
+  readonly nodeId: string;
+  readonly portId: string;
+  readonly scene: GpuFlowScene;
+  readonly type: HandleType;
+}): boolean {
+  return scene.contentSurfaces.some((surface) =>
+    hasGpuFlowRetainedSurfacePortDescriptor({ nodeId, portId, surface, type }),
+  );
+}
+
+function hasGpuFlowRetainedSurfacePortDescriptor({
+  nodeId,
+  portId,
+  surface,
+  type,
+}: {
+  readonly nodeId: string;
+  readonly portId: string;
+  readonly surface: GpuFlowScene["contentSurfaces"][number];
+  readonly type: HandleType;
+}): boolean {
+  const retainedScene = surface.retainedScene;
+  return Boolean(
+    surface.ownerSectionId === nodeId &&
+      surface.renderer.kind === "canvas-content" &&
+      retainedScene?.portAnchors.some(
+        (anchor) =>
+          anchor.id === portId &&
+          getGpuFlowScenePortHandleType(anchor.kind) === type,
+      ),
+  );
+}
+
 export function registerGpuFlowPortsWithSharedElement({
   element,
   isConnectableEnd,
@@ -346,6 +428,18 @@ function getGpuFlowPortSideNormal(side: HandlePosition): GpuPoint {
     case HandlePosition.Right:
       return { x: 1, y: 0 };
   }
+}
+
+function getGpuFlowScenePortHandleType(
+  kind: GpuFlowScene["sections"][number]["portAnchors"][number]["kind"],
+): HandleType | null {
+  if (kind === "input") {
+    return "target";
+  }
+  if (kind === "output") {
+    return "source";
+  }
+  return null;
 }
 
 function normalizeGpuFlowPortDescriptor(
