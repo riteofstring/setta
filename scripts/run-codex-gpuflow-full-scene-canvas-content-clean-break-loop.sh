@@ -72,6 +72,13 @@ Loop-specific guardrails:
 - Keep `frontend/src/gpuFlow/*` generic. Setta policy, persistence, and missing
   section/param contract surfaces belong in project adapters or Go-owned
   generation paths.
+- Treat the plan's canvas-first param control boundary as an active guardrail.
+  Do not spend iterations broadening generic retained-param DOM island,
+  viewport-portal, or activation-replay parity for dropdowns, configured color
+  pickers, date calendars, switches, sliders, rotary controls, validation/status
+  bubbles, or simple command controls. Move those to retained canvas descriptors
+  and interaction handlers, and narrow DOM islands to true native
+  editor/picker/file/accessibility cases.
 - Use `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` only
   as read-only reference material.
 - For performance-relevant slices, baseline first and record before/after
