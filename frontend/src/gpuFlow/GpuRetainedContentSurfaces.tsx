@@ -214,6 +214,16 @@ function drawGpuRetainedContentRowBackground(
     ctx.lineWidth = 1;
     strokeInsetRect(ctx, rect, 0.5);
   }
+  if (state.searchMatched) {
+    ctx.strokeStyle = "#2563eb";
+    ctx.lineWidth = 2;
+    strokeInsetRect(ctx, rect, 1);
+  }
+  if (state.searchFocused) {
+    ctx.strokeStyle = "#22c55e";
+    ctx.lineWidth = 2;
+    strokeInsetRect(ctx, rect, 1);
+  }
   if (state.error) {
     ctx.fillStyle = "#ef4444";
     ctx.fillRect(rect.x, rect.y, 3, rect.height);

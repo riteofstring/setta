@@ -1,8 +1,4 @@
 import {
-  getSectionParamUIRendererFamily,
-  type SectionParamUIRendererFamily,
-} from "components/Params/ParamUIs/paramUIRendererMetadata";
-import {
   resolveFilteredParamRows,
   type FilteredParamRows,
 } from "components/Params/paramListFiltering";
@@ -29,7 +25,6 @@ import {
   getCurrEffectiveSectionImplWithTypeGuardIfPresent,
   getCurrSectionVariantId,
   getCurrShownParamIds,
-  getParamDisplayNameIfPresent,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState, ZustandTypeErrors } from "state/definitions";
 import {
@@ -44,7 +39,6 @@ import {
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
-  type CodeObjType,
   type DictSectionImpl,
 } from "utils/generatedTypes";
 import {
@@ -53,6 +47,10 @@ import {
   translateProjectGpuParamLocalRect,
 } from "./projectGpuParamDomIslandGeometry";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
+import {
+  createProjectGpuParamRowInput,
+  type ProjectGpuRetainedParamSearchState,
+} from "./projectGpuParamRowAdapter";
 
 export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
 
@@ -165,6 +163,7 @@ export function createProjectGpuParamContentSurfaces({
   hoveredParamTarget,
   measuredHeightsByKey,
   projectState,
+  projectSearch,
   retainedParamDragPreview,
   sections,
   typeErrors,
@@ -180,6 +179,7 @@ export function createProjectGpuParamContentSurfaces({
     | undefined;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
+  readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedParamDragPreview?:
     | ProjectGpuRetainedParamDragPreview
     | null
@@ -194,6 +194,7 @@ export function createProjectGpuParamContentSurfaces({
       hoveredParamTarget,
       measuredHeightsByKey,
       projectState,
+      projectSearch,
       retainedParamDragPreview,
       section,
       typeErrors,
@@ -420,6 +421,7 @@ function createProjectGpuParamContentSurfacesForSection({
   hoveredParamTarget,
   measuredHeightsByKey,
   projectState,
+  projectSearch,
   retainedParamDragPreview,
   section,
   typeErrors,
@@ -435,6 +437,7 @@ function createProjectGpuParamContentSurfacesForSection({
     | undefined;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
   readonly projectState: ZustandProjectState;
+  readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedParamDragPreview?:
     | ProjectGpuRetainedParamDragPreview
     | null
@@ -454,6 +457,7 @@ function createProjectGpuParamContentSurfacesForSection({
 
   const listRows = createProjectGpuParamListRows({
     projectState,
+    projectSearch,
     sectionId: section.sectionId,
     sectionImpl: dictSectionImpl,
     typeErrors,
@@ -474,12 +478,14 @@ function createProjectGpuParamContentSurfacesForSection({
 
 function createProjectGpuParamListRows({
   projectState,
+  projectSearch,
   retainedInteractionState,
   sectionId,
   sectionImpl,
   typeErrors,
 }: {
   readonly projectState: ZustandProjectState;
+  readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
   readonly sectionId: string;
   readonly sectionImpl: DictSectionImpl;
@@ -519,6 +525,7 @@ function createProjectGpuParamListRows({
         rows: createProjectGpuParamRows({
           filteredRows,
           projectState,
+          projectSearch,
           retainedInteractionState,
           sectionId,
           sectionImpl,
@@ -594,6 +601,7 @@ function normalizeProjectGpuShownParamRows({
 function createProjectGpuParamRows({
   filteredRows,
   projectState,
+  projectSearch,
   retainedInteractionState,
   sectionId,
   sectionImpl,
@@ -602,6 +610,7 @@ function createProjectGpuParamRows({
 }: {
   readonly filteredRows: FilteredParamRows;
   readonly projectState: ZustandProjectState;
+  readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedInteractionState: ProjectGpuRetainedParamInteractionState;
   readonly sectionId: string;
   readonly sectionImpl: DictSectionImpl;
@@ -637,75 +646,21 @@ function createProjectGpuParamRows({
         `Missing GPU retained param row ${row.id} in section ${sectionId}.`,
       );
     }
-    return {
-      controlKind: getProjectGpuParamControlKind({
-        fallbackType: codeObjImpl.type as CodeObjType,
-        isParent: row.isParent,
-        rendererFamily: getSectionParamUIRendererFamily(
-          codeObjImpl.type as CodeObjType,
-        ),
-      }),
-      depth: row.depth,
-      id: row.id,
-      label:
-        getParamDisplayNameIfPresent(projectState, sectionId, row.id) ?? row.id,
-      ports: edgeInputParamIds.has(row.id)
-        ? [{ id: row.id, kind: "input", side: "left" }]
-        : [],
-      state: {
-        dragging: draggingParamIds?.has(row.id) ?? false,
-        focused: isProjectGpuRetainedParamTargetForRow(
-          retainedInteractionState.activeParamDomIsland,
-          {
-            paramInfoId: row.id,
-            sectionId,
-            surfaceId,
-          },
-        ),
-        hovered: isProjectGpuRetainedParamTargetForRow(
-          retainedInteractionState.hoveredParamTarget,
-          {
-            paramInfoId: row.id,
-            sectionId,
-            surfaceId,
-          },
-        ),
-        error: (sectionParamTypeErrors[row.id]?.length ?? 0) > 0,
-        selected: selectedParamIds.has(row.id),
-      },
-    };
+    return createProjectGpuParamRowInput({
+      activeParamDomIsland: retainedInteractionState.activeParamDomIsland,
+      codeObjImpl,
+      draggingParamIds,
+      edgeInputParamIds,
+      hoveredParamTarget: retainedInteractionState.hoveredParamTarget,
+      projectSearch,
+      projectState,
+      row,
+      sectionId,
+      sectionParamTypeErrors,
+      selectedParamIds,
+      surfaceId,
+    });
   });
-}
-
-function isProjectGpuRetainedParamTargetForRow(
-  target: ProjectGpuRetainedParamTarget | null | undefined,
-  row: {
-    readonly paramInfoId: string;
-    readonly sectionId: string;
-    readonly surfaceId: string;
-  },
-): boolean {
-  return Boolean(
-    target &&
-      target.paramInfoId === row.paramInfoId &&
-      target.sectionId === row.sectionId &&
-      target.surfaceId === row.surfaceId,
-  );
-}
-
-function getProjectGpuParamControlKind({
-  fallbackType,
-  isParent,
-  rendererFamily,
-}: {
-  readonly fallbackType: CodeObjType;
-  readonly isParent: boolean;
-  readonly rendererFamily: SectionParamUIRendererFamily | null;
-}): string {
-  if (isParent) {
-    return "nested";
-  }
-  return rendererFamily ?? fallbackType;
 }
 
 function createProjectGpuParamListContentSurfaces({

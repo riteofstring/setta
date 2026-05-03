@@ -3,7 +3,6 @@ import {
   resolveEdgeStripInputPortAnchorLocalPosition,
   resolveEdgeStripOutputPortAnchorLocalPosition,
 } from "components/Params/edgeStripUtils";
-import type { Node } from "gpuFlow/flowTypes";
 import {
   EMPTY_GPU_FLOW_LAYOUT_NODES,
   useGpuFlowLayoutStoreNodes,
@@ -56,11 +55,13 @@ import {
 } from "state/actions/sections/sectionResizePolicy";
 import {
   useLocalStorage,
+  useProjectSearch,
   useProjectState,
   useResizeEvent,
   useSettings,
   useTemporaryMiscState,
   useTypeErrors,
+  type ZustandProjectSearch,
   type ZustandProjectState,
   type ZustandTypeErrors,
 } from "state/definitions";
@@ -80,6 +81,7 @@ import {
   type GroupSectionImpl,
   type ListRootSectionImpl,
 } from "utils/generatedTypes";
+import { getProjectGpuLayoutNode } from "./projectGpuLayoutNodeAdapter";
 import {
   createProjectGpuParamContentSurfaces,
   createProjectGpuParamDomIslands,
@@ -163,6 +165,12 @@ export function useProjectGpuLayoutAdapter({
   const resizeEventBySectionId = useResizeEvent((state) => state.resizeEvent);
   const measuredHeightsByKey = useTemporaryMiscState((state) => state);
   const typeErrors = useTypeErrors((state) => state.errors);
+  const projectSearchFocused = useProjectSearch((state) => state.focused);
+  const projectSearchLookup = useProjectSearch((state) => state.lookup);
+  const projectSearch = useMemo(
+    () => ({ focused: projectSearchFocused, lookup: projectSearchLookup }),
+    [projectSearchFocused, projectSearchLookup],
+  );
   const scene = useMemo(
     () =>
       getProjectGpuFlowScene(projectState, {
@@ -176,6 +184,7 @@ export function useProjectGpuLayoutAdapter({
         activeParamDomIsland,
         contentScrollOffsets,
         hoveredParamTarget,
+        projectSearch,
         retainedParamDragPreview,
         scrollOffsets: sceneScrollOffsets,
         typeErrors,
@@ -186,6 +195,7 @@ export function useProjectGpuLayoutAdapter({
       darkMode,
       hoveredParamTarget,
       measuredHeightsByKey,
+      projectSearch,
       projectState,
       retainedParamDragPreview,
       resizeEventBySectionId,
@@ -318,6 +328,9 @@ export function getProjectGpuFlowScene(
       | ProjectGpuRetainedParamTarget
       | null
       | undefined;
+    readonly projectSearch?:
+      | Pick<ZustandProjectSearch, "focused" | "lookup">
+      | undefined;
     readonly retainedParamDragPreview?:
       | ProjectGpuRetainedParamDragPreview
       | null
@@ -414,6 +427,7 @@ export function getProjectGpuFlowScene(
     hoveredParamTarget: options.hoveredParamTarget,
     measuredHeightsByKey: resizePolicyContext.measuredHeightsByKey,
     projectState,
+    projectSearch: options.projectSearch,
     retainedParamDragPreview: options.retainedParamDragPreview,
     sections: layoutScene.sections,
     typeErrors: options.typeErrors,
@@ -432,24 +446,6 @@ export function getProjectGpuFlowScene(
   };
 }
 
-export function getProjectGpuLayoutNodesFromNodeInternals(state: {
-  readonly x: ReadonlyMap<string, Node>;
-}): readonly GpuFlowLayoutNode[] {
-  return Array.from(state.x.values(), getProjectGpuLayoutNode);
-}
-
-export function getProjectGpuLayoutNode(node: Node): GpuFlowLayoutNode {
-  return {
-    height: node.height,
-    nodeId: node.id,
-    tempZIndex: node.tempZIndex,
-    width: node.width,
-    x: node.position.x,
-    y: node.position.y,
-    zIndex: node.zIndex,
-  };
-}
-
 function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
   if (projectGpuLayoutStoreSyncSubscriberCount === 0) {
     const projectState = useProjectState.getState();
@@ -457,6 +453,7 @@ function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
       gpuFlowLayoutStore,
       getProjectGpuFlowScene(projectState, {
         darkMode: useLocalStorage.getState().darkMode,
+        projectSearch: useProjectSearch.getState(),
         revision: getProjectGpuSceneRevision(projectState),
         typeErrors: useTypeErrors.getState().errors,
       }),

@@ -6,6 +6,8 @@ export type GpuRetainedContentRowState = {
   readonly error: boolean;
   readonly focused: boolean;
   readonly hovered: boolean;
+  readonly searchFocused: boolean;
+  readonly searchMatched: boolean;
   readonly selected: boolean;
 };
 
@@ -286,15 +288,38 @@ function createGpuRetainedContentRow({
       x: viewportRect.x + contentRect.x - scrollOffset.x,
       y: viewportRect.y + contentRect.y - scrollOffset.y,
     },
-    state: {
-      disabled: Boolean(input.state?.disabled),
-      dragging: dragging || Boolean(input.state?.dragging),
-      error: Boolean(input.state?.error),
-      focused: Boolean(input.state?.focused),
-      hovered: Boolean(input.state?.hovered),
-      selected: Boolean(input.state?.selected),
-    },
+    state: createGpuRetainedContentRowState(input.state, dragging),
   };
+}
+
+function createGpuRetainedContentRowState(
+  inputState: Partial<GpuRetainedContentRowState> | undefined,
+  dragging: boolean,
+): GpuRetainedContentRowState {
+  return {
+    disabled: getGpuRetainedContentRowStateFlag(inputState, "disabled"),
+    dragging:
+      dragging || getGpuRetainedContentRowStateFlag(inputState, "dragging"),
+    error: getGpuRetainedContentRowStateFlag(inputState, "error"),
+    focused: getGpuRetainedContentRowStateFlag(inputState, "focused"),
+    hovered: getGpuRetainedContentRowStateFlag(inputState, "hovered"),
+    searchFocused: getGpuRetainedContentRowStateFlag(
+      inputState,
+      "searchFocused",
+    ),
+    searchMatched: getGpuRetainedContentRowStateFlag(
+      inputState,
+      "searchMatched",
+    ),
+    selected: getGpuRetainedContentRowStateFlag(inputState, "selected"),
+  };
+}
+
+function getGpuRetainedContentRowStateFlag(
+  inputState: Partial<GpuRetainedContentRowState> | undefined,
+  key: keyof GpuRetainedContentRowState,
+): boolean {
+  return Boolean(inputState?.[key]);
 }
 
 function createGpuRetainedContentDrawCommands({

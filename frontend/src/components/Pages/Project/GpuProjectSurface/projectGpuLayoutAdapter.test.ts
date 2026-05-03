@@ -5,6 +5,7 @@ import { AGENTIC_EDGE_HANDLE_IDS } from "state/actions/agenticEdges";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
 import type { ZustandProjectState } from "state/definitions";
+import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
@@ -34,11 +35,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   getProjectGpuFlowScene,
-  getProjectGpuLayoutNode,
-  getProjectGpuLayoutNodesFromNodeInternals,
   resolveProjectGpuSceneSectionReveal,
   syncProjectGpuLayoutStoreFromScene,
 } from "./projectGpuLayoutAdapter";
+import {
+  getProjectGpuLayoutNode,
+  getProjectGpuLayoutNodesFromNodeInternals,
+} from "./projectGpuLayoutNodeAdapter";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuParamContentAdapter";
 
 describe("project GPU layout adapter", () => {
@@ -252,6 +255,17 @@ describe("project GPU layout adapter", () => {
 
     const scene = getProjectGpuFlowScene(projectState, {
       darkMode: false,
+      projectSearch: {
+        focused: {
+          name: "child",
+          paramInfoId: "child-param",
+          sectionId: "dict-a",
+        },
+        lookup: new Set([
+          createProjectSearchLookupKey("dict-a", "parent-param"),
+          createProjectSearchLookupKey("dict-a", "child-param"),
+        ]),
+      },
       revision: 2,
       typeErrors: {
         "dict-a": {
@@ -291,6 +305,8 @@ describe("project GPU layout adapter", () => {
         label: row.label,
         ports: row.ports,
         error: row.state.error,
+        searchFocused: row.state.searchFocused,
+        searchMatched: row.state.searchMatched,
         selected: row.state.selected,
       })),
     ).toEqual([
@@ -301,6 +317,8 @@ describe("project GPU layout adapter", () => {
         label: "parent-param",
         ports: [],
         error: false,
+        searchFocused: false,
+        searchMatched: true,
         selected: false,
       },
       {
@@ -310,6 +328,8 @@ describe("project GPU layout adapter", () => {
         label: "child-param",
         ports: [{ id: "child-param", kind: "input", side: "left" }],
         error: true,
+        searchFocused: true,
+        searchMatched: true,
         selected: true,
       },
     ]);
