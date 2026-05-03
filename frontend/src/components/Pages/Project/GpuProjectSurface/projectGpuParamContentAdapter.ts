@@ -411,7 +411,10 @@ function isProjectGpuParamDomIslandHitActive({
   readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly hit: GpuRetainedContentHitRecord;
   readonly projectState: ZustandProjectState;
-  readonly row: Pick<GpuRetainedContentRow, "controlKind" | "state">;
+  readonly row: Pick<
+    GpuRetainedContentRow,
+    "control" | "controlKind" | "state"
+  >;
 }): boolean {
   if (hit.kind === "control") {
     return isProjectGpuRetainedParamControlDomIslandActive({

@@ -10,7 +10,7 @@ import {
 
 type ProjectGpuRetainedParamControlRow = Pick<
   GpuRetainedContentRow,
-  "controlKind" | "state"
+  "control" | "controlKind" | "state"
 >;
 
 export function isProjectGpuRetainedParamControlDomIslandActive({
@@ -24,7 +24,10 @@ export function isProjectGpuRetainedParamControlDomIslandActive({
   readonly row: ProjectGpuRetainedParamControlRow;
   readonly sectionId: string;
 }): boolean {
-  if (row.state.disabled || !row.controlKind || row.controlKind === "nested") {
+  if (isProjectGpuRetainedParamControlInactive(row)) {
+    return false;
+  }
+  if (isProjectGpuRetainedParamControlCanvasOwned(row)) {
     return false;
   }
   if (row.controlKind !== "date-time") {
@@ -53,4 +56,16 @@ export function isProjectGpuRetainedParamControlDomIslandActive({
   throw new Error(
     `GPU retained date-time control ${paramInfoId} in section ${sectionId} resolved to unsupported param type ${codeObjImpl.type}.`,
   );
+}
+
+function isProjectGpuRetainedParamControlInactive(
+  row: ProjectGpuRetainedParamControlRow,
+): boolean {
+  return row.state.disabled || !row.controlKind || row.controlKind === "nested";
+}
+
+function isProjectGpuRetainedParamControlCanvasOwned(
+  row: ProjectGpuRetainedParamControlRow,
+): boolean {
+  return Boolean(row.control && row.control.commitPolicy !== "native-island");
 }

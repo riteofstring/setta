@@ -3,6 +3,7 @@ import {
   type SectionParamUIRendererFamily,
 } from "components/Params/ParamUIs/paramUIRendererMetadata";
 import type {
+  GpuRetainedContentControlDescriptor,
   GpuRetainedContentRowInput,
   GpuRetainedContentRowState,
 } from "gpuFlow/retainedContentScene";
@@ -12,7 +13,7 @@ import type {
   ZustandProjectState,
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
-import { type CodeObjType } from "utils/generatedTypes";
+import { CodeObjTypeEnum, type CodeObjType } from "utils/generatedTypes";
 
 export type ProjectGpuRetainedParamSearchState = Pick<
   ZustandProjectSearch,
@@ -50,7 +51,11 @@ export function createProjectGpuParamRowInput({
     | ProjectGpuRetainedParamTargetLike
     | null
     | undefined;
-  readonly codeObjImpl: { readonly type: string };
+  readonly codeObjImpl: {
+    readonly defaultVal?: unknown;
+    readonly type: string;
+    readonly value?: unknown;
+  };
   readonly disabled?: boolean | undefined;
   readonly draggingParamIds: ReadonlySet<string> | null;
   readonly edgeInputParamIds: ReadonlySet<string>;
@@ -69,11 +74,17 @@ export function createProjectGpuParamRowInput({
   readonly surfaceId: string;
 }): GpuRetainedContentRowInput {
   const codeObjType = codeObjImpl.type as CodeObjType;
+  const controlKind = getProjectGpuParamControlKind({
+    isParent: row.isParent,
+    rendererFamily: getSectionParamUIRendererFamily(codeObjType),
+  });
   return {
-    controlKind: getProjectGpuParamControlKind({
+    control: createProjectGpuParamControlDescriptor({
+      codeObjImpl,
+      controlKind,
       isParent: row.isParent,
-      rendererFamily: getSectionParamUIRendererFamily(codeObjType),
     }),
+    controlKind,
     depth: row.depth,
     id: row.id,
     label:
@@ -94,6 +105,46 @@ export function createProjectGpuParamRowInput({
       surfaceId,
     }),
   };
+}
+
+function createProjectGpuParamControlDescriptor({
+  codeObjImpl,
+  controlKind,
+  isParent,
+}: {
+  readonly codeObjImpl: {
+    readonly defaultVal?: unknown;
+    readonly type: string;
+    readonly value?: unknown;
+  };
+  readonly controlKind: string | null;
+  readonly isParent: boolean;
+}): GpuRetainedContentControlDescriptor | null {
+  if (!controlKind || isParent) {
+    return null;
+  }
+  if (codeObjImpl.type === CodeObjTypeEnum.SwitchParam) {
+    const displayValue = toProjectGpuParamDisplayValue(codeObjImpl.value);
+    return {
+      checked: isProjectGpuSwitchValueChecked(displayValue),
+      defaultDisplayValue: toProjectGpuParamDisplayValue(
+        codeObjImpl.defaultVal,
+      ),
+      displayValue,
+      kind: "switch",
+      rendererFamily: controlKind,
+      commitPolicy: "immediate",
+    };
+  }
+  return null;
+}
+
+function toProjectGpuParamDisplayValue(value: unknown): string {
+  return typeof value === "string" ? value : String(value ?? "");
+}
+
+function isProjectGpuSwitchValueChecked(value: string): boolean {
+  return value === "true";
 }
 
 function createProjectGpuParamRowState({

@@ -17,7 +17,30 @@ type GpuRetainedContentRowPortInput = {
   readonly side: "left" | "right";
 };
 
+export type GpuRetainedContentControlCommitPolicy =
+  | "immediate"
+  | "native-island"
+  | "preview-commit";
+
+export type GpuRetainedContentControlDescriptor =
+  | {
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "generic";
+      readonly rendererFamily: string;
+      readonly commitPolicy: GpuRetainedContentControlCommitPolicy;
+    }
+  | {
+      readonly checked: boolean;
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "switch";
+      readonly rendererFamily: string;
+      readonly commitPolicy: "immediate";
+    };
+
 export type GpuRetainedContentRowInput = {
+  readonly control?: GpuRetainedContentControlDescriptor | null | undefined;
   readonly controlKind: string | null;
   readonly depth: number;
   readonly id: string;
@@ -28,6 +51,7 @@ export type GpuRetainedContentRowInput = {
 
 export type GpuRetainedContentRow = {
   readonly contentRect: GpuRect;
+  readonly control: GpuRetainedContentControlDescriptor | null;
   readonly controlKind: string | null;
   readonly depth: number;
   readonly id: string;
@@ -61,6 +85,7 @@ export type GpuRetainedContentDrawCommand =
       readonly text: string;
     }
   | {
+      readonly control: GpuRetainedContentControlDescriptor;
       readonly controlKind: string;
       readonly kind: "row-control";
       readonly rect: GpuRect;
@@ -277,7 +302,8 @@ function createGpuRetainedContentRow({
   };
   return {
     contentRect,
-    controlKind: input.controlKind,
+    control: createGpuRetainedContentControl(input),
+    controlKind: input.control?.rendererFamily ?? input.controlKind,
     depth: input.depth,
     id: input.id,
     index,
@@ -379,9 +405,10 @@ function createGpuRetainedContentDrawCommands({
       rowId: row.id,
       text: row.label,
     });
-    if (row.controlKind) {
+    if (row.control) {
       commands.push({
-        controlKind: row.controlKind,
+        control: row.control,
+        controlKind: row.control.rendererFamily,
         kind: "row-control",
         rect: controlRect,
         rowId: row.id,
@@ -593,7 +620,7 @@ function createGpuRetainedContentHitRecords({
         rowRect: row.projectedRect,
       }),
     });
-    if (row.controlKind) {
+    if (row.control) {
       hitRecords.push({
         id: `control:${row.id}`,
         kind: "control",
@@ -653,6 +680,24 @@ function createGpuRetainedContentPortAnchors({
       };
     }),
   );
+}
+
+function createGpuRetainedContentControl(
+  input: GpuRetainedContentRowInput,
+): GpuRetainedContentControlDescriptor | null {
+  if (input.control) {
+    return input.control;
+  }
+  if (!input.controlKind) {
+    return null;
+  }
+  return {
+    defaultDisplayValue: "",
+    displayValue: input.controlKind,
+    kind: "generic",
+    rendererFamily: input.controlKind,
+    commitPolicy: "native-island",
+  };
 }
 
 function createGpuRetainedContentLabelRect({

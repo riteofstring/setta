@@ -47,12 +47,18 @@ import {
   createNestedParamCodeObjImpl,
   createProjectConfig,
   createSingleConfig,
+  createSwitchParamCodeObjImpl,
   createVariant,
   type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  callOpenAPIMock: vi.fn(async () => ({
+    data: null,
+    hasResponse: true,
+    status: 200,
+  })),
   paramInputActivationClick: vi.fn(),
   paramInputActivationMouseDown: vi.fn(),
   paramInputActivationPointerDown: vi.fn(),
@@ -69,6 +75,14 @@ const mocks = vi.hoisted(() => ({
   paramNameInputProps: vi.fn(),
   requestAnimationFrameMock: vi.fn(),
   cancelAnimationFrameMock: vi.fn(),
+  setActiveIdsMock: vi.fn((args: object) => ({
+    args,
+    route: "setActiveIds",
+  })),
+  setParamEnteredValueMock: vi.fn((args: object) => ({
+    args,
+    route: "setParamEnteredValue",
+  })),
   subscribeToGpuViewportRepositionMock: vi.fn(),
   unsubscribeViewportRepositionMock: vi.fn(),
 }));
@@ -164,6 +178,24 @@ vi.mock("components/Params/ParamItems/ParamNameInput", () => ({
   },
 }));
 
+vi.mock("openapi/http", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("openapi/http")>();
+  return {
+    ...actual,
+    setActiveIds: mocks.setActiveIdsMock,
+    setParamEnteredValue: mocks.setParamEnteredValueMock,
+  };
+});
+
+vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@setta/app-subsystem-frontend-sdk")>();
+  return {
+    ...actual,
+    callOpenAPI: mocks.callOpenAPIMock,
+  };
+});
+
 vi.mock("gpuFlow/viewportReposition", () => ({
   subscribeToGpuViewportReposition: () => {
     mocks.subscribeToGpuViewportRepositionMock();
@@ -218,6 +250,7 @@ describe("project GPU retained param DOM islands", () => {
     );
     vi.stubGlobal("requestAnimationFrame", mocks.requestAnimationFrameMock);
     vi.stubGlobal("cancelAnimationFrame", mocks.cancelAnimationFrameMock);
+    mocks.callOpenAPIMock.mockClear();
     mocks.paramInputProps.mockClear();
     mocks.paramInputActivationClick.mockClear();
     mocks.paramInputActivationMouseDown.mockClear();
@@ -227,6 +260,8 @@ describe("project GPU retained param DOM islands", () => {
     mocks.paramNameInputProps.mockClear();
     mocks.requestAnimationFrameMock.mockClear();
     mocks.cancelAnimationFrameMock.mockClear();
+    mocks.setActiveIdsMock.mockClear();
+    mocks.setParamEnteredValueMock.mockClear();
     mocks.subscribeToGpuViewportRepositionMock.mockClear();
     mocks.unsubscribeViewportRepositionMock.mockClear();
     useTypeErrors.setState({ errors: {}, userRequested: false });
@@ -666,6 +701,101 @@ describe("project GPU retained param DOM islands", () => {
     expect(onActiveParamDomIslandChange).not.toHaveBeenCalled();
   });
 
+  it("toggles retained switch controls from canvas without mounting a DOM island", async () => {
+    seedSwitchParamProjectState("false");
+    vi.useFakeTimers();
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 48,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            checked: false,
+            defaultDisplayValue: "false",
+            displayValue: "false",
+            kind: "switch",
+            rendererFamily: "switch",
+            commitPolicy: "immediate",
+          },
+          controlKind: "switch",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 160, x: 0, y: 0 },
+    });
+    const controlHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "control",
+    );
+    if (!controlHit) {
+      throw new Error("Expected retained control hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const event = {
+      hit: controlHit,
+      localPoint: { x: 140, y: 14 },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 140, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    try {
+      expect(options.shouldHandleHit?.(event)).toBe(true);
+      options.onHitClick(event);
+
+      expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+      expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          paramInfoId: "param-1",
+        }),
+      );
+
+      await act(async () => {
+        vi.advanceTimersByTime(60);
+        await Promise.resolve();
+      });
+
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: expect.any(String),
+          paramInfoId: "param-1",
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-1-variant",
+          value: "true",
+        },
+      });
+      expect(
+        useProjectState.getState().codeObjImpls["param-1-impl"]?.value,
+      ).toBe("true");
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
   it("does not activate retained param name islands when structure edits are disabled", () => {
     seedNestedParamNameProjectState();
     const onActiveParamDomIslandChange = vi.fn();
@@ -978,6 +1108,111 @@ function retainedParamNameIsland(): GpuDomIsland {
     },
     zIndex: 3,
   };
+}
+
+function seedSwitchParamProjectState(value: string) {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [paramImplId]: createSwitchParamCodeObjImpl({
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          defaultVal: "false",
+          description: "",
+          id: paramImplId,
+          isPreset: false,
+          name: "param-1",
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.SwitchParam,
+          typeAnnotation: "",
+          value,
+        }),
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: [],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
 }
 
 function seedTimeParamProjectState(

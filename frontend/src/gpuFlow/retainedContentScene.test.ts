@@ -200,6 +200,52 @@ describe("retained content scene", () => {
     );
   });
 
+  it("retains concrete switch control descriptors for canvas handlers", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("switch-param", {
+          control: {
+            checked: true,
+            defaultDisplayValue: "false",
+            displayValue: "true",
+            kind: "switch",
+            rendererFamily: "switch",
+            commitPolicy: "immediate",
+          },
+          controlKind: "switch",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 24, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.control).toEqual({
+      checked: true,
+      defaultDisplayValue: "false",
+      displayValue: "true",
+      kind: "switch",
+      rendererFamily: "switch",
+      commitPolicy: "immediate",
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          control: expect.objectContaining({
+            checked: true,
+            kind: "switch",
+            commitPolicy: "immediate",
+          }),
+          controlKind: "switch",
+          kind: "row-control",
+          rowId: "switch-param",
+        }),
+      ]),
+    );
+  });
+
   it("emits inset drop markers for retained inside-row drops", () => {
     const scene = createGpuRetainedRowContentScene({
       dragPreview: {

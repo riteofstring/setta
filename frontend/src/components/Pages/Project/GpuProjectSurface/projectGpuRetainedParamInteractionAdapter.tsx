@@ -2,6 +2,10 @@ import { ParamDuplicateIndexProvider } from "components/Params/ParamDuplicateInd
 import { ParamInput } from "components/Params/ParamItems/ParamInput";
 import { ParamNameInput } from "components/Params/ParamItems/ParamNameInput";
 import {
+  commitParamInputValueChange,
+  getParamInputPreviewState,
+} from "components/Params/ParamItems/paramValueUpdates";
+import {
   resolveParamBackgroundClass,
   resolveParamBorderClass,
 } from "components/Params/paramRowAppearance";
@@ -18,6 +22,7 @@ import type {
   GpuScenePortConnectionOptions,
   GpuScenePortConnectionStart,
 } from "gpuFlow/interactions/scenePortConnection";
+import type { GpuRetainedContentRow } from "gpuFlow/retainedContentScene";
 import {
   resolveGpuRetainedContentDragAutoScroll,
   type GpuRetainedContentScrollOffsetMap,
@@ -336,6 +341,7 @@ function handleProjectRetainedContentClick(
     return;
   }
   if (
+    !isProjectRetainedParamCanvasControlHit(event) &&
     !isProjectRetainedParamControlActivationHit(event) &&
     !isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
   ) {
@@ -345,6 +351,10 @@ function handleProjectRetainedContentClick(
     interaction: "input-focus",
     sectionId: event.ownerSectionId,
   });
+  if (handleProjectRetainedContentCanvasControlClick(event)) {
+    onActiveParamDomIslandChange(null);
+    return;
+  }
   flushSync(() => {
     onActiveParamDomIslandChange({
       activation: {
@@ -359,6 +369,56 @@ function handleProjectRetainedContentClick(
       sectionId: event.ownerSectionId,
       surfaceId: event.surfaceId,
     });
+  });
+}
+
+function handleProjectRetainedContentCanvasControlClick(
+  event: GpuRetainedContentInteractionEvent,
+): boolean {
+  if (event.hit.kind !== "control") {
+    return false;
+  }
+  const row = getProjectRetainedContentHitRow(event);
+  if (!row?.control || row.state.disabled) {
+    return false;
+  }
+  if (row.control.kind === "switch") {
+    commitProjectRetainedSwitchParamClick({
+      checked: row.control.checked,
+      paramInfoId: event.hit.ownerRowId,
+      sectionId: event.ownerSectionId,
+    });
+    return true;
+  }
+  return false;
+}
+
+function commitProjectRetainedSwitchParamClick({
+  checked,
+  paramInfoId,
+  sectionId,
+}: {
+  readonly checked: boolean;
+  readonly paramInfoId: string;
+  readonly sectionId: string;
+}) {
+  const projectState = useProjectState.getState();
+  const previewState = getParamInputPreviewState(
+    projectState,
+    sectionId,
+    paramInfoId,
+  );
+  if (!previewState) {
+    throw new Error(
+      `Missing GPU retained switch param ${paramInfoId} in section ${sectionId}.`,
+    );
+  }
+  commitParamInputValueChange({
+    nextValue: checked ? "false" : "true",
+    paramInfoId,
+    previousValue: previewState.baseValue,
+    previewState,
+    sectionId,
   });
 }
 
@@ -560,6 +620,7 @@ function shouldHandleProjectRetainedContentHit(
 ): boolean {
   return (
     useMisc.getState().isSelectingParams ||
+    isProjectRetainedParamCanvasControlHit(event) ||
     isProjectRetainedParamControlActivationHit(event) ||
     isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
   );
@@ -571,9 +632,7 @@ function isProjectRetainedParamControlActivationHit(
   if (event.hit.kind !== "control") {
     return false;
   }
-  const row = event.retainedScene.rows.find(
-    (candidate) => candidate.id === event.hit.ownerRowId,
-  );
+  const row = getProjectRetainedContentHitRow(event);
   return Boolean(
     row &&
       isProjectGpuRetainedParamControlDomIslandActive({
@@ -582,6 +641,29 @@ function isProjectRetainedParamControlActivationHit(
         row,
         sectionId: event.ownerSectionId,
       }),
+  );
+}
+
+function isProjectRetainedParamCanvasControlHit(
+  event: GpuRetainedContentInteractionHit,
+): boolean {
+  if (event.hit.kind !== "control") {
+    return false;
+  }
+  const row = getProjectRetainedContentHitRow(event);
+  return Boolean(
+    row &&
+      !row.state.disabled &&
+      row.control &&
+      row.control.commitPolicy !== "native-island",
+  );
+}
+
+function getProjectRetainedContentHitRow(
+  event: GpuRetainedContentInteractionHit,
+): GpuRetainedContentRow | undefined {
+  return event.retainedScene.rows.find(
+    (candidate) => candidate.id === event.hit.ownerRowId,
   );
 }
 
