@@ -1,0 +1,614 @@
+import { GetParamSwitch } from "components/Params/GetParamSwitch";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { type ParamListKey } from "forks/dnd-kit/paramDndState";
+import _ from "lodash";
+import React from "react";
+import { BiError } from "react-icons/bi";
+import { openTypeErrorContextMenu } from "state/actions/contextMenus";
+import { getCurrEffectiveCodeObjImplIfPresent } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
+import { useParamDndChildrenForParent } from "./ParamDndContext";
+import { ParamInput } from "./ParamItems/ParamInput";
+import { ResizeHandle } from "./ResizeHandle";
+
+const NESTED_CHILD_ROWS_CLASS_NAME =
+  "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
+const GPU_FLOW_PARAM_ROW_CLASS_NAME = `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+
+type ParamCoreLike = {
+  displayName: string;
+  name: string;
+};
+
+type ParamContainerLayout = "leaf" | "nested-child" | "nested-root";
+
+type ParamContainerProps = {
+  sectionId: string;
+  paramInfoId: string;
+  requiredParamIdsToPaths: Record<string, string[]>;
+  children: React.ReactNode;
+  onResizeStart: React.MouseEventHandler;
+  isKwarg: boolean;
+  isNestedParam: boolean;
+  hasSectionStyleTheme: boolean;
+  isTopLevelWithPad?: boolean;
+  paramChildren: string[];
+  onMouseDown?: React.MouseEventHandler<HTMLElement>;
+  onClick?: React.MouseEventHandler<HTMLElement>;
+  maybeErrorMessage?: string;
+  border: string;
+  bg: string;
+  dndAttributes?: Record<string, unknown>;
+  dndListeners?: Record<string, unknown>;
+  dndRef?: React.Ref<HTMLElement>;
+  dndStyle?: React.CSSProperties;
+  dndClassName?: string;
+  listKey: ParamListKey;
+};
+
+type ParamArticleProps = {
+  articleClassName: string;
+  articleStyle: React.CSSProperties;
+  children: React.ReactNode;
+  dndAttributes?: Record<string, unknown>;
+  dndListeners?: Record<string, unknown>;
+  dndRef?: React.Ref<HTMLElement>;
+  floatingBoxHandlers?: Record<string, unknown>;
+  onClick?: React.MouseEventHandler<HTMLElement>;
+  onMouseDown?: React.MouseEventHandler<HTMLElement>;
+  paramInfoId: string;
+  sectionId: string;
+};
+
+type ParamInputAccessoriesProps = {
+  errorMessage: string;
+  hasError: boolean;
+  onResizeStart: React.MouseEventHandler;
+  paramInfoId: string;
+  sectionId: string;
+};
+
+type ParamLeadingContentProps = {
+  children: React.ReactNode;
+  columnWidth: string;
+  isKwarg: boolean;
+};
+
+type ParamNestedChildrenProps = {
+  hasSectionStyleTheme: boolean;
+  listKey: ParamListKey;
+  onResizeStart: React.MouseEventHandler;
+  renderChildren: string[];
+  requiredParamIdsToPaths: Record<string, string[]>;
+  sectionId: string;
+};
+
+type ParamLeafRowProps = ParamLeadingContentProps &
+  ParamInputAccessoriesProps & {
+    articleProps: ParamArticleProps;
+  };
+
+type ParamNestedRootRowProps = ParamLeafRowProps & {
+  nestedChildrenProps: ParamNestedChildrenProps;
+};
+
+type ParamNestedChildRowProps = ParamNestedChildrenProps & {
+  articleProps: ParamArticleProps;
+  children: React.ReactNode;
+};
+
+type ParamArticleStyleProps = Pick<
+  ParamContainerProps,
+  "bg" | "border" | "dndClassName" | "dndStyle"
+> & {
+  columnWidth: string;
+  paramHoverClassName: string;
+};
+
+type ParamRowRenderProps = {
+  articleProps: Omit<ParamArticleProps, "articleClassName" | "articleStyle">;
+  children: React.ReactNode;
+  columnWidth: string;
+  errorMessage: string;
+  hasError: boolean;
+  isKwarg: boolean;
+  isTopLevelWithPad: boolean;
+  layout: ParamContainerLayout;
+  nestedChildrenProps: ParamNestedChildrenProps;
+  onResizeStart: React.MouseEventHandler;
+  paramStyleProps: ParamArticleStyleProps;
+  paramInfoId: string;
+  sectionId: string;
+};
+
+function resolveParamName({
+  codeObjImpl,
+  paramCore,
+  paramInfoId,
+  showParamDisplayNames,
+}: {
+  codeObjImpl: unknown;
+  paramCore?: ParamCoreLike;
+  paramInfoId: string;
+  showParamDisplayNames: boolean;
+}) {
+  if (!paramCore) {
+    return paramInfoId;
+  }
+  if (!showParamDisplayNames) {
+    return paramCore.name;
+  }
+  if (
+    codeObjImpl &&
+    isBaseParamCodeObjImpl(codeObjImpl) &&
+    codeObjImpl.coreNameEditable
+  ) {
+    return paramCore.name;
+  }
+  return paramCore.displayName.trim().length > 0
+    ? paramCore.displayName
+    : paramCore.name;
+}
+
+function buildParamTooltipContents({
+  errorMessage,
+  paramDescription,
+  paramName,
+}: {
+  errorMessage: string;
+  paramDescription: string;
+  paramName: string;
+}) {
+  if (errorMessage.length === 0) {
+    return [{ title: paramName, content: paramDescription }];
+  }
+  return [
+    {
+      content: errorMessage,
+      wrapperClassName:
+        "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent",
+      contentClassName: "!text-red-700 dark:!text-red-300 font-mono",
+    },
+    {
+      title: paramName,
+      content: paramDescription,
+    },
+  ];
+}
+
+function resolveParamContainerLayout({
+  hasChildRows,
+  isNestedParam,
+}: {
+  hasChildRows: boolean;
+  isNestedParam: boolean;
+}): ParamContainerLayout {
+  if (isNestedParam) {
+    return "nested-child";
+  }
+  return hasChildRows ? "nested-root" : "leaf";
+}
+
+function getParamHoverClassName(hasSectionStyleTheme: boolean) {
+  return hasSectionStyleTheme
+    ? "hover:bg-[color:var(--setta-section-style-border)]"
+    : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+}
+
+function buildLeafArticleProps({
+  bg,
+  border,
+  columnWidth,
+  dndClassName,
+  dndStyle,
+  paramHoverClassName,
+}: ParamArticleStyleProps) {
+  return {
+    articleClassName: `section-key-value group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`,
+    articleStyle: {
+      gridTemplateColumns: `minmax(min-content, ${columnWidth}) 0.75rem minmax(0, 1fr)`,
+      gridTemplateAreas: `"key center-gutter value"`,
+      ...(dndStyle ?? {}),
+    },
+  };
+}
+
+function buildNestedRootArticleProps({
+  bg,
+  border,
+  columnWidth,
+  dndClassName,
+  dndStyle,
+  paramHoverClassName,
+}: ParamArticleStyleProps) {
+  return {
+    articleClassName: `section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`,
+    articleStyle: {
+      gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+      ...(dndStyle ?? {}),
+    },
+  };
+}
+
+function buildNestedChildArticleProps({
+  bg,
+  border,
+  columnWidth,
+  dndClassName,
+  dndStyle,
+  isTopLevelWithPad,
+  paramHoverClassName,
+}: ParamArticleStyleProps & { isTopLevelWithPad: boolean }) {
+  return {
+    articleClassName: `section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`,
+    articleStyle: {
+      gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+      ...(dndStyle ?? {}),
+    },
+  };
+}
+
+function ParamRowArticle({
+  articleClassName,
+  articleStyle,
+  children,
+  dndAttributes,
+  dndListeners,
+  dndRef,
+  floatingBoxHandlers,
+  onClick,
+  onMouseDown,
+  paramInfoId,
+  sectionId,
+}: ParamArticleProps) {
+  return (
+    <article
+      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+      className={`${GPU_FLOW_PARAM_ROW_CLASS_NAME} ${articleClassName}`}
+      style={articleStyle}
+      data-gpu-flow-control={`param-row:${sectionId}:${paramInfoId}`}
+      data-gpu-flow-interactive="true"
+      data-param-row="true"
+      {...(floatingBoxHandlers as React.HTMLAttributes<HTMLElement>)}
+      onMouseDownCapture={onMouseDown}
+      onClick={onClick}
+      ref={dndRef}
+      {...(dndAttributes as React.HTMLAttributes<HTMLElement>)}
+      {...(dndListeners as React.HTMLAttributes<HTMLElement>)}
+      tabIndex={-1}
+      role={undefined}
+    >
+      {children}
+    </article>
+  );
+}
+
+function ParamLeadingContent({
+  children,
+  columnWidth,
+  isKwarg,
+}: ParamLeadingContentProps) {
+  if (isKwarg) {
+    return <>{children}</>;
+  }
+  return (
+    <div className="section-key overflow-hidden" style={{ width: columnWidth }}>
+      {children}
+    </div>
+  );
+}
+
+function ParamInputAccessories({
+  errorMessage,
+  hasError,
+  onResizeStart,
+  paramInfoId,
+  sectionId,
+}: ParamInputAccessoriesProps) {
+  return (
+    <>
+      <ParamInput
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        maybeErrorMessage={errorMessage}
+      />
+      <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+      {hasError && (
+        <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
+      )}
+    </>
+  );
+}
+
+function ParamNestedChildren({
+  hasSectionStyleTheme,
+  listKey,
+  onResizeStart,
+  renderChildren,
+  requiredParamIdsToPaths,
+  sectionId,
+}: ParamNestedChildrenProps) {
+  if (renderChildren.length === 0) {
+    return null;
+  }
+  return (
+    <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
+      <GetParamSwitch
+        sectionId={sectionId}
+        paramIds={renderChildren}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        onResizeStart={onResizeStart}
+        listKey={listKey}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    </div>
+  );
+}
+
+function ParamLeafRow({
+  articleProps,
+  children,
+  columnWidth,
+  errorMessage,
+  hasError,
+  isKwarg,
+  onResizeStart,
+  paramInfoId,
+  sectionId,
+}: ParamLeafRowProps) {
+  return (
+    <ParamRowArticle {...articleProps}>
+      <ParamLeadingContent
+        children={children}
+        columnWidth={columnWidth}
+        isKwarg={isKwarg}
+      />
+      <ParamInputAccessories
+        errorMessage={errorMessage}
+        hasError={hasError}
+        onResizeStart={onResizeStart}
+        paramInfoId={paramInfoId}
+        sectionId={sectionId}
+      />
+    </ParamRowArticle>
+  );
+}
+
+function ParamNestedRootRow({
+  articleProps,
+  children,
+  columnWidth,
+  errorMessage,
+  hasError,
+  isKwarg,
+  nestedChildrenProps,
+  onResizeStart,
+  paramInfoId,
+  sectionId,
+}: ParamNestedRootRowProps) {
+  return (
+    <ParamRowArticle {...articleProps}>
+      <ParamLeadingContent
+        children={children}
+        columnWidth={columnWidth}
+        isKwarg={isKwarg}
+      />
+      <ParamInputAccessories
+        errorMessage={errorMessage}
+        hasError={hasError}
+        onResizeStart={onResizeStart}
+        paramInfoId={paramInfoId}
+        sectionId={sectionId}
+      />
+      <ParamNestedChildren {...nestedChildrenProps} />
+    </ParamRowArticle>
+  );
+}
+
+function ParamNestedChildRow({
+  articleProps,
+  children,
+  nestedChildrenProps,
+}: ParamNestedChildRowProps) {
+  return (
+    <ParamRowArticle {...articleProps}>
+      {children}
+      <ParamNestedChildren {...nestedChildrenProps} />
+    </ParamRowArticle>
+  );
+}
+
+function renderParamContainerRow({
+  articleProps,
+  children,
+  columnWidth,
+  errorMessage,
+  hasError,
+  isKwarg,
+  isTopLevelWithPad,
+  layout,
+  nestedChildrenProps,
+  onResizeStart,
+  paramStyleProps,
+  paramInfoId,
+  sectionId,
+}: ParamRowRenderProps) {
+  if (layout === "leaf") {
+    return (
+      <ParamLeafRow
+        articleProps={{
+          ...articleProps,
+          ...buildLeafArticleProps(paramStyleProps),
+        }}
+        children={children}
+        columnWidth={columnWidth}
+        errorMessage={errorMessage}
+        hasError={hasError}
+        isKwarg={isKwarg}
+        onResizeStart={onResizeStart}
+        paramInfoId={paramInfoId}
+        sectionId={sectionId}
+      />
+    );
+  }
+  if (layout === "nested-root") {
+    return (
+      <ParamNestedRootRow
+        articleProps={{
+          ...articleProps,
+          ...buildNestedRootArticleProps(paramStyleProps),
+        }}
+        children={children}
+        columnWidth={columnWidth}
+        errorMessage={errorMessage}
+        hasError={hasError}
+        isKwarg={isKwarg}
+        nestedChildrenProps={nestedChildrenProps}
+        onResizeStart={onResizeStart}
+        paramInfoId={paramInfoId}
+        sectionId={sectionId}
+      />
+    );
+  }
+  return (
+    <ParamNestedChildRow
+      articleProps={{
+        ...articleProps,
+        ...buildNestedChildArticleProps({
+          ...paramStyleProps,
+          isTopLevelWithPad,
+        }),
+      }}
+      children={children}
+      nestedChildrenProps={nestedChildrenProps}
+    />
+  );
+}
+
+function _ParamContainer({
+  sectionId,
+  paramInfoId,
+  requiredParamIdsToPaths,
+  children,
+  onResizeStart,
+  isKwarg,
+  isNestedParam,
+  hasSectionStyleTheme,
+  isTopLevelWithPad = false,
+  paramChildren,
+  onMouseDown,
+  onClick,
+  maybeErrorMessage,
+  border,
+  bg,
+  dndAttributes,
+  dndListeners,
+  dndRef,
+  dndStyle,
+  dndClassName,
+  listKey,
+}: ParamContainerProps) {
+  const codeObjImpl = useProjectState((x) =>
+    getCurrEffectiveCodeObjImplIfPresent(x, sectionId, paramInfoId),
+  );
+  const paramCore = useProjectState((x) => x.codeObjs[paramInfoId]);
+  const showParamDisplayNames = useProjectState(
+    (x) => x.projectConfig.showParamDisplayNames,
+  );
+  const renderChildren = useParamDndChildrenForParent(
+    paramInfoId,
+    paramChildren,
+  );
+
+  if (codeObjImpl === null || paramCore === undefined) {
+    return null;
+  }
+
+  const columnWidth = "var(--param-column-width, 200px)";
+  const errorMessage = maybeErrorMessage ?? "";
+  const hasError = errorMessage.length > 0;
+  const paramDescription = codeObjImpl.description ?? "";
+  const paramName = resolveParamName({
+    codeObjImpl,
+    paramCore,
+    paramInfoId,
+    showParamDisplayNames,
+  });
+  const floatingBoxHandlers = getFloatingBoxHandlers(
+    ...buildParamTooltipContents({
+      errorMessage,
+      paramDescription,
+      paramName,
+    }),
+  );
+  const paramHoverClassName = getParamHoverClassName(hasSectionStyleTheme);
+  const articleProps = {
+    dndAttributes,
+    dndListeners,
+    dndRef,
+    floatingBoxHandlers,
+    onClick,
+    onMouseDown,
+    paramInfoId,
+    sectionId,
+  };
+  const nestedChildrenProps = {
+    hasSectionStyleTheme,
+    listKey,
+    onResizeStart,
+    renderChildren,
+    requiredParamIdsToPaths,
+    sectionId,
+  };
+  const layout = resolveParamContainerLayout({
+    hasChildRows: renderChildren.length > 0,
+    isNestedParam,
+  });
+  const paramStyleProps = {
+    bg,
+    border,
+    columnWidth,
+    dndClassName,
+    dndStyle,
+    paramHoverClassName,
+  };
+
+  return renderParamContainerRow({
+    articleProps,
+    children,
+    columnWidth,
+    errorMessage,
+    hasError,
+    isKwarg,
+    isTopLevelWithPad,
+    layout,
+    nestedChildrenProps,
+    onResizeStart,
+    paramStyleProps,
+    paramInfoId,
+    sectionId,
+  });
+}
+
+export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
+
+function ErrorSection({
+  sectionId,
+  paramInfoId,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+}) {
+  function onContextMenu(e: React.MouseEvent<SVGElement>) {
+    openTypeErrorContextMenu(e, sectionId, paramInfoId);
+  }
+
+  return (
+    <BiError
+      className="section-key-value grid-row-start-1 group/ w-45overflow-y-clip ml-auto aspect-square  cursor-help rounded-full bg-red-500/80 px-0.5 pb-0.5 pt-[1px] text-white  peer-focus-within/textinput:text-red-100 peer-focus-within/textinput:!opacity-20 dark:bg-red-700/80 dark:peer-focus-within/textinput:text-red-400"
+      onContextMenu={onContextMenu}
+    />
+  );
+}
