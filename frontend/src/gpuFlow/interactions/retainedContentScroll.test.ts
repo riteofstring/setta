@@ -116,6 +116,42 @@ describe("GPU retained content scroll controller", () => {
 
     cleanup();
   });
+
+  it("does not preserve generic source-surface interactive wheel targets", () => {
+    const element = document.createElement("div");
+    const { root, target } = createMarkedWheelTarget(
+      "data-gpu-flow-interactive",
+      "button",
+    );
+    element.append(root);
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    target.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
+
+    cleanup();
+  });
 });
 
 type PreservedWheelTargetFixture = {
@@ -130,10 +166,6 @@ const preservedWheelTargetCases: readonly [
   [
     "native input targets inside explicit DOM island wrappers",
     () => createMarkedWheelTarget("data-gpu-flow-dom-island", "input"),
-  ],
-  [
-    "custom interactive controls",
-    () => createMarkedWheelTarget("data-gpu-flow-interactive", "button"),
   ],
   [
     "retained native portal roots",

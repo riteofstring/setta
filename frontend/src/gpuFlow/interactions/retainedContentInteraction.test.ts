@@ -343,22 +343,22 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
-  it("preserves native active DOM island targets", () => {
+  it("preserves explicit retained native targets", () => {
     const element = createHostElement();
     const domIsland = document.createElement("div");
     domIsland.dataset.gpuFlowDomIsland = "true";
     const domIslandInput = document.createElement("input");
     domIsland.append(domIslandInput);
-    const interactiveControl = document.createElement("div");
-    interactiveControl.dataset.gpuFlowInteractive = "true";
-    const interactiveButton = document.createElement("button");
-    interactiveControl.append(interactiveButton);
+    const explicitNativeTarget = document.createElement("div");
+    explicitNativeTarget.dataset.gpuFlowRetainedContentNative = "true";
+    const explicitNativeButton = document.createElement("button");
+    explicitNativeTarget.append(explicitNativeButton);
     const portalRoot = document.createElement("div");
     portalRoot.dataset.gpuFlowPortalRoot = "true";
     portalRoot.dataset.gpuFlowRetainedContentNative = "true";
     const portalOption = document.createElement("button");
     portalRoot.append(portalOption);
-    element.append(domIsland, interactiveControl, portalRoot);
+    element.append(domIsland, explicitNativeTarget, portalRoot);
     const onHitClick = vi.fn();
     const onPointerDownMiss = vi.fn();
     const cleanup = attachGpuRetainedContentInteractionController({
@@ -369,7 +369,11 @@ describe("GPU retained content interaction controller", () => {
       store: createGpuFlowViewportStore(),
     });
 
-    const preservedTargets = [domIslandInput, interactiveButton, portalOption];
+    const preservedTargets = [
+      domIslandInput,
+      explicitNativeButton,
+      portalOption,
+    ];
     for (const [index, target] of preservedTargets.entries()) {
       const pointerDown = createPointerEvent("pointerdown", {
         clientX: 20,
@@ -381,6 +385,37 @@ describe("GPU retained content interaction controller", () => {
       expect(pointerDown.defaultPrevented).toBe(false);
     }
     expect(onHitClick).not.toHaveBeenCalled();
+    expect(onPointerDownMiss).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("does not preserve generic source-surface interactive targets", () => {
+    const element = createHostElement();
+    const interactiveControl = document.createElement("div");
+    interactiveControl.dataset.gpuFlowInteractive = "true";
+    const interactiveButton = document.createElement("button");
+    interactiveControl.append(interactiveButton);
+    element.append(interactiveControl);
+    const onHitPointerDown = vi.fn();
+    const onPointerDownMiss = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitPointerDown,
+      onPointerDownMiss,
+      store: createGpuFlowViewportStore(),
+    });
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 20,
+      clientY: 14,
+      pointerId: 1,
+    });
+    interactiveButton.dispatchEvent(pointerDown);
+
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(onHitPointerDown).toHaveBeenCalledTimes(1);
     expect(onPointerDownMiss).not.toHaveBeenCalled();
 
     cleanup();

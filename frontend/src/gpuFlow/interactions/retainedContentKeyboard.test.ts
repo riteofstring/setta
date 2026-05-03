@@ -56,22 +56,22 @@ describe("GPU retained content keyboard controller", () => {
     cleanup();
   });
 
-  it("preserves native keyboard targets", () => {
+  it("preserves explicit retained native keyboard targets", () => {
     const element = createHostElement();
     const domIsland = document.createElement("div");
     domIsland.dataset.gpuFlowDomIsland = "true";
     const domIslandInput = document.createElement("input");
     domIsland.append(domIslandInput);
-    const interactiveControl = document.createElement("div");
-    interactiveControl.dataset.gpuFlowInteractive = "true";
-    const interactiveButton = document.createElement("button");
-    interactiveControl.append(interactiveButton);
+    const explicitNativeTarget = document.createElement("div");
+    explicitNativeTarget.dataset.gpuFlowRetainedContentNative = "true";
+    const explicitNativeButton = document.createElement("button");
+    explicitNativeTarget.append(explicitNativeButton);
     const portalRoot = document.createElement("div");
     portalRoot.dataset.gpuFlowPortalRoot = "true";
     portalRoot.dataset.gpuFlowRetainedContentNative = "true";
     const portalOption = document.createElement("button");
     portalRoot.append(portalOption);
-    element.append(domIsland, interactiveControl, portalRoot);
+    element.append(domIsland, explicitNativeTarget, portalRoot);
     const onNavigation = vi.fn();
     const cleanup = attachGpuRetainedContentKeyboardController({
       element,
@@ -85,7 +85,11 @@ describe("GPU retained content keyboard controller", () => {
       onNavigation,
     });
 
-    const preservedTargets = [domIslandInput, interactiveButton, portalOption];
+    const preservedTargets = [
+      domIslandInput,
+      explicitNativeButton,
+      portalOption,
+    ];
     for (const target of preservedTargets) {
       const event = createKeyboardEvent("ArrowDown");
       target.dispatchEvent(event);
@@ -93,6 +97,35 @@ describe("GPU retained content keyboard controller", () => {
       expect(event.defaultPrevented).toBe(false);
     }
     expect(onNavigation).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("does not preserve generic source-surface interactive keyboard targets", () => {
+    const element = createHostElement();
+    const interactiveControl = document.createElement("div");
+    interactiveControl.dataset.gpuFlowInteractive = "true";
+    const interactiveButton = document.createElement("button");
+    interactiveControl.append(interactiveButton);
+    element.append(interactiveControl);
+    const onNavigation = vi.fn();
+    const cleanup = attachGpuRetainedContentKeyboardController({
+      element,
+      getCurrentTarget: () => ({
+        ownerSectionId: "dict-a",
+        rowId: "param-2",
+        surfaceId: "dict-a:param-content:unpinned",
+      }),
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => new Map(),
+      onNavigation,
+    });
+
+    const event = createKeyboardEvent("ArrowDown");
+    interactiveButton.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(onNavigation).toHaveBeenCalledTimes(1);
 
     cleanup();
   });

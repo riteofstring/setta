@@ -141,6 +141,36 @@ describe("GPU retained content connection controller", () => {
     detach();
   });
 
+  it("does not preserve generic source-surface interactive targets for retained ports", () => {
+    const { element } = createGpuFlowSurface();
+    const interactiveTarget = document.createElement("button");
+    interactiveTarget.dataset.gpuFlowInteractive = "true";
+    element.append(interactiveTarget);
+    const store = createGpuFlowViewportStore({
+      transform: [10, -20, 2],
+    });
+    store.getState().setDomNode(element);
+    const layoutStore = createGpuFlowLayoutStore();
+    const detach = attachGpuRetainedContentConnectionController({
+      element,
+      getScene: () => createFlowScene(),
+      layoutStore,
+      onConnect: vi.fn(),
+      store,
+    });
+
+    const prevented = !dispatchPointer(interactiveTarget, "pointerdown", {
+      button: 0,
+      clientX: 190,
+      clientY: 90,
+      pointerId: 1,
+    });
+
+    expect(prevented).toBe(true);
+    expect(handlePointerDownMock).toHaveBeenCalledTimes(1);
+    detach();
+  });
+
   it("ignores disabled, non-primary, non-port, and native retained targets", () => {
     const { element, surface } = createGpuFlowSurface();
     const store = createGpuFlowViewportStore({
