@@ -96,6 +96,7 @@ import {
   getVisibleProjectSurfaceWidth,
   handleProjectNodeDrag,
   handleProjectNodeDragCancel,
+  handleProjectNodeDragFrame,
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
   handleProjectSelectionChange,
@@ -587,6 +588,8 @@ function getProjectNodeDragOptions({
     onNodeDrag: (change) => handleProjectNodeDrag(layoutStore, change, scene),
     onNodeDragCancel: (change) =>
       handleProjectNodeDragCancel(layoutStore, change, scene),
+    onNodeDragFrame: (change) =>
+      handleProjectNodeDragFrame(layoutStore, change, scene),
     onNodeDragStart: (change) =>
       handleProjectNodeDragStart(layoutStore, change),
     onNodeDragStop: (change) =>

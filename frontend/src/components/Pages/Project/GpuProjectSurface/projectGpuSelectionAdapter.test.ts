@@ -29,6 +29,7 @@ import {
   canDragProjectNode,
   handleProjectNodeDrag,
   handleProjectNodeDragCancel,
+  handleProjectNodeDragFrame,
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
   handleProjectSelectionDragStart,
@@ -583,6 +584,96 @@ describe("GPU project selection adapter", () => {
       },
     });
     expect(callOpenAPIMock).not.toHaveBeenCalled();
+  });
+
+  it("autoscrolls nested drag previews through renderer-owned child viewport offsets", () => {
+    loadProjectStateForSections([
+      {
+        children: ["child-a", "child-b", "child-c", "child-d"],
+        id: "parent",
+        kind: "group",
+        sectionHeight: 320,
+        sectionWidth: 260,
+        topLevelHeight: 320,
+        topLevelWidth: 260,
+      },
+      { id: "child-a", parentId: "parent" },
+      { id: "child-b", parentId: "parent" },
+      { id: "child-c", parentId: "parent" },
+      { id: "child-d", parentId: "parent" },
+    ]);
+    loadNodeInternals([node("parent", 0, 0, 260, 320, 0)]);
+    const scene = getProjectGpuFlowScene(useProjectState.getState(), {
+      darkMode: false,
+    });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+    const change = {
+      delta: { x: 0, y: 260 },
+      items: [
+        {
+          distance: { x: 0, y: 0 },
+          height: 150,
+          nodeId: "child-a",
+          position: { x: 0, y: 260 },
+          width: 250,
+        },
+      ],
+      nodeId: "child-a",
+    };
+
+    expect(layoutStore.getState().getNode("child-d")).toBeNull();
+    layoutStore.getState().patchNodes(
+      [
+        {
+          nodeId: "child-a",
+          x: 0,
+          y: 260,
+        },
+      ],
+      { phase: "change", reason: "drag" },
+    );
+
+    for (let frame = 0; frame < 8; frame += 1) {
+      expect(handleProjectNodeDragFrame(layoutStore, change, scene)).toBe(true);
+    }
+
+    expect(layoutStore.getState().getNode("child-d")).toMatchObject({
+      x: 0,
+      y: 314,
+    });
+    expect(layoutStore.getState().getNode("child-b")).toBeNull();
+    expect(layoutStore.getState().getNode("child-c")).toMatchObject({
+      x: 0,
+      y: -2,
+    });
+    expect(layoutStore.getState().dragPreview).toMatchObject({
+      draggedNodeIds: ["child-a"],
+      dropMarker: {
+        axis: "y",
+        parentNodeId: "parent",
+      },
+    });
+    expect(getSectionImplChildren("parent")).toEqual([
+      "child-a",
+      "child-b",
+      "child-c",
+      "child-d",
+    ]);
+    expect(callOpenAPIMock).not.toHaveBeenCalled();
+
+    handleProjectNodeDragCancel(layoutStore, change, scene);
+
+    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
+      x: 0,
+      y: 0,
+    });
+    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
+      x: 0,
+      y: 158,
+    });
+    expect(layoutStore.getState().getNode("child-d")).toBeNull();
   });
 
   it("restores scene layout without backend calls when nested drag does not reorder or is cancelled", () => {

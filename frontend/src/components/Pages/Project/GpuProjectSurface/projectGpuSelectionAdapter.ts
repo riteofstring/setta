@@ -21,6 +21,12 @@ import {
   resolveGpuSectionSceneChildMultiMovePlan,
 } from "gpuFlow/sceneChildOrder";
 
+import {
+  applyGpuSectionSceneScrollOffsets,
+  resolveGpuSectionSceneDragAutoScroll,
+  type GpuSectionSceneScrollOffsetMap,
+} from "gpuFlow/sceneScroll";
+
 import type { GpuRect } from "gpuFlow/viewportMath";
 
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
@@ -54,10 +60,16 @@ import type {
   useProjectGpuSurfaceSettings,
 } from "./projectGpuSurface";
 
+const projectNestedDragScrollOffsetsByLayoutStore = new WeakMap<
+  GpuFlowLayoutStoreApi,
+  GpuSectionSceneScrollOffsetMap
+>();
+
 export function handleProjectNodeDragStart(
   layoutStore: GpuFlowLayoutStoreApi,
   change: ProjectGpuNodeDragChange,
 ) {
+  clearProjectNestedDragScrollOffsets(layoutStore);
   layoutStore.getState().setDragPreview(null);
   raiseGpuLayoutDragTempZIndex(
     layoutStore,
@@ -71,7 +83,19 @@ export function handleProjectNodeDrag(
   change: ProjectGpuNodeDragChange,
   scene?: GpuFlowScene | undefined,
 ) {
-  previewProjectNestedNodeDrag(layoutStore, change, scene);
+  return previewProjectNestedNodeDrag(layoutStore, change, scene, {
+    autoScroll: false,
+  });
+}
+
+export function handleProjectNodeDragFrame(
+  layoutStore: GpuFlowLayoutStoreApi,
+  change: ProjectGpuNodeDragChange,
+  scene?: GpuFlowScene | undefined,
+) {
+  return previewProjectNestedNodeDrag(layoutStore, change, scene, {
+    autoScroll: true,
+  });
 }
 
 export function handleProjectNodeDragStop(
@@ -198,17 +222,25 @@ function commitProjectNestedNodeDragStop(
   if (!scene || nestedItems.length === 0) {
     return false;
   }
-  const plan = resolveProjectNestedNodeDragMovePlan(change, scene, nestedItems);
+  const dragScene = getProjectNestedDragScene(layoutStore, scene);
+  const plan = resolveProjectNestedNodeDragMovePlan(
+    change,
+    dragScene,
+    nestedItems,
+  );
   useMisc.setState({ mouseDownDraggingSection: false });
   if (!plan) {
+    clearProjectNestedDragScrollOffsets(layoutStore);
     restoreProjectSceneLayoutStore(layoutStore, scene);
     return true;
   }
   if (!plan.changed) {
+    clearProjectNestedDragScrollOffsets(layoutStore);
     restoreProjectSceneLayoutStore(layoutStore, scene);
     return true;
   }
 
+  clearProjectNestedDragScrollOffsets(layoutStore);
   layoutStore.getState().setDragPreview(null);
   moveSectionsWithBackend({
     newIndex: plan.nextIndex,
@@ -228,36 +260,63 @@ function restoreProjectNestedNodeDragCancel(
   if (!scene || nestedItems.length === 0) {
     return false;
   }
+  clearProjectNestedDragScrollOffsets(layoutStore);
   restoreProjectSceneLayoutStore(layoutStore, scene);
   useMisc.setState({ mouseDownDraggingSection: false });
   return true;
 }
 
+type ProjectNestedDragPreviewOptions = {
+  readonly autoScroll: boolean;
+};
+
 function previewProjectNestedNodeDrag(
   layoutStore: GpuFlowLayoutStoreApi,
   change: ProjectGpuNodeDragChange,
   scene: GpuFlowScene | undefined,
+  options: ProjectNestedDragPreviewOptions,
 ): boolean {
   const nestedItems = getProjectNestedNodeDragItems(change, scene);
   if (!scene || nestedItems.length === 0) {
     return false;
   }
+  const dragScene = options.autoScroll
+    ? updateProjectNestedDragAutoScrollScene({
+        change,
+        layoutStore,
+        nestedItems,
+        scene,
+      })
+    : {
+        scene: getProjectNestedDragScene(layoutStore, scene),
+        scrollChanged: false,
+      };
   const draggedNodeIds = new Set(change.items.map((item) => item.nodeId));
-  const plan = resolveProjectNestedNodeDragMovePlan(change, scene, nestedItems);
+  const plan = resolveProjectNestedNodeDragMovePlan(
+    change,
+    dragScene.scene,
+    nestedItems,
+  );
   patchProjectNestedDragPreviewLayout(
     layoutStore,
     plan?.changed
-      ? resolveGpuSectionSceneChildMovePreviewSections({ plan, scene })
-      : scene.sections,
+      ? resolveGpuSectionSceneChildMovePreviewSections({
+          plan,
+          scene: dragScene.scene,
+        })
+      : dragScene.scene.sections,
     {
       draggedNodeIds,
       dropMarker:
         plan?.changed === true
-          ? resolveGpuSectionSceneChildMoveDropMarker({ plan, scene })
+          ? resolveGpuSectionSceneChildMoveDropMarker({
+              plan,
+              scene: dragScene.scene,
+            })
           : null,
     },
   );
-  return true;
+  return options.autoScroll ? dragScene.scrollChanged : true;
 }
 
 function patchProjectNestedDragPreviewLayout(
@@ -382,6 +441,88 @@ function resolveProjectNestedNodeDragMovePlan(
     scene,
     sectionIds: nestedItems.map((item) => item.nodeId),
   });
+}
+
+function updateProjectNestedDragAutoScrollScene({
+  change,
+  layoutStore,
+  nestedItems,
+  scene,
+}: {
+  readonly change: ProjectGpuNodeDragChange;
+  readonly layoutStore: GpuFlowLayoutStoreApi;
+  readonly nestedItems: readonly ProjectGpuNodeDragItem[];
+  readonly scene: GpuFlowScene;
+}): {
+  readonly scene: GpuFlowScene;
+  readonly scrollChanged: boolean;
+} {
+  const currentScene = getProjectNestedDragScene(layoutStore, scene);
+  const primaryItem = getProjectPrimaryNestedNodeDragItem(change, nestedItems);
+  if (!primaryItem) {
+    return {
+      scene: currentScene,
+      scrollChanged: false,
+    };
+  }
+  const plan = resolveProjectNestedNodeDragMovePlan(
+    change,
+    currentScene,
+    nestedItems,
+  );
+  const parentSectionId =
+    plan?.parentSectionId ??
+    getProjectSceneSectionNode(currentScene, primaryItem.nodeId)
+      ?.parentSectionId ??
+    null;
+  const scrollResult = resolveGpuSectionSceneDragAutoScroll({
+    draggedRect: getProjectNodeDragItemRect(primaryItem),
+    parentSectionId,
+    scene: currentScene,
+    scrollOffsets: getProjectNestedDragScrollOffsets(layoutStore),
+  });
+  if (!scrollResult.changed) {
+    return {
+      scene: currentScene,
+      scrollChanged: false,
+    };
+  }
+  setProjectNestedDragScrollOffsets(layoutStore, scrollResult.scrollOffsets);
+  return {
+    scene: getProjectNestedDragScene(layoutStore, scene),
+    scrollChanged: true,
+  };
+}
+
+function getProjectNestedDragScene(
+  layoutStore: GpuFlowLayoutStoreApi,
+  scene: GpuFlowScene,
+): GpuFlowScene {
+  return applyGpuSectionSceneScrollOffsets(
+    scene,
+    getProjectNestedDragScrollOffsets(layoutStore),
+  );
+}
+
+function getProjectNestedDragScrollOffsets(
+  layoutStore: GpuFlowLayoutStoreApi,
+): GpuSectionSceneScrollOffsetMap {
+  return (
+    projectNestedDragScrollOffsetsByLayoutStore.get(layoutStore) ?? new Map()
+  );
+}
+
+function setProjectNestedDragScrollOffsets(
+  layoutStore: GpuFlowLayoutStoreApi,
+  scrollOffsets: GpuSectionSceneScrollOffsetMap,
+) {
+  projectNestedDragScrollOffsetsByLayoutStore.set(layoutStore, scrollOffsets);
+}
+
+function clearProjectNestedDragScrollOffsets(
+  layoutStore: GpuFlowLayoutStoreApi,
+) {
+  projectNestedDragScrollOffsetsByLayoutStore.delete(layoutStore);
 }
 
 function getProjectPrimaryNestedNodeDragItem(
