@@ -130,7 +130,7 @@ describe("GPU retained content keyboard controller", () => {
     cleanup();
   });
 
-  it("preserves non-portal no-pan keyboard targets", () => {
+  it("does not preserve non-portal no-pan keyboard targets", () => {
     const element = createHostElement();
     const nativeTarget = document.createElement("button");
     nativeTarget.classList.add(NO_PAN_CLASS_NAME);
@@ -151,8 +151,8 @@ describe("GPU retained content keyboard controller", () => {
     const event = createKeyboardEvent("ArrowDown");
     nativeTarget.dispatchEvent(event);
 
-    expect(event.defaultPrevented).toBe(false);
-    expect(onNavigation).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(true);
+    expect(onNavigation).toHaveBeenCalledTimes(1);
 
     cleanup();
   });

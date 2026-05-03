@@ -421,17 +421,17 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
-  it("preserves non-portal no-pan targets", () => {
+  it("does not preserve non-portal no-pan targets", () => {
     const element = createHostElement();
     const nativeTarget = document.createElement("button");
     nativeTarget.classList.add(NO_PAN_CLASS_NAME);
     element.append(nativeTarget);
-    const onHitClick = vi.fn();
+    const onHitPointerDown = vi.fn();
     const onPointerDownMiss = vi.fn();
     const cleanup = attachGpuRetainedContentInteractionController({
       element,
       getScene: () => retainedContentScene(),
-      onHitClick,
+      onHitPointerDown,
       onPointerDownMiss,
       store: createGpuFlowViewportStore(),
     });
@@ -443,8 +443,8 @@ describe("GPU retained content interaction controller", () => {
     });
     nativeTarget.dispatchEvent(pointerDown);
 
-    expect(pointerDown.defaultPrevented).toBe(false);
-    expect(onHitClick).not.toHaveBeenCalled();
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(onHitPointerDown).toHaveBeenCalledTimes(1);
     expect(onPointerDownMiss).not.toHaveBeenCalled();
 
     cleanup();

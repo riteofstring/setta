@@ -171,6 +171,36 @@ describe("GPU retained content connection controller", () => {
     detach();
   });
 
+  it("does not preserve no-pan targets for retained ports", () => {
+    const { element } = createGpuFlowSurface();
+    const noPanTarget = document.createElement("button");
+    noPanTarget.className = NO_PAN_CLASS_NAME;
+    element.append(noPanTarget);
+    const store = createGpuFlowViewportStore({
+      transform: [10, -20, 2],
+    });
+    store.getState().setDomNode(element);
+    const layoutStore = createGpuFlowLayoutStore();
+    const detach = attachGpuRetainedContentConnectionController({
+      element,
+      getScene: () => createFlowScene(),
+      layoutStore,
+      onConnect: vi.fn(),
+      store,
+    });
+
+    const prevented = !dispatchPointer(noPanTarget, "pointerdown", {
+      button: 0,
+      clientX: 190,
+      clientY: 90,
+      pointerId: 1,
+    });
+
+    expect(prevented).toBe(true);
+    expect(handlePointerDownMock).toHaveBeenCalledTimes(1);
+    detach();
+  });
+
   it("ignores disabled, non-primary, non-port, and native retained targets", () => {
     const { element, surface } = createGpuFlowSurface();
     const store = createGpuFlowViewportStore({
@@ -215,7 +245,7 @@ describe("GPU retained content connection controller", () => {
       pointerId: 3,
     });
     const nativeTarget = document.createElement("input");
-    nativeTarget.className = NO_PAN_CLASS_NAME;
+    nativeTarget.dataset.gpuFlowDomIsland = "true";
     element.append(nativeTarget);
     const nativeNotPrevented = dispatchPointer(nativeTarget, "pointerdown", {
       button: 0,
