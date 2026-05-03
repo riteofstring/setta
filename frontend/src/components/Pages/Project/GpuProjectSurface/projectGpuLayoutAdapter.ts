@@ -4,7 +4,7 @@ import {
   useGpuFlowLayoutStoreNodes,
 } from "gpuFlow/layoutHooks";
 import {
-  createGpuFlowLayoutStore,
+  gpuFlowLayoutStore,
   type GpuFlowLayoutChange,
   type GpuFlowLayoutNode,
   type GpuFlowLayoutStoreApi,
@@ -20,7 +20,6 @@ export type ProjectGpuLayoutAdapter = {
   readonly nodeLayouts: readonly GpuFlowLayoutNode[];
 };
 
-let projectGpuLayoutStore: GpuFlowLayoutStoreApi | null = null;
 let projectGpuLayoutStoreSyncSubscriberCount = 0;
 let projectGpuLayoutStoreSyncUnsubscribe: (() => void) | null = null;
 
@@ -71,14 +70,13 @@ export function getProjectGpuLayoutNode(node: Node): GpuFlowLayoutNode {
 }
 
 function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
-  if (projectGpuLayoutStore === null) {
-    projectGpuLayoutStore = createGpuFlowLayoutStore({
-      nodes: getProjectGpuLayoutNodesFromNodeInternals(
-        useNodeInternals.getState(),
-      ),
-    });
+  if (projectGpuLayoutStoreSyncSubscriberCount === 0) {
+    syncProjectGpuLayoutStoreFromNodeInternals(
+      gpuFlowLayoutStore,
+      useNodeInternals.getState(),
+    );
   }
-  return projectGpuLayoutStore;
+  return gpuFlowLayoutStore;
 }
 
 function useProjectGpuLayoutStoreProjectSync(

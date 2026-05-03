@@ -1,14 +1,9 @@
 /* @vitest-environment jsdom */
 
-import type { Node } from "gpuFlow/flowTypes";
+import { gpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { cancelViewportTransition } from "gpuFlow/viewportActions";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
-import {
-  useLocalStorage,
-  useNodeInternals,
-  useSectionRefs,
-  useSettings,
-} from "state/definitions";
+import { useLocalStorage, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,6 +16,7 @@ vi.mock("../activeSectionController", () => ({
 describe("goToSection", () => {
   beforeEach(() => {
     resetProjectStores();
+    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
     resetGpuViewport();
     useSettings.setState(createSettingsState(), true);
     useSettings.setState((state) => ({
@@ -40,6 +36,7 @@ describe("goToSection", () => {
     vi.unstubAllGlobals();
     document.body.innerHTML = "";
     resetProjectStores();
+    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
     resetGpuViewport();
     useSettings.setState(createSettingsState(), true);
   });
@@ -53,29 +50,17 @@ describe("goToSection", () => {
       y: 0,
     });
     gpuFlowViewportStore.getState().setDomNode(pane);
-    useSectionRefs.setState((state) => {
-      state.selfOnly["section-a"] = createElementWithRect({
+    gpuFlowLayoutStore.getState().replaceNodes([
+      {
         height: 120,
+        nodeId: "section-a",
+        tempZIndex: 0,
         width: 200,
         x: 700,
         y: 500,
-      });
-    });
-    useNodeInternals.setState({
-      x: new Map<string, Node>([
-        [
-          "section-a",
-          {
-            height: 120,
-            id: "section-a",
-            position: { x: 700, y: 500 },
-            tempZIndex: 0,
-            width: 200,
-            zIndex: 0,
-          },
-        ],
-      ]),
-    });
+        zIndex: 0,
+      },
+    ]);
 
     goToSection("section-a");
 

@@ -1,13 +1,9 @@
 import { getActiveSectionUIIds } from "state/activeSectionUI";
-import {
-  useLocalStorage,
-  useNodeInternals,
-  useSectionRefs,
-} from "state/definitions";
+import { useLocalStorage } from "state/definitions";
 import type { Position } from "utils/generatedTypes";
-import type { Node, Rect } from "./flowTypes";
-import { getGpuNodesBounds } from "./nodeBounds";
-import { panBy, screenToFlowPosition } from "./viewportActions";
+import type { Rect } from "./flowTypes";
+import { gpuFlowLayoutStore, type GpuFlowLayoutStoreApi } from "./layoutStore";
+import { panBy } from "./viewportActions";
 import {
   normalizeGpuViewport,
   screenToFlowPosition as screenToFlowPoint,
@@ -23,16 +19,16 @@ type PaneRectViewportState = Pick<
   "domNode" | "height" | "transform" | "width"
 >;
 
-type NodeBoundsInput = Pick<Node, "height" | "position" | "width">;
+type LayoutQueryOptions = {
+  readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
+};
 
-function getNodesBounds(nodes: readonly NodeBoundsInput[]): Rect {
-  return toRect(getGpuNodesBounds(nodes));
-}
-
-export function getActiveSectionsBounds(): Rect {
+export function getActiveSectionsBounds(
+  options: LayoutQueryOptions = {},
+): Rect {
   const activeSectionIds = getActiveSectionUIIds();
   return (
-    getSectionBounds(activeSectionIds) ?? {
+    getSectionBounds(activeSectionIds, options) ?? {
       height: 0,
       width: 0,
       x: 0,
@@ -41,58 +37,22 @@ export function getActiveSectionsBounds(): Rect {
   );
 }
 
-export function getSectionRect(sectionId: string) {
-  const ref =
-    useSectionRefs.getState().selfOnly[sectionId] ??
-    useSectionRefs.getState().withNested[sectionId];
-  if (!ref) {
-    return null;
-  }
-
-  const bounds = ref.getBoundingClientRect();
-  const { x, y } = screenToFlowPosition({
-    x: bounds.left,
-    y: bounds.top,
-  });
-  return {
-    height: ref.clientHeight,
-    width: ref.clientWidth,
-    x,
-    y,
-  };
+export function getSectionRect(
+  sectionId: string,
+  options: LayoutQueryOptions = {},
+): Rect | null {
+  const rect = resolveLayoutStore(options).getState().getNodeRect(sectionId);
+  return rect ? toRect(rect) : null;
 }
 
-export function getSectionBounds(sectionIds: readonly string[]): Rect | null {
-  const nodeInternals = useNodeInternals.getState().x;
-  const sections: NodeBoundsInput[] = [];
-
-  for (const sectionId of sectionIds) {
-    const node = nodeInternals.get(sectionId);
-    if (node && hasPositiveRectBounds(node.width, node.height)) {
-      sections.push({
-        height: node.height,
-        position: { x: node.position.x, y: node.position.y },
-        width: node.width,
-      });
-      continue;
-    }
-
-    const rect = getSectionRect(sectionId);
-    if (!rect || !hasPositiveRectBounds(rect.width, rect.height)) {
-      continue;
-    }
-    sections.push({
-      height: rect.height,
-      position: { x: rect.x, y: rect.y },
-      width: rect.width,
-    });
-  }
-
-  if (sections.length === 0) {
-    return null;
-  }
-
-  return getNodesBounds(sections);
+export function getSectionBounds(
+  sectionIds: readonly string[],
+  options: LayoutQueryOptions = {},
+): Rect | null {
+  const bounds = resolveLayoutStore(options)
+    .getState()
+    .getNodesBounds(sectionIds);
+  return bounds ? toRect(bounds) : null;
 }
 
 export function getPaneRect(
@@ -144,9 +104,18 @@ function getCurrentPaneRect(): Rect {
   );
 }
 
-export function movePaneToIncludeElement(element: HTMLElement) {
-  const bounds = element.getBoundingClientRect();
-  const point = screenToFlowPosition({ x: bounds.left, y: bounds.top });
+export function movePaneToIncludeSection(
+  sectionId: string,
+  options: LayoutQueryOptions = {},
+) {
+  const rect = getSectionRect(sectionId, options);
+  if (!rect) {
+    return;
+  }
+  movePaneToIncludePoint({ x: rect.x, y: rect.y });
+}
+
+function movePaneToIncludePoint(point: Position) {
   const paneRect = getCurrentPaneRect();
   const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (isInside) {
@@ -159,16 +128,10 @@ export function movePaneToIncludeElement(element: HTMLElement) {
   panBy({ x: -x * zoom, y: -y * zoom });
 }
 
-function hasPositiveRectBounds(
-  width: number | null | undefined,
-  height: number | null | undefined,
-) {
-  return (
-    typeof width === "number" &&
-    typeof height === "number" &&
-    width > 0 &&
-    height > 0
-  );
+function resolveLayoutStore(
+  options: LayoutQueryOptions,
+): GpuFlowLayoutStoreApi {
+  return options.layoutStore ?? gpuFlowLayoutStore;
 }
 
 function getRectTranslation(point: Position, rect: Rect, padding = 0) {

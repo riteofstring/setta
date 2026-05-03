@@ -12,7 +12,7 @@ import {
 } from "./focusManager";
 
 const hoisted = vi.hoisted(() => {
-  const movePaneToIncludeElementMock = vi.fn();
+  const movePaneToIncludeSectionMock = vi.fn();
   const applyActiveSectionChangeMock = vi.fn();
   const getCurrEffectiveSectionImplMock = vi.fn(() => ({ type: "Code" }));
   const getTopLevelSectionIdsForDisplayMock = vi.fn(() => [
@@ -36,14 +36,14 @@ const hoisted = vi.hoisted(() => {
     applyActiveSectionChangeMock,
     getCurrEffectiveSectionImplMock,
     getTopLevelSectionIdsForDisplayMock,
-    movePaneToIncludeElementMock,
+    movePaneToIncludeSectionMock,
     projectState,
     sectionRefsState,
   };
 });
 
 vi.mock("gpuFlow/flowGeometry", () => ({
-  movePaneToIncludeElement: hoisted.movePaneToIncludeElementMock,
+  movePaneToIncludeSection: hoisted.movePaneToIncludeSectionMock,
 }));
 
 vi.mock("state/actions/activeSectionController", () => ({
@@ -108,7 +108,7 @@ describe("focusManager", () => {
       "section-1",
       "section-2",
     ]);
-    hoisted.movePaneToIncludeElementMock.mockReset();
+    hoisted.movePaneToIncludeSectionMock.mockReset();
     hoisted.projectState.projectConfig.topLevelSections = {
       "section-1": { x: 0, y: 0, zIndex: 0 },
       "section-2": { x: 100, y: 0, zIndex: 0 },
@@ -263,8 +263,8 @@ describe("focusManager", () => {
       sectionId: "section-2",
     });
     expect(document.activeElement?.textContent).toBe("target");
-    expect(hoisted.movePaneToIncludeElementMock).toHaveBeenCalledWith(
-      targetButton,
+    expect(hoisted.movePaneToIncludeSectionMock).toHaveBeenCalledWith(
+      "section-2",
     );
   });
 });

@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import type { Node } from "gpuFlow/flowTypes";
+import { gpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { cancelViewportTransition } from "gpuFlow/viewportActions";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { act } from "react";
@@ -8,7 +8,6 @@ import { createRoot, type Root } from "react-dom/client";
 import {
   useAIFollow,
   useLocalStorage,
-  useNodeInternals,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
@@ -23,6 +22,7 @@ describe("useAIFollowViewport", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
     resetGpuViewport();
     useLocalStorage.setState({
       overviewTrueWidth: 0,
@@ -33,21 +33,17 @@ describe("useAIFollowViewport", () => {
         id: "project-alpha",
       });
     });
-    useNodeInternals.setState({
-      x: new Map<string, Node>([
-        [
-          "section-a",
-          {
-            height: 120,
-            id: "section-a",
-            position: { x: 900, y: 600 },
-            tempZIndex: 0,
-            width: 200,
-            zIndex: 0,
-          },
-        ],
-      ]),
-    });
+    gpuFlowLayoutStore.getState().replaceNodes([
+      {
+        height: 120,
+        nodeId: "section-a",
+        tempZIndex: 0,
+        width: 200,
+        x: 900,
+        y: 600,
+        zIndex: 0,
+      },
+    ]);
     useAIFollow.setState((state) => {
       state.mode = "all";
       state.toolArgumentsIdsByProjectConfigId = {
@@ -71,6 +67,7 @@ describe("useAIFollowViewport", () => {
     vi.unstubAllGlobals();
     document.body.innerHTML = "";
     resetProjectStores();
+    gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
     resetGpuViewport();
   });
 
