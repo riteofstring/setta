@@ -39,7 +39,10 @@ describe("GPU node resize controller", () => {
   it("coalesces pointer moves into one zoom-corrected resize frame", () => {
     const animationFrames = createAnimationFrameController();
     const element = createFlowElement();
-    const { handle, pointerCapture } = createNodeResizeHandle("a", "bottomRight");
+    const { handle, pointerCapture } = createNodeResizeHandle(
+      "a",
+      "bottomRight",
+    );
     element.append(handle.closest("[data-gpu-flow-node='true']") as Element);
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 2],
@@ -241,6 +244,23 @@ describe("GPU node resize controller", () => {
         pointerDelta: { x: 40, y: 0 },
         policy: {
           aspectRatio: true,
+          maxHeight: 200,
+          maxWidth: 200,
+          minHeight: 40,
+          minWidth: 40,
+        },
+        startLayout: node("a", 0, 0, 100, 50),
+      }),
+    ).toMatchObject({ height: 70, width: 140 });
+
+    expect(
+      resizeGpuNodeLayout({
+        direction: "right",
+        pointerDelta: { x: 40, y: 0 },
+        policy: {
+          aspectRatio: true,
+          aspectRatioExtraHeight: 10,
+          aspectRatioExtraWidth: 20,
           maxHeight: 200,
           maxWidth: 200,
           minHeight: 40,

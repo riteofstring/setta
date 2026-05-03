@@ -35,11 +35,6 @@ import {
   reconnectEdgeFromConnection,
 } from "state/actions/edges";
 
-import {
-  getNodeUpdateInformation,
-  updateNodeDimensions,
-} from "state/actions/nodeInternals";
-
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 
 import {
@@ -68,6 +63,7 @@ import {
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
 import {
   isProjectGpuEdgeInteractionDisabled,
@@ -160,7 +156,6 @@ export const SELECTION_ARROW_KEY_DIFFS: Record<
 
 export function GpuProjectSurface() {
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const nodeElementChange = useProjectNodeResizeObserver();
   const dimensions = useProjectSurfaceDimensions(rootRef);
   const nodeLayouts = useProjectGpuNodeLayouts();
   const settings = useProjectGpuSurfaceSettings();
@@ -175,7 +170,7 @@ export function GpuProjectSurface() {
     showAgenticEdges,
     showDataEdges,
   });
-  const { canEditStructure } = useShareCapabilities();
+  const { canEditLayout, canEditStructure } = useShareCapabilities();
   const isFollowTransitioning = useAIFollow(
     (state) => state.isFollowTransitioning,
   );
@@ -228,7 +223,7 @@ export function GpuProjectSurface() {
         edgeScene={edgeScene}
         flowInteractionKeys={flowInteractionKeys}
         isFollowTransitioning={isFollowTransitioning}
-        nodeElementChange={nodeElementChange}
+        canEditLayout={canEditLayout}
         nodeLayouts={nodeLayouts}
         readyToRender={readyToRender}
         settings={settings}
@@ -240,24 +235,21 @@ export function GpuProjectSurface() {
 
 export function ProjectGpuFlowLayer({
   canEditStructure,
+  canEditLayout,
   darkMode,
   edgeScene,
   flowInteractionKeys,
   isFollowTransitioning,
-  nodeElementChange,
   nodeLayouts,
   readyToRender,
   settings,
 }: {
   readonly canEditStructure: boolean;
+  readonly canEditLayout: boolean;
   readonly darkMode: boolean;
   readonly edgeScene: ReturnType<typeof useProjectGpuEdgeScene>;
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
-  readonly nodeElementChange: (
-    nodeId: string,
-    element: HTMLElement | null,
-  ) => void;
   readonly nodeLayouts: readonly GpuNodeLayout[];
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
@@ -296,6 +288,11 @@ export function ProjectGpuFlowLayer({
       }),
     [flowInteractionKeys, isFollowTransitioning, settings],
   );
+  const nodeResizeOptions = useProjectNodeResizeOptions({
+    canEditLayout,
+    flowInteractionKeys,
+    isFollowTransitioning,
+  });
   const panZoomOptions = useMemo(
     () =>
       getProjectPanZoomOptions({
@@ -330,8 +327,8 @@ export function ProjectGpuFlowLayer({
       edgeScene={edgeScene}
       grid={gridInput}
       nodeDrag={nodeDragOptions}
+      nodeResize={nodeResizeOptions}
       nodes={nodeLayouts}
-      onNodeElementChange={nodeElementChange}
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}
       renderNode={renderProjectGpuNode}
@@ -629,38 +626,4 @@ export function useProjectSurfaceDimensions(
   }, [ref]);
 
   return dimensions;
-}
-
-export function useProjectNodeResizeObserver() {
-  const observerRef = useRef<ResizeObserver | null>(null);
-  const elementByNodeId = useRef(new Map<string, HTMLElement>());
-
-  useEffect(() => {
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-    observerRef.current = new ResizeObserver((entries) => {
-      const updates = getNodeUpdateInformation(entries, true);
-      updateNodeDimensions(updates);
-    });
-    return () => {
-      observerRef.current?.disconnect();
-      observerRef.current = null;
-      elementByNodeId.current.clear();
-    };
-  }, []);
-
-  return useCallback((nodeId: string, element: HTMLElement | null) => {
-    const previousElement = elementByNodeId.current.get(nodeId);
-    const observer = observerRef.current;
-    if (previousElement && previousElement !== element) {
-      observer?.unobserve(previousElement);
-      elementByNodeId.current.delete(nodeId);
-    }
-    if (!element) {
-      return;
-    }
-    elementByNodeId.current.set(nodeId, element);
-    observer?.observe(element);
-  }, []);
 }

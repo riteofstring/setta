@@ -160,7 +160,11 @@ export type GpuFlowProps = Pick<
     | false
     | Omit<
         GpuNodeResizeControllerOptions,
-        "element" | "getNodes" | "requestFrame" | "resolveResizeTarget" | "store"
+        | "element"
+        | "getNodes"
+        | "requestFrame"
+        | "resolveResizeTarget"
+        | "store"
       >
     | undefined;
   onNodeLayerFrame?:
@@ -271,6 +275,7 @@ export function GpuFlow({
     null,
   );
   const htmlSurfaceRendererRef = useRef<HtmlSurfaceRenderer | null>(null);
+  const activeResizeNodeIdRef = useRef<string | null>(null);
   const nodeDomTransformSyncCacheRef = useRef<GpuNodeDomTransformSyncCache>(
     createGpuNodeDomTransformSyncCache(),
   );
@@ -456,6 +461,21 @@ export function GpuFlow({
       ...nodeResize,
       element: container,
       getNodes: () => nodeLayerRef.current.nodes ?? [],
+      onNodeResize: (change) => {
+        nodeResize?.onNodeResize?.(change);
+      },
+      onNodeResizeCancel: (change) => {
+        nodeResize?.onNodeResizeCancel?.(change);
+        activeResizeNodeIdRef.current = null;
+      },
+      onNodeResizeStart: (change) => {
+        activeResizeNodeIdRef.current = change.nodeId;
+        nodeResize?.onNodeResizeStart?.(change);
+      },
+      onNodeResizeStop: (change) => {
+        nodeResize?.onNodeResizeStop?.(change);
+        activeResizeNodeIdRef.current = null;
+      },
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
       },
@@ -695,6 +715,7 @@ export function GpuFlow({
           viewportStore.getState().viewportInteractionActive,
         frameReasons: event.reasons,
         frameRef,
+        activeResizeNodeIdRef,
         nodeElementByIdRef,
         nodeDomTransformSyncCacheRef,
         nodeInteractionRef,
@@ -855,6 +876,7 @@ export function renderGpuFlowNodeLayerElement({
 }
 
 export function renderGpuFlowNodeLayerFrame({
+  activeResizeNodeIdRef,
   callbacksRef,
   canvasSizeRef,
   deferResolutionUpdates,
@@ -872,6 +894,7 @@ export function renderGpuFlowNodeLayerFrame({
   visibleNodeIdsRef,
   viewportFrame,
 }: {
+  readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
   readonly deferResolutionUpdates: boolean;
@@ -903,9 +926,11 @@ export function renderGpuFlowNodeLayerFrame({
 
   const frame = nextFrame(frameRef);
   const nodeInteraction = nodeInteractionRef.current;
+  const activeNodeId =
+    nodeInteraction?.getActiveNodeId() ?? activeResizeNodeIdRef.current;
   const renderStartedAt = performance.now();
   const layerResult = renderHtmlSurfaceFrame({
-    activeNodeId: nodeInteraction?.getActiveNodeId(),
+    activeNodeId,
     canvasSize,
     deferResolutionUpdates,
     domTransformCache: nodeDomTransformSyncCacheRef.current,

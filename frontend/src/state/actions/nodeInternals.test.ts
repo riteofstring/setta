@@ -17,6 +17,7 @@ import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
+  updateNodeDimensionsFromGpuResize,
 } from "./nodeInternals";
 import {
   debounced_route_set_top_level_section_layout,
@@ -33,16 +34,21 @@ vi.mock("./sectionInfos", () => ({
 }));
 
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
-  return {
+  const node: Node = {
     id: overrides.id,
     position: overrides.position ?? { x: 0, y: 0 },
     width: overrides.width ?? null,
     height: overrides.height ?? null,
     zIndex: overrides.zIndex ?? 0,
     tempZIndex: overrides.tempZIndex ?? 0,
-    type: overrides.type,
-    style: overrides.style,
   };
+  if (overrides.type !== undefined) {
+    node.type = overrides.type;
+  }
+  if (overrides.style !== undefined) {
+    node.style = overrides.style;
+  }
+  return node;
 }
 
 function createViewportDomNode() {
@@ -147,6 +153,37 @@ describe("nodeInternals", () => {
       1,
     );
     expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(false);
+  });
+
+  it("updates GPU resize dimensions without scheduling top-level layout persistence", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-1",
+          createNode({
+            id: "section-1",
+            width: 100,
+            height: 50,
+          }),
+        ],
+      ]),
+    });
+
+    expect(
+      updateNodeDimensionsFromGpuResize({
+        id: "section-1",
+        width: 140,
+        height: 80,
+      }),
+    ).toBe(true);
+
+    const node = useNodeInternals.getState().x.get("section-1");
+    expect(node?.width).toBe(140);
+    expect(node?.height).toBe(80);
+    expect(scheduleEdgeHandlePositionUpdate).toHaveBeenCalledWith([
+      "section-1",
+    ]);
+    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
   });
 
   it("schedules edge handle refreshes for resized section descendants", () => {
@@ -298,7 +335,7 @@ describe("nodeInternals", () => {
     });
 
     const updates = getNodeUpdateInformation(
-      [{ target: observedSourceHost } as ResizeObserverEntry],
+      [{ target: observedSourceHost } as unknown as ResizeObserverEntry],
       true,
     );
 

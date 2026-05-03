@@ -20,6 +20,8 @@ export type GpuNodeResizePhase = "start" | "resize" | "stop" | "cancel";
 
 export type GpuNodeResizePolicy = {
   readonly aspectRatio?: boolean | undefined;
+  readonly aspectRatioExtraHeight?: number | undefined;
+  readonly aspectRatioExtraWidth?: number | undefined;
   readonly directions?: readonly GpuNodeResizeDirection[] | undefined;
   readonly enabled?: boolean | undefined;
   readonly maxHeight?: number | undefined;
@@ -111,6 +113,8 @@ type NumericGpuNodeLayout = GpuNodeLayout & {
 
 type ResolvedGpuNodeResizePolicy = {
   readonly aspectRatio: boolean;
+  readonly aspectRatioExtraHeight: number;
+  readonly aspectRatioExtraWidth: number;
   readonly directions: ReadonlySet<GpuNodeResizeDirection>;
   readonly maxHeight: number;
   readonly maxWidth: number;
@@ -196,10 +200,7 @@ class GpuNodeResizeController {
   private readonly element: HTMLElement;
   private readonly options: Omit<
     GpuNodeResizeControllerOptions,
-    | "cancelAnimationFrame"
-    | "element"
-    | "requestAnimationFrame"
-    | "store"
+    "cancelAnimationFrame" | "element" | "requestAnimationFrame" | "store"
   >;
   private readonly requestAnimationFrame: (
     callback: FrameRequestCallback,
@@ -372,9 +373,7 @@ class GpuNodeResizeController {
       direction: target.direction,
       node: startLayout,
       nodeId: target.nodeId,
-      ...(target.targetElement
-        ? { targetElement: target.targetElement }
-        : {}),
+      ...(target.targetElement ? { targetElement: target.targetElement } : {}),
     });
     return policy?.directions.has(target.direction)
       ? { policy, startLayout, target }
@@ -437,7 +436,7 @@ class GpuNodeResizeController {
     return resizeGpuNodeLayout({
       direction: activeResize.direction,
       pointerDelta: this.getResizePointerDelta(activeResize),
-      policy: activeResize.policy,
+      policy: toGpuNodeResizePolicy(activeResize.policy),
       startLayout: activeResize.startLayout,
     });
   }
@@ -445,9 +444,11 @@ class GpuNodeResizeController {
   private getResizePointerDelta(activeResize: ActiveGpuNodeResize): GpuPoint {
     const zoom = normalizeGpuViewport(this.store.getState().transform).zoom;
     return {
-      x: (activeResize.lastScreenPoint.x - activeResize.startScreenPoint.x) /
+      x:
+        (activeResize.lastScreenPoint.x - activeResize.startScreenPoint.x) /
         zoom,
-      y: (activeResize.lastScreenPoint.y - activeResize.startScreenPoint.y) /
+      y:
+        (activeResize.lastScreenPoint.y - activeResize.startScreenPoint.y) /
         zoom,
     };
   }
@@ -522,9 +523,7 @@ class GpuNodeResizeController {
     ) {
       return;
     }
-    activeResize.captureElement.releasePointerCapture?.(
-      activeResize.pointerId,
-    );
+    activeResize.captureElement.releasePointerCapture?.(activeResize.pointerId);
   }
 
   private addDocumentListeners() {
@@ -573,7 +572,7 @@ function resizeGpuNodeWithAspectRatio({
   readonly requestedSize: GpuNodeResizeSize;
   readonly startLayout: NumericGpuNodeLayout;
 }): NumericGpuNodeLayout {
-  const aspectRatio = startLayout.width / startLayout.height;
+  const aspectRatio = getGpuNodeResizeAspectRatio(startLayout, policy);
   const primaryAxis = resolveAspectRatioPrimaryAxis({
     direction,
     pointerDelta,
@@ -581,29 +580,64 @@ function resizeGpuNodeWithAspectRatio({
   });
   if (primaryAxis === "width") {
     const nextWidth = clampAspectRatioPrimaryValue({
-      maxPrimary: Math.min(policy.maxWidth, policy.maxHeight * aspectRatio),
-      minPrimary: Math.max(policy.minWidth, policy.minHeight * aspectRatio),
+      maxPrimary: Math.min(
+        policy.maxWidth,
+        (policy.maxHeight - policy.aspectRatioExtraHeight) * aspectRatio +
+          policy.aspectRatioExtraWidth,
+      ),
+      minPrimary: Math.max(
+        policy.minWidth,
+        (policy.minHeight - policy.aspectRatioExtraHeight) * aspectRatio +
+          policy.aspectRatioExtraWidth,
+      ),
       snapGridValue: policy.snapGrid?.[0],
       snapToGrid: policy.snapToGrid,
       value: requestedSize.width,
     });
     return createGpuNodeResizeLayout(startLayout, {
-      height: nextWidth / aspectRatio,
+      height:
+        (nextWidth - policy.aspectRatioExtraWidth) / aspectRatio +
+        policy.aspectRatioExtraHeight,
       width: nextWidth,
     });
   }
 
   const nextHeight = clampAspectRatioPrimaryValue({
-    maxPrimary: Math.min(policy.maxHeight, policy.maxWidth / aspectRatio),
-    minPrimary: Math.max(policy.minHeight, policy.minWidth / aspectRatio),
+    maxPrimary: Math.min(
+      policy.maxHeight,
+      (policy.maxWidth - policy.aspectRatioExtraWidth) / aspectRatio +
+        policy.aspectRatioExtraHeight,
+    ),
+    minPrimary: Math.max(
+      policy.minHeight,
+      (policy.minWidth - policy.aspectRatioExtraWidth) / aspectRatio +
+        policy.aspectRatioExtraHeight,
+    ),
     snapGridValue: policy.snapGrid?.[1],
     snapToGrid: policy.snapToGrid,
     value: requestedSize.height,
   });
   return createGpuNodeResizeLayout(startLayout, {
     height: nextHeight,
-    width: nextHeight * aspectRatio,
+    width:
+      (nextHeight - policy.aspectRatioExtraHeight) * aspectRatio +
+      policy.aspectRatioExtraWidth,
   });
+}
+
+function getGpuNodeResizeAspectRatio(
+  startLayout: NumericGpuNodeLayout,
+  policy: Pick<
+    ResolvedGpuNodeResizePolicy,
+    "aspectRatioExtraHeight" | "aspectRatioExtraWidth"
+  >,
+) {
+  const contentWidth = startLayout.width - policy.aspectRatioExtraWidth;
+  const contentHeight = startLayout.height - policy.aspectRatioExtraHeight;
+  if (contentWidth <= 0 || contentHeight <= 0) {
+    throw new Error("resize aspect ratio extras exceed the node size.");
+  }
+  return contentWidth / contentHeight;
 }
 
 function resolveAspectRatioPrimaryAxis({
@@ -656,10 +690,27 @@ function resolveGpuNodeResizePolicy(
   const snapPolicy = resolveGpuNodeResizeSnapPolicy(policy);
   return {
     aspectRatio: Boolean(policy?.aspectRatio),
+    aspectRatioExtraHeight: resolveGpuNodeResizeAspectRatioExtra(
+      "aspect ratio extra height",
+      policy?.aspectRatioExtraHeight,
+    ),
+    aspectRatioExtraWidth: resolveGpuNodeResizeAspectRatioExtra(
+      "aspect ratio extra width",
+      policy?.aspectRatioExtraWidth,
+    ),
     directions: new Set(policy?.directions ?? DEFAULT_RESIZE_DIRECTIONS),
     ...constraints,
     ...snapPolicy,
   };
+}
+
+function resolveGpuNodeResizeAspectRatioExtra(
+  name: string,
+  value: number | undefined,
+): number {
+  const resolved = value ?? 0;
+  assertFiniteNonNegative(name, resolved);
+  return resolved;
 }
 
 function resolveGpuNodeResizeConstraints(
@@ -722,6 +773,24 @@ function resolveGpuNodeResizeSnapGrid(
 function snapGpuNodeResizeValue(value: number, grid: number): number {
   assertFinitePositive("resize snap grid value", grid);
   return grid * Math.round(value / grid);
+}
+
+function toGpuNodeResizePolicy(
+  policy: ResolvedGpuNodeResizePolicy,
+): GpuNodeResizePolicy {
+  return {
+    aspectRatio: policy.aspectRatio,
+    aspectRatioExtraHeight: policy.aspectRatioExtraHeight,
+    aspectRatioExtraWidth: policy.aspectRatioExtraWidth,
+    directions: Array.from(policy.directions),
+    enabled: true,
+    maxHeight: policy.maxHeight,
+    maxWidth: policy.maxWidth,
+    minHeight: policy.minHeight,
+    minWidth: policy.minWidth,
+    ...(policy.snapGrid ? { snapGrid: policy.snapGrid } : {}),
+    snapToGrid: policy.snapToGrid,
+  };
 }
 
 function toNumericGpuNodeLayout(

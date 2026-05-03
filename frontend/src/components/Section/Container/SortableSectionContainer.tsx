@@ -159,7 +159,13 @@ function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
     }
     return null;
   } else {
-    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
+    return (
+      <SectionContainer
+        sectionId={sectionId}
+        isTopLevel={false}
+        dragListeners={listeners}
+      />
+    );
   }
 }
 

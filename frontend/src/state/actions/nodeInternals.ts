@@ -68,6 +68,40 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   maybeCompleteInitialFitView();
 }
 
+export function updateNodeDimensionsFromGpuResize({
+  id,
+  height,
+  width,
+}: {
+  id: string;
+  height: number;
+  width: number;
+}): boolean {
+  if (!hasViewportNode()) {
+    return false;
+  }
+
+  const currentNodes = useNodeInternals.getState().x;
+  const node = currentNodes.get(id);
+  if (!node) {
+    return false;
+  }
+  if (node.width === width && node.height === height) {
+    return false;
+  }
+
+  const newNodes = new Map(currentNodes);
+  newNodes.set(id, {
+    ...node,
+    height,
+    width,
+  });
+  useNodeInternals.setState({ x: newNodes });
+  scheduleEdgeHandlePositionUpdatesForDimensionUpdates([id]);
+  updateSelectionBoundsForDimensionUpdates(newNodes, [id]);
+  return true;
+}
+
 function hasViewportNode() {
   return gpuFlowViewportStore.getState().domNode !== null;
 }
@@ -219,7 +253,11 @@ function filterFitViewTargetNodes(
 export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
   const newNodes = getNewNodes();
   for (const n of nodeDragItems) {
-    newNodes.get(n.id).position = n.position;
+    const node = newNodes.get(n.id);
+    if (!node) {
+      throw new Error(`Missing node ${n.id}`);
+    }
+    node.position = n.position;
   }
   useNodeInternals.setState({ x: newNodes });
   const sectionIds = new Set<string>();
@@ -239,7 +277,11 @@ export function raiseTempZIndex(nodes: Array<Node>) {
     n.tempZIndex = n.zIndex;
   }
   for (const n of nodes) {
-    newNodes.get(n.id).tempZIndex = newNodes.get(n.id).zIndex + 1000;
+    const node = newNodes.get(n.id);
+    if (!node) {
+      throw new Error(`Missing node ${n.id}`);
+    }
+    node.tempZIndex = node.zIndex + 1000;
   }
   useNodeInternals.setState({ x: newNodes });
 }

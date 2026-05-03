@@ -29,6 +29,7 @@ import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
+  isTopLevel: boolean;
   isUserView: boolean;
   forceHideOutline?: boolean;
   hideAgenticEdgeHandles?: boolean;
@@ -48,6 +49,8 @@ type SectionContainerSnapshot = {
 };
 
 type SectionEdgeHandleMode = "agentic" | "chat" | "none" | "state-machine";
+type SectionShellStyleVars = React.CSSProperties &
+  Partial<Record<`--setta-section-style-${string}`, string>>;
 
 const WORKFLOW_ONLY_SECTION_TYPES = new Set<SectionType>([
   SectionTypeEnum.StateMachineStart,
@@ -69,13 +72,14 @@ function getSectionContainerSnapshot(
   sectionId: string,
 ): SectionContainerSnapshot {
   const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  const sectionTypeName = impl.type as SectionType;
   const isAttachedTerminalChild =
     getAttachedTerminalParentIdForTerminalSection(state, sectionId) !== null;
   const isJoinedAttachedTerminalChild =
     getEmbeddedAttachedTerminalParentIdForTerminalSection(state, sectionId) !==
       null && !impl.isMinimized;
   return {
-    sectionTypeName: impl.type,
+    sectionTypeName,
     isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
     positionAndSizeLocked: impl.positionAndSizeLocked,
     textBlockMetaControlStyle:
@@ -104,6 +108,10 @@ function getAiHighlightClassName(showAiHighlight: boolean) {
   return showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"
     : "";
+}
+
+function getTopLevelSectionShellSizeClassName(isTopLevel: boolean) {
+  return isTopLevel ? { sizeClassName: "h-full w-full" } : {};
 }
 
 function getSectionTypeChromeState(
@@ -141,7 +149,7 @@ function getSectionStyleThemeOrNull({
 
 function resolveSectionStyleVars(
   sectionStyleTheme: ReturnType<typeof deriveSectionStyleTheme> | null,
-) {
+): SectionShellStyleVars | undefined {
   if (!sectionStyleTheme) {
     return undefined;
   }
@@ -156,13 +164,13 @@ function resolveSectionStyleVars(
     "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
     "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
     "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
-  } satisfies React.CSSProperties;
+  } satisfies SectionShellStyleVars;
 }
 
 function getSectionShellStyle(
-  sectionStyleVars: React.CSSProperties | undefined,
+  sectionStyleVars: SectionShellStyleVars | undefined,
   viewportInteractionActive: boolean,
-) {
+): SectionShellStyleVars | undefined {
   if (!viewportInteractionActive) {
     return sectionStyleVars;
   }
@@ -172,7 +180,7 @@ function getSectionShellStyle(
     transform: "translateZ(0)",
     backfaceVisibility: "hidden",
     isolation: "isolate",
-  } satisfies React.CSSProperties;
+  } satisfies SectionShellStyleVars;
 }
 
 function getSectionEdgeHandleMode({
@@ -212,6 +220,7 @@ function SectionEdgeHandles({
 
 function _SectionContainerCore({
   sectionId,
+  isTopLevel,
   isUserView,
   forceHideOutline = false,
   hideAgenticEdgeHandles = false,
@@ -284,6 +293,7 @@ function _SectionContainerCore({
     omitAgenticHandleScopeClass,
     aiHighlightClassName,
     scopeHighlightClassName,
+    ...getTopLevelSectionShellSizeClassName(isTopLevel),
   });
   const sectionShellStyle = getSectionShellStyle(
     sectionStyleVars,
@@ -309,6 +319,7 @@ function _SectionContainerCore({
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
+        isTopLevel={isTopLevel}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
@@ -321,5 +332,5 @@ function _SectionContainerCore({
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) => p.isUserView === n.isUserView,
+  (p, n) => p.isUserView === n.isUserView && p.isTopLevel === n.isTopLevel,
 );

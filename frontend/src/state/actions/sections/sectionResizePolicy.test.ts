@@ -3,7 +3,10 @@ import {
   clampChangedSize,
   getResizableEnable,
   getResizeAxisAvailability,
+  getResizeHandleClickState,
+  isResizeDoubleClick,
   resolveResizableGrid,
+  resolveSectionResizeStopSize,
   shouldEmitResizeEndEvent,
   SIZE_MODE,
 } from "./sectionResizePolicy";
@@ -75,6 +78,53 @@ describe("shouldEmitResizeEndEvent", () => {
         isDoubleClick: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe("resize click and stop size policy", () => {
+  it("detects same-handle double clicks inside the resize threshold", () => {
+    const first = getResizeHandleClickState({
+      state: { lastDirection: null, lastTimestampMs: null },
+      direction: "bottomRight",
+      timestampMs: 100,
+    });
+    const second = getResizeHandleClickState({
+      state: first.nextState,
+      direction: "bottomRight",
+      timestampMs: 250,
+    });
+
+    expect(first.isDoubleClick).toBe(false);
+    expect(second.isDoubleClick).toBe(true);
+    expect(
+      isResizeDoubleClick({
+        isPending: second.isDoubleClick,
+        isZeroDelta: true,
+        resizeAttempted: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("resolves graph-owned final sizes with direction and size-mode semantics", () => {
+    expect(
+      resolveSectionResizeStopSize({
+        direction: "right",
+        finalSize: { width: 260, height: 160 },
+        sizeMode: { height: SIZE_MODE.any, width: SIZE_MODE.any },
+        aspectRatio: false,
+        isDoubleClick: false,
+      }),
+    ).toEqual({ width: 260 });
+
+    expect(
+      resolveSectionResizeStopSize({
+        direction: "bottomRight",
+        finalSize: { width: 260, height: 160 },
+        sizeMode: { height: SIZE_MODE.any, width: SIZE_MODE.manual_only },
+        aspectRatio: false,
+        isDoubleClick: true,
+      }),
+    ).toEqual({ width: 260, height: "auto" });
   });
 });
 
