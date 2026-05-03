@@ -14,7 +14,11 @@ import {
   clampGpuRetainedContentScrollOffset,
   type GpuRetainedContentScrollOffsetMap,
 } from "gpuFlow/retainedContentScroll";
-import type { GpuContentSurface, GpuSectionSceneNode } from "gpuFlow/scene";
+import type {
+  GpuContentSurface,
+  GpuDomIsland,
+  GpuSectionSceneNode,
+} from "gpuFlow/scene";
 import type { GpuRect } from "gpuFlow/viewportMath";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import {
@@ -45,6 +49,13 @@ export const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
 
 type ProjectGpuParamListKey = "pinned" | "unpinned";
 
+export type ProjectGpuActiveParamDomIsland = {
+  readonly hitRecordId: string;
+  readonly paramInfoId: string;
+  readonly sectionId: string;
+  readonly surfaceId: string;
+};
+
 type ProjectGpuParamListRows = {
   readonly key: ProjectGpuParamListKey;
   readonly rows: readonly GpuRetainedContentRowInput[];
@@ -69,6 +80,62 @@ export function createProjectGpuParamContentSurfaces({
       section,
     }),
   );
+}
+
+export function createProjectGpuParamDomIslands({
+  activeParamDomIsland,
+  contentSurfaces,
+}: {
+  readonly activeParamDomIsland?:
+    | ProjectGpuActiveParamDomIsland
+    | null
+    | undefined;
+  readonly contentSurfaces: readonly GpuContentSurface[];
+}): readonly GpuDomIsland[] {
+  if (!activeParamDomIsland) {
+    return [];
+  }
+  const surface = contentSurfaces.find(
+    (candidate) => candidate.id === activeParamDomIsland.surfaceId,
+  );
+  if (
+    !surface?.retainedScene ||
+    surface.ownerSectionId !== activeParamDomIsland.sectionId
+  ) {
+    return [];
+  }
+  const hit = surface.retainedScene.hitRecords.find(
+    (candidate) =>
+      candidate.id === activeParamDomIsland.hitRecordId &&
+      candidate.kind === "control" &&
+      candidate.ownerRowId === activeParamDomIsland.paramInfoId,
+  );
+  if (!hit) {
+    return [];
+  }
+  const rect = intersectProjectGpuParamRects(
+    translateProjectGpuParamLocalRect(hit.rect, surface.rect),
+    surface.clipRect,
+  );
+  if (rect.width <= 0 || rect.height <= 0) {
+    return [];
+  }
+  return [
+    {
+      clipOwnerId: surface.id,
+      id: getProjectGpuParamDomIslandId(activeParamDomIsland),
+      kind: "retained-content-control",
+      ownerSectionId: activeParamDomIsland.sectionId,
+      rect,
+      source: {
+        hitRecordId: hit.id,
+        kind: "retained-content",
+        ownerRowId: hit.ownerRowId,
+        surfaceId: surface.id,
+      },
+      zIndex: surface.zIndex + 1,
+    },
+  ];
 }
 
 function createProjectGpuParamContentSurfacesForSection({
@@ -479,6 +546,13 @@ function getProjectGpuParamContentSurfaceId(
   key: ProjectGpuParamListKey,
 ): string {
   return `${sectionId}:param-content:${key}`;
+}
+
+function getProjectGpuParamDomIslandId({
+  paramInfoId,
+  sectionId,
+}: Pick<ProjectGpuActiveParamDomIsland, "paramInfoId" | "sectionId">): string {
+  return `param-control:${sectionId}:${paramInfoId}`;
 }
 
 function translateProjectGpuParamLocalRect(

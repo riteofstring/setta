@@ -39,6 +39,9 @@ export type GpuRetainedContentInteractionControllerOptions = {
       }) => void)
     | undefined;
   readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
+  readonly shouldHandleHit?:
+    | ((hit: GpuRetainedContentInteractionHit) => boolean)
+    | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
 };
 
@@ -218,12 +221,16 @@ class GpuRetainedContentInteractionController {
     ) {
       return null;
     }
-    return hitTestGpuRetainedContentInteraction({
+    const hit = hitTestGpuRetainedContentInteraction({
       element: this.element,
       event,
       getScene: this.options.getScene,
       store: this.store,
     });
+    if (!hit || this.options.shouldHandleHit?.(hit) === false) {
+      return null;
+    }
+    return hit;
   }
 
   private clearHover() {

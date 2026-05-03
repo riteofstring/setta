@@ -89,6 +89,37 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("lets callers gate which retained hits take pointer ownership", () => {
+    const element = createHostElement();
+    const onHitClick = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick,
+      shouldHandleHit: (hit) => hit.hit.kind === "control",
+      store: createGpuFlowViewportStore(),
+    });
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 20,
+      clientY: 42,
+      pointerId: 1,
+    });
+    const pointerUp = createPointerEvent("pointerup", {
+      clientX: 20,
+      clientY: 42,
+      pointerId: 1,
+    });
+    element.dispatchEvent(pointerDown);
+    element.dispatchEvent(pointerUp);
+
+    expect(pointerDown.defaultPrevented).toBe(false);
+    expect(pointerUp.defaultPrevented).toBe(false);
+    expect(onHitClick).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
   it("preserves native active DOM island targets", () => {
     const element = createHostElement();
     const input = document.createElement("input");

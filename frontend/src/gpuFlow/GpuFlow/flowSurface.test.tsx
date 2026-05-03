@@ -155,6 +155,30 @@ describe("GpuFlow", () => {
     expect(markup).toContain('data-gpu-flow-source-id="live-node-a"');
     expect(markup).not.toContain('data-gpu-flow-source-id="scene-node-a"');
   });
+
+  it("renders scene DOM islands through the supplied renderer", () => {
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        renderDomIsland={(island) => (
+          <div data-rendered-dom-island={island.id} />
+        )}
+        scene={sceneWithDomIsland()}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [4, 8, 1.5],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-dom-island="true"');
+    expect(markup).toContain('data-gpu-flow-dom-island-id="island-a"');
+    expect(markup).toContain(
+      'data-gpu-flow-dom-island-kind="retained-content-control"',
+    );
+    expect(markup).toContain('data-rendered-dom-island="island-a"');
+    expect(markup).toContain("left:19px");
+    expect(markup).toContain("top:38px");
+    expect(markup).toContain("transform:scale(1.5)");
+  });
 });
 
 function edgeSceneWithLabel(): GpuEdgeScene {
@@ -225,6 +249,31 @@ function sceneWithSection(sectionId: string): GpuFlowScene {
     edges: [],
     revision: 1,
     sections: [sectionSceneNode(sectionId)],
+  };
+}
+
+function sceneWithDomIsland(): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [
+      {
+        clipOwnerId: "surface-a",
+        id: "island-a",
+        kind: "retained-content-control",
+        ownerSectionId: "section-a",
+        rect: { height: 20, width: 40, x: 10, y: 20 },
+        source: {
+          hitRecordId: "control:param-a",
+          kind: "retained-content",
+          ownerRowId: "param-a",
+          surfaceId: "surface-a",
+        },
+        zIndex: 9,
+      },
+    ],
+    edges: [],
+    revision: 1,
+    sections: [],
   };
 }
 

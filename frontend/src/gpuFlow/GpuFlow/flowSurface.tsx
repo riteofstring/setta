@@ -119,6 +119,10 @@ import {
 } from "./flowFrame";
 
 import {
+  GpuFlowDomIslandLayer,
+  type GpuFlowDomIslandRenderer,
+} from "./domIslandLayer";
+import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
@@ -224,6 +228,7 @@ type GpuFlowProps = Pick<
     | undefined;
   retainedContentInteraction?: GpuFlowRetainedContentInteractionOptions;
   retainedContentScroll?: GpuFlowRetainedContentScrollOptions;
+  renderDomIsland?: GpuFlowDomIslandRenderer | undefined;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
@@ -296,6 +301,7 @@ export function GpuFlow({
   portals,
   retainedContentInteraction,
   retainedContentScroll,
+  renderDomIsland,
   renderNode,
   selection,
   selectionDrag,
@@ -944,6 +950,11 @@ export function GpuFlow({
           <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
           {edgeLabelSourceElement}
         </GpuSurface>
+        <GpuFlowDomIslandLayer
+          renderDomIsland={renderDomIsland}
+          scene={scene}
+          viewportStore={viewportStore}
+        />
         <GpuFlowPortalLayer portals={portalGroups.viewport} />
         {nodeDragPreviewElement}
         {userSelectionElement}

@@ -73,7 +73,13 @@ import {
   type ListRootSectionImpl,
   type SectionSizingPolicy,
 } from "utils/generatedTypes";
-import { createProjectGpuParamContentSurfaces } from "./projectGpuParamContentAdapter";
+import {
+  createProjectGpuParamContentSurfaces,
+  createProjectGpuParamDomIslands,
+  type ProjectGpuActiveParamDomIsland,
+} from "./projectGpuParamContentAdapter";
+
+export type { ProjectGpuActiveParamDomIsland } from "./projectGpuParamContentAdapter";
 
 export type ProjectGpuLayoutAdapter = {
   readonly contentScrollOffsets: GpuRetainedContentScrollOffsetMap;
@@ -119,7 +125,14 @@ const NESTED_HORIZONTAL_SECTION_GAP_PX = 8;
 const NESTED_KANBAN_SECTION_GAP_PX = 12;
 const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
 
-export function useProjectGpuLayoutAdapter(): ProjectGpuLayoutAdapter {
+export function useProjectGpuLayoutAdapter({
+  activeParamDomIsland,
+}: {
+  readonly activeParamDomIsland?:
+    | ProjectGpuActiveParamDomIsland
+    | null
+    | undefined;
+} = {}): ProjectGpuLayoutAdapter {
   const layoutStore = useProjectGpuLayoutStore();
   const [sceneScrollOffsets, setSceneScrollOffsets] =
     useState<GpuSectionSceneScrollOffsetMap>(() => new Map());
@@ -140,10 +153,12 @@ export function useProjectGpuLayoutAdapter(): ProjectGpuLayoutAdapter {
           sizingPolicy,
         },
         revision: getProjectGpuSceneRevision(projectState),
+        activeParamDomIsland,
         contentScrollOffsets,
         scrollOffsets: sceneScrollOffsets,
       }),
     [
+      activeParamDomIsland,
       contentScrollOffsets,
       darkMode,
       measuredHeightsByKey,
@@ -269,6 +284,10 @@ export function getProjectGpuFlowScene(
     readonly contentScrollOffsets?:
       | GpuRetainedContentScrollOffsetMap
       | undefined;
+    readonly activeParamDomIsland?:
+      | ProjectGpuActiveParamDomIsland
+      | null
+      | undefined;
     readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
     readonly revision?: number | undefined;
     readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
@@ -354,16 +373,21 @@ export function getProjectGpuFlowScene(
     revision: options.revision ?? 0,
     sections,
   });
+  const paramContentSurfaces = createProjectGpuParamContentSurfaces({
+    contentScrollOffsets: options.contentScrollOffsets,
+    measuredHeightsByKey: resizePolicyContext.measuredHeightsByKey,
+    projectState,
+    sections: layoutScene.sections,
+  });
   return {
     ...layoutScene,
+    domIslands: createProjectGpuParamDomIslands({
+      activeParamDomIsland: options.activeParamDomIsland,
+      contentSurfaces: paramContentSurfaces,
+    }),
     contentSurfaces: createGpuFlowContentSurfacesFromSections(
       layoutScene.sections,
-      createProjectGpuParamContentSurfaces({
-        contentScrollOffsets: options.contentScrollOffsets,
-        measuredHeightsByKey: resizePolicyContext.measuredHeightsByKey,
-        projectState,
-        sections: layoutScene.sections,
-      }),
+      paramContentSurfaces,
     ),
   };
 }

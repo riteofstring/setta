@@ -88,11 +88,24 @@ export type GpuContentSurface = {
   readonly zIndex: number;
 };
 
+export type GpuDomIslandSource =
+  | {
+      readonly kind: "retained-content";
+      readonly hitRecordId: string;
+      readonly ownerRowId: string;
+      readonly surfaceId: string;
+    }
+  | {
+      readonly kind: "custom";
+    };
+
 export type GpuDomIsland = {
   readonly clipOwnerId: string;
   readonly id: string;
+  readonly kind: "custom" | "retained-content-control";
   readonly ownerSectionId: string;
   readonly rect: GpuRect;
+  readonly source: GpuDomIslandSource;
   readonly zIndex: number;
 };
 

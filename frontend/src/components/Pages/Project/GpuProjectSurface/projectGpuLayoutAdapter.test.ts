@@ -299,6 +299,91 @@ describe("project GPU layout adapter", () => {
     ]);
   });
 
+  it("derives active retained param controls as explicit DOM islands", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "child-param": "child-param-variant",
+              "parent-param": "parent-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["parent-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "parent-param",
+      "parent-param-variant",
+      "parent-param-impl",
+      createNestedParamImpl("parent-param-impl", ["child-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "child-param",
+      "child-param-variant",
+      "child-param-impl",
+      createCodeParamCodeObjImpl({
+        id: "child-param-impl",
+        name: "child",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "child-param": ["parent-param", "child-param"],
+          "parent-param": ["parent-param"],
+        },
+        topLevelParamIds: ["parent-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:child-param",
+        paramInfoId: "child-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 4,
+    });
+
+    expect(scene.domIslands).toEqual([
+      {
+        clipOwnerId: "dict-a:param-content:unpinned",
+        id: "param-control:dict-a:child-param",
+        kind: "retained-content-control",
+        ownerSectionId: "dict-a",
+        rect: { height: 28, width: 112, x: 160, y: 48 },
+        source: {
+          hitRecordId: "control:child-param",
+          kind: "retained-content",
+          ownerRowId: "child-param",
+          surfaceId: "dict-a:param-content:unpinned",
+        },
+        zIndex: 4,
+      },
+    ]);
+  });
+
   it("applies renderer-owned retained content scroll offsets to dict param surfaces", () => {
     const paramIds = Array.from({ length: 8 }, (_, index) => `param-${index}`);
     const projectState = projectStateWithSections({
