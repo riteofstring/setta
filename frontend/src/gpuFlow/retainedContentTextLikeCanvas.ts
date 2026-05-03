@@ -46,15 +46,63 @@ export function drawGpuRetainedContentTextLikeControl({
   ctx.font = getTextLikeControlFont(control);
   ctx.textAlign = "start";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = disabled
-    ? palette.textLikeDisabledText
-    : palette.textLikeText;
+  ctx.fillStyle = getTextLikeControlTextColor({
+    control,
+    disabled,
+    palette,
+  });
   ctx.fillText(
     getTextLikeControlText(control),
     outer.x + 7,
     outer.y + outer.height / 2,
     Math.max(0, outer.width - 14),
   );
+}
+
+function getTextLikeControlTextColor({
+  control,
+  disabled,
+  palette,
+}: {
+  readonly control: Extract<
+    GpuRetainedContentControlDescriptor,
+    { kind: "text-like" }
+  >;
+  readonly disabled: boolean;
+  readonly palette: GpuRetainedContentCanvasPalette;
+}): string {
+  if (disabled) {
+    return palette.textLikeDisabledText;
+  }
+  const tokenColor = getTextLikeCodeTokenColor({
+    palette,
+    text: getTextLikeControlText(control),
+  });
+  return tokenColor ?? palette.textLikeText;
+}
+
+function getTextLikeCodeTokenColor({
+  palette,
+  text,
+}: {
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly text: string;
+}): string | null {
+  const trimmed = text.trim();
+  if (trimmed === "true" || trimmed === "false" || trimmed === "null") {
+    return palette.textLikeCodeAtomText;
+  }
+  if (isJsonNumberToken(trimmed)) {
+    return palette.textLikeCodeNumberText;
+  }
+  return null;
+}
+
+function isJsonNumberToken(value: string): boolean {
+  if (value.length === 0) {
+    return false;
+  }
+  return /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/u.test(value);
 }
 
 function drawTextLikeActiveUnderline(

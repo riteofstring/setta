@@ -27,7 +27,32 @@ describe("retained content text-like canvas", () => {
     expect(ctx.moveTo).not.toHaveBeenCalled();
     expect(ctx.lineTo).not.toHaveBeenCalled();
     expect(ctx.fillStyle).toBe(palette.textLikeText);
+    expect(ctx.font).toContain("10px Inter");
     expect(ctx.fillText).toHaveBeenCalledWith("sample", 13, 14, 154);
+  });
+
+  it("uses the retained CodeMirror literal color for primitive values", () => {
+    const ctx = createCanvasContextRecorder();
+    const palette = getGpuRetainedContentCanvasPalette(true);
+
+    drawGpuRetainedContentTextLikeControl({
+      control: {
+        defaultDisplayValue: "",
+        displayValue: "false",
+        editorKind: "text",
+        kind: "text-like",
+        rendererFamily: "text",
+        commitPolicy: "native-island",
+      },
+      ctx,
+      palette,
+      rect: { height: 28, width: 180, x: 0, y: 0 },
+      state: undefined,
+    });
+
+    expect(ctx.fillStyle).toBe(palette.textLikeCodeAtomText);
+    expect(ctx.font).toContain("10px Inter");
+    expect(ctx.fillText).toHaveBeenCalledWith("false", 13, 14, 154);
   });
 });
 
