@@ -309,6 +309,60 @@ describe("GPU pan/zoom controller", () => {
     detach();
   });
 
+  it("requests viewport frames during pointer pan and defers texture upload until pan end", () => {
+    const element = createSurfaceElement();
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 2],
+    });
+    const requestFrame = vi.fn();
+    const detach = attachGpuPanZoomController({
+      element,
+      isMacOS: false,
+      requestFrame,
+      store,
+    });
+
+    dispatchPointer(element, "pointerdown", {
+      button: 0,
+      clientX: 20,
+      clientY: 30,
+      pointerId: 1,
+    });
+    expect(store.getState().paneDragging).toBe(true);
+    expect(store.getState().pointerPanning).toBe(true);
+    expect(requestFrame).not.toHaveBeenCalled();
+
+    dispatchPointer(element, "pointermove", {
+      button: 0,
+      clientX: 25,
+      clientY: 28,
+      pointerId: 1,
+    });
+    expect(store.getState().transform).toEqual([5, -2, 2]);
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenLastCalledWith("viewport");
+
+    dispatchPointer(element, "pointermove", {
+      button: 0,
+      clientX: 25,
+      clientY: 28,
+      pointerId: 1,
+    });
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+
+    dispatchPointer(element, "pointerup", {
+      button: 0,
+      clientX: 25,
+      clientY: 28,
+      pointerId: 1,
+    });
+    expect(store.getState().paneDragging).toBe(false);
+    expect(store.getState().pointerPanning).toBe(false);
+    expect(requestFrame).toHaveBeenCalledTimes(2);
+    expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
+    detach();
+  });
+
   it("pans primary node drags while the pan activation key is active", () => {
     const element = createSurfaceElement();
     const node = document.createElement("div");
