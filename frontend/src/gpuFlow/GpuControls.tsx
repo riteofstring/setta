@@ -35,11 +35,10 @@ import {
   toggleMiniMapSide,
   toggleSnapToGrid,
 } from "state/actions/localStorage";
-import { getNodes } from "state/actions/nodeInternals";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { GPU_FLOW_CLASS_NAMES } from "./gpuFlowDomClasses";
-import { getGpuNodesBounds, isMeasuredGpuNodeBoundsInput } from "./nodeBounds";
+import type { GpuFlowLayoutStoreApi } from "./layoutStore";
 import { fitView, resetZoom, zoomBy } from "./viewportActions";
 import {
   gpuFlowViewportStore,
@@ -58,6 +57,7 @@ const ZOOM_STEP_FACTOR = 1.2;
 const DEFAULT_FIT_VIEW_PADDING = 0.1;
 
 type GpuControlsProps = {
+  readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
   readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
 };
 
@@ -235,6 +235,7 @@ function EdgeControls(props: {
 }
 
 function ViewportControls(props: {
+  layoutStore: GpuFlowLayoutStoreApi | undefined;
   maxZoomReached: boolean;
   minZoomReached: boolean;
   snapToGrid: boolean;
@@ -245,18 +246,18 @@ function ViewportControls(props: {
   );
   const overviewWidth = useLocalStorage((state) => state.overviewTrueWidth);
   const onFitView = useCallback(() => {
-    const nodes = getNodes().filter(isMeasuredGpuNodeBoundsInput);
-    if (nodes.length === 0) {
-      return;
-    }
-    fitView({
-      bounds: getGpuNodesBounds(nodes),
+    fitGpuControlsViewFromLayoutStore({
+      layoutStore: props.layoutStore,
       duration: transitionDuration,
       overviewWidth,
-      padding: DEFAULT_FIT_VIEW_PADDING,
-      store: props.viewportStore,
+      viewportStore: props.viewportStore,
     });
-  }, [overviewWidth, props.viewportStore, transitionDuration]);
+  }, [
+    overviewWidth,
+    props.layoutStore,
+    props.viewportStore,
+    transitionDuration,
+  ]);
 
   return (
     <>
@@ -292,6 +293,7 @@ function ViewportControls(props: {
         className={`${GPU_FLOW_CLASS_NAMES.controlsFitView} ${TOGGLE_CONTROL_CLASS_NAME} ${INACTIVE_CONTROL_CLASS_NAME}`}
         onClick={onFitView}
         aria-label="fit view"
+        disabled={!props.layoutStore}
         {...getFloatingBoxHandlers({ content: "Fit view" })}
       >
         <TbArrowAutofitWidth size={15} />
@@ -319,6 +321,30 @@ function ViewportControls(props: {
       </button>
     </>
   );
+}
+
+export function fitGpuControlsViewFromLayoutStore({
+  duration,
+  layoutStore,
+  overviewWidth,
+  viewportStore,
+}: {
+  readonly duration: number;
+  readonly layoutStore: GpuFlowLayoutStoreApi | undefined;
+  readonly overviewWidth: number;
+  readonly viewportStore: GpuFlowViewportStoreApi;
+}): boolean {
+  const bounds = layoutStore?.getState().getNodesBounds() ?? null;
+  if (!bounds) {
+    return false;
+  }
+  return fitView({
+    bounds,
+    duration,
+    overviewWidth,
+    padding: DEFAULT_FIT_VIEW_PADDING,
+    store: viewportStore,
+  });
 }
 
 function MiniMapControls(props: {
@@ -455,6 +481,7 @@ function decodeGpuZoomLimitState(state: number): {
 }
 
 function GpuControlsComponent({
+  layoutStore,
   viewportStore = gpuFlowViewportStore,
 }: GpuControlsProps) {
   const [isVisible, setIsVisible] = useState<boolean>(false);
@@ -491,6 +518,7 @@ function GpuControlsComponent({
         placement={SettaPluginCanvasControlPlacementEnum.Project}
       />
       <ViewportControls
+        layoutStore={layoutStore}
         maxZoomReached={maxZoomReached}
         minZoomReached={minZoomReached}
         snapToGrid={snapToGrid}

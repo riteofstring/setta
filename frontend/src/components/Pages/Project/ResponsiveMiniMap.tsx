@@ -2,6 +2,7 @@ import GpuMiniMap from "gpuFlow/GpuMiniMap";
 import { getZoom, setCenter } from "gpuFlow/viewportActions";
 import type { CSSProperties } from "react";
 import { useLocalStorage } from "state/definitions";
+import { useProjectGpuLayoutStore } from "./GpuProjectSurface/projectGpuLayoutAdapter";
 
 type ResponsiveMiniMapPlacement = {
   position: "bottom-left" | "bottom-right";
@@ -30,6 +31,7 @@ function getResponsiveMiniMapPlacement({
 }
 
 export function ResponsiveMiniMap() {
+  const layoutStore = useProjectGpuLayoutStore();
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
   const darkMode = useLocalStorage((x) => x.darkMode);
@@ -42,6 +44,7 @@ export function ResponsiveMiniMap() {
 
   return (
     <GpuMiniMap
+      layoutStore={layoutStore}
       nodeStrokeColor={(n) => {
         const background = getStringBackground(n.style);
         if (background) return background;

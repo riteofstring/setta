@@ -17,6 +17,10 @@ vi.mock("gpuFlow/viewportActions", () => ({
   setCenter: vi.fn(),
 }));
 
+vi.mock("./GpuProjectSurface/projectGpuLayoutAdapter", () => ({
+  useProjectGpuLayoutStore: () => ({}),
+}));
+
 vi.mock("gpuFlow/GpuMiniMap", () => ({
   default: ({
     onClick,

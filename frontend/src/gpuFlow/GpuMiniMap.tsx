@@ -1,6 +1,7 @@
 import cc from "classcat";
 import {
   memo,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -9,15 +10,12 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
-import { getNodes } from "state/actions/nodeInternals";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
   useActiveSectionUI,
   useLocalStorage,
-  useNodeInternals,
   useProjectState,
   useTemporaryMiscState,
-  type ZustandNodeInternalsState,
   type ZustandProjectState,
 } from "state/definitions";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
@@ -27,7 +25,6 @@ import {
 } from "./animationFrame";
 import { GPU_FLOW_CLASS_NAMES } from "./gpuFlowDomClasses";
 import {
-  areMiniMapNodesRenderableInputsEqual,
   getMiniMapMaskPath,
   getMiniMapViewBox,
   getXYWidthHeight,
@@ -36,6 +33,11 @@ import {
   type GpuMiniMapNode,
   type GpuMiniMapNodesProps,
 } from "./GpuMiniMapSvg";
+import {
+  EMPTY_GPU_FLOW_LAYOUT_NODES,
+  useGpuFlowLayoutStoreNodes,
+} from "./layoutHooks";
+import type { GpuFlowLayoutNode, GpuFlowLayoutStoreApi } from "./layoutStore";
 import {
   getBoundsOfGpuRects,
   getGpuNodesBounds,
@@ -94,6 +96,7 @@ type GpuMiniMapPosition =
 type GpuMiniMapProps = Omit<GpuMiniMapNodesProps, "onClick"> & {
   readonly className?: string | undefined;
   readonly inversePan?: boolean | undefined;
+  readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
   readonly maskColor?: string | undefined;
   readonly maskStrokeColor?: string | undefined;
   readonly maskStrokeWidth?: number | undefined;
@@ -163,6 +166,7 @@ type MiniMapNodeVisual = {
 };
 
 type GpuMiniMapInteractionOptions = {
+  readonly getNodeById: (nodeId: string) => GpuMiniMapNode;
   readonly inversePan: boolean;
   readonly onClick: GpuMiniMapProps["onClick"];
   readonly onNodeClick: GpuMiniMapProps["onNodeClick"];
@@ -171,13 +175,11 @@ type GpuMiniMapInteractionOptions = {
   readonly viewScaleRef: RefObject<number>;
 };
 
-const selectorNodes = (state: ZustandNodeInternalsState) =>
-  getNodes(state).filter(isMeasuredGpuNodeBoundsInput);
-
 function GpuMiniMap(props: GpuMiniMapProps) {
   const {
     className,
     inversePan,
+    layoutStore,
     maskColor,
     maskStrokeColor,
     maskStrokeWidth,
@@ -198,7 +200,12 @@ function GpuMiniMap(props: GpuMiniMapProps) {
   } = resolveGpuMiniMapProps(props);
   const svgRef = useRef<SVGSVGElement>(null);
   const maskRef = useRef<SVGPathElement>(null);
-  const nodes = useGpuMiniMapNodes();
+  const nodes = useGpuMiniMapNodes(layoutStore);
+  const nodesById = useMemo(() => getGpuMiniMapNodesById(nodes), [nodes]);
+  const getNodeById = useCallback(
+    (nodeId: string) => getMiniMapNodeOrThrow(nodesById, nodeId),
+    [nodesById],
+  );
   const elementWidth = getMiniMapDimension(style?.width, DEFAULT_WIDTH);
   const elementHeight = getMiniMapDimension(style?.height, DEFAULT_HEIGHT);
   const nodeBounds = useMemo(
@@ -223,6 +230,7 @@ function GpuMiniMap(props: GpuMiniMapProps) {
     viewportStore,
   });
   const interactions = useGpuMiniMapInteractions({
+    getNodeById,
     inversePan,
     onClick,
     onNodeClick,
@@ -300,6 +308,7 @@ function resolveGpuMiniMapProps(
 }
 
 function useGpuMiniMapInteractions({
+  getNodeById,
   inversePan,
   onClick,
   onNodeClick,
@@ -340,9 +349,9 @@ function useGpuMiniMapInteractions({
       return undefined;
     }
     return (event: ReactMouseEvent, nodeId: string) => {
-      onNodeClick(event, getMiniMapNodeOrThrow(nodeId));
+      onNodeClick(event, getNodeById(nodeId));
     };
-  }, [onNodeClick]);
+  }, [getNodeById, onNodeClick]);
 
   const onPointerDown = useMemo(() => {
     if (!pannable) {
@@ -477,11 +486,18 @@ function GpuMiniMapSelectionSync({
   return null;
 }
 
-function useGpuMiniMapNodes(): readonly GpuMiniMapNode[] {
+function useGpuMiniMapNodes(
+  layoutStore: GpuFlowLayoutStoreApi | undefined,
+): readonly GpuMiniMapNode[] {
   const darkMode = useLocalStorage((state) => state.darkMode);
-  const nodes = useNodeInternals(
-    selectorNodes,
-    areMiniMapNodesRenderableInputsEqual,
+  const layoutNodes =
+    useGpuFlowLayoutStoreNodes(layoutStore) ?? EMPTY_GPU_FLOW_LAYOUT_NODES;
+  const nodes = useMemo(
+    () =>
+      layoutNodes
+        .map(getGpuMiniMapNodeFromLayoutNode)
+        .filter(isMeasuredGpuNodeBoundsInput),
+    [layoutNodes],
   );
   const previewStyleColors = useTemporaryMiscState(
     getMiniMapPreviewStyleColors,
@@ -495,6 +511,19 @@ function useGpuMiniMapNodes(): readonly GpuMiniMapNode[] {
     () => mergeMiniMapNodesWithVisuals(nodes, nodeVisuals),
     [nodeVisuals, nodes],
   );
+}
+
+function getGpuMiniMapNodeFromLayoutNode(
+  node: GpuFlowLayoutNode,
+): GpuMiniMapNode {
+  return {
+    height: node.height,
+    id: node.nodeId,
+    position: { x: node.x, y: node.y },
+    tempZIndex: node.tempZIndex,
+    width: node.width,
+    zIndex: node.zIndex,
+  };
 }
 
 function useGpuMiniMapViewportSync({
@@ -817,11 +846,26 @@ function mergeMiniMapNodesWithVisuals(
   });
 }
 
-function getMiniMapNodeOrThrow(nodeId: string): GpuMiniMapNode {
-  const node = useNodeInternals.getState().x.get(nodeId);
+function getGpuMiniMapNodesById(
+  nodes: readonly GpuMiniMapNode[],
+): ReadonlyMap<string, GpuMiniMapNode> {
+  const nodesById = new Map<string, GpuMiniMapNode>();
+  for (const node of nodes) {
+    if (node.id) {
+      nodesById.set(node.id, node);
+    }
+  }
+  return nodesById;
+}
+
+function getMiniMapNodeOrThrow(
+  nodesById: ReadonlyMap<string, GpuMiniMapNode>,
+  nodeId: string,
+): GpuMiniMapNode {
+  const node = nodesById.get(nodeId);
   if (!node) {
     throw new Error(
-      `MiniMap click target "${nodeId}" was not found in node internals.`,
+      `MiniMap click target "${nodeId}" was not found in the layout store.`,
     );
   }
   return node;

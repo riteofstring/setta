@@ -9,7 +9,7 @@ import {
   type GpuFlowLayoutNode,
   type GpuFlowLayoutStoreApi,
 } from "gpuFlow/layoutStore";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import {
   useNodeInternals,
   type ZustandNodeInternalsState,
@@ -20,15 +20,24 @@ export type ProjectGpuLayoutAdapter = {
   readonly nodeLayouts: readonly GpuFlowLayoutNode[];
 };
 
+let projectGpuLayoutStore: GpuFlowLayoutStoreApi | null = null;
+let projectGpuLayoutStoreSyncSubscriberCount = 0;
+let projectGpuLayoutStoreSyncUnsubscribe: (() => void) | null = null;
+
 export function useProjectGpuLayoutAdapter(): ProjectGpuLayoutAdapter {
-  const layoutStore = useStableProjectGpuLayoutStore();
-  useProjectGpuLayoutStoreProjectSync(layoutStore);
+  const layoutStore = useProjectGpuLayoutStore();
   const nodeLayouts =
     useGpuFlowLayoutStoreNodes(layoutStore) ?? EMPTY_GPU_FLOW_LAYOUT_NODES;
   return useMemo(
     () => ({ layoutStore, nodeLayouts }),
     [layoutStore, nodeLayouts],
   );
+}
+
+export function useProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
+  const layoutStore = getProjectGpuLayoutStore();
+  useProjectGpuLayoutStoreProjectSync(layoutStore);
+  return layoutStore;
 }
 
 export function syncProjectGpuLayoutStoreFromNodeInternals(
@@ -61,31 +70,45 @@ export function getProjectGpuLayoutNode(node: Node): GpuFlowLayoutNode {
   };
 }
 
-function useStableProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
-  const layoutStoreRef = useRef<GpuFlowLayoutStoreApi | null>(null);
-  if (layoutStoreRef.current === null) {
-    layoutStoreRef.current = createGpuFlowLayoutStore({
+function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
+  if (projectGpuLayoutStore === null) {
+    projectGpuLayoutStore = createGpuFlowLayoutStore({
       nodes: getProjectGpuLayoutNodesFromNodeInternals(
         useNodeInternals.getState(),
       ),
     });
   }
-  return layoutStoreRef.current;
+  return projectGpuLayoutStore;
 }
 
 function useProjectGpuLayoutStoreProjectSync(
   layoutStore: GpuFlowLayoutStoreApi,
 ) {
   useEffect(() => {
-    syncProjectGpuLayoutStoreFromNodeInternals(
-      layoutStore,
-      useNodeInternals.getState(),
-    );
-    return useNodeInternals.subscribe((state, previousState) => {
-      if (state.x === previousState.x) {
-        return;
+    projectGpuLayoutStoreSyncSubscriberCount += 1;
+    if (projectGpuLayoutStoreSyncSubscriberCount === 1) {
+      syncProjectGpuLayoutStoreFromNodeInternals(
+        layoutStore,
+        useNodeInternals.getState(),
+      );
+      projectGpuLayoutStoreSyncUnsubscribe = useNodeInternals.subscribe(
+        (state, previousState) => {
+          if (state.x === previousState.x) {
+            return;
+          }
+          syncProjectGpuLayoutStoreFromNodeInternals(layoutStore, state);
+        },
+      );
+    }
+    return () => {
+      projectGpuLayoutStoreSyncSubscriberCount = Math.max(
+        0,
+        projectGpuLayoutStoreSyncSubscriberCount - 1,
+      );
+      if (projectGpuLayoutStoreSyncSubscriberCount === 0) {
+        projectGpuLayoutStoreSyncUnsubscribe?.();
+        projectGpuLayoutStoreSyncUnsubscribe = null;
       }
-      syncProjectGpuLayoutStoreFromNodeInternals(layoutStore, state);
-    });
+    };
   }, [layoutStore]);
 }
