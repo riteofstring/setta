@@ -62,6 +62,10 @@ import {
 } from "../paramAreaMeasurements";
 
 import { attachParamAreaObservers } from "../paramAreaObservers";
+import {
+  attachParamFixedHeightObservers,
+  type ParamFixedHeightObservation,
+} from "../paramFixedHeightObservers";
 
 import { resolveThemeClassName } from "../sectionStyleTheme";
 import {
@@ -661,35 +665,14 @@ function _ParamGroupContainer({
       return;
     }
     let frameId = 0;
-    const observed = new Set<HTMLElement>();
-    const resizeObserver = new ResizeObserver(() => scheduleMeasure());
-    const mutationObserver = new MutationObserver(() => scheduleMeasure());
-
-    const updateObserved = () => {
-      const fixedElements = Array.from(
-        outer.querySelectorAll<HTMLElement>('[data-params-fixed="true"]'),
-      );
-      const nextSet = new Set(fixedElements);
-      for (const el of observed) {
-        if (!nextSet.has(el)) {
-          resizeObserver.unobserve(el);
-          observed.delete(el);
-        }
-      }
-      for (const el of nextSet) {
-        if (!observed.has(el)) {
-          resizeObserver.observe(el);
-          observed.add(el);
-        }
-      }
-      return fixedElements;
-    };
+    let fixedHeightObservation: ParamFixedHeightObservation | null = null;
 
     const updateFixedHeight = () => {
       if (!outer) {
         return;
       }
-      const fixedElements = updateObserved();
+      const fixedElements =
+        fixedHeightObservation?.collectFixedElements() ?? [];
       commitMeasuredFixedHeight({
         nextFixedHeight: measureFixedParamsHeight(outer, fixedElements),
         heightKey: paramsFixedHeightKey,
@@ -706,16 +689,17 @@ function _ParamGroupContainer({
       frameId = requestAnimationFrame(updateFixedHeight);
     };
 
-    mutationObserver.observe(outer, { childList: true, subtree: true });
+    fixedHeightObservation = attachParamFixedHeightObservers({
+      outerElement: outer,
+      onMeasure: scheduleMeasure,
+    });
     scheduleMeasure();
 
     return () => {
       if (frameId) {
         cancelAnimationFrame(frameId);
       }
-      mutationObserver.disconnect();
-      resizeObserver.disconnect();
-      observed.clear();
+      fixedHeightObservation?.disconnect();
       lastFixedHeightRef.current = null;
       pendingFixedHeightRef.current = null;
       useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
