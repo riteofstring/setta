@@ -1,12 +1,20 @@
 /* @vitest-environment jsdom */
 
+import { KWARGS_CONTROLS_SCENE_HEIGHT_PX } from "components/Section/SectionParts/kwargsControlsLayout";
 import type { ZustandProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import {
+  CodeObjTypeEnum,
+  ParamNameTypeEnum,
+  ParameterPassingStyleEnum,
+  createCodeParamCodeObjImpl,
   createCore,
   createDictSectionImpl,
   createProjectConfig,
+  createShownParamIDs,
   createSingleConfig,
   createVariant,
+  type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type SingleConfig,
 } from "utils/generatedTypes";
@@ -15,8 +23,10 @@ import {
   getProjectNodeIntrinsicSizeObserverNodeIds,
   measureIntrinsicElementHeight,
   measureIntrinsicElementWidth,
+  resolveProjectNodeIntrinsicSize,
   shouldObserveProjectNodeIntrinsicSize,
 } from "./projectNodeIntrinsicSize";
+import { PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX } from "./projectSectionSceneHeaderLayout";
 
 function parsePixelValue(value: string): number | null {
   const parsed = Number.parseFloat(value);
@@ -156,6 +166,25 @@ describe("projectNodeIntrinsicSize", () => {
       ]),
     ).toEqual(["auto-height-section", "auto-width-section"]);
   });
+
+  it("uses retained param content height for auto-height canvas-owned rows", () => {
+    const projectState = projectStateWithRetainedParamSection({
+      rowIds: ["param-a", "param-b", "param-c"],
+    });
+    useProjectState.setState(projectState);
+    const element = document.createElement("div");
+    installMeasuredBox(element, { autoHeight: 80, autoWidth: 260 });
+    element.style.height = "80px";
+
+    expect(resolveProjectNodeIntrinsicSize("dict-a", element)).toEqual({
+      height:
+        PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+        KWARGS_CONTROLS_SCENE_HEIGHT_PX +
+        8 +
+        3 * 24,
+    });
+    expect(element.style.height).toBe("80px");
+  });
 });
 
 function sectionSize(size: {
@@ -210,4 +239,120 @@ function projectStateWithSectionSizes(
   }) as ZustandProjectState;
   state.previewSectionVariantMap = {};
   return state;
+}
+
+function projectStateWithRetainedParamSection({
+  rowIds,
+}: {
+  readonly rowIds: readonly string[];
+}): ZustandProjectState {
+  const rootParamId = "root-param";
+  const projectState = createSingleConfig({
+    projectConfig: createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { "dict-a": "dict-a-variant" },
+      topLevelSections: {
+        "dict-a": { h: 80, w: 260, x: 0, y: 0, zIndex: 0 },
+      },
+    }),
+    sectionImpls: {
+      "dict-a-impl": createDictSectionImpl({
+        codeObjVariantMap: Object.fromEntries([
+          [rootParamId, `${rootParamId}-variant`],
+          ...rowIds.map((paramId) => [paramId, `${paramId}-variant`]),
+        ]),
+        id: "dict-a-impl",
+        size: sectionSize({ height: "auto", width: 260 }),
+        topLevelParamId: rootParamId,
+      }),
+    },
+    sectionVariants: {
+      "dict-a-variant": createVariant({
+        id: "dict-a-variant",
+        impl: "dict-a-impl",
+        name: "dict-a-variant",
+        nonPresetImpls: [],
+      }),
+    },
+    sections: {
+      "dict-a": createCore({
+        defaultVariant: "dict-a-variant",
+        id: "dict-a",
+        name: "dict-a",
+        variants: ["dict-a-variant"],
+      }),
+    },
+    shownParamIds: {
+      "dict-a-variant": createShownParamIDs({
+        unpinned: {
+          requiredParamIdsToPaths: Object.fromEntries(
+            rowIds.map((paramId) => [paramId, [paramId]]),
+          ),
+          topLevelParamIds: [...rowIds],
+        },
+      }),
+    },
+  }) as ZustandProjectState;
+  projectState.previewSectionVariantMap = {};
+  addParamToProjectState(
+    projectState,
+    rootParamId,
+    `${rootParamId}-variant`,
+    `${rootParamId}-impl`,
+    createNestedParamImpl(`${rootParamId}-impl`, rowIds),
+  );
+  for (const paramId of rowIds) {
+    addParamToProjectState(
+      projectState,
+      paramId,
+      `${paramId}-variant`,
+      `${paramId}-impl`,
+      createCodeParamCodeObjImpl({
+        id: `${paramId}-impl`,
+        name: paramId,
+      }) as BaseCodeObjImplUnion,
+    );
+  }
+  return projectState;
+}
+
+function createNestedParamImpl(
+  id: string,
+  children: readonly string[],
+): BaseCodeObjImplUnion {
+  return {
+    children: [...children],
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    description: "",
+    id,
+    isPreset: false,
+    name: id,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    type: CodeObjTypeEnum.NestedParam,
+    typeAnnotation: "",
+  };
+}
+
+function addParamToProjectState(
+  state: ZustandProjectState,
+  paramId: string,
+  variantId: string,
+  implId: string,
+  impl: BaseCodeObjImplUnion,
+) {
+  state.codeObjs[paramId] = createCore({
+    defaultVariant: variantId,
+    displayName: "",
+    id: paramId,
+    name: paramId,
+    variants: [variantId],
+  });
+  state.codeObjVariants[variantId] = createVariant({
+    id: variantId,
+    impl: implId,
+    name: variantId,
+    nonPresetImpls: [],
+  });
+  state.codeObjImpls[implId] = impl;
 }

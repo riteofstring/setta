@@ -13,6 +13,7 @@ import { getEffectiveSectionImplIfPresent } from "state/actions/sectionInfos/pro
 import { toTopLevelSectionOuterDimension } from "state/actions/sectionInfos/topLevelSectionNode";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { getSectionMinMaxDims } from "state/hooks/sectionSizes";
+import { resolveProjectGpuSectionAutoHeight } from "./projectGpuSectionAutoSize";
 
 type ProjectNodeIntrinsicSize = {
   height?: number | undefined;
@@ -159,7 +160,7 @@ function createProjectNodeIntrinsicSizeController(
   });
 }
 
-function resolveProjectNodeIntrinsicSize(
+export function resolveProjectNodeIntrinsicSize(
   nodeId: string,
   element: HTMLElement,
 ): ProjectNodeIntrinsicSize | null {
@@ -178,36 +179,85 @@ function resolveProjectNodeIntrinsicSize(
     getSectionMinMaxDims(nodeId);
   const nextSize: ProjectNodeIntrinsicSize = {};
   if (autoHeight) {
-    const outerMaxHeight = toTopLevelSectionOuterDimension(maxHeight);
-    const outerMinHeight = toTopLevelSectionOuterDimension(minHeight);
-    const height = clampMeasuredDimension(
-      measureIntrinsicElementHeight(element, {
-        maxHeight: outerMaxHeight,
-        minHeight: outerMinHeight,
-      }),
-      outerMinHeight,
-      outerMaxHeight,
-    );
+    const height = resolveProjectNodeAutoHeight({
+      element,
+      maxHeight,
+      minHeight,
+      projectState,
+      sectionId: nodeId,
+      sectionImpl: impl,
+    });
     if (height !== null) {
       nextSize.height = height;
     }
   }
   if (autoWidth) {
-    const outerMaxWidth = toTopLevelSectionOuterDimension(maxWidth);
-    const outerMinWidth = toTopLevelSectionOuterDimension(minWidth);
-    const width = clampMeasuredDimension(
-      measureIntrinsicElementWidth(element, {
-        maxWidth: outerMaxWidth,
-        minWidth: outerMinWidth,
-      }),
-      outerMinWidth,
-      outerMaxWidth,
-    );
+    const width = resolveProjectNodeAutoWidth({
+      element,
+      maxWidth,
+      minWidth,
+    });
     if (width !== null) {
       nextSize.width = width;
     }
   }
   return Object.keys(nextSize).length > 0 ? nextSize : null;
+}
+
+function resolveProjectNodeAutoHeight({
+  element,
+  maxHeight,
+  minHeight,
+  projectState,
+  sectionId,
+  sectionImpl,
+}: {
+  readonly element: HTMLElement;
+  readonly maxHeight: number;
+  readonly minHeight: number;
+  readonly projectState: ZustandProjectState;
+  readonly sectionId: string;
+  readonly sectionImpl: NonNullable<
+    ReturnType<typeof getEffectiveSectionImplIfPresent>
+  >;
+}): number | null {
+  const outerMaxHeight = toTopLevelSectionOuterDimension(maxHeight);
+  const outerMinHeight = toTopLevelSectionOuterDimension(minHeight);
+  const retainedContentHeight = resolveProjectGpuSectionAutoHeight({
+    projectState,
+    sectionId,
+    sectionImpl,
+  });
+  return clampMeasuredDimension(
+    retainedContentHeight ??
+      measureIntrinsicElementHeight(element, {
+        maxHeight: outerMaxHeight,
+        minHeight: outerMinHeight,
+      }),
+    outerMinHeight,
+    outerMaxHeight,
+  );
+}
+
+function resolveProjectNodeAutoWidth({
+  element,
+  maxWidth,
+  minWidth,
+}: {
+  readonly element: HTMLElement;
+  readonly maxWidth: number;
+  readonly minWidth: number;
+}): number | null {
+  const outerMaxWidth = toTopLevelSectionOuterDimension(maxWidth);
+  const outerMinWidth = toTopLevelSectionOuterDimension(minWidth);
+  return clampMeasuredDimension(
+    measureIntrinsicElementWidth(element, {
+      maxWidth: outerMaxWidth,
+      minWidth: outerMinWidth,
+    }),
+    outerMinWidth,
+    outerMaxWidth,
+  );
 }
 
 export function measureIntrinsicElementHeight(

@@ -543,6 +543,89 @@ describe("project GPU layout adapter", () => {
     );
   });
 
+  it("derives auto-height param section geometry from retained rows", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "param-a": "param-a-variant",
+              "param-b": "param-b-variant",
+              "param-c": "param-c-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: "auto", width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 80, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", [
+        "param-a",
+        "param-b",
+        "param-c",
+      ]),
+    );
+    for (const paramId of ["param-a", "param-b", "param-c"]) {
+      addParamToProjectState(
+        projectState,
+        paramId,
+        `${paramId}-variant`,
+        `${paramId}-impl`,
+        createCodeParamCodeObjImpl({
+          id: `${paramId}-impl`,
+          name: paramId,
+        }),
+      );
+    }
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "param-a": ["param-a"],
+          "param-b": ["param-b"],
+          "param-c": ["param-c"],
+        },
+        topLevelParamIds: ["param-a", "param-b", "param-c"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      revision: 2,
+    });
+    const section = scene.sections.find(
+      (candidate) => candidate.sectionId === "dict-a",
+    );
+    const expectedHeight =
+      PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX +
+      KWARGS_CONTROLS_SCENE_HEIGHT_PX +
+      8 +
+      3 * 24;
+
+    expect(section?.worldRect).toMatchObject({
+      height: expectedHeight,
+      width: 262,
+      x: 10,
+      y: 20,
+    });
+    expect(
+      scene.contentSurfaces.find(
+        (surface) => surface.id === "dict-a:param-content:unpinned",
+      )?.retainedScene?.contentRect.height,
+    ).toBe(72);
+  });
+
   it("emits retained duplicate-name status from the param duplicate index", () => {
     const projectState = projectStateWithSections({
       sections: [
@@ -2626,10 +2709,10 @@ describe("project GPU layout adapter", () => {
     });
     expect(store.getState().getNodes()).toEqual([
       expect.objectContaining({
-        height: null,
+        height: 60,
         nodeId: "current-section",
         tempZIndex: 2,
-        width: null,
+        width: 180,
         worldRect: { height: 60, width: 180, x: 100, y: 140 },
         x: 100,
         y: 140,

@@ -71,12 +71,12 @@ import {
   createProjectGpuParamContentSurfaces,
   createProjectGpuParamDomIslands,
   DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
-  getProjectGpuParamFixedContentHeightForSection,
   type ProjectGpuActiveParamCanvasPopup,
   type ProjectGpuActiveParamDomIsland,
   type ProjectGpuParamEditPolicy,
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
+import { getProjectGpuParamFixedContentHeightForSection } from "./projectGpuParamContentHeight";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 import type { ProjectGpuRetainedPasswordRevealStateMap } from "./projectGpuRetainedParamPasswordRevealState";
 import {
@@ -94,6 +94,7 @@ import {
   getRenderableProjectChildSectionIds,
   shouldRenderProjectSceneSection,
 } from "./projectGpuSectionSceneTree";
+import { resolveProjectGpuSectionAutoHeight } from "./projectGpuSectionAutoSize";
 import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
 import { getProjectSectionSceneKwargsControlsHeight } from "./projectSectionSceneKwargsControlsLayout";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
@@ -355,11 +356,13 @@ export function getProjectGpuFlowScene(
         sectionImpl,
       }),
     );
-    const worldRect = createRectFromTopLevelLayoutNode(
-      node,
-      sectionImpl,
+    const worldRect = createRectFromTopLevelLayoutNode({
       layout,
-    );
+      node,
+      projectState,
+      sectionId,
+      sectionImpl,
+    });
     const sceneNode = createProjectSectionSceneNode({
       childSectionIds: getRenderableProjectChildSectionIds(
         projectState,
@@ -876,13 +879,27 @@ function getProjectSectionSceneChildLayout(
   return { gap: { x: 0, y: 0 } };
 }
 
-function createRectFromTopLevelLayoutNode(
-  node: GpuFlowLayoutNode,
-  sectionImpl: BaseSectionImplUnion,
-  layout: ReturnType<typeof getActiveViewModeTopLevelSections>[string],
-): GpuRect {
+function createRectFromTopLevelLayoutNode({
+  layout,
+  node,
+  projectState,
+  sectionId,
+  sectionImpl,
+}: {
+  readonly layout: ReturnType<typeof getActiveViewModeTopLevelSections>[string];
+  readonly node: GpuFlowLayoutNode;
+  readonly projectState: ZustandProjectState;
+  readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion;
+}): GpuRect {
+  const autoHeight = resolveProjectGpuSectionAutoHeight({
+    projectState,
+    sectionId,
+    sectionImpl,
+  });
   return {
     height:
+      autoHeight ??
       node.height ??
       getPositiveTopLevelLayoutDimension(layout.h) ??
       resolveProjectSectionSceneDimension(

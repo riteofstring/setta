@@ -381,12 +381,8 @@ function applyGpuSectionSceneGeometry(
 
   return {
     ...section,
-    ...(section.parentSectionId === null
-      ? {}
-      : {
-          height: localRect.height,
-          width: localRect.width,
-        }),
+    height: localRect.height,
+    width: localRect.width,
     bodyRect,
     childViewportRect,
     chromeRect,

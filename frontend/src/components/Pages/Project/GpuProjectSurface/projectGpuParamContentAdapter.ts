@@ -33,7 +33,6 @@ import {
   CodeObjTypeEnum,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
-  type BaseSectionImplUnion,
 } from "utils/generatedTypes";
 import {
   getProjectGpuParamContentControlWidth,
@@ -44,7 +43,6 @@ import {
   PROJECT_GPU_PARAM_CONTENT_CONTROL_RIGHT_INSET_PX,
   PROJECT_GPU_PARAM_CONTENT_LABEL_CONTROL_GAP_PX,
   PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX,
-  resolveProjectGpuParamFixedContentHeight,
   type ProjectGpuParamListKey,
 } from "./projectGpuParamContentLayout";
 import {
@@ -235,31 +233,6 @@ export function createProjectGpuParamDomIslands({
       zIndex: surface.zIndex + 1,
     },
   ];
-}
-
-export function getProjectGpuParamFixedContentHeightForSection({
-  projectState,
-  sectionId,
-  sectionImpl,
-}: {
-  readonly projectState: ZustandProjectState;
-  readonly sectionId: string;
-  readonly sectionImpl: BaseSectionImplUnion;
-}): number {
-  if (!isProjectGpuParamContentSectionImpl(sectionImpl)) {
-    return 0;
-  }
-  const edgeStripPortCounts =
-    getProjectGpuParamContentEdgeStripPortCounts(sectionImpl);
-  return resolveProjectGpuParamFixedContentHeight({
-    ...edgeStripPortCounts,
-    pinnedRowCount: countProjectGpuParamRetainedListRows({
-      key: "pinned",
-      projectState,
-      sectionId,
-      sectionImpl,
-    }),
-  });
 }
 
 function resolveProjectGpuParamDomIsland({
@@ -860,7 +833,7 @@ function getProjectGpuParamListRowCount(
   return listRows.find((list) => list.key === key)?.rows.length ?? 0;
 }
 
-function countProjectGpuParamRetainedListRows({
+export function countProjectGpuParamRetainedListRows({
   key,
   projectState,
   sectionId,
