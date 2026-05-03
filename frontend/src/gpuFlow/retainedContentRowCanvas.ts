@@ -6,12 +6,12 @@ import type {
 import type { GpuRect } from "./viewportMath";
 
 const RETAINED_CONTENT_ROW_SANS_FONT_FAMILY =
-  "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const RETAINED_CONTENT_ROW_MONO_FONT_FAMILY =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 const RETAINED_CONTENT_ROW_TEXT_SIZE = "12px";
 const RETAINED_CONTENT_ROW_LABEL_MONO_PADDING_X = 15;
-const RETAINED_CONTENT_ROW_LABEL_SANS_PADDING_X = 16;
+const RETAINED_CONTENT_ROW_LABEL_SANS_PADDING_X = 15;
 const RETAINED_CONTENT_ROW_LABEL_MONO_OFFSET_Y = 3;
 const RETAINED_CONTENT_ROW_LABEL_SANS_OFFSET_Y = 2;
 const RETAINED_CONTENT_ROW_LABEL_ELLIPSIS = "\u2026";
@@ -93,7 +93,7 @@ export function drawGpuRetainedContentLabel({
     state,
   });
   const paddingX = getGpuRetainedContentLabelPaddingX(appearance);
-  const maxWidth = Math.max(0, rect.width - paddingX);
+  const maxWidth = Math.max(0, rect.width);
   ctx.fillText(
     truncateGpuRetainedContentLabelText(ctx, text, maxWidth),
     rect.x + paddingX,

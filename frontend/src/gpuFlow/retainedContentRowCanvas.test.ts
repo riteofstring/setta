@@ -22,7 +22,7 @@ describe("retained content row canvas", () => {
 
     expect(ctx.font).toContain("12px ui-monospace");
     expect(ctx.fillStyle).toBe(palette.labelMutedText);
-    expect(ctx.fillText).toHaveBeenCalledWith("Add Key", 17, 19, 85);
+    expect(ctx.fillText).toHaveBeenCalledWith("Add Key", 17, 19, 100);
   });
 
   it("draws semibold sans labels for display-name rows", () => {
@@ -41,9 +41,9 @@ describe("retained content row canvas", () => {
       text: "Display Label",
     });
 
-    expect(ctx.font).toContain("600 12px Inter");
+    expect(ctx.font).toContain("600 12px ui-sans-serif");
     expect(ctx.fillStyle).toBe(palette.labelText);
-    expect(ctx.fillText).toHaveBeenCalledWith("Display Label", 16, 14, 104);
+    expect(ctx.fillText).toHaveBeenCalledWith("Display Label", 15, 14, 120);
   });
 
   it("draws CSS-like ellipsis when display-name rows exceed the label width", () => {
@@ -62,7 +62,7 @@ describe("retained content row canvas", () => {
       text: "Extra Long Display Label",
     });
 
-    expect(ctx.fillText).toHaveBeenCalledWith("Extra\u2026", 16, 14, 66);
+    expect(ctx.fillText).toHaveBeenCalledWith("Extra L\u2026", 15, 14, 82);
   });
 });
 
