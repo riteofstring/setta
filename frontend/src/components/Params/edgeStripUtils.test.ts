@@ -6,10 +6,9 @@ import {
 } from "./edgeStripUtils";
 
 describe("resolveEdgeStripHeight", () => {
-  it("returns 0 when there are no ports and no measured height", () => {
+  it("returns 0 when there are no ports", () => {
     expect(
       resolveEdgeStripHeight({
-        measuredHeight: null,
         inputPortCount: 0,
         outputPortCount: 0,
       }),
@@ -19,7 +18,6 @@ describe("resolveEdgeStripHeight", () => {
   it("uses the larger input or output port count when estimating height", () => {
     expect(
       resolveEdgeStripHeight({
-        measuredHeight: undefined,
         inputPortCount: 1,
         outputPortCount: 3,
       }),
@@ -29,21 +27,10 @@ describe("resolveEdgeStripHeight", () => {
   it("accounts for row gaps when multiple rows exist", () => {
     expect(
       resolveEdgeStripHeight({
-        measuredHeight: undefined,
         inputPortCount: 0,
         outputPortCount: 2,
       }),
     ).toBe(100);
-  });
-
-  it("prefers measured height when available", () => {
-    expect(
-      resolveEdgeStripHeight({
-        measuredHeight: 131.2,
-        inputPortCount: 2,
-        outputPortCount: 3,
-      }),
-    ).toBe(132);
   });
 
   it("derives output port anchor positions from the shared strip row layout", () => {

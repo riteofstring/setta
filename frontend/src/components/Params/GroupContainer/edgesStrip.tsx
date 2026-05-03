@@ -3,9 +3,7 @@ import _ from "lodash";
 import React, {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 
 import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
@@ -64,8 +62,6 @@ export function EdgesStrip({
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const lastHeightRef = useRef(0);
-  const stripRef = useRef<HTMLElement | null>(null);
-  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const heightKey = getEdgesStripHeightKey(sectionId);
   const {
     inputPorts,
@@ -91,42 +87,6 @@ export function EdgesStrip({
     positionAndSizeLocked,
   });
 
-  useLayoutEffect(() => {
-    if (!hasEdges) {
-      setMeasuredHeight(null);
-      return;
-    }
-    const element = stripRef.current;
-    if (!element) {
-      setMeasuredHeight(null);
-      return;
-    }
-    let frameId = 0;
-
-    const updateMeasuredHeight = () => {
-      const nextHeight = Math.ceil(element.scrollHeight);
-      setMeasuredHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    };
-
-    const scheduleMeasure = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(updateMeasuredHeight);
-    };
-
-    const resizeObserver = new ResizeObserver(scheduleMeasure);
-    resizeObserver.observe(element);
-    scheduleMeasure();
-
-    return () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      resizeObserver.disconnect();
-    };
-  }, [hasEdges, inputPorts.length, outputPorts.length]);
-
   useEffect(() => {
     if (!hasEdges) {
       if (lastHeightRef.current !== 0) {
@@ -136,7 +96,6 @@ export function EdgesStrip({
       return;
     }
     const nextHeight = resolveEdgeStripHeight({
-      measuredHeight,
       inputPortCount: inputPorts.length,
       outputPortCount: outputPorts.length,
     });
@@ -149,7 +108,6 @@ export function EdgesStrip({
     hasEdges,
     heightKey,
     inputPorts.length,
-    measuredHeight,
     outputPorts.length,
   ]);
 
@@ -169,7 +127,6 @@ export function EdgesStrip({
   return (
     <section
       className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName}`}
-      ref={stripRef}
       data-params-fixed="true"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">

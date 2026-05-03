@@ -19,19 +19,14 @@ function getEdgeStripEstimatedHeight(
 }
 
 type ResolveEdgeStripHeightInput = {
-  measuredHeight: number | null | undefined;
   inputPortCount: number;
   outputPortCount: number;
 };
 
 export function resolveEdgeStripHeight({
-  measuredHeight,
   inputPortCount,
   outputPortCount,
 }: ResolveEdgeStripHeightInput): number {
-  if (typeof measuredHeight === "number" && measuredHeight > 0) {
-    return Math.ceil(measuredHeight);
-  }
   return Math.ceil(
     getEdgeStripEstimatedHeight(inputPortCount, outputPortCount),
   );
