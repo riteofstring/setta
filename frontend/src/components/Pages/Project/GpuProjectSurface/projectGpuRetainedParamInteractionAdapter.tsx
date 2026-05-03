@@ -64,7 +64,10 @@ import {
   type ProjectGpuRetainedParamDragPreview,
   type ProjectGpuRetainedParamDragSession,
 } from "./projectGpuParamDragAdapter";
-import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
+import {
+  PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
+  PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
+} from "./projectGpuPortalAdapter";
 
 type ProjectGpuRetainedContentScrollApi = {
   readonly getScene: () => GpuFlowScene;
@@ -263,6 +266,7 @@ export function renderProjectGpuDomIsland(island: GpuDomIsland) {
     return (
       <ProjectGpuParamNameDomIsland
         contentRect={island.contentRect}
+        domIslandId={island.id}
         paramInfoId={island.source.ownerRowId}
         sectionId={island.ownerSectionId}
       />
@@ -616,10 +620,12 @@ function ProjectGpuParamControlDomIsland({
 
 function ProjectGpuParamNameDomIsland({
   contentRect,
+  domIslandId,
   paramInfoId,
   sectionId,
 }: {
   readonly contentRect: GpuDomIsland["contentRect"];
+  readonly domIslandId: string;
   readonly paramInfoId: string;
   readonly sectionId: string;
 }) {
@@ -653,6 +659,7 @@ function ProjectGpuParamNameDomIsland({
       data-gpu-project-param-name-dom-island="true"
       data-param-id={paramInfoId}
       data-section-id={sectionId}
+      id={domIslandId}
       ref={rootRef}
     >
       <div
@@ -674,6 +681,10 @@ function ProjectGpuParamNameDomIsland({
             tooltipParentDivId={
               PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID
             }
+            validationBubbleContainerDivId={
+              PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID
+            }
+            validationBubbleCoordinateSpace="viewport"
           />
         </ParamDuplicateIndexProvider>
       </div>

@@ -57,6 +57,8 @@ vi.mock("components/Params/ParamItems/ParamNameInput", () => ({
     paramInfoId: string;
     sectionId: string;
     tooltipParentDivId?: string | null;
+    validationBubbleContainerDivId?: string | null;
+    validationBubbleCoordinateSpace?: string | null;
   }) => {
     mocks.paramNameInputProps(props);
     return (
@@ -75,7 +77,10 @@ vi.mock("gpuFlow/viewportReposition", () => ({
   },
 }));
 
-import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
+import {
+  PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
+  PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
+} from "./projectGpuPortalAdapter";
 import {
   getProjectRetainedContentConnectionOptions,
   getProjectScenePortConnectionOptions,
@@ -164,6 +169,9 @@ describe("project GPU retained param DOM islands", () => {
           paramInfoId: "param-1",
           sectionId: "section-1",
           tooltipParentDivId: PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID,
+          validationBubbleContainerDivId:
+            PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
+          validationBubbleCoordinateSpace: "viewport",
         }),
       );
       expect(
@@ -171,6 +179,11 @@ describe("project GPU retained param DOM islands", () => {
           .querySelector('[data-testid="param-name-input"]')
           ?.getAttribute("data-tooltip-parent"),
       ).toBe(PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID);
+      expect(
+        rendered.host.querySelector(
+          '[data-gpu-project-param-name-dom-island="true"]',
+        )?.id,
+      ).toBe("param-label:section-1:param-1");
       expect(mocks.subscribeToGpuViewportRepositionMock).toHaveBeenCalledTimes(
         1,
       );

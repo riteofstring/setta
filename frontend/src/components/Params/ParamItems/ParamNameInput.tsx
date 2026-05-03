@@ -41,9 +41,16 @@ type ParamNameInputProps = {
   sectionId: string;
   paramInfoId: string;
   hasChildren: boolean;
-  onMouseDown?: MouseEventHandler;
+  onMouseDown?: MouseEventHandler | undefined;
   tooltipParentDivId?: string | null | undefined;
+  validationBubbleContainerDivId?: string | null | undefined;
+  validationBubbleCoordinateSpace?:
+    | ParamNameValidationBubbleCoordinateSpace
+    | null
+    | undefined;
 };
+
+type ParamNameValidationBubbleCoordinateSpace = "container-local" | "viewport";
 
 type ParamNameState = {
   configLanguage: string | null | undefined;
@@ -76,6 +83,7 @@ type ResolvedParamNameState = {
 };
 
 type ParamNameController = {
+  bubbleContainerDivId: string;
   bubblePosition: BubblePosition;
   bubbleRef: RefObject<HTMLDivElement | null>;
   combinedErrorMessage: string;
@@ -332,23 +340,40 @@ function clampBubbleLeft(
 }
 
 function computeBubblePosition(
-  sectionId: string,
+  containerDivId: string,
+  coordinateSpace: ParamNameValidationBubbleCoordinateSpace,
   realDivId: string,
   dummyDivId: string,
   bubbleEl: HTMLDivElement | null,
 ): BubblePosition | null {
   const anchorEl =
     document.getElementById(realDivId) ?? document.getElementById(dummyDivId);
-  const containerEl = document.getElementById(`${sectionId}-CustomResizable`);
-  if (!anchorEl || !bubbleEl || !containerEl) {
+  if (!anchorEl || !bubbleEl) {
     return null;
   }
   const anchorRect = anchorEl.getBoundingClientRect();
   const bubbleRect = bubbleEl.getBoundingClientRect();
+  const margin = 6;
+  if (coordinateSpace === "viewport") {
+    const viewportWidth =
+      document.documentElement.clientWidth || window.innerWidth;
+    return {
+      top: anchorRect.top + anchorRect.height + margin,
+      left: clampBubbleLeft(
+        anchorRect.left,
+        viewportWidth - bubbleRect.width - margin,
+        margin,
+      ),
+      visible: true,
+    };
+  }
+  const containerEl = document.getElementById(containerDivId);
+  if (!containerEl) {
+    return null;
+  }
   const containerRect = containerEl.getBoundingClientRect();
   const scaleX = getBubbleScale(containerEl.offsetWidth, containerRect.width);
   const scaleY = getBubbleScale(containerEl.offsetHeight, containerRect.height);
-  const margin = 6;
   const localLeft = (anchorRect.left - containerRect.left) / scaleX;
   const localTop = (anchorRect.top - containerRect.top) / scaleY;
   const localAnchorHeight = anchorRect.height / scaleY;
@@ -361,13 +386,21 @@ function computeBubblePosition(
   };
 }
 
-function useParamNameBubblePosition(
-  hasError: boolean,
-  combinedErrorMessage: string,
-  sectionId: string,
-  realDivId: string,
-  dummyDivId: string,
-) {
+function useParamNameBubblePosition({
+  combinedErrorMessage,
+  containerDivId,
+  coordinateSpace,
+  dummyDivId,
+  hasError,
+  realDivId,
+}: {
+  combinedErrorMessage: string;
+  containerDivId: string;
+  coordinateSpace: ParamNameValidationBubbleCoordinateSpace;
+  dummyDivId: string;
+  hasError: boolean;
+  realDivId: string;
+}) {
   const bubbleRef = useRef<HTMLDivElement | null>(null);
   const [bubblePosition, setBubblePosition] =
     useState<BubblePosition>(hiddenBubblePosition);
@@ -377,7 +410,8 @@ function useParamNameBubblePosition(
       return;
     }
     const nextBubblePosition = computeBubblePosition(
-      sectionId,
+      containerDivId,
+      coordinateSpace,
       realDivId,
       dummyDivId,
       bubbleRef.current,
@@ -386,7 +420,7 @@ function useParamNameBubblePosition(
       return;
     }
     setBubblePosition(nextBubblePosition);
-  }, [dummyDivId, hasError, realDivId, sectionId]);
+  }, [containerDivId, coordinateSpace, dummyDivId, hasError, realDivId]);
 
   useLayoutEffect(() => {
     if (!hasError) {
@@ -549,14 +583,14 @@ function ParamNameErrorBubble({
   bubblePosition,
   bubbleRef,
   combinedErrorMessage,
+  containerDivId,
   hasError,
-  sectionId,
 }: {
   bubblePosition: BubblePosition;
   bubbleRef: RefObject<HTMLDivElement | null>;
   combinedErrorMessage: string;
+  containerDivId: string;
   hasError: boolean;
-  sectionId: string;
 }) {
   if (!hasError) {
     return null;
@@ -574,13 +608,18 @@ function ParamNameErrorBubble({
       <span className="absolute -top-1 left-3 h-2 w-2 rotate-45 border-l border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]" />
       {combinedErrorMessage}
     </div>,
-    document.getElementById(`${sectionId}-CustomResizable`) ?? document.body,
+    document.getElementById(containerDivId) ?? document.body,
   );
 }
 
 function useParamNameController(
   sectionId,
   paramInfoId,
+  validationBubbleContainerDivId?: string | null | undefined,
+  validationBubbleCoordinateSpace?:
+    | ParamNameValidationBubbleCoordinateSpace
+    | null
+    | undefined,
 ): ParamNameController | null {
   const paramNameState = useParamNameState(sectionId, paramInfoId);
   const hasParamNameState = paramNameState !== null;
@@ -617,16 +656,21 @@ function useParamNameController(
     sectionId,
     paramInfoId,
   );
+  const bubbleContainerDivId =
+    validationBubbleContainerDivId ?? `${sectionId}-CustomResizable`;
+  const bubbleCoordinateSpace =
+    validationBubbleCoordinateSpace ?? "container-local";
   useEffect(() => {
     setInputValue(value);
   }, [value]);
-  const { bubbleRef, bubblePosition } = useParamNameBubblePosition(
-    hasError,
+  const { bubbleRef, bubblePosition } = useParamNameBubblePosition({
     combinedErrorMessage,
-    sectionId,
-    realDivId,
+    containerDivId: bubbleContainerDivId,
+    coordinateSpace: bubbleCoordinateSpace,
     dummyDivId,
-  );
+    hasError,
+    realDivId,
+  });
   const { onChange, onBlur, onEscape } = useParamNameInputHandlers({
     canEditStructure,
     duplicateIndex,
@@ -645,6 +689,7 @@ function useParamNameController(
     return null;
   }
   return {
+    bubbleContainerDivId,
     bubblePosition,
     bubbleRef,
     combinedErrorMessage,
@@ -747,15 +792,20 @@ function LoadedParamNameInput({
         bubblePosition={controller.bubblePosition}
         bubbleRef={controller.bubbleRef}
         combinedErrorMessage={controller.combinedErrorMessage}
+        containerDivId={controller.bubbleContainerDivId}
         hasError={controller.hasError}
-        sectionId={sectionId}
       />
     </div>
   );
 }
 
 export function ParamNameInput(props: ParamNameInputProps) {
-  const controller = useParamNameController(props.sectionId, props.paramInfoId);
+  const controller = useParamNameController(
+    props.sectionId,
+    props.paramInfoId,
+    props.validationBubbleContainerDivId,
+    props.validationBubbleCoordinateSpace,
+  );
   if (!controller) {
     return null;
   }
