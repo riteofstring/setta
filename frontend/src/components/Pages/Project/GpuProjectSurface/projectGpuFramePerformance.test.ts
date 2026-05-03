@@ -2,10 +2,14 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { postGpuFlowFrameChromeReproEvent } from "./chromeReproPerf";
-import type { RenderHtmlSurfaceFrameResult } from "./htmlSurfaces/frame";
+import type { GpuFlowFramePerformanceEvent } from "gpuFlow/framePerformance";
 
-describe("chromeReproPerf", () => {
+import {
+  postProjectGpuFlowFrameChromeReproEvent,
+  PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER,
+} from "./projectGpuFramePerformance";
+
+describe("projectGpuFramePerformance", () => {
   afterEach(() => {
     window.__SETTA_CHROME_REPRO_ACTIVE__ = false;
     vi.restoreAllMocks();
@@ -14,33 +18,23 @@ describe("chromeReproPerf", () => {
   it("does not post recorder events when repro capture is inactive", () => {
     const postSpy = vi.spyOn(window, "postMessage");
 
-    postGpuFlowFrameChromeReproEvent({
-      deferResolutionUpdates: false,
-      frame: 1,
-      frameReasons: ["paint"],
-      layerResult: createLayerResult(),
-      renderDurationMs: 4.2,
-      viewport: [0, 0, 1],
-      viewportFrame: false,
-    });
+    postProjectGpuFlowFrameChromeReproEvent(createFramePerformanceEvent());
 
     expect(postSpy).not.toHaveBeenCalled();
+    expect(PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER.isEnabled?.()).toBe(
+      false,
+    );
   });
 
-  it("posts compact gpu flow frame metrics for chrome recordings", () => {
+  it("posts rounded gpu flow frame metrics for chrome recordings", () => {
     window.__SETTA_CHROME_REPRO_ACTIVE__ = true;
     const postSpy = vi.spyOn(window, "postMessage");
 
-    postGpuFlowFrameChromeReproEvent({
-      deferResolutionUpdates: true,
-      frame: 7,
-      frameReasons: ["paint", "texture-upload"],
-      layerResult: createLayerResult(),
-      renderDurationMs: 12.34,
-      viewport: [10.12, 20.56, 0.55],
-      viewportFrame: false,
-    });
+    postProjectGpuFlowFrameChromeReproEvent(createFramePerformanceEvent());
 
+    expect(PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER.isEnabled?.()).toBe(
+      true,
+    );
     expect(postSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "gpu-flow-frame",
@@ -57,6 +51,8 @@ describe("chromeReproPerf", () => {
           uploadDiagnosticCount: 1,
           uploadDiagnostics: [
             expect.objectContaining({
+              cssHeight: 50.1,
+              cssWidth: 100.4,
               dirtySourceRect: { height: 12.3, width: 24.7, x: 1.1, y: 2.2 },
               dirtyTileCount: 1,
               durationMs: 3.2,
@@ -75,39 +71,37 @@ describe("chromeReproPerf", () => {
   });
 });
 
-function createLayerResult(): RenderHtmlSurfaceFrameResult {
+function createFramePerformanceEvent(): GpuFlowFramePerformanceEvent {
   return {
-    activeNodeId: "node-1",
+    activeNodePresent: true,
     budgetExhausted: true,
-    domTransformParkedNodeIds: ["node-5"],
-    domTransformUpdatedNodeIds: ["node-1", "node-2"],
-    drawnEdgeIds: ["edge-1"],
-    drawnNodeIds: ["node-1", "node-2", "node-3"],
+    deferResolutionUpdates: true,
+    domTransformParkedNodeCount: 1,
+    domTransformUpdatedNodeCount: 2,
+    drawnEdgeCount: 1,
+    drawnNodeCount: 3,
+    durationMs: 12.34,
     edgeVertexCount: 6,
     evictedTextureBytes: 128,
-    evictedTextureNodeIds: ["node-6"],
-    missingElementNodeIds: ["node-7"],
-    missingTextureNodeIds: ["node-8"],
-    remainingDirtyNodeIds: ["node-9", "node-10"],
-    skippedNodeIds: ["node-11"],
-    textureMemory: {
-      allocatedBytes: 4096,
-      largestTextureBytes: 2048,
-      textureCount: 4,
-      visibleBytes: 3072,
-      visibleTextureCount: 3,
-    },
-    textureMemoryBeforeEviction: {
-      allocatedBytes: 8192,
-      largestTextureBytes: 4096,
-      textureCount: 5,
-      visibleBytes: 3072,
-      visibleTextureCount: 3,
-    },
+    evictedTextureNodeCount: 1,
+    frame: 7,
+    frameReasons: ["paint", "texture-upload"],
+    missingElementNodeCount: 1,
+    missingTextureNodeCount: 1,
+    remainingDirtyNodeCount: 2,
+    skippedNodeCount: 1,
+    textureMemoryAllocatedBytes: 4096,
+    textureMemoryBeforeEvictionAllocatedBytes: 8192,
+    textureMemoryBeforeEvictionCount: 5,
+    textureMemoryCount: 4,
+    textureMemoryLargestBytes: 2048,
+    textureMemoryVisibleBytes: 3072,
+    textureMemoryVisibleCount: 3,
+    uploadDiagnosticCount: 1,
     uploadDiagnostics: [
       {
-        cssHeight: 50,
-        cssWidth: 100,
+        cssHeight: 50.05,
+        cssWidth: 100.36,
         dirtyContent: true,
         dirtyResolution: false,
         dirtySourceRect: {
@@ -131,13 +125,9 @@ function createLayerResult(): RenderHtmlSurfaceFrameResult {
         uploadedTileCount: 1,
       },
     ],
-    uploadedNodeIds: ["node-12"],
-    visibleNodeIds: ["node-1", "node-2", "node-3", "node-4"],
-    visualScene: {
-      effectSurfaces: [],
-      flatSurfaces: [],
-      meshSurfaces: [],
-      tiledFlatSurfaces: [],
-    },
+    uploadedNodeCount: 1,
+    viewport: { x: 10.12, y: 20.56, zoom: 0.55 },
+    viewportFrame: false,
+    visibleNodeCount: 4,
   };
 }

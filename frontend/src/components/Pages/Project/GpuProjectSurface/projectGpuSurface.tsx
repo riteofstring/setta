@@ -63,6 +63,7 @@ import {
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import { PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER } from "./projectGpuFramePerformance";
 import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
 import {
   useProjectGpuLayoutAdapter,
@@ -351,6 +352,7 @@ function ProjectGpuFlowLayer({
       edgePalette={edgePaletteInput}
       edgeReconnect={edgeReconnectOptions}
       edgeScene={edgeScene}
+      framePerformanceReporter={PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER}
       grid={gridInput}
       layoutStore={layoutStore}
       nodeDrag={nodeDragOptions}

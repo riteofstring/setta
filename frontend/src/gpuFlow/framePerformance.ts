@@ -1,14 +1,8 @@
-import {
-  isChromeReproActive,
-  postChromeReproEvent,
-  roundChromeReproMs,
-} from "state/actions/chromeRepro";
-
 import type { GpuFrameReason } from "./gpuRenderer";
 import type { RenderHtmlSurfaceFrameResult } from "./htmlSurfaces/frame";
 import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
 
-type GpuFlowFrameChromeReproInput = {
+export type GpuFlowFramePerformanceInput = {
   readonly deferResolutionUpdates: boolean;
   readonly frame: number;
   readonly frameReasons: readonly GpuFrameReason[];
@@ -18,7 +12,75 @@ type GpuFlowFrameChromeReproInput = {
   readonly viewportFrame: boolean;
 };
 
-export function postGpuFlowFrameChromeReproEvent({
+export type GpuFlowFrameUploadDiagnostic = {
+  readonly cssHeight: number;
+  readonly cssWidth: number;
+  readonly dirtyContent: boolean;
+  readonly dirtyResolution: boolean;
+  readonly dirtySourceRect: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  } | null;
+  readonly dirtyTileBytes: number;
+  readonly dirtyTileCount: number;
+  readonly durationMs: number;
+  readonly pixelHeight: number;
+  readonly pixelWidth: number;
+  readonly priority: string;
+  readonly reasons: readonly string[];
+  readonly surfaceId: string;
+  readonly textureBytes: number;
+  readonly textureLayoutKind: string;
+  readonly uploadedBytes: number;
+  readonly uploadedTextureCount: number;
+  readonly uploadedTileCount: number;
+};
+
+export type GpuFlowFramePerformanceEvent = {
+  readonly activeNodePresent: boolean;
+  readonly budgetExhausted: boolean;
+  readonly deferResolutionUpdates: boolean;
+  readonly domTransformParkedNodeCount: number;
+  readonly domTransformUpdatedNodeCount: number;
+  readonly drawnEdgeCount: number;
+  readonly drawnNodeCount: number;
+  readonly durationMs: number;
+  readonly edgeVertexCount: number;
+  readonly evictedTextureBytes: number;
+  readonly evictedTextureNodeCount: number;
+  readonly frame: number;
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly missingElementNodeCount: number;
+  readonly missingTextureNodeCount: number;
+  readonly remainingDirtyNodeCount: number;
+  readonly skippedNodeCount: number;
+  readonly textureMemoryAllocatedBytes: number;
+  readonly textureMemoryBeforeEvictionAllocatedBytes: number;
+  readonly textureMemoryBeforeEvictionCount: number;
+  readonly textureMemoryCount: number;
+  readonly textureMemoryLargestBytes: number;
+  readonly textureMemoryVisibleBytes: number;
+  readonly textureMemoryVisibleCount: number;
+  readonly uploadDiagnosticCount: number;
+  readonly uploadDiagnostics: readonly GpuFlowFrameUploadDiagnostic[];
+  readonly uploadedNodeCount: number;
+  readonly viewport: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
+  readonly viewportFrame: boolean;
+  readonly visibleNodeCount: number;
+};
+
+export type GpuFlowFramePerformanceReporter = {
+  readonly isEnabled?: (() => boolean) | undefined;
+  readonly onFrame: (event: GpuFlowFramePerformanceEvent) => void;
+};
+
+export function createGpuFlowFramePerformanceEvent({
   deferResolutionUpdates,
   frame,
   frameReasons,
@@ -26,15 +88,12 @@ export function postGpuFlowFrameChromeReproEvent({
   renderDurationMs,
   viewport,
   viewportFrame,
-}: GpuFlowFrameChromeReproInput): void {
-  if (!isChromeReproActive()) {
-    return;
-  }
+}: GpuFlowFramePerformanceInput): GpuFlowFramePerformanceEvent {
   const normalizedViewport = normalizeGpuViewport(viewport);
   const textureMemory = layerResult.textureMemory;
   const textureMemoryBeforeEviction = layerResult.textureMemoryBeforeEviction;
   const uploadDiagnostics = layerResult.uploadDiagnostics;
-  postChromeReproEvent("gpu-flow-frame", {
+  return {
     activeNodePresent: layerResult.activeNodeId !== null,
     budgetExhausted: layerResult.budgetExhausted,
     deferResolutionUpdates,
@@ -42,7 +101,7 @@ export function postGpuFlowFrameChromeReproEvent({
     domTransformUpdatedNodeCount: layerResult.domTransformUpdatedNodeIds.length,
     drawnEdgeCount: layerResult.drawnEdgeIds.length,
     drawnNodeCount: layerResult.drawnNodeIds.length,
-    durationMs: roundChromeReproMs(renderDurationMs),
+    durationMs: renderDurationMs,
     edgeVertexCount: layerResult.edgeVertexCount,
     evictedTextureBytes: layerResult.evictedTextureBytes,
     evictedTextureNodeCount: layerResult.evictedTextureNodeIds.length,
@@ -62,21 +121,21 @@ export function postGpuFlowFrameChromeReproEvent({
     textureMemoryVisibleCount: textureMemory.visibleTextureCount,
     uploadDiagnosticCount: uploadDiagnostics.length,
     uploadDiagnostics: uploadDiagnostics.slice(0, 12).map((diagnostic) => ({
-      cssHeight: roundChromeReproMs(diagnostic.cssHeight),
-      cssWidth: roundChromeReproMs(diagnostic.cssWidth),
+      cssHeight: diagnostic.cssHeight,
+      cssWidth: diagnostic.cssWidth,
       dirtyContent: diagnostic.dirtyContent,
       dirtyResolution: diagnostic.dirtyResolution,
       dirtySourceRect: diagnostic.dirtySourceRect
         ? {
-            height: roundChromeReproMs(diagnostic.dirtySourceRect.height),
-            width: roundChromeReproMs(diagnostic.dirtySourceRect.width),
-            x: roundChromeReproMs(diagnostic.dirtySourceRect.x),
-            y: roundChromeReproMs(diagnostic.dirtySourceRect.y),
+            height: diagnostic.dirtySourceRect.height,
+            width: diagnostic.dirtySourceRect.width,
+            x: diagnostic.dirtySourceRect.x,
+            y: diagnostic.dirtySourceRect.y,
           }
         : null,
       dirtyTileBytes: diagnostic.dirtyTileBytes,
       dirtyTileCount: diagnostic.dirtyTileCount,
-      durationMs: roundChromeReproMs(diagnostic.durationMs),
+      durationMs: diagnostic.durationMs,
       pixelHeight: diagnostic.pixelHeight,
       pixelWidth: diagnostic.pixelWidth,
       priority: diagnostic.priority,
@@ -90,11 +149,11 @@ export function postGpuFlowFrameChromeReproEvent({
     })),
     uploadedNodeCount: layerResult.uploadedNodeIds.length,
     viewport: {
-      x: roundChromeReproMs(normalizedViewport.x),
-      y: roundChromeReproMs(normalizedViewport.y),
-      zoom: roundChromeReproMs(normalizedViewport.zoom),
+      x: normalizedViewport.x,
+      y: normalizedViewport.y,
+      zoom: normalizedViewport.zoom,
     },
     viewportFrame,
     visibleNodeCount: layerResult.visibleNodeIds.length,
-  });
+  };
 }

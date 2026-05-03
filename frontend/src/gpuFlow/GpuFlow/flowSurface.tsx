@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type MutableRefObject,
   type ReactNode,
 } from "react";
 
@@ -13,13 +12,9 @@ import {
   resolveGpuNodeWheelHandoffTarget,
 } from "../activeNodeTargeting";
 
-import { postGpuFlowFrameChromeReproEvent } from "../chromeReproPerf";
-
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
 import type { GpuEdgeScene } from "../edges/edgeSources";
-
-import type { GpuFlowRuntime } from "../gpuDevice";
 
 import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
 
@@ -33,7 +28,6 @@ import {
   createGpuNodeDomTransformSyncCache,
   HtmlSurfaceNodeLayer,
   markHtmlSurfaceFramePaintDirty,
-  renderHtmlSurfaceFrame,
   type GpuHtmlSurfaceOverlayLayout,
   type GpuNodeDomTransformSyncCache,
   type GpuNodeLayout,
@@ -58,6 +52,8 @@ import { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 import { createHtmlSurfaceShaderEffectProjectors } from "../htmlSurfaces/shaderEffects";
 
 import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
+
+import type { GpuFlowFramePerformanceReporter } from "../framePerformance";
 
 import {
   attachGpuEdgeInteractionController,
@@ -108,12 +104,10 @@ import {
 } from "../viewportStore";
 
 import {
-  completeGpuNodeInteractionFrame,
   destroyNodeInteractionResources,
   destroyNodeLayerResources,
   nextFrame,
-  requestRemainingTextureUploadFrame,
-  resolveRenderableGpuFlowLayerFrameInput,
+  renderGpuFlowNodeLayerFrame,
   syncGpuFlowNodeInteractionState,
 } from "./flowFrame";
 
@@ -162,6 +156,7 @@ type GpuFlowProps = Pick<
   edgeReconnect?: false | GpuEdgeReconnectOptions | undefined;
   edgeScene?: GpuEdgeScene | undefined;
   edges?: readonly GpuEdgeBufferInput[] | undefined;
+  framePerformanceReporter?: GpuFlowFramePerformanceReporter | undefined;
   forceVisibleNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   grid?: GpuGridInput | undefined;
   layoutStore?: GpuFlowLayoutStoreApi | undefined;
@@ -210,7 +205,7 @@ type GpuFlowProps = Pick<
   viewportStore?: GpuFlowViewportStoreApi | undefined;
 };
 
-type GpuFlowCallbacks = Pick<
+export type GpuFlowCallbacks = Pick<
   GpuFlowProps,
   | "onFrame"
   | "onNodeElementChange"
@@ -218,7 +213,11 @@ type GpuFlowCallbacks = Pick<
   | "onPaint"
   | "onReady"
   | "onResize"
->;
+> & {
+  readonly framePerformanceReporter:
+    | GpuFlowFramePerformanceReporter
+    | undefined;
+};
 
 export type GpuFlowNodeLayerState = {
   readonly edgeScene: GpuEdgeScene | undefined;
@@ -251,6 +250,7 @@ export function GpuFlow({
   edgeReconnect,
   edgeScene,
   edges,
+  framePerformanceReporter,
   forceVisibleNodeIds,
   grid,
   layoutStore,
@@ -328,6 +328,7 @@ export function GpuFlow({
     onPaint,
     onReady,
     onResize,
+    framePerformanceReporter,
   });
   const nodeLayerRef = useRef<GpuFlowNodeLayerState>({
     edgeScene,
@@ -354,8 +355,10 @@ export function GpuFlow({
       onPaint,
       onReady,
       onResize,
+      framePerformanceReporter,
     };
   }, [
+    framePerformanceReporter,
     onFrame,
     onNodeElementChange,
     onNodeLayerFrame,
@@ -894,105 +897,4 @@ function renderGpuFlowNodeLayerElement({
       renderNode={renderNode}
     />
   );
-}
-
-function renderGpuFlowNodeLayerFrame({
-  activeResizeNodeIdRef,
-  callbacksRef,
-  canvasSizeRef,
-  deferResolutionUpdates,
-  frameReasons,
-  frameRef,
-  nodeElementByIdRef,
-  nodeDomTransformSyncCacheRef,
-  nodeInteractionRef,
-  nodeLayerRef,
-  htmlSurfaceRendererRef,
-  runtime,
-  surfaceRef,
-  textureManagerRef,
-  transformOnlyPaintNodeIdsRef,
-  visibleNodeIdsRef,
-  viewportFrame,
-}: {
-  readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
-  readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
-  readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
-  readonly deferResolutionUpdates: boolean;
-  readonly frameReasons: readonly GpuFrameReason[];
-  readonly frameRef: MutableRefObject<number>;
-  readonly nodeDomTransformSyncCacheRef: MutableRefObject<GpuNodeDomTransformSyncCache>;
-  readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
-  readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
-  readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
-  readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
-  readonly runtime: GpuFlowRuntime;
-  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
-  readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
-  readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
-  readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
-  readonly viewportFrame: boolean;
-}) {
-  const frameInput = resolveRenderableGpuFlowLayerFrameInput({
-    canvasSizeRef,
-    nodeLayerRef,
-    htmlSurfaceRendererRef,
-    runtime,
-    textureManagerRef,
-  });
-  if (!frameInput) {
-    return;
-  }
-  const { canvasSize, layer, nodes, resources } = frameInput;
-
-  const frame = nextFrame(frameRef);
-  const nodeInteraction = nodeInteractionRef.current;
-  const activeNodeId =
-    nodeInteraction?.getActiveNodeId() ?? activeResizeNodeIdRef.current;
-  const renderStartedAt = performance.now();
-  const layerResult = renderHtmlSurfaceFrame({
-    activeNodeId,
-    canvasSize,
-    deferResolutionUpdates,
-    domTransformCache: nodeDomTransformSyncCacheRef.current,
-    edges: layer.edges,
-    edgePalette: layer.edgePalette,
-    elementByNodeId: nodeElementByIdRef.current,
-    forceVisibleNodeIds: layer.forceVisibleNodeIds,
-    frame,
-    grid: layer.grid,
-    htmlSurfaceOverlays: layer.edgeLabelSurfaces,
-    marginCssPx: layer.marginCssPx,
-    nodes,
-    nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
-    renderer: resources.htmlSurfaceRenderer,
-    textureManager: resources.textureManager,
-    uploadBudget: layer.uploadBudget,
-    viewport: layer.viewport,
-  });
-  postGpuFlowFrameChromeReproEvent({
-    deferResolutionUpdates,
-    frame,
-    frameReasons,
-    layerResult,
-    renderDurationMs: performance.now() - renderStartedAt,
-    viewport: layer.viewport,
-    viewportFrame,
-  });
-  if (viewportFrame) {
-    for (const nodeId of layerResult.domTransformUpdatedNodeIds) {
-      transformOnlyPaintNodeIdsRef.current.add(nodeId);
-    }
-    for (const nodeId of layerResult.domTransformParkedNodeIds) {
-      transformOnlyPaintNodeIdsRef.current.add(nodeId);
-    }
-  }
-  nodeLayerRef.current = {
-    ...nodeLayerRef.current,
-    visualScene: layerResult.visualScene,
-  };
-  visibleNodeIdsRef.current = new Set(layerResult.visibleNodeIds);
-  completeGpuNodeInteractionFrame(nodeInteractionRef, layerResult);
-  callbacksRef.current.onNodeLayerFrame?.(layerResult);
-  requestRemainingTextureUploadFrame(surfaceRef, layerResult);
 }
