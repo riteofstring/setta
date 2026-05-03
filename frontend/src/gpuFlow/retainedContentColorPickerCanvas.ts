@@ -1,3 +1,7 @@
+import {
+  getGpuRetainedContentCanvasPalette,
+  type GpuRetainedContentCanvasPalette,
+} from "./retainedContentCanvasTheme";
 import type {
   GpuRetainedContentColorChoice,
   GpuRetainedContentControlDescriptor,
@@ -16,18 +20,38 @@ const RETAINED_CONTENT_CONTROL_FONT =
 export function drawGpuRetainedContentColorPickerControl({
   control,
   ctx,
+  palette = getGpuRetainedContentCanvasPalette(false),
   rect,
   state,
 }: {
   readonly control: GpuRetainedContentColorPickerControl;
   readonly ctx: CanvasRenderingContext2D;
+  readonly palette?: GpuRetainedContentCanvasPalette | undefined;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
-  const outer = insetRect(rect, 6, 5);
+  const outer = getGpuRetainedContentColorPickerOuterRect(rect, palette);
   const disabled = state?.disabled ?? false;
   const selectedChoice = getGpuRetainedContentSelectedColorChoice(control);
-  drawGpuRetainedContentColorPickerFrame({ ctx, disabled, outer, state });
+  if (palette.textLikeVisualStyle === "row-text") {
+    drawGpuRetainedContentColorPickerRowTextControl({
+      control,
+      ctx,
+      disabled,
+      outer,
+      palette,
+      selectedChoice,
+      state,
+    });
+    return;
+  }
+  drawGpuRetainedContentColorPickerFrame({
+    ctx,
+    disabled,
+    outer,
+    palette,
+    state,
+  });
   const swatchRect = getGpuRetainedContentColorSwatchRect(outer);
   drawGpuRetainedContentColorSwatch({
     color: selectedChoice?.color ?? control.displayValue,
@@ -102,18 +126,83 @@ function drawGpuRetainedContentColorPickerFrame({
   ctx,
   disabled,
   outer,
+  palette,
   state,
 }: {
   readonly ctx: CanvasRenderingContext2D;
   readonly disabled: boolean;
   readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
-  ctx.fillStyle = disabled ? "#e2e8f0" : "#ffffff";
-  ctx.strokeStyle = state?.selected ? "#2563eb" : "#cbd5e1";
+  ctx.fillStyle =
+    palette.textLikeVisualStyle === "row-text"
+      ? "transparent"
+      : disabled
+        ? "#e2e8f0"
+        : "#ffffff";
+  ctx.strokeStyle =
+    palette.textLikeVisualStyle === "row-text"
+      ? state?.selected
+        ? palette.textLikeSelectedBorder
+        : palette.textLikeBorder
+      : state?.selected
+        ? "#2563eb"
+        : "#cbd5e1";
   ctx.lineWidth = 1;
   fillRoundRect(ctx, outer, 5);
   strokeRoundRect(ctx, outer, 5);
+}
+
+function drawGpuRetainedContentColorPickerRowTextControl({
+  control,
+  ctx,
+  disabled,
+  outer,
+  palette,
+  selectedChoice,
+  state,
+}: {
+  readonly control: GpuRetainedContentColorPickerControl;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+  readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly selectedChoice: GpuRetainedContentColorChoice | null;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  const color = selectedChoice?.color ?? control.displayValue;
+  ctx.fillStyle = disabled ? palette.textLikeDisabledBackground : color;
+  fillRoundRect(ctx, outer, 5);
+  ctx.strokeStyle = state?.selected
+    ? palette.textLikeSelectedBorder
+    : palette.textLikeBorder;
+  ctx.lineWidth = 1;
+  strokeRoundRect(ctx, outer, 5);
+
+  const contrastColor = disabled
+    ? palette.textLikeDisabledText
+    : getGpuRetainedContentContrastTextColor(color, palette.textLikeText);
+  if (control.choices.length === 0) {
+    drawGpuRetainedContentNativeColorGlyph({
+      ctx,
+      outer,
+      strokeStyle: contrastColor,
+    });
+    return;
+  }
+  drawGpuRetainedContentColorPickerRowTextLabel({
+    control,
+    ctx,
+    outer,
+    selectedChoice,
+    textColor: contrastColor,
+  });
+  drawGpuRetainedContentColorPickerRowTextChevron({
+    ctx,
+    outer,
+    strokeStyle: contrastColor,
+  });
 }
 
 function drawGpuRetainedContentColorSwatch({
@@ -167,6 +256,38 @@ function drawGpuRetainedContentColorPickerLabel({
   );
 }
 
+function drawGpuRetainedContentColorPickerRowTextLabel({
+  control,
+  ctx,
+  outer,
+  selectedChoice,
+  textColor,
+}: {
+  readonly control: GpuRetainedContentColorPickerControl;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly outer: GpuRect;
+  readonly selectedChoice: GpuRetainedContentColorChoice | null;
+  readonly textColor: string;
+}) {
+  const label = getGpuRetainedContentColorPickerLabel({
+    control,
+    selectedChoice,
+  });
+  if (label.trim().length === 0) {
+    return;
+  }
+  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
+  ctx.textAlign = "start";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = textColor;
+  ctx.fillText(
+    label,
+    outer.x + 13,
+    outer.y + outer.height / 2,
+    Math.max(0, outer.width - 34),
+  );
+}
+
 function drawGpuRetainedContentColorPickerChevron({
   ctx,
   disabled,
@@ -191,6 +312,54 @@ function drawGpuRetainedContentColorPickerChevron({
   ctx.lineJoin = "miter";
 }
 
+function drawGpuRetainedContentColorPickerRowTextChevron({
+  ctx,
+  outer,
+  strokeStyle,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly outer: GpuRect;
+  readonly strokeStyle: string;
+}) {
+  const chevronCenterX = outer.x + outer.width - 8;
+  const chevronCenterY = outer.y + outer.height / 2;
+  ctx.beginPath();
+  ctx.moveTo(chevronCenterX - 3, chevronCenterY - 1);
+  ctx.lineTo(chevronCenterX, chevronCenterY + 2);
+  ctx.lineTo(chevronCenterX + 3, chevronCenterY - 1);
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
+}
+
+function drawGpuRetainedContentNativeColorGlyph({
+  ctx,
+  outer,
+  strokeStyle,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly outer: GpuRect;
+  readonly strokeStyle: string;
+}) {
+  const centerX = outer.x + outer.width / 2;
+  const centerY = outer.y + outer.height / 2;
+  ctx.strokeStyle = strokeStyle;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(centerX - 4, centerY + 4);
+  ctx.lineTo(centerX + 4, centerY - 4);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(centerX + 3.5, centerY - 3.5, 1.8, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineCap = "butt";
+}
+
 function getGpuRetainedContentColorPickerLabel({
   control,
   selectedChoice,
@@ -210,6 +379,16 @@ function getGpuRetainedContentSelectedColorChoice(
     return control.choices[0] ?? null;
   }
   return control.choices[control.selectedIndex] ?? control.choices[0] ?? null;
+}
+
+export function getGpuRetainedContentColorPickerOuterRect(
+  rect: GpuRect,
+  palette: GpuRetainedContentCanvasPalette,
+): GpuRect {
+  if (palette.textLikeVisualStyle === "row-text") {
+    return insetRectBySides(rect, 14, 2, 5);
+  }
+  return insetRect(rect, 6, 5);
 }
 
 function getGpuRetainedContentColorSwatchRect(outer: GpuRect): GpuRect {
@@ -238,6 +417,65 @@ function insetRect(rect: GpuRect, insetX: number, insetY: number): GpuRect {
     width: Math.max(0, rect.width - insetX * 2),
     x: rect.x + insetX,
     y: rect.y + insetY,
+  };
+}
+
+function insetRectBySides(
+  rect: GpuRect,
+  insetLeft: number,
+  insetRight: number,
+  insetY: number,
+): GpuRect {
+  return {
+    height: Math.max(0, rect.height - insetY * 2),
+    width: Math.max(0, rect.width - insetLeft - insetRight),
+    x: rect.x + insetLeft,
+    y: rect.y + insetY,
+  };
+}
+
+function getGpuRetainedContentContrastTextColor(
+  color: string,
+  fallback: string,
+): string {
+  const rgb = parseHexColor(color);
+  if (!rgb) {
+    return fallback;
+  }
+  const channelMax = Math.max(rgb.r, rgb.g, rgb.b);
+  const channelMin = Math.min(rgb.r, rgb.g, rgb.b);
+  const lightness = (channelMax + channelMin) / 510;
+  return lightness >= 0.5 ? "#0f172a" : "#f8fafc";
+}
+
+function parseHexColor(
+  color: string,
+): { readonly b: number; readonly g: number; readonly r: number } | null {
+  const value = color.trim();
+  const shortHexMatch = /^#([0-9a-f]{3})$/i.exec(value);
+  if (shortHexMatch) {
+    const hex = shortHexMatch[1];
+    if (!hex) {
+      return null;
+    }
+    return {
+      r: Number.parseInt(hex.charAt(0) + hex.charAt(0), 16),
+      g: Number.parseInt(hex.charAt(1) + hex.charAt(1), 16),
+      b: Number.parseInt(hex.charAt(2) + hex.charAt(2), 16),
+    };
+  }
+  const longHexMatch = /^#([0-9a-f]{6})$/i.exec(value);
+  if (!longHexMatch) {
+    return null;
+  }
+  const hex = longHexMatch[1];
+  if (!hex) {
+    return null;
+  }
+  return {
+    r: Number.parseInt(hex.slice(0, 2), 16),
+    g: Number.parseInt(hex.slice(2, 4), 16),
+    b: Number.parseInt(hex.slice(4, 6), 16),
   };
 }
 

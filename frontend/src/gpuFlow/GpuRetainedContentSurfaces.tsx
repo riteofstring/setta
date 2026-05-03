@@ -423,6 +423,7 @@ function drawGpuRetainedContentControl({
     drawGpuRetainedContentPickerControl({
       control,
       ctx,
+      palette,
       rect,
       state,
     })
@@ -501,11 +502,13 @@ function drawGpuRetainedContentInputControl({
 function drawGpuRetainedContentPickerControl({
   control,
   ctx,
+  palette,
   rect,
   state,
 }: {
   readonly control: GpuRetainedContentControlDescriptor;
   readonly ctx: CanvasRenderingContext2D;
+  readonly palette: GpuRetainedContentCanvasPalette;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }): boolean {
@@ -514,6 +517,7 @@ function drawGpuRetainedContentPickerControl({
       drawGpuRetainedContentColorPickerControl({
         control,
         ctx,
+        palette,
         rect,
         state,
       });
@@ -522,6 +526,7 @@ function drawGpuRetainedContentPickerControl({
       drawGpuRetainedContentDropdownControl({
         control,
         ctx,
+        palette,
         rect,
         state,
       });

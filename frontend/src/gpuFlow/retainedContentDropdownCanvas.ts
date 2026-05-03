@@ -1,3 +1,7 @@
+import {
+  getGpuRetainedContentCanvasPalette,
+  type GpuRetainedContentCanvasPalette,
+} from "./retainedContentCanvasTheme";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDropdownChoice,
@@ -16,24 +20,38 @@ const RETAINED_CONTENT_CONTROL_FONT =
 export function drawGpuRetainedContentDropdownControl({
   control,
   ctx,
+  palette = getGpuRetainedContentCanvasPalette(false),
   rect,
   state,
 }: {
   readonly control: GpuRetainedContentDropdownControl;
   readonly ctx: CanvasRenderingContext2D;
+  readonly palette?: GpuRetainedContentCanvasPalette | undefined;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
-  const outer = insetRect(rect, 6, 5);
+  const outer = getGpuRetainedContentDropdownOuterRect(rect, palette);
   const disabled = state?.disabled ?? false;
-  drawGpuRetainedContentDropdownFrame({ ctx, disabled, outer, state });
+  drawGpuRetainedContentDropdownFrame({
+    ctx,
+    disabled,
+    outer,
+    palette,
+    state,
+  });
   drawGpuRetainedContentDropdownLabel({
     control,
     ctx,
     disabled,
     outer,
+    palette,
   });
-  drawGpuRetainedContentDropdownChevron({ ctx, disabled, outer });
+  drawGpuRetainedContentDropdownChevron({
+    ctx,
+    disabled,
+    outer,
+    palette,
+  });
 }
 
 export function drawGpuRetainedContentDropdownPopupOption({
@@ -69,6 +87,36 @@ function drawGpuRetainedContentDropdownFrame({
   ctx,
   disabled,
   outer,
+  palette,
+  state,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+  readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  if (palette.textLikeVisualStyle !== "row-text") {
+    drawGpuRetainedContentDropdownLightFrame({
+      ctx,
+      disabled,
+      outer,
+      state,
+    });
+    return;
+  }
+  drawGpuRetainedContentDropdownRowTextFrame({
+    ctx,
+    outer,
+    palette,
+    state,
+  });
+}
+
+function drawGpuRetainedContentDropdownLightFrame({
+  ctx,
+  disabled,
+  outer,
   state,
 }: {
   readonly ctx: CanvasRenderingContext2D;
@@ -83,24 +131,56 @@ function drawGpuRetainedContentDropdownFrame({
   strokeRoundRect(ctx, outer, 5);
 }
 
+function drawGpuRetainedContentDropdownRowTextFrame({
+  ctx,
+  outer,
+  palette,
+  state,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  if (state?.focused || state?.selected) {
+    ctx.fillStyle = palette.rowFocusedBackground;
+    fillRoundRect(ctx, outer, 5);
+  }
+  ctx.strokeStyle = state?.selected
+    ? palette.textLikeSelectedBorder
+    : palette.textLikeBorder;
+  ctx.lineWidth = 1;
+  strokeRoundRect(ctx, outer, 5);
+}
+
 function drawGpuRetainedContentDropdownLabel({
   control,
   ctx,
   disabled,
   outer,
+  palette,
 }: {
   readonly control: GpuRetainedContentDropdownControl;
   readonly ctx: CanvasRenderingContext2D;
   readonly disabled: boolean;
   readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
 }) {
   const chevronWidth = 8;
-  const labelX = outer.x + 7;
+  const labelX =
+    outer.x + (palette.textLikeVisualStyle === "row-text" ? 13 : 7);
   const selectedChoice = getGpuRetainedContentSelectedDropdownChoice(control);
   ctx.font = RETAINED_CONTENT_CONTROL_FONT;
   ctx.textAlign = "start";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = disabled ? "#64748b" : "#334155";
+  ctx.fillStyle =
+    palette.textLikeVisualStyle === "row-text"
+      ? disabled
+        ? palette.textLikeDisabledText
+        : palette.textLikeText
+      : disabled
+        ? "#64748b"
+        : "#334155";
   ctx.fillText(
     selectedChoice?.label || control.displayValue || "Select...",
     labelX,
@@ -113,10 +193,12 @@ function drawGpuRetainedContentDropdownChevron({
   ctx,
   disabled,
   outer,
+  palette,
 }: {
   readonly ctx: CanvasRenderingContext2D;
   readonly disabled: boolean;
   readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
 }) {
   const chevronCenterX = outer.x + outer.width - 8;
   const chevronCenterY = outer.y + outer.height / 2;
@@ -124,7 +206,14 @@ function drawGpuRetainedContentDropdownChevron({
   ctx.moveTo(chevronCenterX - 3, chevronCenterY - 1);
   ctx.lineTo(chevronCenterX, chevronCenterY + 2);
   ctx.lineTo(chevronCenterX + 3, chevronCenterY - 1);
-  ctx.strokeStyle = disabled ? "#94a3b8" : "#475569";
+  ctx.strokeStyle =
+    palette.textLikeVisualStyle === "row-text"
+      ? disabled
+        ? palette.textLikeDisabledText
+        : palette.textLikeText
+      : disabled
+        ? "#94a3b8"
+        : "#475569";
   ctx.lineWidth = 1.5;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -142,11 +231,35 @@ function getGpuRetainedContentSelectedDropdownChoice(
   return control.choices[control.selectedIndex] ?? null;
 }
 
+export function getGpuRetainedContentDropdownOuterRect(
+  rect: GpuRect,
+  palette: GpuRetainedContentCanvasPalette,
+): GpuRect {
+  if (palette.textLikeVisualStyle === "row-text") {
+    return insetRectBySides(rect, 14, 2, 5);
+  }
+  return insetRect(rect, 6, 5);
+}
+
 function insetRect(rect: GpuRect, insetX: number, insetY: number): GpuRect {
   return {
     height: Math.max(0, rect.height - insetY * 2),
     width: Math.max(0, rect.width - insetX * 2),
     x: rect.x + insetX,
+    y: rect.y + insetY,
+  };
+}
+
+function insetRectBySides(
+  rect: GpuRect,
+  insetLeft: number,
+  insetRight: number,
+  insetY: number,
+): GpuRect {
+  return {
+    height: Math.max(0, rect.height - insetY * 2),
+    width: Math.max(0, rect.width - insetLeft - insetRight),
+    x: rect.x + insetLeft,
     y: rect.y + insetY,
   };
 }
