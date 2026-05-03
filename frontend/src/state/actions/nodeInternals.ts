@@ -1,4 +1,3 @@
-import { getElementDimensions } from "gpuFlow/domDimensions";
 import type { FitViewOptions, Node, NodeDragItem } from "gpuFlow/flowTypes";
 import {
   getGpuNodesBounds,
@@ -21,16 +20,18 @@ import {
 } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { scheduleEdgeHandlePositionUpdate } from "./edgeHandles";
-import {
-  debounced_route_set_top_level_section_layout,
-  getSectionDescendants,
-} from "./sectionInfos";
+import { getSectionDescendants } from "./sectionInfos";
 
 type NodeDimensionsUpdate = Array<{
   id: string;
   nodeElement: HTMLDivElement;
   forceUpdate: boolean;
 }>;
+type GpuLayoutDimensionUpdate = {
+  id: string;
+  height?: number | undefined;
+  width?: number | undefined;
+};
 type NodesById = Map<string, Node>;
 
 export function getNodes(s: null | ZustandNodeInternalsState = null) {
@@ -55,16 +56,11 @@ export function deleteNodes(nodeIds: Array<string>) {
 }
 
 export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
+  // GpuFlow owns top-level graph dimensions; DOM measurements only gate fitView.
+  void updates;
   if (!hasViewportNode()) {
     return;
   }
-
-  const newNodes = getNewNodes();
-  const changedNodeIds = applyNodeDimensionUpdates(newNodes, updates);
-  useNodeInternals.setState({ x: newNodes });
-  scheduleEdgeHandlePositionUpdatesForDimensionUpdates(changedNodeIds);
-  updateSelectionBoundsForDimensionUpdates(newNodes, changedNodeIds);
-  debounced_route_set_top_level_section_layout();
   maybeCompleteInitialFitView();
 }
 
@@ -77,79 +73,120 @@ export function updateNodeDimensionsFromGpuResize({
   height: number;
   width: number;
 }): boolean {
+  return updateNodeDimensionsFromGpuLayout({
+    id,
+    height,
+    width,
+    completeInitialFitView: false,
+  });
+}
+
+export function updateNodeDimensionsFromGpuIntrinsicSize({
+  id,
+  height,
+  width,
+}: {
+  id: string;
+  height?: number | undefined;
+  width?: number | undefined;
+}): boolean {
+  return updateNodeDimensionsFromGpuLayout({
+    id,
+    height,
+    width,
+    completeInitialFitView: true,
+  });
+}
+
+export function updateNodeDimensionsFromGpuIntrinsicSizes(
+  updates: GpuLayoutDimensionUpdate[],
+): number {
+  return updateNodeDimensionsFromGpuLayouts({
+    updates,
+    completeInitialFitView: true,
+  });
+}
+
+function updateNodeDimensionsFromGpuLayout({
+  id,
+  height,
+  width,
+  completeInitialFitView,
+}: {
+  id: string;
+  height?: number | undefined;
+  width?: number | undefined;
+  completeInitialFitView: boolean;
+}): boolean {
+  return (
+    updateNodeDimensionsFromGpuLayouts({
+      updates: [{ id, height, width }],
+      completeInitialFitView,
+    }) > 0
+  );
+}
+
+function updateNodeDimensionsFromGpuLayouts({
+  updates,
+  completeInitialFitView,
+}: {
+  updates: GpuLayoutDimensionUpdate[];
+  completeInitialFitView: boolean;
+}): number {
   if (!hasViewportNode()) {
-    return false;
+    return 0;
   }
 
   const currentNodes = useNodeInternals.getState().x;
-  const node = currentNodes.get(id);
-  if (!node) {
-    return false;
+  let newNodes: NodesById | null = null;
+  const changedNodeIds: string[] = [];
+  for (const update of updates) {
+    const node = (newNodes ?? currentNodes).get(update.id);
+    if (!node) {
+      continue;
+    }
+    const nextNode = getNodeWithGpuLayoutDimensions(node, update);
+    if (!nextNode) {
+      continue;
+    }
+    newNodes ??= new Map(currentNodes);
+    newNodes.set(update.id, nextNode);
+    changedNodeIds.push(update.id);
   }
-  if (node.width === width && node.height === height) {
-    return false;
+  if (!newNodes) {
+    return 0;
   }
-
-  const newNodes = new Map(currentNodes);
-  newNodes.set(id, {
-    ...node,
-    height,
-    width,
-  });
   useNodeInternals.setState({ x: newNodes });
-  scheduleEdgeHandlePositionUpdatesForDimensionUpdates([id]);
-  updateSelectionBoundsForDimensionUpdates(newNodes, [id]);
-  return true;
+  scheduleEdgeHandlePositionUpdatesForDimensionUpdates(changedNodeIds);
+  updateSelectionBoundsForDimensionUpdates(newNodes, changedNodeIds);
+  maybeCompleteInitialFitViewForGpuLayoutUpdate(completeInitialFitView);
+  return changedNodeIds.length;
+}
+
+function maybeCompleteInitialFitViewForGpuLayoutUpdate(enabled: boolean) {
+  if (enabled) {
+    maybeCompleteInitialFitView();
+  }
+}
+
+function getNodeWithGpuLayoutDimensions(
+  node: Node,
+  update: GpuLayoutDimensionUpdate,
+): Node | null {
+  const nextWidth = update.width ?? node.width;
+  const nextHeight = update.height ?? node.height;
+  if (node.width === nextWidth && node.height === nextHeight) {
+    return null;
+  }
+  return {
+    ...node,
+    height: nextHeight,
+    width: nextWidth,
+  };
 }
 
 function hasViewportNode() {
   return gpuFlowViewportStore.getState().domNode !== null;
-}
-
-function applyNodeDimensionUpdates(
-  newNodes: NodesById,
-  updates: NodeDimensionsUpdate,
-): string[] {
-  const changedNodeIds: string[] = [];
-  for (const update of updates) {
-    if (applyNodeDimensionUpdate(newNodes, update)) {
-      changedNodeIds.push(update.id);
-    }
-  }
-  return changedNodeIds;
-}
-
-function applyNodeDimensionUpdate(
-  newNodes: NodesById,
-  update: NodeDimensionsUpdate[number],
-): boolean {
-  const node = newNodes.get(update.id);
-  if (!node) {
-    return false;
-  }
-  const dimensions = getElementDimensions(update.nodeElement);
-  if (!shouldUpdateNodeDimensions(node, dimensions, update.forceUpdate)) {
-    return false;
-  }
-  newNodes.set(node.id, {
-    ...node,
-    ...dimensions,
-  });
-  return true;
-}
-
-function shouldUpdateNodeDimensions(
-  node: Node,
-  dimensions: ReturnType<typeof getElementDimensions>,
-  forceUpdate: boolean,
-) {
-  return !!(
-    dimensions.width &&
-    dimensions.height &&
-    (node.width !== dimensions.width ||
-      node.height !== dimensions.height ||
-      forceUpdate)
-  );
 }
 
 function scheduleEdgeHandlePositionUpdatesForDimensionUpdates(

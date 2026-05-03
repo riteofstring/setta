@@ -2,6 +2,7 @@
 
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { setSectionSizes } from "openapi/http";
+import { toTopLevelSectionOuterDimension } from "state/actions/sectionInfos/topLevelSectionNode";
 import {
   useNodeInternals,
   useProjectState,
@@ -107,8 +108,8 @@ function seedProjectState(
         {
           id: sectionId,
           position: { x: 0, y: 0 },
-          width: 200,
-          height: 120,
+          width: toTopLevelSectionOuterDimension(200),
+          height: toTopLevelSectionOuterDimension(120),
           zIndex: 1,
           tempZIndex: 1,
         },
@@ -127,6 +128,8 @@ function createResizeChange({
   width: number;
   height: number;
 }) {
+  const startWidth = toTopLevelSectionOuterDimension(200);
+  const startHeight = toTopLevelSectionOuterDimension(120);
   return {
     active: phase !== "stop",
     direction: "bottomRight" as const,
@@ -140,17 +143,20 @@ function createResizeChange({
     },
     nodeId: sectionId,
     phase,
-    pointerDelta: { x: width - 200, y: height - 120 },
-    sizeDelta: { width: width - 200, height: height - 120 },
+    pointerDelta: { x: width - startWidth, y: height - startHeight },
+    sizeDelta: { width: width - startWidth, height: height - startHeight },
     startLayout: {
-      height: 120,
+      height: startHeight,
       nodeId: sectionId,
-      width: 200,
+      width: startWidth,
       x: 0,
       y: 0,
       zIndex: 1,
     },
-    totalSizeDelta: { width: width - 200, height: height - 120 },
+    totalSizeDelta: {
+      width: width - startWidth,
+      height: height - startHeight,
+    },
   };
 }
 
@@ -188,19 +194,19 @@ describe("project GPU node resize adapter", () => {
     });
 
     options.onNodeResizeStart(
-      createResizeChange({ phase: "start", width: 200, height: 120 }),
+      createResizeChange({ phase: "start", width: 202, height: 122 }),
     );
     options.onNodeResize(
-      createResizeChange({ phase: "resize", width: 500, height: 260 }),
+      createResizeChange({ phase: "resize", width: 502, height: 262 }),
     );
 
     const liveNode = useNodeInternals.getState().x.get(sectionId);
-    expect(liveNode?.width).toBe(500);
-    expect(liveNode?.height).toBe(260);
+    expect(liveNode?.width).toBe(502);
+    expect(liveNode?.height).toBe(262);
     expect(setSectionSizes).not.toHaveBeenCalled();
 
     options.onNodeResizeStop(
-      createResizeChange({ phase: "stop", width: 500, height: 260 }),
+      createResizeChange({ phase: "stop", width: 502, height: 262 }),
     );
 
     expect(setSectionSizes).toHaveBeenCalledOnce();
@@ -235,10 +241,10 @@ describe("project GPU node resize adapter", () => {
     });
 
     options.onNodeResizeStart(
-      createResizeChange({ phase: "start", width: 200, height: 120 }),
+      createResizeChange({ phase: "start", width: 202, height: 122 }),
     );
     options.onNodeResizeStop(
-      createResizeChange({ phase: "stop", width: 200, height: 120 }),
+      createResizeChange({ phase: "stop", width: 202, height: 122 }),
     );
 
     const impl = useProjectState.getState().sectionImpls[implId];

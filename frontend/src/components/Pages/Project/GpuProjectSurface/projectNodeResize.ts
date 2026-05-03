@@ -9,6 +9,10 @@ import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { useMemo, useRef, type MutableRefObject } from "react";
 import { updateNodeDimensionsFromGpuResize } from "state/actions/nodeInternals";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  toTopLevelSectionInnerDimension,
+  toTopLevelSectionOuterDimension,
+} from "state/actions/sectionInfos/topLevelSectionNode";
 import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos/viewportUpdates";
 import {
   clampChangedSize,
@@ -173,10 +177,10 @@ export function getProjectNodeResizePolicy(
     aspectRatioExtraWidth: impl.aspectRatioExtraWidth ?? 0,
     directions,
     enabled: true,
-    maxHeight: dimensions.maxHeight,
-    maxWidth: dimensions.maxWidth,
-    minHeight: dimensions.minHeight,
-    minWidth: dimensions.minWidth,
+    maxHeight: toTopLevelSectionOuterDimension(dimensions.maxHeight),
+    maxWidth: toTopLevelSectionOuterDimension(dimensions.maxWidth),
+    minHeight: toTopLevelSectionOuterDimension(dimensions.minHeight),
+    minWidth: toTopLevelSectionOuterDimension(dimensions.minWidth),
     ...(snapGrid ? { snapGrid, snapToGrid: true } : { snapToGrid: false }),
   };
 }
@@ -266,7 +270,7 @@ function promoteProjectNodeAutoSize(
   const nextSize = getResizeStartAutoSizeUpdate({
     size: impl.size,
     direction: change.direction as ResizeHandleDirection,
-    rect: startSize,
+    rect: toProjectSectionResizeSize(startSize),
   });
   if (!nextSize) {
     return;
@@ -303,7 +307,9 @@ function stopProjectNodeResize(
       useProjectState.getState(),
       change.nodeId,
     );
-    const finalSize = getNumericProjectResizeSize(change.layout, change.nodeId);
+    const finalSize = toProjectSectionResizeSize(
+      getNumericProjectResizeSize(change.layout, change.nodeId),
+    );
     const changedSize = resolveSectionResizeStopSize({
       direction: change.direction as ResizeHandleDirection,
       finalSize: {
@@ -383,5 +389,18 @@ function getNumericProjectResizeSize(
   return {
     height: layout.height,
     width: layout.width,
+  };
+}
+
+function toProjectSectionResizeSize({
+  height,
+  width,
+}: {
+  height: number;
+  width: number;
+}): { height: number; width: number } {
+  return {
+    height: toTopLevelSectionInnerDimension(height),
+    width: toTopLevelSectionInnerDimension(width),
   };
 }

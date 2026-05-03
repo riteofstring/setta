@@ -56,8 +56,6 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-
 import { recordAuthoritativeProjectChatWindowingState } from "../projectChatWindowingAuthoritative";
 
 import { reconcileProjectChatWindowingEphemeralState } from "../projectChatWindowingEphemeral";
@@ -82,6 +80,10 @@ import {
   reconcilePendingTopLevelLayout,
   reconcilePendingViewport,
 } from "./viewportUpdates";
+import {
+  buildTopLevelSectionNode,
+  getPositiveTopLevelLayoutDimension,
+} from "./topLevelSectionNode";
 
 export function getCodeObjVariant(p: ZustandProjectState, variantId: string) {
   const variant = p.codeObjVariants[variantId];
@@ -664,44 +666,11 @@ export function shouldRenderTopLevelSectionNode(
     : false;
 }
 
-export function getSectionNodeStyle(
-  sectionImpl: BaseSectionImplUnion | null,
-  darkMode: boolean,
-) {
-  const styleColor = sectionImpl?.styleColor;
-  if (
-    styleColor === null ||
-    styleColor === undefined ||
-    styleColor.trim() === ""
-  ) {
-    return undefined;
-  }
-  return { background: deriveSectionStyleTheme(styleColor, darkMode).bg };
-}
-
-export function buildTopLevelSectionNode(
-  sectionId: string,
-  layout: TopLevelSectionLayout,
-  existingNode: Node | undefined,
-  sectionImpl: BaseSectionImplUnion | null,
-  darkMode: boolean,
-): Node {
-  return {
-    id: sectionId,
-    position: { x: layout.x, y: layout.y },
-    width: existingNode?.width ?? layout.w,
-    height: existingNode?.height ?? layout.h,
-    zIndex: layout.zIndex,
-    tempZIndex: layout.zIndex,
-    type: sectionImpl?.type,
-    style: getSectionNodeStyle(sectionImpl, darkMode),
-  };
-}
-
 export function createNodesMapFromProjectConfigChildren(
   p: ZustandProjectState,
   nodes: ZustandNodeInternalsState["x"],
 ) {
+  void nodes;
   const nodesMap: Map<string, Node> = new Map();
   const darkMode = useLocalStorage.getState().darkMode;
   const { activeViewModeId, viewModes } = p.projectConfig;
@@ -721,13 +690,12 @@ export function createNodesMapFromProjectConfigChildren(
     const sectionImpl = getEffectiveSectionImplIfPresent(p, sectionId);
     nodesMap.set(
       sectionId,
-      buildTopLevelSectionNode(
-        sectionId,
-        layout,
-        nodes.get(sectionId),
-        sectionImpl,
+      buildTopLevelSectionNode({
         darkMode,
-      ),
+        layout,
+        sectionId,
+        sectionImpl,
+      }),
     );
   }
   return nodesMap;
@@ -990,10 +958,10 @@ export function buildTopLevelSectionLayout(
   if (node.zIndex !== undefined) {
     nextLayout.zIndex = node.zIndex;
   }
-  if (node.width !== undefined) {
+  if (getPositiveTopLevelLayoutDimension(node.width) !== null) {
     nextLayout.w = node.width;
   }
-  if (node.height !== undefined) {
+  if (getPositiveTopLevelLayoutDimension(node.height) !== null) {
     nextLayout.h = node.height;
   }
   return nextLayout;

@@ -63,6 +63,7 @@ import {
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
 import {
@@ -293,6 +294,8 @@ export function ProjectGpuFlowLayer({
     flowInteractionKeys,
     isFollowTransitioning,
   });
+  const handleNodeElementChange =
+    useProjectNodeIntrinsicSizeObserver(nodeLayouts);
   const panZoomOptions = useMemo(
     () =>
       getProjectPanZoomOptions({
@@ -329,6 +332,7 @@ export function ProjectGpuFlowLayer({
       nodeDrag={nodeDragOptions}
       nodeResize={nodeResizeOptions}
       nodes={nodeLayouts}
+      onNodeElementChange={handleNodeElementChange}
       onResize={handleProjectFlowResize}
       panZoom={panZoomOptions}
       renderNode={renderProjectGpuNode}
