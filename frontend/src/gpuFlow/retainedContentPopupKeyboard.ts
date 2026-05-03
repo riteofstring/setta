@@ -71,6 +71,22 @@ export function getGpuRetainedContentChoicePopupKeyboardCommand(
   return null;
 }
 
+export function getGpuRetainedContentChoicePopupWheelCommand(
+  event: Pick<WheelEvent, "deltaX" | "deltaY">,
+): GpuRetainedContentChoicePopupKeyboardCommand | null {
+  const dominantDelta =
+    Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+      ? event.deltaY
+      : event.deltaX;
+  if (dominantDelta === 0) {
+    return null;
+  }
+  return {
+    direction: dominantDelta > 0 ? 1 : -1,
+    kind: "move",
+  };
+}
+
 export function resolveGpuRetainedContentChoicePopupKeyboard({
   command,
   scene,

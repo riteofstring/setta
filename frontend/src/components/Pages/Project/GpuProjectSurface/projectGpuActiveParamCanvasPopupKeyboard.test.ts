@@ -3,7 +3,10 @@
 import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
 import type { GpuContentSurface, GpuFlowScene } from "gpuFlow/scene";
 import { describe, expect, it } from "vitest";
-import { resolveProjectGpuActiveParamCanvasPopupKeyboard } from "./projectGpuActiveParamCanvasPopupKeyboard";
+import {
+  resolveProjectGpuActiveParamCanvasPopupKeyboard,
+  resolveProjectGpuActiveParamCanvasPopupWheel,
+} from "./projectGpuActiveParamCanvasPopupKeyboard";
 
 describe("project GPU active param canvas popup keyboard", () => {
   it("updates active dropdown popup highlight without mounting a DOM island", () => {
@@ -56,6 +59,34 @@ describe("project GPU active param canvas popup keyboard", () => {
         hitRecordId: "control:color-param",
         kind: "color-picker",
         paramInfoId: "color-param",
+        sectionId: "section-a",
+        surfaceId: "surface-a",
+      },
+    });
+  });
+
+  it("updates active dropdown popup highlight from wheel input", () => {
+    const result = resolveProjectGpuActiveParamCanvasPopupWheel({
+      activeParamCanvasPopup: {
+        highlightedOptionIndex: 0,
+        hitRecordId: "control:dropdown-param",
+        kind: "dropdown",
+        paramInfoId: "dropdown-param",
+        sectionId: "section-a",
+        surfaceId: "surface-a",
+      },
+      event: { deltaX: 0, deltaY: 20 },
+      scene: retainedContentScene(),
+    });
+
+    expect(result).toEqual({
+      action: "highlight",
+      handled: true,
+      popup: {
+        highlightedOptionIndex: 1,
+        hitRecordId: "control:dropdown-param",
+        kind: "dropdown",
+        paramInfoId: "dropdown-param",
         sectionId: "section-a",
         surfaceId: "surface-a",
       },

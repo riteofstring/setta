@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getGpuRetainedContentChoicePopupKeyboardCommand,
+  getGpuRetainedContentChoicePopupWheelCommand,
   resolveGpuRetainedContentChoicePopupKeyboard,
 } from "./retainedContentPopupKeyboard";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
@@ -93,6 +94,27 @@ describe("retained content choice popup keyboard", () => {
     ).toEqual({ kind: "typeahead", query: "g" });
     expect(
       getGpuRetainedContentChoicePopupKeyboardCommand({ key: "Tab" }),
+    ).toBeNull();
+  });
+
+  it("maps wheel deltas to retained popup move commands", () => {
+    expect(
+      getGpuRetainedContentChoicePopupWheelCommand({
+        deltaX: 0,
+        deltaY: 24,
+      }),
+    ).toEqual({ direction: 1, kind: "move" });
+    expect(
+      getGpuRetainedContentChoicePopupWheelCommand({
+        deltaX: -32,
+        deltaY: 8,
+      }),
+    ).toEqual({ direction: -1, kind: "move" });
+    expect(
+      getGpuRetainedContentChoicePopupWheelCommand({
+        deltaX: 0,
+        deltaY: 0,
+      }),
     ).toBeNull();
   });
 });
