@@ -1,4 +1,8 @@
 import { fillRoundRect, strokeRoundRect } from "./retainedContentCanvasDrawing";
+import {
+  getGpuRetainedContentCanvasPalette,
+  type GpuRetainedContentCanvasPalette,
+} from "./retainedContentCanvasTheme";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentRowState,
@@ -13,6 +17,7 @@ const TEXT_LIKE_CODE_FONT =
 export function drawGpuRetainedContentTextLikeControl({
   control,
   ctx,
+  palette = getGpuRetainedContentCanvasPalette(false),
   rect,
   state,
 }: {
@@ -21,20 +26,29 @@ export function drawGpuRetainedContentTextLikeControl({
     { kind: "text-like" }
   >;
   readonly ctx: CanvasRenderingContext2D;
+  readonly palette?: GpuRetainedContentCanvasPalette | undefined;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
   const disabled = state?.disabled ?? false;
   const outer = insetRect(rect, 6, 5);
-  ctx.fillStyle = disabled ? "#f1f5f9" : "#ffffff";
-  ctx.strokeStyle = getTextLikeControlStrokeColor(state);
-  ctx.lineWidth = 1;
-  fillRoundRect(ctx, outer, 4);
-  strokeRoundRect(ctx, outer, 4);
+  if (palette.textLikeVisualStyle === "row-text") {
+    drawTextLikeActiveUnderline(ctx, outer, palette, state);
+  } else {
+    ctx.fillStyle = disabled
+      ? palette.textLikeDisabledBackground
+      : palette.textLikeBackground;
+    ctx.strokeStyle = getTextLikeControlStrokeColor(state, palette);
+    ctx.lineWidth = 1;
+    fillRoundRect(ctx, outer, 4);
+    strokeRoundRect(ctx, outer, 4);
+  }
   ctx.font = getTextLikeControlFont(control);
   ctx.textAlign = "start";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = disabled ? "#94a3b8" : "#334155";
+  ctx.fillStyle = disabled
+    ? palette.textLikeDisabledText
+    : palette.textLikeText;
   ctx.fillText(
     getTextLikeControlText(control),
     outer.x + 7,
@@ -43,16 +57,35 @@ export function drawGpuRetainedContentTextLikeControl({
   );
 }
 
+function drawTextLikeActiveUnderline(
+  ctx: CanvasRenderingContext2D,
+  outer: GpuRect,
+  palette: GpuRetainedContentCanvasPalette,
+  state: GpuRetainedContentRowState | undefined,
+) {
+  if (!state?.focused && !state?.selected) {
+    return;
+  }
+  ctx.strokeStyle = getTextLikeControlStrokeColor(state, palette);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(outer.x, outer.y + outer.height - 0.5);
+  ctx.lineTo(outer.x + outer.width, outer.y + outer.height - 0.5);
+  ctx.stroke();
+  strokeRoundRect(ctx, outer, 4);
+}
+
 function getTextLikeControlStrokeColor(
   state: GpuRetainedContentRowState | undefined,
+  palette: GpuRetainedContentCanvasPalette,
 ): string {
   if (state?.focused) {
-    return "#2563eb";
+    return palette.textLikeFocusedBorder;
   }
   if (state?.selected) {
-    return "#93c5fd";
+    return palette.textLikeSelectedBorder;
   }
-  return "#cbd5e1";
+  return palette.textLikeBorder;
 }
 
 function getTextLikeControlFont(

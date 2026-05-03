@@ -9,6 +9,11 @@ import {
 import { drawGpuRetainedContentButtonControl } from "./retainedContentButtonCanvas";
 import { fillRoundRect, strokeRoundRect } from "./retainedContentCanvasDrawing";
 import {
+  getGpuRetainedContentCanvasPalette,
+  isGpuRetainedContentCanvasDarkMode,
+  type GpuRetainedContentCanvasPalette,
+} from "./retainedContentCanvasTheme";
+import {
   drawGpuRetainedContentColorPickerControl,
   drawGpuRetainedContentColorPickerPopupOption,
   drawGpuRetainedContentControlPopupBackground,
@@ -35,6 +40,11 @@ import {
 } from "./retainedContentDropdownCanvas";
 import { drawGpuRetainedContentDropzoneControl } from "./retainedContentDropzoneCanvas";
 import { drawGpuRetainedContentPasswordControl } from "./retainedContentPasswordCanvas";
+import {
+  drawGpuRetainedContentLabel,
+  drawGpuRetainedContentNestGuide,
+  drawGpuRetainedContentRowBackground,
+} from "./retainedContentRowCanvas";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDrawCommand,
@@ -147,7 +157,11 @@ function GpuRetainedContentCanvas({
       return;
     }
     prepareGpuRetainedContentCanvas(canvas, surface);
-    drawGpuRetainedContentSurface(ctx, surface);
+    drawGpuRetainedContentSurface(ctx, surface, {
+      palette: getGpuRetainedContentCanvasPalette(
+        isGpuRetainedContentCanvasDarkMode(canvas),
+      ),
+    });
     onSurfaceDraw?.(surface.id);
   }, [onSurfaceDraw, surface]);
 
@@ -165,6 +179,7 @@ function GpuRetainedContentCanvas({
 function drawGpuRetainedContentSurface(
   ctx: CanvasRenderingContext2D,
   surface: GpuRetainedContentSurface,
+  { palette }: { readonly palette: GpuRetainedContentCanvasPalette },
 ) {
   const scene = surface.retainedScene;
   const width = Math.max(0, surface.rect.width);
@@ -176,13 +191,14 @@ function drawGpuRetainedContentSurface(
   ctx.beginPath();
   ctx.rect(0, 0, width, height);
   ctx.clip();
-  ctx.fillStyle = "#f8fafc";
+  ctx.fillStyle = palette.surfaceBackground;
   ctx.fillRect(0, 0, width, height);
 
   for (const command of scene.drawCommands) {
     drawGpuRetainedContentCommand({
       command,
       ctx,
+      palette,
       rowState: rowStateById.get(command.rowId),
     });
   }
@@ -193,16 +209,19 @@ function drawGpuRetainedContentSurface(
 function drawGpuRetainedContentCommand({
   command,
   ctx,
+  palette,
   rowState,
 }: {
   readonly command: GpuRetainedContentDrawCommand;
   readonly ctx: CanvasRenderingContext2D;
+  readonly palette: GpuRetainedContentCanvasPalette;
   readonly rowState: GpuRetainedContentRowState | undefined;
 }) {
   if (
     drawGpuRetainedContentRowCommand({
       command,
       ctx,
+      palette,
     })
   ) {
     return;
@@ -218,6 +237,7 @@ function drawGpuRetainedContentCommand({
   if (command.kind === "row-label") {
     drawGpuRetainedContentLabel({
       ctx,
+      palette,
       rect: command.rect,
       state: rowState,
       text: command.text,
@@ -229,6 +249,7 @@ function drawGpuRetainedContentCommand({
       control: command.control,
       controlKind: command.controlKind,
       ctx,
+      palette,
       rect: command.rect,
       state: rowState,
     });
@@ -238,16 +259,23 @@ function drawGpuRetainedContentCommand({
 function drawGpuRetainedContentRowCommand({
   command,
   ctx,
+  palette,
 }: {
   readonly command: GpuRetainedContentDrawCommand;
   readonly ctx: CanvasRenderingContext2D;
+  readonly palette: GpuRetainedContentCanvasPalette;
 }): boolean {
   if (command.kind === "row-background") {
-    drawGpuRetainedContentRowBackground(ctx, command.rect, command.state);
+    drawGpuRetainedContentRowBackground({
+      ctx,
+      palette,
+      rect: command.rect,
+      state: command.state,
+    });
     return true;
   }
   if (command.kind === "nest-guide") {
-    drawGpuRetainedContentNestGuide(ctx, command.rect);
+    drawGpuRetainedContentNestGuide(ctx, command.rect, palette);
     return true;
   }
   if (command.kind === "row-drop-marker") {
@@ -356,75 +384,18 @@ function drawGpuRetainedContentPopupCommand({
   return false;
 }
 
-function drawGpuRetainedContentRowBackground(
-  ctx: CanvasRenderingContext2D,
-  rect: GpuRect,
-  state: GpuRetainedContentRowState,
-) {
-  ctx.fillStyle = getGpuRetainedContentRowBackgroundColor(state);
-  ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-  if (state.focused) {
-    ctx.strokeStyle = "#0284c7";
-    ctx.lineWidth = 1;
-    strokeInsetRect(ctx, rect, 0.5);
-  }
-  if (state.searchMatched) {
-    ctx.strokeStyle = "#2563eb";
-    ctx.lineWidth = 2;
-    strokeInsetRect(ctx, rect, 1);
-  }
-  if (state.searchFocused) {
-    ctx.strokeStyle = "#22c55e";
-    ctx.lineWidth = 2;
-    strokeInsetRect(ctx, rect, 1);
-  }
-  if (state.error) {
-    ctx.fillStyle = "#ef4444";
-    ctx.fillRect(rect.x, rect.y, 3, rect.height);
-  }
-}
-
-function drawGpuRetainedContentNestGuide(
-  ctx: CanvasRenderingContext2D,
-  rect: GpuRect,
-) {
-  ctx.fillStyle = "#cbd5e1";
-  ctx.fillRect(rect.x, rect.y + 4, rect.width, Math.max(0, rect.height - 8));
-}
-
-function drawGpuRetainedContentLabel({
-  ctx,
-  rect,
-  state,
-  text,
-}: {
-  readonly ctx: CanvasRenderingContext2D;
-  readonly rect: GpuRect;
-  readonly state: GpuRetainedContentRowState | undefined;
-  readonly text: string;
-}) {
-  ctx.font = RETAINED_CONTENT_FONT;
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = state?.disabled ? "#94a3b8" : "#0f172a";
-  const paddingX = 8;
-  ctx.fillText(
-    text,
-    rect.x + paddingX,
-    rect.y + rect.height / 2,
-    Math.max(0, rect.width - paddingX * 2),
-  );
-}
-
 function drawGpuRetainedContentControl({
   control,
   controlKind,
   ctx,
+  palette,
   rect,
   state,
 }: {
   readonly control: GpuRetainedContentControlDescriptor;
   readonly controlKind: string;
   readonly ctx: CanvasRenderingContext2D;
+  readonly palette: GpuRetainedContentCanvasPalette;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
@@ -432,6 +403,7 @@ function drawGpuRetainedContentControl({
     drawGpuRetainedContentInputControl({
       control,
       ctx,
+      palette,
       rect,
       state,
     })
@@ -459,11 +431,13 @@ function drawGpuRetainedContentControl({
 function drawGpuRetainedContentInputControl({
   control,
   ctx,
+  palette,
   rect,
   state,
 }: {
   readonly control: GpuRetainedContentControlDescriptor;
   readonly ctx: CanvasRenderingContext2D;
+  readonly palette: GpuRetainedContentCanvasPalette;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }): boolean {
@@ -472,6 +446,7 @@ function drawGpuRetainedContentInputControl({
       drawGpuRetainedContentTextLikeControl({
         control,
         ctx,
+        palette,
         rect,
         state,
       });
@@ -822,27 +797,6 @@ function drawGpuRetainedContentPortAnchors(
   }
 }
 
-function getGpuRetainedContentRowBackgroundColor(
-  state: GpuRetainedContentRowState,
-): string {
-  if (state.error) {
-    return "#fef2f2";
-  }
-  if (state.dragging) {
-    return "#e2e8f0";
-  }
-  if (state.selected) {
-    return "#dbeafe";
-  }
-  if (state.focused) {
-    return "#e0f2fe";
-  }
-  if (state.hovered) {
-    return "#eff6ff";
-  }
-  return "#f8fafc";
-}
-
 function drawGpuRetainedContentDropMarker(
   ctx: CanvasRenderingContext2D,
   rect: GpuRect,
@@ -948,19 +902,6 @@ function getGpuRetainedContentCanvasStyle(
     height: surface.rect.height,
     width: surface.rect.width,
   };
-}
-
-function strokeInsetRect(
-  ctx: CanvasRenderingContext2D,
-  rect: GpuRect,
-  inset: number,
-) {
-  ctx.strokeRect(
-    rect.x + inset,
-    rect.y + inset,
-    Math.max(0, rect.width - inset * 2),
-    Math.max(0, rect.height - inset * 2),
-  );
 }
 
 function insetRect(rect: GpuRect, x: number, y: number): GpuRect {
