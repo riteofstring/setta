@@ -46,11 +46,6 @@ import {
 
 import { useShareCapabilities } from "state/hooks/share";
 
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
-} from "utils/constants";
-
 import { useTabScope } from "utils/focusManager";
 
 import { AgenticScopeHighlightsUpdater } from "../AgenticScopeHighlightsUpdater";
@@ -63,6 +58,7 @@ import {
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import { ProjectGpuPortalRoots } from "./projectGpuPortalRoots";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
@@ -339,14 +335,7 @@ export function ProjectGpuFlowLayer({
       selection={selectionOptions}
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
     >
-      <div
-        className="setta-codemirror-tooltips"
-        id={CODEMIRROR_TOOLTIP_PARENT_ID}
-      />
-      <div
-        className="setta-popover-portals"
-        id={SETTA_POPOVER_PORTAL_PARENT_ID}
-      />
+      <ProjectGpuPortalRoots />
     </GpuFlow>
   );
 }
