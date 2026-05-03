@@ -871,6 +871,9 @@ function getProjectGpuDomIslandActivationKey(
 function shouldClickProjectGpuDomIslandActivationTarget(
   target: HTMLElement,
 ): boolean {
+  if (isClickActivatedProjectGpuDomIslandRole(target.getAttribute("role"))) {
+    return true;
+  }
   if (target instanceof HTMLButtonElement) {
     return true;
   }
@@ -880,7 +883,10 @@ function shouldClickProjectGpuDomIslandActivationTarget(
   if (target instanceof HTMLInputElement) {
     return isClickActivatedProjectGpuDomIslandInputType(target.type);
   }
-  const role = target.getAttribute("role");
+  return false;
+}
+
+function isClickActivatedProjectGpuDomIslandRole(role: string | null): boolean {
   return role === "button" || role === "combobox" || role === "switch";
 }
 
