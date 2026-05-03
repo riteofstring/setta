@@ -204,19 +204,22 @@ describe("GPU project selection adapter", () => {
     });
   });
 
-  it("keeps Setta locked-section policy in the project adapter", () => {
+  it("keeps Setta direct pane drag policy in the project adapter", () => {
     loadProjectStateForSections([
       { id: "section-a" },
       { id: "section-b", positionAndSizeLocked: true },
+      { id: "section-c", parentId: "section-a" },
     ]);
 
     expect(canDragProjectNode("section-a")).toBe(true);
     expect(canDragProjectNode("section-b")).toBe(false);
+    expect(canDragProjectNode("section-c")).toBe(false);
   });
 });
 
 type MovementSectionInput = {
   readonly id: string;
+  readonly parentId?: string | null | undefined;
   readonly positionAndSizeLocked?: boolean | undefined;
 };
 
@@ -273,14 +276,17 @@ function loadProjectStateForSections(
     const variantId = `variant-${section.id}`;
     const implId = `impl-${section.id}`;
     sectionVariantMap[section.id] = variantId;
-    parentSectionMap[section.id] = null;
-    topLevelSections[section.id] = {
-      h: 160,
-      w: 200,
-      x: index * 240,
-      y: index * 120,
-      zIndex: index,
-    };
+    const parentId = section.parentId ?? null;
+    parentSectionMap[section.id] = parentId;
+    if (parentId === null) {
+      topLevelSections[section.id] = {
+        h: 160,
+        w: 200,
+        x: index * 240,
+        y: index * 120,
+        zIndex: index,
+      };
+    }
     stateSections[section.id] = createCore({ id: section.id });
     sectionVariants[variantId] = createVariant({
       id: variantId,

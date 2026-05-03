@@ -142,8 +142,12 @@ function toNodeDragItems(
 }
 
 export function canDragProjectNode(nodeId: string): boolean {
-  return !getCurrEffectiveSectionImpl(useProjectState.getState(), nodeId)
-    .positionAndSizeLocked;
+  const projectState = useProjectState.getState();
+  const parentSectionId = projectState.parentSectionMap[nodeId] ?? null;
+  return (
+    parentSectionId === null &&
+    !getCurrEffectiveSectionImpl(projectState, nodeId).positionAndSizeLocked
+  );
 }
 
 export function resolveProjectWireColor({
