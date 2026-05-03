@@ -23,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createEdgeFromConnection,
   deleteSelectedEdges,
+  isValidDataEdgeConnection,
   reconnectEdgeFromConnection,
   toggleEdgeSelection,
 } from "./edges";
@@ -180,6 +181,53 @@ describe("edges actions", () => {
         targetPortId,
       },
     });
+  });
+  it("validates reconnect candidates as data-edge handle pairs", () => {
+    expect(isValidDataEdgeConnection(createConnection())).toBe(true);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        sourceHandle: "agentic-edge-source",
+      }),
+    ).toBe(false);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        targetHandle: "workflow-target",
+      }),
+    ).toBe(false);
+    expect(
+      isValidDataEdgeConnection({
+        ...createConnection(),
+        targetHandle: null,
+      }),
+    ).toBe(false);
+  });
+  it("does not persist reconnects until the final connection is complete and registered", () => {
+    seedEdgeState([]);
+    reconnectEdgeFromConnection("edge-1", {
+      ...createConnection(),
+      targetHandle: null,
+    });
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
+
+    reconnectEdgeFromConnection("edge-1", {
+      ...createConnection(),
+      target: "missing-section",
+    });
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
+
+    useEdgeHandleRegistry.setState({ handles: {}, positions: {} });
+    reconnectEdgeFromConnection("edge-1", createConnection());
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
+  });
+  it("does not persist reconnects in deployment mode", () => {
+    seedEdgeState([]);
+    useShareSession.setState({ isDeploymentMode: true });
+
+    reconnectEdgeFromConnection("edge-1", createConnection());
+
+    expect(mockedRouteReconnectEdge).not.toHaveBeenCalled();
   });
   it("single-selects an edge and persists the full edge list", () => {
     seedEdgeState([

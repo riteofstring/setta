@@ -41,6 +41,13 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
     container = null;
   });
 
+  function getContainer(): HTMLDivElement {
+    if (!container) {
+      throw new Error("GPU edge reconnect test container was not initialized.");
+    }
+    return container;
+  }
+
   it("aligns reconnect anchors through the GPU viewport transform", () => {
     expect(getGpuEdgeReconnectAnchorLayerStyle([10, -20, 2])).toEqual({
       transform: "translate(10px, -20px) scale(2)",
@@ -79,7 +86,7 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
   it("starts data edge reconnects from the fixed opposite endpoint", () => {
     const onReconnect = vi.fn();
     const isValidConnection = vi.fn(() => true);
-    root = createRoot(container!);
+    root = createRoot(getContainer());
     act(() => {
       root?.render(
         <GpuEdgeReconnectAnchorLayer
@@ -90,7 +97,7 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
       );
     });
 
-    const anchorElement = container!.querySelector<HTMLElement>(
+    const anchorElement = getContainer().querySelector<HTMLElement>(
       '[data-gpu-flow-edge-reconnect-anchor="true"]',
     );
     expect(anchorElement).not.toBeNull();
@@ -127,6 +134,64 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
     expect(onReconnect).toHaveBeenCalledWith("edge-a", connection);
   });
 
+  it("does not start reconnect when disabled or non-primary mouse input starts on an anchor", () => {
+    const onReconnect = vi.fn();
+    root = createRoot(getContainer());
+    act(() => {
+      root?.render(
+        <GpuEdgeReconnectAnchorLayer
+          anchors={[sourceAnchor()]}
+          options={{ disabled: () => true, onReconnect }}
+          viewportStore={createGpuFlowViewportStore({ transform: [0, 0, 1] })}
+        />,
+      );
+    });
+
+    const anchorElement = getContainer().querySelector<HTMLElement>(
+      '[data-gpu-flow-edge-reconnect-anchor="true"]',
+    );
+    expect(anchorElement).not.toBeNull();
+    act(() => {
+      anchorElement?.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+    });
+
+    expect(handlePointerDownMock).not.toHaveBeenCalled();
+    expect(onReconnect).not.toHaveBeenCalled();
+
+    act(() => {
+      root?.render(
+        <GpuEdgeReconnectAnchorLayer
+          anchors={[sourceAnchor()]}
+          options={{ onReconnect }}
+          viewportStore={createGpuFlowViewportStore({ transform: [0, 0, 1] })}
+        />,
+      );
+    });
+
+    act(() => {
+      getContainer()
+        .querySelector<HTMLElement>(
+          '[data-gpu-flow-edge-reconnect-anchor="true"]',
+        )
+        ?.dispatchEvent(
+          new MouseEvent("mousedown", {
+            bubbles: true,
+            button: 2,
+            cancelable: true,
+          }),
+        );
+    });
+
+    expect(handlePointerDownMock).not.toHaveBeenCalled();
+    expect(onReconnect).not.toHaveBeenCalled();
+  });
+
   it("updates viewport transforms without rerendering reconnect anchors", async () => {
     const store = createGpuFlowViewportStore({ transform: [0, 0, 1] });
     const frameCallbacks: FrameRequestCallback[] = [];
@@ -144,7 +209,7 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
       configurable: true,
       value: () => undefined,
     });
-    root = createRoot(container!);
+    root = createRoot(getContainer());
 
     function Harness() {
       renderCount += 1;
@@ -161,10 +226,10 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
       await act(async () => {
         root?.render(<Harness />);
       });
-      const layer = container!.querySelector<HTMLElement>(
+      const layer = getContainer().querySelector<HTMLElement>(
         '[data-gpu-flow-edge-reconnect-layer="true"]',
       );
-      const anchor = container!.querySelector<HTMLElement>(
+      const anchor = getContainer().querySelector<HTMLElement>(
         '[data-gpu-flow-edge-reconnect-anchor="true"]',
       );
       expect(layer?.style.transform).toBe("translate(0px, 0px) scale(1)");
@@ -176,7 +241,7 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
 
       expect(renderCount).toBe(1);
       expect(
-        container!.querySelector(
+        getContainer().querySelector(
           '[data-gpu-flow-edge-reconnect-anchor="true"]',
         ),
       ).toBe(anchor);
@@ -190,7 +255,7 @@ describe("GpuEdgeReconnectAnchorLayer", () => {
       expect(renderCount).toBe(1);
       expect(layer?.style.transform).toBe("translate(-30px, 45px) scale(0.75)");
       expect(
-        container!.querySelector(
+        getContainer().querySelector(
           '[data-gpu-flow-edge-reconnect-anchor="true"]',
         ),
       ).toBe(anchor);
