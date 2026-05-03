@@ -1,12 +1,9 @@
 /* @vitest-environment jsdom */
 
-import { setActiveSectionUIIds } from "state/activeSectionUI";
-import { useLocalStorage } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  getActiveSectionsBounds,
   getPaneRect,
+  getSectionBounds,
   getSectionRect,
   movePaneToIncludeSection,
 } from "./flowGeometry";
@@ -53,13 +50,8 @@ function resetGpuViewport() {
 
 describe("flowGeometry", () => {
   beforeEach(() => {
-    resetProjectStores();
     gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
     resetGpuViewport();
-    useLocalStorage.setState({
-      overviewTrueWidth: 0,
-      uiEditorTrueWidth: 0,
-    });
   });
 
   it("uses transform math when deriving pane bounds without a DOM node", () => {
@@ -120,8 +112,7 @@ describe("flowGeometry", () => {
     });
   });
 
-  it("uses renderer layout nodes for active section bounds", () => {
-    setActiveSectionUIIds(["section-a", "section-b"]);
+  it("uses renderer layout nodes for requested section bounds", () => {
     gpuFlowLayoutStore.getState().replaceNodes([
       {
         height: 80,
@@ -143,7 +134,7 @@ describe("flowGeometry", () => {
       },
     ]);
 
-    expect(getActiveSectionsBounds()).toEqual({
+    expect(getSectionBounds(["section-a", "section-b"])).toEqual({
       height: 110,
       width: 290,
       x: 10,

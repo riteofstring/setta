@@ -72,6 +72,7 @@ function HandleComponent({
   isValidConnection,
   onConnect,
   pointerUpSnapRadius,
+  autoPanInsetsPx,
   className,
   onMouseDown,
   onTouchStart,
@@ -149,6 +150,7 @@ function HandleComponent({
         isConnectionCandidateAllowed,
         isValidConnection: isValidConnection ?? alwaysValid,
         pointerUpSnapRadius,
+        autoPanInsetsPx,
       });
     }
 

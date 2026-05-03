@@ -3,9 +3,10 @@ import type {
   TouchEvent as ReactTouchEvent,
 } from "react";
 
-import { useLocalStorage } from "state/definitions";
 import type {
   Connection,
+  GpuFlowAutoPanInsetsInput,
+  GpuFlowAutoPanInsetsPx,
   HandleConnectionCandidateFilter,
   HandleType,
 } from "../flowTypes";
@@ -57,6 +58,7 @@ export function handlePointerDown({
   edgeUpdaterType,
   onReconnectEnd,
   pointerUpSnapRadius,
+  autoPanInsetsPx,
 }: {
   event: GpuHandlePointerStartEvent;
   handleId: string | null;
@@ -70,6 +72,7 @@ export function handlePointerDown({
   edgeUpdaterType?: HandleType;
   onReconnectEnd?: (evt: MouseEvent | TouchEvent) => void;
   pointerUpSnapRadius?: number;
+  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
 }): void {
   const doc = getHostForElement(event.target as HTMLElement);
   const usePointerEvents = isNativePointerEvent(event);
@@ -145,12 +148,8 @@ export function handlePointerDown({
     if (!autoPanOnConnect) {
       return;
     }
-    const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage.getState();
     const delta = getGpuNodeDragAutoPanDelta({
-      insetsPx: {
-        left: overviewTrueWidth,
-        right: uiEditorTrueWidth,
-      },
+      insetsPx: resolveGpuHandleAutoPanInsetsPx(autoPanInsetsPx),
       point: connectionPosition,
       viewportSize: {
         height: containerBounds.height,
@@ -454,4 +453,11 @@ function getPointerUpSnapRadius(
     return null;
   }
   return Math.max(connectionRadius, pointerUpSnapRadius);
+}
+
+function resolveGpuHandleAutoPanInsetsPx(
+  input: GpuFlowAutoPanInsetsInput,
+): GpuFlowAutoPanInsetsPx | undefined {
+  const resolved = typeof input === "function" ? input() : input;
+  return resolved ?? undefined;
 }

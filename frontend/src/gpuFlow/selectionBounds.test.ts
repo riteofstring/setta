@@ -1,26 +1,21 @@
 /* @vitest-environment jsdom */
 
-import { setActiveSectionUIIds } from "state/activeSectionUI";
-import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import { gpuFlowLayoutStore } from "./layoutStore";
 import {
   clearNodesSelectionBounds,
   shiftNodesSelectionBounds,
-  updateActiveNodesSelectionBounds,
   updateNodesSelectionBoundsForSections,
 } from "./selectionBounds";
 import { createGpuFlowViewportStore } from "./viewportStore";
 
 describe("selectionBounds", () => {
   beforeEach(() => {
-    resetProjectStores();
     gpuFlowLayoutStore.getState().replaceNodes([], { reason: "load" });
   });
 
-  it("updates GPU selection bounds from active measured sections", () => {
+  it("updates GPU selection bounds from requested measured sections", () => {
     const store = createGpuFlowViewportStore();
-    setActiveSectionUIIds(["section-a", "section-b"]);
     gpuFlowLayoutStore.getState().replaceNodes(
       [
         {
@@ -45,7 +40,9 @@ describe("selectionBounds", () => {
       { reason: "project-sync" },
     );
 
-    updateActiveNodesSelectionBounds({ store });
+    updateNodesSelectionBoundsForSections(["section-a", "section-b"], {
+      store,
+    });
 
     expect(store.getState().nodesSelectionBounds).toEqual({
       height: 110,

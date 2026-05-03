@@ -5,7 +5,11 @@ import {
   getCurrEffectiveSectionImpl,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
-import { useProjectState, useSectionRefs } from "state/definitions";
+import {
+  useLocalStorage,
+  useProjectState,
+  useSectionRefs,
+} from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type TabScopeBehavior = "default" | "canvas";
@@ -206,7 +210,7 @@ export function focusOnSection(
       return;
     }
     groupRef.focus({ preventScroll: true });
-    movePaneToIncludeSection(sectionId);
+    movePaneToIncludeProjectSection(sectionId);
     return;
   }
 
@@ -217,7 +221,7 @@ export function focusOnSection(
       : null;
     if (firstFocusable) {
       firstFocusable.focus({ preventScroll: true });
-      movePaneToIncludeSection(sectionId);
+      movePaneToIncludeProjectSection(sectionId);
       return;
     }
   }
@@ -227,7 +231,7 @@ export function focusOnSection(
     return;
   }
   sectionRef.focus({ preventScroll: true });
-  movePaneToIncludeSection(sectionId);
+  movePaneToIncludeProjectSection(sectionId);
 }
 
 function resolveNextFocusable({
@@ -347,8 +351,16 @@ function applyFocusResult(
 function movePaneToIncludeCanvasElement(element: HTMLElement) {
   const sectionId = getCanvasElementSectionId(element);
   if (sectionId) {
-    movePaneToIncludeSection(sectionId);
+    movePaneToIncludeProjectSection(sectionId);
   }
+}
+
+function movePaneToIncludeProjectSection(sectionId: string): void {
+  const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage.getState();
+  movePaneToIncludeSection(sectionId, {
+    overviewWidth: overviewTrueWidth,
+    uiEditorWidth: uiEditorTrueWidth,
+  });
 }
 
 function getActiveCanvasElement(): HTMLElement | null {

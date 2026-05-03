@@ -1,6 +1,5 @@
 /* @vitest-environment jsdom */
 
-import { useLocalStorage } from "state/definitions";
 import { describe, expect, it } from "vitest";
 import {
   addGpuMouseLocationListener,
@@ -28,7 +27,6 @@ describe("gpu mouse location helpers", () => {
   });
 
   it("centers the gpu viewport on the latest mouse flow position", () => {
-    useLocalStorage.setState({ overviewTrueWidth: 0 });
     const cleanup = addGpuMouseLocationListener();
     const store = createGpuFlowViewportStore({
       height: 300,
@@ -47,7 +45,6 @@ describe("gpu mouse location helpers", () => {
   });
 
   it("centers mouse-location zoom into the visible pane when the overview is open", () => {
-    useLocalStorage.setState({ overviewTrueWidth: 100 });
     const cleanup = addGpuMouseLocationListener();
     const store = createGpuFlowViewportStore({
       height: 300,
@@ -59,7 +56,7 @@ describe("gpu mouse location helpers", () => {
       new MouseEvent("mousemove", { clientX: 150, clientY: 90 }),
     );
 
-    expect(zoomToMouseLocation({ store })).toBe(true);
+    expect(zoomToMouseLocation({ overviewWidth: 100, store })).toBe(true);
     expect(store.getState().transform).toEqual([150, 60, 1]);
 
     cleanup();

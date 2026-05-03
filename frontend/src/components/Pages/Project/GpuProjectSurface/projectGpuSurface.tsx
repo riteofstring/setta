@@ -63,6 +63,7 @@ import {
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
 
 import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
 import {
   useProjectGpuLayoutAdapter,
   type ProjectGpuLayoutAdapter,
@@ -470,6 +471,7 @@ function getProjectEdgeReconnectOptions({
         viewportInteractionActive: viewportState.viewportInteractionActive,
       });
     },
+    autoPanInsetsPx: getProjectGpuAutoPanInsetsPx,
     isValidConnection: isValidDataEdgeConnection,
     onReconnect: reconnectEdgeFromConnection,
   };

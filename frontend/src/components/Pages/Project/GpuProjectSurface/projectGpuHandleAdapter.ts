@@ -1,9 +1,10 @@
 import type { HandleProps } from "gpuFlow/flowTypes";
 import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
+import { useLocalStorage } from "state/definitions";
 
 type ProjectGpuHandleConnectionProps = Pick<
   HandleProps,
-  "isConnectionCandidateAllowed" | "pointerUpSnapRadius"
+  "autoPanInsetsPx" | "isConnectionCandidateAllowed" | "pointerUpSnapRadius"
 >;
 
 const PROJECT_REVERSE_START_POINTER_UP_SNAP_RADIUS = 80;
@@ -24,11 +25,20 @@ export function getProjectGpuHandleConnectionProps(
     return cached;
   }
   const props: ProjectGpuHandleConnectionProps = {
+    autoPanInsetsPx: getProjectGpuAutoPanInsetsPx,
     isConnectionCandidateAllowed: (candidate) =>
       canConnectHandleFamilies(startHandleId, candidate.handleId),
   };
   projectHandleConnectionProps.set(startHandleId, props);
   return props;
+}
+
+export function getProjectGpuAutoPanInsetsPx() {
+  const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage.getState();
+  return {
+    left: overviewTrueWidth,
+    right: uiEditorTrueWidth,
+  };
 }
 
 export function getProjectGpuReverseStartHandleConnectionProps(

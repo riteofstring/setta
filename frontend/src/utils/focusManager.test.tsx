@@ -31,11 +31,16 @@ const hoisted = vi.hoisted(() => {
     selfOnly: {} as Record<string, HTMLElement>,
     withNested: {} as Record<string, HTMLElement>,
   };
+  const localStorageState = {
+    overviewTrueWidth: 24,
+    uiEditorTrueWidth: 48,
+  };
 
   return {
     applyActiveSectionChangeMock,
     getCurrEffectiveSectionImplMock,
     getTopLevelSectionIdsForDisplayMock,
+    localStorageState,
     movePaneToIncludeSectionMock,
     projectState,
     sectionRefsState,
@@ -56,6 +61,9 @@ vi.mock("state/actions/sectionInfos", () => ({
 }));
 
 vi.mock("state/definitions", () => ({
+  useLocalStorage: {
+    getState: () => hoisted.localStorageState,
+  },
   useProjectState: {
     getState: () => hoisted.projectState,
   },
@@ -115,6 +123,8 @@ describe("focusManager", () => {
     };
     hoisted.sectionRefsState.selfOnly = {};
     hoisted.sectionRefsState.withNested = {};
+    hoisted.localStorageState.overviewTrueWidth = 24;
+    hoisted.localStorageState.uiEditorTrueWidth = 48;
   });
 
   afterEach(async () => {
@@ -265,6 +275,10 @@ describe("focusManager", () => {
     expect(document.activeElement?.textContent).toBe("target");
     expect(hoisted.movePaneToIncludeSectionMock).toHaveBeenCalledWith(
       "section-2",
+      {
+        overviewWidth: 24,
+        uiEditorWidth: 48,
+      },
     );
   });
 });

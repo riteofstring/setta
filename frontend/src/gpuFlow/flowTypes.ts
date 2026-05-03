@@ -61,6 +61,19 @@ export type HandleConnectionCandidateFilter = (
   candidate: HandleConnectionCandidate,
 ) => boolean;
 
+export type GpuFlowAutoPanInsetsPx = {
+  readonly bottom?: number | undefined;
+  readonly left?: number | undefined;
+  readonly right?: number | undefined;
+  readonly top?: number | undefined;
+};
+
+export type GpuFlowAutoPanInsetsInput =
+  | GpuFlowAutoPanInsetsPx
+  | (() => GpuFlowAutoPanInsetsPx | null | undefined)
+  | null
+  | undefined;
+
 export type ConnectingHandle = {
   sectionId: string;
   type: HandleType;
@@ -86,4 +99,5 @@ export type HandleProps = {
   isValidConnection?: (connection: Connection) => boolean;
   onConnect?: (connection: Connection) => void;
   pointerUpSnapRadius?: number;
+  autoPanInsetsPx?: GpuFlowAutoPanInsetsInput;
 };

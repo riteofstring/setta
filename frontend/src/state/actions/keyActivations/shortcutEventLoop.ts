@@ -37,7 +37,7 @@ import {
   unindentSelectedParams,
 } from "state/actions/params/moveParams";
 
-import { useSettings } from "state/definitions";
+import { useLocalStorage, useSettings } from "state/definitions";
 
 import { focusAdjacentTopLevelSection, focusScope } from "utils/focusManager";
 
@@ -339,7 +339,7 @@ export function attachKeyEventListeners() {
     ],
     [shortcuts.paramSelect, activateParamSelect, deactivateParamSelect],
     [shortcuts.fitViewShortcut, fitGpuViewportShortcut],
-    [shortcuts.zoomToMouseShortcut, zoomToMouseLocation],
+    [shortcuts.zoomToMouseShortcut, zoomToProjectMouseLocation],
     [shortcuts.deleteSectionShortcut, deleteEdgesOrSections],
     [
       shortcuts.selectTopLevelNonGroupSections,
@@ -475,4 +475,11 @@ export function specialModTabCase(shortcutInfo) {
     );
     return cleanup;
   }
+}
+
+function zoomToProjectMouseLocation() {
+  return zoomToMouseLocation({
+    overviewWidth: useLocalStorage.getState().overviewTrueWidth,
+    zoom: useSettings.getState().gui.defaultZoomLevel,
+  });
 }

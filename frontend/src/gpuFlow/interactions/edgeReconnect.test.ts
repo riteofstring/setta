@@ -61,7 +61,9 @@ describe("GPU edge reconnect controller", () => {
     const layoutStore = createGpuFlowLayoutStore();
     const onReconnect = vi.fn();
     const isValidConnection = vi.fn(() => true);
+    const autoPanInsetsPx = () => ({ left: 24, right: 48 });
     const detach = attachGpuEdgeReconnectController({
+      autoPanInsetsPx,
       element,
       getScene: () => createEdgeScene(),
       isValidConnection,
@@ -88,6 +90,7 @@ describe("GPU edge reconnect controller", () => {
       nodeId: "target",
       store,
     });
+    expect(call.autoPanInsetsPx).toBe(autoPanInsetsPx);
     expect(call.isValidConnection).toBe(isValidConnection);
 
     const connection: Connection = {

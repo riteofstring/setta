@@ -1,17 +1,16 @@
-import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { useLocalStorage } from "state/definitions";
-import type { Position } from "utils/generatedTypes";
 import type { Rect } from "./flowTypes";
 import { gpuFlowLayoutStore, type GpuFlowLayoutStoreApi } from "./layoutStore";
 import { panBy } from "./viewportActions";
 import {
   normalizeGpuViewport,
   screenToFlowPosition as screenToFlowPoint,
+  type GpuPoint,
   type GpuRect,
 } from "./viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStore,
+  type GpuFlowViewportStoreApi,
 } from "./viewportStore";
 
 type PaneRectViewportState = Pick<
@@ -23,19 +22,11 @@ type LayoutQueryOptions = {
   readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
 };
 
-export function getActiveSectionsBounds(
-  options: LayoutQueryOptions = {},
-): Rect {
-  const activeSectionIds = getActiveSectionUIIds();
-  return (
-    getSectionBounds(activeSectionIds, options) ?? {
-      height: 0,
-      width: 0,
-      x: 0,
-      y: 0,
-    }
-  );
-}
+type MovePaneToIncludeSectionOptions = LayoutQueryOptions & {
+  readonly overviewWidth?: number | undefined;
+  readonly uiEditorWidth?: number | undefined;
+  readonly viewportStore?: GpuFlowViewportStoreApi | undefined;
+};
 
 export function getSectionRect(
   sectionId: string,
@@ -96,36 +87,34 @@ export function getPaneRect(
   };
 }
 
-function getCurrentPaneRect(): Rect {
-  return getPaneRect(
-    gpuFlowViewportStore.getState(),
-    useLocalStorage.getState().overviewTrueWidth,
-    useLocalStorage.getState().uiEditorTrueWidth,
-  );
-}
-
 export function movePaneToIncludeSection(
   sectionId: string,
-  options: LayoutQueryOptions = {},
+  options: MovePaneToIncludeSectionOptions = {},
 ) {
   const rect = getSectionRect(sectionId, options);
   if (!rect) {
     return;
   }
-  movePaneToIncludePoint({ x: rect.x, y: rect.y });
+  movePaneToIncludePoint({ x: rect.x, y: rect.y }, options);
 }
 
-function movePaneToIncludePoint(point: Position) {
-  const paneRect = getCurrentPaneRect();
+function movePaneToIncludePoint(
+  point: GpuPoint,
+  options: MovePaneToIncludeSectionOptions,
+) {
+  const viewportStore = resolveViewportStore(options.viewportStore);
+  const paneRect = getPaneRect(
+    viewportStore.getState(),
+    options.overviewWidth ?? 0,
+    options.uiEditorWidth ?? 0,
+  );
   const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (isInside) {
     return;
   }
 
-  const zoom = normalizeGpuViewport(
-    gpuFlowViewportStore.getState().transform,
-  ).zoom;
-  panBy({ x: -x * zoom, y: -y * zoom });
+  const zoom = normalizeGpuViewport(viewportStore.getState().transform).zoom;
+  panBy({ x: -x * zoom, y: -y * zoom }, { store: viewportStore });
 }
 
 function resolveLayoutStore(
@@ -134,7 +123,13 @@ function resolveLayoutStore(
   return options.layoutStore ?? gpuFlowLayoutStore;
 }
 
-function getRectTranslation(point: Position, rect: Rect, padding = 0) {
+function resolveViewportStore(
+  store: GpuFlowViewportStoreApi | undefined,
+): GpuFlowViewportStoreApi {
+  return store ?? gpuFlowViewportStore;
+}
+
+function getRectTranslation(point: GpuPoint, rect: Rect, padding = 0) {
   const minX = rect.x + padding;
   const maxX = rect.x + rect.width - padding;
   const minY = rect.y + padding;

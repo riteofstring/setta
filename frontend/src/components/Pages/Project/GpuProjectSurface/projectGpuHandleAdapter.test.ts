@@ -1,6 +1,7 @@
 import { AGENTIC_EDGE_HANDLE_IDS } from "state/actions/agenticEdges";
 import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
+import { useLocalStorage } from "state/definitions";
 import { describe, expect, it } from "vitest";
 import {
   getProjectGpuHandleConnectionProps,
@@ -43,4 +44,28 @@ describe("project GPU handle adapter", () => {
       }),
     ).toBe(true);
   });
+
+  it("supplies project pane insets as explicit handle auto-pan metadata", () => {
+    useLocalStorage.setState({
+      overviewTrueWidth: 32,
+      uiEditorTrueWidth: 64,
+    });
+
+    const props = getProjectGpuHandleConnectionProps(
+      AGENTIC_EDGE_HANDLE_IDS.source,
+    );
+
+    expect(resolveAutoPanInsets(props.autoPanInsetsPx)).toEqual({
+      left: 32,
+      right: 64,
+    });
+  });
 });
+
+function resolveAutoPanInsets(
+  input: ReturnType<
+    typeof getProjectGpuHandleConnectionProps
+  >["autoPanInsetsPx"],
+) {
+  return typeof input === "function" ? input() : input;
+}

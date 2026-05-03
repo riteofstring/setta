@@ -3,7 +3,7 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "@setta/app-subsystem-frontend-sdk";
-import { getActiveSectionsBounds } from "gpuFlow/flowGeometry";
+import { getSectionBounds } from "gpuFlow/flowGeometry";
 import { pasteSections, prepareSectionsForCopy } from "openapi/http";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useShareSession } from "state/definitions";
@@ -70,10 +70,16 @@ export async function paste({ asRef = false }) {
   }
 }
 function getPasteLocation() {
-  if (getActiveSectionUIIds().length === 0) {
+  const activeSectionIds = getActiveSectionUIIds();
+  if (activeSectionIds.length === 0) {
     return useMisc.getState().lastPaneClickLocation;
   }
   // paste directly to the right of the active sections
-  const { x, y, width } = getActiveSectionsBounds();
+  const { x, y, width } = getSectionBounds(activeSectionIds) ?? {
+    height: 0,
+    width: 0,
+    x: 0,
+    y: 0,
+  };
   return { x: x + width, y };
 }
