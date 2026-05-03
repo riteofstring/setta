@@ -8,6 +8,7 @@ import type {
   GpuRetainedContentInteractionEvent,
   GpuRetainedContentInteractionHit,
 } from "gpuFlow/interactions/retainedContentInteraction";
+import type { GpuScenePortConnectionOptions } from "gpuFlow/interactions/scenePortConnection";
 import {
   resolveGpuRetainedContentDragAutoScroll,
   type GpuRetainedContentScrollOffsetMap,
@@ -138,6 +139,28 @@ export function getProjectRetainedContentConnectionOptions({
   readonly canEditStructure: boolean;
   readonly zoomActivationKeyPressed: boolean;
 }): GpuRetainedContentConnectionOptions {
+  return {
+    autoPanInsetsPx: getProjectGpuAutoPanInsetsPx,
+    disabled: () =>
+      zoomActivationKeyPressed ||
+      !canEditStructure ||
+      useMisc.getState().isSelectingParams,
+    isConnectionCandidateAllowed: (candidate, start) =>
+      getProjectGpuHandleConnectionProps(
+        start.handleId,
+      ).isConnectionCandidateAllowed?.(candidate) ?? true,
+    isValidConnection: isValidDataEdgeConnection,
+    onConnect: createEdgeFromConnection,
+  };
+}
+
+export function getProjectScenePortConnectionOptions({
+  canEditStructure,
+  zoomActivationKeyPressed,
+}: {
+  readonly canEditStructure: boolean;
+  readonly zoomActivationKeyPressed: boolean;
+}): GpuScenePortConnectionOptions {
   return {
     autoPanInsetsPx: getProjectGpuAutoPanInsetsPx,
     disabled: () =>

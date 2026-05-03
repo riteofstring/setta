@@ -520,30 +520,40 @@ export function EdgeOutputPortRow({
   port,
   canConnect,
   appearance,
+  renderInteractiveHandle = true,
 }: {
   port: EdgePortView;
   canConnect: boolean;
   appearance: EdgeStripAppearance;
+  renderInteractiveHandle?: boolean;
 }) {
   const connectionProps = getProjectGpuHandleConnectionProps(port.id);
+  const handleClassName = `arg-edge-handle arg-edge-handle--source ${appearance.handlePreventSectionClassName}`;
 
   return (
     <div
       className={`relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${appearance.edgeRowTextColorClassName} ${appearance.edgeRowHoverClassName}`}
     >
       <span className="truncate">{port.label}</span>
-      <Handle
-        id={port.id}
-        type="source"
-        position={HandlePosition.Right}
-        onConnect={createEdgeFromConnection}
-        isValidConnection={isValidDataEdgeConnection}
-        {...connectionProps}
-        isConnectable={canConnect}
-        isConnectableStart={canConnect}
-        isConnectableEnd={canConnect}
-        className={`arg-edge-handle arg-edge-handle--source ${appearance.handlePreventSectionClassName}`}
-      />
+      {renderInteractiveHandle ? (
+        <Handle
+          id={port.id}
+          type="source"
+          position={HandlePosition.Right}
+          onConnect={createEdgeFromConnection}
+          isValidConnection={isValidDataEdgeConnection}
+          {...connectionProps}
+          isConnectable={canConnect}
+          isConnectableStart={canConnect}
+          isConnectableEnd={canConnect}
+          className={handleClassName}
+        />
+      ) : (
+        <div
+          aria-hidden="true"
+          className={`setta-gpu-flow__handle setta-gpu-flow__handle-right ${handleClassName}`}
+        />
+      )}
     </div>
   );
 }
@@ -755,7 +765,11 @@ export function _ParamGroupContainer({
         </div>
       )}
       <>
-        <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+        <EdgesStrip
+          sectionId={sectionId}
+          bgColor={bgColor}
+          renderInteractiveOutputHandles={renderParamRows}
+        />
         <GetPinnedParams
           sectionId={sectionId}
           handleColumnResizeStart={handleColumnResizeStart}

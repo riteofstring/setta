@@ -354,7 +354,7 @@ describe("project GPU layout adapter", () => {
     );
   });
 
-  it("derives minimized data edge handles as section scene anchors", () => {
+  it("derives section-level data edge handles as section scene anchors", () => {
     const scene = getProjectGpuFlowScene(
       projectStateWithSections({
         sections: [
@@ -407,7 +407,13 @@ describe("project GPU layout adapter", () => {
     expect(
       scene.sections.find((section) => section.sectionId === "dict-b")
         ?.portAnchors,
-    ).toEqual([]);
+    ).toEqual([
+      {
+        id: "output-b",
+        kind: "output",
+        localPosition: { x: 123, y: 60 },
+      },
+    ]);
   });
 
   it("derives active retained param controls as explicit DOM islands", () => {

@@ -80,6 +80,7 @@ import { getProjectGpuPortalDescriptors } from "./projectGpuPortalAdapter";
 import {
   getProjectRetainedContentConnectionOptions,
   getProjectRetainedContentInteractionOptions,
+  getProjectScenePortConnectionOptions,
   renderProjectGpuDomIsland,
 } from "./projectGpuRetainedParamInteractionAdapter";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
@@ -434,6 +435,14 @@ function ProjectGpuFlowLayer({
       }),
     [canEditStructure, flowInteractionKeys.zoomActivationKeyPressed],
   );
+  const scenePortConnectionOptions = useMemo(
+    () =>
+      getProjectScenePortConnectionOptions({
+        canEditStructure,
+        zoomActivationKeyPressed: flowInteractionKeys.zoomActivationKeyPressed,
+      }),
+    [canEditStructure, flowInteractionKeys.zoomActivationKeyPressed],
+  );
   const retainedContentKeyboardOptions = useMemo(
     () =>
       getProjectRetainedContentKeyboardOptions({
@@ -470,6 +479,7 @@ function ProjectGpuFlowLayer({
       retainedContentKeyboard={retainedContentKeyboardOptions}
       retainedContentScroll={retainedContentScrollOptions}
       scene={layoutAdapter.scene}
+      scenePortConnection={scenePortConnectionOptions}
       sceneScroll={sceneScrollOptions}
       selection={selectionOptions}
       selectionDrag={selectionDragOptions}

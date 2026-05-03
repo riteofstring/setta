@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveEdgeStripHeight } from "./edgeStripUtils";
+import {
+  resolveEdgeStripHeight,
+  resolveEdgeStripOutputPortAnchorLocalPosition,
+} from "./edgeStripUtils";
 
 describe("resolveEdgeStripHeight", () => {
   it("returns 0 when there are no ports and no measured height", () => {
@@ -40,5 +43,15 @@ describe("resolveEdgeStripHeight", () => {
         outputPortCount: 3,
       }),
     ).toBe(132);
+  });
+
+  it("derives output port anchor positions from the shared strip row layout", () => {
+    expect(
+      resolveEdgeStripOutputPortAnchorLocalPosition({
+        portIndex: 2,
+        sectionWidth: 120,
+        stripLocalY: 16,
+      }),
+    ).toEqual({ x: 121, y: 132 });
   });
 });

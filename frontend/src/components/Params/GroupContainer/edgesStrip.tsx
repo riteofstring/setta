@@ -53,9 +53,11 @@ import {
 export function EdgesStrip({
   sectionId,
   bgColor,
+  renderInteractiveOutputHandles = true,
 }: {
   sectionId: string;
   bgColor: string;
+  renderInteractiveOutputHandles?: boolean;
 }) {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
@@ -208,6 +210,7 @@ export function EdgesStrip({
                 port={port}
                 canConnect={canConnect}
                 appearance={appearance}
+                renderInteractiveHandle={renderInteractiveOutputHandles}
               />
             ))}
           </div>

@@ -137,6 +137,7 @@ import {
   type GpuFlowRetainedContentInteractionOptions,
   type GpuFlowRetainedContentKeyboardOptions,
   type GpuFlowRetainedContentScrollOptions,
+  type GpuFlowScenePortConnectionOptions,
 } from "./retainedContentControllers";
 import { useGpuFlowRetainedContentSources } from "./retainedContentSources";
 
@@ -223,6 +224,7 @@ type GpuFlowProps = Pick<
     | undefined;
   selectionDrag?: GpuFlowSelectionDragOptions;
   scene?: GpuFlowScene | undefined;
+  scenePortConnection?: GpuFlowScenePortConnectionOptions;
   sceneScroll?:
     | false
     | Omit<
@@ -314,6 +316,7 @@ export function GpuFlow({
   selection,
   selectionDrag,
   scene,
+  scenePortConnection,
   sceneScroll,
   style,
   surfaceClassName,
@@ -530,6 +533,7 @@ export function GpuFlow({
     retainedContentInteraction,
     retainedContentKeyboard,
     retainedContentScroll,
+    scenePortConnection,
     surfaceRef,
     viewportStore,
   });

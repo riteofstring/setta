@@ -1,6 +1,7 @@
-const EDGE_STRIP_BASE_HEIGHT = 48;
-const EDGE_PORT_ROW_HEIGHT = 24;
-const EDGE_PORT_ROW_GAP = 4;
+export const EDGE_STRIP_BASE_HEIGHT = 48;
+export const EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX = 1;
+export const EDGE_PORT_ROW_HEIGHT = 24;
+export const EDGE_PORT_ROW_GAP = 4;
 
 function getEdgeStripEstimatedHeight(
   inputPortCount: number,
@@ -34,4 +35,34 @@ export function resolveEdgeStripHeight({
   return Math.ceil(
     getEdgeStripEstimatedHeight(inputPortCount, outputPortCount),
   );
+}
+
+export function resolveEdgeStripOutputPortAnchorLocalPosition({
+  portIndex,
+  sectionWidth,
+  stripLocalY,
+}: {
+  readonly portIndex: number;
+  readonly sectionWidth: number;
+  readonly stripLocalY: number;
+}): { readonly x: number; readonly y: number } {
+  if (!Number.isInteger(portIndex) || portIndex < 0) {
+    throw new Error("Edge strip output port index must be non-negative.");
+  }
+  assertFiniteNumber("Edge strip section width", sectionWidth);
+  assertFiniteNumber("Edge strip local y", stripLocalY);
+  return {
+    x: sectionWidth + EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
+    y:
+      stripLocalY +
+      EDGE_STRIP_BASE_HEIGHT +
+      portIndex * (EDGE_PORT_ROW_HEIGHT + EDGE_PORT_ROW_GAP) +
+      EDGE_PORT_ROW_HEIGHT / 2,
+  };
+}
+
+function assertFiniteNumber(name: string, value: number): void {
+  if (!Number.isFinite(value)) {
+    throw new Error(`${name} must be finite.`);
+  }
 }

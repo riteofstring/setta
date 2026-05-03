@@ -1,3 +1,7 @@
+import {
+  EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
+  resolveEdgeStripOutputPortAnchorLocalPosition,
+} from "components/Params/edgeStripUtils";
 import type { Node } from "gpuFlow/flowTypes";
 import {
   EMPTY_GPU_FLOW_LAYOUT_NODES,
@@ -131,7 +135,6 @@ const NESTED_VERTICAL_SECTION_GAP_PX = 8;
 const NESTED_HORIZONTAL_SECTION_GAP_PX = 8;
 const NESTED_KANBAN_SECTION_GAP_PX = 12;
 const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
-const MINIMIZED_DATA_EDGE_HANDLE_EDGE_OFFSET_PX = 1;
 
 export function useProjectGpuLayoutAdapter({
   activeParamDomIsland,
@@ -588,6 +591,8 @@ function createProjectSectionSceneNode({
     localRect,
     parentSectionId,
     portAnchors: getProjectSectionScenePortAnchors({
+      resizePolicyContext,
+      sectionId,
       sectionImpl,
       worldRect,
     }),
@@ -604,14 +609,27 @@ function createProjectSectionSceneNode({
 }
 
 function getProjectSectionScenePortAnchors({
+  resizePolicyContext,
+  sectionId,
   sectionImpl,
   worldRect,
 }: {
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
+  readonly sectionId: string;
   readonly sectionImpl: BaseSectionImplUnion;
   readonly worldRect: GpuRect;
 }): readonly GpuPortAnchorDescriptor[] {
-  if (!sectionImpl.isMinimized || !isBaseSectionWithParamsImpl(sectionImpl)) {
+  if (!isBaseSectionWithParamsImpl(sectionImpl)) {
     return [];
+  }
+
+  if (!sectionImpl.isMinimized) {
+    return getProjectSectionSceneEdgeStripOutputPortAnchors({
+      resizePolicyContext,
+      sectionId,
+      sectionImpl,
+      worldRect,
+    });
   }
 
   const anchorY = worldRect.height / 2;
@@ -620,7 +638,7 @@ function getProjectSectionScenePortAnchors({
       id: paramId,
       kind: "input" as const,
       localPosition: {
-        x: -MINIMIZED_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
+        x: -EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
         y: anchorY,
       },
     })),
@@ -628,11 +646,61 @@ function getProjectSectionScenePortAnchors({
       id: port.id,
       kind: "output" as const,
       localPosition: {
-        x: worldRect.width + MINIMIZED_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
+        x: worldRect.width + EDGE_STRIP_DATA_EDGE_HANDLE_EDGE_OFFSET_PX,
         y: anchorY,
       },
     })),
   ];
+}
+
+function getProjectSectionSceneEdgeStripOutputPortAnchors({
+  resizePolicyContext,
+  sectionId,
+  sectionImpl,
+  worldRect,
+}: {
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
+  readonly sectionId: string;
+  readonly sectionImpl: BaseSectionImplUnion & {
+    readonly edgeOutputPorts?: readonly { readonly id: string }[] | null;
+  };
+  readonly worldRect: GpuRect;
+}): readonly GpuPortAnchorDescriptor[] {
+  return (sectionImpl.edgeOutputPorts ?? []).map((port, portIndex) => ({
+    id: port.id,
+    kind: "output" as const,
+    localPosition: resolveEdgeStripOutputPortAnchorLocalPosition({
+      portIndex,
+      sectionWidth: worldRect.width,
+      stripLocalY: getProjectSectionSceneEdgeStripLocalY({
+        resizePolicyContext,
+        sectionId,
+      }),
+    }),
+  }));
+}
+
+function getProjectSectionSceneEdgeStripLocalY({
+  resizePolicyContext,
+  sectionId,
+}: {
+  readonly resizePolicyContext: ProjectGpuSceneResizePolicyContext;
+  readonly sectionId: string;
+}): number {
+  return (
+    getProjectSceneMeasuredHeight(
+      resizePolicyContext,
+      getSectionHeaderHeightKey(sectionId),
+    ) +
+    getProjectSceneMeasuredHeight(
+      resizePolicyContext,
+      getSectionSearchHeightKey(sectionId),
+    ) +
+    getProjectSceneMeasuredHeight(
+      resizePolicyContext,
+      getKwargsControlsHeightKey(sectionId),
+    )
+  );
 }
 
 function getProjectSectionSceneResizePolicy({

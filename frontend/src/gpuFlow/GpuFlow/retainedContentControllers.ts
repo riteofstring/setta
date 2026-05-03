@@ -17,6 +17,10 @@ import {
   attachGpuRetainedContentScrollController,
   type GpuRetainedContentScrollControllerOptions,
 } from "../interactions/retainedContentScroll";
+import {
+  attachGpuScenePortConnectionController,
+  type GpuScenePortConnectionControllerOptions,
+} from "../interactions/scenePortConnection";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import type { GpuFlowScene } from "../scene";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -53,6 +57,14 @@ export type GpuFlowRetainedContentKeyboardOptions =
     >
   | undefined;
 
+export type GpuFlowScenePortConnectionOptions =
+  | false
+  | Omit<
+      GpuScenePortConnectionControllerOptions,
+      "element" | "getScene" | "layoutStore" | "store"
+    >
+  | undefined;
+
 export type GpuFlowRetainedContentControllerOptions = {
   readonly containerRef: MutableRefObject<HTMLDivElement | null>;
   readonly layoutStore: GpuFlowLayoutStoreApi | null | undefined;
@@ -63,6 +75,7 @@ export type GpuFlowRetainedContentControllerOptions = {
   readonly retainedContentInteraction: GpuFlowRetainedContentInteractionOptions;
   readonly retainedContentKeyboard: GpuFlowRetainedContentKeyboardOptions;
   readonly retainedContentScroll: GpuFlowRetainedContentScrollOptions;
+  readonly scenePortConnection: GpuFlowScenePortConnectionOptions;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly viewportStore: GpuFlowViewportStoreApi;
 };
@@ -75,6 +88,7 @@ export function useGpuFlowRetainedContentControllers({
   retainedContentInteraction,
   retainedContentKeyboard,
   retainedContentScroll,
+  scenePortConnection,
   surfaceRef,
   viewportStore,
 }: GpuFlowRetainedContentControllerOptions) {
@@ -171,6 +185,32 @@ export function useGpuFlowRetainedContentControllers({
     nodeLayerRef,
     retainedContentScroll,
     surfaceRef,
+    viewportStore,
+  ]);
+
+  useEffect(() => {
+    if (scenePortConnection === false) {
+      return;
+    }
+    const container = containerRef.current;
+    if (!container || !scenePortConnection) {
+      return;
+    }
+    if (!layoutStore) {
+      throw new Error("GpuFlow scene port connection requires a layout store.");
+    }
+    return attachGpuScenePortConnectionController({
+      ...scenePortConnection,
+      element: container,
+      getScene: () => nodeLayerRef.current.scene,
+      layoutStore,
+      store: viewportStore,
+    });
+  }, [
+    containerRef,
+    layoutStore,
+    nodeLayerRef,
+    scenePortConnection,
     viewportStore,
   ]);
 }
