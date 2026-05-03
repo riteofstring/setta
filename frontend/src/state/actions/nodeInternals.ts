@@ -28,7 +28,7 @@ import {
 
 type NodeDimensionsUpdate = Array<{
   id: string;
-  nodeElement: HTMLElement;
+  nodeElement: HTMLDivElement;
   forceUpdate: boolean;
 }>;
 type NodesById = Map<string, Node>;
