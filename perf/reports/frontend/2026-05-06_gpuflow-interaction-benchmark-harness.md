@@ -348,3 +348,39 @@ Notes:
 - The viewport row still records two non-transform source attribute mutations.
   They do not trigger texture uploads or `requestPaint`, so the remaining
   active pan/zoom path is camera-uniform buffer writes only.
+
+## Parameter Drag Dirty-Mark Suppression Run
+
+Follow-up run after suppressing direct node-interaction dirty marks for nodes in
+the active content-paint suppression set. This prevents the DOM/dnd-kit-owned
+parameter drag source from queuing repeated texture work while its containing
+section is intentionally paint-suppressed.
+
+Result: passed, 1 test in 23.5s.
+
+| Scenario                 | Duration | Frames | Frame p95 | Frame p99 | Texture uploads | Upload bytes | `writeBuffer` | `requestPaint` | Source mutations | Transform writes | Long tasks | Durable mutations |
+| ------------------------ | -------: | -----: | --------: | --------: | --------------: | -----------: | ------------: | -------------: | ---------------: | ---------------: | ---------: | ----------------: |
+| top-level-section-resize | 621.7 ms |    132 |    9.1 ms |   25.0 ms |              31 |    5,329,196 |            15 |             45 |               72 |                2 |          0 |                 1 |
+| nested-section-resize    | 692.9 ms |     81 |    8.5 ms |   33.3 ms |              17 |    4,043,656 |             0 |             11 |               85 |                0 |          0 |                 1 |
+| section-drag-drop        | 496.1 ms |     83 |    8.9 ms |   16.6 ms |               6 |    4,020,360 |            24 |              1 |               70 |                2 |          0 |                 1 |
+| parameter-drag-drop      | 662.2 ms |    119 |    9.2 ms |   55.2 ms |              16 |    8,755,052 |             0 |              1 |               16 |                3 |          2 |                 1 |
+| viewport-pan-zoom        | 245.3 ms |     54 |    8.4 ms |   16.7 ms |               0 |            0 |            25 |              0 |                2 |                0 |          0 |                 0 |
+| wheel-scroll             | 172.6 ms |      1 |    8.2 ms |    8.2 ms |               0 |            0 |             0 |              0 |                0 |                0 |          0 |                 0 |
+| slider-input             | 259.0 ms |      1 |    8.3 ms |    8.3 ms |               0 |            0 |             0 |              0 |                0 |                0 |          0 |                 0 |
+| text-input               | 355.1 ms |     34 |   33.3 ms |   33.3 ms |               0 |            0 |             0 |              2 |               21 |                3 |          0 |                 0 |
+
+Comparison to the viewport pan/zoom source-DOM suppression run:
+
+- Parameter drag/drop `requestPaint` dropped from 43 to 1.
+- Parameter drag/drop texture uploads dropped from 28 to 16.
+- Parameter drag/drop upload bytes dropped from 16.7 MB to 8.8 MB.
+
+Remaining blocker:
+
+- The active parameter drag path is now mostly bounded during pointer movement,
+  but final reorder/reset is still owned by React/dnd-kit inside the source DOM.
+  That final DOM reset can still recapture multiple visible section surfaces.
+  Removing that remaining upload traffic requires moving parameter drag preview,
+  placeholder, and final visual reorder to renderer-owned metadata or the
+  full-scene canvas content architecture tracked by
+  `docs/plans/gpuflow-full-scene-canvas-content-clean-break-plan.md`.

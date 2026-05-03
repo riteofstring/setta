@@ -255,6 +255,7 @@ export async function runGpuFlowInteractionBenchmark(
   } = {},
 ): Promise<GpuFlowInteractionBenchmarkSummary> {
   await ensureGpuFlowPerformanceQueueWrappers(page);
+  await settleGpuFlowSurfacePaintBeforeBenchmark(page);
   await resetGpuFlowPerformanceProbe(page);
   const counter = createDurableMutationCounter(page);
   const startTimeMs = await page.evaluate(() => performance.now());
@@ -1247,6 +1248,19 @@ async function waitForGpuFlowPerformanceProbeQuiet(
     }
     await page.waitForTimeout(50);
   }
+}
+
+async function settleGpuFlowSurfacePaintBeforeBenchmark(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>(
+      ".setta-gpu-flow__canvas",
+    );
+    canvas?.requestPaint?.();
+  });
+  await waitForBenchmarkFrames(page);
+  await waitForGpuFlowPerformanceProbeQuiet(page);
 }
 
 async function clearGpuFlowDocumentFocusForBenchmark(

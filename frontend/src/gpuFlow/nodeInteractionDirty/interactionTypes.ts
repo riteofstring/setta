@@ -50,6 +50,13 @@ export type GpuNodeInteractionDirtyControllerOptions = {
     | ((event: PointerEvent) => boolean)
     | undefined;
   readonly shouldSkipDirtyEvent?: ((event: Event) => boolean) | undefined;
+  readonly shouldSkipDirtyMark?:
+    | ((input: {
+        readonly nodeId: string;
+        readonly priority: NodeTexturePriority;
+        readonly reason: DirtyNodeReason;
+      }) => boolean)
+    | undefined;
   readonly resolvePointerHandoffTarget?:
     | ((
         event: PointerEvent,

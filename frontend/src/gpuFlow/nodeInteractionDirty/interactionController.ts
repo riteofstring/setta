@@ -65,6 +65,7 @@ export function createGpuNodeInteractionDirtyController({
   resolvePointerHandoffTarget,
   resolveWheelHandoffTarget,
   shouldSkipDirtyEvent,
+  shouldSkipDirtyMark,
   shouldSkipPointerHandoff,
   textureManager,
 }: GpuNodeInteractionDirtyControllerOptions): GpuNodeInteractionDirtyController {
@@ -115,7 +116,7 @@ export function createGpuNodeInteractionDirtyController({
     scheduleFrame = true,
     sourceRect,
   }: MarkInteractionDirtyInput): boolean {
-    const manager = textureManager();
+    const manager = getDirtyTextureManager({ nodeId, priority, reason });
     if (!manager) {
       return false;
     }
@@ -137,13 +138,31 @@ export function createGpuNodeInteractionDirtyController({
     return true;
   }
 
+  function getDirtyTextureManager({
+    nodeId,
+    priority,
+    reason,
+  }: Pick<MarkInteractionDirtyInput, "nodeId" | "priority" | "reason">) {
+    if (shouldSkipDirtyMark?.({ nodeId, priority, reason }) === true) {
+      return null;
+    }
+    return textureManager();
+  }
+
   function beginInteractiveNode(
     nodeId: string,
     reason: DirtyNodeReason,
     sourceRect?: MarkInteractionDirtyInput["sourceRect"] | undefined,
   ) {
-    const manager = textureManager();
-    manager?.setSurfaceTexturePriority(nodeId, "interactive");
+    const manager = getDirtyTextureManager({
+      nodeId,
+      priority: "interactive",
+      reason,
+    });
+    if (!manager) {
+      return;
+    }
+    manager.setSurfaceTexturePriority(nodeId, "interactive");
     setState({
       activeNodeId: nodeId,
       releaseAfterUploadNodeId: null,
@@ -161,8 +180,15 @@ export function createGpuNodeInteractionDirtyController({
     reason: DirtyNodeReason,
     sourceRect: MarkInteractionDirtyInput["sourceRect"],
   ): boolean {
-    const manager = textureManager();
-    manager?.setSurfaceTexturePriority(nodeId, "interactive");
+    const manager = getDirtyTextureManager({
+      nodeId,
+      priority: "interactive",
+      reason,
+    });
+    if (!manager) {
+      return false;
+    }
+    manager.setSurfaceTexturePriority(nodeId, "interactive");
     setState({
       activeNodeId: nodeId,
       releaseAfterUploadNodeId: null,

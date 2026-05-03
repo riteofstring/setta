@@ -257,6 +257,15 @@ export type GpuFlowNodeLayerState = {
 
 export const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
 
+function hasGpuFlowNodeId(
+  nodeIds: ReadonlySet<string> | readonly string[] | undefined,
+  nodeId: string,
+): boolean {
+  return nodeIds instanceof Set
+    ? nodeIds.has(nodeId)
+    : Boolean(nodeIds?.includes(nodeId));
+}
+
 export function resolveGpuFlowIgnoredContentPaintNodeIds({
   activeResizeNodeId,
   configuredNodeIds,
@@ -779,6 +788,11 @@ export function GpuFlow({
         },
         shouldSkipDirtyEvent: () =>
           isGpuFlowPanZoomInteractionActive(viewportStore.getState()),
+        shouldSkipDirtyMark: ({ nodeId }) =>
+          hasGpuFlowNodeId(
+            nodeLayerRef.current.ignoreContentPaintNodeIds,
+            nodeId,
+          ),
         shouldSkipPointerHandoff: () => {
           const state = viewportStore.getState();
           return state.panActivationKeyPressed || state.pointerPanning;

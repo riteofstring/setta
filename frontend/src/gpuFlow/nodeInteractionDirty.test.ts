@@ -227,6 +227,41 @@ describe("gpu node interaction dirty tracking", () => {
     canvas.remove();
   });
 
+  it("skips dirty marks for suppressed interaction nodes without activating them", () => {
+    const canvas = document.createElement("canvas");
+    const nodeElement = createNodeElement("node-a");
+    const input = document.createElement("input");
+    nodeElement.append(input);
+    canvas.append(nodeElement);
+    document.body.append(canvas);
+    const textureManager = createInteractionTextureManager();
+    const requestFrame = vi.fn();
+    const shouldSkipDirtyMark = vi.fn(({ nodeId }) => nodeId === "node-a");
+    const controller = createGpuNodeInteractionDirtyController({
+      elementByNodeId: () => new Map([["node-a", nodeElement]]),
+      getFrame: () => 1,
+      requestFrame,
+      shouldSkipDirtyMark,
+      textureManager: () => textureManager,
+    });
+    const detach = controller.attach(canvas, document);
+
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(shouldSkipDirtyMark).toHaveBeenCalledWith({
+      nodeId: "node-a",
+      priority: "interactive",
+      reason: "input",
+    });
+    expect(controller.getActiveNodeId()).toBeNull();
+    expect(textureManager.setSurfaceTexturePriority).not.toHaveBeenCalled();
+    expect(textureManager.markSurfaceTextureDirty).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+
+    detach();
+    canvas.remove();
+  });
+
   it("hands off a passive node wrapper pointerdown by coordinates", async () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
