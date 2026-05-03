@@ -45,6 +45,25 @@ describe("retained content row canvas", () => {
     expect(ctx.fillStyle).toBe(palette.labelText);
     expect(ctx.fillText).toHaveBeenCalledWith("Display Label", 16, 14, 88);
   });
+
+  it("draws CSS-like ellipsis when display-name rows exceed the label width", () => {
+    const ctx = canvasContext({ textWidth: (text) => text.length * 10 });
+
+    drawGpuRetainedContentLabel({
+      appearance: {
+        fontFamily: "sans",
+        fontWeight: "semibold",
+        tone: "default",
+      },
+      ctx: ctx as unknown as CanvasRenderingContext2D,
+      palette,
+      rect: { height: 24, width: 82, x: 0, y: 0 },
+      state: undefined,
+      text: "Extra Long Display Label",
+    });
+
+    expect(ctx.fillText).toHaveBeenCalledWith("Extr\u2026", 16, 14, 50);
+  });
 });
 
 const palette: GpuRetainedContentCanvasPalette = {
@@ -77,11 +96,16 @@ const palette: GpuRetainedContentCanvasPalette = {
   textLikeVisualStyle: "row-text",
 };
 
-function canvasContext() {
+function canvasContext({
+  textWidth = (text: string) => text.length * 6,
+}: {
+  readonly textWidth?: (text: string) => number;
+} = {}) {
   return {
     fillStyle: "",
     fillText: vi.fn(),
     font: "",
+    measureText: vi.fn((text: string) => ({ width: textWidth(text) })),
     textBaseline: "alphabetic",
   };
 }

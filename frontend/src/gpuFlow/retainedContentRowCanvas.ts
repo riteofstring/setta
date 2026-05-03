@@ -14,6 +14,7 @@ const RETAINED_CONTENT_ROW_LABEL_MONO_PADDING_X = 15;
 const RETAINED_CONTENT_ROW_LABEL_SANS_PADDING_X = 16;
 const RETAINED_CONTENT_ROW_LABEL_MONO_OFFSET_Y = 3;
 const RETAINED_CONTENT_ROW_LABEL_SANS_OFFSET_Y = 2;
+const RETAINED_CONTENT_ROW_LABEL_ELLIPSIS = "\u2026";
 
 export function drawGpuRetainedContentRowBackground({
   ctx,
@@ -92,12 +93,45 @@ export function drawGpuRetainedContentLabel({
     state,
   });
   const paddingX = getGpuRetainedContentLabelPaddingX(appearance);
+  const maxWidth = Math.max(0, rect.width - paddingX * 2);
   ctx.fillText(
-    text,
+    truncateGpuRetainedContentLabelText(ctx, text, maxWidth),
     rect.x + paddingX,
     rect.y + rect.height / 2 + getGpuRetainedContentLabelOffsetY(appearance),
-    Math.max(0, rect.width - paddingX * 2),
+    maxWidth,
   );
+}
+
+function truncateGpuRetainedContentLabelText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string {
+  if (maxWidth <= 0 || text.length === 0) {
+    return "";
+  }
+  if (ctx.measureText(text).width <= maxWidth) {
+    return text;
+  }
+  const ellipsisWidth = ctx.measureText(
+    RETAINED_CONTENT_ROW_LABEL_ELLIPSIS,
+  ).width;
+  if (ellipsisWidth > maxWidth) {
+    return "";
+  }
+  let lower = 0;
+  let upper = text.length;
+  while (lower < upper) {
+    const nextLength = Math.ceil((lower + upper) / 2);
+    const candidate =
+      text.slice(0, nextLength) + RETAINED_CONTENT_ROW_LABEL_ELLIPSIS;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      lower = nextLength;
+    } else {
+      upper = nextLength - 1;
+    }
+  }
+  return text.slice(0, lower) + RETAINED_CONTENT_ROW_LABEL_ELLIPSIS;
 }
 
 function getGpuRetainedContentLabelFont(
