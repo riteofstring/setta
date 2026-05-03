@@ -20,6 +20,7 @@ import type {
   GpuDomIsland,
   GpuSectionSceneNode,
 } from "gpuFlow/scene";
+import type { GpuRect } from "gpuFlow/viewportMath";
 import { buildParamDuplicateIndexIfPresent } from "state/actions/params/paramDuplicateIndex";
 import { buildParamTreeView } from "state/actions/params/paramTree";
 import {
@@ -112,6 +113,8 @@ type ProjectGpuParamListRows = {
   readonly key: ProjectGpuParamListKey;
   readonly rows: readonly GpuRetainedContentRowInput[];
 };
+
+const PROJECT_GPU_PARAM_CONTENT_SECTION_CHROME_CLIP_INSET_PX = 1;
 
 type ProjectGpuRetainedParamInteractionState = {
   readonly activeParamCanvasControl?: OptionalParamTarget;
@@ -731,8 +734,12 @@ function createProjectGpuParamListContentSurfaces({
       scrollOffset: contentScrollOffsets?.get(surfaceId) ?? { x: 0, y: 0 },
       viewportRect,
     });
+    const clipRect = createProjectGpuParamContentSurfaceClipRect({
+      rect,
+      sectionClipRect: section.clipRect,
+    });
     surfaces.push({
-      clipRect: intersectProjectGpuParamRects(rect, section.clipRect),
+      clipRect,
       id: surfaceId,
       ownerSectionId: section.sectionId,
       rect,
@@ -770,6 +777,36 @@ function createProjectGpuParamListContentSurfaces({
     });
   }
   return surfaces;
+}
+
+function createProjectGpuParamContentSurfaceClipRect({
+  rect,
+  sectionClipRect,
+}: {
+  readonly rect: GpuRect;
+  readonly sectionClipRect: GpuRect;
+}): GpuRect {
+  const baseClipRect = intersectProjectGpuParamRects(rect, sectionClipRect);
+  if (
+    baseClipRect.height <=
+      PROJECT_GPU_PARAM_CONTENT_SECTION_CHROME_CLIP_INSET_PX ||
+    baseClipRect.width <= PROJECT_GPU_PARAM_CONTENT_SECTION_CHROME_CLIP_INSET_PX
+  ) {
+    return baseClipRect;
+  }
+  return intersectProjectGpuParamRects(rect, {
+    ...sectionClipRect,
+    height: Math.max(
+      0,
+      sectionClipRect.height -
+        PROJECT_GPU_PARAM_CONTENT_SECTION_CHROME_CLIP_INSET_PX,
+    ),
+    width: Math.max(
+      0,
+      sectionClipRect.width -
+        PROJECT_GPU_PARAM_CONTENT_SECTION_CHROME_CLIP_INSET_PX,
+    ),
+  });
 }
 
 function getProjectGpuParamMaxNestedDepth(

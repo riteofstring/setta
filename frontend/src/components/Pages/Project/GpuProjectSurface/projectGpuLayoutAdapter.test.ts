@@ -312,8 +312,8 @@ describe("project GPU layout adapter", () => {
     );
     expect(paramSurface).toMatchObject({
       clipRect: {
-        height: 23,
-        width: 262,
+        height: 22,
+        width: 261,
         x: 10,
         y: 119 + KWARGS_CONTROLS_SCENE_HEIGHT_PX,
       },
