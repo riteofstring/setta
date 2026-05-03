@@ -57,6 +57,17 @@ export type ProjectNodeResizeSession = {
   };
 };
 
+export type ProjectNodeResizeOptions = {
+  readonly disabled: () => boolean;
+  readonly getResizePolicy: (
+    input: GpuNodeResizePolicyInput,
+  ) => GpuNodeResizePolicy | false;
+  readonly onNodeResize: (change: GpuNodeResizeChange) => void;
+  readonly onNodeResizeCancel: (change: GpuNodeResizeChange) => void;
+  readonly onNodeResizeStart: (change: GpuNodeResizeChange) => void;
+  readonly onNodeResizeStop: (change: GpuNodeResizeChange) => void;
+};
+
 type ProjectNodeResizeOptionsInput = {
   canEditLayout: boolean;
   flowInteractionKeys: ProjectFlowInteractionKeys;
@@ -112,7 +123,7 @@ export function createProjectNodeResizeOptions({
   sessionRef,
 }: ProjectNodeResizeOptionsInput & {
   sessionRef: MutableRefObject<ProjectNodeResizeSession>;
-}) {
+}): ProjectNodeResizeOptions {
   return {
     disabled: () =>
       isProjectGpuNodeResizeDisabled({
@@ -121,10 +132,9 @@ export function createProjectNodeResizeOptions({
       }),
     getResizePolicy: (input: GpuNodeResizePolicyInput) =>
       getProjectNodeResizePolicy(input, { canEditLayout }),
-    onNodeResize: (change: GpuNodeResizeChange) => {
+    onNodeResize: () => {
       sessionRef.current.resizeAttempted = true;
       sessionRef.current.doubleClickPending = false;
-      applyProjectNodeResizeLayout(change);
     },
     onNodeResizeCancel: (change: GpuNodeResizeChange) => {
       cancelProjectNodeResize(change, sessionRef);
@@ -280,7 +290,7 @@ function promoteProjectNodeAutoSize(
   applyLocalSectionSizeChange(change.nodeId, nextSize);
 }
 
-function applyProjectNodeResizeLayout(change: GpuNodeResizeChange): boolean {
+function commitProjectNodeResizeLayout(change: GpuNodeResizeChange): boolean {
   const size = getNumericProjectResizeSize(change.layout, change.nodeId);
   return updateNodeDimensionsFromGpuResize({
     id: change.nodeId,
@@ -293,7 +303,7 @@ function stopProjectNodeResize(
   change: GpuNodeResizeChange,
   sessionRef: MutableRefObject<ProjectNodeResizeSession>,
 ) {
-  applyProjectNodeResizeLayout(change);
+  commitProjectNodeResizeLayout(change);
   const session = sessionRef.current;
   const isZeroDelta =
     change.totalSizeDelta.width === 0 && change.totalSizeDelta.height === 0;

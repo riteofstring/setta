@@ -195,7 +195,7 @@ describe("project GPU node resize adapter", () => {
     vi.clearAllMocks();
   });
 
-  it("applies live graph size on resize frames and persists section size only on stop", () => {
+  it("leaves live resize frames in GpuFlow and commits project size only on stop", () => {
     const sessionRef = { current: createProjectNodeResizeSession() };
     const options = createProjectNodeResizeOptions({
       canEditLayout: true,
@@ -216,14 +216,18 @@ describe("project GPU node resize adapter", () => {
     );
 
     const liveNode = useNodeInternals.getState().x.get(sectionId);
-    expect(liveNode?.width).toBe(502);
-    expect(liveNode?.height).toBe(262);
+    expect(liveNode?.width).toBe(toTopLevelSectionOuterDimension(200));
+    expect(liveNode?.height).toBe(toTopLevelSectionOuterDimension(120));
     expect(setSectionSizes).not.toHaveBeenCalled();
 
     options.onNodeResizeStop(
       createResizeChange({ phase: "stop", width: 502, height: 262 }),
     );
 
+    expect(useNodeInternals.getState().x.get(sectionId)).toMatchObject({
+      width: 502,
+      height: 262,
+    });
     expect(setSectionSizes).toHaveBeenCalledOnce();
     expect(vi.mocked(setSectionSizes).mock.calls[0]?.[0]).toMatchObject({
       body: {
@@ -336,8 +340,8 @@ describe("project GPU node resize adapter", () => {
     );
 
     expect(useNodeInternals.getState().x.get(sectionId)).toMatchObject({
-      width: 502,
-      height: 262,
+      width: startWidth,
+      height: startHeight,
     });
 
     options.onNodeResizeCancel(

@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
+import { createGpuFlowLayoutStore } from "../layoutStore";
 import {
   GPU_NODE_RESIZE_DIRECTION_ATTRIBUTE,
   getGpuNodeResizeCursor,
@@ -50,10 +51,13 @@ describe("GPU node resize controller", () => {
     const onNodeResizeStart = vi.fn();
     const onNodeResize = vi.fn();
     const requestFrame = vi.fn();
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 0, 0, 100, 50)],
+    });
     const detach = attachGpuNodeResizeController({
       cancelAnimationFrame: animationFrames.cancelAnimationFrame,
       element,
-      getNodes: () => [node("a", 0, 0, 100, 50)],
+      layoutStore,
       onNodeResize,
       onNodeResizeStart,
       requestAnimationFrame: animationFrames.requestAnimationFrame,
@@ -82,6 +86,11 @@ describe("GPU node resize controller", () => {
 
     expect(store.getState().nodeResizing).toBe(true);
     expect(store.getState().viewportInteractionActive).toBe(true);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      interactionFlags: { resizing: true },
+      height: 50,
+      width: 100,
+    });
     expect(pointerCapture.setPointerCapture).toHaveBeenCalledWith(1);
     expect(onNodeResizeStart).toHaveBeenCalledWith({
       active: true,
@@ -100,6 +109,11 @@ describe("GPU node resize controller", () => {
     animationFrames.flushNext();
 
     expect(onNodeResize).toHaveBeenCalledOnce();
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      interactionFlags: { resizing: true },
+      height: 60,
+      width: 120,
+    });
     expect(onNodeResize).toHaveBeenLastCalledWith({
       active: true,
       direction: "bottomRight",
@@ -124,10 +138,13 @@ describe("GPU node resize controller", () => {
     const onNodeResize = vi.fn();
     const onNodeResizeStop = vi.fn();
     const requestFrame = vi.fn();
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 0, 0, 100, 50)],
+    });
     const detach = attachGpuNodeResizeController({
       cancelAnimationFrame: animationFrames.cancelAnimationFrame,
       element,
-      getNodes: () => [node("a", 0, 0, 100, 50)],
+      layoutStore,
       onNodeResize,
       onNodeResizeStop,
       requestAnimationFrame: animationFrames.requestAnimationFrame,
@@ -170,6 +187,17 @@ describe("GPU node resize controller", () => {
         totalSizeDelta: { height: 0, width: 25 },
       }),
     );
+    const committedNode = layoutStore.getState().getNode("a");
+    expect(committedNode).toMatchObject({
+      height: 50,
+      width: 125,
+    });
+    expect(committedNode?.interactionFlags).toBeUndefined();
+    expect(layoutStore.getState().lastChange).toMatchObject({
+      changedNodeIds: ["a"],
+      phase: "commit",
+      reason: "resize",
+    });
     expect(pointerCapture.releasePointerCapture).toHaveBeenCalledWith(1);
     expect(store.getState().nodeResizing).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(false);
@@ -189,10 +217,13 @@ describe("GPU node resize controller", () => {
     const store = createGpuFlowViewportStore();
     const onNodeResizeCancel = vi.fn();
     const requestFrame = vi.fn();
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 0, 0, 100, 50)],
+    });
     const detach = attachGpuNodeResizeController({
       cancelAnimationFrame: animationFrames.cancelAnimationFrame,
       element,
-      getNodes: () => [node("a", 0, 0, 100, 50)],
+      layoutStore,
       onNodeResizeCancel,
       requestAnimationFrame: animationFrames.requestAnimationFrame,
       requestFrame,
@@ -223,6 +254,17 @@ describe("GPU node resize controller", () => {
         totalSizeDelta: { height: 0, width: 0 },
       }),
     );
+    const canceledNode = layoutStore.getState().getNode("a");
+    expect(canceledNode).toMatchObject({
+      height: 50,
+      width: 100,
+    });
+    expect(canceledNode?.interactionFlags).toBeUndefined();
+    expect(layoutStore.getState().lastChange).toMatchObject({
+      changedNodeIds: ["a"],
+      phase: "cancel",
+      reason: "resize",
+    });
     expect(store.getState().nodeResizing).toBe(false);
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();

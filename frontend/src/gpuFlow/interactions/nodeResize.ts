@@ -4,6 +4,12 @@ import {
 } from "../animationFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
+import type {
+  GpuFlowLayoutChangePhase,
+  GpuFlowLayoutInteractionFlags,
+  GpuFlowLayoutNodePatch,
+  GpuFlowLayoutStoreApi,
+} from "../layoutStore";
 import {
   GPU_NODE_RESIZE_DIRECTIONS,
   resolveGpuNodeResizeTargetFromEventTarget,
@@ -61,12 +67,12 @@ export type GpuNodeResizeControllerOptions = {
   readonly cancelAnimationFrame?: ((handle: number) => void) | undefined;
   readonly disabled?: boolean | (() => boolean) | undefined;
   readonly element: HTMLElement;
-  readonly getNodes: () => readonly GpuNodeLayout[];
   readonly getResizePolicy?:
     | ((
         input: GpuNodeResizePolicyInput,
       ) => GpuNodeResizePolicy | false | null | undefined)
     | undefined;
+  readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly onNodeResize?: ((change: GpuNodeResizeChange) => void) | undefined;
   readonly onNodeResizeCancel?:
     | ((change: GpuNodeResizeChange) => void)
@@ -198,9 +204,14 @@ class GpuNodeResizeController {
   private activeResize: ActiveGpuNodeResize | null = null;
   private readonly cancelAnimationFrame: (handle: number) => void;
   private readonly element: HTMLElement;
+  private readonly layoutStore: GpuFlowLayoutStoreApi;
   private readonly options: Omit<
     GpuNodeResizeControllerOptions,
-    "cancelAnimationFrame" | "element" | "requestAnimationFrame" | "store"
+    | "cancelAnimationFrame"
+    | "element"
+    | "layoutStore"
+    | "requestAnimationFrame"
+    | "store"
   >;
   private readonly requestAnimationFrame: (
     callback: FrameRequestCallback,
@@ -211,6 +222,7 @@ class GpuNodeResizeController {
     this.cancelAnimationFrame =
       options.cancelAnimationFrame ?? cancelGpuAnimationFrame;
     this.element = options.element;
+    this.layoutStore = options.layoutStore;
     this.options = options;
     this.requestAnimationFrame =
       options.requestAnimationFrame ?? requestGpuAnimationFrame;
@@ -246,7 +258,7 @@ class GpuNodeResizeController {
     const { policy, startLayout, target } = resizeStart;
     const screenPoint = getEventPointRelativeToElement(event, this.element);
     const captureElement = target.targetElement ?? this.element;
-    this.activeResize = {
+    const activeResize: ActiveGpuNodeResize = {
       captureElement,
       direction: target.direction,
       frameHandle: null,
@@ -258,6 +270,7 @@ class GpuNodeResizeController {
       startLayout,
       startScreenPoint: screenPoint,
     };
+    this.activeResize = activeResize;
     captureElement.setPointerCapture?.(event.pointerId);
     captureElement.addEventListener(
       "lostpointercapture",
@@ -265,6 +278,7 @@ class GpuNodeResizeController {
     );
     this.addDocumentListeners();
     this.store.getState().setViewportInteractionFlags({ nodeResizing: true });
+    this.applyActiveResizeLayoutChange(activeResize, startLayout, "start");
     this.options.onNodeResizeStart?.(
       this.createResizeChange(this.activeResize, startLayout, "start"),
     );
@@ -294,6 +308,7 @@ class GpuNodeResizeController {
     event.stopImmediatePropagation();
     this.flushResizeFrame(activeResize);
     const finalLayout = this.resolveActiveResizeLayout(activeResize);
+    this.applyActiveResizeLayoutChange(activeResize, finalLayout, "commit");
     this.options.onNodeResizeStop?.(
       this.createResizeChange(activeResize, finalLayout, "stop"),
     );
@@ -383,9 +398,7 @@ class GpuNodeResizeController {
   private resolveResizeStartLayout(
     nodeId: string,
   ): NumericGpuNodeLayout | null {
-    const node = this.options
-      .getNodes()
-      .find((candidate) => candidate.nodeId === nodeId);
+    const node = this.layoutStore.getState().getNode(nodeId);
     return node ? toNumericGpuNodeLayout(node) : null;
   }
 
@@ -425,6 +438,7 @@ class GpuNodeResizeController {
     }
     const change = this.createResizeChange(activeResize, nextLayout, "resize");
     activeResize.lastLayout = nextLayout;
+    this.applyActiveResizeLayoutChange(activeResize, nextLayout, "change");
     this.options.onNodeResize?.(change);
     this.options.requestFrame?.("resize");
     return true;
@@ -486,6 +500,11 @@ class GpuNodeResizeController {
       return;
     }
     this.cancelPendingResizeFrame(activeResize);
+    this.applyActiveResizeLayoutChange(
+      activeResize,
+      activeResize.startLayout,
+      "cancel",
+    );
     this.options.onNodeResizeCancel?.(
       this.createResizeChange(activeResize, activeResize.startLayout, "cancel"),
     );
@@ -526,6 +545,30 @@ class GpuNodeResizeController {
     activeResize.captureElement.releasePointerCapture?.(activeResize.pointerId);
   }
 
+  private applyActiveResizeLayoutChange(
+    activeResize: ActiveGpuNodeResize,
+    layout: NumericGpuNodeLayout,
+    phase: GpuFlowLayoutChangePhase,
+  ) {
+    const node = this.layoutStore.getState().getNode(activeResize.nodeId);
+    const resizing = phase === "start" || phase === "change";
+    const patch: GpuFlowLayoutNodePatch = {
+      height: layout.height,
+      interactionFlags: getNextGpuNodeResizeInteractionFlags(
+        node?.interactionFlags,
+        resizing,
+      ),
+      nodeId: activeResize.nodeId,
+      width: layout.width,
+      x: layout.x,
+      y: layout.y,
+    };
+    this.layoutStore.getState().patchNodes([patch], {
+      phase,
+      reason: "resize",
+    });
+  }
+
   private addDocumentListeners() {
     const ownerDocument = this.element.ownerDocument;
     const ownerWindow = ownerDocument.defaultView;
@@ -557,6 +600,17 @@ class GpuNodeResizeController {
     ownerDocument.removeEventListener("keydown", this.onKeyDown, true);
     ownerWindow?.removeEventListener("blur", this.onWindowBlur);
   }
+}
+
+function getNextGpuNodeResizeInteractionFlags(
+  currentFlags: GpuFlowLayoutInteractionFlags | undefined,
+  resizing: boolean,
+): GpuFlowLayoutInteractionFlags | undefined {
+  const nextFlags = { ...currentFlags, resizing };
+  if (nextFlags.dragging || nextFlags.resizing || nextFlags.selected) {
+    return nextFlags;
+  }
+  return undefined;
 }
 
 function resizeGpuNodeWithAspectRatio({

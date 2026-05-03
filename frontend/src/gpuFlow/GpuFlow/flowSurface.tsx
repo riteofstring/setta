@@ -165,7 +165,7 @@ export type GpuFlowProps = Pick<
     | Omit<
         GpuNodeResizeControllerOptions,
         | "element"
-        | "getNodes"
+        | "layoutStore"
         | "requestFrame"
         | "resolveResizeTarget"
         | "store"
@@ -465,10 +465,13 @@ export function GpuFlow({
     if (!container) {
       return;
     }
+    if (!layoutStore) {
+      throw new Error("GpuFlow node resize requires a layout store.");
+    }
     return attachGpuNodeResizeController({
       ...nodeResize,
       element: container,
-      getNodes: () => nodeLayerRef.current.nodes ?? [],
+      layoutStore,
       onNodeResize: (change) => {
         nodeResize?.onNodeResize?.(change);
       },
@@ -502,6 +505,7 @@ export function GpuFlow({
     });
   }, [
     htmlSurfaceEffectProjectors,
+    layoutStore,
     nodeResize,
     sourceInteractionProjector,
     viewportStore,
