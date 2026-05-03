@@ -53,6 +53,7 @@ import {
   createSingleConfig,
   createSwitchParamCodeObjImpl,
   createVariant,
+  type ColorPickerParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
   type TimeParamCodeObjImpl,
@@ -1262,6 +1263,152 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
+  it("commits configured color picker choices from canvas without mounting a DOM island", async () => {
+    seedColorPickerParamProjectState("#ef4444");
+    vi.useFakeTimers();
+    const onActiveParamCanvasPopupChange = vi.fn();
+    const onActiveParamDomIslandChange = vi.fn();
+    const rows = [
+      {
+        control: {
+          choices: [
+            { color: "#ef4444", description: "Red" },
+            { color: "#22c55e", description: "Green" },
+          ],
+          defaultDisplayValue: "#ef4444",
+          displayValue: "#ef4444",
+          kind: "color-picker" as const,
+          rendererFamily: "color-picker",
+          commitPolicy: "immediate" as const,
+          selectedIndex: 0,
+        },
+        controlKind: "color-picker",
+        depth: 0,
+        id: "param-1",
+        label: "Param 1",
+      },
+    ];
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows,
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 96, width: 180, x: 0, y: 0 },
+    });
+    const controlHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "control",
+    );
+    if (!controlHit) {
+      throw new Error("Expected retained control hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamCanvasPopupChange,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const controlEvent = {
+      hit: controlHit,
+      localPoint: {
+        x: controlHit.rect.x + controlHit.rect.width / 2,
+        y: controlHit.rect.y + controlHit.rect.height / 2,
+      },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 140, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    try {
+      expect(options.shouldHandleHit?.(controlEvent)).toBe(true);
+      options.onHitClick(controlEvent);
+
+      expect(onActiveParamCanvasPopupChange).toHaveBeenCalledWith({
+        hitRecordId: "control:param-1",
+        kind: "color-picker",
+        paramInfoId: "param-1",
+        sectionId: "section-1",
+        surfaceId: "section-1:param-content:unpinned",
+      });
+      expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+      expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          paramInfoId: "param-1",
+        }),
+      );
+
+      const popupScene = createGpuRetainedRowContentScene({
+        activePopup: { kind: "color-picker", ownerRowId: "param-1" },
+        controlWidth: 112,
+        id: "section-1:param-content:unpinned",
+        ownerSectionId: "section-1",
+        rowHeight: 28,
+        rows,
+        scrollOffset: { x: 0, y: 0 },
+        viewportRect: { height: 96, width: 180, x: 0, y: 0 },
+      });
+      const greenHit = popupScene.hitRecords.find(
+        (candidate) =>
+          candidate.kind === "popup-option" &&
+          candidate.optionValue === "#22c55e",
+      );
+      if (!greenHit) {
+        throw new Error("Expected retained color option hit.");
+      }
+      const optionEvent = {
+        ...controlEvent,
+        hit: greenHit,
+        localPoint: {
+          x: greenHit.rect.x + greenHit.rect.width / 2,
+          y: greenHit.rect.y + greenHit.rect.height / 2,
+        },
+        retainedScene: popupScene,
+      } satisfies GpuRetainedContentInteractionEvent;
+
+      expect(options.shouldHandleHit?.(optionEvent)).toBe(true);
+      options.onHitClick(optionEvent);
+
+      expect(onActiveParamCanvasPopupChange).toHaveBeenLastCalledWith(null);
+      expect(onActiveParamDomIslandChange).toHaveBeenLastCalledWith(null);
+
+      await act(async () => {
+        vi.advanceTimersByTime(60);
+        await Promise.resolve();
+      });
+
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: expect.any(String),
+          paramInfoId: "param-1",
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-1-variant",
+          value: "#22c55e",
+        },
+      });
+      expect(
+        useProjectState.getState().codeObjImpls["param-1-impl"]?.value,
+      ).toBe("#22c55e");
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
   it("does not activate retained param name islands when structure edits are disabled", () => {
     seedNestedParamNameProjectState();
     const onActiveParamDomIslandChange = vi.fn();
@@ -1814,6 +1961,116 @@ function seedRotaryParamProjectState(value: string) {
     typeAnnotation: "",
     value,
   } satisfies RotaryParamCodeObjImpl;
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [paramImplId]: paramImpl,
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: [],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
+}
+
+function seedColorPickerParamProjectState(value: string) {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+  const paramImpl = {
+    colorChoices: [
+      { color: "#ef4444", description: "Red" },
+      { color: "#22c55e", description: "Green" },
+    ],
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "#ef4444",
+    description: "",
+    id: paramImplId,
+    isPreset: false,
+    name: "param-1",
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    type: CodeObjTypeEnum.ColorPickerParam,
+    typeAnnotation: "",
+    value,
+  } satisfies ColorPickerParamCodeObjImpl;
 
   useProjectState.setState(
     createSingleConfig({

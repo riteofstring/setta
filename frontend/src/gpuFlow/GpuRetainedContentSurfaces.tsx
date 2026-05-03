@@ -7,6 +7,11 @@ import {
   type HtmlSurfaceSourceElementConfig,
 } from "./htmlSurfaces/sourceLayer";
 import {
+  drawGpuRetainedContentColorPickerControl,
+  drawGpuRetainedContentColorPickerPopupOption,
+  drawGpuRetainedContentControlPopupBackground,
+} from "./retainedContentColorPickerCanvas";
+import {
   getGpuRetainedContentRotaryIndicatorAngle,
   getGpuRetainedContentRotaryKnobRect,
   getGpuRetainedContentRotaryValueLabelRect,
@@ -194,6 +199,19 @@ function drawGpuRetainedContentCommand({
     });
     return;
   }
+  if (command.kind === "control-popup-background") {
+    drawGpuRetainedContentControlPopupBackground(ctx, command.rect);
+    return;
+  }
+  if (command.kind === "control-popup-option") {
+    drawGpuRetainedContentColorPickerPopupOption({
+      ctx,
+      option: command.option,
+      rect: command.rect,
+      selected: command.selected,
+    });
+    return;
+  }
   if (command.kind === "row-label") {
     drawGpuRetainedContentLabel({
       ctx,
@@ -303,6 +321,14 @@ function drawGpuRetainedContentControl({
       return;
     case "rotary":
       drawGpuRetainedContentRotaryControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return;
+    case "color-picker":
+      drawGpuRetainedContentColorPickerControl({
         control,
         ctx,
         rect,

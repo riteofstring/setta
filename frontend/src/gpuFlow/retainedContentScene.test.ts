@@ -298,6 +298,85 @@ describe("retained content scene", () => {
     );
   });
 
+  it("emits retained configured color picker descriptors and popup option hits", () => {
+    const scene = createGpuRetainedRowContentScene({
+      activePopup: { kind: "color-picker", ownerRowId: "color-param" },
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("color-param", {
+          control: {
+            choices: [
+              { color: "#ef4444", description: "Red" },
+              { color: "#22c55e", description: "Green" },
+            ],
+            defaultDisplayValue: "#ef4444",
+            displayValue: "#22c55e",
+            kind: "color-picker",
+            rendererFamily: "color-picker",
+            commitPolicy: "immediate",
+            selectedIndex: 1,
+          },
+          controlKind: "color-picker",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 96, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.control).toEqual({
+      choices: [
+        { color: "#ef4444", description: "Red" },
+        { color: "#22c55e", description: "Green" },
+      ],
+      defaultDisplayValue: "#ef4444",
+      displayValue: "#22c55e",
+      kind: "color-picker",
+      rendererFamily: "color-picker",
+      commitPolicy: "immediate",
+      selectedIndex: 1,
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          control: expect.objectContaining({
+            choices: expect.arrayContaining([
+              { color: "#22c55e", description: "Green" },
+            ]),
+            kind: "color-picker",
+            commitPolicy: "immediate",
+          }),
+          controlKind: "color-picker",
+          kind: "row-control",
+          rowId: "color-param",
+        }),
+        expect.objectContaining({
+          kind: "control-popup-background",
+          rowId: "color-param",
+        }),
+        expect.objectContaining({
+          kind: "control-popup-option",
+          option: { color: "#22c55e", description: "Green" },
+          optionIndex: 1,
+          rowId: "color-param",
+          selected: true,
+        }),
+      ]),
+    );
+    expect(scene.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "popup-option:color-param:1",
+          kind: "popup-option",
+          optionIndex: 1,
+          optionValue: "#22c55e",
+          ownerRowId: "color-param",
+        }),
+      ]),
+    );
+  });
+
   it("emits inset drop markers for retained inside-row drops", () => {
     const scene = createGpuRetainedRowContentScene({
       dragPreview: {

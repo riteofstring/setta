@@ -3,9 +3,9 @@ import {
   type FilteredParamRows,
 } from "components/Params/paramListFiltering";
 import { resolveParamUIDisabled } from "components/Params/ParamUIs/paramUIDisabled";
-import type { GpuRetainedContentNavigationTarget } from "gpuFlow/retainedContentKeyboard";
 import {
   createGpuRetainedRowContentScene,
+  type GpuRetainedContentActivePopupInput,
   type GpuRetainedContentDragPreviewInput,
   type GpuRetainedContentHitRecord,
   type GpuRetainedContentRow,
@@ -18,7 +18,6 @@ import {
 import type {
   GpuContentSurface,
   GpuDomIsland,
-  GpuFlowScene,
   GpuSectionSceneNode,
 } from "gpuFlow/scene";
 import { buildParamTreeView } from "state/actions/params/paramTree";
@@ -71,12 +70,20 @@ export type ProjectGpuActiveParamDomIsland = ProjectGpuRetainedParamTarget & {
   readonly activation?: GpuDomIsland["activation"] | undefined;
 };
 
+export type ProjectGpuActiveParamCanvasPopup = ProjectGpuRetainedParamTarget & {
+  readonly kind: "color-picker";
+};
+
 type ProjectGpuParamListRows = {
   readonly key: ProjectGpuParamListKey;
   readonly rows: readonly GpuRetainedContentRowInput[];
 };
 
 type ProjectGpuRetainedParamInteractionState = {
+  readonly activeParamCanvasPopup?:
+    | ProjectGpuActiveParamCanvasPopup
+    | null
+    | undefined;
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
     | null
@@ -112,71 +119,8 @@ export const DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY: ProjectGpuParamEditPolicy =
     isDeploymentMode: false,
   };
 
-export function getProjectGpuRetainedParamNavigationTarget({
-  activeSectionIds,
-  projectState,
-  scene,
-}: {
-  readonly activeSectionIds: readonly string[];
-  readonly projectState: ZustandProjectState;
-  readonly scene: GpuFlowScene;
-}): GpuRetainedContentNavigationTarget | null {
-  const activeSectionRank = new Map(
-    activeSectionIds.map((sectionId, index) => [sectionId, index]),
-  );
-  const surfaces = scene.contentSurfaces
-    .map((surface, index) => ({
-      activeRank:
-        activeSectionRank.get(surface.ownerSectionId) ??
-        Number.MAX_SAFE_INTEGER,
-      index,
-      surface,
-    }))
-    .filter(
-      (
-        item,
-      ): item is {
-        readonly activeRank: number;
-        readonly index: number;
-        readonly surface: GpuContentSurface & {
-          readonly retainedScene: NonNullable<
-            GpuContentSurface["retainedScene"]
-          >;
-        };
-      } => isProjectGpuRetainedParamSurface(item.surface),
-    )
-    .sort(
-      (left, right) =>
-        left.activeRank - right.activeRank ||
-        right.surface.zIndex - left.surface.zIndex ||
-        right.index - left.index,
-    );
-  for (const { surface } of surfaces) {
-    const sectionImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
-      projectState,
-      surface.ownerSectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const selectedParams = sectionImpl?.selectedParams ?? [];
-    if (selectedParams.length === 0) {
-      continue;
-    }
-    const rowIds = new Set(surface.retainedScene.rowOrder);
-    for (const selectedParamId of [...selectedParams].reverse()) {
-      if (!rowIds.has(selectedParamId)) {
-        continue;
-      }
-      return {
-        ownerSectionId: surface.ownerSectionId,
-        rowId: selectedParamId,
-        surfaceId: surface.id,
-      };
-    }
-  }
-  return null;
-}
-
 export function createProjectGpuParamContentSurfaces({
+  activeParamCanvasPopup,
   activeParamDomIsland,
   contentScrollOffsets,
   editPolicy = DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
@@ -188,6 +132,10 @@ export function createProjectGpuParamContentSurfaces({
   sections,
   typeErrors,
 }: {
+  readonly activeParamCanvasPopup?:
+    | ProjectGpuActiveParamCanvasPopup
+    | null
+    | undefined;
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
     | null
@@ -210,6 +158,7 @@ export function createProjectGpuParamContentSurfaces({
 }): readonly GpuContentSurface[] {
   return sections.flatMap((section) =>
     createProjectGpuParamContentSurfacesForSection({
+      activeParamCanvasPopup,
       activeParamDomIsland,
       contentScrollOffsets,
       editPolicy,
@@ -471,6 +420,7 @@ function hasProjectGpuCoreNameEditable(codeObjImpl: unknown): boolean {
 }
 
 function createProjectGpuParamContentSurfacesForSection({
+  activeParamCanvasPopup,
   activeParamDomIsland,
   contentScrollOffsets,
   editPolicy,
@@ -482,6 +432,10 @@ function createProjectGpuParamContentSurfacesForSection({
   section,
   typeErrors,
 }: {
+  readonly activeParamCanvasPopup?:
+    | ProjectGpuActiveParamCanvasPopup
+    | null
+    | undefined;
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
     | null
@@ -520,12 +474,14 @@ function createProjectGpuParamContentSurfacesForSection({
     editPolicy,
     typeErrors,
     retainedInteractionState: {
+      activeParamCanvasPopup,
       activeParamDomIsland,
       hoveredParamTarget,
       retainedParamDragPreview,
     },
   });
   return createProjectGpuParamListContentSurfaces({
+    activeParamCanvasPopup,
     contentScrollOffsets,
     listRows,
     measuredHeightsByKey,
@@ -750,12 +706,17 @@ function resolveProjectGpuRetainedParamRowDisabled({
 }
 
 function createProjectGpuParamListContentSurfaces({
+  activeParamCanvasPopup,
   contentScrollOffsets,
   listRows,
   measuredHeightsByKey,
   retainedParamDragPreview,
   section,
 }: {
+  readonly activeParamCanvasPopup?:
+    | ProjectGpuActiveParamCanvasPopup
+    | null
+    | undefined;
   readonly contentScrollOffsets?: GpuRetainedContentScrollOffsetMap | undefined;
   readonly listRows: readonly ProjectGpuParamListRows[];
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
@@ -820,6 +781,10 @@ function createProjectGpuParamListContentSurfaces({
       ownerSectionId: section.sectionId,
       rect,
       retainedScene: createGpuRetainedRowContentScene({
+        activePopup: getProjectGpuParamRetainedContentActivePopupInput({
+          activeParamCanvasPopup,
+          surfaceId,
+        }),
         dragPreview: getProjectGpuParamRetainedContentDragPreviewInput({
           retainedParamDragPreview,
           surfaceId,
@@ -842,6 +807,28 @@ function createProjectGpuParamListContentSurfaces({
     });
   }
   return surfaces;
+}
+
+function getProjectGpuParamRetainedContentActivePopupInput({
+  activeParamCanvasPopup,
+  surfaceId,
+}: {
+  readonly activeParamCanvasPopup?:
+    | ProjectGpuActiveParamCanvasPopup
+    | null
+    | undefined;
+  readonly surfaceId: string;
+}): GpuRetainedContentActivePopupInput | null {
+  if (
+    !activeParamCanvasPopup ||
+    activeParamCanvasPopup.surfaceId !== surfaceId
+  ) {
+    return null;
+  }
+  return {
+    kind: activeParamCanvasPopup.kind,
+    ownerRowId: activeParamCanvasPopup.paramInfoId,
+  };
 }
 
 function getProjectGpuParamRetainedContentDragPreviewInput({

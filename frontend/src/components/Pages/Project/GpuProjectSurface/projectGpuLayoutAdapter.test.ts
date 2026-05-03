@@ -49,7 +49,7 @@ import {
   getProjectGpuLayoutNode,
   getProjectGpuLayoutNodesFromNodeInternals,
 } from "./projectGpuLayoutNodeAdapter";
-import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuParamContentAdapter";
+import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
 import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
 
 describe("project GPU layout adapter", () => {
@@ -1638,7 +1638,7 @@ describe("project GPU layout adapter", () => {
     });
   });
 
-  it("keeps native retained color picker islands control-sized", () => {
+  it("keeps native color picker islands while configured choices stay canvas-owned", () => {
     const projectState = projectStateWithSections({
       sections: [
         {
@@ -1721,8 +1721,9 @@ describe("project GPU layout adapter", () => {
     });
 
     const paletteScene = getProjectGpuFlowScene(projectState, {
-      activeParamDomIsland: {
+      activeParamCanvasPopup: {
         hitRecordId: "control:palette-color-param",
+        kind: "color-picker",
         paramInfoId: "palette-color-param",
         sectionId: "dict-a",
         surfaceId: "dict-a:param-content:unpinned",
@@ -1730,13 +1731,30 @@ describe("project GPU layout adapter", () => {
       darkMode: false,
       revision: 7,
     });
+    const paletteSurface = paletteScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
 
-    expect(paletteScene.domIslands[0]).toMatchObject({
-      contentRect: { height: 28, width: 112, x: 112, y: 0 },
-      kind: "retained-content-control",
-      ownerSectionId: "dict-a",
-      rect: { height: 260, width: 224 },
+    expect(paletteScene.domIslands).toEqual([]);
+    expect(
+      paletteSurface?.retainedScene?.rows.find(
+        (row) => row.id === "palette-color-param",
+      )?.control,
+    ).toMatchObject({
+      choices: [{ color: "#ef4444", description: "Red" }],
+      kind: "color-picker",
+      rendererFamily: "color-picker",
+      commitPolicy: "immediate",
     });
+    expect(paletteSurface?.retainedScene?.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "popup-option",
+          optionValue: "#ef4444",
+          ownerRowId: "palette-color-param",
+        }),
+      ]),
+    );
   });
 
   it("applies renderer-owned retained content scroll offsets to dict param surfaces", () => {

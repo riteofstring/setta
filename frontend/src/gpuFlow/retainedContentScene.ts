@@ -1,3 +1,4 @@
+import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
 export type GpuRetainedContentRowState = {
@@ -21,6 +22,11 @@ type GpuRetainedContentControlCommitPolicy =
   | "immediate"
   | "native-island"
   | "preview-commit";
+
+export type GpuRetainedContentColorChoice = {
+  readonly color: string;
+  readonly description: string;
+};
 
 export type GpuRetainedContentControlDescriptor =
   | {
@@ -59,6 +65,15 @@ export type GpuRetainedContentControlDescriptor =
       readonly min: number;
       readonly step: number;
       readonly value: number;
+    }
+  | {
+      readonly choices: readonly GpuRetainedContentColorChoice[];
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "color-picker";
+      readonly rendererFamily: string;
+      readonly commitPolicy: "immediate";
+      readonly selectedIndex: number | null;
     };
 
 export type GpuRetainedContentRowInput = {
@@ -88,6 +103,11 @@ type GpuRetainedContentVisibleRowRange = {
   readonly endIndex: number;
   readonly rowCount: number;
   readonly startIndex: number;
+};
+
+export type GpuRetainedContentActivePopupInput = {
+  readonly kind: "color-picker";
+  readonly ownerRowId: string;
 };
 
 export type GpuRetainedContentDropMarkerEdge = "after" | "before" | "inside";
@@ -131,11 +151,26 @@ export type GpuRetainedContentDrawCommand =
       readonly rowCount: number;
       readonly rowId: string;
       readonly text: string;
+    }
+  | {
+      readonly kind: "control-popup-background";
+      readonly rect: GpuRect;
+      readonly rowId: string;
+    }
+  | {
+      readonly kind: "control-popup-option";
+      readonly option: GpuRetainedContentColorChoice;
+      readonly optionIndex: number;
+      readonly rect: GpuRect;
+      readonly rowId: string;
+      readonly selected: boolean;
     };
 
 export type GpuRetainedContentHitRecord = {
   readonly id: string;
-  readonly kind: "control" | "label" | "port" | "row";
+  readonly kind: "control" | "label" | "popup-option" | "port" | "row";
+  readonly optionIndex?: number | undefined;
+  readonly optionValue?: string | undefined;
   readonly ownerRowId: string;
   readonly rect: GpuRect;
 };
@@ -177,6 +212,7 @@ export type GpuRetainedContentDragPreviewInput = {
 };
 
 type CreateGpuRetainedRowContentSceneInput = {
+  readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
   readonly controlWidth?: number | undefined;
   readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
   readonly id: string;
@@ -235,6 +271,7 @@ export function createGpuRetainedRowContentScene(
   return {
     contentRect,
     drawCommands: createGpuRetainedContentDrawCommands({
+      activePopup: input.activePopup,
       controlWidth,
       dragPreview: input.dragPreview,
       indentWidth,
@@ -245,6 +282,7 @@ export function createGpuRetainedRowContentScene(
       viewportRect: input.viewportRect,
     }),
     hitRecords: createGpuRetainedContentHitRecords({
+      activePopup: input.activePopup,
       controlWidth,
       indentWidth,
       labelControlGap,
@@ -371,6 +409,7 @@ function getGpuRetainedContentRowStateFlag(
 }
 
 function createGpuRetainedContentDrawCommands({
+  activePopup,
   controlWidth,
   dragPreview,
   indentWidth,
@@ -380,6 +419,7 @@ function createGpuRetainedContentDrawCommands({
   rows,
   viewportRect,
 }: {
+  readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
   readonly controlWidth: number;
   readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
   readonly indentWidth: number;
@@ -454,6 +494,33 @@ function createGpuRetainedContentDrawCommands({
   });
   if (preview) {
     commands.push(preview);
+  }
+  const popup = createGpuRetainedContentActivePopupLayout({
+    activePopup,
+    controlRect: (row) =>
+      createGpuRetainedContentControlRect({
+        controlWidth,
+        rowRect: row.projectedRect,
+      }),
+    rows,
+    viewportRect,
+  });
+  if (popup) {
+    commands.push({
+      kind: "control-popup-background",
+      rect: popup.backgroundRect,
+      rowId: popup.row.id,
+    });
+    for (const option of popup.options) {
+      commands.push({
+        kind: "control-popup-option",
+        option: option.choice,
+        optionIndex: option.optionIndex,
+        rect: option.rect,
+        rowId: popup.row.id,
+        selected: option.selected,
+      });
+    }
   }
   return commands;
 }
@@ -606,6 +673,7 @@ function createGpuRetainedContentDragPreviewCommand({
 }
 
 function createGpuRetainedContentHitRecords({
+  activePopup,
   controlWidth,
   indentWidth,
   labelControlGap,
@@ -613,6 +681,7 @@ function createGpuRetainedContentHitRecords({
   rows,
   viewportRect,
 }: {
+  readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
   readonly controlWidth: number;
   readonly indentWidth: number;
   readonly labelControlGap: number;
@@ -663,6 +732,28 @@ function createGpuRetainedContentHitRecords({
         kind: "port",
         ownerRowId: row.id,
         rect: anchor.hitRect,
+      });
+    }
+  }
+  const popup = createGpuRetainedContentActivePopupLayout({
+    activePopup,
+    controlRect: (row) =>
+      createGpuRetainedContentControlRect({
+        controlWidth,
+        rowRect: row.projectedRect,
+      }),
+    rows,
+    viewportRect,
+  });
+  if (popup) {
+    for (const option of popup.options) {
+      hitRecords.push({
+        id: `popup-option:${popup.row.id}:${option.optionIndex}`,
+        kind: "popup-option",
+        optionIndex: option.optionIndex,
+        optionValue: option.choice.color,
+        ownerRowId: popup.row.id,
+        rect: option.rect,
       });
     }
   }

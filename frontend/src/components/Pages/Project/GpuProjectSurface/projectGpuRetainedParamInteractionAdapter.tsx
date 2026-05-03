@@ -77,6 +77,7 @@ import {
   getProjectGpuHandleConnectionProps,
 } from "./projectGpuHandleAdapter";
 import type {
+  ProjectGpuActiveParamCanvasPopup,
   ProjectGpuActiveParamDomIsland,
   ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
@@ -92,6 +93,11 @@ import {
   PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
 } from "./projectGpuPortalAdapter";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
+import {
+  commitProjectGpuRetainedColorPickerPopupOption,
+  getProjectGpuRetainedColorPickerPopupTarget,
+  isProjectGpuRetainedColorPickerPopupOptionHit,
+} from "./projectGpuRetainedParamColorPickerAdapter";
 import {
   commitProjectGpuRetainedRangedControlClick,
   handleProjectGpuRetainedRangedControlDragEnd,
@@ -109,6 +115,7 @@ type ProjectGpuRetainedContentScrollApi = {
 
 export function getProjectRetainedContentInteractionOptions({
   canEditStructure,
+  onActiveParamCanvasPopupChange,
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
   onRetainedParamDragPreviewChange,
@@ -117,6 +124,9 @@ export function getProjectRetainedContentInteractionOptions({
   zoomActivationKeyPressed,
 }: {
   readonly canEditStructure: boolean;
+  readonly onActiveParamCanvasPopupChange?:
+    | ((popup: ProjectGpuActiveParamCanvasPopup | null) => void)
+    | undefined;
   readonly onActiveParamDomIslandChange: (
     island: ProjectGpuActiveParamDomIsland | null,
   ) => void;
@@ -130,11 +140,14 @@ export function getProjectRetainedContentInteractionOptions({
   readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   readonly zoomActivationKeyPressed: boolean;
 }) {
+  const handleActiveParamCanvasPopupChange =
+    onActiveParamCanvasPopupChange ?? ignoreProjectGpuActiveParamCanvasPopup;
   return {
     disabled: () => zoomActivationKeyPressed,
     onHitClick: (event: GpuRetainedContentInteractionEvent) =>
       handleProjectRetainedContentClick(event, {
         canEditStructure,
+        onActiveParamCanvasPopupChange: handleActiveParamCanvasPopupChange,
         onActiveParamDomIslandChange,
       }),
     onHitDragCancel: (event: GpuRetainedContentDragCancelEvent) =>
@@ -163,6 +176,7 @@ export function getProjectRetainedContentInteractionOptions({
       }),
     onHitDragStart: (event: GpuRetainedContentInteractionEvent) =>
       handleProjectRetainedContentDragStart(event, {
+        onActiveParamCanvasPopupChange: handleActiveParamCanvasPopupChange,
         onActiveParamDomIslandChange,
         onRetainedParamDragPreviewChange,
         retainedParamDragSessionRef,
@@ -188,6 +202,8 @@ export function getProjectRetainedContentInteractionOptions({
         (event.hit.kind === "row" || event.hit.kind === "label")),
   };
 }
+
+const ignoreProjectGpuActiveParamCanvasPopup = () => undefined;
 
 export function getProjectRetainedContentConnectionOptions({
   canEditStructure,
@@ -336,9 +352,13 @@ function handleProjectRetainedContentClick(
   event: GpuRetainedContentInteractionEvent,
   {
     canEditStructure,
+    onActiveParamCanvasPopupChange,
     onActiveParamDomIslandChange,
   }: {
     readonly canEditStructure: boolean;
+    readonly onActiveParamCanvasPopupChange: (
+      popup: ProjectGpuActiveParamCanvasPopup | null,
+    ) => void;
     readonly onActiveParamDomIslandChange: (
       island: ProjectGpuActiveParamDomIsland | null,
     ) => void;
@@ -349,6 +369,7 @@ function handleProjectRetainedContentClick(
     return;
   }
   if (
+    !isProjectRetainedParamCanvasPopupHit(event) &&
     !isProjectRetainedParamCanvasControlHit(event) &&
     !isProjectRetainedParamControlActivationHit(event) &&
     !isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
@@ -359,10 +380,20 @@ function handleProjectRetainedContentClick(
     interaction: "input-focus",
     sectionId: event.ownerSectionId,
   });
-  if (handleProjectRetainedContentCanvasControlClick(event)) {
+  if (commitProjectGpuRetainedColorPickerPopupOption(event)) {
+    onActiveParamCanvasPopupChange(null);
     onActiveParamDomIslandChange(null);
     return;
   }
+  if (
+    handleProjectRetainedContentCanvasControlClick(event, {
+      onActiveParamCanvasPopupChange,
+    })
+  ) {
+    onActiveParamDomIslandChange(null);
+    return;
+  }
+  onActiveParamCanvasPopupChange(null);
   flushSync(() => {
     onActiveParamDomIslandChange({
       activation: {
@@ -382,6 +413,13 @@ function handleProjectRetainedContentClick(
 
 function handleProjectRetainedContentCanvasControlClick(
   event: GpuRetainedContentInteractionEvent,
+  {
+    onActiveParamCanvasPopupChange,
+  }: {
+    readonly onActiveParamCanvasPopupChange: (
+      popup: ProjectGpuActiveParamCanvasPopup | null,
+    ) => void;
+  },
 ): boolean {
   if (event.hit.kind !== "control") {
     return false;
@@ -391,6 +429,7 @@ function handleProjectRetainedContentCanvasControlClick(
     return false;
   }
   if (row.control.kind === "switch") {
+    onActiveParamCanvasPopupChange(null);
     commitProjectRetainedSwitchParamClick({
       checked: row.control.checked,
       paramInfoId: event.hit.ownerRowId,
@@ -399,6 +438,13 @@ function handleProjectRetainedContentCanvasControlClick(
     return true;
   }
   if (commitProjectGpuRetainedRangedControlClick(event)) {
+    onActiveParamCanvasPopupChange(null);
+    return true;
+  }
+  const colorPickerPopupTarget =
+    getProjectGpuRetainedColorPickerPopupTarget(event);
+  if (colorPickerPopupTarget) {
+    onActiveParamCanvasPopupChange(colorPickerPopupTarget);
     return true;
   }
   return false;
@@ -436,10 +482,14 @@ function commitProjectRetainedSwitchParamClick({
 function handleProjectRetainedContentDragStart(
   event: GpuRetainedContentInteractionEvent,
   {
+    onActiveParamCanvasPopupChange,
     onActiveParamDomIslandChange,
     onRetainedParamDragPreviewChange,
     retainedParamDragSessionRef,
   }: {
+    readonly onActiveParamCanvasPopupChange: (
+      popup: ProjectGpuActiveParamCanvasPopup | null,
+    ) => void;
     readonly onActiveParamDomIslandChange: (
       island: ProjectGpuActiveParamDomIsland | null,
     ) => void;
@@ -455,6 +505,7 @@ function handleProjectRetainedContentDragStart(
       sectionId: event.ownerSectionId,
     });
     retainedParamDragSessionRef.current = null;
+    onActiveParamCanvasPopupChange(null);
     onActiveParamDomIslandChange(null);
     return;
   }
@@ -467,6 +518,7 @@ function handleProjectRetainedContentDragStart(
   });
   retainedParamDragSessionRef.current = session;
   if (session) {
+    onActiveParamCanvasPopupChange(null);
     onActiveParamDomIslandChange(null);
     onRetainedParamDragPreviewChange(
       createProjectGpuRetainedParamDragPreview({
@@ -656,6 +708,7 @@ function shouldHandleProjectRetainedContentHit(
 ): boolean {
   return (
     useMisc.getState().isSelectingParams ||
+    isProjectRetainedParamCanvasPopupHit(event) ||
     isProjectRetainedParamCanvasControlHit(event) ||
     isProjectRetainedParamControlActivationHit(event) ||
     isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
@@ -678,6 +731,12 @@ function isProjectRetainedParamControlActivationHit(
         sectionId: event.ownerSectionId,
       }),
   );
+}
+
+function isProjectRetainedParamCanvasPopupHit(
+  event: GpuRetainedContentInteractionHit,
+): boolean {
+  return isProjectGpuRetainedColorPickerPopupOptionHit(event);
 }
 
 function isProjectRetainedParamCanvasControlHit(

@@ -68,11 +68,11 @@ import { PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER } from "./projectGpuFramePe
 import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
 import {
   useProjectGpuLayoutAdapter,
+  type ProjectGpuActiveParamCanvasPopup,
   type ProjectGpuActiveParamDomIsland,
   type ProjectGpuLayoutAdapter,
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
-import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuParamContentAdapter";
 import type {
   ProjectGpuRetainedParamDragPreview,
   ProjectGpuRetainedParamDragSession,
@@ -84,6 +84,7 @@ import {
   getProjectScenePortConnectionOptions,
   renderProjectGpuDomIsland,
 } from "./projectGpuRetainedParamInteractionAdapter";
+import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
@@ -166,11 +167,14 @@ export function GpuProjectSurface() {
   const dimensions = useProjectSurfaceDimensions(rootRef);
   const [activeParamDomIsland, setActiveParamDomIsland] =
     useState<ProjectGpuActiveParamDomIsland | null>(null);
+  const [activeParamCanvasPopup, setActiveParamCanvasPopup] =
+    useState<ProjectGpuActiveParamCanvasPopup | null>(null);
   const [hoveredParamTarget, setHoveredParamTarget] =
     useState<ProjectGpuRetainedParamTarget | null>(null);
   const [retainedParamDragPreview, setRetainedParamDragPreview] =
     useState<ProjectGpuRetainedParamDragPreview | null>(null);
   const layoutAdapter = useProjectGpuLayoutAdapter({
+    activeParamCanvasPopup,
     activeParamDomIsland,
     hoveredParamTarget,
     retainedParamDragPreview,
@@ -230,6 +234,7 @@ export function GpuProjectSurface() {
       onClick={(event) => {
         if (isProjectPaneBackgroundTarget(event.target)) {
           setActiveParamDomIsland(null);
+          setActiveParamCanvasPopup(null);
         }
         handleProjectPaneClick(event);
       }}
@@ -256,7 +261,18 @@ export function GpuProjectSurface() {
         isFollowTransitioning={isFollowTransitioning}
         canEditLayout={canEditLayout}
         layoutAdapter={layoutAdapter}
-        onActiveParamDomIslandChange={setActiveParamDomIsland}
+        onActiveParamCanvasPopupChange={(popup) => {
+          setActiveParamCanvasPopup(popup);
+          if (popup) {
+            setActiveParamDomIsland(null);
+          }
+        }}
+        onActiveParamDomIslandChange={(island) => {
+          setActiveParamDomIsland(island);
+          if (island) {
+            setActiveParamCanvasPopup(null);
+          }
+        }}
         onHoveredParamTargetChange={setHoveredParamTarget}
         onRetainedParamDragPreviewChange={setRetainedParamDragPreview}
         readyToRender={readyToRender}
@@ -274,6 +290,7 @@ function ProjectGpuFlowLayer({
   flowInteractionKeys,
   isFollowTransitioning,
   layoutAdapter,
+  onActiveParamCanvasPopupChange,
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
   onRetainedParamDragPreviewChange,
@@ -287,6 +304,9 @@ function ProjectGpuFlowLayer({
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
   readonly layoutAdapter: ProjectGpuLayoutAdapter;
+  readonly onActiveParamCanvasPopupChange: (
+    popup: ProjectGpuActiveParamCanvasPopup | null,
+  ) => void;
   readonly onActiveParamDomIslandChange: (
     island: ProjectGpuActiveParamDomIsland | null,
   ) => void;
@@ -415,6 +435,7 @@ function ProjectGpuFlowLayer({
     () =>
       getProjectRetainedContentInteractionOptions({
         canEditStructure,
+        onActiveParamCanvasPopupChange,
         onActiveParamDomIslandChange,
         onHoveredParamTargetChange,
         onRetainedParamDragPreviewChange,
@@ -429,6 +450,7 @@ function ProjectGpuFlowLayer({
     [
       canEditStructure,
       flowInteractionKeys,
+      onActiveParamCanvasPopupChange,
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange,
       onRetainedParamDragPreviewChange,

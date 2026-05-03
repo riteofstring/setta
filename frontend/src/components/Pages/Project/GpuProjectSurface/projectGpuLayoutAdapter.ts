@@ -86,6 +86,7 @@ import {
   createProjectGpuParamContentSurfaces,
   createProjectGpuParamDomIslands,
   DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
+  type ProjectGpuActiveParamCanvasPopup,
   type ProjectGpuActiveParamDomIsland,
   type ProjectGpuParamEditPolicy,
   type ProjectGpuRetainedParamTarget,
@@ -104,6 +105,7 @@ import { getProjectGpuSceneRevision } from "./projectGpuSceneRevision";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
 
 export type {
+  ProjectGpuActiveParamCanvasPopup,
   ProjectGpuActiveParamDomIsland,
   ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
@@ -139,10 +141,15 @@ const NESTED_KANBAN_SECTION_GAP_PX = 12;
 const NESTED_KANBAN_SECTION_WIDTH_PX = 288;
 
 export function useProjectGpuLayoutAdapter({
+  activeParamCanvasPopup,
   activeParamDomIsland,
   hoveredParamTarget,
   retainedParamDragPreview,
 }: {
+  readonly activeParamCanvasPopup?:
+    | ProjectGpuActiveParamCanvasPopup
+    | null
+    | undefined;
   readonly activeParamDomIsland?:
     | ProjectGpuActiveParamDomIsland
     | null
@@ -185,6 +192,7 @@ export function useProjectGpuLayoutAdapter({
           sizingPolicy,
         },
         revision: getProjectGpuSceneRevision(projectState),
+        activeParamCanvasPopup,
         activeParamDomIsland,
         contentScrollOffsets,
         paramEditPolicy: {
@@ -200,6 +208,7 @@ export function useProjectGpuLayoutAdapter({
       }),
     [
       activeParamDomIsland,
+      activeParamCanvasPopup,
       canEditParams,
       canEditStructure,
       contentScrollOffsets,
@@ -296,6 +305,10 @@ export function getProjectGpuFlowScene(
     readonly darkMode: boolean;
     readonly contentScrollOffsets?:
       | GpuRetainedContentScrollOffsetMap
+      | undefined;
+    readonly activeParamCanvasPopup?:
+      | ProjectGpuActiveParamCanvasPopup
+      | null
       | undefined;
     readonly activeParamDomIsland?:
       | ProjectGpuActiveParamDomIsland
@@ -402,6 +415,7 @@ export function getProjectGpuFlowScene(
     sections,
   });
   const paramContentSurfaces = createProjectGpuParamContentSurfaces({
+    activeParamCanvasPopup: options.activeParamCanvasPopup,
     activeParamDomIsland: options.activeParamDomIsland,
     contentScrollOffsets: options.contentScrollOffsets,
     editPolicy: paramEditPolicy,
