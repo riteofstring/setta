@@ -94,6 +94,11 @@ import {
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 import type { ProjectGpuRetainedPasswordRevealStateMap } from "./projectGpuRetainedParamPasswordRevealState";
 import {
+  areProjectGpuSceneMeasuredHeightsEqual,
+  getProjectGpuSceneMeasuredHeights,
+  getProjectGpuSceneResizePolicyContext,
+} from "./projectGpuSceneMeasuredHeights";
+import {
   getProjectSceneMeasuredHeight,
   getProjectSectionSceneResizeDirections,
   type ProjectGpuSceneResizePolicyContext,
@@ -178,7 +183,10 @@ export function useProjectGpuLayoutAdapter({
   const darkMode = useLocalStorage((state) => state.darkMode);
   const sizingPolicy = useSettings((state) => state.sectionSizingPolicy);
   const resizeEventBySectionId = useResizeEvent((state) => state.resizeEvent);
-  const measuredHeightsByKey = useTemporaryMiscState((state) => state);
+  const measuredHeightsByKey = useTemporaryMiscState(
+    (state) => getProjectGpuSceneMeasuredHeights(projectState, state),
+    areProjectGpuSceneMeasuredHeightsEqual,
+  );
   const typeErrors = useTypeErrors((state) => state.errors);
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
   const { canEditParams, canEditStructure } = useShareCapabilities();
@@ -805,14 +813,6 @@ function getProjectSectionSceneResizePolicy({
     maxWidth: toTopLevelSectionOuterDimension(dimensions.maxWidth),
     minHeight: toTopLevelSectionOuterDimension(dimensions.minHeight),
     minWidth: toTopLevelSectionOuterDimension(dimensions.minWidth),
-  };
-}
-
-function getProjectGpuSceneResizePolicyContext(): ProjectGpuSceneResizePolicyContext {
-  return {
-    measuredHeightsByKey: useTemporaryMiscState.getState(),
-    resizeEventBySectionId: useResizeEvent.getState().resizeEvent,
-    sizingPolicy: useSettings.getState().sectionSizingPolicy,
   };
 }
 

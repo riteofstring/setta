@@ -7,6 +7,16 @@ import { STATE_MACHINE_EDGE_HANDLE_IDS } from "state/actions/stateMachineEdges";
 import type { ZustandProjectState } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
+  getEdgesStripHeightKey,
+  getKwargsControlsHeightKey,
+  getParamsFixedHeightKey,
+  getPinnedParamsAreaHeightKey,
+  getSectionHeaderHeightKey,
+  getSectionSearchHeightKey,
+  getSectionStylePreviewColorKey,
+  getUnpinnedParamsAreaHeightKey,
+} from "utils/constants";
+import {
   ButtonActionModeEnum,
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
@@ -55,6 +65,10 @@ import {
   getProjectGpuLayoutNode,
   getProjectGpuLayoutNodesFromNodeInternals,
 } from "./projectGpuLayoutNodeAdapter";
+import {
+  areProjectGpuSceneMeasuredHeightsEqual,
+  getProjectGpuSceneMeasuredHeights,
+} from "./projectGpuSceneMeasuredHeights";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
 import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
 
@@ -193,6 +207,64 @@ describe("project GPU layout adapter", () => {
         .getNodes()
         .map((node) => node.nodeId),
     ).toEqual(["group-a", "child-a", "child-b"]);
+  });
+
+  it("narrows scene measured heights to project-owned height keys", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    const sectionId = "dict-a";
+    const headerKey = getSectionHeaderHeightKey(sectionId);
+    const searchKey = getSectionSearchHeightKey(sectionId);
+    const kwargsKey = getKwargsControlsHeightKey(sectionId);
+    const paramsFixedKey = getParamsFixedHeightKey(sectionId);
+    const edgesKey = getEdgesStripHeightKey(sectionId);
+    const pinnedKey = getPinnedParamsAreaHeightKey(sectionId);
+
+    const measuredHeights = getProjectGpuSceneMeasuredHeights(projectState, {
+      [edgesKey]: 18,
+      [getSectionHeaderHeightKey("other-section")]: 42,
+      [getSectionStylePreviewColorKey(sectionId)]: "#ff0000",
+      [getUnpinnedParamsAreaHeightKey(sectionId)]: 88,
+      [headerKey]: 24,
+      [kwargsKey]: Number.NaN,
+      [paramsFixedKey]: 36,
+      [pinnedKey]: -1,
+      [searchKey]: 20,
+      unrelated: 99,
+    });
+
+    expect(measuredHeights).toEqual({
+      [edgesKey]: 18,
+      [kwargsKey]: 0,
+      [paramsFixedKey]: 36,
+      [pinnedKey]: 0,
+      [headerKey]: 24,
+      [searchKey]: 20,
+    });
+    expect(
+      areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
+        ...measuredHeights,
+      }),
+    ).toBe(true);
+    expect(
+      areProjectGpuSceneMeasuredHeightsEqual(measuredHeights, {
+        ...measuredHeights,
+        [headerKey]: 25,
+      }),
+    ).toBe(false);
   });
 
   it("derives retained dict param content surfaces from shown param metadata", () => {
