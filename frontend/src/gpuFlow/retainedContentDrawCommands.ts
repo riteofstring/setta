@@ -12,6 +12,7 @@ import {
 } from "./retainedContentRowStatus";
 import type {
   GpuRetainedContentActivePopupInput,
+  GpuRetainedContentControlDescriptor,
   GpuRetainedContentDragPreviewInput,
   GpuRetainedContentDrawCommand,
   GpuRetainedContentDropMarkerEdge,
@@ -129,6 +130,7 @@ function createGpuRetainedContentRowDrawCommands({
   const commands: GpuRetainedContentDrawCommand[] = [
     {
       dividerRects: createGpuRetainedContentRowDividerRects({
+        control: row.control,
         controlRect,
         labelAppearance: row.labelAppearance,
         labelRect,
@@ -177,10 +179,12 @@ function createGpuRetainedContentRowDrawCommands({
 }
 
 function createGpuRetainedContentRowDividerRects({
+  control,
   controlRect,
   labelAppearance,
   labelRect,
 }: {
+  readonly control: GpuRetainedContentControlDescriptor | null;
   readonly controlRect: GpuRect | null;
   readonly labelAppearance: GpuRetainedContentRow["labelAppearance"];
   readonly labelRect: GpuRect;
@@ -189,7 +193,9 @@ function createGpuRetainedContentRowDividerRects({
     ...(shouldDrawGpuRetainedContentLabelDivider(labelAppearance)
       ? [labelRect]
       : []),
-    ...(controlRect
+    ...(control &&
+    controlRect &&
+    shouldDrawGpuRetainedContentControlDivider(control)
       ? [createGpuRetainedContentControlDividerRect(controlRect)]
       : []),
   ].filter((rect) => rect.width > 0 && rect.height > 0);
@@ -213,6 +219,12 @@ function shouldDrawGpuRetainedContentLabelDivider(
   labelAppearance: GpuRetainedContentRow["labelAppearance"],
 ): boolean {
   return labelAppearance.fontFamily === "mono";
+}
+
+function shouldDrawGpuRetainedContentControlDivider(
+  control: GpuRetainedContentControlDescriptor,
+): boolean {
+  return control.kind === "text-like" || control.kind === "date-time";
 }
 
 function createGpuRetainedContentRowStatusCommands({

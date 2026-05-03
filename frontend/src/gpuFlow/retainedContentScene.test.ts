@@ -294,6 +294,11 @@ describe("retained content scene", () => {
     expect(scene.drawCommands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          dividerRects: [],
+          kind: "row-background",
+          rowId: "switch-param",
+        }),
+        expect.objectContaining({
           control: expect.objectContaining({
             checked: true,
             kind: "switch",
