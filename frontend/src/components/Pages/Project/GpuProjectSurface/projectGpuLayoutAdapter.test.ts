@@ -26,6 +26,7 @@ import {
   createDropdownParamCodeObjImpl,
   createDropzoneParamCodeObjImpl,
   createGroupSectionImpl,
+  createPasswordParamCodeObjImpl,
   createProjectConfig,
   createShownParamIDs,
   createSingleConfig,
@@ -34,6 +35,7 @@ import {
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type ColorPickerParamCodeObjImpl,
+  type PasswordParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SingleConfig,
   type SliderParamCodeObjImpl,
@@ -1230,6 +1232,111 @@ describe("project GPU layout adapter", () => {
     expect(scene.domIslands).toEqual([]);
   });
 
+  it("renders retained password controls with concrete closed-state descriptors", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "password-param": "password-param-variant",
+              "root-param": "root-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["password-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "password-param",
+      "password-param-variant",
+      "password-param-impl",
+      createPasswordParamImpl({
+        hasSecret: true,
+        id: "password-param-impl",
+        name: "password",
+        value: "",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "password-param": ["password-param"],
+        },
+        topLevelParamIds: ["password-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:password-param",
+        paramInfoId: "password-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 12,
+    });
+    const passwordSurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(passwordSurface?.retainedScene?.rows[0]).toMatchObject({
+      control: {
+        defaultDisplayValue: "",
+        displayValue: "",
+        hasSecret: true,
+        kind: "password",
+        placeholder: "Saved",
+        rendererFamily: "password",
+        revealAvailable: true,
+        commitPolicy: "native-island",
+      },
+      controlKind: "password",
+      id: "password-param",
+    });
+    expect(scene.domIslands).toEqual([
+      expect.objectContaining({
+        kind: "retained-content-control",
+        source: expect.objectContaining({
+          ownerRowId: "password-param",
+        }),
+      }),
+    ]);
+
+    const deploymentScene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      paramEditPolicy: {
+        canEditParams: true,
+        canEditStructure: false,
+        isDeploymentMode: true,
+      },
+      revision: 13,
+    });
+    const deploymentSurface = deploymentScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(deploymentSurface?.retainedScene?.rows[0]?.control).toMatchObject({
+      kind: "password",
+      revealAvailable: false,
+    });
+  });
+
   it("does not synthesize retained controls for params without a section-param UI owner", () => {
     const projectState = projectStateWithSections({
       sections: [
@@ -2274,6 +2381,34 @@ function createColorPickerParamImpl({
     typeAnnotation: "",
     value: "#000000",
   } satisfies ColorPickerParamCodeObjImpl;
+  return impl as BaseCodeObjImplUnion;
+}
+
+function createPasswordParamImpl({
+  hasSecret,
+  id,
+  name,
+  value,
+}: {
+  readonly hasSecret: boolean;
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+}): BaseCodeObjImplUnion {
+  const impl = createPasswordParamCodeObjImpl({
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "",
+    description: "",
+    hasSecret,
+    id,
+    isPreset: false,
+    name,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    type: CodeObjTypeEnum.PasswordParam,
+    typeAnnotation: "",
+    value,
+  }) satisfies PasswordParamCodeObjImpl;
   return impl as BaseCodeObjImplUnion;
 }
 

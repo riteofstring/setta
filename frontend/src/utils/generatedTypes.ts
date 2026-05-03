@@ -1320,7 +1320,7 @@ function createNormalizedFloatingWindowBounds(
   };
 }
 
-type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
+export type PasswordParamCodeObjImpl = gt.PasswordParamCodeObjImpl;
 
 export function createPasswordParamCodeObjImpl(
   options: CreateOptions<PasswordParamCodeObjImpl> = {} as CreateOptions<PasswordParamCodeObjImpl>,

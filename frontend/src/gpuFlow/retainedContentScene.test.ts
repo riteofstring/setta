@@ -452,6 +452,57 @@ describe("retained content scene", () => {
     );
   });
 
+  it("retains concrete password descriptors for closed canvas fields", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("password-param", {
+          control: {
+            defaultDisplayValue: "",
+            displayValue: "",
+            hasSecret: true,
+            kind: "password",
+            placeholder: "Saved",
+            rendererFamily: "password",
+            revealAvailable: true,
+            commitPolicy: "native-island",
+          },
+          controlKind: "password",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 24, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.control).toEqual({
+      defaultDisplayValue: "",
+      displayValue: "",
+      hasSecret: true,
+      kind: "password",
+      placeholder: "Saved",
+      rendererFamily: "password",
+      revealAvailable: true,
+      commitPolicy: "native-island",
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          control: expect.objectContaining({
+            hasSecret: true,
+            kind: "password",
+            placeholder: "Saved",
+            revealAvailable: true,
+          }),
+          controlKind: "password",
+          kind: "row-control",
+          rowId: "password-param",
+        }),
+      ]),
+    );
+  });
+
   it("emits inset drop markers for retained inside-row drops", () => {
     const scene = createGpuRetainedRowContentScene({
       dragPreview: {

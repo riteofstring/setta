@@ -92,6 +92,16 @@ export type GpuRetainedContentControlDescriptor =
       readonly rendererFamily: string;
       readonly commitPolicy: "immediate";
       readonly selectedIndex: number | null;
+    }
+  | {
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly hasSecret: boolean;
+      readonly kind: "password";
+      readonly placeholder: string;
+      readonly rendererFamily: string;
+      readonly revealAvailable: boolean;
+      readonly commitPolicy: "native-island";
     };
 
 export type GpuRetainedContentRowInput = {

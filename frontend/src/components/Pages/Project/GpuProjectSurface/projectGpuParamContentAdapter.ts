@@ -676,6 +676,7 @@ function createProjectGpuParamRows({
       draggingParamIds,
       edgeInputParamIds,
       hoveredParamTarget: retainedInteractionState.hoveredParamTarget,
+      isDeploymentMode: editPolicy.isDeploymentMode,
       projectSearch,
       projectState,
       row,

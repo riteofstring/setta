@@ -1,3 +1,4 @@
+import { shouldShowPasswordReveal } from "@setta/app-subsystem-frontend-sdk";
 import {
   getSectionParamUIRendererFamily,
   type SectionParamUIRendererFamily,
@@ -24,6 +25,7 @@ import {
   type CodeObjType,
   type ColorPickerParamCodeObjImpl,
   type DropdownParamCodeObjImpl,
+  type PasswordParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
 } from "utils/generatedTypes";
@@ -52,6 +54,7 @@ export function createProjectGpuParamRowInput({
   draggingParamIds,
   edgeInputParamIds,
   hoveredParamTarget,
+  isDeploymentMode,
   projectSearch,
   projectState,
   row,
@@ -76,6 +79,7 @@ export function createProjectGpuParamRowInput({
     | ProjectGpuRetainedParamTargetLike
     | null
     | undefined;
+  readonly isDeploymentMode?: boolean | undefined;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly projectState: ZustandProjectState;
   readonly row: ProjectGpuParamTreeRowLike;
@@ -96,6 +100,7 @@ export function createProjectGpuParamRowInput({
       codeObjImpl,
       controlKind,
       isParent: row.isParent,
+      isDeploymentMode: isDeploymentMode ?? false,
     }),
     controlKind,
     depth: row.depth,
@@ -124,6 +129,7 @@ function createProjectGpuParamControlDescriptor({
   codeObjImpl,
   controlKind,
   isParent,
+  isDeploymentMode,
 }: {
   readonly codeObjImpl: {
     readonly defaultVal?: unknown;
@@ -131,6 +137,7 @@ function createProjectGpuParamControlDescriptor({
     readonly value?: unknown;
   };
   readonly controlKind: string | null;
+  readonly isDeploymentMode: boolean;
   readonly isParent: boolean;
 }): GpuRetainedContentControlDescriptor | null {
   if (!controlKind || isParent) {
@@ -173,6 +180,13 @@ function createProjectGpuParamControlDescriptor({
     return createProjectGpuDropdownControlDescriptor({
       codeObjImpl: codeObjImpl as DropdownParamCodeObjImpl,
       controlKind,
+    });
+  }
+  if (codeObjImpl.type === CodeObjTypeEnum.PasswordParam) {
+    return createProjectGpuPasswordControlDescriptor({
+      codeObjImpl: codeObjImpl as PasswordParamCodeObjImpl,
+      controlKind,
+      isDeploymentMode,
     });
   }
   return null;
@@ -264,6 +278,34 @@ function toProjectGpuDropdownChoices(
     }
     return { label: choice, value: choice };
   });
+}
+
+function createProjectGpuPasswordControlDescriptor({
+  codeObjImpl,
+  controlKind,
+  isDeploymentMode,
+}: {
+  readonly codeObjImpl: PasswordParamCodeObjImpl;
+  readonly controlKind: string;
+  readonly isDeploymentMode: boolean;
+}): GpuRetainedContentControlDescriptor {
+  const displayValue = toProjectGpuParamDisplayValue(codeObjImpl.value);
+  const hasSecret = codeObjImpl.hasSecret === true;
+  return {
+    defaultDisplayValue: toProjectGpuParamDisplayValue(codeObjImpl.defaultVal),
+    displayValue,
+    hasSecret,
+    kind: "password",
+    placeholder: hasSecret && displayValue === "" ? "Saved" : "",
+    rendererFamily: controlKind,
+    revealAvailable:
+      !isDeploymentMode &&
+      shouldShowPasswordReveal({
+        hasSecret,
+        value: displayValue,
+      }),
+    commitPolicy: "native-island",
+  };
 }
 
 function createProjectGpuRangedControlDescriptor({

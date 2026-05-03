@@ -23,6 +23,7 @@ import {
   drawGpuRetainedContentDropdownControl,
   drawGpuRetainedContentDropdownPopupOption,
 } from "./retainedContentDropdownCanvas";
+import { drawGpuRetainedContentPasswordControl } from "./retainedContentPasswordCanvas";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDrawCommand,
@@ -350,6 +351,14 @@ function drawGpuRetainedContentControl({
       return;
     case "dropdown":
       drawGpuRetainedContentDropdownControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return;
+    case "password":
+      drawGpuRetainedContentPasswordControl({
         control,
         ctx,
         rect,
