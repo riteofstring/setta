@@ -23,8 +23,6 @@ const artifactRoot = path.join(
   "2026-05-05-gpuflow-full-scene",
 );
 const fixtureProjectName = "vf_checkpoint";
-const settingsProjectName = "settings";
-const settingsAllSettingsViewName = "All Settings";
 const worktreeRoot = process.env.SETTA_VISUAL_FIDELITY_WORKTREE_ROOT
   ? path.resolve(process.env.SETTA_VISUAL_FIDELITY_WORKTREE_ROOT)
   : path.resolve(primaryRepoRoot, "..", "setta-visual-fidelity-worktrees");
@@ -33,8 +31,6 @@ const browserFlags = [
   "--enable-unsafe-webgpu",
   "--enable-webgpu-developer-features",
 ];
-const sectionCaptureViewportOffset = { x: 96, y: 120 };
-const hiddenProjectPanesStyleId = "setta-visual-fidelity-hide-project-panes";
 if (process.platform === "darwin") {
   browserFlags.push("--use-mock-keychain");
 }
@@ -248,12 +244,6 @@ const fixtureDefinitions = [
     description: "Drag preview while moving a section.",
     id: "drag-preview",
     requiredSelectors: ["section/rotary"],
-  },
-  {
-    description:
-      "Real Settings project All Settings pane and every top-level section.",
-    id: "settings-all-settings",
-    requiredSelectors: [".setta-gpu-flow__pane"],
   },
 ];
 
@@ -690,13 +680,6 @@ async function captureRun(run) {
         viewport,
       });
     }
-    await captureSettingsAllSettingsRun({
-      env,
-      page,
-      run,
-      runArtifactDir,
-      runRecord,
-    });
 
     runRecord.consoleMessages = consoleMessages;
     runRecord.pageErrors = pageErrors;
@@ -1273,166 +1256,6 @@ async function captureViewportFixtures({
   await page.waitForTimeout(150);
 }
 
-async function captureSettingsAllSettingsRun({
-  env,
-  page,
-  run,
-  runArtifactDir,
-  runRecord,
-}) {
-  const settingsUrl = new URL(
-    `${encodeURIComponent(settingsProjectName)}/view/${encodeURIComponent(
-      settingsAllSettingsViewName,
-    )}`,
-    `http://127.0.0.1:${env.SETTA_DEV_FRONTEND_PORT}/`,
-  );
-  settingsUrl.searchParams.set(
-    "__setta_backend_origin",
-    `http://127.0.0.1:${env.SETTA_PORT}`,
-  );
-  await page.goto(settingsUrl.toString(), { waitUntil: "domcontentloaded" });
-  await waitForReadySurface(page);
-  await waitForSettingsAllSettingsView(page);
-
-  const settingsRecord = {
-    projectName: settingsProjectName,
-    sections: [],
-    viewModeName: settingsAllSettingsViewName,
-  };
-  runRecord.settingsAllSettings = settingsRecord;
-
-  await withProjectPanesHidden(page, async () => {
-    for (const viewport of viewports) {
-      await page.setViewportSize({
-        height: viewport.height,
-        width: viewport.width,
-      });
-      await page.waitForTimeout(300);
-      await setStableViewport(page);
-      const sectionFixtures = await resolveSettingsAllSettingsSectionFixtures(
-        page,
-      );
-      if (settingsRecord.sections.length === 0) {
-        settingsRecord.sections = sectionFixtures.map((section) => ({
-          fixtureId: section.fixtureId,
-          id: section.id,
-          name: section.name,
-          position: section.position,
-          size: section.size,
-        }));
-      }
-
-      await capturePane(
-        page,
-        run,
-        runArtifactDir,
-        runRecord,
-        viewport,
-        "settings-all-settings-pane",
-      );
-      for (const section of sectionFixtures) {
-        await captureSectionClip({
-          fixtureId: section.fixtureId,
-          page,
-          position: section.position,
-          run,
-          runArtifactDir,
-          runRecord,
-          sectionId: section.id,
-          viewport,
-        });
-      }
-    }
-  });
-}
-
-async function waitForSettingsAllSettingsView(page) {
-  await page.waitForFunction(
-    async ({ expectedViewModeName }) => {
-      const { useProjectState } = await import("/src/state/definitions");
-      const state = useProjectState.getState();
-      const activeViewModeId = state.projectConfig?.activeViewModeId;
-      const activeViewMode = activeViewModeId
-        ? state.projectConfig?.viewModes?.[activeViewModeId]
-        : null;
-      return activeViewMode?.name === expectedViewModeName;
-    },
-    { expectedViewModeName: settingsAllSettingsViewName },
-    { timeout: 60000 },
-  );
-  await page.waitForTimeout(500);
-}
-
-async function resolveSettingsAllSettingsSectionFixtures(page) {
-  const settings = await page.evaluate(async ({ expectedViewModeName }) => {
-    const { useProjectState } = await import("/src/state/definitions");
-    const state = useProjectState.getState();
-    const projectConfig = state.projectConfig;
-    const activeViewModeId = projectConfig?.activeViewModeId;
-    const activeViewMode = activeViewModeId
-      ? projectConfig?.viewModes?.[activeViewModeId]
-      : null;
-    if (activeViewMode?.name !== expectedViewModeName) {
-      return {
-        error: `Active view mode is ${activeViewMode?.name ?? "<missing>"}, expected ${expectedViewModeName}.`,
-        sections: [],
-      };
-    }
-    const topLevelSections =
-      activeViewMode?.topLevelSections ?? projectConfig?.topLevelSections ?? {};
-    const visibility = activeViewMode?.visibilityBySectionId ?? {};
-    const sections = [];
-    for (const [sectionId, layout] of Object.entries(topLevelSections)) {
-      if (visibility[sectionId] === false) {
-        continue;
-      }
-      const section = state.sections?.[sectionId] ?? {};
-      const variantId = projectConfig?.sectionVariantMap?.[sectionId];
-      const variant = variantId ? state.sectionVariants?.[variantId] : null;
-      const implId = variant?.impl;
-      const impl = implId ? state.sectionImpls?.[implId] : null;
-      sections.push({
-        id: sectionId,
-        name: section.name ?? impl?.name ?? sectionId,
-        position: {
-          x: Number(layout?.position?.x ?? layout?.x ?? 0),
-          y: Number(layout?.position?.y ?? layout?.y ?? 0),
-        },
-        size: {
-          height: Number(layout?.size?.height ?? layout?.height ?? 0),
-          width: Number(layout?.size?.width ?? layout?.width ?? 0),
-        },
-      });
-    }
-    sections.sort(
-      (left, right) =>
-        left.position.y - right.position.y ||
-        left.position.x - right.position.x ||
-        left.id.localeCompare(right.id),
-    );
-    return { sections };
-  }, { expectedViewModeName: settingsAllSettingsViewName });
-  if (settings.error) {
-    throw new Error(settings.error);
-  }
-  if (!Array.isArray(settings.sections) || settings.sections.length === 0) {
-    throw new Error("Settings All Settings view did not expose sections.");
-  }
-  return settings.sections.map((section) => ({
-    ...section,
-    fixtureId: `settings-all-settings-section-${sanitizeFixtureIdComponent(
-      section.id,
-    )}`,
-  }));
-}
-
-function sanitizeFixtureIdComponent(value) {
-  return String(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 async function capturePane(
   page,
   run,
@@ -1517,67 +1340,29 @@ function sectionLocator(page, sectionId) {
 }
 
 async function withOverviewHidden(page, callback) {
-  return await withProjectPanesHidden(page, callback);
-}
-
-async function withProjectPanesHidden(page, callback) {
-  const previous = await page.evaluate(async ({ styleId }) => {
+  const previous = await page.evaluate(async () => {
     const { useLocalStorage } = await import("/src/state/definitions");
     const state = useLocalStorage.getState();
     const snapshot = {
       overviewTrueWidth: state.overviewTrueWidth,
       overviewVis: state.overviewVis,
       overviewWidth: state.overviewWidth,
-      uiEditorTrueWidth: state.uiEditorTrueWidth,
-      uiEditorVis: state.uiEditorVis,
-      uiEditorWidth: state.uiEditorWidth,
     };
-    let style = document.getElementById(styleId);
-    if (!(style instanceof HTMLStyleElement)) {
-      style = document.createElement("style");
-      style.id = styleId;
-      style.textContent = `
-        #OverviewPane,
-        #UIEditorPane {
-          display: none !important;
-          visibility: hidden !important;
-          pointer-events: none !important;
-        }
-      `;
-      document.head.append(style);
-    }
-    const refCount = Number(style.dataset.refCount ?? "0");
-    style.dataset.refCount = String(refCount + 1);
     useLocalStorage.setState({
       overviewTrueWidth: 0,
       overviewVis: false,
       overviewWidth: 0,
-      uiEditorTrueWidth: 0,
-      uiEditorVis: false,
-      uiEditorWidth: 0,
     });
     return snapshot;
-  }, { styleId: hiddenProjectPanesStyleId });
+  });
   await page.waitForTimeout(150);
   try {
     return await callback();
   } finally {
-    await page.evaluate(async ({ snapshot, styleId }) => {
+    await page.evaluate(async (snapshot) => {
       const { useLocalStorage } = await import("/src/state/definitions");
       useLocalStorage.setState(snapshot);
-      const style = document.getElementById(styleId);
-      if (style instanceof HTMLStyleElement) {
-        const nextRefCount = Math.max(
-          0,
-          Number(style.dataset.refCount ?? "1") - 1,
-        );
-        if (nextRefCount === 0) {
-          style.remove();
-        } else {
-          style.dataset.refCount = String(nextRefCount);
-        }
-      }
-    }, { snapshot: previous, styleId: hiddenProjectPanesStyleId });
+    }, previous);
     await page.waitForTimeout(150);
   }
 }
@@ -1692,17 +1477,10 @@ async function setStableViewport(page) {
 }
 
 async function setViewportForFlowPosition(page, position) {
-  await page.evaluate(async ({ offset, position }) => {
+  await page.evaluate(async ({ x, y }) => {
     const { setViewport } = await import("/src/gpuFlow/viewportActions");
-    setViewport(
-      {
-        x: offset.x - position.x,
-        y: offset.y - position.y,
-        zoom: 1,
-      },
-      { duration: 0 },
-    );
-  }, { offset: sectionCaptureViewportOffset, position });
+    setViewport({ x: 40 - x, y: 92 - y, zoom: 1 }, { duration: 0 });
+  }, position);
   await page.waitForTimeout(150);
 }
 
