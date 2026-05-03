@@ -25,6 +25,12 @@ import {
 } from "../interactions/scenePortConnection";
 import type { GpuFlowLayoutStoreApi } from "../layoutStore";
 import { applyGpuRetainedContentScrollOffsetToScene } from "../retainedContentScroll";
+import {
+  isGpuRetainedContentScrollbarHit,
+  isGpuRetainedContentScrollbarThumbHit,
+  resolveGpuRetainedContentScrollbarThumbDrag,
+  resolveGpuRetainedContentScrollbarTrackClick,
+} from "../retainedContentScrollbar";
 import type { GpuDomIsland, GpuFlowScene } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -140,20 +146,159 @@ export function useGpuFlowRetainedContentControllers({
     if (!container || !retainedContentInteraction) {
       return;
     }
+    const retainedContentScrollbarScroll =
+      retainedContentScroll && retainedContentScroll !== false
+        ? retainedContentScroll
+        : null;
+    const commitRetainedContentScrollbarScrollResult = (result: {
+      readonly scrollOffsets: ReadonlyMap<
+        string,
+        { readonly x: number; readonly y: number }
+      >;
+      readonly surfaceId: string | null;
+    }) => {
+      if (!retainedContentScrollbarScroll || !result.surfaceId) {
+        return;
+      }
+      retainedContentScrollbarScroll.onScrollOffsetsChange(
+        result.scrollOffsets,
+        {
+          changed: true,
+          scrollOffsets: result.scrollOffsets,
+          surfaceId: result.surfaceId,
+        },
+      );
+      applyGpuFlowRetainedContentScrollResult({
+        containerRef,
+        nodeElementByIdRef,
+        nodeLayerRef,
+        result,
+        surfaceRef,
+        textureManagerRef,
+        viewportStore,
+      });
+    };
     return attachGpuRetainedContentInteractionController({
       ...retainedContentInteraction,
       element: container,
       getScene: () => nodeLayerRef.current.scene,
+      onHitClick: (event) => {
+        if (
+          retainedContentScrollbarScroll &&
+          isGpuRetainedContentScrollbarHit(event)
+        ) {
+          const scene = nodeLayerRef.current.scene;
+          if (!scene) {
+            return;
+          }
+          const result = resolveGpuRetainedContentScrollbarTrackClick({
+            hit: event,
+            scene,
+            scrollOffsets: retainedContentScrollbarScroll.getScrollOffsets(),
+          });
+          if (result.changed) {
+            commitRetainedContentScrollbarScrollResult(result);
+          }
+          return;
+        }
+        retainedContentInteraction.onHitClick?.(event);
+      },
+      onHitDragCancel: (event) => {
+        if (isGpuRetainedContentScrollbarHit(event.activeHit)) {
+          return;
+        }
+        retainedContentInteraction.onHitDragCancel?.(event);
+      },
+      onHitDragEnd: (event) => {
+        if (isGpuRetainedContentScrollbarHit(event.activeHit)) {
+          return;
+        }
+        retainedContentInteraction.onHitDragEnd?.(event);
+      },
+      onHitDragFrame: (event) => {
+        if (isGpuRetainedContentScrollbarHit(event.activeHit)) {
+          return false;
+        }
+        return retainedContentInteraction.onHitDragFrame?.(event);
+      },
+      onHitDragMove: (event) => {
+        if (
+          retainedContentScrollbarScroll &&
+          isGpuRetainedContentScrollbarThumbHit(event.activeHit)
+        ) {
+          const scene = nodeLayerRef.current.scene;
+          if (!scene) {
+            return false;
+          }
+          const result = resolveGpuRetainedContentScrollbarThumbDrag({
+            activeHit: event.activeHit,
+            flowPoint: event.flowPoint,
+            scene,
+            scrollOffsets: retainedContentScrollbarScroll.getScrollOffsets(),
+          });
+          if (result.changed) {
+            commitRetainedContentScrollbarScrollResult(result);
+          }
+          return result.changed;
+        }
+        return retainedContentInteraction.onHitDragMove?.(event);
+      },
+      onHitDragStart: (event) => {
+        if (isGpuRetainedContentScrollbarHit(event)) {
+          return;
+        }
+        retainedContentInteraction.onHitDragStart?.(event);
+      },
+      onHitPointerDown: (event) => {
+        if (isGpuRetainedContentScrollbarHit(event)) {
+          return;
+        }
+        retainedContentInteraction.onHitPointerDown?.(event);
+      },
+      onHitPointerMove: (event) => {
+        if (
+          event.hit &&
+          retainedContentScrollbarScroll &&
+          isGpuRetainedContentScrollbarHit(event.hit)
+        ) {
+          return;
+        }
+        retainedContentInteraction.onHitPointerMove?.(event);
+      },
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
       },
+      shouldHandleDragMoveHit: (event) =>
+        (retainedContentScrollbarScroll &&
+          isGpuRetainedContentScrollbarHit(event)) ||
+        (retainedContentInteraction.shouldHandleDragMoveHit?.(event) ??
+          retainedContentInteraction.shouldHandlePointerMoveHit?.(event) ??
+          retainedContentInteraction.shouldHandleHit?.(event) ??
+          true),
+      shouldHandleHit: (event) =>
+        (retainedContentScrollbarScroll &&
+          isGpuRetainedContentScrollbarHit(event)) ||
+        (retainedContentInteraction.shouldHandleHit?.(event) ?? true),
+      shouldHandlePointerMoveHit: (event) =>
+        (retainedContentScrollbarScroll &&
+          isGpuRetainedContentScrollbarHit(event)) ||
+        (retainedContentInteraction.shouldHandlePointerMoveHit?.(event) ??
+          retainedContentInteraction.shouldHandleHit?.(event) ??
+          true),
+      shouldStartDrag: (event) =>
+        (retainedContentScrollbarScroll &&
+          isGpuRetainedContentScrollbarThumbHit(event)) ||
+        (retainedContentInteraction.shouldStartDrag?.(event) ?? false),
       store: viewportStore,
     });
   }, [
     containerRef,
     nodeLayerRef,
     retainedContentInteraction,
+    retainedContentScroll,
+    nodeElementByIdRef,
     surfaceRef,
+    textureManagerRef,
     viewportStore,
   ]);
 

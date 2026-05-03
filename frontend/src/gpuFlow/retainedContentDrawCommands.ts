@@ -20,10 +20,12 @@ import type {
   GpuRetainedContentRow,
   GpuRetainedContentRowInput,
 } from "./retainedContentScene";
-import type { GpuRect } from "./viewportMath";
+import { createGpuRetainedContentScrollbarLayouts } from "./retainedContentScrollbar";
+import type { GpuPoint, GpuRect } from "./viewportMath";
 
 export function createGpuRetainedContentDrawCommands({
   activePopup,
+  contentRect,
   controlRightInset,
   controlWidth,
   dragPreview,
@@ -32,9 +34,12 @@ export function createGpuRetainedContentDrawCommands({
   rowHeight,
   rowInputs,
   rows,
+  sceneId,
+  scrollOffset,
   viewportRect,
 }: {
   readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
+  readonly contentRect: GpuRect;
   readonly controlRightInset: number;
   readonly controlWidth: number;
   readonly dragPreview?: GpuRetainedContentDragPreviewInput | null | undefined;
@@ -43,6 +48,8 @@ export function createGpuRetainedContentDrawCommands({
   readonly rowHeight: number;
   readonly rowInputs: readonly GpuRetainedContentRowInput[];
   readonly rows: readonly GpuRetainedContentRow[];
+  readonly sceneId: string;
+  readonly scrollOffset: GpuPoint;
   readonly viewportRect: GpuRect;
 }): GpuRetainedContentDrawCommand[] {
   const commands: GpuRetainedContentDrawCommand[] = [];
@@ -88,7 +95,42 @@ export function createGpuRetainedContentDrawCommands({
     viewportRect,
   });
   commands.push(...statusOverlays);
+  appendGpuRetainedContentScrollbarCommands({
+    commands,
+    contentRect,
+    sceneId,
+    scrollOffset,
+    viewportRect,
+  });
   return commands;
+}
+
+function appendGpuRetainedContentScrollbarCommands({
+  commands,
+  contentRect,
+  sceneId,
+  scrollOffset,
+  viewportRect,
+}: {
+  readonly commands: GpuRetainedContentDrawCommand[];
+  readonly contentRect: GpuRect;
+  readonly sceneId: string;
+  readonly scrollOffset: GpuPoint;
+  readonly viewportRect: GpuRect;
+}) {
+  for (const layout of createGpuRetainedContentScrollbarLayouts({
+    contentRect,
+    scrollOffset,
+    viewportRect,
+  })) {
+    commands.push({
+      axis: layout.axis,
+      kind: "scrollbar",
+      rowId: sceneId,
+      thumbRect: layout.thumbRect,
+      trackRect: layout.trackRect,
+    });
+  }
 }
 
 function createGpuRetainedContentRowDrawCommands({

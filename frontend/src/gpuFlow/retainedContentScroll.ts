@@ -559,7 +559,7 @@ function getGpuRetainedContentWheelPixelDelta(
   };
 }
 
-function getGpuRetainedContentMaxScrollOffset({
+export function getGpuRetainedContentMaxScrollOffset({
   contentRect,
   viewportRect,
 }: {

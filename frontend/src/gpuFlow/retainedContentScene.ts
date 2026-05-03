@@ -7,7 +7,11 @@ import type {
 } from "./retainedContentDateCalendarTypes";
 import { createGpuRetainedContentDrawCommands } from "./retainedContentDrawCommands";
 import type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
-import { clampInteger } from "./retainedContentMath";
+import {
+  assertFiniteNonNegative,
+  assertFinitePositive,
+  clampInteger,
+} from "./retainedContentMath";
 import { createGpuRetainedContentActivePopupLayout } from "./retainedContentPopupLayout";
 import {
   createGpuRetainedContentLabelRect,
@@ -17,6 +21,10 @@ import {
   createGpuRetainedContentStatusBadgeRect,
   type GpuRetainedContentRowStatus,
 } from "./retainedContentRowStatus";
+import {
+  createGpuRetainedContentScrollbarHitRecords,
+  type GpuRetainedContentScrollbarDrawCommand,
+} from "./retainedContentScrollbar";
 import type { GpuPoint, GpuRect } from "./viewportMath";
 
 export type { GpuRetainedContentHitRecord } from "./retainedContentHitTypes";
@@ -294,6 +302,7 @@ export type GpuRetainedContentDrawCommand =
       readonly rowId: string;
       readonly selected: boolean;
     }
+  | GpuRetainedContentScrollbarDrawCommand
   | GpuRetainedContentDateCalendarDrawCommand;
 
 export type GpuRetainedContentPortAnchor = {
@@ -435,6 +444,7 @@ export function createGpuRetainedRowContentScene(
     contentRect,
     drawCommands: createGpuRetainedContentDrawCommands({
       activePopup: input.activePopup,
+      contentRect,
       controlRightInset,
       controlWidth,
       dragPreview: input.dragPreview,
@@ -443,16 +453,21 @@ export function createGpuRetainedRowContentScene(
       rowHeight: input.rowHeight,
       rowInputs: input.rows,
       rows: visibleRows,
+      scrollOffset: input.scrollOffset,
+      sceneId: input.id,
       viewportRect: input.viewportRect,
     }),
     hitRecords: createGpuRetainedContentHitRecords({
       activePopup: input.activePopup,
+      contentRect,
       controlRightInset,
       controlWidth,
       indentWidth,
       labelControlGap,
       portHitSize,
       rows: visibleRows,
+      sceneId: input.id,
+      scrollOffset: input.scrollOffset,
       viewportRect: input.viewportRect,
     }),
     id: input.id,
@@ -756,21 +771,27 @@ function getGpuRetainedContentRowStateFlag(
 
 function createGpuRetainedContentHitRecords({
   activePopup,
+  contentRect,
   controlRightInset,
   controlWidth,
   indentWidth,
   labelControlGap,
   portHitSize,
   rows,
+  sceneId,
+  scrollOffset,
   viewportRect,
 }: {
   readonly activePopup?: GpuRetainedContentActivePopupInput | null | undefined;
+  readonly contentRect: GpuRect;
   readonly controlRightInset: number;
   readonly controlWidth: number;
   readonly indentWidth: number;
   readonly labelControlGap: number;
   readonly portHitSize: number;
   readonly rows: readonly GpuRetainedContentRow[];
+  readonly sceneId: string;
+  readonly scrollOffset: GpuPoint;
   readonly viewportRect: GpuRect;
 }): GpuRetainedContentHitRecord[] {
   const hitRecords: GpuRetainedContentHitRecord[] = [];
@@ -882,6 +903,14 @@ function createGpuRetainedContentHitRecords({
       viewportRect,
     }),
   );
+  hitRecords.push(
+    ...createGpuRetainedContentScrollbarHitRecords({
+      contentRect,
+      sceneId,
+      scrollOffset,
+      viewportRect,
+    }),
+  );
   return hitRecords;
 }
 
@@ -965,16 +994,4 @@ function validateGpuRetainedRowContentSceneInput(
   );
   assertFiniteNonNegative("retained content scroll x", input.scrollOffset.x);
   assertFiniteNonNegative("retained content scroll y", input.scrollOffset.y);
-}
-
-function assertFinitePositive(name: string, value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${name} must be a finite positive number.`);
-  }
-}
-
-function assertFiniteNonNegative(name: string, value: number) {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new Error(`${name} must be a finite non-negative number.`);
-  }
 }

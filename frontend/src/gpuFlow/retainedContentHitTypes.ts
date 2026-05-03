@@ -1,3 +1,4 @@
+import type { GpuRetainedContentScrollbarAxis } from "./retainedContentScrollbar";
 import type { GpuRect } from "./viewportMath";
 
 export type GpuRetainedContentHitRecord = {
@@ -13,7 +14,9 @@ export type GpuRetainedContentHitRecord = {
     | "popup-date-navigation"
     | "popup-option"
     | "port"
-    | "row";
+    | "row"
+    | "scrollbar-thumb"
+    | "scrollbar-track";
   readonly cellIndex?: number | undefined;
   readonly cellIsoDate?: string | undefined;
   readonly navigationDirection?: -1 | 1 | undefined;
@@ -21,6 +24,7 @@ export type GpuRetainedContentHitRecord = {
   readonly optionValue?: string | undefined;
   readonly ownerRowId: string;
   readonly rect: GpuRect;
+  readonly scrollbarAxis?: GpuRetainedContentScrollbarAxis | undefined;
   readonly subpartKind?:
     | "dropzone-attachment-delete"
     | "password-reveal"

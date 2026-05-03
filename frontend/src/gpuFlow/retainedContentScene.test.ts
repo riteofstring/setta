@@ -238,6 +238,49 @@ describe("retained content scene", () => {
     });
   });
 
+  it("emits retained scrollbar draw commands and hit records for vertical overflow", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 28,
+      rows: Array.from({ length: 10 }, (_, index) => row(`param-${index}`)),
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 80, width: 160, x: 0, y: 0 },
+    });
+
+    const scrollbarCommand = scene.drawCommands.find(
+      (command) => command.kind === "scrollbar" && command.axis === "y",
+    );
+    expect(scrollbarCommand).toMatchObject({
+      kind: "scrollbar",
+      rowId: "surface-a",
+      thumbRect: {
+        width: 8,
+        x: 150,
+        y: 2,
+      },
+      trackRect: { height: 76, width: 8, x: 150, y: 2 },
+    });
+    expect(scrollbarCommand?.thumbRect.height).toBeCloseTo(21.714, 3);
+    expect(scene.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "scrollbar-track:y:surface-a",
+          kind: "scrollbar-track",
+          ownerRowId: "surface-a",
+          rect: { height: 76, width: 8, x: 150, y: 2 },
+          scrollbarAxis: "y",
+        }),
+        expect.objectContaining({
+          id: "scrollbar-thumb:y:surface-a",
+          kind: "scrollbar-thumb",
+          ownerRowId: "surface-a",
+          scrollbarAxis: "y",
+        }),
+      ]),
+    );
+  });
+
   it("keeps ancestor nest guides active for deeply nested rows", () => {
     const scene = createGpuRetainedRowContentScene({
       id: "surface-a",
