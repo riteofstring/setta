@@ -150,6 +150,7 @@ type ConfiguredColorPickerInputProps = {
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
+  onCommit?: ParamValueChange;
   onEscape?: () => void;
   isDisabled?: boolean;
   wrapperClassName: string;
@@ -161,6 +162,7 @@ export function ConfiguredColorPickerInput({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
   wrapperClassName,
@@ -177,6 +179,7 @@ export function ConfiguredColorPickerInput({
       colorChoices={colorChoices}
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       wrapperClassName={wrapperClassName}
       colorPickerChoicesClasses={colorPickerChoicesClasses}

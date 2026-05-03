@@ -101,4 +101,39 @@ describe("ColorPickerInput", () => {
     expect(input?.classList.contains("nodrag")).toBe(true);
     expect(input?.classList.contains("nopan")).toBe(true);
   });
+
+  it("splits native color input preview and commit events", async () => {
+    const onChange = vi.fn();
+    const onCommit = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <ColorPickerInput
+          colorChoices={[]}
+          value="#ef4444"
+          onChange={onChange}
+          onCommit={onCommit}
+          wrapperClassName="h-8 w-36"
+          colorPickerChoicesClasses="flex h-8 w-36 items-center rounded-lg"
+        />,
+      );
+    });
+
+    const input = host.querySelector(
+      'input[type="color"]',
+    ) as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+
+    await act(async () => {
+      if (!input) {
+        return;
+      }
+      input.value = "#3b82f6";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(onChange.mock.calls).toEqual([["#3b82f6"]]);
+    expect(onCommit.mock.calls).toEqual([["#3b82f6"]]);
+  });
 });

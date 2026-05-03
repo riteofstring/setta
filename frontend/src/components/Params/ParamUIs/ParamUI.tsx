@@ -396,7 +396,8 @@ function renderColorPickerParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={onChange}
+      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
+      onCommit={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -869,8 +870,17 @@ function ColorPickerParamConfigured({
   paramInfoId,
   value,
   onChange,
+  onCommit,
   onEscape,
   isDisabled,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+  onChange: ParamValueChange;
+  onCommit?: ParamValueChange;
+  onEscape: () => void;
+  isDisabled: boolean;
 }) {
   return (
     <ConfiguredColorPickerInput
@@ -878,6 +888,7 @@ function ColorPickerParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onCommit={onCommit}
       onEscape={onEscape}
       wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"

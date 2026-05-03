@@ -95,7 +95,11 @@ vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
 }));
 
 vi.mock("./ConfiguredParamInputs", () => ({
-  ConfiguredColorPickerInput: (props: { isDisabled: boolean }) => {
+  ConfiguredColorPickerInput: (props: {
+    isDisabled: boolean;
+    onChange: (value: string) => void;
+    onCommit?: (value: string) => void;
+  }) => {
     mocks.colorPickerProps(props);
     return (
       <div
@@ -496,6 +500,36 @@ describe("ParamUI", () => {
       expect(onChange.mock.calls).toEqual([
         [2, { skipBackendUpdate: true }],
         [8],
+      ]);
+    } finally {
+      await cleanupRenderedParamUI(rendered);
+    }
+  });
+
+  it("keeps color picker live updates out of the backend commit path", async () => {
+    const onChange = vi.fn();
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.ColorPickerParam,
+      defaultVal: "#000000",
+    };
+
+    const rendered = await renderParamUI({ onChange, value: "#111111" });
+
+    try {
+      const colorPickerProps = mocks.colorPickerProps.mock.calls[0]?.[0] as
+        | {
+            onChange: (value: string) => void;
+            onCommit?: (value: string) => void;
+          }
+        | undefined;
+      expect(colorPickerProps).toBeDefined();
+
+      colorPickerProps?.onChange("#222222");
+      colorPickerProps?.onCommit?.("#333333");
+
+      expect(onChange.mock.calls).toEqual([
+        ["#222222", { skipBackendUpdate: true }],
+        ["#333333"],
       ]);
     } finally {
       await cleanupRenderedParamUI(rendered);
