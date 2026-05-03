@@ -22,13 +22,14 @@ describe("retained content dropdown canvas", () => {
     });
 
     expect(getGpuRetainedContentDropdownOuterRect(rect, palette)).toEqual({
-      height: 14,
-      width: 257,
-      x: 284,
+      height: 18,
+      width: 255,
+      x: 286,
       y: 5,
     });
+    expect(ctx.fillStyleAssignments).toContain("#0b0e13");
     expect(ctx.fillStyleAssignments).not.toContain("#ffffff");
-    expect(ctx.fillText).toHaveBeenCalledWith("ALWAYS_ASK", 297, 12, 228);
+    expect(ctx.fillText).toHaveBeenCalledWith("ALWAYS_ASK", 299, 14, 226);
   });
 });
 

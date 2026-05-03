@@ -23,14 +23,14 @@ describe("retained content color picker canvas", () => {
 
     expect(getGpuRetainedContentColorPickerOuterRect(rect, palette)).toEqual({
       height: 14,
-      width: 257,
-      x: 284,
-      y: 5,
+      width: 255,
+      x: 285,
+      y: 7,
     });
     expect(ctx.fillStylesAtFill[0]).toBe("#ff0000");
     expect(ctx.fillText).not.toHaveBeenCalled();
     expect(ctx.rotate).toHaveBeenCalledWith(-Math.PI / 4);
-    expect(ctx.translate).toHaveBeenCalledWith(412, 12.5);
+    expect(ctx.translate).toHaveBeenCalledWith(412, 14.5);
     expect(ctx.moveTo).toHaveBeenCalledWith(0, -5);
     expect(ctx.lineTo).toHaveBeenCalledWith(0, 5);
     expect(ctx.lineWidth).toBe(1.35);
@@ -54,7 +54,7 @@ describe("retained content color picker canvas", () => {
     });
 
     expect(ctx.fillStylesAtFill[0]).toBe("#afbacf");
-    expect(ctx.fillText).toHaveBeenCalledWith("Grid", 297, 12, 223);
+    expect(ctx.fillText).toHaveBeenCalledWith("Grid", 298, 14, 221);
   });
 });
 

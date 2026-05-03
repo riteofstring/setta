@@ -143,6 +143,8 @@ function drawGpuRetainedContentDropdownRowTextFrame({
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
+  ctx.fillStyle = "#0b0e13";
+  fillRoundRect(ctx, outer, 5);
   if (state?.focused || state?.selected) {
     ctx.fillStyle = palette.rowFocusedBackground;
     fillRoundRect(ctx, outer, 5);
@@ -237,12 +239,12 @@ export function getGpuRetainedContentDropdownOuterRect(
   palette: GpuRetainedContentCanvasPalette,
 ): GpuRect {
   if (palette.textLikeVisualStyle === "row-text") {
-    return insetRectBySides(
-      rect,
-      GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT,
-      2,
-      5,
-    );
+    return {
+      height: Math.max(0, rect.height - 6),
+      width: Math.max(0, rect.width - 18),
+      x: rect.x + GPU_RETAINED_CONTENT_ROW_TEXT_VALUE_INSET_LEFT + 2,
+      y: rect.y + 5,
+    };
   }
   return insetRect(rect, 6, 5);
 }
@@ -252,20 +254,6 @@ function insetRect(rect: GpuRect, insetX: number, insetY: number): GpuRect {
     height: Math.max(0, rect.height - insetY * 2),
     width: Math.max(0, rect.width - insetX * 2),
     x: rect.x + insetX,
-    y: rect.y + insetY,
-  };
-}
-
-function insetRectBySides(
-  rect: GpuRect,
-  insetLeft: number,
-  insetRight: number,
-  insetY: number,
-): GpuRect {
-  return {
-    height: Math.max(0, rect.height - insetY * 2),
-    width: Math.max(0, rect.width - insetLeft - insetRight),
-    x: rect.x + insetLeft,
     y: rect.y + insetY,
   };
 }

@@ -26,6 +26,7 @@ describe("retained content switch canvas", () => {
       x: 284,
       y: 5,
     });
+    expect(ctx.fillStyles[0]).toBe("#1d4ed8");
     expect(ctx.moveTo).toHaveBeenNthCalledWith(1, 292, 6);
     expect(ctx.lineTo).toHaveBeenNthCalledWith(1, 310, 6);
     expect(ctx.fillText).not.toHaveBeenCalled();

@@ -140,7 +140,7 @@ function getGpuRetainedContentSwitchTrackColor({
   if (disabled) {
     return "hsl(219, 25%, 34%)";
   }
-  return checked ? "#2563eb" : "hsl(219, 25%, 34%)";
+  return checked ? "#1d4ed8" : "hsl(219, 25%, 34%)";
 }
 
 function getGpuRetainedContentSwitchThumbColor({
