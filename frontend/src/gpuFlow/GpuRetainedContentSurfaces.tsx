@@ -19,6 +19,10 @@ import {
   getGpuRetainedContentSliderTrackRect,
   getGpuRetainedContentSliderValueLabelRect,
 } from "./retainedContentControls";
+import {
+  drawGpuRetainedContentDropdownControl,
+  drawGpuRetainedContentDropdownPopupOption,
+} from "./retainedContentDropdownCanvas";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDrawCommand,
@@ -204,7 +208,16 @@ function drawGpuRetainedContentCommand({
     return;
   }
   if (command.kind === "control-popup-option") {
-    drawGpuRetainedContentColorPickerPopupOption({
+    if ("color" in command.option) {
+      drawGpuRetainedContentColorPickerPopupOption({
+        ctx,
+        option: command.option,
+        rect: command.rect,
+        selected: command.selected,
+      });
+      return;
+    }
+    drawGpuRetainedContentDropdownPopupOption({
       ctx,
       option: command.option,
       rect: command.rect,
@@ -329,6 +342,14 @@ function drawGpuRetainedContentControl({
       return;
     case "color-picker":
       drawGpuRetainedContentColorPickerControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return;
+    case "dropdown":
+      drawGpuRetainedContentDropdownControl({
         control,
         ctx,
         rect,

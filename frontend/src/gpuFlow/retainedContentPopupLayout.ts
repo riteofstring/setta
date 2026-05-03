@@ -1,18 +1,18 @@
 import type {
   GpuRetainedContentActivePopupInput,
-  GpuRetainedContentColorChoice,
   GpuRetainedContentControlDescriptor,
+  GpuRetainedContentPopupChoice,
   GpuRetainedContentRow,
 } from "./retainedContentScene";
 import type { GpuRect } from "./viewportMath";
 
-type GpuRetainedContentColorPickerControl = Extract<
+type GpuRetainedContentPopupControl = Extract<
   GpuRetainedContentControlDescriptor,
-  { kind: "color-picker" }
+  { kind: "color-picker" | "dropdown" }
 >;
 
-type GpuRetainedContentColorPopupRow = GpuRetainedContentRow & {
-  readonly control: GpuRetainedContentColorPickerControl;
+type GpuRetainedContentPopupRow = GpuRetainedContentRow & {
+  readonly control: GpuRetainedContentPopupControl;
 };
 
 type GpuRetainedContentPopupMetrics = {
@@ -21,15 +21,15 @@ type GpuRetainedContentPopupMetrics = {
   readonly startIndex: number;
 };
 
-export type GpuRetainedContentActivePopupLayout = {
+type GpuRetainedContentActivePopupLayout = {
   readonly backgroundRect: GpuRect;
   readonly options: readonly {
-    readonly choice: GpuRetainedContentColorChoice;
+    readonly choice: GpuRetainedContentPopupChoice;
     readonly optionIndex: number;
     readonly rect: GpuRect;
     readonly selected: boolean;
   }[];
-  readonly row: GpuRetainedContentColorPopupRow;
+  readonly row: GpuRetainedContentPopupRow;
 };
 
 const DEFAULT_POPUP_MARGIN = 4;
@@ -48,7 +48,7 @@ export function createGpuRetainedContentActivePopupLayout({
   readonly rows: readonly GpuRetainedContentRow[];
   readonly viewportRect: GpuRect;
 }): GpuRetainedContentActivePopupLayout | null {
-  const row = getGpuRetainedContentActiveColorPopupRow(activePopup, rows);
+  const row = getGpuRetainedContentActivePopupRow(activePopup, rows);
   if (!row) {
     return null;
   }
@@ -73,21 +73,31 @@ export function createGpuRetainedContentActivePopupLayout({
   };
 }
 
-function getGpuRetainedContentActiveColorPopupRow(
+function getGpuRetainedContentActivePopupRow(
   activePopup: GpuRetainedContentActivePopupInput | null | undefined,
   rows: readonly GpuRetainedContentRow[],
-): GpuRetainedContentColorPopupRow | null {
+): GpuRetainedContentPopupRow | null {
   if (!activePopup) {
     return null;
   }
   const row = rows.find((candidate) => candidate.id === activePopup.ownerRowId);
-  if (!row?.control || row.control.kind !== "color-picker") {
+  if (
+    !row?.control ||
+    !isGpuRetainedContentPopupControl(row.control) ||
+    row.control.kind !== activePopup.kind
+  ) {
     return null;
   }
   if (row.control.choices.length === 0) {
     return null;
   }
-  return row as GpuRetainedContentColorPopupRow;
+  return row as GpuRetainedContentPopupRow;
+}
+
+function isGpuRetainedContentPopupControl(
+  control: GpuRetainedContentControlDescriptor,
+): control is GpuRetainedContentPopupControl {
+  return control.kind === "color-picker" || control.kind === "dropdown";
 }
 
 function createGpuRetainedContentPopupMetrics({
@@ -136,7 +146,7 @@ function createGpuRetainedContentPopupOptions({
 }: {
   readonly backgroundRect: GpuRect;
   readonly optionCount: number;
-  readonly row: GpuRetainedContentColorPopupRow;
+  readonly row: GpuRetainedContentPopupRow;
   readonly startIndex: number;
 }): GpuRetainedContentActivePopupLayout["options"] {
   return row.control.choices

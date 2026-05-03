@@ -867,10 +867,13 @@ describe("project GPU layout adapter", () => {
       "dropdown-param-variant",
       "dropdown-param-impl",
       createDropdownParamCodeObjImpl({
+        choices: ["small", "large"],
         coreNameEditable: true,
+        defaultVal: "small",
         id: "dropdown-param-impl",
         name: "dropdown",
         type: CodeObjTypeEnum.DropdownParam,
+        value: "small",
       }),
     );
     projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
@@ -926,14 +929,21 @@ describe("project GPU layout adapter", () => {
       revision: 6,
     });
 
-    expect(dropdownControlScene.domIslands).toEqual([
-      expect.objectContaining({
-        kind: "retained-content-control",
-        source: expect.objectContaining({
-          ownerRowId: "dropdown-param",
-        }),
-      }),
-    ]);
+    expect(dropdownControlScene.domIslands).toEqual([]);
+    expect(
+      dropdownControlScene.contentSurfaces
+        .find((surface) => surface.id === "dict-a:param-content:unpinned")
+        ?.retainedScene?.rows.find((row) => row.id === "dropdown-param")
+        ?.control,
+    ).toMatchObject({
+      choices: [
+        { label: "small", value: "small" },
+        { label: "large", value: "large" },
+      ],
+      kind: "dropdown",
+      rendererFamily: "dropdown",
+      commitPolicy: "immediate",
+    });
 
     const dropdownLabelScene = getProjectGpuFlowScene(projectState, {
       activeParamDomIsland: {
@@ -1493,7 +1503,7 @@ describe("project GPU layout adapter", () => {
     ]);
   });
 
-  it("expands active retained param DOM islands without stretching popover triggers", () => {
+  it("expands native retained param islands while dropdown popups stay canvas-owned", () => {
     const projectState = projectStateWithSections({
       sections: [
         {
@@ -1549,9 +1559,12 @@ describe("project GPU layout adapter", () => {
       "dropdown-param-variant",
       "dropdown-param-impl",
       createDropdownParamCodeObjImpl({
+        choices: ["small", "large"],
+        defaultVal: "small",
         id: "dropdown-param-impl",
         name: "dropdown",
         type: CodeObjTypeEnum.DropdownParam,
+        value: "small",
       }),
     );
     addParamToProjectState(
@@ -1600,8 +1613,9 @@ describe("project GPU layout adapter", () => {
     });
 
     const dropdownScene = getProjectGpuFlowScene(projectState, {
-      activeParamDomIsland: {
+      activeParamCanvasPopup: {
         hitRecordId: "control:dropdown-param",
+        kind: "dropdown",
         paramInfoId: "dropdown-param",
         sectionId: "dict-a",
         surfaceId: "dict-a:param-content:unpinned",
@@ -1609,14 +1623,20 @@ describe("project GPU layout adapter", () => {
       darkMode: false,
       revision: 4,
     });
-    const dropdownIsland = dropdownScene.domIslands[0];
+    const dropdownSurface = dropdownScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
 
-    expect(dropdownIsland).toMatchObject({
-      contentRect: { height: 28, width: 112, x: 112, y: 0 },
-      kind: "retained-content-control",
-      ownerSectionId: "dict-a",
-      rect: { height: 260, width: 224 },
-    });
+    expect(dropdownScene.domIslands).toEqual([]);
+    expect(dropdownSurface?.retainedScene?.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "popup-option",
+          optionValue: "large",
+          ownerRowId: "dropdown-param",
+        }),
+      ]),
+    );
 
     const dropzoneScene = getProjectGpuFlowScene(projectState, {
       activeParamDomIsland: {

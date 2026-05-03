@@ -51,7 +51,11 @@ export function commitProjectGpuRetainedColorPickerPopupOption(
 export function isProjectGpuRetainedColorPickerPopupOptionHit(
   event: GpuRetainedContentInteractionHit,
 ): boolean {
-  return event.hit.kind === "popup-option";
+  if (event.hit.kind !== "popup-option") {
+    return false;
+  }
+  const row = getProjectGpuRetainedColorPickerHitRow(event);
+  return row?.control?.kind === "color-picker";
 }
 
 function getProjectGpuRetainedColorPickerChoice(

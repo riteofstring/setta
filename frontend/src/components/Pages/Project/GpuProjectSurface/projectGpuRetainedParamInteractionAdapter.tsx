@@ -99,6 +99,11 @@ import {
   isProjectGpuRetainedColorPickerPopupOptionHit,
 } from "./projectGpuRetainedParamColorPickerAdapter";
 import {
+  commitProjectGpuRetainedDropdownPopupOption,
+  getProjectGpuRetainedDropdownPopupTarget,
+  isProjectGpuRetainedDropdownPopupOptionHit,
+} from "./projectGpuRetainedParamDropdownAdapter";
+import {
   commitProjectGpuRetainedRangedControlClick,
   handleProjectGpuRetainedRangedControlDragEnd,
   handleProjectGpuRetainedRangedControlDragMove,
@@ -385,6 +390,11 @@ function handleProjectRetainedContentClick(
     onActiveParamDomIslandChange(null);
     return;
   }
+  if (commitProjectGpuRetainedDropdownPopupOption(event)) {
+    onActiveParamCanvasPopupChange(null);
+    onActiveParamDomIslandChange(null);
+    return;
+  }
   if (
     handleProjectRetainedContentCanvasControlClick(event, {
       onActiveParamCanvasPopupChange,
@@ -445,6 +455,11 @@ function handleProjectRetainedContentCanvasControlClick(
     getProjectGpuRetainedColorPickerPopupTarget(event);
   if (colorPickerPopupTarget) {
     onActiveParamCanvasPopupChange(colorPickerPopupTarget);
+    return true;
+  }
+  const dropdownPopupTarget = getProjectGpuRetainedDropdownPopupTarget(event);
+  if (dropdownPopupTarget) {
+    onActiveParamCanvasPopupChange(dropdownPopupTarget);
     return true;
   }
   return false;
@@ -736,7 +751,10 @@ function isProjectRetainedParamControlActivationHit(
 function isProjectRetainedParamCanvasPopupHit(
   event: GpuRetainedContentInteractionHit,
 ): boolean {
-  return isProjectGpuRetainedColorPickerPopupOptionHit(event);
+  return (
+    isProjectGpuRetainedColorPickerPopupOptionHit(event) ||
+    isProjectGpuRetainedDropdownPopupOptionHit(event)
+  );
 }
 
 function isProjectRetainedParamCanvasControlHit(

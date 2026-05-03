@@ -9,6 +9,7 @@ import {
 import type {
   GpuRetainedContentColorChoice,
   GpuRetainedContentControlDescriptor,
+  GpuRetainedContentDropdownChoice,
   GpuRetainedContentRowInput,
   GpuRetainedContentRowState,
 } from "gpuFlow/retainedContentScene";
@@ -22,6 +23,7 @@ import {
   CodeObjTypeEnum,
   type CodeObjType,
   type ColorPickerParamCodeObjImpl,
+  type DropdownParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
 } from "utils/generatedTypes";
@@ -167,6 +169,12 @@ function createProjectGpuParamControlDescriptor({
       controlKind,
     });
   }
+  if (codeObjImpl.type === CodeObjTypeEnum.DropdownParam) {
+    return createProjectGpuDropdownControlDescriptor({
+      codeObjImpl: codeObjImpl as DropdownParamCodeObjImpl,
+      controlKind,
+    });
+  }
   return null;
 }
 
@@ -214,6 +222,47 @@ function toProjectGpuColorPickerChoices(
       );
     }
     return { color, description };
+  });
+}
+
+function createProjectGpuDropdownControlDescriptor({
+  codeObjImpl,
+  controlKind,
+}: {
+  readonly codeObjImpl: DropdownParamCodeObjImpl;
+  readonly controlKind: string;
+}): GpuRetainedContentControlDescriptor {
+  const choices = toProjectGpuDropdownChoices(codeObjImpl);
+  const displayValue = toProjectGpuParamDisplayValue(codeObjImpl.value);
+  const selectedIndex = choices.findIndex(
+    (choice) => choice.value === displayValue,
+  );
+  return {
+    choices,
+    defaultDisplayValue: toProjectGpuParamDisplayValue(codeObjImpl.defaultVal),
+    displayValue,
+    kind: "dropdown",
+    rendererFamily: controlKind,
+    commitPolicy: "immediate",
+    selectedIndex: selectedIndex === -1 ? null : selectedIndex,
+  };
+}
+
+function toProjectGpuDropdownChoices(
+  codeObjImpl: DropdownParamCodeObjImpl,
+): readonly GpuRetainedContentDropdownChoice[] {
+  if (!Array.isArray(codeObjImpl.choices)) {
+    throw new Error(
+      `Invalid GPU retained dropdown choices for ${codeObjImpl.id}: expected a choices array.`,
+    );
+  }
+  return codeObjImpl.choices.map((choice, index) => {
+    if (typeof choice !== "string") {
+      throw new Error(
+        `Invalid GPU retained dropdown choice ${index} for ${codeObjImpl.id}: expected a string.`,
+      );
+    }
+    return { label: choice, value: choice };
   });
 }
 

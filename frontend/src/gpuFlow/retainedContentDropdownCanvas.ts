@@ -1,0 +1,205 @@
+import type {
+  GpuRetainedContentControlDescriptor,
+  GpuRetainedContentDropdownChoice,
+  GpuRetainedContentRowState,
+} from "./retainedContentScene";
+import type { GpuRect } from "./viewportMath";
+
+type GpuRetainedContentDropdownControl = Extract<
+  GpuRetainedContentControlDescriptor,
+  { kind: "dropdown" }
+>;
+
+const RETAINED_CONTENT_CONTROL_FONT =
+  "10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+
+export function drawGpuRetainedContentDropdownControl({
+  control,
+  ctx,
+  rect,
+  state,
+}: {
+  readonly control: GpuRetainedContentDropdownControl;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly rect: GpuRect;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  const outer = insetRect(rect, 6, 5);
+  const disabled = state?.disabled ?? false;
+  drawGpuRetainedContentDropdownFrame({ ctx, disabled, outer, state });
+  drawGpuRetainedContentDropdownLabel({
+    control,
+    ctx,
+    disabled,
+    outer,
+  });
+  drawGpuRetainedContentDropdownChevron({ ctx, disabled, outer });
+}
+
+export function drawGpuRetainedContentDropdownPopupOption({
+  ctx,
+  option,
+  rect,
+  selected,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly option: GpuRetainedContentDropdownChoice;
+  readonly rect: GpuRect;
+  readonly selected: boolean;
+}) {
+  if (selected) {
+    ctx.fillStyle = "#dbeafe";
+    fillRoundRect(ctx, rect, 4);
+  }
+  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
+  ctx.textAlign = "start";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#0f172a";
+  ctx.fillText(
+    option.label || option.value,
+    rect.x + 8,
+    rect.y + rect.height / 2,
+    Math.max(0, rect.width - 16),
+  );
+}
+
+function drawGpuRetainedContentDropdownFrame({
+  ctx,
+  disabled,
+  outer,
+  state,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+  readonly outer: GpuRect;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  ctx.fillStyle = disabled ? "#e2e8f0" : "#ffffff";
+  ctx.strokeStyle = state?.selected ? "#2563eb" : "#cbd5e1";
+  ctx.lineWidth = 1;
+  fillRoundRect(ctx, outer, 5);
+  strokeRoundRect(ctx, outer, 5);
+}
+
+function drawGpuRetainedContentDropdownLabel({
+  control,
+  ctx,
+  disabled,
+  outer,
+}: {
+  readonly control: GpuRetainedContentDropdownControl;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+  readonly outer: GpuRect;
+}) {
+  const chevronWidth = 8;
+  const labelX = outer.x + 7;
+  const selectedChoice = getGpuRetainedContentSelectedDropdownChoice(control);
+  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
+  ctx.textAlign = "start";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = disabled ? "#64748b" : "#334155";
+  ctx.fillText(
+    selectedChoice?.label || control.displayValue || "Select...",
+    labelX,
+    outer.y + outer.height / 2,
+    Math.max(0, outer.x + outer.width - chevronWidth - 8 - labelX),
+  );
+}
+
+function drawGpuRetainedContentDropdownChevron({
+  ctx,
+  disabled,
+  outer,
+}: {
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+  readonly outer: GpuRect;
+}) {
+  const chevronCenterX = outer.x + outer.width - 8;
+  const chevronCenterY = outer.y + outer.height / 2;
+  ctx.beginPath();
+  ctx.moveTo(chevronCenterX - 3, chevronCenterY - 1);
+  ctx.lineTo(chevronCenterX, chevronCenterY + 2);
+  ctx.lineTo(chevronCenterX + 3, chevronCenterY - 1);
+  ctx.strokeStyle = disabled ? "#94a3b8" : "#475569";
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
+}
+
+function getGpuRetainedContentSelectedDropdownChoice(
+  control: GpuRetainedContentDropdownControl,
+): GpuRetainedContentDropdownChoice | null {
+  if (control.selectedIndex === null) {
+    return null;
+  }
+  return control.choices[control.selectedIndex] ?? null;
+}
+
+function insetRect(rect: GpuRect, insetX: number, insetY: number): GpuRect {
+  return {
+    height: Math.max(0, rect.height - insetY * 2),
+    width: Math.max(0, rect.width - insetX * 2),
+    x: rect.x + insetX,
+    y: rect.y + insetY,
+  };
+}
+
+function fillRoundRect(
+  ctx: CanvasRenderingContext2D,
+  rect: GpuRect,
+  radius: number,
+) {
+  createRoundRectPath(ctx, rect, radius);
+  ctx.fill();
+}
+
+function strokeRoundRect(
+  ctx: CanvasRenderingContext2D,
+  rect: GpuRect,
+  radius: number,
+) {
+  createRoundRectPath(ctx, rect, radius);
+  ctx.stroke();
+}
+
+function createRoundRectPath(
+  ctx: CanvasRenderingContext2D,
+  rect: GpuRect,
+  radius: number,
+) {
+  const normalizedRadius = Math.max(
+    0,
+    Math.min(radius, rect.width / 2, rect.height / 2),
+  );
+  ctx.beginPath();
+  ctx.moveTo(rect.x + normalizedRadius, rect.y);
+  ctx.lineTo(rect.x + rect.width - normalizedRadius, rect.y);
+  ctx.quadraticCurveTo(
+    rect.x + rect.width,
+    rect.y,
+    rect.x + rect.width,
+    rect.y + normalizedRadius,
+  );
+  ctx.lineTo(rect.x + rect.width, rect.y + rect.height - normalizedRadius);
+  ctx.quadraticCurveTo(
+    rect.x + rect.width,
+    rect.y + rect.height,
+    rect.x + rect.width - normalizedRadius,
+    rect.y + rect.height,
+  );
+  ctx.lineTo(rect.x + normalizedRadius, rect.y + rect.height);
+  ctx.quadraticCurveTo(
+    rect.x,
+    rect.y + rect.height,
+    rect.x,
+    rect.y + rect.height - normalizedRadius,
+  );
+  ctx.lineTo(rect.x, rect.y + normalizedRadius);
+  ctx.quadraticCurveTo(rect.x, rect.y, rect.x + normalizedRadius, rect.y);
+  ctx.closePath();
+}

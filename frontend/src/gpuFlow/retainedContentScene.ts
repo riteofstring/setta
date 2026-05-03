@@ -28,6 +28,15 @@ export type GpuRetainedContentColorChoice = {
   readonly description: string;
 };
 
+export type GpuRetainedContentDropdownChoice = {
+  readonly label: string;
+  readonly value: string;
+};
+
+export type GpuRetainedContentPopupChoice =
+  | GpuRetainedContentColorChoice
+  | GpuRetainedContentDropdownChoice;
+
 export type GpuRetainedContentControlDescriptor =
   | {
       readonly defaultDisplayValue: string;
@@ -74,6 +83,15 @@ export type GpuRetainedContentControlDescriptor =
       readonly rendererFamily: string;
       readonly commitPolicy: "immediate";
       readonly selectedIndex: number | null;
+    }
+  | {
+      readonly choices: readonly GpuRetainedContentDropdownChoice[];
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "dropdown";
+      readonly rendererFamily: string;
+      readonly commitPolicy: "immediate";
+      readonly selectedIndex: number | null;
     };
 
 export type GpuRetainedContentRowInput = {
@@ -106,7 +124,7 @@ type GpuRetainedContentVisibleRowRange = {
 };
 
 export type GpuRetainedContentActivePopupInput = {
-  readonly kind: "color-picker";
+  readonly kind: "color-picker" | "dropdown";
   readonly ownerRowId: string;
 };
 
@@ -159,7 +177,7 @@ export type GpuRetainedContentDrawCommand =
     }
   | {
       readonly kind: "control-popup-option";
-      readonly option: GpuRetainedContentColorChoice;
+      readonly option: GpuRetainedContentPopupChoice;
       readonly optionIndex: number;
       readonly rect: GpuRect;
       readonly rowId: string;
@@ -751,7 +769,7 @@ function createGpuRetainedContentHitRecords({
         id: `popup-option:${popup.row.id}:${option.optionIndex}`,
         kind: "popup-option",
         optionIndex: option.optionIndex,
-        optionValue: option.choice.color,
+        optionValue: getGpuRetainedContentPopupChoiceValue(option.choice),
         ownerRowId: popup.row.id,
         rect: option.rect,
       });
@@ -811,6 +829,12 @@ function createGpuRetainedContentControl(
     rendererFamily: input.controlKind,
     commitPolicy: "native-island",
   };
+}
+
+function getGpuRetainedContentPopupChoiceValue(
+  choice: GpuRetainedContentPopupChoice,
+): string {
+  return "color" in choice ? choice.color : choice.value;
 }
 
 function createGpuRetainedContentLabelRect({

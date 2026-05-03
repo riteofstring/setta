@@ -377,6 +377,81 @@ describe("retained content scene", () => {
     );
   });
 
+  it("emits retained dropdown descriptors and popup option hits", () => {
+    const scene = createGpuRetainedRowContentScene({
+      activePopup: { kind: "dropdown", ownerRowId: "dropdown-param" },
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("dropdown-param", {
+          control: {
+            choices: [
+              { label: "Small", value: "small" },
+              { label: "Large", value: "large" },
+            ],
+            defaultDisplayValue: "small",
+            displayValue: "large",
+            kind: "dropdown",
+            rendererFamily: "dropdown",
+            commitPolicy: "immediate",
+            selectedIndex: 1,
+          },
+          controlKind: "dropdown",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 96, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.control).toEqual({
+      choices: [
+        { label: "Small", value: "small" },
+        { label: "Large", value: "large" },
+      ],
+      defaultDisplayValue: "small",
+      displayValue: "large",
+      kind: "dropdown",
+      rendererFamily: "dropdown",
+      commitPolicy: "immediate",
+      selectedIndex: 1,
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          control: expect.objectContaining({
+            choices: expect.arrayContaining([
+              { label: "Large", value: "large" },
+            ]),
+            kind: "dropdown",
+            commitPolicy: "immediate",
+          }),
+          controlKind: "dropdown",
+          kind: "row-control",
+          rowId: "dropdown-param",
+        }),
+        expect.objectContaining({
+          kind: "control-popup-option",
+          option: { label: "Large", value: "large" },
+          optionIndex: 1,
+          rowId: "dropdown-param",
+          selected: true,
+        }),
+      ]),
+    );
+    expect(scene.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "popup-option:dropdown-param:1",
+          kind: "popup-option",
+          optionIndex: 1,
+          optionValue: "large",
+          ownerRowId: "dropdown-param",
+        }),
+      ]),
+    );
+  });
+
   it("emits inset drop markers for retained inside-row drops", () => {
     const scene = createGpuRetainedRowContentScene({
       dragPreview: {
