@@ -1,9 +1,21 @@
 /* @vitest-environment jsdom */
 
+import type { ZustandProjectState } from "state/definitions";
+import {
+  createCore,
+  createDictSectionImpl,
+  createProjectConfig,
+  createSingleConfig,
+  createVariant,
+  type BaseSectionImplUnion,
+  type SingleConfig,
+} from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  getProjectNodeIntrinsicSizeObserverNodeIds,
   measureIntrinsicElementHeight,
   measureIntrinsicElementWidth,
+  shouldObserveProjectNodeIntrinsicSize,
 } from "./projectNodeIntrinsicSize";
 
 function parsePixelValue(value: string): number | null {
@@ -115,4 +127,87 @@ describe("projectNodeIntrinsicSize", () => {
     expect(element.style.maxWidth).toBe("900px");
     expect(element.style.minWidth).toBe("10px");
   });
+
+  it("observes only sections with an auto intrinsic size policy", () => {
+    const projectState = projectStateWithSectionSizes({
+      "fixed-section": sectionSize({ height: 120, width: 240 }),
+      "auto-height-section": sectionSize({ height: "auto", width: 240 }),
+      "auto-width-section": sectionSize({ height: 120, width: "auto" }),
+    });
+
+    expect(
+      shouldObserveProjectNodeIntrinsicSize(projectState, "fixed-section"),
+    ).toBe(false);
+    expect(
+      shouldObserveProjectNodeIntrinsicSize(
+        projectState,
+        "auto-height-section",
+      ),
+    ).toBe(true);
+    expect(
+      shouldObserveProjectNodeIntrinsicSize(projectState, "auto-width-section"),
+    ).toBe(true);
+    expect(
+      getProjectNodeIntrinsicSizeObserverNodeIds(projectState, [
+        "fixed-section",
+        "auto-height-section",
+        "missing-section",
+        "auto-width-section",
+      ]),
+    ).toEqual(["auto-height-section", "auto-width-section"]);
+  });
 });
+
+function sectionSize(size: {
+  readonly height: number | "auto";
+  readonly width: number | "auto";
+}): never {
+  return size as never;
+}
+
+function projectStateWithSectionSizes(
+  sizesBySectionId: Readonly<Record<string, BaseSectionImplUnion["size"]>>,
+): ZustandProjectState {
+  const sections: ZustandProjectState["sections"] = {};
+  const sectionImpls: ZustandProjectState["sectionImpls"] = {};
+  const sectionVariants: ZustandProjectState["sectionVariants"] = {};
+  const sectionVariantMap: Record<string, string> = {};
+  const topLevelSections: SingleConfig["projectConfig"]["topLevelSections"] =
+    {};
+
+  for (const [sectionId, size] of Object.entries(sizesBySectionId)) {
+    const variantId = `${sectionId}-variant`;
+    const implId = `${sectionId}-impl`;
+    sections[sectionId] = createCore({
+      defaultVariant: variantId,
+      id: sectionId,
+      name: sectionId,
+      variants: [variantId],
+    });
+    sectionImpls[implId] = createDictSectionImpl({
+      id: implId,
+      size,
+    });
+    sectionVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      name: variantId,
+      nonPresetImpls: [],
+    });
+    sectionVariantMap[sectionId] = variantId;
+    topLevelSections[sectionId] = { h: 120, w: 240, x: 0, y: 0, zIndex: 0 };
+  }
+
+  const state = createSingleConfig({
+    projectConfig: createProjectConfig({
+      id: "project-1",
+      sectionVariantMap,
+      topLevelSections,
+    }),
+    sectionImpls,
+    sectionVariants,
+    sections,
+  }) as ZustandProjectState;
+  state.previewSectionVariantMap = {};
+  return state;
+}
