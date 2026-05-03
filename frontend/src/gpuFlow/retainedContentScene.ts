@@ -17,7 +17,7 @@ type GpuRetainedContentRowPortInput = {
   readonly side: "left" | "right";
 };
 
-export type GpuRetainedContentControlCommitPolicy =
+type GpuRetainedContentControlCommitPolicy =
   | "immediate"
   | "native-island"
   | "preview-commit";
@@ -42,6 +42,17 @@ export type GpuRetainedContentControlDescriptor =
       readonly defaultDisplayValue: string;
       readonly displayValue: string;
       readonly kind: "slider";
+      readonly rendererFamily: string;
+      readonly commitPolicy: "preview-commit";
+      readonly max: number;
+      readonly min: number;
+      readonly step: number;
+      readonly value: number;
+    }
+  | {
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "rotary";
       readonly rendererFamily: string;
       readonly commitPolicy: "preview-commit";
       readonly max: number;

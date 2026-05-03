@@ -7,7 +7,11 @@ import type {
   GpuRetainedContentInteractionEvent,
   GpuRetainedContentInteractionHit,
 } from "gpuFlow/interactions/retainedContentInteraction";
-import { resolveGpuRetainedSliderValueFromPoint } from "gpuFlow/retainedContentControls";
+import {
+  resolveGpuRetainedRotaryValueFromPoint,
+  resolveGpuRetainedSliderValueFromPoint,
+  type GpuRetainedContentRangedControlDescriptor,
+} from "gpuFlow/retainedContentControls";
 import type { GpuRetainedContentRow } from "gpuFlow/retainedContentScene";
 import type { GpuFlowScene } from "gpuFlow/scene";
 import type { GpuPoint } from "gpuFlow/viewportMath";
@@ -17,21 +21,25 @@ type ProjectGpuRetainedContentSceneApi = {
   readonly getScene: () => GpuFlowScene;
 };
 
-export function isProjectGpuRetainedParamSliderControlHit(
+type ProjectGpuRetainedRangedControlRow = GpuRetainedContentRow & {
+  readonly control: GpuRetainedContentRangedControlDescriptor;
+};
+
+export function isProjectGpuRetainedParamRangedControlHit(
   event: GpuRetainedContentInteractionHit,
 ): boolean {
-  const row = getProjectGpuRetainedSliderControlRow(event);
+  const row = getProjectGpuRetainedRangedControlRow(event);
   return Boolean(row && !row.state.disabled);
 }
 
-export function commitProjectGpuRetainedSliderControlClick(
+export function commitProjectGpuRetainedRangedControlClick(
   event: GpuRetainedContentInteractionEvent,
 ): boolean {
-  const row = getProjectGpuRetainedSliderControlRow(event);
+  const row = getProjectGpuRetainedRangedControlRow(event);
   if (!row || row.state.disabled) {
     return false;
   }
-  commitProjectGpuRetainedSliderParamPointerValue({
+  commitProjectGpuRetainedRangedParamPointerValue({
     control: row.control,
     hitRect: event.hit.rect,
     paramInfoId: event.hit.ownerRowId,
@@ -41,7 +49,7 @@ export function commitProjectGpuRetainedSliderControlClick(
   return true;
 }
 
-export function handleProjectGpuRetainedSliderControlDragMove(
+export function handleProjectGpuRetainedRangedControlDragMove(
   event: GpuRetainedContentDragEvent,
   {
     retainedContentScene,
@@ -49,13 +57,13 @@ export function handleProjectGpuRetainedSliderControlDragMove(
     readonly retainedContentScene: ProjectGpuRetainedContentSceneApi;
   },
 ): boolean {
-  return handleProjectGpuRetainedSliderControlDragValue(event, {
+  return handleProjectGpuRetainedRangedControlDragValue(event, {
     options: { skipBackendUpdate: true },
     retainedContentScene,
   });
 }
 
-export function handleProjectGpuRetainedSliderControlDragEnd(
+export function handleProjectGpuRetainedRangedControlDragEnd(
   event: GpuRetainedContentDragEvent,
   {
     retainedContentScene,
@@ -63,12 +71,12 @@ export function handleProjectGpuRetainedSliderControlDragEnd(
     readonly retainedContentScene: ProjectGpuRetainedContentSceneApi;
   },
 ): boolean {
-  return handleProjectGpuRetainedSliderControlDragValue(event, {
+  return handleProjectGpuRetainedRangedControlDragValue(event, {
     retainedContentScene,
   });
 }
 
-function handleProjectGpuRetainedSliderControlDragValue(
+function handleProjectGpuRetainedRangedControlDragValue(
   event: GpuRetainedContentDragEvent,
   {
     options,
@@ -78,11 +86,11 @@ function handleProjectGpuRetainedSliderControlDragValue(
     readonly retainedContentScene: ProjectGpuRetainedContentSceneApi;
   },
 ): boolean {
-  const row = getProjectGpuRetainedSliderControlRow(event.activeHit);
+  const row = getProjectGpuRetainedRangedControlRow(event.activeHit);
   if (!row || row.state.disabled) {
     return false;
   }
-  commitProjectGpuRetainedSliderParamPointerValue({
+  commitProjectGpuRetainedRangedParamPointerValue({
     control: row.control,
     hitRect: event.activeHit.hit.rect,
     options,
@@ -96,7 +104,7 @@ function handleProjectGpuRetainedSliderControlDragValue(
   return true;
 }
 
-function commitProjectGpuRetainedSliderParamPointerValue({
+function commitProjectGpuRetainedRangedParamPointerValue({
   control,
   hitRect,
   options,
@@ -104,10 +112,7 @@ function commitProjectGpuRetainedSliderParamPointerValue({
   point,
   sectionId,
 }: {
-  readonly control: Extract<
-    GpuRetainedContentRow["control"],
-    { kind: "slider" }
-  >;
+  readonly control: GpuRetainedContentRangedControlDescriptor;
   readonly hitRect: GpuRetainedContentInteractionHit["hit"]["rect"];
   readonly options?: { readonly skipBackendUpdate?: boolean } | undefined;
   readonly paramInfoId: string;
@@ -122,10 +127,10 @@ function commitProjectGpuRetainedSliderParamPointerValue({
   );
   if (!previewState) {
     throw new Error(
-      `Missing GPU retained slider param ${paramInfoId} in section ${sectionId}.`,
+      `Missing GPU retained ${control.kind} param ${paramInfoId} in section ${sectionId}.`,
     );
   }
-  const nextValue = resolveGpuRetainedSliderValueFromPoint({
+  const nextValue = resolveProjectGpuRetainedRangedValueFromPoint({
     control,
     point,
     rect: hitRect,
@@ -140,31 +145,42 @@ function commitProjectGpuRetainedSliderParamPointerValue({
   });
 }
 
-function getProjectGpuRetainedSliderControlRow(
+function resolveProjectGpuRetainedRangedValueFromPoint({
+  control,
+  point,
+  rect,
+}: {
+  readonly control: GpuRetainedContentRangedControlDescriptor;
+  readonly point: GpuPoint;
+  readonly rect: GpuRetainedContentInteractionHit["hit"]["rect"];
+}): number {
+  if (control.kind === "slider") {
+    return resolveGpuRetainedSliderValueFromPoint({ control, point, rect });
+  }
+  return resolveGpuRetainedRotaryValueFromPoint({ control, point, rect });
+}
+
+function getProjectGpuRetainedRangedControlRow(
   event: GpuRetainedContentInteractionHit,
-):
-  | (GpuRetainedContentRow & {
-      readonly control: Extract<
-        GpuRetainedContentRow["control"],
-        { kind: "slider" }
-      >;
-    })
-  | null {
+): ProjectGpuRetainedRangedControlRow | null {
   if (event.hit.kind !== "control") {
     return null;
   }
   const row = event.retainedScene.rows.find(
     (candidate) => candidate.id === event.hit.ownerRowId,
   );
-  if (!row?.control || row.control.kind !== "slider") {
+  if (!row?.control || !isProjectGpuRetainedRangedControl(row.control)) {
     return null;
   }
-  return row as GpuRetainedContentRow & {
-    readonly control: Extract<
-      GpuRetainedContentRow["control"],
-      { kind: "slider" }
-    >;
-  };
+  return row as ProjectGpuRetainedRangedControlRow;
+}
+
+function isProjectGpuRetainedRangedControl(
+  control: GpuRetainedContentRow["control"],
+): control is GpuRetainedContentRangedControlDescriptor {
+  return Boolean(
+    control && (control.kind === "slider" || control.kind === "rotary"),
+  );
 }
 
 function getProjectGpuRetainedContentDragLocalPoint({

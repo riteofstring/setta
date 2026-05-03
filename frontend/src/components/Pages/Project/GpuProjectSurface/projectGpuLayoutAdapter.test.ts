@@ -34,6 +34,7 @@ import {
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type ColorPickerParamCodeObjImpl,
+  type RotaryParamCodeObjImpl,
   type SingleConfig,
   type SliderParamCodeObjImpl,
   type TimeParamCodeObjImpl,
@@ -1139,6 +1140,86 @@ describe("project GPU layout adapter", () => {
     expect(scene.domIslands).toEqual([]);
   });
 
+  it("keeps retained rotary controls canvas-owned with concrete descriptors", () => {
+    const projectState = projectStateWithSections({
+      sections: [
+        {
+          id: "dict-a",
+          impl: createDictSectionImpl({
+            codeObjVariantMap: {
+              "root-param": "root-param-variant",
+              "rotary-param": "rotary-param-variant",
+            },
+            id: "dict-a-impl",
+            size: sectionSize({ height: 120, width: 260 }),
+            topLevelParamId: "root-param",
+          }),
+          parentId: null,
+        },
+      ],
+      topLevelSections: {
+        "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+      },
+    });
+    addParamToProjectState(
+      projectState,
+      "root-param",
+      "root-param-variant",
+      "root-param-impl",
+      createNestedParamImpl("root-param-impl", ["rotary-param"]),
+    );
+    addParamToProjectState(
+      projectState,
+      "rotary-param",
+      "rotary-param-variant",
+      "rotary-param-impl",
+      createRotaryParamImpl({
+        id: "rotary-param-impl",
+        name: "rotary",
+        value: "6",
+      }),
+    );
+    projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
+      unpinned: {
+        requiredParamIdsToPaths: {
+          "rotary-param": ["rotary-param"],
+        },
+        topLevelParamIds: ["rotary-param"],
+      },
+    });
+
+    const scene = getProjectGpuFlowScene(projectState, {
+      activeParamDomIsland: {
+        hitRecordId: "control:rotary-param",
+        paramInfoId: "rotary-param",
+        sectionId: "dict-a",
+        surfaceId: "dict-a:param-content:unpinned",
+      },
+      darkMode: false,
+      revision: 11,
+    });
+    const rotarySurface = scene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(rotarySurface?.retainedScene?.rows[0]).toMatchObject({
+      control: {
+        defaultDisplayValue: "0",
+        displayValue: "6",
+        kind: "rotary",
+        rendererFamily: "rotary",
+        commitPolicy: "preview-commit",
+        max: 10,
+        min: 0,
+        step: 1,
+        value: 6,
+      },
+      controlKind: "rotary",
+      id: "rotary-param",
+    });
+    expect(scene.domIslands).toEqual([]);
+  });
+
   it("does not synthesize retained controls for params without a section-param UI owner", () => {
     const projectState = projectStateWithSections({
       sections: [
@@ -2101,6 +2182,34 @@ function createSliderParamImpl({
     typeAnnotation: "",
     value,
   } satisfies SliderParamCodeObjImpl;
+  return impl as BaseCodeObjImplUnion;
+}
+
+function createRotaryParamImpl({
+  id,
+  name,
+  value,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+}): BaseCodeObjImplUnion {
+  const impl = {
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "0",
+    description: "",
+    id,
+    isPreset: false,
+    max: 10,
+    min: 0,
+    name,
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    step: 1,
+    type: CodeObjTypeEnum.RotaryParam,
+    typeAnnotation: "",
+    value,
+  } satisfies RotaryParamCodeObjImpl;
   return impl as BaseCodeObjImplUnion;
 }
 

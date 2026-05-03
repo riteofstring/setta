@@ -93,11 +93,11 @@ import {
 } from "./projectGpuPortalAdapter";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 import {
-  commitProjectGpuRetainedSliderControlClick,
-  handleProjectGpuRetainedSliderControlDragEnd,
-  handleProjectGpuRetainedSliderControlDragMove,
-  isProjectGpuRetainedParamSliderControlHit,
-} from "./projectGpuRetainedParamSliderControlAdapter";
+  commitProjectGpuRetainedRangedControlClick,
+  handleProjectGpuRetainedRangedControlDragEnd,
+  handleProjectGpuRetainedRangedControlDragMove,
+  isProjectGpuRetainedParamRangedControlHit,
+} from "./projectGpuRetainedParamRangedControlAdapter";
 
 type ProjectGpuRetainedContentScrollApi = {
   readonly getScene: () => GpuFlowScene;
@@ -182,7 +182,7 @@ export function getProjectRetainedContentInteractionOptions({
       shouldHandleProjectRetainedContentHit(event, { canEditStructure }),
     shouldHandlePointerMoveHit: () => true,
     shouldStartDrag: (event: GpuRetainedContentInteractionHit) =>
-      isProjectGpuRetainedParamSliderControlHit(event) ||
+      isProjectGpuRetainedParamRangedControlHit(event) ||
       (canEditStructure &&
         useMisc.getState().isSelectingParams &&
         (event.hit.kind === "row" || event.hit.kind === "label")),
@@ -398,7 +398,7 @@ function handleProjectRetainedContentCanvasControlClick(
     });
     return true;
   }
-  if (commitProjectGpuRetainedSliderControlClick(event)) {
+  if (commitProjectGpuRetainedRangedControlClick(event)) {
     return true;
   }
   return false;
@@ -449,7 +449,7 @@ function handleProjectRetainedContentDragStart(
     readonly retainedParamDragSessionRef: MutableRefObject<ProjectGpuRetainedParamDragSession | null>;
   },
 ) {
-  if (isProjectGpuRetainedParamSliderControlHit(event)) {
+  if (isProjectGpuRetainedParamRangedControlHit(event)) {
     applyActiveSectionChange({
       interaction: "input-focus",
       sectionId: event.ownerSectionId,
@@ -493,7 +493,7 @@ function handleProjectRetainedContentDragMove(
   },
 ): boolean {
   if (
-    handleProjectGpuRetainedSliderControlDragMove(event, {
+    handleProjectGpuRetainedRangedControlDragMove(event, {
       retainedContentScene: retainedContentScroll,
     })
   ) {
@@ -587,7 +587,7 @@ function handleProjectRetainedContentDragEnd(
   },
 ) {
   if (
-    handleProjectGpuRetainedSliderControlDragEnd(event, {
+    handleProjectGpuRetainedRangedControlDragEnd(event, {
       retainedContentScene: retainedContentScroll,
     })
   ) {

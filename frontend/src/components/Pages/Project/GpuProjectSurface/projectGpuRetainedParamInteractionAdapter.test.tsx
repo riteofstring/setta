@@ -4,6 +4,7 @@ import type {
   GpuRetainedContentDragEvent,
   GpuRetainedContentInteractionEvent,
 } from "gpuFlow/interactions/retainedContentInteraction";
+import { getGpuRetainedContentRotaryKnobRect } from "gpuFlow/retainedContentControls";
 import { createGpuRetainedRowContentScene } from "gpuFlow/retainedContentScene";
 import type { GpuDomIsland, GpuFlowScene } from "gpuFlow/scene";
 import { act } from "react";
@@ -52,6 +53,7 @@ import {
   createSingleConfig,
   createSwitchParamCodeObjImpl,
   createVariant,
+  type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
   type TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
@@ -1027,6 +1029,239 @@ describe("project GPU retained param DOM islands", () => {
     }
   });
 
+  it("commits retained rotary clicks from canvas without mounting a DOM island", async () => {
+    seedRotaryParamProjectState("0");
+    vi.useFakeTimers();
+    const onActiveParamDomIslandChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "0",
+            displayValue: "0",
+            kind: "rotary",
+            rendererFamily: "rotary",
+            commitPolicy: "preview-commit",
+            max: 10,
+            min: 0,
+            step: 1,
+            value: 0,
+          },
+          controlKind: "rotary",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 180, x: 0, y: 0 },
+    });
+    const controlHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "control",
+    );
+    if (!controlHit) {
+      throw new Error("Expected retained control hit.");
+    }
+    const knobRect = getGpuRetainedContentRotaryKnobRect(controlHit.rect);
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange: vi.fn(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const event = {
+      hit: controlHit,
+      localPoint: {
+        x: knobRect.x,
+        y: knobRect.y + knobRect.height / 2,
+      },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 220,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 170, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    try {
+      expect(options.shouldHandleHit?.(event)).toBe(true);
+      options.onHitClick(event);
+
+      expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+      expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          paramInfoId: "param-1",
+        }),
+      );
+
+      await act(async () => {
+        vi.advanceTimersByTime(60);
+        await Promise.resolve();
+      });
+
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: expect.any(String),
+          paramInfoId: "param-1",
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-1-variant",
+          value: "10",
+        },
+      });
+      expect(
+        useProjectState.getState().codeObjImpls["param-1-impl"]?.value,
+      ).toBe("10");
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
+  it("previews retained rotary drags without OpenAPI before committing on drag end", async () => {
+    seedRotaryParamProjectState("0");
+    vi.useFakeTimers();
+    const onActiveParamDomIslandChange = vi.fn();
+    const onRetainedParamDragPreviewChange = vi.fn();
+    const retainedParamDragSessionRef = { current: null };
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 112,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "0",
+            displayValue: "0",
+            kind: "rotary",
+            rendererFamily: "rotary",
+            commitPolicy: "preview-commit",
+            max: 10,
+            min: 0,
+            step: 1,
+            value: 0,
+          },
+          controlKind: "rotary",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 180, x: 0, y: 0 },
+    });
+    const controlHit = retainedScene.hitRecords.find(
+      (candidate) => candidate.kind === "control",
+    );
+    if (!controlHit) {
+      throw new Error("Expected retained control hit.");
+    }
+    const knobRect = getGpuRetainedContentRotaryKnobRect(controlHit.rect);
+    const knobCenter = {
+      x: knobRect.x + knobRect.width / 2,
+      y: knobRect.y + knobRect.height / 2,
+    };
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onRetainedParamDragPreviewChange,
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef,
+      zoomActivationKeyPressed: false,
+    });
+    const activeHit = {
+      hit: controlHit,
+      localPoint: {
+        x: knobCenter.x,
+        y: knobCenter.y,
+      },
+      nativeEvent: new MouseEvent("pointerdown", {
+        clientX: 120,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 80, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+    const dragEndHit = {
+      ...activeHit,
+      localPoint: {
+        x: knobCenter.x,
+        y: knobRect.y,
+      },
+      screenPoint: { x: 170, y: 14 },
+    } satisfies GpuRetainedContentInteractionEvent;
+    const dragMoveEvent = {
+      activeHit,
+      flowPoint: dragEndHit.localPoint,
+      hit: dragEndHit,
+      nativeEvent: new MouseEvent("pointermove", {
+        clientX: 210,
+        clientY: 96,
+      }) as PointerEvent,
+      screenPoint: dragEndHit.screenPoint,
+    } satisfies GpuRetainedContentDragEvent;
+    const dragEndEvent = {
+      ...dragMoveEvent,
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 210,
+        clientY: 96,
+      }) as PointerEvent,
+    } satisfies GpuRetainedContentDragEvent;
+
+    try {
+      expect(options.shouldStartDrag?.(activeHit)).toBe(true);
+      options.onHitDragStart(activeHit);
+
+      expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+      expect(onRetainedParamDragPreviewChange).not.toHaveBeenCalled();
+      expect(retainedParamDragSessionRef.current).toBe(null);
+
+      options.onHitDragMove(dragMoveEvent);
+      expect(mocks.setParamEnteredValueMock).not.toHaveBeenCalled();
+
+      options.onHitDragEnd(dragEndEvent);
+      await act(async () => {
+        vi.advanceTimersByTime(60);
+        await Promise.resolve();
+      });
+
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: expect.any(String),
+          paramInfoId: "param-1",
+          projectConfigId: "project-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-1-variant",
+          value: "2",
+        },
+      });
+    } finally {
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
+    }
+  });
+
   it("does not activate retained param name islands when structure edits are disabled", () => {
     seedNestedParamNameProjectState();
     const onActiveParamDomIslandChange = vi.fn();
@@ -1470,6 +1705,115 @@ function seedSliderParamProjectState(value: string) {
     typeAnnotation: "",
     value,
   } satisfies SliderParamCodeObjImpl;
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [paramImplId]: paramImpl,
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: [],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
+}
+
+function seedRotaryParamProjectState(value: string) {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+  const paramImpl = {
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "0",
+    description: "",
+    id: paramImplId,
+    isPreset: false,
+    max: 10,
+    min: 0,
+    name: "param-1",
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    step: 1,
+    type: CodeObjTypeEnum.RotaryParam,
+    typeAnnotation: "",
+    value,
+  } satisfies RotaryParamCodeObjImpl;
 
   useProjectState.setState(
     createSingleConfig({

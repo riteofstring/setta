@@ -20,6 +20,7 @@ import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
   CodeObjTypeEnum,
   type CodeObjType,
+  type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
 } from "utils/generatedTypes";
 
@@ -145,43 +146,65 @@ function createProjectGpuParamControlDescriptor({
     };
   }
   if (codeObjImpl.type === CodeObjTypeEnum.SliderParam) {
-    const slider = codeObjImpl as SliderParamCodeObjImpl;
-    const min = assertProjectGpuFiniteNumber(slider.min, "slider min");
-    const max = assertProjectGpuFiniteNumber(slider.max, "slider max");
-    const step = assertProjectGpuFiniteNumber(slider.step, "slider step");
-    if (max < min) {
-      throw new Error(
-        `Invalid GPU retained slider config for ${slider.id}: max ${max} is less than min ${min}.`,
-      );
-    }
-    const value = toProjectGpuRetainedNumericControlValue({
-      max,
-      min,
-      step,
-      value: slider.value,
-    });
-    const defaultValue = toProjectGpuRetainedNumericControlValue({
-      max,
-      min,
-      step,
-      value: slider.defaultVal,
-    });
-    return {
-      defaultDisplayValue: formatGpuRetainedNumericControlValue({
-        step,
-        value: defaultValue,
-      }),
-      displayValue: formatGpuRetainedNumericControlValue({ step, value }),
+    return createProjectGpuRangedControlDescriptor({
+      codeObjImpl: codeObjImpl as SliderParamCodeObjImpl,
+      controlKind,
       kind: "slider",
-      rendererFamily: controlKind,
-      commitPolicy: "preview-commit",
-      max,
-      min,
-      step,
-      value,
-    };
+    });
+  }
+  if (codeObjImpl.type === CodeObjTypeEnum.RotaryParam) {
+    return createProjectGpuRangedControlDescriptor({
+      codeObjImpl: codeObjImpl as RotaryParamCodeObjImpl,
+      controlKind,
+      kind: "rotary",
+    });
   }
   return null;
+}
+
+function createProjectGpuRangedControlDescriptor({
+  codeObjImpl,
+  controlKind,
+  kind,
+}: {
+  readonly codeObjImpl: SliderParamCodeObjImpl | RotaryParamCodeObjImpl;
+  readonly controlKind: string;
+  readonly kind: "slider" | "rotary";
+}): GpuRetainedContentControlDescriptor {
+  const min = assertProjectGpuFiniteNumber(codeObjImpl.min, `${kind} min`);
+  const max = assertProjectGpuFiniteNumber(codeObjImpl.max, `${kind} max`);
+  const step = assertProjectGpuFiniteNumber(codeObjImpl.step, `${kind} step`);
+  if (max < min) {
+    throw new Error(
+      `Invalid GPU retained ${kind} config for ${codeObjImpl.id}: max ${max} is less than min ${min}.`,
+    );
+  }
+  const value = toProjectGpuRetainedNumericControlValue({
+    max,
+    min,
+    step,
+    value: codeObjImpl.value,
+  });
+  const defaultValue = toProjectGpuRetainedNumericControlValue({
+    max,
+    min,
+    step,
+    value: codeObjImpl.defaultVal,
+  });
+  return {
+    defaultDisplayValue: formatGpuRetainedNumericControlValue({
+      step,
+      value: defaultValue,
+    }),
+    displayValue: formatGpuRetainedNumericControlValue({ step, value }),
+    kind,
+    rendererFamily: controlKind,
+    commitPolicy: "preview-commit",
+    max,
+    min,
+    step,
+    value,
+  };
 }
 
 function toProjectGpuParamDisplayValue(value: unknown): string {

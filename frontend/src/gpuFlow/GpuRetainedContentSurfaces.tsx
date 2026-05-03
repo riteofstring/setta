@@ -7,6 +7,9 @@ import {
   type HtmlSurfaceSourceElementConfig,
 } from "./htmlSurfaces/sourceLayer";
 import {
+  getGpuRetainedContentRotaryIndicatorAngle,
+  getGpuRetainedContentRotaryKnobRect,
+  getGpuRetainedContentRotaryValueLabelRect,
   getGpuRetainedContentSliderThumbRect,
   getGpuRetainedContentSliderTrackRect,
   getGpuRetainedContentSliderValueLabelRect,
@@ -281,24 +284,52 @@ function drawGpuRetainedContentControl({
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
-  if (control.kind === "switch") {
-    drawGpuRetainedContentSwitchControl({
-      control,
-      ctx,
-      rect,
-      state,
-    });
-    return;
+  switch (control.kind) {
+    case "switch":
+      drawGpuRetainedContentSwitchControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return;
+    case "slider":
+      drawGpuRetainedContentSliderControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return;
+    case "rotary":
+      drawGpuRetainedContentRotaryControl({
+        control,
+        ctx,
+        rect,
+        state,
+      });
+      return;
+    default:
+      drawGpuRetainedContentGenericControl({
+        controlKind,
+        ctx,
+        rect,
+        state,
+      });
   }
-  if (control.kind === "slider") {
-    drawGpuRetainedContentSliderControl({
-      control,
-      ctx,
-      rect,
-      state,
-    });
-    return;
-  }
+}
+
+function drawGpuRetainedContentGenericControl({
+  controlKind,
+  ctx,
+  rect,
+  state,
+}: {
+  readonly controlKind: string;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly rect: GpuRect;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
   const outer = insetRect(rect, 6, 5);
   ctx.fillStyle = state?.disabled ? "#e2e8f0" : "#e0f2fe";
   ctx.strokeStyle = state?.selected ? "#2563eb" : "#bae6fd";
@@ -314,6 +345,72 @@ function drawGpuRetainedContentControl({
     outer.x + outer.width / 2,
     outer.y + outer.height / 2,
     Math.max(0, outer.width - 8),
+  );
+  ctx.textAlign = "start";
+}
+
+function drawGpuRetainedContentRotaryControl({
+  control,
+  ctx,
+  rect,
+  state,
+}: {
+  readonly control: Extract<
+    GpuRetainedContentControlDescriptor,
+    { kind: "rotary" }
+  >;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly rect: GpuRect;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  const disabled = state?.disabled ?? false;
+  const knobRect = getGpuRetainedContentRotaryKnobRect(rect);
+  const valueRect = getGpuRetainedContentRotaryValueLabelRect(rect);
+  const centerX = knobRect.x + knobRect.width / 2;
+  const centerY = knobRect.y + knobRect.height / 2;
+  const radius = Math.max(0, Math.min(knobRect.width, knobRect.height) / 2);
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.fillStyle = disabled ? "#e2e8f0" : "#f8fafc";
+  ctx.fill();
+  ctx.strokeStyle = disabled ? "#cbd5e1" : "#94a3b8";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, Math.max(0, radius - 5), 0, Math.PI * 2);
+  ctx.fillStyle = disabled ? "#f1f5f9" : "#ffffff";
+  ctx.fill();
+
+  const indicatorAngle =
+    (getGpuRetainedContentRotaryIndicatorAngle(control) * Math.PI) / 180;
+  const indicatorInnerRadius = radius * 0.25;
+  const indicatorOuterRadius = radius * 0.72;
+  ctx.beginPath();
+  ctx.moveTo(
+    centerX + Math.cos(indicatorAngle) * indicatorInnerRadius,
+    centerY + Math.sin(indicatorAngle) * indicatorInnerRadius,
+  );
+  ctx.lineTo(
+    centerX + Math.cos(indicatorAngle) * indicatorOuterRadius,
+    centerY + Math.sin(indicatorAngle) * indicatorOuterRadius,
+  );
+  ctx.strokeStyle = disabled ? "#94a3b8" : "#2563eb";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.stroke();
+  ctx.lineCap = "butt";
+
+  ctx.font = RETAINED_CONTENT_CONTROL_FONT;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = disabled ? "#64748b" : "#334155";
+  ctx.fillText(
+    control.displayValue,
+    valueRect.x + valueRect.width,
+    valueRect.y + valueRect.height / 2,
+    valueRect.width,
   );
   ctx.textAlign = "start";
 }

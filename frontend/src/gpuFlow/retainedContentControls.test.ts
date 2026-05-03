@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  getGpuRetainedContentRotaryKnobRect,
   getGpuRetainedContentSliderTrackRect,
+  resolveGpuRetainedRotaryValueFromPoint,
   resolveGpuRetainedSliderValueFromPoint,
   snapGpuRetainedNumericControlValue,
+  type GpuRetainedContentRotaryControlDescriptor,
   type GpuRetainedContentSliderControlDescriptor,
 } from "./retainedContentControls";
 import type { GpuRect } from "./viewportMath";
@@ -51,6 +54,43 @@ describe("retained content controls", () => {
       }),
     ).toBe(0.5);
   });
+
+  it("maps rotary pointer positions through retained knob geometry", () => {
+    const control = rotaryControl({
+      max: 10,
+      min: 0,
+      step: 2,
+      value: 0,
+    });
+    const rect: GpuRect = { height: 28, width: 112, x: 48, y: 0 };
+    const knobRect = getGpuRetainedContentRotaryKnobRect(rect);
+    const center = {
+      x: knobRect.x + knobRect.width / 2,
+      y: knobRect.y + knobRect.height / 2,
+    };
+
+    expect(
+      resolveGpuRetainedRotaryValueFromPoint({
+        control,
+        point: { x: knobRect.x + knobRect.width, y: center.y },
+        rect,
+      }),
+    ).toBe(6);
+    expect(
+      resolveGpuRetainedRotaryValueFromPoint({
+        control,
+        point: { x: center.x, y: knobRect.y },
+        rect,
+      }),
+    ).toBe(2);
+    expect(
+      resolveGpuRetainedRotaryValueFromPoint({
+        control,
+        point: { x: knobRect.x, y: center.y },
+        rect,
+      }),
+    ).toBe(10);
+  });
 });
 
 function sliderControl(
@@ -61,6 +101,23 @@ function sliderControl(
     displayValue: "0",
     kind: "slider",
     rendererFamily: "slider",
+    commitPolicy: "preview-commit",
+    max: 10,
+    min: 0,
+    step: 1,
+    value: 0,
+    ...overrides,
+  };
+}
+
+function rotaryControl(
+  overrides: Partial<GpuRetainedContentRotaryControlDescriptor>,
+): GpuRetainedContentRotaryControlDescriptor {
+  return {
+    defaultDisplayValue: "0",
+    displayValue: "0",
+    kind: "rotary",
+    rendererFamily: "rotary",
     commitPolicy: "preview-commit",
     max: 10,
     min: 0,

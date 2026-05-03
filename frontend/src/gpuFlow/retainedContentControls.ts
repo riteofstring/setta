@@ -5,6 +5,13 @@ export type GpuRetainedContentSliderControlDescriptor = Extract<
   GpuRetainedContentControlDescriptor,
   { kind: "slider" }
 >;
+export type GpuRetainedContentRotaryControlDescriptor = Extract<
+  GpuRetainedContentControlDescriptor,
+  { kind: "rotary" }
+>;
+export type GpuRetainedContentRangedControlDescriptor =
+  | GpuRetainedContentSliderControlDescriptor
+  | GpuRetainedContentRotaryControlDescriptor;
 
 const MAX_NUMERIC_CONTROL_DISPLAY_DECIMALS = 3;
 const SLIDER_CONTROL_INSET_X = 6;
@@ -14,6 +21,14 @@ const SLIDER_MIN_VALUE_LABEL_WIDTH = 28;
 const SLIDER_MAX_VALUE_LABEL_WIDTH = 38;
 const SLIDER_TRACK_HEIGHT = 4;
 const SLIDER_THUMB_SIZE = 12;
+const ROTARY_CONTROL_INSET_X = 6;
+const ROTARY_CONTROL_INSET_Y = 3;
+const ROTARY_VALUE_LABEL_GAP = 8;
+const ROTARY_VALUE_LABEL_WIDTH = 38;
+const ROTARY_MAX_KNOB_SIZE = 22;
+const ROTARY_START_DEG = -135;
+const ROTARY_END_DEG = 135;
+const ROTARY_RANGE_DEG = ROTARY_END_DEG - ROTARY_START_DEG;
 
 export function getGpuRetainedContentSliderTrackRect(rect: GpuRect): GpuRect {
   const outer = insetRect(rect, SLIDER_CONTROL_INSET_X, SLIDER_CONTROL_INSET_Y);
@@ -90,6 +105,76 @@ export function resolveGpuRetainedSliderValueFromPoint({
   });
 }
 
+export function getGpuRetainedContentRotaryKnobRect(rect: GpuRect): GpuRect {
+  const outer = insetRect(rect, ROTARY_CONTROL_INSET_X, ROTARY_CONTROL_INSET_Y);
+  const availableWidth = Math.max(
+    0,
+    outer.width - ROTARY_VALUE_LABEL_WIDTH - ROTARY_VALUE_LABEL_GAP,
+  );
+  const size = Math.min(
+    ROTARY_MAX_KNOB_SIZE,
+    Math.max(0, outer.height),
+    availableWidth,
+  );
+  return {
+    height: size,
+    width: size,
+    x: outer.x,
+    y: outer.y + (outer.height - size) / 2,
+  };
+}
+
+export function getGpuRetainedContentRotaryValueLabelRect(
+  rect: GpuRect,
+): GpuRect {
+  const outer = insetRect(rect, ROTARY_CONTROL_INSET_X, ROTARY_CONTROL_INSET_Y);
+  const width = Math.min(ROTARY_VALUE_LABEL_WIDTH, Math.max(0, outer.width));
+  return {
+    height: outer.height,
+    width,
+    x: outer.x + outer.width - width,
+    y: outer.y,
+  };
+}
+
+export function getGpuRetainedContentRotaryIndicatorAngle(
+  control: GpuRetainedContentRotaryControlDescriptor,
+): number {
+  return getGpuRetainedRotaryAngleFromValue({
+    max: control.max,
+    min: control.min,
+    value: control.value,
+  });
+}
+
+export function resolveGpuRetainedRotaryValueFromPoint({
+  control,
+  point,
+  rect,
+}: {
+  readonly control: GpuRetainedContentRotaryControlDescriptor;
+  readonly point: GpuPoint;
+  readonly rect: GpuRect;
+}): number {
+  const knobRect = getGpuRetainedContentRotaryKnobRect(rect);
+  if (knobRect.width <= 0 || knobRect.height <= 0) {
+    return snapGpuRetainedNumericControlValue({
+      max: control.max,
+      min: control.min,
+      step: control.step,
+      value: control.value,
+    });
+  }
+  const centerX = knobRect.x + knobRect.width / 2;
+  const centerY = knobRect.y + knobRect.height / 2;
+  const angle =
+    (Math.atan2(point.y - centerY, point.x - centerX) * 180) / Math.PI;
+  return getGpuRetainedRotaryValueFromAngle({
+    angle,
+    control,
+  });
+}
+
 export function snapGpuRetainedNumericControlValue({
   max,
   min,
@@ -136,7 +221,7 @@ function getGpuRetainedNumericControlNormalizedValue({
   min,
   value,
 }: Pick<
-  GpuRetainedContentSliderControlDescriptor,
+  GpuRetainedContentRangedControlDescriptor,
   "max" | "min" | "value"
 >): number {
   const range = max - min;
@@ -169,6 +254,38 @@ function roundTo(value: number, precision: number): number {
   }
   const factor = 10 ** precision;
   return Math.round(value * factor) / factor;
+}
+
+function getGpuRetainedRotaryAngleFromValue({
+  max,
+  min,
+  value,
+}: Pick<
+  GpuRetainedContentRotaryControlDescriptor,
+  "max" | "min" | "value"
+>): number {
+  return (
+    ROTARY_START_DEG +
+    getGpuRetainedNumericControlNormalizedValue({ max, min, value }) *
+      ROTARY_RANGE_DEG
+  );
+}
+
+function getGpuRetainedRotaryValueFromAngle({
+  angle,
+  control,
+}: {
+  readonly angle: number;
+  readonly control: GpuRetainedContentRotaryControlDescriptor;
+}): number {
+  const clampedAngle = clampNumber(angle, ROTARY_START_DEG, ROTARY_END_DEG);
+  const normalized = (clampedAngle - ROTARY_START_DEG) / ROTARY_RANGE_DEG;
+  return snapGpuRetainedNumericControlValue({
+    max: control.max,
+    min: control.min,
+    step: control.step,
+    value: control.min + normalized * (control.max - control.min),
+  });
 }
 
 function clampNumber(value: number, min: number, max: number): number {
