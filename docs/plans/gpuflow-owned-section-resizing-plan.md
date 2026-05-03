@@ -118,6 +118,52 @@ High-signal references:
   - Documents direct canvas-child constraints, paint events, and that source
     transforms affect hit testing separately from capture.
 
+Performance-relevant resize references:
+
+- `three-html-render/src/htmlInCanvasPolyfill.ts`
+  - `attachObservers` marks affected children dirty and calls a single
+    `schedulePaint`, while `schedulePaint` coalesces all dirty work through one
+    `requestAnimationFrame`.
+  - Use the dirty-set/rAF shape as the scheduling model for resize frames. Do
+    not copy the polyfill's broad "all children dirty" behavior for Setta
+    manual resize; only the active resized node should be size-dirtied.
+- `html-in-canvas-official/README.md`
+  - The examples size canvas backing stores with `ResizeObserver` using
+    `device-pixel-content-box`, and the explainer documents the selected paint
+    timing model as one `paint` event per frame.
+  - Apply this to the GpuFlow surface and texture-resolution code, not to manual
+    resize ownership. ResizeObserver is suitable for canvas/DPR backing size
+    changes and intrinsic measurement, not for discovering a pointer-resized
+    graph node.
+- `html-in-canvas-cracks/src/main.js` and `html-in-canvas-cracks/README.md`
+  - `schedulePaint` coalesces paint work, fast resize uses the actually drawn
+    source element as the source of truth, DPR is clamped against max texture
+    dimensions, and GPU texture allocation is explicitly refreshed when backing
+    dimensions change.
+  - The useful Setta lesson is: keep JS-side texture records stable for
+    references, but treat backing-size changes as explicit GPU allocation or
+    resolution-dirty events. Avoid silently scaling new HTML content into an old
+    allocation.
+- `html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts`
+  - The WebGPU resize path recreates size-dependent textures/bind groups and
+    resets accumulation state on canvas resize.
+  - For Setta, resizing a node should explicitly update size-dependent texture
+    resources for that node while leaving passive nodes and unrelated renderer
+    state alone.
+- `compiz-web/src/transitions/TransitionEngine.ts`
+  - Separates DPR-aware canvas backing-store resize from HTML element texture
+    upload.
+  - Keep the same separation in GpuFlow: canvas size, node layout size, and HTML
+    texture content upload are related, but they should be independently
+    scheduled and measured.
+- `three-html-render/src/htmlTexture.ts` and
+  `three-html-render/src/threeHTMLRenderer.ts`
+  - `htmlTexture.ts` ties texture updates to paint events and keeps the source
+    element available for interaction managers. `threeHTMLRenderer.ts` requests
+    repaint every frame for CSS animations.
+  - For Setta resize, use the paint-driven texture update idea, but do not adopt
+    every-frame `requestPaint` except for explicitly animated HTML sources.
+
 ## Target Architecture
 
 Add a first-class GpuFlow node resize interaction:
@@ -333,6 +379,12 @@ Expected behavior:
   camera uniforms, not DOM measurement.
 - Texture resolution should be recomputed from the final CSS size, DPR, and
   current zoom policy.
+- Backing-size changes must explicitly dirty or recreate size-dependent GPU
+  resources for the active node. Do not let a resized HTML source be sampled
+  through an old allocation that silently stretches or squashes the new content.
+- Keep JS-side texture records stable when other renderer objects hold
+  references to them, but refresh their underlying GPU allocation or resolution
+  metadata when CSS/device-pixel dimensions change.
 
 Do not make `ResizeObserver` the mechanism that tells textures the resized size.
 The resize controller already knows the size.
@@ -392,12 +444,15 @@ During a resize frame, avoid:
 - broad `ResizeObserver`-driven geometry discovery
 - rewriting DOM transforms for non-active nodes
 - uploading textures for passive nodes
+- requestPaint loops that are not tied to the active resized node or an
+  explicitly animated HTML source
 
 Allowed resize-frame work:
 
 - one rAF-coalesced live size update for the active node
 - source host width/height update for the active node
 - active node texture invalidation/upload within budget
+- active node size-dependent texture allocation or resolution metadata update
 - affected edge/selection/minimap geometry updates
 - viewport auto-pan if explicitly enabled for resize
 
