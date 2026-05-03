@@ -174,6 +174,7 @@ describe("GpuFlow", () => {
     expect(markup).toContain(
       'data-gpu-flow-dom-island-kind="retained-content-control"',
     );
+    expect(markup).toContain('class="setta-gpu-flow__dom-island nodrag nopan"');
     expect(markup).toContain('data-rendered-dom-island="island-a"');
     expect(markup).toContain("left:19px");
     expect(markup).toContain("top:38px");

@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
 import type { GpuDomIsland, GpuFlowScene } from "../scene";
 import {
@@ -9,6 +10,12 @@ import {
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
 export type GpuFlowDomIslandRenderer = (island: GpuDomIsland) => ReactNode;
+
+const GPU_FLOW_DOM_ISLAND_CLASS_NAME = [
+  "setta-gpu-flow__dom-island",
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+].join(" ");
 
 export function GpuFlowDomIslandLayer({
   renderDomIsland,
@@ -43,7 +50,7 @@ export function GpuFlowDomIslandLayer({
     <div className="setta-gpu-flow__dom-island-layer">
       {domIslands.map((island) => (
         <div
-          className="setta-gpu-flow__dom-island"
+          className={GPU_FLOW_DOM_ISLAND_CLASS_NAME}
           data-gpu-flow-dom-island="true"
           data-gpu-flow-dom-island-id={island.id}
           data-gpu-flow-dom-island-kind={island.kind}

@@ -64,7 +64,7 @@ describe("GpuFlow portal manager", () => {
         coordinateSpace: "viewport",
       }),
     ).toBe(
-      "setta-gpu-flow__portal-root setta-gpu-flow__portal-root--viewport setta-root",
+      "setta-gpu-flow__portal-root setta-gpu-flow__portal-root--viewport nodrag nopan setta-root",
     );
   });
 });
