@@ -45,6 +45,7 @@ import {
   createSingleConfig,
   createStateMachineGateSectionImpl,
   createVariant,
+  createViewMode,
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type ColorPickerParamCodeObjImpl,
@@ -65,11 +66,11 @@ import {
   getProjectGpuLayoutNode,
   getProjectGpuLayoutNodesFromNodeInternals,
 } from "./projectGpuLayoutNodeAdapter";
+import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
 import {
   areProjectGpuSceneMeasuredHeightsEqual,
   getProjectGpuSceneMeasuredHeights,
 } from "./projectGpuSceneMeasuredHeights";
-import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
 import { resolveProjectGpuSceneSectionReveal } from "./projectGpuSceneReveal";
 
 describe("project GPU layout adapter", () => {
@@ -220,21 +221,41 @@ describe("project GPU layout adapter", () => {
           }),
           parentId: null,
         },
+        {
+          id: "hidden-dict",
+          impl: createDictSectionImpl({
+            id: "hidden-dict-impl",
+            size: sectionSize({ height: 80, width: 180 }),
+          }),
+          parentId: null,
+        },
       ],
       topLevelSections: {
         "dict-a": { h: 120, w: 260, x: 10, y: 20, zIndex: 2 },
+        "hidden-dict": { h: 80, w: 180, x: 300, y: 20, zIndex: 3 },
       },
     });
+    projectState.projectConfig.activeViewModeId = "view-a";
+    projectState.projectConfig.viewModes = {
+      "view-a": createViewMode({
+        id: "view-a",
+        name: "View A",
+        visibilityBySectionId: { "dict-a": true, "hidden-dict": false },
+      }),
+    };
     const sectionId = "dict-a";
+    const hiddenSectionId = "hidden-dict";
     const headerKey = getSectionHeaderHeightKey(sectionId);
     const searchKey = getSectionSearchHeightKey(sectionId);
     const kwargsKey = getKwargsControlsHeightKey(sectionId);
     const paramsFixedKey = getParamsFixedHeightKey(sectionId);
     const edgesKey = getEdgesStripHeightKey(sectionId);
     const pinnedKey = getPinnedParamsAreaHeightKey(sectionId);
+    const hiddenHeaderKey = getSectionHeaderHeightKey(hiddenSectionId);
 
     const measuredHeights = getProjectGpuSceneMeasuredHeights(projectState, {
       [edgesKey]: 18,
+      [hiddenHeaderKey]: 64,
       [getSectionHeaderHeightKey("other-section")]: 42,
       [getSectionStylePreviewColorKey(sectionId)]: "#ff0000",
       [getUnpinnedParamsAreaHeightKey(sectionId)]: 88,
@@ -246,6 +267,7 @@ describe("project GPU layout adapter", () => {
       unrelated: 99,
     });
 
+    expect(measuredHeights).not.toHaveProperty(hiddenHeaderKey);
     expect(measuredHeights).toEqual({
       [edgesKey]: 18,
       [kwargsKey]: 0,

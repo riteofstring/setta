@@ -32,16 +32,8 @@ import {
 } from "gpuFlow/sceneScroll";
 import type { GpuRect } from "gpuFlow/viewportMath";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  getCurrEffectiveSectionImplIfPresent,
-  getEmbeddedAttachedTerminalForCodeSection,
-  getSectionShouldRender,
-  getTopLevelSectionIdsForDisplay,
-} from "state/actions/sectionInfos";
-import {
-  getActiveViewModeTopLevelSections,
-  shouldRenderTopLevelSectionNode,
-} from "state/actions/sectionInfos/codeObjectsAndLayout";
+import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
+import { getActiveViewModeTopLevelSections } from "state/actions/sectionInfos/codeObjectsAndLayout";
 import {
   buildTopLevelSectionNode,
   getPositiveTopLevelLayoutDimension,
@@ -108,6 +100,11 @@ import {
   type ProjectGpuSceneRevealSectionOptions,
 } from "./projectGpuSceneReveal";
 import { getProjectGpuSceneRevision } from "./projectGpuSceneRevision";
+import {
+  getProjectGpuRenderableTopLevelSectionIds,
+  getRenderableProjectChildSectionIds,
+  shouldRenderProjectSceneSection,
+} from "./projectGpuSectionSceneTree";
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
 
 export type {
@@ -345,21 +342,16 @@ export function getProjectGpuFlowScene(
   const sections: GpuSectionSceneNode[] = [];
   const seenSectionIds = new Set<string>();
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  const activeViewModeId = projectState.projectConfig.activeViewModeId;
   const resizePolicyContext =
     options.resizePolicyContext ?? getProjectGpuSceneResizePolicyContext();
   const paramEditPolicy =
     options.paramEditPolicy ?? DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY;
-  const canFilterByView = Boolean(
-    activeViewModeId && projectState.projectConfig.viewModes[activeViewModeId],
-  );
 
-  for (const sectionId of getTopLevelSectionIdsForDisplay(projectState)) {
+  for (const sectionId of getProjectGpuRenderableTopLevelSectionIds(
+    projectState,
+  )) {
     const layout = topLevelSections[sectionId];
-    if (
-      !layout ||
-      !shouldRenderTopLevelSectionNode(projectState, sectionId, canFilterByView)
-    ) {
+    if (!layout) {
       continue;
     }
     const sectionImpl = getCurrEffectiveSectionImplIfPresent(
@@ -830,50 +822,6 @@ function pushProjectSectionSceneNode({
   }
   seenSectionIds.add(sceneNode.sectionId);
   sections.push(sceneNode);
-}
-
-function getRenderableProjectChildSectionIds(
-  projectState: ZustandProjectState,
-  sectionId: string,
-  sectionImpl: BaseSectionImplUnion,
-): readonly string[] {
-  if (!isBaseParentSectionImpl(sectionImpl)) {
-    return [];
-  }
-  const childIds = (sectionImpl.children ?? []).filter((childId) =>
-    getCurrEffectiveSectionImplIfPresent(projectState, childId),
-  );
-  const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
-    projectState,
-    sectionId,
-    childIds,
-  );
-  if (!embeddedTerminal?.isTerminalMinimized) {
-    return childIds;
-  }
-  return childIds.filter(
-    (childId) => childId !== embeddedTerminal.attachedTerminalId,
-  );
-}
-
-function shouldRenderProjectSceneSection(
-  projectState: ZustandProjectState,
-  sectionId: string,
-): boolean {
-  const { activeViewModeId, isEditingViewMode, viewModes } =
-    projectState.projectConfig;
-  if (!activeViewModeId) {
-    return true;
-  }
-  const viewMode = viewModes[activeViewModeId];
-  if (!viewMode) {
-    return true;
-  }
-  const visibility = viewMode.visibilityBySectionId?.[sectionId];
-  if (visibility === undefined) {
-    return true;
-  }
-  return getSectionShouldRender(visibility, isEditingViewMode);
 }
 
 function getProjectSectionSceneLayoutMode(

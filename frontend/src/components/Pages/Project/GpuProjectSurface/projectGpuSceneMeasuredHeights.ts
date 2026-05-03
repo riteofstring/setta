@@ -17,6 +17,7 @@ import {
   getProjectSceneMeasuredHeightFromRecord,
   type ProjectGpuSceneResizePolicyContext,
 } from "./projectGpuSceneResizePolicy";
+import { getProjectGpuSceneSectionIds } from "./projectGpuSectionSceneTree";
 
 type ProjectGpuSceneMeasuredHeightKeyCreator = (sectionId: string) => string;
 
@@ -35,7 +36,7 @@ export function getProjectGpuSceneMeasuredHeights(
   measuredHeightsByKey: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, number>> {
   const sceneMeasuredHeights: Record<string, number> = {};
-  for (const sectionId of Object.keys(projectState.sections).sort()) {
+  for (const sectionId of getProjectGpuSceneSectionIds(projectState)) {
     for (const getHeightKey of PROJECT_GPU_SCENE_MEASURED_HEIGHT_KEY_CREATORS) {
       const heightKey = getHeightKey(sectionId);
       sceneMeasuredHeights[heightKey] = getProjectSceneMeasuredHeightFromRecord(
