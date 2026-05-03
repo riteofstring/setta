@@ -292,7 +292,7 @@ export function GpuFlow({
     () => (scene ? getGpuFlowSceneDomSectionNodes(scene) : undefined),
     [scene],
   );
-  const nodes = sceneNodes ?? storeNodes;
+  const nodes = storeNodes ?? sceneNodes;
   const drawEdges = resolveGpuFlowEdgeDrawInputs({ edgeScene, edges });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const surfaceRef = useRef<GpuSurfaceHandle | null>(null);

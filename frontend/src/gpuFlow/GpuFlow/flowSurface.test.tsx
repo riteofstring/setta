@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
+import type { GpuFlowScene, GpuSectionSceneNode } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
 
@@ -74,6 +75,34 @@ describe("GpuFlow", () => {
 
     expect(markup).toContain('data-gpu-flow-source-id="layout-node-a"');
   });
+
+  it("prefers subscribed layout store nodes over scene snapshot nodes", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 80,
+          nodeId: "live-node-a",
+          width: 120,
+          x: 10,
+          y: 20,
+        },
+      ],
+    });
+
+    const markup = renderToStaticMarkup(
+      <GpuFlow
+        layoutStore={layoutStore}
+        renderNode={(node) => <div data-rendered-node={node.nodeId} />}
+        scene={sceneWithSection("scene-node-a")}
+        viewportStore={createGpuFlowViewportStore({
+          transform: [0, 0, 1],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-gpu-flow-source-id="live-node-a"');
+    expect(markup).not.toContain('data-gpu-flow-source-id="scene-node-a"');
+  });
 });
 
 function edgeSceneWithLabel(): GpuEdgeScene {
@@ -94,5 +123,54 @@ function edgeSceneWithLabel(): GpuEdgeScene {
       },
     ],
     reconnectAnchors: [],
+  };
+}
+
+function sceneWithSection(sectionId: string): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [sectionSceneNode(sectionId)],
+  };
+}
+
+function sectionSceneNode(sectionId: string): GpuSectionSceneNode {
+  const rect = {
+    height: 80,
+    width: 120,
+    x: 10,
+    y: 20,
+  };
+  return {
+    ...rect,
+    bodyRect: rect,
+    childLayout: { gap: { x: 0, y: 0 } },
+    childSectionIds: [],
+    childViewportRect: null,
+    chromeRect: rect,
+    clipRect: rect,
+    contentRenderer: {
+      kind: "dom-section",
+      surfaceId: sectionId,
+    },
+    dirty: [],
+    interactionLayer: "content",
+    layoutMode: "none",
+    localRect: rect,
+    nodeId: sectionId,
+    parentSectionId: null,
+    portAnchors: [],
+    resizePolicy: {
+      locked: false,
+      maxHeight: null,
+      maxWidth: null,
+      minHeight: 0,
+      minWidth: 0,
+    },
+    scrollOffset: { x: 0, y: 0 },
+    sectionId,
+    worldRect: rect,
   };
 }
