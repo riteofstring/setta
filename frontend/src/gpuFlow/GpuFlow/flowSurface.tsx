@@ -157,7 +157,7 @@ export type GpuFlowProps = Pick<
     | false
     | Omit<
         GpuNodeDragControllerOptions,
-        "element" | "getNodes" | "requestFrame" | "store"
+        "element" | "layoutStore" | "requestFrame" | "store"
       >
     | undefined;
   nodeResize?:
@@ -443,16 +443,19 @@ export function GpuFlow({
     if (!container) {
       return;
     }
+    if (!layoutStore) {
+      throw new Error("GpuFlow node drag requires a layout store.");
+    }
     return attachGpuNodeDragController({
       ...nodeDrag,
       element: container,
-      getNodes: () => nodeLayerRef.current.nodes ?? [],
+      layoutStore,
       requestFrame: (reason) => {
         surfaceRef.current?.requestFrame(reason);
       },
       store: viewportStore,
     });
-  }, [nodeDrag, viewportStore]);
+  }, [layoutStore, nodeDrag, viewportStore]);
 
   useEffect(() => {
     if (nodeResize === false) {

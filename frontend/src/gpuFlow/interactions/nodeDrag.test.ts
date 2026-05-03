@@ -2,6 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
+import { createGpuFlowLayoutStore } from "../layoutStore";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   attachGpuNodeDragController,
@@ -88,7 +89,10 @@ describe("GPU node drag controller", () => {
     const element = createFlowElement();
     const nodeElement = createNodeElement("a");
     element.append(nodeElement);
-    const store = createGpuFlowViewportStore({
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 5, 10, 30, 40)],
+    });
+    const viewportStore = createGpuFlowViewportStore({
       transform: [10, 20, 2],
     });
     const onNodeDragStart = vi.fn();
@@ -98,7 +102,7 @@ describe("GPU node drag controller", () => {
     const detach = attachGpuNodeDragController({
       autoPanOnNodeDrag: false,
       element,
-      getNodes: () => [node("a", 5, 10, 30, 40)],
+      layoutStore,
       nodeDragThresholdPx: 1,
       onNodeDrag,
       onNodeDragStart,
@@ -106,7 +110,7 @@ describe("GPU node drag controller", () => {
       requestFrame,
       snapGrid: [10, 10],
       snapToGrid: true,
-      store,
+      store: viewportStore,
     });
 
     dispatchPointer(nodeElement, "pointerdown", {
@@ -122,8 +126,13 @@ describe("GPU node drag controller", () => {
       pointerId: 1,
     });
 
-    expect(store.getState().nodeDragging).toBe(true);
-    expect(store.getState().viewportInteractionActive).toBe(true);
+    expect(viewportStore.getState().nodeDragging).toBe(true);
+    expect(viewportStore.getState().viewportInteractionActive).toBe(true);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      interactionFlags: { dragging: true },
+      x: 15,
+      y: 22,
+    });
     expect(onNodeDragStart).toHaveBeenCalledWith({
       active: true,
       delta: { x: 0, y: 0 },
@@ -164,8 +173,20 @@ describe("GPU node drag controller", () => {
       nodeId: "a",
       phase: "stop",
     });
-    expect(store.getState().nodeDragging).toBe(false);
-    expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      x: 20,
+      y: 20,
+    });
+    expect(
+      layoutStore.getState().getNode("a")?.interactionFlags,
+    ).toBeUndefined();
+    expect(layoutStore.getState().lastChange).toMatchObject({
+      changedNodeIds: ["a"],
+      phase: "commit",
+      reason: "drag",
+    });
+    expect(viewportStore.getState().nodeDragging).toBe(false);
+    expect(viewportStore.getState().viewportInteractionActive).toBe(false);
     expect(requestFrame).toHaveBeenCalledWith("viewport");
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();
@@ -175,16 +196,19 @@ describe("GPU node drag controller", () => {
     const element = createFlowElement();
     const nodeElement = createNodeElement("a");
     element.append(nodeElement);
-    const store = createGpuFlowViewportStore();
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [node("a", 0, 0, 30, 40)],
+    });
+    const viewportStore = createGpuFlowViewportStore();
     const onNodeDragCancel = vi.fn();
     const requestFrame = vi.fn();
     const detach = attachGpuNodeDragController({
       autoPanOnNodeDrag: false,
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore,
       onNodeDragCancel,
       requestFrame,
-      store,
+      store: viewportStore,
     });
 
     dispatchPointer(nodeElement, "pointerdown", {
@@ -200,7 +224,12 @@ describe("GPU node drag controller", () => {
       pointerId: 1,
     });
 
-    expect(store.getState().nodeDragging).toBe(true);
+    expect(viewportStore.getState().nodeDragging).toBe(true);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      interactionFlags: { dragging: true },
+      x: 10,
+      y: 10,
+    });
     requestFrame.mockClear();
 
     dispatchPointer(document, "pointercancel", {
@@ -217,8 +246,20 @@ describe("GPU node drag controller", () => {
       nodeId: "a",
       phase: "cancel",
     });
-    expect(store.getState().nodeDragging).toBe(false);
-    expect(store.getState().viewportInteractionActive).toBe(false);
+    expect(layoutStore.getState().getNode("a")).toMatchObject({
+      x: 10,
+      y: 10,
+    });
+    expect(
+      layoutStore.getState().getNode("a")?.interactionFlags,
+    ).toBeUndefined();
+    expect(layoutStore.getState().lastChange).toMatchObject({
+      changedNodeIds: ["a"],
+      phase: "cancel",
+      reason: "drag",
+    });
+    expect(viewportStore.getState().nodeDragging).toBe(false);
+    expect(viewportStore.getState().viewportInteractionActive).toBe(false);
     expect(requestFrame).toHaveBeenCalledOnce();
     expect(requestFrame).toHaveBeenLastCalledWith("texture-upload");
     detach();
@@ -235,7 +276,9 @@ describe("GPU node drag controller", () => {
     const detach = attachGpuNodeDragController({
       autoPanOnNodeDrag: false,
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
       onNodeDrag,
     });
 
@@ -265,7 +308,9 @@ describe("GPU node drag controller", () => {
       autoPanOnNodeDrag: false,
       canDragNode: (nodeId) => nodeId !== "a",
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
       onNodeDrag,
     });
 
@@ -296,7 +341,9 @@ describe("GPU node drag controller", () => {
       autoPanOnNodeDrag: false,
       disabled: () => disabled,
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
       nodeDragThresholdPx: 10,
       onNodeDrag,
     });
@@ -351,7 +398,9 @@ describe("GPU node drag controller", () => {
       autoPanOnNodeDrag: false,
       canDragNode: () => canDrag,
       element,
-      getNodes: () => [node("a", 0, 0, 30, 40)],
+      layoutStore: createGpuFlowLayoutStore({
+        nodes: [node("a", 0, 0, 30, 40)],
+      }),
       nodeDragThresholdPx: 10,
       onNodeDrag,
     });

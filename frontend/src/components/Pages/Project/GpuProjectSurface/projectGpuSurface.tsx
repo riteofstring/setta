@@ -12,6 +12,8 @@ import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
+import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
+
 import { cancelViewportTransition } from "gpuFlow/viewportActions";
 
 import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
@@ -281,9 +283,10 @@ export function ProjectGpuFlowLayer({
       getProjectNodeDragOptions({
         flowInteractionKeys,
         isFollowTransitioning,
+        layoutStore,
         settings,
       }),
-    [flowInteractionKeys, isFollowTransitioning, settings],
+    [flowInteractionKeys, isFollowTransitioning, layoutStore, settings],
   );
   const nodeResizeOptions = useProjectNodeResizeOptions({
     canEditLayout,
@@ -464,10 +467,12 @@ export function getProjectSurfaceDataAttributes({
 export function getProjectNodeDragOptions({
   flowInteractionKeys,
   isFollowTransitioning,
+  layoutStore,
   settings,
 }: {
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly isFollowTransitioning: boolean;
+  readonly layoutStore: GpuFlowLayoutStoreApi;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
   return {
@@ -486,10 +491,12 @@ export function getProjectNodeDragOptions({
     },
     getSelectedNodeIds: getActiveSectionUIIds,
     nodeDragThresholdPx: 1,
-    onNodeDrag: handleProjectNodeDrag,
-    onNodeDragCancel: handleProjectNodeDragCancel,
-    onNodeDragStart: handleProjectNodeDragStart,
-    onNodeDragStop: handleProjectNodeDragStop,
+    onNodeDrag: (change) => handleProjectNodeDrag(layoutStore, change),
+    onNodeDragCancel: (change) =>
+      handleProjectNodeDragCancel(layoutStore, change),
+    onNodeDragStart: (change) =>
+      handleProjectNodeDragStart(layoutStore, change),
+    onNodeDragStop: (change) => handleProjectNodeDragStop(layoutStore, change),
     snapGrid: settings.snapGrid,
     snapToGrid: () => useLocalStorage.getState().snapToGrid,
   };

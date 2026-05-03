@@ -18,6 +18,8 @@ import { getGpuNodeDragAutoPanDelta } from "gpuFlow/interactions/nodeDrag";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
+import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
+
 import {
   shiftNodesSelectionBounds,
   updateActiveNodesSelectionBounds,
@@ -49,13 +51,18 @@ import { setActiveSectionIds } from "state/actions/activeSections";
 
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 
+import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
+
 import {
   getNodes,
   raiseTempZIndex,
   updateNodePositions,
 } from "state/actions/nodeInternals";
 
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getSectionDescendants,
+} from "state/actions/sectionInfos";
 
 import { setZIndices } from "state/actions/sections/sectionPositions";
 
@@ -67,7 +74,6 @@ import {
 import {
   useLocalStorage,
   useMisc,
-  useNodeInternals,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -413,24 +419,35 @@ export function cancelProjectSelectionAutoPan(
   autoPanFrameRef.current = null;
 }
 
-export function handleProjectNodeDragStart(change: ProjectGpuNodeDragChange) {
-  const nodesById = useNodeInternals.getState().x;
-  const nodes = change.items
-    .map((item) => nodesById.get(item.nodeId))
-    .filter((node) => node !== undefined);
-  raiseTempZIndex(nodes);
+export function handleProjectNodeDragStart(
+  layoutStore: GpuFlowLayoutStoreApi,
+  change: ProjectGpuNodeDragChange,
+) {
+  raiseGpuLayoutDragTempZIndex(
+    layoutStore,
+    change.items.map((item) => item.nodeId),
+  );
   useMisc.setState({ mouseDownDraggingSection: true });
 }
 
-export function handleProjectNodeDrag(change: ProjectGpuNodeDragChange) {
-  updateNodePositions(toNodeDragItems(change.items));
+export function handleProjectNodeDrag(
+  layoutStore: GpuFlowLayoutStoreApi,
+  change: ProjectGpuNodeDragChange,
+) {
   updateProjectSelectionBoundsAfterMovedNodes({
     delta: change.delta,
+    layoutStore,
     movedNodeIds: change.items.map((item) => item.nodeId),
   });
+  scheduleProjectNodeDragEdgeHandleUpdates(
+    change.items.map((item) => item.nodeId),
+  );
 }
 
-export function handleProjectNodeDragStop(change: ProjectGpuNodeDragChange) {
+export function handleProjectNodeDragStop(
+  layoutStore: GpuFlowLayoutStoreApi,
+  change: ProjectGpuNodeDragChange,
+) {
   updateNodePositions(toNodeDragItems(change.items));
   useMisc.setState({ mouseDownDraggingSection: false });
   setZIndices(
@@ -438,18 +455,22 @@ export function handleProjectNodeDragStop(change: ProjectGpuNodeDragChange) {
     true,
   );
   if (gpuFlowViewportStore.getState().nodesSelectionBounds) {
-    updateActiveNodesSelectionBounds();
+    updateActiveNodesSelectionBoundsFromLayoutStore(layoutStore);
   }
 }
 
-export function handleProjectNodeDragCancel(change: ProjectGpuNodeDragChange) {
+export function handleProjectNodeDragCancel(
+  layoutStore: GpuFlowLayoutStoreApi,
+  change: ProjectGpuNodeDragChange,
+) {
+  updateNodePositions(toNodeDragItems(change.items));
   useMisc.setState({ mouseDownDraggingSection: false });
   setZIndices(
     change.items.map((item) => item.nodeId),
     true,
   );
   if (gpuFlowViewportStore.getState().nodesSelectionBounds) {
-    updateActiveNodesSelectionBounds();
+    updateActiveNodesSelectionBoundsFromLayoutStore(layoutStore);
   }
 }
 
@@ -525,10 +546,12 @@ export function updateSelectedNodePositionsFromKeyboard({
 export function updateProjectSelectionBoundsAfterMovedNodes({
   delta,
   forceRefresh = false,
+  layoutStore,
   movedNodeIds,
 }: {
   readonly delta: { readonly x: number; readonly y: number };
   readonly forceRefresh?: boolean | undefined;
+  readonly layoutStore?: GpuFlowLayoutStoreApi | undefined;
   readonly movedNodeIds: readonly string[];
 }) {
   if (!gpuFlowViewportStore.getState().nodesSelectionBounds) {
@@ -544,7 +567,57 @@ export function updateProjectSelectionBoundsAfterMovedNodes({
     shiftNodesSelectionBounds(delta);
     return;
   }
+  if (layoutStore) {
+    updateActiveNodesSelectionBoundsFromLayoutStore(layoutStore);
+    return;
+  }
   updateActiveNodesSelectionBounds();
+}
+
+function updateActiveNodesSelectionBoundsFromLayoutStore(
+  layoutStore: GpuFlowLayoutStoreApi,
+) {
+  const bounds = layoutStore.getState().getNodesBounds(getActiveSectionUIIds());
+  gpuFlowViewportStore.getState().setNodesSelectionBounds(
+    bounds ?? {
+      height: 0,
+      width: 0,
+      x: 0,
+      y: 0,
+    },
+  );
+}
+
+function raiseGpuLayoutDragTempZIndex(
+  layoutStore: GpuFlowLayoutStoreApi,
+  nodeIds: readonly string[],
+) {
+  const raisedNodeIds = new Set(nodeIds);
+  layoutStore.getState().patchNodes(
+    layoutStore
+      .getState()
+      .getNodes()
+      .map((node) => ({
+        nodeId: node.nodeId,
+        tempZIndex:
+          (node.zIndex ?? 0) + (raisedNodeIds.has(node.nodeId) ? 1000 : 0),
+      })),
+    {
+      phase: "start",
+      reason: "drag",
+    },
+  );
+}
+
+function scheduleProjectNodeDragEdgeHandleUpdates(nodeIds: readonly string[]) {
+  const projectState = useProjectState.getState();
+  const sectionIds = new Set<string>();
+  for (const nodeId of nodeIds) {
+    for (const sectionId of getSectionDescendants(nodeId, projectState)) {
+      sectionIds.add(sectionId);
+    }
+  }
+  scheduleEdgeHandlePositionUpdate(Array.from(sectionIds));
 }
 
 export function toNodeDragItems(

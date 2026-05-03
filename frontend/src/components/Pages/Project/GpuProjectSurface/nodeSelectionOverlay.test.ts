@@ -22,6 +22,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
+import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import "testUtils/reactRefreshPreamble";
 
@@ -81,7 +82,7 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
     document.body.innerHTML = "";
   });
 
-  it("keeps direct node drag live updates in node internals and commits z-order on stop", () => {
+  it("keeps direct node drag live updates in the layout store and commits project state on stop", () => {
     loadProjectStateForSections([{ id: "section-a" }, { id: "section-b" }]);
     useNodeInternals.setState({
       x: new Map([
@@ -116,9 +117,30 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
       x: 10,
       y: 20,
     });
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 40,
+          nodeId: "section-a",
+          tempZIndex: 0,
+          width: 80,
+          x: 10,
+          y: 20,
+          zIndex: 0,
+        },
+        {
+          height: 30,
+          nodeId: "section-b",
+          tempZIndex: 1,
+          width: 60,
+          x: 100,
+          y: 120,
+          zIndex: 1,
+        },
+      ],
+    });
 
-    handleProjectNodeDragStart({
-      active: true,
+    handleProjectNodeDragStart(layoutStore, {
       delta: { x: 0, y: 0 },
       items: [
         {
@@ -129,18 +151,19 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
           width: 80,
         },
       ],
-      nodeId: "section-a",
-      phase: "start",
     });
 
     expect(useMisc.getState().mouseDownDraggingSection).toBe(true);
-    expect(useNodeInternals.getState().x.get("section-a")).toMatchObject({
+    expect(layoutStore.getState().getNode("section-a")).toMatchObject({
       tempZIndex: 1000,
+      zIndex: 0,
+    });
+    expect(useNodeInternals.getState().x.get("section-a")).toMatchObject({
+      tempZIndex: 0,
       zIndex: 0,
     });
 
     const dragChange = {
-      active: true,
       delta: { x: 15, y: -5 },
       items: [
         {
@@ -151,14 +174,25 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
           width: 80,
         },
       ],
-      nodeId: "section-a",
-      phase: "drag" as const,
     };
-    handleProjectNodeDrag(dragChange);
+    layoutStore.getState().patchNodes(
+      [
+        {
+          nodeId: "section-a",
+          x: 25,
+          y: 15,
+        },
+      ],
+      {
+        phase: "change",
+        reason: "drag",
+      },
+    );
+    handleProjectNodeDrag(layoutStore, dragChange);
 
     expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual({
-      x: 25,
-      y: 15,
+      x: 10,
+      y: 20,
     });
     expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
       height: 40,
@@ -167,11 +201,7 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
       y: 15,
     });
 
-    handleProjectNodeDragStop({
-      ...dragChange,
-      active: false,
-      phase: "stop",
-    });
+    handleProjectNodeDragStop(layoutStore, dragChange);
 
     expect(useMisc.getState().mouseDownDraggingSection).toBe(false);
     expect(useNodeInternals.getState().x.get("section-a")).toMatchObject({
@@ -239,12 +269,14 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
         });
       });
 
-      expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual(
-        { x: 30, y: 40 },
-      );
-      expect(useNodeInternals.getState().x.get("section-b")?.position).toEqual(
-        { x: 120, y: 140 },
-      );
+      expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual({
+        x: 30,
+        y: 40,
+      });
+      expect(useNodeInternals.getState().x.get("section-b")?.position).toEqual({
+        x: 120,
+        y: 140,
+      });
       expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
         height: 130,
         width: 150,
@@ -317,17 +349,15 @@ describe("GpuProjectNodesSelectionOverlay movement adapters", () => {
         runNextAnimationFrame();
       });
 
-      expect(gpuFlowViewportStore.getState().transform).toEqual([
-        -10,
-        -10,
-        1,
-      ]);
-      expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual(
-        { x: 20, y: 30 },
-      );
-      expect(useNodeInternals.getState().x.get("section-b")?.position).toEqual(
-        { x: 110, y: 130 },
-      );
+      expect(gpuFlowViewportStore.getState().transform).toEqual([-10, -10, 1]);
+      expect(useNodeInternals.getState().x.get("section-a")?.position).toEqual({
+        x: 20,
+        y: 30,
+      });
+      expect(useNodeInternals.getState().x.get("section-b")?.position).toEqual({
+        x: 110,
+        y: 130,
+      });
       expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
         height: 130,
         width: 150,
@@ -636,13 +666,20 @@ function createPointerEvent(
       ...init,
     });
   }
-  const event = new MouseEvent(type, {
+  const mouseEventInit: MouseEventInit = {
     bubbles: true,
-    button: init.button,
     cancelable: true,
-    clientX: init.clientX,
-    clientY: init.clientY,
-  }) as PointerEvent;
+  };
+  if (init.button !== undefined) {
+    mouseEventInit.button = init.button;
+  }
+  if (init.clientX !== undefined) {
+    mouseEventInit.clientX = init.clientX;
+  }
+  if (init.clientY !== undefined) {
+    mouseEventInit.clientY = init.clientY;
+  }
+  const event = new MouseEvent(type, mouseEventInit) as PointerEvent;
   Object.defineProperties(event, {
     pointerId: { value: init.pointerId ?? 1 },
     pointerType: { value: init.pointerType ?? "mouse" },
