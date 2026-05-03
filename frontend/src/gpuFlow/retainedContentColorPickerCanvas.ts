@@ -173,25 +173,95 @@ function drawGpuRetainedContentColorPickerRowTextControl({
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
   const color = selectedChoice?.color ?? control.displayValue;
-  ctx.fillStyle = disabled ? palette.textLikeDisabledBackground : color;
-  fillRoundRect(ctx, outer, 5);
-  ctx.strokeStyle = state?.selected
-    ? palette.textLikeSelectedBorder
-    : palette.textLikeBorder;
-  ctx.lineWidth = 1;
-  strokeRoundRect(ctx, outer, 5);
-
   const contrastColor = disabled
     ? palette.textLikeDisabledText
     : getGpuRetainedContentContrastTextColor(color, palette.textLikeText);
   if (control.choices.length === 0) {
-    drawGpuRetainedContentNativeColorGlyph({
+    drawGpuRetainedContentNativeColorPickerRowTextControl({
+      color,
+      contrastColor,
       ctx,
+      disabled,
       outer,
-      strokeStyle: contrastColor,
+      palette,
+      state,
     });
     return;
   }
+  drawGpuRetainedContentConfiguredColorPickerRowTextControl({
+    color,
+    contrastColor,
+    control,
+    ctx,
+    disabled,
+    outer,
+    palette,
+    selectedChoice,
+    state,
+  });
+}
+
+function drawGpuRetainedContentNativeColorPickerRowTextControl({
+  color,
+  contrastColor,
+  ctx,
+  disabled,
+  outer,
+  palette,
+  state,
+}: {
+  readonly color: string;
+  readonly contrastColor: string;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+  readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  const radius = outer.height / 2;
+  ctx.fillStyle = disabled ? palette.textLikeDisabledBackground : color;
+  fillRoundRect(ctx, outer, radius);
+  if (state?.selected) {
+    ctx.strokeStyle = palette.textLikeSelectedBorder;
+    ctx.lineWidth = 1;
+    strokeRoundRect(ctx, outer, radius);
+  }
+  drawGpuRetainedContentNativeColorGlyph({
+    ctx,
+    outer,
+    strokeStyle: contrastColor,
+  });
+}
+
+function drawGpuRetainedContentConfiguredColorPickerRowTextControl({
+  color,
+  contrastColor,
+  control,
+  ctx,
+  disabled,
+  outer,
+  palette,
+  selectedChoice,
+  state,
+}: {
+  readonly color: string;
+  readonly contrastColor: string;
+  readonly control: GpuRetainedContentColorPickerControl;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+  readonly outer: GpuRect;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly selectedChoice: GpuRetainedContentColorChoice | null;
+  readonly state: GpuRetainedContentRowState | undefined;
+}) {
+  const radius = 5;
+  ctx.fillStyle = disabled ? palette.textLikeDisabledBackground : color;
+  fillRoundRect(ctx, outer, radius);
+  ctx.strokeStyle = state?.selected
+    ? palette.textLikeSelectedBorder
+    : palette.textLikeBorder;
+  ctx.lineWidth = 1;
+  strokeRoundRect(ctx, outer, radius);
   drawGpuRetainedContentColorPickerRowTextLabel({
     control,
     ctx,
@@ -348,17 +418,29 @@ function drawGpuRetainedContentNativeColorGlyph({
 }) {
   const centerX = outer.x + outer.width / 2;
   const centerY = outer.y + outer.height / 2;
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(-Math.PI / 4);
+  ctx.scale(0.75, 0.75);
   ctx.strokeStyle = strokeStyle;
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(centerX - 4, centerY + 4);
-  ctx.lineTo(centerX + 4, centerY - 4);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(centerX + 3.5, centerY - 3.5, 1.8, 0, Math.PI * 2);
-  ctx.stroke();
+  ctx.fillStyle = strokeStyle;
+  ctx.lineWidth = 2;
   ctx.lineCap = "butt";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(-8, 0);
+  ctx.quadraticCurveTo(-8, -3, -5, -3);
+  ctx.lineTo(5, -3);
+  ctx.lineTo(5, 3);
+  ctx.lineTo(-5, 3);
+  ctx.quadraticCurveTo(-8, 3, -8, 0);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fillRect(6, -5, 2, 10);
+  fillRoundRect(ctx, { height: 6, width: 8, x: 8, y: -3 }, 3);
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
+  ctx.restore();
 }
 
 function getGpuRetainedContentColorPickerLabel({

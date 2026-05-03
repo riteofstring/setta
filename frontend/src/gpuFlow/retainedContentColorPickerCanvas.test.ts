@@ -29,7 +29,10 @@ describe("retained content color picker canvas", () => {
     });
     expect(ctx.fillStylesAtFill[0]).toBe("#ff0000");
     expect(ctx.fillText).not.toHaveBeenCalled();
-    expect(ctx.arc).toHaveBeenCalled();
+    expect(ctx.rotate).toHaveBeenCalledWith(-Math.PI / 4);
+    expect(ctx.scale).toHaveBeenCalledWith(0.75, 0.75);
+    expect(ctx.fillRect).toHaveBeenCalledWith(6, -5, 2, 10);
+    expect(ctx.stroke).toHaveBeenCalledTimes(1);
   });
 
   it("draws configured color choices as a full Settings swatch with text overlay", () => {
@@ -71,22 +74,27 @@ function colorPickerControl(
 }
 
 type MockCanvasContext = CanvasRenderingContext2D & {
-  readonly arc: ReturnType<typeof vi.fn>;
   readonly fillStylesAtFill: string[];
+  readonly fillRect: ReturnType<typeof vi.fn>;
   readonly fillText: ReturnType<typeof vi.fn>;
+  readonly restore: ReturnType<typeof vi.fn>;
+  readonly rotate: ReturnType<typeof vi.fn>;
+  readonly save: ReturnType<typeof vi.fn>;
+  readonly scale: ReturnType<typeof vi.fn>;
+  readonly translate: ReturnType<typeof vi.fn>;
 };
 
 function createCanvasContextRecorder(): MockCanvasContext {
   let fillStyle = "";
   const fillStylesAtFill: string[] = [];
   const ctx = {
-    arc: vi.fn(),
     beginPath: vi.fn(),
     closePath: vi.fn(),
     fill: vi.fn(() => {
       fillStylesAtFill.push(fillStyle);
     }),
     fillStylesAtFill,
+    fillRect: vi.fn(),
     fillText: vi.fn(),
     font: "",
     lineCap: "butt",
@@ -95,10 +103,15 @@ function createCanvasContextRecorder(): MockCanvasContext {
     lineWidth: 0,
     moveTo: vi.fn(),
     quadraticCurveTo: vi.fn(),
+    restore: vi.fn(),
+    rotate: vi.fn(),
+    save: vi.fn(),
+    scale: vi.fn(),
     stroke: vi.fn(),
     strokeStyle: "",
     textAlign: "start",
     textBaseline: "alphabetic",
+    translate: vi.fn(),
   } as unknown as MockCanvasContext;
   Object.defineProperty(ctx, "fillStyle", {
     get: () => fillStyle,
