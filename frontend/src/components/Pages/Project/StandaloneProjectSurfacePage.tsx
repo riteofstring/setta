@@ -10,9 +10,11 @@ import {
   buildStandalonePageProjectChatSurfaceId,
   buildStandalonePageSectionProjectChatSurfaceId,
 } from "components/ChatWindowing/projectChatSurfaceIds";
+import { MaybeManyNestedSections } from "components/Section/Container/ManyNestedSections";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
+import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useAddMouseLocationListener } from "gpuFlow/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
 import {
@@ -32,6 +34,7 @@ import {
 import { useLoadProjectConfig } from "state/hooks/project";
 import {
   ChatWindowModeEnum,
+  SectionTypeEnum,
   type SectionType,
   type WindowSpaceConfig,
 } from "utils/generatedTypes";
@@ -234,15 +237,40 @@ function buildStandaloneSurfaceOwnerKey(
   return null;
 }
 
+function StandaloneSectionBody({
+  sectionId,
+  sectionType,
+}: {
+  sectionId: string;
+  sectionType: SectionType;
+}) {
+  if (
+    sectionType !== SectionTypeEnum.Group &&
+    sectionType !== SectionTypeEnum.ListRoot
+  ) {
+    return null;
+  }
+  return (
+    <div className="min-h-0 flex-1 overflow-auto">
+      <MaybeManyNestedSections
+        sectionId={sectionId}
+        isGroup={sectionType === SectionTypeEnum.Group}
+      />
+    </div>
+  );
+}
+
 function StandaloneSurfaceShell({ children }: { children: React.ReactNode }) {
   return (
-    <section
-      className="flex min-h-0 flex-1 flex-col overflow-hidden"
-      data-testid="standalone-project-surface-page"
-    >
-      <div className="flex min-h-0 flex-1 overflow-hidden">{children}</div>
-      <FloatingBox />
-    </section>
+    <SectionDndContext>
+      <section
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        data-testid="standalone-project-surface-page"
+      >
+        <div className="flex min-h-0 flex-1 overflow-hidden">{children}</div>
+        <FloatingBox />
+      </section>
+    </SectionDndContext>
   );
 }
 
@@ -539,6 +567,21 @@ function resolveStandaloneProjectChatSurfaceViewState({
   };
 }
 
+function resolveStandaloneSectionBodyOverride(
+  sectionId: string,
+  sectionType: SectionType,
+) {
+  if (
+    sectionType !== SectionTypeEnum.Group &&
+    sectionType !== SectionTypeEnum.ListRoot
+  ) {
+    return undefined;
+  }
+  return (
+    <StandaloneSectionBody sectionId={sectionId} sectionType={sectionType} />
+  );
+}
+
 function StandaloneProjectChatSurface({
   projectConfigId,
   target,
@@ -659,6 +702,10 @@ function StandaloneSectionSurface({
             target.sectionId,
           )}
           onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
+          bodyOverride={resolveStandaloneSectionBodyOverride(
+            target.sectionId,
+            target.sectionType,
+          )}
         />
       </div>
     </StandaloneSurfaceShell>

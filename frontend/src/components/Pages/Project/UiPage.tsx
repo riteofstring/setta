@@ -1,6 +1,7 @@
 import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
 import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
 import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorContextMenu";
+import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useEffect } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { useLocalStorage, useMisc } from "state/definitions";
@@ -15,13 +16,15 @@ export function UIPage() {
   const showMiniMap = useLocalStorage((x) => x.showMinimap);
 
   return (
-    <div className="relative h-full min-h-0 w-full min-w-0">
-      <GpuProjectSurface />
-      <PaneContextMenu />
-      <SelectionContextMenu />
-      <TypeErrorContextMenu />
-      {showMiniMap && <ResponsiveMiniMap />}
-    </div>
+    <SectionDndContext>
+      <div className="relative h-full min-h-0 w-full min-w-0">
+        <GpuProjectSurface />
+        <PaneContextMenu />
+        <SelectionContextMenu />
+        <TypeErrorContextMenu />
+        {showMiniMap && <ResponsiveMiniMap />}
+      </div>
+    </SectionDndContext>
   );
 }
 

@@ -14,7 +14,6 @@ import {
 describe("GPU node drag controller", () => {
   afterEach(() => {
     document.body.innerHTML = "";
-    vi.unstubAllGlobals();
   });
 
   it("groups selected nodes only when the grabbed node is selected", () => {
@@ -443,61 +442,6 @@ describe("GPU node drag controller", () => {
       nodeId: "a",
       phase: "drag",
     });
-    detach();
-  });
-
-  it("emits drag frame callbacks while the pointer is stationary", () => {
-    const frameCallbacks: FrameRequestCallback[] = [];
-    vi.stubGlobal(
-      "requestAnimationFrame",
-      vi.fn((callback: FrameRequestCallback) => {
-        frameCallbacks.push(callback);
-        return frameCallbacks.length;
-      }),
-    );
-    vi.stubGlobal("cancelAnimationFrame", vi.fn());
-    const element = createFlowElement();
-    const nodeElement = createNodeElement("a");
-    element.append(nodeElement);
-    const onNodeDragFrame = vi.fn(() => true);
-    const requestFrame = vi.fn();
-    const detach = attachGpuNodeDragController({
-      autoPanOnNodeDrag: false,
-      element,
-      layoutStore: createGpuFlowLayoutStore({
-        nodes: [node("a", 0, 0, 30, 40)],
-      }),
-      onNodeDragFrame,
-      requestFrame,
-    });
-
-    dispatchPointer(nodeElement, "pointerdown", {
-      button: 0,
-      clientX: 10,
-      clientY: 10,
-      pointerId: 1,
-    });
-    dispatchPointer(document, "pointermove", {
-      button: 0,
-      clientX: 20,
-      clientY: 20,
-      pointerId: 1,
-    });
-    requestFrame.mockClear();
-    frameCallbacks.shift()?.(0);
-
-    expect(onNodeDragFrame).toHaveBeenCalledWith({
-      active: true,
-      delta: { x: 0, y: 0 },
-      items: [
-        expect.objectContaining({ nodeId: "a", position: { x: 10, y: 10 } }),
-      ],
-      nodeId: "a",
-      phase: "drag",
-    });
-    expect(requestFrame).toHaveBeenCalledWith("viewport");
-    expect(frameCallbacks.length).toBe(1);
-
     detach();
   });
 

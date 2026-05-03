@@ -22,7 +22,7 @@ import {
   type GpuFlowViewportStoreApi,
 } from "../viewportStore";
 
-type GpuNodeResizePhase = "start" | "resize" | "stop" | "cancel";
+export type GpuNodeResizePhase = "start" | "resize" | "stop" | "cancel";
 
 export type GpuNodeResizePolicy = {
   readonly aspectRatio?: boolean | undefined;

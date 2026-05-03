@@ -85,17 +85,17 @@ import {
 
 import { ManagedChatArea } from "./managedChatArea";
 
-type ChatActionPayload = ChatSendEvent | ChatStopEvent;
+export type ChatActionPayload = ChatSendEvent | ChatStopEvent;
 
 export type ChatSectionChatId = string | null;
 
-type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
+export type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
 
 export type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
 
-type EmitChatSendActionArgs = {
+export type EmitChatSendActionArgs = {
   sectionId: string;
   messageId: string;
   text: string;
@@ -105,13 +105,13 @@ type EmitChatSendActionArgs = {
   timestampMs: number;
 };
 
-type EmitChatStopActionArgs = {
+export type EmitChatStopActionArgs = {
   sectionId: string;
   managed: boolean;
   timestampMs: number;
 };
 
-type ManagedChatSubmitGuardInput = {
+export type ManagedChatSubmitGuardInput = {
   message: string;
   attachments: ChatFileAttachment[];
   canUseManagedChat: boolean;
@@ -145,7 +145,7 @@ export function canSubmitManagedChatMessage({
   return true;
 }
 
-function emitChatAction(payload: ChatActionPayload) {
+export function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
     payload: JSON.stringify(payload),
     type: DependencyValueTypeEnum.Literal,
@@ -278,7 +278,7 @@ export function ChatArea({
   );
 }
 
-type ScriptableChatAreaProps = {
+export type ScriptableChatAreaProps = {
   sectionId: string;
   transcriptionProfileId: string | null;
   messages: Array<ChatSectionState["messages"][number]>;
@@ -291,7 +291,7 @@ type ScriptableChatAreaProps = {
   dictationMode: ChatDictationMode;
 };
 
-function ScriptableChatArea({
+export function ScriptableChatArea({
   sectionId,
   transcriptionProfileId,
   messages,
@@ -816,7 +816,7 @@ function ScriptableChatArea({
   );
 }
 
-function ChatSectionHistoryList({
+export function ChatSectionHistoryList({
   entries,
   activeChatId,
   initialLoadComplete,

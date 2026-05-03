@@ -48,7 +48,7 @@ export function receiveProjectParamUpdate(content: ProjectParamUpdateContent) {
   maybeOpenNextRenamePrompt();
 }
 
-function applyProjectParamUpdate(
+export function applyProjectParamUpdate(
   state: ZustandProjectState,
   content: ProjectParamUpdateContent,
 ) {

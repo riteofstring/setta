@@ -36,7 +36,7 @@ import {
   type GpuFlowNodeLayerState,
 } from "./flowSurface";
 
-function resolveRenderableGpuFlowLayerFrameInput({
+export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
   nodeLayerRef,
   htmlSurfaceRendererRef,
@@ -78,7 +78,7 @@ function resolveRenderableGpuFlowLayerFrameInput({
   };
 }
 
-function ensureNodeLayerResources({
+export function ensureNodeLayerResources({
   htmlSurfaceRendererRef,
   runtime,
   textureManagerRef,
@@ -163,14 +163,14 @@ function setGpuFlowNodeInteractionElementState(
   element.classList.toggle("setta-gpu-flow__node--interactive", interactive);
 }
 
-function completeGpuNodeInteractionFrame(
+export function completeGpuNodeInteractionFrame(
   nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,
   layerResult: RenderHtmlSurfaceFrameResult,
 ) {
   nodeInteractionRef.current?.completeFrame(layerResult);
 }
 
-function requestRemainingTextureUploadFrame(
+export function requestRemainingTextureUploadFrame(
   surfaceRef: MutableRefObject<GpuSurfaceHandle | null>,
   layerResult: RenderHtmlSurfaceFrameResult,
 ) {

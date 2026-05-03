@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SectionContainer } from "./SectionContainer";
 
@@ -13,7 +13,7 @@ type MockProjectState = {
 type MockSectionViewState = {
   visibility: boolean;
   isEditingViewMode: boolean;
-  sectionType: SectionType;
+  sectionType: SectionTypeEnum;
   isUserFacing: boolean;
   positionAndSizeLocked: boolean;
   isInOtherProjectConfigs: boolean;
@@ -77,7 +77,7 @@ vi.mock("state/actions/sectionInfos", () => ({
     visibility: mockSectionViewState.visibility,
     isEditingViewMode: mockSectionViewState.isEditingViewMode,
   }),
-  isBaseCodeSectionType: (sectionType: SectionType) =>
+  isBaseCodeSectionType: (sectionType: SectionTypeEnum) =>
     sectionType === SectionTypeEnum.Code ||
     sectionType === SectionTypeEnum.GenPythonCode ||
     sectionType === SectionTypeEnum.GenPythonMetadata,
@@ -99,9 +99,28 @@ vi.mock("./AgenticEdgeHandles", () => ({
   ),
 }));
 
-vi.mock("./ContainerWrappers", () => ({
-  GpuSceneSectionContainer: ({ children }: { children: ReactNode }) => (
-    <div data-testid="mock-gpu-scene-section-container">{children}</div>
+vi.mock("./ContainerSwitch", () => ({
+  ContainerSwitch: ({ children }: { children: ReactNode }) => (
+    <div data-testid="mock-container-switch">{children}</div>
+  ),
+}));
+
+vi.mock("./ManyNestedSections", () => ({
+  MaybeManyNestedSections: ({
+    sectionId,
+    isGroup,
+    layoutVariant = "default",
+  }: {
+    sectionId: string;
+    isGroup: boolean;
+    layoutVariant?: "default" | "tight";
+  }) => (
+    <div
+      data-testid="mock-many-nested-sections"
+      data-section-id={sectionId}
+      data-is-group={String(isGroup)}
+      data-layout-variant={layoutVariant}
+    />
   ),
 }));
 
@@ -113,8 +132,6 @@ vi.mock("./SectionContainerCore", () => ({
     hideAgenticEdgeHandles = false,
     omitAgenticHandleScopeClass = false,
     joinedCorners = "",
-    fillSurface = false,
-    renderParamRows = true,
   }: {
     sectionId: string;
     isUserView: boolean;
@@ -122,8 +139,6 @@ vi.mock("./SectionContainerCore", () => ({
     hideAgenticEdgeHandles?: boolean;
     omitAgenticHandleScopeClass?: boolean;
     joinedCorners?: string;
-    fillSurface?: boolean;
-    renderParamRows?: boolean;
   }) => (
     <div
       data-testid="mock-section-container-core"
@@ -133,8 +148,6 @@ vi.mock("./SectionContainerCore", () => ({
       data-hide-agentic-edge-handles={String(hideAgenticEdgeHandles)}
       data-omit-agentic-handle-scope-class={String(omitAgenticHandleScopeClass)}
       data-joined-corners={joinedCorners}
-      data-fill-surface={String(fillSurface)}
-      data-render-param-rows={String(renderParamRows)}
     />
   ),
 }));
@@ -171,7 +184,7 @@ describe("SectionContainer", () => {
     activeSectionIds.clear();
   });
 
-  it("renders embedded-terminal code sections as a single section surface", () => {
+  it("renders joined code terminal groups with shared chrome and tight nested layout", () => {
     mockSectionViewState.embeddedTerminal = {
       attachedTerminalId: "terminal-1",
       isTerminalMinimized: false,
@@ -182,11 +195,15 @@ describe("SectionContainer", () => {
       <SectionContainer sectionId="section-1" isTopLevel={false} />,
     );
 
-    expect(markup).toContain('data-testid="mock-section-container-core"');
-    expect(markup).not.toContain("data-joined-code-terminal-group");
+    expect(markup).toContain("data-joined-code-terminal-group");
+    expect(markup).toContain('data-testid="mock-agentic-edge-handles"');
+    expect(markup).toContain('data-force-hide-outline="true"');
+    expect(markup).toContain('data-hide-agentic-edge-handles="true"');
+    expect(markup).toContain('data-joined-corners="code-terminal-parent"');
+    expect(markup).toContain('data-layout-variant="tight"');
   });
 
-  it("does not render child section DOM for groups", () => {
+  it("renders standard sections with default nested layout for groups", () => {
     mockSectionViewState.sectionType = SectionTypeEnum.Group;
 
     const markup = renderToStaticMarkup(
@@ -194,41 +211,8 @@ describe("SectionContainer", () => {
     );
 
     expect(markup).not.toContain('data-testid="mock-section-container-core"');
-    expect(markup).toContain('data-testid="mock-gpu-scene-section-container"');
-  });
-
-  it("does not activate parent-owned nested content for embedded terminals", () => {
-    mockSectionViewState.embeddedTerminal = {
-      attachedTerminalId: "terminal-1",
-      isTerminalMinimized: false,
-    };
-
-    const markup = renderToStaticMarkup(
-      <SectionContainer sectionId="section-1" isTopLevel={false} />,
-    );
-
-    expect(markup).toContain('data-testid="mock-section-container-core"');
-    expect(markup).not.toContain("data-joined-code-terminal-group");
-  });
-
-  it("marks all project section surfaces as scene-owned without nested content ownership", () => {
-    const markup = renderToStaticMarkup(
-      <SectionContainer sectionId="section-1" isTopLevel={false} />,
-    );
-
-    expect(markup).toContain('data-testid="mock-gpu-scene-section-container"');
-    expect(markup).toContain('data-fill-surface="true"');
-    expect(markup).toContain('data-render-param-rows="false"');
-  });
-
-  it("keeps top-level surfaces scene-owned with retained param rows", () => {
-    const markup = renderToStaticMarkup(
-      <SectionContainer sectionId="section-1" isTopLevel />,
-    );
-
-    expect(markup).toContain('data-testid="mock-gpu-scene-section-container"');
-    expect(markup).toContain('data-fill-surface="true"');
-    expect(markup).toContain('data-render-param-rows="false"');
+    expect(markup).toContain('data-is-group="true"');
+    expect(markup).toContain('data-layout-variant="default"');
   });
 
   it("skips generated python sections when python codegen is unavailable", () => {

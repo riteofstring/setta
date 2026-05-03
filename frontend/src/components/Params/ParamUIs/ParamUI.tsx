@@ -51,7 +51,6 @@ import {
 } from "./ConfiguredParamInputs";
 import { DropdownInputConfigForParam } from "./DropdownInput";
 import { DropzoneInput, DropzoneInputConfigForParam } from "./DropzoneInput";
-import { resolveParamUIDisabled } from "./paramUIDisabled";
 import {
   SPECIALIZED_PARAM_RENDERER_FAMILIES,
   TEXT_LIKE_PARAM_TYPES,
@@ -74,7 +73,6 @@ type ParamUIProps = {
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
   maybeErrorMessage?: string;
-  tooltipParentDivId?: string | null | undefined;
 };
 
 type ParamUIState = {
@@ -211,6 +209,27 @@ function isTextLikeParamType(codeObjType: CodeObjType): boolean {
   );
 }
 
+function resolveParamUIDisabled({
+  isSelectingParams,
+  disabledOrFrozen,
+  canEditParams,
+  isDeploymentMode,
+  isCodeParam,
+}: {
+  isSelectingParams: boolean;
+  disabledOrFrozen: boolean;
+  canEditParams: boolean;
+  isDeploymentMode: boolean;
+  isCodeParam: boolean;
+}): boolean {
+  return (
+    isSelectingParams ||
+    disabledOrFrozen ||
+    !canEditParams ||
+    (isDeploymentMode && isCodeParam)
+  );
+}
+
 function resolvePasswordRevealState({
   isDeploymentMode,
   value,
@@ -241,7 +260,6 @@ function renderTextLikeParam({
   onChange,
   onEscape,
   maybeErrorMessage,
-  tooltipParentDivId,
   isDisabled,
   isSelectingParams,
   paramUiState,
@@ -264,7 +282,6 @@ function renderTextLikeParam({
       configLanguage={paramUiState.configLanguage}
       waitingForResult={waitingForResult}
       isSelectingParams={isSelectingParams}
-      tooltipParentDivId={tooltipParentDivId}
     />
   );
 }
@@ -336,8 +353,7 @@ function renderSliderParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
-      onCommit={onChange}
+      onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -357,8 +373,7 @@ function renderRotaryParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
-      onCommit={onChange}
+      onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -396,8 +411,7 @@ function renderColorPickerParam({
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
-      onChange={(nextValue) => onChange(nextValue, { skipBackendUpdate: true })}
-      onCommit={onChange}
+      onChange={onChange}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -571,7 +585,6 @@ export function ParamUI({
   onRevealPassword,
   isPasswordRevealPending,
   maybeErrorMessage,
-  tooltipParentDivId,
 }: ParamUIProps) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -613,7 +626,6 @@ export function ParamUI({
     onRevealPassword,
     isPasswordRevealPending,
     maybeErrorMessage,
-    tooltipParentDivId,
     isDisabled,
     isSelectingParams,
     onEscape,
@@ -648,7 +660,6 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
-  tooltipParentDivId,
 }: {
   sectionId: string;
   paramInfoId: string;
@@ -661,12 +672,7 @@ function TextParamConfigured({
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
-  tooltipParentDivId: string | null | undefined;
 }) {
-  const resolvedTooltipParentDivId =
-    tooltipParentDivId === undefined
-      ? CODEMIRROR_TOOLTIP_PARENT_ID
-      : tooltipParentDivId;
   return (
     <>
       <TextInputCodeMirror
@@ -685,7 +691,7 @@ function TextParamConfigured({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
-        tooltipParentDivId={resolvedTooltipParentDivId}
+        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -756,7 +762,6 @@ function SliderParamConfigured({
   paramInfoId,
   value,
   onChange,
-  onCommit,
   onEscape,
   isDisabled,
 }) {
@@ -766,7 +771,6 @@ function SliderParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      onCommit={onCommit}
       onEscape={onEscape}
       isDisabled={isDisabled}
       wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} cursor-pointer @container/slider section-value flex gap-1`}
@@ -785,7 +789,6 @@ function RotaryParamConfigured({
   paramInfoId,
   value,
   onChange,
-  onCommit,
   onEscape,
   isDisabled,
 }: {
@@ -793,7 +796,6 @@ function RotaryParamConfigured({
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
-  onCommit?: ParamValueChange;
   onEscape: () => void;
   isDisabled: boolean;
 }) {
@@ -803,7 +805,6 @@ function RotaryParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      onCommit={onCommit}
       onEscape={onEscape}
       isDisabled={isDisabled}
     />
@@ -870,17 +871,8 @@ function ColorPickerParamConfigured({
   paramInfoId,
   value,
   onChange,
-  onCommit,
   onEscape,
   isDisabled,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-  value: string;
-  onChange: ParamValueChange;
-  onCommit?: ParamValueChange;
-  onEscape: () => void;
-  isDisabled: boolean;
 }) {
   return (
     <ConfiguredColorPickerInput
@@ -888,7 +880,6 @@ function ColorPickerParamConfigured({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      onCommit={onCommit}
       onEscape={onEscape}
       wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0`}
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"

@@ -101,7 +101,7 @@ export function mapLanguageServerSelectionStatuses(
   return canReusePreviousArray ? previousStatuses : mappedStatuses;
 }
 
-function canReuseLanguageServerSelectionStatus(
+export function canReuseLanguageServerSelectionStatus(
   status: LanguageServerSelectionStatus,
   previousStatus: LanguageServerSelectionStatus,
 ): boolean {
@@ -118,11 +118,13 @@ function canReuseLanguageServerSelectionStatus(
   );
 }
 
-function buildPluginStatusEntryStableKey(entry: PluginStatusEntry): string {
+export function buildPluginStatusEntryStableKey(
+  entry: PluginStatusEntry,
+): string {
   return `${entry.pluginId}\u0000${entry.sourceScope}\u0000${entry.sourcePath}`;
 }
 
-function hasMatchingPluginStatusEntryMetadata(
+export function hasMatchingPluginStatusEntryMetadata(
   statusEntry: PluginStatusEntry,
   previousStatusEntry: PluginStatusEntry,
 ): boolean {
@@ -133,7 +135,7 @@ function hasMatchingPluginStatusEntryMetadata(
   );
 }
 
-function canReusePluginStatusEntry(
+export function canReusePluginStatusEntry(
   statusEntry: PluginStatusEntry,
   previousStatusEntry: PluginStatusEntry,
 ): boolean {
@@ -146,7 +148,7 @@ function canReusePluginStatusEntry(
   return statusEntryDigest === previousStatusEntryDigest;
 }
 
-function getPluginStatusRuntimePayloadDigest(
+export function getPluginStatusRuntimePayloadDigest(
   statusEntry: PluginStatusEntry,
 ): string {
   const normalizedDigest = normalizeDigest(
@@ -271,7 +273,7 @@ export function hasSameRecordValueReferences<TValue>(
   return true;
 }
 
-function hasSameOrderedReferences<T>(left: T[], right: T[]): boolean {
+export function hasSameOrderedReferences<T>(left: T[], right: T[]): boolean {
   if (left.length !== right.length) {
     return false;
   }
@@ -283,7 +285,7 @@ function hasSameOrderedReferences<T>(left: T[], right: T[]): boolean {
   return true;
 }
 
-function toOrderedPluginListEntries(
+export function toOrderedPluginListEntries(
   orderedPlugins: PluginListEntry[],
   pluginListById: Record<string, PluginListEntry>,
 ): PluginListEntry[] {
@@ -297,7 +299,7 @@ function toOrderedPluginListEntries(
   return entries;
 }
 
-function toSortedSectionKinds(
+export function toSortedSectionKinds(
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>,
 ): RegisteredPluginSectionKind[] {
   return Object.values(sectionKindsByKey).sort((a, b) => {
@@ -313,7 +315,7 @@ function toSortedSectionKinds(
   });
 }
 
-function toSortedPluginPaneTabs(
+export function toSortedPluginPaneTabs(
   panesByPluginId: Record<string, RegisteredPluginPane[]>,
 ): PluginPaneTabEntry[] {
   const values: PluginPaneTabEntry[] = [];
@@ -343,7 +345,7 @@ function toSortedPluginPaneTabs(
   return values;
 }
 
-function toSortedPluginCommands(
+export function toSortedPluginCommands(
   commandsByPluginId: Record<string, RegisteredPluginCommand[]>,
 ): RegisteredPluginCommand[] {
   const values: RegisteredPluginCommand[] = [];
@@ -364,7 +366,7 @@ function toSortedPluginCommands(
   return values;
 }
 
-function toSortedPluginTopNavBarItems(
+export function toSortedPluginTopNavBarItems(
   topNavBarItemsByPluginId: Record<string, RegisteredPluginTopNavBarItem[]>,
 ): RegisteredPluginTopNavBarItem[] {
   const values: RegisteredPluginTopNavBarItem[] = [];
@@ -389,7 +391,7 @@ function toSortedPluginTopNavBarItems(
   return values;
 }
 
-function toSortedPluginCanvasControls(
+export function toSortedPluginCanvasControls(
   canvasControlsByPluginId: Record<string, RegisteredPluginCanvasControl[]>,
 ): RegisteredPluginCanvasControl[] {
   const values: RegisteredPluginCanvasControl[] = [];

@@ -46,28 +46,6 @@ describe("gpu viewport reposition subscriptions", () => {
     window.removeEventListener("scroll", onScroll);
     window.removeEventListener("resize", onResize);
   });
-
-  it("supports direct reposition callbacks for GPU-owned active islands", () => {
-    const store = createGpuFlowViewportStore();
-    const frameCallbacks: FrameRequestCallback[] = [];
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      frameCallbacks.push(callback);
-      return frameCallbacks.length;
-    });
-    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
-    const onReposition = vi.fn();
-
-    const cleanup = subscribeToGpuViewportReposition(store, onReposition);
-
-    flushNextFrame(frameCallbacks);
-    expect(onReposition).toHaveBeenCalledTimes(1);
-
-    store.getState().setTransform([10, 20, 2]);
-    flushNextFrame(frameCallbacks);
-    expect(onReposition).toHaveBeenCalledTimes(2);
-
-    cleanup();
-  });
 });
 
 function flushNextFrame(frameCallbacks: FrameRequestCallback[]) {

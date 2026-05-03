@@ -43,7 +43,7 @@ import {
   ProjectChatWindowContent,
 } from "./windowContent";
 
-type FloatingWindowPanelProps = {
+export type FloatingWindowPanelProps = {
   pill: ResolvedWindowPill;
   projectConfigId: string;
   canEditLayout: boolean;
@@ -74,7 +74,7 @@ type FloatingWindowPanelProps = {
   onFloatingResizePointerUp: (event: PointerEvent<HTMLDivElement>) => void;
 };
 
-type FloatingWindowSurfaceProps = Omit<
+export type FloatingWindowSurfaceProps = Omit<
   FloatingWindowPanelProps,
   | "bounds"
   | "floatingSnapPreset"
@@ -85,7 +85,7 @@ type FloatingWindowSurfaceProps = Omit<
   roundedClassName: string;
 };
 
-function FloatingSectionWindowSurface({
+export function FloatingSectionWindowSurface({
   pill,
   canEditLayout,
   roundedClassName,
@@ -232,7 +232,7 @@ function FloatingSectionWindowSurface({
   );
 }
 
-function FloatingProjectWindowSurface({
+export function FloatingProjectWindowSurface({
   pill,
   projectConfigId,
   canEditLayout,
@@ -342,7 +342,7 @@ function FloatingProjectWindowSurface({
   );
 }
 
-function FloatingWindowPanel({
+export function FloatingWindowPanel({
   pill,
   projectConfigId,
   canEditLayout,
@@ -454,7 +454,7 @@ function FloatingWindowPanel({
   );
 }
 
-type FloatingWindowsLayerProps = {
+export type FloatingWindowsLayerProps = {
   openFloatingPills: ResolvedWindowPill[];
   projectConfigId: string;
   canEditLayout: boolean;
@@ -549,7 +549,7 @@ export function FloatingWindowsLayer({
   );
 }
 
-type FloatingSnapResizeOverlayProps = {
+export type FloatingSnapResizeOverlayProps = {
   handles: FloatingSnapResizeHandle[];
   onPointerDown: (
     event: PointerEvent<HTMLDivElement>,

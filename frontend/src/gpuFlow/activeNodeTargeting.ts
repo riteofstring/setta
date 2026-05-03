@@ -56,7 +56,6 @@ type ResolveGpuNodePointerHandoffTargetInput = {
   readonly projectSourceForHitTesting?:
     | ((projection: GpuNodeSourceProjection) => void)
     | undefined;
-  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
@@ -111,7 +110,6 @@ export function resolveGpuNodePointerHandoffTarget({
   elementByNodeId,
   nodes,
   projectSourceForHitTesting,
-  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
   visualScene,
@@ -121,7 +119,6 @@ export function resolveGpuNodePointerHandoffTarget({
     clientY,
     effectProjectors,
     nodes,
-    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
     visualScene,
@@ -170,7 +167,6 @@ export function resolveGpuNodeWheelHandoffTarget({
   elementByNodeId,
   nodes,
   projectSourceForHitTesting,
-  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
   visualScene,
@@ -180,7 +176,6 @@ export function resolveGpuNodeWheelHandoffTarget({
     clientY,
     effectProjectors,
     nodes,
-    requireVisualSceneHitSurfaces,
     surfaceElement,
     viewport,
     visualScene,
@@ -471,7 +466,6 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
   clientY,
   effectProjectors,
   nodes,
-  requireVisualSceneHitSurfaces,
   surfaceElement,
   viewport,
   visualScene,
@@ -482,7 +476,6 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
     | ReadonlyMap<string, HtmlSurfaceEffectHitProjector>
     | undefined;
   readonly nodes: readonly GpuNodeLayout[];
-  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly surfaceElement: HTMLElement;
   readonly viewport: GpuViewportInput;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
@@ -497,15 +490,7 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
   nodes.forEach((node) => {
     nodeById.set(node.nodeId, node);
   });
-  const scene = resolveGpuNodeHitScene({
-    nodeById,
-    nodes,
-    requireVisualSceneHitSurfaces,
-    visualScene,
-  });
-  if (!scene) {
-    return null;
-  }
+  const scene = resolveGpuNodeHitScene({ nodeById, nodes, visualScene });
   const hit = resolveHtmlSurfaceHitAtClientPoint({
     clientX,
     clientY,
@@ -533,14 +518,12 @@ export function resolveTopmostGpuNodeHitAtClientPoint({
 function resolveGpuNodeHitScene({
   nodeById,
   nodes,
-  requireVisualSceneHitSurfaces = false,
   visualScene,
 }: {
   readonly nodeById: ReadonlyMap<string, GpuNodeLayout>;
   readonly nodes: readonly GpuNodeLayout[];
-  readonly requireVisualSceneHitSurfaces?: boolean | undefined;
   readonly visualScene: HtmlSurfaceVisualScene | undefined;
-}): HtmlSurfaceHitScene | null {
+}): HtmlSurfaceHitScene {
   if (visualScene) {
     const nodeVisualScene = filterVisualSceneBySurfaceIds(
       visualScene,
@@ -549,9 +532,6 @@ function resolveGpuNodeHitScene({
     if (hasVisualSceneHitSurfaces(nodeVisualScene)) {
       return createHtmlSurfaceHitSceneFromVisualScene(nodeVisualScene);
     }
-  }
-  if (requireVisualSceneHitSurfaces) {
-    return null;
   }
 
   const flatSurfaces: HtmlSurfaceFlatHitSurface[] = [];

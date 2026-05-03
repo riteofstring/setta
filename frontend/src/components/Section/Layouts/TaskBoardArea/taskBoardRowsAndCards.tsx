@@ -402,7 +402,7 @@ export function TaskBoardKanbanLane({
   );
 }
 
-function TaskBoardKanbanTaskCard({
+export function TaskBoardKanbanTaskCard({
   task,
   laneColumnId,
   isDisabled,
@@ -544,7 +544,7 @@ function TaskBoardKanbanTaskCard({
   );
 }
 
-function TaskScheduleMenu({
+export function TaskScheduleMenu({
   task,
   isDisabled,
   dueSummary,
@@ -622,7 +622,7 @@ function TaskScheduleMenu({
   );
 }
 
-function TaskDueInput({
+export function TaskDueInput({
   task,
   isDisabled,
   onChange,
@@ -683,7 +683,7 @@ function TaskDueInput({
   );
 }
 
-function TaskRecurrenceInput({
+export function TaskRecurrenceInput({
   task,
   isDisabled,
   onChangePatch,
@@ -821,7 +821,7 @@ function TaskRecurrenceInput({
   );
 }
 
-function TaskRecurrenceChipSelector<T extends string>({
+export function TaskRecurrenceChipSelector<T extends string>({
   testId,
   options,
   values,

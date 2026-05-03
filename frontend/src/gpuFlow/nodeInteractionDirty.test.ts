@@ -406,7 +406,10 @@ describe("gpu node interaction dirty tracking", () => {
     nodeElement.append(button, input);
     canvas.append(nodeElement);
     document.body.append(canvas);
-    const buttonDescriptor = createGpuNodeTargetDescriptor(nodeElement, button);
+    const buttonDescriptor = createGpuNodeTargetDescriptor(
+      nodeElement,
+      button,
+    );
     const inputDescriptor = createGpuNodeTargetDescriptor(nodeElement, input);
     if (!buttonDescriptor || !inputDescriptor) {
       throw new Error("Expected handoff target descriptors");

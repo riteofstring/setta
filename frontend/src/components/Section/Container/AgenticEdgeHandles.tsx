@@ -24,13 +24,7 @@ import {
 
 const EDGE_HANDLE_SAFE_ZONE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
-export function AgenticEdgeHandles({
-  isUserView,
-  scenePortGeometry,
-}: {
-  isUserView: boolean;
-  scenePortGeometry?: boolean;
-}) {
+export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
   const isSelectingEdge = useGpuFlowViewportStore(
@@ -59,8 +53,6 @@ export function AgenticEdgeHandles({
   }, [agenticEdges, sectionId]);
   const hasIncomingAgenticEdge = (connectionMask & 1) !== 0;
   const hasOutgoingAgenticEdge = (connectionMask & 2) !== 0;
-  const registerPortGeometry = scenePortGeometry !== true;
-  const canStartDomConnection = registerPortGeometry && canEditStructure;
 
   if (isUserView) {
     return null;
@@ -82,10 +74,9 @@ export function AgenticEdgeHandles({
         aria-hidden="true"
         tabIndex={-1}
         isConnectable={canEditStructure}
-        isConnectableStart={canStartDomConnection}
+        isConnectableStart={canEditStructure}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
-        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuReverseStartHandleConnectionProps(
           AGENTIC_EDGE_HANDLE_IDS.reverseStart,
         )}
@@ -100,7 +91,6 @@ export function AgenticEdgeHandles({
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
-        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.target)}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}
@@ -119,9 +109,8 @@ export function AgenticEdgeHandles({
         position={HandlePosition.Right}
         className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--source${hasOutgoingAgenticEdge ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         isConnectable={canEditStructure}
-        isConnectableStart={canStartDomConnection}
+        isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
-        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.source)}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}

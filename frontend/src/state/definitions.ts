@@ -41,7 +41,6 @@ export type {
   ZustandNodeInternalsState,
   ZustandProjectSearch,
   ZustandProjectState,
-  ZustandTypeErrors,
 } from "./definitions/storesCore";
 
 export {

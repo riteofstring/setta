@@ -11,7 +11,7 @@ import {
   setHtmlSurfaceActivePaintSourceRectHint,
 } from "./paintSourceRectHints";
 
-type HtmlSurfaceAnimationSourceRect = HtmlSurfaceSourceRect;
+export type HtmlSurfaceAnimationSourceRect = HtmlSurfaceSourceRect;
 
 export type HtmlSurfaceAnimationCaptureLeaseController = {
   begin(input: BeginHtmlSurfaceAnimationCaptureLeaseInput): void;
@@ -21,18 +21,18 @@ export type HtmlSurfaceAnimationCaptureLeaseController = {
   settle(input: SettleHtmlSurfaceAnimationCaptureLeaseInput): void;
 };
 
-type BeginHtmlSurfaceAnimationCaptureLeaseInput = {
+export type BeginHtmlSurfaceAnimationCaptureLeaseInput = {
   readonly reason?: DirtyNodeReason | undefined;
   readonly surfaceId: string;
   readonly target?: Element | null | undefined;
 };
 
-type SettleHtmlSurfaceAnimationCaptureLeaseInput = {
+export type SettleHtmlSurfaceAnimationCaptureLeaseInput = {
   readonly surfaceId: string;
   readonly target?: Element | null | undefined;
 };
 
-type HtmlSurfaceAnimationCaptureLeaseOptions = {
+export type HtmlSurfaceAnimationCaptureLeaseOptions = {
   readonly cancelAnimationFrame?: ((frameId: number) => void) | undefined;
   readonly getSourceElement: (surfaceId: string) => Element | null;
   readonly markDirty: (input: {

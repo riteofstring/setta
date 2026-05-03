@@ -74,7 +74,7 @@ export type PluginRevealHandlerOutcome =
 export type UISettingRevealActivationStep =
   UISettingRevealTarget["revealActivationSteps"][number];
 
-type ParsedUISettingRevealTargetFields = {
+export type ParsedUISettingRevealTargetFields = {
   settingId: string;
   side: string;
   overviewTabKey: string | null;
@@ -130,7 +130,7 @@ export type RevealMutationLease = {
   mutationDiff: RevealMutationDiff;
 };
 
-type RevealMutationResult =
+export type RevealMutationResult =
   | {
       ok: true;
       lease: RevealMutationLease;
@@ -140,7 +140,7 @@ type RevealMutationResult =
       status: UISettingRevealResultStatus;
     };
 
-type PluginRevealAttemptOutcome = {
+export type PluginRevealAttemptOutcome = {
   status: UISettingRevealResultStatus | null;
   pluginRevealErrorMessage: string | null;
 };
@@ -178,17 +178,19 @@ export type UISettingRevealExecutionContext = {
   isSocketGenerationActive: () => boolean;
 };
 
-let revealMutationSequence = 0;
+export let revealMutationSequence = 0;
 
-const invalidUISettingRevealField = Symbol("invalidUISettingRevealField");
+export const invalidUISettingRevealField = Symbol(
+  "invalidUISettingRevealField",
+);
 
-function isUISettingRevealRecord(
+export function isUISettingRevealRecord(
   value: unknown,
 ): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseUISettingRevealRequiredString(
+export function parseUISettingRevealRequiredString(
   value: unknown,
 ): string | typeof invalidUISettingRevealField {
   if (typeof value === "string") {
@@ -197,7 +199,7 @@ function parseUISettingRevealRequiredString(
   return invalidUISettingRevealField;
 }
 
-function parseUISettingRevealOptionalString(
+export function parseUISettingRevealOptionalString(
   value: unknown,
 ): string | null | typeof invalidUISettingRevealField {
   if (value === undefined || value === null) {
@@ -209,7 +211,7 @@ function parseUISettingRevealOptionalString(
   return invalidUISettingRevealField;
 }
 
-function parseUISettingRevealActivationStep(
+export function parseUISettingRevealActivationStep(
   value: unknown,
 ): UISettingRevealActivationStep | typeof invalidUISettingRevealField {
   if (!isUISettingRevealRecord(value)) {
@@ -229,7 +231,7 @@ function parseUISettingRevealActivationStep(
   };
 }
 
-function parseUISettingRevealActivationSteps(
+export function parseUISettingRevealActivationSteps(
   value: unknown,
 ): Array<UISettingRevealActivationStep> | typeof invalidUISettingRevealField {
   if (value === undefined) {
@@ -249,11 +251,13 @@ function parseUISettingRevealActivationSteps(
   return steps;
 }
 
-function hasInvalidUISettingRevealField(values: Array<unknown>): boolean {
+export function hasInvalidUISettingRevealField(
+  values: Array<unknown>,
+): boolean {
   return values.some((value) => value === invalidUISettingRevealField);
 }
 
-function parseUISettingRevealTargetFields(
+export function parseUISettingRevealTargetFields(
   value: Record<string, unknown>,
 ): ParsedUISettingRevealTargetFields | typeof invalidUISettingRevealField {
   const parsedFields = {
@@ -276,7 +280,7 @@ function parseUISettingRevealTargetFields(
   return parsedFields as ParsedUISettingRevealTargetFields;
 }
 
-function parseUISettingRevealTargetValue(
+export function parseUISettingRevealTargetValue(
   value: unknown,
 ): UISettingRevealTarget | typeof invalidUISettingRevealField {
   if (!isUISettingRevealRecord(value)) {
@@ -289,7 +293,7 @@ function parseUISettingRevealTargetValue(
   return parsedFields;
 }
 
-function parseUISettingRevealTargets(
+export function parseUISettingRevealTargets(
   value: unknown,
 ): Array<UISettingRevealTarget> | typeof invalidUISettingRevealField {
   if (!Array.isArray(value)) {
@@ -306,7 +310,7 @@ function parseUISettingRevealTargets(
   return targets;
 }
 
-function parseUISettingRevealDuration(
+export function parseUISettingRevealDuration(
   value: unknown,
 ): number | typeof invalidUISettingRevealField {
   if (value === undefined) {
@@ -365,7 +369,7 @@ export function parseUISettingRevealContent(
   };
 }
 
-function createEmptyRevealMutationDiff(): RevealMutationDiff {
+export function createEmptyRevealMutationDiff(): RevealMutationDiff {
   return {
     touchedOverviewVis: false,
     touchedOverviewTab: false,
@@ -378,7 +382,7 @@ function createEmptyRevealMutationDiff(): RevealMutationDiff {
   };
 }
 
-function resolveRequestedActiveSectionId(
+export function resolveRequestedActiveSectionId(
   requestedActiveSectionId: string | null | undefined,
 ): string | null {
   if (typeof requestedActiveSectionId !== "string") {
@@ -450,7 +454,7 @@ export async function receiveUISettingReveal(
   return statuses;
 }
 
-async function revealSingleSetting({
+export async function revealSingleSetting({
   target,
   durationMs,
   fallbackProjectConfigId,
@@ -512,7 +516,7 @@ async function revealSingleSetting({
   }
 }
 
-function buildRevealSuccessStatus(
+export function buildRevealSuccessStatus(
   settingId: string,
 ): UISettingRevealResultStatus {
   return {
@@ -523,7 +527,7 @@ function buildRevealSuccessStatus(
   };
 }
 
-function buildRevealFailureStatus(
+export function buildRevealFailureStatus(
   settingId: string,
   errorMessage: string,
 ): UISettingRevealResultStatus {
@@ -535,7 +539,7 @@ function buildRevealFailureStatus(
   };
 }
 
-function buildPluginFallbackFailureMessage({
+export function buildPluginFallbackFailureMessage({
   pluginRevealErrorMessage,
   defaultMessage,
   fallbackMessage,
@@ -550,7 +554,7 @@ function buildPluginFallbackFailureMessage({
   return `${pluginRevealErrorMessage} ${fallbackMessage}`;
 }
 
-async function maybeRevealSingleSettingWithPluginHandler({
+export async function maybeRevealSingleSettingWithPluginHandler({
   target,
   deadlineMs,
   executionContext,
@@ -593,7 +597,7 @@ async function maybeRevealSingleSettingWithPluginHandler({
   };
 }
 
-async function revealSingleSettingWithAnchor({
+export async function revealSingleSettingWithAnchor({
   target,
   durationMs,
   deadlineMs,
@@ -657,7 +661,7 @@ async function revealSingleSettingWithAnchor({
   return buildRevealSuccessStatus(target.settingId);
 }
 
-async function applyRevealMutationsWithLease({
+export async function applyRevealMutationsWithLease({
   target,
   fallbackProjectConfigId,
   requestedActiveSectionId,
@@ -765,7 +769,7 @@ async function applyRevealMutationsWithLease({
   });
 }
 
-async function rollbackRevealMutationLease(
+export async function rollbackRevealMutationLease(
   mutationLease: RevealMutationLease,
 ): Promise<void> {
   await runWithRevealMutationLock(() => {
@@ -773,7 +777,7 @@ async function rollbackRevealMutationLease(
   });
 }
 
-async function finalizeRevealMutationLease(
+export async function finalizeRevealMutationLease(
   mutationLease: RevealMutationLease,
 ): Promise<void> {
   await runWithRevealMutationLock(() => {
@@ -781,7 +785,7 @@ async function finalizeRevealMutationLease(
   });
 }
 
-function registerRevealMutationLease(
+export function registerRevealMutationLease(
   localStorageSnapshot: RevealLocalStorageSnapshot,
   postMutationLocalStorageSnapshot: RevealLocalStorageSnapshot,
   projectStateSnapshot: RevealProjectStateSnapshot,
@@ -801,7 +805,7 @@ function registerRevealMutationLease(
   return lease;
 }
 
-function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
+export function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
   const state = useLocalStorage.getState();
   return {
     overviewVis: state.overviewVis,
@@ -821,7 +825,7 @@ function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
   };
 }
 
-function captureRevealProjectStateSnapshot(): RevealProjectStateSnapshot {
+export function captureRevealProjectStateSnapshot(): RevealProjectStateSnapshot {
   const state = useProjectState.getState();
   return {
     projectConfigId: state.projectConfig.id,

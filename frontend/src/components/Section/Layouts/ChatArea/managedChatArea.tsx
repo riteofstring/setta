@@ -117,7 +117,7 @@ import {
   emitChatStopAction,
 } from "./scriptableChatArea";
 
-type ManagedChatAreaProps = {
+export type ManagedChatAreaProps = {
   sectionId: string;
   surfaceId?: string;
   controlledChatId?: ChatSectionChatId;

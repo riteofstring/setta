@@ -21,7 +21,6 @@ const KEYBOARD_STEP_DIRECTIONS = {
 type RotaryInputProps = {
   value: string | number;
   onChange?: (value: number) => void;
-  onCommit?: (value: number) => void;
   onEscape?: () => void;
   min: number;
   max: number;
@@ -33,7 +32,6 @@ type RotaryInputProps = {
 export function RotaryInput({
   value,
   onChange,
-  onCommit,
   onEscape,
   min,
   max,
@@ -42,7 +40,6 @@ export function RotaryInput({
   indicatorThemeClassName,
 }: RotaryInputProps) {
   const pointerIdRef = useRef<number | null>(null);
-  const lastPointerValueRef = useRef<number | null>(null);
   const clampedValue = parseValue(value, min, max);
   const indicatorAngle = getAngleFromValue(clampedValue, min, max);
   const displayValue = formatValue(clampedValue, step);
@@ -55,24 +52,12 @@ export function RotaryInput({
   }
 
   function updateFromPointer(event: PointerEvent<HTMLButtonElement>) {
-    const angle = getPointerAngle(event, event.currentTarget);
-    const nextValue = getValueFromAngle(angle, min, max, step);
-    lastPointerValueRef.current = nextValue;
-    onChange?.(nextValue);
-  }
-
-  function commitPointerValue() {
-    const nextValue = lastPointerValueRef.current;
-    lastPointerValueRef.current = null;
-    if (nextValue === null) {
+    if (!onChange) {
       return;
     }
-    onCommit?.(nextValue);
-  }
-
-  function updateAndCommitDiscreteValue(nextValue: number) {
-    onChange?.(nextValue);
-    onCommit?.(nextValue);
+    const angle = getPointerAngle(event, event.currentTarget);
+    const nextValue = getValueFromAngle(angle, min, max, step);
+    onChange(nextValue);
   }
 
   function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
@@ -97,7 +82,6 @@ export function RotaryInput({
     if (pointerIdRef.current !== event.pointerId) {
       return;
     }
-    commitPointerValue();
     pointerIdRef.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
   }
@@ -106,7 +90,6 @@ export function RotaryInput({
     if (pointerIdRef.current !== event.pointerId) {
       return;
     }
-    commitPointerValue();
     pointerIdRef.current = null;
     event.currentTarget.releasePointerCapture(event.pointerId);
   }
@@ -129,7 +112,9 @@ export function RotaryInput({
       max,
       step,
     );
-    updateAndCommitDiscreteValue(nextValue);
+    if (onChange) {
+      onChange(nextValue);
+    }
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
@@ -153,7 +138,9 @@ export function RotaryInput({
       return;
     }
     event.preventDefault();
-    updateAndCommitDiscreteValue(snapToStep(nextValue, min, max, step));
+    if (onChange) {
+      onChange(snapToStep(nextValue, min, max, step));
+    }
   }
 
   return (
@@ -163,7 +150,6 @@ export function RotaryInput({
       <button
         type="button"
         className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${knobStateClasses} relative h-10 w-10 touch-none select-none rounded-full bg-transparent p-0`}
-        data-gpu-flow-activation="pointer"
         data-gpu-flow-interactive="true"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

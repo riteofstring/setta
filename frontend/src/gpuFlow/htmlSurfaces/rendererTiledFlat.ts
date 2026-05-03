@@ -24,7 +24,7 @@ export type TiledFlatSurfaceDrawTile = {
   readonly zIndex: number;
 };
 
-type HtmlSurfaceTiledFlatPassOptions = {
+export type HtmlSurfaceTiledFlatPassOptions = {
   readonly getFlatSurfacePipeline: () => GPURenderPipeline;
   readonly getTextureBindGroup: (
     tile: TiledFlatSurfaceDrawTile,

@@ -10,16 +10,12 @@ import { toElement } from "./pointerHandoff";
 export function updateGpuPointerHoverCursor({
   elementByNodeId,
   event,
-  resolveCanvasCursor,
   resolvePointerHandoffTarget,
   setHoverCursor,
   surfaceElement,
 }: {
   readonly elementByNodeId: () => ReadonlyMap<string, HTMLElement>;
   readonly event: PointerEvent;
-  readonly resolveCanvasCursor?:
-    | ((event: PointerEvent) => string | null)
-    | undefined;
   readonly resolvePointerHandoffTarget?:
     | ((
         event: PointerEvent,
@@ -34,20 +30,15 @@ export function updateGpuPointerHoverCursor({
     return undefined;
   }
 
-  const handoffTarget =
-    resolvePointerHandoffTarget?.(event, {
-      projectSource: false,
-    }) ?? null;
+  const handoffTarget = resolvePointerHandoffTarget?.(event, {
+    projectSource: false,
+  }) ?? null;
   const target = resolvePointerHoverCursorTarget({
     elementByNodeId,
     event,
     handoffTarget,
   });
-  setHoverCursor(
-    resolvePointerHoverCursorValue(target) ??
-      resolveCanvasCursor?.(event) ??
-      null,
-  );
+  setHoverCursor(resolvePointerHoverCursorValue(target));
   return handoffTarget;
 }
 
@@ -91,8 +82,8 @@ function resolvePointerHoverCursorValue(
   if (!target) {
     return null;
   }
-  const cursor =
-    target.ownerDocument.defaultView?.getComputedStyle(target).cursor;
+  const cursor = target.ownerDocument.defaultView?.getComputedStyle(target)
+    .cursor;
   if (cursor && cursor !== "auto") {
     return cursor;
   }

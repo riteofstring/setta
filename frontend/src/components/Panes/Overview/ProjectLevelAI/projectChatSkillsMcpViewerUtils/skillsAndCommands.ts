@@ -28,7 +28,7 @@ export const EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID = Object.freeze(
   {},
 ) as Record<string, AgentNativeSlashCommandsEntry>;
 
-type AgentNativeSlashCommandsStatus =
+export type AgentNativeSlashCommandsStatus =
   | "unknown"
   | "available"
   | "none"
@@ -78,16 +78,16 @@ export function filterSkills(
   });
 }
 
-type SkillActivityState = "active" | "inactive" | "unknown";
+export type SkillActivityState = "active" | "inactive" | "unknown";
 
-type SkillStatus = {
+export type SkillStatus = {
   isApplicable: boolean;
   applicabilityReason: string;
   activityState: SkillActivityState;
   activitySource: string | null;
 };
 
-const CODEX_APPLICABLE_ROOT_IDS = [
+export const CODEX_APPLICABLE_ROOT_IDS = [
   "workspace_agents_skills",
   "user_agents_skills",
   "agents_home_skills",
@@ -95,19 +95,19 @@ const CODEX_APPLICABLE_ROOT_IDS = [
   "admin_codex_skills",
 ];
 
-const CLAUDE_APPLICABLE_ROOT_IDS = [
+export const CLAUDE_APPLICABLE_ROOT_IDS = [
   "workspace_claude_skills",
   "user_claude_skills",
 ];
 
-type SkillStatusContext = {
+export type SkillStatusContext = {
   skills: SkillEntry[];
   engineType: EngineConfig["engineType"] | null;
   externalAgentToolType: string | null;
   messages: BaseChatMessageUnion[] | null;
 };
 
-type SkillStatusResolutionContext = {
+export type SkillStatusResolutionContext = {
   activeSkillSourcesBySkillId: Map<string, string>;
   ambiguousSkillIds: Set<string>;
   applicableRootIdSet: Set<string>;
@@ -116,7 +116,7 @@ type SkillStatusResolutionContext = {
   requiresStructuredMetadata: boolean;
 };
 
-function getSkillRootId(skillId: string): string {
+export function getSkillRootId(skillId: string): string {
   const separatorIndex = skillId.indexOf("::");
   if (separatorIndex < 0) {
     return "";
@@ -124,7 +124,7 @@ function getSkillRootId(skillId: string): string {
   return skillId.slice(0, separatorIndex);
 }
 
-function getApplicableRootIds({
+export function getApplicableRootIds({
   engineType,
   externalAgentToolType,
 }: {
@@ -143,7 +143,7 @@ function getApplicableRootIds({
   return [];
 }
 
-function getEngineLabel({
+export function getEngineLabel({
   engineType,
   externalAgentToolType,
 }: {
@@ -165,7 +165,7 @@ function getEngineLabel({
   return "selected engine";
 }
 
-function getArgumentsRecord(
+export function getArgumentsRecord(
   argumentsValue: unknown,
 ): Record<string, unknown> | null {
   if (isRecord(argumentsValue)) {
@@ -185,16 +185,16 @@ function getArgumentsRecord(
   }
 }
 
-function normalizeSkillToken(value: string): string {
+export function normalizeSkillToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
-type SkillActivityCollection = {
+export type SkillActivityCollection = {
   activeByName: Map<string, string>;
   hasStructuredMetadata: boolean;
 };
 
-function shouldCollectCodexSkillActivity({
+export function shouldCollectCodexSkillActivity({
   engineType,
   externalAgentToolType,
 }: {
@@ -207,7 +207,7 @@ function shouldCollectCodexSkillActivity({
   );
 }
 
-function recordActiveSkillName(
+export function recordActiveSkillName(
   activeByName: Map<string, string>,
   activitySource: string,
   skillName: string | null,
@@ -218,7 +218,7 @@ function recordActiveSkillName(
   activeByName.set(normalizeSkillToken(skillName), activitySource);
 }
 
-function stripMcpToolNamespace(toolName: string): string {
+export function stripMcpToolNamespace(toolName: string): string {
   if (!toolName.startsWith("mcp__")) {
     return toolName;
   }
@@ -229,7 +229,7 @@ function stripMcpToolNamespace(toolName: string): string {
   return toolName.slice(namespaceSeparatorIndex + "__".length);
 }
 
-function extractSkillNameFromArguments(
+export function extractSkillNameFromArguments(
   argumentsValue: Record<string, unknown>,
 ): string | null {
   const candidateKeys = [
@@ -260,7 +260,7 @@ function extractSkillNameFromArguments(
   return null;
 }
 
-function extractSkillNameFromInvocation({
+export function extractSkillNameFromInvocation({
   toolName,
   toolArguments,
 }: {
@@ -290,7 +290,7 @@ function extractSkillNameFromInvocation({
   return null;
 }
 
-function collectStructuredSkillActivityFromAssistantMessage(
+export function collectStructuredSkillActivityFromAssistantMessage(
   message: BaseChatMessageUnion,
   activeByName: Map<string, string>,
   activitySource: string,
@@ -311,7 +311,7 @@ function collectStructuredSkillActivityFromAssistantMessage(
   return true;
 }
 
-function collectStructuredSkillActivityFromToolMessage(
+export function collectStructuredSkillActivityFromToolMessage(
   message: BaseChatMessageUnion,
   activeByName: Map<string, string>,
   activitySource: string,
@@ -330,7 +330,7 @@ function collectStructuredSkillActivityFromToolMessage(
   return true;
 }
 
-function collectActiveSkillNames({
+export function collectActiveSkillNames({
   engineType,
   externalAgentToolType,
   messages,
@@ -367,7 +367,7 @@ function collectActiveSkillNames({
   return { activeByName, hasStructuredMetadata };
 }
 
-function buildSkillIdentifierSet(skill: SkillEntry): Set<string> {
+export function buildSkillIdentifierSet(skill: SkillEntry): Set<string> {
   const identifiers = new Set<string>();
   identifiers.add(normalizeSkillToken(skill.name));
   const normalizedRelativePath = normalizeSkillToken(skill.relativePath);
@@ -380,7 +380,7 @@ function buildSkillIdentifierSet(skill: SkillEntry): Set<string> {
   return identifiers;
 }
 
-function buildSkillIdentifierIndex(
+export function buildSkillIdentifierIndex(
   skills: SkillEntry[],
 ): Map<string, SkillEntry[]> {
   const index = new Map<string, SkillEntry[]>();
@@ -398,7 +398,7 @@ function buildSkillIdentifierIndex(
   return index;
 }
 
-function mapActiveSkillNamesToSkillIds({
+export function mapActiveSkillNamesToSkillIds({
   applicableRootIds,
   skills,
   activeSkillNames,
@@ -446,7 +446,7 @@ function mapActiveSkillNamesToSkillIds({
   };
 }
 
-function buildSkillStatusResolutionContext({
+export function buildSkillStatusResolutionContext({
   skills,
   engineType,
   externalAgentToolType,
@@ -484,7 +484,7 @@ function buildSkillStatusResolutionContext({
   };
 }
 
-function resolveSkillActivityState({
+export function resolveSkillActivityState({
   skillId,
   isApplicable,
   activeSource,
@@ -511,7 +511,7 @@ function resolveSkillActivityState({
   return "inactive";
 }
 
-function buildSkillStatusEntry(
+export function buildSkillStatusEntry(
   skill: SkillEntry,
   resolutionContext: SkillStatusResolutionContext,
 ): SkillStatus {
@@ -556,7 +556,7 @@ export function buildSkillStatusBySkillId({
   return statusesBySkillId;
 }
 
-type SkillsByRootPath = {
+export type SkillsByRootPath = {
   rootPath: string;
   rootLabel: string;
   skills: SkillEntry[];
@@ -593,7 +593,7 @@ export function groupSkillsByRootPath(
     .sort((a, b) => a.rootPath.localeCompare(b.rootPath));
 }
 
-type McpServerListEntry = {
+export type McpServerListEntry = {
   serverId: string;
   transport: string;
   endpoint: string;
@@ -641,13 +641,13 @@ export type SlashCommandsByEngine = {
   commands: ChatSlashCommandDefinition[];
 };
 
-type McpServersByConfigPath = {
+export type McpServersByConfigPath = {
   configPath: string | null;
   configLabel: string;
   servers: McpServerListEntry[];
 };
 
-function resolveMcpServerEndpoint(
+export function resolveMcpServerEndpoint(
   config: AllConfigs["mcpServers"][string],
 ): string {
   if (typeof config.url === "string" && config.url.length > 0) {
@@ -659,7 +659,9 @@ function resolveMcpServerEndpoint(
   return "(no endpoint)";
 }
 
-function resolveMcpConfigLabel(settaFilesLocation: string | null): string {
+export function resolveMcpConfigLabel(
+  settaFilesLocation: string | null,
+): string {
   if (!settaFilesLocation) {
     return "Active setta_files";
   }
@@ -723,7 +725,7 @@ export function groupMcpServersByConfigPath({
   return groups;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
@@ -738,7 +740,7 @@ export function normalizeOptionalString(value: unknown): string | null {
   return trimmed;
 }
 
-function normalizeSlashCommandList(raw: unknown): string[] {
+export function normalizeSlashCommandList(raw: unknown): string[] {
   if (!Array.isArray(raw)) {
     return [];
   }
@@ -758,7 +760,7 @@ function normalizeSlashCommandList(raw: unknown): string[] {
   return normalized;
 }
 
-function normalizeAgentNativeSlashCommandsStatus(
+export function normalizeAgentNativeSlashCommandsStatus(
   rawStatus: unknown,
 ): AgentNativeSlashCommandsStatus {
   if (typeof rawStatus !== "string") {
@@ -778,7 +780,7 @@ function normalizeAgentNativeSlashCommandsStatus(
   }
 }
 
-function resolveAgentNativeSlashCommandsMetadata(
+export function resolveAgentNativeSlashCommandsMetadata(
   run: AgentRun,
 ): Record<string, unknown> | null {
   if (!isRecord(run.outputs) || !isRecord(run.outputs.metadata)) {
@@ -787,7 +789,7 @@ function resolveAgentNativeSlashCommandsMetadata(
   return run.outputs.metadata;
 }
 
-function resolveAgentNativeSlashCommandsStatus({
+export function resolveAgentNativeSlashCommandsStatus({
   commands,
   hasCommandsField,
   metadata,

@@ -90,70 +90,70 @@ import { sendCurrentAddress } from "./realtimeBinaryUpload";
 
 export let wss: WebSocket | null = null;
 
-let wasOpen = false;
+export let wasOpen = false;
 
-let authLost = false;
+export let authLost = false;
 
-const AUTH_CLOSE_CODE = 4401;
+export const AUTH_CLOSE_CODE = 4401;
 
-const SHARE_SESSION_MISSING_CODE = 4400;
+export const SHARE_SESSION_MISSING_CODE = 4400;
 
-const SHARE_SESSION_UNKNOWN_CODE = 4404;
+export const SHARE_SESSION_UNKNOWN_CODE = 4404;
 
-const BOOTSTRAP_URL = buildBootstrapPageUrl();
+export const BOOTSTRAP_URL = buildBootstrapPageUrl();
 
-const FRONTEND_WEBSOCKET_ROUTE = getFrontendWebsocketRoute();
+export const FRONTEND_WEBSOCKET_ROUTE = getFrontendWebsocketRoute();
 
-const AUTH_RECOVERY_INTERVAL_MS = 2000;
+export const AUTH_RECOVERY_INTERVAL_MS = 2000;
 
-const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
+export const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 
-const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
+export const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 
-let authRecoveryTimer: number | null = null;
+export let authRecoveryTimer: number | null = null;
 
-let authRecoveryInFlight = false;
+export let authRecoveryInFlight = false;
 
-let authRefreshTimer: number | null = null;
+export let authRefreshTimer: number | null = null;
 
-let authRefreshInFlight = false;
+export let authRefreshInFlight = false;
 
-let authRefreshWindowSeconds = C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
+export let authRefreshWindowSeconds = C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
 
-let authRefreshIntervalMs = getAuthRefreshIntervalMs(
+export let authRefreshIntervalMs = getAuthRefreshIntervalMs(
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS,
 );
 
-let lastPathname: string | null = null;
+export let lastPathname: string | null = null;
 
-let lastShareSessionId: string | null = null;
+export let lastShareSessionId: string | null = null;
 
-let currentShareSessionId: string | null = null;
+export let currentShareSessionId: string | null = null;
 
-let currentRoute: string | null = null;
+export let currentRoute: string | null = null;
 
 export let activeWebsocketGeneration = 0;
 
-let shareHeartbeatTimer: number | null = null;
+export let shareHeartbeatTimer: number | null = null;
 
-let shareSessionRecoveryAttempts = 0;
+export let shareSessionRecoveryAttempts = 0;
 
-let shareSessionRecoveryInFlight = false;
+export let shareSessionRecoveryInFlight = false;
 
 export type PendingUISettingRevealMessage = {
   content: unknown;
   socketGeneration: number;
 };
 
-type AuthRefreshStatusRouteResponse =
+export type AuthRefreshStatusRouteResponse =
   ResponseDataAndStatus<AuthRefreshStatusResponse>;
 
 export type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 
-type LatestProjectStateRouteResponse =
+export type LatestProjectStateRouteResponse =
   ResponseDataAndStatus<GetLatestProjectStateResponse>;
 
-type LatestLSPDiagnosticsRouteResponse =
+export type LatestLSPDiagnosticsRouteResponse =
   ResponseDataAndStatus<LSPDiagnosticsPayload>;
 
 export type FrontendWebsocketEnvelope = {
@@ -197,14 +197,14 @@ export type TranscriptionProfilesUpdatedContent = {
   profiles: Parameters<typeof receiveTranscriptionProfilesUpdate>[0];
 };
 
-type WebsocketOpenRequest = {
+export type WebsocketOpenRequest = {
   pathname: string;
   route: string;
   shareSessionId: string | null;
   targetUrl: string;
 };
 
-function beginWebsocketGeneration(): number {
+export function beginWebsocketGeneration(): number {
   activeWebsocketGeneration += 1;
   setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
   clearFrontendWebsocketAffinity(activeWebsocketGeneration);
@@ -242,7 +242,7 @@ export const openWebSocket = _.debounce(
   { leading: true },
 );
 
-function reuseOpenWebSocket({
+export function reuseOpenWebSocket({
   pathname,
   route,
   shareSessionId,
@@ -258,7 +258,7 @@ function reuseOpenWebSocket({
   return true;
 }
 
-function shouldReplaceOpenWebSocket({
+export function shouldReplaceOpenWebSocket({
   route,
   shareSessionId,
 }: WebsocketOpenRequest): boolean {
@@ -267,7 +267,7 @@ function shouldReplaceOpenWebSocket({
   );
 }
 
-function createWebSocket({
+export function createWebSocket({
   pathname,
   route,
   shareSessionId,
@@ -309,7 +309,7 @@ function createWebSocket({
   });
 }
 
-async function handleWebSocketOpen(
+export async function handleWebSocketOpen(
   socket: WebSocket,
   socketGeneration: number,
   pathname: string,
@@ -340,7 +340,7 @@ async function handleWebSocketOpen(
   await bootstrapWebsocketProjectState();
 }
 
-async function bootstrapWebsocketProjectState(): Promise<void> {
+export async function bootstrapWebsocketProjectState(): Promise<void> {
   const projectConfigId = getCurrProjectConfigId();
   let runImmediateAuthRefresh = true;
   if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
@@ -369,7 +369,7 @@ async function bootstrapWebsocketProjectState(): Promise<void> {
   startAuthRefresh({ runImmediately: runImmediateAuthRefresh });
 }
 
-function handleWebSocketClose({
+export function handleWebSocketClose({
   event,
   pathname,
   shareSessionId,
@@ -429,7 +429,7 @@ function handleWebSocketClose({
   }, 3000);
 }
 
-function clearAuthRecoveryTimer() {
+export function clearAuthRecoveryTimer() {
   if (authRecoveryTimer === null) {
     return;
   }
@@ -437,7 +437,7 @@ function clearAuthRecoveryTimer() {
   authRecoveryTimer = null;
 }
 
-function scheduleAuthRecovery(pathname: string) {
+export function scheduleAuthRecovery(pathname: string) {
   if (!authLost) {
     return;
   }
@@ -451,7 +451,7 @@ function scheduleAuthRecovery(pathname: string) {
   }, AUTH_RECOVERY_INTERVAL_MS);
 }
 
-async function attemptAuthRecovery(pathname: string) {
+export async function attemptAuthRecovery(pathname: string) {
   if (!authLost || authRecoveryInFlight) {
     return;
   }
@@ -470,7 +470,7 @@ async function attemptAuthRecovery(pathname: string) {
   scheduleAuthRecovery(pathname);
 }
 
-function closeWebSocketForReplacement() {
+export function closeWebSocketForReplacement() {
   const socketGeneration = beginWebsocketGeneration();
   if (wss) {
     wss.close();
@@ -481,7 +481,7 @@ function closeWebSocketForReplacement() {
   stopShareHeartbeat();
 }
 
-function handleWebSocketTransportError(
+export function handleWebSocketTransportError(
   socket: WebSocket,
   socketGeneration: number,
 ) {
@@ -504,7 +504,7 @@ export function wssReady(wss: WebSocket | null): wss is WebSocket {
   return wss !== null && wss.readyState === 1;
 }
 
-function startShareHeartbeat() {
+export function startShareHeartbeat() {
   stopShareHeartbeat();
   shareHeartbeatTimer = window.setInterval(() => {
     if (currentShareSessionId === null || !wssReady(wss)) {
@@ -518,7 +518,7 @@ function startShareHeartbeat() {
   }, SHARE_HEARTBEAT_INTERVAL_MS);
 }
 
-function stopShareHeartbeat() {
+export function stopShareHeartbeat() {
   if (shareHeartbeatTimer === null) {
     return;
   }
@@ -526,7 +526,11 @@ function stopShareHeartbeat() {
   shareHeartbeatTimer = null;
 }
 
-function startAuthRefresh({ runImmediately }: { runImmediately: boolean }) {
+export function startAuthRefresh({
+  runImmediately,
+}: {
+  runImmediately: boolean;
+}) {
   stopAuthRefresh();
   if (authLost) {
     return;
@@ -543,7 +547,7 @@ function startAuthRefresh({ runImmediately }: { runImmediately: boolean }) {
   }, authRefreshIntervalMs);
 }
 
-function stopAuthRefresh() {
+export function stopAuthRefresh() {
   if (authRefreshTimer === null) {
     return;
   }
@@ -551,7 +555,7 @@ function stopAuthRefresh() {
   authRefreshTimer = null;
 }
 
-async function runAuthRefresh() {
+export async function runAuthRefresh() {
   if (authLost || authRefreshInFlight) {
     return;
   }
@@ -572,11 +576,11 @@ async function runAuthRefresh() {
   }
 }
 
-function getAuthRefreshIntervalMs(windowSeconds: number): number {
+export function getAuthRefreshIntervalMs(windowSeconds: number): number {
   return Math.max(1000, Math.floor(windowSeconds * 1000 * 0.5));
 }
 
-function updateAuthRefreshWindowSeconds(
+export function updateAuthRefreshWindowSeconds(
   windowSeconds: number | null | undefined,
 ) {
   if (windowSeconds === null || windowSeconds === undefined) {
@@ -599,7 +603,7 @@ function updateAuthRefreshWindowSeconds(
   }
 }
 
-async function handleShareSessionRecovery() {
+export async function handleShareSessionRecovery() {
   if (shareSessionRecoveryInFlight) {
     return;
   }
@@ -641,7 +645,7 @@ async function handleShareSessionRecovery() {
   shareSessionRecoveryAttempts = 0;
 }
 
-function isAppDeploymentWebsocketContext(): boolean {
+export function isAppDeploymentWebsocketContext(): boolean {
   const shareSession = useShareSession.getState();
   if (shareSession.isDeploymentMode && shareSession.deploymentMode === "app") {
     return true;

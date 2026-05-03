@@ -1,10 +1,13 @@
-import { type ParamListKey } from "forks/dnd-kit/paramDndState";
+import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
+import { matchSorter } from "match-sorter";
 import { useMemo } from "react";
-import { getCurrEffectiveSectionImplWithTypeGuardIfPresent } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
+  getParamDisplayNameIfPresent,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { resolveFilteredParamRows } from "./paramListFiltering";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
@@ -57,15 +60,40 @@ export function GetParamSwitch({
     shallow,
   );
   const paramFilter = paramsImpl?.paramFilter ?? null;
-  const filteredRows = useMemo(() => {
+  const filteredIds = useMemo(() => {
     const state = useProjectState.getState();
-    return resolveFilteredParamRows({
-      paramFilter,
-      paramIds,
-      requiredParamIdsToPaths,
-      sectionId,
-      state,
-    });
+    let matches = paramIds;
+
+    if (paramFilter) {
+      const requiredParamIdsWithNames = Object.keys(
+        requiredParamIdsToPaths,
+      ).map((id) => ({
+        id,
+        name: getParamDisplayNameIfPresent(state, sectionId, id) ?? id,
+      }));
+
+      matches = matchSorter(requiredParamIdsWithNames, paramFilter, {
+        keys: ["name"],
+      });
+    }
+
+    const filteredRequired = new Set<string>();
+    for (const match of matches) {
+      const path =
+        requiredParamIdsToPaths[
+          Object.prototype.hasOwnProperty.call(match, "id") ? match.id : match
+        ];
+      if (!path) {
+        continue;
+      }
+      for (const pathPart of path) {
+        filteredRequired.add(pathPart);
+      }
+    }
+
+    return paramIds.filter(
+      (paramId) => filteredRequired.has(paramId) || isTempParam(paramId),
+    );
   }, [
     codeObjImpls,
     codeObjVariants,
@@ -85,12 +113,12 @@ export function GetParamSwitch({
     return null;
   }
 
-  return filteredRows.paramIds.map((paramId, idx) => (
+  return filteredIds.map((paramId, idx) => (
     <ParamSwitch
       key={paramId}
       sectionId={sectionId}
       paramInfoId={paramId}
-      requiredParamIdsToPaths={filteredRows.requiredParamIdsToPaths}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}
       listKey={listKey}

@@ -1,6 +1,6 @@
 import { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
 
-type HtmlSurfaceInteractionProjectionInput = {
+export type HtmlSurfaceInteractionProjectionInput = {
   readonly localX: number;
   readonly localY: number;
   readonly sourceElement: HTMLElement;
@@ -9,7 +9,7 @@ type HtmlSurfaceInteractionProjectionInput = {
   readonly surfaceY: number;
 };
 
-type HtmlSurfaceInteractionProjectionState = {
+export type HtmlSurfaceInteractionProjectionState = {
   readonly sourceElement: HTMLElement;
   readonly sourceId: string;
 };

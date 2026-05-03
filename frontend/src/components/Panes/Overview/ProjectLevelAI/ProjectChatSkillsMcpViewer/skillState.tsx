@@ -71,7 +71,7 @@ export type SkillMarkdownViewMode =
 
 export type SkillContentLoadStatus = "idle" | "loading" | "loaded" | "error";
 
-type ResizeListenerTarget = Pick<
+export type ResizeListenerTarget = Pick<
   Window,
   "addEventListener" | "removeEventListener"
 >;
@@ -107,7 +107,7 @@ export function getCustomSlashCommandModeLabel(
   return modeItems.find((item) => item.id === resolvedId)?.name ?? null;
 }
 
-function areCustomSlashCommandDraftsEqual(
+export function areCustomSlashCommandDraftsEqual(
   left: CustomSlashCommandDraft,
   right: CustomSlashCommandDraft,
 ): boolean {
@@ -118,7 +118,7 @@ function areCustomSlashCommandDraftsEqual(
   );
 }
 
-function isEmptyCustomSlashCommandDraft(
+export function isEmptyCustomSlashCommandDraft(
   draft: CustomSlashCommandDraft,
 ): boolean {
   return areCustomSlashCommandDraftsEqual(
@@ -127,7 +127,7 @@ function isEmptyCustomSlashCommandDraft(
   );
 }
 
-type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
+export type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
   skillMarkdownDraftStateBySkillId: Record<
     string,
     SkillMarkdownDraftStateEntry
@@ -136,7 +136,7 @@ type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
   skillContent: string;
 };
 
-type ResolveSkillMarkdownRawDraftBySkillIdUpdateInput = {
+export type ResolveSkillMarkdownRawDraftBySkillIdUpdateInput = {
   skillMarkdownDraftStateBySkillId: Record<
     string,
     SkillMarkdownDraftStateEntry
@@ -145,7 +145,7 @@ type ResolveSkillMarkdownRawDraftBySkillIdUpdateInput = {
   nextRawDraft: string;
 };
 
-type ResolveSkillMarkdownRawDraftBySkillIdReplaceInput = {
+export type ResolveSkillMarkdownRawDraftBySkillIdReplaceInput = {
   skillMarkdownDraftStateBySkillId: Record<
     string,
     SkillMarkdownDraftStateEntry
@@ -154,7 +154,7 @@ type ResolveSkillMarkdownRawDraftBySkillIdReplaceInput = {
   nextRawDraft: string;
 };
 
-type ResolveCustomSlashDraftByProjectConfigIdUpdateInput = {
+export type ResolveCustomSlashDraftByProjectConfigIdUpdateInput = {
   customSlashDraftByProjectConfigId: Record<string, CustomSlashCommandDraft>;
   projectConfigId: string;
   nextDraft: CustomSlashCommandDraft;
@@ -166,7 +166,7 @@ export type SkillContentCacheEntry = {
   originalSizeBytes: number | null;
 };
 
-type SelectedSkillViewState = {
+export type SelectedSkillViewState = {
   selectedSkillId: string;
   selectedSkillContent: string;
   selectedSkillContentTruncated: boolean;
@@ -191,7 +191,7 @@ export type CodeMirrorTheme = ReturnType<typeof useCodeMirrorStyle>;
 
 export type CodeMirrorExtensions = ReturnType<typeof getExtensions>;
 
-function compareAppGenSkillEntries(
+export function compareAppGenSkillEntries(
   first: SkillEntry,
   second: SkillEntry,
 ): number {
@@ -380,7 +380,7 @@ export function resolveAgentNativeSlashCommandsMessage(
   );
 }
 
-function resolveAgentNativeSlashAuthorityDetail(
+export function resolveAgentNativeSlashAuthorityDetail(
   agentRunsAuthorityState: AgentRunsAuthorityState,
 ): string | null {
   if (agentRunsAuthorityState === "loading") {

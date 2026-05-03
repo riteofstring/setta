@@ -219,12 +219,16 @@ function MockUnifiedChatSurface({
   );
 }
 
+vi.mock("components/Section/Container/ManyNestedSections", () => ({
+  MaybeManyNestedSections: () => (
+    <div data-testid="mock-many-nested-sections" />
+  ),
+}));
+
 vi.mock("components/Section/Container/SectionWindowSurface", () => ({
   SectionWindowSurface: ({
-    bodyOverride,
     onProjectChatBlockedErrorCodeChange,
   }: {
-    bodyOverride?: ReactNode | undefined;
     onProjectChatBlockedErrorCodeChange?:
       | ((errorCode: string | null) => void)
       | undefined;
@@ -237,17 +241,16 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
       onProjectChatBlockedErrorCodeChange,
       hoisted.state.projectChatBlockedErrorCode,
     ]);
-    return (
-      <div
-        data-testid="mock-section-window-surface"
-        data-has-body-override={String(bodyOverride !== undefined)}
-      />
-    );
+    return <div data-testid="mock-section-window-surface" />;
   },
 }));
 
 vi.mock("components/Utils/FloatingBox", () => ({
   FloatingBox: () => <div data-testid="mock-floating-box" />,
+}));
+
+vi.mock("forks/dnd-kit/SectionDndContext", () => ({
+  SectionDndContext: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock("gpuFlow/mouseLocation", () => ({
@@ -395,36 +398,6 @@ function createTextSectionFixture({
     implId,
     impl: {
       type: SectionTypeEnum.TextBlock,
-    } satisfies MockSectionImpl,
-  };
-}
-
-function createGroupSectionFixture({
-  sectionId,
-  sectionName,
-  children = [],
-}: {
-  sectionId: string;
-  sectionName: string;
-  children?: string[];
-}) {
-  const variantId = `${sectionId}-variant`;
-  const implId = `${sectionId}-impl`;
-  return {
-    sectionId,
-    core: {
-      name: sectionName,
-      sharedModifier: {},
-    } satisfies MockSectionCore,
-    variantId,
-    variant: {
-      impl: implId,
-      modifier: {},
-    } satisfies MockSectionVariant,
-    implId,
-    impl: {
-      type: SectionTypeEnum.Group,
-      children,
     } satisfies MockSectionImpl,
   };
 }
@@ -897,56 +870,6 @@ describe("StandaloneProjectSurfacePage", () => {
     expect(
       host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
     ).toBeNull();
-  });
-
-  it("does not mount standalone nested section DOM for group section routes", async () => {
-    const groupSection = createGroupSectionFixture({
-      sectionId: "section-group",
-      sectionName: "group_section",
-      children: ["child-a", "child-b"],
-    });
-    hoisted.state.projectState = {
-      projectConfig: {
-        id: "project-config-1",
-        windowSpaces: {},
-        windowSpaceIdsBySlug: {},
-        sectionVariantMap: {
-          [groupSection.sectionId]: groupSection.variantId,
-        },
-        sectionIdsByPathSlug: {
-          group_section: [groupSection.sectionId],
-        },
-      },
-      sections: {
-        [groupSection.sectionId]: groupSection.core,
-      },
-      sectionVariants: {
-        [groupSection.variantId]: groupSection.variant,
-      },
-      sectionImpls: {
-        [groupSection.implId]: groupSection.impl,
-      },
-      parentSectionMap: {},
-    };
-
-    await act(async () => {
-      root.render(
-        <MemoryRouter initialEntries={["/demo/section/group_section"]}>
-          <Routes>
-            <Route
-              path="/:projectConfigName/section/:sectionSlug"
-              element={<StandaloneProjectSurfacePage />}
-            />
-          </Routes>
-        </MemoryRouter>,
-      );
-    });
-
-    const surface = host.querySelector(
-      '[data-testid="mock-section-window-surface"]',
-    );
-    expect(surface).not.toBeNull();
-    expect(surface?.getAttribute("data-has-body-override")).toBe("false");
   });
 
   it("fails closed for standalone window spaces with managed section-mode chat windows when deployment policy disallows managed chat", async () => {

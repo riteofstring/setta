@@ -83,7 +83,7 @@ export function ProjectListItems({
   );
 }
 
-function ProjectListSelectionButton({
+export function ProjectListSelectionButton({
   isSelected,
   onToggleProjectSelection,
   projectId,
@@ -113,7 +113,7 @@ function ProjectListSelectionButton({
   );
 }
 
-function ProjectListDefaultButton({
+export function ProjectListDefaultButton({
   isDefault,
   onSetDefaultProject,
   projectId,
@@ -145,7 +145,7 @@ function ProjectListDefaultButton({
   );
 }
 
-function ProjectListFavoriteButton({
+export function ProjectListFavoriteButton({
   isFavorite,
   onToggleFavoriteProjectConfig,
   projectId,
@@ -172,7 +172,7 @@ function ProjectListFavoriteButton({
   );
 }
 
-function ProjectListItem({
+export function ProjectListItem({
   project,
   isFavorite,
   isDefault,
@@ -264,7 +264,7 @@ function ProjectListItem({
   );
 }
 
-function SelectedProjectDetailsTitle() {
+export function SelectedProjectDetailsTitle() {
   return (
     <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
       Selected Project
@@ -272,7 +272,7 @@ function SelectedProjectDetailsTitle() {
   );
 }
 
-function SelectedProjectOpenLink({
+export function SelectedProjectOpenLink({
   hideTitle,
   projectPath,
 }: {
@@ -358,7 +358,7 @@ export function SelectedProjectDetails({
   );
 }
 
-function getProjectTopLevelSectionCount(
+export function getProjectTopLevelSectionCount(
   project: Pick<HomeProject, "topLevelSections">,
 ): number | null {
   if (!project.topLevelSections) {

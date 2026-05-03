@@ -128,56 +128,6 @@ describe("GpuFlow layout store", () => {
     expect(store.getState().dirty).toEqual([]);
   });
 
-  it("stores renderer-owned drag preview markers outside node geometry", () => {
-    const store = createGpuFlowLayoutStore({
-      nodes: [layoutNode("a"), layoutNode("b")],
-    });
-    const versions: number[] = [];
-    const unsubscribe = store.subscribe((state) => {
-      versions.push(state.version);
-    });
-
-    store.getState().setDragPreview({
-      draggedNodeIds: ["a"],
-      dropMarker: {
-        axis: "y",
-        childNodeId: "a",
-        index: 1,
-        parentNodeId: "parent",
-        rect: { height: 4, width: 120, x: 10, y: 42 },
-      },
-    });
-
-    expect(store.getState().dragPreview).toEqual({
-      draggedNodeIds: ["a"],
-      dropMarker: {
-        axis: "y",
-        childNodeId: "a",
-        index: 1,
-        parentNodeId: "parent",
-        rect: { height: 4, width: 120, x: 10, y: 42 },
-      },
-    });
-    expect(store.getState().version).toBe(0);
-    expect(store.getState().lastChange).toBeNull();
-
-    store.getState().setDragPreview({
-      draggedNodeIds: ["a"],
-      dropMarker: {
-        axis: "y",
-        childNodeId: "a",
-        index: 1,
-        parentNodeId: "parent",
-        rect: { height: 4, width: 120, x: 10, y: 42 },
-      },
-    });
-    store.getState().setDragPreview(null);
-
-    expect(store.getState().dragPreview).toBeNull();
-    expect(versions).toEqual([0, 0]);
-    unsubscribe();
-  });
-
   it("queries measured bounds and topmost hit targets without DOM reads", () => {
     const store = createGpuFlowLayoutStore({
       nodes: [
