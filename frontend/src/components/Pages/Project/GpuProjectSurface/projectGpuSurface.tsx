@@ -312,6 +312,8 @@ function ProjectGpuFlowLayer({
     canEditLayout,
     flowInteractionKeys,
     isFollowTransitioning,
+    layoutStore,
+    scene: layoutAdapter.scene,
   });
   const portals = getProjectGpuPortalDescriptors();
   const handleNodeElementChange = useProjectNodeIntrinsicSizeObserver(

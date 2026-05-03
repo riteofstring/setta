@@ -1,5 +1,14 @@
 /* @vitest-environment jsdom */
 
+import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
+import {
+  getGpuFlowSceneDomSectionNodes,
+  type GpuFlowScene,
+  type GpuSectionSceneLayoutMode,
+  type GpuSectionSceneNode,
+} from "gpuFlow/scene";
+import { resolveGpuFlowSceneLayout } from "gpuFlow/sceneLayout";
+import type { GpuPoint, GpuRect } from "gpuFlow/viewportMath";
 import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import { setSectionSizes } from "openapi/http";
 import { toTopLevelSectionOuterDimension } from "state/actions/sectionInfos/topLevelSectionNode";
@@ -175,6 +184,123 @@ function createResizeChange({
   };
 }
 
+function createSceneResizeChange({
+  direction = "bottomRight",
+  height,
+  nodeId,
+  phase,
+  startHeight,
+  startWidth,
+  width,
+}: {
+  readonly direction?: "right" | "bottom" | "bottomRight" | undefined;
+  readonly height: number;
+  readonly nodeId: string;
+  readonly phase: "start" | "resize" | "stop" | "cancel";
+  readonly startHeight: number;
+  readonly startWidth: number;
+  readonly width: number;
+}) {
+  return {
+    active: phase === "start" || phase === "resize",
+    direction,
+    layout: {
+      height,
+      nodeId,
+      width,
+      x: 0,
+      y: 0,
+      zIndex: 1,
+    },
+    nodeId,
+    phase,
+    pointerDelta: { x: width - startWidth, y: height - startHeight },
+    sizeDelta: { width: width - startWidth, height: height - startHeight },
+    startLayout: {
+      height: startHeight,
+      nodeId,
+      width: startWidth,
+      x: 0,
+      y: 0,
+      zIndex: 1,
+    },
+    totalSizeDelta: {
+      width: width - startWidth,
+      height: height - startHeight,
+    },
+  };
+}
+
+function sceneWithSections(
+  sections: readonly GpuSectionSceneNode[],
+): GpuFlowScene {
+  return {
+    contentSurfaces: [],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections,
+  };
+}
+
+function sectionNode({
+  childIds = [],
+  childLayoutGap = { x: 0, y: 0 },
+  id,
+  layoutMode = "none",
+  localRect,
+  parentId = null,
+  scrollOffset = { x: 0, y: 0 },
+  worldRect = rect(0, 0, 100, 80),
+}: {
+  readonly childIds?: readonly string[] | undefined;
+  readonly childLayoutGap?: GpuPoint | undefined;
+  readonly id: string;
+  readonly layoutMode?: GpuSectionSceneLayoutMode | undefined;
+  readonly localRect?: GpuRect | undefined;
+  readonly parentId?: string | null | undefined;
+  readonly scrollOffset?: GpuPoint | undefined;
+  readonly worldRect?: GpuRect | undefined;
+}): GpuSectionSceneNode {
+  const resolvedLocalRect =
+    localRect ?? rect(0, 0, worldRect.width, worldRect.height);
+  return {
+    bodyRect: worldRect,
+    childLayout: { gap: childLayoutGap },
+    childSectionIds: childIds,
+    childViewportRect: childIds.length > 0 ? worldRect : null,
+    chromeRect: worldRect,
+    clipRect: worldRect,
+    contentRenderer: { kind: "dom-section", surfaceId: id },
+    dirty: [],
+    height: worldRect.height,
+    interactionLayer: "content",
+    layoutMode,
+    localRect: resolvedLocalRect,
+    nodeId: id,
+    parentSectionId: parentId,
+    portAnchors: [],
+    resizePolicy: {
+      locked: false,
+      maxHeight: null,
+      maxWidth: null,
+      minHeight: 0,
+      minWidth: 0,
+    },
+    scrollOffset,
+    sectionId: id,
+    width: worldRect.width,
+    worldRect,
+    x: worldRect.x,
+    y: worldRect.y,
+    zIndex: 0,
+  };
+}
+
+function rect(x: number, y: number, width: number, height: number): GpuRect {
+  return { height, width, x, y };
+}
+
 describe("project GPU node resize adapter", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -240,6 +366,74 @@ describe("project GPU node resize adapter", () => {
           [sectionId]: { width: 500, height: 260 },
         },
       },
+    });
+  });
+
+  it("reconciles renderer-owned nested scene layout during live resize frames", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b"],
+          childLayoutGap: { x: 0, y: 8 },
+          id: "parent",
+          layoutMode: "vertical",
+          worldRect: rect(0, 0, 180, 220),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 120, 50),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 120, 40),
+          parentId: "parent",
+        }),
+      ]),
+    );
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: getGpuFlowSceneDomSectionNodes(scene),
+    });
+    const sessionRef = { current: createProjectNodeResizeSession() };
+    const options = createProjectNodeResizeOptions({
+      canEditLayout: true,
+      flowInteractionKeys: {
+        panActivationKeyPressed: false,
+        selectionKeyPressed: false,
+        zoomActivationKeyPressed: false,
+      },
+      isFollowTransitioning: false,
+      layoutStore,
+      scene,
+      sessionRef,
+    });
+
+    options.onNodeResize(
+      createSceneResizeChange({
+        height: 90,
+        nodeId: "child-a",
+        phase: "resize",
+        startHeight: 50,
+        startWidth: 120,
+        width: 120,
+      }),
+    );
+
+    expect(layoutStore.getState().getNode("child-a")).toMatchObject({
+      height: 90,
+      width: 120,
+      x: 0,
+      y: 0,
+    });
+    expect(layoutStore.getState().getNode("child-b")).toMatchObject({
+      height: 40,
+      width: 120,
+      x: 0,
+      y: 98,
+    });
+    expect(layoutStore.getState().lastChange).toMatchObject({
+      phase: "change",
+      reason: "resize",
     });
   });
 
