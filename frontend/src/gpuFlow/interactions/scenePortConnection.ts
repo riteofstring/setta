@@ -52,10 +52,13 @@ export type GpuScenePortConnectionOptions = {
         start: GpuScenePortConnectionStart,
       ) => boolean)
     | undefined;
-  readonly isValidConnection?: ValidConnectionFunc | undefined;
+  readonly isValidConnection?:
+    | ((connection: Connection, start: GpuScenePortConnectionStart) => boolean)
+    | undefined;
   readonly onConnect: (
     connection: Connection,
-    context?: GpuFlowConnectionContext,
+    context: GpuFlowConnectionContext | undefined,
+    start: GpuScenePortConnectionStart,
   ) => void;
   readonly pointerUpSnapRadius?: number | undefined;
   readonly store?: GpuFlowViewportStoreApi | undefined;
@@ -177,12 +180,11 @@ class GpuScenePortConnectionController {
         start: GpuScenePortConnectionStart,
       ) => boolean)
     | undefined;
-  private readonly isValidConnection: ValidConnectionFunc;
+  private readonly isValidConnection: NonNullable<
+    GpuScenePortConnectionOptions["isValidConnection"]
+  >;
   private readonly layoutStore: GpuFlowLayoutStoreApi;
-  private readonly onConnect: (
-    connection: Connection,
-    context?: GpuFlowConnectionContext,
-  ) => void;
+  private readonly onConnect: GpuScenePortConnectionOptions["onConnect"];
   private readonly pointerUpSnapRadius: number | undefined;
   private readonly store: GpuFlowViewportStoreApi;
 
@@ -234,10 +236,12 @@ class GpuScenePortConnectionController {
         this.isConnectionCandidateAllowed?.(candidate, hit.start) ?? true,
       isTarget:
         (hit.start.connectionStartSemanticType ?? hit.start.type) === "target",
-      isValidConnection: this.isValidConnection,
+      isValidConnection: (connection) =>
+        this.isValidConnection(connection, hit.start),
       layoutStore: this.layoutStore,
       nodeId: hit.start.ownerSectionId,
-      onConnect: this.onConnect,
+      onConnect: (connection, context) =>
+        this.onConnect(connection, context, hit.start),
       pointerUpSnapRadius: this.pointerUpSnapRadius,
       store: this.store,
     });

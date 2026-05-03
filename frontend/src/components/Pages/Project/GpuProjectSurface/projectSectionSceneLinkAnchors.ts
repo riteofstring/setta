@@ -178,7 +178,7 @@ function createProjectSectionSceneReverseStartLinkAnchor({
     connectionStartSemanticType: "target",
     id,
     isConnectableEnd: false,
-    isConnectableStart: false,
+    isConnectableStart: true,
     kind: "output",
     localPosition: { x: -PROJECT_SECTION_LINK_HANDLE_OFFSET_X_PX, y },
     side: "left",
@@ -196,7 +196,7 @@ function createProjectSectionSceneSourceLinkAnchor({
 }): GpuPortAnchorDescriptor {
   return {
     id,
-    isConnectableStart: false,
+    isConnectableStart: true,
     kind: "output",
     localPosition: {
       x: width + PROJECT_SECTION_LINK_HANDLE_OFFSET_X_PX,

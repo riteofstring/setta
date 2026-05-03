@@ -4,9 +4,24 @@ import type { GpuDomIsland } from "gpuFlow/scene";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import {
+  AGENTIC_EDGE_HANDLE_IDS,
+  createAgenticEdgeFromConnection,
+  isValidAgenticEdgeConnection,
+} from "state/actions/agenticEdges";
+import {
+  createSharedChatEdgeFromConnection,
+  isValidSharedChatEdgeConnection,
+} from "state/actions/chatSharedEdges";
+import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
+import {
   createEdgeFromConnection,
   isValidDataEdgeConnection,
 } from "state/actions/edges";
+import {
+  createStateMachineEdgeFromConnection,
+  isValidStateMachineEdgeConnection,
+  STATE_MACHINE_EDGE_HANDLE_IDS,
+} from "state/actions/stateMachineEdges";
 import { useMisc } from "state/definitions";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -63,6 +78,8 @@ vi.mock("gpuFlow/viewportReposition", () => ({
 import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
 import {
   getProjectRetainedContentConnectionOptions,
+  getProjectScenePortConnectionOptions,
+  getProjectScenePortConnectionPolicy,
   renderProjectGpuDomIsland,
 } from "./projectGpuRetainedParamInteractionAdapter";
 
@@ -201,6 +218,85 @@ describe("project GPU retained param connection options", () => {
           handleId: "agentic-edge-source",
           sectionId: "section-2",
           type: "source",
+        },
+        start,
+      ),
+    ).toBe(false);
+    expect(resolveDisabledOption(options.disabled)).toBe(false);
+
+    useMisc.setState({ isSelectingParams: true });
+
+    expect(resolveDisabledOption(options.disabled)).toBe(true);
+  });
+});
+
+describe("project GPU scene port connection options", () => {
+  afterEach(() => {
+    useMisc.setState({ isSelectingParams: false });
+  });
+
+  it("routes section scene link starts through their project edge families", () => {
+    expect(
+      getProjectScenePortConnectionPolicy({
+        handleId: AGENTIC_EDGE_HANDLE_IDS.source,
+      }),
+    ).toEqual({
+      isValidConnection: isValidAgenticEdgeConnection,
+      onConnect: createAgenticEdgeFromConnection,
+    });
+    expect(
+      getProjectScenePortConnectionPolicy({
+        handleId: SHARED_CHAT_EDGE_HANDLE_IDS.source,
+      }),
+    ).toEqual({
+      isValidConnection: isValidSharedChatEdgeConnection,
+      onConnect: createSharedChatEdgeFromConnection,
+    });
+    expect(
+      getProjectScenePortConnectionPolicy({
+        handleId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+      }),
+    ).toEqual({
+      isValidConnection: isValidStateMachineEdgeConnection,
+      onConnect: createStateMachineEdgeFromConnection,
+    });
+    expect(
+      getProjectScenePortConnectionPolicy({
+        handleId: "param-output",
+      }),
+    ).toEqual({
+      isValidConnection: isValidDataEdgeConnection,
+      onConnect: createEdgeFromConnection,
+    });
+  });
+
+  it("keeps scene-owned link starts on family-compatible targets only", () => {
+    const options = getProjectScenePortConnectionOptions({
+      canEditStructure: true,
+      zoomActivationKeyPressed: false,
+    });
+    const start = {
+      handleId: AGENTIC_EDGE_HANDLE_IDS.source,
+      ownerSectionId: "section-1",
+      type: "source" as const,
+    };
+
+    expect(
+      options.isConnectionCandidateAllowed?.(
+        {
+          handleId: SHARED_CHAT_EDGE_HANDLE_IDS.target,
+          sectionId: "section-2",
+          type: "target",
+        },
+        start,
+      ),
+    ).toBe(true);
+    expect(
+      options.isConnectionCandidateAllowed?.(
+        {
+          handleId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
+          sectionId: "section-2",
+          type: "target",
         },
         start,
       ),

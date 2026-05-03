@@ -60,6 +60,7 @@ export function AgenticEdgeHandles({
   const hasIncomingAgenticEdge = (connectionMask & 1) !== 0;
   const hasOutgoingAgenticEdge = (connectionMask & 2) !== 0;
   const registerPortGeometry = scenePortGeometry !== true;
+  const canStartDomConnection = registerPortGeometry && canEditStructure;
 
   if (isUserView) {
     return null;
@@ -81,7 +82,7 @@ export function AgenticEdgeHandles({
         aria-hidden="true"
         tabIndex={-1}
         isConnectable={canEditStructure}
-        isConnectableStart={canEditStructure}
+        isConnectableStart={canStartDomConnection}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
         registerPortGeometry={registerPortGeometry}
@@ -118,7 +119,7 @@ export function AgenticEdgeHandles({
         position={HandlePosition.Right}
         className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--source${hasOutgoingAgenticEdge ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
         isConnectable={canEditStructure}
-        isConnectableStart={canEditStructure}
+        isConnectableStart={canStartDomConnection}
         isConnectableEnd={canEditStructure}
         registerPortGeometry={registerPortGeometry}
         {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.source)}

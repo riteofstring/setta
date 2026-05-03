@@ -102,7 +102,6 @@ describe("GPU scene port connection controller", () => {
     });
     expect(call.autoPanInsetsPx).toBe(autoPanInsetsPx);
     expect(call.getScene()).toBe(scene);
-    expect(call.isValidConnection).toBe(isValidConnection);
     expect(
       call.isConnectionCandidateAllowed({
         handleId: "in",
@@ -129,9 +128,23 @@ describe("GPU scene port connection controller", () => {
       target: "section-2",
       targetHandle: "in",
     };
+    expect(call.isValidConnection(connection)).toBe(true);
+    expect(isValidConnection).toHaveBeenCalledWith(connection, {
+      handleId: "out",
+      ownerSectionId: "section-1",
+      type: "source",
+    });
     call.onConnect(connection, { scene });
 
-    expect(onConnect).toHaveBeenCalledWith(connection, { scene });
+    expect(onConnect).toHaveBeenCalledWith(
+      connection,
+      { scene },
+      {
+        handleId: "out",
+        ownerSectionId: "section-1",
+        type: "source",
+      },
+    );
     detach();
   });
 

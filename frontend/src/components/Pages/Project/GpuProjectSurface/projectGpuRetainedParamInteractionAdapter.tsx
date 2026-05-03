@@ -1,6 +1,7 @@
 import { ParamDuplicateIndexProvider } from "components/Params/ParamDuplicateIndexContext";
 import { ParamInput } from "components/Params/ParamItems/ParamInput";
 import { ParamNameInput } from "components/Params/ParamItems/ParamNameInput";
+import type { Connection, GpuFlowConnectionContext } from "gpuFlow/flowTypes";
 import type { GpuRetainedContentConnectionOptions } from "gpuFlow/interactions/retainedContentConnection";
 import type {
   GpuRetainedContentDragCancelEvent,
@@ -8,7 +9,10 @@ import type {
   GpuRetainedContentInteractionEvent,
   GpuRetainedContentInteractionHit,
 } from "gpuFlow/interactions/retainedContentInteraction";
-import type { GpuScenePortConnectionOptions } from "gpuFlow/interactions/scenePortConnection";
+import type {
+  GpuScenePortConnectionOptions,
+  GpuScenePortConnectionStart,
+} from "gpuFlow/interactions/scenePortConnection";
 import {
   resolveGpuRetainedContentDragAutoScroll,
   type GpuRetainedContentScrollOffsetMap,
@@ -19,6 +23,16 @@ import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
+  AGENTIC_EDGE_HANDLE_IDS,
+  createAgenticEdgeFromConnection,
+  isValidAgenticEdgeConnection,
+} from "state/actions/agenticEdges";
+import {
+  createSharedChatEdgeFromConnection,
+  isValidSharedChatEdgeConnection,
+} from "state/actions/chatSharedEdges";
+import { isSharedChatHandleId } from "state/actions/chatSharedHandleIds";
+import {
   createEdgeFromConnection,
   isValidDataEdgeConnection,
 } from "state/actions/edges";
@@ -28,6 +42,11 @@ import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
+import {
+  createStateMachineEdgeFromConnection,
+  isValidStateMachineEdgeConnection,
+  isWorkflowHandleId,
+} from "state/actions/stateMachineEdges";
 import { useMisc, useProjectState } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import {
@@ -171,9 +190,69 @@ export function getProjectScenePortConnectionOptions({
       getProjectGpuHandleConnectionProps(
         start.handleId,
       ).isConnectionCandidateAllowed?.(candidate) ?? true,
+    isValidConnection: isValidProjectScenePortConnection,
+    onConnect: createProjectScenePortConnection,
+  };
+}
+
+type ProjectScenePortConnectionPolicy = {
+  readonly isValidConnection: (connection: Connection) => boolean;
+  readonly onConnect: (
+    connection: Connection,
+    context?: GpuFlowConnectionContext,
+  ) => void;
+};
+
+export function getProjectScenePortConnectionPolicy(
+  start: Pick<GpuScenePortConnectionStart, "handleId">,
+): ProjectScenePortConnectionPolicy {
+  if (isProjectAgenticHandleId(start.handleId)) {
+    return {
+      isValidConnection: isValidAgenticEdgeConnection,
+      onConnect: createAgenticEdgeFromConnection,
+    };
+  }
+  if (isSharedChatHandleId(start.handleId)) {
+    return {
+      isValidConnection: isValidSharedChatEdgeConnection,
+      onConnect: createSharedChatEdgeFromConnection,
+    };
+  }
+  if (isWorkflowHandleId(start.handleId)) {
+    return {
+      isValidConnection: isValidStateMachineEdgeConnection,
+      onConnect: createStateMachineEdgeFromConnection,
+    };
+  }
+  return {
     isValidConnection: isValidDataEdgeConnection,
     onConnect: createEdgeFromConnection,
   };
+}
+
+function isValidProjectScenePortConnection(
+  connection: Connection,
+  start: GpuScenePortConnectionStart,
+): boolean {
+  return getProjectScenePortConnectionPolicy(start).isValidConnection(
+    connection,
+  );
+}
+
+function createProjectScenePortConnection(
+  connection: Connection,
+  context: GpuFlowConnectionContext | undefined,
+  start: GpuScenePortConnectionStart,
+): void {
+  getProjectScenePortConnectionPolicy(start).onConnect(connection, context);
+}
+
+function isProjectAgenticHandleId(handleId: string | null | undefined) {
+  return (
+    handleId === AGENTIC_EDGE_HANDLE_IDS.source ||
+    handleId === AGENTIC_EDGE_HANDLE_IDS.target ||
+    handleId === AGENTIC_EDGE_HANDLE_IDS.reverseStart
+  );
 }
 
 export function renderProjectGpuDomIsland(island: GpuDomIsland) {

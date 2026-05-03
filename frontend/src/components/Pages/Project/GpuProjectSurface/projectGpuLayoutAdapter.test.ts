@@ -412,7 +412,7 @@ describe("project GPU layout adapter", () => {
         expect.objectContaining({
           id: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
           isConnectableEnd: false,
-          isConnectableStart: false,
+          isConnectableStart: true,
           kind: "output",
           localPosition: { x: -19, y: 41 },
           side: "left",
@@ -426,7 +426,7 @@ describe("project GPU layout adapter", () => {
         }),
         expect.objectContaining({
           id: AGENTIC_EDGE_HANDLE_IDS.source,
-          isConnectableStart: false,
+          isConnectableStart: true,
           kind: "output",
           localPosition: { x: 141, y: 41 },
           side: "right",
@@ -451,7 +451,7 @@ describe("project GPU layout adapter", () => {
         expect.objectContaining({
           id: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
           isConnectableEnd: false,
-          isConnectableStart: false,
+          isConnectableStart: true,
           kind: "output",
           localPosition: { x: -19, y: 41 },
           side: "left",
@@ -465,7 +465,7 @@ describe("project GPU layout adapter", () => {
         }),
         expect.objectContaining({
           id: AGENTIC_EDGE_HANDLE_IDS.source,
-          isConnectableStart: false,
+          isConnectableStart: true,
           kind: "output",
           localPosition: { x: 141, y: 41 },
           side: "right",
