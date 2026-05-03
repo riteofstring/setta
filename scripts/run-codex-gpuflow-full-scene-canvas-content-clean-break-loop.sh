@@ -86,6 +86,29 @@ Loop-specific guardrails:
   whether each blocker is fixture instability or real rendering drift, fix the
   fixture or product code accordingly, rerun the checkpoint, and update
   `perf/visual-fidelity/2026-05-05-gpuflow-full-scene/review.md`.
+- When a visible renderer/control change needs broader visual coverage, expand
+  `scripts/gpuflow-visual-fidelity-checkpoint.mjs` instead of adding one-off
+  screenshots. Add representative project content via `controlSections` or
+  `createFixtureSections`, register the state in `fixtureDefinitions`, capture
+  it from `captureViewportFixtures` for all required viewports, and update
+  `review.md` after rerunning the checkpoint.
+- Keep expanded required fixtures comparable against the primary baseline:
+  `37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d` from
+  `go-rewrite-canvas-replace-xyflow-2-html-gpu-surfaces-plan`. The candidate is
+  the current checkout running the checkpoint; the same setup and interaction
+  sequence must run against both baseline-primary and candidate. Do not maintain
+  a separate `gpuflow-candidate` worktree for checkpoint decisions.
+- The checkpoint script owns baseline worktree preparation under
+  `../setta-visual-fidelity-worktrees/` by default. If a baseline worktree is
+  missing it should be created by the script; if it is dirty, treat that as a
+  real blocker rather than overwriting it. Use
+  `node scripts/gpuflow-visual-fidelity-checkpoint.mjs --prepare-only` when you
+  need to validate this setup without launching the app or capturing screenshots.
+- For param UI coverage, add focused fixtures for visible states that move to
+  canvas ownership, such as closed controls, open popups, active native islands,
+  hover/focus/selection, disabled/error, preview drag, long-content scrolling,
+  dropzone drag-over, and attachment display. Do not build an exhaustive
+  Cartesian product unless the change actually needs it.
 - Prioritize visual-fidelity blockers in this order unless a shared root cause
   is obvious: `dense-param-dict` desktop/compact, `selection-resize`
   desktop/compact, `project-surface` desktop, `param-controls-closed` desktop,

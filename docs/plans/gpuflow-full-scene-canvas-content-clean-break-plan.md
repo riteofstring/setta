@@ -736,18 +736,36 @@ The checkpoint compares:
 
 - `baseline-primary`: `37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d`
   from `go-rewrite-canvas-replace-xyflow-2-html-gpu-surfaces-plan`.
-- `candidate`: `7909db3928a9d2bdd42f2371a1f98acb17b8902f`
-  from the full-scene canvas branch.
+- `candidate`: the current checkout running
+  `scripts/gpuflow-visual-fidelity-checkpoint.mjs`, with `HEAD` recorded when
+  the checkpoint starts. This intentionally covers uncommitted visible changes
+  before a loop iteration commits them.
 - optional `baseline-secondary`: `6b6036f456ad8a093cd3a364870d6ee1632b376b`
   from `go-rewrite-canvas-replace-xyflow-2`, enabled with
   `node scripts/gpuflow-visual-fidelity-checkpoint.mjs --include-secondary`.
 
-The script expects isolated worktrees under
-`../setta-visual-fidelity-worktrees/`:
+The script prepares and validates isolated baseline worktrees under
+`../setta-visual-fidelity-worktrees/` by default, or under
+`SETTA_VISUAL_FIDELITY_WORKTREE_ROOT` when that environment variable is set:
 
 - `gpuflow-baseline-primary`
-- `gpuflow-candidate`
 - `gpuflow-baseline-secondary`
+
+It does not require or use a separate candidate worktree. If a required
+baseline worktree is missing, the script creates it. If it exists at the wrong
+commit and is clean, the script switches it to the required detached commit. If
+it is dirty, the script fails loudly rather than overwriting local state. The
+script also links `.venv` and `frontend/node_modules` into prepared visual
+worktrees when those dependency directories are missing. The dependency source
+is `SETTA_VISUAL_FIDELITY_DEPENDENCY_ROOT` when set, otherwise the current
+checkout when it has dev dependencies, otherwise the primary Git worktree root.
+
+To check only baseline worktree and dependency preparation without launching the
+app or capturing screenshots, run:
+
+```bash
+node scripts/gpuflow-visual-fidelity-checkpoint.mjs --prepare-only
+```
 
 Current required fixtures:
 
@@ -763,6 +781,38 @@ Current required fixtures:
 - drag preview
 
 Each fixture must be captured at `1440x900`, `1024x768`, and `390x844`.
+
+Expanding checkpoint coverage:
+
+- Expand coverage in `scripts/gpuflow-visual-fidelity-checkpoint.mjs`; do not
+  add one-off screenshots outside the checkpoint when a visible renderer/control
+  state becomes part of the required loop evidence.
+- Keep the primary comparison against `baseline-primary`
+  (`37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d` from
+  `go-rewrite-canvas-replace-xyflow-2-html-gpu-surfaces-plan`) and the current
+  checkout as candidate. The same fixture setup and interaction sequence must
+  run against both runs.
+- Add representative project content through `controlSections` or
+  `createFixtureSections` using production project/param mutation paths. Avoid
+  candidate-only fixtures. If the primary baseline cannot create or display a
+  proposed fixture, choose the closest comparable baseline state or document why
+  the fixture is supplemental rather than required.
+- Add every required visual state to `fixtureDefinitions` with a stable fixture
+  id, description, and required selector that represents the owner being
+  compared.
+- Capture the new state from `captureViewportFixtures` for all required
+  viewports, using existing helpers such as `capturePane`, `captureSectionClip`,
+  `openSectionVisualState`, or a new deterministic helper when a state needs a
+  specific interaction.
+- For param UI work, expand fixtures around the visible states most likely to
+  drift: closed, open popup/menu, active native island, hover/focus/selection,
+  disabled/error, preview-drag, long-content/scrolling, and file drag-over or
+  attachment display states. Do not try to create an exhaustive Cartesian
+  product; add focused coverage when a control family or state moves ownership
+  to canvas.
+- Rerun the checkpoint with Chrome for Testing 149 after adding coverage, commit
+  the updated artifact set or a newer timestamped artifact directory, and update
+  `review.md` with any accepted differences or remaining blockers.
 
 Loop visual-fidelity requirements:
 
@@ -794,7 +844,7 @@ Loop visual-fidelity requirements:
 
 Current checkpoint result:
 
-- The checkpoint used `Google Chrome for Testing 149.0.7827.0`.
+- The checkpoint used `Google Chrome for Testing 149.0.7827.2`.
 - `review.md` reports 30 primary comparisons: 21 pass, 9 blocking visual
   regressions, 0 capture-blocked fixtures, and 0 runtime page-error groups.
 - Blocking visual regressions are `project-surface`, `param-controls-closed`,
@@ -804,8 +854,8 @@ Current checkpoint result:
 Current visual-fidelity work queue:
 
 1. Inspect and fix or classify `dense-param-dict` at desktop and
-   compact-desktop; these are the largest diffs (`0.2782` changed pixels,
-   `46.18` mean delta).
+   compact-desktop; these are the largest diffs (`0.2822` changed pixels,
+   `46.47` mean delta).
 2. Inspect and fix or classify `selection-resize` at desktop and
    compact-desktop; verify selected-section frame, resize handles, and canvas
    framing against baseline.

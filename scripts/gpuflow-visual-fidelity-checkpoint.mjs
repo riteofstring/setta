@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from "node:child_process";
+import fs from "node:fs";
 import { createRequire } from "node:module";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -11,17 +12,17 @@ const { chromium } = require("@playwright/test");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
+const primaryRepoRoot = resolvePrimaryRepoRoot(repoRoot);
+const dependencyRoot = resolveDependencyRoot(repoRoot, primaryRepoRoot);
 const artifactRoot = path.join(
   repoRoot,
   "perf",
   "visual-fidelity",
   "2026-05-05-gpuflow-full-scene",
 );
-const worktreeRoot = path.resolve(
-  repoRoot,
-  "..",
-  "setta-visual-fidelity-worktrees",
-);
+const worktreeRoot = process.env.SETTA_VISUAL_FIDELITY_WORKTREE_ROOT
+  ? path.resolve(process.env.SETTA_VISUAL_FIDELITY_WORKTREE_ROOT)
+  : path.resolve(primaryRepoRoot, "..", "setta-visual-fidelity-worktrees");
 const browserFlags = [
   "--enable-blink-features=CanvasDrawElement",
   "--enable-unsafe-webgpu",
@@ -36,18 +37,21 @@ const chromeVersion = resolveChromeVersion(chromeExecutablePath);
 const runs = [
   {
     label: "baseline-primary",
+    managedVisualWorktree: true,
     ref: "37bdaa5efed8fb8d86425ecfa43fc85f61d0d08d",
     role: "primary baseline",
     worktree: path.join(worktreeRoot, "gpuflow-baseline-primary"),
   },
   {
+    currentCheckout: true,
     label: "candidate",
-    ref: "7909db3928a9d2bdd42f2371a1f98acb17b8902f",
+    ref: resolveGitRef(repoRoot, "HEAD"),
     role: "canvas candidate",
-    worktree: path.join(worktreeRoot, "gpuflow-candidate"),
+    worktree: repoRoot,
   },
   {
     label: "baseline-secondary",
+    managedVisualWorktree: true,
     optional: true,
     ref: "6b6036f456ad8a093cd3a364870d6ee1632b376b",
     role: "optional context baseline",
@@ -241,21 +245,41 @@ const manifest = {
   browserFlags,
   browserVersion: chromeVersion,
   captureStartedAt: new Date().toISOString(),
+  dependencyRoot,
   fixtureDefinitions,
+  primaryRepoRoot,
+  repoRoot,
   runs: [],
   viewports,
+  worktreeRoot,
 };
 const reviewRows = [];
 
 async function main() {
   const includeSecondary = process.argv.includes("--include-secondary");
+  const prepareOnly = process.argv.includes("--prepare-only");
   const selectedRuns = runs.filter((run) => includeSecondary || !run.optional);
+
+  for (const run of selectedRuns) {
+    prepareRunWorktree(run);
+    verifyWorktreeRef(run);
+    console.log(
+      `Prepared ${run.label}: ${run.worktree} @ ${run.ref}${
+        run.currentCheckout ? " (current checkout)" : ""
+      }`,
+    );
+  }
+
+  if (prepareOnly) {
+    console.log("GpuFlow visual fidelity checkpoint preflight passed.");
+    return;
+  }
+
   await mkdir(artifactRoot, { recursive: true });
   await mkdir(path.join(artifactRoot, "diffs"), { recursive: true });
   await mkdir(path.join(artifactRoot, "runtime"), { recursive: true });
 
   for (const run of selectedRuns) {
-    verifyWorktreeRef(run);
     await captureRun(run);
   }
 
@@ -267,6 +291,237 @@ async function main() {
   );
   await writeReview();
   console.log(`GpuFlow visual fidelity artifacts: ${artifactRoot}`);
+}
+
+function resolvePrimaryRepoRoot(currentRepoRoot) {
+  const result = spawnSync("git", ["rev-parse", "--git-common-dir"], {
+    cwd: currentRepoRoot,
+    encoding: "utf8",
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    return currentRepoRoot;
+  }
+  const commonDir = result.stdout.trim();
+  if (commonDir.length === 0) {
+    return currentRepoRoot;
+  }
+  const absoluteCommonDir = path.resolve(currentRepoRoot, commonDir);
+  if (path.basename(absoluteCommonDir) !== ".git") {
+    return currentRepoRoot;
+  }
+  const candidateRoot = path.dirname(absoluteCommonDir);
+  if (fs.existsSync(path.join(candidateRoot, "scripts", "ai.sh"))) {
+    return candidateRoot;
+  }
+  return currentRepoRoot;
+}
+
+function resolveDependencyRoot(currentRoot, primaryRoot) {
+  if (process.env.SETTA_VISUAL_FIDELITY_DEPENDENCY_ROOT) {
+    return path.resolve(process.env.SETTA_VISUAL_FIDELITY_DEPENDENCY_ROOT);
+  }
+  if (hasDevDependencies(currentRoot)) {
+    return currentRoot;
+  }
+  if (hasDevDependencies(primaryRoot)) {
+    return primaryRoot;
+  }
+  return primaryRoot;
+}
+
+function hasDevDependencies(root) {
+  return (
+    fs.existsSync(path.join(root, ".venv", "bin", "python")) &&
+    fs.existsSync(path.join(root, "frontend", "node_modules"))
+  );
+}
+
+function resolveGitRef(cwd, rev) {
+  const result = spawnSync("git", ["rev-parse", rev], {
+    cwd,
+    encoding: "utf8",
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `Failed to resolve ${rev} in ${cwd}: ${result.stderr || result.stdout}`,
+    );
+  }
+  return result.stdout.trim();
+}
+
+function prepareRunWorktree(run) {
+  if (run.managedVisualWorktree) {
+    ensureCommitAvailable(run.ref, run.label);
+    ensureManagedVisualWorktree(run);
+  }
+  ensureWorktreeDependencyLinks(run.worktree);
+}
+
+function ensureCommitAvailable(ref, label) {
+  const result = spawnSync("git", ["cat-file", "-e", `${ref}^{commit}`], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `Missing ${label} commit ${ref}. Fetch the branch that contains it before running the checkpoint.`,
+    );
+  }
+}
+
+function ensureManagedVisualWorktree(run) {
+  fs.mkdirSync(path.dirname(run.worktree), { recursive: true });
+  if (!fs.existsSync(run.worktree)) {
+    runGit(["worktree", "add", "--detach", run.worktree, run.ref], repoRoot);
+    return;
+  }
+  if (!isGitWorktree(run.worktree)) {
+    throw new Error(
+      `${run.label} path exists but is not a Git worktree: ${run.worktree}`,
+    );
+  }
+  if (!isWorktreeClean(run.worktree)) {
+    throw new Error(
+      `${run.label} worktree is dirty at ${run.worktree}; clean it before the checkpoint can move it to ${run.ref}.`,
+    );
+  }
+  const actualRef = resolveGitRef(run.worktree, "HEAD");
+  if (actualRef !== run.ref) {
+    runGit(["-C", run.worktree, "switch", "--detach", run.ref], repoRoot);
+  }
+}
+
+function ensureWorktreeDependencyLinks(worktree) {
+  const linkSpecs = [
+    {
+      relativePath: ".venv",
+      requiredPath: path.join(".venv", "bin", "python"),
+    },
+    {
+      relativePath: path.join("frontend", "node_modules"),
+      requiredPath: path.join("frontend", "node_modules"),
+    },
+  ];
+  for (const spec of linkSpecs) {
+    const targetPath = path.join(dependencyRoot, spec.relativePath);
+    const linkPath = path.join(worktree, spec.relativePath);
+    if (path.resolve(targetPath) === path.resolve(linkPath)) {
+      continue;
+    }
+    if (!fs.existsSync(targetPath)) {
+      continue;
+    }
+    ensureDirectorySymlink(linkPath, targetPath);
+  }
+  const missing = linkSpecs
+    .filter((spec) => !fs.existsSync(path.join(worktree, spec.requiredPath)))
+    .map((spec) => spec.requiredPath);
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing dev dependencies in ${worktree}: ${missing.join(", ")}. Run ./dev_install.sh in ${dependencyRoot} or set SETTA_VISUAL_FIDELITY_DEPENDENCY_ROOT.`,
+    );
+  }
+}
+
+function ensureDirectorySymlink(linkPath, targetPath) {
+  fs.mkdirSync(path.dirname(linkPath), { recursive: true });
+  const stat = lstatIfExists(linkPath);
+  if (!stat) {
+    fs.symlinkSync(targetPath, linkPath, directorySymlinkType());
+    return;
+  }
+  if (!stat.isSymbolicLink()) {
+    return;
+  }
+  const existingTarget = path.resolve(
+    path.dirname(linkPath),
+    fs.readlinkSync(linkPath),
+  );
+  if (existingTarget === path.resolve(targetPath)) {
+    return;
+  }
+  fs.unlinkSync(linkPath);
+  fs.symlinkSync(targetPath, linkPath, directorySymlinkType());
+}
+
+function lstatIfExists(filePath) {
+  try {
+    return fs.lstatSync(filePath);
+  } catch (err) {
+    if (err && err.code === "ENOENT") {
+      return null;
+    }
+    throw err;
+  }
+}
+
+function directorySymlinkType() {
+  return process.platform === "win32" ? "junction" : "dir";
+}
+
+function isGitWorktree(worktree) {
+  const result = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
+    cwd: worktree,
+    encoding: "utf8",
+    env: process.env,
+  });
+  return result.status === 0 && result.stdout.trim() === "true";
+}
+
+function isWorktreeClean(worktree) {
+  const diff = spawnSync(
+    "git",
+    ["diff", "--quiet", "--no-ext-diff", "--exit-code", "--"],
+    {
+      cwd: worktree,
+      encoding: "utf8",
+      env: process.env,
+    },
+  );
+  if (diff.status !== 0) {
+    return false;
+  }
+  const cachedDiff = spawnSync(
+    "git",
+    ["diff", "--cached", "--quiet", "--no-ext-diff", "--exit-code", "--"],
+    {
+      cwd: worktree,
+      encoding: "utf8",
+      env: process.env,
+    },
+  );
+  if (cachedDiff.status !== 0) {
+    return false;
+  }
+  const untracked = spawnSync(
+    "git",
+    ["ls-files", "--others", "--exclude-standard"],
+    {
+      cwd: worktree,
+      encoding: "utf8",
+      env: process.env,
+    },
+  );
+  if (untracked.status !== 0) {
+    return false;
+  }
+  return untracked.stdout.trim().length === 0;
+}
+
+function runGit(args, cwd) {
+  const result = spawnSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `git ${args.join(" ")} failed: ${result.stderr || result.stdout}`,
+    );
+  }
 }
 
 function resolveChromeExecutablePath() {
