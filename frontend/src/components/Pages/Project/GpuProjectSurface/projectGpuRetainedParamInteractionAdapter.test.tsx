@@ -66,6 +66,7 @@ import {
   createDictSectionImpl,
   createDropzoneParamCodeObjImpl,
   createNestedParamCodeObjImpl,
+  createPasswordParamCodeObjImpl,
   createProjectConfig,
   createSingleConfig,
   createSwitchParamCodeObjImpl,
@@ -74,6 +75,7 @@ import {
   type DateParamCodeObjImpl,
   type DropdownParamCodeObjImpl,
   type DropzoneParamCodeObjImpl,
+  type PasswordParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
   type TimeParamCodeObjImpl,
@@ -108,6 +110,10 @@ const mocks = vi.hoisted(() => ({
   deleteArtifactsMock: vi.fn((args: object) => ({
     args,
     route: "deleteArtifacts",
+  })),
+  getPasswordParamValueMock: vi.fn((args: object) => ({
+    args,
+    route: "getPasswordParamValue",
   })),
   setActiveIdsMock: vi.fn((args: object) => ({
     args,
@@ -251,6 +257,7 @@ vi.mock("openapi/http", async (importOriginal) => {
   return {
     ...actual,
     deleteArtifacts: mocks.deleteArtifactsMock,
+    getPasswordParamValue: mocks.getPasswordParamValueMock,
     setActiveIds: mocks.setActiveIdsMock,
     setParamEnteredValue: mocks.setParamEnteredValueMock,
   };
@@ -280,12 +287,12 @@ import {
   handleProjectGpuRetainedParamCanvasControlKeyDown,
   handleProjectGpuRetainedParamCanvasControlWheel,
 } from "./projectGpuRetainedParamCanvasControlInput";
+import { renderProjectGpuDomIsland } from "./projectGpuRetainedParamDomIslandRenderer";
 import {
   getProjectRetainedContentConnectionOptions,
   getProjectRetainedContentInteractionOptions,
   getProjectScenePortConnectionOptions,
   getProjectScenePortConnectionPolicy,
-  renderProjectGpuDomIsland,
 } from "./projectGpuRetainedParamInteractionAdapter";
 
 type RenderedIsland = {
@@ -323,7 +330,12 @@ describe("project GPU retained param DOM islands", () => {
     );
     vi.stubGlobal("requestAnimationFrame", mocks.requestAnimationFrameMock);
     vi.stubGlobal("cancelAnimationFrame", mocks.cancelAnimationFrameMock);
-    mocks.callOpenAPIMock.mockClear();
+    mocks.callOpenAPIMock.mockReset();
+    mocks.callOpenAPIMock.mockImplementation(async () => ({
+      data: null,
+      hasResponse: true,
+      status: 200,
+    }));
     mocks.paramInputProps.mockClear();
     mocks.paramInputActivationClick.mockClear();
     mocks.paramInputActivationMouseDown.mockClear();
@@ -334,6 +346,7 @@ describe("project GPU retained param DOM islands", () => {
     mocks.requestAnimationFrameMock.mockClear();
     mocks.cancelAnimationFrameMock.mockClear();
     mocks.deleteArtifactsMock.mockClear();
+    mocks.getPasswordParamValueMock.mockClear();
     mocks.setActiveIdsMock.mockClear();
     mocks.setParamEnteredValueMock.mockClear();
     mocks.subscribeToGpuViewportRepositionMock.mockClear();
@@ -2599,6 +2612,139 @@ describe("project GPU retained param DOM islands", () => {
     });
   });
 
+  it("reveals retained password values from canvas without mounting a DOM island", async () => {
+    seedPasswordParamProjectState();
+    mocks.callOpenAPIMock.mockImplementation(async (request: unknown) => {
+      if (
+        typeof request === "object" &&
+        request !== null &&
+        "route" in request &&
+        request.route === "getPasswordParamValue"
+      ) {
+        return {
+          data: { value: "revealed-secret" },
+          hasResponse: true,
+          status: 200,
+        };
+      }
+      return {
+        data: null,
+        hasResponse: true,
+        status: 200,
+      };
+    });
+    const onActiveParamCanvasPopupChange = vi.fn();
+    const onActiveParamDomIslandChange = vi.fn();
+    const onPasswordRevealStateChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 180,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "",
+            displayValue: "",
+            hasSecret: true,
+            kind: "password",
+            placeholder: "Saved",
+            rendererFamily: "password",
+            revealAvailable: true,
+            revealPending: false,
+            revealedValue: null,
+            commitPolicy: "native-island",
+          },
+          controlKind: "password",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 240, x: 0, y: 0 },
+    });
+    const revealHit = retainedScene.hitRecords.find(
+      (candidate) =>
+        candidate.kind === "control-subpart" &&
+        candidate.subpartKind === "password-reveal",
+    );
+    if (!revealHit) {
+      throw new Error("Expected retained password reveal hit.");
+    }
+    const options = getProjectRetainedContentInteractionOptions({
+      canEditStructure: true,
+      onActiveParamCanvasPopupChange,
+      onActiveParamDomIslandChange,
+      onHoveredParamTargetChange: vi.fn(),
+      onPasswordRevealStateChange,
+      onRetainedParamDragPreviewChange: vi.fn(),
+      passwordRevealStates: new Map(),
+      retainedContentScroll: {
+        getScene: () => EMPTY_TEST_SCENE,
+        getScrollOffsets: () => new Map(),
+        onScrollOffsetsChange: vi.fn(),
+      },
+      retainedParamDragSessionRef: { current: null },
+      zoomActivationKeyPressed: false,
+    });
+    const event = {
+      hit: revealHit,
+      localPoint: {
+        x: revealHit.rect.x + revealHit.rect.width / 2,
+        y: revealHit.rect.y + revealHit.rect.height / 2,
+      },
+      nativeEvent: new MouseEvent("pointerup", {
+        clientX: 210,
+        clientY: 96,
+      }) as PointerEvent,
+      ownerSectionId: "section-1",
+      retainedScene,
+      screenPoint: { x: 140, y: 14 },
+      surfaceId: "section-1:param-content:unpinned",
+    } satisfies GpuRetainedContentInteractionEvent;
+
+    expect(options.shouldHandleHit?.(event)).toBe(true);
+    options.onHitClick(event);
+
+    expect(onActiveParamCanvasPopupChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        paramInfoId: "param-1",
+      }),
+    );
+    expect(onPasswordRevealStateChange).toHaveBeenCalledWith({
+      kind: "pending",
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.getPasswordParamValueMock).toHaveBeenCalledWith({
+      body: {
+        paramInfoId: "param-1",
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+      },
+    });
+    expect(onPasswordRevealStateChange).toHaveBeenCalledWith({
+      kind: "revealed",
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+      value: "revealed-secret",
+    });
+    expect(onPasswordRevealStateChange).toHaveBeenCalledWith({
+      kind: "settle",
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+    });
+  });
+
   it("does not activate retained param name islands when structure edits are disabled", () => {
     seedNestedParamNameProjectState();
     const onActiveParamDomIslandChange = vi.fn();
@@ -3804,6 +3950,113 @@ function seedDropzoneParamProjectState(value: string) {
     typeAnnotation: "",
     value,
   }) satisfies DropzoneParamCodeObjImpl;
+
+  useProjectState.setState(
+    createSingleConfig({
+      codeObjImpls: {
+        [paramImplId]: paramImpl,
+        [rootImplId]: createNestedParamCodeObjImpl({
+          children: ["param-1"],
+          coreNameEditable: true,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          description: "",
+          id: rootImplId,
+          isPreset: false,
+          name: rootParamId,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          type: CodeObjTypeEnum.NestedParam,
+          typeAnnotation: "",
+        }),
+      },
+      codeObjVariants: {
+        [paramVariantId]: createVariant({
+          id: paramVariantId,
+          impl: paramImplId,
+          name: paramVariantId,
+          nonPresetImpls: [paramImplId],
+        }),
+        [rootVariantId]: createVariant({
+          id: rootVariantId,
+          impl: rootImplId,
+          name: rootVariantId,
+          nonPresetImpls: [rootImplId],
+        }),
+      },
+      codeObjs: {
+        "param-1": createCore({
+          defaultVariant: paramVariantId,
+          displayName: "",
+          id: "param-1",
+          name: "param-1",
+          variants: [paramVariantId],
+        }),
+        [rootParamId]: createCore({
+          defaultVariant: rootVariantId,
+          displayName: "",
+          id: rootParamId,
+          name: rootParamId,
+          variants: [rootVariantId],
+        }),
+      },
+      parentSectionMap: { "section-1": null },
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { "section-1": sectionVariantId },
+        showParamDisplayNames: false,
+      }),
+      sectionImpls: {
+        [sectionImplId]: createDictSectionImpl({
+          codeObjVariantMap: {
+            "param-1": paramVariantId,
+            [rootParamId]: rootVariantId,
+          },
+          id: sectionImplId,
+          selectedParams: [],
+          topLevelParamId: rootParamId,
+        }),
+      },
+      sectionVariants: {
+        [sectionVariantId]: createVariant({
+          id: sectionVariantId,
+          impl: sectionImplId,
+          name: sectionVariantId,
+          nonPresetImpls: [sectionImplId],
+        }),
+      },
+      sections: {
+        "section-1": createCore({
+          defaultVariant: sectionVariantId,
+          id: "section-1",
+          name: "Section 1",
+          variants: [sectionVariantId],
+        }),
+      },
+    }) as ZustandProjectState,
+  );
+}
+
+function seedPasswordParamProjectState() {
+  const sectionVariantId = "section-1-variant";
+  const sectionImplId = "section-1-impl";
+  const rootParamId = "root-param";
+  const rootVariantId = "root-param-variant";
+  const rootImplId = "root-param-impl";
+  const paramVariantId = "param-1-variant";
+  const paramImplId = "param-1-impl";
+  const paramImpl = createPasswordParamCodeObjImpl({
+    coreNameEditable: true,
+    coreNameType: ParamNameTypeEnum.TEXT,
+    defaultVal: "",
+    description: "",
+    hasSecret: true,
+    id: paramImplId,
+    isPreset: false,
+    name: "param-1",
+    passingStyle: ParameterPassingStyleEnum.DEFAULT,
+    type: CodeObjTypeEnum.PasswordParam,
+    typeAnnotation: "",
+    value: "",
+  }) satisfies PasswordParamCodeObjImpl;
 
   useProjectState.setState(
     createSingleConfig({

@@ -1,3 +1,4 @@
+import { getGpuRetainedContentPasswordLayout } from "./retainedContentPasswordLayout";
 import type {
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentRowState,
@@ -24,23 +25,20 @@ export function drawGpuRetainedContentPasswordControl({
   readonly state: GpuRetainedContentRowState | undefined;
 }) {
   const disabled = state?.disabled ?? false;
-  const outer = insetRect(rect, 6, 5);
-  const revealWidth = control.revealAvailable ? Math.min(44, outer.width) : 0;
-  const valueWidth = Math.max(0, outer.width - revealWidth - 6);
+  const layout = getGpuRetainedContentPasswordLayout({ control, rect });
 
   drawGpuRetainedContentPasswordField({
     control,
     ctx,
     disabled,
-    outer,
-    valueWidth,
+    layout,
   });
-  if (control.revealAvailable) {
+  if (layout.revealRect) {
     drawGpuRetainedContentPasswordReveal({
+      control,
       ctx,
       disabled,
-      outer,
-      revealWidth,
+      revealRect: layout.revealRect,
     });
   }
 }
@@ -49,8 +47,7 @@ function drawGpuRetainedContentPasswordField({
   control,
   ctx,
   disabled,
-  outer,
-  valueWidth,
+  layout,
 }: {
   readonly control: Extract<
     GpuRetainedContentControlDescriptor,
@@ -58,14 +55,14 @@ function drawGpuRetainedContentPasswordField({
   >;
   readonly ctx: CanvasRenderingContext2D;
   readonly disabled: boolean;
-  readonly outer: GpuRect;
-  readonly valueWidth: number;
+  readonly layout: ReturnType<typeof getGpuRetainedContentPasswordLayout>;
 }) {
+  const { outerRect, valueRect } = layout;
   ctx.fillStyle = disabled ? "#f1f5f9" : "#ffffff";
   ctx.strokeStyle = "#cbd5e1";
   ctx.lineWidth = 1;
-  fillRoundRect(ctx, outer, 5);
-  strokeRoundRect(ctx, outer, 5);
+  fillRoundRect(ctx, outerRect, 5);
+  strokeRoundRect(ctx, outerRect, 5);
 
   ctx.font = PASSWORD_VALUE_FONT;
   ctx.textAlign = "left";
@@ -73,28 +70,30 @@ function drawGpuRetainedContentPasswordField({
   ctx.fillStyle = disabled ? "#94a3b8" : "#334155";
   ctx.fillText(
     getGpuRetainedContentPasswordDisplayText(control),
-    outer.x + 7,
-    outer.y + outer.height / 2,
-    Math.max(0, valueWidth - 8),
+    valueRect.x + 7,
+    valueRect.y + valueRect.height / 2,
+    Math.max(0, valueRect.width - 8),
   );
   ctx.textAlign = "start";
 }
 
 function drawGpuRetainedContentPasswordReveal({
+  control,
   ctx,
   disabled,
-  outer,
-  revealWidth,
+  revealRect,
 }: {
+  readonly control: Extract<
+    GpuRetainedContentControlDescriptor,
+    { kind: "password" }
+  >;
   readonly ctx: CanvasRenderingContext2D;
   readonly disabled: boolean;
-  readonly outer: GpuRect;
-  readonly revealWidth: number;
+  readonly revealRect: GpuRect;
 }) {
-  const revealX = outer.x + outer.width - revealWidth;
   ctx.beginPath();
-  ctx.moveTo(revealX - 3, outer.y + 5);
-  ctx.lineTo(revealX - 3, outer.y + outer.height - 5);
+  ctx.moveTo(revealRect.x - 3, revealRect.y + 5);
+  ctx.lineTo(revealRect.x - 3, revealRect.y + revealRect.height - 5);
   ctx.strokeStyle = "#e2e8f0";
   ctx.lineWidth = 1;
   ctx.stroke();
@@ -104,10 +103,10 @@ function drawGpuRetainedContentPasswordReveal({
   ctx.textBaseline = "middle";
   ctx.fillStyle = disabled ? "#94a3b8" : "#2563eb";
   ctx.fillText(
-    "Reveal",
-    revealX + revealWidth / 2,
-    outer.y + outer.height / 2,
-    Math.max(0, revealWidth - 4),
+    getGpuRetainedContentPasswordRevealLabel(control),
+    revealRect.x + revealRect.width / 2,
+    revealRect.y + revealRect.height / 2,
+    Math.max(0, revealRect.width - 4),
   );
   ctx.textAlign = "start";
 }
@@ -115,6 +114,12 @@ function drawGpuRetainedContentPasswordReveal({
 function getGpuRetainedContentPasswordDisplayText(
   control: Extract<GpuRetainedContentControlDescriptor, { kind: "password" }>,
 ): string {
+  if (control.revealPending) {
+    return "Loading";
+  }
+  if (control.revealedValue !== null) {
+    return control.revealedValue;
+  }
   if (control.displayValue.length > 0) {
     return "********";
   }
@@ -124,13 +129,13 @@ function getGpuRetainedContentPasswordDisplayText(
   return control.hasSecret ? "Saved" : "Empty";
 }
 
-function insetRect(rect: GpuRect, insetX: number, insetY: number): GpuRect {
-  return {
-    height: Math.max(0, rect.height - insetY * 2),
-    width: Math.max(0, rect.width - insetX * 2),
-    x: rect.x + insetX,
-    y: rect.y + insetY,
-  };
+function getGpuRetainedContentPasswordRevealLabel(
+  control: Extract<GpuRetainedContentControlDescriptor, { kind: "password" }>,
+): string {
+  if (control.revealPending) {
+    return "...";
+  }
+  return control.revealedValue !== null ? "Hide" : "Reveal";
 }
 
 function fillRoundRect(

@@ -10,12 +10,19 @@ import {
 } from "./projectGpuRetainedParamDateCalendarAdapter";
 import { commitProjectGpuRetainedDropdownPopupOption } from "./projectGpuRetainedParamDropdownAdapter";
 import { commitProjectGpuRetainedDropzoneAttachmentDelete } from "./projectGpuRetainedParamDropzoneAdapter";
+import { commitProjectGpuRetainedPasswordRevealClick } from "./projectGpuRetainedParamPasswordAdapter";
+import type {
+  ProjectGpuRetainedPasswordRevealStateMap,
+  ProjectGpuRetainedPasswordRevealUpdate,
+} from "./projectGpuRetainedParamPasswordRevealState";
 
 export function handleProjectRetainedContentCanvasCommitClick(
   event: GpuRetainedContentInteractionEvent,
   {
     onActiveParamCanvasPopupChange,
     onActiveParamDomIslandChange,
+    onPasswordRevealStateChange,
+    passwordRevealStates,
   }: {
     readonly onActiveParamCanvasPopupChange: (
       popup: ProjectGpuActiveParamCanvasPopup | null,
@@ -23,6 +30,10 @@ export function handleProjectRetainedContentCanvasCommitClick(
     readonly onActiveParamDomIslandChange: (
       island: ProjectGpuActiveParamDomIsland | null,
     ) => void;
+    readonly onPasswordRevealStateChange: (
+      update: ProjectGpuRetainedPasswordRevealUpdate,
+    ) => void;
+    readonly passwordRevealStates: ProjectGpuRetainedPasswordRevealStateMap;
   },
 ): boolean {
   if (commitProjectGpuRetainedColorPickerPopupOption(event)) {
@@ -48,6 +59,16 @@ export function handleProjectRetainedContentCanvasCommitClick(
     return true;
   }
   if (commitProjectGpuRetainedDropzoneAttachmentDelete(event)) {
+    onActiveParamCanvasPopupChange(null);
+    onActiveParamDomIslandChange(null);
+    return true;
+  }
+  if (
+    commitProjectGpuRetainedPasswordRevealClick(event, {
+      onPasswordRevealStateChange,
+      passwordRevealStates,
+    })
+  ) {
     onActiveParamCanvasPopupChange(null);
     onActiveParamDomIslandChange(null);
     return true;

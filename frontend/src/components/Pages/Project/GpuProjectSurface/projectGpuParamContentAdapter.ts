@@ -55,6 +55,7 @@ import {
   type ProjectGpuRetainedParamSearchState,
 } from "./projectGpuParamRowAdapter";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
+import type { ProjectGpuRetainedPasswordRevealStateMap as PasswordRevealStates } from "./projectGpuRetainedParamPasswordRevealState";
 
 const PROJECT_GPU_PARAM_CONTENT_ROW_HEIGHT_PX = 28;
 
@@ -107,6 +108,7 @@ type ProjectGpuRetainedParamInteractionState = {
   readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
   readonly activeParamDomIsland?: OptionalParamDomIsland;
   readonly hoveredParamTarget?: OptionalParamTarget;
+  readonly passwordRevealStates?: PasswordRevealStates;
   readonly retainedParamDragPreview?: OptionalParamDragPreview;
 };
 
@@ -139,6 +141,7 @@ export function createProjectGpuParamContentSurfaces({
   editPolicy = DEFAULT_PROJECT_GPU_PARAM_EDIT_POLICY,
   hoveredParamTarget,
   measuredHeightsByKey,
+  passwordRevealStates,
   projectState,
   projectSearch,
   retainedParamDragPreview,
@@ -152,6 +155,7 @@ export function createProjectGpuParamContentSurfaces({
   readonly editPolicy?: ProjectGpuParamEditPolicy | undefined;
   readonly hoveredParamTarget?: OptionalParamTarget;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
+  readonly passwordRevealStates?: PasswordRevealStates;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedParamDragPreview?: OptionalParamDragPreview;
@@ -167,6 +171,7 @@ export function createProjectGpuParamContentSurfaces({
       editPolicy,
       hoveredParamTarget,
       measuredHeightsByKey,
+      passwordRevealStates,
       projectState,
       projectSearch,
       retainedParamDragPreview,
@@ -430,6 +435,7 @@ function createProjectGpuParamContentSurfacesForSection({
   editPolicy,
   hoveredParamTarget,
   measuredHeightsByKey,
+  passwordRevealStates,
   projectState,
   projectSearch,
   retainedParamDragPreview,
@@ -443,6 +449,7 @@ function createProjectGpuParamContentSurfacesForSection({
   readonly editPolicy: ProjectGpuParamEditPolicy;
   readonly hoveredParamTarget?: OptionalParamTarget;
   readonly measuredHeightsByKey?: Readonly<Record<string, unknown>> | undefined;
+  readonly passwordRevealStates?: PasswordRevealStates;
   readonly projectState: ZustandProjectState;
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly retainedParamDragPreview?: OptionalParamDragPreview;
@@ -471,6 +478,7 @@ function createProjectGpuParamContentSurfacesForSection({
       activeParamCanvasPopup,
       activeParamDomIsland,
       hoveredParamTarget,
+      passwordRevealStates,
       retainedParamDragPreview,
     },
   });
@@ -678,6 +686,7 @@ function createProjectGpuParamRows({
       edgeInputParamIds,
       hoveredParamTarget: retainedInteractionState.hoveredParamTarget,
       isDeploymentMode: editPolicy.isDeploymentMode,
+      passwordRevealStates: retainedInteractionState.passwordRevealStates,
       projectSearch,
       projectState,
       paramDuplicateIndex,

@@ -585,6 +585,8 @@ describe("retained content scene", () => {
             placeholder: "Saved",
             rendererFamily: "password",
             revealAvailable: true,
+            revealPending: false,
+            revealedValue: null,
             commitPolicy: "native-island",
           },
           controlKind: "password",
@@ -602,6 +604,8 @@ describe("retained content scene", () => {
       placeholder: "Saved",
       rendererFamily: "password",
       revealAvailable: true,
+      revealPending: false,
+      revealedValue: null,
       commitPolicy: "native-island",
     });
     expect(scene.drawCommands).toEqual(
@@ -616,6 +620,16 @@ describe("retained content scene", () => {
           controlKind: "password",
           kind: "row-control",
           rowId: "password-param",
+        }),
+      ]),
+    );
+    expect(scene.hitRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "control-subpart:password-param:password-reveal",
+          kind: "control-subpart",
+          ownerRowId: "password-param",
+          subpartKind: "password-reveal",
         }),
       ]),
     );

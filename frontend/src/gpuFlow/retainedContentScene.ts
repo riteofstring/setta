@@ -145,6 +145,8 @@ export type GpuRetainedContentControlDescriptor =
       readonly placeholder: string;
       readonly rendererFamily: string;
       readonly revealAvailable: boolean;
+      readonly revealPending: boolean;
+      readonly revealedValue: string | null;
       readonly commitPolicy: "native-island";
     }
   | {

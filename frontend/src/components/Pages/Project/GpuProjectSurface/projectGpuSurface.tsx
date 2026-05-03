@@ -87,13 +87,18 @@ import {
   useProjectGpuRetainedParamCanvasControlKeyboard,
   useProjectGpuRetainedParamCanvasControlWheel,
 } from "./projectGpuRetainedParamCanvasControlInput";
+import { renderProjectGpuDomIsland } from "./projectGpuRetainedParamDomIslandRenderer";
 import {
   getProjectRetainedContentConnectionOptions,
   getProjectRetainedContentInteractionOptions,
   getProjectScenePortConnectionOptions,
-  renderProjectGpuDomIsland,
 } from "./projectGpuRetainedParamInteractionAdapter";
 import { getProjectGpuRetainedParamNavigationTarget } from "./projectGpuRetainedParamNavigationTarget";
+import {
+  applyProjectGpuRetainedPasswordRevealUpdate,
+  type ProjectGpuRetainedPasswordRevealStateMap,
+  type ProjectGpuRetainedPasswordRevealUpdate,
+} from "./projectGpuRetainedParamPasswordRevealState";
 import { useProjectNodeIntrinsicSizeObserver } from "./projectNodeIntrinsicSize";
 import { useProjectNodeResizeOptions } from "./projectNodeResize";
 
@@ -180,9 +185,23 @@ export function GpuProjectSurface() {
     useState<ProjectGpuActiveParamCanvasPopup | null>(null);
   const [activeParamCanvasControl, setActiveParamCanvasControl] =
     useState<ProjectGpuRetainedParamTarget | null>(null);
+  const [retainedPasswordRevealStates, setRetainedPasswordRevealStates] =
+    useState<ProjectGpuRetainedPasswordRevealStateMap>(() => new Map());
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const dismissActiveParamCanvasPopup = useCallback(() => {
     setActiveParamCanvasPopup(null);
   }, []);
+  const handleRetainedPasswordRevealStateChange = useCallback(
+    (update: ProjectGpuRetainedPasswordRevealUpdate) => {
+      setRetainedPasswordRevealStates((current) =>
+        applyProjectGpuRetainedPasswordRevealUpdate(current, update),
+      );
+    },
+    [],
+  );
+  useEffect(() => {
+    setRetainedPasswordRevealStates(new Map());
+  }, [projectConfigId]);
   const [hoveredParamTarget, setHoveredParamTarget] =
     useState<ProjectGpuRetainedParamTarget | null>(null);
   const [retainedParamDragPreview, setRetainedParamDragPreview] =
@@ -192,6 +211,7 @@ export function GpuProjectSurface() {
     activeParamCanvasPopup,
     activeParamDomIsland,
     hoveredParamTarget,
+    passwordRevealStates: retainedPasswordRevealStates,
     retainedParamDragPreview,
   });
   const settings = useProjectGpuSurfaceSettings();
@@ -327,7 +347,9 @@ export function GpuProjectSurface() {
           }
         }}
         onHoveredParamTargetChange={setHoveredParamTarget}
+        onPasswordRevealStateChange={handleRetainedPasswordRevealStateChange}
         onRetainedParamDragPreviewChange={setRetainedParamDragPreview}
+        passwordRevealStates={retainedPasswordRevealStates}
         readyToRender={readyToRender}
         settings={settings}
       />
@@ -347,7 +369,9 @@ function ProjectGpuFlowLayer({
   onActiveParamCanvasControlChange,
   onActiveParamDomIslandChange,
   onHoveredParamTargetChange,
+  onPasswordRevealStateChange,
   onRetainedParamDragPreviewChange,
+  passwordRevealStates,
   readyToRender,
   settings,
 }: {
@@ -370,9 +394,13 @@ function ProjectGpuFlowLayer({
   readonly onHoveredParamTargetChange: (
     target: ProjectGpuRetainedParamTarget | null,
   ) => void;
+  readonly onPasswordRevealStateChange: (
+    update: ProjectGpuRetainedPasswordRevealUpdate,
+  ) => void;
   readonly onRetainedParamDragPreviewChange: (
     preview: ProjectGpuRetainedParamDragPreview | null,
   ) => void;
+  readonly passwordRevealStates: ProjectGpuRetainedPasswordRevealStateMap;
   readonly readyToRender: boolean;
   readonly settings: ProjectGpuSurfaceSettings;
 }) {
@@ -496,7 +524,9 @@ function ProjectGpuFlowLayer({
         onActiveParamCanvasControlChange,
         onActiveParamDomIslandChange,
         onHoveredParamTargetChange,
+        onPasswordRevealStateChange,
         onRetainedParamDragPreviewChange,
+        passwordRevealStates,
         retainedContentScroll: {
           getScene: () => layoutAdapter.scene,
           getScrollOffsets: () => layoutAdapter.contentScrollOffsets,
@@ -512,7 +542,9 @@ function ProjectGpuFlowLayer({
       onActiveParamCanvasControlChange,
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange,
+      onPasswordRevealStateChange,
       onRetainedParamDragPreviewChange,
+      passwordRevealStates,
       layoutAdapter,
       retainedParamDragSessionRef,
     ],

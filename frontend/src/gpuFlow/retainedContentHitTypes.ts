@@ -21,5 +21,8 @@ export type GpuRetainedContentHitRecord = {
   readonly optionValue?: string | undefined;
   readonly ownerRowId: string;
   readonly rect: GpuRect;
-  readonly subpartKind?: "dropzone-attachment-delete" | undefined;
+  readonly subpartKind?:
+    | "dropzone-attachment-delete"
+    | "password-reveal"
+    | undefined;
 };

@@ -1,7 +1,6 @@
 import {
   formatBytes,
   parseDropzoneValue,
-  shouldShowPasswordReveal,
   type DropzoneStoredAttachment,
 } from "@setta/app-subsystem-frontend-sdk";
 import {
@@ -68,6 +67,8 @@ import {
 } from "utils/textParamDateTime";
 import { createProjectGpuButtonControlDescriptor } from "./projectGpuParamButtonRowDescriptor";
 import { createProjectGpuColorPickerControlDescriptor } from "./projectGpuParamColorPickerRowDescriptor";
+import { toProjectGpuParamDisplayValue } from "./projectGpuParamDisplayValue";
+import { createProjectGpuPasswordControlDescriptor } from "./projectGpuParamPasswordRowDescriptor";
 import { createProjectGpuParamRowStatus } from "./projectGpuParamRowStatus";
 import { getProjectGpuParamRowStatusMessages } from "./projectGpuParamRowStatusMessages";
 import { createProjectGpuTextLikeControlDescriptorIfSupported } from "./projectGpuParamTextLikeRowDescriptor";
@@ -76,6 +77,7 @@ import {
   validateProjectGpuDateCalendarVisibleMonth,
   type ProjectGpuRetainedParamCanvasPopupLike,
 } from "./projectGpuRetainedParamDateCalendarMonth";
+import type { ProjectGpuRetainedPasswordRevealStateMap } from "./projectGpuRetainedParamPasswordRevealState";
 
 export type ProjectGpuRetainedParamSearchState = Pick<
   ZustandProjectSearch,
@@ -105,6 +107,7 @@ export function createProjectGpuParamRowInput({
   hoveredParamTarget,
   isDeploymentMode,
   paramDuplicateIndex,
+  passwordRevealStates,
   projectSearch,
   projectState,
   row,
@@ -141,6 +144,9 @@ export function createProjectGpuParamRowInput({
   readonly projectSearch?: ProjectGpuRetainedParamSearchState | undefined;
   readonly projectState: ZustandProjectState;
   readonly paramDuplicateIndex: ParamDuplicateIndex;
+  readonly passwordRevealStates?:
+    | ProjectGpuRetainedPasswordRevealStateMap
+    | undefined;
   readonly row: ProjectGpuParamTreeRowLike;
   readonly sectionId: string;
   readonly sectionParamTypeErrors: Readonly<
@@ -175,6 +181,9 @@ export function createProjectGpuParamRowInput({
       dateCalendarVisibleMonth,
       isParent: row.isParent,
       isDeploymentMode: isDeploymentMode ?? false,
+      passwordRevealStates,
+      rowId: row.id,
+      sectionId,
     }),
     controlKind,
     depth: row.depth,
@@ -207,6 +216,9 @@ function createProjectGpuParamControlDescriptor({
   dateCalendarVisibleMonth,
   isParent,
   isDeploymentMode,
+  passwordRevealStates,
+  rowId,
+  sectionId,
 }: {
   readonly codeObjImpl: {
     readonly defaultVal?: unknown;
@@ -217,6 +229,11 @@ function createProjectGpuParamControlDescriptor({
   readonly dateCalendarVisibleMonth: GpuRetainedContentDateCalendarMonth | null;
   readonly isDeploymentMode: boolean;
   readonly isParent: boolean;
+  readonly passwordRevealStates?:
+    | ProjectGpuRetainedPasswordRevealStateMap
+    | undefined;
+  readonly rowId: string;
+  readonly sectionId: string;
 }): GpuRetainedContentControlDescriptor | null {
   if (!controlKind || isParent) {
     return null;
@@ -226,6 +243,9 @@ function createProjectGpuParamControlDescriptor({
     controlKind,
     dateCalendarVisibleMonth,
     isDeploymentMode,
+    passwordRevealStates,
+    rowId,
+    sectionId,
   });
 }
 
@@ -234,6 +254,9 @@ function createProjectGpuLeafParamControlDescriptor({
   controlKind,
   dateCalendarVisibleMonth,
   isDeploymentMode,
+  passwordRevealStates,
+  rowId,
+  sectionId,
 }: {
   readonly codeObjImpl: {
     readonly defaultVal?: unknown;
@@ -243,6 +266,11 @@ function createProjectGpuLeafParamControlDescriptor({
   readonly controlKind: string;
   readonly dateCalendarVisibleMonth: GpuRetainedContentDateCalendarMonth | null;
   readonly isDeploymentMode: boolean;
+  readonly passwordRevealStates?:
+    | ProjectGpuRetainedPasswordRevealStateMap
+    | undefined;
+  readonly rowId: string;
+  readonly sectionId: string;
 }): GpuRetainedContentControlDescriptor | null {
   return (
     createProjectGpuTextLikeControlDescriptorIfSupported({
@@ -253,6 +281,9 @@ function createProjectGpuLeafParamControlDescriptor({
       codeObjImpl,
       controlKind,
       isDeploymentMode,
+      passwordRevealStates,
+      rowId,
+      sectionId,
     }) ??
     createProjectGpuDateTimeControlDescriptorIfSupported({
       codeObjImpl,
@@ -266,6 +297,9 @@ function createProjectGpuSpecializedControlDescriptorIfSupported({
   codeObjImpl,
   controlKind,
   isDeploymentMode,
+  passwordRevealStates,
+  rowId,
+  sectionId,
 }: {
   readonly codeObjImpl: {
     readonly defaultVal?: unknown;
@@ -274,6 +308,11 @@ function createProjectGpuSpecializedControlDescriptorIfSupported({
   };
   readonly controlKind: string;
   readonly isDeploymentMode: boolean;
+  readonly passwordRevealStates?:
+    | ProjectGpuRetainedPasswordRevealStateMap
+    | undefined;
+  readonly rowId: string;
+  readonly sectionId: string;
 }): GpuRetainedContentControlDescriptor | null {
   if (codeObjImpl.type === CodeObjTypeEnum.SwitchParam) {
     const displayValue = toProjectGpuParamDisplayValue(codeObjImpl.value);
@@ -325,6 +364,9 @@ function createProjectGpuSpecializedControlDescriptorIfSupported({
       codeObjImpl: codeObjImpl as PasswordParamCodeObjImpl,
       controlKind,
       isDeploymentMode,
+      passwordRevealStates,
+      rowId,
+      sectionId,
     });
   }
   if (codeObjImpl.type === CodeObjTypeEnum.DropzoneParam) {
@@ -639,34 +681,6 @@ function toProjectGpuDropdownChoices(
   });
 }
 
-function createProjectGpuPasswordControlDescriptor({
-  codeObjImpl,
-  controlKind,
-  isDeploymentMode,
-}: {
-  readonly codeObjImpl: PasswordParamCodeObjImpl;
-  readonly controlKind: string;
-  readonly isDeploymentMode: boolean;
-}): GpuRetainedContentControlDescriptor {
-  const displayValue = toProjectGpuParamDisplayValue(codeObjImpl.value);
-  const hasSecret = codeObjImpl.hasSecret === true;
-  return {
-    defaultDisplayValue: toProjectGpuParamDisplayValue(codeObjImpl.defaultVal),
-    displayValue,
-    hasSecret,
-    kind: "password",
-    placeholder: hasSecret && displayValue === "" ? "Saved" : "",
-    rendererFamily: controlKind,
-    revealAvailable:
-      !isDeploymentMode &&
-      shouldShowPasswordReveal({
-        hasSecret,
-        value: displayValue,
-      }),
-    commitPolicy: "native-island",
-  };
-}
-
 function createProjectGpuDropzoneControlDescriptor({
   codeObjImpl,
   controlKind,
@@ -823,10 +837,6 @@ function createProjectGpuRangedControlDescriptor({
     step,
     value,
   };
-}
-
-function toProjectGpuParamDisplayValue(value: unknown): string {
-  return typeof value === "string" ? value : String(value ?? "");
 }
 
 function toProjectGpuRetainedNumericControlValue({

@@ -92,6 +92,7 @@ import {
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuParamContentAdapter";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
+import type { ProjectGpuRetainedPasswordRevealStateMap } from "./projectGpuRetainedParamPasswordRevealState";
 import {
   getProjectSceneMeasuredHeight,
   getProjectSectionSceneResizeDirections,
@@ -156,12 +157,16 @@ export function useProjectGpuLayoutAdapter({
   activeParamCanvasPopup,
   activeParamDomIsland,
   hoveredParamTarget,
+  passwordRevealStates,
   retainedParamDragPreview,
 }: {
   readonly activeParamCanvasControl?: OptionalParamTarget;
   readonly activeParamCanvasPopup?: OptionalParamCanvasPopup;
   readonly activeParamDomIsland?: OptionalParamDomIsland;
   readonly hoveredParamTarget?: OptionalParamTarget;
+  readonly passwordRevealStates?:
+    | ProjectGpuRetainedPasswordRevealStateMap
+    | undefined;
   readonly retainedParamDragPreview?: OptionalParamDragPreview;
 } = {}): ProjectGpuLayoutAdapter {
   const layoutStore = useProjectGpuLayoutStore();
@@ -203,6 +208,7 @@ export function useProjectGpuLayoutAdapter({
           isDeploymentMode,
         },
         hoveredParamTarget,
+        passwordRevealStates,
         projectSearch,
         retainedParamDragPreview,
         scrollOffsets: sceneScrollOffsets,
@@ -217,6 +223,7 @@ export function useProjectGpuLayoutAdapter({
       contentScrollOffsets,
       darkMode,
       hoveredParamTarget,
+      passwordRevealStates,
       isDeploymentMode,
       measuredHeightsByKey,
       projectSearch,
@@ -313,6 +320,9 @@ export function getProjectGpuFlowScene(
     readonly activeParamCanvasControl?: OptionalParamTarget;
     readonly activeParamDomIsland?: OptionalParamDomIsland;
     readonly hoveredParamTarget?: OptionalParamTarget;
+    readonly passwordRevealStates?:
+      | ProjectGpuRetainedPasswordRevealStateMap
+      | undefined;
     readonly projectSearch?:
       | Pick<ZustandProjectSearch, "focused" | "lookup">
       | undefined;
@@ -414,6 +424,7 @@ export function getProjectGpuFlowScene(
     editPolicy: paramEditPolicy,
     hoveredParamTarget: options.hoveredParamTarget,
     measuredHeightsByKey: resizePolicyContext.measuredHeightsByKey,
+    passwordRevealStates: options.passwordRevealStates,
     projectState,
     projectSearch: options.projectSearch,
     retainedParamDragPreview: options.retainedParamDragPreview,

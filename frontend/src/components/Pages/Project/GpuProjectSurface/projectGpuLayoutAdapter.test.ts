@@ -1619,6 +1619,30 @@ describe("project GPU layout adapter", () => {
       kind: "password",
       revealAvailable: false,
     });
+
+    const revealedScene = getProjectGpuFlowScene(projectState, {
+      darkMode: false,
+      passwordRevealStates: new Map([
+        [
+          "dict-a:password-param",
+          {
+            pending: false,
+            value: "revealed-secret",
+          },
+        ],
+      ]),
+      revision: 14,
+    });
+    const revealedSurface = revealedScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
+
+    expect(revealedSurface?.retainedScene?.rows[0]?.control).toMatchObject({
+      kind: "password",
+      revealPending: false,
+      revealedValue: "revealed-secret",
+    });
+    expect(revealedScene.domIslands).toEqual([]);
   });
 
   it("derives button params as canvas-owned retained controls", () => {

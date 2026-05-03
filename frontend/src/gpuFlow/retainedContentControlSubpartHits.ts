@@ -1,4 +1,5 @@
 import { getGpuRetainedContentDropzoneAttachmentLayouts } from "./retainedContentDropzoneLayout";
+import { getGpuRetainedContentPasswordLayout } from "./retainedContentPasswordLayout";
 import type {
   GpuRetainedContentHitRecord,
   GpuRetainedContentRow,
@@ -6,6 +7,31 @@ import type {
 import type { GpuRect } from "./viewportMath";
 
 export function createGpuRetainedContentControlSubpartHitRecords({
+  controlRect,
+  row,
+}: {
+  readonly controlRect: GpuRect;
+  readonly row: GpuRetainedContentRow;
+}): GpuRetainedContentHitRecord[] {
+  if (!row.control) {
+    return [];
+  }
+  if (row.control.kind === "password") {
+    return createGpuRetainedContentPasswordRevealHitRecords({
+      controlRect,
+      row,
+    });
+  }
+  if (row.control.kind !== "dropzone") {
+    return [];
+  }
+  return createGpuRetainedContentDropzoneAttachmentDeleteHitRecords({
+    controlRect,
+    row,
+  });
+}
+
+function createGpuRetainedContentDropzoneAttachmentDeleteHitRecords({
   controlRect,
   row,
 }: {
@@ -35,4 +61,32 @@ export function createGpuRetainedContentControlSubpartHitRecords({
     });
   }
   return records;
+}
+
+function createGpuRetainedContentPasswordRevealHitRecords({
+  controlRect,
+  row,
+}: {
+  readonly controlRect: GpuRect;
+  readonly row: GpuRetainedContentRow;
+}): GpuRetainedContentHitRecord[] {
+  if (!row.control || row.control.kind !== "password") {
+    return [];
+  }
+  const layout = getGpuRetainedContentPasswordLayout({
+    control: row.control,
+    rect: controlRect,
+  });
+  if (!layout.revealRect) {
+    return [];
+  }
+  return [
+    {
+      id: `control-subpart:${row.id}:password-reveal`,
+      kind: "control-subpart",
+      ownerRowId: row.id,
+      rect: layout.revealRect,
+      subpartKind: "password-reveal",
+    },
+  ];
 }
