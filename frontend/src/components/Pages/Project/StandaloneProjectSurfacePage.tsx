@@ -10,7 +10,6 @@ import {
   buildStandalonePageProjectChatSurfaceId,
   buildStandalonePageSectionProjectChatSurfaceId,
 } from "components/ChatWindowing/projectChatSurfaceIds";
-import { MaybeManyNestedSections } from "components/Section/Container/ManyNestedSections";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
@@ -33,7 +32,6 @@ import {
 import { useLoadProjectConfig } from "state/hooks/project";
 import {
   ChatWindowModeEnum,
-  SectionTypeEnum,
   type SectionType,
   type WindowSpaceConfig,
 } from "utils/generatedTypes";
@@ -234,29 +232,6 @@ function buildStandaloneSurfaceOwnerKey(
     return `${projectConfigId}:window-space:${target.windowSpaceId}`;
   }
   return null;
-}
-
-function StandaloneSectionBody({
-  sectionId,
-  sectionType,
-}: {
-  sectionId: string;
-  sectionType: SectionType;
-}) {
-  if (
-    sectionType !== SectionTypeEnum.Group &&
-    sectionType !== SectionTypeEnum.ListRoot
-  ) {
-    return null;
-  }
-  return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      <MaybeManyNestedSections
-        sectionId={sectionId}
-        isGroup={sectionType === SectionTypeEnum.Group}
-      />
-    </div>
-  );
 }
 
 function StandaloneSurfaceShell({ children }: { children: React.ReactNode }) {
@@ -564,21 +539,6 @@ function resolveStandaloneProjectChatSurfaceViewState({
   };
 }
 
-function resolveStandaloneSectionBodyOverride(
-  sectionId: string,
-  sectionType: SectionType,
-) {
-  if (
-    sectionType !== SectionTypeEnum.Group &&
-    sectionType !== SectionTypeEnum.ListRoot
-  ) {
-    return undefined;
-  }
-  return (
-    <StandaloneSectionBody sectionId={sectionId} sectionType={sectionType} />
-  );
-}
-
 function StandaloneProjectChatSurface({
   projectConfigId,
   target,
@@ -699,10 +659,6 @@ function StandaloneSectionSurface({
             target.sectionId,
           )}
           onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
-          bodyOverride={resolveStandaloneSectionBodyOverride(
-            target.sectionId,
-            target.sectionType,
-          )}
         />
       </div>
     </StandaloneSurfaceShell>

@@ -684,7 +684,6 @@ function renderProjectGpuNode(
     <SectionContainer
       sectionId={node.nodeId}
       isTopLevel={sceneNode.parentSectionId === null}
-      renderNestedContent={false}
       sceneSurface
     />
   );

@@ -116,25 +116,6 @@ vi.mock("./ContainerSwitch", () => ({
   ),
 }));
 
-vi.mock("./ManyNestedSections", () => ({
-  MaybeManyNestedSections: ({
-    sectionId,
-    isGroup,
-    layoutVariant = "default",
-  }: {
-    sectionId: string;
-    isGroup: boolean;
-    layoutVariant?: "default" | "tight";
-  }) => (
-    <div
-      data-testid="mock-many-nested-sections"
-      data-section-id={sectionId}
-      data-is-group={String(isGroup)}
-      data-layout-variant={layoutVariant}
-    />
-  ),
-}));
-
 vi.mock("./SectionContainerCore", () => ({
   SectionContainerCore: ({
     sectionId,
@@ -201,7 +182,7 @@ describe("SectionContainer", () => {
     activeSectionIds.clear();
   });
 
-  it("renders joined code terminal groups with shared chrome and tight nested layout", () => {
+  it("renders embedded-terminal code sections as a single section surface", () => {
     mockSectionViewState.embeddedTerminal = {
       attachedTerminalId: "terminal-1",
       isTerminalMinimized: false,
@@ -212,15 +193,12 @@ describe("SectionContainer", () => {
       <SectionContainer sectionId="section-1" isTopLevel={false} />,
     );
 
-    expect(markup).toContain("data-joined-code-terminal-group");
-    expect(markup).toContain('data-testid="mock-agentic-edge-handles"');
-    expect(markup).toContain('data-force-hide-outline="true"');
-    expect(markup).toContain('data-hide-agentic-edge-handles="true"');
-    expect(markup).toContain('data-joined-corners="code-terminal-parent"');
-    expect(markup).toContain('data-layout-variant="tight"');
+    expect(markup).toContain('data-testid="mock-section-container-core"');
+    expect(markup).not.toContain("data-joined-code-terminal-group");
+    expect(markup).not.toContain('data-testid="mock-agentic-edge-handles"');
   });
 
-  it("renders standard sections with default nested layout for groups", () => {
+  it("does not render child section DOM for groups", () => {
     mockSectionViewState.sectionType = SectionTypeEnum.Group;
 
     const markup = renderToStaticMarkup(
@@ -228,27 +206,21 @@ describe("SectionContainer", () => {
     );
 
     expect(markup).not.toContain('data-testid="mock-section-container-core"');
-    expect(markup).toContain('data-is-group="true"');
-    expect(markup).toContain('data-layout-variant="default"');
+    expect(markup).toContain('data-testid="mock-container-switch"');
   });
 
-  it("can render a section surface without parent-owned nested content", () => {
+  it("does not activate parent-owned nested content for embedded terminals", () => {
     mockSectionViewState.embeddedTerminal = {
       attachedTerminalId: "terminal-1",
       isTerminalMinimized: false,
     };
 
     const markup = renderToStaticMarkup(
-      <SectionContainer
-        sectionId="section-1"
-        isTopLevel={false}
-        renderNestedContent={false}
-      />,
+      <SectionContainer sectionId="section-1" isTopLevel={false} />,
     );
 
     expect(markup).toContain('data-testid="mock-section-container-core"');
     expect(markup).not.toContain("data-joined-code-terminal-group");
-    expect(markup).not.toContain('data-testid="mock-many-nested-sections"');
   });
 
   it("marks GPU scene surfaces as scene-owned without nested content ownership", () => {
@@ -256,7 +228,6 @@ describe("SectionContainer", () => {
       <SectionContainer
         sectionId="section-1"
         isTopLevel={false}
-        renderNestedContent={false}
         sceneSurface
       />,
     );
@@ -264,16 +235,11 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-scene-surface="true"');
     expect(markup).toContain('data-fill-surface="true"');
     expect(markup).toContain('data-render-param-rows="false"');
-    expect(markup).not.toContain('data-testid="mock-many-nested-sections"');
   });
 
   it("keeps top-level surfaces filled and GPU-resized without scene-owned mode", () => {
     const markup = renderToStaticMarkup(
-      <SectionContainer
-        sectionId="section-1"
-        isTopLevel
-        renderNestedContent={false}
-      />,
+      <SectionContainer sectionId="section-1" isTopLevel />,
     );
 
     expect(markup).toContain('data-scene-surface="false"');
