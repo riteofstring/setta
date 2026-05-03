@@ -8,7 +8,7 @@ import {
 } from "./retainedContentSwitchCanvas";
 
 describe("retained content switch canvas", () => {
-  it("draws the switch track at the start of the value column without text", () => {
+  it("draws the Settings switch track at the start of the value column without text", () => {
     const ctx = createCanvasContextRecorder();
     const rect = { height: 24, width: 273, x: 270, y: 0 };
 
@@ -26,6 +26,8 @@ describe("retained content switch canvas", () => {
       x: 284,
       y: 5,
     });
+    expect(ctx.moveTo).toHaveBeenNthCalledWith(1, 292, 6);
+    expect(ctx.lineTo).toHaveBeenNthCalledWith(1, 310, 6);
     expect(ctx.fillText).not.toHaveBeenCalled();
   });
 
@@ -40,7 +42,11 @@ describe("retained content switch canvas", () => {
       state: undefined,
     });
 
-    expect(ctx.fillStyles).toEqual(["rgb(51, 65, 85)", "hsl(220, 25%, 8.5%)"]);
+    expect(ctx.fillStyles).toEqual([
+      "hsl(219, 25%, 34%)",
+      "hsl(220, 26%, 14%)",
+    ]);
+    expect(ctx.moveTo).toHaveBeenNthCalledWith(2, 292, 9);
   });
 });
 
