@@ -1,4 +1,5 @@
 import { NO_PAN_CLASS_NAME } from "utils/constants";
+import { GPU_FLOW_SELECTORS } from "../gpuFlowDomClasses";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   hitTestGpuRetainedContentScene,
@@ -533,6 +534,9 @@ export function shouldPreserveGpuRetainedContentNativeTarget(
     target.closest(
       [
         `.${NO_PAN_CLASS_NAME}`,
+        GPU_FLOW_SELECTORS.portalRoot,
+        '[data-gpu-flow-dom-island="true"]',
+        '[data-gpu-flow-interactive="true"]',
         '[data-gpu-flow-retained-content-native="true"]',
         "button",
         "input",

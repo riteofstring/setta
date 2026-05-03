@@ -315,7 +315,15 @@ describe("GPU retained content interaction controller", () => {
   it("preserves native active DOM island targets", () => {
     const element = createHostElement();
     const input = document.createElement("input");
-    element.append(input);
+    const domIsland = document.createElement("div");
+    domIsland.dataset.gpuFlowDomIsland = "true";
+    const interactiveControl = document.createElement("div");
+    interactiveControl.dataset.gpuFlowInteractive = "true";
+    const portalRoot = document.createElement("div");
+    portalRoot.dataset.gpuFlowPortalRoot = "true";
+    const portalOption = document.createElement("div");
+    portalRoot.append(portalOption);
+    element.append(input, domIsland, interactiveControl, portalRoot);
     const onHitClick = vi.fn();
     const cleanup = attachGpuRetainedContentInteractionController({
       element,
@@ -324,14 +332,22 @@ describe("GPU retained content interaction controller", () => {
       store: createGpuFlowViewportStore(),
     });
 
-    const pointerDown = createPointerEvent("pointerdown", {
-      clientX: 20,
-      clientY: 14,
-      pointerId: 1,
-    });
-    input.dispatchEvent(pointerDown);
+    const preservedTargets = [
+      input,
+      domIsland,
+      interactiveControl,
+      portalOption,
+    ];
+    for (const [index, target] of preservedTargets.entries()) {
+      const pointerDown = createPointerEvent("pointerdown", {
+        clientX: 20,
+        clientY: 14,
+        pointerId: index + 1,
+      });
+      target.dispatchEvent(pointerDown);
 
-    expect(pointerDown.defaultPrevented).toBe(false);
+      expect(pointerDown.defaultPrevented).toBe(false);
+    }
     expect(onHitClick).not.toHaveBeenCalled();
 
     cleanup();

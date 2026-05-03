@@ -55,7 +55,15 @@ describe("GPU retained content keyboard controller", () => {
   it("preserves native keyboard targets", () => {
     const element = createHostElement();
     const input = document.createElement("input");
-    element.append(input);
+    const domIsland = document.createElement("div");
+    domIsland.dataset.gpuFlowDomIsland = "true";
+    const interactiveControl = document.createElement("div");
+    interactiveControl.dataset.gpuFlowInteractive = "true";
+    const portalRoot = document.createElement("div");
+    portalRoot.dataset.gpuFlowPortalRoot = "true";
+    const portalOption = document.createElement("div");
+    portalRoot.append(portalOption);
+    element.append(input, domIsland, interactiveControl, portalRoot);
     const onNavigation = vi.fn();
     const cleanup = attachGpuRetainedContentKeyboardController({
       element,
@@ -69,10 +77,18 @@ describe("GPU retained content keyboard controller", () => {
       onNavigation,
     });
 
-    const event = createKeyboardEvent("ArrowDown");
-    input.dispatchEvent(event);
+    const preservedTargets = [
+      input,
+      domIsland,
+      interactiveControl,
+      portalOption,
+    ];
+    for (const target of preservedTargets) {
+      const event = createKeyboardEvent("ArrowDown");
+      target.dispatchEvent(event);
 
-    expect(event.defaultPrevented).toBe(false);
+      expect(event.defaultPrevented).toBe(false);
+    }
     expect(onNavigation).not.toHaveBeenCalled();
 
     cleanup();

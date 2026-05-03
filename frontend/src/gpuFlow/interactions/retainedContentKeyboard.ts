@@ -7,6 +7,7 @@ import {
 } from "../retainedContentKeyboard";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuFlowScene } from "../scene";
+import { shouldPreserveGpuRetainedContentNativeTarget } from "./retainedContentInteraction";
 
 export type GpuRetainedContentKeyboardNavigationEvent =
   GpuRetainedContentKeyboardNavigationResult & {
@@ -101,7 +102,7 @@ function shouldSkipRetainedContentKeyboardEvent(
     event.defaultPrevented ||
     hasRetainedContentKeyboardModifier(event) ||
     Boolean(disabled?.(event)) ||
-    shouldPreserveNativeKeyboardTarget(event)
+    shouldPreserveGpuRetainedContentNativeTarget(event)
   );
 }
 
@@ -109,25 +110,6 @@ function hasRetainedContentKeyboardModifier(
   event: Pick<KeyboardEvent, "altKey" | "ctrlKey" | "metaKey" | "shiftKey">,
 ): boolean {
   return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
-}
-
-function shouldPreserveNativeKeyboardTarget(event: KeyboardEvent): boolean {
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    return false;
-  }
-  return Boolean(
-    target.closest(
-      [
-        '[data-gpu-flow-retained-content-native="true"]',
-        "input",
-        "select",
-        "textarea",
-        '[contenteditable=""]',
-        '[contenteditable="true"]',
-      ].join(", "),
-    ),
-  );
 }
 
 function getRetainedContentKeyboardCommand(
