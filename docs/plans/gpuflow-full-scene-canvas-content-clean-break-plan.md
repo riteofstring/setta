@@ -26,9 +26,9 @@ owner in the same implementation slice.
 
 ## Why This Replaces The Earlier Scene Plan
 
-`docs/plans/gpuflow-scene-ownership-architecture-plan.md` correctly moves
-top-level project-canvas scene ownership into `GpuFlow`, but it explicitly
-leaves nested section layout and section content rendering out of scope.
+The earlier scene-ownership plan correctly moved top-level project-canvas scene
+ownership into `GpuFlow`, but it explicitly left nested section layout and
+section content rendering out of scope.
 
 Those exclusions are now the main performance problem:
 
