@@ -503,6 +503,78 @@ describe("retained content scene", () => {
     );
   });
 
+  it("retains concrete dropzone descriptors for closed canvas displays", () => {
+    const scene = createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 24,
+      rows: [
+        row("dropzone-param", {
+          control: {
+            attachments: [
+              {
+                kind: "file",
+                name: "input.csv",
+                sizeLabel: "2 KB",
+              },
+            ],
+            canAttachMore: false,
+            defaultDisplayValue: "",
+            displayValue: '{"attachments":[]}',
+            kind: "dropzone",
+            label: "1 attachment",
+            maxAttachments: 1,
+            mode: "STATEFUL",
+            placeholder: "Drop a file here",
+            remainingSlots: 0,
+            rendererFamily: "dropzone",
+            commitPolicy: "native-island",
+          },
+          controlKind: "dropzone",
+        }),
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 24, width: 220, x: 0, y: 0 },
+    });
+
+    expect(scene.rows[0]?.control).toEqual({
+      attachments: [
+        {
+          kind: "file",
+          name: "input.csv",
+          sizeLabel: "2 KB",
+        },
+      ],
+      canAttachMore: false,
+      defaultDisplayValue: "",
+      displayValue: '{"attachments":[]}',
+      kind: "dropzone",
+      label: "1 attachment",
+      maxAttachments: 1,
+      mode: "STATEFUL",
+      placeholder: "Drop a file here",
+      remainingSlots: 0,
+      rendererFamily: "dropzone",
+      commitPolicy: "native-island",
+    });
+    expect(scene.drawCommands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          control: expect.objectContaining({
+            attachments: expect.arrayContaining([
+              { kind: "file", name: "input.csv", sizeLabel: "2 KB" },
+            ]),
+            kind: "dropzone",
+            commitPolicy: "native-island",
+          }),
+          controlKind: "dropzone",
+          kind: "row-control",
+          rowId: "dropzone-param",
+        }),
+      ]),
+    );
+  });
+
   it("emits inset drop markers for retained inside-row drops", () => {
     const scene = createGpuRetainedRowContentScene({
       dragPreview: {

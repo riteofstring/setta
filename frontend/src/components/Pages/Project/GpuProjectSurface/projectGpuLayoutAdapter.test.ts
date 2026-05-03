@@ -12,6 +12,7 @@ import {
   DateControlModeEnum,
   DateDisplayFormatEnum,
   DateSelectionModeEnum,
+  DropzoneModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
   TimeControlModeEnum,
@@ -1680,9 +1681,23 @@ describe("project GPU layout adapter", () => {
       "dropzone-param-variant",
       "dropzone-param-impl",
       createDropzoneParamCodeObjImpl({
+        defaultVal: "",
         id: "dropzone-param-impl",
+        maxAttachments: 1,
+        mode: DropzoneModeEnum.STATEFUL,
         name: "dropzone",
+        placeholder: "Drop an input",
         type: CodeObjTypeEnum.DropzoneParam,
+        value: JSON.stringify({
+          attachments: [
+            {
+              kind: "file",
+              id: "artifact-a",
+              name: "input.csv",
+              size: 2048,
+            },
+          ],
+        }),
       }),
     );
     projectState.shownParamIds["dict-a-variant"] = createShownParamIDs({
@@ -1756,12 +1771,48 @@ describe("project GPU layout adapter", () => {
       revision: 5,
     });
     const dropzoneIsland = dropzoneScene.domIslands[0];
+    const dropzoneSurface = dropzoneScene.contentSurfaces.find(
+      (surface) => surface.id === "dict-a:param-content:unpinned",
+    );
 
     expect(dropzoneIsland).toMatchObject({
       contentRect: { height: 132, width: 240, x: 0, y: 0 },
       kind: "retained-content-control",
       ownerSectionId: "dict-a",
       rect: { height: 132, width: 240 },
+    });
+    expect(
+      dropzoneSurface?.retainedScene?.rows.find(
+        (row) => row.id === "dropzone-param",
+      )?.control,
+    ).toEqual({
+      attachments: [
+        {
+          kind: "file",
+          name: "input.csv",
+          sizeLabel: "2 KB",
+        },
+      ],
+      canAttachMore: false,
+      defaultDisplayValue: "",
+      displayValue: JSON.stringify({
+        attachments: [
+          {
+            kind: "file",
+            id: "artifact-a",
+            name: "input.csv",
+            size: 2048,
+          },
+        ],
+      }),
+      kind: "dropzone",
+      label: "1 attachment",
+      maxAttachments: 1,
+      mode: DropzoneModeEnum.STATEFUL,
+      placeholder: "Drop an input",
+      remainingSlots: 0,
+      rendererFamily: "dropzone",
+      commitPolicy: "native-island",
     });
   });
 

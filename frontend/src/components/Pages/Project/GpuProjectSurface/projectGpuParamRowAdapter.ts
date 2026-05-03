@@ -1,4 +1,9 @@
-import { shouldShowPasswordReveal } from "@setta/app-subsystem-frontend-sdk";
+import {
+  formatBytes,
+  parseDropzoneValue,
+  shouldShowPasswordReveal,
+  type DropzoneStoredAttachment,
+} from "@setta/app-subsystem-frontend-sdk";
 import {
   getSectionParamUIRendererFamily,
   type SectionParamUIRendererFamily,
@@ -11,6 +16,7 @@ import type {
   GpuRetainedContentColorChoice,
   GpuRetainedContentControlDescriptor,
   GpuRetainedContentDropdownChoice,
+  GpuRetainedContentDropzoneAttachment,
   GpuRetainedContentRowInput,
   GpuRetainedContentRowState,
 } from "gpuFlow/retainedContentScene";
@@ -22,9 +28,11 @@ import type {
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import {
   CodeObjTypeEnum,
+  DropzoneModeEnum,
   type CodeObjType,
   type ColorPickerParamCodeObjImpl,
   type DropdownParamCodeObjImpl,
+  type DropzoneParamCodeObjImpl,
   type PasswordParamCodeObjImpl,
   type RotaryParamCodeObjImpl,
   type SliderParamCodeObjImpl,
@@ -143,6 +151,26 @@ function createProjectGpuParamControlDescriptor({
   if (!controlKind || isParent) {
     return null;
   }
+  return createProjectGpuLeafParamControlDescriptor({
+    codeObjImpl,
+    controlKind,
+    isDeploymentMode,
+  });
+}
+
+function createProjectGpuLeafParamControlDescriptor({
+  codeObjImpl,
+  controlKind,
+  isDeploymentMode,
+}: {
+  readonly codeObjImpl: {
+    readonly defaultVal?: unknown;
+    readonly type: string;
+    readonly value?: unknown;
+  };
+  readonly controlKind: string;
+  readonly isDeploymentMode: boolean;
+}): GpuRetainedContentControlDescriptor | null {
   if (codeObjImpl.type === CodeObjTypeEnum.SwitchParam) {
     const displayValue = toProjectGpuParamDisplayValue(codeObjImpl.value);
     return {
@@ -187,6 +215,12 @@ function createProjectGpuParamControlDescriptor({
       codeObjImpl: codeObjImpl as PasswordParamCodeObjImpl,
       controlKind,
       isDeploymentMode,
+    });
+  }
+  if (codeObjImpl.type === CodeObjTypeEnum.DropzoneParam) {
+    return createProjectGpuDropzoneControlDescriptor({
+      codeObjImpl: codeObjImpl as DropzoneParamCodeObjImpl,
+      controlKind,
     });
   }
   return null;
@@ -306,6 +340,118 @@ function createProjectGpuPasswordControlDescriptor({
       }),
     commitPolicy: "native-island",
   };
+}
+
+function createProjectGpuDropzoneControlDescriptor({
+  codeObjImpl,
+  controlKind,
+}: {
+  readonly codeObjImpl: DropzoneParamCodeObjImpl;
+  readonly controlKind: string;
+}): GpuRetainedContentControlDescriptor {
+  const attachmentLimit = resolveProjectGpuDropzoneAttachmentLimit(
+    codeObjImpl.maxAttachments,
+  );
+  const attachments = getProjectGpuDropzoneDisplayAttachments(codeObjImpl);
+  const remainingSlots = getProjectGpuDropzoneRemainingSlots({
+    attachmentCount: attachments.length,
+    attachmentLimit,
+    mode: codeObjImpl.mode,
+  });
+  return {
+    attachments,
+    canAttachMore: remainingSlots === null || remainingSlots > 0,
+    defaultDisplayValue: toProjectGpuParamDisplayValue(codeObjImpl.defaultVal),
+    displayValue: toProjectGpuParamDisplayValue(codeObjImpl.value),
+    kind: "dropzone",
+    label: getProjectGpuDropzoneLabel({
+      attachmentCount: attachments.length,
+      mode: codeObjImpl.mode,
+      placeholder: codeObjImpl.placeholder,
+    }),
+    maxAttachments: attachmentLimit,
+    mode: codeObjImpl.mode,
+    placeholder: codeObjImpl.placeholder,
+    remainingSlots,
+    rendererFamily: controlKind,
+    commitPolicy: "native-island",
+  };
+}
+
+function getProjectGpuDropzoneDisplayAttachments(
+  codeObjImpl: DropzoneParamCodeObjImpl,
+): readonly GpuRetainedContentDropzoneAttachment[] {
+  if (codeObjImpl.mode === DropzoneModeEnum.STATELESS) {
+    return [];
+  }
+  const parsedValue = parseDropzoneValue(codeObjImpl.value);
+  if (!parsedValue) {
+    return [];
+  }
+  return parsedValue.attachments.map(toProjectGpuDropzoneAttachment);
+}
+
+function toProjectGpuDropzoneAttachment(
+  attachment: DropzoneStoredAttachment,
+): GpuRetainedContentDropzoneAttachment {
+  return {
+    kind: attachment.kind,
+    name: attachment.name,
+    sizeLabel:
+      attachment.kind === "file" && typeof attachment.size === "number"
+        ? formatBytes(attachment.size)
+        : null,
+  };
+}
+
+function resolveProjectGpuDropzoneAttachmentLimit(
+  maxAttachments: number | null | undefined,
+): number | null {
+  if (maxAttachments === null || maxAttachments === undefined) {
+    return null;
+  }
+  if (!Number.isFinite(maxAttachments)) {
+    return null;
+  }
+  const limit = Math.floor(maxAttachments);
+  return limit < 1 ? null : limit;
+}
+
+function getProjectGpuDropzoneRemainingSlots({
+  attachmentCount,
+  attachmentLimit,
+  mode,
+}: {
+  readonly attachmentCount: number;
+  readonly attachmentLimit: number | null;
+  readonly mode: DropzoneParamCodeObjImpl["mode"];
+}): number | null {
+  if (attachmentLimit === null) {
+    return null;
+  }
+  if (mode === DropzoneModeEnum.STATELESS) {
+    return attachmentLimit;
+  }
+  return Math.max(0, attachmentLimit - attachmentCount);
+}
+
+function getProjectGpuDropzoneLabel({
+  attachmentCount,
+  mode,
+  placeholder,
+}: {
+  readonly attachmentCount: number;
+  readonly mode: DropzoneParamCodeObjImpl["mode"];
+  readonly placeholder: string;
+}): string {
+  if (attachmentCount === 0) {
+    return placeholder;
+  }
+  const suffix = attachmentCount === 1 ? "" : "s";
+  if (mode === DropzoneModeEnum.STATELESS) {
+    return `Recent drop${suffix}`;
+  }
+  return `${attachmentCount} attachment${suffix}`;
 }
 
 function createProjectGpuRangedControlDescriptor({

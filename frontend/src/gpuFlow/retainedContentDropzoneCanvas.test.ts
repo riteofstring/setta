@@ -1,0 +1,101 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  drawGpuRetainedContentDropzoneControl,
+  getGpuRetainedContentDropzoneSecondaryText,
+} from "./retainedContentDropzoneCanvas";
+import type { GpuRetainedContentControlDescriptor } from "./retainedContentScene";
+
+describe("retained content dropzone canvas", () => {
+  it("draws attachment summary text for stateful dropzone controls", () => {
+    const ctx = createCanvasContextRecorder();
+    const control = dropzoneControl({
+      attachments: [
+        { kind: "file", name: "input.csv", sizeLabel: "2 KB" },
+        { kind: "text", name: "notes.txt", sizeLabel: null },
+      ],
+      canAttachMore: false,
+      label: "2 attachments",
+      remainingSlots: 0,
+    });
+
+    drawGpuRetainedContentDropzoneControl({
+      control,
+      ctx,
+      rect: { height: 28, width: 132, x: 0, y: 0 },
+      state: undefined,
+    });
+
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "2 attachments",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "input.csv - 2 KB +1",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it("summarizes empty dropzone capacity for closed canvas displays", () => {
+    expect(
+      getGpuRetainedContentDropzoneSecondaryText(
+        dropzoneControl({
+          attachments: [],
+          canAttachMore: true,
+          label: "Drop a file here",
+          remainingSlots: 2,
+        }),
+      ),
+    ).toBe("2 slots left");
+    expect(
+      getGpuRetainedContentDropzoneSecondaryText(
+        dropzoneControl({
+          attachments: [],
+          canAttachMore: false,
+          label: "Drop a file here",
+          remainingSlots: 0,
+        }),
+      ),
+    ).toBe("Attachment limit reached");
+  });
+});
+
+function dropzoneControl(
+  overrides: Partial<
+    Extract<GpuRetainedContentControlDescriptor, { kind: "dropzone" }>
+  > = {},
+): Extract<GpuRetainedContentControlDescriptor, { kind: "dropzone" }> {
+  return {
+    attachments: [],
+    canAttachMore: true,
+    defaultDisplayValue: "",
+    displayValue: "",
+    kind: "dropzone",
+    label: "Drop a file here",
+    maxAttachments: null,
+    mode: "STATEFUL",
+    placeholder: "Drop a file here",
+    remainingSlots: null,
+    rendererFamily: "dropzone",
+    commitPolicy: "native-island",
+    ...overrides,
+  };
+}
+
+function createCanvasContextRecorder(): CanvasRenderingContext2D {
+  return {
+    beginPath: vi.fn(),
+    fill: vi.fn(),
+    fillText: vi.fn(),
+    lineCap: "butt",
+    lineJoin: "miter",
+    lineTo: vi.fn(),
+    moveTo: vi.fn(),
+    roundRect: vi.fn(),
+    stroke: vi.fn(),
+  } as unknown as CanvasRenderingContext2D;
+}

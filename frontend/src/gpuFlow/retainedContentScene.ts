@@ -33,6 +33,12 @@ export type GpuRetainedContentDropdownChoice = {
   readonly value: string;
 };
 
+export type GpuRetainedContentDropzoneAttachment = {
+  readonly kind: "file" | "text";
+  readonly name: string;
+  readonly sizeLabel: string | null;
+};
+
 export type GpuRetainedContentPopupChoice =
   | GpuRetainedContentColorChoice
   | GpuRetainedContentDropdownChoice;
@@ -101,6 +107,20 @@ export type GpuRetainedContentControlDescriptor =
       readonly placeholder: string;
       readonly rendererFamily: string;
       readonly revealAvailable: boolean;
+      readonly commitPolicy: "native-island";
+    }
+  | {
+      readonly attachments: readonly GpuRetainedContentDropzoneAttachment[];
+      readonly canAttachMore: boolean;
+      readonly defaultDisplayValue: string;
+      readonly displayValue: string;
+      readonly kind: "dropzone";
+      readonly label: string;
+      readonly maxAttachments: number | null;
+      readonly mode: string;
+      readonly placeholder: string;
+      readonly remainingSlots: number | null;
+      readonly rendererFamily: string;
       readonly commitPolicy: "native-island";
     };
 
