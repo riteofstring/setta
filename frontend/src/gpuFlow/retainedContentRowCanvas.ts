@@ -5,8 +5,15 @@ import type {
 } from "./retainedContentScene";
 import type { GpuRect } from "./viewportMath";
 
-const RETAINED_CONTENT_ROW_SANS_FONT_FAMILY =
-  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+const RETAINED_CONTENT_ROW_SANS_FONT_FAMILY = [
+  "ui-sans-serif",
+  "system-ui",
+  "sans-serif",
+  '"Apple Color Emoji"',
+  '"Segoe UI Emoji"',
+  '"Segoe UI Symbol"',
+  '"Noto Color Emoji"',
+].join(", ");
 const RETAINED_CONTENT_ROW_MONO_FONT_FAMILY =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 const RETAINED_CONTENT_ROW_TEXT_SIZE = "12px";
