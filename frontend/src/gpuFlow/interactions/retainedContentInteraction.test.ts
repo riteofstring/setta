@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createGpuRetainedRowContentScene,
@@ -385,9 +386,39 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("preserves non-portal no-pan targets", () => {
+    const element = createHostElement();
+    const nativeTarget = document.createElement("button");
+    nativeTarget.classList.add(NO_PAN_CLASS_NAME);
+    element.append(nativeTarget);
+    const onHitClick = vi.fn();
+    const onPointerDownMiss = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitClick,
+      onPointerDownMiss,
+      store: createGpuFlowViewportStore(),
+    });
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 20,
+      clientY: 14,
+      pointerId: 1,
+    });
+    nativeTarget.dispatchEvent(pointerDown);
+
+    expect(pointerDown.defaultPrevented).toBe(false);
+    expect(onHitClick).not.toHaveBeenCalled();
+    expect(onPointerDownMiss).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
   it("does not preserve plain GpuFlow portal buttons as native pointer targets", () => {
     const element = createHostElement();
     const portalRoot = document.createElement("div");
+    portalRoot.classList.add(NO_PAN_CLASS_NAME);
     portalRoot.dataset.gpuFlowPortalRoot = "true";
     const portalOption = document.createElement("button");
     portalRoot.append(portalOption);

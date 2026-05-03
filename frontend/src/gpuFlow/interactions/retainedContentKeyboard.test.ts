@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createGpuRetainedRowContentScene,
@@ -96,9 +97,37 @@ describe("GPU retained content keyboard controller", () => {
     cleanup();
   });
 
+  it("preserves non-portal no-pan keyboard targets", () => {
+    const element = createHostElement();
+    const nativeTarget = document.createElement("button");
+    nativeTarget.classList.add(NO_PAN_CLASS_NAME);
+    element.append(nativeTarget);
+    const onNavigation = vi.fn();
+    const cleanup = attachGpuRetainedContentKeyboardController({
+      element,
+      getCurrentTarget: () => ({
+        ownerSectionId: "dict-a",
+        rowId: "param-2",
+        surfaceId: "dict-a:param-content:unpinned",
+      }),
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => new Map(),
+      onNavigation,
+    });
+
+    const event = createKeyboardEvent("ArrowDown");
+    nativeTarget.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(onNavigation).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
   it("does not preserve plain GpuFlow portal buttons as native keyboard targets", () => {
     const element = createHostElement();
     const portalRoot = document.createElement("div");
+    portalRoot.classList.add(NO_PAN_CLASS_NAME);
     portalRoot.dataset.gpuFlowPortalRoot = "true";
     const portalOption = document.createElement("button");
     portalRoot.append(portalOption);

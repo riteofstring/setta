@@ -24,7 +24,6 @@ const PROJECT_GPU_PORTALS = [
     className: "setta-retained-param-validation",
     coordinateSpace: "viewport",
     id: PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
-    retainedContentNative: true,
   },
 ] as const satisfies readonly GpuFlowPortalDescriptor[];
 

@@ -27,7 +27,6 @@ describe("project GPU portal adapter", () => {
         className: "setta-retained-param-validation",
         coordinateSpace: "viewport",
         id: PROJECT_GPU_RETAINED_PARAM_VALIDATION_PARENT_ID,
-        retainedContentNative: true,
       },
     ]);
   });

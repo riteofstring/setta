@@ -114,6 +114,8 @@ export const GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS = [
   '[data-gpu-flow-interactive="true"]',
   '[data-gpu-flow-retained-content-native="true"]',
 ] as const;
+const GPU_RETAINED_CONTENT_PORTAL_ROOT_SELECTOR =
+  '[data-gpu-flow-portal-root="true"]';
 
 export function attachGpuRetainedContentInteractionController(
   options: GpuRetainedContentInteractionControllerOptions,
@@ -551,10 +553,10 @@ function getEventPointRelativeToElement(
 export function shouldPreserveGpuRetainedContentNativeTarget(
   event: Pick<PointerEvent, "target">,
 ): boolean {
-  return isGpuRetainedContentNativeTarget(event.target, [
-    `.${NO_PAN_CLASS_NAME}`,
-    ...GPU_RETAINED_CONTENT_NATIVE_TARGET_SELECTORS,
-  ]);
+  if (isGpuRetainedContentNativeTarget(event.target)) {
+    return true;
+  }
+  return isGpuRetainedContentNoPanNativeTarget(event.target);
 }
 
 export function isGpuRetainedContentNativeTarget(
@@ -574,4 +576,18 @@ function preventRetainedContentEvent(event: PointerEvent) {
 
 function stopRetainedContentEvent(event: PointerEvent) {
   event.stopImmediatePropagation();
+}
+
+function isGpuRetainedContentNoPanNativeTarget(
+  target: EventTarget | null,
+): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  const noPanTarget = target.closest(`.${NO_PAN_CLASS_NAME}`);
+  if (!noPanTarget) {
+    return false;
+  }
+  const portalRoot = target.closest(GPU_RETAINED_CONTENT_PORTAL_ROOT_SELECTOR);
+  return !portalRoot;
 }
