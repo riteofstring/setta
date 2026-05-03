@@ -9,6 +9,8 @@ import { resolveGpuFlowSceneLayout } from "./sceneLayout";
 import {
   applyGpuSectionSceneScrollOffsets,
   resolveGpuSectionSceneDragAutoScroll,
+  resolveGpuSectionSceneKeyboardScroll,
+  resolveGpuSectionSceneRevealRect,
   resolveGpuSectionSceneWheelScroll,
 } from "./sceneScroll";
 import type { GpuPoint, GpuRect } from "./viewportMath";
@@ -206,6 +208,145 @@ describe("GPU flow scene scroll", () => {
 
     expect(result.scrollOffsets.get("parent")).toEqual({
       x: 104,
+      y: 0,
+    });
+  });
+
+  it("reveals a child rect through renderer-owned scroll offsets", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b", "child-c"],
+          childLayoutGap: { x: 0, y: 8 },
+          id: "parent",
+          layoutMode: "vertical",
+          worldRect: rect(0, 0, 100, 100),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+        sectionNode({
+          id: "child-c",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "parent",
+        }),
+      ]),
+    );
+
+    const result = resolveGpuSectionSceneRevealRect({
+      parentSectionId: "parent",
+      rect: getSection(scene, "child-c").localRect,
+      scene,
+      scrollOffsets: new Map(),
+    });
+
+    expect(result).toMatchObject({
+      changed: true,
+      parentSectionId: "parent",
+    });
+    expect(result.scrollOffsets.get("parent")).toEqual({
+      x: 0,
+      y: 66,
+    });
+
+    const unchanged = resolveGpuSectionSceneRevealRect({
+      parentSectionId: "parent",
+      rect: getSection(scene, "child-c").localRect,
+      scene,
+      scrollOffsets: result.scrollOffsets,
+    });
+    expect(unchanged.changed).toBe(false);
+  });
+
+  it("resolves keyboard scroll commands against vertical and horizontal regions", () => {
+    const verticalScene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b", "child-c"],
+          childLayoutGap: { x: 0, y: 8 },
+          id: "vertical-parent",
+          layoutMode: "vertical",
+          worldRect: rect(0, 0, 100, 100),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "vertical-parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "vertical-parent",
+        }),
+        sectionNode({
+          id: "child-c",
+          localRect: rect(0, 0, 80, 50),
+          parentId: "vertical-parent",
+        }),
+      ]),
+    );
+
+    const page = resolveGpuSectionSceneKeyboardScroll({
+      command: "page-forward",
+      parentSectionId: "vertical-parent",
+      scene: verticalScene,
+      scrollOffsets: new Map(),
+    });
+    expect(page.scrollOffsets.get("vertical-parent")?.y).toBeCloseTo(66);
+
+    const start = resolveGpuSectionSceneKeyboardScroll({
+      command: "start",
+      parentSectionId: "vertical-parent",
+      scene: verticalScene,
+      scrollOffsets: page.scrollOffsets,
+    });
+    expect(start.scrollOffsets.get("vertical-parent")).toEqual({
+      x: 0,
+      y: 0,
+    });
+
+    const horizontalScene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          childIds: ["child-a", "child-b", "child-c"],
+          childLayoutGap: { x: 12, y: 0 },
+          id: "horizontal-parent",
+          layoutMode: "horizontal",
+          worldRect: rect(0, 0, 100, 80),
+        }),
+        sectionNode({
+          id: "child-a",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "horizontal-parent",
+        }),
+        sectionNode({
+          id: "child-b",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "horizontal-parent",
+        }),
+        sectionNode({
+          id: "child-c",
+          localRect: rect(0, 0, 60, 60),
+          parentId: "horizontal-parent",
+        }),
+      ]),
+    );
+
+    const line = resolveGpuSectionSceneKeyboardScroll({
+      command: "line-forward",
+      parentSectionId: "horizontal-parent",
+      scene: horizontalScene,
+      scrollOffsets: new Map(),
+    });
+    expect(line.scrollOffsets.get("horizontal-parent")).toEqual({
+      x: 40,
       y: 0,
     });
   });

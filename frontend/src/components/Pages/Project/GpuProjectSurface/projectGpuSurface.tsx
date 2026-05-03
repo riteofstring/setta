@@ -336,8 +336,9 @@ function ProjectGpuFlowLayer({
       getProjectSceneScrollOptions({
         flowInteractionKeys,
         layoutAdapter,
+        primarySelectionId,
       }),
-    [flowInteractionKeys, layoutAdapter],
+    [flowInteractionKeys, layoutAdapter, primarySelectionId],
   );
   if (!readyToRender) {
     return null;
@@ -556,15 +557,39 @@ function getProjectSelectionDragOptions({
 function getProjectSceneScrollOptions({
   flowInteractionKeys,
   layoutAdapter,
+  primarySelectionId,
 }: {
   readonly flowInteractionKeys: ProjectFlowInteractionKeys;
   readonly layoutAdapter: ProjectGpuLayoutAdapter;
+  readonly primarySelectionId: string | null;
 }) {
   return {
     disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    getKeyboardScrollParentSectionId: (scene: GpuFlowScene) =>
+      getProjectKeyboardScrollParentSectionId(scene, primarySelectionId),
     getScrollOffsets: () => layoutAdapter.sceneScrollOffsets,
     onScrollOffsetsChange: layoutAdapter.setSceneScrollOffsets,
   };
+}
+
+function getProjectKeyboardScrollParentSectionId(
+  scene: GpuFlowScene,
+  selectedSectionId: string | null,
+): string | null {
+  if (!selectedSectionId) {
+    return null;
+  }
+  const sectionById = new Map(
+    scene.sections.map((section) => [section.sectionId, section]),
+  );
+  const selectedSection = sectionById.get(selectedSectionId);
+  if (!selectedSection) {
+    return null;
+  }
+  if (selectedSection.childSectionIds.length > 0) {
+    return selectedSection.sectionId;
+  }
+  return selectedSection.parentSectionId;
 }
 
 function getProjectPanZoomOptions({

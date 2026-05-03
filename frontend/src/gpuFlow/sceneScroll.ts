@@ -8,17 +8,38 @@ import type { GpuPoint, GpuRect } from "./viewportMath";
 
 export type GpuSectionSceneScrollOffsetMap = ReadonlyMap<string, GpuPoint>;
 
-export type GpuSectionSceneDragAutoScrollResult = {
+export type GpuSectionSceneScrollResult = {
   readonly changed: boolean;
   readonly parentSectionId: string | null;
   readonly scrollOffsets: GpuSectionSceneScrollOffsetMap;
 };
 
-export type GpuSectionSceneWheelScrollResult =
-  GpuSectionSceneDragAutoScrollResult;
+export type GpuSectionSceneDragAutoScrollResult = GpuSectionSceneScrollResult;
+
+export type GpuSectionSceneWheelScrollResult = GpuSectionSceneScrollResult;
+
+export type GpuSectionSceneRevealRectResult = GpuSectionSceneScrollResult;
+
+export type GpuSectionSceneKeyboardScrollResult = GpuSectionSceneScrollResult;
+
+export type GpuSectionSceneRevealRectAlignment =
+  | "center"
+  | "end"
+  | "nearest"
+  | "start";
+
+export type GpuSectionSceneKeyboardScrollCommand =
+  | "end"
+  | "line-backward"
+  | "line-forward"
+  | "page-backward"
+  | "page-forward"
+  | "start";
 
 const DEFAULT_SCENE_DRAG_AUTO_SCROLL_MARGIN_PX = 48;
 const DEFAULT_SCENE_DRAG_AUTO_SCROLL_MAX_SPEED_PX = 20;
+const DEFAULT_SCENE_KEYBOARD_SCROLL_LINE_PX = 40;
+const DEFAULT_SCENE_KEYBOARD_SCROLL_PAGE_FACTOR = 0.875;
 const GPU_SECTION_SCENE_WHEEL_DELTA_LINE = 1;
 const GPU_SECTION_SCENE_WHEEL_DELTA_PAGE = 2;
 const GPU_SECTION_SCENE_WHEEL_LINE_DELTA_PX = 20;
@@ -55,7 +76,8 @@ export function resolveGpuSectionSceneDragAutoScroll({
 }): GpuSectionSceneDragAutoScrollResult {
   assertFiniteNonNegative("scene drag auto-scroll margin", marginPx);
   assertFiniteNonNegative("scene drag auto-scroll max speed", maxSpeedPx);
-  const context = getGpuSectionSceneDragAutoScrollContext({
+  const context = getGpuSectionSceneScrollRegionContext({
+    label: "drag auto-scroll",
     parentSectionId,
     scene,
   });
@@ -72,31 +94,23 @@ export function resolveGpuSectionSceneDragAutoScroll({
   if (delta === 0) {
     return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
   }
-  const currentOffset =
-    scrollOffsets.get(context.parent.sectionId) ?? context.parent.scrollOffset;
   const maxOffset = getGpuSectionSceneMaxScrollOffsetOnAxis({
     axis: context.axis,
     parent: context.parent,
     sectionById: context.sectionById,
   });
-  const nextAxisOffset = clampNumber(
-    getGpuPointValueOnAxis(currentOffset, context.axis) + delta,
-    0,
+  return resolveGpuSectionSceneScrollAxisOffset({
+    axis: context.axis,
     maxOffset,
-  );
-  if (nextAxisOffset === getGpuPointValueOnAxis(currentOffset, context.axis)) {
-    return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
-  }
-  const nextOffsets = new Map(scrollOffsets);
-  nextOffsets.set(context.parent.sectionId, {
-    ...currentOffset,
-    [context.axis]: nextAxisOffset,
+    nextAxisOffset:
+      getGpuPointValueOnAxis(
+        scrollOffsets.get(context.parent.sectionId) ??
+          context.parent.scrollOffset,
+        context.axis,
+      ) + delta,
+    parent: context.parent,
+    scrollOffsets,
   });
-  return {
-    changed: true,
-    parentSectionId: context.parent.sectionId,
-    scrollOffsets: nextOffsets,
-  };
 }
 
 export function resolveGpuSectionSceneWheelScroll({
@@ -130,6 +144,50 @@ export function resolveGpuSectionSceneWheelScroll({
   if (delta === 0) {
     return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
   }
+  const maxOffset = getGpuSectionSceneMaxScrollOffsetOnAxis({
+    axis: context.axis,
+    parent: context.parent,
+    sectionById: context.sectionById,
+  });
+  return resolveGpuSectionSceneScrollAxisOffset({
+    axis: context.axis,
+    maxOffset,
+    nextAxisOffset:
+      getGpuPointValueOnAxis(
+        scrollOffsets.get(context.parent.sectionId) ??
+          context.parent.scrollOffset,
+        context.axis,
+      ) + delta,
+    parent: context.parent,
+    scrollOffsets,
+  });
+}
+
+export function resolveGpuSectionSceneRevealRect({
+  align = "nearest",
+  marginPx = 0,
+  parentSectionId,
+  rect,
+  scene,
+  scrollOffsets,
+}: {
+  readonly align?: GpuSectionSceneRevealRectAlignment | undefined;
+  readonly marginPx?: number | undefined;
+  readonly parentSectionId: string | null;
+  readonly rect: GpuRect;
+  readonly scene: GpuFlowScene;
+  readonly scrollOffsets: GpuSectionSceneScrollOffsetMap;
+}): GpuSectionSceneRevealRectResult {
+  assertFiniteNonNegative("section scene reveal margin", marginPx);
+  assertFiniteGpuRect("section scene reveal rect", rect);
+  const context = getGpuSectionSceneScrollRegionContext({
+    label: "reveal",
+    parentSectionId,
+    scene,
+  });
+  if (!context) {
+    return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
+  }
   const currentOffset =
     scrollOffsets.get(context.parent.sectionId) ?? context.parent.scrollOffset;
   const maxOffset = getGpuSectionSceneMaxScrollOffsetOnAxis({
@@ -137,24 +195,72 @@ export function resolveGpuSectionSceneWheelScroll({
     parent: context.parent,
     sectionById: context.sectionById,
   });
-  const nextAxisOffset = clampNumber(
-    getGpuPointValueOnAxis(currentOffset, context.axis) + delta,
-    0,
+  return resolveGpuSectionSceneScrollAxisOffset({
+    axis: context.axis,
     maxOffset,
+    nextAxisOffset: getGpuSectionSceneRevealRectAxisOffset({
+      align,
+      axis: context.axis,
+      currentOffset: getGpuPointValueOnAxis(currentOffset, context.axis),
+      marginPx,
+      rect,
+      viewportRect: context.viewportRect,
+    }),
+    parent: context.parent,
+    scrollOffsets,
+  });
+}
+
+export function resolveGpuSectionSceneKeyboardScroll({
+  command,
+  linePx = DEFAULT_SCENE_KEYBOARD_SCROLL_LINE_PX,
+  pageFactor = DEFAULT_SCENE_KEYBOARD_SCROLL_PAGE_FACTOR,
+  parentSectionId,
+  scene,
+  scrollOffsets,
+}: {
+  readonly command: GpuSectionSceneKeyboardScrollCommand;
+  readonly linePx?: number | undefined;
+  readonly pageFactor?: number | undefined;
+  readonly parentSectionId: string | null;
+  readonly scene: GpuFlowScene;
+  readonly scrollOffsets: GpuSectionSceneScrollOffsetMap;
+}): GpuSectionSceneKeyboardScrollResult {
+  assertFiniteNonNegative("section scene keyboard scroll line size", linePx);
+  assertFiniteNonNegative(
+    "section scene keyboard scroll page factor",
+    pageFactor,
   );
-  if (nextAxisOffset === getGpuPointValueOnAxis(currentOffset, context.axis)) {
+  const context = getGpuSectionSceneScrollRegionContext({
+    label: "keyboard scroll",
+    parentSectionId,
+    scene,
+  });
+  if (!context) {
     return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
   }
-  const nextOffsets = new Map(scrollOffsets);
-  nextOffsets.set(context.parent.sectionId, {
-    ...currentOffset,
-    [context.axis]: nextAxisOffset,
+  const currentOffset =
+    scrollOffsets.get(context.parent.sectionId) ?? context.parent.scrollOffset;
+  const maxOffset = getGpuSectionSceneMaxScrollOffsetOnAxis({
+    axis: context.axis,
+    parent: context.parent,
+    sectionById: context.sectionById,
   });
-  return {
-    changed: true,
-    parentSectionId: context.parent.sectionId,
-    scrollOffsets: nextOffsets,
-  };
+  return resolveGpuSectionSceneScrollAxisOffset({
+    axis: context.axis,
+    maxOffset,
+    nextAxisOffset: getGpuSectionSceneKeyboardScrollAxisOffset({
+      axis: context.axis,
+      command,
+      currentOffset: getGpuPointValueOnAxis(currentOffset, context.axis),
+      linePx,
+      maxOffset,
+      pageFactor,
+      viewportRect: context.viewportRect,
+    }),
+    parent: context.parent,
+    scrollOffsets,
+  });
 }
 
 function applyGpuSectionSceneNodeScrollOffset(
@@ -204,10 +310,12 @@ function getGpuSectionSceneNodeById(
   return new Map(scene.sections.map((section) => [section.sectionId, section]));
 }
 
-function getGpuSectionSceneDragAutoScrollContext({
+function getGpuSectionSceneScrollRegionContext({
+  label,
   parentSectionId,
   scene,
 }: {
+  readonly label: string;
   readonly parentSectionId: string | null;
   readonly scene: GpuFlowScene;
 }): {
@@ -223,7 +331,7 @@ function getGpuSectionSceneDragAutoScrollContext({
   const parent = sectionById.get(parentSectionId);
   if (!parent) {
     throw new Error(
-      `Missing drag auto-scroll parent section scene node ${parentSectionId}.`,
+      `Missing ${label} parent section scene node ${parentSectionId}.`,
     );
   }
   const axis = getGpuSectionSceneScrollAxis(parent.layoutMode);
@@ -239,6 +347,37 @@ function getGpuSectionSceneDragAutoScrollContext({
     parent,
     sectionById,
     viewportRect,
+  };
+}
+
+function resolveGpuSectionSceneScrollAxisOffset({
+  axis,
+  maxOffset,
+  nextAxisOffset,
+  parent,
+  scrollOffsets,
+}: {
+  readonly axis: "x" | "y";
+  readonly maxOffset: number;
+  readonly nextAxisOffset: number;
+  readonly parent: GpuSectionSceneNode;
+  readonly scrollOffsets: GpuSectionSceneScrollOffsetMap;
+}): GpuSectionSceneScrollResult {
+  const currentOffset =
+    scrollOffsets.get(parent.sectionId) ?? parent.scrollOffset;
+  const clampedAxisOffset = clampNumber(nextAxisOffset, 0, maxOffset);
+  if (clampedAxisOffset === getGpuPointValueOnAxis(currentOffset, axis)) {
+    return unchangedGpuSectionSceneDragAutoScroll(scrollOffsets);
+  }
+  const nextOffsets = new Map(scrollOffsets);
+  nextOffsets.set(parent.sectionId, {
+    ...currentOffset,
+    [axis]: clampedAxisOffset,
+  });
+  return {
+    changed: true,
+    parentSectionId: parent.sectionId,
+    scrollOffsets: nextOffsets,
   };
 }
 
@@ -452,6 +591,76 @@ function getGpuSectionSceneWheelPixelDelta(
   };
 }
 
+function getGpuSectionSceneRevealRectAxisOffset({
+  align,
+  axis,
+  currentOffset,
+  marginPx,
+  rect,
+  viewportRect,
+}: {
+  readonly align: GpuSectionSceneRevealRectAlignment;
+  readonly axis: "x" | "y";
+  readonly currentOffset: number;
+  readonly marginPx: number;
+  readonly rect: GpuRect;
+  readonly viewportRect: GpuRect;
+}): number {
+  const viewportSize = getGpuRectSizeOnAxis(viewportRect, axis);
+  const targetStart = getGpuRectMinOnAxis(rect, axis) - marginPx;
+  const targetEnd = getGpuRectMaxOnAxis(rect, axis) + marginPx;
+  if (align === "start") {
+    return targetStart;
+  }
+  if (align === "end") {
+    return targetEnd - viewportSize;
+  }
+  if (align === "center") {
+    return (targetStart + targetEnd - viewportSize) / 2;
+  }
+  const viewportStart = currentOffset;
+  const viewportEnd = currentOffset + viewportSize;
+  if (targetStart < viewportStart) {
+    return targetStart;
+  }
+  if (targetEnd > viewportEnd) {
+    return targetEnd - viewportSize;
+  }
+  return currentOffset;
+}
+
+function getGpuSectionSceneKeyboardScrollAxisOffset({
+  axis,
+  command,
+  currentOffset,
+  linePx,
+  maxOffset,
+  pageFactor,
+  viewportRect,
+}: {
+  readonly axis: "x" | "y";
+  readonly command: GpuSectionSceneKeyboardScrollCommand;
+  readonly currentOffset: number;
+  readonly linePx: number;
+  readonly maxOffset: number;
+  readonly pageFactor: number;
+  readonly viewportRect: GpuRect;
+}): number {
+  if (command === "start") {
+    return 0;
+  }
+  if (command === "end") {
+    return maxOffset;
+  }
+  const direction =
+    command === "line-backward" || command === "page-backward" ? -1 : 1;
+  const distance =
+    command === "line-backward" || command === "line-forward"
+      ? linePx
+      : getGpuRectSizeOnAxis(viewportRect, axis) * pageFactor;
+  return currentOffset + direction * distance;
+}
+
 function getGpuPointValueOnAxis(point: GpuPoint, axis: "x" | "y"): number {
   return axis === "x" ? point.x : point.y;
 }
@@ -527,4 +736,11 @@ function assertFiniteNonNegative(name: string, value: number) {
   if (!Number.isFinite(value) || value < 0) {
     throw new Error(`${name} must be a finite non-negative number.`);
   }
+}
+
+function assertFiniteGpuRect(name: string, rect: GpuRect) {
+  assertFiniteNumber(`${name} x`, rect.x);
+  assertFiniteNumber(`${name} y`, rect.y);
+  assertFiniteNonNegative(`${name} width`, rect.width);
+  assertFiniteNonNegative(`${name} height`, rect.height);
 }
