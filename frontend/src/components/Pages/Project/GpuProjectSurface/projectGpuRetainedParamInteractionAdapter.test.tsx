@@ -2142,13 +2142,19 @@ describe("project GPU retained param DOM islands", () => {
             name: "input.csv",
             size: 2048,
           },
+          {
+            kind: "file",
+            id: "artifact-b",
+            name: "output.csv",
+            size: 4096,
+          },
         ],
       }),
     );
     const onActiveParamCanvasPopupChange = vi.fn();
     const onActiveParamDomIslandChange = vi.fn();
     const retainedScene = createGpuRetainedRowContentScene({
-      controlWidth: 112,
+      controlWidth: 220,
       id: "section-1:param-content:unpinned",
       ownerSectionId: "section-1",
       rowHeight: 28,
@@ -2162,6 +2168,12 @@ describe("project GPU retained param DOM islands", () => {
                 name: "input.csv",
                 sizeLabel: "2 KB",
               },
+              {
+                id: "artifact-b",
+                kind: "file",
+                name: "output.csv",
+                sizeLabel: "4 KB",
+              },
             ],
             canAttachMore: false,
             defaultDisplayValue: "",
@@ -2173,11 +2185,17 @@ describe("project GPU retained param DOM islands", () => {
                   name: "input.csv",
                   size: 2048,
                 },
+                {
+                  kind: "file",
+                  id: "artifact-b",
+                  name: "output.csv",
+                  size: 4096,
+                },
               ],
             }),
             kind: "dropzone",
-            label: "1 attachment",
-            maxAttachments: 1,
+            label: "2 attachments",
+            maxAttachments: 2,
             mode: DropzoneModeEnum.STATEFUL,
             placeholder: "Drop a file here",
             remainingSlots: 0,
@@ -2191,12 +2209,13 @@ describe("project GPU retained param DOM islands", () => {
         },
       ],
       scrollOffset: { x: 0, y: 0 },
-      viewportRect: { height: 28, width: 180, x: 0, y: 0 },
+      viewportRect: { height: 28, width: 280, x: 0, y: 0 },
     });
     const deleteHit = retainedScene.hitRecords.find(
       (candidate) =>
         candidate.kind === "control-subpart" &&
-        candidate.subpartKind === "dropzone-attachment-delete",
+        candidate.subpartKind === "dropzone-attachment-delete" &&
+        candidate.attachmentId === "artifact-b",
     );
     if (!deleteHit) {
       throw new Error("Expected retained dropzone delete hit.");
@@ -2262,20 +2281,40 @@ describe("project GPU retained param DOM islands", () => {
         body: { value: string };
       }
     ).body.value;
-    expect(setValue).toBe("");
+    expect(JSON.parse(setValue)).toEqual({
+      attachments: [
+        {
+          kind: "file",
+          id: "artifact-a",
+          name: "input.csv",
+          size: 2048,
+        },
+      ],
+    });
     expect(mocks.deleteArtifactsMock).toHaveBeenCalledWith({
       body: {
         artifacts: [
           {
-            id: "artifact-a",
+            id: "artifact-b",
             type: ArtifactTypeEnum.File,
           },
         ],
       },
     });
-    expect(useProjectState.getState().codeObjImpls["param-1-impl"]?.value).toBe(
-      "",
-    );
+    expect(
+      JSON.parse(
+        useProjectState.getState().codeObjImpls["param-1-impl"]?.value ?? "",
+      ),
+    ).toEqual({
+      attachments: [
+        {
+          kind: "file",
+          id: "artifact-a",
+          name: "input.csv",
+          size: 2048,
+        },
+      ],
+    });
   });
 
   it("does not activate retained param name islands when structure edits are disabled", () => {

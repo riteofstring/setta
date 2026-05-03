@@ -1,4 +1,4 @@
-import { getGpuRetainedContentDropzoneAttachmentDeleteLayout } from "./retainedContentDropzoneLayout";
+import { getGpuRetainedContentDropzoneAttachmentLayouts } from "./retainedContentDropzoneLayout";
 import type {
   GpuRetainedContentHitRecord,
   GpuRetainedContentRow,
@@ -15,22 +15,24 @@ export function createGpuRetainedContentControlSubpartHitRecords({
   if (!row.control || row.control.kind !== "dropzone") {
     return [];
   }
-  const deleteLayout = getGpuRetainedContentDropzoneAttachmentDeleteLayout({
+  const attachmentLayouts = getGpuRetainedContentDropzoneAttachmentLayouts({
     control: row.control,
     rect: controlRect,
   });
-  if (!deleteLayout) {
-    return [];
-  }
-  return [
-    {
-      attachmentId: deleteLayout.attachmentId,
-      attachmentIndex: deleteLayout.attachmentIndex,
-      id: `control-subpart:${row.id}:dropzone-attachment-delete:${deleteLayout.attachmentId}`,
+  const records: GpuRetainedContentHitRecord[] = [];
+  for (const layout of attachmentLayouts) {
+    if (!layout.attachment.id || !layout.deleteRect) {
+      continue;
+    }
+    records.push({
+      attachmentId: layout.attachment.id,
+      attachmentIndex: layout.attachmentIndex,
+      id: `control-subpart:${row.id}:dropzone-attachment-delete:${layout.attachment.id}`,
       kind: "control-subpart",
       ownerRowId: row.id,
-      rect: deleteLayout.rect,
+      rect: layout.deleteRect,
       subpartKind: "dropzone-attachment-delete",
-    },
-  ];
+    });
+  }
+  return records;
 }

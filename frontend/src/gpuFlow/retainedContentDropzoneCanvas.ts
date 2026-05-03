@@ -1,6 +1,7 @@
 import {
-  getGpuRetainedContentDropzoneAttachmentDeleteLayout,
+  getGpuRetainedContentDropzoneAttachmentLayouts,
   getGpuRetainedContentDropzoneOuterRect,
+  type GpuRetainedContentDropzoneAttachmentLayout,
 } from "./retainedContentDropzoneLayout";
 import type {
   GpuRetainedContentControlDescriptor,
@@ -32,15 +33,18 @@ export function drawGpuRetainedContentDropzoneControl({
   const disabled = state?.disabled ?? false;
   const outer = getGpuRetainedContentDropzoneOuterRect(rect);
   const iconRect = getGpuRetainedContentDropzoneIconRect(outer);
-  const deleteLayout = getGpuRetainedContentDropzoneAttachmentDeleteLayout({
+  const attachmentLayouts = getGpuRetainedContentDropzoneAttachmentLayouts({
     control,
     rect,
   });
+  const firstAttachmentLayout = attachmentLayouts[0];
   const textRect = {
     height: outer.height,
     width: Math.max(
       0,
-      (deleteLayout ? deleteLayout.rect.x - 4 : outer.x + outer.width) -
+      (firstAttachmentLayout
+        ? firstAttachmentLayout.rect.x - 4
+        : outer.x + outer.width) -
         (iconRect.x + iconRect.width + 6),
     ),
     x: iconRect.x + iconRect.width + 6,
@@ -65,11 +69,11 @@ export function drawGpuRetainedContentDropzoneControl({
     disabled,
     rect: textRect,
   });
-  if (deleteLayout) {
-    drawGpuRetainedContentDropzoneDeleteButton({
+  for (const attachmentLayout of attachmentLayouts) {
+    drawGpuRetainedContentDropzoneAttachmentChip({
+      attachmentLayout,
       ctx,
       disabled,
-      rect: deleteLayout.rect,
     });
   }
 }
@@ -139,6 +143,46 @@ function drawGpuRetainedContentDropzoneText({
     );
   }
   ctx.textAlign = "start";
+}
+
+function drawGpuRetainedContentDropzoneAttachmentChip({
+  attachmentLayout,
+  ctx,
+  disabled,
+}: {
+  readonly attachmentLayout: GpuRetainedContentDropzoneAttachmentLayout;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly disabled: boolean;
+}) {
+  ctx.fillStyle = disabled ? "#f1f5f9" : "#eff6ff";
+  fillRoundRect(ctx, attachmentLayout.rect, attachmentLayout.rect.height / 2);
+  ctx.strokeStyle = disabled ? "#cbd5e1" : "#bfdbfe";
+  ctx.lineWidth = 1;
+  strokeRoundRect(ctx, attachmentLayout.rect, attachmentLayout.rect.height / 2);
+
+  const labelRight = attachmentLayout.deleteRect
+    ? attachmentLayout.deleteRect.x - 3
+    : attachmentLayout.rect.x + attachmentLayout.rect.width - 5;
+  const labelWidth = Math.max(0, labelRight - attachmentLayout.rect.x - 6);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.font = DROPZONE_CONTROL_FONT;
+  ctx.fillStyle = disabled ? "#94a3b8" : "#1d4ed8";
+  ctx.fillText(
+    attachmentLayout.attachment.name,
+    attachmentLayout.rect.x + 6,
+    attachmentLayout.rect.y + attachmentLayout.rect.height / 2,
+    labelWidth,
+  );
+  ctx.textAlign = "start";
+
+  if (attachmentLayout.deleteRect) {
+    drawGpuRetainedContentDropzoneDeleteButton({
+      ctx,
+      disabled,
+      rect: attachmentLayout.deleteRect,
+    });
+  }
 }
 
 function drawGpuRetainedContentDropzoneDeleteButton({

@@ -4,7 +4,7 @@ import {
   drawGpuRetainedContentDropzoneControl,
   getGpuRetainedContentDropzoneSecondaryText,
 } from "./retainedContentDropzoneCanvas";
-import { getGpuRetainedContentDropzoneAttachmentDeleteLayout } from "./retainedContentDropzoneLayout";
+import { getGpuRetainedContentDropzoneAttachmentLayouts } from "./retainedContentDropzoneLayout";
 import type { GpuRetainedContentControlDescriptor } from "./retainedContentScene";
 
 describe("retained content dropzone canvas", () => {
@@ -28,7 +28,7 @@ describe("retained content dropzone canvas", () => {
     drawGpuRetainedContentDropzoneControl({
       control,
       ctx,
-      rect: { height: 28, width: 132, x: 0, y: 0 },
+      rect: { height: 28, width: 220, x: 0, y: 0 },
       state: undefined,
     });
 
@@ -44,22 +44,47 @@ describe("retained content dropzone canvas", () => {
       expect.any(Number),
       expect.any(Number),
     );
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "input.csv",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      "notes.txt",
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(
-      getGpuRetainedContentDropzoneAttachmentDeleteLayout({
+      getGpuRetainedContentDropzoneAttachmentLayouts({
         control,
-        rect: { height: 28, width: 132, x: 0, y: 0 },
+        rect: { height: 28, width: 220, x: 0, y: 0 },
       }),
-    ).toEqual({
-      attachment: {
-        id: "artifact-a",
-        kind: "file",
-        name: "input.csv",
-        sizeLabel: "2 KB",
+    ).toEqual([
+      {
+        attachment: {
+          id: "artifact-a",
+          kind: "file",
+          name: "input.csv",
+          sizeLabel: "2 KB",
+        },
+        attachmentIndex: 0,
+        deleteRect: { height: 12, width: 12, x: 139, y: 8 },
+        rect: { height: 16, width: 52, x: 102, y: 6 },
       },
-      attachmentId: "artifact-a",
-      attachmentIndex: 0,
-      rect: { height: 16, width: 16, x: 106, y: 6 },
-    });
+      {
+        attachment: {
+          id: "text-a",
+          kind: "text",
+          name: "notes.txt",
+          sizeLabel: null,
+        },
+        attachmentIndex: 1,
+        deleteRect: { height: 12, width: 12, x: 195, y: 8 },
+        rect: { height: 16, width: 52, x: 158, y: 6 },
+      },
+    ]);
   });
 
   it("summarizes empty dropzone capacity for closed canvas displays", () => {
