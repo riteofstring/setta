@@ -33,6 +33,12 @@ export type GpuRetainedContentRowState = {
   readonly selected: boolean;
 };
 
+export type GpuRetainedContentLabelAppearance = {
+  readonly fontFamily: "mono" | "sans";
+  readonly fontWeight: "normal" | "semibold";
+  readonly tone: "accent" | "default" | "muted";
+};
+
 type GpuRetainedContentRowPortInput = {
   readonly id: string;
   readonly kind: "input" | "output";
@@ -174,6 +180,10 @@ export type GpuRetainedContentRowInput = {
   readonly depth: number;
   readonly id: string;
   readonly label: string;
+  readonly labelAppearance?:
+    | GpuRetainedContentLabelAppearance
+    | null
+    | undefined;
   readonly ports?: readonly GpuRetainedContentRowPortInput[] | undefined;
   readonly state?: Partial<GpuRetainedContentRowState> | undefined;
   readonly status?: GpuRetainedContentRowStatus | null | undefined;
@@ -187,6 +197,7 @@ export type GpuRetainedContentRow = {
   readonly id: string;
   readonly index: number;
   readonly label: string;
+  readonly labelAppearance: GpuRetainedContentLabelAppearance;
   readonly ports: readonly GpuRetainedContentRowPortInput[];
   readonly projectedRect: GpuRect;
   readonly state: GpuRetainedContentRowState;
@@ -219,6 +230,7 @@ export type GpuRetainedContentDrawCommand =
   | {
       readonly depth: number;
       readonly kind: "row-label";
+      readonly appearance: GpuRetainedContentLabelAppearance;
       readonly rect: GpuRect;
       readonly rowId: string;
       readonly text: string;
@@ -334,6 +346,11 @@ const DEFAULT_CONTROL_WIDTH = 112;
 const DEFAULT_CONTROL_RIGHT_INSET = 0;
 const DEFAULT_INDENT_WIDTH = 14;
 const DEFAULT_LABEL_CONTROL_GAP = 8;
+const DEFAULT_LABEL_APPEARANCE: GpuRetainedContentLabelAppearance = {
+  fontFamily: "sans",
+  fontWeight: "normal",
+  tone: "default",
+};
 const DEFAULT_OVERSCAN_ROWS = 2;
 const DEFAULT_PORT_HIT_SIZE = 12;
 
@@ -477,6 +494,7 @@ function createGpuRetainedContentRow({
     id: input.id,
     index,
     label: input.label,
+    labelAppearance: input.labelAppearance ?? DEFAULT_LABEL_APPEARANCE,
     ports: input.ports ?? [],
     projectedRect: {
       ...contentRect,

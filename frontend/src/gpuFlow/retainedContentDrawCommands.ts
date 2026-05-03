@@ -151,6 +151,7 @@ function createGpuRetainedContentRowDrawCommands({
     });
   }
   commands.push({
+    appearance: row.labelAppearance,
     depth: row.depth,
     kind: "row-label",
     rect: labelRect,

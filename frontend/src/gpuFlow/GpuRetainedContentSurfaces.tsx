@@ -236,6 +236,7 @@ function drawGpuRetainedContentCommand({
   }
   if (command.kind === "row-label") {
     drawGpuRetainedContentLabel({
+      appearance: command.appearance,
       ctx,
       palette,
       rect: command.rect,

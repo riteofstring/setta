@@ -2,6 +2,8 @@ export type GpuRetainedContentCanvasPalette = {
   readonly disabledText: string;
   readonly errorAccent: string;
   readonly focusRing: string;
+  readonly labelAccentText: string;
+  readonly labelMutedText: string;
   readonly labelText: string;
   readonly nestGuide: string;
   readonly rowBackground: string;
@@ -28,6 +30,8 @@ const LIGHT_RETAINED_CONTENT_CANVAS_PALETTE: GpuRetainedContentCanvasPalette = {
   disabledText: "#94a3b8",
   errorAccent: "#ef4444",
   focusRing: "#0284c7",
+  labelAccentText: "hsla(157, 100%, 28%, 1)",
+  labelMutedText: "#4b5563",
   labelText: "#0f172a",
   nestGuide: "#cbd5e1",
   rowBackground: "#f8fafc",
@@ -54,6 +58,8 @@ const DARK_RETAINED_CONTENT_CANVAS_PALETTE: GpuRetainedContentCanvasPalette = {
   disabledText: "rgb(100, 116, 139)",
   errorAccent: "rgb(248, 113, 113)",
   focusRing: "rgb(56, 189, 248)",
+  labelAccentText: "#7ee787",
+  labelMutedText: "#4b5563",
   labelText: "rgb(203, 213, 225)",
   nestGuide: "rgba(148, 163, 184, 0.24)",
   rowBackground: "hsl(220, 25%, 8.5%)",

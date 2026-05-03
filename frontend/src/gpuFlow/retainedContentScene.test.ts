@@ -72,7 +72,15 @@ describe("retained content scene", () => {
       portHitSize: 10,
       rowHeight: 24,
       rows: [
-        row("parent", { controlKind: "nested", depth: 0 }),
+        row("parent", {
+          controlKind: "nested",
+          depth: 0,
+          labelAppearance: {
+            fontFamily: "mono",
+            fontWeight: "normal",
+            tone: "accent",
+          },
+        }),
         row("child", {
           controlKind: "text-like",
           depth: 1,
@@ -91,6 +99,11 @@ describe("retained content scene", () => {
         rowId: "parent",
       }),
       expect.objectContaining({
+        appearance: {
+          fontFamily: "mono",
+          fontWeight: "normal",
+          tone: "accent",
+        },
         kind: "row-label",
         rect: { height: 24, width: 220, x: 4, y: 6 },
         rowId: "parent",

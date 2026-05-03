@@ -68,9 +68,9 @@ import { createProjectGpuButtonControlDescriptor } from "./projectGpuParamButton
 import { createProjectGpuColorPickerControlDescriptor } from "./projectGpuParamColorPickerRowDescriptor";
 import { toProjectGpuParamDisplayValue } from "./projectGpuParamDisplayValue";
 import { createProjectGpuPasswordControlDescriptor } from "./projectGpuParamPasswordRowDescriptor";
+import { resolveProjectGpuParamRowLabel } from "./projectGpuParamRowLabel";
 import { createProjectGpuParamRowStatus } from "./projectGpuParamRowStatus";
 import { getProjectGpuParamRowStatusMessages } from "./projectGpuParamRowStatusMessages";
-import { resolveProjectGpuParamRowLabel } from "./projectGpuParamRowLabel";
 import { createProjectGpuTextLikeControlDescriptorIfSupported } from "./projectGpuParamTextLikeRowDescriptor";
 import {
   getProjectGpuDateCalendarVisibleMonth,
@@ -188,7 +188,7 @@ export function createProjectGpuParamRowInput({
     controlKind,
     depth: row.depth,
     id: row.id,
-    label: resolveProjectGpuParamRowLabel({
+    ...resolveProjectGpuParamRowLabel({
       codeObjImpl,
       projectState,
       rowId: row.id,

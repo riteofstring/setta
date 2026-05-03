@@ -1,5 +1,5 @@
-import { KWARGS_CONTROLS_SCENE_HEIGHT_PX } from "components/Section/SectionParts/kwargsControlsLayout";
 import { PARAM_NAME_EMPTY_DEFAULT_VALUE } from "components/Params/ParamItems/paramNameDefaults";
+import { KWARGS_CONTROLS_SCENE_HEIGHT_PX } from "components/Section/SectionParts/kwargsControlsLayout";
 import { PROJECT_SECTION_SEARCH_HEIGHT_PX } from "components/Section/SectionParts/sectionSearchLayout";
 import type { Node } from "gpuFlow/flowTypes";
 import { createGpuFlowLayoutStore } from "gpuFlow/layoutStore";
@@ -798,8 +798,20 @@ describe("project GPU layout adapter", () => {
     expect(
       scene.contentSurfaces
         .find((surface) => surface.id === "dict-a:param-content:unpinned")
-        ?.retainedScene?.rows.map((row) => row.label),
-    ).toEqual([PARAM_NAME_EMPTY_DEFAULT_VALUE]);
+        ?.retainedScene?.rows.map((row) => ({
+          appearance: row.labelAppearance,
+          label: row.label,
+        })),
+    ).toEqual([
+      {
+        appearance: {
+          fontFamily: "mono",
+          fontWeight: "normal",
+          tone: "muted",
+        },
+        label: PARAM_NAME_EMPTY_DEFAULT_VALUE,
+      },
+    ]);
   });
 
   it("derives section-level data edge handles as section scene anchors", () => {

@@ -1,9 +1,18 @@
 import type { GpuRetainedContentCanvasPalette } from "./retainedContentCanvasTheme";
-import type { GpuRetainedContentRowState } from "./retainedContentScene";
+import type {
+  GpuRetainedContentLabelAppearance,
+  GpuRetainedContentRowState,
+} from "./retainedContentScene";
 import type { GpuRect } from "./viewportMath";
 
-const RETAINED_CONTENT_ROW_FONT =
-  "12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+const RETAINED_CONTENT_ROW_SANS_FONT_FAMILY =
+  "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+const RETAINED_CONTENT_ROW_MONO_FONT_FAMILY =
+  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+const RETAINED_CONTENT_ROW_TEXT_SIZE = "12px";
+const RETAINED_CONTENT_ROW_LABEL_PADDING_X = 15;
+const RETAINED_CONTENT_ROW_LABEL_MONO_OFFSET_Y = 3;
+const RETAINED_CONTENT_ROW_LABEL_SANS_OFFSET_Y = 1;
 
 export function drawGpuRetainedContentRowBackground({
   ctx,
@@ -60,28 +69,73 @@ export function drawGpuRetainedContentNestGuide(
 }
 
 export function drawGpuRetainedContentLabel({
+  appearance,
   ctx,
   palette,
   rect,
   state,
   text,
 }: {
+  readonly appearance: GpuRetainedContentLabelAppearance;
   readonly ctx: CanvasRenderingContext2D;
   readonly palette: GpuRetainedContentCanvasPalette;
   readonly rect: GpuRect;
   readonly state: GpuRetainedContentRowState | undefined;
   readonly text: string;
 }) {
-  ctx.font = RETAINED_CONTENT_ROW_FONT;
+  ctx.font = getGpuRetainedContentLabelFont(appearance);
   ctx.textBaseline = "middle";
-  ctx.fillStyle = state?.disabled ? palette.disabledText : palette.labelText;
-  const paddingX = 8;
+  ctx.fillStyle = getGpuRetainedContentLabelColor({
+    appearance,
+    palette,
+    state,
+  });
   ctx.fillText(
     text,
-    rect.x + paddingX,
-    rect.y + rect.height / 2,
-    Math.max(0, rect.width - paddingX * 2),
+    rect.x + RETAINED_CONTENT_ROW_LABEL_PADDING_X,
+    rect.y + rect.height / 2 + getGpuRetainedContentLabelOffsetY(appearance),
+    Math.max(0, rect.width - RETAINED_CONTENT_ROW_LABEL_PADDING_X * 2),
   );
+}
+
+function getGpuRetainedContentLabelFont(
+  appearance: GpuRetainedContentLabelAppearance,
+): string {
+  const fontWeight = appearance.fontWeight === "semibold" ? "600 " : "";
+  const fontFamily =
+    appearance.fontFamily === "mono"
+      ? RETAINED_CONTENT_ROW_MONO_FONT_FAMILY
+      : RETAINED_CONTENT_ROW_SANS_FONT_FAMILY;
+  return `${fontWeight}${RETAINED_CONTENT_ROW_TEXT_SIZE} ${fontFamily}`;
+}
+
+function getGpuRetainedContentLabelOffsetY(
+  appearance: GpuRetainedContentLabelAppearance,
+): number {
+  return appearance.fontFamily === "mono"
+    ? RETAINED_CONTENT_ROW_LABEL_MONO_OFFSET_Y
+    : RETAINED_CONTENT_ROW_LABEL_SANS_OFFSET_Y;
+}
+
+function getGpuRetainedContentLabelColor({
+  appearance,
+  palette,
+  state,
+}: {
+  readonly appearance: GpuRetainedContentLabelAppearance;
+  readonly palette: GpuRetainedContentCanvasPalette;
+  readonly state: GpuRetainedContentRowState | undefined;
+}): string {
+  if (state?.disabled) {
+    return palette.disabledText;
+  }
+  if (appearance.tone === "accent") {
+    return palette.labelAccentText;
+  }
+  if (appearance.tone === "muted") {
+    return palette.labelMutedText;
+  }
+  return palette.labelText;
 }
 
 function getGpuRetainedContentRowBackgroundColor(
