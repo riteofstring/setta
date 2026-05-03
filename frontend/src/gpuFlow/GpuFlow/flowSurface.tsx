@@ -17,11 +17,9 @@ import { postGpuFlowFrameChromeReproEvent } from "../chromeReproPerf";
 
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 
-import type { GpuEdgeScene, GpuEdgeSceneLabel } from "../edges/edgeSources";
+import type { GpuEdgeScene } from "../edges/edgeSources";
 
 import type { GpuFlowRuntime } from "../gpuDevice";
-
-import { GpuEdgeLabelLayer } from "../GpuEdgeLabels";
 
 import { useGpuFlowLayoutStoreNodes } from "../layoutHooks";
 
@@ -36,6 +34,7 @@ import {
   HtmlSurfaceNodeLayer,
   markHtmlSurfaceFramePaintDirty,
   renderHtmlSurfaceFrame,
+  type GpuHtmlSurfaceOverlayLayout,
   type GpuNodeDomTransformSyncCache,
   type GpuNodeLayout,
   type GpuNodeUploadBudget,
@@ -122,6 +121,7 @@ import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
+import { useGpuFlowEdgeLabelSources } from "./edgeLabelSources";
 
 import {
   clearGpuFlowNodeElement,
@@ -139,7 +139,7 @@ import {
   GpuUserSelectionOverlay,
 } from "./selectionOverlay";
 
-export type GpuFlowProps = Pick<
+type GpuFlowProps = Pick<
   GpuSurfaceProps,
   "deviceOptions" | "onFrame" | "onPaint" | "onReady" | "onResize"
 > & {
@@ -203,7 +203,7 @@ export type GpuFlowProps = Pick<
   viewportStore?: GpuFlowViewportStoreApi | undefined;
 };
 
-export type GpuFlowCallbacks = Pick<
+type GpuFlowCallbacks = Pick<
   GpuFlowProps,
   | "onFrame"
   | "onNodeElementChange"
@@ -222,6 +222,9 @@ export type GpuFlowNodeLayerState = {
     | readonly string[]
     | undefined;
   readonly grid: GpuGridInput | undefined;
+  readonly edgeLabelSurfaces:
+    | readonly GpuHtmlSurfaceOverlayLayout[]
+    | undefined;
   readonly marginCssPx: number | undefined;
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
@@ -231,8 +234,6 @@ export type GpuFlowNodeLayerState = {
 };
 
 export const EMPTY_GPU_NODE_LAYOUTS: readonly GpuNodeLayout[] = [];
-
-export const EMPTY_EDGE_LABELS: readonly GpuEdgeSceneLabel[] = [];
 
 export function GpuFlow({
   children,
@@ -303,6 +304,15 @@ export function GpuFlow({
   const textureManagerRef = useRef<HtmlSurfaceTextureManager | null>(null);
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const { edgeLabelSourceElement, edgeLabelSurfaces } =
+    useGpuFlowEdgeLabelSources({
+      edgeScene,
+      nodeDomTransformSyncCacheRef,
+      nodeElementByIdRef,
+      surfaceRef,
+      textureManagerRef,
+      transformOnlyPaintNodeIdsRef,
+    });
   const callbacksRef = useRef<GpuFlowCallbacks>({
     onFrame,
     onNodeElementChange,
@@ -315,6 +325,7 @@ export function GpuFlow({
     edgeScene,
     edgePalette,
     edges: drawEdges,
+    edgeLabelSurfaces,
     forceVisibleNodeIds,
     grid,
     marginCssPx,
@@ -395,6 +406,7 @@ export function GpuFlow({
       edgeScene,
       edgePalette,
       edges: nextEdges,
+      edgeLabelSurfaces,
       forceVisibleNodeIds,
       grid,
       marginCssPx,
@@ -403,7 +415,7 @@ export function GpuFlow({
       uploadBudget,
       viewport: viewportStore.getState().transform,
     };
-    if (!nodes && !nextEdges && !grid) {
+    if (!nodes && !nextEdges && !grid && edgeLabelSurfaces.length === 0) {
       visibleNodeIdsRef.current = new Set();
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
       transformOnlyPaintNodeIdsRef.current.clear();
@@ -416,6 +428,7 @@ export function GpuFlow({
     edgeReconnect,
     edgePalette,
     edgeScene,
+    edgeLabelSurfaces,
     edges,
     forceVisibleNodeIds,
     grid,
@@ -810,12 +823,6 @@ export function GpuFlow({
     selectionDrag,
     viewportStore,
   });
-  const edgeLabelElement = (
-    <GpuEdgeLabelLayer
-      labels={edgeScene?.labels ?? EMPTY_EDGE_LABELS}
-      viewportStore={viewportStore}
-    />
-  );
 
   return (
     <GpuFlowLayoutStoreContext.Provider value={layoutStore ?? null}>
@@ -836,16 +843,16 @@ export function GpuFlow({
         >
           {nodeLayerElement}
           {children}
+          {edgeLabelSourceElement}
         </GpuSurface>
         {userSelectionElement}
         {nodesSelectionElement}
-        {edgeLabelElement}
       </div>
     </GpuFlowLayoutStoreContext.Provider>
   );
 }
 
-export function renderGpuFlowNodeLayerElement({
+function renderGpuFlowNodeLayerElement({
   nodeClassName,
   nodes,
   onNodeElementChange,
@@ -877,7 +884,7 @@ export function renderGpuFlowNodeLayerElement({
   );
 }
 
-export function renderGpuFlowNodeLayerFrame({
+function renderGpuFlowNodeLayerFrame({
   activeResizeNodeIdRef,
   callbacksRef,
   canvasSizeRef,
@@ -942,6 +949,7 @@ export function renderGpuFlowNodeLayerFrame({
     forceVisibleNodeIds: layer.forceVisibleNodeIds,
     frame,
     grid: layer.grid,
+    htmlSurfaceOverlays: layer.edgeLabelSurfaces,
     marginCssPx: layer.marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
@@ -980,7 +988,9 @@ export function renderGpuFlowNodeLayerFrame({
 export function hasRenderableGpuFlowLayer(
   layer: GpuFlowNodeLayerState,
 ): boolean {
-  return Boolean(layer.nodes || layer.edges || layer.grid);
+  return Boolean(
+    layer.nodes || layer.edges || layer.grid || layer.edgeLabelSurfaces?.length,
+  );
 }
 
 export function hasRenderableGpuFlowCanvasSize(

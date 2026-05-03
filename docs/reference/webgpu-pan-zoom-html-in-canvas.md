@@ -78,10 +78,17 @@ The DOM shape is:
       </div>
       <div id="setta-codemirror-tooltips" />
       <div id="setta-popover-portals" />
+      <span data-gpu-flow-html-source-anchor="true" />
+      <div
+        className="setta-gpu-flow__html-source setta-gpu-flow__edge-label-source"
+        data-gpu-flow-edge-label-source="true"
+        data-gpu-flow-html-source="true"
+        data-gpu-flow-source-id={edgeLabelId}
+      >
+        <div className="setta-gpu-flow__edge-label">{edgeLabelText}</div>
+      </div>
     </canvas>
     <div className="setta-gpu-flow__selection-layer" />
-    <GpuEdgeLabelLayer />
-    <GpuEdgeReconnectAnchorLayer />
   </GpuFlow>
 </div>
 ```
@@ -217,7 +224,7 @@ texture resolution policy in `frontend/src/gpuFlow/textureResolution.ts` chooses
 the smallest zoom bucket at least as large as the current zoom:
 
 ```ts
-[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
+[0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 ```
 
 The requested scale is `devicePixelRatio * zoomBucket`, clamped by

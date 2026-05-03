@@ -14,8 +14,8 @@ import type {
 import type {
   HtmlSurfaceTextureManager,
   HtmlSurfaceTextureMemorySnapshot,
-  HtmlSurfaceTextureUploadDiagnostic,
   HtmlSurfaceTextureRecord,
+  HtmlSurfaceTextureUploadDiagnostic,
   UploadDirtyHtmlSurfaceTexturesOptions,
 } from "./textures";
 
@@ -82,11 +82,20 @@ export type GpuVisibleNodeQuad = {
   readonly zIndex: number;
 };
 
-export type GpuTexturedNodeQuad = GpuVisibleNodeQuad & {
+export type GpuHtmlSurfaceOverlayLayout = {
+  readonly height: number;
+  readonly surfaceId: string;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+  readonly zIndex?: number | undefined;
+};
+
+type GpuTexturedNodeQuad = GpuVisibleNodeQuad & {
   readonly texture: HtmlSurfaceTextureRecord;
 };
 
-export type HtmlSurfaceNodeLayerProps = {
+type HtmlSurfaceNodeLayerProps = {
   readonly className?: string | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly onNodeElementChange?:
@@ -95,7 +104,7 @@ export type HtmlSurfaceNodeLayerProps = {
   readonly renderNode: (node: GpuNodeLayout) => ReactNode;
 };
 
-export type CollectVisibleGpuNodeQuadsInput = {
+type CollectVisibleGpuNodeQuadsInput = {
   readonly canvasHeight: number;
   readonly canvasWidth: number;
   readonly forceVisibleNodeIds?:
@@ -107,12 +116,12 @@ export type CollectVisibleGpuNodeQuadsInput = {
   readonly viewport: GpuViewportInput;
 };
 
-export type BuildTexturedGpuNodeQuadsResult = {
+type BuildTexturedGpuNodeQuadsResult = {
   readonly missingTextureNodeIds: readonly string[];
   readonly texturedQuads: readonly GpuTexturedNodeQuad[];
 };
 
-export type SyncGpuNodeDomTransformsInput = {
+type SyncGpuNodeDomTransformsInput = {
   readonly activeNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   readonly elementByNodeId:
     | ReadonlyMap<string, HTMLElement>
@@ -122,7 +131,7 @@ export type SyncGpuNodeDomTransformsInput = {
   readonly viewport: GpuViewportInput;
 };
 
-export type SyncGpuNodeDomTransformsFromQuadsInput = {
+type SyncGpuNodeDomTransformsFromQuadsInput = {
   readonly activeNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
   readonly cache: GpuNodeDomTransformSyncCache;
   readonly elementByNodeId:
@@ -149,7 +158,7 @@ export type GpuNodeDomTransformSyncCache = {
   readonly stateByNodeId: Map<string, GpuNodeDomTransformState>;
 };
 
-export type GpuNodeDomTransformSyncResult = {
+type GpuNodeDomTransformSyncResult = {
   readonly parkedNodeIds: readonly string[];
   readonly skippedNodeIds: readonly string[];
   readonly updatedNodeIds: readonly string[];
@@ -161,7 +170,7 @@ export type GpuNodeUploadBudget = Pick<
   "maxBytes" | "maxDurationMs" | "maxUploads" | "now"
 >;
 
-export type GpuNodeTextureController = Pick<
+type GpuNodeTextureController = Pick<
   HtmlSurfaceTextureManager,
   | "getSurfaceTexture"
   | "evictSurfaceTextures"
@@ -170,11 +179,11 @@ export type GpuNodeTextureController = Pick<
   | "uploadDirtySurfaceTextures"
 >;
 
-export type GpuNodeSurfaceRenderTarget = {
+type GpuNodeSurfaceRenderTarget = {
   render(input: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult;
 };
 
-export type RenderHtmlSurfaceFrameInput = {
+type RenderHtmlSurfaceFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
   readonly clearColor?: GPUColorDict | undefined;
@@ -188,6 +197,9 @@ export type RenderHtmlSurfaceFrameInput = {
     | undefined;
   readonly frame: number;
   readonly grid?: GpuGridInput | undefined;
+  readonly htmlSurfaceOverlays?:
+    | readonly GpuHtmlSurfaceOverlayLayout[]
+    | undefined;
   readonly marginCssPx?: number | undefined;
   readonly nodes: readonly GpuNodeLayout[];
   readonly nodeTextureMemoryBudgetBytes?: number | undefined;
@@ -220,7 +232,7 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly visualScene: HtmlSurfaceVisualScene;
 };
 
-export type MarkHtmlSurfaceFramePaintDirtyInput = {
+type MarkHtmlSurfaceFramePaintDirtyInput = {
   readonly changedElements?: readonly Element[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly frame: number;
@@ -231,22 +243,20 @@ export type MarkHtmlSurfaceFramePaintDirtyInput = {
   >;
 };
 
-export const DEFAULT_NODE_CLASS_NAME = GPU_FLOW_CLASS_NAMES.node;
+const DEFAULT_NODE_CLASS_NAME = GPU_FLOW_CLASS_NAMES.node;
 
-export const GPU_FLOW_NODE_SELECTOR = '[data-gpu-flow-node="true"]';
+const GPU_FLOW_SURFACE_SELECTOR = '[data-gpu-flow-surface="true"]';
 
-export const GPU_FLOW_SURFACE_SELECTOR = '[data-gpu-flow-surface="true"]';
-
-export const GPU_FLOW_NODE_SOURCE_SELECTOR = HTML_SURFACE_SOURCE_SELECTOR;
+const GPU_FLOW_NODE_SOURCE_SELECTOR = HTML_SURFACE_SOURCE_SELECTOR;
 
 export const GPU_FLOW_NODE_INTERACTIVE_CLASS =
   "setta-gpu-flow__node--interactive";
 
-export const PRESERVED_GPU_NODE_STATE_CLASSES = [
+const PRESERVED_GPU_NODE_STATE_CLASSES = [
   GPU_FLOW_NODE_INTERACTIVE_CLASS,
 ] as const;
 
-export const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
+const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
   parkedNodeIds: [],
   skippedNodeIds: [],
   updatedNodeIds: [],
@@ -272,11 +282,11 @@ export function HtmlSurfaceNodeLayer({
   );
 }
 
-export function getGpuNodeSurfaceSourceId(node: GpuNodeLayout): string {
+function getGpuNodeSurfaceSourceId(node: GpuNodeLayout): string {
   return node.nodeId;
 }
 
-export function configureGpuNodeSourceElement({
+function configureGpuNodeSourceElement({
   className,
   host,
   source,
@@ -311,7 +321,7 @@ export function configureGpuNodeHostElement({
   host.style.zIndex = zIndex === undefined ? "" : String(zIndex);
 }
 
-export function mergeGpuNodeHostClassName(
+function mergeGpuNodeHostClassName(
   baseClassName: string,
   currentClassList: DOMTokenList,
 ): string {
@@ -336,6 +346,7 @@ export function renderHtmlSurfaceFrame({
   forceVisibleNodeIds,
   frame,
   grid,
+  htmlSurfaceOverlays,
   marginCssPx,
   nodes,
   nodeTextureMemoryBudgetBytes,
@@ -348,6 +359,7 @@ export function renderHtmlSurfaceFrame({
     activeNodeId ? [activeNodeId] : undefined,
   );
   const retainedNodeIds = mergeNodeIdSets(forceVisibleNodeIds, activeNodeIds);
+  const nodeSurfaceIds = new Set(nodes.map((node) => node.nodeId));
   const visibleQuads = collectVisibleGpuNodeQuads({
     canvasHeight: canvasSize.cssHeight,
     canvasWidth: canvasSize.cssWidth,
@@ -356,7 +368,18 @@ export function renderHtmlSurfaceFrame({
     nodes,
     viewport,
   });
+  const visibleOverlayQuads = collectVisibleGpuHtmlSurfaceOverlayQuads({
+    canvasHeight: canvasSize.cssHeight,
+    canvasWidth: canvasSize.cssWidth,
+    marginCssPx,
+    overlays: htmlSurfaceOverlays,
+    viewport,
+  });
+  const visibleSurfaceQuads = [...visibleQuads, ...visibleOverlayQuads];
   const visibleNodeIds = new Set(visibleQuads.map((quad) => quad.nodeId));
+  const visibleSurfaceIds = new Set(
+    visibleSurfaceQuads.map((quad) => quad.nodeId),
+  );
 
   const domTransformResult = domTransformCache
     ? syncGpuNodeDomTransformsFromQuads({
@@ -364,14 +387,17 @@ export function renderHtmlSurfaceFrame({
         cache: domTransformCache,
         elementByNodeId,
         retainNodeIds: retainedNodeIds,
-        visibleQuads,
+        visibleQuads: visibleSurfaceQuads,
         viewport,
       })
     : syncGpuNodeDomTransforms({
         activeNodeIds,
         elementByNodeId,
-        nodes,
-        visibleNodeIds,
+        nodes: [
+          ...nodes,
+          ...toGpuHtmlSurfaceOverlayNodeLayouts(htmlSurfaceOverlays),
+        ],
+        visibleNodeIds: visibleSurfaceIds,
         viewport,
       });
 
@@ -381,10 +407,10 @@ export function renderHtmlSurfaceFrame({
     devicePixelRatio: canvasSize.devicePixelRatio,
     elementByNodeId,
     frame,
-    quads: visibleQuads,
+    quads: visibleSurfaceQuads,
     textureManager,
     viewport,
-  });
+  }).filter((nodeId) => nodeSurfaceIds.has(nodeId));
   const uploadResult = uploadGpuNodeTextures({
     deferResolutionUpdates,
     frame,
@@ -392,10 +418,21 @@ export function renderHtmlSurfaceFrame({
     uploadBudget,
   });
   const textureResult = buildTexturedGpuNodeQuads(visibleQuads, textureManager);
+  const overlayTextureResult = buildTexturedGpuNodeQuads(
+    visibleOverlayQuads,
+    textureManager,
+  );
   const uploadedTexturedQuads = textureResult.texturedQuads.filter(
     (quad) => quad.texture.lastUploadFrame >= 0,
   );
-  const visualSurfaces = buildHtmlSurfaceVisuals(uploadedTexturedQuads);
+  const uploadedOverlayTexturedQuads =
+    overlayTextureResult.texturedQuads.filter(
+      (quad) => quad.texture.lastUploadFrame >= 0,
+    );
+  const visualSurfaces = mergeHtmlSurfaceVisuals(
+    buildHtmlSurfaceVisuals(uploadedTexturedQuads),
+    buildHtmlSurfaceVisuals(uploadedOverlayTexturedQuads),
+  );
   const visualScene = createHtmlSurfaceVisualScene(visualSurfaces);
   const renderResult = renderer.render({
     canvasSize,
@@ -412,8 +449,11 @@ export function renderHtmlSurfaceFrame({
       : { budgetBytes: nodeTextureMemoryBudgetBytes }),
     protectedSurfaceIds: retainedNodeIds,
     reason: "html-surface-frame",
-    visibleSurfaceIds: visibleNodeIds,
+    visibleSurfaceIds,
   });
+  const uploadedSurfaceIds = uploadResult.uploaded.map(
+    (record) => record.surfaceId,
+  );
 
   return {
     activeNodeId: activeNodeId ?? null,
@@ -421,24 +461,32 @@ export function renderHtmlSurfaceFrame({
     domTransformParkedNodeIds: domTransformResult.parkedNodeIds,
     domTransformUpdatedNodeIds: domTransformResult.updatedNodeIds,
     drawnEdgeIds: renderResult.drawnEdgeIds,
-    drawnNodeIds: renderResult.drawnSurfaceIds,
+    drawnNodeIds: renderResult.drawnSurfaceIds.filter((surfaceId) =>
+      nodeSurfaceIds.has(surfaceId),
+    ),
     edgeVertexCount: renderResult.edgeVertexCount,
     evictedTextureBytes: evictionResult.evictedBytes,
     evictedTextureNodeIds: evictionResult.evictedSurfaceIds,
     missingElementNodeIds,
     missingTextureNodeIds: textureResult.missingTextureNodeIds,
-    remainingDirtyNodeIds: uploadResult.remainingDirtySurfaceIds,
-    skippedNodeIds: uploadResult.skippedSurfaceIds,
+    remainingDirtyNodeIds: uploadResult.remainingDirtySurfaceIds.filter(
+      (surfaceId) => nodeSurfaceIds.has(surfaceId),
+    ),
+    skippedNodeIds: uploadResult.skippedSurfaceIds.filter((surfaceId) =>
+      nodeSurfaceIds.has(surfaceId),
+    ),
     textureMemory: evictionResult.memory,
     textureMemoryBeforeEviction: evictionResult.memoryBefore,
     uploadDiagnostics: uploadResult.diagnostics,
-    uploadedNodeIds: uploadResult.uploaded.map((record) => record.surfaceId),
+    uploadedNodeIds: uploadedSurfaceIds.filter((surfaceId) =>
+      nodeSurfaceIds.has(surfaceId),
+    ),
     visibleNodeIds: [...visibleNodeIds],
     visualScene,
   };
 }
 
-export function registerVisibleGpuNodeTextures({
+function registerVisibleGpuNodeTextures({
   activeNodeIds,
   deferResolutionUpdates,
   devicePixelRatio,
@@ -482,7 +530,7 @@ export function registerVisibleGpuNodeTextures({
   return missingElementNodeIds;
 }
 
-export function uploadGpuNodeTextures({
+function uploadGpuNodeTextures({
   deferResolutionUpdates,
   frame,
   textureManager,
@@ -579,6 +627,44 @@ export function collectVisibleGpuNodeQuads({
     }));
 }
 
+export function collectVisibleGpuHtmlSurfaceOverlayQuads({
+  canvasHeight,
+  canvasWidth,
+  marginCssPx,
+  overlays,
+  viewport,
+}: {
+  readonly canvasHeight: number;
+  readonly canvasWidth: number;
+  readonly marginCssPx?: number | undefined;
+  readonly overlays?: readonly GpuHtmlSurfaceOverlayLayout[] | undefined;
+  readonly viewport: GpuViewportInput;
+}): GpuVisibleNodeQuad[] {
+  if (!overlays?.length) {
+    return [];
+  }
+  return collectVisibleGpuNodeQuads({
+    canvasHeight,
+    canvasWidth,
+    marginCssPx,
+    nodes: toGpuHtmlSurfaceOverlayNodeLayouts(overlays),
+    viewport,
+  });
+}
+
+function toGpuHtmlSurfaceOverlayNodeLayouts(
+  overlays: readonly GpuHtmlSurfaceOverlayLayout[] | undefined,
+): GpuNodeLayout[] {
+  return (overlays ?? []).map((overlay) => ({
+    height: overlay.height,
+    nodeId: overlay.surfaceId,
+    width: overlay.width,
+    x: overlay.x,
+    y: overlay.y,
+    zIndex: overlay.zIndex,
+  }));
+}
+
 export function buildTexturedGpuNodeQuads(
   quads: readonly GpuVisibleNodeQuad[],
   textureSource:
@@ -604,7 +690,7 @@ export function buildTexturedGpuNodeQuads(
   return { missingTextureNodeIds, texturedQuads };
 }
 
-export function toFlatHtmlSurfaceVisual(
+function toFlatHtmlSurfaceVisual(
   quad: GpuTexturedNodeQuad,
 ): HtmlSurfaceFlatVisual {
   return {
@@ -649,6 +735,28 @@ export function buildHtmlSurfaceVisuals(
   return {
     flatSurfaces,
     tiledFlatSurfaces,
+  };
+}
+
+function mergeHtmlSurfaceVisuals(
+  base: {
+    readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+    readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
+  },
+  overlays: {
+    readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+    readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
+  },
+): {
+  readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
+  readonly tiledFlatSurfaces: readonly HtmlSurfaceTiledFlatVisual[];
+} {
+  return {
+    flatSurfaces: [...base.flatSurfaces, ...overlays.flatSurfaces],
+    tiledFlatSurfaces: [
+      ...base.tiledFlatSurfaces,
+      ...overlays.tiledFlatSurfaces,
+    ],
   };
 }
 
@@ -714,7 +822,7 @@ export function syncGpuNodeDomTransformsFromQuads({
   };
 }
 
-export function syncVisibleGpuNodeDomTransforms({
+function syncVisibleGpuNodeDomTransforms({
   activeIds,
   cache,
   elementByNodeId,
@@ -755,7 +863,7 @@ export function syncVisibleGpuNodeDomTransforms({
   return { skippedNodeIds, updatedNodeIds, visibleNodeIds };
 }
 
-export function parkExitedGpuNodeDomTransforms({
+function parkExitedGpuNodeDomTransforms({
   cache,
   elementByNodeId,
   retainedIds,

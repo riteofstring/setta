@@ -70,23 +70,13 @@
   outline: none;
 }
 
-.setta-gpu-flow__edge-label-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  overflow: visible;
-  pointer-events: none;
-  transform-origin: 0 0;
-}
-
 .setta-gpu-flow__edge-label {
-  position: absolute;
-  left: 0;
-  top: 0;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
   font-size: 10px;
   font-weight: 600;
   line-height: 1;

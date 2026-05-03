@@ -6,7 +6,7 @@ import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
 
 describe("GpuFlow", () => {
-  it("mounts children inside the canvas source subtree before viewport overlays", () => {
+  it("mounts children and edge labels inside the canvas source subtree", () => {
     const markup = renderToStaticMarkup(
       <GpuFlow
         edgeScene={edgeSceneWithLabel()}
@@ -20,15 +20,17 @@ describe("GpuFlow", () => {
 
     const canvasOpenIndex = markup.indexOf('data-gpu-flow-surface="true"');
     const portalIndex = markup.indexOf('id="project-owned-portal-root"');
-    const canvasCloseIndex = markup.indexOf("</canvas>");
-    const edgeLabelLayerIndex = markup.indexOf(
-      'data-gpu-flow-edge-label-layer="true"',
+    const edgeLabelSourceIndex = markup.indexOf(
+      'data-gpu-flow-source-id="data-edge-label:edge-a"',
     );
+    const canvasCloseIndex = markup.indexOf("</canvas>");
 
     expect(canvasOpenIndex).toBeGreaterThan(-1);
     expect(portalIndex).toBeGreaterThan(canvasOpenIndex);
     expect(portalIndex).toBeLessThan(canvasCloseIndex);
-    expect(edgeLabelLayerIndex).toBeGreaterThan(canvasCloseIndex);
+    expect(edgeLabelSourceIndex).toBeGreaterThan(canvasOpenIndex);
+    expect(edgeLabelSourceIndex).toBeLessThan(canvasCloseIndex);
+    expect(markup).not.toContain("data-gpu-flow-edge-label-layer");
   });
 
   it("renders node source anchors from the layout store", () => {

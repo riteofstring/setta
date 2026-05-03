@@ -8,6 +8,7 @@ import { evaluateHtmlSurfaceSourcePolicy } from "./apiProbes";
 import {
   buildHtmlSurfaceVisuals,
   buildTexturedGpuNodeQuads,
+  collectVisibleGpuHtmlSurfaceOverlayQuads,
   collectVisibleGpuNodeQuads,
   configureGpuNodeHostElement,
   createGpuNodeDomTransformSyncCache,
@@ -15,6 +16,7 @@ import {
   renderHtmlSurfaceFrame,
   syncGpuNodeDomTransforms,
   syncGpuNodeDomTransformsFromQuads,
+  type GpuHtmlSurfaceOverlayLayout,
   type GpuNodeLayout,
 } from "./frame";
 import type { RenderHtmlSurfacesInput } from "./renderer";
@@ -53,6 +55,32 @@ describe("HTML surface frame helpers", () => {
       "forced",
       "behind",
       "front",
+    ]);
+  });
+
+  it("culls HTML surface overlays without merging them into node queries", () => {
+    const overlays: GpuHtmlSurfaceOverlayLayout[] = [
+      surfaceOverlay("visible-label", 20, 30, 80, 18, 1),
+      surfaceOverlay("culled-label", 1_000, 1_000, 80, 18, 0),
+    ];
+
+    const quads = collectVisibleGpuHtmlSurfaceOverlayQuads({
+      canvasHeight: 300,
+      canvasWidth: 400,
+      marginCssPx: 0,
+      overlays,
+      viewport: [0, 0, 1],
+    });
+
+    expect(quads).toEqual([
+      {
+        height: 18,
+        nodeId: "visible-label",
+        width: 80,
+        x: 20,
+        y: 30,
+        zIndex: 1,
+      },
     ]);
   });
 
@@ -496,6 +524,61 @@ describe("HTML surface frame helpers", () => {
     });
     expect(visible.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(culled.style.pointerEvents).toBe("none");
+  });
+
+  it("renders HTML surface overlays after node surfaces without counting them as nodes", () => {
+    const nodeElement = document.createElement("div");
+    const labelElement = document.createElement("div");
+    const manager = createFrameTextureManager();
+    const renderer = createFrameRenderer();
+
+    const result = renderHtmlSurfaceFrame({
+      canvasSize: canvasSize(),
+      elementByNodeId: new Map([
+        ["front-node", nodeElement],
+        ["edge-label:edge-a", labelElement],
+      ]),
+      frame: 1,
+      htmlSurfaceOverlays: [
+        surfaceOverlay("edge-label:edge-a", 40, 60, 80, 18, 0),
+      ],
+      nodes: [node("front-node", 10, 20, 100, 50, 100)],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        element: nodeElement,
+        surfaceId: "front-node",
+      }),
+    );
+    expect(manager.registerSurfaceTexture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        element: labelElement,
+        surfaceId: "edge-label:edge-a",
+      }),
+    );
+    expect(renderer.render).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scene: expect.objectContaining({
+          flatSurfaces: [
+            expect.objectContaining({
+              surfaceId: "front-node",
+              zIndex: 100,
+            }),
+            expect.objectContaining({
+              surfaceId: "edge-label:edge-a",
+              zIndex: 0,
+            }),
+          ],
+        }),
+      }),
+    );
+    expect(result.drawnNodeIds).toEqual(["front-node"]);
+    expect(result.uploadedNodeIds).toEqual(["front-node"]);
+    expect(result.visibleNodeIds).toEqual(["front-node"]);
   });
 
   it("defers non-active resolution upgrades during viewport interactions", () => {
@@ -1050,6 +1133,24 @@ function node(
   return {
     height,
     nodeId,
+    width,
+    x,
+    y,
+    zIndex,
+  };
+}
+
+function surfaceOverlay(
+  surfaceId: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  zIndex: number,
+): GpuHtmlSurfaceOverlayLayout {
+  return {
+    height,
+    surfaceId,
     width,
     x,
     y,
