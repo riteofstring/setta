@@ -66,7 +66,13 @@ function getSharedChatConnectionVisibility(
   return visibility;
 }
 
-export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
+export function ChatSharedEdgeHandles({
+  isUserView,
+  scenePortGeometry,
+}: {
+  isUserView: boolean;
+  scenePortGeometry?: boolean;
+}) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
   const isSelectingEdge = useGpuFlowViewportStore(
@@ -95,6 +101,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
   }
 
   const sharedModeLabel = getChatSharedEdgeModeLabel(chatSharedEdgeMode);
+  const registerPortGeometry = scenePortGeometry !== true;
 
   return (
     <>
@@ -115,6 +122,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectableStart={canEditStructure}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
+        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuReverseStartHandleConnectionProps(
           SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart,
         )}
@@ -130,6 +138,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
+        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuHandleConnectionProps(
           SHARED_CHAT_EDGE_HANDLE_IDS.target,
         )}
@@ -153,6 +162,7 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
+        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuHandleConnectionProps(
           SHARED_CHAT_EDGE_HANDLE_IDS.source,
         )}

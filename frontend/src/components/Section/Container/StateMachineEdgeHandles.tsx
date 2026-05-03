@@ -294,9 +294,11 @@ function getHandleGroups({
 function StateMachineHandleGroup({
   group,
   canEditStructure,
+  registerPortGeometry,
 }: {
   group: HandleGroupConfig;
   canEditStructure: boolean;
+  registerPortGeometry: boolean;
 }) {
   return (
     <>
@@ -313,6 +315,7 @@ function StateMachineHandleGroup({
             isConnectable={canEditStructure}
             isConnectableStart={canEditStructure && handle.isConnectableStart}
             isConnectableEnd={canEditStructure && handle.isConnectableEnd}
+            registerPortGeometry={registerPortGeometry}
             {...getStateMachineHandleConnectionProps(handle)}
             isValidConnection={isValidStateMachineEdgeConnection}
             onConnect={createStateMachineEdgeFromConnection}
@@ -361,8 +364,10 @@ function getStateMachineHandleOptionalProps(handle: HandleRenderConfig) {
 
 export function StateMachineEdgeHandles({
   isUserView,
+  scenePortGeometry,
 }: {
   isUserView: boolean;
+  scenePortGeometry?: boolean;
 }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
@@ -392,6 +397,7 @@ export function StateMachineEdgeHandles({
     hasOutgoing: connectionVisibility.hasOutgoing,
     isSelectingEdge,
   });
+  const registerPortGeometry = scenePortGeometry !== true;
 
   return (
     <>
@@ -400,6 +406,7 @@ export function StateMachineEdgeHandles({
           key={group.side}
           group={group}
           canEditStructure={canEditStructure}
+          registerPortGeometry={registerPortGeometry}
         />
       ))}
     </>

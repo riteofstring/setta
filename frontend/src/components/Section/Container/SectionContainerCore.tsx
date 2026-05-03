@@ -38,6 +38,7 @@ type SectionContainerCoreProps = {
   joinedCorners?: "none" | "code-terminal-parent";
   renderParamRows: boolean;
   useGpuResizeFrame?: boolean;
+  scenePortGeometry?: boolean;
 };
 
 type SectionContainerSnapshot = {
@@ -67,7 +68,7 @@ const EDGE_HANDLE_COMPONENTS = {
   "state-machine": StateMachineEdgeHandles,
 } satisfies Record<
   Exclude<SectionEdgeHandleMode, "none">,
-  React.ComponentType<{ isUserView: boolean }>
+  React.ComponentType<{ isUserView: boolean; scenePortGeometry?: boolean }>
 >;
 
 function getSectionContainerSnapshot(
@@ -210,15 +211,22 @@ function getSectionEdgeHandleMode({
 function SectionEdgeHandles({
   isUserView,
   mode,
+  scenePortGeometry,
 }: {
   isUserView: boolean;
   mode: SectionEdgeHandleMode;
+  scenePortGeometry: boolean;
 }) {
   if (mode === "none") {
     return null;
   }
   const EdgeHandles = EDGE_HANDLE_COMPONENTS[mode];
-  return <EdgeHandles isUserView={isUserView} />;
+  return (
+    <EdgeHandles
+      isUserView={isUserView}
+      scenePortGeometry={scenePortGeometry}
+    />
+  );
 }
 
 function _SectionContainerCore({
@@ -232,6 +240,7 @@ function _SectionContainerCore({
   joinedCorners = "none",
   renderParamRows,
   useGpuResizeFrame,
+  scenePortGeometry,
 }: SectionContainerCoreProps) {
   const {
     sectionTypeName,
@@ -329,7 +338,11 @@ function _SectionContainerCore({
       data-section-active={isActiveSection ? "true" : "false"}
       style={sectionShellStyle}
     >
-      <SectionEdgeHandles isUserView={isUserView} mode={edgeHandleMode} />
+      <SectionEdgeHandles
+        isUserView={isUserView}
+        mode={edgeHandleMode}
+        scenePortGeometry={scenePortGeometry === true}
+      />
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}

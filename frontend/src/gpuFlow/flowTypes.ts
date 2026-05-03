@@ -104,6 +104,7 @@ export type HandleProps = {
   isConnectableStart?: boolean;
   isConnectableEnd?: boolean;
   connectionStartSemanticType?: HandleType;
+  registerPortGeometry?: boolean;
   isConnectionCandidateAllowed?: HandleConnectionCandidateFilter;
   isValidConnection?: (connection: Connection) => boolean;
   onConnect?: (

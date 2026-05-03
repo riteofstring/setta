@@ -24,7 +24,13 @@ import {
 
 const EDGE_HANDLE_SAFE_ZONE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
 
-export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
+export function AgenticEdgeHandles({
+  isUserView,
+  scenePortGeometry,
+}: {
+  isUserView: boolean;
+  scenePortGeometry?: boolean;
+}) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
   const isSelectingEdge = useGpuFlowViewportStore(
@@ -53,6 +59,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
   }, [agenticEdges, sectionId]);
   const hasIncomingAgenticEdge = (connectionMask & 1) !== 0;
   const hasOutgoingAgenticEdge = (connectionMask & 2) !== 0;
+  const registerPortGeometry = scenePortGeometry !== true;
 
   if (isUserView) {
     return null;
@@ -77,6 +84,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectableStart={canEditStructure}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
+        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuReverseStartHandleConnectionProps(
           AGENTIC_EDGE_HANDLE_IDS.reverseStart,
         )}
@@ -91,6 +99,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
+        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.target)}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}
@@ -111,6 +120,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
+        registerPortGeometry={registerPortGeometry}
         {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.source)}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}

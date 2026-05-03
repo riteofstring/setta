@@ -68,6 +68,7 @@ function HandleComponent({
   isConnectableStart = true,
   isConnectableEnd = true,
   connectionStartSemanticType,
+  registerPortGeometry = true,
   id,
   isConnectionCandidateAllowed,
   isValidConnection,
@@ -86,7 +87,7 @@ function HandleComponent({
   const handleId = id ?? null;
 
   useLayoutEffect(() => {
-    if (!nodeId || !handleId) {
+    if (!nodeId || !handleId || !registerPortGeometry) {
       return;
     }
     const element = handleRef.current;
@@ -129,6 +130,7 @@ function HandleComponent({
     isConnectable,
     isConnectableStart,
     isConnectableEnd,
+    registerPortGeometry,
   ]);
 
   const onConnectExtended: NonNullable<HandleComponentProps["onConnect"]> = (

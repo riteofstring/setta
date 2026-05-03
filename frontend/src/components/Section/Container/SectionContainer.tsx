@@ -293,7 +293,10 @@ function JoinedCodeTerminalGroup({
       })}
       data-joined-code-terminal-group
     >
-      <AgenticEdgeHandles isUserView={isUserView} />
+      <AgenticEdgeHandles
+        isUserView={isUserView}
+        scenePortGeometry={sceneSurface}
+      />
       <SectionContainerCore
         sectionId={sectionId}
         isTopLevel={isTopLevel}
@@ -304,6 +307,7 @@ function JoinedCodeTerminalGroup({
         joinedCorners="code-terminal-parent"
         fillSurface={sceneSurface || isTopLevel}
         renderParamRows={renderParamRows}
+        scenePortGeometry={sceneSurface}
         useGpuResizeFrame={sceneSurface || isTopLevel}
       />
       <div className="-mt-px">
@@ -342,6 +346,7 @@ function StandardSectionSurface({
       isUserView={isUserView}
       fillSurface={sceneSurface || isTopLevel}
       renderParamRows={renderParamRows}
+      scenePortGeometry={sceneSurface}
       useGpuResizeFrame={sceneSurface || isTopLevel}
     />
   );
