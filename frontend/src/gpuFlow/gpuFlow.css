@@ -53,6 +53,23 @@
   pointer-events: none;
 }
 
+.setta-gpu-flow__nodes-selection {
+  z-index: 3;
+  transform-origin: left top;
+  pointer-events: none;
+}
+
+.setta-gpu-flow__nodes-selection-rect {
+  position: absolute;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.setta-gpu-flow__nodes-selection-rect:focus,
+.setta-gpu-flow__nodes-selection-rect:focus-visible {
+  outline: none;
+}
+
 .setta-gpu-flow__edge-label-layer {
   position: absolute;
   inset: 0;

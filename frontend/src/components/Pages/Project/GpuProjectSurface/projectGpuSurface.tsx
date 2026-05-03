@@ -2,13 +2,17 @@ import { SectionContainer } from "components/Section/Container/SectionContainer"
 
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 
-import type { NodeDragItem } from "gpuFlow/flowTypes";
+import {
+  setSelectionDragHandle,
+  setSelectionDragPrimaryId,
+} from "forks/dnd-kit/selectionDragHandle";
 
 import { GpuFlow } from "gpuFlow/GpuFlow";
 
 import type { GpuNodeLayout } from "gpuFlow/htmlSurfaces/frame";
 
 import type { GpuEdgeInteractionEvent } from "gpuFlow/interactions/edges";
+import type { GpuSelectionDragControllerOptions } from "gpuFlow/interactions/selectionDrag";
 
 import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 
@@ -37,7 +41,10 @@ import {
   reconnectEdgeFromConnection,
 } from "state/actions/edges";
 
-import { getActiveSectionUIIds } from "state/activeSectionUI";
+import {
+  getActiveSectionUIIds,
+  useActiveSectionUI,
+} from "state/activeSectionUI";
 
 import { useAIFollow, useLocalStorage, useSettings } from "state/definitions";
 
@@ -66,6 +73,7 @@ import { useProjectNodeResizeOptions } from "./projectNodeResize";
 import {
   isProjectGpuEdgeInteractionDisabled,
   isProjectGpuNodeDragDisabled,
+  isProjectGpuSelectionBoxDragDisabled,
   isProjectGpuSelectionDisabled,
   isProjectGpuViewportGestureDisabled,
   isProjectPaneBackgroundTarget,
@@ -80,7 +88,6 @@ import {
 } from "../gpuProjectPaneEvents";
 
 import {
-  GpuProjectNodesSelectionOverlay,
   canDragProjectNode,
   getVisibleProjectSurfaceWidth,
   handleProjectNodeDrag,
@@ -88,20 +95,17 @@ import {
   handleProjectNodeDragStart,
   handleProjectNodeDragStop,
   handleProjectSelectionChange,
+  handleProjectSelectionContextMenu,
+  handleProjectSelectionDragCancel,
+  handleProjectSelectionDragStart,
+  handleProjectSelectionDragStop,
+  handleProjectSelectionKeyboardNudge,
   resolveProjectWireColor,
 } from "./nodeSelectionOverlay";
 
 export type ProjectSurfaceDimensions = {
   readonly height: number;
   readonly width: number;
-};
-
-export type ProjectSelectionDragState = {
-  readonly pointerId: number;
-  readonly selectedNodeIds: readonly string[];
-  items: NodeDragItem[];
-  lastFlowPoint: { x: number; y: number };
-  lastScreenPoint: { x: number; y: number };
 };
 
 export type ProjectGpuNodeDragItem = {
@@ -160,7 +164,6 @@ export function GpuProjectSurface() {
   const showAgenticEdges = useLocalStorage((state) => state.showAgenticEdges);
   const showDataEdges = useLocalStorage((state) => state.showArgEdges);
   const darkMode = useLocalStorage((state) => state.darkMode);
-  const snapToGrid = useLocalStorage((state) => state.snapToGrid);
   const isConnecting = useGpuFlowViewportStore(
     (state) => state.connectionStartHandle !== null,
   );
@@ -227,7 +230,6 @@ export function GpuProjectSurface() {
         readyToRender={readyToRender}
         settings={settings}
       />
-      <GpuProjectNodesSelectionOverlay snapToGrid={snapToGrid} />
     </div>
   );
 }
@@ -256,6 +258,16 @@ export function ProjectGpuFlowLayer({
   const { layoutStore, nodeLayouts } = layoutAdapter;
   const selectEdge = useProjectGpuEdgeSelection(canEditStructure);
   const dndMode = useDndMode();
+  const activeNodeIds = useActiveSectionUI(
+    (state) => state.activeIds,
+    _.isEqual,
+  );
+  const primarySelectionId =
+    activeNodeIds.length > 0
+      ? activeNodeIds[activeNodeIds.length - 1] ?? null
+      : null;
+  const [selectionDragElement, setSelectionDragElement] =
+    useState<HTMLElement | null>(null);
   const edgeInteractionOptions = useMemo(
     () =>
       getProjectEdgeInteractionOptions({
@@ -317,6 +329,22 @@ export function ProjectGpuFlowLayer({
     }),
     [dndMode, settings.selectionMode],
   );
+  const selectionDragOptions = useMemo(
+    () =>
+      getProjectSelectionDragOptions({
+        activeNodeIds,
+        dndMode,
+        primarySelectionId,
+        settings,
+        setSelectionDragElement,
+      }),
+    [activeNodeIds, dndMode, primarySelectionId, settings],
+  );
+  useProjectGpuSelectionDragDndHandle({
+    isMovingFree: dndMode.isMovingFree,
+    primarySelectionId,
+    selectionDragElement,
+  });
   useProjectGpuDndViewportTransitionCancel(dndMode);
   if (!readyToRender) {
     return null;
@@ -337,11 +365,44 @@ export function ProjectGpuFlowLayer({
       panZoom={panZoomOptions}
       renderNode={renderProjectGpuNode}
       selection={selectionOptions}
+      selectionDrag={selectionDragOptions}
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
     >
       <ProjectGpuPortalRoots />
     </GpuFlow>
   );
+}
+
+export function useProjectGpuSelectionDragDndHandle({
+  isMovingFree,
+  primarySelectionId,
+  selectionDragElement,
+}: {
+  readonly isMovingFree: boolean;
+  readonly primarySelectionId: string | null;
+  readonly selectionDragElement: HTMLElement | null;
+}) {
+  useEffect(() => {
+    setSelectionDragPrimaryId(primarySelectionId);
+  }, [primarySelectionId]);
+
+  useEffect(() => {
+    return () => {
+      setSelectionDragPrimaryId(null);
+      setSelectionDragHandle(null);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMovingFree) {
+      setSelectionDragHandle(null);
+      return;
+    }
+    setSelectionDragHandle(selectionDragElement);
+    return () => {
+      setSelectionDragHandle(null);
+    };
+  }, [isMovingFree, selectionDragElement]);
 }
 
 export function useProjectGpuDndViewportTransitionCancel(
@@ -498,6 +559,39 @@ export function getProjectNodeDragOptions({
     onNodeDragStart: (change) =>
       handleProjectNodeDragStart(layoutStore, change),
     onNodeDragStop: (change) => handleProjectNodeDragStop(layoutStore, change),
+    snapGrid: settings.snapGrid,
+    snapToGrid: () => useLocalStorage.getState().snapToGrid,
+  };
+}
+
+export function getProjectSelectionDragOptions({
+  activeNodeIds,
+  dndMode,
+  primarySelectionId,
+  settings,
+  setSelectionDragElement,
+}: {
+  readonly activeNodeIds: readonly string[];
+  readonly dndMode: ProjectGpuDndMode;
+  readonly primarySelectionId: string | null;
+  readonly settings: ProjectGpuSurfaceSettings;
+  readonly setSelectionDragElement: (element: HTMLElement | null) => void;
+}): Omit<
+  GpuSelectionDragControllerOptions,
+  "element" | "layoutStore" | "requestFrame" | "store"
+> {
+  return {
+    autoPanOnSelectionDrag: true,
+    canDragNode: canDragProjectNode,
+    disabled: () => isProjectGpuSelectionBoxDragDisabled({ dndMode }),
+    onSelectionContextMenu: handleProjectSelectionContextMenu,
+    onSelectionDragCancel: handleProjectSelectionDragCancel,
+    onSelectionDragStart: handleProjectSelectionDragStart,
+    onSelectionDragStop: handleProjectSelectionDragStop,
+    onSelectionElementChange: setSelectionDragElement,
+    onSelectionKeyboardNudge: handleProjectSelectionKeyboardNudge,
+    primaryNodeId: primarySelectionId,
+    selectedNodeIds: activeNodeIds,
     snapGrid: settings.snapGrid,
     snapToGrid: () => useLocalStorage.getState().snapToGrid,
   };

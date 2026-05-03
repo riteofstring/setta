@@ -102,6 +102,7 @@ import type { GpuViewportInput } from "../viewportMath";
 import {
   gpuFlowViewportStore,
   type GpuFlowViewportStoreApi,
+  type GpuUserSelectionRect,
 } from "../viewportStore";
 
 import {
@@ -122,6 +123,10 @@ import {
 import { renderGpuFlowEdgeReconnectElement } from "./edgeReconnectElement";
 import { resolveGpuFlowNodeResizeTarget } from "./nodeResizeTarget";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
+import {
+  useGpuFlowSelectionDragLayer,
+  type GpuFlowSelectionDragOptions,
+} from "./selectionDragLayer";
 import {
   getVisibleGpuUserSelectionRect,
   GpuUserSelectionOverlay,
@@ -183,6 +188,7 @@ export type GpuFlowProps = Pick<
     | false
     | Omit<GpuSelectionControllerOptions, "element" | "getNodes" | "store">
     | undefined;
+  selectionDrag?: GpuFlowSelectionDragOptions;
   style?: CSSProperties | undefined;
   surfaceClassName?: string | undefined;
   uploadBudget?: GpuNodeUploadBudget | undefined;
@@ -247,6 +253,7 @@ export function GpuFlow({
   panZoom,
   renderNode,
   selection,
+  selectionDrag,
   style,
   surfaceClassName,
   uploadBudget,
@@ -304,6 +311,9 @@ export function GpuFlow({
     uploadBudget,
     viewport: viewport ?? viewportStore.getState().transform,
   });
+  const requestSurfaceFrame = useCallback((reason: GpuFrameReason) => {
+    surfaceRef.current?.requestFrame(reason);
+  }, []);
 
   useEffect(() => {
     callbacksRef.current = {
@@ -752,6 +762,13 @@ export function GpuFlow({
   const userSelectionElement = (
     <GpuUserSelectionOverlay rect={userSelectionRect} />
   );
+  const nodesSelectionElement = useGpuFlowSelectionDragLayer({
+    containerRef,
+    layoutStore,
+    requestFrame: requestSurfaceFrame,
+    selectionDrag,
+    viewportStore,
+  });
   const edgeLabelElement = (
     <GpuEdgeLabelLayer
       labels={edgeScene?.labels ?? EMPTY_EDGE_LABELS}
@@ -786,6 +803,7 @@ export function GpuFlow({
           {children}
         </GpuSurface>
         {userSelectionElement}
+        {nodesSelectionElement}
         {edgeLabelElement}
         {edgeReconnectElement}
       </div>
