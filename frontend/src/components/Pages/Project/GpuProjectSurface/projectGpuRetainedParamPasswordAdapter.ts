@@ -1,8 +1,5 @@
 import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
-import type {
-  GpuRetainedContentInteractionEvent,
-  GpuRetainedContentInteractionHit,
-} from "gpuFlow/interactions/retainedContentInteraction";
+import type { GpuRetainedContentInteractionHit } from "gpuFlow/interactions/retainedContentInteraction";
 import { getPasswordParamValue } from "openapi/http";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import {
@@ -12,7 +9,7 @@ import {
 } from "./projectGpuRetainedParamPasswordRevealState";
 
 export function commitProjectGpuRetainedPasswordRevealClick(
-  event: GpuRetainedContentInteractionEvent,
+  event: GpuRetainedContentInteractionHit,
   {
     onPasswordRevealStateChange,
     passwordRevealStates,

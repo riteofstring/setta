@@ -11,6 +11,7 @@ import {
 } from "gpuFlow/retainedContentControls";
 import type {
   GpuRetainedContentControlDescriptor,
+  GpuRetainedContentHitRecord,
   GpuRetainedContentRow,
 } from "gpuFlow/retainedContentScene";
 import type { GpuFlowScene } from "gpuFlow/scene";
@@ -18,26 +19,50 @@ import { useEffect, type RefObject } from "react";
 
 import type { ProjectGpuRetainedParamTarget } from "./projectGpuLayoutAdapter";
 import { commitProjectGpuRetainedButtonParamClick } from "./projectGpuRetainedParamButtonAdapter";
+import {
+  commitProjectGpuRetainedDropzoneAttachmentDelete,
+  isProjectGpuRetainedDropzoneAttachmentDeleteHit,
+} from "./projectGpuRetainedParamDropzoneAdapter";
+import {
+  commitProjectGpuRetainedPasswordRevealClick,
+  isProjectGpuRetainedPasswordRevealHit,
+} from "./projectGpuRetainedParamPasswordAdapter";
+import type {
+  ProjectGpuRetainedPasswordRevealStateMap,
+  ProjectGpuRetainedPasswordRevealUpdate,
+} from "./projectGpuRetainedParamPasswordRevealState";
 import { commitProjectGpuRetainedRangedParamCommandValue } from "./projectGpuRetainedParamRangedControlAdapter";
 import { commitProjectGpuRetainedSwitchParamClick } from "./projectGpuRetainedParamSwitchAdapter";
 
 type ProjectGpuRetainedCanvasControlContext = {
   readonly control: GpuRetainedContentControlDescriptor;
+  readonly hit: GpuRetainedContentInteractionHit;
   readonly ownerSectionId: string;
   readonly paramInfoId: string;
   readonly row: GpuRetainedContentRow;
 };
+
+const EMPTY_PROJECT_GPU_RETAINED_PASSWORD_REVEALS: ProjectGpuRetainedPasswordRevealStateMap =
+  new Map();
 
 export function useProjectGpuRetainedParamCanvasControlKeyboard<
   RootElement extends HTMLElement,
 >({
   activeParamCanvasControl,
   disabled,
+  onPasswordRevealStateChange = ignoreProjectGpuRetainedPasswordRevealChange,
+  passwordRevealStates = EMPTY_PROJECT_GPU_RETAINED_PASSWORD_REVEALS,
   rootRef,
   scene,
 }: {
   readonly activeParamCanvasControl: ProjectGpuRetainedParamTarget | null;
   readonly disabled?: (() => boolean) | undefined;
+  readonly onPasswordRevealStateChange?:
+    | ((update: ProjectGpuRetainedPasswordRevealUpdate) => void)
+    | undefined;
+  readonly passwordRevealStates?:
+    | ProjectGpuRetainedPasswordRevealStateMap
+    | undefined;
   readonly rootRef: RefObject<RootElement | null>;
   readonly scene: GpuFlowScene;
 }) {
@@ -54,6 +79,8 @@ export function useProjectGpuRetainedParamCanvasControlKeyboard<
         !handleProjectGpuRetainedParamCanvasControlKeyDown({
           activeParamCanvasControl,
           event,
+          onPasswordRevealStateChange,
+          passwordRevealStates,
           scene,
         })
       ) {
@@ -66,7 +93,14 @@ export function useProjectGpuRetainedParamCanvasControlKeyboard<
     return () => {
       ownerDocument.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [activeParamCanvasControl, disabled, rootRef, scene]);
+  }, [
+    activeParamCanvasControl,
+    disabled,
+    onPasswordRevealStateChange,
+    passwordRevealStates,
+    rootRef,
+    scene,
+  ]);
 }
 
 export function useProjectGpuRetainedParamCanvasControlWheel<
@@ -124,10 +158,18 @@ export function useProjectGpuRetainedParamCanvasControlWheel<
 export function handleProjectGpuRetainedParamCanvasControlKeyDown({
   activeParamCanvasControl,
   event,
+  onPasswordRevealStateChange = ignoreProjectGpuRetainedPasswordRevealChange,
+  passwordRevealStates = EMPTY_PROJECT_GPU_RETAINED_PASSWORD_REVEALS,
   scene,
 }: {
   readonly activeParamCanvasControl: ProjectGpuRetainedParamTarget | null;
   readonly event: Pick<KeyboardEvent, "code" | "key">;
+  readonly onPasswordRevealStateChange?:
+    | ((update: ProjectGpuRetainedPasswordRevealUpdate) => void)
+    | undefined;
+  readonly passwordRevealStates?:
+    | ProjectGpuRetainedPasswordRevealStateMap
+    | undefined;
   readonly scene: GpuFlowScene;
 }): boolean {
   const context = getProjectGpuRetainedCanvasControlContextFromTarget({
@@ -141,6 +183,8 @@ export function handleProjectGpuRetainedParamCanvasControlKeyDown({
     commitProjectGpuRetainedImmediateControlKeyDown({
       context,
       event,
+      onPasswordRevealStateChange,
+      passwordRevealStates,
     })
   ) {
     return true;
@@ -210,10 +254,29 @@ export function toProjectGpuRetainedCanvasControlTarget(
 function commitProjectGpuRetainedImmediateControlKeyDown({
   context,
   event,
+  onPasswordRevealStateChange,
+  passwordRevealStates,
 }: {
   readonly context: ProjectGpuRetainedCanvasControlContext;
   readonly event: Pick<KeyboardEvent, "code" | "key">;
+  readonly onPasswordRevealStateChange: (
+    update: ProjectGpuRetainedPasswordRevealUpdate,
+  ) => void;
+  readonly passwordRevealStates: ProjectGpuRetainedPasswordRevealStateMap;
 }): boolean {
+  if (isGpuRetainedContentButtonKeyboardCommit(event)) {
+    if (commitProjectGpuRetainedDropzoneAttachmentDelete(context.hit)) {
+      return true;
+    }
+    if (
+      commitProjectGpuRetainedPasswordRevealClick(context.hit, {
+        onPasswordRevealStateChange,
+        passwordRevealStates,
+      })
+    ) {
+      return true;
+    }
+  }
   if (
     context.control.kind === "switch" &&
     isGpuRetainedContentSwitchKeyboardToggle(event)
@@ -263,7 +326,7 @@ function getProjectGpuRetainedCanvasControlContextFromTarget({
   const hit = surface.retainedScene.hitRecords.find(
     (candidate) =>
       candidate.id === target.hitRecordId &&
-      candidate.kind === "control" &&
+      isProjectGpuRetainedCanvasControlTargetHit(candidate) &&
       candidate.ownerRowId === target.paramInfoId,
   );
   if (!hit) {
@@ -284,21 +347,53 @@ function getProjectGpuRetainedCanvasControlContextFromTarget({
 function getProjectGpuRetainedCanvasControlContextFromHit(
   hit: GpuRetainedContentInteractionHit | null,
 ): ProjectGpuRetainedCanvasControlContext | null {
-  if (!hit || hit.hit.kind !== "control") {
+  if (!hit || !isProjectGpuRetainedCanvasControlTargetHit(hit.hit)) {
     return null;
   }
   const row = hit.retainedScene.rows.find(
     (candidate) => candidate.id === hit.hit.ownerRowId,
   );
-  if (!row?.control || row.control.commitPolicy === "native-island") {
+  if (!row?.control) {
+    return null;
+  }
+  if (
+    hit.hit.kind === "control" &&
+    row.control.commitPolicy === "native-island"
+  ) {
+    return null;
+  }
+  if (
+    hit.hit.kind === "control-subpart" &&
+    !isProjectGpuRetainedCanvasControlSubpartHit(hit)
+  ) {
     return null;
   }
   return {
     control: row.control,
+    hit,
     ownerSectionId: hit.ownerSectionId,
     paramInfoId: hit.hit.ownerRowId,
     row,
   };
+}
+
+function isProjectGpuRetainedCanvasControlTargetHit(
+  hit: GpuRetainedContentHitRecord,
+): boolean {
+  return hit.kind === "control" || hit.kind === "control-subpart";
+}
+
+function isProjectGpuRetainedCanvasControlSubpartHit(
+  hit: GpuRetainedContentInteractionHit,
+): boolean {
+  return (
+    isProjectGpuRetainedDropzoneAttachmentDeleteHit(hit) ||
+    isProjectGpuRetainedPasswordRevealHit(hit)
+  );
+}
+
+function ignoreProjectGpuRetainedPasswordRevealChange() {
+  return undefined;
 }
 
 function shouldSkipProjectGpuRetainedCanvasControlKeyDown(

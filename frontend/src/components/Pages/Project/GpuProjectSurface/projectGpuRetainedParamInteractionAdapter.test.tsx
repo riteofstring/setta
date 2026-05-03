@@ -1638,6 +1638,240 @@ describe("project GPU retained param DOM islands", () => {
     });
   });
 
+  it("reveals retained password values from canvas keyboard without mounting a DOM island", async () => {
+    seedPasswordParamProjectState();
+    mocks.callOpenAPIMock.mockImplementation(async (request: unknown) => {
+      if (
+        typeof request === "object" &&
+        request !== null &&
+        "route" in request &&
+        request.route === "getPasswordParamValue"
+      ) {
+        return {
+          data: { value: "revealed-secret" },
+          hasResponse: true,
+          status: 200,
+        };
+      }
+      return {
+        data: null,
+        hasResponse: true,
+        status: 200,
+      };
+    });
+    const onPasswordRevealStateChange = vi.fn();
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 180,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            defaultDisplayValue: "",
+            displayValue: "",
+            hasSecret: true,
+            kind: "password",
+            placeholder: "Saved",
+            rendererFamily: "password",
+            revealAvailable: true,
+            revealPending: false,
+            revealedValue: null,
+            commitPolicy: "native-island",
+          },
+          controlKind: "password",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 240, x: 0, y: 0 },
+    });
+    const revealHit = retainedScene.hitRecords.find(
+      (candidate) =>
+        candidate.kind === "control-subpart" &&
+        candidate.subpartKind === "password-reveal",
+    );
+    if (!revealHit) {
+      throw new Error("Expected retained password reveal hit.");
+    }
+
+    expect(
+      handleProjectGpuRetainedParamCanvasControlKeyDown({
+        activeParamCanvasControl: {
+          hitRecordId: revealHit.id,
+          paramInfoId: "param-1",
+          sectionId: "section-1",
+          surfaceId: "section-1:param-content:unpinned",
+        },
+        event: { code: "Enter", key: "Enter" },
+        onPasswordRevealStateChange,
+        passwordRevealStates: new Map(),
+        scene: retainedContentTestScene(retainedScene),
+      }),
+    ).toBe(true);
+
+    expect(mocks.paramInputProps).not.toHaveBeenCalled();
+    expect(onPasswordRevealStateChange).toHaveBeenCalledWith({
+      kind: "pending",
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.getPasswordParamValueMock).toHaveBeenCalledWith({
+      body: {
+        paramInfoId: "param-1",
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+      },
+    });
+    expect(onPasswordRevealStateChange).toHaveBeenCalledWith({
+      kind: "revealed",
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+      value: "revealed-secret",
+    });
+    expect(onPasswordRevealStateChange).toHaveBeenCalledWith({
+      kind: "settle",
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+    });
+  });
+
+  it("deletes retained dropzone attachments from canvas keyboard without mounting a DOM island", async () => {
+    const dropzoneValue = JSON.stringify({
+      attachments: [
+        {
+          kind: "file",
+          id: "artifact-a",
+          name: "input.csv",
+          size: 2048,
+        },
+        {
+          kind: "file",
+          id: "artifact-b",
+          name: "output.csv",
+          size: 4096,
+        },
+      ],
+    });
+    seedDropzoneParamProjectState(dropzoneValue);
+    const retainedScene = createGpuRetainedRowContentScene({
+      controlWidth: 220,
+      id: "section-1:param-content:unpinned",
+      ownerSectionId: "section-1",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            attachments: [
+              {
+                id: "artifact-a",
+                kind: "file",
+                name: "input.csv",
+                sizeLabel: "2 KB",
+              },
+              {
+                id: "artifact-b",
+                kind: "file",
+                name: "output.csv",
+                sizeLabel: "4 KB",
+              },
+            ],
+            canAttachMore: false,
+            defaultDisplayValue: "",
+            displayValue: dropzoneValue,
+            kind: "dropzone",
+            label: "2 attachments",
+            maxAttachments: 2,
+            mode: DropzoneModeEnum.STATEFUL,
+            placeholder: "Drop a file here",
+            remainingSlots: 0,
+            rendererFamily: "dropzone",
+            commitPolicy: "native-island",
+          },
+          controlKind: "dropzone",
+          depth: 0,
+          id: "param-1",
+          label: "Param 1",
+        },
+      ],
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: { height: 28, width: 280, x: 0, y: 0 },
+    });
+    const deleteHit = retainedScene.hitRecords.find(
+      (candidate) =>
+        candidate.kind === "control-subpart" &&
+        candidate.subpartKind === "dropzone-attachment-delete" &&
+        candidate.attachmentId === "artifact-b",
+    );
+    if (!deleteHit) {
+      throw new Error("Expected retained dropzone delete hit.");
+    }
+
+    expect(
+      handleProjectGpuRetainedParamCanvasControlKeyDown({
+        activeParamCanvasControl: {
+          hitRecordId: deleteHit.id,
+          paramInfoId: "param-1",
+          sectionId: "section-1",
+          surfaceId: "section-1:param-content:unpinned",
+        },
+        event: { code: "Space", key: " " },
+        scene: retainedContentTestScene(retainedScene),
+      }),
+    ).toBe(true);
+
+    expect(mocks.paramInputProps).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+      body: {
+        frontendOpId: expect.any(String),
+        paramInfoId: "param-1",
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        sectionVariantId: "section-1-variant",
+        value: expect.any(String),
+      },
+    });
+    const setValue = (
+      mocks.setParamEnteredValueMock.mock.calls[0]?.[0] as {
+        body: { value: string };
+      }
+    ).body.value;
+    expect(JSON.parse(setValue)).toEqual({
+      attachments: [
+        {
+          kind: "file",
+          id: "artifact-a",
+          name: "input.csv",
+          size: 2048,
+        },
+      ],
+    });
+    expect(mocks.deleteArtifactsMock).toHaveBeenCalledWith({
+      body: {
+        artifacts: [
+          {
+            id: "artifact-b",
+            type: ArtifactTypeEnum.File,
+          },
+        ],
+      },
+    });
+  });
+
   it("commits retained ranged control keyboard adjustments from canvas", async () => {
     seedSliderParamProjectState("4");
     vi.useFakeTimers();
@@ -2436,6 +2670,7 @@ describe("project GPU retained param DOM islands", () => {
       }),
     );
     const onActiveParamCanvasPopupChange = vi.fn();
+    const onActiveParamCanvasControlChange = vi.fn();
     const onActiveParamDomIslandChange = vi.fn();
     const retainedScene = createGpuRetainedRowContentScene({
       controlWidth: 220,
@@ -2506,6 +2741,7 @@ describe("project GPU retained param DOM islands", () => {
     }
     const options = getProjectRetainedContentInteractionOptions({
       canEditStructure: true,
+      onActiveParamCanvasControlChange,
       onActiveParamCanvasPopupChange,
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange: vi.fn(),
@@ -2538,6 +2774,12 @@ describe("project GPU retained param DOM islands", () => {
     options.onHitClick(event);
 
     expect(onActiveParamCanvasPopupChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamCanvasControlChange).toHaveBeenCalledWith({
+      hitRecordId: deleteHit.id,
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+      surfaceId: "section-1:param-content:unpinned",
+    });
     expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
     expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -2623,6 +2865,7 @@ describe("project GPU retained param DOM islands", () => {
       };
     });
     const onActiveParamCanvasPopupChange = vi.fn();
+    const onActiveParamCanvasControlChange = vi.fn();
     const onActiveParamDomIslandChange = vi.fn();
     const onPasswordRevealStateChange = vi.fn();
     const retainedScene = createGpuRetainedRowContentScene({
@@ -2663,6 +2906,7 @@ describe("project GPU retained param DOM islands", () => {
     }
     const options = getProjectRetainedContentInteractionOptions({
       canEditStructure: true,
+      onActiveParamCanvasControlChange,
       onActiveParamCanvasPopupChange,
       onActiveParamDomIslandChange,
       onHoveredParamTargetChange: vi.fn(),
@@ -2697,6 +2941,12 @@ describe("project GPU retained param DOM islands", () => {
     options.onHitClick(event);
 
     expect(onActiveParamCanvasPopupChange).toHaveBeenCalledWith(null);
+    expect(onActiveParamCanvasControlChange).toHaveBeenCalledWith({
+      hitRecordId: revealHit.id,
+      paramInfoId: "param-1",
+      sectionId: "section-1",
+      surfaceId: "section-1:param-content:unpinned",
+    });
     expect(onActiveParamDomIslandChange).toHaveBeenCalledWith(null);
     expect(onActiveParamDomIslandChange).not.toHaveBeenCalledWith(
       expect.objectContaining({

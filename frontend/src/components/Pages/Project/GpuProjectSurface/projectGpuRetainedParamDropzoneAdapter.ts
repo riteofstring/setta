@@ -6,10 +6,7 @@ import {
   serializeDropzoneValue,
   type DropzoneStoredAttachment,
 } from "@setta/app-subsystem-frontend-sdk";
-import type {
-  GpuRetainedContentInteractionEvent,
-  GpuRetainedContentInteractionHit,
-} from "gpuFlow/interactions/retainedContentInteraction";
+import type { GpuRetainedContentInteractionHit } from "gpuFlow/interactions/retainedContentInteraction";
 import type { GpuRetainedContentRow } from "gpuFlow/retainedContentScene";
 import { deleteArtifacts, setParamEnteredValue } from "openapi/http";
 import { addTemporaryNotification } from "state/actions/notifications";
@@ -31,7 +28,7 @@ import {
 } from "utils/generatedTypes";
 
 export function commitProjectGpuRetainedDropzoneAttachmentDelete(
-  event: GpuRetainedContentInteractionEvent,
+  event: GpuRetainedContentInteractionHit,
 ): boolean {
   if (!isProjectGpuRetainedDropzoneAttachmentDeleteHit(event)) {
     return false;

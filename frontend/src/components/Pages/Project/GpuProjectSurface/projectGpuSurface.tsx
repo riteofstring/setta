@@ -262,6 +262,8 @@ export function GpuProjectSurface() {
   useProjectGpuRetainedParamCanvasControlKeyboard({
     activeParamCanvasControl,
     disabled: () => flowInteractionKeys.zoomActivationKeyPressed,
+    onPasswordRevealStateChange: handleRetainedPasswordRevealStateChange,
+    passwordRevealStates: retainedPasswordRevealStates,
     rootRef,
     scene: layoutAdapter.scene,
   });
